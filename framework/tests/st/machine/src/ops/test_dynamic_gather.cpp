@@ -24,7 +24,8 @@
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicGatherTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
-TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
+TEST_F(DynamicGatherTest, TestDynamicGatherDim2)
+{
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
 
@@ -63,8 +64,10 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {q, indices, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {q, indices, actSeqs}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             int axis = 0;
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
@@ -78,10 +81,11 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim2) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }
 
-TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
+TEST_F(DynamicGatherTest, TestDynamicGatherDim3)
+{
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 1, 64);
 
@@ -121,8 +125,10 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {q, indices, actSeqs}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {q, indices, actSeqs}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             int axis = 0;
             SymbolicScalar curSeq = GetTensorData(actSeqs, {batchId, 0});
 
@@ -136,5 +142,5 @@ TEST_F(DynamicGatherTest, TestDynamicGatherDim3) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }

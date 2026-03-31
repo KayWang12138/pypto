@@ -428,8 +428,8 @@ def __validate_scale_k_alignment(ka_dim, k_a_scale0_dim, align_64):
 def __validate_trans_mode(mat_a, mat_b, extend_params):
     if extend_params is not None:
         if (extend_params.get('trans_mode', pypto_impl.TransMode.CAST_NONE) !=
-            pypto_impl.TransMode.CAST_NONE and 
-            mat_a.GetDataType() != pypto_impl.DataType.DT_FP32 and 
+            pypto_impl.TransMode.CAST_NONE and
+            mat_a.GetDataType() != pypto_impl.DataType.DT_FP32 and
             mat_b.GetDataType() != pypto_impl.DataType.DT_FP32):
             raise RuntimeError(
                 "The param of trans_mode is only supported when input data type is DT_FP32."

@@ -78,14 +78,14 @@ def fetch_codecheck_violations(url: str) -> list[dict]:
         page = browser.new_page()
         page.goto(url, wait_until="networkidle", timeout=60000)
         page.wait_for_timeout(3000)
-        
+
         # 移除 cookie 对话框（会阻挡分页控件）
         page.evaluate("""
             const cookieDivs = document.querySelectorAll('[class*="cookie"]');
             cookieDivs.forEach(div => div.remove());
         """)
         page.wait_for_timeout(500)
-        
+
         # 切换到最大页面大小以显示所有违规
         try:
             page.locator(".el-pagination__sizes").click(timeout=5000)
@@ -98,10 +98,10 @@ def fetch_codecheck_violations(url: str) -> list[dict]:
                 page.wait_for_timeout(2000)
         except:
             pass
-        
+
         text = page.inner_text("body")
         browser.close()
-        
+
         # 用正则解析违规列表
         pattern = r'文件路径:([^\n:]+):(\d+)\s*问题描述[：:]([^\n]+)\s*规则[：:]([^\n]+)'
         violations = []

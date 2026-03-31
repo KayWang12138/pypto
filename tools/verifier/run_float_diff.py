@@ -27,7 +27,7 @@ class DataDiffAnalyzer:
                 logging.FileHandler("app.log", encoding="utf-8")
             ]
         )
-        
+
         self.is_calc_inc = True
         self.is_calc_rel = True
         self.is_out_no_fig = False
@@ -35,7 +35,7 @@ class DataDiffAnalyzer:
         self.conf_seg_off = None
         self.conf_seg_len = None
         self.conf_fig_format = 'png'
-    
+
     @staticmethod
     def calc_canb_dist_elemwise(data_a, data_b):
         abs_sum = np.abs(data_a) + np.abs(data_b)
@@ -52,7 +52,7 @@ class DataDiffAnalyzer:
         if shape_str == '':
             shape_str = 's'
         return shape_str
-    
+
     # function to generate data averages
     @staticmethod
     def gen_max_min_avg(data, mode='all'):
@@ -123,7 +123,7 @@ class DataDiffAnalyzer:
             min_ = np.min(d)
             avg = np.mean(d)
             return max_, min_, avg
-    
+
     def fix_input_and_compute(self, a, b, f_type, sort):
         a_dtype = f_type[0]
         b_dtype = f_type[1]
@@ -131,7 +131,7 @@ class DataDiffAnalyzer:
         f_out_fig = 'sort-diff.' + self.conf_fig_format if self.is_sort else 'diff.' + self.conf_fig_format
         f_a_info = 'A_' + str(a_dtype)
         f_b_info = 'B_' + str(b_dtype)
-        
+
         st_a_total_raw = a.size
         st_b_total_raw = b.size
         st_a_shape_raw = self.get_shape_str(a.shape)
@@ -242,7 +242,7 @@ class DataDiffAnalyzer:
         # process input
         g_aa = a
         g_bb = b
-        
+
         # remove inf/nan before calc
         arg_aa_inf_nan = np.argwhere(np.logical_or(np.isinf(g_aa), np.isnan(g_aa)))
         arg_bb_inf_nan = np.argwhere(np.logical_or(np.isinf(g_bb), np.isnan(g_bb)))

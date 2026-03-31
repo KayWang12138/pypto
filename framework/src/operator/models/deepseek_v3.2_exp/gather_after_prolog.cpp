@@ -19,8 +19,10 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-void GatherAfterPrologCompute(Tensor &topKIndcies, Tensor &kNopeCache, Tensor &kRopeCache, Tensor &blockTable, Tensor &actSeqs,
-    Tensor &gatherRes, const DSIASimpleParams &params, SymbolicScalar b, SymbolicScalar s1) {
+void GatherAfterPrologCompute(
+    Tensor& topKIndcies, Tensor& kNopeCache, Tensor& kRopeCache, Tensor& blockTable, Tensor& actSeqs, Tensor& gatherRes,
+    const DSIASimpleParams& params, SymbolicScalar b, SymbolicScalar s1)
+{
     int dN = kNopeCache.GetShape()[kNopeCache.GetShape().size() - 1];
     int dR = kRopeCache.GetShape()[kRopeCache.GetShape().size() - 1];
     int n2 = topKIndcies.GetShape()[2]; // n2
@@ -29,13 +31,18 @@ void GatherAfterPrologCompute(Tensor &topKIndcies, Tensor &kNopeCache, Tensor &k
 
     std::set<int> unrollList = {64, 32, 16, 8, 4, 2, 1};
 
-    LOOP("loop_b_gather", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true) {
-        LOOP("loop_s1_gather", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1, 1)) {
-            LOOP("loop_n2_gather", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2, 1)) {
+    LOOP("loop_b_gather", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, b, 1), {}, true)
+    {
+        LOOP("loop_s1_gather", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(0, s1, 1))
+        {
+            LOOP("loop_n2_gather", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(0, n2, 1))
+            {
                 config::SetSemanticLabel("gather0");
                 SymbolicScalar curKvSeq = GetTensorData(actSeqs, {bIdx});
-                SymbolicScalar topkLoop = std::min(std::max(curKvSeq - s1 + 1 + s1Idx, 0), topk); // for MTP s1!= 1 casual计算, 并且与topk取min
-                LOOP("loop_k_gather", FunctionType::DYNAMIC_LOOP, topKIdx, LoopRange(0, topkLoop, 1), unrollList) {
+                SymbolicScalar topkLoop = std::min(
+                    std::max(curKvSeq - s1 + 1 + s1Idx, 0), topk); // for MTP s1!= 1 casual计算, 并且与topk取min
+                LOOP("loop_k_gather", FunctionType::DYNAMIC_LOOP, topKIdx, LoopRange(0, topkLoop, 1), unrollList)
+                {
                     SymbolicScalar topkIndex;
                     TileShape::Current().SetVecTile(1, 1, 1, NUM16);
 #if DSIA_DEBUG == 1
@@ -56,8 +63,7 @@ void GatherAfterPrologCompute(Tensor &topKIndcies, Tensor &kNopeCache, Tensor &k
                     config::SetSemanticLabel("gather2");
                     auto kvSlcBlock_fp16 = Cast(kvSlcBlock_fp32, gatherRes.GetDataType());
                     auto krSlcBlock_fp16 = Cast(krSlcBlock_fp32, gatherRes.GetDataType());
-                    SymbolicScalar ofs =
-                        bIdx * s1 * n2 * topk + s1Idx * n2 * topk + n2Idx * topk + topKIdx;
+                    SymbolicScalar ofs = bIdx * s1 * n2 * topk + s1Idx * n2 * topk + n2Idx * topk + topKIdx;
 
                     Assemble(kvSlcBlock_fp16, {ofs, 0}, gatherRes);
                     Assemble(krSlcBlock_fp16, {ofs, dN}, gatherRes);

@@ -32,15 +32,15 @@ def test_argsort_onboard():
     with pypto.function("MAIN", input1, output):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
-                view_tensor_a = pypto.view(input1, view_shape, 
+                view_tensor_a = pypto.view(input1, view_shape,
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
                     valid_shape=[
                         pypto.min(
-                            pypto.symbolic_scalar(shape[0]) - b_idx * view_shape[0], 
+                            pypto.symbolic_scalar(shape[0]) - b_idx * view_shape[0],
                             pypto.symbolic_scalar(view_shape[0])
                         ),
                         pypto.min(
-                            pypto.symbolic_scalar(shape[1]) - s_idx * view_shape[1], 
+                            pypto.symbolic_scalar(shape[1]) - s_idx * view_shape[1],
                             pypto.symbolic_scalar(view_shape[1])
                         )
                     ]
@@ -78,15 +78,15 @@ def test_argsort_gm_onboard():
     with pypto.function("MAIN", input1, output):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
-                view_tensor_a = pypto.view(input1, view_shape, 
+                view_tensor_a = pypto.view(input1, view_shape,
                     [b_idx * view_shape[0], s_idx * view_shape[1]],
                     valid_shape=[
                         pypto.min(
-                            pypto.symbolic_scalar(shape[0]) - b_idx * view_shape[0], 
+                            pypto.symbolic_scalar(shape[0]) - b_idx * view_shape[0],
                             pypto.symbolic_scalar(view_shape[0])
                         ),
                         pypto.min(
-                            pypto.symbolic_scalar(shape[1]) - s_idx * view_shape[1], 
+                            pypto.symbolic_scalar(shape[1]) - s_idx * view_shape[1],
                             pypto.symbolic_scalar(view_shape[1])
                         )
                     ]

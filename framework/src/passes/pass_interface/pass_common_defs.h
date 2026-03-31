@@ -26,7 +26,7 @@ struct AssembleOp {
     std::vector<int64_t> toOffset;
     LogicalTensorPtr input;
     LogicalTensorPtr output;
-    const Operation *originOp = nullptr;
+    const Operation* originOp = nullptr;
 };
 
 struct ViewOp {
@@ -55,7 +55,7 @@ public:
     const Operation *originOpPtr; //指向被拆分之前的op_reshape，用于获取可能需要继承的属性
     std::vector<std::vector<SymbolicScalar>> dynValidShapes;
 };
-}  // namespace tile_fwk
-}  // namespace npu
+} // namespace tile_fwk
+} // namespace npu
 
 #endif // TILE_FWK_PASS_PASS_COMMON_DEFS_H_

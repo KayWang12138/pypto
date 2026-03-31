@@ -41,16 +41,16 @@ key: L0A 和 L0B 的数据类型
 vaule: L0C 对应的数据类型
 */
 const std::map<std::pair<DataType, DataType>, DataType> supportDtypeMap = {
-    {  {DataType::DT_FP16, DataType::DT_FP16},  DataType::DT_FP32},
-    {  {DataType::DT_BF16, DataType::DT_BF16},  DataType::DT_FP32},
-    {  {DataType::DT_FP32, DataType::DT_FP32},  DataType::DT_FP32},
-    {  {DataType::DT_FP32, DataType::DT_FP16},  DataType::DT_FP32},
-    {  {DataType::DT_FP32, DataType::DT_BF16},  DataType::DT_FP32},
-    {  {DataType::DT_FP16, DataType::DT_FP32},  DataType::DT_FP32},
-    {  {DataType::DT_BF16, DataType::DT_FP32},  DataType::DT_FP32},
-    {  {DataType::DT_HF8,  DataType::DT_HF8},   DataType::DT_FP32},
-    {  {DataType::DT_INT8, DataType::DT_INT8}, DataType::DT_INT32},
-    {  {DataType::DT_INT4, DataType::DT_INT4}, DataType::DT_INT32},
+    {{DataType::DT_FP16, DataType::DT_FP16}, DataType::DT_FP32},
+    {{DataType::DT_BF16, DataType::DT_BF16}, DataType::DT_FP32},
+    {{DataType::DT_FP32, DataType::DT_FP32}, DataType::DT_FP32},
+    {{DataType::DT_FP32, DataType::DT_FP16}, DataType::DT_FP32},
+    {{DataType::DT_FP32, DataType::DT_BF16}, DataType::DT_FP32},
+    {{DataType::DT_FP16, DataType::DT_FP32}, DataType::DT_FP32},
+    {{DataType::DT_BF16, DataType::DT_FP32}, DataType::DT_FP32},
+    {{DataType::DT_HF8, DataType::DT_HF8}, DataType::DT_FP32},
+    {{DataType::DT_INT8, DataType::DT_INT8}, DataType::DT_INT32},
+    {{DataType::DT_INT4, DataType::DT_INT4}, DataType::DT_INT32},
     {{DataType::DT_INT16, DataType::DT_INT16}, DataType::DT_INT32},
     {{DataType::DT_FP8E5M2, DataType::DT_FP8E5M2}, DataType::DT_FP32},
     {{DataType::DT_FP8E4M3, DataType::DT_FP8E4M3}, DataType::DT_FP32},
@@ -65,19 +65,18 @@ public:
     CubeProcess() {}
     ~CubeProcess() = default;
 
-    Status CheckValidCube(const Operation &op);
-    Status UpdateCubeOp(Function &function);
-    Status UpdateCopyAttr(Operation &op) const;
+    Status CheckValidCube(const Operation& op);
+    Status UpdateCubeOp(Function& function);
+    Status UpdateCopyAttr(Operation& op) const;
     Status AddL1CopyInAttr(
         const std::shared_ptr<LogicalTensor> input, int nzValue, int mValue, int kValue, int nValue) const;
     Status AddL0cCopyOutAttr(const std::shared_ptr<LogicalTensor> output, int nzValue, int mValue, int nValue) const;
-    Status UpdateL0cDtype(Operation &op);
-    Status AlignGMTensor(Function &function, std::vector<Operation *> &l0CCopyOuts, Operation &mulOp);
-    void DFSSearch(Operation *op, std::vector<Operation *> &l0CCopyOuts, std::unordered_set<Operation *> &visitedOp);
-    Status GetL0CCopyOuts(Operation &op, std::vector<Operation *> &l0CCopyOuts);
-    Status ReconnectGraph(Operation &mulOp, std::vector<Operation *> copyOutOps);
-    Status TransferAttr(Operation &mulOp, std::vector<Operation *> copyOutOps);
+    Status UpdateL0cDtype(Operation& op);
+    Status AlignGMTensor(Function& function, std::vector<Operation*>& l0CCopyOuts, Operation& mulOp);
+    void DFSSearch(Operation* op, std::vector<Operation*>& l0CCopyOuts, std::unordered_set<Operation*>& visitedOp);
+    Status GetL0CCopyOuts(Operation& op, std::vector<Operation*>& l0CCopyOuts);
+    Status ReconnectGraph(Operation& mulOp, std::vector<Operation*> copyOutOps);
+    Status TransferAttr(Operation& mulOp, std::vector<Operation*> copyOutOps);
 };
 } // namespace npu::tile_fwk
 #endif // PASS_CUBE_PROCESS_H
-

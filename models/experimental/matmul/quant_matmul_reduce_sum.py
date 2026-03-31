@@ -28,11 +28,11 @@ from torch.nn import functional as F
 def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
     """
     Transform ND tensor to fractal NZ format.
-    
+
     Args:
         data: Input tensor of shape [..., M, N]
         keep_m_dim: Whether to keep M dimension unchanged (default: False)
-    
+
     Returns:
         torch.Tensor: Transformed tensor in fractal NZ format
     """
@@ -70,7 +70,7 @@ def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
 class QuantMatmulReduceSumConfig:
     """
     Configuration parameters for quantized matmul reduce sum operation.
-    
+
     Attributes:
         ori: Original shape [batch, m, k, n]
         m_tile_shape: Tile shape for M dimension in cube operation
@@ -100,10 +100,10 @@ class QuantMatmulReduceSumConfig:
 def quant_matmul_reduce_sum_pypto(config: QuantMatmulReduceSumConfig):
     """
     Create quantized matmul reduce sum kernel using PyPTO.
-    
+
     Args:
         config: Configuration parameters for the operation
-    
+
     Returns:
         function: JIT-compiled kernel function
     """
@@ -157,13 +157,13 @@ def quant_matmul_reduce_sum_pypto(config: QuantMatmulReduceSumConfig):
 def golden_quant_matmul_reduce_sum(x1, x2, x1_scale, x2_scale):
     """
     Compute golden (reference) output using PyTorch.
-    
+
     Args:
         x1: First input tensor of shape [batch, m, k]
         x2: Second input tensor of shape [batch, k, n]
         x1_scale: Scale factor for x1 of shape [batch, m]
         x2_scale: Scale factor for x2 of shape [n]
-    
+
     Returns:
         torch.Tensor: Output tensor of shape [m, n] in bfloat16
     """
@@ -183,13 +183,13 @@ def golden_quant_matmul_reduce_sum(x1, x2, x1_scale, x2_scale):
 def run_quant_matmul_reduce_sum_case(config: QuantMatmulReduceSumConfig):
     """
     Test the quantized matmul reduce sum implementation.
-    
+
     This function runs a complete test for a given configuration:
     1. Generate test data
     2. Compute golden (reference) output using PyTorch
     3. Compute output using PyPTO
     4. Compare results
-    
+
     Args:
         config: Configuration parameters for the test case
     """

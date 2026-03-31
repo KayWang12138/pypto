@@ -57,17 +57,12 @@ constexpr const int DEV_SHAPE_DIM_NUM_5 = 5;
 
 constexpr const uint32_t MAX_TURN_NUM = 200;
 
-enum class ArchInfo {
-    DAV_1001 = 1001,
-    DAV_2201 = 2201,
-    DAV_3510 = 3510,
-    DAV_UNKNOWN
-};
+enum class ArchInfo { DAV_1001 = 1001, DAV_2201 = 2201, DAV_3510 = 3510, DAV_UNKNOWN };
 
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
-#define DEVICE_TASK_TYPE_STATIC  0
-#define DEVICE_TASK_TYPE_DYN     1
+#define DEVICE_TASK_TYPE_STATIC 0
+#define DEVICE_TASK_TYPE_DYN 1
 #define DEVICE_TASK_TYPE_INVALID 0xf
 
 template <typename DerivedType, typename UnderlyingType>
@@ -76,36 +71,25 @@ public:
     using underlying_type = UnderlyingType;
     underlying_type value{0};
     constexpr BitmaskBase(underlying_type v = 0) : value(v) {}
-    constexpr bool Empty() const {
-        return value == 0;
-    }
-    constexpr bool Contains(underlying_type mask) const {
-        return (value & mask) == mask;
-    }
-    constexpr bool Overlaps(underlying_type mask) const {
-        return (value & mask) != 0;
-    }
-    constexpr void Add(underlying_type mask) {
-        value |= mask;
-    }
-    constexpr void Remove(underlying_type mask) {
-        value &= ~mask;
-    }
-    friend constexpr DerivedType operator|(DerivedType lhs, DerivedType rhs) {
+    constexpr bool Empty() const { return value == 0; }
+    constexpr bool Contains(underlying_type mask) const { return (value & mask) == mask; }
+    constexpr bool Overlaps(underlying_type mask) const { return (value & mask) != 0; }
+    constexpr void Add(underlying_type mask) { value |= mask; }
+    constexpr void Remove(underlying_type mask) { value &= ~mask; }
+    friend constexpr DerivedType operator|(DerivedType lhs, DerivedType rhs)
+    {
         return DerivedType(lhs.value | rhs.value);
     }
-    friend constexpr DerivedType operator&(DerivedType lhs, DerivedType rhs) {
+    friend constexpr DerivedType operator&(DerivedType lhs, DerivedType rhs)
+    {
         return DerivedType(lhs.value & rhs.value);
     }
-    friend constexpr DerivedType operator^(DerivedType lhs, DerivedType rhs) {
+    friend constexpr DerivedType operator^(DerivedType lhs, DerivedType rhs)
+    {
         return DerivedType(lhs.value ^ rhs.value);
     }
-    friend constexpr DerivedType operator~(DerivedType lhs) {
-        return DerivedType(~lhs.value);
-    }
-    constexpr operator underlying_type() const {
-        return value;
-    }
+    friend constexpr DerivedType operator~(DerivedType lhs) { return DerivedType(~lhs.value); }
+    constexpr operator underlying_type() const { return value; }
 };
 
 struct ProfConfig : public BitmaskBase<ProfConfig, uint32_t> {
@@ -151,28 +135,28 @@ struct DeviceArgs {
     uint32_t nrAiv{0};
     uint32_t nrAicpu{0};
     uint32_t nrValidAic{0};
-    uint64_t opaque{0};       // store device global data, must be init with zero
-    uint64_t devQueueAddr;    // pcie/XLink mem, used between host and device, `DEVICE_QUEUE_SIZE`
-    uint64_t sharedBuffer;    // SHARED_BUFFER_SIZE per core, aics first
-    uint64_t coreRegAddr;     // core reg addr, uint64_t per core, aic first
-    uint64_t corePmuRegAddr;  // pmu reg addr, uint64_t per core, aic first
-    uint64_t corePmuAddr;     // pmu data addr, PAGE_SIZE per core, aic first
-    uint64_t pmuEventAddr;    // pmu event addr
-    uint64_t taskType : 4;    // initial task type
-    uint64_t machineConfig : 8; // machine config
-    uint64_t taskId   : 52;   // initial task id
-    uint64_t taskData;        // initial task data
+    uint64_t opaque{0};                    // store device global data, must be init with zero
+    uint64_t devQueueAddr;                 // pcie/XLink mem, used between host and device, `DEVICE_QUEUE_SIZE`
+    uint64_t sharedBuffer;                 // SHARED_BUFFER_SIZE per core, aics first
+    uint64_t coreRegAddr;                  // core reg addr, uint64_t per core, aic first
+    uint64_t corePmuRegAddr;               // pmu reg addr, uint64_t per core, aic first
+    uint64_t corePmuAddr;                  // pmu data addr, PAGE_SIZE per core, aic first
+    uint64_t pmuEventAddr;                 // pmu event addr
+    uint64_t taskType : 4;                 // initial task type
+    uint64_t machineConfig : 8;            // machine config
+    uint64_t taskId : 52;                  // initial task id
+    uint64_t taskData;                     // initial task data
     uint64_t taskWastTime{0};
-    uint64_t aicpuSoBin{0};    // server so Bin
-    uint64_t aicpuSoLen{0};    // server so len
-    uint64_t deviceId{0};      // for device copy fileName
+    uint64_t aicpuSoBin{0};                // server so Bin
+    uint64_t aicpuSoLen{0};                // server so len
+    uint64_t deviceId{0};                  // for device copy fileName
     uint64_t runtimeDataRingBufferAddr{0}; // DevStartArgs addr
-    uint32_t hostPid{0};       // for dump tensor
-    uint32_t scheCpuNum{0};    // sche cpu num calc by host
-    uint32_t enableCtrl : 2;    // if enable builtin ctrl
-    uint32_t validGetPgMask : 30; // mark pgmask is invalid
-    uint64_t aicpuPerfAddr{0};    // aicpuPer Gm addr
-    uint64_t devDfxArgAddr{0};   // devDfx
+    uint32_t hostPid{0};                   // for dump tensor
+    uint32_t scheCpuNum{0};                // sche cpu num calc by host
+    uint32_t enableCtrl : 2;               // if enable builtin ctrl
+    uint32_t validGetPgMask : 30;          // mark pgmask is invalid
+    uint64_t aicpuPerfAddr{0};             // aicpuPer Gm addr
+    uint64_t devDfxArgAddr{0};             // devDfx
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     int maxAicpuNum{0};
     bool enableVFFusion = false;
@@ -226,22 +210,26 @@ enum AicorePerfTrace {
 };
 
 struct Metrics {
-  int64_t isMetricStop;
-  int64_t taskCount;
-  int64_t turnNum;
-  int64_t perfTrace[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
-  uint32_t perfTraceDevTaskId[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
-  uint32_t perfTraceCnt[MAX_TURN_NUM][PERF_TRACE_CORE_MAX];
-  TaskStat tasks[];
+    int64_t isMetricStop;
+    int64_t taskCount;
+    int64_t turnNum;
+    int64_t perfTrace[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+    uint32_t perfTraceDevTaskId[MAX_TURN_NUM][PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
+    uint32_t perfTraceCnt[MAX_TURN_NUM][PERF_TRACE_CORE_MAX];
+    TaskStat tasks[];
 };
 
 struct MetricPerf {
     uint64_t perfAicpuTrace[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::PERF_TRACE_MAX] = {{0}};
-    uint64_t perfAicpuTraceDevTask[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM][npu::tile_fwk::dynamic::PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}}; // 每个devTask 的对应type的数据
-    uint8_t perfAicpuTraceDevTaskCnt[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM] = {{0}};
+    uint64_t perfAicpuTraceDevTask[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM]
+                                  [npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM]
+                                  [npu::tile_fwk::dynamic::PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {
+                                      {{0}}}; // 每个devTask 的对应type的数据
+    uint8_t perfAicpuTraceDevTaskCnt[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM]
+                                    [npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM] = {{0}};
 };
 
-inline const char *AicorePerfTraceName[] = {
+inline const char* AicorePerfTraceName[] = {
     "BEGIN",
     "INIT",
     "DEV_TASK_RCV_MODEL",
@@ -249,8 +237,7 @@ inline const char *AicorePerfTraceName[] = {
     "DEV_TASK_ALL_CALLOP_TASK_EXEC",
     "DEV_TASK_WAIT_SYNC_STOP_NOTIFY",
     "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
-    "WAIT_EXIT_NOTIFY"
-};
+    "WAIT_EXIT_NOTIFY"};
 
 struct TaskEntry {
     int32_t subGraphId;

@@ -26,14 +26,15 @@ namespace npu {
 namespace tile_fwk {
 class AutoCastChecker : Checker {
 public:
-    Status DoDefaultEnabledPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoDefaultEnabledPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
+
 private:
-    Status PreCheckReshape(const LogicalTensorPtr &in);
-    Status ProcessPreCheck(const Operation *op);
-    bool SupportBF16(Operation *op);
-    bool SupportFP16(Operation *op);
+    Status PreCheckReshape(const LogicalTensorPtr& in);
+    Status ProcessPreCheck(const Operation* op);
+    bool SupportBF16(Operation* op);
+    bool SupportFP16(Operation* op);
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // AUTO_CAST_CHECKER_H
+#endif // AUTO_CAST_CHECKER_H

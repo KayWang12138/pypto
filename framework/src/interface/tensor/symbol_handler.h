@@ -42,7 +42,7 @@ enum class SymbolHandlerId : uint64_t {
 
 const std::unordered_map<std::string, SymbolHandlerId> symbolHandlerIndexDict = {
     {"GetInputShapeDimSize", SymbolHandlerId::GetInputShapeDimSize},
-    {"GetInputShapeDim",  SymbolHandlerId::GetInputShapeDim},
+    {"GetInputShapeDim", SymbolHandlerId::GetInputShapeDim},
     {"GetInputDataInt32Dim1", SymbolHandlerId::GetInputDataInt32Dim1},
     {"GetInputDataInt32Dim2", SymbolHandlerId::GetInputDataInt32Dim2},
     {"GetInputDataInt32Dim3", SymbolHandlerId::GetInputDataInt32Dim3},
@@ -64,8 +64,9 @@ struct SymbolHandler {
     SymbolHandlerId handlerId;
     uint64_t symIndex;
 
-    static std::string GetNameByHandlerId(SymbolHandlerId tmpHandlerId) {
-        for (auto &[name, id] : symbolHandlerIndexDict) {
+    static std::string GetNameByHandlerId(SymbolHandlerId tmpHandlerId)
+    {
+        for (auto& [name, id] : symbolHandlerIndexDict) {
             if (id == tmpHandlerId) {
                 return name;
             }

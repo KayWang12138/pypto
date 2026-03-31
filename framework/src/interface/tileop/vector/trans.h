@@ -20,7 +20,8 @@
 
 #define OP_TILE_OP_TRANSPOSE_VNCHWCONV TTrans
 template <typename T0, typename T1, typename T2>
-TILEOP void TTrans(T0 dst, T1 src, T2 tmp) {
+TILEOP void TTrans(T0 dst, T1 src, T2 tmp)
+{
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto srcLayout = src.GetLayout();
@@ -62,8 +63,8 @@ TILEOP void TTrans(T0 dst, T1 src, T2 tmp) {
         pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using SrcTileDefine =
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-    using TmpTileDefine =
-        pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, tmpTileW, pto::BLayout::RowMajor, dstTileH, tmpTileW>;
+    using TmpTileDefine = pto::Tile<
+        pto::TileType::Vec, typename T0::Type, dstTileH, tmpTileW, pto::BLayout::RowMajor, dstTileH, tmpTileW>;
     DstTileDefine dstTile(dstShape3, dstShape4);
     SrcTileDefine srcTile(srcShape3, srcShape4);
     TmpTileDefine tmpTile;

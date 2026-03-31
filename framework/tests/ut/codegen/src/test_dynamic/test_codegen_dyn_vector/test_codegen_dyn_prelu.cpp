@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -46,54 +47,58 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynPrelu, PreluNormal) {
+TEST_F(TestCodegenDynPrelu, PreluNormal)
+{
     MockFuncDynBinaryConf config;
     config.shapeA = {32, 256};
     config.shapeB = {256};
     config.outputShape = {32, 256};
     auto function = GenMockFuncDynBinary(
-        "PRELU_NORMAL", config, [](Tensor &input, Tensor &weight, Tensor &output) { output = PReLU(input, weight); });
+        "PRELU_NORMAL", config, [](Tensor& input, Tensor& weight, Tensor& output) { output = PReLU(input, weight); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynPrelu, PreluFP16) {
+TEST_F(TestCodegenDynPrelu, PreluFP16)
+{
     MockFuncDynBinaryConf config;
     config.shapeA = {16, 128};
     config.shapeB = {128};
     config.outputShape = {16, 128};
     config.dtype = DT_FP16;
     auto function = GenMockFuncDynBinary(
-        "PRELU_FP16", config, [](Tensor &input, Tensor &weight, Tensor &output) { output = PReLU(input, weight); });
+        "PRELU_FP16", config, [](Tensor& input, Tensor& weight, Tensor& output) { output = PReLU(input, weight); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynPrelu, PreluBF16) {
+TEST_F(TestCodegenDynPrelu, PreluBF16)
+{
     MockFuncDynBinaryConf config;
     config.shapeA = {8, 64};
     config.shapeB = {64};
     config.outputShape = {8, 64};
     config.dtype = DT_BF16;
     auto function = GenMockFuncDynBinary(
-        "PRELU_BF16", config, [](Tensor &input, Tensor &weight, Tensor &output) { output = PReLU(input, weight); });
+        "PRELU_BF16", config, [](Tensor& input, Tensor& weight, Tensor& output) { output = PReLU(input, weight); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynPrelu, Prelu4D) {
+TEST_F(TestCodegenDynPrelu, Prelu4D)
+{
     MockFuncDynBinaryConf config;
     config.shapeA = {2, 64, 8, 8};
     config.shapeB = {64};
     config.outputShape = {2, 64, 8, 8};
     auto function = GenMockFuncDynBinary(
-        "PRELU_4D", config, [](Tensor &input, Tensor &weight, Tensor &output) { output = PReLU(input, weight); });
+        "PRELU_4D", config, [](Tensor& input, Tensor& weight, Tensor& output) { output = PReLU(input, weight); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

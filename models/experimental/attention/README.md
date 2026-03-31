@@ -9,7 +9,7 @@
 2. Key和Value是经过kv cache后, 将之前推理过的state信息叠加在一起, 每个Batch对应的S轴的实际长度可能不一样, 输入的数据是经过padding后的固定长度数据。
 
 **说明：**
-  
+
   <blockquote>KV Cache是大模型推理性能优化的一个常用技术。采样时，Transformer模型会以给定的prompt/context作为初始输入进行推理（可以并行处理），随后逐一生成额外的token来继续完善生成的序列（体现了模型的自回归性质）。在采样过程中，Transformer会执行自注意力操作，为此需要给当前序列中的每个项目（无论是prompt/context还是生成的token）提取键值（KV）向量。这些向量存储在一个矩阵中，通常被称为KV缓存（KV Cache）。</blockquote>
 
 
@@ -19,7 +19,7 @@
 
   self-attention的计算公式一般定义如下，其中$Q$、$K$、$V$为输入样本的重要属性元素，是输入样本经过空间变换得到，且可以统一到一个特征空间中。
 
-  
+
   $$
      Attention(Q,K,V)=Score(Q,K)V
   $$
@@ -54,15 +54,15 @@ def incre_flash_attention(
 ##  参数说明
 <div style="overflow-x: auto;">
   <table style="undefined;table-layout: fixed; width: 1567px">
-  <colgroup> 
-   <col style="width: 190px"> 
-   <col style="width: 120px"> 
-   <col style="width: 300px"> 
-   <col style="width: 330px"> 
-   <col style="width: 212px"> 
-   <col style="width: 100px">  
-   <col style="width: 170px">  
-   <col style="width: 145px">   
+  <colgroup>
+   <col style="width: 190px">
+   <col style="width: 120px">
+   <col style="width: 300px">
+   <col style="width: 330px">
+   <col style="width: 212px">
+   <col style="width: 100px">
+   <col style="width: 170px">
+   <col style="width: 145px">
    </colgroup>
     <thead>
       <tr>

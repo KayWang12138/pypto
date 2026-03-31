@@ -23,10 +23,10 @@
 #include "interface/inner/tilefwk.h"
 
 namespace npu::tile_fwk {
-void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype);
-std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input);
-void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result);
-void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result);
+void ViewTypeFunc(const Tensor& x, Tensor& result, DataType dstDtype);
+std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor& input);
+void ViewTypeQuantTestFunc(const Tensor& x, Tensor& result);
+void ViewTypeDequantTestFunc(const Tensor& x, Tensor& result);
 } // namespace npu::tile_fwk
 
 #endif

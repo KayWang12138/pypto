@@ -24,24 +24,23 @@
 #include "tilefwk/aikernel_data.h"
 
 #ifndef STR
-#define STR_(n)         #n
-#define STR(n)          STR_(n)
+#define STR_(n) #n
+#define STR(n) STR_(n)
 #endif
 
-#define AOT_CODE_POOL_CODE_SIZE     (4096 * 0x800)
+#define AOT_CODE_POOL_CODE_SIZE (4096 * 0x800)
 extern uint8_t aotCodePoolCode[];
 
 namespace npu::tile_fwk::dynamic {
-asm(
-    "\n\t.pushsection .bss." STR(aotCodePoolCode) ",\"axwG\",@nobits," STR(aotCodePoolCode) ",comdat"
-    "\n\t.p2align 12"
-    "\n\t.weak " STR(aotCodePoolCode)
-    "\n\t.type " STR(aotCodePoolCode) ", @gnu_unique_object"
-    "\n\t.size " STR(aotCodePoolCode) ", " STR(AOT_CODE_POOL_CODE_SIZE)
-    "\n" STR(aotCodePoolCode) ":"
-    "\n\t.zero " STR(AOT_CODE_POOL_CODE_SIZE)
-    "\n\t.popsection"
-);
+asm("\n\t.pushsection .bss." STR(aotCodePoolCode) ",\"axwG\",@nobits," STR(
+    aotCodePoolCode) ",comdat"
+                     "\n\t.p2align 12"
+                     "\n\t.weak " STR(aotCodePoolCode) "\n\t.type " STR(
+                         aotCodePoolCode) ", @gnu_unique_object"
+                                          "\n\t.size " STR(aotCodePoolCode) ", " STR(AOT_CODE_POOL_CODE_SIZE) "\n" STR(
+                                              aotCodePoolCode) ":"
+                                                               "\n\t.zero " STR(
+                                                                   AOT_CODE_POOL_CODE_SIZE) "\n\t.popsection");
 
 const size_t TUBLE_INDEX_2 = 2;
 const size_t TUBLE_INDEX_3 = 3;
@@ -52,7 +51,8 @@ struct AOTCodePool {
 
     void MapExec() {}
 
-    static AOTCodePool &GetCodePool() {
+    static AOTCodePool& GetCodePool()
+    {
         static AOTCodePool pool = {0};
         if (pool.base == 0) {
             pool.base = (uintptr_t)aotCodePoolCode;
@@ -64,20 +64,19 @@ struct AOTCodePool {
 struct AOTBinary {
     AOTBinary() {}
 
-    void InitCodeSize(const void *data, uint64_t size) {
-        auto &pool = AOTCodePool::GetCodePool();
+    void InitCodeSize(const void* data, uint64_t size)
+    {
+        auto& pool = AOTCodePool::GetCodePool();
         PerfBegin(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
-        memcpy_s(reinterpret_cast<void *>(pool.base), size, data, size);
-        __builtin___clear_cache(reinterpret_cast<char *>(pool.base), reinterpret_cast<char *>(pool.base) + size);
+        memcpy_s(reinterpret_cast<void*>(pool.base), size, data, size);
+        __builtin___clear_cache(reinterpret_cast<char*>(pool.base), reinterpret_cast<char*>(pool.base) + size);
         PerfEnd(PERF_EVT_CONTROL_FLOW_MAPEXE_MEMCPY);
-        code_ = reinterpret_cast<unsigned char *>(pool.base);
+        code_ = reinterpret_cast<unsigned char*>(pool.base);
         size_ = size;
     }
-    void InitCode(const void *data) {
-        code_ = reinterpret_cast<const unsigned char *>(data);
-    }
+    void InitCode(const void* data) { code_ = reinterpret_cast<const unsigned char*>(data); }
 
-    const unsigned char *code_{nullptr};
+    const unsigned char* code_{nullptr};
     size_t size_{0};
 };
 
@@ -85,62 +84,69 @@ struct DeviceExecuteContext;
 
 struct AOTBinaryControlFlow : AOTBinary {
     typedef void (*controlFlowEntry)(
-            struct DeviceExecuteContext *ctx, int64_t *symbolTable,
-            RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase);
+        struct DeviceExecuteContext* ctx, int64_t* symbolTable,
+        RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase* startArgsBase);
 
     AOTBinaryControlFlow() = default;
 
-    AOTBinaryControlFlow(const std::tuple<const void *, uint64_t> &code, controlFlowEntry entry = nullptr)
-        : AOTBinaryControlFlow(std::get<0>(code), std::get<1>(code), entry) {}
+    AOTBinaryControlFlow(const std::tuple<const void*, uint64_t>& code, controlFlowEntry entry = nullptr)
+        : AOTBinaryControlFlow(std::get<0>(code), std::get<1>(code), entry)
+    {}
 
-    AOTBinaryControlFlow(const std::vector<uint8_t> &code, controlFlowEntry entry = nullptr)
-        : AOTBinaryControlFlow(code.data(), code.size(), entry) {}
+    AOTBinaryControlFlow(const std::vector<uint8_t>& code, controlFlowEntry entry = nullptr)
+        : AOTBinaryControlFlow(code.data(), code.size(), entry)
+    {}
 
-    AOTBinaryControlFlow(const void *code, uint64_t codeSize, controlFlowEntry entry = nullptr) {
+    AOTBinaryControlFlow(const void* code, uint64_t codeSize, controlFlowEntry entry = nullptr)
+    {
         if (entry != nullptr) {
-            InitCode(reinterpret_cast<void *>(entry));
+            InitCode(reinterpret_cast<void*>(entry));
         } else {
             InitCodeSize(code, codeSize);
         }
     }
 
     void CallControlFlow(
-            struct DeviceExecuteContext *ctx, int64_t *symbolTable,
-            RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase *startArgsBase) {
-        (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char *>(code_)))(ctx, symbolTable, runtimeCallList, startArgsBase);
+        struct DeviceExecuteContext* ctx, int64_t* symbolTable,
+        RuntimeCallEntryType runtimeCallList[T_RUNTIME_CALL_MAX], DevStartArgsBase* startArgsBase)
+    {
+        (reinterpret_cast<controlFlowEntry>(const_cast<unsigned char*>(code_)))(
+            ctx, symbolTable, runtimeCallList, startArgsBase);
     }
 };
 
 struct AOTBinaryExpressionTable : AOTBinary {
-    using exprEntry = uint64_t (*)(struct DeviceExecuteContext *ctx, int64_t *symbolTable);
+    using exprEntry = uint64_t (*)(struct DeviceExecuteContext* ctx, int64_t* symbolTable);
     AOTBinaryExpressionTable() {}
-    AOTBinaryExpressionTable(const std::tuple<const void *, uint64_t, const uint64_t *, uint64_t> &table)
-        : offsetList(std::get<TUBLE_INDEX_2>(table)), offsetSize(std::get<TUBLE_INDEX_3>(table)) {
+    AOTBinaryExpressionTable(const std::tuple<const void*, uint64_t, const uint64_t*, uint64_t>& table)
+        : offsetList(std::get<TUBLE_INDEX_2>(table)), offsetSize(std::get<TUBLE_INDEX_3>(table))
+    {
         InitCodeSize(std::get<0>(table), std::get<1>(table));
     }
 
-    uint64_t CallExpr(struct DeviceExecuteContext *ctx, int64_t *symbolTable, uint64_t index) {
-        return (reinterpret_cast<exprEntry>(const_cast<unsigned char *>(code_ + offsetList[index])))(ctx, symbolTable);
+    uint64_t CallExpr(struct DeviceExecuteContext* ctx, int64_t* symbolTable, uint64_t index)
+    {
+        return (reinterpret_cast<exprEntry>(const_cast<unsigned char*>(code_ + offsetList[index])))(ctx, symbolTable);
     }
 
-    const uint64_t *offsetList{nullptr};
+    const uint64_t* offsetList{nullptr};
     uint64_t offsetSize{0};
 };
 
 struct DeviceExecuteProgram {
-    DevAscendProgram *prog{nullptr};
+    DevAscendProgram* prog{nullptr};
 
     AOTBinaryControlFlow controlFlowBinary;
     AOTBinaryExpressionTable exprBinary;
 
     DeviceExecuteProgram() {}
-    DeviceExecuteProgram(DevAscendProgram *prog_, AOTBinaryControlFlow::controlFlowEntry entry = nullptr)
+    DeviceExecuteProgram(DevAscendProgram* prog_, AOTBinaryControlFlow::controlFlowEntry entry = nullptr)
         : prog(prog_),
-          controlFlowBinary(IsDeviceMode() ? prog_->GetDevControlFlowBinary() : prog_->GetHostControlFlowBinary(), entry),
-          exprBinary(prog_->GetExpressionTableBinary()) {}
+          controlFlowBinary(
+              IsDeviceMode() ? prog_->GetDevControlFlowBinary() : prog_->GetHostControlFlowBinary(), entry),
+          exprBinary(prog_->GetExpressionTableBinary())
+    {}
 
-    const void *GetControlFlowEntry() {
-        return controlFlowBinary.code_;
-    }
+    const void* GetControlFlowEntry() { return controlFlowBinary.code_; }
 };
-}
+} // namespace npu::tile_fwk::dynamic

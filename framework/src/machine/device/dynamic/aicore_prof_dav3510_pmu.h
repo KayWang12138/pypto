@@ -23,35 +23,35 @@ namespace npu::tile_fwk::dynamic {
 constexpr uint32_t MAX_PMU_CNT_3510 = 10;
 
 namespace DAV_3510 {
-    const uint32_t PMU_CTRL_0 = 0x4200;
-    const uint32_t PMU_CTRL_1 = 0X2400;
-    const uint32_t PMU_CNT0 = 0x4210;
-    const uint32_t PMU_CNT1 = 0x4218;
-    const uint32_t PMU_CNT2 = 0x4220;
-    const uint32_t PMU_CNT3 = 0x4228;
-    const uint32_t PMU_CNT4 = 0x4230;
-    const uint32_t PMU_CNT5 = 0x4238;
-    const uint32_t PMU_CNT6 = 0x4240;
-    const uint32_t PMU_CNT7 = 0x4248;
-    const uint32_t PMU_CNT8 = 0x4250;
-    const uint32_t PMU_CNT9 = 0x4254;
-    const uint32_t PMU_CNT_TOTAL0 = 0x4260;
-    const uint32_t PMU_CNT_TOTAL1 = 0x4264;
-    const uint32_t PMU_CNT0_IDX = 0x2500;
-    const uint32_t PMU_CNT1_IDX = 0x2504;
-    const uint32_t PMU_CNT2_IDX = 0x2508;
-    const uint32_t PMU_CNT3_IDX = 0x250C;
-    const uint32_t PMU_CNT4_IDX = 0x2510;
-    const uint32_t PMU_CNT5_IDX = 0x2514;
-    const uint32_t PMU_CNT6_IDX = 0x2518;
-    const uint32_t PMU_CNT7_IDX = 0x251C;
-    const uint32_t PMU_CNT8_IDX = 0x2520;
-    const uint32_t PMU_CNT9_IDX = 0x2524;
-    const uint32_t PMU_START_CNT_CYC_0 = 0x42A0;
-    const uint32_t PMU_START_CNT_CYC_1 = 0x42A4;
-    const uint32_t PMU_STOP_CNT_CYC_0 = 0x42A8;
-    const uint32_t PMU_STOP_CNT_CYC_1 = 0x42AC;
-};
+const uint32_t PMU_CTRL_0 = 0x4200;
+const uint32_t PMU_CTRL_1 = 0X2400;
+const uint32_t PMU_CNT0 = 0x4210;
+const uint32_t PMU_CNT1 = 0x4218;
+const uint32_t PMU_CNT2 = 0x4220;
+const uint32_t PMU_CNT3 = 0x4228;
+const uint32_t PMU_CNT4 = 0x4230;
+const uint32_t PMU_CNT5 = 0x4238;
+const uint32_t PMU_CNT6 = 0x4240;
+const uint32_t PMU_CNT7 = 0x4248;
+const uint32_t PMU_CNT8 = 0x4250;
+const uint32_t PMU_CNT9 = 0x4254;
+const uint32_t PMU_CNT_TOTAL0 = 0x4260;
+const uint32_t PMU_CNT_TOTAL1 = 0x4264;
+const uint32_t PMU_CNT0_IDX = 0x2500;
+const uint32_t PMU_CNT1_IDX = 0x2504;
+const uint32_t PMU_CNT2_IDX = 0x2508;
+const uint32_t PMU_CNT3_IDX = 0x250C;
+const uint32_t PMU_CNT4_IDX = 0x2510;
+const uint32_t PMU_CNT5_IDX = 0x2514;
+const uint32_t PMU_CNT6_IDX = 0x2518;
+const uint32_t PMU_CNT7_IDX = 0x251C;
+const uint32_t PMU_CNT8_IDX = 0x2520;
+const uint32_t PMU_CNT9_IDX = 0x2524;
+const uint32_t PMU_START_CNT_CYC_0 = 0x42A0;
+const uint32_t PMU_START_CNT_CYC_1 = 0x42A4;
+const uint32_t PMU_STOP_CNT_CYC_0 = 0x42A8;
+const uint32_t PMU_STOP_CNT_CYC_1 = 0x42AC;
+}; // namespace DAV_3510
 
 } // namespace npu::tile_fwk::dynamic
 

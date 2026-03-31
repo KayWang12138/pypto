@@ -51,10 +51,10 @@ def lightning_indexer_decode_compute(
     """Compute lightning indexer with quantization support.
     It obtains the top-k positions corresponding to each token based on a series of operations.
     Args:
-        idx_query: Non-contiguous data is not supported, shape (t, n_q, idx_head_dim), dtype INT8. 
-        idx_query_scale: It represents the scaling factor for idx_query. shape (t, n_q, idx_head_dim), dtype FP16. 
-        idx_key_cache: Non-contiguous data is not supported, shape (t, n_kv, idx_head_dim), dtype INT8. 
-        idx_key_scale: It represents the scaling factor for idx_key_cache, shape (t, n_kv, idx_head_dim), dtype FP16. 
+        idx_query: Non-contiguous data is not supported, shape (t, n_q, idx_head_dim), dtype INT8.
+        idx_query_scale: It represents the scaling factor for idx_query. shape (t, n_q, idx_head_dim), dtype FP16.
+        idx_key_cache: Non-contiguous data is not supported, shape (t, n_kv, idx_head_dim), dtype INT8.
+        idx_key_scale: It represents the scaling factor for idx_key_cache, shape (t, n_kv, idx_head_dim), dtype FP16.
         idx_weight: Non-contiguous data is not supported. The data format supports ND, shape (t, n_q), dtype FP16.
         act_seq_key: It represents the number of valid tokens for `key` in different batches. shape (b), dtype INT32.
         block_table: It represents the block mapping table used for KV storage in PageAttention,

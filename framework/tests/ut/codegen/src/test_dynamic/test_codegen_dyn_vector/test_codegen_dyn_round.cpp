@@ -31,33 +31,28 @@ namespace npu::tile_fwk {
 
 class TestCodegenDynRound : public ::testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynRound, TestDynOpRound) {
+TEST_F(TestCodegenDynRound, TestDynOpRound)
+{
     std::vector<int64_t> shape = {64, 64};
-    auto function = GenMockFuncDynUnary("TestDynOpRound", {shape}, [](Tensor &input, Tensor &output) {
-        output = Round(input, 1);
-    });
+    auto function =
+        GenMockFuncDynUnary("TestDynOpRound", {shape}, [](Tensor& input, Tensor& output) { output = Round(input, 1); });
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
@@ -69,7 +64,7 @@ TEST_F(TestCodegenDynRound, TestDynOpRound) {
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TRound<float>(ubTensor_3, ubTensor_4, ubTensor_1, 10);
+        R"!!!(TRound<float>(ubTensor_2, ubTensor_3, ubTensor_0, 10);
 )!!!";
     CheckStringExist(expect, res);
 }

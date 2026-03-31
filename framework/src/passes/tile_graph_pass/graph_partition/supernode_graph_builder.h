@@ -22,8 +22,8 @@
 namespace npu::tile_fwk {
 class OperationGraphInfo {
 public:
-    uint64_t GetHash(const Operation *op) const;
-    bool CoreTypeMergeable(const std::set<OpCoreType> &coreTypes) const;
+    uint64_t GetHash(const Operation* op) const;
+    bool CoreTypeMergeable(const std::set<OpCoreType>& coreTypes) const;
     std::vector<int32_t> GetSameLevelOpIdx(int32_t opIdx, Opcode opLabel) const;
     std::vector<Operation*> opList_;
     std::unordered_map<int32_t, int32_t> magic2Idx_;
@@ -36,14 +36,17 @@ public:
 
 class NodeGraphInfo {
 public:
-    Status Build(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
-                 const std::vector<std::pair<int32_t, int32_t>> &mergePair, bool markIsCube);
-    Status AvoidLoop(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
-                     std::vector<int32_t> &parent, std::vector<std::vector<int32_t>> &node2Op, bool &updated);
+    Status Build(
+        const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
+        const std::vector<std::pair<int32_t, int32_t>>& mergePair, bool markIsCube);
+    Status AvoidLoop(
+        const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent,
+        std::vector<std::vector<int32_t>>& node2Op, bool& updated);
     Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
-    int32_t FindParent(std::vector<int32_t> &parent, int32_t i);
-    Status MergeSrcToDstIsland(const std::shared_ptr<OperationGraphInfo> operationGraphInfo,
-                               std::vector<int32_t> &parent, int32_t src, int32_t dst);
+    int32_t FindParent(std::vector<int32_t>& parent, int32_t i);
+    Status MergeSrcToDstIsland(
+        const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent, int32_t src,
+        int32_t dst);
     int32_t GetNodeCycle(int32_t nodeIdx) const;
     bool GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, int32_t nodeIdx);
     std::vector<std::vector<int32_t>> node2Op_;
@@ -66,31 +69,37 @@ public:
     virtual ~SuperNodeGraphBuilder() = default;
 
 protected:
-    Status BuildOpGraph(const std::vector<Operation*> &opList);
+    Status BuildOpGraph(const std::vector<Operation*>& opList);
     virtual Status BuildSuperNodeGraph();
     Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers
-    inline bool L1CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
-    inline bool ConvertCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
-    inline bool AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
-    inline bool CopyOutCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair, bool assembleScene);
-    inline bool CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
-    inline bool MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
-    inline bool AssembleToCopyoutScene(Operation *op);
-    
+    inline bool L1CopyInCombine(
+        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+        std::vector<std::pair<int32_t, int32_t>>& mergePair);
+    inline bool ConvertCombine(
+        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+        std::vector<std::pair<int32_t, int32_t>>& mergePair);
+    inline bool AssembleCombine(
+        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+        std::vector<std::pair<int32_t, int32_t>>& mergePair);
+    inline bool CopyOutCombine(
+        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+        std::vector<std::pair<int32_t, int32_t>>& mergePair, bool assembleScene);
+    inline bool CopyInCombine(
+        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+        std::vector<std::pair<int32_t, int32_t>>& mergePair);
+    inline bool MulAccCombine(
+        const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList, int32_t i,
+        std::vector<std::pair<int32_t, int32_t>>& mergePair);
+    inline bool AssembleToCopyoutScene(Operation* op);
+
     // BuildHashValues helpers
     uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const;
     std::vector<std::pair<int32_t, int32_t>> GetReduceNodeMergePair() const;
     Status BuildReduceNodeHash(std::shared_ptr<NodeGraphInfo> reduceNodeInfo);
-    Status BuildBalanceOpHash(std::vector<uint64_t> &opHashList);
-    
+    Status BuildBalanceOpHash(std::vector<uint64_t>& opHashList);
+
     // Parameters
     bool useReduceBalanceHash_ = true;
     bool useCVMixPartition_ = false;
@@ -100,5 +109,5 @@ protected:
     std::shared_ptr<NodeGraphInfo> superNodeInfo_;
 };
 static constexpr int DEFAULT_SCOPE_ID = -1;
-}  // namespace npu::tile_fwk
-#endif  // SUPERNODE_GRAPH_BUILDER_H
+} // namespace npu::tile_fwk
+#endif // SUPERNODE_GRAPH_BUILDER_H

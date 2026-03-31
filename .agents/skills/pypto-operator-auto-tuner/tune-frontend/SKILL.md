@@ -33,7 +33,7 @@ description: PyPTO算子开箱性能调优技能。主要关注代码级的调�
 
 4. **shape是否可以提前合轴？**
    - 如果shape是2维以上，性能会比较差。因为 npu 指令支持的维度是两维的。考虑在进入循环前，先进行合轴处理
-   - ✅ 解决方案：循环前，使用 `reshape inplace` 进行合轴
+   - ✅ 解决方案：进入循环前，使用 `reshape inplace` 进行合轴
 
 ### P1 - 其他常见问题
 
@@ -148,11 +148,11 @@ num_q_blocks = SEQ_LEN_Q // Q_BLOCK_SIZE  # 4 次
 for q_block_idx in pypto.loop(num_q_blocks, name="LOOP_Q"):  # 4 次
     q_start = q_block_idx * Q_BLOCK_SIZE
     cur_q_size = pypto.min(Q_BLOCK_SIZE, SEQ_LEN_Q - q_start)
-    
+
     # ✅ 批量获取 16 个 query
     q_block = pypto.view(query, [Q_BLOCK_SIZE, HEAD_DIM], [q_start, 0],
                         valid_shape=[cur_q_size, HEAD_DIM])
-    
+
     for kv_block_idx in pypto.loop(num_kv_blocks, unroll_list=[4,2,1], name="LOOP_KV"):  # ✅ 可 unroll
         # ✅ Matmul M 轴 = 16
         scores = pypto.matmul(q_block, k_block, ...)  # ✅ [16, 128]
@@ -163,7 +163,7 @@ for q_block_idx in pypto.loop(num_q_blocks, name="LOOP_Q"):  # 4 次
 - ✅ Matmul M 轴: 1 → 16（计算量增大 16 倍）
 
 **⚠️ 切块大小建议**:
-- 从较大值开始尝试（如 64, 32, 16）
+- 从较大值开始尝试（如 64, 32, 16），但切开的值不应该超过shape中该维度的大小
 - 平衡任务粒度和内存占用
 - 调整中间 tensor 的 shape
 
@@ -257,10 +257,39 @@ pypto.set_vec_tile_shapes(64, 512)
 
 ### 4. ⚠️ 合轴优化
 #### 4.1 尽可能减少循环体中 shape 的维度
+**症状**
+循环体内参与计算的tensor的shape的维度超过两维
 **原因**
 shape维度太多，会导致处理复杂，此外，pto指令对多维的 tensor 处理不友好，性能较差
 **解决**
-在循环体外部可以先进行 `reshape`，并配置`inplace = True` 参数，对多维的tensor进行合轴处理
+在循环体外部对输入先进行 `reshape`，并配置`inplace = True` 参数，对多维的tensor进行合轴处理。输出保持原有shape维度不变。
+
+#### 4.2 合轴的输入输出分离原则
+
+**只读输入可合轴，输出 tensor 不能 inplace reshape 后再切片写入。**
+
+```python
+# ✅ 正确：只读 Q/K/V 合轴为 2D，output 保持原始维度
+query_2d = pypto.reshape(query, [batch * heads * seq_q, dim], inplace=True)
+key_2d = pypto.reshape(key, [batch * heads * seq_kv, dim], inplace=True)
+value_2d = pypto.reshape(value, [batch * heads * seq_kv, dim], inplace=True)
+
+for b_idx in pypto.loop(batch, ...):
+    for n_idx in range(heads):
+        q_offset = b_idx * heads * seq_q + n_idx * seq_q + q_start
+        q_block = pypto.view(query_2d, [BLOCK, dim], [q_offset, 0], ...)
+        # ...
+        # output 保持 4D 切片写入
+        output[b_idx:b_idx+1, n_idx:n_idx+1, ...] = result_4d
+```
+
+```python
+# ❌ 错误：output 也合轴为 2D，切片写入会得到全零结果
+output_2d = pypto.reshape(output, [batch * heads * seq, dim], inplace=True)
+output_2d[offset:offset+block, :] = result_2d  # 写入无效，输出全零
+```
+
+**原因**：inplace reshape 改变了 tensor 的内存视图，output 的切片写入依赖原始 shape 索引，reshape 后索引关系断裂导致写入失败。
 
 
 ## 性能优化建议库
@@ -294,13 +323,12 @@ shape维度太多，会导致处理复杂，此外，pto指令对多维的 tenso
 | concat 冗余搬运 | 使用 assemble |
 | reshape 冗余搬运 | 配置 `inplace=True` |
 
-### 建议 5：常见优化模式速查
-| 场景 | 优化方案 | 预期收益 |
-|------|---------|---------|
-| 最内层循环次数<8 | 对外层轴切块 | **50-100%** |
-| 任务粒度过小 | 增大切块大小 | **20-50%** |
-| 循环嵌套过深 | 合并独立循环 | **10-20%** |
-| Matmul M 轴过小 | 对序列轴切块 | **50-100%** |
+### 建议 5：合轴优化
+
+| 问题 | 解决方案 |
+|------|---------|
+| 计算节点的shape维度超过两维 | 算子入口对输入进行合轴处理 |
+
 
 **优化优先级**：
 1. ⭐⭐⭐ **任务粒度优化**（切块、合并loop、合轴） - **最重要**
@@ -341,7 +369,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 │                                  │
 │  3. 验证精度 ⭐                   │
 │     ├─ 运行测试用例               │
-│     └─ 失败则立即回退             │
+│     └─ 失败，尝试解决，不行则回退 │
 │                                  │
 │  4. 对比性能 ⭐                   │
 │     ├─ 记录新执行时间             │
@@ -364,7 +392,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 **🔥 P0 - 任务粒度（最重要）**：
 - [ ] **Matmul 的 M/N/K 轴是否充分利用硬件？**（M 轴 < 8 是常见问题）
 - [ ] **任务总数是否过多？**（> 1000 可能调度开销大）
-- [ ] **shape 的维度是否超过2维？** （超过两维，搬运及计算的开销较大）
+- [ ] **合轴优化：shape 的维度是否超过2维？** （超过两维，搬运及计算的开销较大）
 
 **P1 - Loop 写法**：
 - [ ] 静态轴是否使用 Python for

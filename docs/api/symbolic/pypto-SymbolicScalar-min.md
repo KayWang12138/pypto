@@ -70,4 +70,3 @@ out3 = s3.min(2)
 输出数据out2: 3
 输出数据out3: RUNTIME_Min(x, 2)
 ```
-

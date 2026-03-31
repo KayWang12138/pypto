@@ -57,4 +57,3 @@ python3 ffn_module.py
 1. 建议先从 `layer_normalization` 开始学习，掌握基础的归约计算模式。
 2. 随后学习 `ffn`，了解如何整合矩阵乘法与复杂的激活函数逻辑。
 3. 参考各目录下的子 README 获取更详细的算法说明。
-

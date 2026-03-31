@@ -71,4 +71,3 @@ out = pypto.maximum(a, b)
 输入数据b: [3, 1, 3]
 输出数据out: [3, 2, 4]
 ```
-

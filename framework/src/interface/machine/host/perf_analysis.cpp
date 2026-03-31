@@ -10,11 +10,12 @@
 
 #include "machine/host/perf_analysis.h"
 
-namespace npu::tile_fwk{
+namespace npu::tile_fwk {
 
-PerfAnalysis& PerfAnalysis::Get() {
+PerfAnalysis& PerfAnalysis::Get()
+{
     static PerfAnalysis instance;
     return instance;
 }
 
-}
+} // namespace npu::tile_fwk

@@ -24,7 +24,8 @@ using namespace npu::tile_fwk;
 class GenGatedScore : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName)
+{
     auto shape = tensor.GetShape();
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
@@ -33,16 +34,17 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T>
-static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-template<typename T = npu::tile_fwk::float16>
-void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh) {
-
+template <typename T = npu::tile_fwk::float16>
+void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh)
+{
     int64_t b = bnsh[0];
     int64_t n = bnsh[1];
     int64_t s = bnsh[2];
@@ -73,11 +75,12 @@ void GenGatedScoreEntryPrefill(const std::vector<int64_t>& bnsh) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "====== GateScore ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(goldenData, (T *)gatingScoreData->data(), 0.005f));
+    EXPECT_TRUE(resultCmp<T>(goldenData, (T*)gatingScoreData->data(), 0.005f));
 #endif
 }
 
-TEST_F(GenGatedScore, gated_score_fp16_s8k_prefill) {
+TEST_F(GenGatedScore, gated_score_fp16_s8k_prefill)
+{
     std::vector<int64_t> bnsh = {4, 128, 8192, 7168};
     GenGatedScoreEntryPrefill<float16>(bnsh);
 }

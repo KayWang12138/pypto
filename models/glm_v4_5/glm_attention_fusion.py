@@ -214,21 +214,21 @@ def attention(
 def ifa_func_kernel(
     block_table: pypto.Tensor(),
     kv_act_seqs: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
-    index: pypto.Tensor(), 
+    index: pypto.Tensor(),
     x: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     residual_input: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    x_gamma: pypto.Tensor(), 
+    x_gamma: pypto.Tensor(),
     x_bias: pypto.Tensor(),
-    x_scale: pypto.Tensor(), 
-    x_offset: pypto.Tensor(), 
-    weight: pypto.Tensor(), 
+    x_scale: pypto.Tensor(),
+    x_offset: pypto.Tensor(),
+    weight: pypto.Tensor(),
     quant_bias: pypto.Tensor(),
-    deq_scale: pypto.Tensor(), 
-    q_gamma: pypto.Tensor(), 
+    deq_scale: pypto.Tensor(),
+    q_gamma: pypto.Tensor(),
     q_bias: pypto.Tensor(),
     k_gamma: pypto.Tensor(),
     k_bias: pypto.Tensor(),
-    cos: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16), 
+    cos: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     sin: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     atten_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     q_tmp: pypto.Tensor([...], pypto.DT_BF16),
@@ -331,7 +331,7 @@ def ifa_func_kernel(
         act_bs_tile = (bs - bs_idx * bs_tile).min(bs_tile)
 
         # rms norm
-        x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0], 
+        x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0],
                                                 valid_shape=[act_bs_tile, hidden_size])
         # init
         pypto.set_vec_tile_shapes(1, vec_tile_value)
@@ -552,7 +552,7 @@ def ifa_func_kernel(
                                 block_idx = block_table[b_idx, idx + i]
                                 block_idx_valid = block_idx.max(0)
                                 vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                    pypto.view(value_cache_2d, [block_size, dn], 
+                                    pypto.view(value_cache_2d, [block_size, dn],
                                                 [block_idx_valid * block_size, 0])
                             vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
                                                     [0, 0], valid_shape=[actual_s2_tile, dn])

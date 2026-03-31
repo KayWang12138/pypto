@@ -35,61 +35,63 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil)
+{
     MockFuncDynUnaryConf config;
     auto function =
-        GenMockFuncDynUnary("TestDynOpCeil", config, [](Tensor &input, Tensor &output) { output = Ceil(input); });
+        GenMockFuncDynUnary("TestDynOpCeil", config, [](Tensor& input, Tensor& output) { output = Ceil(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TCeil(ubTensor_1, ubTensor_1);
+        R"!!!(TCeil(ubTensor_0, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor)
+{
     MockFuncDynUnaryConf config;
     auto function =
-        GenMockFuncDynUnary("TestDynOpFloor", config, [](Tensor &input, Tensor &output) { output = Floor(input); });
+        GenMockFuncDynUnary("TestDynOpFloor", config, [](Tensor& input, Tensor& output) { output = Floor(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TFloor(ubTensor_1, ubTensor_1);
+        R"!!!(TFloor(ubTensor_0, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc)
+{
     MockFuncDynUnaryConf config;
     auto function =
-        GenMockFuncDynUnary("TestDynOpTrunc", config, [](Tensor &input, Tensor &output) { output = Trunc(input); });
+        GenMockFuncDynUnary("TestDynOpTrunc", config, [](Tensor& input, Tensor& output) { output = Trunc(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TTrunc(ubTensor_1, ubTensor_1);
+        R"!!!(TTrunc(ubTensor_0, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }

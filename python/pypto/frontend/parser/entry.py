@@ -458,7 +458,7 @@ class JitCallableWrapper:
         """
         if not pypto.get_verify_options().get("enable_pass_verify"):
             return
-        
+
         # Compile and load calculator
         mgr = BuildOnlineManager()
         mgr.build_and_load_calculator()
@@ -527,7 +527,7 @@ class JitCallableWrapper:
         # Execute the deferred parsing (happens on first __call__)
         self._pto_function = self._parser.execute()
 
-        # Reset golden data after compilation, similar to pypto.jit
+        # Reset golden data after compilation
         _pto_verify_datas.reset()
 
     def _parse_call_args(
@@ -770,7 +770,7 @@ class JitCallableWrapper:
                 return False
             qualname = func.__qualname__
             return '<locals>' not in qualname and '.' not in qualname
-        
+
         if is_defined_globally(self._original_func):
             name = self._original_func.__name__
             _loop_idx_generator = next(self._global_func_idx_generator)

@@ -38,47 +38,47 @@ class StaticSubgraphProcessor {
 public:
     StaticSubgraphProcessor() = default;
     ~StaticSubgraphProcessor() = default;
-    
+
     // 静态流程专用函数
     // ESGGraphType相关方法
-    Status CalOpCnt(size_t i, int32_t &cubeOpCnt, int32_t &vecOpCnt, int32_t &aicpuOpCnt);
-    Status SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType &esgGraphType);
-    Status DetermineGraphType(size_t i, CoreType &esgGraphType);
-    Status SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
-    
-    Status HandleReadyStates(Function* rootFunc);
-    Status BuildGraph(Function &function);
-    Status BuildInGraph(Function &function);
-    Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
-    
-    SubfuncTopologyInfoTy ConstructSubgraphTopologyInfo(
-        Function &function, std::vector<SubfuncInvokeInfoTy> &esgInvokeInfoMap);
-    void UpdateTopoEntry(size_t i, int eSgId, int realOutDegree, const setType &succESgs, SubfuncTopologyInfoTy &topo);
-    
-    void SetColorGraph(size_t i, const OperationsViewer &list);
-    void BuildColorGraph(Function &function);
-    void PrintColorGraph(const Function &function);
-    void ProcessColorGraph(Function &function);
-    void FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,
-        std::vector<std::vector<int>>& redundantColorOutGraph);
-    void EraseRedundantColorEdges(const Function &function);
-    Status SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType &esgGraphType);
-    void SetNList(std::vector<std::vector<OperationPtr>>& nList) {
-        nLIST_ = &nList;
-    }
+    Status CalOpCnt(size_t i, int32_t& cubeOpCnt, int32_t& vecOpCnt, int32_t& aicpuOpCnt);
+    Status SetESGGraphType(int32_t cubeOpCnt, int32_t vecOpCnt, int32_t aicpuOpCnt, CoreType& esgGraphType);
+    Status DetermineGraphType(size_t i, CoreType& esgGraphType);
+    Status SetCallAttrGraphType(Function* rootFunc, size_t i, const CoreType& esgGraphType);
 
-    std::vector<std::vector<OperationPtr>>& GetNList() {
+    Status HandleReadyStates(Function* rootFunc);
+    Status BuildGraph(Function& function);
+    Status BuildInGraph(Function& function);
+    Status EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const;
+
+    SubfuncTopologyInfoTy ConstructSubgraphTopologyInfo(
+        Function& function, std::vector<SubfuncInvokeInfoTy>& esgInvokeInfoMap);
+    void UpdateTopoEntry(size_t i, int eSgId, int realOutDegree, const setType& succESgs, SubfuncTopologyInfoTy& topo);
+
+    void SetColorGraph(size_t i, const OperationsViewer& list);
+    void BuildColorGraph(Function& function);
+    void PrintColorGraph(const Function& function);
+    void ProcessColorGraph(Function& function);
+    void FindRedundantEdges(
+        int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,
+        std::vector<std::vector<int>>& redundantColorOutGraph);
+    void EraseRedundantColorEdges(const Function& function);
+    Status SetReadySubGraphType(Function* rootFunc, size_t i, const CoreType& esgGraphType);
+    void SetNList(std::vector<std::vector<OperationPtr>>& nList) { nLIST_ = &nList; }
+
+    std::vector<std::vector<OperationPtr>>& GetNList()
+    {
         if (nLIST_ == nullptr) {
             APASS_LOG_ERROR_F(Elements::Function, "nLIST is not initialized in StaticSubgraphProcessor");
         }
         return *nLIST_;
     }
-    // 静态流程专有参数    
+    // 静态流程专有参数
     std::vector<std::vector<size_t>> inGraph;
     std::vector<std::vector<size_t>> outGraph;
     std::vector<bool> isReshape;
     std::vector<std::vector<int>> colorInGraph;
-    std::vector<std::vector<int>> colorOutGraph;   
+    std::vector<std::vector<int>> colorOutGraph;
     std::vector<int64_t> subgTopoParamOffsets;
     std::vector<std::vector<OperationPtr>>* nLIST_ = nullptr;
 };

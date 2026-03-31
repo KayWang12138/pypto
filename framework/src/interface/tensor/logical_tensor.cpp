@@ -31,7 +31,7 @@
 using namespace npu::tile_fwk;
 
 LogicalTensor::LogicalTensor(
-    Function &function, DataType t, Shape tshape, TileOpFormat format, std::string tname, NodeType tnodetype)
+    Function& function, DataType t, Shape tshape, TileOpFormat format, std::string tname, NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
@@ -40,10 +40,12 @@ LogicalTensor::LogicalTensor(
       oriShape(tshape),
       magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
-      function_(&function) {}
+      function_(&function)
+{}
 
-LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
-    TileOpFormat format, std::string tname, NodeType tnodetype)
+LogicalTensor::LogicalTensor(
+    Function& function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape, TileOpFormat format,
+    std::string tname, NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
@@ -55,11 +57,10 @@ LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::
       magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
       function_(&function)
-{
-}
+{}
 
-LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
-    NodeType tnodetype)
+LogicalTensor::LogicalTensor(
+    Function& function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape, NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
       tensor(rawTensor),
@@ -68,14 +69,16 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       oriShape(tshape),
       magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
-      function_(&function) {
+      function_(&function)
+{
     // Initialize other members if necessary
     isSubGraphBoundary = false;
     FUNCTION_ASSERT(FError::INVALID_VAL, shape.size() == offset.size())
         << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
 }
 
-LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
+LogicalTensor::LogicalTensor(
+    Function& function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
     std::vector<SymbolicScalar> tValidShape, NodeType tnodetype)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
@@ -86,7 +89,8 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       dynValidShape_(tValidShape),
       magic(IdGen<IdType::LOGICAL_TENSOR>::Inst().NewId()),
       nodetype(tnodetype),
-      function_(&function) {
+      function_(&function)
+{
     // Initialize other members if necessary
     isSubGraphBoundary = false;
 
@@ -94,7 +98,8 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
         << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
 }
 
-std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool create) const {
+std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function& dstFunc, bool create) const
+{
     /* Clone is only for dstFunc to simplify the process of creating OP_CALL's input and output. */
     if (!create) {
         auto cloned = dstFunc.GetTensorMap().GetTensorByMagic(magic);
@@ -106,11 +111,10 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     std::shared_ptr<RawTensor> rawTensor = dstFunc.GetTensorMap().GetRawTensorByRawMagic(tensor->rawmagic);
     if (rawTensor == nullptr || create) {
         if (create) {
-            rawTensor = std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape,
-                tensor->format, tensor->symbol);
+            rawTensor = std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape, tensor->format, tensor->symbol);
         } else {
-            rawTensor = std::make_shared<RawTensor>(tensor->datatype, tensor->rawshape,
-                tensor->format, tensor->symbol, tensor->rawmagic);
+            rawTensor = std::make_shared<RawTensor>(
+                tensor->datatype, tensor->rawshape, tensor->format, tensor->symbol, tensor->rawmagic);
         }
         rawTensor->SetSymbol(tensor->GetSymbol());
         rawTensor->actualRawmagic = tensor->actualRawmagic;
@@ -118,8 +122,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
         rawTensor->memoryId = tensor->memoryId;
     }
 
-    std::shared_ptr<LogicalTensor> newTensor = std::make_shared<LogicalTensor>(dstFunc, rawTensor,
-        offset, shape, dynValidShape_, nodetype);
+    std::shared_ptr<LogicalTensor> newTensor =
+        std::make_shared<LogicalTensor>(dstFunc, rawTensor, offset, shape, dynValidShape_, nodetype);
     newTensor->subGraphID = subGraphID;
     newTensor->isSubGraphBoundary = isSubGraphBoundary;
     if (!create) {
@@ -138,7 +142,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
     return newTensor;
 }
 
-Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
+Json LogicalTensor::DumpJson(bool dumpRawTensor) const
+{
     Json result;
     result[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_TENSOR);
     result["offset"] = offset;
@@ -202,8 +207,10 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
     return result;
 }
 
-std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
-    const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump) {
+std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(
+    Function& function, const std::unordered_map<int, std::shared_ptr<RawTensor>>& rawTensorDict,
+    const Json& tensorDump)
+{
     FUNCTION_ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR))
         << "[tensorDump]json field<" << T_FIELD_KIND << "> doesn't match T_KIND_TENSOR.";
 
@@ -222,8 +229,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
     }
     int tensorMagic = tensorDump["magic"].get<int>();
 
-    std::shared_ptr<LogicalTensor> tensorJson = std::make_shared<LogicalTensor>(function, rawTensor,
-        toffset, tshape, tnodetype);
+    std::shared_ptr<LogicalTensor> tensorJson =
+        std::make_shared<LogicalTensor>(function, rawTensor, toffset, tshape, tnodetype);
     tensorJson->magic = tensorMagic;
 
     if (tensorDump.count("need_alloc") != 0) {
@@ -247,7 +254,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
         tensorJson->memoryrange.memId = tensorDump["mem_id"].get<int>();
     }
     if (tensorDump.count("mem_type")) {
-        auto &memorytype = tensorDump["mem_type"];
+        auto& memorytype = tensorDump["mem_type"];
         if (memorytype.count("asis")) {
             tensorJson->memoryTypeOriginal_ = static_cast<MemoryType>(memorytype["asis"].get<int>());
         }
@@ -280,15 +287,16 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
     return tensorJson;
 }
 
-std::string LogicalTensor::DumpType() const {
+std::string LogicalTensor::DumpType() const
+{
     std::string result = "<";
-    for (auto &value : shape) {
+    for (auto& value : shape) {
         result += std::to_string(value) + " x ";
     }
     result += DataType2String(Datatype());
     if (dynValidShape_.size() != 0) {
         result += " / ";
-        for (auto &value : dynValidShape_) {
+        for (auto& value : dynValidShape_) {
             result += value.Dump() + " x ";
         }
         result += DataType2String(Datatype());
@@ -300,7 +308,8 @@ std::string LogicalTensor::DumpType() const {
     return result;
 }
 
-std::string LogicalTensor::DumpSSA([[maybe_unused]]bool showFrom, bool showMem, bool showType) const {
+std::string LogicalTensor::DumpSSA([[maybe_unused]] bool showFrom, bool showMem, bool showType) const
+{
     std::ostringstream oss;
     if (showType) {
         oss << DumpType() << " ";
@@ -338,19 +347,17 @@ std::string LogicalTensor::DumpSSA([[maybe_unused]]bool showFrom, bool showMem, 
     return oss.str();
 }
 
-std::string LogicalTensor::Dump(bool showFrom, bool showMem) const {
-    return DumpSSA(showFrom, showMem);
-}
+std::string LogicalTensor::Dump(bool showFrom, bool showMem) const { return DumpSSA(showFrom, showMem); }
 
 std::shared_ptr<LogicalTensor> LogicalTensor::View(
-    Function &function, const Shape &newShape, const Offset &newOffset) const {
+    Function& function, const Shape& newShape, const Offset& newOffset) const
+{
     FUNCTION_ASSERT(FError::INVALID_VAL, shape.size() == newShape.size())
         << "Tensor.view, shape must be the same dimension";
     FUNCTION_ASSERT(FError::INVALID_VAL, offset.size() == newOffset.size())
         << "Tensor.view, offset must be the same dimension";
 
-    auto view = std::make_shared<LogicalTensor>(
-        function, this->tensor, this->offset, this->shape, this->nodetype);
+    auto view = std::make_shared<LogicalTensor>(function, this->tensor, this->offset, this->shape, this->nodetype);
     for (size_t i = 0; i < shape.size(); i++) {
         FUNCTION_ASSERT(FError::OUT_OF_RANGE, shape[i] >= (newShape[i] + newOffset[i]))
             << "i: " << i << ", shape[i]: " << shape[i] << ", newShape[i]: " << newShape[i]
@@ -368,33 +375,28 @@ std::shared_ptr<LogicalTensor> LogicalTensor::View(
     return view;
 }
 
-std::string LogicalTensor::Symbol() const {
-    return tensor->symbol;
-}
+std::string LogicalTensor::Symbol() const { return tensor->symbol; }
 
-DataType LogicalTensor::Datatype() const {
-    return tensor->datatype;
-}
+DataType LogicalTensor::Datatype() const { return tensor->datatype; }
 
-MemoryType LogicalTensor::GetMemoryTypeOriginal() const {
-    return memoryTypeOriginal_;
-}
+MemoryType LogicalTensor::GetMemoryTypeOriginal() const { return memoryTypeOriginal_; }
 
-MemoryType LogicalTensor::GetMemoryTypeToBe() const {
-    return memoryTypeToBe_;
-}
+MemoryType LogicalTensor::GetMemoryTypeToBe() const { return memoryTypeToBe_; }
 
-void LogicalTensor::CopyMemoryType(const std::shared_ptr<LogicalTensor> &other) {
+void LogicalTensor::CopyMemoryType(const std::shared_ptr<LogicalTensor>& other)
+{
     memoryTypeOriginal_ = other->GetMemoryTypeOriginal();
     memoryTypeToBe_ = other->GetMemoryTypeToBe();
 }
 
-void LogicalTensor::SetMemoryTypeBoth(MemoryType t, bool force) {
+void LogicalTensor::SetMemoryTypeBoth(MemoryType t, bool force)
+{
     SetMemoryTypeOriginal(t, force);
     SetMemoryTypeToBe(t);
 }
 
-void LogicalTensor::SetMemoryTypeOriginal(MemoryType t, bool force) {
+void LogicalTensor::SetMemoryTypeOriginal(MemoryType t, bool force)
+{
     if (t == MemoryType::MEM_UNKNOWN) {
         return;
     }
@@ -408,19 +410,22 @@ void LogicalTensor::SetMemoryTypeOriginal(MemoryType t, bool force) {
     }
 }
 
-void LogicalTensor::SetMemoryTypeToBe(MemoryType t) {
+void LogicalTensor::SetMemoryTypeToBe(MemoryType t)
+{
     if (t == MemoryType::MEM_UNKNOWN) {
         return;
     }
     memoryTypeToBe_ = t;
 }
 
-bool LogicalTensor::MemoryConflict() const {
+bool LogicalTensor::MemoryConflict() const
+{
     return memoryTypeOriginal_ != MemoryType::MEM_UNKNOWN && memoryTypeToBe_ != MemoryType::MEM_UNKNOWN &&
            memoryTypeOriginal_ != memoryTypeToBe_;
 }
 
-size_t LogicalTensor::MemorySize() const {
+size_t LogicalTensor::MemorySize() const
+{
     if (IsDummy()) {
         return 0;
     }
@@ -437,19 +442,17 @@ size_t LogicalTensor::MemorySize() const {
         case MemoryType::MEM_L0B:
         case MemoryType::MEM_L0C: // 512B align
             return (baseMemorySize + ALIGN_SIZE_512 - 1) / ALIGN_SIZE_512 * ALIGN_SIZE_512;
-        default: return baseMemorySize;
+        default:
+            return baseMemorySize;
     }
 }
 
-bool LogicalTensor::IsDummy() const {
-    return tensor->IsDummy();
-}
+bool LogicalTensor::IsDummy() const { return tensor->IsDummy(); }
 
-void LogicalTensor::SetIsDummy(bool dummy) {
-    tensor->SetIsDummy(dummy);
-}
+void LogicalTensor::SetIsDummy(bool dummy) { tensor->SetIsDummy(dummy); }
 
-bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor> &other) const {
+bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor>& other) const
+{
     if (tensor->rawmagic != other->tensor->rawmagic) {
         return false;
     }
@@ -462,7 +465,8 @@ bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor> &other) const {
     return true;
 }
 
-int64_t LogicalTensor::GetDataSize() const {
+int64_t LogicalTensor::GetDataSize() const
+{
     if (HasNegativeNum<int64_t>(shape)) {
         FUNCTION_LOGD("Logical tensor shape has negative. It has dynamic axis.");
         return INT64_MAX;
@@ -471,7 +475,8 @@ int64_t LogicalTensor::GetDataSize() const {
     return shapeSize * BytesOf(tensor->GetDataType());
 }
 
-bool LogicalTensor::CompareOp::operator()(const Operation *a, const Operation *b) const {
+bool LogicalTensor::CompareOp::operator()(const Operation* a, const Operation* b) const
+{
     int funcMagicA = a->BelongTo()->GetFuncMagic();
     int funcMagicB = b->BelongTo()->GetFuncMagic();
     if (funcMagicA != funcMagicB) {
@@ -482,10 +487,11 @@ bool LogicalTensor::CompareOp::operator()(const Operation *a, const Operation *b
     return opmagicA < opmagicB;
 }
 
-bool LogicalTensor::IsGetTensorDataOutcast() {
-    for (auto &prod : GetProducers()) {
+bool LogicalTensor::IsGetTensorDataOutcast()
+{
+    for (auto& prod : GetProducers()) {
         if (prod->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            for (auto &prodProd : prod->iOperand[0]->GetProducers()) {
+            for (auto& prodProd : prod->iOperand[0]->GetProducers()) {
                 if (CheckEmuOpcode(prodProd, EMUOP_TENSOR_EXTRACT)) {
                     return true;
                 }
@@ -496,9 +502,8 @@ bool LogicalTensor::IsGetTensorDataOutcast() {
 }
 
 SymbolicScalar npu::tile_fwk::GetViewValidShapeDim(
-    const SymbolicScalar &validShapeDim,
-    const SymbolicScalar &viewOffsetDim,
-    const SymbolicScalar &viewShapeDim) {
+    const SymbolicScalar& validShapeDim, const SymbolicScalar& viewOffsetDim, const SymbolicScalar& viewShapeDim)
+{
     SymbolicScalar result;
     if (validShapeDim.ConcreteValid() && viewOffsetDim.ConcreteValid() && viewShapeDim.ConcreteValid()) {
         auto validShapeData = validShapeDim.Concrete();
@@ -520,8 +525,10 @@ SymbolicScalar npu::tile_fwk::GetViewValidShapeDim(
     return result;
 }
 
-std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<SymbolicScalar> &validShape,
-    const Offset &viewOffset, const std::vector<SymbolicScalar> &viewDynOffset, const Shape &viewShape) {
+std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(
+    const std::vector<SymbolicScalar>& validShape, const Offset& viewOffset,
+    const std::vector<SymbolicScalar>& viewDynOffset, const Shape& viewShape)
+{
     if (validShape.size() == 0) {
         return {};
     }
@@ -543,21 +550,21 @@ std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<S
 
 namespace npu::tile_fwk {
 
-bool CheckEmuOpcode(const Operation *op, EmuOpcode opcode) {
+bool CheckEmuOpcode(const Operation* op, EmuOpcode opcode)
+{
     if (!op->HasAttr(OP_EMUOP_PREFIX + "opc")) {
         return false;
     }
-    if (op->GetIntAttribute(OP_EMUOP_PREFIX + "opc")  != opcode) {
+    if (op->GetIntAttribute(OP_EMUOP_PREFIX + "opc") != opcode) {
         return false;
     }
     return true;
 }
 
-void SetEmuOpcode(Operation *op, EmuOpcode opcode) {
-    op->SetAttr<int64_t>(OP_EMUOP_PREFIX + "opc", opcode);
-}
+void SetEmuOpcode(Operation* op, EmuOpcode opcode) { op->SetAttr<int64_t>(OP_EMUOP_PREFIX + "opc", opcode); }
 
-int GetTensorDataGetIndex(const Operation *op) {
+int GetTensorDataGetIndex(const Operation* op)
+{
     if (op->HasAttr(OP_EMUOP_PREFIX + "GetTensorData_index")) {
         int index = op->GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_index");
         return index;
@@ -566,11 +573,13 @@ int GetTensorDataGetIndex(const Operation *op) {
     }
 }
 
-void GetTensorDataSetIndex(Operation *op, int index) {
+void GetTensorDataSetIndex(Operation* op, int index)
+{
     op->SetAttr<int64_t>(OP_EMUOP_PREFIX + "GetTensorData_index", index);
 }
 
-int GetTensorDataGetCoaIndex(const Operation *op) {
+int GetTensorDataGetCoaIndex(const Operation* op)
+{
     if (op->HasAttr(OP_EMUOP_PREFIX + "GetTensorData_coaIndex")) {
         int index = op->GetIntAttribute(OP_EMUOP_PREFIX + "GetTensorData_coaIndex");
         return index;
@@ -579,11 +588,13 @@ int GetTensorDataGetCoaIndex(const Operation *op) {
     }
 }
 
-void GetTensorDataSetCoaIndex(Operation *op, int index) {
+void GetTensorDataSetCoaIndex(Operation* op, int index)
+{
     op->SetAttr<int64_t>(OP_EMUOP_PREFIX + "GetTensorData_coaIndex", index);
 }
 
-Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offset) {
+Tensor TensorExtract(const Tensor& src, const std::vector<SymbolicScalar>& offset)
+{
     FUNCTION_ASSERT(FError::INVALID_VAL, src.GetShape().size() == offset.size())
         << "src.GetShape().size(): " << src.GetShape().size() << ", offset.size(): " << offset.size();
     auto currFunc = Program::GetInstance().GetCurrentFunction();
@@ -595,14 +606,14 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
 
     Shape viewShape(src.GetShape().size(), 1);
     Tensor view = View(src, viewShape, offset);
-    Operation &emuopView = **view.GetStorage()->GetProducers().begin();
+    Operation& emuopView = **view.GetStorage()->GetProducers().begin();
 
     // Force to UB
     Tensor mark = Add(view, Element(view.GetDataType(), (int64_t)0));
-    Operation &emuopMark = **mark.GetStorage()->GetProducers().begin();
+    Operation& emuopMark = **mark.GetStorage()->GetProducers().begin();
 
     Offset assembleOffset(src.GetShape().size(), 0);
-    Operation &emuopAssemble = currFunc->AddOperation(Opcode::OP_ASSEMBLE, {mark.GetStorage()}, {dst.GetStorage()});
+    Operation& emuopAssemble = currFunc->AddOperation(Opcode::OP_ASSEMBLE, {mark.GetStorage()}, {dst.GetStorage()});
     emuopAssemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleOffset));
 
     SetEmuOpcode(&emuopView, EMUOP_TENSOR_EXTRACT);
@@ -611,7 +622,8 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
     return dst;
 }
 
-void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, Tensor &dst) {
+void TensorInsert(const Tensor& src, const std::vector<SymbolicScalar>& offset, Tensor& dst)
+{
     FUNCTION_ASSERT(FError::INVALID_VAL, src.GetShape() == Shape(src.GetShape().size(), 1))
         << "src.GetShape(): " << src.GetShape()
         << ", Shape(src.GetShape().size(), 1): " << Shape(src.GetShape().size(), 1);
@@ -622,16 +634,18 @@ void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, 
 
     // Force to UB
     Tensor mark = Add(src, Element(src.GetDataType(), (int64_t)0));
-    Operation &emuopMark = **mark.GetStorage()->GetProducers().begin();
+    Operation& emuopMark = **mark.GetStorage()->GetProducers().begin();
 
     Assemble(mark, offset, dst);
-    Operation &emuopAssemble = **mark.GetStorage()->GetConsumers().begin();
+    Operation& emuopAssemble = **mark.GetStorage()->GetConsumers().begin();
 
     emuopMark.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);
     emuopAssemble.SetAttribute(OP_EMUOP_PREFIX + "opc", EMUOP_TENSOR_INSERT);
 }
 
-RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, const RawSymbolicScalarPtr &src, const RawSymbolicScalarPtr &dst) {
+RawSymbolicScalarPtr ReplaceExpression(
+    const RawSymbolicScalarPtr& expr, const RawSymbolicScalarPtr& src, const RawSymbolicScalarPtr& dst)
+{
     if (expr == src) {
         return dst;
     }
@@ -644,7 +658,7 @@ RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, const R
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
             std::vector<RawSymbolicScalarPtr> subexprList;
             bool allreuse = true;
-            for (auto &subexpr : expr->GetExpressionOperandList()) {
+            for (auto& subexpr : expr->GetExpressionOperandList()) {
                 RawSymbolicScalarPtr sub = ReplaceExpression(subexpr, src, dst);
                 subexprList.push_back(sub);
                 allreuse = allreuse && (sub == subexpr);
@@ -654,8 +668,7 @@ RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, const R
             } else {
                 result = std::make_shared<RawSymbolicExpression>(expr->GetExpressionOpcode(), subexprList);
             }
-            }
-            break;
+        } break;
         default:
             FUNCTION_ASSERT(false) << "unexpected behavior.";
             break;
@@ -663,7 +676,8 @@ RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, const R
     return result;
 }
 
-std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const RawSymbolicScalarPtr &dimOffset) {
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const RawSymbolicScalarPtr& dimOffset)
+{
     std::map<int, std::vector<RawSymbolicScalarPtr>> getTensorDataDict;
     std::vector<RawSymbolicScalarPtr> mopCall = LookupExpressionByOpcode(dimOffset, SymbolicOpcode::T_MOP_CALL);
     for (auto mop : mopCall) {
@@ -673,23 +687,26 @@ std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const RawSymb
         }
         auto name = callee->GetSymbolName();
         if (StringUtils::StartsWith(name, AddRuntimePrefix("GetTensorData"))) {
-            auto getTensorDataIndex = mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_INDEX]->GetImmediateValue();
+            auto getTensorDataIndex =
+                mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_INDEX]->GetImmediateValue();
             getTensorDataDict[getTensorDataIndex].push_back(mop);
         }
     }
     return getTensorDataDict;
 }
 
-std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const SymbolicScalar &dimOffset) {
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const SymbolicScalar& dimOffset)
+{
     return GetTensorDataDict(dimOffset.Raw());
 }
 
-std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<SymbolicScalar> &offset) {
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<SymbolicScalar>& offset)
+{
     std::map<int, std::vector<RawSymbolicScalarPtr>> getTensorDataDict;
-    for (auto &off : offset) {
+    for (auto& off : offset) {
         auto perOffsetDict = GetTensorDataDict(off);
-        for (auto &[index, callList] : perOffsetDict) {
-            for (auto &call : callList) {
+        for (auto& [index, callList] : perOffsetDict) {
+            for (auto& call : callList) {
                 getTensorDataDict[index].push_back(call);
             }
         }
@@ -697,12 +714,14 @@ std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::ve
     return getTensorDataDict;
 }
 
-std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::vector<std::reference_wrapper<SymbolicScalar>> &offset) {
+std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(
+    const std::vector<std::reference_wrapper<SymbolicScalar>>& offset)
+{
     std::map<int, std::vector<RawSymbolicScalarPtr>> getTensorDataDict;
-    for (auto &off : offset) {
+    for (auto& off : offset) {
         auto perOffsetDict = GetTensorDataDict(off.get());
-        for (auto &[index, callList] : perOffsetDict) {
-            for (auto &call : callList) {
+        for (auto& [index, callList] : perOffsetDict) {
+            for (auto& call : callList) {
                 getTensorDataDict[index].push_back(call);
             }
         }
@@ -710,17 +729,20 @@ std::map<int, std::vector<RawSymbolicScalarPtr>> GetTensorDataDict(const std::ve
     return getTensorDataDict;
 }
 
-std::string GetTensorDataIODescDict::Dump() const {
+std::string GetTensorDataIODescDict::Dump() const
+{
     std::ostringstream oss;
     for (auto [index, desc] : *this) {
-        oss << index << ":" << "GetTensorDataIODesc(" << desc.ioType << "," << desc.ioTypeIndex << "," << desc.address.Dump() << ")\n";
+        oss << index << ":"
+            << "GetTensorDataIODesc(" << desc.ioType << "," << desc.ioTypeIndex << "," << desc.address.Dump() << ")\n";
     }
     return oss.str();
 }
 
-std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::reference_wrapper<SymbolicScalar>> &scalars) {
+std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::reference_wrapper<SymbolicScalar>>& scalars)
+{
     std::set<std::pair<int, int>> usage;
-    for (auto &scalar : scalars) {
+    for (auto& scalar : scalars) {
         auto mopcall = LookupExpressionByOpcode(scalar.get().Raw(), SymbolicOpcode::T_MOP_CALL);
         for (auto mop : mopcall) {
             auto callee = mop->GetExpressionOperandList()[0];
@@ -729,8 +751,10 @@ std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::referenc
             }
             auto name = callee->GetSymbolName();
             if (StringUtils::StartsWith(name, AddRuntimePrefix("GetTensorData"))) {
-                auto ioType = mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE]->GetImmediateValue();
-                auto ioIndex = mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX]->GetImmediateValue();
+                auto ioType =
+                    mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE]->GetImmediateValue();
+                auto ioIndex =
+                    mop->GetExpressionOperandList()[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX]->GetImmediateValue();
                 usage.insert({ioType, ioIndex});
             }
         }
@@ -738,9 +762,10 @@ std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::referenc
     return usage;
 }
 
-SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutcastIdx, const SymbolicScalar &scalar) {
-    FUNCTION_ASSERT(currOutcastIdx != newOutcastIdx) <<
-        "currOutcastIdx == currOutcastIdx, should not be updated. Their value are " << currOutcastIdx;
+SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutcastIdx, const SymbolicScalar& scalar)
+{
+    FUNCTION_ASSERT(currOutcastIdx != newOutcastIdx)
+        << "currOutcastIdx == currOutcastIdx, should not be updated. Their value are " << currOutcastIdx;
     RawSymbolicScalarPtr curr = scalar.Raw();
     // when updating multilple outcastIdx, should ensure the currOutcastIdx of multiple calls is in ascending order
     bool filledFound = true;
@@ -748,17 +773,22 @@ SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutca
         filledFound = false;
         for (auto [index, callList] : GetTensorDataDict(curr)) {
             (void)index;
-            for (auto &call : callList) {
+            for (auto& call : callList) {
                 std::vector<RawSymbolicScalarPtr> operandList = call->GetExpressionOperandList();
                 auto currIOType = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE];
                 auto currIOTypeIndex = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX];
-                FUNCTION_ASSERT(currIOType->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOType->kind);
-                FUNCTION_ASSERT(currIOTypeIndex->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOTypeIndex->kind);
-                if (currIOType->GetImmediateValue() != GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) continue;
+                FUNCTION_ASSERT(currIOType->IsImmediate())
+                    << "its' kind: " << SymbolicScalarKind2Name(currIOType->kind);
+                FUNCTION_ASSERT(currIOTypeIndex->IsImmediate())
+                    << "its' kind: " << SymbolicScalarKind2Name(currIOTypeIndex->kind);
+                if (currIOType->GetImmediateValue() != GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST)
+                    continue;
                 size_t outcastIndex = currIOTypeIndex->GetImmediateValue();
-                if (outcastIndex == newOutcastIdx|| outcastIndex != currOutcastIdx) continue;
+                if (outcastIndex == newOutcastIdx || outcastIndex != currOutcastIdx)
+                    continue;
                 filledFound = true;
-                operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX] = std::make_shared<RawSymbolicImmediate>(newOutcastIdx);
+                operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX] =
+                    std::make_shared<RawSymbolicImmediate>(newOutcastIdx);
                 auto ptrNext = std::make_shared<RawSymbolicExpression>(call->GetExpressionOpcode(), operandList);
                 auto currNext = ReplaceExpression(curr, call, ptrNext);
                 curr = currNext;
@@ -769,7 +799,8 @@ SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutca
     return SymbolicScalar(curr);
 }
 
-SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, const SymbolicScalar &dimOffset) {
+SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict& iodescDict, const SymbolicScalar& dimOffset)
+{
     RawSymbolicScalarPtr curr = dimOffset.Raw();
     bool filledFound = true;
     while (filledFound) {
@@ -782,17 +813,21 @@ SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, co
             }
             // The same index always result in the same io type and io type index
             auto [ioTypeValue, ioTypeIndexValue, address] = iodescDict.find(index)->second;
-            for (auto &call : callList) {
+            for (auto& call : callList) {
                 std::vector<RawSymbolicScalarPtr> operandList = call->GetExpressionOperandList();
                 auto currIOType = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE];
                 auto currIOTypeIndex = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX];
-                FUNCTION_ASSERT(currIOType->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOType->kind);
-                FUNCTION_ASSERT(currIOTypeIndex->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOTypeIndex->kind);
-                if (currIOType->GetImmediateValue() == ioTypeValue && currIOTypeIndex->GetImmediateValue() == ioTypeIndexValue) {
+                FUNCTION_ASSERT(currIOType->IsImmediate())
+                    << "its' kind: " << SymbolicScalarKind2Name(currIOType->kind);
+                FUNCTION_ASSERT(currIOTypeIndex->IsImmediate())
+                    << "its' kind: " << SymbolicScalarKind2Name(currIOTypeIndex->kind);
+                if (currIOType->GetImmediateValue() == ioTypeValue &&
+                    currIOTypeIndex->GetImmediateValue() == ioTypeIndexValue) {
                     continue;
                 }
                 operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE] = std::make_shared<RawSymbolicImmediate>(ioTypeValue);
-                operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX] = std::make_shared<RawSymbolicImmediate>(ioTypeIndexValue);
+                operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX] =
+                    std::make_shared<RawSymbolicImmediate>(ioTypeIndexValue);
                 operandList[GET_TENSOR_DATA_OPERAND_INDEX_ADDRESS] = address.Raw();
                 auto ptrNext = std::make_shared<RawSymbolicExpression>(call->GetExpressionOpcode(), operandList);
                 auto currNext = ReplaceExpression(curr, call, ptrNext);

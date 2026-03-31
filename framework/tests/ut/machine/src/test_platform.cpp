@@ -22,28 +22,27 @@ using namespace npu::tile_fwk;
 
 class PlatformTest : public testing::Test {
 public:
-    static void SetUpTestCase() {
+    static void SetUpTestCase()
+    {
         std::cout << "PlatformTest SetUpTestCase" << std::endl;
         std::cout << "current path = " << RealPath("./") << std::endl;
         ASSERT_FALSE(RealPath("./stubs").empty());
         setenv("ASCEND_HOME_PATH", "./stubs", 1);
     }
 
-    static void TearDownTestCase() {
+    static void TearDownTestCase()
+    {
         std::cout << "PlatformTest TearDownTestCase" << std::endl;
         unsetenv("ASCEND_AICPU_PATH");
     }
 
-    void SetUp() override {
-        std::cout << "PlatformTest SetUp" << std::endl;
-    }
+    void SetUp() override { std::cout << "PlatformTest SetUp" << std::endl; }
 
-    void TearDown() override {
-        std::cout << "PlatformTest TearDown" << std::endl;
-    }
+    void TearDown() override { std::cout << "PlatformTest TearDown" << std::endl; }
 };
 
-TEST_F(PlatformTest, TestPlatfromCase1) {
+TEST_F(PlatformTest, TestPlatfromCase1)
+{
     EXPECT_EQ(PlatformManager::Instance().Initialize("Ascend910F1"), false);
     EXPECT_EQ(PlatformManager::Instance().Initialize("Ascend910B1"), true);
     EXPECT_EQ(PlatformManager::Instance().Initialize("Ascend910B1"), true);
@@ -75,17 +74,17 @@ TEST_F(PlatformTest, TestPlatfromCase1) {
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreL2ReadRate(), 110);
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreL2WriteRate(), 86);
 
-    for (const auto &pair : PlatformManager::Instance().GetAiCoreIntrinsicDtypeMap()) {
+    for (const auto& pair : PlatformManager::Instance().GetAiCoreIntrinsicDtypeMap()) {
         std::cout << pair.first << " : ";
-        for (const std::string &item : pair.second) {
+        for (const std::string& item : pair.second) {
             std::cout << item << " ";
         }
         std::cout << std::endl;
     }
 
-    for (const auto &pair : PlatformManager::Instance().GetVectorCoreIntrinsicDtypeMap()) {
+    for (const auto& pair : PlatformManager::Instance().GetVectorCoreIntrinsicDtypeMap()) {
         std::cout << pair.first << " : ";
-        for (const std::string &item : pair.second) {
+        for (const std::string& item : pair.second) {
             std::cout << item << " ";
         }
         std::cout << std::endl;

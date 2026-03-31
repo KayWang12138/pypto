@@ -21,46 +21,51 @@
 
 namespace npu::tile_fwk {
 
-    // 入参为Operation对象
-    std::string GetFormatBacktrace(const Operation& op) {
-        auto location = op.GetLocation();
-        if (!location) {
-            return "";
-        }
-        
-        std::ostringstream oss;
-        oss << "[FuncMagic:" << op.BelongTo()->GetFuncMagic() << "]" << "[OpMagic:" << op.opmagic << "]" << "[Backtrace]:" << location->SourceLocation::GetBacktrace() << ".";
-        return oss.str();
+// 入参为Operation对象
+std::string GetFormatBacktrace(const Operation& op)
+{
+    auto location = op.GetLocation();
+    if (!location) {
+        return "";
     }
 
-    // 入参为智能指针
-    std::string GetFormatBacktrace(const OperationPtr& op) {
-        if (!op) {
-            return "";
-        }
-        return GetFormatBacktrace(*op);
-    }
-
-    // 入参为普通指针
-    std::string GetFormatBacktrace(const Operation* op) {
-        if (!op) {
-            return "";
-        }
-        return GetFormatBacktrace(*op);
-    }
-
-    PassLogUtil::PassLogUtil(Pass &pass, Function &function, size_t passIndex) {
-        logFolder_ = pass.LogFolder(config::LogTopFolder(), passIndex);
-        logFilePath_ = logFolder_ + "/" + (pass.GetName() + function.GetMagicName() + ".log");
-    }
-
-    PassLogUtil::~PassLogUtil() {
-        if (!logFolder_.empty()) {
-            auto files = GetFiles(logFolder_, "");
-            if (files.empty()) {
-                (void)DeleteDir(logFolder_);
-            }
-        }
-    }
-
+    std::ostringstream oss;
+    oss << "[FuncMagic:" << op.BelongTo()->GetFuncMagic() << "]"
+        << "[OpMagic:" << op.opmagic << "]"
+        << "[Backtrace]:" << location->SourceLocation::GetBacktrace() << ".";
+    return oss.str();
 }
+
+// 入参为智能指针
+std::string GetFormatBacktrace(const OperationPtr& op)
+{
+    if (!op) {
+        return "";
+    }
+    return GetFormatBacktrace(*op);
+}
+
+// 入参为普通指针
+std::string GetFormatBacktrace(const Operation* op)
+{
+    if (!op) {
+        return "";
+    }
+    return GetFormatBacktrace(*op);
+}
+
+PassLogUtil::PassLogUtil(Pass &pass, Function &function, size_t passIndex) {
+    logFolder_ = pass.LogFolder(config::LogTopFolder(), passIndex);
+    logFilePath_ = logFolder_ + "/" + (pass.GetName() + function.GetMagicName() + ".log");
+}
+
+PassLogUtil::~PassLogUtil() {
+    if (!logFolder_.empty()) {
+        auto files = GetFiles(logFolder_, "");
+        if (files.empty()) {
+            (void)DeleteDir(logFolder_);
+        }
+    }
+}
+
+} // namespace npu::tile_fwk

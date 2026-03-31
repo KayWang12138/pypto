@@ -41,4 +41,3 @@ set_pass_config(strategy: str, identifier: str, key: PassConfigKey, value: bool)
 ```python
 pypto.set_pass_config("PVC2_OOO", "ExpandFunction", pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
 ```
-

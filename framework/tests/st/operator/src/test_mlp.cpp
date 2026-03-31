@@ -49,27 +49,29 @@ TEST_F(MlpTest, test_16_7168_tileop)
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
     // 创建PROGRAM
-    PROGRAM("MLP") {
+    PROGRAM("MLP")
+    {
         TileShape::Current().SetVecTile(32, 256);
         TileShape::Current().SetCubeTile({32, 32}, {128, 256}, {128, 128});
 
         // 构建输入矩阵
-        void *x_ptr = readToDev<float>(GetGoldenDir() + "/hidden_states.bin", inputCapacity);
-        Tensor hiddenStates(DataType::DT_FP32, hiddenStatesShape, (uint8_t *)x_ptr, "A");
+        void* x_ptr = readToDev<float>(GetGoldenDir() + "/hidden_states.bin", inputCapacity);
+        Tensor hiddenStates(DataType::DT_FP32, hiddenStatesShape, (uint8_t*)x_ptr, "A");
 
-        void *x1_ptr = readToDev<npu::tile_fwk::float16>(GetGoldenDir() + "/ffnWeight1.bin", input1Capacity);
-        Tensor ffnweigth1(DataType::DT_FP16, ffnwegiht, (uint8_t *)x1_ptr, "B");
+        void* x1_ptr = readToDev<npu::tile_fwk::float16>(GetGoldenDir() + "/ffnWeight1.bin", input1Capacity);
+        Tensor ffnweigth1(DataType::DT_FP16, ffnwegiht, (uint8_t*)x1_ptr, "B");
 
-        void *x2_ptr = readToDev<npu::tile_fwk::float16>(GetGoldenDir() + "/ffnWeight2.bin", input1Capacity);
-        Tensor ffnweigth2(DataType::DT_FP16, ffnwegiht, (uint8_t *)x2_ptr, "C");
+        void* x2_ptr = readToDev<npu::tile_fwk::float16>(GetGoldenDir() + "/ffnWeight2.bin", input1Capacity);
+        Tensor ffnweigth2(DataType::DT_FP16, ffnwegiht, (uint8_t*)x2_ptr, "C");
 
-        void *x3_ptr = readToDev<npu::tile_fwk::float16>(GetGoldenDir() + "/ffnWeight3.bin", input1Capacity);
-        Tensor ffnweigth3(DataType::DT_FP16, ffnwegiht, (uint8_t *)x3_ptr, "D");
+        void* x3_ptr = readToDev<npu::tile_fwk::float16>(GetGoldenDir() + "/ffnWeight3.bin", input1Capacity);
+        Tensor ffnweigth3(DataType::DT_FP16, ffnwegiht, (uint8_t*)x3_ptr, "D");
 
         Tensor output(DataType::DT_FP32, outshape, out_ptr, "E");
 
         config::SetBuildStatic(true);
-        FUNCTION("MLP_T", {hiddenStates, ffnweigth1, ffnweigth2, ffnweigth3, output})     {
+        FUNCTION("MLP_T", {hiddenStates, ffnweigth1, ffnweigth2, ffnweigth3, output})
+        {
             auto castRes = Cast(hiddenStates, DataType::DT_FP16);
             auto gate = Matrix::Matmul(DataType::DT_FP32, castRes, ffnweigth1, false, false, true);
 
@@ -81,20 +83,22 @@ TEST_F(MlpTest, test_16_7168_tileop)
 
             // up_proj
             // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
-            auto up = Matrix::Matmul(DataType::DT_FP32, castRes, Cast(ffnweigth2, DataType::DT_FP16), false, false, true);
+            auto up =
+                Matrix::Matmul(DataType::DT_FP32, castRes, Cast(ffnweigth2, DataType::DT_FP16), false, false, true);
             swish = Mul(swish, up);
             auto swish_fp16 = Cast(swish, DataType::DT_FP16);
 
             // down_proj
             // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
-            output = Matrix::Matmul(DataType::DT_FP32, swish_fp16, Cast(ffnweigth3, DataType::DT_FP16), false, true, true);
+            output =
+                Matrix::Matmul(DataType::DT_FP32, swish_fp16, Cast(ffnweigth3, DataType::DT_FP16), false, true, true);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/final_out.bin", golden);
 

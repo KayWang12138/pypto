@@ -17,8 +17,10 @@
 #include "operator/models/deepseek/deepseek_mla.h"
 
 namespace npu::tile_fwk {
-std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,
-    const Tensor &gammaCq, float epsilonCq, MlaQuantInputs quantInputs,bool splitReduceLastDim, bool splitK) {
+std::vector<Tensor> QkvPre(
+    const Tensor& tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wDkvKr, const Tensor& gammaCq,
+    float epsilonCq, MlaQuantInputs quantInputs, bool splitReduceLastDim, bool splitK)
+{
     // quant
     Tensor dequantScaleWUqQr = quantInputs.dequantScaleWUqQr;
     bool isQuant = (dequantScaleWUqQr.GetStorage() != nullptr);
@@ -64,7 +66,7 @@ std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
         if (hasSmooth) {
             normQuantRes = Quant(normRes, true, true, smoothScalesCq);
         } else {
-            normQuantRes = Quant(normRes);  // int8
+            normQuantRes = Quant(normRes); // int8
         }
         normRes = std::get<0>(normQuantRes);
         normDequantScale = std::get<1>(normQuantRes);
@@ -97,13 +99,17 @@ std::vector<Tensor> QkvPre(const Tensor &tokenX, const Tensor &wDq, const Tensor
     return qkvPreRes;
 }
 
-void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
-    const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
-    Tensor &kvCache, Tensor &krCache, MlaQuantInputs quantInputs, const RoPETileShapeConfigNew &ropeConfig,
-    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq, float epsilonCkv,
-    std::string cacheMode, bool splitReduceLastDim, bool splitK) {
+void MlaProlog(
+    Tensor tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wUk, const Tensor& wDkvKr,
+    const Tensor& gammaCq, const Tensor& gammaCkv, const Tensor& sin, const Tensor& cos, const Tensor& cacheIndex,
+    Tensor& kvCache, Tensor& krCache, MlaQuantInputs quantInputs, const RoPETileShapeConfigNew& ropeConfig,
+    Tensor& queryOut, Tensor& queryRopeOut, Tensor& kvCacheOut, Tensor& krCacheOut, float epsilonCq, float epsilonCkv,
+    std::string cacheMode, bool splitReduceLastDim, bool splitK)
+{
     // params check
-    assert(tokenX.GetShape().size() == SHAPE_DIM3 && wUk.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
+    assert(
+        tokenX.GetShape().size() == SHAPE_DIM3 && wUk.GetShape().size() == SHAPE_DIM3 &&
+        sin.GetShape().size() == SHAPE_DIM3);
     assert(kvCache.GetShape().size() == SHAPE_DIM4 && krCache.GetShape().size() == SHAPE_DIM4);
     assert(cacheMode == "BNSD" || cacheMode == "PA_BSND" || cacheMode == "PA_NZ");
 
@@ -143,13 +149,13 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
 
     /******** q ********/
     Tensor qNope = View(qTmp, {b, s, n, qkNopeHeadDim}, {0, 0, 0, 0}); // [b,s,n,qkNopeHeadDim]
-                                                                      // {NUM_2, 1, NUM_32, NUM_128}
+                                                                       // {NUM_2, 1, NUM_32, NUM_128}
     tileShape = {b, 1, 1, NUM_128};
     TileShape::Current().SetVecTile(tileShape);
     Tensor qNopeRes = Reshape(qNope, {bs, n, qkNopeHeadDim}); // [bs,n,qkNopeHeadDim]
-    tileShape = {bs, 1, qkNopeHeadDim};     // {NUM_2, NUM_32, qkNopeHeadDim}
+    tileShape = {bs, 1, qkNopeHeadDim};                       // {NUM_2, NUM_32, qkNopeHeadDim}
     TileShape::Current().SetVecTile(tileShape);
-    Tensor qNopeTrans = Transpose(qNopeRes, {0, 1}); // [n,bs,qkNopeHeadDim]
+    Tensor qNopeTrans = Transpose(qNopeRes, {0, 1});          // [n,bs,qkNopeHeadDim]
 
     int c0 = NUM_16;
     int m = (bs + c0 - 1) / c0 * c0;
@@ -157,7 +163,7 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
     // bmm: (n,bs,qkNopeHeadDim) * (n, qkNopeHeadDim, kvLoraRank) = (n, bs, kvLoraRank)
     Tensor qNopeNew = Matrix::BatchMatmul(dType, qNopeTrans, wUk);
 
-    tileShape = {1, bs, kvLoraRank}; // {NUM_16, NUM_2, kvLoraRank}
+    tileShape = {1, bs, kvLoraRank};                          // {NUM_16, NUM_2, kvLoraRank}
     TileShape::Current().SetVecTile(tileShape);
     Tensor qNopeNewTrans = Transpose(qNopeNew, {0, 1});       // [bs,n,kvLoraRank]
     queryOut = Reshape(qNopeNewTrans, {b, s, n, kvLoraRank}); // [b,s,n,kvLoraRank], output1
@@ -173,7 +179,7 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
     Tensor kPe = View(kvTmp, {b, s, qkRopeHeadDim}, {0, 0, kvLoraRank});         // [b,s,qkRopeHeadDim]
     tileShape = {bs, 1, NUM_64};
     TileShape::Current().SetVecTile(tileShape);
-    Tensor kPeRes = Reshape(kPe, {b, s, 1, qkRopeHeadDim}); // [b,s,1,qkRopeHeadDim]
+    Tensor kPeRes = Reshape(kPe, {b, s, 1, qkRopeHeadDim});                           // [b,s,1,qkRopeHeadDim]
 
     Tensor kRope(kPeRes.GetStorage()->Datatype(), {b, s, 1, qkRopeHeadDim}, "kRope"); // [b,1,s,qkRopeHeadDim]
     // queryRopeOut: [b,s,n,qkRopeHeadDim], output2
@@ -185,7 +191,7 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
         int n2 = kvCache.GetShape()[2];
         Tensor kvCacheRes = Reshape(kvCache, {blockNum * blockSize * n2, kvLoraRank});
         Tensor krCacheRes = Reshape(krCache, {blockNum * blockSize * n2, qkRopeHeadDim});
-        Tensor kNope = Reshape(compressedKvNorm, {b * s, kvLoraRank});       // [b*s,kvLoraRank]
+        Tensor kNope = Reshape(compressedKvNorm, {b * s, kvLoraRank}); // [b*s,kvLoraRank]
         Tensor kRopeRes = Reshape(kRope, {b * s * 1, qkRopeHeadDim});
 
         /******** kvCache ********/
@@ -202,7 +208,7 @@ void MlaProlog(Tensor tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tens
         Tensor krCacheUpdate = ScatterUpdate(krCacheRes, cacheIndex, kRopeRes, -2, cacheMode);
         krCacheOut = Reshape(krCacheUpdate, {blockNum, blockSize, n2, qkRopeHeadDim});
     } else {
-        Tensor kNope = Reshape(compressedKvNorm, {b, 1, s, kvLoraRank});       // [b,1,s,kvLoraRank]
+        Tensor kNope = Reshape(compressedKvNorm, {b, 1, s, kvLoraRank}); // [b,1,s,kvLoraRank]
         Tensor kRopeRes = Reshape(kRope, {b, 1, s, qkRopeHeadDim});
 
         /******** kvCache ********/

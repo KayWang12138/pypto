@@ -38,33 +38,36 @@ const int NULL_OPERAND = 0;
 
 struct CodeGenOpCtx {
     std::shared_ptr<SymbolManager> symbolManager;
-    Function &topFunc;
-    Function &subFunc;
-    const Operation &operation;
-    const std::map<int, int> &locToOffset = {};
+    Function& topFunc;
+    Function& subFunc;
+    const Operation& operation;
+    const std::map<int, int>& locToOffset = {};
     bool isMainBlock{false};
     bool isDynamicAligned{false};
 
-    CodeGenOpCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false)
+    CodeGenOpCtx(
+        std::shared_ptr<SymbolManager> sm, Function& tf, Function& sf, const Operation& op,
+        const std::map<int, int>& lto = {}, bool isMainBlk = false, bool isDynAligned = false)
         : symbolManager(std::move(sm)),
           topFunc(tf),
           subFunc(sf),
           operation(op),
           locToOffset(lto),
           isMainBlock(isMainBlk),
-          isDynamicAligned(isDynAligned) {}
+          isDynamicAligned(isDynAligned)
+    {}
 };
 
 class CodeGenOp {
 public:
-    explicit CodeGenOp(const CodeGenOpCtx &ctx)
+    explicit CodeGenOp(const CodeGenOpCtx& ctx)
         : originalOp(ctx.operation),
           functionType(ctx.topFunc.GetFunctionType()),
           paramLocToParamListOffset(ctx.locToOffset),
           isUnderDynamicFunction(ctx.topFunc.IsUnderDynamicFunction()),
           isMainBlock(ctx.isMainBlock),
-          isDynamicAligned(ctx.isDynamicAligned) {
+          isDynamicAligned(ctx.isDynamicAligned)
+    {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
             operand[i] = NULL_OPERAND;
             operandType[i] = BUF_UNKNOWN;
@@ -73,18 +76,18 @@ public:
     }
     virtual ~CodeGenOp() = default;
 
-    virtual void Init(const Operation &ops);
+    virtual void Init(const Operation& ops);
 
     virtual std::string GenOpCode() const = 0;
 
 protected:
     std::string GenOpAttr(bool hasExistingParam = true) const;
 
-    const Operation &originalOp;
+    const Operation& originalOp;
     const FunctionType functionType;
     std::string opCodeStr;
     Opcode opCode{Opcode::OP_UNKNOWN};
-    std::string aliasOp; // alias op name
+    std::string aliasOp;            // alias op name
 
     int operand[MAX_OPERANDS] = {}; // buffer id
     int operandWithMagic[MAX_OPERANDS] = {};
@@ -105,8 +108,8 @@ protected:
     std::vector<SymbolicScalar> dynamicOffset[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
 
-    std::vector<int64_t> shapeFromAttr[MAX_OPERANDS] = {};         // 1.for spilling to GM scene 2.for conv
-    std::vector<SymbolicScalar> offsetFromAttr[MAX_OPERANDS] = {}; // for spilling to GM scene
+    std::vector<int64_t> shapeFromAttr[MAX_OPERANDS] = {};            // 1.for spilling to GM scene 2.for conv
+    std::vector<SymbolicScalar> offsetFromAttr[MAX_OPERANDS] = {};    // for spilling to GM scene
     std::vector<SymbolicScalar> dynValidShapeFromOpAttr[MAX_OPERANDS] = {};
     // if operand is an variable, record its related argument location
     // In COA(Call Operation Attribute), 0-index is the callee's cce info. So the tensor list starts from 1.
@@ -122,7 +125,7 @@ protected:
     std::map<std::string, Any> opAttrs;
 
     std::shared_ptr<SymbolManager> sm{nullptr};
-    const std::map<int, int> &paramLocToParamListOffset{};
+    const std::map<int, int>& paramLocToParamListOffset{};
 
     std::string tileOpName;
     bool isInputForceCombineAxis{false};
@@ -135,24 +138,25 @@ protected:
     bool isDynamicAligned{false};
 
 private:
-    void UpdateCodegenOpInfoByTensor(const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor,
-        int &operandIdx, size_t ioIdx);
+    void UpdateCodegenOpInfoByTensor(
+        const Operation& ops, bool isInput, const std::shared_ptr<LogicalTensor>& tensor, int& operandIdx,
+        size_t ioIdx);
 
-    void UpdateTileOpInfo(const Operation &ops);
+    void UpdateTileOpInfo(const Operation& ops);
 
-    void GetGmParamIdx(const Operation &oper);
+    void GetGmParamIdx(const Operation& oper);
 
-    void ConvertPoolAttribute(const Operation &operation);
-    void ConvertAttribute(const Operation &operation);
+    void ConvertPoolAttribute(const Operation& operation);
+    void ConvertAttribute(const Operation& operation);
     void UpdateShape(
-        const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx, bool isInput, size_t ioIdx);
-    void UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
-    void UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx);
-    void UpdateShapeFromAttr(const std::vector<OpImmediate> &toValidShape, int operandIdx);
-    void UpdateOffsetValueFromAttr(const std::vector<OpImmediate> &offsets, int operandIdx);
-    void UpdateScalarValue(const Operation &ops);
-    void UpdateOpAttribute(const Operation &ops);
-    void CombineAxis(const Operation &oper, int operandIdx, bool isInput, size_t ioIdx);
+        const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx, bool isInput, size_t ioIdx);
+    void UpdateOffsetForInput(const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx);
+    void UpdateOffsetForOutput(const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx);
+    void UpdateShapeFromAttr(const std::vector<OpImmediate>& toValidShape, int operandIdx);
+    void UpdateOffsetValueFromAttr(const std::vector<OpImmediate>& offsets, int operandIdx);
+    void UpdateScalarValue(const Operation& ops);
+    void UpdateOpAttribute(const Operation& ops);
+    void CombineAxis(const Operation& oper, int operandIdx, bool isInput, size_t ioIdx);
 };
 } // namespace npu::tile_fwk
 
