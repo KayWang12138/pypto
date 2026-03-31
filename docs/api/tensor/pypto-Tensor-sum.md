@@ -16,4 +16,3 @@ sum(self, dim: int, keepdim: bool = False) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.sum](../operation/pypto-sum.md)。
-

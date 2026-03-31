@@ -26,7 +26,8 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         if (!calc::IsVerifyEnabled()) {
             GTEST_SKIP() << "Verify not supported skip the verify test";
         }
@@ -38,13 +39,15 @@ public:
 };
 
 template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const T &val) {
+static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t>& shape, const T& val)
+{
     Tensor data(t, shape);
     return std::make_shared<LogicalTensorData>(RawTensorData::CreateConstantTensor(data, val));
 }
 
 template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const std::vector<T> &vals) {
+static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t>& shape, const std::vector<T>& vals)
+{
     Tensor data(t, shape);
     return std::make_shared<LogicalTensorData>(RawTensorData::CreateTensor(data, vals));
 }
@@ -52,7 +55,8 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 #define ASSERT_ALLCLOSE(self, other) \
     ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
 
-TEST_F(TorchAdaptorTest, LogicalNot) {
+TEST_F(TorchAdaptorTest, LogicalNot)
+{
     {
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
         auto out = makeTensorData(DT_BOOL, {16, 16}, true);
@@ -69,7 +73,8 @@ TEST_F(TorchAdaptorTest, LogicalNot) {
     }
 }
 
-TEST_F(TorchAdaptorTest, LogicalAnd) {
+TEST_F(TorchAdaptorTest, LogicalAnd)
+{
     auto self = makeTensorData(DT_BOOL, {16, 16}, true);
     auto other = makeTensorData(DT_BOOL, {16, 16}, true);
     auto out = makeTensorData(DT_BOOL, {16, 16}, false);
@@ -78,7 +83,8 @@ TEST_F(TorchAdaptorTest, LogicalAnd) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, Range) {
+TEST_F(TorchAdaptorTest, Range)
+{
     std::vector<float> gdata = {1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7};
     auto out = makeTensorData(DT_FP32, {7}, 0.0f);
     auto golden = makeTensorData(DT_FP32, {7}, gdata);
@@ -86,7 +92,8 @@ TEST_F(TorchAdaptorTest, Range) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, Exp2) {
+TEST_F(TorchAdaptorTest, Exp2)
+{
     auto self = makeTensorData(DT_FP32, {16, 16}, 2.0f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
     auto golden = makeTensorData(DT_FP32, {16, 16}, std::exp2(2.0f));
@@ -94,7 +101,8 @@ TEST_F(TorchAdaptorTest, Exp2) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, Round) {
+TEST_F(TorchAdaptorTest, Round)
+{
     auto self = makeTensorData(DT_FP32, {16, 16}, 1.1f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 1.0f);
     auto golden = makeTensorData(DT_FP32, {16, 16}, 1.0f);
@@ -102,7 +110,8 @@ TEST_F(TorchAdaptorTest, Round) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, Compare) {
+TEST_F(TorchAdaptorTest, Compare)
+{
     auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto out = makeTensorData(DT_BOOL, {16, 16}, false);
@@ -114,14 +123,11 @@ TEST_F(TorchAdaptorTest, Compare) {
         CmpModeType mode;
         bool expect;
     } cases[] = {
-        {CmpOperationType::EQ, CmpModeType::BOOL, true},
-        {CmpOperationType::NE, CmpModeType::BOOL, false},
-        {CmpOperationType::LT, CmpModeType::BOOL, false},
-        {CmpOperationType::LE, CmpModeType::BOOL, true},
-        {CmpOperationType::GT, CmpModeType::BOOL, false},
-        {CmpOperationType::GE, CmpModeType::BOOL, true},
+        {CmpOperationType::EQ, CmpModeType::BOOL, true},  {CmpOperationType::NE, CmpModeType::BOOL, false},
+        {CmpOperationType::LT, CmpModeType::BOOL, false}, {CmpOperationType::LE, CmpModeType::BOOL, true},
+        {CmpOperationType::GT, CmpModeType::BOOL, false}, {CmpOperationType::GE, CmpModeType::BOOL, true},
     };
-    for (const auto &test : cases) {
+    for (const auto& test : cases) {
         calc::Compare(out, self, other, test.type, test.mode);
         if (test.expect) {
             ASSERT_ALLCLOSE(out, golden_true);
@@ -131,7 +137,8 @@ TEST_F(TorchAdaptorTest, Compare) {
     }
 }
 
-TEST_F(TorchAdaptorTest, CompareBit) {
+TEST_F(TorchAdaptorTest, CompareBit)
+{
     auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto out = makeTensorData(DT_UINT8, {16, 2}, false);
@@ -143,14 +150,11 @@ TEST_F(TorchAdaptorTest, CompareBit) {
         CmpModeType mode;
         bool expect;
     } cases[] = {
-        {CmpOperationType::EQ, CmpModeType::BIT, true},
-        {CmpOperationType::NE, CmpModeType::BIT, false},
-        {CmpOperationType::LT, CmpModeType::BIT, false},
-        {CmpOperationType::LE, CmpModeType::BIT, true},
-        {CmpOperationType::GT, CmpModeType::BIT, false},
-        {CmpOperationType::GE, CmpModeType::BIT, true},
+        {CmpOperationType::EQ, CmpModeType::BIT, true},  {CmpOperationType::NE, CmpModeType::BIT, false},
+        {CmpOperationType::LT, CmpModeType::BIT, false}, {CmpOperationType::LE, CmpModeType::BIT, true},
+        {CmpOperationType::GT, CmpModeType::BIT, false}, {CmpOperationType::GE, CmpModeType::BIT, true},
     };
-    for (const auto &test : cases) {
+    for (const auto& test : cases) {
         calc::Compare(out, self, other, test.type, test.mode);
         if (test.expect) {
             ASSERT_ALLCLOSE(out, golden_1);
@@ -160,7 +164,8 @@ TEST_F(TorchAdaptorTest, CompareBit) {
     }
 }
 
-TEST_F(TorchAdaptorTest, Cmps) {
+TEST_F(TorchAdaptorTest, Cmps)
+{
     auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto elem = Element(DT_FP32, 4.0f);
     auto out = makeTensorData(DT_BOOL, {16, 16}, false);
@@ -171,14 +176,11 @@ TEST_F(TorchAdaptorTest, Cmps) {
         CmpModeType mode;
         bool expect;
     } cases[] = {
-        {CmpOperationType::EQ, CmpModeType::BOOL, true},
-        {CmpOperationType::NE, CmpModeType::BOOL, false},
-        {CmpOperationType::LT, CmpModeType::BOOL, false},
-        {CmpOperationType::LE, CmpModeType::BOOL, true},
-        {CmpOperationType::GT, CmpModeType::BOOL, false},
-        {CmpOperationType::GE, CmpModeType::BOOL, true},
+        {CmpOperationType::EQ, CmpModeType::BOOL, true},  {CmpOperationType::NE, CmpModeType::BOOL, false},
+        {CmpOperationType::LT, CmpModeType::BOOL, false}, {CmpOperationType::LE, CmpModeType::BOOL, true},
+        {CmpOperationType::GT, CmpModeType::BOOL, false}, {CmpOperationType::GE, CmpModeType::BOOL, true},
     };
-    for (const auto &test : cases) {
+    for (const auto& test : cases) {
         calc::Cmps(out, self, elem, test.type, test.mode);
         if (test.expect) {
             ASSERT_ALLCLOSE(out, golden_true);
@@ -187,7 +189,8 @@ TEST_F(TorchAdaptorTest, Cmps) {
         }
     }
 }
-TEST_F(TorchAdaptorTest, Ceil) {
+TEST_F(TorchAdaptorTest, Ceil)
+{
     // ceil
     auto self = makeTensorData(DT_FP32, {16, 16}, 1.1f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
@@ -195,7 +198,8 @@ TEST_F(TorchAdaptorTest, Ceil) {
     calc::Ceil(out, self);
     ASSERT_ALLCLOSE(out, golden);
 }
-TEST_F(TorchAdaptorTest, Floor) {
+TEST_F(TorchAdaptorTest, Floor)
+{
     // floor
     auto self = makeTensorData(DT_FP32, {16, 16}, 1.1f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
@@ -203,7 +207,8 @@ TEST_F(TorchAdaptorTest, Floor) {
     calc::Floor(out, self);
     ASSERT_ALLCLOSE(out, golden);
 }
-TEST_F(TorchAdaptorTest, Trunc) {
+TEST_F(TorchAdaptorTest, Trunc)
+{
     // trunc
     auto self = makeTensorData(DT_FP32, {16, 16}, 1.1f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
@@ -212,7 +217,8 @@ TEST_F(TorchAdaptorTest, Trunc) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, Log1p) {
+TEST_F(TorchAdaptorTest, Log1p)
+{
     // ceil
     auto self = makeTensorData(DT_FP32, {16, 16}, 0.0f);
     auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
@@ -221,7 +227,8 @@ TEST_F(TorchAdaptorTest, Log1p) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, UnaryOps) {
+TEST_F(TorchAdaptorTest, UnaryOps)
+{
     {
         // rsqrt
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
@@ -410,13 +417,10 @@ TEST_F(TorchAdaptorTest, UnaryOps) {
             calc::Cast(out, self);
             ASSERT_ALLCLOSE(out, golden);
         }
-        // brcb 
+        // brcb
         {
             std::vector<float> sdata = {1.0f, 2.0f, 3.0f, 4.0f};
-            std::vector<float> gdata = {1.0f, 1.0f, 1.0f,
-                                        2.0f, 2.0f, 2.0f,
-                                        3.0f, 3.0f, 3.0f,
-                                        4.0f, 4.0f, 4.0f};
+            std::vector<float> gdata = {1.0f, 1.0f, 1.0f, 2.0f, 2.0f, 2.0f, 3.0f, 3.0f, 3.0f, 4.0f, 4.0f, 4.0f};
             auto self_brcb = makeTensorData(DT_FP32, {4, 1}, sdata);
             auto out = makeTensorData(DT_FP32, {4, 3}, 0.0f);
             auto golden = makeTensorData(DT_FP32, {4, 3}, gdata);
@@ -434,7 +438,8 @@ TEST_F(TorchAdaptorTest, UnaryOps) {
     }
 }
 
-TEST_F(TorchAdaptorTest, BinaryOps) {
+TEST_F(TorchAdaptorTest, BinaryOps)
+{
     {
         // add
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
@@ -451,7 +456,7 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         auto golden = makeTensorData(DT_FP32, {16, 16}, 5.0f);
         calc::Add(out, self, other);
         ASSERT_ALLCLOSE(out, golden);
-    }   
+    }
     {
         // sub
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
@@ -637,22 +642,14 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
     }
     {
         // scatter update 2dim
-        std::vector<float> sdata = {1.0f, 2.0f, 3.0f,
-                                    4.0f, 5.0f, 6.0f,
-                                    7.0f, 8.0f, 9.0f,
-                                    10.0f, 11.0f, 12.0f,
-                                    13.0f, 14.0f, 15.0f,
-                                    16.0f, 17.0f, 18.0f,};
-        std::vector<float> gdata = {0.0f, 0.0f, 0.0f,
-                                    16.0f, 17.0f, 18.0f,
-                                    0.0f, 0.0f, 0.0f,
-                                    1.0f, 2.0f, 3.0f,
-                                    7.0f, 8.0f, 9.0f,
-                                    4.0f, 5.0f, 6.0f,
-                                    0.0f, 0.0f, 0.0f,
-                                    13.0f, 14.0f, 15.0f,
-                                    10.0f, 11.0f, 12.0f,
-                                    0.0f, 0.0f, 0.0f, };
+        std::vector<float> sdata = {
+            1.0f,  2.0f,  3.0f,  4.0f,  5.0f,  6.0f,  7.0f,  8.0f,  9.0f,
+            10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f, 17.0f, 18.0f,
+        };
+        std::vector<float> gdata = {
+            0.0f, 0.0f, 0.0f, 16.0f, 17.0f, 18.0f, 0.0f,  0.0f,  0.0f,  1.0f,  2.0f,  3.0f,  7.0f, 8.0f, 9.0f,
+            4.0f, 5.0f, 6.0f, 0.0f,  0.0f,  0.0f,  13.0f, 14.0f, 15.0f, 10.0f, 11.0f, 12.0f, 0.0f, 0.0f, 0.0f,
+        };
         std::vector<int64_t> idata = {3, 5, 4, 8, 7, 1};
         auto self = makeTensorData(DT_FP32, {6, 3}, sdata);
         auto dst = makeTensorData(DT_FP32, {10, 3}, 0.0f);
@@ -664,16 +661,10 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
     }
     {
         // scatter update 4dim
-        std::vector<float> sdata = {1.0f, 1.0f, 1.0f, 1.0f,
-                                    2.0f, 2.0f, 2.0f, 2.0f,
-                                    3.0f, 3.0f, 3.0f, 3.0f,
-                                    4.0f, 4.0f, 4.0f, 4.0f};
-        std::vector<float> gdata = {0.0f, 0.0f, 0.0f, 0.0f,
-                                    4.0f, 4.0f, 4.0f, 4.0f,
-                                    0.0f, 0.0f, 0.0f, 0.0f,
-                                    1.0f, 1.0f, 1.0f, 1.0f,
-                                    3.0f, 3.0f, 3.0f, 3.0f,
-                                    2.0f, 2.0f, 2.0f, 2.0f};
+        std::vector<float> sdata = {1.0f, 1.0f, 1.0f, 1.0f, 2.0f, 2.0f, 2.0f, 2.0f,
+                                    3.0f, 3.0f, 3.0f, 3.0f, 4.0f, 4.0f, 4.0f, 4.0f};
+        std::vector<float> gdata = {0.0f, 0.0f, 0.0f, 0.0f, 4.0f, 4.0f, 4.0f, 4.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                    1.0f, 1.0f, 1.0f, 1.0f, 3.0f, 3.0f, 3.0f, 3.0f, 2.0f, 2.0f, 2.0f, 2.0f};
         std::vector<int64_t> idata = {3, 5, 4, 1};
         auto self = makeTensorData(DT_FP32, {2, 2, 1, 4}, sdata);
         auto dst = makeTensorData(DT_FP32, {3, 2, 1, 4}, 0.0f);
@@ -685,11 +676,18 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
     }
     {
         // scatter replace
-        std::vector<float> selfData = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-                                       1.0f, 1.0f, 1.0f, 1.0f, 1.0f,};
-        std::vector<int64_t> indicesData = {1, 0, 1, 1,};
-        std::vector<float> gdata = {1.0f, 2.0f, 1.0f, 1.0f, 1.0f,
-                                    2.0f, 1.0f, 2.0f, 2.0f, 1.0f,};
+        std::vector<float> selfData = {
+            1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        };
+        std::vector<int64_t> indicesData = {
+            1,
+            0,
+            1,
+            1,
+        };
+        std::vector<float> gdata = {
+            1.0f, 2.0f, 1.0f, 1.0f, 1.0f, 2.0f, 1.0f, 2.0f, 2.0f, 1.0f,
+        };
         auto src = Element(DT_FP32, 2.0f);
         auto self = makeTensorData(DT_FP32, {2, 5}, selfData);
         auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
@@ -700,11 +698,18 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
     }
     {
         // scatter add
-        std::vector<float> selfData = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-                                       1.0f, 1.0f, 1.0f, 1.0f, 1.0f,};
-        std::vector<int64_t> indicesData = {1, 0, 1, 1,};
-        std::vector<float> gdata = {1.0f, 3.0f, 1.0f, 1.0f, 1.0f,
-                                    3.0f, 1.0f, 3.0f, 3.0f, 1.0f,};
+        std::vector<float> selfData = {
+            1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        };
+        std::vector<int64_t> indicesData = {
+            1,
+            0,
+            1,
+            1,
+        };
+        std::vector<float> gdata = {
+            1.0f, 3.0f, 1.0f, 1.0f, 1.0f, 3.0f, 1.0f, 3.0f, 3.0f, 1.0f,
+        };
         auto src = Element(DT_FP32, 2.0f);
         auto self = makeTensorData(DT_FP32, {2, 5}, selfData);
         auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
@@ -715,12 +720,24 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
     }
     {
         // scatter tensor replace
-        std::vector<float> selfData = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-                                       1.0f, 1.0f, 1.0f, 1.0f, 1.0f,};
-        std::vector<int64_t> indicesData = {1, 0, 1, 1,};
-        std::vector<float> srcData = {10, 11, 12, 13,};
-        std::vector<float> gdata = {1.0f,  11.0f, 1.0f,  1.0f,  1.0f,
-                                    10.0f, 1.0f,  12.0f, 13.0f, 1.0f,};
+        std::vector<float> selfData = {
+            1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        };
+        std::vector<int64_t> indicesData = {
+            1,
+            0,
+            1,
+            1,
+        };
+        std::vector<float> srcData = {
+            10,
+            11,
+            12,
+            13,
+        };
+        std::vector<float> gdata = {
+            1.0f, 11.0f, 1.0f, 1.0f, 1.0f, 10.0f, 1.0f, 12.0f, 13.0f, 1.0f,
+        };
         auto self = makeTensorData(DT_FP32, {2, 5}, selfData);
         auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
         auto src = makeTensorData(DT_FP32, {1, 4}, srcData);
@@ -770,7 +787,8 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
     }
 }
 
-TEST_F(TorchAdaptorTest, BinaryOpsS) {
+TEST_F(TorchAdaptorTest, BinaryOpsS)
+{
     {
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
         auto elem = Element(DT_FP32, 1.0f);
@@ -847,7 +865,7 @@ TEST_F(TorchAdaptorTest, BinaryOpsS) {
     }
     {
         auto self = makeTensorData(DT_INT16, {16, 16}, static_cast<int16_t>(5));
-        auto elem = Element(DT_INT16, 2); 
+        auto elem = Element(DT_INT16, 2);
         auto out = makeTensorData(DT_INT16, {16, 16}, static_cast<int16_t>(0));
         auto golden = makeTensorData(DT_INT16, {16, 16}, static_cast<int16_t>(0));
         calc::BitwiseAndS(out, self, elem, true);
@@ -871,7 +889,8 @@ TEST_F(TorchAdaptorTest, BinaryOpsS) {
     }
 }
 
-TEST_F(TorchAdaptorTest, BitwiseShift) {
+TEST_F(TorchAdaptorTest, BitwiseShift)
+{
     {
         // bitwiserightshift
         auto self = makeTensorData(DT_INT16, {16, 16}, static_cast<int16_t>(4));
@@ -928,7 +947,8 @@ TEST_F(TorchAdaptorTest, BitwiseShift) {
     }
 }
 
-TEST_F(TorchAdaptorTest, Where) {
+TEST_F(TorchAdaptorTest, Where)
+{
     {
         auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
         auto condition = makeTensorData(DT_BOOL, {16, 16}, false);
@@ -976,17 +996,19 @@ TEST_F(TorchAdaptorTest, Where) {
     }
 }
 
-LogicalTensorDataPtr makePartialGolden(int n, int p, float v1, float v2) {
+LogicalTensorDataPtr makePartialGolden(int n, int p, float v1, float v2)
+{
     std::vector<float> ret(n * n, 0);
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-            ret[i *n + j] = j < p ? v1 : v2;
+            ret[i * n + j] = j < p ? v1 : v2;
         }
     }
     return makeTensorData(DT_FP32, {n, n}, ret);
 }
 
-TEST_F(TorchAdaptorTest, BinaryPairOps) {
+TEST_F(TorchAdaptorTest, BinaryPairOps)
+{
     int n = 16, p = 5;
     {
         auto self = makeTensorData(DT_FP32, {n, n}, 4.0f);
@@ -1005,7 +1027,7 @@ TEST_F(TorchAdaptorTest, BinaryPairOps) {
         ASSERT_ALLCLOSE(out, golden);
     }
     {
-       auto self = makeTensorData(DT_FP32, {n, n}, 4.0f);
+        auto self = makeTensorData(DT_FP32, {n, n}, 4.0f);
         auto other = makeTensorData(DT_FP32, {n, p}, 3.0f);
         auto out = makeTensorData(DT_FP32, {n, n}, 0.0f);
         auto golden = makePartialGolden(n, p, 3.0, 4.0);
@@ -1022,7 +1044,8 @@ TEST_F(TorchAdaptorTest, BinaryPairOps) {
     }
 }
 
-TEST_F(TorchAdaptorTest, MatMul) {
+TEST_F(TorchAdaptorTest, MatMul)
+{
     {
         // matmul
         auto self = makeTensorData(DT_FP32, {8, 16}, 1.0f);
@@ -1121,7 +1144,8 @@ TEST_F(TorchAdaptorTest, MatMul) {
     }
 }
 
-TEST_F(TorchAdaptorTest, Reduce) {
+TEST_F(TorchAdaptorTest, Reduce)
+{
     {
         // sum expand
         auto self = makeTensorData(DT_FP32, {16, 16}, 1.0f);
@@ -1256,7 +1280,8 @@ TEST_F(TorchAdaptorTest, Reduce) {
     }
 }
 
-TEST_F(TorchAdaptorTest, Misc) {
+TEST_F(TorchAdaptorTest, Misc)
+{
     {
         // reshape
         std::vector<float> gdata = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
@@ -1314,7 +1339,8 @@ TEST_F(TorchAdaptorTest, Misc) {
     }
 }
 
-TEST_F(TorchAdaptorTest, Pad) {
+TEST_F(TorchAdaptorTest, Pad)
+{
     // Test 2D pad with constant value 0.0
     std::vector<float> sdata = {1.0, 2.0, 3.0, 4.0};
     std::vector<float> gdata = {1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -1325,7 +1351,8 @@ TEST_F(TorchAdaptorTest, Pad) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, FillPad2D) {
+TEST_F(TorchAdaptorTest, FillPad2D)
+{
     std::vector<float> sdata = {1.0, 2.0, 3.0, 4.0};
     std::vector<float> gdata = {1.0, 2.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     auto self = makeTensorData(DT_FP32, {2, 2}, sdata);
@@ -1335,7 +1362,8 @@ TEST_F(TorchAdaptorTest, FillPad2D) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, FillPad1D) {
+TEST_F(TorchAdaptorTest, FillPad1D)
+{
     std::vector<float> sdata = {1.0, 2.0, 3.0, 4.0};
     std::vector<float> gdata = {1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     auto self = makeTensorData(DT_FP32, {4}, sdata);
@@ -1345,32 +1373,23 @@ TEST_F(TorchAdaptorTest, FillPad1D) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, BitSortDescending) {
+TEST_F(TorchAdaptorTest, BitSortDescending)
+{
     // 降序
-    std::vector<float> sdata = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
-                                8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
-                                16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
-                                24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0,
-                                0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0,
-                                80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0,
-                                160.0, 170.0, 180.0, 190.0, 200.0, 210.0, 220.0, 230.0,
-                                240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0};
-    std::vector<float> gdata = {31.0, 31.0, 30.0, 30.0, 29.0, 29.0, 28.0, 28.0,
-                                27.0, 27.0, 26.0, 26.0, 25.0, 25.0, 24.0, 24.0,
-                                23.0, 23.0, 22.0, 22.0, 21.0, 21.0, 20.0, 20.0,
-                                19.0, 19.0, 18.0, 18.0, 17.0, 17.0, 16.0, 16.0,
-                                15.0, 15.0, 14.0, 14.0, 13.0, 13.0, 12.0, 12.0,
-                                11.0, 11.0, 10.0, 10.0, 9.0, 9.0, 8.0, 8.0,
-                                7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 4.0, 4.0,
-                                3.0, 3.0, 2.0, 2.0, 1.0, 1.0, 0.0, 0.0,
-                                310.0, 31.0, 300.0, 30.0, 290.0, 29.0, 280.0, 28.0,
-                                270.0, 27.0, 260.0, 26.0, 250.0, 25.0, 240.0, 24.0,
-                                230.0, 23.0, 220.0, 22.0, 210.0, 21.0, 200.0, 20.0,
-                                190.0, 19.0, 180.0, 18.0, 170.0, 17.0, 160.0, 16.0,
-                                150.0, 15.0, 140.0, 14.0, 130.0, 13.0, 120.0, 12.0,
-                                110.0, 11.0, 100.0, 10.0, 90.0, 9.0, 80.0, 8.0,
-                                70.0, 7.0, 60.0, 6.0, 50.0, 5.0, 40.0, 4.0,
-                                30.0, 3.0, 20.0, 2.0, 10.0, 1.0, 0.0, 0.0};
+    std::vector<float> sdata = {
+        0.0,   1.0,   2.0,   3.0,   4.0,   5.0,   6.0,   7.0,   8.0,   9.0,   10.0,  11.0,  12.0,  13.0,  14.0,  15.0,
+        16.0,  17.0,  18.0,  19.0,  20.0,  21.0,  22.0,  23.0,  24.0,  25.0,  26.0,  27.0,  28.0,  29.0,  30.0,  31.0,
+        0.0,   10.0,  20.0,  30.0,  40.0,  50.0,  60.0,  70.0,  80.0,  90.0,  100.0, 110.0, 120.0, 130.0, 140.0, 150.0,
+        160.0, 170.0, 180.0, 190.0, 200.0, 210.0, 220.0, 230.0, 240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0};
+    std::vector<float> gdata = {
+        31.0,  31.0, 30.0,  30.0, 29.0,  29.0, 28.0,  28.0, 27.0,  27.0, 26.0,  26.0, 25.0,  25.0, 24.0,  24.0,
+        23.0,  23.0, 22.0,  22.0, 21.0,  21.0, 20.0,  20.0, 19.0,  19.0, 18.0,  18.0, 17.0,  17.0, 16.0,  16.0,
+        15.0,  15.0, 14.0,  14.0, 13.0,  13.0, 12.0,  12.0, 11.0,  11.0, 10.0,  10.0, 9.0,   9.0,  8.0,   8.0,
+        7.0,   7.0,  6.0,   6.0,  5.0,   5.0,  4.0,   4.0,  3.0,   3.0,  2.0,   2.0,  1.0,   1.0,  0.0,   0.0,
+        310.0, 31.0, 300.0, 30.0, 290.0, 29.0, 280.0, 28.0, 270.0, 27.0, 260.0, 26.0, 250.0, 25.0, 240.0, 24.0,
+        230.0, 23.0, 220.0, 22.0, 210.0, 21.0, 200.0, 20.0, 190.0, 19.0, 180.0, 18.0, 170.0, 17.0, 160.0, 16.0,
+        150.0, 15.0, 140.0, 14.0, 130.0, 13.0, 120.0, 12.0, 110.0, 11.0, 100.0, 10.0, 90.0,  9.0,  80.0,  8.0,
+        70.0,  7.0,  60.0,  6.0,  50.0,  5.0,  40.0,  4.0,  30.0,  3.0,  20.0,  2.0,  10.0,  1.0,  0.0,   0.0};
     auto self = makeTensorData(DT_FP32, {2, 32}, sdata);
     auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
     auto golden = makeTensorData(DT_FP32, {2, 64}, gdata);
@@ -1378,32 +1397,23 @@ TEST_F(TorchAdaptorTest, BitSortDescending) {
     ASSERT_ALLCLOSE(out->View({2, 64}, {0, 0}), golden);
 }
 
-TEST_F(TorchAdaptorTest, BitSortAscending) {
+TEST_F(TorchAdaptorTest, BitSortAscending)
+{
     // 升序
-    std::vector<float> sdata = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
-                                8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
-                                16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
-                                24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0,
-                                0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0,
-                                80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0,
-                                160.0, 170.0, 180.0, 190.0, 200.0, 210.0, 220.0, 230.0,
-                                240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0};
-    std::vector<float> gdata = {0.0, 0.0, -1.0, 1.0, -2.0, 2.0, -3.0, 3.0,
-                                -4.0, 4.0, -5.0, 5.0, -6.0, 6.0, -7.0, 7.0,
-                                -8.0, 8.0, -9.0, 9.0, -10.0, 10.0, -11.0, 11.0,
-                                -12.0, 12.0, -13.0, 13.0, -14.0, 14.0, -15.0, 15.0,
-                                -16.0, 16.0, -17.0, 17.0, -18.0, 18.0, -19.0, 19.0,
-                                -20.0, 20.0, -21.0, 21.0, -22.0, 22.0, -23.0, 23.0,
-                                -24.0, 24.0, -25.0, 25.0, -26.0, 26.0, -27.0, 27.0,
-                                -28.0, 28.0, -29.0, 29.0, -30.0, 30.0, -31.0, 31.0,
-                                0.0, 0.0, -10.0, 1.0, -20.0, 2.0, -30.0, 3.0,
-                                -40.0, 4.0, -50.0, 5.0, -60.0, 6.0, -70.0, 7.0,
-                                -80.0, 8.0, -90.0, 9.0, -100.0, 10.0, -110.0, 11.0,
-                                -120.0, 12.0, -130.0, 13.0, -140.0, 14.0, -150.0, 15.0,
-                                -160.0, 16.0, -170.0, 17.0, -180.0, 18.0, -190.0, 19.0,
-                                -200.0, 20.0, -210.0, 21.0, -220.0, 22.0, -230.0, 23.0,
-                                -240.0, 24.0, -250.0, 25.0, -260.0, 26.0, -270.0, 27.0,
-                                -280.0, 28.0, -290.0, 29.0, -300.0, 30.0, -310.0, 31.0};
+    std::vector<float> sdata = {
+        0.0,   1.0,   2.0,   3.0,   4.0,   5.0,   6.0,   7.0,   8.0,   9.0,   10.0,  11.0,  12.0,  13.0,  14.0,  15.0,
+        16.0,  17.0,  18.0,  19.0,  20.0,  21.0,  22.0,  23.0,  24.0,  25.0,  26.0,  27.0,  28.0,  29.0,  30.0,  31.0,
+        0.0,   10.0,  20.0,  30.0,  40.0,  50.0,  60.0,  70.0,  80.0,  90.0,  100.0, 110.0, 120.0, 130.0, 140.0, 150.0,
+        160.0, 170.0, 180.0, 190.0, 200.0, 210.0, 220.0, 230.0, 240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0};
+    std::vector<float> gdata = {
+        0.0,    0.0,  -1.0,   1.0,  -2.0,   2.0,  -3.0,   3.0,  -4.0,   4.0,  -5.0,   5.0,  -6.0,   6.0,  -7.0,   7.0,
+        -8.0,   8.0,  -9.0,   9.0,  -10.0,  10.0, -11.0,  11.0, -12.0,  12.0, -13.0,  13.0, -14.0,  14.0, -15.0,  15.0,
+        -16.0,  16.0, -17.0,  17.0, -18.0,  18.0, -19.0,  19.0, -20.0,  20.0, -21.0,  21.0, -22.0,  22.0, -23.0,  23.0,
+        -24.0,  24.0, -25.0,  25.0, -26.0,  26.0, -27.0,  27.0, -28.0,  28.0, -29.0,  29.0, -30.0,  30.0, -31.0,  31.0,
+        0.0,    0.0,  -10.0,  1.0,  -20.0,  2.0,  -30.0,  3.0,  -40.0,  4.0,  -50.0,  5.0,  -60.0,  6.0,  -70.0,  7.0,
+        -80.0,  8.0,  -90.0,  9.0,  -100.0, 10.0, -110.0, 11.0, -120.0, 12.0, -130.0, 13.0, -140.0, 14.0, -150.0, 15.0,
+        -160.0, 16.0, -170.0, 17.0, -180.0, 18.0, -190.0, 19.0, -200.0, 20.0, -210.0, 21.0, -220.0, 22.0, -230.0, 23.0,
+        -240.0, 24.0, -250.0, 25.0, -260.0, 26.0, -270.0, 27.0, -280.0, 28.0, -290.0, 29.0, -300.0, 30.0, -310.0, 31.0};
     auto self = makeTensorData(DT_FP32, {2, 32}, sdata);
     auto out = makeTensorData(DT_FP32, {2, 64}, 0.0f);
     auto golden = makeTensorData(DT_FP32, {2, 64}, gdata);
@@ -1411,24 +1421,19 @@ TEST_F(TorchAdaptorTest, BitSortAscending) {
     ASSERT_ALLCLOSE(out->View({2, 64}, {0, 0}), golden);
 }
 
-TEST_F(TorchAdaptorTest, TopkDescending) {
+TEST_F(TorchAdaptorTest, TopkDescending)
+{
     // 降序
-    std::vector<float> sdata1 = {31.0, 31.0, 30.0, 30.0, 29.0, 29.0, 28.0, 28.0,
-                                    27.0, 27.0, 26.0, 26.0, 25.0, 25.0, 24.0, 24.0,
-                                    23.0, 23.0, 22.0, 22.0, 21.0, 21.0, 20.0, 20.0,
-                                    19.0, 19.0, 18.0, 18.0, 17.0, 17.0, 16.0, 16.0,
-                                    15.0, 15.0, 14.0, 14.0, 13.0, 13.0, 12.0, 12.0,
-                                    11.0, 11.0, 10.0, 10.0, 9.0, 9.0, 8.0, 8.0,
-                                    7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 4.0, 4.0,
-                                    3.0, 3.0, 2.0, 2.0, 1.0, 1.0, 0.0, 0.0};
-    std::vector<float> sdata2 = {310.0, 31.0, 300.0, 30.0, 290.0, 29.0, 280.0, 28.0,
-                                    270.0, 27.0, 260.0, 26.0, 250.0, 25.0, 240.0, 24.0,
-                                    230.0, 23.0, 220.0, 22.0, 210.0, 21.0, 200.0, 20.0,
-                                    190.0, 19.0, 180.0, 18.0, 170.0, 17.0, 160.0, 16.0,
-                                    150.0, 15.0, 140.0, 14.0, 130.0, 13.0, 120.0, 12.0,
-                                    110.0, 11.0, 100.0, 10.0, 90.0, 9.0, 80.0, 8.0,
-                                    70.0, 7.0, 60.0, 6.0, 50.0, 5.0, 40.0, 4.0,
-                                    30.0, 3.0, 20.0, 2.0, 10.0, 1.0, 0.0, 0.0};
+    std::vector<float> sdata1 = {31.0, 31.0, 30.0, 30.0, 29.0, 29.0, 28.0, 28.0, 27.0, 27.0, 26.0, 26.0, 25.0,
+                                 25.0, 24.0, 24.0, 23.0, 23.0, 22.0, 22.0, 21.0, 21.0, 20.0, 20.0, 19.0, 19.0,
+                                 18.0, 18.0, 17.0, 17.0, 16.0, 16.0, 15.0, 15.0, 14.0, 14.0, 13.0, 13.0, 12.0,
+                                 12.0, 11.0, 11.0, 10.0, 10.0, 9.0,  9.0,  8.0,  8.0,  7.0,  7.0,  6.0,  6.0,
+                                 5.0,  5.0,  4.0,  4.0,  3.0,  3.0,  2.0,  2.0,  1.0,  1.0,  0.0,  0.0};
+    std::vector<float> sdata2 = {
+        310.0, 31.0, 300.0, 30.0, 290.0, 29.0, 280.0, 28.0, 270.0, 27.0, 260.0, 26.0, 250.0, 25.0, 240.0, 24.0,
+        230.0, 23.0, 220.0, 22.0, 210.0, 21.0, 200.0, 20.0, 190.0, 19.0, 180.0, 18.0, 170.0, 17.0, 160.0, 16.0,
+        150.0, 15.0, 140.0, 14.0, 130.0, 13.0, 120.0, 12.0, 110.0, 11.0, 100.0, 10.0, 90.0,  9.0,  80.0,  8.0,
+        70.0,  7.0,  60.0,  6.0,  50.0,  5.0,  40.0,  4.0,  30.0,  3.0,  20.0,  2.0,  10.0,  1.0,  0.0,   0.0};
     const int64_t TOPK_VAL = 32;
     std::vector<float> gdata = sdata1;
     gdata.insert(gdata.end(), sdata2.begin(), sdata2.end());
@@ -1442,14 +1447,12 @@ TEST_F(TorchAdaptorTest, TopkDescending) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-
-TEST_F(TorchAdaptorTest, TiledMrgSortOp) {
-    std::vector<float> sdata1 = {0.0, 0.0, -1.0, 1.0, -2.0, 2.0, -3.0, 3.0,
-                                -4.0, 4.0, -5.0, 5.0, -6.0, 6.0, -7.0, 7.0};
-    std::vector<float> sdata2 = {-0.5, 8.0, -10.0, 9.0, -20.0, 10.0, -30.0, 11.0,
-                                -40.0, 12.0, -50.0, 13.0, -60.0, 14.0, -70.0, 15.0};
-    std::vector<float> gdata = {0.0, 0.0, -0.5, 8.0, -1.0, 1.0, -2.0, 2.0, -3.0, 3.0,
-                                -4.0, 4.0, -5.0, 5.0, -6.0, 6.0};
+TEST_F(TorchAdaptorTest, TiledMrgSortOp)
+{
+    std::vector<float> sdata1 = {0.0, 0.0, -1.0, 1.0, -2.0, 2.0, -3.0, 3.0, -4.0, 4.0, -5.0, 5.0, -6.0, 6.0, -7.0, 7.0};
+    std::vector<float> sdata2 = {-0.5,  8.0,  -10.0, 9.0,  -20.0, 10.0, -30.0, 11.0,
+                                 -40.0, 12.0, -50.0, 13.0, -60.0, 14.0, -70.0, 15.0};
+    std::vector<float> gdata = {0.0, 0.0, -0.5, 8.0, -1.0, 1.0, -2.0, 2.0, -3.0, 3.0, -4.0, 4.0, -5.0, 5.0, -6.0, 6.0};
     auto golden = makeTensorData(DT_FP32, {1, 16}, gdata);
     auto src1 = makeTensorData(DT_FP32, {1, 16}, sdata1);
     auto src2 = makeTensorData(DT_FP32, {1, 16}, sdata2);
@@ -1460,40 +1463,26 @@ TEST_F(TorchAdaptorTest, TiledMrgSortOp) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, ExtractDescending) {
+TEST_F(TorchAdaptorTest, ExtractDescending)
+{
     // 降序
-    std::vector<float> sdata = {31, 31, 30, 30, 29, 29, 28, 28,
-                                27, 27, 26, 26, 25, 25, 24, 24,
-                                23, 23, 22, 22, 21, 21, 20, 20,
-                                19, 19, 18, 18, 17, 17, 16, 16,
-                                15, 15, 14, 14, 13, 13, 12, 12,
-                                11, 11, 10, 10, 9, 9, 8, 8,
-                                7, 7, 6, 6, 5, 5, 4, 4,
-                                3, 3, 2, 2, 1, 1, 0, 0,
-                                310, 31, 300, 30, 290, 29, 280, 28,
-                                270, 27, 260, 26, 250, 25, 240, 24,
-                                230, 23, 220, 22, 210, 21, 200, 20,
-                                190, 19, 180, 18, 170, 17, 160, 16,
-                                150, 15, 140, 14, 130, 13, 120, 12,
-                                110, 11, 100, 10, 90, 9, 80, 8,
-                                70, 7, 60, 6, 50, 5, 40, 4,
-                                30, 3, 20, 2, 10, 1, 0, 0};
-    std::vector<float> gdata0 = {31.0, 30.0, 29.0, 28.0, 27.0, 26.0, 25.0, 24.0,
-                                    23.0, 22.0, 21.0, 20.0, 19.0, 18.0, 17.0, 16.0,
-                                    15.0, 14.0, 13.0, 12.0, 11.0, 10.0, 9.0, 8.0,
-                                    7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0,
-                                    310.0, 300.0, 290.0, 280.0, 270.0, 260.0, 250.0, 240.0,
-                                    230.0, 220.0, 210.0, 200.0, 190.0, 180.0, 170.0, 160.0,
-                                    150.0, 140.0, 130.0, 120.0, 110.0, 100.0, 90.0, 80.0,
-                                    70.0, 60.0, 50.0, 40.0, 30.0, 20.0, 10.0, 0.0};
-    std::vector<float> gdata1 = {31.0, 30.0, 29.0, 28.0, 27.0, 26.0, 25.0, 24.0,
-                                    23.0, 22.0, 21.0, 20.0, 19.0, 18.0, 17.0, 16.0,
-                                    15.0, 14.0, 13.0, 12.0, 11.0, 10.0, 9.0, 8.0,
-                                    7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0,
-                                    31.0, 30.0, 29.0, 28.0, 27.0, 26.0, 25.0, 24.0,
-                                    23.0, 22.0, 21.0, 20.0, 19.0, 18.0, 17.0, 16.0,
-                                    15.0, 14.0, 13.0, 12.0, 11.0, 10.0, 9.0, 8.0,
-                                    7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0};
+    std::vector<float> sdata = {
+        31,  31, 30,  30, 29,  29, 28,  28, 27,  27, 26,  26, 25,  25, 24,  24, 23,  23, 22,  22, 21,  21,
+        20,  20, 19,  19, 18,  18, 17,  17, 16,  16, 15,  15, 14,  14, 13,  13, 12,  12, 11,  11, 10,  10,
+        9,   9,  8,   8,  7,   7,  6,   6,  5,   5,  4,   4,  3,   3,  2,   2,  1,   1,  0,   0,  310, 31,
+        300, 30, 290, 29, 280, 28, 270, 27, 260, 26, 250, 25, 240, 24, 230, 23, 220, 22, 210, 21, 200, 20,
+        190, 19, 180, 18, 170, 17, 160, 16, 150, 15, 140, 14, 130, 13, 120, 12, 110, 11, 100, 10, 90,  9,
+        80,  8,  70,  7,  60,  6,  50,  5,  40,  4,  30,  3,  20,  2,  10,  1,  0,   0};
+    std::vector<float> gdata0 = {
+        31.0,  30.0,  29.0,  28.0,  27.0,  26.0,  25.0,  24.0,  23.0,  22.0,  21.0,  20.0,  19.0,  18.0,  17.0,  16.0,
+        15.0,  14.0,  13.0,  12.0,  11.0,  10.0,  9.0,   8.0,   7.0,   6.0,   5.0,   4.0,   3.0,   2.0,   1.0,   0.0,
+        310.0, 300.0, 290.0, 280.0, 270.0, 260.0, 250.0, 240.0, 230.0, 220.0, 210.0, 200.0, 190.0, 180.0, 170.0, 160.0,
+        150.0, 140.0, 130.0, 120.0, 110.0, 100.0, 90.0,  80.0,  70.0,  60.0,  50.0,  40.0,  30.0,  20.0,  10.0,  0.0};
+    std::vector<float> gdata1 = {31.0, 30.0, 29.0, 28.0, 27.0, 26.0, 25.0, 24.0, 23.0, 22.0, 21.0, 20.0, 19.0,
+                                 18.0, 17.0, 16.0, 15.0, 14.0, 13.0, 12.0, 11.0, 10.0, 9.0,  8.0,  7.0,  6.0,
+                                 5.0,  4.0,  3.0,  2.0,  1.0,  0.0,  31.0, 30.0, 29.0, 28.0, 27.0, 26.0, 25.0,
+                                 24.0, 23.0, 22.0, 21.0, 20.0, 19.0, 18.0, 17.0, 16.0, 15.0, 14.0, 13.0, 12.0,
+                                 11.0, 10.0, 9.0,  8.0,  7.0,  6.0,  5.0,  4.0,  3.0,  2.0,  1.0,  0.0};
     auto self = makeTensorData(DT_FP32, {2, 64}, sdata);
     auto out0 = makeTensorData(DT_FP32, {2, 32}, 0.0f);
     auto out1 = makeTensorData(DT_FP32, {2, 32}, 0.0f);
@@ -1506,40 +1495,26 @@ TEST_F(TorchAdaptorTest, ExtractDescending) {
     ASSERT_ALLCLOSE(out1, golden1);
 }
 
-TEST_F(TorchAdaptorTest, ExtractAscending) {
+TEST_F(TorchAdaptorTest, ExtractAscending)
+{
     // 升序
-    std::vector<float> sdata = {0, 0, -1, 1, -2, 2, -3, 3,
-                                -4, 4, -5, 5, -6, 6, -7, 7,
-                                -8, 8, -9, 9, -10, 10, -11, 11,
-                                -12, 12, -13, 13, -14, 14, -15, 15,
-                                -16, 16, -17, 17, -18, 18, -19, 19,
-                                -20, 20, -21, 21, -22, 22, -23, 23,
-                                -24, 24, -25, 25, -26, 26, -27, 27,
-                                -28, 28, -29, 29, -30, 30, -31, 31,
-                                0, 0, -10, 1, -20, 2, -30, 3,
-                                -40, 4, -50, 5, -60, 6, -70, 7,
-                                -80, 8, -90, 9, -100, 10, -110, 11,
-                                -120, 12, -130, 13, -140, 14, -150, 15,
-                                -160, 16, -170, 17, -180, 18, -190, 19,
-                                -200, 20, -210, 21, -220, 22, -230, 23,
-                                -240, 24, -250, 25, -260, 26, -270, 27,
-                                -280, 28, -290, 29, -300, 30, -310, 31};
-    std::vector<float> gdata0 = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
-                                    8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
-                                    16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
-                                    24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0,
-                                    0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0,
-                                    80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0, 150.0,
-                                    160.0, 170.0, 180.0, 190.0, 200.0, 210.0, 220.0, 230.0,
-                                    240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0};
-    std::vector<float> gdata1 = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
-                                    8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
-                                    16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
-                                    24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0,
-                                    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
-                                    8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
-                                    16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0,
-                                    24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0};
+    std::vector<float> sdata = {
+        0,    0,  -1,   1,  -2,   2,  -3,   3,  -4,   4,  -5,   5,  -6,   6,  -7,   7,  -8,   8,  -9,   9,  -10,  10,
+        -11,  11, -12,  12, -13,  13, -14,  14, -15,  15, -16,  16, -17,  17, -18,  18, -19,  19, -20,  20, -21,  21,
+        -22,  22, -23,  23, -24,  24, -25,  25, -26,  26, -27,  27, -28,  28, -29,  29, -30,  30, -31,  31, 0,    0,
+        -10,  1,  -20,  2,  -30,  3,  -40,  4,  -50,  5,  -60,  6,  -70,  7,  -80,  8,  -90,  9,  -100, 10, -110, 11,
+        -120, 12, -130, 13, -140, 14, -150, 15, -160, 16, -170, 17, -180, 18, -190, 19, -200, 20, -210, 21, -220, 22,
+        -230, 23, -240, 24, -250, 25, -260, 26, -270, 27, -280, 28, -290, 29, -300, 30, -310, 31};
+    std::vector<float> gdata0 = {
+        0.0,   1.0,   2.0,   3.0,   4.0,   5.0,   6.0,   7.0,   8.0,   9.0,   10.0,  11.0,  12.0,  13.0,  14.0,  15.0,
+        16.0,  17.0,  18.0,  19.0,  20.0,  21.0,  22.0,  23.0,  24.0,  25.0,  26.0,  27.0,  28.0,  29.0,  30.0,  31.0,
+        0.0,   10.0,  20.0,  30.0,  40.0,  50.0,  60.0,  70.0,  80.0,  90.0,  100.0, 110.0, 120.0, 130.0, 140.0, 150.0,
+        160.0, 170.0, 180.0, 190.0, 200.0, 210.0, 220.0, 230.0, 240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0};
+    std::vector<float> gdata1 = {0.0,  1.0,  2.0,  3.0,  4.0,  5.0,  6.0,  7.0,  8.0,  9.0,  10.0, 11.0, 12.0,
+                                 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0,
+                                 26.0, 27.0, 28.0, 29.0, 30.0, 31.0, 0.0,  1.0,  2.0,  3.0,  4.0,  5.0,  6.0,
+                                 7.0,  8.0,  9.0,  10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0,
+                                 20.0, 21.0, 22.0, 23.0, 24.0, 25.0, 26.0, 27.0, 28.0, 29.0, 30.0, 31.0};
     auto self = makeTensorData(DT_FP32, {2, 64}, sdata);
     auto out0 = makeTensorData(DT_FP32, {2, 32}, 0.0f);
     auto out1 = makeTensorData(DT_FP32, {2, 32}, 0.0f);
@@ -1552,23 +1527,18 @@ TEST_F(TorchAdaptorTest, ExtractAscending) {
     ASSERT_ALLCLOSE(out1, golden1);
 }
 
-TEST_F(TorchAdaptorTest, TwoTileMrgSort) {
-    std::vector<float> sdata = {15.0, 15.0, 14.0, 14.0, 13.0, 13.0, 12.0, 12.0,
-                                    11.0, 11.0, 10.0, 10.0, 9.0, 9.0, 8.0, 8.0,
-                                    7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 4.0, 4.0,
-                                    3.0, 3.0, 2.0, 2.0, 1.0, 1.0, 0.0, 0.0,
-                                    31.0, 31.0, 30.0, 30.0, 29.0, 29.0, 28.0, 28.0,
-                                    27.0, 27.0, 26.0, 26.0, 25.0, 25.0, 24.0, 24.0,
-                                    23.0, 23.0, 22.0, 22.0, 21.0, 21.0, 20.0, 20.0,
-                                    19.0, 19.0, 18.0, 18.0, 17.0, 17.0, 16.0, 16.0};
-    std::vector<float> gdata = {31.0, 31.0, 30.0, 30.0, 29.0, 29.0, 28.0, 28.0,
-                                    27.0, 27.0, 26.0, 26.0, 25.0, 25.0, 24.0, 24.0,
-                                    23.0, 23.0, 22.0, 22.0, 21.0, 21.0, 20.0, 20.0,
-                                    19.0, 19.0, 18.0, 18.0, 17.0, 17.0, 16.0, 16.0,
-                                    15.0, 15.0, 14.0, 14.0, 13.0, 13.0, 12.0, 12.0,
-                                    11.0, 11.0, 10.0, 10.0, 9.0, 9.0, 8.0, 8.0,
-                                    7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 4.0, 4.0,
-                                    3.0, 3.0, 2.0, 2.0, 1.0, 1.0, 0.0, 0.0};
+TEST_F(TorchAdaptorTest, TwoTileMrgSort)
+{
+    std::vector<float> sdata = {15.0, 15.0, 14.0, 14.0, 13.0, 13.0, 12.0, 12.0, 11.0, 11.0, 10.0, 10.0, 9.0,
+                                9.0,  8.0,  8.0,  7.0,  7.0,  6.0,  6.0,  5.0,  5.0,  4.0,  4.0,  3.0,  3.0,
+                                2.0,  2.0,  1.0,  1.0,  0.0,  0.0,  31.0, 31.0, 30.0, 30.0, 29.0, 29.0, 28.0,
+                                28.0, 27.0, 27.0, 26.0, 26.0, 25.0, 25.0, 24.0, 24.0, 23.0, 23.0, 22.0, 22.0,
+                                21.0, 21.0, 20.0, 20.0, 19.0, 19.0, 18.0, 18.0, 17.0, 17.0, 16.0, 16.0};
+    std::vector<float> gdata = {31.0, 31.0, 30.0, 30.0, 29.0, 29.0, 28.0, 28.0, 27.0, 27.0, 26.0, 26.0, 25.0,
+                                25.0, 24.0, 24.0, 23.0, 23.0, 22.0, 22.0, 21.0, 21.0, 20.0, 20.0, 19.0, 19.0,
+                                18.0, 18.0, 17.0, 17.0, 16.0, 16.0, 15.0, 15.0, 14.0, 14.0, 13.0, 13.0, 12.0,
+                                12.0, 11.0, 11.0, 10.0, 10.0, 9.0,  9.0,  8.0,  8.0,  7.0,  7.0,  6.0,  6.0,
+                                5.0,  5.0,  4.0,  4.0,  3.0,  3.0,  2.0,  2.0,  1.0,  1.0,  0.0,  0.0};
     auto self = makeTensorData(DT_FP32, {1, 64}, sdata);
     auto golden = makeTensorData(DT_FP32, {1, 64}, gdata);
     auto out = makeTensorData(DT_FP32, {1, 64}, 0.0f);
@@ -1577,7 +1547,8 @@ TEST_F(TorchAdaptorTest, TwoTileMrgSort) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, SortUB) {
+TEST_F(TorchAdaptorTest, SortUB)
+{
     std::vector<float> sdata = {3.0, 7.0, 1.0, 5.0, 9.0, 2.0, 8.0, 4.0};
     std::vector<float> gdata0 = {9.0, 8.0, 7.0, 5.0, 4.0, 3.0, 2.0, 1.0};
     std::vector<int> gdata1 = {4, 6, 1, 3, 7, 0, 5, 2};
@@ -1592,13 +1563,14 @@ TEST_F(TorchAdaptorTest, SortUB) {
     ASSERT_ALLCLOSE(outIndex, goldenIndex);
 }
 
-TEST_F(TorchAdaptorTest, TopkSort) {
+TEST_F(TorchAdaptorTest, TopkSort)
+{
     // Test TopkSort with 8-element input
     // Input: small array for easy verification
     std::vector<float> sdata = {3.0, 7.0, 1.0, 5.0, 9.0, 2.0, 8.0, 4.0};
 
     auto self = makeTensorData(DT_FP32, {1, 8}, sdata);
-    auto outValue = makeTensorData(DT_FP32, {1, 64}, 0.0f);  // Output padded to 32*2
+    auto outValue = makeTensorData(DT_FP32, {1, 64}, 0.0f); // Output padded to 32*2
     auto outTemp = makeTensorData(DT_FP32, {1, 64}, 0.0f);
 
     calc::TopkSort(outValue, outTemp, self, 0);
@@ -1616,12 +1588,12 @@ TEST_F(TorchAdaptorTest, TopkSort) {
     ASSERT_ALLCLOSE(extractedValues, goldenTop);
 }
 
-TEST_F(TorchAdaptorTest, TopkSortLargeInput) {
+TEST_F(TorchAdaptorTest, TopkSortLargeInput)
+{
     // Test TopkSort with 32-element aligned input
-    std::vector<float> sdata = {31.0, 15.0, 27.0, 8.0, 19.0, 3.0, 23.0, 11.0,
-                                7.0, 28.0, 16.0, 2.0, 24.0, 9.0, 30.0, 14.0,
-                                22.0, 5.0, 18.0, 1.0, 26.0, 10.0, 29.0, 13.0,
-                                6.0, 20.0, 12.0, 25.0, 4.0, 21.0, 0.0, 17.0};
+    std::vector<float> sdata = {31.0, 15.0, 27.0, 8.0,  19.0, 3.0,  23.0, 11.0, 7.0, 28.0, 16.0,
+                                2.0,  24.0, 9.0,  30.0, 14.0, 22.0, 5.0,  18.0, 1.0, 26.0, 10.0,
+                                29.0, 13.0, 6.0,  20.0, 12.0, 25.0, 4.0,  21.0, 0.0, 17.0};
 
     auto self = makeTensorData(DT_FP32, {1, 32}, sdata);
     auto outValue = makeTensorData(DT_FP32, {1, 64}, 0.0f);
@@ -1638,17 +1610,15 @@ TEST_F(TorchAdaptorTest, TopkSortLargeInput) {
     ASSERT_ALLCLOSE(extractedValues, goldenTop8);
 }
 
-TEST_F(TorchAdaptorTest, TopkMerge) {
+TEST_F(TorchAdaptorTest, TopkMerge)
+{
     // Test TopkMerge with pre-sorted pack array
     // Pack format: [v0, i0, v1, i1, v2, i2, ...]
     std::vector<float> packData = {
         // First 8 packs (sorted descending)
-        30.0, 0.0, 28.0, 1.0, 26.0, 2.0, 24.0, 3.0,
-        22.0, 4.0, 20.0, 5.0, 18.0, 6.0, 16.0, 7.0,
+        30.0, 0.0, 28.0, 1.0, 26.0, 2.0, 24.0, 3.0, 22.0, 4.0, 20.0, 5.0, 18.0, 6.0, 16.0, 7.0,
         // Second 8 packs (sorted descending)
-        31.0, 8.0, 29.0, 9.0, 27.0, 10.0, 25.0, 11.0,
-        23.0, 12.0, 21.0, 13.0, 19.0, 14.0, 17.0, 15.0
-    };
+        31.0, 8.0, 29.0, 9.0, 27.0, 10.0, 25.0, 11.0, 23.0, 12.0, 21.0, 13.0, 19.0, 14.0, 17.0, 15.0};
 
     auto self = makeTensorData(DT_FP32, {1, 32}, packData);
     auto out = makeTensorData(DT_FP32, {1, 32}, 0.0f);
@@ -1666,16 +1636,14 @@ TEST_F(TorchAdaptorTest, TopkMerge) {
     ASSERT_ALLCLOSE(extractedValues, goldenTop);
 }
 
-TEST_F(TorchAdaptorTest, TopkExtractValues) {
+TEST_F(TorchAdaptorTest, TopkExtractValues)
+{
     // Test TopkExtract for value extraction (isIndex=false)
-    std::vector<float> packData = {
-        // Pack format: [v0, i0, v1, i1, ...]
-        // Values sorted in descending order
-        100.0, 5.0, 95.0, 12.0, 90.0, 3.0, 85.0, 18.0,
-        80.0, 7.0, 75.0, 21.0, 70.0, 1.0, 65.0, 14.0,
-        60.0, 9.0, 55.0, 25.0, 50.0, 2.0, 45.0, 16.0,
-        40.0, 11.0, 35.0, 28.0, 30.0, 4.0, 25.0, 19.0
-    };
+    std::vector<float> packData = {// Pack format: [v0, i0, v1, i1, ...]
+                                   // Values sorted in descending order
+                                   100.0, 5.0,  95.0, 12.0, 90.0, 3.0,  85.0, 18.0, 80.0, 7.0,  75.0,
+                                   21.0,  70.0, 1.0,  65.0, 14.0, 60.0, 9.0,  55.0, 25.0, 50.0, 2.0,
+                                   45.0,  16.0, 40.0, 11.0, 35.0, 28.0, 30.0, 4.0,  25.0, 19.0};
 
     auto self = makeTensorData(DT_FP32, {1, 32}, packData);
     auto out = makeTensorData(DT_FP32, {1, 8}, 0.0f);
@@ -1689,15 +1657,13 @@ TEST_F(TorchAdaptorTest, TopkExtractValues) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, TopkExtractIndices) {
+TEST_F(TorchAdaptorTest, TopkExtractIndices)
+{
     // Test TopkExtract for index extraction (isIndex=true)
-    std::vector<float> packData = {
-        // Pack format: [v0, i0, v1, i1, ...]
-        100.0, 5.0, 95.0, 12.0, 90.0, 3.0, 85.0, 18.0,
-        80.0, 7.0, 75.0, 21.0, 70.0, 1.0, 65.0, 14.0,
-        60.0, 9.0, 55.0, 25.0, 50.0, 2.0, 45.0, 16.0,
-        40.0, 11.0, 35.0, 28.0, 30.0, 4.0, 25.0, 19.0
-    };
+    std::vector<float> packData = {// Pack format: [v0, i0, v1, i1, ...]
+                                   100.0, 5.0,  95.0, 12.0, 90.0, 3.0,  85.0, 18.0, 80.0, 7.0,  75.0,
+                                   21.0,  70.0, 1.0,  65.0, 14.0, 60.0, 9.0,  55.0, 25.0, 50.0, 2.0,
+                                   45.0,  16.0, 40.0, 11.0, 35.0, 28.0, 30.0, 4.0,  25.0, 19.0};
 
     auto self = makeTensorData(DT_FP32, {1, 32}, packData);
     auto out = makeTensorData(DT_INT32, {1, 8}, 0);
@@ -1711,17 +1677,18 @@ TEST_F(TorchAdaptorTest, TopkExtractIndices) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, GatherINUB) {
+TEST_F(TorchAdaptorTest, GatherINUB)
+{
     // params shape: [num_buffer_tokens, hidden_dim] = [8, 4]
     std::vector<float> paramsData = {
-        0.0f, 1.0f, 2.0f, 3.0f,      // row 0
-        10.0f, 11.0f, 12.0f, 13.0f,  // row 1
-        20.0f, 21.0f, 22.0f, 23.0f,  // row 2
-        30.0f, 31.0f, 32.0f, 33.0f,  // row 3
-        40.0f, 41.0f, 42.0f, 43.0f,  // row 4
-        50.0f, 51.0f, 52.0f, 53.0f,  // row 5
-        60.0f, 61.0f, 62.0f, 63.0f,  // row 6
-        70.0f, 71.0f, 72.0f, 73.0f   // row 7
+        0.0f,  1.0f,  2.0f,  3.0f,  // row 0
+        10.0f, 11.0f, 12.0f, 13.0f, // row 1
+        20.0f, 21.0f, 22.0f, 23.0f, // row 2
+        30.0f, 31.0f, 32.0f, 33.0f, // row 3
+        40.0f, 41.0f, 42.0f, 43.0f, // row 4
+        50.0f, 51.0f, 52.0f, 53.0f, // row 5
+        60.0f, 61.0f, 62.0f, 63.0f, // row 6
+        70.0f, 71.0f, 72.0f, 73.0f  // row 7
     };
     // logical indices [0, 2, 5, 3], blockSize=2:
     // pageTable=[2,0,1] => logical->physical mapping:
@@ -1729,10 +1696,10 @@ TEST_F(TorchAdaptorTest, GatherINUB) {
     std::vector<int64_t> indicesData = {0, 2, 5, 3};
     std::vector<int64_t> pageTableData = {2, 0, 1};
     std::vector<float> goldenData = {
-        40.0f, 41.0f, 42.0f, 43.0f,  // row 4
-        0.0f, 1.0f, 2.0f, 3.0f,      // row 0
-        30.0f, 31.0f, 32.0f, 33.0f,  // row 3
-        10.0f, 11.0f, 12.0f, 13.0f   // row 1
+        40.0f, 41.0f, 42.0f, 43.0f, // row 4
+        0.0f,  1.0f,  2.0f,  3.0f,  // row 0
+        30.0f, 31.0f, 32.0f, 33.0f, // row 3
+        10.0f, 11.0f, 12.0f, 13.0f  // row 1
     };
 
     auto params = makeTensorData(DT_FP32, {8, 4}, paramsData);
@@ -1745,7 +1712,8 @@ TEST_F(TorchAdaptorTest, GatherINUB) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
-TEST_F(TorchAdaptorTest, Print) {
+TEST_F(TorchAdaptorTest, Print)
+{
     auto t0 = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     std::cout << t0->ToString() << std::endl;
     auto t1 = makeTensorData(DT_FP32, {4, 4, 4}, 4.0f);
@@ -1756,11 +1724,10 @@ TEST_F(TorchAdaptorTest, Print) {
     std::cout << t3->ToString() << std::endl;
 }
 
-static inline int64_t alignup(int64_t x, int64_t align) {
-    return (x + (align - 1)) & ~(align - 1);
-}
+static inline int64_t alignup(int64_t x, int64_t align) { return (x + (align - 1)) & ~(align - 1); }
 
-TEST_F(TorchAdaptorTest, NDNZ) {
+TEST_F(TorchAdaptorTest, NDNZ)
+{
     for (auto m : {32, 33, 48}) {
         for (auto n : {32, 33, 48}) {
             int padm = alignup(m, 16);

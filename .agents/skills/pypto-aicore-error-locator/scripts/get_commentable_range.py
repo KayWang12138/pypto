@@ -28,18 +28,18 @@ def get_commentable_range(cce_file, error_in_t):
     cce_lines = read_file(cce_file)
     cce_lines = comment_special_lines(cce_lines)
     commentable_lines = get_commentable_lines(cce_lines, error_in_t)
-    
+
     n = len(commentable_lines)
     logger.info(f"可注释的行数: {n}")
-    
+
     if n <= 0:
         logger.info("错误：没有可注释的行")
         return None, None
-    
+
     left = 0
     right = n - 1
     logger.info(f"初始范围: left={left}, right={right}")
-    
+
     return left, right
 
 
@@ -70,7 +70,7 @@ def main():
         sys.exit(1)
 
     left, right = get_commentable_range(cce_file, error_in_t)
-    
+
     if left is not None:
         logger.info(f"LEFT {left}")
         logger.info(f"RIGHT {right}")

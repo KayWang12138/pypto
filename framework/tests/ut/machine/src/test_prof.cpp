@@ -38,8 +38,7 @@ using namespace npu::tile_fwk::dynamic;
 
 class TestPro : public testing::Test {
 public:
-    static void SetUpTestCase() {
-    }
+    static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
@@ -48,7 +47,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestPro, test_ini) {
+TEST_F(TestPro, test_ini)
+{
     std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
     std::unique_ptr<AiCoreManager> AiCoreManagerPtr = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
     AiCoreManagerPtr->aicNum_ = 0;
@@ -58,8 +58,8 @@ TEST_F(TestPro, test_ini) {
     AiCoreManagerPtr->aicpuIdx_ = 0;
     AiCoreProf prof(*AiCoreManagerPtr);
 
-    int64_t *oriRegAddrs_ = (int64_t *)malloc(sizeof(int64_t) * 1024 * 2);
-    int64_t *regAddrs_ = oriRegAddrs_ + 1024;
+    int64_t* oriRegAddrs_ = (int64_t*)malloc(sizeof(int64_t) * 1024 * 2);
+    int64_t* regAddrs_ = oriRegAddrs_ + 1024;
     regAddrs_[0] = (int64_t)&regAddrs_[0];
     std::cout << "oriRegAddrs_ " << oriRegAddrs_ << std::endl;
     std::cout << "regAddrs_    " << regAddrs_ << std::endl;
@@ -70,7 +70,7 @@ TEST_F(TestPro, test_ini) {
     int32_t aicoreId = 0;
     int32_t subgraphId = 0;
     int32_t taskId = 0;
-    TaskStat *taskStat = new TaskStat();
+    TaskStat* taskStat = new TaskStat();
     taskStat->taskId = 0;
     taskStat->execEnd = 1;
     taskStat->execStart = 0;
@@ -79,7 +79,7 @@ TEST_F(TestPro, test_ini) {
     prof.ProInitHandShake();
     prof.ProInitAiCpuTaskStat();
     int threadIdx = 0;
-    AiCpuTaskStat *aiCpuStat = new AiCpuTaskStat();
+    AiCpuTaskStat* aiCpuStat = new AiCpuTaskStat();
     AiCpuHandShakeSta handShakeSta;
     aiCpuStat->taskId = 0;
     aiCpuStat->execEnd = 1;
@@ -104,9 +104,9 @@ TEST_F(TestPro, test_ini) {
     free(oriRegAddrs_);
 }
 
-static void *AllocAligned(size_t alignment, size_t size)
+static void* AllocAligned(size_t alignment, size_t size)
 {
-    void *ptr = nullptr;
+    void* ptr = nullptr;
     int ret = posix_memalign(&ptr, alignment, size);
     if (ret != 0) {
         return nullptr;
@@ -116,7 +116,8 @@ static void *AllocAligned(size_t alignment, size_t size)
     return ptr;
 }
 
-TEST_F(TestPro, test_prof_start_pmu_dav2201) {
+TEST_F(TestPro, test_prof_start_pmu_dav2201)
+{
     // Setup manager: keep one aicore managed
     std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
     std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
@@ -130,11 +131,11 @@ TEST_F(TestPro, test_prof_start_pmu_dav2201) {
     const uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
     // cover PMU register offsets up to about 0x2000+ for 2201
     const size_t regBufSize = 0x6000;
-    uint8_t *regBuf = reinterpret_cast<uint8_t *>(AllocAligned(pageSize, regBufSize));
+    uint8_t* regBuf = reinterpret_cast<uint8_t*>(AllocAligned(pageSize, regBufSize));
     ASSERT_NE(regBuf, nullptr);
 
     // choose an address within the first page so mapBase aligns to regBuf
-    void *addr = reinterpret_cast<void *>(regBuf + 0x100);
+    void* addr = reinterpret_cast<void*>(regBuf + 0x100);
 
     int64_t regAddrsArr[1024] = {0};
     regAddrsArr[0] = reinterpret_cast<int64_t>(addr);
@@ -157,7 +158,8 @@ TEST_F(TestPro, test_prof_start_pmu_dav2201) {
     free(regBuf);
 }
 
-TEST_F(TestPro, test_prof_start_pmu_dav3510) {
+TEST_F(TestPro, test_prof_start_pmu_dav3510)
+{
     std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
     std::unique_ptr<AiCoreManager> aicoreMng = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
     aicoreMng->aicNum_ = 1;
@@ -170,10 +172,10 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510) {
     const uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
     // cover DAV_3510 PMU register offsets up to ~0x4300
     const size_t regBufSize = 0x9000;
-    uint8_t *regBuf = reinterpret_cast<uint8_t *>(AllocAligned(pageSize, regBufSize));
+    uint8_t* regBuf = reinterpret_cast<uint8_t*>(AllocAligned(pageSize, regBufSize));
     ASSERT_NE(regBuf, nullptr);
 
-    void *addr = reinterpret_cast<void *>(regBuf + 0x100);
+    void* addr = reinterpret_cast<void*>(regBuf + 0x100);
 
     int64_t regAddrsArr[1024] = {0};
     regAddrsArr[0] = reinterpret_cast<int64_t>(addr);

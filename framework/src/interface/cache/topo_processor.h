@@ -33,8 +33,8 @@ struct IdList {
     uint32_t len;
     uint64_t keyId;
 
-    IdList(const uint64_t* src, uint32_t n, uint64_t id)
-        : data(std::make_unique<uint64_t[]>(n)), len(n), keyId(id) {
+    IdList(const uint64_t* src, uint32_t n, uint64_t id) : data(std::make_unique<uint64_t[]>(n)), len(n), keyId(id)
+    {
         memcpy_s(data.get(), n * sizeof(uint64_t), src, n * sizeof(uint64_t));
     }
 };
@@ -43,56 +43,60 @@ struct IdListKey {
     uint64_t hash;
     uint32_t len;
 
-    bool operator==(const IdListKey& o) const {
-        return hash == o.hash && len == o.len;
-    }
+    bool operator==(const IdListKey& o) const { return hash == o.hash && len == o.len; }
 
-    friend uint32_t HashValue(const IdListKey& k) {
+    friend uint32_t HashValue(const IdListKey& k)
+    {
         uint32_t shift = 16;
         return (k.hash & 0xFFFFFFFF) ^ (k.len << shift);
     }
 };
 
 struct IdListKeyHash {
-    uint32_t operator()(const IdListKey& k) const {
-        return HashValue(k);
-    }
+    uint32_t operator()(const IdListKey& k) const { return HashValue(k); }
 };
 
 class TopoProcessor {
 public:
-    TopoProcessor(std::shared_ptr<CoreFunctionTopoCache> topoData, uint64_t topoNum) : srcTopoData_(topoData), srcTopoNum_(topoNum) {}
+    TopoProcessor(std::shared_ptr<CoreFunctionTopoCache> topoData, uint64_t topoNum)
+        : srcTopoData_(topoData), srcTopoNum_(topoNum)
+    {}
 
-    ~TopoProcessor() {
-        for (auto &items : newTopoIdToNewTopo_) {
+    ~TopoProcessor()
+    {
+        for (auto& items : newTopoIdToNewTopo_) {
             delete[] reinterpret_cast<uint8_t*>(items.second);
         }
     }
 
     /* 合并批量依赖处理 */
-    std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> MergeBatchDepend(uint64_t batchDependNum, uint32_t mergeNum) {
+    std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> MergeBatchDepend(
+        uint64_t batchDependNum, uint32_t mergeNum)
+    {
         ParseOldTopo(batchDependNum);
         GenVirtualSubgraphTopo(mergeNum);
         return GenFinalTopo();
     }
 
 private:
-    void ParseOldTopo(uint64_t batchDependNum) {
+    void ParseOldTopo(uint64_t batchDependNum)
+    {
         for (uint64_t i = 0; i < srcTopoNum_; i++) {
-            uint8_t *base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
-            CoreFunctionTopo *topoData = reinterpret_cast<CoreFunctionTopo*>(
+            uint8_t* base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
+            CoreFunctionTopo* topoData = reinterpret_cast<CoreFunctionTopo*>(
                 base + ((uint64_t*)base)[i + 1]); // [i+1] access srcTopoData_->coreFunctionTopoOffsets
             if (topoData->depNum < batchDependNum) {
                 MACHINE_LOGD("[TopoProcessor]ignore proc topo %lu, dep num %lu", i, topoData->depNum);
                 continue;
             }
             uint64_t tmpTopoId = ProcTopoBatchDepend(topoData);
-            MACHINE_LOGD("[TopoProcessor]proc topo %lu, dep num %lu, new tmp topoid:%lu",
-                i, topoData->depNum, tmpTopoId);
+            MACHINE_LOGD(
+                "[TopoProcessor]proc topo %lu, dep num %lu, new tmp topoid:%lu", i, topoData->depNum, tmpTopoId);
         }
     }
 
-    void GenVirtualSubgraphTopo(uint32_t mergeNum) {
+    void GenVirtualSubgraphTopo(uint32_t mergeNum)
+    {
         uint64_t virtualTopoId = srcTopoNum_;
 
         for (auto it = newTopoIdToOldTopo_.begin(); it != newTopoIdToOldTopo_.end(); ++it) {
@@ -100,9 +104,9 @@ private:
                 std::vector<CoreFunctionTopo*> oldTopoVec = it->second;
                 CoreFunctionTopo* oldTopo = oldTopoVec.front();
                 for (uint64_t i = 0; i < oldTopo->depNum; i++) {
-                    uint8_t *base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
-                    CoreFunctionTopo *topoData = reinterpret_cast<CoreFunctionTopo*>(
-                        base + ((uint64_t*)base)[oldTopo->depIds[i] + 1]);
+                    uint8_t* base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
+                    CoreFunctionTopo* topoData =
+                        reinterpret_cast<CoreFunctionTopo*>(base + ((uint64_t*)base)[oldTopo->depIds[i] + 1]);
                     if (static_cast<uint64_t>(topoData->readyCount * (-1)) != oldTopoVec.size()) {
                         return false;
                     }
@@ -111,22 +115,23 @@ private:
             };
             bool isPure = checkPureBatchDepend();
             if (isPure) {
-                MACHINE_LOGD("[TopoProcessor]gen valid pure batch depend new topo %lu, size %lu, virtualTpopid:%lu",
-                    it->first, it->second.size(), virtualTopoId);
+                MACHINE_LOGD(
+                    "[TopoProcessor]gen valid pure batch depend new topo %lu, size %lu, virtualTpopid:%lu", it->first,
+                    it->second.size(), virtualTopoId);
                 ConnectVirtualTopo(it->second, virtualTopoId, true);
             } else if (it->second.size() >= mergeNum) {
-                MACHINE_LOGD("[TopoProcessor]gen valid mix batch depend new topo %lu, size %lu, virtualTpopid:%lu",
-                    it->first, it->second.size(), virtualTopoId);
+                MACHINE_LOGD(
+                    "[TopoProcessor]gen valid mix batch depend new topo %lu, size %lu, virtualTpopid:%lu", it->first,
+                    it->second.size(), virtualTopoId);
                 ConnectVirtualTopo(it->second, virtualTopoId, false);
             } else {
-                MACHINE_LOGD("[TopoProcessor]erase unvalid new topo %lu, size %lu",
-                    it->first, it->second.size());
+                MACHINE_LOGD("[TopoProcessor]erase unvalid new topo %lu, size %lu", it->first, it->second.size());
             }
         }
     }
 
-    void ConnectVirtualTopo(
-        std::vector<CoreFunctionTopo*>& oldTopoVec, uint64_t& virtualTopoId, bool isPure) __NO_UBSAN {
+    void ConnectVirtualTopo(std::vector<CoreFunctionTopo*>& oldTopoVec, uint64_t& virtualTopoId, bool isPure) __NO_UBSAN
+    {
         CoreFunctionTopo* oldTopo = oldTopoVec.front();
 
         // new virtual topo node
@@ -143,7 +148,7 @@ private:
         }
 
         // connect old topo with virtual subgraph topo
-        for (uint64_t i =0; i < oldTopoVec.size(); i++) {
+        for (uint64_t i = 0; i < oldTopoVec.size(); i++) {
             oldTopo = oldTopoVec.at(i);
             oldTopo->depNum = 1;
             oldTopo->depIds[0] = virtualTopoId;
@@ -156,7 +161,8 @@ private:
         return;
     };
 
-    std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> GenFinalTopo() {
+    std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> GenFinalTopo()
+    {
         if (virtualTopoSize_ == 0) {
             // use orgin topo
             return std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t>(srcTopoData_, 0);
@@ -169,8 +175,8 @@ private:
 
         *(reinterpret_cast<uint64_t*>(topoCachePtr)) = newTopoSize;
         uint64_t* offsetPtr = reinterpret_cast<uint64_t*>(topoCachePtr) + 1;
-        uint8_t* topoPtr = reinterpret_cast<uint8_t*>(
-            reinterpret_cast<uint64_t*>(topoCachePtr) + srcTopoNum_ + virtualTopoNum_ + 1);
+        uint8_t* topoPtr =
+            reinterpret_cast<uint8_t*>(reinterpret_cast<uint64_t*>(topoCachePtr) + srcTopoNum_ + virtualTopoNum_ + 1);
         uint64_t curCoreFuncOffset = sizeof(uint64_t) + (srcTopoNum_ + virtualTopoNum_) * sizeof(uint64_t);
         auto appendTopo = [&topoPtr, &offsetPtr, &curCoreFuncOffset](CoreFunctionTopo* srcTopo, uint64_t id) {
             offsetPtr[id] = curCoreFuncOffset;
@@ -183,26 +189,27 @@ private:
             tempPtr->extParamNum = srcTopo->extParamNum;
             const uint64_t depIdsLen = srcTopo->depNum + srcTopo->extParamNum;
             if (depIdsLen != 0) {
-                (void)memcpy_s(static_cast<uint8_t*>(static_cast<void*>(tempPtr->depIds)), depIdsLen * sizeof(uint64_t),
+                (void)memcpy_s(
+                    static_cast<uint8_t*>(static_cast<void*>(tempPtr->depIds)), depIdsLen * sizeof(uint64_t),
                     static_cast<uint8_t*>(static_cast<void*>(srcTopo->depIds)), depIdsLen * sizeof(uint64_t));
             }
 
-            uint32_t tempLength = sizeof(CoreFunctionTopo) + sizeof(uint64_t) * (tempPtr->depNum + tempPtr->extParamNum);
+            uint32_t tempLength =
+                sizeof(CoreFunctionTopo) + sizeof(uint64_t) * (tempPtr->depNum + tempPtr->extParamNum);
             curCoreFuncOffset += tempLength;
             topoPtr += tempLength;
             MACHINE_LOGD("[TopoProcessor]gen final toppo, add topo, id = %lu, coretype = %lu", id, tempPtr->coreType);
         };
 
         for (uint32_t i = 0; i < srcTopoNum_; i++) {
-            uint8_t *base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
-            CoreFunctionTopo *oldTopo = reinterpret_cast<CoreFunctionTopo*>(
-                base + ((uint64_t*)base)[i + 1]);
+            uint8_t* base = static_cast<uint8_t*>(static_cast<void*>(srcTopoData_.get()));
+            CoreFunctionTopo* oldTopo = reinterpret_cast<CoreFunctionTopo*>(base + ((uint64_t*)base)[i + 1]);
             appendTopo(oldTopo, i);
         }
         MACHINE_LOGD("[TopoProcessor] finish add old topo, num = %lu", srcTopoNum_);
 
         // add virtual topo
-        for(auto& elm : newTopoIdToNewTopo_) {
+        for (auto& elm : newTopoIdToNewTopo_) {
             appendTopo(elm.second, elm.first);
         }
         MACHINE_LOGD("[TopoProcessor] finish add virtual topo, num = %lu", newTopoIdToNewTopo_.size());
@@ -210,7 +217,8 @@ private:
         return std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t>(newTopoCache, virtualTopoNum_);
     }
 
-    uint64_t ProcTopoBatchDepend(CoreFunctionTopo* topoNode) {
+    uint64_t ProcTopoBatchDepend(CoreFunctionTopo* topoNode)
+    {
         if (!topoNode || topoNode->depNum == 0) {
             return 0;
         }
@@ -239,12 +247,14 @@ private:
         return newId;
     }
 
-    void InsertNewOldKeyIdMap(const uint64_t newTopoId, CoreFunctionTopo* oldTopo) {
+    void InsertNewOldKeyIdMap(const uint64_t newTopoId, CoreFunctionTopo* oldTopo)
+    {
         std::vector<CoreFunctionTopo*>& oldTopoVec = newTopoIdToOldTopo_[newTopoId];
         oldTopoVec.push_back(oldTopo);
     }
 
-    void IdValueHash(const unsigned char* data2, int len, uint64_t& h, const uint64_t m) {
+    void IdValueHash(const unsigned char* data2, int len, uint64_t& h, const uint64_t m)
+    {
         const int index0 = 0;
         const int index1 = 1;
         const int index2 = 2;
@@ -285,13 +295,14 @@ private:
                 h *= m;
                 break;
             }
-            default :{
+            default: {
                 break;
             }
         };
     }
 
-    uint64_t IdListHash(const void* key, int len, unsigned int seed) __NO_UBSAN {
+    uint64_t IdListHash(const void* key, int len, unsigned int seed) __NO_UBSAN
+    {
         const uint64_t m = 0xc6a4a7935bd1e995;
         const int r = 47;
         uint64_t h = seed ^ (len * m);
@@ -325,4 +336,3 @@ private:
 };
 
 } // namespace npu::tile_fwk
-

@@ -46,7 +46,8 @@ const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"3510", NPUArch::DAV_3510},
 };
 
-NPUArch StringToNPUArch(const std::string& npuArch) {
+NPUArch StringToNPUArch(const std::string& npuArch)
+{
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
         PLATFORM_LOGD("Set NpuArch as %s.", npuArch.c_str());
@@ -55,7 +56,8 @@ NPUArch StringToNPUArch(const std::string& npuArch) {
     return NPUArch::DAV_2201;
 }
 
-size_t Core::GetMemorySize(MemoryType type) const {
+size_t Core::GetMemorySize(MemoryType type) const
+{
     auto it = memories_.find(type);
     if (it != memories_.end()) {
         return it->second.size;
@@ -63,18 +65,20 @@ size_t Core::GetMemorySize(MemoryType type) const {
     return 0;
 }
 
-size_t Die::GetMemoryLimit(MemoryType type) const {
+size_t Die::GetMemoryLimit(MemoryType type) const
+{
     size_t aic_limit = core_wrap_.GetAICMemorySize(type);
     size_t aiv_limit = core_wrap_.GetAIVMemorySize(type);
-    if(aic_limit == 0 && aiv_limit == 0) {
+    if (aic_limit == 0 && aiv_limit == 0) {
         // ERROR Note
         return 0;
     }
     return aic_limit == 0 ? aiv_limit : aic_limit;
 }
 
-bool Die::SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths) {
-    for (const auto &pathDesc : dataPaths) {
+bool Die::SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths)
+{
+    for (const auto& pathDesc : dataPaths) {
         if (pathDesc.first != MemoryType::MEM_UNKNOWN && pathDesc.second != MemoryType::MEM_UNKNOWN) {
             memoryGraph_.AddPath(pathDesc.first, pathDesc.second);
         }
@@ -82,7 +86,8 @@ bool Die::SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& da
     return true;
 }
 
-bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const {
+bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType>& paths) const
+{
     auto res = memoryGraph_.FindNearestPath(from, to, paths);
     if (res == true) {
         return true;
@@ -91,12 +96,11 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     return false;
 }
 
-void SoC::SetNPUArch(const std::string& versionStr) {
-    version_ = StringToNPUArch(versionStr);
-}
+void SoC::SetNPUArch(const std::string& versionStr) { version_ = StringToNPUArch(versionStr); }
 
-void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver) {
-    for (const auto &pair : ver) {
+void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver)
+{
+    for (const auto& pair : ver) {
         if (pair.first == "AIC") {
             GetAICCore().SetCCECVersion(pair.second);
         } else if (pair.first == "AIV") {
@@ -105,7 +109,8 @@ void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver
     }
 }
 
-std::string SoC::GetCCECVersion(std::string CoreType) {
+std::string SoC::GetCCECVersion(std::string CoreType)
+{
     if (CoreType == "AIC") {
         return GetAICCore().GetCCECVersion();
     } else if (CoreType == "AIV") {
@@ -115,7 +120,8 @@ std::string SoC::GetCCECVersion(std::string CoreType) {
     }
 }
 
-size_t SoC::GetAICPUNum() const {
+size_t SoC::GetAICPUNum() const
+{
     size_t aiCpuNum = 0;
     PLATFORM_LOGD("Try to obtain real time aicpu count through rtGetAiCpuCount.");
     if (CannHostRuntime::Instance().GetAICPUCnt(aiCpuNum)) {
@@ -125,7 +131,8 @@ size_t SoC::GetAICPUNum() const {
     return ai_cpu_cnt_;
 }
 
-void MemoryGraph::AddPath(MemoryType from, MemoryType to) {
+void MemoryGraph::AddPath(MemoryType from, MemoryType to)
+{
     if (from == to) {
         return;
     }
@@ -137,7 +144,8 @@ void MemoryGraph::AddPath(MemoryType from, MemoryType to) {
     fromNode->AddDest(toNode);
 }
 
-std::shared_ptr<MemoryNode> MemoryGraph::GetNode(MemoryType type) {
+std::shared_ptr<MemoryNode> MemoryGraph::GetNode(MemoryType type)
+{
     std::shared_ptr<MemoryNode> node;
     if (nodes.count(type) != 0) {
         node = nodes[type];
@@ -152,8 +160,11 @@ std::shared_ptr<MemoryNode> MemoryGraph::GetNode(MemoryType type) {
     return node;
 }
 
-void MemoryGraph::DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate, std::vector<MemoryType> &paths) const {
-    for (auto &dest : node->dests) {
+void MemoryGraph::DFS(
+    MemoryType target, const std::shared_ptr<MemoryNode>& node, std::vector<MemoryType>& candidate,
+    std::vector<MemoryType>& paths) const
+{
+    for (auto& dest : node->dests) {
         if (std::find(candidate.begin(), candidate.end(), dest) != candidate.end()) {
             continue;
         }
@@ -168,14 +179,15 @@ void MemoryGraph::DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node
             continue;
         }
         paths.clear();
-        for (auto &t : candidate) {
+        for (auto& t : candidate) {
             paths.push_back(t);
         }
         candidate.pop_back();
     }
 }
 
-bool MemoryGraph::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const {
+bool MemoryGraph::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType>& paths) const
+{
     if (nodes.count(from) == 0) {
         return false;
     }
@@ -189,12 +201,14 @@ bool MemoryGraph::FindNearestPath(MemoryType from, MemoryType to, std::vector<Me
     return true;
 }
 
-Platform &Platform::Instance() {
+Platform& Platform::Instance()
+{
     static Platform instance;
     return instance;
 }
 
-void Platform::SetMemoryLimit(const PlatformParser &parser) {
+void Platform::SetMemoryLimit(const PlatformParser& parser)
+{
     size_t memoryLimit;
     PLATFORM_LOGD("Start set memory limit.");
     if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
@@ -224,7 +238,8 @@ void Platform::SetMemoryLimit(const PlatformParser &parser) {
     GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0BMX, kDefaultL0mxSize));
 }
 
-void Platform::LoadPlatformInfo(const PlatformParser &parser) {
+void Platform::LoadPlatformInfo(const PlatformParser& parser)
+{
     std::string archType;
     std::string shortSocVersion;
     std::unordered_map<std::string, std::string> versionInfo;
@@ -258,17 +273,19 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     if (internalParser.LoadInternalInfo()) {
         if (internalParser.GetDataPath(dataPath)) {
             GetDie().SetMemoryPath(dataPath);
-        } 
+        }
     }
 }
 
-Platform::Platform() {
+Platform::Platform()
+{
     PLATFORM_LOGD("Start initializing platform.");
     ObtainPlatformInfo();
     PLATFORM_LOGD("Initialized platform.");
 }
 
-void Platform::ObtainPlatformInfo() {
+void Platform::ObtainPlatformInfo()
+{
     static bool initialized = false;
     if (initialized) {
         return;
@@ -288,4 +305,4 @@ void Platform::ObtainPlatformInfo() {
     PLATFORM_LOGD("Loaded platform info.");
     initialized = true;
 }
-}
+} // namespace npu::tile_fwk

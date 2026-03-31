@@ -12,11 +12,11 @@
  * \file decode_indexer_attention.h
  * \brief
  */
- 
+
 #pragma once
 #ifndef DECODE_INDEXER_ATTENTION
 #define DECODE_INDEXER_ATTENTION
- 
+
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/program/program.h"
@@ -26,16 +26,17 @@
 #include "dsia_common.h"
 #include "lightning_indexer.h"
 #include "lightning_indexer_prolog.h"
- 
+
 namespace npu::tile_fwk {
-void DecodeIndexerAttention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
-    const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
-    Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, Tensor &blockTable, Tensor &actSeqs,
-    const Tensor &qW, const Tensor &kW, const Tensor &projW, const Tensor &lnW, const Tensor &lnBias,
-    const Tensor &indexKCache, Tensor &attentionOut,
-    Tensor &gatherResTmp, Tensor &tmpTopkInput, Tensor &tmpIndexerTopkRes, Tensor &tmpRowSumOut,  Tensor &rmsResOut,
-    Tensor &queryOut,Tensor &weightsOut, Tensor &qNopeOut,Tensor &qRopeOut, const DSIASimpleParams &params);
- 
+void DecodeIndexerAttention(
+    const Tensor& tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wUk, const Tensor& wDkvKr,
+    const Tensor& gammaCq, const Tensor& gammaCkv, const Tensor& sin, const Tensor& cos, const Tensor& cacheIndex,
+    Tensor& kvCache, Tensor& krCache, const MlaQuantInputs& quantInputs, Tensor& blockTable, Tensor& actSeqs,
+    const Tensor& qW, const Tensor& kW, const Tensor& projW, const Tensor& lnW, const Tensor& lnBias,
+    const Tensor& indexKCache, Tensor& attentionOut, Tensor& gatherResTmp, Tensor& tmpTopkInput,
+    Tensor& tmpIndexerTopkRes, Tensor& tmpRowSumOut, Tensor& rmsResOut, Tensor& queryOut, Tensor& weightsOut,
+    Tensor& qNopeOut, Tensor& qRopeOut, const DSIASimpleParams& params);
+
 } // namespace npu::tile_fwk
- 
+
 #endif // DECODE_INDEXER_ATTENTION

@@ -19,11 +19,12 @@
 #include "codegen/utils/codegen_utils.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::ostringstream oss;
@@ -50,13 +51,15 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    oss << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName << "_<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));    
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
@@ -74,9 +77,7 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
         templateParamList.emplace_back(lastUse);
     }
     templateParamList.emplace_back(std::to_string(modeEnum));
-    std::string satModeStr = (satModeEnum == 0) ? 
-                            "pto::SaturationMode::ON" : 
-                            "pto::SaturationMode::OFF";
+    std::string satModeStr = (satModeEnum == 0) ? "pto::SaturationMode::ON" : "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses({dstTensor, srcTensor});
@@ -84,7 +85,8 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam& param) const
+{
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
@@ -118,7 +120,8 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam &para
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam& param) const
+{
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
@@ -126,10 +129,10 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     }
     bool isValidAxis = ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)));
     ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported reduce axis: " << reduceAxis;
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
 
     auto dynSrcShape = dynamicValidShape[1];
     // adjust reduceAxis for dim4
@@ -166,7 +169,8 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     int reduceAxis{-1};
@@ -186,7 +190,8 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxline(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintRowMaxline(const PrintUnaryParam& param) const
+{
     if (isSupportLayout) {
         return PrintRowMaxlineTileTensor();
     }
@@ -196,11 +201,12 @@ std::string CodeGenOpCloudNPU::PrintRowMaxline(const PrintUnaryParam &param) con
     return PrintRowMaxlineStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::PrintReduceExStatic(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintReduceExStatic(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
     std::vector<int64_t> oriShape = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::ostringstream oss;
@@ -218,19 +224,19 @@ std::string CodeGenOpCloudNPU::PrintReduceExStatic(const PrintUnaryParam &param)
     std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
     paramList.insert(paramList.end(), {dst, src0});
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() << "<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintReduceEx(const PrintUnaryParam &param) const {
-    return PrintReduceExStatic(param);
-}
+std::string CodeGenOpCloudNPU::PrintReduceEx(const PrintUnaryParam& param) const { return PrintReduceExStatic(param); }
 
-std::string CodeGenOpCloudNPU::PrintReduceSumStatic(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintReduceSumStatic(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::ostringstream oss;
     std::vector<std::string> paramList;
@@ -244,19 +250,22 @@ std::string CodeGenOpCloudNPU::PrintReduceSumStatic(const PrintUnaryParam &param
     std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
     paramList.insert(paramList.end(), {dst0, src0});
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() << "<" << templateParam << ">"
+        << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintReduceSum(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintReduceSum(const PrintUnaryParam& param) const
+{
     return PrintReduceSumStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::PrintVcopyStatic(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintVcopyStatic(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::ostringstream os;
@@ -277,19 +286,19 @@ std::string CodeGenOpCloudNPU::PrintVcopyStatic(const PrintUnaryParam &param) co
     std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
     paramList.insert(paramList.end(), {dst, src0});
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName.c_str() << "<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVcopy(const PrintUnaryParam &param) const {
-    return PrintVcopyStatic(param);
-}
+std::string CodeGenOpCloudNPU::PrintVcopy(const PrintUnaryParam& param) const { return PrintVcopyStatic(param); }
 
-std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam &param, int expandAxis) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam& param, int expandAxis) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
     auto dynDstShape = dynamicValidShape[0];
     std::vector<SymbolicScalar> newDynDstShape = dynDstShape;
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
@@ -324,12 +333,14 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
 
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
 
-    os << tileOpName << "_<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    os << tileOpName << "_<" << templateParam << ">"
+       << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
+std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::ostringstream oss;
@@ -346,8 +357,10 @@ std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::string &dVar,
-    const std::string &srcDtypeStr, const std::string &dstDtypeStr) const {
+std::string CodeGenOpCloudNPU::PrintExpand(
+    const std::string& s0Var, const std::string& dVar, const std::string& srcDtypeStr,
+    const std::string& dstDtypeStr) const
+{
     char buffer[256] = "CG_ERROR";
     int ret = 0;
     int expandAxis{-1};
@@ -372,7 +385,8 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
         return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, expandAxis);
     }
 
-    ret = sprintf_s(buffer, sizeof(buffer),
+    ret = sprintf_s(
+        buffer, sizeof(buffer),
         "%s_<%s, %d, %d, %d, %d, %d, %d, %d, %d, /*DS*/ %d, %d, %d, /*SS*/ %d, %d, %d, %d>"
         "((__ubuf__ %s*)%s, (__ubuf__ %s*)%s);\n",
         tileOpName.c_str(), dstDtypeStr.c_str(), dos[ID0], dos[ID1], dos[ID2], dos[ID3], os[ID0], os[ID1], os[ID2],
@@ -383,7 +397,8 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     return buffer;
 }
 
-std::string CodeGenOpCloudNPU::PrintOneHotLayout() const {
+std::string CodeGenOpCloudNPU::PrintOneHotLayout() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::ostringstream oss;
@@ -391,14 +406,15 @@ std::string CodeGenOpCloudNPU::PrintOneHotLayout() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam& param) const
+{
     if (isSupportLayout) {
         return PrintOneHotLayout();
     }
 
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
 
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::ostringstream os;
@@ -435,11 +451,12 @@ std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam &param) const {
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
 
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
@@ -475,11 +492,12 @@ std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam 
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnaryStatic(const PrintUnaryParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &s0Var = param.s0Var;
+std::string CodeGenOpCloudNPU::PrintUnaryStatic(const PrintUnaryParam& param) const
+{
+    const std::string& dstDtypeStr = param.dstDtypeStr;
+    const std::string& srcDtypeStr = param.srcDtypeStr;
+    const std::string& dVar = param.dVar;
+    const std::string& s0Var = param.s0Var;
     std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
@@ -514,7 +532,8 @@ std::string CodeGenOpCloudNPU::PrintUnaryStatic(const PrintUnaryParam &param) co
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBitwiseNot() const {
+std::string CodeGenOpCloudNPU::PrintBitwiseNot() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
 
@@ -523,7 +542,8 @@ std::string CodeGenOpCloudNPU::PrintBitwiseNot() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const {
+std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const
+{
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
 
@@ -539,7 +559,8 @@ std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam &param) const {
+std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam& param) const
+{
     if (isSupportLayout) {
         return PrintUnaryTileTensor();
     }
@@ -549,7 +570,8 @@ std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam &param) const {
     return PrintUnaryStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::GenUnaryOp() const {
+std::string CodeGenOpCloudNPU::GenUnaryOp() const
+{
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
@@ -570,11 +592,12 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE || opCode == Opcode::OP_ROWPRODLINE) {
         return PrintRowMaxline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
-               opCode == Opcode::OP_RELU || opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG ||
-               opCode == Opcode::OP_RSQRT || opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT ||
-               opCode == Opcode::OP_BRCB || opCode == Opcode::OP_CEIL || opCode == Opcode::OP_FLOOR ||
-               opCode == Opcode::OP_TRUNC || opCode == Opcode::OP_ISFINITE) {
+    } else if (
+        opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
+        opCode == Opcode::OP_RELU || opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG ||
+        opCode == Opcode::OP_RSQRT || opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT ||
+        opCode == Opcode::OP_BRCB || opCode == Opcode::OP_CEIL || opCode == Opcode::OP_FLOOR ||
+        opCode == Opcode::OP_TRUNC || opCode == Opcode::OP_ISFINITE) {
         return PrintUnary({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_COPY_UB_TO_UB) {
         return PrintVcopy({s0Var, dVar, srcDtypeStr, dstDtypeStr});

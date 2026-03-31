@@ -22,8 +22,8 @@ namespace npu {
 namespace tile_fwk {
 class SplitLargeFanoutTensorChecker : AssembleChecker {
 public:
-    Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
 };
 } // namespace tile_fwk
 } // namespace npu

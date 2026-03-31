@@ -58,7 +58,7 @@ pip3 install -e .
 ```
 
 > Python >= 3.8
-> 
+>
 > **重要**：Python 安装方式会自动注册 `gitcode-mcp` 命令，配置方式与 Go 二进制相同。
 ## OpenCode 配置（不存在会自动创建）
 

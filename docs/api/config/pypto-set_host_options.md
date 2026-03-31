@@ -51,4 +51,3 @@ pypto.set_host_options(compile_stage=pypto.CompStage.EXECUTE_GRAPH,
                        compile_monitor_print_interval=20
                        )
 ```
-

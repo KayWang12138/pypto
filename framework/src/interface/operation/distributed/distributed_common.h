@@ -50,11 +50,7 @@ constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
 constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
 constexpr int32_t MAX_TILE_NUM = 1024;
-enum class TileIndex : size_t {
-    HEAD_SHAPE,
-    HEAD_NUM,
-    TAIL_SHAPE
-};
+enum class TileIndex : size_t { HEAD_SHAPE, HEAD_NUM, TAIL_SHAPE };
 
 enum class AllReduceType {
     ONE_SHOT,
@@ -97,15 +93,14 @@ template <typename T, typename = void>
 struct is_iterable : std::false_type {};
 
 template <typename T>
-struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T>())), decltype(std::end(std::declval<T>()))>> 
+struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T>())), decltype(std::end(std::declval<T>()))>>
     : std::true_type {};
 
 template <typename T>
 inline constexpr bool is_iterable_v = is_iterable<T>::value;
 
 template <typename T>
-typename std::enable_if<!is_iterable_v<T>, std::string>::type
-ToString(T value)
+typename std::enable_if<!is_iterable_v<T>, std::string>::type ToString(T value)
 {
     if constexpr (std::is_same_v<T, std::string>) {
         return value;
@@ -127,8 +122,7 @@ ToString(T value)
 }
 
 template <typename Container>
-typename std::enable_if<is_iterable_v<Container>, std::string>::type
-ToString(const Container& c)
+typename std::enable_if<is_iterable_v<Container>, std::string>::type ToString(const Container& c)
 {
     std::ostringstream oss;
     oss << "[";
@@ -170,7 +164,7 @@ struct ShmemSignalAttr {
 struct ShmemWaitUntilAttr {
     int32_t expectedSum = 0;
     int32_t signalStride = SHMEM_SIGNAL_STRIDE;
-    bool resetSignal =  false;
+    bool resetSignal = false;
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     SymbolicScalar ownerRank;
@@ -197,13 +191,14 @@ struct MoeCombineAttr {
     SymbolicScalar ownerRank;
 };
 
-inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
+inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE>& tile)
 {
     return tile[static_cast<size_t>(TileIndex::HEAD_NUM)] +
-        static_cast<int>(tile[static_cast<size_t>(TileIndex::TAIL_SHAPE)] != 0);
+           static_cast<int>(tile[static_cast<size_t>(TileIndex::TAIL_SHAPE)] != 0);
 }
 
-inline bool checkValidInput(const Tensor &input, uint64_t dim, DataType dType, int32_t row, int32_t col, std::string &assertResult)
+inline bool checkValidInput(
+    const Tensor& input, uint64_t dim, DataType dType, int32_t row, int32_t col, std::string& assertResult)
 {
     if (input.Format() != TileOpFormat::TILEOP_ND) {
         assertResult = "Distributed constraint violated: " + input.GetName() + " format must be TILEOP_ND.";
@@ -214,7 +209,8 @@ inline bool checkValidInput(const Tensor &input, uint64_t dim, DataType dType, i
         return false;
     }
     if (input.Dim() != dim) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " dim must be " + std::to_string(dim) + ".";
+        assertResult =
+            "Distributed constraint violated: " + input.GetName() + " dim must be " + std::to_string(dim) + ".";
         return false;
     }
     if (input.GetDataType() != dType) {
@@ -222,17 +218,19 @@ inline bool checkValidInput(const Tensor &input, uint64_t dim, DataType dType, i
         return false;
     }
     if (input.GetShape(0) != row) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " row must be " + std::to_string(row) + ".";
+        assertResult =
+            "Distributed constraint violated: " + input.GetName() + " row must be " + std::to_string(row) + ".";
         return false;
     }
     if (input.Dim() != 1 && input.GetShape(1) != col) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " col must be " + std::to_string(col) + ".";
+        assertResult =
+            "Distributed constraint violated: " + input.GetName() + " col must be " + std::to_string(col) + ".";
         return false;
     }
     return true;
 }
 
-inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResult)
+inline bool checkValidConfig(const MoeConfig& moeConfig, std::string& assertResult)
 {
     int32_t rankNum = moeConfig.rankNum;
     int32_t routedExpertNum = moeConfig.routedExpertNum;
@@ -242,11 +240,13 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
         return false;
     }
     if (routedExpertNum != ROUTED_EXPET_NUM) {
-        assertResult = "Distributed constraint violated: moeConfig routedExpertNum must be " + std::to_string(ROUTED_EXPET_NUM) + ".";
+        assertResult = "Distributed constraint violated: moeConfig routedExpertNum must be " +
+                       std::to_string(ROUTED_EXPET_NUM) + ".";
         return false;
     }
     if (expertNumPerRank != routedExpertNum / rankNum) {
-        assertResult = "Distributed constraint violated: moeConfig expertNumPerRank must be " + std::to_string(routedExpertNum / rankNum) + ".";
+        assertResult = "Distributed constraint violated: moeConfig expertNumPerRank must be " +
+                       std::to_string(routedExpertNum / rankNum) + ".";
         return false;
     }
     return true;

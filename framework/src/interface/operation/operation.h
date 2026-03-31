@@ -103,7 +103,6 @@ public:
     static const std::string ownerRank;
 };
 
-
 class ConvOpAttributeKey {
 public:
     static const std::string cin;
@@ -169,11 +168,11 @@ public:
         AIVCore aivCore{AIVCore::UNSPECIFIED};
     };
     friend class Function;
-    LogicalTensors iOperand; // Input operands (now actual objects, not shared_ptr)
-    LogicalTensors oOperand; // Output operands (now actual objects, not shared_ptr)
+    LogicalTensors iOperand;      // Input operands (now actual objects, not shared_ptr)
+    LogicalTensors oOperand;      // Output operands (now actual objects, not shared_ptr)
     LogicalTensors dependOperand; // Depend Operands
-    int opmagic; // The magic number for the operation, default value -1
-    int programFuncMagic_; // function magic of leafFunction
+    int opmagic;                  // The magic number for the operation, default value -1
+    int programFuncMagic_;        // function magic of leafFunction
     int outcastRefcount{0};
 
     int cycles{0};
@@ -187,51 +186,55 @@ public:
     QueueType queueType;
 
     // Constructor to initialize the opcode, input operands, output operands, and opmagic
-    Operation(Function &cur, Opcode opcode, LogicalTensors iOperands, LogicalTensors oOperands,
-        bool updateTensorMap = true, int opMagic = -1);
+    Operation(
+        Function& cur, Opcode opcode, LogicalTensors iOperands, LogicalTensors oOperands, bool updateTensorMap = true,
+        int opMagic = -1);
 
-    Operation(Function &cur, Opcode opcode): Operation(cur, opcode, {}, {}, false) {}
+    Operation(Function& cur, Opcode opcode) : Operation(cur, opcode, {}, {}, false) {}
 
-    Operation(Function &cur, const std::string &op, const LogicalTensors &input, const LogicalTensors &output,
+    Operation(
+        Function& cur, const std::string& op, const LogicalTensors& input, const LogicalTensors& output,
         bool updateTensormap = true)
-        : Operation(cur, FindOpcode(op), input, output, updateTensormap) {
+        : Operation(cur, FindOpcode(op), input, output, updateTensormap)
+    {
         if (op.substr(0, TILE_STR_PREFIX_LEN) == "TILE_") {
             isTileOp_ = true;
         }
     };
 
-    Operation(const Operation &other) = delete;
-    Operation(Operation &&other) = delete;
-    Operation &operator=(const Operation &other) = delete;
-    Operation &operator=(Operation &&other) = delete;
+    Operation(const Operation& other) = delete;
+    Operation(Operation&& other) = delete;
+    Operation& operator=(const Operation& other) = delete;
+    Operation& operator=(Operation&& other) = delete;
 
-    Function *BelongTo() const { return function_; }
+    Function* BelongTo() const { return function_; }
 
-    const QueueType &GetQueueType() const { return queueType; }
+    const QueueType& GetQueueType() const { return queueType; }
 
-    const OpSyncQueue &GetSyncQueue() const { return syncQueue_; }
+    const OpSyncQueue& GetSyncQueue() const { return syncQueue_; }
 
-    const TileShape &GetTileShape() const { return tileShape_; }
+    const TileShape& GetTileShape() const { return tileShape_; }
     void UpdateTileShape(const TileShape newTileShape) { tileShape_ = newTileShape; }
 
-    TileShape &GetTileShapeForSetting() { return tileShape_; }
+    TileShape& GetTileShapeForSetting() { return tileShape_; }
 
-    [[nodiscard]] std::string GetStringAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, const std::string &value);
+    [[nodiscard]] std::string GetStringAttribute(const std::string& key) const;
+    void SetAttribute(const std::string& key, const std::string& value);
 
-    [[nodiscard]] bool GetBoolAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, bool value);
+    [[nodiscard]] bool GetBoolAttribute(const std::string& key) const;
+    void SetAttribute(const std::string& key, bool value);
 
-    [[nodiscard]] int64_t GetIntAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, int64_t value);
-    void SetAttribute(const std::string &key, int value) { SetAttribute(key, static_cast<int64_t>(value)); }
+    [[nodiscard]] int64_t GetIntAttribute(const std::string& key) const;
+    void SetAttribute(const std::string& key, int64_t value);
+    void SetAttribute(const std::string& key, int value) { SetAttribute(key, static_cast<int64_t>(value)); }
 
-    [[nodiscard]] Element GetElementAttribute(const std::string &key) const;
-    std::vector<Element> GetVectorElementAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, Element value);
+    [[nodiscard]] Element GetElementAttribute(const std::string& key) const;
+    std::vector<Element> GetVectorElementAttribute(const std::string& key) const;
+    void SetAttribute(const std::string& key, Element value);
 
-    template<typename T = int64_t>
-    std::vector<T> GetVectorIntAttribute(const std::string &key) const {
+    template <typename T = int64_t>
+    std::vector<T> GetVectorIntAttribute(const std::string& key) const
+    {
         static_assert(std::is_integral_v<T>);
         std::vector<int64_t> val;
         GetAttr(key, val);
@@ -239,60 +242,59 @@ public:
             return val;
         }
         std::vector<T> ret;
-        for (auto &x : val) {
+        for (auto& x : val) {
             ret.emplace_back(static_cast<T>(x));
         }
         return ret;
     }
 
-    template<typename T = int64_t>
-    void SetAttribute(const std::string &key, const std::vector<T> &value) {
+    template <typename T = int64_t>
+    void SetAttribute(const std::string& key, const std::vector<T>& value)
+    {
         static_assert(std::is_integral_v<T>);
         if constexpr (std::is_same_v<T, int64_t>) {
             SetAttr(key, value);
         } else {
             std::vector<int64_t> nvalue;
-            for (auto &x : value) {
+            for (auto& x : value) {
                 nvalue.emplace_back(static_cast<int64_t>(x));
             }
             SetAttr(key, nvalue);
         }
     }
 
-    [[nodiscard]] CastMode GetCastModeAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, CastMode value);
+    [[nodiscard]] CastMode GetCastModeAttribute(const std::string& key) const;
+    void SetAttribute(const std::string& key, CastMode value);
 
-    [[nodiscard]] SymbolicScalar GetSymbolicScalarAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, const SymbolicScalar &value);
+    [[nodiscard]] SymbolicScalar GetSymbolicScalarAttribute(const std::string& key) const;
+    void SetAttribute(const std::string& key, const SymbolicScalar& value);
 
-    [[nodiscard]] std::vector<SymbolicScalar> GetVectorSymbolicScalarAttribute(const std::string &key) const;
-    void SetAttribute(const std::string &key, const std::vector<SymbolicScalar> &value);
-    void SetAttribute(const std::string &key, const std::vector<Element> &value);
+    [[nodiscard]] std::vector<SymbolicScalar> GetVectorSymbolicScalarAttribute(const std::string& key) const;
+    void SetAttribute(const std::string& key, const std::vector<SymbolicScalar>& value);
+    void SetAttribute(const std::string& key, const std::vector<Element>& value);
 
-    [[nodiscard]] bool HasAttribute(const std::string &key) const {
-        return HasAttr(key);
-    }
+    [[nodiscard]] bool HasAttribute(const std::string& key) const { return HasAttr(key); }
 
     [[nodiscard]] std::map<std::string, npu::tile_fwk::Any> GetAllAttribute() const;
 
     Json DumpJson(bool dumpTensor = true) const;
-    static std::shared_ptr<Operation> LoadJson(Function &cur,
-        const std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict, const Json &opDump);
+    static std::shared_ptr<Operation> LoadJson(
+        Function& cur, const std::unordered_map<int, std::shared_ptr<LogicalTensor>>& tensorDict, const Json& opDump);
 
-    [[nodiscard]] std::string DumpSSA(const std::string &prefix="") const;
+    [[nodiscard]] std::string DumpSSA(const std::string& prefix = "") const;
 
     [[nodiscard]] std::string Dump() const;
 
     [[nodiscard]] int GetOpMagic() const { return opmagic; }
 
-    [[nodiscard]] const LogicalTensors &GetIOperands() const { return iOperand; }
-    LogicalTensors &GetIOperands() { return iOperand; }
+    [[nodiscard]] const LogicalTensors& GetIOperands() const { return iOperand; }
+    LogicalTensors& GetIOperands() { return iOperand; }
 
-    [[nodiscard]] const LogicalTensors &GetOOperands() const { return oOperand; }
-    LogicalTensors &GetOOperands() { return oOperand; }
+    [[nodiscard]] const LogicalTensors& GetOOperands() const { return oOperand; }
+    LogicalTensors& GetOOperands() { return oOperand; }
 
-    [[nodiscard]] const LogicalTensors &GetDependOperands() const { return dependOperand; }
-    LogicalTensors &GetDependOperands() { return dependOperand; }
+    [[nodiscard]] const LogicalTensors& GetDependOperands() const { return dependOperand; }
+    LogicalTensors& GetDependOperands() { return dependOperand; }
 
     void AddDependOperand(LogicalTensorPtr dependoperand);
 
@@ -306,51 +308,52 @@ public:
 
     LogicalTensorPtr GetOutputOperand(const size_t index) const;
 
-    int GetIOperandIndex(const LogicalTensorPtr &ioperand) const;
-    int GetOOperandIndex(const LogicalTensorPtr &ooperand) const;
+    int GetIOperandIndex(const LogicalTensorPtr& ioperand) const;
+    int GetOOperandIndex(const LogicalTensorPtr& ooperand) const;
 
-    void ReplaceInputOperand(const LogicalTensorPtr &originInput, const LogicalTensorPtr &newInput);
+    void ReplaceInputOperand(const LogicalTensorPtr& originInput, const LogicalTensorPtr& newInput);
 
-    void ReplaceOutputOperand(const LogicalTensorPtr &originOutput, const LogicalTensorPtr &newOutput);
+    void ReplaceOutputOperand(const LogicalTensorPtr& originOutput, const LogicalTensorPtr& newOutput);
 
-    void UpdateInputOperand(const size_t index, const std::shared_ptr<LogicalTensor> &newInput);
+    void UpdateInputOperand(const size_t index, const std::shared_ptr<LogicalTensor>& newInput);
 
-    void UpdateOutputOperand(const size_t index, const std::shared_ptr<LogicalTensor> &newOutput);
+    void UpdateOutputOperand(const size_t index, const std::shared_ptr<LogicalTensor>& newOutput);
 
-    std::unordered_set<Operation *> ConsumerOps() const;
-    std::unordered_set<Operation *> ProducerOps() const;
+    std::unordered_set<Operation*> ConsumerOps() const;
+    std::unordered_set<Operation*> ProducerOps() const;
 
     class OperationComparator {
     public:
-        bool operator()(const Operation *lhs, const Operation *rhs) const {
+        bool operator()(const Operation* lhs, const Operation* rhs) const
+        {
             return lhs->GetOpMagic() < rhs->GetOpMagic();
         }
     };
-    std::set<Operation *, OperationComparator> ConsumerOpsOrdered() const;
-    std::set<Operation *, OperationComparator> ProducerOpsOrdered() const;
+    std::set<Operation*, OperationComparator> ConsumerOpsOrdered() const;
+    std::set<Operation*, OperationComparator> ProducerOpsOrdered() const;
 
-    [[nodiscard]] const std::unordered_set<Operation *> &GetInCtrlOperations() const { return inputCtrlOps; }
+    [[nodiscard]] const std::unordered_set<Operation*>& GetInCtrlOperations() const { return inputCtrlOps; }
 
-    [[nodiscard]] const std::unordered_set<Operation *> &GetOutCtrlOperations() const { return outputCtrlOps; }
+    [[nodiscard]] const std::unordered_set<Operation*>& GetOutCtrlOperations() const { return outputCtrlOps; }
 
     void ClearInCtrlOperations() { inputCtrlOps.clear(); }
 
     void ClearOutCtrlOperations() { outputCtrlOps.clear(); }
 
     int scopeId_{-1};
-    void SetScopeId(int scopeId) {scopeId_ = scopeId; };
+    void SetScopeId(int scopeId) { scopeId_ = scopeId; };
     int GetScopeId() const { return scopeId_; };
 
-    void AddInCtrlOperation(Operation &operation);
+    void AddInCtrlOperation(Operation& operation);
 
-    void RemoveInCtrlOperation(Operation &operation);
+    void RemoveInCtrlOperation(Operation& operation);
 
-    void AddOutCtrlOperation(Operation &operation);
+    void AddOutCtrlOperation(Operation& operation);
 
-    void RemoveOutCtrlOperation(Operation &operation);
+    void RemoveOutCtrlOperation(Operation& operation);
 
-    Operation &CloneOperation(
-        Function &func, const LogicalTensors &iOperandList, const LogicalTensors &oOperandList) const;
+    Operation& CloneOperation(
+        Function& func, const LogicalTensors& iOperandList, const LogicalTensors& oOperandList) const;
 
     [[nodiscard]] std::string GetOpcodeStr(bool appendTile = false) const;
     [[nodiscard]] CoreType GetCoreType() const { return coreType_; }
@@ -364,26 +367,53 @@ public:
 
     bool IsIsolatedOp() const;
 
-    bool OnlyHasCtrlEdgeToOp(Operation &op) const;
+    bool OnlyHasCtrlEdgeToOp(Operation& op) const;
 
-    const std::shared_ptr<OpAttribute> &GetOpAttribute() const { return opAttribute_; }
-    std::shared_ptr<OpAttribute> &GetOpAttribute() { return opAttribute_; }
+    const std::shared_ptr<OpAttribute>& GetOpAttribute() const { return opAttribute_; }
+    std::shared_ptr<OpAttribute>& GetOpAttribute() { return opAttribute_; }
 
-    void SetOpAttribute(const std::shared_ptr<OpAttribute> &attr) {
+    void SetOpAttribute(const std::shared_ptr<OpAttribute>& attr)
+    {
         opAttribute_ = attr;
-        static std::unordered_set<Opcode> copyOpAttrOpTypes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_OUT,
-            Opcode::OP_COPY_IN, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_L0A,
-            Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_OUT,
-            Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_INDEX_OUTCAST,
+        static std::unordered_set<Opcode> copyOpAttrOpTypes{
+            Opcode::OP_L1_COPY_IN,
+            Opcode::OP_L1_COPY_OUT,
+            Opcode::OP_COPY_IN,
+            Opcode::OP_L0C_TO_L1,
+            Opcode::OP_L1_TO_BT,
+            Opcode::OP_L1_TO_FIX_QUANT_PRE,
+            Opcode::OP_L1_TO_L0A,
+            Opcode::OP_L1_TO_L0B,
+            Opcode::OP_L1_TO_L0_AT,
+            Opcode::OP_L1_TO_L0_BT,
+            Opcode::OP_UB_COPY_L1,
+            Opcode::OP_COPY_OUT,
+            Opcode::OP_RESHAPE_COPY_IN,
+            Opcode::OP_RESHAPE_COPY_OUT,
+            Opcode::OP_INDEX_OUTCAST,
             Opcode::OP_INDEX_PUT,
-            Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
-            Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM,
-            Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_SET,
+            Opcode::OP_TRANSPOSE_MOVEIN,
+            Opcode::OP_TRANSPOSE_MOVEOUT,
+            Opcode::OP_FFN_SCHED,
+            Opcode::OP_FFN_BATCHING,
+            Opcode::OP_FFN_COMBINEINFO,
+            Opcode::OP_FFN_VALIDCNT,
+            Opcode::OP_SHMEM_PUT,
+            Opcode::OP_SHMEM_PUT_UB2GM,
+            Opcode::OP_SHMEM_SIGNAL,
+            Opcode::OP_SHMEM_GET,
+            Opcode::OP_SHMEM_GET_GM2UB,
+            Opcode::OP_SHMEM_SET,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-            Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT,
-            Opcode::OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_TO_L0A_SCALE,
-            Opcode::OP_L1_TO_L0B_SCALE, Opcode::OP_L1_COPY_IN_CONV, Opcode::OP_L0C_COPY_OUT_CONV};
+            Opcode::OP_GATHER_IN_UB,
+            Opcode::OP_COPY_TO_LOCAL_EXPERT,
+            Opcode::OP_L1_COPY_IN_A_SCALE,
+            Opcode::OP_L1_COPY_IN_B_SCALE,
+            Opcode::OP_L1_TO_L0A_SCALE,
+            Opcode::OP_L1_TO_L0B_SCALE,
+            Opcode::OP_L1_COPY_IN_CONV,
+            Opcode::OP_L0C_COPY_OUT_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
             ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;
@@ -399,8 +429,9 @@ public:
                 break;
             }
             case Opcode::OP_ASSEMBLE_SSA:
-                ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
-                       std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
+                ASSERT(
+                    std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
+                    std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
                 break;
             case Opcode::OP_BLOCK_CALL:
             case Opcode::OP_CALL: {
@@ -411,12 +442,14 @@ public:
                 ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
-            default: ASSERT(opAttribute_ == nullptr);
+            default:
+                ASSERT(opAttribute_ == nullptr);
         }
     }
 
     void SetAssembleOpAttribute(
-        const std::vector<int64_t> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
+        const std::vector<int64_t>& toOffset, const std::vector<SymbolicScalar>& toDynOffset = {})
+    {
         ASSERT(opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(toOffset, toDynOffset));
     }
@@ -424,25 +457,29 @@ public:
     void ReplaceIOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor);
     void ReplaceOOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor);
 
-    std::string GetCalleeMagicName() const {
+    std::string GetCalleeMagicName() const
+    {
         ASSERT(IsCall());
         return std::static_pointer_cast<CallOpAttribute>(opAttribute_)->GetCalleeMagicName();
     }
 
-    const std::string &GetCalleeBracketName() const {
+    const std::string& GetCalleeBracketName() const
+    {
         return std::static_pointer_cast<CallOpAttribute>(opAttribute_)->GetCalleeBracketName();
     }
 
-    const FunctionHash &GetCalleeHash() const {
+    const FunctionHash& GetCalleeHash() const
+    {
         ASSERT(IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
         auto callop = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         return callop->GetCalleeHash();
     }
 
-    void EraseInput(const std::shared_ptr<LogicalTensor> &input);
-    void EraseDependTensor(const std::shared_ptr<LogicalTensor> &dependTensor);
-    void ReplaceInput(const std::shared_ptr<LogicalTensor> &newInput, const std::shared_ptr<LogicalTensor> &oldInput);
-    void ReplaceOutput(const std::shared_ptr<LogicalTensor> &newOutput, const std::shared_ptr<LogicalTensor> &oldOutput);
+    void EraseInput(const std::shared_ptr<LogicalTensor>& input);
+    void EraseDependTensor(const std::shared_ptr<LogicalTensor>& dependTensor);
+    void ReplaceInput(const std::shared_ptr<LogicalTensor>& newInput, const std::shared_ptr<LogicalTensor>& oldInput);
+    void ReplaceOutput(
+        const std::shared_ptr<LogicalTensor>& newOutput, const std::shared_ptr<LogicalTensor>& oldOutput);
 
     Opcode GetOpcode() const { return opcode_; }
 
@@ -454,11 +491,13 @@ public:
     void UpdateRemainingTime(int remainingTime) { remainingTime_ = remainingTime; }
 
     int GetSubgraphID() const { return subgraphID_; }
-    int GetInternalSubgraphID() const {
+    int GetInternalSubgraphID() const
+    {
         return mixSubgraphFields_ ? mixSubgraphFields_->internalSubgraphID : NOT_IN_SUBGRAPH;
     }
     void UpdateSubgraphID(int subgraphID) { subgraphID_ = subgraphID; }
-    void UpdateInternalSubgraphID(int internalSubgraphID) {
+    void UpdateInternalSubgraphID(int internalSubgraphID)
+    {
         ensureMixSubgraphFields();
         mixSubgraphFields_->internalSubgraphID = internalSubgraphID;
     }
@@ -467,7 +506,8 @@ public:
     void SetGroupID(size_t groupID) const { groupID_ = groupID; }
 
     void SetSemanticLabel(std::shared_ptr<SemanticLabel> label) { semanticLabel_ = label; }
-    const std::string &GetSemanticLabelStr() const {
+    const std::string& GetSemanticLabelStr() const
+    {
         static std::string empty = "";
         return semanticLabel_ ? semanticLabel_->label : empty;
     }
@@ -477,16 +517,20 @@ public:
     void SetAsNotDeleted() { isDeleted_ = false; }
     [[nodiscard]] bool IsDeleted() const { return isDeleted_; }
 
-    [[nodiscard]] AIVCore GetAIVCore() const {
+    [[nodiscard]] AIVCore GetAIVCore() const
+    {
         return mixSubgraphFields_ ? mixSubgraphFields_->aivCore : AIVCore::UNSPECIFIED;
     }
-    void SetAIVCore(AIVCore aivCore) {
+    void SetAIVCore(AIVCore aivCore)
+    {
         ensureMixSubgraphFields();
-        mixSubgraphFields_->aivCore = aivCore; }
+        mixSubgraphFields_->aivCore = aivCore;
+    }
 
-    void SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy &invokeInfo);
+    void SetSubFuncInvokeInfo(const SubfuncInvokeInfoTy& invokeInfo);
 
-    SubfuncInvokeInfoTy &GetSubFuncInvokeInfo() {
+    SubfuncInvokeInfoTy& GetSubFuncInvokeInfo()
+    {
         auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         ASSERT(callAttr != nullptr);
         return *(callAttr->invokeInfo_);
@@ -496,44 +540,35 @@ public:
 
     bool IsNeedStackGM() const;
 
-    int GetIOpAttrOffset(int pos) const {
-        return iOpAttrOffset.empty() ? -1 : iOpAttrOffset[pos];
-    }
-    int GetOOpAttrOffset(int pos) const {
-        return oOpAttrOffset.empty() ? -1 : oOpAttrOffset[pos];
-    }
-    void SetIOpAttrOffset(int pos, int offset) {
+    int GetIOpAttrOffset(int pos) const { return iOpAttrOffset.empty() ? -1 : iOpAttrOffset[pos]; }
+    int GetOOpAttrOffset(int pos) const { return oOpAttrOffset.empty() ? -1 : oOpAttrOffset[pos]; }
+    void SetIOpAttrOffset(int pos, int offset)
+    {
         if (iOpAttrOffset.empty())
             iOpAttrOffset.resize(iOperand.size(), -1);
         iOpAttrOffset[pos] = offset;
     }
-    void SetOOpAttrOffset(int pos, int offset) {
+    void SetOOpAttrOffset(int pos, int offset)
+    {
         if (oOpAttrOffset.empty())
             oOpAttrOffset.resize(oOperand.size(), -1);
         oOpAttrOffset[pos] = offset;
     }
-    void SetOpOffset(const std::vector<int> &iOffset, const std::vector<int> &oOffset) {
+    void SetOpOffset(const std::vector<int>& iOffset, const std::vector<int>& oOffset)
+    {
         iOpAttrOffset = iOffset;
         oOpAttrOffset = oOffset;
     }
-    std::vector<int>& GetIOpAttrOffsets() {
-        return iOpAttrOffset;
-    }
-    std::vector<int>& GetOOpAttrOffsets() {
-        return oOpAttrOffset;
-    }
-    const std::vector<int>& GetIOpAttrOffsets() const {
-        return iOpAttrOffset;
-    }
-    const std::vector<int>& GetOOpAttrOffsets() const {
-        return oOpAttrOffset;
-    }
+    std::vector<int>& GetIOpAttrOffsets() { return iOpAttrOffset; }
+    std::vector<int>& GetOOpAttrOffsets() { return oOpAttrOffset; }
+    const std::vector<int>& GetIOpAttrOffsets() const { return iOpAttrOffset; }
+    const std::vector<int>& GetOOpAttrOffsets() const { return oOpAttrOffset; }
 
     std::vector<std::reference_wrapper<SymbolicScalar>> GetDynamicAttributeList();
     SourceLocationPtr GetLocation() const { return location_; }
 
-    const std::vector<std::string> &GetCommentList() const { return commentList_; }
-    std::vector<std::string> &GetCommentList() { return commentList_; }
+    const std::vector<std::string>& GetCommentList() const { return commentList_; }
+    std::vector<std::string>& GetCommentList() { return commentList_; }
 
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
@@ -548,18 +583,19 @@ private:
     std::vector<int> oOpAttrOffset;
     int remainingTime_{INVALID_TIME};
     CoreType coreType_{CoreType::MIX};
-    std::unordered_set<Operation *> inputCtrlOps;
-    std::unordered_set<Operation *> outputCtrlOps;
+    std::unordered_set<Operation*> inputCtrlOps;
+    std::unordered_set<Operation*> outputCtrlOps;
     mutable size_t groupID_{NON_GROUP};
     bool isDeleted_{false};
 
-    SourceLocationPtr location_ {nullptr};
+    SourceLocationPtr location_{nullptr};
     std::shared_ptr<SemanticLabel> semanticLabel_;
-    Function *function_;
+    Function* function_;
 
     std::vector<std::string> commentList_;
     std::unique_ptr<MixSubgraphFields> mixSubgraphFields_;
-    void ensureMixSubgraphFields() {
+    void ensureMixSubgraphFields()
+    {
         if (!mixSubgraphFields_) {
             mixSubgraphFields_ = std::make_unique<MixSubgraphFields>();
         }
@@ -569,7 +605,7 @@ using OperationPtr = std::shared_ptr<Operation>;
 
 // Custom comparator for Operation in magic order
 struct OperationCmp {
-    bool operator()(const Operation *lhs, const Operation *rhs) const;
+    bool operator()(const Operation* lhs, const Operation* rhs) const;
 };
 
 /*  ！！！！！！！！！对外开放OP接口请在 tilefwk_op.h 中添加 ！！！！！！！！！！！！！！！！！！！！*/

@@ -35,7 +35,8 @@ struct SaConfig {
 };
 
 template <typename T = npu::tile_fwk::float16>
-void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
+void TestSa(SaTileShapeConfig& tileConfig, SaConfig config)
+{
     SetInterpreterConfig();
 
     DataType dType = DT_FP32;
@@ -62,7 +63,8 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     int smax = input_param[6];
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
 
-    std::cout << "====input param==== b sq nq nkv dn dr smax: " << b << " " << sq << " " << nq << " " << nkv << " " << dn << " " << dr << " " << smax << std::endl;
+    std::cout << "====input param==== b sq nq nkv dn dr smax: " << b << " " << sq << " " << nq << " " << nkv << " "
+              << dn << " " << dr << " " << smax << std::endl;
 
     TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
 
@@ -124,48 +126,51 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.0005f));
     // EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f, 0, 1000, true));
 }
 
-TEST_F(DynamicSATest, slc_attn_fp16) { // 测试项：fp16, flash小块
+TEST_F(DynamicSATest, slc_attn_fp16)
+{                          // 测试项：fp16, flash小块
     SaTileShapeConfig tileConfig;
     const int gTile = 128; // for gLoop split
     const int sTile = 128; // for s2Loop split
     tileConfig.gTile = gTile;
     tileConfig.sKvTile = sTile;
     tileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    tileConfig.v1TileShape = {16, 256};                        // (n1, s2Tile)
     tileConfig.c2TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
-    tileConfig.v2TileShape = {16, 256}; // (n1, d)
+    tileConfig.v2TileShape = {16, 256};                        // (n1, d)
     SaConfig config;
     TestSa<npu::tile_fwk::float16>(tileConfig, config);
 }
 
-TEST_F(DynamicSATest, slc_attn_mtp_s1_2_fp16) { // 测试项：fp16, s1=2, g切分, flash大块
+TEST_F(DynamicSATest, slc_attn_mtp_s1_2_fp16)
+{                          // 测试项：fp16, s1=2, g切分, flash大块
     SaTileShapeConfig tileConfig;
-    const int gTile = 64; // for gLoop split
+    const int gTile = 64;  // for gLoop split
     const int sTile = 512; // for s2Loop split
     tileConfig.gTile = gTile;
     tileConfig.sKvTile = sTile;
-    tileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {gTile, 128}; // (n1, s2Tile)
+    tileConfig.c1TileShape = {gTile, gTile, 64, 64, 128, 128};   // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {gTile, 128};                       // (n1, s2Tile)
     tileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
-    tileConfig.v2TileShape = {gTile, 128}; // (n1, d)
+    tileConfig.v2TileShape = {gTile, 128};                       // (n1, d)
     SaConfig config;
     TestSa<npu::tile_fwk::float16>(tileConfig, config);
 }
 
-TEST_F(DynamicSATest, slc_attn_bf16_b48_s1_perf) { // 测试项：性能用例，bf16, b=48, s1=1
+TEST_F(DynamicSATest, slc_attn_bf16_b48_s1_perf)
+{                           // 测试项：性能用例，bf16, b=48, s1=1
     SaTileShapeConfig tileConfig;
-    const int gTile = 128; // for gLoop split
+    const int gTile = 128;  // for gLoop split
     const int sTile = 1024; // for s2Loop split
     tileConfig.gTile = gTile;
     tileConfig.sKvTile = sTile;
-    tileConfig.c1TileShape = {gTile, gTile, 64, 64, 256, 256}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    tileConfig.c1TileShape = {gTile, gTile, 64, 64, 256, 256};   // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {16, 256};                          // (n1, s2Tile)
     tileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
-    tileConfig.v2TileShape = {64, 128}; // (n1, d)
+    tileConfig.v2TileShape = {64, 128};                          // (n1, d)
     SaConfig config;
     TestSa<npu::tile_fwk::bfloat16>(tileConfig, config);
 }

@@ -32,19 +32,19 @@ logger = logging.getLogger(__name__)
 def parse_ut_status_from_comments(comments: list) -> dict:
     """
     从评论列表中解析 UT 状态
-    
+
     Args:
         comments: PR 评论列表
-    
+
     Returns:
         UT 状态信息，包含 status, coverage_url, comment_time
     """
     if not comments:
         return None
-    
+
     # 按时间排序，获取最新的评论
     sorted_comments = sorted(comments, key=lambda x: x.get('created_at', ''), reverse=True)
-    
+
     for comment in sorted_comments:
         body = comment.get('body', '')
         if 'UT_Test_report' in body:
@@ -54,14 +54,14 @@ def parse_ut_status_from_comments(comments: list) -> dict:
                 body
             )
             status = match.group(1).strip() if match else None
-            
+
             # 提取覆盖率链接 - 优先获取 ut_cov.tar.gz
             cov_match = re.search(
                 r'https://ascend-ci\.obs\.cn-north-4\.myhuaweicloud\.com/[^\"\'<>\s]*ut_cov\.tar\.gz',
                 body
             )
             coverage_url = cov_match.group(0).split('>')[0] if cov_match else None
-            
+
             # 如果没有 ut_cov.tar.gz，尝试获取其他覆盖率相关文件
             if not coverage_url:
                 for ext in ['whl', 'tar.gz', 'zip']:
@@ -72,55 +72,55 @@ def parse_ut_status_from_comments(comments: list) -> dict:
                     if cov_match:
                         coverage_url = cov_match.group(0).split('>')[0]
                         break
-            
+
             return {
                 'status': status,
                 'coverage_url': coverage_url,
                 'comment_time': comment.get('created_at', '')
             }
-    
+
     return None
 
 
 def get_pr_ut_status(owner: str, repo: str, pr_number: int) -> dict:
     """
     获取 PR 的 UT 状态
-    
+
     Args:
         owner: 仓库所有者
         repo: 仓库名
         pr_number: PR 编号
-    
+
     Returns:
         UT 状态信息
     """
     token = get_gitcode_token()
     if not token:
         return {'error': '未找到 GitCode Token'}
-    
+
     url = (f"https://api.gitcode.com/api/v5/repos/{owner}/{repo}/pulls/"
            f"{pr_number}/comments?per_page=100")
     comments = make_api_request(url, token=token)
-    
+
     if not comments:
         return {'error': '获取评论失败'}
-    
+
     if isinstance(comments, dict) and 'message' in comments:
         return {'error': comments.get('message', 'API 请求失败')}
-    
+
     return parse_ut_status_from_comments(comments)
 
 
 def main(pr_number: int):
     """主函数"""
     logger.info("获取 PR #%d 的 UT 状态...", pr_number)
-    
+
     result = get_pr_ut_status('cann', 'pypto', pr_number)
-    
+
     if 'error' in result:
         logger.info("Error: %s", result['error'])
         return
-    
+
     if result:
         logger.info("\nUT_Test_report 状态: %s", result.get('status', 'N/A'))
         logger.info("覆盖率报告: %s", result.get('coverage_url', 'N/A'))

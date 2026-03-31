@@ -70,8 +70,8 @@ pr_info = gitcode_get_pull_request(owner, repo, pull_number)
 
 # 2. 获取全部评论（包含 pr_comment 和 diff_comment）
 comments = gitcode_list_pull_request_comments(
-    owner=owner, 
-    repo=repo, 
+    owner=owner,
+    repo=repo,
     pull_number=pull_number,
     include_paths=True  # 自动补全 diff_comment 的文件路径
 )

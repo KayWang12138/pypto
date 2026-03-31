@@ -28,7 +28,6 @@
 #define private public
 #include "machine/runtime/runtime.h"
 
-
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class TestGenAtten : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
@@ -41,7 +40,8 @@ constexpr int NUM_32 = 32;
 constexpr int NUM_128 = 128;
 constexpr int NUM_512 = 512;
 
-void GenAttentionCompute1(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
+void GenAttentionCompute1(TestDataLoader& data, GenAttenTileShapeConfig& tileConfig)
+{
     int b = std::get<int>(data.Param("b"));
     int s1 = std::get<int>(data.Param("s1"));
     int n = std::get<int>(data.Param("n"));
@@ -50,17 +50,19 @@ void GenAttentionCompute1(TestDataLoader& data, GenAttenTileShapeConfig &tileCon
     DataType dType = CostModel::ToDataType(dTypeStr);
 
     GenAttentionCompute(
-        data.InputTensorCheck("cmp_atten", dType, {b, s1, n, d}),       // 也可以使用 data.InputTensor("cmp_atten"), 不做二次校验
+        data.InputTensorCheck(
+            "cmp_atten", dType, {b, s1, n, d}), // 也可以使用 data.InputTensor("cmp_atten"), 不做二次校验
         data.InputTensorCheck("sel_atten", dType, {b, s1, n, d}),
         data.InputTensorCheck("win_atten", dType, {b, s1, n, d}),
         data.InputTensorCheck("gating_score", dType, {b, s1, n, NUM_3}),
-        data.OutputTensorCheck("attention_out", dType, {b, s1, n, d}),  // 也可以使用 data.OutputTensor("attention_out"), 不做二次校验
-        tileConfig
-    );
+        data.OutputTensorCheck(
+            "attention_out", dType, {b, s1, n, d}), // 也可以使用 data.OutputTensor("attention_out"), 不做二次校验
+        tileConfig);
 }
 
-template<typename T = npu::tile_fwk::float16>
-void genAtten1(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
+template <typename T = npu::tile_fwk::float16>
+void genAtten1(TestDataLoader& data, GenAttenTileShapeConfig& tileConfig)
+{
     SetInterpreterConfig();
     config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
@@ -70,22 +72,25 @@ void genAtten1(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
     int d = std::get<int>(data.Param("d"));
     std::string dTypeStr = std::get<string>(data.Param("dtype"));
     DataType dType = CostModel::ToDataType(dTypeStr);
-    data.Dump();    // 打印 tensor 信息
+    data.Dump(); // 打印 tensor 信息
 
-    FUNCTION("GenAtten", data.GetInputTensorList(), data.GetOutputTensorList()) {
+    FUNCTION("GenAtten", data.GetInputTensorList(), data.GetOutputTensorList())
+    {
         GenAttentionCompute1(data, tileConfig);
     }
 
-    auto goldenData = data.GoldenDataCheck("attention_out", dType, {b, s1, n, d});  // 也可以使用 data.GoldenData("attention_out")
+    auto goldenData =
+        data.GoldenDataCheck("attention_out", dType, {b, s1, n, d}); // 也可以使用 data.GoldenData("attention_out")
     auto outputData = data.GetOutputDataList()[data.GetOutputNameToIdx("attention_out")];
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), data.GetInputDataList(), data.GetOutputDataList());
-    EXPECT_TRUE(resultCmp<T>((T *)goldenData->data(), (T *)outputData->data(), goldenData->GetSize(), 0.001f));
+    EXPECT_TRUE(resultCmp<T>((T*)goldenData->data(), (T*)outputData->data(), goldenData->GetSize(), 0.001f));
 #endif
 }
 
-TEST_F(TestGenAtten, test_mem_check_ok) {
+TEST_F(TestGenAtten, test_mem_check_ok)
+{
     GenAttenTileShapeConfig tileConfig;
     tileConfig.tileBSize = NUM_8;
     tileConfig.tileS1Size = 1;
@@ -101,7 +106,8 @@ TEST_F(TestGenAtten, test_mem_check_ok) {
     EXPECT_TRUE(ret);
 }
 
-TEST_F(TestGenAtten, test_mem_check_fail) {
+TEST_F(TestGenAtten, test_mem_check_fail)
+{
     GenAttenTileShapeConfig tileConfig;
     const int dTileSize = NUM_512;
     const int nTileSize = NUM_128;
@@ -113,10 +119,10 @@ TEST_F(TestGenAtten, test_mem_check_fail) {
     std::string configPath = GetGoldenDir() + "/config.json";
     TestDataLoader data(configPath);
     genAtten1<npu::tile_fwk::float16>(data, tileConfig);
-    auto &sentinelValMap = machine::GetRA()->memPool_.sentinelValMap_;
+    auto& sentinelValMap = machine::GetRA()->memPool_.sentinelValMap_;
     EXPECT_FALSE(sentinelValMap.empty());
-    auto &firstPair = *sentinelValMap.begin();
-    auto &firstVec = firstPair.second;
+    auto& firstPair = *sentinelValMap.begin();
+    auto& firstVec = firstPair.second;
     EXPECT_FALSE(firstVec.empty());
     uint64_t faultVal = 0x232;
     rtMemcpy(firstVec[0], sizeof(uint64_t), &faultVal, sizeof(uint64_t), RT_MEMCPY_HOST_TO_DEVICE);

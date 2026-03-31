@@ -20,7 +20,8 @@
 #include <array>
 
 template <typename T0, typename T1, unsigned tileW, unsigned dstTypeSize, int is_sum>
-TILEOP void CumOperationTool(T0 dst, T1 src, uint64_t tileH, uint64_t tmpStride) {
+TILEOP void CumOperationTool(T0 dst, T1 src, uint64_t tileH, uint64_t tmpStride)
+{
     using tmpTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, 1, tileW, pto::BLayout::RowMajor, 1, tileW>;
     tmpTileDefine tmpDstTile, tmpSrcTile;
     pto::TASSIGN(tmpDstTile, (uint64_t)(dst.GetAddr() + tmpStride));
@@ -28,9 +29,9 @@ TILEOP void CumOperationTool(T0 dst, T1 src, uint64_t tileH, uint64_t tmpStride)
     pto::TMOV(tmpDstTile, tmpSrcTile);
 
     for (LoopVar i = 1; i < tileH; i++) {
-        #ifdef __DAV_V220
+#ifdef __DAV_V220
         pipe_barrier(PIPE_V);
-        #endif
+#endif
         using TileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, 1, tileW, pto::BLayout::RowMajor, 1, tileW>;
         TileDefine dst0Tile, dst1Tile, src1Tile;
         pto::TASSIGN(dst0Tile, (uint64_t)(dst.GetAddr() + tmpStride + (i - 1) * tileW * dstTypeSize));
@@ -45,7 +46,8 @@ TILEOP void CumOperationTool(T0 dst, T1 src, uint64_t tileH, uint64_t tmpStride)
 }
 
 template <int axis, int is_sum, typename T0, typename T1>
-TILEOP void TCumOperation(T0 dst, T1 src) {
+TILEOP void TCumOperation(T0 dst, T1 src)
+{
     constexpr size_t expectSize = 5;
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
@@ -109,8 +111,8 @@ TILEOP void TCumOperation(T0 dst, T1 src) {
     } else {
         set_flag(PIPE_V, PIPE_S, EVENT_ID7);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-        auto srcAddr = (__ubuf__ typename T1::Type *)((uint64_t)(src.GetAddr()));
-        auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
+        auto srcAddr = (__ubuf__ typename T1::Type*)((uint64_t)(src.GetAddr()));
+        auto dstAddr = (__ubuf__ typename T0::Type*)((uint64_t)(dst.GetAddr()));
 
         for (LoopVar n = 0; n < n0DstShape; n++) {
             for (LoopVar j = 0; j < n1DstShape; j++) {

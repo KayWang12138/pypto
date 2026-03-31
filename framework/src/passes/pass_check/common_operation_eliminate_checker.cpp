@@ -20,43 +20,40 @@
 
 namespace npu {
 namespace tile_fwk {
-Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
+Status CommonOperationEliminateChecker::DoPreCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Operation, "PreCheck for CommonOperationEliminate.");
-    
-    for (auto &op : function.Operations().DuplicatedOpList()) {
+
+    for (auto& op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
             continue;
         }
         if (op->GetOpAttribute() != nullptr) {
             size_t fromOffsetSize = -1;
             if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op->GetOpAttribute().get())) {
-                auto &fromOffset = viewOpAttribute->GetFromOffset();
+                auto& fromOffset = viewOpAttribute->GetFromOffset();
                 fromOffsetSize = fromOffset.size();
-            }
-            else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get())) {
+            } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get())) {
                 if (copyOpAttribute->IsCopyOut()) {
                     continue;
                 }
                 auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
                 (void)memType;
                 fromOffsetSize = fromOffset.size();
-            }
-            else {
+            } else {
                 continue;
             }
             auto& ioperands = op->GetIOperands();
             const int opMagic = op->GetOpMagic();
-            
+
             if (ioperands.size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation,
-                                 "View or Copy_In Operation %d with not one input operand.",
-                                 opMagic);
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "View or Copy_In Operation %d with not one input operand.", opMagic);
                 return FAILED;
             }
             if (ioperands.front()->offset.size() != fromOffsetSize) {
-                APASS_LOG_ERROR_F(Elements::Operation,
-                                 "View or Copy_In Operation %d with mismatch input offset shape.",
-                                 opMagic);
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "View or Copy_In Operation %d with mismatch input offset shape.", opMagic);
                 return FAILED;
             }
         }

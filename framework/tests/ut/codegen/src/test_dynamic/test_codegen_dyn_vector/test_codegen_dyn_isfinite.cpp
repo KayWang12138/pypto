@@ -35,7 +35,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -48,21 +49,19 @@ public:
     void TearDown() override {}
 };
 
-void TestCodegenIsFiniteBody() {
+void TestCodegenIsFiniteBody()
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     std::vector<int64_t> vecTileShape = {5, 9};
     std::vector<int64_t> shape{12, 14};
 
-    auto function = GenMockFuncDynUnary("IsFinite", {shape, vecTileShape}, [](Tensor &input, Tensor &output) {
-        output = IsFinite(input);
-    });
+    auto function = GenMockFuncDynUnary(
+        "IsFinite", {shape, vecTileShape}, [](Tensor& input, Tensor& output) { output = IsFinite(input); });
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynIsFinite, test_IsFinite_0) {
-    TestCodegenIsFiniteBody();
-}
+TEST_F(TestCodegenDynIsFinite, test_IsFinite_0) { TestCodegenIsFiniteBody(); }
 } // namespace npu::tile_fwk

@@ -24,7 +24,8 @@
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
-std::optional<CacheValue> FunctionCache::Get(HashKey key) {
+std::optional<CacheValue> FunctionCache::Get(HashKey key)
+{
     std::lock_guard<std::mutex> cLockGuard(lock_);
     getCnt_++;
     if (auto it = cache_.find(key); it != cache_.end()) {
@@ -35,7 +36,8 @@ std::optional<CacheValue> FunctionCache::Get(HashKey key) {
     }
 }
 
-void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
+void FunctionCache::UpdateTopoCache(const Function& func, CacheValue& value)
+{
     uint64_t totalSize = 0;
     uint32_t topoNum = func.topoInfo_.topology_.size();
     totalSize += (topoNum * sizeof(uint64_t));
@@ -56,24 +58,27 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         offsetPtr[i] = curCoreFuncOffset;
         CoreFunctionTopo* tempPtr = reinterpret_cast<CoreFunctionTopo*>(topoPtr);
         tempPtr->coreType = static_cast<uint64_t>(func.GetSubFuncInvokeInfo(i).GetGraphType());
-        ASSERT((tempPtr->coreType == static_cast<uint64_t>(CoreType::AIV)) ||
-               (tempPtr->coreType == static_cast<uint64_t>(CoreType::AIC)) ||
-               (tempPtr->coreType == static_cast<uint64_t>(CoreType::HUB)) ||
-               (tempPtr->coreType == static_cast<uint64_t>(CoreType::AICPU)))<<"Invalid core type: "<<tempPtr->coreType;
+        ASSERT(
+            (tempPtr->coreType == static_cast<uint64_t>(CoreType::AIV)) ||
+            (tempPtr->coreType == static_cast<uint64_t>(CoreType::AIC)) ||
+            (tempPtr->coreType == static_cast<uint64_t>(CoreType::HUB)) ||
+            (tempPtr->coreType == static_cast<uint64_t>(CoreType::AICPU)))
+            << "Invalid core type: " << tempPtr->coreType;
         tempPtr->psgId = func.GetSubFuncInvokeInfo(i).GetProgramId();
         tempPtr->readyCount = func.topoInfo_.topology_[i].readyState;
         tempPtr->depNum = func.topoInfo_.topology_[i].outGraph.size();
         tempPtr->extParamNum = func.topoInfo_.topology_[i].extParamNum;
         tempPtr->extType = func.topoInfo_.topology_[i].extType;
-        MACHINE_LOGD("[function cache]topo %u, readycount:%ld, depnum:%lu, coreType:%lu, extType:%u",
-            i, tempPtr->readyCount, tempPtr->depNum, tempPtr->coreType, tempPtr->extType);
+        MACHINE_LOGD(
+            "[function cache]topo %u, readycount:%ld, depnum:%lu, coreType:%lu, extType:%u", i, tempPtr->readyCount,
+            tempPtr->depNum, tempPtr->coreType, tempPtr->extType);
         uint32_t j = 0;
-        for (auto &ele : func.topoInfo_.topology_[i].outGraph) {
+        for (auto& ele : func.topoInfo_.topology_[i].outGraph) {
             tempPtr->depIds[j] = ele;
             j++;
             MACHINE_LOGD("[function cache]depend %d", ele);
         }
-        for (auto &ele : func.topoInfo_.topology_[i].extParams) {
+        for (auto& ele : func.topoInfo_.topology_[i].extParams) {
             tempPtr->depIds[j++] = static_cast<uint64_t>(ele);
         }
         uint32_t tempLength = sizeof(CoreFunctionTopo) + sizeof(uint64_t) * (tempPtr->depNum + tempPtr->extParamNum);
@@ -81,7 +86,7 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         topoPtr += tempLength;
     }
     value.header.coreFunctionNum = topoNum;
-    ASSERT(topoNum != 0)<<"Invalid topoNum: "<<topoNum;
+    ASSERT(topoNum != 0) << "Invalid topoNum: " << topoNum;
 
     TopoProcessor processor(value.topoCache, topoNum);
     std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> newTopo = processor.MergeBatchDepend(10, 1);
@@ -89,7 +94,8 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
     value.header.virtualFunctionNum = std::get<1>(newTopo);
 }
 
-std::vector<uint8_t> LoadBinData(const std::string &binPath) {
+std::vector<uint8_t> LoadBinData(const std::string& binPath)
+{
     std::vector<uint8_t> text;
 
     uint32_t fileSize = GetFileSize(binPath);
@@ -97,13 +103,13 @@ std::vector<uint8_t> LoadBinData(const std::string &binPath) {
     std::ifstream file(binPath);
     file.read(buf.data(), fileSize);
 
-    auto elfHeader = reinterpret_cast<Elf64_Ehdr *>(buf.data());
+    auto elfHeader = reinterpret_cast<Elf64_Ehdr*>(buf.data());
     if (elfHeader->e_ident[EI_MAG0] != ELFMAG0 || elfHeader->e_ident[EI_MAG1] != ELFMAG1 ||
         elfHeader->e_ident[EI_MAG2] != ELFMAG2 || elfHeader->e_ident[EI_MAG3] != ELFMAG3) {
         return text;
     }
 
-    auto sectionHeaders = reinterpret_cast<Elf64_Shdr *>(reinterpret_cast<uint64_t>(elfHeader) + elfHeader->e_shoff);
+    auto sectionHeaders = reinterpret_cast<Elf64_Shdr*>(reinterpret_cast<uint64_t>(elfHeader) + elfHeader->e_shoff);
     auto shstrHeader = &sectionHeaders[elfHeader->e_shstrndx];
     auto strtbl = buf.data() + shstrHeader->sh_offset;
     for (int i = 0; i < elfHeader->e_shnum; i++) {
@@ -119,12 +125,13 @@ std::vector<uint8_t> LoadBinData(const std::string &binPath) {
     return text;
 }
 
-void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
+void FunctionCache::UpdateBinCache(const Function& func, CacheValue& value)
+{
     std::map<uint64_t, std::vector<uint8_t>> binMap;
     uint64_t totalSize = 0;
-    for (auto &ele : func.programs_) {
+    for (auto& ele : func.programs_) {
         auto leafFuncAttr = ele.second->GetLeafFuncAttribute();
-        ASSERT(leafFuncAttr != nullptr)<<"Leaf function attr not found";
+        ASSERT(leafFuncAttr != nullptr) << "Leaf function attr not found";
         auto binPath = leafFuncAttr->binPath;
         if (!RealPath(binPath).empty()) {
             auto binData = LoadBinData(binPath);
@@ -151,11 +158,11 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     value.header.programFuncionNum = progNum;
     value.binCache->dataSize = totalSize;
 
-    auto binOffsets = reinterpret_cast<uint64_t *>(buf + sizeof(CoreFunctionBinCache));
+    auto binOffsets = reinterpret_cast<uint64_t*>(buf + sizeof(CoreFunctionBinCache));
     uint64_t curOffset = sizeof(uint64_t) + progNum * sizeof(uint64_t);
-    for (auto &ele : func.programs_) {
+    for (auto& ele : func.programs_) {
         *binOffsets++ = curOffset;
-        auto *funcBin = reinterpret_cast<CoreFunctionBin *>(buf + curOffset);
+        auto* funcBin = reinterpret_cast<CoreFunctionBin*>(buf + curOffset);
         auto binData = binMap[ele.first];
         funcBin->size = binData.size();
         memcpy_s(funcBin->data, binData.size(), binData.data(), funcBin->size);
@@ -163,7 +170,8 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
     }
 }
 
-void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value) {
+void FunctionCache::UpdateReadyFunction(const Function& func, CacheValue& value)
+{
     uint64_t readyNum = func.GetAllReadySubGraphCount();
     uint64_t totalSize = readyNum * sizeof(ReadyCoreFunction);
     size_t size = totalSize + sizeof(uint64_t);
@@ -190,13 +198,16 @@ void FunctionCache::UpdateReadyFunction(const Function &func, CacheValue &value)
         index++;
     }
     value.header.readyCoreFunctionNum = readyNum;
-    ASSERT(value.header.readyCoreFunctionNum != 0)<<"readyCoreFunctionNum is 0, value.header.readyCoreFunctionNum="<<value.header.readyCoreFunctionNum;
+    ASSERT(value.header.readyCoreFunctionNum != 0)
+        << "readyCoreFunctionNum is 0, value.header.readyCoreFunctionNum=" << value.header.readyCoreFunctionNum;
 }
 
-
-void FunctionCache::Insert(const HashKey& key, Function &func) {
+void FunctionCache::Insert(const HashKey& key, Function& func)
+{
     CacheValue cacheVal;
-    if (func.IsFunctionTypeAndGraphType({FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH, FunctionType::STATIC}, {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
+    if (func.IsFunctionTypeAndGraphType(
+            {FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH, FunctionType::STATIC},
+            {GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         if (func.rootFunc_ && func.GetFunctionType() == FunctionType::STATIC) {
             UpdateTopoCache(*func.rootFunc_, cacheVal);
             UpdateBinCache(*func.rootFunc_, cacheVal);
@@ -213,23 +224,27 @@ void FunctionCache::Insert(const HashKey& key, Function &func) {
     Insert(key, cacheVal);
 }
 
-void FunctionCache::Insert(const HashKey& key, CacheValue value) {
+void FunctionCache::Insert(const HashKey& key, CacheValue value)
+{
     std::lock_guard<std::mutex> cLockGuard(lock_);
     cache_[key] = value;
 }
 
-size_t FunctionCache::Size() {
+size_t FunctionCache::Size()
+{
     std::lock_guard<std::mutex> cLockGuard(lock_);
     return cache_.size();
 }
 
-std::string FunctionCache::GetHitRate() {
+std::string FunctionCache::GetHitRate()
+{
     std::lock_guard<std::mutex> cLockGuard(lock_);
     std::string temp = std::to_string(hitCnt_) + "/" + std::to_string(getCnt_);
     return temp;
 }
 
-Function *FunctionCache::GetCacheFunction(const HashKey &key) {
+Function* FunctionCache::GetCacheFunction(const HashKey& key)
+{
     std::lock_guard<std::mutex> cLockGuard(lock_);
     getCnt_++;
     if (auto it = cache_.find(key); it != cache_.end()) {
@@ -240,7 +255,8 @@ Function *FunctionCache::GetCacheFunction(const HashKey &key) {
     }
 }
 
-void FunctionCache::Reset() {
+void FunctionCache::Reset()
+{
     std::lock_guard<std::mutex> cLockGuard(lock_);
     for (auto& ele : cache_) {
         ele.second.topoCache = nullptr;

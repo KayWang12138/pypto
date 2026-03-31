@@ -20,16 +20,17 @@
 
 namespace TileOp {
 struct CommContext {
-    uint64_t rankId = 0; // 当前卡rankId
+    uint64_t rankId = 0;    // 当前卡rankId
     uint64_t rankNum = 0;
     int64_t startIndex = 0; // 每个win区起始Index
-    int64_t statusIndex = -1; 
-    int64_t debugIndex = -1; 
+    int64_t statusIndex = -1;
+    int64_t debugIndex = -1;
     uint64_t winDataSize = 0; // 每个win区大小
-    uint64_t winStatusSize = 0; 
-    uint64_t winDebugSize = 0; 
-    uint64_t totalWinNum = 0; 
-    uint64_t winAddr[0]; // size大小rankNum*3，内存排布windata[0~rankNum-1], winStatus[0~rankNum-1], winDebug[0~rankNum-1]
+    uint64_t winStatusSize = 0;
+    uint64_t winDebugSize = 0;
+    uint64_t totalWinNum = 0;
+    uint64_t
+        winAddr[0]; // size大小rankNum*3，内存排布windata[0~rankNum-1], winStatus[0~rankNum-1], winDebug[0~rankNum-1]
 };
 } // namespace TileOp
 

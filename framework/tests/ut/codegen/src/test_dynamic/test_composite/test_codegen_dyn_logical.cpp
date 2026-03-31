@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd) {
+TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd)
+{
     auto function = GenMockFuncDyn("TestDynOpLogicalAnd");
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
@@ -55,7 +57,7 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd) {
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(
+    auto& op = function->AddOperation(
         Opcode::OP_LOGICALAND, {localTensorInput1, localTensorInput2}, {localTensorRes, localTensorTmp});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -71,7 +73,8 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot) {
+TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot)
+{
     auto function = GenMockFuncDyn("TestDynOpLogicalNot");
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
@@ -81,7 +84,7 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot) {
     auto localTensorTmpCond =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_LOGICALNOT, {localTensorInput}, {localTensorRes, localTensorTmpCond});
+    auto& op = function->AddOperation(Opcode::OP_LOGICALNOT, {localTensorInput}, {localTensorRes, localTensorTmpCond});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -96,7 +99,8 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot) {
     EXPECT_EQ(res, expect);
 }
 
-std::string TestLogicalBody(Opcode opcode) {
+std::string TestLogicalBody(Opcode opcode)
+{
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
 
@@ -112,7 +116,7 @@ std::string TestLogicalBody(Opcode opcode) {
     std::vector<SymbolicScalar> dynoffset = {0, 0};
     logicalInTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
-    auto &op = function->AddOperation(opcode, {logicalInTensor, logicalInTensor}, {localOutTensor, localOutTensor});
+    auto& op = function->AddOperation(opcode, {logicalInTensor, logicalInTensor}, {localOutTensor, localOutTensor});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -124,14 +128,16 @@ std::string TestLogicalBody(Opcode opcode) {
     return cop.GenOpCode();
 }
 
-TEST_F(TestCodegenDynLogical, LogicalAndTileTensor) {
+TEST_F(TestCodegenDynLogical, LogicalAndTileTensor)
+{
     std::string res = TestLogicalBody(Opcode::OP_LOGICALAND);
     std::string expect = R"!!!(TLogicalAnd(ubTensor_9, ubTensor_9, ubTensor_9, ubTensor_9);
 )!!!";
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynLogical, LogicalNotTileTensor) {
+TEST_F(TestCodegenDynLogical, LogicalNotTileTensor)
+{
     std::string res = TestLogicalBody(Opcode::OP_LOGICALNOT);
     std::string expect = R"!!!(TLogicalNot(ubTensor_9, ubTensor_9, ubTensor_9);
 )!!!";
