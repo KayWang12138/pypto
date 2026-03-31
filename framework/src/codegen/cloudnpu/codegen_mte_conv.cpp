@@ -48,6 +48,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
     auto srcShape = shapeFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
+    std::vector<std::string> gmOffsetExpr;
     if (isConv3D) {
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM5)
             << "GenMemL1CopyInConv offset should be 5-dim!";
@@ -68,29 +69,30 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const
             << "GenMemL1CopyInConv offset should be 4-dim!";
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, srcShape.size() == SHAPE_DIM4)
             << "GenMemL1CopyInConv shape should be 4-dim!";
-        offsetN = dynOffset[ID0].Concrete();
-        offsetC = dynOffset[ID1].Concrete();
-        offsetH = dynOffset[ID2].Concrete();
-        offsetW = dynOffset[ID3].Concrete();
+        if (!(functionType == FunctionType::STATIC) && dynOffset[ID0].IsValid()) {
+            gmOffsetExpr = GenSymbolicArgument(dynOffset);
+        } else {
+            offsetN = dynOffset[ID0].Concrete();
+            offsetC = dynOffset[ID1].Concrete();
+            offsetH = dynOffset[ID2].Concrete();
+            offsetW = dynOffset[ID3].Concrete();
+        }
         srcShapeN = srcShape[ID0];
         srcShapeC = srcShape[ID1];
         srcShapeH = srcShape[ID2];
         srcShapeW = srcShape[ID3];
     }
 
-    std::vector<std::string> tileOpParamList = {
-        dstTensor,
-        srcTensor,
-        std::to_string(offsetN),
-        std::to_string(offsetC),
-        std::to_string(offsetD),
-        std::to_string(offsetH),
-        std::to_string(offsetW),
-        std::to_string(srcShapeN),
-        std::to_string(srcShapeC),
-        std::to_string(srcShapeD),
-        std::to_string(srcShapeH),
-        std::to_string(srcShapeW)};
+    std::vector<std::string> tileOpParamList;
+    if (functionType == FunctionType::STATIC) {
+        tileOpParamList = {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC),
+            std::to_string(offsetD), std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN),
+            std::to_string(srcShapeC), std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
+    } else {
+        tileOpParamList = {dstTensor, srcTensor, gmOffsetExpr[0], gmOffsetExpr[1],
+            std::to_string(offsetD), gmOffsetExpr[2], gmOffsetExpr[3], std::to_string(srcShapeN),
+            std::to_string(srcShapeC), std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
+    }
 
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({copyInModeStr, std::to_string(isConv3D), std::to_string(isFmap)});
@@ -128,6 +130,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const
     realM = realShape[ID0];
     realN = realShape[ID1];
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::DST_IDX)];
+    std::vector<std::string> gmOffsetExpr;
     if (isConv3D) {
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM5)
             << "GenMemL1CopyOutConv offset should be 5-dim!";
@@ -139,21 +142,26 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const
     } else {
         ASSERT(ConvCodenGenError::CODEGEN_CHECK_DIM_INVALID, dynOffset.size() == SHAPE_DIM4)
             << "GenMemL1CopyOutConv offset should be 4-dim!";
-        offsetN = dynOffset[ID0].Concrete();
-        offsetC = dynOffset[ID1].Concrete();
-        offsetH = dynOffset[ID2].Concrete();
-        offsetW = dynOffset[ID3].Concrete();
+        if (!(functionType == FunctionType::STATIC) && dynOffset[ID0].IsValid()) {
+            gmOffsetExpr = GenSymbolicArgument(dynOffset);
+        } else {
+            offsetN = dynOffset[ID0].Concrete();
+            offsetC = dynOffset[ID1].Concrete();
+            offsetH = dynOffset[ID2].Concrete();
+            offsetW = dynOffset[ID3].Concrete();
+        }
     }
-    std::vector<std::string> tileOpParamList = {
-        dstTensor,
-        srcTensor,
-        std::to_string(offsetN),
-        std::to_string(offsetC),
-        std::to_string(offsetD),
-        std::to_string(offsetH),
-        std::to_string(offsetW),
-        std::to_string(realM),
-        std::to_string(realN)};
+
+    std::vector<std::string> tileOpParamList;
+    if (functionType == FunctionType::STATIC) {
+        tileOpParamList = {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC),
+            std::to_string(offsetD), std::to_string(offsetH), std::to_string(offsetW), std::to_string(realM),
+            std::to_string(realN)};
+    } else {
+        tileOpParamList = {dstTensor, srcTensor, gmOffsetExpr[0], gmOffsetExpr[1],
+            std::to_string(offsetD), gmOffsetExpr[2], gmOffsetExpr[3], std::to_string(realM),
+            std::to_string(realN)};
+    }
 
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({copyOutModeStr, std::to_string(isConv3D)});

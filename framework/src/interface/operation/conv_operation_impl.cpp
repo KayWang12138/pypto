@@ -800,9 +800,9 @@ LogicalTensorPtr ConstructFmapTile(
 }
 
 void SetCopyInBL1Op(
-    Operation& copyInOpBl1, const ConvTileInfo& convTileInfo, ConvIterInfo& iterInfo,
-    const ConvAttrParam& convAttrParam, const std::vector<int64_t>& dstBL1Shape,
-    const std::vector<int64_t>& srcGmValidShape, const int64_t& srcCinOffset)
+    Function &function, Operation &copyInOpBl1, const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo,
+    const ConvAttrParam &convAttrParam, const std::vector<int64_t> &dstBL1Shape,
+    const std::vector<int64_t> &srcGmValidShape, const int64_t &srcCinOffset)
 {
     copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::isFmap, false);
     copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
@@ -822,9 +822,35 @@ void SetCopyInBL1Op(
     if (convAttrParam.isConv3D) {
         srcWeightGmOffset = {src_n_offset, src_c_offset, src_d_offset, src_h_offset, src_w_offset};
     }
+    // cal new dynamic offset
+    // find producer, and get dynamic offset
+    auto producers = function.FindProducers(copyInOpBl1);
+    ASSERT(ConvExpandFuncError::EXPANDFUNC_PARAMS_INVALID,
+        producers.size() == 1) << "copy weight in L1 should has one producer.";
+    auto currentOp = *(producers.begin());
+    std::vector<int64_t> newOffset;
+    std::vector<SymbolicScalar> newDynOffset;
+    if (currentOp->GetOpcode() == Opcode::OP_VIEW) {
+        auto currentViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(currentOp->GetOpAttribute());
+        if (currentViewAttr->GetTo() == MemoryType::MEM_UNKNOWN) {
+            // std::vector<SymbolicScalar> newDynValidShape;
+            newOffset = currentViewAttr->GetFromOffset();
+            newDynOffset = currentViewAttr->GetFromDynOffset();
+            // if (!currentViewAttr->GetToDynValidShape().empty()) {
+            //     newDynValidShape = currentViewAttr->GetToDynValidShape();
+            // }
+            auto ret = TensorOffset::Add(newOffset, newDynOffset, srcWeightGmOffset, SymbolicScalar::FromConcrete(srcWeightGmOffset));
+            if (!ret.first.empty()) {
+                newOffset = ret.first;
+                newDynOffset = ret.second;
+            }
+        }
+    }
     auto copyAttr = std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(srcWeightGmOffset), MemoryType::MEM_L1, OpImmediate::Specified(srcGmValidShape),
-        OpImmediate::Specified(dstBL1Shape), OpImmediate::Specified(dstBL1Shape));
+        OpImmediate::Specified(TensorOffset(newOffset, newDynOffset)),
+        MemoryType::MEM_L1, OpImmediate::Specified(srcGmValidShape), OpImmediate::Specified(dstBL1Shape),
+        OpImmediate::Specified(dstBL1Shape)
+    );
     copyInOpBl1.SetOpAttribute(copyAttr);
     copyInOpBl1.SetAttribute("l1_tile_shape", SymbolicScalar::FromConcrete(dstBL1Shape));
     iterInfo.bL1UpadateFlag = false;
@@ -871,7 +897,7 @@ LogicalTensorPtr ConstructWeightTile(
         auto& copyInOpBl1 =
             function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr}, {dstBL1TensorPtr});
         copyInOpBl1.SetAttribute("isConv", true);
-        SetCopyInBL1Op(copyInOpBl1, convTileInfo, iterInfo, convAttrParam, dstBL1Shape, srcGmValidShape, srcCinOffset);
+        SetCopyInBL1Op(function, copyInOpBl1, convTileInfo, iterInfo, convAttrParam, dstBL1Shape, srcGmValidShape, srcCinOffset);
     }
     // load2d()
     std::vector<int64_t> dstBL0Shape =
