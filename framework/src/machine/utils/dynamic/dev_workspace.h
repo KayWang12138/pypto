@@ -663,6 +663,30 @@ public:
         DEV_DEBUG("[workspaceSize] slabMemObjmaxSize=%u", slabMemObjmaxSize);
         return slabMemObjmaxSize;
     }
+
+    uint32_t CalcStitchSlabMemObjmaxSize(uint32_t* slabCapacity)
+    {
+        uint32_t slabMemObjmaxSize = 0;
+        size_t start = ToUnderlying(WsAicpuSlabMemType::READY_QUE);
+        size_t end = ToUnderlying(WsAicpuSlabMemType::DUPPED_STITCH);
+        for (size_t i = start; i < end; ++i) {
+            if (slabMemObjSizeFunc[i] != nullptr) {
+                uint32_t currentSize = (this->*slabMemObjSizeFunc[i])();
+                if (currentSize > slabMemObjmaxSize) {
+                    slabMemObjmaxSize = currentSize;
+                }
+            }
+        }
+        slabMemObjmaxSize *= ALLOC_NUM_ONE_SLAB;
+        slabMemObjmaxSize = std::max(slabMemObjmaxSize, MEBI);
+        size_t j = 0;
+        for (size_t i = start; i < end; ++i) {
+            slabCapacity[j] = slabMemObjmaxSize / (this->*slabMemObjSizeFunc[i])();
+            ++j;
+        }
+        return slabMemObjmaxSize;
+    }
+
     void CalculateSlabCapacityPerType(uint32_t slabSize, uint32_t* slabCapacity, uint32_t slabTypeNum)
     {
         if (slabCapacity == nullptr) {
@@ -905,11 +929,11 @@ private:
         &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
         &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
         &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
+        nullptr, // invalid type
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::DieReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
-        nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };
 
@@ -950,7 +974,7 @@ private:
         DEV_ASSERT_MSG(
             WsErr::WORKSPACE_INIT_PARAM_INVALID, memBase != nullptr && totalSize > 0, "memBase %s null, totalSize=%u",
             memBase == nullptr ? "is" : "is not", totalSize);
-        constexpr uint32_t slabSize = 4 * 1024; // fix size
+        constexpr uint32_t slabSize = 1 * MEBI; // fix size
         metadataAllocators_.stitchSlab.Init(memBase, totalSize, slabSize);
         for (size_t i = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) + 1;
              i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); ++i) {
