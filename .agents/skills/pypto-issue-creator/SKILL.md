@@ -7,6 +7,34 @@ description: 基于会话上下文智能创建 GitCode Issue。支持 5 种类�
 
 基于会话上下文，智能创建符合 PyPTO 和 CANN 社区规范的 GitCode Issue。
 
+## 环境依赖
+
+### GitCode MCP
+
+本 skill 的去重检查（阶段3）和 Issue 创建（阶段8）依赖 GitCode MCP 工具。
+
+检查方式：
+
+```bash
+CONFIG_FILE="$HOME/.config/opencode/opencode.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+    TOKEN_VALUE=$(cat "$CONFIG_FILE" | grep -oP '"GITCODE_TOKEN"\s*:\s*"\K[^"]+' 2>/dev/null || echo "")
+    if [ -n "$TOKEN_VALUE" ] && [ "$TOKEN_VALUE" != "<YOUR_GITCODE_TOKEN>" ]; then
+        echo "GITCODE_TOKEN_STATUS=CONFIGURED"
+    else
+        echo "GITCODE_TOKEN_STATUS=NOT_CONFIGURED"
+    fi
+else
+    echo "GITCODE_TOKEN_STATUS=CONFIG_FILE_NOT_FOUND"
+fi
+```
+
+- **CONFIGURED** → 正常执行
+- **NOT_CONFIGURED / CONFIG_FILE_NOT_FOUND** → 调用 `gitcode-mcp-install` skill 引导用户完成配置，等待执行完成后提示用户需要：
+  1. 在 `~/.config/opencode/opencode.json` 中将 `<YOUR_GITCODE_TOKEN>` 替换为真实 token
+  2. 重启 OpenCode 使配置生效
+
 ---
 
 ## 目录

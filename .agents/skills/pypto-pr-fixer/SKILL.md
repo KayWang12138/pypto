@@ -7,6 +7,44 @@ description: "修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动�
 
 PyPTO 仓库 PR 自动修复工具，提供两大能力：
 
+## 环境依赖
+
+| 依赖 | 版本 | 安装命令 |
+|------|------|----------|
+| Python | 3.10+ | 系统自带 |
+| playwright | 1.58+ | `pip install playwright` |
+| Chromium Headless Shell | v1208 | `playwright install chromium-headless-shell` |
+| GitCode MCP | — | 调用 `gitcode-mcp-install` skill 配置 |
+
+**注意**：ARM64 环境只能用 `chromium-headless-shell`，不能用完整 Chrome。
+
+### GitCode MCP 配置检查
+
+本 skill 的 PR 评论获取和 CI 状态检查依赖 GitCode MCP 工具。
+
+检查方式：
+
+```bash
+CONFIG_FILE="$HOME/.config/opencode/opencode.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+    TOKEN_VALUE=$(cat "$CONFIG_FILE" | grep -oP '"GITCODE_TOKEN"\s*:\s*"\K[^"]+' 2>/dev/null || echo "")
+    if [ -n "$TOKEN_VALUE" ] && [ "$TOKEN_VALUE" != "<YOUR_GITCODE_TOKEN>" ]; then
+        echo "GITCODE_TOKEN_STATUS=CONFIGURED"
+    else
+        echo "GITCODE_TOKEN_STATUS=NOT_CONFIGURED"
+    fi
+else
+    echo "GITCODE_TOKEN_STATUS=CONFIG_FILE_NOT_FOUND"
+fi
+```
+
+- **CONFIGURED** → 正常执行
+- **NOT_CONFIGURED / CONFIG_FILE_NOT_FOUND** → 调用 `gitcode-mcp-install` skill 引导用户完成配置，等待执行完成后提示用户需要：
+  1. 在 `~/.config/opencode/opencode.json` 中将 `<YOUR_GITCODE_TOKEN>` 替换为真实 token
+  2. 重启 OpenCode 使配置生效
+
+---
 
 ## 输入协议
 
@@ -320,16 +358,6 @@ python scripts/local_codecheck.py <repo_path> --output json
 ---
 
 
-### 环境依赖
-
-| 依赖 | 版本 | 安装命令 |
-|------|------|----------|
-| Python | 3.10+ | 系统自带 |
-| playwright | 1.58+ | `pip install playwright` |
-| Chromium Headless Shell | v1208 | `playwright install chromium-headless-shell` |
-
-**注意**：ARM64 环境只能用 `chromium-headless-shell`，不能用完整 Chrome。
-
 ### CodeCheck 规则参考
 
 完整规则映射见 [references/codecheck-rules.md](references/codecheck-rules.md)，包含 111 条 Python 规则的修复方案分类。
@@ -395,6 +423,8 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 当遇到 `pre receive hook check failed` 时，执行诊断：
 
+| 检查项 | 诊断命令 | 修复建议 |
+|--------|----------|----------|
 | 分支同步状态 | `git log HEAD..origin/<target> --oneline` | `git pull --rebase` |
 | 提交者身份 | `git log -1 --format="%ae"` | 配置 `git user.email` |
 
