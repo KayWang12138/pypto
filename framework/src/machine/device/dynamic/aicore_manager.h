@@ -196,6 +196,7 @@ public:
 
     inline void RunTask(DeviceTaskCtrl *taskCtrl) {
         InitDevTask(taskCtrl);
+        ForEachManageAicore([&](int coreIdx) { busyCores_[coreIdx] = false; });
 
         // Making sure all schedulers are here for accurate timing -- this needs to be removed for production
         auto readyAICPUsBarrierPtr = (std::atomic<uint32_t>*) &deviceArgs_->readyAICPUsBarrier;
@@ -232,11 +233,13 @@ public:
 
     inline int WaitAllAicoreFinish()
     {
-        for (auto i = aicStart_; i < aicEnd_; i++) {
+        for (auto i = aicStart_; i < aicEnd_; i++) if (busyCores_[i] == true)
+        {
             while (checkCoreFinished(i) == false) { /* busy wait */}
         }
 
-        for (auto i = aivStart_; i < aivEnd_; i++) {
+        for (auto i = aivStart_; i < aivEnd_; i++) if (busyCores_[i] == true)
+        {
             while (checkCoreFinished(i) == false) { /* busy wait */}
         }
 
@@ -346,6 +349,7 @@ private:
                     const auto pair = encodePair(core, task);
                     SendTaskToAiCore(type, core, task);
                     busyAPairQueue_[(int)type]->push(pair);
+                    busyCores_[core] = true;
                 }
             }
         }
@@ -465,6 +469,7 @@ private:
             {
                 processFinishedTask(type, taskAId);
                 batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
+                busyCores_[coreId] = false;
                 return;
             }
 
@@ -496,6 +501,7 @@ private:
             {
                 processFinishedTask(type, taskAId);
                 batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
+                busyCores_[coreId] = false;
                 return;
             }
         }
@@ -528,6 +534,7 @@ private:
             {
                 processFinishedTask(type, taskBId);
                 batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
+                busyCores_[coreId] = false;
                 return;
             }
 
@@ -736,6 +743,8 @@ private:
     aicoreCore_t batchFreeACores_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
     aicorePair_t batchBusyAPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
     aicorePair_t batchFreeBPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+
+    bool busyCores_[TOTAL_CORE_COUNT];
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
