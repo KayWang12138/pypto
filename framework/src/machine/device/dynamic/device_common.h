@@ -49,6 +49,7 @@ inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, 
 
 const int DEVICE_MAX_AICPU_NUM = 7;
 const uint16_t AICPU_EXECUTE_TIMEOUT = 1080; // 18min
+constexpr uint32_t STITCH_FUNCTION_SIZE = 60000;
 
 const uint8_t INVALID_COREIDX_POSITION = 0xff;
 struct SchduleContext {
