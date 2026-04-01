@@ -22,6 +22,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
+
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
