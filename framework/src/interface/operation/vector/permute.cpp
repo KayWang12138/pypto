@@ -141,22 +141,7 @@ void TiledPermuteOperation(Function &function, const TileShape &tileShape, size_
         auto resultTileOffset = PermuteTileVector(input.tileInfo.offset, perm);
         auto resultTile = result->View(function, resultTileShape, resultTileOffset);
         
-        int64_t blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(srcTile->Datatype()));
-        std::vector<int64_t> tmpShape;
-        if (shapeSize == 5) {
-            tmpShape = {blockElem};
-        } else {
-            tmpShape = resultTileShape;
-            if (tmpShape.size() >= 2) {
-                tmpShape[tmpShape.size() - 2] = AlignUp(tmpShape[tmpShape.size() - 2], (int64_t)VNCHWCONV_REPEAT);
-                tmpShape[tmpShape.size() - 1] = AlignUp(tmpShape[tmpShape.size() - 1], blockElem);
-            }
-        }
-        auto tempTensor = std::make_shared<LogicalTensor>(function, srcTile->Datatype(), tmpShape);
-        tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
-        
-        LogicalTensors outputs = {resultTile, tempTensor};
-        auto &op = function.AddOperation(Opcode::OP_PERMUTE, {srcTile}, outputs);
+        auto &op = function.AddOperation(Opcode::OP_PERMUTE, {srcTile}, {resultTile});
 
         int axis0 = perm.size() > 0 ? perm[0] : -1;
         int axis1 = perm.size() > 1 ? perm[1] : -1;

@@ -490,6 +490,12 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         return;
     }
 
+    if (oper.GetOpcode() == Opcode::OP_PERMUTE) {
+        paramLocation[ID1] = oper.GetIOpAttrOffset(0);
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        return;
+    }
+
     if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode())) {
         const std::shared_ptr<OpAttribute> &attr = oper.GetOpAttribute();
         ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << "Copy In attr is null, Op is " << oper.Dump();
