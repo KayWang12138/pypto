@@ -146,12 +146,11 @@ def _collect_kernel_detail_files(profiler_output_dir: str):
         recursive=True,
     )
 
-
-@pytest.mark.skip(reason="accuracy issues")
+@pytest.mark.soc("950", "910")
 def test_msprof_profiling_pypto_op_summary():
     """
     看护用例：验证 msprof 性能采集功能
-    1. 执行 msprof python examples/01_beginner/basic/add_direct.py
+    1. 执行 msprof python examples/00_hello_world/hello_world.py
     2. 验证 PROF*/mindstudio_profiler_output/op_summary_*.csv 文件生成
     3. 验证 CSV 文件中 Op Name 包含 PYPTO_add_direct_kernel 字样，且 OP Type 包含 PyPTO 字样
     """
@@ -159,7 +158,7 @@ def test_msprof_profiling_pypto_op_summary():
     prof_base_dir = _get_prof_base_dir(root_dir)
     _clean_prof_dirs(prof_base_dir)
     add_direct_script = os.path.join(
-        root_dir, "examples", "01_beginner", "basic", "add_direct.py"
+        root_dir, "examples", "00_hello_world", "hello_world.py"
     )
     assert os.path.exists(add_direct_script), f"脚本不存在: {add_direct_script}"
 
@@ -182,7 +181,7 @@ def test_msprof_profiling_pypto_op_summary():
     for prof_dir in prof_dirs:
         shutil.rmtree(prof_dir, ignore_errors=True)
 
-
+@pytest.mark.soc("950", "910")
 def test_torch_npu_profiler_collect_pypto_kernel_details():
     """
     看护用例：验证 torch_npu.profiler 能正确采集到 PyPTO 内核信息
