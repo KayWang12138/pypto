@@ -134,8 +134,8 @@ python3 scripts/verify_binary_search.py -w /path/to/operator -v
 **问题**：读取数据时要根据保存的类型读取（BF16/FP32/INT32 等）
 
 **修正**：对比工具会根据 CSV 文件中的 dtype 自动判断数据类型：
-- dtype=8: BF16 格式（2字节），转换为 FP32 进行对比
-- dtype=7: FP32 格式（4字节），直接读取
+- dtype=8: BF16 格式（2 字节），转换为 FP32 进行对比
+- dtype=7: FP32 格式（4 字节），直接读取
 
 ### 3. 检查点插入位置问题
 
@@ -248,7 +248,7 @@ python3 scripts/verify_binary_search.py -v
 
 2. **审查 log 文件内容**
    - 查看生成的 `*_verify_result.log` 文件
-   - 如果出现 **NaN** 或 **很大的数值**（如 atol=479360）或者全0值
+   - 如果出现 **NaN** 或 **很大的数值**（如 atol=479360）或者全 0 值
    - **可能原因**：保存和读取数据类型不一致
    - **解决方法**：检查检查点的保存逻辑和 CSV 文件中的 dtype，确保 golden 保存的数据类型与 kernel 一致
    - 如果在量化类场景下中间结果略超过容差阈值，可以适当放宽，这类检查点不视作精度比对失败

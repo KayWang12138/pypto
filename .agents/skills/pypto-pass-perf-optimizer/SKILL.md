@@ -48,7 +48,7 @@ description: PyPTO Pass 编译性能优化技能。用于分析和优化 Pass �
 1. ✅ 必须完成步骤6：编译Debug版本（perf需要调试符号）
 2. ✅ 必须完成步骤7：使用perf record采集数据
 3. ✅ 必须查看perf report，了解热点函数
-4. ✅ 必须记录top 5热点函数及其cycles占比
+4. ✅ 必须记录 top 5 热点函数及其 cycles 占比
 5. ✅ 必须理解热点函数的来源（查看调用栈）
 
 **只有完成以上准备工作后**，才能进入步骤14进行代码优化。
@@ -60,19 +60,19 @@ description: PyPTO Pass 编译性能优化技能。用于分析和优化 Pass �
 
 ### 常见错误示例
 
-**错误1：跳过perf分析直接优化**
+**错误 1：跳过perf分析直接优化**
 ```
 步骤1-5 → ❌跳过步骤6-7 → 步骤14修改代码
 后果：缺乏数据支撑，优化方向可能错误
 ```
 
-**错误2：仅凭代码审查进行优化**
+**错误 2：仅凭代码审查进行优化**
 ```
 步骤1-5 → ❌跳过步骤6-13 → 步骤14修改代码
 后果：无法识别真正的性能瓶颈，浪费时间
 ```
 
-**错误3：UT未通过就进行性能验证**
+**错误 3：UT未通过就进行性能验证**
 ```
 步骤14修改代码 → ❌跳过步骤19 → 步骤20性能验证
 后果：可能引入功能bug，性能优化无效
@@ -185,10 +185,10 @@ pip install ./build_out/pypto-*.whl --force-reinstall
 
 ```bash
 # 执行用户指定的算子脚本（日志自动落盘）
-# 使用超时控制，默认5分钟，超时后自动中断并继续后续步骤
+# 使用超时控制，默认 5 分钟，超时后自动中断并继续后续步骤
 bash scripts/run_with_timeout.sh 300 python3 {user_specified_script}.py
 
-# 自定义超时时间（例如10分钟）
+# 自定义超时时间（例如 10 分钟）
 # bash scripts/run_with_timeout.sh 600 python3 {user_specified_script}.py
 
 # 不使用超时控制直接执行（不推荐，可能长时间等待）
@@ -237,7 +237,7 @@ pip install ./build_out/pypto-*.whl --force-reinstall
 **生成火焰图：**
 
 ```bash
-# 生成火焰图（默认5分钟超时）
+# 生成火焰图（默认 5 分钟超时）
 # 参数：超时时间(秒) 输出目录 命令...
 bash scripts/generate_flamegraph.sh \
     300 ./flamegraphs python3 {user_specified_script}.py
@@ -350,7 +350,7 @@ perf report
 #### 步骤 8：内存分析（可选）
 
 ```bash
-# 使用超时控制执行内存分析，默认5分钟
+# 使用超时控制执行内存分析，默认 5 分钟
 bash scripts/run_with_timeout.sh 300 \
     valgrind --tool=massif -- python3 {user_specified_script}.py
 
@@ -568,7 +568,7 @@ pip install ./build_out/pypto-*.whl --force-reinstall
 
 ```bash
 # 重新采集性能数据（日志自动落盘）
-# 使用超时控制，默认5分钟
+# 使用超时控制，默认 5 分钟
 bash scripts/run_with_timeout.sh 300 python3 {user_specified_script}.py
 
 # 日志文件位置：$ASCEND_PROCESS_LOG_PATH/debug/plog/pypto-log-*.log
@@ -661,27 +661,27 @@ python3 parse_pass_perf.py -l pypto-log-*.log --time-threshold 20
 
 ### 为什么需要超时控制？
 
-某些算子在运行阶段可能执行很长时间（超过1小时），但对于 Pass 编译性能分析而言：
+某些算子在运行阶段可能执行很长时间（超过 1 小时），但对于 Pass 编译性能分析而言：
 - ✅ Pass 编译信息在编译完成后就已保存在日志中
 - ✅ 运行阶段的长时间执行对 Pass 性能分析没有帮助
 - ✅ 超时中断不会影响 Pass 性能分析结果
 
 ### 默认配置
 
-- **默认超时时间**: 300秒（5分钟）
+- **默认超时时间**: 300 秒（5 分钟）
 - **中断信号**: SIGINT (Ctrl+C)
 - **中断后行为**: 继续执行后续分析步骤
 
 ### 如何自定义超时时间
 
 ```bash
-# 设置超时时间为 10 分钟（600秒）
+# 设置超时时间为 10 分钟（600 秒）
 bash scripts/run_with_timeout.sh 600 python3 test.py
 
-# 设置超时时间为 15 分钟（900秒）
+# 设置超时时间为 15 分钟（900 秒）
 bash scripts/run_with_timeout.sh 900 python3 test.py
 
-# 设置超时时间为 2 分钟（120秒）
+# 设置超时时间为 2 分钟（120 秒）
 bash scripts/run_with_timeout.sh 120 python3 test.py
 ```
 
@@ -713,7 +713,7 @@ bash run_with_timeout.sh <超时秒数> <命令> [命令参数...]
 
 **退出码**:
 - `0` - 成功完成或超时中断（允许继续后续步骤）
-- `非0` - 执行失败（停止后续步骤）
+- `非 0` - 执行失败（停止后续步骤）
 
 **技术细节**:
 - 使用 SIGINT (Ctrl+C) 信号，允许进程优雅退出
@@ -755,11 +755,11 @@ python3 build_ci.py -f=cpp -u=Test{PassName}.* -j=24
 ### 查找最新的日志文件
 
 ```bash
-# 方法1：使用 find 命令查找最新日志文件
+# 方法 1：使用 find 命令查找最新日志文件
 latest_log=$(find $ASCEND_PROCESS_LOG_PATH/debug/plog -name "pypto-log-*.log" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
 echo "最新日志文件: $latest_log"
 
-# 方法2：使用 ls 按时间排序查找
+# 方法 2：使用 ls 按时间排序查找
 latest_log=$(find $ASCEND_PROCESS_LOG_PATH/debug/plog -name "pypto-log-*.log" -type f | xargs ls -t | head -1)
 echo "最新日志文件: $latest_log"
 
@@ -779,12 +779,12 @@ python3 scripts/parse_pass_perf.py -l $latest_log
 # 同一次执行的所有文件具有相同的 pid
 
 # 查看同一次执行产生的所有拆分日志文件
-# 方法1：手动提取 pid 查找
+# 方法 1：手动提取 pid 查找
 log_file="pypto-log-1051473-20260312202107387.log"
 pid=$(echo $log_file | sed 's/pypto-log-\([0-9]*\)-.*/\1/')
 ls -lh pypto-log-${pid}-*.log
 
-# 方法2：自动分析（推荐）
+# 方法 2：自动分析（推荐）
 # parse_pass_perf.py 会自动检测并处理所有拆分文件
 python3 parse_pass_perf.py -l pypto-log-1051473-20260312202107387.log
 ```
