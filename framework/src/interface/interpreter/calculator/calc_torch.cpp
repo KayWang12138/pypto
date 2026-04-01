@@ -20,7 +20,6 @@
 #include "tilefwk/error.h"
 #include "securec.h"
 #include "calc_error.h"
-#include "communication.h"
 
 namespace npu::tile_fwk {
 
@@ -2208,15 +2207,6 @@ static void Scatter(
     }
 }
 
-static void Bind(LogicalTensorDataPtr out, const std::string &groupName, uint64_t memType, uint64_t slotSize) {
-    if (memType == 1) {
-        out = CommManager::Instance()::Alloc(groupName, slotSize);
-    }
-    if (memType == 0) {
-        out = CommManager::Instance()::AllocSignal(groupName, slotSize);
-    }
-    std::cout << "groupName: " << groupName << " memType: " << memType << " slotSize: " << slotSize << " rank: " << rank << std::endl;
-}
 
 static struct CalcOps calcOps = {
     .Random = Random,
@@ -2346,7 +2336,6 @@ static struct CalcOps calcOps = {
     .BitwiseLeftShiftS = BitwiseLeftShiftS,
     .SBitwiseRightShift = SBitwiseRightShift,
     .SBitwiseLeftShift = SBitwiseLeftShift,
-    .BindTensor = Bind,
 };
 
 extern "C" struct CalcOps* GetCalcOps() { return &calcOps; }

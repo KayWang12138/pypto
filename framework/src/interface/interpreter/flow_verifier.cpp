@@ -21,7 +21,9 @@
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/verify_error.h"
 #include "tilefwk/comm_group_recorder.h"
-#include "interface/interpreter/communication.h"
+#include "interface/interpreter/calculator/communication.h"
+#include "machine/runtime/distributed/distributed_context.h"
+
 
 namespace npu::tile_fwk {
 
@@ -259,7 +261,7 @@ void FlowVerifier::VerifyTensorGraph(
     const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
     if (!groupNames.empty()) {
         for (const std::string &groupName: groupNames) {
-            CommManager::Instance().CreateCommContext(groupName);
+            SimulationCommManager::Instance().CreateCommContext(groupName, g_context);
         }
     }
 
@@ -380,6 +382,13 @@ static std::string ToString(const T& val, size_t totalSize)
 
 void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& passIdentifier)
 {
+    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().CreateCommContext(groupName, g_context);
+        }
+    }
+
     functionInterpreter_->verifyType = VerifyType::PASS;
     functionInterpreter_->passIndex = passIndex;
     functionInterpreter_->execDumpPassName = "Pass_" + ToString(passIndex, 2) + "_" + passIdentifier;
