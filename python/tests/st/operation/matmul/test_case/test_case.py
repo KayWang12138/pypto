@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -54,6 +54,50 @@ class MatmulConfig:
     def get_tolerance(cls, dtype_str: str) -> tuple[float, float]:
         info = cls.DTYPE_CONFIG[dtype_str]
         return info["atol"], info["rtol"]
+
+
+def _make_test_case(
+    test_id: str,
+    name: str,
+    desc: str,
+    m: int,
+    k: int,
+    n: int,
+    a_dtype: str,
+    b_dtype: str,
+    c_dtype: str,
+    a_format: str = "ND",
+    b_format: str = "ND",
+    a_trans: bool = False,
+    b_trans: bool = False,
+    viewshape: list = None,
+    tileshape: list = None,
+    extend_params: dict = None,
+    products: list = None,
+    **kwargs,
+) -> dict:
+    """Helper function to create test case dictionary."""
+    case = {
+        "id": test_id,
+        "name": name,
+        "desc": desc,
+        "m": m,
+        "k": k,
+        "n": n,
+        "a_dtype": a_dtype,
+        "b_dtype": b_dtype,
+        "c_dtype": c_dtype,
+        "a_format": a_format,
+        "b_format": b_format,
+        "a_trans": a_trans,
+        "b_trans": b_trans,
+        "viewshape": viewshape or [64, 256],
+        "tileshape": tileshape or [[64, 64], [64, 128], [128, 128]],
+        "extend_params": extend_params or {},
+        "products": products or ["950", "910"],
+    }
+    case.update(kwargs)
+    return case
 
 
 BASIC_TESTS = [
