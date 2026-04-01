@@ -19,6 +19,7 @@
 #include "interface/configs/config_manager.h"
 #include "interface/cache/function_cache.h"
 #include "machine/host/backend.h"
+#include "tilefwk/platform.h"
 
 using namespace npu::tile_fwk;
 
@@ -57,4 +58,150 @@ TEST_F(TestSuite_Backend, InitializeAndMatchCache_Smoke)
 {
     EXPECT_EQ(Initialize(), 0);
     EXPECT_FALSE(MatchCache("ut_non_exist_cache_key"));
+}
+
+enum ParallelMode {
+    DEFAULT = 0,
+    PARALLEL,
+    CHILD,
+};
+
+static bool GetFunctionParallelMode(Function* func)
+{
+    if (func->GetDynloopAttribute()->parallel) {
+        return true;
+    }
+
+    if (func->HasParent() && func->Parent().HasParent() && func->Parent().Parent().GetDynloopAttribute() &&
+        func->Parent().Parent().GetDynloopAttribute()->parallel) {
+        return false;
+    }
+    return false;
+}
+
+static bool NeedCrossDie(Function* func, bool isLoop = false)
+{
+    if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) &&
+        (!isLoop || (GetFunctionParallelMode(func) == ParallelMode::PARALLEL))) {
+        return true;
+    }
+    return false;
+}
+
+class TestNeedCrossDie : public testing::Test {
+protected:
+    void SetUp() override
+    {
+        Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+        Program::GetInstance().Reset();
+        config::Reset();
+        config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+        TileShape::Current().SetVecTile(32, 32);
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+    }
+
+    void TearDown() override
+    {
+        Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
+        Program::GetInstance().Reset();
+        config::Reset();
+    }
+};
+
+TEST_F(TestNeedCrossDie, test_need_cross_die_dav3510_non_loop_returns_true)
+{
+    int s = 8;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor t1(DT_FP32, {s, s}, "t1");
+    Tensor out(DT_FP32, {s, s}, "out");
+    FUNCTION("ut_need_cross_die_1", {t0, t1}, {out})
+    {
+        auto x = Add(t0, t1);
+        Assemble(x, {0, 0}, out);
+    }
+    auto* func = Program::GetInstance().GetLastFunction();
+    ASSERT_NE(func, nullptr);
+
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    bool result = NeedCrossDie(func, false);
+    EXPECT_TRUE(result);
+}
+
+TEST_F(TestNeedCrossDie, test_need_cross_die_dav3510_loop_parallel_returns_true)
+{
+    int s = 8;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor t1(DT_FP32, {s, s}, "t1");
+    Tensor out(DT_FP32, {s, s}, "out");
+    FUNCTION("ut_need_cross_die_2", {t0, t1}, {out})
+    {
+        auto x = Add(t0, t1);
+        Assemble(x, {0, 0}, out);
+    }
+    auto* func = Program::GetInstance().GetLastFunction();
+    ASSERT_NE(func, nullptr);
+    func->GetDynloopAttribute()->parallel = true;
+
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    bool result = NeedCrossDie(func, true);
+    EXPECT_TRUE(result);
+}
+
+TEST_F(TestNeedCrossDie, test_need_cross_die_dav3510_loop_non_parallel_returns_false)
+{
+    int s = 8;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor t1(DT_FP32, {s, s}, "t1");
+    Tensor out(DT_FP32, {s, s}, "out");
+    FUNCTION("ut_need_cross_die_3", {t0, t1}, {out})
+    {
+        auto x = Add(t0, t1);
+        Assemble(x, {0, 0}, out);
+    }
+    auto* func = Program::GetInstance().GetLastFunction();
+    ASSERT_NE(func, nullptr);
+    func->GetDynloopAttribute()->parallel = false;
+
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    bool result = NeedCrossDie(func, true);
+    EXPECT_FALSE(result);
+}
+
+TEST_F(TestNeedCrossDie, test_need_cross_die_non_dav3510_returns_false)
+{
+    int s = 8;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor t1(DT_FP32, {s, s}, "t1");
+    Tensor out(DT_FP32, {s, s}, "out");
+    FUNCTION("ut_need_cross_die_4", {t0, t1}, {out})
+    {
+        auto x = Add(t0, t1);
+        Assemble(x, {0, 0}, out);
+    }
+    auto* func = Program::GetInstance().GetLastFunction();
+    ASSERT_NE(func, nullptr);
+
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
+    bool result = NeedCrossDie(func, false);
+    EXPECT_FALSE(result);
+}
+
+TEST_F(TestNeedCrossDie, test_need_cross_die_dav3510_loop_child_returns_false)
+{
+    int s = 8;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor t1(DT_FP32, {s, s}, "t1");
+    Tensor out(DT_FP32, {s, s}, "out");
+    FUNCTION("ut_need_cross_die_5", {t0, t1}, {out})
+    {
+        auto x = Add(t0, t1);
+        Assemble(x, {0, 0}, out);
+    }
+    auto* func = Program::GetInstance().GetLastFunction();
+    ASSERT_NE(func, nullptr);
+    func->GetDynloopAttribute()->parallel = false;
+
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    bool result = NeedCrossDie(func, true);
+    EXPECT_FALSE(result);
 }
