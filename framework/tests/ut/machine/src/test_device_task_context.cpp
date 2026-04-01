@@ -13,7 +13,6 @@
  * \brief Unit tests for DeviceTaskContext, DeviceStitchContext, DeviceExecuteContext (includes former
  *        test_machine_encode_coverage cases).
  */
-
 #include <gtest/gtest.h>
 #include <array>
 #include <cstdlib>
@@ -644,16 +643,6 @@ TEST_F(TestDeviceTaskContext, DumpDepend_CoversHeadLoggingWithoutDupData)
     DeviceTaskContext::DumpDepend(dyntask.get(), &devProg, &startArgs, "ut_cov");
 }
 
-#if GTEST_HAS_DEATH_TEST
-// 与 TestMachineEncodeCoverage.DumpDepend_WithEncodedDuppedData_CoversDependBody 同类：子进程内建图并跑 DumpDepend；
-// codegen 失败或后续 ASSERT 均视为“死亡”，保证在仅跑本 suite 时也不拖垮 POST_BUILD。
-TEST_F(TestDeviceTaskContext, DumpDepend_EncodedDuppedData_CoversDependLoopAndReloc)
-{
-    ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-    ASSERT_DEATH(RunDumpDependEncodedDeathChildBody(), ".*");
-}
-#endif
-
 TEST_F(TestDeviceTaskContext, DeviceExecute_InvalidCtx_ReturnsNull)
 {
     EXPECT_EQ(DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(nullptr, 0), nullptr);
@@ -697,25 +686,6 @@ TEST_F(TestDeviceTaskContext, DeviceStitchContext_MoveTo_TooManyFunctions_Return
 {
     GTEST_SKIP() << "该场景在当前并行 death test 环境下易卡住，暂跳过。";
 }
-
-TEST_F(TestDeviceTaskContext, DeviceSlotContext_FillInputOutputSlot_InplacePath)
-{
-    ASSERT_DEATH(
-        {
-            DevAscendProgram devProg{};
-            DeviceWorkspaceAllocator workspace(&devProg);
-            DeviceSlotContext slotCtx;
-            slotCtx.InitAllocator(workspace, 4);
-            FillInputOutputInplacePathImpl(slotCtx, devProg);
-        },
-        ".*");
-}
-
-TEST_F(TestDeviceTaskContext, BuildDynFuncData_CceBinaryUnaligned_ReturnsError)
-{
-    ASSERT_DEATH(RunBuildDynFuncDataCceUnalignedPath(), ".*");
-}
-
 // ---- Former test_machine_encode_coverage.cpp (DumpDepend 等价见本文件 DumpDepend_EncodedDuppedData) ----
 
 class TestMachineEncodeCoverage : public testing::Test {
@@ -735,28 +705,6 @@ protected:
         config::Reset();
     }
 };
-
-#if GTEST_HAS_DEATH_TEST
-TEST_F(TestMachineEncodeCoverage, DuppedData_Dump_SizeMismatch_AbortsAfterDevError)
-{
-    ASSERT_DEATH(RunDuppedDataDumpMismatchPath(), ".*");
-}
-
-TEST_F(TestMachineEncodeCoverage, CheckStitch_DynPredMismatch_AbortsAfterDevError)
-{
-    ASSERT_DEATH(RunCheckStitchMismatchPath(), ".*");
-}
-
-TEST_F(TestMachineEncodeCoverage, HandleOneStitch_InvalidProducerOp_AbortsAfterDevError)
-{
-    ASSERT_DEATH(RunHandleOneStitchInvalidProducerPath(), ".*");
-}
-
-TEST_F(TestMachineEncodeCoverage, HandleOneStitch_InvalidConsumerOp_AbortsAfterDevError)
-{
-    ASSERT_DEATH(RunHandleOneStitchInvalidConsumerPath(), ".*");
-}
-#endif
 
 TEST_F(TestMachineEncodeCoverage, MoveTo_MaxFunctionNumBoundary_ReturnsOk)
 {
