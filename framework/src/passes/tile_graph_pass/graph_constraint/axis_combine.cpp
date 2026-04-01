@@ -84,8 +84,8 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
                 if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
                     return FAILED;
                 }
-                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
-                    padValue = inputTensor[idx ^ 1]->GetShape().back();
+                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor) || srcTensor->GetConsumers().size() != 1) {
+                    alignedShape.back() = inputTensor[idx ^ 1]->GetShape().back();
                 }
                 if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                     return FAILED;
@@ -94,14 +94,15 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
                     std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto& brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
-                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
+                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor) || srcTensor->GetConsumers().size() != 1) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
-                    brcb.SetAttribute(
-                        OP_ATTR_PREFIX + "EXPANDDIM",
-                        GetExpandDim(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
+                    auto expandDim = srcTensor->GetShape().size() - 1;
+                    brcb.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", expandDim);
                     needMarkBrcInput = false;
                     if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
-                        brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());
+                        auto dynValidShape = srcTensor->GetDynValidShape();
+                        dynValidShape[expandDim] = inputTensor[idx ^ 1]->GetShape()[expandDim];
+                        brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
                     } else {
                         brcb.SetAttribute(
                             OP_ATTR_PREFIX + "validShape",
