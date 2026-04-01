@@ -185,7 +185,7 @@ def matmul_allreduce_add_rmsnorm_worker(
     input_data: list,
     output_data: list,
     logical_rank_id: int,
-    error_queue: mp.Queue = None
+    error_queue: mp.Queue = None,
 ):
     try:
         groups = config.init_hccl_comm(logical_rank_id)
