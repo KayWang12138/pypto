@@ -11,7 +11,7 @@
 /*!
  * \file test_allreduce_ir.cpp
  * \brief Unit tests for AllReduce IR structure verification.
- *        Validates that OneShot (base, v2–v6) and TwoShot (base, v2–v5)
+ *        Validates that OneShot (base, v10, v10_pipe_ge) and TwoShot (base, v2–v5)
  *        AllReduce variants produce the expected SHMEM operation counts and
  *        identical opcode sequences — no hardware or HCCL runtime needed.
  */
@@ -173,172 +173,6 @@ TEST_F(AllReduceIRTest, TwoShotBase_IRStructure)
     });
 }
 
-// ===========================================================================
-// OneShot variant IR structure tests — each refactoring step from v2 to v6.
-// All of these should produce the same SHMEM ops as base; the only difference
-// is how much ceremony the caller has to deal with.
-// ===========================================================================
-
-TEST_F(AllReduceIRTest, V2_IRStructure)
-{
-    RunOneShotIRTest("UT_IR_V2", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotAllReduce_v2(in, in, st, out);
-    });
-}
-
-TEST_F(AllReduceIRTest, V4_IRStructure)
-{
-    RunOneShotIRTest("UT_IR_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotAllReduce_v4(in, in, st, out);
-    });
-}
-
-// v5 introduces the communicator object — Pull is the caller's job now.
-TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
-{
-    RunOneShotIRTest("UT_IR_V5", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        auto waitToken = OneShotAllReduce_v5(in, in, st);
-        OneShotCommunicatorV2 comm(st);
-        out = comm.Pull(waitToken, in.GetDataType());
-    });
-}
-
-// v6 goes further: scatter-only function, caller owns Wait + Pull.
-// This is the most decomposed form — good for overlapping compute with comms.
-TEST_F(AllReduceIRTest, V6PlusPull_IRStructure)
-{
-    RunOneShotIRTest("UT_IR_V6", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotCommunicatorV2 comm(st);
-        OneShotAllReduce_v6(in, in, st);
-        auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, in.GetDataType());
-    });
-}
-
-// v7 grouped signaling: validate IR op counts across k sweep.
-TEST_F(AllReduceIRTest, V7Grouped_IRStructure_KSweep)
-{
-    constexpr uint32_t payloadChunkCount = 8u;
-    std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
-    for (uint32_t k : kCandidates) {
-        (void)k;
-        Program::GetInstance().Reset();
-        std::string tag = "UT_IR_V7_GROUPED_K" + std::to_string(k);
-        Tensor in(DT_FP16, {kRow, kCol}, "in");
-        Tensor out(DT_FP16, {kRow, kCol}, "out");
-        Shape shmemDataShape{1, kRow, kCol};
-
-        FUNCTION(tag.c_str(), {in}, {out}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-            OneShotCommunicatorV3 comm(shmemTensor, payloadChunkCount);
-            OneShotAllReduce_v7(in, in, comm);
-            for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
-                auto waitToken = comm.WaitChunk(in, chunkId);
-                auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
-                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-            }
-        }
-
-        auto ops = ExtractShmemOpcodes(tag);
-        VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, k);
-    }
-}
-
-// v7 grouped signaling: explicit tail-group case (C_payload % k != 0).
-TEST_F(AllReduceIRTest, V7Grouped_TailGroupThreshold_IRStructure)
-{
-    constexpr uint32_t payloadChunkCount = 7u;
-    constexpr uint32_t chunksPerSignal = 4u;
-    (void)chunksPerSignal;
-    Tensor in(DT_FP16, {kRow, kCol}, "in");
-    Tensor out(DT_FP16, {kRow, kCol}, "out");
-    Shape shmemDataShape{1, kRow, kCol};
-
-    FUNCTION("UT_IR_V7_GROUPED_TAIL", {in}, {out}) {
-        TileShape::Current().SetVecTile({kRow, kCol});
-        ShmemTensor shmemTensor;
-        CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-        OneShotCommunicatorV3 comm(shmemTensor, payloadChunkCount);
-        OneShotAllReduce_v7(in, in, comm);
-        for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
-            auto waitToken = comm.WaitChunk(in, chunkId);
-            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
-            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-        }
-    }
-
-    auto ops = ExtractShmemOpcodes("UT_IR_V7_GROUPED_TAIL");
-    VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, chunksPerSignal);
-}
-
-// v8 grouped signaling: contiguous grouping should preserve grouped op counts.
-TEST_F(AllReduceIRTest, V8SignalPlan_Contiguous_KSweep_IRStructure)
-{
-    constexpr uint32_t payloadChunkCount = 8u;
-    std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
-    for (uint32_t k : kCandidates) {
-        Program::GetInstance().Reset();
-        std::string tag = "UT_IR_V8_CONTIG_K" + std::to_string(k);
-        Tensor in(DT_FP16, {kRow, kCol}, "in");
-        Tensor out(DT_FP16, {kRow, kCol}, "out");
-        Shape shmemDataShape{1, kRow, kCol};
-
-        FUNCTION(tag.c_str(), {in}, {out}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-            OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, k);
-            OneShotAllReduce_v8(in, in, comm);
-            for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-                auto waitToken = comm.WaitGroup(in, groupId);
-                uint32_t begin = comm.GroupBeginChunk(groupId);
-                uint32_t gSize = comm.GroupSize(groupId);
-                for (uint32_t local = 0; local < gSize; ++local) {
-                    uint32_t chunkId = begin + local;
-                    auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
-                    Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-                }
-            }
-        }
-
-        auto ops = ExtractShmemOpcodes(tag);
-        VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, k);
-    }
-}
-
-// v8 tail-group coverage: same control-op counts with non-divisible payload chunks.
-TEST_F(AllReduceIRTest, V8Grouped_TailGroup_IRStructure)
-{
-    constexpr uint32_t payloadChunkCount = 7u;
-    constexpr uint32_t chunksPerSignal = 4u;
-    Tensor in(DT_FP16, {kRow, kCol}, "in");
-    Tensor out(DT_FP16, {kRow, kCol}, "out");
-    Shape shmemDataShape{1, kRow, kCol};
-
-    FUNCTION("UT_IR_V8_INTERLEAVED_TAIL", {in}, {out}) {
-        TileShape::Current().SetVecTile({kRow, kCol});
-        ShmemTensor shmemTensor;
-        CreateShmemHelper(kWorldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-        OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
-        OneShotAllReduce_v8(in, in, comm);
-        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-            auto waitToken = comm.WaitGroup(in, groupId);
-            uint32_t begin = comm.GroupBeginChunk(groupId);
-            uint32_t gSize = comm.GroupSize(groupId);
-            for (uint32_t local = 0; local < gSize; ++local) {
-                uint32_t chunkId = begin + local;
-                auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
-                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-            }
-        }
-    }
-
-    auto ops = ExtractShmemOpcodes("UT_IR_V8_INTERLEAVED_TAIL");
-    VerifyOneShotGroupedCounts(CountShmemOps(ops), kWorldSize, payloadChunkCount, chunksPerSignal);
-}
-
 // v10 per-group GE signaling: verify op-count model across k sweep.
 TEST_F(AllReduceIRTest, V10Grouped_GE_KSweep_IRStructure)
 {
@@ -436,45 +270,6 @@ TEST_F(AllReduceIRTest, V10Grouped_PIPE_GE_KSweep_IRStructure)
 }
 
 // ===========================================================================
-// OneShot cross-variant IR equivalence (base as golden reference).
-// If any variant drifts here, something went wrong in the refactoring.
-// ===========================================================================
-
-TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
-{
-    auto irBase = BuildOneShotIR("UT_EQUIV_BASE", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotAllReduce(in, in, st, out);
-    }, false);
-    VerifyOneShotCounts(CountShmemOps(irBase), kWorldSize);
-
-    auto irV2 = BuildOneShotIR("UT_EQUIV_V2", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotAllReduce_v2(in, in, st, out);
-    });
-
-    auto irV4 = BuildOneShotIR("UT_EQUIV_V4", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotAllReduce_v4(in, in, st, out);
-    });
-
-    auto irV5 = BuildOneShotIR("UT_EQUIV_V5", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        auto waitToken = OneShotAllReduce_v5(in, in, st);
-        OneShotCommunicatorV2 comm(st);
-        out = comm.Pull(waitToken, in.GetDataType());
-    });
-
-    auto irV6 = BuildOneShotIR("UT_EQUIV_V6", [](Tensor& in, ShmemTensor& st, Tensor& out) {
-        OneShotCommunicatorV2 comm(st);
-        OneShotAllReduce_v6(in, in, st);
-        auto waitToken = comm.Wait(in);
-        out = comm.Pull(waitToken, in.GetDataType());
-    });
-
-    EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
-    EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
-    EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
-    EXPECT_EQ(irBase, irV6) << "OneShot base and v6+Pull SHMEM opcode sequences differ";
-}
-
-// ===========================================================================
 // TwoShot AllReduce variant IR tests
 // ===========================================================================
 
@@ -552,7 +347,7 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
 
 // ===========================================================================
 // Multi-rank tests — explicit world sizes {1, 2, 4, 8}.
-// Makes sure v5, v6, v7, v8, v10 and TwoShot v5 scale correctly.
+// Makes sure v10 and TwoShot v5 scale correctly.
 // Each test runs in isolation: ResetShmemTensorGroupCache() is called in
 // SetUp/TearDown so different world sizes never collide in the group caches.
 // ===========================================================================
@@ -593,133 +388,6 @@ protected:
     {
         if (dt == DT_BF16 || dt == DT_FP16) return DT_FP32;
         return dt;
-    }
-
-    void RunOneShotV5(uint32_t worldSize)
-    {
-        std::string tag = "UT_MR_OS_V5_W" + std::to_string(worldSize);
-        Shape shmemDataShape{1, kRow, kCol};
-
-        Tensor in(DT_FP16, {kRow, kCol}, "in");
-        Tensor out(DT_FP16, {kRow, kCol}, "out");
-        FUNCTION(tag.c_str(), {in}, {out}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-            auto waitToken = OneShotAllReduce_v5(in, in, shmemTensor);
-            OneShotCommunicatorV2 comm(shmemTensor);
-            out = comm.Pull(waitToken, in.GetDataType());
-        }
-
-        auto opsV5 = ExtractShmemOpcodes(tag);
-        VerifyOneShotCounts(CountShmemOps(opsV5), worldSize);
-
-        Program::GetInstance().Reset();
-        std::string baseTag = "UT_MR_OS_BASE_W" + std::to_string(worldSize);
-        Tensor inBase(DT_FP16, {kRow, kCol}, "in_base");
-        Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
-        FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemTensor);
-            OneShotAllReduce(inBase, inBase, shmemTensor, outBase);
-        }
-
-        auto opsBase = ExtractShmemOpcodes(baseTag);
-        EXPECT_EQ(opsV5, opsBase) << "OneShot v5 and base differ at worldSize=" << worldSize;
-    }
-
-    void RunOneShotV6(uint32_t worldSize)
-    {
-        std::string tag = "UT_MR_OS_V6_W" + std::to_string(worldSize);
-        Shape shmemDataShape{1, kRow, kCol};
-
-        Tensor in(DT_FP16, {kRow, kCol}, "in");
-        Tensor out(DT_FP16, {kRow, kCol}, "out");
-        FUNCTION(tag.c_str(), {in}, {out}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-            OneShotCommunicatorV2 comm(shmemTensor);
-            OneShotAllReduce_v6(in, in, shmemTensor);
-            auto waitToken = comm.Wait(in);
-            out = comm.Pull(waitToken, in.GetDataType());
-        }
-
-        auto opsV6 = ExtractShmemOpcodes(tag);
-        VerifyOneShotCounts(CountShmemOps(opsV6), worldSize);
-
-        Program::GetInstance().Reset();
-        std::string baseTag = "UT_MR_OS_BASE_V6_W" + std::to_string(worldSize);
-        Tensor inBase(DT_FP16, {kRow, kCol}, "in_base");
-        Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
-        FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemTensor);
-            OneShotAllReduce(inBase, inBase, shmemTensor, outBase);
-        }
-
-        auto opsBase = ExtractShmemOpcodes(baseTag);
-        EXPECT_EQ(opsV6, opsBase) << "OneShot v6 and base differ at worldSize=" << worldSize;
-    }
-
-    void RunOneShotV7Grouped(uint32_t worldSize)
-    {
-        constexpr uint32_t payloadChunkCount = 7u;
-        constexpr uint32_t chunksPerSignal = 4u;
-        (void)chunksPerSignal;
-        std::string tag = "UT_MR_OS_V7_GROUPED_W" + std::to_string(worldSize);
-        Shape shmemDataShape{1, kRow, kCol};
-
-        Tensor in(DT_FP16, {kRow, kCol}, "in");
-        Tensor out(DT_FP16, {kRow, kCol}, "out");
-        FUNCTION(tag.c_str(), {in}, {out}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-            OneShotCommunicatorV3 comm(shmemTensor, payloadChunkCount);
-            OneShotAllReduce_v7(in, in, comm);
-            for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
-                auto waitToken = comm.WaitChunk(in, chunkId);
-                auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
-                Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-            }
-        }
-
-        auto opsV7 = ExtractShmemOpcodes(tag);
-        VerifyOneShotGroupedCounts(CountShmemOps(opsV7), worldSize, payloadChunkCount, chunksPerSignal);
-    }
-
-    void RunOneShotV8Grouped(uint32_t worldSize)
-    {
-        constexpr uint32_t payloadChunkCount = 7u;
-        constexpr uint32_t chunksPerSignal = 4u;
-        std::string tag = "UT_MR_OS_V8_GROUPED_W" + std::to_string(worldSize);
-        Shape shmemDataShape{1, kRow, kCol};
-
-        Tensor in(DT_FP16, {kRow, kCol}, "in");
-        Tensor out(DT_FP16, {kRow, kCol}, "out");
-        FUNCTION(tag.c_str(), {in}, {out}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemTensor);
-            OneShotCommunicatorV4 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
-            OneShotAllReduce_v8(in, in, comm);
-            for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
-                auto waitToken = comm.WaitGroup(in, groupId);
-                uint32_t begin = comm.GroupBeginChunk(groupId);
-                uint32_t gSize = comm.GroupSize(groupId);
-                for (uint32_t local = 0; local < gSize; ++local) {
-                    uint32_t chunkId = begin + local;
-                    auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
-                    Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
-                }
-            }
-        }
-
-        auto opsV8 = ExtractShmemOpcodes(tag);
-        VerifyOneShotGroupedCounts(CountShmemOps(opsV8), worldSize, payloadChunkCount, chunksPerSignal);
     }
 
     void RunOneShotV10GE(uint32_t worldSize)
@@ -808,26 +476,6 @@ protected:
     }
 };
 
-TEST_F(AllReduceIRMultiRankTest, OneShotV5_W1_IRStructure)  { RunOneShotV5(1u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV5_W2_IRStructure)  { RunOneShotV5(2u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV5_W4_IRStructure)  { RunOneShotV5(4u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV5_W8_IRStructure)  { RunOneShotV5(8u); }
-
-TEST_F(AllReduceIRMultiRankTest, OneShotV6_W1_IRStructure)  { RunOneShotV6(1u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV6_W2_IRStructure)  { RunOneShotV6(2u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV6_W4_IRStructure)  { RunOneShotV6(4u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV6_W8_IRStructure)  { RunOneShotV6(8u); }
-
-TEST_F(AllReduceIRMultiRankTest, OneShotV7Grouped_W1_IRStructure)  { RunOneShotV7Grouped(1u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV7Grouped_W2_IRStructure)  { RunOneShotV7Grouped(2u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV7Grouped_W4_IRStructure)  { RunOneShotV7Grouped(4u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV7Grouped_W8_IRStructure)  { RunOneShotV7Grouped(8u); }
-
-TEST_F(AllReduceIRMultiRankTest, OneShotV8Grouped_W1_IRStructure)  { RunOneShotV8Grouped(1u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV8Grouped_W2_IRStructure)  { RunOneShotV8Grouped(2u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV8Grouped_W4_IRStructure)  { RunOneShotV8Grouped(4u); }
-TEST_F(AllReduceIRMultiRankTest, OneShotV8Grouped_W8_IRStructure)  { RunOneShotV8Grouped(8u); }
-
 TEST_F(AllReduceIRMultiRankTest, OneShotV10GE_W1_IRStructure)  { RunOneShotV10GE(1u); }
 TEST_F(AllReduceIRMultiRankTest, OneShotV10GE_W2_IRStructure)  { RunOneShotV10GE(2u); }
 TEST_F(AllReduceIRMultiRankTest, OneShotV10GE_W4_IRStructure)  { RunOneShotV10GE(4u); }
@@ -888,27 +536,6 @@ protected:
         return dt;
     }
 
-    void RunOneShotV5Correctness(uint32_t worldSize)
-    {
-        std::string tag = "UT_CORRECTNESS_OS_V5_W" + std::to_string(worldSize);
-        Shape shmemDataShape{1, kRow, kCol};
-
-        Tensor in(DT_FP32, {kRow, kCol}, "in");
-        Tensor out(DT_FP32, {kRow, kCol}, "out");
-        FUNCTION(tag.c_str(), {in}, {out}) {
-            TileShape::Current().SetVecTile({kRow, kCol});
-            ShmemTensor shmemTensor;
-            CreateShmemHelper(worldSize, DT_FP32, shmemDataShape, shmemTensor);
-            auto waitToken = OneShotAllReduce_v5(in, in, shmemTensor);
-            OneShotCommunicatorV2 comm(shmemTensor);
-            out = comm.Pull(waitToken, in.GetDataType());
-        }
-
-        auto ops = ExtractShmemOpcodes(tag);
-        VerifyOneShotCounts(CountShmemOps(ops), worldSize);
-        EXPECT_GT(ops.size(), 0u) << "Expected non-empty SHMEM operation sequence";
-    }
-
     void RunTwoShotV5Correctness(uint32_t worldSize)
     {
         int64_t rowPerRank = kRow / worldSize;
@@ -934,59 +561,11 @@ protected:
         EXPECT_GT(ops.size(), 0u) << "Expected non-empty SHMEM operation sequence";
     }
 
-    void RunOneShotVariantsSameResults(uint32_t worldSize)
-    {
-        Shape shmemDataShape{1, kRow, kCol};
-
-        auto buildVariant = [&](const std::string& name, auto&& buildFunc) {
-            Program::GetInstance().Reset();
-            Tensor in(DT_FP32, {kRow, kCol}, "in");
-            Tensor out(DT_FP32, {kRow, kCol}, "out");
-            FUNCTION(name.c_str(), {in}, {out}) {
-                TileShape::Current().SetVecTile({kRow, kCol});
-                ShmemTensor shmemTensor;
-                CreateShmemHelper(worldSize, DT_FP32, shmemDataShape, shmemTensor);
-                buildFunc(in, shmemTensor, out);
-            }
-            return ExtractShmemOpcodes(name);
-        };
-
-        auto opsBase = buildVariant("CORRECTNESS_BASE_W" + std::to_string(worldSize),
-            [](Tensor& in, ShmemTensor& st, Tensor& out) {
-                OneShotAllReduce(in, in, st, out);
-            });
-        auto opsV5 = buildVariant("CORRECTNESS_V5_W" + std::to_string(worldSize),
-            [](Tensor& in, ShmemTensor& st, Tensor& out) {
-                auto waitToken = OneShotAllReduce_v5(in, in, st);
-                OneShotCommunicatorV2 comm(st);
-                out = comm.Pull(waitToken, in.GetDataType());
-            });
-        auto opsV6 = buildVariant("CORRECTNESS_V6_W" + std::to_string(worldSize),
-            [](Tensor& in, ShmemTensor& st, Tensor& out) {
-                OneShotCommunicatorV2 comm(st);
-                OneShotAllReduce_v6(in, in, st);
-                auto waitToken = comm.Wait(in);
-                out = comm.Pull(waitToken, in.GetDataType());
-            });
-
-        EXPECT_EQ(opsBase, opsV5) << "Base and v5 differ at worldSize=" << worldSize;
-        EXPECT_EQ(opsBase, opsV6) << "Base and v6 differ at worldSize=" << worldSize;
-    }
 };
-
-TEST_F(AllReduceCorrectnessTest, OneShotV5_W1_Correctness)  { RunOneShotV5Correctness(1u); }
-TEST_F(AllReduceCorrectnessTest, OneShotV5_W2_Correctness)  { RunOneShotV5Correctness(2u); }
-TEST_F(AllReduceCorrectnessTest, OneShotV5_W4_Correctness)  { RunOneShotV5Correctness(4u); }
-TEST_F(AllReduceCorrectnessTest, OneShotV5_W8_Correctness)  { RunOneShotV5Correctness(8u); }
 
 TEST_F(AllReduceCorrectnessTest, TwoShotV5_W1_Correctness)  { RunTwoShotV5Correctness(1u); }
 TEST_F(AllReduceCorrectnessTest, TwoShotV5_W2_Correctness)  { RunTwoShotV5Correctness(2u); }
 TEST_F(AllReduceCorrectnessTest, TwoShotV5_W4_Correctness)  { RunTwoShotV5Correctness(4u); }
 TEST_F(AllReduceCorrectnessTest, TwoShotV5_W8_Correctness)  { RunTwoShotV5Correctness(8u); }
-
-TEST_F(AllReduceCorrectnessTest, OneShotVariants_W1_SameResults)  { RunOneShotVariantsSameResults(1u); }
-TEST_F(AllReduceCorrectnessTest, OneShotVariants_W2_SameResults)  { RunOneShotVariantsSameResults(2u); }
-TEST_F(AllReduceCorrectnessTest, OneShotVariants_W4_SameResults)  { RunOneShotVariantsSameResults(4u); }
-TEST_F(AllReduceCorrectnessTest, OneShotVariants_W8_SameResults)  { RunOneShotVariantsSameResults(8u); }
 
 } // namespace npu::tile_fwk::Distributed
