@@ -136,7 +136,7 @@ fi
 
 ## 去重检查
 
-**阶段3执行**，在生成 Issue 内容前必须检查：
+**阶段 3 执行**，在生成 Issue 内容前必须检查：
 
 ### 1. GitCode 远程检查
 
@@ -211,7 +211,7 @@ bash scripts/collect-env.sh
 
 | 文件 | 内容 |
 |-----|------|
-| [issue-templates.md](references/issue-templates.md) | 5种Issue类型的完整模板 |
+| [issue-templates.md](references/issue-templates.md) | 5 种 Issue 类型的完整模板 |
 | [collect-env.sh](scripts/collect-env.sh) | 环境信息自动采集脚本 |
 
 ---
