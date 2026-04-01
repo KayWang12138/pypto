@@ -13,7 +13,10 @@
  * \brief Unit tests for DeviceTaskContext, DeviceStitchContext, DeviceExecuteContext (includes former
  *        test_machine_encode_coverage cases).
  */
-
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-default"
+#endif
 #include <gtest/gtest.h>
 #include <array>
 #include <cstdlib>
@@ -963,3 +966,7 @@ TEST_F(TestDeviceTaskContext, test_process_wrap_queue_aiv1)
     EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV0], AICORE_TASK_INIT);
     EXPECT_EQ(wrapQueue->elem[0].tasklist[WRAP_IDX_AIV1], MakeTaskID(0, 0));
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
