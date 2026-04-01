@@ -60,7 +60,8 @@ void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir)
     });
     RunTest();
     auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_",
+        rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
 template void TestReduceScatter<int32_t>(OpTestParam& testParam, std::string& goldenDir);
