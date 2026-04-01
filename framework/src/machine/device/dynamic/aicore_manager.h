@@ -1597,15 +1597,12 @@ private:
 
     inline bool EnableDieSceduling(CoreType type, uint32_t taskId)
     {
+        auto duppedData = GetDuppedData(taskId);
+        auto loopDieId = duppedData->loopDieId_;
+        if (loopDieId < 0 || (loopDieId != static_cast<int8_t>(wrapManager_.GetDieId()))) { // prevent parallel_loop incorrectly, task depends on other die
+            return false;
+        }
         if (!enableFairSch_) {
-            auto duppedData = GetDuppedData(taskId);
-            auto loopDieId = duppedData->loopDieId_;
-            if (loopDieId < 0 ||
-                (loopDieId !=
-                 static_cast<int8_t>(
-                     wrapManager_.GetDieId()))) { // prevent parallel_loop incorrectly, task depends on other die
-                return false;
-            }
             return true;
         } else {
             int schedStart = 0;
