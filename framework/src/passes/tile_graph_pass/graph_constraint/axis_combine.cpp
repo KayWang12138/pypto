@@ -65,6 +65,20 @@ inline int GetExpandDim(const std::vector<int64_t>& lhsShape, const std::vector<
     return -1;
 }
 
+void SetOpAsExpand(Operation& op, LogicalTensors& inputTensor, int idx, Shape& shape)
+{
+    op.SetOpCode(Opcode::OP_EXPAND);
+    int expandDim = inputTensor[idx]->GetShape().size() - 1;
+    op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", expandDim);
+    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
+        auto dynValidShape = inputTensor[idx]->GetDynValidShape();
+        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetShape()[expandDim]);
+        op.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
+    } else {
+        op.SetAttribute(OP_ATTR_PREFIX + "validShape", SymbolicScalar::FromConcrete(shape));
+    }
+}
+
 Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, Operation& op)
 {
     auto inputTensor = op.GetIOperands();
@@ -85,7 +99,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
                     return FAILED;
                 }
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
-                    padValue = inputTensor[idx ^ 1]->GetShape().back();
+                    alignedShape.back() = inputTensor[idx ^ 1]->GetShape().back();
                 }
                 if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                     return FAILED;
@@ -95,18 +109,8 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto& brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
-                    brcb.SetOpCode(Opcode::OP_EXPAND);
-                    brcb.SetAttribute(
-                        OP_ATTR_PREFIX + "EXPANDDIM",
-                        GetExpandDim(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
+                    SetOpAsExpand(brcb, inputTensor, idx, alignedShape);
                     needMarkBrcInput = false;
-                    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
-                        brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());
-                    } else {
-                        brcb.SetAttribute(
-                            OP_ATTR_PREFIX + "validShape",
-                            SymbolicScalar::FromConcrete(inputTensor[idx ^ 1]->GetShape()));
-                    }
                 }
                 brcb.UpdateSubgraphID(op.GetSubgraphID());
                 srcTensor->RemoveConsumer(op);
