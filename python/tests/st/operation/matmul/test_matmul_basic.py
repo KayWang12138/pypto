@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import pytest
 import pypto
 import torch
 
-from test_case.test_case import BASIC_TESTS, MatmulConfig
+from test_case import BASIC_TESTS, MatmulConfig
 
 
 @pypto.frontend.jit(debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0})
@@ -38,9 +38,9 @@ def matmul_pto_kernel(
     for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
         for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_L0_nIdx", idx_name="n_idx"):
             if config.a_trans:
-                a_view = a_tensor[:, m_idx * m_view: m_idx * m_view + m_view]
+                a_view = a_tensor[ :, m_idx * m_view : m_idx * m_view + m_view]
             else:
-                a_view = a_tensor[m_idx * m_view: m_idx * m_view + m_view, :]
+                a_view = a_tensor[m_idx * m_view : m_idx * m_view + m_view, :]
             
             if config.b_trans:
                 b_view = b_tensor[n_idx * n_view: n_idx * n_view + n_view, :]
