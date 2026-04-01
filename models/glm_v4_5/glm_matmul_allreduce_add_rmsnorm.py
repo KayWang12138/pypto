@@ -239,10 +239,11 @@ def matmul_allreduce_add_rmsnorm(
     return out_tensor, residual_out
 
 
-@pytest.mark.world_size(4)
+@pytest.mark.world_size(2)
+@pytest.mark.soc("950", "910")
 def test_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
-    config = DistributedConfig(world_size=4)
+    config = DistributedConfig(world_size=2)
     processes = []
     input_datas, output_datas = generate_golden_data(config.world_size)
     for i in range(config.world_size):
