@@ -37,7 +37,7 @@ public:
     bool BackwardFindAssembleInsertedCopy(LogicalTensorPtr input) const;
     bool FindAssembleOut(Operation* con, int assembleOutMagic) const;
     Status HanldeForSingleAssemble(
-        Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op) const;
+        Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op, bool needToDelete) const;
     Status ProcessView(Function& function) const;
 
 private:

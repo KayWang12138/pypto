@@ -643,47 +643,45 @@ bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMag
 }
 
 Status RemoveRedundantAssemble::HanldeForSingleAssemble(
-    Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op) const
+    Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op, bool needToDelete) const
 {
     auto producersBackup = input->GetProducers();
-    auto& consumers = input->GetConsumers();
-    LogicalTensorPtr oriOutputBackUp = nullptr;
-    int assembleOutMagic = 0;
-    for (auto cons : consumers) {
-        if (cons->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleOutMagic = cons->GetOOperands()[0]->GetMagic();
-        }
-    }
-    bool hasSameOutput = false;
-    for (auto& cons : consumers) {
-        if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
-            hasSameOutput = FindAssembleOut(cons, assembleOutMagic);
-            if (hasSameOutput) {
-                break;
+    if (needToDelete) {
+        auto& consumers = input->GetConsumers();
+        LogicalTensorPtr oriOutputBackUp = nullptr;
+        int assembleOutMagic = 0;
+        for (auto cons : consumers) {
+            if (cons->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                assembleOutMagic = cons->GetOOperands()[0]->GetMagic();
             }
         }
-    }
-    if (!hasSameOutput) {
+        bool hasSameOutput = false;
         for (auto& cons : consumers) {
             if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
-                APASS_LOG_DEBUG_F(
-                    Elements::Operation, "Change the connection relationship of non assemble op:[%d]. %s",
-                    cons->GetOpMagic(), cons->GetOpcodeStr().c_str());
-                cons->iOperand[0] = output;
-                cons->iOperand[0]->AddConsumer(cons);
-                continue;
+                hasSameOutput = FindAssembleOut(cons, assembleOutMagic);
+                if (hasSameOutput) {
+                    break;
+                }
             }
-            cons->SetAsDeleted();
-            for (auto& producer : producersBackup) {
-                oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
-                producer->ReplaceOutput(output, oriOutputBackUp);
-                output->isSubGraphBoundary = true;
-                if (!IsCopyOut(producer->GetOpcode()))
+        }
+        if (!hasSameOutput) {
+            for (auto& cons : consumers) {
+                if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
+                    APASS_LOG_DEBUG_F(Elements::Operation, "Change the connection relationship of non assemble op:[%d]. %s", cons->GetOpMagic(), cons->GetOpcodeStr().c_str());
+                    cons->iOperand[0] = output;
+                    cons->iOperand[0]->AddConsumer(cons);
                     continue;
-                APASS_LOG_DEBUG_F(
-                    Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s",
-                    producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
-                UpdateCopyOutAttr(*producer, *cons);
+                }
+                cons->SetAsDeleted();
+                for (auto& producer : producersBackup) {
+                    oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
+                    producer->ReplaceOutput(output, oriOutputBackUp);
+                    output->isSubGraphBoundary = true;
+                    if (!IsCopyOut(producer->GetOpcode()))
+                        continue;
+                    APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s", producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
+                    UpdateCopyOutAttr(*producer, *cons);
+                }
             }
         }
     }
@@ -691,8 +689,7 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
     HandleForAssembleToOutcast(function, op, producersBackup);
     if (HandleDynOffsetForReshape(op, producersBackup) != SUCCESS) {
         APASS_LOG_ERROR_F(
-            Elements::Operation, "HandleDynOffsetForReshape for op:[%d] failed. %s", op.GetOpMagic(),
-            op.GetOpcodeStr().c_str());
+            Elements::Operation, "HandleDynOffsetForReshape for op:[%d] failed. %s", op.GetOpMagic(), op.GetOpcodeStr().c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -776,9 +773,9 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function& function) cons
                 op.GetOpMagic(), concurrentAssembles.size());
             HanldeForMultiAssemble(function, concurrentAssembles);
         } else {
-            if (!ForwardFindAssembleInsertedCopy(input) && !BackwardFindAssembleInsertedCopy(input)) {
-                if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) 
-                    return FAILED;
+            bool needToDelete = !ForwardFindAssembleInsertedCopy(input) && !BackwardFindAssembleInsertedCopy(input);
+            if (HanldeForSingleAssemble(function, input, output, op, needToDelete) != SUCCESS) {
+                return FAILED;
             }
         }
     }
