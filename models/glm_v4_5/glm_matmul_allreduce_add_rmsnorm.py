@@ -19,6 +19,7 @@ Main Functions:
 """
 
 import multiprocessing as mp
+import traceback
 
 import numpy as np
 import pytest
@@ -60,7 +61,7 @@ def matmul_allreduce_add_rmsnorm_kernel(
 
     for bs_idx in pypto.loop(bs_loop, name="LOOP_MM_ALLREDUCE_ADD_RMSNORM", idx_name="bs_idx"):
         # 1. create shmem tesnor
-        shmem_shape = [view_row_shape, hidden_size]
+        shmem_shape = [1, view_row_shape, hidden_size]
         shmem_tensor = pypto.distributed.create_shmem_tensor(
             group_name, world_size, pypto.DT_FP32, shmem_shape)
         shmem_barrier_signal = pypto.distributed.create_shmem_signal(group_name, world_size)
@@ -73,9 +74,9 @@ def matmul_allreduce_add_rmsnorm_kernel(
             # 2. clear data
             pypto.set_vec_tile_shapes(view_row_shape, hidden_size)
             data_clear_out = pypto.distributed.shmem_clear_data(
-                shmem_tensor, shmem_shape, [0, 0], pred=[in_tensor_tile])
+                shmem_tensor, shmem_shape, [0, 0, 0], pred=[in_tensor_tile])
             signal_clear_out = pypto.distributed.shmem_clear_signal(
-                shmem_tensor, pred=[in_tensor_tile])
+                shmem_tensor, shmem_shape, [0, 0, 0], pred=[in_tensor_tile])
             barrier_out = pypto.distributed.shmem_barrier_all(
                 shmem_barrier_signal, [data_clear_out, signal_clear_out])
 
@@ -86,15 +87,15 @@ def matmul_allreduce_add_rmsnorm_kernel(
             # 4. allreduce
             pypto.set_vec_tile_shapes(view_row_shape, hidden_size)
             for dyn_idx in range(world_size):
-                put_out = pypto.distributed.shmem_put(matmul_result, [0, 0], shmem_tensor, dyn_idx,
+                put_out = pypto.distributed.shmem_put(matmul_result, [0, 0, 0], shmem_tensor, dyn_idx,
                     put_op=pypto.AtomicType.ADD, pred=[barrier_out])
                 pypto.distributed.shmem_signal(shmem_tensor, dyn_idx, 1, shmem_shape,
-                    [0, 0], target_pe=dyn_idx, sig_op=pypto.AtomicType.ADD, pred=[put_out])
+                    [0, 0, 0], target_pe=dyn_idx, sig_op=pypto.AtomicType.ADD, pred=[put_out])
             wait_until_out = pypto.distributed.shmem_wait_until(shmem_tensor, my_pe, world_size,
-                shmem_shape, [0, 0], cmp=pypto.OpType.EQ, clear_signal=True, pred=[in_tensor_tile])
+                shmem_shape, [0, 0, 0], cmp=pypto.OpType.EQ, clear_signal=True, pred=[in_tensor_tile])
             pypto.set_vec_tile_shapes(1, hidden_size)
             all_reduce_out = pypto.experimental.shmem_load(
-                shmem_tensor, my_pe, shmem_shape, [0, 0], pred=[wait_until_out], valid_shape=shmem_shape
+                shmem_tensor, my_pe, shmem_shape, [0, 0, 0], pred=[wait_until_out], valid_shape=shmem_shape
             )
 
             # 5. Add RmsNorm
@@ -184,35 +185,41 @@ def matmul_allreduce_add_rmsnorm_worker(
     input_data: list,
     output_data: list,
     logical_rank_id: int,
+    error_queue: mp.Queue = None
 ):
-    groups = config.init_hccl_comm(logical_rank_id)
-    physical_device_id = config.get_physical_device_id(logical_rank_id)
-    device = f'npu:{physical_device_id}'
+    try:
+        groups = config.init_hccl_comm(logical_rank_id)
+        physical_device_id = config.get_physical_device_id(logical_rank_id)
+        device = f'npu:{physical_device_id}'
 
-    in_tensor, matmul_weight, residual, gamma, bias, eps = input_data
-    golden_out_tensor, golden_residual = output_data
+        in_tensor, matmul_weight, residual, gamma, bias, eps = input_data
+        golden_out_tensor, golden_residual = output_data
 
-    out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
-    residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
+        out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
+        residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
 
-    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
-        bias.to(device), out_tensor, residual_out]
+        inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
+            bias.to(device), out_tensor, residual_out]
 
-    matmul_allreduce_add_rmsnorm_kernel(*inputs, eps, groups[0], config.world_size)
+        matmul_allreduce_add_rmsnorm_kernel(*inputs, eps, groups[0], config.world_size)
 
-    np.testing.assert_allclose(
-        np.array(out_tensor.cpu().flatten().tolist()),
-        np.array(golden_out_tensor.cpu().flatten().tolist()),
-        rtol=8e-3,
-        atol=8e-3,
-    )
+        np.testing.assert_allclose(
+            np.array(out_tensor.cpu().flatten().tolist()),
+            np.array(golden_out_tensor.cpu().flatten().tolist()),
+            rtol=8e-3,
+            atol=8e-3,
+        )
 
-    np.testing.assert_allclose(
-        np.array(residual_out.cpu().flatten().tolist()),
-        np.array(golden_residual.cpu().flatten().tolist()),
-        rtol=8e-3,
-        atol=8e-3,
-    )
+        np.testing.assert_allclose(
+            np.array(residual_out.cpu().flatten().tolist()),
+            np.array(golden_residual.cpu().flatten().tolist()),
+            rtol=8e-3,
+            atol=8e-3,
+        )
+    except Exception as e:
+        if error_queue is not None:
+            error_queue.put((logical_rank_id, str(e), traceback.format_exc()))
+        raise
 
 
 @allow_in_graph
@@ -239,20 +246,43 @@ def matmul_allreduce_add_rmsnorm(
     return out_tensor, residual_out
 
 
-@pytest.mark.world_size(4)
+@pytest.mark.world_size(2)
+@pytest.mark.soc("950", "910")
 def test_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
-    config = DistributedConfig(world_size=4)
-    processes = []
+    config = DistributedConfig(world_size=2)
     input_datas, output_datas = generate_golden_data(config.world_size)
+
+    error_queue = mp.Queue()
+
+    processes = []
     for i in range(config.world_size):
-        p = mp.Process(target=matmul_allreduce_add_rmsnorm_worker, args=(config, input_datas[i], output_datas[i], i))
+        p = mp.Process(
+            target=matmul_allreduce_add_rmsnorm_worker,
+            args=(config, input_datas[i], output_datas[i], i, error_queue)
+        )
         p.start()
         processes.append(p)
-    for i, p in enumerate(processes):
+
+    for p in processes:
         p.join()
-        if p.exitcode != 0:
-            raise AssertionError(f"process {i} failed, return: {p.exitcode}")
+
+    failed_indices = [i for i, p in enumerate(processes) if p.exitcode != 0]
+
+    if failed_indices:
+        errors = []
+        while not error_queue.empty():
+            try:
+                rank, error_msg, trace = error_queue.get_nowait()
+                errors.append(f"Process {rank} failed: {error_msg}\n{trace}")
+            except:
+                break
+
+        if errors:
+            error_msg = "\n\n".join(errors)
+        else:
+            error_msg = f"Processes {failed_indices} failed with exit codes: {[processes[i].exitcode for i in failed_indices]}"
+        raise AssertionError(f"Test failed:\n{error_msg}")
 
 
 def main():
