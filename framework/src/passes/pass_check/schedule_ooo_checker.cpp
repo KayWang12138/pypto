@@ -22,6 +22,7 @@
 #include "interface/program/program.h"
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOSchedule"
@@ -33,10 +34,7 @@ bool OoOScheduleChecker::PreCheckTensorInfo(const LogicalTensorPtr tensor)
 {
     // memorytypeOriginal和Tobe要一致
     if (tensor->GetMemoryTypeOriginal() != tensor->GetMemoryTypeToBe()) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation,
-            "Tensor[%d] memorytypeOriginal is not equal to memorytypeTobe, OoOSchedule Precheck failed!",
-            tensor->GetMagic());
+        APASS_LOG_ERROR_C(TensorErr::TENSOR_INVALID_MEMORY_TYPE, Elements::Tensor, "Tensor[%d] memorytypeOriginal is not equal to memorytypeTobe, OoOSchedule Precheck failed!", tensor->GetMagic());
         return false;
     }
     // 子图边界上的tensor不检查
@@ -45,8 +43,7 @@ bool OoOScheduleChecker::PreCheckTensorInfo(const LogicalTensorPtr tensor)
     }
     // memoryrange对应的memoryid不为-1
     if (tensor->memoryrange.memId == -1) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation, "Tensor[%d] memId does not exist, OoOSchedule Precheck failed!", tensor->GetMagic());
+        APASS_LOG_ERROR_C(TensorErr::TENSOR_MEMORY_ALLOCATION, Elements::Tensor, "Tensor[%d] memId does not exist, OoOSchedule Precheck failed!", tensor->GetMagic());
         return false;
     }
     return true;
@@ -68,7 +65,7 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation* op)
     }
     // 检查op不可以是call op
     if (op->GetOpcode() == Opcode::OP_CALL) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Block graph has call op, OoOSchedule Precheck failed!");
+        APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "Block graph has call op, OoOSchedule Precheck failed!");
         return false;
     }
     // 开始检查ASSEMBLE/RESHAPE/VIEW op
@@ -87,11 +84,9 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation* op)
         // 输入tensor的memid要与输出tensor的memid保持一致
         int memId = op->GetOOperands()[0]->memoryrange.memId;
         for (auto inTensor : op->GetIOperands()) {
-            if (inTensor->memoryrange.memId != memId && inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation,
-                    "%s[%d] input output tensors memId does not match, OoOSchedule Precheck failed!",
-                    op->GetOpcodeStr().c_str(), op->GetOpMagic());
+            if (inTensor->memoryrange.memId != memId &&
+                inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+                APASS_LOG_ERROR_C(TensorErr::TENSOR_INVALID_MEMORY_TYPE, Elements::Operation, "%s[%d] input output tensors memId does not match, OoOSchedule Precheck failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
                 return false;
             }
         }
@@ -115,24 +110,20 @@ Status OoOScheduleChecker::DoPreCheck(Function& function)
         }
         for (auto& op : opList) {
             if (op == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation is nullptr, OoOSchedule Precheck failed!");
+                APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation, "Operation is nullptr, OoOSchedule Precheck failed!");
                 return FAILED;
             }
         }
         // 检查单ASSEMBLE/RESHAPE/VIEW op在UB上没有alloc
-        if ((opList.size() == 1) &&
-            (opList.front()->GetOpcode() == Opcode::OP_ASSEMBLE || opList.front()->GetOpcode() == Opcode::OP_RESHAPE ||
-             opList.front()->GetOpcode() == Opcode::OP_VIEW) &&
-            opList.front()->GetOOperands()[0]->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "Single Op: localBuffer does not have alloc, OoOSchedule Precheck failed!");
-            return FAILED;
+        if ((opList.size() == 1) && (opList.front()->GetOpcode() == Opcode::OP_ASSEMBLE || opList.front()->GetOpcode() == Opcode::OP_RESHAPE ||
+            opList.front()->GetOpcode() == Opcode::OP_VIEW) && opList.front()->GetOOperands()[0]->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
+                APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation, "Single Op: localBuffer does not have alloc, OoOSchedule Precheck failed!");
+                return FAILED;
         }
         std::unordered_set<LogicalTensorPtr> tensorList;
         for (auto& op : opList) {
             if (!PreCheckOpInfo(op)) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation, "PreCheckOpInfo failed; Please check the PreCheckOpInfo method.");
+                APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "PreCheckOpInfo failed; Please check the PreCheckOpInfo method.");
                 return FAILED;
             }
             APASS_LOG_INFO_F(

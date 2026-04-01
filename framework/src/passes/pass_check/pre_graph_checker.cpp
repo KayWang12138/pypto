@@ -15,6 +15,7 @@
 
 #include "pre_graph_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "PreGraphProcess"
 
@@ -30,9 +31,7 @@ Status PreGraphProcessChecker::DoPreCheck(Function& function)
     for (auto& op : function.Operations()) {
         // 校验是否切分
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "%s[%d] is not partitioned. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
-                GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_C(GraphErr::GRAPH_SUBGRAPH_ID_INVALID, Elements::Graph, "%s[%d] is not partitioned. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if ((op.GetOpcode() != Opcode::OP_ASSEMBLE) && (op.GetOpcode() != Opcode::OP_VIEW) &&
@@ -41,26 +40,22 @@ Status PreGraphProcessChecker::DoPreCheck(Function& function)
         }
         if ((op.GetIOperands().size() != 1) || (op.GetOOperands().size() != 1)) {
             // 校验非空单输入单输出
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "Invalid %s[%d], input num: %zu, output num: %zu .%s", op.GetOpcodeStr().c_str(),
-                op.opmagic, op.GetIOperands().size(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "Invalid %s[%d], input num: %zu, output num: %zu .%s",
+                op.GetOpcodeStr().c_str(), op.opmagic, op.GetIOperands().size(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto tensorIn = op.GetIOperands().front();
         auto tensorOut = op.GetOOperands().front();
         if ((tensorIn == nullptr) || (tensorIn == nullptr)) {
             // 校验输入输出非空
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "Invalid %s[%d], has nullptr input/output. %s", op.GetOpcodeStr().c_str(),
-                op.opmagic, GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation, "Invalid %s[%d], has nullptr input/output. %s",
+                op.GetOpcodeStr().c_str(), op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (tensorIn->GetMemoryTypeOriginal() != tensorOut->GetMemoryTypeOriginal()) {
             // 校验输入输出mem类型相同
-            APASS_LOG_ERROR_F(
-                Elements::Tensor,
-                "Unmatched input output memory type for %s[%d], input mem type: "
-                "%s, output mem type: %s",
+            APASS_LOG_ERROR_C(TensorErr::TENSOR_INVALID_MEMORY_TYPE, Elements::Tensor, "Unmatched input output memory type for %s[%d], input mem type: "
+                         "%s, output mem type: %s",
                 op.GetOpcodeStr().c_str(), op.opmagic, MemoryTypeToString(tensorIn->GetMemoryTypeOriginal()).c_str(),
                 MemoryTypeToString(tensorOut->GetMemoryTypeOriginal()).c_str());
             return FAILED;
