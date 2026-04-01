@@ -101,35 +101,11 @@ void GegisterOps()
     reg.RegisterOp("AllReduce", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("AllReduceV2", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v2<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceV4", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v4<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceV5", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v5<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceV6", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v6<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceV7", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v7<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceV8", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v8<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceV9", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v9<T>(testParam, goldenDir);
-    });
     reg.RegisterOp("AllReduceV10", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_v10<T>(testParam, goldenDir);
     });
     reg.RegisterOp("AllReduceV10PipeGe", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_v10_pipe_ge<T>(testParam, goldenDir);
-    });
-    reg.RegisterOp("AllReduceIRCheck", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduceIREquivalence<T>(testParam, goldenDir);
     });
     reg.RegisterOp("TwoShotAllReduceV2", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_TwoShot_v2<T>(testParam, goldenDir);

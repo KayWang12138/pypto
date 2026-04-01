@@ -36,25 +36,9 @@ void TestReduceScatter(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
-void TestAllReduce_v2(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_v4(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_v5(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_v6(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_v7(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_v8(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_v9(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
 void TestAllReduce_v10(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce_v10_pipe_ge(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduceIREquivalence(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce_TwoShot_v2(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>

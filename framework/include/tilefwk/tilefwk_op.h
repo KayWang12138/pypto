@@ -523,13 +523,8 @@ struct MoeConfig {
 void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 // Forward declarations — full definitions in tilefwk/distributed_communicator.h
-class OneShotCommunicatorV2;
-class OneShotCommunicatorV3;
-class OneShotCommunicatorV4;
 class TwoShotCommunicator;
 class TwoShotCommunicatorV2;
-void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, OneShotCommunicatorV3& comm);
-void OneShotAllReduce_v8(const Tensor& predToken, const Tensor& in, OneShotCommunicatorV4& comm);
 void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
@@ -563,16 +558,10 @@ void AllGather(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTens
 void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor,
     DistReduceType reduceType, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
-void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
-void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
-Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
-void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
 void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
-void OneShotAllReduce_v9(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
-    uint32_t payloadChunkCount, uint32_t chunksPerSignal);
 void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
     uint32_t payloadChunkCount, uint32_t chunksPerSignal);
 void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
