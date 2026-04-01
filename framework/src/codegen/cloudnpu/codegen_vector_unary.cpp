@@ -25,7 +25,11 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
     const std::string& srcDtypeStr = param.srcDtypeStr;
     const std::string& dVar = param.dVar;
     const std::string& s0Var = param.s0Var;
-    std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    
+    bool hasTmpBuffer = (operandCnt == 3);
+    int srcShapeIdx = hasTmpBuffer ? 2 : 1;
+    
+    std::vector<int64_t> ss = NormalizeShape(rawShape[srcShapeIdx], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::ostringstream oss;
     std::vector<std::string> paramList;
@@ -58,17 +62,25 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
 
 std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
 {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    bool hasTmpBuffer = (operandCnt == 3);
+    std::string dstTensor;
+    std::string srcTensor;
+    std::string tmpTensor;
+    if (hasTmpBuffer) {
+        dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+        tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    } else {
+        dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));	 
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    }
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
         modeEnum = AnyCast<int64_t>(mode);
     }
-
     int64_t satModeEnum = 0;
     GetAttr(OP_ATTR_PREFIX + "satmode", satModeEnum);
-
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
     std::string lastUse = GetLastUse();
@@ -80,7 +92,12 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
     std::string satModeStr = (satModeEnum == 0) ? "pto::SaturationMode::ON" : "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses({dstTensor, srcTensor});
+
+    if (hasTmpBuffer) {
+        oss << WrapParamByParentheses({dstTensor, srcTensor, tmpTensor});
+    } else {
+        oss << WrapParamByParentheses({dstTensor, srcTensor});
+    }
     oss << ";\n";
     return oss.str();
 }
