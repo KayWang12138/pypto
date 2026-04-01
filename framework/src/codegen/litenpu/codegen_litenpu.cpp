@@ -434,7 +434,7 @@ std::pair<std::string, std::string> CodeGenLiteNPU::GenAllocVarName(const std::s
        // range start/end are always positive
        << "_S" << range.start << "_E" << range.end;
 
-    return std::make_pair(ss.str(), ss.str() + "_T");
+    return std::make_pair(ss.str(), ss.str());
 }
 
 std::string CodeGenLiteNPU::GenAlloc(
