@@ -19,21 +19,21 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
 
 ## 触发关键词
 
-- **分析pass XXX业务流程**：分析指定业务中pass执行的完整业务流
-- **分析XXX业务的pass执行流程**：分析指定业务中pass执行的完整业务流
-- **分析XXX业务涉及哪些pass**：分析指定业务中涉及的pass模块及执行的完整流程
-- **分析pass xxx的数据流变化**：分析指定业务涉及pass的数据流转过程
+- **分析 pass XXX 业务流程**：分析指定业务中 pass 执行的完整业务流
+- **分析 XXX 业务的 pass 执行流程**：分析指定业务中 pass 执行的完整业务流
+- **分析 XXX 业务涉及哪些 pass**：分析指定业务中涉及的 pass 模块及执行的完整流程
+- **分析 pass xxx 的数据流变化**：分析指定业务涉及 pass 的数据流转过程
 
 ## 工作流程
 
-### 步骤1：定位业务流程文档
+### 步骤 1：定位业务流程文档
 
 1. 在用户指定文档目录下查找相关业务流程文档（如果有的话）
 2. 根据描述的业务场景，在 `docs/` 文档目录中查找相关业务流程文档
 
-### 步骤2：解析业务流程设计
+### 步骤 2：解析业务流程设计
 
-从文档及pass模块代码中提取以下信息：
+从文档及 pass 模块代码中提取以下信息：
 
 1. **业务场景描述**
    - 业务名称和目标
@@ -42,26 +42,26 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
 
 2. **涉及的 Pass 模块**
    - 列出所有参与的 pass 模块
-   - 每个 pass 的名称和基本功能, 使用 `pypto-pass-module-analyzer` 技能分析相关pass功能
+   - 每个 pass 的名称和基本功能，使用 `pypto-pass-module-analyzer` 技能分析相关 pass 功能
 
 3. **执行顺序和依赖关系**
-   - 根据 `framework/src/passes/pass_mgr/pass_manager.cpp` 中的默认执行策略中定义的执行顺序，识别Pass模块的执行顺序
-   - 根据pass源码所在目录识别该pass所处阶段，执行阶段划分[Tensor Graph Pass / Tile Graph Pass / Block Graph Pass / Execute Graph Pass]
+   - 根据 `framework/src/passes/pass_mgr/pass_manager.cpp` 中的默认执行策略中定义的执行顺序，识别 Pass 模块的执行顺序
+   - 根据 pass 源码所在目录识别该 pass 所处阶段，执行阶段划分[Tensor Graph Pass / Tile Graph Pass / Block Graph Pass / Execute Graph Pass]
    - 在 `framework/src/passes/` 中查找相关 pass 的源代码，分析模块间数据依赖关系和状态依赖关系
 
-5. **数据流转和状态变化**
-   - 根据文档及源码分析涉及的pass模块使用什么数据结构来进行数据流转和状态传递
+4. **数据流转和状态变化**
+   - 根据文档及源码分析涉及的 pass 模块使用什么数据结构来进行数据流转和状态传递
    - 根据文档及源码分析经过该模块处理后数据及状态的变化
-     - 模块1：模块处理前数据及状态 → 模块处理 → 模块处理后数据及状态变化
-     - 模块2：模块处理前数据及状态 → 模块处理 → 模块处理后数据及状态变化
+      - 模块 1：模块处理前数据及状态 → 模块处理 → 模块处理后数据及状态变化
+      - 模块 2：模块处理前数据及状态 → 模块处理 → 模块处理后数据及状态变化
 
-### 步骤3：结合源代码验证
+### 步骤 3：结合源代码验证
 
 1. 在 `framework/src/passes/` 中查找相关 pass 的源代码
-2. 使用 `pypto-pass-module-analyzer` 技能分析相关pass功能，验证文档描述与代码实现的一致性
+2. 使用 `pypto-pass-module-analyzer` 技能分析相关 pass 功能，验证文档描述与代码实现的一致性
 3. 补充文档中未详细说明的实现细节
 
-### 步骤4：生成业务流分析报告
+### 步骤 4：生成业务流分析报告
 
 按照 `references/pass-workflow-report-template.md` 中的模板格式输出分析结果。该模板包含以下章节：
 
