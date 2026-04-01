@@ -701,7 +701,7 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
 }
 
 bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
-    for (auto &con : input->GetConsumers()) {
+    for (const auto &con : input->GetConsumers()) {
         if (con->GetOpcode() != Opcode::OP_COPY_IN && con->GetOpcode() != Opcode::OP_COPY_OUT) {
             continue;
         }
@@ -724,7 +724,7 @@ bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr i
 }
 
 bool RemoveRedundantAssemble::BackwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
-    for (auto &pro : input->GetProducers()) {
+    for (const auto &pro : input->GetProducers()) {
         if (pro->GetOpcode() != Opcode::OP_COPY_IN && pro->GetOpcode() != Opcode::OP_COPY_OUT) {
             continue;
         }
@@ -735,14 +735,13 @@ bool RemoveRedundantAssemble::BackwardFindAssembleInsertedCopy(LogicalTensorPtr 
                 continue;
             }
             auto copyInput2 = copyProducer->GetIOperands()[0];
-            for (auto copyConsumer : copyInput2->GetConsumers()) {
+            for (const auto &copyConsumer : copyInput2->GetConsumers()) {
                 if (copyConsumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
                     return true;
                 }
             }
         }
     }
-
     return false;    
 }
 

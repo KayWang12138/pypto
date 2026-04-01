@@ -1581,11 +1581,11 @@ TEST_F(PreGraphTest, MutiConsumerNotDeleteSingleAssemble) {
     currFunctionPtr->outCasts_.push_back(outCast1);
     currFunctionPtr->outCasts_.push_back(outCast2);
 
-    // 调用replaceTensor 为Assemble插op
+    // 调用replaceTensor 为Assemble插copy op
     ReplaceTensor replaceTensor;
     EXPECT_EQ(replaceTensor.RunOnFunction(*currFunctionPtr), SUCCESS);
     int opSize = currFunctionPtr->Operations().size();
-    // 校验删除Assemble逻辑
+    // 校验删除Assemble逻辑 -- 不删除
     PreGraphProcess preGraph;
     EXPECT_EQ(preGraph.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(currFunctionPtr->Operations().size(), opSize);
