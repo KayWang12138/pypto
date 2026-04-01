@@ -593,7 +593,6 @@ inline void AccMatMul(
 inline void BindTensor(LogicalTensorDataPtr out, const std::string &groupName, uint64_t memType, uint64_t slotSize) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
-    TensorData oData = Trans(out);
-    ops->BindTensor(oData, groupName, memType, slotSize);
+    ops->BindTensor(out, groupName, memType, slotSize);
 }
 } // namespace npu::tile_fwk::calc

@@ -20,6 +20,8 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/verify_error.h"
+#include "tilefwk/comm_group_recorder.h"
+#include "interface/interpreter/communication.h"
 
 namespace npu::tile_fwk {
 
@@ -254,6 +256,13 @@ void FlowVerifier::VerifyTensorGraph(
     const std::vector<std::shared_ptr<LogicalTensorData>>& goldenDataViewList,
     const std::shared_ptr<TensorSlotManager>& slotManager)
 {
+    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            CommManager::Instance().CreateCommContext(groupName);
+        }
+    }
+
     entry_ = entry;
     inputDataViewList_ = inputDataViewList;
     outputDataViewList_ = outputDataViewList;

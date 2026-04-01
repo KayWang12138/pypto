@@ -22,9 +22,10 @@
 #include <fcntl.h>
 #include <mutex>
 
+
 namespace npu::tile_fwk {
 
-int GetRankId() {
+int GetRankId(const std::string &groupName) {
     const char *rank = std::getenv("RANK");
     if (rank != nullptr) {
         return std::atoi(rank);
@@ -32,7 +33,7 @@ int GetRankId() {
     return -1;
 }
 
-int GetWorldSize() {
+int GetWorldSize(const std::string &groupName) {
     const char *worldSize = std::getenv("WORLD_SIZE");
     if (worldSize != nullptr) {
         return std::atoi(worldSize);
@@ -242,12 +243,15 @@ void CommContext::~CommContext() {
 }
 
 // ============================== CommManager
-void CommManager::CreateCommContext(const std::string &groupName, int rank, int worldSize) {
+void CommManager::CreateCommContext(const std::string &groupName) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (contexts_.find(groupName) != contexts_.end()) {
         throw std::runtime_error("CommContex for group " + groupName + " already exist!");
     }
+
+    int rank = GetRankId(groupName);
+    int worldSize = GetWorldSize(groupName);
 
     auto context = std::make_shared<CommContext>();
     context->Init(groupName, rank, worldSize);

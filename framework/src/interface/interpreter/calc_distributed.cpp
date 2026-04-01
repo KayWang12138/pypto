@@ -18,7 +18,8 @@
 #include "interface/interpreter/calc.h"
 #include "tensor/symbolic_scalar.h"
 #include "tilefwk/error.h"
-#include "interface/operation/distributed/distributed_common.h"
+#include "tilefwk/comm_group_recorder.h"
+
 
 namespace npu::tile_fwk {
 

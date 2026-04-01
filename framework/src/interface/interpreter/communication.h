@@ -23,9 +23,9 @@
 
 namespace npu::tile_fwk {
 
-int GetRankId();
+int GetRankId(const std::string &groupName);
 
-int GetWorldSize();
+int GetWorldSize(const std::string &groupName);
 
 class CommContext {
 public:
@@ -122,7 +122,7 @@ public:
         static CommManager instance;
         return instance;
     }
-    void CreateCommContext(const std::string &groupName, int rank, int worldSize);
+    void CreateCommContext(const std::string &groupName);
     LogicalTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
     LogicalTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
     static std::string GetHandler(const std::string &groupName, int rank, bool isSignal);

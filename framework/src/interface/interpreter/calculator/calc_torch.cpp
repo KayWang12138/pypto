@@ -2208,15 +2208,13 @@ static void Scatter(
     }
 }
 
-static void Bind(const TensorData &out, const std::string &groupName, uint64_t memType, uint64_t slotSize) {
-    (void) out;
-    int rank = GetRankId(groupName);
-    // if (memType == 1) {
-    //     out = Alloc(groupIndex, rank, slotSize);
-    // }
-    // if (memType == 0) {
-    //     out = AllocSignal(groupIndex, rank, slotSize);
-    // }
+static void Bind(LogicalTensorDataPtr out, const std::string &groupName, uint64_t memType, uint64_t slotSize) {
+    if (memType == 1) {
+        out = CommManager::Instance()::Alloc(groupName, slotSize);
+    }
+    if (memType == 0) {
+        out = CommManager::Instance()::AllocSignal(groupName, slotSize);
+    }
     std::cout << "groupName: " << groupName << " memType: " << memType << " slotSize: " << slotSize << " rank: " << rank << std::endl;
 }
 
