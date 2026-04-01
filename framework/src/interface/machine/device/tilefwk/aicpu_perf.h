@@ -34,6 +34,8 @@ constexpr uint32_t FREQ_DAV_3510 = 1000;
     XDEVTASK(DEV_TASK_RCV)                      \
     XDEVTASK(DEV_TASK_SEND_FIRST_CALLOP_TASK)   \
     XDEVTASK(DEV_TASK_SCHED_EXEC)               \
+    XDEVTASK(DEV_TASK_RESOLVE_DEP)              \
+    XDEVTASK(DEV_TASK_DISPATCH_TASK)            \
     XDEVTASK(DEV_TASK_SYNC_CORE_STOP)           \
     XDEVTASK(DEV_TASK_RSP)                      \
     X(WAIT_ALL_DEV_TASK_FINISH)                 \
@@ -68,6 +70,7 @@ inline const char *PerfTraceName[] = {
 #define DEVTASK_PERF_ARRY_INDEX(type) (type - PERF_TRACE_DEV_TASK_BUILD)
 inline constexpr uint32_t DEVTASK_PERF_TYPE_NUM = (PERF_TRACE_DEV_TASK_RSP - PERF_TRACE_DEV_TASK_BUILD + 1);
 inline constexpr uint32_t PERF_TRACE_COUNT_DEVTASK_MAX_NUM = 20;
+inline constexpr uint32_t PERF_TRACE_COUNT_SCHE_MAX_NUM = 20;
 
 #undef PERF_TRACES
 }

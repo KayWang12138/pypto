@@ -242,6 +242,27 @@ struct PerfEvtMgr {
         }
     }
 
+    void RecordSchePerf(uint32_t tid, uint64_t resolveDepStart, uint64_t dispatchStart,
+                        uint64_t dispatchEnd, uint32_t devTaskId) {
+        if (tid >= MAX_USED_AICPU_NUM || aicpuPerf_ == 0) {
+            return;
+        }
+        MetricPerf* aicpuMetrics = (MetricPerf*)(aicpuPerf_ + (tid == 0 ? ctrlTurn_ : schTurn_) * sizeof(MetricPerf));
+        if (aicpuMetrics == nullptr) {
+            return;
+        }
+        uint8_t& cnt = aicpuMetrics->aicpuSchePerfCnt[tid];
+        if (cnt < PERF_TRACE_COUNT_SCHE_MAX_NUM) {
+            auto& schePerf = aicpuMetrics->aicpuSchePerf[tid][cnt];
+            schePerf.resolveDepStart = resolveDepStart;
+            schePerf.resolveDepEnd = dispatchStart;
+            schePerf.dispatchStart = dispatchStart;
+            schePerf.dispatchEnd = dispatchEnd;
+            schePerf.devTaskId = devTaskId;
+            cnt++;
+        }
+    }
+
     void DumpPerfTraceCore(std::ostringstream &oss, uint32_t scheCpuNum) {
         auto devTaskPerfFormatFunc = [this](std::ostringstream &osStr, uint32_t tid, uint32_t type) -> void {
             for (uint32_t i = 0; i < perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {

@@ -39,6 +39,7 @@
 #include "machine/device/dynamic/aicore_hal.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/device_utils.h"
+#include "machine/device/dynamic/device_perf.h"
 #include "machine/device/dynamic/wrap_manager.h"
 #include "machine/device/dump/aicore_dump.h"
 
@@ -785,13 +786,22 @@ private:
     inline int32_t DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
                                        int coreIdxStart, int coreIdxEnd) {
         int32_t ret = DEVICE_MACHINE_OK;
+        uint64_t resolveDepStart = 0;
+        uint64_t dispatchStart = 0;
+        
         if (context_->waitTaskCnt_[static_cast<int>(type)] > 0) {
+            resolveDepStart = GetCycles();
+            PerfMtTrace(PERF_TRACE_DEV_TASK_RESOLVE_DEP, aicpuIdx_);
             ret = ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
             wrapManager_.DispatchMixCoreTask();
         }
+        
+        dispatchStart = GetCycles();
+        PerfMtTrace(PERF_TRACE_DEV_TASK_DISPATCH_TASK, aicpuIdx_);
+        
         if (wrapManager_.GetIsMixarch()) {
             ReadyCoreFunctionQueue* dieReadyQue  = (type == CoreType::AIC) ?  readyDieAicFunctionQue_ : readyDieAivFunctionQue_;
             if (dieReadyQue != readyQue) {
@@ -799,6 +809,7 @@ private:
             }
         }
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
+        
         if (enableFairSch_ || wrapManager_.GetIsMixarch()) {   // for die-to-die scheduling
             if (context_->coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
                 AicpuIsIdle(type);
@@ -806,7 +817,19 @@ private:
                 AicpuIsBusy(type);
             }
         }
+        
+        uint64_t dispatchEnd = GetCycles();
+        RecordSchePerf(resolveDepStart, dispatchStart, dispatchEnd);
+        
         return ret;
+    }
+    
+    inline void RecordSchePerf(uint64_t resolveDepStart, uint64_t dispatchStart, uint64_t dispatchEnd) {
+        if (curTaskCtrl_ == nullptr) {
+            return;
+        }
+        uint32_t devTaskId = curTaskCtrl_->taskId;
+        PerfEvtMgr::Instance().RecordSchePerf(aicpuIdx_, resolveDepStart, dispatchStart, dispatchEnd, devTaskId);
     }
     
     #define RAW_TENSOR_ADDR_MASK ((1UL << 63) - 1)

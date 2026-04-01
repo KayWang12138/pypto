@@ -175,7 +175,9 @@ class CoreInfo:
 
     def get_brief_core_type(self):
         name = ""
-        if "AIC" in self.core_type:
+        if "AICPU" in self.core_type:
+            name += self.core_type
+        elif "AIC" in self.core_type:
             name += "AIC"
         elif "AIV" in self.core_type:
             name += "AIV"
@@ -185,7 +187,9 @@ class CoreInfo:
 
     def get_core_name(self):
         name = ""
-        if "AIC" in self.core_type:
+        if "AICPU" in self.core_type:
+            name += self.core_type
+        elif "AIC" in self.core_type:
             name += "AIC"
         elif "AIV" in self.core_type:
             name += "AIV"

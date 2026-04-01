@@ -235,10 +235,20 @@ struct Metrics {
   TaskStat tasks[];
 };
 
+struct AicpuSchePerf {
+    uint64_t resolveDepStart{0};
+    uint64_t resolveDepEnd{0};
+    uint64_t dispatchStart{0};
+    uint64_t dispatchEnd{0};
+    uint32_t devTaskId{0};
+};
+
 struct MetricPerf {
     uint64_t perfAicpuTrace[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::PERF_TRACE_MAX] = {{0}};
     uint64_t perfAicpuTraceDevTask[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM][npu::tile_fwk::dynamic::PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}}; // 每个devTask 的对应type的数据
     uint8_t perfAicpuTraceDevTaskCnt[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM] = {{0}};
+    AicpuSchePerf aicpuSchePerf[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}};
+    uint8_t aicpuSchePerfCnt[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM] = {{0}};
 };
 
 inline const char *AicorePerfTraceName[] = {
