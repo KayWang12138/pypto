@@ -281,7 +281,7 @@ def {operator_name}_golden({golden_params}) -> {golden_return_type}:
 
 ### 8.4 实现建议
 
-<!-- 记录影响后续 PyPTO算子实现的关键提示 -->
+<!-- 记录影响后续 PyPTO 算子实现的关键提示 -->
 
 | 建议项 | 说明 |
 |--------|------|
