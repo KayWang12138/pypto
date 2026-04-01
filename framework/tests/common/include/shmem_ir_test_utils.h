@@ -265,16 +265,6 @@ inline void VerifyOneShotGroupedGEWaitAttrs(
     }
 }
 
-// TwoShot: W^2 of each op type (W chunks x W ops per chunk).
-inline void VerifyTwoShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
-{
-    uint32_t expected = worldSize * worldSize;
-    EXPECT_EQ(c.put, expected) << "Expected " << expected << " OP_SHMEM_PUT ops";
-    EXPECT_EQ(c.signal, expected) << "Expected " << expected << " OP_SHMEM_SIGNAL ops";
-    EXPECT_EQ(c.wait, expected) << "Expected " << expected << " OP_SHMEM_WAIT_UNTIL ops";
-    EXPECT_EQ(c.get, expected) << "Expected " << expected << " OP_SHMEM_GET ops";
-}
-
 // OneShot ordering: PUT*N, SIGNAL*N, WAIT, GET — phases must not go backwards.
 inline void VerifyOneShotOrdering(const std::vector<Opcode>& ops)
 {
@@ -296,30 +286,14 @@ inline void VerifyOneShotOrdering(const std::vector<Opcode>& ops)
     }
 }
 
-// TwoShot ordering: PUT*N^2, SIGNAL*N^2, WAIT*N^2, GET*N^2 in strict blocks.
-inline void VerifyTwoShotOrdering(const std::vector<Opcode>& ops, uint32_t worldSize)
+// TwoShot: W^2 of each op type (W chunks x W ops per chunk).
+inline void VerifyTwoShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
 {
-    uint32_t n = worldSize * worldSize;
-    uint32_t totalExpected = n * 4u;
-    ASSERT_EQ(static_cast<uint32_t>(ops.size()), totalExpected)
-        << "Expected " << totalExpected << " SHMEM ops for TwoShot, got " << ops.size();
-
-    for (uint32_t i = 0; i < n; ++i) {
-        EXPECT_EQ(ops[i], Opcode::OP_SHMEM_PUT)
-            << "Expected PUT at position " << i;
-    }
-    for (uint32_t i = 0; i < n; ++i) {
-        EXPECT_EQ(ops[n + i], Opcode::OP_SHMEM_SIGNAL)
-            << "Expected SIGNAL at position " << (n + i);
-    }
-    for (uint32_t i = 0; i < n; ++i) {
-        EXPECT_EQ(ops[2u * n + i], Opcode::OP_SHMEM_WAIT_UNTIL)
-            << "Expected WAIT_UNTIL at position " << (2u * n + i);
-    }
-    for (uint32_t i = 0; i < n; ++i) {
-        EXPECT_EQ(ops[3u * n + i], Opcode::OP_SHMEM_GET)
-            << "Expected GET at position " << (3u * n + i);
-    }
+    uint32_t expected = worldSize * worldSize;
+    EXPECT_EQ(c.put, expected) << "Expected " << expected << " OP_SHMEM_PUT ops";
+    EXPECT_EQ(c.signal, expected) << "Expected " << expected << " OP_SHMEM_SIGNAL ops";
+    EXPECT_EQ(c.wait, expected) << "Expected " << expected << " OP_SHMEM_WAIT_UNTIL ops";
+    EXPECT_EQ(c.get, expected) << "Expected " << expected << " OP_SHMEM_GET ops";
 }
 
 // Extract + count in one call. No ordering check — compiler

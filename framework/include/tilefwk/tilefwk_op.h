@@ -522,9 +522,6 @@ struct MoeConfig {
 };
 void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
-// Forward declarations — full definitions in tilefwk/distributed_communicator.h
-class TwoShotCommunicator;
-class TwoShotCommunicatorV2;
 void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
@@ -559,9 +556,6 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmem
     DistReduceType reduceType, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
-void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
-void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
-void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
     uint32_t payloadChunkCount, uint32_t chunksPerSignal);
 void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
@@ -573,11 +567,6 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
 void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
-// TwoShotAllReduce_v5: Three-phase API with external TwoShotCommunicatorV2.
-// Uses separate Put(), Wait(), Pull() per chunk.
-void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
-    TwoShotCommunicatorV2& comm, Tensor& out);
-
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);

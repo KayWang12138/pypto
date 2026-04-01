@@ -40,16 +40,6 @@ void TestAllReduce_v10(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce_v10_pipe_ge(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
-void TestAllReduce_TwoShot_v2(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_TwoShot_v3(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_TwoShot_v4(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestAllReduce_TwoShot_v5(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
-void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
 void TestShmemMoeDispatch(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduceAddAllReduce(OpTestParam &testParam, std::string& goldenDir);
