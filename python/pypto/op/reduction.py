@@ -233,3 +233,71 @@ def prod(self: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 
     """
     return pypto_impl.Prod(self, dim, keepdim)
+
+
+@op_wrapper
+def argmax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
+    """Returns the indices of the maximum values of each slice of the input tensor in the given dimension dim.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dim : int
+        The dimension to reduce.
+    keepdim : bool, optional
+        whether the output tensor has dim retained or not. Default: False.
+
+    Returns
+    -------
+    Tensor
+        If keepdim is True, the return tensor is of the same size as input except in the dimension dim where it
+        is of size 1.
+        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.argmax(x, -1, True)
+
+    Input x:[[1.0 3.0 2.0],
+             [4.0 2.0 1.0]]
+    Output y:[[1],
+              [0]]
+
+    """
+    return pypto_impl.Argmax(input, dim, keepdim)
+
+
+@op_wrapper
+def argmin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
+    """Returns the indices of the minimum values of each slice of the input tensor in the given dimension dim.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dim : int
+        The dimension to reduce.
+    keepdim : bool, optional
+        whether the output tensor has dim retained or not. Default: False.
+
+    Returns
+    -------
+    Tensor
+        If keepdim is True, the return tensor is of the same size as input except in the dimension dim where it
+        is of size 1.
+        Otherwise, dim is squeezed, resulting in the return tensor having 1 fewer dimension.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.argmin(x, -1, True)
+
+    Input x:[[1.0 3.0 2.0],
+             [4.0 2.0 1.0]]
+    Output y:[[0],
+              [2]]
+
+    """
+    return pypto_impl.Argmin(input, dim, keepdim)
