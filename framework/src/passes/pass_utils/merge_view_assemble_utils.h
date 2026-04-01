@@ -144,6 +144,7 @@ public:
 
     // Common methods
     Status Initialize();
+    static SourceLocationPtr GetFirstSourceLocation(const std::vector<Operation *> &chain);
 
     // Processing methods
     Status ProcessOperations(Function& function);

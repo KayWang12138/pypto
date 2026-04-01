@@ -134,6 +134,18 @@ Status MergeViewAssembleUtils::CleanUp(Function& function)
     return SUCCESS;
 }
 
+SourceLocationPtr MergeViewAssembleUtils::GetFirstSourceLocation(const std::vector<Operation *> &chain) {
+    SourceLocationPtr firstSourceLocation = nullptr;
+    for (auto *op : chain) {
+        auto loc = op->GetLocation();
+        if (loc != nullptr) {
+            firstSourceLocation = loc;
+            break;
+        }
+    }
+    return firstSourceLocation;
+}
+
 Status MergeViewAssembleUtils::MergeViewChain(Function& function, Operation& operation, std::vector<Operation*>& chain)
 {
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
@@ -238,16 +250,9 @@ Status MergeViewAssembleUtils::ProcessChainEnd(Function& function, std::vector<O
     if (status != SUCCESS) {
         return status;
     }
-    // 记录合并操作
     // 获取链路上第一个非空的sourceLocation
-    SourceLocationPtr firstSourceLocation = nullptr;
-    for (auto *op : chain) {
-        auto loc = op->GetLocation();
-        if (loc != nullptr) {
-            firstSourceLocation = loc;
-            break;
-        }
-    }
+    SourceLocationPtr firstSourceLocation = GetFirstSourceLocation(chain);
+     // 记录合并操作
     RecordMergedViewOperation(endOp, startTensor, endTensor, newOffset, newDynOffset, newDynValidShape,
                              firstSourceLocation);
 
@@ -403,14 +408,7 @@ Status MergeViewAssembleUtils::ProcessAssembleChainEnd(
     // 计算合并offset
     auto [newOffset, newDynOffset] = CalculateAssembleOffsets(chain, startTensor->offset.size());
     // 获取链路上第一个非空的sourceLocation
-    SourceLocationPtr firstSourceLocation = nullptr;
-    for (auto *op : chain) {
-        auto loc = op->GetLocation();
-        if (loc != nullptr) {
-            firstSourceLocation = loc;
-            break;
-        }
-    }
+    SourceLocationPtr firstSourceLocation = GetFirstSourceLocation(chain);
     // 4. 记录并清理
     RecordAssembleOperation(startTensor, endTensor, newOffset, newDynOffset, firstSourceLocation);
     function.GetTensorMap().Erase(endTensor);
