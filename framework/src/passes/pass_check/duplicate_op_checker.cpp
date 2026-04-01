@@ -15,6 +15,7 @@
 
 #include "duplicate_op_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "DuplicateOp"
 
@@ -28,24 +29,19 @@ Status DuplicateOpChecker::PreCheckGatherIn(const Operation& op)
 {
     for (const auto& oOperand : op.GetOOperands()) {
         if (oOperand == nullptr) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation,
-                "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
-                op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetOpcodeStr().c_str(), op.GetOpMagic(),
-                GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_C(OperationErr::OP_NULL_POINTER, Elements::Operation, "%s[%d]'s oOperand cannot be nullptr; Please check if the oOperand of %s[%d] is nullptr.%s",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto consumers = oOperand->GetConsumers();
         for (auto& consumer : consumers) {
             if (consumer == nullptr) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor, "OP_GATHER_IN_L1[%d]'s consumer cannot be nullptr.", oOperand->GetMagic());
+                APASS_LOG_ERROR_C(TensorErr::TENSOR_NULL_POINTER, Elements::Tensor, "OP_GATHER_IN_L1[%d]'s consumer cannot be nullptr.", oOperand->GetMagic());
                 return FAILED;
             }
             if (consumer->GetOpcode() == Opcode::OP_GATHER_IN_L1) {
-                APASS_LOG_ERROR_F(
-                    Elements::Tensor, "OP_GATHER_IN_L1[%d]'s consumer cannot be OP_GATHER_IN_L1.",
-                    oOperand->GetMagic());
+                APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Tensor,
+                "OP_GATHER_IN_L1[%d]'s consumer cannot be OP_GATHER_IN_L1.", oOperand->GetMagic());
                 return FAILED;
             }
         }

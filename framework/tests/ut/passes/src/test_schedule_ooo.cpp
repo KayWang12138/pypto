@@ -2667,4 +2667,73 @@ TEST_F(ScheduleOoOTest, TestCopyModeFailed)
     res = ooOSchedule.UpdateCopyInMode(*copyInOp);
     EXPECT_EQ(res, FAILED);
 }
+
+TEST_F(ScheduleOoOTest, TensorMemTypeMismatch)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestMemTypeMismatch", "TestMemTypeMismatch", nullptr);
+    std::vector<int64_t> shape = {16, 16};
+    
+    auto t = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    t->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    t->SetMemoryTypeToBe(MemoryType::MEM_UB); // 不一致
+    
+    func->AddOperation(Opcode::OP_NOP, {t}, {t});
+    func->inCasts_.push_back(t);
+
+    OoOScheduleChecker checker;
+    bool ok = checker.PreCheckTensorInfo(t);
+    EXPECT_FALSE(ok);
+}
+
+TEST_F(ScheduleOoOTest, TensorMemIdInvalid)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestMemIdInvalid", "TestMemIdInvalid", nullptr);
+    std::vector<int64_t> shape = {16, 16};
+    
+    auto t = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    t->SetMemoryTypeOriginal(MemoryType::MEM_UB);
+    t->SetMemoryTypeToBe(MemoryType::MEM_UB);
+    t->memoryrange.memId = -1; // 非法
+    
+    OoOScheduleChecker checker;
+    bool ok = checker.PreCheckTensorInfo(t);
+    EXPECT_FALSE(ok);
+}
+
+TEST_F(ScheduleOoOTest, CallOpNotAllowed)
+{
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames = {"t1", "t2"};
+    std::vector<MemoryType> memTypes = {MEM_DEVICE_DDR, MEM_DEVICE_DDR};
+    subGraph.AddTensors(DT_FP32, {16, 16}, memTypes, tensorNames, 0);
+
+    std::vector<Opcode> opCodes = {Opcode::OP_CALL};
+    std::vector<std::vector<std::string>> ins = {{"t1"}};
+    std::vector<std::vector<std::string>> outs = {{"t2"}};
+    std::vector<std::string> opNames = {"CALL_OP"};
+    subGraph.AddOps(opCodes, ins, outs, opNames, true);
+
+    Function* function = subGraph.GetFunction();
+    OoOScheduleChecker checker;
+    bool ret = checker.PreCheckOpInfo(function->Operations().DuplicatedOpList()[0]);
+    EXPECT_FALSE(ret);
+}
+
+TEST_F(ScheduleOoOTest, ViewMemIdMismatch)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "ViewMemIdMismatch", "ViewMemIdMismatch", nullptr);
+    std::vector<int64_t> shape = {16, 16};
+    auto inTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    inTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
+    inTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
+    inTensor->memoryrange.memId = 0;
+    auto outTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    outTensor->SetMemoryTypeOriginal(MemoryType::MEM_UB);
+    outTensor->SetMemoryTypeToBe(MemoryType::MEM_UB);
+    outTensor->memoryrange.memId = 1;
+    func->AddOperation(Opcode::OP_VIEW, {inTensor}, {outTensor});
+    OoOScheduleChecker checker;
+    bool ret = checker.PreCheckOpInfo(func->Operations().DuplicatedOpList()[0]);
+    EXPECT_FALSE(ret);
+}
 } // namespace npu::tile_fwk

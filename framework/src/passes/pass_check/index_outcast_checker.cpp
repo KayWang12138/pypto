@@ -17,6 +17,7 @@
 #include "index_outcast_checker.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "IndexOutcastChecker"
 
@@ -45,8 +46,7 @@ Status IndexOutcastChecker::CheckIndexOutcastDisorderedCoverage(Function& functi
                 }
                 indexOutcastConsumers.insert(consumerOp);
                 if (indexOutcastConsumers.size() > 1) {
-                    APASS_LOG_ERROR_F(
-                        Elements::Tensor, "Tensor[%d] has multiple OP_INDEX_OUTCAST consumers.", tensor->GetMagic());
+                    APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Tensor, "Tensor[%d] has multiple OP_INDEX_OUTCAST consumers.", tensor->GetMagic());
                     return FAILED;
                 }
             }

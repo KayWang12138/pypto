@@ -15,6 +15,7 @@
 
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "SubgraphToFunction"
 
@@ -23,32 +24,23 @@ namespace tile_fwk {
 Status SubGraphToFuncChecker::NOPCheck(const Operation& op) const
 {
     if (!op.IsNOP()) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation, "op[%d] is not an NOP. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "op[%d] is not an NOP. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetIOperands().size() > 0) {
-        APASS_LOG_ERROR_F(
-            Elements::Tensor, "NOP[%d] has IOperands size %zu. %s", op.GetOpMagic(), op.GetIOperands().size(),
-            GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has IOperands size %zu. %s", op.GetOpMagic(), op.GetIOperands().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetInCtrlOperations().size() > 0) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation, "NOP[%d] has InCtrlOperations size %zu. %s", op.GetOpMagic(),
-            op.GetInCtrlOperations().size(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has InCtrlOperations size %zu. %s", op.GetOpMagic(), op.GetInCtrlOperations().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetOOperands().size() > 0) {
-        APASS_LOG_ERROR_F(
-            Elements::Tensor, "NOP[%d] has OOperands size %zu. %s", op.GetOpMagic(), op.GetOOperands().size(),
-            GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has OOperands size %zu. %s", op.GetOpMagic(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetOutCtrlOperations().size() > 0) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation, "NOP[%d] has OutCtrlOperations size %zu. %s", op.GetOpMagic(),
-            op.GetOutCtrlOperations().size(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "NOP[%d] has OutCtrlOperations size %zu. %s", op.GetOpMagic(), op.GetOutCtrlOperations().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
