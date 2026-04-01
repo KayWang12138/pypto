@@ -1334,5 +1334,68 @@ TEST_F(TestRemoveRedundantOpPass, DynamicOutcast)
     EXPECT_EQ(assemble_num, kNumOne);
     EXPECT_EQ(view_num, kNumOne);
 }
-} // namespace tile_fwk
-} // namespace npu
+
+TEST_F(TestRemoveRedundantOpPass, AssembleDDR)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(),
+        "TestAssembleDDRNoConsumer",
+        "TestAssembleDDRNoConsumer",
+        nullptr);
+    EXPECT_TRUE(func != nullptr);
+
+    std::vector<int64_t> shape = { 64, 64 };
+    
+    auto inTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    auto ddrOut = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    ddrOut->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    ddrOut->nodetype = NodeType::LOCAL; // 不是 OUTCAST
+    func->AddOperation(Opcode::OP_ASSEMBLE, { inTensor }, { ddrOut });
+
+    func->inCasts_.push_back(inTensor);
+
+    RemoveRedundantOp pass;
+    EXPECT_EQ(pass.PreCheck(*func), FAILED);
+}
+
+TEST_F(TestRemoveRedundantOpPass, ViewOp_OutCast)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(),
+        "TestView_OutCast_Cover75",
+        "TestView_OutCast_Cover75",
+        nullptr);
+    EXPECT_TRUE(func != nullptr);
+    std::vector<int64_t> shape = {64, 64};
+    auto in = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    auto view_out = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    func->AddOperation(Opcode::OP_VIEW, {in}, {view_out});
+
+    func->inCasts_.push_back(in);
+    func->outCasts_.push_back(view_out);
+    auto dummy_out = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    func->AddOperation((Opcode::OP_COPY_IN), {view_out}, {dummy_out});
+    RemoveRedundantOp pass;
+    Status ret = pass.PreCheck(*func);
+
+    EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(TestRemoveRedundantOpPass, RegCopyNoConsumer)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(),
+        "TestRegCopyNoConsumer",
+        "TestRegCopyNoConsumer",
+        nullptr);
+    EXPECT_TRUE(func != nullptr);
+
+    std::vector<int64_t> shape = {64, 64};
+    auto in = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    auto out = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    func->AddOperation(Opcode::OP_REGISTER_COPY, {in}, {out});
+
+    func->inCasts_.push_back(in);
+    RemoveRedundantOp pass;
+    Status ret = pass.PreCheck(*func);
+    EXPECT_EQ(ret, FAILED);
+}
+}
+}

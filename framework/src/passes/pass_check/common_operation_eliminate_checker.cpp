@@ -15,6 +15,7 @@
 
 #include "common_operation_eliminate_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "CommonOperationEliminate"
 
@@ -47,13 +48,15 @@ Status CommonOperationEliminateChecker::DoPreCheck(Function& function)
             const int opMagic = op->GetOpMagic();
 
             if (ioperands.size() != 1) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation, "View or Copy_In Operation %d with not one input operand.", opMagic);
+                APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation,
+                                 "View or Copy_In Operation %d with not one input operand.",
+                                 opMagic);
                 return FAILED;
             }
             if (ioperands.front()->offset.size() != fromOffsetSize) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation, "View or Copy_In Operation %d with mismatch input offset shape.", opMagic);
+                APASS_LOG_ERROR_C(TensorErr::TENSOR_SHAPE_MISMATCH, Elements::Operation,
+                                 "View or Copy_In Operation %d with mismatch input offset shape.",
+                                 opMagic);
                 return FAILED;
             }
         }

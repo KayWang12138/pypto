@@ -234,5 +234,47 @@ TEST_F(TestAssembleChecker, TestAssembleHighDimInputHasOverlap)
 
     EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
 }
+
+TEST_F(TestAssembleChecker, TestAssembleOffsetShapeDimNotMatch) {
+    ComputationalGraphBuilder G;
+    TensorInfos inTensors = {
+        {"in1", {2, 2}}
+    };
+    TensorInfos outTensors = {
+        {"out1", {8, 8}}
+    };
+    AssembleOpInfos assembleOps = {
+        {"in1", "out1", "assemble1", {0}}
+    };
+    BuildAssembleGraph(G, inTensors, outTensors, assembleOps);
+    Function *function = G.GetFunction();
+
+    EXPECT_EQ(checker.CheckAssembleOverlap(*function), FAILED);
+}
+
+TEST_F(TestAssembleChecker, CheckAssembleOverlap_AssembleAttrNull) {
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), 
+        "TestAssembleAttrNull", 
+        "TestAssembleAttrNull", 
+        nullptr
+    );
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    std::vector<int64_t> shape = {16, 32};
+    auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto t2Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+
+    auto &assembleOp = currFunctionPtr->AddOperation(
+        Opcode::OP_ASSEMBLE, 
+        {t1Tensor}, 
+        {t2Tensor}
+    );
+    currFunctionPtr->inCasts_.push_back(t1Tensor);
+    currFunctionPtr->outCasts_.push_back(t2Tensor);
+    Status status = checker.CheckAssembleOverlap(*currFunctionPtr);
+
+    EXPECT_EQ(status, FAILED);                 
+    EXPECT_EQ(assembleOp.GetOpAttribute(), nullptr); 
+}
 } // namespace tile_fwk
 } // namespace npu

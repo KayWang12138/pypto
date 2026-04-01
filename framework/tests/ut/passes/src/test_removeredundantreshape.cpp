@@ -375,5 +375,24 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeContainNegativeOne)
     }
     EXPECT_EQ(reshapeNum, kNumTwo);
 }
-} // namespace tile_fwk
-} // namespace npu
+
+TEST_F(TestRemoveRedundantReshapePass, ReshapeNoConsumer) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(),
+        "TestReshapeNoConsumer",
+        "TestReshapeNoConsumer",
+        nullptr);
+    ASSERT_NE(currFunctionPtr, nullptr);
+    std::vector<int64_t> shape = {kNumEight, kNumExpFour};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    inCast->nodetype = NodeType::INCAST; 
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {outCast});
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+    RemoveRedundantReshape pass;
+    
+    Status ret = pass.PreCheck(*currFunctionPtr);
+    EXPECT_EQ(ret, FAILED);
+}
+}
+}
