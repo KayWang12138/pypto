@@ -126,6 +126,7 @@ if op:
 - `opcode`: 识别操作类型（VIEW, ADDS, MATMUL, INDEX_OUTCAST 等）
 - `ioperands`/`ooperands`: 追踪数据依赖关系
 - `subgraphid`: 观察操作被分配到哪个子图
+- `Source`: 定位op对应前端代码行
 
 ### 2.3 生产者-消费者关系分析
 
