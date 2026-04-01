@@ -42,7 +42,7 @@ python scripts/fetch_codecheck_violations.py \
       "line": 42,
       "description": "Line too long (149/120)",
       "rule_id": "G.FMT.02",
-      "rule_description": "行宽不超过120个字符"
+      "rule_description": "行宽不超过 120 个字符"
     },
     ...
   ]
