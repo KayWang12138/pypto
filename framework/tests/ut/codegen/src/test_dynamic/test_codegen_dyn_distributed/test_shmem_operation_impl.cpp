@@ -158,6 +158,7 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {64, 256}, "out");
     Shape shmemDataShape = {1, 64, 256};
+    std::string functionName = "TestOneShotAllReduce";
     FUNCTION("ALLREDUCE", {in}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
         DataType shmemDataType = GetType(in);
@@ -183,16 +184,18 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce_v2)
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {64, 256}, "out");
     Shape shmemDataShape = {1, 64, 256};
+    std::string functionName = "TestOneShotAllReduce_v2";
     FUNCTION("ALLREDUCE_V2", {in}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
-        Tensor shmemData;
-        Tensor shmemSignal;
         DataType shmemDataType = GetType(in);
-        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
-        OneShotAllReduce_v2(in, in, group, shmemData, shmemSignal, out);
+        auto shmemTensor = CreateShmemTensor(group, worldSize, shmemDataType, shmemDataShape);
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            OneShotAllReduce_v2(in, in, shmemTensor, out);
+        }
     }
 
-    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    std::string functionRawName = GetFunctionRawName(functionName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

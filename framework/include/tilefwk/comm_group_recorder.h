@@ -39,6 +39,9 @@ public:
 
     std::string PrintString(std::vector<std::string> &commGroups);
 
+    // Clear all registered group mappings. Intended for unit-test isolation only.
+    void Reset();
+
 private:
     CommGroupRecorder() = default;
     ~CommGroupRecorder() =default;

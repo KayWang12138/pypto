@@ -37,6 +37,16 @@ void ValidateTensor(const Tensor& tensor, const std::string& tensorDesc,
 
 void ValidateShmemTensor(const ShmemTensor& t, bool hasData, bool hasSignal);
 
+// File-scope cache used by ValidateShmemTensor. Exposed here so unit tests can
+// call ResetShmemTensorGroupCache() in SetUp/TearDown for test isolation.
+static std::unordered_map<std::string, int64_t> s_groupWorldSizeMap;
+
+void ResetShmemTensorGroupCache()
+{
+    s_groupWorldSizeMap.clear();
+    CommGroupRecorder::GetInstance().Reset();
+}
+
 // OneShotAllReduce_v9: SHMEM-only, chunked, tunable signal-to-data ratio, no Communicator class.
 // Arguments:
 //   predToken: dependency token
@@ -148,6 +158,66 @@ void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor
     }
 }
 
+// OneShotAllReduce_v10_pipe_ge: SHMEM-only, chunked, pipelined GE variant.
+//
+// This variant keeps v10's GE wait semantics but changes loop ordering from
+// two-phase (all scatter, then all receive) to per-group pipelining:
+//   - scatter group g to all ranks,
+//   - wait GE threshold for group g,
+//   - pull/assemble group g,
+// then continue with group g+1.
+//
+// Goal: improve communication/computation overlap and reduce time-to-first-
+// consumable group on the receiver.
+void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
+                                  uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ASSERT(payloadChunkCount > 0) << "payloadChunkCount must be > 0";
+    ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
+        << "payloadChunkCount must be <= row dimension (" << row << ")";
+    ASSERT(chunksPerSignal <= payloadChunkCount)
+        << "chunksPerSignal must be <= payloadChunkCount, but got "
+        << chunksPerSignal << " > " << payloadChunkCount;
+
+    OneShotCommunicatorV5 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
+
+    for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+        uint32_t begin = comm.GroupBeginChunk(groupId);
+        uint32_t gSize = comm.GroupSize(groupId);
+
+        // Scatter this group to every rank, signaling once per rank.
+        Tensor groupDep = predToken;
+        for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+            Tensor putOut = groupDep;
+            for (uint32_t local = 0; local < gSize; ++local) {
+                uint32_t chunkId = begin + local;
+                int32_t chunkRow = comm.ChunkStartRow(chunkId);
+                int32_t chunkRows = comm.ChunkRows(chunkId);
+                auto inChunk = View(in, {chunkRows, col},
+                    std::vector<SymbolicScalar>{chunkRow, 0});
+                putOut = comm.Put(putOut, inChunk, dynRankId, chunkId, AtomicType::ADD);
+            }
+            groupDep = comm.SignalGroup(putOut, dynRankId, groupId, AtomicType::ADD);
+        }
+
+        // Wait GE threshold for this group, then consume it immediately.
+        auto waitToken = comm.WaitGroup(groupDep, groupId);
+        for (uint32_t local = 0; local < gSize; ++local) {
+            uint32_t chunkId = begin + local;
+            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+        }
+    }
+}
+
 void ValidateGroup(const char* group)
 {
     ASSERT(DistributedErrorCode::INVALID_GROUP_NAME, group != nullptr) << "\"group\" cannot be nullptr";
@@ -217,13 +287,12 @@ void ValidateOpType(OpType cmp, const std::unordered_set<OpType>& allowedOpTypes
 }
 
 void ValidateShmemTensor(const ShmemTensor& t, bool hasData = false, bool hasSignal = false) {
-    static std::unordered_map<std::string, int64_t> groupWorldSizeMap;
     ValidateGroup(t.group.c_str());
-    auto groupWorldSize = groupWorldSizeMap.find(t.group);
-    if (groupWorldSize == groupWorldSizeMap.end()) {
+    auto groupWorldSize = s_groupWorldSizeMap.find(t.group);
+    if (groupWorldSize == s_groupWorldSizeMap.end()) {
         ASSERT(DistributedErrorCode::INVALID_WORLD_SIZE, t.worldSize > 0) << "Invalid world size for group " <<
             t.group << ": world size must be greather than 0" << ", but got " << t.worldSize;
-        groupWorldSizeMap.emplace(t.group, t.worldSize);
+        s_groupWorldSizeMap.emplace(t.group, t.worldSize);
     } else {
         ASSERT(DistributedErrorCode::INVALID_WORLD_SIZE, t.worldSize == groupWorldSize->second) << "WorldSize mismatch for group " << t.group
             << ": expected " << groupWorldSize->second << ", but got " << t.worldSize;

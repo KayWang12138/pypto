@@ -42,6 +42,12 @@ uint32_t CommGroupRecorder::Input(const std::string &hcclGroupName)
 // 获取所有 groupName 的列表（按 index 顺序）
 const std::vector<std::string> &CommGroupRecorder::Output() const { return index2Name_; }
 
+void CommGroupRecorder::Reset()
+{
+    name2Index_.clear();
+    index2Name_.clear();
+}
+
 std::string CommGroupRecorder::PrintString(std::vector<std::string> &commGroups)
 {
     std::ostringstream oss;

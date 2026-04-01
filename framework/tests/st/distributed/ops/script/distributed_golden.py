@@ -733,6 +733,7 @@ OPERATOR_DISPATCHERS = {
     'AllReduceV8': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot, policy-driven grouping)
     'AllReduceV9': generate_all_reduce_golden,    # SHMEM-only, chunked, tunable signal-to-data ratio
     'AllReduceV10': generate_all_reduce_golden,   # SHMEM-only, per-group GE signaling (OneShotCommunicatorV5)
+    'AllReduceV10PipeGe': generate_all_reduce_golden, # SHMEM-only, pipelined GE signaling (OneShotCommunicatorV5)
     'AllReduceIRCheck': generate_all_reduce_golden, # IR equivalence test — reuses AllReduce golden data
     'TwoShotAllReduceV2': generate_all_reduce_golden,
     'TwoShotAllReduceV3': generate_all_reduce_golden,

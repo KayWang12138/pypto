@@ -26,6 +26,11 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
+// Clear the group→worldSize validation cache and CommGroupRecorder registry.
+// Call from test fixture SetUp/TearDown to isolate tests that use different
+// world sizes with the same or different group names.
+void ResetShmemTensorGroupCache();
+
 // Shared state/helpers for OneShot communicators.
 class OneShotCommunicatorBase {
 public:
