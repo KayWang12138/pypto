@@ -13,6 +13,7 @@ from .helpers import (
     _camel_case_to_snake_case,
     _FUNC_NAME__CALC_WORKSPACE,
     _FUNC_NAME__INFER_SHAPE,
+    _FUNC_NAME__INFER_DTYPE,
     _get_renamed_func_source,
     _snake_case_to_camel_case,
     _torch_dtype_to_ir_dtype,
@@ -45,8 +46,9 @@ __all__ = (
     "KERNEL_FORMAT__IR",
     "KERNEL_FORMAT__MULTI",
     "pypto_op_kernel",
-    "pypto_op_infer_shape",
     "pypto_op_calc_workspace",
+    "pypto_op_infer_shape",
+    "pypto_op_infer_dtype",
     "pypto_op_onnx_symbolic",
     "pypto_op_torchair_fx_node_ge_converter",
 )
@@ -58,7 +60,16 @@ def _json_dumps_user_meta(meta: dict, *args, **kwargs) -> dict:
     return json.dumps(user_meta, *args, **kwargs)
 
 
-def pypto_op_kernel(*, kernel_name, tile_shapes=None, incl_src=False, incl_binary=False, incl_ir=False, **meta):
+def pypto_op_kernel(
+    *,
+    kernel_name,
+    vec_tile_shapes,
+    cube_tile_shapes=None,
+    incl_src=False,
+    incl_binary=False,
+    incl_ir=False,
+    **meta,
+):
     """Decorator to attach kernel meta and optional source/binary/IR to a function."""
     def _derive_kernel_format():
         """Return kernel format constant from incl_* flags."""
@@ -76,35 +87,23 @@ def pypto_op_kernel(*, kernel_name, tile_shapes=None, incl_src=False, incl_binar
         meta_local = dict(meta) # not hidden, user defined
         meta_local[meta_schema._META_KEY__KERNEL_NAME] = kernel_name
         meta_local[meta_schema._META_KEY__KERNEL_FORMAT] = _derive_kernel_format()
-        if tile_shapes is not None:
-            meta_local[meta_schema._META_KEY__TILE_SHAPES] = tile_shapes
+        meta_local[meta_schema._META_KEY__VEC_TILE_SHAPES] = vec_tile_shapes
+        if cube_tile_shapes is not None:
+            meta_local[meta_schema._META_KEY__CUBE_TILE_SHAPES] = cube_tile_shapes
 
         if incl_src:
             src_path, b64 = _zip_source_file_to_b64(fn)
             if src_path and b64:
                 meta_local[meta_schema._META_KEY__KERNEL_SOURCE_ZIP] = b64
         if incl_ir:
-            if tile_shapes is None:
-                raise ValueError("tile_shapes must be specified when incl_ir=True")
+            if vec_tile_shapes is None:
+                raise ValueError("vec_tile_shapes must be specified when incl_ir=True")
 
         fn.__pypto_meta__ = meta_local
         fn.__pypto_options__ = {
             _OPTIONS_KEY__INCL_BINARY : incl_binary,
             _OPTIONS_KEY__INCL_IR : incl_ir,
         }
-        return fn
-    return decorator
-
-
-def pypto_op_infer_shape(*, pypto_op_kernel):
-    """Decorator to register infer_shape source and C++ wrapper on a kernel."""
-    def decorator(fn):
-        # can pass func names as separate attributes instead of renaming if needed later
-        pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_SHAPE_SOURCE] = \
-            _get_renamed_func_source(fn, _FUNC_NAME__INFER_SHAPE)
-        pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_SHAPE_SOURCE_CPP] = \
-            codegen._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__INFER_SHAPE))
-        pypto_op_kernel.__pypto_infer_shape_fn__ = fn
         return fn
     return decorator
 
@@ -119,8 +118,28 @@ def pypto_op_calc_workspace(*, pypto_op_kernel):
         # can pass func names as separate attributes instead of renaming if needed later
         pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__CALC_WORKSPACE_SOURCE] = \
             _get_renamed_func_source(fn, _FUNC_NAME__CALC_WORKSPACE)
-        pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__CALC_WORKSPACE_SOURCE_CPP] = \
-            codegen._generate_pybind_wrapper(fn, _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE))
+        pypto_op_kernel.__pypto_calc_workspace_fn__ = fn
+        return fn
+    return decorator
+
+
+def pypto_op_infer_shape(*, pypto_op_kernel):
+    """Decorator to register infer_shape source and C++ wrapper on a kernel."""
+    def decorator(fn):
+        # can pass func names as separate attributes instead of renaming if needed later
+        pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_SHAPE_SOURCE] = \
+            _get_renamed_func_source(fn, _FUNC_NAME__INFER_SHAPE)
+        pypto_op_kernel.__pypto_infer_shape_fn__ = fn
+        return fn
+    return decorator
+
+
+def pypto_op_infer_dtype(*, pypto_op_kernel):
+    """Decorator to register infer_dtype source and C++ wrapper on a kernel."""
+    def decorator(fn):
+        pypto_op_kernel.__pypto_meta__[meta_schema._META_KEY__INFER_DTYPE_SOURCE] = \
+            _get_renamed_func_source(fn, _FUNC_NAME__INFER_DTYPE)
+        pypto_op_kernel.__pypto_infer_dtype_fn__ = fn
         return fn
     return decorator
 
@@ -133,7 +152,15 @@ def _create_pypto_op_kernel_export(
     framework_type: str,
 ):
     """Build the kernel export callable that runs the pipeline and returns op_context."""
-    def _export_ir(*, _kernel_name, _kernel_fn, _tile_shapes, _input_shapes, _dtypes):
+    def _export_ir(
+        *,
+        _kernel_name,
+        _kernel_fn,
+        _vec_tile_shapes,
+        _cube_tile_shapes,
+        _input_shapes,
+        _dtypes,
+    ):
         """Convert kernel to tile IR, compile to PTO, and return path to .pto file."""
         if not _dtypes:
             raise ValueError("dtypes cannot be empty")
@@ -141,8 +168,8 @@ def _create_pypto_op_kernel_export(
             kernel_fn=_kernel_fn,
             program_name=_kernel_name,
             func_name=_kernel_name,
-            vec_tile_shapes=_tile_shapes,
-            cube_tile_shapes=_tile_shapes,
+            vec_tile_shapes=_vec_tile_shapes,
+            cube_tile_shapes=_cube_tile_shapes,
             input_shapes=_input_shapes,
             dtype=_torch_dtype_to_ir_dtype(_dtypes[0]),
         )
@@ -176,7 +203,25 @@ def _create_pypto_op_kernel_export(
                     with open(path / f"{fname}.cpp", "w") as f:
                         f.write(content)
 
+        calc_workspace_fn = getattr(pypto_op_kernel, "__pypto_calc_workspace_fn__", None)
+        if calc_workspace_fn is None:
+            raise ValueError(
+                "calc_workspace must be defined via @pypto_op_calc_workspace "
+                "for kernels exported with C++ executor codegen"
+            )
         infer_shape_fn = getattr(pypto_op_kernel, "__pypto_infer_shape_fn__", None)
+        if infer_shape_fn is None:
+            raise ValueError(
+                "infer_shape must be defined via @pypto_op_infer_shape "
+                "for kernels exported with C++ executor codegen"
+            )
+        infer_dtype_fn = getattr(pypto_op_kernel, "__pypto_infer_dtype_fn__", None)
+        if infer_dtype_fn is None:
+            raise ValueError(
+                "infer_dtype must be defined via @pypto_op_infer_dtype "
+                "for kernels exported with C++ executor codegen"
+            )
+
         stem = _camel_case_to_snake_case(op_type)
         cpp_sources = {
             "framework": {
@@ -188,10 +233,16 @@ def _create_pypto_op_kernel_export(
             },
             "op_host": {
                 "src": {
-                    f"{stem}_executor": codegen._generate_custom_executor_cpp(op_type),
+                    f"{stem}_executor": codegen._generate_custom_executor_cpp(
+                        op_type,
+                        calc_workspace_func=calc_workspace_fn,
+                    ),
                 },
                 f"{stem}_def": codegen._generate_op_custom_def_cpp(
-                    infer_shape_fn, op_type=op_type, dtypes=dtypes
+                    infer_shape_fn,
+                    infer_dtype_fn,
+                    op_type=op_type,
+                    dtypes=dtypes,
                 ),
             },
         }
@@ -241,7 +292,8 @@ def _create_pypto_op_kernel_export(
             ir_path = _export_ir(
                 _kernel_name=kernel_name,
                 _kernel_fn=pypto_op_kernel,
-                _tile_shapes=meta.get(meta_schema._META_KEY__TILE_SHAPES),
+                _vec_tile_shapes=meta.get(meta_schema._META_KEY__VEC_TILE_SHAPES),
+                _cube_tile_shapes=meta.get(meta_schema._META_KEY__CUBE_TILE_SHAPES),
                 _input_shapes=input_shapes,
                 _dtypes=dtypes,
             )

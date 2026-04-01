@@ -4,8 +4,9 @@ import re
 __all__: tuple[str, ...] = ()
 
 # Consider moving elsewhere
-_FUNC_NAME__INFER_SHAPE = "infer_shape"
 _FUNC_NAME__CALC_WORKSPACE = "calc_workspace"
+_FUNC_NAME__INFER_SHAPE = "infer_shape"
+_FUNC_NAME__INFER_DTYPE = "infer_dtype"
 
 
 def _unwrap_decorated_func_source(source: str) -> str:
@@ -79,11 +80,15 @@ def _torch_dtype_to_ir_dtype(dtype):
     dtype_name = str(dtype)
     if not dtype_name.startswith("torch."):
         raise ValueError(f"unsupported dtype ::: {dtype}")
-    ir_dtype_name = (
-        dtype_name.replace("torch.", "")
-        .replace("float", "FP")
-        .replace("int", "INT")
-        .replace("_", "")
-        .upper()
-    )
+    base = dtype_name.replace("torch.", "")
+    # Special-case bfloat16 to map to BF16 instead of BFP16
+    if base == "bfloat16":
+        ir_dtype_name = "BF16"
+    else:
+        ir_dtype_name = (
+            base.replace("float", "FP")
+            .replace("int", "INT")
+            .replace("_", "")
+            .upper()
+        )
     return getattr(pypto_ir.DataType, ir_dtype_name)

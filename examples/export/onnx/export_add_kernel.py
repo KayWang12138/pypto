@@ -5,8 +5,9 @@ import numpy as np
 from numpy.testing import assert_allclose
 from torch.onnx import register_custom_op_symbolic
 
-import os
 import argparse
+import math
+import os
 
 import pypto
 
@@ -19,7 +20,7 @@ TILE_SHAPES = (1, 4, 1, 64)
 
 @pypto.export.pypto_op_kernel(
     kernel_name="add_kernel",
-    tile_shapes=TILE_SHAPES,
+    vec_tile_shapes=TILE_SHAPES,
     support_dynamic_aligned=True,
     version=1,
     incl_src=True,
@@ -56,14 +57,25 @@ def add_pypto_calc_workspace(
     input0_shape: tuple[int, int, int, int],
     input1_shape: tuple[int, int, int, int],
 ) -> int:
-    return 42
+    # Worst-case scratch for vec-tiled elementwise add (FP16): ~2 full buffers.
+    n = math.prod(input0_shape)
+    return n * 2 * 2
+
+
+@pypto.export.pypto_op_infer_dtype(pypto_op_kernel=add_kernel_body)
+def add_pypto_infer_dtype(
+    input0_dtype: torch.dtype,
+    input1_dtype: torch.dtype,
+) -> torch.dtype:
+    return input0_dtype
 
 
 @torch.library.custom_op("pypto::add_pypto", mutates_args=())
 def add_pypto(input0: torch.Tensor, input1: torch.Tensor, run_mode: int = 0) -> torch.Tensor:
     print("Goes through pypto npu kernel")
     out_shape = add_pypto_infer_shape(tuple(input0.shape), tuple(input1.shape))
-    output = torch.zeros(out_shape, dtype=input0.dtype, device=input0.device)
+    out_dtype = add_pypto_infer_dtype(input0.dtype, input1.dtype)
+    output = torch.zeros(out_shape, dtype=out_dtype, device=input0.device)
     create_add_kernel(run_mode)(input0, input1, output)
     pypto.runtime._device_synchronize()
     print("Returned output")
@@ -85,6 +97,7 @@ def add_pypto_onnx_symbolic(g, input0, input1, run_mode=0, pypto_op_kernel_expor
     node.setType(input0.type())
     return node
 
+
 register_custom_op_symbolic(
     "pypto::add_pypto",
     add_pypto_onnx_symbolic,
@@ -95,6 +108,7 @@ register_custom_op_symbolic(
 class CustomModel(nn.Module):
     def forward(self, input0, input1, run_mode=0):
         return torch.ops.pypto.add_pypto(input0, input1, run_mode=run_mode)
+
 
 def get_device_id():
     if "TILE_FWK_DEVICE_ID" not in os.environ:
@@ -107,6 +121,7 @@ def get_device_id():
     except ValueError:
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
+
 
 def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
     pypto.set_codegen_options(support_dynamic_aligned=True)
@@ -149,6 +164,7 @@ def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
         input_names=["x0", "x1"],
         output_names=["y"],
     )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -8,8 +8,9 @@ from torchair.ge import Tensor as torchair_tensor
 import numpy as np
 from numpy.testing import assert_allclose
 
-import os
 import argparse
+import math
+import os
 from typing import Callable
 
 import pypto
@@ -22,7 +23,7 @@ TILE_SHAPES = (1, 4, 1, 64)
 
 @pypto.export.pypto_op_kernel(
     kernel_name="add_kernel",
-    tile_shapes=TILE_SHAPES,
+    vec_tile_shapes=TILE_SHAPES,
     support_dynamic_aligned=True,
     version=1,
     incl_src=True,
@@ -78,7 +79,16 @@ def add_pypto_calc_workspace(
     input0_shape: tuple[int, int, int, int],
     input1_shape: tuple[int, int, int, int],
 ) -> int:
-    return 42
+    n = math.prod(input0_shape)
+    return n * 4 * 2
+
+
+@pypto.export.pypto_op_infer_dtype(pypto_op_kernel=add_kernel_body)
+def add_pypto_infer_dtype(
+    input0_dtype: torch.dtype,
+    input1_dtype: torch.dtype,
+) -> torch.dtype:
+    return input0_dtype
 
 
 @register_fx_node_ge_converter(torch.ops.pypto.add_pypto.default)

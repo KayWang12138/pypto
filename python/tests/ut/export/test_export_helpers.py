@@ -17,6 +17,13 @@ from pypto.export.helpers import (
     _unwrap_decorated_func_name,
     _unwrap_decorated_func_source,
 )
+from pypto.export import meta_schema
+from pypto.export.pypto_op import (
+    pypto_op_calc_workspace,
+    pypto_op_infer_dtype,
+    pypto_op_infer_shape,
+    pypto_op_kernel,
+)
 
 
 def test_unwrap_decorated_func_source_strips_leading_decorator_block():
@@ -145,3 +152,30 @@ def test_torch_dtype_to_ir_dtype_matches_expected_members():
 def test_torch_dtype_to_ir_dtype_rejects_non_torch_prefix():
     with pytest.raises(ValueError, match="unsupported dtype"):
         _torch_dtype_to_ir_dtype("float32")
+
+
+def test_pypto_op_calc_workspace_decorator_wiring():
+    @pypto_op_kernel(
+        kernel_name="ws_test_kernel",
+        vec_tile_shapes=(1, 1),
+    )
+    def kernel_body(x):
+        return x
+
+    @pypto_op_infer_shape(pypto_op_kernel=kernel_body)
+    def ws_infer_shape(x_shape: tuple[int, int]) -> tuple[int, int]:
+        return x_shape
+
+    @pypto_op_calc_workspace(pypto_op_kernel=kernel_body)
+    def ws_calc_workspace(x_shape: tuple[int, int]) -> int:
+        return 0
+
+    @pypto_op_infer_dtype(pypto_op_kernel=kernel_body)
+    def ws_infer_dtype(x_dtype):
+        return x_dtype
+
+    assert hasattr(kernel_body, "__pypto_calc_workspace_fn__")
+    assert kernel_body.__pypto_calc_workspace_fn__ is ws_calc_workspace
+
+    meta = getattr(kernel_body, "__pypto_meta__", {})
+    assert meta_schema._META_KEY__CALC_WORKSPACE_SOURCE in meta

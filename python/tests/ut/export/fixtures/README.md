@@ -1,8 +1,8 @@
 # Fixtures for export C++ codegen tests
 
-`gert_ge_minimal.hpp` provides minimal `gert::Shape`, `gert::InferShapeContext`, and `ge::graphStatus` / `GRAPH_*` symbols matching usage in generated `InferShapeGeImpl` code.
+`gert_ge_minimal.hpp` provides `ge::DataType` / `ge::DT_*`, `ge::graphStatus` / `GRAPH_*`, `gert::Shape`, `gert::StorageShape`, `gert::Tensor`, and `gert::InferShapeContext` matching usage in generated export test code.
 
-`sinkable_executor_minimal.hpp` provides minimal `SinkableExecuteOp`, `MockSinkableOpExecutionContext`, `SinkableOpIo`, and `REG_AUTO_MAPPING_OP` for compiling generated sinkable executors (class name comes from ``op_type`` / ``_custom_executor_class_cpp_for_test(op_type=...)`` in `pypto.export.cpp.codegen`).
+`sinkable_executor_minimal.hpp` includes `gert_ge_minimal.hpp` and provides minimal `SinkableExecuteOp`, `MockSinkableOpExecutionContext`, `SinkableOpIo`, and `REG_AUTO_MAPPING_OP` for compiling executor fragments from `_generate_custom_executor_cpp(..., for_compile_test=True)` together with standard / pybind headers only. `gert::Tensor`, `gert::StorageShape`, and `gert::Shape` live in `gert_ge_minimal.hpp` (`Tensor` matches sinkable codegen: `GetAddr()`, `GetDataType()`, `GetShape()`).
 
 ## Optional compile tests (`@pytest.mark.cpp_codegen`)
 
@@ -13,7 +13,7 @@
 - **pybind11** headers (`pip install pybind11`, or the build env that provides `pybind11.get_include()`).
 - **Python development headers and lib** so the test TU can embed the interpreter (`python3-config --cflags --ldflags --embed` on Python 3.8+; on some distros install `python3-dev`).
 
-**Custom-executor TU** only needs a C++17 compiler (no pybind/Python link).
+**Custom-executor TU** uses embedded Python for `calc_workspace` pybind glue: same pybind11 + Python dev requirements as infer-shape, plus `embed_python=True` in the compile helper.
 
 For all compile tests:
 

@@ -1,11 +1,14 @@
 import inspect
 import re
 import typing
+import ast
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, get_args, get_origin, get_type_hints
 
 from ..helpers import (
+    _FUNC_NAME__CALC_WORKSPACE,
     _FUNC_NAME__INFER_SHAPE,
+    _FUNC_NAME__INFER_DTYPE,
     _snake_case_to_camel_case,
     _torch_dtype_to_ge_dtype,
     _unwrap_decorated_func_name,
@@ -21,7 +24,7 @@ _OP_TYPE_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _TUPLE_ORIGINS = (tuple, typing.Tuple)
 
 # Naming for codegen string constants: {optional _}{group}__{VALUE}, e.g. _INFER_SHAPE_MODE__FIXED.
-# Tuple-shape metadata ``kind`` and parse result ``input_modes`` / ``output_mode`` values.
+# Tuple-shape metadata ``kind`` and parse result ``input_modes`` / ``output_modes`` values.
 _INFER_SHAPE_MODE__FIXED = "fixed"
 _INFER_SHAPE_MODE__VARIADIC = "variadic"
 
@@ -58,10 +61,36 @@ class _InferShapeCodegenMeta:
     input_modes: list[str]
     input_dims: list[Optional[int]]
     input_elem_cpp: list[Optional[str]]
-    output_mode: str
-    output_dims: Optional[int]
-    output_elem_cpp: Optional[str]
+    output_modes: list[str]
+    output_dims: list[Optional[int]]
+    output_elem_cpp: list[Optional[str]]
     py_func_name: str
+    cpp_bind_name: str
+
+
+@dataclass(frozen=True)
+class _InferDTypeRule:
+    """One output dtype rule parsed from infer_dtype (copy input or constant)."""
+
+    copy_input_index: Optional[int]
+    const_ge_dtype: Optional[str]
+
+
+@dataclass(frozen=True)
+class _InferDTypeCodegenMeta:
+    """Result of parsing infer_dtype for C++ glue across all outputs."""
+
+    rules: list[_InferDTypeRule]
+
+
+@dataclass(frozen=True)
+class _CalcWorkspaceCodegenMeta:
+    """Result of parsing calc_workspace for executor C++ glue (shape-only v1)."""
+
+    sig: inspect.Signature
+    input_modes: list[str]
+    input_dims: list[Optional[int]]
+    input_elem_cpp: list[Optional[str]]
     cpp_bind_name: str
 
 
@@ -111,6 +140,26 @@ def _infer_shape_tuple_meta(ann: Any, ctx: str) -> _InferShapeTupleMeta:
         elem_cpp = _to_cpp_type(targs[0])
         return _InferShapeTupleMeta(kind=_INFER_SHAPE_MODE__VARIADIC, elem_cpp=elem_cpp)
     return _InferShapeTupleMeta(kind=_INFER_SHAPE_MODE__FIXED, dims=len(targs))
+
+
+def _parse_return_shape_outputs(ret_ann: Any, ctx: str) -> list[_InferShapeTupleMeta]:
+    """Split *infer_shape* return annotation into one metadata entry per logical output.
+
+    - ``tuple[int, ...]`` / ``Tuple[T, ...]`` → single variadic output.
+    - ``tuple[tuple[...], tuple[...], ...]`` where every outer arg is itself a tuple
+      annotation → fixed output count N, one inner shape per output.
+    - Otherwise the whole annotation is a single output shape (fixed rank or variadic).
+    """
+    if not _is_tuple_annotation(ret_ann):
+        raise TypeError(f"{ctx}: expected tuple[..., ...] return annotation, got {ret_ann!r}")
+    targs = get_args(ret_ann)
+    if not targs:
+        raise TypeError(f"{ctx}: tuple annotation must have at least one element")
+    if len(targs) == 2 and targs[1] is Ellipsis:
+        return [_infer_shape_tuple_meta(ret_ann, ctx)]
+    if all(_is_tuple_annotation(a) for a in targs):
+        return [_infer_shape_tuple_meta(a, f"{ctx} output[{i}]") for i, a in enumerate(targs)]
+    return [_infer_shape_tuple_meta(ret_ann, ctx)]
 
 
 def _to_cpp_type(py_ann: Any) -> str:
@@ -221,7 +270,7 @@ def _parse_infer_shape_for_codegen(func: Callable) -> _InferShapeCodegenMeta:
     if sig.return_annotation is inspect.Signature.empty:
         raise TypeError("infer_shape must have a return annotation (tuple[..., ...])")
     ret_ann = hints.get("return", sig.return_annotation)
-    out_meta = _infer_shape_tuple_meta(ret_ann, "infer_shape return")
+    out_metas = _parse_return_shape_outputs(ret_ann, "infer_shape return")
     params = list(sig.parameters.values())
     if not params:
         raise TypeError("infer_shape must accept at least one shape argument")
@@ -238,21 +287,25 @@ def _parse_infer_shape_for_codegen(func: Callable) -> _InferShapeCodegenMeta:
         else:
             input_dims.append(None)
             input_elem_cpp.append(im.elem_cpp)
-    if out_meta.kind == _INFER_SHAPE_MODE__FIXED:
-        output_mode = _INFER_SHAPE_MODE__FIXED
-        output_dims: Optional[int] = out_meta.dims
-        output_elem_cpp: Optional[str] = None
-    else:
-        output_mode = _INFER_SHAPE_MODE__VARIADIC
-        output_dims = None
-        output_elem_cpp = out_meta.elem_cpp
+    output_modes: list[str] = []
+    output_dims: list[Optional[int]] = []
+    output_elem_cpp: list[Optional[str]] = []
+    for om in out_metas:
+        if om.kind == _INFER_SHAPE_MODE__FIXED:
+            output_modes.append(_INFER_SHAPE_MODE__FIXED)
+            output_dims.append(om.dims)
+            output_elem_cpp.append(None)
+        else:
+            output_modes.append(_INFER_SHAPE_MODE__VARIADIC)
+            output_dims.append(None)
+            output_elem_cpp.append(om.elem_cpp)
     return _InferShapeCodegenMeta(
         sig=sig,
         param_names=[p.name for p in params],
         input_modes=input_modes,
         input_dims=input_dims,
         input_elem_cpp=input_elem_cpp,
-        output_mode=output_mode,
+        output_modes=output_modes,
         output_dims=output_dims,
         output_elem_cpp=output_elem_cpp,
         py_func_name=_unwrap_decorated_func_name(func.__name__),
@@ -267,6 +320,48 @@ def _cpp_signature_needs_vector_include(cpp_return_type: str, parameter_cpp_type
     return any("std::vector" in t for t in parameter_cpp_types)
 
 
+def _parse_calc_workspace_for_codegen(func: Callable) -> _CalcWorkspaceCodegenMeta:
+    """Parse calc_workspace function for executor C++ glue (shape-only v1).
+
+    Contract: parameter annotations mirror infer_shape (fixed or variadic tuple[int, ...]),
+    return annotation is int (workspace size in bytes).
+    """
+    sig = inspect.signature(func)
+    try:
+        hints = get_type_hints(func, include_extras=True)
+    except Exception as exc:
+        raise TypeError(f"calc_workspace requires type annotations resolvable by get_type_hints: {exc}") from exc
+    if sig.return_annotation is inspect.Signature.empty:
+        raise TypeError("calc_workspace must have a return annotation (int)")
+    ret_ann = hints.get("return", sig.return_annotation)
+    if ret_ann is not int:
+        raise TypeError(f"calc_workspace return annotation must be int, got {ret_ann!r}")
+    params = list(sig.parameters.values())
+    if not params:
+        raise TypeError("calc_workspace must accept at least one shape argument")
+    input_modes: list[str] = []
+    input_dims: list[Optional[int]] = []
+    input_elem_cpp: list[Optional[str]] = []
+    for p in params:
+        ann = hints.get(p.name, p.annotation)
+        im = _infer_shape_tuple_meta(ann, f"calc_workspace parameter {p.name!r}")
+        input_modes.append(im.kind)
+        if im.kind == _INFER_SHAPE_MODE__FIXED:
+            input_dims.append(im.dims)
+            input_elem_cpp.append(None)
+        else:
+            input_dims.append(None)
+            input_elem_cpp.append(_to_cpp_type(get_args(ann)[0]))
+    cpp_bind_name = _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE)
+    return _CalcWorkspaceCodegenMeta(
+        sig=sig,
+        input_modes=input_modes,
+        input_dims=input_dims,
+        input_elem_cpp=input_elem_cpp,
+        cpp_bind_name=cpp_bind_name,
+    )
+
+
 def _generate_infer_shape_pybind_embedded(func: Callable, *, embed_in_host: bool = False) -> str:
     """C++ pybind callable for infer_shape (C++ tuple types from annotations via _to_cpp_type).
 
@@ -277,6 +372,20 @@ def _generate_infer_shape_pybind_embedded(func: Callable, *, embed_in_host: bool
         func,
         _snake_case_to_camel_case(_FUNC_NAME__INFER_SHAPE),
         include_preamble=not embed_in_host,
+    )
+
+
+def _generate_calc_workspace_pybind_embedded(func: Callable) -> str:
+    """C++ pybind callable for calc_workspace (embedded in an executor TU).
+
+    The wrapper is placed in an anonymous namespace and assumes that the
+    including translation unit already provides pybind11 includes and
+    ``namespace py = pybind11``.
+    """
+    return _generate_pybind_wrapper(
+        func,
+        _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE),
+        include_preamble=False,
     )
 
 
@@ -308,7 +417,7 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
     """Return C++ statements for InferShapeGeImpl's body (no surrounding braces).
 
     Reads each input from ``context->GetInputShape(i)``, calls the embedded pybind wrapper
-    ``meta.cpp_bind_name``, and assigns ``*context->GetOutputShape(0)``.
+    ``meta.cpp_bind_name``, and fills ``context->GetOutputShape(k)`` for each output.
     ``meta`` must come from ``_parse_infer_shape_for_codegen``.
     """
     blocks: list[str] = []
@@ -319,7 +428,7 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
             blocks.append(_infer_shape_input_block_variadic(i, meta.input_elem_cpp[i]))
     inputs_cpp = "\n".join(blocks)
     n_in = len(meta.input_modes)
-    call_parts = []
+    call_parts: list[str] = []
     for i in range(n_in):
         if meta.input_modes[i] == _INFER_SHAPE_MODE__FIXED:
             call_parts.append(f"in{i}_tuple")
@@ -327,9 +436,30 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
             call_parts.append(f"in{i}_vec")
     call_args = ", ".join(call_parts)
     bind = meta.cpp_bind_name
+    n_out = len(meta.output_modes)
 
-    if meta.output_mode == _INFER_SHAPE_MODE__FIXED:
-        out_d = meta.output_dims
+    def _fixed_assign_from_inner(inner_expr: str, dim_count: int, out_idx: int) -> str:
+        out_idx_list = ",\n\t\t".join(
+            f"static_cast<int64_t>(std::get<{j}>({inner_expr}))" for j in range(dim_count)
+        )
+        return f"""    gert::Shape* out_shape_{out_idx} = context->GetOutputShape({out_idx});
+    *out_shape_{out_idx} = gert::Shape{{
+        {out_idx_list}
+    }};"""
+
+    def _variadic_assign_from_vec(vec_expr: str, elem_cpp: str, out_idx: int) -> str:
+        if elem_cpp == "int64_t":
+            assign_inner = f"(*out_shape_{out_idx})[j] = {vec_expr}[j];"
+        else:
+            assign_inner = f"(*out_shape_{out_idx})[j] = static_cast<int64_t>({vec_expr}[j]);"
+        return f"""    gert::Shape* out_shape_{out_idx} = context->GetOutputShape({out_idx});
+    out_shape_{out_idx}->SetDimNum({vec_expr}.size());
+    for (size_t j = 0; j < {vec_expr}.size(); ++j) {{
+        {assign_inner}
+    }}"""
+
+    if n_out == 1 and meta.output_modes[0] == _INFER_SHAPE_MODE__FIXED:
+        out_d = meta.output_dims[0]
         assert out_d is not None
         out_idx = ",\n\t\t".join(
             f"static_cast<int64_t>(std::get<{j}>(out_tuple))" for j in range(out_d)
@@ -342,24 +472,43 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
     }};
     return GRAPH_SUCCESS;"""
 
-    out_elem = meta.output_elem_cpp
-    assert out_elem is not None
-    if out_elem == "int64_t":
-        assign = f"""    auto out_vec = {bind}({call_args});
+    if n_out == 1 and meta.output_modes[0] == _INFER_SHAPE_MODE__VARIADIC:
+        out_elem = meta.output_elem_cpp[0]
+        assert out_elem is not None
+        if out_elem == "int64_t":
+            assign = f"""    auto out_vec = {bind}({call_args});
     gert::Shape* out_shape = context->GetOutputShape(0);
     out_shape->SetDimNum(out_vec.size());
     for (size_t j = 0; j < out_vec.size(); ++j) {{
         (*out_shape)[j] = out_vec[j];
     }}"""
-    else:
-        assign = f"""    auto out_vec = {bind}({call_args});
+        else:
+            assign = f"""    auto out_vec = {bind}({call_args});
     gert::Shape* out_shape = context->GetOutputShape(0);
     out_shape->SetDimNum(out_vec.size());
     for (size_t j = 0; j < out_vec.size(); ++j) {{
         (*out_shape)[j] = static_cast<int64_t>(out_vec[j]);
     }}"""
-    return f"""{inputs_cpp}
+        return f"""{inputs_cpp}
 {assign}
+    return GRAPH_SUCCESS;"""
+
+    # Multiple outputs: pybind returns nested std::tuple; unpack per output index.
+    out_assign_lines: list[str] = []
+    for k in range(n_out):
+        inner = f"std::get<{k}>(out_tuple)"
+        if meta.output_modes[k] == _INFER_SHAPE_MODE__FIXED:
+            od = meta.output_dims[k]
+            assert od is not None
+            out_assign_lines.append(_fixed_assign_from_inner(inner, od, k))
+        else:
+            elem = meta.output_elem_cpp[k]
+            assert elem is not None
+            out_assign_lines.append(_variadic_assign_from_vec(inner, elem, k))
+    assigns = "\n".join(out_assign_lines)
+    return f"""{inputs_cpp}
+    auto out_tuple = {bind}({call_args});
+{assigns}
     return GRAPH_SUCCESS;"""
 
 
@@ -372,7 +521,7 @@ def _generate_infer_shape_host_tu_for_test(func: Callable) -> str:
     meta = _parse_infer_shape_for_codegen(func)
     pybind_block = _generate_infer_shape_pybind_embedded(func, embed_in_host=True) + "\n\n"
     infer_shape_ge_body = _infer_shape_ge_impl_body(meta)
-    any_variadic = meta.output_mode == _INFER_SHAPE_MODE__VARIADIC or any(
+    any_variadic = any(m == _INFER_SHAPE_MODE__VARIADIC for m in meta.output_modes) or any(
         m == _INFER_SHAPE_MODE__VARIADIC for m in meta.input_modes
     )
     vec_inc = "#include <vector>\n" if any_variadic else ""
@@ -395,6 +544,111 @@ static ge::graphStatus InferShapeGeImpl(gert::InferShapeContext* context) {{
 
 }}
 """
+
+
+def _generate_workspace_block_for_calc_workspace(meta: _CalcWorkspaceCodegenMeta) -> str:
+    """Return C++ statements that compute workspaceSize via calc_workspace (no surrounding braces).
+
+    For v1, parameters mirror infer_shape metadata (fixed or variadic tuple). We only support
+    constructing std::tuple<int64_t, ...> or std::vector<int64_t> from logical shapes.
+    """
+    blocks: list[str] = []
+    for i, mode in enumerate(meta.input_modes):
+        if mode == _INFER_SHAPE_MODE__FIXED:
+            dim_count = meta.input_dims[i]
+            assert dim_count is not None
+            idx = ", ".join(f"in{i}_shape[{j}]" for j in range(dim_count))
+            blocks.append(
+                f"""        const auto* in{i}_tensor = ctx->GetInputTensor({i});
+        const auto& in{i}_storage = in{i}_tensor->GetShape();
+        const gert::Shape& in{i}_shape = in{i}_storage.GetShape();
+        if (in{i}_shape.GetDimNum() != static_cast<size_t>({dim_count})) {{
+            return GRAPH_FAILED;
+        }}
+        auto in{i}_tuple = std::make_tuple({idx});"""
+            )
+        else:
+            elem_cpp = meta.input_elem_cpp[i]
+            assert elem_cpp is not None
+            if elem_cpp == "int64_t":
+                push_expr = f"in{i}_shape[j]"
+            else:
+                push_expr = f"static_cast<{elem_cpp}>(in{i}_shape[j])"
+            blocks.append(
+                f"""        const auto* in{i}_tensor = ctx->GetInputTensor({i});
+        const auto& in{i}_storage = in{i}_tensor->GetShape();
+        const gert::Shape& in{i}_shape = in{i}_storage.GetShape();
+        std::vector<{elem_cpp}> in{i}_vec;
+        in{i}_vec.reserve(in{i}_shape.GetDimNum());
+        for (size_t j = 0; j < in{i}_shape.GetDimNum(); ++j) {{
+            in{i}_vec.push_back({push_expr});
+        }}"""
+            )
+    call_args: list[str] = []
+    for i, mode in enumerate(meta.input_modes):
+        if mode == _INFER_SHAPE_MODE__FIXED:
+            call_args.append(f"in{i}_tuple")
+        else:
+            call_args.append(f"in{i}_vec")
+    call_args_str = ", ".join(call_args)
+    per_input = "\n".join(blocks)
+    return f"""{per_input}
+        auto ws = {meta.cpp_bind_name}({call_args_str});
+        if (ws < 0) {{
+            return GRAPH_FAILED;
+        }}
+        size_t workspaceSize = static_cast<size_t>(ws);"""
+
+
+def _infer_dtype_rule_from_ast(
+    ret_node: ast.expr,
+    param_names: list[str],
+) -> _InferDTypeRule:
+    if isinstance(ret_node, ast.Name) and ret_node.id in param_names:
+        idx = param_names.index(ret_node.id)
+        return _InferDTypeRule(copy_input_index=idx, const_ge_dtype=None)
+    if isinstance(ret_node, ast.Attribute) and isinstance(ret_node.value, ast.Name) and ret_node.value.id == "torch":
+        import torch
+
+        if not hasattr(torch, ret_node.attr):
+            raise TypeError(
+                f"{_FUNC_NAME__INFER_DTYPE} constant rule uses unknown torch dtype: torch.{ret_node.attr}"
+            )
+        torch_dtype = getattr(torch, ret_node.attr)
+        ge_dtype = _torch_dtype_to_ge_dtype(torch_dtype)
+        return _InferDTypeRule(copy_input_index=None, const_ge_dtype=ge_dtype)
+    raise TypeError(
+        f"{_FUNC_NAME__INFER_DTYPE} each output rule must be 'return <input_param>' or 'return torch.<dtype>'"
+    )
+
+
+def _parse_infer_dtype_for_codegen(func: Callable, *, output_count: int) -> _InferDTypeCodegenMeta:
+    """Parse infer_dtype and return metadata containing one rule per output.
+
+    - Single output: ``return <param>`` or ``return torch.<dtype>`` (or a one-element ``return (x,)``).
+    - Multiple outputs: ``return (rule0, ..., rule_{N-1})`` with exactly *output_count* elements.
+    """
+    src = _unwrap_decorated_func_source(inspect.getsource(func))
+    tree = ast.parse(src)
+    func_def = next((n for n in tree.body if isinstance(n, ast.FunctionDef)), None)
+    if func_def is None:
+        raise TypeError(f"{_FUNC_NAME__INFER_DTYPE} must be a function")
+    param_names = [arg.arg for arg in func_def.args.args]
+    if not func_def.body or not isinstance(func_def.body[0], ast.Return):
+        raise TypeError(f"{_FUNC_NAME__INFER_DTYPE} must consist of a single return statement for v1")
+    ret = func_def.body[0].value
+
+    if output_count == 1:
+        if isinstance(ret, ast.Tuple) and len(ret.elts) == 1:
+            return _InferDTypeCodegenMeta(rules=[_infer_dtype_rule_from_ast(ret.elts[0], param_names)])
+        return _InferDTypeCodegenMeta(rules=[_infer_dtype_rule_from_ast(ret, param_names)])
+
+    if not isinstance(ret, ast.Tuple) or len(ret.elts) != output_count:
+        raise TypeError(
+            f"{_FUNC_NAME__INFER_DTYPE} with {output_count} outputs must return a tuple of "
+            f"{output_count} elements (one rule per output)"
+        )
+    return _InferDTypeCodegenMeta(rules=[_infer_dtype_rule_from_ast(el, param_names) for el in ret.elts])
 
 
 def _generate_op_custom_plugin_cpp(
@@ -424,17 +678,24 @@ REGISTER_CUSTOM_OP("{op_type}")
 
 
 def _generate_op_custom_def_cpp(
-    infer_shape_func: Optional[Callable] = None,
+    infer_shape_func: Callable,
+    infer_dtype_func: Callable,
     *,
     op_type: str,
     dtypes: list[Any],
 ) -> str:
-    """GE OpDef TU under ``op_host``: OpDef stub plus optional InferShape via gert::Shape and embedded pybind."""
+    """GE OpDef TU under ``op_host``: OpDef plus InferShape / InferDataType with embedded pybind."""
     _validate_op_type_identifier(op_type)
     if not dtypes:
         raise ValueError("dtypes must be a non-empty list")
 
-    input_defs = []
+    infer_shape_meta = _parse_infer_shape_for_codegen(infer_shape_func)
+    n_out = len(infer_shape_meta.output_modes)
+    infer_dtype_meta = _parse_infer_dtype_for_codegen(infer_dtype_func, output_count=n_out)
+    if len(infer_dtype_meta.rules) != n_out:
+        raise ValueError("internal: infer_dtype rule count must match infer_shape output count")
+
+    input_defs: list[str] = []
     for i, dtype in enumerate(dtypes):
         ge_dtype = _torch_dtype_to_ge_dtype(dtype)
         input_defs.append(
@@ -443,31 +704,39 @@ def _generate_op_custom_def_cpp(
             .DataType({{{ge_dtype}}})
             .Format({{ge::FORMAT_ND}});"""
         )
-    output_dtype = _torch_dtype_to_ge_dtype(dtypes[0])
-    output_def = f"""        this->Output("out0")
-            .ParamType(REQUIRED)
-            .DataType({{{output_dtype}}})
-            .Format({{ge::FORMAT_ND}});"""
-    io_defs = "\n".join(input_defs + [output_def])
 
-    if infer_shape_func is None:
-        infer_shape_ge_body = """    const gert::Shape* x1_shape = context->GetInputShape(0);
-    gert::Shape* y_shape = context->GetOutputShape(0);
-    *y_shape = *x1_shape;
-    return GRAPH_SUCCESS;"""
-        pybind_block = ""
-        vec_inc = ""
-    else:
-        meta = _parse_infer_shape_for_codegen(infer_shape_func)
-        pybind_block = _generate_infer_shape_pybind_embedded(
-            infer_shape_func,
-            embed_in_host=True,
-        ) + "\n\n"
-        infer_shape_ge_body = _infer_shape_ge_impl_body(meta)
-        any_variadic = meta.output_mode == _INFER_SHAPE_MODE__VARIADIC or any(
-            m == _INFER_SHAPE_MODE__VARIADIC for m in meta.input_modes
+    output_defs: list[str] = []
+    infer_dtype_lines: list[str] = []
+    for k, infer_dtype_rule in enumerate(infer_dtype_meta.rules):
+        if infer_dtype_rule.const_ge_dtype is not None:
+            ge_dt = infer_dtype_rule.const_ge_dtype
+            infer_dtype_lines.append(f"    context->SetOutputDataType({k}, {ge_dt});")
+        else:
+            assert infer_dtype_rule.copy_input_index is not None
+            if infer_dtype_rule.copy_input_index >= len(dtypes):
+                raise ValueError("infer_dtype requested input index out of range for dtypes")
+            ge_dt = _torch_dtype_to_ge_dtype(dtypes[infer_dtype_rule.copy_input_index])
+            infer_dtype_lines.append(
+                f"    context->SetOutputDataType({k}, context->GetInputDataType({infer_dtype_rule.copy_input_index}));"
+            )
+        output_defs.append(
+            f"""        this->Output("out{k}")
+            .ParamType(REQUIRED)
+            .DataType({{{ge_dt}}})
+            .Format({{ge::FORMAT_ND}});"""
         )
-        vec_inc = "#include <vector>\n" if any_variadic else ""
+    infer_dtype_ge_body = "\n".join(infer_dtype_lines) + "\n    return GRAPH_SUCCESS;"
+    io_defs = "\n".join(input_defs + output_defs)
+
+    pybind_block = _generate_infer_shape_pybind_embedded(
+        infer_shape_func,
+        embed_in_host=True,
+    ) + "\n\n"
+    infer_shape_ge_body = _infer_shape_ge_impl_body(infer_shape_meta)
+    any_variadic = any(m == _INFER_SHAPE_MODE__VARIADIC for m in infer_shape_meta.output_modes) or any(
+        m == _INFER_SHAPE_MODE__VARIADIC for m in infer_shape_meta.input_modes
+    )
+    vec_inc = "#include <vector>\n" if any_variadic else ""
 
     return f"""// Auto-generated
 
@@ -488,8 +757,7 @@ static ge::graphStatus InferShapeGeImpl(gert::InferShapeContext* context) {{
 }}
 
 static ge::graphStatus InferDataType(gert::InferDataTypeContext* context) {{
-    context->SetOutputDataType(0, context->GetInputDataType(0));
-    return GRAPH_SUCCESS;
+{infer_dtype_ge_body}
 }}
 
 namespace ops {{
@@ -509,7 +777,7 @@ OP_ADD({op_type});
 """
 
 
-def _custom_executor_class_cpp(op_type: str) -> str:
+def _custom_executor_class_cpp(op_type: str, workspace_block: str) -> str:
     """Return C++ for the sinkable executor class named *op_type* plus ``REG_AUTO_MAPPING_OP``."""
     _validate_op_type_identifier(op_type)
     return f"""using namespace ge;
@@ -523,23 +791,26 @@ public:
         size_t inputNum = ctx->GetComputeNodeInputNum();
         size_t outputNum = ctx->GetComputeNodeOutputNum();
 
-        size_t workspaceSize = 1024; // TODO: replace with call to pybind wrapper calc_workspace.cpp::CalcWorkspace()
-        // args layout: [output0][input0]...[inputN-1][workspace]
-        size_t argsSize = sizeof(int64_t) * (1 + inputNum + 1);
+{workspace_block}
+        // args layout: [out0]...[out_{{K-1}}][in0]...[in_{{M-1}}][workspace]
+        size_t argsSize = sizeof(int64_t) * (outputNum + inputNum + 1);
         void* args = malloc(argsSize);
         int64_t* p = reinterpret_cast<int64_t*>(args);
-        p[0] = reinterpret_cast<int64_t>(ctx->GetOutputTensor(0)->GetAddr());
+        for (size_t k = 0; k < outputNum; ++k) {{
+            p[k] = reinterpret_cast<int64_t>(ctx->GetOutputTensor(k)->GetAddr());
+        }}
         for (size_t i = 0; i < inputNum; ++i) {{
-            p[1 + i] = reinterpret_cast<int64_t>(ctx->GetInputTensor(i)->GetAddr());
+            p[outputNum + i] = reinterpret_cast<int64_t>(ctx->GetInputTensor(i)->GetAddr());
         }}
         void *workspaceAddr = ctx->MallocWorkspace(workspaceSize);
-        p[1 + inputNum] = reinterpret_cast<int64_t>(workspaceAddr);
+        p[outputNum + inputNum] = reinterpret_cast<int64_t>(workspaceAddr);
 
         ctx->HostArgsToDevice(args, argsSize);
 
         std::vector<size_t> inputOffsets(inputNum);
+        const size_t outBytes = sizeof(int64_t) * outputNum;
         for (size_t i = 0; i < inputNum; ++i) {{
-            inputOffsets[i] = (i == 0) ? 8 : (inputOffsets[i - 1] + 8);
+            inputOffsets[i] = outBytes + i * sizeof(int64_t);
         }}
         (void)ctx->SpecifyToOffset(SinkableOpIo::kInput, inputOffsets.data(), inputNum);
         (void)ctx->SpecifyToOffset(SinkableOpIo::kOutput, 0, outputNum);
@@ -567,18 +838,51 @@ REG_AUTO_MAPPING_OP({op_type});
 """
 
 
-def _custom_executor_class_cpp_for_test(op_type: str) -> str:
-    """Return executor class + REG macro for compile tests (no GE/ACL includes)."""
-    return _custom_executor_class_cpp(op_type)
+def _generate_custom_executor_cpp(
+    op_type: str,
+    *,
+    calc_workspace_func: Callable,
+    for_compile_test: bool = False,
+) -> str:
+    """Assemble the full executor TU, embedding the calc_workspace pybind wrapper and executor class.
 
+    When *for_compile_test* is True, omit GE/runtime headers (``graph/custom_op.h``, ACL, etc.);
+    tests are expected to include fixture mocks and standard / pybind headers only.
+    """
+    meta = _parse_calc_workspace_for_codegen(calc_workspace_func)
+    workspace_block = _generate_workspace_block_for_calc_workspace(meta)
+    pybind_block = _generate_calc_workspace_pybind_embedded(calc_workspace_func)
+    if for_compile_test:
+        preamble = """// Auto-generated
 
-def _generate_custom_executor_cpp(op_type: str) -> str:
-    return f"""// Auto-generated
+#include <vector>
+#include <utility>
+#include <cstdint>
+#include <pybind11/pybind11.h>
+#include <pybind11/eval.h>
+#include <pybind11/stl.h>
+
+namespace py = pybind11;
+using namespace py::literals;
+
+"""
+    else:
+        preamble = """// Auto-generated
 
 #include "graph/custom_op.h"
 #include "exe_graph/runtime/sinkable_op_execution_context.h"
 #include <vector>
 #include <utility>
 #include "acl/acl_rt.h"
+#include <cstdint>
+#include <pybind11/pybind11.h>
+#include <pybind11/eval.h>
+#include <pybind11/stl.h>
 
-{_custom_executor_class_cpp(op_type)}"""
+namespace py = pybind11;
+using namespace py::literals;
+
+"""
+    return f"""{preamble}{pybind_block}
+
+{_custom_executor_class_cpp(op_type, workspace_block)}"""

@@ -125,11 +125,11 @@ _META_KEY__KERNEL_SOURCE_ZIP = "kernel_source_zip"
 _META_KEY__KERNEL_BINARY_ZIP = "kernel_binary_zip"
 _META_KEY__KERNEL_IR_ZIP = "kernel_ir_zip"
 _META_KEY__CPP_SOURCES_ZIP = "cpp_sources_zip"
-_META_KEY__TILE_SHAPES = "tile_shapes"
-_META_KEY__INFER_SHAPE_SOURCE = "infer_shape_source"
-_META_KEY__INFER_SHAPE_SOURCE_CPP = "infer_shape_source_cpp"
+_META_KEY__VEC_TILE_SHAPES = "vec_tile_shapes"
+_META_KEY__CUBE_TILE_SHAPES = "cube_tile_shapes"
 _META_KEY__CALC_WORKSPACE_SOURCE = "calc_workspace_source"
-_META_KEY__CALC_WORKSPACE_SOURCE_CPP = "calc_workspace_source_cpp"
+_META_KEY__INFER_SHAPE_SOURCE = "infer_shape_source"
+_META_KEY__INFER_DTYPE_SOURCE = "infer_dtype_source"
 _META_KEY__META_JSON = "meta_json"
 
 
@@ -143,9 +143,9 @@ _register_meta_key(_META_KEY__KERNEL_SOURCE_ZIP, hidden=False, user_defined=Fals
 _register_meta_key(_META_KEY__KERNEL_BINARY_ZIP, hidden=False, user_defined=False, extractable=True, extracted_type=_ExtractedType.ZIP)
 _register_meta_key(_META_KEY__KERNEL_IR_ZIP, hidden=False, user_defined=False, extractable=True, extracted_type=_ExtractedType.ZIP)
 _register_meta_key(_META_KEY__CPP_SOURCES_ZIP, hidden=False, user_defined=False, extractable=True, extracted_type=_ExtractedType.ZIP)
-_register_meta_key(_META_KEY__TILE_SHAPES, hidden=False, user_defined=True, extractable=False)
-_register_meta_key(_META_KEY__INFER_SHAPE_SOURCE, hidden=False, user_defined=False, extractable=True, extracted_type=_ExtractedType.STRING)
-_register_meta_key(_META_KEY__INFER_SHAPE_SOURCE_CPP, hidden=True, user_defined=False, extractable=False)
+_register_meta_key(_META_KEY__VEC_TILE_SHAPES, hidden=False, user_defined=True, extractable=False)
+_register_meta_key(_META_KEY__CUBE_TILE_SHAPES, hidden=False, user_defined=True, extractable=False)
 _register_meta_key(_META_KEY__CALC_WORKSPACE_SOURCE, hidden=False, user_defined=False, extractable=True, extracted_type=_ExtractedType.STRING)
-_register_meta_key(_META_KEY__CALC_WORKSPACE_SOURCE_CPP, hidden=True, user_defined=False, extractable=False)
+_register_meta_key(_META_KEY__INFER_SHAPE_SOURCE, hidden=False, user_defined=False, extractable=True, extracted_type=_ExtractedType.STRING)
+_register_meta_key(_META_KEY__INFER_DTYPE_SOURCE, hidden=False, user_defined=False, extractable=True, extracted_type=_ExtractedType.STRING)
 _register_meta_key(_META_KEY__META_JSON, hidden=False, user_defined=True, extractable=True, extracted_type=_ExtractedType.STRING, public_extractor=False)
