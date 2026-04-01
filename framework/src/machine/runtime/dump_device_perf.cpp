@@ -123,6 +123,30 @@ inline void DevTaskPerfFormat(uint32_t tid, uint32_t type, json &devTaskJson, co
     }
 }
 
+inline void SchePerfFormat(uint32_t tid, json &devTaskJson, const MetricPerf *aicpuPer, const uint32_t &turnIdx) {
+    for (uint32_t i = 0; i < aicpuPer->aicpuSchePerfCnt[tid]; i++) {
+        const auto& schePerf = aicpuPer->aicpuSchePerf[tid][i];
+        if (schePerf.resolveDepEnd > schePerf.resolveDepStart) {
+            json resolveDepTask;
+            resolveDepTask["seqNo"] = turnIdx;
+            resolveDepTask["taskId"] = schePerf.devTaskId;
+            resolveDepTask["subGraphId"] = -1;
+            resolveDepTask["execStart"] = schePerf.resolveDepStart;
+            resolveDepTask["execEnd"] = schePerf.resolveDepEnd;
+            devTaskJson.push_back(resolveDepTask);
+        }
+        if (schePerf.dispatchEnd > schePerf.dispatchStart) {
+            json dispatchTask;
+            dispatchTask["seqNo"] = turnIdx;
+            dispatchTask["taskId"] = schePerf.devTaskId;
+            dispatchTask["subGraphId"] = -2;
+            dispatchTask["execStart"] = schePerf.dispatchStart;
+            dispatchTask["execEnd"] = schePerf.dispatchEnd;
+            devTaskJson.push_back(dispatchTask);
+        }
+    }
+}
+
 inline void SparateCore(int total, int idx, int part, const int &offset, std::vector<int> &coreArray) {
     int perCpu = total / part;
     int remain = total % part;
@@ -228,6 +252,7 @@ inline void DumpAicpuDevTask(const DeviceArgs &args, json &aicpuPrefArray, const
                 schCtrAicpu["end"] = aicpuMetric.perfAicpuTrace[i][type];
                 aicpuDevTasks.push_back(schCtrAicpu);
             }
+            SchePerfFormat(i, aicpuDevTasks, &aicpuMetric, turnIdx);
         }
         aicpu["tasks"] = aicpuDevTasks;
         aicpuPrefArray.push_back(aicpu);
