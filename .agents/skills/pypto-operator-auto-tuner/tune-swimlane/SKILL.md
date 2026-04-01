@@ -65,17 +65,17 @@ Stitch 配置决定了多少个 root function 被同时下发调度。
 
 #### 2.1 Matmul TileShape 深度调优
 
-主要关注**减少重复载入**和**K轴分核**两个调优手段。
+主要关注**减少重复载入**和 **K 轴分核**两个调优手段。
 
 ```python
 pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256],
     enable_multi_data_load=True,  # 减少重复载入
-    enable_split_k=True)          # K轴分核
+    enable_split_k=True)          # K 轴分核
 ```
 
 **参数说明**：
 - `enable_multi_data_load`：减少重复载入
-- `enable_split_k`：K轴分核
+- `enable_split_k`：K 轴分核
 
 #### 2.2 Vector TileShape 深度调优
 
@@ -184,7 +184,7 @@ pypto.set_pass_options(sg_set_scope=-1)
 **可能原因：**
 - 任务粒度过小
 - 调度策略不当
-- stich参数过小
+- stitch 参数过小
 
 **优化建议**：
 1. **Stitch 调优（优先级高）**

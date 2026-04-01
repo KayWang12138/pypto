@@ -40,10 +40,10 @@
 |------|------|
 | 平均核心利用率 | {avg_core_utilization}% |
 | 平均气泡率 | {avg_bubble_rate}% |
-| AIC平均核心利用率 | {avg_aic_utilization}% |
-| AIV平均核心利用率 | {avg_aiv_utilization}% |
-| AIC平均气泡率 | {avg_aic_bubble_rate}% |
-| AIV平均气泡率 | {avg_aiv_bubble_rate}% |
+| AIC 平均核心利用率 | {avg_aic_utilization}% |
+| AIV 平均核心利用率 | {avg_aiv_utilization}% |
+| AIC 平均气泡率 | {avg_aic_bubble_rate}% |
+| AIV 平均气泡率 | {avg_aiv_bubble_rate}% |
 | 核心负载均衡度 | {load_balance}% |
 
 ## 3. 性能评级

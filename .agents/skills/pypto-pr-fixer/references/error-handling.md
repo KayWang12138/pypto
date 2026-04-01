@@ -18,7 +18,7 @@
 |-----------------|---------------|----------|----------|
 | `BAD_REQUEST` | `Invalid header parameter: private-token, required` | curl 调用缺少 PRIVATE-TOKEN header | 添加 `-H "PRIVATE-TOKEN: ${GITCODE_TOKEN}"` |
 | `UN_KNOW` | `pre receive hook check failed` | PR 创建时 commit 不符合服务端钩子检查 | 见 Section 3 |
-| `UN_KNOW` (via MCP) | `API调用失败: create_pull_request(...) - API错误 (400): 未知错误` | MCP 内部封装失败，实际原因被吞 | 使用 curl 直接调用获取原始错误 |
+| `UN_KNOW` (via MCP) | `API 调用失败: create_pull_request(...) - API 错误 (400): 未知错误` | MCP 内部封装失败，实际原因被吞 | 使用 curl 直接调用获取原始错误 |
 
 ## Section 3: pre-receive hook 诊断表
 
