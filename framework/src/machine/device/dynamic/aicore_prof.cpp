@@ -19,6 +19,7 @@
 namespace {
 constexpr int AICPUNUM = 6;
 constexpr int64_t HIG_32BIT = 32;
+constexpr uint32_t PYPTO_PROF_COMMANDHANDLE_TYPE_START = 1;
 } // namespace
 
 namespace npu::tile_fwk::dynamic {
@@ -104,12 +105,69 @@ void AiCoreProf::ProInitAiCpuTaskStat()
     sleep(1);
 }
 
-void AiCoreProf::ProfInit(
-    [[maybe_unused]] int64_t* regAddrs, [[maybe_unused]] int64_t* pmuEventAddrs, ProfConfig profConfig,
-    [[maybe_unused]] ArchInfo archInfo)
-{
+#ifdef __DEVICE__
+uint64_t AiCoreProf::devProfSwitch_ = 0;
+uint32_t AiCoreProf::devProfType_ = 0;
+int32_t AiCoreProf::DevProfInit(uint32_t type, void *data, uint32_t len) {
+    if (data == nullptr || len == 0) {
+        DEV_WARN("Para is invalid");
+        return -1;
+    }
+    if (type != 1) {
+        DEV_WARN("Prof type [%u] is invalid", type);
+        return -1;
+    }
+    if (len < sizeof(PyPtoMsprofCommandHandle)) {
+        DEV_WARN("Prof CommandHandle len [%u] is invalid", len);
+        return -1;
+    }
+    PyPtoMsprofCommandHandle *hostProfHandleConfig = reinterpret_cast<PyPtoMsprofCommandHandle *>(data);
+    devProfSwitch_ = hostProfHandleConfig->profSwitch;
+    devProfType_ = hostProfHandleConfig->type;
+    DEV_DEBUG("Dev prof profSwitch is %lu profType is %u", devProfSwitch_, devProfType_);
+    return 0;
+}
+
+void AiCoreProf::RegDevProf() {
+    if (MsprofRegisterCallback == nullptr) {
+        DEV_DEBUG("MsprofRegister is not supproted");
+        return;
+    }
+    int ret = MsprofRegisterCallback(AICPU, DevProfInit);
+    if (ret != 0) {
+        DEV_WARN("Pypto Msporf reg not success");
+    }
+}
+
+void AiCoreProf::GetIsOpenDevProf() {
+    if (ProfCheckLevel(PROF_TASK_TIME_L3)) {
+        profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
+        return;
+    }
+    if (ProfCheckLevel(PROF_TASK_TIME_L2)) {
+        profLevel_ = PROF_LEVEL_FUNC_LOG;
+        return;
+    }
+    if (devProfType_ != PYPTO_PROF_COMMANDHANDLE_TYPE_START) {
+        DEV_DEBUG("Dev prof not open");
+        return;
+    }
+    if ((PROF_TASK_TIME_L3 & devProfSwitch_) != 0) {
+        profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
+        return;
+    }
+    if ((PROF_TASK_TIME_L2 & devProfSwitch_) != 0) {
+        profLevel_ = PROF_LEVEL_FUNC_LOG;
+    }
+}
+#endif
+
+void AiCoreProf::ProfInit(DeviceArgs *deviceArgs) {
     DEV_DEBUG("Begin Prof init");
-    profLevel_ = CreateProfLevel(profConfig);
+    profLevel_ = CreateProfLevel(deviceArgs->toSubMachineConfig.profConfig);
+#ifdef __DEVICE__
+    GetIsOpenDevProf();
+#endif
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     if (AdprofReportAdditionalInfo != nullptr) {
         DEV_DEBUG("Pypto config prof level is %d, current env support api is AdprofReportAdditionalInfo", profLevel_);
@@ -118,13 +176,13 @@ void AiCoreProf::ProfInit(
         profReportAdditionalInfoFunc_ = MsprofReportAdditionalInfo;
     }
     DEV_DEBUG("Pypto config prof level is %d, profFuncPtr: %p", profLevel_, profReportAdditionalInfoFunc_);
-    archInfo_ = archInfo;
-    if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ == PROF_LEVEL_FUNC_LOG) ||
-        (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU)) {
+    archInfo_ = deviceArgs->archInfo;
+    if ((profLevel_ == PROF_LEVEL_FUNC_LOG) || (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU)) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
 #if PMU_COLLECT
-        ProfInitPmu(regAddrs, pmuEventAddrs);
+        ProfInitPmu(
+            reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr), reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr));
         profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
 #endif
     } else {
