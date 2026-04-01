@@ -58,8 +58,22 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
 
 std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
 {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    // 判断是否有临时空间
+    bool hasTmpBuffer = (operandCnt == 3);
+
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string srcTensor;
+    std::string tmpTensor;
+
+    if (hasTmpBuffer) {
+        // 有临时空间：输入在 SRC0_IDX (ID2 -> 索引2)，临时空间在 TMP_IDX (ID1 -> 索引1)
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+        tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    } else {
+        // 无临时空间：输入在 SRC0_IDX (ID1 -> 索引1)
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    }
+
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
@@ -80,7 +94,14 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
     std::string satModeStr = (satModeEnum == 0) ? "pto::SaturationMode::ON" : "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses({dstTensor, srcTensor});
+
+    if (hasTmpBuffer) {
+        // 有临时空间：TCast<...>(dst, src, tmp)
+        oss << WrapParamByParentheses({dstTensor, srcTensor, tmpTensor});
+    } else {
+        // 无临时空间：TCast<...>(dst, src)
+        oss << WrapParamByParentheses({dstTensor, srcTensor});
+    }
     oss << ";\n";
     return oss.str();
 }
