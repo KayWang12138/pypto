@@ -532,9 +532,27 @@ static void HandleCopyOutOp(Operation &op) {
     }
 }
 
+static void HandleIndexoutcastOp(Operation &op) {
+    if (!op.oOperand.empty()) {
+        int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        auto &tensor = op.oOperand[0];
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
+        }
+    }
+    for (size_t i = 0; i < op.iOperand.size() && i < 2; ++i) {
+        auto &tensor = op.iOperand[i];
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
+        }
+    }
+}
+
 void DynAttrToStatic::BuildParamAddr(Operation &op) {
     Opcode opcode = op.GetOpcode();
-    if (opcode == Opcode::OP_GATHER_IN_L1 || opcode == Opcode::OP_GATHER_IN_UB) {
+    if (opcode == Opcode::OP_INDEX_OUTCAST) {
+       HandleIndexoutcastOp(op); 
+    } else if (opcode == Opcode::OP_GATHER_IN_L1 || opcode == Opcode::OP_GATHER_IN_UB) {
         HandleGatherInOp(op);
     } else if (opcode == Opcode::OP_GATHER) {
         HandleGatherOp(op);
