@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file fp8_convert.h
- * \brief FP8 format conversion utilities (E4M3, E5M2, E8M0) between FP8 and Float32.
+ * \file fp_convert.h
+ * \brief FP8/FP4 format conversion utilities between low-precision storage and Float32.
  */
 
 #pragma once
@@ -20,10 +20,18 @@
 
 namespace npu::tile_fwk {
 
-// Convert FP8 (stored as uint8) to Float32. actualType specifies the FP8 format.
+bool IsFp4PackedDtype(DataType t);
+
+// FP8 (stored as uint8) -> float32. actualType specifies the FP8 format.
 torch::Tensor Fp8ToFloat32(const torch::Tensor& self, DataType actualType);
 
-// Convert Float32 to FP8 (returns uint8 tensor). actualType specifies the FP8 format.
+// float32 -> FP8 storage (uint8). actualType specifies the FP8 format.
 torch::Tensor Float32ToFp8(const torch::Tensor& self, DataType actualType);
+
+// Packed FP4 (2 nibbles per byte, low nibble first) -> float32, last dim doubled.
+torch::Tensor Fp4PackedToFloat32(const torch::Tensor& packed, DataType actualType);
+
+// float32 -> packed FP4 storage (uint8), last dim halved.
+torch::Tensor Float32ToFp4Packed(const torch::Tensor& self, DataType actualType);
 
 } // namespace npu::tile_fwk
