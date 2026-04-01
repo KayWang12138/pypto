@@ -59,8 +59,8 @@ endif ()
 #   0  Allgather_AttnPost_Reducescatter  (1 case)
 #   1  Allgather                         (1 case)
 #   2  Allreduce_Add_Allreduce           (1 case)
-#   3  Allreduce  test_1  (twoshot)      ─┐
-#   4  Allreduce  test_2  (oneshot)      ─┘ 2 cases
+#   3  Allreduce  test_1  (twoshot)     ─┐
+#   4  Allreduce  test_2  (oneshot)     ─┘ 2 cases
 #   5  AllreduceV10                      (1 case)  ── oneshot, per-group GE signaling
 #   6  AllreduceV10PipeGe                (1 case)  ── oneshot, pipelined GE signaling
 #   7  MoeDispatch                       (1 case)
@@ -69,26 +69,19 @@ endif ()
 #  10  Reducescatter  test_1             ─┐
 #  11  Reducescatter  test_2              │
 #  12  Reducescatter  test_3             ─┘ 3 cases
-#  13  TwoShotAllReduceIRCheck           (1 case)  ── twoshot
-#  14  TwoShotAllReduceV2                (1 case)  ── twoshot
-#  15  TwoShotAllReduceV3                (1 case)  ── twoshot
-#  16  TwoShotAllReduceV4                (1 case)  ── twoshot
-#  17  TwoShotAllReduceV5                (1 case)  ── twoshot
 #
 # Note: sort order is case-insensitive (see GetOpMetaDataFromDir in test_distributed.h).
 # 'AllreduceV10' sorts before 'AllreduceV10PipeGe' because '1' < 'P'.
 #
 # Usage:
 #   python3 build_ci.py --stest_distributed              # all tests (default)
+#   python3 build_ci.py --stest_distributed=twoshot       # TwoShot AllReduce base only
 #   python3 build_ci.py --stest_distributed=oneshot       # OneShot AllReduce variants only
-#   python3 build_ci.py --stest_distributed=twoshot       # TwoShot AllReduce variants only
-#   python3 build_ci.py --stest_distributed=ircheck       # TwoShot IR equivalence check
-#   python3 build_ci.py --stest_distributed=twoshotir     # TwoShot IR equivalence check only
 #   python3 build_ci.py --stest_distributed=v10           # AllReduceV10 only
 #   python3 build_ci.py --stest_distributed=v10pipege     # AllReduceV10PipeGe only
 #
 set(_num_ranks "4")
-set(_num_cases "17")
+set(_num_cases "12")
 
 # Build filter config for a list of indices, respecting per-index rank overrides
 macro(_distributed_filter_config _output)
@@ -112,21 +105,13 @@ endforeach()
 _distributed_filter_config(_DistributedGTestCaseFilterConfig ${_all_indices})
 
 # Subset filtering: override filter config when a subset keyword is requested
-if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "oneshot")
-    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 5-6)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 5 6)
+if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshot")
+    message(STATUS "Distributed subset: TwoShot AllReduce base (index 3)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 3)
     set(ENABLE_STEST_DISTRIBUTED "ON")
-elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshot")
-    message(STATUS "Distributed subset: twoshot AllReduce variants (indices 13-17)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 13 14 15 16 17)
-    set(ENABLE_STEST_DISTRIBUTED "ON")
-elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "ircheck")
-    message(STATUS "Distributed subset: TwoShot IR equivalence check (index 13)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 13)
-    set(ENABLE_STEST_DISTRIBUTED "ON")
-elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshotir")
-    message(STATUS "Distributed subset: TwoShot IR equivalence check (index 13)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 13)
+elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "oneshot")
+    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 4-6)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 4 5 6)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "v10")
     message(STATUS "Distributed subset: AllReduceV10 only (index 5)")

@@ -10,7 +10,7 @@
 
 /*!
  * \file distributed_communicator.h
- * \brief Communicator classes for OneShot and TwoShot distributed ops.
+ * \brief Communicator classes for OneShot distributed ops.
  */
 
 #pragma once
@@ -178,139 +178,6 @@ public:
     }
 
 private:
-};
-
-// TwoShotCommunicator: ShmemTensor-based engine for TwoShot AllReduce.
-//
-// Data slot layout  : {worldSize, rowPerRank, col}  (3-D, canonical)
-// Signal slot layout: embedded in shmemTensor.signal ({W, worldSize, rowPerRank, col})
-//
-// Per-chunk protocol:
-//   1. Put()       — atomic-add write of local chunk to each target rank's slot + SignalAll
-//   2. WaitAndGet()— wait until this slot has accumulated worldSize contributions, then read
-class TwoShotCommunicator {
-public:
-    explicit TwoShotCommunicator(ShmemTensor& shmemTensor)
-        : shmemTensor_(shmemTensor)
-        , worldSize_(static_cast<uint32_t>(shmemTensor.worldSize))
-        , thisRank_(GetHcclRankId(shmemTensor.group))
-        , rowPerRank_(shmemTensor.data.GetShape()[1])
-        , col_(shmemTensor.data.GetShape()[2])
-    {}
-
-    TwoShotCommunicator(const TwoShotCommunicator&) = delete;
-    TwoShotCommunicator& operator=(const TwoShotCommunicator&) = delete;
-
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }
-
-    // Write input to the shared slot for chunkId and signal all ranks.
-    // Returns signal dependency token.
-    Tensor Put(const Tensor& pred, const Tensor& input, uint32_t chunkId,
-        AtomicType atomicType) const
-    {
-        auto dataTile = ShmemView(shmemTensor_, {1, rowPerRank_, col_},
-            std::vector<SymbolicScalar>{0, 0, 0});
-        auto putOut = ShmemPut(input, dataTile, chunkId, atomicType, pred);
-        return ShmemSignalAll(dataTile, chunkId, 1, atomicType, putOut);
-    }
-
-    // Wait for worldSize contributions to chunkId's slot, then read reduced result.
-    Tensor WaitAndGet(const Tensor& dep, uint32_t chunkId, DataType dtype) const
-    {
-        auto dataTile = ShmemView(shmemTensor_, {1, rowPerRank_, col_},
-            std::vector<SymbolicScalar>{0, 0, 0});
-        auto waitOut = ShmemWaitUntil(dataTile, chunkId, OpType::EQ,
-            static_cast<int32_t>(worldSize_), true, dep);
-        return ShmemGet(dataTile, chunkId, waitOut, dtype);
-    }
-
-private:
-    ShmemTensor& shmemTensor_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    int32_t rowPerRank_;
-    int32_t col_;
-};
-
-// TwoShotCommunicatorV2: Three-phase TwoShot engine with latched dtype.
-//
-// Extends TwoShotCommunicator with separate Wait() / Pull() phases so callers
-// can overlap computation between the write and the read.
-//
-// Protocol per chunk:
-//   1. Put()       — same as TwoShotCommunicator::Put(); also latches input dtype
-//   2. Wait()      — ShmemWaitUntil on chunkId's signal
-//   3. Pull()      — ShmemGet using latched dtype
-//   OR WaitAndGet()— convenience wrapper combining Wait + Pull
-class TwoShotCommunicatorV2 {
-public:
-    explicit TwoShotCommunicatorV2(ShmemTensor& shmemTensor)
-        : shmemTensor_(shmemTensor)
-        , worldSize_(static_cast<uint32_t>(shmemTensor.worldSize))
-        , thisRank_(GetHcclRankId(shmemTensor.group))
-        , rowPerRank_(shmemTensor.data.GetShape()[1])
-        , col_(shmemTensor.data.GetShape()[2])
-        , inputDtype_(DataType::DT_BOTTOM)
-    {}
-
-    TwoShotCommunicatorV2(const TwoShotCommunicatorV2&) = delete;
-    TwoShotCommunicatorV2& operator=(const TwoShotCommunicatorV2&) = delete;
-
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }
-
-    // Write input to chunkId's slot + signal all ranks.
-    // Latches input dtype on first call; all subsequent calls must match.
-    Tensor Put(const Tensor& pred, const Tensor& input, uint32_t chunkId,
-        AtomicType atomicType)
-    {
-        if (inputDtype_ == DataType::DT_BOTTOM) {
-            inputDtype_ = input.GetDataType();
-        } else {
-            ASSERT(inputDtype_ == input.GetDataType())
-                << "All Put() calls must use the same dtype, expected " << inputDtype_
-                << " but got " << input.GetDataType();
-        }
-        auto dataTile = ShmemView(shmemTensor_, {1, rowPerRank_, col_},
-            std::vector<SymbolicScalar>{0, 0, 0});
-        auto putOut = ShmemPut(input, dataTile, chunkId, atomicType, pred);
-        return ShmemSignalAll(dataTile, chunkId, 1, atomicType, putOut);
-    }
-
-    // Wait for worldSize contributions to chunkId's slot.
-    Tensor Wait(const Tensor& depToken, uint32_t chunkId) const
-    {
-        auto dataTile = ShmemView(shmemTensor_, {1, rowPerRank_, col_},
-            std::vector<SymbolicScalar>{0, 0, 0});
-        return ShmemWaitUntil(dataTile, chunkId, OpType::EQ,
-            static_cast<int32_t>(worldSize_), true, depToken);
-    }
-
-    // Read reduced result from chunkId's slot using latched dtype.
-    Tensor Pull(const Tensor& waitToken, uint32_t chunkId) const
-    {
-        ASSERT(inputDtype_ != DataType::DT_BOTTOM)
-            << "Pull() requires at least one prior Put() call";
-        auto dataTile = ShmemView(shmemTensor_, {1, rowPerRank_, col_},
-            std::vector<SymbolicScalar>{0, 0, 0});
-        return ShmemGet(dataTile, chunkId, waitToken, inputDtype_);
-    }
-
-    // Convenience: Wait + Pull for one chunk.
-    Tensor WaitAndGet(const Tensor& dep, uint32_t chunkId) const
-    {
-        auto waitOut = Wait(dep, chunkId);
-        return Pull(waitOut, chunkId);
-    }
-
-private:
-    ShmemTensor& shmemTensor_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    int32_t rowPerRank_;
-    int32_t col_;
-    DataType inputDtype_;
 };
 
 } // namespace Distributed
