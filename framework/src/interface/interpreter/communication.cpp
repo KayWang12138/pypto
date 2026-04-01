@@ -21,28 +21,31 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <mutex>
+#include "machine\runtime\distributed\distributed_context.h"
 
 
 namespace npu::tile_fwk {
 
 int GetRankId(const std::string &groupName) {
-    const char *rank = std::getenv("RANK");
-    if (rank != nullptr) {
-        return std::atoi(rank);
+    auto it = g_context.find(groupName);
+    if (it == g_context.end()) {
+        return -1;
     }
-    return -1;
+    int rankId = it->second->second.rankId;
+    return rankId;
 }
 
 int GetWorldSize(const std::string &groupName) {
-    const char *worldSize = std::getenv("WORLD_SIZE");
-    if (worldSize != nullptr) {
-        return std::atoi(worldSize);
+    auto it = g_context.find(groupName);
+    if (it == g_context.end()) {
+        return -1;
     }
-    return -1;
+    int worldSize = it->second->second.rankNum;
+    return wordSize;
 }
 
-// ============================== CommContext
-CommContext::~RemoteRank() {
+// ============================== SimulationCommContext
+SimulationCommContext::~RemoteRank() {
     if (dataBase) {
         munmap(dataBase, WIN_IN_SIZE);
         dataBase = nullptr;
@@ -53,20 +56,20 @@ CommContext::~RemoteRank() {
     }
 }
 
-void CommContext::Init(const std::string &groupName, int rank, int worldSize) {
+void SimulationCommContext::Init(const std::string &groupName, int rank, int worldSize) {
     groupName_ = groupName;
     rank_ = rank;
     worldSize_ = worldSize;
 }
 
-void CommContext::PreAlloc(bool isSignal) {
+void SimulationCommContext::PreAlloc(bool isSignal) {
     if (isSignal && allocatedSignal_) {
         return;
     }
     if (!isSignal && allocatedData_) {
         return;
     }
-    std::string handler = CommManager::GetHandler(groupName_, rank_, isSignal);
+    std::string handler = SimulationCommManager::GetHandler(groupName_, rank_, isSignal);
     int fd = shm_open(handler.c_str(), O_CREAT | O_RDWR, 0666);
     if (fd == -1) {
         throw std::runtime_error("shm_open error!");
@@ -94,7 +97,7 @@ void CommContext::PreAlloc(bool isSignal) {
     }
 }
 
-LogicalTensorDataPtr CommContext::Alloc(size_t slotSize) {
+LogicalTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
     std::lock_guard<std::mutex> lock(allocMutex_);
 
     if (!allocatedData_) {
@@ -110,7 +113,7 @@ LogicalTensorDataPtr CommContext::Alloc(size_t slotSize) {
     return RawTensorData::CreateTensor(DT_INT8, {1, slotSize}, dataBase_ + beforeSize);
 }
 
-LogicalTensorDataPtr CommContext::AllocSignal(size_t slotSize) {
+LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
     std::lock_guard<std::mutex> lock(allocMutex_);
     if (!allocatedSignal_) {
         throw std::runtime_error("signal area not pre-allocated!");
@@ -125,7 +128,7 @@ LogicalTensorDataPtr CommContext::AllocSignal(size_t slotSize) {
     return RawTensorData::CreateTensor(DT_INT8, {1, slotSize}, ctrlBase_ + beforeSize);
 }
 
-uint8_t *CommContext::GetRemoteRank(int dstRank, bool isSignal) {
+uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     if (dstRank == rank_) {
         return isSignal ? ctrlBase_ : dataBase_;
     }
@@ -143,7 +146,7 @@ uint8_t *CommContext::GetRemoteRank(int dstRank, bool isSignal) {
     }
     auto remote = std::make_unique<RemoteRank>();
     if (!isSignal) {
-        std::string dataHandler = CommManager::GetHandler(groupName_, dstRank, false);
+        std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false);
         int fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
         if (fd == -1) {
             close(fd);
@@ -156,7 +159,7 @@ uint8_t *CommContext::GetRemoteRank(int dstRank, bool isSignal) {
         }
         close(fd);
     } else {
-        std::string ctrlHandler = CommManager::GetHandler(groupName_, dstRank, true);
+        std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true);
         fd = shm_open(ctrlHandler.c_str(), O_RDWR, 0666);
         if (fd == -1) {
             close(fd);
@@ -175,7 +178,7 @@ uint8_t *CommContext::GetRemoteRank(int dstRank, bool isSignal) {
     return result;
 }
 
-void CommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType = 0) {
+void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType = 0) {
     uint8_t *base = GetRemoteRank(dstRank, false);
     size_t dataSize = data->GetSize() * BytesOf(data->GetDataType());
     if (offset + dataSize > WIN_IN_SIZE) {
@@ -184,7 +187,7 @@ void CommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, i
     memcpy(base + offset, data->GetData()->GetDevPtr(), dataSize);
 }
 
-void CommContext::Signal(int dstRank, int value, size_t slotSize, int atomicType = 0, bool notifyAll = false) {
+void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, int atomicType = 0, bool notifyAll = false) {
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");
@@ -193,7 +196,7 @@ void CommContext::Signal(int dstRank, int value, size_t slotSize, int atomicType
     memset(base, value, slotSize);
 }
 
-void CommContext::Wait(int srcRank, int expect, size_t slotSize, bool reset = false) {
+void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, bool reset = false) {
     volatile uint8_t *base = reinterpret_cast<volatile uint8_t *>(GetRemoteRank(srcRank, true));
     uint8_t targetValue = static_cast<uint8_t>(expect);
     if (slotSize == 0 || slotSize >= WIN_EXP_SIZE) {
@@ -212,7 +215,7 @@ void CommContext::Wait(int srcRank, int expect, size_t slotSize, bool reset = fa
     }
 }
 
-LogicalTensorDataPtr CommContext::Get(int srcRank, size_t slotSize, uint64_t offset = 0) {
+LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, uint64_t offset = 0) {
     uint8_t *base = GetRemoteRank(srcRank, false);
     if (offset + slotSize > WIN_IN_SIZE) {
         throw std::runtime_error("Get operation would exceed shared memory bound!");
@@ -221,7 +224,7 @@ LogicalTensorDataPtr CommContext::Get(int srcRank, size_t slotSize, uint64_t off
     return result;
 }
 
-void CommContext::Destroy() {
+void SimulationCommContext::Destroy() {
     if (ctrlBase_) {
         munmap(ctrlBase_, WIN_EXP_SIZE);
         ctrlBase_ = nullptr;
@@ -238,12 +241,12 @@ void CommContext::Destroy() {
     ctrlShmSize_ = 0;
 }
 
-void CommContext::~CommContext() {
+void SimulationCommContext::~SimulationCommContext() {
     Destroy();
 }
 
-// ============================== CommManager
-void CommManager::CreateCommContext(const std::string &groupName) {
+// ============================== SimulationCommManager
+void SimulationCommManager::CreateSimulationCommContext(const std::string &groupName) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (contexts_.find(groupName) != contexts_.end()) {
@@ -253,35 +256,35 @@ void CommManager::CreateCommContext(const std::string &groupName) {
     int rank = GetRankId(groupName);
     int worldSize = GetWorldSize(groupName);
 
-    auto context = std::make_shared<CommContext>();
+    auto context = std::make_shared<SimulationCommContext>();
     context->Init(groupName, rank, worldSize);
     context->PreAlloc(true);
     context->PreAlloc(false);
     contexts_[groupName] = context;
 }
 
-std::string CommManager::GetHandler(const std::string &groupName, int rank, bool isSignal) {
+std::string SimulationCommManager::GetHandler(const std::string &groupName, int rank, bool isSignal) {
     std::string suffix = isSignal ? "_ctrl" : "_data";
     return groupName + std::to_string(rank) + suffix;
 }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/
-LogicalTensorDataPtr CommManager::Alloc(const std::string &groupName, size_t slotSize) {
+LogicalTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
-        throw std::runtime_error("CommContext for group " + groupName + " not found!");
+        throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
     auto result = it->second->Alloc(slotSize);
     return result;
 }
 
-LogicalTensorDataPtr CommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
+LogicalTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
-        throw std::runtime_error("CommContext for group " + groupName + " not found!");
+        throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
     auto result = it->second->AllocSignal(slotSize);
     return result;
