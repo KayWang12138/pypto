@@ -220,3 +220,49 @@ TEST_F(SubgraphToFunctionCheckTest, ColorOutGraphCheck_EdgeInColorNotInOutGraph_
 {
     RunColorOutGraphCheckTest("ColorTest_EdgeInColor", {{}, {0}, {0}, {0}}, {{1, 2, 3}, {}, {}, {}}, FAILED, true);
 }
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheckHasInCtrlOperations)
+{
+    constexpr int kTileSize = 32;
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_POST_CHECK, true);
+    TileShape::Current().SetVecTile(kTileSize, kTileSize);
+    auto func = std::make_shared<Function>(Program::GetInstance(), "NopCtrlInTest", "NopCtrlInTest", nullptr);
+    Operation& nopOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    Operation& dummyOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    nopOp.AddInCtrlOperation(dummyOp);
+    SubGraphToFuncChecker checker;
+    Status ret = checker.NOPCheck(nopOp);
+    EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheckHasOOperands)
+{
+    constexpr int kTileSize = 32;
+    constexpr int kVectorSize = 64;
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_POST_CHECK, true);
+    TileShape::Current().SetVecTile(kTileSize, kTileSize);
+    std::vector<int64_t> shape = {kVectorSize, kVectorSize};
+    auto func = std::make_shared<Function>(Program::GetInstance(), "NopOutputTest", "NopOutputTest", nullptr);
+    LogicalTensorPtr outTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    Operation& nopOp = func->AddOperation(Opcode::OP_NOP, {}, {outTensor}, false);
+    SubGraphToFuncChecker checker;
+    Status ret = checker.NOPCheck(nopOp);
+    EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheckHasOutCtrlOperations)
+{
+    constexpr int kTileSize = 32;
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_POST_CHECK, true);
+    TileShape::Current().SetVecTile(kTileSize, kTileSize);
+    auto func = std::make_shared<Function>(Program::GetInstance(), "NopCtrlOutTest", "NopCtrlOutTest", nullptr);
+    Operation& nopOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    Operation& dummyOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    nopOp.AddOutCtrlOperation(dummyOp);
+    SubGraphToFuncChecker checker;
+    Status ret = checker.NOPCheck(nopOp);
+    EXPECT_EQ(ret, FAILED);
+}

@@ -15,6 +15,7 @@
 
 #include "remove_redundant_reshape_checker.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "RemoveRedundantReshape"
 
@@ -88,7 +89,7 @@ Status RemoveRedundantReshapeChecker::PreCheckReshape(const LogicalTensorPtr& in
     for (auto& childOp : in->GetConsumers()) {
         if (childOp->GetOpcode() == Opcode::OP_RESHAPE) {
             if (childOp->ConsumerOps().empty()) {
-                APASS_LOG_ERROR_F(Elements::Operation, "At least one reshape op without consumer.");
+                APASS_LOG_ERROR_C(OperationErr::OP_PRODUCER_CONSUMER, Elements::Operation, "At least one reshape op without consumer.");
                 return FAILED;
             }
         }

@@ -1457,5 +1457,20 @@ TEST_F(AssignMemoryTypeTest, TestMultiDataLoad2)
     EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
     MultiDataLoadCheck(func);
 }
-} // namespace tile_fwk
-} // namespace npu
+
+TEST_F(AssignMemoryTypeTest, TestAmulBInputInvalidProducer) {
+    ComputationalGraphBuilder G;
+    Shape s{NUM_128, NUM_128};
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_DEVICE_DDR, "input");
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_DEVICE_DDR, "temp");
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_DEVICE_DDR, "output");
+    G.AddOp(Opcode::OP_ADD, {"input"}, {"temp"}, "add_op");
+    G.AddOp(Opcode::OP_A_MUL_B, {"temp"}, {"output"}, "a_mul_b_op");
+
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+
+    EXPECT_EQ(assignMemoryType.PreCheck(*func), FAILED);
+}
+}
+} // namespace npu::tile_fwk
