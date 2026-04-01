@@ -259,7 +259,7 @@ void FlowVerifier::VerifyTensorGraph(
     const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
     if (!groupNames.empty()) {
         for (const std::string &groupName: groupNames) {
-            CommManager::Instance().CreateCommContext(groupName);
+            SimulationCommManager::Instance().CreateCommContext(groupName);
         }
     }
 
@@ -380,6 +380,13 @@ static std::string ToString(const T& val, size_t totalSize)
 
 void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& passIdentifier)
 {
+    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().CreateCommContext(groupName);
+        }
+    }
+
     functionInterpreter_->verifyType = VerifyType::PASS;
     functionInterpreter_->passIndex = passIndex;
     functionInterpreter_->execDumpPassName = "Pass_" + ToString(passIndex, 2) + "_" + passIdentifier;
