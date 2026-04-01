@@ -26,7 +26,6 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
 #include "interface/tensor/float.h"
-#include "cost_model/simulation/cost_model_launcher.h"
 
 namespace tile_fwk {
 namespace test_operation {
@@ -141,8 +140,7 @@ private:
         if (testCase.onBoard) {
             DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         } else {
-            config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
-            CostModelLauncher::CostModelRunOnce(Program::GetInstance().GetLastFunction());
+            CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
         }
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
