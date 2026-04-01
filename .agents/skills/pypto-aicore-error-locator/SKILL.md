@@ -35,7 +35,7 @@ license: 完整条款见 LICENSE.txt
 将收集的路径全部转换成绝对路径，收集到所有信息后才能继续后续步骤。
 
 ---
-**⚠️ 重要提示**: 将bash运行命令超时时间设置为1800000ms
+**⚠️ 重要提示**: 将 bash 运行命令超时时间设置为 1800000ms
 ## 步骤 2：排除 machine 框架调度问题
 
 ### 2.1 注释 CallSubFuncTask
@@ -43,7 +43,7 @@ license: 完整条款见 LICENSE.txt
 进入 `pypto_path`，修改以下配置：
 
 - **头文件**: 修改 `aicore_entry.h`
-  - 注释 `#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后6行（共7行），包含CallSubFuncTask函数
+  - 注释 `#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后 6 行（共 7 行），包含CallSubFuncTask函数
 
 ### 2.2 编译安装
 
@@ -72,7 +72,7 @@ cd -
 进入 `pypto_path`，修改以下配置：
 
 - **头文件**: 修改 `aicore_entry.h`
-  - 取消注释 2.1 中注释的行（`#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后6行）
+  - 取消注释 2.1 中注释的行（`#if ENABLE_AICORE_PRINT`（它的下一行是`CoreFuncParam`）行及相邻的后 6 行）
 
 ---
 
