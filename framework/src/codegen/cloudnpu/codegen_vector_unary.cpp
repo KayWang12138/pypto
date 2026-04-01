@@ -58,8 +58,21 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
 
 std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
 {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    bool hasTmpBuffer = (operandCnt == 3);
+
+    std::string dstTensor;
+    std::string srcTensor;
+    std::string tmpTensor;
+
+    if (hasTmpBuffer) {
+        dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+        tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    } else {
+        dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));	 
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    }
+
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
@@ -80,7 +93,12 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
     std::string satModeStr = (satModeEnum == 0) ? "pto::SaturationMode::ON" : "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses({dstTensor, srcTensor});
+
+    if (hasTmpBuffer) {
+        oss << WrapParamByParentheses({dstTensor, srcTensor, tmpTensor});
+    } else {
+        oss << WrapParamByParentheses({dstTensor, srcTensor});
+    }
     oss << ";\n";
     return oss.str();
 }
