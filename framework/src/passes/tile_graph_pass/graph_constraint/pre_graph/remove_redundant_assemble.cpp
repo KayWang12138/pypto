@@ -642,8 +642,10 @@ bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMag
     return res;
 }
 
-void RemoveRedundantAssemble::HandleForDeleteSingleAssemble(
-    LogicalTensorPtr input, LogicalTensorPtr output, std::set<Operation*, LogicalTensor::CompareOp>& producersBackup) const {
+Status RemoveRedundantAssemble::HanldeForSingleAssemble(
+    Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op) const
+{
+    auto producersBackup = input->GetProducers();
     auto& consumers = input->GetConsumers();
     LogicalTensorPtr oriOutputBackUp = nullptr;
     int assembleOutMagic = 0;
@@ -680,15 +682,6 @@ void RemoveRedundantAssemble::HandleForDeleteSingleAssemble(
                 UpdateCopyOutAttr(*producer, *cons);
             }
         }
-    }
-}
-
-Status RemoveRedundantAssemble::HanldeForSingleAssemble(
-    Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op, bool needToDelete) const
-{
-    auto producersBackup = input->GetProducers();
-    if (needToDelete) {
-        HandleForDeleteSingleAssemble(input, output, producersBackup);
     }
     HandleForAssembleFromInOut(function, op, producersBackup);
     HandleForAssembleToOutcast(function, op, producersBackup);
@@ -777,10 +770,12 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function& function) cons
                 op.GetOpMagic(), concurrentAssembles.size());
             HanldeForMultiAssemble(function, concurrentAssembles);
         } else {
-            bool needToDelete = !ForwardFindAssembleInsertedCopy(input) && !BackwardFindAssembleInsertedCopy(input);
-            if (HanldeForSingleAssemble(function, input, output, op, needToDelete) != SUCCESS) {
-                return FAILED;
+            if (!ForwardFindAssembleInsertedCopy(input) && !BackwardFindAssembleInsertedCopy(input)) {
+                if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) {
+                    return FAILED;
+                }
             }
+            
         }
     }
     if (ProcessView(function) != SUCCESS) {

@@ -36,10 +36,8 @@ public:
     bool ForwardFindAssembleInsertedCopy(LogicalTensorPtr input) const;
     bool BackwardFindAssembleInsertedCopy(LogicalTensorPtr input) const;
     bool FindAssembleOut(Operation* con, int assembleOutMagic) const;
-    void HandleForDeleteSingleAssemble(
-        LogicalTensorPtr input, LogicalTensorPtr output, std::set<Operation*, LogicalTensor::CompareOp>& producersBackup) const;
     Status HanldeForSingleAssemble(
-        Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op, bool needToDelete) const;
+        Function& function, LogicalTensorPtr input, LogicalTensorPtr output, Operation& op) const;
     Status ProcessView(Function& function) const;
 
 private:

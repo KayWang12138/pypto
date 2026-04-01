@@ -63,3 +63,5 @@ def test_adds_onboard():
     golden = torch.add(a_tensor, input2)
     assert_allclose(b_tensor.flatten(), golden.flatten(), rtol=3e-3, atol=3e-3)
     pypto.runtime._device_fini()
+if __name__ == "__main__":
+    test_adds_onboard()
