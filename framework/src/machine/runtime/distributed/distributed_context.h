@@ -21,6 +21,9 @@
 #include "tilefwk/platform.h"
 #include "interface/tileop/distributed/comm_context.h"
 
+std::unordered_map<std::string, std::pair<uint64_t, uint64_t>>
+    g_context; // key: groupname; value: deviceCommContext,hostCommContext
+
 namespace {
 class TilingStructBase {
 public:
