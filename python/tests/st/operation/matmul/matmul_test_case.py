@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ BASIC_TESTS = [
         "b_format": "ND",
         "a_trans": False,
         "b_trans": False,
-        "viewshape": [64, 256],
+        "viewshape": [128, 256],
         "tileshape": [[64, 64], [64, 128], [128, 128]],
         "extend_params": {},
         "products": ["950", "910"],
@@ -137,8 +137,8 @@ BASIC_TESTS = [
         "b_format": "ND",
         "a_trans": False,
         "b_trans": False,
-        "viewshape": [64, 256],
-        "tileshape": [[64, 64], [64, 128], [128, 128]],
+        "viewshape": [128, 256],
+        "tileshape": [[128, 128], [64, 128], [128, 128]],
         "extend_params": {},
         "products": ["950", "910"],
     },
