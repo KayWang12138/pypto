@@ -38,11 +38,29 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
     return ss.str();
 }
 
-Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
+Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &function)
 {
     std::vector<SymbolicScalar> validShape;
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
                                            Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1};
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        if (!function.IsFromInCast(op.GetIOperands().front())) {
+            validShape = OpImmediate::ToSpecified(OpImmediate::Specified(op.GetIOperands()[0]->GetShape()));
+            std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+            attr->SetShape(OpImmediate::Specified(op.GetIOperands()[0]->GetShape()));
+            op.GetIOperands().front()->UpdateDynValidShape(validShape);
+            return SUCCESS;
+        }
+    }
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        if (!function.IsFromOutCast(op.GetOOperands().front())) {
+            validShape = OpImmediate::ToSpecified(OpImmediate::Specified(op.GetOOperands()[0]->GetShape()));
+            std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+            attr->SetShape(OpImmediate::Specified(op.GetOOperands()[0]->GetShape()));
+            op.GetOOperands().front()->UpdateDynValidShape(validShape);
+            return SUCCESS;
+        }
+    }
     for (auto outOperand : op.GetOOperands()) {
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
             for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
@@ -91,7 +109,7 @@ Status InferParamIndex::ResetAssembleDynValidShape(const Operation& op)
 Status InferParamIndex::ResetDynValidShape(Function& function)
 {
     for (auto& op : function.Operations(false)) {
-        if (ResetOutputDynValidShape(op) != SUCCESS) {
+        if (ResetOutputDynValidShape(op, function) != SUCCESS) {
             APASS_LOG_ERROR_F(
                 Elements::Operation,
                 "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape "

@@ -32,7 +32,7 @@ public:
 
 private:
     std::string DumpParamIndex(const std::map<std::string, DynParamInfo>& dynParamTable);
-    Status ResetOutputDynValidShape(const Operation& op);
+    Status ResetOutputDynValidShape(const Operation& op, Function &function);
     Status ResetViewDynValidShape(const Operation& op);
     Status ResetAssembleDynValidShape(const Operation& op);
     Status ResetDynValidShape(Function& function);
