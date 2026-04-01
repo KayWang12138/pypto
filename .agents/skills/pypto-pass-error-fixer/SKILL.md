@@ -10,7 +10,7 @@ license: 完整条款见 LICENSE.txt
 
 ## 使用场景
 
-当某业务场景执行失败，需要分析定位某pass抛出异常原因并修复该问题时使用此技能。
+当某业务场景执行失败，需要分析定位某 pass 抛出异常原因并修复该问题时使用此技能。
 
 ## 功能概述
 
@@ -41,15 +41,15 @@ license: 完整条款见 LICENSE.txt
 
 当用户输入包含以下关键字或相关内容时，自动触发此技能：
 
-- **执行xx异常，修复pass问题**：定位Pass抛出异常的具体原因，并提供修复方案
-- **执行xx时，pass报错**：定位Pass抛出异常的具体原因，并提供修复方案
-- **定位pass错误**：定位Pass抛出异常的具体原因，并提供修复方案
-- **分析pass异常**：定位Pass抛出异常的具体原因，并提供修复方案
-- **分析pass失败原因**：定位Pass抛出异常的具体原因，并提供修复方案
+- **执行 xx 异常，修复 pass 问题**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **执行 xx 时，pass 报错**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **定位 pass 错误**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **分析 pass 异常**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **分析 pass 失败原因**：定位 Pass 抛出异常的具体原因，并提供修复方案
 
 **触发示例**
-- 执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass报错
-- 执行 python3 test.py异常，分析pass失败原因
+- 执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass 报错
+- 执行 python3 test.py 异常，分析 pass 失败原因
 
 ## 工作流程
 
@@ -78,7 +78,7 @@ license: 完整条款见 LICENSE.txt
 **日志文件匹配模式**：
 - 最新日志文件：按时间戳排序，选择最新的日志文件
 - 错误日志：优先查找包含 "ERROR" 的日志文件
-- 指定进程日志：如果日志中包含进程ID，查找对应进程的日志
+- 指定进程日志：如果日志中包含进程 ID，查找对应进程的日志
 
 **验证检查点**：
 - [ ] 成功定位日志文件
@@ -89,7 +89,7 @@ license: 完整条款见 LICENSE.txt
 
 **日志格式示例**：
 
-以如下pass模块打印的日志格式为例，分段解析：
+以如下 pass 模块打印的日志格式为例，分段解析：
 ```
 [ERROR] PYPTO(638465):2026-03-16 10:02:24.711 [n_buffer_merge.cpp:530][PASS]:[NBufferMerge.Config]:The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
 ```
@@ -101,7 +101,7 @@ license: 完整条款见 LICENSE.txt
 3. 日志打印时间：2026-03-16 10:02:24.711
 4. 代码位置及行号：[n_buffer_merge.cpp:530]
 5. 所属模块类型：[PASS]
-6. 具体模块信息：[NBufferMerge.Config] Pass模块名：`NBufferMerge`，Element类型：`Config`
+6. 具体模块信息：[NBufferMerge.Config] Pass 模块名：`NBufferMerge`，Element 类型：`Config`
 7. 日志内容：The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
 
 **多行错误处理**：
@@ -117,7 +117,7 @@ license: 完整条款见 LICENSE.txt
 **验证检查点**：
 - [ ] 日志级别正确识别
 - [ ] 代码位置准确提取
-- [ ] Pass模块名称正确解析
+- [ ] Pass 模块名称正确解析
 - [ ] 错误内容完整提取
 - [ ] 时间戳格式正确解析
 
@@ -129,16 +129,16 @@ license: 完整条款见 LICENSE.txt
 
 1. **获取关键信息**
    - 获取日志关键信息：错误内容、文件与行号、堆栈轨迹、上下文相关日志
-   - 精确检索：自动定位并读取相关的源文件代码 （不仅仅是出错的那一行，通常需要向上取 20 行，向下取 10 行）
+   - 精确检索：自动定位并读取相关的源文件代码（不仅仅是出错的那一行，通常需要向上取 20 行，向下取 10 行）
 
 2. **分析错误原因**
    - 综合分析日志上下文相关信息
-   - 结合用户代码及pass模块异常位置上下文代码
+   - 结合用户代码及 pass 模块异常位置上下文代码
    - 快速推断可能的错误原因并给出修复建议，不要做过多冗余的分析
 
 3. **深入分析推断原因（可选）**
    - 初步分析结果不准确，需要深入了解代码业务逻辑进一步分析
-   - 使用 `pypto-pass-module-analyzer` 技能整体分析对应pass模块业务逻辑
+   - 使用 `pypto-pass-module-analyzer` 技能整体分析对应 pass 模块业务逻辑
    - 结合模块整体逻辑深入分析推断错误原因
    - 列举可能的错误原因、代码位置、修复建议
 
@@ -154,7 +154,7 @@ license: 完整条款见 LICENSE.txt
    - 参数配置文档通常位于 `docs/api/config` 目录下
 
 3. **算子用法和约束**
-   - python用例中涉及的算子
+   - python 用例中涉及的算子
    - 通过文档了解各算子的用法和约束
    - 算子文档通常位于 `docs/api/operation` 目录下
 
@@ -166,7 +166,7 @@ license: 完整条款见 LICENSE.txt
 
 ### 步骤 5：问题修复
 
-修复方案需满足下面**修复原则**的约束，不预设固定修复方案，由 LLM 根据步骤4分析得到的错误原因及修复建议，制定合理的修复方案
+修复方案需满足下面**修复原则**的约束，不预设固定修复方案，由 LLM 根据步骤 4 分析得到的错误原因及修复建议，制定合理的修复方案
 
 **修复原则**：
 
@@ -218,22 +218,22 @@ license: 完整条款见 LICENSE.txt
 #### 6.1 执行测试
 
 1. **执行相关用例**
-   - 重新编译 pypto 包并pip安装
+   - 重新编译 pypto 包并 pip 安装
    - 根据用户提供的用例，执行命令验证相关用例
    - 检查运行结果是否符合预期
-   - 检查日志中是否还有ERROR级别的日志
+   - 检查日志中是否还有 ERROR 级别的日志
 
 #### 6.2 回归检查（可选）
 
-对pass业务逻辑做了改变需要通过回归检查确保修复未影响其他功能，无pass业务逻辑改变可以不做回归检查
+对 pass 业务逻辑做了改变需要通过回归检查确保修复未影响其他功能，无 pass 业务逻辑改变可以不做回归检查
 
 1. **运行相关测试用例集**
    - 执行相关的回归测试
    - 确保修复未破坏其他功能
 
 2. **回归测试范围**
-   - 同一Pass模块的其他测试用例
-   - 依赖该Pass模块的测试用例
+   - 同一 Pass 模块的其他测试用例
+   - 依赖该 Pass 模块的测试用例
    - 相关业务场景的测试用例
 
 #### 6.3 失败回滚
@@ -258,7 +258,7 @@ license: 完整条款见 LICENSE.txt
 **验证检查点**：
 - [ ] 测试用例执行成功
 - [ ] 运行结果符合预期
-- [ ] 日志中无ERROR级别日志
+- [ ] 日志中无 ERROR 级别日志
 - [ ] 回归测试通过
 - [ ] 未引入新的问题
 - [ ] 性能验证通过（如适用）
@@ -273,13 +273,13 @@ license: 完整条款见 LICENSE.txt
 ### 基本信息
 - 错误级别：ERROR
 - 发生时间：2026-03-16 10:02:24.711
-- 进程ID：638465
+- 进程 ID：638465
 
 ### 错误位置
 - 文件：n_buffer_merge.cpp
 - 行号：530
-- Pass模块：NBufferMerge
-- Element类型：Config
+- Pass 模块：NBufferMerge
+- Element 类型：Config
 
 ### 错误信息
 The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
@@ -287,7 +287,7 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 ### 错误原因分析
 1. 主要原因：参数配置错误
 2. 详细分析：VEC_NBUFFER_SETTING 参数值 -3 超出有效范围
-3. 影响范围：仅影响当前Pass模块
+3. 影响范围：仅影响当前 Pass 模块
 
 ### 修复建议
 1. 修复方案：调整 VEC_NBUFFER_SETTING 参数值
@@ -310,13 +310,13 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 
 不同版本可能存在以下差异：
 - 日志格式可能略有不同
-- Pass模块名称可能变化
+- Pass 模块名称可能变化
 - 错误信息内容可能更新
 
 ## 性能优化建议
 
 处理大规模日志文件时：
 1. 使用流式读取，避免一次性加载整个文件
-2. 优先搜索ERROR级别日志，减少处理范围
+2. 优先搜索 ERROR 级别日志，减少处理范围
 3. 使用多线程并行处理多个日志文件
 4. 缓存已解析的日志信息，避免重复解析

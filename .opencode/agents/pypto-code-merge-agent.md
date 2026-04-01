@@ -9,8 +9,8 @@ skills:
 tools:
   bash: true
   read: true
-  write: false
-  edit: false
+  write: true
+  edit: true
   glob: true
   grep: true
   skill: true
@@ -188,8 +188,8 @@ curl -s "https://api.gitcode.com/api/v5/repos/cann/pypto/pulls/{PR_NUMBER}/issue
 
 | 规范文档 | 路径 | 约束范围 |
 |---------|------|---------|
-| Commit/PR 格式规范 | `.agents/skills/pypto-pr-creator/references/pr-spec.md` | Commit Tag 枚举、Summary 规则、PR 标题/Body 格式 |
-| Issue 标题格式规范 | `.agents/skills/pypto-issue-creator/SKILL.md` §标题格式规范 | Issue 前缀枚举、标题格式 |
+| Commit/PR 格式规范 | `pypto-pr-creator/references/pr-spec.md` | Commit Tag 枚举、Summary 规则、PR 标题/Body 格式 |
+| Issue 标题格式规范 | `pypto-issue-creator/SKILL.md` §标题格式规范 | Issue 前缀枚举、标题格式 |
 
 ### 3.2 生成方案
 
@@ -265,7 +265,7 @@ git remote -v                       # 查看远程仓库
 
 ```
 ╔════════════════════════════════════════════════════════════╗
-║              PyPTO Code Merge - 执行计划                    ║
+║              PyPTO Code Merge - 执行计划                   ║
 ╠════════════════════════════════════════════════════════════╣
 
 📦 修改文件

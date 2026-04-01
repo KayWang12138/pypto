@@ -1,6 +1,6 @@
 ---
 name: pypto-precision-verify
-description: PyPTO 算子查找精度问题调试技能。利用精度工具通过tensor数据比对快速定位算子精度问题，支持循环场景下的条件性数据保存。当需要调试 PyPTO 算子精度、定位精度差异来源、进行中间结果对比时使用此技能。
+description: PyPTO 算子查找精度问题调试技能。利用精度工具通过 tensor 数据比对快速定位算子精度问题，支持循环场景下的条件性数据保存。当需要调试 PyPTO 算子精度、定位精度差异来源、进行中间结果对比时使用此技能。
 license: 完整条款见 LICENSE.txt
 ---
 
@@ -10,14 +10,14 @@ license: 完整条款见 LICENSE.txt
 
 ## 核心原理
 
-1. **数据匹配**：golden 和 kernel 函数的实现需对应，计算逻辑和数据切块方式需要完全一致才可以添加检查点，确定数据类型bf16需要转为fp32保存
+1. **数据匹配**：golden 和 kernel 函数的实现需对应，计算逻辑和数据切块方式需要完全一致才可以添加检查点，确定数据类型 bf16 需要转为 fp32 保存
 2. **kernel 保存**：在 kernel 函数中使用 `pypto.pass_verify_save()` 保存中间结果（循环场景使用 `cond=(idx == 0)`）
 3. **golden 保存**：在 golden 函数中使用 `numpy.tofile()` 保存中间结果（循环场景使用 `if idx == 0:`）
 4. **数据对比**：使用对比工具检查 kernel 的 `.data` 文件和 golden 的 `.bin` 文件
 5. **全量对比**：一次性开启所有关键计算节点的检查点，对比所有中间结果
 6. **定位问题**：根据对比结果定位第一个计算结果不同的 op
 7. **插入原则**：正常情况下一次性添加的检查点不要多，从关键的节点开始，插入的检查点数据切片必须一致
-8. **数据类型**：读取数据时根据 csv 文件中的 dtype 自动判断数据类型（BF16/FP32 等），注意：numpy不支持bf16，对于bf16的检查点数据，kernel和golden都要转换为FP32类型再保存
+8. **数据类型**：读取数据时根据 csv 文件中的 dtype 自动判断数据类型（BF16/FP32 等），注意：numpy 不支持 bf16，对于 bf16 的检查点数据，kernel 和 golden 都要转换为 FP32 类型再保存
 
 ### 检查点对齐三要素
 
@@ -27,7 +27,7 @@ license: 完整条款见 LICENSE.txt
 2. **切块大小一致**：检查点变量在 kernel 和 golden 中取的数据块大小必须相同。
 3. **数据维度一致**：保存的 tensor 形状必须完全匹配
 
-如果发现golden和kernel无法对应上检查点，请重写golden，和kernel保证计算逻辑，切块一致，再进行精度对比
+如果发现 golden 和 kernel 无法对应上检查点，请重写 golden，和 kernel 保证计算逻辑、切块一致，再进行精度对比
 
 
 ## 核心原则
@@ -65,7 +65,7 @@ import time
 operator_dir = f"{operator}"
 os.makedirs(operator_dir, exist_ok=True)
 
-# 创建以时间戳命名的golden数据子目录
+# 创建以时间戳命名的 golden 数据子目录
 output_dir = os.path.join(operator_dir, "golden_data")
 os.makedirs(output_dir, exist_ok=True)
 
@@ -89,7 +89,7 @@ def golden(inputs, outputs):
 
 **检查点命名前缀规则**：
 - 为保证对比时按计算顺序执行，检查点名称必须按计算顺序添加数字前缀
-- 格式：`{序号}_{检查点名称}`，如 `1_sij`、`2_sij_scale`，golden格式`golden_1_sij.bin`
+- 格式：`{序号}_{检查点名称}`，如 `1_sij`、`2_sij_scale`，golden 格式 `golden_1_sij.bin`
 - 对比工具会按开头的数字排序检查点，确保按计算顺序对比
 - 示例：
   ```python
@@ -102,7 +102,7 @@ def golden(inputs, outputs):
 **文件结构说明**：
 ```
 operator/                          # 算子名称目录
-├── golden_data/            # golden数据目录（时间戳命名）
+├── golden_data/            # golden 数据目录（时间戳命名）
 │   ├── golden_1_sij.bin
 │   ├── golden_2_sij_scale.bin
 │   └── ...
@@ -121,12 +121,12 @@ operator/                          # 算子名称目录
 
 ### 1. 执行路径问题
 
-**问题**：Output 文件和bin文件生成在执行路径下，工具需要在正确的目录下执行
+**问题**：Output 文件和 bin 文件生成在执行路径下，工具需要在正确的目录下执行
 
 **修正**：
 ```bash
 # 用 -w 参数指定工作目录
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -v
+python3 scripts/verify_binary_search.py -w /path/to/operator -v
 ```
 
 ### 2. 数据类型读取问题
@@ -134,8 +134,8 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
 **问题**：读取数据时要根据保存的类型读取（BF16/FP32/INT32 等）
 
 **修正**：对比工具会根据 CSV 文件中的 dtype 自动判断数据类型：
-- dtype=8: BF16 格式（2字节），转换为 FP32 进行对比
-- dtype=7: FP32 格式（4字节），直接读取、
+- dtype=8: BF16 格式（2 字节），转换为 FP32 进行对比
+- dtype=7: FP32 格式（4 字节），直接读取
 
 ### 3. 检查点插入位置问题
 
@@ -160,8 +160,8 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
    - 只保存与 kernel 对应的切片（如 `result[0:tile_b]`，根据循环层数修改）
    - 数据范围与 kernel 的 `idx=0` 切片完全一致
 
-2. **golden 改写为和kernel实现完全一致** （推荐）
-   - 根据kernel侧实现，改写golden
+2. **golden 改写为和 kernel 实现完全一致**（推荐）
+   - 根据 kernel 侧实现，改写 golden
    - 循环方式，数据读取方式和切块方式需完全对应
    - golden 函数需要模拟 kernel 的循环结构和分块策略
 
@@ -187,7 +187,7 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
 
 ```bash
 # 量化场景推荐容差：rtol=0.0078125, atol=0.0001
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py \
+python3 scripts/verify_binary_search.py \
     --rtol 0.0078125 \
     --atol 0.001 \
     -v
@@ -199,7 +199,7 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
 - 推荐值：`rtol=0.0078125, atol=0.001`
 - 如果仍然有大量 FAIL，可以进一步放宽容差
 
-### 6. 对比逻辑问题
+### 7. 对比逻辑问题
 
 **问题**：只看最大差异容易误判，应统计不匹配率
 
@@ -229,7 +229,7 @@ python3 test_operator.py
 
 ```bash
 # 使用通用工具（推荐）
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -v
+python3 scripts/verify_binary_search.py -v
 ```
 
 ### 步骤 4：分析对比结果
@@ -242,24 +242,24 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
 **⚠️ 重要检查事项**：
 
 1. **检查点数据类型一致性**
-   - **numpy BF16不支持直接保存**：kernel和golden都要转换为FP32类型再保存
-   - 在kernel中使用 `pypto.cast(tensor, pypto.DT_FP32)` 转换后再调用 `pypto.pass_verify_save`
-   - 在golden中使用 `.to(torch.float32)` 转换后再保存
+   - **numpy BF16 不支持直接保存**：kernel 和 golden 都要转换为 FP32 类型再保存
+   - 在 kernel 中使用 `pypto.cast(tensor, pypto.DT_FP32)` 转换后再调用 `pypto.pass_verify_save`
+   - 在 golden 中使用 `.to(torch.float32)` 转换后再保存
 
-2. **审查log文件内容**
+2. **审查 log 文件内容**
    - 查看生成的 `*_verify_result.log` 文件
-   - 如果出现 **NaN** 或 **很大的数值**（如 atol=479360）或者全0值
+   - 如果出现 **NaN** 或 **很大的数值**（如 atol=479360）或者全 0 值
    - **可能原因**：保存和读取数据类型不一致
-   - **解决方法**：检查检查点的保存逻辑和CSV文件中的dtype，确保golden保存的数据类型与kernel一致
+   - **解决方法**：检查检查点的保存逻辑和 CSV 文件中的 dtype，确保 golden 保存的数据类型与 kernel 一致
    - 如果在量化类场景下中间结果略超过容差阈值，可以适当放宽，这类检查点不视作精度比对失败
-   - 在一些特殊场景（torch和kernel取整方式不同），导致较大误差,这类也不视作失败
+   - 在一些特殊场景（torch 和 kernel 取整方式不同），导致较大误差，这类也不视作失败
 
 ### 步骤 5：绘制精度变化图（可选）
 
 使用绘图脚本可视化精度变化：
 ```bash
-# 指定 operator_verify_result.log 文件路径（在operator目录下）
-python3 .agents/skills/pypto-binary-search-verify/scripts/plot_accuracy.py /path/to/operator/operator_verify_result.log
+# 指定 operator_verify_result.log 文件路径（在 operator 目录下）
+python3 scripts/plot_accuracy.py /path/to/operator/operator_verify_result.log
 ```
 
 ### 步骤 6：定位并修复
@@ -324,19 +324,19 @@ rm -rf output/output_*
 
 ```bash
 # 自动检测并对比所有检查点
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py
+python3 scripts/verify_binary_search.py
 
 # 列出所有检查点
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py --list
+python3 scripts/verify_binary_search.py --list
 
 # 显示详细对比
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py --verbose
+python3 scripts/verify_binary_search.py --verbose
 
 # 指定工作目录
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -v
+python3 scripts/verify_binary_search.py -w /path/to/operator -v
 
 # 指定 golden 文件所在目录（当 golden 文件保存在独立文件夹时使用，推荐）
-python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w /path/to/operator -g /path/to/operator/golden_data -v
+python3 scripts/verify_binary_search.py -w /path/to/operator -g /path/to/operator/golden_data -v
 
 ```
 
