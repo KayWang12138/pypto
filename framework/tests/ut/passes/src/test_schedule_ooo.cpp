@@ -2115,12 +2115,12 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1)
     EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 0);
 }
 
-<<<<<<< HEAD
-void SetAttributeReshape2(
-    ComputationalGraphBuilder& subGraph, OoOScheduler& oooSchedule, IssueEntryPtr& reshape, IssueEntryPtr& alloc3)
-{
-    IssueEntryPtr copyin5 = GetIssueEntry("COPY_IN5", subGraph, oooSchedule);
-    reshape = GetIssueEntry("RESHAPE", subGraph, oooSchedule);
+void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, Operation* &reshape, Operation* &alloc3) {
+    Operation* copyin5 = subGraph.GetOp("COPY_IN5");
+    reshape = subGraph.GetOp("RESHAPE");
+    Operation* copyin1 = subGraph.GetOp("COPY_IN1");
+    Operation* copyout1 = subGraph.GetOp("COPY_OUT1");
+    Operation* copyout2 = subGraph.GetOp("COPY_OUT2");
     Operation* copyin2 = subGraph.GetOp("COPY_IN2");
     Operation* copyin3 = subGraph.GetOp("COPY_IN3");
     Operation* copyin4 = subGraph.GetOp("COPY_IN4");
@@ -2128,7 +2128,6 @@ void SetAttributeReshape2(
     std::vector<int64_t> shape = {256, 512};
     copyin5->SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
         MemoryType::MEM_L1, OpImmediate::Specified(shape), OpImmediate::Specified(shape)));
->>>>>>> 5f6df757 (feat(pass): Remove IssueEntry in OoO)
 
     Operation* alloc1 = subGraph.GetOp("L1_Alloc1");
     Operation* alloc2 = subGraph.GetOp("L1_Alloc2");
