@@ -674,15 +674,13 @@ public:
         bool debugEnable = !isCaptureMode && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE(
-            "triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
-            ctrlFlowCache);
+        COMPILER_LOGE("sequence %ld workspace %p cfgcache %p", sequence.load(), workspace, ctrlFlowCache);
 #endif
         int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
         ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
 
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
-        ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
+        ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, true, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
@@ -726,9 +724,6 @@ private:
     void InitConfigOptions(py::object& module)
     {
         auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("triple_stream_sched")) {
-            tripleStream = options["triple_stream_sched"].cast<bool>();
-        }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
         }
@@ -764,9 +759,7 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE(
-            "triple_stream_sched: %d, stitch_cfgcache_size: %ld, infer_cache_shape: %d", tripleStream,
-            stitchCfgCacheSize, inferCacheShape);
+        COMPILER_LOGE("stitch_cfgcache_size: %ld, infer_cache_shape: %d", stitchCfgCacheSize, inferCacheShape);
 #endif
     }
 
