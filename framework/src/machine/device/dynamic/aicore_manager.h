@@ -209,9 +209,15 @@ public:
 
         ExecuteTask(taskCtrl);
 
+         // Making sure all schedulers are here for accurate timing -- this needs to be removed for production
+        DEV_IF_DEVICE {
+            readyAICPUsBarrierPtr->fetch_add(1);
+            while (readyAICPUsBarrierPtr->load() < AICPU_SCHEDULERS * 2) { }
+        }
+
         const auto tf = std::chrono::high_resolution_clock::now();
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
-        DEV_ERROR(0, "[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
+        if (aicpuIdx_ == 1) DEV_ERROR(SchedErr::CORE_TASK_EXEC_FAILED, "[AICPU %d] Running Time: %ld ns", aicpuIdx_, ns);
 
         if (isLeaderScheduler_ == true) NormalStop();
     }
