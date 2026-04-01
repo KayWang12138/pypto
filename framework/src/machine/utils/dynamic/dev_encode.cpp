@@ -13,6 +13,7 @@
  * \brief
  */
 #include "tilefwk/platform.h"
+#include "machine/device/dynamic/device_common.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/host/main_block.h"
@@ -48,12 +49,12 @@ constexpr int32_t MAX_AICORE_NUM_2210 = 75;
 constexpr int32_t MAX_AICORE_NUM_3510 = 108;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
-constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 static uint32_t MAX_UNROLL_TIMES = 1;                 // the max num of unroll_list
+constexpr size_t CALC_STITCH_NUM = 4;
 void DevAscendFunction::InitIncastOutcastAttr(
     uintdevptr_t& initOffset, const std::vector<std::shared_ptr<LogicalTensor>>& iList,
     const std::vector<std::shared_ptr<LogicalTensor>>& oList, bool /* fillContent */)
@@ -2580,14 +2581,10 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
     uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
     uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
     size_t objUsedNum[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)]{
-        ExpectedMaxCachedNum(),         // DevFunctionDupped
-        1,                              // DynFuncData
-        1,                              // VecStitchList
-        1,                              // DynDevTask
-        READY_QUEUE_SIZE,               // ReadyQue
-        DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
-        1,
-        1,
+        ExpectedMaxCachedNum(), // DevFunctionDupped
+        1,                      // DynFuncData
+        1,                      // VecStitchList
+        1,                      // DynDevTask
     };
     workspace.CalculateSlabCapacityPerType(
         slabSize, slabCapacity, ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
@@ -2599,7 +2596,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
         }
         uint32_t requiredSlabNum = (objUsedNum[i] + slabCapacity[i] - 1) / slabCapacity[i];
         // alloc redundant slabpage for DuppedFunction and Readyque to prevent memory border situations
-        if (i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA) || i == ToUnderlying(WsAicpuSlabMemType::READY_QUE))
+        if (i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA))
             requiredSlabNum++;
         MACHINE_LOGD("[workspaceSize] RequiredSlabNum[%d] is %u.", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
@@ -2613,9 +2610,19 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram& devProg)
 {
-    (void)devProg;
-    static constexpr uint64_t AICPU_STITCH_SIZE = 2 * MEBI;
-    return AICPU_STITCH_SIZE;
+    DeviceWorkspaceAllocator workspace(devProg);
+    uint32_t slabCapacity[CALC_STITCH_NUM];
+    uint32_t objUsedNum[CALC_STITCH_NUM] = {
+        READY_QUEUE_SIZE * 2, // // * 2 for stitch double devFunc
+        DIE_READY_QUEUE_SIZE * DIE_NUM, 1, 1};
+    uint32_t slabSize = workspace.CalcStitchSlabMemObjmaxSize(slabCapacity);
+    uint64_t stitchPoolSize = slabSize << 1; // DUPPED_STITCH, enture greater than 2mb
+    for (size_t i = 0; i < CALC_STITCH_NUM; ++i) {
+        uint32_t requiredSlabNum = (objUsedNum[i] + slabCapacity[i] - 1) / slabCapacity[i];
+        stitchPoolSize += slabSize * requiredSlabNum;
+    }
+    MACHINE_LOGD("[workspaceSize] Stitch pool size is %lu, with slab size:%u.", stitchPoolSize, slabSize);
+    return stitchPoolSize;
 }
 
 static uint64_t DumpTensorWorkspace()
@@ -2671,7 +2678,7 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         }
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchMaxFunctionNum = ExpectedMaxCachedNum();
-        base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
+        base->stitchFunctionsize = STITCH_FUNCTION_SIZE;
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
         base->memBudget.metadata.general += CalcGeneralMetadataSlabWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
