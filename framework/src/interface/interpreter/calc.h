@@ -30,6 +30,15 @@ CalcOps* GetCalcOps();
 
 inline bool IsVerifyEnabled() { return GetCalcOps() != nullptr; }
 
+inline bool IsFp4PackedDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
+
+inline void ExpandLastDimForFp4(std::vector<int64_t>& vals)
+{
+    if (!vals.empty() && vals.back() >= 0) {
+        vals.back() *= 2;
+    }
+}
+
 inline TensorData Trans(LogicalTensorDataPtr data)
 {
     TensorData calcData;
@@ -42,6 +51,13 @@ inline TensorData Trans(LogicalTensorDataPtr data)
         calcData.storageOffset = data->GetStorageOffset();
         calcData.dtype = raw->GetDataType();
         calcData.isAxisCombine = data->IsAxisCombine();
+        if (IsFp4PackedDtype(calcData.dtype)) {
+            // Expose logical FP4 element shape/stride/offset to calculator.
+            ExpandLastDimForFp4(calcData.rawShape);
+            ExpandLastDimForFp4(calcData.shape);
+            ExpandLastDimForFp4(calcData.stride);
+            calcData.storageOffset *= 2;
+        }
     }
     return calcData;
 }
