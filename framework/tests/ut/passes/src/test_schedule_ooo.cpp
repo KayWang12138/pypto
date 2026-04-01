@@ -2133,6 +2133,7 @@ void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &ooo
     Operation* alloc2 = subGraph.GetOp("L1_Alloc2");
     alloc3 = subGraph.GetOp("L1_Alloc3");
 
+    Operation* alloc6 = subGraph.GetOp("L0A_Alloc1");
     Operation* alloc7 = subGraph.GetOp("L0A_Alloc2");
 
     SetInternalSubgraphIDAndAIVCore(alloc1, 1);
