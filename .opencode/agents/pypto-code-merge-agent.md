@@ -11,6 +11,10 @@ tools:
   read: true
   write: true
   edit: true
+  glob: true
+  grep: true
+  skill: true
+  question: true
   gitcode_list_repositories: true
   gitcode_list_pull_requests: true
   gitcode_get_pull_request: true
