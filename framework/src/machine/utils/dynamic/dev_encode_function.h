@@ -92,7 +92,6 @@ struct DevAscendFunction {
 public:
     uint64_t wrapIdNum_{0};
     int* GetOpWrapListAddr() { return &At(opWrapList_, 0); }
-    int* GetOpWrapTaskNumListAddr() { return &At(opWrapTaskNumList_, 0); }
 
     // total memory requirement of non-root-incast/outcast raw tensors
     uint64_t rootInnerTensorWsMemoryRequirement{0};
@@ -100,7 +99,6 @@ public:
 
 private:
     DevLocalVector<int> opWrapList_;
-    DevLocalVector<int> opWrapTaskNumList_;
     DevLocalVector<DevAscendRawTensor> rawTensorList_;
     DevLocalVector<DevRawTensorDesc> rawTensorDescList_;
     DevLocalVector<DevAscendTensor> tensorList_;

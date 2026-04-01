@@ -136,6 +136,9 @@ public:
 
     // l0c2l1场景，限制数据类型和数据对齐
     bool FitL0C2L1(const LogicalTensorPtr& tensor);
+          
+    // l0c2l1场景规避条件检查，检查op输入是否满足无非立即数的validShape
+    bool FitL0C2L1(const Operation &op);
 
     // 检查是否适合 UB2L1 小搬大（格式对齐检查）
     bool FitUB2L1(const LogicalTensorPtr &tensor) const;

@@ -164,21 +164,14 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForSet() const
     int32_t shmemTensorIndex = 3;
     Distributed::ShmemSetAttr distOpAttr = AnyCast<Distributed::ShmemSetAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     int64_t bufferEleNum = distOpAttr.setBufferShape[0];
-    int64_t rawShapeRow;
-    int64_t rawShapeCol;
-    size_t shmemTensorDim = originShape[shmemTensorIndex].size();
-    ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, shmemTensorDim >= 2)
-        << "shmem tensor dim = " << shmemTensorDim << ", should >= 2.";
-    if (distOpAttr.setType == 0) {
-        rawShapeRow = originShape[shmemTensorIndex][shmemTensorDim - 2];
-        rawShapeCol = originShape[shmemTensorIndex][shmemTensorDim - 1];
-    } else {
-        rawShapeRow = Distributed::MAX_TILE_NUM;
-        rawShapeCol = Distributed::SHMEM_SIGNAL_STRIDE;
-    }
-    int64_t shapeTopDim = shmemTensorDim >= 3 ? originShape[shmemTensorIndex][shmemTensorDim - 3] : 1;
-    oss << "<" << GetTemplateDType() << ", " << shapeTopDim << ", " << rawShapeRow << ", " << rawShapeCol << ", "
-        << bufferEleNum << ">";
+    size_t shmemTensorDim = rawShape[shmemTensorIndex].size();
+    ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, shmemTensorDim >= 3)
+        << "shmem tensor dim = " << shmemTensorDim << ", should >= 3.";
+    Shape actualRawShape = distOpAttr.isSetData ?
+                               rawShape[shmemTensorIndex] :
+                               Shape{rawShape[shmemTensorIndex][0], 0, Distributed::SHMEM_SIGNAL_STRIDE};
+    oss << "<" << GetTemplateDType() << ", " << actualRawShape[0] << ", " << actualRawShape[1] << ", "
+        << actualRawShape[2] << ", " << bufferEleNum << ">";
     return oss.str();
 }
 
@@ -366,7 +359,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemSet() const
     std::ostringstream oss;
     Distributed::ShmemSetAttr distOpAttr = AnyCast<Distributed::ShmemSetAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     int32_t shmemTensorIndex = 3;
-    if (distOpAttr.setType == 0) {
+    if (distOpAttr.isSetData) {
         oss << ", " << GenOffsets(shmemTensorIndex);
     } else {
         oss << ", " << GenOffsetsAndRawShapes(shmemTensorIndex) << ", " << GenShapes(shmemTensorIndex);

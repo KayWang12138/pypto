@@ -41,8 +41,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -177,7 +175,7 @@ TEST_F(TestCodegenUnary, FullDim2TileTensor)
 {
     Function& func = TestFullBody({32, 32}, {16, 16}, "FULL_DIM2_TILETENSOR", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2);)!!!";
+    std::string expect = R"!!!(TVecDup<float>(ubTensor_0, 2);)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -205,7 +203,7 @@ TEST_F(TestCodegenUnary, CastDim1TileTensor)
 {
     Function& func = TestCastBody({128}, {128}, {64}, "CastDim1TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TCast<LastUse2Dim<0, 1>, 0, pto::SaturationMode::OFF>(ubTensor_3, ubTensor_1);
+    std::string expect = R"!!!(TCast<LastUse2Dim<0, 1>, 0, pto::SaturationMode::OFF>(ubTensor_2, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -235,7 +233,7 @@ TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor)
 {
     Function& func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 2>(ubTensor_3, ubTensor_1);
+    std::string expect = R"!!!(TExpand<LastUse2Dim<0, 1>, 2>(ubTensor_2, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }
