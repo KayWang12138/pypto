@@ -11,8 +11,6 @@ description: "PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu�
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
-
-- `$SKILL_DIR`：运行时自动注入的环境变量。指向当前 skill 的根目录（即本 `pypto-environment-setup/` 目录）。文档中所有 `$SKILL_DIR/scripts/...` 的引用均依赖此变量。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/pypto-environment-setup`。
 - **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0.post3
 
 ## ⛔ 隐私保护
@@ -104,10 +102,7 @@ source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 
 #### 步骤 4.2：检查可用的 NPU 卡 (务必在加载 CANN 环境后检查)
 
-使用空闲卡检测脚本（位于 `$SKILL_DIR/scripts/list_idle_chip_ids.sh`）：
-```bash
-bash $SKILL_DIR/scripts/list_idle_chip_ids.sh
-```
+使用空闲卡检测脚本（来自 `pypto-op-develop` skill 的 `scripts/list_idle_chip_ids.sh`）。
 
 #### 步骤 4.3：设置环境变量
 ```bash
