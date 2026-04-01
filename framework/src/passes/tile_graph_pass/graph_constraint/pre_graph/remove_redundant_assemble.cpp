@@ -642,8 +642,8 @@ bool RemoveRedundantAssemble::FindAssembleOut(Operation* con, int assembleOutMag
     return res;
 }
 
-void RemoveRedundantAssemble::HandleForDeleteSingleAssemble(LogicalTensorPtr input, LogicalTensorPtr output) const {
-    auto producersBackup = input->GetProducers();
+void RemoveRedundantAssemble::HandleForDeleteSingleAssemble(
+    LogicalTensorPtr input, LogicalTensorPtr output, std::set<Operation*, LogicalTensor::CompareOp>& producersBackup) const {
     auto& consumers = input->GetConsumers();
     LogicalTensorPtr oriOutputBackUp = nullptr;
     int assembleOutMagic = 0;
@@ -688,7 +688,7 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
 {
     auto producersBackup = input->GetProducers();
     if (needToDelete) {
-        HandleForDeleteSingleAssemble(input, output);
+        HandleForDeleteSingleAssemble(input, output, producersBackup);
     }
     HandleForAssembleFromInOut(function, op, producersBackup);
     HandleForAssembleToOutcast(function, op, producersBackup);
