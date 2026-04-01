@@ -33,6 +33,22 @@
 using Json = nlohmann::json;
 
 namespace npu::tile_fwk {
+
+enum AxisReorderStatus {
+    ENABLE = 0,     // 明确可以支持合轴优化
+    DISABLE,        // 尾轴为1，但是不支持合轴优化的场景
+    UNKNOWN         // 不涉及合轴优化
+};
+
+inline std::string AxisReorderStatusToString(AxisReorderStatus status) {
+    switch (status) {
+        case ENABLE: return "ENABLE";
+        case DISABLE: return "DISABLE";
+        case UNKNOWN: return "UNKNOWN";
+        default: return "UNKNOWN";
+    }
+}
+
 class TileRange {
 public:
     size_t start;
@@ -204,6 +220,22 @@ public:
     }
 
     bool IsGetTensorDataOutcast();
+
+    void SetEnableCombineAxis(AxisReorderStatus status) {
+        SetAttr("enable_combine_axis", static_cast<int64_t>(status));
+    }
+
+    AxisReorderStatus GetEnableCombineAxis() const {
+        int64_t status = static_cast<int64_t>(AxisReorderStatus::UNKNOWN);
+        if (GetAttr("enable_combine_axis", status)) {
+            return static_cast<AxisReorderStatus>(status);
+        }
+        return AxisReorderStatus::UNKNOWN;
+    }
+
+    bool HasEnableCombineAxis() const {
+        return HasAttr("enable_combine_axis");
+    }
 
 private:
     MemoryType memoryTypeOriginal_{MemoryType::MEM_UNKNOWN};

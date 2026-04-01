@@ -1400,10 +1400,12 @@ TEST_F(TestPadLocalBuffer, axiscombineCastCase)
     config::SetOperationOption(KEY_COMBINE_AXIS, true);
     auto* rootFuncPtr = graph.GetFunction();
     rootFuncPtr->paramConfigs_.combineAxis = true;
+    rootFuncPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/b.json");
     AxisCombine axisCombineTest;
     EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
     PadLocalBuffer padLocalBufferTest;
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    rootFuncPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/a.json");
     int64_t cnt = 0;
     for (const auto& op : rootFuncPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_BRCB) {
