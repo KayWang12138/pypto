@@ -25,6 +25,7 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/barrier.h"
+#include "machine/device/dynamic/aicore_prof.h"
 #ifdef __DEVICE__
 #include "log_types.h"
 #endif
@@ -349,6 +350,7 @@ public:
         PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
 #ifdef __DEVICE__
         InitLogSwitch();
+        AiCoreProf::RegDevProf();
 #endif
         if (kargs == nullptr) {
             return -1;
