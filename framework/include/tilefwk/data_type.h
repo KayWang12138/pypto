@@ -16,6 +16,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <cstdint>
 #include <stdexcept>
@@ -28,32 +29,36 @@
 namespace npu::tile_fwk {
 const std::unordered_map<size_t, size_t> BLOCK_PADDING_DIM = {{1, 32}, {2, 16}, {4, 8}, {8, 4}};
 
-enum DataType {
-    DT_INT4 = 0,
-    DT_INT8 = 1,
-    DT_INT16 = 2,
-    DT_INT32 = 3,
-    DT_INT64 = 4,
-    DT_FP8 = 5,
-    DT_FP16 = 6,
-    DT_FP32 = 7,
-    DT_BF16 = 8,
-    DT_HF4 = 9,
-    DT_HF8 = 10,
-    DT_UINT8 = 11,
-    DT_UINT16 = 12,
-    DT_UINT32 = 13,
-    DT_UINT64 = 14,
-    DT_BOOL = 15,
-    DT_DOUBLE = 16,
-    DT_FP8E5M2 = 17,
-    DT_FP8E4M3 = 18,
-    DT_FP8E8M0 = 19,
-    DT_FP4_E2M1X2 = 20,
-    DT_FP4_E1M2X2 = 21,
-    DT_BOTTOM
-};
+#define DATA_TYPE_ALL                                      \
+    DTYPE_DESC(DT_INT4, 1, 4, false, int4)                 \
+    DTYPE_DESC(DT_INT8, 1, 8, false, int8_t)               \
+    DTYPE_DESC(DT_INT16, 2, 16, false, int16_t)            \
+    DTYPE_DESC(DT_INT32, 4, 32, false, int32_t)            \
+    DTYPE_DESC(DT_INT64, 8, 64, false, int64_t)            \
+    DTYPE_DESC(DT_FP8, 1, 8, true, float8_t)               \
+    DTYPE_DESC(DT_FP16, 2, 16, true, half)                 \
+    DTYPE_DESC(DT_FP32, 4, 32, true, float)                \
+    DTYPE_DESC(DT_BF16, 2, 16, true, bfloat16_t)           \
+    DTYPE_DESC(DT_HF4, 1, 4, true, hfloat4)                \
+    DTYPE_DESC(DT_HF8, 1, 8, true, hifloat8_t)             \
+    DTYPE_DESC(DT_UINT8, 1, 8, false, uint8_t)             \
+    DTYPE_DESC(DT_UINT16, 2, 16, false, uint16_t)          \
+    DTYPE_DESC(DT_UINT32, 4, 32, false, uint32_t)          \
+    DTYPE_DESC(DT_UINT64, 8, 64, false, uint64_t)          \
+    DTYPE_DESC(DT_BOOL, 1, 8, false, bool)                 \
+    DTYPE_DESC(DT_DOUBLE, 8, 64, true, double)             \
+    DTYPE_DESC(DT_FP8E4M3, 1, 8, true, float8_e4m3_t)      \
+    DTYPE_DESC(DT_FP8E5M2, 1, 8, true, float8_e5m2_t)      \
+    DTYPE_DESC(DT_FP8E8M0, 1, 8, true, float8_e8m0_t)      \
+    DTYPE_DESC(DT_FP4_E2M1X2, 1, 4, true, float4_e2m1x2_t) \
+    DTYPE_DESC(DT_FP4_E1M2X2, 1, 4, true, float4_e1m2x2_t)
 
+enum DataType {
+#define DTYPE_DESC(name, byte, bit, is_float, type) name,
+    DATA_TYPE_ALL
+#undef DTYPE_DESC
+        DT_BOTTOM
+};
 enum class NodeType {
     LOCAL = 0,
     INCAST = 1,
@@ -119,159 +124,67 @@ inline std::string NodeType2String(NodeType n)
 
 inline bool IsFloat(DataType t)
 {
-    if ((t == DT_FP8) || (t == DT_FP16) || (t == DT_FP32) || (t == DT_BF16)) {
-        return true;
-    }
-    return false;
-}
-
-inline std::string DataType2String(DataType t)
-{
     switch (t) {
-        case DT_INT4:
-            return "DT_INT4";
-        case DT_INT8:
-            return "DT_INT8";
-        case DT_INT16:
-            return "DT_INT16";
-        case DT_INT32:
-            return "DT_INT32";
-        case DT_INT64:
-            return "DT_INT64";
-        case DT_FP8:
-            return "DT_FP8";
-        case DT_FP16:
-            return "DT_FP16";
-        case DT_FP32:
-            return "DT_FP32";
-        case DT_BF16:
-            return "DT_BF16";
-        case DT_HF8:
-            return "DT_HF8";
-        case DT_HF4:
-            return "DT_HF4";
-        case DT_BOOL:
-            return "DT_BOOL";
-        case DT_UINT8:
-            return "DT_UINT8";
-        case DT_UINT16:
-            return "DT_UINT16";
-        case DT_UINT32:
-            return "DT_UINT32";
-        case DT_UINT64:
-            return "DT_UINT64";
-        case DT_FP8E5M2:
-            return "DT_FP8E5M2";
-        case DT_FP8E4M3:
-            return "DT_FP8E4M3";
-        case DT_FP8E8M0:
-            return "DT_FP8E8M0";
-        case DT_FP4_E2M1X2:
-            return "DT_FP4_E2M1X2";
-        case DT_FP4_E1M2X2:
-            return "DT_FP4_E1M2X2";
+#define DTYPE_DESC(name, byte, bit, is_float, type) \
+    case name:                                      \
+        return is_float;
+        DATA_TYPE_ALL
+#undef DTYPE_DESC
         default:
             throw std::invalid_argument("Unknown DataType");
     }
 }
 
-[[maybe_unused]] inline std::string BriefDataType2String(DataType t)
+inline const char* DataType2String(DataType t, bool brief = false)
+{
+    const char* ret = nullptr;
+    switch (t) {
+#define DTYPE_DESC(name, byte, bit, is_float, type) \
+    case name:                                      \
+        ret = #name;                                \
+        break;
+        DATA_TYPE_ALL
+#undef DTYPE_DESC
+        default:
+            throw std::invalid_argument("Unknown DataType");
+    }
+    return brief ? (ret + 0x3) : ret; // brief skip "DT_"
+}
+
+inline size_t BytesOf(DataType t)
 {
     switch (t) {
-        case DT_INT4:
-            return "INT4";
-        case DT_INT8:
-            return "INT8";
-        case DT_INT16:
-            return "INT16";
-        case DT_INT32:
-            return "INT32";
-        case DT_INT64:
-            return "INT64";
-        case DT_FP8:
-            return "FP8";
-        case DT_FP16:
-            return "FP16";
-        case DT_FP32:
-            return "FP32";
-        case DT_BF16:
-            return "BF16";
-        case DT_HF4:
-            return "HF4";
-        case DT_HF8:
-            return "HF8";
-        case DT_UINT8:
-            return "UINT8";
-        case DT_UINT16:
-            return "UINT16";
-        case DT_UINT32:
-            return "UINT32";
-        case DT_UINT64:
-            return "UINT64";
-        case DT_BOOL:
-            return "BOOL";
-        case DT_DOUBLE:
-            return "DOUBLE";
-        case DT_FP8E5M2:
-            return "FP8E5M2";
-        case DT_FP8E4M3:
-            return "FP8E4M3";
-        case DT_FP8E8M0:
-            return "FP8E8M0";
-        case DT_FP4_E2M1X2:
-            return "FP4_E2M1X2";
-        case DT_FP4_E1M2X2:
-            return "FP4_E1M2X2";
+#define DTYPE_DESC(name, byte, bit, is_float, type) \
+    case name:                                      \
+        return byte;
+        DATA_TYPE_ALL
+#undef DTYPE_DESC
         default:
             throw std::invalid_argument("Unknown DataType");
     }
 }
 
-inline std::string DataType2CCEStr(DataType t)
+inline int64_t BitsOf(DataType t)
 {
     switch (t) {
-        case DT_INT4:
-            return "int4";
-        case DT_INT8:
-            return "int8_t";
-        case DT_INT16:
-            return "int16_t";
-        case DT_INT32:
-            return "int32_t";
-        case DT_INT64:
-            return "int64_t";
-        case DT_FP8:
-            return "float8_t";
-        case DT_FP16:
-            return "half";
-        case DT_FP32:
-            return "float";
-        case DT_BF16:
-            return "bfloat16_t";
-        case DT_HF8:
-            return "hifloat8_t";
-        case DT_HF4:
-            return "hfloat4";
-        case DT_BOOL:
-            return "bool";
-        case DT_UINT8:
-            return "uint8_t";
-        case DT_UINT16:
-            return "uint16_t";
-        case DT_UINT32:
-            return "uint32_t";
-        case DT_UINT64:
-            return "uint64_t";
-        case DT_FP8E4M3:
-            return "float8_e4m3_t";
-        case DT_FP8E5M2:
-            return "float8_e5m2_t";
-        case DT_FP8E8M0:
-            return "float8_e8m0_t";
-        case DT_FP4_E2M1X2:
-            return "float4_e2m1x2_t";
-        case DT_FP4_E1M2X2:
-            return "float4_e1m2x2_t";
+#define DTYPE_DESC(name, byte, bit, is_float, type) \
+    case name:                                      \
+        return bit;
+        DATA_TYPE_ALL
+#undef DTYPE_DESC
+        default:
+            throw std::invalid_argument("Unknown DataType");
+    }
+}
+
+inline const char* DataType2CCEStr(DataType t)
+{
+    switch (t) {
+#define DTYPE_DESC(name, byte, bit, is_float, type) \
+    case name:                                      \
+        return #type;
+        DATA_TYPE_ALL
+#undef DTYPE_DESC
         default:
             throw std::invalid_argument("Unknown DataType");
     }
@@ -429,41 +342,6 @@ inline std::string MemoryTypeToString(MemoryType mt)
             return "BT";
         default:
             return "MEM_UNKNOWN";
-    }
-}
-
-inline size_t BytesOf(DataType t)
-{
-    switch (t) {
-        case DT_INT4:
-        case DT_FP4_E2M1X2:
-        case DT_FP4_E1M2X2:
-        case DT_HF4:
-            return 1; // 4bits still need 1 byte
-        case DT_INT8:
-        case DT_UINT8:
-        case DT_BOOL:
-        case DT_FP8:
-        case DT_FP8E5M2:
-        case DT_FP8E4M3:
-        case DT_FP8E8M0:
-        case DT_HF8:
-            return 1;
-        case DT_INT16:
-        case DT_UINT16:
-        case DT_FP16:
-        case DT_BF16:
-            return 0x2;
-        case DT_INT32:
-        case DT_UINT32:
-        case DT_FP32:
-            return 0x4;
-        case DT_DOUBLE:
-        case DT_UINT64:
-        case DT_INT64:
-            return 0x8;
-        default:
-            throw std::invalid_argument("Unknown DataType");
     }
 }
 

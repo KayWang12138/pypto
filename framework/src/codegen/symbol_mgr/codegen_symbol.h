@@ -179,7 +179,7 @@ struct TileTensorUsing {
     std::string GenName() const
     {
         std::ostringstream oss;
-        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << BriefDataType2String(dtype) << DIM << dim << "_";
+        oss << BUFFER_TYPE_TO_PREFIX.at(bufType) << TILE_TENSOR << DataType2String(dtype, true) << DIM << dim << "_";
         return oss.str();
     }
 
