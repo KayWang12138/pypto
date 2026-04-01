@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -412,11 +412,3 @@ SPLIT_K_TESTS = [
         "products": ["950", "910"],
     },
 ]
-
-TEST_GROUPS = {
-    "basic": BASIC_TESTS,
-    "nz_format": NZ_FORMAT_TESTS,
-    "extra_param": EXTRA_PARAM_TESTS,
-    "fp8": FP8_TESTS,
-    "split_k": SPLIT_K_TESTS,
-}

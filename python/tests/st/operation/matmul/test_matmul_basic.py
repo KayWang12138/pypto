@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import os
 import pytest
 import pypto
 import torch
-import torch_npu
 
 from test_case.test_case import BASIC_TESTS, MatmulConfig
 
@@ -39,14 +38,14 @@ def matmul_pto_kernel(
     for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
         for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_L0_nIdx", idx_name="n_idx"):
             if config.a_trans:
-                a_view = a_tensor[:, m_idx * m_view : m_idx * m_view + m_view]
+                a_view = a_tensor[:, m_idx * m_view: m_idx * m_view + m_view]
             else:
-                a_view = a_tensor[m_idx * m_view : m_idx * m_view + m_view, :]
+                a_view = a_tensor[m_idx * m_view: m_idx * m_view + m_view, :]
             
             if config.b_trans:
-                b_view = b_tensor[n_idx * n_view : n_idx * n_view + n_view, :]
+                b_view = b_tensor[n_idx * n_view: n_idx * n_view + n_view, :]
             else:
-                b_view = b_tensor[:, n_idx * n_view : n_idx * n_view + n_view]
+                b_view = b_tensor[:, n_idx * n_view: n_idx * n_view + n_view]
             
             out_view = pypto.matmul(
                 a_view,
@@ -57,8 +56,8 @@ def matmul_pto_kernel(
             )
             
             out_tensor[
-                m_idx * m_view : m_idx * m_view + m_view,
-                n_idx * n_view : n_idx * n_view + n_view,
+                m_idx * m_view: m_idx * m_view + m_view,
+                n_idx * n_view: n_idx * n_view + n_view,
             ] = out_view
 
 
@@ -118,8 +117,8 @@ def test_matmul_basic(case: dict):
 
 
 def run_matmul_demo():
-    M, K, N = 256, 256, 256
-    M_VIEW, N_VIEW = 128, 128
+    m_size, k_size, n_size = 256, 256, 256
+    m_view_size, n_view_size = 128, 128
 
     @pypto.frontend.jit(debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1})
     def matmul_demo_kernel(
@@ -129,22 +128,22 @@ def run_matmul_demo():
     ):
         pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
 
-        m_loop = (M + M_VIEW - 1) // M_VIEW
-        n_loop = (N + N_VIEW - 1) // N_VIEW
+        m_loop = (m_size + m_view_size - 1) // m_view_size
+        n_loop = (n_size + n_view_size - 1) // n_view_size
 
         for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
             for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_L0_nIdx", idx_name="n_idx"):
-                a_view = a[m_idx * M_VIEW : m_idx * M_VIEW + M_VIEW, :]
-                b_view = b[:, n_idx * N_VIEW : n_idx * N_VIEW + N_VIEW]
+                a_view = a[m_idx * m_view_size: m_idx * m_view_size + m_view_size, :]
+                b_view = b[:, n_idx * n_view_size: n_idx * n_view_size + n_view_size]
                 out_view = pypto.matmul(a_view, b_view, pypto.DT_FP16)
                 out[
-                    m_idx * M_VIEW : m_idx * M_VIEW + M_VIEW,
-                    n_idx * N_VIEW : n_idx * N_VIEW + N_VIEW,
+                    m_idx * m_view_size: m_idx * m_view_size + m_view_size,
+                    n_idx * n_view_size: n_idx * n_view_size + n_view_size,
                 ] = out_view
 
-    a = torch.randn([M, K], dtype=torch.float16, device="npu:0")
-    b = torch.randn([K, N], dtype=torch.float16, device="npu:0")
-    out = torch.empty(M, N, dtype=torch.float16, device="npu:0")
+    a = torch.randn([m_size, k_size], dtype=torch.float16, device="npu:0")
+    b = torch.randn([k_size, n_size], dtype=torch.float16, device="npu:0")
+    out = torch.empty(m_size, n_size, dtype=torch.float16, device="npu:0")
     matmul_demo_kernel(a, b, out)
 
 
