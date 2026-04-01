@@ -16,6 +16,7 @@
 #ifndef SHMEM_IR_TEST_UTILS_H
 #define SHMEM_IR_TEST_UTILS_H
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -24,6 +25,8 @@
 #include <gtest/gtest.h>
 
 #include "interface/program/program.h"
+#include "interface/inner/any.h"
+#include "interface/operation/distributed/distributed_common.h"
 
 namespace npu::tile_fwk {
 
@@ -134,6 +137,38 @@ inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
     return fallback;
 }
 
+// Extract wait attrs from OP_SHMEM_WAIT_UNTIL for functions whose name contains
+// funcName. Prefers hiddenfunc variant to avoid double-counting.
+inline std::vector<Distributed::ShmemWaitUntilAttr> ExtractShmemWaitUntilAttrs(const std::string& funcName)
+{
+    std::vector<Distributed::ShmemWaitUntilAttr> hiddenAttrs;
+    std::vector<Distributed::ShmemWaitUntilAttr> fallbackAttrs;
+
+    for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
+        if (name.find(funcName) == std::string::npos) continue;
+
+        bool isHidden = (name.find("hiddenfunc") != std::string::npos) &&
+                        (name.find("leaf") == std::string::npos) &&
+                        (name.find("root") == std::string::npos);
+
+        for (auto& op : funcPtr->Operations()) {
+            if (op.GetOpcode() != Opcode::OP_SHMEM_WAIT_UNTIL) continue;
+            auto attrs = op.GetAllAttribute();
+            auto it = attrs.find(OpAttributeKey::distOpAttr);
+            if (it == attrs.end()) continue;
+            auto waitAttr = AnyCast<Distributed::ShmemWaitUntilAttr>(it->second);
+            if (isHidden) {
+                hiddenAttrs.push_back(waitAttr);
+            } else {
+                fallbackAttrs.push_back(waitAttr);
+            }
+        }
+    }
+
+    if (!hiddenAttrs.empty()) return hiddenAttrs;
+    return fallbackAttrs;
+}
+
 // Check that all four SHMEM op types are present (count-agnostic).
 inline void VerifyShmemOpsPresent(const ShmemOpCounts& c)
 {
@@ -191,6 +226,43 @@ inline void VerifyOneShotGroupedGECounts(const ShmemOpCounts& c,
     EXPECT_EQ(c.signal, expectedSignal) << "Expected " << expectedSignal << " OP_SHMEM_SIGNAL ops";
     EXPECT_EQ(c.wait, groupCount) << "Expected " << groupCount << " OP_SHMEM_WAIT_UNTIL ops";
     EXPECT_EQ(c.get, payloadChunkCount) << "Expected " << payloadChunkCount << " OP_SHMEM_GET ops";
+}
+
+// v10 wait attributes should encode per-group GE thresholds on a monotonic
+// counter: expectedSum values must be exactly the set {1*W, 2*W, ..., G*W},
+// all with cmpType=GE and resetSignal=false.
+// Attrs are sorted before comparison because GetFunctionMap() iteration order
+// is unspecified, so extraction order is not guaranteed to match groupId order.
+inline void VerifyOneShotGroupedGEWaitAttrs(
+    const std::vector<Distributed::ShmemWaitUntilAttr>& waits,
+    uint32_t worldSize, uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+{
+    ASSERT_GT(payloadChunkCount, 0u);
+    ASSERT_GT(chunksPerSignal, 0u);
+    uint32_t groupCount = (payloadChunkCount + chunksPerSignal - 1u) / chunksPerSignal;
+    ASSERT_EQ(waits.size(), groupCount)
+        << "Expected " << groupCount << " wait attrs, got " << waits.size();
+
+    for (size_t i = 0; i < waits.size(); ++i) {
+        EXPECT_EQ(waits[i].cmpType, OpType::GE)
+            << "Expected GE wait at index " << i;
+        EXPECT_FALSE(waits[i].resetSignal)
+            << "v10 GE waits must keep monotonic counter (resetSignal=false) at index " << i;
+    }
+
+    // Sort extracted sums to compare order-independently.
+    std::vector<int32_t> actualSums;
+    actualSums.reserve(waits.size());
+    for (const auto& w : waits) {
+        actualSums.push_back(w.expectedSum);
+    }
+    std::sort(actualSums.begin(), actualSums.end());
+
+    for (uint32_t g = 0; g < groupCount; ++g) {
+        int32_t expectedThreshold = static_cast<int32_t>((g + 1u) * worldSize);
+        EXPECT_EQ(actualSums[g], expectedThreshold)
+            << "Missing threshold " << expectedThreshold << " at sorted position " << g;
+    }
 }
 
 // TwoShot: W^2 of each op type (W chunks x W ops per chunk).
