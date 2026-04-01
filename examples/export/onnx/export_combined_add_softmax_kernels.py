@@ -5,8 +5,9 @@ import numpy as np
 from numpy.testing import assert_allclose
 from torch.onnx import register_custom_op_symbolic
 
-import os
 import argparse
+import math
+import os
 
 import pypto
 
@@ -22,7 +23,7 @@ TILE_SHAPES = (1, 4, 1, 64)
 
 @pypto.export.pypto_op_kernel(
     kernel_name="add_kernel",
-    tile_shapes=TILE_SHAPES,
+    vec_tile_shapes=TILE_SHAPES,
     support_dynamic_aligned=True,
     version=1,
     incl_src=True,
@@ -60,14 +61,24 @@ def add_pypto_calc_workspace(
     input0_shape: tuple[int, int, int, int],
     input1_shape: tuple[int, int, int, int],
 ) -> int:
-    return 42
+    n = math.prod(input0_shape)
+    return n * 4 * 2
+
+
+@pypto.export.pypto_op_infer_dtype(pypto_op_kernel=add_kernel_body)
+def add_pypto_infer_dtype(
+    input0_dtype: torch.dtype,
+    input1_dtype: torch.dtype,
+) -> torch.dtype:
+    return input0_dtype
 
 
 @torch.library.custom_op("pypto::add_pypto", mutates_args=())
 def add_pypto(input0: torch.Tensor, input1: torch.Tensor, run_mode: int = 0) -> torch.Tensor:
     print("Goes through pypto npu add kernel")
     out_shape = add_pypto_infer_shape(tuple(input0.shape), tuple(input1.shape))
-    output = torch.zeros(out_shape, dtype=input0.dtype, device=input0.device)
+    out_dtype = add_pypto_infer_dtype(input0.dtype, input1.dtype)
+    output = torch.zeros(out_shape, dtype=out_dtype, device=input0.device)
     create_add_kernel(run_mode)(input0, input1, output)
     pypto.runtime._device_synchronize()
     print("Returned add_pypto output")
@@ -79,7 +90,8 @@ def add_pypto_fake(input0, input1, run_mode=0):
     print("Goes through fake add kernel")
     assert input0.shape == input1.shape
     out_shape = add_pypto_infer_shape(tuple(input0.shape), tuple(input1.shape))
-    return torch.empty(out_shape, dtype=input0.dtype, device=input0.device)
+    out_dtype = add_pypto_infer_dtype(input0.dtype, input1.dtype)
+    return torch.empty(out_shape, dtype=out_dtype, device=input0.device)
 
 
 @pypto.export.pypto_op_onnx_symbolic(pypto_op_kernel=add_kernel_body)
@@ -99,7 +111,7 @@ register_custom_op_symbolic(
 
 @pypto.export.pypto_op_kernel(
     kernel_name="softmax_kernel",
-    tile_shapes=TILE_SHAPES,
+    vec_tile_shapes=TILE_SHAPES,
     support_dynamic_aligned=True,
     version=1,
     incl_src=True,
@@ -112,7 +124,6 @@ def softmax_kernel_body(input_tensor, output_tensor):
     tile_b = 1  # Process one batch at a time
     b_loop = bs // tile_b
 
-    # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(*TILE_SHAPES)
 
     for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
@@ -144,7 +155,8 @@ def create_softmax_kernel(run_mode: int):
 def softmax_pypto(input_tensor: torch.Tensor, run_mode: int = 0) -> torch.Tensor:
     print("Goes through pypto npu softmax kernel")
     out_shape = softmax_pypto_infer_shape(tuple(input_tensor.shape))
-    output_tensor = torch.zeros(out_shape, dtype=input_tensor.dtype, device=input_tensor.device)
+    out_dtype = softmax_pypto_infer_dtype(input_tensor.dtype)
+    output_tensor = torch.zeros(out_shape, dtype=out_dtype, device=input_tensor.device)
     create_softmax_kernel(run_mode)(input_tensor, output_tensor)
     pypto.runtime._device_synchronize()
     print("Returned softmax_pypto output")
@@ -155,7 +167,8 @@ def softmax_pypto(input_tensor: torch.Tensor, run_mode: int = 0) -> torch.Tensor
 def softmax_pypto_fake(input_tensor, run_mode=0):
     print("Goes through fake softmax kernel")
     out_shape = softmax_pypto_infer_shape(tuple(input_tensor.shape))
-    return torch.empty(out_shape, dtype=input_tensor.dtype, device=input_tensor.device)
+    out_dtype = softmax_pypto_infer_dtype(input_tensor.dtype)
+    return torch.empty(out_shape, dtype=out_dtype, device=input_tensor.device)
 
 
 @pypto.export.pypto_op_infer_shape(pypto_op_kernel=softmax_kernel_body)
@@ -166,7 +179,13 @@ def softmax_pypto_infer_shape(input_tensor_shape: tuple[int, ...]) -> tuple[int,
 
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=softmax_kernel_body)
 def softmax_pypto_calc_workspace(input_tensor_shape: tuple[int, ...]) -> int:
-    return 123
+    n = math.prod(input_tensor_shape)
+    return n * 5 * 4
+
+
+@pypto.export.pypto_op_infer_dtype(pypto_op_kernel=softmax_kernel_body)
+def softmax_pypto_infer_dtype(input_tensor_dtype: torch.dtype) -> torch.dtype:
+    return input_tensor_dtype
 
 
 @pypto.export.pypto_op_onnx_symbolic(pypto_op_kernel=softmax_kernel_body)
