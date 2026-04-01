@@ -67,8 +67,7 @@ std::string CodeGenOpCloudNPU::GenMemL0CCopyOut() const { return GenMemCopyCube(
 std::string CodeGenOpCloudNPU::GenMemCopyCube(bool isLocalToGM, unsigned uf) const
 {
     unsigned gmIdx = isLocalToGM ? 0 : 1;
-    int64_t gmOffset{0};
-    bool isSpillToGm = GetTensorAttr(gmIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
+    bool isSpillToGm = operand[gmIdx] == SYMBOL_STACK_BASE;
     return GenMemCopyVar(isLocalToGM, isSpillToGm, uf);
 }
 
@@ -84,7 +83,7 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned uf) 
     addrTypeHead[l1Idx] = GetAddrTypeByOperandType(BUF_L1);
 
     std::vector<std::string> addrExpr(ID2);
-    addrExpr[gmIdx] = GenGMAddrExprWithOffset(gmIdx, GM_STACK_BASE);
+    addrExpr[gmIdx] = GenGMAddrExprWithOffset(GM_STACK_BASE);
     addrExpr[l1Idx] = sm->QueryVarNameByTensorMagic(operandWithMagic[l1Idx]);
     AppendLocalBufferVarOffset({{l1Idx, addrExpr[l1Idx]}});
 
@@ -291,8 +290,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToBt() const
 std::string CodeGenOpCloudNPU::GenMemUBTransfer(bool isCopyUBToGM) const
 {
     unsigned gmIdx = isCopyUBToGM ? 0 : 1;
-    int64_t gmOffset{0};
-    bool isSpillToGm = GetTensorAttr(gmIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
+    bool isSpillToGm = operand[gmIdx] == SYMBOL_STACK_BASE;
     return GenMemCopyVar(isCopyUBToGM, isSpillToGm);
 }
 
@@ -442,7 +440,7 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, bool isSpillT
 
     std::vector<std::string> addrExpr(ID2);
     addrExpr[localIdx] = sm->QueryVarNameByTensorMagic(operandWithMagic[localIdx]);
-    addrExpr[gmIdx] = isSpillToGm ? GenGMAddrExprWithOffset(gmIdx, GM_STACK_BASE) : GenGmParamVar(gmIdx);
+    addrExpr[gmIdx] = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(gmIdx);
 
     std::vector<std::string> dataTypeExpr(ID2);
     dataTypeExpr[gmIdx] = DataType2CCEStr(operandDtype[gmIdx]);
@@ -1028,9 +1026,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
         paramList.emplace_back(std::to_string(localRawShape[i]));
     }
     if (localIdx == 0) { // means op is COPY_IN
-        bool isPartialMem{false};
-        GetTensorAttr(localIdx, "isPartialMem", isPartialMem);
-        if (isPartialMem) {
+        if (isPartialMem[localIdx]) {
             paramList.emplace_back("true");
         }
     }
@@ -1115,10 +1111,12 @@ std::string CodeGenOpCloudNPU::GenMemL1ToFB() const
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, const std::string &addrExpr) const {
-    // gm offset of spilling workspace is calculated by pass.
-    int64_t gmOffset{0};
-    GetTensorAttr(gmParamIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
+std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string& addrExpr) const
+{
+    // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
+    int64_t gmOffset = 0;
+    // gmOffset Default to 0 when the attribute is not set
+    GetAttr(OpAttributeKey::workspaceBaseOffset, gmOffset);
     std::ostringstream oss;
     if (gmOffset == 0) {
         oss << addrExpr;
