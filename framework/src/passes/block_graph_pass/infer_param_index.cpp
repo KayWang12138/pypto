@@ -52,7 +52,7 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
             return SUCCESS;
         }
     }
-    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
         if (!function.IsFromOutCast(op.GetOOperands().front())) {
             validShape = OpImmediate::ToSpecified(OpImmediate::Specified(op.GetOOperands()[0]->GetShape()));
             std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
