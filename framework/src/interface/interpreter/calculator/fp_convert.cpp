@@ -396,8 +396,11 @@ torch::Tensor Fp4PackedToFloat32(const torch::Tensor& packed, DataType actualTyp
     std::vector<int64_t> outSizes = sizes;
     outSizes.back() = lastPacked * 2;
 
-    int64_t outer = u8.numel() / lastPacked;
     auto out = torch::empty(outSizes, torch::TensorOptions().dtype(torch::kFloat32));
+    if (lastPacked == 0) {
+        return out;
+    }
+    int64_t outer = u8.numel() / lastPacked;
     const uint8_t* inPtr = u8.data_ptr<uint8_t>();
     float* outPtr = out.data_ptr<float>();
 
@@ -426,8 +429,11 @@ torch::Tensor Float32ToFp4Packed(const torch::Tensor& self, DataType actualType)
     std::vector<int64_t> outSizes = sizes;
     outSizes.back() = lastPacked;
 
-    int64_t outer = x.numel() / lastFloat;
     auto out = torch::empty(outSizes, torch::TensorOptions().dtype(torch::kUInt8));
+    if (lastFloat == 0) {
+        return out;
+    }
+    int64_t outer = x.numel() / lastFloat;
     const float* inPtr = x.data_ptr<float>();
     uint8_t* outPtr = out.data_ptr<uint8_t>();
 
