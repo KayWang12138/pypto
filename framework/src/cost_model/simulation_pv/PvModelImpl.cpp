@@ -575,7 +575,6 @@ void DynPvModelImpl::BuildFuncData(DynFuncData *funcdata, DynFuncData *dupData, 
 
 void DynPvModelImpl::BuildFuncDataWorkSpace(DynFuncData *funcdata, DynFuncData *dupData)
 {
-    std::cout << "funcdata->workspaceAddr:" << funcdata->workspaceAddr << std::endl;
     if (funcdata->workspaceAddr) {
         workspace_.hostPtr = funcdata->workspaceAddr;
         dupData->workspaceAddr = workspace_.devPtr;

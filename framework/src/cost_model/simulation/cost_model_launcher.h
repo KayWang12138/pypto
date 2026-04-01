@@ -220,7 +220,7 @@ private:
         DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
         DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
-RunCostModel(&kArgs);
+        RunCostModel(&kArgs);
         SIMULATION_LOGI("Run TestModel");
         RunTestMode(&kArgs, DEVICE_MAX_AICPU_NUM);
         SIMULATION_LOGI("Run DynCostModel");
