@@ -453,12 +453,11 @@ void OpcodeManager::RegisterVector() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Ttranspose_vnchwconv", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::AIV, "PERMUTE", {MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tpermute", PIPE_V, PIPE_V, CoreType::AIV},
+    RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::AIV, "PERMUTE", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_UB}, {"TileOp::Tpermute", PIPE_S, PIPE_MTE2, CoreType::AIV},
         OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis0", OP_ATTR_PREFIX + "axis1", OP_ATTR_PREFIX + "axis2",
             OP_ATTR_PREFIX + "axis3", OP_ATTR_PREFIX + "axis4", OP_ATTR_PREFIX + "dimCount",
-            OP_ATTR_PREFIX + "validShape",
-            OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+            OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_CONCAT, OpCoreType::AIV, "CONCAT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tconcat", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {"concat", OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis});

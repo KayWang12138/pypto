@@ -141,22 +141,7 @@ void TiledPermuteOperation(Function &function, const TileShape &tileShape, size_
         auto resultTileOffset = PermuteTileVector(input.tileInfo.offset, perm);
         auto resultTile = result->View(function, resultTileShape, resultTileOffset);
         
-        int64_t blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(srcTile->Datatype()));
-        std::vector<int64_t> tmpShape;
-        if (shapeSize == 5) {
-            tmpShape = {blockElem};
-        } else {
-            tmpShape = resultTileShape;
-            if (tmpShape.size() >= 2) {
-                tmpShape[tmpShape.size() - 2] = AlignUp(tmpShape[tmpShape.size() - 2], (int64_t)VNCHWCONV_REPEAT);
-                tmpShape[tmpShape.size() - 1] = AlignUp(tmpShape[tmpShape.size() - 1], blockElem);
-            }
-        }
-        auto tempTensor = std::make_shared<LogicalTensor>(function, srcTile->Datatype(), tmpShape);
-        tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
-        
-        LogicalTensors outputs = {resultTile, tempTensor};
-        auto &op = function.AddOperation(Opcode::OP_PERMUTE, {srcTile}, outputs);
+        auto &op = function.AddOperation(Opcode::OP_PERMUTE, {srcTile}, {resultTile});
 
         int axis0 = perm.size() > 0 ? perm[0] : -1;
         int axis1 = perm.size() > 1 ? perm[1] : -1;
@@ -225,15 +210,93 @@ Tensor Permute(const Tensor &self, std::vector<int> perm) {
     NormalizePermutation(perm, shapeSize);
     ValidatePermutation(perm, shapeSize);
 
+    // perm 不需要重排
     if (IsIdentityPermutation(perm)) {
         return self;
     }
 
-    // if (shapeSize == 2 && perm[0] == 1 && perm[1] == 0) {
-    //     return Transpose(self, {0, 1});
-    // }
+    if (shapeSize == 2) {
+        return Transpose(self, {0, 1});
+    }
 
-    return Tensor(TensorPermuteOperation(*Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm));
+    // transpose只支持任意两根轴重排，计算调用transpose次数
+    // 如果只需1次, 则直接调用Transpose
+    // ELSE:
+        // 1. 带尾轴的Permute,  例如perm=[4,3,1,2,0], 先调用Transpose, 尾轴完成重排，把尾轴转置到对应position，
+        //    然后使用更新后的perm, input, 再调用一次 TensorPermuteOperation
+
+        // 2. 非尾轴的permute, 例如perm=[0,3,2,1,4], 尾轴还是4(shapesize-1) 不需要操作，可以直接调用一次  TensorPermuteOperation
+
+    bool lastAxisInvolved = (perm[shapeSize - 1] != shapeSize - 1);
+
+    if (lastAxisInvolved) {
+        int targetPos = -1;
+        for (int i = 0; i < shapeSize; i++) {
+            if (perm[i] == shapeSize - 1) {
+                targetPos = i;
+                break;
+            }
+        }
+        
+        // 保存原始的 tileShape
+        auto oldVecTileShapes = TileShape::Current().GetVecTile();
+        
+        // 执行 Transpose
+        Tensor transposed = Transpose(self, {targetPos, shapeSize - 1});
+        
+        {
+            std::cout << "---------transposed-------------------" << std::endl;
+            std::cout << "Original shape: [";
+            for (auto dim : self.GetShape()) std::cout << dim << ", ";
+            std::cout << "], perm: [";
+            for (auto p : perm) std::cout << p << ", ";
+            std::cout << "]" << std::endl;
+            std::cout << "After transpose(" << targetPos << ", " << shapeSize-1 << "): [";
+            for (auto dim : transposed.GetShape()) std::cout << dim << ", ";
+            std::cout << "]" << std::endl;
+            std::cout << "Original tileShape: [";
+            for (auto dim : oldVecTileShapes.tile) std::cout << dim << ", ";
+            std::cout << "]" << std::endl;
+        }
+        
+        // 更新 tileShape：根据 transpose 交换对应的 tile 维度
+        auto newVecTileShapes = oldVecTileShapes;
+        std::swap(newVecTileShapes.tile[targetPos], newVecTileShapes.tile[shapeSize - 1]);
+        TileShape::Current().SetVecTile(newVecTileShapes.tile);
+        
+        {
+            std::cout << "Updated tileShape: [";
+            for (auto dim : TileShape::Current().GetVecTile().tile) std::cout << dim << ", ";
+            std::cout << "]" << std::endl;
+        }
+        
+        std::vector<int> newPerm(perm);
+        std::swap(newPerm[targetPos], newPerm[shapeSize-1]);
+        {
+            std::cout << "newPerm: [";
+            for (auto p : newPerm) std::cout << p << ", ";
+            std::cout << "]" << std::endl;
+        }
+        
+        if (IsIdentityPermutation(newPerm)) {
+            // 恢复原始 tileShape
+            TileShape::Current().SetVecTile(oldVecTileShapes.tile);
+            return transposed;
+        }
+        
+        // 创建新的 LogicalTensorPtr，基于 transposed 的 storage
+        auto transposedStorage = transposed.GetStorage();
+        auto result = Tensor(TensorPermuteOperation(
+            *Program::GetInstance().GetCurrentFunction(), transposedStorage, newPerm));
+        
+        // 恢复原始 tileShape
+        TileShape::Current().SetVecTile(oldVecTileShapes.tile);
+        
+        return result;
+    }
+
+    return Tensor(TensorPermuteOperation(
+        *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), perm));
 }
 
 REGISTER_OPERATION_TILED_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteOperationTileFunc);

@@ -28,7 +28,6 @@ std::unordered_map<Opcode, std::set<int>> SKIP_PROC_PRARAM_IDX_IN_LOOP = {
     {Opcode::OP_ROWSUM_SINGLE, {ID1}},
     {Opcode::OP_ROWMAX_SINGLE, {ID1}},
     {Opcode::OP_ROWMIN_SINGLE, {ID1}},
-    {Opcode::OP_PERMUTE, {ID1}},
 };
 
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
@@ -42,6 +41,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           {Opcode::OP_L1_TO_FIX_QUANT_PRE,             [this]() { return GenMemL1ToFB(); }},
           {       Opcode::OP_GATHER_IN_UB,            [this]() { return GenGatherInUB(); }},
           {             Opcode::OP_GATHER,              [this]() { return GenGatherOp(); }},
+          {            Opcode::OP_PERMUTE,              [this]() { return GenPermuteOp(); }},
           // L1 <-> GM/BT/L1
           {         Opcode::OP_L1_COPY_IN,           [this]() { return GenMemL1CopyIn(); }},
           { Opcode::OP_L1_COPY_IN_A_SCALE,           [this]() { return GenMemL1CopyIn(); }},
@@ -120,7 +120,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           {Opcode::OP_ISFINITE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWPROD_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_TRANSPOSE_VNCHWCONV, [this]() { return GenUnaryOpWithTmpBuff(); }},
-          {Opcode::OP_PERMUTE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -647,10 +646,7 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
 
     for (int i = 0; i < operandCnt; ++i) {
         TileTensor tileTensor;
-        if (opCode == Opcode::OP_PERMUTE && i == ID1) {
-            ShapeInLoop shapeInLoop{0, originShape[i], rawShape[i], dynamicValidShape[i]};
-            tileTensor = BuildPermuteTmpTileTensor(i, shapeInLoop);
-        } else {
+        {
             TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
                 operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]};
             std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
@@ -717,9 +713,7 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
             loopDepth, IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
             IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
         TileTensor tileTensor;
-        if (opCode == Opcode::OP_PERMUTE && i == ID1) {
-            tileTensor = BuildPermuteTmpTileTensor(i, shapeInLoop);
-        } else {
+        {
             TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
                 operandType[i], static_cast<int>(shapeInLoop.rawShape.size()), shapeInLoop.originShape,
                 shapeInLoop.rawShape};
