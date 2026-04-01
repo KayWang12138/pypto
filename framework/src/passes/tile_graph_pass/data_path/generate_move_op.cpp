@@ -174,6 +174,7 @@ Status GenerateMoveOp::ProcessDefault(Function& function, Operation& op, ViewOpA
     if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
         SetUB2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
+        return SUCCESS;
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(
