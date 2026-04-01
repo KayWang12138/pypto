@@ -57,11 +57,11 @@ description: PyPTO 算子性能分析和自动调优技能。用于对生成及�
 不瞎猜、不瞎改、不凭感觉乱配置。
 2. 以文档 / 资料库为依据
 遇到问题查官方文档、权威资料、经典案例。
-3. 遇到不清晰的接口，不确定使用方法时，主动查询api接口文档
+3. 遇到不清晰的接口，不确定使用方法时，主动查询 API 接口文档
 
 **资料库**
 1. [高性能编程实践](../../../models/) -- 介绍了很多高性能的编程案例，可以参考其中的高性能写法进行优化
-2. [api接口文档](../../../docs/api/) -- 介绍了整个 pypto 仓库的所有接口及调优参数使用说明
+2. [API 接口文档](../../../docs/api/) -- 介绍了整个 pypto 仓库的所有接口及调优参数使用说明
 
 ### 5. 进度可视化原则
 
@@ -69,7 +69,7 @@ description: PyPTO 算子性能分析和自动调优技能。用于对生成及�
 
 **创建时机**：精度校验通过后立即创建
 
-**Todo模板**：
+**Todo 模板**：
 ```markdown
 ## 📊 性能调优进度
 
@@ -100,7 +100,7 @@ description: PyPTO 算子性能分析和自动调优技能。用于对生成及�
 ## 当前状态
 - 性能: XX us (累计提升 XX%)
 - 进度: ████████░░ XX%
-- 成功率: X/Y轮
+- 成功率: X/Y 轮
 ```
 
 ---
@@ -149,7 +149,7 @@ description: PyPTO 算子性能分析和自动调优技能。用于对生成及�
 ### 1.1 设置环境变量
 
 ```bash
-export TILE_FWK_DEVICE_ID=0  # 或其他可用NPU卡
+export TILE_FWK_DEVICE_ID=0  # 或其他可用 NPU 卡
 export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
 ```
 
@@ -159,7 +159,7 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch6
 
 **验证环境**：
 ```bash
-# 检查NPU设备
+# 检查 NPU 设备
 npu-smi info
 
 # 检查路径存在
@@ -169,13 +169,13 @@ ls -la $PTO_TILE_LIB_CODE_PATH/include/pto/
 ### 1.2 编译策略
 
 **⚠️ 重要：首次进行精度校验，需要进行编译。**
-**⚠️ 重要：如果只修改了算子测试或impl代码，直接运行即可，不需要编译。**
+**⚠️ 重要：如果只修改了算子测试或 impl 代码，直接运行即可，不需要编译。**
 
 | 修改类型 | 是否需要编译 | 原因 |
 |---------|------------|------|
-| 首次执行 | ✅ 需要编译 | 第一次执行需要更新whl包 |
-| 算子测试或impl代码（*.py） | ❌ 不需要 | Python代码即时生效 |
-| framework代码 | ✅ 需要编译 | C++代码需要重新编译 |
+| 首次执行 | ✅ 需要编译 | 第一次执行需要更新 whl 包 |
+| 算子测试或 impl 代码（*.py） | ❌ 不需要 | Python 代码即时生效 |
+| framework 代码 | ✅ 需要编译 | C++ 代码需要重新编译 |
 | python/pypto目录 | ✅ 需要编译 | 核心框架代码 |
 
 **编译命令**（仅在需要时执行）：
@@ -225,7 +225,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 ### 目标
 - 基准性能: XX us
 - 目标性能: XX us (提升X倍)
-- 当前设备: NPU卡X
+- 当前设备: NPU 卡 X
 
 ### 进度
 - ✅ 精度校验通过
@@ -243,7 +243,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 
 然后启用性能数据采集（修改 debug_options）
 
-**❌ 失败:用户确认处理**
+**❌ 失败：用户确认处理**
 
 
 **失败处理流程**：
@@ -255,7 +255,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 
 2. **换卡尝试**：
    ```bash
-   # 查看可用NPU卡
+    # 查看可用 NPU 卡
    npu-smi info
 
    # 尝试其他卡
@@ -294,7 +294,7 @@ def kernel_function(...):
 
 ### 2.2 重新运行（不需要编译）
 
-如果只修改了算子impl代码，直接运行即可：
+如果只修改了算子 impl 代码，直接运行即可：
 ```bash
 python3 custom/operator_name/operator.py --run-mode npu
 ```
@@ -347,19 +347,19 @@ Read perf-analyzer/SKILL.md
 **固定执行顺序**：
 
 ```
-第1步：开箱性能调优 (10%)
+第 1 步：开箱性能调优 (10%)
 ├─ 加载 tune-frontend 子技能
 ├─ 根据性能基准优化代码写法、TileShape、BLOCK_SIZE
 ├─ ⚠️ 不需要查看性能报告的详细分析，只需对比性能基准
 └─ 快速建立性能基准
 
-第2步：深度性能调优 (60%)
+第 2 步：深度性能调优 (60%)
 ├─ 加载 tune-swimlane 子技能
 ├─ 查看性能报告，分析泳道图
-├─ 优化调度策略：Stitch 调优、合图调优、L1Reuse优化
+├─ 优化调度策略：Stitch 调优、合图调优、L1Reuse 优化
 └─ 基于性能报告指导优化方向
 
-第3步：核内性能调优 (30%)
+第 3 步：核内性能调优 (30%)
 ├─ 加载 tune-incore 子技能
 ├─ 查看性能报告，分析核内瓶颈
 ├─ 指令级优化、核内流水优化
@@ -468,7 +468,7 @@ Read tune-incore/SKILL.md
 4. 性能回退则尝试其他优化点
 5. **每个阶段独立迭代**，完成后再进入下一阶段
 
-**Todo更新示例**：
+**Todo 更新示例**：
 ```markdown
 ### 性能记录（持续更新）
 | 轮次 | 优化内容 | 执行时间(us) | 变化 | 状态 |
@@ -481,7 +481,7 @@ Read tune-incore/SKILL.md
 ### 当前进度
 - 性能: 66.14 us (累计提升 16.6%)
 - 进度条: ████████░░░░░░░░ 42%
-- 成功率: 2/3轮
+- 成功率: 2/3 轮
 ```
 
 **状态看板示例**（每5轮输出）：
@@ -493,9 +493,9 @@ Read tune-incore/SKILL.md
 进度: ████████░░░░░░░░ 42%
 
 ### 优化统计
-- 总轮次: 10轮
-- 成功: 4轮 (40%)
-- 失败: 6轮 (60%)
+- 总轮次: 10 轮
+- 成功: 4 轮 (40%)
+- 失败: 6 轮 (60%)
 - 最佳优化: 增加并行度 (+13.6%)
 
 ### 当前瓶颈
@@ -530,7 +530,7 @@ Read tune-incore/SKILL.md
 - 当前优化: [优化内容]
 - 处理: 尝试解决，但未生效，回退修改
 
-Todo更新: 标记当前优化为❌
+Todo 更新: 标记当前优化为❌
 ```
 
 ---
@@ -651,4 +651,4 @@ Todo更新: 标记当前优化为❌
 - [性能优化案例](../../../docs/tutorials/debug/performance_case_quantindexerprolog.md)
 - [性能调优报告模板](./perf-analyzer/templates/performance_report_template.md)
 - [高性能编程实践](../../../models/)
-- [api接口文档](../../../docs/api/)
+- [API 接口文档](../../../docs/api/)

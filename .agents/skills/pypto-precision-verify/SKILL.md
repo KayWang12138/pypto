@@ -65,7 +65,7 @@ import time
 operator_dir = f"{operator}"
 os.makedirs(operator_dir, exist_ok=True)
 
-# 创建以时间戳命名的golden数据子目录
+# 创建以时间戳命名的 golden 数据子目录
 output_dir = os.path.join(operator_dir, "golden_data")
 os.makedirs(output_dir, exist_ok=True)
 
@@ -89,7 +89,7 @@ def golden(inputs, outputs):
 
 **检查点命名前缀规则**：
 - 为保证对比时按计算顺序执行，检查点名称必须按计算顺序添加数字前缀
-- 格式：`{序号}_{检查点名称}`，如 `1_sij`、`2_sij_scale`，golden格式`golden_1_sij.bin`
+- 格式：`{序号}_{检查点名称}`，如 `1_sij`、`2_sij_scale`，golden 格式 `golden_1_sij.bin`
 - 对比工具会按开头的数字排序检查点，确保按计算顺序对比
 - 示例：
   ```python
@@ -102,7 +102,7 @@ def golden(inputs, outputs):
 **文件结构说明**：
 ```
 operator/                          # 算子名称目录
-├── golden_data/            # golden数据目录（时间戳命名）
+├── golden_data/            # golden 数据目录（时间戳命名）
 │   ├── golden_1_sij.bin
 │   ├── golden_2_sij_scale.bin
 │   └── ...
@@ -135,7 +135,7 @@ python3 scripts/verify_binary_search.py -w /path/to/operator -v
 
 **修正**：对比工具会根据 CSV 文件中的 dtype 自动判断数据类型：
 - dtype=8: BF16 格式（2字节），转换为 FP32 进行对比
-- dtype=7: FP32 格式（4字节），直接读取、
+- dtype=7: FP32 格式（4字节），直接读取
 
 ### 3. 检查点插入位置问题
 
@@ -160,8 +160,8 @@ python3 scripts/verify_binary_search.py -w /path/to/operator -v
    - 只保存与 kernel 对应的切片（如 `result[0:tile_b]`，根据循环层数修改）
    - 数据范围与 kernel 的 `idx=0` 切片完全一致
 
-2. **golden 改写为和kernel实现完全一致** （推荐）
-   - 根据kernel侧实现，改写golden
+2. **golden 改写为和 kernel 实现完全一致**（推荐）
+   - 根据 kernel 侧实现，改写 golden
    - 循环方式，数据读取方式和切块方式需完全对应
    - golden 函数需要模拟 kernel 的循环结构和分块策略
 
@@ -242,23 +242,23 @@ python3 scripts/verify_binary_search.py -v
 **⚠️ 重要检查事项**：
 
 1. **检查点数据类型一致性**
-   - **numpy BF16不支持直接保存**：kernel和golden都要转换为FP32类型再保存
-   - 在kernel中使用 `pypto.cast(tensor, pypto.DT_FP32)` 转换后再调用 `pypto.pass_verify_save`
-   - 在golden中使用 `.to(torch.float32)` 转换后再保存
+   - **numpy BF16 不支持直接保存**：kernel 和 golden 都要转换为 FP32 类型再保存
+   - 在 kernel 中使用 `pypto.cast(tensor, pypto.DT_FP32)` 转换后再调用 `pypto.pass_verify_save`
+   - 在 golden 中使用 `.to(torch.float32)` 转换后再保存
 
-2. **审查log文件内容**
+2. **审查 log 文件内容**
    - 查看生成的 `*_verify_result.log` 文件
    - 如果出现 **NaN** 或 **很大的数值**（如 atol=479360）或者全0值
    - **可能原因**：保存和读取数据类型不一致
-   - **解决方法**：检查检查点的保存逻辑和CSV文件中的dtype，确保golden保存的数据类型与kernel一致
+   - **解决方法**：检查检查点的保存逻辑和 CSV 文件中的 dtype，确保 golden 保存的数据类型与 kernel 一致
    - 如果在量化类场景下中间结果略超过容差阈值，可以适当放宽，这类检查点不视作精度比对失败
-   - 在一些特殊场景（torch和kernel取整方式不同），导致较大误差,这类也不视作失败
+   - 在一些特殊场景（torch 和 kernel 取整方式不同），导致较大误差，这类也不视作失败
 
 ### 步骤 5：绘制精度变化图（可选）
 
 使用绘图脚本可视化精度变化：
 ```bash
-# 指定 operator_verify_result.log 文件路径（在operator目录下）
+# 指定 operator_verify_result.log 文件路径（在 operator 目录下）
 python3 scripts/plot_accuracy.py /path/to/operator/operator_verify_result.log
 ```
 
