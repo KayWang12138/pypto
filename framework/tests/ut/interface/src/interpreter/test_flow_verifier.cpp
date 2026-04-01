@@ -10,7 +10,7 @@
 
 /*!
  * \file test_flow_verifier.cpp
- * \brief FlowVerifier FP8 (E4M3 / E5M2 / E8M0): decode + rtol/atol vs raw byte equality.
+ * \brief
  */
 
 #include <gtest/gtest.h>
