@@ -45,13 +45,7 @@ std::shared_ptr<DynPvModel> PvModelFactory::CreateDyn()
 
     // 获取工厂函数符号
     using CreateFunc = std::shared_ptr<DynPvModel> (*)();
-    npu::tile_fwk::NPUArch platform_ = npu::tile_fwk::Platform::Instance().GetSoc().GetNPUArch();
-    std::string funcName;
-    if (platform_ == npu::tile_fwk::NPUArch::DAV_2201) {
-        funcName = "CreateDynPvModelImplA2A3";
-    } else {
-        funcName = "CreateDynPvModelImplA5";
-    }
+    std::string funcName = "CreateDynPvModelImpl";
     auto createFunc = (CreateFunc)(dlsym(handle, funcName.c_str()));
 
     // 创建对象并返回

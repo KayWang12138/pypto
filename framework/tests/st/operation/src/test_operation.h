@@ -140,7 +140,8 @@ private:
         if (testCase.onBoard) {
             DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         } else {
-            CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
+            config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
+            CostModelLauncher::CostModelRunOnce(Program::GetInstance().GetLastFunction());
         }
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());

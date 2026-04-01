@@ -56,12 +56,6 @@ public:
     void Dump(std::string path);
 };
 
-class PvModelSystemA5Config : public PvModelSystemConfig {
-public:
-    PvModelSystemA5Config() = default;
-    void Dump(std::string path);
-};
-
 class PvModelCaseConfig : public PvModelCaseConfigBase {
 public:
     PvModelCaseConfig() = default;

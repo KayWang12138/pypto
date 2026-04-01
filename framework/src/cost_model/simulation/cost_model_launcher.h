@@ -155,12 +155,12 @@ public:
         funcdata_[coreIdx] = funcdata;
     }
 
-    void SendTask(int coreIdx, uint64_t taskId)
+    void SendTask(int coreIdx, uint64_t taskId, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
     {
         auto funcdata = funcdata_[coreIdx];
         DynFuncHeader* header = reinterpret_cast<DynFuncHeader*>(funcdata);
         DynFuncData* data = reinterpret_cast<DynFuncData*>(header + 1);
-        pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId));
+        pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId), tensorAddr2SizeMap);
     }
 };
 
@@ -334,7 +334,6 @@ private:
             return;
         }
         config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         CostModelAgent costModelAgent;
 
         std::string path = config::LogTopFolder() + "/dyn_topo.txt";
@@ -352,7 +351,6 @@ private:
             std::getenv("ASCEND_HOME_PATH") == nullptr) {
             return;
         }
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         try {
             pv_ = CostModel::PvModelFactory::CreateDyn();
             pv_->InitPv();
@@ -366,8 +364,7 @@ private:
         pv_->Codegen(function_);
         BuildPvKernelArgs(kArgs, inputs, outputs);
         RunTestMode(&kArgs, maxCpuNum);
-        SetDevPtr(inputs, outputs);
-        CopyFromDev(inputs, outputs);
+        pv_->CopyFromDev();
     }
 
     void BuildPvKernelArgs(
@@ -394,8 +391,7 @@ private:
 
         devProg->devArgs.nrAicpu = 6;
         devProg->devArgs.nrValidAic = 24;
-        devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
-        devProg->workspaceSize = devProg->memBudget.Total();
+        devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)pv_->AllocDev(DEV_ARGS_SIZE);
         devProg->devArgs.scheCpuNum = 1;
         AssignMetaAddr(devMem, kArgs, devProg, nullptr);
         for (auto& input : inputs) {
@@ -434,19 +430,6 @@ private:
         };
         setDevPtr(inputs);
         setDevPtr(outputs);
-    }
-
-    void CopyFromDev(const std::vector<RawTensorDataPtr>& inputs, const std::vector<RawTensorDataPtr>& outputs)
-    {
-        auto copyFromDev = [&](auto& tensorList) {
-            for (auto& tensor : tensorList) {
-                if (tensor)
-                    pv_->CopyFromDev(tensor->data(), tensor->GetDevPtr(), tensor->size());
-            }
-        };
-
-        copyFromDev(inputs);
-        copyFromDev(outputs);
     }
 
     void RunTestMode(DeviceKernelArgs* kArgs, int maxCpuNum)
