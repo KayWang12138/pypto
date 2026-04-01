@@ -1,409 +1,389 @@
-# PyPTO计算图JSON分析指导文档
+# PyPTO 计算图 JSON 分析指导文档
 
 ## 文档概述
 
-本文档旨在指导AI Agent理解PyPTO编译过程中生成的计算图JSON文件，帮助Agent通过分析JSON结构来理解计算图的演变过程和各Pass阶段的优化效果。
+本文档指导 AI Agent 使用 `scripts/computation_graph_analyzer.py` 工具分析 PyPTO 计算图 JSON 文件，理解计算图演变过程和各 Pass 阶段的优化效果。
 
-## 一、计算图JSON文件结构
+## 工具引入
 
-### 1.1 根节点结构
+### 命令行使用
 
-```json
-{
-  "entryhash": "311644491877735055",    // 计算图唯一标识
-  "version": "2.0",                      // JSON格式版本
-  "functions": [...]                    // 函数数组，通常包含一个主函数
-}
+```bash
+# 查看计算图摘要
+python3 computation_graph_analyzer.py <json_file_path>
+
+# 查看特定 Tensor 的详细信息
+python3 computation_graph_analyzer.py <json_file_path> <tensor_magic>
+
+# 示例
+python3 computation_graph_analyzer.py output/output_xxx/Pass_04_ExpandFunction/Before_xxx.json
+python3 computation_graph_analyzer.py output/output_xxx/Pass_04_ExpandFunction/Before_xxx.json 28
 ```
 
-### 1.2 Function节点结构
+### Python 模块使用
 
-```json
-{
-  "func_magicname": "TENSOR_TENSOR_update_kernel_loop_Unroll1_PATH0_hiddenfunc0_5",
-  "funcmagic": 5,                        // 函数魔数ID
-  "graphtype": 1,                        // 图类型: 1=TensorGraph, 2=TileGraph, 3=BlockGraph, 4=ExecuteGraph
-  "incasts": [...],                     // 输入节点列表
-  "outcasts": [...],                    // 输出节点列表
-  "operations": [...],                  // 操作节点列表
-  "tensors": [...],                     // Tensor节点列表
-  "rawtensors": [...],                  // 原始Tensor信息
-  "_total_subgraph_count": 0,           // 子图总数（BlockGraph/ExecuteGraph阶段有效）
-  "file": "...",                        // 源文件路径
-  "line": 156                           // 源代码行号
-}
+```python
+from computation_graph_analyzer import ComputationGraphAnalyzer, compare_graphs
+
+# 创建分析器
+analyzer = ComputationGraphAnalyzer()
+
+# 加载计算图
+graph = analyzer.load_graph('path/to/graph.json')
+
+# 获取摘要信息
+summary = analyzer.get_summary()
 ```
 
-### 1.3 图类型说明
+## 一、计算图基础信息
 
+### 1.1 获取图类型
+
+```python
+func = analyzer.graph.get_main_function()
+graph_type = func.get_graph_type_str()  # 'TensorGraph', 'TileGraph', 'BlockGraph', 'ExecuteGraph'
+```
+
+**图类型说明：**
 | graphtype | 类型名称 | 说明 |
 |-----------|---------|------|
-| 1 | Tensor Graph | 用户定义的原始计算图，未经过Tile展开 |
-| 2 | Tile Graph | 经过Tile展开后的计算图，包含Tile级别的操作 |
-| 3 | Block Graph | 调度运行在单个AI Core上的子图 |
+| 1 | Tensor Graph | 用户定义的原始计算图，未经过 Tile 展开 |
+| 2 | Tile Graph | 经过 Tile 展开后的计算图，包含 Tile 级别的操作 |
+| 3 | Block Graph | 调度运行在单个 AI Core 上的子图 |
 | 4 | Execute Graph | 包含子图调度的执行图 |
 
-## 二、核心节点类型详解
+### 1.2 获取节点统计
 
-### 2.1 Tensor节点
+```python
+counts = analyzer.count_nodes()
+# {
+#   'operations': 13,
+#   'tensors': 16,
+#   'rawtensors': 16,
+#   'subgraphs': 0
+# }
+```
 
-```json
-{
-  "magic": 0,                           // Tensor唯一标识ID
-  "shape": [1, 8],                      // Tensor形状
-  "validshape": [1, 8],                 // 有效形状
-  "dynvalidshape": [[0, 1], [0, 8]],    // 动态有效形状（运行时计算）
-  "offset": [0, 0],                     // 在rawtensor中的偏移量
-  "rawtensor": 5,                       // 所属rawtensor的ID
-  "nodetype": 0,                        // 节点类型: 0=普通Tensor, 1=Incast, 2=Outcast
-  "mem_id": -1,                         // 内存ID（分配后有效）
-  "mem_range": [0, 0],                  // 内存范围
-  "mem_type": {                         // 内存类型信息
-    "asis": 0,                          // 源内存层级
-    "tobe": 0                           // 目标内存层级
-  },
-  "subgraphid": -1,                     // 所属子图ID（切图后有效）
-  "subgraph_boundary": false,           // 是否为子图边界
-  "life_range": [-1, -1],               // 生命周期范围
-  "kind": 1                             // Tensor类型
-}
+### 1.3 获取输入输出 Tensor
+
+```python
+func = analyzer.graph.get_main_function()
+input_tensors = func.get_input_tensor_magics()   # [21, 24, 27]
+output_tensors = func.get_output_tensor_magics()  # [39, 49]
+```
+
+## 二、核心数据获取与分析
+
+### 2.1 Tensor 查询与分析
+
+```python
+# 根据 magic ID 查找 Tensor
+tensor = analyzer.find_tensor_by_magic(28)
+
+if tensor:
+    print(f"Tensor[{tensor.magic}]")
+    print(f"  Shape: {tensor.shape}")
+    print(f"  ValidShape: {tensor.validshape}")
+    print(f"  Offset: {tensor.offset}")
+    print(f"  RawTensor: {tensor.rawtensor}")
+    print(f"  NodeType: {tensor.nodetype}")  # 0=普通, 1=输入, 2=输出
+    print(f"  MemID: {tensor.mem_id}")
+    print(f"  MemRange: {tensor.mem_range}")
+    mem_asis, mem_tobe = tensor.get_memory_type_str()
+    print(f"  MemType: {mem_asis} -> {mem_tobe}")
+    print(f"  SubgraphID: {tensor.subgraphid}")
+    print(f"  SubgraphBoundary: {tensor.subgraph_boundary}")
 ```
 
 **关键分析点：**
-- `magic`: 用于追踪Tensor在计算图中的流转
-- `shape`: 观察Tensor形状在各Pass阶段的变化
-- `mem_type.asis`/`mem_type.tobe`: 分析数据在不同内存层级间的流动
-- `subgraphid`: 观察Tensor被分配到哪个子图
+- `magic`: 追踪 Tensor 在计算图中的流转
+- `shape`: 观察 Tensor 形状在各 Pass 阶段的变化
+- `mem_type`: 分析数据在不同内存层级间的流动
+- `subgraphid`: 观察 Tensor 被分配到哪个子图
 
-### 2.2 Operation节点
+### 2.2 Operation 查询与分析
 
-```json
-{
-  "opmagic": 10010,                     // Operation唯一标识ID
-  "opcode": "VIEW",                     // 操作类型
-  "ioperands": [6],                    // 输入Tensor的magic ID列表
-  "ooperands": [7],                     // 输出Tensor的magic ID列表
-  "attr": [...],                        // 操作属性（包含shape信息）
-  "tile": {                             // Tile配置信息
-    "vec": [16, 128],                   // Vector配置
-    "cube": [...],                      // Cube配置
-    "comm": [...]                       // Common配置
-  },
-  "subgraphid": -1,                     // 所属子图ID
-  "latency": 10,                        // 延迟周期
-  "kind": 2,                            // 操作类型分类
-  "op_attr": {...},                     // 操作特定属性
-  "file": "...",                        // 源文件路径
-  "line": 20,                           // 源代码行号
-  "backtrace": ""                       // 回溯信息
-}
+```python
+# 根据 opmagic ID 查找 Operation
+op = analyzer.find_operation_by_magic(10001)
+
+# 根据 opcode 查找所有 Operation
+index_outcast_ops = analyzer.find_operations_by_opcode('INDEX_OUTCAST')
+
+if op:
+    print(f"Operation[{op.opmagic}]")
+    print(f"  Opcode: {op.opcode}")
+    print(f"  Inputs: {op.ioperands}")
+    print(f"  Outputs: {op.ooperands}")
+    print(f"  Attr: {op.attr}")
+    print(f"  SubgraphID: {op.subgraphid}")
+    print(f"  Latency: {op.latency}")
+    if op.file:
+        print(f"  Source: {op.file}:{op.line}")
 ```
 
 **关键分析点：**
-- `opcode`: 识别操作类型（VIEW, ADDS, MATMUL, INDEX_OUTCAST等）
+- `opcode`: 识别操作类型（VIEW, ADDS, MATMUL, INDEX_OUTCAST 等）
 - `ioperands`/`ooperands`: 追踪数据依赖关系
-- `tile`: 分析Tile配置和优化策略
 - `subgraphid`: 观察操作被分配到哪个子图
 
-### 2.3 Incast/Outcast节点
+### 2.3 生产者-消费者关系分析
 
-```json
-// incasts数组格式
-[
-  [6, [2]],  // [Tensor的magic ID, [参数索引]]
-  [9, [1]],
-  [12, [0]]
-]
+```python
+# 查找 Tensor 的生产者
+producer = analyzer.find_producer_of_tensor(28)
+if producer:
+    print(f"Producer: Operation[{producer.opmagic}] {producer.opcode}")
 
-// outcasts数组格式
-[
-  [14, [3]],  // [Tensor的magic ID, [参数索引]]
-  [18, [4]]
-]
+# 查找 Tensor 的消费者
+consumers = analyzer.find_consumers_of_tensor(28)
+for consumer in consumers:
+    print(f"Consumer: Operation[{consumer.opmagic}] {consumer.opcode}")
 ```
 
-**关键分析点：**
-- `incasts`: 标识计算图的输入Tensor
-- `outcasts`: 标识计算图的输出Tensor
-- 用于追踪数据从外部输入到最终输出的完整路径
+### 2.4 数据流追踪
 
-### 2.4 RawTensor节点
+```python
+# 正向追踪（从输入到输出）
+flow = analyzer.trace_data_flow(28)
+# 返回: [28, 37, 42, 39]
 
-```json
-{
-  "rawmagic": 5,                        // RawTensor唯一标识ID
-  "rawshape": [1, 8],                   // RawTensor形状
-  "ori_rawshape": [],                   // 原始形状
-  "datatype": 3,                        // 数据类型
-  "format": 0,                          // 数据格式
-  "kind": 0,                            // RawTensor类型
-  "symbol": "View_TENSOR_3"             // 符号名称（如果有）
-}
+# 反向追踪（从输出到输入）
+flow_backward = analyzer.trace_data_flow_backward(39)
+# 返回: [39, 42, 37, 28, ...]
 ```
 
-**关键分析点：**
-- `rawmagic`: 多个Tensor可以共享同一个RawTensor
-- `rawshape`: 实际分配的内存形状
-- `datatype`: 数据类型（3=int32, 7=float32等）
+### 2.5 按类型统计 Operation
 
-## 三、各Pass阶段分析要点
+```python
+op_types = analyzer.get_operations_by_type()
+# {
+#   'VIEW': 2,
+#   'INDEX_OUTCAST': 2,
+#   'ADDS': 1,
+#   ...
+# }
+```
 
-### 3.1 Tensor Graph阶段（graphtype=1）
+## 三、各 Pass 阶段分析要点
 
-**代表Pass：** Pass_04_ExpandFunction
+### 3.1 Tensor Graph 阶段（graphtype=1）
+
+**代表 Pass：** Pass_04_ExpandFunction
 
 **分析重点：**
 1. **原始计算结构**
-   - 观察`operations`中用户定义的操作（VIEW, ADDS, MATMUL等）
-   - 检查`incasts`和`outcasts`确认输入输出
+   ```python
+   # 观察用户定义的操作
+   view_ops = analyzer.find_operations_by_opcode('VIEW')
+   add_ops = analyzer.find_operations_by_opcode('ADDS')
+   ```
 
-2. **Tensor形状**
-   - 所有Tensor的`shape`应与用户代码定义一致
-   - `subgraphid`通常为-1（未切图）
+2. **Tensor 形状**
+   ```python
+   # 所有 Tensor 的 shape 应与用户代码定义一致
+   for tensor_magic in func.get_input_tensor_magics():
+       tensor = analyzer.find_tensor_by_magic(tensor_magic)
+       print(f"Input Tensor[{tensor.magic}] shape: {tensor.shape}")
+   ```
 
 3. **内存分配**
-   - `mem_id`通常为-1（未分配）
-   - `mem_type.asis`和`mem_type.tobe`可能为0或未设置
+   ```python
+   # mem_id 通常为 -1（未分配）
+   # subgraphid 通常为 -1（未切图）
+   ```
 
-**示例分析：**
-```json
-{
-  "graphtype": 1,
-  "operations": [
-    {
-      "opcode": "VIEW",
-      "ioperands": [6],
-      "ooperands": [7],
-      "attr": [23, 2, 0, 0, 2, [0, 0], [0, 0], 2, [0, 1], [0, 16]]
-    },
-    {
-      "opcode": "ADDS",
-      "ioperands": [1],
-      "ooperands": [76],
-      "op_attr": {
-        "SCALAR": {"data_type": 7, "value": 1.0}
-      }
-    }
-  ]
-}
-```
+### 3.2 Tile Graph 阶段（graphtype=2）
 
-### 3.2 Tile Graph阶段（graphtype=2）
-
-**代表Pass：** Pass_17_L1CopyInReuseMerge
+**代表 Pass：** Pass_17_L1CopyInReuseMerge
 
 **分析重点：**
-1. **Tile展开**
-   - 对比Tensor Graph，观察节点数量显著增加
-   - 原始大Tensor被切分为多个小Tile
+1. **Tile 展开**
+   ```python
+   # 对比 Tensor Graph，观察节点数量显著增加
+   counts = analyzer.count_nodes()
+   print(f"Operations: {counts['operations']}")
+   ```
 
 2. **内存层级分配**
-   - 检查`mem_type.asis`和`mem_type.tobe`的值
-   - 常见值：0=UB, 1=L1, 15=GM
+   ```python
+   # 检查 mem_type.asis 和 mem_type.tobe 的值
+   memory_stats = analyzer.analyze_memory_usage()
+   print(f"Memory by type: {memory_stats['memory_by_type']}")
+   ```
 
-3. **Tile操作**
-   - 出现TILE_COPY_IN, TILE_COPY_OUT等操作
-   - `tile`字段包含详细的Tile配置
+3. **子图分配**
+   ```python
+   func = analyzer.graph.get_main_function()
+   print(f"Subgraph count: {func.total_subgraph_count}")
+   ```
 
-4. **子图分配**
-   - `subgraphid`可能仍为-1（未切图）或已分配
-   - `_total_subgraph_count`指示子图总数
+### 3.3 Block Graph 阶段（graphtype=3）
 
-**示例分析：**
-```json
-{
-  "graphtype": 2,
-  "_total_subgraph_count": 2,
-  "operations": [
-    {
-      "opcode": "VIEW",
-      "subgraphid": 1,
-      "attr": [0, 2, 0, 0, 2, [0, 0], [0, 0], 2, [0, 1], [0, 8]]
-    }
-  ],
-  "tensors": [
-    {
-      "magic": 0,
-      "mem_type": {"asis": 0, "tobe": 0},
-      "subgraphid": -1
-    }
-  ]
-}
-```
-
-### 3.3 Block Graph阶段（graphtype=3）
-
-**代表Pass：** Pass_36_CodegenPreproc (LEAF文件)
+**代表 Pass：** Pass_36_CodegenPreproc (LEAF 文件)
 
 **分析重点：**
 1. **子图隔离**
-   - 每个Block Graph只包含一个子图的节点
-   - `subgraphid`固定为某个值
+   ```python
+   # 每个 Block Graph 只包含一个子图的节点
+   subgraph_ops = analyzer.get_subgraph_operations(0)
+   subgraph_tensors = analyzer.get_subgraph_tensors(0)
+   ```
 
 2. **内存分配完成**
-   - `mem_id`已分配具体值
-   - `mem_range`指示内存占用范围
+   ```python
+   # mem_id 已分配具体值
+   # mem_range 指示内存占用范围
+   ```
 
-3. **操作类型**
-   - 包含COPY_IN, COPY_OUT等数据搬运操作
-   - 计算操作与内存操作明确分离
+3. **全局 Tensor**
+   ```python
+   func = analyzer.graph.get_main_function()
+   global_tensors = func.global_tensors
+   ```
 
-4. **子图参数**
-   - `global_tensors`标识全局Tensor
-   - `subfunc_param`包含子图参数信息
+### 3.4 Execute Graph 阶段（graphtype=4）
 
-**示例分析：**
-```json
-{
-  "graphtype": 3,
-  "func_magicname": "..._leaf0_8",
-  "global_tensors": [6, 9, 12, 18],
-  "operations": [
-    {
-      "opcode": "COPY_IN",
-      "subgraphid": 0,
-      "in_param_loc": [0],
-      "op_attr": {"IS_CUBE": false}
-    }
-  ],
-  "tensors": [
-    {
-      "magic": 3,
-      "mem_id": 8,
-      "mem_range": [0, 0],
-      "mem_type": {"asis": 0, "tobe": 0},
-      "subgraphid": 0
-    }
-  ]
-}
-```
-
-### 3.4 Execute Graph阶段（graphtype=4）
-
-**代表Pass：** Pass_36_CodegenPreproc (ROOT文件)
+**代表 Pass：** Pass_36_CodegenPreproc (ROOT 文件)
 
 **分析重点：**
 1. **子图调用**
-   - 包含CALL操作，调用Block Graph
-   - 不包含具体的计算操作
+   ```python
+   # 包含 CALL 操作，调用 Block Graph
+   call_ops = analyzer.find_operations_by_opcode('CALL')
+   ```
 
 2. **执行流程**
-   - 通过CALL操作的顺序定义执行流程
-   - 支持子图间的数据依赖
-
-3. **全局视角**
-   - 展示所有子图的调度关系
-   - `_total_subgraph_count`指示子图总数
-
-### 子图调用分析
-
-**CALL操作结构：**
-```json
-{
-  "opcode": "CALL",
-  "opmagic": 10021,
-  "ioperands": [],           // 输入参数（如果有）
-  "ooperands": [],           // 输出参数（如果有）
-  "attr": [
-    // 子图调用信息
-    0,                       // 子图ID
-    1,                       // 调用类型
-    // ... 其他属性
-  ],
-  "subgraphid": 0            // 所属子图ID
-}
-```
-
-**分析方法：**
-1. 从 `attr` 字段提取子图ID
-2. 在Block Graph文件中查找对应的子图
-3. 分析子图的输入输出
-4. 追踪数据在子图间的流转
-
-**示例：**
-```
-Execute Graph (ROOT)
-  └─ CALL → Block Graph (subgraph_id=0)
-       ├─ COPY_IN
-       ├─ 计算操作
-       └─ COPY_OUT
-  └─ CALL → Block Graph (subgraph_id=1)
-       ├─ COPY_IN
-       ├─ 计算操作
-       └─ COPY_OUT
-```
-
-**示例分析：**
-```json
-{
-  "graphtype": 4,
-  "func_magicname": "..._ROOT",
-  "_total_subgraph_count": 2,
-  "operations": [
-    {
-      "opcode": "CALL",
-      "opmagic": 10021,
-      "attr": [...],  // 包含子图调用信息
-      "subgraphid": 0
-    }
-  ]
-}
-```
+   ```python
+   # 通过 CALL 操作的顺序定义执行流程
+   for call_op in call_ops:
+       print(f"CALL to subgraph: {call_op.attr}")
+   ```
 
 ## 四、关键分析场景
 
-### 4.1 追踪数据流转
+### 4.1 追踪数据流转完整路径
 
-**步骤：**
-1. 从`incasts`找到输入Tensor的magic ID
-2. 通过`operations`中的`ioperands`和`ooperands`追踪依赖链
-3. 最终到达`outcasts`中的输出Tensor
-
-**示例：**
 ```python
-# 输入Tensor magic: 6
-# Operation 1: ioperands=[6], ooperands=[7]  (VIEW)
-# Operation 2: ioperands=[7], ooperands=[0]  (VIEW)
-# 输出Tensor magic: 0
+# 从输入到输出的完整数据流
+func = analyzer.graph.get_main_function()
+input_tensors = func.get_input_tensor_magics()
+
+for input_magic in input_tensors:
+    print(f"\n追踪输入 Tensor[{input_magic}] 的数据流:")
+    flow = analyzer.trace_data_flow(input_magic)
+    
+    for tensor_magic in flow:
+        tensor = analyzer.find_tensor_by_magic(tensor_magic)
+        if tensor:
+            print(f"  Tensor[{tensor.magic}] shape: {tensor.shape}")
+            
+            producer = analyzer.find_producer_of_tensor(tensor_magic)
+            if producer:
+                print(f"    <- {producer.opcode} (line {producer.line})")
 ```
 
-### 4.2 对比Pass前后差异
+### 4.2 对比 Pass 前后差异
 
-**方法：**
-1. 读取Pass_xx的Before_xxx.json和After_xxx.json
-2. 对比`operations`数组长度和内容
-3. 对比`tensors`数组长度和内容
-4. 观察新增、删除、修改的节点
+```python
+# 加载 Pass 前后的计算图
+before_analyzer = ComputationGraphAnalyzer()
+before_analyzer.load_graph('Pass_xx/Before_xxx.json')
 
-**常见差异：**
-- 节点数量变化：Pass优化导致节点增删
-- Tensor形状变化：Tile展开或reshape优化
-- 内存分配变化：内存策略调整
+after_analyzer = ComputationGraphAnalyzer()
+after_analyzer.load_graph('Pass_xx/After_xxx.json')
+
+# 对比差异
+diff = compare_graphs(before_analyzer, after_analyzer)
+print(f"Operations: {diff['before_counts']['operations']} -> {diff['after']}")
+print(f"Tensors: {diff['before_counts']['tensors']} -> {diff['after_counts']['tensors']}")
+
+# 分析操作类型变化
+before_ops = before_analyzer.get_operations_by_type()
+after_ops = after_analyzer.get_operations_by_type()
+
+all_op_types = set(before_ops.keys()) | set(after_ops.keys())
+for op_type in sorted(all_op_types):
+    before_count = before_ops.get(op_type, 0)
+    after_count = after_ops.get(op_type, 0)
+    if before_count != after_count:
+        print(f"{op{op_type}}: {before_count} -> {after_count}")
+```
 
 ### 4.3 识别性能瓶颈
 
-**指标：**
-1. **节点数量**：过多节点可能影响性能
-2. **子图数量**：`_total_subgraph_count`过多可能增加调度开销
-3. **内存使用**：通过`mem_range`分析内存占用
-4. **数据搬运**：统计COPY_IN/COPY_OUT操作数量
+```python
+# 节点数量
+counts = analyzer.count_nodes()
+print(f"Operations: {counts['operations']}")
+print(f"Subgraphs: {counts['subgraphs']}")
 
-### 4.4 验证优化效果
+# 内存使用
+memory_stats = analyzer.analyze_memory_usage()
+print(f"Allocated tensors: {memory_stats['allocated_tensors']}")
+print(f"Memory by type: {memory_stats['memory_by_type']}")
 
-**对比维度：**
-1. **Tensor Graph vs Tile Graph**
-   - 节点数量大幅增加（Tile展开）
-   - Tensor形状变小（Tile切分）
+# 数据搬运操作
+copy_in_ops = analyzer.find_operations_by_opcode('COPY_IN')
+copy_out_ops = analyzer.find_operations_by_opcode('COPY_OUT')
+print(f"COPY_IN: {len(copy_in_ops)}, COPY_OUT: {len(copy_out_ops)}")
+```
 
-2. **Tile Graph vs Block Graph**
-   - 子图数量确定
-   - 内存分配完成
+### 4.4 查找有多个消费者的 Tensor
 
-3. **Block Graph vs Execute Graph**
-   - 操作类型变化（计算→调度）
-   - 数据依赖关系明确
+```python
+# 查找有多个消费者的 Tensor
+multi_consumer_tensors = analyzer.find_tensor_with_multiple_consumers()
 
-## 五、常见操作类型说明
+for tensor, consumers in multi_consumer_tensors:
+    print(f"Tensor[{tensor.magic}] has {len(consumers)} consumers")
+    for consumer in consumers:
+        print(f"  - {consumer.opcode}")
+
+# 只查找特定类型的消费者
+multi_consumer_tensors = analyzer.find_tensor_with_multiple_consumers('INDEX_OUTCAST')
+```
+
+## 五、子图分析
+
+### 5.1 获取子图信息
+
+```python
+func = analyzer.graph.get_main_function()
+print(f"Total subgraphs: {func.total_subgraph_count}")
+
+# 遍历所有子图
+for subgraph_id in range(func.total_subgraph_count):
+    ops = analyzer.get_subgraph_operations(subgraph_id)
+    tensors = analyzer.get_subgraph_tensors(subgraph_id)
+    
+    print(f"\nSubgraph {subgraph_id}:")
+    print(f"  Operations: {len(ops)}")
+    print(f"  Tensors: {len(tensors)}")
+```
+
+### 5.2 分析子图间数据流转
+
+```python
+# 查找跨子图边界的 Tensor
+func = analyzer.graph.get_main_function()
+for tensor in func.tensors:
+    if tensor.subgraph_boundary:
+        print(f"Tensor[{tensor.magic}] crosses subgraph boundary")
+        print(f"  SubgraphID: {tensor.subgraphid}")
+        
+        # 查找生产者和消费者
+        producer = analyzer.find_producer_of_tensor(tensor.magic)
+        consumers = analyzer.find_consumers_of_tensor(tensor.magic)
+        
+        if producer:
+            print(f"  Producer: {producer.opcode} (subgraph {producer.subgraphid})")
+        
+        for consumer in consumers:
+            print(f"  Consumer: {consumer.opcode} (subgraph {consumer.subgraphid})")
+```
+
+## 六、常见操作类型
 
 | opcode | 说明 | 常见属性 |
 |--------|------|---------|
@@ -420,149 +400,121 @@ Execute Graph (ROOT)
 | TRANSPOSE | 张量转置 | axes |
 | BROADCAST | 张量广播 | shape |
 
-## 六、内存层级说明
+## 七、内存层级
 
 | 值 | 内存层级 | 说明 |
 |----|---------|------|
 | 0 | MEM_UB | 统一缓冲区（Unified Buffer）|
-| 1 | MEM_L1 | L1缓存 |
-| 2 | MEM_L0A | L0A缓存（矩阵A输入）|
-| 3 | MEM_L0B | L0B缓存（矩阵B输入）|
-| 4 | MEM_L0C | L0C缓存（矩阵C输出）|
-| 15 | MEM_DEVICE_DDR | 设备DDR内存（Global Memory）|
+| 1 | MEM_L1 | L1 缓存 |
+| 2 | MEM_L0A | L0A 缓存（矩阵 A 输入）|
+| 3 | MEM_L0B | L0B 缓存（矩阵 B 输入）|
+| 4 | MEM_L0C | L0C 缓存（矩阵 C 输出）|
+| 15 | MEM_DEVICE_DDR | 设备 DDR 内存（Global Memory）|
 
-## 七、分析工具建议
-
-### 7.1 JSON解析脚本
-
-```python
-import json
-
-def load_graph(json_path):
-    with open(json_path, 'r') as f:
-        return json.load(f)
-
-def get_graph_type(graph):
-    graphtype = graph['functions'][0]['graphtype']
-    types = {1: 'TensorGraph', 2: 'TileGraph', 3: 'BlockGraph', 4: 'ExecuteGraph'}
-    return types.get(graphtype, 'Unknown')
-
-def count_nodes(graph):
-    func = graph['functions'][0]
-    return {
-        'operations': len(func['operations']),
-        'tensors': len(func['tensors']),
-        'rawtensors': len(func['rawtensors'])
-    }
-
-def trace_data_flow(graph, start_magic):
-    """追踪从给定Tensor开始的数据流"""
-    func = graph['functions'][0]
-    flow = [start_magic]
-    current = start_magic
-
-    while True:
-        # 找到以current为输入的operation
-        found = False
-        for op in func['operations']:
-            if current in op['ioperands']:
-                for output in op['ooperands']:
-                    if output not in flow:
-                        flow.append(output)
-                        current = output
-                        found = True
-                        break
-                if found:
-                    break
-        if not found:
-            break
-
-    return flow
-```
-
-### 7.2 对比工具
-
-```python
-def compare_graphs(before_graph, after_graph):
-    before_func = before_graph['functions'][0]
-    after_func = after_graph['functions'][0]
-
-    return {
-        'operations_diff': len(after_func['operations']) - len(before_func['operations']),
-        'tensors_diff': len(after_func['tensors']) - len(before_func['tensors']),
-        'subgraph_count': after_func.get('_total_subgraph_count', 0)
-    }
-```
-
-## 八、分析报告模板
-
-### 8.1 单Pass分析报告
-
-```markdown
-## Pass_xx_PassName 分析报告
-
-### 图类型
-- Before: [图类型]
-- After: [图类型]
-
-### 节点统计
-- Operations: [before数量] → [after数量] ([差值])
-- Tensors: [before数量] → [after数量] ([差值])
-- RawTensors: [before数量] → [after数量] ([差值])
-
-### 关键变化
-1. [变化1描述]
-2. [变化2描述]
-3. [变化3描述]
-
-### 性能影响
-- [正面/负面]影响
-- 原因：[分析原因]
-```
-
-### 8.2 全流程分析报告
-
-```markdown
-## 计算图全流程分析报告
-
-### 阶段概览
-1. Tensor Graph: [节点数] nodes
-2. Tile Graph: [节点数] nodes
-3. Block Graph: [子图数] subgraphs, [平均节点数] nodes/subgraph
-4. Execute Graph: [子图数] subgraph
-
-### 优化效果
-- 节点总数变化: [初始] → [最终] ([倍数]x)
-- 子图划分: [子图数]个子图
-- 内存分配: [内存占用] bytes
-
-### 潜在优化点
-1. [优化点1]
-2. [优化点2]
-```
-
-## 九、注意事项
+## 八、注意事项
 
 1. **版本兼容性**
-   - JSON格式版本为"2.0"，注意版本差异
+   - JSON 格式版本为 "2.0"
    - 不同版本的字段可能有所不同
 
 2. **动态形状**
-   - `dynvalidshape`包含运行时计算的形状信息
-   - 分析时需要区分静态shape和动态shape
+   - `dynvalidshape` 包含运行时计算的形状信息
+   - 分析时需要区分静态 shape 和动态 shape
 
 3. **子图边界**
-   - `subgraph_boundary`标识Tensor是否跨越子图边界
-   - 跨边界Tensor需要特殊处理
+   - `subgraph_boundary` 标识 Tensor 是否跨越子图边界
+   - 跨边界 Tensor 需要特殊处理
 
 4. **内存复用**
-   - 多个Tensor可能共享同一个RawTensor
-   - 通过`rawtensor`字段追踪内存复用关系
+   - 多个 Tensor 可能共享同一个 RawTensor
+   - 通过 `rawtensor` 字段追踪内存复用关系
 
 5. **调试信息**
-   - `file`和`line`字段可用于定位源代码
-   - `backtrace`包含调用栈信息
+   - `file` 和 `line` 字段可用于定位源代码
+   - 使用这些信息快速定位问题代码
 
-## 十、参考资料
+## 九、数据结构说明
 
-- [PyPTO计算图官方文档目录] (docs/tools/computation_graph/)
+### TensorInfo
+
+```python
+@dataclass
+class TensorInfo:
+    magic: int                          # Tensor 唯一标识
+    shape: List[int]                    # Tensor 形状
+    validshape: List[int]               # 有效形状
+    dynvalidshape: List[List[int]]      # 动态有效形状
+    offset: List[int]                   # 在 rawtensor 中的偏移量
+    rawtensor: int                      # 所属 rawtensor 的 ID
+    nodetype: int                       # 节点类型 (0=普通, 1=输入, 2=输出)
+    mem_id: int                         # 内存 ID
+    mem_range: List[int]                # 内存范围
+    mem_type_asis: int                  # 源内存层级
+    mem_type_tobe: int                  # 目标内存层级
+    subgraphid: int                     # 所属子图 ID
+    subgraph_boundary: bool             # 是否为子图边界
+    life_range: List[int]                # 生命周期范围
+    kind: int                           # Tensor 类型
+```
+
+### OperationInfo
+
+```python
+@dataclass
+class OperationInfo:
+    opmagic: int                        # Operation 唯一标识
+    opcode: str                         # 操作类型
+    ioperands: List[int]                 # 输入 Tensor 的 magic ID 列表
+    ooperands: List[int]                 # 输出 Tensor 的 magic ID 列表
+    attr: List[Any]                     # 操作属性
+    subgraphid: int                     # 所属子图 ID
+    latency: int                        # 延迟周期
+    kind: int                           # 操作类型分类
+    tile: Optional[Dict[str, Any]]      # Tile 配置信息
+    op_attr: Dict[str, Any]             # 操作特定属性
+    file: Optional[str]                 # 源文件路径
+    line: Optional[int]                 # 源代码行号
+```
+
+### FunctionInfo
+
+```python
+@dataclass
+class FunctionInfo:
+    func_magicname: str                 # 函数名称
+    funcmagic: int                      # 函数魔数 ID
+    graphtype: int                      # 图类型 (1=Tensor, 2=Tile, 3=Block, 4=Execute)
+    incasts: List[List[Any]]            # 输入节点列表
+    outcasts: List[List[Any]]           # 输出节点列表
+    operations: List[OperationInfo]      # 操作节点列表
+    tensors: List[TensorInfo]            # Tensor 节点列表
+    rawtensors: List[RawTensorInfo]      # 原始 Tensor 信息
+    total_subgraph_count: int           # 子图总数
+    file: Optional[str]                 # 源文件路径
+    line: Optional[int]                 # 源代码行号
+    global_tensors: List[int]           # 全局 Tensor 列表
+```
+
+## 十、扩展开发
+
+脚本采用面向对象设计，易于扩展：
+
+```python
+class CustomAnalyzer(ComputationGraphAnalyzer):
+    def custom_analysis(self):
+        """自定义分析方法"""
+        # 实现自定义逻辑
+        pass
+```
+
+## 十一、注意事项
+
+1. **路径问题**: 使用绝对路径或相对于脚本所在目录的路径
+2. **JSON 格式**: 确保计算图 JSON 文件格式正确（版本 2.0）
+3. **内存管理**: 大型计算图可能占用较多内存
+4. **错误处理**: 建议使用 try-except 处理文件加载和解析错误
+
+## 十二、参考资料
+
+- [计算图分析脚本](scripts/computation_graph_analyzer.py)
+- [PyPTO 计算图官方文档目录](docs/tools/computation_graph/)

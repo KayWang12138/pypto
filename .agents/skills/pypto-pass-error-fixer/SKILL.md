@@ -150,14 +150,14 @@ license: 完整条款见 LICENSE.txt
    - 重点分析异常代码上下文，不仅仅是出错的那一行，通常需要向上取 20 行，向下取 10 行
    - 使用 `pypto-pass-module-analyzer` 技能分析对应pass模块整体业务逻辑
 
-4. **理解计算图（如果有计算图的话）**
+4. **理解计算图（如果有的话）**
    - 根据时间戳找到最新的计算图输出目录，在最新目录下查找异常pass模块的 `.json` 计算图文件
-   - 根据 `references/computation-graph-parse.md` 指导分析计算图
+   - 根据 `references/computation-graph-parse.md` 指导分析计算图，推断可能的错误原因
    - 根据日志内容及计算图信息，定位异常节点对应的用户代码行，了解对应算子的用法与约束
 
-5. **理解IR（按需）**
+5. **理解IR（如果有的话）**
    - 根据时间戳找到最新的IR输出目录，在最新目录下查找异常pass模块的 `.tifwkgr` IR文件
-   - 根据 `references/ir-analysis-guide.md` 指导分析IR
+   - 根据 `references/ir-analysis-guide.md` 指导分析IR，推断可能的错误原因
 
 6. **分析错误原因**
    - 综合上述步骤信息，分析推导错误原因
