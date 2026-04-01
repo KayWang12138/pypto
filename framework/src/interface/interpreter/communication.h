@@ -27,7 +27,7 @@ int GetRankId(const std::string &groupName);
 
 int GetWorldSize(const std::string &groupName);
 
-class CommContext {
+class SimulationCommContext {
 public:
     static constexpr size_t WIN_IN_SIZE = 200 * 1024 * 1024;
     static constexpr size_t WIN_EXP_SIZE = 1 * 1024 * 1024;
@@ -38,16 +38,15 @@ public:
     int GetRank() const {return rank_;};
     int GetWorldSize() const {return worldSize_;};
     std::string GetGroupName() {return groupName_;};
-    // uint8_t *GetRankAddr(const std::string &groupName, int rank, bool isSignal);
     void Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType = 0);
     void Signal(int dstRank, int value, size_t slotSize, int atomicType = 0, bool notifyAll = false);
     void Wait(int srcRank, int expect, size_t slotSize, bool reset = false);
     LogicalTensorDataPtr Get(int srcRank, size_t slotSize, uint64_t offset = 0);
 private:
-    CommContext() = default;
-    CommContext(const CommContext &) = delete;
-    CommContext& operator=(const CommContext &) = delete;
-    CommContext(CommContext &&other) noexcept
+    SimulationCommContext() = default;
+    SimulationCommContext(const SimulationCommContext &) = delete;
+    SimulationCommContext& operator=(const SimulationCommContext &) = delete;
+    SimulationCommContext(SimulationCommContext &&other) noexcept
         : groupName_(std::move(other.groupName_)),
           rank_(other.rank_),
           worldSize_(other.worldSize_),
@@ -64,7 +63,7 @@ private:
             other.dataShmSize_ = 0;
             other.ctrlShmSize_ = 0;
           }
-    CommContext& operator=(CommContext &&other) noexcept {
+    SimulationCommContext& operator=(SimulationCommContext &&other) noexcept {
         if (this != &other) {
             Destroy();
             groupName_ = std::move(other.groupName_);
@@ -86,7 +85,7 @@ private:
         }
         return *this;
     }
-    ~CommContext();
+    ~SimulationCommContext();
 
     struct RemoteRank {
         uint8_t *dataBase = nullptr;
@@ -116,20 +115,20 @@ private:
     std::mutex allocMutex_;
 };
 
-class CommManager {
+class SimulationCommManager {
 public:
-    static CommManager &Instance() {
-        static CommManager instance;
+    static SimulationCommManager &Instance() {
+        static SimulationCommManager instance;
         return instance;
     }
-    void CreateCommContext(const std::string &groupName);
+    void CreateSimulationCommContext(const std::string &groupName);
     LogicalTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
     LogicalTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
     static std::string GetHandler(const std::string &groupName, int rank, bool isSignal);
 private:
-    CommManager() = default;
-    ~CommManager() = default;
-    std::unordered_map<std::string, std::shared_ptr<CommContext>> contexts_;
+    SimulationCommManager() = default;
+    ~SimulationCommManager() = default;
+    std::unordered_map<std::string, std::shared_ptr<SimulationCommContext>> contexts_;
     std::mutex mutex_;
 };
 }  // namespace npu::tilefwk
