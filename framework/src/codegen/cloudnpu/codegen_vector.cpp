@@ -1701,25 +1701,74 @@ std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const
 
     return oss.str();
 }
+/*
+float32：1符号位 + 8指数位 + 23尾数位
+float16：1符号位 + 5指数位 + 10尾数位
+bfloat16：1符号位 + 8指数位 + 7尾数位
+*/
 
-std::string CodeGenOpCloudNPU::PrintPadTileTensor() const
-{
+
+std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     auto c = extOperandVal.Cast<float>();
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
-    std::ostringstream oss;
-    if (std::isinf(c)) {
-        std::string padValue = c < 0 ? "pto::PadValue::Min" : "pto::PadValue::Max";
-        oss << tileOpName << "<" << padValue << ">";
-        oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
-        return oss.str();
+    std::string padValue;
+    
+    if (std::isinf(c) && c < 0) {
+        padValue = "pto::PadValue::Min";
+    } else if (std::isinf(c) && c > 0) {
+        padValue = "pto::PadValue::Max";
+    } else if (std::fabs(c) < std::numeric_limits<float>::epsilon() * 10) {
+        padValue = "pto::PadValue::Zero";
+    } else {
+        std::ostringstream pvOss;
+        std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
+        uint32_t bits = 0;
+        if (dstDtypeStr == "float") {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = conv.u;
+        } else if (dstDtypeStr == "half") {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            uint32_t fbits = conv.u;
+            int sign = (fbits >> 31) & 1;
+            int exponent = (fbits >> 23) & 0xFF;
+            int mantissa = fbits & 0x7FFFFF;
+            
+            if (exponent == 0) {
+                bits = sign << 15;
+            } else if (exponent == 0xFF) {
+                bits = (sign << 15) | 0x7C00 | (mantissa ? 0x200 : 0);
+            } else {
+                int newExp = exponent - 127 + 15;
+                if (newExp <= 0) {
+                    bits = sign << 15;
+                } else if (newExp >= 31) {
+                    bits = (sign << 15) | 0x7C00;
+                } else {
+                    bits = (sign << 15) | (newExp << 10) | ((mantissa >> 13) & 0x3FF);
+                }
+            }
+        } else if (dstDtypeStr == "bfloat16_t") {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = (conv.u >> 16) & 0xFFFF;
+        } else {
+            union { float f; uint32_t u; } conv;
+            conv.f = c;
+            bits = conv.u;
+        }
+        uint64_t customPadValue = (static_cast<uint64_t>(bits) << 32) | 0x1ULL;
+        pvOss << "static_cast<pto::PadValue>(0x" << std::hex << customPadValue << "ULL)";
+        padValue = pvOss.str();
     }
-    std::string padValueStr = FormatFloat(extOperandVal.Cast<float>());
-    DataType dstDtype = operandDtype[ToUnderlying(MISOIdx::DST_IDX)];
-    std::string padValueArg = "(" + DataType2CCEStr(dstDtype) + ")" + padValueStr;
-    oss << tileOpName << "<pto::PadValueCustom(" << padValueArg << ")>";
-    oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << padValue << ">";
+    oss << WrapParamByParentheses(tileOpParamList);
+    oss << STMT_END;
     return oss.str();
 }
 
