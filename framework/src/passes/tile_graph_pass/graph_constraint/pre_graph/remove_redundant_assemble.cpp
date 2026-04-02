@@ -693,7 +693,7 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
     return SUCCESS;
 }
 
-bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
+bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr input, std::unordered_set<Operation*> &concurrentAssembles) const {
     for (const auto &con : input->GetConsumers()) {
         if (con->GetOpcode() != Opcode::OP_COPY_IN && con->GetOpcode() != Opcode::OP_COPY_OUT) {
             continue;
@@ -708,6 +708,7 @@ bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr i
             if (copyOutput2->GetConsumers().size() == 1) {
                 auto copyConsumer2 = *(copyOutput2->GetConsumers().begin());
                 if (copyConsumer2->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    concurrentAssembles.insert(copyConsumer2);
                     return true;
                 }
             }
@@ -716,7 +717,7 @@ bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr i
     return false;
 }
 
-bool RemoveRedundantAssemble::BackwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
+bool RemoveRedundantAssemble::BackwardFindAssembleInsertedCopy(LogicalTensorPtr input, std::unordered_set<Operation*> &concurrentAssembles) const {
     for (const auto &pro : input->GetProducers()) {
         if (pro->GetOpcode() != Opcode::OP_COPY_IN && pro->GetOpcode() != Opcode::OP_COPY_OUT) {
             continue;
@@ -730,6 +731,7 @@ bool RemoveRedundantAssemble::BackwardFindAssembleInsertedCopy(LogicalTensorPtr 
             auto copyInput2 = copyProducer->GetIOperands()[0];
             for (const auto &copyConsumer : copyInput2->GetConsumers()) {
                 if (copyConsumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    concurrentAssembles.insert(copyConsumer);
                     return true;
                 }
             }
@@ -770,10 +772,12 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function& function) cons
                 op.GetOpMagic(), concurrentAssembles.size());
             HanldeForMultiAssemble(function, concurrentAssembles);
         } else {
-            if (!ForwardFindAssembleInsertedCopy(input) && !BackwardFindAssembleInsertedCopy(input)) {
+            if (!ForwardFindAssembleInsertedCopy(input, concurrentAssembles) && !BackwardFindAssembleInsertedCopy(input, concurrentAssembles)) {
                 if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) {
                     return FAILED;
                 }
+            } else {
+                HanldeForMultiAssemble(function, concurrentAssembles);
             }
         }
     }
