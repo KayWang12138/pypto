@@ -15,10 +15,10 @@
 
 #pragma once
 
-#ifdef __ESL_SIMULATION__
 #ifdef BUILD_WITH_CANN
 
 #include <sys/mman.h>
+#include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_runner.h"
 #include "machine/platform/platform_manager.h"
@@ -55,7 +55,6 @@ private:
 
 inline std::vector<MmapRecord> MmapGlobalManager::records_;
 inline std::mutex MmapGlobalManager::mutex_;
-
 
 struct EslModelMemoryUtils {
     EslModelMemoryUtils(bool isHugePage = true) :isUseHugePage_(isHugePage) {}
@@ -188,6 +187,16 @@ struct EslModelMemoryUtils {
         }
     }
 };
+
+class EslModelLauncher {
+public:
+    static int EslModelLaunchOnceWithHostTensorData(Function *function, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList, DevControlFlowCache* ctrlCache, EslModelMemoryUtils& memUtils, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int EslModelLaunchDeviceTensorData(Function *function, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int EslModelRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int EslModelLaunchAicore(aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg);
+};
 }
+
 #endif
-#endif // __ESL_SIMULATION__
