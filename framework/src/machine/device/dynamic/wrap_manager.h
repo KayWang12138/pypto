@@ -281,7 +281,7 @@ public:
                     wrapCoreAvail_[aicoreIdxList[WRAP_IDX_AIV1]] = false;
                     break;
                 default:
-                    DEV_ERROR(DevCommonErr::PARAM_INVALID, "#sche.wrap.invalid_mode: illegal mixType: %u\n", mixType);
+                    DEV_ERROR(DevCommonErr::PARAM_INVALID, "#sche.wrap.invalid_mode: illegal mixType: %hhu\n", mixType);
                     break;
             }
             DEV_VERBOSE_DEBUG(
@@ -351,7 +351,7 @@ public:
             return;
         }
 
-        constexpr uint32_t maxTransTaskCnt = 5u;
+        constexpr uint32_t maxTransTaskCnt = 8u; // 单sche控制的aicore一般不超过8个
         WrapInfo* localTasks[maxTransTaskCnt];
         uint32_t maxTaskCnt = taskCount > maxTransTaskCnt ? maxTransTaskCnt : taskCount;
         for (uint32_t i = 0; i < maxTaskCnt; i++) {
