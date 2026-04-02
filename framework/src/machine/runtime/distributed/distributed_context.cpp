@@ -16,15 +16,15 @@
 #include <memory>
 #include "securec.h"
 #include "distributed_context.h"
+
+#include "api/hcomm_define.h"
 #include "interface/utils/common.h"
 #include "machine/runtime/runtime.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 #ifdef BUILD_WITH_CANN
-#include "hcom.h"
 #include "acl/acl.h"
-extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* MC2Tiling, void** commContext);
 #endif
 
 constexpr uint32_t COMM_IS_NOT_SET_DEVICE = 0;
@@ -307,9 +307,9 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
     if (groupNames.size() == 0) {
         return {};
     }
-    CommTopo topoRet;
+    HCommTopo topoRet;
     const char* group = groupNames[0].c_str();
-    ASSERT(HcomGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCCL_SUCCESS) << "Get hcom topo failed";
+    ASSERT(HcommGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCOMM_SUCCESS) << "Get hcom topo failed";
     uint32_t topoType = static_cast<uint32_t>(topoRet);
     std::shared_ptr<TilingStructBase> tilingStruct;
     if (topoType == COMM_MESH) {
@@ -325,10 +325,10 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
             commContext[groupIndex] = g_context[groupName].first;
             continue;
         }
-        HcclComm commHandle = nullptr;
-        ASSERT(HcomGetCommHandleByGroup(groupName.c_str(), &commHandle) == 0) << "Get hcom handle failed";
+        HcommHandle commHandle = nullptr;
+        ASSERT(HcommGetCommHandleByGroup(groupName.c_str(), &commHandle) == 0) << "Get hcom handle failed";
         tilingStruct->MakeMc2TilingStruct(groupName);
-        auto ret = HcclAllocComResourceByTiling(
+        auto ret = HcommAllocComResourceByTiling(
             commHandle, machine::GetRA()->GetStream(), tilingStruct->GetMc2CommConfig(),
             reinterpret_cast<void**>(&commContext[groupIndex]));
         ASSERT((ret == 0) && (commContext[groupIndex] != 0UL)) << "Hccl alloc resource failed";
