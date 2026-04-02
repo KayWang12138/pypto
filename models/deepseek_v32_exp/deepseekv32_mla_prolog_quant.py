@@ -22,8 +22,6 @@ import pypto
 from mla_prolog_quant_impl import mla_prolog_quant_p, mla_prolog_quant_d, MlaTileConfig
 from utils.compare import compare
 
-torch.manual_seed(5)
-
 
 def prep_env():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -655,6 +653,7 @@ def test_b128_s4k4_pa_nd_bf16_quantb_p():
     '''
     mla_prolog prefill测试函数
     '''
+    torch.manual_seed(5)
     prep_env()
     params = {
         'b': 128,
@@ -702,6 +701,7 @@ def test_b4_s64k2_pa_nd_bf16_quantb_d():
     '''
     mla_prolog decode测试函数
     '''
+    torch.manual_seed(5)
     prep_env()
     params = {
         'b': 4,
@@ -749,6 +749,7 @@ def test_b4_s64k2_pa_nd_bf16_d():
     '''
     mla_prolog decode非量化测试函数
     '''
+    torch.manual_seed(5)
     prep_env()
     params = {
         'b': 4,
