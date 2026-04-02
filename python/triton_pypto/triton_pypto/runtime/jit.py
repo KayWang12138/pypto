@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import inspect
 import math
 from typing import Any, Callable, Dict, Generic, Optional, Tuple, TypeVar, Union, overload
@@ -9,8 +9,11 @@ import pypto
 import torch
 import triton
 
+from ..language.context import Context
+from ..language import pypto_wrap
 from ..language.compound import TensorPointer
-from ..language.operations import Context, HostTensorWrapper
+from ..language.operations import HostTensorWrapper
+
 from ..log import get_logger, get_progress_iter
 from .mock import mock
 from . import device
@@ -26,11 +29,13 @@ logger = get_logger("triton_pypto.jit", "TRITON_PYPTO")
 
 @dataclass
 class JITOptions:
-    dynamic: bool = False
-    partition: bool = True
     unroll_factor: int = 1
     stitch_num : int = 128
-
+    vec_merge_tasks: dict = field(default_factory=dict)
+    cube_merge_tasks: dict = field(default_factory=dict)
+    cube_l1_reuse : dict = field(default_factory=dict)
+    partition: bool = True
+    auto_tiling: bool = True
 
 class JITFunction(Generic[P, T]):
 
@@ -65,23 +70,20 @@ class JITFunction(Generic[P, T]):
         logger.info("Args %s", args)
         logger.info("Kwds %s", kwds)
         logger.info("Options %s", self.options)
-        Context.dynamic = self.options.dynamic
+        # Context.dynamic = self.options.dynamic # TODO: Remove static mode
         pypto.set_vec_tile_shapes(8) # NOTE: Need for load store
-        pypto.set_debug_options(runtime_debug_mode=1)
-        stitch_num = self.options.stitch_num
-        if stitch_num < 1 or stitch_num > 1024:
-            raise ValueError(f"stitch_num must be 1-1024, but current value {stitch_num}")
-        pypto.set_runtime_options(stitch_function_max_num=self.options.stitch_num)
+        self.set_debug_options()
+        self.set_runtime_options()
         unroll_factor = self.options.unroll_factor
         if unroll_factor < 1:
             raise ValueError(f"unroll_factor must be >= 1, but current value {unroll_factor}")
         with pypto.function(self.fn.__name__, *in_out_tensors):
-            loop_range = None
-            if self.options.dynamic:
-                loop_range = self.dynamic_grid_loop(grid, unroll_factor=unroll_factor)
-            else:
-                loop_range = self.static_grid_loop(grid)
-            pypto.set_pass_options(pg_skip_partition=(not self.options.partition))
+            loop_range = self.dynamic_grid_loop(grid, unroll_factor=unroll_factor)
+            # if self.options.dynamic:
+            #     loop_range = self.dynamic_grid_loop(grid, unroll_factor=unroll_factor)
+            # else:
+            #     loop_range = self.static_grid_loop(grid)
+            self.set_pass_options()
             for pid_x, pid_y, pid_z in loop_range:
                 self.call_jit_fn((pid_x, pid_y, pid_z), args, kwds)
         device.run_once(*in_out_tensors)
@@ -94,6 +96,24 @@ class JITFunction(Generic[P, T]):
     def set_options(self, **kwds) -> None:
         for name, value in kwds.items():
             setattr(self.options, name, value)
+
+    def set_pass_options(self) -> None:
+        logger.debug(f"PyPTO pass options")
+        pypto_wrap.set_pass_options(pg_skip_partition=(not self.options.partition))
+        pypto_wrap.set_pass_options(cube_l1_reuse_setting=self.options.cube_l1_reuse)   
+        pypto_wrap.set_pass_options(cube_nbuffer_setting=self.options.cube_merge_tasks)
+        pypto_wrap.set_pass_options(vec_nbuffer_setting=self.options.vec_merge_tasks)
+
+    def set_runtime_options(self) -> None:
+        logger.debug(f"PyPTO runtime options")
+        stitch_num = self.options.stitch_num
+        if stitch_num < 1 or stitch_num > 1024:
+            raise ValueError(f"stitch_num must be 1-1024, but current value {stitch_num}")
+        pypto_wrap.set_runtime_options(stitch_function_max_num=self.options.stitch_num)
+
+    def set_debug_options(self) -> None:
+        logger.debug(f"PyPTO debug options")
+        pypto_wrap.set_debug_options(runtime_debug_mode=1)
 
     @staticmethod
     def normalize_grid(grid: AnyGrid) -> Grid:

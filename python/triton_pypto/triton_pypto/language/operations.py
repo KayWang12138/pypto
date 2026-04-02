@@ -941,7 +941,9 @@ def delinearize_offset(linear_offset: int, shape: Tuple[int, ...]) -> List[int]:
     return list(reversed(offsets))
 
 
+# TODO: Remove static mode
 def compute_valid_shape(mask: Optional[BaseMaskLayout], target_shape: Iterable[int]) -> Optional[Tuple[int]]:
+    return None
     if Context.dynamic or mask is None:
         return None
     if isinstance(mask, CompoundMask):
@@ -1003,10 +1005,10 @@ def load(pointer: Any, mask: Optional[CompoundMask] = None, other: Optional[Any]
     result = reshape_impl(result, target_shape)
     if inv_order is not None:
         result = permute(result, inv_order)
-    requires_mask = not Context.dynamic and valid_shape is None and mask is not None
-    if requires_mask:
-        other = 0 if other is None else other
-        result = where(mask, result, full(target_shape, other, result.dtype))
+    # requires_mask = not Context.dynamic and valid_shape is None and mask is not None
+    # if requires_mask:
+    #     other = 0 if other is None else other
+    #     result = where(mask, result, full(target_shape, other, result.dtype))
     return result
 
 

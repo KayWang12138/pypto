@@ -62,6 +62,10 @@ def managed_wrap(fn: T) -> T:
 
     return wrapper
 
+# Options
+set_pass_options = managed_wrap(pypto.set_pass_options)
+set_runtime_options = managed_wrap(pypto.set_runtime_options)
+set_debug_options = managed_wrap(pypto.set_debug_options)
 
 # Vector
 abs = managed_wrap(pypto.abs)

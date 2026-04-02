@@ -1,14 +1,9 @@
 # https://github.com/triton-lang/triton/blob/1c15d61c2f8c731356d06a53020ccc22f22ec8d9/python/tutorials/01-vector-add.py
-
 import os
-
 import torch
 import triton
 import triton.language as tl
 import triton_pypto
-
-SIZE = int(os.environ.get("SIZE", "1024"))
-BLOCK_SIZE = int(os.environ.get("BLOCK_SIZE", "32"))
 
 
 @triton_pypto.jit
@@ -23,36 +18,24 @@ def add_kernel(x_ptr, y_ptr, output_ptr, n_elements, BLOCK_SIZE: tl.constexpr):
     tl.store(output_ptr + offsets, output, mask=mask)
 
 
-def add(x, y):
+def add(x: torch.Tensor, y: torch.Tensor, block_size: int):
     output = torch.empty_like(x)
     n_elements = output.numel()
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=BLOCK_SIZE)
+    add_kernel[grid](x, y, output, n_elements, BLOCK_SIZE=block_size)
     return output
 
 
-def test_add(dynamic: bool, unroll_factor: int):
-    add_kernel.set_options(dynamic=dynamic, unroll_factor=unroll_factor)
+def test_add():
+    SIZE = int(os.environ.get("SIZE", "1024"))
+    BLOCK_SIZE = int(os.environ.get("BLOCK_SIZE", "32"))
     torch.manual_seed(0)
-    size = SIZE
-    x = torch.randn(size, dtype=torch.float32)
+    x = torch.randn(SIZE, dtype=torch.float32)
     y = torch.randn_like(x)
-    output = add(x, y)
+    output = add(x, y, BLOCK_SIZE)
     ref = x + y
-
-    atol, rtol = 1e-6, 1e-6
-    if not torch.allclose(ref, output, atol=atol, rtol=rtol):
-        max_diff = (ref - output).abs().max().item()
-        print("Inputs:")
-        print("x =", x)
-        print("y =", y)
-        print("\nReference output:", ref)
-        print("\nTriton output:   ", output)
-        print(f"\nMax absolute difference: {max_diff:.2e}")
-        print(f"Tolerance: atol={atol}, rtol={rtol}")
-        assert False, "test_add: FAILED"
-    print("test_add: PASSED")
+    torch.testing.assert_close(output, ref, rtol=1e-6, atol=1e-6)
 
 
 if __name__ == "__main__":
-    test_add(True, 1)
+    test_add()
