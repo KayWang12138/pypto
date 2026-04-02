@@ -149,10 +149,7 @@ TEST_F(TestConfigManager, NormalRuntimeTest)
 {
     std::unordered_map<std::string, std::vector<int64_t>> input = {
         {DEVICE_SCHED_MODE, {0, 1, 2, 3}},
-        {STITCH_FUNCTION_INNER_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
-        {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
-        {STITCH_FUNCTION_NUM_STEP, {0, 128}},
+        {STITCH_FUNCTION_MAX_NUM, {1, 1024}},
         {STITCH_CFGCACHE_SIZE, {0, 100000000}},
         {STITCH_FUNCTION_SIZE, {1, 65535}},
         {CFG_RUN_MODE, {0, 1}},
@@ -164,14 +161,9 @@ TEST_F(TestConfigManager, NormalRuntimeTest)
 
 TEST_F(TestConfigManager, AbnormalRuntimeTest)
 {
-    int64_t outVal = INT_MAX;
-    ++outVal;
     std::unordered_map<std::string, std::vector<int64_t>> input = {
         {DEVICE_SCHED_MODE, {-1, 4}},
-        {STITCH_FUNCTION_INNER_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_OUTCAST_MEMORY, {0, outVal}},
-        {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
-        {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
+        {STITCH_FUNCTION_MAX_NUM, {0, 1025}},
         {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
         {STITCH_FUNCTION_SIZE, {0, 65536}},
         {CFG_RUN_MODE, {-1, 2}},

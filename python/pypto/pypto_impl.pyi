@@ -27,8 +27,6 @@ class DataType(enum.Enum):
     DT_FP8E4M3 = ...
     DT_FP8E5M2 = ...
     DT_FP8E8M0 = ...
-    DT_FP4_E2M1X2 = ...
-    DT_FP4_E1M2X2 = ...
     DT_UINT8 = ...
     DT_UINT16 = ...
     DT_UINT32 = ...
@@ -53,6 +51,11 @@ class NodeType(enum.Enum):
 class TileOpFormat(enum.Enum):
     TILEOP_ND = ...
     TILEOP_NZ = ...
+
+
+class TensorType(enum.Enum):
+    DEPEND_AICORE = ...
+    DEPEND_CONST = ...
 
 
 class CachePolicy(enum.Enum):
@@ -82,9 +85,6 @@ class CastMode(enum.Enum):
     CAST_TRUNC = ...
     CAST_ODD = ...
 
-class SaturationMode(enum.Enum):
-    OFF = ...
-    ON = ...
 
 class LogBaseType(enum.Enum):
     LOG_E = ...
@@ -331,10 +331,10 @@ def GetVecTile() -> List[int]: ...
 
 
 def SetCubeTile(m: List[int], k: List[int],
-                n: List[int], enable_split_k: bool = False): ...
+                n: List[int], enable_multi_data_load: bool = False, enable_split_k: bool = False): ...
 
 
-def GetCubeTile() -> Tuple[List[int], List[int], List[int], bool]: ...
+def GetCubeTile() -> Tuple[List[int], List[int], List[int], bool, bool]: ...
 
 
 def SetConvTile(tileL1Info: TileL1Info, tileL0Info: TileL0Info, setL0Tile: bool = False): ...
@@ -504,7 +504,7 @@ def Neg(a: Tensor) -> Tensor: ...
 def Log(a: Tensor, base: LogBaseType) -> Tensor: ...
 
 
-def Cast(a: Tensor, dtype: DataType, mode: CastMode, satmode: SaturationMode = SaturationMode.OFF) -> Tensor: ...
+def Cast(a: Tensor, dtype: DataType, mode: CastMode) -> Tensor: ...
 
 def index_select(src: Tensor,  dim: int,  indices: Tensor) -> Tensor: ...
 
@@ -647,123 +647,55 @@ class AtomicType(enum.Enum):
     ADD = ...
 
 
-class ShmemTensor:
-    def __init__(self) -> None: ...
-    group: str
-    world_size: int
-    data: Tensor
-    signal: Tensor
-
-
 def CreateShmemData(
     group: str,
     world_size: int,
     dtype: DataType,
     shape: List[int],
-) -> ShmemTensor: ...
+    shmem_tensor: Tensor,
+    mem_type: int,
+) -> None:
 
-def CreateShmemData(
-    group: str,
-    world_size: int,
-    dtype: DataType,
-    shape: List[int],
-    t: ShmemTensor,
-) -> None: ...
 
-def CreateShmemSignal(
-    group: str,
-    world_size: int,
-) -> ShmemTensor: ...
+def CreateShmemSignal(group: str, shmem_data: Tensor, shmem_signal: Tensor) -> None:
 
-def CreateShmemSignal(
-    group: str,
-    world_size: int,
-    t: ShmemTensor,
-) -> None: ...
 
-def ShmemView(
-    operand: ShmemTensor,
-    shapes: List[int],
-    offsets: Union[List[int], List[SymbolicScalar]],
-) -> ShmemTensor: ...
+def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, group: str, world_size: int) -> Tensor: ...
 
-def ShmemView(
-    operand: ShmemTensor,
-    shapes: List[int],
-    new_valid_shapes: List[SymbolicScalar],
-    new_offsets: List[SymbolicScalar],
-) -> ShmemTensor: ...
 
-def ShmemPut(
-    src: Tensor,
-    dst: ShmemTensor,
-    dst_rank: SymbolicScalar,
-    put_op: AtomicType,
-    pred: Tensor,
-) -> Tensor: ...
+def ShmemDataSet(pred_token: Tensor, shmem_data: Tensor) -> None:
+
+
+def ShmemSignalSet(pred_token: Tensor, shmem_signal: Tensor) -> None:
+
+
+def ShmemPut(pred_token: Tensor, in_tensor: Tensor, shmem_data: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
+
+def ShmemPutUb2Gm(in_tensor: Tensor, shmem_data_tile: Tensor, pred_token: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
 
 def ShmemGet(
-    src: ShmemTensor,
-    src_rank: SymbolicScalar,
-    pred: Tensor,
-    target_data_type: DataType = DataType.DT_BOTTOM,
+    pred_token: Tensor,
+    shmem_data: Tensor,
+    non_shmem_dtype: DataType.DT_BOTTOM,
+    atomic_type: AtomicType = AtomicType.SET,
 ) -> Tensor: ...
 
-def ShmemSignal(
-    dst: ShmemTensor,
-    dst_rank: SymbolicScalar,
-    notify_rank: SymbolicScalar,
-    signal: int,
-    sig_op: AtomicType,
-    pred: Tensor,
+
+def ShmemGetGm2Ub(
+    dummy: Tensor,
+    shmem_data_tile: Tensor,
+    non_shmem_dtype: DataType.DT_BOTTOM,
+    atomic_type: AtomicType = AtomicType.SET,
 ) -> Tensor: ...
 
-def ShmemSignalAll(
-    dst: ShmemTensor,
-    dst_rank: SymbolicScalar,
-    signal: int,
-    sig_op: AtomicType,
-    pred: Tensor,
-) -> Tensor: ...
 
-def ShmemWaitUntil(
-    src: ShmemTensor,
-    src_rank: SymbolicScalar,
-    cmp: OpType,
-    cmp_value: int,
-    clear_signal: bool,
-    pred: Tensor,
-) -> Tensor: ...
+def ShmemSignal(pred_token: Tensor, shmem_signal: Tensor, atomic_type: AtomicType) -> Tensor: ...
 
-def ShmemClearData(
-    src: ShmemTensor,
-    pred: Tensor,
-) -> Tensor: ...
 
-def ShmemClearSignal(
-    src: ShmemTensor,
-    pred: Tensor,
-) -> Tensor: ...
+def WaitUntil(pred_token: Tensor, shmem_signal: Tensor, cmp_value: int, reset_signal: bool = False) -> Tensor: ...
 
-def ShmemBarrier(
-    src: ShmemTensor,
-    pred: Tensor,
-) -> Tensor: ...
-
-def ShmemLoad(
-    src: ShmemTensor,
-    src_rank: SymbolicScalar,
-    pred: Tensor,
-    non_shmem_data_type: DataType = DataType.DT_BOTTOM,
-) -> Tensor: ...
-
-def ShmemStore(
-    src: Tensor,
-    dst: ShmemTensor,
-    dst_rank: SymbolicScalar,
-    put_op: AtomicType,
-    pred: Tensor,
-) -> Tensor: ...
 
 def GetSymbolicScalarPeId(group: str) -> SymbolicScalar: ...
 
