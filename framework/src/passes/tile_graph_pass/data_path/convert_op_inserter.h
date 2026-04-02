@@ -140,6 +140,9 @@ public:
     // l0c2l1场景规避条件检查，检查op输入是否满足无非立即数的validShape
     bool FitL0C2L1(const Operation &op);
 
+    // 检查是否适合 UB2L1 小搬大（格式对齐检查）
+    bool FitUB2L1(const LogicalTensorPtr &tensor) const;
+
     // 特殊场景处理：生成者均为Assemble或者消费者均为View/Assemble，且mem路径中经过DDR
     void ProcessSpecialProducersOrConsumers(
         const Operation& op, const std::shared_ptr<LogicalTensor>& oOperand, std::set<Operation*>& consumers,
@@ -152,6 +155,7 @@ public:
 };
 static constexpr int MATMUL_DIM_NUM = 2;
 static constexpr int L0C2L1_DIM1_SHAPE_RESTICT = 16; // l0c2l1要求输入的外轴（第一轴）元素数量必须是16的倍数
+static constexpr int UB2L1_DIM0_ALIGN = 16;  // 外轴 16 元素对齐
 static constexpr int L0C2L1_DIM2_BYTE_RESTICT = 32; // l0c2l1要求输入的内轴（第二轴）必须是32Byte对齐
 } // namespace tile_fwk
 } // namespace npu

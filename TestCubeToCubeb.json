@@ -1,0 +1,12873 @@
+{
+ "entryhash": "17874438938494606822",
+ "functions": [
+  {
+   "_funcid": 3,
+   "_mg_vec_parallel_lb": 48,
+   "_ooo_preschedule_method": "PriorDFS",
+   "_opseed": 10140,
+   "_pg_skip_partition": false,
+   "_rawid": 73,
+   "_sg_mg_copyin_upper_bound": 104857600,
+   "_sg_parallel_num": 20,
+   "_sg_pg_lowerbound": 512,
+   "_sg_pg_upperbound": 10000,
+   "_total_subgraph_count": 0,
+   "func_magicname": "TENSOR_TestCubeToCube_2",
+   "funcmagic": 2,
+   "functype": 1,
+   "global_tensors": [],
+   "graphtype": 1,
+   "hash": "17874438938494606822",
+   "incasts": [
+    [
+     9,
+     [
+      0
+     ]
+    ],
+    [
+     12,
+     [
+      2
+     ]
+    ],
+    [
+     15,
+     [
+      1
+     ]
+    ]
+   ],
+   "kind": 3,
+   "operations": [
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      12
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      40
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10119,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      15
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      38
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10121,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      12
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      35
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10118,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      15
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      33
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10120,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      12
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      30
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10117,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      9
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      28
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10123,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      12
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      25
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10116,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      9
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      23
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10122,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      40
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      41
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10029,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      38
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      39
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10027,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      35
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      36
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10024,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      33
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      34
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10022,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      30
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      31
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10019,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      28
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      29
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10017,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      25
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      26
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10014,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      23
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      24
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10012,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      39,
+      41
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      37
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10030,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      34,
+      36
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      32
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10025,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      29,
+      31
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      27
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10020,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      24,
+      26
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      22
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10015,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      37
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      47
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10036,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      32
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      47
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10035,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      27
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      44
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10032,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      22
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      44
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10031,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      37
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      61
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10054,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      32
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      61
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10053,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      27
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      58
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10050,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      22
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      58
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10049,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      37
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      54
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10045,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      32
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      54
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10044,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      27
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      51
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10041,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      22
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      51
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10040,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      37
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      68
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10063,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      32
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      68
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10062,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      27
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      65
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10059,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      22
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      65
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10058,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      47
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      46
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10037,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      44
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      43
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10033,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      61
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      60
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10055,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      58
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      57
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10051,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      54
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      53
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10046,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      51
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      50
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10042,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      68
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      67
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10064,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      1,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      65
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      64
+     ],
+     "op_attr": {
+      "op_attr_copy_in_l1_padding_mode": 0,
+      "op_attr_remain_redundant_op_flag": 1
+     },
+     "opcode": "VIEW",
+     "opmagic": 10060,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      46
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      48
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": true
+     },
+     "opcode": "VIEW",
+     "opmagic": 10038,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      43
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      45
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10034,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      60
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      62
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": true
+     },
+     "opcode": "VIEW",
+     "opmagic": 10056,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      57
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      59
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10052,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      53
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      55
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": true
+     },
+     "opcode": "VIEW",
+     "opmagic": 10047,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      50
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      52
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10043,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      3,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "ioperands": [
+      67
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      69
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": true
+     },
+     "opcode": "VIEW",
+     "opmagic": 10065,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      2,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      64
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      66
+     ],
+     "op_attr": {
+      "op_attr_l1_to_l0_offset": "Unsupported type",
+      "op_attr_l1_to_l0_tile": "Unsupported type",
+      "op_attr_l1_to_l0_transpose": false
+     },
+     "opcode": "VIEW",
+     "opmagic": 10061,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      45,
+      48
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      42
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10039,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      59,
+      62
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      56
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10057,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      52,
+      55
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      49
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10048,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      66,
+      69
+     ],
+     "kind": 2,
+     "latency": 137,
+     "ooperands": [
+      63
+     ],
+     "op_attr": {
+      "op_attr_act_k": 0,
+      "op_attr_act_m": 0,
+      "op_attr_act_n": 0,
+      "op_attr_gm_acc": false,
+      "op_attr_has_bias": false,
+      "op_attr_matmul_nz_attr": 0,
+      "op_attr_relu_type": 0,
+      "op_attr_scale_value": {
+       "data_type": 14,
+       "value": 0
+      },
+      "op_attr_trans_mode": 0
+     },
+     "opcode": "A_MUL_B",
+     "opmagic": 10066,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      42
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      72
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10067,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      64,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      42
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      75
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10069,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      128,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      56
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      78
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10071,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      192,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      56
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      81
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10073,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      0,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      42
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      84
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10075,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      64,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      42
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      87
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10077,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      128,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      56
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      90
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10079,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      192,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      56
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      93
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10081,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      49
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      96
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10083,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      64,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      49
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      99
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10085,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      128,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      63
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      102
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10087,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      192,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      63
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      105
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10089,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      0,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      49
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      108
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10091,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      64,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      49
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      111
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10093,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      128,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      63
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      114
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10095,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      192,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "ioperands": [
+      63
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      117
+     ],
+     "opcode": "VIEW",
+     "opmagic": 10097,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      72
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      71
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10068,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      75
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      74
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10070,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      78
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      77
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10072,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      81
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      80
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10074,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      84
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      83
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10076,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      87
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      86
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10078,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      90
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      89
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10080,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      93
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      92
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10082,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      96
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      95
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10084,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      99
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      98
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10086,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      102
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      101
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10088,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      105
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      104
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10090,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      108
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      107
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10092,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      111
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      110
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10094,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      114
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      113
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10096,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "ioperands": [
+      117
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      116
+     ],
+     "op_attr": {
+      "SCALAR": {
+       "data_type": 7,
+       "value": 3.0
+      },
+      "op_attr_reverseOperand": false
+     },
+     "opcode": "SUBS",
+     "opmagic": 10098,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      0,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      71
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10139,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      64,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       64
+      ],
+      0
+     ],
+     "ioperands": [
+      74
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10138,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      128,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       128
+      ],
+      0
+     ],
+     "ioperands": [
+      77
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10137,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      0,
+      192,
+      2,
+      [
+       0,
+       0
+      ],
+      [
+       0,
+       192
+      ],
+      0
+     ],
+     "ioperands": [
+      80
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10136,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      0,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      83
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10135,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      64,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ],
+      0
+     ],
+     "ioperands": [
+      86
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10134,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      128,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ],
+      0
+     ],
+     "ioperands": [
+      89
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10133,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      64,
+      192,
+      2,
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       192
+      ],
+      0
+     ],
+     "ioperands": [
+      92
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10132,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      0,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      95
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10131,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      64,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ],
+      0
+     ],
+     "ioperands": [
+      98
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10130,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      128,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ],
+      0
+     ],
+     "ioperands": [
+      101
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10129,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      128,
+      192,
+      2,
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       192
+      ],
+      0
+     ],
+     "ioperands": [
+      104
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10128,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      0,
+      2,
+      [
+       0,
+       192
+      ],
+      [
+       0,
+       0
+      ],
+      0
+     ],
+     "ioperands": [
+      107
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10127,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      64,
+      2,
+      [
+       0,
+       192
+      ],
+      [
+       0,
+       64
+      ],
+      0
+     ],
+     "ioperands": [
+      110
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10126,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      128,
+      2,
+      [
+       0,
+       192
+      ],
+      [
+       0,
+       128
+      ],
+      0
+     ],
+     "ioperands": [
+      113
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10125,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    },
+    {
+     "attr": [
+      23,
+      2,
+      192,
+      192,
+      2,
+      [
+       0,
+       192
+      ],
+      [
+       0,
+       192
+      ],
+      0
+     ],
+     "ioperands": [
+      116
+     ],
+     "kind": 2,
+     "latency": 73,
+     "ooperands": [
+      17
+     ],
+     "opcode": "ASSEMBLE",
+     "opmagic": 10124,
+     "static": {
+      "sync_queue": {
+       "core_type": 0,
+       "event_id": 0,
+       "gm_buf_id": 0,
+       "offset": [],
+       "pipe_id": 0,
+       "tri_core_type": 0,
+       "trig_pipe": 0
+      }
+     },
+     "subgraphid": -1,
+     "sync_queue": {
+      "core_type": 0,
+      "event_id": 0,
+      "gm_buf_id": 0,
+      "offset": [],
+      "pipe_id": 0,
+      "tri_core_type": 0,
+      "trig_pipe": 0
+     },
+     "tile": {
+      "comm": [
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       0,
+       32767
+      ],
+      "cube": [
+       128,
+       0,
+       128,
+       0,
+       64,
+       0,
+       64,
+       0,
+       64,
+       0,
+       128,
+       0,
+       128,
+       0
+      ],
+      "vec": [
+       64,
+       64
+      ]
+     }
+    }
+   ],
+   "outcasts": [
+    [
+     17,
+     [
+      3
+     ]
+    ]
+   ],
+   "parent_funcmagic": 1,
+   "rawname": "TENSOR_TestCubeToCube",
+   "rawtensors": [
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 4,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 5,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 6,
+     "rawshape": [
+      256,
+      256
+     ],
+     "symbol": "TensorC"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 8,
+     "rawshape": [
+      256,
+      128
+     ],
+     "symbol": "Q"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 10,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "weight"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 12,
+     "rawshape": [
+      256,
+      128
+     ],
+     "symbol": "K"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 14,
+     "rawshape": [
+      256,
+      256
+     ],
+     "symbol": "output"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 15,
+     "rawshape": [
+      256,
+      256
+     ],
+     "symbol": "OUTCAST_LOCAL_BUF0"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 16,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 17,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 18,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 19,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 20,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 21,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 22,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 23,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 24,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 25,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 26,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 27,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 28,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 29,
+     "rawshape": [
+      128,
+      128
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 30,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 8,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 31,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 32,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 33,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 34,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 35,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 36,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 37,
+     "rawshape": [
+      64,
+      128
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 38,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 39,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 40,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 41,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 42,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 43,
+     "rawshape": [
+      64,
+      128
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 44,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 45,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 46,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 47,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 48,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 49,
+     "rawshape": [
+      64,
+      128
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 50,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 51,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 52,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "aL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 53,
+     "rawshape": [
+      128,
+      64
+     ],
+     "symbol": "bL1Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 54,
+     "rawshape": [
+      256,
+      64
+     ],
+     "symbol": "Assemble_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 55,
+     "rawshape": [
+      64,
+      128
+     ],
+     "symbol": "bL0Tensor"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 56,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 57,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 58,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 59,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 60,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 61,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 62,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 63,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 64,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 65,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 66,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 67,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 68,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 69,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 70,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    },
+    {
+     "datatype": 7,
+     "format": 0,
+     "kind": 0,
+     "ori_rawshape": [],
+     "rawmagic": 71,
+     "rawshape": [
+      64,
+      64
+     ],
+     "symbol": "View_TensorC"
+    }
+   ],
+   "static": {
+    "global_tensors": []
+   },
+   "tensors": [
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 9,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 1,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 8,
+     "shape": [
+      256,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 12,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 1,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 10,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 15,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 1,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 12,
+     "shape": [
+      256,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       256
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 17,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 2,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 14,
+     "shape": [
+      256,
+      256
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      256
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 22,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 4,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 23,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 16,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 24,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 17,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 25,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 18,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 26,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 19,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 27,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      0
+     ],
+     "rawtensor": 4,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 28,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 20,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 29,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 21,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 30,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 22,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 31,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 23,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 32,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 5,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 33,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 24,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 34,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 25,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 35,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 26,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 36,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 27,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 37,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      0
+     ],
+     "rawtensor": 5,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 38,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 28,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 39,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 29,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 40,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 30,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 41,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 31,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 42,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 6,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 43,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 32,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 44,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 33,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 45,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 34,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 46,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 35,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 47,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 36,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 48,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 37,
+     "shape": [
+      64,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 49,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      0
+     ],
+     "rawtensor": 6,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 50,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 38,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 51,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 39,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 52,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 40,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 53,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 41,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 54,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 42,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 55,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 43,
+     "shape": [
+      64,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 56,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      128
+     ],
+     "rawtensor": 6,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 57,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 44,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 58,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 45,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 59,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 46,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 60,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 47,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 61,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 48,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 62,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 49,
+     "shape": [
+      64,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 63,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      128
+     ],
+     "rawtensor": 6,
+     "shape": [
+      128,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 64,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 50,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 65,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 51,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 66,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 52,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       128
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 67,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 53,
+     "shape": [
+      128,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      128,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       256
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 68,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 54,
+     "shape": [
+      256,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      256,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       128
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 69,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 55,
+     "shape": [
+      64,
+      128
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      128
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 71,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 72,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 56,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 74,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      64
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 75,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 57,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 77,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      128
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 78,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 58,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 80,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      192
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 81,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 59,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 83,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      64,
+      0
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 84,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 60,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 86,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      64,
+      64
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 87,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 61,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 89,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      64,
+      128
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 90,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 62,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 92,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      64,
+      192
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 93,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 63,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 95,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      0
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 96,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 64,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 98,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      64
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 99,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 65,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 101,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      128
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 102,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 66,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 104,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      128,
+      192
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 105,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 67,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 107,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      192,
+      0
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 108,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 68,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 110,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      192,
+      64
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 111,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 69,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 113,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      192,
+      128
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 114,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 70,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 116,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      192,
+      192
+     ],
+     "rawtensor": 15,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    },
+    {
+     "dynvalidshape": [
+      [
+       0,
+       64
+      ],
+      [
+       0,
+       64
+      ]
+     ],
+     "kind": 1,
+     "life_range": [
+      -1,
+      -1
+     ],
+     "magic": 117,
+     "mem_id": -1,
+     "mem_range": [
+      0,
+      0
+     ],
+     "nodetype": 0,
+     "offset": [
+      0,
+      0
+     ],
+     "rawtensor": 71,
+     "shape": [
+      64,
+      64
+     ],
+     "subgraph_boundary": false,
+     "validshape": [
+      64,
+      64
+     ]
+    }
+   ]
+  }
+ ],
+ "version": "2.0"
+}
