@@ -19,6 +19,7 @@ import argparse
 import logging
 import re
 import numpy as np
+import torch
 
 # PyPTO 数据类型映射
 DTYPE_MAP = {
@@ -32,16 +33,17 @@ DTYPE_MAP = {
     8: ('bf16', np.uint16, 2),
 }
 
-# 容差标准映射表
+# 容差标准映射表（基于 PyPTO 代码库实践）
+# 参考：verify.md、examples、models 中的实际使用标准
 TOLERANCE_MAP = {
-    1: (1e-3, 1e-3),
-    2: (1e-4, 1e-4),
-    3: (1e-5, 1e-5),
-    4: (1e-5, 1e-5),
-    5: (1e-1, 1e-2),
-    6: (1e-2, 1e-3),
-    7: (1e-4, 1e-5),
-    8: (5e-2, 5e-3),
+    1: (0, 0),         # INT8:  整数类型，严格匹配
+    2: (0, 0),         # INT16: 整数类型，严格匹配
+    3: (0, 0),         # INT32: 整数类型，严格匹配
+    4: (0, 0),         # INT64: 整数类型，严格匹配
+    5: (1e-1, 1e-2),   # FP8:   8位浮点，量化场景精度较低
+    6: (1e-3, 1e-3),   # FP16: 半精度浮点，mantissa=10bits
+    7: (1e-3, 1e-4),   # FP32: 单精度浮点，高精度基准
+    8: (5e-3, 5e-2),   # BF16: BFloat16，mantissa=7bits，广泛使用于attention
 }
 
 # 初始化日志
@@ -51,12 +53,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
-
-
-def convert_bf16_to_fp32(data_bf16):
-    """BF16 转 FP32"""
-    data_fp32 = data_bf16.astype(np.uint32) << 16
-    return data_fp32.view(np.float32)
 
 
 def find_latest_output_dir(work_dir="."):
@@ -107,70 +103,69 @@ def read_jit_data(filename):
     csv_file = filename.replace('.data', '.csv')
 
     dtype = None
+    shape = None
     if os.path.exists(csv_file):
         with open(csv_file, 'r') as f:
             for line in f:
                 if line.startswith('dtype,'):
                     dtype = int(line.split(',')[1].strip())
-                    break
-
-    data_bytes = np.fromfile(filename, dtype=np.uint8)
+                elif line.startswith('shape,'):
+                    shape_str = line.split(',')[1].strip()
+                    shape = tuple(map(int, shape_str.split('x')))
 
     if dtype is None:
-        file_size = len(data_bytes)
-        if file_size % 2 == 0:
-            data_bf16 = np.frombuffer(data_bytes.tobytes(), dtype=np.uint16)
-            data = convert_bf16_to_fp32(data_bf16)
-            logger.warning(f"  警告: 未找到 CSV 文件，假设为 BF16 格式")
-            return data, 8
-        else:
-            return np.fromfile(filename, dtype=np.float32), 7
+        logger.warning(f"  警告: 未找到 CSV 文件，无法确定数据类型")
+        return None, None
 
     if dtype not in DTYPE_MAP:
-        logger.warning(f"  警告: 未知的数据类型 {dtype}, 尝试作为 FP32 读取")
-        return np.fromfile(filename, dtype=np.float32), dtype
+        logger.warning(f"  警告: 未知的数据类型 {dtype}")
+        return None, None
 
     type_name, np_dtype, bytes_per_element = DTYPE_MAP[dtype]
 
+    data_bytes = np.fromfile(filename, dtype=np.uint8)
+    
     if type_name == 'bf16':
-        data_bf16 = np.frombuffer(data_bytes.tobytes(), dtype=np.uint16)
-        data = convert_bf16_to_fp32(data_bf16)
-        return data, dtype
+        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.bfloat16)
     elif type_name == 'fp16':
-        data_fp16 = np.frombuffer(data_bytes.tobytes(), dtype=np.float16)
-        return data_fp16.astype(np.float32), dtype
+        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.float16)
     elif type_name == 'fp32':
-        return np.fromfile(filename, dtype=np.float32), dtype
-    elif type_name in ['int32', 'int64']:
-        data_int = np.fromfile(filename, dtype=np_dtype)
-        return data_int.astype(np.float32), dtype
-    elif type_name in ['int8', 'int16']:
-        data_int = np.fromfile(filename, dtype=np_dtype)
-        return data_int.astype(np.float32), dtype
+        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.float32)
+    elif type_name == 'int32':
+        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int32)
+    elif type_name == 'int64':
+        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int64)
+    elif type_name == 'int8':
+        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int8)
+    elif type_name == 'int16':
+        data_tensor = torch.frombuffer(data_bytes.tobytes(), dtype=torch.int16)
     else:
-        logger.warning(f"  警告: 数据类型 {type_name} (dtype={dtype}) 暂不支持，尝试作为 FP32 读取")
-        return np.fromfile(filename, dtype=np.float32), dtype
+        logger.warning(f"  警告: 数据类型 {type_name} (dtype={dtype}) 暂不支持")
+        return None, None
+    
+    if shape is not None:
+        data_tensor = data_tensor.reshape(shape)
+    
+    return data_tensor, dtype
 
 
 def read_golden_data(filename, dtype):
-    """读取 golden 数据文件"""
-    if dtype not in DTYPE_MAP:
-        golden_data = np.fromfile(filename, dtype=np.float32)
-    else:
-        _, np_dtype, _ = DTYPE_MAP[dtype]
-        golden_data = np.fromfile(filename, dtype=np_dtype)
-
-    if dtype == 8:
-        golden_data = convert_bf16_to_fp32(golden_data)
-
-    return golden_data
+    """读取 golden 数据文件（仅支持 .pt 格式）"""
+    golden_tensor = torch.load(filename, map_location='cpu')
+    return golden_tensor
 
 
 def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True, custom_rtol=None, custom_atol=None):
     """对比 jit 结果与 golden 结果"""
-    min_size = min(jit_data.shape[0], golden_data.shape[0])
-    jit_data_to_compare = jit_data[:min_size]
-    golden_data_to_compare = golden_data[:min_size]
+    if jit_data.dtype != golden_data.dtype:
+        logger.info(f"\n{name}: ✗ FAIL")
+        logger.info(f"  数据类型不一致: jit={jit_data.dtype}, golden={golden_data.dtype}")
+        return False
+
+    if jit_data.shape != golden_data.shape:
+        logger.info(f"\n{name}: ✗ FAIL")
+        logger.info(f"  数据形状不一致: jit={jit_data.shape}, golden={golden_data.shape}")
+        return False
 
     if dtype is not None:
         rtol, atol = get_tolerance_by_dtype(dtype, custom_rtol, custom_atol)
@@ -178,15 +173,16 @@ def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True, c
         rtol, atol = 1e-3, 1e-3
 
     if verbose:
-        logger.info(f"  对比范围: 前 {min_size} 个元素 (jit={jit_data.shape[0]}, golden={golden_data.shape[0]})")
+        logger.info(f"  数据类型: {jit_data.dtype}")
+        logger.info(f"  数据形状: {jit_data.shape}")
 
-    close_mask = np.isclose(jit_data_to_compare, golden_data_to_compare, rtol=rtol, atol=atol)
-    mismatch_count = (~close_mask).sum()
-    total_count = min_size
+    close_mask = torch.isclose(jit_data, golden_data, rtol=rtol, atol=atol)
+    mismatch_count = (~close_mask).sum().item()
+    total_count = jit_data.numel()
 
-    diff = np.abs(jit_data_to_compare - golden_data_to_compare)
-    max_diff = np.max(diff)
-    max_val = np.max(np.abs(golden_data_to_compare))
+    diff = torch.abs(jit_data - golden_data)
+    max_diff = torch.max(diff).item()
+    max_val = torch.max(torch.abs(golden_data)).item()
     relative_error = max_diff / (max_val + 1e-10)
 
     actual_rtol = relative_error
@@ -199,16 +195,17 @@ def compare_with_golden(jit_data, golden_data, name, dtype=None, verbose=True, c
     logger.info(f"\n{name}: {status}")
     logger.info(f"  Max diff: {max_diff:.6f}")
     logger.info(f"  Max val: {max_val:.6f}")
-    logger.info(f"  Relative error: {relative_error:.6f}")
-    logger.info(f"  Mismatch count: {mismatch_count}/{total_count} ({mismatch_count/total_count*100:.2f}%)")
+    logger.info(f"  {mismatch_count}/{total_count} ({mismatch_count/total_count*100:.2f}%)")
     logger.info(f"  Tolerance: rtol={rtol}, atol={atol} (dtype={dtype})")
     logger.info(f"  Actual: rtol={actual_rtol:.6f}, atol={actual_atol:.6f}")
 
     if verbose and not match:
         logger.info(f"  前10个元素对比:")
-        for i in range(min(10, min_size)):
-            jit_val = jit_data_to_compare[i]
-            golden_val = golden_data_to_compare[i]
+        jit_flat = jit_data.flatten()
+        golden_flat = golden_data.flatten()
+        for i in range(min(10, total_count)):
+            jit_val = jit_flat[i].item()
+            golden_val = golden_flat[i].item()
             diff_val = abs(jit_val - golden_val)
             logger.info(f"    [{i}] jit={jit_val:.6f}, golden={golden_val:.6f}, diff={diff_val:.6f}")
 
@@ -318,8 +315,12 @@ def main():
             results.append((checkpoint_name, False))
             continue
 
-        golden_pattern = os.path.join(golden_base_dir, f"golden_{checkpoint_name}.bin")
+        golden_pattern = os.path.join(golden_base_dir, f"golden_{checkpoint_name}.pt")
         golden_files = glob.glob(golden_pattern)
+        
+        if not golden_files:
+            golden_pattern = os.path.join(golden_base_dir, f"golden_{checkpoint_name}.bin")
+            golden_files = glob.glob(golden_pattern)
 
         if not golden_files:
             logger.warning(f"\n{checkpoint_name}: ✗ 未找到 golden 文件 ({golden_pattern})")

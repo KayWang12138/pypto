@@ -24,8 +24,7 @@
 
 #### 精度验证与调试
 - `pypto-precision-debugger`：定位并修复精度问题
-- `pypto-precision-verify`：verify-based 精度定位（通过 `pass_verify_save` 保存中间结果对比）
-- `pypto-precision-binary-search`：checkpoint-based 精度定位（通过检查点 tensor 输入参数对比）
+- `pypto-precision-compare`：精度对比与定位，支持文件保存和二分对比两种方法
 - `pypto-aicore-error-locator`：定位 aicore error 的问题文件和代码行
 
 #### 性能分析
