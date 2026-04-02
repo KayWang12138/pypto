@@ -128,6 +128,18 @@ public:
         return taskId == AICORE_TASK_INIT || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP;
     }
 
+    inline void SetReadyQueue(int coreIdx, uint64_t value, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
+    {
+        if constexpr (IsDeviceMode()) {
+            *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
+        } else {
+            DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
+            auto taskId = value - 1;
+            if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
+            CostModelSendTask(coreIdx, taskId, tensorAddr2SizeMap);
+        }
+    }
+
     inline void SetReadyQueue(int coreIdx, uint64_t value)
     {
         if constexpr (IsDeviceMode()) {
@@ -137,7 +149,7 @@ public:
             auto taskId = value - 1;
             if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
                 return;
-            CostModelSendTask(coreIdx, taskId);
+            CostModelSendTask(coreIdx, taskId, {});
         }
     }
 
@@ -180,54 +192,6 @@ public:
                     [[fallthrough]];
                 default:
                     break;
-            }
-        }
-    }
-
-    inline void SetReadyQueue(const uint32_t* coreIdx, const uint32_t* vals, int n)
-    {
-        if constexpr (IsDeviceMode()) {
-            for (int i = 0; i < (n & (~CORE_QUEUE_MODE_NUM_7)); i += CORE_QUEUE_MODE_NUM_8) {
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-            }
-            switch (n & CORE_QUEUE_MODE_NUM_7) {
-                case CORE_QUEUE_MODE_NUM_7:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_6:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_5:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_4:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_3:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_2:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                case CORE_QUEUE_MODE_NUM_1:
-                    *readyRegQueues_[GetPhyIdByBlockId(*coreIdx++)] = *vals++;
-                    [[fallthrough]];
-                default:
-                    break;
-            }
-        } else {
-            for (int i = 0; i < n; i++) {
-                auto taskId = vals[i] - 1;
-                if (IsSpecialTask(taskId))
-                    continue;
-                CostModelSendTask(coreIdx[i], taskId);
             }
         }
     }
@@ -326,14 +290,14 @@ public:
         return taskIds[coreIdx].front();
     }
 
-    void CostModelSendTask(int coreIdx, uint64_t taskId)
+    void CostModelSendTask(int coreIdx, uint64_t taskId, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
     {
         uint64_t time = taskIds[coreIdx].empty() ? GetCycles() : taskTimes[coreIdx].back();
         uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
         taskTimes[coreIdx].push_back(time + timeCost);
         taskIds[coreIdx].push_back(taskId);
         if (costModel_) {
-            costModel_->SendTask(coreIdx, taskId);
+            costModel_->SendTask(coreIdx, taskId, tensorAddr2SizeMap);
         }
         DEV_DEBUG(
             "CostModel AICore add task: aicoreIdx=%d, taskId=%#lx, newQueueSize=%lu, finishTime=%lu.", coreIdx, taskId,

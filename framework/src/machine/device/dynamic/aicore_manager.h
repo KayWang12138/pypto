@@ -18,6 +18,7 @@
 #include <sys/ioctl.h>
 #include <functional>
 #include <vector>
+#include <map>
 #include <atomic>
 #include <array>
 #include <semaphore.h>
@@ -944,6 +945,30 @@ private:
         return schema::offset(schema::offsetList(offsetList));
     }
 
+    inline std::map<uint64_t, uint64_t> CalTensorAddrAndSize(uint64_t taskId)
+    {
+        std::map<uint64_t, uint64_t> tensorAddr2SizeMap;
+        uint32_t opIdx = TaskID(taskId);
+        auto duppedData = GetDuppedData(taskId);
+        auto dynFuncData = GetDynFuncData(taskId);
+        auto iOperandSize = duppedData->GetSource()->GetOperationIOperandSize(opIdx);
+        for (size_t i = 0; i < iOperandSize; i++) {
+            auto iOperand = duppedData->GetSource()->GetOperationIOperand(opIdx, i);
+            auto base = GetTensorAddr(dynFuncData, iOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(iOperand->rawIndex);
+            tensorAddr2SizeMap[base] = size;
+        }
+
+        auto oOperandSize = duppedData->GetSource()->GetOperationOOperandSize(opIdx);
+        for (size_t i = 0; i < oOperandSize; i++) {
+            auto oOperand = duppedData->GetSource()->GetOperationOOperand(opIdx, i);
+            auto base = GetTensorAddr(dynFuncData, oOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(oOperand->rawIndex);
+            tensorAddr2SizeMap[base] = size;
+        }
+        return tensorAddr2SizeMap;
+    }
+
     inline void DumpSchemaOperationInfo(int coreIdx, uint64_t taskId)
     {
         uint64_t deviceTaskId = curTaskCtrl_->taskId;
@@ -997,7 +1022,7 @@ private:
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
 #endif
-        aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
+        aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF, CalTensorAddrAndSize(newTask));
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;

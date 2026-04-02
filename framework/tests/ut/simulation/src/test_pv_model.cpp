@@ -80,17 +80,6 @@ TEST(PvModelTest, TestDynFactory)
     EXPECT_NE(pv, nullptr);
 }
 
-TEST(PvModelTest, TestDynImpl)
-{
-    auto pv = CostModel::PvModelFactory::CreateDyn();
-    std::vector<uint8_t> test(16);
-    auto addr = pv->CopyToDev(test.data(), test.size());
-    EXPECT_NE(addr, nullptr);
-    addr = pv->AllocWorkspaceDev(128);
-    EXPECT_NE(addr, nullptr);
-    std::vector<uint8_t> copy(16);
-}
-
 TEST(PvModelTest, TestDynCodegen)
 {
     std::string org = R"!!!(
