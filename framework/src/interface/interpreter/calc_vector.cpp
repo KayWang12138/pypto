@@ -662,8 +662,7 @@ void ExecuteOpRange(ExecuteOperationContext* ctx)
     } else if (start.GetDataType() == DT_FP32) {
         end = GetEndBySize<float, DT_FP32>(curStart, size, step);
     } else {
-        std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
-        throw std::invalid_argument(errorMessage.c_str());
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false) << "Unsupported DataType " << DataType2String(start.GetDataType());
     }
     calc::Range(oop, curStart, end, step);
 }

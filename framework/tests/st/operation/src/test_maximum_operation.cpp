@@ -378,7 +378,7 @@ Element GetElementByType(DataType dataType, nlohmann::json test_data, string nam
         Element element(dataType, GetValueByName<int64_t>(test_data, name));
         return element;
     } else {
-        std::string errorMessage = "UnSupport Type in MaxS ST Test" + DataType2String(dataType);
+        std::string errorMessage = "UnSupport Type in MaxS ST Test" + std::string(DataType2String(dataType));
         throw std::invalid_argument(errorMessage.c_str());
     }
 }
