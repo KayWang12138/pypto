@@ -2,6 +2,7 @@
 name: pypto-precision-debugger
 description: |
   PyPTO 算子精度问题排查技能。专注于用户代码层面的语法逻辑检查和规避方法尝试。当算子精度验证失败、输出结果异常、计算错误、数值偏差、或任何与精度相关的问题时使用此技能。
+  Triggers: 精度问题、精度异常、精度验证失败、内存重叠、machine内存问题、workspace问题。
 license: 完整条款见 LICENSE.txt
 ---
 
@@ -68,6 +69,23 @@ def my_kernel(input_tensor, output_tensor):
 
 ---
 
+## ⭐ 快速入口：内存问题直接跳转
+
+**如果用户明确提到以下关键词，直接跳转到步骤 3（内存重叠检测）：**
+- "内存重叠"
+- "memory overlap"
+- "machine内存问题"
+- "workspace问题"
+
+**跳转说明**：
+```
+用户触发词包含"内存重叠"或"内存问题"
+    │
+    └─ 直接跳转 ──▶ 步骤 3：内存重叠检测
+```
+
+---
+
 ## 排查决策树
 
 ```
@@ -87,9 +105,13 @@ def my_kernel(input_tensor, output_tensor):
     │   ├─ submit_before_loop=True
     │   └─ +0.0 技巧
     │
-    ├─ 步骤 3：二分定位（如需要）
+    ├─ 步骤 3：内存重叠检测（如需要）
+    │   ├─ 执行内存重叠检测
+    │   └─ 若存在内存重叠 ──▶ 尝试扩大 workspace 修复
     │
-    └─ 步骤 4：结论判断
+    ├─ 步骤 4：二分定位（如需要）
+    │
+    └─ 步骤 5：结论判断
         ├─ 规避方法有效 ──▶ 提供解决方案
         └─ 规避方法无效 ──▶ 报告可能是框架问题
 ```
@@ -348,13 +370,73 @@ result = compute(...) + 0.0
 
 ---
 
-### 步骤 3：二分定位（如需要）
+### 步骤 3：内存重叠检测（如需要）
+
+**⚠️ 快速入口：如果用户触发词包含"内存重叠"、"内存问题"、"memory overlap"、"workspace问题"，直接从本步骤开始执行，跳过步骤 0-2。**
+
+如果上述规避方法无法解决问题，且怀疑可能存在 MACHINE 内存处理问题，执行内存重叠检测。
+
+**适用场景**：
+- **用户明确提到内存重叠或内存问题**（直接跳转本步骤）
+- 规避方法无效，怀疑内存问题
+- 触发词中包含"内存重叠"、"machine内存问题"、"workspace问题"等关键词
+
+**详细步骤参考**：[memory-overlap.md](reference/memory-overlap.md)
+
+#### 执行流程
+
+1. **收集必要信息**（使用 `question` 工具）
+   - pypto_path、device_log、run_path、test_cmd
+
+2. **内存重叠检测准备**
+   - 打开 Operation 信息 Dump 开关
+   - 重新编译 PyPTO whl 包
+   - 使用脚本添加 debug_options
+   - 清理日志并运行测试
+
+3. **执行内存重叠检测**
+   - 使用脚本获取检测参数
+   - 执行内存重叠检测
+   - 解读检测结果
+
+4. **若检测到内存重叠，尝试修复**
+   - 扩大 workspace 大小（修改 `python/pypto/frontend/parser/entry.py`）
+   - 重新编译并验证
+   - 如果问题解决 → workspace 大小计算问题
+   - 恢复 workspace 代码
+
+5. **清理和恢复**
+   - 恢复测试用例文件
+   - 恢复 PyPTO 源代码
+   - 重新编译安装
+
+**阶段总结**：
+```markdown
+## 步骤 3 总结：内存重叠检测
+
+### 检测结果
+- 是否执行内存重叠检测：[是/否]
+- 是否存在内存重叠：[是/否]
+- 重叠的 device task：[task ID/无]
+- 重叠类型：[RACE_READ_WRITE / RACE_WRITE_WRITE / RACE_READ_READ / 无]
+
+### 修复尝试
+- 是否尝试扩大 workspace：[是/否]
+- 修复结果：[有效/无效]
+
+### 结论
+- [问题已找到原因 / 需要继续排查（二分定位）]
+```
+
+---
+
+### 步骤 4：二分定位（如需要）
 
 如果上述方法无法定位问题，使用 `pypto-precision-compare` skill 查找定位具体问题 op。
 
 **阶段总结**：
 ```markdown
-## 步骤 3 总结：二分定位
+## 步骤 4 总结：二分定位
 
 ### 二分定位结果
 - 是否执行二分定位：[是/否]
@@ -370,7 +452,7 @@ result = compute(...) + 0.0
 
 ---
 
-### 步骤 4：结论判断
+### 步骤 5：结论判断
 
 #### 情况 A：规避方法有效
 
@@ -434,9 +516,15 @@ result = compute(...) + 0.0
   - [ ] +0.0 技巧
   - [ ] 调整 shape
 
-- [ ] **步骤 3**：二分定位（如需要）
+- [ ] **步骤 3**：内存重叠检测（如需要）
+  - [ ] 收集必要信息（pypto_path、device_log、run_path、test_cmd）
+  - [ ] 执行内存重叠检测
+  - [ ] 若存在内存重叠，尝试扩大 workspace
+  - [ ] 清理和恢复测试环境
 
-- [ ] **步骤 4**：结论判断
+- [ ] **步骤 4**：二分定位（如需要）
+
+- [ ] **步骤 5**：结论判断
   - [ ] 规避方法有效 → 提供解决方案
   - [ ] 规避方法无效 → 报告可能是框架问题
 
@@ -461,3 +549,9 @@ result = compute(...) + 0.0
 | pypto.reshape | [docs/api/operation/pypto-reshape.md](../../../docs/api/operation/pypto-reshape.md) | reshape 操作，含 inplace 参数 |
 | pypto.view | [docs/api/operation/pypto-view.md](../../../docs/api/operation/pypto-view.md) | view 操作 |
 | valid_shape | [docs/tutorials/development/tensor_operation.md](../../../docs/tutorials/development/tensor_operation.md) | Tensor 操作方法，含 valid_shape 说明 |
+
+### 内存重叠检测参考
+
+| 文档 | 路径 | 说明 |
+|------|------|------|
+| 内存重叠检测详细指南 | [reference/memory-overlap.md](reference/memory-overlap.md) | 内存重叠检测的完整工作流程和修复方案 |
