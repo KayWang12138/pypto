@@ -109,7 +109,7 @@ public:
     std::string GenGatherMaskOp() const;
 
     std::string GenRangeOp() const;
-    std::string GenRandomOp() const;
+    std::string GenUniformOp() const;
     std::string PrintRangeTileTensor(
         const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
     std::string GenL0CToUBTileTensor() const;

@@ -236,11 +236,11 @@ void bind_operation(py::module& m)
         py::arg("start"), py::arg("end"), py::arg("step"), "Tensor range.");
     m.def(
         "Random",
-        [](uint64_t key, const std::vector<uint64_t> &counter,
-           const std::vector<int64_t> &shape, uint16_t rounds) {
-            return npu::tile_fwk::Random(key, counter, shape, rounds);
+        [](const Element &key, const Element &counter0, const Element &counter1,
+           const std::vector<int64_t> &shape, const Element &rounds) {
+            return npu::tile_fwk::Random(key, counter0, counter1, shape, rounds);
         },
-        py::arg("key"), py::arg("counter"), py::arg("shape"), py::arg("rounds") = 10,
+        py::arg("key"), py::arg("counter0"), py::arg("counter1"), py::arg("shape"), py::arg("rounds") = Element(DT_UINT16, static_cast<uint16_t>(10)),
         "Random number generator.");
     m.def(
         "Amax",
