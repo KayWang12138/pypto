@@ -95,7 +95,7 @@ struct CalcOps {
     void (*PReLU)(const TensorData&, const TensorData&, const TensorData&);
     void (*LogicalAnd)(const TensorData&, const TensorData&, const TensorData&);
 
-    void (*Random)(const TensorData &, uint64_t, const std::vector<uint64_t>&, uint16_t);
+    void (*Random)(const TensorData &, const Element &, const Element &, const Element &, const Element &);
 
     void (*AddS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*SubS)(const TensorData&, const TensorData&, const Element&, bool);

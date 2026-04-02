@@ -19,16 +19,14 @@
 using namespace tile_fwk::test_operation;
 namespace {
 
-static std::vector<uint64_t> SkipCounter(const std::vector<uint64_t> &counter, uint64_t offset) {
-    std::vector<uint64_t> result = counter;
-    
+static void SkipCounter(uint64_t &counter0, uint64_t &counter1, uint64_t offset) {
     uint32_t offsetLo = static_cast<uint32_t>(offset);
     uint32_t offsetHi = static_cast<uint32_t>(offset >> 32);
     
-    uint32_t c0 = static_cast<uint32_t>(result[0] & 0xFFFFFFFF);
-    uint32_t c1 = static_cast<uint32_t>(result[0] >> 32);
-    uint32_t c2 = static_cast<uint32_t>(result[1] & 0xFFFFFFFF);
-    uint32_t c3 = static_cast<uint32_t>(result[1] >> 32);
+    uint32_t c0 = static_cast<uint32_t>(counter0 & 0xFFFFFFFF);
+    uint32_t c1 = static_cast<uint32_t>(counter0 >> 32);
+    uint32_t c2 = static_cast<uint32_t>(counter1 & 0xFFFFFFFF);
+    uint32_t c3 = static_cast<uint32_t>(counter1 >> 32);
     
     c0 += offsetLo;
     if (c0 < offsetLo) {
@@ -41,19 +39,18 @@ static std::vector<uint64_t> SkipCounter(const std::vector<uint64_t> &counter, u
         }
     }
     
-    result[0] = static_cast<uint64_t>(c0) | (static_cast<uint64_t>(c1) << 32);
-    result[1] = static_cast<uint64_t>(c2) | (static_cast<uint64_t>(c3) << 32);
-    
-    return result;
+    counter0 = static_cast<uint64_t>(c0) | (static_cast<uint64_t>(c1) << 32);
+    counter1 = static_cast<uint64_t>(c2) | (static_cast<uint64_t>(c3) << 32);
 }
 
 struct RandomOpFuncArgs : public OpFuncArgs {
-    RandomOpFuncArgs(uint64_t key, const std::vector<uint64_t> &counter, 
+    RandomOpFuncArgs(uint64_t key, uint64_t counter0, uint64_t counter1, 
                      const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, uint16_t rounds)
-        : key_(key), counter_(counter), viewShape_(viewShape), tileShape_(tileShape), rounds_(rounds) {}
+        : key_(key), counter0_(counter0), counter1_(counter1), viewShape_(viewShape), tileShape_(tileShape), rounds_(rounds) {}
 
     uint64_t key_;
-    std::vector<uint64_t> counter_;
+    uint64_t counter0_;
+    uint64_t counter1_;
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     uint16_t rounds_;
@@ -84,20 +81,21 @@ static void RandomOperationExeFunc(
             int64_t validShape = std::min(outputDim - tileIdx * viewShape, viewShape);
             
             uint64_t tileOffset = static_cast<uint64_t>(tileIdx * viewShape);
-            std::vector<uint64_t> tileCounter = SkipCounter(args->counter_, tileOffset);
+            uint64_t tileCounter0 = args->counter0_;
+            uint64_t tileCounter1 = args->counter1_;
+            SkipCounter(tileCounter0, tileCounter1, tileOffset);
             
-            // 打印tileCounter的值
-            std::cout << "tileIdx: " << tileIdx << ", tileOffset: " << tileOffset << ", key: " << args->key_ << ", tileCounter: [";
-            for (size_t i = 0; i < tileCounter.size(); ++i) {
-                std::cout << tileCounter[i];
-                if (i < tileCounter.size() - 1) {
-                    std::cout << ", ";
-                }
-            }
-            std::cout << "]" << std::endl;
+            std::cout << "tileIdx: " << tileIdx << ", tileOffset: " << tileOffset 
+                      << ", key: " << args->key_ 
+                      << ", tileCounter0: " << tileCounter0 
+                      << ", tileCounter1: " << tileCounter1 << std::endl;
             
             TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = Random(args->key_, tileCounter, {validShape}, args->rounds_);
+            auto res = Random(Element(DT_UINT64, args->key_), 
+                             Element(DT_UINT64, tileCounter0), 
+                             Element(DT_UINT64, tileCounter1), 
+                             {validShape}, 
+                             Element(DT_UINT16, args->rounds_));
             Assemble(res, {offset}, outputs[0]);
             
             ++tileIdx;
@@ -122,11 +120,10 @@ TEST_P(RandomOperationTest, TestRandom) {
     
     uint64_t key = GetValueByName<uint64_t>(test_data, "key");
     
-    uint64_t counter_0 = GetValueByName<uint64_t>(test_data, "counter_0");
-    uint64_t counter_1 = GetValueByName<uint64_t>(test_data, "counter_1");
-    std::vector<uint64_t> counter = {counter_0, counter_1};
+    uint64_t counter0 = GetValueByName<uint64_t>(test_data, "counter_0");
+    uint64_t counter1 = GetValueByName<uint64_t>(test_data, "counter_1");
     
-    auto args = RandomOpFuncArgs(key, counter, viewShape, tileShape, rounds);
+    auto args = RandomOpFuncArgs(key, counter0, counter1, viewShape, tileShape, rounds);
     testCase.args = &args;
     TestExecutor::runTest(testCase);
 }
