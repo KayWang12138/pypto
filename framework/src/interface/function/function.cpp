@@ -1530,7 +1530,7 @@ void Function::UpdateTensorDataUsage(Operation& op)
 }
 
 Operation& Function::AddRawOperation(
-    const Opcode opCode, const LogicalTensors& iOperands, const LogicalTensors& oOperands, bool updateTensorMap, const SourceLocationPtr &sourceLocation, const Operation::ScopeInfo* scopeInfo)
+    const Opcode opCode, const LogicalTensors& iOperands, const LogicalTensors& oOperands, bool updateTensorMap, const SourceLocationPtr &sourceLocation)
 {
     if (IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH})) {
         updateTensorMap = false;
@@ -1551,9 +1551,6 @@ Operation& Function::AddRawOperation(
     }
     if (sourceLocation != nullptr) {
         operations_.back()->SetLocation(sourceLocation);
-    }
-    if (scopeInfo != nullptr) {
-        operations_.back()->SetScopeInfo(*scopeInfo);
     }
     return *operations_.back();
 }

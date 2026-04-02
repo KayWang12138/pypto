@@ -561,8 +561,7 @@ public:
         const bool updateTensorMap = true);
     Operation& AddRawOperation(
         const Opcode opCode, const LogicalTensors& iOperands, const LogicalTensors& oOperands,
-        bool updateTensorMap = true, const SourceLocationPtr &sourceLocation = nullptr,
-        const Operation::ScopeInfo* scopeInfo = nullptr);
+        bool updateTensorMap = true, const SourceLocationPtr &sourceLocation = nullptr);
 
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<RawTensor>> outIncastLinkMap; // 记录outcast 共享地址的 incast
     void SetSameMemId(const LogicalTensorPtr& operand, LogicalTensorPtr& dst);

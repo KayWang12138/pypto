@@ -99,7 +99,8 @@ Status MergeViewAssembleUtils::AppendMergedViewOperations(Function& function)
             APASS_LOG_ERROR_F(Elements::Function, "Failed to create ViewOpAttribute.");
             return FAILED;
         }
-        auto& mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output}, true, viewOp.sourceLocation, &viewOp.scopeInfo);
+        auto& mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output}, true, viewOp.sourceLocation);
+        mergedViewOp.SetScopeInfo(viewOp.scopeInfo);
         mergedViewOp.SetOpAttribute(attr);
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
@@ -117,7 +118,8 @@ Status MergeViewAssembleUtils::AppendMergedAssembleOperations(Function& function
         if (!attr) {
             return FAILED;
         }
-        auto& mergedAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assembleOp.input}, {assembleOp.output}, true, assembleOp.sourceLocation, &assembleOp.scopeInfo);
+        auto& mergedAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assembleOp.input}, {assembleOp.output}, true, assembleOp.sourceLocation);
+        mergedAssembleOp.SetScopeInfo(assembleOp.scopeInfo);
         mergedAssembleOp.SetOpAttribute(attr);
     }
     return SUCCESS;
@@ -333,13 +335,17 @@ void MergeViewAssembleUtils::RecordMergedViewOperation(
     const std::vector<SymbolicScalar>& newDynOffset, const std::vector<SymbolicScalar>& newDynValidShape,
     const SourceLocationPtr &sourceLocation, const Operation::ScopeInfo &scopeInfo)
 {
+    // 获取最后一个VIEW的属性
     auto lastViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(lastViewOp->GetOpAttribute());
     if (!lastViewAttr) {
         return;
     }
+    // 获取特定的 op_attr_copy_in_mode 属性
     int64_t copyInModeValue = 0;
     bool hasCopyInMode = lastViewOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue);
+    // 清理消费者关系
     endTensor->GetProducers().clear();
+    // 记录合并op
     viewOpToAppend_.emplace_back(ViewOp{
         startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode,
         std::move(copyInModeValue), sourceLocation, scopeInfo});
@@ -431,6 +437,7 @@ Status MergeViewAssembleUtils::ProcessAssembleChainEnd(
     // 获取链路上第一个非空的sourceLocation
     SourceLocationPtr firstSourceLocation = GetFirstSourceLocation(chain);
     Operation::ScopeInfo chainScopeInfo = GetChainScopeInfo(chain);
+    // 4. 记录并清理
     RecordAssembleOperation(startTensor, endTensor, newOffset, newDynOffset, firstSourceLocation, chainScopeInfo);
     function.GetTensorMap().Erase(endTensor);
     operation.SetAsDeleted();

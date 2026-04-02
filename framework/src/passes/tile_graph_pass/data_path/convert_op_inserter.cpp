@@ -585,7 +585,7 @@ void ConvertInserter::CreateMoveOpForConvert(Operation& op)
             from, op.oOperand.front()->GetOffset(), op.oOperand.front()->GetDynOffset(),
             op.iOperand.front()->GetDynValidShape()));
         auto parentOp = *op.oOperand.front()->GetProducers().begin();
-        op.UpdateSubgraphID(parentOp->GetSubgraphID()); // 
+        op.UpdateSubgraphID(parentOp->GetSubgraphID());
     }
 }
 
