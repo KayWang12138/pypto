@@ -32,7 +32,7 @@ const std::unordered_set<Opcode> NEED_BRC_OPS{
     Opcode::OP_EXPANDEXPDIF,
 };
 
-bool InsertCondition(const Opcode& code) { return SUPPORT_BRCINLINE.count(code) > 0; }
+bool InsertCondition(const Opcode& code) { return NEED_BRC_OPS.count(code) > 0; }
 
 Status AlignedIfNeed(int64_t& currentDim, int64_t padValue)
 {
