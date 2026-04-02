@@ -182,7 +182,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     return result;
 }
 
-void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType) {
+void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, [[maybe_unused]] int atomicType) {
     uint8_t *base = GetRemoteRank(dstRank, false);
     size_t dataSize = data->GetSize() * BytesOf(data->GetDataType());
     if (offset + dataSize > WIN_IN_SIZE) {
@@ -191,7 +191,7 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
     memcpy(base + offset, data->GetData()->GetDevPtr(), dataSize);
 }
 
-void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, int atomicType, bool notifyAll) {
+void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, [[maybe_unused]] int atomicType, [[maybe_unused]] bool notifyAll) {
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");

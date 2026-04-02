@@ -41,8 +41,8 @@ public:
     int GetRank() const {return rank_;};
     int GetWorldSize() const {return worldSize_;};
     std::string GetGroupName() {return groupName_;};
-    void Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, [[maybe_unused]] int atomicType = 0);
-    void Signal(int dstRank, int value, size_t slotSize, [[maybe_unused]] int atomicType = 0, [[maybe_unused]] bool notifyAll = false);
+    void Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType = 0);
+    void Signal(int dstRank, int value, size_t slotSize, int atomicType = 0, bool notifyAll = false);
     void Wait(int srcRank, int expect, size_t slotSize, bool reset = false);
     LogicalTensorDataPtr Get(int srcRank, size_t slotSize, uint64_t offset = 0);
 private:
