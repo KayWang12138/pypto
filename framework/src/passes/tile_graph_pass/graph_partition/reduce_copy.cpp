@@ -15,7 +15,6 @@
 
 #include "passes/tile_graph_pass/graph_partition/reduce_copy.h"
 #include "interface/function/function.h"
-// #include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_log/pass_log.h"
 #include <iostream>
@@ -369,35 +368,31 @@ bool MixGraphMerger::CanMergeWithoutCycle(const std::vector<int>& group) {
     if (group.size() <= 1) return false;
     std::vector<int> actualGroup = GetActualGroup(group);
     if (actualGroup.size() <= 1) return false;
-    int root = actualGroup[0];
-    std::set<int> groupSet(actualGroup.begin(), actualGroup.end());
     std::vector<std::set<int>> outGraph, inGraph;
     BuildMergedGraph(outGraph, inGraph);
-    for (size_t i = 1; i < actualGroup.size(); ++i) {
-        int node = actualGroup[i];
-        for (int pred : inGraph[node]) {
-            if (groupSet.find(pred) == groupSet.end()) {
-                outGraph[pred].erase(node);
-                outGraph[pred].insert(root);
-                inGraph[root].insert(pred);
-            }
+    int root = actualGroup[0];
+    std::set<int> del(actualGroup.begin() + 1, actualGroup.end());
+    for (int d : del) {
+        for (int u : inGraph[d]) {
+            outGraph[u].erase(d);
+            outGraph[u].insert(root);
         }
-        for (int succ : outGraph[node]) {
-            if (groupSet.find(succ) == groupSet.end()) {
-                inGraph[succ].erase(node);
-                inGraph[succ].insert(root);
-                outGraph[root].insert(succ);
-            }
+        for (int v : outGraph[d]) {
+            inGraph[v].erase(d);
+            inGraph[v].insert(root);
         }
-        inGraph[node].clear();
-        outGraph[node].clear();
+        inGraph[root].insert(inGraph[d].begin(), inGraph[d].end());
+        outGraph[root].insert(outGraph[d].begin(), outGraph[d].end());
+        inGraph[d].clear();
+        outGraph[d].clear();
     }
-    for (size_t i = 1; i < actualGroup.size(); ++i) {
-        int node = actualGroup[i];
-        inGraph[node].clear();
-        outGraph[node].clear();
+    inGraph[root].erase(root);
+    outGraph[root].erase(root);
+    if (HasCycle(outGraph, inGraph)) {
+        APASS_LOG_INFO_F(Elements::Operation, "Merge failed: detect cycle.");
+        return false;
     }
-    return !HasCycle(outGraph, inGraph);
+    return true;
 }
 
 bool MixGraphMerger::CheckLatencyConstraint(const std::vector<int>& group) {
@@ -414,7 +409,7 @@ bool MixGraphMerger::CheckLatencyConstraint(const std::vector<int>& group) {
     int totalLatency = totalAIC + totalAIV;
     if (totalLatency > mInput.maxLatency) {
         APASS_LOG_INFO_F(Elements::Operation, 
-            "Merge failed: total latency %d exceeds max latency %d",
+            "Merge failed: total latency %d exceeds max latency %d.",
             totalLatency, mInput.maxLatency);
         return false;
     }
@@ -434,7 +429,7 @@ bool MixGraphMerger::CheckAivRatioConstraint(const std::vector<int>& group) {
     }
     if (totalAIC == 0 || totalAIV == 0) {
         APASS_LOG_INFO_F(Elements::Operation,
-            "Merge failed: merged subgraph must be mixed (both AIC and AIV non-zero)");
+            "Merge failed: merged subgraph must be mixed (both AIC and AIV non-zero).");
         return false;
     }
     double ratio = (double)totalAIV / (double)totalAIC;
@@ -448,9 +443,15 @@ bool MixGraphMerger::CheckAivRatioConstraint(const std::vector<int>& group) {
 }
 
 bool MixGraphMerger::CanMergeWithConstraints(const std::vector<int>& group) {
-    if (group.size() <= 1) return false;
+    if (group.size() <= 1) {
+        APASS_LOG_INFO_F(Elements::Operation, "Merge failed: current merge group only has 1 subgraph.");
+        return false;
+    }
     std::vector<int> actualGroup = GetActualGroup(group);
-    if (actualGroup.size() <= 1) return false;
+    if (actualGroup.size() <= 1) {
+        APASS_LOG_INFO_F(Elements::Operation, "Merge failed: already merged.");
+        return false;
+    }
     if (!CanMergeWithoutCycle(group)) {
         return false;
     }
@@ -516,38 +517,48 @@ MergeOutput MixGraphMerger::Merge(const MergeInput& input) {
         return mOutput;
     }
     Initialize(input);
-    for (size_t i = 0; i < input.mergeGroup.size(); ++i) {
-        if (input.isEnforceMergeGroup[i]) {
+    const int mergeLoopNum = 5;
+    for (int mergeLoopStep = 0; mergeLoopStep < mergeLoopNum; mergeLoopStep++) {
+        APASS_LOG_INFO_F(Elements::Operation, "Enter merge loop %d.", mergeLoopStep);
+        bool hasUpdated = false;
+        for (size_t i = 0; i < input.mergeGroup.size(); ++i) {
+            if (input.isEnforceMergeGroup[i]) {
+                const auto& group = input.mergeGroup[i];
+                std::vector<int> actualGroup = GetActualGroup(group);
+                if (actualGroup.size() <= 1) {
+                    APASS_LOG_INFO_F(Elements::Operation,
+                        "Skip enforce merge group %zu: already merged", i);
+                    continue;
+                }
+                if (CanMergeWithoutCycle(group)) {
+                    APASS_LOG_INFO_F(Elements::Operation,
+                        "Enforce merge group %zu succeeded", i);
+                    PerformMerge(group);
+                    hasUpdated = true;
+                } else {
+                    APASS_LOG_INFO_F(Elements::Operation,
+                        "Enforce merge group %zu failed: would create cycle", i);
+                }
+            }
+        }
+        for (size_t i = 0; i < input.mergeGroup.size(); ++i) {
             const auto& group = input.mergeGroup[i];
             std::vector<int> actualGroup = GetActualGroup(group);
             if (actualGroup.size() <= 1) {
-                APASS_LOG_INFO_F(Elements::Operation,
-                    "Skip enforce merge group %zu: already merged", i);
                 continue;
             }
-            if (CanMergeWithoutCycle(group)) {
+            if (CanMergeWithConstraints(group)) {
                 APASS_LOG_INFO_F(Elements::Operation,
-                    "Enforce merge group %zu succeeded", i);
+                    "Merge group %zu succeeded", i);
                 PerformMerge(group);
+                hasUpdated = true;
             } else {
                 APASS_LOG_INFO_F(Elements::Operation,
-                    "Enforce merge group %zu failed: would create cycle", i);
+                    "Merge group %zu skipped due to constraints", i);
             }
         }
-    }
-    for (size_t i = 0; i < input.mergeGroup.size(); ++i) {
-        const auto& group = input.mergeGroup[i];
-        std::vector<int> actualGroup = GetActualGroup(group);
-        if (actualGroup.size() <= 1) {
-            continue;
-        }
-        if (CanMergeWithConstraints(group)) {
-            APASS_LOG_INFO_F(Elements::Operation,
-                "Merge group %zu succeeded", i);
-            PerformMerge(group);
-        } else {
-            APASS_LOG_INFO_F(Elements::Operation,
-                "Merge group %zu skipped due to constraints", i);
+        if (!hasUpdated) {
+            break;
         }
     }
     UpdateOutput();
