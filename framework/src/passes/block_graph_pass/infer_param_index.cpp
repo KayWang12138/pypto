@@ -43,21 +43,28 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
     std::vector<SymbolicScalar> validShape;
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
                                            Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1};
-    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-        if (!function.IsFromInCast(op.GetIOperands().front())) {
-            validShape = OpImmediate::ToSpecified(OpImmediate::Specified(op.GetIOperands()[0]->GetShape()));
+    
+    auto handleCopyOp = [&](const std::vector<std::shared_ptr<LogicalTensor>>& operands, bool isCopyIn) -> bool {
+        auto operand = operands.front();
+        bool isFromCast = isCopyIn ? function.IsFromInCast(operand) : function.IsFromOutCast(operand);
+        if (!isFromCast) {
+            auto shape = OpImmediate::Specified(operand->GetShape());
+            validShape = OpImmediate::ToSpecified(shape);
             std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-            attr->SetShape(OpImmediate::Specified(op.GetIOperands()[0]->GetShape()));
-            op.GetIOperands().front()->UpdateDynValidShape(validShape);
+            attr->SetShape(shape);
+            operand->UpdateDynValidShape(validShape);
+            return true;
+        }
+        return false;
+    };
+    
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        if (handleCopyOp(op.GetIOperands(), true)) {
             return SUCCESS;
         }
     }
     if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-        if (!function.IsFromOutCast(op.GetOOperands().front())) {
-            validShape = OpImmediate::ToSpecified(OpImmediate::Specified(op.GetOOperands()[0]->GetShape()));
-            std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-            attr->SetShape(OpImmediate::Specified(op.GetOOperands()[0]->GetShape()));
-            op.GetOOperands().front()->UpdateDynValidShape(validShape);
+        if (handleCopyOp(op.GetOOperands(), false)) {
             return SUCCESS;
         }
     }

@@ -202,6 +202,8 @@ TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyInNotFromInCast)
     
     auto updatedDynValidShape = ubTensor2->GetDynValidShape();
     EXPECT_EQ(updatedDynValidShape.size(), 2);
+    EXPECT_TRUE(!(updatedDynValidShape[0].ConcreteValid()));
+    EXPECT_TRUE(!(updatedDynValidShape[1].ConcreteValid()));
 }
 
 TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyOutNotFromOutCast)
@@ -236,4 +238,6 @@ TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyOutNotFromOutCast)
     
     auto updatedDynValidShape = ubTensor2->GetDynValidShape();
     EXPECT_EQ(updatedDynValidShape.size(), 2);
+    EXPECT_TRUE(updatedDynValidShape[0].ConcreteValid());
+    EXPECT_TRUE(updatedDynValidShape[1].ConcreteValid());
 }
