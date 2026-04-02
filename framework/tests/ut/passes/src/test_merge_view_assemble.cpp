@@ -951,7 +951,9 @@ TEST_F(MergeViewAssembleTest, TestSourceLocation)
     auto viewAttribute = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0});
     viewAttribute->SetToType(MemoryType::MEM_UB);
     viewOp.SetOpAttribute(viewAttribute);
-    currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ubTensor1}, {ubTensor2}, true, sourceLocation2);
+    viewOp.SetScopeId(NUM1);
+    auto assembleOp = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ubTensor1}, {ubTensor2}, true, sourceLocation2);
+    assembleOp.SetScopeId(NUM2);
     currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ubTensor2}, {outCast});
 
     currFunctionPtr->inCasts_.push_back(inCast);
@@ -962,9 +964,11 @@ TEST_F(MergeViewAssembleTest, TestSourceLocation)
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             EXPECT_EQ(op.GetLocation()->lineno_, NUM2);
+            EXPECT_EQ(op.GetScopeId(), NUM2);
         }
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             EXPECT_EQ(op.GetLocation()->lineno_, NUM1);
+            EXPECT_EQ(op.GetScopeId(), NUM1);
         }
     }
 }

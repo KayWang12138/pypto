@@ -1530,7 +1530,7 @@ void Function::UpdateTensorDataUsage(Operation& op)
 }
 
 Operation& Function::AddRawOperation(
-    const Opcode opCode, const LogicalTensors& iOperands, const LogicalTensors& oOperands, bool updateTensorMap, const SourceLocationPtr &sourceLocation)
+    const Opcode opCode, const LogicalTensors& iOperands, const LogicalTensors& oOperands, bool updateTensorMap, const SourceLocationPtr &sourceLocation, const Operation::ScopeInfo* scopeInfo)
 {
     if (IsFunctionTypeAndGraphType(FunctionType::STATIC, {GraphType::EXECUTE_GRAPH, GraphType::BLOCK_GRAPH})) {
         updateTensorMap = false;
@@ -1543,12 +1543,7 @@ Operation& Function::AddRawOperation(
     opPosition_.emplace(op.get(), operations_.size() - 1);
     auto scopeConfig = config::GetPassOption<std::vector<int64_t>>(SG_SET_SCOPE);
     if (scopeConfig.size() == 4) {
-        Operation::ScopeInfo scopeInfo;
-        scopeInfo.scopeId = static_cast<int>(scopeConfig[0]);
-        scopeInfo.allowParallelMerge = static_cast<bool>(scopeConfig[1]);
-        scopeInfo.allowCrossScopeMerge = static_cast<bool>(scopeConfig[2]);
-        scopeInfo.mixId = static_cast<int>(scopeConfig[3]);
-        operations_.back()->SetScopeInfo(scopeInfo);
+        operations_.back()->SetScopeInfo(Operation::ScopeInfo::FromConfig(scopeConfig));
     } else if (scopeConfig.size() == 1) {
         operations_.back()->SetScopeId(static_cast<int>(scopeConfig[0]));
     } else {
@@ -1556,6 +1551,9 @@ Operation& Function::AddRawOperation(
     }
     if (sourceLocation != nullptr) {
         operations_.back()->SetLocation(sourceLocation);
+    }
+    if (scopeInfo != nullptr) {
+        operations_.back()->SetScopeInfo(*scopeInfo);
     }
     return *operations_.back();
 }

@@ -179,6 +179,15 @@ public:
         // 向后兼容的构造函数
         ScopeInfo() = default;
         explicit ScopeInfo(int id) : scopeId(id) {}
+        static ScopeInfo FromConfig(const std::vector<int64_t>& config)
+        {
+            ScopeInfo info;
+            info.scopeId = static_cast<int>(config[0]);
+            info.allowParallelMerge = static_cast<bool>(config[1]);
+            info.allowCrossScopeMerge = static_cast<bool>(config[2]);
+            info.mixId = static_cast<int>(config[3]);
+            return info;
+        }
     };
     friend class Function;
     LogicalTensors iOperand;      // Input operands (now actual objects, not shared_ptr)
