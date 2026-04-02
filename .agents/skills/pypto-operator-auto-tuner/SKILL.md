@@ -336,6 +336,75 @@ Read .agents/skills/pypto-operator-auto-tuner/perf-analyzer/SKILL.md
 - 负载均衡度: XX%
 ```
 
+### 3.4 任务级别详细分析
+
+**⚠️ 重要：当性能报告中显示 COPY_IN/COPY_OUT 较多时，需要进行任务级别分析！**
+
+#### 3.4.1 使用分析脚本
+
+提供了专门的分析脚本 `scripts/analyze_task_detail.py`：
+
+```bash
+python3 .agents/skills/pypto-operator-auto-tune/scripts/analyze_task_detail.py output/output_20260328_xxx
+```
+
+**脚本功能**：
+1. 分析 AIV/AIC 核任务分布
+2. 分析 COPY_IN/COPY_OUT tensor 流动
+3. 分析某个核的操作序列
+4. 查找任务对应的代码位置
+
+#### 3.4.2 手动分析方法
+
+**方法 1：根据任务名称找到对应的代码行**
+
+步骤：
+1. 在 `merged_swimlane.json` 中搜索节点 `name`，如 `"0-1-38-23-4()"`
+2. 在该节点所在对象中，查找键 `"args"`，在 `"event-hint"` 中查找 `callOpMagic` 或 `leafHash` 值
+3. 在同目录的 `program.json` 中检索该值，找到键 `"hash"` 或 `"opmagic"` 为该值的对象
+4. 找到该对象下的 `"opcode"` 值，并查看 `"file"`、`"line"` 等键的值
+
+**方法 2：查找 AIV 或 AIC 核的任务**
+
+步骤：
+1. 在 `merged_swimlane.json` 查找 `"name": "AIC_X"` 或 `"name": "AIV_X"`，其中 X 表示核的标号
+2. 找到该 json 对象下的 `"tid"` 及对应的标号
+3. 查找 `"tid": XXX` 即可找到对应的任务对象，`"name"` 即为该任务节点名称
+
+**方法 3：分析 COPY_IN/COPY_OUT tensor 流动**
+
+步骤：
+1. 遍历 `program.json` 中所有 operations，收集所有 `COPY_IN` 和 `COPY_OUT` 操作
+2. 提取 `COPY_OUT` 的 `ooperands`（输出 tensor）
+3. 提取 `COPY_IN` 的 `ioperands`（输入 tensor）
+4. 检查是否存在 tensor 被 `COPY_OUT` 后又被 `COPY_IN`
+
+**方法 4：分析核上的操作序列**
+
+步骤：
+1. 获取某个核的所有任务，按时间戳 `ts` 排序
+2. 从 `program.json` 获取每个任务的 `opcode`
+3. 检查是否存在连续的 `COPY_OUT` → `COPY_IN` 序列
+
+#### 3.4.3 分析结果解读
+
+**COPY_IN/COPY_OUT 流动过多**：
+- 表示数据被拷贝出后再拷贝入，存在冗余搬运
+- **优化方向**：
+  1. 开启合图优化（`sg_set_scope`）
+  2. 调整 TileShape 减少子图数量
+  3. 使用 `combine_axis=True` 消除 EXPAND 节点
+  4. 重新设计算子结构
+
+**EXPAND 节点过多**：
+- 表示存在多维 tensor 的 broadcast 操作
+- **优化方向**：开启 `combine_axis=True`
+
+**AIV 核 COPY_IN 较多**：
+- 可能是 Vector 计算的 tile 过大，导致中间结果需要频繁搬运
+- **优化方向**：调整 `vec_tile_shapes`
+
+
 ---
 
 ## 步骤 4：分步骤性能分析及调优
