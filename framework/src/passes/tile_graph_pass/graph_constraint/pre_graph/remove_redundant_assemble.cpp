@@ -666,9 +666,7 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
     if (!hasSameOutput) {
         for (auto& cons : consumers) {
             if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
-                APASS_LOG_DEBUG_F(
-                    Elements::Operation, "Change the connection relationship of non assemble op:[%d]. %s",
-                    cons->GetOpMagic(), cons->GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F(Elements::Operation, "Change the connection relationship of non assemble op:[%d]. %s", cons->GetOpMagic(), cons->GetOpcodeStr().c_str());
                 cons->iOperand[0] = output;
                 cons->iOperand[0]->AddConsumer(cons);
                 continue;
@@ -680,9 +678,7 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
                 output->isSubGraphBoundary = true;
                 if (!IsCopyOut(producer->GetOpcode()))
                     continue;
-                APASS_LOG_DEBUG_F(
-                    Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s",
-                    producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
+                APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s", producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
                 UpdateCopyOutAttr(*producer, *cons);
             }
         }
@@ -691,11 +687,55 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
     HandleForAssembleToOutcast(function, op, producersBackup);
     if (HandleDynOffsetForReshape(op, producersBackup) != SUCCESS) {
         APASS_LOG_ERROR_F(
-            Elements::Operation, "HandleDynOffsetForReshape for op:[%d] failed. %s", op.GetOpMagic(),
-            op.GetOpcodeStr().c_str());
+            Elements::Operation, "HandleDynOffsetForReshape for op:[%d] failed. %s", op.GetOpMagic(), op.GetOpcodeStr().c_str());
         return FAILED;
     }
     return SUCCESS;
+}
+
+bool RemoveRedundantAssemble::ForwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
+    for (const auto &con : input->GetConsumers()) {
+        if (con->GetOpcode() != Opcode::OP_COPY_IN && con->GetOpcode() != Opcode::OP_COPY_OUT) {
+            continue;
+        }
+        auto copyOutput1 = con->GetOOperands()[0];
+        if (copyOutput1->GetConsumers().size() == 1) {
+            auto copyConsumer1 = *(copyOutput1->GetConsumers().begin());
+            if (copyConsumer1->GetOpcode() != Opcode::OP_COPY_IN && copyConsumer1->GetOpcode() != Opcode::OP_COPY_OUT) {
+                continue;
+            }
+            auto copyOutput2 = copyConsumer1->GetOOperands()[0];
+            if (copyOutput2->GetConsumers().size() == 1) {
+                auto copyConsumer2 = *(copyOutput2->GetConsumers().begin());
+                if (copyConsumer2->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool RemoveRedundantAssemble::BackwardFindAssembleInsertedCopy(LogicalTensorPtr input) const {
+    for (const auto &pro : input->GetProducers()) {
+        if (pro->GetOpcode() != Opcode::OP_COPY_IN && pro->GetOpcode() != Opcode::OP_COPY_OUT) {
+            continue;
+        }
+        auto copyInput1 = pro->GetIOperands()[0];
+        if (copyInput1->GetProducers().size() == 1) {
+            auto copyProducer = *(copyInput1->GetProducers().begin());
+            if (copyProducer->GetOpcode() != Opcode::OP_COPY_IN && copyProducer->GetOpcode() != Opcode::OP_COPY_OUT) {
+                continue;
+            }
+            auto copyInput2 = copyProducer->GetIOperands()[0];
+            for (const auto &copyConsumer : copyInput2->GetConsumers()) {
+                if (copyConsumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;    
 }
 
 /*
@@ -730,8 +770,12 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function& function) cons
                 op.GetOpMagic(), concurrentAssembles.size());
             HanldeForMultiAssemble(function, concurrentAssembles);
         } else {
-            if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS)
-                return FAILED;
+            if (!ForwardFindAssembleInsertedCopy(input) && !BackwardFindAssembleInsertedCopy(input)) {
+                if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) {
+                    return FAILED;
+                }
+            }
+            
         }
     }
     if (ProcessView(function) != SUCCESS) {
