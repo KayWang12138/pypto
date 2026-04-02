@@ -215,7 +215,7 @@ bool FlowVerifier::VerifyResult(
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::outputValidShape)] =
             functionInterpreter_->ShapeToString(tensorDataViewList[k]->GetValidShape());
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::outputDtype)] =
-            BriefDataType2String(tensorDataViewList[k]->GetDataType());
+            DataType2String(tensorDataViewList[k]->GetDataType(), true);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::outputFormat)] =
             std::to_string(tensorDatalist[k]->GetRawTensor()->format);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::outputRawMagic)] =

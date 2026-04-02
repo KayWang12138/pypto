@@ -345,37 +345,9 @@ class ClipOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 INSTANTIATE_TEST_SUITE_P(
     TestClip, ClipOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<ClipOpMetaData>(
-        {ClipOperationExeFuncDoubleCut, ClipOperationExeFuncTripleCut, ClipOperationExeFuncQuadrupleCut}, "Clip")));
-
-Element GetElementByType(DataType dataType, nlohmann::json test_data, string name)
-{
-    std::string value = "";
-    try {
-        value = GetValueByName<std::string>(test_data, name);
-    } catch (const exception& e) {
-        value = "";
-    }
-    if (dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16) {
-        Element element(dataType, GetValueByName<float>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT8) {
-        Element element(dataType, GetValueByName<int8_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT16) {
-        Element element(dataType, GetValueByName<int16_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT32) {
-        Element element(dataType, GetValueByName<int32_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT64) {
-        Element element(dataType, GetValueByName<int64_t>(test_data, name));
-        return element;
-    } else {
-        std::string errorMessage = "Unsupported DataType " + DataType2String(dataType);
-        throw std::invalid_argument(errorMessage.c_str());
-    }
-}
+    ::testing::ValuesIn(
+        GetOpMetaData<ClipOpMetaData>(
+            {ClipOperationExeFuncDoubleCut, ClipOperationExeFuncTripleCut, ClipOperationExeFuncQuadrupleCut}, "Clip")));
 
 TEST_P(ClipOperationTest, TestClip)
 {
