@@ -872,7 +872,7 @@ std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAdd
     std::string indices = "(" + addrType + " " + dataTypeExpr[ID2] + "*)" + indicesVar;
     paramList.insert(paramList.end(), {dst, src, indices});
     std::string scalarTmpBuffer = FormatFloat(alpha.Cast<float>());
-    paramList.emplace_back("(" + DataType2CCEStr(alpha.GetDataType()) + ")" + scalarTmpBuffer);
+    paramList.emplace_back("(" + std::string(DataType2CCEStr(alpha.GetDataType())) + ")" + scalarTmpBuffer);
     auto validShape = dynamicValidShape[ID3]; // srcvalidshape
     FillIntVecWithDummyInHead<SymbolicScalar>(validShape, SHAPE_DIM4 - validShape.size(), 1);
     for (int i = 0; i < SHAPE_DIM4; ++i) {
@@ -903,7 +903,7 @@ std::string CodeGenOpCloudNPU::PrintIndexAddTileTensor(const PrintIndexAddParam&
     paramList.insert(paramList.end(), {dstTensor, src0Tensor, src1Tensor, idxTensor, tmpTensor});
     const Element& alpha = extOperandVal;
     std::string scalarTmpBuffer = FormatFloat(alpha.Cast<float>());
-    paramList.emplace_back("(" + DataType2CCEStr(alpha.GetDataType()) + ")" + scalarTmpBuffer);
+    paramList.emplace_back("(" + std::string(DataType2CCEStr(alpha.GetDataType())) + ")" + scalarTmpBuffer);
     std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
     std::ostringstream oss;
     oss << tileOpName << "<" << templateParam << ">"
@@ -1717,7 +1717,7 @@ std::string CodeGenOpCloudNPU::PrintPadTileTensor() const
     }
     std::string padValueStr = FormatFloat(extOperandVal.Cast<float>());
     DataType dstDtype = operandDtype[ToUnderlying(MISOIdx::DST_IDX)];
-    std::string padValueArg = "(" + DataType2CCEStr(dstDtype) + ")" + padValueStr;
+    std::string padValueArg = "(" + std::string(DataType2CCEStr(dstDtype)) + ")" + padValueStr;
     oss << tileOpName << "<pto::PadValueCustom(" << padValueArg << ")>";
     oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
