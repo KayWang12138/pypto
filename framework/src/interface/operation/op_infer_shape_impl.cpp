@@ -453,7 +453,7 @@ void RangeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& out
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeInferFunc);
 
-void RandomInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+void UniformInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
     auto shapeAttr = op->GetVectorIntAttribute(OP_ATTR_PREFIX + "SHAPE");
     for (auto dim : shapeAttr) {
@@ -463,7 +463,7 @@ void RandomInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &ou
         outValidShapes.push_back(outValidShape);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_RANDOM, Opcode::OP_RANDOM, RandomInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_UNIFORM, Opcode::OP_UNIFORM, UniformInferFunc);
 
 // reduce infer shape func
 void ReduceInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
