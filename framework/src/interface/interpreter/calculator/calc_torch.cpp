@@ -155,7 +155,8 @@ static bool AllClose(const TensorData& self, const TensorData& other, double ato
     return From(self).second.allclose(From(other).second, atol, rtol);
 }
 
-static void TorchRandom(const TensorData& out) {
+static void Random(const TensorData& out)
+{
     auto tout = From(out);
     torch::rand_out(tout.second, tout.second.sizes());
     ToOperand(tout.second, tout.first, out.dtype);
@@ -919,17 +920,17 @@ static void PhiloxRandomGolden(std::vector<uint32_t> &counter, std::vector<uint3
     }
 }
 
-static void Random(const TensorData &out, uint64_t key,
-                   const std::vector<uint64_t> &counter, uint16_t rounds) {
+static void Uniform(const TensorData &out, const Element &key,
+                    const Element &counter0, const Element &counter1, const Element &rounds) {
     std::vector<uint32_t> keyVec(2);
-    keyVec[0] = static_cast<uint32_t>(key & 0xFFFFFFFF);
-    keyVec[1] = static_cast<uint32_t>(key >> 32);
+    keyVec[0] = static_cast<uint32_t>(key.Cast<uint64_t>() & 0xFFFFFFFF);
+    keyVec[1] = static_cast<uint32_t>(key.Cast<uint64_t>() >> 32);
     
     std::vector<uint32_t> counterVec(4);
-    counterVec[0] = static_cast<uint32_t>(counter[0] & 0xFFFFFFFF);
-    counterVec[1] = static_cast<uint32_t>(counter[0] >> 32);
-    counterVec[2] = static_cast<uint32_t>(counter[1] & 0xFFFFFFFF);
-    counterVec[3] = static_cast<uint32_t>(counter[1] >> 32);
+    counterVec[0] = static_cast<uint32_t>(counter0.Cast<uint64_t>() & 0xFFFFFFFF);
+    counterVec[1] = static_cast<uint32_t>(counter0.Cast<uint64_t>() >> 32);
+    counterVec[2] = static_cast<uint32_t>(counter1.Cast<uint64_t>() & 0xFFFFFFFF);
+    counterVec[3] = static_cast<uint32_t>(counter1.Cast<uint64_t>() >> 32);
     
     int64_t totalElements = 1;
     for (int64_t dim : out.shape) {
@@ -940,8 +941,10 @@ static void Random(const TensorData &out, uint64_t key,
     std::vector<uint32_t> currentKey = keyVec;
     std::vector<uint32_t> currentCounter = counterVec;
     
+    uint16_t roundsVal = rounds.Cast<uint16_t>();
+    
     for (int64_t i = 0; i < totalElements; i += 4) {
-        PhiloxRandomGolden(currentCounter, currentKey, rounds);
+        PhiloxRandomGolden(currentCounter, currentKey, roundsVal);
         
         for (int j = 0; j < 4 && (i + j) < totalElements; ++j) {
             result[i + j] = currentCounter[j];
@@ -2273,7 +2276,7 @@ static void Scatter(
 }
 
 static struct CalcOps calcOps = {
-    .TorchRandom = TorchRandom,
+    .Random = Random,
     .AllClose = AllClose,
     .Cast = Cast,
     .Exp = Exp,
@@ -2305,12 +2308,12 @@ static struct CalcOps calcOps = {
     .IsFinite = IsFinite,
     .LogicalNot = LogicalNot,
     .Range = Range,
-    .Random = Random,
     .Compare = Compare,
     .Cmps = Cmps,
     .Hypot = Hypot,
     .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
+    .Uniform = Uniform,
     .AddS = AddS,
     .SubS = SubS,
     .MulS = MulS,

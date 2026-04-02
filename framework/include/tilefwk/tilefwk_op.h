@@ -281,8 +281,8 @@ Tensor LogicalAnd(const Tensor& self, const Tensor& other);
 Tensor IsFinite(const Tensor& self);
 Tensor Assign(const Tensor& operand);
 
-Tensor Random(uint64_t key, const std::vector<uint64_t> &counter,
-              const std::vector<int64_t> &shape, uint16_t rounds = 10);
+Tensor Uniform(const Element &key, const Element &counter0, const Element &counter1,
+               const std::vector<int64_t> &shape, const Element &rounds);
 
 // Implementation of `Tensor` type should be placed at first, so that it can be routed when only single input.
 Tensor Clip(const Tensor& self, const Tensor& min = {}, const Tensor& max = {});

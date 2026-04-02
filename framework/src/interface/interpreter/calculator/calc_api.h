@@ -56,7 +56,7 @@ enum class CmpModeType {
 };
 
 struct CalcOps {
-    void (*TorchRandom)(const TensorData &);
+    void (*Random)(const TensorData&);
     bool (*AllClose)(const TensorData&, const TensorData&, double, double);
 
     void (*Cast)(const TensorData&, const TensorData&, CastMode);
@@ -95,7 +95,7 @@ struct CalcOps {
     void (*PReLU)(const TensorData&, const TensorData&, const TensorData&);
     void (*LogicalAnd)(const TensorData&, const TensorData&, const TensorData&);
 
-    void (*Random)(const TensorData &, uint64_t, const std::vector<uint64_t>&, uint16_t);
+    void (*Uniform)(const TensorData &, const Element &, const Element &, const Element &, const Element &);
 
     void (*AddS)(const TensorData&, const TensorData&, const Element&, bool);
     void (*SubS)(const TensorData&, const TensorData&, const Element&, bool);
