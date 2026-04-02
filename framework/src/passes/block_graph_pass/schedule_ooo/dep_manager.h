@@ -67,12 +67,11 @@ public:
 
     void PrintDependencies(const std::vector<Operation *> &ops);
 
-    std::unordered_map<Operation *, std::unordered_set<Operation *>> opConsumers;
-    std::unordered_map<Operation *, std::unordered_set<Operation *>> opProducers;
-
 private:
     void Clear();
-
+    
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> opConsumers;
+    std::unordered_map<Operation *, std::unordered_set<Operation *>> opProducers;
     std::unordered_map<Operation *, std::unordered_set<Operation *>> inGraph_;
     std::unordered_map<Operation *, std::unordered_set<Operation *>> outGraph_;
 };

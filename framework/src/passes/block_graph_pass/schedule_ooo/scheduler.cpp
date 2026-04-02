@@ -451,7 +451,6 @@ Status OoOScheduler::BufferAllocStage(uint64_t& commitCnt)
     return SUCCESS;
 }
 
-// ============ 新增：基于Operation*的版本 ============
 Status OoOScheduler::FreeBuffer(Operation* op)
 {
     auto& reqMemIds = opReqMemIdsMap[op];
@@ -511,7 +510,6 @@ Status OoOScheduler::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt)
     }
     return SUCCESS;
 }
-// ============ 新增函数结束 ============
 
 Status OoOScheduler::RetireCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle)
 {
@@ -963,7 +961,6 @@ void OoOScheduler::InitCoreConfig(const std::vector<Operation *> &operations)
     }
 }
 
-// ============ 新增：基于Operation的辅助函数实现 ============
 std::string OoOScheduler::GetOpInfo(Operation* op) const
 {
     if (op == nullptr) return "nullptr";
@@ -1060,7 +1057,6 @@ Status OoOScheduler::InitOpEntry(Operation* op, const std::unordered_map<Operati
         GetOpInfo(op).c_str(), coreTypeToString(opCoreLocationMap[op].first).c_str(), opCoreLocationMap[op].second);
     return SUCCESS;
 }
-// ============ 新增函数结束 ============
 
 Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap,
     const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig)

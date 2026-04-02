@@ -195,23 +195,21 @@ Status DependencyManager::InitAllocDependencies(
 }
 
 void DependencyManager::FindDependencies(Operation *op, bool needView) {
-    if (op == nullptr) return;
-
     if (op->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
-        auto matmulOp = *(op->GetOOperands()[0])->GetConsumers().begin();
+        auto matmulOp = *(op->GetOutputOperand(0))->GetConsumers().begin();
+        if (matmulOp == nullptr) return;
         for (auto &input : matmulOp->GetIOperands()) {
             if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
-                auto prodOp = *input->GetProducers().begin();
-                AddDependency(prodOp, op);
+                AddDependency(*input->GetProducers().begin(), op);
             }
         }
     }
     if (op->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
-        auto matmulOp = *(op->GetOOperands()[0])->GetConsumers().begin();
+        auto matmulOp = *(op->GetOutputOperand(0))->GetConsumers().begin();
+        if (matmulOp == nullptr) return;
         for (auto &input : matmulOp->GetIOperands()) {
             if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
-                auto prodOp = *input->GetProducers().begin();
-                AddDependency(prodOp, op);
+                AddDependency(*input->GetProducers().begin(), op);
             }
         }
     }

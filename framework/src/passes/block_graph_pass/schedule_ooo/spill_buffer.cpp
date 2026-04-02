@@ -50,7 +50,6 @@ OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(
     return spillInfo;
 }
 
-// 新增：基于Operation*的版本
 int OoOScheduler::GetBufNextUseOrder(Operation* op, int curMemId) {
     int execOrder = opExecOrderMap[op];
     auto it = std::find_if(orderedOps.begin(), orderedOps.end(), [this, execOrder, curMemId](Operation* a) {
@@ -61,7 +60,6 @@ int OoOScheduler::GetBufNextUseOrder(Operation* op, int curMemId) {
     return (it != orderedOps.end()) ? opExecOrderMap[*it] : -1;
 }
 
-// 新增：基于Operation*的版本
 int OoOScheduler::GetBufLastUseOrder(Operation* op, int curMemId) {
     auto targetIt = std::find(orderedOps.begin(), orderedOps.end(), op);
     if (targetIt == orderedOps.end()) {
@@ -80,7 +78,6 @@ int OoOScheduler::GetBufLastUseOrder(Operation* op, int curMemId) {
     return -1;
 }
 
-// 新增：基于Operation*的版本
 Operation* OoOScheduler::GetBufLastWriteOp(Operation* op, int curMemId) {
     auto targetIt = std::find(orderedOps.begin(), orderedOps.end(), op);
     if (targetIt == orderedOps.end()) {
@@ -131,7 +128,6 @@ Status OoOScheduler::UpdateTensorAttr(
     return SUCCESS;
 }
 
-// 新增：基于Operation*的版本
 void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
     if (srcOp->GetInternalSubgraphID() != NOT_IN_SUBGRAPH) {
         op.UpdateInternalSubgraphID(srcOp->GetInternalSubgraphID());
@@ -139,7 +135,6 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
     }
 }
 
-// 新增：基于Operation*的版本
 void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor,
         std::vector<int64_t> offset, Operation* spillOp, int64_t workspaceBaseOffset) {
     if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
@@ -163,7 +158,6 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
     op.UpdateLatency(opLatency);
 }
 
-// 新增：基于Operation*的版本
 void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId) {
     auto& reqMemIds = opReqMemIdsMap[op];
     for (auto memId : reqMemIds) {
@@ -178,7 +172,6 @@ void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId)
     }
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
     if (bufRefCount_.find(oldMemId) == bufRefCount_.end()) {
         APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d].", oldMemId);
@@ -195,7 +188,6 @@ Status OoOScheduler::UpdateRemainOpBufId(int oldMemId, int newMemId) {
     return SUCCESS;
 }
 
-// 新增：Tensor输入更新辅助函数
 void OoOScheduler::UpdateTensorInputFor(Operation* targetOp, Operation* spillSrcOp, LogicalTensorPtr tensor) {
     for (size_t index = 0; index < targetOp->GetIOperands().size(); index++) {
         UpdateTensorInputForOperand(targetOp, index, spillSrcOp, tensor);
@@ -232,7 +224,6 @@ void OoOScheduler::UpdateTensorInputForView(Operation& op, Operation* spillSrcOp
     }
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::UpdateReloadIssueDepend(Operation* reloadCopyin, Operation* spillOp, int spillMemId) {
     auto& successors = GetSuccessors(spillOp);
     for (auto succOp : successors) {
@@ -256,7 +247,6 @@ Status OoOScheduler::UpdateReloadIssueDepend(Operation* reloadCopyin, Operation*
     return SUCCESS;
 }
 
-// 新增：插入Operation到orderedOps
 void OoOScheduler::InsertOrdered(Operation* insertOp) {
     int execOrder = opExecOrderMap[insertOp];
     auto it = orderedOps.begin();
@@ -274,7 +264,6 @@ void OoOScheduler::InsertOrdered(Operation* insertOp) {
     }
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* reloadCopyin, Operation* spillOp, int spillMemId, Operation* allocOp) {
     opReqMemIdsMap[reloadAlloc] = {reloadAlloc->GetOutputOperand(0)->memoryrange.memId};
     depManager_.AddAllocDependency(reloadAlloc, reloadCopyin);
@@ -310,7 +299,7 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
         if (opIsRetiredMap[op] || opIsAllocMap[op]) {
             continue;
         }
-        auto predecessors = GetSuccessors(op);
+        auto predecessors = GetPredecessors(op);
         for (auto predOp : predecessors) {
             if (opIsAllocMap[predOp]) {
                 auto& predReqMemIds = opReqMemIdsMap[predOp];
@@ -326,7 +315,6 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
     return SUCCESS;
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     LogicalTensorPtr spillTensor, Operation* spillOp, std::pair<Operation*, Operation*> &reloadOps) {
     MemoryType memType = spillTensor->GetMemoryTypeOriginal();
@@ -389,7 +377,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     return SUCCESS;
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &spillInfo, LogicalTensorPtr reshapeTensor) {
     auto& corePair = opCoreLocationMap[allocOp];
     // 依赖 reqmemId
@@ -433,7 +420,6 @@ LogicalTensorPtr OoOScheduler::CreateReshapeL1Tensor(LogicalTensorPtr iOperand, 
     return newTensor;
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, LogicalTensorPtr reshapeTensor, bool isGenSpill) {
     auto iOperand = spillInfo.spillOp_->GetInputOperand(0);
     LogicalTensorPtr newTensor = CreateReshapeL1Tensor(iOperand, reshapeTensor);
@@ -488,7 +474,6 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     return SUCCESS;
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::SpillInReshapeBuffer(SpillInfo &spillInfo, Operation* allocOp, bool isGenSpill) {
     LogicalTensorPtr reshapeTensor = std::make_shared<LogicalTensor>(function_,
         spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
@@ -875,7 +860,6 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(
     return localTensor;
 }
 
-// 新增：基于Operation*的版本
 Operation* OoOScheduler::UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, Operation* allocOp, int &bufNextUseOrder, bool isGenSpill) {
     UpdateOpInternalSubgraphID(newOp, allocOp);
     auto& corePair = opCoreLocationMap[allocOp];
@@ -952,7 +936,6 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     return SUCCESS;
 }
 
-// 新增：基于Operation*的版本
 Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer,
     LogicalTensorPtr assembleTensor) {
     auto corePair = tensorAllocCoreMap[allocBuffer->id];
@@ -1221,7 +1204,6 @@ bool OoOScheduler::CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryTyp
     return true;
 }
 
-// 新增：基于Operation*的版本
 int OoOScheduler::GetMemidAllocPriority(int memId) {
     for (auto op : orderedOps) {
         if (!opIsAllocMap[op]) {
