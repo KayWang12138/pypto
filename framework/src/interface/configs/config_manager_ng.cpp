@@ -564,17 +564,21 @@ void SetOptionsNg(const std::string& key, const T& value)
     ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
 }
 
-template void SetOptionsNg<bool>(const std::string& key, const bool& value);
-template void SetOptionsNg<int>(const std::string& key, const int& value);
-template void SetOptionsNg<double>(const std::string& key, const double& value);
-template void SetOptionsNg<std::string>(const std::string& key, const std::string& value);
-template void SetOptionsNg<long>(const std::string& key, const long& value);
-template void SetOptionsNg<uint8_t>(const std::string& key, const uint8_t& value);
-template void SetOptionsNg<std::map<int, int>>(const std::string& key, const std::map<int, int>& value);
-template void SetOptionsNg<std::map<long, long>>(const std::string& key, const std::map<long, long>& value);
-template void SetOptionsNg<std::vector<int>>(const std::string& key, const std::vector<int>& value);
-template void SetOptionsNg<std::vector<std::string>>(const std::string& key, const std::vector<std::string>& value);
-template void SetOptionsNg<std::vector<double>>(const std::string& key, const std::vector<double>& value);
+#define INSTANTIATE_SET_OPTIONS(Type) template void SetOptionsNg<Type>(const std::string& key, const Type& value);
+
+INSTANTIATE_SET_OPTIONS(bool)
+INSTANTIATE_SET_OPTIONS(int)
+INSTANTIATE_SET_OPTIONS(double)
+INSTANTIATE_SET_OPTIONS(std::string)
+INSTANTIATE_SET_OPTIONS(long)
+INSTANTIATE_SET_OPTIONS(uint8_t)
+INSTANTIATE_SET_OPTIONS(std::map<int, int>)
+INSTANTIATE_SET_OPTIONS(std::map<long, long>)
+INSTANTIATE_SET_OPTIONS(std::vector<int>)
+INSTANTIATE_SET_OPTIONS(std::vector<std::string>)
+INSTANTIATE_SET_OPTIONS(std::vector<double>)
+
+#undef INSTANTIATE_SET_OPTIONS
 
 std::shared_ptr<ConfigScope> Duplicate() { return ConfigManagerNg::CurrentScope(); }
 
