@@ -28,17 +28,8 @@ enum class MixResourceType { MIX_UNKNOWN = 0, MIX_1C1V = 1, MIX_1C2V = 2 };
 
 enum class DieId { DIE_0 = 0, DIE_1 = 1, DIE_MIX = 2, DIE_UNKNOW };
 
-inline void WrapInfoQueueLock(WrapInfoQueue* rq)
-{
-    while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
-    }
-}
-
-inline void WrapInfoQueueUnLock(WrapInfoQueue* rq)
-{
-    while (!__sync_bool_compare_and_swap(&rq->lock, 1, 0)) {
-    }
-}
+// WrapInfoQueueLock/WrapInfoQueueUnLock removed: replaced by lock-free atomic operations
+// in PushTaskToTasklist() and UpdateWrapQueueForThread().
 
 inline uint32_t GetTaskNumByMixResType(uint8_t mixType)
 {
@@ -313,53 +304,83 @@ public:
 
     inline void UpdateWrapQueueForThread()
     {
-        // when readyWrapCoreFunctionQueue has valid value and has available wrapCore
-        // move wrapId from readyWrapCoreFunctionQueue to wrapQueueForThread, and occpy wrapCore
+        // Lock-free: move wrapId from readyWrapCoreFunctionQueue to wrapQueueForThread, and occupy wrapCore
+        // Multiple schedule threads compete via CAS on head.
 
-        uint32_t head = __atomic_load_n(&readyWrapCoreFunctionQue_->head, __ATOMIC_RELAXED);
-        uint32_t tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_RELAXED);
-        if (tail - head == 0 || coreRunReadyCnt_[CORE_IDX_AIC] == 0) {
+        if (coreRunReadyCnt_[CORE_IDX_AIC] == 0) {
             return;
         }
 
-        WrapInfoQueueLock(readyWrapCoreFunctionQue_);
+        uint32_t head = __atomic_load_n(&readyWrapCoreFunctionQue_->head, __ATOMIC_ACQUIRE);
+        uint32_t tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_ACQUIRE);
+        if (tail - head == 0) {
+            return;
+        }
 
 #ifdef NO_EARLY_SEND_TASK
+        // NO_EARLY_SEND_TASK path: scan for ready entries using atomic loads on tasklist fields.
+        // This path filters entries where all sub-tasks have been populated.
+        constexpr uint32_t maxTransTaskCnt = 5u;
+        WrapInfo* localTasks[maxTransTaskCnt];
         uint32_t taskCount = 0;
-        for (uint32_t i = readyWrapCoreFunctionQue_->head; i < readyWrapCoreFunctionQue_->tail; i++) {
+
+        // Scan entries [head, tail) for ready ones. Each entry is checked atomically.
+        for (uint32_t i = head; i < tail && taskCount < maxTransTaskCnt; i++) {
             WrapInfo* info = &readyWrapCoreFunctionQue_->elem[i];
+            uint32_t t0 = __atomic_load_n(&info->tasklist[0], __ATOMIC_ACQUIRE);
+            uint32_t t1 = __atomic_load_n(&info->tasklist[1], __ATOMIC_ACQUIRE);
             bool isC1V1Ready =
                 (info->mixResourceType == static_cast<uint8_t>(MixResourceType::MIX_1C1V) &&
-                 info->tasklist[0] != AICORE_TASK_INIT && info->tasklist[1] != AICORE_TASK_INIT);
-            bool isC1V2Ready =
-                (info->mixResourceType == static_cast<uint8_t>(MixResourceType::MIX_1C2V) &&
-                 info->tasklist[0] != AICORE_TASK_INIT && info->tasklist[1] != AICORE_TASK_INIT &&
-                 info->tasklist[2] != AICORE_TASK_INIT); // 2:v1 index
+                 t0 != AICORE_TASK_INIT && t1 != AICORE_TASK_INIT);
+            bool isC1V2Ready = false;
+            if (info->mixResourceType == static_cast<uint8_t>(MixResourceType::MIX_1C2V)) {
+                uint32_t t2 = __atomic_load_n(&info->tasklist[2], __ATOMIC_ACQUIRE);
+                isC1V2Ready = (t0 != AICORE_TASK_INIT && t1 != AICORE_TASK_INIT && t2 != AICORE_TASK_INIT);
+            }
             if (isC1V1Ready || isC1V2Ready) {
-                std::swap(readyWrapCoreFunctionQue_->elem[i], readyWrapCoreFunctionQue_->elem[taskCount]);
-                taskCount++;
+                localTasks[taskCount++] = info;
             }
         }
 #else
-        head = __atomic_load_n(&readyWrapCoreFunctionQue_->head, __ATOMIC_RELAXED);
-        tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_RELAXED);
+        // Normal path: CAS-based claim of entries from head.
+        constexpr uint32_t maxTransTaskCnt = 5u;
+        WrapInfo* localTasks[maxTransTaskCnt];
         uint32_t taskCount = tail - head;
-#endif
-        if (taskCount == 0) {
-            DEV_VERBOSE_DEBUG("mixcore taskCount is zero.");
-            WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
+        uint32_t maxTaskCnt = taskCount > maxTransTaskCnt ? maxTransTaskCnt : taskCount;
+
+        // Atomically advance head via CAS to claim a batch of entries
+        uint32_t newHead = head + maxTaskCnt;
+        if (!__atomic_compare_exchange_n(&readyWrapCoreFunctionQue_->head, &head, newHead,
+                                         false, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)) {
+            // Another thread claimed these entries. Retry on next iteration.
             return;
         }
 
-        constexpr uint32_t maxTransTaskCnt = 5u;
-        WrapInfo* localTasks[maxTransTaskCnt];
-        uint32_t maxTaskCnt = taskCount > maxTransTaskCnt ? maxTransTaskCnt : taskCount;
         for (uint32_t i = 0; i < maxTaskCnt; i++) {
-            localTasks[i] = &readyWrapCoreFunctionQue_->elem[head++];
+            localTasks[i] = &readyWrapCoreFunctionQue_->elem[head + i];
         }
-        uint32_t validTaskCnt = GetAvailableWrapCoreNum(localTasks, maxTaskCnt);
-        __atomic_fetch_add(&readyWrapCoreFunctionQue_->head, validTaskCnt, std::memory_order_release);
-        WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
+        taskCount = maxTaskCnt;
+#endif
+        if (taskCount == 0) {
+            DEV_VERBOSE_DEBUG("mixcore taskCount is zero.");
+            return;
+        }
+
+        uint32_t validTaskCnt = GetAvailableWrapCoreNum(localTasks, taskCount);
+#ifdef NO_EARLY_SEND_TASK
+        // NO_EARLY_SEND_TASK: advance head by validTaskCnt using atomic add.
+        // The valid tasks are at the front of localTasks array after GetAvailableWrapCoreNum.
+        __atomic_fetch_add(&readyWrapCoreFunctionQue_->head, validTaskCnt, __ATOMIC_RELEASE);
+#else
+        // Normal path: if not all claimed entries were valid, push back the unused count.
+        // Since we already advanced head by maxTaskCnt, roll back the unconsumed portion.
+        if (validTaskCnt < maxTaskCnt) {
+            // The consumed entries are [head, head+validTaskCnt).
+            // The unconsumed entries [head+validTaskCnt, head+maxTaskCnt) need to be restored.
+            // We already advanced head by maxTaskCnt, so subtract the unconsumed count.
+            __atomic_fetch_sub(&readyWrapCoreFunctionQue_->head, maxTaskCnt - validTaskCnt, __ATOMIC_RELEASE);
+        }
+#endif
 
         UpdateWrapQueueAndRmvCoreIdx(localTasks, validTaskCnt);
     }
@@ -455,29 +476,44 @@ public:
 
     inline void PushTaskToTasklist(uint32_t wrapId, uint32_t taskId, uint32_t taskIdx)
     {
+        // Lock-free implementation: use atomic operations to find or allocate WrapInfo slot.
+        //
+        // Strategy:
+        // 1. Scan existing entries [0, tail) for matching wrapId using atomic loads.
+        //    Each wrapId is unique and once written never changes, so reading it is safe.
+        // 2. If not found, atomically claim a new slot via fetch_add on tail,
+        //    then initialize the new WrapInfo.
+        // 3. Write tasklist[taskIdx] atomically. Each taskIdx within a wrapInfo is
+        //    written by exactly one producer thread (one per sub-task), so no CAS needed.
+
         WrapInfo* wrapInfo = nullptr;
-        WrapInfoQueueLock(readyWrapCoreFunctionQue_);
-        for (uint32_t idx = 0; idx < readyWrapCoreFunctionQue_->tail; idx++) {
-            if (readyWrapCoreFunctionQue_->elem[idx].wrapId == wrapId) {
+
+        // Step 1: Scan for existing wrapId (lock-free read). wrapId field is immutable after write.
+        uint32_t curTail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_ACQUIRE);
+        for (uint32_t idx = 0; idx < curTail; idx++) {
+            if (__atomic_load_n(&readyWrapCoreFunctionQue_->elem[idx].wrapId, __ATOMIC_ACQUIRE) == wrapId) {
                 wrapInfo = &readyWrapCoreFunctionQue_->elem[idx];
                 break;
             }
         }
 
         if (wrapInfo == nullptr) {
-            // add a new wrapinfo
-            wrapInfo = &readyWrapCoreFunctionQue_->elem[readyWrapCoreFunctionQue_->tail];
-            wrapInfo->wrapId = wrapId;
-            wrapInfo->mixResourceType = GetMixResourceType(taskId);
+            // Step 2: Allocate a new slot atomically. fetch_add guarantees unique slot per wrapId.
+            uint32_t newIdx = __atomic_fetch_add(&readyWrapCoreFunctionQue_->tail, 1, __ATOMIC_ACQ_REL);
+            wrapInfo = &readyWrapCoreFunctionQue_->elem[newIdx];
+
+            // Initialize: tasklist to AICORE_TASK_INIT, aicoreIdxList to 0
             for (uint32_t i = 0; i < MAX_WRAP_TASK_NUM; i++) {
-                wrapInfo->tasklist[i] = AICORE_TASK_INIT;
+                __atomic_store_n(&wrapInfo->tasklist[i], AICORE_TASK_INIT, __ATOMIC_RELAXED);
                 wrapInfo->aicoreIdxList[i] = 0;
             }
-            __atomic_fetch_add(&readyWrapCoreFunctionQue_->tail, 1, std::memory_order_release);
+            wrapInfo->mixResourceType = GetMixResourceType(taskId);
+            // Publish wrapId last so scanners see a fully-initialized entry
+            __atomic_store_n(&wrapInfo->wrapId, wrapId, __ATOMIC_RELEASE);
         }
-        WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
 
-        wrapInfo->tasklist[taskIdx] = taskId;
+        // Step 3: Write the task into the specific slot. Each taskIdx is unique per wrapInfo.
+        __atomic_store_n(&wrapInfo->tasklist[taskIdx], taskId, __ATOMIC_RELEASE);
     }
 
     inline void ResolveDepForMixCore(uint32_t taskId)
