@@ -11,8 +11,10 @@
 #pragma once
 
 #include "interface/function/function.h"
+
 #ifdef BUILD_WITH_CANN
-#include "profiling/aprof_pub.h"
+#include "adapter/api/msprof_define.h"
+
 #include "acl/acl_base_rt.h"
 #include "interface/interpreter/raw_tensor_data.h"
 
@@ -26,7 +28,7 @@ struct CacheTaskInfo {
     uint64_t reserve2{0};
     uint32_t opFlag;
     uint32_t tensorNum;
-    MsrofTensorData tensorData[0];
+    MspfTensorData tensorData[0];
 };
 class HostProf {
 public:
@@ -44,12 +46,12 @@ public:
 private:
     static int32_t HostProfInit(uint32_t type, void* data, uint32_t len);
     void ReportTensoInfo(const uint32_t& groupId, const uint32_t mods, const uint64_t& endTime) const;
-    void PackTensorInfo(MsprofTensorInfo* profTensorData, const uint32_t groupId, const uint32_t modId) const;
+    void PackTensorInfo(MspfTensorInfo* profTensorData, const uint32_t groupId, const uint32_t modId) const;
     void HostProfReportBasicInfo(const uint64_t& endTime, const uint32_t blockDim, const uint16_t taskType) const;
     void HostProfReportTensorInfo(const uint64_t& endTime) const;
     static bool IsCacheOpInfoEnable(const aclrtStream stream);
     static void BuildCacheTensorInfo(CacheTaskInfo* taskInfo);
-    static void BuildTensor(const uint32_t tensorType, const RawTensorDataPtr& tensorInfo, MsrofTensorData& tensorData);
+    static void BuildTensor(const uint32_t tensorType, const RawTensorDataPtr& tensorInfo, MspfTensorData& tensorData);
     std::string opName_;
     Function* profFunction_{nullptr};
     uint32_t inputsSize_;

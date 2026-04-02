@@ -19,10 +19,10 @@
 #include <sstream>
 #include <mutex>
 #include <dlfcn.h>
-#include "hccl/hccl.h"
 #include "machine/runtime/runtime.h"
 #include "distributed_test_framework.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/hcomm_api.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -245,18 +245,18 @@ void TestFrameworkInit(OpTestParam& testParam, HcomTestParam& hcomTestParam, int
     // 在 rootRank 获取 rootInfo
     hcomTestParam.rootRank = 0;
     if (testParam.rankId == hcomTestParam.rootRank) {
-        CHECK(HcclGetRootInfo(&hcomTestParam.rootInfo) == 0) << "HcclGetRootInfo failed";
+        CHECK(HcommGetRootInfo(&hcomTestParam.rootInfo) == 0) << "HcommGetRootInfo failed";
     }
     // 将root_info广播到通信域内的其他rank, 初始化集合通信域
     mpiBcast(&hcomTestParam.rootInfo, HCCL_ROOT_INFO_BYTES, MPI_CHAR, hcomTestParam.rootRank, MPI_COMM_WORLD);
     mpiBarrier(MPI_COMM_WORLD);
     CHECK(
-        HcclCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId, &hcomTestParam.hcclComm) ==
+        HcommCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId, &hcomTestParam.hcclComm) ==
         0)
-        << "HcclCommInitRootInfo failed";
+        << "HcommCommInitRootInfo failed";
 
     // 获取 group name
-    CHECK(HcclGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcclGetCommName failed";
+    CHECK(HcommGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcommGetCommName failed";
 
     DISTRIBUTED_LOGI("testParam.rankSize %d\n", testParam.rankSize);
     DISTRIBUTED_LOGI("testParam.rankId %d\n", testParam.rankId);
