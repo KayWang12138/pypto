@@ -16,6 +16,7 @@
 #ifdef BUILD_WITH_CANN
 
 #include "machine/runtime/runtime.h"
+
 namespace {
 const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
@@ -176,13 +177,13 @@ void* RuntimeAgentMemory::MapAiCoreReg()
     size_t regAddrSize = sizeof(void*) * regAddr.size();
     AllocDevAddr(&devAddr, regAddrSize);
     if (devAddr == nullptr) {
-        MACHINE_LOGE(RtErr::RT_MALLOC_FAILED, "rtMalloc failed. size: %zu", regAddrSize);
+        MACHINE_LOGE(RtErr::RT_MALLOC_FAILED, "RuntimeMalloc failed. size: %zu", regAddrSize);
         return nullptr;
     }
 
-    int rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
+    int rc = RuntimeMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RtMemcpyKind::HOST_TO_DEVICE);
     if (rc != 0) {
-        MACHINE_LOGE(RtErr::RT_MEMCPY_FAILED, "rtMemcpy failed. size: %zu", regAddrSize);
+        MACHINE_LOGE(RtErr::RtMemcpyKind::FAILED, "RuntimeMemcpy failed. size: %zu", regAddrSize);
         FreeDevAddr((uint8_t*)devAddr);
         return nullptr;
     }
