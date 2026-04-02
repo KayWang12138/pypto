@@ -412,7 +412,7 @@ void FunctionInterpreter::FillOperationOutputInfo(
             opInfo[toIndex(OpInfoCsvHeader::outputValidShape)] = ShapeToString(dataView->GetValidShape());
             opInfo[toIndex(OpInfoCsvHeader::outputDynValidShape)] =
                 ShapeToString(EvaluateValidShape((op->GetOOperands()[k]->GetDynValidShape()), linearArgList));
-            opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = BriefDataType2String(dataView->GetDataType());
+            opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(dataView->GetDataType(), true);
             opInfo[toIndex(OpInfoCsvHeader::tensorOffset)] = ShapeToString(dataView->GetOffset());
             opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = dumpTensorFileName;
             opInfo[toIndex(OpInfoCsvHeader::timeStamp)] = std::to_string(ts);
