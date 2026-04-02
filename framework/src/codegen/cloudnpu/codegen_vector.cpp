@@ -841,26 +841,29 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const
 
 std::string CodeGenOpCloudNPU::GenRandomOp() const {
     auto keyAttr = opAttrs.at(OP_ATTR_PREFIX + "KEY");
-    auto counterAttr = opAttrs.at(OP_ATTR_PREFIX + "COUNTER");
+    auto counter0Attr = opAttrs.at(OP_ATTR_PREFIX + "COUNTER0");
+    auto counter1Attr = opAttrs.at(OP_ATTR_PREFIX + "COUNTER1");
     auto roundsAttr = opAttrs.at(OP_ATTR_PREFIX + "ROUNDS");
     auto shapeAttr = opAttrs.at(OP_ATTR_PREFIX + "SHAPE");
 
     uint64_t key = 0;
     if (keyAttr.HasValue()) {
-        key = static_cast<uint64_t>(AnyCast<int64_t>(keyAttr));
+        key = AnyCast<Element>(keyAttr).Cast<uint64_t>();
     }
     
-    std::vector<uint64_t> counter;
-    if (counterAttr.HasValue()) {
-        auto counterAttrVal = AnyCast<std::vector<int64_t>>(counterAttr);
-        for (auto val : counterAttrVal) {
-            counter.push_back(static_cast<uint64_t>(val));
-        }
+    uint64_t counter0 = 0;
+    if (counter0Attr.HasValue()) {
+        counter0 = AnyCast<Element>(counter0Attr).Cast<uint64_t>();
+    }
+    
+    uint64_t counter1 = 0;
+    if (counter1Attr.HasValue()) {
+        counter1 = AnyCast<Element>(counter1Attr).Cast<uint64_t>();
     }
 
     uint16_t rounds = 10;
     if (roundsAttr.HasValue()) {
-        rounds = static_cast<uint16_t>(AnyCast<int64_t>(roundsAttr));
+        rounds = AnyCast<Element>(roundsAttr).Cast<uint16_t>();
     }
 
     std::vector<int64_t> randomShape;
@@ -869,8 +872,8 @@ std::string CodeGenOpCloudNPU::GenRandomOp() const {
     }
 
     std::string keyStr = std::to_string(key) + "ULL";
-    std::string counter0Str = std::to_string(counter[0]) + "ULL";
-    std::string counter1Str = std::to_string(counter[1]) + "ULL";
+    std::string counter0Str = std::to_string(counter0) + "ULL";
+    std::string counter1Str = std::to_string(counter1) + "ULL";
     std::string roundsStr = std::to_string(rounds);
     std::string tileOffsetStr = "0";
 
