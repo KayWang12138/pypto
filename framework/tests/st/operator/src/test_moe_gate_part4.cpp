@@ -24,7 +24,7 @@ class MoEPart4OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aih
 
 TEST_F(MoEPart4OnBoardTest, test_operation_b_2)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     constexpr int32_t nRoutedExperts = 256;
     constexpr int32_t numExpertsPerTopk = 8;
     constexpr int32_t S = 1;

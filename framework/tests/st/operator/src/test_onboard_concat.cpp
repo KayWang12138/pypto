@@ -22,7 +22,7 @@ class ConcatOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 TEST_F(ConcatOnBoardTest, test_concat_dim4_float32)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 2, 64, 64};
     std::vector<int64_t> resShape = {2, 2, 64, 128};
@@ -56,7 +56,7 @@ TEST_F(ConcatOnBoardTest, test_concat_dim4_float32)
 
 TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 2, 32, 32};
     std::vector<int64_t> resShape = {2, 2, 32, 64};
@@ -94,7 +94,7 @@ TEST_F(ConcatOnBoardTest, test_concat_exp_dim4_float32)
 
 TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 2, 32, 64};
     std::vector<int64_t> resShape = {2, 2, 32, 128};
@@ -134,7 +134,7 @@ TEST_F(ConcatOnBoardTest, test_exp_concat_dim4_float32)
 
 TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape1 = {2, 2, 32, 64};
     std::vector<int64_t> shape2 = {2, 2, 64, 64};
@@ -176,7 +176,7 @@ TEST_F(ConcatOnBoardTest, test_concat_sqrt_dim4_float32)
 
 TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 2, 4, 16};
     std::vector<int64_t> resShape = {2, 2, 4, 1600};
@@ -214,7 +214,7 @@ TEST_F(ConcatOnBoardTest, test_concat_100_inputs_float32)
 
 TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape = {2, 1, 8, 8};
     std::vector<int64_t> resShape = {2, 1, 1024, 8};
@@ -252,7 +252,7 @@ TEST_F(ConcatOnBoardTest, test_concat_128_inputs_float32)
 
 TEST_F(ConcatOnBoardTest, test_concat_dim2_float32_moe)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> shape0 = {3, 7168};
     std::vector<int64_t> shape1 = {64, 7168};

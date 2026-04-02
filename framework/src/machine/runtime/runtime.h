@@ -169,13 +169,13 @@ class RuntimeAgentStream {
 public:
     rtStream_t& GetStream() { return raStreamInstance; }
 
-    aclrtStream& GetScheStream() { return raStreamInstanceSche; }
+    AclRtStream& GetScheStream() { return raStreamInstanceSche; }
 
     rtStream_t& GetCtrlStream() { return raStreamInstanceCtrl; }
 
     rtStream_t& GetCurrentStream() { return currentStream; }
 
-    void SetCurrentStream(aclrtStream& stream) { currentStream = stream; }
+    void SetCurrentStream(AclRtStream& stream) { currentStream = stream; }
 
     void CreateStream()
     {
@@ -193,8 +193,8 @@ public:
 private:
     rtStream_t raStreamInstance{0};
     rtStream_t raStreamInstanceCtrl{0};
-    aclrtStream raStreamInstanceSche{0};
-    aclrtStream currentStream{0};
+    AclRtStream raStreamInstanceSche{0};
+    AclRtStream currentStream{0};
 };
 
 class RuntimeAgent : public RuntimeAgentMemory, public RuntimeAgentStream {
@@ -213,9 +213,9 @@ protected:
     RuntimeAgent()
     {
 #ifdef RUN_WITH_ASCEND_CAMODEL
-        // don't call aclInit, it will cause camodel running fail
+        // don't call AclInit, it will cause camodel running fail
 #else
-        aclInited = aclInit(nullptr) == 0;
+        AclInited = AclInit(nullptr) == 0;
 #endif
         Init();
     }
@@ -251,11 +251,11 @@ public:
 
     void Finalize()
     {
-        if (aclInited) {
+        if (AclInited) {
             DestroyMemory();
             DestroyStream();
 #ifndef RUN_WITH_ASCEND_CAMODEL
-            aclFinalize();
+            AclFinalize();
 #endif
         }
 
@@ -272,7 +272,7 @@ private:
     }
 
 private:
-    bool aclInited{false};
+    bool AclInited{false};
 };
 namespace machine {
 inline npu::tile_fwk::RuntimeAgent* GetRA() { return npu::tile_fwk::RuntimeAgent::GetAgent(); }

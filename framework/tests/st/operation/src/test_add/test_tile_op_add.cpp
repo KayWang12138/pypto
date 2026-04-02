@@ -75,7 +75,7 @@ void CompileTestCCE(const std::string& cceFileName)
 
 TEST_F(TestTileOpAdd, TestAddDim2)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     rtStream_t stream;

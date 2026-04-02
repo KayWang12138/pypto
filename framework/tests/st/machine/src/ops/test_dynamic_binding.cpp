@@ -141,7 +141,7 @@ TEST_F(DynamicBindingTest, TestDeviceCompute)
 {
     SetInterpreterConfig();
     auto agent = RuntimeAgent::GetAgent();
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     TileShape::Current().SetVecTile(tiling32, tiling32);

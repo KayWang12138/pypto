@@ -45,6 +45,8 @@
 #include "log_types.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/machine/host/host_machine.h"
+#include "adapter/api/msprof_api.h"
+#include "adapter/api/acl_api.h"
 
 using json = nlohmann::json;
 
@@ -71,8 +73,8 @@ namespace {
 void ExchangeCaputerMode(const bool& isCapture)
 {
     if (isCapture) {
-        aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
-        aclmdlRICaptureThreadExchangeMode(&mode);
+        AclMdlRICaptureMode mode = AclMdlRICaptureMode::GLOBAL;
+        AclMdlRICaptureThreadExchangeMode(&mode);
         MACHINE_LOGI("captureMode is: %d", mode);
     }
 }
@@ -90,25 +92,25 @@ void* MachinePerfTraceDevMalloc(int size)
 
 void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFlag)
 {
-    aclrtEvent event;
+    AclRtEvent event;
     int rc;
 
     if (useSyncFlag) {
-        rc = aclrtCreateEventExWithFlag(&event, ACL_EVENT_SYNC);
+        rc = AclRtCreateEventExWithFlag(&event, ACL_RT_EVENT_SYNC);
     } else {
-        rc = aclrtCreateEvent(&event);
+        rc = AclRtCreateEvent(&event);
     }
 
     if (rc < 0) {
         MACHINE_LOGI("CreateEvent failed rc=%d, useSyncFlag=%d", rc, useSyncFlag);
     }
 
-    rc = aclrtRecordEvent(event, aicpuStream);
+    rc = AclRtRecordEvent(event, aicpuStream);
     if (rc < 0) {
         MACHINE_LOGI("RecordEvent failed rc=%d", rc);
     }
 
-    rc = aclrtStreamWaitEvent(aicoreStream, event);
+    rc = AclRtStreamWaitEvent(aicoreStream, event);
     if (rc < 0) {
         MACHINE_LOGI("StreamWaitEvent failed rc=%d", rc);
     }
@@ -527,19 +529,19 @@ int DeviceRunner::RunPrepare()
 
 int DeviceRunner::RunPreSync(rtStream_t scheStream, rtStream_t ctrlStream, rtStream_t aicoreStream)
 {
-    int rc = aclrtRecordEvent(event_, aicoreStream);
+    int rc = AclRtRecordEvent(event_, aicoreStream);
     if (rc < 0) {
-        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtRecordEvent failed %d\n", rc);
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "AclRtRecordEvent failed %d\n", rc);
         return rc;
     }
-    rc = aclrtStreamWaitEvent(scheStream, event_);
+    rc = AclRtStreamWaitEvent(scheStream, event_);
     if (rc < 0) {
-        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "AclRtStreamWaitEvent failed %d\n", rc);
         return rc;
     }
-    rc = aclrtStreamWaitEvent(ctrlStream, event_);
+    rc = AclRtStreamWaitEvent(ctrlStream, event_);
     if (rc < 0) {
-        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtStreamWaitEvent failed %d\n", rc);
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "AclRtStreamWaitEvent failed %d\n", rc);
         return rc;
     }
     return 0;
@@ -555,23 +557,23 @@ int DeviceRunner::DynamicKernelLaunch(
     rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs* kernelArgs, int blockdim)
 {
     HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuInit);
-    uint64_t startTime = MsprofSysCycleTime();
+    uint64_t startTime = MspfSysCycleTime();
     auto rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "launch aicpu failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(aicpuStream, startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
+    ReportHostProfInfo(aicpuStream, startTime, aicpuNum_, MSPF_GE_TASK_TYPE_AI_CPU);
 
     HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuRun);
 
-    startTime = MsprofSysCycleTime();
+    startTime = MspfSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "launch aicpu failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPF_GE_TASK_TYPE_MIX_AIC, true);
 
     HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAIcore);
     return rc;
@@ -583,13 +585,13 @@ int DeviceRunner::DynamicSeparateLaunch(
     LoadAicpuOp::GetInstance().CustomAiCpuSoLoad();
     std::string initKernel = OpInfoManager::GetInstance().GetOpFuncName() + "Init";
     std::string mainKernel = OpInfoManager::GetInstance().GetOpFuncName() + "Run";
-    uint64_t startTime = MsprofSysCycleTime();
+    uint64_t startTime = MspfSysCycleTime();
     int rc = LoadAicpuOp::GetInstance().LaunchCustomOp(ctrlStream, kernelArgs, initKernel);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "launch aicpu failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(ctrlStream, startTime, blockdim, MSPROF_GE_TASK_TYPE_AI_CPU, true);
+    ReportHostProfInfo(ctrlStream, startTime, blockdim, MSPF_GE_TASK_TYPE_AI_CPU, true);
 
     rc = RunPreSync(aicpuStream, ctrlStream, aicoreStream);
     if (rc < 0) {
@@ -597,29 +599,29 @@ int DeviceRunner::DynamicSeparateLaunch(
         return rc;
     }
 
-    startTime = MsprofSysCycleTime();
+    startTime = MspfSysCycleTime();
     rc = LoadAicpuOp::GetInstance().LaunchCustomOp(ctrlStream, kernelArgs, mainKernel);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_CUSTOM_AICPU_FAILED, "launch custom aicpu failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(ctrlStream, startTime, blockdim, MSPROF_GE_TASK_TYPE_AI_CPU, true);
+    ReportHostProfInfo(ctrlStream, startTime, blockdim, MSPF_GE_TASK_TYPE_AI_CPU, true);
 
-    startTime = MsprofSysCycleTime();
+    startTime = MspfSysCycleTime();
     rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "launch aicpu failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(aicpuStream, startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
+    ReportHostProfInfo(aicpuStream, startTime, aicpuNum_, MSPF_GE_TASK_TYPE_AI_CPU);
 
-    startTime = MsprofSysCycleTime();
+    startTime = MspfSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICORE_FAILED, "launch aicore failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPF_GE_TASK_TYPE_MIX_AIC, true);
 
     rc = RunPost(ctrlStream, aicoreStream);
     return rc;
@@ -629,7 +631,7 @@ int DeviceRunner::DynamicTripleStreamLaunch(
     rtStream_t schedStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs* kernelArgs, int blockdim)
 {
     LoadAicpuOp::GetInstance().CustomAiCpuSoLoad();
-    uint64_t startTime = MsprofSysCycleTime();
+    uint64_t startTime = MspfSysCycleTime();
     auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kernelArgs->inputs);
     rtAicpuArgsEx_t rtArgs;
     uint64_t argsSize = reinterpret_cast<uint64_t>(kernelArgs->outputs);
@@ -648,31 +650,31 @@ int DeviceRunner::DynamicTripleStreamLaunch(
     MACHINE_LOGI("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
     args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
     int rc = rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, (aclrtStream)ctrlStream, 0);
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, (AclRtStream)ctrlStream, 0);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "triple stream launch ctrl aicpu failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+    ReportHostProfInfo(ctrlStream, startTime, 1, MSPF_GE_TASK_TYPE_AI_CPU, false);
 
-    startTime = MsprofSysCycleTime();
+    startTime = MspfSysCycleTime();
     args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
     rc = rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, (aclrtStream)schedStream,
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, (AclRtStream)schedStream,
         0);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICPU_FAILED, "triple stream launch sche aicpu failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(schedStream, startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+    ReportHostProfInfo(schedStream, startTime, aicpuNum_, MSPF_GE_TASK_TYPE_AI_CPU, false);
 
-    startTime = MsprofSysCycleTime();
+    startTime = MspfSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::LAUNCH_AICORE_FAILED, "triple stream launch aicore failed %d\n", rc);
         return rc;
     }
-    ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    ReportHostProfInfo(aicoreStream, startTime, blockdim, MSPF_GE_TASK_TYPE_MIX_AIC, true);
 
     rc = RunPost(ctrlStream, aicoreStream);
     return rc;
@@ -722,20 +724,20 @@ int DeviceRunner::DynamicLaunch(
 void DeviceRunner::ReportHostProfInfo(
     rtStream_t stream, uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore)
 {
-    if (hostProf_.GetProfType() == PROF_COMMANDHANDLE_TYPE_START) {
-        uint64_t endTime = MsprofSysCycleTime();
+    if (hostProf_.GetProfType() == MSPF_COMMANDHANDLE_TYPE_START) {
+        uint64_t endTime = MspfSysCycleTime();
         if (isCore) {
             uint32_t mixBlockDim = MIX_BLOCK_DIM;
             blockDim = (mixBlockDim << HIGHT_BIT) | blockDim;
             hostProf_.HostProfReportContextInfo(endTime);
         }
-        if ((hostProf_.GetProfSwitch() & PROF_TASK_TIME_L1_MASK) != 0) {
+        if ((hostProf_.GetProfSwitch() & MSPF_TASK_TIME_L1_MASK) != 0) {
             hostProf_.HostProfReportNodeInfo(endTime, blockDim, taskType);
         }
-        endTime = MsprofSysCycleTime();
+        endTime = MspfSysCycleTime();
         hostProf_.HostProfReportApi(startTime, endTime);
     }
-    if (taskType == MSPROF_GE_TASK_TYPE_MIX_AIC) {
+    if (taskType == MSPF_GE_TASK_TYPE_MIX_AIC) {
         hostProf_.HostProfReportCacheTaskInfo(stream, blockDim, taskType);
     }
 }
@@ -808,8 +810,8 @@ int DeviceRunner::Init(void)
 
     InitializeErrorCallback();
 
-    if (aclrtCreateEventExWithFlag(&event_, ACL_EVENT_SYNC) < 0) {
-        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "aclrtCreateEvent failed.");
+    if (AclRtCreateEventExWithFlag(&event_, ACL_RT_EVENT_SYNC) < 0) {
+        MACHINE_LOGE(RtErr::RT_EVENT_FAILED, "AclRtCreateEvent failed.");
         return -1;
     }
     if (InitDeviceArgs(args_) != 0) {

@@ -24,7 +24,7 @@ class MoeInferOnbroadTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aih
 
 TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int32_t nRoutedExperts = 256;
@@ -139,7 +139,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer)
 
 TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int32_t nRoutedExperts = 256;
@@ -215,7 +215,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout)
 
 TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int32_t nRoutedExperts = 256;
@@ -292,7 +292,7 @@ TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp)
 
 TEST_F(MoeInferOnbroadTest, test_deepseekMoEInfer_singleout_singlemlp_withquant)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int32_t nRoutedExperts = 256;

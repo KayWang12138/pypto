@@ -22,7 +22,7 @@ class RowMaxSumSingleOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 257;
@@ -60,7 +60,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 257;
@@ -98,7 +98,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 8;
@@ -137,7 +137,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNorm)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     // rmsNorm:[B,S,qLoraRank]
@@ -177,7 +177,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowmax: [B,N,1,S2]
@@ -218,7 +218,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_unalign)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowmax: [B,N,1,S2]
@@ -259,7 +259,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowsum: [B,N,1,S2]
@@ -300,7 +300,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 6;
@@ -338,7 +338,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 8;
@@ -377,7 +377,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int B = 8;
@@ -414,7 +414,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 6;
@@ -452,7 +452,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
@@ -489,7 +489,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
@@ -526,7 +526,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
@@ -564,7 +564,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
@@ -602,7 +602,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
@@ -642,7 +642,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
@@ -680,7 +680,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
@@ -718,7 +718,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93)
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;

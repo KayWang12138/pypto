@@ -30,7 +30,7 @@ void TestMatmul(int m, int k, int n, string dataPath)
     const int capacity_b = k * n;
     const int capacity_c = m * n;
 
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
@@ -73,7 +73,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath)
     const int capacity_b = k * n;
     const int capacity_c = m * n;
 
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
@@ -114,7 +114,7 @@ void TestMatmulACC(int m, int k, int n, string dataPath)
     const int capacity_b = k * n;
     const int capacity_c = m * n;
 
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);

@@ -28,7 +28,7 @@ struct TopKParams {
 
 void TopKOnBoardFunc(TopKParams& params)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int32_t shape0 = params.shape0;
     int32_t shape1 = params.shape1;

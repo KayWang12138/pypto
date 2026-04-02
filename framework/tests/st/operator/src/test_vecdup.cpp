@@ -22,7 +22,7 @@ class VecdupTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(VecdupTest, TestVecDup)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     std::vector<int64_t> shape{32, 1, 32};
@@ -53,7 +53,7 @@ TEST_F(VecdupTest, TestVecDup)
 
 TEST_F(VecdupTest, TestVecDupUnaligned)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
     std::vector<int64_t> shape{2, 2, 256, 7};

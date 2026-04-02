@@ -22,7 +22,7 @@ class MoEGatePart1OnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops
 
 TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1)
 {
-    aclInit(nullptr);
+    AclInit(nullptr);
     constexpr int32_t H = 7168;
     constexpr int32_t S = 1;
     constexpr int32_t B = 16;

@@ -293,8 +293,8 @@ private:
     {
         std::cout << "!!! Kernel Launch "
                   << "\n";
-        int rc = aclInit(nullptr);
-        if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
+        int rc = AclInit(nullptr);
+        if (rc != 0 && rc != ACLRT_ERROR_REPEAT_INITIALIZE) {
             MACHINE_LOGE(RtErr::RT_INIT_FAILED, "Acl init failed!!!");
             return;
         }
