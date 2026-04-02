@@ -524,7 +524,6 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation& operation)
             // 获取操作属性
             auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(outputProducer->GetOpAttribute());
             if (opAttr == nullptr) {
-                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s OpAttribute is null.", outputProducer->GetOpMagic());
                 continue;
             }
             auto offset = opAttr->GetToOffset();
@@ -532,9 +531,6 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation& operation)
 
             int64_t lineOffset = CalcLineOffset(tensor->GetRawTensor()->rawshape, opAttr->GetToOffset());
             if (lineOffset == -1) {
-                APASS_LOG_WARN_F(
-                    Elements::Operation, "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.",
-                    outputProducer->GetOpMagic(), tensor->GetMagic());
                 continue;
             }
             int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
@@ -557,8 +553,6 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation& operation)
         }
         // 检查是否需要跳过设置
         if (ShouldSkipAssembleMemorySetting(operation.iOperand.front(), tensor)) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] skip setting due to special memory path",
-                operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             continue;
         }
         tensor->SetMemoryTypeOriginal(fromType, true);
