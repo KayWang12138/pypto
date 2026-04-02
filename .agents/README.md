@@ -266,17 +266,11 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 **常见问题**：workspace 不足、循环展开问题、合轴问题、并行执行问题、valid_shape 错误
 
-#### `pypto-precision-verify` — 检查点对比精度定位（Verify 模式）
+#### `pypto-precision-compare` — 精度对比与定位
 
-**适用场景**：利用精度工具通过中间结果对比定位算子精度问题
+**适用场景**：调试 PyPTO 算子精度、定位精度差异来源、进行中间结果对比
 
-**核心原理**：通过 `pass_verify_save` 一次性保存所有关键计算节点的中间结果，与 golden 对比定位第一个出错的 op
-
-#### `pypto-precision-binary-search` — 二分精度定位（Checkpoint 模式）
-
-**适用场景**：通过在 kernel 函数中添加检查点 tensor 进行原地修改，对比中间结果精度
-
-**核心原理**：检查点 tensor 作为输入参数，使用 `pypto.assemble` 保存中间结果
+**核心原理**：提供两种方法 - 文件保存方法（使用 `pass_verify_save` 和 `torch.save`）和二分对比方法（使用检查点 tensor）
 
 #### `pypto-aicore-error-locator` — AICore 错误定位
 
