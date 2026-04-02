@@ -169,13 +169,13 @@ class RuntimeAgentStream {
 public:
     rtStream_t& GetStream() { return raStreamInstance; }
 
-    aclrtStream& GetScheStream() { return raStreamInstanceSche; }
+    AclRtStream& GetScheStream() { return raStreamInstanceSche; }
 
     rtStream_t& GetCtrlStream() { return raStreamInstanceCtrl; }
 
     rtStream_t& GetCurrentStream() { return currentStream; }
 
-    void SetCurrentStream(aclrtStream& stream) { currentStream = stream; }
+    void SetCurrentStream(AclRtStream& stream) { currentStream = stream; }
 
     void CreateStream()
     {
@@ -193,8 +193,8 @@ public:
 private:
     rtStream_t raStreamInstance{0};
     rtStream_t raStreamInstanceCtrl{0};
-    aclrtStream raStreamInstanceSche{0};
-    aclrtStream currentStream{0};
+    AclRtStream raStreamInstanceSche{0};
+    AclRtStream currentStream{0};
 };
 
 class RuntimeAgent : public RuntimeAgentMemory, public RuntimeAgentStream {

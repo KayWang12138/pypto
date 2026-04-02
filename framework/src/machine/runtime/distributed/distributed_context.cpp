@@ -16,15 +16,15 @@
 #include <memory>
 #include "securec.h"
 #include "distributed_context.h"
+
+#include "adapter/api/hcomm_api.h"
 #include "interface/utils/common.h"
 #include "machine/runtime/runtime.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 #ifdef BUILD_WITH_CANN
-#include "hcom.h"
 #include "acl/acl.h"
-extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* MC2Tiling, void** commContext);
 #endif
 
 constexpr uint32_t COMM_IS_NOT_SET_DEVICE = 0;
@@ -171,7 +171,7 @@ uint64_t AllocateAndSetupCommContext(
     machine::GetRA()->AllocDevAddr(reinterpret_cast<uint8_t**>(&ctxDevice), commCtxSize);
     ASSERT(ctxDevice != nullptr) << "ctxDevice malloc failed";
 
-    auto ret = aclrtMemcpy(ctxDevice, commCtxSize, ctxHost, commCtxSize, ACL_MEMCPY_HOST_TO_DEVICE);
+    auto ret = aclrtMemcpy(ctxDevice, commCtxSize, ctxHost, commCtxSize, AclRtMemcpyKind::HOST_TO_DEVICE);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
     g_context[groupName] = std::make_pair(reinterpret_cast<uint64_t>(ctxDevice), reinterpret_cast<uint64_t>(ctxHost));
     return reinterpret_cast<uint64_t>(ctxDevice);
@@ -191,7 +191,7 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A5>(
     size_t offsetXnAddr = offsetof(npu::tile_fwk::HcclCombinOpParamA5, xnAddr);
     auto ret = aclrtMemcpy(
         &(hcclParamhost->rankId), offsetXnAddr - offsetRankId, &(hcclParamDevice->rankId), offsetXnAddr - offsetRankId,
-        ACL_MEMCPY_DEVICE_TO_HOST);
+        AclRtMemcpyKind::DEVICE_TO_HOST);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
     return AllocateAndSetupCommContext(
         hcclParamhost, hcclParamhost->rankNum, groupName,
@@ -222,11 +222,11 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A3>(
     size_t offsetMultiServerFlag = offsetof(npu::tile_fwk::HcclCombinOpParam, multiServerFlag);
     auto ret = aclrtMemcpy(
         &(hcclParamhost->rankId), offsetHcomId - offsetRankId, &(hcclParamDevice->rankId), offsetHcomId - offsetRankId,
-        ACL_MEMCPY_DEVICE_TO_HOST);
+        AclRtMemcpyKind::DEVICE_TO_HOST);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
     ret = aclrtMemcpy(
         &(hcclParamhost->winExpSize), offsetMultiServerFlag - offsetWinExpSize, &(hcclParamDevice->winExpSize),
-        offsetMultiServerFlag - offsetWinExpSize, ACL_MEMCPY_DEVICE_TO_HOST);
+        offsetMultiServerFlag - offsetWinExpSize, AclRtMemcpyKind::DEVICE_TO_HOST);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
 
     return AllocateAndSetupCommContext(
@@ -256,13 +256,13 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>(
     size_t offsetRWinStart = offsetof(npu::tile_fwk::HcclOpResParam, rWinStart);
     auto ret = aclrtMemcpy(
         &(hcclParamhost->localUsrRankId), offsetRWinStart - offsetLocalUsrRankId, &(hcclParam->localUsrRankId),
-        offsetRWinStart - offsetLocalUsrRankId, ACL_MEMCPY_DEVICE_TO_HOST);
+        offsetRWinStart - offsetLocalUsrRankId, AclRtMemcpyKind::DEVICE_TO_HOST);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
 
     size_t remoteResSize = hcclParamhost->rankSize * sizeof(npu::tile_fwk::RemoteResPtr);
     npu::tile_fwk::RemoteResPtr* remoteResPtr = (npu::tile_fwk::RemoteResPtr*)AllocHostAddr(remoteResSize);
     ASSERT(remoteResPtr != nullptr) << "remoteResPtr malloc failed";
-    ret = aclrtMemcpy(remoteResPtr, remoteResSize, &(hcclParam->remoteRes), remoteResSize, ACL_MEMCPY_DEVICE_TO_HOST);
+    ret = aclrtMemcpy(remoteResPtr, remoteResSize, &(hcclParam->remoteRes), remoteResSize, AclRtMemcpyKind::DEVICE_TO_HOST);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
 
     size_t commCtxSize = sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM;
@@ -277,12 +277,12 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>(
         uint64_t remoteResDevicePtr;
         ret = aclrtMemcpy(
             &remoteResDevicePtr, sizeof(uint64_t), &(remoteResPtr[i].nextDevicePtr), sizeof(uint64_t),
-            ACL_MEMCPY_DEVICE_TO_HOST); // 设备二级指针值拷贝到主机
+            AclRtMemcpyKind::DEVICE_TO_HOST); // 设备二级指针值拷贝到主机
         ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
         npu::tile_fwk::HcclRankRelationResV2 remoteParam;
         ret = aclrtMemcpy(
             &remoteParam, sizeof(npu::tile_fwk::HcclRankRelationResV2), (void*)remoteResDevicePtr,
-            sizeof(npu::tile_fwk::HcclRankRelationResV2), ACL_MEMCPY_DEVICE_TO_HOST);
+            sizeof(npu::tile_fwk::HcclRankRelationResV2), AclRtMemcpyKind::DEVICE_TO_HOST);
         ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
         FillCommCtxWinArr<npu::tile_fwk::HcclRankRelationResV2>(i, ctxHost, &remoteParam);
     }
@@ -292,7 +292,7 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>(
     ret = aclrtMemcpy(
         ctxDevice, sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM, ctxHost,
         sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM,
-        ACL_MEMCPY_HOST_TO_DEVICE);
+        AclRtMemcpyKind::HOST_TO_DEVICE);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
     g_context[groupName].first = (uint64_t)ctxDevice;
     g_context[groupName].second = (uint64_t)ctxHost;
@@ -307,9 +307,9 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
     if (groupNames.size() == 0) {
         return {};
     }
-    CommTopo topoRet;
+    HCommTopo topoRet;
     const char* group = groupNames[0].c_str();
-    ASSERT(HcomGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCCL_SUCCESS) << "Get hcom topo failed";
+    ASSERT(HcommGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCOMM_SUCCESS) << "Get hcom topo failed";
     uint32_t topoType = static_cast<uint32_t>(topoRet);
     std::shared_ptr<TilingStructBase> tilingStruct;
     if (topoType == COMM_MESH) {
@@ -325,10 +325,10 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
             commContext[groupIndex] = g_context[groupName].first;
             continue;
         }
-        HcclComm commHandle = nullptr;
-        ASSERT(HcomGetCommHandleByGroup(groupName.c_str(), &commHandle) == 0) << "Get hcom handle failed";
+        HcommHandle commHandle = nullptr;
+        ASSERT(HcommGetCommHandleByGroup(groupName.c_str(), &commHandle) == 0) << "Get hcom handle failed";
         tilingStruct->MakeMc2TilingStruct(groupName);
-        auto ret = HcclAllocComResourceByTiling(
+        auto ret = HcommAllocComResourceByTiling(
             commHandle, machine::GetRA()->GetStream(), tilingStruct->GetMc2CommConfig(),
             reinterpret_cast<void**>(&commContext[groupIndex]));
         ASSERT((ret == 0) && (commContext[groupIndex] != 0UL)) << "Hccl alloc resource failed";

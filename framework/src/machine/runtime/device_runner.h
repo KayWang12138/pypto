@@ -131,10 +131,10 @@ private:
     DeviceArgs* devArgs_;
     std::vector<void*> perfData_;
     std::once_flag once_;
-    rtBinHandle binHdl_;
+    RtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
-    aclrtEvent event_;
+    AclRtEvent event_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_{false};
     bool initFlag_{false};

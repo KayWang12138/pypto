@@ -13,13 +13,14 @@
  * \brief
  */
 
+#include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/msprof_api.h"
+#include "interface/utils/op_info_manager.h"
+
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
-#include "machine/runtime/host_prof.h"
 #include "machine/host/perf_analysis.h"
-#include "interface/utils/op_info_manager.h"
-#include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
 
 struct process_sign {
@@ -61,8 +62,8 @@ int GetMaxBlockdim()
     uint32_t vectorBlockDim = 0;
     // 若未进行控核，aclrtGetStreamResLimit返回的是满核
     auto aicoreStream = machine::GetRA()->GetCurrentStream();
-    aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
-    aclrtGetStreamResLimit(aicoreStream, ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
+    aclrtGetStreamResLimit(aicoreStream, AclRtDevResLimitType::CUBE_CORE, &cubeBlockDim);
+    aclrtGetStreamResLimit(aicoreStream, AclRtDevResLimitType::VECTOR_CORE, &vectorBlockDim);
     // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
     if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
         auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
@@ -93,25 +94,25 @@ bool DeviceLauncher::captureMode_ = false;
 
 #ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
-    {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE, [](bool& isCapture) { isCapture = true; }},
-    {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE,
+    {AclMdlRICaptureStatus::ACTIVE, [](bool& isCapture) { isCapture = true; }},
+    {AclMdlRICaptureStatus::NONE,
      [](bool& isCapture) {
          (void)isCapture;
          MACHINE_LOGD("GetStreamCaptureInfo: status NONE");
      }},
-    {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_INVALIDATED, [](bool& isCapture) {
+    {AclMdlRICaptureStatus::INVALIDATED, [](bool& isCapture) {
          (void)isCapture;
          MACHINE_LOGD("GetStreamCaptureInfo: status invalidated");
      }}};
 
-int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI& rtModel, bool& isCapture)
+int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, AclMdlRI& rtModel, bool& isCapture)
 {
-    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
-    aclError ret = aclmdlRICaptureGetInfo(aicoreStream, &captureStatus, &rtModel);
-    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+    AclMdlRICaptureStatus captureStatus = AclMdlRICaptureStatus::NONE;
+    AclError ret = aclmdlRICaptureGetInfo(aicoreStream, &captureStatus, &rtModel);
+    if (ret == ACL_RT_ERROR_FEATURE_NOT_SUPPORT) {
         MACHINE_LOGW("Stream capture not support");
         return 0;
-    } else if (ret != ACL_SUCCESS) {
+    } else if (ret != ACL_RT_SUCCESS) {
         MACHINE_LOGE(RtErr::RT_CAPTURE_FAILED, "aclmdlRICaptureGetInfo failed, return[%d]", ret);
         return -1;
     }
@@ -129,20 +130,20 @@ int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI& rtMo
 
 void DeviceLauncher::ChangeCaptureModeRelax()
 {
-    aclmdlRICaptureMode mode =
-        ACL_MODEL_RI_CAPTURE_MODE_RELAXED; // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
+    AclMdlRICaptureMode mode =
+        AclMdlRICaptureMode::RELAXED; // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
     aclmdlRICaptureThreadExchangeMode(&mode);
 }
 
 void DeviceLauncher::ChangeCaptureModeGlobal()
 {
-    aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    AclMdlRICaptureMode mode = AclMdlRICaptureMode::GLOBAL;
     aclmdlRICaptureThreadExchangeMode(&mode);
 }
 
 int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool& isCapture)
 {
-    aclmdlRI rtModel = nullptr;
+    AclMdlRI rtModel = nullptr;
 
     if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
         return -1;
@@ -213,7 +214,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
 
     DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
     rc = aclInit(nullptr);
-    if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
+    if (rc != 0 && rc != ACL_RT_ERROR_REPEAT_INITIALIZE) {
         return rc;
     }
 
@@ -241,7 +242,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
     rc = DeviceRunner::Get().RegisterKernelBin(
-        &(*reinterpret_cast<rtBinHandle*>(CachedOperator::GetBinHandleHolder(cachedOperator))),
+        &(*reinterpret_cast<RtBinHandle*>(CachedOperator::GetBinHandleHolder(cachedOperator))),
         cachedOperator == nullptr ? nullptr : &(function->GetDyndevAttribute()->kernelBinary));
     if (rc < 0) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "Register kernel bin failed.");
@@ -552,7 +553,7 @@ DeviceGuard::~DeviceGuard()
 #endif
 }
 
-AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode)
+AclModeGuard::AclModeGuard(AclMdlRICaptureMode tmode) : mode(tmode)
 {
 #ifdef BUILD_WITH_CANN
     aclmdlRICaptureThreadExchangeMode(&mode);
@@ -561,7 +562,7 @@ AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode)
 AclModeGuard::~AclModeGuard()
 {
 #ifdef BUILD_WITH_CANN
-    aclmdlRICaptureMode mod = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    AclMdlRICaptureMode mod = AclMdlRICaptureMode::GLOBAL;
     aclmdlRICaptureThreadExchangeMode(&mod);
 #endif
 }
@@ -631,11 +632,11 @@ void DeviceLauncher::FreeControlFlowCache(uint8_t* ctrlCache)
 #endif
 }
 
-void DeviceLauncher::AddAicpuStream(aclmdlRI& rtModel, bool tripleStream)
+void DeviceLauncher::AddAicpuStream(AclMdlRI& rtModel, bool tripleStream)
 {
 #ifdef BUILD_WITH_CANN
-    auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
-    auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
+    auto ctrlStream = (AclRtStream)machine::GetRA()->GetCtrlStream();
+    auto schedtream = (AclRtStream)machine::GetRA()->GetScheStream();
 
     if (IsCaptureMode()) {
         if (tripleStream) {
@@ -650,7 +651,7 @@ void DeviceLauncher::AddAicpuStream(aclmdlRI& rtModel, bool tripleStream)
 #endif
 }
 
-void DeviceLauncher::SaveStream(aclrtStream aicoreStream)
+void DeviceLauncher::SaveStream(AclRtStream aicoreStream)
 {
 #ifdef BUILD_WITH_CANN
     // 存储 current stream，后续控核接口需使用current stream
@@ -660,19 +661,19 @@ void DeviceLauncher::SaveStream(aclrtStream aicoreStream)
 #endif
 }
 
-void DeviceLauncher::GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI& rtModel)
+void DeviceLauncher::GetCaptureInfo(AclRtStream aicoreStream, AclMdlRI& rtModel)
 {
 #ifdef BUILD_WITH_CANN
     SetCaptureMode(false);
-    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    AclMdlRICaptureStatus status = AclMdlRICaptureStatus::NONE;
     auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
-    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+    if (ret == ACL_RT_ERROR_FEATURE_NOT_SUPPORT) {
         return;
-    } else if (ret != ACL_SUCCESS) {
+    } else if (ret != ACL_RT_SUCCESS) {
         MACHINE_LOGE(RtErr::RT_CAPTURE_FAILED, "get capture info failed: %d", ret);
         return;
     }
-    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
+    if (status == AclMdlRICaptureStatus::ACTIVE) {
         SetCaptureMode(true);
         MACHINE_LOGI("The current mode is capture mode");
     }
@@ -738,7 +739,7 @@ void DeviceLauncher::SetDevPerfAddr(
 #endif
 }
 
-int DeviceLauncher::LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode)
+int DeviceLauncher::LaunchSyncTask(AclRtStream aicoreStream, bool isCaptureMode)
 {
     if (isCaptureMode) {
         return 0;
@@ -757,38 +758,38 @@ int DeviceLauncher::LaunchAicpuKernel(
     rtAicpuArgsEx_t& rtArgs, bool tripleStream, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function)
 {
 #ifdef BUILD_WITH_CANN
-    auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
-    auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
+    auto ctrlStream = (AclRtStream)machine::GetRA()->GetCtrlStream();
+    auto schedStream = (AclRtStream)machine::GetRA()->GetScheStream();
     auto& devRunner = DeviceRunner::Get();
     devRunner.GetHostProfInstance().SetProfFunction(function);
     int ret = 0;
     auto args = (AiCpuArgs*)rtArgs.args;
     const int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
     if (tripleStream) {
-        auto startTime = MsprofSysCycleTime();
+        auto startTime = MspfSysCycleTime();
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
         ret = rtAicpuKernelLaunchExWithArgs(
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, ctrlStream,
             RT_KERNEL_USE_SPECIAL_TIMEOUT);
-        devRunner.ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        devRunner.ReportHostProfInfo(ctrlStream, startTime, 1, MSPF_GE_TASK_TYPE_AI_CPU, false);
         if (ret != RT_ERROR_NONE) {
             return ret;
         }
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
-        startTime = MsprofSysCycleTime();
+        startTime = MspfSysCycleTime();
         const int scheCpuNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
         ret = rtAicpuKernelLaunchExWithArgs(
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream,
             RT_KERNEL_USE_SPECIAL_TIMEOUT);
-        devRunner.ReportHostProfInfo(schedStream, startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        devRunner.ReportHostProfInfo(schedStream, startTime, scheCpuNum, MSPF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     } else {
         args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
-        auto startTime = MsprofSysCycleTime();
+        auto startTime = MspfSysCycleTime();
         ret = rtAicpuKernelLaunchExWithArgs(
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream,
             RT_KERNEL_USE_SPECIAL_TIMEOUT);
-        devRunner.ReportHostProfInfo(schedStream, startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        devRunner.ReportHostProfInfo(schedStream, startTime, nrAicpu, MSPF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     }
 #else
@@ -800,17 +801,17 @@ int DeviceLauncher::LaunchAicpuKernel(
 }
 
 int DeviceLauncher::LaunchAicoreKernel(
-    aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable)
+    AclRtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable)
 {
 #ifdef BUILD_WITH_CANN
     auto& devRunner = DeviceRunner::Get();
     auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
     auto blockDim = dynamic::GetCfgBlockdim();
-    auto startTime = MsprofSysCycleTime();
+    auto startTime = MspfSysCycleTime();
     auto ret = rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
-    devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+    devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPF_GE_TASK_TYPE_MIX_AIC, true);
     if (debugEnable) {
-        auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
+        auto scheStream = (AclRtStream)machine::GetRA()->GetScheStream();
         int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
         if (rc != 0) {
             MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
@@ -820,7 +821,7 @@ int DeviceLauncher::LaunchAicoreKernel(
         ASSERT(machine::GetRA()->CheckAllSentinels());
     }
     if (IsPtoDataDumpEnabled()) {
-        auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
+        auto scheStream = (AclRtStream)machine::GetRA()->GetScheStream();
         int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
         if (rc != 0) {
             MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
