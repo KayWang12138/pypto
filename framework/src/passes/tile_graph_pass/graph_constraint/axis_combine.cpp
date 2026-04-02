@@ -70,13 +70,16 @@ void SetOpAsExpand(Operation& op, LogicalTensors& inputTensor, int idx, Shape& s
     op.SetOpCode(Opcode::OP_EXPAND);
     int expandDim = inputTensor[idx]->GetShape().size() - 1;
     op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", expandDim);
-    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
-        auto dynValidShape = inputTensor[idx]->GetDynValidShape();
-        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetShape()[expandDim]);
-        op.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
-    } else {
-        op.SetAttribute(OP_ATTR_PREFIX + "validShape", SymbolicScalar::FromConcrete(shape));
+    auto dynValidShape = SymbolicScalar::FromConcrete(shape);
+    if (!(inputTensor[idx]->GetDynValidShape().empty())) {
+        dynValidShape = inputTensor[idx]->GetDynValidShape();
     }
+    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
+        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetDynValidShape()[expandDim]);
+    } else {
+        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetShape()[expandDim]);
+    }
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
 }
 
 Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, Operation& op)
@@ -99,7 +102,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
                     return FAILED;
                 }
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
-                    alignedShape.back() = inputTensor[idx ^ 1]->GetShape().back();
+                    padValue = inputTensor[idx ^ 1]->GetShape().back();
                 }
                 if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                     return FAILED;
