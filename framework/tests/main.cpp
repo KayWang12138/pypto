@@ -32,8 +32,8 @@ bool CheckDeviceConsistency()
 {
     /* 获取实际生效的 DeviceId */
     int32_t rtDevId = -1; // -1 表示无效 DeviceId
-    int32_t getDeviceResult = rtGetDevice(&rtDevId);
-    if (getDeviceResult != RT_ERROR_NONE) {
+    int32_t getDeviceResult = RuntimeGetDevice(&rtDevId);
+    if (getDeviceResult != RT_SUCCESS) {
         std::cout << "Error: Can't get deviceId" << std::endl;
         return false;
     }

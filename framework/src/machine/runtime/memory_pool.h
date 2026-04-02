@@ -233,9 +233,9 @@ public:
     {
         if (needMemCheck_) {
             uint8_t* sentinelAddr = baseAddr + baseSize;
-            if (rtMemcpy(
+            if (RuntimeMemcpy(
                     sentinelAddr, SENTINEL_MEM_SIZE, sentinelVec_.data(), SENTINEL_MEM_SIZE,
-                    RT_MEMCPY_HOST_TO_DEVICE) != 0) {
+                    RtMemcpyKind::HOST_TO_DEVICE) != 0) {
                 MACHINE_LOGW("Memory copy sentinel value failed! Do not check memory.");
                 return;
             }
@@ -304,8 +304,8 @@ public:
         auto& sentinelVec = iter->second;
         for (auto sentinelAddr : sentinelVec) {
             MACHINE_LOGI("Check Sentinel: baseAddr=%p, sentinelAddr=%p.", baseAddr, sentinelAddr);
-            if (rtMemcpy(
-                    sentinelVal.data(), SENTINEL_MEM_SIZE, sentinelAddr, SENTINEL_MEM_SIZE, RT_MEMCPY_DEVICE_TO_HOST) !=
+            if (RuntimeMemcpy(
+                    sentinelVal.data(), SENTINEL_MEM_SIZE, sentinelAddr, SENTINEL_MEM_SIZE, RtMemcpyKind::DEVICE_TO_HOST) !=
                 0) {
                 MACHINE_LOGW("Memory copy D2H failed! Do not check memory.");
                 break;
@@ -385,7 +385,7 @@ private:
 
         if (block->base_addr != nullptr) {
             MACHINE_LOGI("Releasing physical memory: addr=%p, size=%lu", block->base_addr, block->block_size);
-            rtFree(block->base_addr);
+            RuntimeFree(block->base_addr);
             block->base_addr = nullptr;
         }
         delete block;
@@ -403,13 +403,13 @@ private:
         uint8_t* devAddr = nullptr;
         size_t size1G = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
 
-        if (rtMalloc((void**)&devAddr, size1G, ONG_GB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
+        if (RuntimeMalloc((void**)&devAddr, size1G, ONG_GB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
             MemoryBlock* block = new MemoryBlock(devAddr, size1G, true);
             memoryBlocks_.push_back(block);
             return block;
         }
 
-        if (rtMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
+        if (RuntimeMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
             MemoryBlock* block = new MemoryBlock(devAddr, alignSize, false);
             memoryBlocks_.push_back(block);
             return block;

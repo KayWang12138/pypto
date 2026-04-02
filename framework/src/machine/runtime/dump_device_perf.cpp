@@ -41,7 +41,7 @@ void ConstructTaskInfo(
     void* devPtr = perfData[index];
     size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
     std::vector<uint8_t> hostBuffer(dataSize);
-    rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+    RuntimeMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RtMemcpyKind::DEVICE_TO_HOST);
     Metrics* aicpuMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
     if (aicpuMetric->taskCount > MAX_DFX_TASK_NUM_PER_CORE) {
         aicpuMetric->taskCount = MAX_DFX_TASK_NUM_PER_CORE;
@@ -68,7 +68,7 @@ void ConstructTaskInfo(
         rootTaskStats.push_back(coreObj);
     }
     aicpuMetric->taskCount = 0;
-    rtMemcpy(perfData[index], sizeof(Metrics), aicpuMetric, sizeof(Metrics), RT_MEMCPY_HOST_TO_DEVICE);
+    RuntimeMemcpy(perfData[index], sizeof(Metrics), aicpuMetric, sizeof(Metrics), RtMemcpyKind::HOST_TO_DEVICE);
 }
 
 void DumpAicoreTaskExectInfo(DeviceArgs& args, const std::vector<void*>& perfData)
@@ -176,7 +176,7 @@ inline void DumpAicoreDevTask(
         void* devPtr = perfData[i];
         size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
         std::vector<uint8_t> hostBuffer(dataSize);
-        rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+        RuntimeMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RtMemcpyKind::DEVICE_TO_HOST);
         Metrics* aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
         std::string coreType = (i < args.nrValidAic) ? "AIC" : "AIV";
         json aicoreTask;
@@ -199,9 +199,9 @@ inline MetricPerf GetAicpuPrefAddr(const DeviceArgs& args, const uint32_t& turnI
         return aicpuMetric;
     }
 
-    auto ret = rtMemcpy(
+    auto ret = RuntimeMemcpy(
         PtrToPtr<MetricPerf, void>(&aicpuMetric), sizeof(MetricPerf), aicpuPer, sizeof(MetricPerf),
-        RT_MEMCPY_DEVICE_TO_HOST);
+        RtMemcpyKind::DEVICE_TO_HOST);
     if (ret != 0) {
         MACHINE_LOGW("aicpu meter copy failed ret: %d", ret);
     }
@@ -250,7 +250,7 @@ void DumpAicpuPerfInfo(DeviceArgs& args, const std::vector<void*>& perfData, uin
     void* devPtr = perfData[0];
     size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
     std::vector<uint8_t> hostBuffer(dataSize);
-    rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+    RuntimeMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RtMemcpyKind::DEVICE_TO_HOST);
     Metrics* aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
     auto sumTurnNum = aicoreMetric->turnNum;
     MACHINE_LOGD("CoreId 0 devAddr: %p, sumTurnNum: %ld", devPtr, sumTurnNum);

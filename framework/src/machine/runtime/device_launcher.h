@@ -42,13 +42,13 @@
 #include "tilefwk/pypto_fwk_log.h"
 
 #ifndef BUILD_WITH_CANN
-enum aclmdlRICaptureMode {};
-using rtStream_t = uint64_t;
-using aclmdlRI = void*;
-using aclrtStream = void*;
-typedef struct tagRtArgsEx rtArgsEx_t;
-typedef struct tagRtAicpuArgsEx rtAicpuArgsEx_t;
-typedef struct tagRtTaskCfgInfo rtTaskCfgInfo_t;
+enum AclMdlRICaptureMode {};
+using RtStream = uint64_t;
+using AclMdlRI = void*;
+using AclRtStream = void*;
+typedef struct tagRtArgsEx RtArgsEx;
+typedef struct tagRtAicpuArgsEx RtAicpuArgsEx;
+typedef struct tagRtTaskCfgInfo RtTaskCfgInfo;
 #endif
 
 namespace npu::tile_fwk::dynamic {
@@ -439,30 +439,30 @@ public:
 #ifdef BUILD_WITH_CANN
     static void ChangeCaptureModeRelax();
     static void ChangeCaptureModeGlobal();
-    static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI& rtModel, bool& isCapture);
-    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool& isCapture);
-    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture);
+    static int GetStreamCaptureInfo(RtStream aicoreStream, AclMdlRI& rtModel, bool& isCapture);
+    static int SetCaptureStream(RtStream aicoreStream, RtStream aicpuStream, bool& isCapture);
+    static int RunWithProfile(RtStream aicoreStream, RtStream aicpuStream, bool isCapture);
     static int DeviceLaunchOnceWithDeviceTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
-        const std::vector<DeviceTensorData>& outputList, rtStream_t aicpuStream, rtStream_t aicoreStream,
+        const std::vector<DeviceTensorData>& outputList, RtStream aicpuStream, RtStream aicoreStream,
         bool streamSynchronize, CachedOperator* cachedOperator, DevControlFlowCache* ctrlCache = nullptr,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());
 
-    static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
+    static int DeviceSynchronize(RtStream aicpuStream, RtStream aicoreStream);
 #else
     static void ChangeCaptureModeRelax() {}
     static void ChangeCaptureModeGlobal() {}
-    static int GetStreamCaptureInfo(rtStream_t, aclmdlRI&, bool&) { return 0; }
-    static int SetCaptureStream(rtStream_t, rtStream_t, bool&) { return 0; }
-    static int RunWithProfile(rtStream_t, rtStream_t, bool) { return 0; }
+    static int GetStreamCaptureInfo(RtStream, AclMdlRI&, bool&) { return 0; }
+    static int SetCaptureStream(RtStream, RtStream, bool&) { return 0; }
+    static int RunWithProfile(RtStream, RtStream, bool) { return 0; }
     static int DeviceLaunchOnceWithDeviceTensorData(
-        Function*, const std::vector<DeviceTensorData>&, const std::vector<DeviceTensorData>&, rtStream_t, rtStream_t,
+        Function*, const std::vector<DeviceTensorData>&, const std::vector<DeviceTensorData>&, RtStream, RtStream,
         bool, CachedOperator*, uintptr_t, const DeviceLauncherConfig& config = DeviceLauncherConfig())
     {
         (void)config;
         return 0;
     }
-    static int DeviceSynchronize(rtStream_t, rtStream_t) { return 0; }
+    static int DeviceSynchronize(RtStream, RtStream) { return 0; }
 #endif
     static void FillDeviceKernelArgs(
         std::vector<uint8_t>& devProgData, DeviceKernelArgs& kargs, const std::vector<std::string>& groupNames);
@@ -473,15 +473,15 @@ public:
     static void UnregisterKernelBin(void* hdl);
     static void SetCaptureMode(bool captureMode);
     static bool IsCaptureMode();
-    static void SaveStream(aclrtStream aicoreStream);
-    static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI& rtModel);
-    static void AddAicpuStream(aclmdlRI& rtModel, bool tripleStream);
+    static void SaveStream(AclRtStream aicoreStream);
+    static void GetCaptureInfo(AclRtStream aicoreStream, AclMdlRI& rtModel);
+    static void AddAicpuStream(AclMdlRI& rtModel, bool tripleStream);
     static int LaunchAicpuKernel(
-        rtAicpuArgsEx_t& rtArgs, bool tripleStream, [[maybe_unused]] bool debugEnable,
+        RtAicpuArgsEx& rtArgs, bool tripleStream, [[maybe_unused]] bool debugEnable,
         [[maybe_unused]] Function* function);
-    static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
+    static int LaunchSyncTask(AclRtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
-        aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable);
+        AclRtStream aicoreStream, void* kernel, RtArgsEx& rtArgs, RtTaskCfgInfo& rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(
         Function* function, DevControlFlowCache* hostCtrlCache = nullptr,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());
@@ -515,11 +515,11 @@ private:
 
 class AclModeGuard {
 public:
-    AclModeGuard(aclmdlRICaptureMode tmode);
+    AclModeGuard(AclMdlRICaptureMode tmode);
     ~AclModeGuard();
 
 private:
-    aclmdlRICaptureMode mode;
+    AclMdlRICaptureMode mode;
 };
 } // namespace npu::tile_fwk::dynamic
 #endif // SRC_MACHINE_DEVICE_LAUNCHER_H
