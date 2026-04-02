@@ -41,7 +41,11 @@ def add_debug_options_to_file(file_path):
         if match:
             params = match.group(1).strip()
             if '\n' in match.group(1):
-                replacement = f'@pypto.frontend.jit(\n    debug_options={{"runtime_debug_mode": 1}},\n{match.group(1)})\n'
+                replacement = (
+                    f'@pypto.frontend.jit(\n'
+                    f'    debug_options={{"runtime_debug_mode": 1}},\n'
+                    f'{match.group(1)})\n'
+                )
             else:
                 replacement = f'@pypto.frontend.jit(\n    debug_options={{"runtime_debug_mode": 1}},\n    {params}\n)\n'
             content = re.sub(pattern, replacement, content)

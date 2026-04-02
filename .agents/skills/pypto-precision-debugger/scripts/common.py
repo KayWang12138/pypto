@@ -34,7 +34,8 @@ def find_trace_log_dir(log_base_path):
                     with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
                         if '#trace' in f.read():
                             return root
-                except Exception:
+                except Exception as e:
+                    logging.debug(f"无法读取日志文件 {log_file}: {e}")
                     continue
     return None
 
