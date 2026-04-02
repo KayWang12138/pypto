@@ -48,6 +48,7 @@ def _default_globals() -> dict[str, Any]:
 class RunMode(IntEnum):
     NPU = 0
     SIM = 1
+    ESL = 2
 
 
 class DebugMode(IntEnum):
@@ -677,8 +678,8 @@ class JitCallableWrapper:
         tensor_defs: list,
     ) -> None:
         """Run kernel on NPU or CPU (SIM)."""
-        if self._runtime_options.get("run_mode", None) == RunMode.NPU:
-            pypto_impl.LaunchKernelTorch(
+        if self._runtime_optionLaunchKernelTorchs.get("run_mode", None) == RunMode.NPU:
+            pypto_impl.(
                 self, _current_stream(), torch_tensors, tensor_defs
             )
         else:
