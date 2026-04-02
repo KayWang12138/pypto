@@ -1325,6 +1325,7 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
                 iOperand->memoryrange =
                     TileRange(workspaceOffset, workspaceOffset + iOperand->tensor->GetRawDataSize(), iOperand->tensor->GetRawMagic());
                 workspaceOffset += iOperand->tensor->GetRawDataSize();
+                rawMagicRange[iOperand->tensor->GetRawMagic()] = iOperand->memoryrange;
             }
         }
         for (auto &oOperand : op->GetOOperands()) {
@@ -1338,6 +1339,7 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
                 oOperand->memoryrange =
                     TileRange(workspaceOffset, workspaceOffset + oOperand->tensor->GetRawDataSize(), oOperand->tensor->GetRawMagic());
                 workspaceOffset += oOperand->tensor->GetRawDataSize();
+                rawMagicRange[oOperand->tensor->GetRawMagic()] = oOperand->memoryrange;
             }
         }
     }
