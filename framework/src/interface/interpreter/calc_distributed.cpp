@@ -38,7 +38,7 @@ std::vector<uint64_t> UnBind(ExecuteOperationContext *ctx, SymbolicScalar attr) 
 void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 0);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto out = ctx->ooperandInplaceDataViewList->at(0);
+    auto &out = ctx->ooperandInplaceDataViewList->at(0);
     SymbolicScalar attr = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
     std::vector<uint64_t> parameters = UnBind(ctx, attr);
     uint64_t groupIndex = parameters[0];
@@ -49,10 +49,10 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     const std::string &groupName = groupNames[groupIndex];
     std::cout << "groupName: " << groupName << " memType: " << memType << " slotSize: " << slotSize << std::endl;
     if (memType == 1) {
-        out = SimulationCommManager::Instance()::Alloc(groupName, slotSize);
+        out = SimulationCommManager::Instance().Alloc(groupName, slotSize);
     }
     if (memType == 0) {
-        out = SimulationCommManager::Instance()::AllocSignal(groupName, slotSize);
+        out = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
     }
 }
 REGISTER_CALC_OP(OP_BIND_TENSOR, Opcode::OP_BIND_TENSOR, ExecuteOpBindTensor);

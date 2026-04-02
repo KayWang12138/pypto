@@ -45,8 +45,7 @@ public:
     void Signal(int dstRank, int value, size_t slotSize, int atomicType = 0, bool notifyAll = false);
     void Wait(int srcRank, int expect, size_t slotSize, bool reset = false);
     LogicalTensorDataPtr Get(int srcRank, size_t slotSize, uint64_t offset = 0);
-private:
-    friend class SimulationCommManager;
+
     SimulationCommContext() = default;
     SimulationCommContext(const SimulationCommContext &) = delete;
     SimulationCommContext& operator=(const SimulationCommContext &) = delete;
@@ -99,6 +98,9 @@ private:
     }
     ~SimulationCommContext();
 
+private:
+    friend class SimulationCommManager;
+
     struct RemoteRank {
         uint8_t *dataBase = nullptr;
         uint8_t *ctrlBase = nullptr;
@@ -141,6 +143,8 @@ public:
 private:
     SimulationCommManager() = default;
     ~SimulationCommManager() = default;
+    SimulationCommManager(const SimulationCommManager &) = delete;
+    SimulationCommManager& operator=(const SimulationCommManager &) = delete;
     std::unordered_map<std::string, std::shared_ptr<SimulationCommContext>> contexts_;
     std::mutex mutex_;
 };

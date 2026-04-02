@@ -254,11 +254,17 @@ void SimulationCommManager::CreateSimulationCommContext(const std::string &group
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (contexts_.find(groupName) != contexts_.end()) {
-        throw std::runtime_error("CommContex for group " + groupName + " already exist!");
+        throw std::runtime_error("CommContext for group " + groupName + " already exist!");
     }
 
     int rank = GetRankId(groupName);
     int worldSize = GetWorldSize(groupName);
+    if (rank == -1) {
+        throw std::runtime_error("Can not get rank for group " + groupName + "!");
+    }
+    if (worldSize == -1) {
+        throw std::runtime_error("Can not get worldSize for group " + groupName + "!");
+    }
 
     auto context = std::make_shared<SimulationCommContext>();
     context->Init(groupName, rank, worldSize);
