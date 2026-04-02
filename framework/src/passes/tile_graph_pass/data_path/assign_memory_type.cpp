@@ -861,6 +861,13 @@ void AssignMemoryType::ProcessUB2L1SmallToLarge(Function &function) {
         if (iOperand->GetMemoryTypeOriginal() != MEM_UB) {
             continue;
         }
+        if (oOperand->GetMemoryTypeOriginal() != MEM_L1) {
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "UB2L1 small to large skip: output is %s, not L1, Assemble Op[%d]",
+                BriefMemoryTypeToString(oOperand->GetMemoryTypeOriginal()).c_str(),
+                op.GetOpMagic());
+            continue;
+        }
         // 约束：仅支持2维
         if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
             APASS_LOG_DEBUG_F(Elements::Operation, 
