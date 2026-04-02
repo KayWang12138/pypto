@@ -458,21 +458,21 @@ void Program::UpdateAliveTensorsParent(int outcastRawMagic, Function& parent)
     }
 }
 
-void TraverAndDumpParent(Function* func, Json& programDump)
+void TraverAndDumpParent(Function* func, Json& progDump)
 {
     if (func != nullptr) {
-        TraverAndDumpParent(&func->Parent(), programDump);
-        programDump["functions"].emplace_back(func->DumpJson());
+        TraverAndDumpParent(&func->Parent(), progDump);
+        progDump["functions"].emplace_back(func->DumpJson());
     }
     return;
 }
 
 Json Program::DumpJson(Function* mainFunc) const
 {
-    Json programDump;
-    programDump["version"] = T_VERSION;
-    programDump["pass_thread_num"] = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
-    programDump["enable_cvfuse"] = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, false);
+    Json progDump;
+    progDump["version"] = T_VERSION;
+    progDump["pass_thread_num"] = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
+    progDump["enable_cvfuse"] = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, false);
     if (mainFunc == nullptr) {
         std::shared_ptr<npu::tile_fwk::Function> dyndevFunc = nullptr;
         std::vector<std::shared_ptr<npu::tile_fwk::Function>> rootFuncs;
@@ -496,59 +496,59 @@ Json Program::DumpJson(Function* mainFunc) const
             if (func.second->IsGraphType(GraphType::TENSOR_GRAPH)) {
                 tensorGraphFunc = func.second;
             }
-            programDump["functions"].emplace_back(func.second->DumpJson());
+            progDump["functions"].emplace_back(func.second->DumpJson());
         }
         /* Dump RootFunction， rootFunction中涉及Leaf的索引，在LoadJson时需要先LoadLeaf再LoadRoot */
         if (!rootFuncs.empty()) {
             for (auto& rootFunc : rootFuncs) {
-                programDump["functions"].emplace_back(rootFunc->DumpJson());
+                progDump["functions"].emplace_back(rootFunc->DumpJson());
             }
         }
         /* Dump TileGraph, TileGraph Function中涉及 Root的指针，在LoadJson时需要先LoadRoot再LoadTile */
         if (!tileGraphFuncs.empty()) {
             for (auto& tileGraphFunc : tileGraphFuncs) {
-                programDump["functions"].emplace_back(tileGraphFunc->DumpJson());
+                progDump["functions"].emplace_back(tileGraphFunc->DumpJson());
             }
         }
 
         if (dyndevFunc != nullptr) {
-            programDump["entryhash"] = dyndevFunc->GetFunctionHash().c_str();
-            programDump["curr_funcmagic"] = dyndevFunc->GetFuncMagic();
+            progDump["entryhash"] = dyndevFunc->GetFunctionHash().c_str();
+            progDump["curr_funcmagic"] = dyndevFunc->GetFuncMagic();
         } else {
             // 纯静态场景
             if (!rootFuncs.empty()) {
-                programDump["entryhash"] = rootFuncs[0]->GetFunctionHash().c_str();
+                progDump["entryhash"] = rootFuncs[0]->GetFunctionHash().c_str();
                 if (!tileGraphFuncs.empty()) {
-                    programDump["curr_funcmagic"] = tileGraphFuncs[0]->GetFuncMagic();
+                    progDump["curr_funcmagic"] = tileGraphFuncs[0]->GetFuncMagic();
                 } else if (tensorGraphFunc != nullptr) {
-                    programDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
+                    progDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
                 } else {
                     FUNCTION_ASSERT(FError::NOT_EXIST, false) << "cannot find current function magic";
                 }
             } else if (!tileGraphFuncs.empty()) {
-                programDump["entryhash"] = tileGraphFuncs[0]->GetFunctionHash().c_str();
-                programDump["curr_funcmagic"] = tileGraphFuncs[0]->GetFuncMagic();
+                progDump["entryhash"] = tileGraphFuncs[0]->GetFunctionHash().c_str();
+                progDump["curr_funcmagic"] = tileGraphFuncs[0]->GetFuncMagic();
             } else if (tensorGraphFunc != nullptr) {
-                programDump["entryhash"] = tensorGraphFunc->GetFunctionHash().c_str();
-                programDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
+                progDump["entryhash"] = tensorGraphFunc->GetFunctionHash().c_str();
+                progDump["curr_funcmagic"] = tensorGraphFunc->GetFuncMagic();
             } else {
                 FUNCTION_LOGE_E(FError::NOT_EXIST, "Failed to find main function.");
             }
         }
     } else {
-        programDump["curr_funcmagic"] = mainFunc->GetFuncMagic();
-        programDump["entryhash"] = mainFunc->GetFunctionHash().c_str();
+        progDump["curr_funcmagic"] = mainFunc->GetFuncMagic();
+        progDump["entryhash"] = mainFunc->GetFunctionHash().c_str();
 
         if (mainFunc->rootFunc_ != nullptr) {
-            programDump["functions"].emplace_back(mainFunc->rootFunc_->DumpJson());
-            programDump["entryhash"] = mainFunc->rootFunc_->GetFunctionHash().c_str();
+            progDump["functions"].emplace_back(mainFunc->rootFunc_->DumpJson());
+            progDump["entryhash"] = mainFunc->rootFunc_->GetFunctionHash().c_str();
             for (auto& leaf : mainFunc->rootFunc_->programs_) {
-                programDump["functions"].emplace_back(leaf.second->DumpJson());
+                progDump["functions"].emplace_back(leaf.second->DumpJson());
             }
         }
-        programDump["functions"].emplace_back(mainFunc->DumpJson());
+        progDump["functions"].emplace_back(mainFunc->DumpJson());
     }
-    return programDump;
+    return progDump;
 }
 
 std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
