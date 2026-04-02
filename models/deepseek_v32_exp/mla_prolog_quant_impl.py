@@ -441,10 +441,10 @@ def pre_compute_2d(
                                    [tile_config.pre_quant_cube_tile[2], tile_config.pre_quant_cube_tile[3]],
                                    [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_qa")
-        x_view1 = pypto.view(token_x, [bs, k//2], [0, 0])
-        x_view2 = pypto.view(token_x, [bs, k//2], [0, k//2])
-        w_dq1 = pypto.view(w_dq, [k//2, q_lora_rank], [0, 0])
-        w_dq2 = pypto.view(w_dq, [k//2, q_lora_rank], [k//2, 0])
+        x_view1 = pypto.view(token_x, [bs, k // 2], [0, 0])
+        x_view2 = pypto.view(token_x, [bs, k//2], [0, k // 2])
+        w_dq1 = pypto.view(w_dq, [k // 2, q_lora_rank], [0, 0])
+        w_dq2 = pypto.view(w_dq, [k // 2, q_lora_rank], [k // 2, 0])
         q_a_proj1 = pypto.matmul(x_view1, w_dq1, pypto.DT_FP32)
         q_a_proj2 = pypto.matmul(x_view2, w_dq2, pypto.DT_FP32)
         q_a_proj_tmp = q_a_proj1 + q_a_proj2
@@ -708,7 +708,7 @@ def options_list():
         return {
             "pass_options": {
                 "cube_l1_reuse_setting": {-1: 4, 0: 1, 1: 1, 2: 1},
-                "cube_nbuffer_setting": {0: 1, 1: 1, 2: 1, 3:3, 4: 4},
+                "cube_nbuffer_setting": {0: 1, 1: 1, 2: 1, 3: 3, 4: 4},
             },
             "runtime_options": {"device_sched_mode": 2},
             }
