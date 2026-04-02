@@ -23,16 +23,18 @@
 #include <utility>
 #include <vector>
 #include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/acl_define.h"
+#include "adapter/api/runtime_define.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/utils/op_info_manager.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
-#include "interface/compiler_monitor/monitor_manager.h"
-#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -565,12 +567,12 @@ public:
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
             if (DeviceLauncher::IsCaptureMode()) {
-                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             } else if (InferCacheShape(module, tensors, shape)) {
                 devCache = kernel->FindCtrlFlowCache(shape, false);
             } else {
-                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             }
         }
@@ -659,7 +661,7 @@ public:
     }
 
     void Launch(
-        KernelBinary* kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData>& tensors, uint8_t* ctrlFlowCache,
+        KernelBinary* kernel, AclRtStream aicoreStream, std::vector<DeviceTensorData>& tensors, uint8_t* ctrlFlowCache,
         int64_t* workspace)
     {
         SetTensorData(tensors);
@@ -679,16 +681,16 @@ public:
             ctrlFlowCache);
 #endif
         int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
-        ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch pre sync failed: " << ret;
 
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
         ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(
             aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch aicore failed: " << ret;
     }
 
     void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
@@ -700,13 +702,13 @@ public:
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
-        ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
     }
 
 private:
     void InitCachedArgs()
     {
-        memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
+        memset_s(&rtAicpuArgs, sizeof(RtAicpuArgsEx), 0, sizeof(RtAicpuArgsEx));
         rtAicpuArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
         rtAicpuArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
         rtAicpuArgs.hostInputInfoNum = 1;
@@ -714,13 +716,13 @@ private:
         hostInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
         rtAicpuArgs.timeout = AICPU_EXECUTE_TIMEOUT;
-        memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
+        memset_s(&rtAicoreArgs, sizeof(RtArgsEx), 0, sizeof(RtArgsEx));
         kernelArgs.resize(7, nullptr); // see aicore.ascpp
         rtAicoreArgs.args = kernelArgs.data();
         rtAicoreArgs.argsSize = kernelArgs.size() * sizeof(void*);
 
-        memset_s(&rtTaskCfg, sizeof(rtTaskCfgInfo_t), 0, sizeof(rtTaskCfgInfo_t));
-        rtTaskCfg.schemMode = RT_SCHEM_MODE_BATCH;
+        memset_s(&rtTaskCfg, sizeof(RtTaskCfgInfo), 0, sizeof(RtTaskCfgInfo));
+        rtTaskCfg.schemMode = static_cast<uint8_t>(RtSchemModeType::BATCH);
     }
 
     void InitConfigOptions(py::object& module)
@@ -825,11 +827,11 @@ private:
     int timeoutSec{-1};
     int totalTimeoutSec{600};
 
-    rtHostInputInfo_t hostInfo;
-    rtAicpuArgsEx_t rtAicpuArgs;
+    RtHostInputInfo hostInfo;
+    RtAicpuArgsEx rtAicpuArgs;
 
-    rtArgsEx_t rtAicoreArgs;
-    rtTaskCfgInfo_t rtTaskCfg;
+    RtArgsEx rtAicoreArgs;
+    RtTaskCfgInfo rtTaskCfg;
     std::vector<void*> kernelArgs;
     std::vector<KernelBinary*> kernels;
 
@@ -864,13 +866,13 @@ static int GetInputTensors(py::args& args, std::vector<DeviceTensorData>& tensor
 }
 
 static void DoLaunch(
-    py::object& module, aclrtStream aicoreStream, int devId, std::vector<DeviceTensorData>& tensors,
+    py::object& module, AclRtStream aicoreStream, int devId, std::vector<DeviceTensorData>& tensors,
     std::function<KernelBinary*(KernelModulePtr)> compile_fn)
 {
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
-    aclmdlRI rtModel;
+    AclMdlRI rtModel;
     DeviceLauncher::SaveStream(aicoreStream);
     DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
 
@@ -882,7 +884,7 @@ static void DoLaunch(
     if (kbinary == nullptr) {
         jitScopeGuard.emplace("jit_scope", std::map<std::string, Any>{});
         Program::GetInstance().Reset();
-        AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+        AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
 #if ENABALE_VERBOSE_LOG
         COMPILER_LOGE("compile kernel");
 #endif
@@ -923,7 +925,7 @@ void LaunchKernelTorch(py::object& module, int64_t stream, py::sequence& torchTe
 {
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
+    auto aicoreStream = (AclRtStream)stream;
 
     ValidateInputs(torchTensors, tensorDefs);
 
@@ -939,7 +941,7 @@ void LaunchKernel(py::object& module, int64_t stream, py::args& args)
 {
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
+    auto aicoreStream = (AclRtStream)stream;
 
     std::vector<DeviceTensorData> tensors;
     auto devId = GetInputTensors(args, tensors);
