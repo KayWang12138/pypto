@@ -70,13 +70,7 @@ void SetOpAsExpand(Operation& op, LogicalTensors& inputTensor, int idx, Shape& s
     op.SetOpCode(Opcode::OP_EXPAND);
     int expandDim = inputTensor[idx]->GetShape().size() - 1;
     op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", expandDim);
-    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
-        auto dynValidShape = inputTensor[idx]->GetDynValidShape();
-        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetShape()[expandDim]);
-        op.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
-    } else {
-        op.SetAttribute(OP_ATTR_PREFIX + "validShape", SymbolicScalar::FromConcrete(shape));
-    }
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", SymbolicScalar::FromConcrete(shape));
 }
 
 Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, Operation& op)
