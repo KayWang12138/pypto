@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file random.h
- * \brief Random number generator implementation
+ * \file uniform.h
+ * \brief Uniform random number generator implementation
  */
 
-#ifndef TILEOP_TILE_OPERATOR_RANDOM__H
-#define TILEOP_TILE_OPERATOR_RANDOM__H
+#ifndef TILEOP_TILE_OPERATOR_UNIFORM__H
+#define TILEOP_TILE_OPERATOR_UNIFORM__H
 
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
@@ -44,29 +44,29 @@ TILEOP void SkipCounter(T *counter, uint64_t offset) {
     counter[1] = static_cast<uint64_t>(c2) | (static_cast<uint64_t>(c3) << 32);
 }
 
-#define OP_TILE_OP_RANDOM TRandom
+#define OP_TILE_OP_UNIFORM TUniform
 template <typename T, int Size>
-TILEOP void TRandom(__ubuf__ T* dst, uint64_t key, uint64_t counter0, uint64_t counter1, uint16_t rounds, int64_t tileOffset) {
-    constexpr int tileW = 32 / sizeof(T);
+TILEOP void TUniform(__ubuf__ T* dst, uint64_t key, uint64_t counter0, uint64_t counter1, uint16_t rounds, int64_t tileOffset) {
+    constexpr int tileW = (Size + 7) / 8 * 8;
 
     uint64_t tileCounter[2] = {counter0, counter1};
-    SkipCounter(tileCounter, static_cast<uint64_t>(tileOffset));
+    // SkipCounter(tileCounter, static_cast<uint64_t>(tileOffset));
 
-    using TileDst = pto::Tile<pto::TileType::Vec, T, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
+    using TileDst = pto::Tile<pto::TileType::Vec, uint32_t, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
     TileDst dstTile(1, Size);
     pto::TASSIGN(dstTile, (uint64_t)dst);
 
-    pto::TRandomKey randomKey = {static_cast<uint32_t>(key & 0xFFFFFFFF),
-                                  static_cast<uint32_t>(key >> 32)};
-    pto::TRandomCounter randomCounter = {static_cast<uint32_t>(tileCounter[0] & 0xFFFFFFFF),
-                                          static_cast<uint32_t>(tileCounter[0] >> 32),
-                                          static_cast<uint32_t>(tileCounter[1] & 0xFFFFFFFF),
-                                          static_cast<uint32_t>(tileCounter[1] >> 32)};
+    pto::TRandomKey uniformKey = {static_cast<uint32_t>(key & 0xFFFFFFFF),
+                                   static_cast<uint32_t>(key >> 32)};
+    pto::TRandomCounter uniformCounter = {static_cast<uint32_t>(tileCounter[0] & 0xFFFFFFFF),
+                                           static_cast<uint32_t>(tileCounter[0] >> 32),
+                                           static_cast<uint32_t>(tileCounter[1] & 0xFFFFFFFF),
+                                           static_cast<uint32_t>(tileCounter[1] >> 32)};
 
     if (rounds == 7) {
-        pto::TRandom<7, TileDst>(dstTile.data(), randomKey, randomCounter, 1, Size);
+        pto::TRandom<7, TileDst>(dstTile.data(), uniformKey, uniformCounter, 1, Size);
     } else {
-        pto::TRandom<10, TileDst>(dstTile.data(), randomKey, randomCounter, 1, Size);
+        pto::TRandom<10, TileDst>(dstTile.data(), uniformKey, uniformCounter, 1, Size);
     }
 }
 
