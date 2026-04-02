@@ -2597,7 +2597,7 @@ def as_float(value):
     value = float(value)
     return value
 
-def random_golden_func(inputs: list, config: dict):
+def uniform_golden_func(inputs: list, config: dict):
     params = config.get("params", {})
     rounds = params.get("rounds", 10)
     if isinstance(rounds, str):
@@ -2691,12 +2691,12 @@ def random_golden_func(inputs: list, config: dict):
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestRandom/RandomOperationTest.TestRandom",
+        "TestUniform/UniformOperationTest.TestUniform",
     ]
 )
-def gen_random_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+def gen_uniform_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("Random", random_golden_func, output, case_index)
+    return gen_op_golden("Uniform", uniform_golden_func, output, case_index)
 
 
 def safe_tensor_conversion(arr):
