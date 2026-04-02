@@ -687,7 +687,7 @@ extern "C" std::shared_ptr<PvModel> CreatePvModelImplA2A3()
     return std::make_shared<PvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>>("A2A3");
 }
 
-extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImpl() 
+extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImpl()
 {
     return std::make_shared<DynPvModelImpl>();
 }

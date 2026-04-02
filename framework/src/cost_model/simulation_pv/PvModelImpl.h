@@ -486,7 +486,7 @@ private:
         npu::tile_fwk::DynFuncData *dupData);
     void RunModel();
     void CopyToHost(uint64_t hostAddr, uint64_t devAddr, uint64_t size);
-    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr
+    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr,
         uint64_t *refSize, std::vector<uint8_t> *ref_data);
     void BuildFuncDataWorkSpace(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData);
     uint64_t LookupWorkspace(uint64_t addr);
