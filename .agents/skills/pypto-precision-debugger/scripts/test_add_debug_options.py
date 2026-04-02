@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
 # Test script for add_debug_options.py
 
 import sys
 import os
 import tempfile
 import shutil
+import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from add_debug_options import add_debug_options_to_file, restore_from_backup
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
+
 
 def test_patterns():
     """测试各种装饰器格式"""
@@ -36,7 +42,7 @@ def test_patterns():
     ]
     
     for i, (content, description) in enumerate(test_cases, 1):
-        print(f"\n测试用例 {i}: {description}")
+        logger.info("测试用例 %d: %s", i, description)
         
         # 创建临时文件
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -50,22 +56,22 @@ def test_patterns():
             if modified:
                 with open(temp_file, 'r') as f:
                     result = f.read()
-                print("✓ 修改成功")
-                print("修改后的内容:")
-                print(result)
+                logger.info("✓ 修改成功")
+                logger.info("修改后的内容:")
+                logger.info(result)
                 
                 # 验证恢复
                 if restore_from_backup(temp_file):
                     with open(temp_file, 'r') as f:
                         restored = f.read()
                     if restored == content:
-                        print("✓ 恢复成功")
+                        logger.info("✓ 恢复成功")
                     else:
-                        print("✗ 恢复失败：内容不匹配")
+                        logger.error("✗ 恢复失败：内容不匹配")
                 else:
-                    print("✗ 恢复失败")
+                    logger.error("✗ 恢复失败")
             else:
-                print("✗ 修改失败")
+                logger.error("✗ 修改失败")
         finally:
             # 清理临时文件
             if os.path.exists(temp_file):

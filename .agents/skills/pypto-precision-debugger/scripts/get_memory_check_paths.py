@@ -62,8 +62,8 @@ def main():
     logger.info("python3 tools/schema/schema_memory_check.py -d %s -t %s", trace_log_dir, dyn_topo_path)
     logger.info("=" * 60)
 
-    print(trace_log_dir)
-    print(dyn_topo_path)
+    logger.info("Trace log directory: %s", trace_log_dir)
+    logger.info("Dyn topo path: %s", dyn_topo_path)
 
     sys.exit(0)
 

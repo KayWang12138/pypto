@@ -21,7 +21,7 @@ def validate_path(path, description="路径"):
 
 
 def find_trace_log_dir(log_base_path):
-    for root, dirs, files in os.walk(log_base_path):
+    for root, _, files in os.walk(log_base_path):
         for file in files:
             if file.startswith('device') and file.endswith('.log'):
                 log_file = os.path.join(root, file)
@@ -30,7 +30,8 @@ def find_trace_log_dir(log_base_path):
                         content = f.read()
                         if '#trace' in content:
                             return root
-                except Exception:
+                except Exception as e:
+                    logging.warning("Failed to read log file %s: %s", log_file, str(e))
                     continue
     return None
 
