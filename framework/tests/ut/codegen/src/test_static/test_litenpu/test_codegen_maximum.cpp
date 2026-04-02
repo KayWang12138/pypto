@@ -83,7 +83,7 @@ TEST_F(LiteNPUCodeGenMaximum, test_maximum_003) {
         TileShape::Current().SetVecTile({4, 4});
         Tensor input(DT_FP32, {8, 8, 1}, "input");
         Tensor other(DT_FP32, {1, 8, 8}, "other");
-        std::vector<int64_t> dstShape = {8, 8};
+        std::vector<int64_t> dstShape = {8, 8, 8};
         Tensor output;
         FUNCTION("MAXIMUM_001") {
             output = Maximum(input, other);
@@ -102,6 +102,25 @@ TEST_F(LiteNPUCodeGenMaximum, test_maximum_004) {
         TileShape::Current().SetVecTile({4, 4});
         Tensor input(DT_FP32, {8, 8}, "input");
         Tensor other(DT_FP32, {1, 8}, "other");
+        std::vector<int64_t> dstShape = {8, 8};
+        Tensor output;
+        FUNCTION("MAXIMUM_001") {
+            output = Maximum(input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// 无法生成.cpp文件
+TEST_F(LiteNPUCodeGenMaximum, test_maximum_005) {
+    PROGRAM("MAXIMUM_001") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor input(DT_FP32, {8, 8}, "input");
+        Tensor other(DT_FP32, {1}, "other");
         std::vector<int64_t> dstShape = {8, 8};
         Tensor output;
         FUNCTION("MAXIMUM_001") {

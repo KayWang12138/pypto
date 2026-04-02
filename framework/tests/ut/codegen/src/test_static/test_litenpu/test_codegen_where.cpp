@@ -116,10 +116,10 @@ TEST_F(LiteNPUCodeGenWhere, test_where_st) {
 // 不能正确生成.cpp文件 说明不支持一维输入
 TEST_F(LiteNPUCodeGenWhere, test_where_1d) {
     PROGRAM("WHERE_001") {
-        TileShape::Current().SetVecTile(1);
-        Tensor condition(DT_UINT8, {1}, "condition");
-        Tensor input(DT_FP32, {1}, "input");
-        Tensor other(DT_FP32, {1}, "input");
+        TileShape::Current().SetVecTile(8);
+        Tensor condition(DT_UINT8, {8}, "condition");
+        Tensor input(DT_FP32, {8}, "input");
+        Tensor other(DT_FP32, {8}, "input");
         Tensor output;
         FUNCTION("WHERE_001") {
             output = Where(condition, input, other);
@@ -127,6 +127,96 @@ TEST_F(LiteNPUCodeGenWhere, test_where_1d) {
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenWhere, test_where_tt_fp16_001) {
+    PROGRAM("WHERE_fp16_001") {
+        TileShape::Current().SetVecTile(1, 56);
+        Tensor condition(DT_UINT8, {1, 14}, "condition");
+        Tensor input(DT_FP16, {1, 112}, "input");
+        Tensor other(DT_FP16, {1, 112}, "other");
+        Tensor output;
+        FUNCTION("WHERE_fp16_001") {
+            output = Where(condition, input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_fp16_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenWhere, test_where_tt_fp16_002) {
+    PROGRAM("WHERE_fp16_002") {
+        TileShape::Current().SetVecTile(8, 8);
+        Tensor condition(DT_UINT8, {1, 8}, "condition");
+        Tensor input(DT_FP16, {1, 64}, "input");
+        Tensor other(DT_FP16, {1, 64}, "other");
+        Tensor output;
+        FUNCTION("WHERE_fp16_002") {
+            output = Where(condition, input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_fp16_002");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenWhere, test_where_tt_fp16_003) {
+    PROGRAM("WHERE_fp16_003") {
+        TileShape::Current().SetVecTile(32, 32);
+        Tensor condition(DT_UINT8, {1, 16}, "condition");
+        Tensor input(DT_FP16, {1, 128}, "input");
+        Tensor other(DT_FP16, {1, 128}, "other");
+        Tensor output;
+        FUNCTION("WHERE_fp16_003") {
+            output = Where(condition, input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_fp16_003");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenWhere, test_where_tt_fp16_004) {
+    PROGRAM("WHERE_fp16_004") {
+        TileShape::Current().SetVecTile(8, 64);
+        Tensor condition(DT_UINT8, {2, 12}, "condition");
+        Tensor input(DT_FP16, {2, 96}, "input");
+        Tensor other(DT_FP16, {1, 96}, "other");
+        Tensor output;
+        FUNCTION("WHERE_fp16_004") {
+            output = Where(condition, input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_fp16_004");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenWhere, test_where_tt_fp16_005) {
+    PROGRAM("WHERE_fp16_005") {
+        TileShape::Current().SetVecTile(8, 16);
+        Tensor condition(DT_UINT8, {5, 4}, "condition");
+        Tensor input(DT_FP16, {5, 32}, "input");
+        Tensor other(DT_FP16, {5, 32}, "other");
+        Tensor output;
+        FUNCTION("WHERE_fp16_005") {
+            output = Where(condition, input, other);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_fp16_005");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
