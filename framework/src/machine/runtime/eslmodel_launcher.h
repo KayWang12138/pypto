@@ -15,10 +15,10 @@
 
 #pragma once
 
-#ifdef __ESL_SIMULATION__
 #ifdef BUILD_WITH_CANN
 
 #include <sys/mman.h>
+#include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_runner.h"
 #include "machine/platform/platform_manager.h"
@@ -56,10 +56,9 @@ private:
 inline std::vector<MmapRecord> MmapGlobalManager::records_;
 inline std::mutex MmapGlobalManager::mutex_;
 
-
 struct EslModelMemoryUtils {
     EslModelMemoryUtils(bool isHugePage = true) :isUseHugePage_(isHugePage) {}
-    static bool IsDevice() { return true; }
+    static bool IsDevice() { return false; }
     
     static void UnmapAllMappings() {
         MmapGlobalManager::UnmapAll();
@@ -188,6 +187,11 @@ struct EslModelMemoryUtils {
         }
     }
 };
+
+class EslModelLauncher {
+public:
+    static int EslModelRunOnce(void *kernel, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+};
 }
+
 #endif
-#endif // __ESL_SIMULATION__
