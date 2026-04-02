@@ -237,6 +237,8 @@ void DeviceInit() { DeviceLauncherInit(); }
 
 void DeviceFini() { DeviceLauncherFini(); }
 
+void DeviceDestory() { DeviceLauncher::DestoryDeviceRunner();}
+
 uintptr_t OperatorBegin()
 {
     ExportedOperator* op = ExportedOperatorBegin();
@@ -960,6 +962,7 @@ void BindRuntime(py::module& m)
 {
     m.def("DeviceInit", &DeviceInit);
     m.def("DeviceFini", &DeviceFini);
+    m.def("DeviceDestory", &DeviceDestory)
     m.def("DeviceRunOnceDataFromHost", &DeviceRunOnceDataFromHost);
     m.def("OperatorDeviceRunOnceDataFromDevice", &OperatorDeviceRunOnceDataFromDevice);
     m.def("OperatorDeviceSynchronize", &OperatorDeviceSynchronize);

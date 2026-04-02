@@ -492,6 +492,11 @@ public:
     static uint8_t* DeviceRunCacheKernelGet(Function* func);
     static CachedOperator* DeviceRunCacheOperatorGet(Function* func);
     static void SetDevPerfAddr([[maybe_unused]] const bool& debugEnable, [[maybe_unused]] const bool& isCaptureMode);
+    static void DestoryDeviceRunner() {
+#ifdef BUILD_WITH_CANN
+        DeviceRunner::Get().StopMachinePerfTraceDumpThread();
+#endif
+    }
 
 public:
     static std::vector<uint8_t> tensorInfo_;
