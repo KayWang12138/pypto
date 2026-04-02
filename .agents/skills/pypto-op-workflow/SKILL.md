@@ -23,10 +23,16 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 
 ## 核心原则
 
-1. **遇问题先定位，不简化代码**
-   - 第一步：优先搜索 API 文档、相关 skills 和仓库示例，选择合适的 pypto operation
-   - 第二步：综合审视代码，查阅官方示例
-   - 第三步：定位问题点后修复
+1. **开发前必查看不支持场景**
+   - 启动任何开发任务前，先查看 `pypto_unsupported_scenarios.md`
+   - 避免使用已知不支持的写法
+   - 遇到问题时，优先对照不支持场景清单排查
+
+2. **遇问题先定位，不简化代码**
+   - 第一步：查看 `pypto_unsupported_scenarios.md` 排查已知问题
+   - 第二步：优先搜索 API 文档、相关 skills 和仓库示例，选择合适的 pypto operation
+   - 第三步：综合审视代码，查阅官方示例
+   - 第四步：定位问题点后修复
    - 禁止：下意识简化代码、凭直觉实现、遇到错误就推翻重写
 
 2. **始终以真实验证结果推进**
@@ -50,6 +56,12 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 ## 执行流程总览
 
 ```
+┌───────────────┐
+│  Stage 0      │
+│  前置知识检查 │──→ 查看 pypto_unsupported_scenarios.md
+└───────┬───────┘
+        │ 了解不支持场景
+        ▼
 ┌───────────────┐
 │  Stage 1      │
 │  需求理解     │──→ spec.md
@@ -96,6 +108,37 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 ---
 
 ## 分阶段详细说明
+
+### Stage 0：前置知识检查
+
+**⚠️ 开始开发前，必须查看不支持场景文档！**
+
+**执行动作**：
+1. 查看 `.agents/skills/gitcode-issue-archiver/docs/pypto_unsupported_scenarios.md` 文件（文件一）
+2. 重点查看明确的不支持场景清单
+3. 记录与当前算子相关的不支持场景
+
+**检查内容**：
+- 当前算子是否涉及：合轴优化、assemble操作、循环作用域、view+concat等
+- 是否有需要规避的场景
+- 是否有已知的功能缺失
+
+**输出**：
+- 列出与当前算子相关的不支持场景
+- 明确需要规避的写法
+
+**如果文件不存在**：
+- 提示用户：`pypto_unsupported_scenarios.md 文件不存在`
+- 建议用户：可以选择使用 `gitcode-issue-archiver` skill 归档 GitCode Issue 并分析生成该文件
+- 继续开发，但在遇到问题时提醒用户可能是不支持场景导致
+
+**注意**：
+- 此阶段只查看文件一（不支持场景清单）
+- 文件二（`pypto_issue_index.md`）仅在遇到精度问题时检索
+
+**参考文档**：详细的分析流程见 [gitcode-issue-archiver/docs/issue_analysis_workflow.md](../gitcode-issue-archiver/docs/issue_analysis_workflow.md)
+
+---
 
 ### Stage 1：需求理解
 
