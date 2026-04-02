@@ -194,7 +194,7 @@ Status DependencyManager::InitAllocDependencies(
     return SUCCESS;
 }
 
-void DependencyManager::FindDependencies(Operation *op, bool needView) {
+void DependencyManager::FindMXDependencies(Operation *op) {
     if (op->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
         auto matmulOp = *(op->GetOutputOperand(0))->GetConsumers().begin();
         if (matmulOp == nullptr) return;
@@ -213,6 +213,10 @@ void DependencyManager::FindDependencies(Operation *op, bool needView) {
             }
         }
     }
+}
+
+void DependencyManager::FindDependencies(Operation *op, bool needView) {
+    FindMXDependencies(op);
 
     if (needView) {
         for (auto &producer : opProducers[op]) {

@@ -69,6 +69,7 @@ public:
 
 private:
     void Clear();
+    void FindMXDependencies(Operation *op);
     
     std::unordered_map<Operation *, std::unordered_set<Operation *>> opConsumers;
     std::unordered_map<Operation *, std::unordered_set<Operation *>> opProducers;
