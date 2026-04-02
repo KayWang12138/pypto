@@ -694,9 +694,9 @@ void OpcodeManager::RegisterVector()
         Opcode::OP_RANGE, OpCoreType::AIV, "RANGE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Range", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP", OpAttributeKey::dynScalar}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_RANDOM, OpCoreType::AIV, "RANDOM", {}, {MemoryType::MEM_UB},
-        {"TileOp::TRandom", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
-        {OP_ATTR_PREFIX + "KEY", OP_ATTR_PREFIX + "COUNTER", OP_ATTR_PREFIX + "ROUNDS", OP_ATTR_PREFIX + "SHAPE"}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_UNIFORM, OpCoreType::AIV, "UNIFORM", {}, {MemoryType::MEM_UB},
+        {"TileOp::TUniform", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "KEY", OP_ATTR_PREFIX + "COUNTER0", OP_ATTR_PREFIX + "COUNTER1", OP_ATTR_PREFIX + "ROUNDS", OP_ATTR_PREFIX + "SHAPE"}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
@@ -1408,7 +1408,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {             Opcode::OP_ONEHOT,        "TOneHot"},
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
     {              Opcode::OP_RANGE,         "TRange"},
-    {             Opcode::OP_RANDOM,        "TRandom"},
+    {             Opcode::OP_UNIFORM,        "TUniform"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
     {                 Opcode::OP_LN,           "TLog"},
     {      Opcode::OP_INDEX_OUTCAST,  "TIndexOutcast"},
@@ -1454,7 +1454,6 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {        Opcode::OP_LOAD3D_CONV,        "TLoad3D"},
     {        Opcode::OP_LOAD2D_CONV,        "TLoad2D"},
     {  Opcode::OP_L0C_COPY_OUT_CONV,     "TStoreConv"},
->>>>>>> fc4bc1ad (feat(Operation): Add new opeartion PhiloxRandom)
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
