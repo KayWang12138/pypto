@@ -53,6 +53,9 @@ private:
     void UpdateOverSizedLocalBuffer(Operation& operation);
     void ProcesSmallTileToLargeTile(Function& function);
     void ProcessLargeTileToSamllTile(Function& function);
+    // 检查 consumer 的 view 输出 shape 是否满足倍数关系
+    bool CheckConsumerViewShapeMultiple(const LogicalTensorPtr &output, 
+                                         const LogicalTensorPtr &input);
     void ProcessL0C2UBSmallToLarge(Function &function);
     void ProcessL0C2UBLargeToSmall(Function &function);
     void ProcessUB2L1SmallToLarge(Function &function);

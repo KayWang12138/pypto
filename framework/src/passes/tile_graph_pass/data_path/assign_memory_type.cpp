@@ -699,14 +699,7 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function& function)
                 break;
             }
         }
-        bool isConsumerOutputMultiple = true;
-        for (auto& consumerOp : oOperand->GetConsumers()) {
-            if (consumerOp->GetOpcode() == Opcode::OP_VIEW &&
-                !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
-                isConsumerOutputMultiple = false;
-                break;
-            }
-        }
+        bool isConsumerOutputMultiple = CheckConsumerViewShapeMultiple(oOperand, iOperand);
         if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple) {
             oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
             const auto& tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
@@ -745,6 +738,17 @@ void AssignMemoryType::ProcessLargeTileToSamllTile(Function& function)
     }
 }
 
+bool AssignMemoryType::CheckConsumerViewShapeMultiple(const LogicalTensorPtr &output,
+                                                       const LogicalTensorPtr &input) {
+    for (auto &consumerOp : output->GetConsumers()) {
+        if (consumerOp->GetOpcode() == Opcode::OP_VIEW &&
+            !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), input->GetShape())) {
+                return false;
+        }
+    }
+    return true;
+}
+
 // 处理L0C->UB小搬大场景（Cube到Vector）
 void AssignMemoryType::ProcessL0C2UBSmallToLarge(Function &function) {
     for (auto &op : function.Operations()) {
@@ -759,8 +763,6 @@ void AssignMemoryType::ProcessL0C2UBSmallToLarge(Function &function) {
             continue;
         }
         if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
-            APASS_LOG_DEBUG_F(Elements::Operation, 
-                "L0C2UB skip: not 2D tensor, Assemble Op[%d]", op.GetOpMagic());
             continue;
         }
         // 检查所有consumer是否都需要UB
@@ -774,22 +776,9 @@ void AssignMemoryType::ProcessL0C2UBSmallToLarge(Function &function) {
             }
         }
         // 检查shape倍数关系（小搬大）
-        bool isConsumerOutputMultiple = true;
-        for (auto &consumerOp : oOperand->GetConsumers()) {
-            if (consumerOp->GetOpcode() == Opcode::OP_VIEW && 
-                !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
-                isConsumerOutputMultiple = false;
-                break;
-            }
-        }  
+        bool isConsumerOutputMultiple = CheckConsumerViewShapeMultiple(oOperand, iOperand);
         // 检查输出shape是否是输入shape的整数倍（小搬大）  
         if (!isToUB || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple) {
-            APASS_LOG_WARN_F(Elements::Operation, 
-                "L0C2UB small to large not satisfied for Assemble Op[%d], "
-                "isToUB=%d, shapeMultiple=%d, consumerMultiple=%d, downgrade to DDR",
-                op.GetOpMagic(), isToUB, 
-                IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()),
-                isConsumerOutputMultiple);
             // 不满足条件，降级为DDR
             oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
             const auto &tensorToBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
@@ -840,16 +829,10 @@ void AssignMemoryType::ProcessUB2L1SmallToLarge(Function &function) {
             continue;
         }
         if (oOperand->GetMemoryTypeOriginal() != MEM_L1) {
-            APASS_LOG_DEBUG_F(Elements::Operation,
-                "UB2L1 small to large skip: output is %s, not L1, Assemble Op[%d]",
-                BriefMemoryTypeToString(oOperand->GetMemoryTypeOriginal()).c_str(),
-                op.GetOpMagic());
             continue;
         }
         // 约束：仅支持2维
         if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
-            APASS_LOG_DEBUG_F(Elements::Operation, 
-                "UB2L1 small to large skip: not 2D tensor, Assemble Op[%d]", op.GetOpMagic());
             continue;
         }
         bool isToL1 = true;
@@ -862,14 +845,7 @@ void AssignMemoryType::ProcessUB2L1SmallToLarge(Function &function) {
             }
         }
         // 检查 consumer 的 view 输出 shape 是否满足倍数关系
-        bool isConsumerOutputMultiple = true;
-        for (auto &consumerOp : oOperand->GetConsumers()) {
-            if (consumerOp->GetOpcode() == Opcode::OP_VIEW && 
-                !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
-                isConsumerOutputMultiple = false;
-                break;
-            }
-        }
+        bool isConsumerOutputMultiple = CheckConsumerViewShapeMultiple(oOperand, iOperand);
         // 检查输出 shape 是否是输入 shape 的整数倍（小搬大）
         if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple) {
             // 不满足条件，降级为 DDR
