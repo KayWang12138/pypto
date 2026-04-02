@@ -44,7 +44,8 @@ const uint32_t PV_STEP_PIPE_ID = 2;
 const uint32_t PV_SYS_VA_BASE = 67;
 const uint32_t PV_SYS_PHY_BASE = 68;
 const uint64_t HBM_SATRT_ADDR = 0xffff8000;
-inline int64_t CalcShapeSizeFunc(const std::vector<int64_t> &shape) {
+inline int64_t CalcShapeSizeFunc(const std::vector<int64_t> &shape)
+{
     int64_t size = 1;
     for (auto& i : shape) {
         size *= i;
@@ -378,10 +379,6 @@ public:
         return func;
     }
 
-    uint64_t* GetDataHostPtr(int index) { return reinterpret_cast<uint64_t*>(data_[index].hostPtr); }
-
-    int GetOutIndex(int index, int out_size) { return data_.size() - out_size + index; }
-
     void Codegen(npu::tile_fwk::Function* func)
     {
         auto attr = func->GetDyndevAttribute();
@@ -462,17 +459,11 @@ public:
         return hostPtr;
     }
 
-    void CopyFromDev() {
-        for(auto& tensor : rawTensor_) {
-            memcpy_s(tensor.data, tensor.size, tensor.hostPtr, tensor.size); 
+    void CopyTensorFromDev()
+    {
+        for (auto& tensor : rawTensor_) {
+            memcpy_s(tensor.data, tensor.size, tensor.hostPtr, tensor.size);
         }
-    }
-
-    uint8_t *AllocDev(size_t size) {
-        std::vector<uint8_t> s(size, 0);
-        uint8_t *hostPtr = s.data();
-        storage_.emplace_back(std::move(s));
-        return hostPtr;
     }
 
     uint8_t* AllocWorkspaceDev(size_t size)
@@ -486,14 +477,17 @@ public:
         return hostPtr;
     }
 
-    void Run(npu::tile_fwk::DynFuncData *funcdata, int coreId, int funcId, int taskId, std::map<uint64_t, uint64_t> tensorAddr2SizeMap);
+    void Run(npu::tile_fwk::DynFuncData *funcdata, int coreId, int funcId, int taskId,
+        std::map<uint64_t, uint64_t> tensorAddr2SizeMap);
 
 private:
     void LoadPvConfig(npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, npu::tile_fwk::DynFuncData *dupData);
-    void SetUp(PvModelCceBin *cce, npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, npu::tile_fwk::DynFuncData *dupData);
+    void SetUp(PvModelCceBin *cce, npu::tile_fwk::DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir,
+        npu::tile_fwk::DynFuncData *dupData);
     void RunModel();
     void CopyToHost(uint64_t hostAddr, uint64_t devAddr, uint64_t size);
-    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize, std::vector<uint8_t> *ref_data);
+    void BuildFuncData(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData, uint64_t *refAddr
+        uint64_t *refSize, std::vector<uint8_t> *ref_data);
     void BuildFuncDataWorkSpace(npu::tile_fwk::DynFuncData *funcdata, npu::tile_fwk::DynFuncData *dupData);
     uint64_t LookupWorkspace(uint64_t addr);
     uint64_t LookupData(uint64_t addr);

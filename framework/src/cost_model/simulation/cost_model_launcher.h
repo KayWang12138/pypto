@@ -343,8 +343,7 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunPvModel(
-        DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
+    void RunPvModel(DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
         const std::vector<RawTensorDataPtr>& outputs)
     {
         if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM ||
@@ -364,23 +363,17 @@ private:
         pv_->Codegen(function_);
         BuildPvKernelArgs(kArgs, inputs, outputs);
         RunTestMode(&kArgs, maxCpuNum);
-        pv_->CopyFromDev();
+        pv_->CopyTensorFromDev();
     }
 
-    void BuildPvKernelArgs(
-        DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
+    void BuildPvKernelArgs(DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
         const std::vector<RawTensorDataPtr>& outputs)
     {
         MemoryHelper devMem{true};
         auto buildInouts = [&](auto& tensorList, DevTensorData* tensorData) {
             for (auto& t : tensorList) {
-                if (t) {
-                    auto addrs = reinterpret_cast<uint64_t>(pv_->CopyTensorToDev((uint8_t*)t->data(), t->size()));
-                    DevAscendTensorDataCreator::Init(tensorData, addrs, t->GetShape().data(), t->GetShape().size());
-                } else {
-                    std::vector<int> shape;
-                    DevAscendTensorDataCreator::Init(tensorData, 0UL, shape.data(), shape.size());
-                }
+                auto addrs = reinterpret_cast<uint64_t>(pv_->CopyTensorToDev((uint8_t*)t->data(), t->size()));
+                DevAscendTensorDataCreator::Init(tensorData, addrs, t->GetShape().data(), t->GetShape().size());
                 tensorData++;
             }
             return;
@@ -391,17 +384,8 @@ private:
 
         devProg->devArgs.nrAicpu = 6;
         devProg->devArgs.nrValidAic = 24;
-        devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)pv_->AllocDev(DEV_ARGS_SIZE);
         devProg->devArgs.scheCpuNum = 1;
         AssignMetaAddr(devMem, kArgs, devProg, nullptr);
-        for (auto& input : inputs) {
-            if (input)
-                input->SetDevPtr(nullptr);
-        }
-        for (auto& output : outputs) {
-            if (output)
-                output->SetDevPtr(nullptr);
-        }
         size_t tensorSize = (inputs.size() + outputs.size()) * sizeof(DevTensorData) + 2 * sizeof(uint64_t);
         std::vector<uint8_t> tensorInfo(tensorSize);
         auto data = reinterpret_cast<uint64_t*>(tensorInfo.data());
@@ -415,21 +399,8 @@ private:
         buildInouts(outputs, dataPtr);
         kArgs.inputs = (int64_t*)pv_->CopyToDev(tensorInfo.data(), tensorSize);
         kArgs.outputs = kArgs.inputs + 1;
-        kArgs.workspace = (int64_t*)pv_->AllocWorkspaceDev(devProg->workspaceSize);
         kArgs.cfgdata = (int64_t*)pv_->CopyToDev(devProgData.data(), devProgData.size());
         kArgs.aicoreModel = model_.get();
-    }
-
-    void SetDevPtr(const std::vector<RawTensorDataPtr>& inputs, const std::vector<RawTensorDataPtr>& outputs)
-    {
-        auto setDevPtr = [&](auto& tensorList) {
-            for (uint i = 0; i < tensorList.size(); i++) {
-                int index = pv_->GetOutIndex(i, tensorList.size());
-                tensorList[i]->SetDevPtr(reinterpret_cast<uint8_t*>(pv_->GetDataHostPtr(index)));
-            }
-        };
-        setDevPtr(inputs);
-        setDevPtr(outputs);
     }
 
     void RunTestMode(DeviceKernelArgs* kArgs, int maxCpuNum)

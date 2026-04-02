@@ -945,7 +945,8 @@ private:
         return schema::offset(schema::offsetList(offsetList));
     }
 
-    inline std::map<uint64_t, uint64_t> CalTensorAddrAndSize(uint64_t taskId) {
+    inline std::map<uint64_t, uint64_t> CalTensorAddrAndSize(uint64_t taskId)
+    {
         std::map<uint64_t, uint64_t> tensorAddr2SizeMap;
         uint32_t opIdx = TaskID(taskId);
         auto duppedData = GetDuppedData(taskId);

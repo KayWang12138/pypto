@@ -128,7 +128,8 @@ public:
         return taskId == AICORE_TASK_INIT || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP;
     }
 
-    inline void SetReadyQueue(int coreIdx, uint64_t value, std::map<uint64_t, uint64_t> tensorAddr2SizeMap) {
+    inline void SetReadyQueue(int coreIdx, uint64_t value, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
+    {
         if constexpr (IsDeviceMode()) {
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
