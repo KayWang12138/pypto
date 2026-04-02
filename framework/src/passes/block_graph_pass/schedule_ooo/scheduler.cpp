@@ -1312,9 +1312,13 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
     for (auto &outCast : function_.GetOutcast()) {
         allocedRawmagic.insert(outCast->tensor->GetRawMagic());
     }
+    std::map<int, TileRange> rawMagicRange;
     for (auto &op : operations) {
         for (auto &iOperand : op->GetIOperands()) {
-            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+            if (allocedRawmagic.count(iOperand->tensor->GetRawMagic()) && rawMagicRange.count(iOperand->tensor->GetRawMagic())) {
+                iOperand->memoryrange = rawMagicRange[iOperand->tensor->GetRawMagic()];
+                iOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, iOperand->memoryrange.start);
+            } else if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
                 !allocedRawmagic.count(iOperand->tensor->GetRawMagic())) {
                 allocedRawmagic.insert(iOperand->tensor->GetRawMagic());
                 iOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
@@ -1324,7 +1328,10 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
             }
         }
         for (auto &oOperand : op->GetOOperands()) {
-            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+            if (allocedRawmagic.count(oOperand->tensor->GetRawMagic()) && rawMagicRange.count(oOperand->tensor->GetRawMagic())) {
+                oOperand->memoryrange = rawMagicRange[oOperand->tensor->GetRawMagic()];
+                oOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, oOperand->memoryrange.start);
+            } else if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
                 !allocedRawmagic.count(oOperand->tensor->GetRawMagic())) {
                 allocedRawmagic.insert(oOperand->tensor->GetRawMagic());
                 oOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
