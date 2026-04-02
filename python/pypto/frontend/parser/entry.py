@@ -48,6 +48,7 @@ def _default_globals() -> dict[str, Any]:
 class RunMode(IntEnum):
     NPU = 0
     SIM = 1
+    ESL = 2
 
 
 class DebugMode(IntEnum):

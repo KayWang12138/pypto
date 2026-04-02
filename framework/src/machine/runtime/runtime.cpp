@@ -49,11 +49,7 @@ namespace DAV_2201 {
 }
 
 namespace DAV_3510 {
-#ifdef __ESL_SIMULATION__
-    constexpr uint32_t MAX_CORE = 32;
-#else
     constexpr uint32_t MAX_CORE = 36;
-#endif
 }
 
 int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType) {

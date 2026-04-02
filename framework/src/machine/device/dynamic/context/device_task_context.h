@@ -14,9 +14,6 @@
  */
 
 #pragma once
-#ifdef __ESL_SIMULATION__
-#include <dlfcn.h>
-#endif
 
 #include "machine/device/dynamic/context/device_stitch_context.h"
 #include "machine/utils/dynamic/dev_workspace.h"
@@ -37,14 +34,6 @@ struct DeviceTaskContext {
 
     void UpdateReadyTaskNum(uint64_t cnt) { readyTaskNum += cnt; }
 
- #ifdef __ESL_SIMULATION__
-    using BusDirectWriteFunc = uint32_t (*)(uint64_t address, uint64_t size, void *ptr, uint32_t devIdx);
-    BusDirectWriteFunc busDirectWrite_;
-    void InitBusWriteFunc() {
-        void *eslDriverHandle = dlopen("libnpu_drv.so", RTLD_LAZY | RTLD_NOLOAD);
-        busDirectWrite_ = reinterpret_cast<BusDirectWriteFunc>(dlsym(eslDriverHandle, "ca_write_ddr"));
-    }
-#endif
 private:
     uint64_t stitchedFuncNum{0};
     uint64_t rootFuncNum{0};
