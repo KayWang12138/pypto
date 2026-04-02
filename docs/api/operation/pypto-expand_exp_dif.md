@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -12,7 +13,7 @@
 计算自然对数的底数e的(input - other)次幂，其中other的尾轴或次尾轴的值为1，返回与输入input数据类型及形状相同的Tensor。
 
 $$
-e^(input - other)
+e^{(input - other)}
 $$
 
 ## 函数原型
