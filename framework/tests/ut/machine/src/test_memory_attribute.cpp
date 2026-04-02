@@ -29,7 +29,7 @@ TEST(TestMemoryAttribute, MemorySizeTest)
         npu::tile_fwk::DT_HF8,  npu::tile_fwk::DT_HF4};
     for (auto& tshape : tshapes) {
         for (auto dt : dtypes) {
-            npu::tile_fwk::Tensor A(dt, tshape, "A_" + DataType2String(dt));
+            npu::tile_fwk::Tensor A(dt, tshape, "A_" + std::string(DataType2String(dt)));
             A.GetStorage()->SetMemoryTypeToBe(npu::tile_fwk::MEM_UB);
             EXPECT_EQ(A.GetStorage()->MemorySize(), (tshape[0] * tshape[1] * BytesOf(dt) + 31) / 32 * 32);
 

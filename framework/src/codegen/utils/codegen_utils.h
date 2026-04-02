@@ -160,7 +160,7 @@ struct FloatSpecVal {
     std::string GetFsVarName() const
     {
         std::string fsType = std::isinf(value) ? (std::signbit(value) ? "inf_neg" : "inf_pos") : "nan";
-        std::string fsVarName = DataType2CCEStr(dtype) + "_" + fsType;
+        std::string fsVarName = std::string(DataType2CCEStr(dtype)) + "_" + fsType;
         return fsVarName;
     }
 
