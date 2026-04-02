@@ -167,9 +167,9 @@ inline void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
-inline void Random(LogicalTensorDataPtr out, uint64_t key,
-                   const std::vector<uint64_t> &counter, uint16_t rounds) {
-    GetCalcOps()->Random(Trans(out), key, counter, rounds);
+inline void Random(LogicalTensorDataPtr out, const Element &key,
+                   const Element &counter0, const Element &counter1, const Element &rounds) {
+    GetCalcOps()->Random(Trans(out), key, counter0, counter1, rounds);
 }
 inline void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     CmpOperationType operation, CmpModeType mode) {

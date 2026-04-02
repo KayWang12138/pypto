@@ -572,17 +572,40 @@ REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
 void ExecuteOpRandom(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
-    uint64_t key = static_cast<uint64_t>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "KEY"));
-    auto counterAttr = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "COUNTER");
-    std::vector<uint64_t> counter;
-    for (auto val : counterAttr) {
-        counter.push_back(static_cast<uint64_t>(val));
+    
+    Element key(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "KEY")) {
+        auto keyAttr = ctx->op->GetAttribute(OP_ATTR_PREFIX + "KEY");
+        if (keyAttr.HasValue()) {
+            key = AnyCast<Element>(keyAttr);
+        }
     }
-    uint16_t rounds = 10;
+    
+    Element counter0(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "COUNTER0")) {
+        auto counter0Attr = ctx->op->GetAttribute(OP_ATTR_PREFIX + "COUNTER0");
+        if (counter0Attr.HasValue()) {
+            counter0 = AnyCast<Element>(counter0Attr);
+        }
+    }
+    
+    Element counter1(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "COUNTER1")) {
+        auto counter1Attr = ctx->op->GetAttribute(OP_ATTR_PREFIX + "COUNTER1");
+        if (counter1Attr.HasValue()) {
+            counter1 = AnyCast<Element>(counter1Attr);
+        }
+    }
+    
+    Element rounds(DT_UINT16, static_cast<uint16_t>(10));
     if (ctx->op->HasAttr(OP_ATTR_PREFIX + "ROUNDS")) {
-        rounds = static_cast<uint16_t>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "ROUNDS"));
+        auto roundsAttr = ctx->op->GetAttribute(OP_ATTR_PREFIX + "ROUNDS");
+        if (roundsAttr.HasValue()) {
+            rounds = AnyCast<Element>(roundsAttr);
+        }
     }
-    calc::Random(oop, key, counter, rounds);
+    
+    calc::Random(oop, key, counter0, counter1, rounds);
 }
 REGISTER_CALC_OP(OP_RANDOM, Opcode::OP_RANDOM, ExecuteOpRandom);
 

@@ -89,7 +89,7 @@ struct CalcOps {
     void (*IsFinite)(const TensorData &, const TensorData &);
     void (*LogicalNot)(const TensorData &, const TensorData &);
     void (*Range)(const TensorData &, const Element &, const Element &, const Element &);
-    void (*Random)(const TensorData &, uint64_t, const std::vector<uint64_t>&, uint16_t);
+    void (*Random)(const TensorData &, const Element &, const Element &, const Element &, const Element &);
     void (*Compare)(const TensorData &, const TensorData &, const TensorData &, CmpOperationType, CmpModeType);
     void (*Cmps)(const TensorData &, const TensorData &, const Element &, CmpOperationType, CmpModeType);
     void (*Hypot)(const TensorData &, const TensorData &, const TensorData &);

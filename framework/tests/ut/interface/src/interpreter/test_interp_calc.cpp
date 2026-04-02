@@ -88,9 +88,10 @@ TEST_F(TorchAdaptorTest, Range) {
 
 TEST_F(TorchAdaptorTest, Random) {
     uint64_t key = 12345678901234;
-    std::vector<uint64_t> counter = {0, 0};
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
     auto out = makeTensorData(DT_UINT32, {16}, 0u);
-    calc::Random(out, key, counter, 10);
+    calc::Random(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)));
 }
 
 TEST_F(TorchAdaptorTest, Exp2) {

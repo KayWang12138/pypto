@@ -1877,7 +1877,8 @@ def prelu(self: Tensor, weight: Tensor) -> Tensor:
 @op_wrapper
 def random(
     key: int,
-    counter: List[int],
+    counter0: int,
+    counter1: int,
     shape: List[int],
     rounds: int = 10
 ) -> Tensor:
@@ -1891,9 +1892,10 @@ def random(
     ----------
     key : int
         A uint64 value that serves as the key for the random number sequence.
-    counter : List[int]
-        A list of 2 uint64 values that serve as the 128-bit counter, determining
-        the position in the random sequence.
+    counter0 : int
+        The first uint64 value of the 128-bit counter.
+    counter1 : int
+        The second uint64 value of the 128-bit counter.
     shape : List[int]
         The shape of the output tensor (must be 1-dimensional).
     rounds : int, optional
@@ -1907,15 +1909,20 @@ def random(
     Examples
     --------
     key = 12345678901234
-    counter = [0, 0]
+    counter0 = 0
+    counter1 = 0
     shape = [1024]
-    output = pypto.random(key, counter, shape, rounds=10)
+    output = pypto.random(key, counter0, counter1, shape, rounds=10)
     """
-    if len(counter) != 2:
-        raise ValueError(f"counter must have 2 elements, got {len(counter)}")
     if len(shape) != 1:
         raise ValueError(f"shape must be 1-dimensional, got {len(shape)} dimensions")
     if rounds not in [7, 10]:
         raise ValueError(f"rounds must be 7 or 10, got {rounds}")
     
-    return pypto_impl.Random(key, counter, shape, rounds)
+    return pypto_impl.Random(
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, key),
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, counter0),
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, counter1),
+        shape,
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT16, rounds)
+    )

@@ -706,11 +706,12 @@ TEST_F(OperationImplTest, Test_Random_UINT32) {
         std::vector<int64_t> shape = {128};
         TileShape::Current().SetVecTile({128});
         uint64_t key = 12345678901234;
-        std::vector<uint64_t> counter = {0, 0};
+        uint64_t counter0 = 0;
+        uint64_t counter1 = 0;
         Tensor output(DT_UINT32, shape, "res");
         config::SetBuildStatic(true);
         FUNCTION("Random_UINT32") {
-            output = Random(key, counter, shape, 10);
+            output = Random(Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), shape, Element(DT_UINT16, static_cast<uint16_t>(10)));
         }
     }
 }

@@ -549,7 +549,7 @@ void OpcodeManager::RegisterVector() {
         {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP", OpAttributeKey::dynScalar}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_RANDOM, OpCoreType::AIV, "RANDOM", {}, {MemoryType::MEM_UB},
         {"TileOp::TRandom", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
-        {OP_ATTR_PREFIX + "KEY", OP_ATTR_PREFIX + "COUNTER", OP_ATTR_PREFIX + "ROUNDS", OP_ATTR_PREFIX + "SHAPE"}, TileShapeVerifier::Verify);
+        {OP_ATTR_PREFIX + "KEY", OP_ATTR_PREFIX + "COUNTER0", OP_ATTR_PREFIX + "COUNTER1", OP_ATTR_PREFIX + "ROUNDS", OP_ATTR_PREFIX + "SHAPE"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OpAttributeKey::scalar, OpAttributeKey::dynScalar, OP_ATTR_PREFIX + "shape"}, TileShapeVerifier::Verify);
