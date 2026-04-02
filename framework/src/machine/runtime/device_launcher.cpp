@@ -22,10 +22,6 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
 
-#ifdef __ESL_SIMULATION__
-#include "machine/runtime/esl_memory_utils.h"
-#endif
-
 struct process_sign {
     pid_t tgid;
     char sign[49];   // 49 is PROCESS_SIGN_LENGTH
@@ -223,11 +219,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-#ifdef __ESL_SIMULATION__
- 	EslModelMemoryUtils devMemory;
-#else 
  	DeviceMemoryUtils devMemory;
-#endif
  	DeviceInitDistributedContext(devMemory, dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
@@ -282,16 +274,10 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-#ifdef __ESL_SIMULATION__
-    EslModelMemoryUtils devMemoryHugePage(true);
-    EslModelMemoryUtils devMemoryNotHugePage(false); 
-#else 
     DeviceMemoryUtils devMemoryHugePage(true);
     DeviceMemoryUtils devMemoryNotHugePage(false);
-#endif
  	std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemoryHugePage, inputDataList, outputDataList);
 
-    // DeviceMemoryUtils devMemory(false);
     uint8_t* devCtrlCache = nullptr;
     if (hostCtrlCache) {
         devCtrlCache = devMemoryNotHugePage.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
@@ -498,11 +484,7 @@ uint32_t GetProcessId() {
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
-#ifdef __ESL_SIMULATION__
- 	EslModelMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
-#else
     DeviceMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
-#endif
 #else
     (void)devTensor;
     (void)hostTensor;
@@ -511,11 +493,7 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 
 void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
-#ifdef __ESL_SIMULATION__
- 	EslModelMemoryUtils().CopyToDev((uint8_t *)devTensor.GetAddr(), (uint8_t *)hostTensor.GetAddr(), devTensor.GetDataSize());
-#else
     DeviceMemoryUtils().CopyToDev((uint8_t *)devTensor.GetAddr(), (uint8_t *)hostTensor.GetAddr(), devTensor.GetDataSize());
-#endif
 #else
     (void)devTensor;
     (void)hostTensor;
@@ -524,11 +502,7 @@ void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 
 uint8_t* CopyHostToDev(uint8_t* data, uint64_t size) {
 #ifdef BUILD_WITH_CANN
-#ifdef __ESL_SIMULATION__
- 	return EslModelMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
-#else
     return DeviceMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
-#endif
 #else
     (void)data;
     (void)size;
@@ -571,15 +545,9 @@ void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, Dev
     DeviceLauncherConfig config;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
-#ifdef __ESL_SIMULATION__
-    EslModelMemoryUtils eslModelMemoryUtils;
-    DeviceInitTilingData(eslModelMemoryUtils, kargs, devProgData, nullptr, config, &cache);
-    DeviceInitDistributedContext(eslModelMemoryUtils, groupNames, kargs);
-#else
     DeviceMemoryUtils deviceMemoryUtils;
     DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
     DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
-#endif
 #else
     (void)devProgData;
     (void)kargs;
