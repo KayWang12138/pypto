@@ -127,13 +127,8 @@ HostProf& DeviceRunner::GetHostProfInstance() {
 
 void *DeviceRunner::DevAlloc(int size) {
     uint8_t *devPtr = nullptr;
-#ifdef __ESL_SIMULATION__
-    dynamic::EslModelMemoryUtils devMemory;
-#else
     dynamic::DeviceMemoryUtils devMemory;
-#endif
     devPtr = devMemory.AllocDev(size, nullptr);
-    // machine::GetRA()->AllocDevAddr(&devPtr, size);
     int rc = rtMemset(devPtr, size, 0, size);
     if (rc != 0) {
         devMemory.FreeTensor(devPtr);
@@ -538,69 +533,6 @@ int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     return 0;
 }
 
-#ifdef __ESL_SIMULATION__
-extern "C" int DynTileFwkBackendKernelServer(void *targ);
-extern "C" int PyptoKernelCtrlServer(void *targ);
-int DeviceRunner::DynamicKernelLaunchEsl(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kArgs, int blockdim) {
-        
-    auto rc = launchDynamicAiCore(aicoreStream, kArgs);
-    if (rc < 0) {
-        ALOG_ERROR_F("launch aicpu failed %d\n", rc);
-        return rc;
-    }
-    auto *devProg = (dynamic::DevAscendProgram *)(kArgs->cfgdata);
-    auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
-    auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
-    
-    for (size_t k = 0; k < inputDataList.size(); k++) {
-        auto &inputData = inputDataList[k];
-        if (inputData) {
-            memcpy_s(inputData->GetDevPtr(), inputData->size(), (uint8_t *)inputData->data(), inputData->size());
-        }
-    }
-
-    for (size_t k = 0; k < outputDataList.size(); k++) {
-        auto &outputData = outputDataList[k];
-        if (outputData) {
-            memcpy_s(outputData->GetDevPtr(), outputData->size(), (uint8_t *)outputData->data(), outputData->size());
-        }
-    }
-
-
-    size_t shmSize = dynamic::DEVICE_TASK_CTRL_POOL_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
-    (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.runtimeDataRingBufferAddr), shmSize, 0, shmSize);
-    int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
-    threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
-    std::vector<std::thread> aicpus(threadNum);
-    std::atomic<int> idx{0};
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-    for (int i = 0; i < threadNum; i++) {
-        aicpus[i] = std::thread([&]() {
-            int tidx = idx++;
-            cpu_set_t cpuset;
-            CPU_ZERO(&cpuset);
-            CPU_SET(tidx, &cpuset);
-            std::string name = "aicput" + std::to_string(tidx);
-            pthread_setname_np(pthread_self(), name.c_str());
-            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            (void)DynTileFwkBackendKernelServer(kArgs);
-        });
-    }
-
-    for (int i = 0; i < threadNum; i++) {
-        if (aicpus[i].joinable()) {
-            aicpus[i].join();
-        }
-    }
-    EslModelMemoryUtils::UnmapAllMappings();
-    
-    (void) aicpuStream;
-    (void) aicoreStream;
-    (void) blockdim;
-    return 0;
-}
-#endif
-
 int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim) {
     HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuInit);
     uint64_t startTime = MsprofSysCycleTime();
@@ -752,11 +684,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
 
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
-#ifdef __ESL_SIMULATION__
-        return DynamicKernelLaunchEsl(aicpuStream, aicoreStream, kernelArgs, blockDim_);
-#else
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
-#endif
     } else {
         if (isTripleStream) {
             return DynamicTripleStreamLaunch(aicpuStream, ctrlStream, aicoreStream, kernelArgs, blockDim_);
@@ -859,9 +787,7 @@ int DeviceRunner::Init(void) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
         return -1;
     }
-#ifndef __ESL_SIMULATION__
  	InitAicpuServer();
-#endif
     StartMachinePerfTraceDumpThread();
     return 0;
 }

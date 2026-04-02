@@ -27,6 +27,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/eslmodel_launcher.cpp"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
@@ -667,6 +668,16 @@ public:
         ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
     }
 
+    void EslModelLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors, aclrtStream aicoreStream) {
+        (void) tensors;
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        EslModelLauncher::EslModelLaunchAicore(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg);
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        int ret = EslModelLauncher::EslModelRunOnce(kernel->GetFunction(), config);
+        ASSERT(ret == RT_ERROR_NONE) << "EslModelLaunch run failed: " << ret;
+    }
+
 private:
     void InitCachedArgs() {
         memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
@@ -814,14 +825,11 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
         }
     }
     ASSERT(tensors.size()) << "No input tensors found";
-#ifdef __ESL_SIMULATION__
     return 0;
-#else
-    if (py::getattr(device, "type").cast<std::string>() != "npu") {
-        throw std::runtime_error("Not npu device");
-    }
-    return py::getattr(device, "index").cast<int>();
-#endif
+    // if (py::getattr(device, "type").cast<std::string>() != "npu") {
+    //     throw std::runtime_error("Not npu device");
+    // }
+    // return py::getattr(device, "index").cast<int>();
 }
 
 static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
@@ -853,34 +861,30 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         HOST_PERF_EVT_END(EventPhase::LaunchKernel);
         return;
     }
+    kmodule->EslModelLaunch(kbinary, tensors, aicoreStream);
+    // kmodule->EmulationLaunch(kbinary, tensors);
+//     HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
 
-    kmodule->EmulationLaunch(kbinary, tensors);
-    HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
+// #if ENABALE_VERBOSE_LOG
+//     COMPILER_LOGE("alloc workspace");
+// #endif
+//     int64_t *wsAddr = nullptr;
+//     int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
+//     if (wsSize) {
+//         auto pyalloc = py::getattr(module, "alloc");
+//         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
+//     }
+//     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
-#if ENABALE_VERBOSE_LOG
-    COMPILER_LOGE("alloc workspace");
-#endif
-    int64_t *wsAddr = nullptr;
-    int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
-    if (wsSize) {
-        auto pyalloc = py::getattr(module, "alloc");
-        wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
-    }
-    HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
-
-#ifdef __ESL_SIMULATION__
-    DeviceRunOnceDataFromHost(tensors, {});
-#else
-    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
-    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
+//     DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
+//     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
-    HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+//     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
+//     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
 
-    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
-    HOST_PERF_TRACE(TracePhase::Launch);
-    HOST_PERF_EVT_END(EventPhase::LaunchKernel);
-#endif
+//     kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+//     HOST_PERF_TRACE(TracePhase::Launch);
+//     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
 }
 
 void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors,
