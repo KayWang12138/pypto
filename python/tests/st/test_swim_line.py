@@ -42,6 +42,8 @@ def matmul_add(
 
 
 def device_run_data_from_device_mix_nodep(queue):
+    print(f"Child process started, PID: {os.getpid()}")
+    import pypto
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     os.environ["DUMP_DEVICE_PERF"] = "true"
@@ -78,7 +80,7 @@ def device_run_data_from_device_mix_nodep(queue):
 
 
 def test_swim():
-    mp.set_start_method('spawn', force=True)
+    mp.set_start_method('fork', force=True)
     result_queue = mp.Queue()
     p = mp.Process(target=device_run_data_from_device_mix_nodep, args=(result_queue,))
     p.start()

@@ -90,3 +90,44 @@ from . import frontend
 tensor = Tensor
 element = Element
 symbolic_scalar = SymbolicScalar
+
+
+_atexit_registered = False
+
+
+def _register_atexit_handler():
+    global _atexit_registered
+    if _atexit_registered:
+        return
+    
+    import atexit
+    from . import pypto_impl
+    
+    def _cleanup_on_exit():
+        try:
+            print(f"DeviceDestory called in PID: {os.getpid()}")
+            pypto_impl.DeviceDestory()
+        except Exception as e:
+            print(f"DeviceDestory error in PID {os.getpid()}: {e}")
+    
+    atexit.register(_cleanup_on_exit)
+    _atexit_registered = True
+    print(f"atexit handler registered in PID: {os.getpid()}")
+
+
+def _register_fork_handler():
+    try:
+        import multiprocessing.util
+        
+        def _after_fork_in_child():
+            print(f"After fork in child PID: {os.getpid()}")
+            _register_atexit_handler()
+        
+        multiprocessing.util.register_after_fork(_register_atexit_handler, _after_fork_in_child)
+        print(f"Fork handler registered in PID: {os.getpid()}")
+    except Exception as e:
+        print(f"Failed to register fork handler in PID {os.getpid()}: {e}")
+
+
+_register_atexit_handler()
+_register_fork_handler()

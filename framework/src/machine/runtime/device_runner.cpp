@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
+#include <pthread.h>
 #include "securec.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
@@ -54,6 +55,7 @@ constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
 bool g_IsNullLaunched = false;
 bool g_is_machine_trace_addr_inited = false;
+bool g_is_forked_child = false;
 constexpr uint32_t MIX_BLOCK_DIM = 2;
 constexpr uint32_t HIGHT_BIT = 16;
 
@@ -114,15 +116,22 @@ void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFl
     }
 }
 
-void PerfStop() {
-    DeviceRunner::Get().StopMachinePerfTraceDumpThread();
+void RegisterChildThreadStop()
+{
+    g_is_forked_child = true;
+    // Perform final dump immediately in forked child
+    // This is the only reliable way since atexit may not be called
+    DeviceRunner::Get().FinalDumpInForkedChild();
 }
 } // namespace
 
 DeviceRunner& DeviceRunner::Get()
 {
     static DeviceRunner runner;
-    std::call_once(runner.once_, [&]() { runner.Init(); });
+    std::call_once(runner.once_, [&]() { 
+        runner.Init();
+        pthread_atfork(nullptr, nullptr, RegisterChildThreadStop);
+    });
     return runner;
 }
 
@@ -826,7 +835,6 @@ int DeviceRunner::Init(void)
     }
     InitAicpuServer();
     StartMachinePerfTraceDumpThread();
-    std::atexit(PerfStop);
     return 0;
 }
 
@@ -845,6 +853,19 @@ void DeviceRunner::StartMachinePerfTraceDumpThread()
 
 void DeviceRunner::StopMachinePerfTraceDumpThread()
 {
+    // In forked child, thread doesn't exist, just free resources
+    // if (g_is_forked_child) {
+    //     MACHINE_LOGD("In forked child, freeing resources without thread join");
+    //     if (args_.aicpuPerfAddr != 0) {
+    //         void* ptr = npu::tile_fwk::dynamic::ValueToPtr(args_.aicpuPerfAddr);
+    //         if (ptr != nullptr) {
+    //             rtFree(ptr);
+    //             args_.aicpuPerfAddr = 0;
+    //         }
+    //     }
+    //     return;
+    // }
+
     if (!dumpThread_.joinable()) {
         return;
     }
@@ -854,6 +875,22 @@ void DeviceRunner::StopMachinePerfTraceDumpThread()
     }
     MACHINE_LOGD("Dump thread stopped");
 
+    if (args_.aicpuPerfAddr != 0) {
+        void* ptr = npu::tile_fwk::dynamic::ValueToPtr(args_.aicpuPerfAddr);
+        if (ptr != nullptr) {
+            rtFree(ptr);
+            args_.aicpuPerfAddr = 0;
+        }
+    }
+}
+
+void DeviceRunner::FinalDumpInForkedChild()
+{
+    MACHINE_LOGD("Final dump in forked child");
+    // Perform final dump
+    npu::tile_fwk::dynamic::DumpDevTaskPerfData(args_, perfData_, true);
+
+    // Free resources
     if (args_.aicpuPerfAddr != 0) {
         void* ptr = npu::tile_fwk::dynamic::ValueToPtr(args_.aicpuPerfAddr);
         if (ptr != nullptr) {
@@ -877,7 +914,7 @@ void DeviceRunner::MachinePerfTraceDumpThread()
 DeviceRunner::~DeviceRunner()
 {
     MACHINE_LOGD("Start to cleanup perfData");
-    // StopMachinePerfTraceDumpThread();
+    StopMachinePerfTraceDumpThread();
     for (size_t i = 0; i < perfData_.size(); i++) {
         if (perfData_[i] != nullptr) {
             rtFree(perfData_[i]);
