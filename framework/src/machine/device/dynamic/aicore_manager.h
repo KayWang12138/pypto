@@ -1846,15 +1846,15 @@ private:
     /* assign aic and aiv core index section for this aicpu */
     inline void UpdateAiCoreBlockIndexSection()
     {
-        auto f = [](int total, int idx, int part, int& start, int& end) {
-            int perCpu = total / part;
+        auto f = [](int total, int idx, int part, int count, int& start, int& end) {
+            int perCpu = (total / part) * count;
             int remain = total % part;
-            start = idx * perCpu + ((idx < remain) ? idx : remain);
-            end = start + perCpu + ((idx < remain) ? 1 : 0);
+            start = idx * perCpu + ((idx < remain) ? idx * count : remain * count);
+            end = start + perCpu + ((idx < remain) ? count : 0);
         };
 
-        f(aicValidNum_, schedIdx_, aicpuNum_, aicStart_, aicEnd_);
-        f(AIV_NUM_PER_AI_CORE * aicValidNum_, schedIdx_, aicpuNum_, aivStart_, aivEnd_);
+        f(aicValidNum_, schedIdx_, aicpuNum_, 1, aicStart_, aicEnd_);
+        f(aicValidNum_, schedIdx_, aicpuNum_, AIV_NUM_PER_AI_CORE, aivStart_, aivEnd_);
         aivStart_ += aicValidNum_;
         aivEnd_ += aicValidNum_;
 
