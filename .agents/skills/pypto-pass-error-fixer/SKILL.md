@@ -142,7 +142,7 @@ license: 完整条款见 LICENSE.txt
 | **内存分配失败** | `out of memory`, `memory allocation failed` | 内存层级、请求大小、可用大小 |
 | **索引越界** | `index out of range`, `invalid index` | 索引值、范围、张量形状 |
 | **类型不匹配** | `type mismatch`, `dtype mismatch` | 期望类型、实际类型 |
-| **算子约束违反** | `constraint violated`, `invalid parameter` | 算子类型、参数值、约束条件 |
+| **算子约束违反** | `constraint violated`, `invalid parameter` | opcode类型、op_magic信息 |
 
 #### 4.2 将异常进行分类
 - 分析用户提供的测试代码，了解用户业务场景
@@ -151,7 +151,7 @@ license: 完整条款见 LICENSE.txt
 - 根据日志内容结合代码逻辑，推断异常类型，异常类型及特征如常见异常类型表格中所示
 
 **验证检查点**：
-- [ ] 错误类型正确分类
+- [ ] 异常类型正确分类
 
 ### 步骤 5：异常分析
 
