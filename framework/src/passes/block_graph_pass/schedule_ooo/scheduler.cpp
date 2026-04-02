@@ -1304,11 +1304,49 @@ Status OoOScheduler::Init(
     return SUCCESS;
 }
 
-Status OoOScheduler::Schedule(
-    const std::vector<Operation*>& operations,
-    const std::unordered_map<Operation*, std::pair<OpCoreType, int>>& opCoreMap,
-    const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig)
-{
+void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) {
+    std::set<int> allocedRawmagic;
+    for (auto &inCast : function_.GetIncast()) {
+        allocedRawmagic.insert(inCast->tensor->GetRawMagic());
+    }
+    for (auto &outCast : function_.GetOutcast()) {
+        allocedRawmagic.insert(outCast->tensor->GetRawMagic());
+    }
+    std::map<int, TileRange> rawMagicRange;
+    for (auto &op : operations) {
+        for (auto &iOperand : op->GetIOperands()) {
+            if (allocedRawmagic.count(iOperand->tensor->GetRawMagic()) && rawMagicRange.count(iOperand->tensor->GetRawMagic())) {
+                iOperand->memoryrange = rawMagicRange[iOperand->tensor->GetRawMagic()];
+                iOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, iOperand->memoryrange.start);
+            } else if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+                !allocedRawmagic.count(iOperand->tensor->GetRawMagic())) {
+                allocedRawmagic.insert(iOperand->tensor->GetRawMagic());
+                iOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
+                iOperand->memoryrange =
+                    TileRange(workspaceOffset, workspaceOffset + iOperand->tensor->GetRawDataSize(), iOperand->tensor->GetRawMagic());
+                workspaceOffset += iOperand->tensor->GetRawDataSize();
+                rawMagicRange[iOperand->tensor->GetRawMagic()] = iOperand->memoryrange;
+            }
+        }
+        for (auto &oOperand : op->GetOOperands()) {
+            if (allocedRawmagic.count(oOperand->tensor->GetRawMagic()) && rawMagicRange.count(oOperand->tensor->GetRawMagic())) {
+                oOperand->memoryrange = rawMagicRange[oOperand->tensor->GetRawMagic()];
+                oOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, oOperand->memoryrange.start);
+            } else if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
+                !allocedRawmagic.count(oOperand->tensor->GetRawMagic())) {
+                allocedRawmagic.insert(oOperand->tensor->GetRawMagic());
+                oOperand->SetAttr(OpAttributeKey::workspaceBaseOffset, workspaceOffset);
+                oOperand->memoryrange =
+                    TileRange(workspaceOffset, workspaceOffset + oOperand->tensor->GetRawDataSize(), oOperand->tensor->GetRawMagic());
+                workspaceOffset += oOperand->tensor->GetRawDataSize();
+                rawMagicRange[oOperand->tensor->GetRawMagic()] = oOperand->memoryrange;
+            }
+        }
+    }
+}
+
+Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap,
+    const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig) {
     if (operations.empty()) {
         return SUCCESS;
     }
@@ -1317,6 +1355,7 @@ Status OoOScheduler::Schedule(
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!");
         return FAILED;
     }
+    AllocWorkspaceGM(operations);
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "GenSpillSchedule failed!");

@@ -336,11 +336,9 @@ private:
         IssueEntryPtr allocIssue);
     Status UpdateReloadIssueDepend(IssueEntryPtr reloadCopyin, IssueEntryPtr spillIssue, int spillMemId);
     Status UpdateRemainOpBufId(int oldMemId, int newMemId);
-    void ReplaceTensorMemId(IssueEntryPtr& issue, int oldMemId, int newMemId);
-    void UpdateOpInternalSubgraphID(Operation& op, IssueEntryPtr issue);
-    void UpdateOpAttr(
-        Operation& op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
-        IssueEntryPtr spillIssue, int64_t workspaceBaseOffset);
+    void ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId);
+    void UpdateOpInternalSubgraphID(Operation &op, IssueEntryPtr issue);
+    void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset, IssueEntryPtr spillIssue);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
     int GetBufNextUseOrder(IssueEntryPtr issue, int curMemId);
     int GetBufLastUseOrder(IssueEntryPtr issue, int curMemId);
@@ -363,9 +361,9 @@ private:
         LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor, SpillInfo& spillInfo,
         std::shared_ptr<AssembleOpAttribute> assembleAttr);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
-    void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
-    Status UpdateCopyOutMode(Operation& copyOutOp);
-    Status UpdateCopyInMode(Operation& copyInOp);
+    Status UpdateCopyOutMode(Operation &copyOutOp);
+    Status UpdateCopyInMode(Operation &copyInOp);
+    void AllocWorkspaceGM(const std::vector<Operation *> &operations);
 
     // buffer rearrange
     Status RearrangeBuffer(
