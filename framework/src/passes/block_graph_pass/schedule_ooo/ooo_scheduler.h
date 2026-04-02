@@ -266,9 +266,9 @@ private:
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
         SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType);
-    void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
     Status UpdateCopyOutMode(Operation& copyOutOp);
     Status UpdateCopyInMode(Operation& copyInOp);
+    void AllocWorkspaceGM(const std::vector<Operation *> &operations);
 
     // buffer rearrange
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType, CoreLocationType coreLocation, bool isGenSpill);
