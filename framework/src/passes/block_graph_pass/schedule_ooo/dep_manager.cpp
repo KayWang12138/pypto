@@ -194,24 +194,50 @@ Status DependencyManager::InitAllocDependencies(
     return SUCCESS;
 }
 
-void DependencyManager::FindDependencies(Operation *op, bool needView) {
-    if (op->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
-        auto matmulOp = *(op->GetOutputOperand(0))->GetConsumers().begin();
-        if (matmulOp == nullptr) return;
-        for (auto &input : matmulOp->GetIOperands()) {
-            if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
-                AddDependency(*input->GetProducers().begin(), op);
+void DependencyManager::HandleScaleOpDependency(Operation *op, MemoryType memType) {
+    auto matmulOp = *(op->GetOutputOperand(0))->GetConsumers().begin();
+    if (matmulOp == nullptr) {
+        return;
+    }
+    for (auto &input : matmulOp->GetIOperands()) {
+        if (input->GetMemoryTypeOriginal() == memType) {
+            AddDependency(*input->GetProducers().begin(), op);
+        }
+    }
+}
+
+void DependencyManager::AddProducerDependencies(Operation *op) {
+    for (auto &producer : op->ProducerOps()) {
+        if (IsViewOp(*producer)) {
+            for (auto viewProducer : producer->ProducerOps()) {
+                Operation *lastView = SkipViewChain(viewProducer, true);
+                Operation *realProd = (lastView != nullptr) ? *lastView->ProducerOps().begin() : viewProducer;
+                AddDependency(realProd, op);
+            }
+        } else {
+            AddDependency(producer, op);
+        }
+    }
+}
+
+void DependencyManager::AddConsumerDependencies(Operation *op) {
+    for (auto &consumer : op->ConsumerOps()) {
+        if (IsViewOp(*consumer)) {
+            for (auto viewConsumer : consumer->ConsumerOps()) {
+                Operation *lastView = SkipViewChain(viewConsumer, false);
+                Operation *realCon = (lastView != nullptr) ? *lastView->ConsumerOps().begin() : viewConsumer;
+                AddDependency(op, realCon);
             }
         }
     }
+}
+
+void DependencyManager::FindDependencies(Operation *op, bool needView) {
+    if (op->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
+        HandleScaleOpDependency(op, MemoryType::MEM_L0A);
+    }
     if (op->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
-        auto matmulOp = *(op->GetOutputOperand(0))->GetConsumers().begin();
-        if (matmulOp == nullptr) return;
-        for (auto &input : matmulOp->GetIOperands()) {
-            if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
-                AddDependency(*input->GetProducers().begin(), op);
-            }
-        }
+        HandleScaleOpDependency(op, MemoryType::MEM_L0B);
     }
 
     if (needView) {
@@ -224,26 +250,8 @@ void DependencyManager::FindDependencies(Operation *op, bool needView) {
         return;
     }
 
-    for (auto &producer : op->ProducerOps()) {
-        if (IsViewOp(*producer)) {
-            for (auto viewProducer : producer->ProducerOps()) {
-                Operation* lastView = SkipViewChain(viewProducer, true);
-                Operation* realProd = (lastView != nullptr) ? *lastView->ProducerOps().begin() : viewProducer;
-                AddDependency(realProd, op);
-            }
-        } else {
-            AddDependency(producer, op);
-        }
-    }
-    for (auto &consumer : op->ConsumerOps()) {
-        if (IsViewOp(*consumer)) {
-            for (auto viewConsumer : consumer->ConsumerOps()) {
-                Operation* lastView = SkipViewChain(viewConsumer, false);
-                Operation* realCon = (lastView != nullptr) ? *lastView->ConsumerOps().begin() : viewConsumer;
-                AddDependency(op, realCon);
-            }
-        }
-    }
+    AddProducerDependencies(op);
+    AddConsumerDependencies(op);
 }
 
 void DependencyManager::InitOpConsumerAndProducer(const std::vector<Operation *> &ops) {

@@ -69,7 +69,11 @@ public:
 
 private:
     void Clear();
-    
+
+    void HandleScaleOpDependency(Operation *op, MemoryType memType);
+    void AddProducerDependencies(Operation *op);
+    void AddConsumerDependencies(Operation *op);
+
     std::unordered_map<Operation *, std::unordered_set<Operation *>> opConsumers;
     std::unordered_map<Operation *, std::unordered_set<Operation *>> opProducers;
     std::unordered_map<Operation *, std::unordered_set<Operation *>> inGraph_;
