@@ -35,6 +35,8 @@ private:
     Status PostCheck(Function& function) override;
     Status RunOnFunction(Function& function) override;
     void AssignMoveOp(Operation& operation);
+    bool ShouldSkipAssembleMemorySetting(const LogicalTensorPtr &input, 
+                                          const LogicalTensorPtr &output) const;
     void AssignMoveOpForAssemble(Operation& operation);
     void AssignMoveOpForView(Operation& operation);
     void RunOnOperation(Operation& operation);

@@ -483,6 +483,27 @@ int64_t AssignMemoryType::CalcLineOffset(const Shape& shape, const Offset& offse
     return lineOffset;
 }
 
+// 辅助函数：检查是否需要跳过内存类型设置
+bool AssignMemoryType::ShouldSkipAssembleMemorySetting(const LogicalTensorPtr &input, 
+                                                        const LogicalTensorPtr &output) const {
+    // L0C -> L1
+    if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+        output->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        return true;
+    }
+    // L0C -> UB
+    if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+        output->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+        return true;
+    }
+    // UB -> L1
+    if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+        output->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        return true;
+    }
+    return false;
+}
+
 void AssignMemoryType::AssignMoveOpForAssemble(Operation& operation)
 {
     /*
@@ -534,24 +555,9 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation& operation)
         if (hasDdr) {
             fromType = MEM_DEVICE_DDR;
         }
-        if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
-            tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-            APASS_LOG_DEBUG_F(
-                Elements::Operation, "%s[%d] skip setting since input origin MEM_L0C and output origin MEM_L1",
-                operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
-            continue;
-        }
-        if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
-            tensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            APASS_LOG_DEBUG_F(Elements::Operation, 
-                "%s[%d] skip setting since input origin MEM_L0C and output origin MEM_UB",
-                operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
-            continue;
-        }
-        if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
-            tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-            APASS_LOG_DEBUG_F(Elements::Operation, 
-                "%s[%d] skip setting since input origin MEM_UB and output origin MEM_L1",
+        // 检查是否需要跳过设置
+        if (ShouldSkipAssembleMemorySetting(operation.iOperand.front(), tensor)) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] skip setting due to special memory path",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic());
             continue;
         }
