@@ -1,26 +1,25 @@
 ---
 name: pypto-op-workflow
-description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。
-tag: [PyPTO, 算子开发]
+description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。"
 ---
 
 # PyPTO 算子开发工作流程
 
-本技能提供 PyPTO 算子开发的完整工作流程指导。正式端到端开发优先使用 `pypto-op-orchestrator`；本 Skill 适合手动串联相关 Skills。
+本技能提供 PyPTO 算子开发的完整工作流程指导，适合手动串联相关 Skills 完成端到端开发。
 
 ## 适用边界
 
 ### 本 Skill 负责什么
 
 - 识别完整开发任务需要经过哪些阶段。
-- 指导用户或上层 Agent 以正确顺序调用相关 Skills。
+- 指导以正确顺序调用相关 Skills。
 - 强调工件依赖关系与推荐执行顺序。
 
 ### 本 Skill 不负责什么
 
-- 不维护 `.orchestrator_state.json`。
-- 不定义全局重试策略、恢复入口或 BLOCKED / SUCCESS 结束态。
-- 不替代 `pypto-op-develop`、`pypto-precision-debugger`、`pypto-op-perf-autotuner` 等阶段型 Skills 的细节职责。
+- 不维护外部状态文件。
+- 不定义全局重试策略、恢复入口或结束态。
+- 不替代 `pypto-op-develop`、`pypto-precision-debugger`、`pypto-operator-auto-tuner` 等阶段型 Skills 的细节职责。
 
 ## 核心原则
 
@@ -46,52 +45,52 @@ tag: [PyPTO, 算子开发]
 5. **实现、精度修复、性能调优职责分离**
    - `pypto-op-develop` 只负责代码实现与测试入口生成。
    - `pypto-precision-debugger` 只负责精度问题定位与修复。
-   - `pypto-op-perf-autotuner` 只在精度通过后进入。
+   - `pypto-operator-auto-tuner` 只在精度通过后进入。
 
 ## 执行流程总览
 
 ```
-┌─────────────┐
-│  Stage 1    │
-│  需求理解    │──→ spec.md
-└──────┬──────┘
-       │ spec.md 完整
-       ▼
-┌─────────────┐
-│  Stage 2    │
-│  API 探索   │──→ api_report.md
-└──────┬──────┘
-       │ api_report.md 完整
-       ▼
-┌─────────────┐
-│  Stage 3    │
-│  Golden 生成 │──→ {op}_golden.py
-└──────┬──────┘
-       │ golden 可运行
-       ▼
-┌─────────────┐
-│  Stage 4    │
-│  设计方案    │──→ design.md
-└──────┬──────┘
-       │ design.md 完整
-       ▼
-┌─────────────┐     ┌──────────────────────────────┐
-│  Stage 5    │     │ 首跑三态判定:                  │
-│  代码实现    │──→  │  [PRECISION_PASS] → Stage 7   │
-└──────┬──────┘     │  [PRECISION_FAIL] → Stage 6   │
-       │            │  运行失败 → Stage 5 内重试      │
-       │            └──────────────────────────────┘
-       ▼
-┌─────────────┐
-│  Stage 6    │ ← 仅在精度失败时进入
-│  精度修复    │──→ 修复后重新验证
-└──────┬──────┘
-       │ [PRECISION_PASS]
-       ▼
-┌─────────────┐
-│  Stage 7    │
-│  性能调优    │──→ 性能分析 → 迭代调优
-└─────────────┘
+┌───────────────┐
+│  Stage 1      │
+│  需求理解     │──→ spec.md
+└───────┬───────┘
+        │ spec.md 完整
+        ▼
+┌───────────────┐
+│  Stage 2      │
+│  API 探索     │──→ api_report.md
+└───────┬───────┘
+        │ api_report.md 完整
+        ▼
+┌───────────────┐
+│  Stage 3      │
+│  Golden 生成  │──→ {op}_golden.py
+└───────┬───────┘
+        │ golden 可运行
+        ▼
+┌───────────────┐
+│  Stage 4      │
+│  设计方案     │──→ design.md
+└───────┬───────┘
+        │ design.md 完整
+        ▼
+┌───────────────┐     ┌────────────────────────────────────┐
+│  Stage 5      │     │ 首跑三态判定:                      │
+│  代码实现     │──→  │  [PRECISION_PASS] → Stage 7        │
+└───────┬───────┘     │  [PRECISION_FAIL] → Stage 6        │
+        │             │  运行失败 → Stage 5 内重试         │
+        │             └────────────────────────────────────┘
+        ▼
+┌───────────────┐
+│  Stage 6      │ ← 仅在精度失败时进入
+│  精度修复     │──→ 修复后重新验证
+└───────┬───────┘
+        │ [PRECISION_PASS]
+        ▼
+┌───────────────┐
+│  Stage 7      │
+│  性能调优     │──→ 性能分析 → 迭代调优
+└───────────────┘
 ```
 
 ---
@@ -194,7 +193,7 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-precision-debugger`（辅助：`pypto-binary-search-verify` / `pypto-binary-search-without-verify`） |
+| **Skill** | `pypto-precision-debugger`（辅助：`pypto-precision-verify` / `pypto-precision-binary-search`） |
 | **输入** | `{op}_impl.py` + `{op}_golden.py` + 精度失败的错误信息 |
 | **核心动作** | 基础检查（输入初始化 / tensor 连续性 / dtype）→ 内存排查（workspace / 内存重叠）→ 特性排除（unroll / 合轴 / submit_before_loop）→ 二分定位 → 修复 → 精度复验 |
 | **输出** | 修复后的 `{op}_impl.py`，精度复验通过 |

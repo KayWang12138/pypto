@@ -350,7 +350,7 @@ result = compute(...) + 0.0
 
 ### 步骤 3：二分定位（如需要）
 
-如果上述方法无法定位问题，使用 `pypto-binary-search-verify` skill 查找定位具体问题 op。
+如果上述方法无法定位问题，使用 `pypto-precision-verify` 或 `pypto-precision-binary-search` skill 查找定位具体问题 op。
 
 **阶段总结**：
 ```markdown
