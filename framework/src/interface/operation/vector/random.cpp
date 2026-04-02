@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file random.cpp
- * \brief Random number generator implementation
+ * \file uniform.cpp
+ * \brief Uniform random number generator implementation
  */
 
 #include "interface/utils/operator_tracer.h"
@@ -23,20 +23,18 @@
 
 namespace npu::tile_fwk {
 
-static std::vector<uint64_t> SkipCounter(const std::vector<uint64_t> &counter, uint64_t offset) {
-    std::cout << "[Random Trace] SkipCounter() called" << std::endl;
-    std::cout << "[Random Trace]   counter: [" << counter[0] << ", " << counter[1] << "]" << std::endl;
-    std::cout << "[Random Trace]   offset: " << offset << std::endl;
-    
-    std::vector<uint64_t> result = counter;
+static void SkipCounter(uint64_t &counter0, uint64_t &counter1, uint64_t offset) {
+    std::cout << "[Uniform Trace] SkipCounter() called" << std::endl;
+    std::cout << "[Uniform Trace]   counter0: " << counter0 << ", counter1: " << counter1 << std::endl;
+    std::cout << "[Uniform Trace]   offset: " << offset << std::endl;
     
     uint32_t offsetLo = static_cast<uint32_t>(offset);
     uint32_t offsetHi = static_cast<uint32_t>(offset >> 32);
     
-    uint32_t c0 = static_cast<uint32_t>(result[0] & 0xFFFFFFFF);
-    uint32_t c1 = static_cast<uint32_t>(result[0] >> 32);
-    uint32_t c2 = static_cast<uint32_t>(result[1] & 0xFFFFFFFF);
-    uint32_t c3 = static_cast<uint32_t>(result[1] >> 32);
+    uint32_t c0 = static_cast<uint32_t>(counter0 & 0xFFFFFFFF);
+    uint32_t c1 = static_cast<uint32_t>(counter0 >> 32);
+    uint32_t c2 = static_cast<uint32_t>(counter1 & 0xFFFFFFFF);
+    uint32_t c3 = static_cast<uint32_t>(counter1 >> 32);
     
     c0 += offsetLo;
     if (c0 < offsetLo) {
@@ -49,32 +47,33 @@ static std::vector<uint64_t> SkipCounter(const std::vector<uint64_t> &counter, u
         }
     }
     
-    result[0] = static_cast<uint64_t>(c0) | (static_cast<uint64_t>(c1) << 32);
-    result[1] = static_cast<uint64_t>(c2) | (static_cast<uint64_t>(c3) << 32);
+    counter0 = static_cast<uint64_t>(c0) | (static_cast<uint64_t>(c1) << 32);
+    counter1 = static_cast<uint64_t>(c2) | (static_cast<uint64_t>(c3) << 32);
     
-    std::cout << "[Random Trace] SkipCounter() returning: [" << result[0] << ", " << result[1] << "]" << std::endl;
-    
-    return result;
+    std::cout << "[Uniform Trace] SkipCounter() returning: counter0=" << counter0 << ", counter1=" << counter1 << std::endl;
 }
 
-LogicalTensorPtr TensorRandom(Function &function, LogicalTensorPtr &result, uint64_t key,
-    const std::vector<uint64_t> &counter, uint16_t rounds, const std::vector<int64_t> &shape) {
-    std::cout << "[Random Trace] TensorRandom() called" << std::endl;
+LogicalTensorPtr TensorUniform(Function &function, LogicalTensorPtr &result, const Element &key,
+    const Element &counter0, const Element &counter1, const Element &rounds, const std::vector<int64_t> &shape) {
+    std::cout << "[Uniform Trace] TensorUniform() called" << std::endl;
     
-    auto &op = function.AddOperation(Opcode::OP_RANDOM, {}, {result});
-    op.SetAttribute(OP_ATTR_PREFIX + "KEY", static_cast<int64_t>(key));
-    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER", counter);
-    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", static_cast<int64_t>(rounds));
+    auto &op = function.AddOperation(Opcode::OP_UNIFORM, {}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", key);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER0", counter0);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", counter1);
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", rounds);
     op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
     return result;
 }
 
-static void TiledRandomBuildIn(Function &function, const TileShape &tileShape,    const LogicalTensorPtr &result, TileInfo &resultTileInfo, uint64_t key,    const std::vector<uint64_t> &baseCounter, uint16_t rounds,    const std::vector<int64_t> &shape) {
-    std::cout << "[Random Trace] TiledRandomBuildIn() called" << std::endl;
-    std::cout << "[Random Trace]   key: " << key << std::endl;
-    std::cout << "[Random Trace]   baseCounter: [" << baseCounter[0] << ", " << baseCounter[1] << "]" << std::endl;
-    std::cout << "[Random Trace]   rounds: " << rounds << std::endl;
-    std::cout << "[Random Trace]   shape: [";
+static void TiledUniformBuildIn(Function &function, const TileShape &tileShape, const LogicalTensorPtr &result, 
+    TileInfo &resultTileInfo, uint64_t key, uint64_t counter0, uint64_t counter1, uint16_t rounds, 
+    const std::vector<int64_t> &shape) {
+    std::cout << "[Uniform Trace] TiledUniformBuildIn() called" << std::endl;
+    std::cout << "[Uniform Trace]   key: " << key << std::endl;
+    std::cout << "[Uniform Trace]   counter0: " << counter0 << ", counter1: " << counter1 << std::endl;
+    std::cout << "[Uniform Trace]   rounds: " << rounds << std::endl;
+    std::cout << "[Uniform Trace]   shape: [";
     for (size_t i = 0; i < shape.size(); ++i) {
         std::cout << shape[i];
         if (i < shape.size() - 1) {
@@ -85,40 +84,65 @@ static void TiledRandomBuildIn(Function &function, const TileShape &tileShape,  
     
     auto &vecTile = tileShape.GetVecTile();
     
-    std::cout << "[Random Debug] result->shape[0]: " << result->shape[0] << std::endl;
-    std::cout << "[Random Debug] vecTile[0]: " << vecTile[0] << std::endl;
+    std::cout << "[Uniform Debug] result->shape[0]: " << result->shape[0] << std::endl;
+    std::cout << "[Uniform Debug] vecTile[0]: " << vecTile[0] << std::endl;
     
     for (int64_t i = 0; i < result->shape[0]; i += vecTile[0]) {
-        std::cout << "[Random Trace]   TiledRandomBuildIn() loop iteration, i = " << i << std::endl;
+        std::cout << "[Uniform Trace]   TiledUniformBuildIn() loop iteration, i = " << i << std::endl;
         resultTileInfo.offset[0] = i;
         resultTileInfo.shape[0] = std::min(result->shape[0] - resultTileInfo.offset[0], vecTile[0]);
         
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         
-        std::vector<uint64_t> tileCounter = SkipCounter(baseCounter, static_cast<uint64_t>(i));
+        uint64_t tileCounter0 = counter0;
+        uint64_t tileCounter1 = counter1;
+        SkipCounter(tileCounter0, tileCounter1, static_cast<uint64_t>(i));
         
-        auto &op = function.AddOperation(Opcode::OP_RANDOM, {}, {resultTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "KEY", static_cast<int64_t>(key));
-        op.SetAttribute(OP_ATTR_PREFIX + "COUNTER", tileCounter);
-        op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", static_cast<int64_t>(rounds));
+        auto &op = function.AddOperation(Opcode::OP_UNIFORM, {}, {resultTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+        op.SetAttribute(OP_ATTR_PREFIX + "COUNTER0", Element(DT_UINT64, tileCounter0));
+        op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, tileCounter1));
+        op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
         op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
     }
 }
 
-void RandomOperationTileFunc(Function &function, const TileShape &tileShape,
+void UniformOperationTileFunc(Function &function, const TileShape &tileShape,
     [[maybe_unused]] const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     const Operation &op) {
-    std::cout << "[Random Trace] RandomOperationTileFunc() called" << std::endl;
+    std::cout << "[Uniform Trace] UniformOperationTileFunc() called" << std::endl;
     
-    uint64_t key = static_cast<uint64_t>(op.GetIntAttribute(OP_ATTR_PREFIX + "KEY"));
-    
-    auto counterAttr = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "COUNTER");
-    std::vector<uint64_t> counter;
-    for (auto val : counterAttr) {
-        counter.push_back(static_cast<uint64_t>(val));
+    uint64_t key = 0;
+    if (op.HasAttr(OP_ATTR_PREFIX + "KEY")) {
+        auto keyAttr = op.GetAttribute(OP_ATTR_PREFIX + "KEY");
+        if (keyAttr.HasValue()) {
+            key = AnyCast<Element>(keyAttr).Cast<uint64_t>();
+        }
     }
     
-    uint16_t rounds = static_cast<uint16_t>(op.GetIntAttribute(OP_ATTR_PREFIX + "ROUNDS"));
+    uint64_t counter0 = 0;
+    if (op.HasAttr(OP_ATTR_PREFIX + "COUNTER0")) {
+        auto counter0Attr = op.GetAttribute(OP_ATTR_PREFIX + "COUNTER0");
+        if (counter0Attr.HasValue()) {
+            counter0 = AnyCast<Element>(counter0Attr).Cast<uint64_t>();
+        }
+    }
+    
+    uint64_t counter1 = 0;
+    if (op.HasAttr(OP_ATTR_PREFIX + "COUNTER1")) {
+        auto counter1Attr = op.GetAttribute(OP_ATTR_PREFIX + "COUNTER1");
+        if (counter1Attr.HasValue()) {
+            counter1 = AnyCast<Element>(counter1Attr).Cast<uint64_t>();
+        }
+    }
+    
+    uint16_t rounds = 10;
+    if (op.HasAttr(OP_ATTR_PREFIX + "ROUNDS")) {
+        auto roundsAttr = op.GetAttribute(OP_ATTR_PREFIX + "ROUNDS");
+        if (roundsAttr.HasValue()) {
+            rounds = AnyCast<Element>(roundsAttr).Cast<uint16_t>();
+        }
+    }
     
     auto shapeAttr = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "SHAPE");
     std::vector<int64_t> shape;
@@ -127,16 +151,16 @@ void RandomOperationTileFunc(Function &function, const TileShape &tileShape,
     }
     
     TileInfo resultTileInfo(shape.size(), shape.size());
-    TiledRandomBuildIn(function, tileShape, oOperand[0], resultTileInfo, key, counter, rounds, shape);
+    TiledUniformBuildIn(function, tileShape, oOperand[0], resultTileInfo, key, counter0, counter1, rounds, shape);
 }
 
-static Tensor RealRandom(uint64_t key, const std::vector<uint64_t> &counter,
+static Tensor RealUniform(uint64_t key, uint64_t counter0, uint64_t counter1,
     const std::vector<int64_t> &shape, uint16_t rounds) {
-    std::cout << "[Random Trace] RealRandom() called" << std::endl;
-    std::cout << "[Random Trace]   key: " << key << std::endl;
-    std::cout << "[Random Trace]   counter: [" << counter[0] << ", " << counter[1] << "]" << std::endl;
-    std::cout << "[Random Trace]   rounds: " << rounds << std::endl;
-    std::cout << "[Random Trace]   shape: [";
+    std::cout << "[Uniform Trace] RealUniform() called" << std::endl;
+    std::cout << "[Uniform Trace]   key: " << key << std::endl;
+    std::cout << "[Uniform Trace]   counter0: " << counter0 << ", counter1: " << counter1 << std::endl;
+    std::cout << "[Uniform Trace]   rounds: " << rounds << std::endl;
+    std::cout << "[Uniform Trace]   shape: [";
     for (size_t i = 0; i < shape.size(); ++i) {
         std::cout << shape[i];
         if (i < shape.size() - 1) {
@@ -147,17 +171,19 @@ static Tensor RealRandom(uint64_t key, const std::vector<uint64_t> &counter,
     
     DECLARE_TRACER();
     
-    auto resTensor = Tensor(DT_UINT32, shape);
-    RETURN_CALL(Random, *Program::GetInstance().GetCurrentFunction(), resTensor.GetStorage(), key, counter, rounds, shape);
+    auto resTensor = Tensor(DT_FLOAT, shape);
+    RETURN_CALL(Uniform, *Program::GetInstance().GetCurrentFunction(), resTensor.GetStorage(), 
+                Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), 
+                Element(DT_UINT16, rounds), shape);
 }
 
-Tensor Random(uint64_t key, const std::vector<uint64_t> &counter,
-    const std::vector<int64_t> &shape, uint16_t rounds) {
-    std::cout << "[Random Trace] Random() called" << std::endl;
-    std::cout << "[Random Trace]   key: " << key << std::endl;
-    std::cout << "[Random Trace]   counter: [" << counter[0] << ", " << counter[1] << "]" << std::endl;
-    std::cout << "[Random Trace]   rounds: " << rounds << std::endl;
-    std::cout << "[Random Trace]   shape: [";
+Tensor Uniform(const Element &key, const Element &counter0, const Element &counter1,
+    const std::vector<int64_t> &shape, const Element &rounds) {
+    std::cout << "[Uniform Trace] Uniform() called" << std::endl;
+    std::cout << "[Uniform Trace]   key: " << key.Cast<uint64_t>() << std::endl;
+    std::cout << "[Uniform Trace]   counter0: " << counter0.Cast<uint64_t>() << ", counter1: " << counter1.Cast<uint64_t>() << std::endl;
+    std::cout << "[Uniform Trace]   rounds: " << rounds.Cast<uint16_t>() << std::endl;
+    std::cout << "[Uniform Trace]   shape: [";
     for (size_t i = 0; i < shape.size(); ++i) {
         std::cout << shape[i];
         if (i < shape.size() - 1) {
@@ -166,16 +192,15 @@ Tensor Random(uint64_t key, const std::vector<uint64_t> &counter,
     }
     std::cout << "]" << std::endl;
     
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, counter.size() == 2)
-        << "Random: counter must have 2 elements";
+    uint16_t roundsVal = rounds.Cast<uint16_t>();
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, shape.size() == 1)
-        << "Random: shape must be 1-dimensional";
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, rounds == 7 || rounds == 10)
-        << "Random: rounds must be 7 or 10";
+        << "Uniform: shape must be 1-dimensional";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, roundsVal == 7 || roundsVal == 10)
+        << "Uniform: rounds must be 7 or 10";
     
-    return RealRandom(key, counter, shape, rounds);
+    return RealUniform(key.Cast<uint64_t>(), counter0.Cast<uint64_t>(), counter1.Cast<uint64_t>(), shape, roundsVal);
 }
 
-REGISTER_OPERATION_TILED_FUNC(OP_RANDOM, Opcode::OP_RANDOM, RandomOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_UNIFORM, Opcode::OP_UNIFORM, UniformOperationTileFunc);
 
 }  // namespace npu::tile_fwk

@@ -21,61 +21,67 @@ from numpy.testing import assert_allclose
 import torch_npu
 
 
-def random_golden(key, counter, shape, rounds):
+def random_golden(key, counter0, counter1, shape, rounds):
+    def uint32(x):
+        return x & 0xFFFFFFFF
+
     def multiply_high_low(a, b):
         product = a * b
-        hi = (product >> 32) & 0xFFFFFFFF
-        lo = product & 0xFFFFFFFF
+        hi = uint32(product >> 32)
+        lo = uint32(product)
         return lo, hi
     
-    def philox_single_round(counter, key):
+    def philox_single_round(counter, key0, key1):
         lo0, hi0 = multiply_high_low(0xD2511F53, counter[0])
         lo1, hi1 = multiply_high_low(0xCD9E8D57, counter[2])
         
         return [
-            hi1 ^ counter[1] ^ key[0],
-            lo1,
-            hi0 ^ counter[3] ^ key[1],
-            lo0
+            uint32(hi1 ^ counter[1] ^ key0),
+            uint32(lo1),
+            uint32(hi0 ^ counter[3] ^ key1),
+            uint32(lo0)
         ]
     
-    def raise_key(key):
-        return [
-            (key[0] + 0x9E3779B9) & 0xFFFFFFFF,
-            (key[1] + 0xBB67AE85) & 0xFFFFFFFF
-        ]
+    def raise_key(key0, key1):
+        return (
+            uint32(key0 + 0x9E3779B9),
+            uint32(key1 + 0xBB67AE85)
+        )
     
     total_elements = 1
     for dim in shape:
         total_elements *= dim
     
     result = np.zeros(total_elements, dtype=np.uint32)
+
+    init_key0 = uint32(key)
+    init_key1 = uint32(key >> 32)
     
-    key_lo = key & 0xFFFFFFFF
-    key_hi = (key >> 32) & 0xFFFFFFFF
-    current_key = [key_lo, key_hi]
-    
-    counter_lo0 = counter[0] & 0xFFFFFFFF
-    counter_hi0 = (counter[0] >> 32) & 0xFFFFFFFF
-    counter_lo1 = counter[1] & 0xFFFFFFFF
-    counter_hi1 = (counter[1] >> 32) & 0xFFFFFFFF
-    current_counter = [counter_lo0, counter_hi0, counter_lo1, counter_hi1]
+    original_counter = [
+        uint32(counter0),
+        uint32(counter0 >> 32),
+        uint32(counter1),
+        uint32(counter1 >> 32)
+    ]
     
     for i in range(0, total_elements, 4):
+        key0, key1 = init_key0, init_key1
+        current_counter = original_counter.copy()
+
         for _ in range(rounds):
-            current_counter = philox_single_round(current_counter, current_key)
-            current_key = raise_key(current_key)
+            current_counter = philox_single_round(current_counter, key0, key1)
+            key0, key1 = raise_key(key0, key1)
         
         for j in range(min(4, total_elements - i)):
             result[i + j] = current_counter[j]
         
-        current_counter[0] = (current_counter[0] + 1) & 0xFFFFFFFF
-        if current_counter[0] == 0:
-            current_counter[1] = (current_counter[1] + 1) & 0xFFFFFFFF
-            if current_counter[1] == 0:
-                current_counter[2] = (current_counter[2] + 1) & 0xFFFFFFFF
-                if current_counter[2] == 0:
-                    current_counter[3] = (current_counter[3] + 1) & 0xFFFFFFFF
+        original_counter[0] = uint32(original_counter[0] + 1)
+        if original_counter[0] == 0:
+            original_counter[1] = uint32(original_counter[1] + 1)
+            if original_counter[1] == 0:
+                original_counter[2] = uint32(original_counter[2] + 1)
+                if original_counter[2] == 0:
+                    original_counter[3] = uint32(original_counter[3] + 1)
     
     return result.reshape(shape)
 
@@ -94,7 +100,8 @@ def test_random_onboard():
     loop_num = math.ceil(output_shape[0] / view_shape[0])
     
     key = 12345678901234
-    counter = [0, 0]
+    counter0 = 0
+    counter1 = 0
     rounds = 10
     
     with pypto.function("MAIN", output):
@@ -105,7 +112,7 @@ def test_random_onboard():
                                     pypto.symbolic_scalar(view_shape[0]))
             
             pypto.set_vec_tile_shapes(tile_shape[0])
-            res = pypto.random(key, counter, view_shape, rounds)
+            res = pypto.random(key, counter0, counter1, view_shape, rounds)
             pypto.assemble(res, [offset], output)
 
     assert isinstance(output, pypto.tensor)
@@ -115,7 +122,7 @@ def test_random_onboard():
     pto_out = pypto.from_torch(torch.from_numpy(out_data), "PTO_TENSOR_output")
     pypto.runtime._device_run_once_data_from_host(pto_out)
     
-    golden = random_golden(key, counter, output_shape, rounds)
+    golden = random_golden(key, counter0, counter1, output_shape, rounds)
     
     assert_allclose(out_data.flatten(), golden.flatten())
     
@@ -136,7 +143,8 @@ def test_random_onboard_large():
     loop_num = math.ceil(output_shape[0] / view_shape[0])
     
     key = 99999999999999
-    counter = [100, 200]
+    counter0 = 100
+    counter1 = 200
     rounds = 10
     
     with pypto.function("MAIN", output):
@@ -147,7 +155,7 @@ def test_random_onboard_large():
                                     pypto.symbolic_scalar(view_shape[0]))
             
             pypto.set_vec_tile_shapes(tile_shape[0])
-            res = pypto.random(key, counter, view_shape, rounds)
+            res = pypto.random(key, counter0, counter1, view_shape, rounds)
             pypto.assemble(res, [offset], output)
 
     assert isinstance(output, pypto.tensor)
@@ -157,7 +165,7 @@ def test_random_onboard_large():
     pto_out = pypto.from_torch(torch.from_numpy(out_data), "PTO_TENSOR_output")
     pypto.runtime._device_run_once_data_from_host(pto_out)
     
-    golden = random_golden(key, counter, output_shape, rounds)
+    golden = random_golden(key, counter0, counter1, output_shape, rounds)
     
     assert_allclose(out_data.flatten(), golden.flatten())
     
