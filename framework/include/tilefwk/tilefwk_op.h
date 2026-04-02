@@ -269,20 +269,19 @@ Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vec
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);
-Tensor Var(const Tensor& input, const std::vector<int>& dim = {}, float correction = 1.0f, bool keepDim = false);
-Tensor Softmax(const Tensor& operand);
-Tensor RmsNorm(const Tensor& operand);
-Tensor RmsNorm(const Tensor& operand, const Tensor& gamma, float epsilon = 1e-05f);
-Tensor Cat(const std::vector<Tensor>& tensors, int axis);
-Tensor NewCompact(const Tensor& operand);
-Tensor LogicalNot(const Tensor& self);
-Tensor Range(const Element& start, const Element& end, const Element& step);
-Tensor LogicalAnd(const Tensor& self, const Tensor& other);
-Tensor IsFinite(const Tensor& self);
-Tensor Assign(const Tensor& operand);
-
-Tensor Random(uint64_t key, const std::vector<uint64_t> &counter,
-              const std::vector<int64_t> &shape, uint16_t rounds = 10);
+Tensor Var(const Tensor &input, const std::vector<int> &dim = {}, float correction = 1.0f, bool keepDim = false);
+Tensor Softmax(const Tensor &operand);
+Tensor RmsNorm(const Tensor &operand);
+Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05f);
+Tensor Cat(const std::vector<Tensor> &tensors, int axis);
+Tensor NewCompact(const Tensor &operand);
+Tensor LogicalNot(const Tensor &self);
+Tensor Range(const Element &start, const Element &end, const Element &step);
+Tensor LogicalAnd(const Tensor &self, const Tensor &other);
+Tensor Random(const Element &key, const Element &counter0, const Element &counter1,
+              const std::vector<int64_t> &shape, const Element &rounds = Element(DT_UINT16, static_cast<uint16_t>(10)));
+Tensor IsFinite(const Tensor &self);
+Tensor Assign(const Tensor &operand);
 
 // Implementation of `Tensor` type should be placed at first, so that it can be routed when only single input.
 Tensor Clip(const Tensor& self, const Tensor& min = {}, const Tensor& max = {});
