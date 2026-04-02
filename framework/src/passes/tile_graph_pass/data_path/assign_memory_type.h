@@ -41,6 +41,9 @@ private:
     void AssignMemUnknown(Function& function);
     void ProcessAmulBInput(Operation& operation, LogicalTensorPtr& tensor);
     void ProcessAssemblewithSpecificMem(Operation& operation);
+    bool CheckConsumerRequirements(const LogicalTensorPtr &output, MemoryType targetMemType) const;
+    void SetupAssembleMapping(Operation &operation, const LogicalTensorPtr &input,
+                               const LogicalTensorPtr &output, MemoryType targetMemType);
     void ProcessViewwithSpecificMem(Operation& operation);
     void AssignSpecialOpMemtype(Operation& op, bool& infoBufferSize);
     void AssignOpReshapeMemtype(Operation& op);
