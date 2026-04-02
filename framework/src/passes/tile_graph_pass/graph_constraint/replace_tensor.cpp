@@ -996,7 +996,7 @@ void ReplaceTensor::FindNeedToCopyAssemble(
     auto consumers = assembleIn->GetConsumers();
     bool sameAssembleOut = true;
     for (const auto& con : consumers) {
-        if (con->GetOOperands()[0]->GetMagic() != op.GetOOperands()[0]->GetMagic()) {
+        if (con->GetOOperands()[0]->tensor->GetRawMagic() != op.GetOOperands()[0]->tensor->GetRawMagic()) {
             sameAssembleOut = false;
             break;
         }

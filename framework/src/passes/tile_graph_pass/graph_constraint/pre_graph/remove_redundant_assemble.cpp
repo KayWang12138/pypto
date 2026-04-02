@@ -775,7 +775,6 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function& function) cons
                     return FAILED;
                 }
             }
-            
         }
     }
     if (ProcessView(function) != SUCCESS) {
