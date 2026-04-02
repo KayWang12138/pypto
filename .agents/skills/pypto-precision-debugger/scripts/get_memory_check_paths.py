@@ -6,7 +6,7 @@ import sys
 import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import setup_logging, validate_path, find_trace_log_dir, get_latest_dyn_topo
+from common import setup_logging, validate_path, find_trace_log_dir, get_latest_output_subdir
 
 setup_logging()
 
@@ -17,7 +17,7 @@ def print_usage():
     logger.info("用法: python3 get_memory_check_paths.py <log_base_path> <output_path>")
     logger.info("")
     logger.info("参数说明:")
-    logger.info("  log_base_path: 落盘日志根目录（如 ./my_log）")
+    logger.info("  log_base_path: 落盘日志根目录")
     logger.info("  output_path:   运行目录中的 output 目录路径")
 
 
@@ -49,7 +49,7 @@ def main():
 
     logger.info("找到 trace 日志目录: %s", trace_log_dir)
 
-    dyn_topo_path, error_msg = get_latest_dyn_topo(output_path)
+    dyn_topo_path, error_msg = get_latest_output_subdir(output_path, 'dyn_topo.txt')
     if not dyn_topo_path:
         logger.error(error_msg)
         sys.exit(1)
@@ -61,9 +61,6 @@ def main():
     logger.info("内存重叠检测命令:")
     logger.info("python3 tools/schema/schema_memory_check.py -d %s -t %s", trace_log_dir, dyn_topo_path)
     logger.info("=" * 60)
-
-    print(trace_log_dir)
-    print(dyn_topo_path)
 
     sys.exit(0)
 
