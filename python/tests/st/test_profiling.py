@@ -70,7 +70,7 @@ def _csv_contains_pypto(csv_file: str) -> bool:
         with open(csv_file, "r", encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
             return any(
-                "PYPTO_add_direct_kernel" in row.get("Op Name", "")
+                "PYPTO_add_kernel" in row.get("Op Name", "")
                 and "PyPTO" in row.get("OP Type", "")
                 for row in reader
             )
@@ -147,19 +147,19 @@ def _collect_kernel_detail_files(profiler_output_dir: str):
     )
 
 
-@pytest.mark.skip(reason="accuracy issues")
+@pytest.mark.soc("950", "910")
 def test_msprof_profiling_pypto_op_summary():
     """
     看护用例：验证 msprof 性能采集功能
-    1. 执行 msprof python examples/01_beginner/basic/add_direct.py
+    1. 执行 msprof python examples/00_hello_world/hello_world.py
     2. 验证 PROF*/mindstudio_profiler_output/op_summary_*.csv 文件生成
-    3. 验证 CSV 文件中 Op Name 包含 PYPTO_add_direct_kernel 字样，且 OP Type 包含 PyPTO 字样
+    3. 验证 CSV 文件中 Op Name 包含 PYPTO_add_kernel 字样，且 OP Type 包含 PyPTO 字样
     """
     root_dir = _get_root_dir()
     prof_base_dir = _get_prof_base_dir(root_dir)
     _clean_prof_dirs(prof_base_dir)
     add_direct_script = os.path.join(
-        root_dir, "examples", "01_beginner", "basic", "add_direct.py"
+        root_dir, "examples", "00_hello_world", "hello_world.py"
     )
     assert os.path.exists(add_direct_script), f"脚本不存在: {add_direct_script}"
 
@@ -175,7 +175,7 @@ def test_msprof_profiling_pypto_op_summary():
     )
 
     assert pypto_found, (
-        f"在 op_summary CSV 文件中未找到同时满足 Op Name 包含 PYPTO_add_direct_kernel 且 OP Type 包含 PyPTO 的记录。\n"
+        f"在 op_summary CSV 文件中未找到同时满足 Op Name 包含 PYPTO_add_kernel 且 OP Type 包含 PyPTO 的记录。\n"
         f"已检查的 CSV 文件: {op_summary_files_found}"
     )
 
@@ -183,12 +183,13 @@ def test_msprof_profiling_pypto_op_summary():
         shutil.rmtree(prof_dir, ignore_errors=True)
 
 
+@pytest.mark.soc("950", "910")
 def test_torch_npu_profiler_collect_pypto_kernel_details():
     """
     看护用例：验证 torch_npu.profiler 能正确采集到 PyPTO 内核信息
     1. 在测试中直接定义并执行 add_direct_kernel
     2. 在 ./add_direct_profiler 下递归查找 kernel_details.csv
-    3. 校验 Type 包含 PyPTO 且 Name 包含 PyPYPTO_add_direct_kernel
+    3. 校验 Type 包含 PyPTO 且 Name 包含 PyPYPTO_add_kernel
     4. 清理 add_direct_profiler 文件夹
     """
     root_dir = _get_root_dir()
