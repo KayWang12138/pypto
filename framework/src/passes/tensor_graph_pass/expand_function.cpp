@@ -184,7 +184,7 @@ Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
             APASS_LOG_ERROR_F( 
                 Elements::Function,
                 "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: "
-                "sg_set_scope=%d", 
+                "sg_set_scope=%d",
                 function.GetRawName().c_str(), info.scopeId);
             return FAILED;
         }

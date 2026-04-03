@@ -279,8 +279,9 @@ Status MergeViewAssembleUtils::ProcessChainEnd(Function& function, std::vector<O
     }
     // 获取链路上第一个非空的sourceLocation
     SourceLocationPtr firstSourceLocation = GetFirstSourceLocation(chain);
-     Operation::ScopeInfo chainScopeInfo = GetChainScopeInfo(chain);
-     RecordMergedViewOperation(endOp, startTensor, endTensor, newOffset, newDynOffset, newDynValidShape,
+    Operation::ScopeInfo chainScopeInfo = GetChainScopeInfo(chain);
+    // 记录合并操作
+    RecordMergedViewOperation(endOp, startTensor, endTensor, newOffset, newDynOffset, newDynValidShape,
                               firstSourceLocation, chainScopeInfo);
 
     // 清理链尾
