@@ -31,7 +31,7 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
     std::vector<std::string> paramList;
     auto dynDstShape = dynamicValidShape[0];
     std::vector<SymbolicScalar> newDynDstShape = dynDstShape;
-    FillIntVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
     paramList.insert(paramList.end(), {dstDtypeStr, srcDtypeStr});
     for (int i = ID1; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(ds[i]));
@@ -139,7 +139,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     reduceAxis += SHAPE_DIM4 - rawShape[0].size();
     std::vector<int64_t> srcShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> dstShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - rawShape[0].size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - rawShape[0].size(), 1);
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -301,10 +301,10 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
     const std::string& s0Var = param.s0Var;
     auto dynDstShape = dynamicValidShape[0];
     std::vector<SymbolicScalar> newDynDstShape = dynDstShape;
-    FillIntVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
     auto dynSrcShape = dynamicValidShape[1];
     std::vector<SymbolicScalar> newDynSrcShape = dynSrcShape;
-    FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcShape, SHAPE_DIM4 - dynSrcShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(newDynSrcShape, SHAPE_DIM4 - dynSrcShape.size(), 1);
     std::ostringstream os;
     std::vector<std::string> paramList;
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
@@ -439,7 +439,7 @@ std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam& param) const
     paramList.emplace_back(src0);
 
     auto dynSrcShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM3 - dynSrcShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM3 - dynSrcShape.size(), 1);
     for (auto dynShape : dynSrcShape) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
@@ -481,7 +481,7 @@ std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam&
     paramList.emplace_back(src0);
 
     auto dynSrcShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
     for (auto dynShape : dynSrcShape) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
