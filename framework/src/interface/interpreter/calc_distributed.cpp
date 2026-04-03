@@ -56,4 +56,98 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     }
 }
 REGISTER_CALC_OP(OP_BIND_TENSOR, Opcode::OP_BIND_TENSOR, ExecuteOpBindTensor);
+
+void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 2);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1 || ctx->ooperandInplaceDataViewList->size() == 2);
+    auto &in = ctx->ioperandDataViewList->at(0);
+
+    ShmemSetAttr attr;
+    ctx->op->GetAttribute(OpAttributeKey::distOpAttr, attr);
+    
+    std::shared_ptr<SimulationCommContext> context = SimulationCommContext::Instance().GetCommContext(attr.group);
+    bool isSignal = (attr.setType == 1);
+    if (!isSignal) {
+        context->Signal(context->GetRank(), 0, in->GetSize() * BytesOf(in->GetDataType()));
+    } else {
+        context->Set(context->GetRank(), 0, in->GetSize() * BytesOf(in->GetDataType()));
+    }
+}
+REGISTER_CALC_OP(OP_SHMEM_SET, Opcode::OP_SHMEM_SET, ExecuteOpShmemSet);
+
+void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 3);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    auto &in = ctx->ioperandDataViewList->at(1);
+    auto &out = ctx->ooperandInplaceDataViewList->at(0);
+
+    ShmemPutAttr attr;
+    ctx->op->GetAttribute(OpAttributeKey::distOpAttr, attr);
+    
+    std::shared_ptr<SimulationCommContext> context = SimulationCommContext::Instance().GetCommContext(attr.group);
+    int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
+    int atomicType = 0;
+    if (attr.atomicType == AtomicType.ADD) {
+        atomicType = 0;
+    }
+    if (attr.atomicType == AtomicType.ADD) {
+        atomicType = 1;
+    }
+    context->Put(dstRank, 0, in->GetSize() * BytesOf(in->GetDataType()), atomicType);
+}
+REGISTER_CALC_OP(OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT, ExecuteOpShmemPut);
+
+void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 2);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
+    auto &in = ctx->ioperandDataViewList->at(1);
+
+    ShmemSignalAttr attr;
+    ctx->op->GetAttribute(OpAttributeKey::distOpAttr, attr);
+    
+    std::shared_ptr<SimulationCommContext> context = SimulationCommContext::Instance().GetCommContext(attr.group);
+    int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
+    int atomicType = 0;
+    if (attr.atomicType == AtomicType.ADD) {
+        atomicType = 0;
+    }
+    if (attr.atomicType == AtomicType.ADD) {
+        atomicType = 1;
+    }
+    int value = attr.signalValue;
+    bool notifyAll = attr.notifyAll;
+    context->Signal(dstRank, value, in->GetSize() * BytesOf(in->GetDataType()), atomicType, notifyAll);
+}
+REGISTER_CALC_OP(OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_SIGNAL, ExecuteOpShmemSignal);
+
+void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 2);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    auto &in = ctx->ioperandDataViewList->at(1);
+
+    ShmemWaitUntilAttr attr;
+    ctx->op->GetAttribute(OpAttributeKey::distOpAttr, attr);
+    
+    std::shared_ptr<SimulationCommContext> context = SimulationCommContext::Instance().GetCommContext(attr.group);
+    int srcRank = context->GetRank();
+    int expect = attr.expectedSum;
+    bool reset = attr.resetSignal;
+    context->Wait(srcRank, expect, in->GetSize() * BytesOf(in->GetDataType()), reset);
+}
+REGISTER_CALC_OP(OP_SHMEM_WAIT_UNTIL, Opcode::OP_SHMEM_WAIT_UNTIL, ExecuteOpShmemWaitUntil);
+
+void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 2);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
+    auto &in = ctx->ioperandDataViewList->at(1);
+
+    ShmemGetAttr attr;
+    ctx->op->GetAttribute(OpAttributeKey::distOpAttr, attr);
+    
+    std::shared_ptr<SimulationCommContext> context = SimulationCommContext::Instance().GetCommContext(attr.group);
+    int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.srcRank);
+    context->Get(srcRank, in->GetSize() * BytesOf(in->GetDataType()));
+}
+REGISTER_CALC_OP(OP_SHMEM_GET, Opcode::OP_SHMEM_GET, ExecuteOpShmemGet);
+
 }
