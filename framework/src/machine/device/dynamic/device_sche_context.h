@@ -50,7 +50,7 @@ struct SchDeviceTaskContext {
     WrapManager wrapManager;
 
     // for sync task finish
-    std::array<bool, MAX_AICORE_NUM> coreTaskFinished;
+    std::array<uint8_t, MAX_AICORE_NUM> coreTaskFinished;
     uint32_t coreFinishedNum{0};
 
     DeviceTaskCtrl* GetDeviceTaskCtrl() { return taskCtrl; }
@@ -90,7 +90,7 @@ struct SchDeviceTaskContext {
         lastSent = 0;
         allSent = 0;
         curStage = DevTaskExecStage::INIT;
-        coreTaskFinished.fill(false);
+        coreTaskFinished.fill(0);
         coreFinishedNum = 0;
     }
 
