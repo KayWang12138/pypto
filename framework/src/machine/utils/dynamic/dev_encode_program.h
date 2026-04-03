@@ -70,6 +70,8 @@ struct DevAscendProgram {
         struct {
             uint64_t general;
             uint64_t stitchPool;
+            uint32_t generalSlabSize;
+            uint32_t stitchSlabSize;
 
             uint64_t Total() const { return general + stitchPool; }
         } metadata;

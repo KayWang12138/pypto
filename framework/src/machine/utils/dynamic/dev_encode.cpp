@@ -48,12 +48,13 @@ constexpr int32_t MAX_AICORE_NUM_2210 = 75;
 constexpr int32_t MAX_AICORE_NUM_3510 = 108;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
-constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
-static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
+static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 2 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 static uint32_t MAX_UNROLL_TIMES = 1;                 // the max num of unroll_list
+constexpr size_t CALC_STITCH_NUM =
+    ToUnderlying(WsAicpuSlabMemType::DUPPED_STITCH) - ToUnderlying(WsAicpuSlabMemType::READY_QUE);
 void DevAscendFunction::InitIncastOutcastAttr(
     uintdevptr_t& initOffset, const std::vector<std::shared_ptr<LogicalTensor>>& iList,
     const std::vector<std::shared_ptr<LogicalTensor>>& oList, bool /* fillContent */)
@@ -273,8 +274,10 @@ static void EncodeRawShape(
     int64_t nelm = std::max(GetShapeSizeSafe(rawTensor->oriRawshape), GetShapeSizeSafe(rawTensor->rawshape));
     encoded->maxStaticMemReq = AlignUp(nelm * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT);
     if (nelm > MAX_SHAPE_WARN_THRESHOLE) {
-        MACHINE_LOGW("[workspaceSize] Root=[%s], symbol=[%s],rawmagic=[%d]: staticMemReq=[%lu] is too larger, which might indicate an error",
- 	                  rootName.c_str(), rawTensor->symbol.c_str(), rawTensor->GetRawMagic(),encoded->maxStaticMemReq);
+        MACHINE_LOGW(
+            "[workspaceSize] Root=[%s], symbol=[%s],rawmagic=[%d]: staticMemReq=[%lu] is too larger, which might "
+            "indicate an error",
+            rootName.c_str(), rawTensor->symbol.c_str(), rawTensor->GetRawMagic(), encoded->maxStaticMemReq);
     }
 }
 
@@ -2505,9 +2508,11 @@ static void ProcessDevFunctionOutcasts(
         devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
 
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
-    maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
-    MACHINE_LOGI("[workspaceSize] Rootfunction: %s ->MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
- 	               devFunc->GetRawName(), maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
+    maxDevTaskInnerExclusiveOutcastMem =
+        std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
+    MACHINE_LOGI(
+        "[workspaceSize] Rootfunction: %s ->MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
+        devFunc->GetRawName(), maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
     maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
 }
 
@@ -2574,11 +2579,11 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram* devProg)
     uint64_t itemPoolMemSize = DeviceWorkspaceAllocator::CalcMetadataItemPoolMemSize(devProg);
     uint64_t vectorMemSize = DeviceWorkspaceAllocator::CalcMetadataVectorMemSize(devProg);
     uint64_t slotAllocatorMemSize = DeviceWorkspaceAllocator::CalcMetadataSlotAllocatorMemSize(devProg);
-    MACHINE_LOGI("[workspaceSize] ItemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu.,",
-                  itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
+    MACHINE_LOGI(
+        "[workspaceSize] ItemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu.,",
+        itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
     static constexpr uint64_t AICPU_SLOT_STATIC_MEMSIZE = 2 * MEBI;
-    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + 
-                              slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
+    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
     MACHINE_LOGI("[workspaceSize] Workspace of generalMetadataSlotSize is %lu., ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
@@ -2589,40 +2594,52 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
     uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
     uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
     size_t objUsedNum[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)]{
-        ExpectedMaxCachedNum(),         // DevFunctionDupped
-        1,                              // DynFuncData
-        1,                              // VecStitchList
-        1,                              // DynDevTask
-        READY_QUEUE_SIZE,               // ReadyQue
-        DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
-        1,
-        1,
+        ExpectedMaxCachedNum(), // DevFunctionDupped
+        1,                      // DynFuncData
+        1,                      // VecStitchList
+        1,                      // DynDevTask
     };
     workspace.CalculateSlabCapacityPerType(
         slabSize, slabCapacity, ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
 
-    for (int i=0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
+    for (int i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
         MACHINE_LOGI("SlabCapacity[%d] is %u.", i, slabCapacity[i]);
         if (slabCapacity[i] == 0) {
             continue;
         }
         uint32_t requiredSlabNum = (objUsedNum[i] + slabCapacity[i] - 1) / slabCapacity[i];
         // alloc redundant slabpage for DuppedFunction and Readyque to prevent memory border situations
-        if(i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA) ||
-         i == ToUnderlying(WsAicpuSlabMemType::READY_QUE)) requiredSlabNum++;
+        if (i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA))
+            requiredSlabNum++;
         MACHINE_LOGI("[workspaceSize] RequiredSlabNum[%d] is %u.", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
-    MACHINE_LOGI("[workspaceSize] General->MetadataSlabSize is %lu.", static_cast<unsigned long>(generalMetadataSlabSize));
-    generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
+    MACHINE_LOGI(
+        "[workspaceSize] General->MetadataSlabSize is %lu.", static_cast<unsigned long>(generalMetadataSlabSize));
+    generalMetadataSlabSize =
+        (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
     return generalMetadataSlabSize;
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram& devProg)
 {
-    (void)devProg;
-    static constexpr uint64_t AICPU_STITCH_SIZE = 2 * MEBI;
-    return AICPU_STITCH_SIZE;
+    DeviceWorkspaceAllocator workspace(&devProg);
+    uint32_t slabCapacity[CALC_STITCH_NUM] = {0};
+    uint32_t objUsedNum[CALC_STITCH_NUM] = {READY_QUEUE_SIZE, DIE_READY_QUEUE_SIZE * DIE_NUM, 1, 1};
+    uint32_t slabSize = workspace.CalcStitchSlabMemObjmaxSize(slabCapacity);
+    // DUPPED_STITCH, enture greater than 2mb
+    uint64_t stitchPoolSize = slabSize << 1;
+
+    for (size_t i = 0; i < CALC_STITCH_NUM; ++i) {
+        if (slabCapacity[i] == 0) {
+            continue;
+        }
+        uint32_t requiredSlabNum =
+            ((objUsedNum[i] << 1) + slabCapacity[i] - 1) / slabCapacity[i]; // UsedNum * 2 for stitch double devFunc
+        stitchPoolSize += slabSize * requiredSlabNum;
+    }
+    MACHINE_LOGD("[workspaceSize] Stitch pool size is %lu, with slab size:%u.", stitchPoolSize, slabSize);
+    return stitchPoolSize;
 }
 
 static uint64_t DumpTensorWorkspace()
