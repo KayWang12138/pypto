@@ -222,6 +222,8 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
 
     torch_dtype = _torch_dtype_dict.get(dtype)
     if torch_dtype is None:
+        if dtype == DataType.DT_FP4_E2M1X2 or dtype == DataType.DT_FP4_E1M2X2:
+            return torch.uint8
         if dtype == DataType.DT_FP8E8M0:
             raise ValueError(
                 f"DataType.DT_FP8E8M0 requires 'torch.float8_e8m0fnu', which is NOT available "
@@ -254,6 +256,8 @@ def _gen_pto_tensor(input_tensors):
         torch_dtype = _torch_dtype_from(t.dtype)
         tshape = t.shape if all([isinstance(s, int) for s in t.shape]) else t.ori_shape
         torch_tensor = torch.zeros(tshape, dtype=torch_dtype)
+        if t.dtype == DataType.DT_FP4_E2M1X2 or t.dtype == DataType.DT_FP4_E1M2X2:
+            tshape = (*tshape[:-1], tshape[-1] * 2)
         pto_tensor = Tensor(shape=tshape,
                             dtype=t.dtype,
                             name=t.name,

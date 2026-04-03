@@ -72,10 +72,10 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
                 result = DATA_SIZE_HALF;
                 break;
             case DT_FP4_E2M1X2:
-                result = DATA_SIZE_BYTE;
+                result = DATA_SIZE_HALF;
                 break;
             case DT_FP4_E1M2X2:
-                result = DATA_SIZE_BYTE;
+                result = DATA_SIZE_HALF;
                 break;
             case DT_INT8:
                 result = DATA_SIZE_BYTE;
@@ -160,7 +160,14 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
           nelem(stride_[0] * shape[0]),
           elemSize_(GetDataSize(dataType))
     {
-        this->resize(nelem * elemSize_);
+        size_t bytes = 0;
+        if (elemSize_ > 0) {
+            bytes = static_cast<size_t>(nelem) * static_cast<size_t>(elemSize_);
+        } else {
+            // half-byte element: two elements share one byte, odd element rounds up.
+            bytes = static_cast<size_t>((nelem + 1) / 2);
+        }
+        this->resize(bytes);
     }
 
     const Shape& GetShape() const { return shape_; }
@@ -186,10 +193,9 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     Element GetElement(int index) const
     {
         switch (GetDataType()) {
-#define CASE_DATA_TYPE_DIS(ast2Type, dataType, calcType, index) \
-    case ast2Type:                                              \
-        return Element(ast2Type, static_cast<calcType>(Get<dataType>(index)))
-            break;
+#define CASE_DATA_TYPE_DIS(ast2Type, dataType, calcType, indexArg) \
+    case ast2Type:                                                 \
+        return Element(ast2Type, static_cast<calcType>(Get<dataType>(indexArg)))
             DISPATCH_DATA_TYPE(CASE_DATA_TYPE_DIS, index);
 #undef CASE_DATA_TYPE_DIS
             case DT_BOOL:
@@ -370,7 +376,14 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         ofile.close();
     }
 
-    size_t GetDataSize() const { return nelem * elemSize_; }
+    size_t GetDataSize() const
+    {
+        if (elemSize_ > 0) {
+            return nelem * elemSize_;
+        }
+        // half-byte element types
+        return static_cast<size_t>((nelem + 1) / 2);
+    }
 
 private:
     uint8_t* devPtr_{nullptr};
