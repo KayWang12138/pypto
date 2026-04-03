@@ -16,6 +16,7 @@
 #include "communication.h"
 #include <thread>
 #include <cstring>
+#include <cstdlib>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -27,6 +28,11 @@
 namespace npu::tile_fwk {
 
 int GetRankId(const std::string &groupName) {
+    const char* rankStr = std::getenv("RANK");
+    if (rankStr != nullptr) {
+        return std::atoi(rankStr);
+    }
+
     auto it = g_context.find(groupName);
     if (it == g_context.end()) {
         return -1;
@@ -37,6 +43,11 @@ int GetRankId(const std::string &groupName) {
 }
 
 int GetWorldSize(const std::string &groupName) {
+    const char* worldSizeStr = std::getenv("WORLD_SIZE");
+    if (worldSizeStr != nullptr) {
+        return std::atoi(worldSizeStr);
+    }
+
     auto it = g_context.find(groupName);
     if (it == g_context.end()) {
         return -1;
@@ -191,6 +202,15 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
     memcpy(base + offset, data->GetData()->GetDevPtr(), dataSize);
 }
 
+void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, [[maybe_unused]] int atomicType, [[maybe_unused]] bool notifyAll) {
+    uint8_t *base = GetRemoteRank(dstRank, false);
+    if (slotSize > WIN_IN_SIZE) {
+        throw std::runtime_error("Set operation would exceed shared memory bounds!");
+    }
+    std::atomic_thread_fence(std::memory_order_release);
+    memset(base, value, slotSize);
+}
+
 void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, [[maybe_unused]] int atomicType, [[maybe_unused]] bool notifyAll) {
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
@@ -271,6 +291,14 @@ void SimulationCommManager::CreateSimulationCommContext(const std::string &group
     context->PreAlloc(true);
     context->PreAlloc(false);
     contexts_[groupName] = context;
+}
+
+std::shared_ptr<SimulationCommContext> SimulationCommManager::GetCommContext(const std::string &groupName) {
+    auto it = contexts_.find(groupName);
+    if (it == contexts_.end()) {
+        return nullptr;
+    }
+    return it->second;
 }
 
 std::string SimulationCommManager::GetHandler(const std::string &groupName, int rank, bool isSignal) {

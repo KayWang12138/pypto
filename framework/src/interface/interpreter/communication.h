@@ -41,7 +41,9 @@ public:
     int GetRank() const {return rank_;};
     int GetWorldSize() const {return worldSize_;};
     std::string GetGroupName() {return groupName_;};
+
     void Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType = 0);
+    void Set(int dstRank, int value, size_t slotSize, int atomicType = 0, bool notifyAll = false);
     void Signal(int dstRank, int value, size_t slotSize, int atomicType = 0, bool notifyAll = false);
     void Wait(int srcRank, int expect, size_t slotSize, bool reset = false);
     LogicalTensorDataPtr Get(int srcRank, size_t slotSize, uint64_t offset = 0);
@@ -139,6 +141,7 @@ public:
     void CreateSimulationCommContext(const std::string &groupName);
     LogicalTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
     LogicalTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
+    std::shared_ptr<SimulationCommContext> GetCommContext(const std::string &groupName);
     static std::string GetHandler(const std::string &groupName, int rank, bool isSignal);
 private:
     SimulationCommManager() = default;
