@@ -1,0 +1,7 @@
+{
+  "operator_name": "bad_op",
+  "current_stage": 5,
+  "stage_status": {"1": "completed", "2": "completed", "3": "completed", "4": "completed", "5": "in_progress"},
+  "stage_retry_count": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0},
+  "last_updated": "2026-04-01T00:00:00Z"
+}
