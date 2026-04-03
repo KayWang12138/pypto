@@ -430,6 +430,17 @@ class GitCodeMCPArchiver:
         print()
         print(f"Record file:    {self.record_file}")
         print(f"Issues saved:   {self.archive_dir}")
+        
+        # 提示用户可以分析issue
+        print()
+        print("=" * 50)
+        print("💡 提示")
+        print("=" * 50)
+        print(f"归档已完成，共 {updated} 个issue更新")
+        print(f"归档目录: {self.archive_dir}")
+        print()
+        print("如需分析 Bug-Report Issue 并生成不支持场景报告，")
+        print("请在归档完成后告知 AI 开始分析。")
 
 
 def main():

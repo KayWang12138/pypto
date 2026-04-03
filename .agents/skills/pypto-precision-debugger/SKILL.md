@@ -33,14 +33,19 @@ license: 完整条款见 LICENSE.txt
 
 **⚠️ 遇到精度问题时，按优先级顺序逐一尝试以下规避方法。优先级 1 为默认推荐方案。**
 
+**📖 完整的不支持场景清单请查看 `pypto_unsupported_scenarios.md` 文件**
+
 | 优先级 | 问题现象 | 规避方法 | 代码示例 | 原因说明 |
 |-------|---------|---------|---------|---------|
 | 1 ★推荐 | 使用旧前端写法 | 切换到 `pypto.frontend.jit` | `@pypto.frontend.jit` | 新前端是 PyPTO 推荐写法，旧前端已不再维护，可避免多种已知问题 |
-| 2 | view + reshape 精度异常 | 避免 `inplace=True` | `pypto.reshape(tensor, shape, inplace=False)` | inplace=True 在 view 后会错误修改内存地址，导致数据指向错误区域 |
-| 3 | 循环展开后精度异常 | `unroll_list=[1]` | `pypto.loop(range(n), unroll_list=[1])` | 关闭循环展开，规避 RegisterCopy pass 的寄存器拷贝 bug |
-| 4 | 嵌套循环精度异常 | `submit_before_loop=True` | `pypto.loop(range(m), submit_before_loop=True)` | 确保子循环正确提交，避免并行执行时的内存覆盖 |
-| 5 | 特定 shape 精度异常 | 调整 shape | 避免尾轴为 1，避免非整除 | 特定 shape 可能触发 Pass 推导边界情况，导致 valid_shape 错误 |
-| 6 | 编译器优化异常 | `+0.0` 技巧 | `result = compute(...) + 0.0` | 阻止编译器过度优化，保留计算操作完整性 |
+| 2 | 内存不连续+合轴优化 | 不对不连续tensor开启合轴 | 不调用 `combine_axis=True` | 内存不连续时硬件指令无法支持，详见 Issue #108 |
+| 3 | assemble后继续使用 | 使用SSA语义assemble | `assemble([(src,off)], dst)` | 违反SSA语义会导致精度问题，详见 Issue #187 |
+| 4 | 循环外创建pypto.full | 在循环内初始化 | 循环内 `pypto.full()` | Pass未正确设置属性，详见 Issue #340 |
+| 5 | view + reshape 精度异常 | 避免 `inplace=True` | `pypto.reshape(tensor, shape, inplace=False)` | inplace=True 在 view 后会错误修改内存地址，导致数据指向错误区域 |
+| 6 | 循环展开后精度异常 | `unroll_list=[1]` | `pypto.loop(range(n), unroll_list=[1])` | 关闭循环展开，规避 RegisterCopy pass 的寄存器拷贝 bug |
+| 7 | 嵌套循环精度异常 | `submit_before_loop=True` | `pypto.loop(range(m), submit_before_loop=True)` | 确保子循环正确提交，避免并行执行时的内存覆盖 |
+| 8 | 特定 shape 精度异常 | 调整 shape | 避免尾轴为 1，避免非整除 | 特定 shape 可能触发 Pass 推导边界情况，导致 valid_shape 错误 |
+| 9 | 编译器优化异常 | `+0.0` 技巧 | `result = compute(...) + 0.0` | 阻止编译器过度优化，保留计算操作完整性 |
 ---
 
 ## ⭐ 重要提示：使用新前端写法
@@ -73,6 +78,9 @@ def my_kernel(input_tensor, output_tensor):
 ```
 精度问题
     │
+    ├─ 步骤 -1：查看不支持场景文档
+    │   └─ 查找匹配场景 ──找到──▶ 应用规避方案
+    │
     ├─ 步骤 0：前端写法检查
     │   └─ 使用 pypto.jit？ ──是──▶ 切换到 pypto.frontend.jit 重试
     │
@@ -97,6 +105,48 @@ def my_kernel(input_tensor, output_tensor):
 ---
 
 ## 完整工作流程
+
+### 步骤 -1：查看不支持场景文档
+
+**⚠️ 遇到精度问题时，首先要查看不支持场景文档！**
+
+**执行动作**：
+
+**第一步：查看文件一（不支持场景清单）**
+1. 读取 `.agents/skills/gitcode-issue-archiver/docs/pypto_unsupported_scenarios.md`
+2. 在明确的不支持场景清单中查找匹配的场景
+3. 按照规避方案修改代码并重新验证
+
+**第二步：如果未找到匹配，查看文件二（问题现象索引）**
+1. 读取 `.agents/skills/gitcode-issue-archiver/docs/pypto_issue_index.md`
+2. 在精度问题类中查找相似的问题
+3. 参考问题的规避方案或解决方案
+
+**检查要点**：
+- 是否使用了：内存不连续的tensor开启合轴优化
+- 是否使用了：assemble后的tensor继续计算
+- 是否使用了：循环外创建pypto.full
+- 是否使用了：view+concat添加冗余算子
+- 是否使用了：view+reshape(inplace=True)
+- 是否使用了：unroll_loop内使用pypto.cond
+- 等等...
+
+**如果找到匹配场景**：
+- 按照文档中的规避方案修改代码
+- 重新验证精度
+- 如果问题解决，结束排查
+
+**如果未找到匹配场景**：
+- 继续步骤0：检查前端写法
+
+**如果文件不存在**：
+- 提示用户：`pypto_unsupported_scenarios.md` 或 `pypto_issue_index.md` 文件不存在
+- 建议用户：先使用 `gitcode-issue-archiver` skill 归档 GitCode Issue 并分析生成这两个文件
+- 继续后续步骤
+
+**参考文档**：详细的分析流程见 [gitcode-issue-archiver/docs/issue_analysis_workflow.md](../gitcode-issue-archiver/docs/issue_analysis_workflow.md)
+
+---
 
 ### 步骤 0：检查前端写法
 
