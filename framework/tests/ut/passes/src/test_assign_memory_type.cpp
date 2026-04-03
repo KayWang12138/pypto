@@ -1528,5 +1528,57 @@ TEST_F(AssignMemoryTypeTest, TestAmulBInputInvalidProducer) {
 
     EXPECT_EQ(assignMemoryType.PreCheck(*func), FAILED);
 }
+
+
+TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shape = {NUM_256, NUM_128};
+    std::vector<int64_t> shape1 = {NUM_128, NUM_64};
+    std::vector<int64_t> shape2 = {NUM_64, NUM_256};
+    PROGRAM("AssignMemoryTest") {
+        Tensor inputA(DataType::DT_FP32, shape, "A");
+        Tensor inputB(DataType::DT_FP32, shape, "B");
+        Tensor weight(DataType::DT_FP32, shape1, "weight");
+        Tensor out(DataType::DT_FP32, shape2, "output");
+        SetFullTestStrategy();
+
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+        
+        FUNCTION("TestTobeMapOrdering", {inputA, inputB, weight, out}) {
+
+            TileShape::Current().SetCubeTile({NUM_256, NUM_256}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+
+            Tensor mmRes = Matrix::Matmul(out.GetDataType(), inputA, weight);
+
+            Tensor reshapeRes = Reshape(mmRes, shape2);
+            TileShape::Current().SetVecTile(NUM_256, NUM_256);
+
+            Tensor add1Out = Add(reshapeRes, Element(DataType::DT_FP32, 1.0));
+            Tensor add2Out = Add(reshapeRes, Element(DataType::DT_FP32, 2.0));
+            Tensor expOut = Exp(reshapeRes);
+            Tensor out1 = Add(add2Out, expOut);
+            out = Add(out1, add1Out);
+        }
+
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestTobeMapOrdering");
+        originFunction->DumpJsonFile("./config/pass/json/assignMemoryType_TestTobeMapOrdering_after.json");
+        ASSERT_NE(originFunction, nullptr) << "Function pointer is null";
+
+        std::cout << "========== Verify TobeMap Ordering ==========" << std::endl;
+
+        for (const auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() != Opcode::OP_VIEW) {
+                continue;
+            }
+            auto output = op.GetOOperands().front();
+            auto consumer = *output->GetConsumers().begin();
+            if (output->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
+                continue;
+            }
+            std::cout << consumer->GetOpMagic() << std::endl;
+        }
+    }
+}
 }
 } // namespace npu::tile_fwk

@@ -45,35 +45,44 @@ void ConvertInserter::UpdateTensorTobeMap(const LogicalTensorPtr& tensor, Operat
             operation.GetOpMagic(), tensor->GetMagic());
         return;
     }
+    int opMagic = operation.GetOpMagic();
     if (tensorTobeMap.count(tensor) == 0) {
         // 首次插入
-        std::map<Operation*, MemoryType> tobeMap;
-        tobeMap.emplace(&operation, t);
+        // std::map<Operation*, MemoryType> tobeMap;
+        // tobeMap.emplace(&operation, t);
+        std::map<int, std::pair<Operation *, MemoryType>> tobeMap;
+        tobeMap.emplace(opMagic, std::make_pair(&operation, t));
         tensorTobeMap[tensor] = tobeMap;
         APASS_LOG_DEBUG_F(
             Elements::Tensor, "Tensor %d first set toBeMap(%s[%d]) as %s", tensor->GetMagic(),
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), BriefMemoryTypeToString(t).c_str());
         return;
     }
-    if (tensorTobeMap[tensor].count(&operation) == 0) {
+    // if (tensorTobeMap[tensor].count(&operation) == 0) {
+    if (tensorTobeMap[tensor].count(opMagic) == 0) {
         // 已存在，且首次设置该consumer的tobe mem
-        tensorTobeMap[tensor].emplace(&operation, t);
+        // tensorTobeMap[tensor].emplace(&operation, t);
+        tensorTobeMap[tensor].emplace(opMagic, std::make_pair(&operation, t));
         APASS_LOG_DEBUG_F(
             Elements::Tensor, "First Set magic: %d, new: %s.", tensor->GetMagic(), BriefMemoryTypeToString(t).c_str());
         return;
     }
-    if (tensorTobeMap[tensor][&operation] == MemoryType::MEM_UNKNOWN && t != MemoryType::MEM_UNKNOWN) {
-        tensorTobeMap[tensor][&operation] = t;
+    // if (tensorTobeMap[tensor][&operation] == MemoryType::MEM_UNKNOWN && t != MemoryType::MEM_UNKNOWN) {
+    //     tensorTobeMap[tensor][&operation] = t;
+    if (tensorTobeMap[tensor][opMagic].second == MemoryType::MEM_UNKNOWN && t != MemoryType::MEM_UNKNOWN) {
+        tensorTobeMap[tensor][opMagic].second = t;
         return;
     }
-    if (tensorTobeMap[tensor][&operation] == t) {
+    // if (tensorTobeMap[tensor][&operation] == t) {
+    if (tensorTobeMap[tensor][opMagic].second == t) {
         return;
     }
-    tensorTobeMap[tensor][&operation] = t;
+    // tensorTobeMap[tensor][&operation] = t;
+    tensorTobeMap[tensor][opMagic].second = t;
     APASS_LOG_DEBUG_F(
         Elements::Tensor, "Update tensor %d toBeMap(%s[%d]) from %s to %s,", tensor->GetMagic(),
         operation.GetOpcodeStr().c_str(), operation.GetOpMagic(),
-        BriefMemoryTypeToString(tensorTobeMap[tensor][&operation]).c_str(), BriefMemoryTypeToString(t).c_str());
+        BriefMemoryTypeToString(tensorTobeMap[tensor][opMagic].second).c_str(), BriefMemoryTypeToString(t).c_str());
 }
 
 // 将指定tensor的tobe map中的unknown项更新为指定的mem类型
@@ -91,8 +100,10 @@ void ConvertInserter::UpdateTensorTobeMapUnknown(LogicalTensorPtr& tensor, Memor
         return;
     }
     for (auto& item : tensorTobeMap[tensor]) {
-        if (item.second == MemoryType::MEM_UNKNOWN) {
-            item.second = t;
+        // if (item.second == MemoryType::MEM_UNKNOWN) {
+        //     item.second = t
+        if (item.second.second == MemoryType::MEM_UNKNOWN) {
+            item.second.second = t;
         }
     }
 }
@@ -112,8 +123,8 @@ void ConvertInserter::PrintTensorTobeMap(LogicalTensorPtr& tensor) const
     APASS_LOG_INFO_F(Elements::Tensor, "Size: %zu.", tensorTobeMap.at(tensor).size());
     for (const auto& item : tensorTobeMap.at(tensor)) {
         APASS_LOG_INFO_F(
-            Elements::Tensor, "\t|--- TensorTobeMap: %s --> %s[%d].", BriefMemoryTypeToString(item.second).c_str(),
-            item.first->GetOpcodeStr().c_str(), item.first->GetOpMagic());
+            Elements::Tensor, "\t|--- TensorTobeMap: %s --> %s[%d].", BriefMemoryTypeToString(item.second.second).c_str(),
+            item.second.first->GetOpcodeStr().c_str(), item.second.first->GetOpMagic());
     }
 }
 
@@ -128,7 +139,12 @@ std::map<Operation*, MemoryType> ConvertInserter::GetTobeDefault(LogicalTensorPt
             tensor->GetMagic());
         return {};
     }
-    return tensorTobeMap.at(tensor);
+    // return tensorTobeMap.at(tensor);
+    std::map<Operation *, MemoryType> result;
+    for (const auto &item : tensorTobeMap.at(tensor)) {
+        result[item.second.first] = item.second.second;
+    }
+    return result;
 }
 
 // 提取指定tensor的tobe map，新格式，key为Mem类型，val为需要改mem类型的op指针set
@@ -144,7 +160,8 @@ std::map<MemoryType, std::set<Operation*>> ConvertInserter::GetRequiredTobe(Logi
     }
     std::map<MemoryType, std::set<Operation*>> result;
     for (const auto& item : tensorTobeMap.at(tensor)) {
-        result[item.second].insert(item.first);
+        // result[item.second].insert(item.first);
+        result[item.second.second].insert(item.second.first);
     }
     return result;
 }
@@ -160,7 +177,9 @@ MemoryType ConvertInserter::GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr& ten
             tensor->GetMagic());
         return MemoryType::MEM_UNKNOWN;
     }
-    return tensorTobeMap.at(tensor).at(&operation);
+    // return tensorTobeMap.at(tensor).at(&operation);
+    int opMagic = operation.GetOpMagic();
+    return tensorTobeMap.at(tensor).at(opMagic).second;
 }
 
 // 提取指定tensor的所有consumer op和所需的mem类型
@@ -168,16 +187,29 @@ std::map<Operation*, MemoryType> ConvertInserter::GetMemoryTypeFromTensorTobeMap
 {
     auto it = tensorTobeMap.find(tensor);
     if (it != tensorTobeMap.end()) {
-        return it->second;
+        // return it->second;
+        std::map<Operation *, MemoryType> result;
+        for (const auto &item : it->second) {
+            result[item.second.first] = item.second.second;
+        }
+        return result;
     }
     return {};
 }
 
-std::map<MemoryType, std::set<Operation*>> ConvertInserter::ReformMap(std::map<Operation*, MemoryType>& oriMap) const
-{
-    std::map<MemoryType, std::set<Operation*>> result;
-    for (const auto& item : oriMap) {
-        result[item.second].insert(item.first);
+// std::map<MemoryType, std::set<Operation*>> ConvertInserter::ReformMap(std::map<Operation*, MemoryType>& oriMap) const
+// {
+//     std::map<MemoryType, std::set<Operation*>> result;
+//     for (const auto& item : oriMap) {
+//         result[item.second].insert(item.first);
+//     }
+//     return result;
+// }
+
+std::map<MemoryType, std::set<Operation *>> ConvertInserter::ReformMap(const std::map<int, std::pair<Operation *, MemoryType>> &oriMap) const {
+    std::map<MemoryType, std::set<Operation *>> result;
+    for (const auto &item : oriMap) {
+        result[item.second.second].insert(item.second.first);
     }
     return result;
 }
@@ -187,8 +219,9 @@ void ConvertInserter::FilterConflictTensor()
 {
     for (const auto& pairLocal : tensorTobeMap) {
         auto tensorLocal = pairLocal.first;
-        std::map<Operation*, MemoryType> oriMap = pairLocal.second;
-        std::map<MemoryType, std::set<Operation*>> tobeMap = ReformMap(oriMap);
+        // std::map<Operation*, MemoryType> oriMap = pairLocal.second;
+        // std::map<MemoryType, std::set<Operation*>> tobeMap = ReformMap(oriMap);
+        std::map<MemoryType, std::set<Operation *>> tobeMap = ReformMap(pairLocal.second);
         if (tobeMap.size() == 1) {
             MemoryType requiredMemoryType = tobeMap.begin()->first;
             if (tensorLocal->GetMemoryTypeOriginal() == requiredMemoryType) {
@@ -326,7 +359,7 @@ void ConvertInserter::ProcessSpecialProducersOrConsumers(
         op.GetOpMagic(), oOperand->magic);
     const auto& items = tensorTobeMap.at(oOperand);
     bool crossCore = std::all_of(items.begin(), items.end(), [this, &oOperand](const auto& item) {
-        return CrossCore(oOperand->GetMemoryTypeOriginal(), item.second);
+        return CrossCore(oOperand->GetMemoryTypeOriginal(), item.second.second);
     });
     bool producedByAssemble = isAllProducerAssemble(oOperand);
     if (producedByAssemble && crossCore) {
