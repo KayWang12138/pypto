@@ -295,8 +295,8 @@ bool SrcDstBufferMergeImpl::CanSrcDstReuse(
     APASS_LOG_DEBUG_F(
         Elements::Tensor,
         "Reusable, iOperand magic: %d, memId: %d ,datatype: %s, oOperand magic: %d, memId: %d datatype: %s, op:%s[%d]",
-        iOperand->GetMagic(), iOperand->memoryrange.memId, DataType2String(iOperand->Datatype()).c_str(),
-        oOperand->GetMagic(), oOperand->memoryrange.memId, DataType2String(oOperand->Datatype()).c_str(),
+        iOperand->GetMagic(), iOperand->memoryrange.memId, DataType2String(iOperand->Datatype()),
+        oOperand->GetMagic(), oOperand->memoryrange.memId, DataType2String(oOperand->Datatype()),
         ops.GetOpcodeStr().c_str(), ops.GetOpMagic());
     return true;
 }
