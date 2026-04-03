@@ -97,6 +97,13 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 
 ## 分阶段详细说明
 
+### 手动 workflow 的恢复边界
+
+- Stage 5 运行失败：允许在当前阶段内排查并重试，但应保留最近一次命令、stderr 与修改说明。
+- Stage 6 精度修复：每次只改一项，并保存修复前版本，确保可回滚。
+- Stage 7 性能调优：单轮只调整一组参数；若精度退化或性能退化，立即回滚到上一轮通过版本。
+- 若你需要 `.orchestrator_state.json`、全局重试上限、断点续跑或 BLOCKED / SUCCESS 结束态，请切换到 `pypto-op-orchestrator`，不要继续把这些职责堆在本 Skill 上。
+
 ### Stage 1：需求理解
 
 | 项目 | 说明 |
