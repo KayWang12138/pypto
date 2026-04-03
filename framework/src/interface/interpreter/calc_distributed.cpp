@@ -68,8 +68,7 @@ void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
-    bool isSignal = (attr.setType == 1);
-    if (!isSignal) {
+    if (!attr.isSetData) {
         context->Signal(context->GetRank(), 0, in->GetSize() * BytesOf(in->GetDataType()));
     } else {
         context->Set(context->GetRank(), 0, in->GetSize() * BytesOf(in->GetDataType()));
@@ -88,10 +87,10 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
     int atomicType = 0;
-    if (attr.atomicType == Distributed::AtomicType.SET) {
+    if (attr.atomicType == Distributed::AtomicType::SET) {
         atomicType = 0;
     }
-    if (attr.atomicType == Distributed::AtomicType.ADD) {
+    if (attr.atomicType == Distributed::AtomicType::ADD) {
         atomicType = 1;
     }
     context->Put(in, dstRank, 0, atomicType);
@@ -109,10 +108,10 @@ void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
     int atomicType = 0;
-    if (attr.atomicType == Distributed::AtomicType.SET) {
+    if (attr.atomicType == Distributed::AtomicType::SET) {
         atomicType = 0;
     }
-    if (attr.atomicType == Distributed::AtomicType.ADD) {
+    if (attr.atomicType == Distributed::AtomicType::ADD) {
         atomicType = 1;
     }
     int value = attr.signalValue;
@@ -146,7 +145,7 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
-    int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.srcRank);
+    int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
     context->Get(srcRank, in->GetSize() * BytesOf(in->GetDataType()));
 }
 REGISTER_CALC_OP(OP_SHMEM_GET, Opcode::OP_SHMEM_GET, ExecuteOpShmemGet);
