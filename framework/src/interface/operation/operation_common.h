@@ -47,6 +47,7 @@ constexpr int32_t NUM_VALUE_16 = 16;
 constexpr int32_t NUM_VALUE_31 = 31;
 constexpr int32_t NUM_VALUE_32 = 32;
 constexpr int32_t NUM_VALUE_64 = 64;
+constexpr int32_t NUM_VALUE_256 = 256;
 constexpr double NUM_VALUE_0_5 = 0.5;
 constexpr double NUM_VALUE_EPS = 1e-9;
 
