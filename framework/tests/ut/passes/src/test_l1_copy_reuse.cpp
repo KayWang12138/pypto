@@ -35,20 +35,23 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
         config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}, {0, 2}});
- 	    config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 1}});
+        config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 1}});
     }
 
     void TearDown() override {}
 };
 
-TEST_F(L1CopyInReuseTest, TwoCopyIn) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestL1CopyInReuse", "TestL1CopyInReuse", nullptr);
+TEST_F(L1CopyInReuseTest, TwoCopyIn)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestL1CopyInReuse", "TestL1CopyInReuse", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -71,22 +74,24 @@ TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     tensor3->tensor->rawmagic = 3;
     auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
-    auto &copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1}, {tensor1});
+    auto& copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1}, {tensor1});
     copy_op1.UpdateSubgraphID(subGraphID0);
-    copy_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MEM_L1, std::vector<SymbolicScalar>(), std::vector<SymbolicScalar>()));
-    auto &copy_out1 = currFunctionPtr->AddOperation(Opcode::OP_L1_TO_L0A, {tensor1}, {tensor2});
+    copy_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{0, 0}, MEM_L1, std::vector<SymbolicScalar>(), std::vector<SymbolicScalar>()));
+    auto& copy_out1 = currFunctionPtr->AddOperation(Opcode::OP_L1_TO_L0A, {tensor1}, {tensor2});
     copy_out1.UpdateSubgraphID(subGraphID0);
 
-    auto &view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1}, {incast2});
+    auto& view_op1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1}, {incast2});
     view_op1.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
     view_op1.UpdateSubgraphID(subGraphID1);
-    auto &alloc_op1 = currFunctionPtr->AddOperation(Opcode::OP_L1_ALLOC, {}, {tensor3});
+    auto& alloc_op1 = currFunctionPtr->AddOperation(Opcode::OP_L1_ALLOC, {}, {tensor3});
     alloc_op1.UpdateSubgraphID(subGraphID1);
-    auto &copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast2}, {tensor3});
+    auto& copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast2}, {tensor3});
     copy_op2.UpdateSubgraphID(subGraphID1);
     incast2->AddConsumer(copy_op2);
-    copy_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MEM_L1, std::vector<SymbolicScalar>(), std::vector<SymbolicScalar>()));
-    auto &copy_out2 = currFunctionPtr->AddOperation(Opcode::OP_L1_TO_L0A, {tensor3}, {tensor4});
+    copy_op2.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+        std::vector<int64_t>{0, 0}, MEM_L1, std::vector<SymbolicScalar>(), std::vector<SymbolicScalar>()));
+    auto& copy_out2 = currFunctionPtr->AddOperation(Opcode::OP_L1_TO_L0A, {tensor3}, {tensor4});
     copy_out2.UpdateSubgraphID(subGraphID1);
 
     currFunctionPtr->inCasts_.push_back(incast1);
@@ -100,7 +105,8 @@ TEST_F(L1CopyInReuseTest, TwoCopyIn) {
     pass.PostCheck(*currFunctionPtr);
 }
 
-void InitGraphBuilder(ComputationalGraphBuilder &G, std::vector<int64_t> tileShape, const int subGraphNum) {
+void InitGraphBuilder(ComputationalGraphBuilder& G, std::vector<int64_t> tileShape, const int subGraphNum)
+{
     auto shapeImme = OpImmediate::Specified(tileShape);
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_VIEW}, {{"incast0"}}, {{"incast1"}}, {"view"}, true), true);
@@ -117,25 +123,27 @@ void InitGraphBuilder(ComputationalGraphBuilder &G, std::vector<int64_t> tileSha
         EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
         G.GetOp("VIEW_" + strID)->UpdateSubgraphID(i);
         G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
-        G.GetOp("VIEW_" + strID)->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
-                                                    MEM_L1, std::vector<SymbolicScalar>(), std::vector<SymbolicScalar>()));
+        G.GetOp("VIEW_" + strID)
+            ->SetOpAttribute(std::make_shared<ViewOpAttribute>(
+                std::vector<int64_t>{0, 0}, MEM_L1, std::vector<SymbolicScalar>(), std::vector<SymbolicScalar>()));
         G.GetTensor("tensor" + strID)->SetMemoryTypeOriginal(MEM_L1);
     }
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
 }
 
-TEST_F(L1CopyInReuseTest, TestInvalidOp) {
+TEST_F(L1CopyInReuseTest, TestInvalidOp)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    auto shapeImme = OpImmediate::Specified(tileShape); 
+    auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensorL1"}), true);
     G.GetTensor("tensorL1")->SetMemoryTypeOriginal(MEM_L1);
     EXPECT_EQ(G.AddOps({Opcode::OP_GATHER_IN_L1}, {{"incast1"}}, {{"tensorL1"}}, {"gather_in_l1"}, true), true);
     G.GetOp("gather_in_l1")->UpdateSubgraphID(1);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -143,15 +151,15 @@ TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
 }
 
-
-TEST_F(L1CopyInReuseTest, TestNormal) {
+TEST_F(L1CopyInReuseTest, TestNormal)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -160,15 +168,16 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(L1CopyInReuseTest, TestNoL1Num) {
+TEST_F(L1CopyInReuseTest, TestNoL1Num)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer = 2;  
+    const int cube_nbuffer = 2;
     const int result = 11;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -177,14 +186,15 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(L1CopyInReuseTest, TestNoL1Map) {
+TEST_F(L1CopyInReuseTest, TestNoL1Map)
+{
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};  
+    std::vector<int64_t> tileShape{16, 16};
     const int result = 5;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -193,14 +203,15 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
+TEST_F(L1CopyInReuseTest, TestNoBufferMap)
+{
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};  
+    std::vector<int64_t> tileShape{16, 16};
     const int result = 5;
     const int subGraphNum = 20;
     auto shapeImme = OpImmediate::Specified(tileShape);
     InitGraphBuilder(G, tileShape, subGraphNum);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -209,27 +220,29 @@ TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(L1CopyInReuseTest, TestNoParam) {
+TEST_F(L1CopyInReuseTest, TestNoParam)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int result = 20;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(L1CopyInReuseTest, TestInvalidL1Num) {
+TEST_F(L1CopyInReuseTest, TestInvalidL1Num)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    auto shapeImme = OpImmediate::Specified(tileShape);  
+    auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{-1, -1}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -237,13 +250,14 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Num) {
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
 }
 
-TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
+TEST_F(L1CopyInReuseTest, TestInvalidL1Map)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{-2, 2}, {-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{-2, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -257,14 +271,15 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
 }
 
 // 健康检查用例:静态图和非静态图
-TEST_F(L1CopyInReuseTest, TestHealthReport) {
+TEST_F(L1CopyInReuseTest, TestHealthReport)
+{
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};  
+    std::vector<int64_t> tileShape{16, 16};
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
 
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
@@ -305,7 +320,8 @@ TEST_F(L1CopyInReuseTest, TestHealthReport) {
     EXPECT_EQ(reportNull["copyDataCount"], nullptr);
 }
 
-TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
+TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
@@ -332,21 +348,23 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
 
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast0", "outcast1"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
-    PassManager &passManager = PassManager::Instance();
-    passManager.RegisterStrategy("myStrategy", {
-        {"L1CopyInReuseMerge", PassName::L1_COPY_IN_REUSE_MERGE},
-    });
+    PassManager& passManager = PassManager::Instance();
+    passManager.RegisterStrategy(
+        "myStrategy", {
+                          {"L1CopyInReuseMerge", PassName::L1_COPY_IN_REUSE_MERGE},
+                      });
     auto ret = passManager.RunPass(Program::GetInstance(), *function, "myStrategy");
     // L1CopyInReuseMerge LCRM;
     EXPECT_EQ(ret, SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(L1CopyInReuseTest, TestTensorReuseFailed) {
+TEST_F(L1CopyInReuseTest, TestTensorReuseFailed)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
@@ -365,11 +383,11 @@ TEST_F(L1CopyInReuseTest, TestTensorReuseFailed) {
     }
     G.GetTensor("tensor_before1")->tensor->datatype = DataType::DT_FP16;
     G.GetTensor("tensor1")->tensor->datatype = DataType::DT_FP16;
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

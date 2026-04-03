@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -46,7 +47,7 @@ gather(input: Tensor, dim: int, index: Tensor) -> Tensor
 
 3. input.shape 的 dim 轴不可切，要求 viewshape\[dim\] \>= max\( input.shape\[dim\], index.shape\[dim\] \)，其余维度的 Shape 大小不做限制；
 
-4. TileShape的维度与 result 相同，用于切分 result 和 index，TileShape\[dim\] = viewshape\[dim\]，所有输入和输出的 TileShape 大小总和不能超过UB内存的大小。
+4. TileShape的维度与 index 相同，用于切分 input 和 index，input 的 dim 轴不可切，且所有输入和输出的 TileShape 大小总和不能超过UB内存的大小。
 
 ## 调用示例
 
@@ -84,4 +85,3 @@ y = pypto.gather(x, dim, index)
              [5,  11, 2,  8],
              [10, 11, 7,  3]]
 ```
-

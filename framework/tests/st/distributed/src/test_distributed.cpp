@@ -23,10 +23,7 @@ class DistributedTest : public testing::TestWithParam<OpMetaData> {
 public:
     static void TearDownTestCase() {}
 
-    static void SetUpTestCase() 
-    {
-        GegisterOps();
-    }
+    static void SetUpTestCase() { GegisterOps(); }
 
     void SetUp() override
     {
@@ -47,10 +44,7 @@ public:
     }
 
     // 暴露超时设置接口
-    void SetDestroyTimeout(int32_t destroyTimeout)
-    {
-        timeout = destroyTimeout;
-    }
+    void SetDestroyTimeout(int32_t destroyTimeout) { timeout = destroyTimeout; }
 
     // 通用测试入口
     void RunDistributedTestGeneric(const nlohmann::json& testData, const std::string& fileName)
@@ -63,8 +57,9 @@ public:
         std::string caseName = testData["case_name"].get<std::string>();
         std::string goldenDir = GetGoldenDirPath(testData, fileName);
         DisOpRegister::GetRegister().Run(opName, testParam, dtype, goldenDir);
-        DISTRIBUTED_LOGI("test case finished successfully: op=%s, case=%s, json file=%s.", 
-            opName.c_str(), caseName.c_str(), fileName.c_str());
+        DISTRIBUTED_LOGI(
+            "test case finished successfully: op=%s, case=%s, json file=%s.", opName.c_str(), caseName.c_str(),
+            fileName.c_str());
     }
 
 protected:
@@ -83,7 +78,6 @@ protected:
     int32_t timeout = 10;
     int physicalDeviceId = 0;
 };
-
 
 // 注册所有算子
 void GegisterOps()
@@ -108,18 +102,13 @@ void GegisterOps()
     reg.RegisterOp("MoeDispatch", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestShmemMoeDispatch<T>(testParam, goldenDir);
     });
-    reg.disRegisterMap["AllGatherAttnPostReduceScatter"] = [](OpTestParam& testParam, const std::string&, std::string& goldenDir) {
+    reg.disRegisterMap["AllGatherAttnPostReduceScatter"] = [](OpTestParam& testParam, const std::string&,
+                                                              std::string& goldenDir) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam, goldenDir);
     };
     // 后续按照上面格式增加算子
-
 }
 
-
-INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest,
-    ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
-TEST_P(DistributedTest, TestOps)
-{
-    RunDistributedTestGeneric(GetParam().testData_, GetParam().fileName_);
-}
+INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest, ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
+TEST_P(DistributedTest, TestOps) { RunDistributedTestGeneric(GetParam().testData_, GetParam().fileName_); }
 } // namespace npu::tile_fwk::Distributed

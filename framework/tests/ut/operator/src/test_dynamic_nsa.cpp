@@ -20,18 +20,19 @@
 using namespace npu::tile_fwk;
 
 class DyNsa : public testing::Test {
-    void SetUp() override {
+    void SetUp() override
+    {
         config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
         config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
-
     }
 };
 
-
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
     bool isSmooth = true, bool usePrefetch = true>
-void TestNsa(const SimpleParams &params) {
+void TestNsa(const SimpleParams& params)
+{
     int b = params.b;
     int s = params.s;
     int n = params.n;
@@ -56,10 +57,11 @@ void TestNsa(const SimpleParams &params) {
     GenGatedScoreCompute(x, gateW1, gateW2, gateSimW1, gatingScore, GateMode::standard);
 }
 
-
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
     bool isSmooth = true, bool usePrefetch = true>
-void TestGenslc(const SimpleParams &params,int topk_actual_len = 0, bool isGenSlc = false) {
+void TestGenslc(const SimpleParams& params, int topk_actual_len = 0, bool isGenSlc = false)
+{
     int n2 = params.n2;
     int n = params.n;
     int g = n / n2;
@@ -68,8 +70,8 @@ void TestGenslc(const SimpleParams &params,int topk_actual_len = 0, bool isGenSl
     int s_cmp = (s2 - w) / d + 1;
     int out_loop = l_prime / d;
     int s_slc = (s_cmp + out_loop - 1) / out_loop;
-    int tmp_s_scmp = (topk_actual_len-32)/16+1;
-    int tmp_s_slc = (tmp_s_scmp+3)/4;
+    int tmp_s_scmp = (topk_actual_len - 32) / 16 + 1;
+    int tmp_s_slc = (tmp_s_scmp + 3) / 4;
 
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
 
@@ -92,7 +94,7 @@ void TestGenslc(const SimpleParams &params,int topk_actual_len = 0, bool isGenSl
     Tensor topkVal(DT_FP32, resShape, "topkVal");
     Tensor res(DT_FP32, resShape, "res");
 
-    if(isGenSlc){
+    if (isGenSlc) {
         GenSlc(x, trans0, reduce0, trans1, reduce1, topkInd, topkVal, res, tmp_s_slc);
     } else {
         GenTopkIndicesFun(x, trans0, reduce0, trans1, reduce1, topkInd, topkVal, res, tmp_s_slc);
@@ -100,7 +102,8 @@ void TestGenslc(const SimpleParams &params,int topk_actual_len = 0, bool isGenSl
 }
 
 template <typename T = float16>
-void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
+void TestGenslcV2(const SimpleParams& params, int topk_actual_len = 0)
+{
     int n = params.n;
     int s2 = params.s2;
     int windowStride = 16, windowSize = 32;
@@ -119,25 +122,28 @@ void TestGenslcV2(const SimpleParams &params, int topk_actual_len = 0) {
     GenSlcV2(x, res, validSize);
 }
 
-TEST_F(DyNsa, gateScore_mini_mtp) {
+TEST_F(DyNsa, gateScore_mini_mtp)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.h = NUM_128;
     params.s = NUM_2;
     TestNsa<npu::tile_fwk::float16>(params);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
+TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_4096 * 2;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params,(4096+1024*2)+1,true);
+    TestGenslc<npu::tile_fwk::float16>(params, (4096 + 1024 * 2) + 1, true);
 }
 
-TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
+TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn)
+{
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;
     params.s2 = NUM_4096 + NUM_1024 * 2;
     params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params,params.s2+1);
+    TestGenslc<npu::tile_fwk::float16>(params, params.s2 + 1);
 }

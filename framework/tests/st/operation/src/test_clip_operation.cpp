@@ -22,16 +22,18 @@ constexpr const unsigned ID1 = 1;
 constexpr const unsigned ID2 = 2;
 constexpr const unsigned ID3 = 3;
 
-std::vector<std::reference_wrapper<const Tensor>> AsRef(const std::vector<Tensor> &tensors) {
+std::vector<std::reference_wrapper<const Tensor>> AsRef(const std::vector<Tensor>& tensors)
+{
     std::vector<std::reference_wrapper<const Tensor>> results;
     results.reserve(tensors.size());
-    for (const Tensor &tensor: tensors) {
+    for (const Tensor& tensor : tensors) {
         results.emplace_back(std::cref(tensor));
     }
     return results;
 }
 
-Shape GetBroadCastViewShape(const Tensor &self, const Tensor &other, const Shape &viewShape) {
+Shape GetBroadCastViewShape(const Tensor& self, const Tensor& other, const Shape& viewShape)
+{
     ASSERT(self.GetShape().size() == other.GetShape().size());
     Shape result = viewShape;
     for (size_t i = 0; i < self.GetShape().size(); i++) {
@@ -46,7 +48,8 @@ Shape GetBroadCastViewShape(const Tensor &self, const Tensor &other, const Shape
     return result;
 }
 
-std::vector<int> GetBroadCastOffsetRatio(const Tensor &self, const Tensor &other, const Shape &viewShape) {
+std::vector<int> GetBroadCastOffsetRatio(const Tensor& self, const Tensor& other, const Shape& viewShape)
+{
     ASSERT(self.GetShape().size() == other.GetShape().size());
     std::vector<int> result(viewShape.size(), 1);
     for (size_t i = 0; i < self.GetShape().size(); i++) {
@@ -59,7 +62,9 @@ std::vector<int> GetBroadCastOffsetRatio(const Tensor &self, const Tensor &other
     return result;
 }
 
-std::vector<SymbolicScalar> GetValidShape(const Shape &originShapes, const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars) {
+std::vector<SymbolicScalar> GetValidShape(
+    const Shape& originShapes, const Shape& viewShapes, const std::vector<SymbolicScalar> loopVars)
+{
     if (loopVars.size() != viewShapes.size() || originShapes.size() != viewShapes.size()) {
         throw std::invalid_argument("Length of `originShapes`/`viewShapes`/`loopVars` should be the same!");
     }
@@ -70,7 +75,9 @@ std::vector<SymbolicScalar> GetValidShape(const Shape &originShapes, const Shape
     return validShapes;
 }
 
-std::vector<SymbolicScalar> GetOffsets(const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars, std::vector<int> ratios = {}) {
+std::vector<SymbolicScalar> GetOffsets(
+    const Shape& viewShapes, const std::vector<SymbolicScalar> loopVars, std::vector<int> ratios = {})
+{
     if (loopVars.size() != viewShapes.size()) {
         throw std::invalid_argument("Length of `loopVars` and `viewShapes` should be the same!");
     }
@@ -84,16 +91,19 @@ std::vector<SymbolicScalar> GetOffsets(const Shape &viewShapes, const std::vecto
     return offsets;
 }
 
-Tensor BroadCastView(const Tensor &needBroadCast, const Tensor &broadCasted, const Shape &viewShapes, const std::vector<SymbolicScalar> loopVars) {
-    const Shape &tileViewShape = GetBroadCastViewShape(needBroadCast, broadCasted, viewShapes);
-    const std::vector<int> &tile0OffsetRatio = GetBroadCastOffsetRatio(needBroadCast, broadCasted, viewShapes);
+Tensor BroadCastView(
+    const Tensor& needBroadCast, const Tensor& broadCasted, const Shape& viewShapes,
+    const std::vector<SymbolicScalar> loopVars)
+{
+    const Shape& tileViewShape = GetBroadCastViewShape(needBroadCast, broadCasted, viewShapes);
+    const std::vector<int>& tile0OffsetRatio = GetBroadCastOffsetRatio(needBroadCast, broadCasted, viewShapes);
     std::vector<SymbolicScalar> validShapes = GetValidShape(broadCasted.GetShape(), tileViewShape, loopVars);
     std::vector<SymbolicScalar> offsets = GetOffsets(tileViewShape, loopVars, tile0OffsetRatio);
     Tensor result = View(needBroadCast, tileViewShape, validShapes, offsets);
     return result;
 }
 
-enum class TestType: int {
+enum class TestType : int {
     NotDefault2D = 0,
     NotDefault3D = 1,
     NotDefault4D = 2,
@@ -108,13 +118,15 @@ enum class TestType: int {
 
 struct ClipOpFuncArgs : public OpFuncArgs {
     ClipOpFuncArgs(
-        const std::vector<int64_t> &viewShape,
-        const std::vector<int64_t> &tileShape,
-        int type,
-        const Element &min = {},
-        const Element &max = {},
-        bool isElement=false)
-    : viewShape_(viewShape), tileShape_(tileShape), type_(static_cast<TestType>(type)), min_(min), max_(max), isElement_(isElement) {}
+        const std::vector<int64_t>& viewShape, const std::vector<int64_t>& tileShape, int type, const Element& min = {},
+        const Element& max = {}, bool isElement = false)
+        : viewShape_(viewShape),
+          tileShape_(tileShape),
+          type_(static_cast<TestType>(type)),
+          min_(min),
+          max_(max),
+          isElement_(isElement)
+    {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
@@ -125,17 +137,18 @@ struct ClipOpFuncArgs : public OpFuncArgs {
 };
 
 struct ClipOpMetaData {
-    explicit ClipOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
-        : opFunc_(opFunc), test_data_(test_data) {}
+    explicit ClipOpMetaData(const OpFunc& opFunc, const nlohmann::json& test_data)
+        : opFunc_(opFunc), test_data_(test_data)
+    {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-Tensor ProcessElementModeClip(const Tensor &tileTensor0, const ClipOpFuncArgs *args) {
+Tensor ProcessElementModeClip(const Tensor& tileTensor0, const ClipOpFuncArgs* args)
+{
     Tensor res;
-    switch (args->type_)
-    {
+    switch (args->type_) {
         case TestType::NotDefault2D:
         case TestType::NotDefault3D:
         case TestType::NotDefault4D: {
@@ -162,10 +175,12 @@ Tensor ProcessElementModeClip(const Tensor &tileTensor0, const ClipOpFuncArgs *a
     return res;
 }
 
-Tensor ProcessTensorModeClip(const Tensor &tileTensor0, const std::vector<Tensor> &inputs, const ClipOpFuncArgs *args, const std::vector<SymbolicScalar> loopVars) {
+Tensor ProcessTensorModeClip(
+    const Tensor& tileTensor0, const std::vector<Tensor>& inputs, const ClipOpFuncArgs* args,
+    const std::vector<SymbolicScalar> loopVars)
+{
     Tensor res;
-    switch (args->type_)
-    {
+    switch (args->type_) {
         case TestType::NotDefault2D:
         case TestType::NotDefault3D:
         case TestType::NotDefault4D: {
@@ -197,24 +212,29 @@ Tensor ProcessTensorModeClip(const Tensor &tileTensor0, const std::vector<Tensor
 }
 
 static void ClipOperationExeFuncDoubleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const  OpFuncArgs *opArgs) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
     auto inputRefs = AsRef(inputs);
-    FUNCTION("main", inputRefs, {outputs[ID0]}) {
+    FUNCTION("main", inputRefs, {outputs[ID0]})
+    {
         SymbolicScalar firstDim = inputs[ID0].GetShape()[ID0];
         SymbolicScalar secondDim = inputs[ID0].GetShape()[ID1];
 
-        auto args = static_cast<const ClipOpFuncArgs *>(opArgs);
+        auto args = static_cast<const ClipOpFuncArgs*>(opArgs);
         Shape viewShapes(args->viewShape_.size(), 0);
         viewShapes[ID0] = std::min(args->viewShape_[ID0], firstDim);
         viewShapes[ID1] = std::min(args->viewShape_[ID1], secondDim);
         int bloop = CeilDiv(firstDim, viewShapes[ID0]);
         int sloop = CeilDiv(secondDim, viewShapes[ID1]);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
                 std::vector<SymbolicScalar> loopVars = {bIdx, sIdx};
                 std::vector<SymbolicScalar> offsets = GetOffsets(viewShapes, loopVars);
-                auto tileTensor0 = View(inputs[ID0], viewShapes, GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
+                auto tileTensor0 =
+                    View(inputs[ID0], viewShapes, GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
                 TileShape::Current().SetVecTile(args->tileShape_);
                 Tensor res;
                 if (args->isElement_) {
@@ -229,14 +249,16 @@ static void ClipOperationExeFuncDoubleCut(
 }
 
 static void ClipOperationExeFuncTripleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
     auto inputRefs = AsRef(inputs);
-    FUNCTION("main", inputRefs, {outputs[ID0]}) {
+    FUNCTION("main", inputRefs, {outputs[ID0]})
+    {
         SymbolicScalar firstDim = inputs[ID0].GetShape()[ID0];
         SymbolicScalar secondDim = inputs[ID0].GetShape()[ID1];
         SymbolicScalar thirdDim = inputs[ID0].GetShape()[ID2];
 
-        auto args = static_cast<const ClipOpFuncArgs *>(opArgs);
+        auto args = static_cast<const ClipOpFuncArgs*>(opArgs);
         Shape viewShapes(args->viewShape_.size(), 0);
         viewShapes[ID0] = std::min(args->viewShape_[ID0], firstDim);
         viewShapes[ID1] = std::min(args->viewShape_[ID1], secondDim);
@@ -245,13 +267,16 @@ static void ClipOperationExeFuncTripleCut(
         int sloop = CeilDiv(secondDim, viewShapes[ID1]);
         int nloop = CeilDiv(thirdDim, viewShapes[ID2]);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
                     std::vector<SymbolicScalar> loopVars = {bIdx, sIdx, nIdx};
                     std::vector<SymbolicScalar> offsets = GetOffsets(viewShapes, loopVars);
-                    Tensor tileTensor0 = View(inputs[ID0], viewShapes,
-                        GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
+                    Tensor tileTensor0 = View(
+                        inputs[ID0], viewShapes, GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
                     TileShape::Current().SetVecTile(args->tileShape_);
                     Tensor res;
                     if (args->isElement_) {
@@ -267,15 +292,17 @@ static void ClipOperationExeFuncTripleCut(
 }
 
 static void ClipOperationExeFuncQuadrupleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
     auto inputRefs = AsRef(inputs);
-    FUNCTION("main", inputRefs, {outputs[ID0]}) {
+    FUNCTION("main", inputRefs, {outputs[ID0]})
+    {
         SymbolicScalar firstDim = inputs[ID0].GetShape()[ID0];
         SymbolicScalar secondDim = inputs[ID0].GetShape()[ID1];
         SymbolicScalar thirdDim = inputs[ID0].GetShape()[ID2];
         SymbolicScalar fourthDim = inputs[ID0].GetShape()[ID3];
 
-        auto args = static_cast<const ClipOpFuncArgs *>(opArgs);
+        auto args = static_cast<const ClipOpFuncArgs*>(opArgs);
         Shape viewShapes(args->viewShape_.size(), 0);
         viewShapes[ID0] = std::min(args->viewShape_[ID0], firstDim);
         viewShapes[ID1] = std::min(args->viewShape_[ID1], secondDim);
@@ -286,14 +313,19 @@ static void ClipOperationExeFuncQuadrupleCut(
         int nloop = CeilDiv(thirdDim, viewShapes[ID2]);
         int qloop = CeilDiv(fourthDim, viewShapes[ID3]);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1))
+                    {
                         std::vector<SymbolicScalar> loopVars = {bIdx, sIdx, nIdx, qIdx};
                         std::vector<SymbolicScalar> offsets = GetOffsets(viewShapes, loopVars);
-                        Tensor tileTensor0 = View(inputs[ID0], viewShapes,
-                            GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars), offsets);
+                        Tensor tileTensor0 = View(
+                            inputs[ID0], viewShapes, GetValidShape(inputs[ID0].GetShape(), viewShapes, loopVars),
+                            offsets);
                         TileShape::Current().SetVecTile(args->tileShape_);
                         Tensor res;
                         if (args->isElement_) {
@@ -311,15 +343,17 @@ static void ClipOperationExeFuncQuadrupleCut(
 
 class ClipOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<ClipOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestClip, ClipOperationTest,
+INSTANTIATE_TEST_SUITE_P(
+    TestClip, ClipOperationTest,
     ::testing::ValuesIn(GetOpMetaData<ClipOpMetaData>(
         {ClipOperationExeFuncDoubleCut, ClipOperationExeFuncTripleCut, ClipOperationExeFuncQuadrupleCut}, "Clip")));
 
-Element GetElementByType(DataType dataType, nlohmann::json test_data, string name) {
+Element GetElementByType(DataType dataType, nlohmann::json test_data, string name)
+{
     std::string value = "";
     try {
         value = GetValueByName<std::string>(test_data, name);
-    } catch (const exception &e) {
+    } catch (const exception& e) {
         value = "";
     }
     if (dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16) {
@@ -343,7 +377,8 @@ Element GetElementByType(DataType dataType, nlohmann::json test_data, string nam
     }
 }
 
-TEST_P(ClipOperationTest, TestClip) {
+TEST_P(ClipOperationTest, TestClip)
+{
     auto test_data = GetParam().test_data_;
     int testType = GetValueByName<int>(test_data, "test_type");
     if (testType == -1) {
@@ -362,8 +397,7 @@ TEST_P(ClipOperationTest, TestClip) {
         testType == ToUnderlying(TestType::ElementNotDefaultMinDefaultMax) ||
         (testType == ToUnderlying(TestType::NotDefault2D) && isElement) ||
         (testType == ToUnderlying(TestType::NotDefault3D) && isElement) ||
-        (testType == ToUnderlying(TestType::NotDefault4D) && isElement)
-    ) {
+        (testType == ToUnderlying(TestType::NotDefault4D) && isElement)) {
         if (!minDtypeStr.empty()) {
             DataType minDtype = GetDataType(minDtypeStr);
             min = GetElementByType(minDtype, test_data, "min_value");

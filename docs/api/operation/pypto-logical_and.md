@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -77,4 +78,3 @@ z2 = pypto.logical_and(x, y2)
 输出数据z1: [True, False]
 输出数据z2: [[True, False], [False, False]]
 ```
-

@@ -28,36 +28,15 @@
 
 namespace CostModel {
 
-enum class PipeId {
-    S,
-    V,
-    M,
-    MTE1,
-    MTE2,
-    MTE3,
-    ALL,
-    MTE4,
-    MTE5,
-    V2,
-    F,
-    UNDEF
-};
+enum class PipeId { S, V, M, MTE1, MTE2, MTE3, ALL, MTE4, MTE5, V2, F, UNDEF };
 
-const std::vector<std::string> PIPE_ID_NAME_TAB = {
-    "SCALAR", "VEC", "CUBE", "MTE1", "MTE2", "MTE3", "ALL", "MTE4", "MTE5", "VEC2","FIXP", "UNDEF"
-};
+const std::vector<std::string> PIPE_ID_NAME_TAB = {"SCALAR", "VEC",  "CUBE", "MTE1", "MTE2", "MTE3",
+                                                   "ALL",    "MTE4", "MTE5", "VEC2", "FIXP", "UNDEF"};
 constexpr uint32_t PIPE_NUM = static_cast<uint32_t>(PipeId::UNDEF);
 constexpr uint32_t MAX_EVENT_ID_NUM = 8;
 constexpr uint32_t BLK_SIZE = 32;
 
-enum class SprId {
-    MASK0,
-    MASK1,
-    FPC,
-    FMATRIX,
-    NDPARA,
-    NUM
-};
+enum class SprId { MASK0, MASK1, FPC, FMATRIX, NDPARA, NUM };
 
 enum class InstrName {
     // mte2
@@ -124,263 +103,166 @@ enum class InstrName {
 };
 
 const std::map<uint32_t, std::vector<uint32_t>> VEC_VALU_TAB = {
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VADD), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VADD), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VADD), { 256, 1, 6 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VADD), { 256, 1, 6 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VADD), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VADD), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VADD), {256, 1, 6}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VADD), {256, 1, 6}},
 
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 6 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VSEL), { 256, 1, 6 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VSEL), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VSEL), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VSEL), {256, 1, 6}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VSEL), {256, 1, 6}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VBITSORT), { 128, 1, 18 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VBITSORT), { 64, 1, 18 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VBITSORT), {128, 1, 18}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VBITSORT), {64, 1, 18}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMRGSORT4), { 128, 1, 18 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMRGSORT4), { 64, 1, 18 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMRGSORT4), {128, 1, 18}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMRGSORT4), {64, 1, 18}},
 
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VSUB), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VSUB), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VSUB), { 256, 1, 6 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VSUB), { 256, 1, 6 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VSUB), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VSUB), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VSUB), {256, 1, 6}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VSUB), {256, 1, 6}},
 
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMUL), { 128, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMUL), { 256, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMUL), { 256, 1, 7 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMUL), { 256, 1, 7 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMUL), {128, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMUL), {256, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMUL), {256, 1, 7}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMUL), {256, 1, 7}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VDIV), { 64, 1, 13 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VDIV), { 128, 1, 13 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VDIV), {64, 1, 13}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VDIV), {128, 1, 13}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VEXP), { 64, 1, 12 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VEXP), { 128, 1, 12 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VLN), { 64, 1, 14 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VLN), { 128, 1, 14 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VSQRT), { 64, 1, 13 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VSQRT), { 128, 1, 13 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VEXP), {64, 1, 12}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VEXP), {128, 1, 12}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VLN), {64, 1, 14}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VLN), {128, 1, 14}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VSQRT), {64, 1, 13}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VSQRT), {128, 1, 13}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VRSQRT), { 256, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VRSQRT), { 256, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VABS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VABS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMAX), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMAX), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMAX), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMAX), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMIN), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMIN), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMIN), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMIN), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCADD), { 256, 1, 23 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCADD), { 256, 1, 20 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VRSQRT), {256, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VRSQRT), {256, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VABS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VABS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMAX), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMAX), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMAX), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMAX), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMIN), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMIN), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMIN), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMIN), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCADD), {256, 1, 23}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCADD), {256, 1, 20}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::MOVEV), { 256, 1, 1 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::MOVEV), { 256, 1, 1 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::MOVEV), {256, 1, 1}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::MOVEV), {256, 1, 1}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCMAX), { 256, 1, 9 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCMAX), { 256, 1, 8 } },
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VCMAX), { 256, 1, 10 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCMAX), {256, 1, 9}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCMAX), {256, 1, 8}},
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VCMAX), {256, 1, 10}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCMIN), { 256, 1, 9 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCMIN), { 256, 1, 8 } },
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VCMIN), { 256, 1, 10 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCMIN), {256, 1, 9}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCMIN), {256, 1, 8}},
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VCMIN), {256, 1, 10}},
 
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VADDS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VADDS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VADDS), { 256, 1, 6 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VADDS), { 256, 1, 6 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VADDS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VADDS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VADDS), {256, 1, 6}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VADDS), {256, 1, 6}},
 
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMULS), { 128, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMULS), { 256, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMULS), { 256, 1, 7 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMULS), { 256, 1, 7 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMULS), {128, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMULS), {256, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMULS), {256, 1, 7}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMULS), {256, 1, 7}},
 
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VREC), { 256, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VREC), { 256, 1, 5 } },
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VREC), {256, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VREC), {256, 1, 5}},
 
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMINS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMINS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMINS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMINS), { 256, 1, 4 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMINS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMINS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMINS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMINS), {256, 1, 4}},
 
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMAXS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMAXS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMAXS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMAXS), { 256, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCOPY), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCOPY), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VBRCB), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VBRCB), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VBRCB), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VBRCB), { 128, 1, 4 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCGADD), { 256, 1, 15 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCGADD), { 256, 1, 12 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCGMAX), { 256, 1, 6 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCGMAX), { 256, 1, 5 } },
-    { static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCGMIN), { 256, 1, 6 } },
-    { static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCGMIN), { 256, 1, 5 } },
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VMAXS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VMAXS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VMAXS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VMAXS), {256, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VREDUCEV2), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCOPY), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCOPY), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VBRCB), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VBRCB), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT16) << 24 | static_cast<uint32_t>(InstrName::VBRCB), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_INT32) << 24 | static_cast<uint32_t>(InstrName::VBRCB), {128, 1, 4}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCGADD), {256, 1, 15}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCGADD), {256, 1, 12}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCGMAX), {256, 1, 6}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCGMAX), {256, 1, 5}},
+    {static_cast<uint32_t>(DataType::DT_FP16) << 24 | static_cast<uint32_t>(InstrName::VCGMIN), {256, 1, 6}},
+    {static_cast<uint32_t>(DataType::DT_FP32) << 24 | static_cast<uint32_t>(InstrName::VCGMIN), {256, 1, 5}},
 };
 
-const std::map<uint32_t, uint32_t> CUBE_PE_TAB = { // c << 16 | a << 8 | b
-    { static_cast<uint32_t>(DataType::DT_INT32) << 16 | static_cast<uint32_t>(DataType::DT_INT8) << 8 | static_cast<uint32_t>(DataType::DT_INT8), 32 }, // s8
-    { static_cast<uint32_t>(DataType::DT_FP32) << 16 | static_cast<uint32_t>(DataType::DT_FP16) << 8 | static_cast<uint32_t>(DataType::DT_FP16), 16 }, // f162f32
-    { static_cast<uint32_t>(DataType::DT_FP32) << 16 | static_cast<uint32_t>(DataType::DT_BF16) << 8 | static_cast<uint32_t>(DataType::DT_BF16), 16 }, // bf162f32
-    { static_cast<uint32_t>(DataType::DT_FP32) << 16 | static_cast<uint32_t>(DataType::DT_FP32) << 8 | static_cast<uint32_t>(DataType::DT_FP32), 4 }, // f322f32
-    { static_cast<uint32_t>(DataType::DT_INT32) << 16 | static_cast<uint32_t>(DataType::DT_INT4) << 8 | static_cast<uint32_t>(DataType::DT_INT4), 64 }, // s4
+const std::map<uint32_t, uint32_t> CUBE_PE_TAB = {
+    // c << 16 | a << 8 | b
+    {static_cast<uint32_t>(DataType::DT_INT32) << 16 | static_cast<uint32_t>(DataType::DT_INT8) << 8 |
+         static_cast<uint32_t>(DataType::DT_INT8),
+     32}, // s8
+    {static_cast<uint32_t>(DataType::DT_FP32) << 16 | static_cast<uint32_t>(DataType::DT_FP16) << 8 |
+         static_cast<uint32_t>(DataType::DT_FP16),
+     16}, // f162f32
+    {static_cast<uint32_t>(DataType::DT_FP32) << 16 | static_cast<uint32_t>(DataType::DT_BF16) << 8 |
+         static_cast<uint32_t>(DataType::DT_BF16),
+     16}, // bf162f32
+    {static_cast<uint32_t>(DataType::DT_FP32) << 16 | static_cast<uint32_t>(DataType::DT_FP32) << 8 |
+         static_cast<uint32_t>(DataType::DT_FP32),
+     4}, // f322f32
+    {static_cast<uint32_t>(DataType::DT_INT32) << 16 | static_cast<uint32_t>(DataType::DT_INT4) << 8 |
+         static_cast<uint32_t>(DataType::DT_INT4),
+     64}, // s4
 };
 
 const std::vector<std::string> INSTR_NAME_TAB = {
     // mte2
-    "NDNZ_OUT_L1",
-    "MOV_OUT_UB",
+    "NDNZ_OUT_L1", "MOV_OUT_UB",
     // mte3
     "MOV_UB_OUT",
     // mte1
-    "LOAD_L1_L0A_2D",
-    "LOAD_L1_L0B_2D",
-    "LOAD_L1_L0A_3D",
-    "LOAD_L1_L0B_3D",
+    "LOAD_L1_L0A_2D", "LOAD_L1_L0B_2D", "LOAD_L1_L0A_3D", "LOAD_L1_L0B_3D",
     // fixp
     "FIX_L0C_OUT",
     // vector
-    "VADD",
-    "VSUB",
-    "VMUL",
-    "VDIV",
-    "VMIN",
-    "VCOPY",
-    "VEXP",
-    "VLN",
-    "VSQRT",
-    "VRSQRT",
-    "VMAX",
-    "VCADD",
-    "MOVEV",
-    "MOVEMASK",
-    "VCMAX",
-    "VCMIN",
-    "VADDS",
-    "VMULS",
-    "VMINS",
-    "VMAXS",
-    "VCGADD",
-    "VCGMAX",
-    "VCGMIN",
-    "VREC",
-    "VCONV",
-    "MOV_UB_UB",
-    "MOVEVA",
-    "VNCHWCONV",
-    "VREDUCEV2",
-    "VBRCB",
-    "VABS",
+    "VADD", "VSUB", "VMUL", "VDIV", "VMIN", "VCOPY", "VEXP", "VLN", "VSQRT", "VRSQRT", "VMAX", "VCADD", "MOVEV",
+    "MOVEMASK", "VCMAX", "VCMIN", "VADDS", "VMULS", "VMINS", "VMAXS", "VCGADD", "VCGMAX", "VCGMIN", "VREC", "VCONV",
+    "MOV_UB_UB", "MOVEVA", "VNCHWCONV", "VREDUCEV2", "VBRCB", "VABS",
     // cube
     "MMAD",
     // scalar
-    "SET_FLAG",
-    "WAIT_FLAG",
-    "BAR",
-    "LD",
-    "ST",
-    "MOV_SPR",
-    "UNDEF"
-};
+    "SET_FLAG", "WAIT_FLAG", "BAR", "LD", "ST", "MOV_SPR", "UNDEF"};
 
-enum class NdNzParam {
-    TYPE,
-    ND_NUM,
-    N,
-    D,
-    SRC_ND_MTX_STD,
-    SRC_D,
-    DST_NZ_C0_STD,
-    DST_NZ_N_STD,
-    DST_NZ_MTX_STD,
-    NUM
-};
+enum class NdNzParam { TYPE, ND_NUM, N, D, SRC_ND_MTX_STD, SRC_D, DST_NZ_C0_STD, DST_NZ_N_STD, DST_NZ_MTX_STD, NUM };
 
-enum class MovParam {
-    BURST_NUM,
-    BURST_LEN,
-    SRC_STD,
-    DST_STD,
-    NUM
-};
+enum class MovParam { BURST_NUM, BURST_LEN, SRC_STD, DST_STD, NUM };
 
-enum class MovPadParam {
-    TYPE,
-    BURST_NUM,
-    BURST_LEN,
-    LPAD,
-    RPAD,
-    SRC_STD,
-    DST_STD,
-    NUM
-};
+enum class MovPadParam { TYPE, BURST_NUM, BURST_LEN, LPAD, RPAD, SRC_STD, DST_STD, NUM };
 
-enum class FixpParam {
-    TYPE,
-    N,
-    M,
-    SRC_STD,
-    DST_STD,
-    ND_NUM,
-    NUM
-};
+enum class FixpParam { TYPE, N, M, SRC_STD, DST_STD, ND_NUM, NUM };
 
-enum class VecOp0Param {
-    TYPE,
-    REPEAT,
-    NUM
-};
+enum class VecOp0Param { TYPE, REPEAT, NUM };
 
-enum class VecOp1Param {
-    TYPE,
-    REPEAT,
-    MODE,
-    NUM
-};
+enum class VecOp1Param { TYPE, REPEAT, MODE, NUM };
 
-enum class ConvParam {
-    SRC_TYPE,
-    DST_TYPE,
-    REPEAT,
-    NUM
-};
+enum class ConvParam { SRC_TYPE, DST_TYPE, REPEAT, NUM };
 
-enum class Load3dParam {
-    TYPE,
-    M,
-    K,
-    NUM
-};
+enum class Load3dParam { TYPE, M, K, NUM };
 
-enum class MmadParam {
-    CTYPE,
-    ATYPE,
-    BTYPE,
-    M,
-    N,
-    K,
-    NUM
-};
+enum class MmadParam { CTYPE, ATYPE, BTYPE, M, N, K, NUM };
 
-enum class SetFlagParam {
-    PIPE,
-    TRIGGER_PIPE,
-    EVENT_ID,
-    NUM
-};
+enum class SetFlagParam { PIPE, TRIGGER_PIPE, EVENT_ID, NUM };
 
-enum class BarParam {
-    PIPE,
-    NUM
-};
+enum class BarParam { PIPE, NUM };
 
 struct InstrParam {
     uint64_t popTime = 0;
@@ -392,7 +274,7 @@ struct InstrParam {
     uint32_t id = 0;
     int seqNo = 0;
 };
-using PInstrParam  = std::shared_ptr<InstrParam>;
+using PInstrParam = std::shared_ptr<InstrParam>;
 
 inline uint32_t Ceiling(uint32_t a, uint32_t b)
 {
@@ -402,7 +284,8 @@ inline uint32_t Ceiling(uint32_t a, uint32_t b)
 using namespace std;
 
 // 查找指定括号对之间的内容
-inline string FindContentBetween(const string& str, char open, char close, size_t& startPos) {
+inline string FindContentBetween(const string& str, char open, char close, size_t& startPos)
+{
     size_t openPos = str.find(open, startPos);
     if (openPos == string::npos) {
         return "";
@@ -416,7 +299,8 @@ inline string FindContentBetween(const string& str, char open, char close, size_
 }
 
 // 解析函数字符串
-inline void ParseFunction(const string& funcStr, string& funcName, string& templateContent, string& paramContent) {
+inline void ParseFunction(const string& funcStr, string& funcName, string& templateContent, string& paramContent)
+{
     size_t pos = 0;
 
     // 查找函数名
@@ -437,7 +321,8 @@ inline void ParseFunction(const string& funcStr, string& funcName, string& templ
     paramContent = FindContentBetween(funcStr, '(', ')', pos);
 }
 // 去除字符串首尾空格的函数
-inline string Trim(const string& str) {
+inline string Trim(const string& str)
+{
     size_t first = str.find_first_not_of(" \t");
     if (string::npos == first) {
         return str;
@@ -446,7 +331,8 @@ inline string Trim(const string& str) {
     return str.substr(first, (last - first + 1));
 }
 // 分割字符串的函数
-inline vector<string> SplitString(const string& input, char delimiter = ',') {
+inline vector<string> SplitString(const string& input, char delimiter = ',')
+{
     if (input.empty()) {
         return vector<string>();
     }
@@ -522,7 +408,7 @@ inline uint64_t GetLongParam(string param)
     return 0;
 }
 
-inline PInstrParam  ScalarInstr(InstrName name, PipeId pipe)
+inline PInstrParam ScalarInstr(InstrName name, PipeId pipe)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
@@ -531,7 +417,7 @@ inline PInstrParam  ScalarInstr(InstrName name, PipeId pipe)
     // pipe_barrier, set_mask_count, set_mask_norm, set_flag, wait_flag
 }
 
-inline PInstrParam  SetSpr(InstrName name, PipeId pipe, SprId spr, const vector<string> params)
+inline PInstrParam SetSpr(InstrName name, PipeId pipe, SprId spr, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
@@ -542,157 +428,171 @@ inline PInstrParam  SetSpr(InstrName name, PipeId pipe, SprId spr, const vector<
     if (spr == SprId::MASK1) {
         uint32_t maskValLo = sprVal & 0xffffffff;
         uint32_t maskValHi = (sprVal >> 32) & 0xffffffff;
-        instr->param = { static_cast<uint32_t>(spr), sprValLo, sprValHi, maskValLo, maskValHi };
+        instr->param = {static_cast<uint32_t>(spr), sprValLo, sprValHi, maskValLo, maskValHi};
     } else {
-        instr->param = { static_cast<uint32_t>(spr), sprValLo, sprValHi };
+        instr->param = {static_cast<uint32_t>(spr), sprValLo, sprValHi};
     }
 
     return instr;
     // set_vector_mask, set_fmatrix set_nd_para set_fpc
 }
 
-inline PInstrParam  VecTemplate0(InstrName name, const vector<string> templates, const vector<string> params)
+inline PInstrParam VecTemplate0(InstrName name, const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = PipeId::V;
-    instr->param = { GetDataType(templates[0]), GetParam(params[3]) };
+    instr->param = {GetDataType(templates[0]), GetParam(params[3])};
     return instr;
     // vadd vsub vmul vdiv vmin vmax
     // vadds vmuls vmins vmaxs
 }
 
-inline PInstrParam  VecTemplate1(InstrName name, const vector<string> templates, const vector<string> params)
+inline PInstrParam VecTemplate1(InstrName name, const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = PipeId::V;
-    instr->param = { GetDataType(templates[0]), GetParam(params[2]) };
+    instr->param = {GetDataType(templates[0]), GetParam(params[2])};
     return instr;
     // vcopy vexp vln vsqrt vrsqrt vector_dup vrec vbrcb
     // vcgadd vcgmax vcgmin
 }
 
-inline PInstrParam  VecTemplate2(InstrName name, const vector<string> templates, const vector<string> params)
+inline PInstrParam VecTemplate2(InstrName name, const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = PipeId::V;
-    instr->param = { GetDataType(templates[0]), GetParam(params[2]), GetParam(params[6]) };
+    instr->param = {GetDataType(templates[0]), GetParam(params[2]), GetParam(params[6])};
     return instr;
     // vcadd vcmax vcmin
     // vreducev2
 }
 
-inline PInstrParam  VecReduceV2(InstrName name, const vector<string> templates, const vector<string> params)
+inline PInstrParam VecReduceV2(InstrName name, const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = PipeId::V;
-    instr->param = { GetDataType(templates[0]), GetParam(params[3]), 1 };
+    instr->param = {GetDataType(templates[0]), GetParam(params[3]), 1};
     return instr;
     // vcadd vcmax vcmin
     // vreducev2
 }
 
-inline PInstrParam  VecVnchwconv(DataType type, const vector<string> params)
+inline PInstrParam VecVnchwconv(DataType type, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = InstrName::VNCHWCONV;
     instr->pipe = PipeId::V;
-    instr->param = { type, GetParam(params[4]), };
+    instr->param = {
+        type,
+        GetParam(params[4]),
+    };
     return instr;
     // vnchwconv
 }
 
-inline PInstrParam  VecVconv(InstrName name, const vector<string> templates, const vector<string> params)
+inline PInstrParam VecVconv(InstrName name, const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = PipeId::V;
-    instr->param = { GetDataType(templates[1]), GetDataType(templates[0]), GetParam(params[2]) };
+    instr->param = {GetDataType(templates[1]), GetDataType(templates[0]), GetParam(params[2])};
     return instr;
     // vconv
 }
 
-inline PInstrParam  MteDma(InstrName name, PipeId pipe, const vector<string> params)
+inline PInstrParam MteDma(InstrName name, PipeId pipe, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = pipe;
-    instr->param = { GetParam(params[3]) /* nBurst */, GetParam(params[4]) /* lenBurst */,
-        GetParam(params[5]) /* srcStride */, GetParam(params[6]) /* dstStride */ };
+    instr->param = {
+        GetParam(params[3]) /* nBurst */, GetParam(params[4]) /* lenBurst */, GetParam(params[5]) /* srcStride */,
+        GetParam(params[6]) /* dstStride */};
     return instr;
     // copy_ubuf_to_ubuf copy_ubuf_to_gm copy_gm_to_ubuf copy_cbuf_to_gm copy_gm_to_cbuf
 }
 
-inline PInstrParam  MteMovAlign(InstrName name, PipeId pipe, DataType type, const std::vector<std::string> params)
+inline PInstrParam MteMovAlign(InstrName name, PipeId pipe, DataType type, const std::vector<std::string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = pipe;
-    instr->param = { static_cast<uint32_t>(type) /* type */, GetParam(params[3]) /* nBurst */, GetParam(params[4]) /* lenBurst */,
-        GetParam(params[5]) /* lpad */, GetParam(params[6]) /* rpad */,
-        GetParam(params[7]) /* srcStride */, GetParam(params[8]) /* dstStride */ };
+    instr->param = {
+        static_cast<uint32_t>(type) /* type */,
+        GetParam(params[3]) /* nBurst */,
+        GetParam(params[4]) /* lenBurst */,
+        GetParam(params[5]) /* lpad */,
+        GetParam(params[6]) /* rpad */,
+        GetParam(params[7]) /* srcStride */,
+        GetParam(params[8]) /* dstStride */};
     return instr;
     // copy_gm_to_ubuf_align_b8 copy_gm_to_ubuf_align_b16 copy_gm_to_ubuf_align_b32
     // copy_ubuf_to_gm_align_b8 copy_ubuf_to_gm_align_b16 copy_ubuf_to_gm_align_b32
 }
 
-inline PInstrParam  Nd2Nz(DataType type, const vector<string> params)
+inline PInstrParam Nd2Nz(DataType type, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = InstrName::NDNZ_OUT_L1;
     instr->pipe = PipeId::MTE2;
-    instr->param = { static_cast<uint32_t>(type) /* type */, GetParam(params[3]) /* ndNum */, GetParam(params[4]) /* nValue */,
-        GetParam(params[5]) /* dValue */, GetParam(params[6]) /* srcNdMatrixStride */,
+    instr->param = {
+        static_cast<uint32_t>(type) /* type */,
+        GetParam(params[3]) /* ndNum */,
+        GetParam(params[4]) /* nValue */,
+        GetParam(params[5]) /* dValue */,
+        GetParam(params[6]) /* srcNdMatrixStride */,
         GetParam(params[7]) /* srcDValue */,
-        GetParam(params[8]) /* dstNzC0Stride */, GetParam(params[9]) /* dstNzNStride */,
-        GetParam(params[10]) /* dstNzMatrixStride */ };
+        GetParam(params[8]) /* dstNzC0Stride */,
+        GetParam(params[9]) /* dstNzNStride */,
+        GetParam(params[10]) /* dstNzMatrixStride */};
     return instr;
     // copy_gm_to_cbuf_multi_nd2nz_b16 copy_gm_to_cbuf_multi_nd2nz_b32s
 }
 
-inline PInstrParam  Img2Col(InstrName name, const vector<string> templates, const vector<string> params)
+inline PInstrParam Img2Col(InstrName name, const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = PipeId::MTE1;
-    instr->param = { GetDataType(templates[0]) /* type */, GetParam(params[3]) /* M */, GetParam(params[2])/* K */ };
+    instr->param = {GetDataType(templates[0]) /* type */, GetParam(params[3]) /* M */, GetParam(params[2]) /* K */};
     return instr;
     // img2colv2_cbuf_to_ca img2colv2_cbuf_to_cb
 }
 
-inline PInstrParam  Load(InstrName name, const vector<string> templates, const vector<string> params)
+inline PInstrParam Load(InstrName name, const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = name;
     instr->pipe = PipeId::MTE1;
-    instr->param = { GetDataType(templates[0]) /* type */, GetParam(params[3]) /* repeat */ };
+    instr->param = {GetDataType(templates[0]) /* type */, GetParam(params[3]) /* repeat */};
     return instr;
     // load_cbuf_to_ca load_cbuf_to_cb
 }
 
-inline PInstrParam  Mmad(const vector<string> templates, const vector<string> params)
+inline PInstrParam Mmad(const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = InstrName::MMAD;
     instr->pipe = PipeId::M;
-    instr->param = { GetDataType(templates[0]) /* ctype */, GetDataType(templates[1]) /* atype */,
-        GetDataType(templates[2]) /* btype */, GetParam(params[3]) /* m */, GetParam(params[5]) /* n */,
-        GetParam(params[4]) /* k */ };
+    instr->param = {GetDataType(templates[0]) /* ctype */, GetDataType(templates[1]) /* atype */,
+                    GetDataType(templates[2]) /* btype */, GetParam(params[3]) /* m */,
+                    GetParam(params[5]) /* n */,           GetParam(params[4]) /* k */};
     return instr;
     // mad
 }
 
-inline PInstrParam  FixL0cOut(const vector<string> templates, const vector<string> params)
+inline PInstrParam FixL0cOut(const vector<string> templates, const vector<string> params)
 {
     auto instr = make_shared<InstrParam>();
     instr->name = InstrName::FIX_L0C_OUT;
     instr->pipe = PipeId::F;
-    instr->param = { GetDataType(templates[0]) /* type */, GetParam(params[3]) /* n */,
-        GetParam(params[4]) /* m */, GetParam(params[6]) /* src_std */, GetParam(params[5]) /* dst_std */,
-        1 /* nd_num */ };
+    instr->param = {GetDataType(templates[0]) /* type */, GetParam(params[3]) /* n */,
+                    GetParam(params[4]) /* m */,          GetParam(params[6]) /* src_std */,
+                    GetParam(params[5]) /* dst_std */,    1 /* nd_num */};
     return instr;
     // copy_matrix_cc_to_gm
 }
@@ -712,7 +612,9 @@ inline deque<PInstrParam> GetProgram(vector<string> program)
             ret.push_back(SetSpr(InstrName::MOVEMASK, PipeId::V, SprId::MASK1, params));
         } else if (funcName == "pipe_barrier") {
             ret.push_back(ScalarInstr(InstrName::BAR, PipeId::V));
-        } else if (funcName == "set_mask_count" || funcName == "set_mask_norm" || funcName == "set_va_reg_sb" || funcName == "set_deqscale") {
+        } else if (
+            funcName == "set_mask_count" || funcName == "set_mask_norm" || funcName == "set_va_reg_sb" ||
+            funcName == "set_deqscale") {
             ret.push_back(ScalarInstr(InstrName::ALU, PipeId::S));
         } else if (funcName == "set_flag") {
             ret.push_back(ScalarInstr(InstrName::SET_FLAG, PipeId::S));
@@ -786,7 +688,7 @@ inline deque<PInstrParam> GetProgram(vector<string> program)
             ret.push_back(VecTemplate2(InstrName::VCMAX, templates, params));
         } else if (funcName == "vcmin") {
             ret.push_back(VecTemplate2(InstrName::VCMIN, templates, params));
-        } else if (funcName.find("vconv") != funcName.npos){
+        } else if (funcName.find("vconv") != funcName.npos) {
             ret.push_back(VecVconv(InstrName::VCONV, templates, params));
         } else if (funcName == "scatter_vnchwconv_b8") {
             ret.push_back(VecVnchwconv(DataType::DT_INT8, params));
@@ -831,12 +733,14 @@ inline deque<PInstrParam> GetProgram(vector<string> program)
         } else if (funcName == "copy_matrix_cc_to_gm") {
             ret.push_back(FixL0cOut(templates, params));
         } else {
-            SIMULATION_LOGE("ErrCode: F%u, %s not support.", static_cast<unsigned>(CostModel::ForwardSimErrorScene::FUNC_NOT_SUPPORT), funcStr.c_str());
+            SIMULATION_LOGE(
+                "ErrCode: F%u, %s not support.",
+                static_cast<unsigned>(CostModel::ForwardSimErrorScene::FUNC_NOT_SUPPORT), funcStr.c_str());
         }
     }
     return ret;
 }
 
-}  // namespace CostModel
+} // namespace CostModel
 
 #endif

@@ -17,7 +17,8 @@
 
 namespace npu::tile_fwk::dynamic {
 namespace {
-std::string DumpSymInt(const SymInt &s, const uint64_t *runtimeExpressionList) {
+std::string DumpSymInt(const SymInt& s, const uint64_t* runtimeExpressionList)
+{
     std::ostringstream oss;
     if (s.IsExpression()) {
         if (runtimeExpressionList == nullptr) {
@@ -28,10 +29,11 @@ std::string DumpSymInt(const SymInt &s, const uint64_t *runtimeExpressionList) {
     } else {
         oss << s.Value();
     }
-        return oss.str();
+    return oss.str();
 }
 
-std::string DumpSymIntList(const SymInt *s, int count, uint64_t *runtimeExpressionList) {
+std::string DumpSymIntList(const SymInt* s, int count, uint64_t* runtimeExpressionList)
+{
     std::ostringstream oss;
     oss << "<";
     for (int i = 0; i < count; i++) {
@@ -40,40 +42,44 @@ std::string DumpSymIntList(const SymInt *s, int count, uint64_t *runtimeExpressi
     oss << ">";
     return oss.str();
 }
-}
+} // namespace
 
-std::string DevAscendFunction::DumpTensor(int tensorIndex) const {
+std::string DevAscendFunction::DumpTensor(int tensorIndex) const
+{
     std::ostringstream oss;
     oss << "%" << tensorIndex << "@" << GetTensor(tensorIndex)->rawIndex;
     return oss.str();
 }
 
-std::string DevAscendFunction::DumpOperationAttr(int operationIndex, uint64_t *runtimeExpressionList,
-                                                 bool dumpIndex) const {
+std::string DevAscendFunction::DumpOperationAttr(
+    int operationIndex, uint64_t* runtimeExpressionList, bool dumpIndex) const
+{
     std::ostringstream oss;
     oss << SchemaGetCoa(operationIndex, runtimeExpressionList, dumpIndex).Dump();
     oss << " " << schema::pred(GetOperationDepGraphPredCount(operationIndex)).Dump();
-    const DevLocalVector<int> &succList = GetOperationDepGraphSuccList(operationIndex);
+    const DevLocalVector<int>& succList = GetOperationDepGraphSuccList(operationIndex);
     std::vector<schema::operation> succDataList;
     for (size_t j = 0; j < succList.size(); j++) {
         succDataList.push_back(At(succList, j));
     }
     oss << " " << schema::succ(succDataList).Dump();
 
-    const DevLocalVector<int> &copyOutResolveCounterIndexList = GetOperationDepGraphCopyOutResolveSuccIndexList(operationIndex);
+    const DevLocalVector<int>& copyOutResolveCounterIndexList =
+        GetOperationDepGraphCopyOutResolveSuccIndexList(operationIndex);
     std::vector<int64_t> outSuccIndexDataList;
     for (size_t j = 0; j < copyOutResolveCounterIndexList.size(); j++) {
         outSuccIndexDataList.push_back(At(copyOutResolveCounterIndexList, j));
     }
     oss << " " << schema::outSuccIndex(outSuccIndexDataList).Dump();
-    oss << " " << "#outcastStitch{" << GetOperationOutcastStitchIndex(operationIndex) << "}";
+    oss << " "
+        << "#outcastStitch{" << GetOperationOutcastStitchIndex(operationIndex) << "}";
     return oss.str();
 }
 
-std::string DevAscendFunction::DumpOperation(int operationIndex, int &totalAttrStartIdx,
-                                             const std::vector<uintdevptr_t> &ooperandAddrList,
-                                             const std::vector<uintdevptr_t> &ioperandAddrList,
-                                             uint64_t *runtimeExpressionList) const {
+std::string DevAscendFunction::DumpOperation(
+    int operationIndex, int& totalAttrStartIdx, const std::vector<uintdevptr_t>& ooperandAddrList,
+    const std::vector<uintdevptr_t>& ioperandAddrList, uint64_t* runtimeExpressionList) const
+{
     std::ostringstream oss;
     for (size_t j = 0; j < GetOperationOOperandSize(operationIndex); j++) {
         oss << Delim(j != 0, ",") << DumpTensor(GetOperationOOperandInfo(operationIndex, j).tensorIndex);
@@ -95,11 +101,12 @@ std::string DevAscendFunction::DumpOperation(int operationIndex, int &totalAttrS
     return oss.str();
 }
 
-std::string DevAscendFunction::DumpRawTensor(int rawIndex, uintdevptr_t addr) const {
+std::string DevAscendFunction::DumpRawTensor(int rawIndex, uintdevptr_t addr) const
+{
     std::ostringstream oss;
     auto rawTensor = GetRawTensor(rawIndex);
     auto rawTensorDesc = GetRawTensorDesc(rawIndex);
-    oss << rawTensor->DumpType() << " @" << rawIndex <<"&"<<rawTensor->linkedIncastId << " = ";
+    oss << rawTensor->DumpType() << " @" << rawIndex << "&" << rawTensor->linkedIncastId << " = ";
     oss << rawTensor->DumpAttr() << " ";
     oss << DevAscendRawTensor::DumpAttrDesc(rawTensorDesc);
     if (addr != 0) {
@@ -108,10 +115,12 @@ std::string DevAscendFunction::DumpRawTensor(int rawIndex, uintdevptr_t addr) co
     return oss.str();
 }
 
-std::string DevAscendFunction::DumpIncast(int incastIndex, const std::string &indent, uint64_t *runtimeExpressionList,
-                                          const std::vector<uintdevptr_t> &slotAddrList) const {
+std::string DevAscendFunction::DumpIncast(
+    int incastIndex, const std::string& indent, uint64_t* runtimeExpressionList,
+    const std::vector<uintdevptr_t>& slotAddrList) const
+{
     std::ostringstream oss;
-    const DevAscendFunctionIncast &incast = GetIncast(incastIndex);
+    const DevAscendFunctionIncast& incast = GetIncast(incastIndex);
     oss << "#incast:" << incastIndex << " = " << DumpTensor(incast.tensorIndex);
     for (size_t j = 0; j < incast.fromSlotList.size(); j++) {
         int slot = At(incast.fromSlotList, j);
@@ -133,7 +142,7 @@ std::string DevAscendFunction::DumpIncast(int incastIndex, const std::string &in
     oss << "]\n";
 
     for (size_t j = 0; j < incast.consumerList.size(); j++) {
-        auto &consumer = At(incast.consumerList, j);
+        auto& consumer = At(incast.consumerList, j);
         int consumerIdx = consumer.operationIdx;
         int operandIdx = consumer.operandIdx;
         int offsetAttrIdx = consumer.offsetAttrIdx;
@@ -143,20 +152,25 @@ std::string DevAscendFunction::DumpIncast(int incastIndex, const std::string &in
         oss << " | #operandIdx:" << operandIdx;
         oss << " | #offsetAttrIdx:" << offsetAttrIdx;
         oss << " | #shapeAttrIdx:" << shapeAttrIdx;
-        oss << " | #offsetAttr:" << DumpSymIntList(&GetOperationAttr(consumerIdx, offsetAttrIdx), incast.dim, runtimeExpressionList);
-        oss << " | #shapeAttr:" << DumpSymIntList(&GetOperationAttr(consumerIdx, shapeAttrIdx), incast.dim, runtimeExpressionList);
+        oss << " | #offsetAttr:"
+            << DumpSymIntList(&GetOperationAttr(consumerIdx, offsetAttrIdx), incast.dim, runtimeExpressionList);
+        oss << " | #shapeAttr:"
+            << DumpSymIntList(&GetOperationAttr(consumerIdx, shapeAttrIdx), incast.dim, runtimeExpressionList);
         oss << "\n";
     }
     return oss.str();
 }
 
-std::string DevAscendFunction::DumpOutcast(int outcastIndex, const std::string &indent, uint64_t *runtimeExpressionList,
-                                           const std::vector<uintdevptr_t> &slotAddrList) const {
+std::string DevAscendFunction::DumpOutcast(
+    int outcastIndex, const std::string& indent, uint64_t* runtimeExpressionList,
+    const std::vector<uintdevptr_t>& slotAddrList) const
+{
     std::ostringstream oss;
-    const DevAscendFunctionOutcast &outcast = GetOutcast(outcastIndex);
-    auto dumpProducer = [this, &oss, &indent, &outcast, &runtimeExpressionList](const DevLocalVector<DevAscendFunctionCallOperandUse>& producerList) -> void {
+    const DevAscendFunctionOutcast& outcast = GetOutcast(outcastIndex);
+    auto dumpProducer = [this, &oss, &indent, &outcast, &runtimeExpressionList](
+                            const DevLocalVector<DevAscendFunctionCallOperandUse>& producerList) -> void {
         for (size_t j = 0; j < producerList.size(); j++) {
-            auto &producer = At(producerList, j);
+            auto& producer = At(producerList, j);
             int producerIdx = producer.operationIdx;
             int operandIdx = producer.operandIdx;
             int offsetAttrIdx = producer.offsetAttrIdx;
@@ -166,8 +180,10 @@ std::string DevAscendFunction::DumpOutcast(int outcastIndex, const std::string &
             oss << " | #operandIdx:" << operandIdx;
             oss << " | #offsetAttrIdx:" << offsetAttrIdx;
             oss << " | #shapeAttrIdx:" << shapeAttrIdx;
-            oss << " | #offsetAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, offsetAttrIdx), outcast.dim, runtimeExpressionList);
-            oss << " | #shapeAttr:" << DumpSymIntList(&GetOperationAttr(producerIdx, shapeAttrIdx), outcast.dim, runtimeExpressionList);
+            oss << " | #offsetAttr:"
+                << DumpSymIntList(&GetOperationAttr(producerIdx, offsetAttrIdx), outcast.dim, runtimeExpressionList);
+            oss << " | #shapeAttr:"
+                << DumpSymIntList(&GetOperationAttr(producerIdx, shapeAttrIdx), outcast.dim, runtimeExpressionList);
             oss << "\n";
         }
     };
@@ -194,7 +210,8 @@ std::string DevAscendFunction::DumpOutcast(int outcastIndex, const std::string &
     oss << "]\n";
     dumpProducer(outcast.stitchPolicyFullCoverProducerList);
 
-    oss << indent << " | #stitchPolicyFullCoverProducerHubOpIdx:" << outcast.stitchPolicyFullCoverProducerHubOpIdx << "\n";
+    oss << indent << " | #stitchPolicyFullCoverProducerHubOpIdx:" << outcast.stitchPolicyFullCoverProducerHubOpIdx
+        << "\n";
     oss << indent << " | #stitchPolicyFullCoverProducerAllOpIdxList:[";
     for (size_t j = 0; j < outcast.stitchPolicyFullCoverProducerAllOpIdxList.size(); j++) {
         oss << Delim(j != 0, ",") << At(outcast.stitchPolicyFullCoverProducerAllOpIdxList, j);
@@ -204,7 +221,8 @@ std::string DevAscendFunction::DumpOutcast(int outcastIndex, const std::string &
     return oss.str();
 }
 
-std::string DevAscendFunction::Dump(int indent) const {
+std::string DevAscendFunction::Dump(int indent) const
+{
     std::string INDENT(indent, ' ');
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     std::ostringstream oss;
@@ -242,4 +260,4 @@ std::string DevAscendFunction::Dump(int indent) const {
     oss << INDENT << "}";
     return oss.str();
 }
-}
+} // namespace npu::tile_fwk::dynamic

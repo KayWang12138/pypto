@@ -20,17 +20,17 @@ namespace npu::tile_fwk::calc {
 
 typedef struct CalcOps* (*GetCalcOpsFunc)();
 
-struct CalcOps *GetCalcOps() {
+struct CalcOps* GetCalcOps()
+{
     static std::once_flag once_;
-    static struct CalcOps *calcOps = nullptr;
+    static struct CalcOps* calcOps = nullptr;
 
     std::call_once(once_, []() {
-        /* whl 包场景在 whl 包 init 时即完成 so 加载, 故可直接从当前进程加载符号 */
+    /* whl 包场景在 whl 包 init 时即完成 so 加载, 故可直接从当前进程加载符号 */
 #ifndef ENABLE_TESTS
         auto handle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
         if (handle == nullptr) {
-            VERIFY_LOGE_FULL_E(VerifyEnableScene::VERIFY_LOAD_CALC_OPS_FAILED,
-                               "Can't get program handle");
+            VERIFY_LOGE_FULL_E(VerifyEnableScene::VERIFY_LOAD_CALC_OPS_FAILED, "Can't get program handle");
             return;
         }
 #else
@@ -50,4 +50,4 @@ struct CalcOps *GetCalcOps() {
 
     return calcOps;
 }
-}
+} // namespace npu::tile_fwk::calc

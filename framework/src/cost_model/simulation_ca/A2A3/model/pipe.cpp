@@ -18,22 +18,19 @@ namespace CostModel {
 
 using namespace std;
 
-CostModelPipe::CostModelPipe(const std::string &moduleName, const uint32_t coreId, const uint32_t pipeId)
+CostModelPipe::CostModelPipe(const std::string& moduleName, const uint32_t coreId, const uint32_t pipeId)
     : pipeName(moduleName), coreId_(coreId), pipeId_(pipeId)
 {}
 
 CostModelPipe::~CostModelPipe() {}
 
-bool CostModelPipe::Build() const
-{
-    return true;
-}
+bool CostModelPipe::Build() const { return true; }
 
-void CostModelPipe::Attach(const function<void(const uint32_t, const uint32_t, const uint32_t)>& popSetFlag,
-                           const function<void(const uint32_t, const uint32_t, const uint32_t)>& rlsSetFlag,
-                           const function<bool(const uint32_t, const uint32_t, const uint32_t)>& getFlag,
-                           const std::function<void(const PInstrParam&)>& dump,
-                           const std::function<void(const uint32_t)>& retire)
+void CostModelPipe::Attach(
+    const function<void(const uint32_t, const uint32_t, const uint32_t)>& popSetFlag,
+    const function<void(const uint32_t, const uint32_t, const uint32_t)>& rlsSetFlag,
+    const function<bool(const uint32_t, const uint32_t, const uint32_t)>& getFlag,
+    const std::function<void(const PInstrParam&)>& dump, const std::function<void(const uint32_t)>& retire)
 {
     popSetFlag_ = popSetFlag;
     rlsSetFlag_ = rlsSetFlag;
@@ -42,30 +39,19 @@ void CostModelPipe::Attach(const function<void(const uint32_t, const uint32_t, c
     retire_ = retire;
 }
 
-void CostModelPipe::AttachClk(const std::function<uint64_t()>& time)
-{
-    time_ = time;
-}
+void CostModelPipe::AttachClk(const std::function<uint64_t()>& time) { time_ = time; }
 
-uint64_t CostModelPipe::GetTime() const
-{
-    return time_ ? time_() : tick_;
-}
+uint64_t CostModelPipe::GetTime() const { return time_ ? time_() : tick_; }
 
-bool CostModelPipe::IsqFull() const
-{
-    return isqOtsd_ >= isqMaxOtsd_;
-}
+bool CostModelPipe::IsqFull() const { return isqOtsd_ >= isqMaxOtsd_; }
 
-bool CostModelPipe::IsqEmpty() const
-{
-    return isq_.empty() && module_.empty();
-}
+bool CostModelPipe::IsqEmpty() const { return isq_.empty() && module_.empty(); }
 
-void CostModelPipe::Push(const PInstrParam &instr)
+void CostModelPipe::Push(const PInstrParam& instr)
 {
     if (instr->name == InstrName::SET_FLAG) {
-        popSetFlag_(instr->param.at(static_cast<uint32_t>(SetFlagParam::PIPE)),
+        popSetFlag_(
+            instr->param.at(static_cast<uint32_t>(SetFlagParam::PIPE)),
             instr->param.at(static_cast<uint32_t>(SetFlagParam::TRIGGER_PIPE)),
             instr->param.at(static_cast<uint32_t>(SetFlagParam::EVENT_ID)));
     } else {
@@ -88,8 +74,7 @@ uint64_t CostModelPipe::GetOpCycle(std::deque<PInstrParam>& program)
             }
         }
         auto instr = program.front();
-        if (instr->name == InstrName::WAIT_FLAG ||
-            instr->name == InstrName::SET_FLAG ||
+        if (instr->name == InstrName::WAIT_FLAG || instr->name == InstrName::SET_FLAG ||
             instr->name == InstrName::BAR) {
             if (module_.empty()) {
                 program.pop_front();
@@ -150,7 +135,8 @@ void CostModelPipe::Release()
         return;
     }
     if (instr->name == InstrName::SET_FLAG) {
-        rlsSetFlag_(instr->param.at(static_cast<uint32_t>(SetFlagParam::PIPE)),
+        rlsSetFlag_(
+            instr->param.at(static_cast<uint32_t>(SetFlagParam::PIPE)),
             instr->param.at(static_cast<uint32_t>(SetFlagParam::TRIGGER_PIPE)),
             instr->param.at(static_cast<uint32_t>(SetFlagParam::EVENT_ID)));
         module_.pop_front();
@@ -161,7 +147,7 @@ void CostModelPipe::Release()
     }
 }
 
-void CostModelPipe::CalcInstrLatency(PInstrParam &instr)
+void CostModelPipe::CalcInstrLatency(PInstrParam& instr)
 {
     auto iter = getLatency_.find(instr->name);
     if (iter != getLatency_.end()) {
@@ -173,23 +159,24 @@ void CostModelPipe::CalcInstrLatency(PInstrParam &instr)
     }
 }
 
-void CostModelPipe::CalcNdNzOutL1(PInstrParam &instr)
+void CostModelPipe::CalcNdNzOutL1(PInstrParam& instr)
 {
     uint32_t latency = 1;
     uint32_t uopNum = 1;
     uint32_t type = instr->param.at(static_cast<uint32_t>(NdNzParam::TYPE));
-    uint32_t srcByte = type == static_cast<uint32_t>(DataType::DT_INT8) ? 1
-                     : type == static_cast<uint32_t>(DataType::DT_INT16) ? 2 : 4;
+    uint32_t srcByte = type == static_cast<uint32_t>(DataType::DT_INT8)  ? 1 :
+                       type == static_cast<uint32_t>(DataType::DT_INT16) ? 2 :
+                                                                           4;
     uint32_t dValue = instr->param.at(static_cast<uint32_t>(NdNzParam::D)) * srcByte;
     bool padding = (dValue % 32) != 0;
     auto burstNum = instr->param.at(static_cast<uint32_t>(NdNzParam::ND_NUM)) *
-        instr->param.at(static_cast<uint32_t>(NdNzParam::N));
+                    instr->param.at(static_cast<uint32_t>(NdNzParam::N));
     auto burstSize = Ceiling(dValue, 32) * 32;
     uint32_t threshold1 = 64;
     uint32_t threshold2 = 256;
-    if (dValue >= threshold1 &&
-        dValue <= threshold2 &&
-        instr->param.at(static_cast<uint32_t>(NdNzParam::D)) == instr->param.at(static_cast<uint32_t>(NdNzParam::SRC_D)) &&
+    if (dValue >= threshold1 && dValue <= threshold2 &&
+        instr->param.at(static_cast<uint32_t>(NdNzParam::D)) ==
+            instr->param.at(static_cast<uint32_t>(NdNzParam::SRC_D)) &&
         !padding) {
         auto totalSize = burstNum * burstSize;
         uopNum = Ceiling(totalSize, bL4);
@@ -204,7 +191,7 @@ void CostModelPipe::CalcNdNzOutL1(PInstrParam &instr)
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
-void CostModelPipe::CalcMovOutUb(PInstrParam &instr)
+void CostModelPipe::CalcMovOutUb(PInstrParam& instr)
 {
     uint32_t latency = 1;
     uint32_t uopNum = 1;
@@ -231,7 +218,7 @@ void CostModelPipe::CalcMovOutUb(PInstrParam &instr)
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
-void CostModelPipe::CalcMovUbOut(PInstrParam &instr)
+void CostModelPipe::CalcMovUbOut(PInstrParam& instr)
 {
     uint32_t latency = 1;
     uint32_t uopNum = 1;
@@ -258,7 +245,7 @@ void CostModelPipe::CalcMovUbOut(PInstrParam &instr)
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
-void CostModelPipe::CalcMovOutUbAlign(PInstrParam &instr)
+void CostModelPipe::CalcMovOutUbAlign(PInstrParam& instr)
 {
     uint32_t latency = 1;
     uint32_t uopNum = 1;
@@ -268,7 +255,8 @@ void CostModelPipe::CalcMovOutUbAlign(PInstrParam &instr)
     auto padr = instr->param.at(static_cast<uint32_t>(MovPadParam::RPAD));
     auto srcGap = instr->param.at(static_cast<uint32_t>(MovPadParam::SRC_STD));
     auto dstGap = instr->param.at(static_cast<uint32_t>(MovPadParam::DST_STD));
-    auto burstSize = burstLen + (padl + padr) * BytesOf(DataType(instr->param.at(static_cast<uint32_t>(MovPadParam::TYPE))));
+    auto burstSize =
+        burstLen + (padl + padr) * BytesOf(DataType(instr->param.at(static_cast<uint32_t>(MovPadParam::TYPE))));
     if (srcGap == 0) {
         auto totalSize = burstNum * burstSize;
         uopNum = Ceiling(totalSize, bL4);
@@ -287,7 +275,7 @@ void CostModelPipe::CalcMovOutUbAlign(PInstrParam &instr)
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
-void CostModelPipe::CalcMovUbOutAlign(PInstrParam &instr)
+void CostModelPipe::CalcMovUbOutAlign(PInstrParam& instr)
 {
     uint32_t latency = 1;
     uint32_t uopNum = 1;
@@ -297,7 +285,8 @@ void CostModelPipe::CalcMovUbOutAlign(PInstrParam &instr)
     auto padr = instr->param.at(static_cast<uint32_t>(MovPadParam::RPAD));
     auto srcGap = instr->param.at(static_cast<uint32_t>(MovPadParam::SRC_STD));
     auto dstGap = instr->param.at(static_cast<uint32_t>(MovPadParam::DST_STD));
-    auto burstSize = burstLen + (padl + padr) * BytesOf(DataType(instr->param.at(static_cast<uint32_t>(MovPadParam::TYPE))));
+    auto burstSize =
+        burstLen + (padl + padr) * BytesOf(DataType(instr->param.at(static_cast<uint32_t>(MovPadParam::TYPE))));
     if (dstGap == 0) {
         auto totalSize = burstNum * burstSize;
         uopNum = Ceiling(totalSize, bL4);
@@ -316,7 +305,7 @@ void CostModelPipe::CalcMovUbOutAlign(PInstrParam &instr)
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
-void CostModelPipe::CalcLoad2d(PInstrParam &instr)
+void CostModelPipe::CalcLoad2d(PInstrParam& instr)
 {
     auto repeat = instr->param.at(static_cast<uint32_t>(VecOp0Param::REPEAT));
     auto bandwidth = InstrName::LOAD_L1_L0A_2D == instr->name ? l0aWrBandWidth_ : l0bWrBandWidth_;
@@ -327,7 +316,7 @@ void CostModelPipe::CalcLoad2d(PInstrParam &instr)
     instr->endTime = instr->exeTime + load2dUeLatency_ + l1DataPath;
 }
 
-void CostModelPipe::CalcLoad3d(PInstrParam &instr)
+void CostModelPipe::CalcLoad3d(PInstrParam& instr)
 {
     DataType type = DataType(instr->param.at(static_cast<uint32_t>(Load3dParam::TYPE)));
     uint32_t kStep = 16;
@@ -335,13 +324,13 @@ void CostModelPipe::CalcLoad3d(PInstrParam &instr)
     uint32_t int4C0Size = 64;
     uint64_t l1DataPath = 16;
     uint64_t colSize = 16;
-    if (type == DataType::DT_INT4 || type == DataType::DT_HF4)  {
+    if (type == DataType::DT_INT4 || type == DataType::DT_HF4) {
         kStep = int4C0Size;
     } else {
         kStep = c0Size / BytesOf(type);
     }
     auto repeat = instr->param.at(static_cast<uint32_t>(Load3dParam::M)) *
-        instr->param.at(static_cast<uint32_t>(Load3dParam::K)) / kStep / colSize;
+                  instr->param.at(static_cast<uint32_t>(Load3dParam::K)) / kStep / colSize;
     auto bandwidth = InstrName::LOAD_L1_L0A_3D == instr->name ? l0aWrBandWidth_ : l0bWrBandWidth_;
     uint32_t uopNum = Ceiling(repeat * fracSize, bandwidth);
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime + 1, GetTime());
@@ -349,8 +338,8 @@ void CostModelPipe::CalcLoad3d(PInstrParam &instr)
     instr->endTime = instr->exeTime + load3dUeLatency_ + l1DataPath;
 }
 
-void CostModelPipe::CalcFixL0cOut(PInstrParam &instr)
-{ 
+void CostModelPipe::CalcFixL0cOut(PInstrParam& instr)
+{
     uint32_t latency = 1;
     uint32_t uopNum = 1;
     auto mlen = instr->param.at(static_cast<uint32_t>(FixpParam::M));
@@ -366,7 +355,7 @@ void CostModelPipe::CalcFixL0cOut(PInstrParam &instr)
     instr->endTime = module_.empty() ? instr->exeTime + movdelay : module_.back()->endTime + movdelay;
 }
 
-void CostModelPipe::CalcVcadd(PInstrParam &instr)
+void CostModelPipe::CalcVcadd(PInstrParam& instr)
 {
     auto repeat = instr->param.at(static_cast<uint32_t>(VecOp1Param::REPEAT));
     auto type = instr->param.at(static_cast<uint32_t>(VecOp1Param::TYPE));
@@ -384,7 +373,7 @@ void CostModelPipe::CalcVcadd(PInstrParam &instr)
     instr->endTime = instr->exeTime + delay + vecDelay_;
 }
 
-void CostModelPipe::CalcVreducev2(PInstrParam &instr)
+void CostModelPipe::CalcVreducev2(PInstrParam& instr)
 {
     auto repeat = instr->param.at(static_cast<uint32_t>(VecOp1Param::REPEAT));
     auto mode = instr->param.at(static_cast<uint32_t>(VecOp1Param::MODE));
@@ -400,7 +389,7 @@ void CostModelPipe::CalcVreducev2(PInstrParam &instr)
     instr->exeTime = instr->popTime + uopNum;
     instr->endTime = instr->exeTime + delay + vecDelay_;
 }
-void CostModelPipe::CalcMoveMask(PInstrParam &instr)
+void CostModelPipe::CalcMoveMask(PInstrParam& instr)
 {
     uint64_t moveMaskLatency = 8;
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
@@ -408,7 +397,7 @@ void CostModelPipe::CalcMoveMask(PInstrParam &instr)
     instr->endTime = instr->exeTime;
 }
 
-void CostModelPipe::CalcVnchwconv(PInstrParam &instr)
+void CostModelPipe::CalcVnchwconv(PInstrParam& instr)
 {
     auto repeat = instr->param.at(static_cast<uint32_t>(VecOp0Param::REPEAT));
     auto type = instr->param.at(static_cast<uint32_t>(VecOp0Param::TYPE));
@@ -425,7 +414,7 @@ void CostModelPipe::CalcVnchwconv(PInstrParam &instr)
     instr->endTime = instr->exeTime + delay + vecDelay_;
 }
 
-void CostModelPipe::CalcMoveVa(PInstrParam &instr)
+void CostModelPipe::CalcMoveVa(PInstrParam& instr)
 {
     uint64_t moveALatency = 2;
     instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
@@ -433,15 +422,15 @@ void CostModelPipe::CalcMoveVa(PInstrParam &instr)
     instr->endTime = instr->exeTime + moveALatency;
 }
 
-void CostModelPipe::CalcVecOp(PInstrParam &instr)
+void CostModelPipe::CalcVecOp(PInstrParam& instr)
 {
     auto repeat = instr->param.at(static_cast<uint32_t>(VecOp0Param::REPEAT));
     auto type = instr->param.at(static_cast<uint32_t>(VecOp0Param::TYPE));
     auto iter = VEC_VALU_TAB.find(type << 24 | static_cast<uint32_t>(instr->name));
     if (iter != VEC_VALU_TAB.end()) {
         const uint32_t parallel = iter->second.at(0);
-        const uint32_t thrput = (instr->name == InstrName::VCMAX || instr->name == InstrName::VCMIN) ?
-                                   vecRmwDelay_ : iter->second.at(1);
+        const uint32_t thrput =
+            (instr->name == InstrName::VCMAX || instr->name == InstrName::VCMIN) ? vecRmwDelay_ : iter->second.at(1);
         const uint32_t delay = iter->second.at(2);
         auto uopNum = Ceiling(repeat * vecRptSize, parallel) * thrput;
         instr->popTime = module_.empty() ? GetTime() : max(module_.back()->exeTime, GetTime());
@@ -454,7 +443,7 @@ void CostModelPipe::CalcVecOp(PInstrParam &instr)
     }
 }
 
-void CostModelPipe::CalcVconv(PInstrParam &instr)
+void CostModelPipe::CalcVconv(PInstrParam& instr)
 {
     auto repeat = instr->param.at(static_cast<uint32_t>(ConvParam::REPEAT));
     constexpr uint32_t parallel = 256;
@@ -470,7 +459,7 @@ void CostModelPipe::CalcVconv(PInstrParam &instr)
     instr->endTime = instr->exeTime + delay + vecDelay_;
 }
 
-void CostModelPipe::CalcMovUbUb(PInstrParam &instr)
+void CostModelPipe::CalcMovUbUb(PInstrParam& instr)
 {
     uint32_t uopNum = 1;
     uint64_t ubDatapassLatency = 12;
@@ -487,7 +476,7 @@ void CostModelPipe::CalcMovUbUb(PInstrParam &instr)
     instr->endTime = instr->exeTime + ubDatapassLatency;
 }
 
-void CostModelPipe::CalcMmad(PInstrParam &instr)
+void CostModelPipe::CalcMmad(PInstrParam& instr)
 {
     auto mlen = instr->param.at(static_cast<uint32_t>(MmadParam::M));
     auto klen = instr->param.at(static_cast<uint32_t>(MmadParam::K));
@@ -506,7 +495,7 @@ void CostModelPipe::CalcMmad(PInstrParam &instr)
     instr->endTime = instr->exeTime + cubeStateLatency_;
 }
 
-void CostModelPipe::CalcLd(PInstrParam &instr)
+void CostModelPipe::CalcLd(PInstrParam& instr)
 {
     uint64_t ldLatency = 6;
     instr->popTime = module_.empty() ? GetTime() : module_.back()->endTime;
@@ -514,7 +503,7 @@ void CostModelPipe::CalcLd(PInstrParam &instr)
     instr->endTime = instr->exeTime;
 }
 
-void CostModelPipe::CalcSt(PInstrParam &instr)
+void CostModelPipe::CalcSt(PInstrParam& instr)
 {
     uint64_t sdLatency = 4;
     instr->popTime = module_.empty() ? GetTime() : module_.back()->endTime;
@@ -522,7 +511,7 @@ void CostModelPipe::CalcSt(PInstrParam &instr)
     instr->endTime = instr->exeTime;
 }
 
-void CostModelPipe::CalcAlu(PInstrParam &instr)
+void CostModelPipe::CalcAlu(PInstrParam& instr)
 {
     int index = 2;
     uint64_t shift = 32;
@@ -535,7 +524,8 @@ void CostModelPipe::CalcAlu(PInstrParam &instr)
     instr->endTime = instr->exeTime;
 }
 
-int GetTileOpCycle(const char* input) {
+int GetTileOpCycle(const char* input)
+{
     std::string inputStr(input);
     auto program = SplitString(inputStr, '\n');
     auto prog = GetProgram(program);
@@ -545,53 +535,52 @@ int GetTileOpCycle(const char* input) {
 }
 
 std::unordered_map<InstrName, std::function<void(CostModelPipe*, PInstrParam&)>> CostModelPipe::getLatency_ = {
-    { InstrName::NDNZ_OUT_L1, [](CostModelPipe* self, PInstrParam &instr) { self->CalcNdNzOutL1(instr); } }
-,   { InstrName::MOV_OUT_UB, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMovOutUb(instr); } }
-,   { InstrName::MOV_UB_OUT, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMovUbOut(instr); } }
-,   { InstrName::MOV_OUT_UB_PAD, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMovOutUbAlign(instr); } }
-,   { InstrName::MOV_UB_OUT_PAD, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMovUbOutAlign(instr); } }
-,   { InstrName::LOAD_L1_L0A_2D, [](CostModelPipe* self, PInstrParam &instr) { self->CalcLoad2d(instr); } }
-,   { InstrName::LOAD_L1_L0B_2D, [](CostModelPipe* self, PInstrParam &instr) { self->CalcLoad2d(instr); } }
-,   { InstrName::LOAD_L1_L0A_3D, [](CostModelPipe* self, PInstrParam &instr) { self->CalcLoad3d(instr); } }
-,   { InstrName::LOAD_L1_L0B_3D, [](CostModelPipe* self, PInstrParam &instr) { self->CalcLoad3d(instr); } }
-,   { InstrName::FIX_L0C_OUT, [](CostModelPipe* self, PInstrParam &instr) { self->CalcFixL0cOut(instr); } }
-,   { InstrName::VADD, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VSEL, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VBITSORT, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VMRGSORT4, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VSUB, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VMUL, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VDIV, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VMIN, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VCOPY, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VEXP, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VLN, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VSQRT, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VRSQRT, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VMAX, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VCADD, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVcadd(instr); } }
-,   { InstrName::MOVEV, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::MOVEMASK, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMoveMask(instr); } }
-,   { InstrName::VCMAX, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VCMIN, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VADDS, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VMULS, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VMINS, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VMAXS, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VCGADD, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VCGMAX, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VCGMIN, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VREC, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::VCONV, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVconv(instr); } }
-,   { InstrName::MOV_UB_UB, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMovUbUb(instr); } }
-,   { InstrName::MOVEVA, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMoveVa(instr); } }
-,   { InstrName::VNCHWCONV, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVnchwconv(instr); } }
-,   { InstrName::VREDUCEV2, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVreducev2(instr); } }
-,   { InstrName::VBRCB, [](CostModelPipe* self, PInstrParam &instr) { self->CalcVecOp(instr); } }
-,   { InstrName::MMAD, [](CostModelPipe* self, PInstrParam &instr) { self->CalcMmad(instr); } }
-,   { InstrName::LD, [](CostModelPipe* self, PInstrParam &instr) { self->CalcLd(instr); } }
-,   { InstrName::ST, [](CostModelPipe* self, PInstrParam &instr) { self->CalcSt(instr); } }
-,   { InstrName::ALU, [](CostModelPipe* self, PInstrParam &instr) { self->CalcAlu(instr); } }
-};
+    {InstrName::NDNZ_OUT_L1, [](CostModelPipe* self, PInstrParam& instr) { self->CalcNdNzOutL1(instr); }},
+    {InstrName::MOV_OUT_UB, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMovOutUb(instr); }},
+    {InstrName::MOV_UB_OUT, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMovUbOut(instr); }},
+    {InstrName::MOV_OUT_UB_PAD, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMovOutUbAlign(instr); }},
+    {InstrName::MOV_UB_OUT_PAD, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMovUbOutAlign(instr); }},
+    {InstrName::LOAD_L1_L0A_2D, [](CostModelPipe* self, PInstrParam& instr) { self->CalcLoad2d(instr); }},
+    {InstrName::LOAD_L1_L0B_2D, [](CostModelPipe* self, PInstrParam& instr) { self->CalcLoad2d(instr); }},
+    {InstrName::LOAD_L1_L0A_3D, [](CostModelPipe* self, PInstrParam& instr) { self->CalcLoad3d(instr); }},
+    {InstrName::LOAD_L1_L0B_3D, [](CostModelPipe* self, PInstrParam& instr) { self->CalcLoad3d(instr); }},
+    {InstrName::FIX_L0C_OUT, [](CostModelPipe* self, PInstrParam& instr) { self->CalcFixL0cOut(instr); }},
+    {InstrName::VADD, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VSEL, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VBITSORT, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VMRGSORT4, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VSUB, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VMUL, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VDIV, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VMIN, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VCOPY, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VEXP, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VLN, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VSQRT, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VRSQRT, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VMAX, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VCADD, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVcadd(instr); }},
+    {InstrName::MOVEV, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::MOVEMASK, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMoveMask(instr); }},
+    {InstrName::VCMAX, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VCMIN, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VADDS, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VMULS, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VMINS, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VMAXS, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VCGADD, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VCGMAX, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VCGMIN, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VREC, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::VCONV, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVconv(instr); }},
+    {InstrName::MOV_UB_UB, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMovUbUb(instr); }},
+    {InstrName::MOVEVA, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMoveVa(instr); }},
+    {InstrName::VNCHWCONV, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVnchwconv(instr); }},
+    {InstrName::VREDUCEV2, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVreducev2(instr); }},
+    {InstrName::VBRCB, [](CostModelPipe* self, PInstrParam& instr) { self->CalcVecOp(instr); }},
+    {InstrName::MMAD, [](CostModelPipe* self, PInstrParam& instr) { self->CalcMmad(instr); }},
+    {InstrName::LD, [](CostModelPipe* self, PInstrParam& instr) { self->CalcLd(instr); }},
+    {InstrName::ST, [](CostModelPipe* self, PInstrParam& instr) { self->CalcSt(instr); }},
+    {InstrName::ALU, [](CostModelPipe* self, PInstrParam& instr) { self->CalcAlu(instr); }}};
 
-}  // namespace CostModel
+} // namespace CostModel

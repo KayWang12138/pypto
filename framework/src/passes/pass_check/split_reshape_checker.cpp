@@ -20,17 +20,18 @@
 
 namespace npu {
 namespace tile_fwk {
-Status SplitReshapeChecker::DoPreCheck(Function &function) {
+Status SplitReshapeChecker::DoDefaultEnabledPreCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start Precheck for SplitReshape.");
     if (CheckAssembleOverlap(function) == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Function, "Precheck of SplitReshape failed since overlaps of assemble inputs.");
-        return FAILED;
+        APASS_LOG_WARN_F(Elements::Function, "Precheck of SplitReshape failed since overlaps of assemble inputs.");
     }
     APASS_LOG_INFO_F(Elements::Function, "End Precheck for SplitReshape.");
     return SUCCESS;
 }
 
-Status SplitReshapeChecker::DoPostCheck(Function &function) {
+Status SplitReshapeChecker::DoPostCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start PostCheck for SplitReshape.");
     if (CheckAssembleOverlap(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "PostCheck of SplitReshape failed since overlaps of assemble inputs.");

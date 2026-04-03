@@ -1,13 +1,13 @@
 ---
 name: pypto-pass-module-analyzer
-description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代码，并结合输入文档中的相应内容，生成Pass模块分析文档。帮助开发者理解各个模块的接口、功能与特殊场景。当需要理解 PyPTO pass 中某个模块的代码、功能和设计时使用此技能。
+description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass 的代码，并结合输入文档中的相应内容，生成 Pass 模块分析文档。帮助开发者理解各个模块的接口、功能与特殊场景。当需要理解 PyPTO pass 中某个模块的代码、功能和设计时使用此技能。
 ---
 
 # PyPTO Pass Module Analyzer Skill
 
 ## 概述
 
-本技能用于分析 PyPTO pass的代码，并结合输入文档中的相应内容，生成Pass模块分析文档。
+本技能用于分析 PyPTO pass 的代码，并结合输入文档中的相应内容，生成 Pass 模块分析文档。
 
 ### 使用场景
 
@@ -15,27 +15,27 @@ description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代
 
 ### 功能概述
 
-- 解析输入文档中的pass模块相关资料（如果有的话）
+- 解析输入文档中的 pass 模块相关资料（如果有的话）
 - 在项目中 framework/src/passes 中查找对应源代码
-- 结合文档和代码进行分析分析 （如果没有资料输入，直接分析代码）
+- 结合文档和代码进行分析（如果没有资料输入，直接分析代码）
 - 按照 Pass_Analysis_Template.md 模板格式输出结果
 
 ### 触发机制
 
 当用户输入包含以下关键字时，自动触发此技能：
 
-- **分析Pass代码XXX**：分析指定 Pass 的代码实现
-- **分析XXX Pass代码**：分析指定 Pass 的代码实现
-- **查看XXX Pass代码**：查看指定 Pass 的代码实现
-- **分析XXX Pass的代码**：分析指定 Pass 的代码实现
-- **XXX Pass代码分析**：分析指定 Pass 的代码实现
+- **分析 Pass 代码 XXX**：分析指定 Pass 的代码实现
+- **分析 XXX Pass 代码**：分析指定 Pass 的代码实现
+- **查看 XXX Pass 代码**：查看指定 Pass 的代码实现
+- **分析 XXX Pass 的代码**：分析指定 Pass 的代码实现
+- **XXX Pass 代码分析**：分析指定 Pass 的代码实现
 
 **触发示例**：
-- "分析Pass代码RemoveRedundantReshape"
-- "分析AutoCast Pass代码"
-- "查看SubgraphToFunction Pass代码"
-- "分析RemoveRedundantReshape Pass的代码"
-- "AutoCast Pass代码分析"
+- "分析 Pass 代码 RemoveRedundantReshape"
+- "分析 AutoCast Pass 代码"
+- "查看 SubgraphToFunction Pass 代码"
+- "分析 RemoveRedundantReshape Pass 的代码"
+- "AutoCast Pass 代码分析"
 
 ## 输出文件规则
 
@@ -43,7 +43,7 @@ description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代
 
 **PVC2_OOO 策略中的 pass**：
 - 查询路径：`framework/src/passes/pass_mgr/pass_manager.cpp` 中的 `RegDefaultStrategy()` 函数
-- 命名格式：`{序号}_{PASS名称}.md`，序号使用两位数字，从 00 开始，具体取值为改pass在PVC2_OOO策略中的排序
+- 命名格式：`{序号}_{PASS名称}.md`，序号使用两位数字，从 00 开始，具体取值为该 pass 在 PVC2_OOO 策略中的排序
 - 例如：00_REMOVE_REDUNDANT_RESHAPE.md, 01_AUTO_CAST.md, ...
 
 **不在 PVC2_OOO 策略中的 pass**：
@@ -60,31 +60,31 @@ description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代
 
 按照输入场景分类，并按照场景下序号依次执行步骤
 
-### 场景1：指定输入文档时
+### 场景 1：指定输入文档时
 
-1. 确认文档描述的pass模块
+1. 确认文档描述的 pass 模块
 2. 总结文档内容
-3. 在项目中 framework/src/passes 中查找对应pass模块代码
+3. 在项目中 framework/src/passes 中查找对应 pass 模块代码
 4. 执行代码分析（详见"代码分析章节"）
-5. 执行Pass概述分析（详见"Pass概述分析"）
+5. 执行 Pass 概述分析（详见"Pass 概述分析"）
 6. 按照 Pass_Analysis_Template.md 格式生成输出文档
 7. 检查最终输出文件的格式，对于格式错误的进行修复
 
-### 场景2：未指定文档时
+### 场景 2：未指定文档时
 
-1. 询问用户是否要查找全部pass
-2. 查找特定pass名称：
-    - 搜索 pass_manager.cpp 中 PassName 保存的所有pass，询问用户想要分析哪个pass，不要分批展示
-    - 根据pass_manager.cpp中的注册信息，在 framework/src/passes 中查找用户选择的pass的代码
+1. 询问用户是否要查找全部 pass
+2. 查找特定 pass 名称：
+    - 搜索 pass_manager.cpp 中 PassName 保存的所有 pass，询问用户想要分析哪个 pass，不要分批展示
+    - 根据 pass_manager.cpp 中的注册信息，在 framework/src/passes 中查找用户选择的 pass 的代码
     - 执行代码分析（详见"代码分析章节"）
-    - 执行Pass概述分析（详见"Pass概述分析"）
+    - 执行 Pass 概述分析（详见"Pass 概述分析"）
     - 按照 Pass_Analysis_Template.md 格式生成输出文档
     - 检查最终输出文件的格式，对于格式错误的进行修复
 3. 查找全部：
-    - 搜索 pass_manager.cpp 中 PassName 保存的所有pass
-    - 根据pass_manager.cpp中的注册信息，依次遍历每个pass的代码
-    - 对每个pass执行代码分析（详见"代码分析章节"）
-    - 执行Pass概述分析（详见"Pass概述分析"）
+    - 搜索 pass_manager.cpp 中 PassName 保存的所有 pass
+    - 根据 pass_manager.cpp 中的注册信息，依次遍历每个 pass 的代码
+    - 对每个 pass 执行代码分析（详见"代码分析章节"）
+    - 执行 Pass 概述分析（详见"Pass 概述分析"）
     - 按照 Pass_Analysis_Template.md 格式生成输出文档
     - 检查最终输出文件的格式，对于格式错误的进行修复
 
@@ -161,9 +161,9 @@ description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代
 - **禁止操作**：某些 OPCode 不允许出现
 - **兼容处理**：某些 OPCode 需要兼容性处理
 
-## Pass概述分析
+## Pass 概述分析
 
-按照**Pass名称**、**Pass类型**、**简要描述**这几个维度进行分析（输出结果时对应到Pass_Analysis_Template.md中的“Pass概述”章节）
+按照 **Pass 名称**、**Pass 类型**、**简要描述**这几个维度进行分析（输出结果时对应到 Pass_Analysis_Template.md 中的“Pass 概述”章节）
 
 ## 输出格式
 

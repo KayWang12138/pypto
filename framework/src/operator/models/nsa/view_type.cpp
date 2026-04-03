@@ -19,15 +19,18 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype) {
-    FUNCTION("ViewTypeFunc", {x}, {result}) {
+void ViewTypeFunc(const Tensor& x, Tensor& result, DataType dstDtype)
+{
+    FUNCTION("ViewTypeFunc", {x}, {result})
+    {
         int m = x.GetShape()[0];
         int k = x.GetShape()[1];
         int n = x.GetShape()[2];
         int tileM = m / 4;
         SymbolicScalar mLoop = m / tileM;
 
-        LOOP("LOOP_L0_nIdx_view_type", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+        LOOP("LOOP_L0_nIdx_view_type", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1))
+        {
             SymbolicScalar mOffset = mIdx * tileM;
             TileShape::Current().SetVecTile({tileM, k, n});
             auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
@@ -35,7 +38,7 @@ void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype) {
             auto resultView = View(xView, dstDtype);
             auto resultRes = resultView;
 
-            if(dstDtype == DT_FP32) {
+            if (dstDtype == DT_FP32) {
                 resultRes = Add(resultView, Element(dstDtype, float(0)));
             }
             Assemble(resultRes, {mOffset, 0, 0}, result);
@@ -43,7 +46,8 @@ void ViewTypeFunc(const Tensor &x, Tensor &result, DataType dstDtype) {
     }
 }
 
-std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input) {
+std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor& input)
+{
     config::SetSemanticLabel("Prolog-Quant");
     constexpr const float s8_max_value = 127.0f;
     constexpr const float s8_one_value = 1.0f;
@@ -63,25 +67,28 @@ std::tuple<Tensor, Tensor> MyPrologQuant(const Tensor &input) {
     return std::tie(outInt8, scaleDeQuant);
 }
 
-void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
-    FUNCTION("ViewTypeQuantTestFunc", {x}, {result}) {
+void ViewTypeQuantTestFunc(const Tensor& x, Tensor& result)
+{
+    FUNCTION("ViewTypeQuantTestFunc", {x}, {result})
+    {
         int m = x.GetShape()[0];
         int k = x.GetShape()[1];
         int n = x.GetShape()[2];
         int tileM = m / 2;
         SymbolicScalar mLoop = m / tileM;
-        LOOP("LOOP_L0_mIdx_view_type_quant", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+        LOOP("LOOP_L0_mIdx_view_type_quant", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1))
+        {
             SymbolicScalar mOffset = mIdx * tileM;
             TileShape::Current().SetVecTile({tileM, k, n});
             auto xView = View(x, {tileM, k, n}, {mOffset, 0, 0});
             TileShape::Current().SetVecTile({tileM, k, n});
-            auto xReshape = Reshape(xView, {tileM, k, 4, n/4});
-            TileShape::Current().SetVecTile({tileM, k, 4, n/4});
+            auto xReshape = Reshape(xView, {tileM, k, 4, n / 4});
+            TileShape::Current().SetVecTile({tileM, k, 4, n / 4});
             std::tuple<Tensor, Tensor> xQuant = MyPrologQuant(xReshape);
             auto outInt8 = std::get<0>(xQuant);
             auto scaleDeQuant = std::get<1>(xQuant);
 
-            TileShape::Current().SetVecTile({tileM, k, 4, n/4});
+            TileShape::Current().SetVecTile({tileM, k, 4, n / 4});
             auto outInt8Reshape = Reshape(outInt8, {tileM, k, n});
             TileShape::Current().SetVecTile({tileM, k, 8});
             auto scaleDeQuantReshape = Reshape(scaleDeQuant, {tileM, k, 4});
@@ -96,15 +103,18 @@ void ViewTypeQuantTestFunc(const Tensor &x, Tensor &result) {
     }
 }
 
-void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result) {
-    FUNCTION("ViewTypeDequantTestFunc", {x}, {result}) {
+void ViewTypeDequantTestFunc(const Tensor& x, Tensor& result)
+{
+    FUNCTION("ViewTypeDequantTestFunc", {x}, {result})
+    {
         int m = x.GetShape()[0];
         int k = x.GetShape()[1];
 
         int tileM = m / 8;
         SymbolicScalar mLoop = m / tileM;
 
-        LOOP("LOOP_L0_nIdx_view_type_dequant", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1)) {
+        LOOP("LOOP_L0_nIdx_view_type_dequant", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mLoop, 1))
+        {
             SymbolicScalar mOffset = mIdx * tileM;
 
             TileShape::Current().SetVecTile({tileM, k, 128});
@@ -139,4 +149,4 @@ void ViewTypeDequantTestFunc(const Tensor &x, Tensor &result) {
     }
 }
 
-} // namespace tile_fwk
+} // namespace npu::tile_fwk

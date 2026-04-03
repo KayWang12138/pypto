@@ -41,4 +41,3 @@ out = t.shape
 ```python
 输出数据out: [16, 32]
 ```
-

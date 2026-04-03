@@ -119,7 +119,8 @@ public:
      * \param descriptors Field descriptor instances
      * \return Accumulated result from visiting all fields
      */
-    static ResultType Visit(const NodeType &node, Visitor &visitor, const Descriptors &...descriptors) {
+    static ResultType Visit(const NodeType& node, Visitor& visitor, const Descriptors&... descriptors)
+    {
         ResultType result = visitor.InitResult();
         (VisitField(visitor, descriptors, result, node), ...);
         return result;
@@ -141,7 +142,8 @@ public:
      * \return Accumulated result from visiting all field pairs
      */
     static ResultType Visit(
-        const NodeType &lhs, const NodeType &rhs, Visitor &visitor, const Descriptors &...descriptors) {
+        const NodeType& lhs, const NodeType& rhs, Visitor& visitor, const Descriptors&... descriptors)
+    {
         ResultType result = visitor.InitResult();
         (VisitField(visitor, descriptors, result, lhs, rhs), ...);
         return result;
@@ -157,7 +159,8 @@ private:
      * \tparam Nodes Parameter pack of node types (all must be NodeType)
      */
     template <typename Desc, typename... Nodes>
-    static void VisitField(Visitor &visitor, const Desc &desc, ResultType &result, const Nodes &...nodes) {
+    static void VisitField(Visitor& visitor, const Desc& desc, ResultType& result, const Nodes&... nodes)
+    {
         using KindTag = typename Desc::KindTag;
 
         if constexpr (std::is_same_v<KindTag, IgnoreFieldTag>) {
@@ -178,7 +181,8 @@ private:
      * the appropriate visitor method with fields from all nodes.
      */
     template <typename Desc, typename... Nodes>
-    static void VisitFieldImpl(Visitor &visitor, const Desc &desc, ResultType &result, const Nodes &...nodes) {
+    static void VisitFieldImpl(Visitor& visitor, const Desc& desc, ResultType& result, const Nodes&... nodes)
+    {
         using FieldType = typename Desc::FieldType;
 
         if constexpr (IsIRNodeOptionalField<FieldType>::value) {

@@ -28,53 +28,57 @@ using namespace npu::tile_fwk::dynamic;
 
 class RuntimeOutcastTensorTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-    }
+    void SetUp() override {}
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
-TEST_F(RuntimeOutcastTensorTest, ConstructAndFields) {
+TEST_F(RuntimeOutcastTensorTest, ConstructAndFields)
+{
     RuntimeOutcastTensor t(0xDEADBEEFull, RuntimeTensorMemProperty::EXTERNAL, 42u);
     EXPECT_EQ(t.addr, static_cast<uintdevptr_t>(0xDEADBEEFull));
     EXPECT_EQ(t.property, RuntimeTensorMemProperty::EXTERNAL);
     EXPECT_EQ(t.refCnt, 42u);
 }
 
-TEST_F(RuntimeOutcastTensorTest, DumpFormatWithNonZeroAddr) {
+TEST_F(RuntimeOutcastTensorTest, DumpFormatWithNonZeroAddr)
+{
     RuntimeOutcastTensor t(0x1234ABCDull, RuntimeTensorMemProperty::EXTERNAL, 1u);
     std::string s = t.Dump();
     // std::hex outputs lowercase letters, and no leading zeros are added
     EXPECT_EQ(s, std::string("&0x1234abcd, EXTERNAL"));
 }
 
-TEST_F(RuntimeOutcastTensorTest, DumpFormatWithZeroAddr) {
+TEST_F(RuntimeOutcastTensorTest, DumpFormatWithZeroAddr)
+{
     RuntimeOutcastTensor t(0x0ull, RuntimeTensorMemProperty::BOUNDARY_OUTCAST, 0u);
     std::string s = t.Dump();
     EXPECT_EQ(s, std::string("&0x0, BOUNDARY_OUTCAST"));
 }
 
-TEST_F(RuntimeOutcastTensorTest, GetRuntimeTensorMemPropertyNameMatchesEnum) {
+TEST_F(RuntimeOutcastTensorTest, GetRuntimeTensorMemPropertyNameMatchesEnum)
+{
     EXPECT_STREQ(GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::EXTERNAL), "EXTERNAL");
-    EXPECT_STREQ(GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST), "DEVTASK_INNER_OUTCAST");
+    EXPECT_STREQ(
+        GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::DEVTASK_INNER_OUTCAST), "DEVTASK_INNER_OUTCAST");
     EXPECT_STREQ(GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty::BOUNDARY_OUTCAST), "BOUNDARY_OUTCAST");
 }
 
 // Helper to construct and initialize a DeviceWorkspaceAllocator with reasonable
 // metadata budgets so `InitAicpuStitchSlabAllocator` won't assert.
-static void InitDeviceWorkspaceAllocatorForTest(DeviceWorkspaceAllocator &d, DevAscendProgram &devProg,
-                                                std::vector<uint8_t> &workspace) {
+static void InitDeviceWorkspaceAllocatorForTest(
+    DeviceWorkspaceAllocator& d, DevAscendProgram& devProg, std::vector<uint8_t>& workspace)
+{
     DevStartArgs args;
 
     // Ensure stitch pool and general metadata are non-zero and large enough
-    devProg.memBudget.metadata.general = 1u << 18; // 256KB
+    devProg.memBudget.metadata.general = 1u << 18;    // 256KB
     devProg.memBudget.metadata.stitchPool = 1u << 16; // 64KB
 
     args.deviceRuntimeDataDesc.generalAddr = reinterpret_cast<uint64_t>(workspace.data());
     // Put stitch pool at an offset within the same workspace region
-    args.deviceRuntimeDataDesc.stitchPoolAddr = reinterpret_cast<uint64_t>(workspace.data()) +
-            devProg.memBudget.metadata.general; // offset 256KB
+    args.deviceRuntimeDataDesc.stitchPoolAddr =
+        reinterpret_cast<uint64_t>(workspace.data()) + devProg.memBudget.metadata.general; // offset 256KB
 
     devProg.devArgs.nrAic = 1;
     devProg.devArgs.nrAiv = 1;
@@ -87,7 +91,8 @@ static void InitDeviceWorkspaceAllocatorForTest(DeviceWorkspaceAllocator &d, Dev
     std::cerr << "InitDeviceWorkspaceAllocatorForTest finished" << std::endl;
 }
 
-TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorBasicOps) {
+TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorBasicOps)
+{
     // Small workspace and dev program with minimal budgets to initialize allocators
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
@@ -107,7 +112,7 @@ TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorBasicOps) {
     ItemPoolIter a = d.MakeRuntimeOutcastTensor(0xAAull, RuntimeTensorMemProperty::EXTERNAL);
     EXPECT_NE(a, ITEM_POOL_INVALID_INDEX);
 
-    auto &t = d.GetRuntimeOutcastTensor(a);
+    auto& t = d.GetRuntimeOutcastTensor(a);
     EXPECT_EQ(t.addr, static_cast<uintdevptr_t>(0xAAull));
     EXPECT_EQ(t.property, RuntimeTensorMemProperty::EXTERNAL);
     EXPECT_EQ(t.refCnt, 1u);
@@ -128,7 +133,8 @@ TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorBasicOps) {
     EXPECT_EQ(d.GetRuntimeOutcastTensor(b).refCnt, 2u);
 }
 
-TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorSafeRefDerefNoCrash) {
+TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorSafeRefDerefNoCrash)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -143,7 +149,8 @@ TEST_F(RuntimeOutcastTensorTest, DeviceWorkspaceAllocatorSafeRefDerefNoCrash) {
     SUCCEED();
 }
 
-TEST_F(RuntimeOutcastTensorTest, DerefToZeroReturnsItemToPool) {
+TEST_F(RuntimeOutcastTensorTest, DerefToZeroReturnsItemToPool)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -164,7 +171,8 @@ TEST_F(RuntimeOutcastTensorTest, DerefToZeroReturnsItemToPool) {
     EXPECT_EQ(d.runtimeOutcastTensorPool_.FreeItemNum(), devProg.runtimeOutcastPoolSize);
 }
 
-TEST_F(RuntimeOutcastTensorTest, AssignReleasesPreviousDestination) {
+TEST_F(RuntimeOutcastTensorTest, AssignReleasesPreviousDestination)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -189,7 +197,8 @@ TEST_F(RuntimeOutcastTensorTest, AssignReleasesPreviousDestination) {
     EXPECT_EQ(d.GetRuntimeOutcastTensor(B).refCnt, 2u);
 }
 
-TEST_F(RuntimeOutcastTensorTest, SelfAssignDoesNotChangeRefCount) {
+TEST_F(RuntimeOutcastTensorTest, SelfAssignDoesNotChangeRefCount)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -199,7 +208,7 @@ TEST_F(RuntimeOutcastTensorTest, SelfAssignDoesNotChangeRefCount) {
     InitDeviceWorkspaceAllocatorForTest(d, devProg, workspace);
 
     ItemPoolIter a = d.MakeRuntimeOutcastTensor(0xAAull, RuntimeTensorMemProperty::EXTERNAL);
-    auto &t = d.GetRuntimeOutcastTensor(a);
+    auto& t = d.GetRuntimeOutcastTensor(a);
     EXPECT_EQ(t.refCnt, 1u);
 
     // Self assign should not change refCnt (implementation has early return check)
@@ -211,7 +220,8 @@ TEST_F(RuntimeOutcastTensorTest, SelfAssignDoesNotChangeRefCount) {
     EXPECT_EQ(d.runtimeOutcastTensorPool_.FreeItemNum(), devProg.runtimeOutcastPoolSize - 1);
 }
 
-TEST_F(RuntimeOutcastTensorTest, DumpAllPropertyTypes) {
+TEST_F(RuntimeOutcastTensorTest, DumpAllPropertyTypes)
+{
     RuntimeOutcastTensor t1(0x1234ull, RuntimeTensorMemProperty::EXTERNAL, 1u);
     EXPECT_EQ(t1.Dump(), std::string("&0x1234, EXTERNAL"));
 
@@ -222,7 +232,8 @@ TEST_F(RuntimeOutcastTensorTest, DumpAllPropertyTypes) {
     EXPECT_EQ(t3.Dump(), std::string("&0x9abc, BOUNDARY_OUTCAST"));
 }
 
-TEST_F(RuntimeOutcastTensorTest, BoundaryOutcastDelayedRecycle) {
+TEST_F(RuntimeOutcastTensorTest, BoundaryOutcastDelayedRecycle)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -238,7 +249,7 @@ TEST_F(RuntimeOutcastTensorTest, BoundaryOutcastDelayedRecycle) {
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_.size(), 0u);
 
     ItemPoolIter a = d.MakeRuntimeOutcastTensor(0x1000ull, RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
-    auto &t = d.GetRuntimeOutcastTensor(a);
+    auto& t = d.GetRuntimeOutcastTensor(a);
     EXPECT_EQ(t.property, RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
     EXPECT_EQ(t.addr, static_cast<uintdevptr_t>(0x1000ull));
 
@@ -262,7 +273,8 @@ TEST_F(RuntimeOutcastTensorTest, BoundaryOutcastDelayedRecycle) {
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_[1].property, RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
 }
 
-TEST_F(RuntimeOutcastTensorTest, AllPropertyTypesUsage) {
+TEST_F(RuntimeOutcastTensorTest, AllPropertyTypesUsage)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -304,7 +316,8 @@ TEST_F(RuntimeOutcastTensorTest, AllPropertyTypesUsage) {
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_[0].property, RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
 }
 
-TEST_F(RuntimeOutcastTensorTest, AssignWithInvalidIndex) {
+TEST_F(RuntimeOutcastTensorTest, AssignWithInvalidIndex)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -335,7 +348,8 @@ TEST_F(RuntimeOutcastTensorTest, AssignWithInvalidIndex) {
     d.RuntimeOutcastTensorDeref(valid);
 }
 
-TEST_F(RuntimeOutcastTensorTest, MultipleReplaceAddrWithoutRecycle) {
+TEST_F(RuntimeOutcastTensorTest, MultipleReplaceAddrWithoutRecycle)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -345,7 +359,7 @@ TEST_F(RuntimeOutcastTensorTest, MultipleReplaceAddrWithoutRecycle) {
     InitDeviceWorkspaceAllocatorForTest(d, devProg, workspace);
 
     ItemPoolIter a = d.MakeRuntimeOutcastTensor(0x1000ull, RuntimeTensorMemProperty::EXTERNAL);
-    auto &t = d.GetRuntimeOutcastTensor(a);
+    auto& t = d.GetRuntimeOutcastTensor(a);
     EXPECT_EQ(t.addr, static_cast<uintdevptr_t>(0x1000ull));
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_.size(), 0u);
 
@@ -373,7 +387,8 @@ TEST_F(RuntimeOutcastTensorTest, MultipleReplaceAddrWithoutRecycle) {
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_[0].property, RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
 }
 
-TEST_F(RuntimeOutcastTensorTest, GetRuntimeOutcastTensorPoolBase) {
+TEST_F(RuntimeOutcastTensorTest, GetRuntimeOutcastTensorPoolBase)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -382,7 +397,7 @@ TEST_F(RuntimeOutcastTensorTest, GetRuntimeOutcastTensorPoolBase) {
 
     InitDeviceWorkspaceAllocatorForTest(d, devProg, workspace);
 
-    auto *poolBase = d.GetRuntimeOutcastTensorPoolBase();
+    auto* poolBase = d.GetRuntimeOutcastTensorPoolBase();
     EXPECT_NE(poolBase, nullptr);
 
     // Create some tensors and verify we can access them via pool base
@@ -391,8 +406,8 @@ TEST_F(RuntimeOutcastTensorTest, GetRuntimeOutcastTensorPoolBase) {
 
     // Access via pool base using iterator index
     // Note: This tests the pool base is correctly set up for potential serialization use
-    auto &t1 = d.GetRuntimeOutcastTensor(a);
-    auto &t2 = d.GetRuntimeOutcastTensor(b);
+    auto& t1 = d.GetRuntimeOutcastTensor(a);
+    auto& t2 = d.GetRuntimeOutcastTensor(b);
 
     EXPECT_EQ(t1.addr, static_cast<uintdevptr_t>(0xAAull));
     EXPECT_EQ(t2.addr, static_cast<uintdevptr_t>(0xBBull));
@@ -402,7 +417,8 @@ TEST_F(RuntimeOutcastTensorTest, GetRuntimeOutcastTensorPoolBase) {
     d.RuntimeOutcastTensorDeref(b);
 }
 
-TEST_F(RuntimeOutcastTensorTest, ComplexUsageSequence) {
+TEST_F(RuntimeOutcastTensorTest, ComplexUsageSequence)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -454,7 +470,8 @@ TEST_F(RuntimeOutcastTensorTest, ComplexUsageSequence) {
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_.size(), 1u);
 }
 
-TEST_F(RuntimeOutcastTensorTest, PoolExhaustionEdgeCase) {
+TEST_F(RuntimeOutcastTensorTest, PoolExhaustionEdgeCase)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -482,7 +499,8 @@ TEST_F(RuntimeOutcastTensorTest, PoolExhaustionEdgeCase) {
     d.RuntimeOutcastTensorDeref(c);
 }
 
-TEST_F(RuntimeOutcastTensorTest, RefCountMultipleRefsAndDerefs) {
+TEST_F(RuntimeOutcastTensorTest, RefCountMultipleRefsAndDerefs)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -492,7 +510,7 @@ TEST_F(RuntimeOutcastTensorTest, RefCountMultipleRefsAndDerefs) {
     InitDeviceWorkspaceAllocatorForTest(d, devProg, workspace);
 
     ItemPoolIter a = d.MakeRuntimeOutcastTensor(0x1000ull, RuntimeTensorMemProperty::EXTERNAL);
-    auto &t = d.GetRuntimeOutcastTensor(a);
+    auto& t = d.GetRuntimeOutcastTensor(a);
 
     // Multiple refs
     for (uint32_t i = 0; i < 10; ++i) {
@@ -511,7 +529,8 @@ TEST_F(RuntimeOutcastTensorTest, RefCountMultipleRefsAndDerefs) {
     EXPECT_EQ(d.runtimeOutcastTensorPool_.FreeItemNum(), devProg.runtimeOutcastPoolSize);
 }
 
-TEST_F(RuntimeOutcastTensorTest, AssignToSelfWithMultipleRefs) {
+TEST_F(RuntimeOutcastTensorTest, AssignToSelfWithMultipleRefs)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -523,7 +542,7 @@ TEST_F(RuntimeOutcastTensorTest, AssignToSelfWithMultipleRefs) {
     ItemPoolIter a = d.MakeRuntimeOutcastTensor(0x1000ull, RuntimeTensorMemProperty::EXTERNAL);
     d.RuntimeOutcastTensorRef(a);
     d.RuntimeOutcastTensorRef(a);
-    auto &t = d.GetRuntimeOutcastTensor(a);
+    auto& t = d.GetRuntimeOutcastTensor(a);
     EXPECT_EQ(t.refCnt, 3u);
 
     // Self assign with multiple refs should not change refCnt
@@ -537,7 +556,8 @@ TEST_F(RuntimeOutcastTensorTest, AssignToSelfWithMultipleRefs) {
     d.RuntimeOutcastTensorDeref(a);
 }
 
-TEST_F(RuntimeOutcastTensorTest, MixedSafeAndUnsafeOperations) {
+TEST_F(RuntimeOutcastTensorTest, MixedSafeAndUnsafeOperations)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -550,19 +570,20 @@ TEST_F(RuntimeOutcastTensorTest, MixedSafeAndUnsafeOperations) {
     ItemPoolIter invalid = ITEM_POOL_INVALID_INDEX;
 
     // Mix safe and unsafe operations
-    d.RuntimeOutcastTensorRef(valid); // unsafe, should work
-    d.RuntimeOutcastTensorRefSafe(invalid); // safe, should not crash
+    d.RuntimeOutcastTensorRef(valid);         // unsafe, should work
+    d.RuntimeOutcastTensorRefSafe(invalid);   // safe, should not crash
     d.RuntimeOutcastTensorDerefSafe(invalid); // safe, should not crash
-    d.RuntimeOutcastTensorDeref(valid); // unsafe, should work
+    d.RuntimeOutcastTensorDeref(valid);       // unsafe, should work
 
-    auto &t = d.GetRuntimeOutcastTensor(valid);
+    auto& t = d.GetRuntimeOutcastTensor(valid);
     EXPECT_EQ(t.refCnt, 1u);
 
     // Cleanup
     d.RuntimeOutcastTensorDeref(valid);
 }
 
-TEST_F(RuntimeOutcastTensorTest, DelayedRecycleListBehavior) {
+TEST_F(RuntimeOutcastTensorTest, DelayedRecycleListBehavior)
+{
     std::vector<uint8_t> workspace(1u << 20); // 1MB
 
     DeviceWorkspaceAllocator d;
@@ -619,5 +640,3 @@ TEST_F(RuntimeOutcastTensorTest, DelayedRecycleListBehavior) {
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_[2].addr, static_cast<uintdevptr_t>(0x6000ull));
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_[2].property, RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
 }
-
-

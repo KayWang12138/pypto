@@ -26,14 +26,16 @@ namespace npu::tile_fwk {
 class HashBuffer : public std::basic_string<char32_t> {
 public:
     template <typename... Tys>
-    explicit HashBuffer(const Tys &...args) {
+    explicit HashBuffer(const Tys&... args)
+    {
         Update(args...);
     }
 
-    template<typename T>
+    template <typename T>
     T Get(int index) const;
 
-    void Append(uint64_t hash) {
+    void Append(uint64_t hash)
+    {
         char32_t l = hash & 0xFFFFFFFF;
         char32_t h = hash >> 32;
         this->push_back(l);
@@ -46,17 +48,26 @@ public:
 
     void Append(char32_t n) { this->push_back(n); }
 
-    template<typename T>
-    void Append(const std::vector<T> &v) { for (const auto &i : v) { this->Append(i); } }
+    template <typename T>
+    void Append(const std::vector<T>& v)
+    {
+        for (const auto& i : v) {
+            this->Append(i);
+        }
+    }
 
-    void Append(const std::string &s) { this->insert(this->end(), s.begin(), s.end()); }
-
-    template<typename T, T N>
-    void Append(const std::array<int, N> &v) { this->insert(this->end(), v.begin(), v.end()); }
+    void Append(const std::string& s) { this->insert(this->end(), s.begin(), s.end()); }
 
     template <typename T, T N>
-    void Append(const std::array<int64_t, N> &v) {
-        for (const auto &i : v) {
+    void Append(const std::array<int, N>& v)
+    {
+        this->insert(this->end(), v.begin(), v.end());
+    }
+
+    template <typename T, T N>
+    void Append(const std::array<int64_t, N>& v)
+    {
+        for (const auto& i : v) {
             this->Append(i);
         }
     }
@@ -64,20 +75,23 @@ public:
     void Update() {}
 
     template <typename Ty>
-    void Update(const Ty &arg) {
+    void Update(const Ty& arg)
+    {
         Append(arg);
     }
 
     template <typename Ty, typename... Tys>
-    void Update(const Ty &arg, const Tys &...args) {
+    void Update(const Ty& arg, const Tys&... args)
+    {
         Append(arg);
         Update(args...);
     }
 
-    std::size_t Digest() const {
+    std::size_t Digest() const
+    {
         auto hash = std::hash<std::basic_string<char32_t>>()(*this);
         return hash;
     }
 };
 
-}
+} // namespace npu::tile_fwk

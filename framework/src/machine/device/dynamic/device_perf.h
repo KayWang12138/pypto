@@ -40,18 +40,19 @@ struct PerfettoMgr {
         size_t used{0};
         T data[N];
 
-        inline void Push(const T &t) { data[used++] = t; }
+        inline void Push(const T& t) { data[used++] = t; }
         inline void Pop() { used--; }
         inline bool Full() { return used == N; }
         inline bool Empty() { return used == 0; }
-        inline T &Top() { return data[used - 1]; }
-        inline T *Alloc() { return &data[used++]; }
+        inline T& Top() { return data[used - 1]; }
+        inline T* Alloc() { return &data[used++]; }
     };
 
     using Trunk = Array<Record, TRUNK_SIZE>;
-    using EvtStack = Array<Record *, MAX_EVT_DEPTH>;
+    using EvtStack = Array<Record*, MAX_EVT_DEPTH>;
 
-    Record *allocRecord(int tid) {
+    Record* allocRecord(int tid)
+    {
         if (trunk_[tid] == nullptr || trunk_[tid]->Full()) {
             trunk_[tid] = new Trunk;
             mutex_.lock();
@@ -61,10 +62,11 @@ struct PerfettoMgr {
         return trunk_[tid]->Alloc();
     }
 
-    void PerfBegin(int type, int tid) {
+    void PerfBegin(int type, int tid)
+    {
 #if defined(CONFIG_PERFETTO) && CONFIG_PERFETTO
         auto r = allocRecord(tid);
-        auto &stack = evtStack[tid];
+        auto& stack = evtStack[tid];
         r->type = type;
         r->tid = tid;
         r->start = GetCycles();
@@ -76,9 +78,10 @@ struct PerfettoMgr {
         (void)tid;
     }
 
-    void PerfEnd(int type, int tid) {
+    void PerfEnd(int type, int tid)
+    {
 #if defined(CONFIG_PERFETTO) && CONFIG_PERFETTO
-        auto &stack = evtStack[tid];
+        auto& stack = evtStack[tid];
         auto r = stack.Top();
         r->end = GetCycles();
         stack.Pop();
@@ -87,10 +90,11 @@ struct PerfettoMgr {
         (void)tid;
     }
 
-    void PerfEvent(int type, int tid, uint64_t start, uint64_t end, std::string name) {
+    void PerfEvent(int type, int tid, uint64_t start, uint64_t end, std::string name)
+    {
 #if defined(CONFIG_PERFETTO) && CONFIG_PERFETTO
         auto r = allocRecord(tid);
-        auto &stack = evtStack[tid];
+        auto& stack = evtStack[tid];
         r->type = type;
         r->tid = tid;
         r->name = name;
@@ -106,16 +110,18 @@ struct PerfettoMgr {
         (void)name;
     }
 
-    static PerfettoMgr &Instance() {
+    static PerfettoMgr& Instance()
+    {
         static PerfettoMgr recorder;
         return recorder;
     }
 
-    void Dump(const std::string &file) {
+    void Dump(const std::string& file)
+    {
         std::ofstream os(file);
-        for (auto &trunk : trunks_) {
+        for (auto& trunk : trunks_) {
             for (size_t i = 0; i < trunk->used; i++) {
-                auto &r = trunk->data[i];
+                auto& r = trunk->data[i];
                 os << PerfEventName[r.type] << " ";
                 os << r.name << " ";
                 os << r.index << " ";
@@ -133,10 +139,10 @@ private:
 
 private:
     EvtStack evtStack[MAX_THEAD_NUM];
-    Trunk *trunk_[MAX_THEAD_NUM] = {nullptr};
+    Trunk* trunk_[MAX_THEAD_NUM] = {nullptr};
 
     std::mutex mutex_;
-    std::vector<Trunk *> trunks_;
+    std::vector<Trunk*> trunks_;
     std::atomic<int32_t> evtIndex;
 };
 struct PerfEvtMgr {
@@ -146,11 +152,10 @@ struct PerfEvtMgr {
         int64_t count;
     };
 
-    bool GetIsOpenProf() {
-        return isOpenProf_;
-    }
+    bool GetIsOpenProf() { return isOpenProf_; }
 
-    void SetIsOpenProf(bool isOpenProf, uint64_t aicpuPerf = 0) {
+    void SetIsOpenProf(bool isOpenProf, uint64_t aicpuPerf = 0)
+    {
         if (ctrlTurn_ >= MAX_TURN_NUM) {
             aicpuPerf_ = 0;
             isOpenProf_ = false;
@@ -162,44 +167,42 @@ struct PerfEvtMgr {
         aicpuPerf_ = aicpuPerf;
     }
 
-    void AddCtrlTurn() {
-        ctrlTurn_++;
-    }
+    void AddCtrlTurn() { ctrlTurn_++; }
 
-    void AddScheduleTurn() {
-        schTurn_++;
-    }
+    void AddScheduleTurn() { schTurn_++; }
 
-    void PerfBegin(int type) {
-        counters[type].start = static_cast<int64_t>(GetCycles());
-    }
+    void PerfBegin(int type) { counters[type].start = static_cast<int64_t>(GetCycles()); }
 
-    void PerfEnd(int type) {
-        auto &c = counters[type];
+    void PerfEnd(int type)
+    {
+        auto& c = counters[type];
         c.count++;
         c.total += static_cast<int64_t>(GetCycles() - c.start);
     }
 
-    static PerfEvtMgr &Instance() {
+    static PerfEvtMgr& Instance()
+    {
         static PerfEvtMgr recorder;
         return recorder;
     }
 
-    static void RepeatPuts(char c, size_t count) {
+    static void RepeatPuts(char c, size_t count)
+    {
         char buf[80];
         for (size_t i = 0; i < count; i++) {
             buf[i] = c;
         }
         buf[count] = '\0';
-        DEV_INFO( "%s.", buf);
+        DEV_INFO("%s.", buf);
     }
 
-    void Dump() {
+    void Dump()
+    {
         uint64_t freq = GetFreq();
         static constexpr size_t SHEET_WIDTH = 40 + 3 + 10 + 3 + 10 + 3 + 10;
 
         RepeatPuts('=', SHEET_WIDTH);
-        DEV_INFO( "%40s | %10s | %10s | %10s.", "EventType", "Count", "Total(us)", "Avg(us)");
+        DEV_INFO("%40s | %10s | %10s | %10s.", "EventType", "Count", "Total(us)", "Avg(us)");
         RepeatPuts('-', SHEET_WIDTH);
 
         for (int i = 0; i < PERF_EVT_MAX; i++) {
@@ -207,23 +210,24 @@ struct PerfEvtMgr {
             if (evt.count != 0) {
                 uint64_t total = evt.total * NSEC_PER_SEC / freq / NSEC_PER_USEC;
                 float avg = static_cast<float>(total / evt.count);
-                DEV_INFO( "%-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
+                DEV_INFO("%-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
             }
         }
 
         RepeatPuts('=', SHEET_WIDTH);
     }
 
-    void PerfTrace(uint32_t type, uint32_t tid, uint64_t cycle) {
+    void PerfTrace(uint32_t type, uint32_t tid, uint64_t cycle)
+    {
         if (tid >= MAX_USED_AICPU_NUM) {
             return;
         }
         MetricPerf* aicpuMetrics = nullptr;
         if (aicpuPerf_ > 0) {
             aicpuMetrics = (MetricPerf*)(aicpuPerf_ + (tid == 0 ? ctrlTurn_ : schTurn_) * sizeof(MetricPerf));
-        }        
+        }
         if (PerfTraceIsDevTask[type] && DEVTASK_PERF_ARRY_INDEX(type) < DEVTASK_PERF_TYPE_NUM) {
-            auto &cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+            auto& cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
             if (cnt < PERF_TRACE_COUNT_DEVTASK_MAX_NUM) {
                 perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt++] =
                     cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
@@ -242,8 +246,9 @@ struct PerfEvtMgr {
         }
     }
 
-    void DumpPerfTraceCore(std::ostringstream &oss, uint32_t scheCpuNum) {
-        auto devTaskPerfFormatFunc = [this](std::ostringstream &osStr, uint32_t tid, uint32_t type) -> void {
+    void DumpPerfTraceCore(std::ostringstream& oss, uint32_t scheCpuNum)
+    {
+        auto devTaskPerfFormatFunc = [this](std::ostringstream& osStr, uint32_t tid, uint32_t type) -> void {
             for (uint32_t i = 0; i < perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {
                 if (type == PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK) {
                     osStr << "{\"name\":\"" << PerfTraceName[type] << "\",";
@@ -256,14 +261,14 @@ struct PerfEvtMgr {
 
         uint64_t freq = GetFreq() / (NSEC_PER_SEC / NSEC_PER_USEC);
         uint32_t usedAicpuNum = scheCpuNum + MAX_OTHER_AICPU_NUM;
-        for (uint32_t tid = 0 ; tid < usedAicpuNum; tid++) {
+        for (uint32_t tid = 0; tid < usedAicpuNum; tid++) {
             std::string coreType = "\"AICPU\"";
             if (tid == 0) {
                 coreType = "\"AICPU-CTRL\"";
             } else if (tid <= scheCpuNum) {
                 coreType = "\"AICPU-SCHED\"";
             }
-            oss << "{\"blockIdx\":" << tid << ",\"coreType\":" << coreType << ",\"freq\":"<< freq <<",\"tasks\":[";
+            oss << "{\"blockIdx\":" << tid << ",\"coreType\":" << coreType << ",\"freq\":" << freq << ",\"tasks\":[";
             for (uint32_t type = 0; type < PERF_TRACE_MAX; type++) {
                 if (PerfTraceIsDevTask[type]) {
                     devTaskPerfFormatFunc(oss, tid, type);
@@ -272,14 +277,15 @@ struct PerfEvtMgr {
                 if (perfTrace[tid][type] == 0) {
                     continue;
                 }
-                oss << "{\"name\":\"" << PerfTraceName[type] << "\",\"end\":" << perfTrace[tid][type]
-                    << "}" << (type == PERF_TRACE_MAX - 1 ? "" : ",");
+                oss << "{\"name\":\"" << PerfTraceName[type] << "\",\"end\":" << perfTrace[tid][type] << "}"
+                    << (type == PERF_TRACE_MAX - 1 ? "" : ",");
             }
             oss << "]}" << (tid == usedAicpuNum - 1 ? "" : ",");
         }
     }
 
-    void DumpPerfTrace(uint32_t scheCpuNum, std::string file = "") {
+    void DumpPerfTrace(uint32_t scheCpuNum, std::string file = "")
+    {
         (void)file;
         (void)scheCpuNum;
 #if ENABLE_PERF_TRACE
@@ -292,7 +298,7 @@ struct PerfEvtMgr {
         while (startPos < totalLength) {
             uint32_t endPos = std::min(startPos + batchSize, totalLength);
             std::string batch = str.substr(startPos, endPos - startPos);
-            DEV_INFO( "tile_fwk aicpu prof:%s", batch.c_str());
+            DEV_INFO("tile_fwk aicpu prof:%s", batch.c_str());
             startPos = endPos;
         }
 
@@ -308,7 +314,8 @@ struct PerfEvtMgr {
     }
 
 private:
-    PerfEvtMgr() {
+    PerfEvtMgr()
+    {
 #if ENABLE_PERF_EVT
         memset_s(counters, sizeof(counters), 0, sizeof(counters));
 #endif
@@ -317,7 +324,8 @@ private:
 #endif
     };
 
-    void ResetPerfTrace() {
+    void ResetPerfTrace()
+    {
         memset_s(perfTrace, sizeof(perfTrace), 0, sizeof(perfTrace));
         memset_s(perfTraceDevTask, sizeof(perfTraceDevTask), 0, sizeof(perfTraceDevTask));
         memset_s(perfTraceDevTaskCnt, sizeof(perfTraceDevTaskCnt), 0, sizeof(perfTraceDevTaskCnt));
@@ -334,7 +342,8 @@ private:
     uint32_t schTurn_{0};
 };
 
-inline void PerfBegin(int type) {
+inline void PerfBegin(int type)
+{
 #if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfBegin(type);
 #else
@@ -342,39 +351,44 @@ inline void PerfBegin(int type) {
 #endif
 }
 
-inline void PerfEnd(int type) {
+inline void PerfEnd(int type)
+{
 #if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfEnd(type);
 #else
-  (void)type;
+    (void)type;
 #endif
 }
 
-inline void PerfMtBegin(int type, int tid) {
+inline void PerfMtBegin(int type, int tid)
+{
 #if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfBegin(type + tid);
 #else
-  (void)type;
-  (void)tid;
+    (void)type;
+    (void)tid;
 #endif
 }
 
-inline void PerfMtEnd(int type, int tid) {
+inline void PerfMtEnd(int type, int tid)
+{
 #if ENABLE_PERF_EVT
     PerfEvtMgr::Instance().PerfEnd(type + tid);
 #else
-  (void)type;
-  (void)tid;
+    (void)type;
+    (void)tid;
 #endif
 }
 
-inline void PerfMtEvent(int type, int tid, uint64_t start, uint64_t end, std::string name = "-") {
+inline void PerfMtEvent(int type, int tid, uint64_t start, uint64_t end, std::string name = "-")
+{
     if (PerfEvtEnable[type]) {
         PerfettoMgr::Instance().PerfEvent(type, tid, start, end, name);
     }
 }
 
-inline void PerfMtTrace(uint32_t type, uint32_t tid, uint64_t cycle = 0) {
+inline void PerfMtTrace(uint32_t type, uint32_t tid, uint64_t cycle = 0)
+{
     (void)type;
     (void)tid;
     (void)cycle;
@@ -388,4 +402,4 @@ struct AutoScopedPerf {
     ~AutoScopedPerf() { PerfEnd(type_); }
     int type_;
 };
-}
+} // namespace npu::tile_fwk::dynamic

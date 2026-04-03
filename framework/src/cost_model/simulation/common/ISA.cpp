@@ -23,16 +23,16 @@ namespace CostModel {
 
 using Json = nlohmann::json;
 
-Tile::Tile(const std::string &str)
+Tile::Tile(const std::string& str)
 {
     Json j = Json::parse(str);
     magic = j.at("magic");
-    const auto &shapeJson = j.at("shape");
-    for (const auto &value : shapeJson) {
+    const auto& shapeJson = j.at("shape");
+    for (const auto& value : shapeJson) {
         shape.emplace_back(value.get<int>());
     }
-    const auto &offsetJson = j.at("offset");
-    for (const auto &value : offsetJson) {
+    const auto& offsetJson = j.at("offset");
+    for (const auto& value : offsetJson) {
         offset.emplace_back(value.get<int>());
     }
     bufferType = j.at("memorytype").at("tobe");
@@ -46,8 +46,8 @@ Tile::Tile(const std::string &str)
     std::string type = j.at("nodetype");
     nodeType = CostModel::ToNodeType(type);
     rawMagic = j.at("rawtensor").at("rawmagic");
-    const auto &rawShapeJson = j.at("rawtensor").at("rawshape");
-    for (const auto &value : rawShapeJson) {
+    const auto& rawShapeJson = j.at("rawtensor").at("rawshape");
+    for (const auto& value : rawShapeJson) {
         rawShape.emplace_back(value.get<int>());
     }
 }
@@ -75,10 +75,7 @@ void Tile::GetPipeType()
     }
 }
 
-void Tile::Print()
-{
-    SIMULATION_LOGI("%s",  Dump().c_str());
-}
+void Tile::Print() { SIMULATION_LOGI("%s", Dump().c_str()); }
 
 std::string Tile::Dump()
 {
@@ -121,8 +118,9 @@ void TileOp::GetPipeType()
 {
     auto coreTypeQuery = SCHED_CORE_PIPE_TYPE.find(opcode);
     if (coreTypeQuery == SCHED_CORE_PIPE_TYPE.end() && !IsCall() && opcode != "LOOP") {
-        ASSERT(false) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)
-                    << ",[SIMULATION]: " << "No pipe type corresponding to opcode is found. opcode=" << opcode;
+        ASSERT(false) << "ErrCode: F" << static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)
+                      << ",[SIMULATION]: "
+                      << "No pipe type corresponding to opcode is found. opcode=" << opcode;
     }
     if (IsCall()) {
         pipeType = CorePipeType::PIPE_CALL;
@@ -140,8 +138,9 @@ uint64_t TileOp::GetAddress()
     } else if (IsWriteCache(pipeType)) {
         tile = oOperand[0];
     } else {
-        ASSERT(false) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)
-                        << ",[SIMULATION]: " << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
+        ASSERT(false) << "ErrCode: F" << static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)
+                      << ",[SIMULATION]: "
+                      << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
     }
     addr = tile->rawMagic * RAW_MAGIC_MAX_SIZE;
     // calculate addr based on rawShape and offset
@@ -160,26 +159,21 @@ uint64_t TileOp::GetSize()
     } else if (IsWriteCache(pipeType)) {
         tile = oOperand[0];
     } else {
-        ASSERT(false) << "ErrCode: F" <<  static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)  
-                        << ",[SIMULATION]: " << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
+        ASSERT(false) << "ErrCode: F" << static_cast<unsigned>(CostModel::ForwardSimErrorScene::INVALID_PIPE_TYPE)
+                      << ",[SIMULATION]: "
+                      << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
     }
     uint64_t shapeSize = 1;
-    for (auto &s : tile->shape) {
+    for (auto& s : tile->shape) {
         shapeSize *= s;
     }
     size = shapeSize * BytesOf(tile->dataType);
     return size;
 }
 
-bool TileOp::IsCall()
-{
-    return opcode.find("CALL") != std::string::npos;
-}
+bool TileOp::IsCall() { return opcode.find("CALL") != std::string::npos; }
 
-bool TileOp::IsNOP()
-{
-    return opcode.find("NOP") != std::string::npos;
-}
+bool TileOp::IsNOP() { return opcode.find("NOP") != std::string::npos; }
 
 bool TileOp::IsSpecial()
 {
@@ -190,10 +184,7 @@ bool TileOp::IsSpecial()
     return false;
 }
 
-void TileOp::Print()
-{
-    SIMULATION_LOGI("%s",  Dump().c_str());
-}
+void TileOp::Print() { SIMULATION_LOGI("%s", Dump().c_str()); }
 
 std::string TileOp::Dump(bool outDetail)
 {
@@ -261,7 +252,8 @@ void ExecuteInfo::Reset()
     cycleInfo.Reset();
 }
 
-void Function::GetOpSequeceAfterOOO(int opmagic, uint64_t &index) {
+void Function::GetOpSequeceAfterOOO(int opmagic, uint64_t& index)
+{
     if (opSequenceAfterOOO_.find(opmagic) != opSequenceAfterOOO_.end()) {
         index = opSequenceAfterOOO_[opmagic];
     }
@@ -288,7 +280,7 @@ Json Function::DumpExecuteInfo()
     res["FuncHash"] = functionHash;
     res["TotalCycles"] = totalCycles;
     Json pipe;
-    for (auto &entry : pipeExecuteTime) {
+    for (auto& entry : pipeExecuteTime) {
         pipe[CorePipeName(entry.first)] = entry.second;
     }
     res["pipes"] = pipe;
@@ -301,8 +293,8 @@ uint64_t Function::GetOpRelativeReadyCycle(TileOpPtr tileOp, uint64_t newBaseCyc
     uint64_t pipeFreeCycle = pipeLastEndCycle[tileOp->pipeType];
     uint64_t res = newBaseCycle + relativeStartCycle; // base start cycle;
     res = std::max(res, pipeFreeCycle);
-    for (auto &srcTile : tileOp->iOperand) {
-        for (auto &producer : srcTile->producers) {
+    for (auto& srcTile : tileOp->iOperand) {
+        for (auto& producer : srcTile->producers) {
             res = std::max(res, producer->exeInfo.cycleInfo.relativeEndCycle);
         }
     }
@@ -326,4 +318,4 @@ void Function::CalculateRelativeCycle(uint64_t newBaseCycle, double proportion)
         pipeLastEndCycle[tileOp->pipeType] = tileOp->exeInfo.cycleInfo.relativeEndCycle;
     }
 }
-}
+} // namespace CostModel

@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -12,10 +13,10 @@
 对输入张量逐元素应用 Leaky ReLU（带泄漏的线性整流函数）激活函数。计算公式如下：
 
 $$
-\text{res}_i = 
-\begin{cases} 
+\text{res}_i =
+\begin{cases}
 \text{input}_i & \text{if } \text{input}_i \geq 0 \\
-\text{negative\_slope} \cdot \text{input}_i & \text{if } \text{input}_i < 0 
+\text{negative\_slope} \cdot \text{input}_i & \text{if } \text{input}_i < 0
 \end{cases}
 $$
 
@@ -73,4 +74,3 @@ out = pypto.lrelu(a)
 输入数据a:   [[-1.0  0.0  1.0]]
 输出数据out: [[-0.01  0.0   1.0]]
 ```
-

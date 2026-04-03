@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -70,7 +71,7 @@ pypto.set_vec_tile_shapes(16, 64)
 
 ### 接口调用示例
 
--   将2维 src 根据2维index更新到2维input上, 注意原地操作的写法, 即等号左边的输出应和输入input相同: 
+-   将2维 src 根据2维index更新到2维input上, 注意原地操作的写法, 即等号左边的输出应和输入input相同:
 
     ```python
     x = pypto.tensor([8, 3], pypto.DT_INT32)
@@ -106,7 +107,7 @@ pypto.set_vec_tile_shapes(16, 64)
                [0 0 0]]
     ```
 
--   将4维src根据2维索引index更新到4维input上, 注意原地操作的写法, 即等号左边的输出应和输入input相同: 
+-   将4维src根据2维索引index更新到4维input上, 注意原地操作的写法, 即等号左边的输出应和输入input相同:
 
     ```python
     x = pypto.tensor([2, 6, 1, 3], pypto.DT_INT32)
@@ -161,4 +162,3 @@ pypto.set_vec_tile_shapes(16, 64)
                  [[0 0 0]],
                ]]
     ```
-

@@ -36,7 +36,8 @@ using namespace pypto::ir;
 
 class BacktraceTest : public testing::Test {
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         std::cout << "\n" << std::string(80, '=') << "\n";
         std::cout << "BACKTRACE OUTPUT TEST (New IR Error Mechanism)\n";
         std::cout << std::string(80, '=') << "\n";
@@ -53,14 +54,15 @@ protected:
  * - Release mode: Python-style header + stack reversal + traditional format
  * - Debug mode: Python-style header + stack reversal + File/Line format + source code
  */
-TEST_F(BacktraceTest, SimpleErrorTest) {
+TEST_F(BacktraceTest, SimpleErrorTest)
+{
     std::cout << "\nTest: Simple Error Exception\n";
     std::cout << std::string(40, '-') << "\n\n";
 
     try {
         // Throw an error with backtrace (new IR error mechanism)
         throw Error("Test error: Invalid operation");
-    } catch (const Error &e) {
+    } catch (const Error& e) {
         // Print the complete error message with backtrace
         std::cout << "Caught Error Exception:\n";
         std::cout << e.GetFullMessage() << "\n";
@@ -75,25 +77,26 @@ TEST_F(BacktraceTest, SimpleErrorTest) {
  */
 
 // Helper functions to create nested call stack
-void Level3Function() {
-    throw Error("Error occurred at Level 3");
-}
+void Level3Function() { throw Error("Error occurred at Level 3"); }
 
-void Level2Function() {
+void Level2Function()
+{
     Level3Function(); // Call next level
 }
 
-void Level1Function() {
+void Level1Function()
+{
     Level2Function(); // Call next level
 }
 
-TEST_F(BacktraceTest, NestedCallTest) {
+TEST_F(BacktraceTest, NestedCallTest)
+{
     std::cout << "\nTest: Nested Function Calls (3 levels)\n";
     std::cout << std::string(40, '-') << "\n\n";
 
     try {
         Level1Function(); // Start the call chain
-    } catch (const Error &e) {
+    } catch (const Error& e) {
         std::cout << "Caught Error from Nested Calls:\n";
         std::cout << e.GetFullMessage() << "\n";
     }
@@ -103,20 +106,23 @@ TEST_F(BacktraceTest, NestedCallTest) {
 // StackFrame::to_string Tests
 // ============================================================================
 
-TEST_F(BacktraceTest, StackFrameToStringWithFunction) {
+TEST_F(BacktraceTest, StackFrameToStringWithFunction)
+{
     StackFrame frame("myFunction", "", 0, 0);
     std::string result = frame.ToString();
     ASSERT_NE(result.find("myFunction"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, StackFrameToStringWithoutFunction) {
+TEST_F(BacktraceTest, StackFrameToStringWithoutFunction)
+{
     StackFrame frame("", "", 0, 0xDEADBEEF);
     std::string result = frame.ToString();
     ASSERT_NE(result.find("0x"), std::string::npos);
     ASSERT_NE(result.find("deadbeef"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, StackFrameToStringWithFileAndLine) {
+TEST_F(BacktraceTest, StackFrameToStringWithFileAndLine)
+{
     StackFrame frame("myFunc", "/path/to/file.cpp", 42, 0x1234);
     std::string result = frame.ToString();
     ASSERT_NE(result.find("myFunc"), std::string::npos);
@@ -124,7 +130,8 @@ TEST_F(BacktraceTest, StackFrameToStringWithFileAndLine) {
     ASSERT_NE(result.find("42"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, StackFrameToStringWithFileNoLine) {
+TEST_F(BacktraceTest, StackFrameToStringWithFileNoLine)
+{
     StackFrame frame("myFunc", "/path/to/file.cpp", 0, 0x1234);
     std::string result = frame.ToString();
     ASSERT_NE(result.find("myFunc"), std::string::npos);
@@ -133,7 +140,8 @@ TEST_F(BacktraceTest, StackFrameToStringWithFileNoLine) {
     ASSERT_EQ(result.find(":0"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, StackFrameDefaultConstructor) {
+TEST_F(BacktraceTest, StackFrameDefaultConstructor)
+{
     StackFrame frame;
     ASSERT_EQ(frame.lineno, 0);
     ASSERT_EQ(frame.pc, 0u);
@@ -145,15 +153,17 @@ TEST_F(BacktraceTest, StackFrameDefaultConstructor) {
 // FormatStackTrace Tests with manually constructed frames
 // ============================================================================
 
-TEST_F(BacktraceTest, FormatStackTraceEmpty) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, FormatStackTraceEmpty)
+{
+    auto& bt = Backtrace::GetInstance();
     std::vector<StackFrame> frames;
     std::string result = bt.FormatStackTrace(frames);
     ASSERT_TRUE(result.empty());
 }
 
-TEST_F(BacktraceTest, FormatStackTraceWithFileAndLine) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, FormatStackTraceWithFileAndLine)
+{
+    auto& bt = Backtrace::GetInstance();
 
     StackFrame frame1("funcA", "/src/a.cpp", 10, 0x1000);
     StackFrame frame2("funcB", "/src/b.cpp", 20, 0x2000);
@@ -165,8 +175,9 @@ TEST_F(BacktraceTest, FormatStackTraceWithFileAndLine) {
     ASSERT_NE(result.find("/src/b.cpp"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, FormatStackTraceReleaseModeFormat) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, FormatStackTraceReleaseModeFormat)
+{
+    auto& bt = Backtrace::GetInstance();
 
     // Frame without filename but with function, libname, offset
     StackFrame frame;
@@ -182,8 +193,9 @@ TEST_F(BacktraceTest, FormatStackTraceReleaseModeFormat) {
     ASSERT_NE(result.find("+0x42"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoOffset) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoOffset)
+{
+    auto& bt = Backtrace::GetInstance();
 
     StackFrame frame;
     frame.function = "testFunc";
@@ -195,8 +207,9 @@ TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoOffset) {
     ASSERT_NE(result.find("libtest.so(testFunc)"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoLibname) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoLibname)
+{
+    auto& bt = Backtrace::GetInstance();
 
     StackFrame frame;
     frame.function = "testFunc";
@@ -207,8 +220,9 @@ TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoLibname) {
     ASSERT_NE(result.find("testFunc"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, FormatStackTraceFiltering) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, FormatStackTraceFiltering)
+{
+    auto& bt = Backtrace::GetInstance();
 
     // Frame with filtered filename should be excluded
     StackFrame frameFiltered;
@@ -229,8 +243,9 @@ TEST_F(BacktraceTest, FormatStackTraceFiltering) {
     ASSERT_NE(result.find("my_code.cpp"), std::string::npos);
 }
 
-TEST_F(BacktraceTest, FormatStackTraceDeduplication) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, FormatStackTraceDeduplication)
+{
+    auto& bt = Backtrace::GetInstance();
 
     // Two frames with same PC address - only first should be kept
     StackFrame frame1("funcA", "/src/a.cpp", 10, 0x1000);
@@ -248,15 +263,17 @@ TEST_F(BacktraceTest, FormatStackTraceDeduplication) {
 // CaptureStackTrace Tests
 // ============================================================================
 
-TEST_F(BacktraceTest, CaptureStackTraceBasic) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, CaptureStackTraceBasic)
+{
+    auto& bt = Backtrace::GetInstance();
     auto frames = bt.CaptureStackTrace(0);
     // We should get at least a few frames
     ASSERT_GT(frames.size(), 0u);
 }
 
-TEST_F(BacktraceTest, CaptureStackTraceSkipAll) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(BacktraceTest, CaptureStackTraceSkipAll)
+{
+    auto& bt = Backtrace::GetInstance();
     // Skip more frames than available - should return empty
     auto frames = bt.CaptureStackTrace(9999);
     ASSERT_TRUE(frames.empty());
@@ -266,8 +283,9 @@ TEST_F(BacktraceTest, CaptureStackTraceSkipAll) {
 // GetInstance singleton
 // ============================================================================
 
-TEST_F(BacktraceTest, GetInstanceSingleton) {
-    auto &bt1 = Backtrace::GetInstance();
-    auto &bt2 = Backtrace::GetInstance();
+TEST_F(BacktraceTest, GetInstanceSingleton)
+{
+    auto& bt1 = Backtrace::GetInstance();
+    auto& bt2 = Backtrace::GetInstance();
     ASSERT_EQ(&bt1, &bt2);
 }

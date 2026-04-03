@@ -40,7 +40,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -49,10 +50,14 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOp", "TestSaveGmTensorParamIdxToOp", nullptr);
+TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp)
+{
+    auto rootFuncPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSaveGmTensorParamIdxToOp", "TestSaveGmTensorParamIdxToOp", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSaveGmTensorParamIdxToOpLeaf", "TestSaveGmTensorParamIdxToOpLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSaveGmTensorParamIdxToOpLeaf", "TestSaveGmTensorParamIdxToOpLeaf",
+        rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
@@ -65,14 +70,14 @@ TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp) {
     auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    std::vector<Operation *> opLogPtr;
-    auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
+    std::vector<Operation*> opLogPtr;
+    auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
     opLogPtr.emplace_back(&copyin1);
-    auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
+    auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
     opLogPtr.emplace_back(&copyin2);
-    auto &add = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {tensor3, tensor4}, {tensor5});
+    auto& add = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {tensor3, tensor4}, {tensor5});
     opLogPtr.emplace_back(&add);
-    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
+    auto& copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
     opLogPtr.emplace_back(&copyout);
 
     int index{0};
@@ -88,17 +93,20 @@ TEST_F(CodegenPreprocTest, TestSaveGmTensorParamIdxToOp) {
     CodegenPreproc codegenPreprocPass;
     codegenPreprocPass.SaveGmTensorParamIdxToOp(*rootFuncPtr);
 
-    for (const auto &op : opLogPtr) {
+    for (const auto& op : opLogPtr) {
         if (OpcodeManager::Inst().IsCopyInOrOut(op->GetOpcode())) {
             EXPECT_TRUE(op->HasAttr("GmTensorParamIdxInCallFunc"));
         }
     }
 }
 
-TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestForceCombineAxis", "TestForceCombineAxis", nullptr);
+TEST_F(CodegenPreprocTest, TestForceCombineAxis)
+{
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestForceCombineAxis", "TestForceCombineAxis", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestForceCombineAxisLeaf", "TestForceCombineAxisLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestForceCombineAxisLeaf", "TestForceCombineAxisLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
@@ -118,18 +126,18 @@ TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
     tensor5->tensor->rawshape = shape;
     auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor6->tensor->rawshape = shape;
-    std::vector<Operation *> opLogPtr;
-    auto &copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
+    std::vector<Operation*> opLogPtr;
+    auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor3});
     copyin1.SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
     opLogPtr.emplace_back(&copyin1);
-    auto &copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
+    auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor2}, {tensor4});
     copyin2.SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
     opLogPtr.emplace_back(&copyin2);
-    auto &add = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {tensor3, tensor4}, {tensor5});
+    auto& add = currFunctionPtr->AddRawOperation(Opcode::OP_ADD, {tensor3, tensor4}, {tensor5});
     add.SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
     add.SetAttr(OpAttributeKey::outputCombineAxis, AXIS_COMBINED);
     opLogPtr.emplace_back(&add);
-    auto &copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
+    auto& copyout = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor5}, {tensor6});
     copyout.SetAttr(OpAttributeKey::inputCombineAxis, AXIS_COMBINED);
     opLogPtr.emplace_back(&copyout);
 
@@ -163,7 +171,8 @@ TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
     EXPECT_EQ(tensor2->tensor->rawshape, combinedShape);
 }
 
-TEST_F(CodegenPreprocTest, TestCombineAxisRowSumLine) {
+TEST_F(CodegenPreprocTest, TestCombineAxisRowSumLine)
+{
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 12, 1}, MemoryType::MEM_UB, "in"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 12, 1}, MemoryType::MEM_UB, "out"), true);
@@ -195,7 +204,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxisRowSumLine) {
     // Verify AxisCombine
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t cnt = 0;
-    for (const auto &op : updatedOperations) {
+    for (const auto& op : updatedOperations) {
         if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++cnt;
         }
@@ -213,7 +222,8 @@ TEST_F(CodegenPreprocTest, TestCombineAxisRowSumLine) {
     EXPECT_EQ(attr, (std::vector<bool>{true, false}));
 }
 
-TEST_F(CodegenPreprocTest, TestCombineAxisExpand) {
+TEST_F(CodegenPreprocTest, TestCombineAxisExpand)
+{
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1}, MemoryType::MEM_UB, "t1"), true);
@@ -251,7 +261,8 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand) {
     EXPECT_EQ(axis, 1);
 }
 
-TEST_F(CodegenPreprocTest, TestCombineAxis3510) {
+TEST_F(CodegenPreprocTest, TestCombineAxis3510)
+{
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
