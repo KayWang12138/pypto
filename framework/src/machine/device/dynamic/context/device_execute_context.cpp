@@ -112,11 +112,11 @@ int DeviceExecuteContext::RunInit(DevStartArgs* startArgs, PushTaskEntry tPushTa
     this->devProg = startArgs->devProg;
 
     workspace.Init(startArgs);
+    stitchTaskLoopNumThreshold = devProg->stitchMaxFunctionNum;
     if (devProg->stitchFunctionNumInitial > 0) {
-        stitchTaskLoopNumThreshold =
-            std::min<uint16_t>(devProg->stitchFunctionNumInitial, devProg->stitchMaxFunctionNum);
-        DEV_INFO("First stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
+        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, stitchTaskLoopNumThreshold);
     }
+    DEV_INFO("Stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
 
     slotContext.InitAllocator(workspace, devProg->slotSize);
     slotContext.FillInputOutputSlot(devProg, startArgs);
