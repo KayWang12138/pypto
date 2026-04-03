@@ -63,6 +63,63 @@ Status InferMemoryConflict::RunOnFunction(Function& function)
         APASS_LOG_ERROR_F(Elements::Operation, "InsertCopys failed.");
         return FAILED;
     }
+    if (ProcessViewType(function) != SUCCESS) {
+        return FAILED;
+    }
+    if (InsertViewAssemble(function) != SUCCESS) {
+        return FAILED;
+    }
+    APASS_LOG_INFO_F(Elements::Operation, "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+    return SUCCESS;
+}
+
+Status InferMemoryConflict::InsertViewAssemble(Function& function)
+{
+    for (auto& op : function.Operations()) {
+        auto opcode = op.GetOpcode();
+        if (opcode != Opcode::OP_VIEW) {
+            // 跳过非view的op
+            continue;
+        }
+        auto consumers = op.oOperand.front()->GetConsumers();
+        // 获取view级联的assemble消费者
+        for (const auto& consumer : consumers) {
+            if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+                // 跳过不是assemble的消费者
+                continue;
+            }
+            auto inputTensor = consumer->iOperand.front();
+            bool hasOtherOp = false;
+            for (const auto &siblingConsumer : inputTensor->GetConsumers()) {
+                if (siblingConsumer->GetOpcode() != Opcode::OP_VIEW &&
+                siblingConsumer->GetOpcode() != Opcode::OP_ASSEMBLE ) {
+                    hasOtherOp = true;
+                    break;
+                }
+            }
+            if (hasOtherOp) {
+                continue;
+            }
+            if (inputTensor->GetDataSize() < 196608) {
+                continue;
+            }
+            TileShape viewTypeTile;
+            auto vecTypeTile = consumer->GetTileShape().GetVecTile();
+            LogicalTensor moveInTensor(function, inputTensor->Datatype(), inputTensor->GetShape());
+            LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(std::move(moveInTensor));
+
+            inputTensor->RemoveConsumer(consumer);
+            auto &regCopy = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
+            consumer->ReplaceInput(newTensor, inputTensor);
+            viewTypeTile.SetVecTile(vecTypeTile);
+            regCopy.UpdateTileShape(viewTypeTile);
+        }
+    }
+    return SUCCESS;
+}
+
+Status InferMemoryConflict::ProcessViewType(Function& function)
+{
     for (auto& op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
             auto output = op.GetOOperands()[0];
@@ -97,7 +154,6 @@ Status InferMemoryConflict::RunOnFunction(Function& function)
             outOp->UpdateTileShape(viewTypeTile);
         }
     }
-    APASS_LOG_INFO_F(Elements::Operation, "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
