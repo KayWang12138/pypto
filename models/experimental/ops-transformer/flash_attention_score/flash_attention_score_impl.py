@@ -35,7 +35,7 @@ import pypto
 NUM_HEADS = 8
 HEAD_DIM = 64
 BLOCK_SIZE_KV = 64
-BLOCK_SIZE_Q = 64
+BLOCK_SIZE_Q = 32
 
 
 @pypto.frontend.jit(
@@ -71,7 +71,7 @@ def flash_attention_score_kernel_with_mask_origin(
     scale = 1.0 / math.sqrt(HEAD_DIM)
 
     pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-    pypto.set_vec_tile_shapes(64, 512)
+    pypto.set_vec_tile_shapes(32, 512)
 
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
@@ -216,7 +216,7 @@ def flash_attention_score_kernel_with_mask(
     scale = scale_value
 
     pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-    pypto.set_vec_tile_shapes(64, 512)
+    pypto.set_vec_tile_shapes(32, 512)
 
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
@@ -389,7 +389,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
     scale = scale_value
 
     pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-    pypto.set_vec_tile_shapes(64, 512)
+    pypto.set_vec_tile_shapes(32, 512)
 
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
@@ -571,7 +571,7 @@ def flash_attention_score_kernel_with_mask_fp32(
     scale = scale_value
 
     pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-    pypto.set_vec_tile_shapes(64, 512)
+    pypto.set_vec_tile_shapes(32, 512)
 
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
@@ -727,7 +727,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
     scale = scale_value
 
     pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-    pypto.set_vec_tile_shapes(64, 512)
+    pypto.set_vec_tile_shapes(32, 512)
 
     num_blocks_kv = (seq_len_kv + BLOCK_SIZE_KV - 1) // BLOCK_SIZE_KV
     num_blocks_q = (seq_len_q + BLOCK_SIZE_Q - 1) // BLOCK_SIZE_Q
