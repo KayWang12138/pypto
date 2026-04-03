@@ -451,6 +451,7 @@ static Tensor ShmemClearImpl(const ShmemTensor& src, Tensor& pred, bool clearDat
     auto& op = function.AddOperation(
         Opcode::OP_SHMEM_SET, {pred.GetStorage(), clearData ? src.data.GetStorage() : src.signal.GetStorage()}, {out});
     ShmemSetAttr distOpAttr;
+    distOpAttr.group = src.group;
     distOpAttr.isSetData = clearData;
     distOpAttr.ownerRank = GetHcclRankId(src.group);
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
