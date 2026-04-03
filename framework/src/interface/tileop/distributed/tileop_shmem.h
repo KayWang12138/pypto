@@ -21,7 +21,7 @@
 #include <type_traits>
 
 #ifdef SUPPORT_TILE_TENSOR
-#include "pto/comm/pto_comm_inst.hpp"
+#include "pto/pto-inst.hpp"
 #endif
 
 namespace TileOp::Distributed {
@@ -239,7 +239,7 @@ TILEOP void CopyGmToGmByTRowSliced(__gm__ DataType* target, __ubuf__ DataType* b
     ShmemUbTile<DataType, kChunkRows, tileColShape> pongTile(kChunkRows, tileColShape);
     pto::TASSIGN(pingTile, reinterpret_cast<uintptr_t>(buffer));
     pto::TASSIGN(pongTile, reinterpret_cast<uintptr_t>(buffer + kHalfBufferEleCount));
-
+#if !defined(PTO_NPU_ARCH_KIRIN9030) && !defined(PTO_NPU_ARCH_KIRINX90)
     if constexpr (useTPut) {
         if constexpr (atomicType == AtomicType::ADD) {
             pto::comm::TPUT<pto::AtomicType::AtomicAdd>(dstGlobal, srcGlobal, pingTile, pongTile);
@@ -249,6 +249,7 @@ TILEOP void CopyGmToGmByTRowSliced(__gm__ DataType* target, __ubuf__ DataType* b
     } else {
         pto::comm::TGET(dstGlobal, srcGlobal, pingTile, pongTile);
     }
+#endif
     PIPE_SYNC_EVENT(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
 
