@@ -844,6 +844,58 @@ TEST_F(ReplaceTensorTest, InsertNeedCopyViewReshapeCopyOut)
     EXPECT_EQ(copyOutNumBer, kNumZero) << "Should not insert COPY_OUT operation";
 }
 
+// ========== 测试用例：InsertNeedCopy - Reshape + ASSEMBLE 输入tensor超UB，不插拷贝 ==========
+TEST_F(ReplaceTensorTest, InsertNeedCopyReshapeAssembleExceedUB)
+{
+    auto testFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "InsertNeedCopyReshapeAssembleExceedUB", "InsertNeedCopyReshapeAssembleExceedUB", nullptr);
+    EXPECT_TRUE(testFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("InsertNeedCopyReshapeAssembleExceedUB", testFunctionPtr);
+
+    // 创建输入tensor
+    std::vector<int64_t> shape1 = {930, 64};
+    std::vector<int64_t> shape2 = {465, 128};
+    auto input = std::make_shared<LogicalTensor>(*testFunctionPtr, DT_FP32, shape1);
+    input->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    // 创建输出tensor
+    auto output = std::make_shared<LogicalTensor>(*testFunctionPtr, DT_FP32, shape2);
+    output->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    // 创建tensor
+    auto tensor1 = std::make_shared<LogicalTensor>(*testFunctionPtr, DT_FP32, shape1);
+    tensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto tensor2 = std::make_shared<LogicalTensor>(*testFunctionPtr, DT_FP32, shape2);
+    tensor2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    // 创建计算图Op操作
+    testFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {input}, {tensor1});
+    testFunctionPtr->AddRawOperation(Opcode::OP_RESHAPE, {tensor1}, {tensor2});
+    auto& assemble = testFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {tensor2}, {output});
+    assemble.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+
+    testFunctionPtr->inCasts_.push_back(input);
+    testFunctionPtr->outCasts_.push_back(output);
+
+    // 调用InsertAssembleCopy
+    ReplaceTensor replaceTensor;
+    EXPECT_EQ(replaceTensor.InsertNeedCopy(*testFunctionPtr), FAILED);
+
+    // 验证插入拷贝序列
+    int copyInNums = 0;
+    int copyOutNums = 0;
+    for (const auto& op : testFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            copyInNums++;
+        } else if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            copyOutNums++;
+        }
+    }
+
+    EXPECT_EQ(copyInNums, kNumOne) << "Should not insert COPY_IN operation";
+    EXPECT_EQ(copyOutNums, kNumZero) << "Should not insert COPY_OUT operation";
+}
+
 TEST_F(ReplaceTensorTest, UpdateCopyInAttrAfterBackAssemble)
 {
     auto currFunctionPtr = std::make_shared<Function>(
