@@ -14,8 +14,8 @@
  */
 
 #include <memory>
+#include <iostream>
 #include "interface/interpreter/operation.h"
-#include "interface/interpreter/calc.h"
 #include "tensor/symbolic_scalar.h"
 #include "tilefwk/error.h"
 #include "tilefwk/tilefwk_op.h"
@@ -38,6 +38,7 @@ std::vector<uint64_t> UnBind(ExecuteOperationContext *ctx, SymbolicScalar attr) 
 }
 
 void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
+    std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
     ASSERT(ctx->ioperandDataViewList->size() == 0);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     auto &out = ctx->ooperandInplaceDataViewList->at(0);
@@ -49,17 +50,19 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
     ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
     const std::string &groupName = groupNames[groupIndex];
-    std::cout << "groupName: " << groupName << " memType: " << memType << " slotSize: " << slotSize << std::endl;
     if (memType == 1) {
         out = SimulationCommManager::Instance().Alloc(groupName, slotSize);
     }
     if (memType == 0) {
         out = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
     }
+    std::cout << "=== ExecuteOpBindTensor exited." << std::endl;
 }
 REGISTER_CALC_OP(OP_BIND_TENSOR, Opcode::OP_BIND_TENSOR, ExecuteOpBindTensor);
 
 void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
+    std::cout << "=== ExecuteOpShmemSet running ..." << std::endl;
+
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1 || ctx->ooperandInplaceDataViewList->size() == 2);
     auto &in = ctx->ioperandDataViewList->at(0);
@@ -73,10 +76,14 @@ void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
     } else {
         context->Set(context->GetRank(), 0, in->GetSize() * BytesOf(in->GetDataType()));
     }
+
+    std::cout << "=== ExecuteOpShmemSet exited ..." << std::endl;
 }
 REGISTER_CALC_OP(OP_SHMEM_SET, Opcode::OP_SHMEM_SET, ExecuteOpShmemSet);
 
 void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
+    std::cout << "=== ExecuteOpShmemPut running ..." << std::endl;
+
     ASSERT(ctx->ioperandDataViewList->size() == 3);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
@@ -94,10 +101,14 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
         atomicType = 1;
     }
     context->Put(in, dstRank, 0, atomicType);
+
+    std::cout << "=== ExecuteOpShmemPut exited ..." << std::endl;
 }
 REGISTER_CALC_OP(OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT, ExecuteOpShmemPut);
 
 void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
+    std::cout << "=== ExecuteOpShmemSignal running ..." << std::endl;
+
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
@@ -117,10 +128,14 @@ void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
     int value = attr.signalValue;
     bool notifyAll = attr.notifyAll;
     context->Signal(dstRank, value, in->GetSize() * BytesOf(in->GetDataType()), atomicType, notifyAll);
+
+    std::cout << "=== ExecuteOpShmemSignal exited ..." << std::endl;
 }
 REGISTER_CALC_OP(OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_SIGNAL, ExecuteOpShmemSignal);
 
 void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
+    std::cout << "=== ExecuteOpShmemWaitUntil running ..." << std::endl;
+
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
@@ -133,10 +148,14 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     int expect = attr.expectedSum;
     bool reset = attr.resetSignal;
     context->Wait(srcRank, expect, in->GetSize() * BytesOf(in->GetDataType()), reset);
+
+    std::cout << "=== ExecuteOpShmemWaitUntil exited ..." << std::endl;
 }
 REGISTER_CALC_OP(OP_SHMEM_WAIT_UNTIL, Opcode::OP_SHMEM_WAIT_UNTIL, ExecuteOpShmemWaitUntil);
 
 void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
+    std::cout << "=== ExecuteOpShmemGet running ..." << std::endl;
+
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
@@ -147,6 +166,8 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
     context->Get(srcRank, in->GetSize() * BytesOf(in->GetDataType()));
+
+    std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;
 }
 REGISTER_CALC_OP(OP_SHMEM_GET, Opcode::OP_SHMEM_GET, ExecuteOpShmemGet);
 

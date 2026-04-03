@@ -296,7 +296,7 @@ void SimulationCommManager::CreateSimulationCommContext(const std::string &group
 std::shared_ptr<SimulationCommContext> SimulationCommManager::GetCommContext(const std::string &groupName) {
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
-        return nullptr;
+        throw std::runtime_error("There is no group named " + groupName + " in contexts!");
     }
     return it->second;
 }
