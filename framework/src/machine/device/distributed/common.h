@@ -19,6 +19,7 @@
 #include <vector>
 #include "tilefwk/aikernel_data.h"
 #include "machine/utils/dynamic/dev_encode_types.h"
+#include "tileop/distributed/comm_context.h"
 
 namespace npu::tile_fwk::dynamic {
 class AiCoreManager;
@@ -38,6 +39,7 @@ struct TensorInfo {
     uint64_t rawAddr{0};
     uint32_t dim{0};
     uint64_t rawIndex{0};
+    uint64_t vaddr{0};
     int32_t expectedSum{0};
     int32_t signalStride{0};
     bool resetSignal{false};
@@ -62,37 +64,39 @@ struct AicpuParamInfo {
     uint32_t maxTileNum{0};
 };
 
-inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
-{
-    return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
-}
-
 inline uint64_t GetVirtualAddrOffset(uint64_t val)
 {
-    constexpr uint64_t offsetStart = 0UL;
-    constexpr uint64_t offsetEnd = 41UL;
-    return GetVirtualAddrBist(val, offsetStart, offsetEnd);
+    return val & TileOp::VirtualAddr::OFFSET_MASK;
 }
 
 inline uint64_t GetVirtualMaxTileNum(uint64_t val)
 {
-    constexpr uint64_t offsetStart = 42UL;
-    constexpr uint64_t offsetEnd = 53UL;
-    return GetVirtualAddrBist(val, offsetStart, offsetEnd);
+    return (val >> TileOp::VirtualAddr::TILE_NUM_SHIFT) &
+           ((1UL << TileOp::VirtualAddr::TILE_NUM_BITS) - 1UL);
 }
 
 inline uint64_t GetVirtualAddrGroupIndex(uint64_t val)
 {
-    constexpr uint64_t groupIndexStart = 54UL;
-    constexpr uint64_t groupIndexEnd = 55UL;
-    return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
+    return (val >> TileOp::VirtualAddr::GROUP_SHIFT) & TileOp::VirtualAddr::GROUP_MASK;
 }
 
-inline uint64_t GetVirtualAddrMemType(uint64_t val)
+inline
+uint64_t MapVirtualSignalAddr(int64_t* hcclContextAddr, uint64_t addr)
 {
-    constexpr uint64_t memTypeStart = 56UL;
-    constexpr uint64_t memTypeEnd = 57UL;
-    return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
+    uint64_t groupIndex = GetVirtualAddrGroupIndex(addr);
+    uint64_t offset = GetVirtualAddrOffset(addr);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr[groupIndex]);
+    auto winAddrOffset = hcclOpParam->statusIndex + hcclOpParam->rankId;
+    uint64_t rawAddr = hcclOpParam->winAddr[winAddrOffset] + offset;
+    return rawAddr;
+}
+
+inline
+uint64_t GetRankNum(int64_t* hcclContextAddr, uint64_t addr)
+{
+    uint64_t groupIndex = GetVirtualAddrGroupIndex(addr);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr[groupIndex]);
+    return hcclOpParam->rankNum;
 }
 
 inline uint64_t GetCoa(const uint32_t index, uint64_t* opAttrs, uint64_t* expressionTable)

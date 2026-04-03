@@ -32,6 +32,22 @@ struct CommContext {
     uint64_t
         winAddr[0]; // size大小rankNum*3，内存排布windata[0~rankNum-1], winStatus[0~rankNum-1], winDebug[0~rankNum-1]
 };
+
+namespace VirtualAddr {
+constexpr uint64_t OFFSET_BITS = 42UL;
+constexpr uint64_t TILE_NUM_BITS = 12UL;
+constexpr uint64_t GROUP_BITS = 2UL;
+constexpr uint64_t MEMTYPE_BITS = 2UL;
+
+constexpr uint64_t TILE_NUM_SHIFT = OFFSET_BITS;
+constexpr uint64_t GROUP_SHIFT = TILE_NUM_SHIFT + TILE_NUM_BITS;
+constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
+constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
+
+constexpr uint64_t OFFSET_MASK = (1UL << OFFSET_BITS) - 1UL;
+constexpr uint64_t GROUP_MASK = (1UL << GROUP_BITS) - 1UL;
+constexpr uint64_t MEMTYPE_MASK = (1UL << MEMTYPE_BITS) - 1UL;
+}
 } // namespace TileOp
 
 #endif
