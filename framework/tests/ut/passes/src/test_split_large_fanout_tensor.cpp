@@ -1902,5 +1902,58 @@ TEST_F(SplitLargeFanoutTensorTest, TestHeadTileOffsetNoSplit)
         EXPECT_EQ(countResultAfter[1], expectAssembleCount);
     }
 }
+
+TEST_F(SplitLargeFanoutTensorTest, TestSimplifyOverlapDualOverlap)
+{
+    config::SetHostConfig(KEY_STRATEGY, "SplitLargeFanoutTensorTestStrategy");
+    std::vector<int64_t> shape0 = {64};
+    std::vector<int64_t> shape1 = {128};
+    std::vector<int64_t> shape2 = {32};
+    std::vector<int64_t> shape3 = {96};
+    std::vector<int64_t> shape4 = {672};
+    PROGRAM("SplitLargeFanoutTensorTest")
+    {
+        Tensor input1(DataType::DT_FP32, shape1, "In1");
+        Tensor input2(DataType::DT_FP32, shape1, "In2");
+        Tensor input3(DataType::DT_FP32, shape1, "In3");
+        Tensor input4(DataType::DT_FP32, shape1, "In4");
+        Tensor input5(DataType::DT_FP32, shape1, "In5");
+        Tensor input6(DataType::DT_FP32, shape2, "In6");
+        Tensor output1(DataType::DT_FP32, shape0, "Out1");
+        Tensor output2(DataType::DT_FP32, shape1, "Out2");
+        Tensor output3(DataType::DT_FP32, shape1, "Out3");
+        Tensor output4(DataType::DT_FP32, shape1, "Out4");
+        Tensor output5(DataType::DT_FP32, shape1, "Out5");
+        Tensor output6(DataType::DT_FP32, shape3, "Out6");
+        SetTestStrategy();
+        config::SetBuildStatic(true);
+        FUNCTION(
+            "TestSimplifyOverlapDualOverlap",
+            {input1, input2, input3, input4, input5, input6, output1, output2, output3, output4, output5, output6})
+        {
+            TileShape::Current().SetVecTile(1024);
+            Tensor lt(DT_FP32, shape4, "lt");
+            Assemble(input1, {0}, lt);
+            Assemble(input2, {128}, lt);
+            Assemble(input3, {256}, lt);
+            Assemble(input4, {384}, lt);
+            Assemble(input5, {512}, lt);
+            Assemble(input6, {640}, lt);
+            output1 = View(lt, shape0, {0});
+            output2 = View(lt, shape1, {64});
+            output3 = View(lt, shape1, {192});
+            output4 = View(lt, shape1, {320});
+            output5 = View(lt, shape1, {448});
+            output6 = View(lt, shape3, {576});
+        }
+        Function* originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestSimplifyOverlapDualOverlap");
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        auto countResultAfter = CountViewAssemble(*originFunction);
+        const int expectViewCount = 12;
+        const int expectAssembleCount = 15;
+        EXPECT_EQ(countResultAfter[0], expectViewCount);
+        EXPECT_EQ(countResultAfter[1], expectAssembleCount);
+    }
+}
 } // namespace tile_fwk
 } // namespace npu

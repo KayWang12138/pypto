@@ -79,6 +79,8 @@ private:
     void CreateOpFor1toM(
         Function& function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
+    void FilterOverlaps(Function &function, LogicalTensorPtr largeTensor,
+        LogicalTensors &overlaps, const LogicalTensors &dualOverlaps);
     void CreateOpForMtoM(
         Function& function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
@@ -107,6 +109,7 @@ private:
     Status PreCheck(Function& function) override;
     Status PostCheck(Function& function) override;
     SplitLargeFanoutTensorChecker checker_;
+    std::string idx;
 };
 
 struct ShapeComparator {
