@@ -45,13 +45,13 @@ Function TENSOR_TENSOR_update_kernel_loop_Unroll1_PATH0_hiddenfunc0_5[5] 3116444
 
 **字段说明：**
 - `Function`: 固定关键字
-- `函数名`: 当前处理的函数名称，命名规则为 `{输入类型}_{输出类型}_{kernel名}_loop_Unroll{unroll值}_PATH{路径}_hiddenfunc{隐藏函数}_{函数id}`
-  - `update_kernel_loop`：函数名（loop名）
+- `函数名`: 当前处理的函数名称，命名规则为 `{输入类型}_{输出类型}_{基础名称}[可选_loop]_Unroll{unroll值}_PATH{路径}_hiddenfunc{隐藏函数}_{函数id}`
+  - `update_kernel_loop`：基础名称（若为循环函数，recorder 会在原始名称后附加 `_loop`，见 `recorder.cpp:67`）
   - `Unroll1`：unroll值，如前端设置 `unroll_list=[16, 1]`，IR文件名中会有 `Unroll1` 和 `Unroll16`
   - `PATH0`：循环中的分支路径，if/else 分别对应 PATH0 和 PATH1
   - `hiddenfunc0`：隐藏函数编号
-  - `_5`：函数ID
-- `[function_magic]`: 函数magic，即唯一标识符
+  - `_5`：函数ID（来自 `GetFuncMagic()`，与方括号中的 function_magic 值相同）
+- `[function_magic]`: 函数magic（唯一标识符），与函数名末尾的 `_{函数id}` 值相同，均来自 `GetFuncMagic()`
 - `{hash}`: 函数hash值
 - `{函数类型}`: 函数类型，如 DYNAMIC_LOOP_PATH
 - `{图类型}`: TENSOR_GRAPH 或 TILE_GRAPH
@@ -158,7 +158,7 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 #### 语法格式
 
 ```
-<shape / valid_shape> %{输出logic tensor}@{输出raw tensor}#(子图ID){读内存类型}::{写内存类型}} = !{op_id} {opcode}(g:{子图ID}, s:{作用域ID}) {输入参数} {属性}
+<shape / valid_shape> %{输出logic tensor}@{输出raw tensor}#(子图ID){读内存类型}::{写内存类型} = !{op_id} {opcode}(g:{子图ID}, s:{作用域ID}) {输入参数} {属性}
 ```
 
 #### 示例
@@ -527,8 +527,8 @@ INCAST[0] → %6 → TILE_VIEW → %84 → TILE_INDEX_OUTCAST → %1 → ... →
 #### 语法错误
 
 ```
-# 错误示例：缺少等号
-<16 x 128 x DT_FP32> %1@6#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR !10001 ADDS(g:-1, s:-1) %10@13#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR
+# 错误示例：缺少等号（操作名应带 TILE_ 前缀，如 TILE_ADDS）
+<16 x 128 x DT_FP32> %1@6#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR !10001 TILE_ADDS(g:-1, s:-1) %10@13#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR
 ```
 
 **定位方法**：
@@ -837,7 +837,7 @@ IR文件 ::= 文件头 RAWTENSOR* INCAST* OUTCAST* operation*
 
 文件头 ::= "Function" 函数名 "[" function_magic "]" hash 函数类型 图类型 "{"
 
-RAWTENSOR ::= "RAWTENSOR[" 索引 "] <" shape "> @" 编号 "\"" 名称 "\""
+RAWTENSOR ::= "RAWTENSOR[" 索引 "] <" shape "> @" 编号 '"' 名称 '"'
 
 INCAST ::= "INCAST[" 索引 "] <" shape "/" valid_shape "> %" logic_tensor "@" raw_tensor "#(" 子图ID ") fromSlot[" 槽位列表 "]"
 
