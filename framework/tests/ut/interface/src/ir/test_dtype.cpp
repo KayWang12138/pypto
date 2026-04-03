@@ -20,7 +20,8 @@
 namespace pypto {
 namespace ir {
 
-TEST(CoreDTypeTest, TestDataTypeConstants) {
+TEST(CoreDTypeTest, TestDataTypeConstants)
+{
     // Test that all data type constants are defined
     ASSERT_EQ(DataType::BOOL.Code(), DataType::kBoolCode);
     ASSERT_EQ(DataType::INT4.Code(), DataType::kInt4Code);
@@ -42,7 +43,8 @@ TEST(CoreDTypeTest, TestDataTypeConstants) {
     ASSERT_EQ(DataType::HF8.Code(), DataType::kHf8Code);
 }
 
-TEST(CoreDTypeTest, TestGetBit) {
+TEST(CoreDTypeTest, TestGetBit)
+{
     // Test GetBit() for all data types
     ASSERT_EQ(DataType::BOOL.GetBit(), 1);
     ASSERT_EQ(DataType::INT4.GetBit(), 4);
@@ -64,7 +66,8 @@ TEST(CoreDTypeTest, TestGetBit) {
     ASSERT_EQ(DataType::HF8.GetBit(), 8);
 }
 
-TEST(CoreDTypeTest, TestToString) {
+TEST(CoreDTypeTest, TestToString)
+{
     // Test ToString() for all data types
     ASSERT_EQ(DataType::BOOL.ToString(), "bool");
     ASSERT_EQ(DataType::INT4.ToString(), "int4");
@@ -86,7 +89,8 @@ TEST(CoreDTypeTest, TestToString) {
     ASSERT_EQ(DataType::HF8.ToString(), "hf8");
 }
 
-TEST(CoreDTypeTest, TestIsFloat) {
+TEST(CoreDTypeTest, TestIsFloat)
+{
     // Test IsFloat()
     ASSERT_TRUE(DataType::FP4.IsFloat());
     ASSERT_TRUE(DataType::FP8.IsFloat());
@@ -104,7 +108,8 @@ TEST(CoreDTypeTest, TestIsFloat) {
     ASSERT_FALSE(DataType::UINT32.IsFloat());
 }
 
-TEST(CoreDTypeTest, TestIsSignedInt) {
+TEST(CoreDTypeTest, TestIsSignedInt)
+{
     // Test IsSignedInt()
     ASSERT_TRUE(DataType::INT4.IsSignedInt());
     ASSERT_TRUE(DataType::INT8.IsSignedInt());
@@ -119,7 +124,8 @@ TEST(CoreDTypeTest, TestIsSignedInt) {
     ASSERT_FALSE(DataType::BOOL.IsSignedInt());
 }
 
-TEST(CoreDTypeTest, TestIsUnsignedInt) {
+TEST(CoreDTypeTest, TestIsUnsignedInt)
+{
     // Test IsUnsignedInt()
     ASSERT_TRUE(DataType::UINT4.IsUnsignedInt());
     ASSERT_TRUE(DataType::UINT8.IsUnsignedInt());
@@ -134,7 +140,8 @@ TEST(CoreDTypeTest, TestIsUnsignedInt) {
     ASSERT_FALSE(DataType::BOOL.IsUnsignedInt());
 }
 
-TEST(CoreDTypeTest, TestIsInt) {
+TEST(CoreDTypeTest, TestIsInt)
+{
     // Test IsInt() - both signed and unsigned
     ASSERT_TRUE(DataType::INT4.IsInt());
     ASSERT_TRUE(DataType::INT8.IsInt());
@@ -151,7 +158,8 @@ TEST(CoreDTypeTest, TestIsInt) {
     ASSERT_FALSE(DataType::BOOL.IsInt());
 }
 
-TEST(CoreDTypeTest, TestEquality) {
+TEST(CoreDTypeTest, TestEquality)
+{
     // Test equality operators
     ASSERT_EQ(DataType::INT32, DataType::INT32);
     ASSERT_EQ(DataType::FP32, DataType::FP32);
@@ -165,7 +173,8 @@ TEST(CoreDTypeTest, TestEquality) {
     ASSERT_EQ(dt1, DataType::INT32);
 }
 
-TEST(CoreDTypeTest, TestCodeMethod) {
+TEST(CoreDTypeTest, TestCodeMethod)
+{
     // Test Code() method
     ASSERT_EQ(DataType::INT32.Code(), DataType::kInt32Code);
     ASSERT_EQ(DataType::FP32.Code(), DataType::kFp32Code);
@@ -176,7 +185,8 @@ TEST(CoreDTypeTest, TestCodeMethod) {
     ASSERT_NE(DataType::INT32.Code(), DataType::FP32.Code());
 }
 
-TEST(CoreDTypeTest, TestDefaultConstructor) {
+TEST(CoreDTypeTest, TestDefaultConstructor)
+{
     // Default constructor should create BOOL type
     DataType dt;
     ASSERT_EQ(dt, DataType::BOOL);

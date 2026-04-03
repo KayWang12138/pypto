@@ -30,9 +30,10 @@ enum class RuntimeTensorMemProperty : uint8_t {
 };
 #undef X
 
-inline constexpr const char *GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty property) {
+inline constexpr const char* GetRuntimeTensorMemPropertyName(RuntimeTensorMemProperty property)
+{
 #define X(value) #value,
-    constexpr const char *NAMELIST[] = {
+    constexpr const char* NAMELIST[] = {
 #include "machine/utils/dynamic/runtime_tensor_mem_properties.in"
     };
 #undef X
@@ -47,9 +48,11 @@ struct RuntimeOutcastTensor {
     uint32_t refCnt;
 
     RuntimeOutcastTensor(uintdevptr_t taddr, RuntimeTensorMemProperty tproperty, uint32_t trefCnt)
-        : addr(taddr), property(tproperty), refCnt(trefCnt) {}
+        : addr(taddr), property(tproperty), refCnt(trefCnt)
+    {}
 
-    std::string Dump() const {
+    std::string Dump() const
+    {
         std::stringstream ss;
         ss << "&0x" << std::hex << addr << ", " << GetRuntimeTensorMemPropertyName(property);
         return std::move(ss).str();

@@ -26,7 +26,8 @@ namespace npu::tile_fwk {
 
 class BacktraceImpl : public LazyValue<std::string> {
 public:
-    __always_inline BacktraceImpl(size_t skipFrames, size_t maxFrames) : callStack_(maxFrames, 0) {
+    __always_inline BacktraceImpl(size_t skipFrames, size_t maxFrames) : callStack_(maxFrames, 0)
+    {
         skipFrames += 1;
         auto nrFrames = static_cast<size_t>(::backtrace(callStack_.data(), static_cast<int>(callStack_.size())));
         skipFrames = std::min(skipFrames, nrFrames);
@@ -34,12 +35,13 @@ public:
         callStack_.resize(nrFrames - skipFrames);
     }
 
-    void ParseFrame(std::stringstream &ss, char *line, bool &isPyptoFrame) const {
+    void ParseFrame(std::stringstream& ss, char* line, bool& isPyptoFrame) const
+    {
         auto funcName = strchr(line, '(');
         auto funcOffset = strchr(line, '+');
         auto libname = strrchr(line, '/');
         if (funcName == nullptr || funcOffset == nullptr) {
-            ss << line <<'\n';
+            ss << line << '\n';
             return;
         }
 
@@ -54,7 +56,7 @@ public:
         }
 
         int status = 0;
-        std::unique_ptr<char, std::function<void(char *)>> demangled(
+        std::unique_ptr<char, std::function<void(char*)>> demangled(
             abi::__cxa_demangle(funcName, nullptr, nullptr, &status),
             /* deleter */ free);
         if (status == 0)
@@ -62,7 +64,8 @@ public:
         ss << libname << '(' << funcName << '+' << funcOffset << '\n';
     }
 
-    const std::string &Get() const {
+    const std::string& Get() const
+    {
         return symbols_.Ensure([this]() -> std::string {
             auto strings = backtrace_symbols(callStack_.data(), callStack_.size());
             if (strings == nullptr) {
@@ -80,14 +83,16 @@ public:
 
 private:
     mutable LazyShared<std::string> symbols_;
-    std::vector<void *> callStack_;
+    std::vector<void*> callStack_;
 };
 
-Backtrace GetBacktrace(size_t skipFrames, size_t maxFrames) {
+Backtrace GetBacktrace(size_t skipFrames, size_t maxFrames)
+{
     return std::make_shared<BacktraceImpl>(BacktraceImpl{skipFrames, maxFrames});
 }
 
-const char *Error::what() const noexcept {
+const char* Error::what() const noexcept
+{
     return what_
         .Ensure([this]() -> std::string {
             std::stringstream ss;

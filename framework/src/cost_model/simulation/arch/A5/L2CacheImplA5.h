@@ -18,11 +18,9 @@
 #include "cost_model/simulation/arch/CacheMachineImpl.h"
 #include "cost_model/simulation/common/Packet.h"
 
-namespace CostModel
-{
-    class L2CacheImplA5 : public CacheMachineImpl
-    {
-    public:
-        uint64_t Simulate(const CachePacket& packet) override;
-    };
+namespace CostModel {
+class L2CacheImplA5 : public CacheMachineImpl {
+public:
+    uint64_t Simulate(const CachePacket& packet) override;
+};
 } // namespace CostModel

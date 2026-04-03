@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
@@ -47,7 +48,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynPairProd, PairProdLayout) {
+TEST_F(TestCodegenDynPairProd, PairProdLayout)
+{
     int shape0 = 32;
     int shape1 = 32;
     std::vector<int64_t> shape = {shape0, shape1};
@@ -59,13 +61,16 @@ TEST_F(TestCodegenDynPairProd, PairProdLayout) {
     Tensor output(DT_FP32, shape, "B");
 
     std::string funcName = "PairProd";
-    FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Prod(input_a, -1, true);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

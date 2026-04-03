@@ -19,7 +19,8 @@
 
 constexpr unsigned SCATTER_MODE_MAX = 3;
 template <int axis, int scatterMode, typename T0, typename T1, typename Scalar>
-TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2) {
+TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2)
+{
     static_assert(scatterMode < SCATTER_MODE_MAX, "Unsupport scatterMode");
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     const auto dstLayout = dst.GetLayout();
@@ -65,11 +66,11 @@ TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2) {
                         if constexpr (scatterMode == 0) {
                             dstAddr[dstOffset] = src2;
                         } else if constexpr (scatterMode == 1) {
-                            dstAddr[dstOffset] = static_cast<typename T0::Type>(static_cast<float>(src2) +
-                                static_cast<float>(dstAddr[dstOffset]));
+                            dstAddr[dstOffset] = static_cast<typename T0::Type>(
+                                static_cast<float>(src2) + static_cast<float>(dstAddr[dstOffset]));
                         } else {
-                            dstAddr[dstOffset] = static_cast<typename T0::Type>(static_cast<float>(src2) *
-                                static_cast<float>(dstAddr[dstOffset]));
+                            dstAddr[dstOffset] = static_cast<typename T0::Type>(
+                                static_cast<float>(src2) * static_cast<float>(dstAddr[dstOffset]));
                         }
                     }
                 }

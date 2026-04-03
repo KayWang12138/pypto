@@ -35,13 +35,9 @@ struct integral_constant {
     using value_type = Tp;
     using type = integral_constant;
 
-    [host, aicore] inline constexpr operator value_type() const noexcept {
-        return value;
-    }
+    [ host, aicore ] inline constexpr operator value_type() const noexcept { return value; }
 
-    [host, aicore] inline constexpr value_type operator()() const noexcept {
-        return value;
-    }
+    [ host, aicore ] inline constexpr value_type operator()() const noexcept { return value; }
 };
 
 template <typename Tp, Tp v>
@@ -255,7 +251,8 @@ struct IsReferenceableImpl {
 };
 
 template <typename Tp>
-struct is_referenceable : integral_constant<bool, IsNotSame<decltype(IsReferenceableImpl::Test<Tp>(0)), false_type>::value> {};
+struct is_referenceable
+    : integral_constant<bool, IsNotSame<decltype(IsReferenceableImpl::Test<Tp>(0)), false_type>::value> {};
 
 template <typename Tp>
 struct is_void : public is_same<remove_cv_t<Tp>, void> {};
@@ -290,16 +287,18 @@ struct DecayImpl {
 
 template <typename Up>
 struct DecayImpl<Up, true> {
- public:
-    using type = conditional_t<is_array<Up>::value, remove_extent_t<Up>*, conditional_t<is_function<Up>::value, add_pointer_t<Up>, remove_cv_t<Up>>>;
+public:
+    using type = conditional_t<
+        is_array<Up>::value, remove_extent_t<Up>*,
+        conditional_t<is_function<Up>::value, add_pointer_t<Up>, remove_cv_t<Up>>>;
 };
 
 template <typename Tp>
 struct decay {
- private:
+private:
     using Up = remove_reference_t<Tp>;
 
- public:
+public:
     using type = typename DecayImpl<Up, is_referenceable<Up>::value>::type;
 };
 

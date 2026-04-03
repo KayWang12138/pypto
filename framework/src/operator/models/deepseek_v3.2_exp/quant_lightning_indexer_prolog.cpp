@@ -19,7 +19,8 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-std::tuple<Tensor, Tensor> PrologQuant(const Tensor &input) {
+std::tuple<Tensor, Tensor> PrologQuant(const Tensor& input)
+{
     config::SetSemanticLabel("Prolog-Quant");
     constexpr const float s8_max_value = 127.0f;
     constexpr const float s8_one_value = 1.0f;
@@ -39,7 +40,8 @@ std::tuple<Tensor, Tensor> PrologQuant(const Tensor &input) {
     return std::tie(outInt8, scaleDeQuant);
 } // namespace npu::tile_fwk
 
-Tensor QuantLayerNorm(const Tensor &x, const Tensor &gamma, const Tensor &beta, const int dim, float epsilon) {
+Tensor QuantLayerNorm(const Tensor& x, const Tensor& gamma, const Tensor& beta, const int dim, float epsilon)
+{
     config::SetSemanticLabel("Key-LayerNorm");
     ASSERT(dim == static_cast<int64_t>(x.GetShape().size()) - 1 || dim == -1)
         << "Only support Last axis QuantLayerNorm";
@@ -66,7 +68,8 @@ Tensor QuantLayerNorm(const Tensor &x, const Tensor &gamma, const Tensor &beta, 
     return Cast(Add(Mul(res32, gamma32), beta32), xDtype);
 }
 
-Tensor LIPrologRotateHalf(const Tensor &input) {
+Tensor LIPrologRotateHalf(const Tensor& input)
+{
     constexpr size_t chunk_size = 2;
     auto shape = input.GetShape();
     auto shapeSize = shape.size();
@@ -84,12 +87,14 @@ Tensor LIPrologRotateHalf(const Tensor &input) {
     return Cat({Mul(x2, Element(x2.GetDataType(), -1.0)), Add(x1, Element(x1.GetDataType(), 0.0))}, -1);
 }
 
-Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const QuantIndexerConfigs &configs) {
+Tensor QuantRope3D(const Tensor& x, const Tensor& cos, const Tensor& sin, const QuantIndexerConfigs& configs)
+{
     constexpr size_t query_rope_dim = 3;
     constexpr size_t head_num_axis = 1;
     constexpr size_t head_dim_axis = 2;
-    ASSERT(x.GetShape().size() == query_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
-           sin.GetShape().size() == COS_SIN_DIM);
+    ASSERT(
+        x.GetShape().size() == query_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
+        sin.GetShape().size() == COS_SIN_DIM);
 
     auto xDtype = x.GetDataType();
     int tTile = x.GetShape()[0];
@@ -110,14 +115,16 @@ Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const 
     return res;
 }
 
-Tensor QuantRope2D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
+Tensor QuantRope2D(const Tensor& x, const Tensor& cos, const Tensor& sin)
+{
     config::SetSemanticLabel("Key-Rope2D");
     constexpr size_t key_rope_dim = 2;
     auto xDtype = x.GetDataType();
     int tTile = x.GetShape()[0];
     int ropeDim = x.GetShape()[1];
-    ASSERT(x.GetShape().size() == key_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
-           sin.GetShape().size() == COS_SIN_DIM);
+    ASSERT(
+        x.GetShape().size() == key_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
+        sin.GetShape().size() == COS_SIN_DIM);
 
     TileShape::Current().SetVecTile(tTile, ropeDim);
     auto castCos = Cast(cos, DT_FP32);
@@ -130,16 +137,19 @@ Tensor QuantRope2D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
     return res;
 }
 
-void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, QuantIndexerPrologOutput &outputs,
-    QuantIndexerPrologAttr &attrs, const QuantIndexerConfigs &configs) {
+void QuantLightningIndexerPrologCompute(
+    const QuantIndexerPrologInput& inputs, QuantIndexerPrologOutput& outputs, QuantIndexerPrologAttr& attrs,
+    const QuantIndexerConfigs& configs)
+{
     config::SetPassOption("vec_nbuffer_setting", std::map<int64_t, int64_t>{{-1, 1}});
     config::SetPassOption("cube_l1_reuse_setting", configs.l1ReuseParam);
     config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);
     config::SetPassOption("pg_upper_bound", configs.pgUpperBound);
 
-    ASSERT(inputs.x.GetShape().size() == Q_PARAM_DIM && inputs.qNorm.GetShape().size() == Q_PARAM_DIM &&
-           inputs.wk.GetShape().size() == NZ_DIM && inputs.wProj.GetShape().size() == NZ_DIM &&
-           inputs.cosIdxRope.GetShape().size() == Q_PARAM_DIM);
+    ASSERT(
+        inputs.x.GetShape().size() == Q_PARAM_DIM && inputs.qNorm.GetShape().size() == Q_PARAM_DIM &&
+        inputs.wk.GetShape().size() == NZ_DIM && inputs.wProj.GetShape().size() == NZ_DIM &&
+        inputs.cosIdxRope.GetShape().size() == Q_PARAM_DIM);
     DataType xDtype = inputs.x.GetDataType();
 
     // 动态轴需通过GetInputShape函数获取
@@ -158,7 +168,8 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
     Tensor wQbScale(inputs.wQbScale.GetDataType(), {1, headNum * headDim}, "wQbScale");
     Tensor wk(inputs.wk.GetDataType(), {h, headDim}, "wk", TileOpFormat::TILEOP_NZ);
     Tensor wProj(inputs.wProj.GetDataType(), {h, headNum}, "wProj", TileOpFormat::TILEOP_NZ);
-    LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(1)) {
+    LOOP("LOOP_RESHAPE", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(1))
+    {
         (void)tIdx;
         kCacheIndex = Reshape(inputs.kCacheIndex, {t, 1}, true);
         wQbScale = Reshape(inputs.wQbScale, {1, headNum * headDim}, true);
@@ -171,9 +182,11 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
     }
 
     auto unrollList = configs.unrollList;
-    LOOP("QuantIndexerPrologLoop", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(t), unrollList) {
+    LOOP("QuantIndexerPrologLoop", FunctionType::DYNAMIC_LOOP, tIdx, LoopRange(t), unrollList)
+    {
         for (int unrollLength : unrollList) {
-            UNROLL(unrollLength) {
+            UNROLL(unrollLength)
+            {
                 int tTile = unrollLength;
                 // 获取query计算的各阶段Tile参数
                 auto qLinear = configs.qLinear;
@@ -182,22 +195,25 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 auto qNorm = View(inputs.qNorm, {tTile, qLoraRank}, {tTile, qLoraRank}, {tIdx, 0});
                 auto qNormScale = View(inputs.qNormScale, {tTile, 1}, {tTile, 1}, {tIdx, 0});
                 config::SetSemanticLabel("Query-Linear");
-                TileShape::Current().SetCubeTile({qLinear[L0M_INDEX], qLinear[L1M_INDEX]},
-                    {qLinear[L0K_INDEX], qLinear[L1K_INDEX]}, {qLinear[L0N_INDEX], qLinear[L1N_INDEX]});
+                TileShape::Current().SetCubeTile(
+                    {qLinear[L0M_INDEX], qLinear[L1M_INDEX]}, {qLinear[L0K_INDEX], qLinear[L1K_INDEX]},
+                    {qLinear[L0N_INDEX], qLinear[L1N_INDEX]});
                 auto qS32 = Matrix::Matmul(DT_INT32, qNorm, wQb, false, false); // (tTile, headNum * headDim)
 
                 config::SetSemanticLabel("Query-Dequant");
-                TileShape::Current().SetVecTile(configs.tSubTile, headNum * headDim / configs.chunkSize);  // (tTile, headNum * headDim), fp32
+                TileShape::Current().SetVecTile(
+                    configs.tSubTile, headNum * headDim / configs.chunkSize); // (tTile, headNum * headDim), fp32
                 auto qF32 = Cast(qS32, DT_FP32);
-                qF32 = Mul(qF32, qNormScale); // (tTile, headNum * headDim), fp32
-                qF32 = Mul(qF32, wQbScale);   // (tTile, headNum * headDim), fp32
+                qF32 = Mul(qF32, qNormScale);                                 // (tTile, headNum * headDim), fp32
+                qF32 = Mul(qF32, wQbScale);                                   // (tTile, headNum * headDim), fp32
                 auto qCast = Cast(qF32, xDtype);
 
                 auto qBF16 = Reshape(qCast, {tTile, headNum, headDim}, {tTile, headNum, headDim});
                 // UB View
                 auto qRope = View(qBF16, {tTile, headNum, ropeHeadDim}, {tTile, headNum, ropeHeadDim}, {0, 0, 0});
-                auto qNope = View(qBF16, {tTile, headNum, headDim - ropeHeadDim},
-                    {tTile, headNum, headDim - ropeHeadDim}, {0, 0, ropeHeadDim});
+                auto qNope = View(
+                    qBF16, {tTile, headNum, headDim - ropeHeadDim}, {tTile, headNum, headDim - ropeHeadDim},
+                    {0, 0, ropeHeadDim});
                 auto ropeCos = View(inputs.cosIdxRope, {tTile, ropeHeadDim}, {tTile, ropeHeadDim}, {tIdx, 0});
                 auto ropeSin = View(inputs.sinIdxRope, {tTile, ropeHeadDim}, {tTile, ropeHeadDim}, {tIdx, 0});
 
@@ -210,8 +226,8 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 config::SetSemanticLabel("Query-Hadamard");
                 const int64_t cur_max_unroll = 32;
                 int64_t qHdMTile = tTile < cur_max_unroll ? cur_max_unroll : qHd[L0M_INDEX];
-                TileShape::Current().SetCubeTile({qHdMTile, qHdMTile}, {qHd[L0K_INDEX], qHd[L1K_INDEX]},
-                    {qHd[L0N_INDEX], qHd[L1N_INDEX]});
+                TileShape::Current().SetCubeTile(
+                    {qHdMTile, qHdMTile}, {qHd[L0K_INDEX], qHd[L1K_INDEX]}, {qHd[L0N_INDEX], qHd[L1N_INDEX]});
                 auto qHadamard =
                     Matrix::BatchMatmul(xDtype, qCat, hadamardQ, false, false, false); // (tTile, headNum, headDim)
 
@@ -226,14 +242,15 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 // 获取key计算的各阶段Tile参数
                 auto kLinear = configs.kLinear;
                 config::SetSemanticLabel("Key-Linear");
-                TileShape::Current().SetCubeTile({kLinear[L0M_INDEX], kLinear[L1M_INDEX]},
-                    {kLinear[L0K_INDEX], kLinear[L1K_INDEX]}, {kLinear[L0N_INDEX], kLinear[L1N_INDEX]});
+                TileShape::Current().SetCubeTile(
+                    {kLinear[L0M_INDEX], kLinear[L1M_INDEX]}, {kLinear[L0K_INDEX], kLinear[L1K_INDEX]},
+                    {kLinear[L0N_INDEX], kLinear[L1N_INDEX]});
                 auto x = View(inputs.x, {tTile, h}, {tTile, h}, {tIdx, 0}); // 这里将tTile分档，offset不需要乘tTile
                 auto k = Matrix::Matmul(DT_FP32, x, wk, false, false);      // (tTile, headDim)
 
                 if (tTile <= VEC_TILE_32) {
                     TileShape::Current().SetVecTile(std::min(tTile, VEC_TILE_4), headDim);
-                }else {
+                } else {
                     TileShape::Current().SetVecTile(std::min(tTile, VEC_TILE_32), headDim);
                 }
                 auto kBf16 = Cast(QuantLayerNorm(k, gamma2D, beta2D, -1, attrs.eps), xDtype);
@@ -247,8 +264,7 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
                 auto kCat = Cat({kRoped, kNope}, -1);
 
                 config::SetSemanticLabel("Key-Hadamard");
-                auto hadamardK =
-                    Matrix::Matmul(xDtype, kCat, inputs.hadamardK, false, false); // (tTile, headDim), bf16
+                auto hadamardK = Matrix::Matmul(xDtype, kCat, inputs.hadamardK, false, false); // (tTile, headDim), bf16
                 config::SetSemanticLabel("Key-Quant");
                 std::tuple<Tensor, Tensor> kRes = PrologQuant(hadamardK);
                 auto kCache4D = Reshape(std::get<0>(kRes), {tTile, 1, 1, headDim}, {tTile, 1, 1, headDim});
@@ -263,8 +279,9 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
 
                 config::SetSemanticLabel("Weight-Linear");
                 auto wLinear = configs.wLinear;
-                TileShape::Current().SetCubeTile({wLinear[L0M_INDEX], wLinear[L1M_INDEX]},
-                    {wLinear[L0K_INDEX], wLinear[L1K_INDEX]}, {wLinear[L0N_INDEX], wLinear[L1N_INDEX]});
+                TileShape::Current().SetCubeTile(
+                    {wLinear[L0M_INDEX], wLinear[L1M_INDEX]}, {wLinear[L0K_INDEX], wLinear[L1K_INDEX]},
+                    {wLinear[L0N_INDEX], wLinear[L1N_INDEX]});
                 TileShape::Current().SetVecTile(tTile, headNum);
                 auto weights = Cast(Matrix::Matmul(xDtype, x, wProj, false, false), DT_FP32);
                 weights = Mul(weights, Element(DataType::DT_FP32, 1.0f / (std::sqrt(headNum) * std::sqrt(headDim))));
@@ -275,19 +292,21 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
     }
 }
 
-void QuantLightningIndexerProlog(const QuantIndexerPrologInput &inputs, QuantIndexerPrologOutput &outputs,
-    QuantIndexerPrologAttr &attrs, const QuantIndexerConfigs &configs) {
+void QuantLightningIndexerProlog(
+    const QuantIndexerPrologInput& inputs, QuantIndexerPrologOutput& outputs, QuantIndexerPrologAttr& attrs,
+    const QuantIndexerConfigs& configs)
+{
     // Machine Global Config
     config::SetRuntimeOption("device_sched_mode", static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
-    FUNCTION("QuantLightningIndexerProlog",
-        {
-            inputs.x, inputs.qNorm, inputs.qNormScale, inputs.wQb, inputs.wQbScale, inputs.wk, inputs.wProj,
-            inputs.lnGammaK, inputs.lnBetaK, inputs.cosIdxRope, inputs.sinIdxRope, inputs.hadamardQ, inputs.hadamardK,
-            inputs.kCache, inputs.kCacheScale, inputs.kCacheIndex
-    },
+    FUNCTION(
+        "QuantLightningIndexerProlog",
+        {inputs.x, inputs.qNorm, inputs.qNormScale, inputs.wQb, inputs.wQbScale, inputs.wk, inputs.wProj,
+         inputs.lnGammaK, inputs.lnBetaK, inputs.cosIdxRope, inputs.sinIdxRope, inputs.hadamardQ, inputs.hadamardK,
+         inputs.kCache, inputs.kCacheScale, inputs.kCacheIndex},
         {outputs.qInt8, outputs.qScale, outputs.weights},
-        {{outputs.kInt8, inputs.kCache}, {outputs.kScale, inputs.kCacheScale}}) {
+        {{outputs.kInt8, inputs.kCache}, {outputs.kScale, inputs.kCacheScale}})
+    {
         QuantLightningIndexerPrologCompute(inputs, outputs, attrs, configs);
     }
 }

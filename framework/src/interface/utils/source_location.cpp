@@ -28,7 +28,8 @@
 
 namespace npu::tile_fwk {
 
-void SourceLocation::Init() const {
+void SourceLocation::Init() const
+{
     std::lock_guard<std::mutex> lock(mutex);
     if (pcSet.empty()) {
         return;
@@ -37,15 +38,15 @@ void SourceLocation::Init() const {
     Dl_info dlinfo;
     std::map<std::pair<std::string, uint64_t>, std::vector<uint64_t>> dlMap;
     for (auto pc : pcSet) {
-        if (dladdr((void *)pc, &dlinfo) != 0) {
+        if (dladdr((void*)pc, &dlinfo) != 0) {
             dlMap[{dlinfo.dli_fname, (uint64_t)dlinfo.dli_fbase}].push_back(pc);
         }
     }
     pcSet.clear();
 
     size_t n = 0;
-    char *line = nullptr;
-    for (auto &[info, pcs] : dlMap) {
+    char* line = nullptr;
+    for (auto& [info, pcs] : dlMap) {
         std::stringstream ss;
         ss << "addr2line -i -p -e " << info.first << " " << std::hex;
         for (auto pc : pcs)
@@ -57,8 +58,8 @@ void SourceLocation::Init() const {
                 rc = getline(&line, &n, fp);
             }
             if (rc >= 0) {
-                char *p = line;
-                char *name = strsep(&p, ":");
+                char* p = line;
+                char* name = strsep(&p, ":");
                 locMap[pc]->fname_ = name;
                 locMap[pc]->lineno_ = atoi(p);
             } else {
@@ -74,19 +75,19 @@ void SourceLocation::Init() const {
     free(line);
 }
 
-int SourceLocation::GetLineno() const {
+int SourceLocation::GetLineno() const
+{
     Init();
     return lineno_;
 }
 
-const std::string& SourceLocation::GetFileName() const {
+const std::string& SourceLocation::GetFileName() const
+{
     Init();
     return fname_;
 }
 
-const std::string& SourceLocation::GetBacktrace() const {
-    return backtrace_;
-}
+const std::string& SourceLocation::GetBacktrace() const { return backtrace_; }
 
 bool SourceLocation::isCppMode_ = false;
 std::mutex SourceLocation::mutex;

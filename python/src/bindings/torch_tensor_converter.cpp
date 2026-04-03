@@ -21,7 +21,8 @@
 
 using namespace npu::tile_fwk;
 namespace {
-py::object GetTorchToDlpack() {
+py::object GetTorchToDlpack()
+{
     try {
         return py::module::import("torch").attr("_C").attr("_to_dlpack");
     } catch (...) {
@@ -29,8 +30,10 @@ py::object GetTorchToDlpack() {
     }
 }
 
-void ParseTensorData(py::object &torchTensor, py::object &tensorDef, py::object &toDlpack,
-                     uintptr_t &dataPtr, std::vector<int64_t> &shape, DataType &dtype) {
+void ParseTensorData(
+    py::object& torchTensor, py::object& tensorDef, py::object& toDlpack, uintptr_t& dataPtr,
+    std::vector<int64_t>& shape, DataType& dtype)
+{
     if (!pypto::TryParseDlpack(torchTensor, dataPtr, shape, dtype, toDlpack)) {
         try {
             dataPtr = static_cast<uintptr_t>(py::cast<int64_t>(torchTensor.attr("data_ptr")()));
@@ -45,28 +48,34 @@ void ParseTensorData(py::object &torchTensor, py::object &tensorDef, py::object 
     if (dtype == DataType::DT_BOTTOM) {
         auto base = py::getattr(tensorDef, "_base", py::none());
         if (!base.is_none() && py::isinstance<Tensor>(base)) {
-            dtype = base.cast<Tensor &>().GetDataType();
+            dtype = base.cast<Tensor&>().GetDataType();
         } else {
             dtype = tensorDef.attr("dtype").cast<DataType>();
         }
     }
+    //  Use dtype from type annotation when provided; otherwise fallback to torch tensor dtype.
+    if (!tensorDef.is_none() && !tensorDef.attr("status_dtype").is_none()) {
+        dtype = tensorDef.attr("_base").cast<Tensor&>().GetDataType();
+    }
 }
 
-}  // namespace
+} // namespace
 
 namespace pypto {
-bool ParseDlpackCapsule(py::object &cap, uintptr_t &dataPtr, std::vector<int64_t> &shape,
-                        npu::tile_fwk::DataType &dtypeOut) {
-    if (cap.is_none()) return false;
-    void *ptr = PyCapsule_GetPointer(cap.ptr(), "dltensor");
+bool ParseDlpackCapsule(
+    py::object& cap, uintptr_t& dataPtr, std::vector<int64_t>& shape, npu::tile_fwk::DataType& dtypeOut)
+{
+    if (cap.is_none())
+        return false;
+    void* ptr = PyCapsule_GetPointer(cap.ptr(), "dltensor");
     if (!ptr) {
         PyErr_Clear();
         return false;
     }
-    DLManagedTensor *tensor = static_cast<DLManagedTensor *>(ptr);
-    DLManagedTensor::DLTensor &t = tensor->dl_tensor;
+    DLManagedTensor* tensor = static_cast<DLManagedTensor*>(ptr);
+    DLManagedTensor::DLTensor& t = tensor->dl_tensor;
 
-    dataPtr = reinterpret_cast<uintptr_t>(static_cast<char *>(t.data) + t.byte_offset);
+    dataPtr = reinterpret_cast<uintptr_t>(static_cast<char*>(t.data) + t.byte_offset);
 
     int32_t ndim = t.ndim;
     shape.clear();
@@ -79,10 +88,14 @@ bool ParseDlpackCapsule(py::object &cap, uintptr_t &dataPtr, std::vector<int64_t
     return true;
 }
 
-bool TryParseDlpack(py::object &torchTensor, uintptr_t &dataPtr, std::vector<int64_t> &shape,
-                    npu::tile_fwk::DataType &dtypeOut, py::object toDlpack) {
-    if (toDlpack.is_none()) toDlpack = GetTorchToDlpack();
-    if (toDlpack.is_none()) return false;
+bool TryParseDlpack(
+    py::object& torchTensor, uintptr_t& dataPtr, std::vector<int64_t>& shape, npu::tile_fwk::DataType& dtypeOut,
+    py::object toDlpack)
+{
+    if (toDlpack.is_none())
+        toDlpack = GetTorchToDlpack();
+    if (toDlpack.is_none())
+        return false;
     py::object cap;
     try {
         cap = toDlpack(torchTensor);
@@ -93,14 +106,16 @@ bool TryParseDlpack(py::object &torchTensor, uintptr_t &dataPtr, std::vector<int
     return ParseDlpackCapsule(cap, dataPtr, shape, dtypeOut);
 }
 
-int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_defs,
-    std::vector<npu::tile_fwk::dynamic::DeviceTensorData> &tensors_data) {
+int TorchTensorConverter::Convert(
+    py::sequence& tensors, py::sequence& tensor_defs,
+    std::vector<npu::tile_fwk::dynamic::DeviceTensorData>& tensors_data)
+{
     const size_t n = static_cast<size_t>(py::len(tensors));
     tensors_data.reserve(n);
 
     py::object toDlpack = GetTorchToDlpack();
     py::object device = py::none();
-    
+
     py::module torch_npu;
     for (size_t i = 0; i < n; i++) {
         py::object torchTensor = tensors[py::int_(i)];
@@ -114,8 +129,12 @@ int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_de
         TileOpFormat format = TileOpFormat::TILEOP_ND;
         py::object tensorDevice = torchTensor.attr("device");
 
-        if (tensorDef.attr("explict_format").cast<bool>()) {
-            format = tensorDef.attr("format").cast<TileOpFormat>();
+        auto base = py::getattr(tensorDef, "_base", py::none());
+        ASSERT(py::isinstance<Tensor>(base)) << "the '_base' attribute must be a Tensor type";
+        auto& t = base.cast<Tensor&>();
+
+        if (tensorDef.attr("explicit_format").cast<bool>()) {
+            format = t.Format();
         } else {
             std::string device_type = py::cast<std::string>(tensorDevice.attr("type"));
             if (device_type == "npu") {
@@ -128,7 +147,11 @@ int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_de
                 }
             }
         }
-        
+        // Use dtype from type annotation when provided; otherwise fallback to torch tensor dtype.
+        if (!tensorDef.attr("status_dtype").is_none()) {
+            dtype = t.GetDataType();
+        }
+
         tensors_data.emplace_back(dtype, dataPtr, shape, format);
 
         if (device.is_none()) {
@@ -143,7 +166,8 @@ int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_de
     return py::getattr(device, "index").cast<int>();
 }
 
-size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs) {
+size_t ValidateInputs(py::sequence& tensors, py::sequence& tensorDefs)
+{
     size_t n = static_cast<size_t>(py::len(tensors));
     CHECK(n == static_cast<size_t>(py::len(tensorDefs)))
         << "Input length mismatch: tensors(" << n << ") vs tensor_defs(" << py::len(tensorDefs) << ")";
@@ -151,4 +175,4 @@ size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs) {
     return n;
 }
 
-}  // namespace pypto
+} // namespace pypto

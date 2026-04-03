@@ -38,7 +38,7 @@
 
     右键单击json文件，在弹出的菜单中选择“使用PyPTO Toolkit打开”，如下图所示。
 
-    **图 1**  查看泳道图  
+    **图 1**  查看泳道图
     ![](../figures/view_swimlane_graph.png "查看泳道图")
 
     图中展示了任务的执行顺序和耗时信息，帮助开发者分析性能瓶颈。
@@ -190,7 +190,7 @@ pypto.set_vec_tile_shapes(64, 512)
 
 [Stitch](../appendix/glossary.md)配置决定了多少个root function被同时下发调度，即该参数控制一次stitch能处理的最大loop数量，会同时影响调度开销、控制流生成耗时以及 workspace 内存占用。因此Stitch设置较大后任务可以充分并行，通常性能更优。当泳道图中出现大量空隙时，可能是Stitch配置的值太小导致的。
 
-当前Stitch配置主要由[stitch_function_max_num](../../api/config/pypto-set_pass_options.md)参数决定，在jit装饰器中完成配置，可参考如下配置：
+当前Stitch配置主要由[stitch_function_max_num](../../api/pypto-frontend-jit.md#runtime_options_detail)参数决定，在jit装饰器中完成配置，可参考如下配置：
 
 ```python
     @pypto.frontend.jit(
@@ -231,12 +231,10 @@ pypto.set_vec_tile_shapes(64, 512)
 
 进一步调优Matmul的TileShape，需要充分考虑对算数强度和带宽的影响，具体介绍见[Matmul高性能编程](./matmul_performance_guide.md)章节。
 
-当前环节主要关注**减少重复载入**和**K轴分核**两个调优手段，分别对应`set_cube_tile_shapes`接口的`enable_multi_data_load`与`enable_split_k`配置参数。用户可以结合上述原理介绍，推导并选择合适的开关配置策略，也可以直接结合泳道图数据进行测试验证，择优配置。两个参数是相互解耦的，具体写法可参考如下配置：
+当前环节主要关注**减少重复载入**和**K轴分核**两个调优手段，可对应`set_cube_tile_shapes`接口的`enable_split_k`配置参数。用户可以结合上述原理介绍，推导并选择合适的开关配置策略，也可以直接结合泳道图数据进行测试验证，择优配置。两个参数是相互解耦的，具体写法可参考如下配置：
 
 ```python
-pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256],
-    enable_multi_data_load=True,
-    enable_split_k=True)
+pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256], enable_split_k=True)
 ```
 
 #### Vector TileShape 调优
@@ -316,7 +314,7 @@ Vector运算场景下通过[set_pass_options](../../api/config/pypto-set_pass_op
 PyPTO算子的核间的流水由AICPU对子图的调度确定，它基于子图间的依赖关系和核间任务的调度策略。可以尝试更改该调度策略以达到更优的算子性能。当上下游子图之间依赖较为简单，或下游子图输入Tensor的L2命中率较为重要时，推荐使用L2亲和调度，配置方式如下：
 
 ```python
-@pypto.jit(runtime_options={"device_sched_mode": 1})
+@pypto.frontend.jit(runtime_options={"device_sched_mode": 1})
 ```
 
 具体配置时应综合考虑L2复用与负载均衡的影响，不同场景的最佳配置策略不同，应结合泳道图具体分析。

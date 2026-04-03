@@ -26,4 +26,4 @@ struct TraceConfig : public Config {
     uint64_t countEventPrintInterval = 100;
     uint64_t sysClockTicks = 1800000;
 };
-}
+} // namespace CostModel

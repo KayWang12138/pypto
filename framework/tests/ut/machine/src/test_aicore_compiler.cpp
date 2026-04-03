@@ -27,9 +27,9 @@
 
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
-std::string GenSubFuncCall(std::map<uint64_t, Function *> &leafDict, CoreType coreType,
-    dynamic::EncodeDevAscendFunctionParam &param, const std::string &ccePath, uint64_t tilingKey,
-    std::stringstream &src_obj);
+std::string GenSubFuncCall(
+    std::map<uint64_t, Function*>& leafDict, CoreType coreType, dynamic::EncodeDevAscendFunctionParam& param,
+    const std::string& ccePath, uint64_t tilingKey, std::stringstream& src_obj);
 }
 
 namespace {
@@ -39,19 +39,19 @@ const std::string TEST_TMP_DIR = "/tmp/test_aicore_compiler";
 class TestAicoreCompiler : public testing::Test {
 public:
     void SetUp() override {}
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(TEST_TMP_DIR); }
 
     void TearDown() override {}
-    static void TearDownTestCase() {
+    static void TearDownTestCase()
+    {
         std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
+        [[maybe_unused]] int ret = system(cmd.c_str());
     }
 };
 
-TEST_F(TestAicoreCompiler, CompileAICoreKernel_EmptyCcePath) {
-    std::map<uint64_t, Function *> leafDict;
+TEST_F(TestAicoreCompiler, CompileAICoreKernel_EmptyCcePath)
+{
+    std::map<uint64_t, Function*> leafDict;
     dynamic::EncodeDevAscendFunctionParam param = {};
     std::string kernelPath;
 
@@ -59,16 +59,18 @@ TEST_F(TestAicoreCompiler, CompileAICoreKernel_EmptyCcePath) {
     EXPECT_EQ(ret, -1);
 }
 
-TEST_F(TestAicoreCompiler, CompileAICoreKernel_GenSrcFileFails) {
-    std::map<uint64_t, Function *> leafDict;
+TEST_F(TestAicoreCompiler, CompileAICoreKernel_GenSrcFileFails)
+{
+    std::map<uint64_t, Function*> leafDict;
     dynamic::EncodeDevAscendFunctionParam param = {};
     std::string kernelPath;
     int ret = CompileAICoreKernel(leafDict, param, "/nonexistent_dir/cce_path/", "test_hash", kernelPath);
     EXPECT_EQ(ret, -1);
 }
 
-TEST_F(TestAicoreCompiler, GenSubFuncCall_EmptyLeafDict) {
-    std::map<uint64_t, Function *> leafDict;
+TEST_F(TestAicoreCompiler, GenSubFuncCall_EmptyLeafDict)
+{
+    std::map<uint64_t, Function*> leafDict;
     dynamic::EncodeDevAscendFunctionParam param = {};
     std::stringstream src_obj;
 

@@ -81,7 +81,7 @@ def elementwise_kernel(
     pypto.set_vec_tile_shapes(8, 8)
     # 算子组合
     out[:] = pypto.mul(pypto.add(a, b), 2.0)
-    
+
 ```
 
 ### 2. 执行JIT函数

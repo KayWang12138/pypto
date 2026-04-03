@@ -24,9 +24,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
@@ -38,7 +36,8 @@ struct SortParams {
 };
 
 template <typename T = float, typename idxT = int>
-void SortTest(const SortParams &params){
+void SortTest(const SortParams& params)
+{
     int length = params.length;
     int tileSize = params.tileSize;
     int descending = params.descending;
@@ -52,14 +51,16 @@ void SortTest(const SortParams &params){
     Tensor yIdx(idxDType, shape, "yIdx");
 
     config::SetBuildStatic(true);
-    FUNCTION("Sort", {x, y, yIdx}) {
+    FUNCTION("Sort", {x, y, yIdx})
+    {
         TileShape::Current().SetVecTile({1, tileSize});
         std::tie(y, yIdx) = Sort(x, descending);
     }
 }
 
 template <typename T = float, typename idxT = int>
-void SortWithIndexTest(const SortParams &params){
+void SortWithIndexTest(const SortParams& params)
+{
     int length = params.length;
     int tileSize = params.tileSize;
     int descending = params.descending;
@@ -74,18 +75,21 @@ void SortWithIndexTest(const SortParams &params){
     Tensor yIdx(idxDType, shape, "yIdx");
 
     config::SetBuildStatic(true);
-    FUNCTION("Sort", {x, idx, y, yIdx}) {
+    FUNCTION("Sort", {x, idx, y, yIdx})
+    {
         TileShape::Current().SetVecTile({1, tileSize});
         std::tie(y, yIdx) = SortWithIndex(x, idx, descending);
     }
 }
 
-TEST_F(ParallelSortUTest, fp32_64k_8k) {
+TEST_F(ParallelSortUTest, fp32_64k_8k)
+{
     SortParams params = {1024 * 64, 1024 * 8, true};
     SortTest(params);
 }
 
-TEST_F(ParallelSortUTest, withindex_fp32_64k_8k) {
+TEST_F(ParallelSortUTest, withindex_fp32_64k_8k)
+{
     SortParams params = {1024 * 64, 1024 * 8, true};
     SortWithIndexTest(params);
 }

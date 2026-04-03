@@ -43,12 +43,17 @@ enum class FunctionType : uint8_t {
  * \param type The function type
  * \return String representation ("Opaque", "Orchestration", or "InCore")
  */
-inline std::string FunctionTypeToString(FunctionType type) {
+inline std::string FunctionTypeToString(FunctionType type)
+{
     switch (type) {
-        case FunctionType::OPAQUE: return "Opaque";
-        case FunctionType::ORCHESTRATION: return "Orchestration";
-        case FunctionType::IN_CORE: return "InCore";
-        default: return "Unknown";
+        case FunctionType::OPAQUE:
+            return "Opaque";
+        case FunctionType::ORCHESTRATION:
+            return "Orchestration";
+        case FunctionType::IN_CORE:
+            return "InCore";
+        default:
+            return "Unknown";
     }
 }
 
@@ -58,7 +63,8 @@ inline std::string FunctionTypeToString(FunctionType type) {
  * \return FunctionType enum value
  * \throws std::invalid_argument if string is not recognized
  */
-inline FunctionType StringToFunctionType(const std::string &str) {
+inline FunctionType StringToFunctionType(const std::string& str)
+{
     if (str == "Opaque") {
         return FunctionType::OPAQUE;
     } else if (str == "Orchestration") {
@@ -88,14 +94,16 @@ public:
      * \param span Source location
      * \param type Function type (default: Opaque)
      */
-    Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body, Span span,
+    Function(
+        std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body, Span span,
         FunctionType type = FunctionType::OPAQUE)
         : IRNode(std::move(span)),
           name_(std::move(name)),
           funcType_(type),
           params_(std::move(params)),
           returnTypes_(std::move(returnTypes)),
-          body_(std::move(body)) {}
+          body_(std::move(body))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Function; }
     [[nodiscard]] std::string TypeName() const override { return "Function"; }
@@ -106,9 +114,12 @@ public:
      * \return Tuple of field descriptors (params as DEF field, func_type, return_types and body as USUAL
      * fields, name as an IGNORE field)
      */
-    static constexpr auto GetFieldDescriptors() {
-        return std::tuple_cat(IRNode::GetFieldDescriptors(),
-            std::make_tuple(reflection::DefField(&Function::params_, "params"),
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            IRNode::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::DefField(&Function::params_, "params"),
                 reflection::UsualField(&Function::funcType_, "func_type"),
                 reflection::UsualField(&Function::returnTypes_, "return_types"),
                 reflection::UsualField(&Function::body_, "body"), reflection::IgnoreField(&Function::name_, "name")));

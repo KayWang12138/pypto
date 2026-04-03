@@ -79,3 +79,14 @@ def test_set_tensor_data():
         assert isinstance(sym_b, pypto.SymbolicScalar)
         c[0, 0] = sym_a + sym_b
         c[1, 1] = 1
+
+
+@pytest.mark.parametrize("dtype", [pypto.DT_BOOL, pypto.DT_INT32, pypto.DT_INT64])
+def test_get_input_shape(dtype):
+    shape = (128, 128)
+    a = pypto.tensor(shape, dtype, "a")
+    b = pypto.tensor(shape, dtype, "b")
+    with pypto.function("MAIN", a, b):
+        pypto.set_vec_tile_shapes(16, 16)
+        val = a[0, 0]
+        b[:] = a + a[val: val + 128, :]

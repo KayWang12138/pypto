@@ -149,7 +149,7 @@ def extract_latest_codecheck(comments: Iterable[dict[str, Any]]) -> tuple[int | 
 
 def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """提取所有 codecheck URL 并返回完整证据链。
-    
+
     Returns:
         包含以下结构的字典：
         {
@@ -172,7 +172,7 @@ def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
         }
     """
     matches: list[tuple[datetime, int, str | None, str]] = []  # (created_at, comment_id, created_at_raw, url)
-    
+
     for c in comments:
         body = c.get("body")
         if not isinstance(body, str) or "codecheck" not in body.lower():
@@ -189,13 +189,13 @@ def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
         created_at_str = created_at_raw if isinstance(created_at_raw, str) else None
         for url_match in url_matches:
             matches.append((created_at_dt, cid_num, created_at_str, url_match.group(0)))
-    
+
     if not matches:
         raise ValueError("未在评论中找到 codecheck URL")
-    
+
     # 按时间倒序排序（最新的在前）
     matches.sort(reverse=True, key=lambda x: (x[0], x[1]))
-    
+
     # 构建证据链
     evidence_chain = []
     for idx, (created_at_dt, cid_num, created_at_raw, url) in enumerate(matches, start=1):
@@ -206,7 +206,7 @@ def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
             "url": url,
             "is_latest": idx == 1
         })
-    
+
     # 提取最新的
     latest_match = matches[0]
     latest = {
@@ -214,7 +214,7 @@ def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "created_at": latest_match[2],
         "url": latest_match[3]
     }
-    
+
     return {
         "total_found": len(matches),
         "latest": latest,
@@ -315,7 +315,7 @@ def main() -> int:
     args = parse_args()
     try:
         data = load_json(args.input)
-        
+
         comments = list(iter_comments(data))
 
         if args.gate_on_latest_ci:

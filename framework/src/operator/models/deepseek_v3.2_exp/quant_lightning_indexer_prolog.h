@@ -54,9 +54,7 @@ struct QuantIndexerConfigs {
 
     // Config params
     std::set<int> unrollList = {128, 64, 32, 16, 8, 4, 2, 1};
-    std::map<int64_t, int64_t> l1ReuseParam = {
-        {1, 4}
-    };
+    std::map<int64_t, int64_t> l1ReuseParam = {{1, 4}};
     int mgCopyInUpperBound = 2 * 1024 * 1024;
     int pgUpperBound = 8192;
     int blockSize = 128;
@@ -65,32 +63,31 @@ struct QuantIndexerConfigs {
     int64_t tSubTile = 1;
 };
 
-
 struct QuantIndexerPrologInput {
-    const Tensor &x;          // BF16, (t, h)
-    const Tensor &qNorm;      // INT8, (t, qLoraRank)
-    const Tensor &qNormScale; // FP32, (t, 1)
-    const Tensor &wQb; // INT8, (headNum * headDim / NZ_B8_C0, qLoraRank / NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B8_C0), NZ
-    const Tensor &wQbScale;    // FP32, (headNum * headDim, 1)
-    const Tensor &wk;          // BF16, (headDim / NZ_B16_C0, h / NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B16_C0), NZ
-    const Tensor &wProj;       // BF16, (headNum / NZ_B16_C0, h / NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B16_C0), NZ
-    const Tensor &lnGammaK;    // BF16, (headDim,)
-    const Tensor &lnBetaK;     // BF16, (headDim,)
-    const Tensor &cosIdxRope;  // BF16, (t, ropeHeadDim)
-    const Tensor &sinIdxRope;  // BF16, (t, ropeHeadDim)
-    const Tensor &hadamardQ;   // BF16, (headDim, headDim)
-    const Tensor &hadamardK;   // BF16, (headDim, headDim)
-    const Tensor &kCache;      // INT8, (blockNum, blockSize, nKv, headDim)
-    const Tensor &kCacheScale; // FP16, (blockNum, blockSize, nKv, 1)
-    const Tensor &kCacheIndex; // INT64, (t,)
+    const Tensor& x;          // BF16, (t, h)
+    const Tensor& qNorm;      // INT8, (t, qLoraRank)
+    const Tensor& qNormScale; // FP32, (t, 1)
+    const Tensor& wQb; // INT8, (headNum * headDim / NZ_B8_C0, qLoraRank / NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B8_C0), NZ
+    const Tensor& wQbScale;    // FP32, (headNum * headDim, 1)
+    const Tensor& wk;          // BF16, (headDim / NZ_B16_C0, h / NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B16_C0), NZ
+    const Tensor& wProj;       // BF16, (headNum / NZ_B16_C0, h / NZ_FIRST_DIM, NZ_FIRST_DIM, NZ_B16_C0), NZ
+    const Tensor& lnGammaK;    // BF16, (headDim,)
+    const Tensor& lnBetaK;     // BF16, (headDim,)
+    const Tensor& cosIdxRope;  // BF16, (t, ropeHeadDim)
+    const Tensor& sinIdxRope;  // BF16, (t, ropeHeadDim)
+    const Tensor& hadamardQ;   // BF16, (headDim, headDim)
+    const Tensor& hadamardK;   // BF16, (headDim, headDim)
+    const Tensor& kCache;      // INT8, (blockNum, blockSize, nKv, headDim)
+    const Tensor& kCacheScale; // FP16, (blockNum, blockSize, nKv, 1)
+    const Tensor& kCacheIndex; // INT64, (t,)
 };
 
 struct QuantIndexerPrologOutput {
-    Tensor &qInt8;   // INT8, (t, headNum, headDim)
-    Tensor &qScale;  // FP16, (t, headNum, 1)
-    Tensor &kInt8;   // INT8, (blockNum, blockSize, nKV, headDim)
-    Tensor &kScale;  // FP16, (blockNum, blockSize, nKV, 1)
-    Tensor &weights; // FP16, (t, headNum)
+    Tensor& qInt8;   // INT8, (t, headNum, headDim)
+    Tensor& qScale;  // FP16, (t, headNum, 1)
+    Tensor& kInt8;   // INT8, (blockNum, blockSize, nKV, headDim)
+    Tensor& kScale;  // FP16, (blockNum, blockSize, nKV, 1)
+    Tensor& weights; // FP16, (t, headNum)
 };
 
 struct QuantIndexerPrologAttr {
@@ -99,11 +96,13 @@ struct QuantIndexerPrologAttr {
     std::string layeroutKey = "PA_BSND";
 };
 
-void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, QuantIndexerPrologOutput &outputs,
-    QuantIndexerPrologAttr &attrs, const QuantIndexerConfigs &configs);
+void QuantLightningIndexerPrologCompute(
+    const QuantIndexerPrologInput& inputs, QuantIndexerPrologOutput& outputs, QuantIndexerPrologAttr& attrs,
+    const QuantIndexerConfigs& configs);
 
-void QuantLightningIndexerProlog(const QuantIndexerPrologInput &inputs, QuantIndexerPrologOutput &outputs,
-    QuantIndexerPrologAttr &attrs, const QuantIndexerConfigs &configs);
+void QuantLightningIndexerProlog(
+    const QuantIndexerPrologInput& inputs, QuantIndexerPrologOutput& outputs, QuantIndexerPrologAttr& attrs,
+    const QuantIndexerConfigs& configs);
 
 } // namespace npu::tile_fwk
 

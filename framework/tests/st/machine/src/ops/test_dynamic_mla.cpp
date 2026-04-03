@@ -23,18 +23,18 @@ class DyMla : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
 
-void pre() {
+void pre() {}
 
-}
-
-void performanceConfig() {
+void performanceConfig()
+{
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName)
+{
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -42,16 +42,19 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vecto
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
     bool isSmooth = true, bool usePrefetch = true>
-void TestMlaPrologV2(const SimpleParams &params) {
+void TestMlaPrologV2(const SimpleParams& params)
+{
     SetInterpreterConfig();
     pre();
 
@@ -121,10 +124,10 @@ void TestMlaPrologV2(const SimpleParams &params) {
     Tensor output_q_rope(dType, q_rope_out_shape, "output_q_rope");
 
     RoPETileShapeConfigNew ropeConfig{
-        {b, 1, 64}, // (b,s,d)
-        {b, 1, 1, 64}, // Q (b,s,n,d)
-        {b, 1, 1, 64}, // K (b,s,1,d)
-        {b, 1, 1, 32, 2}  // (b,s,n,d//2,2)
+        {b, 1, 64},      // (b,s,d)
+        {b, 1, 1, 64},   // Q (b,s,n,d)
+        {b, 1, 1, 64},   // K (b,s,1,d)
+        {b, 1, 1, 32, 2} // (b,s,n,d//2,2)
     };
 
     MlaQuantInputs quantInputs;
@@ -159,7 +162,7 @@ void TestMlaPrologV2(const SimpleParams &params) {
 
     ProgramData::GetInstance().PrepareData(
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-            kvCacheData, krCacheData, wQbScaleData, smoothCqData},
+         kvCacheData, krCacheData, wQbScaleData, smoothCqData},
         {outputQData, outputQRopeData, kvCacheData, krCacheData}, {golden1Data, golden2Data, golden3Data, golden4Data});
     if (isQuant) {
         quantInputs.dequantScaleWUqQr = w_qb_scale;
@@ -168,32 +171,35 @@ void TestMlaPrologV2(const SimpleParams &params) {
         }
     }
     config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", KEY_DISABLE_PASS, true);
-    MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
-        ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK,
-        isSmooth);
+    MlaProlog(
+        x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs, ropeConfig,
+        output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK, isSmooth);
 #ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
+    DevFuncRunner::Run(
+        Program::GetInstance().GetLastFunction(),
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-            kvCacheData, krCacheData, wQbScaleData, smoothCqData},
+         kvCacheData, krCacheData, wQbScaleData, smoothCqData},
         {outputQData, outputQRopeData, kvCacheData, krCacheData});
     std::cout << "qNope ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.008f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden1, (T*)outputQData->data(), 0.008f, 16));
     std::cout << "qRope ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden2, (T *)outputQRopeData->data(), 0.005f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden2, (T*)outputQRopeData->data(), 0.005f, 16));
     std::cout << "kv ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden3, (T *)kvCacheData->data(), 0.003f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden3, (T*)kvCacheData->data(), 0.003f, 16));
     std::cout << "kr ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden4, (T *)krCacheData->data(), 0.003f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden4, (T*)krCacheData->data(), 0.003f, 16));
 #endif
 }
 
-TEST_F(DyMla, low) {
+TEST_F(DyMla, low)
+{
     // verifyConfig();
     performanceConfig();
     TestMlaPrologV2<npu::tile_fwk::float16>(SimpleParams::getLowParams());
 }
 
-TEST_F(DyMla, low_PA_BSND) {
+TEST_F(DyMla, low_PA_BSND)
+{
     // verifyConfig();
     performanceConfig();
     npu::tile_fwk::SimpleParams params = SimpleParams::getLowParams();
@@ -201,7 +207,8 @@ TEST_F(DyMla, low_PA_BSND) {
     TestMlaPrologV2<npu::tile_fwk::float16>(params);
 }
 
-TEST_F(DyMla, low_PA_NZ) {
+TEST_F(DyMla, low_PA_NZ)
+{
     // verifyConfig();
     performanceConfig();
     npu::tile_fwk::SimpleParams params = SimpleParams::getLowParams();
@@ -209,17 +216,20 @@ TEST_F(DyMla, low_PA_NZ) {
     TestMlaPrologV2<npu::tile_fwk::float16>(params);
 }
 
-TEST_F(DyMla, low_bf) {
+TEST_F(DyMla, low_bf)
+{
     performanceConfig();
     TestMlaPrologV2<npu::tile_fwk::bfloat16>(SimpleParams::getLowParams());
 }
 
-TEST_F(DyMla, high) {
+TEST_F(DyMla, high)
+{
     performanceConfig();
     TestMlaPrologV2<npu::tile_fwk::float16>(SimpleParams::getHighParams());
 }
 
-TEST_F(DyMla, high_PA_NZ) {
+TEST_F(DyMla, high_PA_NZ)
+{
     performanceConfig();
     npu::tile_fwk::SimpleParams params = SimpleParams::getHighParams();
     params.cacheMode = "PA_NZ";

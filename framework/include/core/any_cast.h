@@ -43,9 +43,10 @@ namespace pypto {
  *   DemangleTypeName(typeid(int).name()) -> "int"
  *   DemangleTypeName(typeid(pypto::DataType).name()) -> "DataType"
  */
-inline std::string DemangleTypeName(const char *mangledName) {
+inline std::string DemangleTypeName(const char* mangledName)
+{
     int status = 0;
-    char *demangled = abi::__cxa_demangle(mangledName, nullptr, nullptr, &status);
+    char* demangled = abi::__cxa_demangle(mangledName, nullptr, nullptr, &status);
     if (status == 0 && demangled) {
         std::string result(demangled);
         free(demangled);
@@ -71,7 +72,8 @@ inline std::string DemangleTypeName(const char *mangledName) {
  * \throws TypeError with detailed type information
  */
 [[noreturn]] inline void ThrowAnyCastError(
-    const char *expectedTypeName, const char *actualTypeName, const std::string &context) {
+    const char* expectedTypeName, const char* actualTypeName, const std::string& context)
+{
     std::string expectedType = DemangleTypeName(expectedTypeName);
     std::string actualType = DemangleTypeName(actualTypeName);
     std::string errorMsg = "Invalid type";
@@ -106,10 +108,11 @@ inline std::string DemangleTypeName(const char *mangledName) {
  *   // "Invalid type for kwarg key: value, expected int, but got std::string"
  */
 template <typename T>
-T AnyCast(const std::any &value, [[maybe_unused]] const std::string &context = "") {
+T AnyCast(const std::any& value, [[maybe_unused]] const std::string& context = "")
+{
     try {
         return std::any_cast<T>(value);
-    } catch (const std::bad_any_cast &) {
+    } catch (const std::bad_any_cast&) {
         ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
     }
 }
@@ -132,10 +135,11 @@ T AnyCast(const std::any &value, [[maybe_unused]] const std::string &context = "
  *   const std::string &str = AnyCastRef<std::string>(val);
  */
 template <typename T>
-const T &AnyCastRef(const std::any &value, [[maybe_unused]] const std::string &context = "") {
+const T& AnyCastRef(const std::any& value, [[maybe_unused]] const std::string& context = "")
+{
     try {
-        return std::any_cast<const T &>(value);
-    } catch (const std::bad_any_cast &) {
+        return std::any_cast<const T&>(value);
+    } catch (const std::bad_any_cast&) {
         ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
     }
 }

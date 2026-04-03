@@ -18,7 +18,7 @@
 
 1. **设置日志级别为INFO**
    - 设置日志输出路径
-   export ASCEND_PROCESS_LOG_PATH=*{用户指定日志路径}*  
+   export ASCEND_PROCESS_LOG_PATH=*{用户指定日志路径}*
    - 设置日志级别为全局INFO级别
    export ASCEND_GLOBAL_LOG_LEVEL=1 // 0: DEBUG, 1: INFO, 2: WARN, 3: ERROR
    或指定CodeGen模块日志级别为INFO，如：
@@ -66,7 +66,7 @@
 
    其中!10010即该OP的唯一标识码，可以此为关键字在PASS的图或日志中搜索获取相关信息，PASS定位指导详见[pass trouble shooting](./pass.md)
 <br>
-   
+
 
 #### 错误码 F62014：SYMBOL_NOT_FOUND
 

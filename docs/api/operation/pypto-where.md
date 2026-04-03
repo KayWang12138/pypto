@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -91,11 +92,11 @@ b1 = pypto.tensor([4], pypto.DT_FP32)
 out1 = pypto.where(cond1, a1, b1)
 
 # Using scalar inputs
-out2 = pypto.where(cond1, 1, 0) 
+out2 = pypto.where(cond1, 1, 0)
 
 # Broadcasting example
-cond2 = pypto.tensor([2, 2], pypto.DT_BOOL) 
-a2 = pypto.tensor([2], pypto.DT_FP32)  
+cond2 = pypto.tensor([2, 2], pypto.DT_BOOL)
+a2 = pypto.tensor([2], pypto.DT_FP32)
 b2 = 0.0
 out3 = pypto.where(cond2, a2, b2)
 ```
@@ -104,15 +105,14 @@ out3 = pypto.where(cond2, a2, b2)
 
 ```python
 输入数据cond1: [True, False, True, False]
-输入数据a1:    [1.0  2.0  3.0  4.0] 
-输入数据b1:    [10.0 20.0 30.0 40.0] 
+输入数据a1:    [1.0  2.0  3.0  4.0]
+输入数据b1:    [10.0 20.0 30.0 40.0]
 输出数据out1:  [1.0  20.0 3.0  40.0]
 
 输出数据out2:  [1.0 0.0 1.0 0.0]
 
 输入数据cond2 = [[True, False], [False, True]]
 输入数据a2:      [1.0 2.0]
-输出数据out3:   [[1.0 0.0], 
+输出数据out3:   [[1.0 0.0],
                  [0.0 2.0]]
 ```
-

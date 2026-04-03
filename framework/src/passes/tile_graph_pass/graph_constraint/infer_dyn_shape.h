@@ -25,11 +25,12 @@ class InferDynShape : public Pass {
 public:
     InferDynShape() : Pass("InferDynShape") {}
     ~InferDynShape() override {}
-    Status RunOnFunction(Function &function) override;
-    Status PostCheck(Function &function) override;
+    Status RunOnFunction(Function& function) override;
+    Status PostCheck(Function& function) override;
+
 private:
     Status InferShape(Function& function);
 };
-}
-}
+} // namespace tile_fwk
+} // namespace npu
 #endif
