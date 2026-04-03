@@ -84,6 +84,10 @@ std::vector<uint8_t> CompileAndLoadSection(
 {
     if (needDump) {
         FILE* fsrc = fopen(sourceFilePath.c_str(), "w");
+        if (fsrc == nullptr) {
+            FUNCTION_LOGE_E(FError::BAD_FD, "Fail to open source file %s", sourceFilePath.c_str());
+            return {};
+        }
         fprintf(fsrc, "%s", code.c_str());
         fclose(fsrc);
     }
@@ -114,7 +118,7 @@ std::vector<uint8_t> CompileAndLoadSection(
     }
 
     fseek(fbin, 0, SEEK_END);
-    int size = ftell(fbin);
+    int size = static_cast<int>(ftell(fbin));
     fseek(fbin, 0, SEEK_SET);
     std::vector<uint8_t> binary(size);
     size_t readSize = fread(binary.data(), 1, size, fbin);
@@ -544,56 +548,29 @@ SYMBOLIC_SCALAR_DEFINE_BOP(Gt, >, RawSymbolicExpression::CreateBopGt)
 SYMBOLIC_SCALAR_DEFINE_BOP(Ge, >=, RawSymbolicExpression::CreateBopGe)
 #undef SYMBOLIC_SCALAR_DEFINE_BOP
 
-static bool AllConcreteValid(const std::vector<SymbolicScalar>& slist)
-{
-    for (auto& s : slist) {
-        if (!s.ConcreteValid()) {
-            return false;
-        }
-    }
-    return true;
-}
-
 SymbolicScalar SymbolicScalar::operator()() const
 {
     auto raw = RawSymbolicExpression::CreateMopCall(raw_);
-    if (ConcreteValid()) {
-        return SymbolicScalar(raw, RawSymbolicExpression::CalcMopCall({Concrete()}));
-    } else {
-        return SymbolicScalar(raw);
-    }
+    return SymbolicScalar(raw);
 }
 SymbolicScalar SymbolicScalar::operator()(const SymbolicScalar& arg0) const
 {
     std::vector<RawSymbolicScalarPtr> args = {raw_, arg0.raw_};
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (AllConcreteValid({*this, arg0})) {
-        return SymbolicScalar(raw, RawSymbolicExpression::CalcMopCall({Concrete(), arg0.Concrete()}));
-    } else {
-        return SymbolicScalar(raw);
-    }
+    return SymbolicScalar(raw);
 }
 SymbolicScalar SymbolicScalar::operator()(const SymbolicScalar& arg0, const SymbolicScalar& arg1) const
 {
     std::vector<RawSymbolicScalarPtr> args = {raw_, arg0.raw_, arg1.raw_};
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (AllConcreteValid({*this, arg0, arg1})) {
-        return SymbolicScalar(raw, RawSymbolicExpression::CalcMopCall({Concrete(), arg0.Concrete(), arg1.Concrete()}));
-    } else {
-        return SymbolicScalar(raw);
-    }
+    return SymbolicScalar(raw);
 }
 SymbolicScalar SymbolicScalar::operator()(
     const SymbolicScalar& arg0, const SymbolicScalar& arg1, const SymbolicScalar& arg2) const
 {
     std::vector<RawSymbolicScalarPtr> args = {raw_, arg0.raw_, arg1.raw_, arg2.raw_};
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (AllConcreteValid({*this, arg0, arg1, arg2})) {
-        return SymbolicScalar(
-            raw, RawSymbolicExpression::CalcMopCall({Concrete(), arg0.Concrete(), arg1.Concrete(), arg2.Concrete()}));
-    } else {
-        return SymbolicScalar(raw);
-    }
+    return SymbolicScalar(raw);
 }
 SymbolicScalar SymbolicScalar::operator()(
     const SymbolicScalar& arg0, const SymbolicScalar& arg1, const SymbolicScalar& arg2,
@@ -601,13 +578,7 @@ SymbolicScalar SymbolicScalar::operator()(
 {
     std::vector<RawSymbolicScalarPtr> args = {raw_, arg0.raw_, arg1.raw_, arg2.raw_, arg3.raw_};
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (AllConcreteValid({*this, arg0, arg1, arg2, arg3})) {
-        return SymbolicScalar(
-            raw, RawSymbolicExpression::CalcMopCall(
-                     {Concrete(), arg0.Concrete(), arg1.Concrete(), arg2.Concrete(), arg3.Concrete()}));
-    } else {
-        return SymbolicScalar(raw);
-    }
+    return SymbolicScalar(raw);
 }
 SymbolicScalar SymbolicScalar::operator()(
     const SymbolicScalar& arg0, const SymbolicScalar& arg1, const SymbolicScalar& arg2, const SymbolicScalar& arg3,
@@ -615,13 +586,7 @@ SymbolicScalar SymbolicScalar::operator()(
 {
     std::vector<RawSymbolicScalarPtr> args = {raw_, arg0.raw_, arg1.raw_, arg2.raw_, arg3.raw_, arg4.raw_};
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (AllConcreteValid({*this, arg0, arg1, arg2, arg3, arg4})) {
-        return SymbolicScalar(
-            raw, RawSymbolicExpression::CalcMopCall(
-                     {Concrete(), arg0.Concrete(), arg1.Concrete(), arg2.Concrete(), arg3.Concrete()}));
-    } else {
-        return SymbolicScalar(raw);
-    }
+    return SymbolicScalar(raw);
 }
 
 SymbolicScalar SymbolicScalar::operator()(const std::vector<SymbolicScalar>& argList) const
@@ -631,15 +596,7 @@ SymbolicScalar SymbolicScalar::operator()(const std::vector<SymbolicScalar>& arg
         args.push_back(a.raw_);
     }
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (this->ConcreteValid() && AllConcreteValid(argList)) {
-        std::vector<ScalarImmediateType> calcArgList = {Concrete()};
-        for (auto& a : argList) {
-            calcArgList.push_back(a.Concrete());
-        }
-        return SymbolicScalar(raw, RawSymbolicExpression::CalcMopCall(calcArgList));
-    } else {
-        return SymbolicScalar(raw);
-    }
+    return SymbolicScalar(raw);
 }
 
 std::string SymbolicScalar::Dump() const
@@ -723,7 +680,9 @@ std::vector<SymbolicScalar> SymbolicScalar::FromConcrete(const std::vector<int64
 }
 
 static void LookupExpressionByOpcode(
-    std::vector<RawSymbolicScalarPtr>& exprList, SymbolicOpcode opcode, const RawSymbolicScalarPtr& raw)
+    std::vector<RawSymbolicScalarPtr>& exprList,
+    SymbolicOpcode opcode,
+    const RawSymbolicScalarPtr& raw)
 {
     switch (raw->Kind()) {
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE:
@@ -743,7 +702,8 @@ static void LookupExpressionByOpcode(
     }
 }
 
-std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScalarPtr& value, SymbolicOpcode opcode)
+std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScalarPtr& value,
+                                                           SymbolicOpcode opcode)
 {
     std::vector<RawSymbolicScalarPtr> exprList;
     LookupExpressionByOpcode(exprList, opcode, value);
