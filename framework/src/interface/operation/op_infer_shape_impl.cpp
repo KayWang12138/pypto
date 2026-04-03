@@ -868,7 +868,7 @@ void CopyInInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& ou
     // 子图边界, 需要重新推导
     std::vector<std::vector<SymbolicScalar>> inputShapes;
     for (auto inputTensor : op->GetIOperands()) {
-        inputShapes.push_back(inputTensor->GetDynValidShape());
+        inputShapes.push_back(inputTensor->tensor->GetDynRawShape());
     }
     auto offset = copyOpAttribute->GetFromOffset();
     std::vector<SymbolicScalar> oriOffset;
