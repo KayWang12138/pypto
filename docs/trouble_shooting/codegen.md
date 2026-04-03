@@ -23,16 +23,11 @@
    export ASCEND_GLOBAL_LOG_LEVEL=1 // 0: DEBUG, 1: INFO, 2: WARN, 3: ERROR
    或指定CodeGen模块日志级别为INFO，如：
    export ASCEND_MODULE_LOG_LEVEL=CODEGEN=1
+
 2. **设置并行编译数量为1**
    由于CodeGen模块通过并行编译多个子图方式节省编译时长，故为了防止输出日志乱序，定位问题时需要将并行编译改为串行，设置方法如下：
    - 修改tile_fwk_config.json中的parallel_compile为1
    - 重新编译并安装pypto包，参考[编译安装](../install/build_and_install.md#编译安装)
-
-   ```bash
-   cd pypto_project_path && python3 build_ci.py -f python3 --disable_auto_execute
-   pip install build_out/pypto*.whl --force --no-deps
-   cd -
-   ```
 
 3. **再次执行用例，获取日志及kernel代码文件**
    日志路径一般为：   *{用户指定日志路径}*/debug/plog/pypto-log***.log
