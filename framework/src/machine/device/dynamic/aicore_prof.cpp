@@ -73,15 +73,28 @@ void ProfGetNew(void *arg) {
             }
         }
     }
+    for (uint32_t i = 0; i < self->GetCoreNum(); i++) {
+        self->ReportLastProfData(i);
+    }
     finish_dump = true;
-    self->ProfStop();
 }
 #endif
 
 void StopProf(void *arg) {
     g_open_prof = false;
     (void)arg;
-    while(!finish_dump){}
+    while(!finish_dump){sched_yield();}
+}
+
+void AiCoreProf::ReportLastProfData(int32_t coreIdx) {
+    if (logHead_[coreIdx]->cnt != 0) {
+        int32_t ret = profReportAdditionalInfoFunc_(1, &logMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
+        DEV_DEBUG(
+            "aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", coreIdx, logHead_[coreIdx]->cnt,
+            ret);
+        (void)(ret);
+        memset_s(&logMsg_[coreIdx], logMsgSize_, 0, logMsgSize_);
+    }
 }
 
 void AiCoreProf::ProInitHandShake() {
@@ -214,7 +227,11 @@ void AiCoreProf::StartToGetProf() {
 }
 
 void AiCoreProf::GetProfData(Metrics *metric, uint32_t coreIdx) {
+<<<<<<< Updated upstream
+    for (int taskId = lastTaskCountArry[coreIdx]; taskId < currentTaskCountArry[coreIdx]; taskId++) {
+=======
     for (int taskId = 0; taskId < metric->taskCount; taskId++) {
+>>>>>>> Stashed changes
         volatile TaskStat *stat = &metric->tasks[taskId];
         ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
     }

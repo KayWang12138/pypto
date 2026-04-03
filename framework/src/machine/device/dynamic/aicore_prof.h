@@ -53,6 +53,7 @@ class AiCoreManager;
 constexpr uint32_t PATH_SIZE = 1024;
 constexpr uint32_t PROF_DATA_SIZE = 4096;
 constexpr uint32_t DEVICE_ID_LIST_SIZE = 64;
+constexpr uint32_t MAX_CORE_NUM = 75;
 struct PyPtoMsprofAdditionalInfo { // for MsprofReportAdditionalInfo buffer data
     uint16_t magicNumber = 0x5A5AU;
     uint16_t level;
@@ -310,6 +311,7 @@ public:
     static uint64_t devProfSwitch_;
     static uint32_t devProfType_ ;
 #endif
+    void ReportLastProfData(int32_t coreIdx);
     void ProfInit(DeviceArgs *deviceArgs);
     void ProfStart();
     void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
@@ -324,7 +326,7 @@ public:
     void ProfStopAiCpuTaskStat();
     void ProInitAiCpuTaskStat();
     void ProInitHandShake();
-    bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
+    bool ProfIsEnable() { return profLevel_ == PROF_LEVEL_FUNC_LOG_PMU; }
 
     void ProfInitPmu(int64_t* regAddrs, int64_t* pmuEventAddrs);
     void ProfStartPmu();
@@ -334,7 +336,9 @@ public:
     void TransProfToHost(uint32_t coreIdx, const struct TaskStat *taskStat);
     uint32_t GetCoreNum() {return static_cast<uint32_t>(coreNum_);}
     // static uint64_t devDfxAddr_;
-    DeviceArgs *deviceArgs_;
+    DeviceArgs *deviceArgs_{nullptr};
+    int32_t lastTaskCountArry[MAX_CORE_NUM] = {0};
+    int32_t currentTaskCountArry[MAX_CORE_NUM] = {0};
 private:
     struct PmuCtrlAddrs {
         uint32_t* ctrl0Addr{nullptr};
