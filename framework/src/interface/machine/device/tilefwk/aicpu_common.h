@@ -36,6 +36,7 @@ const int64_t PRO_LEVEL2 = 3;
 constexpr int REG_LOW_TASK_PING = 0;
 constexpr int REG_LOW_TASK_PONG = 1;
 constexpr int MAX_DFX_TASK_NUM_PER_CORE = 10000;
+constexpr int PREF_PROF_DATA_NUM = 1000;
 
 constexpr int SHAK_BUF_PRINT_BUFFER_INDEX = 5;
 constexpr int SHAK_BUF_COREFUNC_DATA_INDEX = 6;
