@@ -78,7 +78,7 @@ bool RemoveRedundantOp::ProcessRedundantOpWithDynShape(Operation& op) const
 {
     if (IsDdrToL1OperationWithFlag(op)) {
         APASS_LOG_DEBUG_F(
-            Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag for DDR to L1 path, skip removing.", op.opmagic);
+            Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag for DDR to L1 path, skip removing.", op.GetOpMagic());
         return false;
     }
     if (!EqualInOut(op)) {
