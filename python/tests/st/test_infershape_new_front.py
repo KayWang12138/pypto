@@ -44,7 +44,7 @@ def kernel(x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
            scale: pypto.Tensor([3], pypto.DT_FP32),
            base_: pypto.Tensor([pypto.STATIC], pypto.DT_FP32),
            result: pypto.Tensor([pypto.STATIC, num], pypto.DT_BF16)):
-    
+
 
     pypto.set_vec_tile_shapes(64, 64)
     pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])

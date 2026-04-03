@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -42,18 +43,19 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(CommonOperationEliminateTest, EliminateRedundantOps) {
+TEST_F(CommonOperationEliminateTest, EliminateRedundantOps)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<Opcode> opCodes{Opcode::OP_ABS, Opcode::OP_ABS, Opcode::OP_MUL};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t1"}, {"t2","t3"}};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t1"}, {"t2", "t3"}};
     std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}};
     std::vector<std::string> opNames{"ABS1", "ABS2", "MUL"};
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1"}), true);
     EXPECT_EQ(G.SetOutCast({"t4"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -61,7 +63,8 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantOps) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiInputOp) {
+TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiInputOp)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5"};
     std::vector<Opcode> opCodes{Opcode::OP_MUL, Opcode::OP_MUL, Opcode::OP_MUL};
@@ -72,7 +75,7 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiInputOp) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1", "t2"}), true);
     EXPECT_EQ(G.SetOutCast({"t5"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -80,7 +83,8 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiInputOp) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiOutputOp) {
+TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiOutputOp)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7"};
     std::vector<Opcode> opCodes{Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_MUL, Opcode::OP_MUL};
@@ -91,7 +95,7 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiOutputOp) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1"}), true);
     EXPECT_EQ(G.SetOutCast({"t6", "t7"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -99,7 +103,8 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantMultiOutputOp) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, EliminateRedundantCascadeOp) {
+TEST_F(CommonOperationEliminateTest, EliminateRedundantCascadeOp)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<Opcode> opCodes{Opcode::OP_ABS, Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_EXP, Opcode::OP_MUL};
@@ -110,7 +115,7 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantCascadeOp) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1"}), true);
     EXPECT_EQ(G.SetOutCast({"t6"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -124,7 +129,8 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantCascadeOp) {
     EXPECT_EQ(tensorPtr->GetProducers().size(), 1);
 }
 
-TEST_F(CommonOperationEliminateTest, IgnoreSingleInputOp) {
+TEST_F(CommonOperationEliminateTest, IgnoreSingleInputOp)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5"};
     std::vector<Opcode> opCodes{Opcode::OP_ABS, Opcode::OP_ABS, Opcode::OP_MUL};
@@ -135,7 +141,7 @@ TEST_F(CommonOperationEliminateTest, IgnoreSingleInputOp) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1", "t3"}), true);
     EXPECT_EQ(G.SetOutCast({"t5"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -143,7 +149,8 @@ TEST_F(CommonOperationEliminateTest, IgnoreSingleInputOp) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, IgnoreMultiInputOp) {
+TEST_F(CommonOperationEliminateTest, IgnoreMultiInputOp)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6"};
     std::vector<Opcode> opCodes{Opcode::OP_MUL, Opcode::OP_MUL, Opcode::OP_MUL};
@@ -154,7 +161,7 @@ TEST_F(CommonOperationEliminateTest, IgnoreMultiInputOp) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1", "t2", "t4"}), true);
     EXPECT_EQ(G.SetOutCast({"t6"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -162,7 +169,8 @@ TEST_F(CommonOperationEliminateTest, IgnoreMultiInputOp) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, IgnoreDifferentAttr) {
+TEST_F(CommonOperationEliminateTest, IgnoreDifferentAttr)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<Opcode> opCodes{Opcode::OP_ADDS, Opcode::OP_ADDS, Opcode::OP_MUL};
@@ -180,15 +188,16 @@ TEST_F(CommonOperationEliminateTest, IgnoreDifferentAttr) {
     EXPECT_NE(opPtr, nullptr);
     const double value2 = 2.0;
     opPtr->SetAttribute(OpAttributeKey::scalar, Element(DataType::DT_FP32, value2));
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
-    const int validOpNum = 3;//修复后有序遍历tensor，使得连续冗余场景正确消除
+    const int validOpNum = 3; // 修复后有序遍历tensor，使得连续冗余场景正确消除
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, IgnoreDifferentOp) {
+TEST_F(CommonOperationEliminateTest, IgnoreDifferentOp)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<Opcode> opCodes{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_MUL};
@@ -199,7 +208,7 @@ TEST_F(CommonOperationEliminateTest, IgnoreDifferentOp) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1"}), true);
     EXPECT_EQ(G.SetOutCast({"t4"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -207,7 +216,8 @@ TEST_F(CommonOperationEliminateTest, IgnoreDifferentOp) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, IgnoreDifferentSubgraph) {
+TEST_F(CommonOperationEliminateTest, IgnoreDifferentSubgraph)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
     std::vector<Opcode> opCodes{Opcode::OP_ABS, Opcode::OP_ABS, Opcode::OP_MUL};
@@ -228,7 +238,7 @@ TEST_F(CommonOperationEliminateTest, IgnoreDifferentSubgraph) {
     EXPECT_NE(opPtr, nullptr);
     const int subgraphID2 = 2;
     opPtr->UpdateSubgraphID(subgraphID2);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     const int subgraphNum = 3;
     function->SetTotalSubGraphCount(subgraphNum);
@@ -238,10 +248,11 @@ TEST_F(CommonOperationEliminateTest, IgnoreDifferentSubgraph) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, IgnoreSpecialOp) {
+TEST_F(CommonOperationEliminateTest, IgnoreSpecialOp)
+{
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7"};
-    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_MUL,
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW,      Opcode::OP_VIEW,      Opcode::OP_MUL,
                                 Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX, Opcode::OP_MUL};
     std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t1"}, {"t2", "t3"}, {"t1"}, {"t1"}, {"t5", "t6"}};
     std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}};
@@ -250,7 +261,7 @@ TEST_F(CommonOperationEliminateTest, IgnoreSpecialOp) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1"}), true);
     EXPECT_EQ(G.SetOutCast({"t4", "t7"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
@@ -258,7 +269,8 @@ TEST_F(CommonOperationEliminateTest, IgnoreSpecialOp) {
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 
-TEST_F(CommonOperationEliminateTest, TestShmemGetGm2UBChecker){
+TEST_F(CommonOperationEliminateTest, TestShmemGetGm2UBChecker)
+{
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensors(DataType::DT_INT32, {1, 1}, {"dummy"}), true);
     EXPECT_EQ(G.AddTensors(DataType::DT_INT32, {1, 1, 4, 64}, {"shmemData"}), true);
@@ -270,14 +282,15 @@ TEST_F(CommonOperationEliminateTest, TestShmemGetGm2UBChecker){
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"dummy", "shmemData"}), true);
     EXPECT_EQ(G.SetOutCast({"out"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     Status preCheckStatus = COE.PreCheck(*function);
     EXPECT_EQ(preCheckStatus, SUCCESS) << "COE Precheck failed for OP_SHMEM_GET_GM2UB!";
 }
 
-TEST_F(CommonOperationEliminateTest, PreCheck_CopyIn_InvalidInputNum) {
+TEST_F(CommonOperationEliminateTest, PreCheck_CopyIn_InvalidInputNum)
+{
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
@@ -287,14 +300,15 @@ TEST_F(CommonOperationEliminateTest, PreCheck_CopyIn_InvalidInputNum) {
     std::vector<std::vector<std::string>> ooperands{{"t3"}};
     std::vector<std::string> opNames{"COPY_IN_InvalidInput"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
     CommonOperationEliminate COE;
     Status preCheckStatus = COE.PreCheck(*function);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(CommonOperationEliminateTest, PreCheck_CopyIn_OffsetShapeMismatch) {
+TEST_F(CommonOperationEliminateTest, PreCheck_CopyIn_OffsetShapeMismatch)
+{
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
@@ -303,7 +317,7 @@ TEST_F(CommonOperationEliminateTest, PreCheck_CopyIn_OffsetShapeMismatch) {
     std::vector<std::vector<std::string>> ooperands{{"t2"}};
     std::vector<std::string> opNames{"COPY_IN_OffsetMismatch"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
     Operation* copyOp = G.GetOp("COPY_IN_OffsetMismatch");
     ASSERT_NE(copyOp, nullptr);

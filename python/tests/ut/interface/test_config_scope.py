@@ -18,7 +18,7 @@ import torch
 def kernel_with_dynamic(
     a: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32),
     out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32),
-):  
+):
     # get the global config in the kernel and verify it
     assert 1 == pypto.get_debug_options().get("runtime_debug_mode")
     assert 1 == pypto.get_debug_options().get("compile_debug_mode")

@@ -7,6 +7,8 @@ pypto-abs
 pypto-add
 pypto-amax
 pypto-amin
+pypto-argmax
+pypto-argmin
 pypto-arange
 pypto-argsort
 pypto-assemble
@@ -25,6 +27,7 @@ pypto-clone
 pypto-concat
 pypto-copysign
 pypto-cos
+pypto-cumprod
 pypto-cumsum
 pypto-div
 pypto-eq
@@ -40,6 +43,7 @@ pypto-experimental-load
 pypto-experimental-set_operation_options
 pypto-experimental-transposed_batchmatmul
 pypto-floor
+pypto-floor_div
 pypto-fmod
 pypto-full
 pypto-gather
@@ -102,5 +106,5 @@ pypto-unsqueeze
 pypto-var
 pypto-view
 pypto-where
-ptpto-zeros
+pypto-zeros
 ```

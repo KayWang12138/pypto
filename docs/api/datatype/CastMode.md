@@ -23,4 +23,3 @@ class CastMode(enum.Enum):
      CAST_TRUNC = ...  # 截断舍入，向零方向舍入
      CAST_ODD = ...    # 舍入到奇数，Von Neumann舍入方式
 ```
-

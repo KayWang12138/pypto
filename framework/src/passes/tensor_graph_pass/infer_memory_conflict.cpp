@@ -28,7 +28,8 @@ constexpr size_t DIMENSIONS_2D = 2;
 constexpr size_t DIMENSIONS_3D = 3;
 constexpr size_t DIMENSIONS_4D = 4;
 
-uint32_t GetPowerOfTwo(uint32_t cur) {
+uint32_t GetPowerOfTwo(uint32_t cur)
+{
     uint32_t ret = 1;
     while (ret < cur) {
         ret <<= 1;
@@ -36,13 +37,16 @@ uint32_t GetPowerOfTwo(uint32_t cur) {
     return ret;
 }
 
-bool CheckDynRawShape(const Shape &shape) {
+bool CheckDynRawShape(const Shape& shape)
+{
     return std::any_of(shape.begin(), shape.end(), [](int dim) { return dim < 0; });
 }
-}
+} // namespace
 
-Status InferMemoryConflict::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
+Status InferMemoryConflict::RunOnFunction(Function& function)
+{
+    APASS_LOG_INFO_F(
+        Elements::Operation, "Start InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     if (Init(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed.");
         return FAILED;
@@ -59,7 +63,7 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertCopys failed.");
         return FAILED;
     }
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
             auto output = op.GetOOperands()[0];
             auto outOp = *output->GetConsumers().begin();
@@ -75,17 +79,19 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
             auto inEntry = viewTypeTable.find(inType);
             auto outEntry = viewTypeTable.find(outType);
             if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+                APASS_LOG_ERROR_F(
+                    Elements::Operation,
+                    "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
                 return FAILED;
             }
             if (inEntry->second < outEntry->second) {
-                if (vecTypeTile.tile[vecTypeTile.tile.size()-1] % (outEntry->second / inEntry->second) != 0) {
+                if (vecTypeTile.tile[vecTypeTile.tile.size() - 1] % (outEntry->second / inEntry->second) != 0) {
                     APASS_LOG_ERROR_F(Elements::Operation, "vecTypeTile tile dim n is not even.");
                     return FAILED;
                 }
-                vecTypeTile.tile[vecTypeTile.tile.size()-1] /= (outEntry->second / inEntry->second);
+                vecTypeTile.tile[vecTypeTile.tile.size() - 1] /= (outEntry->second / inEntry->second);
             } else {
-                vecTypeTile.tile[vecTypeTile.tile.size()-1] *= (inEntry->second / outEntry->second);
+                vecTypeTile.tile[vecTypeTile.tile.size() - 1] *= (inEntry->second / outEntry->second);
             }
             viewTypeTile.SetVecTile(vecTypeTile);
             outOp->UpdateTileShape(viewTypeTile);
@@ -95,7 +101,8 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor) {
+bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr& inTensor, const LogicalTensorPtr& outTensor)
+{
     if (inTensor->Symbol() == outTensor->Symbol()) {
         return false;
     }
@@ -106,7 +113,8 @@ bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr &inTensor, const 
 }
 
 bool InferMemoryConflict::CheckRawShapeConflict(
-    const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor, const Operation *reshapeOp) {
+    const LogicalTensorPtr& inTensor, const LogicalTensorPtr& outTensor, const Operation* reshapeOp)
+{
     int64_t inRawSize = 1;
     int64_t outRawSize = 1;
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
@@ -118,7 +126,9 @@ bool InferMemoryConflict::CheckRawShapeConflict(
     auto consumerOp = *inTensor->GetConsumers().begin();
     if (consumerOp->GetOpcode() == Opcode::OP_VIEW_TYPE) {
         if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
             return true;
         }
         if (inEntry->second > outEntry->second) {
@@ -129,14 +139,18 @@ bool InferMemoryConflict::CheckRawShapeConflict(
     }
     for (size_t i = 0; i < inShape.size(); ++i) {
         if (inShape[i] < 0) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "inShape[%zu] = %ld, dynamic shape should trigger conflict", i, static_cast<long>(inShape[i]));
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "inShape[%zu] = %ld, dynamic shape should trigger conflict", i,
+                static_cast<long>(inShape[i]));
             return true;
         }
         inRawSize *= inShape[i];
     }
     for (size_t i = 0; i < outShape.size(); ++i) {
         if (outShape[i] < 0) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "outShape[%zu] = %ld, dynamic shape should trigger conflict", i, static_cast<long>(outShape[i]));
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "outShape[%zu] = %ld, dynamic shape should trigger conflict", i,
+                static_cast<long>(outShape[i]));
             return true;
         }
         outRawSize *= outShape[i];
@@ -147,19 +161,22 @@ bool InferMemoryConflict::CheckRawShapeConflict(
         return false;
     }
     if (inRawSize > 0 && outRawSize > 0 && inRawSize != outRawSize) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "The raw size of input is %ld, the raw size of output is %ld", inRawSize, outRawSize);
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "The raw size of input is %ld, the raw size of output is %ld", inRawSize, outRawSize);
         return true;
     }
     return false;
 }
 
-bool InferMemoryConflict::CheckTransmit(Operation &curOp) {
+bool InferMemoryConflict::CheckTransmit(Operation& curOp)
+{
     LogicalTensorPtr curTensor;
-    std::set<Opcode> NonCalcNode = {Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW_TYPE};
+    std::set<Opcode> NonCalcNode = {
+        Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST, Opcode::OP_VIEW_TYPE};
     bool transmit = (NonCalcNode.find(curOp.GetOpcode()) != NonCalcNode.end());
     if (curOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
         curTensor = *(curOp.GetIOperands().begin());
-        for (const auto &producer : curTensor->GetProducers()) {
+        for (const auto& producer : curTensor->GetProducers()) {
             if (producer->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
                 transmit = false;
             }
@@ -168,17 +185,21 @@ bool InferMemoryConflict::CheckTransmit(Operation &curOp) {
     return transmit;
 }
 
-bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
+bool InferMemoryConflict::IsValidTileShape(const Operation& op) const
+{
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s", 
-                            op.GetOpcodeStr().c_str(), op.GetOpMagic(),
-                            input->DumpType().c_str(), op.GetTileShape().ToString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation,
+            "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), input->DumpType().c_str(),
+            op.GetTileShape().ToString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
         return false;
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "The size info of %s[%d]: input shape: %s, tile size: %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
-            input->DumpType().c_str(), op.GetTileShape().ToString(TileType::VEC).c_str());
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "The size info of %s[%d]: input shape: %s, tile size: %s", op.GetOpcodeStr().c_str(),
+        op.GetOpMagic(), input->DumpType().c_str(), op.GetTileShape().ToString(TileType::VEC).c_str());
     return true;
 }
 
@@ -187,7 +208,8 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 1. View -> Reshape -> MatMul (MatMul 的输入只有一个，且为当前处理的reshape)
 2. MatMul ->Reshape -> Assemble (MatMul 的输出只有一个，且为当前处理的reshape)
 */
-bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr& reshapeIn, const LogicalTensorPtr& reshapeOut)
+{
     if (reshapeIn->GetProducers().empty() || reshapeOut->GetConsumers().empty()) {
         return false;
     }
@@ -200,8 +222,9 @@ bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const
         OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) {
         auto matmulIn = consumer->GetIOperands().front();
         return matmulIn->GetProducers().size() == 1;
-    } else if (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL &&
-               consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+    } else if (
+        OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL &&
+        consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
         auto matmulOut = producer->GetOOperands().front();
         return matmulOut->GetConsumers().size() == 1;
     }
@@ -209,7 +232,8 @@ bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const
 }
 
 // batch MatMul优化pattern，不插入register copy
-bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr& reshapeIn, const LogicalTensorPtr& reshapeOut)
+{
     if (!reshapeIn || !reshapeOut)
         return false;
     Shape inRawShape = reshapeIn->GetRawTensor()->GetRawShape();
@@ -222,13 +246,15 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
         return false;
     }
 
-    const auto &inputShape = reshapeIn->GetShape();
-    const auto &outputShape = reshapeOut->GetShape();
+    const auto& inputShape = reshapeIn->GetShape();
+    const auto& outputShape = reshapeOut->GetShape();
     const size_t inputDims = inputShape.size();
     const size_t outputDims = outputShape.size();
-    
-    if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS || inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) return false;
-    
+
+    if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS || inputDims > MAX_DIMENSIONS ||
+        outputDims > MAX_DIMENSIONS)
+        return false;
+
     // 验证总元素数是否相等（reshape的基本要求）
     if (std::accumulate(inputShape.begin(), inputShape.end(), int64_t{1}, std::multiplies<int64_t>()) !=
         std::accumulate(outputShape.begin(), outputShape.end(), int64_t{1}, std::multiplies<int64_t>())) {
@@ -237,45 +263,40 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
 
     // 编码维度对：输入维度在高位，输出维度在低位
     const uint32_t dimensionPair = (inputDims << 4) | outputDims;
-    
+
     switch (dimensionPair) {
         // 4D转2D：[1, 1, H, W] -> [H, W]
         case (DIMENSIONS_4D << 4) | DIMENSIONS_2D: {
-            return inputShape[0] == 1 && 
-                   inputShape[1] == 1 &&
-                   inputShape[2] == outputShape[0] &&
+            return inputShape[0] == 1 && inputShape[1] == 1 && inputShape[2] == outputShape[0] &&
                    inputShape[3] == outputShape[1];
         }
-        
+
         // 2D转4D：[H, W] -> [1, 1, H, W]
         case (DIMENSIONS_2D << 4) | DIMENSIONS_4D: {
-            return outputShape[0] == 1 && 
-                   outputShape[1] == 1 &&
-                   inputShape[0] == outputShape[2] &&
+            return outputShape[0] == 1 && outputShape[1] == 1 && inputShape[0] == outputShape[2] &&
                    inputShape[1] == outputShape[3];
         }
-        
+
         // 3D转2D：[1, H, W] -> [H, W]
         case (DIMENSIONS_3D << 4) | DIMENSIONS_2D: {
-            return inputShape[0] == 1 &&
-                   inputShape[1] == outputShape[0] &&
-                   inputShape[2] == outputShape[1];
+            return inputShape[0] == 1 && inputShape[1] == outputShape[0] && inputShape[2] == outputShape[1];
         }
-        
+
         // 2D转3D：[H, W] -> [1, H, W]
         case (DIMENSIONS_2D << 4) | DIMENSIONS_3D: {
-            return outputShape[0] == 1 &&
-                   inputShape[0] == outputShape[1] &&
-                   inputShape[1] == outputShape[2];
+            return outputShape[0] == 1 && inputShape[0] == outputShape[1] && inputShape[1] == outputShape[2];
         }
-        
+
         default:
             return false;
     }
 }
 
-Status InferMemoryConflict::UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors) {
-    for (const auto &outputTensor : consumer->GetOOperands()) {
+Status InferMemoryConflict::UpdateForwardTensor(
+    Function& function, const LogicalTensorPtr& curTensor, Operation* consumer,
+    std::queue<LogicalTensorPtr>& curTensors)
+{
+    for (const auto& outputTensor : consumer->GetOOperands()) {
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
             if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, consumer)) {
@@ -300,8 +321,10 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
     return SUCCESS;
 }
 
-Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTensor, Operation* producer, std::queue<LogicalTensorPtr> &curTensors) {
-    for (auto &inputTensor : producer->GetIOperands()) {
+Status InferMemoryConflict::UpdateBackwardTensor(
+    const LogicalTensorPtr& curTensor, Operation* producer, std::queue<LogicalTensorPtr>& curTensors)
+{
+    for (auto& inputTensor : producer->GetIOperands()) {
         int index = 2;
         if (producer->GetOpcode() == Opcode::OP_INDEX_OUTCAST && producer->GetIOperandIndex(inputTensor) != index) {
             continue;
@@ -330,15 +353,16 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
     return SUCCESS;
 }
 
-Status InferMemoryConflict::ForwardPropagation(Function &function) {
+Status InferMemoryConflict::ForwardPropagation(Function& function)
+{
     std::queue<LogicalTensorPtr> curTensors;
-    for (const auto &incast : function.GetIncast()) {
+    for (const auto& incast : function.GetIncast()) {
         curTensors.push(incast);
     }
     while (!curTensors.empty()) {
         auto curTensor = curTensors.front();
         curTensors.pop();
-        for (const auto &consumer : curTensor->GetConsumers()) {
+        for (const auto& consumer : curTensor->GetConsumers()) {
             if (!CheckTransmit(*consumer)) {
                 continue;
             }
@@ -355,15 +379,16 @@ Status InferMemoryConflict::ForwardPropagation(Function &function) {
     return SUCCESS;
 }
 
-Status InferMemoryConflict::BackwardPropagation(Function &function) {
+Status InferMemoryConflict::BackwardPropagation(Function& function)
+{
     std::queue<LogicalTensorPtr> curTensors;
-    for (const auto &outcast : function.GetOutcast()) {
+    for (const auto& outcast : function.GetOutcast()) {
         curTensors.push(outcast);
     }
     while (!curTensors.empty()) {
         auto curTensor = curTensors.front();
         curTensors.pop();
-        for (const auto &producer : curTensor->GetProducers()) {
+        for (const auto& producer : curTensor->GetProducers()) {
             if (!CheckTransmit(*producer)) {
                 continue;
             }
@@ -376,7 +401,8 @@ Status InferMemoryConflict::BackwardPropagation(Function &function) {
     return SUCCESS;
 }
 
-Status InferMemoryConflict::SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile) {
+Status InferMemoryConflict::SetDefaultShape(const LogicalTensorPtr& tensor, std::vector<int64_t>& defaultTile)
+{
     int64_t maximalTileSize = 16384;
     int64_t alignTailSize = 32;
     Shape shape = tensor->GetShape();
@@ -397,7 +423,8 @@ Status InferMemoryConflict::SetDefaultShape(const LogicalTensorPtr &tensor, std:
     return SUCCESS;
 }
 
-TileShape InferMemoryConflict::ObtainTileShape(const std::unordered_set<Operation *> &origOps) {
+TileShape InferMemoryConflict::ObtainTileShape(const std::unordered_set<Operation*>& origOps)
+{
     TileShape tile;
     if (origOps.empty()) {
         return tile;
@@ -406,7 +433,7 @@ TileShape InferMemoryConflict::ObtainTileShape(const std::unordered_set<Operatio
     if (origOps.size() == 1) {
         return base;
     }
-    for (const auto &origOp : origOps) {
+    for (const auto& origOp : origOps) {
         if (origOp->GetTileShape().GetVecTile().tile == base.GetVecTile().tile) {
             return tile;
         }
@@ -414,11 +441,14 @@ TileShape InferMemoryConflict::ObtainTileShape(const std::unordered_set<Operatio
     return base;
 }
 
-Status InferMemoryConflict::InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile) {
+Status InferMemoryConflict::InferTileShape(
+    Operation& op, const LogicalTensorPtr& tensor, TileShape parentTile, Shape& reshapeTile)
+{
     auto tileShapeSize = parentTile.GetVecTile().size();
     auto tensorSize = tensor->GetShape().size();
     if (tileShapeSize == 0 || tileShapeSize != tensorSize) {
-        APASS_LOG_WARN_F(Elements::Operation, "Inserted op[%d]'s producer/consumer op has no tile shape.", op.GetOpMagic());
+        APASS_LOG_WARN_F(
+            Elements::Operation, "Inserted op[%d]'s producer/consumer op has no tile shape.", op.GetOpMagic());
         TileShape tile;
         Shape defaultTile;
         if (!reshapeTile.empty() && reshapeTile.size() == tensorSize) {
@@ -436,21 +466,24 @@ Status InferMemoryConflict::InferTileShape(Operation &op, const LogicalTensorPtr
         op.UpdateTileShape(parentTile);
     }
     if (!IsValidTileShape(op)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Invalid tile size for %s[%d]. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "Invalid tile size for %s[%d]. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+            GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
 }
 
-Status InferMemoryConflict::ObtainReshapeTile(Operation &op, Shape &inTileShape, Shape &outTileShape) {
+Status InferMemoryConflict::ObtainReshapeTile(Operation& op, Shape& inTileShape, Shape& outTileShape)
+{
     if (op.GetOpcode() == Opcode::OP_RESHAPE) {
-        //同时为空，证明对端不存在可用的tileshape
+        // 同时为空，证明对端不存在可用的tileshape
         if (inTileShape.empty() && outTileShape.empty()) {
             return SUCCESS;
         }
         if (!inTileShape.empty() && !op.GetOOperands()[0]->GetConsumers().empty()) {
             auto consumerOp = *op.GetOOperands()[0]->GetConsumers().begin();
-            
+
             auto vec = consumerOp->GetTileShape().GetVecTile();
             outTileShape = vec.tile;
         }
@@ -459,13 +492,16 @@ Status InferMemoryConflict::ObtainReshapeTile(Operation &op, Shape &inTileShape,
 }
 
 // 在OP_RESHAPE前面插入OP_REGISTER_COPY
-Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
+Status InferMemoryConflict::InsertPrecededCopys(Function& function)
+{
     for (const auto op : preregcopys) {
         LogicalTensorPtr inputTensor = op->GetIOperands().front();
-        std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(inputTensor->Datatype(), inputTensor->GetShape());
+        std::shared_ptr<RawTensor> newRawTensor =
+            std::make_shared<RawTensor>(inputTensor->Datatype(), inputTensor->GetShape());
         Offset newOffset(inputTensor->GetShape().size(), 0);
-        LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
-        auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
+        LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
+            function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
+        auto& copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
@@ -484,13 +520,16 @@ Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
     return SUCCESS;
 }
 
-Status InferMemoryConflict::InsertPostCopys(Function &function) {
+Status InferMemoryConflict::InsertPostCopys(Function& function)
+{
     for (const auto op : postregcopys) {
         LogicalTensorPtr outputTensor = op->GetOOperands().front();
-        std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(outputTensor->Datatype(), outputTensor->GetShape());
+        std::shared_ptr<RawTensor> newRawTensor =
+            std::make_shared<RawTensor>(outputTensor->Datatype(), outputTensor->GetShape());
         Offset newOffset(outputTensor->GetShape().size(), 0);
-        LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, outputTensor->GetShape(), outputTensor->GetDynValidShape());
-        auto &copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {newTensor}, {outputTensor});
+        LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
+            function, newRawTensor, newOffset, outputTensor->GetShape(), outputTensor->GetDynValidShape());
+        auto& copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {newTensor}, {outputTensor});
         APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (ObtainReshapeTile(*op, ObtainTileShape(op->ProducerOps()).GetVecTile().tile, reshapeTile) != SUCCESS) {
@@ -507,7 +546,8 @@ Status InferMemoryConflict::InsertPostCopys(Function &function) {
     return SUCCESS;
 }
 
-Status InferMemoryConflict::InsertCopys(Function &function) {
+Status InferMemoryConflict::InsertCopys(Function& function)
+{
     if (InsertPrecededCopys(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertPrecededCopys failed.");
         return FAILED;
@@ -519,11 +559,12 @@ Status InferMemoryConflict::InsertCopys(Function &function) {
     return SUCCESS;
 }
 
-Status InferMemoryConflict::Init(Function &function) {
-    for (auto &incast : function.GetIncast()) {
+Status InferMemoryConflict::Init(Function& function)
+{
+    for (auto& incast : function.GetIncast()) {
         memoryInfo[incast] = incast;
     }
-    for (auto &outcast : function.GetOutcast()) {
+    for (auto& outcast : function.GetOutcast()) {
         memoryInfo[outcast] = outcast;
     }
     return SUCCESS;

@@ -24,7 +24,8 @@ using namespace npu::tile_fwk;
 
 class LLamaLayerTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 public:
-    void SetUp() override {
+    void SetUp() override
+    {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
         aclInit(nullptr);
         rtSetDevice(GetDeviceIdByEnvVar());
@@ -38,7 +39,8 @@ public:
     }
 };
 
-void RunLLamaLayer(const AttentionDims &dimsCfg, float threadhold = 0.001f) {
+void RunLLamaLayer(const AttentionDims& dimsCfg, float threadhold = 0.001f)
+{
     int b = dimsCfg.b;
     int n = dimsCfg.n;
     int s = dimsCfg.s;
@@ -47,30 +49,32 @@ void RunLLamaLayer(const AttentionDims &dimsCfg, float threadhold = 0.001f) {
     int size1 = n * d * n * d;
     vector<float> golden(size0);
     string basepath = GetGoldenDir();
-    void *h_ptr = readToDev(basepath + "/hiddenStates.bin", size0);
-    void *aw_ptr = readToDev<uint16_t>(basepath + "/attnWeight.bin", size1 * 3);
-    void *dw_ptr = readToDev<uint16_t>(basepath + "/denseWeight.bin", size1);
-    void *fw_ptr = readToDev<uint16_t>(basepath + "/ffnWeight.bin", size1 * 3);
+    void* h_ptr = readToDev(basepath + "/hiddenStates.bin", size0);
+    void* aw_ptr = readToDev<uint16_t>(basepath + "/attnWeight.bin", size1 * 3);
+    void* dw_ptr = readToDev<uint16_t>(basepath + "/denseWeight.bin", size1);
+    void* fw_ptr = readToDev<uint16_t>(basepath + "/ffnWeight.bin", size1 * 3);
     readInput(basepath + "/llama_layer_golden_res.bin", golden);
     uint64_t outputSize = size0 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("LLAMALAYER") {
-        Tensor H(DataType::DT_FP32, {b * s, n * d}, (uint8_t *)h_ptr, "H");
-        Tensor AW(DataType::DT_FP16, {n * d, n * d * 3}, (uint8_t *)aw_ptr, "AW");
-        Tensor DW(DataType::DT_FP16, {n * d, n * d}, (uint8_t *)dw_ptr, "DW");
-        Tensor FW(DataType::DT_FP16, {n * d, n * d * 3}, (uint8_t *)fw_ptr, "FW");
-        Tensor Res(DataType::DT_FP32, {b * s, n * d},  out_ptr, "Res");
+    PROGRAM("LLAMALAYER")
+    {
+        Tensor H(DataType::DT_FP32, {b * s, n * d}, (uint8_t*)h_ptr, "H");
+        Tensor AW(DataType::DT_FP16, {n * d, n * d * 3}, (uint8_t*)aw_ptr, "AW");
+        Tensor DW(DataType::DT_FP16, {n * d, n * d}, (uint8_t*)dw_ptr, "DW");
+        Tensor FW(DataType::DT_FP16, {n * d, n * d * 3}, (uint8_t*)fw_ptr, "FW");
+        Tensor Res(DataType::DT_FP32, {b * s, n * d}, out_ptr, "Res");
         ConfigManager::Instance();
         config::SetBuildStatic(true);
-        FUNCTION("LLAMA", {H, AW, DW, FW, Res}) {
+        FUNCTION("LLAMA", {H, AW, DW, FW, Res})
+        {
             Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG);
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::cout << std::hex << "addr----" << (uint64_t)out_ptr << std::endl;
     std::vector<float> res(size0);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
     int ret = resultCmp(golden, res, threadhold);
     EXPECT_EQ(ret, true);
 }

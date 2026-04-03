@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -65,4 +66,3 @@ out = pypto.eq(a, b)
 输入数据b: [2.0 2.0 2.0]
 输出数据out: [False, True, False]
 ```
-

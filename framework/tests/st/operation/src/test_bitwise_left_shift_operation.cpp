@@ -18,22 +18,25 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct BitwiseLeftShiftOpFuncArgs : public OpFuncArgs {
-    BitwiseLeftShiftOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
-        : viewShape_(viewShape), tileShape_(tileShape) {}
+    BitwiseLeftShiftOpFuncArgs(const std::vector<int64_t>& viewShape, const std::vector<int64_t> tileShape)
+        : viewShape_(viewShape), tileShape_(tileShape)
+    {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
 };
 
 struct BitwiseLeftShiftOpMetaData {
-    explicit BitwiseLeftShiftOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
-        : opFunc_(opFunc), test_data_(test_data) {}
+    explicit BitwiseLeftShiftOpMetaData(const OpFunc& opFunc, const nlohmann::json& test_data)
+        : opFunc_(opFunc), test_data_(test_data)
+    {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-int BroadcastAxis(const std::vector<SymbolicScalar> &inputsShape, const std::vector<SymbolicScalar> &outputsShape) {
+int BroadcastAxis(const std::vector<SymbolicScalar>& inputsShape, const std::vector<SymbolicScalar>& outputsShape)
+{
     int brcAxis = -1;
     for (size_t i = 0; i < inputsShape.size(); i++) {
         if (inputsShape[i] != outputsShape[i]) {
@@ -43,8 +46,10 @@ int BroadcastAxis(const std::vector<SymbolicScalar> &inputsShape, const std::vec
     return brcAxis;
 }
 
-int BroadcastTensor(const std::vector<SymbolicScalar> &firstInputsShape, const std::vector<SymbolicScalar> &secondInputsShape, 
-                    const std::vector<SymbolicScalar> &outputsShape) {
+int BroadcastTensor(
+    const std::vector<SymbolicScalar>& firstInputsShape, const std::vector<SymbolicScalar>& secondInputsShape,
+    const std::vector<SymbolicScalar>& outputsShape)
+{
     for (size_t i = 0; i < firstInputsShape.size(); i++) {
         if (firstInputsShape[i] != outputsShape[i]) {
             return 0;
@@ -56,8 +61,10 @@ int BroadcastTensor(const std::vector<SymbolicScalar> &firstInputsShape, const s
     return -1;
 }
 
-void UpdateInputBrcViewShape(std::vector<int64_t> &inputBrcViewShape, const std::vector<SymbolicScalar> &inputsShape, 
-                             const std::vector<SymbolicScalar> &outputsShape) {
+void UpdateInputBrcViewShape(
+    std::vector<int64_t>& inputBrcViewShape, const std::vector<SymbolicScalar>& inputsShape,
+    const std::vector<SymbolicScalar>& outputsShape)
+{
     for (size_t i = 0; i < inputsShape.size(); i++) {
         if (inputsShape[i] != outputsShape[i]) {
             inputBrcViewShape[i] = inputsShape[i].Concrete();
@@ -66,13 +73,14 @@ void UpdateInputBrcViewShape(std::vector<int64_t> &inputBrcViewShape, const std:
 }
 
 static void BitwiseLeftShiftOperationExeFunc2Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
-    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]})
+    {
         std::vector<SymbolicScalar> firstInputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1]};
         std::vector<SymbolicScalar> secondInputsShape = {inputs[1].GetShape()[0], inputs[1].GetShape()[1]};
         std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1]};
-        auto args = static_cast<const BitwiseLeftShiftOpFuncArgs *>(opArgs);
+        auto args = static_cast<const BitwiseLeftShiftOpFuncArgs*>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1]};
         std::vector<int64_t> firstInputViewShape = viewShape;
         std::vector<int64_t> secondInputViewShape = viewShape;
@@ -91,12 +99,16 @@ static void BitwiseLeftShiftOperationExeFunc2Dims(
         }
         const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                firstInputValidShape = {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
-                                        std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1])}; 
-                secondInputValidShape = {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
-                                         std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1])};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                firstInputValidShape = {
+                    std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
+                    std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1])};
+                secondInputValidShape = {
+                    std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
+                    std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1])};
                 firstOffset = {bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1]};
                 secondOffset = {bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1]};
 
@@ -118,13 +130,17 @@ static void BitwiseLeftShiftOperationExeFunc2Dims(
 }
 
 static void BitwiseLeftShiftOperationExeFunc3Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
-    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        std::vector<SymbolicScalar> firstInputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2]};
-        std::vector<SymbolicScalar> secondInputsShape = {inputs[1].GetShape()[0], inputs[1].GetShape()[1], inputs[1].GetShape()[2]};
-        std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2]};
-        auto args = static_cast<const BitwiseLeftShiftOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]})
+    {
+        std::vector<SymbolicScalar> firstInputsShape = {
+            inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2]};
+        std::vector<SymbolicScalar> secondInputsShape = {
+            inputs[1].GetShape()[0], inputs[1].GetShape()[1], inputs[1].GetShape()[2]};
+        std::vector<SymbolicScalar> outputsShape = {
+            outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2]};
+        auto args = static_cast<const BitwiseLeftShiftOpFuncArgs*>(opArgs);
         std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
         std::vector<int64_t> firstInputViewShape = viewShape;
         std::vector<int64_t> secondInputViewShape = viewShape;
@@ -144,17 +160,24 @@ static void BitwiseLeftShiftOperationExeFunc3Dims(
         const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
         const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    firstInputValidShape = {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
-                                            std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
-                                            std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2])}; 
-                    secondInputValidShape = {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
-                                             std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
-                                             std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2])};
-                    firstOffset = {bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1], nIdx * firstInputViewShape[2]};
-                    secondOffset = {bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1], nIdx * secondInputViewShape[2]};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    firstInputValidShape = {
+                        std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
+                        std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
+                        std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2])};
+                    secondInputValidShape = {
+                        std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
+                        std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
+                        std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2])};
+                    firstOffset = {
+                        bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1], nIdx * firstInputViewShape[2]};
+                    secondOffset = {
+                        bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1], nIdx * secondInputViewShape[2]};
 
                     if (brcTensor == 0 && brcAxis != -1) {
                         firstInputValidShape[brcAxis] = firstInputViewShape[brcAxis];
@@ -175,14 +198,19 @@ static void BitwiseLeftShiftOperationExeFunc3Dims(
 }
 
 static void BitwiseLeftShiftOperationExeFunc4Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-
-    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        std::vector<SymbolicScalar> firstInputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2], inputs[0].GetShape()[3]};
-        std::vector<SymbolicScalar> secondInputsShape = {inputs[1].GetShape()[0], inputs[1].GetShape()[1], inputs[1].GetShape()[2], inputs[1].GetShape()[3]};
-        std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2], outputs[0].GetShape()[3]};
-        auto args = static_cast<const BitwiseLeftShiftOpFuncArgs *>(opArgs);
-        std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2], args->viewShape_[3]};
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]})
+    {
+        std::vector<SymbolicScalar> firstInputsShape = {
+            inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2], inputs[0].GetShape()[3]};
+        std::vector<SymbolicScalar> secondInputsShape = {
+            inputs[1].GetShape()[0], inputs[1].GetShape()[1], inputs[1].GetShape()[2], inputs[1].GetShape()[3]};
+        std::vector<SymbolicScalar> outputsShape = {
+            outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2], outputs[0].GetShape()[3]};
+        auto args = static_cast<const BitwiseLeftShiftOpFuncArgs*>(opArgs);
+        std::vector<int64_t> viewShape = {
+            args->viewShape_[0], args->viewShape_[1], args->viewShape_[2], args->viewShape_[3]};
         std::vector<int64_t> firstInputViewShape = viewShape;
         std::vector<int64_t> secondInputViewShape = viewShape;
         std::vector<SymbolicScalar> firstInputValidShape(4, 0);
@@ -202,20 +230,30 @@ static void BitwiseLeftShiftOperationExeFunc4Dims(
         const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
         const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
         const int mloop = CeilDiv(outputsShape[3], viewShape[3]);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
-                        firstInputValidShape = {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
-                                                std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
-                                                std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2]),
-                                                std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3])}; 
-                        secondInputValidShape = {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
-                                                 std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
-                                                 std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2]),
-                                                 std::min(secondInputsShape[3] - mIdx * secondInputViewShape[3], secondInputViewShape[3])};
-                        firstOffset = {bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1], nIdx * firstInputViewShape[2], mIdx * firstInputViewShape[3]};
-                        secondOffset = {bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1], nIdx * secondInputViewShape[2], mIdx * secondInputViewShape[3]};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1))
+                    {
+                        firstInputValidShape = {
+                            std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
+                            std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
+                            std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2]),
+                            std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3])};
+                        secondInputValidShape = {
+                            std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
+                            std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
+                            std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2]),
+                            std::min(secondInputsShape[3] - mIdx * secondInputViewShape[3], secondInputViewShape[3])};
+                        firstOffset = {
+                            bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1], nIdx * firstInputViewShape[2],
+                            mIdx * firstInputViewShape[3]};
+                        secondOffset = {
+                            bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1],
+                            nIdx * secondInputViewShape[2], mIdx * secondInputViewShape[3]};
 
                         if (brcTensor == 0 && brcAxis != -1) {
                             firstInputValidShape[brcAxis] = firstInputViewShape[brcAxis];
@@ -228,7 +266,9 @@ static void BitwiseLeftShiftOperationExeFunc4Dims(
                         Tensor tileTensor1 = View(inputs[1], secondInputViewShape, secondInputValidShape, secondOffset);
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = BitwiseLeftShift(tileTensor0, tileTensor1);
-                        Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2],  mIdx * viewShape[3]}, outputs[0]);
+                        Assemble(
+                            res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], mIdx * viewShape[3]},
+                            outputs[0]);
                     }
                 }
             }
@@ -236,13 +276,18 @@ static void BitwiseLeftShiftOperationExeFunc4Dims(
     }
 }
 
-class BitwiseLeftShiftOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<BitwiseLeftShiftOpMetaData> {};
+class BitwiseLeftShiftOperationTest
+    : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<BitwiseLeftShiftOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestBitwiseLeftShift, BitwiseLeftShiftOperationTest,
+INSTANTIATE_TEST_SUITE_P(
+    TestBitwiseLeftShift, BitwiseLeftShiftOperationTest,
     ::testing::ValuesIn(GetOpMetaData<BitwiseLeftShiftOpMetaData>(
-        {BitwiseLeftShiftOperationExeFunc2Dims, BitwiseLeftShiftOperationExeFunc3Dims, BitwiseLeftShiftOperationExeFunc4Dims}, "BitwiseLeftShift")));
+        {BitwiseLeftShiftOperationExeFunc2Dims, BitwiseLeftShiftOperationExeFunc3Dims,
+         BitwiseLeftShiftOperationExeFunc4Dims},
+        "BitwiseLeftShift")));
 
-TEST_P(BitwiseLeftShiftOperationTest, TestBitwiseLeftShift) {
+TEST_P(BitwiseLeftShiftOperationTest, TestBitwiseLeftShift)
+{
     auto test_data = GetParam().test_data_;
     auto args = BitwiseLeftShiftOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
     auto testCase = CreateTestCaseDesc<BitwiseLeftShiftOpMetaData>(GetParam(), &args);

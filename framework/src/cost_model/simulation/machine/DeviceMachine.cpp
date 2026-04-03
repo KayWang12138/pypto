@@ -32,7 +32,6 @@ using Json = nlohmann::json;
 using namespace std::string_literals;
 using namespace std::chrono_literals;
 
-
 namespace CostModel {
 
 void DeviceMachine::Step()
@@ -58,7 +57,7 @@ void DeviceMachine::RunAtBegin()
         taskBuilded = true;
     }
 
-    for (auto &submachine : subMachines) {
+    for (auto& submachine : subMachines) {
         if (submachine->machineType == MachineType::CPU) {
             auto core = std::dynamic_pointer_cast<AICPUMachine>(submachine);
             if (!core->localReadyQueues.Empty()) {
@@ -71,10 +70,7 @@ void DeviceMachine::RunAtBegin()
     }
 }
 
-void DeviceMachine::RunAtEnd()
-{
-    needTerminate = IsTerminate();
-}
+void DeviceMachine::RunAtEnd() { needTerminate = IsTerminate(); }
 
 void DeviceMachine::RunPVModelDeviceTask()
 {
@@ -83,7 +79,8 @@ void DeviceMachine::RunPVModelDeviceTask()
         GetSim()->pv->Run(taskId, function->pSgId);
     }
     taskMap.clear();
-    SIMULATION_LOGI("[Cycle: %lu][Device %lu] run pvmodel execute tasks %zu", GetSim()->GetCycles(), machineId, taskMap.size());
+    SIMULATION_LOGI(
+        "[Cycle: %lu][Device %lu] run pvmodel execute tasks %zu", GetSim()->GetCycles(), machineId, taskMap.size());
 }
 
 void DeviceMachine::SubmitDeviceTask()
@@ -107,9 +104,9 @@ void DeviceMachine::SubmitDeviceTask()
             PushReadyQueue(task->machineType, taskId);
         }
     }
-    SIMULATION_LOGW("[Cycle: %lu][Device %lu] submit a new device task to AICPUs, size = %zu", GetSim()->GetCycles(), machineId, 
-              taskMap.size());
-
+    SIMULATION_LOGW(
+        "[Cycle: %lu][Device %lu] submit a new device task to AICPUs, size = %zu", GetSim()->GetCycles(), machineId,
+        taskMap.size());
 }
 
 // Device Init
@@ -123,7 +120,7 @@ void DeviceMachine::Build()
     readyQueueTotalTid = queueSeq + coreTid;
     GetSim()->GetLogger()->SetThreadName(queueId, readyQueuePid, readyQueueTotalTid);
     queueSeq++;
-    for (const auto &machineTypeStr : config.submachineTypes) {
+    for (const auto& machineTypeStr : config.submachineTypes) {
         MachineType mType = ToMachineType(machineTypeStr);
         if (mType != MachineType::UNKNOWN) {
             readyQueues.try_emplace(mType);
@@ -141,10 +138,7 @@ void DeviceMachine::Build()
     tileState = std::make_shared<TileState>();
 }
 
-std::shared_ptr<SimSys> DeviceMachine::GetSim()
-{
-    return sim;
-}
+std::shared_ptr<SimSys> DeviceMachine::GetSim() { return sim; }
 
 void DeviceMachine::Xfer()
 {
@@ -169,10 +163,8 @@ bool DeviceMachine::IsTerminate()
     if (sim->config.calendarMode != static_cast<uint64_t>(CalendarMode::DEVICE)) {
         return true;
     }
-    bool readyQueueIsEmpty = std::all_of(
-        readyQueues.begin(), readyQueues.end(),
-        [](const auto& pair) { return pair.second.empty(); }
-    );
+    bool readyQueueIsEmpty =
+        std::all_of(readyQueues.begin(), readyQueues.end(), [](const auto& pair) { return pair.second.empty(); });
     return readyQueueIsEmpty && readySet.empty() && taskMap.empty() && taskMapQueue.empty();
 }
 
@@ -202,12 +194,14 @@ void DeviceMachine::InitFunctions()
     }
 }
 
-void DeviceMachine::BuildLeafFunctionTasks() {
+void DeviceMachine::BuildLeafFunctionTasks()
+{
     sim->enableExpectValue = false;
     TaskMap taskM;
     auto functionCache = GetSim()->functionCache.cache;
-    for (auto &[hash, func] : functionCache) {
-        if (func->funcName.find("leaf") == std::string::npos) continue;
+    for (auto& [hash, func] : functionCache) {
+        if (func->funcName.find("leaf") == std::string::npos)
+            continue;
         auto subtask = std::make_shared<Task>();
         subtask->status = false;
         subtask->functionHash = hash;
@@ -221,7 +215,9 @@ void DeviceMachine::BuildLeafFunctionTasks() {
     }
     taskMapQueue.push_back(taskM);
     GetSim()->ProcessTaskMap(taskM);
-    SIMULATION_LOGI("[Cycle: %lu][DeviceMachine][BuildLeafFunctionTasks] Machine %lu  build subtasks done", static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(machineId));
+    SIMULATION_LOGI(
+        "[Cycle: %lu][DeviceMachine][BuildLeafFunctionTasks] Machine %lu  build subtasks done",
+        static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(machineId));
 }
 
 void DeviceMachine::BuildSubtasksFromRootFuncTopo()
@@ -230,7 +226,7 @@ void DeviceMachine::BuildSubtasksFromRootFuncTopo()
     auto functionCache = GetSim()->functionCache.cache;
     auto startFuncHash = GetSim()->startFuncHash;
     auto startFunc = functionCache[startFuncHash];
-    for (const auto &topoEntry : startFunc->inputTopo) {
+    for (const auto& topoEntry : startFunc->inputTopo) {
         auto subtask = std::make_shared<Task>();
         subtask->status = false;
         subtask->functionHash = topoEntry.calleeHash;
@@ -247,31 +243,33 @@ void DeviceMachine::BuildSubtasksFromRootFuncTopo()
             subtask->semanticLabel = startFunc->tileOps[topoEntry.eSgId]->semanticLabel;
         }
         GetSim()->taskToHash[subtask->taskId] = subtask->functionHash;
-        for (auto &out : topoEntry.outGraph) {
+        for (auto& out : topoEntry.outGraph) {
             subtask->successors.push_back(out);
         }
         taskM.insert({subtask->taskId, subtask});
     }
-    for (const auto &it : taskM) {
-        for (auto &successor : it.second->successors) {
+    for (const auto& it : taskM) {
+        for (auto& successor : it.second->successors) {
             taskM.at(successor)->predecessors.push_back(it.first);
         }
     }
 
-    for (const auto &it : taskM) {
+    for (const auto& it : taskM) {
         SIMULATION_LOGI("Task ID: %lu", static_cast<unsigned long>(it.second->taskId));
         SIMULATION_LOGI("  Remaining task num: %d", it.second->remainingPredecessors);
-        for (auto &pre : it.second->predecessors) {
+        for (auto& pre : it.second->predecessors) {
             SIMULATION_LOGI("  Predecessor: %lu", static_cast<unsigned long>(pre));
         }
-        for (auto &suc : it.second->successors) {
+        for (auto& suc : it.second->successors) {
             SIMULATION_LOGI("  Successor: %lu", static_cast<unsigned long>(suc));
         }
     }
     taskMapQueue.push_back(taskM);
     GetSim()->ProcessTaskMap(taskM);
 
-    SIMULATION_LOGI("[Cycle: %lu][DeviceMachine][build_subtasks_from_topo] Machine %lu  build subtasks done", static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(machineId));
+    SIMULATION_LOGI(
+        "[Cycle: %lu][DeviceMachine][build_subtasks_from_topo] Machine %lu  build subtasks done",
+        static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(machineId));
 }
 
 void DeviceMachine::BuildSubTasksFromTopoJson()
@@ -282,13 +280,17 @@ void DeviceMachine::BuildSubTasksFromTopoJson()
 
     CostModel::ParseInput parser;
     parser.ParseTopoJson(config.submitTopoPath, taskMapQueue);
-    SIMULATION_LOGI("[Cycle: %lu][DeviceMachine][BuildSubTasksFromTopoJson] Machine %lu  build subtasks done, taskMapQueue size = %zu", 
-            static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(machineId), taskMapQueue.size());
+    SIMULATION_LOGI(
+        "[Cycle: %lu][DeviceMachine][BuildSubTasksFromTopoJson] Machine %lu  build subtasks done, taskMapQueue size = "
+        "%zu",
+        static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(machineId), taskMapQueue.size());
     uint64_t cnt = 0;
-    for (auto &taskM : taskMapQueue) {
+    for (auto& taskM : taskMapQueue) {
         GetSim()->ProcessTaskMap(taskM, std::to_string(cnt));
         cnt++;
-        SIMULATION_LOGI("[Cycle: %lu][DeviceMachine] taskMap Size: %zu", static_cast<unsigned long>(GetSim()->GetCycles()), taskM.size());
+        SIMULATION_LOGI(
+            "[Cycle: %lu][DeviceMachine] taskMap Size: %zu", static_cast<unsigned long>(GetSim()->GetCycles()),
+            taskM.size());
     }
     return;
 }
@@ -311,28 +313,29 @@ void DeviceMachine::BuildSingleFuncTask()
     taskMapQueue.push_back(taskM);
 }
 
-void DeviceMachine::PrintFunctionTopo(FunctionPtr func) {
+void DeviceMachine::PrintFunctionTopo(FunctionPtr func)
+{
     auto cache = GetSim()->functionCache.cache;
     SIMULATION_LOGI("Function -> %s", func->funcName.c_str());
     SIMULATION_LOGI("incast:");
-    for (const auto &incast : func->incastMagic) {
+    for (const auto& incast : func->incastMagic) {
         SIMULATION_LOGI("%s", func->tileMap[incast]->Dump().c_str());
     }
 
     SIMULATION_LOGI("outcast:");
-    for (const auto &outcast : func->outcastMagic) {
+    for (const auto& outcast : func->outcastMagic) {
         SIMULATION_LOGI("%s", func->tileMap[outcast]->Dump().c_str());
     }
 
-    for (const auto &op: func->tileOps) {
+    for (const auto& op : func->tileOps) {
         SIMULATION_LOGI("%s", op->opcode.c_str());
         SIMULATION_LOGI("incast:");
-        for (auto &incast : op->iOperand) {
+        for (auto& incast : op->iOperand) {
             SIMULATION_LOGI("%s", incast->Dump().c_str());
         }
 
         SIMULATION_LOGI("outcast:");
-        for (auto &outcast : op->oOperand) {
+        for (auto& outcast : op->oOperand) {
             SIMULATION_LOGI("%s", outcast->Dump().c_str());
         }
 
@@ -344,7 +347,8 @@ void DeviceMachine::PrintFunctionTopo(FunctionPtr func) {
     }
 }
 
-void DeviceMachine::PrintTopo() {
+void DeviceMachine::PrintTopo()
+{
     auto cache = GetSim()->functionCache.cache;
     auto startFuncHash = GetSim()->startFuncHash;
     if (startFuncHash == 0) {
@@ -354,9 +358,9 @@ void DeviceMachine::PrintTopo() {
 
     if (func->parentFunction) {
         auto topo = func->parentFunction->topoInfo_;
-        for (auto &e : topo.topology_) {
+        for (auto& e : topo.topology_) {
             SIMULATION_LOGI("[TOPO] %s, %s", std::to_string(e.esgId).c_str(), std::to_string(e.readyState).c_str());
-            for (auto &o : e.outGraph) {
+            for (auto& o : e.outGraph) {
                 SIMULATION_LOGI("[TOPO] out -> %s", std::to_string(o).c_str());
             }
         }
@@ -367,28 +371,28 @@ void DeviceMachine::PrintTopo() {
 
 void DeviceMachine::CalculateFunctionArgTile(FunctionPtr func, std::shared_ptr<TileState> state)
 {
-    for (auto &incast : func->incastMagic) {
+    for (auto& incast : func->incastMagic) {
         TileCalculator::Self().CalculateInput(func->tileMap[incast], state);
     }
 }
 
 void DeviceMachine::PrintFunctionOutputTile(FunctionPtr func, std::shared_ptr<TileState> state)
 {
-    for (auto &outcast : func->outcastMagic) {
+    for (auto& outcast : func->outcastMagic) {
         auto tile = func->tileMap[outcast];
-        auto k = TileState::TileKey(tile->rawMagic, tile->bufType,
-                            tile->shape, tile->offset);
+        auto k = TileState::TileKey(tile->rawMagic, tile->bufType, tile->shape, tile->offset);
         state->Load(k);
     }
 }
 
-void DeviceMachine::CalculateFunctionTileGolden(FunctionPtr func, std::shared_ptr<TileState> local,
-                                                std::shared_ptr<TileState> global, int esgId) {
+void DeviceMachine::CalculateFunctionTileGolden(
+    FunctionPtr func, std::shared_ptr<TileState> local, std::shared_ptr<TileState> global, int esgId)
+{
     auto cache = GetSim()->functionCache.cache;
-    for (const auto &op: func->tileOps) {
+    for (const auto& op : func->tileOps) {
         if (op->IsCall()) {
             auto callee = cache[op->calleeHash];
-            for (auto &incast : op->iOperand) {
+            for (auto& incast : op->iOperand) {
                 auto k = TileState::TileKey(incast->rawMagic, incast->bufType, incast->shape, incast->offset);
                 global->Load(k);
             }
@@ -397,18 +401,18 @@ void DeviceMachine::CalculateFunctionTileGolden(FunctionPtr func, std::shared_pt
             CalculateFunctionTileGolden(callee, l, global, esgId);
             esgId++;
 
-            for (auto &outcast : op->oOperand) {
+            for (auto& outcast : op->oOperand) {
                 auto k = TileState::TileKey(outcast->rawMagic, outcast->bufType, outcast->shape, outcast->offset);
                 global->Load(k);
             }
-        }
-        else {
+        } else {
             TileCalculator::Self().Calculate(op, func->invoke[esgId], local, global);
         }
     }
 }
 
-void DeviceMachine::CalculateTileGolden() {
+void DeviceMachine::CalculateTileGolden()
+{
     if (!sim->enableExpectValue) {
         return;
     }
@@ -482,17 +486,14 @@ void DeviceMachine::BuildReplayInfo()
     }
 }
 
-void DeviceMachine::InsertReadySet(uint64_t taskId)
-{
-    readySet.insert(taskId);
-}
+void DeviceMachine::InsertReadySet(uint64_t taskId) { readySet.insert(taskId); }
 
 void DeviceMachine::CheckHUBTaskReplayInfo(uint64_t taskId)
 {
     size_t hubMachineId = GetSim()->GetHUBCore()->machineId;
-    auto &replayInfoQ = replayTasksInfoMap[hubMachineId];
+    auto& replayInfoQ = replayTasksInfoMap[hubMachineId];
     bool found = false;
-    for (auto &entry : replayInfoQ) {
+    for (auto& entry : replayInfoQ) {
         if (entry.taskId == taskId && entry.seqNo == currentSeq) {
             found = true;
             return;
@@ -503,10 +504,7 @@ void DeviceMachine::CheckHUBTaskReplayInfo(uint64_t taskId)
     }
 }
 
-void DeviceMachine::EraseReadySet(uint64_t taskId)
-{
-    readySet.erase(taskId);
-}
+void DeviceMachine::EraseReadySet(uint64_t taskId) { readySet.erase(taskId); }
 
 bool DeviceMachine::IsReady(uint64_t taskId)
 {
@@ -535,7 +533,7 @@ void DeviceMachine::SetReplayPreEnd()
     GetSim()->ResetCycles(replayPreStartTime);
     GetSim()->ResetStat(false);
     GetSim()->GetLogger()->EraseLogInfo(replayPreStartTime);
-    for (auto &subMachine : subMachines) {
+    for (auto& subMachine : subMachines) {
         subMachine->Reset();
     }
     EnableScaleTaskExecuteTime();
@@ -543,16 +541,16 @@ void DeviceMachine::SetReplayPreEnd()
 
 void DeviceMachine::EnableScaleTaskExecuteTime()
 {
-    for (auto &taskM : taskMapQueue) {
-        for (auto &it : taskM) {
+    for (auto& taskM : taskMapQueue) {
+        for (auto& it : taskM) {
             it.second->scaleExecuteTime = true;
         }
     }
 }
 
-void DeviceMachine::ScaleTaskExecuteTime(ReplayTaskEntry &replayInfo)
+void DeviceMachine::ScaleTaskExecuteTime(ReplayTaskEntry& replayInfo)
 {
-    auto &task = taskMap[replayInfo.taskId];
+    auto& task = taskMap[replayInfo.taskId];
     if (!task->scaleExecuteTime) {
         return;
     }
@@ -568,4 +566,4 @@ void DeviceMachine::ScaleTaskExecuteTime(ReplayTaskEntry &replayInfo)
 void DeviceMachine::Reset() {}
 void DeviceMachine::InitQueueDelay() {}
 void DeviceMachine::StepQueue() {}
-}
+} // namespace CostModel

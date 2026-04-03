@@ -67,4 +67,4 @@ public:
     uint64_t GetQueueNextCycles();
     void LoggerRecordPipeWL(size_t pId, CounterType type);
 };
-}  // namespace CostModel
+} // namespace CostModel

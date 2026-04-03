@@ -36,20 +36,20 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
+TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     int shape0 = 6;
     int shape1 = 1;
@@ -63,16 +63,14 @@ TEST_F(TestCodegenRowSumLine, TestOperationRowSumLineTileTensor) {
     Tensor output(DataType::DT_FP32, outshape, "C");
 
     std::string funcName = "Reduce3dimMoe_TILERENSOR";
-    FUNCTION(funcName, {input_a, output}) {
-        output = Sum(input_a, 1, true);
-    }
+    FUNCTION(funcName, {input_a, output}) { output = Sum(input_a, 1, true); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TRowSumLine<3>(ubTensor_3, ubTensor_1, ubTensor_4);
+    std::string expect = R"!!!(TRowSumLine<3>(ubTensor_2, ubTensor_0, ubTensor_3);
 )!!!";
     CheckStringExist(expect, res);
 }

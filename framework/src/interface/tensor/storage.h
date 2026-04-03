@@ -39,7 +39,7 @@ public:
         return ret;
     }
 
-    static std::shared_ptr<Storage> LoadJson(const nlohmann::json &json)
+    static std::shared_ptr<Storage> LoadJson(const nlohmann::json& json)
     {
         std::shared_ptr<Storage> ret = std::make_shared<Storage>(MemoryType::MEM_UNKNOWN, -1, 0);
         ret->type_ = static_cast<MemoryType>(json["type"].get<int>());
@@ -49,4 +49,4 @@ public:
         return ret;
     }
 };
-}
+} // namespace npu::tile_fwk

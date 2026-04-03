@@ -21,7 +21,8 @@
 namespace npu::tile_fwk {
 constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
 
-inline std::string GetEmitPath(const std::string &name) {
+inline std::string GetEmitPath(const std::string& name)
+{
     std::string dirPath;
     if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(KEY_FIXED_OUTPUT_PATH, false)) {
         dirPath = name;
@@ -34,22 +35,22 @@ inline std::string GetEmitPath(const std::string &name) {
 class MainBlockCondBulider {
 public:
     MainBlockCondBulider();
-    void CollectCallopMainBlockConds(Function *func);
-    void CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>> &argList);
+    void CollectCallopMainBlockConds(Function* func);
+    void CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>>& argList);
     SymbolicScalar BuildMainBlockExpression();
-    static void Gencode(Function *function);
+    static void Gencode(Function* function);
     const std::vector<SymbolicScalar>& GetCondGroup() const;
     const std::unordered_set<std::string>& GetCondStrSet() const;
 
-
 private:
-    void AddUniqueCondition(const SymbolicScalar &newCond);
-    bool CheckShapeEquality(const Shape &shape, const std::vector<SymbolicScalar> &dynShape);
+    void AddUniqueCondition(const SymbolicScalar& newCond);
+    bool CheckShapeEquality(const Shape& shape, const std::vector<SymbolicScalar>& dynShape);
 
-    bool GetValidShapeFromCoa(const std::vector<SymbolicScalar> &argList,
-                                     Shape &shape, std::vector<SymbolicScalar> &dynValidShape);
+    bool GetValidShapeFromCoa(
+        const std::vector<SymbolicScalar>& argList, Shape& shape, std::vector<SymbolicScalar>& dynValidShape);
+
 private:
     std::vector<SymbolicScalar> mainBlockCondGroup_;
     std::unordered_set<std::string> mainBlockStrSet_;
 };
-}
+} // namespace npu::tile_fwk

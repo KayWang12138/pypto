@@ -9,9 +9,9 @@
  */
 
 /*!
-* \file test_plugin.cpp
-* \brief
-*/
+ * \file test_plugin.cpp
+ * \brief
+ */
 
 #include <gtest/gtest.h>
 #include <string>
@@ -25,16 +25,19 @@
 
 using namespace npu::tile_fwk;
 
-TEST(PluginTest, Basic) {
+TEST(PluginTest, Basic)
+{
     struct Compute {
-        static std::string ComputeAdd(const std::string &filepath, const std::string &source) {
+        static std::string ComputeAdd(const std::string& filepath, const std::string& source)
+        {
             return source + "Add" + filepath;
         }
-        static std::string ComputeSub(const std::string &filepath, const std::string &source) {
+        static std::string ComputeSub(const std::string& filepath, const std::string& source)
+        {
             return source + "Sub" + filepath;
         }
     };
-    PluginManager &manager = PluginManager::GetInstance();
+    PluginManager& manager = PluginManager::GetInstance();
 
     EXPECT_TRUE(manager.AddPluginCodegenSrc("add", Compute::ComputeAdd));
     EXPECT_FALSE(manager.AddPluginCodegenSrc("add", Compute::ComputeSub));

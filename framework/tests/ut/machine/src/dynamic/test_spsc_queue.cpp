@@ -18,7 +18,8 @@
 #include <thread>
 #include "machine/utils/dynamic/spsc_queue.h"
 
-TEST(spscqueue, normal) {
+TEST(spscqueue, normal)
+{
     int n = 100000;
     SPSCQueue<int64_t, 64> queue;
 

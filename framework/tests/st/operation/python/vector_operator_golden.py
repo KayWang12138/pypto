@@ -779,7 +779,7 @@ def gen_log1p_op_golden(case_name: str, output: Path, case_index: int = None) ->
         input_dtype = inputs[0].dtype
         if input_dtype == np.float16:
             inputs[0].astype(np.float32)
-        
+
         output = [np.log1p(inputs[0])]
         if input_dtype == np.float16:
             output = [output[0].astype(np.float16)]
@@ -960,6 +960,8 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
             pad_value = -torch.inf
         elif pad_value_type == "max":
             pad_value = torch.inf
+        elif pad_value_type == "custom":
+            pad_value = config.get("params", {}).get("pad_value", 0.0)
         else:
             pad_value = 0.0
         if inputs[0].dtype == bfloat16:
@@ -990,17 +992,18 @@ def gen_fillpad_op_golden(case_name: str, output: Path, case_index: int = None) 
         valid_shape = config["view_shape"]
         output_shape = config["output_tensors"][0]["shape"]
         pad_value_type = config.get("params", {}).get("pad_value_type", "zero")
-        
         if pad_value_type == "min":
             pad_value = -np.inf
         elif pad_value_type == "max":
             pad_value = np.inf
+        elif pad_value_type == "custom":
+            pad_value = config.get("params", {}).get("pad_value", 0.0)
         else:
             pad_value = 0.0
-        
+
         input_tensor = inputs[0]
         result = np.full(output_shape, pad_value, dtype=input_tensor.dtype)
-        
+
         ndim = len(input_shape)
         if ndim == 1:
             result[:valid_shape[0]] = input_tensor[:valid_shape[0]]
@@ -1014,7 +1017,7 @@ def gen_fillpad_op_golden(case_name: str, output: Path, case_index: int = None) 
             result[:valid_shape[0], :valid_shape[1], :valid_shape[2], :valid_shape[3]] = (
                 input_tensor[:valid_shape[0], :valid_shape[1], :valid_shape[2], :valid_shape[3]]
             )
-        
+
         return [result]
 
     logging.debug("Case(%s), Golden creating...", case_name)
@@ -1107,14 +1110,14 @@ def gen_prelu_op_golden(case_name: str, output: Path, case_index: int = None) ->
         x = inputs[0]
         weight = inputs[1]
         is_bfloat16 = x.dtype == bfloat16
-        
+
         if is_bfloat16:
             x_tensor = torch.from_numpy(x.astype(np.float32)).to(torch.bfloat16)
             weight_tensor = torch.from_numpy(weight.astype(np.float32)).to(torch.bfloat16)
         else:
             x_tensor = torch.from_numpy(x)
             weight_tensor = torch.from_numpy(weight)
-        
+
         result_tensor = F.prelu(x_tensor, weight_tensor)
 
         return [to_numpy(result_tensor)]
@@ -1531,7 +1534,7 @@ def gen_bitwise_xors_op_golden(case_name: str, output: Path, case_index: int = N
     return gen_op_golden("BitwiseXors", golden_func, output, case_index)
 
 
-@TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin", "Prod"])
+@TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin", "Prod", "ArgMax", "ArgMin"])
 def params_dims_func(params: dict):
     params["dims"] = parse_list_str(params.get("dims"))
     params["keepDim"] = params.get("keepDim", True)
@@ -1553,7 +1556,7 @@ def gen_reduce_sum_op_golden(
         x = inputs[0]
         dims = params["dims"]
         keepdim = params.get("keepDim", True)
-        return [x.sum(axis=dims[0], keepdims=keepdim)]
+        return [x.sum(axis=dims[0], keepdims=keepdim, dtype=inputs[0].dtype)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Sum", golden_func, output, case_index)
@@ -1577,6 +1580,46 @@ def gen_reduce_max_op_golden(
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Amax", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestArgMax/ArgMaxOperationTest.TestArgMax",
+    ]
+)
+def gen_argmax_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = inputs[0]
+        dims = params["dims"]
+        keepdim = params.get("keepDim", True)
+        return [x.argmax(axis=dims[0], keepdims=keepdim).astype(np.int32)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ArgMax", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestArgMin/ArgMinOperationTest.TestArgMin",
+    ]
+)
+def gen_argmin_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = inputs[0]
+        dims = params["dims"]
+        keepdim = params.get("keepDim", True)
+        return [x.argmin(axis=dims[0], keepdims=keepdim).astype(np.int32)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ArgMin", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
@@ -1612,7 +1655,7 @@ def gen_reduce_prod_op_golden(
         x = inputs[0]
         dims = params["dims"]
         keepdim = params.get("keepDim", True)
-        return [x.prod(axis=dims[0], keepdims=keepdim)]
+        return [x.prod(axis=dims[0], keepdims=keepdim, dtype=inputs[0].dtype)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Prod", golden_func, output, case_index)
@@ -2032,7 +2075,7 @@ def gen_gathermask_op_golden(
             return [output.numpy()]
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("GatherMask", golden_func, output, case_index)
-        
+
 
 def cumsum_golden_func(inputs: list, config: dict):
     params = config.get("params")
@@ -2056,6 +2099,30 @@ def cumsum_golden_func(inputs: list, config: dict):
 def gen_cumsum_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("CumSum", cumsum_golden_func, output, case_index)
+
+
+def cumprod_golden_func(inputs: list, config: dict):
+    params = config.get("params")
+    axis = params["axis"]
+    if inputs[0].dtype == bfloat16:
+        input_tensor = torch.as_tensor(inputs[0].astype(np.float32)).to(torch.bfloat16)
+    else:
+        input_tensor = torch.from_numpy(inputs[0])
+    res = torch.cumprod(input_tensor, axis)
+    if inputs[0].dtype == bfloat16:
+        res = res.to(torch.float32).numpy().astype(bfloat16)
+        return [res]
+
+    return [res.numpy()]
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestCumProd/CumProdOperationTest.TestCumProd",
+    ]
+)
+def gen_cumprod_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("CumProd", cumprod_golden_func, output, case_index)
 
 
 def triu_golden_func(inputs: list, config: dict):
@@ -2788,7 +2855,7 @@ def gen_isfinite_golden(case_name: str, output: Path, case_index: int = None) ->
     ) -> List[np.ndarray]:
         result = torch.isfinite(from_numpy(inputs[0]))
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("IsFinite", generate_wrapper, output, case_index)
 
@@ -2804,7 +2871,7 @@ def gen_ceil_div_golden(case_name: str, output: Path, case_index: int = None) ->
     ) -> List[np.ndarray]:
         result = torch.ceil(torch.div(from_numpy(inputs[0]), from_numpy(inputs[1])))
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("CeilDiv", generate_wrapper, output, case_index)
 
@@ -2823,9 +2890,50 @@ def gen_ceil_divs_golden(case_name: str, output: Path, case_index: int = None) -
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         result = torch.ceil(torch.div(from_numpy(inputs[0]), scalar))
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("CeilDivs", generate_wrapper, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestFloorDiv/FloorDivOperationTest.TestFloorDiv",
+])
+def gen_floor_div_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],
+    ) -> List[np.ndarray]:
+        tensor0 = from_numpy(inputs[0]).npu()
+        tensor1 = from_numpy(inputs[1]).npu()
+        result = torch.floor_divide(tensor0, tensor1)
+        result = result.cpu()
+        return [to_numpy(result)]
+
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("FloorDiv", generate_wrapper, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestFloorDivs/FloorDivsOperationTest.TestFloorDivs",
+])
+def gen_floor_divs_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],
+    ) -> List[np.ndarray]:
+        params = config.get("params")
+        params["scalar_type"] = params.get("scalar_type", "int32")
+        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        tensor0 = from_numpy(inputs[0]).npu()
+        tensor1 = from_numpy(scalar).npu()
+        result = torch.floor_divide(tensor0, tensor1)
+        result = result.cpu()
+        return [to_numpy(result)]
+
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("FloorDivs", generate_wrapper, output, case_index)
 
 
 def main() -> bool:

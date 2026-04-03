@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
@@ -45,20 +46,22 @@ public:
     void TearDown() override {}
 };
 
-Operation &GetWhereOp(Function *function, Opcode opCode, const LogicalTensors &inputs) {
+Operation& GetWhereOp(Function* function, Opcode opCode, const LogicalTensors& inputs)
+{
     Element scalaVal1(DataType::DT_FP32, 1.0);
     Element scalaVal2(DataType::DT_FP32, 2.0);
 
     if (opCode == Opcode::OP_WHERE_SS) {
-        auto &op = function->AddOperation(opCode, {inputs[ToUnderlying(WhereOpIdx::condIdx)]},
+        auto& op = function->AddOperation(
+            opCode, {inputs[ToUnderlying(WhereOpIdx::condIdx)]},
             {inputs[ToUnderlying(WhereOpIdx::resIdx)], inputs[ToUnderlying(WhereOpIdx::tempIdx)]});
         std::vector<Element> scalars = {scalaVal1, scalaVal2};
         op.SetAttribute(OpAttributeKey::vectorScalar, scalars);
         op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", 0);
         return op;
     } else if (opCode == Opcode::OP_WHERE_ST || opCode == Opcode::OP_WHERE_TS) {
-        auto &op = function->AddOperation(opCode,
-            {inputs[ToUnderlying(WhereOpIdx::condIdx)], inputs[ToUnderlying(WhereOpIdx::src1Idx)]},
+        auto& op = function->AddOperation(
+            opCode, {inputs[ToUnderlying(WhereOpIdx::condIdx)], inputs[ToUnderlying(WhereOpIdx::src1Idx)]},
             {inputs[ToUnderlying(WhereOpIdx::resIdx)], inputs[ToUnderlying(WhereOpIdx::tempIdx)]});
         op.SetAttribute(OpAttributeKey::scalar, scalaVal1);
         op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", 0);
@@ -66,38 +69,30 @@ Operation &GetWhereOp(Function *function, Opcode opCode, const LogicalTensors &i
     }
 
     EXPECT_EQ(opCode, Opcode::OP_WHERE_TT) << "Unsupported opcode: " << OpcodeManager::Inst().GetOpcodeStr(opCode);
-    auto &op = function->AddOperation(opCode,
+    auto& op = function->AddOperation(
+        opCode,
         {inputs[ToUnderlying(WhereOpIdx::condIdx)], inputs[ToUnderlying(WhereOpIdx::src0Idx)],
-            inputs[ToUnderlying(WhereOpIdx::src1Idx)]},
+         inputs[ToUnderlying(WhereOpIdx::src1Idx)]},
         {inputs[ToUnderlying(WhereOpIdx::resIdx)], inputs[ToUnderlying(WhereOpIdx::tempIdx)]});
     op.SetAttribute(OP_ATTR_PREFIX + "whereBitMode", 0);
     return op;
 }
 
 void TestWhereBody(
-    const Opcode opCode, const std::string &caseName, const std::string &expect, bool isSupportTileTensor = false) {
+    const Opcode opCode, const std::string& caseName, const std::string& expect, bool isSupportTileTensor = false)
+{
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
-
+    auto function = GenMockFuncStatic(caseName);
     std::vector<int64_t> shape = {64, 64};
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    std::string funcName = caseName;
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     auto localTensorCond = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorInput = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorOther = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorResult = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
-    auto &op = GetWhereOp(
+    auto& op = GetWhereOp(
         function, opCode, {localTensorResult, localTensorCond, localTensorTmp, localTensorInput, localTensorOther});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -111,56 +106,64 @@ void TestWhereBody(
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereSS) {
+TEST_F(TestCodegenWhere, TestOpWhereSS)
+{
     std::string expect =
         R"!!!(TileOp::Where_SS<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 1, 1>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, float(1), float(2), 1, 1, 1, 1);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_SS, "TestOpWhereSS", expect);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereST) {
+TEST_F(TestCodegenWhere, TestOpWhereST)
+{
     std::string expect =
         R"!!!(TileOp::Where_ST<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, float(1), (__ubuf__ float*)UB_S0_E0, 1, 1, 1, 1);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_ST, "TestOpWhereST", expect);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereTS) {
+TEST_F(TestCodegenWhere, TestOpWhereTS)
+{
     std::string expect =
         R"!!!(TileOp::Where_TS<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, float(1), 1, 1, 1, 1);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_TS, "TestOpWhereTS", expect);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereTT) {
+TEST_F(TestCodegenWhere, TestOpWhereTT)
+{
     std::string expect =
         R"!!!(TileOp::Where_TT<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 1, 1);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_TT, "TestOpWhereTT", expect);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereSS_TileTensor) {
+TEST_F(TestCodegenWhere, TestOpWhereSS_TileTensor)
+{
     std::string expect =
         R"!!!(TWhereSS(ubTensor_0, ubTensor_0, ubTensor_0, float(1), float(2));
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_SS, "TestOpWhereSS", expect, true);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereST_TileTensor) {
+TEST_F(TestCodegenWhere, TestOpWhereST_TileTensor)
+{
     std::string expect =
         R"!!!(TWhereST(ubTensor_0, ubTensor_0, ubTensor_0, float(1), ubTensor_0);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_ST, "TestOpWhereST", expect, true);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereTS_TileTensor) {
+TEST_F(TestCodegenWhere, TestOpWhereTS_TileTensor)
+{
     std::string expect =
         R"!!!(TWhereTS(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0, float(1));
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_TS, "TestOpWhereTS", expect, true);
 }
 
-TEST_F(TestCodegenWhere, TestOpWhereTT_TileTensor) {
+TEST_F(TestCodegenWhere, TestOpWhereTT_TileTensor)
+{
     std::string expect =
         R"!!!(TWhereTT(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";

@@ -1,6 +1,6 @@
 ---
 name: pypto-environment-setup
-description: "PyPTO 环境安装与环境问题修复，包括CANN、torch_npu、编译工具链、第三方依赖和PyPTO编译运行等。Triggers: PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict"
+description: "PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu、编译工具链、第三方依赖和 PyPTO 编译运行等。Triggers: PyPTO environment setup, CANN install, torch_npu, NPU environment, Ascend toolkit, compile PyPTO, build PyPTO, NPU driver, prepare_env, diagnose environment, fix import error, torch_npu import fail, DT_FP8E8M0, pto-isa, ASCEND_HOME_PATH, npu-smi, softmax verify, pip dependency conflict"
 ---
 
 # PyPTO Environment Setup
@@ -11,8 +11,6 @@ description: "PyPTO 环境安装与环境问题修复，包括CANN、torch_npu�
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
-
-- `$SKILL_DIR`：由 agent 运行时自动注入的环境变量。指向当前 skill 的根目录（即本 `pypto-environment-setup/` 目录）。文档中所有 `$SKILL_DIR/scripts/...` 的引用均依赖此变量。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/pypto-environment-setup`。
 - **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0.post3
 
 ## ⛔ 隐私保护
@@ -48,8 +46,7 @@ export PYPTO_REPO="$PWD/pypto"
 
 **运行环境诊断**：
 ```bash
-# 步骤 1.3：进入 skill 目录运行诊断脚本
-cd ${SKILL_DIR:-.opencode/skills/pypto-environment-setup}
+# 步骤 1.3：运行诊断脚本
 python3 scripts/diagnose_env.py --checklist
 ```
 
@@ -69,7 +66,7 @@ python3 scripts/diagnose_env.py --checklist
 
 | 问题类别 | 修复操作 | 失败回滚 |
 |---------|---------|---------|
-| **NPU 环境 + CANN 缺失** | **按顺序执行以下 5 步**：<br><br>**步骤 3.1：安装编译依赖**<br>`cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br><br>**步骤 3.2：下载安装第三方源码包**<br>`bash tools/prepare_env.sh --quiet --type=third_party`<br><br>**步骤 3.3：下载cann包**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --only-download --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.download.log`<br><br>**步骤 3.4：安装 CANN**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.install.log`<br><br>**步骤 3.5：验证 CANN 安装**<br>检查 CANN 安装日志，未完成则安装（见下方代码块）<br><br>⚠️ **全部 5 步完成后才能进入步骤 4** | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
+| **NPU 环境 + CANN 缺失** | **按顺序执行以下 5 步**：<br><br>**步骤 3.1：安装编译依赖**<br>`cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br><br>**步骤 3.2：下载安装第三方源码包**<br>`bash tools/prepare_env.sh --quiet --type=third_party`<br><br>**步骤 3.3：下载 CANN 包**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --only-download --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.download.log`<br><br>**步骤 3.4：安装 CANN**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.install.log`<br><br>**步骤 3.5：验证 CANN 安装**<br>检查 CANN 安装日志，未完成则安装（见下方代码块）<br><br>⚠️ **全部 5 步完成后才能进入步骤 4** | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
 | **编译工具链缺失** (cmake/gcc/make/g++/ninja/pip3) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps` | 回退到手动 `apt-get install`；检查 apt 源配置 |
 | **第三方源码包缺失** (json/libboundscheck) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=third_party` | 检查网络对 cann-src-third-party 的可达性 |
 
@@ -103,15 +100,14 @@ fi
 source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 ```
 
-#### 步骤 4.2：检查可用的 NPU 卡 (务必在加载cann环境后检查)
-```bash
-npu-smi info
-```
+#### 步骤 4.2：检查可用的 NPU 卡 (务必在加载 CANN 环境后检查)
+
+使用空闲卡检测脚本（来自 `pypto-op-develop` skill 的 `scripts/list_idle_chip_ids.sh`）。
 
 #### 步骤 4.3：设置环境变量
 ```bash
-# 设置 NPU 设备 ID（根据步骤 4.2 选择空闲卡）
-export TILE_FWK_DEVICE_ID=0
+# 设置 NPU 设备 ID（根据步骤 4.2 查找空闲 chip id）
+export TILE_FWK_DEVICE_ID=<空闲 chip id>
 
 
 # 设置 PTO-ISA 路径
@@ -135,7 +131,7 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/${arch
 echo "env_setup.sh 加载完成：TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID}, PTO_TILE_LIB_CODE_PATH=${PTO_TILE_LIB_CODE_PATH}"
 EOF
 ```
-> - \$\{arch\}：CPU架构，如aarch64、x86_64.
+> - \$\{arch\}：CPU 架构，如 aarch64、x86_64.
 
 #### 步骤 4.4：安装 torch 和 torch_npu
 ```bash
@@ -148,7 +144,7 @@ pip install torch==2.6.0 torch-npu==2.6.0.post3
 # Source 环境变量文件
 source env_setup.sh
 
-# 如果有pypto先删除本地pypto
+# 如果有 pypto 先删除本地 pypto
 pip uninstall pypto -y
 cd ${PYPTO_REPO:-$PWD}
 rm -rf build_out
@@ -203,6 +199,8 @@ pypto:      ✅ 已安装
   - <问题> -> <解决方案>
 
 ⚠️ `TILE_FWK_DEVICE_ID` 需根据 `npu-smi info` 输出修改。
+```
+
 ## 📚 参考文件
 
 | 文件 | 内容 |

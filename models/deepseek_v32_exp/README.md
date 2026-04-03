@@ -22,7 +22,7 @@
     | block_num     | PagedAttention 场景下per-tile量的块数    | 取值为计算 `B*Skv/BlockSize` 的结果后向上取整（Skv 表示 kv 的序列长度，允许取 0） |
     | block_size    | PagedAttention 场景下的块大小  | 取值范围：128                                                           |
     | t            | BS 合轴后的大小                | 取值范围：b * s1|
-# mla_polog_quant 
+# mla_polog_quant
 
 ## 功能说明
 
@@ -77,8 +77,8 @@ $$
 ## 函数原型
 ```
 def mla_prolog_quant_compute(token_x, w_dq, w_uq_qr, dequant_scale, w_uk, w_dkv_kr, gamma_cq, gamma_ckv, cos,
-		sin, cache_index, kv_cache, kr_cache, k_scale_cache, q_norm_out, q_norm_scale_out, query_nope_out,	
-   		query_rope_out, kv_cache_out, kr_cache_out, k_scale_cache_out, epsilon_cq, epsilon_ckv, cache_mode, 
+		sin, cache_index, kv_cache, kr_cache, k_scale_cache, q_norm_out, q_norm_scale_out, query_nope_out,
+   		query_rope_out, kv_cache_out, kr_cache_out, k_scale_cache_out, epsilon_cq, epsilon_ckv, cache_mode,
     	tile_config, rope_cfg):
 ```
 
@@ -125,7 +125,7 @@ Indexer Prolog 的量化策略如下：Q_b_proj 使用 W8A8 量化，其他 Line
 
 ## 计算公式
  **Query 的计算公式如下：**
- 
+
  Q 的计算采用了动态的 Per-Token-Head 量化，其中 Hadamard 变换通过矩阵右乘 hadamard_q 实现。而 $\bold{q}, \bold{w}_{qb}$ 均是 Int8 类型。
 
 $$
@@ -207,17 +207,17 @@ $$
 ## 函数原型
 
 ```
-def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales, 
-		topk_indices, block_table, kv_act_seqs, attention_out, nq, n_kv, softmax_scale, topk, block_size, 
+def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, key_rope_2d, k_nope_scales,
+		topk_indices, block_table, kv_act_seqs, attention_out, nq, n_kv, softmax_scale, topk, block_size,
         max_blocknum_perbatch, tile_config):
 ```
 
 ## 参数说明
 
--   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。 
--   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。 
--   **key_nope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int8`，shape为[block_num * block_size, kv_lora_rank]。 
--   **key_rope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[block_num * block_size, rope_dim]。 
+-   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。
+-   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。
+-   **key_nope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int8`，shape为[block_num * block_size, kv_lora_rank]。
+-   **key_rope_2d**（`Tensor`）：必选参数，表示MLA结构中的key的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[block_num * block_size, rope_dim]。
 -   **k_nope_scales**（`Tensor`）：必选参数，表示k_nope的反量化缩放因子，必选参数，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`float`，shape为[block_num * block_size, 4]。
 -   **topk_indices**（`Tensor`）：必选参数，表示每个token选出的topk索引，必选参数，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[t, n_kv * selected_count]。
 -   **block_table**（`Tensor`）：必选参数，表示PageAttention中KV存储使用的block映射表，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[b, s2_max/block_size]，其中第二维表示长度不小于所有batch中最大的s2对应的block数量，即s2_max / block_size向上取整。
@@ -249,16 +249,16 @@ sa_antiquant是在sfa_quant基础上做的 存8算16 优化。在sfa_quant场景
 ## 函数原型
 
 ```
-def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, block_table, 
+def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, block_table,
 		kv_act_seqs, attention_out, nq, n_kv, softmax_scale, topk, block_size, max_blocknum_perbatch,
         tile_config):
 ```
 
 ## 参数说明
 
--   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。 
--   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。 
--   **nope_cache**（`Tensor`）：必选参数，表示MLA结构中的key的反量化缩放因子，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int8`，shape为[block_num * block_size, kv_lora_rank + rope_dim * 2 + 4 * scale_size]，其中scale_size=4。 
+-   **query_nope**（`Tensor`）：必选参数，表示MLA结构中的query的rope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, kv_lora_rank]。
+-   **query_rope**（`Tensor`）：必选参数，表示MLA结构中的query的nope信息，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`bfloat16`，shape为[t * n_q, rope_dim]。
+-   **nope_cache**（`Tensor`）：必选参数，表示MLA结构中的key的反量化缩放因子，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int8`，shape为[block_num * block_size, kv_lora_rank + rope_dim * 2 + 4 * scale_size]，其中scale_size=4。
 -   **topk_indices**（`Tensor`）：必选参数，表示每个token选出的topk索引，必选参数，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[t, n_kv * selected_count]。
 -   **block_table**（`Tensor`）：必选参数，表示PageAttention中KV存储使用的block映射表，不支持非连续的 Tensor，数据格式支持ND，数据类型支持`int32`，shape为[b, s2_max/block_size]，其中第二维表示长度不小于所有batch中最大的s2对应的block数量，即s2_max / block_size向上取整。
 -   **kv_act_seqs**（`Tensor`）：必选参数，数据格式支持ND,表示不同Batch中`key`和`value`的有效token数，数据类型支持`int32`,shape为[b]。
@@ -280,7 +280,7 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
 -   详见[deepseekv32_sparse_attention_antiquant.py](deepseekv32_sparse_attention_antiquant.py)
 
 
-# mla_indexer_polog_quant 
+# mla_indexer_polog_quant
 
 ## 功能说明
 

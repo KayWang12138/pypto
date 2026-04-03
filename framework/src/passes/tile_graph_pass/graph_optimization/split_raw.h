@@ -35,17 +35,18 @@ class SplitRawTensor : public Pass {
 public:
     SplitRawTensor() : Pass("SplitRawTensor") {}
     ~SplitRawTensor() override = default;
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 
 private:
-    void UpdateConsumerView(Function &function, const LogicalTensorPtr &logicalTensor) const;
-    void UpdateProducerAssemble(Function &function, const LogicalTensorPtr &logicalTensor) const;
-    void SplitRaw(Function &function) const;
+    void UpdateConsumerView(Function& function, const LogicalTensorPtr& logicalTensor) const;
+    void UpdateProducerAssemble(Function& function, const LogicalTensorPtr& logicalTensor) const;
+    void SplitRaw(Function& function) const;
     bool ShouldProcessTensor(Function& function, const LogicalTensorPtr& singleTensor) const;
-    std::vector<int64_t> UpdateOffset(std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const;
-    std::vector<SymbolicScalar> UpdateDynOffset(std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &diff) const;
+    std::vector<int64_t> UpdateOffset(std::vector<int64_t>& offset, const std::vector<int64_t>& diff) const;
+    std::vector<SymbolicScalar> UpdateDynOffset(
+        std::vector<SymbolicScalar>& offset, const std::vector<SymbolicScalar>& diff) const;
 
-    Status PostCheck(Function &function) override;
+    Status PostCheck(Function& function) override;
     SplitRawTensorChecker checker;
 };
 } // namespace tile_fwk

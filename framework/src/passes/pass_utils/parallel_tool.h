@@ -29,26 +29,28 @@
 
 namespace npu::tile_fwk {
 
-class WorkItem{
+class WorkItem {
 public:
     int start_;
     int end_;
-    std::function<void(int,int,int)>* bodyPtr_;
-    WorkItem():start_(0),end_(0),bodyPtr_(nullptr){}
-    WorkItem(int start, int end, std::function<void(int,int,int)>* bodyPtr):start_(start),end_(end),bodyPtr_(bodyPtr){}
+    std::function<void(int, int, int)>* bodyPtr_;
+    WorkItem() : start_(0), end_(0), bodyPtr_(nullptr) {}
+    WorkItem(int start, int end, std::function<void(int, int, int)>* bodyPtr)
+        : start_(start), end_(end), bodyPtr_(bodyPtr)
+    {}
 };
 
-class ParallelQueue{
+class ParallelQueue {
 public:
     void Clear();
-    void Insert(int start, int end, std::function<void(int,int,int)>* bodyPtr);
+    void Insert(int start, int end, std::function<void(int, int, int)>* bodyPtr);
     bool Empty();
     bool Get(WorkItem* workItem);
     std::deque<WorkItem> workItems;
     std::mutex get_mtx;
 };
 
-class ParallelTool{
+class ParallelTool {
 public:
     explicit ParallelTool(unsigned int num_threads);
     ~ParallelTool();
@@ -57,8 +59,8 @@ public:
     static ParallelTool& Instance();
     void ExecTaskVec(int threadIdx);
     int GetThreadNum();
-    void Parallel_for(int start, int end, int step, std::function<void(int,int,int)> body); // static
-    void Parallel_for(int start, int end, int step, int numWork, std::function<void(int,int,int)> body); // dynamic
+    void Parallel_for(int start, int end, int step, std::function<void(int, int, int)> body);              // static
+    void Parallel_for(int start, int end, int step, int numWork, std::function<void(int, int, int)> body); // dynamic
     std::vector<std::thread> workers;
     std::vector<std::atomic<bool>> taskReadys;
     int numThread;
@@ -70,5 +72,5 @@ public:
     std::condition_variable completion_cv;
     std::mutex completion_mtx;
 };
-}
+} // namespace npu::tile_fwk
 #endif

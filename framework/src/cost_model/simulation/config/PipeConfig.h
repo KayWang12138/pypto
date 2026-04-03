@@ -29,4 +29,4 @@ struct PipeConfig : public Config {
     uint64_t l0bSizeThreshold = 65536;
     uint64_t l0cSizeThreshold = 131072;
 };
-}
+} // namespace CostModel

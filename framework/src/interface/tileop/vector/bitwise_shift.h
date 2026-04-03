@@ -21,7 +21,8 @@
 #include "tileop_common.h"
 
 template <BitwiseShiftOp op, typename T0, typename T1, typename T2>
-TILEOP void BitwiseShiftComputeImpl(T0 dst, T1 src0, T2 src1) {
+TILEOP void BitwiseShiftComputeImpl(T0 dst, T1 src0, T2 src1)
+{
     if constexpr (op == BitwiseShiftOp::BITWISERIGHTSHIFT) {
         pto::TSHR(dst, src0, src1);
         return;
@@ -34,7 +35,8 @@ TILEOP void BitwiseShiftComputeImpl(T0 dst, T1 src0, T2 src1) {
 }
 
 template <BitwiseShiftOp op, typename T0, typename T1, typename Scalar>
-TILEOP void BitwiseShiftScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
+TILEOP void BitwiseShiftScalarComputeImpl(T0 dst, T1 src0, Scalar src1)
+{
     if constexpr (op == BitwiseShiftOp::BITWISERIGHTSHIFT) {
         pto::TSHRS(dst, src0, src1);
         return;
@@ -47,53 +49,56 @@ TILEOP void BitwiseShiftScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
 }
 
 template <size_t MAX_SHIFT_NUM, typename T, typename U, typename V>
-TILEOP void GetValidShiftTile(T &dst, U &src1, V &tmp) {
+TILEOP void GetValidShiftTile(T& dst, U& src1, V& tmp)
+{
     pto::TEXPANDS(tmp, MAX_SHIFT_NUM);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TSUB(tmp, tmp, src1);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TOR(tmp, tmp, src1);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TSHRS(tmp, tmp, MAX_SHIFT_NUM);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TNOT(dst, tmp);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TAND(src1, src1, dst);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TEXPANDS(dst, MAX_SHIFT_NUM);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TAND(tmp, tmp, dst);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TOR(src1, src1, tmp);
 }
 
 template <BitwiseShiftOp op, size_t MAX_SHIFT_NUM, typename T0, typename T1, typename T2, typename T3>
-TILEOP void BitwiseShiftImpl(T0 &dst, T1 &src0, T2 &src1, T3 &tmp) {
+TILEOP void BitwiseShiftImpl(T0& dst, T1& src0, T2& src1, T3& tmp)
+{
     GetValidShiftTile<MAX_SHIFT_NUM>(dst, src1, tmp);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     BitwiseShiftComputeImpl<op>(dst, src0, src1);
 }
 
 template <BitwiseShiftOp op, typename T0, typename T1, typename T2, typename T3>
-TILEOP void BitwiseShiftCompute(T0 dst, T1 src0, T2 src1, T3 tmp) {
+TILEOP void BitwiseShiftCompute(T0 dst, T1 src0, T2 src1, T3 tmp)
+{
     constexpr auto MAX_SHIFT_NUM = sizeof(typename T0::Type) * TileOp::BLOCK_NELEM_B32;
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
@@ -119,7 +124,8 @@ TILEOP void BitwiseShiftCompute(T0 dst, T1 src0, T2 src1, T3 tmp) {
 }
 
 template <BitwiseShiftOp op, typename T0, typename T1, typename Scalar>
-TILEOP void BitwiseShiftScalarCompute(T0 dst, T1 src0, Scalar src1) {
+TILEOP void BitwiseShiftScalarCompute(T0 dst, T1 src0, Scalar src1)
+{
     constexpr auto MAX_SHIFT_NUM = sizeof(typename T0::Type) * TileOp::BLOCK_NELEM_B32;
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
@@ -143,20 +149,22 @@ TILEOP void BitwiseShiftScalarCompute(T0 dst, T1 src0, Scalar src1) {
 }
 
 template <BitwiseShiftOp op, size_t MAX_SHIFT_NUM, typename T0, typename Scalar, typename T1, typename T2>
-TILEOP void ScalarBitwiseShiftImpl(T0 &dst, Scalar &src0, T1 &src1, T2 &tmp) {
+TILEOP void ScalarBitwiseShiftImpl(T0& dst, Scalar& src0, T1& src1, T2& tmp)
+{
     GetValidShiftTile<MAX_SHIFT_NUM>(dst, src1, tmp);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TEXPANDS(dst, src0);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     BitwiseShiftComputeImpl<op>(dst, dst, src1);
 }
 
 template <BitwiseShiftOp op, typename T0, typename Scalar, typename T1, typename T2>
-TILEOP void ScalarBitwiseShiftCompute(T0 dst, Scalar src0, T1 src1, T2 tmp) {
+TILEOP void ScalarBitwiseShiftCompute(T0 dst, Scalar src0, T1 src1, T2 tmp)
+{
     constexpr auto MAX_SHIFT_NUM = sizeof(typename T0::Type) * TileOp::BLOCK_NELEM_B32;
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
@@ -181,37 +189,43 @@ TILEOP void ScalarBitwiseShiftCompute(T0 dst, Scalar src0, T1 src1, T2 tmp) {
 
 #define OP_TILE_OP_BITWISERIGHTSHIFT TBitrshift
 template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void TBitrshift(T0 dst, T1 src0, T2 src1, T3 tmp) {
+TILEOP void TBitrshift(T0 dst, T1 src0, T2 src1, T3 tmp)
+{
     BitwiseShiftCompute<BitwiseShiftOp::BITWISERIGHTSHIFT>(dst, src0, src1, tmp);
 }
 
 #define OP_TILE_OP_BITWISELEFTSHIFT TBitlshift
 template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void TBitlshift(T0 dst, T1 src0, T2 src1, T3 tmp) {
+TILEOP void TBitlshift(T0 dst, T1 src0, T2 src1, T3 tmp)
+{
     BitwiseShiftCompute<BitwiseShiftOp::BITWISELEFTSHIFT>(dst, src0, src1, tmp);
 }
 
 #define OP_TILE_OP_BITWISERIGHTSHIFTS TBitrshiftS
 template <typename Scalar, typename T0, typename T1>
-TILEOP void TBitrshiftS(T0 dst, T1 src0, Scalar src1) {
+TILEOP void TBitrshiftS(T0 dst, T1 src0, Scalar src1)
+{
     BitwiseShiftScalarCompute<BitwiseShiftOp::BITWISERIGHTSHIFT>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISELEFTSHIFTS TBitlshiftS
 template <typename Scalar, typename T0, typename T1>
-TILEOP void TBitlshiftS(T0 dst, T1 src0, Scalar src1) {
+TILEOP void TBitlshiftS(T0 dst, T1 src0, Scalar src1)
+{
     BitwiseShiftScalarCompute<BitwiseShiftOp::BITWISELEFTSHIFT>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_SBITWISERIGHTSHIFT TSBitrshift
 template <typename Scalar, typename T0, typename T1, typename T2>
-TILEOP void TSBitrshift(T0 dst, T1 src1, Scalar src0, T2 tmp) {
+TILEOP void TSBitrshift(T0 dst, T1 src1, Scalar src0, T2 tmp)
+{
     ScalarBitwiseShiftCompute<BitwiseShiftOp::BITWISERIGHTSHIFT>(dst, src0, src1, tmp);
 }
 
 #define OP_TILE_OP_SBITWISELEFTSHIFT TSBitlshift
 template <typename Scalar, typename T0, typename T1, typename T2>
-TILEOP void TSBitlshift(T0 dst, T1 src1, Scalar src0, T2 tmp) {
+TILEOP void TSBitlshift(T0 dst, T1 src1, Scalar src0, T2 tmp)
+{
     ScalarBitwiseShiftCompute<BitwiseShiftOp::BITWISELEFTSHIFT>(dst, src0, src1, tmp);
 }
 #endif

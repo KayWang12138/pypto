@@ -20,28 +20,31 @@
 
 namespace npu::tile_fwk {
 
-Status DeadOperationEliminator::EliminateDeadOperation(Function &function) {
+Status DeadOperationEliminator::EliminateDeadOperation(Function& function)
+{
     DeadOperationEliminator eliminator;
     eliminator.EliminateDeadOperationBackward(function);
     return SUCCESS;
 }
 
 // Delete Operation without oOperand
-void DeadOperationEliminator::EliminateDeadOperationBackward(Function &function) {
-    for (auto &op : function.Operations()) {
+void DeadOperationEliminator::EliminateDeadOperationBackward(Function& function)
+{
+    for (auto& op : function.Operations()) {
         op.SetAsNotDeleted();
     }
-    EliminateOperation(function); 
+    EliminateOperation(function);
 }
 
-std::set<Operation *, LogicalTensor::CompareOp> FindProducers(
-    Operation &op, std::unordered_set<std::shared_ptr<LogicalTensor>> &visitedOperands, Function &function) {
-    std::set<Operation *, LogicalTensor::CompareOp> producerOps;
-    for (const auto &input : op.iOperand) {
+std::set<Operation*, LogicalTensor::CompareOp> FindProducers(
+    Operation& op, std::unordered_set<std::shared_ptr<LogicalTensor>>& visitedOperands, Function& function)
+{
+    std::set<Operation*, LogicalTensor::CompareOp> producerOps;
+    for (const auto& input : op.iOperand) {
         if (visitedOperands.count(input) != 0) {
             continue;
         }
-        for (const auto &producer : input->GetProducers()) {
+        for (const auto& producer : input->GetProducers()) {
             if (producer->BelongTo() == &function) {
                 producerOps.emplace(producer);
             }
@@ -51,19 +54,20 @@ std::set<Operation *, LogicalTensor::CompareOp> FindProducers(
     return producerOps;
 }
 
-inline void EliminateOperationCommon(Function &function, bool sorted, bool sortAfterErase) {
-    std::queue<Operation *> q;
+inline void EliminateOperationCommon(Function& function, bool sorted, bool sortAfterErase)
+{
+    std::queue<Operation*> q;
     std::unordered_set<Operation*> visited;
     std::unordered_set<std::shared_ptr<LogicalTensor>> visitedOperands;
-    for (auto &op : function.Operations(sorted)) {
+    for (auto& op : function.Operations(sorted)) {
         bool dontTouch = op.GetBoolAttribute(OpAttributeKey::dontTouch);
-        if(dontTouch){
+        if (dontTouch) {
             visited.emplace(&op);
             q.emplace(&op);
         }
     }
 
-    for (auto &outcast : function.GetOutcast()) {
+    for (auto& outcast : function.GetOutcast()) {
         for (auto op : outcast->GetProducers()) {
             if (visited.count(op) != 0) {
                 continue;
@@ -75,8 +79,8 @@ inline void EliminateOperationCommon(Function &function, bool sorted, bool sortA
     while (!q.empty()) {
         auto op = q.front();
         q.pop();
-        std::set<Operation *, LogicalTensor::CompareOp> producerOps = FindProducers(*op, visitedOperands, function);
-        for (const auto &producerOp : producerOps) {
+        std::set<Operation*, LogicalTensor::CompareOp> producerOps = FindProducers(*op, visitedOperands, function);
+        for (const auto& producerOp : producerOps) {
             if (visited.count(producerOp) != 0) {
                 continue;
             }
@@ -84,7 +88,7 @@ inline void EliminateOperationCommon(Function &function, bool sorted, bool sortA
             q.emplace(producerOp);
         }
     }
-    for (auto &op : function.Operations(sorted)) {
+    for (auto& op : function.Operations(sorted)) {
         if (visited.count(&op) == 0) {
             op.SetAsDeleted();
         }
@@ -92,18 +96,20 @@ inline void EliminateOperationCommon(Function &function, bool sorted, bool sortA
     function.EraseOperations(false, sortAfterErase);
     /* 删除没有生产者和消费者的tensor */
     auto inverseMapCopy = function.GetTensorMap().inverseMap_;
-    for (const auto &item : inverseMapCopy) {
+    for (const auto& item : inverseMapCopy) {
         if (item.second->GetProducers().empty() && item.second->GetConsumers().empty()) {
             function.GetTensorMap().Erase(item.second);
         }
     }
 }
 
-void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted) {
+void DeadOperationEliminator::EliminateOperation(Function& function, bool sorted)
+{
     EliminateOperationCommon(function, sorted, true);
 }
 
-void DeadOperationEliminator::EliminateOperationAndNotSortAfterErase(Function &function, bool sorted) {
+void DeadOperationEliminator::EliminateOperationAndNotSortAfterErase(Function& function, bool sorted)
+{
     EliminateOperationCommon(function, sorted, false);
 }
-} // namespace
+} // namespace npu::tile_fwk

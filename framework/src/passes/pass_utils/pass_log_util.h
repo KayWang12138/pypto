@@ -22,18 +22,18 @@
 namespace npu::tile_fwk {
 /**
  * @brief RAII utility for managing pass-specific log file redirection
- * 
+ *
  * Redirects log output to a pass-specific file during construction and
  * restores the original log output on destruction. Automatically cleans
  * up empty log directories.
  */
 class PassLogUtil {
 public:
-    PassLogUtil(Pass &pass, Function &function, size_t passIndex);
+    PassLogUtil(Pass& pass, Function& function, size_t passIndex);
     ~PassLogUtil();
-    
-    PassLogUtil(const PassLogUtil &) = delete;
-    PassLogUtil &operator=(const PassLogUtil &) = delete;
+
+    PassLogUtil(const PassLogUtil&) = delete;
+    PassLogUtil& operator=(const PassLogUtil&) = delete;
 
 private:
     std::string originLogOutPath_;

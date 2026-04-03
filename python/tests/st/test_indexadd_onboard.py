@@ -52,10 +52,10 @@ def indexadd_2dim_build(inputs: List[pypto.Tensor], outputs: List[pypto.Tensor],
                 self_valid_shape = [pypto.min(self_shape[0] - b_idx * view_shape[0], view_shape[0]),
                                     pypto.min(self_shape[1] - s_idx * view_shape[1], view_shape[1])]
                 src_valid_shape = [pypto.min(src_shape[0] - b_idx * view_shape[0], view_shape[0]),
-                                    pypto.min(src_shape[1] - s_idx * view_shape[1], view_shape[1])]                 
+                                    pypto.min(src_shape[1] - s_idx * view_shape[1], view_shape[1])]
                 view_self = pypto.view(inputs[0], view_shape, offsets, valid_shape=self_valid_shape)
                 view_src = pypto.view(inputs[1], view_shape, offsets, valid_shape=src_valid_shape)
-                view_index = pypto.view(inputs[2], [view_shape[axis]], [offsets[axis]], 
+                view_index = pypto.view(inputs[2], [view_shape[axis]], [offsets[axis]],
                                         valid_shape=[src_valid_shape[axis]])
 
                 view_self.index_add_(axis, view_index, view_src, alpha=value)

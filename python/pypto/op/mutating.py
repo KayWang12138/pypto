@@ -56,7 +56,7 @@ def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
 
 
 @op_wrapper
-def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE, 
+def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
          satmode: SaturationMode = SaturationMode.OFF) -> Tensor:
     """Casting the operand to the specified type.
 
@@ -69,7 +69,7 @@ def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
     mode : CastMode, optional
         The rounding mode for the cast operation. Default is CAST_NONE.
     satmode : SaturationMode, optional
-        The saturation mode for float to integer conversions. 
+        The saturation mode for float to integer conversions.
         Default is OFF (truncation behavior). Use ON for saturation (clamping).
 
     Returns
@@ -122,7 +122,7 @@ def expand_clone(
     valid_shape : List[int] | List[SymbolicScalar]]
         Keyword argument, used for dynamic graph, represent the actual shapes at runtime.
         They can be ommitted in static graph.
-    
+
     Examples
     --------
     x = pypto.tensor([1,3], pypto.DT_INT32)
@@ -132,7 +132,7 @@ def expand_clone(
     Output y: [[ 1,  1,  1,  1],
                [ 2,  2,  2,  2],
                [ 3,  3,  3,  3]]
-    
+
     """
     if valid_shape is None:
         valid_shape = []

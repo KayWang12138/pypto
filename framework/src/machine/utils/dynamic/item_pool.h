@@ -32,28 +32,26 @@ public:
         char buf[sizeof(T)];
         ItemPoolIter freeListNextIndex;
 
-        T &Item() {
-            return *reinterpret_cast<T *>(buf);
-        }
+        T& Item() { return *reinterpret_cast<T*>(buf); }
 
-        const T &Item() const {
-            return *reinterpret_cast<const T *>(buf);
-        }
+        const T& Item() const { return *reinterpret_cast<const T*>(buf); }
     };
 
 public:
     ItemPool() = default;
-    ItemPool(WsAllocator_T &allocator, size_t count, WsMemCategory category = WsMemCategory::UNCLASSIFIED_ITEMPOOL) {
+    ItemPool(WsAllocator_T& allocator, size_t count, WsMemCategory category = WsMemCategory::UNCLASSIFIED_ITEMPOOL)
+    {
         Init(allocator, count, category);
     }
 
-    ~ItemPool() {
+    ~ItemPool()
+    {
         if (allocation_) {
             // Call destructor on alive items
-            ItemBlock *itemBase = &ItemAt(0);
+            ItemBlock* itemBase = &ItemAt(0);
             for (size_t i = 0; i < count_; i++) {
                 if (itemBase[i].freeListNextIndex == ITEM_POOL_NON_FREE_INDEX) {
-                    (reinterpret_cast<T *>(itemBase + i))->~T();
+                    (reinterpret_cast<T*>(itemBase + i))->~T();
                 }
             }
 
@@ -62,12 +60,13 @@ public:
         }
     }
 
-    void Init(WsAllocator_T &allocator, size_t count, WsMemCategory category = WsMemCategory::UNCLASSIFIED_ITEMPOOL) {
+    void Init(WsAllocator_T& allocator, size_t count, WsMemCategory category = WsMemCategory::UNCLASSIFIED_ITEMPOOL)
+    {
         DEV_ASSERT_MSG(DevDataErr::ITEM_POOL_UNINITIALIZED, !allocator_, "ItemPool has been initialized already");
         allocator_ = &allocator;
         count_ = count;
         allocation_ = allocator_->template Allocate<ItemBlock>(count_, category);
-        ItemBlock *itemBase = &ItemAt(0);
+        ItemBlock* itemBase = &ItemAt(0);
         for (size_t i = 0; i < count_; i++) {
             AppendFreeList(itemBase + i);
         }
@@ -76,62 +75,64 @@ public:
         freeCount_ = count_;
     }
 
-    template <typename ...Args>
-    T *Create(Args &&...args) {
-        DEV_ASSERT_MSG(DevDataErr::ITEM_POOL_FREE_LIST_INVALID, freeListHeadIndex_ != ITEM_POOL_INVALID_INDEX,
+    template <typename... Args>
+    T* Create(Args&&... args)
+    {
+        DEV_ASSERT_MSG(
+            DevDataErr::ITEM_POOL_FREE_LIST_INVALID, freeListHeadIndex_ != ITEM_POOL_INVALID_INDEX,
             "Available items: %zu/%zu", freeCount_, count_);
-        ItemBlock *item = &ItemAt(freeListHeadIndex_);
+        ItemBlock* item = &ItemAt(freeListHeadIndex_);
         freeListHeadIndex_ = item->freeListNextIndex;
         item->freeListNextIndex = ITEM_POOL_NON_FREE_INDEX;
         freeCount_--;
 
-        T *newItem = reinterpret_cast<T *>(item->buf);
-        new(newItem) T(std::forward<Args>(args)...);
+        T* newItem = reinterpret_cast<T*>(item->buf);
+        new (newItem) T(std::forward<Args>(args)...);
         return newItem;
     }
 
-    template <typename ...Args>
-    ItemPoolIter Allocate(Args &&...args) {
-        T *item = Create(args...);
-        return reinterpret_cast<ItemBlock *>(item) - &ItemAt(0);
+    template <typename... Args>
+    ItemPoolIter Allocate(Args&&... args)
+    {
+        T* item = Create(args...);
+        return reinterpret_cast<ItemBlock*>(item) - &ItemAt(0);
     }
 
-    void Destroy(T *item) {
+    void Destroy(T* item)
+    {
         item->~T();
-        ItemBlock *block = (ItemBlock *)item;
-        DEV_ASSERT_MSG(DevDataErr::ITEM_POOL_FREE_LIST_INVALID, block->freeListNextIndex == ITEM_POOL_NON_FREE_INDEX,
-                       "Double free detected in ItemPool");
+        ItemBlock* block = (ItemBlock*)item;
+        DEV_ASSERT_MSG(
+            DevDataErr::ITEM_POOL_FREE_LIST_INVALID, block->freeListNextIndex == ITEM_POOL_NON_FREE_INDEX,
+            "Double free detected in ItemPool");
         AppendFreeList(block);
         freeCount_++;
     }
 
-    T &At(ItemPoolIter index) {
-        return ItemAt(index).Item();
-    }
+    T& At(ItemPoolIter index) { return ItemAt(index).Item(); }
 
-    void DestroyAt(ItemPoolIter index) {
-        Destroy(&At(index));
-    }
+    void DestroyAt(ItemPoolIter index) { Destroy(&At(index)); }
 
-    size_t FreeItemNum() const {
-        return freeCount_;
-    }
+    size_t FreeItemNum() const { return freeCount_; }
 
 private:
-    inline void AppendFreeList(ItemBlock *block) {
+    inline void AppendFreeList(ItemBlock* block)
+    {
         block->freeListNextIndex = freeListHeadIndex_;
         freeListHeadIndex_ = block - &ItemAt(0);
     }
 
-    inline ItemBlock &ItemAt(ItemPoolIter index) {
-        DEV_ASSERT_MSG(DevDataErr::ITEM_POOL_INDEX_OUT_OF_RANGE, index >= 0 && static_cast<size_t>(index) < count_,
+    inline ItemBlock& ItemAt(ItemPoolIter index)
+    {
+        DEV_ASSERT_MSG(
+            DevDataErr::ITEM_POOL_INDEX_OUT_OF_RANGE, index >= 0 && static_cast<size_t>(index) < count_,
             "Index %" PRId64 " out of range [0, %zu)", index, count_);
         return allocation_.As<ItemBlock>()[index];
     }
 
 private:
     WsMemCategory category_{WsMemCategory::UNCLASSIFIED_ITEMPOOL};
-    WsAllocator_T *allocator_{nullptr};
+    WsAllocator_T* allocator_{nullptr};
     WsAllocation allocation_;
     size_t count_;
     size_t freeCount_;

@@ -32,19 +32,19 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
+TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor)
+{
     auto function = GenMockFuncDyn("TestDynMatmulTileTensor");
 
     std::vector<int64_t> shape = {64, 64};
@@ -57,7 +57,7 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorA, localTensorB, localTensorBias}, {localOutTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
 
@@ -69,12 +69,13 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TMatmul<TransMode::CAST_NONE>(l0cTensor_10, l0aTensor_11, l0bTensor_12, btTensor_13);
+        R"!!!(TMatmul<TransMode::CAST_NONE>(l0cTensor_0, l0aTensor_1, l0bTensor_2, btTensor_3);
 )!!!";
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
+TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor)
+{
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
     auto function = GenMockFuncDyn("TestMatmulMXTileTensor");
@@ -91,7 +92,7 @@ TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, mxShape, dynValidShape});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorAMX, localTensorBMX, localTensorBias}, {localOutTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
 
@@ -102,7 +103,7 @@ TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
     CodeGenOpCloudNPU cop({symbolManagerMX, *function, *function->rootFunc_->programs_[0], op, {}});
 
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(MatmulMX(l0cTensor_10, l0a_mxTensor_11, l0b_mxTensor_12, btTensor_13);
+    std::string expect = R"!!!(MatmulMX(l0cTensor_0, l0a_mxTensor_1, l0b_mxTensor_2, btTensor_3);
 )!!!";
     EXPECT_EQ(res, expect);
 }

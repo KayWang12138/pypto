@@ -45,4 +45,3 @@ out2 = s2.is_concrete()
 输出数据out1: True
 输出数据out2: False
 ```
-

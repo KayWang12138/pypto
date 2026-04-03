@@ -20,8 +20,9 @@ using namespace npu::tile_fwk;
 
 class MatmulOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-template<typename InputT, typename OnputT>
-void TestMatmul(int m, int k, int n, string dataPath) {
+template <typename InputT, typename OnputT>
+void TestMatmul(int m, int k, int n, string dataPath)
+{
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {k, n};
     std::vector<int64_t> shape_c = {m, n};
@@ -36,24 +37,25 @@ void TestMatmul(int m, int k, int n, string dataPath) {
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OnputT>();
 
+    PROGRAM("Matmul")
+    {
+        void* a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
+        void* b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
 
-    PROGRAM("Matmul") {
-        void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
-        void *b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
-
-        Tensor mat_a(InputAstDtype, shape_a, (uint8_t *)a_ptr, "mat_a");
-        Tensor mat_b(InputAstDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
+        Tensor mat_a(InputAstDtype, shape_a, (uint8_t*)a_ptr, "mat_a");
+        Tensor mat_b(InputAstDtype, shape_b, (uint8_t*)b_ptr, "mat_b");
         Tensor mat_c(OutputAstDtype, shape_c, c_ptr, "mat_c");
 
         config::SetBuildStatic(true);
-        FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, false);  // result dtype
+        FUNCTION("Matmul_T", {mat_a, mat_b, mat_c})
+        {
+            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, false); // result dtype
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), c_ptr, outputSize);
     readInput(dataPath + "/c_golden.bin", golden);
     std::cout << "====== output size:" << capacity_c << std::endl;
 
@@ -61,8 +63,9 @@ void TestMatmul(int m, int k, int n, string dataPath) {
     EXPECT_EQ(ret, true);
 }
 
-template<typename InputT, typename OnputT>
-void TestMatmulTrans(int m, int k, int n, string dataPath) {
+template <typename InputT, typename OnputT>
+void TestMatmulTrans(int m, int k, int n, string dataPath)
+{
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {n, k};
     std::vector<int64_t> shape_c = {m, n};
@@ -77,31 +80,33 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OnputT>();
 
+    PROGRAM("Matmul")
+    {
+        void* a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
+        void* b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
 
-    PROGRAM("Matmul") {
-        void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
-        void *b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
-
-        Tensor mat_a(InputAstDtype, shape_a, (uint8_t *)a_ptr, "mat_a");
-        Tensor mat_b(InputAstDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
+        Tensor mat_a(InputAstDtype, shape_a, (uint8_t*)a_ptr, "mat_a");
+        Tensor mat_b(InputAstDtype, shape_b, (uint8_t*)b_ptr, "mat_b");
         Tensor mat_c(OutputAstDtype, shape_c, c_ptr, "mat_c");
 
         config::SetBuildStatic(true);
-        FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, true);  // result dtype
+        FUNCTION("Matmul_T", {mat_a, mat_b, mat_c})
+        {
+            mat_c = npu::tile_fwk::Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, true); // result dtype
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), c_ptr, outputSize);
     readInput(dataPath + "/c_golden.bin", golden);
     int ret = resultCmp(golden, dev_res, 0.001f);
     EXPECT_EQ(ret, true);
 }
 
-template<typename InputT, typename OnputT>
-void TestMatmulACC(int m, int k, int n, string dataPath) {
+template <typename InputT, typename OnputT>
+void TestMatmulACC(int m, int k, int n, string dataPath)
+{
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {k, n};
     std::vector<int64_t> shape_c = {m, n};
@@ -117,16 +122,17 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OnputT>();
 
+    PROGRAM("Matmul")
+    {
+        void* a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
+        void* b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
 
-    PROGRAM("Matmul") {
-        void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
-        void *b_ptr = readToDev<InputT>(dataPath + "/b.bin", capacity_b);
-
-        Tensor mat_a(InputAstDtype, shape_a, (uint8_t *)a_ptr, "mat_a");
-        Tensor mat_b(InputAstDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
+        Tensor mat_a(InputAstDtype, shape_a, (uint8_t*)a_ptr, "mat_a");
+        Tensor mat_b(InputAstDtype, shape_b, (uint8_t*)b_ptr, "mat_b");
         Tensor final_out(OutputAstDtype, shape_c, c_ptr, "final_out");
         config::SetBuildStatic(true);
-        FUNCTION("Matmul_T", {mat_a, mat_b, final_out}) {
+        FUNCTION("Matmul_T", {mat_a, mat_b, final_out})
+        {
             Tensor tmpC = Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, false);
             TileShape::Current().SetVecTile(32, 32);
             final_out = Add(tmpC, Element(DataType::DT_FP32, 0.0));
@@ -135,213 +141,251 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<OnputT> dev_res(capacity_c);
     std::vector<OnputT> golden(capacity_c);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_res.data(), c_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_res.data(), c_ptr, outputSize);
     readInput(dataPath + "/c_golden.bin", golden);
     int ret = resultCmp(golden, dev_res, 0.001f);
-    std::cout <<"golden = "<< golden[0] << " result = " << dev_res[0] << std::endl;
+    std::cout << "golden = " << golden[0] << " result = " << dev_res[0] << std::endl;
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_64_64_64_acc) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_64_64_64_acc)
+{
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32}, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(64, 64, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_7168_1536_acc) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_7168_1536_acc)
+{
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(32, 7168, 1536, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_512_128_acc) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_512_128_acc)
+{
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(32, 512, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_1024_512_acc) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_1024_512_acc)
+{
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {256, 256}, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(32, 1024, 512, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_64_64_64) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_64_64_64)
+{
     TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {32, 32});
     TestMatmul<npu::tile_fwk::float16, float>(64, 64, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_64_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_64_128_128)
+{
     TileShape::Current().SetCubeTile({64, 64}, {128, 128}, {128, 128});
     TestMatmul<npu::tile_fwk::float16, float>(64, 128, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_128_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_128_128_128)
+{
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
     TestMatmul<npu::tile_fwk::float16, float>(128, 128, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_128)
+{
     TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, float>(32, 128, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_64) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_64)
+{
     TileShape::Current().SetCubeTile({16, 32}, {32, 64}, {32, 64});
     TestMatmul<npu::tile_fwk::float16, float>(32, 128, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_int8_32_128_64) {
+TEST_F(MatmulOnBoardTest, test_mm_int8_32_128_64)
+{
     TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {32, 64});
     TestMatmul<int8_t, int32_t>(32, 128, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_int8_32_128_64_bt) {
+TEST_F(MatmulOnBoardTest, test_mm_int8_32_128_64_bt)
+{
     TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {32, 64});
     TestMatmulTrans<int8_t, int32_t>(32, 128, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float_32_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_float_32_128_128)
+{
     TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {64, 128});
     TestMatmul<float, float>(32, 128, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float_32_128_128_bt) {
+TEST_F(MatmulOnBoardTest, test_mm_float_32_128_128_bt)
+{
     TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {64, 128});
     TestMatmulTrans<float, float>(32, 128, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_192_64) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_192_64)
+{
     TileShape::Current().SetCubeTile({16, 32}, {32, 64, 96}, {32, 64});
     TestMatmul<npu::tile_fwk::float16, float>(32, 192, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_192) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_192)
+{
     TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, float>(32, 128, 192, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_256_256_256) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_256_256_256)
+{
     TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {128, 128});
     TestMatmul<npu::tile_fwk::float16, float>(256, 256, 256, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_512_576) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_512_576)
+{
     TileShape::Current().SetCubeTile({32, 32}, {128, 512}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, float>(32, 512, 576, GetGoldenDir());
 }
 
 // [32*1, 7168] * [7168,1536] = [32*1, 1536]
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_7168_1536) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_7168_1536)
+{
     TileShape::Current().SetCubeTile({32, 32}, {512, 512}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, float>(32, 7168, 1536, GetGoldenDir());
 }
 
 // [32*1, 1536] * [1536,32*192] = [32*1, 32*192]
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_1536_6144) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_1536_6144)
+{
     TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {128, 128});
     TestMatmul<npu::tile_fwk::float16, float>(32, 1536, 6144, GetGoldenDir());
 }
 
 // [32*1, 7168] * [7168,576] = [32*1, 576]
-TEST_F(MatmulOnBoardTest, test_mm_float32_32_7168_576) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_32_7168_576)
+{
     TileShape::Current().SetCubeTile({32, 32}, {512, 512}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, float>(32, 7168, 576, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float16_64_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_64_128_128)
+{
     TileShape::Current().SetCubeTile({32, 64}, {64, 128}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(64, 128, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float16_16_7168_2048) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_16_7168_2048)
+{
     TileShape::Current().SetCubeTile({16, 16}, {1024, 1024}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(16, 7168, 2048, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float16_16_7168_1024) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_16_7168_1024)
+{
     TileShape::Current().SetCubeTile({16, 16}, {1024, 1024}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(16, 7168, 1024, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_float16_64_256_128) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_64_256_128)
+{
     TileShape::Current().SetCubeTile({32, 64}, {64, 256}, {64, 128});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(64, 256, 128, GetGoldenDir());
 }
 
 // [32*1, 7168] * [7168,1536] = [32*1, 1536]
-TEST_F(MatmulOnBoardTest, test_mm_float16_32_7168_1536) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_32_7168_1536)
+{
     TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {128, 128});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(32, 7168, 1536, GetGoldenDir());
 }
 
 // [32*1, 1536] * [1536,32*192] = [32*1, 32*192]
-TEST_F(MatmulOnBoardTest, test_mm_float16_32_1536_6144) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_32_1536_6144)
+{
     TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(32, 1536, 6144, GetGoldenDir());
 }
 
 // [32*1, 7168] * [7168,576] = [32*1, 576]
-TEST_F(MatmulOnBoardTest, test_mm_float16_32_7168_576) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_32_7168_576)
+{
     TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(32, 7168, 576, GetGoldenDir());
 }
 
 // [4*1, 7168] * [7168,1536] = [4*1, 1536]
-TEST_F(MatmulOnBoardTest, test_mm_float16_4_7168_1536) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_4_7168_1536)
+{
     TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(4, 7168, 1536, GetGoldenDir());
 }
 
 // [4*1, 1536] * [1536,32*192] = [4*1, 32*192]
-TEST_F(MatmulOnBoardTest, test_mm_float16_4_1536_6144) {
+TEST_F(MatmulOnBoardTest, test_mm_float16_4_1536_6144)
+{
     TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {64, 64});
     TestMatmul<npu::tile_fwk::float16, npu::tile_fwk::float16>(4, 1536, 6144, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_bfloat16_64_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_bfloat16_64_128_128)
+{
     TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
     TestMatmul<npu::tile_fwk::bfloat16, npu::tile_fwk::bfloat16>(64, 128, 128, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_bfloat16_f32_64_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_bfloat16_f32_64_128_128)
+{
     TileShape::Current().SetCubeTile({32, 64}, {64, 128}, {64, 128});
     TestMatmul<npu::tile_fwk::bfloat16, float>(64, 128, 128, GetGoldenDir());
 }
 
 // m unalign
-TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_2_128_128) {
+TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_2_128_128)
+{
     TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
     TestMatmul<npu::tile_fwk::float16, float>(2, 128, 128, GetGoldenDir());
 }
 
 // k unalign
-TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_16_35_32) {
+TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_16_35_32)
+{
     TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {32, 32});
     TestMatmul<npu::tile_fwk::float16, float>(16, 35, 32, GetGoldenDir());
 }
 
 // n unalign precision failed
-TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_16_32_35) {
+TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_16_32_35)
+{
     TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {32, 32});
     TestMatmul<npu::tile_fwk::float16, float>(16, 32, 35, GetGoldenDir());
 }
 
 // n unalign precision failed
-TEST_F(MatmulOnBoardTest, test_mm_float32_64_64_64_bt) {
+TEST_F(MatmulOnBoardTest, test_mm_float32_64_64_64_bt)
+{
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     TestMatmulTrans<npu::tile_fwk::float16, float>(64, 64, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_576_256_bt) {
+TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_576_256_bt)
+{
     TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {64, 64});
     TestMatmulTrans<npu::tile_fwk::float16, float>(8, 576, 256, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_64_64_bt) {
+TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_64_64_bt)
+{
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     TestMatmulTrans<npu::tile_fwk::float16, float>(8, 64, 64, GetGoldenDir());
 }
 
-TEST_F(MatmulOnBoardTest, test_mm_int8_32_16384_7168) {
+TEST_F(MatmulOnBoardTest, test_mm_int8_32_16384_7168)
+{
     TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
-    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 32*1024*1024);
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 32 * 1024 * 1024);
     TestMatmul<int8_t, int32_t>(32, 16384, 7168, GetGoldenDir());
 }

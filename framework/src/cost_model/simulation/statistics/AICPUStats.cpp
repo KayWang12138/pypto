@@ -18,7 +18,7 @@
 #include <climits>
 #include <iostream>
 
-void AICPUStats::Report(std::string &name)
+void AICPUStats::Report(std::string& name)
 {
     if (threadSubmitNum.size() > 1) {
         rpt->ReportTitle("AICPUMachine " + name + " Thread Details");
