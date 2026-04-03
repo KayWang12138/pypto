@@ -669,6 +669,33 @@ void ExecuteOpRange(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
+void ExecuteOpUniform(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    
+    Element key(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "KEY")) {
+        key = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "KEY");
+    }
+    
+    Element counter0(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "COUNTER0")) {
+        counter0 = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "COUNTER0");
+    }
+    
+    Element counter1(DT_UINT64, static_cast<uint64_t>(0));
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "COUNTER1")) {
+        counter1 = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "COUNTER1");
+    }
+    
+    Element rounds(DT_UINT16, static_cast<uint16_t>(10));
+    if (ctx->op->HasAttr(OP_ATTR_PREFIX + "ROUNDS")) {
+        rounds = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "ROUNDS");
+    }
+    
+    calc::Uniform(oop, key, counter0, counter1, rounds);
+}
+REGISTER_CALC_OP(OP_UNIFORM, Opcode::OP_UNIFORM, ExecuteOpUniform);
+
 void ExecuteOpLog1p(ExecuteOperationContext* ctx)
 {
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);

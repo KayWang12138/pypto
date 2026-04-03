@@ -153,6 +153,11 @@ inline void Range(LogicalTensorDataPtr out, const Element& start, const Element&
 {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
+inline void Uniform(LogicalTensorDataPtr out, const Element &key,
+                    const Element &counter0, const Element &counter1, const Element &rounds) {
+    GetCalcOps()->Uniform(Trans(out), key, counter0, counter1, rounds);
+}
+
 inline void Compare(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, CmpOperationType operation,
     CmpModeType mode)

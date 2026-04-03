@@ -2597,6 +2597,107 @@ def as_float(value):
     value = float(value)
     return value
 
+def uniform_golden_func(inputs: list, config: dict):
+    params = config.get("params", {})
+    rounds = params.get("rounds", 10)
+    if isinstance(rounds, str):
+        rounds = int(rounds)
+    
+    shape = config["output_tensors"][0]["shape"]
+    
+    key = params.get("key", 0)
+    if isinstance(key, str):
+        key = int(key)
+    
+    counter_0 = params.get("counter_0", 0)
+    if isinstance(counter_0, str):
+        counter_0 = int(counter_0)
+    counter_1 = params.get("counter_1", 0)
+    if isinstance(counter_1, str):
+        counter_1 = int(counter_1)
+    counter = [counter_0, counter_1]
+    
+    # 工具函数：32位无符号整数截断（仅补全算法逻辑，无结构改动）
+    def uint32(x):
+        return x & 0xFFFFFFFF
+
+    def multiply_high_low(a, b):
+        product = a * b
+        hi = uint32(product >> 32)
+        lo = uint32(product)
+        return lo, hi
+    
+    def philox_single_round(counter, key0, key1):
+        lo0, hi0 = multiply_high_low(0xD2511F53, counter[0])
+        lo1, hi1 = multiply_high_low(0xCD9E8D57, counter[2])
+        
+        # 修正：所有输出强制截断为uint32，匹配C语言算法
+        return [
+            uint32(hi1 ^ counter[1] ^ key0),
+            uint32(lo1),
+            uint32(hi0 ^ counter[3] ^ key1),
+            uint32(lo0)
+        ]
+    
+    def raise_key(key0, key1):
+        return (
+            uint32(key0 + 0x9E3779B9),
+            uint32(key1 + 0xBB67AE85)
+        )
+    
+    total_elements = 1
+    for dim in shape:
+        total_elements *= dim
+    
+    result = np.zeros(total_elements, dtype=np.uint32)
+
+    # ===================== 核心修改1：固定初始密钥（永不改变） =====================
+    init_key0 = uint32(key)
+    init_key1 = uint32(key >> 32)
+    
+    # ===================== 核心修改2：定义原始计数器（仅此处递增） =====================
+    original_counter = [
+        uint32(counter[0]),
+        uint32(counter[0] >> 32),
+        uint32(counter[1]),
+        uint32(counter[1] >> 32)
+    ]
+    
+    for i in range(0, total_elements, 4):
+        # ===================== 核心修改3：每组重置密钥 + 复制原始计数器 =====================
+        key0, key1 = init_key0, init_key1
+        current_counter = original_counter.copy()
+
+        # 标准Philox轮次计算（逻辑不变）
+        for _ in range(rounds):
+            current_counter = philox_single_round(current_counter, key0, key1)
+            key0, key1 = raise_key(key0, key1)
+        
+        # 写入结果（逻辑不变）
+        for j in range(min(4, total_elements - i)):
+            result[i + j] = current_counter[j]
+        
+        # ===================== 核心修改4：递增【原始计数器】，而非加密后的结果 =====================
+        original_counter[0] = uint32(original_counter[0] + 1)
+        if original_counter[0] == 0:
+            original_counter[1] = uint32(original_counter[1] + 1)
+            if original_counter[1] == 0:
+                original_counter[2] = uint32(original_counter[2] + 1)
+                if original_counter[2] == 0:
+                    original_counter[3] = uint32(original_counter[3] + 1)
+    
+    return [result.reshape(shape)]
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestUniform/UniformOperationTest.TestUniform",
+    ]
+)
+def gen_uniform_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Uniform", uniform_golden_func, output, case_index)
+
 
 def safe_tensor_conversion(arr):
     if isinstance(arr, np.ndarray) and arr.dtype == np.dtype('bfloat16'):
