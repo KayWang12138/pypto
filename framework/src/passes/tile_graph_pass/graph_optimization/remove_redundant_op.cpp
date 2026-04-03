@@ -116,6 +116,7 @@ bool RemoveRedundantOp::ProcessRedundantOpWithoutDynShape(Operation& op) const
         for (const auto& consumer : assembleOutput->GetConsumers()) {
             if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
                 hasReshapeConsumer = true;
+                break;
             }
         }
         if (hasParallelAssemble && hasReshapeConsumer) return false;
