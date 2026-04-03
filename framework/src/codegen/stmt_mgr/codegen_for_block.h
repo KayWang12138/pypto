@@ -62,10 +62,10 @@ public:
 
     bool IsInLoop() { return isInLoop_; }
 
-    void AddTensorInLoopBody(const std::string& tensorFullDim, const TileTensor& tileTensor)
+    void AddTensorInLoopBody(const std::string& tensorFullDim, const TileTensor& tileTensor, int opMagic)
     {
         CODEGEN_LOGI("AddTensorInLoopBody : %s", tileTensor.tensorName.c_str());
-        std::string tensorNameInLoop = sm_->AddTileTensor(tileTensor);
+        std::string tensorNameInLoop = sm_->AddTileTensor(opMagic, tileTensor);
         sm_->InsertTensorNameInLoopToFullDim(tensorNameInLoop, tensorFullDim);
         tensorNeedSetAddr_.insert(tensorNameInLoop);
     }
