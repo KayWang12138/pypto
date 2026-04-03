@@ -488,7 +488,7 @@ public:
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
                opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_INDEX_PUT || opCode == Opcode::OP_FFN_SCHED ||
-               opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO ||
+               opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_SCATTER ||
                opCode == Opcode::OP_FFN_VALIDCNT || opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
                opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
@@ -989,7 +989,7 @@ inline bool IsCopyOut(const Opcode& op)
         op == Opcode::OP_INDEX_PUT || op == Opcode::OP_FFN_COMBINEINFO || op == Opcode::OP_FFN_VALIDCNT ||
         op == Opcode::OP_COPY_TO_LOCAL_EXPERT || op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
         op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_SET || op == Opcode::OP_RESHAPE_COPY_OUT ||
-        op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
+        op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || op == Opcode::OP_SCATTER ||
         op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND);
 }
 
