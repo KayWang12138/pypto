@@ -1066,7 +1066,7 @@ Status ReplaceTensor::InsertNeedCopy(Function& function)
                 }
             }
             for (auto consumerOp : consumerOps) {
-                if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                if (consumerOp->GetOpcode() == Opcode::OP_ASSEMBLE && consumerOp->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                     needInsertCopyAssOps.insert(consumerOp);
                 }
             }
