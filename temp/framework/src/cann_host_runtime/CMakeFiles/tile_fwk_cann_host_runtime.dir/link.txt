@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -s -shared -Wl,-soname,libtile_fwk_cann_host_runtime.so -o ../../../output/lib/libtile_fwk_cann_host_runtime.so CMakeFiles/tile_fwk_cann_host_runtime.dir/cann_host_runtime.cpp.o   -L/home/fangrui/Ascend/cann-8.5.0/lib64  -ldl -lc_sec ../../../output/lib/libtile_fwk_utils.so 

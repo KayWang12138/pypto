@@ -177,6 +177,7 @@ std::string GetDtype(DataType dtype) {
         case DataType::DT_INT64: return "int64_t";
         case DataType::DT_FP16: return "half";
         case DataType::DT_FP32: return "float";
+        case DataType::DT_BOOL: return "bool";
         default: return "unknown";
     }
 }

@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -s -shared -Wl,-soname,libtile_fwk_simulation_platform.so -o ../../../../output/lib/libtile_fwk_simulation_platform.so CMakeFiles/tile_fwk_simulation_platform.dir/platform.cpp.o   -L/home/fangrui/Ascend/cann-8.5.0/lib64  -lc_sec -ldl 
