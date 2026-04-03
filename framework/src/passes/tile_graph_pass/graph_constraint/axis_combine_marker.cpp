@@ -168,9 +168,6 @@ void UpdateElewiseStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axi
 {
     auto outputTensor = op->GetOOperands()[0];
     for (auto inputTensor : op->GetIOperands()) {
-        if (inputTensor->GetConsumers().size() != 1 && inputTensor->GetShape().back() == 1) { // 仅直连允许BRCB
-            tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
-        }
         if (tensorStatus[inputTensor] == AxisReorderStatus::UNKNOWN && inputTensor->GetShape().back() == 1) {
             tensorStatus[inputTensor] = AxisReorderStatus::ENABLE;
         }
