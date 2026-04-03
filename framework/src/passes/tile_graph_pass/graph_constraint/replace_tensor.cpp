@@ -903,11 +903,11 @@ inline int64_t Pad(int64_t dim, int64_t padValue)
  * @brief 计算tensor的数据量
  */
 int computeTensorSize(const LogicalTensorPtr& tensor) {
-    int bytes = BytesOf(tensor->Datatype());
     if (tensor == nullptr || tensor->shape.empty()) {
         return 0;
     }
 
+    int bytes = BytesOf(tensor->Datatype());
     int tensorSize = bytes;
     for (int dim : tensor->shape) {
         tensorSize *= dim;
