@@ -181,33 +181,38 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                         pypto.assemble(qn, [0, 0], qi)
                         pypto.assemble(qr, [0, dn], qi)
 
-                        sij = pypto.matmul(qi, kj_view, pypto.DT_FP32, a_trans=False, b_trans=True)
+                        sij = pypto.matmul(qi, kj_view, dtype, a_trans=False, b_trans=True)
 
-                        pypto.set_semantic_label("Sa_V1")
-                        pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                        sij_scale = pypto.mul(sij, softmax_scale)
-                        tilda_mij_reduce = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                        t_sub = pypto.sub(sij_scale, tilda_mij_reduce)
-                        tilda_pij = pypto.exp(t_sub)
-                        tilda_lij_reduce = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                        t_softmax = pypto.div(tilda_pij, tilda_lij_reduce)
-                        tilda_pij_f16 = pypto.cast(t_softmax, dtype)
-
-                        pypto.set_semantic_label("Sa_C2")
-                        pypto.set_cube_tile_shapes([c2_tile[0],
-                            c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]])
-                        pypto.set_matrix_size([tilda_pij_f16.shape[0],
-                            tilda_pij_f16.shape[1], kn.shape[1]])
-
-                        q1 = pypto.tensor([cur_group_tile, dn], dtype)
-                        vj = pypto.view(kn, [cur_s2_tile, dn], [0, 0],
-                                        valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
-                        q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
-
-                        pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
+                        pypto.assemble(sij, [cur_offset, 0], atten_out_2dim)
                         attention_out[:] = pypto.reshape(atten_out_2dim,
                                                     [attention_out.shape[0], attention_out.shape[1],
                                                      attention_out.shape[2], attention_out.shape[3]], inplace=True)
+
+                        # pypto.set_semantic_label("Sa_V1")
+                        # pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                        # sij_scale = pypto.mul(sij, softmax_scale)
+                        # tilda_mij_reduce = pypto.amax(sij_scale, dim=-1, keepdim=True)
+                        # t_sub = pypto.sub(sij_scale, tilda_mij_reduce)
+                        # tilda_pij = pypto.exp(t_sub)
+                        # tilda_lij_reduce = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+                        # t_softmax = pypto.div(tilda_pij, tilda_lij_reduce)
+                        # tilda_pij_f16 = pypto.cast(t_softmax, dtype)
+
+                        # pypto.set_semantic_label("Sa_C2")
+                        # pypto.set_cube_tile_shapes([c2_tile[0],
+                        #     c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]])
+                        # pypto.set_matrix_size([tilda_pij_f16.shape[0],
+                        #     tilda_pij_f16.shape[1], kn.shape[1]])
+
+                        # q1 = pypto.tensor([cur_group_tile, dn], dtype)
+                        # vj = pypto.view(kn, [cur_s2_tile, dn], [0, 0],
+                        #                 valid_shape=[(cur_seq - s2_idx * cur_s2_tile).min(cur_s2_tile), dn])
+                        # q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
+
+                        # pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
+                        # attention_out[:] = pypto.reshape(atten_out_2dim,
+                        #                             [attention_out.shape[0], attention_out.shape[1],
+                        #                              attention_out.shape[2], attention_out.shape[3]], inplace=True)
 
 
 def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_2d, key_rope_2d,
@@ -429,7 +434,8 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
     runtime_options={
         "stitch_function_max_num": 128,
         "device_sched_mode": 3
-    }
+    },
+    debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 1}
 )
 def sparse_flash_attention_quant_d(
     query_nope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
