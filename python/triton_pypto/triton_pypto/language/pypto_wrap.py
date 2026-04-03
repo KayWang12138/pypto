@@ -7,6 +7,7 @@ from typing import Callable, Generic, Iterable, List, TypeVar, overload
 
 import pypto
 
+from ..language.emitter import emitter
 from ..log import get_logger
 from . import dtypes
 from .context import Context
@@ -49,6 +50,7 @@ def managed_call(fn: Callable[..., T], *args, **kwds) -> T:
     try:
         result = fn(*args, **kwds)
         print(" ->", result, end="", file=log_str)
+        emitter.log_operation(fn.__name__, args, kwds, result)        
         return result
     finally:
         logger.debug(log_str.getvalue())

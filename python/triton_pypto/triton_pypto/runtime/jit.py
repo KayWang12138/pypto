@@ -9,6 +9,7 @@ import pypto
 import torch
 import triton
 
+from ..language.emitter import emitter
 from ..language.context import Context
 from ..language import pypto_wrap
 from ..language.compound import TensorPointer
@@ -66,6 +67,7 @@ class JITFunction(Generic[P, T]):
         Context.num_programs = grid
         args = tuple(self.wrap_kernel_arg(arg) for arg in args)
         in_out_tensors = [arg.base.base for arg in args if isinstance(arg, TensorPointer)]
+        emitter.start_function(self.fn.__name__, in_out_tensors, num_programs=grid)
         kwds = {name: self.wrap_kernel_arg(arg) for name, arg in kwds.items()}
         logger.info("Args %s", args)
         logger.info("Kwds %s", kwds)
@@ -87,6 +89,7 @@ class JITFunction(Generic[P, T]):
             for pid_x, pid_y, pid_z in loop_range:
                 self.call_jit_fn((pid_x, pid_y, pid_z), args, kwds)
         device.run_once(*in_out_tensors)
+        emitter.save_to_file()
 
     def call_jit_fn(self, grid: Grid, args: Tuple[Any], kwds: Dict[str, Any]) -> None:
         logger.debug("Grid: program_id %r", grid)
