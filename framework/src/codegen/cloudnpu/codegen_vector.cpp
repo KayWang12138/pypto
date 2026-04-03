@@ -1257,33 +1257,23 @@ std::string CodeGenOpCloudNPU::GenScatterOp() const
     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "scatter_mode"))
         << "cannot get scatter mode attr";
     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(isSupportLayout) << "Scatter operation only support TileTensor mode";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    axis += SHAPE_DIM5 - rawShape[ID0].size();
     int scatterMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
-    const DataType dstDtype = operandDtype[ID0];
-    const DataType src1Dtype = operandDtype[ID3];
-    const DataType src2Dtype = operandDtype[ID4];
-
-    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
-    std::string src2Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID4]);
-
-    std::vector dstRawShape = rawShape[ID0];
-    std::vector src1RawShape = rawShape[ID3];
-    std::vector src2RawShape = rawShape[ID4];
-
-    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
-    std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
-    std::string src2DtypeStr = DataType2CCEStr(src2Dtype);
-
-    AppendLocalBufVarOffsetInOrder(dstVar, src1Var, src2Var);
-
-    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
-    if (isSupportLayout) {
-        return PrintScatterTileTensor(
-            {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
-    }
-    return PrintScatterOpDynamicUnaligned(
-        {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+    std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
+    std::string idxTensor = QueryTileTensorNameByIdx(ID3);
+    std::string src1Tensor = QueryTileTensorNameByIdx(ID4);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coord = PrintCoord(rawShape[ID0].size(), WrapParamByParentheses(gmOffsetExpr));
+    std::vector<std::string> templateParamList = {std::to_string(axis), std::to_string(scatterMode)};
+    std::vector<std::string> tileOpParamList = {dstTensor, idxTensor, src1Tensor, tmpTensor, coord};
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByAngleBrackets(templateParamList) << WrapParamByParentheses(tileOpParamList)
+        << STMT_END;
+    return oss.str();
 }
 
 void CodeGenOpCloudNPU::GetWhereVarAndType(
