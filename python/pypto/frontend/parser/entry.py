@@ -16,7 +16,9 @@ including the parse function and JIT decorator.
 """
 
 import inspect
+import threading
 import os
+import time
 from typing import Any, Callable, Optional, Union
 from enum import IntEnum
 import itertools
@@ -299,6 +301,7 @@ class JitCallableWrapper:
         self._cached_signature = self._get_signature()
         self._cached_non_tensor_defaults: dict[str, Any] = self._extract_non_tensor_defaults()
         self._cache_hashes: tuple = self._compute_cache_hashes()
+        self._stream_result = [None]
 
         # Copy metadata from the original function
         if hasattr(original_func, "__name__"):
@@ -330,6 +333,10 @@ class JitCallableWrapper:
         None
             User holds output tensor(s) passed as arguments; no return value.
         """
+        def _get_stream():
+            self._stream_result[0] = _current_stream()
+        stream_thread = threading.Thread(target=_get_stream)
+        stream_thread.start()
         in_tensors, non_tensor_values, input_tensor_defs = self._parse_call_args(
             args, kwargs
         )
@@ -339,7 +346,11 @@ class JitCallableWrapper:
             debug_mode = self._debug_options.get("runtime_debug_mode", None)
             if debug_mode == DebugMode.CHECKATTR:
                 self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
-        self._execute_kernel(in_tensors, input_tensor_defs)
+        start_time = time.monotonic()
+        self._execute_kernel(in_tensors, input_tensor_defs, stream_thread)
+        end_time = time.monotonic()
+        elapsed_us = (end_time - start_time) * 1e6
+        print(f"_execute_kernel elapsed time: {elapsed_us:.2f}us")
 
         return None
 
@@ -675,11 +686,13 @@ class JitCallableWrapper:
         self,
         torch_tensors: list,
         tensor_defs: list,
+        stream_thread: threading.Thread,
     ) -> None:
         """Run kernel on NPU or CPU (SIM)."""
         if self._runtime_options.get("run_mode", None) == RunMode.NPU:
+            stream_thread.join()
             pypto_impl.LaunchKernelTorch(
-                self, _current_stream(), torch_tensors, tensor_defs
+                self, self._stream_result[0], torch_tensors, tensor_defs
             )
         else:
             pto_tensors = self._convert_tensors_with_metadata(
