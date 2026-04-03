@@ -443,10 +443,17 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const
 std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const
 {
     if (isUnderDynamicFunction) {
-        std::ostringstream os;
-        os << "GET_PARAM_ADDR(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc << ", "
-           << paramLocation[gmParamIdx] << ")";
-        return os.str();
+        std::map<int, SymbolicScalar> addrs;
+        bool ret = GetTensorAttr(gmParamIdx, "paramAddr", addrs);
+        ASSERT(OperErr::ATTRIBUTE_INVALID, ret)
+            << "paramAddr is not found!! gmParamIdx: " << gmParamIdx << ", op: " << originalOp.Dump();
+        auto iter = addrs.find(originalOp.GetOpMagic());
+        ASSERT(OperErr::ATTRIBUTE_INVALID, iter != addrs.end())
+            << "add is not found by opMagic: " << originalOp.GetOpMagic() << ", gmParamIdx: " << gmParamIdx
+            << ", op: " << originalOp.Dump();
+        auto addr = iter->second;
+        std::string gmParamVar = SymbolicExpressionTable::BuildExpression(addr);
+        return gmParamVar;
     }
 
     auto paramLoc = paramLocation[gmParamIdx];
@@ -468,6 +475,32 @@ std::vector<std::string> CodeGenOpCloudNPU::GenGetParamMacroPacked(
     os << "GET_PARAM_" << prefix << "_" << dim << "(" << GM_TENSOR_PARAM_STR << ", " << GmTensorParamIdxInCallFunc
        << ", " << paramLocation[gmParamIdx] << ")";
     paramExpr.emplace_back(os.str());
+    return paramExpr;
+};
+
+std::vector<std::string> CodeGenOpCloudNPU::GenDynStridePacked(unsigned gmParamIdx) const
+{
+    std::ostringstream os;
+    std::vector<std::string> paramExpr;
+    auto rawshape = GenDynRawShapePacked(gmParamIdx);
+    ;
+    os << "GET_PARAM_STRIDE_" << rawshape.size() << "(";
+    for (size_t i = 1; i < rawshape.size(); i++) {
+        if (i != 1)
+            os << ", ";
+        os << rawshape[i];
+    }
+    os << ")";
+    paramExpr.emplace_back(os.str());
+    return paramExpr;
+};
+
+std::vector<std::string> CodeGenOpCloudNPU::GenDynRawShapePacked(unsigned paramIdx) const
+{
+    std::vector<std::string> paramExpr;
+    for (const auto& s : dynamicRawShape[paramIdx]) {
+        paramExpr.emplace_back(SymbolicExpressionTable::BuildExpression(s));
+    }
     return paramExpr;
 };
 
@@ -541,8 +574,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(
             }
             tileTensor.stride = BuildStride(shapeFromAttr[paramIdx]);
         } else {
-            tileTensor.shape = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_RAW_SHAPE);
-            tileTensor.stride = GenGetParamMacroPacked(paramIdx, tileTensor.dim, PREFIX_STR_STRIDE);
+            tileTensor.shape = GenDynRawShapePacked(paramIdx);
+            tileTensor.stride = GenDynStridePacked(paramIdx);
         }
         return;
     }

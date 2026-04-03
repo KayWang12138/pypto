@@ -218,11 +218,11 @@ private:
     int GetCacheModeFlag(const std::string& cacheMode) const;
 
     template <typename T>
-    bool GetAttr(const std::string& key, T& value) const
+    bool GetAttrFromMap(const std::map<std::string, Any>& attrMap, const std::string& key, T& value) const
     {
-        auto it = opAttrs.find(key);
-        if (it == opAttrs.end()) {
-            CODEGEN_LOGI("can not find key: %s in opAttrs", key.c_str());
+        auto it = attrMap.find(key);
+        if (it == attrMap.end()) {
+            CODEGEN_LOGI("can not find key: %s in attrMap", key.c_str());
             return false;
         }
         if (it->second.Type() == typeid(T)) {
@@ -233,6 +233,20 @@ private:
             GenCodeErr::DATA_TYPE_MISMATCHED, "Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(),
             it->second.Type().name(), typeid(T).name());
         return false;
+    }
+
+    template <typename T>
+    bool GetAttr(const std::string& key, T& value) const
+    {
+        return GetAttrFromMap(opAttrs, key, value);
+    }
+
+    template <typename T>
+    bool GetTensorAttr(int idx, const std::string& key, T& value) const
+    {
+        ASSERT(GenCodeErr::PARAM_IDX_INVALID, idx >= 0 && idx < MAX_OPERANDS)
+            << "idx " << idx << " is out of range [0, " << MAX_OPERANDS << ")";
+        return GetAttrFromMap(tensorAttrs[idx], key, value);
     }
 
     template <typename T = int64_t>
@@ -283,6 +297,9 @@ private:
     std::vector<std::string> GenParamIdxExprByIndex(unsigned gmParamIdx, int dim, const std::string& prefix) const;
 
     std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar>& exprList) const;
+
+    std::vector<std::string> GenDynRawShapePacked(unsigned gmParamIdx) const;
+    std::vector<std::string> GenDynStridePacked(unsigned gmParamIdx) const;
 
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
