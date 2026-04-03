@@ -29,4 +29,4 @@ struct CacheConfig : public Config {
     uint64_t l2HitLatency = 50;
     uint64_t l2MissExtraLatency = 150;
 };
-}
+} // namespace CostModel

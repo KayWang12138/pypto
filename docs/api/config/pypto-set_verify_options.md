@@ -50,4 +50,3 @@ verify_options = {
         }
 pypto.set_verify_options(**verify_options)
 ```
-

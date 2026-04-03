@@ -34,14 +34,14 @@ def create_compute_func(shape, dtype):
 
 
 def test_correct_annotation():
-    """Test that correct annotation causes no error.""" 
+    """Test that correct annotation causes no error."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     shape = (16, 16)
     dtype = pypto.DT_FP32
     kernel = create_compute_func(shape, dtype)
 
-    kernel(torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'), 
+    kernel(torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
            torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
            torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
     logging.info(f"✓ Verified: Correct annotation causes no error.")
@@ -72,7 +72,7 @@ def test_incorrect_number_of_dimensions_annotation():
     kernel = create_compute_func(shape, dtype)
 
     try:
-        kernel(torch.rand((16, 16, 16), dtype=torch.float32, device=f'npu:{device_id}'), 
+        kernel(torch.rand((16, 16, 16), dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
     except ValueError as e:
@@ -89,7 +89,7 @@ def test_incorrect_shape_annotation():
     dtype = pypto.DT_FP32
     kernel = create_compute_func(shape, dtype)
     try:
-        kernel(torch.rand((16, 18), dtype=torch.float32, device=f'npu:{device_id}'), 
+        kernel(torch.rand((16, 18), dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand((16, 16), dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand((16, 16), dtype=torch.float32, device=f'npu:{device_id}'))
     except ValueError as e:
@@ -106,7 +106,7 @@ def test_incorrect_dtype_annotation():
     dtype = pypto.DT_FP16
     kernel = create_compute_func(shape, dtype)
     try:
-        kernel(torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'), 
+        kernel(torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'))
     except ValueError as e:

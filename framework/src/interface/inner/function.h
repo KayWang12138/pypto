@@ -15,9 +15,9 @@
 
 #pragma once
 
-#include<string>
+#include <string>
 
-#define PROGRAM(name, ...)                                                                      \
+#define PROGRAM(name, ...)                                                                             \
     if (auto recordProg = npu::tile_fwk::DefineProg(name, ##__VA_ARGS__); !recordProg.IsRecording()) { \
     } else
 
@@ -25,8 +25,9 @@ namespace npu::tile_fwk {
 class DefineProg {
 public:
     bool IsRecording() const { return isRecording_; }
-    explicit DefineProg(const std::string &name);
+    explicit DefineProg(const std::string& name);
     ~DefineProg();
+
 private:
     bool isRecording_;
 };

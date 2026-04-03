@@ -16,7 +16,6 @@
 #include <gtest/gtest.h>
 #include <limits>
 
-#include "interface/utils/log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/float.h"
 #include "interface/interpreter/function.h"
@@ -30,7 +29,8 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
     }
@@ -38,15 +38,17 @@ public:
     void TearDown() override {}
 };
 
-//测试带有脏数据的Reshape操作
-TEST_F(CalcCommonTest, UnalignedReshape) {
+// 测试带有脏数据的Reshape操作
+TEST_F(CalcCommonTest, UnalignedReshape)
+{
     // 创建 Function 和 Operation,构造一个虚拟的ExecuteOperationContext
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestUnalignedReshape", "TestUnalignedReshape", nullptr);
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestUnalignedReshape", "TestUnalignedReshape", nullptr);
     std::vector<int64_t> inputShape = {2, 2};
     std::vector<int64_t> outputShape = {3, 3};
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inputShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape);
-    auto &reshapeOp = func->AddOperation(Opcode::OP_RESHAPE, {inputTensor}, {outputTensor});
+    auto& reshapeOp = func->AddOperation(Opcode::OP_RESHAPE, {inputTensor}, {outputTensor});
     Tensor inputTensorData(DT_FP32, outputShape);
     auto inputData = RawTensorData::CreateConstantTensor(inputTensorData, 1.0f);
     auto inputDataView = std::make_shared<LogicalTensorData>(inputData, inputShape, std::vector<int64_t>{0, 0});
@@ -59,42 +61,42 @@ TEST_F(CalcCommonTest, UnalignedReshape) {
     std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputDataView};
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputDataView};
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &reshapeOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &reshapeOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
     ASSERT_GT(outputDataView->GetSize(), inputDataView->GetSize())
         << "Output size should be greater than input size to trigger the new branch";
     opInter.ExecuteOperation(&ctx);
-
 }
 
-// 测试 Reshape 中当输出 rawTensor 大小大于输入 rawTensor 大小时触发 padding 分支
-TEST_F(CalcCommonTest, UnalignedReshapeTriggerPaddingBranch) {
-    // 创建 Function 和 Operation, 构造一个虚拟的 ExecuteOperationContext
-    auto func = std::make_shared<Function>(Program::GetInstance(),
-        "TestUnalignedReshapeTriggerPadding", "TestUnalignedReshapeTriggerPadding", nullptr);
+// 测试 Reshape 中当输出 raw 大于输入 raw 时触发 padding 分支。
+// 构造 4 -> 2x2 的图，运行时数据布局为：
+// - 输入：RawTensorData shape {2}；LogicalTensorData shape {4}、validShape {2}（GetSize() 按 shape 为 4）
+// - 输出：RawTensorData 2x2；LogicalTensorData shape 2x2、validShape 2x1（GetSize() 按 shape 为 4）
+// ExecuteOpReshape 内对输入/输出先做 View(validShape)，本例实际执行 [2] -> [2,1] 的 calc::Reshape。
+TEST_F(CalcCommonTest, UnalignedReshapeTriggerPaddingBranch)
+{
+    auto func = std::make_shared<Function>(
+        Program::GetInstance(), "TestUnalignedReshapeTriggerPadding", "TestUnalignedReshapeTriggerPadding", nullptr);
 
-    // 输入逻辑 shape 小，输出逻辑 shape 大
-    std::vector<int64_t> inputShape = {2, 2};   // 4 elements
-    std::vector<int64_t> outputShape = {3, 3};  // 9 elements
+    std::vector<int64_t> inputShape = {4};
+    std::vector<int64_t> outputShape = {2, 2};
+    std::vector<int64_t> inputRawShape = {2};
+    std::vector<int64_t> outputRawShape = {2, 2};
 
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inputShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape);
-    auto &reshapeOp = func->AddOperation(Opcode::OP_RESHAPE, {inputTensor}, {outputTensor});
+    auto& reshapeOp = func->AddOperation(Opcode::OP_RESHAPE, {inputTensor}, {outputTensor});
 
-    // 关键点：输入 RawTensor 按 inputShape 创建，输出 RawTensor 按 outputShape 创建
-    Tensor inputTensorData(DT_FP32, inputShape);
-    auto inputData = RawTensorData::CreateConstantTensor(inputTensorData, 1.0f);
-    auto inputDataView = std::make_shared<LogicalTensorData>(
-        inputData, inputShape, std::vector<int64_t>{0, 0});
+    Tensor inputTensorData(DT_FP32, inputRawShape);
+    std::vector<float> inputVals = {1.0f, 2.0f};
+    auto inputData = RawTensorData::CreateTensor<float>(inputTensorData, inputVals);
+    auto inputDataView =
+        std::make_shared<LogicalTensorData>(inputData, inputShape, std::vector<int64_t>{2}, std::vector<int64_t>{0});
 
-    Tensor outputTensorData(DT_FP32, outputShape);
-    auto outputData = RawTensorData::CreateConstantTensor(outputTensorData, 1.0f);
-    auto outputDataView = std::make_shared<LogicalTensorData>(outputData);
+    Tensor outputTensorData(DT_FP32, outputRawShape);
+    auto outputData = RawTensorData::CreateConstantTensor(outputTensorData, 0.0f);
+    std::vector<int64_t> outputValidShape = {2, 1};
+    auto outputDataView =
+        std::make_shared<LogicalTensorData>(outputData, outputShape, outputValidShape, std::vector<int64_t>{0, 0});
 
     auto inoutDataPair = std::make_shared<FunctionIODataPair>();
     FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
@@ -103,29 +105,29 @@ TEST_F(CalcCommonTest, UnalignedReshapeTriggerPaddingBranch) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputDataView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &reshapeOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &reshapeOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
-    // 确认 rawTensor 层面输出更大，从而走到 padding 分支
+    ASSERT_EQ(inputDataView->GetSize(), outputDataView->GetSize())
+        << "LogicalTensorData::GetSize() follows shape; input/output both 4 while raw sizes differ";
     ASSERT_GT(outputData->GetSize(), inputData->GetSize())
         << "Output raw tensor size should be greater than input raw tensor size to trigger padding branch";
 
     opInter.ExecuteOperation(&ctx);
+
+    // valid 区域对应 2x2 raw 中第 0 列：(0,0)、(1,0) -> 线性下标 0、2
+    ASSERT_FLOAT_EQ(outputDataView->Get<float>(0), 1.0f);
+    ASSERT_FLOAT_EQ(outputDataView->Get<float>(2), 2.0f);
 }
 
 // 测试 OP_VEC_DUP 在 scalar 为极大 double 时对 FP32 类型输出进行 32 位饱和截断
-TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestVecDupClampFp32",
-        "TestVecDupClampFp32", nullptr);
+TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble)
+{
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestVecDupClampFp32", "TestVecDupClampFp32", nullptr);
 
     std::vector<int64_t> outputShape = {2, 2};
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape);
-    auto &vecDupOp = func->AddOperation(Opcode::OP_VEC_DUP, {}, {outputTensor});
+    auto& vecDupOp = func->AddOperation(Opcode::OP_VEC_DUP, {}, {outputTensor});
     double largeNegDouble = -std::numeric_limits<double>::max();
     Element scalar(DT_FP32, largeNegDouble);
     vecDupOp.SetAttribute(OpAttributeKey::scalar, scalar);
@@ -135,17 +137,11 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
     auto inoutDataPair = std::make_shared<FunctionIODataPair>();
     FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
     OperationInterpreter opInter;
-    std::vector<LogicalTensorDataPtr> ioperandDataViewList; 
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList;
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputDataView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &vecDupOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &vecDupOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -158,9 +154,9 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
 }
 
 // 测试 ExecuteOpGatherInL1 中 blocksize 与输入参数、索引和页表的组合是否正确传递到 calc::GatherInL1
-TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestGatherInL1",
-        "TestGatherInL1", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestGatherInL1", "TestGatherInL1", nullptr);
 
     // params 和 output 为 2 维 tensor，index 和 pageTable 为 1 维 tensor
     std::vector<int64_t> paramsShape = {4, 1};
@@ -172,9 +168,8 @@ TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
     auto pageTableTensor = std::make_shared<LogicalTensor>(*func, DT_INT64, pageTableShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, paramsShape);
 
-    auto &gatherOp = func->AddOperation(Opcode::OP_GATHER_IN_L1,
-        {paramsTensor, indicesTensor, pageTableTensor},
-        {outputTensor});
+    auto& gatherOp =
+        func->AddOperation(Opcode::OP_GATHER_IN_L1, {paramsTensor, indicesTensor, pageTableTensor}, {outputTensor});
 
     int64_t blockSize = 2;
     gatherOp.SetAttribute("op_attr_blocksize", blockSize);
@@ -211,13 +206,7 @@ TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &gatherOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &gatherOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -230,15 +219,15 @@ TEST_F(CalcCommonTest, ExecuteOpGatherInL1Basic) {
 }
 
 // 测试 ExecuteOpUnary 以 OP_EXP 为例，验证一元运算路径正确调用 calc::Exp
-TEST_F(CalcCommonTest, ExecuteOpUnaryExpBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestUnaryExp",
-        "TestUnaryExp", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpUnaryExpBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestUnaryExp", "TestUnaryExp", nullptr);
 
     std::vector<int64_t> shape = {4};
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
 
-    auto &unaryOp = func->AddOperation(Opcode::OP_EXP, {inputTensor}, {outputTensor});
+    auto& unaryOp = func->AddOperation(Opcode::OP_EXP, {inputTensor}, {outputTensor});
 
     Tensor inputTensorData(DT_FP32, shape);
     Tensor outputTensorData(DT_FP32, shape);
@@ -258,13 +247,7 @@ TEST_F(CalcCommonTest, ExecuteOpUnaryExpBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &unaryOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &unaryOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -277,9 +260,9 @@ TEST_F(CalcCommonTest, ExecuteOpUnaryExpBasic) {
 }
 
 // 测试 ExecuteOpPad，验证 scalar 属性作为填充值生效
-TEST_F(CalcCommonTest, ExecuteOpPadBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestPad",
-        "TestPad", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpPadBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestPad", "TestPad", nullptr);
 
     // 使用 2 维输入/输出：输入 {2, 2}，输出 {3, 4}，仅支持右侧和底部填充
     std::vector<int64_t> inShape = {2, 2};
@@ -288,7 +271,7 @@ TEST_F(CalcCommonTest, ExecuteOpPadBasic) {
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
 
-    auto &padOp = func->AddOperation(Opcode::OP_PAD, {inputTensor}, {outputTensor});
+    auto& padOp = func->AddOperation(Opcode::OP_PAD, {inputTensor}, {outputTensor});
 
     // 设置 scalar 属性为 2.0f，期望被用作填充值
     Element scalar(DT_FP32, 2.0f);
@@ -315,13 +298,7 @@ TEST_F(CalcCommonTest, ExecuteOpPadBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &padOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &padOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -347,9 +324,9 @@ TEST_F(CalcCommonTest, ExecuteOpPadBasic) {
 }
 
 // 测试 ExecuteOpOneHot，验证 numClasses 属性和 one_hot 结果
-TEST_F(CalcCommonTest, ExecuteOpOneHotBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestOneHot",
-        "TestOneHot", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpOneHotBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestOneHot", "TestOneHot", nullptr);
 
     // 输入 shape 为 {3}，输出 shape 为 {3, 4}，numClasses = 4
     std::vector<int64_t> inShape = {3};
@@ -358,7 +335,7 @@ TEST_F(CalcCommonTest, ExecuteOpOneHotBasic) {
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, inShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, outShape);
 
-    auto &oneHotOp = func->AddOperation(Opcode::OP_ONEHOT, {inputTensor}, {outputTensor});
+    auto& oneHotOp = func->AddOperation(Opcode::OP_ONEHOT, {inputTensor}, {outputTensor});
 
     int numClasses = 4;
     oneHotOp.SetAttribute(OP_ATTR_PREFIX + "numClasses", numClasses);
@@ -382,13 +359,7 @@ TEST_F(CalcCommonTest, ExecuteOpOneHotBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &oneHotOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &oneHotOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -414,9 +385,10 @@ TEST_F(CalcCommonTest, ExecuteOpOneHotBasic) {
 }
 
 // 测试 ExecuteOpTransposeMoveOut，在无 CopyOpAttribute 时走默认转置分支
-TEST_F(CalcCommonTest, ExecuteOpTransposeMoveOutBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestTransposeMoveOut",
-        "TestTransposeMoveOut", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpTransposeMoveOutBasic)
+{
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestTransposeMoveOut", "TestTransposeMoveOut", nullptr);
 
     // 输入 2x3，输出 3x2，转置轴为 (0, 1)
     std::vector<int64_t> inShape = {2, 3};
@@ -425,7 +397,7 @@ TEST_F(CalcCommonTest, ExecuteOpTransposeMoveOutBasic) {
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
 
-    auto &transposeOp = func->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {inputTensor}, {outputTensor});
+    auto& transposeOp = func->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {inputTensor}, {outputTensor});
 
     // 设置转置轴属性
     std::vector<int64_t> axes = {0, 1};
@@ -452,13 +424,7 @@ TEST_F(CalcCommonTest, ExecuteOpTransposeMoveOutBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &transposeOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &transposeOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -476,9 +442,9 @@ TEST_F(CalcCommonTest, ExecuteOpTransposeMoveOutBasic) {
 }
 
 // 测试 ExecuteOpTranspose，验证通过 OP_TRANSPOSE_VNCHWCONV 的转置行为
-TEST_F(CalcCommonTest, ExecuteOpTransposeBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestTranspose",
-        "TestTranspose", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpTransposeBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestTranspose", "TestTranspose", nullptr);
 
     // 输入 2x3，输出 3x2，转置轴为 (0, 1)
     std::vector<int64_t> inShape = {2, 3};
@@ -487,7 +453,7 @@ TEST_F(CalcCommonTest, ExecuteOpTransposeBasic) {
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
 
-    auto &transposeOp = func->AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {inputTensor}, {outputTensor});
+    auto& transposeOp = func->AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {inputTensor}, {outputTensor});
 
     // 设置转置轴属性
     std::vector<int64_t> axes = {0, 1};
@@ -514,13 +480,7 @@ TEST_F(CalcCommonTest, ExecuteOpTransposeBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &transposeOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &transposeOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -538,15 +498,15 @@ TEST_F(CalcCommonTest, ExecuteOpTransposeBasic) {
 }
 
 // 测试 ExecuteOpLogicalNot，验证布尔取反
-TEST_F(CalcCommonTest, ExecuteOpLogicalNotBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestLogicalNot",
-        "TestLogicalNot", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpLogicalNotBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestLogicalNot", "TestLogicalNot", nullptr);
 
     std::vector<int64_t> shape = {4};
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_BOOL, shape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_BOOL, shape);
 
-    auto &logicalNotOp = func->AddOperation(Opcode::OP_LOGICALNOT, {inputTensor}, {outputTensor});
+    auto& logicalNotOp = func->AddOperation(Opcode::OP_LOGICALNOT, {inputTensor}, {outputTensor});
 
     Tensor inputTensorData(DT_BOOL, shape);
     Tensor outputTensorData(DT_BOOL, shape);
@@ -567,13 +527,7 @@ TEST_F(CalcCommonTest, ExecuteOpLogicalNotBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &logicalNotOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &logicalNotOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -585,16 +539,16 @@ TEST_F(CalcCommonTest, ExecuteOpLogicalNotBasic) {
 }
 
 // 测试 ExecuteOpLogicalAnd，验证布尔与
-TEST_F(CalcCommonTest, ExecuteOpLogicalAndBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestLogicalAnd",
-        "TestLogicalAnd", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpLogicalAndBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestLogicalAnd", "TestLogicalAnd", nullptr);
 
     std::vector<int64_t> shape = {4};
     auto lhsTensor = std::make_shared<LogicalTensor>(*func, DT_BOOL, shape);
     auto rhsTensor = std::make_shared<LogicalTensor>(*func, DT_BOOL, shape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_BOOL, shape);
 
-    auto &logicalAndOp = func->AddOperation(Opcode::OP_LOGICALAND, {lhsTensor, rhsTensor}, {outputTensor});
+    auto& logicalAndOp = func->AddOperation(Opcode::OP_LOGICALAND, {lhsTensor, rhsTensor}, {outputTensor});
 
     Tensor lhsTensorData(DT_BOOL, shape);
     Tensor rhsTensorData(DT_BOOL, shape);
@@ -620,13 +574,7 @@ TEST_F(CalcCommonTest, ExecuteOpLogicalAndBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &logicalAndOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &logicalAndOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -639,16 +587,168 @@ TEST_F(CalcCommonTest, ExecuteOpLogicalAndBasic) {
     EXPECT_EQ(outputView->Get<bool>(3), false);
 }
 
+// 测试 ExecuteOpBinary 中 lhs 的 producer 为 OP_BRCB 时触发 BRCB 分支
+TEST_F(CalcCommonTest, ExecuteOpBinaryWithLhsFromBrcb)
+{
+    auto func = std::make_shared<Function>(
+        Program::GetInstance(), "TestBinaryWithLhsFromBrcb", "TestBinaryWithLhsFromBrcb", nullptr);
+
+    std::vector<int64_t> shape = {4, 1};
+    auto brcbInputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    auto lhsTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    auto rhsTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+
+    // 给 lhsTensor 挂上 OP_BRCB producer，用于触发 ExecuteOpBinary 中的 BRCB 检测分支
+    func->AddOperation(Opcode::OP_BRCB, {brcbInputTensor}, {lhsTensor});
+    auto& addOp = func->AddOperation(Opcode::OP_ADD, {lhsTensor, rhsTensor}, {outputTensor});
+
+    Tensor lhsTensorData(DT_FP32, shape);
+    Tensor rhsTensorData(DT_FP32, shape);
+    Tensor outputTensorData(DT_FP32, shape);
+
+    std::vector<float> lhsVals = {1.f, 2.f, 3.f, 4.f};
+    std::vector<float> rhsVals = {10.f, 20.f, 30.f, 40.f};
+    auto lhsData = RawTensorData::CreateTensor<float>(lhsTensorData, lhsVals);
+    auto rhsData = RawTensorData::CreateTensor<float>(rhsTensorData, rhsVals);
+    auto outputData = RawTensorData::CreateConstantTensor<float>(outputTensorData, 0.f);
+
+    auto lhsView = std::make_shared<LogicalTensorData>(lhsData);
+    auto rhsView = std::make_shared<LogicalTensorData>(rhsData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {lhsView, rhsView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
+
+    ExecuteOperationContext ctx = {
+        &frame, &opInter, &addOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+    opInter.ExecuteOperation(&ctx);
+    opInter.ExecuteOperation(&ctx);
+
+    ASSERT_EQ(outputView->GetSize(), 4);
+    EXPECT_FLOAT_EQ(outputView->Get<float>(0), 11.f);
+    EXPECT_FLOAT_EQ(outputView->Get<float>(1), 22.f);
+    EXPECT_FLOAT_EQ(outputView->Get<float>(2), 33.f);
+    EXPECT_FLOAT_EQ(outputView->Get<float>(3), 44.f);
+}
+
+// 测试 FloorDiv
+TEST_F(CalcCommonTest, ExecuteOpBinaryFloorDivWithTmpOutput)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestFloorDivBinary", "TestFloorDivBinary", nullptr);
+
+    std::vector<int64_t> shape = {2, 32};
+    std::vector<int64_t> tmpShape = {64};
+    std::vector<int32_t> lhsValues(shape[0] * shape[1]);
+    std::vector<int32_t> rhsValues(shape[0] * shape[1]);
+    std::vector<int32_t> expectedValues(shape[0] * shape[1]);
+    const std::vector<int32_t> lhsPattern = {5, -5, 7, -7};
+    const std::vector<int32_t> rhsPattern = {2, 2, -3, -3};
+    const std::vector<int32_t> expectedPattern = {2, -3, -3, 2};
+    for (size_t i = 0; i < lhsValues.size(); i++) {
+        lhsValues[i] = lhsPattern[i % lhsPattern.size()];
+        rhsValues[i] = rhsPattern[i % rhsPattern.size()];
+        expectedValues[i] = expectedPattern[i % expectedPattern.size()];
+    }
+    auto lhsTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto rhsTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto tmpTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, tmpShape);
+    auto& floorDivOp = func->AddOperation(Opcode::OP_FLOORDIV, {lhsTensor, rhsTensor}, {outputTensor, tmpTensor});
+
+    Tensor lhsTensorData(DT_INT32, shape);
+    Tensor rhsTensorData(DT_INT32, shape);
+    Tensor outputTensorData(DT_INT32, shape);
+    Tensor tmpTensorData(DT_INT32, tmpShape);
+
+    auto lhsData = RawTensorData::CreateTensor<int32_t>(lhsTensorData, lhsValues);
+    auto rhsData = RawTensorData::CreateTensor<int32_t>(rhsTensorData, rhsValues);
+    auto outputData = RawTensorData::CreateConstantTensor<int32_t>(outputTensorData, 0);
+    auto tmpData = RawTensorData::CreateConstantTensor<int32_t>(tmpTensorData, 0);
+
+    auto lhsView = std::make_shared<LogicalTensorData>(lhsData);
+    auto rhsView = std::make_shared<LogicalTensorData>(rhsData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+    auto tmpView = std::make_shared<LogicalTensorData>(tmpData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {lhsView, rhsView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView, tmpView};
+    ExecuteOperationContext ctx = {
+        &frame, &opInter, &floorDivOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+    opInter.ExecuteOperation(&ctx);
+
+    ASSERT_EQ(outputView->GetSize(), static_cast<int64_t>(expectedValues.size()));
+    for (size_t i = 0; i < expectedValues.size(); i++) {
+        EXPECT_EQ(outputView->Get<int32_t>(i), expectedValues[i]);
+    }
+}
+
+// 测试 FloorDivS
+TEST_F(CalcCommonTest, ExecuteOpBinaryScalarFloorDivWithTmpOutput)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestFloorDivScalar", "TestFloorDivScalar", nullptr);
+
+    std::vector<int64_t> shape = {2, 32};
+    std::vector<int64_t> tmpShape = {64};
+    std::vector<int32_t> inputValues(shape[0] * shape[1]);
+    std::vector<int32_t> expectedValues(shape[0] * shape[1]);
+    const std::vector<int32_t> inputPattern = {5, -5, 7, -7};
+    const std::vector<int32_t> expectedPattern = {2, -3, 3, -4};
+    for (size_t i = 0; i < inputValues.size(); i++) {
+        inputValues[i] = inputPattern[i % inputPattern.size()];
+        expectedValues[i] = expectedPattern[i % expectedPattern.size()];
+    }
+    auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto tmpTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, tmpShape);
+    auto& floorDivOp = func->AddOperation(Opcode::OP_FLOORDIVS, {inputTensor}, {outputTensor, tmpTensor});
+    floorDivOp.SetAttribute(OpAttributeKey::scalar, Element(DT_INT32, 2));
+    floorDivOp.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", false);
+
+    Tensor inputTensorData(DT_INT32, shape);
+    Tensor outputTensorData(DT_INT32, shape);
+    Tensor tmpTensorData(DT_INT32, tmpShape);
+
+    auto inputData = RawTensorData::CreateTensor<int32_t>(inputTensorData, inputValues);
+    auto outputData = RawTensorData::CreateConstantTensor<int32_t>(outputTensorData, 0);
+    auto tmpData = RawTensorData::CreateConstantTensor<int32_t>(tmpTensorData, 0);
+
+    auto inputView = std::make_shared<LogicalTensorData>(inputData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+    auto tmpView = std::make_shared<LogicalTensorData>(tmpData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView, tmpView};
+    ExecuteOperationContext ctx = {
+        &frame, &opInter, &floorDivOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+    opInter.ExecuteOperation(&ctx);
+
+    ASSERT_EQ(outputView->GetSize(), static_cast<int64_t>(expectedValues.size()));
+    for (size_t i = 0; i < expectedValues.size(); i++) {
+        EXPECT_EQ(outputView->Get<int32_t>(i), expectedValues[i]);
+    }
+}
+
 // 测试 ExecuteOpLog1p，验证 calc::Log1p 行为
-TEST_F(CalcCommonTest, ExecuteOpLog1pBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestLog1p",
-        "TestLog1p", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpLog1pBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestLog1p", "TestLog1p", nullptr);
 
     std::vector<int64_t> shape = {4};
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
 
-    auto &log1pOp = func->AddOperation(Opcode::OP_LOG1P, {inputTensor}, {outputTensor});
+    auto& log1pOp = func->AddOperation(Opcode::OP_LOG1P, {inputTensor}, {outputTensor});
 
     Tensor inputTensorData(DT_FP32, shape);
     Tensor outputTensorData(DT_FP32, shape);
@@ -668,13 +768,7 @@ TEST_F(CalcCommonTest, ExecuteOpLog1pBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &log1pOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &log1pOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -687,15 +781,15 @@ TEST_F(CalcCommonTest, ExecuteOpLog1pBasic) {
 }
 
 // 测试 ExecuteOpCumSum，验证按指定 axis 进行前缀和
-TEST_F(CalcCommonTest, ExecuteOpCumSumBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestCumSum",
-        "TestCumSum", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpCumSumBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestCumSum", "TestCumSum", nullptr);
 
     std::vector<int64_t> shape = {2, 3};
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
 
-    auto &cumsumOp = func->AddOperation(Opcode::OP_CUM_SUM, {inputTensor}, {outputTensor});
+    auto& cumsumOp = func->AddOperation(Opcode::OP_CUM_SUM, {inputTensor}, {outputTensor});
     int axis = 1;
     cumsumOp.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
 
@@ -720,13 +814,7 @@ TEST_F(CalcCommonTest, ExecuteOpCumSumBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &cumsumOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &cumsumOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -743,9 +831,9 @@ TEST_F(CalcCommonTest, ExecuteOpCumSumBasic) {
 }
 
 // 测试 ExecuteOpIndexPut，验证简单 index_put 行为（不累加）
-TEST_F(CalcCommonTest, ExecuteOpIndexPutBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestIndexPut",
-        "TestIndexPut", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpIndexPutBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestIndexPut", "TestIndexPut", nullptr);
 
     // self: 1x4，values: 1 元素，indices: 2 个一维索引：行索引 {0}，列索引 {1}
     std::vector<int64_t> selfShape = {1, 4};
@@ -759,8 +847,8 @@ TEST_F(CalcCommonTest, ExecuteOpIndexPutBasic) {
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, selfShape);
 
     // 传入两个 index tensor，对应 2 个维度
-    auto &indexPutOp = func->AddOperation(Opcode::OP_INDEX_PUT,
-        {selfTensor, valuesTensor, rowIndexTensor, colIndexTensor}, {outputTensor});
+    auto& indexPutOp = func->AddOperation(
+        Opcode::OP_INDEX_PUT, {selfTensor, valuesTensor, rowIndexTensor, colIndexTensor}, {outputTensor});
     indexPutOp.SetAttribute(OpAttributeKey::accumulate, false);
 
     Tensor selfDataTensor(DT_FP32, selfShape);
@@ -796,13 +884,7 @@ TEST_F(CalcCommonTest, ExecuteOpIndexPutBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &indexPutOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &indexPutOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -815,9 +897,10 @@ TEST_F(CalcCommonTest, ExecuteOpIndexPutBasic) {
 }
 
 // 测试 ExecuteOpTopkExtract，验证从打包的 [value, index, ...] 中提取 top-k 值
-TEST_F(CalcCommonTest, ExecuteOpTopkExtractValueBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestTopkExtractValue",
-        "TestTopkExtractValue", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpTopkExtractValueBasic)
+{
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestTopkExtractValue", "TestTopkExtractValue", nullptr);
 
     // 输入 shape: {1, 6}，数据按 [v0, i0, v1, i1, v2, i2] 打包
     std::vector<int64_t> inShape = {1, 6};
@@ -826,7 +909,7 @@ TEST_F(CalcCommonTest, ExecuteOpTopkExtractValueBasic) {
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
 
-    auto &topkOp = func->AddOperation(Opcode::OP_TOPK_EXTRACT, {inputTensor}, {outputTensor});
+    auto& topkOp = func->AddOperation(Opcode::OP_TOPK_EXTRACT, {inputTensor}, {outputTensor});
     int k = 2;
     int isIndex = 0; // 提取 value
     topkOp.SetAttribute(OP_ATTR_PREFIX + "k", k);
@@ -851,13 +934,7 @@ TEST_F(CalcCommonTest, ExecuteOpTopkExtractValueBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &topkOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &topkOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -867,9 +944,10 @@ TEST_F(CalcCommonTest, ExecuteOpTopkExtractValueBasic) {
 }
 
 // 测试 ExecuteOpTopkExtract，提取 indices
-TEST_F(CalcCommonTest, ExecuteOpTopkExtractIndexBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestTopkExtractIndex",
-        "TestTopkExtractIndex", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpTopkExtractIndexBasic)
+{
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestTopkExtractIndex", "TestTopkExtractIndex", nullptr);
 
     std::vector<int64_t> inShape = {1, 6};
     std::vector<int64_t> outShape = {1, 2}; // k = 2
@@ -877,7 +955,7 @@ TEST_F(CalcCommonTest, ExecuteOpTopkExtractIndexBasic) {
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, outShape);
 
-    auto &topkOp = func->AddOperation(Opcode::OP_TOPK_EXTRACT, {inputTensor}, {outputTensor});
+    auto& topkOp = func->AddOperation(Opcode::OP_TOPK_EXTRACT, {inputTensor}, {outputTensor});
     int k = 2;
     int isIndex = 1; // 提取 index
     topkOp.SetAttribute(OP_ATTR_PREFIX + "k", k);
@@ -902,13 +980,7 @@ TEST_F(CalcCommonTest, ExecuteOpTopkExtractIndexBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &topkOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &topkOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
@@ -919,9 +991,9 @@ TEST_F(CalcCommonTest, ExecuteOpTopkExtractIndexBasic) {
 }
 
 // 测试 ExecuteOpReduceAcc，验证多输入累加
-TEST_F(CalcCommonTest, ExecuteOpReduceAccBasic) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestReduceAcc",
-        "TestReduceAcc", nullptr);
+TEST_F(CalcCommonTest, ExecuteOpReduceAccBasic)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestReduceAcc", "TestReduceAcc", nullptr);
 
     std::vector<int64_t> shape = {3};
     auto t0 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
@@ -929,7 +1001,7 @@ TEST_F(CalcCommonTest, ExecuteOpReduceAccBasic) {
     auto t2 = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
 
-    auto &reduceAccOp = func->AddOperation(Opcode::OP_REDUCE_ACC, {t0, t1, t2}, {outputTensor});
+    auto& reduceAccOp = func->AddOperation(Opcode::OP_REDUCE_ACC, {t0, t1, t2}, {outputTensor});
 
     Tensor data0(DT_FP32, shape);
     Tensor data1(DT_FP32, shape);
@@ -958,13 +1030,7 @@ TEST_F(CalcCommonTest, ExecuteOpReduceAccBasic) {
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &reduceAccOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &reduceAccOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 

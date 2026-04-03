@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -42,7 +43,7 @@ index_add_(input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Uni
 
 4. input.shape和source.shape的dim轴viewshape不可切，要求viewshape\[dim\]\>=max\(input.shape\[dim\], source.shape\[dim\]\)，其余维度的Shape大小不做限制；
 
-5. TileShape的维度与result相同，用于切分input和source，TileShape\[dim\] = viewshape\[dim\]，所有输入和输出的TileShape大小总和不能超过UB内存的大小。
+5. TileShape的维度与input相同，input, source 的 dim 轴以及 index 均不可切，所有输入和输出的TileShape大小总和不能超过UB内存的大小。
 
 ## 调用示例
 
@@ -83,4 +84,3 @@ y = pypto.index_add_(x, dim, index, source)
 输出数据 y:   [[2 2 2],
                [1 1 1]]               # shape (2, 3)
 ```
-

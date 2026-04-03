@@ -25,7 +25,8 @@
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicExpandTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
-TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
+TEST_F(DynamicExpandTest, TestDynamicExpandUnalign)
+{
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(64, 64);
 
@@ -57,8 +58,10 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
         RawTensorData::CreateTensor<float>(out, golden),
     });
 
-    FUNCTION("main", {q}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {q}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             Tensor q0 = View(q, {1, d}, {1, d}, {batchId, 0});
             auto tmp = Expand(q0, {100, d});
             Assemble(tmp, {batchId * sq, 0}, out);
@@ -69,5 +72,5 @@ TEST_F(DynamicExpandTest, TestDynamicExpandUnalign) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }

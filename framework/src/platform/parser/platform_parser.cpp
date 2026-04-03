@@ -26,13 +26,13 @@ const std::string ccecAivVersion = "CCEC_AIV_version";
 const std::string ccecCubeVersion = "CCEC_CUBE_version";
 const std::string ccecVectorVersion = "CCEC_VECTOR_version";
 
-bool PlatformParser::FilterCCECVersion(const std::string& key, std::string &coreType) const {
+bool PlatformParser::FilterCCECVersion(const std::string& key, std::string& coreType) const
+{
     const std::string prefix = "CCEC_";
     const std::string suffix = "_version";
     const size_t prefixLen = prefix.length();
     const size_t suffixLen = suffix.length();
-    if (key.length() >= (prefixLen + suffixLen) &&
-        key.substr(0, prefixLen) == prefix &&
+    if (key.length() >= (prefixLen + suffixLen) && key.substr(0, prefixLen) == prefix &&
         key.substr(key.length() - suffixLen) == suffix) {
         coreType = key.substr(prefixLen, key.length() - prefixLen - suffixLen);
         return true;
@@ -41,7 +41,8 @@ bool PlatformParser::FilterCCECVersion(const std::string& key, std::string &core
     }
 }
 
-bool PlatformParser::GetSizeVal(const std::string& column, const std::string& key, size_t& val) const {
+bool PlatformParser::GetSizeVal(const std::string& column, const std::string& key, size_t& val) const
+{
     std::string valStr;
     const size_t max_size_t = std::numeric_limits<size_t>::max();
     if (!GetStringVal(column, key, valStr)) {
@@ -49,10 +50,10 @@ bool PlatformParser::GetSizeVal(const std::string& column, const std::string& ke
     }
     val = 0UL;
 
-    constexpr int    kRadix10    = 10;
-    constexpr int    kMaxDigit10 = kRadix10 - 1;
+    constexpr int kRadix10 = 10;
+    constexpr int kMaxDigit10 = kRadix10 - 1;
 
-    for (const char &c : valStr) {
+    for (const char& c : valStr) {
         int digit = c - '0';
         if (digit < 0 || digit > kMaxDigit10) {
             return false;
@@ -65,12 +66,13 @@ bool PlatformParser::GetSizeVal(const std::string& column, const std::string& ke
     return true;
 }
 
-bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const {
+bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const
+{
     const std::vector<std::string> ccecVersions = {ccecAicVersion, ccecAivVersion, ccecCubeVersion, ccecVectorVersion};
     ccecVersion.clear();
     std::string coreType;
     std::string versionVal;
-    for (const auto &curVersion : ccecVersions) {
+    for (const auto& curVersion : ccecVersions) {
         if (FilterCCECVersion(curVersion, coreType) && GetStringVal(version, curVersion, versionVal)) {
             ccecVersion[coreType] = versionVal;
         }
@@ -78,7 +80,8 @@ bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>
     return !ccecVersion.empty();
 }
 
-INIParser::INIParser() {
+INIParser::INIParser()
+{
     std::string srcPath;
     SimulationPlatform simulationPlatform;
     simulationPlatform.GetCostModelPlatformRealPath(srcPath);
@@ -88,7 +91,8 @@ INIParser::INIParser() {
     }
 }
 
-bool INIParser::Initialize(const std::string& iniFilePath) {
+bool INIParser::Initialize(const std::string& iniFilePath)
+{
     PLATFORM_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
     if (!ReadINIFile(iniFilePath)) {
         PLATFORM_LOGE("ReadINIFile failed.");
@@ -98,7 +102,8 @@ bool INIParser::Initialize(const std::string& iniFilePath) {
     return true;
 }
 
-bool INIParser::ReadINIFile(const std::string& filepath) {
+bool INIParser::ReadINIFile(const std::string& filepath)
+{
     data_.clear();
     std::ifstream file(filepath);
     PLATFORM_LOGD("Try to open ini file: %s.", filepath.c_str());
@@ -114,7 +119,7 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
             continue;
         }
         if (line.front() == '[' && line.back() == ']') {
-            constexpr size_t kLeftBracketLen  = std::char_traits<char>::length("[");
+            constexpr size_t kLeftBracketLen = std::char_traits<char>::length("[");
             constexpr size_t kRightBracketLen = std::char_traits<char>::length("]");
             if (line.size() <= kLeftBracketLen + kRightBracketLen) {
                 continue;
@@ -139,7 +144,8 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
     return true;
 }
 
-bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const
+{
     PLATFORM_LOGD("Try to obtain value from column[%s] and key[%s] throughs ini file.", column.c_str(), key.c_str());
     val.clear();
     auto iter = data_.find(column);
@@ -158,7 +164,8 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
     return true;
 }
 
-bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const
+{
     val.clear();
     if (!CannHostRuntime::Instance().GetSocSpec(column, key, val)) {
         PLATFORM_LOGE("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
@@ -166,5 +173,5 @@ bool CmdParser::GetStringVal(const std::string& column, const std::string& key, 
     }
     return true;
 }
-}  // namespace tile_fwk
-}  // namespace npu
+} // namespace tile_fwk
+} // namespace npu

@@ -47,7 +47,7 @@ inline bool SignalTileOp::PollCompleted() const
     return true;
 }
 
-int32_t ShmemWaitUntilImpl::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aicoreManager)
+int32_t ShmemWaitUntilImpl::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager* aicoreManager)
 {
     return runingTaskQueue_.PollCompleted([&](SignalTileOp* task) {
         if (aicoreManager == nullptr) {
@@ -64,22 +64,27 @@ uint64_t ShmemWaitUntilImpl::GetRawAddr(const uint64_t addr)
     DEV_ASSERT(DistributedErrorCode::INVALID_GROUP_INDEX, groupIndex < commGroupNum_);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
+    paramInfo_.maxTileNum = npu::tile_fwk::Distributed::GetVirtualMaxTileNum(addr);
     auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr_[groupIndex]);
-    uint64_t rankId = hcclOpParam->rankId;
+    paramInfo_.rankNum = hcclOpParam->rankNum;
+    auto rankId = hcclOpParam->rankId;
     auto winAddrOffset = (memType == 0) ? rankId : hcclOpParam->statusIndex + rankId;
     uint64_t rawAddr = hcclOpParam->winAddr[winAddrOffset] + offset;
     return rawAddr;
 }
 
-TensorInfo ShmemWaitUntilImpl::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
+TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
+    uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode)
 {
     const uint32_t funcId = npu::tile_fwk::FuncID(taskId);
     const uint32_t opIndex = npu::tile_fwk::TaskID(taskId);
-    auto &funcData = funcDataList_[funcId];
+    auto& funcData = funcDataList_[funcId];
     auto opAttrs = &funcData.opAttrs[funcData.opAtrrOffsets[opIndex]];
     auto expressionTable = funcData.exprTbl;
 
-    int32_t index = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_RAW_INDEX]; // ShmemWaitUntil注册registerInfo中ShmemTensor位于第2个输入位，因此dim、offset位于2和3号位
+    int32_t index = aicpuCode
+        [paramInfo_.inIndex +
+         AICPU_ATTR_RAW_INDEX]; // ShmemWaitUntil注册registerInfo中ShmemTensor位于第2个输入位，因此dim、offset位于2和3号位
     TensorInfo info;
     info.rawIndex = GetCoa(index, opAttrs, expressionTable);
     ++index; // 跳过 rawIndex

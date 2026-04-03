@@ -40,15 +40,15 @@ license: 完整条款见 LICENSE.txt
 
 当用户输入包含以下错误日志或关键字时，自动触发此技能：
 
-- **执行xx异常，修复pass问题**：定位Pass抛出异常的具体原因，并提供修复方案
-- **执行xx时，pass报错**：定位Pass抛出异常的具体原因，并提供修复方案
-- **定位pass错误**：定位Pass抛出异常的具体原因，并提供修复方案
-- **分析pass异常**：定位Pass抛出异常的具体原因，并提供修复方案
-- **分析pass失败原因**：定位Pass抛出异常的具体原因，并提供修复方案
+- **执行 xx 异常，修复 pass 问题**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **执行 xx 时，pass 报错**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **定位 pass 错误**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **分析 pass 异常**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **分析 pass 失败原因**：定位 Pass 抛出异常的具体原因，并提供修复方案
 
 **触发示例**
-- 执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass报错
-- 执行 python3 test.py异常，分析pass失败原因
+- 执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass 报错
+- 执行 python3 test.py 异常，分析 pass 失败原因
 
 ## 工作流程
 
@@ -97,7 +97,7 @@ license: 完整条款见 LICENSE.txt
 
 **日志格式示例**：
 
-以如下pass模块打印的日志格式为例，分段解析：
+以如下 pass 模块打印的日志格式为例，分段解析：
 ```
 [ERROR] PYPTO(638465):2026-03-16 10:02:24.711 [n_buffer_merge.cpp:530][PASS]:[NBufferMerge.Config]:The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETTING between -1 and max hashOrder 0.
 ```
@@ -125,7 +125,7 @@ license: 完整条款见 LICENSE.txt
 **验证检查点**：
 - [ ] 日志级别正确识别
 - [ ] 代码位置准确提取
-- [ ] Pass模块名称正确解析
+- [ ] Pass 模块名称正确解析
 - [ ] 错误内容完整提取
 - [ ] 时间戳格式正确解析
 
@@ -231,14 +231,14 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 
 不同版本可能存在以下差异：
 - 日志格式可能略有不同
-- Pass模块名称可能变化
+- Pass 模块名称可能变化
 - 错误信息内容可能更新
 
 ## 性能优化建议
 
 处理大规模日志文件时：
 1. 使用流式读取，避免一次性加载整个文件
-2. 优先搜索ERROR级别日志，减少处理范围
+2. 优先搜索 ERROR 级别日志，减少处理范围
 3. 使用多线程并行处理多个日志文件
 4. 缓存已解析的日志信息，避免重复解析
 

@@ -25,12 +25,15 @@ copyOutOp: 当前A_MUL_B链路最终搬出的L0C_Copy_Out
 功能: 当前Matmul链路最终的CopyOut属性需要与清零时的CopyOut属性对齐
 限制条件: 依赖前端使能切K场景下，Matmul的tile展开中显示对清零后的Gm按C矩阵的切分大小做切分
 */
-void AlignCopyOutAttr(LogicalTensorPtr &resetDdr, Operation *copyOutOp) {
+void AlignCopyOutAttr(LogicalTensorPtr& resetDdr, Operation* copyOutOp)
+{
     if (resetDdr->GetProducers().size() == 1) {
         auto ddrResetCopyOut = *resetDdr->GetProducers().begin();
         if (ddrResetCopyOut->GetOpcode() != Opcode::OP_COPY_OUT) {
-            APASS_LOG_ERROR_F(Elements::Operation, "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode. %s", 
-                ddrResetCopyOut->GetOpcodeStr().c_str(), ddrResetCopyOut->GetOpMagic(), GetFormatBacktrace(copyOutOp).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "DDR reset Op requires to be OP_COPY_OUT, but %s[%d]; Please check the Opcode. %s",
+                ddrResetCopyOut->GetOpcodeStr().c_str(), ddrResetCopyOut->GetOpMagic(),
+                GetFormatBacktrace(copyOutOp).c_str());
             return;
         }
         auto ddrResetCopyOutAttr = std::static_pointer_cast<CopyOpAttribute>(ddrResetCopyOut->GetOpAttribute());
@@ -41,7 +44,8 @@ void AlignCopyOutAttr(LogicalTensorPtr &resetDdr, Operation *copyOutOp) {
 }
 
 Status CubeProcess::AddL1CopyInAttr(
-    const std::shared_ptr<LogicalTensor> input, int nzValue, int mValue, int kValue, int nValue) const {
+    const std::shared_ptr<LogicalTensor> input, int nzValue, int mValue, int kValue, int nValue) const
+{
     auto copyInOp = *(input->GetProducers().begin());
     auto tensorL0 = copyInOp->GetIOperands().front();
     auto L1CopyInOp = *(tensorL0->GetProducers().begin());
@@ -60,7 +64,9 @@ Status CubeProcess::AddL1CopyInAttr(
         return SUCCESS;
     }
     L1CopyInOp->SetAttribute(COPY_IS_NZ, nzValue);
-    APASS_LOG_DEBUG_F(Elements::Operation, "Update %s[%d] attr is_Nz: %d", L1CopyInOp->GetOpcodeStr().c_str(), L1CopyInOp->GetOpMagic(), nzValue);
+    APASS_LOG_DEBUG_F(
+        Elements::Operation, "Update %s[%d] attr is_Nz: %d", L1CopyInOp->GetOpcodeStr().c_str(),
+        L1CopyInOp->GetOpMagic(), nzValue);
     if (copyInOp->GetOpcode() == Opcode::OP_L1_TO_L0A || copyInOp->GetOpcode() == Opcode::OP_LOAD3D_CONV) {
         L1CopyInOp->SetAttribute(L1_COPY_IN_OUTER, mValue);
         L1CopyInOp->SetAttribute(L1_COPY_IN_INNER, kValue);
@@ -85,26 +91,31 @@ Status CubeProcess::AddL1CopyInAttr(
         APASS_LOG_DEBUG_F(Elements::Operation, "OP_L1_TO_L0_BT: Outer: %d, Inner: %d.", nValue, kValue);
         return SUCCESS;
     }
-    APASS_LOG_ERROR_F(Elements::Operation, "Invalid Cube input %d, produced by %s[%d]. %s", input->GetMagic(), copyInOp->GetOpcodeStr().c_str(),
-        copyInOp->GetOpMagic(), GetFormatBacktrace(copyInOp).c_str());
+    APASS_LOG_ERROR_F(
+        Elements::Operation, "Invalid Cube input %d, produced by %s[%d]. %s", input->GetMagic(),
+        copyInOp->GetOpcodeStr().c_str(), copyInOp->GetOpMagic(), GetFormatBacktrace(copyInOp).c_str());
     return FAILED;
 }
 
-Status CubeProcess::AddL0cCopyOutAttr(const std::shared_ptr<LogicalTensor> output, int nzValue, int mValue, int nValue) const {
-    for (auto &childOp : output->GetConsumers()) {
+Status CubeProcess::AddL0cCopyOutAttr(
+    const std::shared_ptr<LogicalTensor> output, int nzValue, int mValue, int nValue) const
+{
+    for (auto& childOp : output->GetConsumers()) {
         if (childOp->GetOpcode() != Opcode::OP_COPY_OUT) {
             continue;
         }
         childOp->SetAttribute(COPY_IS_NZ, nzValue);
         childOp->SetAttribute(L0C_COPY_OUT_OUTER, mValue);
         childOp->SetAttribute(L0C_COPY_OUT_INNER, nValue);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Update %s[%d] attr is_Nz: %d, curH: %d, curW: %d.",
-            childOp->GetOpcodeStr().c_str(), childOp->GetOpMagic(), nzValue, mValue, nValue);
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "Update %s[%d] attr is_Nz: %d, curH: %d, curW: %d.", childOp->GetOpcodeStr().c_str(),
+            childOp->GetOpMagic(), nzValue, mValue, nValue);
     }
     return SUCCESS;
 }
 
-Status CubeProcess::UpdateCopyAttr(Operation &op) const {
+Status CubeProcess::UpdateCopyAttr(Operation& op) const
+{
     int32_t nzAttr = op.GetIntAttribute(MATMUL_NZ_ATTR);
     auto mValue = (op.HasAttr(A_MUL_B_ACT_M)) ? op.GetIntAttribute(A_MUL_B_ACT_M) : 0;
     auto kValue = (op.HasAttr(A_MUL_B_ACT_K)) ? op.GetIntAttribute(A_MUL_B_ACT_K) : 0;
@@ -113,58 +124,77 @@ Status CubeProcess::UpdateCopyAttr(Operation &op) const {
     int aIsNz = nzAttr % 2;
     int bIsNz = (nzAttr >> 1) % 2;
     int cIsNz = (nzAttr >> 2) % 2;
-    APASS_LOG_DEBUG_F(Elements::Operation, "Retrive %s[%d] attr done, aIsNz: %d, bIsNz: %d, cIsNz: %d, mValue: %ld, kValue: %ld, nValue: %ld.",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), aIsNz, bIsNz, cIsNz, static_cast<long>(mValue), static_cast<long>(kValue), static_cast<long>(nValue));
-    for (auto &input : op.GetIOperands()) {
+    APASS_LOG_DEBUG_F(
+        Elements::Operation,
+        "Retrive %s[%d] attr done, aIsNz: %d, bIsNz: %d, cIsNz: %d, mValue: %ld, kValue: %ld, nValue: %ld.",
+        op.GetOpcodeStr().c_str(), op.GetOpMagic(), aIsNz, bIsNz, cIsNz, static_cast<long>(mValue),
+        static_cast<long>(kValue), static_cast<long>(nValue));
+    for (auto& input : op.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
             if (AddL1CopyInAttr(input, aIsNz, mValue, kValue, nValue) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Set Attr for matrix A L1_COPY_IN of %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "Set Attr for matrix A L1_COPY_IN of %s[%d] failed. %s",
+                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
             continue;
         }
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
             if (AddL1CopyInAttr(input, bIsNz, mValue, kValue, nValue) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Set Attr for matrix B L1_COPY_IN of %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "Set Attr for matrix B L1_COPY_IN of %s[%d] failed. %s",
+                    op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;
             }
         }
     }
-    for (auto &output : op.GetOOperands()) {
+    for (auto& output : op.GetOOperands()) {
         if (AddL0cCopyOutAttr(output, cIsNz, mValue, nValue) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Set Attr for L0C_COPY_OUT of %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Set Attr for L0C_COPY_OUT of %s[%d] failed. %s", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
     return SUCCESS;
 }
 
-Status CubeProcess::CheckValidCube(const Operation &op) {
+Status CubeProcess::CheckValidCube(const Operation& op)
+{
     /* 校验有且只有一个输出 */
     if (op.GetOOperands().size() != 1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has output num != 1; Please check ooperands. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%s[%d] has output num != 1; Please check ooperands. %s", op.GetOpcodeStr().c_str(),
+            op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     /* 校验输出: 1. 非空，2. mem类型为L0C, 3.有消费者 */
     auto outputL0C = op.GetOOperands().front();
     if (outputL0C == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] output is nullptr; Please check outputL0C. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%s[%d] output is nullptr; Please check outputL0C. %s", op.GetOpcodeStr().c_str(),
+            op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (outputL0C->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] output is NOT L0C; Please check outputL0C MemoryType. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%s[%d] output is NOT L0C; Please check outputL0C MemoryType. %s",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (outputL0C->GetConsumers().size() < 1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] output has EMPTY consumers; Please check outputL0C consumer size. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%s[%d] output has EMPTY consumers; Please check outputL0C consumer size. %s",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
 }
 
-Status CubeProcess::UpdateL0cDtype(Operation &op) {
+Status CubeProcess::UpdateL0cDtype(Operation& op)
+{
     std::pair<DataType, DataType> inputDtypes = std::make_pair(DataType::DT_FP16, DataType::DT_FP16);
-    for (auto &input : op.GetIOperands()) {
+    for (auto& input : op.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
             inputDtypes.first = input->Datatype();
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
@@ -173,26 +203,29 @@ Status CubeProcess::UpdateL0cDtype(Operation &op) {
     }
     if (supportDtypeMap.count(inputDtypes)) {
         DataType outDtype = supportDtypeMap.at(inputDtypes);
-        for (auto &output: op.GetOOperands()) {
+        for (auto& output : op.GetOOperands()) {
             output->tensor->datatype = outDtype;
         }
         return SUCCESS;
     } else {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed. %s",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), 
-            BriefDataType2String(inputDtypes.first).c_str(),
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%s[%d] has unsupport input dtypes (L0A: %s, L0B: %s), update L0C dtype Failed. %s",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), BriefDataType2String(inputDtypes.first).c_str(),
             BriefDataType2String(inputDtypes.second).c_str(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
 }
 
-void CubeProcess::DFSSearch(Operation *op, std::vector<Operation *> &l0CCopyOuts, std::unordered_set<Operation *> &visitedOp) {
+void CubeProcess::DFSSearch(
+    Operation* op, std::vector<Operation*>& l0CCopyOuts, std::unordered_set<Operation*>& visitedOp)
+{
     if (op == nullptr || visitedOp.count(op)) {
         return;
     }
     visitedOp.insert(op);
     OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
-    if (opCalType == OpCalcType::MOVE_OUT && op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+    if (opCalType == OpCalcType::MOVE_OUT &&
+        op->GetIOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         l0CCopyOuts.emplace_back(op);
         return;
     }
@@ -201,21 +234,29 @@ void CubeProcess::DFSSearch(Operation *op, std::vector<Operation *> &l0CCopyOuts
     }
 }
 
-Status CubeProcess::GetL0CCopyOuts(Operation &op, std::vector<Operation *> &l0CCopyOuts) {
-    std::unordered_set<Operation *> visitedOp;
+Status CubeProcess::GetL0CCopyOuts(Operation& op, std::vector<Operation*>& l0CCopyOuts)
+{
+    std::unordered_set<Operation*> visitedOp;
     DFSSearch(&op, l0CCopyOuts, visitedOp);
     if (l0CCopyOuts.size() == 0) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has no l0CCopyOuts, please check. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "%s[%d] has no l0CCopyOuts, please check. %s", op.GetOpcodeStr().c_str(),
+            op.GetOpMagic(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     for (auto chainEndCopyOut : l0CCopyOuts) {
         if (chainEndCopyOut->GetOOperands().size() != 1) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has more than ONE outputs. %s", chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "%s[%d] has more than ONE outputs. %s", chainEndCopyOut->GetOpcodeStr().c_str(),
+                chainEndCopyOut->GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         auto finalOutput = chainEndCopyOut->GetOOperands().front();
-        if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR && finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_L1 && finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has invlid output memType: %s. %s",
+        if (finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR &&
+            finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_L1 &&
+            finalOutput->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "%s[%d] has invlid output memType: %s. %s",
                 chainEndCopyOut->GetOpcodeStr().c_str(), chainEndCopyOut->GetOpMagic(),
                 MemoryTypeToString(finalOutput->GetMemoryTypeOriginal()).c_str(), GetFormatBacktrace(op).c_str());
             return FAILED;
@@ -224,8 +265,9 @@ Status CubeProcess::GetL0CCopyOuts(Operation &op, std::vector<Operation *> &l0CC
     return SUCCESS;
 }
 
-Status CubeProcess::ReconnectGraph(Operation &mulOp, std::vector<Operation *> copyOutOps) {
-    for (auto &input : mulOp.GetIOperands()) {
+Status CubeProcess::ReconnectGraph(Operation& mulOp, std::vector<Operation*> copyOutOps)
+{
+    for (auto& input : mulOp.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) {
             mulOp.EraseInput(input);
             input->RemoveConsumer(mulOp);
@@ -239,8 +281,10 @@ Status CubeProcess::ReconnectGraph(Operation &mulOp, std::vector<Operation *> co
     return SUCCESS;
 }
 
-Status CubeProcess::TransferAttr(Operation &mulOp, std::vector<Operation *> copyOutOps) {
-    auto scaleValue = (mulOp.HasAttr(A_MUL_B_SCALE_ATTR)) ? mulOp.GetElementAttribute(A_MUL_B_SCALE_ATTR) : Element(DataType::DT_UINT64, 0);
+Status CubeProcess::TransferAttr(Operation& mulOp, std::vector<Operation*> copyOutOps)
+{
+    auto scaleValue = (mulOp.HasAttr(A_MUL_B_SCALE_ATTR)) ? mulOp.GetElementAttribute(A_MUL_B_SCALE_ATTR) :
+                                                            Element(DataType::DT_UINT64, 0);
     auto reluType = (mulOp.HasAttr(A_MUL_B_RELU_ATTR)) ? mulOp.GetIntAttribute(A_MUL_B_RELU_ATTR) : 0;
     for (auto copyOutOp : copyOutOps) {
         copyOutOp->SetAttribute(A_MUL_B_SCALE_ATTR, scaleValue);
@@ -249,9 +293,10 @@ Status CubeProcess::TransferAttr(Operation &mulOp, std::vector<Operation *> copy
     return SUCCESS;
 }
 
-Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &l0CCopyOuts, Operation &mulOp) {
-    Operation *chainEndCopyOut{nullptr};
-    for (auto &copyOut : l0CCopyOuts) {
+Status CubeProcess::AlignGMTensor(Function& function, std::vector<Operation*>& l0CCopyOuts, Operation& mulOp)
+{
+    Operation* chainEndCopyOut{nullptr};
+    for (auto& copyOut : l0CCopyOuts) {
         if (copyOut->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             if (function.IsFromOutCast(copyOut->GetOOperands().front())) {
                 chainEndCopyOut = copyOut;
@@ -261,12 +306,15 @@ Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &
             }
         }
     }
-    for (auto &input : mulOp.GetIOperands()) {
+    for (auto& input : mulOp.GetIOperands()) {
         if (input->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         if (function.IsFromInCast(input)) {
-            APASS_LOG_WARN_F(Elements::Operation, "PreGraphProcess:CubeProcess::UpdateCubeOp::AlignGMTensor: OP_A_MUL_B iOperand tensor[%d] is incast.", input->GetMagic());
+            APASS_LOG_WARN_F(
+                Elements::Operation,
+                "PreGraphProcess:CubeProcess::UpdateCubeOp::AlignGMTensor: OP_A_MUL_B iOperand tensor[%d] is incast.",
+                input->GetMagic());
             continue;
         }
         if (chainEndCopyOut == nullptr) {
@@ -275,34 +323,38 @@ Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &
         }
         auto finalOutput = chainEndCopyOut->GetOOperands().front();
         input->tensor = finalOutput->tensor;
-        for (auto &copyOut : l0CCopyOuts) {
+        for (auto& copyOut : l0CCopyOuts) {
             if (copyOut->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 copyOut->GetOOperands().front()->tensor = finalOutput->tensor;
             }
         }
         /*
-        强制要求当前Matmul链路输出的Gm仅存在一个清零的Op，暂时通过指定清零和ReduceAcc使用的vec tilesize与tileM x tileN相同
-        后续通过前端提供使能切K的API保证
+        强制要求当前Matmul链路输出的Gm仅存在一个清零的Op，暂时通过指定清零和ReduceAcc使用的vec tilesize与tileM x
+        tileN相同 后续通过前端提供使能切K的API保证
         */
         AlignCopyOutAttr(input, chainEndCopyOut);
     }
     return SUCCESS;
 }
 
-Status CubeProcess::UpdateCubeOp(Function &function) {
-    for (auto &op : function.Operations()) {
+Status CubeProcess::UpdateCubeOp(Function& function)
+{
+    for (auto& op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
             continue;
         }
         if (CheckValidCube(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] is invalid. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "%s[%d] is invalid. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+                GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         // l0CCopyOuts包含所有从L0C搬出的op
-        std::vector<Operation *> l0CCopyOuts{};
+        std::vector<Operation*> l0CCopyOuts{};
         if (GetL0CCopyOuts(op, l0CCopyOuts) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Get CopyOuts for %s[%d] failed. %s", 
-                op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Get CopyOuts for %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+                GetFormatBacktrace(op).c_str());
             return FAILED;
         }
 
@@ -313,11 +365,15 @@ Status CubeProcess::UpdateCubeOp(Function &function) {
         }
 
         if (UpdateL0cDtype(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Update L0C dtype for %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Update L0C dtype for %s[%d] failed. %s", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (UpdateCopyAttr(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Set Attr for %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Set Attr for %s[%d] failed. %s", op.GetOpcodeStr().c_str(), op.GetOpMagic(),
+                GetFormatBacktrace(op).c_str());
             return FAILED;
         }
 

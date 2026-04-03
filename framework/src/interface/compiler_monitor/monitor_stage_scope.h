@@ -17,14 +17,12 @@ namespace npu::tile_fwk {
 
 class MonitorStageScope {
 public:
-    explicit MonitorStageScope(const std::string& stageName)
-        : stageName_(stageName) {
+    explicit MonitorStageScope(const std::string& stageName) : stageName_(stageName)
+    {
         MonitorManager::Instance().StartStage(stageName_);
     }
 
-    ~MonitorStageScope() {
-        MonitorManager::Instance().EndStage(stageName_);
-    }
+    ~MonitorStageScope() { MonitorManager::Instance().EndStage(stageName_); }
 
     MonitorStageScope(const MonitorStageScope&) = delete;
     MonitorStageScope& operator=(const MonitorStageScope&) = delete;
@@ -33,4 +31,4 @@ private:
     std::string stageName_;
 };
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

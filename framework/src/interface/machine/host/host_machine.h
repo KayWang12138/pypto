@@ -37,36 +37,41 @@ namespace npu::tile_fwk {
 #endif
 
 enum class HostMachineMode {
-    SERVER = 0,  // server扩展模式，host machine内部完成端到端调度上板执行，submit task & compile & run 不对外暴露
+    SERVER = 0, // server扩展模式，host machine内部完成端到端调度上板执行，submit task & compile & run 不对外暴露
     API = 1, // api 模式，当前torch对接使用此模式，对外暴露submit task  & compile & run api供外部调用
 };
 
 template <typename T>
 class SafeQueue {
 public:
-    void Push(T value) {
+    void Push(T value)
+    {
         std::lock_guard<std::mutex> lock(mutex_);
         queue_.push(std::move(value));
     }
 
-    T Pop() {
+    T Pop()
+    {
         std::unique_lock<std::mutex> lock(mutex_);
         T value = std::move(queue_.front());
         queue_.pop();
         return value;
     }
 
-    bool Empty() const {
+    bool Empty() const
+    {
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.empty();
     }
 
-    uint64_t Size() const {
+    uint64_t Size() const
+    {
         std::lock_guard<std::mutex> lock(mutex_);
         return queue_.size();
     }
 
-    void Clear() {
+    void Clear()
+    {
         std::lock_guard<std::mutex> lock(mutex_);
         queue_ = std::queue<T>();
     }
@@ -81,7 +86,7 @@ public:
     static HostMachine& GetInstance();
 
     bool Init(const HostMachineMode mode); // init resource & launch device machine core machine
-    void Destroy(); // release resource & stop device machine core machine
+    void Destroy();                        // release resource & stop device machine core machine
 
     void SubTask(Function* function);
     void WaitTaskFinish(); // wait all task finish
@@ -90,6 +95,7 @@ public:
     void SubAllStashedTask();
 
     void ClearStashFuncQueue();
+
 public: // api mode
     MachineTask* Compile(MachineTask* task = nullptr) const;
 
@@ -107,7 +113,7 @@ private:
     void PushAgentQueue(std::unique_ptr<MachineTask> task);
     void PushFinishQueue(std::unique_ptr<MachineTask> task);
 
-    static std::string GetCacheKeyFromFunction(Function *function);
+    static std::string GetCacheKeyFromFunction(Function* function);
 
 private:
     std::atomic<bool> initialized_;
@@ -128,10 +134,12 @@ private:
     std::vector<std::thread> compileThreads_;
     std::vector<std::thread> agentThreads_;
     SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
-    SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
-    SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
-    SafeQueue<std::tuple<Function *, std::shared_ptr<ConfigScope>, InternalGlobalConfig,
-                         nlohmann::json>> stashedFuncQueue_; // stash func
+    SafeQueue<std::unique_ptr<MachineTask>> agentQueue_;   // 待device agent处理任务
+    SafeQueue<std::unique_ptr<MachineTask>> finishQueue_;  // device machine 处理结束任务
+    SafeQueue<std::tuple<
+        Function*, std::shared_ptr<ConfigScope>, InternalGlobalConfig,
+        nlohmann::json>>
+        stashedFuncQueue_; // stash func
 };
 
 } // namespace npu::tile_fwk

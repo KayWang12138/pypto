@@ -18,45 +18,43 @@
 #include "cost_model/simulation/common/CommonType.h"
 #include "cost_model/simulation/common/ISA.h"
 
-namespace CostModel
-{
-    class PipeMachineImpl 
+namespace CostModel {
+class PipeMachineImpl {
+public:
+    virtual ~PipeMachineImpl() = default;
+    virtual uint64_t Simulate(const TileOpPtr& tileOp) = 0;
+    virtual uint64_t PostSimulate(const TileOpPtr& tileOp) = 0;
+    virtual uint64_t SimulateForPass(const std::string& op, const std::vector<std::vector<int>>& shape, DataType dtype)
     {
-    public:
-        virtual ~PipeMachineImpl() = default;
-        virtual uint64_t Simulate(const TileOpPtr &tileOp) = 0;
-        virtual uint64_t PostSimulate(const TileOpPtr &tileOp) = 0;
-        virtual uint64_t SimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) {
-            if (ValidateInput(op, shape, dtype)) {
-                return 0;
-            }
+        if (ValidateInput(op, shape, dtype)) {
             return 0;
-        };
-        virtual uint64_t PostSimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) {
-            if (ValidateInput(op, shape, dtype)) {
-                return 0;
-            }
-            return 0;
-        };
-    private:
-        bool ValidateInput(const std::string &op,
-                        const std::vector<std::vector<int>> &shape,
-                        DataType dtype) const {
-            return op.empty() || shape.empty() || !dtype;
         }
+        return 0;
+    };
+    virtual uint64_t PostSimulateForPass(
+        const std::string& op, const std::vector<std::vector<int>>& shape, DataType dtype)
+    {
+        if (ValidateInput(op, shape, dtype)) {
+            return 0;
+        }
+        return 0;
     };
 
-    struct UnifiedDeleter {
-        void operator()(PipeMachineImpl* ptr) const {
-            delete ptr;
-        }
-        static void SetCustomDeleter(void (*destroy)(PipeMachineImpl*)) {
-            customDestroy = destroy;
-        }
-    private:
-        static inline void (*customDestroy)(PipeMachineImpl*) = nullptr;
-    };
+private:
+    bool ValidateInput(const std::string& op, const std::vector<std::vector<int>>& shape, DataType dtype) const
+    {
+        return op.empty() || shape.empty() || !dtype;
+    }
+};
 
-    using UnifiedPipeMachinePtr = std::shared_ptr<PipeMachineImpl>;
+struct UnifiedDeleter {
+    void operator()(PipeMachineImpl* ptr) const { delete ptr; }
+    static void SetCustomDeleter(void (*destroy)(PipeMachineImpl*)) { customDestroy = destroy; }
+
+private:
+    static inline void (*customDestroy)(PipeMachineImpl*) = nullptr;
+};
+
+using UnifiedPipeMachinePtr = std::shared_ptr<PipeMachineImpl>;
 
 } // namespace CostModel

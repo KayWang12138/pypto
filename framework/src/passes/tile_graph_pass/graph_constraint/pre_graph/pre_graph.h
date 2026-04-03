@@ -29,10 +29,10 @@ public:
     ~PreGraphProcess() override = default;
 
 private:
-    Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
-    void UpdateCopyOpIsCube(Operation &op) const;
+    Status PreCheck(Function& function) override;
+    Status PostCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
+    void UpdateCopyOpIsCube(Operation& op) const;
 };
 } // namespace npu::tile_fwk
 #endif // PRE_GRAPH_PASS_H

@@ -29,7 +29,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
@@ -37,8 +38,10 @@ public:
     void TearDown() override {}
 };
 
-void AddTensor(ComputationalGraphBuilder &G, const std::string name, const Shape &shape,
-    const Shape &rawShape, const Offset &offset, const MemoryType memType) {
+void AddTensor(
+    ComputationalGraphBuilder& G, const std::string name, const Shape& shape, const Shape& rawShape,
+    const Offset& offset, const MemoryType memType)
+{
     std::string nameRaw = name + "_raw";
     G.AddTensor(DataType::DT_FP32, rawShape, nameRaw);
     auto tensorRaw = G.GetTensor(nameRaw);
@@ -51,7 +54,8 @@ void AddTensor(ComputationalGraphBuilder &G, const std::string name, const Shape
 }
 
 // input -> view1 -> a -> view2 -> b -> assemble1 -> output
-TEST_F(SplitLargeLocalRawTest, TestSplitRawTensorCheceker) {
+TEST_F(SplitLargeLocalRawTest, TestSplitRawTensorCheceker)
+{
     int NUM_64 = 64;
     int NUM_128 = 128;
     int NUM_256 = 256;
@@ -73,11 +77,11 @@ TEST_F(SplitLargeLocalRawTest, TestSplitRawTensorCheceker) {
     G.GetOp("view2")->SetOpAttribute(std::make_shared<ViewOpAttribute>(shape2, MemoryType::MEM_UB));
     G.AddOp(Opcode::OP_ASSEMBLE, {"b"}, {"output"}, "assemble1");
     G.GetOp("assemble1")->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, shape2));
-    
+
     G.SetInCast({"input"});
     G.SetOutCast({"output"});
 
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     npu::tile_fwk::SplitRawTensor splitLargeLocalRawPass;
     EXPECT_EQ(splitLargeLocalRawPass.PreCheck(*function), SUCCESS);
     EXPECT_EQ(splitLargeLocalRawPass.PostCheck(*function), FAILED);

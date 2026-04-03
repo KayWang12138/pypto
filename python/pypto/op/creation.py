@@ -33,7 +33,7 @@ def convert_to_element(value) -> pypto_impl.Element:
 @overload
 def arange(end: Union[int, float]) -> Tensor:
     """
-    Creates a 1-dimensional tensor containing a sequence of values from 0 (inclusive) 
+    Creates a 1-dimensional tensor containing a sequence of values from 0 (inclusive)
     to 'end'(exclusive), with a step size of 1
 
     Parameters
@@ -65,7 +65,7 @@ def arange(end: Union[int, float]) -> Tensor:
 @overload
 def arange(start: Union[int, float], end: Union[int, float]) -> Tensor:
     """
-    Creates a 1-dimensional tensor containing a sequence of values from start (inclusive) 
+    Creates a 1-dimensional tensor containing a sequence of values from start (inclusive)
     to 'end'(exclusive), with a step size of 1
 
     Parameters

@@ -27,18 +27,19 @@ namespace npu::tile_fwk::schema {
 
 struct SchemaNode : std::vector<std::shared_ptr<SchemaNode>> {
     std::string name;
-    SchemaNode(const std::string &name_) : name(name_) {}
+    SchemaNode(const std::string& name_) : name(name_) {}
 
-    const std::string &GetName() const { return name; }
-    std::string &GetName() { return name; }
+    const std::string& GetName() const { return name; }
+    std::string& GetName() { return name; }
 
     std::string Dump() const;
 
-    static std::vector<std::shared_ptr<SchemaNode>> ParseSchema(const std::string &schema);
-    static std::vector<std::shared_ptr<SchemaNode>> ParseSchema(const std::vector<std::string> &schemaList);
-    static std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> BuildDict(const std::vector<std::shared_ptr<SchemaNode>> &nodeList);
+    static std::vector<std::shared_ptr<SchemaNode>> ParseSchema(const std::string& schema);
+    static std::vector<std::shared_ptr<SchemaNode>> ParseSchema(const std::vector<std::string>& schemaList);
+    static std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> BuildDict(
+        const std::vector<std::shared_ptr<SchemaNode>>& nodeList);
 };
 
-}
+} // namespace npu::tile_fwk::schema
 
-#endif//SCHEMA_TRACE_H
+#endif // SCHEMA_TRACE_H

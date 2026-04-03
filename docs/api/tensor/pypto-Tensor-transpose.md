@@ -16,4 +16,3 @@ transpose(self, dim0: int, dim1: int) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.transpose](../operation/pypto-transpose.md)。
-

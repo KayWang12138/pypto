@@ -56,6 +56,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 | [references/test-template.py](references/test-template.py) | test 文件固定模板 | 生成 test_{op}.py 时读取 |
 | [references/impl-template.py](references/impl-template.py) | impl 文件固定模板 | 生成 {op}_impl.py 时读取 |
 | [references/execution-constraints.md](references/execution-constraints.md) | PyPTO 开发执行约束清单 | 进入实现阶段前必读；编码与自检时反复对照 |
+| [references/error-code-troubleshooting.md](references/error-code-troubleshooting.md) | 错误码排查流程与常见错误码速查 | 验证失败时按流程排查 |
 | [scripts/environment_prepare.sh](scripts/environment_prepare.sh) | 环境初始化脚本 | 环境准备阶段按需执行 |
 | [scripts/list_idle_chip_ids.sh](scripts/list_idle_chip_ids.sh) | 输出当前可用 chip id 列表（兼容 910B / 910C） | 设置 `TILE_FWK_DEVICE_ID` 前执行 |
 
@@ -194,7 +195,11 @@ python3 build_ci.py -f python3 --disable_auto_execute
 python3 custom/{op}/test_{op}.py
 ```
 
-3. **验证失败处理**：不要跳过问题或简化实现，应正向排查问题。
+3. **验证失败处理**：
+   ⚠️ **先确认是否有错误码：有则必须走错误码流程，无则跳过**
+   **检查方法**：在 stderr 或日志中搜索 `Errcode: F` / `ErrCode: F`
+   - **有错误码（如 `ErrCode: FC0000!`）** → 必须走错误码排查流程：见 [references/error-code-troubleshooting.md](references/error-code-troubleshooting.md)
+   - **无错误码** → 跳过，直接分析报错信息或日志定位问题
 
 **推荐验证顺序**：
 1. 小规模功能验证：先确认代码能运行、基础输出形状正确
@@ -230,24 +235,15 @@ python3 custom/{op}/test_{op}.py
 
 ## 常见问题与解决方案
 
-### 最常见的 6 类错误
+### 常见的 7 类错误
 
 1. **BFloat16 转 NumPy 失败**：必须先 `.float()` 再 `.numpy()`
 2. **环境变量未设置**：先运行 `bash scripts/list_idle_chip_ids.sh` 确认可用 chip id，再设置 `export TILE_FWK_DEVICE_ID=<空闲 chip id>`
 3. **动态轴定义位置错误**：必须在 jit 函数外部定义
-4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`
+4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`；vec 操作前需要 `set_vec_tile_shapes`
 5. **精度标准不合理**：bfloat16 使用 `atol=0.0001, rtol=0.0078125`
 6. **使用 PyTorch 作为 Golden**：使用 NumPy 实现 golden 函数时，bfloat16 数据类型转换不够准确；golden 必须独立在 `{op}_golden.py`，使用纯 torch 实现
-
-### 错误处理
-
-| 场景 | 处理方式 |
-|------|----------|
-| 模板占位符替换不完整 | 检查生成文件中是否残留 `{op}` 字面量，定位并修正 |
-| import 失败（找不到 impl/golden） | 确认文件已生成且在同一目录 |
-| 编译或执行超过 10 分钟且卡住 | 中断并杀掉相关进程，重新检查代码 |
-
----
+7. **SymbolicScalar 用作 list 索引报错**：`TypeError: list indices must be integers or slices, not SymbolicScalar`。原因：`pypto.loop` 返回的是编译时符号值，不是 Python runtime 对象。解决方法：使用 tensor slice 或 `pypto.view`/`pypto.assemble` 构建数据流。
 
 ## 三种状态标记约定
 
@@ -279,7 +275,7 @@ if __name__ == "__main__":
 - `[PRECISION_FAIL]`: 精度验证失败（数值不匹配）
 - 无标记 + exit ≠ 0: 功能问题（代码崩溃、逻辑错误等）
 
-`assert_allclose` 抛出的 `AssertionError` 包含 `Not equal to tolerance` 关键字，orchestrator 据此区分"运行失败"和"精度失败"。
+`assert_allclose` 抛出的 `AssertionError` 包含 `Not equal to tolerance` 关键字，调用方据此区分"运行失败"和"精度失败"。
 
 ---
 
@@ -288,4 +284,5 @@ if __name__ == "__main__":
 1. 3 个文件（`test_{op}.py` + `{op}_impl.py` + `README.md`）全部存在
 2. `test_{op}.py` 可执行（无语法错误）
 3. 测试包含 `[PRECISION_PASS]` / `[PRECISION_FAIL]` 标记逻辑，无其他功能问题
-4. `{op}_impl.py` 已按 `references/execution-constraints.md` 自检：输出写回、动态轴、TileShape、valid_shape、Element、loop/cond、assemble 回环均已检查
+4. 验证失败时已确认是否有错误码：有则走错误码流程，无则跳过
+5. `{op}_impl.py` 已按 `references/execution-constraints.md` 自检：输出写回、动态轴、TileShape、valid_shape、Element、loop/cond、assemble 回环均已检查

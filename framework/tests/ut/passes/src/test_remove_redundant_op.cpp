@@ -28,19 +28,20 @@
 
 using namespace npu::tile_fwk;
 
-void PrintGraphInfoRemoveRedundantOp(Function* func) {
-    std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
-    for (auto &op : func->Operations()) {
-        std::cout << "Op:" << op.GetOpMagic() << " " <<  op.GetOpcodeStr() << std::endl;
+void PrintGraphInfoRemoveRedundantOp(Function* func)
+{
+    std::cout << "func->Operations().size() = " << func->Operations().size() << std::endl;
+    for (auto& op : func->Operations()) {
+        std::cout << "Op:" << op.GetOpMagic() << " " << op.GetOpcodeStr() << std::endl;
         std::cout << "input operation:";
-        for (const std::shared_ptr<LogicalTensor> &input_tensor : op.GetIOperands()) {
-            for (const auto &item_op : input_tensor->GetProducers()) {
+        for (const std::shared_ptr<LogicalTensor>& input_tensor : op.GetIOperands()) {
+            for (const auto& item_op : input_tensor->GetProducers()) {
                 std::cout << "(" << item_op->opmagic << ", " << item_op->GetOpcodeStr() << ") ";
             }
         }
         std::cout << std::endl << "output operation:";
-        for (const std::shared_ptr<LogicalTensor> &output_tensor : op.GetOOperands()) {
-            for (const auto &item_op : output_tensor->GetConsumers()) {
+        for (const std::shared_ptr<LogicalTensor>& output_tensor : op.GetOOperands()) {
+            for (const auto& item_op : output_tensor->GetConsumers()) {
                 std::cout << "(" << item_op->opmagic << ", " << item_op->GetOpcodeStr() << ") ";
             }
         }
@@ -48,19 +49,20 @@ void PrintGraphInfoRemoveRedundantOp(Function* func) {
     }
 }
 
-void SetUpPassStrategy() {
-    PassManager &passManager = PassManager::Instance();
+void SetUpPassStrategy()
+{
+    PassManager& passManager = PassManager::Instance();
     passManager.RegisterStrategy(
         "RemoveRedundantOpTestStrategy", {
-                                             {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
-                                             {   "InferMemoryConflict",     PassName::INFER_MEMORY_CONFLICT},
-                                             {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
-                                             {           "DuplicateOp",              PassName::DUPLICATE_OP},
-                                             {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
-                                             {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+                                             {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                             {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                                             {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                             {"DuplicateOp", PassName::DUPLICATE_OP},
+                                             {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                             {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
                                              {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
-                                             {          "SplitReshape",             PassName::SPLIT_RESHAPE},
-    });
+                                             {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                         });
 }
 
 class RemoveRedundantOpTest : public testing::Test {
@@ -69,7 +71,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -79,7 +82,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
+TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast)
+{
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int bs = 1;
     int n = 32;
@@ -93,7 +97,8 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     Tensor output(DataType::DT_FP32, resShape, "res");
     Tensor output_add(DataType::DT_FP32, resShape, "res_add");
     config::SetBuildStatic(true);
-    FUNCTION("RemoveRedundantOpFunction", {input, output, output_add}) {
+    FUNCTION("RemoveRedundantOpFunction", {input, output, output_add})
+    {
         TileShape::Current().SetVecTile(1, 32, 128);
         output = Transpose(input, {0, 1});
         TileShape::Current().SetVecTile(8, 1, 128);
@@ -106,7 +111,7 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     EXPECT_EQ(oriOpList.size(), 15) << "Before the Pass, there should be 15 operations";
     int ori_view_count = 0;
     int ori_assemble_count = 0;
-    for (auto &op : oriOpList) {
+    for (auto& op : oriOpList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             ori_view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -127,7 +132,7 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     int view_count = 0;
     int assemble_count = 0;
 
-    for (auto &op : updated_operations) {
+    for (auto& op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -138,7 +143,8 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
     EXPECT_EQ(assemble_count, 4) << "There shoule be 5 ASSEMBLE op after RemoveRedundantOp";
 }
 
-TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
+TEST_F(RemoveRedundantOpTest, TestInternalAssembleView)
+{
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int bs = 4;
     int n = 32;
@@ -151,7 +157,8 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     config::SetBuildStatic(true);
-    FUNCTION("RemoveRedundantOpFunction", {input, output}) {
+    FUNCTION("RemoveRedundantOpFunction", {input, output})
+    {
         TileShape::Current().SetVecTile(1, 32, 128);
         auto tmp = Transpose(input, {0, 1}); // [32, 4, 128]
         TileShape::Current().SetVecTile(8, 1, 64);
@@ -163,7 +170,7 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     auto oriOpList = func->Operations(true);
     int ori_view_count = 0;
     int ori_assemble_count = 0;
-    for (auto &op : oriOpList) {
+    for (auto& op : oriOpList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             ori_view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -179,7 +186,7 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
     int view_count = 0;
     int assemble_count = 0;
 
-    for (auto &op : updated_operations) {
+    for (auto& op : updated_operations) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             view_count += 1;
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {

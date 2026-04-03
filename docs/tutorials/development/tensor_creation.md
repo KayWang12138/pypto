@@ -40,7 +40,7 @@ Tensor是PyPTO中的基本数据结构，用于表示将在计算图中使用并
         #创建形状为[2, 3]、数据类型为FP16的Tensor
         tensor = pypto.tensor([2, 3], pypto.DT_FP16, "my_tensor")
         return tensor
-    
+
     def main_function():
          sub_tensor = sub_function()
     ```
@@ -51,7 +51,7 @@ Tensor是PyPTO中的基本数据结构，用于表示将在计算图中使用并
     # prepare data
     input_data = torch.rand(shape, dtype=torch.float, device='npu')
     output_data = torch.zeros(shape, dtype=torch.float, device='npu')
-    
+
     #convert from torch tensor to pypto tensor
     pto_input = pypto.from_torch(input_data, "in_0")
     pto_output = pypto.from_torch(output_data, "out_0")
@@ -110,4 +110,3 @@ output_data = torch.zeros(shape, dtype=torch.float, device='npu')
 pto_input = pypto.from_torch(input_data, "in_0", dynamic_axis=[0])
 pto_output = pypto.from_torch(output_data, "out_0", dynamic_axis=[0])
 ```
-

@@ -3,7 +3,7 @@
 通过 AI 代理与专家技能，自动完成昇腾 NPU 算子开发全流程：
 
 ```
-需求分析 → API探索 → Golden生成 → 设计方案 → 编码实现 → 精度验证 → 性能调优 → PR提交
+需求分析 → API 探索 → Golden 生成 → 设计方案 → 代码实现 → 精度验证 → 性能调优 → PR 提交
 ```
 
 本仓库为 [OpenCode](https://opencode.ai) 预配置了项目规范（AGENTS.md）、专家技能（Skills）和协作代理（Agents），开箱即用。
@@ -68,7 +68,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 开发一个 sinh 算子，数学公式是 (e^x - e^(-x)) / 2
 ```
 
-> **提示**：Orchestrator 会自动编排 7 阶段状态机：需求理解 → API探索 → Golden生成 → 设计方案 → 代码实现 → 精度修复 → 性能调优
+> **提示**：Orchestrator 会自动编排 7 阶段状态机：需求理解 → API 探索 → Golden 生成 → 设计方案 → 代码实现 → 精度修复 → 性能调优
 
 ---
 
@@ -82,7 +82,7 @@ Claude Code 使用不同的目录结构，需要先迁移项目配置：
 # 1. 创建 Claude Code 目录结构
 mkdir -p .claude/skills .claude/agents
 
-# 2. 重命名项目指令文件
+# 2. 复制项目指令文件
 cp AGENTS.md CLAUDE.md
 
 # 3. 复制 Skills 到 Claude Code 目录
@@ -143,10 +143,9 @@ AGENTS.md 是 OpenCode 的项目级自定义指令文件。当你在本仓库中
 
 该文件定义了：
 
-- **核心原则**：遇问题优先定位修复、基于官方文档实现、优先保证方案可用
-- **环境配置**：默认版本（CANN 8.5.0 / PyTorch 2.6.0 / torch_npu 2.6.0.post3）
-- **开发规范**：目录结构、分阶段流程、错误处理策略
-- **默认值**：输入输出规格、数据类型、精度要求的合理缺省
+- **Skills 索引**：按场景分类的技能清单（算子开发、精度调试、性能分析、环境工具、PR 质量）
+- **通用原则**：如实报告、先验证再下结论、区分事实与推断、最小必要改动
+- **核心算子开发原则**：理解原理后实现、遇问题先定位、工件职责分离、以官方资料为准、优先 NPU 真机验证
 
 > 进一步了解：[OpenCode 自定义规则文档](https://opencode.ai/docs/zh-cn/rules/)
 
@@ -162,6 +161,7 @@ AGENTS.md 是 OpenCode 的项目级自定义指令文件。当你在本仓库中
 | `pypto-op-analyst` | Subagent | Golden 生成与 Design 设计分析（上下文隔离） |
 | `pypto-op-developer` | Subagent | 代码实现与精度修复（上下文隔离） |
 | `pypto-op-perftuner` | Subagent | 性能分析与调优（上下文隔离） |
+| `pypto-code-merge-agent` | Subagent | 代码变更到 PR 提交的自动化流程 |
 
 **Orchestrator 状态机**：
 
@@ -220,7 +220,7 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 **工作流程**：`需求理解 → 环境准备 → Golden → 设计 → 算子实现 → 精度调试 → 性能分析 → 性能调优`
 
-**关键串联**：调用 `pypto-intent-understanding`、`pypto-api-explorer`、`pypto-golden-generator`、`pypto-op-design`、`pypto-op-develop`、`pypto-precision-debugger`、`pypto-op-perf-analyzer`、`pypto-op-perf-autotuner`
+**关键串联**：调用 `pypto-intent-understanding`、`pypto-api-explorer`、`pypto-golden-generator`、`pypto-op-design`、`pypto-op-develop`、`pypto-precision-debugger`、`pypto-operator-auto-tuner`
 
 #### `pypto-intent-understanding` — 需求意图理解
 
@@ -266,17 +266,11 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 **常见问题**：workspace 不足、循环展开问题、合轴问题、并行执行问题、valid_shape 错误
 
-#### `pypto-binary-search-verify` — 二分精度定位（Verify 模式）
+#### `pypto-precision-compare` — 精度对比与定位
 
-**适用场景**：利用精度工具通过二分查找定位算子精度问题
+**适用场景**：调试 PyPTO 算子精度、定位精度差异来源、进行中间结果对比
 
-**核心原理**：通过 `pass_verify_save` 在循环中条件性保存中间结果，对比精度
-
-#### `pypto-binary-search-without-verify` — 二分精度定位（Checkpoint 模式）
-
-**适用场景**：通过在 kernel 函数中添加检查点 tensor 进行原地修改，对比中间结果精度
-
-**核心原理**：检查点 tensor 作为输入参数，使用 `pypto.assemble` 保存中间结果
+**核心原理**：提供两种方法 - 文件保存方法（使用 `pass_verify_save` 和 `torch.save`）和二分对比方法（使用检查点 tensor）
 
 #### `pypto-aicore-error-locator` — AICore 错误定位
 
@@ -288,17 +282,13 @@ Stage 7: 性能调优 → PerfTuner Subagent
 
 ### 性能分析
 
-#### `pypto-op-perf-analyzer` — 性能指标分析
+#### `pypto-operator-auto-tuner` — 性能分析及调优
 
-**适用场景**：分析已生成的性能数据，评估算子性能表现
+**适用场景**：分析已生成的性能数据，评估算子性能表现，基于实测性能数据迭代调优，并验证精度与性能收益
 
 **核心指标**：核心利用率、气泡率、AicoreTime、等待时间
 
 **评级标准**：⭐⭐⭐⭐⭐（利用率>90%，气泡<2%）到 ⭐（利用率<50%，气泡>20%）
-
-#### `pypto-op-perf-autotuner` — 性能调优
-
-**适用场景**：基于实测性能数据迭代调优，并验证精度与性能收益
 
 **调优手段**：Stitch 调优、loop_unroll、Tilesize 调整、L2 亲和调度、CubeNBuffer 合并
 
@@ -351,6 +341,40 @@ Stage 7: 性能调优 → PerfTuner Subagent
 **适用场景**：识别 PyPTO 框架或文档不完善导致的断裂点，产出可转化为 Issue 的报告
 
 **断裂点类型**：文档类（D1-D6）、API/框架类（A1-A5）、错误信息类（E1-E4）、行为模式类（C1-C6）
+
+---
+
+### Pass 分析与优化
+
+#### `pypto-pass-error-fixer` — Pass 模块错误诊断与修复
+
+**适用场景**：Pass 模块抛出错误，需要从问题定位到修复验证的完整排查流程
+
+**工作流程**：错误定位 → 原因分析 → 问题修复 → 验证确认
+
+#### `pypto-pass-module-analyzer` — Pass 模块代码分析
+
+**适用场景**：需要理解 PyPTO Pass 中某个模块的代码、功能和设计
+
+**你会得到**：Pass 模块分析文档，包含接口描述、功能说明与特殊场景分析
+
+#### `pypto-pass-perf-optimizer` — Pass 编译性能优化
+
+**适用场景**：Pass 编译耗时过长，需要分析和优化编译性能
+
+**你会得到**：性能分析报告 + 优化方案 + 验证步骤
+
+#### `pypto-pass-ut-generate` — Pass 单元测试生成
+
+**适用场景**：需要根据 Pass 业务描述生成对应的单元测试用例（UT）
+
+**你会得到**：基于 GTest 框架的 UT 用例，含环境配置、图构建、Pass 执行与结果校验
+
+#### `pypto-pass-workflow-analyzer` — Pass 业务流分析
+
+**适用场景**：需要理解某个业务场景中 Pass 各模块的执行顺序、依赖关系与数据流转
+
+**你会得到**：业务流分析文档，包含模块职责、执行顺序、数据流转说明
 
 ---
 

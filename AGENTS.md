@@ -24,17 +24,22 @@
 
 #### 精度验证与调试
 - `pypto-precision-debugger`：定位并修复精度问题
-- `pypto-binary-search-verify`：verify-based 精度定位
-- `pypto-binary-search-without-verify`：checkpoint-based 精度定位
+- `pypto-precision-compare`：精度对比与定位，支持文件保存和二分对比两种方法
 - `pypto-aicore-error-locator`：定位 aicore error 的问题文件和代码行
 
 #### 性能分析
-- `pypto-op-perf-analyzer`：分析性能数据、定位瓶颈并给出优化依据
-- `pypto-op-perf-autotuner`：基于实测性能数据迭代调优，并验证精度与性能收益
+- `pypto-operator-auto-tuner`：分析性能数据、定位瓶颈并给出优化依据，基于实测性能数据迭代调优，并验证精度与性能收益
 
 #### 环境与工具
 - `pypto-environment-setup`：PyPTO 环境安装与环境问题修复
 - `gitcode-mcp-install`：安装和配置 GitCode MCP Server
+
+#### Pass 分析与优化
+- `pypto-pass-error-fixer`：Pass 模块错误诊断与修复，提供从问题定位到修复验证的完整工作流程
+- `pypto-pass-module-analyzer`：Pass 模块代码分析，生成模块分析文档，帮助理解接口、功能与特殊场景
+- `pypto-pass-perf-optimizer`：Pass 编译性能优化，分析和优化 Pass 模块的编译性能
+- `pypto-pass-ut-generate`：根据 Pass 业务描述，生成单元测试用例（UT）
+- `pypto-pass-workflow-analyzer`：Pass 业务流分析，帮助理解业务执行流程、模块职责与数据流转
 
 #### PR 与代码质量
 - `pypto-pr-creator`：准备并创建符合规范的 PR

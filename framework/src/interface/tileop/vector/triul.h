@@ -19,7 +19,8 @@
 
 #define OP_TILE_OP_TRIUL TTriUL
 template <int isUpper, typename DstTensor, typename SrcTensor>
-TILEOP void TTriUL(DstTensor dst, SrcTensor src, int diagonal) {
+TILEOP void TTriUL(DstTensor dst, SrcTensor src, int diagonal)
+{
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -32,8 +33,8 @@ TILEOP void TTriUL(DstTensor dst, SrcTensor src, int diagonal) {
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<DstTensor, 3, 5>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<DstTensor, 4, 5>();
 
-    auto srcAddr = (__ubuf__ typename SrcTensor::Type *)((uint64_t)(src.GetAddr()));
-    auto dstAddr = (__ubuf__ typename DstTensor::Type *)((uint64_t)(dst.GetAddr()));
+    auto srcAddr = (__ubuf__ typename SrcTensor::Type*)((uint64_t)(src.GetAddr()));
+    auto dstAddr = (__ubuf__ typename DstTensor::Type*)((uint64_t)(dst.GetAddr()));
     using dstTileDefine =
         pto::Tile<pto::TileType::Vec, typename DstTensor::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     dstTileDefine dstTile(shape3, shape4);
@@ -45,9 +46,9 @@ TILEOP void TTriUL(DstTensor dst, SrcTensor src, int diagonal) {
                 pto::TASSIGN(dstTile, (uint64_t)(dstAddr + tileOffsets));
                 pto::TASSIGN(srcTile, (uint64_t)(srcAddr + tileOffsets));
                 pto::TTRI<dstTileDefine, isUpper>(dstTile, diagonal);
-                #ifdef __DAV_V220
+#ifdef __DAV_V220
                 pipe_barrier(PIPE_V);
-                #endif
+#endif
                 pto::TMUL(dstTile, dstTile, srcTile);
             }
         }
