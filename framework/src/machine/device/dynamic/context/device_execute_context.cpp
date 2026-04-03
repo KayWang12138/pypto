@@ -36,74 +36,6 @@ bool DeviceExecuteContext::DuppedRootUpdateAndCachedAllSubmitted()
     return duppedRootCount == devProg->ctrlFlowCacheAnchor->rootTaskCount;
 }
 
-uint64_t DeviceExecuteContext::GetInputShapeDimSize(DeviceExecuteContext* ctx, uint64_t inputIndex)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return input->shape.dimSize;
-}
-
-uint64_t DeviceExecuteContext::GetInputShapeDim(DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t n)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return input->shape.dim[n];
-}
-
-int64_t DeviceExecuteContext::GetInputDataInt32Dim1(DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return (reinterpret_cast<int32_t*>(input->address))[off0];
-}
-
-int64_t DeviceExecuteContext::GetInputDataInt32Dim2(
-    DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return (reinterpret_cast<int32_t*>(input->address))[off0 * input->shape.dim[1] + off1];
-}
-
-int64_t DeviceExecuteContext::GetInputDataInt32Dim3(
-    DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return (reinterpret_cast<int32_t*>(
-        input->address))[off0 * input->shape.dim[1] * input->shape.dim[2] + off1 * input->shape.dim[2] + off2]; // 2:
-                                                                                                                // dim 2
-}
-
-int64_t DeviceExecuteContext::GetInputDataInt32Dim4(
-    DeviceExecuteContext* ctx, uint64_t inputIndex, uint64_t off0, uint64_t off1, uint64_t off2, uint64_t off3)
-{
-    DevTensorData* input = &ctx->args->devTensorList[inputIndex];
-    return (reinterpret_cast<int32_t*>(input->address))
-        [((off0 * input->shape.dim[1] + off1) * input->shape.dim[2] + off2) * input->shape.dim[3] +
-         off3]; // 2: dim 2, 3: dim 3
-}
-
-void* DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id)
-{
-    switch (id) {
-        case SymbolHandlerId::GetInputShapeDimSize:
-            return reinterpret_cast<void*>(GetInputShapeDimSize);
-        case SymbolHandlerId::GetInputShapeDim:
-            return reinterpret_cast<void*>(GetInputShapeDim);
-        case SymbolHandlerId::GetInputDataInt32Dim1:
-            return reinterpret_cast<void*>(GetInputDataInt32Dim1);
-        case SymbolHandlerId::GetInputDataInt32Dim2:
-            return reinterpret_cast<void*>(GetInputDataInt32Dim2);
-        case SymbolHandlerId::GetInputDataInt32Dim3:
-            return reinterpret_cast<void*>(GetInputDataInt32Dim3);
-        case SymbolHandlerId::GetInputDataInt32Dim4:
-            return reinterpret_cast<void*>(GetInputDataInt32Dim4);
-        default:
-            DEV_ERROR(
-                DevCommonErr::PARAM_INVALID, "#ctrl.task.pre.handler: Invalid SymbolHandlerId: %lu",
-                static_cast<uint64_t>(id));
-            DEV_ASSERT(DevCommonErr::PARAM_INVALID, 0);
-            return nullptr;
-    }
-    return nullptr;
-}
-
 int DeviceExecuteContext::RunInit(DevStartArgs* startArgs, PushTaskEntry tPushTask)
 {
     PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
@@ -132,16 +64,6 @@ int DeviceExecuteContext::RunInit(DevStartArgs* startArgs, PushTaskEntry tPushTa
         int inputSymbolIndex = this->devProg->startArgsInputSymbolIndexList[index];
         symbolTable[inputSymbolIndex] = param.value;
         DEV_INFO("Param %d Symbol Table %d = %ld.", index, inputSymbolIndex, param.value);
-    }
-
-    for (size_t index = 0; index < this->devProg->startArgsSymbolHandlerList.size(); ++index) {
-        SymbolHandler& symbolHandler = this->devProg->startArgsSymbolHandlerList[index];
-        void* handler = SymbolHandlerIdToHandler(symbolHandler.handlerId);
-        if (handler == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
-        DEV_ASSERT_MSG(DevCommonErr::NULLPTR, handler, "handler not found.");
-        symbolTable[symbolHandler.symIndex] = PtrToValue(handler);
     }
 
     /* This initialization must only occur after all other AICPU workspace meta memory allocations have completed.
