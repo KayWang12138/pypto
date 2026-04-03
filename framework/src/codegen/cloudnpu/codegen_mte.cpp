@@ -408,20 +408,6 @@ std::string CodeGenOpCloudNPU::GenUBToUBND2NZTileTensor() const
     return oss.str();
 }
 
-int CodeGenOpCloudNPU::GetCacheModeFlag(const std::string& cacheMode) const
-{
-    const int PA_BNSD = 0;
-    const int PA_NZ = 1;
-    const int PA_BSND = 2;
-    int cacheModeFlag = PA_BNSD;
-    if (cacheMode == "PA_NZ") {
-        cacheModeFlag = PA_NZ;
-    } else if (cacheMode == "PA_BSND") {
-        cacheModeFlag = PA_BSND;
-    }
-    return cacheModeFlag;
-}
-
 // In static shape scene, GM Offset is already calculated and added to GM Addr in host side, so TileOp do not need
 // GM offset
 std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm, unsigned uf) const

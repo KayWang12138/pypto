@@ -753,9 +753,11 @@ void CodeGenCloudNPU::GenerateMakefile(const std::string& makefilePath) const
     }
     makefile << "\n\n";
 
+    // print compile command if debug mode is all
+    std::string cmdPrifix = config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL ? "" : "@";
     for (const auto& task : compileTasks_) {
         makefile << task.outputPath << ": " << task.inputPath << "\n";
-        makefile << "\t@" << task.compileCmd << "\n\n";
+        makefile << "\t" << cmdPrifix << task.compileCmd << "\n\n";
     }
 
     makefile << ".PHONY: all clean\n\n";
