@@ -84,7 +84,7 @@ bool RemoveRedundantOp::ProcessRedundantOpWithDynShape(Operation& op) const
     if (!EqualInOut(op)) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "op[%d]'s input and output has unequal shape and dynshape, skip removing.",
-            op.opmagic);
+            op.GetOpMagic());
         return false;
     }
     return true;
