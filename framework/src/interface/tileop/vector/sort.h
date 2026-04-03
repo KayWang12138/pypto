@@ -466,4 +466,251 @@ TILEOP void TTwoTileMrgSort(T0 dst, T1 src)
         }
     }
 }
+
+namespace RadixSelectUtil {
+template <uint32_t size = sizeof(uint8_t)> struct IntBySize {
+    using T = int8_t;
+};
+template <> struct IntBySize<sizeof(uint16_t)> {
+    using T = int16_t;
+};
+template <> struct IntBySize<sizeof(uint32_t)> {
+    using T = int32_t;
+};
+template <> struct IntBySize<sizeof(uint64_t)> {
+    using T = int64_t;
+};
+template <uint32_t size = sizeof(uint8_t)> struct UIntBySize {
+    using T = uint8_t;
+};
+template <> struct UIntBySize<sizeof(uint16_t)> {
+    using T = uint16_t;
+};
+template <> struct UIntBySize<sizeof(uint32_t)> {
+    using T = uint32_t;
+};
+template <> struct UIntBySize<sizeof(uint64_t)> {
+    using T = uint64_t;
+};
+}
+
+template <bool isLargest, typename srcDType, typename TWI, typename SRC, typename TMP, typename CMP, typename USELESS>
+TILEOP void RadixSelectTwiddle(TWI twi, SRC src, TMP tmp, CMP cmp, USELESS useless) {
+    pto::TCMPS(cmp, src, static_cast<int16_t>(0), pto::CmpMode::LT);
+    pto::TXORS(tmp, src, static_cast<int16_t>(0x8000), useless);
+    pto::TNOT(twi, src);
+    pto::TSEL(twi, cmp, twi, tmp, useless);
+    if constexpr (!isLargest) {
+        pto::TNOT(twi, twi);
+    }
+}
+
+#define OP_TILE_OP_RADIX_SELECT TRadixSelect
+template <int k, bool isLargest, typename VAL, typename IDX, typename TMP, typename SRC>
+TILEOP void TRadixSelect(VAL value, IDX index, TMP tmp, SRC src)
+{
+    constexpr int64_t NUM_256 = 256;
+    constexpr int64_t NUM_64 = 64;
+    constexpr int64_t NUM_32 = 32;
+    constexpr int64_t NUM_16 = 16;
+    constexpr int64_t NUM_8 = 8;
+    using SrcDType = typename SRC::Type;
+    using ValDType = typename VAL::Type;
+    using IdxDType = typename IDX::Type;
+    using ConvUIntType = typename RadixSelectUtil::UIntBySize<sizeof(SrcDType)>::T;
+    using ConvIntType = typename RadixSelectUtil::IntBySize<sizeof(SrcDType)>::T;
+    static_assert(std::is_same_v<SrcDType, bfloat16_t> || std::is_same_v<SrcDType, float16_t> || std::is_same_v<SrcDType, float>);
+    static_assert(std::is_same_v<SrcDType, ValDType>);
+    constexpr auto srcTypeSize = sizeof(SrcDType);
+    constexpr auto valTypeSize = sizeof(ValDType);
+    constexpr auto idxTypeSize = sizeof(IdxDType);
+    const auto srcLayout = src.GetLayout();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<SRC, DIM_5TH, MAX_DIMS>();
+    auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto srcStride3 = srcLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+    auto srcShape0 = srcLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto srcShape1 = srcLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto srcShape2 = srcLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto srcShape3 = srcLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto srcShape4 = srcLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    const auto valLayout = value.GetLayout();
+    auto valStride0 = valLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto valStride1 = valLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto valStride2 = valLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto valStride3 = valLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+    const auto idxLayout = index.GetLayout();
+    constexpr auto idxTileW = TileOp::GetTensorTileShapeDim<IDX, DIM_5TH, MAX_DIMS>();
+    auto idxStride0 = idxLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto idxStride1 = idxLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto idxStride2 = idxLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto idxStride3 = idxLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+    uint64_t find = srcShape4 - k + 1;
+    int64_t alignSrcShape4 = (srcShape4 + 31) / 32 * 32;
+    constexpr int64_t cmpSize = (srcTileW > NUM_256 ? srcTileW : NUM_256) / 8;
+    constexpr int64_t cmpAlign = (cmpSize + NUM_32 - 1) / NUM_32 * NUM_32;
+    using SrcTileDefine =
+        pto::Tile<pto::TileType::Vec, SrcDType, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+    using IdxTileDefine =
+        pto::Tile<pto::TileType::Vec, IdxDType, 1, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+    using SrcIntTileDefine =
+        pto::Tile<pto::TileType::Vec, ConvIntType, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+    using HighTileDefine =
+        pto::Tile<pto::TileType::Vec, uint8_t, NUM_32, 1, pto::BLayout::ColMajor, -1, -1>;
+    using Int8TileDefine =
+        pto::Tile<pto::TileType::Vec, int8_t, 1, NUM_32, pto::BLayout::RowMajor, -1, -1>;
+    using Int16TileDefine =
+        pto::Tile<pto::TileType::Vec, int16_t, 1, NUM_16, pto::BLayout::RowMajor, -1, -1>;
+    using UInt16TileDefine =
+        pto::Tile<pto::TileType::Vec, uint16_t, 1, NUM_16, pto::BLayout::RowMajor, -1, -1>;
+    using Int32TileDefine =
+        pto::Tile<pto::TileType::Vec, int32_t, 1, NUM_8, pto::BLayout::RowMajor, -1, -1>;
+    using UInt32TileDefine =
+        pto::Tile<pto::TileType::Vec, uint32_t, 1, NUM_8, pto::BLayout::RowMajor, -1, -1>;
+    using CmpTileDefine =
+        pto::Tile<pto::TileType::Vec, uint8_t, 1, NUM_32, pto::BLayout::RowMajor, -1, -1>;
+    using UselessTileDefine =
+        pto::Tile<pto::TileType::Vec, uint32_t, 1, NUM_8, pto::BLayout::RowMajor>;
+    uint64_t srcTwiddleInAddr = tmp.GetAddr();                                 // srcTileW       srcType
+    uint64_t srcTmpAddr = srcTwiddleInAddr + srcTileW * sizeof(SrcDType);      // srcTileW       srcType
+    uint64_t cmpAddr = srcTmpAddr + srcTileW * sizeof(SrcDType);               // cmpAlign       uint8
+    // uint64_t selectCountGTAddr = tmp.GetAddr();                                // 8              uint32
+    // uint64_t selectCountEQAddr = selectCountGTAddr + NUM_8 * sizeof(uint32_t); // 8              uint32
+    // uint64_t histogramAddr1 = selectCountEQAddr + NUM_8 * sizeof(uint32_t);    // 256            uint32
+    // uint64_t histogramAddr2 = histogramAddr1 + NUM_256 * sizeof(uint32_t);     // 256            uint32
+    // uint64_t highAddr = histogramAddr2 + NUM_256 * sizeof(uint32_t);           // 32             uint8
+    uint64_t uselessAddr = cmpAddr + cmpAlign * sizeof(uint8_t);                 // 8              uint32 dirty
+    // uint64_t srcInAddr = uselessAddr + NUM_8 * sizeof(uint32_t);               // alignSrcShape4 SrcDType
+    // uint64_t srcCastAddr = srcInAddr + alignSrcShape4 * sizeof(SrcDType);      // alignSrcShape4 SrcDType
+    // uint64_t valAddr = srcCastAddr + alignSrcShape4 * sizeof(SrcDType);        // alignK         SrcDType
+    // uint64_t idxAddr = valAddr + alignK * sizeof(SrcDType);                    // alignK         int32
+    // uint64_t selectGTAddr = tmp.GetAddr() + NUM_16 * sizeof(uint32_t);         // alignK         uint32
+    // uint64_t selectEQAddr = selectGTAddr + alignK * sizeof(uint32_t);          // alignK         uint32
+    /*
+    srcTwiddleIn      | srcTileW      srcType |
+    srcTmp            | srcTileW      srcType |
+    cmpAddr           | srcShape4 / 8 uint8   |
+    selectCountGTAddr | 8             uint32  |
+    selectCountEQAddr | 8             uint32  |
+    histogramAddr1    | 256           uint32  |   selectGTAddr      | alignK uint32 |
+    histogramAddr2    | 256           uint32  |   selectEQAddr      | alignK uint32 |
+    highAddr          | 32            uint8   |
+    uselessAddr       | 256           uint32  |
+    */
+    SrcIntTileDefine srcIntTile(1, srcShape4);
+    SrcIntTileDefine twiddleTile(1, srcShape4);
+    SrcIntTileDefine srcTempIntTile(1, srcShape4);
+    UInt16TileDefine srcUInt16Tile(1, srcShape4);
+    UInt16TileDefine srcTempUInt16Tile(1, srcShape4);
+    Int16TileDefine srcTempInt16Tile(1, srcShape4);
+    SrcTileDefine valTile(1, k);
+    IdxTileDefine idxTile(1, k);
+    CmpTileDefine cmpTile(1, cmpSize);
+    // UInt32TileDefine idxUInt32Tile(1, k);
+    // UInt32TileDefine histogramUInt32Tile1(1, NUM_256);
+    // UInt32TileDefine histogramUInt32Tile2(1, NUM_256);
+    // UInt32TileDefine histogramUInt32Col1Tile1(1, 1);
+    // UInt32TileDefine histogramUInt32Col1Tile2(1, 1);
+    // Int32TileDefine histogramInt32Tile1(1, NUM_256);
+    // Int32TileDefine histogramInt32Tile2(1, NUM_256);
+    // Int32TileDefine histogramInt32Col1Tile1(1, 1);
+    // Int32TileDefine histogramInt32Col1Tile2(1, 1);
+    // HighTileDefine highTile(1, 1);
+    // Int32TileDefine highInt32Tile(1, 1);
+    // Int8TileDefine highInt8Tile(1, 1);
+    // UInt32TileDefine selectUInt32GTTile(1, k);
+    // UInt32TileDefine selectUInt32EQTile(1, k);
+    // Int32TileDefine selectCountInt32GTTile(1, 1);
+    // Int32TileDefine selectCountInt32EQTile(1, 1);
+    UselessTileDefine uselessTile;
+    pto::TASSIGN(twiddleTile, srcTwiddleInAddr);
+    pto::TASSIGN(srcTempIntTile, srcTmpAddr);
+    pto::TASSIGN(cmpTile, cmpAddr);
+    // pto::TASSIGN(srcUInt16Tile, srcInAddr);
+    // pto::TASSIGN(srcTempUInt16Tile, srcCastAddr);
+    // pto::TASSIGN(srcTempInt16Tile, srcCastAddr);
+    // pto::TASSIGN(cmpTile, cmpAddr);
+    // pto::TASSIGN(idxUInt32Tile, idxAddr);
+    // pto::TASSIGN(histogramUInt32Tile1, histogramAddr1);
+    // pto::TASSIGN(histogramUInt32Tile2, histogramAddr2);
+    // pto::TASSIGN(histogramUInt32Col1Tile1, histogramAddr1);
+    // pto::TASSIGN(histogramUInt32Col1Tile2, histogramAddr2);
+    // pto::TASSIGN(histogramInt32Tile1, histogramAddr1);
+    // pto::TASSIGN(histogramInt32Tile2, histogramAddr2);
+    // pto::TASSIGN(histogramInt32Col1Tile1, histogramAddr1);
+    // pto::TASSIGN(histogramInt32Col1Tile2, histogramAddr2);
+    // pto::TASSIGN(highTile, highAddr);
+    // pto::TASSIGN(highInt32Tile, highAddr);
+    // pto::TASSIGN(highInt8Tile, highAddr);
+    // pto::TASSIGN(selectUInt32GTTile, selectGTAddr);
+    // pto::TASSIGN(selectUInt32EQTile, selectEQAddr);
+    // pto::TASSIGN(selectCountInt32GTTile, selectCountGTAddr);
+    // pto::TASSIGN(selectCountInt32EQTile, selectCountEQAddr);
+    pto::TASSIGN(uselessTile, uselessAddr);
+    auto srcGMShape = pto::Shape(1, 1, 1, 1, srcShape4);
+    auto kGMShape = pto::Shape(1, 1, 1, 1, k);
+    auto defaultStride = pto::Stride(0, 0, 0, 0, 0);
+    for (LoopVar n0Index = 0; n0Index < srcShape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < srcShape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < srcShape2; ++n2Index) {
+                for (LoopVar n3Index = 0; n3Index < srcShape3; ++n3Index) {
+                    uint64_t srcAddr = src.GetAddr() + (n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2 + n3Index * srcStride3) * srcTypeSize;
+                    uint64_t valAddr = value.GetAddr() + (n0Index * valStride0 + n1Index * valStride1 + n2Index * valStride2 + n3Index * valStride3) * valTypeSize;
+                    uint64_t idxAddr = index.GetAddr() + (n0Index * idxStride0 + n1Index * idxStride1 + n2Index * idxStride2 + n3Index * idxStride3) * idxTypeSize;
+                    pto::TASSIGN(srcIntTile, srcAddr);
+                    pto::TASSIGN(valTile, valAddr);
+                    pto::TASSIGN(idxTile, idxAddr);
+                    RadixSelectTwiddle<isLargest, SrcDType>(twiddleTile, srcIntTile, srcTempIntTile, cmpTile, uselessTile);
+                    int remindK = k;
+                    ConvUIntType kthValue = 0;
+                    for (uint16_t i = srcTypeSize; i > 0 && remindK > 0; --i) {
+
+                    }
+                    // pto::THISTOGRAM<pto::HistByte::BYTE_1>(histogramUInt32Tile1, srcUInt16Tile, highTile);
+                    // pto::TGATHER<Int32TileDefine, Int32TileDefine, UselessTileDefine, UselessTileDefine, pto::CmpMode::GT, 0>
+                    //     (histogramInt32Tile2, histogramInt32Tile1, static_cast<int32_t>(find - 1), uselessTile, uselessTile);
+                    // pto::TMOV(highInt32Tile, histogramInt32Col1Tile2);// high
+                    // pto::TSUBS(histogramInt32Col1Tile2, histogramInt32Col1Tile2, static_cast<int32_t>(1));
+                    // pto::TCMPS(cmpTile, histogramInt32Tile2, static_cast<int32_t>(0), pto::CmpMode::GE);
+                    // pto::TMAXS(histogramInt32Col1Tile2, histogramInt32Col1Tile2, static_cast<int32_t>(0));
+                    // pto::TGATHER(histogramInt32Col1Tile2, histogramInt32Tile1, histogramInt32Col1Tile2, uselessTile);
+                    // pto::TSELS(histogramInt32Tile2, cmpTile, histogramInt32Tile2, uselessTile, static_cast<uint32_t>(0));
+                    // pto::TMOV(selectCountInt32GTTile, histogramInt32Col1Tile2);
+                    // pto::TMULS(histogramInt32Col1Tile2, histogramInt32Col1Tile2, static_cast<int32_t>(-1));
+                    // pto::TADDS(histogramInt32Col1Tile2, histogramInt32Col1Tile2, static_cast<int32_t>(find));// remindK
+                    // pto::THISTOGRAM<pto::HistByte::BYTE_0>(histogramUInt32Tile1, srcUInt16Tile, highTile);
+                    // pto::TROWEXPAND(histogramInt32Tile2, histogramInt32Col1Tile2);
+                    // pto::TCMP(cmpTile, histogramInt32Tile1, histogramInt32Tile2, pto::CmpMode::GE);
+                    // pto::TSELS(histogramInt32Tile2, cmpTile, histogramInt32Tile1, uselessTile, static_cast<int32_t>(INT32_MAX));
+                    // pto::TROWMIN(selectCountInt32EQTile, histogramInt32Tile2, uselessTile);
+                    // pto::TROWARGMIN(histogramInt32Col1Tile2, histogramInt32Tile2, uselessTile);// low
+                    // pto::TSHLS(highInt32Tile, highInt32Tile, static_cast<int32_t>(8));
+                    // pto::TOR(highInt32Tile, histogramInt32Col1Tile2, highInt32Tile);// topk
+                    // pto::TSUBS(histogramInt32Col1Tile2, histogramInt32Col1Tile2, static_cast<int32_t>(1));
+                    // pto::TCMPS(cmpTile, histogramInt32Tile2, static_cast<int32_t>(0), pto::CmpMode::GE);
+                    // pto::TMAXS(histogramInt32Col1Tile2, histogramInt32Col1Tile2, static_cast<int32_t>(0));
+                    // pto::TGATHER(histogramInt32Col1Tile2, histogramInt32Tile1, histogramInt32Col1Tile2, uselessTile);
+                    // pto::TSELS(histogramInt32Tile2, cmpTile, histogramInt32Tile2, uselessTile, static_cast<uint32_t>(0));
+                    // pto::TADD(selectCountInt32GTTile, selectCountInt32GTTile, histogramInt32Col1Tile2);
+                    // pto::TSUB(selectCountInt32EQTile, selectCountInt32EQTile, histogramInt32Col1Tile2);
+                    // pto::TADD(selectCountInt32GTTile, selectCountInt32GTTile, selectCountInt32EQTile);
+                    // pto::TMULS(selectCountInt32GTTile, selectCountInt32GTTile, static_cast<int32_t>(-1));
+                    // pto::TADDS(selectCountInt32GTTile, selectCountInt32GTTile, static_cast<int32_t>(srcShape4));
+                    // set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                    // wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                    // uint32_t topk = *((__ubuf__ uint32_t *)highAddr);
+                    // set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                    // wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                    // pto::TGATHER<UInt32TileDefine, Int16TileDefine, UselessTileDefine, UselessTileDefine, pto::CmpMode::GT, 0>
+                    //     (selectUInt32GTTile, srcInt16Tile, static_cast<int32_t>(topk), uselessTile, uselessTile);
+                    // pto::TGATHER<UInt32TileDefine, Int16TileDefine, UselessTileDefine, UselessTileDefine, pto::CmpMode::EQ, 0>
+                    //     (selectUInt32EQTile, srcInt16Tile, static_cast<int32_t>(topk), uselessTile, uselessTile);
+                    // pto::TCONCAT(idxUInt32Tile, selectUInt32GTTile, selectUInt32EQTile, selectCountInt32GTTile, selectCountInt32EQTile);
+                }
+            }
+        }
+    }
+}
+
 #endif
