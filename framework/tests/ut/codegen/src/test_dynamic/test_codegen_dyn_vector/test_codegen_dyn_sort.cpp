@@ -263,4 +263,42 @@ TEST_F(TestCodegenDynSort, TestDynExtractSingle)
 )!!!";
     EXPECT_EQ(res, expect);
 }
+
+TEST_F(TestCodegenDynSort, TestRadixSelectFP32)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+
+    std::vector<int64_t> srcShape = {64, 64};
+    std::vector<int64_t> dstShape = {64, 16};
+    std::vector<int64_t> tmpShape = {64, 1024};
+    std::vector<SymbolicScalar> srcDynValidShape = {64, 64};
+    std::vector<SymbolicScalar> dstDynValidShape = {64, 16};
+    std::vector<SymbolicScalar> tmpDynValidShape = {64, 1024};
+    TileShape::Current().SetVecTile({64, 64});
+    auto function = GenMockFuncDyn("TestRadixSelectFP32");
+    auto localTensorInput =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, srcShape, srcDynValidShape});
+    auto localTensorValue =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, dstShape, dstDynValidShape});
+    auto localTensorIndex =
+        CreateLogicalTensor({*function, DataType::DT_INT32, MemoryType::MEM_UB, dstShape, dstDynValidShape});
+    auto localTensorTmp =
+        CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, tmpShape, tmpDynValidShape});
+    auto& op = function->AddOperation(
+        Opcode::OP_RADIX_SELECT, {localTensorInput}, {localTensorValue, localTensorIndex, localTensorTmp});
+    op.SetAttribute(TOPK_KVALUE, 16);
+    op.SetAttribute(TOPK_ORDER, 1);
+
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    // function->SetUnderDynamicFunction(true);
+
+    codeGen.GenCode(*function, {});
+
+    const std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TDiv<pto::DivAlgorithm::DEFAULT, LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);
+)!!!";
+    CheckStringExist(expect, res);
+}
 } // namespace npu::tile_fwk
