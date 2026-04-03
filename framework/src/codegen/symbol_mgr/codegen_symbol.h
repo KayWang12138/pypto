@@ -15,10 +15,13 @@
 
 #pragma once
 
+#include <deque>
+#include <functional>
 #include <map>
 #include <tuple>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 
 #include "tilefwk/error.h"
 #include "interface/utils/common.h"
@@ -68,12 +71,6 @@ struct TileTensor {
     std::vector<int64_t> rawShape;
     std::vector<int64_t> localBufOffset;
     ShapeInLoop shapeInLoop;
-
-    bool operator==(const TileTensor& other) const
-    {
-        return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
-               localBufOffset == other.localBufOffset && rawShape == other.rawShape;
-    }
 
     /*  e.g.
         ((__ubuf__ float*)UB_S0_E16384,
@@ -142,24 +139,51 @@ private:
     std::string GenStrideParam() const { return GenLayoutParam("Stride", stride); }
 };
 
-struct TileTensorHash {
-    std::size_t operator()(const TileTensor& t) const noexcept
+struct TileTensorKey {
+    int dim;
+    DataType dtype;
+    std::string bufVar;
+    std::vector<std::string> shape;
+    std::vector<int64_t> rawShape;
+    std::vector<int64_t> localBufOffset;
+
+    bool operator==(const TileTensorKey& other) const
+    {
+        return dim == other.dim && bufVar == other.bufVar && shape == other.shape && dtype == other.dtype &&
+               localBufOffset == other.localBufOffset && rawShape == other.rawShape;
+    }
+};
+
+struct TileTensorKeyHash {
+    std::size_t operator()(const TileTensorKey& key) const noexcept
     {
         std::size_t seed = 0;
-        HashCombine(seed, t.dim);
-        HashCombine(seed, t.bufVar);
-        HashCombine(seed, ToUnderlying(t.dtype));
-        for (const auto& s : t.shape) {
+        HashCombine(seed, key.dim);
+        HashCombine(seed, key.bufVar);
+        HashCombine(seed, ToUnderlying(key.dtype));
+        for (const auto& s : key.shape) {
             HashCombine(seed, s);
         }
-        for (const auto& s : t.rawShape) {
+        for (const auto& s : key.rawShape) {
             HashCombine(seed, s);
         }
-        for (const auto& s : t.localBufOffset) {
+        for (const auto& s : key.localBufOffset) {
             HashCombine(seed, s);
         }
         return seed;
-    };
+    }
+};
+
+using TileTensorMagicKey = std::pair<int, int>; // <tensor magic, op magic>
+
+struct TileTensorMagicKeyHash {
+    std::size_t operator()(const TileTensorMagicKey& key) const noexcept
+    {
+        std::size_t seed = 0;
+        HashCombine(seed, key.first);
+        HashCombine(seed, key.second);
+        return seed;
+    }
 };
 
 struct TileTensorUsing {
@@ -248,9 +272,9 @@ public:
     static std::string FormatAllocKey(const AllocKey& key);
 
     std::string AddTileTensorUsing(const TileTensorUsing& tileTensorUsing);
-    std::string AddTileTensor(const TileTensor& tileTensor);
-    std::vector<TileTensor> QueryTileTensorByMagic(int magic);
-    std::vector<TileTensor> QueryTileTensorInLoopByMagic(int magic);
+    std::string AddTileTensor(int opMagic, const TileTensor& tileTensor);
+    const TileTensor* QueryTileTensorByMagic(int magic, int opMagic) const;
+    const TileTensor* QueryTileTensorInLoopByMagic(int magic, int opMagic) const;
     void InsertTensorNameInLoopToFullDim(const std::string& tensorName, const std::string& fullDimTensorName);
     std::string QueryTileTensorFullDimByTensorInLoop(const std::string& tensorName);
     // To be compatible with GM Tensor in Static Function Type like same ddr magic number with different parmaIdx &
@@ -280,6 +304,7 @@ private:
         return tileTensorUsing.GenName() + std::to_string(idGenMgr_.NewId<SymbolIdType::CG_USING_NAME>());
     }
 
+    TileTensorKey BuildTileTensorKey(const TileTensor& tileTensor) const;
     std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor>& tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;
@@ -291,13 +316,15 @@ private:
     std::map<AllocKey, std::string> key2VariableNameTileTensor_;
     // <tensor magic, LogicalTensor>
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorMap_;
-    // <TileTensor, tensorName>
-    std::unordered_map<TileTensor, std::string, TileTensorHash> tileTensor_;
-    // When use forcing axis merging feature under TileTensor mode,
-    // we may encounter a situation where Tensors with the same magic ID have different Shapes.
-    // <tensor magic, TileTensor>
-    std::multimap<int, TileTensor> tileTensorByMagic_;
-    std::multimap<int, TileTensor> tileTensorByMagicInLoop_;
+    // Own TileTensor objects and keep their addresses stable for secondary indexes.
+    std::deque<TileTensor> tileTensorStorage_;
+    // Use explicit semantic key for dedup instead of treating hash as identity.
+    std::unordered_map<TileTensorKey, std::reference_wrapper<const TileTensor>, TileTensorKeyHash> tileTensorByKey_;
+    // <tensor magic, op magic> -> TileTensor
+    std::unordered_map<TileTensorMagicKey, std::reference_wrapper<const TileTensor>, TileTensorMagicKeyHash>
+        tileTensorByMagic_;
+    std::unordered_map<TileTensorMagicKey, std::reference_wrapper<const TileTensor>, TileTensorMagicKeyHash>
+        tileTensorByMagicInLoop_;
     // <tensorName in for loop, tensorName with full dim out of loop>
     // both key and value are from same tile operation
     std::unordered_map<std::string, std::string> tensorNameInLoopToFullDim_;
