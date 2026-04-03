@@ -198,6 +198,7 @@ void PageAttentionWithImmScalar(
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1))
         {
+            TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
             SymbolicScalar curSeq(static_cast<int64_t>(actSeqs[0])); // diff batch seq all same
             SymbolicScalar bnPerBatch = (curSeq + blockSize - 1) / blockSize;
             bnPerBatch.AsIntermediateVariable();
@@ -215,7 +216,6 @@ void PageAttentionWithImmScalar(
                     PowersOf2(maxUnrollTimes))
                 {
                     int curS2Tile = blockSize;
-                    TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                     auto qn = View(qNope, {curNTile, dN}, {curOffset, 0});
                     auto qr = View(qRope, {curNTile, dR}, {curOffset, 0});
                     Tensor qi(dtype, {curNTile, dN + dR}, "qi");
@@ -249,6 +249,7 @@ void PageAttentionWithImmScalar(
                         DataType::DT_FP32, qi, kj, false,
                         true); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
                     sij.SetName("sij");
+                    TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
 
                     auto sijScale =
                         Mul(sij, Element(sij.GetStorage()->Datatype(), softmaxScale)); // (curNTile, curS2Tile)
