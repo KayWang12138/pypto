@@ -17,6 +17,7 @@
 namespace npu {
 namespace tile_fwk {
 const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP};
+const std::unordered_set<OpCalcType> propagationCalcType{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::CAST};
 
 void AxisCombineMarker::Run(Function& function)
 {
@@ -186,6 +187,31 @@ void UpdateElewiseStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axi
     tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
 }
 
+bool CheckShape(const Operation* op)
+{
+    for (auto inputTensor : op->GetIOperands()) {
+        if (inputTensor->GetShape().back() == 1) {
+            return true;
+        }
+    }
+    for (auto outputTensor : op->GetOOperands()) {
+        if (outputTensor->GetShape().back() == 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void AxisCombineMarker::DisableAllTensor(Operation* op)
+{
+    for (auto inputTensor : op->GetIOperands()) {
+        tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
+    }
+    for (auto outputTensor : op->GetOOperands()) {
+        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
+    }
+}
+
 void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
 {
     auto op = opList_[opIdx];
@@ -214,15 +240,12 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
         UpdateReduceStatus(op, tensorStatus_);
         return;
     }
-    if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::CAST) {
+    if (propagationCalcType.find(OpcodeManager::Inst().GetOpCalcType(op->GetOpcode())) != propagationCalcType.end()) {
         UpdateElewiseStatus(op, tensorStatus_);
         return;
     }
-    if (outputTensor->GetShape().back() == 1 &&
-        whiteList.find(op->GetOpcode()) == whiteList.end()) { // 非白名单Op，虽然尾轴为1，仍不支持合轴
-        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
+    if (whiteList.find(op->GetOpcode()) == whiteList.end() && CheckShape(op)) { // 非白名单Op，尾轴为1均不支持合轴
+        DisableAllTensor(op);
         return;
     }
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
@@ -232,8 +255,7 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx)
 {
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
-    if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
+    if (propagationCalcType.find(OpcodeManager::Inst().GetOpCalcType(op->GetOpcode())) != propagationCalcType.end() ||
         ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
          outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
         if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
