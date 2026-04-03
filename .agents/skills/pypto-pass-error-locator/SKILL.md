@@ -136,11 +136,13 @@ license: 完整条款见 LICENSE.txt
 | 异常类型 | 日志特征 | 关键信息提取 |
 |---------|---------|-------------|
 | **参数配置异常** | `vec_nbuffer_setting`, `cube_l1_reuse_setting`, `cube_nbuffer_setting`, `sg_set_scope` | 异常参数名、参数配置值 |
-| **张量形状不匹配** | `shape mismatch`, `expected.*got` | 期望形状、实际形状、操作类型 |
-| **内存分配失败** | `out of memory`, `memory allocation failed` | 内存层级、请求大小、可用大小 |
-| **索引越界** | `index out of range`, `invalid index` | 索引值、范围、张量形状 |
-| **类型不匹配** | `type mismatch`, `dtype mismatch` | 期望类型、实际类型 |
 | **算子约束违反** | `constraint violated`, `invalid parameter` | opcode类型、op_magic信息 |
+| **段错误** | `segment fault` | 调用堆栈信息 |
+| **属性缺失** | `attribute not found`, `missing attribute`, `required attribute`, `get attribute failed` | 属性名称、算子名称、期望属性类型、缺失的属性列表 |
+| **计算图成环** | `cycle detected`, `graph cycle`, `topological sort failed`, `circular dependency` | 成环节点、循环路径、依赖关系、拓扑排序失败节点 |
+| **索引越界** | `index out of range`, `invalid index` | 索引值、范围、张量形状 |
+| **合轴异常** | `shape dimension mismatch`, `tile shape dimension mismatch`, `shape/size mismatch`, `shape mismatch` | 轴信息、形状信息、期望维度、实际维度、期望形状和实际形状 |
+
 
 #### 4.2 将异常进行分类
 - 分析用户提供的测试代码，了解用户业务场景
@@ -275,21 +277,6 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 ### 修复建议
 将 VEC_NBUFFER_SETTING 参数值从 -3 改为 -1
 ```
-
-### 示例 2：复杂错误场景
-
-**用户输入：**
-```
-执行 python3 test.py 异常，分析pass失败原因
-```
-
-**执行流程：**
-1. 设置调试选项和环境变量
-2. 执行命令复现问题
-3. 从日志中提取提取错误信息
-4. 识别多个Pass相关错误
-5. 逐个分析错误
-6. 提供综合修复建议
 
 ## 参考文档
 
