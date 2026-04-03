@@ -44,6 +44,9 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
                                            Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1};
     for (auto outOperand : op.GetOOperands()) {
+        if (!Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)){
+            continue;
+        }
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
             for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
                 validShape.push_back(
