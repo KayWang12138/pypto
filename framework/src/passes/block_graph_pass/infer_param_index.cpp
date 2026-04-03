@@ -45,7 +45,7 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
                                            Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
                                            Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
     for (auto outOperand : op.GetOOperands()) {
-        if (op.GetOpcode() == Opcode::OP_INDEX_ADD &&
+        if ((op.GetOpcode() == Opcode::OP_INDEX_ADD || op.GetOpcode() == Opcode::OP_RADIX_SELECT) &&
             !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
             continue;
         }

@@ -86,6 +86,7 @@ public:
     static const std::string indicesSize;
     static const std::string brcbIdx;
     static const std::string brcpIdx;
+    static const std::string topkAlgo;
     static const std::string quantFlag;
     static const std::string loopGroup;
     static const std::string loopAxes;
@@ -396,6 +397,7 @@ public:
             Opcode::OP_RESHAPE_COPY_OUT,
             Opcode::OP_INDEX_OUTCAST,
             Opcode::OP_INDEX_PUT,
+            Opcode::OP_RADIX_SELECT,
             Opcode::OP_INDEX_ADD,
             Opcode::OP_TRANSPOSE_MOVEIN,
             Opcode::OP_TRANSPOSE_MOVEOUT,

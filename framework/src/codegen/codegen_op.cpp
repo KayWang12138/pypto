@@ -492,6 +492,14 @@ void CodeGenOp::GetGmParamIdx(const Operation& oper)
         return;
     }
 
+    if (oper.GetOpcode() == Opcode::OP_RADIX_SELECT) {
+        paramLocation[ID0] = oper.GetOOpAttrOffset(0);
+        paramLocation[ID1] = oper.GetOOpAttrOffset(1);
+        paramLocation[ID3] = oper.GetIOpAttrOffset(0);
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        return;
+    }
+
     if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode()) || (oper.GetOpcode() == Opcode::OP_PERMUTE) ||
         (oper.GetOpcode() == Opcode::OP_PERMUTE_ELEMENT)) {
         paramLocation[1] = oper.GetIOpAttrOffset(0);

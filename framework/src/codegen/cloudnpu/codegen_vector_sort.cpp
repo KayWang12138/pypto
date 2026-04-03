@@ -402,6 +402,31 @@ std::string CodeGenOpCloudNPU::GenTiledMrgSortOp() const
     return PrintTiledMrgSortDynamicUnaligned(tiledSortParm);
 }
 
+std::string CodeGenOpCloudNPU::GenRadixSelectOp() const
+{
+    std::string valueTensor = QueryTileTensorNameByIdx(ID0);
+    std::string indexTensor = QueryTileTensorNameByIdx(ID1);
+    std::string tempTensor = QueryTileTensorNameByIdx(ID2);
+    std::string srcTensor = QueryTileTensorNameByIdx(ID3);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID3);
+    std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
+    std::string coord = PrintCoord(rawShape[ID3].size(), coordCp);
+    std::vector<std::string> paramList = {valueTensor, indexTensor, tempTensor, srcTensor, coord};
+    std::string srcDType = DataType2CCEStr(operandDtype[ID3]);
+    int64_t isLargest = -1;
+    bool hasLargest = GetAttr(OP_ATTR_PREFIX + "order", isLargest);
+    ASSERT(OperErr::ATTRIBUTE_INVALID, hasLargest)
+            << "Radix Select has no isLargest attribute.";
+    int64_t k = -1;
+    bool hasK = GetAttr(OP_ATTR_PREFIX + "kvalue", k);
+    ASSERT(OperErr::ATTRIBUTE_INVALID, hasK)
+            << "Radix Select has no k attribute.";
+    std::ostringstream oss;
+    oss << tileOpName << "<" << k << ", " << isLargest << ", " << srcDType << ">" << WrapParamByParentheses(paramList)
+        << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenSortOpWithParams(const std::set<int>& idx) const
 {
     std::string xDtypeStr = DataType2CCEStr(operandDtype[ID0]);

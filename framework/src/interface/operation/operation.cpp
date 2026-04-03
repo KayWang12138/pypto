@@ -71,6 +71,7 @@ const std::string OpAttributeKey::accumulate = "accumulate";
 const std::string OpAttributeKey::indicesSize = "indicesSize";
 const std::string OpAttributeKey::brcbIdx = "brcb_idx";
 const std::string OpAttributeKey::brcpIdx = "brcp_idx";
+const std::string OpAttributeKey::topkAlgo = "topk_algo";
 const std::string OpAttributeKey::quantFlag = "op_attr_vector_quant_flag";
 const std::string OpAttributeKey::loopGroup = "LOOP_GROUP";
 const std::string OpAttributeKey::loopAxes = "LOOP_AXES";
@@ -556,6 +557,7 @@ std::shared_ptr<Operation> Operation::LoadJson(
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
             case Opcode::OP_INDEX_PUT:
+            case Opcode::OP_RADIX_SELECT:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
             case Opcode::OP_INDEX_ADD:

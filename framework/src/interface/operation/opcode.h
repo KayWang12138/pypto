@@ -300,6 +300,7 @@ enum class Opcode {
     OP_TWOTILEMRGSORT,
     OP_EXTRACT_SINGLE,
     OP_SORT_UB,
+    OP_RADIX_SELECT,
     // End: add for TOPK and ArgSort
     // Begin: topk for DS3.2-Day0
     OP_TOPK_SORT,
@@ -483,7 +484,8 @@ public:
                opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
                opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT ||
                opCode == Opcode::OP_SHMEM_GET_GM2UB || opCode == Opcode::OP_L1_COPY_IN_A_SCALE ||
-               opCode == Opcode::OP_L1_COPY_IN_B_SCALE || opCode == Opcode::OP_L1_COPY_IN_CONV;
+               opCode == Opcode::OP_L1_COPY_IN_B_SCALE || opCode == Opcode::OP_L1_COPY_IN_CONV ||
+               opCode == Opcode::OP_RADIX_SELECT;
     }
 
     inline bool IsCopyOut(Opcode opCode) const
@@ -985,7 +987,7 @@ inline bool IsCopyIn(const Opcode opCode)
     return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
            opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
            opCode == Opcode::OP_SHMEM_GET_GM2UB || opCode == Opcode::OP_L1_COPY_IN_A_SCALE ||
-           opCode == Opcode::OP_L1_COPY_IN_B_SCALE;
+           opCode == Opcode::OP_L1_COPY_IN_B_SCALE || opCode == Opcode::OP_RADIX_SELECT;
 }
 
 inline bool IsCopyOut(const Opcode& op)
