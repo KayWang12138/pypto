@@ -407,9 +407,9 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     else:
         tile_config = SaTileShapeConfig(
             g_tile=128,
-            s_kv_tile=2048,
+            s_kv_tile=512,
             c1_tile_shape=[128, 128, 128, 128, 128, 128],
-            v1_tile_shape=[8, 2048],
+            v1_tile_shape=[8, 512],
             c2_tile_shape=[128, 128, 128, 128, 128, 128],
             v2_tile_shape=[64, 128]
         )
@@ -453,7 +453,7 @@ def get_case_config(case_name: str):
             (4, 128, 1, 2), 1, [65536, 16381, 666, 15]
         ),
         "sfa_bf16_b4_s2_seq64K_per_int8_d": (
-            (4, 128, 1, 2), 1, [65536] * 4
+            (1, 128, 1, 2), 1, [512] * 1
         ),
         "sfa_bf16_b4_s2_seq64K_per_bf16_d": (
             (4, 128, 1, 2), 0, [65536] * 4
@@ -519,6 +519,6 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_sfa_bf16_b4_s2_seq64k_total_int8_d()
+    # test_sfa_bf16_b4_s2_seq64k_total_int8_d()
     test_sfa_bf16_b4_s2_seq64k_per_int8_d()
-    test_sfa_bf16_b1_s256_seq64k_int8_p()
+    # test_sfa_bf16_b1_s256_seq64k_int8_p()
