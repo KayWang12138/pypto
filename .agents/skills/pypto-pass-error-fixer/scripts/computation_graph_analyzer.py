@@ -6,10 +6,6 @@ PyPTO 计算图 JSON 分析工具
 - 加载和解析计算图JSON文件
 - 获取各类数据（Tensor、Operation、RawTensor、Incast/Outcast等）
 - 追踪数据流转
-- 对比Pass前后差异
-- 识别性能瓶颈
-- 分析子图关系
-- 分析内存分配
 """
 
 import json
