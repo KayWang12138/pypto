@@ -670,7 +670,7 @@ private:
             }
         }
 
-        devTaskCtx->coreTaskFinished[coreIdx] = true;
+        devTaskCtx->coreTaskFinished[coreIdx] = 1;
         devTaskCtx->coreFinishedNum++;
         DEV_VERBOSE_DEBUG("Core %d finished, finishnum = %u. ", coreIdx, devTaskCtx->coreFinishedNum);
     }
@@ -690,8 +690,7 @@ private:
 
     inline void AicoreDevTaskFinishProc(
         SchDeviceTaskContext* devTaskCtx, int coreIdx, bool isLastDevTask, uint32_t& resloveParallelIdx) {
-        if ((!devTaskCtx->coreTaskFinished[coreIdx]) &&
-            CheckStopTaskCanBeSent(devTaskCtx, coreIdx, isLastDevTask, resloveParallelIdx)) {
+        if ((CheckStopTaskCanBeSent(devTaskCtx, coreIdx, isLastDevTask, resloveParallelIdx)) {
             SendStopToCore(devTaskCtx, coreIdx, isLastDevTask);
         }
 
@@ -744,10 +743,6 @@ private:
 
         if (isLastDevTask && (context_->DeviceTaskCtxNum() == 1)) {
             isSendStop = true;
-        }
-
-        if (devTaskCtx->coreFinishedNum == 0) {
-            SendStopToIdleCore(devTaskCtx, isSendStop); // first entry
         }
 
         uint64_t start_cycles = GetCycles();
