@@ -411,8 +411,8 @@ void bind_operation(py::module& m)
         "Tensor tril.");
     m.def(
         "TopK",
-        [](const Tensor& self, int k, int axis, bool islargest) {
-            return npu::tile_fwk::TopK(self, k, axis, islargest);
+        [](const Tensor& self, int k, int axis, bool islargest, TopKAlgo algo) {
+            return npu::tile_fwk::TopK(self, k, axis, islargest, algo);
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
     m.def(

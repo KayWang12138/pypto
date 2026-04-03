@@ -525,9 +525,7 @@ void TensorTopK(
     return;
 }
 
-std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis, bool isLargest)
-{
-    DECLARE_TRACER();
+std::tuple<Tensor, Tensor> TopKUsingMergeSort(const Tensor& self, int k, int axis, bool isLargest) {
     const auto len = static_cast<int>(self.GetShape().size());
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, axis == (len - 1) || axis == -1) << "TopK only support last axis";
     axis = axis >= 0 ? axis : (axis + len);
@@ -540,6 +538,20 @@ std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis, bool isLarg
         TopK, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), valueResult.GetStorage(),
         indexResult.GetStorage(), k, axis, isLargest);
     return std::tie(valueResult, indexResult);
+}
+
+std::tuple<Tensor, Tensor> TopKUsingRadixSelect(const Tensor& self, int k, int axis, bool isLargest) {
+
+}
+
+std::tuple<Tensor, Tensor> TopK(const Tensor& self, int k, int axis, bool isLargest, TopKAlgo algo)
+{
+    DECLARE_TRACER();
+    if (algo == TopKAlgo::MERGE_SORT) {
+        return TopKUsingMergeSort(self, k, axis, isLargest);
+    } else if (algo == TopKAlgo::RADIX_SELECT) {
+        return TopKUsingRadixSelect(self, k, axis, isLargest);
+    }
 }
 
 bool checkIsExceedUB(

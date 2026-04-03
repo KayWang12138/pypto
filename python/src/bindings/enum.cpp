@@ -120,6 +120,8 @@ void bind_enum(py::module& m)
 
     py::enum_<OutType>(m, "OutType").value("BOOL", OutType::BOOL).value("BIT", OutType::BIT).export_values();
 
+    py::enum_<TopKAlgo>(m, "TopKAlgo").value("MERGE_SORT", TopKAlgo::MERGE_SORT).value("RADIX_SELECT", TopKAlgo::RADIX_SELECT).export_values();
+
     py::enum_<Matrix::ReLuType>(m, "ReLuType")
         .value("NO_RELU", Matrix::ReLuType::NoReLu)
         .value("RELU", Matrix::ReLuType::ReLu)
