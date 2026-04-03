@@ -1207,6 +1207,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, AssembleInferFunc);
 
 const std::string TOPK_AXIS = OP_ATTR_PREFIX + "axis";
 const std::string TOPK_ORDER = OP_ATTR_PREFIX + "order";
+const std::string TOPK_ALGO = OP_ATTR_PREFIX + "algo";
 const std::string TOPK_KVALUE = OP_ATTR_PREFIX + "kvalue";
 const std::string EXTRACT_MASKMODE = OP_ATTR_PREFIX + "makeMode";
 const std::string SORT_AXIS = OP_ATTR_PREFIX + "axis";
@@ -1294,6 +1295,19 @@ void ExtractFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outVal
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT, Opcode::OP_EXTRACT, ExtractFunc);
+
+void RadixSelectFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
+    std::vector<SymbolicScalar> res(op->GetIOperands()[0]->GetDynValidShape());
+    res.back() = op->GetIntAttribute(TOPK_KVALUE);
+    outValidShapes.push_back(res);
+    outValidShapes.push_back(res);
+    std::vector<SymbolicScalar> tmpValidShape;
+    tmpValidShape.emplace_back(NUM_VALUE_256 * 4 + (op->GetIntAttribute(TOPK_KVALUE) + 31) / 32 * 32 * 2);
+    outValidShapes.push_back(tmpValidShape);
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_RADIX_SELECT, Opcode::OP_RADIX_SELECT, RadixSelectFunc);
 
 void VecDupInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& validShapes)
 {
