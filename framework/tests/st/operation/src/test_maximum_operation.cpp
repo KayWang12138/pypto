@@ -357,31 +357,9 @@ class MaximumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Ai
 
 INSTANTIATE_TEST_SUITE_P(
     TestMaximum, MaximumOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<MaximumOpMetaData>(
-        {MaximumOperationExeFunc2Dims, MaximumOperationExeFunc3Dims, MaximumOperationExeFunc4Dims}, "Maximum")));
-
-Element GetElementByType(DataType dataType, nlohmann::json test_data, string name)
-{
-    if (dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16) {
-        Element element(dataType, GetValueByName<float>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT8) {
-        Element element(dataType, GetValueByName<int8_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT16) {
-        Element element(dataType, GetValueByName<int16_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT32) {
-        Element element(dataType, GetValueByName<int32_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT64) {
-        Element element(dataType, GetValueByName<int64_t>(test_data, name));
-        return element;
-    } else {
-        std::string errorMessage = "UnSupport Type in MaxS ST Test" + DataType2String(dataType);
-        throw std::invalid_argument(errorMessage.c_str());
-    }
-}
+    ::testing::ValuesIn(
+        GetOpMetaData<MaximumOpMetaData>(
+            {MaximumOperationExeFunc2Dims, MaximumOperationExeFunc3Dims, MaximumOperationExeFunc4Dims}, "Maximum")));
 
 TEST_P(MaximumOperationTest, TestMaximum)
 {
