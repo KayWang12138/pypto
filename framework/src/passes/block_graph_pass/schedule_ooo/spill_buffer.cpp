@@ -158,38 +158,45 @@ void OoOScheduler::UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr s
     op.UpdateLatency(opLatency);
 }
 
-void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId) {
+void OoOScheduler::ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int oldMemId, int newMemId)
+{
+    std::vector<Operation*> viewConsumers;
+    for (auto* consumer : startTensor->GetConsumers()) {
+        if (IsViewOp(*consumer)) {
+            viewConsumers.push_back(consumer);
+        }
+    }
+
+    while (!viewConsumers.empty()) {
+        Operation* viewOp = viewConsumers.back();
+        viewConsumers.pop_back();
+        auto viewOutTensor = viewOp->GetOutputOperand(0);
+        if (viewOutTensor == nullptr) {
+            continue;
+        }
+        if (viewOutTensor->memoryrange.memId == oldMemId) {
+            viewOutTensor->memoryrange.memId = newMemId;
+        }
+        for (auto* consumer : viewOutTensor->GetConsumers()) {
+            if (IsViewOp(*consumer)) {
+                viewConsumers.push_back(consumer);
+            }
+        }
+    }
+}
+
+void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId)
+{
     auto& reqMemIds = opReqMemIdsMap[op];
     for (auto memId : reqMemIds) {
         if (memId == oldMemId) {
             std::replace(reqMemIds.begin(), reqMemIds.end(), oldMemId, newMemId);
         }
     }
-    for (auto &outTensor : op->GetOOperands()) {
+    for (auto& outTensor : op->GetOOperands()) {
         if (outTensor->memoryrange.memId == oldMemId) {
             outTensor->memoryrange.memId = newMemId;
-            std::vector<Operation*> viewConsumers;
-            for (auto *cunsumer : outTensor->GetConsumers()) {
-                if (IsViewOp(*cunsumer)) {
-                    viewConsumers.push_back(cunsumer);
-                }
-            }
-            while (!viewConsumers.empty()) {
-                Operation* viewOp = viewConsumers.back();
-                viewConsumers.pop_back();
-                auto viewOutTensor = viewOp->GetOutputOperand(0);
-                if (viewOutTensor == nullptr) {
-                    continue;
-                }
-                if (viewOutTensor->memoryrange.memId == oldMemId) {
-                    viewOutTensor->memoryrange.memId = newMemId;
-                }
-                for (auto *consumer : viewOutTensor->GetConsumers()) {
-                    if (IsViewOp(*consumer)) {
-                        viewConsumers.push_back(consumer);
-                    }
-                }
-            }
+            ReplaceViewOpChainMemId(outTensor, oldMemId, newMemId);
         }
     }
 }
