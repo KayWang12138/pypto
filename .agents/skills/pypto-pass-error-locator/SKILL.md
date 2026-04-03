@@ -40,11 +40,11 @@ license: 完整条款见 LICENSE.txt
 
 当用户输入包含以下错误日志或关键字时，自动触发此技能：
 
-- **执行 xx 异常，修复 pass 问题**：定位 Pass 抛出异常的具体原因，并提供修复方案
-- **执行 xx 时，pass 报错**：定位 Pass 抛出异常的具体原因，并提供修复方案
 - **定位 pass 错误**：定位 Pass 抛出异常的具体原因，并提供修复方案
 - **分析 pass 异常**：定位 Pass 抛出异常的具体原因，并提供修复方案
-- **分析 pass 失败原因**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **pass 报错**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **pass 失败**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **pass 异常**：定位 Pass 抛出异常的具体原因，并提供修复方案
 
 **触发示例**
 - 执行 python3 build_ci.py -c -f=cpp -u=NBufferMergeTest.TestMode4 异常，pass 报错
@@ -141,7 +141,7 @@ license: 完整条款见 LICENSE.txt
 | **属性缺失** | `attribute not found`, `missing attribute`, `required attribute`, `get attribute failed` | 属性名称、算子名称、期望属性类型、缺失的属性列表 |
 | **计算图成环** | `cycle detected`, `graph cycle`, `topological sort failed`, `circular dependency` | 成环节点、循环路径、依赖关系、拓扑排序失败节点 |
 | **索引越界** | `index out of range`, `invalid index` | 索引值、范围、张量形状 |
-| **合轴异常** | `shape dimension mismatch`, `tile shape dimension mismatch`, `shape/size mismatch`, `shape mismatch` | 轴信息、形状信息、期望维度、实际维度、期望形状和实际形状 |
+| **合轴异常** | `AxisCombine process failed`, `CombineAxis failed` | 轴信息、形状信息、期望维度、实际维度、期望形状和实际形状 |
 
 
 #### 4.2 将异常进行分类
@@ -152,15 +152,16 @@ license: 完整条款见 LICENSE.txt
 
 **验证检查点**：
 - [ ] 异常类型正确分类
+- [ ] 业务场景理解准确
+- [ ] 代码上下文分析完整
 
 ### 步骤 5：异常分析
 
 #### 5.1 按类型进行异常分析（必须执行）
-- 必须读取 `references/pass-error-analysis-guide.md` 文件
+- 读取 `references/pass-error-analysis-guide.md` 文件
 - 根据异常类型定位到对应的分析指导章节
-- 严格按照该章节定义的步骤顺序执行
-- 每个步骤执行后，必须记录执行结果
-- 不得跳过任何步骤或合并步骤
+- 严格按照章节定义的步骤顺序执行，记录每步结果
+- 不得跳过或合并步骤
 
 #### 5.2 汇总分析结果给出修复建议
 - 生成根因链：现象(日志) -> 触发位置(源码切片) -> 状态异常(计算图/IR变化) -> 违反规则(约束文档)
@@ -224,6 +225,15 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 - **完整日志**: [日志文件路径]
 - **相关文档**: [文档链接]
 - **参考案例**: [案例链接]
+
+## 输出成功标准
+
+一个有效的错误分析报告必须满足：
+- 报告包含基本信息、错误位置、错误信息、原因分析、修复建议
+- 代码位置精确到文件和行号
+- 修复建议具体可执行
+- 错误原因分析基于日志和源码证据
+- 根因链完整（现象 -> 触发位置 -> 状态异常 -> 违反规则）
 
 ## 版本兼容性
 
