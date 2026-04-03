@@ -623,7 +623,7 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo()
             rawShape[i]};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
-        std::string tensorName = sm->AddTileTensor(tileTensor);
+        std::string tensorName = sm->AddTileTensor(originalOp.GetOpMagic(), tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(
             "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
@@ -691,7 +691,7 @@ void CodeGenOpCloudNPU::UpdateLoopInfo()
             static_cast<int>(shapeInLoop.rawShape.size()),       shapeInLoop.originShape, shapeInLoop.rawShape};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
-        forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor);
+        forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor, originalOp.GetOpMagic());
     }
 }
 
@@ -730,46 +730,28 @@ std::pair<std::string, std::string> CodeGenOpCloudNPU::PrintDstSrcCoordFromAttr(
 
 TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const
 {
-    std::vector<TileTensor> res;
+    const int tensorMagic = operandWithMagic[paramIdx];
+    const int opMagic = originalOp.GetOpMagic();
+    const TileTensor* tileTensor = nullptr;
     bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
     if (isInLoop) {
-        res = sm->QueryTileTensorInLoopByMagic(operandWithMagic[paramIdx]);
+        tileTensor = sm->QueryTileTensorInLoopByMagic(tensorMagic, opMagic);
         // some tensor in loop is reused same tensor out of loop
-        if (res.empty()) {
-            res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
+        if (tileTensor == nullptr) {
+            tileTensor = sm->QueryTileTensorByMagic(tensorMagic, opMagic);
         }
     } else {
-        res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
+        tileTensor = sm->QueryTileTensorByMagic(tensorMagic, opMagic);
     }
 
-    if (res.size() == 1) {
-        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", res[0].tensorName.c_str());
-        return res[0];
-    }
-    CODEGEN_LOGI(
-        "isInLoop: %d, paramIdx is %d, tensor magic is %d, res size is %zu", isInLoop, paramIdx,
-        operandWithMagic[paramIdx], res.size());
-
-    auto targetRawShape =
-        isInLoop ? std::vector{*(rawShape[paramIdx].rbegin() + 1), rawShape[paramIdx].back()} : rawShape[paramIdx];
-    CODEGEN_LOGI(
-        "isInLoop: %d,rawShape is %s, targetRawShape is %s", isInLoop, IntVecToStr(rawShape[paramIdx]).c_str(),
-        IntVecToStr(targetRawShape).c_str());
-
-    for (const auto& tileTensor : res) {
-        CODEGEN_LOGI(
-            "isInLoop: %d, tileTensor.shapeInLoop.rawShape is %s, tileTensor.rawShape is %s", isInLoop,
-            IntVecToStr(tileTensor.shapeInLoop.rawShape).c_str(), IntVecToStr(tileTensor.rawShape).c_str());
-        // Currently only support additional comparison of rawShape
-        if (tileTensor.rawShape == targetRawShape) {
-            CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", tileTensor.tensorName.c_str());
-            return tileTensor;
-        }
+    if (tileTensor != nullptr) {
+        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", tileTensor->ToString().c_str());
+        return *tileTensor;
     }
 
     ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false)
-        << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
-        << " is not found !!! res size is " << res.size();
+        << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << tensorMagic << ", op magic " << opMagic
+        << ", isInLoop " << isInLoop << " is not found !!!";
     static TileTensor emptyTileTensor;
     return emptyTileTensor;
 }
