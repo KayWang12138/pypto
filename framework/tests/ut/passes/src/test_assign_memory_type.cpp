@@ -1529,7 +1529,6 @@ TEST_F(AssignMemoryTypeTest, TestAmulBInputInvalidProducer) {
     EXPECT_EQ(assignMemoryType.PreCheck(*func), FAILED);
 }
 
-
 TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering) {
     config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
     std::vector<int64_t> shape = {NUM_256, NUM_128};
@@ -1541,32 +1540,21 @@ TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering) {
         Tensor weight(DataType::DT_FP32, shape1, "weight");
         Tensor out(DataType::DT_FP32, shape2, "output");
         SetFullTestStrategy();
-
-        Function* originFunction = nullptr;
         config::SetBuildStatic(true);
-        
         FUNCTION("TestTobeMapOrdering", {inputA, inputB, weight, out}) {
-
             TileShape::Current().SetCubeTile({NUM_256, NUM_256}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
-
             Tensor mmRes = Matrix::Matmul(out.GetDataType(), inputA, weight);
-
             Tensor reshapeRes = Reshape(mmRes, shape2);
             TileShape::Current().SetVecTile(NUM_256, NUM_256);
-
             Tensor add1Out = Add(reshapeRes, Element(DataType::DT_FP32, 1.0));
             Tensor add2Out = Add(reshapeRes, Element(DataType::DT_FP32, 2.0));
             Tensor expOut = Exp(reshapeRes);
             Tensor out1 = Add(add2Out, expOut);
             out = Add(out1, add1Out);
         }
-
-        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestTobeMapOrdering");
-        originFunction->DumpJsonFile("./config/pass/json/assignMemoryType_TestTobeMapOrdering_after.json");
+        Function* originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestTobeMapOrdering");
         ASSERT_NE(originFunction, nullptr) << "Function pointer is null";
-
-        std::cout << "========== Verify TobeMap Ordering ==========" << std::endl;
-
+        std::vector<std::pair<uint64_t, uint64_t>> tensorOpMagicPairs;
         for (const auto &op : originFunction->Operations()) {
             if (op.GetOpcode() != Opcode::OP_VIEW) {
                 continue;
@@ -1576,7 +1564,18 @@ TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering) {
             if (output->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
                 continue;
             }
-            std::cout << consumer->GetOpMagic() << std::endl;
+            tensorOpMagicPairs.emplace_back(output->GetMagic(), consumer->GetOpMagic());
+        }
+        for (size_t i = 0; i < tensorOpMagicPairs.size(); ++i) {
+            for (size_t j = i + 1; j < tensorOpMagicPairs.size(); ++j) {
+                if (tensorOpMagicPairs[i].second < tensorOpMagicPairs[j].second) {
+                    ASSERT_LE(tensorOpMagicPairs[i].first, tensorOpMagicPairs[j].first)
+                        << "TobeMap ordering violation: OpMagic " << tensorOpMagicPairs[i].second
+                        << " (TensorMagic " << tensorOpMagicPairs[i].first << ") < OpMagic "
+                        << tensorOpMagicPairs[j].second << " (TensorMagic " << tensorOpMagicPairs[j].first
+                        << "), but TensorMagic should also be smaller";
+                }
+            }
         }
     }
 }
