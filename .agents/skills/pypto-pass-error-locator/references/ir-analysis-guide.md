@@ -45,7 +45,12 @@ Function TENSOR_TENSOR_update_kernel_loop_Unroll1_PATH0_hiddenfunc0_5[5] 3116444
 
 **字段说明：**
 - `Function`: 固定关键字
-- `函数名`: 当前处理的函数名称
+- `函数名`: 当前处理的函数名称，命名规则为 `{输入类型}_{输出类型}_{kernel名}_loop_Unroll{unroll值}_PATH{路径}_hiddenfunc{隐藏函数}_{函数id}`
+  - `update_kernel_loop`：函数名（loop名）
+  - `Unroll1`：unroll值，如前端设置 `unroll_list=[16, 1]`，IR文件名中会有 `Unroll1` 和 `Unroll16`
+  - `PATH0`：循环中的分支路径，if/else 分别对应 PATH0 和 PATH1
+  - `hiddenfunc0`：隐藏函数编号
+  - `_5`：函数ID
 - `[function_magic]`: 函数magic，即唯一标识符
 - `{hash}`: 函数hash值
 - `{函数类型}`: 函数类型，如 DYNAMIC_LOOP_PATH
@@ -143,8 +148,8 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 - **索引**: 索引位置
 - **shape**: 张量的形状
 - **valid_shape**: 张量的有效形状
-- **logic tensor**: 标识符（%6, %9, %aaa等）
-- **raw tensor**: 标识符（@6, @9, @aaa等）
+- **logic tensor**: 标识符（%6, %9, %12等）
+- **raw tensor**: 标识符（@6, @9, @12等）
 - **子图ID**: 子图标识符，用于标识tensor所属的子图
 - **fromSlot/toSlot**: 槽位列表，用于追踪INCAST/OUTCAST的slot映射关系
 
@@ -153,7 +158,7 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 #### 语法格式
 
 ```
-<shape / valid_shape> %{输出logic tensor}@{输出raw tensor}#(子图ID){读内存类型}::写内存类型} = !{op_id} {opcode}(g:{子图ID}, s:{作用域ID}) {输入参数} {属性}
+<shape / valid_shape> %{输出logic tensor}@{输出raw tensor}#(子图ID){读内存类型}::{写内存类型}} = !{op_id} {opcode}(g:{子图ID}, s:{作用域ID}) {输入参数} {属性}
 ```
 
 #### 示例
@@ -170,8 +175,8 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 
 - **shape**: 张量的形状
 - **valid_shape**: 张量的有效形状
-- **输出logic tensor**: 标识符（%6, %9, %aaa等）
-- **输出raw tensor**: 标识符（@6, @9, @aaa等）
+- **输出logic tensor**: 标识符（%6, %9, %12等）
+- **输出raw tensor**: 标识符（@6, @9, @12等）
 - **子图ID**: 子图标识符，用于标识tensor所属的子图
 - **读内存类型::写内存类型**: 双冒号分隔的内存类型
   - 格式：`MEM_TYPE::MEM_TYPE`
@@ -180,11 +185,11 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 - **opcode**: 操作的名称
 - **g:{子图ID}**: 操作所属的子图ID，用于图分区管理
   - 默认值：`NOT_IN_SUBGRAPH = -1`
-  - 代码位置：`Operation::GetSubgraphID()` 返回 `subgraphID_` 成员变量
+  - 代码位置：`framework/src/interface/operation/operation.h` 中 `Operation::GetSubgraphID()` 返回 `subgraphID_` 成员变量
 
 - **s:{作用域ID}**: 操作的作用域ID，用于标识操作的执行阶段
   - 默认值：`-1`
-  - 代码位置：`Operation::GetScopeId()` 返回 `scopeId_` 成员变量
+  - 代码位置：`framework/src/interface/operation/operation.h` 中 `Operation::GetScopeId()` 返回 `scopeId_` 成员变量
 - **输入参数**: 操作的输入参数（变量列表、常量等）
 - **属性**: 使用空格分隔的键值对
   - 格式：`#属性名{属性值}`
@@ -201,6 +206,20 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
 | MEM_L0A | L0A缓存（矩阵A输入） |
 | MEM_L0B | L0B缓存（矩阵B输入） |
 | MEM_L0C | L0C缓存（矩阵C输出） |
+
+#### 动态参数说明
+
+在 `TILE_VIEW` 和 `TILE_ASSEMBLE` 等操作中，会出现以下动态参数：
+
+- **dynoffset（动态偏移量）**：运行时确定的偏移量，与静态 `offset` 不同，`dynoffset` 的值在编译时无法确定，需要在运行时根据动态 shape 或循环变量计算。例如 `dynoffset:[ 0, 0]` 表示各维度的动态偏移均为 0。
+  - 使用场景：动态 shape 场景下，tensor 的实际访问位置依赖于运行时输入 shape
+  - 与 `offset` 的区别：`offset` 是编译时确定的固定偏移，`dynoffset` 是运行时计算的动态偏移
+
+- **dynvalidshape（动态有效形状）**：运行时确定的有效形状，与静态 `shape` 不同，`dynvalidshape` 表示在动态 shape 场景下 tensor 实际有效的维度大小。例如 `dynvalidshape:[ 16, 128]` 表示运行时有效形状为 `[16, 128]`。
+  - 使用场景：当输入 shape 在运行时变化时，需要记录实际有效的计算范围
+  - 与 `valid_shape` 的区别：`valid_shape` 是编译时可推断的有效形状，`dynvalidshape` 是运行时才能确定的有效形状
+
+这些动态参数是 PyPTO 支持动态 shape 计算的关键机制，确保在运行时 shape 不确定的情况下仍能正确访问内存。
 
 #### 常见操作类型
 
@@ -244,7 +263,7 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
   - `from offset:[0, 0]`：源偏移量
   - `dynoffset:[0, 0]`：动态偏移量
   - `to MEM_DEVICE_DDR`：目标内存类型
-  - `dynvalidshape:[16,128]`：动态有效形状
+  - `dynvalidshape:[ 16, 128]`：动态有效形状
 
 ### 示例2：TILE_INDEX_OUTCAST操作
 
@@ -292,6 +311,45 @@ OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@16#(-1) toSlot[3]
   - `from MEM_DEVICE_DDR`：源内存类型
   - `to offset:[0, 0]`：目标偏移量
   - `to dynoffset:[0, 0]`：目标动态偏移量
+
+## 完整IR文件示例
+
+以下是一个小型的完整 `.tifwkgr` 文件示例，展示 IR 文件的整体结构：
+
+```
+-------------
+Function TENSOR_TENSOR_add_kernel_loop_Unroll1_PATH0_hiddenfunc0_3[3] 1234567890123456789 DYNAMIC_LOOP_PATH TILE_GRAPH {
+  /* /mnt/workspace/test_add.py:10 */
+  RAWTENSOR[  0] <16 x 128 x DT_FP32> @10"TENSOR_0"
+  RAWTENSOR[  1] <16 x 128 x DT_FP32> @12"TENSOR_1"
+  RAWTENSOR[  2] <16 x 128 x DT_FP32> @14"TENSOR_2"
+
+  INCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %6@10#(-1) fromSlot[0]
+  INCAST[  1]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %8@12#(-1) fromSlot[1]
+  OUTCAST[  0]  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@14#(-1) toSlot[2]
+
+  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %6@10#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10001 TILE_VIEW(g:-1, s:-1) %6@10#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR from offset:[  0,  0] dynoffset:[  0,  0] to MEM_DEVICE_DDR dynvalidshape:[ 16, 128]
+  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %8@12#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10002 TILE_VIEW(g:-1, s:-1) %8@12#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR from offset:[  0,  0] dynoffset:[  0,  0] to MEM_DEVICE_DDR dynvalidshape:[ 16, 128]
+  <16 x 128 x DT_FP32 / 16 x 128 x DT_FP32> %14@14#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR = !10003 TILE_ADD(g:-1, s:-1) %6@10#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR, %8@12#(-1)MEM_DEVICE_DDR::MEM_DEVICE_DDR #op_attr_reverseOperand{0}
+}
+```
+
+**结构说明**：
+1. **分隔线**：`-------------` 标记函数开始
+2. **函数头**：包含函数名、magic、hash、函数类型、图类型
+3. **RAWTENSOR 声明**：定义 3 个物理张量（2 个输入 + 1 个输出）
+4. **INCAST/OUTCAST 声明**：定义 2 个输入 cast 和 1 个输出 cast
+5. **操作节点**：
+   - `!10001 TILE_VIEW`：对输入 tensor 0 创建视图
+   - `!10002 TILE_VIEW`：对输入 tensor 1 创建视图
+   - `!10003 TILE_ADD`：执行加法操作，输出到 tensor 2
+
+**数据流**：
+```
+INCAST[0] (%6@10) → TILE_VIEW(!10001) → %6@10 ─┐
+                                                ├→ TILE_ADD(!10003) → %14@14 → OUTCAST[0]
+INCAST[1] (%8@12) → TILE_VIEW(!10002) → %8@12 ─┘
+```
 
 ## IR分析方法
 
