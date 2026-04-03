@@ -48,8 +48,6 @@ void ConvertInserter::UpdateTensorTobeMap(const LogicalTensorPtr& tensor, Operat
     int opMagic = operation.GetOpMagic();
     if (tensorTobeMap.count(tensor) == 0) {
         // 首次插入
-        // std::map<Operation*, MemoryType> tobeMap;
-        // tobeMap.emplace(&operation, t);
         std::map<int, std::pair<Operation *, MemoryType>> tobeMap;
         tobeMap.emplace(opMagic, std::make_pair(&operation, t));
         tensorTobeMap[tensor] = tobeMap;
@@ -58,26 +56,20 @@ void ConvertInserter::UpdateTensorTobeMap(const LogicalTensorPtr& tensor, Operat
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), BriefMemoryTypeToString(t).c_str());
         return;
     }
-    // if (tensorTobeMap[tensor].count(&operation) == 0) {
     if (tensorTobeMap[tensor].count(opMagic) == 0) {
         // 已存在，且首次设置该consumer的tobe mem
-        // tensorTobeMap[tensor].emplace(&operation, t);
         tensorTobeMap[tensor].emplace(opMagic, std::make_pair(&operation, t));
         APASS_LOG_DEBUG_F(
             Elements::Tensor, "First Set magic: %d, new: %s.", tensor->GetMagic(), BriefMemoryTypeToString(t).c_str());
         return;
     }
-    // if (tensorTobeMap[tensor][&operation] == MemoryType::MEM_UNKNOWN && t != MemoryType::MEM_UNKNOWN) {
-    //     tensorTobeMap[tensor][&operation] = t;
     if (tensorTobeMap[tensor][opMagic].second == MemoryType::MEM_UNKNOWN && t != MemoryType::MEM_UNKNOWN) {
         tensorTobeMap[tensor][opMagic].second = t;
         return;
     }
-    // if (tensorTobeMap[tensor][&operation] == t) {
     if (tensorTobeMap[tensor][opMagic].second == t) {
         return;
     }
-    // tensorTobeMap[tensor][&operation] = t;
     tensorTobeMap[tensor][opMagic].second = t;
     APASS_LOG_DEBUG_F(
         Elements::Tensor, "Update tensor %d toBeMap(%s[%d]) from %s to %s,", tensor->GetMagic(),
@@ -100,8 +92,6 @@ void ConvertInserter::UpdateTensorTobeMapUnknown(LogicalTensorPtr& tensor, Memor
         return;
     }
     for (auto& item : tensorTobeMap[tensor]) {
-        // if (item.second == MemoryType::MEM_UNKNOWN) {
-        //     item.second = t
         if (item.second.second == MemoryType::MEM_UNKNOWN) {
             item.second.second = t;
         }
@@ -139,7 +129,6 @@ std::map<Operation*, MemoryType> ConvertInserter::GetTobeDefault(LogicalTensorPt
             tensor->GetMagic());
         return {};
     }
-    // return tensorTobeMap.at(tensor);
     std::map<Operation *, MemoryType> result;
     for (const auto &item : tensorTobeMap.at(tensor)) {
         result[item.second.first] = item.second.second;
@@ -160,7 +149,6 @@ std::map<MemoryType, std::set<Operation*>> ConvertInserter::GetRequiredTobe(Logi
     }
     std::map<MemoryType, std::set<Operation*>> result;
     for (const auto& item : tensorTobeMap.at(tensor)) {
-        // result[item.second].insert(item.first);
         result[item.second.second].insert(item.second.first);
     }
     return result;
@@ -177,7 +165,6 @@ MemoryType ConvertInserter::GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr& ten
             tensor->GetMagic());
         return MemoryType::MEM_UNKNOWN;
     }
-    // return tensorTobeMap.at(tensor).at(&operation);
     int opMagic = operation.GetOpMagic();
     return tensorTobeMap.at(tensor).at(opMagic).second;
 }
@@ -187,7 +174,6 @@ std::map<Operation*, MemoryType> ConvertInserter::GetMemoryTypeFromTensorTobeMap
 {
     auto it = tensorTobeMap.find(tensor);
     if (it != tensorTobeMap.end()) {
-        // return it->second;
         std::map<Operation *, MemoryType> result;
         for (const auto &item : it->second) {
             result[item.second.first] = item.second.second;
@@ -196,15 +182,6 @@ std::map<Operation*, MemoryType> ConvertInserter::GetMemoryTypeFromTensorTobeMap
     }
     return {};
 }
-
-// std::map<MemoryType, std::set<Operation*>> ConvertInserter::ReformMap(std::map<Operation*, MemoryType>& oriMap) const
-// {
-//     std::map<MemoryType, std::set<Operation*>> result;
-//     for (const auto& item : oriMap) {
-//         result[item.second].insert(item.first);
-//     }
-//     return result;
-// }
 
 std::map<MemoryType, std::set<Operation *>> ConvertInserter::ReformMap(const std::map<int, std::pair<Operation *, MemoryType>> &oriMap) const {
     std::map<MemoryType, std::set<Operation *>> result;
@@ -219,8 +196,6 @@ void ConvertInserter::FilterConflictTensor()
 {
     for (const auto& pairLocal : tensorTobeMap) {
         auto tensorLocal = pairLocal.first;
-        // std::map<Operation*, MemoryType> oriMap = pairLocal.second;
-        // std::map<MemoryType, std::set<Operation*>> tobeMap = ReformMap(oriMap);
         std::map<MemoryType, std::set<Operation *>> tobeMap = ReformMap(pairLocal.second);
         if (tobeMap.size() == 1) {
             MemoryType requiredMemoryType = tobeMap.begin()->first;

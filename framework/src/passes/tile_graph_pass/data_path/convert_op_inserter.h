@@ -46,9 +46,8 @@ public:
 
     /*
         key: Tensor 指针
-        value: consumer op的指针到该op所需内存类型的映射map
+        value: Opmagic到consumer op的指针和该op所需内存类型对的映射map
     */
-    // std::unordered_map<LogicalTensorPtr, std::map<Operation*, MemoryType>> tensorTobeMap;
     std::map<LogicalTensorPtr, std::map<int, std::pair<Operation *, MemoryType>>> tensorTobeMap;
     std::unordered_map<int, std::map<MemoryType, std::set<Operation*>>> conflictMap;
 
@@ -71,7 +70,6 @@ public:
     void FilterConflictTensor();
 
     // tobe Map转换类型，以memory type为key
-    // std::map<MemoryType, std::set<Operation*>> ReformMap(std::map<Operation*, MemoryType>& oriMap) const;
     std::map<MemoryType, std::set<Operation *>> ReformMap(const std::map<int, std::pair<Operation *, MemoryType>> &oriMap) const;
 
     // 提取指定tensor的指定consumer op所需的mem类型
