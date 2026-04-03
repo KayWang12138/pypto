@@ -64,7 +64,7 @@ void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1 || ctx->ooperandInplaceDataViewList->size() == 2);
     auto &in = ctx->ioperandDataViewList->at(0);
 
-    ShmemSetAttr attr;
+    Distributed::ShmemSetAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
@@ -82,16 +82,16 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
 
-    ShmemPutAttr attr;
+    Distributed::ShmemPutAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
     int atomicType = 0;
-    if (attr.atomicType == AtomicType.ADD) {
+    if (attr.atomicType == Distributed::AtomicType.SET) {
         atomicType = 0;
     }
-    if (attr.atomicType == AtomicType.ADD) {
+    if (attr.atomicType == Distributed::AtomicType.ADD) {
         atomicType = 1;
     }
     context->Put(in, dstRank, 0, atomicType);
@@ -103,16 +103,16 @@ void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
 
-    ShmemSignalAttr attr;
+    Distributed::ShmemSignalAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     int dstRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
     int atomicType = 0;
-    if (attr.atomicType == AtomicType.ADD) {
+    if (attr.atomicType == Distributed::AtomicType.SET) {
         atomicType = 0;
     }
-    if (attr.atomicType == AtomicType.ADD) {
+    if (attr.atomicType == Distributed::AtomicType.ADD) {
         atomicType = 1;
     }
     int value = attr.signalValue;
@@ -126,7 +126,7 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
 
-    ShmemWaitUntilAttr attr;
+    Distributed::ShmemWaitUntilAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
@@ -142,7 +142,7 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
 
-    ShmemGetAttr attr;
+    Distributed::ShmemGetAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
