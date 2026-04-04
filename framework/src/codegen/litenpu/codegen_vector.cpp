@@ -116,6 +116,46 @@ std::string CodeGenOpLiteNPU::PrintCompact(const PrintUnaryTmpBuffParam &param) 
     return PrintCompactStatic(param);
 }
 
+std::string CodeGenOpLiteNPU::PrintExpandLayout(int expandAxis) const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::ostringstream oss;
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+    templateParamList.emplace_back(std::to_string(expandAxis));
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses({dstTensor, srcTensor});
+    oss << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::PrintExpand() const {
+    char buffer[256] = "CG_ERROR";
+    int expandAxis{-1};
+    std::vector<int64_t> dos = NormalizeShape(originShape[0], SHAPE_DIM4);
+    std::vector<int64_t> os = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    auto axis = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIM");
+    if (axis.HasValue()) {
+        expandAxis = AnyCast<int64_t>(axis);
+    }
+    ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))))
+        << "unsupported expand axis";
+    // modify expandAxis for SHAPE_DIM4
+    expandAxis += SHAPE_DIM4 - rawShape[1].size();
+
+    if (isSupportLayout) {
+        return PrintExpandLayout(expandAxis);
+    }
+
+    return buffer;
+}
+
 std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
@@ -215,9 +255,10 @@ std::string CodeGenOpLiteNPU::GenUnaryOp() const {
         dstDtypeStr = GetTypeForB16B32(operandDtype[ID0]);
     }
 
-    // if (opCode == Opcode::OP_EXPAND) {
-    //     return PrintExpand(s0Var, dVar, srcDtypeStr, dstDtypeStr);
-    // }   
+    if (opCode == Opcode::OP_EXPAND) {
+        return PrintExpand();
+    }
+    
     if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS || opCode == Opcode::OP_RELU ||
                opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
                opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT || opCode == Opcode::OP_BRCB ||

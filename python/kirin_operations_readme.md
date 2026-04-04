@@ -1072,75 +1072,537 @@ TileShape维度应和输出一致。
 
 ### 2.1. pypto.mul
 
+参考：
+
+pypto/docs/api/operation/pypto-mul.md
+
 #### 2.1.1. 算子计算原理
+
+两个输入Tensor的每个对应位置的元素做乘法运算得到新Tensor，或者一个输入Tensor的每个元素和同一个元素运算，得到新Tensor
 
 #### 2.1.2. pypto前段接口（python）以及支持范围
 
+pypto/python/pypto/op/math.py
+
+函数原型：
+
+```python
+def mul(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+```
+
+参数说明：
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+
+返回值说明
+
+返回输出Tensor，Tensor的数据类型和input、other相同，Shape为input和other广播后大小。
+
+约束说明
+
+1.  input 和 other 类型应该相同。
+2.  other 为数字的时候，不支持隐式转化。
+3.  other 不支持nan、inf等特殊值
+
 #### 2.1.3. c++ tensor graph接口
+
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+Tensor Mul(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor Mul(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other);
+}
+```
 
 #### 2.1.4. c++ tile graph接口
 
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+template <BinaryOpType T>
+void BinaryOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    TiledBinaryOperation<T>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+```
+
 #### 2.1.5. 算子npu计算使用的pto instruction
+
+TLoad：gm to ub搬运
+
+TMul：张量和张量乘法运算
+
+TMulS：张量和标量乘法运算
+
+TStore：ub to gm搬运
 
 #### 2.1.6. 算子kernel的计算过程（搬运+计算）
 
+张量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+    TLoad(ub_2, gm_3);
+
+    // 二元运算
+    TMul(ub_0, ub_0, ub_2);
+
+    // ub to gm
+    TStore(gm_7, ub_0);
+
+标量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+
+    // 二元运算
+    TMulS(ub_0, ub_0, 1.0);
+
+    // ub to gm
+    TStore(gm_4, ub_0);
+
 #### 2.1.7. tile shape设置约束
+
+无
 
 #### 2.1.8. 用例设计
 
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32/INT16/INT32
+
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| mul_001  | (112) | (50) | FP16 | 1d尾轴对齐，w切分 |
+| mul_002  | (100) | (100) | FP32 | 1d尾轴不对齐，无切分 |
+| mul_003  | (4,128) | (2,32) | INT16 | 2d尾轴对齐，h,w切分 |
+| mul_004  | (4,130) | (1,130) | INT32 | 2d尾轴不对齐，h切分 |
+| mul_005  | (2,4,160) | (1,2,32) | FP16 | 3d尾轴对齐，c,h,w切分 |
+| mul_006  | (2,4,140) | (1,2,140) | FP32 | 3d尾轴不对齐，c,h切分 |
+| mul_007  | (2,5,152) | (1,5,32) | INT16 | 3d尾轴不对齐，c,w切分 |
+| mul_008  | (2,3,170) | (1,3,170) | INT32 | 3d尾轴不对齐，c切分 |
+| mul_009  | (5,2,4,176) | (2,1,2,16) | FP16 | 4d尾轴对齐，n,c,h,w切分 |
+| mul_010  | (5,2,4,130) | (1,1,1,130) | FP32 | 4d尾轴不对齐，n,c,h切分 |
+| mul_011  | (2,3,5,134) | (1,1,5,32) | INT16 | 4d尾轴不对齐，n,c,w切分 |
+| mul_012  | (4,2,6,135) | (2,2,3,32) | INT32 | 4d尾轴不对齐，n,h,w切分 |
+| mul_013  | (6,2,4,130) | (1,1,4,130) | FP16 | 4d尾轴不对齐，n,c切分 |
+| mul_014  | (3,2,3,139) | (1,2,1,139) | FP32 | 4d尾轴不对齐，n,h切分 |
+| mul_015  | (6,3,5,141) | (3,3,5,32) | INT16 | 4d尾轴不对齐，n,w切分 |
+
 ### 2.2. pypto.add
+
+参考：
+
+pypto/docs/api/operation/pypto-add.md
 
 #### 2.2.1. 算子计算原理
 
+两个输入Tensor的每个对应位置的元素做加法运算得到新Tensor，或者一个输入Tensor的每个元素和同一个元素运算，得到新Tensor
+
 #### 2.2.2. pypto前段接口（python）以及支持范围
+
+pypto/python/pypto/op/math.py
+
+函数原型：
+
+```python
+def add(
+    input: Tensor, other: Union[Tensor, float], *, alpha: Union[int, float] = 1
+) -> Tensor:
+```
+
+参数说明：
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| alpha   | 输入      | 缩放因子，用于对 other 进行缩放。 <br> 支持的类型为：int、float，默认值为1。 <br> 关键字参数，必须通过关键字传递。 |
+
+返回值说明
+
+返回输出Tensor，Tensor的数据类型和input、other相同，Shape为input和other广播后大小。
+
+约束说明
+
+1.  input 和 other 类型应该相同。
+2.  other 为数字的时候，不支持隐式转化。
+3.  other 不支持nan、inf等特殊值
 
 #### 2.2.3. c++ tensor graph接口
 
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+Tensor Add(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor Add(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other);
+}
+```
+
 #### 2.2.4. c++ tile graph接口
+
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+template <BinaryOpType T>
+void BinaryOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    TiledBinaryOperation<T>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+```
 
 #### 2.2.5. 算子npu计算使用的pto instruction
 
+TLoad：gm to ub搬运
+
+TAdd：张量和张量加法运算
+
+TAddS：张量和标量加法运算
+
+TStore：ub to gm搬运
+
 #### 2.2.6. 算子kernel的计算过程（搬运+计算）
+
+张量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+    TLoad(ub_2, gm_3);
+
+    // 二元运算
+    TAdd(ub_0, ub_0, ub_2);
+
+    // ub to gm
+    TStore(gm_7, ub_0);
+
+标量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+
+    // 二元运算
+    TAddS(ub_0, ub_0, 1.0);
+
+    // ub to gm
+    TStore(gm_4, ub_0);
 
 #### 2.2.7. tile shape设置约束
 
+无
+
 #### 2.2.8. 用例设计
+
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32/INT16/INT32
+
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| add_001  | (112) | (50) | FP16 | 1d尾轴对齐，w切分 |
+| add_002  | (100) | (100) | FP32 | 1d尾轴不对齐，无切分 |
+| add_003  | (4,128) | (2,32) | INT16 | 2d尾轴对齐，h,w切分 |
+| add_004  | (4,130) | (1,130) | INT32 | 2d尾轴不对齐，h切分 |
+| add_005  | (2,4,160) | (1,2,32) | FP16 | 3d尾轴对齐，c,h,w切分 |
+| add_006  | (2,4,140) | (1,2,140) | FP32 | 3d尾轴不对齐，c,h切分 |
+| add_007  | (2,5,152) | (1,5,32) | INT16 | 3d尾轴不对齐，c,w切分 |
+| add_008  | (2,3,170) | (1,3,170) | INT32 | 3d尾轴不对齐，c切分 |
+| add_009  | (5,2,4,176) | (2,1,2,16) | FP16 | 4d尾轴对齐，n,c,h,w切分 |
+| add_010  | (5,2,4,130) | (1,1,1,130) | FP32 | 4d尾轴不对齐，n,c,h切分 |
+| add_011  | (2,3,5,134) | (1,1,5,32) | INT16 | 4d尾轴不对齐，n,c,w切分 |
+| add_012  | (4,2,6,135) | (2,2,3,32) | INT32 | 4d尾轴不对齐，n,h,w切分 |
+| add_013  | (6,2,4,130) | (1,1,4,130) | FP16 | 4d尾轴不对齐，n,c切分 |
+| add_014  | (3,2,3,139) | (1,2,1,139) | FP32 | 4d尾轴不对齐，n,h切分 |
+| add_015  | (6,3,5,141) | (3,3,5,32) | INT16 | 4d尾轴不对齐，n,w切分 |
 
 ### 2.3. pypto.div
 
+参考：
+
+pypto/docs/api/operation/pypto-div.md
+
 #### 2.3.1. 算子计算原理
+
+两个输入Tensor的每个对应位置的元素做除法运算得到新Tensor，或者一个输入Tensor的每个元素和同一个元素运算，得到新Tensor
 
 #### 2.3.2. pypto前段接口（python）以及支持范围
 
+pypto/python/pypto/op/math.py
+
+函数原型：
+
+```python
+def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+```
+
+参数说明：
+
+| 参数名 | 输入/输出 | 说明                                                                 |
+|--------|-----------|----------------------------------------------------------------------|
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+
+返回值说明
+
+返回输出Tensor，Tensor的数据类型和input、other相同，Shape为input和other广播后大小。
+
+约束说明
+
+1.  input 和 other 类型应该相同。
+2.  other 为数字的时候，不支持隐式转化。
+3.  other 不支持nan、inf等特殊值
+
 #### 2.3.3. c++ tensor graph接口
+
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+Tensor Div(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor Div(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other);
+}
+```
 
 #### 2.3.4. c++ tile graph接口
 
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+template <BinaryOpType T>
+void BinaryOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    TiledBinaryOperation<T>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+```
+
 #### 2.3.5. 算子npu计算使用的pto instruction
+
+TLoad：gm to ub搬运
+
+TDiv：张量和张量除法运算
+
+TDivS：张量和标量除法运算
+
+TStore：ub to gm搬运
 
 #### 2.3.6. 算子kernel的计算过程（搬运+计算）
 
+张量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+    TLoad(ub_2, gm_3);
+
+    // 二元运算
+    TDiv(ub_0, ub_0, ub_2);
+
+    // ub to gm
+    TStore(gm_7, ub_0);
+
+标量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+
+    // 二元运算
+    TDivS(ub_2, ub_0, 1.0);
+
+    // ub to gm
+    TStore(gm_4, ub_2);
+
 #### 2.3.7. tile shape设置约束
+
+无
 
 #### 2.3.8. 用例设计
 
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32
+
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| div_001  | (112) | (50) | FP16 | 1d尾轴对齐，w切分 |
+| div_002  | (100) | (100) | FP32 | 1d尾轴不对齐，无切分 |
+| div_003  | (4,128) | (2,32) | FP16 | 2d尾轴对齐，h,w切分 |
+| div_004  | (4,130) | (1,130) | FP32 | 2d尾轴不对齐，h切分 |
+| div_005  | (2,4,160) | (1,2,32) | FP16 | 3d尾轴对齐，c,h,w切分 |
+| div_006  | (2,4,140) | (1,2,140) | FP32 | 3d尾轴不对齐，c,h切分 |
+| div_007  | (2,5,152) | (1,5,32) | FP16 | 3d尾轴不对齐，c,w切分 |
+| div_008  | (2,3,170) | (1,3,170) | FP32 | 3d尾轴不对齐，c切分 |
+| div_009  | (5,2,4,176) | (2,1,2,16) | FP16 | 4d尾轴对齐，n,c,h,w切分 |
+| div_010  | (5,2,4,130) | (1,1,1,130) | FP32 | 4d尾轴不对齐，n,c,h切分 |
+| div_011  | (2,3,5,134) | (1,1,5,32) | FP16 | 4d尾轴不对齐，n,c,w切分 |
+| div_012  | (4,2,6,135) | (2,2,3,32) | FP32 | 4d尾轴不对齐，n,h,w切分 |
+| div_013  | (6,2,4,130) | (1,1,4,130) | FP16 | 4d尾轴不对齐，n,c切分 |
+| div_014  | (3,2,3,139) | (1,2,1,139) | FP32 | 4d尾轴不对齐，n,h切分 |
+| div_015  | (6,3,5,141) | (3,3,5,32) | FP16 | 4d尾轴不对齐，n,w切分 |
+
 ### 2.4. pypto.sub
+
+参考：
+
+pypto/docs/api/operation/pypto-sub.md
 
 #### 2.4.1. 算子计算原理
 
+两个输入Tensor的每个对应位置的元素做减法运算得到新Tensor，或者一个输入Tensor的每个元素和同一个元素运算，得到新Tensor
+
 #### 2.4.2. pypto前段接口（python）以及支持范围
+
+pypto/python/pypto/op/math.py
+
+函数原型：
+
+```python
+def sub(
+    input: Tensor, other: Union[Tensor, float], *, alpha: Union[int, float] = 1
+) -> Tensor:
+```
+
+参数说明：
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16， DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| alpha   | 输入      | 缩放因子，用于对 other 进行缩放。 <br> 支持的类型为：int、float，默认值为1。 <br> 关键字参数，必须通过关键字传递。 |
+
+返回值说明
+
+返回输出Tensor，Tensor的数据类型和input、other相同，Shape为input和other广播后大小。
+
+约束说明
+
+1.  input 和 other 类型应该相同。
+2.  other 为数字的时候，不支持隐式转化。
+3.  other 不支持nan、inf等特殊值
 
 #### 2.4.3. c++ tensor graph接口
 
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+Tensor Sub(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperation<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor Sub(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other);
+}
+```
+
 #### 2.4.4. c++ tile graph接口
+
+pypto/framework/src/interface/operation/vector/binary.cpp
+
+```C++
+template <BinaryOpType T>
+void BinaryOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    TiledBinaryOperation<T>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+```
 
 #### 2.4.5. 算子npu计算使用的pto instruction
 
+TLoad：gm to ub搬运
+
+TSub：张量和张量减法运算
+
+TSubS：张量和标量减法运算
+
+TStore：ub to gm搬运
+
 #### 2.4.6. 算子kernel的计算过程（搬运+计算）
+
+张量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+    TLoad(ub_2, gm_3);
+
+    // 二元运算
+    TSub(ub_0, ub_0, ub_2);
+
+    // ub to gm
+    TStore(gm_7, ub_0);
+
+标量运算：
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+
+    // 二元运算
+    TSubS(ub_0, ub_0, 1.0);
+
+    // ub to gm
+    TStore(gm_4, ub_0);
 
 #### 2.4.7. tile shape设置约束
 
+无
+
 #### 2.4.8. 用例设计
+
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32/INT16/INT32
+
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| add_001  | (112) | (50) | FP16 | 1d尾轴对齐，w切分 |
+| add_002  | (100) | (100) | FP32 | 1d尾轴不对齐，无切分 |
+| add_003  | (4,128) | (2,32) | INT16 | 2d尾轴对齐，h,w切分 |
+| add_004  | (4,130) | (1,130) | INT32 | 2d尾轴不对齐，h切分 |
+| add_005  | (2,4,160) | (1,2,32) | FP16 | 3d尾轴对齐，c,h,w切分 |
+| add_006  | (2,4,140) | (1,2,140) | FP32 | 3d尾轴不对齐，c,h切分 |
+| add_007  | (2,5,152) | (1,5,32) | INT16 | 3d尾轴不对齐，c,w切分 |
+| add_008  | (2,3,170) | (1,3,170) | INT32 | 3d尾轴不对齐，c切分 |
+| add_009  | (5,2,4,176) | (2,1,2,16) | FP16 | 4d尾轴对齐，n,c,h,w切分 |
+| add_010  | (5,2,4,130) | (1,1,1,130) | FP32 | 4d尾轴不对齐，n,c,h切分 |
+| add_011  | (2,3,5,134) | (1,1,5,32) | INT16 | 4d尾轴不对齐，n,c,w切分 |
+| add_012  | (4,2,6,135) | (2,2,3,32) | INT32 | 4d尾轴不对齐，n,h,w切分 |
+| add_013  | (6,2,4,130) | (1,1,4,130) | FP16 | 4d尾轴不对齐，n,c切分 |
+| add_014  | (3,2,3,139) | (1,2,1,139) | FP32 | 4d尾轴不对齐，n,h切分 |
+| add_015  | (6,3,5,141) | (3,3,5,32) | INT16 | 4d尾轴不对齐，n,w切分 |
 
 ## 3. 规约运算
 
@@ -2310,39 +2772,308 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
 
 ### 7.1. pypto.full
 
+参考：
+
+pypto/docs/api/operation/pypto-full.md
+
 #### 7.1.1. 算子计算原理
+
+以指定数据或0填充Tensor的值
 
 #### 7.1.2. pypto前段接口（python）以及支持范围
 
+pypto/python/pypto/op/creation.py
+
+函数原型：
+
+```python
+def full(
+    size: List[int],
+    fill_value: Union[int, float, SymbolicScalar, Element],
+    dtype: DataType,
+    *,
+    valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None
+) -> Tensor:
+```
+
+参数说明
+
+| 参数名       | 输入/输出 | 说明                                                                 |
+|--------------|-----------|----------------------------------------------------------------------|
+| size         | 输入      | 源操作数，用于定义输出Tensor的Shape。 <br> 支持的数据类型为：List[int]。 |
+| fill_value   | 输入      | 源操作数，用于填充输出Tensor的值。 <br> 支持的数据类型为：int, float, Element。 <br> 当为 int 或者 float 类型时会自动转换为 Element 类型，其中 int 对应 DT_INT_32，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。 <br> Element 支持的数据类型为：DT_FP32，DT_INT32，DT_INT16，DT_FP16。 <br> 输入需要和 dtype 类型相同，不支持隐式转化。 |
+| dtype        | 输入      | 源操作数，用于定义输出Tensor的类型。 <br> 支持的数据类型为：DT_FP32，DT_INT32，DT_INT16，DT_FP16。 <br> 输入需要和 fill_value 类型相同，不支持隐式转化。 |
+| valid_shape  | 输入      | 源操作数，用于定义输出Tensor的动态Shape，关键字参数，用于动态图，静态图可以省略。 <br> 支持的类型为 List[SymbolicScalar], List[int]。 |
+
+返回值说明
+
+返回输出Tensor，Tensor的数据类型和dtype相同，Shape为size大小，全部的值为fill\_value。
+
+约束说明
+
+1.  valid\_shape 用于动态图场景。
+
+    在动态图场景中，若需生成 \[5,5\] 的 Tensor并设置 ViewShape 为 \[2,2\]，框架会通过 pypto.loop 循环生成 \[2,2\] 分块，并按偏移量拼接。此时若未传入 valid\_shape，代码将默认生成全 \[2,2\] 的Tensor（如 pypto.full\(\[2,2\], 1, pypto.DT\_INT32\)）。
+
+    然而，当总尺寸 \[5,5\] 无法被分块尺寸 \[2,2\] 整除时，尾块的有效形状（如 \[1,1\]）无法由框架自动推导。例如，最后一行/列可能仅包含 1 个元素，而非完整的 \[2,2\] 分块。此时必须通过 valid\_shape 明确指定尾块的实际有效形状，如下：
+
+    pypto.full\(\[2, 2\], 1, pypto.DT\_INT32, valid\_shape=\[pypto.min\(2, 5 - 2 \* b\_idx\), pypto.min\(2, 5 - 2 \* s\_idx\)\]\), 其中b\_idx 和 s\_idx 表示循环索引。
+
+2.  tileshape的维度与result 维度相同，用于切分 result。
+
 #### 7.1.3. c++ tensor graph接口
+
+pypto/framework/src/interface/operation/vector/tensor_transformation.cpp
+
+```C++
+Tensor Full(
+    const Element &src, DataType dtype, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
+    DECLARE_TRACER();
+    if (validShape.empty()) {
+        for (auto x : dstShape)
+            validShape.emplace_back(x);
+    }
+    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), src, SymbolicScalar(), dtype,
+        dstShape, validShape);
+}
+
+Tensor Full(const SymbolicScalar &dynSrc, DataType dtype, const std::vector<int64_t> &dstShape,
+    std::vector<SymbolicScalar> validShape) {
+    DECLARE_TRACER();
+    if (validShape.empty()) {
+        for (auto x : dstShape)
+            validShape.emplace_back(x);
+    }
+    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0),
+        dynSrc, dtype, dstShape, validShape);
+}
+```
 
 #### 7.1.4. c++ tile graph接口
 
+pypto/framework/src/interface/operation/vector/tensor_transformation.cpp
+
+```C++
+void FullOperationTileFunc(Function &function, const TileShape &tileShape,
+    [[maybe_unused]] const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    const Operation &op) {
+    Element scalar = op.GetElementAttribute(OpAttributeKey::scalar);
+    SymbolicScalar dynScalar;
+    if (op.HasAttr(OpAttributeKey::dynScalar)) {
+        dynScalar = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+    }
+    std::vector<int64_t> shape = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
+    std::vector<SymbolicScalar> validShape;
+    op.GetAttr(OP_ATTR_PREFIX + "validShape", validShape);
+    TiledFull(function, tileShape, scalar, dynScalar, shape, validShape, oOperand[0]);
+}
+```
+
 #### 7.1.5. 算子npu计算使用的pto instruction
+
+TVecDup：broadcast实现，按给定值填充vec
+
+TStore：ub to gm搬运
 
 #### 7.1.6. 算子kernel的计算过程（搬运+计算）
 
+填充0
+
+    // filling with 0
+    TVecDup(ub_0, 0);
+
+    // ub to gm
+    TStore(gm_1, ub_0);
+
+填充非0
+
+    // filling with 1
+    TVecDup(ub_0, 1);
+
+    // ub to gm
+    TStore(gm_1, ub_0);
+
 #### 7.1.7. tile shape设置约束
+
+无
 
 #### 7.1.8. 用例设计
 
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32/INT16/INT32
+
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| full_001  | (112) | (50) | FP16 | 1d尾轴对齐，w切分 |
+| full_002  | (100) | (100) | FP32 | 1d尾轴不对齐，无切分 |
+| full_003  | (4,128) | (2,32) | INT16 | 2d尾轴对齐，h,w切分 |
+| full_004  | (4,130) | (1,130) | INT32 | 2d尾轴不对齐，h切分 |
+| full_005  | (2,4,160) | (1,2,32) | FP16 | 3d尾轴对齐，c,h,w切分 |
+| full_006  | (2,4,140) | (1,2,140) | FP32 | 3d尾轴不对齐，c,h切分 |
+| full_007  | (2,5,152) | (1,5,32) | INT16 | 3d尾轴不对齐，c,w切分 |
+| full_008  | (2,3,170) | (1,3,170) | INT32 | 3d尾轴不对齐，c切分 |
+| full_009  | (5,2,4,176) | (2,1,2,16) | FP16 | 4d尾轴对齐，n,c,h,w切分 |
+| full_010  | (5,2,4,130) | (1,1,1,130) | FP32 | 4d尾轴不对齐，n,c,h切分 |
+| full_011  | (2,3,5,134) | (1,1,5,32) | INT16 | 4d尾轴不对齐，n,c,w切分 |
+| full_012  | (4,2,6,135) | (2,2,3,32) | INT32 | 4d尾轴不对齐，n,h,w切分 |
+| full_013  | (6,2,4,130) | (1,1,4,130) | FP16 | 4d尾轴不对齐，n,c切分 |
+| full_014  | (3,2,3,139) | (1,2,1,139) | FP32 | 4d尾轴不对齐，n,h切分 |
+| full_015  | (6,3,5,141) | (3,3,5,32) | INT16 | 4d尾轴不对齐，n,w切分 |
+
 ### 7.2. pypto.concat
+
+参考：
+
+pypto/docs/api/operation/pypto-concat.md
 
 #### 7.2.1. 算子计算原理
 
+将输入的多个Tensor沿指定维度（dim）拼接，返回一个拼接后的Tensor
+
 #### 7.2.2. pypto前段接口（python）以及支持范围
+
+pypto/python/pypto/op/joining.py
+
+函数原型：
+
+```python
+def concat(tensors: List[Tensor], dim: int = 0) -> Tensor:
+```
+
+参数说明
+
+| 参数名  | 输入/输出 | 说明                                                                 |
+|---------|-----------|----------------------------------------------------------------------|
+| tensors | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32，DT_FP16，DT_INT8，DT_INT16，DT_INT32。 <br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| dim     | 输入      | 源操作数。 <br> 支持的数据类型为：int，默认为0。                      |
+
+返回值说明
+
+返回输出Tensor，Tensor的数据类型和 tensors 的任一tensor数据类型相同，Shape与 tensors任一tensor相同（除 dim 对应维度），dim 对应维度为 tensors 各个 tensor 对应维度之和。
+
+约束说明
+
+1. 源操作数 tensors 的大小需要大于等于 2，即 len\(tensors \)\>=2；小于等于128。（支持输入一个tensor情况，精度暂时不保证）；
+
+2. 输入 tensor 数据类型相同、维度数量相同，并且除待拼接维度（dim）之外的每个维度值相同；
+
+3. dim: -input.dim <= dim < input.dim（input对应tensors 的任一tensor）；
+
+4. 设置viewshape时，dim对应维度不切块（即viewshape对应值\>=tensors 任一tensor的对应值）。
 
 #### 7.2.3. c++ tensor graph接口
 
+pypto/framework/src/interface/operation/vector/tensor_transformation.cpp
+
+```C++
+Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
+    DECLARE_TRACER();
+    CheckCat(tensors, axis);
+
+    auto resultShape = tensors[0].GetShape();
+    auto shapeSize = resultShape.size();
+    CheckAxisRange(tensors[0], axis);
+    int axisSize = 0;
+    for (auto tensor : tensors) {
+        axisSize += tensor.GetShape()[axis];
+    }
+    resultShape[axis] = axisSize;
+
+    auto format = tensors[0].Format();
+    Tensor result(tensors[0].GetDataType(), resultShape, "", format);
+    Tensor tmp(tensors[0].GetDataType(), resultShape, "", format);
+    auto &function = *Program::GetInstance().GetCurrentFunction();
+    std::vector<int64_t> offset(shapeSize, 0);
+    for (auto tensor : tensors) {
+        auto tmpView = tmp.GetStorage()->View(function, tensor.GetShape(), offset);
+        InnerConcatNew(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), tmpView);
+        offset[axis] += tensor.GetShape()[axis];
+    }
+    auto &op = function.AddOperation(Opcode::OP_ASSEMBLE, {tmp.GetStorage()}, {result.GetStorage()});
+    op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>(shapeSize, 0)));
+
+    return result;
+}
+```
+
 #### 7.2.4. c++ tile graph接口
+
+pypto/framework/src/interface/operation/operation_impl.cpp
+
+```C++
+void TiledInnerRegisterCopy(const int dimIdx, Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &operand, const LogicalTensorPtr &result,
+    std::vector<int64_t> actTileShape, std::vector<int64_t> actOffset)
+{
+    if (static_cast<size_t>(dimIdx)  == result->GetShape().size()) {
+        auto inputTile = operand->View(function, actTileShape, actOffset);
+        auto resultTile = result->View(function, actTileShape, actOffset);
+        function.AddOperation("TILE_REGISTER_COPY", { inputTile }, { resultTile });
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    CheckFwkOpTileShape(vecTile, result);
+
+    for (auto i = 0; i < result->GetShape()[dimIdx]; i += vecTile[dimIdx]) {
+        actTileShape[dimIdx] = std::min(result->GetShape()[dimIdx] - i, vecTile[dimIdx]);
+        actOffset[dimIdx] = i;
+        TiledInnerRegisterCopy(dimIdx + 1, function, tileShape, operand, result, actTileShape, actOffset);
+    }
+}
+
+void TiledInnerRegisterCopy(Function &function, const TileShape &tileShape,
+    const LogicalTensorPtr &operand, const LogicalTensorPtr &result)
+{
+    std::vector<int64_t> actOffset(result->GetShape().size(), 0);
+    std::vector<int64_t> actTileShape(result->GetShape().size(), 1);
+    TiledInnerRegisterCopy(0, function, tileShape, operand, result, actTileShape, actOffset);
+}
+```
 
 #### 7.2.5. 算子npu计算使用的pto instruction
 
+TLoad：gm to ub搬运
+
+TStore：ub to gm搬运
+
 #### 7.2.6. 算子kernel的计算过程（搬运+计算）
+
+    // gm to ub
+    TLoad(ub_0, gm_1);
+
+    // ub to gm
+    TStore(gm_2, ub_0);
 
 #### 7.2.7. tile shape设置约束
 
+无
+
 #### 7.2.8. 用例设计
+
+测试因子
+* 输入维度：1~4维
+* 切分：n,c,h,w全量组合
+* 数据类型：FP16/FP32/INT8/INT16/INT32
+
+| 用例名称  | 输入维度 | 切分 | 输入dtype | 说明 |
+|----------|---------|-----------|------|------|
+| concat_001  | (112)<br>(20) | (50) | FP16 | 1d尾轴对齐，w切分 |
+| concat_002  | (100)<br>(60) | (100) | FP32 | 1d尾轴不对齐，无切分 |
+| concat_003  | (4,128)<br>(7,128) | (2,32) | INT8 | 2d尾轴对齐，h,w切分 |
+| concat_004  | (4,130)<br>(4,90) | (1,130) | INT16 | 2d尾轴不对齐，h切分 |
+| concat_005  | (2,4,160)<br>(25,4,160) | (1,2,32) | INT32 | 3d尾轴对齐，c,h,w切分 |
+| concat_006  | (2,4,140)<br>(2,36,140) | (1,2,140) | FP16 | 3d尾轴不对齐，c,h切分 |
+| concat_007  | (2,5,152)<br>(2,5,3) | (1,5,32) | FP32 | 3d尾轴不对齐，c,w切分 |
+| concat_008  | (2,3,170)<br>(76,3,170) | (1,3,170) | INT8 | 3d尾轴不对齐，c切分 |
+| concat_009  | (5,2,4,176)<br>(5,2,4,5) | (2,1,2,16) | INT16 | 4d尾轴对齐，n,c,h,w切分 |
+| concat_010  | (5,2,4,130)<br>(5,2,43,130) | (1,1,1,130) | INT32 | 4d尾轴不对齐，n,c,h切分 |
+| concat_011  | (2,3,5,134)<br>(2,27,5,134) | (1,1,5,32) | FP16 | 4d尾轴不对齐，n,c,w切分 |
+| concat_012  | (4,2,6,135)<br>(78,2,6,135) | (2,2,3,32) | FP32 | 4d尾轴不对齐，n,h,w切分 |
+| concat_013  | (6,2,4,130)<br>(5,2,4,130)<br>(25,2,4,130) | (1,1,4,130) | INT8 | 4d尾轴不对齐，n,c切分 |
+| concat_014  | (3,2,3,139)<br> (3,87,3,139)<br> (3,57,3,139)| (1,2,1,139) | INT16 | 4d尾轴不对齐，n,h切分 |
+| concat_015  | (6,3,5,141)<br>(6,3,23,141)<br>(6,3,4,141) | (3,3,5,32) | INT32 | 4d尾轴不对齐，n,w切分 |
 
 ### 7.3. pypto.where
 

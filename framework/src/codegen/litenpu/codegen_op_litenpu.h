@@ -290,8 +290,8 @@ private:
     std::string PrintIndexOutCastDynamic(const PrintIndexOutCastParam &param) const;
     std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam &param) const;
 
-    // std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
-    //     const std::string &dstDtypeStr) const;
+    std::string PrintExpand() const;
+    std::string PrintExpandLayout(int expandAxis) const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfo(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool gmOffsetCond = true) const;
@@ -320,10 +320,10 @@ private:
         // // pad op
         // {                      Opcode::OP_PAD,                   [this]() { return GenPadOp(); }},
         // binary op: vector operations
-        // {                       Opcode::OP_ADD,                 [this]() { return GenBinaryOp(); }},
-        // {                       Opcode::OP_SUB,                 [this]() { return GenBinaryOp(); }},
-        // {                       Opcode::OP_MUL,                 [this]() { return GenBinaryOp(); }},
-        // {                       Opcode::OP_DIV,                 [this]() { return GenBinaryOp(); }},
+        {                       Opcode::OP_ADD,                 [this]() { return GenBinaryOp(); }},
+        {                       Opcode::OP_SUB,                 [this]() { return GenBinaryOp(); }},
+        {                       Opcode::OP_MUL,                 [this]() { return GenBinaryOp(); }},
+        {                       Opcode::OP_DIV,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_MAXIMUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_MINIMUM,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRSUM,                 [this]() { return GenBinaryOp(); }},
@@ -339,10 +339,10 @@ private:
         // {                   Opcode::OP_MIN_BRC,            [this]() { return GenBinaryWithBrc(); }},
 
         // // binary op: vector scalar
-        // {                      Opcode::OP_ADDS,           [this]() { return GenVectorScalarOp(); }},
-        // {                      Opcode::OP_SUBS,           [this]() { return GenVectorScalarOp(); }},
-        // {                      Opcode::OP_MULS,           [this]() { return GenVectorScalarOp(); }},
-        // {                      Opcode::OP_DIVS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_ADDS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_SUBS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_MULS,           [this]() { return GenVectorScalarOp(); }},
+        {                      Opcode::OP_DIVS,           [this]() { return GenVectorScalarOp(); }},
         {                      Opcode::OP_MAXS,           [this]() { return GenVectorScalarOp(); }},
         {                      Opcode::OP_MINS,           [this]() { return GenVectorScalarOp(); }},
 
@@ -357,7 +357,7 @@ private:
         // // unary op
         {                       Opcode::OP_EXP,                  [this]() { return GenUnaryOp(); }},
         {                      Opcode::OP_SQRT,                  [this]() { return GenUnaryOp(); }},
-        // {                    Opcode::OP_EXPAND,                  [this]() { return GenUnaryOp(); }},
+        {                    Opcode::OP_EXPAND,                  [this]() { return GenUnaryOp(); }},
         {                Opcode::OP_RECIPROCAL,                  [this]() { return GenUnaryOp(); }},
         // {                    Opcode::OP_ROWSUM,                  [this]() { return GenUnaryOp(); }},
         // {                    Opcode::OP_ROWMAX,                  [this]() { return GenUnaryOp(); }},
