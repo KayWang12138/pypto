@@ -1,21 +1,35 @@
+import csv as csv_module
 import json
 import os
 import sys
 import subprocess
 import pytest
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from data.csv_ops import FIELDS
+
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "get_progress.py")
-HEADER = "op_name,source,status,complexity,category,dev_result,fail_count,fps_total,fps_confirmed,create_time,start_time,end_time,depends_on,note\n"
+HEADER = ",".join(FIELDS) + "\n"
+
+def _row(**overrides):
+    row = {f: "" for f in FIELDS}
+    row.update({"source": "manual", "status": "pending", "complexity": "easy",
+                "category": "elementwise", "fail_count": "0",
+                "fps_total": "0", "fps_confirmed": "0",
+                "create_time": "2026-03-26T09:00:00"})
+    row.update(overrides)
+    return ",".join(row.get(f, "") for f in FIELDS) + "\n"
 
 @pytest.fixture
 def csv_path(tmp_path):
     p = tmp_path / "scan_results.csv"
     p.write_text(
         HEADER +
-        "add,manual,completed,easy,elementwise,SUCCESS,0,0,0,2026-03-26T09:00:00,,,,\n"
-        "mul,manual,completed,easy,elementwise,SUCCESS,0,1,1,2026-03-26T09:00:00,,,,\n"
-        "softmax,manual,failed,medium,normalization,BLOCKED_API,1,2,1,2026-03-26T09:00:00,,,,\n"
-        "gelu,auto_discovered,pending,medium,activation,,0,0,0,2026-03-26T09:00:00,,,,\n"
+        _row(op_name="add", status="completed", dev_result="SUCCESS") +
+        _row(op_name="mul", status="completed", dev_result="SUCCESS", fps_total="1", fps_confirmed="1") +
+        _row(op_name="softmax", status="failed", complexity="medium", category="normalization",
+             dev_result="BLOCKED_API", fail_count="1", fps_total="2", fps_confirmed="1") +
+        _row(op_name="gelu", source="auto_discovered", complexity="medium", category="activation")
     )
     return str(p)
 

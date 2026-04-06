@@ -20,10 +20,13 @@ python {scripts}/update_op.py --csv {csv_path} --op {op_name} --reset
 
 ```bash
 python {scripts}/add_op.py --csv {csv_path} --op {op_name} --source manual \
-  --complexity {推断} --category {推断}
+  --complexity {推断} --category {推断} \
+  --description "一句话需求描述" \
+  [--requirement sources/{op_name}.md] \
+  [--reference "torch.nn.functional.softmax"]
 ```
 
-添加后从 Step 2b 开始（新算子分数高，会被选中）。
+`--description` 为必填项。`--requirement` 和 `--reference` 可选。添加后从 Step 2b 开始（新算子分数高，会被选中）。
 
 ## 验证算子
 

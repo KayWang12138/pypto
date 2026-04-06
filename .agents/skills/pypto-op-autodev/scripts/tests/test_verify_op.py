@@ -4,11 +4,20 @@ import sys
 import subprocess
 import pytest
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from data.csv_ops import FIELDS
+
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "verify_op.py")
-HEADER = "op_name,source,status,complexity,category,dev_result,verify_status,fail_count,fps_total,fps_confirmed,create_time,start_time,end_time,depends_on,note\n"
+HEADER = ",".join(FIELDS) + "\n"
 
 def make_csv_row(op, status="completed"):
-    return f"{op},manual,{status},easy,elementwise,SUCCESS,,0,0,0,2026-03-26T09:00:00,,,,\n"
+    row = {f: "" for f in FIELDS}
+    row.update({"op_name": op, "source": "manual", "status": status,
+                "complexity": "easy", "category": "elementwise",
+                "dev_result": "SUCCESS", "fail_count": "0",
+                "fps_total": "0", "fps_confirmed": "0",
+                "create_time": "2026-03-26T09:00:00"})
+    return ",".join(row.get(f, "") for f in FIELDS) + "\n"
 
 def run(args):
     return subprocess.run([sys.executable, SCRIPT] + args, capture_output=True, text=True)
@@ -99,3 +108,9 @@ def test_verify_op_not_in_csv(tmp_path):
     csv_path.write_text(HEADER)
     r = run(["--csv", str(csv_path), "--op", "nonexistent"])
     assert r.returncode == 2
+
+def test_verify_accepts_compat_cli_args(setup_op):
+    csv_path, op_dir = setup_op
+    r = run(["--csv", csv_path, "--op", "myop", "--op-dir", op_dir, "--timeout", "10"])
+    assert r.returncode == 0
+    assert json.loads(r.stdout)["verify_status"] == "ARTIFACTS_OK"

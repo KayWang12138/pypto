@@ -9,7 +9,11 @@
 | status | enum | `pending` / `in_progress` / `completed` / `failed` | 当前状态 |
 | complexity | enum | `easy` / `medium` / `hard` | 复杂度（LLM 推断） |
 | category | enum | elementwise / reduction / normalization / attention / activation / embedding / matmul / pooling / convolution / other | 算子类别 |
+| requirement | string | — | 需求文件相对路径（如 `sources/gated_delta_net.md`），空表示无需求文件 |
+| reference | string | — | 参考实现位置（如 `torch.nn.functional.softmax` 或 `transformers/models/xxx.py::ClassName`） |
+| description | string | — | 一句话需求描述 |
 | dev_result | enum | 见下表 | 开发结果 |
+| verify_status | enum | `VERIFIED` / `TEST_PASS_NO_PRECISION` / `TEST_FAIL` / `INCOMPLETE` / `ARTIFACTS_OK` / `NO_DIR` / 空 | 验证结果（Step 5 写入） |
 | fail_count | int | ≥0 | 累计失败次数（reset 不清零） |
 | fps_total | int | ≥0 | 检测到的断裂点总数 |
 | fps_confirmed | int | ≥0 | confidence=high 的已确认断裂点数 |
