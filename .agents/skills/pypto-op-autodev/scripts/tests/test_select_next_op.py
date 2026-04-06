@@ -6,8 +6,11 @@ import subprocess
 import pytest
 from datetime import datetime, timezone, timedelta
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from data.csv_ops import FIELDS
+
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "select_next_op.py")
-HEADER = "op_name,source,status,complexity,category,dev_result,fail_count,fps_total,fps_confirmed,create_time,start_time,end_time,depends_on,note\n"
+HEADER = ",".join(FIELDS) + "\n"
 
 def ts(delta_days=0, delta_hours=0):
     dt = datetime.now(timezone.utc) - timedelta(days=delta_days, hours=delta_hours)
@@ -18,8 +21,14 @@ def make_row(op, status="pending", complexity="easy", category="elementwise",
              depends_on=""):
     create = ts(delta_days=create_days_ago)
     end = ts(delta_hours=end_hours_ago) if end_hours_ago else ""
-    return (f"{op},manual,{status},{complexity},{category},{dev_result},"
-            f"{fail_count},0,0,{create},,{end},{depends_on},\n")
+    row = {f: "" for f in FIELDS}
+    row.update({"op_name": op, "source": "manual", "status": status,
+                "complexity": complexity, "category": category,
+                "dev_result": dev_result, "fail_count": str(fail_count),
+                "fps_total": "0", "fps_confirmed": "0",
+                "create_time": create, "end_time": end,
+                "depends_on": depends_on})
+    return ",".join(row.get(f, "") for f in FIELDS) + "\n"
 
 @pytest.fixture
 def csv_with_single_easy(tmp_path):

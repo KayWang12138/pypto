@@ -61,9 +61,13 @@ class SchedulerConfig:
 
     opencode_bin: str = "opencode"
     orchestrator_agent: str = "pypto-op-orchestrator"
+    workflow_agent: str = ""
     discover_agent: str = "pypto-op-discover"
+    fracture_agent: str = ""
 
     dev_strategy: str = "auto"
+    enable_env_check: bool = True
+    enable_verify_test: bool = True
     enable_discover: bool = False
     enable_fracture: bool = True
     
@@ -76,6 +80,7 @@ class SchedulerConfig:
     @classmethod
     def _coerce_known_field(cls, key: str, value: object) -> object:
         bool_fields = {
+            "enable_env_check", "enable_verify_test",
             "enable_discover", "enable_fracture", "dry_run",
         }
         int_fields = {
@@ -85,8 +90,8 @@ class SchedulerConfig:
         str_fields = {
             "pypto_root", "csv_path", "custom_dir", "log_file", "pid_file",
             "scripts_dir",
-            "opencode_bin", "orchestrator_agent",
-            "discover_agent", "dev_strategy",
+            "opencode_bin", "orchestrator_agent", "workflow_agent",
+            "discover_agent", "fracture_agent", "dev_strategy",
         }
 
         if key in bool_fields:
@@ -411,11 +416,41 @@ def _step7_update_final_status(
     return final_status
 
 
+def _blocked_stage_from_result(data: dict[str, object]) -> int | None:
+    completed_stages = data.get("completed_stages")
+    if not isinstance(completed_stages, list):
+        return None
+    completed = [stage for stage in completed_stages if isinstance(stage, int)]
+    if not completed:
+        return 1
+    return min(len(completed) + 1, 7)
+
+
+def _load_fracture_stats(path: Path) -> tuple[int, int]:
+    if not path.is_file():
+        return 0, 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0, 0
+
+    fps_total = int(data.get("fps_total", 0) or 0)
+    fps_confirmed = int(data.get("fps_confirmed", 0) or 0)
+    if fps_total or fps_confirmed:
+        return fps_total, fps_confirmed
+
+    fps = data.get("fracture_points", data.get("fps", []))
+    if not isinstance(fps, list):
+        return 0, 0
+    fps_total = len(fps)
+    fps_confirmed = sum(1 for fp in fps if isinstance(fp, dict) and fp.get("confidence") == "high")
+    return fps_total, fps_confirmed
+
+
 def detect_dev_success(
     op_dir: Path,
-    op_name: str,
     logger: logging.Logger,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, int | None]:
     """检测算子开发是否成功。只读 .dev_result.json。"""
     result_file = op_dir / ".dev_result.json"
     if result_file.is_file():
@@ -424,22 +459,14 @@ def detect_dev_success(
             status = data.get("status", "unknown")
             logger.info(".dev_result.json: status=%s", status)
             if status == "SUCCESS":
-                return True, "SUCCESS"
+                return True, "SUCCESS", None
             blocked = data.get("blocked_reason", "")
             notes = data.get("notes", "")
             detail = blocked or notes or status
-            return False, detail
+            return False, str(detail), _blocked_stage_from_result(data)
         except (json.JSONDecodeError, IOError) as exc:
             logger.warning("读取 .dev_result.json 失败: %s", exc)
-
-    # fallback：.dev_result.json 不存在，检查关键产物
-    impl_file = op_dir / f"{op_name}_impl.py"
-    test_file = op_dir / f"test_{op_name}.py"
-    if impl_file.is_file() and test_file.is_file():
-        logger.info("fallback: impl + test 文件存在（无 .dev_result.json）")
-        return True, "fallback: impl+test exist"
-
-    return False, "no .dev_result.json and missing artifacts"
+    return False, "TIMEOUT", None
 
 
 # ── 流程步骤 ─────────────────────────────────────────────────────────
@@ -653,10 +680,14 @@ def _step4_develop(
     selected_info: dict[str, object],
     config: SchedulerConfig,
     logger: logging.Logger,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, int | None]:
     """Step 4: 调用执行层开发算子。返回 (成功, 详情)。"""
     prompt = _build_dev_prompt(op_name, op_dir, pypto_root, selected_info)
-    agent_name = config.orchestrator_agent if strategy == "orchestrator" else "pypto-op-workflow-runner"
+    agent_name = config.orchestrator_agent
+    if strategy == "workflow":
+        agent_name = config.workflow_agent or config.orchestrator_agent
+        if not config.workflow_agent:
+            logger.warning("未配置 workflow_agent，回退到 orchestrator_agent=%s", agent_name)
 
     logger.info("Step 4: 策略=%s, agent=%s", strategy, agent_name)
     try:
@@ -668,14 +699,14 @@ def _step4_develop(
             logger=logger,
         )
         if agent_result.returncode == 0:
-            return detect_dev_success(op_dir, op_name, logger)
-        return False, f"agent exit code {agent_result.returncode}"
+            return detect_dev_success(op_dir, logger)
+        return False, f"agent exit code {agent_result.returncode}", None
     except subprocess.TimeoutExpired:
         logger.error("开发超时 (%ds)", config.dev_timeout_sec)
-        return False, "TIMEOUT"
+        return False, "TIMEOUT", None
     except Exception as exc:
         logger.error("开发异常: %s", exc)
-        return False, f"exception: {exc}"
+        return False, f"exception: {exc}", None
 
 
 def _step5_verify(
@@ -703,7 +734,6 @@ def _step5_verify(
             [python, str(scripts_dir / "verify_op.py"),
              "--csv", str(csv_path),
              "--op", op_name,
-             "--op-dir", str(op_dir),
              "--run-test",
              "--timeout", str(config.verify_test_timeout_sec)],
             cwd=pypto_root,
@@ -730,6 +760,9 @@ def _step6_fracture_detection(
     """Step 6: 断裂点检测（非致命）。"""
     if not config.enable_fracture:
         logger.info("Step 6: 断裂点检测未启用，跳过")
+        return
+    if not config.fracture_agent:
+        logger.info("未配置 fracture_agent，跳过断裂点检测")
         return
     logger.info("Step 6: 断裂点检测")
     dev_log = op_dir / "dev-log.md"
@@ -760,6 +793,7 @@ def _step8_health_check(
     final_status: str,
     dev_detail: str,
     start_time: str,
+    strategy: str,
 ) -> None:
     """Step 8: 健康检查（非致命）。"""
     logger.info("Step 8: 健康检查")
@@ -770,7 +804,9 @@ def _step8_health_check(
              "--op-dir", str(op_dir),
              "--status", final_status,
              "--dev-result", dev_detail,
-             "--start-time", start_time],
+             "--start-time", start_time,
+             "--strategy", strategy]
+            + (["--enable-fracture"] if config.enable_fracture else []),
             cwd=pypto_root,
             timeout=config.script_timeout_sec,
             logger=logger,
@@ -859,7 +895,7 @@ def main_pipeline(config: SchedulerConfig, dry_run: bool = False) -> int:
             )
 
             # Step 4
-            dev_success, dev_detail = _step4_develop(
+            dev_success, dev_detail, blocked_stage = _step4_develop(
                 op_name, op_dir, pypto_root, strategy, selected_info,
                 config, logger,
             )
@@ -907,6 +943,10 @@ def main_pipeline(config: SchedulerConfig, dry_run: bool = False) -> int:
                 "--dev-result", dev_detail,
                 "--last-strategy", strategy,
             ]
+            if blocked_stage is not None:
+                step7_cmd.extend(["--blocked-stage", str(blocked_stage)])
+            fps_total, fps_confirmed = _load_fracture_stats(fracture_summary)
+            step7_cmd.extend(["--fps-total", str(fps_total), "--fps-confirmed", str(fps_confirmed)])
             logger.info("Step 7: 更新状态 → %s", final_status)
             try:
                 run_script(
@@ -920,7 +960,7 @@ def main_pipeline(config: SchedulerConfig, dry_run: bool = False) -> int:
             # Step 8
             _step8_health_check(
                 scripts_dir, op_name, op_dir, pypto_root, python, config, logger,
-                final_status, dev_detail, start_time,
+                final_status, dev_detail, start_time, strategy,
             )
 
             logger.info("=" * 60)

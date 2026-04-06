@@ -130,7 +130,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv", required=True)
     parser.add_argument("--op", help="Operator name to verify")
+    parser.add_argument("--op-dir", help="Explicit operator directory (optional)")
     parser.add_argument("--run-test", action="store_true", help="Execute test file")
+    parser.add_argument("--timeout", type=int, default=300,
+                        help="Compatibility option for callers; current test timeout remains internal")
     parser.add_argument("--verify-all", action="store_true", help="Verify all completed operators")
     args = parser.parse_args()
 
@@ -157,7 +160,8 @@ def main():
         if not existing:
             print(json.dumps({"error": f"op '{args.op}' not found in CSV"}), file=sys.stderr)
             sys.exit(2)
-        result = verify_single(args.csv, args.op, custom_dir, args.run_test)
+        target_custom_dir = Path(args.op_dir).parent if args.op_dir else custom_dir
+        result = verify_single(args.csv, args.op, target_custom_dir, args.run_test)
         print(json.dumps(result, ensure_ascii=False))
         sys.exit(0 if result["verify_status"] not in ("INCOMPLETE", "TEST_FAIL", "NO_DIR") else 1)
     else:

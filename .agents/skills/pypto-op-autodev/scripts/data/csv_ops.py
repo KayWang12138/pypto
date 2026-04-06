@@ -11,6 +11,7 @@ from pathlib import Path
 
 FIELDS = [
     "op_name", "source", "status", "complexity", "category",
+    "requirement", "reference", "description",
     "dev_result", "verify_status", "fail_count",
     "fps_total", "fps_confirmed",
     "create_time", "start_time", "end_time",
