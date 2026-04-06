@@ -330,7 +330,7 @@ def generate_reports(issues):
     for category in sorted(categories.keys()):
         file1_content += f"### {scenario_id}. {category.split('.')[-1].strip()}\n\n"
         
-        for issue in categories[category]:
+        for issue in categories.get(category, []):
             state_str = '已修复' if 'resolved' in issue.get('state', '') else '仍需规避'
             if issue.get('state') == 'open':
                 state_str = '功能缺失'
