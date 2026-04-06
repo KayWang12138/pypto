@@ -16,10 +16,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-# 确保 PyPTO 项目路径优先，避免系统包冲突
-_PYPTO_PYTHON = os.path.join(os.path.dirname(__file__), "..", "..", "python")
-if os.path.isdir(_PYPTO_PYTHON):
-    _PYPTO_PYTHON = os.path.abspath(_PYPTO_PYTHON)
+
+def find_repo_root(start: Path) -> Path | None:
+    """向上查找 PyPTO 仓库根目录。"""
+    for candidate in [start, *start.parents]:
+        if (candidate / "pyproject.toml").is_file() and (candidate / "framework").is_dir():
+            return candidate
+    return None
+
+
+_REPO_ROOT = find_repo_root(Path(__file__).resolve())
+_PYPTO_PYTHON = None
+if _REPO_ROOT is not None:
+    repo_python = _REPO_ROOT / "python"
+    if repo_python.is_dir():
+        _PYPTO_PYTHON = str(repo_python)
 
 
 def check(name, cmd, critical=False):
@@ -31,10 +42,17 @@ def check(name, cmd, critical=False):
             [sys.executable, "-c", cmd],
             capture_output=True, timeout=10, env=env,
         )
-        return {
+        check_result = {
             "name": name, "ok": result.returncode == 0, "critical": critical,
             "error": result.stderr.decode()[:200] if result.returncode != 0 else None,
         }
+        if result.returncode == 0 and result.stdout:
+            stdout = result.stdout.decode().strip()
+            try:
+                check_result["details"] = json.loads(stdout)
+            except json.JSONDecodeError:
+                check_result["details"] = {"stdout": stdout}
+        return check_result
     except subprocess.TimeoutExpired:
         return {"name": name, "ok": False, "critical": critical, "error": "timeout"}
     except Exception as e:
@@ -83,8 +101,19 @@ def main():
     init_actions = init_autodev_dirs(args.csv, args.work_dir)
 
     # 环境检查
+    pypto_cmd = (
+        "import json, pypto; "
+        "pypto_file = getattr(pypto, '__file__', ''); "
+        f"repo_root = {json.dumps(str(_REPO_ROOT) if _REPO_ROOT else '')}; "
+        "repo_python = repo_root + '/python/'; "
+        "site_packages_marker = '/site-packages/'; "
+        "source_type = ('unknown' if not repo_root "
+        "else 'repo_source' if pypto_file.startswith(repo_python) "
+        "else 'installed' if site_packages_marker in pypto_file else 'unknown'); "
+        "print(json.dumps({'pypto_file': pypto_file, 'source_type': source_type}, ensure_ascii=False))"
+    )
     results = [
-        check("pypto_import", "import pypto", critical=True),
+        check("pypto_import", pypto_cmd, critical=True),
         check("torch_import", "import torch", critical=True),
         check("npu_available",
               "import subprocess; r=subprocess.run(['npu-smi','info'],"
@@ -98,6 +127,8 @@ def main():
         "can_proceed": len(critical_fails) == 0,
         "results": results,
         "init_actions": init_actions,
+        "repo_root": str(_REPO_ROOT) if _REPO_ROOT else None,
+        "repo_python": _PYPTO_PYTHON,
     }
     if critical_fails:
         output["recommendation"] = "PyPTO 或 torch 不可用，请先运行 pypto-environment-setup。"
