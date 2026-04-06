@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2025-2026. All rights reserved.
 """
 GitCode Issue Archiver (MCP Version)
 

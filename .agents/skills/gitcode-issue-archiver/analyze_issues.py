@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright (c) Huawei Technologies Co., Ltd. 2025-2026. All rights reserved.
 
 import json
 import logging
 import re
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -95,7 +96,8 @@ def classify_issue(title, description=''):
     
     if any(kw in text for kw in ['编译', 'compile', 'codegen', 'pass', 'ooschedule', 'pregraph']):
         return 'A. 编译错误类'
-    elif any(kw in text for kw in ['运行', 'runtime', '执行', 'aicore', 'aicpu', 'device', '卡死', '崩溃', 'coredump', 'segmentation']):
+    elif any(kw in text for kw in ['运行', 'runtime', '执行', 'aicore', 'aicpu', 'device',
+                                     '卡死', '崩溃', 'coredump', 'segmentation']):
         return 'B. 运行时错误类'
     elif any(kw in text for kw in ['精度', 'precision', 'accuracy', '数值', '结果', '输出', '误差', '对比']):
         return 'C. 精度问题类'
@@ -299,7 +301,7 @@ def generate_reports(issues):
     file1_content = f"""# PyPTO 不支持场景清单
 
 > **用途**: 开发前必读，了解已知限制和规避方案
-> **更新时间**: {datetime.now().strftime('%Y-%m-%d')}
+> **更新时间**: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
 > **数据来源**: /data/s00454010/issues/archive/pypto_issues/
 
 ---
@@ -323,8 +325,8 @@ def generate_reports(issues):
         file1_content += f"### {scenario_id}. {category.split('.')[-1].strip()}\n\n"
         
         for issue in categories[category]:
-            state_str = '已修复' if 'resolved' in issue['state'] else '仍需规避'
-            if issue['state'] == 'open':
+            state_str = '已修复' if 'resolved' in issue.get('state', '') else '仍需规避'
+            if issue.get('state') == 'open':
                 state_str = '功能缺失'
             
             file1_content += f"""**不支持场景**：{issue['title']}
@@ -347,7 +349,7 @@ def generate_reports(issues):
     file2_content = f"""# PyPTO 问题现象索引
 
 > **用途**: 遇到精度问题时检索相似案例
-> **更新时间**: {datetime.now().strftime('%Y-%m-%d')}
+> **更新时间**: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
 > **数据来源**: /data/s00454010/issues/archive/pypto_issues/
 
 ---
@@ -372,7 +374,7 @@ def generate_reports(issues):
         file2_content += f"**Issue 数量**: {len(issues_in_cat)}\n\n"
         
         for issue in issues_in_cat:
-            state_str = issue['state']
+            state_str = issue.get('state', 'unknown')
             file2_content += f"""#### Issue #{issue['number']} - {issue['title']} [{state_str}]
 
 - **现象**: {issue['description'][:100]}
@@ -393,4 +395,3 @@ def generate_reports(issues):
 
 if __name__ == '__main__':
     main()
-EOF

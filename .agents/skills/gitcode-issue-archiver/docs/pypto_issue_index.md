@@ -8,10 +8,10 @@
 
 ## 统计信息
 
-- **Bug-Report总数**: 406
-- **已修复**: 178 (问题已解决，无需关注)
-  - 其中预期行为: 11 (不是bug，是正常行为)
-- **仍需关注**: 228 (closed=189, open=39)
+- **Bug-Report总数**: 431 (含 Issue #600~#650 新增 25 个)
+- **已修复**: 195 (问题已解决，无需关注)
+  - 其中预期行为: 12 (不是bug，是正常行为)
+- **仍需关注**: 236 (closed=195, open=41)
 
 ---
 
@@ -967,7 +967,7 @@
 
 ### C. 精度问题类
 
-**Issue 数量**: 32
+**Issue 数量**: 33
 
 #### Issue #137 - 加0.0导致的精度异常问题 [closed]
 
@@ -1072,6 +1072,13 @@
 - **现象**: 基于问题 https://gitcode.com/cann/pypto/issues/532 的修复patch，设置golden并开启精度工具校验，结果如下： 1. tensorgraph校验通过 ```shell
 - **状态**: 已关闭
 - **来源**: Issue #539
+
+#### Issue #605 - BatchMatmul 4D场景，搬出时Reshape走入了UB [closed]
+
+- **现象**: 在BatchMatmul 4D新优化方案中，搬出时Reshape走入了UB，定位到在Expandfunction层，引入了该错误。理论上，在新优化方案中，搬出时的reshape应当在源地址进行拆轴，不需要搬入UB进行。
+- **规避方案**: 原expand_function中在遇到reshape级联assemble的场景，会验证assemble输出输入之间除第一维外的shape是否相等，若不相等则进行展开，进而导致一些场景tensor经过多余的搬入搬出。目前此段逻辑无效，需进行删除。https://gitcode.com/cann/pypto/pull/1368
+- **状态**: 已修复
+- **来源**: Issue #605
 
 #### Issue #608 - 算子添加对一个outcast的assemble后，其他outcast出现精度问题，疑似出现内存踩踏 [open]
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2025-2026. All rights reserved.
 
 import json
 import logging
@@ -11,6 +12,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from archive_issues_mcp import GitCodeMCPArchiver
 
 logger = logging.getLogger(__name__)
+
+
+# pylint: disable=protected-access
 
 
 def test_markdown_generation():
