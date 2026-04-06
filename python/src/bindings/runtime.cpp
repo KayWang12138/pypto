@@ -27,6 +27,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/eslmodel_launcher.cpp"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
@@ -703,6 +704,18 @@ public:
         ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
     }
 
+    void EslModelLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
+        DeviceLauncherConfig config;
+        ProgramData::GetInstance().Reset();
+        InitializeInputOutputData(tensors, {});
+        int ret = EslModelLauncher::EslModelRunOnce(kernel->GetKernelBin(), config);
+        for (size_t i = 0; i < tensors.size(); i++) {
+            auto input = ProgramData::GetInstance().GetInputData(i);
+            StringUtils::DataCopy(tensors[i].GetAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
+        }
+        ASSERT(ret == RT_ERROR_NONE) << "EslModelLaunch run failed: " << ret;
+    }
+
 private:
     void InitCachedArgs()
     {
@@ -893,7 +906,10 @@ static void DoLaunch(
         HOST_PERF_EVT_END(EventPhase::LaunchKernel);
         return;
     }
-
+    if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
+        kmodule->EslModelLaunch(kbinary, tensors);
+        return;
+    }
     kmodule->EmulationLaunch(kbinary, tensors);
     HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
 
