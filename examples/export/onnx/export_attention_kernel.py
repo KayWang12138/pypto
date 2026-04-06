@@ -93,15 +93,19 @@ def attention_pypto_infer_shape(
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=attention_kernel_body)
 def attention_pypto_calc_workspace(
     q_shape: tuple[int, int, int, int],
+    q_dtype_size: int,
     k_shape: tuple[int, int, int, int],
+    k_dtype_size: int,
     v_shape: tuple[int, int, int, int],
+    v_dtype_size: int,
 ) -> int:
     b, h, lq, d = q_shape
     _, _, lkv, _ = k_shape
     n_scores = b * h * lq * lkv
     n_qkv = b * h * lq * d
-    # BF16: K^T, score matmul, softmax on scores, attn×V — rough multi-buffer bound.
-    return n_scores * 2 * 6 + n_qkv * 2 * 3
+    esz = max(q_dtype_size, k_dtype_size, v_dtype_size)
+    # K^T, score matmul, softmax on scores, attn×V — rough multi-buffer bound (bytes).
+    return (n_scores * 6 + n_qkv * 3) * esz
 
 
 @pypto.export.pypto_op_infer_dtype(pypto_op_kernel=attention_kernel_body)

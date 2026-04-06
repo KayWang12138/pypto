@@ -84,9 +84,9 @@ def test_infer_shape_ge_impl_body_contains_expected_ops(fn):
 def test_infer_shape_ge_impl_body_variadic_uses_vector_and_setdims():
     meta = cpp_mod._parse_infer_shape_for_codegen(infer_shape_samples.infer_shape_nd_identity)
     body = cpp_mod._infer_shape_ge_impl_body(meta)
-    assert "std::vector<int64_t> in0_vec" in body
-    assert "in0_vec.push_back" in body
-    assert "SetDimNum(out_vec.size())" in body
+    assert "std::vector<int64_t> in0_shape_vec" in body
+    assert "in0_shape_vec.push_back" in body
+    assert "SetDimNum(out_shape_vec.size())" in body
     assert "(*out_shape)[j]" in body
     assert "std::make_tuple" not in body
 
@@ -168,18 +168,31 @@ def test_generate_op_custom_plugin_cpp_op_type_parameterizes_names(op_type: str)
     assert f".ParseParamsByOperator(ParseParam{op_type})" in text
 
 
-def _dummy_calc_workspace(shape0: typing.Tuple[int, int]) -> int:
+def _dummy_calc_workspace(shape0: typing.Tuple[int, int], dtype_size0: int) -> int:
+    del dtype_size0
     return 0
 
 
 def test_generate_custom_executor_cpp_has_system_includes_and_class():
     # TODO confirm the fields to verify
     full = cpp_mod._generate_custom_executor_cpp("Add", calc_workspace_func=_dummy_calc_workspace)
+    assert "GeDataTypeElementSize" in full
+    assert "pypto.export.dtype_mapping" not in full
     assert '#include "graph/custom_op.h"' in full
     assert '#include "exe_graph/runtime/sinkable_op_execution_context.h"' in full
     assert '#include "acl/acl_rt.h"' in full
     assert "class Add : public SinkableExecuteOp" in full
     assert "REG_AUTO_MAPPING_OP(Add)" in full
+
+
+def test_generated_ge_dtype_element_size_switch_matches_dtype_mapping():
+    """Emitted ``GeDataTypeElementSize`` cases stay aligned with ``dtype_mapping`` (spot-check)."""
+    full = cpp_mod._generate_custom_executor_cpp(
+        "Add", calc_workspace_func=_dummy_calc_workspace, for_compile_test=True
+    )
+    assert "case ge::DT_FLOAT: return 4;" in full
+    assert "case ge::DT_FLOAT16: return 2;" in full
+    assert "default: return -1;" in full
 
 
 def test_generate_custom_executor_cpp_for_compile_test_omits_ge_runtime_includes():
@@ -277,7 +290,9 @@ def test_generate_op_custom_plugin_cpp_framework_type_argument():
         ),
     ],
 )
-def test_parse_calc_workspace_metadata(fn, expected_modes, expected_dims, expected_elem_cpp):
+def test_parse_calc_workspace_metadata(
+    fn, expected_modes, expected_dims, expected_elem_cpp
+):
     meta = cpp_mod._parse_calc_workspace_for_codegen(fn)
     assert meta.input_modes == expected_modes
     assert meta.input_dims == expected_dims
@@ -290,10 +305,15 @@ def test_workspace_block_fixed_contains_tuple_and_dim_checks():
     body = cpp_mod._generate_workspace_block_for_calc_workspace(meta)
     assert "GetInputTensor(0)" in body
     assert "GetInputTensor(1)" in body
+    assert "GetDataType()" in body
     assert "GetShape()" in body
     assert "GetDimNum()" in body
     assert "std::make_tuple" in body
+    assert "in0_shape_tuple" in body and "in1_shape_tuple" in body
     assert "auto ws = calcWorkspace(" in body
+    assert "GeDataTypeElementSize" in body
+    assert "GeDataTypeElementSize(in0_tensor->GetDataType())" in body
+    assert "in0_dtype_size" in body and "in1_dtype_size" in body
     assert "if (ws < 0)" in body
     assert "return GRAPH_FAILED;" in body
     assert "size_t workspaceSize = static_cast<size_t>(ws);" in body
@@ -302,10 +322,11 @@ def test_workspace_block_fixed_contains_tuple_and_dim_checks():
 def test_workspace_block_variadic_uses_vector_and_casts():
     meta = cpp_mod._parse_calc_workspace_for_codegen(calc_workspace_samples.calc_workspace_variadic)
     body = cpp_mod._generate_workspace_block_for_calc_workspace(meta)
-    assert "std::vector<int64_t> in0_vec" in body
-    assert "in0_vec.reserve" in body
-    assert "in0_vec.push_back" in body
-    assert "auto ws = calcWorkspace(in0_vec);" in body
+    assert "std::vector<int64_t> in0_shape_vec" in body
+    assert "in0_shape_vec.reserve" in body
+    assert "in0_shape_vec.push_back" in body
+    assert "GetDataType()" in body
+    assert "auto ws = calcWorkspace(in0_shape_vec, static_cast<int64_t>(in0_dtype_size));" in body
 
 
 def test_invalid_op_type_raises():
@@ -330,10 +351,10 @@ def test_generate_op_custom_def_cpp_builds_inputs_from_dtypes():
     assert 'this->Input("in1")' in text
     assert 'this->Input("in2")' in text
     assert 'this->Output("out0")' in text
-    # Input dtypes come from _torch_dtype_to_ge_dtype; output dtype matches infer_dtype (input0).
+    # Input dtypes come from dtype_mapping._torch_dtype_to_ge_dtype; output dtype matches infer_dtype (input0).
     assert '.DataType({ge::DT_FLOAT16})' in text  # input 0 and output
     assert '.DataType({ge::DT_FLOAT})' in text    # input 1
-    assert '.DataType({ge::DT_BF16})' in text     # input 2
+    assert '.DataType({ge::DT_BFLOAT16})' in text  # input 2
 
 
 def test_generate_op_custom_def_cpp_rejects_empty_dtypes():
@@ -387,5 +408,5 @@ def test_generate_op_custom_def_cpp_two_outputs_and_infer_dtype_tuple():
     assert 'this->Output("out1")' in text
     assert "SetOutputDataType(0, context->GetInputDataType(0))" in text
     assert "SetOutputDataType(1, context->GetInputDataType(1))" in text
-    assert "std::get<0>(out_tuple)" in text
-    assert "std::get<1>(out_tuple)" in text
+    assert "std::get<0>(out_shape_tuple)" in text
+    assert "std::get<1>(out_shape_tuple)" in text

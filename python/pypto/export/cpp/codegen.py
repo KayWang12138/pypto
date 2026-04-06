@@ -5,12 +5,15 @@ import ast
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, get_args, get_origin, get_type_hints
 
+from ..dtype_mapping import (
+    _GE_DATA_TYPE_VALUE_TO_ELEMENT_SIZE,
+    _torch_dtype_to_ge_dtype,
+)
 from ..helpers import (
     _FUNC_NAME__CALC_WORKSPACE,
     _FUNC_NAME__INFER_SHAPE,
     _FUNC_NAME__INFER_DTYPE,
     _snake_case_to_camel_case,
-    _torch_dtype_to_ge_dtype,
     _unwrap_decorated_func_name,
     _unwrap_decorated_func_source,
 )
@@ -23,33 +26,33 @@ _OP_TYPE_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 _TUPLE_ORIGINS = (tuple, typing.Tuple)
 
-# Naming for codegen string constants: {optional _}{group}__{VALUE}, e.g. _INFER_SHAPE_MODE__FIXED.
-# Tuple-shape metadata ``kind`` and parse result ``input_modes`` / ``output_modes`` values.
-_INFER_SHAPE_MODE__FIXED = "fixed"
-_INFER_SHAPE_MODE__VARIADIC = "variadic"
+# Naming for codegen string constants: {optional _}{group}__{VALUE}, e.g. _TUPLE_SHAPE_MODE__FIXED.
+# Stored in _TupleShapeAnnotationMeta.kind and in parallel input_modes / output_modes lists.
+_TUPLE_SHAPE_MODE__FIXED = "fixed"
+_TUPLE_SHAPE_MODE__VARIADIC = "variadic"
 
 
 @dataclass(frozen=True)
-class _InferShapeTupleMeta:
-    """Per-parameter or return tuple annotation: fixed rank or variadic ``tuple[T, ...]``."""
+class _TupleShapeAnnotationMeta:
+    """Metadata from :func:`_tuple_shape_annotation_meta`: fixed rank or variadic ``tuple[T, ...]``."""
 
     kind: str
     dims: Optional[int] = None
     elem_cpp: Optional[str] = None
 
     def __post_init__(self) -> None:
-        if self.kind == _INFER_SHAPE_MODE__FIXED:
+        if self.kind == _TUPLE_SHAPE_MODE__FIXED:
             if self.dims is None:
-                raise TypeError("_InferShapeTupleMeta: fixed kind requires dims")
+                raise TypeError("_TupleShapeAnnotationMeta: fixed kind requires dims")
             if self.elem_cpp is not None:
-                raise TypeError("_InferShapeTupleMeta: fixed kind must not set elem_cpp")
-        elif self.kind == _INFER_SHAPE_MODE__VARIADIC:
+                raise TypeError("_TupleShapeAnnotationMeta: fixed kind must not set elem_cpp")
+        elif self.kind == _TUPLE_SHAPE_MODE__VARIADIC:
             if self.elem_cpp is None:
-                raise TypeError("_InferShapeTupleMeta: variadic kind requires elem_cpp")
+                raise TypeError("_TupleShapeAnnotationMeta: variadic kind requires elem_cpp")
             if self.dims is not None:
-                raise TypeError("_InferShapeTupleMeta: variadic kind must not set dims")
+                raise TypeError("_TupleShapeAnnotationMeta: variadic kind must not set dims")
         else:
-            raise TypeError(f"_InferShapeTupleMeta: unknown kind {self.kind!r}")
+            raise TypeError(f"_TupleShapeAnnotationMeta: unknown kind {self.kind!r}")
 
 
 @dataclass(frozen=True)
@@ -85,13 +88,22 @@ class _InferDTypeCodegenMeta:
 
 @dataclass(frozen=True)
 class _CalcWorkspaceCodegenMeta:
-    """Result of parsing calc_workspace for executor C++ glue (shape-only v1)."""
+    """Result of parsing calc_workspace for executor C++ glue (per-input shape + dtype element size)."""
 
     sig: inspect.Signature
     input_modes: list[str]
     input_dims: list[Optional[int]]
     input_elem_cpp: list[Optional[str]]
     cpp_bind_name: str
+
+
+def _is_calc_workspace_dtype_size_annotation(ann: Any) -> bool:
+    """True if *ann* is ``int`` or the string ``'int'`` (dtype element size in bytes)."""
+    if ann is int:
+        return True
+    if isinstance(ann, str):
+        return ann.replace(" ", "") == "int"
+    return False
 
 
 def _validate_op_type_identifier(op_type: str) -> None:
@@ -129,8 +141,12 @@ def _tuple_dim_count(ann: Any, ctx: str) -> int:
     return len(args)
 
 
-def _infer_shape_tuple_meta(ann: Any, ctx: str) -> _InferShapeTupleMeta:
-    """Return fixed or variadic tuple metadata (see ``_INFER_SHAPE_MODE__*``)."""
+def _tuple_shape_annotation_meta(ann: Any, ctx: str) -> _TupleShapeAnnotationMeta:
+    """Parse a shape tuple annotation for C++ codegen (fixed rank vs ``tuple[T, ...]``).
+
+    Used for ``infer_shape`` parameters/returns and ``calc_workspace`` shape parameters.
+    See ``_TUPLE_SHAPE_MODE__*`` for ``kind`` values.
+    """
     if not _is_tuple_annotation(ann):
         raise TypeError(f"{ctx}: expected tuple[..., ...] annotation, got {ann!r}")
     targs = get_args(ann)
@@ -138,11 +154,11 @@ def _infer_shape_tuple_meta(ann: Any, ctx: str) -> _InferShapeTupleMeta:
         raise TypeError(f"{ctx}: tuple annotation must have at least one element")
     if len(targs) == 2 and targs[1] is Ellipsis:
         elem_cpp = _to_cpp_type(targs[0])
-        return _InferShapeTupleMeta(kind=_INFER_SHAPE_MODE__VARIADIC, elem_cpp=elem_cpp)
-    return _InferShapeTupleMeta(kind=_INFER_SHAPE_MODE__FIXED, dims=len(targs))
+        return _TupleShapeAnnotationMeta(kind=_TUPLE_SHAPE_MODE__VARIADIC, elem_cpp=elem_cpp)
+    return _TupleShapeAnnotationMeta(kind=_TUPLE_SHAPE_MODE__FIXED, dims=len(targs))
 
 
-def _parse_return_shape_outputs(ret_ann: Any, ctx: str) -> list[_InferShapeTupleMeta]:
+def _parse_return_shape_outputs(ret_ann: Any, ctx: str) -> list[_TupleShapeAnnotationMeta]:
     """Split *infer_shape* return annotation into one metadata entry per logical output.
 
     - ``tuple[int, ...]`` / ``Tuple[T, ...]`` → single variadic output.
@@ -156,10 +172,10 @@ def _parse_return_shape_outputs(ret_ann: Any, ctx: str) -> list[_InferShapeTuple
     if not targs:
         raise TypeError(f"{ctx}: tuple annotation must have at least one element")
     if len(targs) == 2 and targs[1] is Ellipsis:
-        return [_infer_shape_tuple_meta(ret_ann, ctx)]
+        return [_tuple_shape_annotation_meta(ret_ann, ctx)]
     if all(_is_tuple_annotation(a) for a in targs):
-        return [_infer_shape_tuple_meta(a, f"{ctx} output[{i}]") for i, a in enumerate(targs)]
-    return [_infer_shape_tuple_meta(ret_ann, ctx)]
+        return [_tuple_shape_annotation_meta(a, f"{ctx} output[{i}]") for i, a in enumerate(targs)]
+    return [_tuple_shape_annotation_meta(ret_ann, ctx)]
 
 
 def _to_cpp_type(py_ann: Any) -> str:
@@ -186,18 +202,43 @@ def _to_cpp_type(py_ann: Any) -> str:
     raise TypeError(f"Unsupported annotation for C++ mapping: {py_ann!r}")
 
 
+def _generate_ge_dtype_element_size_fn_cpp() -> str:
+    """Emit ``GeDataTypeElementSize(ge::DataType)`` for the executor TU (``-1`` if unknown)."""
+    lines = [
+        f"        case ge::{dt}: return {sz};"
+        for dt, sz in sorted(_GE_DATA_TYPE_VALUE_TO_ELEMENT_SIZE.items())
+    ]
+    cases = "\n".join(lines)
+    return f"""static int GeDataTypeElementSize(ge::DataType ge_dt) {{
+    switch (ge_dt) {{
+{cases}
+        default: return -1;
+    }}
+}}"""
+
+
 def _generate_pybind_wrapper(
     func: Callable,
     cpp_func_name: str,
     *,
     include_preamble: bool = True,
+    on_py_error: str = "propagate",
+    wrap_in_anonymous_namespace: bool = True,
 ) -> str:
     """Generate C++ pybind11 wrapper that runs the given Python function.
 
     If include_preamble is False, emit the function inside an anonymous namespace
     (for embedding in a TU that already includes pybind headers and
-    ``namespace py = pybind11``).
+    ``namespace py = pybind11``), unless *wrap_in_anonymous_namespace* is False
+    (then emit only the function, for composition with other ``namespace {{}}`` helpers).
+
+    *on_py_error*: ``"propagate"`` (default) lets pybind exceptions propagate;
+    ``"print_and_return_neg1"`` wraps the body in ``try`` / ``catch (py::error_already_set &)``,
+    calls ``PyErr_Print()``, and returns ``-1`` (requires C++ return type ``int64_t``).
     """
+    if on_py_error not in ("propagate", "print_and_return_neg1"):
+        raise ValueError(f"on_py_error must be 'propagate' or 'print_and_return_neg1', got {on_py_error!r}")
+
     py_source = _unwrap_decorated_func_source(inspect.getsource(func))
     py_func_name = _unwrap_decorated_func_name(func.__name__)
     py_sig = inspect.signature(func)
@@ -218,10 +259,15 @@ def _generate_pybind_wrapper(
     ret_ann = hints.get("return", py_sig.return_annotation)
     cpp_return_type = _to_cpp_type(ret_ann)
 
+    if on_py_error == "print_and_return_neg1" and cpp_return_type != "int64_t":
+        raise TypeError(
+            "on_py_error='print_and_return_neg1' requires annotated return int (C++ int64_t), "
+            f"got C++ return {cpp_return_type!r}"
+        )
+
     pybind_args_list = ", ".join([f"py::cast({py_arg.name})" for py_arg in py_sig.parameters.values()])
 
-    fn_block = f"""{cpp_return_type} {cpp_func_name}({cpp_args_list}) {{
-    py::gil_scoped_acquire gil;
+    try_body = f"""    py::gil_scoped_acquire gil;
 
     const std::string py_source = R"(
 {py_source}
@@ -232,16 +278,31 @@ def _generate_pybind_wrapper(
     py::exec(py_source, globals, globals);
     py::object {py_func_name}_py = globals["{py_func_name}"];
 
-    return {py_func_name}_py({pybind_args_list}).cast<{cpp_return_type}>();
+    return {py_func_name}_py({pybind_args_list}).cast<{cpp_return_type}>();"""
+
+    if on_py_error == "print_and_return_neg1":
+        fn_block = f"""{cpp_return_type} {cpp_func_name}({cpp_args_list}) {{
+    try {{
+{try_body}
+    }} catch (py::error_already_set &) {{
+        PyErr_Print();
+        return -1;
+    }}
+}}"""
+    else:
+        fn_block = f"""{cpp_return_type} {cpp_func_name}({cpp_args_list}) {{
+{try_body}
 }}"""
 
     if not include_preamble:
-        return f"""namespace {{
+        if wrap_in_anonymous_namespace:
+            return f"""namespace {{
 
 {fn_block}
 
 }}
 """
+        return fn_block + "\n"
 
     vec_inc = _cpp_signature_needs_vector_include(cpp_return_type, param_cpp_types)
     vector_include = "#include <vector>\n" if vec_inc else ""
@@ -279,9 +340,9 @@ def _parse_infer_shape_for_codegen(func: Callable) -> _InferShapeCodegenMeta:
     input_elem_cpp: list[Optional[str]] = []
     for p in params:
         ann = hints.get(p.name, p.annotation)
-        im = _infer_shape_tuple_meta(ann, f"infer_shape parameter {p.name!r}")
+        im = _tuple_shape_annotation_meta(ann, f"infer_shape parameter {p.name!r}")
         input_modes.append(im.kind)
-        if im.kind == _INFER_SHAPE_MODE__FIXED:
+        if im.kind == _TUPLE_SHAPE_MODE__FIXED:
             input_dims.append(im.dims)
             input_elem_cpp.append(None)
         else:
@@ -291,12 +352,12 @@ def _parse_infer_shape_for_codegen(func: Callable) -> _InferShapeCodegenMeta:
     output_dims: list[Optional[int]] = []
     output_elem_cpp: list[Optional[str]] = []
     for om in out_metas:
-        if om.kind == _INFER_SHAPE_MODE__FIXED:
-            output_modes.append(_INFER_SHAPE_MODE__FIXED)
+        if om.kind == _TUPLE_SHAPE_MODE__FIXED:
+            output_modes.append(_TUPLE_SHAPE_MODE__FIXED)
             output_dims.append(om.dims)
             output_elem_cpp.append(None)
         else:
-            output_modes.append(_INFER_SHAPE_MODE__VARIADIC)
+            output_modes.append(_TUPLE_SHAPE_MODE__VARIADIC)
             output_dims.append(None)
             output_elem_cpp.append(om.elem_cpp)
     return _InferShapeCodegenMeta(
@@ -321,10 +382,11 @@ def _cpp_signature_needs_vector_include(cpp_return_type: str, parameter_cpp_type
 
 
 def _parse_calc_workspace_for_codegen(func: Callable) -> _CalcWorkspaceCodegenMeta:
-    """Parse calc_workspace function for executor C++ glue (shape-only v1).
+    """Parse calc_workspace for executor C++ glue.
 
-    Contract: parameter annotations mirror infer_shape (fixed or variadic tuple[int, ...]),
-    return annotation is int (workspace size in bytes).
+    Contract: parameters are ``(in0_shape, in0_dtype_size, ...)`` — alternating infer_shape-style
+    tuple annotations and ``int`` (per-element size in bytes from GE dtype). Return annotation is
+    ``int`` (workspace bytes; must be ``>= 0`` on success).
     """
     sig = inspect.signature(func)
     try:
@@ -337,21 +399,33 @@ def _parse_calc_workspace_for_codegen(func: Callable) -> _CalcWorkspaceCodegenMe
     if ret_ann is not int:
         raise TypeError(f"calc_workspace return annotation must be int, got {ret_ann!r}")
     params = list(sig.parameters.values())
-    if not params:
-        raise TypeError("calc_workspace must accept at least one shape argument")
+    if len(params) < 2 or len(params) % 2 != 0:
+        raise TypeError(
+            "calc_workspace must have an even number of parameters: "
+            "(shape0, dtype0, shape1, dtype1, ...)"
+        )
+    n_tensor_inputs = len(params) // 2
     input_modes: list[str] = []
     input_dims: list[Optional[int]] = []
     input_elem_cpp: list[Optional[str]] = []
-    for p in params:
-        ann = hints.get(p.name, p.annotation)
-        im = _infer_shape_tuple_meta(ann, f"calc_workspace parameter {p.name!r}")
+    for i in range(n_tensor_inputs):
+        p_shape = params[2 * i]
+        p_dtype = params[2 * i + 1]
+        ann_shape = hints.get(p_shape.name, p_shape.annotation)
+        ann_dtype = hints.get(p_dtype.name, p_dtype.annotation)
+        im = _tuple_shape_annotation_meta(ann_shape, f"calc_workspace parameter {p_shape.name!r}")
+        if not _is_calc_workspace_dtype_size_annotation(ann_dtype):
+            raise TypeError(
+                f"calc_workspace parameter {p_dtype.name!r} must be annotated as int (dtype element "
+                f"size in bytes), got {ann_dtype!r}"
+            )
         input_modes.append(im.kind)
-        if im.kind == _INFER_SHAPE_MODE__FIXED:
+        if im.kind == _TUPLE_SHAPE_MODE__FIXED:
             input_dims.append(im.dims)
             input_elem_cpp.append(None)
         else:
             input_dims.append(None)
-            input_elem_cpp.append(_to_cpp_type(get_args(ann)[0]))
+            input_elem_cpp.append(_to_cpp_type(get_args(ann_shape)[0]))
     cpp_bind_name = _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE)
     return _CalcWorkspaceCodegenMeta(
         sig=sig,
@@ -378,15 +452,27 @@ def _generate_infer_shape_pybind_embedded(func: Callable, *, embed_in_host: bool
 def _generate_calc_workspace_pybind_embedded(func: Callable) -> str:
     """C++ pybind callable for calc_workspace (embedded in an executor TU).
 
-    The wrapper is placed in an anonymous namespace and assumes that the
-    including translation unit already provides pybind11 includes and
-    ``namespace py = pybind11``.
+    Emits ``GeDataTypeElementSize`` plus :func:`_generate_pybind_wrapper` with
+    ``on_py_error='print_and_return_neg1'``. C++ parameters alternate shape types and ``int64_t``
+    element-size values (from ``GetDataType`` → size in the workspace block). No PyTorch import in
+    the wrapper path.
     """
-    return _generate_pybind_wrapper(
+    meta = _parse_calc_workspace_for_codegen(func)
+    inner = _generate_pybind_wrapper(
         func,
-        _snake_case_to_camel_case(_FUNC_NAME__CALC_WORKSPACE),
+        meta.cpp_bind_name,
         include_preamble=False,
+        on_py_error="print_and_return_neg1",
+        wrap_in_anonymous_namespace=False,
     )
+    size_fn = _generate_ge_dtype_element_size_fn_cpp()
+    return f"""namespace {{
+
+{size_fn}
+
+{inner}
+}}
+"""
 
 
 def _infer_shape_input_block_fixed(i: int, dim_count: int) -> str:
@@ -396,7 +482,8 @@ def _infer_shape_input_block_fixed(i: int, dim_count: int) -> str:
     if (in{i}_shape->GetDimNum() != static_cast<size_t>({dim_count})) {{
         return GRAPH_FAILED;
     }}
-    auto in{i}_tuple = std::make_tuple({idx});"""
+    auto in{i}_shape_tuple = std::make_tuple({idx});
+"""
 
 
 def _infer_shape_input_block_variadic(i: int, elem_cpp: str) -> str:
@@ -406,11 +493,12 @@ def _infer_shape_input_block_variadic(i: int, elem_cpp: str) -> str:
     else:
         push_expr = f"static_cast<{elem_cpp}>((*in{i}_shape)[j])"
     return f"""    const gert::Shape* in{i}_shape = context->GetInputShape({i});
-    std::vector<{elem_cpp}> in{i}_vec;
-    in{i}_vec.reserve(in{i}_shape->GetDimNum());
+    std::vector<{elem_cpp}> in{i}_shape_vec;
+    in{i}_shape_vec.reserve(in{i}_shape->GetDimNum());
     for (size_t j = 0; j < in{i}_shape->GetDimNum(); ++j) {{
-        in{i}_vec.push_back({push_expr});
-    }}"""
+        in{i}_shape_vec.push_back({push_expr});
+    }}
+"""
 
 
 def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
@@ -422,7 +510,7 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
     """
     blocks: list[str] = []
     for i, mode in enumerate(meta.input_modes):
-        if mode == _INFER_SHAPE_MODE__FIXED:
+        if mode == _TUPLE_SHAPE_MODE__FIXED:
             blocks.append(_infer_shape_input_block_fixed(i, meta.input_dims[i]))
         else:
             blocks.append(_infer_shape_input_block_variadic(i, meta.input_elem_cpp[i]))
@@ -430,10 +518,10 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
     n_in = len(meta.input_modes)
     call_parts: list[str] = []
     for i in range(n_in):
-        if meta.input_modes[i] == _INFER_SHAPE_MODE__FIXED:
-            call_parts.append(f"in{i}_tuple")
+        if meta.input_modes[i] == _TUPLE_SHAPE_MODE__FIXED:
+            call_parts.append(f"in{i}_shape_tuple")
         else:
-            call_parts.append(f"in{i}_vec")
+            call_parts.append(f"in{i}_shape_vec")
     call_args = ", ".join(call_parts)
     bind = meta.cpp_bind_name
     n_out = len(meta.output_modes)
@@ -445,7 +533,8 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
         return f"""    gert::Shape* out_shape_{out_idx} = context->GetOutputShape({out_idx});
     *out_shape_{out_idx} = gert::Shape{{
         {out_idx_list}
-    }};"""
+    }};
+"""
 
     def _variadic_assign_from_vec(vec_expr: str, elem_cpp: str, out_idx: int) -> str:
         if elem_cpp == "int64_t":
@@ -456,39 +545,42 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
     out_shape_{out_idx}->SetDimNum({vec_expr}.size());
     for (size_t j = 0; j < {vec_expr}.size(); ++j) {{
         {assign_inner}
-    }}"""
+    }}
+"""
 
-    if n_out == 1 and meta.output_modes[0] == _INFER_SHAPE_MODE__FIXED:
+    if n_out == 1 and meta.output_modes[0] == _TUPLE_SHAPE_MODE__FIXED:
         out_d = meta.output_dims[0]
         assert out_d is not None
         out_idx = ",\n\t\t".join(
-            f"static_cast<int64_t>(std::get<{j}>(out_tuple))" for j in range(out_d)
+            f"static_cast<int64_t>(std::get<{j}>(out_shape_tuple))" for j in range(out_d)
         )
         return f"""{inputs_cpp}
-    auto out_tuple = {bind}({call_args});
+    auto out_shape_tuple = {bind}({call_args});
     gert::Shape* out_shape = context->GetOutputShape(0);
     *out_shape = gert::Shape{{
         {out_idx}
     }};
-    return GRAPH_SUCCESS;"""
+    return GRAPH_SUCCESS;
+"""
 
-    if n_out == 1 and meta.output_modes[0] == _INFER_SHAPE_MODE__VARIADIC:
+    if n_out == 1 and meta.output_modes[0] == _TUPLE_SHAPE_MODE__VARIADIC:
         out_elem = meta.output_elem_cpp[0]
         assert out_elem is not None
         if out_elem == "int64_t":
-            assign = f"""    auto out_vec = {bind}({call_args});
+            assign = f"""    auto out_shape_vec = {bind}({call_args});
     gert::Shape* out_shape = context->GetOutputShape(0);
-    out_shape->SetDimNum(out_vec.size());
-    for (size_t j = 0; j < out_vec.size(); ++j) {{
-        (*out_shape)[j] = out_vec[j];
+    out_shape->SetDimNum(out_shape_vec.size());
+    for (size_t j = 0; j < out_shape_vec.size(); ++j) {{
+        (*out_shape)[j] = out_shape_vec[j];
     }}"""
         else:
-            assign = f"""    auto out_vec = {bind}({call_args});
+            assign = f"""    auto out_shape_vec = {bind}({call_args});
     gert::Shape* out_shape = context->GetOutputShape(0);
-    out_shape->SetDimNum(out_vec.size());
-    for (size_t j = 0; j < out_vec.size(); ++j) {{
-        (*out_shape)[j] = static_cast<int64_t>(out_vec[j]);
-    }}"""
+    out_shape->SetDimNum(out_shape_vec.size());
+    for (size_t j = 0; j < out_shape_vec.size(); ++j) {{
+        (*out_shape)[j] = static_cast<int64_t>(out_shape_vec[j]);
+    }}
+"""
         return f"""{inputs_cpp}
 {assign}
     return GRAPH_SUCCESS;"""
@@ -496,8 +588,8 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
     # Multiple outputs: pybind returns nested std::tuple; unpack per output index.
     out_assign_lines: list[str] = []
     for k in range(n_out):
-        inner = f"std::get<{k}>(out_tuple)"
-        if meta.output_modes[k] == _INFER_SHAPE_MODE__FIXED:
+        inner = f"std::get<{k}>(out_shape_tuple)"
+        if meta.output_modes[k] == _TUPLE_SHAPE_MODE__FIXED:
             od = meta.output_dims[k]
             assert od is not None
             out_assign_lines.append(_fixed_assign_from_inner(inner, od, k))
@@ -507,7 +599,7 @@ def _infer_shape_ge_impl_body(meta: _InferShapeCodegenMeta) -> str:
             out_assign_lines.append(_variadic_assign_from_vec(inner, elem, k))
     assigns = "\n".join(out_assign_lines)
     return f"""{inputs_cpp}
-    auto out_tuple = {bind}({call_args});
+    auto out_shape_tuple = {bind}({call_args});
 {assigns}
     return GRAPH_SUCCESS;"""
 
@@ -521,8 +613,8 @@ def _generate_infer_shape_host_tu_for_test(func: Callable) -> str:
     meta = _parse_infer_shape_for_codegen(func)
     pybind_block = _generate_infer_shape_pybind_embedded(func, embed_in_host=True) + "\n\n"
     infer_shape_ge_body = _infer_shape_ge_impl_body(meta)
-    any_variadic = any(m == _INFER_SHAPE_MODE__VARIADIC for m in meta.output_modes) or any(
-        m == _INFER_SHAPE_MODE__VARIADIC for m in meta.input_modes
+    any_variadic = any(m == _TUPLE_SHAPE_MODE__VARIADIC for m in meta.output_modes) or any(
+        m == _TUPLE_SHAPE_MODE__VARIADIC for m in meta.input_modes
     )
     vec_inc = "#include <vector>\n" if any_variadic else ""
     return f"""// Auto-generated test TU fragment (include mock gert/ge header first)
@@ -549,23 +641,28 @@ static ge::graphStatus InferShapeGeImpl(gert::InferShapeContext* context) {{
 def _generate_workspace_block_for_calc_workspace(meta: _CalcWorkspaceCodegenMeta) -> str:
     """Return C++ statements that compute workspaceSize via calc_workspace (no surrounding braces).
 
-    For v1, parameters mirror infer_shape metadata (fixed or variadic tuple). We only support
-    constructing std::tuple<int64_t, ...> or std::vector<int64_t> from logical shapes.
+    Reads each input tensor's shape and maps ``GetDataType()`` through ``GeDataTypeElementSize``,
+    then calls ``calcWorkspace`` with interleaved shape tuple/vector and ``int64_t`` element sizes.
     """
     blocks: list[str] = []
     for i, mode in enumerate(meta.input_modes):
-        if mode == _INFER_SHAPE_MODE__FIXED:
+        if mode == _TUPLE_SHAPE_MODE__FIXED:
             dim_count = meta.input_dims[i]
             assert dim_count is not None
             idx = ", ".join(f"in{i}_shape[{j}]" for j in range(dim_count))
             blocks.append(
                 f"""        const auto* in{i}_tensor = ctx->GetInputTensor({i});
+        const int in{i}_dtype_size = GeDataTypeElementSize(in{i}_tensor->GetDataType());
+        if (in{i}_dtype_size < 0) {{
+            return GRAPH_FAILED;
+        }}
         const auto& in{i}_storage = in{i}_tensor->GetShape();
         const gert::Shape& in{i}_shape = in{i}_storage.GetShape();
         if (in{i}_shape.GetDimNum() != static_cast<size_t>({dim_count})) {{
             return GRAPH_FAILED;
         }}
-        auto in{i}_tuple = std::make_tuple({idx});"""
+        auto in{i}_shape_tuple = std::make_tuple({idx});
+"""
             )
         else:
             elem_cpp = meta.input_elem_cpp[i]
@@ -576,20 +673,26 @@ def _generate_workspace_block_for_calc_workspace(meta: _CalcWorkspaceCodegenMeta
                 push_expr = f"static_cast<{elem_cpp}>(in{i}_shape[j])"
             blocks.append(
                 f"""        const auto* in{i}_tensor = ctx->GetInputTensor({i});
+        const int in{i}_dtype_size = GeDataTypeElementSize(in{i}_tensor->GetDataType());
+        if (in{i}_dtype_size < 0) {{
+            return GRAPH_FAILED;
+        }}
         const auto& in{i}_storage = in{i}_tensor->GetShape();
         const gert::Shape& in{i}_shape = in{i}_storage.GetShape();
-        std::vector<{elem_cpp}> in{i}_vec;
-        in{i}_vec.reserve(in{i}_shape.GetDimNum());
+        std::vector<{elem_cpp}> in{i}_shape_vec;
+        in{i}_shape_vec.reserve(in{i}_shape.GetDimNum());
         for (size_t j = 0; j < in{i}_shape.GetDimNum(); ++j) {{
-            in{i}_vec.push_back({push_expr});
-        }}"""
+            in{i}_shape_vec.push_back({push_expr});
+        }}
+"""
             )
     call_args: list[str] = []
     for i, mode in enumerate(meta.input_modes):
-        if mode == _INFER_SHAPE_MODE__FIXED:
-            call_args.append(f"in{i}_tuple")
+        if mode == _TUPLE_SHAPE_MODE__FIXED:
+            call_args.append(f"in{i}_shape_tuple")
         else:
-            call_args.append(f"in{i}_vec")
+            call_args.append(f"in{i}_shape_vec")
+        call_args.append(f"static_cast<int64_t>(in{i}_dtype_size)")
     call_args_str = ", ".join(call_args)
     per_input = "\n".join(blocks)
     return f"""{per_input}
@@ -733,8 +836,8 @@ def _generate_op_custom_def_cpp(
         embed_in_host=True,
     ) + "\n\n"
     infer_shape_ge_body = _infer_shape_ge_impl_body(infer_shape_meta)
-    any_variadic = any(m == _INFER_SHAPE_MODE__VARIADIC for m in infer_shape_meta.output_modes) or any(
-        m == _INFER_SHAPE_MODE__VARIADIC for m in infer_shape_meta.input_modes
+    any_variadic = any(m == _TUPLE_SHAPE_MODE__VARIADIC for m in infer_shape_meta.output_modes) or any(
+        m == _TUPLE_SHAPE_MODE__VARIADIC for m in infer_shape_meta.input_modes
     )
     vec_inc = "#include <vector>\n" if any_variadic else ""
 

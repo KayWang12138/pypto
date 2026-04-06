@@ -7,13 +7,20 @@ from __future__ import annotations
 import textwrap
 
 import pytest
+import torch
 
+from pypto.export.dtype_mapping import (
+    _ge_data_type_enum_value_to_element_size,
+    _ge_data_type_enum_value_to_torch_dtype,
+    _ge_dtype_token_from_base,
+    _GE_DATA_TYPE_VALUE_TO_TORCH_BASE,
+    _torch_dtype_to_ge_dtype,
+    _torch_dtype_to_ir_dtype,
+)
 from pypto.export.helpers import (
     _camel_case_to_snake_case,
     _get_renamed_func_source,
     _snake_case_to_camel_case,
-    _torch_dtype_to_ge_dtype,
-    _torch_dtype_to_ir_dtype,
     _unwrap_decorated_func_name,
     _unwrap_decorated_func_source,
 )
@@ -113,8 +120,8 @@ def test_torch_dtype_to_ge_dtype_mappings():
     # Floats
     assert _torch_dtype_to_ge_dtype("torch.float16") == "ge::DT_FLOAT16"
     assert _torch_dtype_to_ge_dtype("torch.float32") == "ge::DT_FLOAT"
-    # bfloat16 maps to BF16 in GE
-    assert _torch_dtype_to_ge_dtype("torch.bfloat16") == "ge::DT_BF16"
+    assert _torch_dtype_to_ge_dtype("torch.float64") == "ge::DT_DOUBLE"
+    assert _torch_dtype_to_ge_dtype("torch.bfloat16") == "ge::DT_BFLOAT16"
     # Signed ints
     assert _torch_dtype_to_ge_dtype("torch.int8") == "ge::DT_INT8"
     assert _torch_dtype_to_ge_dtype("torch.int16") == "ge::DT_INT16"
@@ -127,6 +134,16 @@ def test_torch_dtype_to_ge_dtype_mappings():
     assert _torch_dtype_to_ge_dtype("torch.uint64") == "ge::DT_UINT64"
     # Bool
     assert _torch_dtype_to_ge_dtype("torch.bool") == "ge::DT_BOOL"
+    # Complex
+    assert _torch_dtype_to_ge_dtype("torch.complex32") == "ge::DT_COMPLEX32"
+    assert _torch_dtype_to_ge_dtype("torch.complex64") == "ge::DT_COMPLEX64"
+    assert _torch_dtype_to_ge_dtype("torch.complex128") == "ge::DT_COMPLEX128"
+    # Quantized storage dtypes
+    assert _torch_dtype_to_ge_dtype("torch.qint8") == "ge::DT_QINT8"
+    assert _torch_dtype_to_ge_dtype("torch.qint16") == "ge::DT_QINT16"
+    assert _torch_dtype_to_ge_dtype("torch.qint32") == "ge::DT_QINT32"
+    assert _torch_dtype_to_ge_dtype("torch.quint8") == "ge::DT_QUINT8"
+    assert _torch_dtype_to_ge_dtype("torch.quint16") == "ge::DT_QUINT16"
 
 
 @pytest.mark.parametrize("bad", ["float16", "fp16", "ge::DT_FLOAT16", "int"])
@@ -136,9 +153,57 @@ def test_torch_dtype_to_ge_dtype_rejects_non_torch_prefix(bad: str):
 
 
 def test_torch_dtype_to_ge_dtype_rejects_unsupported_torch_dtype():
-    # complex and quantized dtypes should still be rejected
+    # e.g. float8: not mapped to ge::DT_HIFLOAT8 without a confirmed 1:1 semantics
     with pytest.raises(ValueError, match="Unsupported torch dtype for GE mapping"):
-        _torch_dtype_to_ge_dtype("torch.complex64")
+        _torch_dtype_to_ge_dtype("torch.float8_e4m3fn")
+
+
+def test_ge_data_type_enum_value_to_element_size_examples():
+    assert _ge_data_type_enum_value_to_element_size(0) == 4  # float32
+    assert _ge_data_type_enum_value_to_element_size(1) == 2  # float16
+    assert _ge_data_type_enum_value_to_element_size(27) == 2  # bfloat16
+
+
+def test_ge_data_type_enum_value_to_element_size_rejects_unmapped():
+    with pytest.raises(ValueError, match="element size"):
+        _ge_data_type_enum_value_to_element_size(13)  # DT_STRING
+
+
+def test_ge_data_type_enum_value_to_torch_dtype_int16_example():
+    import torch
+
+    assert _ge_data_type_enum_value_to_torch_dtype(6) is torch.int16
+
+
+@pytest.mark.parametrize(
+    ("value", "basename"),
+    sorted(_GE_DATA_TYPE_VALUE_TO_TORCH_BASE.items(), key=lambda x: x[0]),
+)
+def test_ge_data_type_enum_value_to_torch_dtype_matches_basename(value: int, basename: str):
+    import torch
+
+    if not hasattr(torch, basename):
+        pytest.skip(f"torch has no dtype {basename!r}")
+    td = _ge_data_type_enum_value_to_torch_dtype(value)
+    assert str(td) == f"torch.{basename}"
+
+
+@pytest.mark.parametrize(
+    ("value", "basename"),
+    sorted(_GE_DATA_TYPE_VALUE_TO_TORCH_BASE.items(), key=lambda x: x[0]),
+)
+def test_ge_data_type_enum_value_forward_ge_token_matches(value: int, basename: str):
+    import torch
+
+    if not hasattr(torch, basename):
+        pytest.skip(f"torch has no dtype {basename!r}")
+    td = getattr(torch, basename)
+    assert _torch_dtype_to_ge_dtype(str(td)) == _ge_dtype_token_from_base(basename)
+
+
+def test_ge_data_type_enum_value_to_torch_dtype_rejects_unmapped():
+    with pytest.raises(ValueError, match="Unsupported ge::DataType enum value"):
+        _ge_data_type_enum_value_to_torch_dtype(13)  # DT_STRING in gert_ge_minimal.hpp
 
 
 def test_torch_dtype_to_ir_dtype_matches_expected_members():
@@ -167,7 +232,7 @@ def test_pypto_op_calc_workspace_decorator_wiring():
         return x_shape
 
     @pypto_op_calc_workspace(pypto_op_kernel=kernel_body)
-    def ws_calc_workspace(x_shape: tuple[int, int]) -> int:
+    def ws_calc_workspace(x_shape: tuple[int, int], x_dtype_size: int) -> int:
         return 0
 
     @pypto_op_infer_dtype(pypto_op_kernel=kernel_body)

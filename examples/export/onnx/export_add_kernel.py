@@ -55,11 +55,14 @@ def add_pypto_infer_shape(
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=add_kernel_body)
 def add_pypto_calc_workspace(
     input0_shape: tuple[int, int, int, int],
+    input0_dtype_size: int,
     input1_shape: tuple[int, int, int, int],
+    input1_dtype_size: int,
 ) -> int:
-    # Worst-case scratch for vec-tiled elementwise add (FP16): ~2 full buffers.
+    # Worst-case scratch for vec-tiled elementwise add: ~2 full buffers.
     n = math.prod(input0_shape)
-    return n * 2 * 2
+    esz = max(input0_dtype_size, input1_dtype_size)
+    return n * 2 * esz
 
 
 @pypto.export.pypto_op_infer_dtype(pypto_op_kernel=add_kernel_body)

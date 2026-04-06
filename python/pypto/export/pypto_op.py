@@ -9,6 +9,7 @@ import pypto_ir
 
 from .cpp import codegen
 from .cpp import layout
+from .dtype_mapping import _torch_dtype_to_ir_dtype
 from .helpers import (
     _camel_case_to_snake_case,
     _FUNC_NAME__CALC_WORKSPACE,
@@ -16,7 +17,6 @@ from .helpers import (
     _FUNC_NAME__INFER_DTYPE,
     _get_renamed_func_source,
     _snake_case_to_camel_case,
-    _torch_dtype_to_ir_dtype,
 )
 from .kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
 from . import meta_schema
@@ -110,6 +110,13 @@ def pypto_op_kernel(
 
 def pypto_op_calc_workspace(*, pypto_op_kernel):
     """Decorator to register calc_workspace Python source and generated C++ wrapper on kernel meta.
+
+    The function must take **2×N** parameters for **N** tensor inputs: for each input *i*,
+    ``in{i}_shape`` is a ``tuple[...]`` (fixed rank or ``tuple[T, ...]`` for dynamic rank) and
+    ``in{i}_dtype_size`` (or any name) is annotated as ``int`` — **per-element size in bytes**
+    for that tensor’s GE dtype. Generated C++ maps ``GetDataType()`` to size via
+    ``GeDataTypeElementSize`` (no PyTorch in the embedded wrapper). Return a non-negative
+    ``int`` workspace size in bytes; negative values are reserved for failure in generated glue.
 
     These meta keys are kept for graph tooling and future use; they are not bundled into
     ``cpp_sources_zip`` (no ``calc_workspace`` TU in the exported cpp tree).
