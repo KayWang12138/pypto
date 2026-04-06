@@ -494,6 +494,17 @@ Algorithm: Flash Attention (Forward)
 | 性能目标 | 首跑精度成功性能的 2 倍 | 性能优化指导 |
 | 精度要求 | atol=0.001, rtol=0.001 | 默认精度标准 |
 
+### 动态轴声明（§8）
+
+spec.md 的 §8 动态轴章节必须输出。处理规则：
+- 用户指定了动态轴 → 使用用户指定的
+- 用户明确要求全静态（"无动态轴"/"静态算子"）→ §8 写明"无动态轴"
+- 用户未提及 → 根据输入轴的语义名称自动推断：
+  - batch 轴（batch、b、bs）→ 始终 DYNAMIC
+  - 其他运行时会变的轴 → DYNAMIC：num_tokens、token_num、seq_len、seq、sequence、S
+  - 架构常量轴 → STATIC：num_heads、head_dim、hidden_dim、d_model、channel、height、width
+  - 无法判断的轴 → 默认 STATIC
+
 ### 可选字段（有合理默认值，可完全跳过）
 
 | 字段 | 默认值 | 用途 |

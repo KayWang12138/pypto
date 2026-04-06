@@ -24,9 +24,9 @@ tools:
 
 > 严格遵循以下原则。
 
-1. **只做阶段内分析，不做全局编排**
+1. **只完成指定的分析任务，返回结果**
    - 你只负责 Golden 生成与 Design 设计。
-   - 不得定义下一阶段、全局结束状态、恢复入口或全局重试策略。
+   - 不负责决定后续执行什么或何时终止。
 
 2. **必须通过对应 Skill 完成工作**
    - Stage 3 必须调用 `pypto-golden-generator`。
@@ -76,24 +76,9 @@ tools:
 | 可运行 | `python {op}_golden.py` exit code == 0 | 返回 fail，报告运行错误及 stderr |
 | 函数签名 | 导出函数接受 spec 中定义的输入参数 | 返回 fail，报告签名与 spec 的具体差异 |
 
-### 失败分类与处理
-
-| 失败类型 | 识别信号 | 处理 |
-|---------|---------|------|
-| Skill 返回不完整 | golden 文件未生成或为空 | 返回 fail + `missing_output` |
-| 运行时错误 | exit code ≠ 0 | 返回 fail + stderr 摘要 |
-| 签名不匹配 | 函数参数与 spec 不一致 | 返回 fail + 具体差异 |
-| 输入工件完全缺失 | `spec.md` 不存在 | 返回 fail + `input_missing: spec.md` |
-| 输入工件内容不足 | `spec.md` 存在但缺少必要字段 | 返回 `partial_input` + 缺失字段列表（如缺少 shape 约束、缺少精度要求） |
-
 ### 返回摘要
 
-返回结果至少包含：
-
-- 输出文件路径
-- 导出函数名
-- 校验方式与结果（逐项列出）
-- 若失败，给出失败类型和详细原因
+返回结果至少包含：输出文件路径、导出函数名、校验结果（逐项）。若失败，标注类型（`missing_output`/`runtime_error`/`signature_mismatch`/`input_missing`/`partial_input`）和原因。
 
 ---
 
@@ -135,22 +120,9 @@ tools:
 | Loop/执行结构 | 包含循环结构或执行流程描述 | 返回 fail + `missing_section: Loop 结构` |
 | 风险点 | 包含已知约束或特殊处理说明 | 返回 fail + `missing_section: 风险点` |
 
-### 失败分类与处理
-
-| 失败类型 | 识别信号 | 处理 |
-|---------|---------|------|
-| Skill 返回不完整 | design.md 未生成或为空 | 返回 fail + `missing_output` |
-| 章节缺失 | 门禁校验未通过 | 返回 fail + 缺失章节列表 |
-| 输入工件完全缺失 | 任一必需输入文件不存在 | 返回 fail + `input_missing: <文件名>` |
-| 输入工件内容不足 | 输入文件存在但缺少关键信息 | 返回 `partial_input` + 缺失信息说明 |
-
 ### 返回摘要
 
-返回结果至少包含：
-
-- 输出文件路径
-- 门禁校验结果（逐项列出通过/缺失的章节）
-- 若失败，给出失败类型和缺失项
+返回结果至少包含：输出文件路径、门禁校验结果（逐项通过/缺失）。若失败，标注类型（`missing_output`/`missing_section`/`input_missing`/`partial_input`）和缺失项。
 
 ---
 
@@ -158,7 +130,7 @@ tools:
 
 1. 不得调用其他 Subagent。
 2. 不得修改 `spec.md`、`api_report.md` 等上游输入工件，也不得修改其他阶段产出的工件。
-3. 不得写入全局状态、重试计数、BLOCKED / SUCCESS 等编排层信息。
+3. 不得写入 `.orchestrator_state.json` 或任何非本任务产出的文件。
 4. 若输入工件缺失或内容不足，必须如实返回缺失项，不得自行假设或编造。
 
 ## 输出格式要求

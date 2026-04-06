@@ -36,6 +36,8 @@
 
 OpenCode 会自动加载项目规范，选择合适的技能，按标准流程执行开发任务。无需手动配置。
 
+此外，仓库已预接入 `pypto-op-lint` 自动检查：在 OpenCode 中会通过 `.opencode/plugins/` 本地插件自动执行文件级 lint 与测试结果三态解析；在 Claude Code 中会通过 `.agents/settings.json` 的 hooks 自动触发对应检查。
+
 ---
 
 ## 使用方式
@@ -90,6 +92,10 @@ cp -r .agents/skills/* .claude/skills/
 
 # 4. 复制 Agents 到 Claude Code 目录
 cp -r .opencode/agents/* .claude/agents/
+
+# 5. 保留项目内的自动 lint 配置与 hook 脚本
+#    `pypto-op-workflow` 的自动 lint 依赖 .agents/settings.json
+#    与 .agents/hooks/pypto-op-lint/，不要遗漏这两个路径
 ```
 
 #### 方式一：直接调用 Skill
@@ -221,6 +227,8 @@ Stage 7: 性能调优 → PerfTuner Subagent
 **工作流程**：`需求理解 → 环境准备 → Golden → 设计 → 算子实现 → 精度调试 → 性能分析 → 性能调优`
 
 **关键串联**：调用 `pypto-intent-understanding`、`pypto-api-explorer`、`pypto-golden-generator`、`pypto-op-design`、`pypto-op-develop`、`pypto-precision-debugger`、`pypto-operator-auto-tuner`
+
+**自动约束**：工作流执行期间会自动接入 `pypto-op-lint`，对 `*_impl.py`、`*_golden.py`、`test_*.py` 的写入进行规则检查，并在执行 `python test_*.py` 后自动补充精度三态判定结果。
 
 #### `pypto-intent-understanding` — 需求意图理解
 

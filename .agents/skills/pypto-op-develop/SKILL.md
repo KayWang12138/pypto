@@ -226,7 +226,10 @@ python3 custom/{op}/test_{op}.py
 6. **动态循环边界使用 unroll_list**：当循环次数为动态值时，需要使用 `unroll_list`；多层循环嵌套时，最内层使用 `unroll_list`。
 7. **matmul / cube 场景**：必须确认 `set_cube_tile_shapes(...)` 已正确配置。
 8. **输出写回必须显式完成**：使用 `output[:] = ...`、`output.move(...)` 或 `pypto.assemble(..., output)`；不要写 `output = ...`。
-9. **动态轴必须显式标注**：所有动态 shape 输入和输出都要在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。
+9. **动态轴处理**：Tensor 注解中的动态轴标注规则：
+   - 输入中声明了动态轴 → 按声明标注 `pypto.DYNAMIC`
+   - 输入中明确写"无动态轴" → 使用固定 shape
+   - 输入中未提及动态轴 → 默认第一轴用 `pypto.DYNAMIC`，其余用 `...`（即 `pypto.Tensor([pypto.DYNAMIC, ...], dtype)`）
 10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
 11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
 12. 如果设计中已有 tiling / loop 约束，编码时优先遵循 `design.md`，不要临时拍脑袋改写。
