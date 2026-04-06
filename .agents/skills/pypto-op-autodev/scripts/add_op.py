@@ -2,7 +2,7 @@
 """add_op.py — 添加新算子到 CSV（去重 + 默认值）。
 
 用法:
-    python add_op.py --csv autodev/scan_results.csv \\
+    python add_op.py --csv {csv_path} \\
         --op tanh_linear --source manual --complexity easy --category elementwise
 
 输出 JSON:
@@ -41,7 +41,7 @@ def main():
 
     # 检查算子目录是否已有完整工件（impl + test 都存在才视为已完成）
     csv_path = Path(args.csv)
-    custom_dir = csv_path.parent / "custom"  # autodev/custom/
+    custom_dir = csv_path.parent / "custom"  # {csv_path}/../custom/
     op_dir = custom_dir / args.op
     if op_dir.exists():
         has_impl = (op_dir / f"{args.op}_impl.py").exists()

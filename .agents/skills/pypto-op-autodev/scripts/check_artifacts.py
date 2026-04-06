@@ -2,8 +2,8 @@
 """check_artifacts.py — 算子产物一致性校验。
 
 用法:
-    python check_artifacts.py --op-dir autodev/custom/gelu --op gelu
-    python check_artifacts.py --operators-dir autodev/custom --check-all
+    python check_artifacts.py --op-dir {work_dir}/gelu --op gelu
+    python check_artifacts.py --operators-dir {work_dir} --check-all
 
 退出码:
     0: 所有检查通过

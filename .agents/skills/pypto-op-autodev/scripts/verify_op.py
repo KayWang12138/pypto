@@ -4,9 +4,9 @@
 检查产物完整性，可选执行测试，更新 CSV 中的 verify_status。
 
 用法:
-    python verify_op.py --csv autodev/scan_results.csv --op gelu
-    python verify_op.py --csv autodev/scan_results.csv --op gelu --run-test
-    python verify_op.py --csv autodev/scan_results.csv --verify-all
+    python verify_op.py --csv {csv_path} --op gelu
+    python verify_op.py --csv {csv_path} --op gelu --run-test
+    python verify_op.py --csv {csv_path} --verify-all
 
 退出码:
     0: 验证通过

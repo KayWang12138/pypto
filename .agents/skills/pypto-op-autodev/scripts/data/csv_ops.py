@@ -14,7 +14,7 @@ FIELDS = [
     "dev_result", "verify_status", "fail_count",
     "fps_total", "fps_confirmed",
     "create_time", "start_time", "end_time",
-    "blocked_stage", "duration_min", "depends_on", "note",
+    "blocked_stage", "duration_min", "depends_on", "last_strategy", "note",
 ]
 
 

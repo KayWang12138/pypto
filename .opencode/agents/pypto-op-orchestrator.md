@@ -29,6 +29,7 @@ tools:
 2. **逐阶段推进**：Stage 1→7 按门禁条件推进，Stage 6 仅在 `[PRECISION_FAIL]` 时进入。
 3. **全局状态只由你维护**：重试计数、BLOCKED/SUCCESS、持久化只由你更新，Subagent 只返回阶段内结果。
 4. **可验证**：每阶段需最小可验证工件，未验证项如实披露。
+5. **必须调度 Subagent 执行 Stage 3-7**：Stage 3-7 的实际工作必须通过 `@pypto-op-analyst`、`@pypto-op-developer`、`@pypto-op-perftuner` subagent 完成，禁止 orchestrator 自己直接生成 golden/design/impl/test 等代码文件。orchestrator 只负责状态管理和工件门禁验证。
 
 ---
 
@@ -36,7 +37,7 @@ tools:
 
 1. 解析算子名与工作目录 `custom/{op}/`
 2. 读取 `.orchestrator_state.json`（若存在旧格式先迁移）
-3. 若 `autodev-task.md` 中有 `known_limitations` 字段，读取对应文件，在 Stage 2（API 探索）和 Stage 5（代码实现）前参考其中的已知限制
+3. 若 prompt 中提供了已知框架限制（known limitations），在 Stage 2（API 探索）和 Stage 5（代码实现）前参考其中的已知限制
 4. 检查已有工件，从 `current_stage` 逐阶段推进
 
 ---

@@ -9,6 +9,10 @@ type HookOutput = {
 const DELIVERY_GATE_REMINDER =
   "[pypto-op-lint] 若准备结束当前阶段，请在算子目录显式运行 `python3 .agents/hooks/pypto-op-lint/pypto_op_lint.py --check-gate --op-dir <算子目录> --stage <当前阶段>` 做交付自检。";
 
+// NOTE: OpenCode plugin API 不支持 stop/session-end hook，因此无法像 Claude Code
+// (.agents/settings.json Stop hook) 那样在 agent 结束时自动阻断。当前只能通过
+// post-bash 后的文字提醒引导用户手动运行 --check-gate。
+
 function appendMessage(output: { output?: string }, message: string): void {
   output.output = `${output.output ?? ""}\n\n${message}`.trim();
 }
@@ -96,12 +100,22 @@ export const PyptoOpLintPlugin: Plugin = async (input) => {
       const filePath = output.args?.file_path ?? "";
       if (!filePath.endsWith("_impl.py")) return;
 
+      // pre-edit: 纯 lint 检查（无副作用）
       try {
         await $`${lint} --hook pre-edit`.stdin(
           JSON.stringify({ tool_input: { file_path: filePath } }),
         );
       } catch (error) {
         appendMessage(output, formatPluginError("pre-edit", error));
+      }
+
+      // pre-edit-backup: Stage 6 git 备份（独立于 lint）
+      try {
+        await $`${lint} --hook pre-edit-backup`.stdin(
+          JSON.stringify({ tool_input: { file_path: filePath } }),
+        );
+      } catch (error) {
+        appendMessage(output, formatPluginError("pre-edit-backup", error));
       }
     },
   };

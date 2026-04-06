@@ -57,7 +57,7 @@
     },
     {
       "id": "OL23", "severity": "S3", "dimension": "D1",
-      "stages": [5, 6, 7], "target": "gate",
+      "stages": [5, 6, 7], "target": "impl",
       "rule": "所有算子的 impl 应显式说明是否需要 loop；若未检测到 loop 相关结构则给出提醒",
       "check_function": "check_ol23"
     },
@@ -163,7 +163,7 @@
     },
     {
       "id": "OL24", "severity": "S1", "dimension": "D2",
-      "stages": [1, 2, 3, 4, 5, 6, 7], "target": "flow",
+      "stages": [1, 2, 3, 4, 5, 6, 7], "target": "gate",
       "rule": ".orchestrator_state.json 结构合法",
       "check_function": "check_ol24"
     }
