@@ -900,7 +900,17 @@ def hook_post_bash():
 
 
 def hook_pre_edit():
-    """PreToolUse[Write|Edit] — Stage 6 编辑 impl 前 git auto-commit"""
+    """PreToolUse[Write|Edit] — 纯 lint 检查，无副作用。
+
+    Git 备份逻辑已拆离到独立的 hook_pre_edit_backup()，
+    通过 --hook pre-edit-backup 触发，避免 lint 与版本控制写操作耦合。
+    """
+    # 当前 pre-edit 阶段暂无需前置 lint 检查，保留入口供后续扩展
+    sys.exit(0)
+
+
+def hook_pre_edit_backup():
+    """PreToolUse[Write|Edit] — Stage 6 编辑 impl 前 git auto-commit（独立于 lint）"""
     data = _load_hook_input_or_exit()
     file_path = data.get("tool_input", {}).get("file_path", "")
     if not file_path.endswith("_impl.py"):
@@ -1072,7 +1082,11 @@ def cmd_lint_test(op_dir: str, stage: int):
 def cmd_check_gate(op_dir: str, stage: int):
     ctx = _build_context(op_dir, stage)
     gate_rules = [r["id"] for r in ctx.rules
-                  if r.get("target") == "gate" and stage in r.get("stages", [])]
+                  if r.get("target") in ("gate", "flow")
+                  and stage in r.get("stages", [])]
+    # OL23 target=impl 但属于门禁 advisory，显式纳入
+    if stage in (5, 6, 7) and "OL23" not in gate_rules:
+        gate_rules.append("OL23")
     _cmd_run_and_exit(_run_checks(ctx, gate_rules))
 
 
@@ -1081,7 +1095,8 @@ def cmd_check_gate(op_dir: str, stage: int):
 def main():
     parser = argparse.ArgumentParser(description="PyPTO 算子开发流程确定性检查工具")
     parser.add_argument("--hook",
-                        choices=["post-edit", "post-bash", "pre-edit", "stop"],
+                        choices=["post-edit", "post-bash", "pre-edit",
+                                 "pre-edit-backup", "stop"],
                         help="Hook 模式（从 stdin 读 JSON）")
     parser.add_argument("--lint-impl", action="store_true",
                         help="检查 impl 文件")
@@ -1100,6 +1115,7 @@ def main():
         {"post-edit": hook_post_edit,
          "post-bash": hook_post_bash,
          "pre-edit": hook_pre_edit,
+         "pre-edit-backup": hook_pre_edit_backup,
          "stop": hook_stop,
          }[args.hook]()
     elif args.lint_impl:

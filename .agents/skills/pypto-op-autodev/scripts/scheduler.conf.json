@@ -1,0 +1,20 @@
+{
+  "scripts_dir": ".agents/skills/pypto-op-autodev/scripts",
+  "csv_path": "autodev/scan_results.csv",
+  "custom_dir": "autodev/custom",
+  "log_file": "autodev/logs/scheduler.log",
+  "pid_file": "autodev/run/scheduler.pid",
+
+  "stale_timeout_hours": 6,
+  "dev_timeout_sec": 5400,
+  "script_timeout_sec": 300,
+  "verify_test_timeout_sec": 600,
+
+  "opencode_bin": "opencode",
+  "orchestrator_agent": "pypto-op-orchestrator",
+  "discover_agent": "pypto-op-discover",
+
+  "dev_strategy": "auto",
+  "enable_discover": false,
+  "enable_fracture": true
+}

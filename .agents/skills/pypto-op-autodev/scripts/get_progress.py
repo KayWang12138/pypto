@@ -2,9 +2,9 @@
 """get_progress.py — 聚合统计当前开发进度，支持 JSON 和 Markdown 输出。
 
 用法:
-    python get_progress.py --csv autodev/scan_results.csv
-    python get_progress.py --csv autodev/scan_results.csv --format markdown
-    python get_progress.py --csv autodev/scan_results.csv --format markdown --output autodev/PROGRESS.md
+    python get_progress.py --csv {csv_path}
+    python get_progress.py --csv {csv_path} --format markdown
+    python get_progress.py --csv {csv_path} --format markdown --output {work_dir}/PROGRESS.md
 """
 import argparse
 import importlib.util

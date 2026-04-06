@@ -57,6 +57,8 @@ def mode1(args):
             fields["fail_count"] = str(int(row.get("fail_count") or 0) + 1)
         if args.blocked_stage is not None:
             fields["blocked_stage"] = str(args.blocked_stage)
+        if args.last_strategy is not None:
+            fields["last_strategy"] = args.last_strategy
         # 自动计算开发耗时
         start = parse_dt(row.get("start_time"))
         if start:
@@ -117,6 +119,8 @@ def main():
     parser.add_argument("--fps-total", type=int)
     parser.add_argument("--fps-confirmed", type=int)
     parser.add_argument("--blocked-stage", type=int, help="Stage number where blocked (1-7)")
+    parser.add_argument("--last-strategy", choices=["orchestrator", "workflow"],
+                        help="Dev strategy used")
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--reset-stale", action="store_true")
     parser.add_argument("--timeout-hours", type=float, default=6.0)
