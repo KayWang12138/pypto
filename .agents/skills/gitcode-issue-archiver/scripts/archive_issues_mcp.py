@@ -25,9 +25,11 @@ NOT_FOUND_RETRY_DELAY_SEC = 1
 class GitCodeMCPArchiver:
     """Archive GitCode repository issues using MCP tools."""
 
-    def __init__(self, repo_path: str, archive_dir: str):
+    def __init__(self, repo_path: str, archive_dir: str, start: Optional[int] = None, end: Optional[int] = None):
         self.repo_path = repo_path
         self.archive_dir = Path(archive_dir)
+        self.start = start
+        self.end = end
 
         parts = repo_path.split("/")
         if len(parts) != 2:
@@ -240,6 +242,9 @@ class GitCodeMCPArchiver:
             lines.append("")
 
         if comments:
+            # Sort comments by creation time (oldest first) to match web UI order
+            comments.sort(key=lambda c: c.get('created_at', ''))
+
             lines.append(f"## Comments ({len(comments)})")
             lines.append("")
 
@@ -368,11 +373,16 @@ class GitCodeMCPArchiver:
         deleted = 0
         errors = 0
 
-        for issue_number in range(1, max_issue_number + 1):
+        start_num = self.start if self.start is not None else 1
+        end_num = self.end if self.end is not None else max_issue_number
+
+        total_range = end_num - start_num + 1
+
+        for issue_number in range(start_num, end_num + 1):
             processed += 1
 
-            if processed % 10 == 0 or issue_number == max_issue_number:
-                print(f"Processing {processed}/{max_issue_number + 1} issues...")
+            if processed % 10 == 0 or issue_number == end_num:
+                print(f"Processing {processed}/{total_range} issues...")
 
             issue, error_status = self._get_issue(issue_number)
 
@@ -461,6 +471,18 @@ def main():
         "--token",
         help="GitCode Personal Access Token (optional, for private repos)"
     )
+    parser.add_argument(
+        "--start",
+        type=int,
+        default=None,
+        help="Start issue number (inclusive)"
+    )
+    parser.add_argument(
+        "--end",
+        type=int,
+        default=None,
+        help="End issue number (inclusive)"
+    )
 
     args = parser.parse_args()
 
@@ -483,7 +505,7 @@ def main():
         os.environ["GITCODE_TOKEN"] = args.token
 
     try:
-        archiver = GitCodeMCPArchiver(args.repo_path, args.archive_dir)
+        archiver = GitCodeMCPArchiver(args.repo_path, args.archive_dir, start=args.start, end=args.end)
         archiver.archive()
     except Exception as e:
         print(f"Error: {e}")
