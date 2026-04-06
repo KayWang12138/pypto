@@ -620,7 +620,7 @@ def _resolve_dev_strategy(
 
     # auto 决策
     try:
-        sys.path.insert(0, str(Path(config.scripts_dir) / "data"))
+        sys.path.insert(0, str(Path(config.scripts_dir)))
         from csv_ops import read_csv
         rows = read_csv(str(csv_path), op_name=op_name)
         if rows:

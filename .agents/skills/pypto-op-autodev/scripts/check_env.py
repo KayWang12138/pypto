@@ -50,7 +50,7 @@ def init_autodev_dirs(csv_path: str | None, work_dir: str | None) -> dict:
         if not csv_p.exists():
             # 导入 FIELDS 以创建 CSV header
             sys.path.insert(0, str(Path(__file__).parent))
-            from data.csv_ops import FIELDS
+            from csv_ops import FIELDS
             with open(csv_p, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=FIELDS)
                 writer.writeheader()

@@ -7,7 +7,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from data.csv_ops import FIELDS
+from csv_ops import FIELDS
 
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "select_next_op.py")
 HEADER = ",".join(FIELDS) + "\n"

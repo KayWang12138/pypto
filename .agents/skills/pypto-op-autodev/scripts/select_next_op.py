@@ -10,23 +10,13 @@
     2: 参数错误
 """
 import argparse
-import importlib.util
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-if __package__:
-    from .data.csv_ops import read_csv
-else:
-    module_path = Path(__file__).parent / "data" / "csv_ops.py"
-    spec = importlib.util.spec_from_file_location("pypto_op_autodev_csv_ops", module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load csv_ops from {module_path}")
-    csv_ops = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault(spec.name, csv_ops)
-    spec.loader.exec_module(csv_ops)
-    read_csv = csv_ops.read_csv
+sys.path.insert(0, str(Path(__file__).parent))
+from csv_ops import read_csv
 
 DISCOVERY_THRESHOLD = 25
 
