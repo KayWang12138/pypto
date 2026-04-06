@@ -39,3 +39,12 @@ python/pypto/pypto_impl*.so
 # 三方软件
 third_party_path/
 fusion_result.json
+
+# autodev 运行时产物（本地保留，不入仓）
+autodev/
+
+# autodev 脚本测试（本地保留，不入仓）
+.agents/skills/pypto-op-autodev/scripts/tests/
+
+# hooks 测试（本地保留，不入仓）
+hooks/*/tests/
