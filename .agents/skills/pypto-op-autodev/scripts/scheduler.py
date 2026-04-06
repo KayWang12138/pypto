@@ -612,30 +612,22 @@ def _resolve_dev_strategy(
     config: SchedulerConfig,
     logger: logging.Logger,
 ) -> str:
-    """按规则决定开发策略。返回 "orchestrator" 或 "workflow"。"""
+    """决定开发策略。始终返回 "orchestrator"。
+
+    workflow skill 声明不维护外部状态文件、不定义结束态（见 pypto-op-workflow/SKILL.md），
+    与 autodev 契约要求的 .dev_result.json 不兼容，因此不再作为 Step 4 的直接执行体。
+    所有开发任务统一通过 orchestrator 完成。
+    """
     strategy = config.dev_strategy
-    if strategy in ("orchestrator", "workflow"):
-        logger.info("策略（配置指定）: %s", strategy)
-        return strategy
-
-    # auto 决策
-    try:
-        sys.path.insert(0, str(Path(config.scripts_dir)))
-        from csv_ops import read_csv
-        rows = read_csv(str(csv_path), op_name=op_name)
-        if rows:
-            row = rows[0]
-            if (row.get("status") == "failed"
-                    and row.get("last_strategy") == "orchestrator"):
-                logger.info("策略（auto: 上次 orchestrator 失败）: workflow")
-                return "workflow"
-            if row.get("complexity") == "easy":
-                logger.info("策略（auto: easy 算子）: workflow")
-                return "workflow"
-    except Exception as exc:
-        logger.warning("策略决策异常，使用 orchestrator: %s", exc)
-
-    logger.info("策略（auto 默认）: orchestrator")
+    if strategy == "orchestrator":
+        logger.info("策略（配置指定）: orchestrator")
+        return "orchestrator"
+    if strategy == "workflow":
+        logger.warning(
+            "dev_strategy='workflow' 已废弃（workflow 不兼容 autodev 契约），"
+            "自动回退到 orchestrator"
+        )
+    logger.info("策略: orchestrator")
     return "orchestrator"
 
 
@@ -689,12 +681,8 @@ def _step4_develop(
     """Step 4: 调用执行层开发算子。返回 (成功, 详情)。"""
     prompt = _build_dev_prompt(op_name, op_dir, pypto_root, selected_info)
     agent_name = config.orchestrator_agent
-    if strategy == "workflow":
-        agent_name = config.workflow_agent or config.orchestrator_agent
-        if not config.workflow_agent:
-            logger.warning("未配置 workflow_agent，回退到 orchestrator_agent=%s", agent_name)
 
-    logger.info("Step 4: 策略=%s, agent=%s", strategy, agent_name)
+    logger.info("Step 4: agent=%s", agent_name)
     try:
         agent_result = run_agent(
             agent_name, prompt,
