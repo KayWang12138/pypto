@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import json
+import logging
 import re
 import os
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # 配置
 ARCHIVE_DIR = Path('/data/s00454010/issues/archive/pypto_issues')
@@ -221,7 +224,7 @@ def analyze_single_issue(issue_num):
 
 def main():
     """主函数"""
-    print("开始分析 Bug-Report issue...")
+    logger.info("开始分析 Bug-Report issue...")
     
     # 读取归档记录
     with open(ARCHIVE_DIR / 'archive_record.json', 'r') as f:
@@ -239,13 +242,13 @@ def main():
             })
     
     bug_issues.sort(key=lambda x: x['number'])
-    print(f"找到 {len(bug_issues)} 个 Bug-Report issue")
+    logger.info("找到 %s 个 Bug-Report issue", len(bug_issues))
     
     # 分析每个 issue
     analyzed_issues = []
     for idx, issue in enumerate(bug_issues):
         if (idx + 1) % 50 == 0:
-            print(f"处理进度: {idx + 1}/{len(bug_issues)}")
+            logger.info("处理进度: %s/%s", idx + 1, len(bug_issues))
         
         detail = analyze_single_issue(issue['number'])
         if detail:
@@ -273,7 +276,7 @@ def main():
                 'description': detail['description'][:200],  # 截断描述
             })
     
-    print(f"筛选后保留 {len(analyzed_issues)} 个 PyPTO 相关问题")
+    logger.info("筛选后保留 %s 个 PyPTO 相关问题", len(analyzed_issues))
     
     # 生成报告
     generate_reports(analyzed_issues)
@@ -338,7 +341,7 @@ def generate_reports(issues):
     with open(OUTPUT_DIR / 'pypto_unsupported_scenarios.md', 'w', encoding='utf-8') as f:
         f.write(file1_content)
     
-    print(f"文件一生成完成: {len(unsupported_scenarios)} 个高质量场景")
+    logger.info("文件一生成完成: %s 个高质量场景", len(unsupported_scenarios))
     
     # ========== 文件二：问题现象索引 ==========
     file2_content = f"""# PyPTO 问题现象索引
@@ -385,7 +388,7 @@ def generate_reports(issues):
     with open(OUTPUT_DIR / 'pypto_issue_index.md', 'w', encoding='utf-8') as f:
         f.write(file2_content)
     
-    print(f"文件二生成完成: {len(issues)} 个问题")
+    logger.info("文件二生成完成: %s 个问题", len(issues))
 
 
 if __name__ == '__main__':

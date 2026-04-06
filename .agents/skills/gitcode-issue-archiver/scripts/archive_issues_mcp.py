@@ -7,6 +7,7 @@ Archives GitCode repository issues to local markdown files using MCP tools.
 
 import argparse
 import json
+import logging
 import os
 import sys
 import time
@@ -20,6 +21,8 @@ import urllib.parse
 CONFIG_FILE = Path(__file__).parent.parent / "config.json"
 MAX_RETRIES = 3
 NOT_FOUND_RETRY_DELAY_SEC = 1
+
+logger = logging.getLogger(__name__)
 
 
 class GitCodeMCPArchiver:
@@ -38,13 +41,153 @@ class GitCodeMCPArchiver:
         self.owner, self.repo = parts
         self.record_file = self.archive_dir / "archive_record.json"
 
+    @staticmethod
+    def _load_config() -> Dict[str, Optional[str]]:
+        if CONFIG_FILE.exists():
+            try:
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    return {
+                        "last_archive_dir": config.get("last_archive_dir"),
+                        "repo_path": config.get("repo_path"),
+                    }
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning("Could not load config file: %s", e)
+        return {"last_archive_dir": None, "repo_path": None}
+
+    @staticmethod
+    def _save_config(archive_dir: str, repo_path: str):
+        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        config = {"last_archive_dir": archive_dir, "repo_path": repo_path}
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+
+    @staticmethod
+    def _extract_asset_urls(markdown: str) -> List[str]:
+        # GitCode issue bodies often embed images as markdown like:
+        # ![](https://raw.gitcode.com/user-images/assets/.../xx.png)
+        # Also handle plain URLs.
+        pattern = re.compile(r"https?://\S+?\.(?:png|jpg|jpeg|gif|webp)(?:\?\S*)?", re.IGNORECASE)
+        urls = pattern.findall(markdown)
+
+        # Preserve order but dedupe.
+        seen = set()
+        out: List[str] = []
+        for u in urls:
+            if u in seen:
+                continue
+            seen.add(u)
+            out.append(u)
+        return out
+
+    def archive(self):
+        logger.info("Archiving issues from %s using MCP tools...", self.repo_path)
+        logger.info("Archive directory: %s", self.archive_dir)
+
+        self.archive_dir.mkdir(parents=True, exist_ok=True)
+        record = self._load_record()
+
+        logger.info("Fetching issue list using gitcode_list_issues MCP tool...")
+        all_issues = self._get_all_issues()
+
+        if not all_issues:
+            logger.info("No issues found in repository.")
+            return
+
+        max_issue_number = int(all_issues[0]["number"])
+        logger.info("Max issue number from list: %s", max_issue_number)
+
+        if max_issue_number > record["max_issue_number"]:
+            record["max_issue_number"] = max_issue_number
+
+        processed = 0
+        updated = 0
+        skipped = 0
+        deleted = 0
+        errors = 0
+
+        start_num = self.start if self.start is not None else 1
+        end_num = self.end if self.end is not None else max_issue_number
+
+        total_range = end_num - start_num + 1
+
+        for issue_number in range(start_num, end_num + 1):
+            processed += 1
+
+            if processed % 10 == 0 or issue_number == end_num:
+                logger.info("Processing %s/%s issues...", processed, total_range)
+
+            issue, error_status = self._get_issue(issue_number)
+
+            if error_status == 404:
+                issue_record = record["issues"].get(str(issue_number), {})
+                if issue_record.get("exists", True):
+                    record["issues"][str(issue_number)] = {
+                        "exists": False,
+                        "reason": "deleted",
+                        "last_checked": datetime.utcnow().isoformat() + "Z"
+                    }
+                    deleted += 1
+                continue
+
+            if error_status:
+                errors += 1
+                logger.warning("Issue #%s: Failed with status %s", issue_number, error_status)
+                continue
+
+            if not issue:
+                continue
+
+            if not self._needs_update(record, issue_number, issue):
+                skipped += 1
+                continue
+
+            comments = self._get_issue_comments(issue_number)
+
+            markdown = self._generate_markdown(issue, comments)
+            markdown = self._download_issue_assets_and_rewrite_markdown(issue_number, markdown)
+            self._save_issue_markdown(issue_number, markdown)
+
+            record["issues"][str(issue_number)] = {
+                "exists": True,
+                "state": issue.get("state"),
+                "title": issue.get("title", ""),
+                "updated_at": issue.get("updated_at", ""),
+                "comment_count": len(comments)
+            }
+
+            updated += 1
+            logger.info("Issue #%s: %s - %s", issue_number, issue.get("state"), issue.get("title", "")[:50])
+
+        self._save_record(record)
+
+        logger.info("=" * 50)
+        logger.info("Archive Summary")
+        logger.info("=" * 50)
+        logger.info("Total processed: %s", processed)
+        logger.info("Updated:        %s", updated)
+        logger.info("Skipped:        %s", skipped)
+        logger.info("Deleted:        %s", deleted)
+        logger.info("Errors:         %s", errors)
+        logger.info("Record file:    %s", self.record_file)
+        logger.info("Issues saved:   %s", self.archive_dir)
+
+        # 提示用户可以分析issue
+        logger.info("=" * 50)
+        logger.info("提示")
+        logger.info("=" * 50)
+        logger.info("归档已完成，共 %s 个issue更新", updated)
+        logger.info("归档目录: %s", self.archive_dir)
+        logger.info("如需分析 Bug-Report Issue 并生成不支持场景报告，")
+        logger.info("请在归档完成后告知 AI 开始分析。")
+
     def _request_with_retry(self, method: str, url: str, params: Optional[Dict[str, Any]] = None,
                             headers: Optional[Dict[str, str]] = None) -> Tuple[Any, Optional[int]]:
         """HTTP request with exponential backoff retry."""
         try:
             import requests
         except ImportError:
-            print("Error: requests library is required. Install with: pip install requests")
+            logger.error("requests library is required. Install with: pip install requests")
             return None, -1
 
         if headers is None:
@@ -85,19 +228,19 @@ class GitCodeMCPArchiver:
                 if 400 <= status_code < 500 and status_code != 429:
                     return None, status_code
 
-                print(f"HTTP Error (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+                logger.warning("HTTP Error (attempt %s/%s): %s", attempt + 1, MAX_RETRIES, e)
                 if attempt < MAX_RETRIES - 1:
                     wait_time = 2 ** attempt
-                    print(f"  Retrying in {wait_time}s...")
+                    logger.info("  Retrying in %ss...", wait_time)
                     time.sleep(wait_time)
                 else:
                     return None, status_code
 
             except requests.exceptions.RequestException as e:
-                print(f"Request Error (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+                logger.warning("Request Error (attempt %s/%s): %s", attempt + 1, MAX_RETRIES, e)
                 if attempt < MAX_RETRIES - 1:
                     wait_time = 2 ** attempt
-                    print(f"  Retrying in {wait_time}s...")
+                    logger.info("  Retrying in %ss...", wait_time)
                     time.sleep(wait_time)
                 else:
                     return None, None
@@ -160,7 +303,7 @@ class GitCodeMCPArchiver:
                 with open(self.record_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
-                print(f"Warning: Could not load record file: {e}. Starting fresh.")
+                logger.warning("Could not load record file: %s. Starting fresh.", e)
                 return self._create_empty_record()
         else:
             return self._create_empty_record()
@@ -172,27 +315,6 @@ class GitCodeMCPArchiver:
             "max_issue_number": 0,
             "issues": {}
         }
-
-    @staticmethod
-    def _load_config() -> Dict[str, Optional[str]]:
-        if CONFIG_FILE.exists():
-            try:
-                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    return {
-                        "last_archive_dir": config.get("last_archive_dir"),
-                        "repo_path": config.get("repo_path"),
-                    }
-            except (json.JSONDecodeError, IOError) as e:
-                print(f"Warning: Could not load config file: {e}")
-        return {"last_archive_dir": None, "repo_path": None}
-
-    @staticmethod
-    def _save_config(archive_dir: str, repo_path: str):
-        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        config = {"last_archive_dir": archive_dir, "repo_path": repo_path}
-        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2, ensure_ascii=False)
 
     def _save_record(self, record: Dict[str, Any]):
         record["last_check"] = datetime.utcnow().isoformat() + "Z"
@@ -259,24 +381,6 @@ class GitCodeMCPArchiver:
 
         return "\n".join(lines)
 
-    @staticmethod
-    def _extract_asset_urls(markdown: str) -> List[str]:
-        # GitCode issue bodies often embed images as markdown like:
-        # ![](https://raw.gitcode.com/user-images/assets/.../xx.png)
-        # Also handle plain URLs.
-        pattern = re.compile(r"https?://\S+?\.(?:png|jpg|jpeg|gif|webp)(?:\?\S*)?", re.IGNORECASE)
-        urls = pattern.findall(markdown)
-
-        # Preserve order but dedupe.
-        seen = set()
-        out: List[str] = []
-        for u in urls:
-            if u in seen:
-                continue
-            seen.add(u)
-            out.append(u)
-        return out
-
     def _download_issue_assets_and_rewrite_markdown(self, issue_number: int, markdown: str) -> str:
         """Download image assets referenced in markdown and rewrite links to local relative paths."""
 
@@ -307,7 +411,7 @@ class GitCodeMCPArchiver:
                     )
                 except Exception as e:
                     # Don't fail the archive on asset download errors.
-                    print(f"  Issue #{issue_number}: Warning: failed to download asset {url}: {e}")
+                    logger.warning("Issue #%s: Warning: failed to download asset %s: %s", issue_number, url, e)
                     continue
 
             # Always use forward slashes in markdown.
@@ -345,112 +449,6 @@ class GitCodeMCPArchiver:
             return True
 
         return False
-
-    def archive(self):
-        print(f"Archiving issues from {self.repo_path} using MCP tools...")
-        print(f"Archive directory: {self.archive_dir}")
-        print()
-
-        self.archive_dir.mkdir(parents=True, exist_ok=True)
-        record = self._load_record()
-
-        print("Fetching issue list using gitcode_list_issues MCP tool...")
-        all_issues = self._get_all_issues()
-
-        if not all_issues:
-            print("No issues found in repository.")
-            return
-
-        max_issue_number = int(all_issues[0]["number"])
-        print(f"Max issue number from list: {max_issue_number}")
-
-        if max_issue_number > record["max_issue_number"]:
-            record["max_issue_number"] = max_issue_number
-
-        processed = 0
-        updated = 0
-        skipped = 0
-        deleted = 0
-        errors = 0
-
-        start_num = self.start if self.start is not None else 1
-        end_num = self.end if self.end is not None else max_issue_number
-
-        total_range = end_num - start_num + 1
-
-        for issue_number in range(start_num, end_num + 1):
-            processed += 1
-
-            if processed % 10 == 0 or issue_number == end_num:
-                print(f"Processing {processed}/{total_range} issues...")
-
-            issue, error_status = self._get_issue(issue_number)
-
-            if error_status == 404:
-                issue_record = record["issues"].get(str(issue_number), {})
-                if issue_record.get("exists", True):
-                    record["issues"][str(issue_number)] = {
-                        "exists": False,
-                        "reason": "deleted",
-                        "last_checked": datetime.utcnow().isoformat() + "Z"
-                    }
-                    deleted += 1
-                continue
-
-            if error_status:
-                errors += 1
-                print(f"  Issue #{issue_number}: Failed with status {error_status}")
-                continue
-
-            if not issue:
-                continue
-
-            if not self._needs_update(record, issue_number, issue):
-                skipped += 1
-                continue
-
-            comments = self._get_issue_comments(issue_number)
-
-            markdown = self._generate_markdown(issue, comments)
-            markdown = self._download_issue_assets_and_rewrite_markdown(issue_number, markdown)
-            self._save_issue_markdown(issue_number, markdown)
-
-            record["issues"][str(issue_number)] = {
-                "exists": True,
-                "state": issue.get("state"),
-                "title": issue.get("title", ""),
-                "updated_at": issue.get("updated_at", ""),
-                "comment_count": len(comments)
-            }
-
-            updated += 1
-            print(f"  Issue #{issue_number}: {issue.get('state')} - {issue.get('title', '')[:50]}")
-
-        self._save_record(record)
-
-        print()
-        print("=" * 50)
-        print("Archive Summary")
-        print("=" * 50)
-        print(f"Total processed: {processed}")
-        print(f"Updated:        {updated}")
-        print(f"Skipped:        {skipped}")
-        print(f"Deleted:        {deleted}")
-        print(f"Errors:         {errors}")
-        print()
-        print(f"Record file:    {self.record_file}")
-        print(f"Issues saved:   {self.archive_dir}")
-        
-        # 提示用户可以分析issue
-        print()
-        print("=" * 50)
-        print("💡 提示")
-        print("=" * 50)
-        print(f"归档已完成，共 {updated} 个issue更新")
-        print(f"归档目录: {self.archive_dir}")
-        print()
-        print("如需分析 Bug-Report Issue 并生成不支持场景报告，")
-        print("请在归档完成后告知 AI 开始分析。")
 
 
 def main():
@@ -494,9 +492,9 @@ def main():
     if not args.archive_dir:
         args.archive_dir = config.get("last_archive_dir")
         if not args.archive_dir:
-            print("Error: 首次使用必须指定归档路径")
-            print("Usage: python archive_issues_mcp.py [repo_path] <archive_dir>")
-            print("Example: python archive_issues_mcp.py cann/pypto /workspace/archive/pypto_issues")
+            logger.error("首次使用必须指定归档路径")
+            logger.info("Usage: python archive_issues_mcp.py [repo_path] <archive_dir>")
+            logger.info("Example: python archive_issues_mcp.py cann/pypto /workspace/archive/pypto_issues")
             sys.exit(1)
 
     GitCodeMCPArchiver._save_config(args.archive_dir, args.repo_path)
@@ -508,7 +506,7 @@ def main():
         archiver = GitCodeMCPArchiver(args.repo_path, args.archive_dir, start=args.start, end=args.end)
         archiver.archive()
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error("Error: %s", e)
         import traceback
         traceback.print_exc()
         sys.exit(1)

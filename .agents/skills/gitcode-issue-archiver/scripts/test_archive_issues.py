@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import logging
 import tempfile
 import shutil
 from pathlib import Path
@@ -9,9 +10,11 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 from archive_issues_mcp import GitCodeMCPArchiver
 
+logger = logging.getLogger(__name__)
+
 
 def test_markdown_generation():
-    print("Testing markdown generation...")
+    logger.info("Testing markdown generation...")
 
     issue = {
         'number': 42,
@@ -44,12 +47,12 @@ def test_markdown_generation():
     assert 'This is a test issue description.' in markdown, "Body missing"
     assert 'First comment' in markdown, "Comment missing"
 
-    print("  ✓ Markdown generation passed")
+    logger.info("  ✓ Markdown generation passed")
     return True
 
 
 def test_markdown_no_comments():
-    print("Testing markdown with zero comments...")
+    logger.info("Testing markdown with zero comments...")
 
     issue = {
         'number': 1,
@@ -68,12 +71,12 @@ def test_markdown_no_comments():
     assert '# Issue #1: No Comments Issue' in markdown
     assert '## Comments' not in markdown, "Should not have Comments section for empty list"
 
-    print("  ✓ Markdown with zero comments passed")
+    logger.info("  ✓ Markdown with zero comments passed")
     return True
 
 
 def test_needs_update():
-    print("Testing update detection...")
+    logger.info("Testing update detection...")
 
     archiver = GitCodeMCPArchiver('test/repo', '/tmp/test')
 
@@ -97,12 +100,12 @@ def test_needs_update():
     issue = {'state': 'open', 'updated_at': '2026-01-24T10:00:00Z'}
     assert archiver._needs_update(record, 1, issue) is True, "Should update deleted issue that now exists"
 
-    print("  ✓ Update detection logic passed")
+    logger.info("  ✓ Update detection logic passed")
     return True
 
 
 def test_record_operations():
-    print("Testing record file operations...")
+    logger.info("Testing record file operations...")
 
     temp_dir = tempfile.mkdtemp()
     try:
@@ -118,14 +121,14 @@ def test_record_operations():
         assert 'issues' in loaded, "Issues field missing"
         assert loaded['issues']['1']['state'] == 'open', "Issue data not preserved"
 
-        print("  ✓ Record file operations passed")
+        logger.info("  ✓ Record file operations passed")
         return True
     finally:
         shutil.rmtree(temp_dir)
 
 
 def test_markdown_saving():
-    print("Testing markdown file saving...")
+    logger.info("Testing markdown file saving...")
 
     temp_dir = tempfile.mkdtemp()
     try:
@@ -139,14 +142,14 @@ def test_markdown_saving():
             content = f.read()
             assert '# Test Issue' in content, "Content not saved correctly"
 
-        print("  ✓ Markdown file saving passed")
+            logger.info("  ✓ Markdown file saving passed")
         return True
     finally:
         shutil.rmtree(temp_dir)
 
 
 def test_config_operations():
-    print("Testing config save/load with repo_path...")
+    logger.info("Testing config save/load with repo_path...")
 
     import archive_issues_mcp as mod
     original_config = mod.CONFIG_FILE
@@ -161,7 +164,7 @@ def test_config_operations():
         assert config["last_archive_dir"] == "/workspace/archive/test", "archive_dir not saved"
         assert config["repo_path"] == "owner/repo", "repo_path not saved"
 
-        print("  ✓ Config operations passed")
+        logger.info("  ✓ Config operations passed")
         return True
     finally:
         mod.CONFIG_FILE = original_config
@@ -169,10 +172,11 @@ def test_config_operations():
 
 
 def main():
-    print("=" * 50)
-    print("GitCode Issue Archiver - Unit Tests")
-    print("=" * 50)
-    print()
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logger.info("=" * 50)
+    logger.info("GitCode Issue Archiver - Unit Tests")
+    logger.info("=" * 50)
+    logger.info("")
 
     tests = [
         test_markdown_generation,
@@ -193,15 +197,15 @@ def main():
             else:
                 failed += 1
         except Exception as e:
-            print(f"  ✗ Test failed with exception: {e}")
+            logger.error("  ✗ Test failed with exception: %s", e)
             import traceback
             traceback.print_exc()
             failed += 1
 
-    print()
-    print("=" * 50)
-    print(f"Test Results: {passed} passed, {failed} failed")
-    print("=" * 50)
+    logger.info("")
+    logger.info("=" * 50)
+    logger.info("Test Results: %s passed, %s failed", passed, failed)
+    logger.info("=" * 50)
 
     return failed == 0
 

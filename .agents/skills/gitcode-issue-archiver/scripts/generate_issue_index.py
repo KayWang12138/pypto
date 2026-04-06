@@ -4,9 +4,12 @@ Generate improved issue index document from archived issues.
 """
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 def extract_actual_description(content: str) -> str:
@@ -408,12 +411,12 @@ def main():
     with open(output_file, 'w') as f:
         f.write('\n'.join(output))
     
-    print(f"✅ 已生成新的索引文档")
-    print(f"   文件: {output_file}")
-    print(f"   Bug-Report总数: {stats['total']}")
-    print(f"   已修复: {stats['resolved']}")
-    print(f"   已关闭: {stats['closed']}")
-    print(f"   仍开启: {stats['open']}")
+    logger.info("✅ 已生成新的索引文档")
+    logger.info("   文件: %s", output_file)
+    logger.info("   Bug-Report总数: %s", stats['total'])
+    logger.info("   已修复: %s", stats['resolved'])
+    logger.info("   已关闭: %s", stats['closed'])
+    logger.info("   仍开启: %s", stats['open'])
 
 
 if __name__ == '__main__':
