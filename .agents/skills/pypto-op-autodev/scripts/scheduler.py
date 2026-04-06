@@ -466,6 +466,11 @@ def detect_dev_success(
             return False, str(detail), _blocked_stage_from_result(data)
         except (json.JSONDecodeError, IOError) as exc:
             logger.warning("读取 .dev_result.json 失败: %s", exc)
+            return False, "TIMEOUT", None
+    logger.warning(
+        ".dev_result.json 不存在于 %s — agent 可能未将结果写入指定工作目录",
+        result_file,
+    )
     return False, "TIMEOUT", None
 
 
