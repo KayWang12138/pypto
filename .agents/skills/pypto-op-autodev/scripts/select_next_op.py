@@ -2,7 +2,7 @@
 """select_next_op.py — 优先级分数计算 + 算子选择 + 断点续跑 + 依赖检查 + 智能重试。
 
 用法:
-    python select_next_op.py --csv autodev/scan_results.csv [--dry-run]
+    python select_next_op.py --csv {csv_path} [--dry-run]
 
 退出码:
     0: 成功选择算子（score >= DISCOVERY_THRESHOLD）
@@ -32,10 +32,14 @@ DISCOVERY_THRESHOLD = 25
 
 COMPLEXITY_PENALTY = {"easy": 0, "medium": 5, "hard": 10}
 
-# 不同失败类型的额外惩罚 — BLOCKED_API/BLOCKED_ENV 应等待外部修复，惩罚更重
+# 不同失败类型的额外惩罚 — BLOCKED 类应等待修复，惩罚更重
 RESULT_PENALTY = {
     "BLOCKED_API": 40,
-    "BLOCKED_ENV": 35,
+    "BLOCKED_IMPL": 35,
+    "BLOCKED_DESIGN": 35,
+    "BLOCKED_GOLDEN": 35,
+    "BLOCKED_ACCURACY": 35,
+    "BLOCKED_ENVIRONMENT": 35,
     "TIMEOUT": 5,
     "PRECISION": 0,
 }
@@ -143,7 +147,11 @@ def get_retry_strategy(row):
     dev_result = row.get("dev_result", "")
     strategies = {
         "BLOCKED_API": {"action": "wait", "reason": "API 不支持，等待框架更新"},
-        "BLOCKED_ENV": {"action": "fix_env", "reason": "环境问题，需先修复环境"},
+        "BLOCKED_IMPL": {"action": "retry_full", "reason": "实现阶段阻塞"},
+        "BLOCKED_DESIGN": {"action": "retry_full", "reason": "设计阶段阻塞"},
+        "BLOCKED_GOLDEN": {"action": "retry_full", "reason": "Golden 生成阻塞"},
+        "BLOCKED_ACCURACY": {"action": "retry_from_stage6", "reason": "精度修复阻塞"},
+        "BLOCKED_ENVIRONMENT": {"action": "fix_env", "reason": "环境问题，需先修复环境"},
         "PRECISION": {"action": "retry_from_stage6", "reason": "精度问题，从精度调试阶段重试"},
         "TIMEOUT": {"action": "retry_full", "reason": "超时，增加超时后重试"},
     }
@@ -219,7 +227,7 @@ def is_candidate(row, custom_dir, all_rows):
     排除条件：
     1. 状态不是 pending 或 failed
     2. dev_result 为 NOT_IMPLEMENTABLE
-    3. autodev/custom/{op_name}/ 目录已存在且有完整工件（impl + test 都存在）
+    3. {work_dir}/{op_name}/ 目录已存在且有完整工件（impl + test 都存在）
     4. 前置依赖未满足
     """
     status = row.get("status", "")
@@ -259,7 +267,7 @@ def main():
     args = parser.parse_args()
 
     csv_path = Path(args.csv)
-    custom_dir = csv_path.parent / "custom"  # autodev/custom/
+    custom_dir = csv_path.parent / "custom"  # {csv_path}/../custom/
 
     all_rows = read_csv(args.csv)
     recent_cats = get_recent_categories(all_rows)
