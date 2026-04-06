@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from data.csv_ops import read_csv, upsert_row
+from csv_ops import read_csv, upsert_row
 
 VALID_STATUSES = {"pending", "in_progress", "completed", "failed"}
 

@@ -5,7 +5,7 @@ import subprocess
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from data.csv_ops import FIELDS
+from csv_ops import FIELDS
 
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "verify_op.py")
 HEADER = ",".join(FIELDS) + "\n"
