@@ -119,7 +119,7 @@ def main():
     parser.add_argument("--fps-total", type=int)
     parser.add_argument("--fps-confirmed", type=int)
     parser.add_argument("--blocked-stage", type=int, help="Stage number where blocked (1-7)")
-    parser.add_argument("--last-strategy", choices=["orchestrator", "workflow"],
+    parser.add_argument("--last-strategy", choices=["orchestrator", "workflow", "manual"],
                         help="Dev strategy used")
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--reset-stale", action="store_true")

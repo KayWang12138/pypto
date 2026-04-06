@@ -37,8 +37,7 @@ tools:
 
 1. 解析算子名与工作目录 `custom/{op}/`
 2. 读取 `.orchestrator_state.json`（若存在旧格式先迁移）
-3. 若 prompt 中提供了已知框架限制（known limitations），在 Stage 2（API 探索）和 Stage 5（代码实现）前参考其中的已知限制
-4. 检查已有工件，从 `current_stage` 逐阶段推进
+3. 检查已有工件，从 `current_stage` 逐阶段推进
 
 ---
 
@@ -151,28 +150,89 @@ custom/{op}/
 {
   "operator_name": "{op}",
   "current_stage": 5,
-  "stage_status": {"1": "completed", "2": "completed", "5": "in_progress"},
-  "stage_retry_count": {"5": 2},
-  "perf_iteration": {"count": 0, "consecutive_no_improvement": 0},
+  "stage_status": {
+    "1": "completed",
+    "2": "completed",
+    "3": "completed",
+    "4": "completed",
+    "5": "in_progress"
+  },
+  "stage_retry_count": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0,
+    "6": 0
+  },
+  "perf_iteration": {
+    "count": 0,
+    "last_improvement": 0.0,
+    "consecutive_no_improvement": 0
+  },
   "last_updated": "2026-03-24T00:00:00Z"
 }
 ```
 
-Stage 开始/成功/失败时更新对应字段，Stage 7 迭代时更新 `perf_iteration`。
+### 更新时机
+
+| 时机 | 必须更新的字段 |
+|------|----------------|
+| Stage 开始 | `current_stage`、`stage_status[stage]`、`last_updated` |
+| Stage 成功 | `stage_status[stage] = completed` |
+| Stage 失败 | `stage_retry_count[stage] += 1` |
+| Stage 7 迭代 | `perf_iteration.*` |
 
 ---
 
 ## 恢复与迁移
 
-- 工件缺失/不完整 → 回退到产出该工件的 Stage 重试
-- 重试超限 → 标记对应 `BLOCKED_*`
-- 旧状态 key（`0`、`2a`、`2b`）→ 先映射到 1-7 格式再执行
+### 失败路由
+
+| 失败类型 | 识别信号 | 恢复动作 |
+|----------|----------|----------|
+| 工件缺失 | 必需工件文件不存在 | 回退到产出该工件的 Stage |
+| 工件内容不完整 | 工件存在但缺少必要章节或字段 | 在原 Stage 内重试，传入缺失项信息 |
+| 编译/运行失败 | Stage 5 exit code ≠ 0 | 按失败子类型在 Stage 5 内重试 |
+| 精度失败 | `[PRECISION_FAIL]` | 进入 Stage 6 |
+| 精度修复后退化 | Stage 6 回滚后仍失败 | 继续 Stage 6 重试，直至超限 |
+| 环境问题 | `ImportError` 指向系统依赖 | 标记 `BLOCKED_ENVIRONMENT` |
+| 重试超限 | `stage_retry_count` 达到上限 | 标记对应 `BLOCKED_*` |
+| 上游工件被意外修改 | 工件内容与上次验证不一致 | 从被修改工件所属的 Stage 重新验证 |
+
+### 旧状态迁移
+
+若检测到旧 key（如 `0`、`2a`、`2b`），必须先映射到当前 1-7 阶段格式，再继续执行。
 
 ---
 
 ## 最终输出报告
 
-流程结束时输出结构化摘要，包含：算子名、最终状态（SUCCESS/BLOCKED_*）、各工件路径、精度结果（PASS/FAIL/UNKNOWN + 修复次数）、性能结果（迭代次数/提升百分比/中止原因）、已知问题列表。
+流程结束时必须输出结构化摘要：
+
+```markdown
+## 开发结果
+- 算子: {op}
+- state: SUCCESS / BLOCKED_*
+- spec: custom/{op}/spec.md
+- api_report: custom/{op}/api_report.md
+- design: custom/{op}/design.md
+- golden: custom/{op}/{op}_golden.py
+- kernel: custom/{op}/{op}_impl.py
+- test_entry: custom/{op}/test_{op}.py
+
+## 精度结果
+- status: PASS / FAIL / UNKNOWN
+- accuracy_fix_count: N
+
+## 性能结果
+- iterations: N
+- improvement: xx%
+- stop_reason: <原因>
+
+## 已知问题
+- <如实列出未验证项、环境限制或数据缺口>
+```
 
 ## 约束
 
