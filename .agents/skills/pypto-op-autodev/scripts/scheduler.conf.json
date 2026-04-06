@@ -12,8 +12,12 @@
 
   "opencode_bin": "opencode",
   "orchestrator_agent": "pypto-op-orchestrator",
+  "workflow_agent": "",
   "discover_agent": "pypto-op-discover",
+  "fracture_agent": "",
 
+  "enable_env_check": true,
+  "enable_verify_test": true,
   "dev_strategy": "auto",
   "enable_discover": false,
   "enable_fracture": true

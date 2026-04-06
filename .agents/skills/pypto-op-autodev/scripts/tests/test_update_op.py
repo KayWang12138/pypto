@@ -6,12 +6,21 @@ import subprocess
 import pytest
 from datetime import datetime, timezone, timedelta
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from data.csv_ops import FIELDS
+
 SCRIPT = os.path.join(os.path.dirname(__file__), "..", "update_op.py")
-HEADER = "op_name,source,status,complexity,category,dev_result,fail_count,fps_total,fps_confirmed,create_time,start_time,end_time,depends_on,note\n"
+HEADER = ",".join(FIELDS) + "\n"
 
 def make_row(op, status="pending", fail_count=0, start_time="", end_time="", dev_result=""):
     now = "2026-03-26T09:00:00"
-    return f"{op},manual,{status},easy,elementwise,{dev_result},{fail_count},0,0,{now},{start_time},{end_time},,\n"
+    row = {f: "" for f in FIELDS}
+    row.update({"op_name": op, "source": "manual", "status": status,
+                "complexity": "easy", "category": "elementwise",
+                "dev_result": dev_result, "fail_count": str(fail_count),
+                "fps_total": "0", "fps_confirmed": "0",
+                "create_time": now, "start_time": start_time, "end_time": end_time})
+    return ",".join(row.get(f, "") for f in FIELDS) + "\n"
 
 @pytest.fixture
 def csv_path(tmp_path):
@@ -77,6 +86,13 @@ def test_mode1_blocked_stage(csv_path):
              "--dev-result", "PRECISION", "--blocked-stage", "6"])
     rows = read(csv_path)
     assert rows[0]["blocked_stage"] == "6"
+
+def test_mode1_last_strategy(csv_path):
+    r = run(["--csv", csv_path, "--op", "softmax", "--status", "completed",
+             "--dev-result", "SUCCESS", "--last-strategy", "workflow"])
+    assert r.returncode == 0
+    rows = read(csv_path)
+    assert rows[0]["last_strategy"] == "workflow"
 
 def test_mode2_reset_clears_dev_result(tmp_path):
     p = tmp_path / "scan_results.csv"
