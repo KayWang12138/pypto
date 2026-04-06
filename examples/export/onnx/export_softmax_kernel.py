@@ -86,10 +86,13 @@ def softmax_pypto_infer_shape(input_tensor_shape: tuple[int, ...]) -> tuple[int,
 
 
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=softmax_kernel_body)
-def softmax_pypto_calc_workspace(input_tensor_shape: tuple[int, ...]) -> int:
-    # Pipeline: amax, sub, exp, sum, div — budget ~5× tensor in FP32 scratch.
+def softmax_pypto_calc_workspace(
+    input_tensor_shape: tuple[int, ...],
+    input_tensor_dtype_size: int,
+) -> int:
+    # Pipeline: amax, sub, exp, sum, div — budget ~5× tensor in scratch.
     n = math.prod(input_tensor_shape)
-    return n * 5 * 4
+    return n * 5 * input_tensor_dtype_size
 
 
 @pypto.export.pypto_op_infer_dtype(pypto_op_kernel=softmax_kernel_body)

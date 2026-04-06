@@ -59,10 +59,13 @@ def add_pypto_infer_shape(
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=add_kernel_body)
 def add_pypto_calc_workspace(
     input0_shape: tuple[int, int, int, int],
+    input0_dtype_size: int,
     input1_shape: tuple[int, int, int, int],
+    input1_dtype_size: int,
 ) -> int:
     n = math.prod(input0_shape)
-    return n * 4 * 2
+    esz = max(input0_dtype_size, input1_dtype_size)
+    return n * 2 * esz
 
 
 @pypto.export.pypto_op_infer_dtype(pypto_op_kernel=add_kernel_body)
@@ -178,9 +181,12 @@ def softmax_pypto_infer_shape(input_tensor_shape: tuple[int, ...]) -> tuple[int,
 
 
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=softmax_kernel_body)
-def softmax_pypto_calc_workspace(input_tensor_shape: tuple[int, ...]) -> int:
+def softmax_pypto_calc_workspace(
+    input_tensor_shape: tuple[int, ...],
+    input_tensor_dtype_size: int,
+) -> int:
     n = math.prod(input_tensor_shape)
-    return n * 5 * 4
+    return n * 5 * input_tensor_dtype_size
 
 
 @pypto.export.pypto_op_infer_dtype(pypto_op_kernel=softmax_kernel_body)

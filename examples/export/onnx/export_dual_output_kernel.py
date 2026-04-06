@@ -60,11 +60,14 @@ def dual_pypto_infer_shape(
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=dual_kernel_body)
 def dual_pypto_calc_workspace(
     input0_shape: tuple[int, int, int, int],
+    input0_dtype_size: int,
     input1_shape: tuple[int, int, int, int],
+    input1_dtype_size: int,
 ) -> int:
-    # Two elementwise ops (add/sub); allow a few FP16 tile-sized temporaries.
+    # Two elementwise ops (add/sub); allow a few tile-sized temporaries.
     n = math.prod(input0_shape)
-    return n * 2 * 3
+    esz = max(input0_dtype_size, input1_dtype_size)
+    return n * 3 * esz
 
 
 @pypto.export.pypto_op_infer_dtype(pypto_op_kernel=dual_kernel_body)
