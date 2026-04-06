@@ -43,7 +43,7 @@ class GitCodeMCPArchiver:
         self.record_file = self.archive_dir / "archive_record.json"
 
     @staticmethod
-    def _load_config() -> Dict[str, Optional[str]]:
+    def load_config() -> Dict[str, Optional[str]]:
         if CONFIG_FILE.exists():
             try:
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -57,7 +57,7 @@ class GitCodeMCPArchiver:
         return {"last_archive_dir": None, "repo_path": None}
 
     @staticmethod
-    def _save_config(archive_dir: str, repo_path: str):
+    def save_config(archive_dir: str, repo_path: str):
         CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
         config = {"last_archive_dir": archive_dir, "repo_path": repo_path}
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -65,13 +65,8 @@ class GitCodeMCPArchiver:
 
     @staticmethod
     def _extract_asset_urls(markdown: str) -> List[str]:
-        # GitCode issue bodies often embed images as markdown like:
-        # ![](https://raw.gitcode.com/user-images/assets/.../xx.png)
-        # Also handle plain URLs.
         pattern = re.compile(r"https?://\S+?\.(?:png|jpg|jpeg|gif|webp)(?:\?\S*)?", re.IGNORECASE)
         urls = pattern.findall(markdown)
-
-        # Preserve order but dedupe.
         seen = set()
         out: List[str] = []
         for u in urls:
@@ -80,6 +75,159 @@ class GitCodeMCPArchiver:
             seen.add(u)
             out.append(u)
         return out
+
+    @staticmethod
+    def _request_with_retry(method: str, url: str, params: Optional[Dict[str, Any]] = None,
+                            headers: Optional[Dict[str, str]] = None) -> Tuple[Any, Optional[int]]:
+        """HTTP request with exponential backoff retry."""
+        try:
+            import requests
+        except ImportError:
+            logger.error("requests library is required. Install with: pip install requests")
+            return None, -1
+
+        if headers is None:
+            headers = {}
+
+        def _looks_like_not_found(resp: "requests.Response") -> bool:
+            if resp.status_code == 404:
+                return True
+            if resp.status_code != 400:
+                return False
+            try:
+                payload = resp.json()
+            except Exception:
+                return False
+            if not isinstance(payload, dict):
+                return False
+            if payload.get("error_code") == 404:
+                return True
+            msg = str(payload.get("error_message", "")).lower()
+            return "not found" in msg
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = requests.get(url, params=params, headers=headers, timeout=30)
+
+                if _looks_like_not_found(response):
+                    if attempt == 0:
+                        time.sleep(NOT_FOUND_RETRY_DELAY_SEC)
+                        continue
+                    return None, 404
+
+                response.raise_for_status()
+                return response.json(), None
+
+            except requests.exceptions.HTTPError as e:
+                status_code = e.response.status_code
+                if 400 <= status_code < 500 and status_code != 429:
+                    return None, status_code
+
+                logger.warning("HTTP Error (attempt %s/%s): %s", attempt + 1, MAX_RETRIES, e)
+                if attempt < MAX_RETRIES - 1:
+                    wait_time = 2 ** attempt
+                    logger.info("  Retrying in %ss...", wait_time)
+                    time.sleep(wait_time)
+                else:
+                    return None, status_code
+
+            except requests.exceptions.RequestException as e:
+                logger.warning("Request Error (attempt %s/%s): %s", attempt + 1, MAX_RETRIES, e)
+                if attempt < MAX_RETRIES - 1:
+                    wait_time = 2 ** attempt
+                    logger.info("  Retrying in %ss...", wait_time)
+                    time.sleep(wait_time)
+                else:
+                    return None, None
+
+        return None, None
+
+    @staticmethod
+    def _get_headers() -> Dict[str, str]:
+        headers = {}
+        token = os.environ.get("GITCODE_TOKEN")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        return headers
+
+    @staticmethod
+    def _generate_markdown(issue: Dict[str, Any], comments: List[Dict[str, Any]]) -> str:
+        lines = []
+
+        lines.append(f"# Issue #{issue['number']}: {issue['title']}")
+        lines.append("")
+        lines.append(f"**State**: {issue.get('state', 'unknown')}")
+        lines.append(f"**Author**: {issue.get('user', {}).get('login', 'unknown')}")
+
+        created_at = issue.get('created_at', '')
+        updated_at = issue.get('updated_at', '')
+        lines.append(f"**Created**: {created_at}")
+        lines.append(f"**Updated**: {updated_at}")
+
+        html_url = issue.get('html_url', '')
+        if html_url:
+            lines.append(f"**URL**: {html_url}")
+
+        assignee = issue.get('assignee')
+        if assignee:
+            lines.append(f"**Assignee**: {assignee.get('login', 'unknown')}")
+
+        lines.append("")
+
+        labels = issue.get('labels', [])
+        if labels:
+            lines.append("## Labels")
+            for label in labels:
+                lines.append(f"- {label.get('name', '')} ({label.get('color', '#000000')})")
+            lines.append("")
+
+        milestone = issue.get('milestone')
+        if milestone:
+            lines.append(f"**Milestone**: {milestone.get('title', '')}")
+            lines.append("")
+
+        body = issue.get('body', '')
+        if body:
+            lines.append("## Description")
+            lines.append(body)
+            lines.append("")
+
+        if comments:
+            comments.sort(key=lambda c: c.get('created_at', ''))
+            lines.append(f"## Comments ({len(comments)})")
+            lines.append("")
+
+            for comment in comments:
+                user = comment.get('user', {}).get('login', 'unknown')
+                created = comment.get('created_at', '')
+                body_text = comment.get('body', '')
+                lines.append(f"### {user} - {created}")
+                lines.append(body_text)
+                lines.append("")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _needs_update(record: Dict[str, Any], issue_number: int, issue: Dict[str, Any]) -> bool:
+        issue_record = record["issues"].get(str(issue_number))
+
+        if not issue_record:
+            return True
+
+        if not issue_record.get("exists", True):
+            return True
+
+        old_state = issue_record.get("state")
+        new_state = issue.get("state")
+        if old_state != new_state:
+            return True
+
+        old_updated = issue_record.get("updated_at", "")
+        new_updated = issue.get("updated_at", "")
+        if old_updated != new_updated:
+            return True
+
+        return False
 
     def archive(self):
         logger.info("Archiving issues from %s using MCP tools...", self.repo_path)
@@ -139,13 +287,13 @@ class GitCodeMCPArchiver:
             if not issue:
                 continue
 
-            if not self._needs_update(record, issue_number, issue):
+            if not GitCodeMCPArchiver._needs_update(record, issue_number, issue):
                 skipped += 1
                 continue
 
             comments = self._get_issue_comments(issue_number)
 
-            markdown = self._generate_markdown(issue, comments)
+            markdown = GitCodeMCPArchiver._generate_markdown(issue, comments)
             markdown = self._download_issue_assets_and_rewrite_markdown(issue_number, markdown)
             self._save_issue_markdown(issue_number, markdown)
 
@@ -173,7 +321,6 @@ class GitCodeMCPArchiver:
         logger.info("Record file:    %s", self.record_file)
         logger.info("Issues saved:   %s", self.archive_dir)
 
-        # 提示用户可以分析issue
         logger.info("=" * 50)
         logger.info("提示")
         logger.info("=" * 50)
@@ -182,89 +329,16 @@ class GitCodeMCPArchiver:
         logger.info("如需分析 Bug-Report Issue 并生成不支持场景报告，")
         logger.info("请在归档完成后告知 AI 开始分析。")
 
-    def _request_with_retry(self, method: str, url: str, params: Optional[Dict[str, Any]] = None,
-                            headers: Optional[Dict[str, str]] = None) -> Tuple[Any, Optional[int]]:
-        """HTTP request with exponential backoff retry."""
-        try:
-            import requests
-        except ImportError:
-            logger.error("requests library is required. Install with: pip install requests")
-            return None, -1
-
-        if headers is None:
-            headers = {}
-
-        def _looks_like_not_found(resp: "requests.Response") -> bool:
-            if resp.status_code == 404:
-                return True
-            if resp.status_code != 400:
-                return False
-            try:
-                payload = resp.json()
-            except Exception:
-                return False
-            if not isinstance(payload, dict):
-                return False
-            if payload.get("error_code") == 404:
-                return True
-            msg = str(payload.get("error_message", "")).lower()
-            return "not found" in msg
-
-        for attempt in range(MAX_RETRIES):
-            try:
-                response = requests.get(url, params=params, headers=headers, timeout=30)
-
-                if _looks_like_not_found(response):
-                    if attempt == 0:
-                        time.sleep(NOT_FOUND_RETRY_DELAY_SEC)
-                        continue
-                    return None, 404
-
-                response.raise_for_status()
-                return response.json(), None
-
-            except requests.exceptions.HTTPError as e:
-                status_code = e.response.status_code
-                # Don't retry 4xx errors (except rate limit 429)
-                if 400 <= status_code < 500 and status_code != 429:
-                    return None, status_code
-
-                logger.warning("HTTP Error (attempt %s/%s): %s", attempt + 1, MAX_RETRIES, e)
-                if attempt < MAX_RETRIES - 1:
-                    wait_time = 2 ** attempt
-                    logger.info("  Retrying in %ss...", wait_time)
-                    time.sleep(wait_time)
-                else:
-                    return None, status_code
-
-            except requests.exceptions.RequestException as e:
-                logger.warning("Request Error (attempt %s/%s): %s", attempt + 1, MAX_RETRIES, e)
-                if attempt < MAX_RETRIES - 1:
-                    wait_time = 2 ** attempt
-                    logger.info("  Retrying in %ss...", wait_time)
-                    time.sleep(wait_time)
-                else:
-                    return None, None
-
-        return None, None
-
-    def _get_headers(self) -> Dict[str, str]:
-        headers = {}
-        token = os.environ.get("GITCODE_TOKEN")
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-        return headers
-
     def _get_all_issues(self) -> List[Dict[str, Any]]:
         base_url = "https://api.gitcode.com/api/v5"
         url = f"{base_url}/repos/{self.owner}/{self.repo}/issues"
-        headers = self._get_headers()
+        headers = GitCodeMCPArchiver._get_headers()
         all_issues = []
         page = 1
 
         while True:
             params = {"state": "all", "per_page": 100, "sort": "number", "direction": "desc", "page": page}
-            data, error = self._request_with_retry("GET", url, params=params, headers=headers)
+            data, error = GitCodeMCPArchiver._request_with_retry("GET", url, params=params, headers=headers)
             if error or not data:
                 break
             all_issues.extend(data)
@@ -277,18 +351,18 @@ class GitCodeMCPArchiver:
     def _get_issue(self, issue_number: int) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
         base_url = "https://api.gitcode.com/api/v5"
         url = f"{base_url}/repos/{self.owner}/{self.repo}/issues/{issue_number}"
-        return self._request_with_retry("GET", url, headers=self._get_headers())
+        return GitCodeMCPArchiver._request_with_retry("GET", url, headers=GitCodeMCPArchiver._get_headers())
 
     def _get_issue_comments(self, issue_number: int) -> List[Dict[str, Any]]:
         base_url = "https://api.gitcode.com/api/v5"
         url = f"{base_url}/repos/{self.owner}/{self.repo}/issues/{issue_number}/comments"
-        headers = self._get_headers()
+        headers = GitCodeMCPArchiver._get_headers()
         all_comments = []
         page = 1
 
         while True:
             params = {"per_page": 100, "page": page}
-            data, error = self._request_with_retry("GET", url, params=params, headers=headers)
+            data, error = GitCodeMCPArchiver._request_with_retry("GET", url, params=params, headers=headers)
             if error or not data:
                 break
             all_comments.extend(data)
@@ -322,66 +396,6 @@ class GitCodeMCPArchiver:
         with open(self.record_file, 'w', encoding='utf-8') as f:
             json.dump(record, f, indent=2, ensure_ascii=False)
 
-    def _generate_markdown(self, issue: Dict[str, Any], comments: List[Dict[str, Any]]) -> str:
-        lines = []
-
-        lines.append(f"# Issue #{issue['number']}: {issue['title']}")
-        lines.append("")
-
-        lines.append(f"**State**: {issue.get('state', 'unknown')}")
-        lines.append(f"**Author**: {issue.get('user', {}).get('login', 'unknown')}")
-
-        created_at = issue.get('created_at', '')
-        updated_at = issue.get('updated_at', '')
-        lines.append(f"**Created**: {created_at}")
-        lines.append(f"**Updated**: {updated_at}")
-
-        html_url = issue.get('html_url', '')
-        if html_url:
-            lines.append(f"**URL**: {html_url}")
-
-        assignee = issue.get('assignee')
-        if assignee:
-            lines.append(f"**Assignee**: {assignee.get('login', 'unknown')}")
-
-        lines.append("")
-
-        labels = issue.get('labels', [])
-        if labels:
-            lines.append("## Labels")
-            for label in labels:
-                lines.append(f"- {label.get('name', '')} ({label.get('color', '#000000')})")
-            lines.append("")
-
-        milestone = issue.get('milestone')
-        if milestone:
-            lines.append(f"**Milestone**: {milestone.get('title', '')}")
-            lines.append("")
-
-        body = issue.get('body', '')
-        if body:
-            lines.append("## Description")
-            lines.append(body)
-            lines.append("")
-
-        if comments:
-            # Sort comments by creation time (oldest first) to match web UI order
-            comments.sort(key=lambda c: c.get('created_at', ''))
-
-            lines.append(f"## Comments ({len(comments)})")
-            lines.append("")
-
-            for comment in comments:
-                user = comment.get('user', {}).get('login', 'unknown')
-                created = comment.get('created_at', '')
-                body_text = comment.get('body', '')
-
-                lines.append(f"### {user} - {created}")
-                lines.append(body_text)
-                lines.append("")
-
-        return "\n".join(lines)
-
     def _download_issue_assets_and_rewrite_markdown(self, issue_number: int, markdown: str) -> str:
         """Download image assets referenced in markdown and rewrite links to local relative paths."""
 
@@ -401,21 +415,18 @@ class GitCodeMCPArchiver:
 
             local_path = assets_dir / filename
 
-            # Download only if missing to make re-runs cheap.
             if not local_path.exists():
                 try:
                     subprocess.run(
-                        ["curl", "-L", url, "-o", str(local_path)],
+                        ["/usr/bin/curl", "-L", url, "-o", str(local_path)],
                         check=True,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
                 except Exception as e:
-                    # Don't fail the archive on asset download errors.
                     logger.warning("Issue #%s: Warning: failed to download asset %s: %s", issue_number, url, e)
                     continue
 
-            # Always use forward slashes in markdown.
             rel = Path("assets") / f"issue-{issue_number}" / filename
             rewritten = rewritten.replace(url, rel.as_posix())
 
@@ -427,29 +438,6 @@ class GitCodeMCPArchiver:
 
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
-
-        # Note: asset download/rewrite is handled by archive() before saving.
-
-    def _needs_update(self, record: Dict[str, Any], issue_number: int, issue: Dict[str, Any]) -> bool:
-        issue_record = record["issues"].get(str(issue_number))
-
-        if not issue_record:
-            return True
-
-        if not issue_record.get("exists", True):
-            return True
-
-        old_state = issue_record.get("state")
-        new_state = issue.get("state")
-        if old_state != new_state:
-            return True
-
-        old_updated = issue_record.get("updated_at", "")
-        new_updated = issue.get("updated_at", "")
-        if old_updated != new_updated:
-            return True
-
-        return False
 
 
 def main():
@@ -485,7 +473,7 @@ def main():
 
     args = parser.parse_args()
 
-    config = GitCodeMCPArchiver._load_config()
+    config = GitCodeMCPArchiver.load_config()
 
     if not args.repo_path:
         args.repo_path = config.get("repo_path") or "cann/pypto"
@@ -498,7 +486,7 @@ def main():
             logger.info("Example: python archive_issues_mcp.py cann/pypto /workspace/archive/pypto_issues")
             sys.exit(1)
 
-    GitCodeMCPArchiver._save_config(args.archive_dir, args.repo_path)
+    GitCodeMCPArchiver.save_config(args.archive_dir, args.repo_path)
 
     if args.token:
         os.environ["GITCODE_TOKEN"] = args.token

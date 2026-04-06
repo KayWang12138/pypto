@@ -162,13 +162,17 @@ def extract_root_cause_and_solution(content: str) -> Tuple[str, str]:
         # Root cause patterns
         if '根因' in line or '原因' in line or '定位结论' in line:
             # Extract next few lines
-            for j in range(i+1, min(i+5, len(lines))):
+            end_j = min(i + 5, len(lines))
+            for j in range(i + 1, end_j):
                 if lines[j].strip() and not lines[j].strip().startswith('###'):
                     root_cause += lines[j].strip() + ' '
         
         # Solution patterns
-        if '规避' in line or '解决方案' in line or '修改' in line or '写法' in line:
-            for j in range(i+1, min(i+5, len(lines))):
+        has_solution_kw = '规避' in line or '解决方案' in line
+        has_solution_kw = has_solution_kw or '修改' in line or '写法' in line
+        if has_solution_kw:
+            end_j = min(i + 5, len(lines))
+            for j in range(i + 1, end_j):
                 if lines[j].strip() and not lines[j].strip().startswith('###'):
                     solution += lines[j].strip() + ' '
     

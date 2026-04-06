@@ -162,8 +162,8 @@ def test_config_operations():
     try:
         mod.CONFIG_FILE = Path(temp_dir) / "config.json"
 
-        GitCodeMCPArchiver._save_config("/workspace/archive/test", "owner/repo")
-        config = GitCodeMCPArchiver._load_config()
+        GitCodeMCPArchiver.save_config("/workspace/archive/test", "owner/repo")
+        config = GitCodeMCPArchiver.load_config()
 
         assert config["last_archive_dir"] == "/workspace/archive/test", "archive_dir not saved"
         assert config["repo_path"] == "owner/repo", "repo_path not saved"

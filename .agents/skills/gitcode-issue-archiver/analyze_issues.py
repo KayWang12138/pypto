@@ -94,16 +94,22 @@ def classify_issue(title, description=''):
     """分类问题类型"""
     text = (title + ' ' + description).lower()
     
-    if any(kw in text for kw in ['编译', 'compile', 'codegen', 'pass', 'ooschedule', 'pregraph']):
+    compile_keywords = ['编译', 'compile', 'codegen', 'pass', 'ooschedule', 'pregraph']
+    runtime_keywords = ['运行', 'runtime', '执行', 'aicore', 'aicpu', 'device']
+    runtime_keywords += ['卡死', '崩溃', 'coredump', 'segmentation']
+    precision_keywords = ['精度', 'precision', 'accuracy', '数值', '结果', '输出', '误差', '对比']
+    performance_keywords = ['性能', 'performance', '耗时', '时间', '速度', '慢', '快', '劣化']
+    missing_keywords = ['不支持', '缺失', '缺少', '未实现', 'not support', 'missing']
+
+    if any(kw in text for kw in compile_keywords):
         return 'A. 编译错误类'
-    elif any(kw in text for kw in ['运行', 'runtime', '执行', 'aicore', 'aicpu', 'device',
-                                     '卡死', '崩溃', 'coredump', 'segmentation']):
+    if any(kw in text for kw in runtime_keywords):
         return 'B. 运行时错误类'
-    elif any(kw in text for kw in ['精度', 'precision', 'accuracy', '数值', '结果', '输出', '误差', '对比']):
+    if any(kw in text for kw in precision_keywords):
         return 'C. 精度问题类'
-    elif any(kw in text for kw in ['性能', 'performance', '耗时', '时间', '速度', '慢', '快', '劣化']):
+    if any(kw in text for kw in performance_keywords):
         return 'D. 性能问题类'
-    elif any(kw in text for kw in ['不支持', '缺失', '缺少', '未实现', 'not support', 'missing']):
+    if any(kw in text for kw in missing_keywords):
         return 'E. 功能缺失类'
     elif any(kw in text for kw in ['文档', 'documentation', 'readme', '描述', '说明']):
         return 'F. 文档问题类'
@@ -318,7 +324,7 @@ def generate_reports(issues):
         cat = issue['category']
         if cat not in categories:
             categories[cat] = []
-        categories[cat].append(issue)
+        categories.get(cat, []).append(issue)
     
     scenario_id = 1
     for category in sorted(categories.keys()):
@@ -363,13 +369,13 @@ def generate_reports(issues):
     # 按类型分类
     type_issues = {}
     for issue in issues:
-        cat = issue['category']
+        cat = issue.get('category', 'Unknown')
         if cat not in type_issues:
             type_issues[cat] = []
-        type_issues[cat].append(issue)
+        type_issues.get(cat, []).append(issue)
     
     for category in sorted(type_issues.keys()):
-        issues_in_cat = type_issues[category]
+        issues_in_cat = type_issues.get(category, [])
         file2_content += f"### {category}\n\n"
         file2_content += f"**Issue 数量**: {len(issues_in_cat)}\n\n"
         
