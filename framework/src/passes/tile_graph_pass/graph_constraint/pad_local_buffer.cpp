@@ -807,9 +807,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(
             op.opmagic, op.GetOpcodeStr().c_str(), in->magic, GetFormatBacktrace(op).c_str());
         return;
     }
-    if (visitedRaw.count(in->tensor)) {
-        return;
-    }
+    if (visitedRaw.count(in->tensor)) return;
     visitedRaw.emplace(in->tensor);
     OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(op.GetOpcode());
     size_t paddingValue = GetPaddingValue(in);
@@ -818,9 +816,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(
     in->tensor->oriRawshape = in->tensor->rawshape;
     auto producerOp = *(in->GetProducers().begin());
     if (producerOp != nullptr && producerOp->GetOpcode() == Opcode::OP_BRCB) {
-        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
-            return;
-        }
+        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) return;
         AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
     }
     if (calcType == OpCalcType::REDUCE) {
@@ -846,9 +842,8 @@ void PadLocalBuffer::PadVectorForAxisCombine(
         }
     }
     if (IsElementwiseLikeOp(calcType, op, producerOp)) {    
-        if (DoElementwiseLikePadding(op, in, lastIdx, paddingValue)) {
-            return;
-        }
+        if (DoElementwiseLikePadding(op, in, lastIdx, paddingValue)) return;
+
     }
     AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
 }
