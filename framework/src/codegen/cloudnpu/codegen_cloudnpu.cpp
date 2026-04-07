@@ -91,7 +91,7 @@ std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function& topFunc
     // kernel func param
     std::string paramType = GetParamType(topFunc, compileInfo.isUnderDyn());
     funcHeader << "(" << paramType
-               << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam)";
+               << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam, uint64_t& startCycle)";
     auto funcDec = funcHeader.str() + ";";
     compileInfo.SetFuncDeclare(funcDec);
     funcHeader << " {\n";

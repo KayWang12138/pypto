@@ -118,12 +118,12 @@ std::string GenSubFuncCall(
     }
     // Define call sub func inline function.
     code << "__attribute__((always_inline)) inline __aicore__ void CallSubFuncTask(uint64_t funcIdx, ";
-    code << "CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {\n";
+    code << "CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext, uint64_t &t1) {\n";
     code << "    switch (funcIdx) {\n";
     for (const auto& iter : idxNameMap) {
         MACHINE_LOGD("Call sub func id[%d], kernel_name[%s].", iter.first, iter.second.c_str());
         code << "        case " << std::to_string(iter.first) << ": {\n";
-        code << "            " << iter.second << "(param, gmStackAddr, hcclContext, nullptr);\n";
+        code << "            " << iter.second << "(param, gmStackAddr, hcclContext, nullptr, t1);\n";
         code << "            break;\n";
         code << "        }\n";
     }
