@@ -58,7 +58,8 @@ private:
     bool IsValidTileShape(const Operation& op) const;
     bool MatchReshapePattern(const LogicalTensorPtr& reshapeInput, const LogicalTensorPtr& reshapeOut);
     bool MatMulPattern(const LogicalTensorPtr& reshapeInput, const LogicalTensorPtr& reshapeOut);
-
+    Status ProcessViewType(Function& function);
+    Status InsertViewAssemble(Function& function);
     std::set<Operation*> preregcopys;
     std::set<Operation*> postregcopys;
     std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> memoryInfo;
