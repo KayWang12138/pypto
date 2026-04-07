@@ -22,18 +22,8 @@ import logging
 
 import torch
 
-# Configure logger for the module
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-formatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='[%Y-%m-%d %H:%M:%S]'
-)
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-logger.handlers.clear()
-logger.addHandler(handler)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -41,7 +31,8 @@ from flash_attention_score_grad_golden import generate_forward_data
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper
 
 
-def bench(name, batch_size, num_heads, seq_len, head_dim, device_id, warmup=5, repeat=20):  # noqa: C901
+def bench(name, batch_size, num_heads, seq_len, head_dim, device_id,
+          warmup=5, repeat=20):
     device = f"npu:{device_id}"
     q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
         batch_size, num_heads, seq_len, head_dim, device=device)
