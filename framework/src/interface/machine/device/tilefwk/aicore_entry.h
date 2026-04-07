@@ -318,9 +318,9 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
     auto funcData = &ctx->funcDataList[npu::tile_fwk::FuncID(taskId)];
     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(taskId)]];
 #if ENABLE_AICORE_PRINT
-    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context()};
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context(), t1};
 #else
-    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
+    CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr, t1};
 #endif
     CallSubFuncTask(
         opAttrs[0] + funcData->exprTbl[0], &param,
@@ -330,7 +330,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
     if (unlikely(ctx->args->taskEntry.reserved[0] == PRO_LEVEL2 || ctx->args->taskEntry.reserved[0] == PRO_LEVEL1)) {
-        AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], t1);
+        AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], param.leafFuncStartCycle);
     }
     if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data)) {
         ctx->lastTaskFinishCycle = get_sys_cnt();
@@ -338,7 +338,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
 
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
     static int32_t taskDfxPos = REG_LOW_TASK_PING;
-    SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], t1, ctx->seqNo);
+    SetTaskStatistic(ctx->args, taskDfxPos, taskId, opAttrs[0], param.leafFuncStartCycle, ctx->seqNo);
 #endif
 }
 #endif

@@ -128,6 +128,7 @@ struct CoreFuncParam {
     __gm__ uint64_t* exprTbl;
     uint32_t taskId;
     LogContext* ctx;
+    uint64_t leafFuncStartCycle;
 };
 
 #define TASKID_TASK_BITS 20
