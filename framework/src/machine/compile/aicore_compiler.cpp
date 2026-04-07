@@ -123,7 +123,7 @@ std::string GenSubFuncCall(
     for (const auto& iter : idxNameMap) {
         MACHINE_LOGD("Call sub func id[%d], kernel_name[%s].", iter.first, iter.second.c_str());
         code << "        case " << std::to_string(iter.first) << ": {\n";
-        code << "            " << iter.second << "(param, gmStackAddr, hcclContext, nullptr);\n";
+        code << "            " << iter.second << "(param, gmStackAddr, hcclContext, nullptr, t1);\n";
         code << "            break;\n";
         code << "        }\n";
     }
