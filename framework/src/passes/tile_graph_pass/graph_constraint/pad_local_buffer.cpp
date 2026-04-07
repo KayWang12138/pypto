@@ -43,9 +43,11 @@ const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
 const std::unordered_set<DataType> b8DataSupport = {
     DataType::DT_INT8, DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_HF8};
 const std::unordered_set<DataType> b4DataSupport = {DataType::DT_FP4_E2M1X2, DataType::DT_FP4_E1M2X2};
+// combine_axis 
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
 const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
+const std::unordered_set<OpCalcType> ELEMENTWISE_LIKE_TYPES{OpCalcType::CAST, OpCalcType::ELMWISE, OpCalcType::MOVE_IN, OpCalcType::MOVE_OUT};
 int64_t Pad(int64_t dim, int64_t padValue) { return (dim + padValue - 1) / padValue * padValue; }
 
 bool PadLocalBuffer::IsInputDataType(
@@ -752,8 +754,7 @@ void ProcessReduceForAxisCombine(Operation& op, LogicalTensorPtr& in, size_t pad
 
 bool PadLocalBuffer::IsElementwiseLikeOp(OpCalcType calcType, const Operation& op, Operation* producerOp) const
 {
-    std::unordered_set<OpCalcType> calcTypeSet{OpCalcType::CAST, OpCalcType::ELMWISE, OpCalcType::MOVE_IN, OpCalcType::MOVE_OUT};
-    if (calcTypeSet.find(calcType) != calcTypeSet.end()) {
+    if (ELEMENTWISE_LIKE_TYPES.find(calcType) != ELEMENTWISE_LIKE_TYPES.end()) {
         return true;
     }
     if (op.GetOpcode() == Opcode::OP_VIEW) {
@@ -769,14 +770,13 @@ bool PadLocalBuffer::IsElementwiseLikeOp(OpCalcType calcType, const Operation& o
 void PadLocalBuffer::DoBrcbOpPadding(Operation& op, LogicalTensorPtr& in, size_t lastIdx, size_t paddingValue,
     std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
 {
-    if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
-        return;
-    }
-    AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
-    for (auto& out : op.GetOOperands()) {
-        AlignedRawTensorIfNeed(out, lastIdx - 1, BRCB_SECOND_LAST_BASE);
-        AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
-        visitedRaw.emplace(out->tensor);
+    if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
+        AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
+        for (auto& out : op.GetOOperands()) {
+            AlignedRawTensorIfNeed(out, lastIdx - 1, BRCB_SECOND_LAST_BASE);
+            AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
+            visitedRaw.emplace(out->tensor);
+        }
     }
 }
 
