@@ -16,6 +16,7 @@
 #ifndef PASS_L1_COPY_REUSE_H_
 #define PASS_L1_COPY_REUSE_H_
 
+#include <queue>
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/reschedule_utils.h"
@@ -28,6 +29,7 @@
 
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/dfs_sort_utils.h"
 
 #ifdef MODULE_NAME
 #undef MODULE_NAME
@@ -73,6 +75,8 @@ private:
         std::vector<int>& colorCopyIn);
     Status SetNumLR(std::vector<int>& numLRList);
     Status SetNumDB(std::vector<int>& numDBList);
+    void BuildInOutGraph(const OperationsViewer &opOriList, int color);
+    std::map<int, std::vector<int>> GetTopoLevels(int color);
     const std::vector<std::vector<int>>& inGraph_;
     std::unordered_map<int, int> replacedCopyMap_;
     std::unordered_map<int, int> tensormagic2Op_;
@@ -83,6 +87,12 @@ private:
     int mgCopyInUpperBound_;
     int L1ReuseMode_;
     int cubeNBufferMode_;
+    std::vector<std::vector<int>> colorInGraph;
+    std::vector<std::vector<int>> colorOutGraph;
+    std::unordered_map<int, int> dfsColorOrder;
+    std::vector<int> mergedNum;
+    int tmpColor;
+    std::map<std::vector<uint64_t>, int> l1InputList;
 };
 
 class L1CopyInReuseMerge : public Pass {
