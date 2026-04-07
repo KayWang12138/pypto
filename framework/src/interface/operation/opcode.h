@@ -129,7 +129,7 @@ enum class Opcode {
     OP_SCATTER,
     OP_INDEX_PUT,
     OP_INDEX_ADD_UB,
-    OP_INDEX_ADD,    
+    OP_INDEX_ADD,
     OP_CONCAT,
     OP_CUM_SUM,
     OP_CUM_PROD,
@@ -489,9 +489,10 @@ public:
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
                opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_INDEX_PUT || opCode == Opcode::OP_FFN_SCHED ||
-               opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_INDEX_ADD ||
-               opCode == Opcode::OP_FFN_VALIDCNT || opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
-               opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
+               opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO ||
+               opCode == Opcode::OP_INDEX_ADD || opCode == Opcode::OP_FFN_VALIDCNT ||
+               opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_SHMEM_PUT ||
+               opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || opCode == Opcode::OP_L0C_COPY_OUT_CONV;
@@ -808,6 +809,7 @@ const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{
     Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
+    Opcode::OP_INDEX_ADD,
     Opcode::OP_EXP,
     Opcode::OP_RSQRT,
     Opcode::OP_SQRT,
