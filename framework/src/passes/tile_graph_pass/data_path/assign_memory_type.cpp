@@ -275,7 +275,14 @@ bool AssignMemoryType::CheckConsumerRequirements(const LogicalTensorPtr &output,
             }
         } else {        
             const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
-            if (!inputsMemType.empty() && inputsMemType[0] != targetMemType) {
+            if (inputsMemType.empty()) {
+                APASS_LOG_INFO_F(Elements::Operation,
+                    "  consumer Op[%d] (%s) inputsMemType is EMPTY, targetMemType=%s -> REJECT (cannot guarantee support for local memory)",
+                    consumerOp->GetOpMagic(), consumerOp->GetOpcodeStr().c_str(),
+                    BriefMemoryTypeToString(targetMemType).c_str());
+                return false;
+            }
+            if (inputsMemType[0] != targetMemType) {
                 return false;
             }
         }
