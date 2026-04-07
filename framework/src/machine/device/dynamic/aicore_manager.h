@@ -273,7 +273,8 @@ public:
     inline void ProcessTaskLoop(DeviceTaskCtrl *taskCtrl) {
         uint64_t lastSent = 0;
         uint64_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
-        while (allSentCnt < curDevTask_->coreFunctionCnt) {
+        const uint64_t totalFunctionCnt = curDevTask_->coreFunctionCnt;
+        while (allSentCnt < totalFunctionCnt) {
             uint64_t curSent = 0;
             RunCoreTask(curSent);
             if (likely(curSent == 0)) {
