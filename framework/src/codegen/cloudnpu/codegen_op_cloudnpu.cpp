@@ -633,10 +633,14 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo()
 bool CodeGenOpCloudNPU::ShouldSkipProcInLoop(int paramIdx)
 {
     auto iter = SKIP_PROC_PRARAM_IDX_IN_LOOP.find(opCode);
-    if (iter == SKIP_PROC_PRARAM_IDX_IN_LOOP.end()) {
-        return false;
+    if (iter != SKIP_PROC_PRARAM_IDX_IN_LOOP.end() && iter->second.find(paramIdx) != iter->second.end()) {
+        return true;
     }
-    return iter->second.find(paramIdx) != iter->second.end();
+    // cast with tempbuf which index is 1
+    if (opCode == Opcode::OP_CAST && originalOp.oOperand.size() == NUM2 && paramIdx == 1) {
+        return true;
+    }
+    return false;
 }
 
 std::vector<SymbolicScalar> CodeGenOpCloudNPU::GetLoopAxes()

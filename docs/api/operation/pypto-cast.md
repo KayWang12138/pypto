@@ -101,7 +101,7 @@ cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
 
 1.  **A2A3 架构支持的转换**：
 
-    | 源类型 | 目标类型 | PyTorch 兼容模式 | 默认CastMode | 特殊说明 |
+    | 源类型 | 目标类型 | 饱和模式设置 | 默认CastMode | 特殊说明 |
     |--------|----------|------------------|--------------|----------|
     | DT_FP16 | DT_FP32 | - | - | - |
     | DT_FP16 | DT_INT32 | - | CAST_TRUNC | - |
@@ -130,7 +130,7 @@ cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
 
 2.  **Ascend 950PR/Ascend 950DT (A5 架构) 支持的转换**：
 
-    | 源类型 | 目标类型 | PyTorch 兼容模式 | 默认CastMode | 特殊说明 |
+    | 源类型 | 目标类型 | 饱和模式设置 | 默认CastMode | 特殊说明 |
     |--------|----------|------------------|--------------|----------|
     | DT_FP32 | DT_FP16 | - | CAST_RINT | - |
     | DT_FP32 | DT_BF16 | - | CAST_RINT | - |
@@ -176,11 +176,12 @@ cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
     | DT_FP8E5M2 | DT_FP32 | - | - | - |
     | DT_HF8 | DT_FP32 | - | - | - |
 
-3.  当 cast 前后类型相同的时候，某些场景下会产生空操作，不保证精度。
+3.  饱和模式设置说明：
+    1.  FP16→UINT8、FP16→INT8、FP32→INT16、FP16→INT16、INT64→INT32、INT32→INT16 转换默认使用 OFF模式（截断/回绕），以保持PyTorch兼容性; 当cast用于量化场景或有其他需求时，上述6种转换场景用户可以根据需要设置为ON模式（饱和）。
+    2.  其他转换该字段设置无效。
 
-4.  饱和模式默认值：
-    1.  FP16→UINT8、FP16→INT8、FP32→INT16、FP16→INT16、INT64→INT32、INT32→INT16 转换默认使用 OFF模式（截断/回绕），以保持PyTorch兼容性;当cast用于量化场景或有其他需求时，上述6种转换场景用户可以根据需要设置为ON模式（饱和）。
-    2.  其他转换默认使用 ON模式（饱和），OFF模式不支持。
+4.  当 cast 前后类型相同的时候，某些场景下会产生空操作，不保证精度。
+
 
 5.  **特殊说明**：
     - DT\_INT4（S4）是一种打包类型，每字节包含2个元素
