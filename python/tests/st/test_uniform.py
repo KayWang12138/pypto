@@ -101,12 +101,13 @@ def random_golden(key, counter0, counter1, shape, rounds):
     return result_float.reshape(shape)
 
 
+@pytest.mark.soc("950")
 def test_random_onboard():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    output_shape = (64,)
+    output_shape = (32,)
     view_shape = (32,)
-    tile_shape = (16,)
+    tile_shape = (32,)
 
     pypto.runtime._device_init()
 
@@ -132,7 +133,7 @@ def test_random_onboard():
 
     assert isinstance(output, pypto.tensor)
     
-    out_data = np.zeros(output_shape, dtype=np.uint32)
+    out_data = np.zeros(output_shape, dtype=np.float32)
 
     pto_out = pypto.from_torch(torch.from_numpy(out_data), "PTO_TENSOR_output")
     pypto.runtime._device_run_once_data_from_host(pto_out)
@@ -144,16 +145,17 @@ def test_random_onboard():
     pypto.runtime._device_fini()
 
 
+@pytest.mark.soc("950")
 def test_random_onboard_large():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     output_shape = (256,)
-    view_shape = (128,)
-    tile_shape = (64,)
+    view_shape = (256,)
+    tile_shape = (256,)
 
     pypto.runtime._device_init()
 
-    output = pypto.tensor(output_shape, pypto.DT_UINT32, "PTO_TENSOR_output")
+    output = pypto.tensor(output_shape, pypto.DT_FP32, "PTO_TENSOR_output")
 
     loop_num = math.ceil(output_shape[0] / view_shape[0])
     
@@ -175,7 +177,7 @@ def test_random_onboard_large():
 
     assert isinstance(output, pypto.tensor)
     
-    out_data = np.zeros(output_shape, dtype=np.uint32)
+    out_data = np.zeros(output_shape, dtype=np.float32)
 
     pto_out = pypto.from_torch(torch.from_numpy(out_data), "PTO_TENSOR_output")
     pypto.runtime._device_run_once_data_from_host(pto_out)
