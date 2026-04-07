@@ -25,9 +25,10 @@ CodeGenOpLiteNPU::CodeGenOpLiteNPU(const std::shared_ptr<SymbolManager> &symbolM
     const std::map<int, int> &locToOffset, bool isUnderDynamicFunc, bool isMainBlk)
     : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk) {}
 
+// ensure funcType is static, and isUnderDynamicFunc is false
 CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx)
-    : CodeGenOpLiteNPU(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
-          ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {
+    : CodeGenOpLiteNPU(ctx.symbolManager, FunctionType::STATIC, ctx.locToOffset,
+        false, ctx.isMainBlock) {
     CodeGenOp::Init(ctx.operation);
     UpdateTileTensorInfo();
 }

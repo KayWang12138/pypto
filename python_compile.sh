@@ -8,4 +8,7 @@ python3 -m pip install . --verbose
 
 cd /mnt/workspace/gitCode/GBowen666/pypto/python/tests/ut/litenpu_codegen/
 
+rm -r output
+rm -r simulator
+
 python -m unittest -v test_matmul.py
