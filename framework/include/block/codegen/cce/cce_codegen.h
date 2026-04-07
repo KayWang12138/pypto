@@ -1,0 +1,418 @@
+/*
+ * Copyright (c) PyPTO Contributors.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
+ */
+
+#ifndef PYPTO_CODEGEN_CCE_CCE_CODEGEN_H_
+#define PYPTO_CODEGEN_CCE_CCE_CODEGEN_H_
+
+#include <cstdint>
+#include <map>
+#include <optional>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "block/backend/common/backend.h"
+#include "block/codegen/cce/code_context.h"
+#include "block/codegen/cce/code_emitter.h"
+#include "block/codegen/cce/type_converter.h"
+#include "block/codegen/codegen_base.h"
+#include "block/core/dtype.h"
+#include "block/ir/expr.h"
+#include "block/ir/function.h"
+#include "block/ir/pipe.h"
+#include "block/ir/program.h"
+#include "block/ir/scalar_expr.h"
+#include "block/ir/stmt.h"
+#include "block/ir/type.h"
+
+namespace pypto {
+
+namespace codegen {
+
+/**
+ * @brief CCE code generator for converting PyPTO IR to pto-isa C++ code
+ *
+ * CCECodegen traverses the IR using the visitor pattern and generates
+ * compilable C++ code using pto-isa instructions. It handles:
+ * - Function prologue (signature, argument unpacking, type definitions)
+ * - Function body (block operations, sync operations, control flow)
+ * - Type conversions and memory management
+ */
+class CCECodegen : public CodegenBase {
+ public:
+  /** @brief Default constructor (backend is always CCE) */
+  CCECodegen();
+
+  /**
+   * @brief Generate C++ code from a PyPTO IR Program
+   *
+   * Classifies functions into kernel and orchestration, then generates:
+   * - Kernel functions -> kernels/<func_name>.cpp (CCE kernel C++ code)
+   * - Orchestration function -> orchestration/<func_name>.cpp (orchestration C++ code)
+   *
+   * @param program The IR Program to generate code for
+   * @return Map from file path to generated C++ code content
+   */
+  [[nodiscard]] std::map<std::string, std::string> Generate(const ir::ProgramPtr& program);
+
+  /**
+   * @brief Generate a single C++ file from a PyPTO IR Program (MIX mode)
+   *
+   * Runs IR passes (LowerBreakContinue → ConvertToSSA → ConstFoldAndSimplify),
+   * then generates a single __global__ AICORE kernel with:
+   * - PTO-style function signature
+   * - Section-aware tile declarations (#if __DAV_CUBE__ / __DAV_VEC__)
+   * - constexpr for compile-time constants
+   * - FFTS support for cross-core sync
+   *
+   * @param program The IR Program to generate code for
+   * @return Generated C++ code as a single string
+   */
+  [[nodiscard]] std::string GenerateSingle(const ir::ProgramPtr& program,
+                                            const std::string& arch = "a3");
+
+  // CodegenBase interface (unified API for operator codegen callbacks)
+  [[nodiscard]] std::string GetCurrentResultTarget() const override { return current_target_var_; }
+  void Emit(const std::string& line) override;
+  std::string GetExprAsCode(const ir::ExprPtr& expr) override;
+  [[nodiscard]] std::string GetTypeString(const DataType& dtype) const override;
+  int64_t GetConstIntValue(const ir::ExprPtr& expr) override;
+  std::string GetVarName(const ir::VarPtr& var) override;
+
+  const TypeConverter& GetTypeConverter() const { return type_converter_; }
+
+  /** @brief Check if currently generating in single-file MIX mode */
+  bool IsSingleFileMode() const { return single_file_mode_; }
+
+  /** @brief Get the target architecture */
+  const std::string& GetArch() const { return arch_; }
+
+  /** @brief Get current section kind (Cube or Vector), nullopt if not in any section */
+  std::optional<ir::SectionKind> GetCurrentSectionKind() const { return current_section_kind_; }
+
+  /** @brief Check if currently generating code inside a Cube section */
+  bool IsInCubeSection() const {
+    return current_section_kind_.has_value() && *current_section_kind_ == ir::SectionKind::Cube;
+  }
+
+  /** @brief Get the base address of a tile variable (from TASSIGN in prologue) */
+  std::string GetTileAddress(const std::string& tile_name) const {
+    auto it = tile_addresses_.find(tile_name);
+    if (it != tile_addresses_.end()) return it->second;
+    return "0x0";
+  }
+
+  /**
+   * @brief Compute offset from IR tensor shape (for single-file mode without Tensor struct)
+   *
+   * Computes row-major stride-based offset: off[0]*stride[0] + off[1]*stride[1] + ...
+   * where stride[i] = product(shape[i+1..n-1])
+   */
+  std::string ComputeIRBasedOffset(const ir::TensorTypePtr& tensor_type,
+                                   const ir::MakeTuplePtr& offsets);
+
+  /**
+   * @brief Get pointer name for a variable (CCE-specific)
+   */
+  std::string GetPointer(const std::string& var_name);
+
+  /**
+   * @brief Register pointer mapping for block.store result (CCE-specific)
+   *
+   * Associates the assignment target variable with the output tensor variable
+   * for pointer lookup. Used when block.store returns a tensor reference.
+   *
+   * @param output_var_name Assignment target variable name
+   * @param tensor_var_name Output tensor variable name (e.g., from GlobalTensor)
+   */
+  void RegisterOutputPointer(const std::string& output_var_name, const std::string& tensor_var_name);
+
+  /**
+   * @brief Get Tensor struct pointer name for a variable (CCE-specific)
+   */
+  std::string GetTensorStruct(const std::string& var_name);
+
+  /**
+   * @brief Register Tensor struct mapping for block.store result (CCE-specific)
+   *
+   * Associates the assignment target variable with the output tensor variable
+   * for Tensor struct lookup. Used when block.store returns a tensor reference.
+   *
+   * @param output_var_name Assignment target variable name
+   * @param tensor_var_name Output tensor variable name (e.g., from GlobalTensor)
+   */
+  void RegisterOutputTensorStruct(const std::string& output_var_name, const std::string& tensor_var_name);
+
+  /**
+   * @brief Get or create a C++ struct type for the given field signature.
+   * Deduplicates identical structs: same fields → same type name.
+   */
+  std::string GetOrCreateStructType(const std::string& fields_csv, const std::string& hint_name);
+
+ protected:
+  // Override visitor methods for code generation - Statements
+  void VisitStmt_(const ir::AssignStmtPtr& op) override;
+  void VisitStmt_(const ir::EvalStmtPtr& op) override;
+  void VisitStmt_(const ir::ReturnStmtPtr& op) override;
+  void VisitStmt_(const ir::ForStmtPtr& op) override;
+  void VisitStmt_(const ir::WhileStmtPtr& op) override;
+  void VisitStmt_(const ir::IfStmtPtr& op) override;
+  void VisitStmt_(const ir::YieldStmtPtr& op) override;
+  void VisitStmt_(const ir::SectionStmtPtr& op) override;
+
+  // Override visitor methods for code generation - Expressions
+  // Leaf nodes
+  void VisitExpr_(const ir::VarPtr& op) override;
+  void VisitExpr_(const ir::IterArgPtr& op) override;
+  void VisitExpr_(const ir::ConstIntPtr& op) override;
+  void VisitExpr_(const ir::ConstFloatPtr& op) override;
+  void VisitExpr_(const ir::ConstBoolPtr& op) override;
+  void VisitExpr_(const ir::CallPtr& op) override;
+  void VisitExpr_(const ir::TupleGetItemExprPtr& op) override;
+
+  // Binary operations
+  void VisitExpr_(const ir::AddPtr& op) override;
+  void VisitExpr_(const ir::SubPtr& op) override;
+  void VisitExpr_(const ir::MulPtr& op) override;
+  void VisitExpr_(const ir::FloorDivPtr& op) override;
+  void VisitExpr_(const ir::FloorModPtr& op) override;
+  void VisitExpr_(const ir::FloatDivPtr& op) override;
+  void VisitExpr_(const ir::MinPtr& op) override;
+  void VisitExpr_(const ir::MaxPtr& op) override;
+  void VisitExpr_(const ir::PowPtr& op) override;
+  void VisitExpr_(const ir::EqPtr& op) override;
+  void VisitExpr_(const ir::NePtr& op) override;
+  void VisitExpr_(const ir::LtPtr& op) override;
+  void VisitExpr_(const ir::LePtr& op) override;
+  void VisitExpr_(const ir::GtPtr& op) override;
+  void VisitExpr_(const ir::GePtr& op) override;
+  void VisitExpr_(const ir::AndPtr& op) override;
+  void VisitExpr_(const ir::OrPtr& op) override;
+  void VisitExpr_(const ir::XorPtr& op) override;
+  void VisitExpr_(const ir::BitAndPtr& op) override;
+  void VisitExpr_(const ir::BitOrPtr& op) override;
+  void VisitExpr_(const ir::BitXorPtr& op) override;
+  void VisitExpr_(const ir::BitShiftLeftPtr& op) override;
+  void VisitExpr_(const ir::BitShiftRightPtr& op) override;
+
+  // Unary operations
+  void VisitExpr_(const ir::AbsPtr& op) override;
+  void VisitExpr_(const ir::NegPtr& op) override;
+  void VisitExpr_(const ir::NotPtr& op) override;
+  void VisitExpr_(const ir::BitNotPtr& op) override;
+  void VisitExpr_(const ir::CastPtr& op) override;
+
+ private:
+  /**
+   * @brief Generate function prologue
+   *
+   * Emits function signature, argument unpacking, GlobalTensor declarations,
+   * and Tile declarations with TASSIGN.
+   *
+   * @param func The function to generate prologue for
+   */
+  void GeneratePrologue(const ir::FunctionPtr& func);
+
+  /**
+   * @brief Generate function body
+   *
+   * Visits the function body statement to generate the main code.
+   *
+   * @param func The function to generate body for
+   */
+  void GenerateBody(const ir::FunctionPtr& func);
+
+  /**
+   * @brief Extract constant integer value from expression
+   *
+   * @param expr The expression (must be ConstInt)
+   * @return The integer value
+   */
+  int64_t ExtractConstInt(const ir::ExprPtr& expr);
+
+  /**
+   * @brief Collect all TileType variables from function body
+   *
+   * Recursively traverses the statement tree to find all variables
+   * with TileType that need Tile declarations in the prologue.
+   *
+   * @param stmt The statement to scan (typically func->body_)
+   * @return Vector of (Var, TileType) pairs
+   */
+  std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> CollectTileVariables(const ir::StmtPtr& stmt);
+
+  /**
+   * @brief Collect tensor access window shapes from block.load/store operations
+   *
+   * Scans the function body for block.load/block.store calls
+   * and extracts the shapes_tuple for each tensor parameter. The GlobalTensor
+   * Shape<> should use this access window shape, not the full tensor shape.
+   *
+   * @param stmt The statement to scan (typically func->body_)
+   * @return Map from tensor VarPtr to access window shape expressions
+   */
+  std::map<std::string, std::vector<ir::ExprPtr>> CollectTensorAccessShapes(const ir::StmtPtr& stmt);
+
+  /// Per-section access shapes for GlobalTensor declarations
+  struct SectionAccessShapes {
+    std::map<std::string, std::vector<ir::ExprPtr>> common_shapes;  // outside any section
+    std::map<std::string, std::vector<ir::ExprPtr>> cube_shapes;
+    std::map<std::string, std::vector<ir::ExprPtr>> vec_shapes;
+  };
+
+  SectionAccessShapes CollectTensorAccessShapesPerSection(const ir::StmtPtr& stmt);
+
+  /**
+   * @brief Extract shape dimensions from shape expressions
+   *
+   * Converts a vector of shape expressions (assumed to be ConstInt)
+   * into a vector of integer dimensions.
+   *
+   * @param shape_exprs Vector of shape expressions (ConstInt)
+   * @return Vector of integer dimensions
+   */
+  std::vector<int64_t> ExtractShapeDimensions(const std::vector<ir::ExprPtr>& shape_exprs);
+
+  /**
+   * @brief Format address as hexadecimal string
+   *
+   * Converts an integer address to hex format for TASSIGN instructions.
+   *
+   * @param addr Address value
+   * @return Hex string (e.g., "0x0", "0x10000")
+   */
+  std::string FormatAddressHex(int64_t addr);
+
+  /**
+   * @brief Get or create a C++ struct type for the given field signature.
+   *
+   * Deduplicates identical structs: same fields → same type name.
+   * The struct type definition is emitted once (on first encounter).
+   *
+   * @param fields_csv Comma-separated field names (dedup key)
+   * @param hint_name Name hint for the type (used if this is the first struct with these fields)
+   * @return The canonical type name (e.g., "ctx_t")
+   */
+  void PreEmitStructTypes(const ir::StmtPtr& body);
+
+  /**
+   * @brief Generate CCE kernel C++ code for a single function
+   *
+   * Emits function prologue (signature, argument unpacking, type declarations)
+   * and body (block operations, control flow) for kernel (InCore) functions.
+   *
+   * @param func The kernel function to generate code for
+   * @return Generated C++ code as a string
+   */
+  std::string GenerateFunction(const ir::FunctionPtr& func);
+
+  /**
+   * @brief Generate config file for orchestration and kernels
+   *
+   * @param orch_func_name Orchestration function name
+   * @param func_name_to_id Kernel function name -> func id mapping
+   * @param func_name_to_core_type Kernel function name -> core type mapping
+   * @return Generated config file as a string
+   */
+  std::string GenerateConfigFile(const std::string& orch_func_name,
+                                 const std::map<std::string, int>& func_name_to_id,
+                                 const std::map<std::string, ir::CoreType>& func_name_to_core_type);
+
+  /**
+   * @brief Generate Tile type declaration and instance
+   *
+   * Emits type alias and instance declaration for a Tile variable.
+   * Automatically extracts memref address from tile_type if present and emits TASSIGN.
+   *
+   * @param var_name Variable name for the tile
+   * @param tile_type The TileType to generate declaration for (memref extracted automatically)
+   */
+  void GenerateTileTypeDeclaration(const std::string& var_name, const ir::TileTypePtr& tile_type);
+
+  /**
+   * @brief Generate GlobalTensor type declaration and instance
+   *
+   * Emits shape type alias, stride type alias, GlobalTensor type alias,
+   * and instance declaration for a GlobalTensor variable.
+   *
+   * @param var_name Variable name for the global tensor
+   * @param tensor_type The TensorType to generate declaration for
+   * @param base_pointer Optional base pointer name for initialization
+   * @param tensor_struct_ptr Optional Tensor struct pointer name for initialization
+   * @param access_shape Optional access window shape from block.load/store (overrides tensor shape for
+   * Shape<>/Stride<>)
+   */
+  void GenerateGlobalTensorTypeDeclaration(
+      const std::string& var_name, const ir::TensorTypePtr& tensor_type,
+      const std::optional<std::string>& base_pointer = std::nullopt,
+      const std::optional<std::string>& tensor_struct_ptr = std::nullopt,
+      const std::optional<std::vector<ir::ExprPtr>>& access_shape = std::nullopt);
+
+  /**
+   * @brief Generate PTO-style function signature and prologue for single-file mode
+   *
+   * Emits __global__ AICORE void func_name(__gm__ type* p, ...) with constexpr
+   * scalars and section-aware tile declarations.
+   */
+  void GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cross_sync);
+
+  /**
+   * @brief Detect whether the program uses cross-core sync ops
+   */
+  bool DetectCrossCoreSyncOps(const ir::StmtPtr& stmt);
+
+  /**
+   * @brief Collect which section each tile belongs to (for section-aware declaration)
+   */
+  std::map<ir::VarPtr, ir::SectionKind> CollectTileSections(const ir::StmtPtr& stmt);
+
+  // Dual-mode context for expression visitor pattern
+  std::string current_target_var_;         ///< INPUT: Assignment target variable name (for Call expressions)
+  std::string current_expr_value_;         ///< OUTPUT: Inline C++ value for scalar expressions
+  std::vector<std::string> yield_buffer_;  ///< Temporary storage for yielded values from loops
+
+  CodeEmitter emitter_;              ///< Code emitter for structured output
+  CodeContext context_;              ///< Context for variable tracking
+  TypeConverter type_converter_;     ///< Type converter
+  const backend::Backend* backend_;  ///< CCE backend instance (for op info, core type, orchestration)
+  bool single_file_mode_ = false;    ///< Whether generating in single-file MIX mode
+  std::string arch_ = "a3";          ///< Target architecture ("a2", "a3", "a5")
+  std::optional<ir::SectionKind> current_section_kind_;  ///< Current section being generated (Cube/Vector)
+  bool force_dn_layout_ = false;     ///< Temporary flag for DN layout in GenerateGlobalTensorTypeDeclaration
+  std::set<std::string> dn_tensors_;  ///< Tensor names loaded with layout="dn" (need Layout::DN)
+  std::map<std::string, std::string> tile_addresses_;  ///< tile_name → TASSIGN address expression
+
+  // Loop tile hoisting: declarations collected during loop body visit, emitted before outermost loop
+  int loop_depth_ = 0;                        ///< Current for-loop nesting depth (0 = not in loop)
+  std::vector<std::string> loop_hoisted_decls_;  ///< Lines to hoist before outermost loop
+
+  // EventId array deduplication: maps (val0, val1) → EventId variable name
+  std::map<std::pair<int64_t, int64_t>, std::string> event_id_decls_;
+
+  // Tile array deduplication: maps "tile0,tile1" → shared Tile array name
+  std::map<std::string, std::string> tile_array_decls_;
+  int tile_array_counter_ = 0;  ///< Counter for unique Tile array names
+
+  // Tile type dedup: maps tile_type_str → alias name already emitted
+  std::map<std::string, std::string> emitted_tile_types_;
+
+  bool section_snapshot_saved_ = false;  ///< Whether context snapshot has been saved before first section
+
+  /// Struct type dedup: maps field signature (CSV) → type name.
+  /// Identical structs share the same type definition.
+  std::map<std::string, std::string> struct_type_defs_;
+};
+
+}  // namespace codegen
+}  // namespace pypto
+
+#endif  // PYPTO_CODEGEN_CCE_CCE_CODEGEN_H_

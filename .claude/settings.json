@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Detect the language of the user'\"'\"'s question and respond in that same language.\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

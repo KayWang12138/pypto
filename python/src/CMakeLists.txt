@@ -54,3 +54,51 @@ target_link_libraries(pypto_impl
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)
 endif ()
+
+file(GLOB_RECURSE PYPTO_CORE_COMPAT_SOURCES CONFIGURE_DEPENDS
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/core/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/backend/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/backend/*/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/codegen/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/codegen/*/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/ir/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/ir/*/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/ir/*/*/*.cpp
+)
+
+set(PYPTO_CORE_BINDING_SOURCES
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/bindings.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/error.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/core.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/logging.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/testing.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/ir.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/ir_builder.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/passes.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/codegen.cpp
+        ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/backend.cpp
+)
+
+pybind11_add_module(pypto_core
+        MODULE
+            ${PYPTO_CORE_BINDING_SOURCES}
+            ${PYPTO_CORE_COMPAT_SOURCES}
+)
+set_target_properties(pypto_core PROPERTIES
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
+        LIBRARY_OUTPUT_DIRECTORY ${PTO_FWK_SRC_ROOT}/python/pypto_block
+)
+target_include_directories(pypto_core
+        PRIVATE
+            ${PTO_FWK_SRC_ROOT}/framework/include
+            ${PTO_FWK_SRC_ROOT}/python/src/bindings/block
+            ${LIBBACKTRACE_INSTALL_DIR}/include
+)
+target_link_libraries(pypto_core
+        PRIVATE
+            libbacktrace
+            msgpackc-cxx
+            dl
+            Threads::Threads
+)
