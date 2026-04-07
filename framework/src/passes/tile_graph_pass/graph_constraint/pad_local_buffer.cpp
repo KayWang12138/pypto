@@ -750,6 +750,51 @@ void ProcessReduceForAxisCombine(Operation& op, LogicalTensorPtr& in, size_t pad
     }
 }
 
+bool PadLocalBuffer::IsElementwiseLikeOp(OpCalcType calcType, const Operation& op, Operation* producerOp) const
+{
+    if (calcType == OpCalcType::CAST || calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN ||
+        calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW) {
+        return true;
+    }
+    if (producerOp != nullptr &&
+        OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST) {
+        return true;
+    }
+    return false;
+}
+
+void PadLocalBuffer::DoBrcbOpPadding(Operation& op, LogicalTensorPtr& in, size_t lastIdx, size_t paddingValue,
+    std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
+{
+    if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
+        return;
+    }
+    AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
+    for (auto& out : op.GetOOperands()) {
+        AlignedRawTensorIfNeed(out, lastIdx - 1, BRCB_SECOND_LAST_BASE);
+        AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
+        visitedRaw.emplace(out->tensor);
+    }
+}
+
+bool PadLocalBuffer::DoElementwiseLikePadding(
+    const Operation& op, LogicalTensorPtr& in, size_t lastIdx, size_t paddingValue)
+{
+    if (!axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return true;
+    }
+    if (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST && op.GetIOperandIndex(in) == 0) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return true;
+    }
+    if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
+        AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
+        return true;
+    }
+    return false; // pad 尾轴
+}
+
 void PadLocalBuffer::PadVectorForAxisCombine(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
 {
@@ -780,15 +825,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(
         return;
     }
     if (op.GetOpcode() == Opcode::OP_BRCB) {
-        if (lastIdx == 0 && in->tensor->rawshape[lastIdx] != 1) {
-            return;
-        }
-        AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
-        for (auto& out : op.GetOOperands()) {
-            AlignedRawTensorIfNeed(out, lastIdx - 1, BRCB_SECOND_LAST_BASE);
-            AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
-            visitedRaw.emplace(out->tensor);
-        }
+        DoBrcbOpPadding(op, in, lastIdx, paddingValue, visitedRaw);
         return;
     }
     if (calcType == OpCalcType::BROADCAST) {
@@ -805,20 +842,8 @@ void PadLocalBuffer::PadVectorForAxisCombine(
             return;
         }
     }
-    if (calcType == OpCalcType::CAST || calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN ||
-        calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW ||
-        (producerOp != nullptr &&
-         OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
-        if (!axisCombineMarker.IsTensorEnableAxisCombine(in)) {
-            AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
-            return;
-        }
-        if (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST && op.GetIOperandIndex(in) == 0) {
-            AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
-            return;
-        }
-        if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
-            AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
+    if (IsElementwiseLikeOp(calcType, op, producerOp)) {    
+        if (DoElementwiseLikePadding(op, in, lastIdx, paddingValue)) {
             return;
         }
     }
