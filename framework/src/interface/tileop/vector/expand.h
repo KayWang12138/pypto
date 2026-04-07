@@ -137,7 +137,7 @@ TILEOP void TExpand(T0 dst, T1 src)
     }
 }
 
-enmu class ExpandTile : uint8_t {
+enum class ExpandTile : uint8_t {
     NONE,
     H,
     W,
@@ -172,7 +172,7 @@ TILEOP constexpr ExpandTile GetExpandTile()
 }
 
 template <typename LastUse = LastUse2Dim<0, 0>, ExpandTile expandTile, typename T0, typename T1>
-TILEOP void TExpand(T0 dst, T1 src)
+TILEOP void ExpandImpl(T0 dst, T1 src)
 {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
@@ -190,7 +190,6 @@ TILEOP void TExpand(T0 dst, T1 src)
 template <typename LastUse = LastUse2Dim<0, 0>, unsigned... Axes, typename T0, typename T1>
 TILEOP void TExpand(T0 dst, T1 src)
 {
-    // 这里的expand axis要搞清楚是按照4维为基础还是5维为基础传的（看上去像4维）
     const auto dstLayout = dst.GetLayout();
     auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -206,8 +205,16 @@ TILEOP void TExpand(T0 dst, T1 src)
     using DstTileInfo = TensorTileInfo<T0>;
     using SrcTileInfo = TensorTileInfo<T1>;
 
-    auto dstTile = PtoTile<T0>(dst);
-    auto srcTile = PtoTile<T1>(src);
+    if constexpr (expandTile == ExpandTile::NONE) {
+        constexpr size_t minTileH = DstTileInfo::tileH > SrcTileInfo::tileH ? SrcTileInfo::tileH : DstTileInfo::tileH;
+        using dstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, minTileH, DstTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
+        using srcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, minTileH, SrcTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
+        dstTileDefine dstTile(dstShape3, dstShape4);
+        srcTileDefine srcTile(srcShape3, srcShape4);
+    } else {
+        auto dstTile = PtoTile<T0>(dst);
+        auto srcTile = PtoTile<T1>(src);
+    }
 
     for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -217,7 +224,7 @@ TILEOP void TExpand(T0 dst, T1 src)
                                             SrcTileInfo::tile2 == 1 ? 0 : n2Index);
                 dstTile.Assign(dst, dstOffset);
                 srcTile.Assign(src, srcOffset);
-                ExpandImpl<LastUse, expandTile>(dstTile, srcTile)
+                ExpandImpl<LastUse, expandTile>(dstTile, srcTile);
             }
         }
     }

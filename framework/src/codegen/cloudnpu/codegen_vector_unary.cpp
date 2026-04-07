@@ -392,19 +392,22 @@ std::string CodeGenOpCloudNPU::PrintExpand(
     auto expandAxes = AnyCast<std::vector<int64_t>>(axesAttr);
     ASSERT(OperErr::ATTRIBUTE_INVALID, !expandAxes.empty()) << "EXPANDDIMS is empty";
 
-    int dimOffset = SHAPE_DIM4 - rawShape[1].size();
-    std::vector<int> normalizedAxes;
+    int originDimSize = static_cast<int>(rawShape[1].size());
+    std::vector<int> normalized4DAxes;
+    std::vector<int> normalized5DAxes;
     for (auto axis : expandAxes) {
-        bool isValidAxis = ((axis >= 0) && (axis <= (static_cast<int>(rawShape[1].size() - 1))));
+        bool isValidAxis = ((axis >= 0) && (axis <= (originDimSize - 1)));
         ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported expand axis: " << axis;
-        normalizedAxes.push_back(static_cast<int>(axis) + dimOffset);
+        normalized4DAxes.push_back(static_cast<int>(axis) + SHAPE_DIM4 - originDimSize);
+        normalized5DAxes.push_back(static_cast<int>(axis) + SHAPE_DIM5 - originDimSize);
     }
 
     if (isSupportLayout) {
-        return PrintExpandLayout(normalizedAxes);
+
+        return PrintExpandLayout(normalized5DAxes);
     }
     if (isDynamicFunction) {
-        return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, normalizedAxes);
+        return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, normalized4DAxes);
     }
 
     std::ostringstream oss;
@@ -413,7 +416,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(
         << ", " << os[ID0] << ", " << os[ID1] << ", " << os[ID2] << ", " << os[ID3]
         << ", /*DS*/" << ds[ID1] << ", " << ds[ID2] << ", " << ds[ID3]
         << ", /*SS*/" << ss[ID1] << ", " << ss[ID2] << ", " << ss[ID3];
-    for (auto axis : normalizedAxes) {
+    for (auto axis : normalized4DAxes) {
         oss << ", " << axis;
     }
     oss << ">((__ubuf__ " << dstDtypeStr << "*)" << dVar
