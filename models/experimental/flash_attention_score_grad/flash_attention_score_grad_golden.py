@@ -75,20 +75,20 @@ def flash_attention_score_grad_golden(
     s_max = inputs.softmax_max[:, :, :, 0:1]
     s_sum = inputs.softmax_sum[:, :, :, 0:1]
 
-    # 在线重算 p
+    # Recompute p online
     scores = torch.matmul(q, k.transpose(-2, -1)) * inputs.scale_value
     p_mat = torch.exp(scores - s_max) / s_sum
 
-    # rowsum(dY * attention_out)
+    # Compute row sum of dY * attention_out
     d_var = (dy_f * attn_out_f).sum(dim=-1, keepdim=True)
 
-    # dY @ V^T
+    # Compute dY @ V^T
     dp_var = torch.matmul(dy_f, v.transpose(-2, -1))
 
-    # p * (dp - d)
+    # Compute p * (dp - d)
     ds_var = p_mat * (dp_var - d_var)
 
-    # 输出梯度
+    # Compute output gradients
     dq_out = torch.matmul(ds_var, k) * inputs.scale_value
     dk_out = torch.matmul(ds_var.transpose(-2, -1), q) * inputs.scale_value
     dv_out = torch.matmul(p_mat.transpose(-2, -1), dy_f)
