@@ -214,7 +214,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function& functi
     }
 }
 
-Operation* CopyNewCopyOut2Reshape(Function& function, std::vector<LogicalTensorPtr>& needToCopyTensors, const int& index) {
+Operation* RemoveUnalignedReshape::CopyNewCopyOut2Reshape(Function& function, std::vector<LogicalTensorPtr>& needToCopyTensors, const int& index) {
     bool canToCopy = false;
     Operation* branchOp = nullptr;
     LogicalTensorPtr curTensor = nullptr;

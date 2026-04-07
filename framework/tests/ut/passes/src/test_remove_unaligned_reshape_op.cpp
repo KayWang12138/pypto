@@ -631,7 +631,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestBranchBetweenCopyOutReshape1)
 
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast_1);
-    currFunctionPtr->outCasts_.push_back(outcast_2);
+    currFunctionPtr->outCasts_.push_back(outcast2);
 
     RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     int curSize = currFunctionPtr->Operations().size();
@@ -690,7 +690,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestBranchBetweenCopyOutReshape2)
     RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     int curSize = currFunctionPtr->Operations().size();
     EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(currFunctionPtr->Operations().size(), curSize + 1);
+    EXPECT_EQ(currFunctionPtr->Operations().size(), curSize + 2);
 }
 
 // in1                    - ASSEMBLE \*
