@@ -194,7 +194,7 @@ def main():
     else:
         all_pass = True
         for level in sorted(tests.keys()):
-            _, fn = tests[level]
+            _, fn = tests.get(level)
             if not fn(device_id, args.run_mode):
                 all_pass = False
                 break
