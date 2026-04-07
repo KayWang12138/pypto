@@ -231,11 +231,11 @@ def _validate():
     inputs = AttentionGradInputs(
         q.detach(), k.detach(), v.detach(), dy.detach(),
         sm.float(), ss.float(), y_out.detach(), scale)
-    dQ_g, dK_g, dV_g = flash_attention_score_grad_golden(inputs)
+    dq_g, dk_g, dv_g = flash_attention_score_grad_golden(inputs)
 
     for g_name, grad_auto, grad_golden in [
-            ("dq", q.grad, dQ_g), ("dk", k.grad, dK_g),
-            ("dv", v.grad, dV_g)]:
+            ("dq", q.grad, dq_g), ("dk", k.grad, dk_g),
+            ("dv", v.grad, dv_g)]:
         diff = (
             grad_auto.float() - grad_golden.float()
         ).abs().max().item()
