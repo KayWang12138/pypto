@@ -249,12 +249,12 @@ public:
     {
         for (auto i = aicStart_; i < aicEnd_; i++) if (busyCores_[i] == true)
         {
-            while (checkCoreFinished(i) == false) { /* busy wait */}
+            while (checkCoreFinished(i) == false) { cpuRelax(); /* busy wait */}
         }
 
         for (auto i = aivStart_; i < aivEnd_; i++) if (busyCores_[i] == true)
         {
-            while (checkCoreFinished(i) == false) { /* busy wait */}
+            while (checkCoreFinished(i) == false) { cpuRelax(); /* busy wait */}
         }
 
         __sync_synchronize();
