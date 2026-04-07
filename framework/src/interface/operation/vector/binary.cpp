@@ -374,7 +374,7 @@ Tensor Mul(const Tensor& self, const Tensor& other)
     RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
-Tensor Div(const Tensor& self, const Tensor& other)
+Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType = DivAlgorithm::DEFAULT)
 {
     DECLARE_TRACER();
 
