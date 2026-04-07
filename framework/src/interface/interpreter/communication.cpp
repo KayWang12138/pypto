@@ -246,7 +246,7 @@ void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint
         SignalSingle(dstRank, value, slotSize, offset, atomicType);
         return;
     }
-    for (size_t rank = 0; rank < worldSize_; i++) {
+    for (int rank = 0; rank < worldSize_; rank++) {
         SignalSingle(rank, value, slotSize, offset, atomicType);
     }
 }
