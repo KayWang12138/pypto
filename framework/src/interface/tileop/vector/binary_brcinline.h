@@ -18,6 +18,7 @@
 #include "pto_tile.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
+#include "../tileop_common.h"
 
 enum class BrcMode : uint8_t {
     NONE,
@@ -119,14 +120,14 @@ TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T
         return;                                                                 \
     }
 
-template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, DivAlgorithm PrecisionType = DivAlgorithm::HIGH_PRECISION, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryRowExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 {
     EXTRACT_LAST_USE_3DIM(LastUse)
     BINARY_EXPAND_DISPATCH(ROWEXPAND)
 }
 
-template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, DivAlgorithm PrecisionType = DivAlgorithm::HIGH_PRECISION, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 {
     EXTRACT_LAST_USE_3DIM(LastUse)
@@ -149,8 +150,8 @@ TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 }
 
 template <
-    BinaryOp op, TileOp::BroadcastOperand WBrcSide, typename Src0TileInfo, typename Src1TileInfo, typename LastUse,
-    typename T0, typename T1, typename T2>
+    BinaryOp op, DivAlgorithm PrecisionType = DivAlgorithm::HIGH_PRECISION, TileOp::BroadcastOperand WBrcSide,
+    typename Src0TileInfo, typename Src1TileInfo, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo& info)
 {
     constexpr bool src0IsColMajor = (Src0TileInfo::tileW == 1 && WBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND);
@@ -179,7 +180,7 @@ TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dsttileOffsets * sizeof(typename T0::Type)));
                     pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0tileOffsets * sizeof(typename T1::Type)));
                     pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1tileOffsets * sizeof(typename T2::Type)));
-                    BinaryRowExpandComputeImpl<op, LastUse>(dstTile, src0Tile, src1Tile);
+                    BinaryRowExpandComputeImpl<op, PrecisionType, LastUse>(dstTile, src0Tile, src1Tile);
                 }
             }
         }

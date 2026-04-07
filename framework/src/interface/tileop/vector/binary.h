@@ -19,8 +19,9 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 #include "binary_brcinline.h"
+#include "../tileop_common.h"
 
-template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, DivAlgorithm PrecisionType = DivAlgorithm::HIGH_PRECISION, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1)
 {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
@@ -42,7 +43,11 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1)
     }
 
     if constexpr (op == BinaryOp::DIV) {
-        PTO_WITH_LAST_USE(pto::TDIV(dst, src0, src1), n1, n2, n3);
+        if constexpr (PrecisionType == DivAlgorithm::HIGH_PRECISION) {
+            PTO_WITH_LAST_USE(pto::TDIV<pto::DivAlgorithm::HIGH_PRECISION>(dst, src0, src1), n1, n2, n3);
+        } else {
+            PTO_WITH_LAST_USE(pto::TDIV<pto::DivAlgorithm::DEFAULT>(dst, src0, src1), n1, n2, n3);
+        }
         return;
     }
 
@@ -77,33 +82,33 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1)
     }
 }
 
-template <BinaryOp op, BrcMode brcmode, typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, DivAlgorithm PrecisionType = DivAlgorithm::HIGH_PRECISION, BrcMode brcmode, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1)
 {
     if constexpr (brcmode == BrcMode::BRC_W) {
-        BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, src1);
+        BinaryRowExpandComputeImpl<op, PrecisionType, LastUse>(dst, src0, src1);
     } else if constexpr (brcmode == BrcMode::BRC_H) {
-        BinaryColExpandComputeImpl<op, LastUse>(dst, src0, src1);
+        BinaryColExpandComputeImpl<op, PrecisionType, LastUse>(dst, src0, src1);
     } else if constexpr (brcmode == BrcMode::BRC_W0_H1) {
         pto::TCOLEXPAND(dst, src1);
 #ifdef __DAV_V220
         pipe_barrier(PIPE_V);
 #endif
-        BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, dst);
+        BinaryRowExpandComputeImpl<op, PrecisionType, LastUse>(dst, src0, dst);
     } else if constexpr (brcmode == BrcMode::BRC_H0_W1) {
         pto::TCOLEXPAND(dst, src0);
 #ifdef __DAV_V220
         pipe_barrier(PIPE_V);
 #endif
-        BinaryRowExpandComputeImpl<op, LastUse>(dst, dst, src1);
+        BinaryRowExpandComputeImpl<op, PrecisionType, LastUse>(dst, dst, src1);
     } else {
-        BinaryComputeImpl<op, LastUse>(dst, src0, src1);
+        BinaryComputeImpl<op, PrecisionType, LastUse>(dst, src0, src1);
     }
 }
 
 template <
-    BinaryOp op, TileOp::BroadcastOperand WBrcSide, TileOp::PenuBroadcastOperand HBrcSide, typename LastUse,
-    typename T0, typename T1, typename T2>
+    BinaryOp op, DivAlgorithm PrecisionType = DivAlgorithm::HIGH_PRECISION, TileOp::BroadcastOperand WBrcSide,
+    TileOp::PenuBroadcastOperand HBrcSide, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
 {
     auto info = ExtractLayoutInfo(dst, src0, src1);
@@ -123,12 +128,12 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
         pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
-        BinaryBrcDispatch<op, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
+        BinaryBrcDispatch<op, PrecisionType, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
         return;
     }
 
     if constexpr (brcmode == BrcMode::BRC_HW) {
-        BinaryMixBrcCompute<op, WBrcSide, Src0TileInfo, Src1TileInfo, LastUse>(dst, src0, src1, info);
+        BinaryMixBrcCompute<op, PrecisionType, WBrcSide, Src0TileInfo, Src1TileInfo, LastUse>(dst, src0, src1, info);
         return;
     }
 
@@ -154,7 +159,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
                 dstTile.Assign(dst, dsttileOffsets);
                 src0Tile.Assign(src0, src0tileOffsets);
                 src1Tile.Assign(src1, src1tileOffsets);
-                BinaryBrcDispatch<op, brcmode, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
+                BinaryBrcDispatch<op, PrecisionType, brcmode, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
             }
         }
     }
@@ -189,11 +194,12 @@ TILEOP void TMul(T0 dst, T1 src0, T2 src1)
 
 #define OP_TILE_OP_DIV TDiv
 template <
+    DivAlgorithm PrecisionType = DivAlgorithm::HIGH_PRECISION,
     typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand WBrcSide = TileOp::BroadcastOperand::NONE,
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TDiv(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::DIV, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::DIV, PrecisionType, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_MAX TMax
