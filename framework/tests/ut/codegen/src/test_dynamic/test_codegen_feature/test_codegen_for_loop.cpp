@@ -54,6 +54,7 @@ public:
 TEST_F(TestCodegenForLoop, TestForLoop)
 {
     std::vector<int64_t> shape = {2, 2, 2, 8};
+    std::vector<int64_t> oShape = {1, 2, 2, 8};
     std::vector<int64_t> tile_shape = {2, 2, 2, 8};
 
     TileShape::Current().SetVecTile(tile_shape);
@@ -88,7 +89,7 @@ TEST_F(TestCodegenForLoop, TestForLoop)
                                     });
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "Output");
+    Tensor output(DT_FP32, oShape, "Output");
 
     std::string name = "TestForLoop";
     FUNCTION(name, {input_a, input_b, output})
@@ -98,7 +99,11 @@ TEST_F(TestCodegenForLoop, TestForLoop)
             (void)i;
             auto res1 = Add(input_a, input_b);
             auto res2 = Sub(input_a, input_b);
-            output = Mul(res1, res2);
+            auto res3 = Mul(res1, res2);
+            auto res4 = Cast(res3, DT_FP16);
+            auto res5 = Cast(res4, DT_INT8, CAST_NONE, SaturationMode::ON);
+            auto res6 = Cast(res5, DT_FP32);
+            output = Sum(res6, 0, true);
         }
     }
 
@@ -139,6 +144,11 @@ TEST_F(TestCodegenForLoop, TestForLoop)
   }
 })";
     CheckStringExist(expect2, res);
+
+    const std::string expect3 = R"(
+TRowSumLine<1>(ubTensor_35, ubTensor_31, ubTensor_36);
+)";
+    CheckStringExist(expect3, res);
 }
 
 } // namespace npu::tile_fwk

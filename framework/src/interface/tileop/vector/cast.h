@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -20,8 +20,11 @@
 #include "utils/tile_tensor.h"
 
 #define OP_TILE_OP_CAST TCast
-template <typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF, typename T0, typename T1, typename T2>
-TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
+template <
+    typename LastUse = LastUse3Dim<0, 0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF,
+    typename T0, typename T1, typename T2>
+TILEOP void TCast(T0 dst, T1 src, T2 tmp)
+{
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
@@ -47,6 +50,7 @@ TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
     using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
     using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
     for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
@@ -55,9 +59,9 @@ TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
                 using TileDefineDst =
                     pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                 using TileDefineSrc =
-                    pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;            
-                using TmpTile = 
-                    pto::Tile<pto::TileType::Vec, int32_t, tmpTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;                 
+                    pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+                using TmpTile =
+                    pto::Tile<pto::TileType::Vec, int32_t, tmpTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
                 TileDefineDst dstTile(shape3, shape4);
                 TileDefineSrc srcTile(shape3, shape4);
                 TmpTile tmpTile(shape3, shape4);
@@ -66,13 +70,16 @@ TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
                 pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                PTO_WITH_LAST_USE(pto::TCVT(dstTile, srcTile, tmpTile, static_cast<pto::RoundMode>(Mode), satmode), n1, n2);
+                PTO_WITH_LAST_USE(
+                    pto::TCVT(dstTile, srcTile, tmpTile, static_cast<pto::RoundMode>(Mode), satmode), n1, n2, n3);
             }
         }
     }
 }
 
-template <typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF, typename T0, typename T1>
+template <
+    typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF,
+    typename T0, typename T1>
 TILEOP void TCast(T0 dst, T1 src)
 {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
