@@ -64,6 +64,7 @@ def _collect_op_summary_files(prof_dirs):
         op_summary_files_found.extend(glob.glob(op_summary_pattern))
     return op_summary_files_found
 
+#test
 
 def _csv_contains_pypto(csv_file: str) -> bool:
     try:
@@ -147,7 +148,7 @@ def _collect_kernel_detail_files(profiler_output_dir: str):
     )
 
 
-@pytest.mark.soc("910")
+@pytest.mark.soc("910", "950")
 def test_msprof_profiling_pypto_op_summary():
     """
     看护用例：验证 msprof 性能采集功能
@@ -183,7 +184,7 @@ def test_msprof_profiling_pypto_op_summary():
         shutil.rmtree(prof_dir, ignore_errors=True)
 
 
-@pytest.mark.soc("910")
+@pytest.mark.soc("910","950")
 def test_torch_npu_profiler_collect_pypto_kernel_details():
     """
     看护用例：验证 torch_npu.profiler 能正确采集到 PyPTO 内核信息
