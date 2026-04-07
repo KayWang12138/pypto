@@ -12,10 +12,38 @@ description: "将本地修改创建或更新到 cann/pypto 仓库的 PR。覆盖
     (用户 fork)              (上游主仓库)
 ```
 
+## 环境依赖
+
+### GitCode MCP
+
+本 skill 的所有远程操作（fork 验证、PR 查询/创建/更新）均通过 GitCode MCP 完成。
+
+检查方式：
+
+```bash
+CONFIG_FILE="$HOME/.config/opencode/opencode.json"
+
+if [ -f "$CONFIG_FILE" ]; then
+    TOKEN_VALUE=$(cat "$CONFIG_FILE" | grep -oP '"GITCODE_TOKEN"\s*:\s*"\K[^"]+' 2>/dev/null || echo "")
+    if [ -n "$TOKEN_VALUE" ] && [ "$TOKEN_VALUE" != "<YOUR_GITCODE_TOKEN>" ]; then
+        echo "GITCODE_TOKEN_STATUS=CONFIGURED"
+    else
+        echo "GITCODE_TOKEN_STATUS=NOT_CONFIGURED"
+    fi
+else
+    echo "GITCODE_TOKEN_STATUS=CONFIG_FILE_NOT_FOUND"
+fi
+```
+
+- **CONFIGURED** → 正常执行
+- **NOT_CONFIGURED / CONFIG_FILE_NOT_FOUND** → 调用 `gitcode-mcp-install` skill 引导用户完成配置，等待执行完成后提示用户需要：
+  1. 在 `~/.config/opencode/opencode.json` 中将 `<YOUR_GITCODE_TOKEN>` 替换为真实 token
+  2. 重启 OpenCode 使配置生效
+
 ## 强制约束
 
 - PR 目标必须是 `cann/pypto`，不是用户 fork
-- 远程操作通过 GitCode MCP 完成，禁止直接使用 `GITCODE_TOKEN` 进行 API 调用。未安装 GitCode MCP 时按 `gitcode-mcp-install` skill 完成配置
+- 远程操作通过 GitCode MCP 完成，禁止直接使用 `GITCODE_TOKEN` 进行 API 调用
 - `origin` 指向用户 fork，禁止指向 `cann/pypto`
 - 禁止打印 `GITCODE_TOKEN`，包括屏幕、日志、调试信息
 - 创建分支、commit、push、创建/更新 PR 前必须获得用户明确确认

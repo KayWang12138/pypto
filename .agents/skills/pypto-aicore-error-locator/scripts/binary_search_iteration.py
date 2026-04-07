@@ -12,11 +12,10 @@ from common import (
     read_file,
     write_file,
     get_commentable_lines,
-    comment_lines,
-    uncomment_lines,
+    comment_lines_by_indices,
+    uncomment_lines_by_indices,
     has_error,
     run_test,
-    comment_special_lines,
     validate_path,
     setup_logging,
     print_error_info
@@ -62,10 +61,10 @@ def binary_search_iteration(params):
     logger.info(commentable_lines[0:mid + 1])
 
     current_lines = cce_lines.copy()
-    current_lines = comment_lines(current_lines, commentable_lines)
+    current_lines = comment_lines_by_indices(current_lines, commentable_lines)
 
     lines_to_uncomment = commentable_lines[0:mid + 1]
-    current_lines = uncomment_lines(current_lines, lines_to_uncomment)
+    current_lines = uncomment_lines_by_indices(current_lines, lines_to_uncomment)
 
     write_file(params.cce_file, current_lines)
     logger.info("运行测试...")
@@ -127,9 +126,6 @@ def main():
 
     cce_file = os.path.abspath(cce_file)
     run_dir = os.path.abspath(run_dir)
-
-    valid = False
-    error_msg = None
 
     valid, error_msg = validate_path(cce_file, "CCE 文件")
     if not valid:

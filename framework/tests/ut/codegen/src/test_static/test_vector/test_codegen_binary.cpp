@@ -125,11 +125,11 @@ float __ubuf__ *UB_S1024_E2048 = (float __ubuf__ *)get_imm(0x400); // size: 0x40
 float *UB_S1024_E2048_T = (float *)get_imm(0x400); // size: 0x400
 using GMTileTensorFP32Dim4_1 = TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>;
 using UBTileTensorFP32Dim4_0 = TileTensor<float, StaticLayout4Dim<1, 1, 16, 16, 1, 1, 16, 16>, Hardware::UB>;
-GMTileTensorFP32Dim4_1 gmTensor_10((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-GMTileTensorFP32Dim4_1 gmTensor_3((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
-UBTileTensorFP32Dim4_0 ubTensor_2((uint64_t)UB_S1024_E2048_T);
-GMTileTensorFP32Dim4_1 gmTensor_1((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
 UBTileTensorFP32Dim4_0 ubTensor_0((uint64_t)UB_S0_E1024_T);
+GMTileTensorFP32Dim4_1 gmTensor_1((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+UBTileTensorFP32Dim4_0 ubTensor_2((uint64_t)UB_S1024_E2048_T);
+GMTileTensorFP32Dim4_1 gmTensor_3((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
+GMTileTensorFP32Dim4_1 gmTensor_10((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout4Dim(Shape4Dim(1, 1, 16, 16), Stride4Dim(256, 256, 16, 1)));
 SUBKERNEL_PHASE1
 TLoad(ubTensor_0, gmTensor_1, Coord4Dim(0, 0, 0, 0));
 TLoad(ubTensor_2, gmTensor_3, Coord4Dim(0, 0, 0, 0));

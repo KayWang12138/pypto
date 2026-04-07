@@ -95,7 +95,7 @@ class AttentionConfig:
     kv_num_blocks: int = 0
 
 
-def get_qwen_common_config(device="cpu"):
+def get_qwen_common_config(device="cpu", a5_flag=0):
     b = 8
     s1 = 1
     s2 = 16384
@@ -107,6 +107,24 @@ def get_qwen_common_config(device="cpu"):
     block_table_batch = b
     block_size = 128
     kv_num_blocks = b * ((s2 + block_size - 1) // block_size)
+    cube_tile = 128
+    m_tile = 128
+    s2_tile = 512
+    if a5_flag == 1:
+        b = 16
+        s1 = 1
+        s2 = 8192
+        q_d = 128
+        nq = 12
+        nkv = 1
+        kv_layout = "PA_BSND"
+        softmax_scale = q_d ** -0.5
+        block_table_batch = 256
+        block_size = 128
+        kv_num_blocks = b * ((s2 + block_size - 1) // block_size)
+        cube_tile = 128
+        m_tile = 128
+        s2_tile = 1024
 
     # 创建 torch tensor 类型的 actual_seq
     actual_seq_values = [s2] * b
@@ -116,9 +134,7 @@ def get_qwen_common_config(device="cpu"):
                                 q_d=q_d, kv_d=q_d, block_size=block_size, block_table_batch=block_table_batch,
                                 kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor)  # 传入 tensor
     atten_cfg.max_num_blocks_per_query = (s2 + block_size - 1) // block_size
-    cube_tile = 128
-    m_tile = 128
-    s2_tile = 512
+
     tile_cfg = AttentionTileConfig(
         nq,
         s2_tile,
@@ -243,6 +259,7 @@ def softmax(x, is_fp16=False):
         ans = ans.to(original_dtype)
         x_max = x_max.to(original_dtype)
         x_sum = x_sum.to(original_dtype)
+
     return ans, x_max, x_sum
 
 
@@ -265,7 +282,7 @@ def ifa_func_kernel(
     # 1. 添加支持动态的config
     pypto.experimental.set_operation_options(combine_axis=True)
 
-    atten_cfg, tile_cfg = get_qwen_common_config()
+    atten_cfg, tile_cfg = get_qwen_common_config(device="cpu", a5_flag=0)
     softmax_scale = atten_cfg.softmax_scale
 
     # 2. 从入参拿到输入和输出tensor
@@ -406,10 +423,177 @@ def ifa_func_kernel(
                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
 
 
-def IFA(atten_cfg):
+@pypto.frontend.jit(
+    runtime_options={"stitch_function_max_num": 1024, "device_sched_mode": 1},
+    # 当子图大小达到上界不允许与其他子图合并
+    pass_options={
+    # Q常驻，0代表第一组mmad，4代表4次matmul合并
+    "cube_l1_reuse_setting": {0: 32},
+    "cube_nbuffer_setting": {1: 4}
+    },
+    host_options={"compile_monitor_enable": True}
+)
+def ifa_func_kernel_a5(
+    q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
+    block_table: pypto.Tensor([], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
+    atten_out: pypto.Tensor([], pypto.DT_BF16)
+):
+    atten_cfg, tile_cfg = get_qwen_common_config(device="cpu", a5_flag=1)
+    softmax_scale = atten_cfg.softmax_scale
+
+     # 2. 从入参拿到输入和输出tensor
+    shape_q = q.shape
+    shape_k = k.shape
+    shape_act_seqs = kv_act_seqs.shape
+    bs_scalar = shape_q[0]
+    nq = shape_q[1]
+    block_num_scalar = shape_k[0]
+    block_size = shape_k[1]
+    nkv = shape_k[2]
+    dn = shape_k[3]
+    b_scalar = shape_act_seqs[0]
+
+    dtype = q.dtype
+    group = nq // nkv
+    n2_sym = nkv
+
+    g_tile = tile_cfg.g_tile
+    s2_tile = tile_cfg.s2_tile
+    c1_tile = tile_cfg.c1_tile_shape
+    v1_tile = tile_cfg.v1_tile_shape
+    c2_tile = tile_cfg.c2_tile_shape
+    v2_tile = tile_cfg.v2_tile_shape
+
+    # 3. 得到动态tensor的shape
+    s1_scalar = bs_scalar // b_scalar
+    g = nq // nkv
+    g_loop = g // g_tile
+
+    k_2d_shape = (block_num_scalar * block_size, n2_sym * dn)
+    q_2d_shape = (b_scalar * s1_scalar * nq, dn)
+
+    k_2d = pypto.reshape(k, k_2d_shape, inplace=True)
+    v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
+    q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
+    # 6. 实现kernel逻辑，循环展开B动态轴
+    for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
+        for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
+            cur_seq = kv_act_seqs[b_idx] - (s1_scalar - 1 - s1_idx)
+            s2_loop = (cur_seq + s2_tile - 1) // s2_tile
+            for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
+                for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
+                    oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")
+                    sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
+                    max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
+                    for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx",
+                                              unroll_list=[8, 4, 2, 1]):
+                        block_num = s2_tile // block_size
+                        idx = s2_idx * block_num
+                        bs_ofs = b_idx * s1_scalar + s1_idx
+                        n1g_ofs = n2_idx * group + g_idx * g_tile
+                        actual_s2_tile = (cur_seq - s2_idx * s2_tile).min(s2_tile)
+                        oi_ofs = [bs_ofs, n1g_ofs, 0]
+                        # 7. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
+                        pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                        # 8. 通过view得到tile_q
+                        qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
+                        kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")
+                        for i in range(block_num):
+                            block_idx = block_table[b_idx, idx + i]
+                            block_idx_vaild = block_idx.max(0)
+                            kj_assemble[i * block_size: (i + 1) * block_size, 0:] = pypto.view(k_2d,
+                                [block_size, dn], [block_idx_vaild * block_size, 0])
+                        kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0],
+                                                valid_shape=[s2_tile, dn])
+
+                        # c1
+                        # 9. 下面是flash attention的计算逻辑  m 128  k=128  n=128
+                        pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
+                        pypto.set_pass_options(sg_set_scope=5001)
+                        sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
+                        pypto.set_pass_options(sg_set_scope=-1)
+                        sij = pypto.view(sij, [g_tile, s2_tile], [0, 0],
+                                valid_shape=[g_tile, actual_s2_tile])
+                        # v1
+                        pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                        pypto.set_pass_options(sg_set_scope=5002)
+                        sij_scale = pypto.mul(sij, softmax_scale)
+                        amax_ij = pypto.amax(sij_scale, dim=-1, keepdim=True)
+                        tsub = pypto.sub(sij_scale, amax_ij)
+                        vec1_res = pypto.exp(tsub)
+                        vec1_res_fp16 = pypto.cast(vec1_res, dtype)
+                        sum_local = pypto.sum(vec1_res, dim=-1, keepdim=True)
+                        pypto.set_pass_options(sg_set_scope=-1)
+
+                        #c2
+                        vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
+                        for i in range(block_num):
+                            block_idx = block_table[b_idx, idx + i]
+                            block_idx_vaild = block_idx.max(0)
+                            vj_assemble[i * block_size: (i + 1) * block_size, 0:] = pypto.view(v_2d,
+                                [block_size, dn], [block_idx_vaild * block_size, 0])
+                        vj_assemble = pypto.view(vj_assemble, [s2_tile, dn], [0, 0],
+                                        valid_shape=[actual_s2_tile, dn])
+                        pypto.set_pass_options(sg_set_scope=5003)
+                        pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
+                        mm2_res = pypto.matmul(vec1_res_fp16, vj_assemble, pypto.DT_FP32)
+                        pypto.set_pass_options(sg_set_scope=-1)
+
+                        # # v2
+                        if pypto.is_loop_begin(s2_idx):
+                            pypto.set_pass_options(sg_set_scope=2)
+                            pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                            oi_tmp = mm2_res
+                            oi_update[:] = pypto.tensor(oi_tmp.shape, pypto.DT_FP32, "oi_update")
+                            if pypto.is_loop_end(s2_idx):
+                                oi_update[:] = pypto.div(oi_tmp, sum_local)
+                                pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
+                                oi_update_3d = pypto.cast(pypto.reshape(oi_update, [1, g_tile, dn]),
+                                                        dtype)
+                                # 10. 将结果搬运到输出tensor上
+                                pypto.assemble(oi_update_3d, oi_ofs, atten_out)
+                            else:
+                                oi_update[:] = oi_tmp
+                                sum_update[:] = sum_local
+                                max_update[:] = amax_ij
+                            pypto.set_pass_options(sg_set_scope=-1)
+                        else:
+                            pypto.set_pass_options(sg_set_scope=1)
+                            pypto.set_vec_tile_shapes(v2_tile[0], 128)
+                            max_new = pypto.maximum(max_update, amax_ij)
+                            t1 = pypto.sub(max_update, max_new)
+                            t2 = pypto.exp(t1)
+                            t6 = pypto.mul(t2, sum_update)
+                            t3 = pypto.sub(amax_ij, max_new)
+                            t4 = pypto.exp(t3)
+                            t5 = pypto.mul(t4, sum_local)
+                            sum_new = pypto.add(t6, t5)
+                            sum_update[:] = sum_new
+                            max_update[:] = max_new
+
+                            pypto.set_vec_tile_shapes(v2_tile[0], 128)
+                            oi_last = pypto.mul(oi_update, t2)
+                            oi_flash = pypto.mul(mm2_res, t4)
+                            oi_tmp = pypto.add(oi_last, oi_flash)
+                            if pypto.is_loop_end(s2_idx):
+                                pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
+                                oi_update_tmp = pypto.div(oi_tmp, sum_update)
+                                oi_update_3d = pypto.cast(pypto.reshape(oi_update_tmp, [1, g_tile, dn]), dtype)
+                                # 11. 将结果搬运到输出tensor上
+                                pypto.assemble(oi_update_3d, oi_ofs, atten_out)
+                            else:
+                                oi_update[:] = oi_tmp
+                            pypto.set_pass_options(sg_set_scope=-1)
+
+
+def ifa(atten_cfg, a5_flag=0):
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch_dtype = torch.bfloat16
     torch.npu.set_device(int(device_id))
+
     b = atten_cfg.b
     s1 = atten_cfg.s1
     d = atten_cfg.q_d
@@ -475,7 +659,10 @@ def IFA(atten_cfg):
         out_torch
     ]
     # 5. 执行kernel并获取结果
-    attention(*inputs)
+    if a5_flag == 1:
+        attention_a5(*inputs)
+    else:
+        attention(*inputs)
 
     # 6. 与PyTorch参考实现对比
     assert_allclose(np.array(attention_output.cpu().flatten().tolist()),
@@ -483,13 +670,13 @@ def IFA(atten_cfg):
                     rtol=0.0078125, atol=0.0001)
 
 
-@pytest.mark.soc("950", "910")
+@pytest.mark.soc("950")
 @pytest.mark.skip(reason="large test case")
-def test_ifa():
+def test_ifa_a5():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     device = f'npu:{device_id}'
-    atten_cfg, _ = get_qwen_common_config(device=device)
+    atten_cfg, _ = get_qwen_common_config(device=device, a5_flag=1)
 
     # 检查 B 的大小和 actual_seq 长度是否相等
     assert atten_cfg.b == len(
@@ -502,7 +689,28 @@ def test_ifa():
         actual_seq_cpu = atten_cfg.actual_seq
 
     assert all(x <= atten_cfg.s2 for x in actual_seq_cpu), "所有值都必须小于s2"
-    IFA(atten_cfg)
+    ifa(atten_cfg, a5_flag=1)
+
+
+@pytest.mark.soc("950", "910")
+def test_ifa():
+    # 1. 设置参数
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device = f'npu:{device_id}'
+    atten_cfg, _ = get_qwen_common_config(device=device, a5_flag=0)
+
+    # 检查 B 的大小和 actual_seq 长度是否相等
+    assert atten_cfg.b == len(
+        atten_cfg.actual_seq), f'{atten_cfg.b} {atten_cfg.actual_seq} B的大小必须和actual_seq长度相等'
+
+    # 检查所有值是否都小于 s2
+    if atten_cfg.actual_seq.device.type != 'cpu':
+        actual_seq_cpu = atten_cfg.actual_seq.cpu()
+    else:
+        actual_seq_cpu = atten_cfg.actual_seq
+
+    assert all(x <= atten_cfg.s2 for x in actual_seq_cpu), "所有值都必须小于s2"
+    ifa(atten_cfg, a5_flag=0)
 
 
 @allow_in_graph
@@ -547,5 +755,50 @@ def attention(
     inputs = [query, key_cache, value_cache, block_tables, actual_seqs, attn_res]
     ifa_func_kernel(*inputs)
 
+
+@allow_in_graph
+def attention_a5(
+    query: torch.Tensor,
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+    block_tables: torch.Tensor,
+    actual_seqs: torch.Tensor,
+    attn_res: torch.Tensor
+) -> None:
+    """
+    Main attention function with Attention support.
+
+    This function implements scaled dot-product attention using Attention
+    mechanism, which efficiently handles variable-length sequences and dynamic
+    batch sizes by managing KV cache in non-contiguous blocks.
+
+    Args:
+        query: Query tensor with shape [num_tokens, num_head, head_size]
+        key_cache: Key cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
+        value_cache: Value cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
+        block_tables: Block mapping table with shape [batch_size, max_num_blocks_per_query]
+        actual_seqs: Actual sequence lengths with shape [batch_size]
+        attn_res: Output attention tensor with shape [num_tokens, num_head, head_size]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph.
+    """
+    if isinstance(query, FakeTensor):
+        return
+    check_args(
+        query,
+        key_cache,
+        value_cache,
+        block_tables,
+        actual_seqs,
+        attn_res
+    )
+
+    inputs = [query, key_cache, value_cache, block_tables, actual_seqs, attn_res]
+    for _ in range(1):
+        ifa_func_kernel_a5(*inputs)
+
 if __name__ == "__main__":
     test_ifa()
+    # A5上板 test_ifa_a5()

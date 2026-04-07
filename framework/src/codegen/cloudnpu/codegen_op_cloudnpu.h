@@ -174,7 +174,7 @@ public:
 
 private:
     TileTensor QueryTileTensorByIdx(int paramIdx) const;
-    std::string InsertOpComment(const std::string& tileOpSourceCode) const;
+    std::string InsertOpComment(std::string& tileOpSourceCode) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForPutUb2Gm() const;
@@ -210,7 +210,7 @@ private:
     std::vector<T> GetShapeInLoop(const std::vector<T>& input)
     {
         ASSERT(OperErr::TENSOR_DIM_EXCEEDED, input.size() > SHAPE_DIM2)
-            << "input size " << input.size() << " is less than 2";
+            << "input size " << input.size() << " should be greater than 2";
         std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }

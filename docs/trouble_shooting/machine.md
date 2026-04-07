@@ -302,7 +302,162 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 - 此类问题若在动态 shape（含负数维度）场景下触发，`dev_encode.cpp` 会跳过动态维度的校验（`isDynamicShape` 分支），排查时需注意区分静态与动态 shape 场景
 
 ---
+### Workspace 内存异常偏大
 
+**问题特征**：运行用例时内存分配失败，报错信息为以下两类之一：
+
+- torch 申请失败：
+
+```
+torch.OutOfMemoryError: NPU out of memory. Tried to allocate 6.69 GiB (NPU 5; 60.96 GiB total capacity; ...)
+```
+
+- device 内存申请失败：
+
+```
+rtMalloc failed. size:5254523547
+```
+
+**问题背景**：Workspace 内存分配由以下阶段组成：
+
+1. **图编译阶段**：在 `dev_encode.cpp` 的 `EncodeDevAscendProgram` 中估算各类内存池预算
+2. **Launch 阶段（用户指定）**：通过 `dynWorkspaceSize` 指定额外的动态内存（一般不会是此处问题）
+3. **Launch 阶段（实际分配）**：在 `device_launcher.h` 中通过 `devMem.AllocDev(devProg->workspaceSize, ...)` 一次性分配整个内存池
+4. **Device 运行时**：在 `dev_workspace.h` 中按预算对内存池进行 suballocation
+
+实际发生 malloc 的只有阶段 3。内存池超大说明阶段 1 的预算估算出了问题。
+
+Workspace 的内存预算结构（定义于 `dev_encode_program.h`）：
+
+```cpp
+struct {
+    struct {
+        uint64_t rootInner;                    // Root Function Inner Tensor 内存
+        uint64_t devTaskInnerExclusiveOutcasts; // DeviceTask 内部 Exclusive Outcast 内存
+        uint64_t maxStaticOutcastMem;          // 最大静态 Outcast 单体大小
+        uint64_t maxDynamicAssembleOutcastMem; // 最大动态 Assemble Outcast 单体大小
+        uint64_t devTaskBoundaryOutcastNum;    // Boundary Outcast slot 数量
+
+        uint64_t MaxOutcastMem() const {
+            return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem);
+        }
+        uint64_t Total() const {
+            return rootInner + devTaskInnerExclusiveOutcasts +
+                   MaxOutcastMem() * devTaskBoundaryOutcastNum;
+        }
+    } tensor;
+    uint64_t aicoreSpilled;
+    struct {
+        uint64_t general;
+        uint64_t stitchPool;
+        uint64_t Total() const { return general + stitchPool; }
+    } metadata;
+    struct {
+        uint64_t dumpTensor;
+        uint64_t leafDump;
+    } debug;
+} memBudget;
+```
+
+**定位步骤**：
+
+1. **开启日志与计算图 dump**：
+
+   （1）至少设置 INFO 日志级别：
+
+   ```bash
+   export ASCEND_GLOBAL_LOG_LEVEL=1
+   export GLOBAL_LOG_LEVEL=1
+   export ASCEND_PROCESS_LOG_PATH=<日志落盘路径>
+   ```
+
+   （2）打开计算图 dump（便于后续定位问题 tensor 在图中的位置）：
+
+   `framework/src/interface/configs/tile_fwk_config.json`
+
+   ```json
+   "dump_graph": true
+   ```
+
+   （3）重新编译 whl 包并安装，执行用例。
+
+2. **查看 workspace 总体大小构成**：
+
+   在日志路径 `./debug` 下搜索 `[workspaceSize]` 关键字，可以看到如下格式的日志：
+
+   ```
+   [workspaceSize] Metadata=12062240, workspaceSize=599916544, tensor=592543744, aicoreSpillen=7372800, debug.DumpTensor=0, leafDumpWorkspace=0.
+   [workspaceSize] Tensor:rootInner=182452224, devTaskInnerOutCasts=29360128, slotted=6144x61964(slots).
+   ```
+
+   其中 `workspaceSize` 为总大小，`tensor`、`Metadata`、`aicoreSpillen`、`debug.DumpTensor`、`leafDumpWorkspace` 为各子项。通过对比可快速确定哪个大类占用最多。
+
+   > 当前 workspace 大小类问题主要集中在 **Tensor Workspace**，metadata 在总量中占比通常不高。若出现 metadata 类报错（包含 `"Memory not enough"` 且 `WsProperty:metadata`、或包含 `"Slab alloc null"` 字样），建议直接联系 machine 同事分析。
+
+3. **分析 Tensor Workspace 各项占比**：
+
+   Tensor 日志格式 `Tensor:rootInner=A, devTaskInnerOutCasts=B, slotted=CxD(slots)` 中：
+   - `A` = `memBudget.tensor.rootInner`
+   - `B` = `memBudget.tensor.devTaskInnerExclusiveOutcasts`
+   - `C` = `memBudget.tensor.MaxOutcastMem()`（单个 Boundary Outcast 最大大小）
+   - `D` = `memBudget.tensor.devTaskBoundaryOutcastNum`（slot 数量）
+   - Boundary Outcast 总内存 = C × D
+
+   结合每个 Root Function 级别的日志进一步缩小范围：
+
+   ```
+   [workspaceSize] MaxRootInnerMem is 182452224, maxDevTaskInnerExclusiveOutcastMem is 4194304.
+   [workspaceSize] Rootfunction: TENSOR_LOOP_s2_Unroll8_PATH3_hiddenfunc0_root ->MaxRootInnerMem is 182452224, maxDevTaskInnerExclusiveOutcastMem is 4194304.
+   ```
+
+   `MaxRootInnerMem` 和 `maxDevTaskInnerExclusiveOutcastMem` 是**经过 unroll 和 stitch 膨胀后**的值。若多个 Root Function 中某一个的值远超其他，即为问题来源。
+
+   **情况一：rootInner / devTaskInnerOutCasts 均匀偏大**
+
+   先确认是否为 `stitch_function_max_num` 或 `unroll_list` 配置过大导致。内存膨胀关系大致为（近似，非精确公式）：
+
+   ```
+   rootInner ≈ per_root_budget / unroll × WorkspaceRecyclePeriod
+   devTaskInnerOutCasts ≈ per_root_budget / unroll × EstimatedStitchingCount
+   ```
+
+   其中 `WorkspaceRecyclePeriod ≈ stitch_function_max_num × MAX_UNROLL_TIMES`。可通过降低 `stitch_function_max_num` 或 `unroll_list` 在牺牲并行度的前提下降低内存。若单个 loop 的内存需求已经偏高（原始 `rootInnerTensorWsMemoryRequirement` 超过 20MB），则需分析 pass 的内存复用策略及算子本身写法。
+
+   **情况二：Boundary Outcast 内存偏大（slotted 项中单体大小 C 异常大）**
+
+   由于 Tiling 会将 Tensor 切至中等大小（如不超过 512×512），超大的 `MaxOutcastMem()` 通常意味着未经 Tiling 的超大 Tensor 进入了子图。常见原因包括 Inplace 操作、Fixed Address Tensor、shmemData 等例外 case，通常为框架未正确处理所致。此时需进一步找到具体的问题 Tensor（见步骤 4）。
+
+4. **定位问题 Tensor**：
+
+   日志中会对 shape 超过 512×512 的 Tensor 打印警告：
+
+   ```
+   [workspaceSize] Root=[TENSOR_LOOP_s2_Unroll8_PATH3_hiddenfunc0_root], symbol=[atten_out],rawmagic=[3066]: staticMemReq=[12582912] is too larger, which might indicate an error
+   ```
+
+   每条记录包含 Root Function 名称、Tensor 符号名（匿名 Tensor 为空）、rawmagic 以及静态内存大小。结合步骤 3 中确定的异常 Root Function 名称和异常内存值进行匹配。
+
+   例如，若步骤 3 中 Boundary Outcast 单体大小为 `12582912`，在警告日志中搜索该值即可定位到具体 Tensor。
+
+5. **结合计算图确认问题位置**：
+
+   在步骤 1 打开 `dump_graph` 后，`pypto/output/pass/` 目录下会生成各 pass 阶段的计算图。根据步骤 4 获取的 Root Function 名称和 rawmagic，在计算图中搜索对应节点，确认该 Tensor 的上下游操作及 shape 来源,并能够跳转到对应代码段。
+
+   定位到此即可联系相关组件同事介入分析。
+
+6. **影响 workspace 大小的关键配置项**：
+
+   | 配置项 | 影响范围 | 说明 |
+   |--------|----------|------|
+   | `stitch_function_max_num` | rootInner、devTaskInnerOutCasts、Boundary slot 数 | 控制 stitch 并行数，直接影响 WorkspaceRecyclePeriod 和 EstimatedStitchingCount |
+   | `unroll_list` / max_unroll | rootInner、devTaskInnerOutCasts | 控制 loop 展开次数，影响 CalcUnrolledRootBudget |
+
+注：
+- 动态 shape 场景下 `maxStaticMemReq` 为 0（无法从符号 shape 推算静态大小），此类 Tensor 不会出现在超大 Tensor 的警告中
+- `aicoreSpilled` 为 AICore 栈溢出到 workspace 的内存，若该项异常偏大，需检查算子的 `stackWorkSpaceSize`
+- `debug.DumpTensor` 和 `leafDumpWorkspace` 为调试模式下的额外内存开销，正常模式下为 0
+
+---
 ### F70006 HANDSHAKE_TIMEOUT
 
 1. **确认设备与驱动**：NPU 设备可用、驱动正常，`npu-smi info` 无异常。

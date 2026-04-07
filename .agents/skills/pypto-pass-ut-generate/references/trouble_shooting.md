@@ -1,7 +1,7 @@
 # Pass UT 开发故障排查（快速参考）
 
 本文档提供 Pass UT 开发过程中常见问题的快速排查指南。
-**详细错误记录请参考 [common_errors.md](../common_errors.md)**
+**详细错误记录请参考 [common_errors.md](./common_errors.md)**
 
 ---
 

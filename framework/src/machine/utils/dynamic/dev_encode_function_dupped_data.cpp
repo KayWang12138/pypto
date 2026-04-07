@@ -100,10 +100,12 @@ void DevAscendFunctionDupped::DumpTensorAddrInfo(std::vector<std::string>& infos
     auto dumpOperand = [&](const DevAscendOperationOperandInfo& operandInfo, size_t opIdx) {
         std::stringstream os;
         uint64_t rawIdx = srcFunc->GetTensor(operandInfo.tensorIndex)->rawIndex;
-        auto* rawTensor = srcFunc->GetRawTensor(rawIdx);
-        os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << rawTensor->rawMagic << ","
-           << GetRawTensorAddrEx(rawIdx) << "," << BriefDataType2String(rawTensor->dataType) << ","
-           << BytesOf(rawTensor->dataType);
+        auto *rawTensor = srcFunc->GetRawTensor(rawIdx);
+        os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," <<
+            rawTensor->rawMagic << "," <<
+            GetRawTensorAddrEx(rawIdx) << "," <<
+            DataType2String(rawTensor->dataType, true) << "," <<
+            BytesOf(rawTensor->dataType);
 
         uint32_t dimSize = rawTensor->GetDim();
         os << ",(";

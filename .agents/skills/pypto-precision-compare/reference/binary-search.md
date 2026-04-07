@@ -1,12 +1,6 @@
----
-name: pypto-precision-binary-search
-description: PyPTO 算子二分精度对比技能。通过在kernel函数中添加检查点tensor作为输入参数进行原地修改，对比中间结果的精度，定位导致精度差异的具体op。适用于算子运行通过但精度不满足要求、需要定位具体op导致精度问题、需要对比多个中间结果的场景。
-license: 完整条款见 LICENSE.txt
----
+# 二分对比方法
 
-# PyPTO 算子中间计算点精度对比技能
-
-通过在kernel函数中逐个添加检查点tensor作为输入参数进行原地修改，对比中间结果的精度，定位导致精度不匹配的op。
+通过在 kernel 函数中添加检查点 tensor 作为输入参数进行原地修改，对比中间结果的精度，定位导致精度差异的具体 op。
 
 ## 核心原理
 
@@ -26,24 +20,24 @@ license: 完整条款见 LICENSE.txt
 在kernel函数定义中添加检查点tensor作为输入参数，每个对应一个检查点。
 
 **重要原则**：
-- 检查点tensor写在def kernel()里作为输入参数，不要写在 -> 之后
-- 在测试函数中用torch.empty()初始化检查点tensor（shape需要写在小括号里）
-- kernel函数内部不需要return，因为检查点tensor是原地修改的
+- 检查点tensor作为输入参数直接在 kernel 函数中声明
+- 在测试函数中用torch.empty()初始化检查点tensor
+- kernel函数内部不需要return，输出tensor通过out参数传入，使用out.move()或pypto.assemble写入
 - 算子和golden的检查点必须完全一致，shape和dtype都要相同
 - 对于循环内的变量，可以在循环外创建大的tensor，在循环内使用view, assemble赋值
 - 如果检查点的变量在循环中计算的，用pypto.assemble把中间结果搬运到要输出的大tensor里面
-- 对于多层循环实现很复杂的算子，且算子和golden实现一致，可以不通过搬运比较assemble后的大tensor，只比较循环内的临时变量即可（注：pypto的最后一块数据在非对齐情况下会带有脏数据，导致assert误判，此时可选第一块数据进行对比）
+- 对于多层循环实现很复杂的算子，且算子和golden实现一致，可以不通过搬运比较assemble后的大tensor，只比较循环内的临时变量即可（（注：pypto的最后一块数据在非对齐情况下会带有脏数据，导致assert误判，此时可选第一块数据进行对比）
 
 **shape推导方法**：
 - 从变量定义推导：找到产生该变量的赋值语句，分析等号右边的操作对shape的变换
 - 从权重/输入推导：找到相关的权重tensor shape和输入tensor shape，根据matmul/view等操作规则推导
 - 从循环tile推导：循环内变量的第一维 = tile_batch，向上追溯到原始输入的shape
 
-**外层wrapper函数处理**：
-- 创建检查点tensor
-- 准备输入参数列表，包含检查点tensor
-- 调用kernel函数，不需要接收返回值（原地修改变量）
-- 返回检查点tensor
+**kernel函数声明（新前端推荐）**：
+- 直接使用 `@pypto.frontend.jit()` 装饰器
+- 检查点tensor作为输入参数直接在 kernel 函数中声明
+- 输出tensor也作为输入参数，使用 `out.move()` 或 `pypto.assemble` 写入结果
+- 不使用 return 语句返回结果
 
 ### 步骤 3：修改golden函数，增加返回值
 
@@ -91,7 +85,7 @@ license: 完整条款见 LICENSE.txt
 
 ### assemble变量名不能相同
 
-使用pypto.assemble时，输入和输出变量。名不能相同，否则会报错"mix assemble and common operation for same output"。使用不同的变量名解决。
+使用pypto.assemble时，输入和输出变量名不能相同，否则会报错"mix assemble and common operation for same output"。使用不同的变量名解决。
 
 ### assemble的dtype一致性
 
@@ -106,11 +100,10 @@ pypto.assemble要求输入输出tensor的dtype一致，否则编译报错"Source
 1. 在kernel函数输入参数中添加检查点tensor（声明shape和dtype，作为输入参数）
 2. 在测试函数中用torch.empty()创建检查点tensor并传递给kernel
 3. 在kernel函数内部使用pypto.assemble或切片赋值保存中间结果到检查点tensor
-4. kernel函数内部不需要return，因为检查点tensor是原地修改的
-5. 在外层wrapper函数中返回检查点tensor
-6. 在golden函数中对应保存中间结果并返回
-7. 在测试函数中对比所有检查点
-8. 先从个别关键计算点开始，然后二分定位
+4. kernel函数内部不需要return，输出tensor通过out参数传入，使用out.move()或pypto.assemble写入
+5. 在golden函数中对应保存中间结果并返回
+6. 在测试函数中对比所有检查点
+7. 先从个别关键计算点开始，然后二分定位
 
 ## 检查清单
 
@@ -125,7 +118,7 @@ pypto.assemble要求输入输出tensor的dtype一致，否则编译报错"Source
 
 ### 输出参数shape不匹配
 
-检查golden和kernel的shape是否一致，不一致检查检查点输出拼接。
+检查golden和kernel的shape是否一致，不一致检查（检查点输出拼接。
 
 ### 循环内结果拼接
 
@@ -142,7 +135,3 @@ pypto.assemble要求输入输出tensor的dtype一致，否则编译报错"Source
 ### 如何在正确处理返回值
 
 不需要return。调用kernel函数时添加中间变量在输出列表，不需要接收返回值，因为会原地修改变量。
-
-## 参考资料
-
-- PyPTO API: `docs/api/`

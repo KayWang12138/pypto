@@ -28,6 +28,7 @@
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 inline constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 32;
+constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
@@ -37,7 +38,7 @@ public:
     {
         uintdevptr_t baseAddr = devStartArgs->contextWorkspaceAddr;
         DevAscendProgram* devProg = devStartArgs->devProg;
-
+        devProg_ = devProg;
         // Host coherent allocators MUST be initialized EARLIEST since some other allocators might depend on them
         InitMetadataAllocators(devProg, devStartArgs);
 
@@ -63,8 +64,6 @@ public:
 
         SetupItemPool(
             runtimeOutcastTensorPool_, devProg->runtimeOutcastPoolSize, WsMemCategory::ITEMPOOL_RUNTIME_OUTCAST);
-
-        devProg_ = devProg;
     }
 
     uintdevptr_t StackWorkspaceAddr() const { return stackWorkspaceBase_; }
@@ -613,7 +612,7 @@ public:
         uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabPageSize(metaSlabMemSize);
         metadataAllocators_.generalSlab.Init(reinterpret_cast<void*>(realMemBase), metaSlabMemSize, slabSize);
         for (size_t i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
-            if (slabMemObjSizeFunc[i] != nullptr) {
+            if ((slabMemObjSizeFunc[i] != nullptr) && ((this->*slabMemObjSizeFunc[i])() != 0)) {
                 [[maybe_unused]] bool registCacheRes =
                     metadataAllocators_.generalSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])());
                 DEV_ASSERT(WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, registCacheRes);
@@ -663,6 +662,40 @@ public:
         DEV_DEBUG("[workspaceSize] slabMemObjmaxSize=%u", slabMemObjmaxSize);
         return slabMemObjmaxSize;
     }
+
+    uint32_t CalcStitchSlabMemObjmaxSize(uint32_t* slabCapacity)
+    {
+        uint32_t slabMemObjmaxSize = 0;
+        size_t start = ToUnderlying(WsAicpuSlabMemType::READY_QUE);
+        size_t end = ToUnderlying(WsAicpuSlabMemType::DUPPED_STITCH);
+        for (size_t i = start; i < end; ++i) {
+            if (slabMemObjSizeFunc[i] != nullptr) {
+                uint32_t currentSize = (this->*slabMemObjSizeFunc[i])();
+                if (currentSize > slabMemObjmaxSize) {
+                    slabMemObjmaxSize = currentSize;
+                }
+            }
+        }
+        slabMemObjmaxSize *= ALLOC_NUM_ONE_SLAB;
+        slabMemObjmaxSize = std::max(slabMemObjmaxSize, (uint32_t)MEBI);
+        DEV_INFO("Stitch slab size=%u", slabMemObjmaxSize);
+        devProg_->memBudget.metadata.stitchSlabSize = slabMemObjmaxSize;
+        size_t j = 0;
+        for (size_t i = start; i < end; ++i) {
+            if (slabMemObjSizeFunc[i] == nullptr) {
+                continue;
+            }
+            uint32_t currentSize = (this->*slabMemObjSizeFunc[i])();
+            if (currentSize == 0) {
+                slabCapacity[j] = 0;
+            } else {
+                slabCapacity[j] = slabMemObjmaxSize / currentSize;
+            }
+            ++j;
+        }
+        return slabMemObjmaxSize;
+    }
+
     void CalculateSlabCapacityPerType(uint32_t slabSize, uint32_t* slabCapacity, uint32_t slabTypeNum)
     {
         if (slabCapacity == nullptr) {
@@ -879,7 +912,7 @@ private:
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
             return sizeof(ReadyCoreFunctionQueue) + devProg_->stitchFunctionsize * sizeof(uint32_t);
         } else {
-            return 1;
+            return 0;
         }
     }
 
@@ -888,7 +921,7 @@ private:
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
             return sizeof(ReadyCoreFunctionQueue) + devProg_->stitchFunctionsize * sizeof(uint32_t);
         } else {
-            return 1;
+            return 0;
         }
     }
 
@@ -897,7 +930,7 @@ private:
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
             return devProg_->stitchFunctionsize * sizeof(uint32_t);
         } else {
-            return 1;
+            return 0;
         }
     }
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
@@ -905,11 +938,11 @@ private:
         &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
         &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
         &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
+        nullptr, // invalid type
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::DieReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
-        nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };
 
@@ -927,13 +960,15 @@ private:
             }
         }
         slabMemObjmaxSize += extendBuf;
+        devProg_->memBudget.metadata.generalSlabSize = slabMemObjmaxSize;
+        DEV_INFO("General slab size=%u", slabMemObjmaxSize);
         return slabMemObjmaxSize;
     }
     uint32_t CalcAicpuMetaSlabAlloctorSlabPageSize(uint32_t totalMemSize)
     {
         uint32_t allocNumOneSlab = 4; // default
-        uint32_t slabSize = CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize();
-        uint32_t leastSlabReqMem = (ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)) * slabSize;
+        uint32_t slabSize = devProg_->memBudget.metadata.generalSlabSize;
+        uint32_t leastSlabReqMem = (ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)) * slabSize;
         DEV_ASSERT_MSG(
             WsErr::WORKSPACE_CAPACITY_INSUFFICIENT, leastSlabReqMem < totalMemSize,
             "leastSlabReqMem=%u >= totalMemSize=%u", leastSlabReqMem, totalMemSize);
@@ -950,17 +985,16 @@ private:
         DEV_ASSERT_MSG(
             WsErr::WORKSPACE_INIT_PARAM_INVALID, memBase != nullptr && totalSize > 0, "memBase %s null, totalSize=%u",
             memBase == nullptr ? "is" : "is not", totalSize);
-        constexpr uint32_t slabSize = 4 * 1024; // fix size
+        uint32_t slabSize = devProg_->memBudget.metadata.stitchSlabSize;
         metadataAllocators_.stitchSlab.Init(memBase, totalSize, slabSize);
         for (size_t i = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT) + 1;
              i < ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT); ++i) {
-            if (slabMemObjSizeFunc[i] != nullptr) {
+            if ((slabMemObjSizeFunc[i] != nullptr) && ((this->*slabMemObjSizeFunc[i])() != 0)) {
                 uint32_t objSize = (this->*slabMemObjSizeFunc[i])();
                 DEV_ASSERT_MSG(
                     WsErr::WORKSPACE_CAPACITY_INSUFFICIENT, slabSize > objSize, "slabSize=%u <= objSize=%u", slabSize,
                     objSize);
-                [[maybe_unused]] bool registCacheRes =
-                    metadataAllocators_.stitchSlab.RegistCache(i, (this->*slabMemObjSizeFunc[i])());
+                [[maybe_unused]] bool registCacheRes = metadataAllocators_.stitchSlab.RegistCache(i, objSize);
                 DEV_ASSERT(WsErr::WORKSPACE_ALLOCATOR_REGIST_FAILED, registCacheRes);
             }
         }
