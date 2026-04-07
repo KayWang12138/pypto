@@ -8,6 +8,7 @@
 #pragma once
 
 #include <array>
+#include <typetraits>
 #include "interface/utils/common.h"
 
 namespace pypto::utils
@@ -104,6 +105,7 @@ class ConcurrentQueue
   size_t _tail = 0;
   uint8_t _lock = 0;
 
+  static_assert(std::is_trivially_copyable_v<T>());
 };
 
 } // namespace
