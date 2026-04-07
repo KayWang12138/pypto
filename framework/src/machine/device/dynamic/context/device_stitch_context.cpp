@@ -318,6 +318,17 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(
     auto expressionList = &nextDup.GetExpression(0);
     auto& cellMatchTableDesc = outcast.cellMatchTableDesc;
     auto fullUpdateTableData = &prevSrc->At(outcast.cellMatchRuntimeFullUpdateTable, 0);
+    DEV_VERBOSE_DEBUG("[FullCoverStitch] slotIdx=%d, stitchDupIdx=%u, stitchOutcastIdx=%u, "
+    "tableSize=%zu, descDimSize=%d",
+    slotIdx, slot.stitchDupIdx, slot.stitchOutcastIdx,
+    outcast.cellMatchRuntimeFullUpdateTable.size(),
+    cellMatchTableDesc.GetDimensionSize());
+    DEV_IF_VERBOSE_DEBUG {
+    for (int d = 0; d < cellMatchTableDesc.GetDimensionSize(); d++) {
+        DEV_VERBOSE_DEBUG("[FullCoverDefault] dim[%d]: cellShape=%d, stride=%lu",
+            d, cellMatchTableDesc.GetCellShape(d), cellMatchTableDesc.GetStride(d));
+        }
+    }
     struct HandleCellMatchFull {
         static inline void Process(
             int index, uint32_t* cellMatchTableData, uint64_t* matchCount, DevAscendFunctionDupped* prevDup,
