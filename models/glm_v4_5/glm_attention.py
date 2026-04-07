@@ -671,7 +671,6 @@ def ifa(atten_cfg, case_950=0):
 
 
 @pytest.mark.soc("950")
-@pytest.mark.skip(reason="large test case")
 def test_ifa_for_950():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
