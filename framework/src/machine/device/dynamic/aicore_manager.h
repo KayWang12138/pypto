@@ -37,6 +37,7 @@
 #include "machine/utils/dynamic/spsc_queue.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
+#include "machine/utils/barrier.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
@@ -156,10 +157,12 @@ public:
             for (size_t i = 0; i < readyAicCoreFunctionQue->Size(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue->GetBuffer()[i]);
 
             // Setting task as initialized, allowing others to continue
+            wmb();
             curDevTask_->isTaskInitialized = true;
         }
         
         // If I am not a lead AICPU scheduler, wait until initialization is ready
+        rmb();
         if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
 
         taskQueue_[(int)CoreType::AIV] = (taskQueue_t*)curDevTask_->availableVectorTaskQueue;
