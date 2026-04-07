@@ -9,21 +9,13 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """采集性能数据 (生成泳道图)"""
-import os, sys, logging, torch
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import logging
+import os
+import sys
 
-# Configure logger for the module
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-formatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='[%Y-%m-%d %H:%M:%S]'
-)
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-logger.handlers.clear()
-logger.addHandler(handler)
+import torch
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pypto
 from flash_attention_score_grad_golden import generate_forward_data
@@ -31,6 +23,7 @@ from flash_attention_score_grad_impl import (
     NUM_HEADS, HEAD_DIM, S_TILE, compute_tile,
     flash_attention_score_grad_wrapper,
 )
+
 
 # 重新定义带 debug_options 的 kernel (仅用于采集)
 @pypto.frontend.jit(
@@ -83,7 +76,7 @@ def fag_kernel_profile(
                 ssum_i = pypto.view(ss_i_8, [S_TILE, 1], [0, 0], valid_shape=[actual_s1, 1])
                 pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                 dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i), pypto.DT_FP32)
-                D_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
+                d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
                 dQ_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dQ_acc")
                 for s2_idx in pypto.loop(s_loop, name="LOOP_s2_dq", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
                     s2_off = bn_base + s2_idx * S_TILE
@@ -91,7 +84,7 @@ def fag_kernel_profile(
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     k_j = pypto.view(k, [S_TILE, HEAD_DIM], [s2_off, 0], valid_shape=[actual_s2, HEAD_DIM])
                     v_j = pypto.view(v, [S_TILE, HEAD_DIM], [s2_off, 0], valid_shape=[actual_s2, HEAD_DIM])
-                    _, dS_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
+                    _, dS_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                                             actual_s1, actual_s2, scale_value, c_tile, v_tile_s, v_tile_d, S_TILE)
                     dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
@@ -128,15 +121,15 @@ def fag_kernel_profile(
                     ssum_i = pypto.view(ss_i_8, [S_TILE, 1], [0, 0], valid_shape=[actual_s1, 1])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i), pypto.DT_FP32)
-                    D_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
-                    P_ij, dS_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
+                    d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
+                    p_ij, dS_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                                                actual_s1, actual_s2, scale_value, c_tile, v_tile_s, v_tile_d, S_TILE)
                     dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
-                    P_bf16 = pypto.cast(P_ij, pypto.DT_BF16)
+                    p_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     dK_tile = pypto.matmul(dS_bf16, q_i, pypto.DT_FP32, a_trans=True)
-                    dV_tile = pypto.matmul(P_bf16, dy_i, pypto.DT_FP32, a_trans=True)
+                    dV_tile = pypto.matmul(p_bf16, dy_i, pypto.DT_FP32, a_trans=True)
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     if pypto.is_loop_begin(s1_idx):
                         dK_acc[:] = dK_tile

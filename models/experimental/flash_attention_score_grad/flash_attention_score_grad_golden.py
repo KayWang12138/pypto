@@ -26,8 +26,9 @@ FlashAttentionScoreGrad Golden 参考实现
 """
 
 import logging
-import torch
 from typing import Tuple
+
+import torch
 
 # Configure logger for the module
 logger = logging.getLogger(__name__)
