@@ -66,16 +66,13 @@ constexpr uint32_t AICPU_SCHEDULERS = 3;
 typedef uint64_t aicoreFunction_t;
 typedef uint32_t aicoreTask_t;
 typedef uint32_t aicoreCore_t;
-typedef uint64_t aicorePair_t;
 
 constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
-constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
 typedef pypto::utils::LimitedQueue<aicoreTask_t,    aicoreNullTask, MAX_QUEUED_TASKS> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore, TOTAL_CORE_COUNT> coreQueue_t;
-typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair, TOTAL_CORE_COUNT> pairQueue_t;
 
 struct TaskInfo {
     int coreIdx;
@@ -133,6 +130,23 @@ public:
             SendDevTaskModel(curDevTask_);
         }
 
+        // Allocating core and task queues
+        freeACoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
+        freeACoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
+        busyAPairQueue_[(int)CoreType::AIV] = new coreQueue_t();
+        busyAPairQueue_[(int)CoreType::AIC] = new coreQueue_t();
+        freeBCoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
+        freeBCoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
+        busyBCoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
+        busyBCoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
+
+        for (int i = aivStart_; i < aivEnd_; i++) freeACoreQueue_[(int)CoreType::AIV]->push(i);
+        for (int i = aicStart_; i < aicEnd_; i++) freeACoreQueue_[(int)CoreType::AIC]->push(i);
+
+
+        for (size_t i = 0; i < TOTAL_CORE_COUNT; i++) coreTaskPairingA_[i] = aicoreNullTask;
+        for (size_t i = 0; i < TOTAL_CORE_COUNT; i++) coreTaskPairingB_[i] = aicoreNullTask;
+
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
         {
@@ -157,20 +171,9 @@ public:
         // If I am not a lead AICPU scheduler, wait until initialization is ready
         if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
 
+        // Grabbing shared task queue pointers
         taskQueue_[(int)CoreType::AIV] = (taskQueue_t*)curDevTask_->availableVectorTaskQueue;
         taskQueue_[(int)CoreType::AIC] = (taskQueue_t*)curDevTask_->availableCubeTaskQueue;
-
-        freeACoreQueue_[(int)CoreType::AIV] = new coreQueue_t();
-        freeACoreQueue_[(int)CoreType::AIC] = new coreQueue_t();
-        busyAPairQueue_[(int)CoreType::AIV] = new pairQueue_t();
-        busyAPairQueue_[(int)CoreType::AIC] = new pairQueue_t();
-        freeBPairQueue_[(int)CoreType::AIV] = new pairQueue_t();
-        freeBPairQueue_[(int)CoreType::AIC] = new pairQueue_t();
-        busyBPairQueue_[(int)CoreType::AIV] = new pairQueue_t();
-        busyBPairQueue_[(int)CoreType::AIC] = new pairQueue_t();
-
-        for (int i = aivStart_; i < aivEnd_; i++) freeACoreQueue_[(int)CoreType::AIV]->push(i);
-        for (int i = aicStart_; i < aicEnd_; i++) freeACoreQueue_[(int)CoreType::AIC]->push(i);
     }
 
     inline void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -196,7 +199,6 @@ public:
 
     inline void RunTask(DeviceTaskCtrl *taskCtrl) {
         InitDevTask(taskCtrl);
-        ForEachManageAicore([&](int coreIdx) { busyCores_[coreIdx] = false; });
 
         // Making sure all schedulers are here for accurate timing -- this needs to be removed for production
         auto readyAICPUsBarrierPtr = (std::atomic<uint32_t>*) &deviceArgs_->readyAICPUsBarrier;
@@ -239,14 +241,16 @@ public:
 
     inline int WaitAllAicoreFinish()
     {
-        for (auto i = aicStart_; i < aicEnd_; i++) if (busyCores_[i] == true)
+        for (auto i = aicStart_; i < aicEnd_; i++) if (coreTaskPairingA_[i] != aicoreNullTask)
         {
             while (checkCoreFinished(i) == false) { /* busy wait */}
+            coreTaskPairingA_[i] = aicoreNullTask;
         }
 
-        for (auto i = aivStart_; i < aivEnd_; i++) if (busyCores_[i] == true)
+        for (auto i = aivStart_; i < aivEnd_; i++) if (coreTaskPairingA_[i] != aicoreNullTask)
         {
             while (checkCoreFinished(i) == false) { /* busy wait */}
+            coreTaskPairingA_[i] = aicoreNullTask;
         }
 
         __sync_synchronize();
@@ -327,10 +331,6 @@ public:
 
 private:
 
-    static inline aicorePair_t encodePair(const uint64_t coreId, const uint64_t taskId) { return aicorePair_t ((taskId << 32) + (coreId & 0x00000000FFFFFFFFUL)); }
-    static inline uint64_t decodePairTask(const aicorePair_t pair) { return pair >> 32; }
-    static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
-
     inline void TryBatchSendTask(CoreType type)
     {
         auto taskQueue = taskQueue_[(int)type];
@@ -352,33 +352,32 @@ private:
                 {
                     const auto core = freeACoreQueue_[(int)type]->pop();
                     const auto task = taskData[i];
-                    const auto pair = encodePair(core, task);
                     SendTaskToAiCore(type, core, task);
-                    busyAPairQueue_[(int)type]->push(pair);
-                    busyCores_[core] = true;
+                    coreTaskPairingA_[core] = task;
+                    busyAPairQueue_[(int)type]->push(core);
                 }
             }
         }
         
         // Checking free B cores
-        if (freeBPairQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
+        if (freeBCoreQueue_[(int)type]->empty() == false && taskQueue->empty() == false)
         {
             if (holdsTaskQueueLock == false) holdsTaskQueueLock = taskQueue->tryLock();
 
             if (holdsTaskQueueLock == true)
             {
-                const size_t availableCores = freeBPairQueue_[(int)type]->size();
+                const size_t availableCores = freeBCoreQueue_[(int)type]->size();
                 const auto taskSet = taskQueue->pop(availableCores);
                 const aicoreTask_t* taskData = taskSet.first;
                 const size_t taskCount = taskSet.second;
 
                 for (size_t i = 0; i < taskCount; i++)
                 {
-                    const auto pair = freeBPairQueue_[(int)type]->pop();
-                    const auto core = decodePairCore(pair);
+                    const auto core = freeBCoreQueue_[(int)type]->pop();
                     const auto task = taskData[i];
+                    coreTaskPairingB_[core] = task;
                     SendTaskToAiCore(type, core, task);
-                    busyBPairQueue_[(int)type]->push(pair);
+                    busyBCoreQueue_[(int)type]->push(core);
                 }
             }
         }
@@ -403,35 +402,35 @@ private:
         batchReadyTaskCount_[(int)CoreType::AIC] = 0;
         batchReadyTaskCount_[(int)CoreType::AIV] = 0;
         batchFreeACoreCount_[(int)type] = 0;
-        batchFreeBPairCount_[(int)type] = 0;
+        batchFreeBCoreCount_[(int)type] = 0;
 
-        // Handling Busy A queue pairings
+        // Handling Busy A queue cores
         {
-            size_t pairCount = busyAPairQueue_[(int)type]->size();
-            for (size_t i = 0; i < pairCount; i++)
+            size_t coreCount = busyAPairQueue_[(int)type]->size();
+            for (size_t i = 0; i < coreCount; i++)
             {
-                const auto pair = busyAPairQueue_[(int)type]->pop();
-                ResolveBusyAQueuePair(type, pair);
+                const auto core = busyAPairQueue_[(int)type]->pop();
+                ResolveBusyAQueuePair(type, core);
             }
         }
 
-        // Handling Free B queue pairings
+        // Handling Free B queue cores
         {
-            size_t pairCount = freeBPairQueue_[(int)type]->size();
-            for (size_t i = 0; i < pairCount; i++)
+            size_t coreCount = freeBCoreQueue_[(int)type]->size();
+            for (size_t i = 0; i < coreCount; i++)
             {
-                const auto pair = freeBPairQueue_[(int)type]->pop();
-                ResolveFreeBQueuePair(type, pair);
+                const auto core = freeBCoreQueue_[(int)type]->pop();
+                ResolveFreeBQueuePair(type, core);
             }
         }
 
-        // Handling Busy B queue pairings
+        // Handling Busy B queue cores
         {
-            size_t pairCount = busyBPairQueue_[(int)type]->size();
-            for (size_t i = 0; i < pairCount; i++)
+            size_t coreCount = busyBCoreQueue_[(int)type]->size();
+            for (size_t i = 0; i < coreCount; i++)
             {
-                const auto pair = busyBPairQueue_[(int)type]->pop();
-                ResolveBusyBQueuePair(type, pair);
+                const auto core = busyBCoreQueue_[(int)type]->pop();
+                ResolveBusyBQueueCore(type, core);
             }
         }
 
@@ -455,82 +454,71 @@ private:
 
         // Batch-pushing cores
         if (batchFreeACoreCount_[(int)type] > 0) freeACoreQueue_[(int)type]->pushMany(batchFreeACores_[(int)type], batchFreeACoreCount_[(int)type]);
-        if (batchFreeBPairCount_[(int)type] > 0) freeBPairQueue_[(int)type]->pushMany(batchFreeBPairs_[(int)type], batchFreeBPairCount_[(int)type]);
+        if (batchFreeBCoreCount_[(int)type] > 0) freeBCoreQueue_[(int)type]->pushMany(batchFreeBCores_[(int)type], batchFreeBCoreCount_[(int)type]);
     }
 
-    inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair)
+    inline void ResolveBusyAQueuePair(CoreType type, const aicoreCore_t coreId)
     {
-        const auto coreId = decodePairCore(pair);
-
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreId);
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-        const auto taskAId = decodePairTask(pair);
-
         // We need to make sure the task reported by the core is the one we last assigned to it
-        if (finTaskId == taskAId)
+        if (finTaskId == coreTaskPairingA_[coreId])
         {
             if (finTaskState == TASK_FIN_STATE)
             {
-                processFinishedTask(type, taskAId);
+                processFinishedTask(type, coreTaskPairingA_[coreId]);
+                coreTaskPairingA_[coreId] = aicoreNullTask;
                 batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
-                busyCores_[coreId] = false;
                 return;
             }
 
             if (finTaskState == TASK_ACK_STATE)
             {
-                batchFreeBPairs_[(int)type][batchFreeBPairCount_[(int)type]++] = pair;
+                batchFreeBCores_[(int)type][batchFreeBCoreCount_[(int)type]++] = coreId;
                 return;
             }
         }
         
-        // Nothing has changed, put this pair back to its queue
-        busyAPairQueue_[(int)type]->push(pair);
+        // Nothing has changed, put this core back to its queue
+        busyAPairQueue_[(int)type]->push(coreId);
     }
 
-    inline void ResolveFreeBQueuePair(CoreType type, const aicorePair_t pair)
+    inline void ResolveFreeBQueuePair(CoreType type, const aicoreCore_t coreId)
     {
-        const auto coreId = decodePairCore(pair);
-
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreId);
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-        const auto taskAId = decodePairTask(pair);
-
         // We need to make sure the task reported by the core is the one we last assigned to it
-        if (finTaskId == taskAId)
+        if (finTaskId == coreTaskPairingA_[coreId])
         {
             if (finTaskState == TASK_FIN_STATE)
             {
-                processFinishedTask(type, taskAId);
+                processFinishedTask(type, coreTaskPairingA_[coreId]);
+                coreTaskPairingA_[coreId] = aicoreNullTask;
                 batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
-                busyCores_[coreId] = false;
                 return;
             }
         }
         
-        // Nothing has changed, put this pair back to its queue
-        freeBPairQueue_[(int)type]->push(pair);
+        // Nothing has changed, put this core back to its queue
+        freeBCoreQueue_[(int)type]->push(coreId);
     }
 
-    inline void ResolveBusyBQueuePair(CoreType type, const aicorePair_t pair)
+    inline void ResolveBusyBQueueCore(CoreType type, const aicoreCore_t coreId)
     {
-        const auto coreId = decodePairCore(pair);
-
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreId);
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-        const auto taskAId = decodePairTask(pair);
-
         // If the reported task is not A, it means A is finished
-        if (finTaskId != taskAId)
+        if (finTaskId == coreTaskPairingB_[coreId])
         {
             // Process A
-            processFinishedTask(type, taskAId);
+            processFinishedTask(type, coreTaskPairingA_[coreId]);
+            coreTaskPairingA_[coreId] = aicoreNullTask;
 
             // Get task B id
             const auto taskBId = finTaskId;
@@ -539,19 +527,20 @@ private:
             if (finTaskState == TASK_FIN_STATE)
             {
                 processFinishedTask(type, taskBId);
+                coreTaskPairingB_[coreId] = aicoreNullTask;
                 batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
-                busyCores_[coreId] = false;
                 return;
             }
 
             // Otherwise, set task B as task A and put it into the freeB queue to allow a new task B to be assigned to the core
-            const auto newPair = encodePair(coreId, taskBId);
-            freeBPairQueue_[(int)type]->push(newPair);
+            coreTaskPairingA_[coreId] = coreTaskPairingB_[coreId];
+            coreTaskPairingB_[coreId] = aicoreNullTask;
+            freeBCoreQueue_[(int)type]->push(coreId);
             return;
         }
         
-        // Nothing has changed, put this pair back into its queue
-        busyBPairQueue_[(int)type]->push(pair);
+        // Nothing has changed, put this core back into its queue
+        busyBCoreQueue_[(int)type]->push(coreId);
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
@@ -733,24 +722,24 @@ private:
 
     friend class AiCoreProf;
 
-    // Queues for managing tasks, cores and their pairing
+    // Queues for managing tasks and cores
     taskQueue_t* taskQueue_[AICORE_TYPE_NUM];
     coreQueue_t* freeACoreQueue_[AICORE_TYPE_NUM];
-    pairQueue_t* busyAPairQueue_[AICORE_TYPE_NUM];
-    pairQueue_t* freeBPairQueue_[AICORE_TYPE_NUM];
-    pairQueue_t* busyBPairQueue_[AICORE_TYPE_NUM];
+    coreQueue_t* busyAPairQueue_[AICORE_TYPE_NUM];
+    coreQueue_t* freeBCoreQueue_[AICORE_TYPE_NUM];
+    coreQueue_t* busyBCoreQueue_[AICORE_TYPE_NUM];
 
     aicoreTask_t batchReadyTaskIds_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
     size_t batchReadyTaskCount_[AICORE_TYPE_NUM];
 
     size_t  batchFreeACoreCount_[AICORE_TYPE_NUM];
-    size_t  batchFreeBPairCount_[AICORE_TYPE_NUM];
+    size_t  batchFreeBCoreCount_[AICORE_TYPE_NUM];
 
     aicoreCore_t batchFreeACores_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
-    aicorePair_t batchBusyAPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
-    aicorePair_t batchFreeBPairs_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
+    aicoreCore_t batchFreeBCores_[AICORE_TYPE_NUM][MAX_QUEUED_TASKS];
 
-    bool busyCores_[TOTAL_CORE_COUNT];
+    aicoreTask_t coreTaskPairingA_[TOTAL_CORE_COUNT];
+    aicoreTask_t coreTaskPairingB_[TOTAL_CORE_COUNT];
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
