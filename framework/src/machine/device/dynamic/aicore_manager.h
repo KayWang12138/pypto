@@ -1022,7 +1022,12 @@ private:
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
 #endif
+
+DEV_IF_DEVICE
+        aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF, {});
+else {
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF, CalTensorAddrAndSize(newTask));
+}
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
