@@ -439,17 +439,8 @@ def _build_pa_rows_from_cache(cache: torch.Tensor, block_table: torch.Tensor, sp
     return torch.stack(rows, dim=0)
 
 
-def _build_qkv_projection(attn_q_w, attn_q_b, attn_k_w, attn_k_b, attn_v_w, attn_v_b, attn_q_norm_w, attn_k_norm_w):
-    return QKVProjectionTensors(
-        attn_q_w,
-        attn_q_b,
-        attn_k_w,
-        attn_k_b,
-        attn_v_w,
-        attn_v_b,
-        attn_q_norm_w,
-        attn_k_norm_w,
-    )
+def _build_qkv_projection(qkv_args):
+    return QKVProjectionTensors(*qkv_args)
 
 
 def _build_prolog_case_tensors(case_args) -> PrologCaseTensors:
@@ -472,7 +463,7 @@ def _build_prolog_case_tensors(case_args) -> PrologCaseTensors:
     return PrologCaseTensors(
         hidden_states=hidden_states,
         proj=_build_qkv_projection(
-            attn_q_w, attn_q_b, attn_k_w, attn_k_b, attn_v_w, attn_v_b, attn_q_norm_w, attn_k_norm_w
+            (attn_q_w, attn_q_b, attn_k_w, attn_k_b, attn_v_w, attn_v_b, attn_q_norm_w, attn_k_norm_w)
         ),
         cos=cos,
         sin=sin,
@@ -507,7 +498,7 @@ def _build_layer_case_tensors(case_args) -> LayerCaseTensors:
     return LayerCaseTensors(
         hidden_states=hidden_states,
         proj=_build_qkv_projection(
-            attn_q_w, attn_q_b, attn_k_w, attn_k_b, attn_v_w, attn_v_b, attn_q_norm_w, attn_k_norm_w
+            (attn_q_w, attn_q_b, attn_k_w, attn_k_b, attn_v_w, attn_v_b, attn_q_norm_w, attn_k_norm_w)
         ),
         attn_o_w=attn_o_w,
         attn_o_b=attn_o_b,
@@ -1078,15 +1069,12 @@ def _compute_layer_post_graph(params, post: LayerPostTensors):
     return pypto.cast(pypto.add(pypto.cast(h1, pypto.DT_FP32), pypto.cast(mlp_tmp, pypto.DT_FP32)), dtype)
 
 
-def qwen3_layer_graph(params, *graph_args):
-    tensors = _build_layer_case_tensors(graph_args)
-    layer_out = graph_args[21]
+def _build_layer_graph_intermediates(params, tensors: LayerCaseTensors):
     b = params["b"]
     s = params["s"]
     n_q = params["n"]
     d = params["d"]
     dtype = tensors.hidden_states.dtype
-    norm1 = pypto.rms_norm(tensors.hidden_states)
     query_out = pypto.tensor([b * s * n_q, d], dtype, "qwen3_layer_query")
     key_cache_tmp = pypto.tensor(
         list(tensors.cache.key_cache.shape),
@@ -1094,8 +1082,19 @@ def qwen3_layer_graph(params, *graph_args):
         "qwen3_layer_key_cache",
     )
     value_cache_tmp = pypto.tensor(
-        list(tensors.cache.value_cache.shape), tensors.cache.value_cache.dtype, "qwen3_layer_value_cache"
+        list(tensors.cache.value_cache.shape),
+        tensors.cache.value_cache.dtype,
+        "qwen3_layer_value_cache",
     )
+    pa_out = pypto.tensor([b * s * n_q, d], pypto.DT_FP32, "qwen3_layer_pa")
+    return query_out, key_cache_tmp, value_cache_tmp, pa_out
+
+
+def qwen3_layer_graph(params, *graph_args):
+    tensors = _build_layer_case_tensors(graph_args)
+    layer_out = graph_args[21]
+    norm1 = pypto.rms_norm(tensors.hidden_states)
+    query_out, key_cache_tmp, value_cache_tmp, pa_out = _build_layer_graph_intermediates(params, tensors)
     qwen3_paged_attention_prolog_graph(
         params,
         norm1,
@@ -1109,7 +1108,6 @@ def qwen3_layer_graph(params, *graph_args):
         key_cache_tmp,
         value_cache_tmp,
     )
-    pa_out = pypto.tensor([b * s * n_q, d], pypto.DT_FP32, "qwen3_layer_pa")
     qwen3_paged_attention_graph(
         params,
         query_out,
