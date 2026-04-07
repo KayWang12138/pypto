@@ -164,6 +164,10 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const
         GetAttr(OpAttributeKey::needAlloc, allocValue);
         result["need_alloc"] = allocValue;
     }
+    if (HasEnableCombineAxis()) {
+        AxisReorderStatus status = GetEnableCombineAxis();
+        result["enable_combine_axis"] = static_cast<int>(status);
+    }
     result["subgraph_boundary"] = isSubGraphBoundary;
 
     if (subGraphID != NOT_IN_SUBGRAPH) {
@@ -236,6 +240,12 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(
     if (tensorDump.count("need_alloc") != 0) {
         bool needAlloc = tensorDump["need_alloc"].get<bool>();
         tensorJson->SetAttr(OpAttributeKey::needAlloc, needAlloc);
+    }
+
+    if (tensorDump.count("enable_combine_axis") != 0) {
+        int64_t statusValue = tensorDump["enable_combine_axis"].get<int>();
+        AxisReorderStatus status = static_cast<AxisReorderStatus>(statusValue);
+        tensorJson->SetEnableCombineAxis(status);
     }
 
     if (tensorDump.count("subgraphid")) {
