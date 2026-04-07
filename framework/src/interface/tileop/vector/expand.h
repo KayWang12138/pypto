@@ -19,125 +19,106 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-#define OP_TILE_OP_EXPAND TExpand
-template <unsigned Head, unsigned... Tail>
-struct FirstAxis {
-    static constexpr unsigned value = Head;
+enum class ExpandTile : uint8_t {
+    NONE,
+    H,
+    W,
+    HW
 };
+
+template <unsigned... Axes>
+TILEOP constexpr ExpandTile GetExpandTile()
+{
+    constexpr auto expandAxesNum = sizeof...(Axes);
+    constexpr unsigned axesList[] = { Axes... };
+    bool hasH = false;
+    bool hasW = false;
+    for (size_t i = 0; i < expandAxesNum; i++) {
+        if (axesList[i] == 3) {
+            hasH = true;
+        }
+        if (axesList[i] == 4) {
+            hasW = true;
+        }
+    }
+    
+    if (hasH && hasW) {
+        return ExpandTile::HW;
+    } else if (hasH) {
+        return ExpandTile::H;
+    } else if (hasW) {
+        return ExpandTile::W;
+    }
+    return ExpandTile::NONE;
+}
+
+template <typename LastUse = LastUse2Dim<0, 0>, ExpandTile expandTile, typename TileDst, typename TileSrc, typename TileTmp>
+TILEOP void ExpandImpl(TileDst& dstTile, TileSrc& srcTile, TileTmp& tmpTile)
+{
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+    if constexpr (expandTile == ExpandTile::H) {
+        PTO_WITH_LAST_USE(pto::TCOLEXPAND(dstTile, srcTile), n1, n2);
+    } else if constexpr (expandTile == ExpandTile::W) {
+        PTO_WITH_LAST_USE(pto::TROWEXPAND(dstTile, srcTile), n1, n2);
+    } else if constexpr (expandTile == ExpandTile::HW) {
+        pto::TROWEXPAND(tmpTile, srcTile);
+#ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+#endif
+        PTO_WITH_LAST_USE(pto::TCOLEXPAND(dstTile, tmpTile), n1, n2);
+    } else {
+        PTO_WITH_LAST_USE(pto::TMOV(dstTile, srcTile), n1, n2);
+    }
+}
+
+#define OP_TILE_OP_EXPAND TExpand
 template <typename LastUse = LastUse2Dim<0, 0>, unsigned... Axes, typename T0, typename T1>
 TILEOP void TExpand(T0 dst, T1 src)
 {
-    static_assert(sizeof...(Axes) >= 1, "At lease one expand axis required");
-    constexpr unsigned axis = FirstAxis<Axes...>::value;
     const auto dstLayout = dst.GetLayout();
-    
     auto dstShape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto dstShape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto dstShape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
     auto dstShape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
     auto dstShape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
-    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
-    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
-    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
-
     const auto srcLayout = src.GetLayout();
     auto srcShape3 = srcLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
     auto srcShape4 = srcLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
-    auto srcStride0 = srcLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
-    auto srcStride1 = srcLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
-    auto srcStride2 = srcLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
-
-    using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
-    using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
-
-    constexpr auto typeSize = sizeof(DstDtype);
+    constexpr ExpandTile expandTile = GetExpandTile<Axes...>();
 
     if (dstShape3 == 0 || dstShape4 == 0) {
         return;
     }
 
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+    using DstTileInfo = TensorTileInfo<T0>;
+    using SrcTileInfo = TensorTileInfo<T1>;
+    using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
+    using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
+    constexpr auto typeSize = sizeof(DstDtype);
+    
+    constexpr auto minTileH = DstTileInfo::tileH < SrcTileInfo::tileH ? DstTileInfo::tileH : SrcTileInfo::tileH;
+    constexpr auto dstTileH = (expandTile == ExpandTile::NONE) ? minTileH : DstTileInfo::tileH;
+    constexpr auto srcTileH = (expandTile == ExpandTile::NONE) ? minTileH : SrcTileInfo::tileH;
 
-    constexpr auto dstTile2 = TileOp::GetTensorTileShapeDim<T0, DIM_3RD, MAX_DIMS>();
-    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, DIM_4TH, MAX_DIMS>();
-    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, DIM_5TH, MAX_DIMS>();
-    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, DIM_4TH, MAX_DIMS>();
-    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
+    using dstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, DstTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
+    using srcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, SrcTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
+    using tmpTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, srcTileH, DstTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
 
-    if constexpr (axis == 3) {
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    using dstTileDefine =
-                        pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                    using srcTileDefine =
-                        pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                    dstTileDefine dstTile(dstShape3, dstShape4);
-                    srcTileDefine srcTile(srcShape3, srcShape4);
-                    auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                    auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
-                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    PTO_WITH_LAST_USE(pto::TROWEXPAND(dstTile, srcTile), n1, n2);
-                }
-            }
-        }
-    } else if constexpr (axis == 2) {
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                    auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                    using dstTileDefine =
-                        pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                    using srcTileDefine =
-                        pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                    dstTileDefine dstTile(dstShape3, dstShape4);
-                    srcTileDefine srcTile(srcShape3, srcShape4);
-                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
-                    PTO_WITH_LAST_USE(pto::TCOLEXPAND(dstTile, srcTile), n1, n2);
-                }
-            }
-        }
-    } else if constexpr (axis == 1) {
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1;
-                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1;
-                constexpr size_t minTileH = dstTileH > srcTileH ? srcTileH : dstTileH;
-                using dstTileDefine =
-                    pto::Tile<pto::TileType::Vec, DstDtype, minTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                using srcTileDefine =
-                    pto::Tile<pto::TileType::Vec, SrcDtype, minTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                dstTileDefine dstTile(dstShape3, dstShape4);
-                srcTileDefine srcTile(srcShape3, srcShape4);
+    dstTileDefine dstTile(dstShape3, dstShape4);
+    srcTileDefine srcTile(srcShape3, srcShape4);
+    tmpTileDefine tmpTile(srcShape3, dstShape4);
+
+    for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
+                auto dstOffset = GenTileOffset(dst, TileOffset(n0Index, n1Index, n2Index));
+                auto srcOffset = GenTileOffset(src, TileOffset(SrcTileInfo::tile0 == 1 ? 0 : n0Index, SrcTileInfo::tile1 == 1 ? 0 : n1Index,
+                                                               SrcTileInfo::tile2 == 1 ? 0 : n2Index));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                for (LoopVar i = 0; i < dstShape2; i++) {
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTileH * dstTileW) * typeSize));
-                    pto::TMOV(dstTile, srcTile);
-                }
-            }
-        }
-    } else if constexpr (axis == 0) {
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            auto dstOffset = n0Index * dstStride0;
-            auto srcOffset = n0Index * srcStride0;
-            constexpr size_t minTileH = dstTileH > srcTileH ? srcTileH : dstTileH;
-            using dstTileDefine =
-                pto::Tile<pto::TileType::Vec, DstDtype, minTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-            using srcTileDefine =
-                pto::Tile<pto::TileType::Vec, SrcDtype, minTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-            dstTileDefine dstTile(dstShape3, dstShape4);
-            srcTileDefine srcTile(srcShape3, srcShape4);
-            for (LoopVar i = 0; i < dstShape1; ++i) {
-                for (LoopVar j = 0; j < dstShape2; j++) {
-                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTile2 * dstTileH * dstTileW
-                                                                        + j * dstTileH * dstTileW) * typeSize));
-                    pto::TMOV(dstTile, srcTile);
-                }
+                pto::TASSIGN(tmpTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
+                ExpandImpl<LastUse, expandTile>(dstTile, srcTile, tmpTile);
             }
         }
     }
