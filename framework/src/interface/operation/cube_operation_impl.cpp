@@ -613,7 +613,8 @@ void CheckOperandDtype(DataType outType, const Tensor& operand1, const Tensor& o
     const DataType operand1Dtype = operand1.GetDataType();
     const DataType operand2Dtype = operand2.GetDataType();
     const bool isOperand1Fp8 = (operand1Dtype == DataType::DT_FP8E5M2 || operand1Dtype == DataType::DT_FP8E4M3);
-    const bool isOperand1Fp4 = (operand1Dtype == DataType::DT_FP4_E2M1X2 || operand1Dtype == DataType::DT_FP4_E1M2X2);
+    // const bool isOperand1Fp4 = (operand1Dtype == DataType::DT_FP4_E2M1X2 || operand1Dtype ==
+    // DataType::DT_FP4_E1M2X2);
     ASSERT(
         MatmulErrorCode::ERR_PARAM_MISMATCH,
         !isOperand1Fp8 || (operand2Dtype == DataType::DT_FP8E5M2 || operand2Dtype == DataType::DT_FP8E4M3))
@@ -621,10 +622,11 @@ void CheckOperandDtype(DataType outType, const Tensor& operand1, const Tensor& o
            "dataType: "
         << DataType2String(operand1Dtype) << ", operand2 dataType: " << DataType2String(operand2Dtype);
 
-    ASSERT(
-        MatmulErrorCode::ERR_PARAM_INVALID, (isOperand1Fp4 == false && isOperand1Fp8 == false) ||
-                                                (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510))
-        << "When operand1 data type is DT_FP8E5M2/E4M3 or FP4_E2M1X2/E1M2X2, only DAV_3510 architecture is supported.";
+    // ASSERT(
+    //     MatmulErrorCode::ERR_PARAM_INVALID, (isOperand1Fp4 == false && isOperand1Fp8 == false) ||
+    //                                             (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510))
+    //     << "When operand1 data type is DT_FP8E5M2/E4M3 or FP4_E2M1X2/E1M2X2, only DAV_3510 architecture is
+    //     supported.";
 
     ASSERT(
         MatmulErrorCode::ERR_PARAM_INVALID,

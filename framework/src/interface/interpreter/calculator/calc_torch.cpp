@@ -74,9 +74,24 @@ static std::vector<int64_t> StrideFloatToPacked(const std::vector<int64_t>& logi
     if (!IsFp4PackedDtype(dtype)) {
         return logicalStride;
     }
+    if (logicalStride.empty()) {
+        return logicalStride;
+    }
     std::vector<int64_t> packedStride = logicalStride;
-    if (!packedStride.empty() && packedStride.back() >= 0) {
-        packedStride.back() = std::max<int64_t>(1, packedStride.back() / 2);
+    const size_t last = packedStride.size() - 1U;
+    // RawStride + ExpandLastDimForFp4 on last only (e.g. [32, 2]): only halve the last dim.
+    // Logical contiguous stride (e.g. [64, 1]): halve outer dims and last dim for packed uint8 view.
+    if (packedStride[last] > 1) {
+        packedStride[last] = std::max<int64_t>(1LL, packedStride[last] / 2LL);
+        return packedStride;
+    }
+    for (size_t i = 0; i + 1 < packedStride.size(); ++i) {
+        if (packedStride[i] > 0) {
+            packedStride[i] /= 2LL;
+        }
+    }
+    if (packedStride[last] >= 0) {
+        packedStride[last] = std::max<int64_t>(1LL, packedStride[last] / 2LL);
     }
     return packedStride;
 }
@@ -1150,7 +1165,10 @@ static void FormatNZ2ND(const TensorData& out, const TensorData& self)
     int64_t m = shape[ndim - 0x2];
     int64_t n0Packed = BLOCK_SIZE / BytesOf(self.dtype);
     int64_t n0Float = LastDimFloatCount(n0Packed, self.dtype);
-    int64_t nPacked = LastDimPackedCount(shape[ndim - 1], self.dtype);
+    // Trans() may expand FP4 last dim to logical width while NZ storage last dim is
+    // alignup(packed, n0Packed) (see FormatND2NZ). Using unpacked nPacked alone yields n1==0.
+    int64_t nPackedUnc = LastDimPackedCount(shape[ndim - 1], self.dtype);
+    int64_t nPacked = IsFp4PackedDtype(self.dtype) ? alignup(nPackedUnc, n0Packed) : nPackedUnc;
     int64_t n1 = nPacked / n0Packed;
 
     tself = tself.reshape({-1, n1, m, n0Float});              // [b, n1, m1*m0, n0]

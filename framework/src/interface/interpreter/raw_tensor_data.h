@@ -163,8 +163,11 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         size_t bytes = 0;
         if (elemSize_ > 0) {
             bytes = static_cast<size_t>(nelem) * static_cast<size_t>(elemSize_);
+        } else if (dataType_ == DT_FP4_E2M1X2 || dataType_ == DT_FP4_E1M2X2) {
+            // Packed FP4: dimensions match uint8 storage (torch/ori_shape); each byte holds two nibbles.
+            bytes = static_cast<size_t>(nelem);
         } else {
-            // half-byte element: two elements share one byte, odd element rounds up.
+            // Other sub-byte (e.g. INT4): logical element count, two per byte, odd rounds up.
             bytes = static_cast<size_t>((nelem + 1) / 2);
         }
         this->resize(bytes);
@@ -385,7 +388,9 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         if (elemSize_ > 0) {
             return static_cast<size_t>(nelem) * static_cast<size_t>(elemSize_);
         }
-        // half-byte element types
+        if (GetDataType() == DT_FP4_E2M1X2 || GetDataType() == DT_FP4_E1M2X2) {
+            return static_cast<size_t>(nelem);
+        }
         return static_cast<size_t>((nelem + 1) / 2);
     }
 

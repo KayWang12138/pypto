@@ -278,7 +278,7 @@ def _gen_pto_tensor(input_tensors):
                             data_ptr=torch_tensor.data_ptr(),
                             format=t.format,
                             device=torch_tensor.device,
-                            ori_shape=list(logical_shape))
+                            ori_shape=list(phys_shape))
 
         torch_tensors.append(torch_tensor)
         pto_tensors.append(pto_tensor)

@@ -17,6 +17,7 @@
 #include "interface/interpreter/function.h"
 #include "interface/utils/common.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/data_type.h"
 #include "interface/interpreter/operation.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/interpreter/verify_error.h"
@@ -75,14 +76,24 @@ void ExecuteOpViewType(ExecuteOperationContext* ctx)
     const int64_t inRegionElems = iop->GetSize();
     const int64_t outRegionElems = oop->GetSize();
 
-    auto LogicalRegionByteLen = [](int64_t elemSize, int64_t logicalElems) -> int64_t {
+    auto SubByteRegionBytes = [](int64_t elemSize, DataType dt, int64_t viewElems,
+                                 const RawTensorDataPtr& raw) -> int64_t {
         if (elemSize > 0) {
-            return logicalElems * elemSize;
+            return viewElems * elemSize;
         }
-        if (logicalElems < 0) {
+        if (viewElems < 0) {
             return 0;
         }
-        return static_cast<int64_t>((static_cast<size_t>(logicalElems) + 1U) / 2U);
+        // Packed FP4 RawTensorData uses prod(shape) as uint8 cell count (matches pypto ori_shape).
+        // Logical views (e.g. 64x64) have viewElems > rawNe; region bytes match underlying storage.
+        if (dt == DT_FP4_E2M1X2 || dt == DT_FP4_E1M2X2) {
+            const int64_t rawNe = raw->GetSize();
+            if (viewElems > rawNe) {
+                return static_cast<int64_t>(raw->GetDataSize());
+            }
+            return viewElems;
+        }
+        return static_cast<int64_t>((static_cast<size_t>(viewElems) + 1U) / 2U);
     };
     auto LogicalOffsetByteLen = [](int64_t elemSize, int64_t logicalOffset) -> int64_t {
         if (elemSize > 0) {
@@ -92,8 +103,8 @@ void ExecuteOpViewType(ExecuteOperationContext* ctx)
     };
 
     // VIEW_TYPE 语义：保持底层字节数一致，只改变逻辑数据类型和 shape。
-    const int64_t srcBytes = LogicalRegionByteLen(inElemSize, inRegionElems);
-    const int64_t dstBytes = LogicalRegionByteLen(outElemSize, outRegionElems);
+    const int64_t srcBytes = SubByteRegionBytes(inElemSize, iop->GetDataType(), inRegionElems, inData);
+    const int64_t dstBytes = SubByteRegionBytes(outElemSize, oop->GetDataType(), outRegionElems, outData);
     ASSERT(ExecuteOperationScene::VIEWTYPE_BYTES_MISMATCH, srcBytes == dstBytes);
 
     const int64_t srcOffsetBytes = LogicalOffsetByteLen(inElemSize, static_cast<int64_t>(iop->GetStorageOffset()));

@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -47,15 +48,26 @@ inline TensorData Trans(LogicalTensorDataPtr data)
         calcData.dataPtr = raw->data();
         calcData.rawShape = raw->GetShape();
         calcData.shape = data->GetShape();
-        calcData.stride = raw->GetStride();
+        calcData.stride = data->GetStride();
         calcData.storageOffset = data->GetStorageOffset();
         calcData.dtype = raw->GetDataType();
         calcData.isAxisCombine = data->IsAxisCombine();
         if (IsFp4PackedDtype(calcData.dtype)) {
-            // Expose logical FP4 element shape/stride/offset to calculator.
+            // rawShape: packed byte layout -> logical FP4 count on last dim (matches calc_torch ShapePackedView).
             ExpandLastDimForFp4(calcData.rawShape);
-            ExpandLastDimForFp4(calcData.shape);
-            ExpandLastDimForFp4(calcData.stride);
+            // Logical tensor may already use unpacked last dim (e.g. VIEW 64x32 -> 64x64). Only expand when
+            // shape still matches physical packed last dim to avoid double expansion / oversized packed view.
+            if (!calcData.shape.empty() && !raw->GetShape().empty() &&
+                calcData.shape.back() == raw->GetShape().back()) {
+                ExpandLastDimForFp4(calcData.shape);
+                const auto& off = data->GetOffset();
+                const bool allZeroOff = std::all_of(off.begin(), off.end(), [](int64_t v) { return v == 0; });
+                if (allZeroOff) {
+                    calcData.stride = RawTensorData::ShapeToStride(calcData.shape);
+                } else {
+                    ExpandLastDimForFp4(calcData.stride);
+                }
+            }
             calcData.storageOffset *= 2;
         }
     }

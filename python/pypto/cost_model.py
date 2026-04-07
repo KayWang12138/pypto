@@ -16,7 +16,7 @@ import pypto
 import torch
 
 from . import pypto_impl
-from .converter import _dtype_from, from_torch, _gen_pto_tensor
+from .converter import _dtype_from, _gen_pto_tensor, from_torch
 
 __all__ = [
     "_cost_model_run_once_data_from_host",
@@ -38,11 +38,11 @@ def _pto_to_tensor_data(tensors: List[pypto.Tensor]) -> List[pypto_impl.DeviceTe
 
 
 def _device_to_host_tensor_datas(dev_tensors):
-    host_tensors, _ = _gen_pto_tensor(dev_tensors)
+    host_tensors, staging_torch = _gen_pto_tensor(dev_tensors)
     host_tensor_datas = _pto_to_tensor_data(host_tensors)
     for i, dev_tensor_data in enumerate(_pto_to_tensor_data(dev_tensors)):
         pypto_impl.CopyToHost(dev_tensor_data, host_tensor_datas[i])
-    return host_tensor_datas
+    return host_tensor_datas, staging_torch
 
 
 def _host_to_device_tensor_datas(dev_tensors, host_tensors):
@@ -57,9 +57,11 @@ def _cost_model_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: Lis
             isDevice = True
             break
 
+    device_host_staging = None
     if isDevice:
-        input_datas = _device_to_host_tensor_datas(inputs)
-        output_datas = _device_to_host_tensor_datas(outputs)
+        input_datas, in_staging = _device_to_host_tensor_datas(inputs)
+        output_datas, out_staging = _device_to_host_tensor_datas(outputs)
+        device_host_staging = (in_staging, out_staging)
     else:
         input_datas = _pto_to_tensor_data(inputs)
         output_datas = _pto_to_tensor_data(outputs)
@@ -67,5 +69,6 @@ def _cost_model_run_once_data_from_host(inputs: List[pypto.Tensor], outputs: Lis
     pypto_impl.CostModelRunOnceDataFromHost(input_datas, output_datas)
 
     if isDevice:
-        _host_to_device_tensor_datas(inputs, input_datas);
-        _host_to_device_tensor_datas(outputs, output_datas);
+        _host_to_device_tensor_datas(inputs, input_datas)
+        _host_to_device_tensor_datas(outputs, output_datas)
+        del device_host_staging
