@@ -40,12 +40,13 @@ from flash_attention_score_grad_golden import generate_forward_data
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper, NUM_HEADS, HEAD_DIM
 
 
-def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, warmup=5, repeat=20):
+# pylint: disable=too-many-arguments,invalid-name
+def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num_heads, warmup=5, repeat=20):
     """用 torch_npu.npu_fusion_attention_grad_v2 跑 AscendC 版本"""
     B, _, S, D = q.shape
     # 先跑前向拿到 AscendC 格式的 softmax_max/sum
     fwd_result = torch_npu.npu_fusion_attention(
-        q, k, v, N,
+        q, k, v, num_heads,
         pse=None,
         padding_mask=None,
         atten_mask=None,
@@ -64,7 +65,7 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, 
     # 预热
     for _ in range(warmup):
         dq, dk, dv, *_ = torch_npu.npu_fusion_attention_grad_v2(
-            q, k, v, dy, N,
+            q, k, v, dy, num_heads,
             pse=None,
             padding_mask=None,
             atten_mask=None,
@@ -79,7 +80,7 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, 
             next_tokens=S,
             seed=0,
             offset=0,
-            numels=B * N * S * S,
+            numels=B * num_heads * S * S,
             inner_precise=0,
             sparse_mode=0,
         )
@@ -91,7 +92,7 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, 
         torch.npu.synchronize()
         t0 = time.perf_counter()
         dq, dk, dv, *_ = torch_npu.npu_fusion_attention_grad_v2(
-            q, k, v, dy, N,
+            q, k, v, dy, num_heads,
             pse=None,
             padding_mask=None,
             atten_mask=None,
@@ -106,7 +107,7 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, 
             next_tokens=S,
             seed=0,
             offset=0,
-            numels=B * N * S * S,
+            numels=B * num_heads * S * S,
             inner_precise=0,
             sparse_mode=0,
         )
