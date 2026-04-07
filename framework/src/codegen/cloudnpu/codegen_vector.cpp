@@ -940,7 +940,8 @@ std::string CodeGenOpCloudNPU::GenIndexAddUBOp() const
     return PrintIndexAddUBDynamicUnaligned({axis, dstVar, srcVar, indicesVar, dstRawShape, srcRawShape, dataTypeExpr});
 }
 
-std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
+std::string CodeGenOpCloudNPU::GenIndexAddOp() const
+{
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
     ASSERT(isSupportLayout) << "IndexAdd operation only support TileTensor mode";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
@@ -955,9 +956,9 @@ std::string CodeGenOpCloudNPU::GenIndexAddOp() const {
 
     std::vector<std::string> templateParamList{std::to_string(axis)};
     std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, idxTensor, tmpTensor, coord};
-    const Element &alpha = extOperandVal;
+    const Element& alpha = extOperandVal;
     std::string scalarTmpBuffer = FormatFloat(alpha.Cast<float>());
-    tileOpParamList.emplace_back("(" + DataType2CCEStr(alpha.GetDataType()) + ")" + scalarTmpBuffer);
+    tileOpParamList.emplace_back("(" + std::string(DataType2CCEStr(alpha.GetDataType())) + ")" + scalarTmpBuffer);
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets(templateParamList) << WrapParamByParentheses(tileOpParamList)
         << STMT_END;
