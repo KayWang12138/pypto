@@ -31,16 +31,28 @@ from flash_attention_score_grad_golden import generate_forward_data
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper
 
 
-def bench(name, batch_size, num_heads, seq_len, head_dim, device_id,
-          warmup=5, repeat=20):
+class BenchConfig:
+    """Container for benchmark configuration."""
+
+    def __init__(self, name, batch_size, num_heads, seq_len, head_dim):
+        self.name = name
+        self.batch_size = batch_size
+        self.num_heads = num_heads
+        self.seq_len = seq_len
+        self.head_dim = head_dim
+
+
+def bench(cfg: BenchConfig, device_id, warmup=5, repeat=20):
     device = f"npu:{device_id}"
     q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
-        batch_size, num_heads, seq_len, head_dim, device=device)
+        cfg.batch_size, cfg.num_heads, cfg.seq_len, cfg.head_dim,
+        device=device)
 
     # 预热
     for _ in range(warmup):
-        dq, dk, dv = flash_attention_score_grad_wrapper(
-            q, k, v, dy, sm, ss, ao, scale, num_heads, head_dim)
+        flash_attention_score_grad_wrapper(
+            q, k, v, dy, sm, ss, ao, scale,
+            cfg.num_heads, cfg.head_dim)
     torch.npu.synchronize()
 
     # 计时
@@ -48,32 +60,34 @@ def bench(name, batch_size, num_heads, seq_len, head_dim, device_id,
     for _ in range(repeat):
         torch.npu.synchronize()
         t0 = time.perf_counter()
-        dq, dk, dv = flash_attention_score_grad_wrapper(
-            q, k, v, dy, sm, ss, ao, scale, num_heads, head_dim)
+        flash_attention_score_grad_wrapper(
+            q, k, v, dy, sm, ss, ao, scale,
+            cfg.num_heads, cfg.head_dim)
         torch.npu.synchronize()
         t1 = time.perf_counter()
-        times.append((t1 - t0) * 1000)  # ms
+        times.append((t1 - t0) * 1000)
 
     avg = sum(times) / len(times)
     mn = min(times)
     mx = max(times)
 
-    # 计算 FLOPS
-    # matmul FLOPS: Q@K^T = 2*S*S*D, dY@V^T = 2*S*S*D, dS@K = 2*S*D*S, dS^T@Q = 2*S*S*D, P^T@dY = 2*S*S*D
-    # 趟1: Q@K^T + dY@V^T + dS@K = 3 matmuls per (s1,s2) pair
-    # 趟2: Q@K^T + dY@V^T + dS^T@Q + P^T@dY = 4 matmuls per (s1,s2) pair (P&dS recomputed)
-    # Total matmul flops per (b,n): 7 * 2 * S * S * D (approx)
-    total_matmul_flops = batch_size * num_heads * 7 * 2 * seq_len * seq_len * head_dim
+    total_matmul_flops = (
+        cfg.batch_size * cfg.num_heads * 7 * 2
+        * cfg.seq_len * cfg.seq_len * cfg.head_dim)
     tflops = total_matmul_flops / (mn / 1000) / 1e12
 
-    logger.info(f"  {name:30s}  B={batch_size:2d} N={num_heads:2d} S={seq_len:4d} D={head_dim:3d}  |  "
-                f"avg={avg:8.3f}ms  min={mn:8.3f}ms  max={mx:8.3f}ms  |  "
-                f"~{tflops:.2f} TFLOPS")
+    logger.info(
+        "  %-30s  B=%2d N=%2d S=%4d D=%3d  |  "
+        "avg=%8.3fms  min=%8.3fms  max=%8.3fms  |  "
+        "~%.2f TFLOPS",
+        cfg.name, cfg.batch_size, cfg.num_heads,
+        cfg.seq_len, cfg.head_dim, avg, mn, mx, tflops)
     return avg, mn
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FlashAttentionScoreGrad Perf Bench")
+    parser = argparse.ArgumentParser(
+        description="FlashAttentionScoreGrad Perf Bench")
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--repeat", type=int, default=20)
     args = parser.parse_args()
@@ -84,33 +98,26 @@ def main():
 
     logger.info("=" * 100)
     logger.info("FlashAttentionScoreGrad Performance Benchmark")
-    logger.info(f"Device: NPU:{device_id}  Warmup: {args.warmup}  Repeat: {args.repeat}")
+    logger.info(
+        "Device: NPU:%d  Warmup: %d  Repeat: %d",
+        device_id, args.warmup, args.repeat)
     logger.info("=" * 100)
 
     configs = [
-        ("S=128",   2, 8, 128,   64),
-        ("S=256",   2, 8, 256,   64),
-        ("S=512",   2, 8, 512,   64),
-        ("S=1024",  2, 8, 1024,  64),
-        ("S=2048",  2, 8, 2048,  64),
-        ("S=4096",  1, 8, 4096,  64),
-        ("S=8192",  1, 8, 8192,  64),
+        BenchConfig("S=128",   2, 8, 128,   64),
+        BenchConfig("S=256",   2, 8, 256,   64),
+        BenchConfig("S=512",   2, 8, 512,   64),
+        BenchConfig("S=1024",  2, 8, 1024,  64),
+        BenchConfig("S=2048",  2, 8, 2048,  64),
+        BenchConfig("S=4096",  1, 8, 4096,  64),
+        BenchConfig("S=8192",  1, 8, 8192,  64),
     ]
 
-    # Baseline (S_TILE=64, no pass_options):
-    # S=128   avg=0.890ms  min=0.786ms  ~0.30 TFLOPS
-    # S=256   avg=1.918ms  min=1.853ms  ~0.51 TFLOPS
-    # S=512   avg=6.552ms  min=6.401ms  ~0.59 TFLOPS
-    # S=1024  avg=24.12ms  min=23.37ms  ~0.64 TFLOPS
-    # S=2048  avg=90.32ms  min=88.58ms  ~0.68 TFLOPS
-    # S=4096  avg=180.5ms  min=175.5ms  ~0.69 TFLOPS
-    # S=8192  avg=708.7ms  min=662.7ms  ~0.73 TFLOPS
-
-    for name, batch_size, num_heads, seq_len, head_dim in configs:
+    for cfg in configs:
         try:
-            bench(name, batch_size, num_heads, seq_len, head_dim, device_id, args.warmup, args.repeat)
+            bench(cfg, device_id, args.warmup, args.repeat)
         except Exception as e:
-            logger.info(f"  {name:30s}  FAILED: {e}")
+            logger.info("  %-30s  FAILED: %s", cfg.name, e)
 
     logger.info("=" * 100)
 

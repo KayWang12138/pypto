@@ -45,7 +45,7 @@ class TileConfig:
 
 def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                  actual_s1, actual_s2, scale_value, cfg: TileConfig):
-    """计算一个 (s1_tile, s2_tile) 块的 P_ij 和 dS_ij。"""
+    """计算一个 (s1_tile, s2_tile) 块的 P_ij 和 ds_ij。"""
     # 计算公式 s_ij = Q_i @ K_j^T * scale
     pypto.set_vec_tile_shapes(cfg.v_tile_s[0], cfg.v_tile_s[1])
     pypto.set_cube_tile_shapes(cfg.c_tile[0], cfg.c_tile[1], cfg.c_tile[2])
@@ -65,11 +65,11 @@ def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
     dp_ij = pypto.view(dp_ij, [cfg.s_tile_size, cfg.s_tile_size], [0, 0],
                        valid_shape=[actual_s1, actual_s2])
 
-    # 计算公式：dS_ij = p_ij * (dp_ij - d_i)
+    # 计算公式：ds_ij = p_ij * (dp_ij - d_i)
     pypto.set_vec_tile_shapes(cfg.v_tile_s[0], cfg.v_tile_s[1])
-    dS_ij = pypto.mul(p_ij, pypto.sub(dp_ij, d_i))
+    ds_ij = pypto.mul(p_ij, pypto.sub(dp_ij, d_i))
 
-    return p_ij, dS_ij
+    return p_ij, ds_ij
 
 
 @pypto.frontend.jit(
@@ -163,11 +163,11 @@ def flash_attention_score_grad_kernel(
                     v_j = pypto.view(v_2d, [S_TILE, HEAD_DIM], [s2_off, 0],
                                      valid_shape=[actual_s2, HEAD_DIM])
 
-                    _, dS_ij = compute_tile(
+                    _, ds_ij = compute_tile(
                         q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                         actual_s1, actual_s2, scale_value, cfg)
 
-                    dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
+                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1],
                                                c_tile[2])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
@@ -231,11 +231,11 @@ def flash_attention_score_grad_kernel(
                                             pypto.DT_FP32)
                     d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
 
-                    p_ij, dS_ij = compute_tile(
+                    p_ij, ds_ij = compute_tile(
                         q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                         actual_s1, actual_s2, scale_value, cfg)
 
-                    dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
+                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
                     p_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1],
                                                c_tile[2])

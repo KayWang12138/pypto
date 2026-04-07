@@ -114,10 +114,10 @@ def fag_kernel_profile(
                                      valid_shape=[actual_s2, HEAD_DIM])
                     v_j = pypto.view(v, [S_TILE, HEAD_DIM], [s2_off, 0],
                                      valid_shape=[actual_s2, HEAD_DIM])
-                    _, dS_ij = compute_tile(
+                    _, ds_ij = compute_tile(
                         q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                         actual_s1, actual_s2, scale_value, cfg)
-                    dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
+                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1],
                                                c_tile[2])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
@@ -171,10 +171,10 @@ def fag_kernel_profile(
                     dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i),
                                             pypto.DT_FP32)
                     d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
-                    p_ij, dS_ij = compute_tile(
+                    p_ij, ds_ij = compute_tile(
                         q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                         actual_s1, actual_s2, scale_value, cfg)
-                    dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
+                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
                     p_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1],
                                                c_tile[2])
