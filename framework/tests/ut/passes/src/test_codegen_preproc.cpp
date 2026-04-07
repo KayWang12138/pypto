@@ -261,6 +261,56 @@ TEST_F(CodegenPreprocTest, TestCombineAxisExpand)
     EXPECT_EQ(axis, 1);
 }
 
+// 隐式expand
+TEST_F(CodegenPreprocTest, TestCombineAxisExpandinline)
+{
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 1}, MemoryType::MEM_DEVICE_DDR, "in2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 1}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t1"}, "c1", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in2"}, {"t2"}, "c2", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t1", "t2"}, {"t3"}, "sub", true), true);
+    auto sub = graph.GetOp("sub");
+    sub->SetAttribute(OpAttributeKey::brcpIdx, 1);
+
+    auto funcPtr = graph.GetFunction();
+    funcPtr->paramConfigs_.combineAxis = true;
+    PadLocalBuffer padLocalBufferTest;
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*funcPtr), SUCCESS);
+
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCombineAxis", "TestCombineAxis", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestCombineAxisLeaf", "TestCombineAxisLeaf", graph.GetFunction());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), graph.GetFunction());
+    rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    rootFuncPtr->SetUnderDynamicFunction(true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+
+    CodegenPreproc codegenPreprocPass;
+    EXPECT_EQ(codegenPreprocPass.RunOnFunction(*rootFuncPtr), SUCCESS);
+    // Verify AxisCombine
+    auto updatedOperations = rootFuncPtr->Operations();
+    int64_t cnt = 0;
+    for (const auto& op : updatedOperations) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            ++cnt;
+        }
+    }
+    EXPECT_EQ(cnt, 0);
+    // Verify PadLocalBuffer
+    EXPECT_EQ(graph.GetTensor("t1")->GetRawTensor()->GetRawShape(), (Shape{8, 1}));
+    EXPECT_EQ(graph.GetTensor("t2")->GetRawTensor()->GetRawShape(), (Shape{16, 1}));
+    // Verify CodegenPreproc
+    EXPECT_EQ(sub->GetIntAttribute(OpAttributeKey::brcpIdx), 0);
+    EXPECT_EQ(sub->GetIntAttribute(OpAttributeKey::brcbIdx), 1);
+}
+
 TEST_F(CodegenPreprocTest, TestCombineAxis3510)
 {
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);

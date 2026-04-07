@@ -2,19 +2,20 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
 
 import os
-import subprocess
 import re
+import shutil
+import subprocess
+import logging
+
+
+def setup_logging():
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 def validate_path(path, path_type="路径"):
     if not os.path.exists(path):
         return False, f"错误：{path_type}不存在: {path}"
     return True, None
-
-
-def setup_logging():
-    import logging
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 def read_file(file_path):
@@ -64,7 +65,7 @@ def get_commentable_lines(lines, error_in_t=False):
         return commentable_lines
 
 
-def comment_lines(lines, line_indices):
+def comment_lines_by_indices(lines, line_indices):
     lines_to_comment = set(line_indices)
 
     for line_num in sorted(lines_to_comment, reverse=True):
@@ -74,7 +75,7 @@ def comment_lines(lines, line_indices):
     return lines
 
 
-def uncomment_lines(lines, line_indices):
+def uncomment_lines_by_indices(lines, line_indices):
     lines_to_uncomment = set(line_indices)
 
     for line_num in sorted(lines_to_uncomment):
@@ -83,6 +84,20 @@ def uncomment_lines(lines, line_indices):
             lines[line_idx] = lines[line_idx][3:]
 
     return lines
+
+
+def comment_lines_by_range(lines, start_idx, end_idx):
+    for i in range(start_idx, end_idx + 1):
+        if not lines[i].strip().startswith('//'):
+            lines[i] = '// ' + lines[i]
+
+
+def uncomment_lines_by_range(lines, start_idx, end_idx):
+    for i in range(start_idx, end_idx + 1):
+        if lines[i].strip().startswith('// '):
+            lines[i] = lines[i][3:]
+        elif lines[i].strip().startswith('//'):
+            lines[i] = lines[i][2:]
 
 
 def has_error(returncode, output):
@@ -151,3 +166,37 @@ def parse_core_idx(event_str, pattern):
     if match:
         return int(match.group(1))
     return None
+
+
+def find_aicore_entry_h(pypto_path, logger):
+    possible_paths = os.path.join(pypto_path, "framework/src/interface/machine/device/tilefwk/aicore_entry.h")
+
+    if os.path.exists(possible_paths):
+        return possible_paths
+
+    for root, _, files in os.walk(pypto_path):
+        if "aicore_entry.h" in files:
+            return os.path.join(root, "aicore_entry.h")
+
+    logger.info("错误：在 %s 下未找到 aicore_entry.h", pypto_path)
+    return None
+
+
+def backup_and_test(cce_file, test_cmd, run_dir, modify_func):
+    backup_file = cce_file + ".bak"
+    shutil.copy(cce_file, backup_file)
+
+    cce_lines = read_file(cce_file)
+    original_lines = cce_lines.copy()
+
+    cce_lines = comment_special_lines(cce_lines)
+    modified_lines = modify_func(cce_lines)
+
+    write_file(cce_file, modified_lines)
+    returncode, output = run_test(test_cmd, run_dir)
+    error_exists = has_error(returncode, output)
+
+    write_file(cce_file, original_lines)
+    os.remove(backup_file)
+
+    return error_exists, output, original_lines

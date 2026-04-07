@@ -72,8 +72,10 @@ static void InitDeviceWorkspaceAllocatorForTest(
     DevStartArgs args;
 
     // Ensure stitch pool and general metadata are non-zero and large enough
-    devProg.memBudget.metadata.general = 1u << 18;    // 256KB
-    devProg.memBudget.metadata.stitchPool = 1u << 16; // 64KB
+    devProg.memBudget.metadata.general = 1u << 18;         // 256KB
+    devProg.memBudget.metadata.stitchPool = 1u << 16;      // 64KB
+    devProg.memBudget.metadata.generalSlabSize = 1u << 15; // 32KB
+    devProg.memBudget.metadata.stitchSlabSize = 1u << 14;  // 16KB
 
     args.deviceRuntimeDataDesc.generalAddr = reinterpret_cast<uint64_t>(workspace.data());
     // Put stitch pool at an offset within the same workspace region

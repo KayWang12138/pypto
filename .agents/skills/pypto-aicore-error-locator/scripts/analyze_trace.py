@@ -34,7 +34,7 @@ def find_trace_log_file(device_log_path):
                     return str(log_file)
         except OSError as e:
             logger.warning("读取文件失败: %s, 原因: %s", log_file, e)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             logger.warning("处理文件时发生异常: %s, 原因: %s", log_file, e)
 
     logger.info("错误：在 %s 下未找到包含 trace 的日志文件", device_log_path)

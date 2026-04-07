@@ -39,16 +39,16 @@ cd "$PYPTO_REPO"
 # 分步安装（禁止 --type=all）
 bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2|a3>
 bash tools/prepare_env.sh --quiet --type=third_party
-# 先下载cann包
+# 先下载 CANN 包
 script -q -c "bash tools/prepare_env.sh --quiet --type=cann --only-download --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
-# 再安装cann包
+# 再安装 CANN 包
 script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
 
 
 # 仅 CANN
-# 先下载cann包
+# 先下载 CANN 包
 script -q -c "bash tools/prepare_env.sh --quiet --type=cann --only-download --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
-# 再安装cann包
+# 再安装 CANN 包
 script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
 
 # 仅编译工具链
@@ -72,7 +72,7 @@ bash tools/prepare_env.sh --quiet --type=third_party
 
 ### .run 包方式（推荐）
 
-> 下载地址和安装命令见 `$PYPTO_REPO/docs/install/prepare_environment.md` § "获取pto-isa源码"
+> 下载地址和安装命令见 `$PYPTO_REPO/docs/install/prepare_environment.md` § "获取 pto-isa 源码"
 > 如遇头文件版本不匹配，切换到源码方式。
 
 ### 源码方式（备用）

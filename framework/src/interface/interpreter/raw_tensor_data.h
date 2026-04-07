@@ -486,11 +486,11 @@ struct LogicalTensorData {
         for (size_t k = 0; k < GetShape().size(); k++) {
             oss << GetShape()[k] << "x";
         }
-        oss << BriefDataType2String(GetDataType()) << "/";
+        oss << DataType2String(GetDataType(), true) << "/";
         for (size_t k = 0; k < validShape_.size(); k++) {
             oss << validShape_[k] << "x";
         }
-        oss << BriefDataType2String(GetDataType()) << ">";
+        oss << DataType2String(GetDataType(), true) << ">";
         return oss.str();
     }
 

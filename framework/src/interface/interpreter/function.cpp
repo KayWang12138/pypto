@@ -371,8 +371,11 @@ void FunctionInterpreter::FillOperationInputInfo(
         if (k > 0) {
             opInfo[toIndex(OpInfoCsvHeader::inputTensors)] += ", ";
             opInfo[toIndex(OpInfoCsvHeader::inputValidShape)] += ", ";
+            opInfo[toIndex(OpInfoCsvHeader::inputRawMagic)] += ", ";
         }
         opInfo[toIndex(OpInfoCsvHeader::inputValidShape)] += ShapeToString(dataView->GetValidShape());
+        opInfo[toIndex(OpInfoCsvHeader::inputRawMagic)] +=
+                                std::to_string(op->GetIOperands()[k]->GetRawTensor()->GetRawMagic());
         auto it = frame->tensorDataBinDict.find(op->GetIOperands()[k]);
         if (it != frame->tensorDataBinDict.end()) {
             opInfo[toIndex(OpInfoCsvHeader::inputTensors)] += it->second;
@@ -412,7 +415,7 @@ void FunctionInterpreter::FillOperationOutputInfo(
             opInfo[toIndex(OpInfoCsvHeader::outputValidShape)] = ShapeToString(dataView->GetValidShape());
             opInfo[toIndex(OpInfoCsvHeader::outputDynValidShape)] =
                 ShapeToString(EvaluateValidShape((op->GetOOperands()[k]->GetDynValidShape()), linearArgList));
-            opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = BriefDataType2String(dataView->GetDataType());
+            opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(dataView->GetDataType(), true);
             opInfo[toIndex(OpInfoCsvHeader::tensorOffset)] = ShapeToString(dataView->GetOffset());
             opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = dumpTensorFileName;
             opInfo[toIndex(OpInfoCsvHeader::timeStamp)] = std::to_string(ts);

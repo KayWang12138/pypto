@@ -82,6 +82,32 @@ class ExprEvaluator:
         result = self.visit(node)
         return result
 
+    @staticmethod
+    def _is_safe_expression(node: ast.expr) -> bool:
+        """Verify that the expression does not contain dangerous operations"""
+        dangerous_attrs = {
+            '__class__', '__bases__', '__subclasses__',
+            '__dict__', '__globals__', '__code__',
+            '__builtins__', '__import__', '__loader__',
+        }
+        dangerous_funcs = {
+            'eval', 'exec', 'compile', '__import__',
+            'open', 'input', 'breakpoint',
+        }
+
+        for node_item in ast.walk(node):
+            if isinstance(node_item, (ast.Import, ast.ImportFrom)):
+                return False
+
+            if isinstance(node_item, ast.Attribute) and node_item.attr in dangerous_attrs:
+                return False
+
+            if isinstance(node_item, ast.Call) and isinstance(node_item.func, ast.Name):
+                if node_item.func.id in dangerous_funcs:
+                    return False
+
+        return True
+
     def visit(self, node: ast.expr) -> Any:
         """Visit and evaluate an expression node.
 
@@ -98,6 +124,8 @@ class ExprEvaluator:
         return self._eval_by_python(node, self.var_table)
 
     def _eval_by_python(self, node: ast.expr, var_table: dict[str, Any]) -> Any:
+        if not self._is_safe_expression(node):
+            raise ParserError(node, "Expression contains unsafe operations")
         if isinstance(node, ast.expr):
             # Case 1: a simple expression
             mod = ast.fix_missing_locations(ast.Expression(body=node))

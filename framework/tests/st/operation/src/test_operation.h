@@ -19,13 +19,13 @@
 #include <string>
 #include <functional>
 
-#include "test_cost_model.h"
 #include "test_suite_stest_ops.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
 #include "interface/tensor/float.h"
+#include "cost_model/simulation/cost_model_launcher.h"
 
 namespace tile_fwk {
 namespace test_operation {
@@ -140,7 +140,8 @@ private:
         if (testCase.onBoard) {
             DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         } else {
-            CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
+            config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
+            CostModelLauncher::CostModelRunOnce(Program::GetInstance().GetLastFunction());
         }
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
@@ -473,6 +474,31 @@ T2 GetMapValByName(const std::map<T1, T2>& map_data, const T1& name)
         tileShape.push_back(tile);
     }
     return tileShape;
+}
+
+[[maybe_unused]] static Element GetElementByType(DataType dataType, nlohmann::json test_data, const std::string& name)
+{
+    if (dataType == DT_FP32 || dataType == DT_BF16 || dataType == DT_FP16) {
+        {
+            Element element(dataType, GetValueByName<float>(test_data, name));
+            return element;
+        }
+    } else if (dataType == DT_INT8) {
+        Element element(dataType, GetValueByName<int8_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT16) {
+        Element element(dataType, GetValueByName<int16_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT32) {
+        Element element(dataType, GetValueByName<int32_t>(test_data, name));
+        return element;
+    } else if (dataType == DT_INT64) {
+        Element element(dataType, GetValueByName<int64_t>(test_data, name));
+        return element;
+    } else {
+        std::string errorMessage = "Unsupported DataType " + std::string(DataType2String(dataType));
+        throw std::invalid_argument(errorMessage.c_str());
+    }
 }
 
 [[maybe_unused]] static MatmulTestCaseParam GetMatmulParam(const nlohmann::json& json_data)
