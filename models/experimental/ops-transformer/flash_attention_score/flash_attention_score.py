@@ -337,7 +337,12 @@ def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu"):
         logging.info("  Kernel with_mask_origin test passed!")
 
 
-def test_kernel_with_mask(device_id=None, run_mode: str = "npu", dtype: str = "bf16", scale_value: Optional[float] = None):
+def test_kernel_with_mask(
+    device_id=None,
+    run_mode: str = "npu",
+    dtype: str = "bf16",
+    scale_value: Optional[float] = None
+):
     """Test flash_attention_score_kernel_with_mask.
     
     Args:
@@ -375,8 +380,11 @@ def test_kernel_with_mask(device_id=None, run_mode: str = "npu", dtype: str = "b
     test_scale = scale_value if scale_value is not None else default_scale
     
     logging.info(f"Scale value: {test_scale}")
-    
-    kernel_func = flash_attention_score_kernel_with_mask if dtype == "bf16" else flash_attention_score_kernel_with_mask_fp32
+
+    if dtype == "bf16":
+        kernel_func = flash_attention_score_kernel_with_mask
+    else:
+        kernel_func = flash_attention_score_kernel_with_mask_fp32
     
     kernel_func(query, key, value, atten_mask_fp32, output, softmax_max, softmax_sum, test_scale)
 
@@ -416,7 +424,12 @@ def test_kernel_with_mask(device_id=None, run_mode: str = "npu", dtype: str = "b
         logging.info(f"  Kernel with_mask test passed for {dtype.upper()}!")
 
 
-def test_kernel_with_pse_and_dropout(device_id=None, run_mode: str = "npu", dtype: str = "bf16", scale_value: Optional[float] = None):
+def test_kernel_with_pse_and_dropout(
+    device_id=None,
+    run_mode: str = "npu",
+    dtype: str = "bf16",
+    scale_value: Optional[float] = None
+):
     """Test flash_attention_score_kernel_with_pse_and_dropout.
     
     Args:
@@ -463,8 +476,11 @@ def test_kernel_with_pse_and_dropout(device_id=None, run_mode: str = "npu", dtyp
     test_scale = scale_value if scale_value is not None else default_scale
     
     logging.info(f"Scale value: {test_scale}")
-    
-    kernel_func = flash_attention_score_kernel_with_pse_and_dropout if dtype == "bf16" else flash_attention_score_kernel_with_pse_and_dropout_fp32
+
+    if dtype == "bf16":
+        kernel_func = flash_attention_score_kernel_with_pse_and_dropout
+    else:
+        kernel_func = flash_attention_score_kernel_with_pse_and_dropout_fp32
 
     for pse_type in [0, 1]:
         logging.info(f"\nTesting pse_type={pse_type}")
