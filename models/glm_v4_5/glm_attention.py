@@ -671,7 +671,6 @@ def ifa(atten_cfg, case_950=0):
 
 
 @pytest.mark.soc("950")
-@pytest.mark.skip(reason="large test case")
 def test_ifa_for_950():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
@@ -800,5 +799,8 @@ def attention_for_950(
         ifa_func_kernel_for_950(*inputs)
 
 if __name__ == "__main__":
-    test_ifa()
-    # 950上板 test_ifa_for_950()
+    if pypto.platform.npuarch == 'DAV_3510':
+        # 950上板
+        test_ifa_for_950()
+    else:
+        test_ifa()
