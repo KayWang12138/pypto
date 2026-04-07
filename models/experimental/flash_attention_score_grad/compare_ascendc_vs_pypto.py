@@ -40,8 +40,7 @@ from flash_attention_score_grad_golden import generate_forward_data
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper, NUM_HEADS, HEAD_DIM
 
 
-# pylint: disable=too-many-arguments,invalid-name
-def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num_heads, warmup=5, repeat=20):
+def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num_heads, warmup=5, repeat=20):  # noqa: C901
     """用 torch_npu.npu_fusion_attention_grad_v2 跑 AscendC 版本"""
     B, _, S, D = q.shape
     # 先跑前向拿到 AscendC 格式的 softmax_max/sum

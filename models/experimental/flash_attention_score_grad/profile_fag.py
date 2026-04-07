@@ -37,18 +37,18 @@ from flash_attention_score_grad_impl import (
     }
 )
 def fag_kernel_profile(
-    q:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    k:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    v:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dy:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    softmax_max:   pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
-    softmax_sum:   pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
+    q: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    k: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    v: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dy: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    softmax_max: pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
+    softmax_sum: pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
     attention_out: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dq:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dk:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dv:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    batch_size:    pypto.Tensor([pypto.DYN], pypto.DT_INT32),
-    scale_value:   float,
+    dq: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dk: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dv: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    batch_size: pypto.Tensor([pypto.DYN], pypto.DT_INT32),
+    scale_value: float,
 ):
     b = batch_size.shape[0]
     total = q.shape[0]
