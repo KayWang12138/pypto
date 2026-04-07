@@ -186,6 +186,15 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const
     int64_t brcOperandIdx = 0;
     int64_t penuBrcOperandIdx = 0;
     std::string lastUse = GetLastUse();
+
+    int64_t precisionType = static_cast<int64_t>(DivAlgorithm::HIGH_PRECISION);
+    bool hasPrecisionType = GetAttr(OpAttributeKey::precisionType, precisionType);
+    if (precisionType == static_cast<int64_t>(DivAlgorithm::HIGH_PRECISION)) {
+        templateParamList.emplace_back("DivAlgorithm::HIGH_PRECISION");
+    } else {
+        templateParamList.emplace_back("DivAlgorithm::DEFAULT");
+    }
+
     if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
