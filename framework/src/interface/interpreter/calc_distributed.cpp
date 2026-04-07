@@ -75,10 +75,10 @@ void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     size_t slotSize = in->GetSize() * BytesOf(in->GetDataType());
     if (!attr.isSetData) {
-        std::cout << "Set rank " << context->GetRank() << "'s signal as 0 from " << in->GetStorageOffset() " to " << in->GetStorageOffset() + slotSize << std::endl;
+        std::cout << "Set rank " << context->GetRank() << "'s signal as 0 from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << std::endl;
         context->Signal(context->GetRank(), 0, slotSize, in->GetStorageOffset());
     } else {
-        std::cout << "Set rank " << context->GetRank() << "'s data as 0 from " << in->GetStorageOffset() " to " << in->GetStorageOffset() + slotSize << std::endl;
+        std::cout << "Set rank " << context->GetRank() << "'s data as 0 from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << std::endl;
         context->Set(context->GetRank(), 0, slotSize, in->GetStorageOffset());
     }
 

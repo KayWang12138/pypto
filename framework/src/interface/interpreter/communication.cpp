@@ -193,16 +193,26 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     return result;
 }
 
-void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, [[maybe_unused]] int atomicType) {
+void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType) {
     uint8_t *base = GetRemoteRank(dstRank, false);
-    size_t dataSize = data->GetSize() * BytesOf(data->GetDataType());
-    if (offset + dataSize > WIN_IN_SIZE) {
+    size_t slotSize = data->GetSize() * BytesOf(data->GetDataType());
+    if (offset + slotSize > WIN_IN_SIZE) {
         throw std::runtime_error("Put operation would exceed shared memory bounds!");
     }
-    memcpy(base + offset, data->GetData()->GetDevPtr(), dataSize);
+    std::atomic_thread_fence(std::memory_order_release);
+    if (atomicType == 0) {
+        memcpy(base + offset, data->GetData()->GetDevPtr(), slotSize);
+    }
+    // TODO: 在 atomicAdd 场景下应该与输入张量类型相关，并不是 uint8_t?
+    if (atomicType == 1) {
+        uint8_t *ptr = data->GetData()->GetDevPtr();
+        for (size_t i = 0; i < slotSize; i++) {
+            __sync_fetch_and_add(&base[offset + i], ptr[i]);
+        }
+    }
 }
 
-void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_t offset, [[maybe_unused]] int atomicType) {
+void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_t offset) {
     uint8_t *base = GetRemoteRank(dstRank, false);
     if (slotSize > WIN_IN_SIZE) {
         throw std::runtime_error("Set operation would exceed shared memory bounds!");
@@ -211,13 +221,22 @@ void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_
     memset(base + offset, value, slotSize);
 }
 
-void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint64_t offset, [[maybe_unused]] int atomicType, [[maybe_unused]] bool notifyAll) {
+void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType, [[maybe_unused]] bool notifyAll) {
+    // TODO: notifyAll 特性
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");
     }
     std::atomic_thread_fence(std::memory_order_release);
-    memset(base + offset, value, slotSize);
+    if (atomicType == 0) {
+        memset(base + offset, value, slotSize);
+    }
+    // TODO: 在 atomicAdd 场景下应该与 value 类型相同而非 uint8_t? 在 Signal 场景是不是固定为 int32?
+    if (atomicType == 1) {
+        for (size_t i = 0; i < slotSize; i++) {
+            __sync_fetch_and_add(&base[offset + i], value);
+        }
+    }
 }
 
 void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
