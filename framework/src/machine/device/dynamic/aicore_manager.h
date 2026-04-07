@@ -271,8 +271,8 @@ public:
     }
 
     inline void ProcessTaskLoop(DeviceTaskCtrl *taskCtrl) {
-        uint32_t lastSent = 0;
-        uint32_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
+        uint64_t lastSent = 0;
+        uint64_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
         while (allSentCnt < curDevTask_->coreFunctionCnt) {
             uint64_t curSent = 0;
             RunCoreTask(curSent);
