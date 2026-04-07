@@ -113,6 +113,7 @@ class LimitedQueue
   volatile size_t _tail = 0;
   uint8_t _lock = 0;
 
+  static_assert(std::is_trivially_copyable_v<T>(), "Queue uses memcpy, type must be trivially copyable!");
 };
 
 } // namespace
