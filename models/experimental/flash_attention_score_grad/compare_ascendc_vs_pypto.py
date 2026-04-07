@@ -50,6 +50,31 @@ class AscendcConfig:
         self.repeat = repeat
 
 
+def _call_ascendc_grad(q, k, v, dy, num_heads, softmax_max, softmax_sum,
+                       attention_in, scale, seq_len, batch_size):
+    """Call AscendC attention gradient operator."""
+    return torch_npu.npu_fusion_attention_grad_v2(
+        q, k, v, dy, num_heads,
+        pse=None,
+        padding_mask=None,
+        atten_mask=None,
+        softmax_max=softmax_max,
+        softmax_sum=softmax_sum,
+        softmax_in=None,
+        attention_in=attention_in,
+        scale_value=scale,
+        keep_prob=1.0,
+        input_layout="BNSD",
+        pre_tokens=seq_len,
+        next_tokens=seq_len,
+        seed=0,
+        offset=0,
+        numels=batch_size * num_heads * seq_len * seq_len,
+        inner_precise=0,
+        sparse_mode=0,
+    )
+
+
 def run_ascendc(cfg: AscendcConfig):
     """用 torch_npu.npu_fusion_attention_grad_v2 跑 AscendC 版本"""
     batch_size, _, seq_len, head_dim = cfg.q.shape
@@ -71,52 +96,20 @@ def run_ascendc(cfg: AscendcConfig):
     softmax_sum_fwd = fwd_result[2]
 
     for _ in range(cfg.warmup):
-        torch_npu.npu_fusion_attention_grad_v2(
+        _call_ascendc_grad(
             cfg.q, cfg.k, cfg.v, cfg.dy, cfg.num_heads,
-            pse=None,
-            padding_mask=None,
-            atten_mask=None,
-            softmax_max=softmax_max_fwd,
-            softmax_sum=softmax_sum_fwd,
-            softmax_in=None,
-            attention_in=out_fwd,
-            scale_value=cfg.scale,
-            keep_prob=1.0,
-            input_layout="BNSD",
-            pre_tokens=seq_len,
-            next_tokens=seq_len,
-            seed=0,
-            offset=0,
-            numels=batch_size * cfg.num_heads * seq_len * seq_len,
-            inner_precise=0,
-            sparse_mode=0,
-        )
+            softmax_max_fwd, softmax_sum_fwd, out_fwd,
+            cfg.scale, seq_len, batch_size)
     torch.npu.synchronize()
 
     times = []
     for _ in range(cfg.repeat):
         torch.npu.synchronize()
         t0 = time.perf_counter()
-        torch_npu.npu_fusion_attention_grad_v2(
+        _call_ascendc_grad(
             cfg.q, cfg.k, cfg.v, cfg.dy, cfg.num_heads,
-            pse=None,
-            padding_mask=None,
-            atten_mask=None,
-            softmax_max=softmax_max_fwd,
-            softmax_sum=softmax_sum_fwd,
-            softmax_in=None,
-            attention_in=out_fwd,
-            scale_value=cfg.scale,
-            keep_prob=1.0,
-            input_layout="BNSD",
-            pre_tokens=seq_len,
-            next_tokens=seq_len,
-            seed=0,
-            offset=0,
-            numels=batch_size * cfg.num_heads * seq_len * seq_len,
-            inner_precise=0,
-            sparse_mode=0,
-        )
+            softmax_max_fwd, softmax_sum_fwd, out_fwd,
+            cfg.scale, seq_len, batch_size)
         torch.npu.synchronize()
         t1 = time.perf_counter()
         times.append((t1 - t0) * 1000)
