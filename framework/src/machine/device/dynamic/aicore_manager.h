@@ -73,9 +73,14 @@ constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
 constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
+constexpr uint32_t CORE_QUEUE_SIZE = 64;
+constexpr uint32_t PAIR_QUEUE_SIZE = 64;
+static_assert((AIV_CORE_COUNT <= CORE_QUEUE_SIZE) && (AIC_CORE_COUNT <= CORE_QUEUE_SIZE), "Core queue size must be able to hold all cores of a given type!");
+static_assert((AIV_CORE_COUNT <= PAIR_QUEUE_SIZE) && (AIC_CORE_COUNT <= PAIR_QUEUE_SIZE), "Pair queue size must be able to hold all cores of a given type!");
+
 typedef pypto::utils::LimitedQueue<aicoreTask_t,    aicoreNullTask, MAX_QUEUED_TASKS> taskQueue_t;
-typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore, TOTAL_CORE_COUNT> coreQueue_t;
-typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair, TOTAL_CORE_COUNT> pairQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore, CORE_QUEUE_SIZE> coreQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair, PAIR_QUEUE_SIZE> pairQueue_t;
 
 struct TaskInfo {
     int coreIdx;
