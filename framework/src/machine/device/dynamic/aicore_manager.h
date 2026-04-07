@@ -407,7 +407,7 @@ private:
         context_->sendCnt_[(int)type]++;
     }
 
-    inline void ResolveDepForAllAiCore(CoreType type)
+    inline void ResolveDepForAllAiCore(const CoreType type)
     {
         batchReadyTaskCount_[(int)CoreType::AIC] = 0;
         batchReadyTaskCount_[(int)CoreType::AIV] = 0;
@@ -416,30 +416,33 @@ private:
 
         // Handling Busy A queue pairings
         {
-            size_t pairCount = busyAPairQueue_[(int)type]->size();
+            pairQueue_t* const queue = busyAPairQueue_[(int)type];
+            const size_t pairCount = queue->size();
             for (size_t i = 0; i < pairCount; i++)
             {
-                const auto pair = busyAPairQueue_[(int)type]->pop();
+                const auto pair = queue->pop();
                 ResolveBusyAQueuePair(type, pair);
             }
         }
 
         // Handling Free B queue pairings
         {
-            size_t pairCount = freeBPairQueue_[(int)type]->size();
+            pairQueue_t* const queue = freeBPairQueue_[(int)type];
+            const size_t pairCount = queue->size();
             for (size_t i = 0; i < pairCount; i++)
             {
-                const auto pair = freeBPairQueue_[(int)type]->pop();
+                const auto pair = queue->pop();
                 ResolveFreeBQueuePair(type, pair);
             }
         }
 
         // Handling Busy B queue pairings
         {
-            size_t pairCount = busyBPairQueue_[(int)type]->size();
+            pairQueue_t* const queue = busyBPairQueue_[(int)type];
+            const size_t pairCount = queue->size();
             for (size_t i = 0; i < pairCount; i++)
             {
-                const auto pair = busyBPairQueue_[(int)type]->pop();
+                const auto pair = queue->pop();
                 ResolveBusyBQueuePair(type, pair);
             }
         }
@@ -467,7 +470,7 @@ private:
         if (batchFreeBPairCount_[(int)type] > 0) freeBPairQueue_[(int)type]->pushMany(batchFreeBPairs_[(int)type], batchFreeBPairCount_[(int)type]);
     }
 
-    inline void ResolveBusyAQueuePair(CoreType type, const aicorePair_t pair)
+    inline void ResolveBusyAQueuePair(const CoreType type, const aicorePair_t pair)
     {
         const auto coreId = decodePairCore(pair);
 
@@ -499,7 +502,7 @@ private:
         busyAPairQueue_[(int)type]->push(pair);
     }
 
-    inline void ResolveFreeBQueuePair(CoreType type, const aicorePair_t pair)
+    inline void ResolveFreeBQueuePair(const CoreType type, const aicorePair_t pair)
     {
         const auto coreId = decodePairCore(pair);
 
@@ -525,7 +528,7 @@ private:
         freeBPairQueue_[(int)type]->push(pair);
     }
 
-    inline void ResolveBusyBQueuePair(CoreType type, const aicorePair_t pair)
+    inline void ResolveBusyBQueuePair(const CoreType type, const aicorePair_t pair)
     {
         const auto coreId = decodePairCore(pair);
 
@@ -627,7 +630,7 @@ private:
         ResolveDynStitched(dyntask, funcId, opIndex);
     }
 
-    inline void processFinishedTask(CoreType type, uint64_t taskId) {
+    inline void processFinishedTask(const CoreType type, uint64_t taskId) {
         ResolveDepDyn(taskId);
         context_->waitTaskCnt_[(int)type]--;
     }
