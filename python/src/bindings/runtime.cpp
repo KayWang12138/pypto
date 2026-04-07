@@ -131,7 +131,8 @@ std::string DeviceRunOnceDataFromHost(
         EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 &&
+    int runtimeDebugMode = config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE);
+    if (((runtimeDebugMode != 0) && ((runtimeDebugMode >> (CFG_DEBUG_ALL - 1)) & 1) == 1) &&
         EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
         return "emulation run failed";
     }
@@ -178,7 +179,7 @@ std::string OperatorDeviceRunOnceDataFromDevice(
         return errorMsg;
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
+    if ((config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) & 1) == 1) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config) != 0) {
@@ -724,7 +725,7 @@ private:
         if (!module.attr("_debug_options").is_none()) {
             auto debugOptions = module.attr("_debug_options").cast<py::dict>();
             if (debugOptions.contains("runtime_debug_mode")) {
-                isDebugMode = debugOptions["runtime_debug_mode"].cast<int64_t>() == CFG_DEBUG_ALL;
+                isDebugMode = ((debugOptions["runtime_debug_mode"].cast<int64_t>() >> (CFG_DEBUG_ALL - 1)) & 1) == 1;
             }
         }
         if (!module.attr("_infer_controlflow_shape").is_none()) {

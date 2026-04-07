@@ -53,8 +53,7 @@ class RunMode(IntEnum):
 class DebugMode(IntEnum):
     OFF = 0
     SWIM = 1
-    TENSOR_NODEPEND = 2
-    CHECKATTR = 3
+    CHECKATTR = 2
 
 
 def parse(program: Source, extra_vars: Optional[dict[str, Any]] = None) -> Any:
@@ -335,8 +334,8 @@ class JitCallableWrapper:
         )
         self._get_or_create_kmodule(non_tensor_values)
         if self._debug_options is not None:
-            debug_mode = self._debug_options.get("runtime_debug_mode", None)
-            if debug_mode == DebugMode.CHECKATTR:
+            debug_mode = self._debug_options.get("runtime_debug_mode", 0)
+            if (debug_mode >> (DebugMode.CHECKATTR - 1)) & 1 == 1:
                 self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
         self._execute_kernel(in_tensors, input_tensor_defs)
 

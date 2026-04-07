@@ -268,14 +268,16 @@ def softmax(x, is_fp16=False):
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"pg_upper_bound": 1536,
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    "cube_l1_reuse_setting": {0: 4}}
+    "cube_l1_reuse_setting": {0: 4}},
+    host_options={"compile_monitor_enable": True},
+    debug_options={"runtime_debug_mode": 2}
 )
 def ifa_func_kernel(
     q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     block_table: pypto.Tensor([], pypto.DT_INT32),
-    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
     atten_out: pypto.Tensor([], pypto.DT_BF16)
 ):
 
@@ -431,14 +433,15 @@ def ifa_func_kernel(
     "cube_l1_reuse_setting": {0: 32},
     "cube_nbuffer_setting": {1: 4}
     },
-    host_options={"compile_monitor_enable": True}
+    host_options={"compile_monitor_enable": True},
+    debug_options={"runtime_debug_mode": 2}
 )
 def ifa_func_kernel_a5(
     q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     block_table: pypto.Tensor([], pypto.DT_INT32),
-    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
     atten_out: pypto.Tensor([], pypto.DT_BF16)
 ):
     atten_cfg, tile_cfg = get_qwen_common_config(device="cpu", a5_flag=1)
