@@ -65,11 +65,11 @@ public:
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
         args_.fill(nullptr);
-        if (deviceArgs->archInfo == ArchInfo::DAV_3510) {
-            regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
-            regSprCond_ = DAV_3510::REG_SPR_COND;
-            isNeedWriteRegForFastPath_ = false;
-        }
+        // if (deviceArgs->archInfo == ArchInfo::DAV_3510) {
+        //     regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
+        //     regSprCond_ = DAV_3510::REG_SPR_COND;
+        //     isNeedWriteRegForFastPath_ = false;
+        // }
     }
 
     inline uint32_t GetRegSprDataMainBase() { return regSprDataMainBase_; }
