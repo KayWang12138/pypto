@@ -374,11 +374,14 @@ Tensor Mul(const Tensor& self, const Tensor& other)
     RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
-Tensor Div(const Tensor& self, const Tensor& other)
+Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType = DivAlgorithm::HIGH_PRECISION)
 {
     DECLARE_TRACER();
 
-    RETURN_CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), self, other);
+    auto [result, op] =
+        TensorBinaryOperationWithOp<BinaryOpType::DIV>(*Program::GetInstance().GetCurrentFunction(), self, other);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Fmod(const Tensor& self, const Tensor& other)
@@ -613,12 +616,13 @@ Tensor Mul(const Tensor& self, const Element& other)
         other);
 }
 
-Tensor Div(const Tensor& self, const Element& other)
+Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType = DivAlgorithm::HIGH_PRECISION)
 {
     DECLARE_TRACER();
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        other);
+    auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::DIV>(
+        *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Fmod(const Tensor& self, const Element& other)
