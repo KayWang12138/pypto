@@ -371,13 +371,13 @@ public:
             return nullptr;
         }
 
-        uint64_t cycles_start = GetCycles();
-        while (metric->isMetricStop != 1) {
-            if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.wait_finish: wait metrics done timeout !!!.");
-                return nullptr;
-            }
-        }; // wait aicore dcci metric data finish
+        // uint64_t cycles_start = GetCycles();
+        // while (metric->isMetricStop != 1) {
+        //     if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
+        //         DEV_ERROR("wait metrics done timeout !!!.");
+        //         return nullptr;
+        //     }
+        // }; // wait aicore dcci metric data finish
 
         return reinterpret_cast<Metrics*>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
@@ -391,10 +391,10 @@ public:
 
         DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
-            volatile TaskStat* stat = &metric->tasks[i];
-            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
-            DEV_VERBOSE_DEBUG(
-                "  Dump prof for task %d, execstart: %ld execend :%ld.", stat->taskId, stat->execStart, stat->execEnd);
+            volatile TaskStat *stat = &metric->tasks[i];
+            // aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
+            DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
+                     stat->taskId, stat->execStart, stat->execEnd);
         }
         return 0;
     }

@@ -188,7 +188,7 @@ struct TaskStat {
     int32_t taskId;
     int64_t execStart;
     int64_t execEnd;
-    int64_t waitStart; // 2.0 dfx 当前未使用
+    int64_t isSetTask{0}; // 2.0 dfx 当前未使用
 };
 
 struct DevDfxArgs {

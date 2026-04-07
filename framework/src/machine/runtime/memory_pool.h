@@ -387,6 +387,7 @@ private:
             MACHINE_LOGI("Releasing physical memory: addr=%p, size=%lu", block->base_addr, block->block_size);
             rtFree(block->base_addr);
             block->base_addr = nullptr;
+            MACHINE_LOGI("Finsih physical memory: %p (size %lu)", block->base_addr, block->block_size);
         }
         delete block;
         block = nullptr;

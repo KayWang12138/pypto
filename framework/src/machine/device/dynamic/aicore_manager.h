@@ -1207,7 +1207,8 @@ private:
         finishCnt++;
     }
 
-    inline int32_t ReleaseCoreByRegVal(CoreType type, int coreIdx, ResolveTaskContext* ctx, uint32_t& finishCnt)
+    inline int32_t ReleaseCoreByRegVal(CoreType type, int coreIdx, [[maybe_unused]]ResolveTaskContext* ctx,
+                                      [[maybe_unused]]uint32_t& finishCnt)
     {
         int32_t ret = DEVICE_MACHINE_OK;
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreIdx);
@@ -1969,7 +1970,7 @@ private:
         volatile TaskStat* stat = aicoreHal_.GetTaskStat(coreIdx, 0);
 
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-        aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
+        // aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
 #endif
 
 #if ENABLE_TENSOR_DUMP
