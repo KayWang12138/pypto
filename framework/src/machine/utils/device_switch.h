@@ -55,7 +55,7 @@ namespace npu::tile_fwk {
 #define DEBUG_INFINITE_LIFETIME 0
 
 // for tensor dump
-#define ENABLE_TENSOR_DUMP 1
+#define ENABLE_TENSOR_DUMP 0
 
 #define PERF_AICPU_TEST_SWITCH 0 // 性能AICPU数据测试
 

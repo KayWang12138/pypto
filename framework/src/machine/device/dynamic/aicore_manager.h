@@ -1658,6 +1658,7 @@ private:
 #if ENABLE_TENSOR_DUMP
         aicoreDump_.Init(startArgs, schedIdx);
 #endif
+        (void)startArgs;
 
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
