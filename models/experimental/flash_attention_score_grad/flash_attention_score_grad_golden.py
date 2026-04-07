@@ -160,28 +160,37 @@ def _validate():
             tc['B'], tc['N'], tc['S'], tc['D']
         )
         inputs = AttentionGradInputs(q, k, v, dy, sm, ss, ao, scale)
-        dQ, dK, dV = flash_attention_score_grad_golden(inputs)
+        dq_out, dk_out, dv_out = flash_attention_score_grad_golden(inputs)
 
-        logger.info("  dQ shape: %s, dtype: %s", dQ.shape, dQ.dtype)
-        logger.info("  dK shape: %s, dtype: %s", dK.shape, dK.dtype)
-        logger.info("  dV shape: %s, dtype: %s", dV.shape, dV.dtype)
+        logger.info("  dq_out shape: %s, dtype: %s", dq_out.shape, dq_out.dtype)
+        logger.info("  dk_out shape: %s, dtype: %s", dk_out.shape, dk_out.dtype)
+        logger.info("  dv_out shape: %s, dtype: %s", dv_out.shape, dv_out.dtype)
 
         # 基本检查
-        assert dQ.shape == q.shape
-        assert dK.shape == k.shape
-        assert dV.shape == v.shape
-        assert not torch.isnan(dQ).any()
-        assert not torch.isnan(dK).any()
-        assert not torch.isnan(dV).any()
-        assert not torch.isinf(dQ).any()
-        assert not torch.isinf(dK).any()
-        assert not torch.isinf(dV).any()
+        if dq_out.shape != q.shape:
+            raise ValueError(f"dq_out shape {dq_out.shape} != q shape {q.shape}")
+        if dk_out.shape != k.shape:
+            raise ValueError(f"dk_out shape {dk_out.shape} != k shape {k.shape}")
+        if dv_out.shape != v.shape:
+            raise ValueError(f"dv_out shape {dv_out.shape} != v shape {v.shape}")
+        if torch.isnan(dq_out).any():
+            raise ValueError("dq_out contains NaN")
+        if torch.isnan(dk_out).any():
+            raise ValueError("dk_out contains NaN")
+        if torch.isnan(dv_out).any():
+            raise ValueError("dv_out contains NaN")
+        if torch.isinf(dq_out).any():
+            raise ValueError("dq_out contains Inf")
+        if torch.isinf(dk_out).any():
+            raise ValueError("dk_out contains Inf")
+        if torch.isinf(dv_out).any():
+            raise ValueError("dv_out contains Inf")
 
         # 值域检查
-        for name, t in [("dQ", dQ), ("dK", dK), ("dV", dV)]:
-            t_f = t.float()
+        for t_name, t_val in [("dq_out", dq_out), ("dk_out", dk_out), ("dv_out", dv_out)]:
+            t_f = t_val.float()
             logger.info(
-                "  %s range: [%.4f, %.4f]", name, t_f.min().item(),
+                "  %s range: [%.4f, %.4f]", t_name, t_f.min().item(),
                 t_f.max().item())
 
         logger.info("  ✓ Passed")
@@ -224,14 +233,15 @@ def _validate():
         sm.float(), ss.float(), y_out.detach(), scale)
     dQ_g, dK_g, dV_g = flash_attention_score_grad_golden(inputs)
 
-    for name, grad_auto, grad_golden in [
-            ("dQ", q.grad, dQ_g), ("dK", k.grad, dK_g),
-            ("dV", v.grad, dV_g)]:
+    for g_name, grad_auto, grad_golden in [
+            ("dq", q.grad, dQ_g), ("dk", k.grad, dK_g),
+            ("dv", v.grad, dV_g)]:
         diff = (
             grad_auto.float() - grad_golden.float()
         ).abs().max().item()
-        logger.info("  %s max diff vs autograd: %.6e", name, diff)
-        assert diff < 1e-4
+        logger.info("  %s max diff vs autograd: %.6e", g_name, diff)
+        if diff >= 1e-4:
+            raise ValueError(f"{g_name} max diff {diff} >= 1e-4")
 
     logger.info("  ✓ Autograd cross-validation passed")
 

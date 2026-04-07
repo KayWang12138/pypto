@@ -109,8 +109,8 @@ def main():
         BenchConfig("S=512", 2, 8, 512, 64),
         BenchConfig("S=1024", 2, 8, 1024, 64),
         BenchConfig("S=2048", 2, 8, 2048, 64),
-        BenchConfig("S=4096",  1, 8, 4096,  64),
-        BenchConfig("S=8192",  1, 8, 8192,  64),
+        BenchConfig("S=4096", 1, 8, 4096, 64),
+        BenchConfig("S=8192", 1, 8, 8192, 64),
     ]
 
     for cfg in configs:
