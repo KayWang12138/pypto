@@ -41,8 +41,7 @@ from flash_attention_score_grad_golden import generate_forward_data
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper
 
 
-# pylint: disable=too-many-arguments,invalid-name
-def bench(name, batch_size, num_heads, seq_len, head_dim, device_id, warmup=5, repeat=20):
+def bench(name, batch_size, num_heads, seq_len, head_dim, device_id, warmup=5, repeat=20):  # noqa: C901
     device = f"npu:{device_id}"
     q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
         batch_size, num_heads, seq_len, head_dim, device=device)
