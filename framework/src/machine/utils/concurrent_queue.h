@@ -8,7 +8,7 @@
 #pragma once
 
 #include <array>
-#include <typetraits>
+#include <type_traits>
 #include "interface/utils/common.h"
 
 namespace pypto::utils
