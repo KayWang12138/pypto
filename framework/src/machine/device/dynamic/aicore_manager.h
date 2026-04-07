@@ -208,8 +208,8 @@ public:
 
         // Making sure all schedulers are here for accurate timing -- this needs to be removed for production
         auto readyAICPUsBarrierPtr = (std::atomic<uint32_t>*) &deviceArgs_->readyAICPUsBarrier;
-        readyAICPUsBarrierPtr->fetch_add(1);
-        while (readyAICPUsBarrierPtr->load() < AICPU_SCHEDULERS) { }
+        readyAICPUsBarrierPtr->fetch_add(1, std::memory_order_relaxed);
+        while (readyAICPUsBarrierPtr->load(std::memory_order_relaxed) < AICPU_SCHEDULERS) { }
 
         // if (isLeaderScheduler_ == false) return;
 
@@ -219,8 +219,8 @@ public:
 
          // Making sure all schedulers are here for accurate timing -- this needs to be removed for production
         DEV_IF_DEVICE {
-            readyAICPUsBarrierPtr->fetch_add(1);
-            while (readyAICPUsBarrierPtr->load() < AICPU_SCHEDULERS * 2) { }
+            readyAICPUsBarrierPtr->fetch_add(1, std::memory_order_relaxed);
+            while (readyAICPUsBarrierPtr->load(std::memory_order_relaxed) < AICPU_SCHEDULERS * 2) { }
         }
 
         const auto tf = std::chrono::high_resolution_clock::now();
