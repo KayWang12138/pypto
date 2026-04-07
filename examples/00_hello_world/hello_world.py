@@ -115,7 +115,7 @@ Examples:
     parser.add_argument(
         '--list',
         action='store_true',
-        help='List all available examples and exit'
+        help='List all available examples and exit.'
     )
     parser.add_argument(
         '--run_mode',
