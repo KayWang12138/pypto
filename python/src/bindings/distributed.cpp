@@ -160,6 +160,59 @@ void BindDistributed(py::module& m)
     m.def(
         "GetSymbolicScalarPeId", [](std::string group) { return GetHcclRankId(group); }, py::arg("group"),
         "Get local rank id by groupname.");
+
+    m.def(
+        "MoeDistributedDispatch",
+        [](const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
+           Tensor& combineInfo, const char* group, uint32_t routedExpertNum, uint32_t rankNum) {
+            MoeConfig moeConfig;
+            moeConfig.routedExpertNum = static_cast<int32_t>(routedExpertNum);
+            moeConfig.rankNum = static_cast<int32_t>(rankNum);
+            moeConfig.expertNumPerRank = static_cast<int32_t>(routedExpertNum / rankNum);
+            Distributed::MoeDistributedDispatch(
+                tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
+        },
+        py::arg("tokenTensor"), py::arg("tokenExpertTable"), py::arg("expandX"), py::arg("validCnt"),
+        py::arg("combineInfo"), py::arg("group"), py::arg("routedExpertNum"), py::arg("rankNum"),
+        "Run MoeDistributedDispatch.");
+
+    m.def(
+        "MoeDistributedCombine",
+        [](const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+           const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum, Tensor& out) {
+            Distributed::MoeDistributedCombine(
+                expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize, moeExpertNum, 0, 0, out);
+        },
+        py::arg("expandX"), py::arg("assistInfoForCombine"), py::arg("recvCounts"), py::arg("expertScales"),
+        py::arg("group"), py::arg("epWorldSize"), py::arg("moeExpertNum"), py::arg("out"),
+        "Run MoeDistributedCombine.");
+
+    m.def(
+        "MoeDistributedDispatchV2",
+        [](const Tensor& x, const Tensor& expertIds, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+           uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX, Tensor& assistInfoForCombine,
+           Tensor& expertTokenNums, Tensor& recvCounts) {
+            Distributed::MoeDistributedDispatchV2(
+                x, expertIds, group, epWorldSize, moeExpertNum, sharedExpertNum, sharedExpertRankNum, expandX,
+                assistInfoForCombine, expertTokenNums, recvCounts);
+        },
+        py::arg("x"), py::arg("expertIds"), py::arg("group"), py::arg("epWorldSize"), py::arg("moeExpertNum"),
+        py::arg("sharedExpertNum"), py::arg("sharedExpertRankNum"), py::arg("expandX"),
+        py::arg("assistInfoForCombine"), py::arg("expertTokenNums"), py::arg("recvCounts"),
+        "Run MoeDistributedDispatchV2.");
+
+    m.def(
+        "MoeDistributedCombineV2",
+        [](const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+           const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+           uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out) {
+            Distributed::MoeDistributedCombineV2(
+                expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize, moeExpertNum,
+                sharedExpertNum, sharedExpertRankNum, out);
+        },
+        py::arg("expandX"), py::arg("assistInfoForCombine"), py::arg("recvCounts"), py::arg("expertScales"),
+        py::arg("group"), py::arg("epWorldSize"), py::arg("moeExpertNum"), py::arg("sharedExpertNum"),
+        py::arg("sharedExpertRankNum"), py::arg("out"), "Run MoeDistributedCombineV2.");
 }
 
 } // namespace pypto

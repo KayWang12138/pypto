@@ -26,6 +26,38 @@
 #include "tilefwk/tilefwk.h"
 
 namespace npu::tile_fwk::Distributed {
+namespace {
+constexpr int32_t GLM_V2_COMBINE_BATCH_SIZE1 = 8;
+constexpr int32_t GLM_V2_COMBINE_BATCH_SIZE2 = 256;
+constexpr int32_t GLM_V2_HIDDEN_SIZE = 5120;
+constexpr int32_t GLM_V2_TOPK = 8;
+constexpr int32_t GLM_V2_MOE_EXPERT_NUM = 160;
+
+constexpr int32_t AIGCODE_CHUNK_BATCH_SIZE_V1 = 1024;
+constexpr int32_t AIGCODE_CHUNK_BATCH_SIZE_V2 = 256;
+constexpr int32_t AIGCODE_HIDDEN_SIZE = 4096;
+constexpr int32_t AIGCODE_TOPK = 4;
+constexpr int32_t AIGCODE_MOE_EXPERT_NUM = 16;
+constexpr int32_t AIGCODE_EP_WORLD_SIZE = 4;
+
+constexpr uint64_t MOE_V2_MAX_WIN_SIZE = 1024ULL * 1024ULL * 200ULL;
+
+bool IsSupportedMoeCombineV2Case(
+    int32_t batchSize, int32_t hiddenSize, int32_t topK, int32_t epWorldSize, int32_t moeExpertNum,
+    int32_t sharedExpertNum, int32_t sharedExpertRankNum)
+{
+    const bool isGlmCase =
+        (batchSize == GLM_V2_COMBINE_BATCH_SIZE1 || batchSize == GLM_V2_COMBINE_BATCH_SIZE2) &&
+        hiddenSize == GLM_V2_HIDDEN_SIZE && topK == GLM_V2_TOPK && moeExpertNum == GLM_V2_MOE_EXPERT_NUM &&
+        sharedExpertNum == 0 && sharedExpertRankNum == 0 && (epWorldSize == 4 || epWorldSize == 8);
+    const bool isAigcodeCase =
+        (batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 || batchSize == AIGCODE_CHUNK_BATCH_SIZE_V2) &&
+        hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK && epWorldSize == AIGCODE_EP_WORLD_SIZE &&
+        moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0;
+    return isGlmCase || isAigcodeCase;
+}
+} // namespace
+
 void MoeDistributedCombineValidateExpandX(
     const Tensor& expandX, const Tensor& expertScales, int32_t epWorldSize, int32_t moeExpertNum)
 {
@@ -43,11 +75,6 @@ void MoeDistributedCombineValidateExpandX(
         << "batchSize * moeExpertNum, topK=" << topK << ", batchSize=" << batchSize << ", epWorldSize=" << epWorldSize
         << ", moeExpertNum=" << moeExpertNum << ", the expected first axis of \"expandX\" should be " << expectedRow
         << " but got " << expandXRow;
-
-    int32_t expandXCol = expandX.GetShape(1);
-    int32_t supportedHiddenSize = 5120;
-    CHECK(expandXCol == supportedHiddenSize)
-        << "The second axis of \"expandX\" only supports " << supportedHiddenSize << ", but got " << expandXCol;
 
     CHECK(expandX.GetDataType() == DT_BF16)
         << "The data type of \"expandX\" only supports DT_BF16, but got " << DataType2String(expandX.GetDataType());
@@ -107,19 +134,6 @@ void MoeDistributedCombineValidateExpertScales(const Tensor& expertScales)
         << "The dim of \"expertScales\" only supports " << supportedDim << ", but got "
         << expertScales.GetShape().size();
 
-    int32_t expertScalesRow = expertScales.GetShape(0);
-    int32_t supportedExpertScalesRow1 = 8;
-    int32_t supportedExpertScalesRow2 = 256;
-    CHECK((expertScalesRow == supportedExpertScalesRow1) || (expertScalesRow == supportedExpertScalesRow2))
-        << "The "
-        << "first axis of \"expertScales\" only supports " << supportedExpertScalesRow1 << " or "
-        << supportedExpertScalesRow2 << ", but got " << expertScalesRow;
-
-    int32_t expertScalesCol = expertScales.GetShape(1);
-    int32_t supportedExpertScalesCol = 8;
-    CHECK(expertScalesCol == supportedExpertScalesCol) << "The second axis of \"expertScales\" only supports "
-                                                       << supportedExpertScalesCol << ", but got " << expertScalesCol;
-
     CHECK(expertScales.GetDataType() == DT_FP32) << "The data type of \"expertScales\" only supports DT_FP32, but got "
                                                  << DataType2String(expertScales.GetDataType());
 
@@ -172,9 +186,9 @@ void MoeDistributedCombineValidateMoeEpWorldSize(int32_t epWorldSize)
 
 void MoeDistributedCombineValidateMoeExpertNum(int32_t moeExpertNum)
 {
-    int32_t supportedMoeExpertNum = 160;
-    CHECK(moeExpertNum == supportedMoeExpertNum) << "moeExpertNum only supports " << supportedMoeExpertNum << ", but "
-                                                 << "got " << moeExpertNum;
+    CHECK((moeExpertNum == GLM_V2_MOE_EXPERT_NUM) || (moeExpertNum == AIGCODE_MOE_EXPERT_NUM))
+        << "moeExpertNum only supports " << GLM_V2_MOE_EXPERT_NUM << " or " << AIGCODE_MOE_EXPERT_NUM
+        << ", but got " << moeExpertNum;
 }
 
 void TiledMoeDistributedCombineSend(
@@ -324,9 +338,6 @@ void MoeDistributedCombineValidate(
     const char* group, uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum,
     uint32_t sharedExpertRankNum, Tensor& out)
 {
-    (void)sharedExpertNum;
-    (void)sharedExpertRankNum;
-
     MoeDistributedCombineValidateExpandX(expandX, expertScales, epWorldSize, moeExpertNum);
     MoeDistributedCombineValidateAssistInfoForCombine(assistInfoForCombine, expandX);
     MoeDistributedCombineValidateRecvCounts(recvCounts);
@@ -335,6 +346,30 @@ void MoeDistributedCombineValidate(
     MoeDistributedCombineValidateGroup(group);
     MoeDistributedCombineValidateMoeEpWorldSize(epWorldSize);
     MoeDistributedCombineValidateMoeExpertNum(moeExpertNum);
+
+    int32_t batchSize = expertScales.GetShape(0);
+    int32_t topK = expertScales.GetShape(1);
+    int32_t hiddenSize = expandX.GetShape(1);
+    CHECK(
+        IsSupportedMoeCombineV2Case(
+            batchSize, hiddenSize, topK, static_cast<int32_t>(epWorldSize), static_cast<int32_t>(moeExpertNum),
+            static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum)))
+        << "MoeDistributedCombine constraint violated: only GLM V2 "
+           "(batch=8/256, hidden=5120, topK=8, moeExpertNum=160, epWorldSize=4/8) or Aigcode "
+           "(batch=256/1024, hidden=4096, topK=4, moeExpertNum=16, epWorldSize=4) are supported.";
+    CHECK(expandX.GetShape(1) == hiddenSize)
+        << "MoeDistributedCombine constraint violated: expandX hidden size must match expertScales config.";
+    CHECK(out.GetShape(1) == hiddenSize)
+        << "MoeDistributedCombine constraint violated: out hidden size must match expandX hidden size.";
+    CHECK(expertScales.GetShape(1) == topK)
+        << "MoeDistributedCombine constraint violated: expertScales topK is invalid.";
+
+    uint64_t shmemSize =
+        static_cast<uint64_t>(batchSize) * static_cast<uint64_t>(topK) * static_cast<uint64_t>(hiddenSize) *
+        BytesOf(expandX.GetDataType());
+    CHECK(shmemSize < MOE_V2_MAX_WIN_SIZE)
+        << "MoeDistributedCombine constraint violated: shmem window exceeds the limit. Maximum allowed: "
+        << MOE_V2_MAX_WIN_SIZE << ", got: " << shmemSize;
 }
 
 void MoeDistributedCombine(

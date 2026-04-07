@@ -28,6 +28,53 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
+namespace {
+constexpr int32_t GLM_V1_BATCH_SIZE = 8;
+constexpr int32_t GLM_V1_HIDDEN_SIZE = 5120;
+constexpr int32_t GLM_V1_TOPK = 8;
+constexpr int32_t GLM_V1_MOE_EXPERT_NUM = 160;
+
+constexpr int32_t GLM_V2_BATCH_SIZE = 8;
+constexpr int32_t GLM_V2_HIDDEN_SIZE = 5120;
+constexpr int32_t GLM_V2_TOPK = 8;
+constexpr int32_t GLM_V2_MOE_EXPERT_NUM = 160;
+
+constexpr int32_t AIGCODE_CHUNK_BATCH_SIZE_V1 = 1024;
+constexpr int32_t AIGCODE_CHUNK_BATCH_SIZE_V2 = 256;
+constexpr int32_t AIGCODE_HIDDEN_SIZE = 4096;
+constexpr int32_t AIGCODE_TOPK = 4;
+constexpr int32_t AIGCODE_MOE_EXPERT_NUM = 16;
+constexpr int32_t AIGCODE_EP_WORLD_SIZE = 4;
+
+constexpr uint64_t MOE_V2_MAX_WIN_SIZE = 1024ULL * 1024ULL * 200ULL;
+
+bool IsSupportedMoeDispatchV1Case(int32_t batchSize, int32_t hiddenSize, int32_t topK, const MoeConfig& moeConfig)
+{
+    const bool isGlmCase =
+        batchSize == GLM_V1_BATCH_SIZE && hiddenSize == GLM_V1_HIDDEN_SIZE && topK == GLM_V1_TOPK &&
+        moeConfig.routedExpertNum == GLM_V1_MOE_EXPERT_NUM && (moeConfig.rankNum == 4 || moeConfig.rankNum == 8);
+    const bool isAigcodeCase =
+        batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
+        moeConfig.routedExpertNum == AIGCODE_MOE_EXPERT_NUM && moeConfig.rankNum == AIGCODE_EP_WORLD_SIZE;
+    return isGlmCase || isAigcodeCase;
+}
+
+bool IsSupportedMoeDispatchV2Case(
+    int32_t batchSize, int32_t hiddenSize, int32_t topK, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum)
+{
+    const bool isGlmCase =
+        batchSize == GLM_V2_BATCH_SIZE && hiddenSize == GLM_V2_HIDDEN_SIZE && topK == GLM_V2_TOPK &&
+        moeExpertNum == GLM_V2_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0 &&
+        (epWorldSize == 4 || epWorldSize == 8);
+    const bool isAigcodeCase =
+        batchSize == AIGCODE_CHUNK_BATCH_SIZE_V2 && hiddenSize == AIGCODE_HIDDEN_SIZE &&
+        topK == AIGCODE_TOPK && epWorldSize == AIGCODE_EP_WORLD_SIZE &&
+        moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0;
+    return isGlmCase || isAigcodeCase;
+}
+} // namespace
+
 void TiledDispatchFFNSched(
     Function& function, const TileShape& tileShape, const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
@@ -210,7 +257,7 @@ void TiledDispatchFFNValidCnt(
 Tensor DispatchFFNValidCnt(const Tensor& recvTokenCntOut, const Tensor& shmemFlag, const MoeConfig& moeConfig)
 {
     auto& function = *Program::GetInstance().GetCurrentFunction();
-    Shape validCntShape = {moeConfig.expertNumPerRank, 1};
+    Shape validCntShape = {moeConfig.expertNumPerRank};
     auto validCntPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, validCntShape);
     auto& oper = function.AddOperation(
         Opcode::OP_FFN_VALIDCNT, {recvTokenCntOut.GetStorage(), shmemFlag.GetStorage()}, {validCntPtr});
@@ -246,7 +293,7 @@ Tensor DispatchFFNBatching(
     const Tensor& shmemFlag, int32_t expandXRow, int32_t ffnTileNum, const MoeConfig& moeConfig)
 {
     auto& function = *Program::GetInstance().GetCurrentFunction();
-    Shape validCntShape = {moeConfig.expertNumPerRank, 1};
+    Shape validCntShape = {moeConfig.expertNumPerRank};
     auto validCntPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, validCntShape);
     Shape expandXShape = {expandXRow, tokenTensor.GetShape()[1]};
     auto expandXPtr = std::make_shared<LogicalTensor>(function, tokenTensor.GetDataType(), expandXShape);
@@ -290,10 +337,14 @@ Tensor DispatchFFNSched(
 
 std::vector<int64_t> GetCommBufferSize(const std::shared_ptr<LogicalTensor>& tokenTensor)
 {
-    const int64_t hOutSize = tokenTensor->shape[1] * BytesOf(tokenTensor->Datatype());
-    constexpr int64_t scaleParamPad = 512;
-    const int64_t hCommuSize = AlignUp(hOutSize, 512) + scaleParamPad;
-    return {1, static_cast<int64_t>(hCommuSize / BytesOf(tokenTensor->Datatype()))};
+    // The tileop dispatch kernels use element-count based layout:
+    //   AlignUp(hiddenSize, 512) + 512
+    // for both shmem slots and the temporary token buffer. Keep the
+    // LogicalTensor shape in the same unit to avoid UB overrun in
+    // SendToRoutingExpert when the data type is BF16.
+    const int64_t hiddenSize = tokenTensor->shape[1];
+    constexpr int64_t combineInfoPad = 512;
+    return {1, AlignUp(hiddenSize, static_cast<int64_t>(512)) + combineInfoPad};
 }
 
 void TiledSendToRoutingExpert(
@@ -510,20 +561,30 @@ void MoeDispatchValidateV1(
     CHECK(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
     CHECK(group[0] != '\0') << "MoeDispatch constraint violated: group name is not valid.";
     CHECK(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128.";
-    CHECK(checkValidInput(tokenTensor, 2, DataType::DT_BF16, 8, 5120, assertResult))
-        << assertResult; // 当前仅支持shape:8,5120
-    int32_t expandXRow = std::min(
-        static_cast<int32_t>(tokenTensor.GetShape(0)) * static_cast<int32_t>(tokenExpertTable.GetShape(1)) *
-            moeConfig.rankNum,
-        static_cast<int32_t>(tokenTensor.GetShape(0)) * moeConfig.routedExpertNum);
-    CHECK(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, 8, 8, assertResult))
-        << assertResult; // 当前仅支持shape:8,8
-    CHECK(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult))
-        << assertResult;
-    CHECK(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult))
-        << assertResult; // 当前仅支持hiddenSize:5120
-    CHECK(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult))
-        << assertResult; // comBineInfo固定hiddenSize:3
+    int32_t batchSize = tokenTensor.GetShape(0);
+    int32_t hiddenSize = tokenTensor.GetShape(1);
+    int32_t topK = tokenExpertTable.GetShape(1);
+    CHECK(
+        IsSupportedMoeDispatchV1Case(batchSize, hiddenSize, topK, moeConfig))
+        << "MoeDispatch constraint violated: only GLM V1 "
+           "(batch=8, hidden=5120, topK=8, routedExpertNum=160, rankNum=4/8) or Aigcode V1 "
+           "(batch=1024, hidden=4096, topK=4, routedExpertNum=16, rankNum=4) are supported.";
+    CHECK(checkValidInput(tokenTensor, 2, DataType::DT_BF16, batchSize, hiddenSize, assertResult)) << assertResult;
+    int32_t expandXRow = std::min(batchSize * topK * moeConfig.rankNum, batchSize * moeConfig.routedExpertNum);
+    CHECK(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, batchSize, topK, assertResult)) << assertResult;
+    CHECK(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
+    CHECK(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, hiddenSize, assertResult)) << assertResult;
+    CHECK(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult;
+
+    int32_t shmemDataLength = AlignUp(hiddenSize, 512) + 512;
+    uint64_t shmemSize = static_cast<uint64_t>(moeConfig.rankNum) * static_cast<uint64_t>(moeConfig.expertNumPerRank) *
+                             static_cast<uint64_t>(shmemDataLength) * static_cast<uint64_t>(batchSize) *
+                             BytesOf(tokenTensor.GetDataType()) +
+                         static_cast<uint64_t>(moeConfig.expertNumPerRank) * static_cast<uint64_t>(moeConfig.rankNum) *
+                             128ULL * BytesOf(DataType::DT_INT32);
+    CHECK(shmemSize < MOE_V2_MAX_WIN_SIZE)
+        << "MoeDispatch constraint violated: shmem window exceeds the limit. Maximum allowed: " << MOE_V2_MAX_WIN_SIZE
+        << ", got: " << shmemSize;
 }
 
 void CreateShmemData(
@@ -598,7 +659,10 @@ void MoeDistributedDispatch(
         auto combineInfoPtr = DispatchFFNCombineInfo(
             group, tokenTensor, recvTokenCntOut, shmemDataBatching, localShmemFlag, expandX.GetShape(0),
             ffnTileNum + ffnTailNum, moeConfig);
-        TileShape::Current().SetDistTileRank({moeConfig.expertNumPerRank / 10, 10, 0});
+        int32_t validCntTileShape = std::max(1, moeConfig.expertNumPerRank / 10);
+        int32_t validCntTileNum = moeConfig.expertNumPerRank / validCntTileShape;
+        int32_t validCntTileTail = moeConfig.expertNumPerRank % validCntTileShape;
+        TileShape::Current().SetDistTileRank({validCntTileShape, validCntTileNum, validCntTileTail});
         auto shmemFlagValidCnt =
             View(shmemFlag, {1, moeConfig.expertNumPerRank, moeConfig.rankNum, flagCol}, {thisRank, 0, 0, 0});
         auto validCntPtr = DispatchFFNValidCnt(recvTokenCntOut, shmemFlagValidCnt, moeConfig);
@@ -613,37 +677,98 @@ void MoeDispatchValidateV2(
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX, Tensor& expertTokenNums,
     Tensor& assistInfoForCombine, Tensor& recvCounts)
 {
-    std::string assertResult;
     CHECK(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
     CHECK(group[0] != '\0') << "MoeDispatch constraint violated: group name must be valid, but got '\0'";
     CHECK(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128, but got "
                                      << strnlen(group, 128);
     CHECK(epWorldSize > 0) << "MoeDispatch constraint violated: epWorldSize must be > 0, but got " << epWorldSize;
-    CHECK(moeExpertNum == 160) << "MoeDispatch constraint violated: moeExpertNum must 160, but got " << moeExpertNum;
-    CHECK(sharedExpertNum == 0) << "MoeDispatch constraint violated: sharedExpertNum must 0, but got "
-                                << sharedExpertNum;
-    CHECK(sharedExpertRankNum == 0) << "MoeDispatch constraint violated: sharedExpertRankNum must 0, but got "
-                                    << sharedExpertRankNum;
+    CHECK(x.Format() == TileOpFormat::TILEOP_ND) << "MoeDispatch constraint violated: x format must be TILEOP_ND.";
+    CHECK(x.Dim() == 2) << "MoeDispatch constraint violated: x dim must be 2, but got " << x.Dim();
+    CHECK(x.GetDataType() == DataType::DT_BF16)
+        << "MoeDispatch constraint violated: x dataType must be DT_BF16, but got "
+        << DataType2String(x.GetDataType());
+    CHECK(expertIds.Format() == TileOpFormat::TILEOP_ND)
+        << "MoeDispatch constraint violated: expertIds format must be TILEOP_ND.";
+    CHECK(expertIds.Dim() == 2) << "MoeDispatch constraint violated: expertIds dim must be 2, but got "
+                                << expertIds.Dim();
+    CHECK(expertIds.GetDataType() == DataType::DT_INT32)
+        << "MoeDispatch constraint violated: expertIds dataType must be DT_INT32, but got "
+        << DataType2String(expertIds.GetDataType());
+
+    int32_t batchSize = x.GetShape(0);
+    int32_t hiddenSize = x.GetShape(1);
+    int32_t topK = expertIds.GetShape(1);
+    CHECK(expertIds.GetShape(0) == batchSize)
+        << "MoeDispatch constraint violated: expertIds row must match x row, but got expertIds row="
+        << expertIds.GetShape(0) << ", x row=" << batchSize;
+    CHECK(
+        IsSupportedMoeDispatchV2Case(
+            batchSize, hiddenSize, topK, epWorldSize, moeExpertNum, sharedExpertNum, sharedExpertRankNum))
+        << "MoeDispatch constraint violated: only GLM V2 "
+           "(batch=8, hidden=5120, topK=8, moeExpertNum=160, epWorldSize=4/8) or Aigcode V2 "
+           "(batch=256, hidden=4096, topK=4, moeExpertNum=16, epWorldSize=4) are supported.";
+
     int32_t routedExpertNum = moeExpertNum - sharedExpertNum;
+    CHECK((routedExpertNum > 0) && (routedExpertNum % static_cast<int32_t>(epWorldSize) == 0))
+        << "MoeDispatch constraint violated: routedExpertNum must be divisible by epWorldSize, but routedExpertNum="
+        << routedExpertNum << ", epWorldSize=" << epWorldSize;
     int32_t expertNumPerRank = routedExpertNum / epWorldSize;
-    CHECK(checkValidInput(x, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult;
-    CHECK(checkValidInput(expertIds, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult;
-    CHECK(checkValidInput(expertTokenNums, 1, DataType::DT_INT32, expertNumPerRank, 1, assertResult)) << assertResult;
-    CHECK(checkValidInput(recvCounts, 1, DataType::DT_INT32, 1, 0, assertResult)) << assertResult;
-    int batchSize = x.GetShape(0);
-    int topK = expertIds.GetShape(1);
+    CHECK(expertTokenNums.Format() == TileOpFormat::TILEOP_ND)
+        << "MoeDispatch constraint violated: expertTokenNums format must be TILEOP_ND.";
+    CHECK(expertTokenNums.Dim() == 1)
+        << "MoeDispatch constraint violated: expertTokenNums dim must be 1, but got " << expertTokenNums.Dim();
+    CHECK(expertTokenNums.GetDataType() == DataType::DT_INT32)
+        << "MoeDispatch constraint violated: expertTokenNums dataType must be DT_INT32, but got "
+        << DataType2String(expertTokenNums.GetDataType());
+    CHECK(expertTokenNums.GetShape(0) == expertNumPerRank)
+        << "MoeDispatch constraint violated: expertTokenNums size must be " << expertNumPerRank << ", but got "
+        << expertTokenNums.GetShape(0);
+    CHECK(recvCounts.Format() == TileOpFormat::TILEOP_ND)
+        << "MoeDispatch constraint violated: recvCounts format must be TILEOP_ND.";
+    CHECK(recvCounts.Dim() == 1)
+        << "MoeDispatch constraint violated: recvCounts dim must be 1, but got " << recvCounts.Dim();
+    CHECK(recvCounts.GetDataType() == DataType::DT_INT32)
+        << "MoeDispatch constraint violated: recvCounts dataType must be DT_INT32, but got "
+        << DataType2String(recvCounts.GetDataType());
+    CHECK(recvCounts.GetShape(0) == 1)
+        << "MoeDispatch constraint violated: recvCounts size must be 1, but got " << recvCounts.GetShape(0);
     int32_t expandXRow = std::min(
         static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * static_cast<int32_t>(epWorldSize),
         static_cast<int32_t>(batchSize) * routedExpertNum);
-    CHECK(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult;
-    CHECK(checkValidInput(assistInfoForCombine, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult;
+    CHECK(expandX.Format() == TileOpFormat::TILEOP_ND)
+        << "MoeDispatch constraint violated: expandX format must be TILEOP_ND.";
+    CHECK(expandX.Dim() == 2) << "MoeDispatch constraint violated: expandX dim must be 2, but got " << expandX.Dim();
+    CHECK(expandX.GetDataType() == DataType::DT_BF16)
+        << "MoeDispatch constraint violated: expandX dataType must be DT_BF16, but got "
+        << DataType2String(expandX.GetDataType());
+    CHECK(expandX.GetShape(0) == expandXRow)
+        << "MoeDispatch constraint violated: expandX row must be " << expandXRow << ", but got "
+        << expandX.GetShape(0);
+    CHECK(expandX.GetShape(1) == hiddenSize)
+        << "MoeDispatch constraint violated: expandX col must be " << hiddenSize << ", but got "
+        << expandX.GetShape(1);
+    CHECK(assistInfoForCombine.Format() == TileOpFormat::TILEOP_ND)
+        << "MoeDispatch constraint violated: assistInfoForCombine format must be TILEOP_ND.";
+    CHECK(assistInfoForCombine.Dim() == 2)
+        << "MoeDispatch constraint violated: assistInfoForCombine dim must be 2, but got "
+        << assistInfoForCombine.Dim();
+    CHECK(assistInfoForCombine.GetDataType() == DataType::DT_INT32)
+        << "MoeDispatch constraint violated: assistInfoForCombine dataType must be DT_INT32, but got "
+        << DataType2String(assistInfoForCombine.GetDataType());
+    CHECK(assistInfoForCombine.GetShape(0) == expandXRow)
+        << "MoeDispatch constraint violated: assistInfoForCombine row must be " << expandXRow << ", but got "
+        << assistInfoForCombine.GetShape(0);
+    CHECK(assistInfoForCombine.GetShape(1) == 3)
+        << "MoeDispatch constraint violated: assistInfoForCombine col must be 3, but got "
+        << assistInfoForCombine.GetShape(1);
+
     uint64_t shmemSize =
         moeExpertNum * x.GetShape(0) * x.GetShape(1) * BytesOf(x.GetDataType()) +
         moeExpertNum * x.GetShape(0) * assistInfoForCombine.GetShape(1) * BytesOf(assistInfoForCombine.GetDataType()) +
         AlignUp(routedExpertNum, 256) * 8 * BytesOf(DataType::DT_INT32) +
         moeExpertNum * 128 * BytesOf(DataType::DT_INT32) + 128 * BytesOf(DataType::DT_INT32);
-    const uint64_t winSize = 1024 * 1024 * 200;
-    CHECK(shmemSize < winSize) << "Exceeds winSize limit. Masxmum allowed: " << winSize << ", got: " << shmemSize;
+    CHECK(shmemSize < MOE_V2_MAX_WIN_SIZE)
+        << "Exceeds winSize limit. Maximum allowed: " << MOE_V2_MAX_WIN_SIZE << ", got: " << shmemSize;
 }
 
 Tensor Nop(const std::vector<Tensor>& inTensors)

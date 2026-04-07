@@ -473,6 +473,147 @@ def shmem_clear_signal(
 
 
 @op_wrapper
+def moe_distributed_dispatch(
+    token_tensor: Tensor,
+    token_expert_table: Tensor,
+    group_name: str,
+    routed_expert_num: int,
+    rank_num: int,
+    expand_x: Tensor,
+    valid_cnt: Tensor,
+    combine_info: Tensor,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Runs the backend MoeDistributedDispatch op."""
+    pypto_impl.MoeDistributedDispatch(
+        token_tensor,
+        token_expert_table,
+        expand_x,
+        valid_cnt,
+        combine_info,
+        group_name,
+        routed_expert_num,
+        rank_num,
+    )
+    return expand_x, valid_cnt, combine_info
+
+
+@op_wrapper
+def moe_distributed_combine(
+    expand_x: Tensor,
+    assist_info_for_combine: Tensor,
+    recv_counts: Tensor,
+    expert_scales: Tensor,
+    group_name: str,
+    ep_world_size: int,
+    moe_expert_num: int,
+    out: Tensor,
+) -> Tensor:
+    """Runs the backend MoeDistributedCombine op."""
+    pypto_impl.MoeDistributedCombine(
+        expand_x,
+        assist_info_for_combine,
+        recv_counts,
+        expert_scales,
+        group_name,
+        ep_world_size,
+        moe_expert_num,
+        out,
+    )
+    return out
+
+
+@op_wrapper
+def moe_distributed_dispatch_v2(
+    x: Tensor,
+    expert_ids: Tensor,
+    group_name: str,
+    ep_world_size: int,
+    moe_expert_num: int,
+    shared_expert_num: int,
+    shared_expert_rank_num: int,
+    expand_x: Tensor,
+    assist_info_for_combine: Tensor,
+    expert_token_nums: Tensor,
+    recv_counts: Tensor,
+) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    """Runs the backend MoeDistributedDispatchV2 op.
+
+    Parameters
+    ----------
+    x : Tensor
+        Local token tensor with shape `[batch, hidden]`.
+    expert_ids : Tensor
+        Routed expert ids with shape `[batch, topk]`.
+    group_name : str
+        HCCL group name.
+    ep_world_size : int
+        Expert parallel world size.
+    moe_expert_num : int
+        Total routed expert count.
+    shared_expert_num : int
+        Shared expert count in the backend op. Routed-only path should pass `0`.
+    shared_expert_rank_num : int
+        Shared expert rank count. Routed-only path should pass `0`.
+    expand_x : Tensor
+        Output buffer for dispatched tokens.
+    assist_info_for_combine : Tensor
+        Output buffer for combine metadata.
+    expert_token_nums : Tensor
+        Output buffer for per-local-expert token counts.
+    recv_counts : Tensor
+        Output buffer for total received token count.
+
+    Returns
+    -------
+    tuple[Tensor, Tensor, Tensor, Tensor]
+        The same output tensors that were passed in.
+    """
+    pypto_impl.MoeDistributedDispatchV2(
+        x,
+        expert_ids,
+        group_name,
+        ep_world_size,
+        moe_expert_num,
+        shared_expert_num,
+        shared_expert_rank_num,
+        expand_x,
+        assist_info_for_combine,
+        expert_token_nums,
+        recv_counts,
+    )
+    return expand_x, assist_info_for_combine, expert_token_nums, recv_counts
+
+
+@op_wrapper
+def moe_distributed_combine_v2(
+    expand_x: Tensor,
+    assist_info_for_combine: Tensor,
+    recv_counts: Tensor,
+    expert_scales: Tensor,
+    group_name: str,
+    ep_world_size: int,
+    moe_expert_num: int,
+    shared_expert_num: int,
+    shared_expert_rank_num: int,
+    out: Tensor,
+) -> Tensor:
+    """Runs the backend MoeDistributedCombineV2 op."""
+    pypto_impl.MoeDistributedCombineV2(
+        expand_x,
+        assist_info_for_combine,
+        recv_counts,
+        expert_scales,
+        group_name,
+        ep_world_size,
+        moe_expert_num,
+        shared_expert_num,
+        shared_expert_rank_num,
+        out,
+    )
+    return out
+
+
+@op_wrapper
 def my_symbolic_pe(group_name: str) -> SymbolicScalar:
     """Gets the symbolic PE.
 

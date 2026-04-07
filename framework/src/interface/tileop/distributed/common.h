@@ -16,6 +16,7 @@
 #ifndef DISTRIBUTED_COMMON_H
 #define DISTRIBUTED_COMMON_H
 
+#include <algorithm>
 #include "comm_context.h"
 #include "../tileop_common.h"
 
@@ -296,42 +297,17 @@ TILEOP void CalcOccurrences(__ubuf__ int32_t* expertTable, uint32_t dstExpertId,
 TILEOP int32_t
 CalcOccurrencesVector(__ubuf__ int32_t* expertTable, uint32_t dstExpertId, uint32_t cnt, __ubuf__ int32_t* tmpBuf)
 {
+    (void)tmpBuf;
     if (cnt == 0) {
         return 0;
     }
-    int32_t bufferLen = AlignUp<int32_t>(cnt * sizeof(int32_t), 32);
-    uint32_t repeatCnt = bufferLen / 32;
-    if (bufferLen % 32 != 0) {
-        repeatCnt++;
+    int32_t hitCount = 0;
+    for (uint32_t i = 0; i < cnt; ++i) {
+        if (expertTable[i] == static_cast<int32_t>(dstExpertId)) {
+            hitCount++;
+        }
     }
-    set_mask_norm();
-    set_vector_mask(-1, -1);
-    __ubuf__ int32_t* subBuf = tmpBuf + bufferLen;
-    // dst, srcImm, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
-    vector_dup(tmpBuf, dstExpertId, repeatCnt, 1, 1, 8, 8);
-    pipe_barrier(PIPE_V);
-    // dst, src0, src1, repeat, dstBlockStride, src0BlockStride, src1BlockStride, dstRepeatStride, src0RepeatStride,
-    // src1RepeatStride
-    vsub(subBuf, expertTable, tmpBuf, repeatCnt, 1, 1, 1, 8, 8, 8);
-    pipe_barrier(PIPE_V);
-    // dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
-    vabs((__ubuf__ float*)tmpBuf, (__ubuf__ float*)subBuf, repeatCnt, 1, 1, 8, 8);
-    pipe_barrier(PIPE_V);
-    // dst, src0, src1, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride
-    vmins(subBuf, tmpBuf, 1, repeatCnt, 1, 1, 8, 8);
-    pipe_barrier(PIPE_V);
-
-    // 求和
-    set_mask_count();        // 设置 counter mode
-    set_vector_mask(0, cnt); // 只计算 cnt 个
-    // dst, src, repeat, dstRepeatStride, srcBlockStride, srcRepeatStride
-    vcadd((__ubuf__ float*)tmpBuf, (__ubuf__ float*)subBuf, 1, 8, 1, 8, 0);
-    set_mask_norm();
-    set_vector_mask(-1, -1);
-    pipe_barrier(PIPE_V);
-    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
-    return cnt - tmpBuf[0];
+    return hitCount;
 }
 
 template <typename T>

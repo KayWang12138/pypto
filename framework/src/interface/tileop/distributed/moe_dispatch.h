@@ -329,6 +329,7 @@ TILEOP void FFNValidCnt(
     int32_t localUsrRankId = static_cast<int32_t>(shmemFlagOffset0);
     __gm__ int32_t* winFlagBaseAddr = MapVirtualAddr<int32_t>(hcclContext, shmemFlagBaseAddr, localUsrRankId);
     __ubuf__ uint32_t* flag = reinterpret_cast<__ubuf__ uint32_t*>(buffer);
+    __ubuf__ int32_t* clearFlag = reinterpret_cast<__ubuf__ int32_t*>(buffer);
     uint32_t flagSize = 32;
     __ubuf__ int32_t* receiveCnt = reinterpret_cast<__ubuf__ int32_t*>(buffer + flagSize);
     int32_t offsetResult = 0;
@@ -354,6 +355,30 @@ TILEOP void FFNValidCnt(
         }
         pipe_barrier(PIPE_ALL);
         receiveCnt[offsetResult++] = receiveToken;
+
+        // Clear the local expert flag window after validCnt is materialized so the next invocation
+        // does not observe stale status/count data from the previous turn.
+        GM_ADDR winFlagClearStartAddr = (GM_ADDR)winFlagBaseAddr + expertId * shmemFlagRawShape0 * 512;
+        ClearFlagBuf(clearFlag);
+        set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+        wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+        clearFlag[0] = -1;
+        DataCopyParams clearParams;
+        clearParams.sid = 0;
+        clearParams.nBurst = 1;
+        clearParams.lenBurst = 1;
+        clearParams.srcStride = 0;
+        clearParams.dstStride = 15;
+        set_atomic_s32();
+        for (int32_t rankId = 0; rankId < shmemFlagRawShape0; ++rankId) {
+            copy_ubuf_to_gm(
+                winFlagClearStartAddr, clearFlag, clearParams.sid, clearParams.nBurst, clearParams.lenBurst,
+                clearParams.srcStride, clearParams.dstStride);
+            set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+            wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+            winFlagClearStartAddr += 512;
+        }
+        set_atomic_none();
     }
     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
