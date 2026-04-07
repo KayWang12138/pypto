@@ -199,7 +199,28 @@ int DeviceStitchContext::MoveTo(DynDeviceTask* dynTask)
     dynTask->dynFuncDataCacheListSize = size;
     return DEVICE_MACHINE_OK;
 }
-
+static inline bool ClampConsumerShapeToCellGrid(
+  uint64_t consumerOffset[DEV_SHAPE_DIM_MAX],
+  uint64_t consumerShape[DEV_SHAPE_DIM_MAX],
+  const DevCellMatchTableDesc &cellMatchTableDesc) {
+for (int d = 0; d < cellMatchTableDesc.GetDimensionSize(); d++) {
+  auto cellDim = cellMatchTableDesc.GetCellShape(d);
+  if (cellDim <= 0) {
+      continue;
+  }
+  auto gridTiles = cellMatchTableDesc.GetStrideShape(d);
+  uint64_t maxValidExtent = static_cast<uint64_t>(gridTiles) * static_cast<uint64_t>(cellDim);
+  if (consumerOffset[d] >= maxValidExtent) {
+      return false;
+  } else if (consumerOffset[d] + consumerShape[d] > maxValidExtent) {
+      DEV_VERBOSE_DEBUG("[CellMatchClamp] dim[%d]: shape clamped from %lu to %lu "
+          "(offset=%lu, maxValidExtent=%lu)",
+          d, consumerShape[d], maxValidExtent - consumerOffset[d], consumerOffset[d], maxValidExtent);
+      consumerShape[d] = maxValidExtent - consumerOffset[d];
+  }
+}
+return true;
+}
 void DeviceStitchContext::HandleOneStitch(
     DevAscendFunctionDupped& producerDup, DevAscendFunctionDupped& consumerDup,
     DevAscendFunctionDuppedStitchList& producerStitchList, size_t producerOperationIdx, size_t consumerIdx,
@@ -297,7 +318,9 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
                     consumer.operationIdx, j, consumerOffset[j], consumerShape[j], cellMatchTableDesc.cellShape.dim[j]);
             }
         }
-
+        if (!ClampConsumerShapeToCellGrid(consumerOffset, consumerShape, cellMatchTableDesc)) {
+            continue;
+        }
         CellMatchHandle<HandleCellMatchPartial>(
             consumerOffset, consumerShape, cellMatchTableDesc, partialUpdateTableData, &matchCount,
             stitchedList_.data(), stitchedList_.size(), &nextDup, devTaskId, devNextIdx, consumer.operationIdx,
@@ -318,6 +341,17 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(
     auto expressionList = &nextDup.GetExpression(0);
     auto& cellMatchTableDesc = outcast.cellMatchTableDesc;
     auto fullUpdateTableData = &prevSrc->At(outcast.cellMatchRuntimeFullUpdateTable, 0);
+    DEV_VERBOSE_DEBUG("[FullCoverStitch] slotIdx=%d, stitchDupIdx=%u, stitchOutcastIdx=%u, "
+    "tableSize=%zu, descDimSize=%d",
+    slotIdx, slot.stitchDupIdx, slot.stitchOutcastIdx,
+    outcast.cellMatchRuntimeFullUpdateTable.size(),
+    cellMatchTableDesc.GetDimensionSize());
+    DEV_IF_VERBOSE_DEBUG {
+    for (int d = 0; d < cellMatchTableDesc.GetDimensionSize(); d++) {
+        DEV_VERBOSE_DEBUG("[FullCoverStitch] dim[%d]: cellShape=%d, stride=%lu",
+            d, cellMatchTableDesc.GetCellShape(d), cellMatchTableDesc.GetStride(d));
+        }
+    }
     struct HandleCellMatchFull {
         static inline void Process(
             int index, uint32_t* cellMatchTableData, uint64_t* matchCount, DevAscendFunctionDupped* prevDup,
@@ -349,6 +383,21 @@ uint64_t DeviceStitchContext::FullCoverDefaultUpdateStitch(
         GetTensorOffsetAndShape<false>(
             nextSrc, consumerOffset, consumerShape, expressionList, incast.dim, consumer.operationIdx,
             consumer.operandIdx, true);
+        DEV_IF_VERBOSE_DEBUG {
+            DEV_VERBOSE_DEBUG("[FullCoverDefault] consumer[%zu/%zu]: operationIdx=%d, operandIdx=%d",
+                n, incast.consumerList.size(), consumer.operationIdx, consumer.operandIdx);
+            for (int d = 0; d < cellMatchTableDesc.GetDimensionSize(); d++) {
+                auto cellDim = cellMatchTableDesc.GetCellShape(d);
+                uint64_t rangeBegin = cellDim != 0 ? consumerOffset[d] / cellDim : 0;
+                uint64_t rangeEnd = cellDim != 0 ? (consumerOffset[d] + consumerShape[d] - 1) / cellDim : 0;
+                DEV_VERBOSE_DEBUG("[FullCoverDefault]   dim[%d]: offset=%lu, shape=%lu, "
+                    "cellShape=%d, rangeBegin=%lu, rangeEnd=%lu, count=%lu",
+                    d, consumerOffset[d], consumerShape[d], cellDim, rangeBegin, rangeEnd, rangeEnd - rangeBegin + 1);
+            }
+        }
+        if (!ClampConsumerShapeToCellGrid(consumerOffset, consumerShape, cellMatchTableDesc)) {
+            continue;
+        }
         CellMatchHandle<HandleCellMatchFull>(
             consumerOffset, consumerShape, cellMatchTableDesc, fullUpdateTableData, &matchCount, &prevDup, &nextDup,
             devNextIdx, consumer.operationIdx, workspace_, slotIdx);
