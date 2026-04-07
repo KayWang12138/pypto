@@ -85,10 +85,10 @@ Status AutoCast::RunOnFunction(Function& function)
         APASS_LOG_ERROR_F(Elements::Function, "Failed to insert CAST for FP16 unsupported Operations.");
         return FAILED;
     }
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && InsertInt32Fp16Cast(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Failed to insert fp32 between int32 to fp16 cast.");
-        return FAILED;
-    }
+    // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && InsertInt32Fp16Cast(function) != SUCCESS) {
+    //     APASS_LOG_ERROR_F(Elements::Function, "Failed to insert fp32 between int32 to fp16 cast.");
+    //     return FAILED;
+    // }
     if (RemoveRedundantCastChain(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Failed to remove redundant CAST.");
         return FAILED;
@@ -127,15 +127,15 @@ Status AutoCast::InsertInt32Fp16Cast(Function& function)
 
 bool AutoCast::SupportBF16(Operation* op)
 {
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0)
-            return false;
-    } else {
+    // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+    //     if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0)
+    //         return false;
+    // } else {
         if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
             APASS_LOG_INFO_F(Elements::Operation, "Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
             return false;
         }
-    }
+    // }
     return true;
 }
 

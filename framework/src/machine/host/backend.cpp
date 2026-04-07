@@ -438,10 +438,10 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
 }
 static bool NeedCrossDie(Function* func, bool isLoop = false)
 {
-    if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) &&
-        (!isLoop || (func->GetDynloopAttribute()->parallel == ParallelMode::PARALLEL))) {
-        return true;
-    }
+    // if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) &&
+    //     (!isLoop || (func->GetDynloopAttribute()->parallel == ParallelMode::PARALLEL))) {
+    //     return true;
+    // }
     return false;
 }
 

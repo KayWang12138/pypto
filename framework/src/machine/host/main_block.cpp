@@ -85,12 +85,12 @@ bool MainBlockCondBulider::GetValidShapeFromCoa(
 
 void MainBlockCondBulider::CollectCallopMainBlockConds(Function* func)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
-    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
-        AddUniqueCondition(SymbolicScalar(false));
-        return;
-    }
+    // bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    // enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    // if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
+    //     AddUniqueCondition(SymbolicScalar(false));
+    //     return;
+    // }
 
     auto checkOperand = [&](auto& op, auto& shape, auto& validshape, const char* tag) -> bool {
         auto cond = CheckShapeEquality(shape, validshape);
@@ -118,12 +118,12 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function* func)
 
 void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>>& argList)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
-    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
-        AddUniqueCondition(SymbolicScalar(false));
-        return;
-    }
+    // bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    // enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    // if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
+    //     AddUniqueCondition(SymbolicScalar(false));
+    //     return;
+    // }
 
     for (const auto& iter : argList) {
         Shape shape;
@@ -162,14 +162,14 @@ SymbolicScalar MainBlockCondBulider::BuildMainBlockExpression()
 
 void MainBlockCondBulider::Gencode(Function* function)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
-    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
-        bool isDynamicAligned = function->paramConfigs_.dynamicAlignedOps;
-        npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true, isDynamicAligned);
-        npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
-        codeGenMainBlock.GenCode(*function, {});
-    }
+    // bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    // enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    // if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
+    //     bool isDynamicAligned = function->paramConfigs_.dynamicAlignedOps;
+    //     npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true, isDynamicAligned);
+    //     npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
+    //     codeGenMainBlock.GenCode(*function, {});
+    // }
 }
 
 const std::vector<SymbolicScalar>& MainBlockCondBulider::GetCondGroup() const { return mainBlockCondGroup_; }

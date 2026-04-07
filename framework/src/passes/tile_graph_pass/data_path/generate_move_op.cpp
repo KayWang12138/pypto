@@ -344,13 +344,13 @@ Status GenerateMoveOp::CreateMoveOp(Function& function) const
                 break;
             }
             case Opcode::OP_VIEW: {
-                if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-                    Status status = A5CreateMoveOpForView(function, op);
-                    if (status != SUCCESS) {
-                        return status;
-                    }
-                    break;
-                }
+                // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+                //     Status status = A5CreateMoveOpForView(function, op);
+                //     if (status != SUCCESS) {
+                //         return status;
+                //     }
+                //     break;
+                // }
                 Status status = A23CreateMoveOpForView(function, op);
                 if (status != SUCCESS) {
                     return status;

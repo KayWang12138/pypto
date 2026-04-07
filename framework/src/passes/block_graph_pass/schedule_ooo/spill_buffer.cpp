@@ -618,15 +618,15 @@ Status OoOScheduler::UpdateCopyOutMode(Operation& copyOutOp)
             copyOutOp.GetOpMagic());
         return FAILED;
     }
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        if (copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
-            copyOutOp.SetAttribute(OpAttributeKey::copyIsNZ, 0);
-        }
-    } else {
+    // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+    //     if (copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+    //         copyOutOp.SetAttribute(OpAttributeKey::copyIsNZ, 0);
+    //     }
+    // } else {
         if (copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             copyOutOp.SetAttribute(OpAttributeKey::copyOutMode, static_cast<int64_t>(Matrix::CopyOutMode::ND2ND));
         }
-    }
+    // }
     return SUCCESS;
 }
 
@@ -640,15 +640,15 @@ Status OoOScheduler::UpdateCopyInMode(Operation& copyInOp)
             copyInOp.GetOpMagic());
         return FAILED;
     }
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        if (copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-            copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2NZ));
-        }
-    } else {
+    // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+    //     if (copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+    //         copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2NZ));
+    //     }
+    // } else {
         if (copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
         }
-    }
+    // }
     return SUCCESS;
 }
 
@@ -1032,10 +1032,10 @@ Status OoOScheduler::GetSpillInfo(Operation* allocOp, int spillMemId, bool isGen
     spillInfo.spillTensor_ = spillTensor;
     spillInfo.spillOp_ = spillOp;
     spillInfo.spillMemId_ = spillMemId;
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
-        spillOp->GetOpcodeStr().find("COPY_IN") == std::string::npos) {
-        spillInfo.isSpecialL1_ = true;
-    }
+    // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
+    //     spillOp->GetOpcodeStr().find("COPY_IN") == std::string::npos) {
+    //     spillInfo.isSpecialL1_ = true;
+    // }
     return SUCCESS;
 }
 
@@ -1048,10 +1048,10 @@ Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spill
             return FAILED;
         }
         if (spillInfo.spillOp_->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
-                return FAILED;
-            }
+            // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
+            //     APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
+            //     return FAILED;
+            // }
             if (SpillAssembleBuffer(spillInfo, allocOp, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillAssembleBuffer[%d] failed.", spillMemId);
                 return FAILED;
@@ -1089,12 +1089,12 @@ bool OoOScheduler::CheckMachineAndL1(Operation* spillOp, Operation* allocOp) {
         APASS_LOG_WARN_F(Elements::Tensor, "CheckMachineAndL1: spillOp %s has no inputOperand.", GetOpInfo(spillOp).c_str());
         return false;
     }
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
-        spillOp->GetOpcodeStr().find("COPY_IN") == std::string::npos && spillOp->GetOpcodeStr().find("RESHAPE") == std::string::npos &&
-        spillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
-        spillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-        return false;
-    }
+    // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocOp->GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
+    //     spillOp->GetOpcodeStr().find("COPY_IN") == std::string::npos && spillOp->GetOpcodeStr().find("RESHAPE") == std::string::npos &&
+    //     spillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
+    //     spillOp->GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+    //     return false;
+    // }
     return true;
 }
 

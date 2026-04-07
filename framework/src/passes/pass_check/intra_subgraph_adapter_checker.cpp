@@ -23,9 +23,9 @@ namespace tile_fwk {
 
 Status IntraSubgraphAdapterChecker::PostCheckSubgraphTensor(const std::vector<std::vector<Operation*>>& subgraphs)
 {
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        return SUCCESS;
-    }
+    // if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+    //     return SUCCESS;
+    // }
     for (const auto& subgraph : subgraphs) {
         if (subgraph.empty()) {
             continue;
