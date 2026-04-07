@@ -509,21 +509,6 @@ Status OptimizeSort::UpdateOOperandPreDependence(
     return SUCCESS;
 }
 
-const std::vector<int>& OptimizeSort::GetOpMemIds(Operation* op)
-{
-    auto it = opMemIdsCache_.find(op);
-    if (it != opMemIdsCache_.end()) {
-        return it->second;
-    }
-    std::vector<int> memIds;
-    memIds.reserve(GetInOutOperandCached(op).size());
-    for (auto tensor : GetInOutOperandCached(op)) {
-        memIds.push_back(tensor->memoryrange.memId);
-    }
-    auto inserted = opMemIdsCache_.emplace(op, std::move(memIds));
-    return inserted.first->second;
-}
-
 Status OptimizeSort::ConsumeOpBuffers(Operation* op)
 {
     for (auto memId : GetOpMemIds(op)) {
