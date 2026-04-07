@@ -52,9 +52,8 @@ TILEOP constexpr ExpandTile GetExpandTile()
     return ExpandTile::NONE;
 }
 
-#define OP_TILE_OP_EXPAND TExpand
-template <typename LastUse = LastUse2Dim<0, 0>, ExpandTile expandTile, typename TileDst, typename TileSrc>
-TILEOP void ExpandImpl(TileDst& dstTile, TileSrc& srcTile)
+template <typename LastUse = LastUse2Dim<0, 0>, ExpandTile expandTile, typename TileDst, typename TileSrc, typename TileTmp>
+TILEOP void ExpandImp(TileDst& dstTile, TileSrc& srcTile, TileTmp& tmpTile)
 {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
@@ -63,7 +62,11 @@ TILEOP void ExpandImpl(TileDst& dstTile, TileSrc& srcTile)
     } else if constexpr (expandTile == ExpandTile::W) {
         PTO_WITH_LAST_USE(pto::TROWEXPAND(dstTile, srcTile), n1, n2);
     } else if constexpr (expandTile == ExpandTile::HW) {
-        // TODO
+        pto::TROWEXPAND(tmpTile, srcTile);
+#ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+#endif
+        PTO_WITH_LAST_USE(pto::TCOLEXPAND(dstTile, tmpTile), n1, n2);
     } else {
         PTO_WITH_LAST_USE(pto::TMOV(dstTile, srcTile), n1, n2);
     }
@@ -92,39 +95,33 @@ TILEOP void TExpand(T0 dst, T1 src)
     using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
     using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
     constexpr auto typeSize = sizeof(DstDtype);
-
+    
+    auto dstTileH = DstTileInfo::tileH;
+    auto srcTileH = SrcTileInfo::tileH;
+    
     if constexpr (expandTile == ExpandTile::NONE) {
-        constexpr size_t minTileH = DstTileInfo::tileH < SrcTileInfo::tileH ? DstTileInfo::tileH : SrcTileInfo::tileH;
-        using dstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, minTileH, DstTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
-        using srcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, minTileH, SrcTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
-        dstTileDefine dstTile(dstShape3, dstShape4);
-        srcTileDefine srcTile(srcShape3, srcShape4);
+        dstTileH = DstTileInfo::tileH < SrcTileInfo::tileH ? DstTileInfo::tileH : SrcTileInfo::tileH;
+        srcTileH = DstTileInfo::tileH < SrcTileInfo::tileH ? DstTileInfo::tileH : SrcTileInfo::tileH;
+    }
 
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    auto dstOffset = GenTileOffset(dst, TileOffset(n0Index, n1Index, n2Index));
-                    auto srcOffset = GenTileOffset(src, TileOffset(SrcTileInfo::tile0 == 1 ? 0 : n0Index, SrcTileInfo::tile1 == 1 ? 0 : n1Index,
-                                                                   SrcTileInfo::tile2 == 1 ? 0 : n2Index));
-                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
-                    pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    ExpandImpl<LastUse, expandTile>(dstTile, srcTile);
-                }
-            }
-        }
-    } else {
-        auto dstTile = PtoTile<T0>(dst);
-        auto srcTile = PtoTile<T1>(src);
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    auto dstOffset = TileOffset(n0Index, n1Index, n2Index);
-                    auto srcOffset = TileOffset(SrcTileInfo::tile0 == 1 ? 0 : n0Index, SrcTileInfo::tile1 == 1 ? 0 : n1Index,
-                                                SrcTileInfo::tile2 == 1 ? 0 : n2Index);
-                    dstTile.Assign(dst, dstOffset);
-                    srcTile.Assign(src, srcOffset);
-                    ExpandImpl<LastUse, expandTile>(dstTile.Data(), srcTile.Data());
-                }
+    using dstTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, DstTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
+    using srcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, SrcTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
+    using tmpTileDefine = pto::Tile<pto::TileType::Vec, DstDtype, srcTileH, DstTileInfo::tileW, pto::BLayout::RowMajor, -1, -1>;
+
+    dstTileDefine dstTile(dstShape3, dstShape4);
+    srcTileDefine srcTile(srcShape3, srcShape4);
+    tmpTileDefine tmpTile(srcShape3, dstShape4);
+
+    for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
+                auto dstOffset = GenTileOffset(dst, TileOffset(n0Index, n1Index, n2Index));
+                auto srcOffset = GenTileOffset(src, TileOffset(SrcTileInfo::tile0 == 1 ? 0 : n0Index, SrcTileInfo::tile1 == 1 ? 0 : n1Index,
+                                                               SrcTileInfo::tile2 == 1 ? 0 : n2Index));
+                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
+                pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
+                pto::TASSIGN(tmpTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
+                ExpandImpl<LastUse, expandTile>(dstTile, srcTile, tmpTile);
             }
         }
     }
