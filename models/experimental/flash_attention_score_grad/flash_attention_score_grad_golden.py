@@ -30,18 +30,9 @@ from typing import Tuple
 
 import torch
 
-# Configure logger for the module
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logger.propagate = False
-formatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='[%Y-%m-%d %H:%M:%S]'
-)
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-logger.handlers.clear()
-logger.addHandler(handler)
+logger.addHandler(logging.StreamHandler())
 
 
 def flash_attention_score_grad_golden(
