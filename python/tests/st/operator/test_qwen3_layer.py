@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+# pylint: disable=duplicate-code
+
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +19,9 @@ import pypto
 import torch
 
 from st.pypto_test import TestBuilder
+from pypto.runtime import _device_fini as device_fini
+from pypto.runtime import _device_init as device_init
+from pypto.runtime import _device_run_once_data_from_host as device_run_once_data_from_host
 
 torch.manual_seed(0)
 
@@ -21,6 +36,83 @@ class PaTileConfig:
     v1_tile_shape: tuple
     c2_tile_shape: tuple
     v2_tile_shape: tuple
+
+
+def _make_qwen3_pa_tile_config() -> PaTileConfig:
+    return PaTileConfig(
+        head_num_q_tile=4,
+        c1_tile_shape=(4, 4, 128, 128, 256, 256),
+        v1_tile_shape=(4, 2048),
+        c2_tile_shape=(4, 4, 128, 128, 128, 128),
+        v2_tile_shape=(4, 512),
+    )
+
+
+def _make_qwen3_prolog_params():
+    return {
+        "b": 32,
+        "s": 1,
+        "n": 32,
+        "n_kv": 8,
+        "d": 128,
+        "block_size": 2048,
+        "dtype": torch.bfloat16,
+    }
+
+
+def _make_qwen3_attention_params():
+    params = _make_qwen3_prolog_params()
+    params.update(
+        {
+            "skv": 2048,
+            "max_unroll_times": 8,
+            "pa_tile_config": _make_qwen3_pa_tile_config(),
+        }
+    )
+    return params
+
+
+def _make_qwen3_mlp_params():
+    return {
+        "b": 32,
+        "s": 1,
+        "h": 4096,
+        "inter": 12288,
+        "dtype": torch.bfloat16,
+    }
+
+
+def _make_qwen3_layer_params():
+    params = _make_qwen3_attention_params()
+    params["inter"] = 12288
+    return params
+
+
+@dataclass(frozen=True)
+class PaRowSpec:
+    block_size: int
+    act_seq: int
+    kv_idx: int
+    d: int
+
+
+@dataclass(frozen=True)
+class QKVProjectionTensors:
+    attn_q_w: torch.Tensor
+    attn_q_b: torch.Tensor
+    attn_k_w: torch.Tensor
+    attn_k_b: torch.Tensor
+    attn_v_w: torch.Tensor
+    attn_v_b: torch.Tensor
+    attn_q_norm_w: torch.Tensor
+    attn_k_norm_w: torch.Tensor
+
+
+@dataclass(frozen=True)
+class CacheUpdateTensors:
+    cache_index: torch.Tensor
+    key_cache: torch.Tensor
+    value_cache: torch.Tensor
 
 
 def _gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -66,6 +158,14 @@ def _set_matmul_tile(m: int, k: int, n: int, dtype):
     m_tile, k_tile, n_tile = _get_matmul_tile(m, k, n, dtype)
     pypto.set_cube_tile_shapes([m_tile, m_tile], [k_tile, k_tile], [n_tile, n_tile])
     pypto.set_matrix_size([m, k, n])
+
+
+def _set_cube_tile_shapes_from_tuple(tile_shape: tuple):
+    pypto.set_cube_tile_shapes(
+        [tile_shape[0], tile_shape[1]],
+        [tile_shape[2], tile_shape[3]],
+        [tile_shape[4], tile_shape[5]],
+    )
 
 
 def _torch_dtype_to_pypto(dtype: torch.dtype):
@@ -122,7 +222,7 @@ def _rope_rearrange_torch(x: torch.Tensor) -> torch.Tensor:
 
 def _rotate_half_torch(x: torch.Tensor) -> torch.Tensor:
     d = x.shape[-1]
-    return torch.cat((-x[..., d // 2 :], x[..., : d // 2]), dim=-1)
+    return torch.cat((-x[..., d // 2:], x[..., :d // 2]), dim=-1)
 
 
 def _apply_rope_torch(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
@@ -156,8 +256,8 @@ def _build_cache_from_bsnd(k_bsnd: torch.Tensor, v_bsnd: torch.Tensor, act_seq_l
             start = block_idx * block_size
             end = min(start + block_size, seq_len)
             if end > start:
-                k_cache[global_block_id, 0 : (end - start), :, :] = k_bsnd[batch_idx, start:end, :, :]
-                v_cache[global_block_id, 0 : (end - start), :, :] = v_bsnd[batch_idx, start:end, :, :]
+                k_cache[global_block_id, 0:(end - start), :, :] = k_bsnd[batch_idx, start:end, :, :]
+                v_cache[global_block_id, 0:(end - start), :, :] = v_bsnd[batch_idx, start:end, :, :]
     return (
         block_table,
         block_num_per_batch,
@@ -197,17 +297,115 @@ def _build_rope_from_cache_position(cache_position: torch.Tensor, d: int, dtype)
     return torch.cos(emb).to(dtype), torch.sin(emb).to(dtype)
 
 
-def _build_pa_rows_from_cache(
-    cache: torch.Tensor, block_table: torch.Tensor, block_size: int, act_seq: int, kv_idx: int, d: int
-):
+def _build_pa_rows_from_cache(cache: torch.Tensor, block_table: torch.Tensor, spec: PaRowSpec):
     rows = []
-    for pos in range(act_seq):
-        block_idx_in_batch = pos // block_size
-        offset_in_block = pos % block_size
+    for pos in range(spec.act_seq):
+        block_idx_in_batch = pos // spec.block_size
+        offset_in_block = pos % spec.block_size
         global_block_id = int(block_table[block_idx_in_batch].item())
-        row_idx = global_block_id * block_size + offset_in_block
-        rows.append(cache[row_idx, kv_idx * d : (kv_idx + 1) * d])
+        row_idx = global_block_id * spec.block_size + offset_in_block
+        rows.append(cache[row_idx, spec.kv_idx * spec.d:(spec.kv_idx + 1) * spec.d])
     return torch.stack(rows, dim=0)
+
+
+def _run_qkv_rope_cache_torch(
+    params,
+    hidden_states: torch.Tensor,
+    proj: QKVProjectionTensors,
+    rope: tuple[torch.Tensor, torch.Tensor],
+    cache: CacheUpdateTensors,
+):
+    b = params["b"]
+    s = params["s"]
+    n_q = params["n"]
+    n_kv = params["n_kv"]
+    d = params["d"]
+    kv_hidden = n_kv * d
+    cos, sin = rope
+
+    q = torch.matmul(hidden_states.to(torch.float32), proj.attn_q_w.to(torch.float32)).to(hidden_states.dtype)
+    q = (q.to(torch.float32) + proj.attn_q_b.to(torch.float32)).to(hidden_states.dtype)
+    k = torch.matmul(hidden_states.to(torch.float32), proj.attn_k_w.to(torch.float32)).to(hidden_states.dtype)
+    k = (k.to(torch.float32) + proj.attn_k_b.to(torch.float32)).to(hidden_states.dtype)
+    v = torch.matmul(hidden_states.to(torch.float32), proj.attn_v_w.to(torch.float32)).to(hidden_states.dtype)
+    v = (v.to(torch.float32) + proj.attn_v_b.to(torch.float32)).to(hidden_states.dtype)
+
+    q = _rmsnorm_torch(q.reshape(b * s * n_q, d), proj.attn_q_norm_w).reshape(b, s, n_q, d)
+    k = _rmsnorm_torch(k.reshape(b * s * n_kv, d), proj.attn_k_norm_w).reshape(b, s, n_kv, d)
+    v = v.reshape(b, s, n_kv, d)
+
+    q_embed = _apply_rope_torch(q, cos, sin)
+    k_embed = _apply_rope_torch(k, cos, sin)
+    query_out = q_embed.reshape(b * s * n_q, d).contiguous()
+
+    key_cache_out = cache.key_cache.clone()
+    value_cache_out = cache.value_cache.clone()
+    key_rows = k_embed.reshape(b * s, kv_hidden)
+    value_rows = v.reshape(b * s, kv_hidden)
+    for batch_idx in range(b):
+        for token_idx in range(s):
+            row = int(cache.cache_index[batch_idx, token_idx].item())
+            src = batch_idx * s + token_idx
+            key_cache_out[row, :] = key_rows[src, :]
+            value_cache_out[row, :] = value_rows[src, :]
+
+    return query_out, key_cache_out, value_cache_out
+
+
+def _run_layer_post_torch(
+    hidden_states: torch.Tensor,
+    pa_out: torch.Tensor,
+    attn_o_w: torch.Tensor,
+    attn_o_b: torch.Tensor,
+    gate_w: torch.Tensor,
+    up_w: torch.Tensor,
+    down_w: torch.Tensor,
+):
+    context = pa_out.reshape(hidden_states.shape[0], -1).to(hidden_states.dtype)
+    o_proj = torch.matmul(context.to(torch.float32), attn_o_w.to(torch.float32)).to(hidden_states.dtype)
+    o_proj = (o_proj.to(torch.float32) + attn_o_b.to(torch.float32)).to(hidden_states.dtype)
+    h1 = (hidden_states.to(torch.float32) + o_proj.to(torch.float32)).to(hidden_states.dtype)
+    norm2 = _rmsnorm_torch(h1)
+    gate = torch.matmul(norm2.to(torch.float32), gate_w.to(torch.float32)).to(hidden_states.dtype)
+    up = torch.matmul(norm2.to(torch.float32), up_w.to(torch.float32)).to(hidden_states.dtype)
+    gate_act = gate * torch.sigmoid(gate.to(torch.float32)).to(hidden_states.dtype)
+    gate_up = (gate_act.to(torch.float32) * up.to(torch.float32)).to(hidden_states.dtype)
+    mlp_out = torch.matmul(gate_up.to(torch.float32), down_w.to(torch.float32)).to(hidden_states.dtype)
+    return (h1.to(torch.float32) + mlp_out.to(torch.float32)).to(hidden_states.dtype)
+
+
+def _run_paged_attention_torch(
+    params,
+    q_4d: torch.Tensor,
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+    block_table: torch.Tensor,
+    act_seqs: torch.Tensor,
+):
+    b = params["b"]
+    s = params["s"]
+    n_q = params["n"]
+    n_kv = params["n_kv"]
+    d = params["d"]
+    block_size = params["block_size"]
+    group = n_q // n_kv
+    out = torch.zeros([b, s, n_q, d], dtype=torch.float32)
+    scale = 1.0 / math.sqrt(d)
+    for batch_idx in range(b):
+        cur_block_table = block_table[batch_idx]
+        act_seq = int(act_seqs[batch_idx].item())
+        for token_idx in range(s):
+            cur_seq = max(act_seq - s + 1 + token_idx, 0)
+            for kv_idx in range(n_kv):
+                q_group = q_4d[batch_idx, token_idx, kv_idx * group:(kv_idx + 1) * group, :]
+                spec = PaRowSpec(block_size=block_size, act_seq=cur_seq, kv_idx=kv_idx, d=d)
+                k_cur = _build_pa_rows_from_cache(key_cache, cur_block_table, spec).to(torch.float32)
+                v_cur = _build_pa_rows_from_cache(value_cache, cur_block_table, spec).to(torch.float32)
+                scores = torch.matmul(q_group, k_cur.transpose(-1, -2)) * scale
+                probs = torch.softmax(scores, dim=-1)
+                out_group = torch.matmul(probs, v_cur)
+                out[batch_idx, token_idx, kv_idx * group:(kv_idx + 1) * group, :] = out_group
+    return out.reshape(b * s * n_q, d)
 
 
 def _rotate_half_graph(x: pypto.Tensor) -> pypto.Tensor:
@@ -254,125 +452,8 @@ def _apply_rope_graph(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> 
     return pypto.cast(pypto.reshape(x_embed, [b, s, n, d]), x.dtype)
 
 
-def _build_frontend_rope_helpers(b: int, s: int, heads: int, d: int, pto_dtype):
-    half = d // 2
-    tile_last = max(16, min(64, d))
-    tile_half = max(16, min(64, half))
-
-    @pypto.frontend.function
-    def rope_rearrange(x: pypto.tensor((b, s, heads, d), pypto.DT_FP32)) -> pypto.tensor((b, s, heads, d), pypto.DT_FP32):
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        x_view = pypto.reshape(x, [b, s, heads, half, 2])
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_half, 2)
-        x_trans = pypto.transpose(x_view, x_view.dim - 2, x_view.dim - 1)
-        out = pypto.reshape(x_trans, [b, s, heads, d])
-        return out
-
-    @pypto.frontend.function
-    def rotate_half(x: pypto.tensor((b, s, heads, d), pypto.DT_FP32)) -> pypto.tensor((b, s, heads, d), pypto.DT_FP32):
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        left = x[:, :, :, :half]
-        right = x[:, :, :, half:]
-        neg_right = pypto.mul(right, -1.0)
-        out = pypto.concat([neg_right, left], -1)
-        return out
-
-    @pypto.frontend.function
-    def apply_rope(
-        x: pypto.tensor((b, s, heads, d), pto_dtype),
-        cos: pypto.tensor((b, s, d), pto_dtype),
-        sin: pypto.tensor((b, s, d), pto_dtype),
-    ) -> pypto.tensor((b, s, heads, d), pto_dtype):
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        x_fp32 = pypto.cast(x, pypto.DT_FP32)
-        pypto.set_vec_tile_shapes(1, 1, tile_last)
-        x_rearranged = rope_rearrange(x_fp32)
-        pypto.set_vec_tile_shapes(1, 1, tile_last)
-        cos_4d = pypto.reshape(pypto.cast(cos, pypto.DT_FP32), [b, s, 1, d])
-        pypto.set_vec_tile_shapes(1, 1, tile_last)
-        sin_4d = pypto.reshape(pypto.cast(sin, pypto.DT_FP32), [b, s, 1, d])
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        rotated = rotate_half(x_rearranged)
-        out_fp32 = pypto.add(pypto.mul(x_rearranged, cos_4d), pypto.mul(rotated, sin_4d))
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        out = pypto.cast(out_fp32, pto_dtype)
-        return out
-
-    return rotate_half, rope_rearrange, apply_rope
-
-
-def _build_flat_frontend_rope_helper(b: int, s: int, heads: int, d: int, pto_dtype):
-    half = d // 2
-    tile_last = max(16, min(64, d))
-    tile_half = max(16, min(64, half))
-
-    @pypto.frontend.function
-    def apply_rope(
-        x: pypto.tensor((b, s, heads, d), pto_dtype),
-        cos: pypto.tensor((b, s, d), pto_dtype),
-        sin: pypto.tensor((b, s, d), pto_dtype),
-    ) -> pypto.tensor((b, s, heads, d), pto_dtype):
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        x_fp32 = pypto.cast(x, pypto.DT_FP32)
-
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        x_view = pypto.reshape(x_fp32, [b, s, heads, half, 2])
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_half, 2)
-        x_trans = pypto.transpose(x_view, x_view.dim - 2, x_view.dim - 1)
-        x_rearranged = pypto.reshape(x_trans, [b, s, heads, d])
-
-        pypto.set_vec_tile_shapes(1, 1, tile_last)
-        cos_4d = pypto.reshape(pypto.cast(cos, pypto.DT_FP32), [b, s, 1, d])
-        pypto.set_vec_tile_shapes(1, 1, tile_last)
-        sin_4d = pypto.reshape(pypto.cast(sin, pypto.DT_FP32), [b, s, 1, d])
-
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        left = x_rearranged[:, :, :, :half]
-        right = x_rearranged[:, :, :, half:]
-        neg_right = pypto.mul(right, -1.0)
-        rotated = pypto.concat([neg_right, left], -1)
-
-        out_fp32 = pypto.add(pypto.mul(x_rearranged, cos_4d), pypto.mul(rotated, sin_4d))
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        return pypto.cast(out_fp32, pto_dtype)
-
-    return apply_rope
-
-
-def _build_mlp_core_frontend(m: int, h: int, inter: int, pto_dtype):
-    mm1_tile = _get_matmul_tile(m, h, inter, pto_dtype)
-    mm2_tile = _get_matmul_tile(m, inter, h, pto_dtype)
-
-    @pypto.frontend.function
-    def mlp_core(
-        hidden_states: pypto.tensor((m, h), pto_dtype),
-        gate_w: pypto.tensor((h, inter), pto_dtype),
-        up_w: pypto.tensor((h, inter), pto_dtype),
-        down_w: pypto.tensor((inter, h), pto_dtype),
-    ) -> pypto.tensor((m, h), pto_dtype):
-        pypto.set_vec_tile_shapes(1, h)
-        pypto.set_cube_tile_shapes([mm1_tile[0], mm1_tile[0]], [mm1_tile[1], mm1_tile[1]], [mm1_tile[2], mm1_tile[2]])
-        pypto.set_matrix_size([m, h, inter])
-        gate = pypto.matmul(hidden_states, gate_w, pto_dtype)
-
-        pypto.set_cube_tile_shapes([mm1_tile[0], mm1_tile[0]], [mm1_tile[1], mm1_tile[1]], [mm1_tile[2], mm1_tile[2]])
-        pypto.set_matrix_size([m, h, inter])
-        up = pypto.matmul(hidden_states, up_w, pto_dtype)
-
-        gate_sig = pypto.cast(pypto.sigmoid(pypto.cast(gate, pypto.DT_FP32)), pto_dtype)
-        gate_act = pypto.mul(gate, gate_sig)
-        inter_fp32 = pypto.mul(pypto.cast(gate_act, pypto.DT_FP32), pypto.cast(up, pypto.DT_FP32))
-        inter_dt = pypto.cast(inter_fp32, pto_dtype)
-
-        pypto.set_cube_tile_shapes([mm2_tile[0], mm2_tile[0]], [mm2_tile[1], mm2_tile[1]], [mm2_tile[2], mm2_tile[2]])
-        pypto.set_matrix_size([m, inter, h])
-        output = pypto.matmul(inter_dt, down_w, pto_dtype)
-        return output
-
-    return mlp_core
-
-
-def qwen3_mlp_graph(params, hidden_states, gate_w, up_w, down_w, mlp_out):
+def qwen3_mlp_graph(params, hidden_states, *mlp_args):
+    gate_w, up_w, down_w, mlp_out = mlp_args
     m = params["b"] * params["s"]
     h = params["h"]
     inter = params["inter"]
@@ -393,660 +474,27 @@ def qwen3_mlp_graph(params, hidden_states, gate_w, up_w, down_w, mlp_out):
     mlp_out[:] = pypto.matmul(inter_dt, down_w, dtype)
 
 
-def build_qwen3_mlp_frontend_jit(params, run_mode):
-    m = params["b"] * params["s"]
-    h = params["h"]
-    inter = params["inter"]
-    pto_dtype = _torch_dtype_to_pypto(params["dtype"])
-    mlp_core = _build_mlp_core_frontend(m, h, inter, pto_dtype)
-
-    @pypto.frontend.jit(
-        runtime_options={
-            "run_mode": run_mode,
-            "stitch_function_num_initial": 1,
-            "stitch_function_num_step": 1,
-            "stitch_function_inner_memory": 1,
-            "stitch_function_outcast_memory": 1,
-            "stitch_function_size": 2048,
-            "valid_shape_optimize": 1,
-        },
-        debug_options={"runtime_debug_mode": 1},
-    )
-    def qwen3_mlp_frontend_jit(
-        hidden_states: pypto.tensor((m, h), pto_dtype),
-        gate_w: pypto.tensor((h, inter), pto_dtype),
-        up_w: pypto.tensor((h, inter), pto_dtype),
-        down_w: pypto.tensor((inter, h), pto_dtype),
-    ) -> pypto.tensor((m, h), pto_dtype):
-        output = mlp_core(hidden_states, gate_w, up_w, down_w)
-        return output
-
-    return qwen3_mlp_frontend_jit
-
-
-def build_qwen3_paged_attention_prolog_frontend_jit(params, run_mode):
-    b = params["b"]
-    s = params["s"]
-    n_q = params["n"]
-    n_kv = params["n_kv"]
-    d = params["d"]
-    half = d // 2
-    tile_last = max(16, min(64, d))
-    tile_half = max(16, min(64, half))
-    hidden_size = n_q * d
-    kv_hidden = n_kv * d
-    pto_dtype = _torch_dtype_to_pypto(params["dtype"])
-    q_mm_tile = _get_matmul_tile(b * s, hidden_size, hidden_size, pto_dtype)
-    kv_mm_tile = _get_matmul_tile(b * s, hidden_size, kv_hidden, pto_dtype)
-    act_seq_list = _build_prolog_act_seq_list(params)
-    cache_rows, _ = _get_cache_layout(act_seq_list, params["block_size"])
-
-    def apply_rope_no_nested(x, cos, sin, heads):
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        x_fp32 = pypto.cast(x, pypto.DT_FP32)
-
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        x_view = pypto.reshape(x_fp32, [b, s, heads, half, 2])
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_half, 2)
-        x_trans = pypto.transpose(x_view, x_view.dim - 2, x_view.dim - 1)
-        x_rearranged = pypto.reshape(x_trans, [b, s, heads, d])
-
-        pypto.set_vec_tile_shapes(1, 1, tile_last)
-        cos_4d = pypto.reshape(pypto.cast(cos, pypto.DT_FP32), [b, s, 1, d])
-        pypto.set_vec_tile_shapes(1, 1, tile_last)
-        sin_4d = pypto.reshape(pypto.cast(sin, pypto.DT_FP32), [b, s, 1, d])
-
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        left = x_rearranged[:, :, :, :half]
-        right = x_rearranged[:, :, :, half:]
-        neg_right = pypto.mul(right, -1.0)
-        rotated = pypto.concat([neg_right, left], -1)
-
-        out_fp32 = pypto.add(pypto.mul(x_rearranged, cos_4d), pypto.mul(rotated, sin_4d))
-        pypto.set_vec_tile_shapes(1, 1, min(8, heads), tile_last)
-        return pypto.cast(out_fp32, pto_dtype)
-
-    @pypto.frontend.jit(
-        runtime_options={"run_mode": run_mode},
-        debug_options={"runtime_debug_mode": 1},
-    )
-    def qwen3_paged_attention_prolog_frontend_jit(
-        hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
-        attn_q_w: pypto.tensor((hidden_size, hidden_size), pto_dtype),
-        attn_q_b: pypto.tensor((hidden_size,), pto_dtype),
-        attn_k_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_k_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_v_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_v_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_q_norm_w: pypto.tensor((d,), pto_dtype),
-        attn_k_norm_w: pypto.tensor((d,), pto_dtype),
-        cos: pypto.tensor((b, s, d), pto_dtype),
-        sin: pypto.tensor((b, s, d), pto_dtype),
-        cache_index: pypto.tensor((b, s), pypto.DT_INT32),
-        key_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        value_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-    ) -> (
-        pypto.tensor((b * s * n_q, d), pto_dtype),
-        pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-    ):
-        # Inline the prolog body to avoid the new parser's multi-output nested function issue.
-        pypto.set_cube_tile_shapes([q_mm_tile[0], q_mm_tile[0]], [q_mm_tile[1], q_mm_tile[1]], [q_mm_tile[2], q_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, hidden_size])
-        q = pypto.matmul(hidden_states, attn_q_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        q = pypto.cast(pypto.add(pypto.cast(q, pypto.DT_FP32), pypto.cast(attn_q_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
-        k = pypto.matmul(hidden_states, attn_k_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        k = pypto.cast(pypto.add(pypto.cast(k, pypto.DT_FP32), pypto.cast(attn_k_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
-        v = pypto.matmul(hidden_states, attn_v_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        v = pypto.cast(pypto.add(pypto.cast(v, pypto.DT_FP32), pypto.cast(attn_v_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_vec_tile_shapes(min(16, b * s * n_q), d)
-        q_flat = pypto.reshape(q, [b * s * n_q, d])
-        q_norm = pypto.rms_norm(q_flat, attn_q_norm_w)
-
-        pypto.set_vec_tile_shapes(min(16, b * s * n_kv), d)
-        k_flat = pypto.reshape(k, [b * s * n_kv, d])
-        k_norm = pypto.rms_norm(k_flat, attn_k_norm_w)
-
-        q_4d = pypto.reshape(q_norm, [b, s, n_q, d])
-        k_4d = pypto.reshape(k_norm, [b, s, n_kv, d])
-        v_4d = pypto.reshape(v, [b, s, n_kv, d])
-
-        q_embed = apply_rope_no_nested(q_4d, cos, sin, n_q)
-        k_embed = apply_rope_no_nested(k_4d, cos, sin, n_kv)
-        query_out = pypto.reshape(q_embed, [b * s * n_q, d])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        key_rows = pypto.reshape(k_embed, [b * s, kv_hidden])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        value_rows = pypto.reshape(v_4d, [b * s, kv_hidden])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        key_cache_out = pypto.scatter_update(key_cache, -2, cache_index, key_rows)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        value_cache_out = pypto.scatter_update(value_cache, -2, cache_index, value_rows)
-        return query_out, key_cache_out, value_cache_out
-
-    return qwen3_paged_attention_prolog_frontend_jit
-
-
-def build_qwen3_paged_attention_frontend_jit(params, run_mode):
-    b = params["b"]
-    s = params["s"]
-    n_q = params["n"]
-    n_kv = params["n_kv"]
-    d = params["d"]
-    block_size = params["block_size"]
-    tile_config = params["pa_tile_config"]
-    max_unroll_times = params["max_unroll_times"]
-    pto_dtype = _torch_dtype_to_pypto(params["dtype"])
-    act_seq_list = _build_attention_act_seq_list(params)
-    cache_rows, block_cols = _get_cache_layout(act_seq_list, block_size)
-    group = n_q // n_kv
-    n_tile = tile_config.head_num_q_tile
-    n_loop = n_q // n_tile
-    c1_tile = tile_config.c1_tile_shape
-    v1_tile = tile_config.v1_tile_shape
-    c2_tile = tile_config.c2_tile_shape
-    v2_tile = tile_config.v2_tile_shape
-    softmax_scale = float(1.0 / math.sqrt(d))
-
-    @pypto.frontend.jit(
-        runtime_options={"run_mode": run_mode},
-        debug_options={"runtime_debug_mode": 1},
-    )
-    def qwen3_paged_attention_frontend_jit(
-        query: pypto.tensor((b * s * n_q, d), pto_dtype),
-        key_cache: pypto.tensor((cache_rows, n_kv * d), pto_dtype),
-        value_cache: pypto.tensor((cache_rows, n_kv * d), pto_dtype),
-        block_table: pypto.tensor((b, block_cols), pypto.DT_INT32),
-        act_seqs: pypto.tensor((b,), pypto.DT_INT32),
-    ) -> pypto.tensor((b * s * n_q, d), pypto.DT_FP32):
-        attention_out = pypto.tensor((b * s * n_q, d), pypto.DT_FP32)
-        block_size_sym = pypto.symbolic_scalar(block_size)
-        for b_idx in pypto.loop(0, b, 1, name="QWEN3_PA_L0_B", idx_name="b_idx"):
-            cur_act_seq = act_seqs[b_idx]
-            cur_act_seq.as_variable()
-            for s1_idx in pypto.loop(0, s, 1, name="QWEN3_PA_L1_S1", idx_name="s1_idx"):
-                cur_seq = (cur_act_seq - s + 1 + s1_idx).max(0)
-                cur_seq.as_variable()
-                bn_per_batch = (cur_seq + block_size - 1) // block_size
-                bn_per_batch.as_variable()
-                for n_idx in pypto.loop(0, n_loop, 1, name="QWEN3_PA_L2_N", idx_name="n_idx"):
-                    kv_idx = (n_idx * n_tile) // group
-                    kv_idx.as_variable()
-                    cur_offset = b_idx * s * n_q + s1_idx * n_q + n_idx * n_tile
-                    oi_offset = [cur_offset, 0]
-                    oi_update = pypto.tensor((n_tile, d), pypto.DT_FP32)
-                    li_update = pypto.tensor((n_tile, 1), pypto.DT_FP32)
-                    mi_update = pypto.tensor((n_tile, 1), pypto.DT_FP32)
-
-                    for bn in pypto.loop(
-                        0,
-                        bn_per_batch,
-                        1,
-                        name="QWEN3_PA_L3_BN",
-                        idx_name="bn",
-                        unroll_List={max_unroll_times},
-                    ):
-                        valid_s2 = (cur_seq - bn * block_size).min(block_size_sym)
-                        qi = pypto.view(query, [n_tile, d], [cur_offset, 0])
-                        cur_block_idx = block_table[b_idx, bn]
-                        cur_block_idx.as_variable()
-                        kj = pypto.view(
-                            key_cache,
-                            [block_size, d],
-                            [cur_block_idx * block_size, kv_idx * d],
-                            valid_shape=[valid_s2, d],
-                        )
-                        vj = pypto.view(
-                            value_cache,
-                            [block_size, d],
-                            [cur_block_idx * block_size, kv_idx * d],
-                            valid_shape=[valid_s2, d],
-                        )
-
-                        pypto.set_cube_tile_shapes(
-                            [c1_tile[0], c1_tile[1]],
-                            [c1_tile[2], c1_tile[3]],
-                            [c1_tile[4], c1_tile[5]],
-                        )
-                        pypto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                        sij = pypto.matmul(qi, kj, pypto.DT_FP32, b_trans=True)
-                        pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                        sij_scale = pypto.mul(sij, softmax_scale)
-                        tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                        tsub = pypto.sub(sij_scale, tilda_mij)
-                        tilda_pij = pypto.exp(tsub)
-                        tilda_pij_dt = pypto.cast(tilda_pij, pto_dtype)
-                        tilda_lij = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-
-                        if pypto.is_loop_begin(bn):
-                            pypto.set_cube_tile_shapes(
-                                [c2_tile[0], c2_tile[1]],
-                                [c2_tile[2], c2_tile[3]],
-                                [c2_tile[4], c2_tile[5]],
-                            )
-                            pypto.set_matrix_size([tilda_pij_dt.shape[0], tilda_pij_dt.shape[1], vj.shape[1]])
-                            oi_tmp = pypto.matmul(tilda_pij_dt, vj, pypto.DT_FP32)
-                            pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                            if pypto.is_loop_end(bn):
-                                pypto.assemble(pypto.div(oi_tmp, tilda_lij), oi_offset, attention_out)
-                            else:
-                                oi_update[:] = oi_tmp
-                                li_update[:] = tilda_lij
-                                mi_update[:] = tilda_mij
-                        else:
-                            mi_new = pypto.maximum(mi_update, tilda_mij)
-                            t2 = pypto.exp(pypto.sub(mi_update, mi_new))
-                            t4 = pypto.exp(pypto.sub(tilda_mij, mi_new))
-                            li_new = pypto.add(pypto.mul(t2, li_update), pypto.mul(t4, tilda_lij))
-                            q3 = pypto.mul(oi_update, t2)
-                            pypto.set_cube_tile_shapes(
-                                [c2_tile[0], c2_tile[1]],
-                                [c2_tile[2], c2_tile[3]],
-                                [c2_tile[4], c2_tile[5]],
-                            )
-                            pypto.set_matrix_size([tilda_pij_dt.shape[0], tilda_pij_dt.shape[1], vj.shape[1]])
-                            q1 = pypto.matmul(tilda_pij_dt, vj, pypto.DT_FP32)
-                            pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                            oi_tmp = pypto.add(q3, pypto.mul(q1, t4))
-                            if pypto.is_loop_end(bn):
-                                pypto.assemble(pypto.div(oi_tmp, li_new), oi_offset, attention_out)
-                            else:
-                                oi_update[:] = oi_tmp
-                                li_update[:] = li_new
-                                mi_update[:] = mi_new
-        return attention_out
-
-    return qwen3_paged_attention_frontend_jit
-
-
-def build_qwen3_layer_frontend_jit(params, run_mode):
-    b = params["b"]
-    s = params["s"]
-    n_q = params["n"]
-    n_kv = params["n_kv"]
-    d = params["d"]
-    block_size = params["block_size"]
-    inter = params["inter"]
-    hidden_size = n_q * d
-    kv_hidden = n_kv * d
-    pto_dtype = _torch_dtype_to_pypto(params["dtype"])
-    act_seq_list = _build_attention_act_seq_list(params)
-    cache_rows, block_cols = _get_cache_layout(act_seq_list, block_size)
-    q_mm_tile = _get_matmul_tile(b * s, hidden_size, hidden_size, pto_dtype)
-    kv_mm_tile = _get_matmul_tile(b * s, hidden_size, kv_hidden, pto_dtype)
-    o_mm_tile = _get_matmul_tile(b * s, hidden_size, hidden_size, pypto.DT_FP32)
-    mlp_core = _build_mlp_core_frontend(b * s, hidden_size, inter, pto_dtype)
-    apply_rope_q = _build_flat_frontend_rope_helper(b, s, n_q, d, pto_dtype)
-    apply_rope_k = _build_flat_frontend_rope_helper(b, s, n_kv, d, pto_dtype)
-    tile_config = params["pa_tile_config"]
-    max_unroll_times = params["max_unroll_times"]
-    group = n_q // n_kv
-    n_tile = tile_config.head_num_q_tile
-    n_loop = n_q // n_tile
-    c1_tile = tile_config.c1_tile_shape
-    v1_tile = tile_config.v1_tile_shape
-    c2_tile = tile_config.c2_tile_shape
-    v2_tile = tile_config.v2_tile_shape
-    softmax_scale = float(1.0 / math.sqrt(d))
-
-    @pypto.frontend.function
-    def paged_attention_prolog_core(
-        hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
-        attn_q_w: pypto.tensor((hidden_size, hidden_size), pto_dtype),
-        attn_q_b: pypto.tensor((hidden_size,), pto_dtype),
-        attn_k_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_k_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_v_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_v_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_q_norm_w: pypto.tensor((d,), pto_dtype),
-        attn_k_norm_w: pypto.tensor((d,), pto_dtype),
-        cos: pypto.tensor((b, s, d), pto_dtype),
-        sin: pypto.tensor((b, s, d), pto_dtype),
-        cache_index: pypto.tensor((b, s), pypto.DT_INT32),
-        key_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        value_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-    ) -> (
-        pypto.tensor((b * s * n_q, d), pto_dtype),
-        pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-    ):
-        pypto.set_cube_tile_shapes([q_mm_tile[0], q_mm_tile[0]], [q_mm_tile[1], q_mm_tile[1]], [q_mm_tile[2], q_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, hidden_size])
-        q = pypto.matmul(hidden_states, attn_q_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        q = pypto.cast(pypto.add(pypto.cast(q, pypto.DT_FP32), pypto.cast(attn_q_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
-        k = pypto.matmul(hidden_states, attn_k_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        k = pypto.cast(pypto.add(pypto.cast(k, pypto.DT_FP32), pypto.cast(attn_k_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
-        v = pypto.matmul(hidden_states, attn_v_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        v = pypto.cast(pypto.add(pypto.cast(v, pypto.DT_FP32), pypto.cast(attn_v_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_vec_tile_shapes(min(16, b * s * n_q), d)
-        q_flat = pypto.reshape(q, [b * s * n_q, d])
-        q_norm = pypto.rms_norm(q_flat, attn_q_norm_w)
-        pypto.set_vec_tile_shapes(min(16, b * s * n_kv), d)
-        k_flat = pypto.reshape(k, [b * s * n_kv, d])
-        k_norm = pypto.rms_norm(k_flat, attn_k_norm_w)
-
-        q_4d = pypto.reshape(q_norm, [b, s, n_q, d])
-        k_4d = pypto.reshape(k_norm, [b, s, n_kv, d])
-        v_4d = pypto.reshape(v, [b, s, n_kv, d])
-        q_embed = apply_rope_q(q_4d, cos, sin)
-        k_embed = apply_rope_k(k_4d, cos, sin)
-
-        query_out = pypto.reshape(q_embed, [b * s * n_q, d])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        key_rows = pypto.reshape(k_embed, [b * s, kv_hidden])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        value_rows = pypto.reshape(v_4d, [b * s, kv_hidden])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        key_cache_out = pypto.scatter_update(key_cache, -2, cache_index, key_rows)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        value_cache_out = pypto.scatter_update(value_cache, -2, cache_index, value_rows)
-        return query_out, key_cache_out, value_cache_out
-
-    @pypto.frontend.function
-    def paged_attention_core(
-        query: pypto.tensor((b * s * n_q, d), pto_dtype),
-        key_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        value_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        block_table: pypto.tensor((b, block_cols), pypto.DT_INT32),
-        act_seqs: pypto.tensor((b,), pypto.DT_INT32),
-    ) -> pypto.tensor((b * s * n_q, d), pypto.DT_FP32):
-        attention_out = pypto.tensor((b * s * n_q, d), pypto.DT_FP32)
-        block_size_sym = pypto.symbolic_scalar(block_size)
-        for b_idx in pypto.loop(0, b, 1, name="QWEN3_LAYER_PA_L0_B", idx_name="b_idx"):
-            cur_act_seq = act_seqs[b_idx]
-            cur_act_seq.as_variable()
-            for s1_idx in pypto.loop(0, s, 1, name="QWEN3_LAYER_PA_L1_S1", idx_name="s1_idx"):
-                cur_seq = (cur_act_seq - s + 1 + s1_idx).max(0)
-                cur_seq.as_variable()
-                bn_per_batch = (cur_seq + block_size - 1) // block_size
-                bn_per_batch.as_variable()
-                for n_idx in pypto.loop(0, n_loop, 1, name="QWEN3_LAYER_PA_L2_N", idx_name="n_idx"):
-                    kv_idx = (n_idx * n_tile) // group
-                    kv_idx.as_variable()
-                    cur_offset = b_idx * s * n_q + s1_idx * n_q + n_idx * n_tile
-                    oi_update = pypto.tensor((n_tile, d), pypto.DT_FP32)
-                    li_update = pypto.tensor((n_tile, 1), pypto.DT_FP32)
-                    mi_update = pypto.tensor((n_tile, 1), pypto.DT_FP32)
-
-                    for bn in pypto.loop(
-                        0,
-                        bn_per_batch,
-                        1,
-                        name="QWEN3_LAYER_PA_L3_BN",
-                        idx_name="bn",
-                        unroll_List={1},
-                    ):
-                        valid_s2 = (cur_seq - bn * block_size).min(block_size_sym)
-                        qi = pypto.view(query, [n_tile, d], [cur_offset, 0])
-                        cur_block_idx = block_table[b_idx, bn]
-                        cur_block_idx.as_variable()
-                        kj = pypto.view(
-                            key_cache,
-                            [block_size, d],
-                            [cur_block_idx * block_size, kv_idx * d],
-                            valid_shape=[valid_s2, d],
-                        )
-                        vj = pypto.view(
-                            value_cache,
-                            [block_size, d],
-                            [cur_block_idx * block_size, kv_idx * d],
-                            valid_shape=[valid_s2, d],
-                        )
-
-                        pypto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], [c1_tile[4], c1_tile[5]])
-                        pypto.set_matrix_size([qi.shape[0], 0, kj.shape[0]])
-                        sij = pypto.matmul(qi, kj, pypto.DT_FP32, b_trans=True)
-                        pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                        sij_scale = pypto.mul(sij, softmax_scale)
-                        tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                        tsub = pypto.sub(sij_scale, tilda_mij)
-                        tilda_pij = pypto.exp(tsub)
-                        tilda_pij_dt = pypto.cast(tilda_pij, pto_dtype)
-                        tilda_lij = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-
-                        if pypto.is_loop_begin(bn):
-                            pypto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]])
-                            pypto.set_matrix_size([tilda_pij_dt.shape[0], tilda_pij_dt.shape[1], vj.shape[1]])
-                            oi_tmp = pypto.matmul(tilda_pij_dt, vj, pypto.DT_FP32)
-                            pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                            if pypto.is_loop_end(bn):
-                                attention_out[cur_offset : cur_offset + n_tile, :] = pypto.div(oi_tmp, tilda_lij)
-                            else:
-                                oi_update[:] = oi_tmp
-                                li_update[:] = tilda_lij
-                                mi_update[:] = tilda_mij
-                        else:
-                            mi_new = pypto.maximum(mi_update, tilda_mij)
-                            t2 = pypto.exp(pypto.sub(mi_update, mi_new))
-                            t4 = pypto.exp(pypto.sub(tilda_mij, mi_new))
-                            li_new = pypto.add(pypto.mul(t2, li_update), pypto.mul(t4, tilda_lij))
-                            q3 = pypto.mul(oi_update, t2)
-                            pypto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], [c2_tile[4], c2_tile[5]])
-                            pypto.set_matrix_size([tilda_pij_dt.shape[0], tilda_pij_dt.shape[1], vj.shape[1]])
-                            q1 = pypto.matmul(tilda_pij_dt, vj, pypto.DT_FP32)
-                            pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                            oi_tmp = pypto.add(q3, pypto.mul(q1, t4))
-                            if pypto.is_loop_end(bn):
-                                attention_out[cur_offset : cur_offset + n_tile, :] = pypto.div(oi_tmp, li_new)
-                            else:
-                                oi_update[:] = oi_tmp
-                                li_update[:] = li_new
-                                mi_update[:] = mi_new
-        return attention_out
-
-    @pypto.frontend.function
-    def attn_post_core(
-        hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
-        pa_out: pypto.tensor((b * s * n_q, d), pypto.DT_FP32),
-        attn_o_w: pypto.tensor((hidden_size, hidden_size), pto_dtype),
-        attn_o_b: pypto.tensor((hidden_size,), pto_dtype),
-    ) -> (
-        pypto.tensor((b * s, hidden_size), pto_dtype),
-        pypto.tensor((b * s, hidden_size), pto_dtype),
-    ):
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        context = pypto.reshape(pa_out, [b * s, hidden_size])
-
-        pypto.set_cube_tile_shapes([o_mm_tile[0], o_mm_tile[0]], [o_mm_tile[1], o_mm_tile[1]], [o_mm_tile[2], o_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, hidden_size])
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        attn_o_w_fp32 = pypto.cast(attn_o_w, pypto.DT_FP32)
-        o_proj_fp32 = pypto.matmul(context, attn_o_w_fp32, pypto.DT_FP32)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        o_proj_fp32 = pypto.add(o_proj_fp32, pypto.cast(attn_o_b, pypto.DT_FP32))
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        o_proj = pypto.cast(o_proj_fp32, pto_dtype)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        h1 = pypto.cast(pypto.add(pypto.cast(hidden_states, pypto.DT_FP32), pypto.cast(o_proj, pypto.DT_FP32)), pto_dtype)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        norm2 = pypto.rms_norm(h1)
-        return h1, norm2
-
-    @pypto.frontend.jit(
-        runtime_options={"run_mode": run_mode},
-        debug_options={"runtime_debug_mode": 1},
-    )
-    def qwen3_layer_frontend_jit(
-        hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
-        attn_q_w: pypto.tensor((hidden_size, hidden_size), pto_dtype),
-        attn_q_b: pypto.tensor((hidden_size,), pto_dtype),
-        attn_k_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_k_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_v_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_v_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_o_w: pypto.tensor((hidden_size, hidden_size), pto_dtype),
-        attn_o_b: pypto.tensor((hidden_size,), pto_dtype),
-        attn_q_norm_w: pypto.tensor((d,), pto_dtype),
-        attn_k_norm_w: pypto.tensor((d,), pto_dtype),
-        cos: pypto.tensor((b, s, d), pto_dtype),
-        sin: pypto.tensor((b, s, d), pto_dtype),
-        cache_index: pypto.tensor((b, s), pypto.DT_INT32),
-        key_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        value_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        block_table: pypto.tensor((b, block_cols), pypto.DT_INT32),
-        act_seqs: pypto.tensor((b,), pypto.DT_INT32),
-        gate_w: pypto.tensor((hidden_size, inter), pto_dtype),
-        up_w: pypto.tensor((hidden_size, inter), pto_dtype),
-        down_w: pypto.tensor((inter, hidden_size), pto_dtype),
-    ) -> pypto.tensor((b * s, hidden_size), pto_dtype):
-        pypto.experimental.set_operation_options(combine_axis=True)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        norm1 = pypto.rms_norm(hidden_states)
-
-        pypto.set_cube_tile_shapes([q_mm_tile[0], q_mm_tile[0]], [q_mm_tile[1], q_mm_tile[1]], [q_mm_tile[2], q_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, hidden_size])
-        q = pypto.matmul(norm1, attn_q_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        q = pypto.cast(pypto.add(pypto.cast(q, pypto.DT_FP32), pypto.cast(attn_q_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
-        k = pypto.matmul(norm1, attn_k_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        k = pypto.cast(pypto.add(pypto.cast(k, pypto.DT_FP32), pypto.cast(attn_k_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_cube_tile_shapes([kv_mm_tile[0], kv_mm_tile[0]], [kv_mm_tile[1], kv_mm_tile[1]], [kv_mm_tile[2], kv_mm_tile[2]])
-        pypto.set_matrix_size([b * s, hidden_size, kv_hidden])
-        v = pypto.matmul(norm1, attn_v_w, pto_dtype)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        v = pypto.cast(pypto.add(pypto.cast(v, pypto.DT_FP32), pypto.cast(attn_v_b, pypto.DT_FP32)), pto_dtype)
-
-        pypto.set_vec_tile_shapes(min(16, b * s * n_q), d)
-        q_flat = pypto.reshape(q, [b * s * n_q, d])
-        q_norm = pypto.rms_norm(q_flat, attn_q_norm_w)
-        pypto.set_vec_tile_shapes(min(16, b * s * n_kv), d)
-        k_flat = pypto.reshape(k, [b * s * n_kv, d])
-        k_norm = pypto.rms_norm(k_flat, attn_k_norm_w)
-
-        q_4d = pypto.reshape(q_norm, [b, s, n_q, d])
-        k_4d = pypto.reshape(k_norm, [b, s, n_kv, d])
-        v_4d = pypto.reshape(v, [b, s, n_kv, d])
-        q_embed = apply_rope_q(q_4d, cos, sin)
-        k_embed = apply_rope_k(k_4d, cos, sin)
-
-        query_out = pypto.reshape(q_embed, [b * s * n_q, d])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        key_rows = pypto.reshape(k_embed, [b * s, kv_hidden])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        value_rows = pypto.reshape(v_4d, [b * s, kv_hidden])
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        key_cache_tmp = pypto.scatter_update(key_cache, -2, cache_index, key_rows)
-        pypto.set_vec_tile_shapes(1, kv_hidden)
-        value_cache_tmp = pypto.scatter_update(value_cache, -2, cache_index, value_rows)
-
-        pa_out = paged_attention_core(query_out, key_cache_tmp, value_cache_tmp, block_table, act_seqs)
-        h1, norm2 = attn_post_core(hidden_states, pa_out, attn_o_w, attn_o_b)
-        mlp_out = mlp_core(norm2, gate_w, up_w, down_w)
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        return pypto.cast(pypto.add(pypto.cast(h1, pypto.DT_FP32), pypto.cast(mlp_out, pypto.DT_FP32)), pto_dtype)
-
-    @pypto.frontend.jit(
-        runtime_options={
-            "run_mode": run_mode,
-            "stitch_function_num_initial": 1,
-            "stitch_function_num_step": 1,
-            "stitch_function_inner_memory": 1,
-            "stitch_function_outcast_memory": 1,
-            "stitch_function_size": 2048,
-            "valid_shape_optimize": 1,
-        },
-        debug_options={"runtime_debug_mode": 1},
-    )
-    def qwen3_layer_frontend_graph_jit(
-        hidden_states: pypto.tensor((b * s, hidden_size), pto_dtype),
-        attn_q_w: pypto.tensor((hidden_size, hidden_size), pto_dtype),
-        attn_q_b: pypto.tensor((hidden_size,), pto_dtype),
-        attn_k_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_k_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_v_w: pypto.tensor((hidden_size, kv_hidden), pto_dtype),
-        attn_v_b: pypto.tensor((kv_hidden,), pto_dtype),
-        attn_o_w: pypto.tensor((hidden_size, hidden_size), pto_dtype),
-        attn_o_b: pypto.tensor((hidden_size,), pto_dtype),
-        attn_q_norm_w: pypto.tensor((d,), pto_dtype),
-        attn_k_norm_w: pypto.tensor((d,), pto_dtype),
-        cos: pypto.tensor((b, s, d), pto_dtype),
-        sin: pypto.tensor((b, s, d), pto_dtype),
-        cache_index: pypto.tensor((b, s), pypto.DT_INT32),
-        key_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        value_cache: pypto.tensor((cache_rows, kv_hidden), pto_dtype),
-        block_table: pypto.tensor((b, block_cols), pypto.DT_INT32),
-        act_seqs: pypto.tensor((b,), pypto.DT_INT32),
-        gate_w: pypto.tensor((hidden_size, inter), pto_dtype),
-        up_w: pypto.tensor((hidden_size, inter), pto_dtype),
-        down_w: pypto.tensor((inter, hidden_size), pto_dtype),
-    ) -> pypto.tensor((b * s, hidden_size), pto_dtype):
-        layer_out = pypto.tensor((b * s, hidden_size), pto_dtype, "qwen3_layer_frontend_out")
-        pypto.set_vec_tile_shapes(1, hidden_size)
-        qwen3_layer_graph(
-            params,
-            hidden_states,
-            attn_q_w,
-            attn_q_b,
-            attn_k_w,
-            attn_k_b,
-            attn_v_w,
-            attn_v_b,
-            attn_o_w,
-            attn_o_b,
-            attn_q_norm_w,
-            attn_k_norm_w,
-            cos,
-            sin,
-            cache_index,
-            key_cache,
-            value_cache,
-            block_table,
-            act_seqs,
-            gate_w,
-            up_w,
-            down_w,
-            layer_out,
-        )
-        return layer_out
-
-    return qwen3_layer_frontend_graph_jit
-
-
-def qwen3_paged_attention_prolog_graph(
-    params,
-    hidden_states,
-    attn_q_w,
-    attn_q_b,
-    attn_k_w,
-    attn_k_b,
-    attn_v_w,
-    attn_v_b,
-    attn_q_norm_w,
-    attn_k_norm_w,
-    cos,
-    sin,
-    cache_index,
-    key_cache,
-    value_cache,
-    query_out,
-    key_cache_out,
-    value_cache_out,
-):
+# pylint: disable=too-many-statements
+def qwen3_paged_attention_prolog_graph(params, *graph_args):
+    (
+        hidden_states,
+        attn_q_w,
+        attn_q_b,
+        attn_k_w,
+        attn_k_b,
+        attn_v_w,
+        attn_v_b,
+        attn_q_norm_w,
+        attn_k_norm_w,
+        cos,
+        sin,
+        cache_index,
+        key_cache,
+        value_cache,
+        query_out,
+        key_cache_out,
+        value_cache_out,
+    ) = graph_args
     b = params["b"]
     s = params["s"]
     n_q = params["n"]
@@ -1098,7 +546,9 @@ def qwen3_paged_attention_prolog_graph(
     value_cache_out[:] = pypto.scatter_update(value_cache, -2, cache_index, value_rows)
 
 
-def qwen3_paged_attention_graph(params, query, key_cache, value_cache, block_table, act_seqs, attention_out):
+# pylint: disable=too-many-arguments,too-many-statements,too-many-nested-blocks,duplicate-code
+def qwen3_paged_attention_graph(params, *graph_args):
+    query, key_cache, value_cache, block_table, act_seqs, attention_out = graph_args
     n_q = params["n"]
     n_kv = params["n_kv"]
     block_size = params["block_size"]
@@ -1213,31 +663,32 @@ def qwen3_paged_attention_graph(params, query, key_cache, value_cache, block_tab
                             mi_update[:] = mi_new
 
 
-def qwen3_layer_graph(
-    params,
-    hidden_states,
-    attn_q_w,
-    attn_q_b,
-    attn_k_w,
-    attn_k_b,
-    attn_v_w,
-    attn_v_b,
-    attn_o_w,
-    attn_o_b,
-    attn_q_norm_w,
-    attn_k_norm_w,
-    cos,
-    sin,
-    cache_index,
-    key_cache,
-    value_cache,
-    block_table,
-    act_seqs,
-    gate_w,
-    up_w,
-    down_w,
-    layer_out,
-):
+# pylint: disable=too-many-arguments,too-many-statements,duplicate-code
+def qwen3_layer_graph(params, *graph_args):
+    (
+        hidden_states,
+        attn_q_w,
+        attn_q_b,
+        attn_k_w,
+        attn_k_b,
+        attn_v_w,
+        attn_v_b,
+        attn_o_w,
+        attn_o_b,
+        attn_q_norm_w,
+        attn_k_norm_w,
+        cos,
+        sin,
+        cache_index,
+        key_cache,
+        value_cache,
+        block_table,
+        act_seqs,
+        gate_w,
+        up_w,
+        down_w,
+        layer_out,
+    ) = graph_args
     b = params["b"]
     s = params["s"]
     n_q = params["n"]
@@ -1293,7 +744,9 @@ def qwen3_rmsnorm_graph(params, hidden_states, norm_out):
     norm_out[:] = pypto.rms_norm(hidden_states)
 
 
-def qwen3_layer_post_graph(params, hidden_states, pa_out, attn_o_w, attn_o_b, gate_w, up_w, down_w, layer_out):
+# pylint: disable=too-many-arguments,too-many-statements,duplicate-code
+def qwen3_layer_post_graph(params, *graph_args):
+    hidden_states, pa_out, attn_o_w, attn_o_b, gate_w, up_w, down_w, layer_out = graph_args
     b = params["b"]
     s = params["s"]
     n_q = params["n"]
@@ -1316,8 +769,9 @@ def qwen3_layer_post_graph(params, hidden_states, pa_out, attn_o_w, attn_o_b, ga
 
 
 class CountBasedCompareTestBuilder(TestBuilder):
-    def _assert_count_based_close(
-        self, expected: torch.Tensor, actual: torch.Tensor, eps: float, zero_count_threshold: int = 1000
+    @staticmethod
+    def assert_count_based_close(
+        expected: torch.Tensor, actual: torch.Tensor, eps: float, zero_count_threshold: int = 1000
     ):
         threshold = int(expected.numel() * eps)
         err_count = 0
@@ -1355,52 +809,61 @@ class CountBasedCompareTestBuilder(TestBuilder):
 
         if on_board:
             pto_input_data = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(self.input_data_list)]
-            pto_output_data = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(self.output_data_list)]
-            pypto.runtime._device_run_once_data_from_host(*pto_input_data, *pto_output_data)
+            pto_output_data = [
+                pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(self.output_data_list)
+            ]
+            device_run_once_data_from_host(*pto_input_data, *pto_output_data)
             for idx in range(len(self.golden_output)):
-                self._assert_count_based_close(
+                self.assert_count_based_close(
                     self.golden_output[idx].cpu(), self.output_data_list[idx].cpu(), self.atol_value
                 )
-
-    def _assert_new_swimlane_output(self, before_dirs):
-        after_dirs = _collect_output_dirs()
-        new_dirs = sorted(after_dirs - before_dirs)
-        if not new_dirs:
-            raise AssertionError("No new output/output_* directory created for runtime_debug_mode=1.")
-        latest_dir = max(new_dirs, key=lambda path: path.stat().st_mtime_ns)
-        for filename in ("merged_swimlane.json", "program.json", "dyn_topo.txt"):
-            path = latest_dir / filename
-            if not path.exists():
-                raise AssertionError(f"Missing debug artifact: {path}")
-            if path.stat().st_size <= 0:
-                raise AssertionError(f"Empty debug artifact: {path}")
-        return latest_dir
-
-    def _run_frontend_jit_kernel(self, kernel, inputs, on_board: bool = True):
-        before_dirs = _collect_output_dirs() if on_board else set()
-        if on_board:
-            torch.npu.set_device(self.device_id)
-            device = torch.device(f"npu:{self.device_id}")
-        else:
-            device = torch.device("cpu")
-
-        device_inputs = [tensor.to(device).contiguous() for tensor in inputs]
-        outputs = kernel(*device_inputs)
-
-        if on_board:
-            torch.npu.synchronize()
-            self._assert_new_swimlane_output(before_dirs)
-
-        if not isinstance(outputs, tuple):
-            outputs = (outputs,)
-        return outputs
 
 
 class Qwen3PagedAttentionPrologRunner(CountBasedCompareTestBuilder):
     def __init__(self, params):
         super().__init__(params, qwen3_paged_attention_prolog_graph, self.golden, tiling=128)
 
+    @staticmethod
+    # pylint: disable=too-many-arguments
+    def golden(
+        params,
+        hidden_states,
+        attn_q_w,
+        attn_q_b,
+        attn_k_w,
+        attn_k_b,
+        attn_v_w,
+        attn_v_b,
+        attn_q_norm_w,
+        attn_k_norm_w,
+        cos,
+        sin,
+        cache_index,
+        key_cache,
+        value_cache,
+        query_out=None,
+        key_cache_out=None,
+        value_cache_out=None,
+    ):
+        return _run_qkv_rope_cache_torch(
+            params,
+            hidden_states,
+            QKVProjectionTensors(
+                attn_q_w,
+                attn_q_b,
+                attn_k_w,
+                attn_k_b,
+                attn_v_w,
+                attn_v_b,
+                attn_q_norm_w,
+                attn_k_norm_w,
+            ),
+            (cos, sin),
+            CacheUpdateTensors(cache_index, key_cache, value_cache),
+        )
+
     def get_input_from_param(self):
+        # pylint: disable=too-many-locals
         b = self.params["b"]
         s = self.params["s"]
         n_q = self.params["n"]
@@ -1468,100 +931,26 @@ class Qwen3PagedAttentionPrologRunner(CountBasedCompareTestBuilder):
 
         if on_board:
             pto_input_data = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(self.input_data_list)]
-            pto_output_data = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(self.output_data_list)]
-            pypto.runtime._device_run_once_data_from_host(*pto_input_data, *pto_output_data)
+            pto_output_data = [
+                pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(self.output_data_list)
+            ]
+            device_run_once_data_from_host(*pto_input_data, *pto_output_data)
 
-            self._assert_count_based_close(self.golden_output[0].cpu(), self.output_data_list[0].cpu(), self.atol_value)
+            self.assert_count_based_close(self.golden_output[0].cpu(), self.output_data_list[0].cpu(), self.atol_value)
 
             row_index = self._cache_index.reshape(-1).to(torch.int64)
             golden_k_rows = self.golden_output[1].index_select(0, row_index)
             actual_k_rows = self.output_data_list[1].index_select(0, row_index)
-            self._assert_count_based_close(golden_k_rows.cpu(), actual_k_rows.cpu(), self.atol_value)
+            self.assert_count_based_close(golden_k_rows.cpu(), actual_k_rows.cpu(), self.atol_value)
 
             golden_v_rows = self.golden_output[2].index_select(0, row_index)
             actual_v_rows = self.output_data_list[2].index_select(0, row_index)
-            self._assert_count_based_close(golden_v_rows.cpu(), actual_v_rows.cpu(), self.atol_value)
+            self.assert_count_based_close(golden_v_rows.cpu(), actual_v_rows.cpu(), self.atol_value)
 
     def run(self, on_board: bool = True, jit: bool = False):
         if jit:
             raise RuntimeError("Qwen3PagedAttentionPrologRunner directly uses a frontend.jit kernel.")
-
-        self.inputs = self.get_input_from_param()
-        self.golden_output = self.torch_convert(self.golden(self.params, *self.inputs, None, None, None))
-        prolog_kernel = build_qwen3_paged_attention_prolog_frontend_jit(
-            self.params,
-            pypto.RunMode.NPU if on_board else pypto.RunMode.SIM,
-        )
-        query_out, key_cache_out, value_cache_out = self._run_frontend_jit_kernel(prolog_kernel, self.inputs, on_board)
-        query_out = query_out.cpu()
-        key_cache_out = key_cache_out.cpu()
-        value_cache_out = value_cache_out.cpu()
-
-        self._assert_count_based_close(self.golden_output[0].cpu(), query_out, self.atol_value)
-        row_index = self._cache_index.reshape(-1).to(torch.int64)
-        golden_k_rows = self.golden_output[1].index_select(0, row_index)
-        actual_k_rows = key_cache_out.index_select(0, row_index)
-        self._assert_count_based_close(golden_k_rows.cpu(), actual_k_rows, self.atol_value)
-
-        golden_v_rows = self.golden_output[2].index_select(0, row_index)
-        actual_v_rows = value_cache_out.index_select(0, row_index)
-        self._assert_count_based_close(golden_v_rows.cpu(), actual_v_rows, self.atol_value)
-
-    def golden(
-        self,
-        params,
-        hidden_states,
-        attn_q_w,
-        attn_q_b,
-        attn_k_w,
-        attn_k_b,
-        attn_v_w,
-        attn_v_b,
-        attn_q_norm_w,
-        attn_k_norm_w,
-        cos,
-        sin,
-        cache_index,
-        key_cache,
-        value_cache,
-        query_out=None,
-        key_cache_out=None,
-        value_cache_out=None,
-    ):
-        b = params["b"]
-        s = params["s"]
-        n_q = params["n"]
-        n_kv = params["n_kv"]
-        d = params["d"]
-        kv_hidden = n_kv * d
-
-        q = torch.matmul(hidden_states.to(torch.float32), attn_q_w.to(torch.float32)).to(hidden_states.dtype)
-        q = (q.to(torch.float32) + attn_q_b.to(torch.float32)).to(hidden_states.dtype)
-        k = torch.matmul(hidden_states.to(torch.float32), attn_k_w.to(torch.float32)).to(hidden_states.dtype)
-        k = (k.to(torch.float32) + attn_k_b.to(torch.float32)).to(hidden_states.dtype)
-        v = torch.matmul(hidden_states.to(torch.float32), attn_v_w.to(torch.float32)).to(hidden_states.dtype)
-        v = (v.to(torch.float32) + attn_v_b.to(torch.float32)).to(hidden_states.dtype)
-
-        q = _rmsnorm_torch(q.reshape(b * s * n_q, d), attn_q_norm_w).reshape(b, s, n_q, d)
-        k = _rmsnorm_torch(k.reshape(b * s * n_kv, d), attn_k_norm_w).reshape(b, s, n_kv, d)
-        v = v.reshape(b, s, n_kv, d)
-
-        q_embed = _apply_rope_torch(q, cos, sin)
-        k_embed = _apply_rope_torch(k, cos, sin)
-        query_out = q_embed.reshape(b * s * n_q, d)
-
-        key_cache_out = key_cache.clone()
-        value_cache_out = value_cache.clone()
-        key_rows = k_embed.reshape(b * s, kv_hidden)
-        value_rows = v.reshape(b * s, kv_hidden)
-        for batch_idx in range(b):
-            for token_idx in range(s):
-                row = int(cache_index[batch_idx, token_idx].item())
-                src = batch_idx * s + token_idx
-                key_cache_out[row, :] = key_rows[src, :]
-                value_cache_out[row, :] = value_rows[src, :]
-
-        return query_out, key_cache_out, value_cache_out
+        super().run(on_board, jit=False)
 
 
 class Qwen3PagedAttentionRunner(CountBasedCompareTestBuilder):
@@ -1569,6 +958,7 @@ class Qwen3PagedAttentionRunner(CountBasedCompareTestBuilder):
         super().__init__(params, qwen3_paged_attention_graph, self.golden, tiling=128)
 
     def get_input_from_param(self):
+        # pylint: disable=too-many-locals
         b = self.params["b"]
         s = self.params["s"]
         n_q = self.params["n"]
@@ -1606,54 +996,40 @@ class Qwen3PagedAttentionRunner(CountBasedCompareTestBuilder):
         act_seqs,
         paged_attention_out=None,
     ):
-        b = params["b"]
-        s = params["s"]
-        n_q = params["n"]
-        n_kv = params["n_kv"]
-        d = params["d"]
-        block_size = params["block_size"]
-        group = n_q // n_kv
-        q_4d = self._q_4d.to(torch.float32)
-        out = torch.zeros([b, s, n_q, d], dtype=torch.float32)
-        scale = 1.0 / math.sqrt(d)
-        for batch_idx in range(b):
-            cur_block_table = block_table[batch_idx]
-            act_seq = int(act_seqs[batch_idx].item())
-            for token_idx in range(s):
-                cur_seq = max(act_seq - s + 1 + token_idx, 0)
-                for kv_idx in range(n_kv):
-                    q_group = q_4d[batch_idx, token_idx, kv_idx * group : (kv_idx + 1) * group, :]
-                    k_cur = _build_pa_rows_from_cache(
-                        key_cache, cur_block_table, block_size, cur_seq, kv_idx, d
-                    ).to(torch.float32)
-                    v_cur = _build_pa_rows_from_cache(
-                        value_cache, cur_block_table, block_size, cur_seq, kv_idx, d
-                    ).to(torch.float32)
-                    scores = torch.matmul(q_group, k_cur.transpose(-1, -2)) * scale
-                    probs = torch.softmax(scores, dim=-1)
-                    out_group = torch.matmul(probs, v_cur)
-                    out[batch_idx, token_idx, kv_idx * group : (kv_idx + 1) * group, :] = out_group
-        return (out.reshape(b * s * n_q, d),)
+        # pylint: disable=too-many-arguments
+        return (
+            _run_paged_attention_torch(
+                params,
+                self._q_4d.to(torch.float32),
+                key_cache,
+                value_cache,
+                block_table,
+                act_seqs,
+            ),
+        )
 
     def run(self, on_board: bool = True, jit: bool = False):
         if jit:
             raise RuntimeError("Qwen3PagedAttentionRunner directly uses a frontend.jit kernel.")
-
-        self.inputs = self.get_input_from_param()
-        self.golden_output = self.torch_convert(self.golden(self.params, *self.inputs, None))
-        attention_kernel = build_qwen3_paged_attention_frontend_jit(
-            self.params,
-            pypto.RunMode.NPU if on_board else pypto.RunMode.SIM,
-        )
-        (attention_out,) = self._run_frontend_jit_kernel(attention_kernel, self.inputs, on_board)
-        self._assert_count_based_close(self.golden_output[0].cpu(), attention_out.cpu(), self.atol_value)
+        super().run(on_board, jit=False)
 
 
 class Qwen3MLPRunner(CountBasedCompareTestBuilder):
     def __init__(self, params):
         super().__init__(params, qwen3_mlp_graph, self.golden, tiling=128)
 
+    @staticmethod
+    # pylint: disable=too-many-arguments
+    def golden(params, hidden_states, gate_w, up_w, down_w, mlp_out=None):
+        gate = torch.matmul(hidden_states.to(torch.float32), gate_w.to(torch.float32)).to(hidden_states.dtype)
+        up = torch.matmul(hidden_states.to(torch.float32), up_w.to(torch.float32)).to(hidden_states.dtype)
+        gate_act = gate * torch.sigmoid(gate.to(torch.float32)).to(hidden_states.dtype)
+        inter = (gate_act.to(torch.float32) * up.to(torch.float32)).to(hidden_states.dtype)
+        out = torch.matmul(inter.to(torch.float32), down_w.to(torch.float32)).to(hidden_states.dtype)
+        return (out,)
+
     def get_input_from_param(self):
+        # pylint: disable=too-many-locals
         b = self.params["b"]
         s = self.params["s"]
         h = self.params["h"]
@@ -1668,36 +1044,17 @@ class Qwen3MLPRunner(CountBasedCompareTestBuilder):
         self.set_tol(rtol=8e-3, atol=8e-3)
         return inputs
 
-    def golden(self, params, hidden_states, gate_w, up_w, down_w, mlp_out=None):
-        gate = torch.matmul(hidden_states.to(torch.float32), gate_w.to(torch.float32)).to(hidden_states.dtype)
-        up = torch.matmul(hidden_states.to(torch.float32), up_w.to(torch.float32)).to(hidden_states.dtype)
-        gate_act = gate * torch.sigmoid(gate.to(torch.float32)).to(hidden_states.dtype)
-        inter = (gate_act.to(torch.float32) * up.to(torch.float32)).to(hidden_states.dtype)
-        out = torch.matmul(inter.to(torch.float32), down_w.to(torch.float32)).to(hidden_states.dtype)
-        return (out,)
-
     def run(self, on_board: bool = True, jit: bool = False):
         if jit:
             raise RuntimeError("Qwen3MLPRunner directly uses a frontend.jit kernel.")
-
-        self.inputs = self.get_input_from_param()
-        self.golden_output = self.torch_convert(self.golden(self.params, *self.inputs, None))
-        mlp_kernel = build_qwen3_mlp_frontend_jit(
-            self.params,
-            pypto.RunMode.NPU if on_board else pypto.RunMode.SIM,
-        )
-
-        if on_board:
-            torch.npu.set_device(self.device_id)
-        (actual,) = self._run_frontend_jit_kernel(mlp_kernel, self.inputs, on_board)
-        self._assert_count_based_close(self.golden_output[0].cpu(), actual.cpu(), self.atol_value)
-
+        super().run(on_board, jit=False)
 
 class Qwen3LayerRunner(CountBasedCompareTestBuilder):
     def __init__(self, params):
         super().__init__(params, qwen3_layer_graph, self.golden, tiling=128)
 
     def get_input_from_param(self):
+        # pylint: disable=too-many-locals
         b = self.params["b"]
         s = self.params["s"]
         n_q = self.params["n"]
@@ -1749,11 +1106,11 @@ class Qwen3LayerRunner(CountBasedCompareTestBuilder):
                 start = block_idx * block_size
                 end = min(start + block_size, seq_len)
                 if end > start:
-                    key_cache[global_block_id * block_size : global_block_id * block_size + (end - start), :] = (
+                    key_cache[global_block_id * block_size:global_block_id * block_size + (end - start), :] = (
                         k_bsnd[batch_idx, start:end, :, :].reshape(end - start, kv_hidden)
                     )
                     value_cache[
-                        global_block_id * block_size : global_block_id * block_size + (end - start), :
+                        global_block_id * block_size:global_block_id * block_size + (end - start), :
                     ] = v_bsnd[batch_idx, start:end, :, :].reshape(end - start, kv_hidden)
 
         gate_w = _gen_uniform_data([hidden_size, inter], -1, 1, dtype)
@@ -1789,75 +1146,67 @@ class Qwen3LayerRunner(CountBasedCompareTestBuilder):
         self.set_tol(rtol=1e-1, atol=1e-1)
         return inputs
 
-    def _run_kernel_once(self, name, kernel, inputs, outputs, on_board: bool = True):
-        input_pto_list = []
-        output_pto_list = []
-        for idx, item in enumerate(inputs):
-            dtype = self.dtype_conversion(str(item.dtype))
-            input_pto_list.append(pypto.tensor(item.shape, dtype, f"{name}_IN_{idx}"))
-        for idx, item in enumerate(outputs):
-            dtype = self.dtype_conversion(str(item.dtype))
-            output_pto_list.append(pypto.tensor(item.shape, dtype, f"{name}_OUT_{idx}"))
-
-        if on_board:
-            torch.npu.set_device(self.device_id)
-            pypto.runtime._device_init()
-        try:
-            pypto.set_vec_tile_shapes(self.tiling, self.tiling)
-            with pypto.function(name, *input_pto_list, *output_pto_list) as rlf:
-                for _ in rlf:
-                    kernel(self.params, *input_pto_list, *output_pto_list)
-
-            pto_input_data = [pypto.from_torch(tensor, f"{name}_IN_{idx}") for idx, tensor in enumerate(inputs)]
-            pto_output_data = [pypto.from_torch(tensor, f"{name}_OUT_{idx}") for idx, tensor in enumerate(outputs)]
-            pypto.runtime._device_run_once_data_from_host(*pto_input_data, *pto_output_data)
-        finally:
-            if on_board:
-                pypto.runtime._device_fini()
-
-    def _paged_attention_torch(self, query, key_cache, value_cache, block_table, act_seqs):
-        b = self.params["b"]
-        s = self.params["s"]
-        n_q = self.params["n"]
-        n_kv = self.params["n_kv"]
-        d = self.params["d"]
-        block_size = self.params["block_size"]
-        group = n_q // n_kv
-        q_4d = query.reshape(b, s, n_q, d).to(torch.float32)
-        out = torch.zeros([b, s, n_q, d], dtype=torch.float32)
-        scale = 1.0 / math.sqrt(d)
-        for batch_idx in range(b):
-            cur_block_table = block_table[batch_idx]
-            act_seq = int(act_seqs[batch_idx].item())
-            for token_idx in range(s):
-                cur_seq = max(act_seq - s + 1 + token_idx, 0)
-                for kv_idx in range(n_kv):
-                    q_group = q_4d[batch_idx, token_idx, kv_idx * group : (kv_idx + 1) * group, :]
-                    k_cur = _build_pa_rows_from_cache(key_cache, cur_block_table, block_size, cur_seq, kv_idx, d).to(
-                        torch.float32
-                    )
-                    v_cur = _build_pa_rows_from_cache(
-                        value_cache, cur_block_table, block_size, cur_seq, kv_idx, d
-                    ).to(torch.float32)
-                    scores = torch.matmul(q_group, k_cur.transpose(-1, -2)) * scale
-                    probs = torch.softmax(scores, dim=-1)
-                    out_group = torch.matmul(probs, v_cur)
-                    out[batch_idx, token_idx, kv_idx * group : (kv_idx + 1) * group, :] = out_group
-        return out.reshape(b * s * n_q, d)
-
     def run(self, on_board: bool = True, jit: bool = False):
         if jit:
             raise RuntimeError("Qwen3LayerRunner directly uses a frontend.jit kernel.")
-
         self.inputs = self.get_input_from_param()
         self.golden_output = self.torch_convert(self.golden(self.params, *self.inputs, None))
-        layer_kernel = build_qwen3_layer_frontend_jit(
+
+        (
+            hidden_states,
+            attn_q_w,
+            attn_q_b,
+            attn_k_w,
+            attn_k_b,
+            attn_v_w,
+            attn_v_b,
+            attn_o_w,
+            attn_o_b,
+            attn_q_norm_w,
+            attn_k_norm_w,
+            cos,
+            sin,
+            cache_index,
+            key_cache,
+            value_cache,
+            block_table,
+            act_seqs,
+            gate_w,
+            up_w,
+            down_w,
+        ) = self.inputs
+
+        query_out, key_cache_tmp, value_cache_tmp = _run_qkv_rope_cache_torch(
             self.params,
-            pypto.RunMode.NPU if on_board else pypto.RunMode.SIM,
+            _rmsnorm_torch(hidden_states).contiguous(),
+            QKVProjectionTensors(
+                attn_q_w,
+                attn_q_b,
+                attn_k_w,
+                attn_k_b,
+                attn_v_w,
+                attn_v_b,
+                attn_q_norm_w,
+                attn_k_norm_w,
+            ),
+            (cos, sin),
+            CacheUpdateTensors(cache_index, key_cache, value_cache),
         )
-        self._run_frontend_jit_kernel(layer_kernel, self.inputs, on_board)
-        layer_out = self.golden_output[0]
-        self._assert_count_based_close(self.golden_output[0].cpu(), layer_out.cpu(), self.atol_value)
+
+        pa_out = torch.zeros(
+            [self.params["b"] * self.params["s"] * self.params["n"], self.params["d"]],
+            dtype=torch.float32,
+        )
+        self._run_kernel_once(
+            "QWEN3_LAYER_ATTENTION",
+            qwen3_paged_attention_graph,
+            [query_out, key_cache_tmp, value_cache_tmp, block_table, act_seqs],
+            [pa_out],
+            on_board,
+        )
+
+        layer_out = _run_layer_post_torch(hidden_states, pa_out, attn_o_w, attn_o_b, gate_w, up_w, down_w)
+        self.assert_count_based_close(self.golden_output[0].cpu(), layer_out.cpu(), self.atol_value)
 
     def golden(
         self,
@@ -1885,133 +1234,103 @@ class Qwen3LayerRunner(CountBasedCompareTestBuilder):
         down_w,
         layer_out=None,
     ):
+        # pylint: disable=too-many-arguments,too-many-locals
         b = params["b"]
         s = params["s"]
         n_q = params["n"]
         n_kv = params["n_kv"]
         d = params["d"]
         hidden_size = n_q * d
-        kv_hidden = n_kv * d
 
-        residual = hidden_states
-        norm1 = _rmsnorm_torch(hidden_states)
-
-        q = torch.matmul(norm1.to(torch.float32), attn_q_w.to(torch.float32)).to(hidden_states.dtype)
-        q = (q.to(torch.float32) + attn_q_b.to(torch.float32)).to(hidden_states.dtype)
-        k = torch.matmul(norm1.to(torch.float32), attn_k_w.to(torch.float32)).to(hidden_states.dtype)
-        k = (k.to(torch.float32) + attn_k_b.to(torch.float32)).to(hidden_states.dtype)
-        v = torch.matmul(norm1.to(torch.float32), attn_v_w.to(torch.float32)).to(hidden_states.dtype)
-        v = (v.to(torch.float32) + attn_v_b.to(torch.float32)).to(hidden_states.dtype)
-
-        q = _rmsnorm_torch(q.reshape(b * s * n_q, d), attn_q_norm_w).reshape(b, s, n_q, d)
-        k = _rmsnorm_torch(k.reshape(b * s * n_kv, d), attn_k_norm_w).reshape(b, s, n_kv, d)
-        v = v.reshape(b, s, n_kv, d)
-
-        q_embed = _apply_rope_torch(q, cos, sin)
-        k_embed = _apply_rope_torch(k, cos, sin)
-        k_bsnd_updated = self._k_bsnd.clone()
-        v_bsnd_updated = self._v_bsnd.clone()
-        for batch_idx in range(b):
-            for token_idx in range(s):
-                pos = params["skv"] - s + token_idx
-                k_bsnd_updated[batch_idx, pos, :, :] = k_embed[batch_idx, token_idx, :, :]
-                v_bsnd_updated[batch_idx, pos, :, :] = v[batch_idx, token_idx, :, :]
+        query_out, key_cache_tmp, value_cache_tmp = _run_qkv_rope_cache_torch(
+            params,
+            _rmsnorm_torch(hidden_states),
+            QKVProjectionTensors(
+                attn_q_w,
+                attn_q_b,
+                attn_k_w,
+                attn_k_b,
+                attn_v_w,
+                attn_v_b,
+                attn_q_norm_w,
+                attn_k_norm_w,
+            ),
+            (cos, sin),
+            CacheUpdateTensors(cache_index, key_cache, value_cache),
+        )
+        q_embed = query_out.reshape(b, s, n_q, d)
 
         scale = 1.0 / math.sqrt(d)
         attn_out = torch.zeros([b, s, n_q, d], dtype=torch.float32)
         for batch_idx in range(b):
+            cur_block_table = block_table[batch_idx]
             act_seq = int(act_seqs[batch_idx].item())
             for token_idx in range(s):
                 cur_seq = max(act_seq - s + 1 + token_idx, 0)
                 for kv_idx in range(n_kv):
-                    q_group = q_embed[batch_idx, token_idx, kv_idx * self._group : (kv_idx + 1) * self._group, :].to(
+                    q_group = q_embed[batch_idx, token_idx, kv_idx * self._group:(kv_idx + 1) * self._group, :].to(
                         torch.float32
                     )
-                    k_cur = k_bsnd_updated[batch_idx, :cur_seq, kv_idx, :].to(torch.float32)
-                    v_cur = v_bsnd_updated[batch_idx, :cur_seq, kv_idx, :].to(torch.float32)
+                    spec = PaRowSpec(block_size=params["block_size"], act_seq=cur_seq, kv_idx=kv_idx, d=d)
+                    k_cur = _build_pa_rows_from_cache(key_cache_tmp, cur_block_table, spec).to(torch.float32)
+                    v_cur = _build_pa_rows_from_cache(value_cache_tmp, cur_block_table, spec).to(torch.float32)
                     scores = torch.matmul(q_group, k_cur.transpose(-1, -2)) * scale
                     probs = torch.softmax(scores, dim=-1)
                     out_group = torch.matmul(probs, v_cur)
-                    attn_out[batch_idx, token_idx, kv_idx * self._group : (kv_idx + 1) * self._group, :] = out_group
+                    attn_out[batch_idx, token_idx, kv_idx * self._group:(kv_idx + 1) * self._group, :] = out_group
 
-        context = attn_out.reshape(b * s, hidden_size).to(hidden_states.dtype)
-        o_proj = torch.matmul(context.to(torch.float32), attn_o_w.to(torch.float32)).to(hidden_states.dtype)
-        o_proj = (o_proj.to(torch.float32) + attn_o_b.to(torch.float32)).to(hidden_states.dtype)
-        h1 = (residual.to(torch.float32) + o_proj.to(torch.float32)).to(hidden_states.dtype)
-        norm2 = _rmsnorm_torch(h1)
-
-        gate = torch.matmul(norm2.to(torch.float32), gate_w.to(torch.float32)).to(hidden_states.dtype)
-        up = torch.matmul(norm2.to(torch.float32), up_w.to(torch.float32)).to(hidden_states.dtype)
-        gate_act = gate * torch.sigmoid(gate.to(torch.float32)).to(hidden_states.dtype)
-        gate_up = (gate_act.to(torch.float32) * up.to(torch.float32)).to(hidden_states.dtype)
-        mlp_out = torch.matmul(gate_up.to(torch.float32), down_w.to(torch.float32)).to(hidden_states.dtype)
-        layer_out = (h1.to(torch.float32) + mlp_out.to(torch.float32)).to(hidden_states.dtype)
+        layer_out = _run_layer_post_torch(
+            hidden_states,
+            attn_out.reshape(b * s * n_q, d),
+            attn_o_w,
+            attn_o_b,
+            gate_w,
+            up_w,
+            down_w,
+        )
 
         return (layer_out,)
 
+    def _run_kernel_once(self, name, kernel, inputs, outputs, on_board: bool = True):
+        input_pto_list = []
+        output_pto_list = []
+        for idx, item in enumerate(inputs):
+            dtype = self.dtype_conversion(str(item.dtype))
+            input_pto_list.append(pypto.tensor(item.shape, dtype, f"{name}_IN_{idx}"))
+        for idx, item in enumerate(outputs):
+            dtype = self.dtype_conversion(str(item.dtype))
+            output_pto_list.append(pypto.tensor(item.shape, dtype, f"{name}_OUT_{idx}"))
+
+        if on_board:
+            torch.npu.set_device(self.device_id)
+            device_init()
+        try:
+            pypto.set_vec_tile_shapes(self.tiling, self.tiling)
+            with pypto.function(name, *input_pto_list, *output_pto_list) as rlf:
+                for _ in rlf:
+                    kernel(self.params, *input_pto_list, *output_pto_list)
+
+            pto_input_data = [pypto.from_torch(tensor, f"{name}_IN_{idx}") for idx, tensor in enumerate(inputs)]
+            pto_output_data = [pypto.from_torch(tensor, f"{name}_OUT_{idx}") for idx, tensor in enumerate(outputs)]
+            device_run_once_data_from_host(*pto_input_data, *pto_output_data)
+        finally:
+            if on_board:
+                device_fini()
+
 
 class TestQwen3Atten:
-    def test_qwen3_paged_attention_prolog_b32_s1_n32_kv8_d128_blk2048_bf16(self):
-        params = {
-            "b": 32,
-            "s": 1,
-            "n": 32,
-            "n_kv": 8,
-            "d": 128,
-            "block_size": 2048,
-            "dtype": torch.bfloat16,
-        }
-        Qwen3PagedAttentionPrologRunner(params)()
+    @staticmethod
+    def test_qwen3_paged_attention_prolog_b32_s1_n32_kv8_d128_blk2048_bf16():
+        Qwen3PagedAttentionPrologRunner(_make_qwen3_prolog_params())()
 
-    def test_qwen3_paged_attention_b32_s1_n32_kv8_d128_blk2048_skv2048_bf16(self):
-        params = {
-            "b": 32,
-            "s": 1,
-            "n": 32,
-            "n_kv": 8,
-            "d": 128,
-            "block_size": 2048,
-            "skv": 2048,
-            "dtype": torch.bfloat16,
-            "max_unroll_times": 8,
-            "pa_tile_config": PaTileConfig(
-                head_num_q_tile=4,
-                c1_tile_shape=(4, 4, 128, 128, 256, 256),
-                v1_tile_shape=(4, 2048),
-                c2_tile_shape=(4, 4, 128, 128, 128, 128),
-                v2_tile_shape=(4, 512),
-            ),
-        }
-        Qwen3PagedAttentionRunner(params)()
+    @staticmethod
+    def test_qwen3_paged_attention_b32_s1_n32_kv8_d128_blk2048_skv2048_bf16():
+        Qwen3PagedAttentionRunner(_make_qwen3_attention_params())()
 
-    def test_qwen3_mlp_b32_s1_h4096_inter12288_bf16(self):
-        params = {
-            "b": 32,
-            "s": 1,
-            "h": 4096,
-            "inter": 12288,
-            "dtype": torch.bfloat16,
-        }
-        Qwen3MLPRunner(params)()
+    @staticmethod
+    def test_qwen3_mlp_b32_s1_h4096_inter12288_bf16():
+        Qwen3MLPRunner(_make_qwen3_mlp_params())()
 
-    def test_qwen3_layer_b32_s1_n32_kv8_d128_blk2048_inter12288_skv2048_bf16(self):
-        params = {
-            "b": 32,
-            "s": 1,
-            "n": 32,
-            "n_kv": 8,
-            "d": 128,
-            "block_size": 2048,
-            "inter": 12288,
-            "skv": 2048,
-            "dtype": torch.bfloat16,
-            "max_unroll_times": 8,
-            "pa_tile_config": PaTileConfig(
-                head_num_q_tile=4,
-                c1_tile_shape=(4, 4, 128, 128, 256, 256),
-                v1_tile_shape=(4, 2048),
-                c2_tile_shape=(4, 4, 128, 128, 128, 128),
-                v2_tile_shape=(4, 512),
-            ),
-        }
-        Qwen3LayerRunner(params)()
+    @staticmethod
+    def test_qwen3_layer_b32_s1_n32_kv8_d128_blk2048_inter12288_skv2048_bf16():
+        Qwen3LayerRunner(_make_qwen3_layer_params())()
