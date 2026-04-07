@@ -268,7 +268,9 @@ def softmax(x, is_fp16=False):
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"pg_upper_bound": 1536,
     # Q常驻，0代表第一组mmad，4代表4次matmul合并
-    "cube_l1_reuse_setting": {0: 4}}
+    "cube_l1_reuse_setting": {0: 4}},
+    host_options={"compile_monitor_enable": True},
+    debug_options={"runtime_debug_mode": 0}
 )
 def ifa_func_kernel(
     q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -431,7 +433,8 @@ def ifa_func_kernel(
     "cube_l1_reuse_setting": {0: 32},
     "cube_nbuffer_setting": {1: 4}
     },
-    host_options={"compile_monitor_enable": True}
+    host_options={"compile_monitor_enable": True},
+    debug_options={"runtime_debug_mode": 0}
 )
 def ifa_func_kernel_for_950(
     q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -671,7 +674,6 @@ def ifa(atten_cfg, case_950=0):
 
 
 @pytest.mark.soc("950")
-@pytest.mark.skip(reason="large test case")
 def test_ifa_for_950():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
@@ -801,4 +803,6 @@ def attention_for_950(
 
 if __name__ == "__main__":
     test_ifa()
-    # 950上板 test_ifa_for_950()
+    if pypto.platform.npuarch == 'DAV_3510':
+        # 950上板
+        test_ifa_for_950()
