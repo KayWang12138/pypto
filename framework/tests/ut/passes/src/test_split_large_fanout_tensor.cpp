@@ -1465,9 +1465,13 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap)
         }
     }
     for (auto& [k, v] : recordAssemble) {
-        // 6个output，除了两个被输入包含关系的输出外，其余均不拆分。
-        // 故未被切分的输出为4个，对应预期有4个view
-        EXPECT_EQ(recordView[k], (v == 1) ? 1 : 4);
+        // 1. out1被输入a包含，out2被输入b包含，拆为1对1
+        // 2. 输入e, f组成的[16, 16]tile和out5,out6匹配，拆出2对2
+        // 3. 剩余无法继续拆分，保留从largeTensor进行view
+        // 故对于拆分后view和assemble的中间tensor，
+        // 如果只有一个assemble（场景1），则只有一个view
+        // 否则（场景2，3）会有两个view
+        EXPECT_EQ(recordView[k], (v == 1) ? 1 : 2);
     }
 }
 
@@ -1897,7 +1901,7 @@ TEST_F(SplitLargeFanoutTensorTest, TestHeadTileOffsetNoSplit)
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         auto countResultAfter = CountViewAssemble(*originFunction);
         const int expectViewCount = 12;
-        const int expectAssembleCount = 14;
+        const int expectAssembleCount = 15;
         EXPECT_EQ(countResultAfter[0], expectViewCount);
         EXPECT_EQ(countResultAfter[1], expectAssembleCount);
     }

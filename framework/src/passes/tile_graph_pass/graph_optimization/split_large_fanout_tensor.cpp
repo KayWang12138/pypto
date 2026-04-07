@@ -593,34 +593,52 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function& function)
 void SplitLargeFanoutTensor::GetOffsets(
     std::set<Shape, ShapeDimComparator>& tileOffsets, const Shape& lcmShape, const LogicalTensorPtr& largeTensor)
 {
-    Shape current(lcmShape.size());
-    const auto& offsets = toShapes_[largeTensor];
-    // 规避：当前以每个维度上最大的toShape做offset切分来覆盖非尾块的offset，避免级联view-assemble导致的validShape表达式过长
-    if (!offsets.empty()) {
-        Shape boundingOffset = *offsets.begin();
-        for (const auto& offset : offsets) {
-            for (size_t i = 0; i < boundingOffset.size(); ++i) {
-                if (offset[i] > boundingOffset[i]) {
-                    boundingOffset[i] = offset[i];
+    auto ndim = lcmShape.size();
+    std::vector<std::set<int64_t>> boundaryPerDim(ndim); // 收集每一维上的 tile 边界线
+    // 分别从 toInfoMap_ (Assemble 端) 和fromInfoMap_ (View 端)提取边界
+    auto toIt = toInfoMap_.find(largeTensor->tensor->rawmagic);
+    if (toIt != toInfoMap_.end()) {
+        for (const auto& [tensor, offset] : toIt->second) {
+            for (size_t d = 0; d < ndim; ++d) {
+                boundaryPerDim[d].insert(offset[d]);
+                if (offset[d] + tensor->shape[d] < largeTensor->shape[d]) {
+                    boundaryPerDim[d].insert(offset[d] + tensor->shape[d]);
                 }
             }
         }
-
-        std::vector<Shape> tempOffsets;
-        GenerateOffset(largeTensor->shape, boundingOffset, current, tempOffsets, 0);
-        for (const auto& tempOffset : tempOffsets) {
-            tileOffsets.insert(tempOffset);
+    }
+    auto fromIt = fromInfoMap_.find(largeTensor->tensor->rawmagic);
+    if (fromIt != fromInfoMap_.end()) {
+        for (const auto& [tensor, offset] : fromIt->second) {
+            for (size_t d = 0; d < ndim; ++d) {
+                boundaryPerDim[d].insert(offset[d]);
+                if (offset[d] + tensor->shape[d] < largeTensor->shape[d]) {
+                    boundaryPerDim[d].insert(offset[d] + tensor->shape[d]);
+                }
+            }
         }
-    } else {
+    }
+    // 迭代生成所有组合
+    std::vector<Shape> results;
+    results.push_back(Shape(ndim, 0));
+    for (size_t d = 0; d < ndim; ++d) {
+        std::vector<Shape> expanded;
+        for (const auto& partial : results) {
+            for (auto v : boundaryPerDim[d]) {
+                Shape newOffset = partial;
+                newOffset[d] = v;
+                expanded.push_back(std::move(newOffset));
+            }
+        }
+        results = std::move(expanded);
+    }
+    for (auto& offset : results) {
+        tileOffsets.insert(std::move(offset));
+    }
+    if (!tileOffsets.empty()) {
         APASS_LOG_WARN_F(
             Elements::Tensor, "Skip offset processing for large tensor [%d] due to empty offsets.",
             largeTensor->GetMagic());
-    }
-    // 处理lcmShape对应的offset
-    std::vector<Shape> tempOffsets;
-    GenerateOffset(largeTensor->shape, lcmShape, current, tempOffsets, 0);
-    for (const auto& offset : tempOffsets) {
-        tileOffsets.insert(offset);
     }
 }
 
