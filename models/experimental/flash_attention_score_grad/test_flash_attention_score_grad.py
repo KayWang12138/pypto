@@ -23,18 +23,8 @@ import torch
 import numpy as np
 from numpy.testing import assert_allclose
 
-# Configure logger for the module
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-formatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='[%Y-%m-%d %H:%M:%S]'
-)
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-logger.handlers.clear()
-logger.addHandler(handler)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

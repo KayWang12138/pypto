@@ -22,27 +22,21 @@ import logging
 import torch
 import torch_npu
 
-# Configure logger for the module
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-formatter = logging.Formatter(
-    fmt='%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='[%Y-%m-%d %H:%M:%S]'
-)
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-logger.handlers.clear()
-logger.addHandler(handler)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flash_attention_score_grad_golden import generate_forward_data
-from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper, NUM_HEADS, HEAD_DIM
+from flash_attention_score_grad_impl import (
+    flash_attention_score_grad_wrapper, NUM_HEADS, HEAD_DIM,
+)
 
 
-def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num_heads, warmup=5, repeat=20):  # noqa: C901
+def run_ascendc(  # noqa: C901,PLR0913
+        q, k, v, dy, softmax_max, softmax_sum,
+        attention_out, scale, num_heads, warmup=5, repeat=20):
     """用 torch_npu.npu_fusion_attention_grad_v2 跑 AscendC 版本"""
-    B, _, S, D = q.shape
+    batch_size, _, seq_len, head_dim = q.shape
     # 先跑前向拿到 AscendC 格式的 softmax_max/sum
     fwd_result = torch_npu.npu_fusion_attention(
         q, k, v, num_heads,
@@ -52,8 +46,8 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num
         scale=scale,
         keep_prob=1.0,
         input_layout="BNSD",
-        pre_tockens=S,
-        next_tockens=S,
+        pre_tockens=seq_len,
+        next_tockens=seq_len,
         inner_precise=0,
         sparse_mode=0,
     )
@@ -75,11 +69,11 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num
             scale_value=scale,
             keep_prob=1.0,
             input_layout="BNSD",
-            pre_tokens=S,
-            next_tokens=S,
+            pre_tokens=seq_len,
+            next_tokens=seq_len,
             seed=0,
             offset=0,
-            numels=B * num_heads * S * S,
+            numels=batch_size * num_heads * seq_len * seq_len,
             inner_precise=0,
             sparse_mode=0,
         )
@@ -102,11 +96,11 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num
             scale_value=scale,
             keep_prob=1.0,
             input_layout="BNSD",
-            pre_tokens=S,
-            next_tokens=S,
+            pre_tokens=seq_len,
+            next_tokens=seq_len,
             seed=0,
             offset=0,
-            numels=B * num_heads * S * S,
+            numels=batch_size * num_heads * seq_len * seq_len,
             inner_precise=0,
             sparse_mode=0,
         )
@@ -116,11 +110,14 @@ def run_ascendc(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, num
     return times
 
 
-def run_pypto(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, D, warmup=5, repeat=20):
+def run_pypto(  # noqa: C901,PLR0913
+        q, k, v, dy, softmax_max, softmax_sum,
+        attention_out, scale, num_heads, head_dim, warmup=5, repeat=20):
     """跑 PyPTO 版本"""
     for _ in range(warmup):
         dq, dk, dv = flash_attention_score_grad_wrapper(
-            q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, D)
+            q, k, v, dy, softmax_max, softmax_sum, attention_out,
+            scale, num_heads, head_dim)
     torch.npu.synchronize()
 
     times = []
@@ -128,20 +125,21 @@ def run_pypto(q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, D,
         torch.npu.synchronize()
         t0 = time.perf_counter()
         dq, dk, dv = flash_attention_score_grad_wrapper(
-            q, k, v, dy, softmax_max, softmax_sum, attention_out, scale, N, D)
+            q, k, v, dy, softmax_max, softmax_sum, attention_out,
+            scale, num_heads, head_dim)
         torch.npu.synchronize()
         t1 = time.perf_counter()
         times.append((t1 - t0) * 1000)
     return times
 
 
-def main():
+def main():  # noqa: C901,PLR0915
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
     device = f"npu:{device_id}"
 
     # 使用 PyPTO kernel 的 NUM_HEADS=8, HEAD_DIM=64
-    N, D = NUM_HEADS, HEAD_DIM
+    n_heads, head_dim = NUM_HEADS, HEAD_DIM
 
     configs = [
         ("B=2,S=128",   2, 128),
@@ -154,7 +152,7 @@ def main():
     ]
 
     logger.info("=" * 120)
-    logger.info(f"FlashAttentionScoreGrad: AscendC vs PyPTO  |  N={N}, D={D}, BF16, BNSD layout")
+    logger.info(f"FlashAttentionScoreGrad: AscendC vs PyPTO  |  N={n_heads}, D={head_dim}, BF16, BNSD layout")
     logger.info("=" * 120)
     header = (f"{'Config':<16s} | {'AscendC min(ms)':>15s} {'avg(ms)':>10s} | "
               f"{'PyPTO min(ms)':>15s} {'avg(ms)':>10s} | "
@@ -162,15 +160,17 @@ def main():
     logger.info(header)
     logger.info("-" * 120)
 
-    for name, B, S in configs:
-        total_flops = B * N * 7 * 2 * S * S * D
+    for name, batch_size, seq_len in configs:
+        total_flops = batch_size * n_heads * 7 * 2 * seq_len * seq_len * head_dim
 
         try:
-            q, k, v, dy, sm, ss, ao, scale = generate_forward_data(B, N, S, D, device=device)
+            q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
+                batch_size, n_heads, seq_len, head_dim, device=device)
 
             # AscendC
             try:
-                ac_times = run_ascendc(q, k, v, dy, sm, ss, ao, scale, N, warmup=3, repeat=10)
+                ac_times = run_ascendc(
+                    q, k, v, dy, sm, ss, ao, scale, n_heads, warmup=3, repeat=10)
                 ac_min = min(ac_times)
                 ac_avg = sum(ac_times) / len(ac_times)
                 ac_tflops = total_flops / (ac_min / 1000) / 1e12
@@ -181,7 +181,9 @@ def main():
 
             # PyPTO
             try:
-                pt_times = run_pypto(q, k, v, dy, sm, ss, ao, scale, N, D, warmup=3, repeat=10)
+                pt_times = run_pypto(
+                    q, k, v, dy, sm, ss, ao, scale, n_heads, head_dim,
+                    warmup=3, repeat=10)
                 pt_min = min(pt_times)
                 pt_avg = sum(pt_times) / len(pt_times)
                 pt_tflops = total_flops / (pt_min / 1000) / 1e12
