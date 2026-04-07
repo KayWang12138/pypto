@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
 """
 PyPTO 计算图 JSON 分析工具
 
@@ -184,62 +193,9 @@ class ComputationGraphAnalyzer:
     
     def __init__(self):
         self.graph: Optional[GraphInfo] = None
-    
-    def load_graph(self, json_path: str) -> GraphInfo:
-        """加载计算图JSON文件"""
-        if not os.path.exists(json_path):
-            raise FileNotFoundError(f"计算图文件不存在: {json_path}")
-        
-        with open(json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        self.graph = self._parse_graph(data)
-        return self.graph
-    
-    def _parse_graph(self, data: Dict[str, Any]) -> GraphInfo:
-        """解析计算图数据"""
-        functions = []
-        for func_data in data.get('functions', []):
-            functions.append(self._parse_function(func_data))
-        
-        return GraphInfo(
-            entryhash=data.get('entryhash', ''),
-            version=data.get('version', ''),
-            functions=functions,
-            raw_data=data
-        )
-    
-    def _parse_function(self, func_data: Dict[str, Any]) -> FunctionInfo:
-        """解析Function数据"""
-        operations = []
-        for op_data in func_data.get('operations', []):
-            operations.append(self._parse_operation(op_data))
-        
-        tensors = []
-        for tensor_data in func_data.get('tensors', []):
-            tensors.append(self._parse_tensor(tensor_data))
-        
-        rawtensors = []
-        for rt_data in func_data.get('rawtensors', []):
-            rawtensors.append(self._parse_rawtensor(rt_data))
-        
-        return FunctionInfo(
-            func_magicname=func_data.get('func_magicname', ''),
-            funcmagic=func_data.get('funcmagic', -1),
-            graphtype=func_data.get('graphtype', -1),
-            incasts=func_data.get('incasts', []),
-            outcasts=func_data.get('outcasts', []),
-            operations=operations,
-            tensors=tensors,
-            rawtensors=rawtensors,
-            total_subgraph_count=func_data.get('_total_subgraph_count', 0),
-            file=func_data.get('file'),
-            line=func_data.get('line'),
-            global_tensors=func_data.get('global_tensors', []),
-            raw_data=func_data
-        )
-    
-    def _parse_operation(self, op_data: Dict[str, Any]) -> OperationInfo:
+
+    @staticmethod
+    def _parse_operation(op_data: Dict[str, Any]) -> OperationInfo:
         """解析Operation数据"""
         return OperationInfo(
             opmagic=op_data.get('opmagic', -1),
@@ -256,8 +212,9 @@ class ComputationGraphAnalyzer:
             line=op_data.get('line'),
             raw_data=op_data
         )
-    
-    def _parse_tensor(self, tensor_data: Dict[str, Any]) -> TensorInfo:
+
+    @staticmethod
+    def _parse_tensor(tensor_data: Dict[str, Any]) -> TensorInfo:
         """解析Tensor数据"""
         mem_type = tensor_data.get('mem_type', {})
         return TensorInfo(
@@ -278,8 +235,9 @@ class ComputationGraphAnalyzer:
             kind=tensor_data.get('kind', -1),
             raw_data=tensor_data
         )
-    
-    def _parse_rawtensor(self, rt_data: Dict[str, Any]) -> RawTensorInfo:
+
+    @staticmethod
+    def _parse_rawtensor(rt_data: Dict[str, Any]) -> RawTensorInfo:
         """解析RawTensor数据"""
         return RawTensorInfo(
             rawmagic=rt_data.get('rawmagic', -1),
@@ -291,6 +249,17 @@ class ComputationGraphAnalyzer:
             symbol=rt_data.get('symbol'),
             raw_data=rt_data
         )
+    
+    def load_graph(self, json_path: str) -> GraphInfo:
+        """加载计算图JSON文件"""
+        if not os.path.exists(json_path):
+            raise FileNotFoundError(f"计算图文件不存在: {json_path}")
+        
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        self.graph = self._parse_graph(data)
+        return self.graph
     
     def find_tensor_by_magic(self, magic: int) -> Optional[TensorInfo]:
         """根据magic ID查找Tensor"""
@@ -350,3 +319,48 @@ class ComputationGraphAnalyzer:
     def find_consumers_of_tensor(self, tensor_magic: int) -> List[OperationInfo]:
         """查找使用指定Tensor的所有Operation（消费者）"""
         return self.find_operations_by_input_tensor(tensor_magic)
+
+    
+
+    def _parse_graph(self, data: Dict[str, Any]) -> GraphInfo:
+        """解析计算图数据"""
+        functions = []
+        for func_data in data.get('functions', []):
+            functions.append(self._parse_function(func_data))
+        
+        return GraphInfo(
+            entryhash=data.get('entryhash', ''),
+            version=data.get('version', ''),
+            functions=functions,
+            raw_data=data
+        )
+
+    def _parse_function(self, func_data: Dict[str, Any]) -> FunctionInfo:
+        """解析Function数据"""
+        operations = []
+        for op_data in func_data.get('operations', []):
+            operations.append(self._parse_operation(op_data))
+        
+        tensors = []
+        for tensor_data in func_data.get('tensors', []):
+            tensors.append(self._parse_tensor(tensor_data))
+        
+        rawtensors = []
+        for rt_data in func_data.get('rawtensors', []):
+            rawtensors.append(self._parse_rawtensor(rt_data))
+        
+        return FunctionInfo(
+            func_magicname=func_data.get('func_magicname', ''),
+            funcmagic=func_data.get('funcmagic', -1),
+            graphtype=func_data.get('graphtype', -1),
+            incasts=func_data.get('incasts', []),
+            outcasts=func_data.get('outcasts', []),
+            operations=operations,
+            tensors=tensors,
+            rawtensors=rawtensors,
+            total_subgraph_count=func_data.get('_total_subgraph_count', 0),
+            file=func_data.get('file'),
+            line=func_data.get('line'),
+            global_tensors=func_data.get('global_tensors', []),
+            raw_data=func_data
+        )
