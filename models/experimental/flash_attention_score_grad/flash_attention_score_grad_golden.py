@@ -79,21 +79,21 @@ def flash_attention_score_grad_golden(
     scores = torch.matmul(q, k.transpose(-2, -1)) * inputs.scale_value
     p_mat = torch.exp(scores - s_max) / s_sum
 
-    # d = rowsum(dY * attention_out)
+    # rowsum(dY * attention_out)
     d_var = (dy_f * attn_out_f).sum(dim=-1, keepdim=True)
 
-    # dp = dY @ V^T
+    # dY @ V^T
     dp_var = torch.matmul(dy_f, v.transpose(-2, -1))
 
-    # ds = p * (dp - d)
+    # p * (dp - d)
     ds_var = p_mat * (dp_var - d_var)
 
     # 输出梯度
-    dV = torch.matmul(p_mat.transpose(-2, -1), dy_f)
-    dQ = torch.matmul(ds_var, k) * inputs.scale_value
-    dK = torch.matmul(ds_var.transpose(-2, -1), q) * inputs.scale_value
+    dq_out = torch.matmul(ds_var, k) * inputs.scale_value
+    dk_out = torch.matmul(ds_var.transpose(-2, -1), q) * inputs.scale_value
+    dv_out = torch.matmul(p_mat.transpose(-2, -1), dy_f)
 
-    return dQ.to(orig_dtype), dK.to(orig_dtype), dV.to(orig_dtype)
+    return dq_out.to(orig_dtype), dk_out.to(orig_dtype), dv_out.to(orig_dtype)
 
 
 def generate_forward_data(
