@@ -73,6 +73,12 @@ enum class PaddingMode : int64_t { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_IN
 
 enum class ReLuType : int64_t { NoReLu = 0, ReLu = 1 };
 
+enum class DivAlgorithm : uint8_t
+{
+    INTRINSIC,
+    HIGH_PRECISION
+};
+
 namespace TileOp {
 enum CastMode {
     CAST_NONE = 0,
