@@ -148,7 +148,7 @@ def prolog_quant(x: pypto.Tensor):
 
     scale_quant = temp448 / max_value
     out_fp32 = input_fp32 * scale_quant
-    out_fp8 = pypto.cast(out_fp32, pypto.DT_FP8E4M3)
+    out_fp8 = pypto.cast(out_fp32, pypto.DT_FP8E4M3, satmode=pypto.SaturationMode.ON)
     temp1 = pypto.full(scale_quant.shape, fp8_one_value, pypto.DT_FP32)
     scale_dequant = temp1 / scale_quant
     return (out_fp8, scale_dequant)
