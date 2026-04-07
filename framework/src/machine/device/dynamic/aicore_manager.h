@@ -162,8 +162,8 @@ public:
         }
         
         // If I am not a lead AICPU scheduler, wait until initialization is ready
+        if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ cpuRelax(); /* Busy wait */ };
         rmb();
-        if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
 
         taskQueue_[(int)CoreType::AIV] = (taskQueue_t*)curDevTask_->availableVectorTaskQueue;
         taskQueue_[(int)CoreType::AIC] = (taskQueue_t*)curDevTask_->availableCubeTaskQueue;
