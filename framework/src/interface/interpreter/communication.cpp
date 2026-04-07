@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <mutex>
+#include <iostream>
 #include "interface/tileop/distributed/comm_context.h"
 #include "machine/runtime/distributed/distributed_context.h"
 
@@ -201,10 +202,12 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
     }
     std::atomic_thread_fence(std::memory_order_release);
     if (atomicType == 0) {
+        std::cout << "entered atomicType: 0" << std::endl;
         memcpy(base + offset, data->GetData()->GetDevPtr(), slotSize);
     }
     // TODO: 在 atomicAdd 场景下应该与输入张量类型相关，并不是 uint8_t?
     if (atomicType == 1) {
+        std::cout << "entered atomicType: 1" << std::endl;
         uint8_t *ptr = data->GetData()->GetDevPtr();
         for (size_t i = 0; i < slotSize; i++) {
             __sync_fetch_and_add(&base[offset + i], ptr[i]);
@@ -221,8 +224,7 @@ void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_
     memset(base + offset, value, slotSize);
 }
 
-void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType, [[maybe_unused]] bool notifyAll) {
-    // TODO: notifyAll 特性
+void SimulationCommContext::SignalSingle(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType) {
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");
@@ -236,6 +238,16 @@ void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint
         for (size_t i = 0; i < slotSize; i++) {
             __sync_fetch_and_add(&base[offset + i], value);
         }
+    }
+}
+
+void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType, bool notifyAll) {
+    if (!notifyAll) {
+        SignalSingle(dstRank, value, slotSize, offset, atomicType);
+        return;
+    }
+    for (size_t rank = 0; rank < worldSize_; i++) {
+        SignalSingle(rank, value, slotSize, offset, atomicType);
     }
 }
 

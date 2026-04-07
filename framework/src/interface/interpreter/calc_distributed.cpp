@@ -105,7 +105,7 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     if (attr.atomicType == Distributed::AtomicType::ADD) {
         atomicType = 1;
     }
-    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << in->GetStorageOffset() << std::endl;
+    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << in->GetStorageOffset() << " , atomic type: " << atomicType << std::endl;
     context->Put(in, dstRank, in->GetStorageOffset(), atomicType);
 
     std::cout << "=== ExecuteOpShmemPut exited ..." << std::endl;

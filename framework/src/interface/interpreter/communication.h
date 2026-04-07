@@ -102,7 +102,7 @@ public:
 
 private:
     friend class SimulationCommManager;
-
+    void SignalSingle(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType);
     struct RemoteRank {
         uint8_t *dataBase = nullptr;
         uint8_t *ctrlBase = nullptr;
