@@ -254,17 +254,31 @@ def _gen_pto_tensor(input_tensors):
     pto_tensors = []
     for t in input_tensors:
         torch_dtype = _torch_dtype_from(t.dtype)
-        tshape = t.shape if all([isinstance(s, int) for s in t.shape]) else t.ori_shape
-        torch_tensor = torch.zeros(tshape, dtype=torch_dtype)
+        # Pass-verify CopyDevToHost copies devTensor.GetDataSize() bytes, which is derived from
+        # the physical layout (from_torch's ori_shape). Using graph logical t.shape here and then
+        # doubling the last dim for FP4 made host RawTensorData request ~2x bytes and read past
+        # the allocated torch buffer (ValueError: vector::_M_default_append / heap corruption).
+        if t.ori_shape is not None:
+            phys_shape = list(t.ori_shape)
+        elif all(isinstance(s, int) for s in t.shape):
+            phys_shape = list(t.shape)
+        else:
+            raise RuntimeError(
+                "Cannot build host tensor for pass verify: symbolic shape without ori_shape "
+                "(physical layout unknown)."
+            )
+        torch_tensor = torch.zeros(phys_shape, dtype=torch_dtype)
         if t.dtype == DataType.DT_FP4_E2M1X2 or t.dtype == DataType.DT_FP4_E1M2X2:
-            tshape = (*tshape[:-1], tshape[-1] * 2)
-        pto_tensor = Tensor(shape=tshape,
+            logical_shape = (*phys_shape[:-1], phys_shape[-1] * 2)
+        else:
+            logical_shape = tuple(phys_shape)
+        pto_tensor = Tensor(shape=list(logical_shape),
                             dtype=t.dtype,
                             name=t.name,
                             data_ptr=torch_tensor.data_ptr(),
                             format=t.format,
                             device=torch_tensor.device,
-                            ori_shape=tshape)
+                            ori_shape=list(logical_shape))
 
         torch_tensors.append(torch_tensor)
         pto_tensors.append(pto_tensor)

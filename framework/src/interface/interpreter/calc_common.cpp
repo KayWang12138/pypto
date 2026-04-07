@@ -75,13 +75,29 @@ void ExecuteOpViewType(ExecuteOperationContext* ctx)
     const int64_t inRegionElems = iop->GetSize();
     const int64_t outRegionElems = oop->GetSize();
 
+    auto LogicalRegionByteLen = [](int64_t elemSize, int64_t logicalElems) -> int64_t {
+        if (elemSize > 0) {
+            return logicalElems * elemSize;
+        }
+        if (logicalElems < 0) {
+            return 0;
+        }
+        return static_cast<int64_t>((static_cast<size_t>(logicalElems) + 1U) / 2U);
+    };
+    auto LogicalOffsetByteLen = [](int64_t elemSize, int64_t logicalOffset) -> int64_t {
+        if (elemSize > 0) {
+            return logicalOffset * elemSize;
+        }
+        return logicalOffset / 2;
+    };
+
     // VIEW_TYPE 语义：保持底层字节数一致，只改变逻辑数据类型和 shape。
-    const int64_t srcBytes = inRegionElems * inElemSize;
-    const int64_t dstBytes = outRegionElems * outElemSize;
+    const int64_t srcBytes = LogicalRegionByteLen(inElemSize, inRegionElems);
+    const int64_t dstBytes = LogicalRegionByteLen(outElemSize, outRegionElems);
     ASSERT(ExecuteOperationScene::VIEWTYPE_BYTES_MISMATCH, srcBytes == dstBytes);
 
-    const int64_t srcOffsetBytes = static_cast<int64_t>(iop->GetStorageOffset()) * inElemSize;
-    const int64_t dstOffsetBytes = static_cast<int64_t>(oop->GetStorageOffset()) * outElemSize;
+    const int64_t srcOffsetBytes = LogicalOffsetByteLen(inElemSize, static_cast<int64_t>(iop->GetStorageOffset()));
+    const int64_t dstOffsetBytes = LogicalOffsetByteLen(outElemSize, static_cast<int64_t>(oop->GetStorageOffset()));
 
     uint8_t* srcPtr = inData->data() + srcOffsetBytes;
     uint8_t* dstPtr = outData->data() + dstOffsetBytes;
@@ -304,7 +320,7 @@ void ExecutePrint(ExecuteOperationContext* ctx)
                 }
             }
             csv << "\n";
-            csv << "element_count," << oop->GetData()->GetDataSize() / oop->GetData()->GetElementSize() << "\n";
+            csv << "element_count," << oop->GetData()->GetSize() << "\n";
             csv.close();
         } else {
             VERIFY_LOGE_FULL_E(OpDumpScene::DUMP_OPEN_FILE_FAILED, "open csv file %s failed!!!!", csvPath.c_str());

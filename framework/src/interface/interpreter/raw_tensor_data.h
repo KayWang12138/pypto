@@ -179,14 +179,18 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     template <typename T>
     const T& Get(int index) const
     {
-        const void* addr = &this->data()[index * elemSize_];
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, elemSize_ > 0)
+            << "Get() is not supported for packed sub-byte dtypes (use raw bytes).";
+        const void* addr = &this->data()[static_cast<size_t>(index) * static_cast<size_t>(elemSize_)];
         return *static_cast<const T*>(addr);
     }
 
     template <typename T>
     T& Get(int index)
     {
-        void* addr = &this->data()[index * elemSize_];
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, elemSize_ > 0)
+            << "Get() is not supported for packed sub-byte dtypes (use raw bytes).";
+        void* addr = &this->data()[static_cast<size_t>(index) * static_cast<size_t>(elemSize_)];
         return *static_cast<T*>(addr);
     }
 
@@ -379,7 +383,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     size_t GetDataSize() const
     {
         if (elemSize_ > 0) {
-            return nelem * elemSize_;
+            return static_cast<size_t>(nelem) * static_cast<size_t>(elemSize_);
         }
         // half-byte element types
         return static_cast<size_t>((nelem + 1) / 2);
@@ -391,7 +395,9 @@ private:
     Shape shape_;
     Stride stride_;
     size_t nelem;
-    size_t elemSize_;
+    // Signed: GetDataSize(DataType) uses -1 (DATA_SIZE_HALF) for FP4/INT4; storing as size_t wrapped to huge
+    // and broke vector allocation in SetVerifyData / RawTensorData::CreateTensor.
+    int elemSize_;
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;
