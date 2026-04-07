@@ -222,11 +222,11 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(
 
 // 过滤overlaps，dualOverlaps：删除已被处理过的dualOverlap后删除与dualOverlaps中剩余所有元素都没有交集的overlap
 void SplitLargeFanoutTensor::FilterOverlaps(Function &function, LogicalTensorPtr largeTensor,
-    LogicalTensors &overlaps, const LogicalTensors &dualOverlaps) {
+    LogicalTensors &overlaps, const LogicalTensors &dualOverlaps)
+{
     LogicalTensors filteredOverlaps;
     LogicalTensors filteredDualOverlaps;
     LogicalTensors dualOverlapTiles;
-    
     for (const auto &dualOverlap : dualOverlaps) {
         Offset dualOverlapOffset;
         for (const auto &producerOp : dualOverlap->GetProducers()) {
@@ -241,7 +241,8 @@ void SplitLargeFanoutTensor::FilterOverlaps(Function &function, LogicalTensorPtr
         if (dualOverlapOffset.size() == 0) {
             continue;
         }
-        auto dualOverlapTile = std::make_shared<LogicalTensor>(function, largeTensor->tensor, dualOverlapOffset, dualOverlap->shape);
+        auto dualOverlapTile =
+            std::make_shared<LogicalTensor>(function, largeTensor->tensor, dualOverlapOffset, dualOverlap->shape);
         dualOverlapTiles.emplace_back(dualOverlapTile);
         filteredDualOverlaps.push_back(dualOverlap);
     }
@@ -259,7 +260,8 @@ void SplitLargeFanoutTensor::FilterOverlaps(Function &function, LogicalTensorPtr
         if (overlapOffset.size() == 0) {
             return;
         }
-        auto overlapTile = std::make_shared<LogicalTensor>(function, largeTensor->tensor, overlapOffset, overlap->shape);
+        auto overlapTile =
+            std::make_shared<LogicalTensor>(function, largeTensor->tensor, overlapOffset, overlap->shape);
         for (auto dualOverlapTile : dualOverlapTiles) {
             auto status = CalcOverlap(overlapTile, dualOverlapTile, true);
             if (status == OverlapStatus::BE_COVERED || status == OverlapStatus::PERFECTLY_MATCH ||

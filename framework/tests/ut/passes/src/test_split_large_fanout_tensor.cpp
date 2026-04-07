@@ -1914,7 +1914,6 @@ TEST_F(SplitLargeFanoutTensorTest, TestSimplifyOverlapDualOverlap)
     std::vector<int64_t> shape1 = {128};
     std::vector<int64_t> shape2 = {32};
     std::vector<int64_t> shape3 = {96};
-    std::vector<int64_t> shape4 = {672};
     PROGRAM("SplitLargeFanoutTensorTest")
     {
         Tensor input1(DataType::DT_FP32, shape1, "In1");
@@ -1936,7 +1935,7 @@ TEST_F(SplitLargeFanoutTensorTest, TestSimplifyOverlapDualOverlap)
             {input1, input2, input3, input4, input5, input6, output1, output2, output3, output4, output5, output6})
         {
             TileShape::Current().SetVecTile(1024);
-            Tensor lt(DT_FP32, shape4, "lt");
+            Tensor lt(DT_FP32, {672}, "lt");
             Assemble(input1, {0}, lt);
             Assemble(input2, {128}, lt);
             Assemble(input3, {256}, lt);
