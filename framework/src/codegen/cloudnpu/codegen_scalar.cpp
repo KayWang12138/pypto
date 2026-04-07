@@ -66,6 +66,7 @@ std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const {
     auto pipeId = GetPipeId(syncQueue.trigPipeId_);
     std::ostringstream oss;
     oss << "wait_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
+    oss << "startCycle = get_sys_cnt();\n";
     return oss.str();
 }
 

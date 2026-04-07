@@ -359,7 +359,7 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RT_uint32           uint32_t
 #define RT_UB               __ubuf__
 
-#define RT_FUNCTION(name)                                   extern "C" [aicore] void name(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam)
+#define RT_FUNCTION(name)                                   extern "C" [aicore] void name(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam, uint32_t& startCycle)
 #define RT_OPERATION(opcode, ...)                           RT_OPERATION_##opcode(__VA_ARGS__)
 #define RT_OPERATION_MACRO(opcode, ...)                     RT_OPERATION_MACRO_##opcode(__VA_ARGS__)
 #define RT_DECL_TYPE_TILE(name, primType, space, dim, ...)  using name = TileTensor<RT_##primType, LocalLayout##dim##Dim<__VA_ARGS__>, Hardware::space>;
