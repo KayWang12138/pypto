@@ -39,10 +39,12 @@ const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
     {"2201", NPUArch::DAV_2201},
     {"3510", NPUArch::DAV_3510},
+    {"3113", NPUArch::DAV_3113},
 };
 
 const std::unordered_map<std::string, SocVersion> socVersionMap = {
     {"Ascend910B1", SocVersion::ASCEND_910B1},
+    {"Kirin9030", SocVersion::KIRIN_9030},
 };
 
 // helper function

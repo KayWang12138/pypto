@@ -290,6 +290,11 @@ Status CubeProcess::AlignGMTensor(Function &function, std::vector<Operation *> &
 }
 
 Status CubeProcess::UpdateCubeOp(Function &function) {
+    auto platformSoc = Platform::Instance().GetSoc().GetSocVersion();
+    if (platformSoc == SocVersion::KIRIN_9030) {
+        return SUCCESS;
+    }
+
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
             continue;

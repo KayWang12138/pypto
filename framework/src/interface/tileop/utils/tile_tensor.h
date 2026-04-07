@@ -59,6 +59,7 @@ private:
     LA layout_;
 };
 
+#ifndef __LITE_NPU
 template <typename T, typename LA>
 struct TileTensor<T, LA, Hardware::GM> {
     using Type = T;
@@ -85,6 +86,7 @@ private:
     T *addr_;
     LA layout_;
 };
+#endif
 
 template <typename T, typename LA, Hardware FMT = Hardware::UB>
 TILEOP TileTensor<T, LA, FMT> MakeTensor(__ubuf__ T *addr, LA layout) {

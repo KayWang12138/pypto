@@ -19,6 +19,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "tilefwk/platform.h"
 #include "interface/operation/operation.h"
 #include "codegen/codegen_cce.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
@@ -107,7 +108,9 @@ private:
 
 class CodeGenLiteNPU : public CodeGenCCE {
 public:
-    explicit CodeGenLiteNPU(const CodeGenCtx &cctx) : CodeGenCCE(cctx) {};
+    explicit CodeGenLiteNPU(const CodeGenCtx &cctx) : CodeGenCCE(cctx) {
+        platform_ = Platform::Instance().GetSoc().GetNPUArch();
+    };
     ~CodeGenLiteNPU() override = default;
 
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
@@ -116,6 +119,7 @@ public:
     std::pair<int, std::string> CompileCCE(const CompileInfo_LiteNPU &compileInfo, const std::string &compileOptions) const;
     std::optional<std::string> GenExtraAlloc(const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const;
     std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &symbolMgr) const;
+    std::string GetCoreArch() const;
 
 private:
     void GenFuncBody(Function &subFunc, Function &topFunc, std::ostringstream &oss) const;
@@ -124,7 +128,7 @@ private:
     void DumpCCE(const std::string &name, const std::string &code) const;
 
     void DoCompileCCE(const CompileInfo_LiteNPU &compileInfo, const std::string &compileOptions) const;
-    void BuildArchOptions(std::ostringstream &oss, const CompileInfo_LiteNPU &compileInfo) const;
+    void BuildArchOptions(std::ostringstream &oss) const;
     void BuildIncludes(std::ostringstream &oss) const;
     void BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const;
 
@@ -164,6 +168,8 @@ private:
         const int &blockDim) const;
 
     std::string GenFuncGlobalCodeAfterReplace(const Function &func, std::pair<uint64_t, Function *> subFuncPair, const std::string &subProgramCode);
+
+    NPUArch platform_;
 };
 
 class FloatSpecValMgrLite {

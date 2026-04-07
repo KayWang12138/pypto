@@ -1,3 +1,5 @@
+export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/gitCode/GBowen666/pto-isa
+
 cd /mnt/workspace/gitCode/GBowen666/pypto/
 
 pip3 uninstall pypto

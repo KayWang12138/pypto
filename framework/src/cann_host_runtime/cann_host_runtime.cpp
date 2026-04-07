@@ -73,6 +73,7 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
     }
     if (ret == 0) {
         socVersion = std::string(socVer);
+        socVersion = "Kirin9030"; // TODO: need to modify libruntime.so rtGetSocVersion...
         return true;
     }
 #endif

@@ -299,19 +299,22 @@ public:
 };
 
 enum class SocVersion{
-    ASCEND_910B1
+    ASCEND_910B1,
+    KIRIN_9030
 };
 
 enum class NPUArch{
     DAV_1001 = 1001,
     DAV_2201 = 2201,
     DAV_3510 = 3510,
+    DAV_3113 = 3113,
     DAV_UNKNOWN
 };
 
 inline std::string SocVersionToString(SocVersion soc_version) {
     switch (soc_version) {
         case SocVersion::ASCEND_910B1: return "Ascend910B1";
+        case SocVersion::KIRIN_9030: return "Kirin9030";
         default: return "Ascend910B1";
     }
 }
@@ -321,6 +324,7 @@ inline std::string NPUArchToString(NPUArch npu_arch) {
         case NPUArch::DAV_1001: return "DAV_1001";
         case NPUArch::DAV_2201: return "DAV_2201";
         case NPUArch::DAV_3510: return "DAV_3510";
+        case NPUArch::DAV_3113: return "DAV_3113";
         default: return "UNKNOWN_NPU_ARCH";
     }
 }

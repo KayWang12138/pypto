@@ -33,11 +33,11 @@ class CodeGenFactory {
 public:
     static std::shared_ptr<CodeGenCCE> GetCodeGenCCE(const CodeGenCtx &ctx) {
         auto platform = Platform::Instance().GetSoc().GetNPUArch();
-        // TODO: differentiate these two codegen models...
-        // if (platform == NPUArch::DAV_2201 || platform == NPUArch::DAV_3510) {
-        //     return std::make_shared<CodeGenCloudNPU>(ctx);
-        // }
-        return std::make_shared<CodeGenLiteNPU>(ctx);
+        if (platform == NPUArch::DAV_2201 || platform == NPUArch::DAV_3510) {
+            return std::make_shared<CodeGenCloudNPU>(ctx);
+        } else if (platform == NPUArch::DAV_3113) {
+            return std::make_shared<CodeGenLiteNPU>(ctx);
+        }
         ASSERT(false) << "can not support this platform: " << ToUnderlying(platform) << ", please check environment";
         return nullptr;
     }

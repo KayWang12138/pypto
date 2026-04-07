@@ -553,20 +553,23 @@ std::string CodeGenLiteNPU::GetPtoTileLibPathByEnv() const {
     return "";
 }
 
-// TODO: modify for kirin...
-void CodeGenLiteNPU::BuildArchOptions(std::ostringstream &oss, const CompileInfo_LiteNPU &compileInfo) const {
-    (void)compileInfo; // TODO...
-    // const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
+std::string CodeGenLiteNPU::GetCoreArch() const {
+    if (platform_ == NPUArch::DAV_3113) {
+        return "dav-l311";
+    } else {
+        return "dav-l311";
+    }
+}
 
-    // std::vector<std::string> compileOpts{corePredefine};
+void CodeGenLiteNPU::BuildArchOptions(std::ostringstream &oss) const {
     std::vector<std::string> compileOpts;
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
     }
 
+    compileOpts.emplace_back("-D__LITE_NPU");
     compileOpts.emplace_back("--cce-aicore-only");
-    // std::string coreArch = GetCoreArch(compileInfo); // TODO: support lite npu...
-    std::string coreArch = "dav-l311";
+    std::string coreArch = GetCoreArch();
     compileOpts.emplace_back("--cce-aicore-arch=" + coreArch);
 
     std::string allCompileOpts = JoinString(compileOpts, " ");
@@ -601,7 +604,7 @@ std::pair<int, std::string> CodeGenLiteNPU::CompileCCE(
     const CompileInfo_LiteNPU &compileInfo, const std::string &compileOptions) const {
     std::ostringstream oss;
     oss << "bisheng -c -O3 -g -x cce -std=c++17 -w ";
-    BuildArchOptions(oss, compileInfo);
+    BuildArchOptions(oss);
     BuildIncludes(oss);
     BuildExtraOptions(oss, compileOptions);
 
