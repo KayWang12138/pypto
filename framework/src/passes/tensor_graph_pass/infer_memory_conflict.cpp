@@ -109,7 +109,6 @@ Status InferMemoryConflict::InsertViewAssemble(Function& function)
             LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(std::move(moveInTensor));
 
             inputTensor->RemoveConsumer(consumer);
-            auto &regCopy = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
             consumer->ReplaceInput(newTensor, inputTensor);
             if (vecTypeTile.size() <= 0) {
                 Shape defaultTile;
@@ -117,11 +116,12 @@ Status InferMemoryConflict::InsertViewAssemble(Function& function)
                     return FAILED;
                 }
                 viewTypeTile.SetVecTile(defaultTile);
-                regCopy.UpdateTileShape(viewTypeTile);
             } else {
                 viewTypeTile.SetVecTile(vecTypeTile);
-                regCopy.UpdateTileShape(viewTypeTile);
+
             }
+            auto &regCopy = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
+            regCopy.UpdateTileShape(viewTypeTile);
         }
     }
     return SUCCESS;
