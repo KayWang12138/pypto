@@ -202,6 +202,12 @@ void CodegenPreproc::FixExpandDimForAxisCombine(Operation& op, int dimSize) cons
             op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
         }
     }
+    // 隐式expand场景
+    if (op.HasAttr(OpAttributeKey::brcpIdx)) {
+        int operand = op.GetIntAttribute(OpAttributeKey::brcpIdx);
+        op.SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(0));
+        op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(operand));
+    }
 }
 
 inline bool SkipInputCombineOps3510(Operation& op)

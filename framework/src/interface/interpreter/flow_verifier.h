@@ -22,6 +22,8 @@
 #include "interface/function/function.h"
 #include "interface/interpreter/function.h"
 #include <float.h>
+#include <cmath>
+#include <utility>
 
 namespace npu::tile_fwk {
 
@@ -173,10 +175,7 @@ public:
             for (int64_t dim : shape_) {
                 total *= dim;
             }
-            if (offset >= total) {
-                throw std::out_of_range(
-                    "Offset " + std::to_string(offset) + " exceeds total size " + std::to_string(total));
-            }
+            ASSERT(VerifyResultScene::VERIFY_RESULT_INDEX_OUTOFBOUNDS, offset < total) << "Offset Out Of Bounds";
 
             std::vector<int64_t> indices(shape_.size());
             int64_t remaining = offset;
@@ -190,6 +189,8 @@ public:
 
         void DumpDataDetail(std::ostringstream& oss, size_t topk = 64)
         {
+            constexpr auto max_precision{std::numeric_limits<float>::digits10 + 1};
+            oss << std::setprecision(max_precision);
             oss << "GROUP,INDEX,OFFSET,OFFSET_RAW,A>data,B>data,AB>ae,AB>re,AB>tol\n";
             size_t count = std::min(topk, this->size());
             for (size_t k = 0; k < count; k++) {
@@ -258,8 +259,8 @@ public:
             }
             oss << "\n"
                 << space << "All size:" << size_ << " failNum:" << failNum_ << " maxAbsDiff:" << maxAbsDiff
-                << " maxRelDiff:" << maxRelDiff << "averageAbsDiff:" << totalAbsDiff / size_
-                << "averageRelDiff:" << totalRelDiff / size_ << " errorCount:" << errorCount_
+                << " maxRelDiff:" << maxRelDiff << " averageAbsDiff:" << totalAbsDiff / size_
+                << " averageRelDiff:" << totalRelDiff / size_ << " errorCount:" << errorCount_
                 << " errorRatio:" << errorCount_ * 1.0 / size_ << " zeroCount:" << zeroCount_
                 << " zeroRatio:" << zeroCount_ * 1.0 / size_ << "\n";
             if (errorCount_ + zeroCount_ > 0) {
@@ -324,56 +325,97 @@ public:
         size_t zeroCount_ = 0;
     };
 
+private:
+    static void CompareScalarPair(
+        CompareResult& compareResult, int64_t linearIndex, double goldenValue, double outputValue)
+    {
+        compareResult.goldenMax_ = std::max(compareResult.goldenMax_, goldenValue);
+        compareResult.outputMax_ = std::max(compareResult.outputMax_, outputValue);
+        compareResult.goldenMin_ = std::min(compareResult.goldenMin_, goldenValue);
+        compareResult.outputMin_ = std::min(compareResult.outputMin_, outputValue);
+        compareResult.goldenSum_ += goldenValue;
+        compareResult.outputSum_ += outputValue;
+        const double output_abs = std::abs(outputValue);
+        const double golden_abs = std::abs(goldenValue);
+        const double output_golden_sub_abs = std::abs(outputValue - goldenValue);
+        compareResult.goldenAbsSum_ += golden_abs;
+        compareResult.outputAbsSum_ += output_abs;
+        if (output_abs <= 0) {
+            compareResult.outputZero_++;
+        }
+        if (golden_abs <= 0) {
+            compareResult.goldenZero_++;
+        }
+        if (!std::isfinite(outputValue)) {
+            compareResult.outputInfnan_++;
+        }
+        if (!std::isfinite(goldenValue)) {
+            compareResult.goldenInfnan_++;
+        }
+        if (!std::isfinite(output_golden_sub_abs)) {
+            compareResult.infnanCnt_++;
+        }
+        const double output_golden_abs_add = output_abs + golden_abs;
+        if (output_golden_abs_add <= 0) {
+            compareResult.AppendZero();
+            return;
+        }
+
+        const double relDiff = output_golden_sub_abs * 2 / output_golden_abs_add;
+        const double tol_attn = output_golden_abs_add * compareResult.GetRtol() / 2 + compareResult.GetAtol();
+        const double tol_fail = tol_attn * 128;
+        if (output_golden_sub_abs > tol_attn) {
+            compareResult.AppendError(
+                true, static_cast<size_t>(linearIndex), goldenValue, outputValue, output_golden_sub_abs, relDiff,
+                tol_attn);
+        }
+        if (output_golden_sub_abs > tol_fail) {
+            compareResult.AppendFail();
+        }
+    }
+
+    static int64_t GetValidStride(Shape validShape, int64_t axis)
+    {
+        int64_t stride = 1;
+        int64_t dims = validShape.size();
+        for (int64_t i = axis + 1; i < dims; i++) {
+            stride = stride * validShape[i];
+        }
+        return stride;
+    }
+
+    template <typename Leaf>
+    static void CompareDataRecursiveWithLeaf(
+        CompareResult& compareResult, size_t axis, int64_t goldenOffset, int64_t outputOffset,
+        const std::shared_ptr<LogicalTensorData>& goldenDataView,
+        const std::shared_ptr<LogicalTensorData>& outputDataView, int64_t index, Leaf&& leaf)
+    {
+        auto& validShape = goldenDataView->GetValidShape();
+        if (axis == validShape.size() - 1) {
+            leaf(compareResult, validShape[axis], outputOffset, goldenOffset, index,
+                goldenDataView, outputDataView);
+        } else {
+            for (int i = 0; i < validShape[axis]; i++) {
+                int nGoldenOffset = goldenOffset + goldenDataView->GetData()->GetStride()[axis] * i;
+                int nOutputOffset = outputOffset + outputDataView->GetData()->GetStride()[axis] * i;
+                int64_t nindex = index + GetValidStride(validShape, axis) * i;
+                CompareDataRecursiveWithLeaf(
+                    compareResult, axis + 1, nGoldenOffset, nOutputOffset, goldenDataView, outputDataView,
+                    nindex, std::forward<Leaf>(leaf));
+            }
+        }
+    }
+
+public:
     template <typename DataType, typename T>
     static void CompareData(
         CompareResult& compareResult, size_t count, int64_t offset, const DataType* goldenValueList,
         const DataType* outputValueList)
     {
         for (size_t index = 0; index < count; index++) {
-            auto goldenValue = static_cast<T>(goldenValueList[index]);
-            auto outputValue = static_cast<T>(outputValueList[index]);
-            compareResult.goldenMax_ = std::max(compareResult.goldenMax_, static_cast<double>(goldenValue));
-            compareResult.outputMax_ = std::max(compareResult.outputMax_, static_cast<double>(outputValue));
-            compareResult.goldenMin_ = std::min(compareResult.goldenMin_, static_cast<double>(goldenValue));
-            compareResult.outputMin_ = std::min(compareResult.outputMin_, static_cast<double>(outputValue));
-            compareResult.goldenSum_ += goldenValue;
-            compareResult.outputSum_ += outputValue;
-            auto output_abs = abs(outputValue);
-            auto golden_abs = abs(goldenValue);
-            auto output_golden_sub_abs = abs(outputValue - goldenValue);
-            compareResult.goldenAbsSum_ += golden_abs;
-            compareResult.outputAbsSum_ += output_abs;
-            if (output_abs <= 0) {
-                compareResult.outputZero_++;
-            }
-            if (golden_abs <= 0) {
-                compareResult.goldenZero_++;
-            }
-            if (!std::isfinite(outputValue)) {
-                compareResult.outputInfnan_++;
-            }
-            if (!std::isfinite(goldenValue)) {
-                compareResult.goldenInfnan_++;
-            }
-            if (!std::isfinite(output_golden_sub_abs)) {
-                compareResult.infnanCnt_++;
-            }
-            auto output_golden_abs_add = output_abs + golden_abs;
-            if (output_golden_abs_add <= 0) {
-                compareResult.AppendZero();
-                continue;
-            }
-
-            auto relDiff = output_golden_sub_abs * 2 / output_golden_abs_add;
-            auto tol_attn = output_golden_abs_add * compareResult.GetRtol() / 2 + compareResult.GetAtol();
-            auto tol_fail = tol_attn * 128;
-            if (output_golden_sub_abs > tol_attn) {
-                compareResult.AppendError(
-                    true, offset + index, goldenValue, outputValue, output_golden_sub_abs, relDiff, tol_attn);
-            }
-            if (output_golden_sub_abs > tol_fail) {
-                compareResult.AppendFail();
-            }
+            const double goldenValue = static_cast<double>(static_cast<T>(goldenValueList[index]));
+            const double outputValue = static_cast<double>(static_cast<T>(outputValueList[index]));
+            CompareScalarPair(compareResult, offset + static_cast<int64_t>(index), goldenValue, outputValue);
         }
     }
 
@@ -381,21 +423,14 @@ public:
     static void CompareDataRecursive(
         CompareResult& compareResult, size_t axis, int64_t goldenOffset, int64_t outputOffset,
         const std::shared_ptr<LogicalTensorData>& goldenDataView,
-        const std::shared_ptr<LogicalTensorData>& outputDataView)
+        const std::shared_ptr<LogicalTensorData>& outputDataView, int64_t index)
     {
-        auto& validShape = goldenDataView->GetValidShape();
-        if (axis == validShape.size() - 1) {
-            CompareData<DataType, T>(
-                compareResult, validShape[axis], outputOffset, &goldenDataView->Get<DataType>(goldenOffset),
-                &outputDataView->Get<DataType>(outputOffset));
-        } else {
-            for (int i = 0; i < validShape[axis]; i++) {
-                int nGoldenOffset = goldenOffset + goldenDataView->GetData()->GetStride()[axis] * i;
-                int nOutputOffset = outputOffset + outputDataView->GetData()->GetStride()[axis] * i;
-                CompareDataRecursive<DataType, T>(
-                    compareResult, axis + 1, nGoldenOffset, nOutputOffset, goldenDataView, outputDataView);
-            }
-        }
+        CompareDataRecursiveWithLeaf(
+            compareResult, axis, goldenOffset, outputOffset, goldenDataView, outputDataView, index,
+            [](CompareResult& cr, size_t lastAxisLen, int64_t outOff, int64_t gOff, int64_t idx,
+               const std::shared_ptr<LogicalTensorData>& gv, const std::shared_ptr<LogicalTensorData>& ov) {
+                CompareData<DataType, T>(cr, lastAxisLen, idx, &gv->Get<DataType>(gOff), &ov->Get<DataType>(outOff));
+            });
     }
 
     template <typename DataType, typename T>
@@ -407,7 +442,7 @@ public:
         auto& validShape = goldenDataView->GetValidShape();
         auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
         CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum, validShape);
-        CompareDataRecursive<DataType, T>(compareResult, 0, 0, 0, goldenDataView, outputDataView);
+        CompareDataRecursive<DataType, T>(compareResult, 0, 0, 0, goldenDataView, outputDataView, 0);
         compareResult.UpdateErrorCountThreshold();
         return compareResult;
     }
@@ -428,6 +463,11 @@ public:
     void WriteException();
 
 private:
+    static CompareResult CompareFp8TensorData(
+        const std::shared_ptr<LogicalTensorData>& goldenDataView,
+        const std::shared_ptr<LogicalTensorData>& outputDataView, DataType fp8Format, float rtol, float atol,
+        int errorCountThreshold = 0, int failNum = 0);
+
     void UpdateInterpreterCache();
     void Initialize(
         Function* entry, const std::vector<std::shared_ptr<LogicalTensorData>>& inputDataViewList,

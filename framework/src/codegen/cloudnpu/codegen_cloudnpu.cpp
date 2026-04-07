@@ -133,8 +133,7 @@ void CodeGenCloudNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ost
     for (const auto& op : operationList) {
         CODEGEN_LOGI(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
-        Opcode opcode = op.GetOpcode();
-        if (SKIP_OPCODE_FOR_CODEGEN.find(opcode) != SKIP_OPCODE_FOR_CODEGEN.end()) {
+        if (SKIP_OPCODE_FOR_CODEGEN.find(op.GetOpcode()) != SKIP_OPCODE_FOR_CODEGEN.end()) {
             CODEGEN_LOGI("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
             continue;
         }
@@ -334,10 +333,6 @@ std::string CodeGenCloudNPU::PrepareCmd(const CompileInfo& compileInfo, const st
     oss << "-o " << objFile << " " << srcFile;
 
     std::string compileCmd = oss.str();
-
-    int ret = CheckInjectStr(compileCmd.c_str(), compileCmd.length());
-    ASSERT(CmpCodeErr::CMD_CHECK_FAILED, ret == 0)
-        << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
 
     CODEGEN_LOGI_FULL("compile kernel...\n%s", compileCmd.c_str());
     return compileCmd;
@@ -608,7 +603,11 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo& compileInfo) const
 
 int CodeGenCloudNPU::DoCompileCmd(const std::string& compileCmd) const
 {
-    int ret = std::system(compileCmd.c_str());
+    int ret = CheckInjectStr(compileCmd.c_str(), compileCmd.length());
+    ASSERT(CmpCodeErr::CMD_CHECK_FAILED, ret == 0)
+        << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
+
+    ret = std::system(compileCmd.c_str());
     if (ret != 0) {
         CODEGEN_LOGE_E(
             CmpCodeErr::COMPILE_CODE_FAILED, "kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret,

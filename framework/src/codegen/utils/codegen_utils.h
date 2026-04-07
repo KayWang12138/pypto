@@ -32,7 +32,7 @@ namespace npu::tile_fwk {
 constexpr int COMMENT_PREFIX_LENGTH = 2;
 
 template <typename T>
-inline void FillIntVecWithDummyInHead(std::vector<T>& input, unsigned padNum, T dummy)
+inline void FillVecWithDummyInHead(std::vector<T>& input, unsigned padNum, T dummy)
 {
     for (unsigned i = 0; i < padNum; ++i) {
         input.insert(input.begin(), dummy);
@@ -160,7 +160,7 @@ struct FloatSpecVal {
     std::string GetFsVarName() const
     {
         std::string fsType = std::isinf(value) ? (std::signbit(value) ? "inf_neg" : "inf_pos") : "nan";
-        std::string fsVarName = DataType2CCEStr(dtype) + "_" + fsType;
+        std::string fsVarName = std::string(DataType2CCEStr(dtype)) + "_" + fsType;
         return fsVarName;
     }
 

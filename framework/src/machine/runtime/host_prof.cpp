@@ -207,7 +207,7 @@ void HostProf::BuildTensor(const uint32_t tensorType, const RawTensorDataPtr& te
         return;
     }
     tensorData.format = kFormatNd;
-    tensorData.dataType = DATA_TYPE_CANN_ARRAY[static_cast<size_t>(tensorInfo->GetDataType())];
+    tensorData.dataType = DataType2CannType(tensorInfo->GetDataType());
     for (size_t i = 0; i < tensorInfo->GetShape().size(); i++) {
         tensorData.shape[i] = static_cast<uint32_t>(tensorInfo->GetShape().at(i));
     }

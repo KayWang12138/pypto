@@ -21,6 +21,7 @@ import torch
 import numpy as np
 from numpy.testing import assert_allclose
 
+# for test
 
 def get_device_id():
     """

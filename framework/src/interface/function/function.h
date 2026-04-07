@@ -427,8 +427,6 @@ struct DyndevFunctionAttribute {
 
     std::vector<int> startArgsInputSymbolIndexList;
 
-    std::vector<SymbolHandler> startArgsSymbolHandlerList;
-
     std::vector<std::string> commGroupNames;
 
     SymbolicScalar maxDynamicAssembleOutcastMem;
@@ -561,7 +559,7 @@ public:
         const bool updateTensorMap = true);
     Operation& AddRawOperation(
         const Opcode opCode, const LogicalTensors& iOperands, const LogicalTensors& oOperands,
-        bool updateTensorMap = true);
+        bool updateTensorMap = true, const SourceLocationPtr &sourceLocation = nullptr);
 
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<RawTensor>> outIncastLinkMap; // 记录outcast 共享地址的 incast
     void SetSameMemId(const LogicalTensorPtr& operand, LogicalTensorPtr& dst);

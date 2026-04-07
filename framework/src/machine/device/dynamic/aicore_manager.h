@@ -18,6 +18,7 @@
 #include <sys/ioctl.h>
 #include <functional>
 #include <vector>
+#include <map>
 #include <atomic>
 #include <array>
 #include <semaphore.h>
@@ -883,7 +884,7 @@ private:
             }
         }
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
-        if (enableFairSch_ || wrapManager_.GetIsMixarch()) { // for die-to-die scheduling
+        if (enableFairSch_) {
             if (context_->coreRunReadyCnt_[static_cast<int>(type)] > 0) {
                 AicpuIsIdle(type);
             } else {
@@ -944,6 +945,30 @@ private:
         return schema::offset(schema::offsetList(offsetList));
     }
 
+    inline std::map<uint64_t, uint64_t> CalTensorAddrAndSize(uint64_t taskId)
+    {
+        std::map<uint64_t, uint64_t> tensorAddr2SizeMap;
+        uint32_t opIdx = TaskID(taskId);
+        auto duppedData = GetDuppedData(taskId);
+        auto dynFuncData = GetDynFuncData(taskId);
+        auto iOperandSize = duppedData->GetSource()->GetOperationIOperandSize(opIdx);
+        for (size_t i = 0; i < iOperandSize; i++) {
+            auto iOperand = duppedData->GetSource()->GetOperationIOperand(opIdx, i);
+            auto base = GetTensorAddr(dynFuncData, iOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(iOperand->rawIndex);
+            tensorAddr2SizeMap[base] = size;
+        }
+
+        auto oOperandSize = duppedData->GetSource()->GetOperationOOperandSize(opIdx);
+        for (size_t i = 0; i < oOperandSize; i++) {
+            auto oOperand = duppedData->GetSource()->GetOperationOOperand(opIdx, i);
+            auto base = GetTensorAddr(dynFuncData, oOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(oOperand->rawIndex);
+            tensorAddr2SizeMap[base] = size;
+        }
+        return tensorAddr2SizeMap;
+    }
+
     inline void DumpSchemaOperationInfo(int coreIdx, uint64_t taskId)
     {
         uint64_t deviceTaskId = curTaskCtrl_->taskId;
@@ -997,7 +1022,7 @@ private:
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
 #endif
-        aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
+        aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF, CalTensorAddrAndSize(newTask));
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
@@ -1129,7 +1154,7 @@ private:
                 "resolved new task, aic ready count: %u coretype:%u.", context_->readyCount[aicIndex], aicIndex);
             if (context_->readyCount[aicIndex] > 0) {
                 ReadyCoreFunctionQueue* targetReadyQue = readyAicCoreFunctionQue_;
-                if (wrapManager_.GetIsMixarch() && EnableDieSceduling(CoreType::AIC, context_->readyIds[aicIndex][0])) {
+                if (wrapManager_.GetIsMixarch() && EnableDieScheduling(CoreType::AIC, context_->readyIds[aicIndex][0])) {
                     targetReadyQue = readyDieAicFunctionQue_;
                 }
                 ret = PushReadyQue(targetReadyQue, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
@@ -1151,7 +1176,7 @@ private:
                 "resolved new task, aiv ready count: %u coretype: %u.", context_->readyCount[aivIndex], aivIndex);
             if (context_->readyCount[aivIndex] > 0) {
                 ReadyCoreFunctionQueue* targetReadyQue = readyAivCoreFunctionQue_;
-                if (wrapManager_.GetIsMixarch() && EnableDieSceduling(CoreType::AIV, context_->readyIds[aivIndex][0])) {
+                if (wrapManager_.GetIsMixarch() && EnableDieScheduling(CoreType::AIV, context_->readyIds[aivIndex][0])) {
                     targetReadyQue = readyDieAivFunctionQue_;
                 }
                 ret = PushReadyQue(targetReadyQue, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
@@ -1378,7 +1403,7 @@ private:
             ReadyCoreFunctionQueue* readyQue =
                 coreType == static_cast<int>(CoreType::AIC) ? readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
             if (wrapManager_.GetIsMixarch() &&
-                EnableDieSceduling(static_cast<CoreType>(coreType), context_->readyIds[coreType][0])) {
+                EnableDieScheduling(static_cast<CoreType>(coreType), context_->readyIds[coreType][0])) {
                 readyQue =
                     coreType == static_cast<int>(CoreType::AIC) ? readyDieAicFunctionQue_ : readyDieAivFunctionQue_;
             }
@@ -1595,26 +1620,23 @@ private:
         return false;
     }
 
-    inline bool EnableDieSceduling(CoreType type, uint32_t taskId)
+    inline bool EnableDieScheduling(CoreType type, uint32_t taskId)
     {
+        auto duppedData = GetDuppedData(taskId);
+        auto loopDieId = duppedData->loopDieId_;
+        if (loopDieId < 0 || (loopDieId != static_cast<int8_t>(wrapManager_.GetDieId()))) { // prevent parallel_loop incorrectly, task depends on other die
+            return false;
+        }
         if (!enableFairSch_) {
-            auto duppedData = GetDuppedData(taskId);
-            auto loopDieId = duppedData->loopDieId_;
-            if (loopDieId < 0 ||
-                (loopDieId !=
-                 static_cast<int8_t>(
-                     wrapManager_.GetDieId()))) { // prevent parallel_loop incorrectly, task depends on other die
-                return false;
-            }
             return true;
-        } else {
-            int schedStart = 0;
-            int schedEnd = 0;
-            wrapManager_.GetDieSchedIdRange(schedStart, schedEnd, aicpuNum_);
-            for (int idx = schedStart; idx < schedEnd; idx++) {
-                if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true) {
-                    return true;
-                }
+        }
+        int schedStart = 0;
+        int schedEnd = 0;
+        wrapManager_.GetDieSchedIdRange(schedStart, schedEnd, aicpuNum_);
+        const auto& idleMap = curTaskCtrl_->isAicpuIdle[static_cast<int>(type)];
+        for (int idx = schedStart; idx < schedEnd; idx++) {
+            if (idleMap[idx].load(std::memory_order_relaxed) == true) {
+                return true;
             }
         }
         return false;
