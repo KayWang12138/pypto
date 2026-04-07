@@ -202,37 +202,37 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
     memcpy(base + offset, data->GetData()->GetDevPtr(), dataSize);
 }
 
-void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, [[maybe_unused]] int atomicType, [[maybe_unused]] bool notifyAll) {
+void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_t offset, [[maybe_unused]] int atomicType) {
     uint8_t *base = GetRemoteRank(dstRank, false);
     if (slotSize > WIN_IN_SIZE) {
         throw std::runtime_error("Set operation would exceed shared memory bounds!");
     }
     std::atomic_thread_fence(std::memory_order_release);
-    memset(base, value, slotSize);
+    memset(base + offset, value, slotSize);
 }
 
-void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, [[maybe_unused]] int atomicType, [[maybe_unused]] bool notifyAll) {
+void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint64_t offset, [[maybe_unused]] int atomicType, [[maybe_unused]] bool notifyAll) {
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");
     }
     std::atomic_thread_fence(std::memory_order_release);
-    memset(base, value, slotSize);
+    memset(base + offset, value, slotSize);
 }
 
-void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, bool reset) {
+void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
     volatile uint8_t *base = reinterpret_cast<volatile uint8_t *>(GetRemoteRank(srcRank, true));
     uint8_t targetValue = static_cast<uint8_t>(expect);
     if (slotSize == 0 || slotSize >= WIN_EXP_SIZE) {
         throw std::runtime_error("Invalid slotSize in Wait operation!");
     }
-    while(base[slotSize - 1] != targetValue) {
+    while(base[offset + slotSize - 1] != targetValue) {
         std::this_thread::yield();
         std::atomic_thread_fence(std::memory_order_acquire);
     }
     if (reset) {
         volatile uint8_t *vbase = base;
-        for (size_t i = 0; i < slotSize; i++) {
+        for (size_t i = offset; i < offset + slotSize; i++) {
             const_cast<volatile uint8_t *>(vbase)[i] = 0;
         }
         std::atomic_thread_fence(std::memory_order_release);
