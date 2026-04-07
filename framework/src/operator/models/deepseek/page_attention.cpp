@@ -198,7 +198,6 @@ void PageAttentionWithImmScalar(
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1))
         {
-            TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
             SymbolicScalar curSeq(static_cast<int64_t>(actSeqs[0])); // diff batch seq all same
             SymbolicScalar bnPerBatch = (curSeq + blockSize - 1) / blockSize;
             bnPerBatch.AsIntermediateVariable();
