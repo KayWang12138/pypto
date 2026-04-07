@@ -168,3 +168,76 @@ TEST_F(GetParamIdxTest, TestAddExp)
     getParamIndexTest.RunOnFunction(*rootGraphPtr);
     EXPECT_TRUE(true);
 }
+
+TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyInNotFromInCast)
+{
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyInNotFromInCast", "TestCopyInNotFromInCast", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
+    
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor2->UpdateDynValidShape({SymbolicScalar("Z0"), SymbolicScalar("Z1")});
+
+    auto& copy_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {ubTensor1}, {ubTensor2});
+    std::vector<npu::tile_fwk::OpImmediate> fromOffset = {OpImmediate::Parameter(1), OpImmediate::Parameter(2)};
+    auto copyinAttr = std::make_shared<CopyOpAttribute>(fromOffset, MEM_UB, shapeImme, shapeImme);
+    copy_op.SetIOpAttrOffset(0, 0);
+    copy_op.SetOpAttribute(copyinAttr);
+
+    InferParamIndex getParamIndexTest;
+    getParamIndexTest.RunOnFunction(*rootFuncPtr);
+    
+    auto updatedAttr = std::static_pointer_cast<CopyOpAttribute>(copy_op.GetOpAttribute());
+    auto updatedShape = updatedAttr->GetShape();
+    EXPECT_EQ(updatedShape.size(), 2);
+    
+    auto updatedDynValidShape = ubTensor2->GetDynValidShape();
+    EXPECT_EQ(updatedDynValidShape.size(), 2);
+    EXPECT_TRUE(!(updatedDynValidShape[0].ConcreteValid()));
+    EXPECT_TRUE(!(updatedDynValidShape[1].ConcreteValid()));
+}
+
+TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyOutNotFromOutCast)
+{
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyOutNotFromOutCast", "TestCopyOutNotFromOutCast", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
+    
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor2->UpdateDynValidShape({SymbolicScalar("Z0"), SymbolicScalar("Z1")});
+
+    auto& copy_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {ubTensor2});
+    auto copyoutAttr = std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme);
+    copy_op.SetOOpAttrOffset(0, 0);
+    copy_op.SetOpAttribute(copyoutAttr);
+
+    InferParamIndex getParamIndexTest;
+    getParamIndexTest.RunOnFunction(*rootFuncPtr);
+    
+    auto updatedAttr = std::static_pointer_cast<CopyOpAttribute>(copy_op.GetOpAttribute());
+    auto updatedShape = updatedAttr->GetShape();
+    EXPECT_EQ(updatedShape.size(), 2);
+    
+    auto updatedDynValidShape = ubTensor2->GetDynValidShape();
+    EXPECT_EQ(updatedDynValidShape.size(), 2);
+    EXPECT_TRUE(updatedDynValidShape[0].ConcreteValid());
+    EXPECT_TRUE(updatedDynValidShape[1].ConcreteValid());
+}
