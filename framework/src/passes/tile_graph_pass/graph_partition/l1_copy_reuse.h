@@ -63,13 +63,12 @@ private:
         std::vector<std::pair<int, int>>& opOrder, std::map<uint64_t, int>& mgRem, std::vector<int>& numLRList,
         std::vector<uint64_t>& hashColor, int color);
     bool GetMergedL1(
-        int maxInColor, std::vector<int>& mergedNum, int maxMergeNum, int& tmpColor, int i,
-        std::map<std::vector<uint64_t>, int>& l1InputList, std::vector<uint64_t>& vec, std::vector<int>& colorCopyIn,
+        int maxInColor,  int maxMergeNum, int i,
+        std::vector<uint64_t>& vec, std::vector<int>& colorCopyIn,
         std::map<uint64_t, int>& mgRem, uint64_t idx);
     Status L1MergeProcess(
         OperationsViewer& opOriList, std::vector<std::vector<int>>& colorNode, std::vector<uint64_t>& hashColor,
-        std::vector<int>& colorCopyIn, std::map<std::vector<uint64_t>, int>& l1InputList, int& tmpColor,
-        std::vector<int>& mergedNum, int& i);
+        std::vector<int>& colorCopyIn, int& i);
     void CubeMergeProcess(
         std::vector<std::vector<int>>& colorNode, OperationsViewer& opOriList, std::vector<int>& hashMergeNum,
         std::vector<int>& colorCopyIn);

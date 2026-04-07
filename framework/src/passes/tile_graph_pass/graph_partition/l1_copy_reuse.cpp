@@ -360,8 +360,7 @@ Status L1CopyInReuseRunner::SetNumLR(std::vector<int>& numLRList)
 
 Status L1CopyInReuseRunner::L1MergeProcess(
     OperationsViewer& opOriList, std::vector<std::vector<int>>& colorNode, std::vector<uint64_t>& hashColor,
-    std::vector<int>& colorCopyIn, std::map<std::vector<uint64_t>, int>& l1InputList, int& tmpColor,
-    std::vector<int>& mergedNum, int& i)
+    std::vector<int>& colorCopyIn, int& i)
 {
     for (auto opIdx : colorNode[i]) {
         if (opOriList[opIdx].HasAttribute(OpAttributeKey::isCube) &&
@@ -426,8 +425,8 @@ void L1CopyInReuseRunner::GetL1ReuseOpOrder(
 }
 
 bool L1CopyInReuseRunner::GetMergedL1(
-    int maxInColor, std::vector<int>& mergedNum, int maxMergeNum, int& tmpColor, int i,
-    std::map<std::vector<uint64_t>, int>& l1InputList, std::vector<uint64_t>& vec, std::vector<int>& colorCopyIn,
+    int maxInColor, int maxMergeNum, int i,
+    std::vector<uint64_t>& vec, std::vector<int>& colorCopyIn,
     std::map<uint64_t, int>& mgRem, uint64_t idx)
 {
     auto copyId = l1InputList.find(vec);
@@ -447,7 +446,6 @@ Status L1CopyInReuseRunner::Phase1(
 {
     // 针对matmul的L1 copy reuse进行子图合并
     auto opOriList = func.Operations();
-    std::map<std::vector<uint64_t>, int> l1InputList;
     std::vector<int> numLRList(hashMap_.size(), 0);
     // CubeL1ReuseMode
     if (SetNumLR(numLRList) == FAILED) {
@@ -477,8 +475,8 @@ Status L1CopyInReuseRunner::Phase1(
                     return FAILED;
                 }
                 auto copyId = l1InputList.find(vec);
-                if (copyId != l1InputList.end() && colorCopyIn[copyId->second] + colorCopyIn[i] <= copyInThreshold &&
-                    mergedNum[copyId->second] > 0 && mergedNum[copyId->second] < numLRList[hashOrder[hashColor[i]]]) {
+                if (copyId != l1InputList.end() && colorCopyIn[copyId->second] + colorCopyIn[i] <= mgCopyInUpperBound_ &&
+                    mergedNum[copyId->second] > 0 && mergedNum[copyId->second] < numLRList[hashOrder_[hashColor[i]]]) {
                     tmpColor = copyId->second;
                     break;
                 }
@@ -587,7 +585,7 @@ void L1CopyInReuseRunner::BuildInOutGraph(const OperationsViewer &opOriList, int
     colorOutGraph.resize(color);
     for (size_t i = 0; i < opOriList.size(); i++) {
         int currColor = opOriList[i].GetSubgraphID();
-        for (int publisherIdx : inGraph[i]) {
+        for (int publisherIdx : inGraph_[i]) {
             int publisherColor = opOriList[publisherIdx].GetSubgraphID();
             if (publisherColor != currColor) {
                 colorInGraph[currColor].push_back(publisherColor);
