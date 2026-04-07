@@ -336,9 +336,9 @@ public:
 
 private:
 
-    static inline aicorePair_t encodePair(const uint64_t coreId, const uint64_t taskId) { return aicorePair_t ((taskId << 32) + (coreId & 0x00000000FFFFFFFFUL)); }
+    static inline aicorePair_t encodePair(const uint64_t coreId, const uint64_t taskId) { return aicorePair_t ((taskId << 32) + (coreId & 0x00000000FFFFFFFFULL)); }
     static inline uint64_t decodePairTask(const aicorePair_t pair) { return pair >> 32; }
-    static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
+    static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFULL; }
 
     inline void TryBatchSendTask(CoreType type)
     {
