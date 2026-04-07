@@ -187,28 +187,19 @@ void UpdateElewiseStatus(Operation* op, std::unordered_map<LogicalTensorPtr, Axi
     tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
 }
 
-bool CheckShape(const Operation* op)
+void AxisCombineMarker::DisableNoneWhiteListTensor(Operation* op)
 {
     for (auto inputTensor : op->GetIOperands()) {
         if (inputTensor->GetShape().back() == 1) {
-            return true;
+            tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
         }
     }
     for (auto outputTensor : op->GetOOperands()) {
         if (outputTensor->GetShape().back() == 1) {
-            return true;
+            tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
+        } else {
+            tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
         }
-    }
-    return false;
-}
-
-void AxisCombineMarker::DisableAllTensor(Operation* op)
-{
-    for (auto inputTensor : op->GetIOperands()) {
-        tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
-    }
-    for (auto outputTensor : op->GetOOperands()) {
-        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
     }
 }
 
@@ -244,8 +235,8 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx)
         UpdateElewiseStatus(op, tensorStatus_);
         return;
     }
-    if (whiteList.find(op->GetOpcode()) == whiteList.end() && CheckShape(op)) { // 非白名单Op，尾轴为1均不支持合轴
-        DisableAllTensor(op);
+    if (whiteList.find(op->GetOpcode()) == whiteList.end()) { // 非白名单Op，尾轴为1均不支持合轴
+        DisableNoneWhiteListTensor(op);
         return;
     }
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
