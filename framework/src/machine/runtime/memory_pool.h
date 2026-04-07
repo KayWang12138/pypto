@@ -148,7 +148,7 @@ class DevMemoryPool {
 public:
     DevMemoryPool()
     {
-        needMemCheck_ = (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL);
+        needMemCheck_ = ((config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) >> (CFG_DEBUG_ALL - 1)) & 1) == 1;
         sentinelVec_ = std::vector<uint64_t>(SENTINEL_NUM, SENTINEL_VALUE);
     }
     ~DevMemoryPool()
