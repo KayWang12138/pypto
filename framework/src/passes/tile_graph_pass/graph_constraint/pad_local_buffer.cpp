@@ -752,8 +752,11 @@ void ProcessReduceForAxisCombine(Operation& op, LogicalTensorPtr& in, size_t pad
 
 bool PadLocalBuffer::IsElementwiseLikeOp(OpCalcType calcType, const Operation& op, Operation* producerOp) const
 {
-    if (calcType == OpCalcType::CAST || calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN ||
-        calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW) {
+    std::unordered_set<OpCalcType> calcTypeSet{OpCalcType::CAST, OpCalcType::ELMWISE, OpCalcType::MOVE_IN, OpCalcType::MOVE_OUT};
+    if (calcTypeSet.find(calcType) != calcTypeSet.end()) {
+        return true;
+    }
+    if (op.GetOpcode() == Opcode::OP_VIEW) {
         return true;
     }
     if (producerOp != nullptr &&
