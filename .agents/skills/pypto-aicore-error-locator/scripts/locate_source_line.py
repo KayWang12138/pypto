@@ -105,13 +105,29 @@ def find_source_location(cce_path, json_path, cce_line_number):
     logger.info("  program.json 中 操作数: %d 个", json_count)
 
     if cce_count != json_count:
-        logger.error("CCE 文件中的操作为：")
-        logger.error(cce_op_type)
-        logger.error("program.json对应hash中的操作为： ")
-        logger.error(program_opcode)
+        logger.error("")
+        logger.error("=" * 80)
+        logger.error("操作数不一致")
+        logger.error("=" * 80)
+        logger.error(f"  CCE 文件中操作数: {cce_count} 个")
+        logger.error(f"  program.json 中操作数: {json_count} 个")
+        logger.error("")
+        logger.error("CCE 文件中的操作序列:")
+        for i, op in enumerate(cce_op_type, 1):
+            logger.error(f"  {i}. {op}")
+        logger.error("")
+        logger.error("program.json 中的操作序列:")
+        for i, op in enumerate(program_opcode, 1):
+            logger.error(f"  {i}. {op}")
+        logger.error("")
+        logger.error("解决建议:")
+        logger.error("  1. 检查 CCE 文件是否是最新编译产物")
+        logger.error("  2. 验证 program.json 文件完整性")
+        logger.error("  3. 尝试重新编译算子")
+        logger.error("=" * 80)
         return {
             'matched': False,
-            'reason': 'CCE 文件中操作 与 program.json 中操作的个数不一样，请仔细检查',
+            'reason': f'CCE 文件中操作数({cce_count})与 program.json 中操作数({json_count})不一致，请仔细检查',
             'cce_line_code': cce_line
         }
 
