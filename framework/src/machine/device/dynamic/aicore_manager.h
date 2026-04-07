@@ -488,19 +488,15 @@ private:
     inline void ResolveFreeBQueuePair(CoreType type, const aicoreCore_t coreId)
     {
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreId);
-        uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
         // We need to make sure the task reported by the core is the one we last assigned to it
-        if (finTaskId == coreTaskPairingA_[coreId])
+        if (finTaskState == TASK_FIN_STATE)
         {
-            if (finTaskState == TASK_FIN_STATE)
-            {
-                processFinishedTask(type, coreTaskPairingA_[coreId]);
-                coreTaskPairingA_[coreId] = aicoreNullTask;
-                batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
-                return;
-            }
+            processFinishedTask(type, coreTaskPairingA_[coreId]);
+            coreTaskPairingA_[coreId] = aicoreNullTask;
+            batchFreeACores_[(int)type][batchFreeACoreCount_[(int)type]++] = coreId;
+            return;
         }
         
         // Nothing has changed, put this core back to its queue
