@@ -294,7 +294,7 @@ static bool resultCmp4TopK(
 template <typename T = float>
 static bool resultCmp(
     const T* outDataValExp, const T* outDataValAct, size_t eSize, float eps, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0)
+    size_t zeroCountThreshold = 1000, bool printAll = true, bool printErr = false, size_t testNum = 0)
 {
     //
     threshold = threshold == 0 ? static_cast<int>(eSize * eps) : threshold;
@@ -373,7 +373,7 @@ static bool resultCmp(
 template <typename T = float>
 static bool resultCmp(
     const vector<T>& outDataValExp, const T* outDataValAct, float eps, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0)
+    size_t zeroCountThreshold = 1000, bool printAll = true, bool printErr = false, size_t testNum = 0)
 {
     //
     threshold = threshold == 0 ? static_cast<int>(outDataValExp.size() * eps) : threshold;
@@ -536,7 +536,7 @@ static bool resultCmpAbsDelta(
 template <typename T = float>
 static bool resultCmp(
     const vector<T>& outDataValExp, const vector<T>& outDataValAct, float eps, size_t threshold = 0,
-    size_t zeroCountThreshold = 1000, bool printAll = false, bool printErr = false, size_t testNum = 0)
+    size_t zeroCountThreshold = 1000, bool printAll = true, bool printErr = false, size_t testNum = 0)
 {
     if (outDataValExp.size() != outDataValAct.size()) {
         std::cout << "out size is not eq, golden: " << outDataValExp.size() << ", act: " << outDataValAct.size()

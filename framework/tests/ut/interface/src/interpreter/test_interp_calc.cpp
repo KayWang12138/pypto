@@ -92,6 +92,14 @@ TEST_F(TorchAdaptorTest, Range)
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, Uniform) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_UINT32, {16}, 0u);
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)));
+}
+
 TEST_F(TorchAdaptorTest, Exp2)
 {
     auto self = makeTensorData(DT_FP32, {16, 16}, 2.0f);
