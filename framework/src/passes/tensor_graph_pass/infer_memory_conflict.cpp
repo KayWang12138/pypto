@@ -111,8 +111,17 @@ Status InferMemoryConflict::InsertViewAssemble(Function& function)
             inputTensor->RemoveConsumer(consumer);
             auto &regCopy = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
             consumer->ReplaceInput(newTensor, inputTensor);
-            viewTypeTile.SetVecTile(vecTypeTile);
-            regCopy.UpdateTileShape(viewTypeTile);
+            if (vecTypeTile.size() <= 0) {
+                Shape defaultTile;
+                if (SetDefaultShape(inputTensor, defaultTile) != SUCCESS) {
+                    return FAILED;
+                }
+                viewTypeTile.SetVecTile(defaultTile);
+                regCopy.UpdateTileShape(viewTypeTile);
+            } else {
+                viewTypeTile.SetVecTile(vecTypeTile);
+                regCopy.UpdateTileShape(viewTypeTile);
+            }
         }
     }
     return SUCCESS;
