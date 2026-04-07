@@ -86,38 +86,38 @@ TEST_F(TestCodegenForLoop, TestForLoop)
                                         {"CopyOutResolve", PassName::COPY_OUT_RESOLVE},
                                         {"InsertSync", PassName::INSERT_SYNC},
                                     });
-    Tensor input_a(DT_FP32, shape, "A");
-    Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "Output");
-
-    std::string name = "TestForLoop";
-    FUNCTION(name, {input_a, input_b, output})
     {
-        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        Tensor input_a(DT_FP32, shape, "A");
+        Tensor input_b(DT_FP32, shape, "B");
+        Tensor output(DT_FP32, shape, "Output");
+
+        std::string name = "TestForLoop";
+        FUNCTION(name, {input_a, input_b, output})
         {
-            (void)i;
-            auto res1 = Add(input_a, input_b);
-            auto res2 = Sub(input_a, input_b);
-            output = Mul(res1, res2);
+            LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+            {
+                (void)i;
+                auto res1 = Add(input_a, input_b);
+                auto res2 = Sub(input_a, input_b);
+                output = Mul(res1, res2);
+            }
         }
-    }
 
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
-    LoopaxesProc lpPass;
-    lpPass.RunOnFunction(*function);
-    CodegenPreproc cpPass;
-    cpPass.RunOnFunction(*function);
+        auto function =
+            Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+        function->SetUnderDynamicFunction(true);
+        LoopaxesProc lpPass;
+        lpPass.RunOnFunction(*function);
+        CodegenPreproc cpPass;
+        cpPass.RunOnFunction(*function);
 
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
+        npu::tile_fwk::CodeGenCtx ctx;
+        npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+        codeGen.GenCode(*function, {});
 
-    std::string res = GetResultFromCpp(*function);
+        std::string res = GetResultFromCpp(*function);
 
-    // 定义第一个待检查的目标代码片段
-    const std::string expect1 = R"(
+        const std::string expect1 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
         ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
         ubTensor_2_low2DimInLoop.SetAddr(ubTensor_2.GetLinearAddr(tileOffsets));
@@ -128,9 +128,9 @@ TEST_F(TestCodegenForLoop, TestForLoop)
     }
   }
 })";
-    CheckStringExist(expect1, res);
+        CheckStringExist(expect1, res);
 
-    const std::string expect2 = R"(
+        const std::string expect2 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
         ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
         ubTensor_4_low2DimInLoop.SetAddr(ubTensor_4.GetLinearAddr(tileOffsets));
@@ -138,7 +138,66 @@ TEST_F(TestCodegenForLoop, TestForLoop)
     }
   }
 })";
-    CheckStringExist(expect2, res);
+        CheckStringExist(expect2, res);
+    }
+    Program::GetInstance().Reset();
+    {
+        std::vector<int64_t> shape2 = {2, 2, 32, 32};
+        std::vector<int64_t> tile_shape2 = {2, 2, 32, 32};
+        TileShape::Current().SetVecTile(tile_shape2);
+        
+        Tensor input_a(DT_FP32, shape2, "A");
+        Tensor input_b(DT_FP32, shape2, "B");
+        Tensor output_cast(DT_FP16, shape2, "OutputCast");
+        Tensor output_rowsum(DT_FP32, {2, 2, 32, 1}, "OutputRowSum");
+
+        std::string name = "TestSkipProcInLoopWithTempbuf";
+        FUNCTION(name, {input_a, input_b, output_cast, output_rowsum})
+        {
+            LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+            {
+                (void)i;
+                auto cast_res = Cast(input_a, DT_INT16);
+                output_cast = cast_res;
+
+                auto rowsum_res = Sum(input_b, 3);
+                output_rowsum = rowsum_res;
+            }
+        }
+
+        auto function =
+            Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+        function->SetUnderDynamicFunction(true);
+        
+        LoopaxesProc lpPass;
+        lpPass.RunOnFunction(*function);
+        CodegenPreproc cpPass;
+        cpPass.RunOnFunction(*function);
+
+        npu::tile_fwk::CodeGenCtx ctx;
+        npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+        codeGen.GenCode(*function, {});
+
+        std::string res = GetResultFromCpp(*function);
+        const std::string expectCast = R"(
+        auto tileOffsets = TileOffset(idx0, idx1, idx2);
+        ubTensor_7_low2DimInLoop.SetAddr(ubTensor_7.GetLinearAddr(tileOffsets));
+        ubTensor_9_low2DimInLoop.SetAddr(ubTensor_9.GetLinearAddr(tileOffsets));
+        TCast<LastUse3Dim<0, 0, 1>, 0, pto::SaturationMode::OFF>(ubTensor_9_low2DimInLoop, ubTensor_7_low2DimInLoop, ubTensor_10);
+    }
+  }
+})";
+        const std::string expectRowsum = R"(
+        auto tileOffsets = TileOffset(idx0, idx1, idx2);
+        ubTensor_0_low2DimInLoop.SetAddr(ubTensor_0.GetLinearAddr(tileOffsets));
+        ubTensor_2_low2DimInLoop.SetAddr(ubTensor_2.GetLinearAddr(tileOffsets));
+        TRowSumSingle<LastUse3Dim<0, 0, 0>>(ubTensor_2_low2DimInLoop, ubTensor_0_low2DimInLoop, ubTensor_3);
+    }
+  }
+})";
+        CheckStringExist(expectCast, res);
+        CheckStringExist(expectRowsum, res);
+    }
 }
 
 } // namespace npu::tile_fwk
