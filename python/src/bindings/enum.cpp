@@ -102,6 +102,11 @@ void bind_enum(py::module& m)
         .value("ON", SaturationMode::ON)
         .export_values();
 
+    py::enum_<DivAlgorithm>(m, "DivAlgorithm")
+        .value("HIGH_PRECISION", DivAlgorithm::HIGH_PRECISION)
+        .value("DEFAULT", DivAlgorithm::DEFAULT)
+        .export_values();
+
     py::enum_<TileType>(m, "TileType")
         .value("VEC", TileType::VEC)
         .value("CUBE", TileType::CUBE)

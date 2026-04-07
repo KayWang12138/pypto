@@ -186,13 +186,18 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const
     int64_t brcOperandIdx = 0;
     int64_t penuBrcOperandIdx = 0;
     std::string lastUse = GetLastUse();
+
+    int64_t precisionType = 0;
+    bool hasPrecisionType = GetAttr(OpAttributeKey::precisionType, precisionType);
+    if (hasPrecisionType && precisionType == static_cast<int64_t>(DivAlgorithm::HIGH_PRECISION)) {
+        templateParamList.emplace_back("DivAlgorithm::HIGH_PRECISION");
+    }
+
     if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
     bool hasBrcb = GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx);
     bool hasPenu = GetAttr(OpAttributeKey::brcpIdx, penuBrcOperandIdx);
-    // Must provide NONE for the last axis if only the 2nd last axis is specified
-    // To match TileOp template
     if (hasBrcb || hasPenu) {
         templateParamList.emplace_back(GetBrcbOprandIdxStr(brcOperandIdx));
     }
