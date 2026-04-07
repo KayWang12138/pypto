@@ -30,8 +30,7 @@ HEAD_DIM = 64
 S_TILE = 128  # 优化: 64 → 128
 
 
-# pylint: disable=too-many-arguments,invalid-name
-def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
+def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,  # noqa: C901
                  actual_s1, actual_s2, scale_value, c_tile, v_tile_s, v_tile_d, s_tile_size):
     """计算一个 (s1_tile, s2_tile) 块的 P_ij 和 dS_ij。"""
     # 计算公式 s_ij = Q_i @ K_j^T * scale
@@ -71,18 +70,18 @@ def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
     }
 )
 def flash_attention_score_grad_kernel(
-    q:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    k:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    v:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dy:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    softmax_max:   pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
-    softmax_sum:   pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
+    q: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    k: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    v: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dy: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    softmax_max: pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
+    softmax_sum: pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
     attention_out: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dq:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dk:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dv:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    batch_size:    pypto.Tensor([pypto.DYN], pypto.DT_INT32),
-    scale_value:   float,
+    dq: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dk: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dv: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    batch_size: pypto.Tensor([pypto.DYN], pypto.DT_INT32),
+    scale_value: float,
 ):
     b = batch_size.shape[0]
     total = q.shape[0]
