@@ -16,7 +16,7 @@
 #include "axis_combine_marker.h"
 namespace npu {
 namespace tile_fwk {
-const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP};
+const std::unordered_set<Opcode> whiteList{Opcode::OP_RESHAPE, Opcode::OP_VEC_DUP, Opcode::OP_COPY_OUT};
 const std::unordered_set<OpCalcType> propagationCalcType{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::CAST};
 
 void AxisCombineMarker::Run(Function& function)
