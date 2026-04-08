@@ -22,6 +22,33 @@
 namespace npu::tile_fwk {
 const std::string COPY_OUT_FORCE_INFER_SHAPE = "copy_out_force_infer_shape";
 
+void BinaryBrcinlineInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
+    auto validShape0 = op->GetIOperands()[0]->GetDynValidShape();
+    auto validShape1 = op->GetIOperands()[1]->GetDynValidShape();
+
+    std::vector<SymbolicScalar> outputValidShape = validShape0;
+    std::vector<int64_t> brcOperand;
+    if (op->GetAttr(OP_ATTR_PREFIX + "brcOperand", brcOperand)) {
+        for (size_t i = 0; i < outputValidShape.size(); i++) {
+            if (brcOperand[i] == 1) {
+                outputValidShape[i] = validShape1[i];
+            }
+        }
+    }
+
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outputValidShape);
+    }
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_ADD, Opcode::OP_ADD, BinaryBrcinlineInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_SUB, Opcode::OP_SUB, BinaryBrcinlineInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_MUL, Opcode::OP_MUL, BinaryBrcinlineInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_DIV, Opcode::OP_DIV, BinaryBrcinlineInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_MAXIMUM, Opcode::OP_MAXIMUM, BinaryBrcinlineInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_MINIMUM, Opcode::OP_MINIMUM, BinaryBrcinlineInferFunc);
+
 void ElewiseInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     auto inputNum = op->GetIOperands().size();
