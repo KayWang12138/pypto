@@ -149,7 +149,7 @@ TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 }
 
 template <
-    BinaryOp op, TileOp::BroadcastOperand WBrcSide, typename Src0TileInfo, typename Src1TileInfo, typename LastUse,
+    BinaryOp op, TileOp::BroadcastOperand WBrcSide, TileOp::PenuBroadcastOperand HBrcSide, typename Src0TileInfo, typename Src1TileInfo, typename LastUse,
     typename T0, typename T1, typename T2>
 TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo& info)
 {
@@ -171,11 +171,11 @@ TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo
                     auto src0tileOffsets = (Src0TileInfo::tile0 == 1 ? 0 : n0Index) * info.src0Stride0 +
                                            (Src0TileInfo::tile1 == 1 ? 0 : n1Index) * info.src0Stride1 +
                                            (Src0TileInfo::tile2 == 1 ? 0 : n2Index) * info.src0Stride2 +
-                                           (Src0TileInfo::tileH == 1 ? 0 : n3Index) * info.src0Stride3;
+                                           (HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND ? 0 : n3Index) * info.src0Stride3;
                     auto src1tileOffsets = (Src1TileInfo::tile0 == 1 ? 0 : n0Index) * info.src1Stride0 +
                                            (Src1TileInfo::tile1 == 1 ? 0 : n1Index) * info.src1Stride1 +
                                            (Src1TileInfo::tile2 == 1 ? 0 : n2Index) * info.src1Stride2 +
-                                           (Src1TileInfo::tileH == 1 ? 0 : n3Index) * info.src1Stride3;
+                                           (HBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND ? 0 : n3Index) * info.src1Stride3;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dsttileOffsets * sizeof(typename T0::Type)));
                     pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0tileOffsets * sizeof(typename T1::Type)));
                     pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1tileOffsets * sizeof(typename T2::Type)));
