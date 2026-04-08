@@ -310,7 +310,7 @@ static constexpr std::array<float, 16> kFp4E2M1DecodeTable = {
 
 static float DecodeFp4E2M1Nibble(uint8_t nib) { return kFp4E2M1DecodeTable[static_cast<size_t>(nib & 0x0F)]; }
 
-static uint8_t EncodeFp4E2M1Nibble(float v)
+static uint8_t EncodeFp4NibbleNearest(float v, float (*decodeFn)(uint8_t))
 {
     if (std::isnan(v) || std::isinf(v)) {
         int sign = std::signbit(v) ? 1 : 0;
@@ -322,7 +322,7 @@ static uint8_t EncodeFp4E2M1Nibble(float v)
     uint8_t best = 0;
     float bestErr = std::numeric_limits<float>::infinity();
     for (int i = 0; i < 16; ++i) {
-        float d = DecodeFp4E2M1Nibble(static_cast<uint8_t>(i));
+        float d = decodeFn(static_cast<uint8_t>(i));
         float err = std::fabs(d - v);
         if (err < bestErr) {
             bestErr = err;
@@ -331,6 +331,8 @@ static uint8_t EncodeFp4E2M1Nibble(float v)
     }
     return best;
 }
+
+static uint8_t EncodeFp4E2M1Nibble(float v) { return EncodeFp4NibbleNearest(v, DecodeFp4E2M1Nibble); }
 
 static constexpr std::array<float, 16> kFp4E1M2DecodeTable = {
     0.0f,  0.125f,  0.25f,  0.375f,  1.0f,  1.25f,  1.5f,  1.75f,
@@ -339,27 +341,7 @@ static constexpr std::array<float, 16> kFp4E1M2DecodeTable = {
 
 static float DecodeFp4E1M2Nibble(uint8_t nib) { return kFp4E1M2DecodeTable[static_cast<size_t>(nib & 0x0F)]; }
 
-static uint8_t EncodeFp4E1M2Nibble(float v)
-{
-    if (std::isnan(v) || std::isinf(v)) {
-        int sign = std::signbit(v) ? 1 : 0;
-        return static_cast<uint8_t>((sign << 3) | 0x7);
-    }
-    if (std::fpclassify(v) == FP_ZERO) {
-        return static_cast<uint8_t>(std::signbit(v) ? 0x8 : 0x0);
-    }
-    uint8_t best = 0;
-    float bestErr = std::numeric_limits<float>::infinity();
-    for (int i = 0; i < 16; ++i) {
-        float d = DecodeFp4E1M2Nibble(static_cast<uint8_t>(i));
-        float err = std::fabs(d - v);
-        if (err < bestErr) {
-            bestErr = err;
-            best = static_cast<uint8_t>(i);
-        }
-    }
-    return best;
-}
+static uint8_t EncodeFp4E1M2Nibble(float v) { return EncodeFp4NibbleNearest(v, DecodeFp4E1M2Nibble); }
 
 static float DecodeNibble(uint8_t nib, DataType actualType)
 {
