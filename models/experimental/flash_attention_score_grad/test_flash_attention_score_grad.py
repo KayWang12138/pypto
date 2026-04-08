@@ -29,9 +29,8 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flash_attention_score_grad_golden import (
-    AttentionGradInputs,
-    flash_attention_score_grad_golden,
-    generate_forward_data,
+    AttentionGradInputs, generate_forward_data,
+    ForwardDataConfig, ForwardDataResult,
 )
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper
 
@@ -80,9 +79,12 @@ def run_test(cfg: TestConfig):
         if cfg.run_mode == "npu" and cfg.device_id is not None
         else "cpu")
 
-    q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
+    fwd_cfg = ForwardDataConfig(
         cfg.batch_size, cfg.num_heads, cfg.seq_len, cfg.head_dim,
         device=device)
+    fwd = generate_forward_data(fwd_cfg)
+    q, k, v, dy = fwd.q, fwd.k, fwd.v, fwd.dy
+    sm, ss, ao, scale = fwd.softmax_max, fwd.softmax_sum, fwd.attention_out, fwd.scale
 
     logger.info("  Q shape:  %s", q.shape)
     logger.info("  scale:    %.6f", scale)

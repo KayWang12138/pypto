@@ -27,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flash_attention_score_grad_golden import generate_forward_data
+from flash_attention_score_grad_golden import (
+    ForwardDataConfig, generate_forward_data,
+)
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper
 
 
@@ -44,9 +46,12 @@ class BenchConfig:
 
 def bench(cfg: BenchConfig, device_id, warmup=5, repeat=20):
     device = f"npu:{device_id}"
-    q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
+    fwd_cfg = ForwardDataConfig(
         cfg.batch_size, cfg.num_heads, cfg.seq_len, cfg.head_dim,
         device=device)
+    fwd = generate_forward_data(fwd_cfg)
+    q, k, v, dy = fwd.q, fwd.k, fwd.v, fwd.dy
+    sm, ss, ao, scale = fwd.softmax_max, fwd.softmax_sum, fwd.attention_out, fwd.scale
 
     # 预热
     for _ in range(warmup):
