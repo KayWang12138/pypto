@@ -90,6 +90,8 @@ def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
     b_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.b_format_nz else pypto.TileOpFormat.TILEOP_ND
     a_shape = [k, m] if tile_config.a_trans else [m, k]
     b_shape = [n, k] if tile_config.b_trans else [k, n]
+    if tile_config.b_format_nz:
+        b_shape = [6, 96, 32]
     bias_shape = [1, n]
     scale_a_shape = [k // K_BLOCK_SIZE_64, m, SHAPE_DIM_2] if tile_config.scale_a_trans else \
                     [m, k // K_BLOCK_SIZE_64, SHAPE_DIM_2]
@@ -100,7 +102,7 @@ def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
     @pypto.frontend.jit(debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0})
     def scaled_mm_pto(a_tensor: pypto.Tensor(a_shape, tile_config.in_dtype, format=a_format),
         a_scale: pypto.Tensor(scale_a_shape, pypto.DT_FP8E8M0),
-        b_tensor: pypto.Tensor(b_shape, tile_config.in_dtype, format=b_format),
+        b_tensor: pypto.Tensor(b_shape, tile_config.in_dtype, format=pypto.TileOpFormat.TILEOP_ND),
         b_scale: pypto.Tensor(scale_b_shape, pypto.DT_FP8E8M0),
         bias: pypto.Tensor(bias_shape, pypto.DT_FP32),
         out_tensor: pypto.Tensor(out_shape, tile_config.out_dtype),
