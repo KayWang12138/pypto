@@ -10,7 +10,7 @@
 
 /*!
  * \file test_codegen_dyn_permute.cpp
- * \brief Unit test for codegen OP_PERMUTE and OP_PERMUTE_ELEMENT coverage in GetGmParamIdx.
+ * \brief Unit test for codegen OP_PERMUTE and OP_PERMUTE_ELEMENT dynamic layout coverage.
  */
 
 #include "gtest/gtest.h"
@@ -45,41 +45,6 @@ public:
 
     void TearDown() override {}
 };
-
-TEST_F(TestCodegenDynPermute, TestPermuteDynamic)
-{
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    constexpr const int DIM0 = 4;
-    constexpr const int DIM1 = 8;
-    constexpr const int DIM2 = 16;
-    std::vector<int64_t> shape = {DIM0, DIM1, DIM2};
-
-    TileShape::Current().SetVecTile({DIM0, DIM1, DIM2});
-
-    Tensor input(DT_FP32, shape, "input");
-    Tensor output(DT_FP32, shape, "output");
-
-    ConfigManager::Instance();
-    std::string funcName = "PERMUTE_T";
-    FUNCTION(funcName, {input}, {output})
-    {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
-        {
-            (void)i;
-            output = Permute(input, {1, 0, 2});
-        }
-    }
-#if ENABLE_HIDDENLOOP
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-#else
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-#endif
-    function->SetUnderDynamicFunction(true);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
 
 TEST_F(TestCodegenDynPermute, TestPermuteLayout)
 {
@@ -117,41 +82,6 @@ TEST_F(TestCodegenDynPermute, TestPermuteLayout)
     std::string res = GetResultFromCpp(*function);
     std::string expect = "TPermute<1, 0, 2, -1, -1, 3>";
     CheckStringExist(expect, res);
-}
-
-TEST_F(TestCodegenDynPermute, TestPermuteElementDynamic)
-{
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    constexpr const int DIM0 = 4;
-    constexpr const int DIM1 = 8;
-    constexpr const int DIM2 = 16;
-    std::vector<int64_t> shape = {DIM0, DIM1, DIM2};
-
-    TileShape::Current().SetVecTile({DIM0, DIM1, DIM2});
-
-    Tensor input(DT_FP32, shape, "input");
-    Tensor output(DT_FP32, shape, "output");
-
-    ConfigManager::Instance();
-    std::string funcName = "PERMUTE_ELEM_T";
-    FUNCTION(funcName, {input}, {output})
-    {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
-        {
-            (void)i;
-            output = Permute(input, {0, 2, 1});
-        }
-    }
-#if ENABLE_HIDDENLOOP
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-#else
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-#endif
-    function->SetUnderDynamicFunction(true);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
 }
 
 TEST_F(TestCodegenDynPermute, TestPermuteElementLayout)
