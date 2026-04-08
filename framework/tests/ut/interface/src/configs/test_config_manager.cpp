@@ -272,3 +272,10 @@ TEST_F(TestConfigManager, JitScopeGuardBasic)
     auto scopeAfter = cm.CurrentScope();
     EXPECT_EQ(scopeAfter.get(), scopeBefore.get());
 }
+
+TEST_F(TestConfigManager, IsWithinRangeInvalidKey)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    Any value = int64_t(100);
+    EXPECT_THROW(cm.IsWithinRange("invalid.key.not.in.schema", value), std::exception);
+}
