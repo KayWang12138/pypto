@@ -32,7 +32,7 @@ public:
     SourceLocation(const std::string& fname, int lineno, const std::string& backtrace)
         : fname_(fname), lineno_(lineno), backtrace_(backtrace)
     {}
-    explicit SourceLocation(uint64_t pc) : fname_("??"), lineno_(-1), pc_(pc){};
+    explicit SourceLocation(uint64_t pc) : fname_("??"), lineno_(-1), pc_(pc) {};
 
     int GetLineno() const;
     const std::string& GetFileName() const;
@@ -63,6 +63,9 @@ public:
 
     static void SetCppMode(bool val) { isCppMode_ = val; }
     static bool IsCppMode() { return isCppMode_; }
+
+    // Public interface for safe address resolution using libbacktrace
+    static bool ResolveAddressSafely(void* addr, std::string& filename, int& lineno);
 
 private:
     static std::shared_ptr<SourceLocation> GetLocation(uint64_t pc)

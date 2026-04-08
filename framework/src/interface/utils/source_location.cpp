@@ -25,8 +25,75 @@
 #include <iostream>
 #include <vector>
 #include <unordered_set>
+#include <backtrace.h>
 
 namespace npu::tile_fwk {
+
+// Callback data structure for backtrace_pcinfo
+struct PcInfoData {
+    std::string* filename;
+    int* lineno;
+    bool found;
+};
+
+// Error callback for libbacktrace
+static void BacktraceErrorCallback(void* data, const char* msg, int errnum)
+{
+    (void)data;
+    (void)msg;
+    (void)errnum;
+}
+
+// Callback for backtrace_pcinfo to receive file/line info
+static int BacktracePcinfoCallback(void* data, uintptr_t pc, const char* filename, int lineno, const char* function)
+{
+    (void)pc;
+    (void)function;
+    PcInfoData* pcdata = static_cast<PcInfoData*>(data);
+    if (filename != nullptr && lineno > 0) {
+        *pcdata->filename = filename;
+        *pcdata->lineno = lineno;
+        pcdata->found = true;
+        return 1; // Stop iteration
+    }
+    return 0; // Continue iteration
+}
+
+// Public interface for safe address resolution using libbacktrace
+bool SourceLocation::ResolveAddressSafely(void* addr, std::string& filename, int& lineno)
+{
+    filename = "";
+    lineno = 0;
+
+    // Get library information
+    Dl_info info;
+    if (dladdr(addr, &info) == 0 || info.dli_fname == nullptr) {
+        return false;
+    }
+
+    // Try to use libbacktrace for symbol resolution
+    static std::mutex btMutex;
+    static struct backtrace_state* btState = nullptr;
+    static std::string btFilename;
+
+    {
+        std::lock_guard<std::mutex> lock(btMutex);
+        // Initialize or update backtrace state if needed
+        if (btState == nullptr || btFilename != info.dli_fname) {
+            btFilename = info.dli_fname;
+            btState = backtrace_create_state(info.dli_fname, 0, BacktraceErrorCallback, nullptr);
+        }
+    }
+
+    if (btState != nullptr) {
+        PcInfoData pcdata{&filename, &lineno, false};
+        backtrace_pcinfo(
+            btState, reinterpret_cast<uintptr_t>(addr), BacktracePcinfoCallback, BacktraceErrorCallback, &pcdata);
+        return pcdata.found;
+    }
+
+    return false;
+}
 
 void SourceLocation::Init() const
 {
@@ -44,36 +111,22 @@ void SourceLocation::Init() const
     }
     pcSet.clear();
 
-    size_t n = 0;
-    char* line = nullptr;
     for (auto& [info, pcs] : dlMap) {
-        std::stringstream ss;
-        ss << "addr2line -i -p -e " << info.first << " " << std::hex;
-        for (auto pc : pcs)
-            ss << " " << pc - (intptr_t)info.second;
-        auto fp = popen(ss.str().c_str(), "r");
         for (auto pc : pcs) {
-            int rc = fp ? getline(&line, &n, fp) : -1;
-            if (rc >= 0 && strstr(line, "inlined by")) {
-                rc = getline(&line, &n, fp);
-            }
-            if (rc >= 0) {
-                char* p = line;
-                char* name = strsep(&p, ":");
-                locMap[pc]->fname_ = name;
-                long lineno = strtol(p, nullptr, 10);
-                locMap[pc]->lineno_ = static_cast<int>(lineno);
+            std::string filename;
+            int lineno;
+            if (ResolveAddressSafely((void*)pc, filename, lineno)) {
+                locMap[pc]->fname_ = filename;
+                locMap[pc]->lineno_ = lineno;
             } else {
+                // Fallback: use elfname + offset
                 std::stringstream os;
-                // addr2line failed, use elfname + offset
                 os << info.first << "(+" << std::hex << pc - (intptr_t)info.second << ")";
                 locMap[pc]->fname_ = os.str();
                 locMap[pc]->lineno_ = 0;
             }
         }
-        pclose(fp);
     }
-    free(line);
 }
 
 int SourceLocation::GetLineno() const
