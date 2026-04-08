@@ -600,44 +600,6 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     return tileTensor;
 }
 
-TileTensor CodeGenOpCloudNPU::BuildPermuteTmpTileTensor(int paramIdx, const ShapeInLoop &shapeInLoop)
-{
-    bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
-    TileTensor tileTensor;
-    tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
-    tileTensor.magic = operandWithMagic[paramIdx];
-    tileTensor.shapeInLoop = shapeInLoop;
-    tileTensor.dim = 1;
-    tileTensor.dtype = operandDtype[paramIdx];
-    tileTensor.bufType = operandType[paramIdx];
-
-    if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(paramIdx);
-    } else {
-        tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
-    }
-
-    TileTensorUsing tileTensorUsing{tileTensor.isConstant, tileTensor.dtype, tileTensor.bufType, tileTensor.dim, {},
-        {shapeInLoop.rawShape.empty() ? static_cast<int64_t>(1) : shapeInLoop.rawShape.back()}};
-    tileTensor.usingType = sm->AddTileTensorUsing(tileTensorUsing);
-    tileTensor.tensorName = sm->GenTensorName(tileTensor.bufType);
-    if (shapeInLoop.loopDepth != 0) {
-        std::string tensorName = tensorNames_[paramIdx];
-        if (!tensorName.empty()) {
-            tensorName.append("_low").append(std::to_string(tileTensor.dim)).append("DimInLoop");
-            tileTensor.tensorName = tensorName;
-        }
-    }
-
-    tileTensor.rawShape = {shapeInLoop.rawShape.empty() ? static_cast<int64_t>(1) : shapeInLoop.rawShape.back()};
-    tileTensor.shape = {shapeInLoop.dynamicValidShape.empty() ? std::to_string(tileTensor.rawShape[0]) :
-                                                          SymbolicExpressionTable::BuildExpression(
-                                                              shapeInLoop.dynamicValidShape.back())};
-    tileTensor.stride = {"1"};
-    tileTensor.localBufOffset = offset[paramIdx];
-    return tileTensor;
-}
-
 void CodeGenOpCloudNPU::UpdateTileTensorInfo()
 {
     if (!isSupportLayout) {
