@@ -187,3 +187,70 @@ def test_random_onboard_large():
     assert_allclose(out_data.flatten(), golden.flatten())
     
     pypto.runtime._device_fini()
+
+
+def normal_golden(key, counter0, counter1, shape, rounds):
+    import tensorflow as tf
+    from tensorflow.python.ops import gen_stateless_random_ops_v2
+    tf.compat.v1.disable_eager_execution()
+
+    shape_tf = tf.constant([32])
+    key_tf = [12345678901234]
+    counter_tf = [0, 0]
+    rnd = gen_stateless_random_ops_v2.stateless_random_normal_v2(
+        shape_tf,
+        key=tf.constant(key_tf, dtype=tf.uint64),
+        counter=tf.constant(counter_tf, dtype=tf.uint64),
+        dtype=tf.float32,
+        alg=1
+    )
+
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.compat.v1.global_variables_initializer())
+        expected = sess.run(rnd)
+    
+    return expected
+
+
+@pytest.mark.soc("950")
+def test_normal_onboard():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    output_shape = (32,)
+    view_shape = (32,)
+    tile_shape = (32,)
+
+    pypto.runtime._device_init()
+
+    output = pypto.tensor(output_shape, pypto.DT_FP32, "PTO_TENSOR_output")
+
+    loop_num = math.ceil(output_shape[0] / view_shape[0])
+    
+    key = 12345678901234
+    counter0 = 0
+    counter1 = 0
+    rounds = 10
+    
+    with pypto.function("NORMAL_CONTENT_FP32", output):
+        for idx in pypto.loop(loop_num, name="loop0", idx_name="idx"):
+            offset = idx * view_shape[0]
+            
+            valid_shape = pypto.min(pypto.symbolic_scalar(output_shape[0]) - offset, 
+                                    pypto.symbolic_scalar(view_shape[0]))
+            
+            pypto.set_vec_tile_shapes(tile_shape[0])
+            res = pypto.normal(key, counter0, counter1, view_shape, rounds)
+            pypto.assemble(res, [offset], output)
+
+    assert isinstance(output, pypto.tensor)
+    
+    out_data = np.zeros(output_shape, dtype=np.float32)
+
+    pto_out = pypto.from_torch(torch.from_numpy(out_data), "PTO_TENSOR_output")
+    pypto.runtime._device_run_once_data_from_host(pto_out)
+    
+    golden = normal_golden(key, counter0, counter1, output_shape, rounds)
+    
+    assert_allclose(out_data.flatten(), golden.flatten())
+    
+    pypto.runtime._device_fini()
