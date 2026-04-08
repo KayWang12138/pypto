@@ -995,7 +995,9 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
-        aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
+        if (aicoreDump_.IsEnableDump()) {
+            aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
+        }
 #endif
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
@@ -1971,7 +1973,9 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
-        aicoreDump_.DoDump(curDevTask_, "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+        if (aicoreDump_.IsEnableDump()) {
+            aicoreDump_.DoDump(curDevTask_, "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+        }
 #endif
 
         DEV_IF_VERBOSE_DEBUG { recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId)); }
