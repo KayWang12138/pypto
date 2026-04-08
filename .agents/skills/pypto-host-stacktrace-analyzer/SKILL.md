@@ -9,11 +9,11 @@ description: 分析 host 侧捕获异常后的堆栈信息，通过地址到源�
 
 ## 工作流程
 
-1. 收集堆栈信息
+1. 收集测试用例文件路径
 2. 编译并安装Debug版本PyPTO
-3. 重新运行测试用例并收集新堆栈信息（如果提供了测试用例）
+3. 重新运行测试用例并收集新堆栈信息
 4. 使用综合分析器自动分析
-5. 输出完整报告（包含源码行号）
+5. 输出完整报告
 
 ---
 
@@ -36,11 +36,6 @@ description: 分析 host 侧捕获异常后的堆栈信息，通过地址到源�
 ```bash
 python3 .agents/skills/pypto-stack-trace-analyzer/scripts/build_debug_pypto.py
 ```
-
-**编译选项**：
-- `-p, --pypto-root`: PyPTO项目根目录（默认：当前目录）
-- `-t, --timeout`: 编译超时时间（秒，，默认：1200）
-- `--skip-check`: 跳过前提条件检查
 
 **编译完成后自动安装**：
 - 找到编译生成的wheel文件
@@ -84,6 +79,7 @@ grep -A 100 "Run pass failed" /tmp/new_stack_trace.log > /tmp/new_stack_trace.tx
 ```bash
 python3 .agents/skills/pypto-stack-trace-analyzer/scripts/comprehensive_analyzer.py <stack_file> -f
 ```
+其中stack_file为步骤3中提取并保存的堆栈信息文件
 ---
 
 ## 步骤 5：输出完整报告
