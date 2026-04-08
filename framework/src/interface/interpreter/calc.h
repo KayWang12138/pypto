@@ -52,12 +52,6 @@ inline TensorData Trans(LogicalTensorDataPtr data)
         calcData.storageOffset = data->GetStorageOffset();
         calcData.dtype = raw->GetDataType();
         calcData.isAxisCombine = data->IsAxisCombine();
-        if (IsFp4PackedDtype(calcData.dtype)) {
-            // RawTensorData now exposes logical shape for FP4; keep shape/stride untouched here.
-            // storageOffset is still computed from packed storage stride and must be converted to
-            // logical index domain expected by StorageOffsetFloatToPacked().
-            calcData.storageOffset *= 2;
-        }
     }
     return calcData;
 }

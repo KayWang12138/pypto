@@ -107,7 +107,8 @@ FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
     const auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
     CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum, validShape);
     CompareDataRecursiveWithLeaf(
-        compareResult, 0, 0, 0, goldenDataView, outputDataView, 0,
+        compareResult, 0, goldenDataView->GetStorageOffset(), outputDataView->GetStorageOffset(), goldenDataView,
+        outputDataView, 0,
         [&](CompareResult& cr, size_t lastCount, int64_t outOff, int64_t gOff, int64_t index,
             const std::shared_ptr<LogicalTensorData>& gv, const std::shared_ptr<LogicalTensorData>& ov) {
             const uint8_t* gp = &gv->Get<uint8_t>(gOff);

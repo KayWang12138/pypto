@@ -442,7 +442,9 @@ public:
         auto& validShape = goldenDataView->GetValidShape();
         auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
         CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum, validShape);
-        CompareDataRecursive<DataType, T>(compareResult, 0, 0, 0, goldenDataView, outputDataView, 0);
+        CompareDataRecursive<DataType, T>(
+            compareResult, 0, goldenDataView->GetStorageOffset(), outputDataView->GetStorageOffset(), goldenDataView,
+            outputDataView, 0);
         compareResult.UpdateErrorCountThreshold();
         return compareResult;
     }
