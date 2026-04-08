@@ -17,6 +17,7 @@
 #include "interface/interpreter/function.h"
 #include "interface/utils/common.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/data_type.h"
 #include "interface/interpreter/operation.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/interpreter/verify_error.h"
@@ -64,6 +65,13 @@ void ExecuteOpViewType(ExecuteOperationContext* ctx)
     auto& iop = ctx->ioperandDataViewList->at(0);
     ASSERT(ExecuteOperationScene::CTX_OUTPUT_VIEW_NULL, oop != nullptr);
     ASSERT(ExecuteOperationScene::CTX_INPUT_VIEW_NULL, iop != nullptr);
+
+    auto opAttr = std::static_pointer_cast<ViewOpAttribute>(ctx->op->GetOpAttribute());
+    // Special path: when view-type targets MEM_BT, treat it as element-wise cast.
+    if (opAttr != nullptr && opAttr->GetTo() == MemoryType::MEM_BT) {
+        calc::Cast(oop, iop);
+        return;
+    }
 
     auto inData = iop->GetData();
     auto outData = oop->GetData();
@@ -228,6 +236,26 @@ void ExecuteOpCopy(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ExecuteOpCopy);
 
+static bool NeedCastToFp32ForDump(DataType dtype)
+{
+    return dtype == DT_INT4 || dtype == DT_FP8 || dtype == DT_HF4 || dtype == DT_HF8 || dtype == DT_FP8E5M2 ||
+           dtype == DT_FP8E4M3 || dtype == DT_FP8E8M0 || dtype == DT_FP4_E2M1X2 || dtype == DT_FP4_E1M2X2;
+}
+
+static std::string TensorToDumpString(const LogicalTensorDataPtr& tensor)
+{
+    if (tensor == nullptr) {
+        return "???";
+    }
+    if (!NeedCastToFp32ForDump(tensor->GetDataType())) {
+        return tensor->ToString();
+    }
+    auto shape = tensor->GetShape();
+    auto castOut = LogicalTensorData::CreateEmpty(DT_FP32, shape, shape, shape);
+    calc::Cast(castOut, tensor);
+    return castOut->ToString();
+}
+
 std::string FormatString(
     const std::string& s, OperationInterpreter* opInter, const std::vector<LogicalTensorDataPtr>* iopDataView,
     const std::vector<SymbolicScalar>* scalars)
@@ -245,7 +273,7 @@ std::string FormatString(
             auto symbol = s.substr(pos + 1, end - pos - 1);
             if (symbol == "T") {
                 if (iopDataView && tpos < iopDataView->size())
-                    ss << (*iopDataView)[tpos++]->ToString();
+                    ss << TensorToDumpString((*iopDataView)[tpos++]);
                 else
                     ss << "???";
             } else if (symbol == "S") {
@@ -304,7 +332,7 @@ void ExecutePrint(ExecuteOperationContext* ctx)
                 }
             }
             csv << "\n";
-            csv << "element_count," << oop->GetData()->GetDataSize() / oop->GetData()->GetElementSize() << "\n";
+            csv << "element_count," << oop->GetData()->GetSize() << "\n";
             csv.close();
         } else {
             VERIFY_LOGE_FULL_E(OpDumpScene::DUMP_OPEN_FILE_FAILED, "open csv file %s failed!!!!", csvPath.c_str());

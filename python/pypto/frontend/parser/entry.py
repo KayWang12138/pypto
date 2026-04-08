@@ -24,7 +24,7 @@ import itertools
 import pypto
 import torch
 from pypto import pypto_impl
-from pypto.converter import _torch_dtype_from, _gen_pto_tensor
+from pypto.converter import _torch_dtype_from, _gen_pto_tensor, from_torch
 from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
@@ -95,26 +95,7 @@ def parse(program: Source, extra_vars: Optional[dict[str, Any]] = None) -> Any:
 def _pto_to_tensor_data(
     tensors: list[pypto.Tensor],
 ) -> list[pypto_impl.DeviceTensorData]:
-    """Convert PTO tensors to device tensor data for runtime execution.
-
-    This helper function creates DeviceTensorData objects that encapsulate
-    the tensor metadata (dtype, pointer, shape) required by the backend runtime.
-
-    Parameters
-    ----------
-    tensors : list[pypto.Tensor]
-        List of PTO tensors to convert.
-
-    Returns
-    -------
-    list[pypto_impl.DeviceTensorData]
-        List of device tensor data objects ready for runtime execution.
-
-    Raises
-    ------
-    RuntimeError
-        If any tensor's ori_shape is not specified.
-    """
+    """Convert PTO tensors to device tensor data (ori_shape is packed storage for FP4)."""
     datas = []
     for t in tensors:
         if t.ori_shape is None:
@@ -308,6 +289,8 @@ class JitCallableWrapper:
 
         # kmodule is created lazily in __call__ with cache key including non_tensor_values
         self.kmodule = None
+        # CPU snapshots for pass verify must stay alive while native code reads data_ptr
+        self._verify_snapshot_keepalive: Optional[list] = None
 
 
     def __call__(self, *args, **kwargs):
@@ -445,9 +428,10 @@ class JitCallableWrapper:
             )
         return pto_tensors
 
-    @staticmethod
     def _setup_verify_data(
-        pto_tensors
+        self,
+        pto_tensors: list,
+        source_torch_tensors: Optional[list] = None,
     ) -> None:
         """Set verify input/output/golden data for pass-level verification.
 
@@ -463,14 +447,54 @@ class JitCallableWrapper:
         mgr = BuildOnlineManager()
         mgr.build_and_load_calculator()
 
-        # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
+        self._verify_snapshot_keepalive = None
 
-        host_pto_tensors, _ = _gen_pto_tensor(pto_tensors)
+        # Prefer PyTorch D2H when we still have the original torch.Tensor objects (NPU launch path):
+        # DeviceTensorData::GetDataSize() uses product(shape)*BytesOf(dtype) and can disagree with
+        # actual NPU storage Fractal-NZ / padding, so rtMemcpy in CopyToHost may overrun the host
+        # staging buffer and corrupt the heap (free(): invalid pointer).
+        use_torch_host_snapshot = (
+            source_torch_tensors is not None
+            and len(source_torch_tensors) == len(pto_tensors)
+            and all(isinstance(t, torch.Tensor) for t in source_torch_tensors)
+        )
+
+        if use_torch_host_snapshot:
+            host_pto_tensors = []
+            staging: list[torch.Tensor] = []
+            for pt, th in zip(pto_tensors, source_torch_tensors):
+                if th.device.type == "npu":
+                    c = th.detach().cpu().contiguous()
+                else:
+                    c = th.detach().contiguous()
+                staging.append(c)
+                host_pto_tensors.append(
+                    from_torch(
+                        c,
+                        name=pt.name,
+                        tensor_format=pt.format,
+                        dtype=pt.dtype,
+                    )
+                )
+            self._verify_snapshot_keepalive = staging
+            pypto_impl.SetVerifyData(
+                _pto_to_tensor_data(host_pto_tensors),
+                [],
+                _pto_verify_datas.get_data(),
+            )
+            return
+
+        # Fallback (e.g. SIM compile with PTO tensors only): explicit staging + CopyToHost
+        host_pto_tensors, staging = _gen_pto_tensor(pto_tensors)
         host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
         for i, dev_tensor in enumerate(_pto_to_tensor_data(pto_tensors)):
             pypto_impl.CopyToHost(dev_tensor, host_pto_t_datas[i])
+        self._verify_snapshot_keepalive = staging
         pypto_impl.SetVerifyData(
-            host_pto_t_datas, [], _pto_verify_datas.get_data())
+            _pto_to_tensor_data(host_pto_tensors),
+            [],
+            _pto_verify_datas.get_data(),
+        )
 
 
     @staticmethod
@@ -505,8 +529,10 @@ class JitCallableWrapper:
         """
         if tensor_defs is not None:
             args = self._convert_tensors_with_metadata(tensors, tensor_defs)
+            snapshot_src = list(tensors)
         else:
             args = tensors
+            snapshot_src = None
 
         # Re-create parser for compilation
         self._parser = self._create_parser()
@@ -519,7 +545,7 @@ class JitCallableWrapper:
         self._set_config_option()
 
         # Initialize backend for compilation
-        self._setup_verify_data(args)
+        self._setup_verify_data(args, source_torch_tensors=snapshot_src)
 
         # Bind dynamic dimensions from concrete inputs
         self._parser.bind_dynamic_dims_to_input_tensors()
