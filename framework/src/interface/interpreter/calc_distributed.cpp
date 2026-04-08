@@ -52,10 +52,12 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     const std::string &groupName = groupNames[groupIndex];
     if (memType == 1) {
         std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
+        // TODO: 需要转换为 out 对应的数据类型
         out = SimulationCommManager::Instance().Alloc(groupName, slotSize);
     }
     if (memType == 0) {
         std::cout << "AllocSignal" << slotSize << "B for " << groupName << std::endl;
+        // TODO: 需要转换为 int32 数据类型
         out = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
     }
     std::cout << "=== ExecuteOpBindTensor exited." << std::endl;

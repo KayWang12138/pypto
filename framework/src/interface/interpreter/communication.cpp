@@ -28,6 +28,12 @@
 
 namespace npu::tile_fwk {
 
+void CheckNotNullPtr(uint8_t *ptr, const char *message) {
+    if (!ptr) {
+        throw std::runtime_error(message);
+    }
+}
+
 int GetRankId(const std::string &groupName) {
     const char* rankStr = std::getenv("RANK");
     if (rankStr != nullptr) {
@@ -145,8 +151,10 @@ LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
+    std::cout << "dstRank is " << dstRank << " current rank is " << rank_ << ". IsSignal: " << isSignal << std::endl;
     if (dstRank == rank_) {
-        return isSignal ? ctrlBase_ : dataBase_;
+        uin8_t *result = isSignal ? ctrlBase_ : dataBase_;
+        CheckNotNullPtr(result, "base is nullptr!");
     }
 
     if (dstRank < 0 || dstRank >= worldSize_) {
@@ -158,14 +166,14 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
 
     auto it = remoteRanks_.find(dstRank);
     if (it != remoteRanks_.end()) {
-        return isSignal ? it->second->ctrlBase : it->second->dataBase;
+        uint8_t result = isSignal ? it->second->ctrlBase : it->second->dataBase;
+        CheckNotNullPtr(result, "found in remoteRanks, but base is nullptr!");
     }
     auto remote = std::make_unique<RemoteRank>();
     if (!isSignal) {
         std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false);
         int fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
         if (fd == -1) {
-            close(fd);
             throw std::runtime_error("GetRemoteRank shm_open error!");
         }
         remote->dataBase = (uint8_t *) mmap(nullptr, WIN_IN_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -178,7 +186,6 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
         std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true);
         int fd = shm_open(ctrlHandler.c_str(), O_RDWR, 0666);
         if (fd == -1) {
-            close(fd);
             throw std::runtime_error("GetRemoteRank shm_open error!");
         }
         remote->ctrlBase = (uint8_t *) mmap(nullptr, WIN_EXP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -190,6 +197,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     }
 
     uint8_t *result = isSignal ? remote->ctrlBase : remote->dataBase;
+    CheckNotNullPtr(result, "Created, but base is nullptr!");
     remoteRanks_[dstRank] = std::move(remote);
     return result;
 }
@@ -203,12 +211,12 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
     std::atomic_thread_fence(std::memory_order_release);
     if (atomicType == 0) {
         std::cout << "entered atomicType: 0" << std::endl;
-        memcpy(base + offset, data->GetData()->GetDevPtr(), slotSize);
+        memcpy(base + offset, data->GetData()->data(), slotSize);
     }
     // TODO: 在 atomicAdd 场景下应该与输入张量类型相关，并不是 uint8_t?
     if (atomicType == 1) {
         std::cout << "entered atomicType: 1" << std::endl;
-        uint8_t *ptr = data->GetData()->GetDevPtr();
+        uint8_t *ptr = data->GetData()->data();
         for (size_t i = 0; i < slotSize; i++) {
             __sync_fetch_and_add(&base[offset + i], ptr[i]);
         }
