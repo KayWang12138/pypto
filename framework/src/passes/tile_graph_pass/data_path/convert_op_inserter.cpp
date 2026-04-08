@@ -113,8 +113,9 @@ void ConvertInserter::PrintTensorTobeMap(LogicalTensorPtr& tensor) const
     APASS_LOG_INFO_F(Elements::Tensor, "Size: %zu.", tensorTobeMap.at(tensor).size());
     for (const auto& item : tensorTobeMap.at(tensor)) {
         APASS_LOG_INFO_F(
-            Elements::Tensor, "\t|--- TensorTobeMap: %s --> %s[%d].", BriefMemoryTypeToString(item.second.second).c_str(),
-            item.second.first->GetOpcodeStr().c_str(), item.second.first->GetOpMagic());
+            Elements::Tensor, "\t|--- TensorTobeMap: %s --> %s[%d].",
+            BriefMemoryTypeToString(item.second.second).c_str(), item.second.first->GetOpcodeStr().c_str(),
+            item.second.first->GetOpMagic());
     }
 }
 
@@ -183,7 +184,9 @@ std::map<Operation*, MemoryType> ConvertInserter::GetMemoryTypeFromTensorTobeMap
     return {};
 }
 
-std::map<MemoryType, std::set<Operation *>> ConvertInserter::ReformMap(const std::map<int, std::pair<Operation *, MemoryType>> &oriMap) const {
+std::map<MemoryType, std::set<Operation*>> ConvertInserter::ReformMap(
+    const std::map<int, std::pair<Operation*, MemoryType>>& oriMap) const
+{
     std::map<MemoryType, std::set<Operation *>> result;
     for (const auto &item : oriMap) {
         result[item.second.second].insert(item.second.first);

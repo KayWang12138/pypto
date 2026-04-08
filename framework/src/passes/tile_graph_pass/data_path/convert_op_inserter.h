@@ -70,7 +70,8 @@ public:
     void FilterConflictTensor();
 
     // tobe Map转换类型，以memory type为key
-    std::map<MemoryType, std::set<Operation *>> ReformMap(const std::map<int, std::pair<Operation *, MemoryType>> &oriMap) const;
+    std::map<MemoryType, std::set<Operation*>> ReformMap(
+        const std::map<int, std::pair<Operation*, MemoryType>>& oriMap) const;
 
     // 提取指定tensor的指定consumer op所需的mem类型
     MemoryType GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr& tensor, Operation& operation) const;

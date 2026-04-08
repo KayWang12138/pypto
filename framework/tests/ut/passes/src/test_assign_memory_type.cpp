@@ -1529,7 +1529,8 @@ TEST_F(AssignMemoryTypeTest, TestAmulBInputInvalidProducer) {
     EXPECT_EQ(assignMemoryType.PreCheck(*func), FAILED);
 }
 
-TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering) {
+TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering)
+{
     config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
     std::vector<int64_t> shape = {NUM_256, NUM_128};
     std::vector<int64_t> shape1 = {NUM_128, NUM_64};
@@ -1572,8 +1573,7 @@ TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering) {
                     ASSERT_LE(tensorOpMagicPairs[i].first, tensorOpMagicPairs[j].first)
                         << "TobeMap ordering violation: OpMagic " << tensorOpMagicPairs[i].second
                         << " (TensorMagic " << tensorOpMagicPairs[i].first << ") < OpMagic "
-                        << tensorOpMagicPairs[j].second << " (TensorMagic " << tensorOpMagicPairs[j].first
-                        << "), but TensorMagic should also be smaller";
+                        << tensorOpMagicPairs[j].second << " (TensorMagic " << tensorOpMagicPairs[j].first << ")";
                 }
             }
         }
