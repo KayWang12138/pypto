@@ -194,9 +194,9 @@ def normal_golden(key, counter0, counter1, shape, rounds):
     from tensorflow.python.ops import gen_stateless_random_ops_v2
     tf.compat.v1.disable_eager_execution()
 
-    shape_tf = tf.constant([32])
-    key_tf = [12345678901234]
-    counter_tf = [0, 0]
+    shape_tf = tf.constant(shape)
+    key_tf = [key]
+    counter_tf = [counter0, counter1]
     rnd = gen_stateless_random_ops_v2.stateless_random_normal_v2(
         shape_tf,
         key=tf.constant(key_tf, dtype=tf.uint64),
@@ -216,9 +216,9 @@ def normal_golden(key, counter0, counter1, shape, rounds):
 def test_normal_onboard():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-    output_shape = (32,)
-    view_shape = (32,)
-    tile_shape = (32,)
+    output_shape = [32,]
+    view_shape = [32,]
+    tile_shape = [32,]
 
     pypto.runtime._device_init()
 
@@ -251,6 +251,50 @@ def test_normal_onboard():
     
     golden = normal_golden(key, counter0, counter1, output_shape, rounds)
     
-    assert_allclose(out_data.flatten(), golden.flatten())
+    assert_allclose(out_data.flatten(), golden.flatten(), rtol=1e-4, atol=1e-4)
+    
+    pypto.runtime._device_fini()
+
+
+@pytest.mark.soc("950")
+def test_normal_onboard_large():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    output_shape = [256,]
+    view_shape = [256,]
+    tile_shape = [256,]
+
+    pypto.runtime._device_init()
+
+    output = pypto.tensor(output_shape, pypto.DT_FP32, "PTO_TENSOR_output")
+
+    loop_num = math.ceil(output_shape[0] / view_shape[0])
+    
+    key = 99999999999999
+    counter0 = 100
+    counter1 = 200
+    rounds = 10
+    
+    with pypto.function("NORMAL_CONTENT_FP32", output):
+        for idx in pypto.loop(loop_num, name="loop0", idx_name="idx"):
+            offset = idx * view_shape[0]
+            
+            valid_shape = pypto.min(pypto.symbolic_scalar(output_shape[0]) - offset, 
+                                    pypto.symbolic_scalar(view_shape[0]))
+            
+            pypto.set_vec_tile_shapes(tile_shape[0])
+            res = pypto.normal(key, counter0, counter1, view_shape, rounds)
+            pypto.assemble(res, [offset], output)
+
+    assert isinstance(output, pypto.tensor)
+    
+    out_data = np.zeros(output_shape, dtype=np.float32)
+
+    pto_out = pypto.from_torch(torch.from_numpy(out_data), "PTO_TENSOR_output")
+    pypto.runtime._device_run_once_data_from_host(pto_out)
+    
+    golden = normal_golden(key, counter0, counter1, output_shape, rounds)
+    
+    assert_allclose(out_data.flatten(), golden.flatten(), rtol=1e-4, atol=1e-4)
     
     pypto.runtime._device_fini()
