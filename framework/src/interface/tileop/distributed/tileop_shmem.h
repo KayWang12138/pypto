@@ -239,7 +239,7 @@ TILEOP void CopyGmToGmByTRowSliced(__gm__ DataType* target, __ubuf__ DataType* b
     ShmemUbTile<DataType, kChunkRows, tileColShape> pongTile(kChunkRows, tileColShape);
     pto::TASSIGN(pingTile, reinterpret_cast<uintptr_t>(buffer));
     pto::TASSIGN(pongTile, reinterpret_cast<uintptr_t>(buffer + kHalfBufferEleCount));
-#if !defined(PTO_NPU_ARCH_KIRIN9030) && !defined(PTO_NPU_ARCH_KIRINX90)
+#ifndef __LITE_NPU
     if constexpr (useTPut) {
         if constexpr (atomicType == AtomicType::ADD) {
             pto::comm::TPUT<pto::AtomicType::AtomicAdd>(dstGlobal, srcGlobal, pingTile, pongTile);
