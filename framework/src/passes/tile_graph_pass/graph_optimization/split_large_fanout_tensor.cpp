@@ -639,9 +639,9 @@ void SplitLargeFanoutTensor::GetOffsets(
     for (size_t d = 0; d < ndim; ++d) {
         std::vector<Shape> expanded;
         for (const auto& partial : results) {
-            for (auto v : boundaryPerDim[d]) {
+            for (auto boundVal : boundaryPerDim[d]) {
                 Shape newOffset = partial;
-                newOffset[d] = v;
+                newOffset[d] = boundVal;
                 expanded.push_back(std::move(newOffset));
             }
         }
@@ -672,15 +672,19 @@ Shape SplitLargeFanoutTensor::AdjustLcmTileShapeForTailBlock(
 bool SplitLargeFanoutTensor::CheckOverlapCoverage(
     const LogicalTensors& overlaps, const Shape& lcmTileShape)
 {
-    auto multiply = [](const std::vector<int64_t>& vec) -> int64_t {
-        return std::accumulate(
-            vec.begin(), vec.end(), static_cast<int64_t>(1), [](int64_t a, int64_t b) { return a * b; });
-    };
+    auto [lcmTileArea, lcmOverflow] = CommonUtils::SafeMultiplyShape(lcmTileShape);
+    if (lcmOverflow) {
+        return false;
+    }
     int64_t overlapTotalArea = 0;
     for (const auto& overlap : overlaps) {
-        overlapTotalArea += multiply(overlap->shape);
+        auto [area, overflow] = CommonUtils::SafeMultiplyShape(overlap->shape);
+        if (overflow || overlapTotalArea > INT64_MAX - area) {
+            return false;
+        }
+        overlapTotalArea += area;
     }
-    return overlapTotalArea == multiply(lcmTileShape);
+    return overlapTotalArea == lcmTileArea;
 }
 
 void SplitLargeFanoutTensor::ProcessTileSplit(
