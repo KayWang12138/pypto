@@ -48,7 +48,7 @@ inline TensorData Trans(LogicalTensorDataPtr data)
         calcData.dataPtr = raw->data();
         calcData.rawShape = raw->GetShape();
         calcData.shape = data->GetShape();
-        calcData.stride = data->GetStride();
+        calcData.stride = raw->GetStride();
         calcData.storageOffset = data->GetStorageOffset();
         calcData.dtype = raw->GetDataType();
         calcData.isAxisCombine = data->IsAxisCombine();
