@@ -1971,7 +1971,9 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
-        aicoreDump_.DoDump(curDevTask_, "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+        if (aicoreDump_.IsEnableDump()) {
+            aicoreDump_.DoDump(curDevTask_, "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+        }
 #endif
 
         DEV_IF_VERBOSE_DEBUG { recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId)); }
