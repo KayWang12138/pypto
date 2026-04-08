@@ -616,15 +616,19 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo()
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
-        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
-            operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]};
+        TileTensorUsing tileTensorUsing{
+            functionType == FunctionType::STATIC || isMainBlock,
+            operandDtype[i],
+            operandType[i],
+            static_cast<int>(rawShape[i].size()),
+            originShape[i],
+            rawShape[i]};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(originalOp.GetOpMagic(), tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(
-            "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, tileTensor.usingType.c_str(),
-            tensorName.c_str());
+            "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
     }
 }
 
@@ -688,9 +692,9 @@ void CodeGenOpCloudNPU::UpdateLoopInfo()
             "shapeInLoop: loopDepth is %zu newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", loopDepth,
             IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
             IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
-        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
-            operandType[i], static_cast<int>(shapeInLoop.rawShape.size()), shapeInLoop.originShape,
-            shapeInLoop.rawShape};
+        TileTensorUsing tileTensorUsing{
+            functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],         operandType[i],
+            static_cast<int>(shapeInLoop.rawShape.size()),       shapeInLoop.originShape, shapeInLoop.rawShape};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
         forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor, originalOp.GetOpMagic());
