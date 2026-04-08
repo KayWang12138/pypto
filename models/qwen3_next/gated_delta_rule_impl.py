@@ -355,7 +355,6 @@ def inverse_pto_min_length_unaligned(
     pypto.set_vec_tile_shapes(128, 128)
     attn_transpose = attn.transpose(dim0=0, dim1=1)
 
-    pypto.set_pass_options(sg_set_scope=1)
     for i in range(2, min_length, 1):
         attn_inv_cur = attn_inv_list.get(i - 1)
         row = attn_initial.view([1, min_length], [i, 0])
@@ -366,7 +365,6 @@ def inverse_pto_min_length_unaligned(
         attn_inv_list[i] = pypto.concat([attn_inv_cur, attn_update], dim=0)
 
     res = attn_inv_list.get(min_length - 1) + eye
-    pypto.set_pass_options(sg_set_scope=-1)
 
     return res
 
@@ -590,18 +588,18 @@ def chunk_gated_delta_rule(b, nqk, nv, d, l):
 def chunk_gated_delta_rule_unaligned(b, nqk, nv, d, l):
 
     t_unaligned = pypto.DYNAMIC
-    query_shape = (t_unaligned, nqk, d)
-    key_shape = (t_unaligned, nqk, d)
-    value_shape = (t_unaligned, nv, d)
-    beta_shape = (t_unaligned, nv)
-    gate_shape = (t_unaligned, nv)
-    states_shape = (b, nv, d, d)
-    mask_shape = (l, l)
-    tril_mask_shape = (l, l)
-    eye_shape = (16, 16)
-    act_seq_len_shape = (b + 1,)
-    core_attn_out_shape = (t_unaligned, nv, d)
-    last_state_data_shape = (b, nv, d, d)
+    query_shape = [t_unaligned, nqk, d]
+    key_shape = [t_unaligned, nqk, d]
+    value_shape = [t_unaligned, nv, d]
+    beta_shape = [t_unaligned, nv]
+    gate_shape = [t_unaligned, nv]
+    states_shape = [b, nv, d, d]
+    mask_shape = [l, l]
+    tril_mask_shape = [l, l]
+    eye_shape = [16, 16]
+    act_seq_len_shape = [b + 1]
+    core_attn_out_shape = [t_unaligned, nv, d]
+    last_state_data_shape = [b, nv, d, d]
 
     @pypto.frontend.jit(
         runtime_options={
