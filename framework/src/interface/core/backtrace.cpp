@@ -9,6 +9,7 @@
  */
 
 #include "core/error.h"
+#include "interface/utils/source_location.h"
 
 #include <cxxabi.h>
 #include <cstring>
@@ -92,7 +93,7 @@ struct FileLocation {
 static std::mutex locMapMutex;
 static std::unordered_map<void*, FileLocation> locMap;
 
-// Get file and line information from address using addr2line
+// Get file and line information from address using source_location's safe interface
 static FileLocation GetFileLineFromAddr2line(void* addr)
 {
     // Check cache first
@@ -106,94 +107,13 @@ static FileLocation GetFileLineFromAddr2line(void* addr)
 
     FileLocation loc{"", 0};
 
-    // Get library information
-    Dl_info info;
-    if (dladdr(addr, &info) == 0 || info.dli_fname == nullptr) {
-        return loc;
+    // Use source_location's safe interface to resolve address
+    std::string filename;
+    int lineno;
+    if (npu::tile_fwk::SourceLocation::ResolveAddressSafely(addr, filename, lineno)) {
+        loc.filename = filename;
+        loc.lineno = lineno;
     }
-
-    // Build addr2line command - use absolute address for executable
-    std::stringstream cmd;
-    cmd << "addr2line -e " << info.dli_fname << " -f -C -p " << addr << " 2>/dev/null";
-
-    FILE* fp = popen(cmd.str().c_str(), "r");
-    if (fp == nullptr) {
-        return loc;
-    }
-
-    char buffer[2048];
-    if (fgets(buffer, sizeof(buffer), fp) != nullptr) {
-        std::string output(buffer);
-
-        // Remove trailing newline
-        if (!output.empty() && output.back() == '\n') {
-            output.pop_back();
-        }
-
-        // Parse output format: "function at filename:lineno"
-        // or "function at filename:lineno:column"
-        size_t atPos = output.find(" at ");
-        if (atPos != std::string::npos) {
-            std::string location = output.substr(atPos + 4);
-
-            // Skip if location is "??" or "??:?" or "?? ??" (unknown location)
-            if (location == "??" || location.find("??:") == 0 || location.find("?? ??") == 0) {
-                return loc; // Return empty location
-            }
-
-            // Find the last colon for line number
-            size_t colonPos = location.rfind(':');
-            if (colonPos != std::string::npos) {
-                // Check if this is line:column format
-                size_t prevColonPos = location.rfind(':', colonPos - 1);
-                if (prevColonPos != std::string::npos) {
-                    // Has column number, use the previous colon
-                    loc.filename = location.substr(0, prevColonPos);
-                    try {
-                        std::string lineStr = location.substr(prevColonPos + 1, colonPos - prevColonPos - 1);
-                        loc.lineno = std::stoi(lineStr);
-                    } catch (...) {
-                        loc.lineno = 0;
-                    }
-                } else {
-                    // No column number
-                    loc.filename = location.substr(0, colonPos);
-                    try {
-                        loc.lineno = std::stoi(location.substr(colonPos + 1));
-                    } catch (...) {
-                        loc.lineno = 0;
-                    }
-                }
-            }
-
-            // Filter out "??" and "?? ??" filenames
-            if (loc.filename == "??" || loc.filename == "?? ??" || loc.filename.empty()) {
-                loc.filename = "";
-                loc.lineno = 0;
-            }
-        } else if (output.find(":") != std::string::npos) {
-            // Try alternate format: "filename:lineno" or "?? ??:0"
-            // Skip if output starts with "??" or "?? ??"
-            if (output == "??" || output.find("??:") == 0 || output.find("?? ??") == 0) {
-                return loc; // Return empty location
-            }
-
-            size_t colonPos = output.rfind(':');
-            if (colonPos != std::string::npos) {
-                loc.filename = output.substr(0, colonPos);
-                // Filter out "??" and "?? ??" filenames
-                if (loc.filename == "??" || loc.filename == "?? ??") {
-                    return loc; // Return empty location
-                }
-                try {
-                    loc.lineno = std::stoi(output.substr(colonPos + 1));
-                } catch (...) {
-                    loc.lineno = 0;
-                }
-            }
-        }
-    }
-    pclose(fp);
 
     // Cache the result (even if empty, to avoid repeated failed lookups)
     {
