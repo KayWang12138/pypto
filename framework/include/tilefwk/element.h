@@ -26,8 +26,13 @@ class Element {
 public:
     Element() : type_(DT_BOTTOM) {}
 
+    explicit Element(DataType type, int8_t sData) { Init(type, sData); }
+    explicit Element(DataType type, int16_t sData) { Init(type, sData); }
     explicit Element(DataType type, int32_t sData) { Init(type, sData); }
     explicit Element(DataType type, int64_t sData) { Init(type, sData); }
+    explicit Element(DataType type, uint8_t uData) { Init(type, uData); }
+    explicit Element(DataType type, uint16_t uData) { Init(type, uData); }
+    explicit Element(DataType type, uint32_t uData) { Init(type, uData); }
     explicit Element(DataType type, uint64_t uData) { Init(type, uData); }
     explicit Element(DataType type, double fData) { Init(type, fData); }
 
