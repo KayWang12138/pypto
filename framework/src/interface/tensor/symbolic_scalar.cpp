@@ -19,30 +19,83 @@
 #include <sstream>
 #include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include <unistd.h>
+#include <sys/wait.h>
+#include <vector>
 
 constexpr uint64_t IMMEDIATE = 0;
 constexpr uint64_t SYMBOL = 1;
 constexpr uint64_t EXPRESSION = 2;
 constexpr int OPERAND_NUM = 2;
 constexpr size_t MIN_EXTREMA_OPERANDS = 2;
+
+namespace {
+int SafeExecCommand(const std::vector<std::string>& args)
+{
+    if (args.empty()) {
+        return -1;
+    }
+
+    std::vector<char*> argv;
+    for (const auto& a : args) {
+        argv.push_back(const_cast<char*>(a.c_str()));
+    }
+    argv.push_back(nullptr);
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        return -1;
+    } else if (pid == 0) {
+        execvp(argv[0], argv.data());
+        _exit(127);
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
+        return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    }
+} // SafeExecCommand
+} // namespace
+
 namespace npu::tile_fwk {
 
 std::string CompileSourceCode(const std::string& sourceFilePath, const std::string& gcc, const std::string& extraCflag)
 {
     std::string assembleFilePath = sourceFilePath + ".s";
     std::string objectFilePath = sourceFilePath + "_t.o";
-    std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
     std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
-    std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag + " " + macro + " " +
-                         " -I" + includePath + " " + " -I" + GetCurrentSharedLibPath() + "/include/" + " -I" +
-                         includePath + "/tilefwk " + " -S " + sourceFilePath + " -o " + assembleFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdGcc.c_str());
-    FUNCTION_ASSERT(system(cmdGcc.c_str()) == 0);
 
-    std::string cmdAs = LD_PRELOAD + gcc + " -fno-stack-protector -O2 -c " + assembleFilePath + " -o " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdAs.c_str());
-    FUNCTION_ASSERT(system(cmdAs.c_str()) == 0);
+    std::vector<std::string> argsGcc = {gcc, "-fPIC", "-fno-stack-protector", "-O2"};
+    if (!extraCflag.empty()) {
+        argsGcc.push_back(extraCflag);
+    }
+    if (!macro.empty()) {
+        argsGcc.push_back(macro);
+    }
+    argsGcc.push_back("-I" + includePath);
+    argsGcc.push_back("-I" + GetCurrentSharedLibPath() + "/include/");
+    argsGcc.push_back("-I" + includePath + "/tilefwk");
+    argsGcc.push_back("-S");
+    argsGcc.push_back(sourceFilePath);
+    argsGcc.push_back("-o");
+    argsGcc.push_back(assembleFilePath);
+
+    std::string cmdGccLog;
+    for (const auto& arg : argsGcc) {
+        cmdGccLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdGccLog.c_str());
+    FUNCTION_ASSERT(SafeExecCommand(argsGcc) == 0);
+
+    std::vector<std::string> argsAs = {gcc,  "-fno-stack-protector", "-O2", "-c", assembleFilePath,
+                                       "-o", objectFilePath};
+
+    std::string cmdAsLog;
+    for (const auto& arg : argsAs) {
+        cmdAsLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdAsLog.c_str());
+    FUNCTION_ASSERT(SafeExecCommand(argsAs) == 0);
     return objectFilePath;
 }
 
@@ -91,25 +144,39 @@ std::vector<uint8_t> CompileAndLoadSection(
         fprintf(fsrc, "%s", code.c_str());
         fclose(fsrc);
     }
-    std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string objectFilePath = sourceFilePath + ".o";
     std::vector<std::string> allSourceFiles;
     allSourceFiles.emplace_back(sourceFilePath);
     allSourceFiles.insert(allSourceFiles.end(), exprSrcFiles.begin(), exprSrcFiles.end());
     std::vector<std::string> objs = ParallelCompile(allSourceFiles, gcc, extraCflag);
-    std::stringstream cmdAs;
-    cmdAs << LD_PRELOAD << ld;
+
+    std::vector<std::string> argsLd = {ld};
     for (const auto& obj : objs) {
-        cmdAs << " " << obj;
+        argsLd.push_back(obj);
     }
-    cmdAs << " -o " << objectFilePath << " -O2 -T " << aicpuPath << "/merge.link";
-    FUNCTION_LOGI("[RunCmd] %s", cmdAs.str().c_str());
-    FUNCTION_ASSERT(system(cmdAs.str().c_str()) == 0);
+    argsLd.push_back("-o");
+    argsLd.push_back(objectFilePath);
+    argsLd.push_back("-O2");
+    argsLd.push_back("-T");
+    argsLd.push_back(aicpuPath + "/merge.link");
+
+    std::string cmdLdLog;
+    for (const auto& arg : argsLd) {
+        cmdLdLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdLdLog.c_str());
+    FUNCTION_ASSERT(SafeExecCommand(argsLd) == 0);
+
     std::string binaryFilePath = sourceFilePath + ".bin";
-    std::string cmdObjcopy =
-        LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
-    FUNCTION_ASSERT(system(cmdObjcopy.c_str()) == 0);
+    std::vector<std::string> argsObjcopy = {
+        objcopy, "--dump-section", sectionName + "=" + binaryFilePath, objectFilePath};
+
+    std::string cmdObjcopyLog;
+    for (const auto& arg : argsObjcopy) {
+        cmdObjcopyLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdObjcopyLog.c_str());
+    FUNCTION_ASSERT(SafeExecCommand(argsObjcopy) == 0);
 
     FILE* fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
