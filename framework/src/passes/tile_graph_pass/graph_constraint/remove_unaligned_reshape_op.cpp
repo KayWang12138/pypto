@@ -227,13 +227,13 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& fu
         if (!canToCopy && tensor->GetConsumers().size() > 1) {
             branchOp = *(std::next(tensor->GetConsumers().begin(), index));
             canToCopy = true;
-            branchOp->ReplaceInput({curTensor}, tensor);
+            branchOp->ReplaceInput(curTensor, tensor);
         }
         if (canToCopy) {
             if (preOp != nullptr) {
                 auto& newOp = preOp->CloneOperation(function, preOp->GetIOperands(), preOp->GetOOperands());
-                newOp.ReplaceInput({curTensor}, tensor);
-                newOp.ReplaceOutput({preCloneTensor}, preTensor);
+                newOp.ReplaceInput(curTensor, tensor);
+                newOp.ReplaceOutput(preCloneTensor, preTensor);
             }
             if (!tensor->GetProducers().empty()) {
                 preOp = *(tensor->GetProducers().begin());
@@ -244,7 +244,7 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& fu
     }
     //此时preOp 为 copyOutop preTensor为CopyOut的输出
     Operation* newCopyOutOp = &(preOp->CloneOperation(function, preOp->GetIOperands(), preOp->GetOOperands()));
-    newCopyOutOp->ReplaceOutput({preCloneTensor}, preTensor);
+    newCopyOutOp->ReplaceOutput(preCloneTensor, preTensor);
     DeadOperationEliminator::EliminateDeadOperation(function);
     return newCopyOutOp;
 }
