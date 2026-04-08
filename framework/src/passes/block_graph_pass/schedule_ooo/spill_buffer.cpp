@@ -223,7 +223,7 @@ void OoOScheduler::UpdateTensorInputForView(Operation& op, Operation* spillSrcOp
 }
 
 Status OoOScheduler::UpdateReloadIssueDepend(Operation* reloadCopyin, Operation* spillOp, int spillMemId) {
-    auto& successors = GetSuccessors(spillOp);
+    auto& successors = depManager_.GetSuccessors(spillOp);
     for (auto succOp : successors) {
         if (!opIsRetiredMap[succOp]) {
             auto& reqMemIds = GetOpMemIds(succOp);
@@ -297,7 +297,7 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
         if (opIsRetiredMap[op] || opIsAllocMap[op]) {
             continue;
         }
-        auto predecessors = GetPredecessors(op);
+        auto predecessors = depManager_.GetPredecessors(op);
         for (auto predOp : predecessors) {
             if (opIsAllocMap[predOp]) {
                 auto& predReqMemIds = GetOpMemIds(predOp);
@@ -432,7 +432,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     auto spillAllocOpPtr = UpdateIssueAttr(spillAllocOp, {reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // 创建 copyin
     Operation* preOp = nullptr;
-    auto& predecessors = GetPredecessors(spillInfo.spillOp_);
+    auto& predecessors = depManager_.GetPredecessors(spillInfo.spillOp_);
     for (auto predOp : predecessors) {
         if (!opIsAllocMap[predOp]) {
             preOp = predOp;
@@ -484,7 +484,7 @@ Status OoOScheduler::SpillInReshapeBuffer(SpillInfo &spillInfo, Operation* alloc
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr reshape tensor failed!");
         return FAILED;
     }
-    auto &successors = GetSuccessors(spillInfo.spillOp_);
+    auto &successors = depManager_.GetSuccessors(spillInfo.spillOp_);
     for (auto succOp : successors) {
         if (!opIsRetiredMap[succOp]) {
             auto& reqMemIds = GetOpMemIds(succOp);
@@ -596,7 +596,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     opIsAllocMap[spillCopyoutOp] = false;
     opPipeTypeMap[spillCopyoutOp] = RescheduleUtils::GetOpPipeType(spillCopyoutOp);
     opViewOpsMap[spillCopyoutOp] = std::vector<Operation*>();
-    for (auto preOp : GetPredecessors(spillOp)) {
+    for (auto preOp : depManager_.GetPredecessors(spillOp)) {
         if (opIsAllocMap[preOp]) {
             opCoreLocationMap[spillCopyoutOp] = opCoreLocationMap[preOp];
             UpdateOpInternalSubgraphID(*spillCopyoutOp, preOp);
@@ -659,7 +659,7 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
     }
     auto actualSpillTensor = preTensor;
     Operation* actualSpillOp = nullptr;
-    for (auto &preOp : GetPredecessors(spillOp)) {
+    for (auto &preOp : depManager_.GetPredecessors(spillOp)) {
         if (!opIsAllocMap[preOp]) {
             actualSpillOp = preOp;
         }
@@ -678,7 +678,7 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &sp
             return FAILED;
         }
         actualSpillTensor = actualSpillOp->GetInputOperand(0);
-        for (auto &preOp : GetPredecessors(actualSpillOp)) {
+        for (auto &preOp : depManager_.GetPredecessors(actualSpillOp)) {
             if (!opIsAllocMap[preOp]) {
                 actualSpillOp = preOp;
             }
@@ -979,7 +979,7 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocO
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateTensorAttr local tensor failed!");
         return FAILED;
     }
-    for (auto &succOp : GetSuccessors(spillInfo.spillOp_)) {
+    for (auto &succOp : depManager_.GetSuccessors(spillInfo.spillOp_)) {
         if (!opIsRetiredMap[succOp] &&
             (std::count(GetOpMemIds(succOp).begin(), GetOpMemIds(succOp).end(), spillInfo.spillMemId_) > 0)) {
             UpdateTensorInputFor(succOp, spillInfo.spillOp_, assembleTensor);
@@ -1065,18 +1065,18 @@ Status OoOScheduler::SpillMultiBuffer(Operation* allocOp, std::vector<int> spill
 }
 
 void OoOScheduler::FindFilterLtags(Operation* allocOp, std::set<Operation*> &filterLtags) {
-    auto dstOpList = GetSuccessors(allocOp);
+    auto dstOpList = depManager_.GetSuccessors(allocOp);
     auto dstOp = *dstOpList.begin();
     if (COPY_IN_OPS.find(dstOp->GetOpcode()) != COPY_IN_OPS.end()) {
-        for (auto &dstOpId : GetSuccessors(dstOp)) {
+        for (auto &dstOpId : depManager_.GetSuccessors(dstOp)) {
             auto dstOp_level0 = dstOpId;
-            for (auto &inOp : GetPredecessors(dstOp_level0)) {
+            for (auto &inOp : depManager_.GetPredecessors(dstOp_level0)) {
                 filterLtags.insert(inOp);
             }
         }
     }
     for (auto &dstOp_level1 : dstOpList) {
-        for (auto &inOp : GetPredecessors(dstOp_level1)) {
+        for (auto &inOp : depManager_.GetPredecessors(dstOp_level1)) {
             filterLtags.insert(inOp);
         }
     }
@@ -1222,7 +1222,7 @@ bool OoOScheduler::HasEnoughBuffer(Operation* allocOp, MemoryType memType) {
         APASS_LOG_ERROR_F(Elements::Operation, "%s must only have one ooperand.", GetFormatBacktrace(*allocOp).c_str());
         return false;
     }
-    for (auto &succOp : GetSuccessors(allocOp)) {
+    for (auto &succOp : depManager_.GetSuccessors(allocOp)) {
         if (succOp != *(allocOp->GetOutputOperand(0)->GetProducers().begin())) {
             continue;
         }

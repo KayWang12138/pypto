@@ -419,7 +419,7 @@ Status OptimizeSort::RollBack(
         for (auto op : (*curOpList)) {
             visitedOp_[op] = false;
         }
-        if (InitBufRefCount() != SUCCESS) {
+        if (InitBufRefCount(operations) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed at RollBack!");
             return FAILED;
         }
