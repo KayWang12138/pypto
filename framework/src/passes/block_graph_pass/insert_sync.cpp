@@ -1105,6 +1105,10 @@ Status PipeSync::RelaxFakeDataDep(std::vector<IndexOp> &syncedOpLog) {
 }
 
 bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool isSet, Operation &op) {
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113) // kirin_9030
+    {
+        return false;
+    }
     if (set.core != wait.core) {
         op.SetOpCode(isSet ? Opcode::OP_CV_SYNC_SRC : Opcode::OP_CV_SYNC_DST);
         if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && !isSet && wait.core == CoreType::AIV) {
