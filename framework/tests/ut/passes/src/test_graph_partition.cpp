@@ -911,6 +911,8 @@ TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeTrue) {
 
     EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
     EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
+    // 验证不同 scopeId 之间即使 allowCrossScopeMerge=true 也不能合并
+    EXPECT_NE(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
 }
 
 TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeFalse) {
@@ -976,12 +978,48 @@ TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
 
+    // 验证同一 scopeId 内的 op 合并到同一 subgraph
+    EXPECT_EQ(G.GetOp("ABS0")->GetSubgraphID(), G.GetOp("ABS1")->GetSubgraphID());
+    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("ABS3")->GetSubgraphID());
+    // 验证不同 scopeId 之间即使一侧 allowCrossScopeMerge=true 也不能合并
+    EXPECT_NE(G.GetOp("ABS0")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
+    
     std::unordered_set<int> subgraphIds;
     for (const auto& opPair : G.operations_) {
         subgraphIds.insert(opPair.second->GetSubgraphID());
     }
     EXPECT_EQ(subgraphIds.size(), 2);
 }
+
+// TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeWithNoScope) {
+//     // 测试 allowCrossScopeMerge=true 允许有 scope 的 subgraph 与无 scope 的 subgraph 合并
+//     ComputationalGraphBuilder G;
+//     GetCrossScopeGraph(G);
+
+//     // scopeId=1 的组设置 allowCrossScopeMerge=true
+//     Operation::ScopeInfo info1;
+//     info1.scopeId = 1;
+//     info1.allowParallelMerge = true;
+//     info1.allowCrossScopeMerge = true;
+//     info1.mixId = -1;
+//     G.GetOp("ABS1")->SetScopeInfo(info1);
+//     G.GetOp("ABS2")->SetScopeInfo(info1);
+
+//     // MUL1/MUL2 不设置 scope（scopeId=-1），可以被 scopeId=1 合并
+//     Function *function = G.GetFunction();
+//     const int cycleUB = 100000;
+//     const int parallelTH = 20;
+//     const int cycleLB = 0;
+//     const int useNodeHash = false;
+//     IsoPartitioner partitioner;
+//     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+//     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+//     // 验证同一 scopeId=1 内的 op 合并
+//     EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
+//     // 验证无 scope 的 op 也被合并到 scopeId=1 的 subgraph
+//     EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
+// }
 
 } // namespace tile_fwk
 } // namespace npu

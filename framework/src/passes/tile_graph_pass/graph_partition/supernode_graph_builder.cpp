@@ -185,7 +185,7 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
         (!operationGraphInfo->CoreTypeMergeable(coreTypes))) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "Try to merge operations with different OpCoreType in building SuperNode.");
-        std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
+        std::vector<int> mergeIdxs{src, srcParent, dst, dstParent};
         for (int mergeIdx : mergeIdxs) {
             auto& mergeOp = operationGraphInfo->opList_[mergeIdx];
             APASS_LOG_ERROR_F(
@@ -345,7 +345,7 @@ bool NodeGraphInfo::GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> o
            (nodeInGraph_[nodeIdx].size() > 1 && nodeOutGraph_[nodeIdx].empty()) ||
            (nodeInGraph_[nodeIdx].empty() && nodeOutGraph_[nodeIdx].size() > 1)));
     for (auto opIdx : node2Op_[nodeIdx]) {
-        if (operationGraphInfo->opList_[opIdx]->GetScopeId() != -1) {
+        if (operationGraphInfo->opList_[opIdx]->GetScopeId() != -1 && !operationGraphInfo->opList_[opIdx]->GetAllowCrossScopeMerge()) {
             isMergeable = false;
         }
     }

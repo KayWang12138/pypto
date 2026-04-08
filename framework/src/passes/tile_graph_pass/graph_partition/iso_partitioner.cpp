@@ -165,16 +165,16 @@ Status IsomorphismGraphGroup::BuildGraphGroup(
     subVisitedNodeSet_.insert(expandCandidate.begin(), expandCandidate.end());
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
 
-    // 从所有候选节点获取 allowCrossScopeMerge，任一节点允许则该组允许
-    bool allowCrossScopeMerge = false;
+    // 从所有候选node获取 allowCrossScopeMerge，所有node都允许则该subgraph允许
+    bool allowCrossScopeMerge = true;
     for (int32_t nodeIdx : expandCandidate) {
         for (int32_t opIdx : superNodeInfo->node2Op_[nodeIdx]) {
-            if (operationInfo->opList_[opIdx]->GetAllowCrossScopeMerge()) {
-                allowCrossScopeMerge = true;
+            if (!operationInfo->opList_[opIdx]->GetAllowCrossScopeMerge()) {
+                allowCrossScopeMerge = false;
                 break;
             }
         }
-        if (allowCrossScopeMerge) {
+        if (!allowCrossScopeMerge) {
             break;
         }
     }
@@ -492,24 +492,32 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(
 
 bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
 {
-    // Scope 隔离检查：每个 group 独立判断——"有 scope 且不允许跨 scope → 拒绝合并"
-    // allowCrossScopeMerge=false（默认）：与原行为一致，有 scope 的 subgraph 不与其他 subgraph 合并
-    // allowCrossScopeMerge=true：允许该 subgraph 与任意其他 subgraph 合并（实现跨 scope 合并功能）
-    for (auto graphPtr : isoSubGroups_[currColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1 && !graphPtr->GetAllowCrossScopeMerge()) {
-            APASS_LOG_INFO_F(Elements::Operation,
-                "Cannot merge: curr group has scopeId=%d with allowCrossScopeMerge=false.",
-                graphPtr->scopeId_);
-            return false;
+    // allowCrossScopeMerge=false：有 scope 的 subgraph 拒绝合并
+    // allowCrossScopeMerge=true：有 scope 的 subgraph 只能与 scope=-1 的 subgraph 合并
+    std::cout << "here" << std::endl;
+    auto canMergeFrom = [this](const std::shared_ptr<IsomorphismGraphGroup>& fromGroup,
+                               const std::shared_ptr<IsomorphismGraphGroup>& toGroup) -> bool {
+        for (auto& g : fromGroup->isoGraphs_) {
+            if (g->scopeId_ == -1) continue;
+            if (!g->GetAllowCrossScopeMerge()) {
+                APASS_LOG_INFO_F(Elements::Operation,
+                    "Cannot merge: subgraph scopeId=%d with allowCrossScopeMerge=false.", g->scopeId_);
+                return false;
+            }
+            for (auto& tg : toGroup->isoGraphs_) {
+                if (tg->scopeId_ != -1) {
+                    APASS_LOG_INFO_F(Elements::Operation,
+                        "Cannot merge: allowCrossScopeMerge=true requires target scope=-1, got %d.", tg->scopeId_);
+                    return false;
+                }
+            }
         }
-    }
-    for (auto graphPtr : isoSubGroups_[mergeColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1 && !graphPtr->GetAllowCrossScopeMerge()) {
-            APASS_LOG_INFO_F(Elements::Operation,
-                "Cannot merge: merge group has scopeId=%d with allowCrossScopeMerge=false.",
-                graphPtr->scopeId_);
-            return false;
-        }
+        return true;
+    };
+
+    if (!canMergeFrom(isoSubGroups_[currColor], isoSubGroups_[mergeColor]) ||
+        !canMergeFrom(isoSubGroups_[mergeColor], isoSubGroups_[currColor])) {
+        return false;
     }
     std::set<OpCoreType> opcoreTypes{
         isoSubGroups_[currColor]->GetSubGraph(0)->coreType_, isoSubGroups_[mergeColor]->GetSubGraph(0)->coreType_};
