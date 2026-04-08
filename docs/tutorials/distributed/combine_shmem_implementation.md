@@ -205,10 +205,13 @@ out[token_id:, :] = matmul_out_fp16
 ## 6. 完整 Kernel 代码
 
 ```python
+
 def moe_distributed_combine_kernel(
     moe_case: MoeCase,
     group_name: str,
+
 ) -> Callable[[pypto.Tensor, pypto.Tensor, pypto.Tensor, pypto.Tensor, pypto.Tensor], None]:
+
     batch_size = moe_case.batch_size
     hidden_size = moe_case.hidden_size
     moe_expert_num = moe_case.moe_expert_num
@@ -225,6 +228,7 @@ def moe_distributed_combine_kernel(
         expert_scales: pypto.Tensor([batch_size, topk], pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
         out: pypto.Tensor([batch_size, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND),
     ):
+
         # 创建 Shmem_data
         shmem_data = pypto.distributed.create_shmem_tensor(
             group_name,
@@ -294,12 +298,12 @@ def moe_distributed_combine_kernel(
             pypto.set_cube_tile_shapes([1, 1], [k_tile_shape, k_tile_shape], [n_tile_shape, n_tile_shape])
             expert_scales_tile = expert_scales[token_id:token_id + 1, :topk]
             matmul_out_fp32 = expert_scales_tile.matmul(shmem_get_out_fp32, pypto.DT_FP32)
-
             matmul_out_fp16 = pypto.cast(matmul_out_fp32, expand_x.dtype)
 
             out[token_id:, :] = matmul_out_fp16
 
     return kernel
+
 ```
 
 ## 7. 总结
