@@ -463,6 +463,12 @@ void FlowVerifier::VerifyTensorGraph(
         WriteException();
         throw std::runtime_error(e.what());
     }
+
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().DestroySimulationCommContext(groupName);
+        }
+    }
 }
 
 template <typename T>
@@ -478,13 +484,6 @@ static std::string ToString(const T& val, size_t totalSize)
 
 void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& passIdentifier)
 {
-    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
-    if (!groupNames.empty()) {
-        for (const std::string &groupName: groupNames) {
-            SimulationCommManager::Instance().CreateSimulationCommContext(groupName);
-        }
-    }
-
     functionInterpreter_->verifyType = VerifyType::PASS;
     functionInterpreter_->passIndex = passIndex;
     functionInterpreter_->execDumpPassName = "Pass_" + ToString(passIndex, 2) + "_" + passIdentifier;
@@ -507,6 +506,14 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
             return;
         }
     }
+
+    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().CreateSimulationCommContext(groupName);
+        }
+    }
+
     std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
     float rtol = static_cast<float>(tolerance[0]);
     float atol = static_cast<float>(tolerance[1]);
@@ -552,6 +559,12 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
         }
     }
     functionInterpreter_->DumpReset();
+
+    if (!groupNames.empty()) {
+        for (const std::string &groupName: groupNames) {
+            SimulationCommManager::Instance().DestroySimulationCommContext(groupName);
+        }
+    }
 }
 
 FlowVerifier& FlowVerifier::GetInstance()

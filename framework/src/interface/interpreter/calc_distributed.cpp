@@ -186,5 +186,6 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;
 }
 REGISTER_CALC_OP(OP_SHMEM_GET, Opcode::OP_SHMEM_GET, ExecuteOpShmemGet);
+REGISTER_CALC_OP(OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_GET_GM2UB, ExecuteOpShmemGet);
 
 }
