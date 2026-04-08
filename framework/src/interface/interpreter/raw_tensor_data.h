@@ -199,14 +199,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     }
 
     const Shape& GetShape() const { return shape_; }
-    const Stride& GetStride() const
-    {
-        if (!IsFp4PackedDtype(GetDataType())) {
-            return stride_;
-        }
-        packedStride_ = ShapeToStride(PackedShapeFromLogical(shape_, GetDataType()));
-        return packedStride_;
-    }
+    const Stride& GetStride() const { return stride_; }
     DataType GetDataType() const { return dataType_; }
     int64_t GetSize() const { return nelem; }
     int64_t GetElementSize() const { return elemSize_; }
@@ -432,7 +425,6 @@ private:
     DataType dataType_;
     Shape shape_;
     Stride stride_;
-    mutable Stride packedStride_;
     size_t nelem;
     // Signed: GetDataSize(DataType) uses -1 (DATA_SIZE_HALF) for FP4/INT4; storing as size_t wrapped to huge
     // and broke vector allocation in SetVerifyData / RawTensorData::CreateTensor.
@@ -495,7 +487,8 @@ struct LogicalTensorData {
     void UpdateValidShape(std::vector<int64_t> shape) { validShape_ = shape; }
     int64_t GetStorageOffset() const
     {
-        auto& strides = data_->GetStride();
+        // Logical-element offset for the first element in this view.
+        const auto& strides = stride_;
         int64_t offset = 0;
         for (size_t i = 0; i < strides.size(); i++) {
             offset += strides[i] * offset_[i];
@@ -514,8 +507,10 @@ struct LogicalTensorData {
             offset[i] += offset_[i];
         }
         int dataIndex = 0;
+        // ViewIndexToDataIndex should return logical-element index in RawTensorData logical shape domain.
+        const auto& dataStride = GetData()->GetStride();
         for (size_t i = 0; i < GetShape().size(); i++) {
-            dataIndex += offset[i] * GetData()->GetStride()[i];
+            dataIndex += offset[i] * dataStride[i];
         }
         return dataIndex;
     }

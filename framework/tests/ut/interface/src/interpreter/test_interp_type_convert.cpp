@@ -343,7 +343,7 @@ TEST_F(InterpTypeConvertTest, Fp4E2M1AddRoundTripViaFp32)
 {
     // a (packed {0x12,0x9A}) -> [0.5, 1.0, -0.5, -1.0]
     // b (packed {0x21,0x92}) -> [1.0, 0.5, -0.5,  1.0]
-    // sum                    -> [1.5, 1.5,  0.0, -1.0] (all exactly representable in E2M1)
+    // sum                    -> [1.5, 1.5, -1.0,  0.0] (all exactly representable in E2M1)
     const std::vector<uint8_t> aPacked = {0x12, 0x9A};
     const std::vector<uint8_t> bPacked = {0x21, 0x92};
 
@@ -355,7 +355,7 @@ TEST_F(InterpTypeConvertTest, Fp4E2M1AddRoundTripViaFp32)
     auto outF32 = makeTensorData(DT_FP32, {4}, 0.0f);
     calc::Cast(outF32, out);
 
-    const std::vector<float> goldenVals = {1.5f, 1.5f, 0.0f, -1.0f};
+    const std::vector<float> goldenVals = {1.5f, 1.5f, -1.0f, 0.0f};
     auto golden = makeTensorData(DT_FP32, {4}, goldenVals);
     ASSERT_ALLCLOSE_ATOL(outF32, golden, 1e-6f);
 }
