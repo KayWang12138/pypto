@@ -256,7 +256,6 @@ private:
     std::string GetLastUse() const;
 
     TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
-    TileTensor BuildPermuteTmpTileTensor(int paramIdx, const ShapeInLoop &shapeInLoop = {});
     void UpdateTileTensorShapeAndStride(
         int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop = {});
     std::vector<std::string> BuildStride(const std::vector<int64_t>& input);
