@@ -62,6 +62,7 @@ enum class DevCommonErr : uint32_t {
     GET_ENV_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x09U,     // 获取环境变量路径失败
     GET_HANDLE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0AU,  // 获取句柄失败
     FREE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0BU,        // 释放失败
+    GET_PRAM_TIME_OUT= ToUnderlying(MachineError::DEV_COMMON) + 0x0CU,   // 参数获取超时
 };
 
 enum class HostBackEndErr : uint32_t {

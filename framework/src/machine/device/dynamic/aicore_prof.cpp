@@ -20,6 +20,8 @@ namespace {
 constexpr int AICPUNUM = 6;
 constexpr int64_t HIG_32BIT = 32;
 constexpr uint32_t PYPTO_PROF_COMMANDHANDLE_TYPE_START = 1;
+bool g_open_prof = true;
+bool finish_dump = false;
 } // namespace
 
 namespace npu::tile_fwk::dynamic {
@@ -43,8 +45,60 @@ bool ProfCheckLevel(uint64_t feature)
     return AdprofCheckFeatureIsOn(feature) > 0;
 }
 
-void AiCoreProf::ProInitHandShake()
-{
+#ifdef __DEVICE__
+Metrics *GetProfMetrics(uint64_t sharedBuffer, uint32_t coreIdx) {
+    volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer + coreIdx * SHARED_BUFFER_SIZE);
+    volatile Metrics *metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    DEV_INFO("aicore %u host alloc metric memory :%p.", coreIdx, metric);
+    if (metric == nullptr) {
+        DEV_WARN("aicore %u Null metric.", coreIdx);
+        return nullptr;
+    }
+    return reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+}
+
+void ProfGetNew(void *arg) {
+    auto *self = static_cast<AiCoreProf *>(arg);
+    while (g_open_prof) {
+        sched_yield();
+        for (uint32_t i = 0; i < self->GetCoreNum(); i++) {
+            auto profMetrics = GetProfMetrics(self->deviceArgs_->sharedBuffer, i);
+            if (profMetrics == nullptr) {
+                return;
+            }
+            self->currentTaskCountArry[i] = (profMetrics->taskCount - 1) % MAX_DFX_TASK_NUM_PER_CORE;
+            if (profMetrics->isMetricStop || self->currentTaskCountArry[i] > self->lastTaskCountArry[i]) {
+                self->GetProfData(profMetrics, i);
+                self->lastTaskCountArry[i] = ((profMetrics->taskCount - 1) / PREF_PROF_DATA_NUM * PREF_PROF_DATA_NUM) %
+                                              MAX_DFX_TASK_NUM_PER_CORE;
+            }
+        }
+    }
+    for (uint32_t i = 0; i < self->GetCoreNum(); i++) {
+        self->ReportLastProfData(i);
+    }
+    finish_dump = true;
+}
+#endif
+
+void StopProf(void *arg) {
+    g_open_prof = false;
+    (void)arg;
+    while(!finish_dump){sched_yield();}
+}
+
+void AiCoreProf::ReportLastProfData(int32_t coreIdx) {
+    if (logHead_[coreIdx]->cnt != 0) {
+        int32_t ret = profReportAdditionalInfoFunc_(1, &logMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
+        DEV_DEBUG(
+            "aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", coreIdx, logHead_[coreIdx]->cnt,
+            ret);
+        (void)(ret);
+        memset_s(&logMsg_[coreIdx], logMsgSize_, 0, logMsgSize_);
+    }
+}
+
+void AiCoreProf::ProInitHandShake() {
     handkShakeMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
     handkShakeHeadSize_ = sizeof(MsprofAicpuHandShakeHead);
     handShakeDataSize_ = sizeof(AiCpuHandShakeSta);
@@ -160,9 +214,42 @@ void AiCoreProf::GetIsOpenDevProf() {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
     }
 }
+
+void AiCoreProf::StartToGetProf() {
+    if (profLevel_ == PROF_LEVEL_OFF) {
+        DEV_DEBUG("Prof start is closed, don't to get prof data");
+        return;
+    }
+    if (AicpuCreateCtrlThread == nullptr) {
+        DEV_WARN("Current drv not support AicpuCreateCtrlThread");
+        return;
+    }
+    AicpuCreateCtrlThread(1, ProfGetNew, this, StopProf, nullptr);
+}
+
+void AiCoreProf::GetProfData(Metrics *metric, uint32_t coreIdx) {
+    for (int taskId = lastTaskCountArry[coreIdx]; taskId <= currentTaskCountArry[coreIdx]; taskId++) {
+        volatile TaskStat *stat = &metric->tasks[taskId];
+        ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
+    }
+}
+void AiCoreProf::StopCtrCpu() {
+    if (!ProfCheckLevel(PROF_TASK_TIME_L2) || devProfType_ != PYPTO_PROF_COMMANDHANDLE_TYPE_START) {
+        DEV_DEBUG("Prof not open");
+        return;
+    }
+    g_open_prof = false;
+    while(!finish_dump) {
+        sched_yield();
+    }
+    DEV_DEBUG("Finish stop prof ctrCpu");
+    g_open_prof = true;
+    finish_dump = false;
+}
 #endif
 
 void AiCoreProf::ProfInit(DeviceArgs *deviceArgs) {
+
     DEV_DEBUG("Begin Prof init");
     profLevel_ = CreateProfLevel(deviceArgs->toSubMachineConfig.profConfig);
 #ifdef __DEVICE__
@@ -192,6 +279,12 @@ void AiCoreProf::ProfInit(DeviceArgs *deviceArgs) {
     }
     hostAicoreMng_.SetDotStatus(static_cast<int64_t>(profLevel_));
     DEV_INFO("aicore profiling is opened, level is %d.", profLevel_);
+    deviceArgs_ = deviceArgs;
+#ifdef __DEVICE__
+    if (profLevel_ == PROF_LEVEL_FUNC_LOG) {
+        StartToGetProf();
+    }
+#endif
 }
 
 void AiCoreProf::ProfStart()

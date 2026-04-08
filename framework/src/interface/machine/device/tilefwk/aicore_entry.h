@@ -206,14 +206,23 @@ INLINE void AddMetricStatistic(ExecuteContext* ctx, uint32_t seqNo, uint32_t tas
     UNUSED(t1);
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     auto m = (__gm__ Metrics*)(ctx->args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-    if (m && m->taskCount < MAX_DFX_TASK_NUM_PER_CORE) {
-        m->tasks[m->taskCount].subGraphId = subGraphId;
-        m->tasks[m->taskCount].seqNo = seqNo;
-        m->tasks[m->taskCount].taskId = taskId;
-        m->tasks[m->taskCount].execStart = t1;
+    auto taskIndx = m->taskCount % MAX_DFX_TASK_NUM_PER_CORE;
+    if (m) {
+        m->tasks[taskIndx].subGraphId = subGraphId;
+        m->tasks[taskIndx].seqNo = seqNo;
+        m->tasks[taskIndx].taskId = taskId;
+        m->tasks[taskIndx].execStart = t1;
         ctx->lastTaskFinishCycle = get_sys_cnt();
-        m->tasks[m->taskCount].execEnd = ctx->lastTaskFinishCycle;
+        m->tasks[taskIndx].execEnd = ctx->lastTaskFinishCycle;
         m->taskCount++;
+    }
+    if((m->taskCount > 0) && (m->taskCount % PREF_PROF_DATA_NUM == 0)) {
+        // mod when the task count > MAX_DFX_TASK_NUM_PER_CORE
+        auto lastTaskIndx = ((m->taskCount - 1) / PREF_PROF_DATA_NUM * PREF_PROF_DATA_NUM) % MAX_DFX_TASK_NUM_PER_CORE;
+        for (uint32_t i = lastTaskIndx; i <= taskIndx; i++) {
+            dcci(&m->tasks[i], SINGLE_CACHE_LINE, CACHELINE_OUT);
+        }
+        dcci(m, SINGLE_CACHE_LINE, CACHELINE_OUT);
     }
 #endif
 }
@@ -224,8 +233,8 @@ INLINE void FlushMetricStatistic(__gm__ volatile KernelArgs* args)
     if (m == nullptr) {
         return;
     }
-
-    for (uint32_t i = 0; i < m->taskCount; i++) {
+    auto lastTaskIndx = ((m->taskCount - 1) / PREF_PROF_DATA_NUM * PREF_PROF_DATA_NUM) % MAX_DFX_TASK_NUM_PER_CORE;
+    for (uint32_t i = lastTaskIndx; i <= (m->taskCount - 1) % MAX_DFX_TASK_NUM_PER_CORE; i++) {
         dcci(&m->tasks[i], SINGLE_CACHE_LINE, CACHELINE_OUT);
     }
 

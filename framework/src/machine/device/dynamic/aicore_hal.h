@@ -338,7 +338,7 @@ public:
         uint64_t cycles_start = GetCycles();
         while (metric->isMetricStop != 1) {
             if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR(DevCommonErr::NULLPTR, "#sche.prof.aicore.wait_finish: wait metrics done timeout !!!.");
+                DEV_ERROR(DevCommonErr::GET_PRAM_TIME_OUT, "#sche.prof.aicore.wait_finish: wait metrics done timeout !!!.");
                 return nullptr;
             }
         }; // wait aicore dcci metric data finish
@@ -355,10 +355,10 @@ public:
 
         DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
-            volatile TaskStat* stat = &metric->tasks[i];
+            volatile TaskStat *stat = &metric->tasks[i];
             aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
-            DEV_VERBOSE_DEBUG(
-                "  Dump prof for task %d, execstart: %ld execend :%ld.", stat->taskId, stat->execStart, stat->execEnd);
+            DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
+                     stat->taskId, stat->execStart, stat->execEnd);
         }
         return 0;
     }

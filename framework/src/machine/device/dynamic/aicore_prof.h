@@ -23,6 +23,12 @@
 #include <sys/syscall.h>
 #include "tilefwk/aicpu_common.h"
 #include "machine/device/dynamic/aicore_prof_dav3510_pmu.h"
+#ifdef BUILD_WITH_CANN
+#include "runtime/base.h"
+#include "toolchain/prof_api.h"
+#include "log_types.h"
+#include "prof_common.h"
+#endif
 
 typedef void* VOID_PTR;
 typedef int32_t (*ProfCommandHandle)(uint32_t type, void *data, uint32_t len);
@@ -34,6 +40,10 @@ __attribute__((weak)) int32_t MsprofReportAdditionalInfo(uint32_t nonPersistantF
 __attribute__((weak)) int32_t MsprofRegisterCallback(uint32_t moduleId, ProfCommandHandle handle);
 #endif
 __attribute__((weak)) int32_t AdprofCheckFeatureIsOn(uint64_t feature);
+__attribute__((weak)) int32_t AicpuCreateCtrlThread(uint32_t type, PyptoProfGetFuncPtr profStratGetFunc, void *paramGetProf,
+                                PyptoProfGetFuncPtr profStopGetFunc, void *paramStopFun);
+__attribute__((visibility("default"))) void ProfGetNew(void *arg);
+__attribute__((visibility("default"))) void StopProf(void *arg);
 };
 
 typedef int32_t (*ProfReportAdditionalInfoFunc)(uint32_t agingFlag, const VOID_PTR data, uint32_t length);
@@ -43,6 +53,7 @@ class AiCoreManager;
 constexpr uint32_t PATH_SIZE = 1024;
 constexpr uint32_t PROF_DATA_SIZE = 4096;
 constexpr uint32_t DEVICE_ID_LIST_SIZE = 64;
+constexpr uint32_t MAX_CORE_NUM = 75;
 struct PyPtoMsprofAdditionalInfo { // for MsprofReportAdditionalInfo buffer data
     uint16_t magicNumber = 0x5A5AU;
     uint16_t level;
@@ -294,10 +305,13 @@ public:
 #ifdef __DEVICE__
     static void RegDevProf();
     static int DevProfInit(uint32_t type, void *data, uint32_t len);
+    void static StopCtrCpu();
     void GetIsOpenDevProf();
+    void StartToGetProf();
     static uint64_t devProfSwitch_;
     static uint32_t devProfType_ ;
 #endif
+    void ReportLastProfData(int32_t coreIdx);
     void ProfInit(DeviceArgs *deviceArgs);
     void ProfStart();
     void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat* taskStat);
@@ -312,12 +326,19 @@ public:
     void ProfStopAiCpuTaskStat();
     void ProInitAiCpuTaskStat();
     void ProInitHandShake();
-    bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
+    bool ProfIsEnable() { return profLevel_ == PROF_LEVEL_FUNC_LOG_PMU; }
 
     void ProfInitPmu(int64_t* regAddrs, int64_t* pmuEventAddrs);
     void ProfStartPmu();
     void ProfStopPmu();
     void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
+    void GetProfData(Metrics *metric, uint32_t coreIdx);
+    void TransProfToHost(uint32_t coreIdx, const struct TaskStat *taskStat);
+    uint32_t GetCoreNum() {return static_cast<uint32_t>(coreNum_);}
+    // static uint64_t devDfxAddr_;
+    DeviceArgs *deviceArgs_{nullptr};
+    int32_t lastTaskCountArry[MAX_CORE_NUM] = {0};
+    int32_t currentTaskCountArry[MAX_CORE_NUM] = {0};
 private:
     struct PmuCtrlAddrs {
         uint32_t* ctrl0Addr{nullptr};
