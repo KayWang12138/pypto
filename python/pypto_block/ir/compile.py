@@ -75,6 +75,7 @@ def compile(
         ... )
     """
     # Set the global backend type (idempotent - can be called multiple times)
+    _backend_core.reset_for_testing()
     _backend_core.set_backend_type(backend_type)
 
     if output_dir is None:
@@ -110,7 +111,9 @@ def compile(
     with ctx:
         pm = PassManager.get_strategy(strategy)
         passes_dump_dir = os.path.join(output_dir, "passes_dump")
-        transformed_program = pm.run_passes(program, dump_ir=dump_passes, output_dir=passes_dump_dir)
+        transformed_program = pm.run_passes(
+            program, dump_ir=dump_passes, output_dir=passes_dump_dir
+        )
 
     if backend_type == BackendType.PTO:
         from .pto_codegen import generate  # noqa: PLC0415
