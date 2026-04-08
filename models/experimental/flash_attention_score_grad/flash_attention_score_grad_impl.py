@@ -73,36 +73,6 @@ class S1Inputs:
     actual_s1: int
 
 
-def _prepare_s1_inputs(ki: KernelInputs, s1_idx, bn_base, s, v_tile_d) -> S1Inputs:
-    """Prepare inputs for s1 direction."""
-    s1_off = bn_base + s1_idx * S_TILE
-    actual_s1 = (s - s1_idx * S_TILE).min(S_TILE)
-
-    pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-    q_i = pypto.view(ki.q, [S_TILE, HEAD_DIM], [s1_off, 0],
-                     valid_shape=[actual_s1, HEAD_DIM])
-    dy_i = pypto.view(ki.dy, [S_TILE, HEAD_DIM], [s1_off, 0],
-                      valid_shape=[actual_s1, HEAD_DIM])
-    ao_i = pypto.view(ki.attention_out, [S_TILE, HEAD_DIM], [s1_off, 0],
-                      valid_shape=[actual_s1, HEAD_DIM])
-
-    sm_i_8 = pypto.view(ki.softmax_max, [S_TILE, 8], [s1_off, 0],
-                        valid_shape=[actual_s1, 8])
-    ss_i_8 = pypto.view(ki.softmax_sum, [S_TILE, 8], [s1_off, 0],
-                        valid_shape=[actual_s1, 8])
-    pypto.set_vec_tile_shapes(S_TILE, 8)
-    smax_i = pypto.view(sm_i_8, [S_TILE, 1], [0, 0],
-                        valid_shape=[actual_s1, 1])
-    ssum_i = pypto.view(ss_i_8, [S_TILE, 1], [0, 0],
-                        valid_shape=[actual_s1, 1])
-
-    pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-    dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i), pypto.DT_FP32)
-    d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
-
-    return S1Inputs(q_i, dy_i, ao_i, smax_i, ssum_i, d_i, actual_s1)
-
-
 def compute_tile(inp: ComputeTileInputs):
     """计算一个 (s1_tile, s2_tile) 块的 P_ij 和 ds_ij。"""
     pypto.set_vec_tile_shapes(inp.cfg.v_tile_s[0], inp.cfg.v_tile_s[1])
@@ -158,6 +128,36 @@ class PassInputs:
     s: int
     s_loop: int
     bn_base: int
+
+
+def _prepare_s1_inputs(ki: KernelInputs, s1_idx, bn_base, s, v_tile_d) -> S1Inputs:
+    """Prepare inputs for s1 direction."""
+    s1_off = bn_base + s1_idx * S_TILE
+    actual_s1 = (s - s1_idx * S_TILE).min(S_TILE)
+
+    pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
+    q_i = pypto.view(ki.q, [S_TILE, HEAD_DIM], [s1_off, 0],
+                     valid_shape=[actual_s1, HEAD_DIM])
+    dy_i = pypto.view(ki.dy, [S_TILE, HEAD_DIM], [s1_off, 0],
+                      valid_shape=[actual_s1, HEAD_DIM])
+    ao_i = pypto.view(ki.attention_out, [S_TILE, HEAD_DIM], [s1_off, 0],
+                      valid_shape=[actual_s1, HEAD_DIM])
+
+    sm_i_8 = pypto.view(ki.softmax_max, [S_TILE, 8], [s1_off, 0],
+                        valid_shape=[actual_s1, 8])
+    ss_i_8 = pypto.view(ki.softmax_sum, [S_TILE, 8], [s1_off, 0],
+                        valid_shape=[actual_s1, 8])
+    pypto.set_vec_tile_shapes(S_TILE, 8)
+    smax_i = pypto.view(sm_i_8, [S_TILE, 1], [0, 0],
+                        valid_shape=[actual_s1, 1])
+    ssum_i = pypto.view(ss_i_8, [S_TILE, 1], [0, 0],
+                        valid_shape=[actual_s1, 1])
+
+    pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
+    dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i), pypto.DT_FP32)
+    d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
+
+    return S1Inputs(q_i, dy_i, ao_i, smax_i, ssum_i, d_i, actual_s1)
 
 
 def _compute_dq_pass(ki: KernelInputs, pi: PassInputs):
