@@ -1,0 +1,977 @@
+# Copyright (c) PyPTO Contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+"""Type annotation resolution for IR parsing."""
+
+import ast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from pypto_block.language.typing.dynamic import DynVar
+from pypto_block.pypto_core import DataType, ir
+
+from .diagnostics import ParserTypeError
+from .expr_evaluator import ExprEvaluator
+
+if TYPE_CHECKING:
+    from .span_tracker import SpanTracker
+
+
+class TypeResolver:
+    """Resolves Python type annotations to IR types."""
+
+    _DTYPE_MAP: dict[str, DataType] = {
+        "FP4": DataType.FP4,
+        "FP8E4M3FN": DataType.FP8E4M3FN,
+        "FP8E5M2": DataType.FP8E5M2,
+        "FP16": DataType.FP16,
+        "FP32": DataType.FP32,
+        "BF16": DataType.BF16,
+        "HF4": DataType.HF4,
+        "HF8": DataType.HF8,
+        "INT4": DataType.INT4,
+        "INT8": DataType.INT8,
+        "INT16": DataType.INT16,
+        "INT32": DataType.INT32,
+        "INT64": DataType.INT64,
+        "UINT4": DataType.UINT4,
+        "UINT8": DataType.UINT8,
+        "UINT16": DataType.UINT16,
+        "UINT32": DataType.UINT32,
+        "UINT64": DataType.UINT64,
+        "BOOL": DataType.BOOL,
+        "INDEX": DataType.INDEX,
+    }
+
+    _DIRECTION_MAP: dict[str, "ir.ParamDirection"] = {
+        "InOut": ir.ParamDirection.InOut,
+        "Out": ir.ParamDirection.Out,
+    }
+
+    _LAYOUT_MAP: dict[str, "ir.TensorLayout"] = {
+        "ND": ir.TensorLayout.ND,
+        "DN": ir.TensorLayout.DN,
+        "NZ": ir.TensorLayout.NZ,
+    }
+
+    _MEMORY_SPACE_MAP: dict[str, "ir.MemorySpace"] = {
+        "DDR": ir.MemorySpace.DDR,
+        "Vec": ir.MemorySpace.Vec,
+        "Mat": ir.MemorySpace.Mat,
+        "Left": ir.MemorySpace.Left,
+        "Right": ir.MemorySpace.Right,
+        "Acc": ir.MemorySpace.Acc,
+    }
+
+    def __init__(
+        self,
+        expr_evaluator: ExprEvaluator,
+        scope_lookup: Callable[[str], Any | None] | None = None,
+        span_tracker: "SpanTracker | None" = None,
+    ):
+        """Initialize type resolver.
+
+        Args:
+            expr_evaluator: Evaluator for resolving expressions from closure variables
+            scope_lookup: Callback to look up variables in the parser scope
+                (for Scalar IR vars used in inline annotations)
+            span_tracker: Optional span tracker for accurate source locations
+        """
+        self.expr_evaluator = expr_evaluator
+        self.scope_lookup = scope_lookup
+        self.span_tracker = span_tracker
+
+    def resolve_param_type(self, type_node: ast.expr) -> "tuple[ir.Type, ir.ParamDirection]":
+        """Resolve AST type annotation to (ir.Type, ParamDirection) for function parameters.
+
+        Detects InOut[...] and Out[...] wrappers and extracts the direction.
+        Default direction is In.
+
+        Args:
+            type_node: AST expression representing the type annotation
+
+        Returns:
+            Tuple of (resolved IR type, parameter direction)
+
+        Raises:
+            ParserTypeError: If type annotation cannot be resolved or has invalid direction
+        """
+        direction = ir.ParamDirection.In
+
+        # Check for InOut[...] or Out[...] wrapper
+        if isinstance(type_node, ast.Subscript):
+            wrapper_name = self._get_direction_wrapper(type_node.value)
+            if wrapper_name is not None:
+                direction = self._DIRECTION_MAP[wrapper_name]
+                type_node = type_node.slice
+
+        resolved = self.resolve_type(type_node)
+        if isinstance(resolved, list):
+            raise ParserTypeError(
+                "Parameter type cannot be a tuple",
+                hint="Tuple types are only supported as return types",
+            )
+
+        # Validate: Scalar/Ptr + InOut is not allowed
+        if direction == ir.ParamDirection.InOut and isinstance(resolved, (ir.ScalarType, ir.PtrType)):
+            type_name = "Scalar" if isinstance(resolved, ir.ScalarType) else "Ptr"
+            raise ParserTypeError(
+                f"{type_name} parameters cannot have InOut direction",
+                hint="Only Tensor and Tile parameters support InOut direction",
+            )
+
+        return resolved, direction
+
+    def _get_direction_wrapper(self, node: ast.expr) -> str | None:
+        """Check if an AST node is an InOut or Out wrapper reference.
+
+        Args:
+            node: AST expression to check
+
+        Returns:
+            "InOut" or "Out" if it's a direction wrapper, None otherwise
+        """
+        if isinstance(node, ast.Attribute) and node.attr in ("InOut", "Out"):
+            return node.attr
+        if isinstance(node, ast.Name) and node.id in ("InOut", "Out"):
+            return node.id
+        return None
+
+    def _get_type_name(self, node: ast.expr) -> str | None:
+        """Extract the type name from an AST node referencing Tensor, Tile, or Scalar.
+
+        Handles both ``pl.Tensor`` (ast.Attribute) and bare ``Tensor`` (ast.Name).
+
+        Args:
+            node: AST expression to check
+
+        Returns:
+            Type name string if recognized, None otherwise
+        """
+        if isinstance(node, ast.Attribute) and node.attr in ("Tensor", "Tile", "Scalar", "Ptr"):
+            return node.attr
+        if isinstance(node, ast.Name) and node.id in ("Tensor", "Tile", "Scalar", "Ptr"):
+            return node.id
+        return None
+
+    def resolve_type(self, type_node: ast.expr) -> "ir.Type | list[ir.Type]":
+        """Resolve AST type annotation to ir.Type or list of types.
+
+        Args:
+            type_node: AST expression representing the type annotation
+
+        Returns:
+            Corresponding IR type, or list of IR types for tuple[T1, T2, ...] annotations
+
+        Raises:
+            ValueError: If type annotation cannot be resolved
+        """
+        # Handle subscript notation: pl.Tensor[...], pl.Tile[...], pl.Scalar[...], tuple[...]
+        if isinstance(type_node, ast.Subscript):
+            # Check for tuple[T1, T2, ...] return type annotation
+            value = type_node.value
+            if isinstance(value, ast.Name) and value.id == "tuple":
+                return self._resolve_tuple_type(type_node)
+            return self._resolve_subscript_type(type_node)
+
+        # Handle pl.Tensor((64, 128), pl.FP16) call notation (legacy)
+        if isinstance(type_node, ast.Call):
+            return self._resolve_call_type(type_node)
+
+        # Handle attribute access like pl.Tensor
+        if isinstance(type_node, ast.Attribute):
+            raise ParserTypeError(
+                f"Incomplete type annotation: {ast.unparse(type_node)}",
+                hint="Use pl.Tensor[[shape], dtype], pl.Tile[[shape], dtype], pl.Scalar[dtype], or pl.Ptr[dtype]",
+            )
+
+        raise ParserTypeError(
+            f"Unsupported type annotation: {ast.unparse(type_node)}",
+            hint="Use pl.Tensor[[shape], dtype], pl.Tile[[shape], dtype], pl.Scalar[dtype], or pl.Ptr[dtype]",
+        )
+
+    def _resolve_subscript_type(self, subscript_node: ast.Subscript) -> ir.Type:
+        """Resolve subscript type annotation.
+
+        Supports:
+        - pl.Tensor[[64, 128], pl.FP16]
+        - pl.Tensor[[64, 128], pl.FP16, pl.NZ]
+        - pl.Tensor[[64, 128], pl.FP16, pl.MemRef(...)]
+        - pl.Tensor[[64, 128], pl.FP16, pl.NZ, pl.MemRef(...)]
+        - pl.Tile[[64, 64], pl.FP32]
+        - pl.Tile[[64, 64], pl.FP32, pl.MemRef(...)]
+
+        Args:
+            subscript_node: AST Subscript node
+
+        Returns:
+            IR type
+
+        Raises:
+            ParserTypeError: If subscript cannot be resolved to a type
+        """
+        value = subscript_node.value
+        type_name = self._get_type_name(value)
+
+        if type_name is None:
+            raise ParserTypeError(
+                f"Unknown type in subscript: {ast.unparse(value)}",
+                hint="Use pl.Tensor for tensor types, pl.Tile for tile types, pl.Scalar for scalar types, or pl.Ptr for pointer types",
+            )
+
+        slice_value = subscript_node.slice
+
+        if type_name == "Scalar":
+            dtype = self.resolve_dtype(slice_value)
+            return ir.ScalarType(dtype)
+
+        if type_name == "Ptr":
+            dtype = self.resolve_dtype(slice_value)
+            return ir.PtrType(dtype)
+
+        # Tensor: [shape, dtype], [shape, dtype, layout_or_memref], [shape, dtype, layout, memref]
+        # Tile: [shape, dtype], [shape, dtype, memref]
+        valid_counts = (2, 3, 4) if type_name == "Tensor" else (2, 3)
+        if not isinstance(slice_value, ast.Tuple) or len(slice_value.elts) not in valid_counts:
+            if type_name == "Tensor":
+                message = (
+                    f"{type_name} subscript requires [shape, dtype], "
+                    f"[shape, dtype, layout_or_memref_or_view], "
+                    f"or [shape, dtype, layout, memref], got: {ast.unparse(slice_value)}"
+                )
+                hint = (
+                    "Use pl.Tensor[[shape], dtype], pl.Tensor[[shape], dtype, layout], "
+                    "pl.Tensor[[shape], dtype, pl.MemRef(...)], "
+                    "or pl.Tensor[[shape], dtype, pl.view(...)] format"
+                )
+            else:
+                message = (
+                    f"{type_name} subscript requires [shape, dtype] or [shape, dtype, memref], "
+                    f"got: {ast.unparse(slice_value)}"
+                )
+                hint = f"Use pl.{type_name}[[shape], dtype] or pl.{type_name}[[shape], dtype, pl.MemRef(...)]"
+            raise ParserTypeError(message, hint=hint)
+
+        shape_node = slice_value.elts[0]
+        dtype_node = slice_value.elts[1]
+
+        shape = self._to_ir_shape(self._parse_shape(shape_node))
+        dtype = self.resolve_dtype(dtype_node)
+
+        n_elts = len(slice_value.elts)
+
+        # 2 args: [shape, dtype]
+        if n_elts == 2:
+            if type_name == "Tile":
+                return ir.TileType(shape, dtype)
+            return ir.TensorType(shape, dtype)
+
+        # 3 args: [shape, dtype, layout_or_memref_or_view] for Tensor, [shape, dtype, memref] for Tile
+        if n_elts == 3:
+            third = slice_value.elts[2]
+            if type_name == "Tile":
+                if not self._is_memref_node(third):
+                    raise ParserTypeError(
+                        "Tile 3rd argument must be pl.MemRef(...)",
+                        hint="Use pl.Tile[[shape], dtype, pl.MemRef(...)]",
+                    )
+                memref = self.resolve_memref(third)
+                return ir.TileType(shape, dtype, memref)
+            # Tensor: check for pl.view(...) view spec first
+            if self._is_view_node(third):
+                tensor_view, memref = self.resolve_view_spec(third)
+                return ir.TensorType(shape, dtype, memref, tensor_view)
+            # Tensor: disambiguate 3rd arg (backward compat)
+            if self._is_memref_node(third):
+                memref = self.resolve_memref(third)
+                return ir.TensorType(shape, dtype, memref)
+            layout = self.resolve_layout(third)
+            tensor_view = ir.TensorView([], layout)
+            return ir.TensorType(shape, dtype, None, tensor_view)
+
+        # 4 args: [shape, dtype, layout, memref] — Tensor only
+        layout = self.resolve_layout(slice_value.elts[2])
+        tensor_view = ir.TensorView([], layout)
+        memref_node = slice_value.elts[3]
+        if not self._is_memref_node(memref_node):
+            raise ParserTypeError(
+                "Tensor 4th argument must be pl.MemRef(...)",
+                hint="Use pl.Tensor[[shape], dtype, layout, pl.MemRef(...)]",
+            )
+        memref = self.resolve_memref(memref_node)
+        return ir.TensorType(shape, dtype, memref, tensor_view)
+
+    def _resolve_tuple_type(self, subscript_node: ast.Subscript) -> list[ir.Type]:
+        """Resolve tuple[T1, T2, ...] return type annotation.
+
+        Args:
+            subscript_node: AST Subscript node with tuple base
+
+        Returns:
+            List of IR types
+        """
+        slice_value = subscript_node.slice
+        elts = slice_value.elts if isinstance(slice_value, ast.Tuple) else [slice_value]
+
+        types = []
+        for elt in elts:
+            resolved = self.resolve_type(elt)
+            if isinstance(resolved, list):
+                raise ParserTypeError(
+                    "Nested tuple types are not supported",
+                    hint="Use a flat tuple like tuple[pl.Tensor[...], pl.Tensor[...]]",
+                )
+            types.append(resolved)
+        return types
+
+    def _resolve_call_type(self, call_node: ast.Call) -> ir.Type:
+        """Resolve a function call type annotation.
+
+        Args:
+            call_node: AST Call node
+
+        Returns:
+            IR type
+
+        Raises:
+            ValueError: If call cannot be resolved to a type
+        """
+        func = call_node.func
+        type_name = self._get_type_name(func)
+
+        resolvers = {
+            "Tensor": self._resolve_tensor_type,
+            "Tile": self._resolve_tile_type,
+            "Scalar": self._resolve_scalar_type,
+        }
+        resolver = resolvers.get(type_name) if type_name is not None else None
+        if resolver is not None:
+            return resolver(call_node)
+
+        raise ParserTypeError(
+            f"Unknown type constructor: {ast.unparse(func)}",
+            hint="Use pl.Tensor[[shape], dtype], pl.Tile[[shape], dtype], or pl.Scalar[dtype]",
+        )
+
+    def _resolve_tensor_type(self, call_node: ast.Call) -> ir.TensorType:
+        """Resolve pl.Tensor((shape), dtype) annotation (legacy)."""
+        result = self._resolve_shaped_type(call_node, "Tensor", ir.TensorType)
+        assert isinstance(result, ir.TensorType)
+        return result
+
+    def _resolve_tile_type(self, call_node: ast.Call) -> ir.TileType:
+        """Resolve pl.Tile((shape), dtype) annotation (legacy)."""
+        result = self._resolve_shaped_type(call_node, "Tile", ir.TileType)
+        assert isinstance(result, ir.TileType)
+        return result
+
+    def _resolve_shaped_type(
+        self,
+        call_node: ast.Call,
+        type_name: str,
+        type_ctor: type[ir.TensorType] | type[ir.TileType],
+    ) -> ir.TensorType | ir.TileType:
+        """Resolve a shaped type (Tensor or Tile) from a legacy call annotation.
+
+        Args:
+            call_node: AST Call node for the type constructor
+            type_name: "Tensor" or "Tile" for error messages
+            type_ctor: IR type constructor (ir.TensorType or ir.TileType)
+
+        Returns:
+            Constructed IR type
+
+        Raises:
+            ParserTypeError: If type annotation is malformed
+        """
+        if len(call_node.args) < 2:
+            raise ParserTypeError(
+                f"{type_name} type requires shape and dtype arguments, got {len(call_node.args)}",
+                hint=f"Use pl.{type_name}[[shape], dtype] format",
+            )
+
+        shape = self._to_ir_shape(self._parse_shape(call_node.args[0]))
+        dtype = self.resolve_dtype(call_node.args[1])
+        return type_ctor(shape, dtype)
+
+    def _resolve_scalar_type(self, call_node: ast.Call) -> ir.ScalarType:
+        """Resolve pl.Scalar(dtype) annotation (legacy).
+
+        Args:
+            call_node: AST Call node for Scalar constructor
+
+        Returns:
+            ScalarType
+
+        Raises:
+            ParserTypeError: If scalar type annotation is malformed
+        """
+        if len(call_node.args) < 1:
+            raise ParserTypeError(
+                f"Scalar type requires dtype argument, got {len(call_node.args)}",
+                hint="Use pl.Scalar[dtype] format, e.g., pl.Scalar[pl.FP32]",
+            )
+
+        # Parse dtype (first argument)
+        dtype_node = call_node.args[0]
+        dtype = self.resolve_dtype(dtype_node)
+
+        # Create ScalarType
+        return ir.ScalarType(dtype)
+
+    def _parse_shape(self, shape_node: ast.expr) -> list[int | ir.Expr]:
+        """Parse shape from AST node.
+
+        Supports integer literals, variable names that resolve to int values
+        from the enclosing scope, pl.dynamic() variables, Scalar IR
+        variables from the parser scope, and arbitrary expressions that
+        evaluate to lists/tuples via ExprEvaluator.
+
+        Args:
+            shape_node: AST node representing shape (tuple or list)
+
+        Returns:
+            List of shape dimensions (int for static, ir.Expr for dynamic)
+
+        Raises:
+            ParserTypeError: If shape cannot be parsed
+        """
+        if isinstance(shape_node, (ast.Tuple, ast.List)):
+            return self._parse_dim_elements(shape_node.elts)
+
+        # Handle variable name or arbitrary expression that resolves to a list/tuple
+        if isinstance(shape_node, ast.Name):
+            # Try eval first — handles both simple names and expressions
+            success, value = self.expr_evaluator.try_eval_expr(shape_node)
+            if success:
+                return self._validate_shape_value(value, shape_node.id, self._get_span(shape_node))
+            raise ParserTypeError(
+                f"Unknown shape variable: {shape_node.id}",
+                span=self._get_span(shape_node),
+                hint="Use a list like [64, 128] or a variable holding a list",
+            )
+
+        # Try evaluating arbitrary expressions (e.g., get_shape(), dims[0:2])
+        success, value = self.expr_evaluator.try_eval_expr(shape_node)
+        if success:
+            return self._validate_shape_value(value, ast.unparse(shape_node), self._get_span(shape_node))
+
+        raise ParserTypeError(
+            f"Shape must be a list, tuple, or variable: {ast.unparse(shape_node)}",
+            hint="Use a list like [64, 128] or a variable holding a list",
+        )
+
+    def _validate_shape_value(self, value: Any, source_name: str, span: ir.Span) -> list[int | ir.Expr]:
+        """Validate a Python value as a shape (list/tuple of int/DynVar).
+
+        Args:
+            value: Python value to validate
+            source_name: Description of value source for error messages
+            span: Source span for error messages
+
+        Returns:
+            List of shape dimensions
+        """
+        if not isinstance(value, (list, tuple)):
+            raise ParserTypeError(
+                f"Shape '{source_name}' must be a list or tuple, got {type(value).__name__}",
+                span=span,
+                hint="Use a list like [64, 128] or a variable holding a list",
+            )
+
+        dims: list[int | ir.Expr] = []
+        for i, elem in enumerate(value):
+            if isinstance(elem, int):
+                dims.append(elem)
+            elif isinstance(elem, DynVar):
+                dims.append(ir.Var(elem.name, ir.ScalarType(DataType.INDEX), span))
+            else:
+                raise ParserTypeError(
+                    f"Shape '{source_name}' element {i} must be int or pl.dynamic(), "
+                    f"got {type(elem).__name__}",
+                    span=span,
+                )
+        return dims
+
+    def _validate_dim_value(self, value: Any, source_name: str, span: ir.Span) -> int | ir.Expr:
+        """Validate a Python value as a single shape dimension.
+
+        Args:
+            value: Python value to validate
+            source_name: Description of value source for error messages
+            span: Source span for error messages
+
+        Returns:
+            int for static dimension, ir.Expr for dynamic
+        """
+        if isinstance(value, int):
+            return value
+        if isinstance(value, DynVar):
+            return ir.Var(value.name, ir.ScalarType(DataType.INDEX), span)
+        raise ParserTypeError(
+            f"Shape variable '{source_name}' must be int or pl.dynamic(), got {type(value).__name__}",
+            span=span,
+        )
+
+    def _parse_dim_elements(self, elts: list[ast.expr]) -> list[int | ir.Expr]:
+        """Parse a list of dimension elements (int literal, variable, or evaluable expression).
+
+        Used by both shape and stride parsing since both follow identical element syntax.
+
+        Args:
+            elts: List of AST expression nodes for each dimension
+
+        Returns:
+            List of dimensions
+        """
+        dims: list[int | ir.Expr] = []
+        for elt in elts:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, int):
+                dims.append(elt.value)
+            elif isinstance(elt, ast.Name):
+                dims.append(self._resolve_shape_dim(elt))
+            else:
+                # Try evaluating arbitrary expressions (e.g., x * 2, len(shape))
+                success, value = self.expr_evaluator.try_eval_expr(elt)
+                if success:
+                    dims.append(self._validate_dim_value(value, ast.unparse(elt), self._get_span(elt)))
+                else:
+                    raise ParserTypeError(
+                        f"Dimension must be int literal, variable, or evaluable expression: "
+                        f"{ast.unparse(elt)}",
+                        hint="Use integer literals, variables, or expressions for dimensions",
+                    )
+        return dims
+
+    def _get_span(self, node: ast.AST) -> ir.Span:
+        """Get span for an AST node, falling back to unknown."""
+        if self.span_tracker is not None:
+            return self.span_tracker.get_span(node)
+        return ir.Span.unknown()
+
+    def _resolve_shape_dim(self, name_node: ast.Name) -> int | ir.Expr:
+        """Resolve a variable name used as a shape dimension.
+
+        Resolution order:
+        1. ExprEvaluator (compile-time int or pl.dynamic DynVar from closure)
+        2. Parser scope variables (Scalar IR vars from function body)
+
+        Args:
+            name_node: AST Name node for the variable
+
+        Returns:
+            int for compile-time constants, ir.Expr for dynamic dimensions
+        """
+        name = name_node.id
+        span = self._get_span(name_node)
+
+        # Fast path: direct dict lookup avoids compile+eval overhead for simple names
+        if name in self.expr_evaluator.closure_vars:
+            return self._validate_dim_value(self.expr_evaluator.closure_vars[name], name, span)
+
+        # 2. Check parser scope (Scalar IR vars in function body)
+        if self.scope_lookup:
+            var = self.scope_lookup(name)
+            if var is not None:
+                return var
+
+        raise ParserTypeError(
+            f"Unknown shape variable: {name}",
+            span=span,
+            hint="Use an integer, pl.dynamic() variable, or a Scalar variable defined earlier",
+        )
+
+    def _to_ir_shape(self, shape: list[int | ir.Expr]) -> list[int] | list[ir.Expr]:
+        """Convert shape to format accepted by IR constructors.
+
+        TensorType/TileType accept either list[int] or list[Expr], not mixed.
+        When the shape contains any Expr elements, all int elements are
+        converted to ConstInt.
+
+        Args:
+            shape: Mixed list of int and ir.Expr dimensions
+
+        Returns:
+            Pure int list or pure Expr list
+        """
+        if all(isinstance(d, int) for d in shape):
+            return shape  # type: ignore[return-value]
+
+        # Convert all to Expr
+        return [ir.ConstInt(d, DataType.INDEX, ir.Span.unknown()) if isinstance(d, int) else d for d in shape]
+
+    def resolve_dtype(self, dtype_node: ast.expr) -> DataType:
+        """Resolve dtype annotation.
+
+        Args:
+            dtype_node: AST node representing dtype
+
+        Returns:
+            DataType enum value
+
+        Raises:
+            ValueError: If dtype cannot be resolved
+        """
+        span = self._get_span(dtype_node)
+
+        # Handle pl.FP16, pl.FP32, etc.
+        if isinstance(dtype_node, ast.Attribute):
+            dtype_name = dtype_node.attr
+            if dtype_name in self._DTYPE_MAP:
+                return self._DTYPE_MAP[dtype_name]
+
+            # Distinguish DataType.UNKNOWN from pl.UNKNOWN for error message quality
+            if isinstance(dtype_node.value, ast.Name) and dtype_node.value.id == "DataType":
+                raise ParserTypeError(
+                    f"Unknown DataType: {dtype_name}",
+                    span=span,
+                    hint="Use a valid dtype like pl.FP32, pl.INT32, etc. Available: "
+                    f"{', '.join(self._DTYPE_MAP.keys())}",
+                )
+
+            raise ParserTypeError(
+                f"Unknown dtype: {dtype_name}",
+                span=span,
+                hint="Use a valid dtype like pl.FP32, pl.INT32, etc. Available: "
+                f"{', '.join(self._DTYPE_MAP.keys())}",
+            )
+
+        # Handle simple name like FP16 (if imported directly) or variable from closure
+        if isinstance(dtype_node, ast.Name):
+            dtype_name = dtype_node.id
+            if dtype_name in self._DTYPE_MAP:
+                return self._DTYPE_MAP[dtype_name]
+
+            # Try evaluating via ExprEvaluator for DataType values from closure
+            success, value = self.expr_evaluator.try_eval_expr(dtype_node)
+            if success:
+                if isinstance(value, DataType):
+                    return value
+                raise ParserTypeError(
+                    f"Dtype variable '{dtype_name}' must be a DataType, got {type(value).__name__}",
+                    span=span,
+                    hint="Use a valid dtype like pl.FP32, pl.INT32, etc.",
+                )
+
+            raise ParserTypeError(
+                f"Unknown dtype: {dtype_name}",
+                span=span,
+                hint="Use a valid dtype like pl.FP32, pl.INT32, etc. Available: "
+                f"{', '.join(self._DTYPE_MAP.keys())}",
+            )
+
+        raise ParserTypeError(
+            f"Cannot resolve dtype: {ast.unparse(dtype_node)}",
+            span=span,
+            hint="Use pl.FP32, pl.INT32, or other supported dtype constants",
+        )
+
+    def resolve_layout(self, layout_node: ast.expr) -> "ir.TensorLayout":
+        """Resolve layout annotation to ir.TensorLayout.
+
+        Args:
+            layout_node: AST node representing layout (e.g., pl.NZ, NZ, or a variable)
+
+        Returns:
+            TensorLayout enum value
+
+        Raises:
+            ParserTypeError: If layout cannot be resolved
+        """
+        span = self._get_span(layout_node)
+
+        if isinstance(layout_node, ast.Attribute):
+            layout_name = layout_node.attr
+            if layout_name in self._LAYOUT_MAP:
+                return self._LAYOUT_MAP[layout_name]
+            raise ParserTypeError(
+                f"Unknown layout: {layout_name}",
+                span=span,
+                hint=f"Use a valid layout: {', '.join(self._LAYOUT_MAP.keys())}",
+            )
+
+        if isinstance(layout_node, ast.Name):
+            layout_name = layout_node.id
+            if layout_name in self._LAYOUT_MAP:
+                return self._LAYOUT_MAP[layout_name]
+
+            success, value = self.expr_evaluator.try_eval_expr(layout_node)
+            if success:
+                if isinstance(value, ir.TensorLayout):
+                    return value
+                raise ParserTypeError(
+                    f"Layout variable '{layout_name}' must be a TensorLayout, got {type(value).__name__}",
+                    span=span,
+                    hint=f"Use a valid layout: {', '.join(self._LAYOUT_MAP.keys())}",
+                )
+
+            raise ParserTypeError(
+                f"Unknown layout: {layout_name}",
+                span=span,
+                hint=f"Use a valid layout: {', '.join(self._LAYOUT_MAP.keys())}",
+            )
+
+        raise ParserTypeError(
+            f"Cannot resolve layout: {ast.unparse(layout_node)}",
+            span=span,
+            hint="Use pl.ND, pl.DN, or pl.NZ",
+        )
+
+    def resolve_type_if_memref(self, annotation: ast.expr | None) -> "ir.Type | None":
+        """Resolve annotation type only when it contains MemRef information.
+
+        Returns the resolved type if the annotation includes a pl.MemRef(...)
+        argument, or None to fall back to the default inferred type.
+
+        Args:
+            annotation: Type annotation AST node, or None if not annotated
+
+        Returns:
+            Resolved IR type with memref, or None if no memref in annotation
+        """
+        if not isinstance(annotation, ast.Subscript):
+            return None
+        slice_value = annotation.slice
+        if not isinstance(slice_value, ast.Tuple):
+            return None
+        if not any(self._is_memref_node(elt) for elt in slice_value.elts):
+            return None
+        resolved = self.resolve_type(annotation)
+        if isinstance(resolved, list):
+            return None
+        return resolved
+
+    def _is_memref_node(self, node: ast.expr) -> bool:
+        """Check if an AST node is a pl.MemRef(...) call."""
+        if not isinstance(node, ast.Call):
+            return False
+        func = node.func
+        return (isinstance(func, ast.Attribute) and func.attr == "MemRef") or (
+            isinstance(func, ast.Name) and func.id == "MemRef"
+        )
+
+    def _is_view_node(self, node: ast.expr) -> bool:
+        """Check if an AST node is a pl.view(...) or view(...) call."""
+        if not isinstance(node, ast.Call):
+            return False
+        func = node.func
+        return (isinstance(func, ast.Attribute) and func.attr == "view") or (
+            isinstance(func, ast.Name) and func.id == "view"
+        )
+
+    def resolve_view_spec(self, node: ast.expr) -> "tuple[ir.TensorView, ir.MemRef | None]":
+        """Resolve a pl.view(layout=..., stride=[...], memref=...) call to (TensorView, memref).
+
+        Args:
+            node: AST Call node for pl.view(...)
+
+        Returns:
+            Tuple of (TensorView, memref or None)
+
+        Raises:
+            ParserTypeError: If the view call is malformed
+        """
+        if not isinstance(node, ast.Call):
+            raise ParserTypeError(
+                f"Expected pl.view(...) call, got: {ast.unparse(node)}",
+                hint="Use pl.view(layout=pl.NZ, stride=[s0, s1])",
+            )
+
+        span = self._get_span(node)
+
+        if node.args:
+            raise ParserTypeError(
+                "pl.view() does not accept positional arguments",
+                span=span,
+                hint="Use keyword arguments: pl.view(layout=pl.NZ, stride=[s0, s1], memref=pl.MemRef(...))",
+            )
+
+        layout: ir.TensorLayout | None = None
+        stride_exprs: list[ir.Expr] = []
+        memref: ir.MemRef | None = None
+
+        for keyword in node.keywords:
+            if keyword.arg == "layout":
+                layout = self.resolve_layout(keyword.value)
+            elif keyword.arg == "stride":
+                stride_exprs = self._parse_stride(keyword.value, span)
+            elif keyword.arg == "memref":
+                if not self._is_memref_node(keyword.value):
+                    raise ParserTypeError(
+                        "pl.view() memref argument must be pl.MemRef(...)",
+                        span=span,
+                        hint="Use pl.view(memref=pl.MemRef(...))",
+                    )
+                memref = self.resolve_memref(keyword.value)
+            else:
+                raise ParserTypeError(
+                    f"pl.view() got unexpected keyword argument '{keyword.arg}'",
+                    span=span,
+                    hint="Valid arguments are: layout, stride, memref",
+                )
+
+        # Default to ND layout when none is specified
+        if layout is None:
+            layout = ir.TensorLayout.ND
+
+        return ir.TensorView(stride_exprs, layout), memref
+
+    def _parse_stride(self, node: ast.expr, span: "ir.Span") -> "list[ir.Expr]":
+        """Parse stride from an AST list node.
+
+        Each element is parsed like a shape dimension (int literal, variable, or
+        evaluable expression), then converted to ir.Expr (ConstInt for integers).
+
+        Args:
+            node: AST List node containing stride elements
+            span: Source span for error messages
+
+        Returns:
+            List of ir.Expr stride values
+
+        Raises:
+            ParserTypeError: If stride cannot be parsed
+        """
+        if not isinstance(node, ast.List):
+            raise ParserTypeError(
+                f"pl.view() stride must be a list, got: {ast.unparse(node)}",
+                span=span,
+                hint="Use stride=[s0, s1] with integer literals or variables",
+            )
+
+        elems = self._parse_dim_elements(node.elts)
+        # Convert all int dims to ConstInt so stride is always list[ir.Expr]
+        result: list[ir.Expr] = []
+        for dim in elems:
+            if isinstance(dim, int):
+                result.append(ir.ConstInt(dim, DataType.INDEX, ir.Span.unknown()))
+            else:
+                result.append(dim)
+        return result
+
+    def resolve_memref(self, node: ast.expr) -> "ir.MemRef":
+        """Resolve a pl.MemRef(memory_space, addr, size, id) AST call to ir.MemRef.
+
+        Args:
+            node: AST Call node for pl.MemRef(...)
+
+        Returns:
+            ir.MemRef instance
+
+        Raises:
+            ParserTypeError: If the MemRef call is malformed
+        """
+        if not isinstance(node, ast.Call):
+            raise ParserTypeError(
+                f"Expected pl.MemRef(...) call, got: {ast.unparse(node)}",
+                hint="Use pl.MemRef(pl.MemorySpace.DDR, addr, size, id)",
+            )
+
+        span = self._get_span(node)
+
+        if len(node.args) != 4:
+            raise ParserTypeError(
+                f"pl.MemRef requires 4 arguments (memory_space, addr, size, id), got {len(node.args)}",
+                span=span,
+                hint="Use pl.MemRef(pl.MemorySpace.DDR, 0, 1024, 0)",
+            )
+
+        memory_space = self._resolve_memory_space(node.args[0])
+        addr_expr = self._resolve_memref_addr(node.args[1])
+        size = self._resolve_int_literal(node.args[2], "size", non_negative=True)
+        memref_id = self._resolve_int_literal(node.args[3], "id", non_negative=True)
+
+        return ir.MemRef(memory_space, addr_expr, size, memref_id, span)
+
+    def _resolve_memory_space(self, node: ast.expr) -> "ir.MemorySpace":
+        """Resolve a memory space AST node (e.g., pl.MemorySpace.DDR)."""
+        span = self._get_span(node)
+
+        if isinstance(node, ast.Attribute):
+            name = node.attr
+            if name in self._MEMORY_SPACE_MAP:
+                return self._MEMORY_SPACE_MAP[name]
+            raise ParserTypeError(
+                f"Unknown memory space: {name}",
+                span=span,
+                hint=f"Use one of: {', '.join(self._MEMORY_SPACE_MAP.keys())}",
+            )
+
+        if isinstance(node, ast.Name):
+            name = node.id
+            if name in self._MEMORY_SPACE_MAP:
+                return self._MEMORY_SPACE_MAP[name]
+
+        raise ParserTypeError(
+            f"Cannot resolve memory space: {ast.unparse(node)}",
+            span=span,
+            hint="Use pl.MemorySpace.DDR, pl.MemorySpace.Vec, etc.",
+        )
+
+    def _resolve_memref_addr(self, node: ast.expr) -> "ir.Expr":
+        """Resolve a MemRef address to an IR expression."""
+        value = self._try_resolve_int(node)
+        if value is not None:
+            return ir.ConstInt(value, DataType.INT64, self._get_span(node))
+
+        raise ParserTypeError(
+            f"MemRef address must be an integer, got: {ast.unparse(node)}",
+            span=self._get_span(node),
+            hint="Use an integer value for the address, e.g., 0 or 1024",
+        )
+
+    def _resolve_int_literal(self, node: ast.expr, name: str, *, non_negative: bool = False) -> int:
+        """Resolve an AST node to an integer literal."""
+        value = self._try_resolve_int(node)
+        if value is not None:
+            if non_negative and value < 0:
+                raise ParserTypeError(
+                    f"MemRef {name} must be >= 0, got: {value}",
+                    span=self._get_span(node),
+                    hint=f"Use a non-negative integer value for {name}",
+                )
+            return value
+
+        raise ParserTypeError(
+            f"MemRef {name} must be an integer, got: {ast.unparse(node)}",
+            span=self._get_span(node),
+            hint=f"Use an integer value for {name}",
+        )
+
+    def _try_resolve_int(self, node: ast.expr) -> int | None:
+        """Try to resolve an AST node to a Python int.
+
+        Handles integer literals, unary negation of integer literals,
+        and expressions evaluable via ExprEvaluator.
+
+        Args:
+            node: AST expression node
+
+        Returns:
+            Integer value, or None if the node cannot be resolved to an int
+        """
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            return node.value
+
+        if (
+            isinstance(node, ast.UnaryOp)
+            and isinstance(node.op, ast.USub)
+            and isinstance(node.operand, ast.Constant)
+            and isinstance(node.operand.value, int)
+        ):
+            return -node.operand.value
+
+        success, value = self.expr_evaluator.try_eval_expr(node)
+        if success and isinstance(value, int):
+            return value
+
+        return None
+
+
+__all__ = ["TypeResolver"]
