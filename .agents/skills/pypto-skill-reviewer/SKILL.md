@@ -1,8 +1,7 @@
 ---
 name: pypto-skill-reviewer
-description: |
-  对一个 skill 目录进行质量与最佳实践合规性评审并评分，同时检查 references 文件与 docs 目录的一致性。
-  用于需要审计某个 skill、检查 skill 是否遵循规范、或在发布前评估 skill 的场景。
+description:
+  对一个 skill 目录进行质量与最佳实践合规性评审并评分，同时检查 references 文件与 docs 目录的一致性。用于需要审计某个 skill、检查 skill 是否遵循规范、或在发布前评估 skill 的场景。
   触发词：评审 skill、skill 质量、skill 审计、检查 references、references 一致性、skill 发布前检查。
 ---
 
