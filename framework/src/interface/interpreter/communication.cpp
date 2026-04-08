@@ -67,11 +67,11 @@ int GetWorldSize(const std::string &groupName) {
 // ============================== SimulationCommContext
 SimulationCommContext::RemoteRank::~RemoteRank() {
     if (dataBase) {
-        munmap(dataBase, WIN_IN_SIZE);
+        // munmap(dataBase, WIN_IN_SIZE);
         dataBase = nullptr;
     }
     if (ctrlBase) {
-        munmap(ctrlBase, WIN_IN_SIZE);
+        // munmap(ctrlBase, WIN_IN_SIZE);
         ctrlBase = nullptr;
     }
 }
@@ -155,6 +155,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     if (dstRank == rank_) {
         uint8_t *result = isSignal ? ctrlBase_ : dataBase_;
         CheckNotNullPtr(result, "base is nullptr!");
+        return result;
     }
 
     if (dstRank < 0 || dstRank >= worldSize_) {
@@ -168,6 +169,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     if (it != remoteRanks_.end()) {
         uint8_t *result = isSignal ? it->second->ctrlBase : it->second->dataBase;
         CheckNotNullPtr(result, "found in remoteRanks, but base is nullptr!");
+        return result;
     }
     auto remote = std::make_unique<RemoteRank>();
     if (!isSignal) {
