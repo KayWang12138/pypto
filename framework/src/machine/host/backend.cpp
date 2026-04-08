@@ -947,6 +947,9 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
     std::string controlFlowSource = controlFlowOss.str();
     std::string expressionSource = expressionOss.str();
     SimplifySlots(attr.get(), slotIdxMapping);
+    for (auto slot : slotIdxMapping) {
+        MACHINE_LOGD("slotIdx: %d, runtime slotIdx: %d", slot.begin(), slot.end());
+    }
     BuildSlotRootIncastOutcastDict(attr.get());
     BuildRootFuncKeyDict(attr.get());
 
