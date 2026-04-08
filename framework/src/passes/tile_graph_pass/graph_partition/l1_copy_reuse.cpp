@@ -630,14 +630,14 @@ void L1CopyInReuseRunner::CubeMergeProcess(
     }
 }
 
-Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vector<int>>& colorNode)
+Status L1CopyInReuseRunner::InitializeAndLoadConfig(
+    Function& func, int color, std::vector<std::vector<int>>& colorNode,
+    OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
+    std::vector<int>& colorCopyIn)
 {
-    auto opOriList = func.Operations();
     BuildInOutGraph(opOriList, color);
-    std::vector<uint64_t> hashColor(color, 0);
     hashOrder_.clear();
-    GetColorHash(opOriList, hashColor); // 计算子图哈希，识别同构子图
-    // print hashorder
+    GetColorHash(opOriList, hashColor);
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
     for (auto& entry : hashMap_) {
         APASS_LOG_INFO_F(
@@ -645,15 +645,23 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
             entry.first, IntVecToStr(entry.second).c_str());
     }
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
-    auto colorCopyIn = GetCopyIn(opOriList, color, colorNode); // 记录各子图的大小
+    colorCopyIn = GetCopyIn(opOriList, color, colorNode);
     mgCopyInUpperBound_ = func.paramConfigs_.sgMgCopyInUpperBound;
     numLRMap_ = func.paramConfigs_.cubeL1ReuseSetting;
-    numDBMap_ = func.paramConfigs_.cubeNBufferSetting; // 合并阈值参数设置
+    numDBMap_ = func.paramConfigs_.cubeNBufferSetting;
     L1ReuseMode_ = GetModeBySetting(numLRMap_);
     cubeNBufferMode_ = GetModeBySetting(numDBMap_);
     APASS_LOG_INFO_F(Elements::Operation, "Param Setting mgCopyInUpperBound %d.", mgCopyInUpperBound_);
+    return SUCCESS;
+}
+
+Status L1CopyInReuseRunner::ProcessAndValidate(
+    Function& func, int color, std::vector<std::vector<int>>& colorNode,
+    OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
+    const std::vector<int>& colorCopyIn)
+{
     if (L1ReuseMode_ == 1 && hashMap_.size() != 0) {
-        if (Phase1(func, color, colorNode, colorCopyIn, hashColor) == FAILED) {
+        if (Phase1(func, color, colorNode, const_cast<std::vector<int>&>(colorCopyIn), hashColor) == FAILED) {
             APASS_LOG_ERROR_F(Elements::Function, "Phase1 failed; Please check the Phase1 method.");
             return FAILED;
         }
@@ -664,14 +672,13 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
         HashUpdate(hashMap_, hashOrder_, color, hashColor);
     }
     std::vector<int> hashMergeNum(hashMap_.size(), 1);
-    // NBuffer参数设置
     if (SetNumDB(hashMergeNum) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeNBufferSetting");
         return FAILED;
     }
     BuildInOutGraph(opOriList, color);
- 	DFSSortUtils::DFSSortColor(color, colorInGraph, colorOutGraph, dfsColorOrder);
-    CubeMergeProcess(colorNode, opOriList, hashMergeNum, colorCopyIn);
+    DFSSortUtils::DFSSortColor(color, colorInGraph, colorOutGraph, dfsColorOrder);
+    CubeMergeProcess(colorNode, opOriList, hashMergeNum, const_cast<std::vector<int>&>(colorCopyIn));
     MergeProcessIdUpdate(func, colorNode, color);
     for (auto& op : func.Operations()) {
         if (static_cast<size_t>(op.GetSubgraphID()) > func.GetTotalSubGraphCount()) {
@@ -681,10 +688,24 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
             return FAILED;
         }
     }
-    RemoveUselessViews(func); // 删除节点
+    RemoveUselessViews(func);
     func.EraseOperations(true);
     APASS_LOG_DEBUG_F(Elements::Operation, "After L1CopyInReuse.");
     RescheduleUtils::PrintColorNode(func);
+    return SUCCESS;
+}
+
+Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vector<int>>& colorNode)
+{
+    auto opOriList = func.Operations();
+    std::vector<uint64_t> hashColor(color, 0);
+    std::vector<int> colorCopyIn;
+    if (InitializeAndLoadConfig(func, color, colorNode, opOriList, hashColor, colorCopyIn) == FAILED) {
+        return FAILED;
+    }
+    if (ProcessAndValidate(func, color, colorNode, opOriList, hashColor, colorCopyIn) == FAILED) {
+        return FAILED;
+    }
     return SUCCESS;
 }
 

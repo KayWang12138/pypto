@@ -75,6 +75,14 @@ private:
     Status SetNumLR(std::vector<int>& numLRList);
     Status SetNumDB(std::vector<int>& numDBList);
     void BuildInOutGraph(const OperationsViewer &opOriList, int color);
+    Status InitializeAndLoadConfig(
+        Function& func, int color, std::vector<std::vector<int>>& colorNode,
+        OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
+        std::vector<int>& colorCopyIn);
+    Status ProcessAndValidate(
+        Function& func, int color, std::vector<std::vector<int>>& colorNode,
+        OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
+        const std::vector<int>& colorCopyIn);
     std::map<int, std::vector<int>> GetTopoLevels(int color);
     const std::vector<std::vector<int>>& inGraph_;
     std::unordered_map<int, int> replacedCopyMap_;
