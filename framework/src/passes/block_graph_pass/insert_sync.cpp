@@ -1124,6 +1124,9 @@ bool PipeSync::GenSyncOp(PipeCoreReal set, PipeCoreReal wait, int eventId, bool 
     //同步相关的信息放在operation属性里
     op.syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId};
     if (set.core == CoreType::AIV) {
+#ifdef __lite_npu
+        return false;
+#endif
         if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
             return false;
         }
