@@ -66,12 +66,12 @@ int GetWorldSize(const std::string &groupName) {
 
 // ============================== SimulationCommContext
 SimulationCommContext::RemoteRank::~RemoteRank() {
-    if (dataBase) {
-        // munmap(dataBase, WIN_IN_SIZE);
+    if (dataBase && dataBase != MAP_FAILED) {
+        munmap(dataBase, WIN_IN_SIZE);
         dataBase = nullptr;
     }
-    if (ctrlBase) {
-        // munmap(ctrlBase, WIN_IN_SIZE);
+    if (ctrlBase && ctrlBase != MAP_FAILED) {
+        munmap(ctrlBase, WIN_EXP_SIZE);
         ctrlBase = nullptr;
     }
 }
@@ -172,31 +172,29 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
         return result;
     }
     auto remote = std::make_unique<RemoteRank>();
-    if (!isSignal) {
-        std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false);
-        int fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
-        if (fd == -1) {
-            throw std::runtime_error("GetRemoteRank shm_open error!");
-        }
-        remote->dataBase = (uint8_t *) mmap(nullptr, WIN_IN_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (remote->dataBase == MAP_FAILED || remote->dataBase == nullptr) {
-            close(fd);
-            throw std::runtime_error("GetRemoteRank mmap error!");
-        }
-        close(fd);
-    } else {
-        std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true);
-        int fd = shm_open(ctrlHandler.c_str(), O_RDWR, 0666);
-        if (fd == -1) {
-            throw std::runtime_error("GetRemoteRank shm_open error!");
-        }
-        remote->ctrlBase = (uint8_t *) mmap(nullptr, WIN_EXP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (remote->ctrlBase == MAP_FAILED || remote->ctrlBase == nullptr) {
-            close(fd);
-            throw std::runtime_error("GetRemoteRank mmap error!");
-        }
-        close(fd);
+    std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false);
+    int fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
+    if (fd == -1) {
+        throw std::runtime_error("GetRemoteRank shm_open error!");
     }
+    remote->dataBase = (uint8_t *) mmap(nullptr, WIN_IN_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (remote->dataBase == MAP_FAILED || remote->dataBase == nullptr) {
+        close(fd);
+        throw std::runtime_error("GetRemoteRank mmap error!");
+    }
+    close(fd);
+
+    std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true);
+    fd = shm_open(ctrlHandler.c_str(), O_RDWR, 0666);
+    if (fd == -1) {
+        throw std::runtime_error("GetRemoteRank shm_open error!");
+    }
+    remote->ctrlBase = (uint8_t *) mmap(nullptr, WIN_EXP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (remote->ctrlBase == MAP_FAILED || remote->ctrlBase == nullptr) {
+        close(fd);
+        throw std::runtime_error("GetRemoteRank mmap error!");
+    }
+    close(fd);
 
     uint8_t *result = isSignal ? remote->ctrlBase : remote->dataBase;
     CheckNotNullPtr(result, "Created, but base is nullptr!");
@@ -235,18 +233,21 @@ void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_
 }
 
 void SimulationCommContext::SignalSingle(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType) {
+    // TODO: 在 atomicAdd 场景下应该与 value 类型相同而非 uint8_t? 在 Signal 场景是不是固定为 int32?
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");
     }
     std::atomic_thread_fence(std::memory_order_release);
+    int32_t *ctrlBase = static_cast<int32_t *>(base);
+    slotSize = slotSize / (sizeof(int32_t) / sizeof(uint8_t));
+    offset = offset / (sizeof(int32_t) / sizeof(uint8_t));
     if (atomicType == 0) {
-        memset(base + offset, value, slotSize);
+        memset(ctrlBase + offset, value, slotSize);
     }
-    // TODO: 在 atomicAdd 场景下应该与 value 类型相同而非 uint8_t? 在 Signal 场景是不是固定为 int32?
     if (atomicType == 1) {
         for (size_t i = 0; i < slotSize; i++) {
-            __sync_fetch_and_add(&base[offset + i], value);
+            __sync_fetch_and_add(&ctrlBase[offset + i], value);
         }
     }
 }
@@ -332,6 +333,15 @@ void SimulationCommManager::CreateSimulationCommContext(const std::string &group
     context->PreAlloc(true);
     context->PreAlloc(false);
     contexts_[groupName] = context;
+}
+
+void SimulationCommManager::DestroySimulationCommContext(const std::string &groupName) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = contexts_.find(groupName);
+    if (it == contexts_.end()) {
+        return;
+    }
+    contexts_.erase(it);
 }
 
 std::shared_ptr<SimulationCommContext> SimulationCommManager::GetCommContext(const std::string &groupName) {

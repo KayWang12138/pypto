@@ -56,7 +56,7 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
         out = SimulationCommManager::Instance().Alloc(groupName, slotSize);
     }
     if (memType == 0) {
-        std::cout << "AllocSignal" << slotSize << "B for " << groupName << std::endl;
+        std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
         // TODO: 需要转换为 int32 数据类型
         out = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
     }
@@ -136,7 +136,7 @@ void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
     int value = attr.signalValue;
     bool notifyAll = attr.notifyAll;
     size_t slotSize = in->GetSize() * BytesOf(in->GetDataType());
-    std::cout << "Signal " << value << " to " << dstRank << " from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << std::endl;
+    std::cout << "Signal " << value << " to rank " << dstRank << " from offset " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << "; atomicType: " << atomicType << ", notifyAll: " << notifyAll << std::endl;
     context->Signal(dstRank, value, slotSize, in->GetStorageOffset(), atomicType, notifyAll);
 
     std::cout << "=== ExecuteOpShmemSignal exited ..." << std::endl;
@@ -159,7 +159,7 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     bool reset = attr.resetSignal;
     size_t slotSize =  in->GetSize() * BytesOf(in->GetDataType());
 
-    std::cout << "Rank " << srcRank << " is waiting for " << expect << " from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << std::endl;
+    std::cout << "Rank " << srcRank << " is waiting for " << expect << " from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << " reset: " << reset << std::endl;
     context->Wait(srcRank, expect, slotSize, in->GetStorageOffset(), reset);
 
     std::cout << "=== ExecuteOpShmemWaitUntil exited ..." << std::endl;
@@ -186,5 +186,6 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;
 }
 REGISTER_CALC_OP(OP_SHMEM_GET, Opcode::OP_SHMEM_GET, ExecuteOpShmemGet);
+REGISTER_CALC_OP(OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_GET_GM2UB, ExecuteOpShmemGet);
 
 }

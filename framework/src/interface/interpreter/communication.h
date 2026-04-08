@@ -139,6 +139,7 @@ public:
         return instance;
     }
     void CreateSimulationCommContext(const std::string &groupName);
+    void DestroySimulationCommContext(const std::string &groupName);
     LogicalTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
     LogicalTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
     std::shared_ptr<SimulationCommContext> GetCommContext(const std::string &groupName);
