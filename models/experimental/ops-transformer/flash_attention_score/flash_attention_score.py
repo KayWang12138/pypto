@@ -363,13 +363,15 @@ def test_kernel_with_mask(
     device_id=None,
     run_mode: str = "npu",
     dtype: str = "bf16",
-    scale_value: Optional[float] = None
+    scale_value: Optional[float] = None,
+    skip_golden: bool = False
 ):
     """Test flash_attention_score_kernel_with_mask.
     
     Args:
         dtype: Data type to test (bf16, fp16, fp32)
         scale_value: Custom scale value (default: 1/sqrt(HEAD_DIM))
+        skip_golden: Skip golden comparison (faster for large shapes)
     """
     logging.info("=" * 70)
     logging.info(f"Test: flash_attention_score_kernel_with_mask ({dtype.upper()})")
@@ -422,6 +424,11 @@ def test_kernel_with_mask(
     
     logging.info("  No NaN values detected in outputs")
 
+    if skip_golden:
+        logging.info("  Golden comparison skipped")
+        logging.info(f"  Kernel with_mask test passed for {dtype.upper()}!")
+        return
+
     if run_mode == "npu":
         golden, golden_max, golden_sum = flash_attention_score_golden(query, key, value, atten_mask, test_scale)
 
@@ -450,13 +457,15 @@ def test_kernel_with_pse_and_dropout(
     device_id=None,
     run_mode: str = "npu",
     dtype: str = "bf16",
-    scale_value: Optional[float] = None
+    scale_value: Optional[float] = None,
+    skip_golden: bool = False
 ):
     """Test flash_attention_score_kernel_with_pse_and_dropout.
     
     Args:
         dtype: Data type to test (bf16, fp16, fp32)
         scale_value: Custom scale value (default: 1/sqrt(HEAD_DIM))
+        skip_golden: Skip golden comparison (faster for large shapes)
     """
     logging.info("\n" + "=" * 70)
     logging.info(f"Test: flash_attention_score_kernel_with_pse_and_dropout ({dtype.upper()})")
@@ -520,6 +529,11 @@ def test_kernel_with_pse_and_dropout(
             raise RuntimeError(f"Kernel with_pse_and_dropout test failed due to NaN values (pse_type={pse_type})")
         
         logging.info(f"  No NaN values detected in outputs")
+        
+        if skip_golden:
+            logging.info("  Golden comparison skipped")
+            logging.info(f"  Kernel with_pse_and_dropout test passed for pse_type={pse_type} ({dtype.upper()}!")
+            continue
         
         if run_mode == "npu":
             inputs = FlashAttentionInputs(
@@ -629,14 +643,14 @@ Examples:
             if args.kernel == "all":
                 if dtype == "bf16":
                     test_kernel_with_mask_origin(device_id, args.run_mode, args.skip_golden)
-                test_kernel_with_mask(device_id, args.run_mode, dtype, args.scale_value)
-                test_kernel_with_pse_and_dropout(device_id, args.run_mode, dtype, args.scale_value)
+                test_kernel_with_mask(device_id, args.run_mode, dtype, args.scale_value, args.skip_golden)
+                test_kernel_with_pse_and_dropout(device_id, args.run_mode, dtype, args.scale_value, args.skip_golden)
             elif args.kernel == "mask_origin":
                 test_kernel_with_mask_origin(device_id, args.run_mode, args.skip_golden)
             elif args.kernel == "mask":
-                test_kernel_with_mask(device_id, args.run_mode, dtype, args.scale_value)
+                test_kernel_with_mask(device_id, args.run_mode, dtype, args.scale_value, args.skip_golden)
             elif args.kernel == "pse_dropout":
-                test_kernel_with_pse_and_dropout(device_id, args.run_mode, dtype, args.scale_value)
+                test_kernel_with_pse_and_dropout(device_id, args.run_mode, dtype, args.scale_value, args.skip_golden)
 
         logging.info("\n" + "=" * 70)
         logging.info("All tests passed!")
