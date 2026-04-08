@@ -952,7 +952,7 @@ TEST_F(MergeViewAssembleTest, TestSourceLocation)
     viewAttribute->SetToType(MemoryType::MEM_UB);
     viewOp.SetOpAttribute(viewAttribute);
     viewOp.SetScopeId(NUM1);
-    auto assembleOp = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ubTensor1}, {ubTensor2}, true, sourceLocation2);
+    auto& assembleOp = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ubTensor1}, {ubTensor2}, true, sourceLocation2);
     assembleOp.SetScopeId(NUM2);
     currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {ubTensor2}, {outCast});
 
