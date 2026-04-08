@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -30,6 +31,15 @@ CalcOps* GetCalcOps();
 
 inline bool IsVerifyEnabled() { return GetCalcOps() != nullptr; }
 
+inline bool IsFp4PackedDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
+
+inline void ExpandLastDimForFp4(std::vector<int64_t>& vals)
+{
+    if (!vals.empty() && vals.back() >= 0) {
+        vals.back() *= 2;
+    }
+}
+
 inline TensorData Trans(LogicalTensorDataPtr data)
 {
     TensorData calcData;
@@ -38,10 +48,16 @@ inline TensorData Trans(LogicalTensorDataPtr data)
         calcData.dataPtr = raw->data();
         calcData.rawShape = raw->GetShape();
         calcData.shape = data->GetShape();
-        calcData.stride = raw->GetStride();
+        calcData.stride = data->GetStride();
         calcData.storageOffset = data->GetStorageOffset();
         calcData.dtype = raw->GetDataType();
         calcData.isAxisCombine = data->IsAxisCombine();
+        if (IsFp4PackedDtype(calcData.dtype)) {
+            // RawTensorData now exposes logical shape for FP4; keep shape/stride untouched here.
+            // storageOffset is still computed from packed storage stride and must be converted to
+            // logical index domain expected by StorageOffsetFloatToPacked().
+            calcData.storageOffset *= 2;
+        }
     }
     return calcData;
 }
