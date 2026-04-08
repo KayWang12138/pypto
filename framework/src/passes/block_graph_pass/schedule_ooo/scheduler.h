@@ -147,8 +147,6 @@ private:
     int GetOOperandIdx(Operation* op, int curMemId);
 
     void InitCoreConfig(const std::vector<Operation *> &opList);
-    Status InitBufRefCount();
-    void UpdateBufRefCount(Operation* op, LogicalTensorPtr tensor);
     void InitTensorCoreMap();
     void InitIssueQueuesAndBufferManager();
 
@@ -273,8 +271,6 @@ private:
     CoreLocationType& GetCoreLocation(Operation* op) { return opCoreLocationMap[op]; }
     const CoreLocationType& GetCoreLocation(Operation* op) const { return opCoreLocationMap.at(op); }
     std::vector<Operation*>& GetViewOps(Operation* op) { return opViewOpsMap[op]; }
-    std::unordered_set<Operation *> &GetPredecessors(Operation *op) { return depManager_.GetPredecessors(op); }
-    std::unordered_set<Operation *> &GetSuccessors(Operation *op) { return depManager_.GetSuccessors(op); }
 
     // 辅助函数：设置Operation属性
     void SetExecOrder(Operation* op, int order) { opExecOrderMap[op] = order; }

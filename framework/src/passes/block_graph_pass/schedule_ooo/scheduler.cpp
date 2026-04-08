@@ -446,14 +446,14 @@ Status OoOScheduler::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt)
         return FAILED;
     }
 
-    auto& successors = GetSuccessors(op);
+    auto& successors = depManager_.GetSuccessors(op);
     auto& coreLocation = opCoreLocationMap[op];
     for (auto succOp : successors) {
         if (opIsRetiredMap[succOp]) {
             continue;
         }
         bool ready = true;
-        auto &preds = GetPredecessors(succOp);
+        auto &preds = depManager_.GetPredecessors(succOp);
         for (auto predOp : preds) {
             if (!opIsRetiredMap[predOp]) {
                 ready = false;
@@ -517,7 +517,7 @@ void OoOScheduler::LaunchReadyIssue()
     // 初始化 Queue
     for (auto &op : orderedOps) {
         auto& coreLocation = opCoreLocationMap[op];
-        if (USE_LESS_OPS.find(op->GetOpcode()) != USE_LESS_OPS.end() && GetPredecessors(op).empty()) {
+        if (USE_LESS_OPS.find(op->GetOpcode()) != USE_LESS_OPS.end() && depManager_.GetPredecessors(op).empty()) {
             issueQueues[coreLocation][opPipeTypeMap[op]].Insert(op);
         }
         if (opIsAllocMap[op]) {
@@ -557,7 +557,7 @@ Status OoOScheduler::PostMainLoop()
 Status OoOScheduler::RetireIssue(Operation* op)
 {
     opIsRetiredMap[op] = true;
-    for (auto memId : opReqMemIdsMap[op]) {
+    for (auto memId : GetOpMemIds(op)) {
         if (DelBufRefCount(memId) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Tensor, "DelBufRefCount tensor[%d] failed.", memId);
             return FAILED;
@@ -622,9 +622,12 @@ Status OoOScheduler::GenSpillSchedule()
         }
     }
     LOG_SCOPE_END(tGenSpillSchedule);
-    if (InitBufRefCount() != SUCCESS) {
+    if (InitBufRefCount(orderedOps) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed!");
         return FAILED;
+    }
+    for (const auto &op : orderedOps) {
+        opIsRetiredMap[op] = false;
     }
     // 更新依赖关系
     if (depManager_.InitDependencies(orderedOps, false) != SUCCESS) {
@@ -671,42 +674,6 @@ void OoOScheduler::InitIssueQueuesAndBufferManager()
             }
         }
     }
-}
-
-void OoOScheduler::UpdateBufRefCount(Operation* op, LogicalTensorPtr tensor)
-{
-    int memId = tensor->memoryrange.memId;
-    if (tensor->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
-        bufRefCount_[memId]++;
-        AddOpMemId(op, memId);
-    }
-}
-
-Status OoOScheduler::InitBufRefCount()
-{
-    bufRefCount_.clear();
-    depManager_.ClearDependencies();
-    for (const auto &op : orderedOps) {
-        opIsRetiredMap[op] = false;
-        ClearOpMemIds(op);
-        for (auto &tensor : op->GetIOperands()) {
-            UpdateBufRefCount(op, tensor);
-            int memId = tensor->memoryrange.memId;
-            if (InitLocalBuffer(tensor, memId) == FAILED) {
-                APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
-                return FAILED;
-            }
-        }
-        for (auto &tensor : op->GetOOperands()) {
-            UpdateBufRefCount(op, tensor);
-            int memId = tensor->memoryrange.memId;
-            if (InitLocalBuffer(tensor, memId) == FAILED) {
-                APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
-                return FAILED;
-            }
-        }
-    }
-    return SUCCESS;
 }
 
 void OoOScheduler::InitTensorCoreMap()
@@ -847,7 +814,6 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
         CORE_INIT_CONFIGS = fixCoreConfig;
     }
     // 校验并初始化Operation
-    depManager_.ClearDependencies();
     for (const auto &op : opList) {
         if (InitOpEntry(op, opCoreMap) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Operation %s[%d] init issue failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
@@ -856,7 +822,7 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
     }
     numTotalIssues = orderedOps.size();
 
-    if (InitBufRefCount() != SUCCESS) {
+    if (InitBufRefCount(orderedOps) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed!");
         return FAILED;
     }
