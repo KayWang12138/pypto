@@ -34,7 +34,6 @@ constexpr int32_t GLM_V2_TOPK = 8;
 constexpr int32_t GLM_V2_MOE_EXPERT_NUM = 160;
 
 constexpr int32_t AIGCODE_CHUNK_BATCH_SIZE_V1 = 1024;
-constexpr int32_t AIGCODE_CHUNK_BATCH_SIZE_V2 = 256;
 constexpr int32_t AIGCODE_HIDDEN_SIZE = 4096;
 constexpr int32_t AIGCODE_TOPK = 4;
 constexpr int32_t AIGCODE_MOE_EXPERT_NUM = 16;
@@ -51,9 +50,9 @@ bool IsSupportedMoeCombineV2Case(
         hiddenSize == GLM_V2_HIDDEN_SIZE && topK == GLM_V2_TOPK && moeExpertNum == GLM_V2_MOE_EXPERT_NUM &&
         sharedExpertNum == 0 && sharedExpertRankNum == 0 && (epWorldSize == 4 || epWorldSize == 8);
     const bool isAigcodeCase =
-        (batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 || batchSize == AIGCODE_CHUNK_BATCH_SIZE_V2) &&
-        hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK && epWorldSize == AIGCODE_EP_WORLD_SIZE &&
-        moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0;
+        batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
+        epWorldSize == AIGCODE_EP_WORLD_SIZE && moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 &&
+        sharedExpertRankNum == 0;
     return isGlmCase || isAigcodeCase;
 }
 } // namespace
@@ -356,7 +355,7 @@ void MoeDistributedCombineValidate(
             static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum)))
         << "MoeDistributedCombine constraint violated: only GLM V2 "
            "(batch=8/256, hidden=5120, topK=8, moeExpertNum=160, epWorldSize=4/8) or Aigcode "
-           "(batch=256/1024, hidden=4096, topK=4, moeExpertNum=16, epWorldSize=4) are supported.";
+           "(batch=1024, hidden=4096, topK=4, moeExpertNum=16, epWorldSize=4) are supported.";
     CHECK(expandX.GetShape(1) == hiddenSize)
         << "MoeDistributedCombine constraint violated: expandX hidden size must match expertScales config.";
     CHECK(out.GetShape(1) == hiddenSize)
@@ -437,6 +436,11 @@ void MoeDistributedCombineV2(
 
     SymbolicScalar recvCountsScalar = GetTensorData(recvCounts, {0});
     std::set<int> unrollList = {64, 32, 16, 8, 4, 2, 1};
+    if (batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
+        epWorldSize == AIGCODE_EP_WORLD_SIZE && moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 &&
+        sharedExpertRankNum == 0) {
+        unrollList = {8, 4, 2, 1};
+    }
     LOOP("MoeDistributedCombineSend", FunctionType::DYNAMIC_LOOP, rowIndex, LoopRange(recvCountsScalar), unrollList)
     {
         SymbolicScalar rankId = GetTensorData(assistInfoForCombine, {rowIndex, 0});

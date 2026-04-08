@@ -16,7 +16,6 @@
 #ifndef DISTRIBUTED_COMMON_H
 #define DISTRIBUTED_COMMON_H
 
-#include <algorithm>
 #include "comm_context.h"
 #include "../tileop_common.h"
 
