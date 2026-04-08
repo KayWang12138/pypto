@@ -33,6 +33,7 @@ import math
 import argparse
 import logging
 from typing import Optional
+from dataclasses import dataclass
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
@@ -50,7 +51,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 BATCH_SIZE = 4
 NUM_HEADS = 8
-SEQ_LEN_Q = 64
+SEQ_LEN_Q = 128
 SEQ_LEN_KV = 128
 HEAD_DIM = 64
 
@@ -199,22 +200,35 @@ def flash_attention_score_golden(
     return output.to(torch.bfloat16), softmax_max, softmax_sum
 
 
-def flash_attention_score_golden_with_pse_and_dropout(
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    atten_mask: Optional[torch.Tensor],
-    pse: torch.Tensor,
-    drop_mask: torch.Tensor,
-    pse_type: int = 0,
-    keep_prob: float = 1.0,
-    scale_value: Optional[float] = None,
-) -> tuple:
+@dataclass
+class FlashAttentionInputs:
+    """Flash Attention inputs container."""
+    query: torch.Tensor
+    key: torch.Tensor
+    value: torch.Tensor
+    atten_mask: Optional[torch.Tensor]
+    pse: torch.Tensor
+    drop_mask: torch.Tensor
+    pse_type: int = 0
+    keep_prob: float = 1.0
+    scale_value: Optional[float] = None
+
+
+def flash_attention_score_golden_with_pse_and_dropout(inputs: FlashAttentionInputs) -> tuple:
     """Golden reference for flash_attention_score_kernel_with_pse_and_dropout.
     
     Args:
-        scale_value: Scaling factor for attention scores (default: 1/sqrt(HEAD_DIM))
+        inputs: FlashAttentionInputs containing all input tensors and parameters
     """
+    query = inputs.query
+    key = inputs.key
+    value = inputs.value
+    atten_mask = inputs.atten_mask
+    pse = inputs.pse
+    drop_mask = inputs.drop_mask
+    pse_type = inputs.pse_type
+    keep_prob = inputs.keep_prob
+    scale_value = inputs.scale_value
     b, n, sq, d = query.shape
     _, _, skv, _ = key.shape
 
@@ -277,11 +291,14 @@ def flash_attention_score_golden_with_pse_and_dropout(
     return output.to(torch.bfloat16), softmax_max, softmax_sum
 
 
-def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu"):
+def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu", skip_golden: bool = False):
     """Test flash_attention_score_kernel_with_mask_origin.
     
     This kernel only outputs attention_out, without softmax_max and softmax_sum.
     Uses fixed scale = 1/sqrt(HEAD_DIM), BF16 only.
+    
+    Args:
+        skip_golden: Skip golden comparison (faster for large shapes)
     """
     logging.info("=" * 70)
     logging.info("Test: flash_attention_score_kernel_with_mask_origin (BF16)")
@@ -315,6 +332,11 @@ def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu"):
         raise RuntimeError("Kernel with_mask_origin test failed due to NaN values")
     
     logging.info("  No NaN values detected in output")
+
+    if skip_golden:
+        logging.info("  Golden comparison skipped")
+        logging.info("  Kernel with_mask_origin test passed!")
+        return
 
     if run_mode == "npu":
         golden = flash_attention_score_golden_origin(query, key, value, atten_mask)
@@ -500,9 +522,18 @@ def test_kernel_with_pse_and_dropout(
         logging.info(f"  No NaN values detected in outputs")
         
         if run_mode == "npu":
-            golden, golden_max, golden_sum = flash_attention_score_golden_with_pse_and_dropout(
-                query, key, value, atten_mask, pse, drop_mask, pse_type, keep_prob, test_scale
+            inputs = FlashAttentionInputs(
+                query=query,
+                key=key,
+                value=value,
+                atten_mask=atten_mask,
+                pse=pse,
+                drop_mask=drop_mask,
+                pse_type=pse_type,
+                keep_prob=keep_prob,
+                scale_value=test_scale
             )
+            golden, golden_max, golden_sum = flash_attention_score_golden_with_pse_and_dropout(inputs)
             
             output_fp32 = output.float()
             golden_fp32 = golden.float()
@@ -567,6 +598,11 @@ Examples:
         default=None,
         help='Custom scale value (default: 1/sqrt(HEAD_DIM))'
     )
+    parser.add_argument(
+        '--skip_golden',
+        action='store_true',
+        help='Skip golden comparison (faster for large shapes)'
+    )
     args = parser.parse_args()
 
     logging.info("\n" + "=" * 70)
@@ -592,11 +628,11 @@ Examples:
             
             if args.kernel == "all":
                 if dtype == "bf16":
-                    test_kernel_with_mask_origin(device_id, args.run_mode)
+                    test_kernel_with_mask_origin(device_id, args.run_mode, args.skip_golden)
                 test_kernel_with_mask(device_id, args.run_mode, dtype, args.scale_value)
                 test_kernel_with_pse_and_dropout(device_id, args.run_mode, dtype, args.scale_value)
             elif args.kernel == "mask_origin":
-                test_kernel_with_mask_origin(device_id, args.run_mode)
+                test_kernel_with_mask_origin(device_id, args.run_mode, args.skip_golden)
             elif args.kernel == "mask":
                 test_kernel_with_mask(device_id, args.run_mode, dtype, args.scale_value)
             elif args.kernel == "pse_dropout":

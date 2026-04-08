@@ -46,11 +46,11 @@ BLOCK_SIZE_Q = 32
         "vec_nbuffer_setting": {0: 4},
     },
     runtime_options={
-        "stitch_function_max_num": 256,
+        "stitch_function_max_num": 128,
         "device_sched_mode": 1,
     },
     debug_options={
-        "runtime_debug_mode": 0,
+        "runtime_debug_mode": 1,
     }
 )
 def flash_attention_score_kernel_with_mask_origin(
@@ -181,7 +181,7 @@ def flash_attention_score_kernel_with_mask_origin(
         "vec_nbuffer_setting": {0: 4},
     },
     runtime_options={
-        "stitch_function_max_num": 256,
+        "stitch_function_max_num": 128,
         "device_sched_mode": 1,
     },
     debug_options={
@@ -368,7 +368,7 @@ def flash_attention_score_kernel_with_mask(
         "vec_nbuffer_setting": {0: 4},
     },
     runtime_options={
-        "stitch_function_max_num": 256,
+        "stitch_function_max_num": 128,
         "device_sched_mode": 1,
     },
     debug_options={
@@ -600,7 +600,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
         "vec_nbuffer_setting": {0: 4},
     },
     runtime_options={
-        "stitch_function_max_num": 256,
+        "stitch_function_max_num": 128,
         "device_sched_mode": 1,
     },
     debug_options={
@@ -780,7 +780,7 @@ def flash_attention_score_kernel_with_mask_fp32(
         "vec_nbuffer_setting": {0: 4},
     },
     runtime_options={
-        "stitch_function_max_num": 256,
+        "stitch_function_max_num": 128,
         "device_sched_mode": 1,
     },
     debug_options={
