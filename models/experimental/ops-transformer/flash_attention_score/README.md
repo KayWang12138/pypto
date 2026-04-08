@@ -6,15 +6,15 @@ Flash Attention Score 是一个高效的注意力机制实现，采用 **Online 
 
 ### 功能特性
 
-- ✅ **Online Softmax 分块计算** - 避免存储完整 attention matrix
-- ✅ **支持动态轴** - Batch size、Query seq len、KV seq len 均为动态维度
-- ✅ **反向传播支持** - 输出 softmax_max 和 softmax_sum 中间结果
-- ✅ **Dropout 支持** - 训练场景正则化
-- ✅ **位置编码支持** - 支持 4 种 pse_type 模式
-- ✅ **注意力掩码** - 支持因果掩码和自定义掩码
-- ✅ **Scale 可配置** - 支持自定义 scale_value 参数（Stage 3）
-- ✅ **多数据类型** - 支持 BF16、FP32 数据类型（Stage 3）
-- ✅ **高精度** - 使用 FP32 进行中间计算，满足精度标准
+-  **Online Softmax 分块计算** - 避免存储完整 attention matrix
+-  **支持动态轴** - Batch size、Query seq len、KV seq len 均为动态维度
+-  **反向传播支持** - 输出 softmax_max 和 softmax_sum 中间结果
+-  **Dropout 支持** - 训练场景正则化
+-  **位置编码支持** - 支持 4 种 pse_type 模式
+-  **注意力掩码** - 支持因果掩码和自定义掩码
+-  **Scale 可配置** - 支持自定义 scale_value 参数（Stage 3）
+-  **多数据类型** - 支持 BF16、FP32 数据类型（Stage 3）
+-  **高精度** - 使用 FP32 进行中间计算，满足精度标准
 
 ---
 
@@ -22,7 +22,7 @@ Flash Attention Score 是一个高效的注意力机制实现，采用 **Online 
 
 提供两组 API：
 
-### 1. 统一接口（推荐）⚡
+### 1. 统一接口（推荐）
 
 通过 `dtype` 参数自动选择对应的底层 kernel：
 
@@ -176,7 +176,7 @@ flash_attention_score_kernel_with_mask(
 
 ## 使用示例
 
-### 统一接口（推荐）⚡
+### 统一接口（推荐）
 
 ```python
 import torch
@@ -319,10 +319,10 @@ python flash_attention_score.py --run_mode sim
 
 | Kernel | pseType | 最大差异 | 平均差异 | 状态 |
 |--------|---------|---------|---------|------|
-| with_mask_origin | - | 0.000977 | 0.000000 | ✅ 通过 |
-| with_mask | - | 0.001953 | 0.000000 | ✅ 通过 |
-| with_pse_and_dropout | 0 | 0.001953 | 0.000000 | ✅ 通过 |
-| with_pse_and_dropout | 1 | 0.000488 | 0.000000 | ✅ 通过 |
+| with_mask_origin | - | 0.000977 | 0.000000 | 通过 |
+| with_mask | - | 0.001953 | 0.000000 | 通过 |
+| with_pse_and_dropout | 0 | 0.001953 | 0.000000 | 通过 |
+| with_pse_and_dropout | 1 | 0.000488 | 0.000000 | 通过 |
 
 **精度标准**: `rtol=0.0078125, atol=0.0001` (BF16)
 
@@ -330,9 +330,9 @@ python flash_attention_score.py --run_mode sim
 
 | Kernel | pseType | 最大差异 | 平均差异 | 状态 |
 |--------|---------|---------|---------|------|
-| with_mask | - | 0.003866 | 0.000219 | ✅ 通过 |
-| with_pse_and_dropout | 0 | 0.007114 | 0.000390 | ✅ 通过 |
-| with_pse_and_dropout | 1 | 0.003890 | 0.000301 | ✅ 通过 |
+| with_mask | - | 0.003866 | 0.000219 | 通过 |
+| with_pse_and_dropout | 0 | 0.007114 | 0.000390 | 通过 |
+| with_pse_and_dropout | 1 | 0.003890 | 0.000301 | 通过 |
 
 **精度标准**: `rtol=0.01, atol=0.003` (FP32)
 
@@ -340,9 +340,9 @@ python flash_attention_score.py --run_mode sim
 
 | Scale 值 | Kernel | 状态 |
 |---------|--------|------|
-| 默认 (1/√D) | with_mask | ✅ 通过 |
-| 0.2 (自定义) | with_mask | ✅ 通过 |
-| 0.2 (自定义) | with_pse_and_dropout | ✅ 通过 |
+| 默认 (1/√D) | with_mask | 通过 |
+| 0.2 (自定义) | with_mask | 通过 |
+| 0.2 (自定义) | with_pse_and_dropout | 通过 |
 
 ---
 
@@ -368,8 +368,8 @@ $$
 ```
 flash_attention_score/
 ├── flash_attention_score_impl.py     # Kernel 实现
-│   ├── flash_attention_score_with_mask (统一接口) ⭐
-│   ├── flash_attention_score_with_pse_and_dropout (统一接口) ⭐
+│   ├── flash_attention_score_with_mask (统一接口) 
+│   ├── flash_attention_score_with_pse_and_dropout (统一接口) 
 │   ├── flash_attention_score_kernel_with_mask_origin (BF16, 无中间输出)
 │   ├── flash_attention_score_kernel_with_mask (BF16)
 │   ├── flash_attention_score_kernel_with_mask_fp32 (FP32)
@@ -380,7 +380,7 @@ flash_attention_score/
 └── UPGRADE_PLAN.md                   # 功能规划
 ```
 
-**推荐使用统一接口（⭐标记），通过 dtype 参数选择数据类型。**
+**推荐使用统一接口，通过 dtype 参数选择数据类型。**
 
 ---
 
@@ -402,15 +402,15 @@ AscendC 文档要求 `drop_mask` 使用 UINT8 类型，但 PyPTO 实现中使用
 
 | Stage | 功能 | 状态 |
 |-------|------|------|
-| Stage 1 | 反向传播中间结果 (softmax_max, softmax_sum) | ✅ 已完成 |
-| Stage 2 | Dropout + PSE 支持 | ✅ 已完成 |
-| Stage 3 | Scale 可配置 + BF16/FP32 数据类型 | ✅ 已完成 |
-| Stage 4 | FP8 量化支持 | 📋 计划中 |
+| Stage 1 | 反向传播中间结果 (softmax_max, softmax_sum) | 已完成 |
+| Stage 2 | Dropout + PSE 支持 | 已完成 |
+| Stage 3 | Scale 可配置 + BF16/FP32 数据类型 | 已完成 |
+| Stage 4 | FP8 量化支持 | 计划中 |
 
 **Stage 3 详细说明：**
-- ✅ Scale 可配置：支持自定义 scale_value 参数
-- ✅ BF16 数据类型：完全支持，精度验证通过
-- ✅ FP32 数据类型：完全支持，精度验证通过
+- Scale 可配置：支持自定义 scale_value 参数
+- BF16 数据类型：完全支持，精度验证通过
+- FP32 数据类型：完全支持，精度验证通过
 
 ---
 
