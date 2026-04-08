@@ -334,6 +334,15 @@ void SimulationCommManager::CreateSimulationCommContext(const std::string &group
     contexts_[groupName] = context;
 }
 
+void SimulationCommManager::DestroySimulationCommContext(const std::string &groupName) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = contexts_.find(groupName);
+    if (it == contexts_.end()) {
+        return;
+    }
+    contexts_.erase(it);
+}
+
 std::shared_ptr<SimulationCommContext> SimulationCommManager::GetCommContext(const std::string &groupName) {
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
