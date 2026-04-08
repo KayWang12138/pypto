@@ -64,6 +64,9 @@ CannHostRuntime &CannHostRuntime::Instance() {
 }
 
 bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
+// to do
+socVersion = "Kirin9030"; // TODO: need to check BUILD_WITH_CANN
+return true;
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
