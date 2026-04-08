@@ -171,10 +171,9 @@ def inverse_pto(**kwargs) -> pypto.Tensor:
     attn_8_8_list = []
     for i in range(8):
         attn_8_8_list.append(attn.view([min_length, min_length], [min_length * i, min_length * i]) + 0.0)
-    attn_tmp_dim0 = pypto.concat(attn_8_8_list, dim=0)
     attn_tmp_dim1 = pypto.concat(attn_8_8_list, dim=1)
 
-    attn_tmp_dim1_inv = inverse_pto_min_length(attn_tmp_dim0, attn_tmp_dim1, eye, min_length, min_length * 8)
+    attn_tmp_dim1_inv = inverse_pto_min_length(attn_tmp_dim1, eye, min_length, min_length * 8)
 
     attn_8_8_inv_list = []
     for i in range(8):
@@ -197,7 +196,6 @@ def inverse_pto(**kwargs) -> pypto.Tensor:
 
 
 def inverse_pto_min_length(
-    attn_dim0: pypto.Tensor,
     attn_dim1: pypto.Tensor,
     eye: pypto.Tensor,
     row_num: int,
@@ -224,13 +222,11 @@ def inverse_pto_min_length(
     attn_inv_list[1] = attn_dim1[:2, :]
     pypto.set_vec_tile_shapes(128, 128)
 
-    attn_dim0_trans = attn_dim0.transpose(0, 1).reshape([col_num, row_num])
-
     for i in range(2, row_num, 1):
         # Add 0.0 to enable attn_inv_cur to enter the UB in advance
         attn_inv_cur = attn_inv_list.get(i - 1) + 0.0
         row = attn_dim1.view([1, col_num], [i, 0])
-        row_expand = attn_dim0_trans.view([size * i, 1], [0, i])
+        row_expand = row.reshape([size, row_num]).view([size, i], [0, 0]).transpose(1, 0).reshape([size * i, 1])
         attn_inv_cur_reshape = attn_inv_cur.reshape([size * i, row_num])
         prod_mul = (row_expand * attn_inv_cur_reshape).reshape([i, col_num])
 
@@ -528,6 +524,8 @@ def chunk_gated_delta_rule(b, nqk, nv, d, l):
         l, l = mask.shape
         group = nv // nqk
         last_state = pypto.tensor([d, d], pypto.DT_FP32)
+        pypto.experimental.set_operation_options(combine_axis=True)
+
         for b_idx in pypto.loop(b, name="LOOP_B_TND", idx_name="b_idx"):
             s = act_seq_len[b_idx + 1] - act_seq_len[b_idx]
             b_ofs = act_seq_len[b_idx]
@@ -652,6 +650,8 @@ def chunk_gated_delta_rule_unaligned(b, nqk, nv, d, l):
         l, l = mask.shape
         group = nv // nqk
         last_state = pypto.tensor([d, d], pypto.DT_FP32)
+        pypto.experimental.set_operation_options(combine_axis=True)
+
         for b_idx in pypto.loop(b, name="LOOP_B_TND", idx_name="b_idx"):
             s = act_seq_len[b_idx + 1] - act_seq_len[b_idx]
             b_ofs = act_seq_len[b_idx]
