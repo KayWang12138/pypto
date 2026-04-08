@@ -578,12 +578,10 @@ def box_muller(input: Tensor) -> Tensor:
     f3 = f1 * v2
     """
 
-    input = pypto.reshape(input, [-1, 1])
+    input = input.reshape([-1])
     tensor_len = input.shape[0]
     u1_index = pypto.arange(0, tensor_len, 2)
-    u1_index = pypto.reshape(u1_index, [-1, 1])
-    tensor_ones = pypto.full(u1_index.shape, 1, pypto.DT_INT32)
-    u2_index = pypto.add(u1_index, tensor_ones)
+    u2_index = pypto.add(u1_index, 1)
     u1 = pypto.gather(input, 0, u1_index)
     u2 = pypto.gather(input, 0, u2_index)
 
@@ -596,12 +594,12 @@ def box_muller(input: Tensor) -> Tensor:
     f1 = pypto.cos(v1)
     f2 = pypto.mul(f0, v2)
     f3 = pypto.mul(f1, v2)
-    f4 = pypto.zeros([tensor_len, 1], dtype=pypto.DT_FP32)
-    pypto.scatter(f4, 0, u1_index, f2)
+    f4 = pypto.zeros([tensor_len], dtype=pypto.DT_FP32)
+    pypto.scatter_(f4, 0, u1_index, f2, reduce='add')
 
     if tensor_len % 2 != 0:
-        u2_index = pypto.reshape(pypto.arange(1, tensor_len, 2), [-1, 1])
-    pypto.scatter(f4, 0, u2_index, f3)
+        u2_index = pypto.arange(1, tensor_len, 2)
+    pypto.scatter_(f4, 0, u2_index, f3, reduce='add')
     return f4
 
 
@@ -653,11 +651,11 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
               [ 1.6558666   2.0938187  -0.90338254  0.8765667 ]
               [ 0.86518306  0.01034508  0.2893259   0.01748212]]
     """
-    uniform_res = stateless_random_uniform_v2(shape, key, counter, alg, dtype=pypto.DT_FP32)
+    uniform_res = pypto.stateless_random_uniform_v2(shape, key, counter, alg, dtype=pypto.DT_FP32)
     box_muller_res = box_muller(uniform_res)
     # shape_list = list(shape)
     shape_list = []
-    for i in range(shape.GetShape()[0]):
+    for i in range(shape.shape[0]):
         shape_list.append(shape[i])
 
     normal_res = pypto.reshape(box_muller_res, shape_list)
@@ -666,54 +664,8 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
     return normal_res
 
 
-def box_muller_random(input: Tensor) -> Tensor:
-    """
-    eps = 1.0e-7
-    u1 = uint32_to_float(x0)
-    u2 = uint32_to_float(x1)
-    u1 = max(u1, eps)
-    v1 = 2.0 * M_PI * u2
-    v2 = sqrt(-2.0 * ln(u1))
-    f0 = sin(v1)
-    f1 = cos(v1)
-    f2 = f0 * v2
-    f3 = f1 * v2
-    """
-
-    input = pypto.reshape(input, [-1, 1])
-    tensor_len = input.shape[0]
-    u1_index = pypto.arange(0, tensor_len, 2)
-    u1_index = pypto.reshape(u1_index, [-1, 1])
-    tensor_ones = pypto.full(u1_index.shape, 1, pypto.DT_INT32)
-    u2_index = pypto.add(u1_index, tensor_ones)
-    u1 = pypto.gather(input, 0, u1_index)
-    u2 = pypto.gather(input, 0, u2_index)
-
-    eps = 1.0e-7
-    M_PI = 3.14159265358979323846
-    u1 = pypto.maximum(u1, eps)
-    v1 = pypto.mul(u2, 2.0 * M_PI)
-    v2 = pypto.sqrt(pypto.mul(pypto.log(u1), -2.0))
-    f0 = pypto.sin(v1)
-    f1 = pypto.cos(v1)
-    f2 = pypto.mul(f0, v2)
-    f3 = pypto.mul(f1, v2)
-    f4 = pypto.zeros([tensor_len, 1], dtype=pypto.DT_FP32)
-    pypto.scatter(f4, 0, u1_index, f2)
-
-    if tensor_len % 2 != 0:
-        u2_index = pypto.reshape(pypto.arange(1, tensor_len, 2), [-1, 1])
-    pypto.scatter(f4, 0, u2_index, f3)
-    return f4
-
-
 def normal(key, counter0, counter1, shape, rounds) -> Tensor:
     uniform_res = pypto.random(key, counter0, counter1, shape, rounds)
-    box_muller_res = box_muller_random(uniform_res)
-    # shape_list = list(shape)
-    shape_list = []
-    for i in range(len(shape)):
-        shape_list.append(shape[i])
-
-    normal_res = pypto.reshape(box_muller_res, shape_list)
+    box_muller_res = box_muller(uniform_res)
+    normal_res = pypto.reshape(box_muller_res, shape)
     return normal_res
