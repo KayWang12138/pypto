@@ -18,7 +18,6 @@
 #include <cstdint>
 
 namespace npu::tile_fwk {
-
 // 前端传入Tensor错误
 enum class TensorErr : uint32_t {
     TENSOR_NULL_POINTER = 0x40000U,
