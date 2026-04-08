@@ -275,7 +275,7 @@ def ifa_func_kernel(
     k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     block_table: pypto.Tensor([], pypto.DT_INT32),
-    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
     atten_out: pypto.Tensor([], pypto.DT_BF16)
 ):
 
@@ -438,7 +438,7 @@ def ifa_func_kernel_a5(
     k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     block_table: pypto.Tensor([], pypto.DT_INT32),
-    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
     atten_out: pypto.Tensor([], pypto.DT_BF16)
 ):
     atten_cfg, tile_cfg = get_qwen_common_config(device="cpu", a5_flag=1)
