@@ -308,6 +308,8 @@ class JitCallableWrapper:
 
         # kmodule is created lazily in __call__ with cache key including non_tensor_values
         self.kmodule = None
+        # Keep CPU snapshots alive while native code reads DeviceTensorData pointers.
+        self._verify_snapshot_keepalive: Optional[list] = None
 
 
     def __call__(self, *args, **kwargs):
@@ -445,74 +447,6 @@ class JitCallableWrapper:
             )
         return pto_tensors
 
-    def _setup_verify_data(
-        self,
-        pto_tensors: list,
-        source_torch_tensors: Optional[list] = None,
-    ) -> None:
-        """Set verify input/output/golden data for pass-level verification.
-
-        This mirrors the behavior of pypto.runtime._JIT.compile:
-        - Copy current input/output from NPU to Host
-        - Use golden data pre-injected via set_verify_golden_data
-        - Call SetVerifyData to register all three to the underlying ProgramData
-        """
-        if not pypto.get_verify_options().get("enable_pass_verify"):
-            return
-
-        # Compile and load calculator
-        mgr = BuildOnlineManager()
-        mgr.build_and_load_calculator()
-
-
-        # Prefer PyTorch D2H when we still have the original torch.Tensor objects (NPU launch path):
-        # DeviceTensorData::GetDataSize() uses product(shape)*BytesOf(dtype) and can disagree with
-        # actual NPU storage Fractal-NZ / padding, so rtMemcpy in CopyToHost may overrun the host
-        # staging buffer and corrupt the heap (free(): invalid pointer).
-        use_torch_host_snapshot = (
-            source_torch_tensors is not None
-            and len(source_torch_tensors) == len(pto_tensors)
-            and all(isinstance(t, torch.Tensor) for t in source_torch_tensors)
-        )
-
-        if use_torch_host_snapshot:
-            host_pto_tensors = []
-            staging: list[torch.Tensor] = []
-            for pt, th in zip(pto_tensors, source_torch_tensors):
-                if th.device.type == "npu":
-                    c = th.detach().cpu().contiguous()
-                else:
-                    c = th.detach().contiguous()
-                staging.append(c)
-                host_pto_tensors.append(
-                    from_torch(
-                        c,
-                        name=pt.name,
-                        tensor_format=pt.format,
-                        dtype=pt.dtype,
-                    )
-                )
-            self._verify_snapshot_keepalive = staging
-            pypto_impl.SetVerifyData(
-                _pto_to_tensor_data(host_pto_tensors),
-                [],
-                _pto_verify_datas.get_data(),
-            )
-            return
-
-        # Fallback (e.g. SIM compile with PTO tensors only): explicit staging + CopyToHost
-        host_pto_tensors, staging = _gen_pto_tensor(pto_tensors)
-        host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
-        for i, dev_tensor in enumerate(_pto_to_tensor_data(pto_tensors)):
-            pypto_impl.CopyToHost(dev_tensor, host_pto_t_datas[i])
-        self._verify_snapshot_keepalive = staging
-        pypto_impl.SetVerifyData(
-            _pto_to_tensor_data(host_pto_tensors),
-            [],
-            _pto_verify_datas.get_data(),
-        )
-
-
     @staticmethod
     def _make_hashable(obj) -> Any:
         """Convert dict/list/tuple to a hashable representation."""
@@ -571,6 +505,72 @@ class JitCallableWrapper:
 
         # Reset golden data after compilation
         _pto_verify_datas.reset()
+
+    def _setup_verify_data(
+        self,
+        pto_tensors: list,
+        source_torch_tensors: Optional[list] = None,
+    ) -> None:
+        """Set verify input/output/golden data for pass-level verification.
+
+        This mirrors the behavior of pypto.runtime._JIT.compile:
+        - Copy current input/output from NPU to Host
+        - Use golden data pre-injected via set_verify_golden_data
+        - Call SetVerifyData to register all three to the underlying ProgramData
+        """
+        if not pypto.get_verify_options().get("enable_pass_verify"):
+            return
+
+        # Compile and load calculator
+        mgr = BuildOnlineManager()
+        mgr.build_and_load_calculator()
+
+        # Prefer PyTorch D2H when we still have the original torch.Tensor objects (NPU launch path):
+        # DeviceTensorData::GetDataSize() uses product(shape)*BytesOf(dtype) and can disagree with
+        # actual NPU storage Fractal-NZ / padding, so rtMemcpy in CopyToHost may overrun the host
+        # staging buffer and corrupt the heap (free(): invalid pointer).
+        use_torch_host_snapshot = (
+            source_torch_tensors is not None
+            and len(source_torch_tensors) == len(pto_tensors)
+            and all(isinstance(t, torch.Tensor) for t in source_torch_tensors)
+        )
+
+        if use_torch_host_snapshot:
+            host_pto_tensors = []
+            staging: list[torch.Tensor] = []
+            for pt, th in zip(pto_tensors, source_torch_tensors):
+                if th.device.type == "npu":
+                    c = th.detach().cpu().contiguous()
+                else:
+                    c = th.detach().contiguous()
+                staging.append(c)
+                host_pto_tensors.append(
+                    from_torch(
+                        c,
+                        name=pt.name,
+                        tensor_format=pt.format,
+                        dtype=pt.dtype,
+                    )
+                )
+            self._verify_snapshot_keepalive = staging
+            pypto_impl.SetVerifyData(
+                _pto_to_tensor_data(host_pto_tensors),
+                [],
+                _pto_verify_datas.get_data(),
+            )
+            return
+
+        # Fallback (e.g. SIM compile with PTO tensors only): explicit staging + CopyToHost
+        host_pto_tensors, staging = _gen_pto_tensor(pto_tensors)
+        host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
+        for i, dev_tensor in enumerate(_pto_to_tensor_data(pto_tensors)):
+            pypto_impl.CopyToHost(dev_tensor, host_pto_t_datas[i])
+        self._verify_snapshot_keepalive = staging
+        pypto_impl.SetVerifyData(
+            _pto_to_tensor_data(host_pto_tensors),
+            [],
+            _pto_verify_datas.get_data(),
+        )
 
     def _parse_call_args(
         self, args: tuple, kwargs: dict
