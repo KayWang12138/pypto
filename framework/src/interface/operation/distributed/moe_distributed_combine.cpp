@@ -437,6 +437,11 @@ void MoeDistributedCombineV2(
 
     SymbolicScalar recvCountsScalar = GetTensorData(recvCounts, {0});
     std::set<int> unrollList = {64, 32, 16, 8, 4, 2, 1};
+    if (batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
+        epWorldSize == AIGCODE_EP_WORLD_SIZE && moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 &&
+        sharedExpertRankNum == 0) {
+        unrollList = {8, 4, 2, 1};
+    }
     LOOP("MoeDistributedCombineSend", FunctionType::DYNAMIC_LOOP, rowIndex, LoopRange(recvCountsScalar), unrollList)
     {
         SymbolicScalar rankId = GetTensorData(assistInfoForCombine, {rowIndex, 0});
