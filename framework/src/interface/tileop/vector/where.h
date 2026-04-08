@@ -156,7 +156,7 @@ TILEOP void TWhereTT(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                         pto::TASSIGN(maskTile, (uint64_t)(condition.GetAddr() + conditionOffset * conditionTypeSize));
                         pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * src0TypeSize));
                         pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + offset * src1TypeSize));
-                        pto::TSEL(dstTile, maskTile, src0Tile, src1Tile);
+                        pto::TSEL(dstTile, maskTile, src0Tile, src1Tile, tmpbuf);
                     }
                 }
             }

@@ -142,7 +142,7 @@ TILEOP void PostProcessMode0(
     #ifdef __DAV_V220
     pipe_barrier(PIPE_V);
     #endif
-    pto::TSEL(vselResultTile, cmpResTile, oneConditionTile, zeroConditionTile);
+    pto::TSEL(vselResultTile, cmpResTile, oneConditionTile, zeroConditionTile, tmpTile);
     #ifdef __DAV_V220
     pipe_barrier(PIPE_V);
     #endif
