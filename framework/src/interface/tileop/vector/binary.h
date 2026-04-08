@@ -107,6 +107,9 @@ template <
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
 {
     auto info = ExtractLayoutInfo(dst, src0, src1);
+    if (IsEmptyTile(info)) {
+        return;
+    }
     using Src0TileInfo = TensorTileInfo<T1>;
     using Src1TileInfo = TensorTileInfo<T2>;
     constexpr BrcMode brcmode = GetBrcMode<WBrcSide, HBrcSide>();
@@ -128,7 +131,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
     }
 
     if constexpr (brcmode == BrcMode::BRC_HW) {
-        BinaryMixBrcCompute<op, WBrcSide, Src0TileInfo, Src1TileInfo, LastUse>(dst, src0, src1, info);
+        BinaryMixBrcCompute<op, WBrcSide, HBrcSide, Src0TileInfo, Src1TileInfo, LastUse>(dst, src0, src1, info);
         return;
     }
 

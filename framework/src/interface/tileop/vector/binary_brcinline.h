@@ -53,6 +53,8 @@ TILEOP constexpr BrcMode GetBrcMode()
 }
 struct BinaryLayoutInfo {
     size_t shape0, shape1, shape2, shape3, shape4;
+    size_t src0shape0, src0shape1, src0shape2, src0shape3, src0shape4;
+    size_t src1shape0, src1shape1, src1shape2, src1shape3, src1shape4;
     size_t dstStride0, dstStride1, dstStride2, dstStride3;
     size_t src0Stride0, src0Stride1, src0Stride2, src0Stride3;
     size_t src1Stride0, src1Stride1, src1Stride2, src1Stride3;
@@ -72,6 +74,18 @@ TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T
     info.shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
     info.shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
 
+    info.src0shape0 = src0Layout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    info.src0shape1 = src0Layout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    info.src0shape2 = src0Layout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    info.src0shape3 = src0Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    info.src0shape4 = src0Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
+    info.src1shape0 = src1Layout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    info.src1shape1 = src1Layout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    info.src1shape2 = src1Layout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    info.src1shape3 = src1Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    info.src1shape4 = src1Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
     info.dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
     info.dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
     info.dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
@@ -88,6 +102,19 @@ TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T
     info.src1Stride3 = src1Layout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
 
     return info;
+}
+
+TILEOP bool IsEmptyTile(const BinaryLayoutInfo& info)
+{
+    if (info.src0shape0 == 0 || info.src0shape1 == 0 || info.src0shape2 == 0 ||
+        info.src0shape3 == 0 || info.src0shape4 == 0) {
+        return true;
+    }
+    if (info.src1shape0 == 0 || info.src1shape1 == 0 || info.src1shape2 == 0 ||
+        info.src1shape3 == 0 || info.src1shape4 == 0) {
+        return true;
+    }
+    return false;
 }
 
 #define EXTRACT_LAST_USE_3DIM(LastUse)                                     \
@@ -149,7 +176,7 @@ TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1)
 }
 
 template <
-    BinaryOp op, TileOp::BroadcastOperand WBrcSide, typename Src0TileInfo, typename Src1TileInfo, typename LastUse,
+    BinaryOp op, TileOp::BroadcastOperand WBrcSide, TileOp::PenuBroadcastOperand HBrcSide, typename Src0TileInfo, typename Src1TileInfo, typename LastUse,
     typename T0, typename T1, typename T2>
 TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo& info)
 {
@@ -171,11 +198,11 @@ TILEOP void BinaryMixBrcCompute(T0 dst, T1 src0, T2 src1, const BinaryLayoutInfo
                     auto src0tileOffsets = (Src0TileInfo::tile0 == 1 ? 0 : n0Index) * info.src0Stride0 +
                                            (Src0TileInfo::tile1 == 1 ? 0 : n1Index) * info.src0Stride1 +
                                            (Src0TileInfo::tile2 == 1 ? 0 : n2Index) * info.src0Stride2 +
-                                           (Src0TileInfo::tileH == 1 ? 0 : n3Index) * info.src0Stride3;
+                                           (HBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND ? 0 : n3Index) * info.src0Stride3;
                     auto src1tileOffsets = (Src1TileInfo::tile0 == 1 ? 0 : n0Index) * info.src1Stride0 +
                                            (Src1TileInfo::tile1 == 1 ? 0 : n1Index) * info.src1Stride1 +
                                            (Src1TileInfo::tile2 == 1 ? 0 : n2Index) * info.src1Stride2 +
-                                           (Src1TileInfo::tileH == 1 ? 0 : n3Index) * info.src1Stride3;
+                                           (HBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND ? 0 : n3Index) * info.src1Stride3;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dsttileOffsets * sizeof(typename T0::Type)));
                     pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0tileOffsets * sizeof(typename T1::Type)));
                     pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1tileOffsets * sizeof(typename T2::Type)));
