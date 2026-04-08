@@ -53,6 +53,8 @@ TILEOP constexpr BrcMode GetBrcMode()
 }
 struct BinaryLayoutInfo {
     size_t shape0, shape1, shape2, shape3, shape4;
+    size_t src0shape0, src0shape1, src0shape2, src0shape3, src0shape4;
+    size_t src1shape0, src1shape1, src1shape2, src1shape3, src1shape4;
     size_t dstStride0, dstStride1, dstStride2, dstStride3;
     size_t src0Stride0, src0Stride1, src0Stride2, src0Stride3;
     size_t src1Stride0, src1Stride1, src1Stride2, src1Stride3;
@@ -72,6 +74,18 @@ TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T
     info.shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
     info.shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
 
+    info.src0shape0 = src0Layout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    info.src0shape1 = src0Layout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    info.src0shape2 = src0Layout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    info.src0shape3 = src0Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    info.src0shape4 = src0Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
+    info.src1shape0 = src1Layout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    info.src1shape1 = src1Layout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    info.src1shape2 = src1Layout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    info.src1shape3 = src1Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    info.src1shape4 = src1Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+
     info.dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
     info.dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
     info.dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
@@ -88,6 +102,17 @@ TILEOP BinaryLayoutInfo ExtractLayoutInfo(const T0& dst, const T1& src0, const T
     info.src1Stride3 = src1Layout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
 
     return info;
+}
+
+TILEOP bool IsEmptyTile(const BinaryLayoutInfo& info)
+{
+    if (info.src0shape0 == 0 || info.src0shape1 == 0 || info.src0shape2 == 0 || info.src0shape3 == 0 || info.src0shape4 == 0) {
+        return true;
+    }
+    if (info.src1shape0 == 0 || info.src1shape1 == 0 || info.src1shape2 == 0 || info.src1shape3 == 0 || info.src1shape4 == 0) {
+        return true;
+    }
+    return false;
 }
 
 #define EXTRACT_LAST_USE_3DIM(LastUse)                                     \
