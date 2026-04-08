@@ -35,9 +35,15 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
 
         if constexpr (TileOp::IsConstContinous<T>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
+#ifdef __LITE_NPU
+            auto srcGlobal = PtoGlobal<U, typename T::Shape, typename U::Stride>(
+                reinterpret_cast<__gm__ typename U::Type*>(src.GetAddr() + gmOffset), dst.GetShape(), src.GetStride())
+                                 .Data();
+#else
             auto srcGlobal = PtoGlobal<U, typename T::Shape, typename U::Stride>(
                 src.GetAddr() + gmOffset, dst.GetShape(), src.GetStride())
                                  .Data();
+#endif
             auto dstTile = PtoTile<T, pto::BLayout::RowMajor, true>().Data();
             pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
             pto::TLOAD(dstTile, srcGlobal);
@@ -49,8 +55,13 @@ __aicore__ inline void TLoad(T dst, U src, C coordinate) {
         for (LoopVar index0 = 0; index0 < dstShape0; ++index0) {
             for (LoopVar index1 = 0; index1 < dstShape1; ++index1) {
                 for (LoopVar index2 = 0; index2 < dstShape2; ++index2) {
+#ifdef __LITE_NPU                    
+                    srcGlobal.Assign(
+                        reinterpret_cast<__gm__ typename U::Type*>(src.GetAddr() + gmOffset + index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2));
+#else
                     srcGlobal.Assign(
                         src.GetAddr() + gmOffset + index0 * srcStride0 + index1 * srcStride1 + index2 * srcStride2);
+#endif
                     auto tileOffsets = TileOffset(index0, index1, index2);
                     dstTile.Assign(dst, tileOffsets);
                     pto::TLOAD(dstTile.Data(), srcGlobal.Data());
@@ -77,9 +88,15 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
 
         if constexpr (TileOp::IsConstContinous<U>() == true) {
             // 对于静态整块场景，将UB合成二维，GM保持五维
+#ifdef __LITE_NPU 
+            auto dstGlobal = PtoGlobal<T, typename U::Shape, typename T::Stride>(
+                reinterpret_cast<__gm__ typename U::Type*>(dst.GetAddr() + gmOffset), src.GetShape(), dst.GetStride())
+                                 .Data();
+#else
             auto dstGlobal = PtoGlobal<T, typename U::Shape, typename T::Stride>(
                 dst.GetAddr() + gmOffset, src.GetShape(), dst.GetStride())
                                  .Data();
+#endif
             auto srctTile = PtoTile<U, pto::BLayout::RowMajor, true>().Data();
             pto::TASSIGN(srctTile, (uint64_t)src.GetAddr());
             pto::TSTORE(dstGlobal, srctTile);
@@ -91,8 +108,13 @@ __aicore__ inline void TStore(T dst, U src, C coordinate) {
         for (LoopVar index0 = 0; index0 < srcShape0; ++index0) {
             for (LoopVar index1 = 0; index1 < srcShape1; ++index1) {
                 for (LoopVar index2 = 0; index2 < srcShape2; ++index2) {
+#ifdef __LITE_NPU
+                    dstGlobal.Assign(
+                        reinterpret_cast<__gm__ typename U::Type*>(dst.GetAddr() + gmOffset + index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2));
+#else
                     dstGlobal.Assign(
                         dst.GetAddr() + gmOffset + index0 * dstStride0 + index1 * dstStride1 + index2 * dstStride2);
+#endif
                     auto tileOffsets = TileOffset(index0, index1, index2);
                     srctTile.Assign(src, tileOffsets);
                     pto::TSTORE(dstGlobal.Data(), srctTile.Data());
