@@ -13,7 +13,7 @@ import torch
 import torch_npu
 import pypto_block.frontend as fe
 import pypto_block.language as pl
-import pypto_block.language.manual as plm
+import pypto_block.language.op.manual as plm
 
 
 @fe.kernel(auto_sync=False)

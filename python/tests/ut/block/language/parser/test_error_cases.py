@@ -11,7 +11,7 @@
 
 import pypto_block
 import pypto_block.language as pl
-import pypto_block.language.manual as plm
+import pypto_block.language.op.manual as plm
 import pytest
 from pypto_block.language.parser.diagnostics import (
     InvalidOperationError,

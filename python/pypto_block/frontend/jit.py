@@ -842,6 +842,7 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
         f"-I{ASCEND_HOME_PATH}/pkg_inc/profiling",
         f"-I{ASCEND_HOME_PATH}/include/experiment/runtime",
         f"-I{ASCEND_HOME_PATH}/include/experiment/msprof",
+        f"-I{ASCEND_HOME_PATH}/pkg_inc/runtime/runtime",
     ]
     llvm_args = [
         "-mllvm", "-cce-aicore-stack-size=0x8000",

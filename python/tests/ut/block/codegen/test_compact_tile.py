@@ -17,7 +17,7 @@ Covers:
 """
 
 import pypto_block.language as pl
-import pypto_block.language.manual as plm
+import pypto_block.language.op.manual as plm
 import pytest
 from pypto_block import DataType, backend
 from pypto_block.backend import BackendType
