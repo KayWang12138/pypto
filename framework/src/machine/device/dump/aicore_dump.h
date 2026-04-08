@@ -121,17 +121,19 @@ public:
     uint64_t dataSize_{0};
     void Init(DevStartArgs* startArgs, int schedIdx)
     {
-        auto devProg = startArgs->devProg;
-        auto deviceArgs = &devProg->devArgs;
-        SetHostPid(deviceArgs->hostPid);
-        if (enableDump_) {
-            deviceId_ = deviceArgs->deviceId;
-            uint64_t baseAddr = startArgs->contextWorkspaceAddr;
-            baseAddr += devProg->memBudget.aicoreSpilled + devProg->memBudget.tensor.Total() +
-                        devProg->memBudget.debug.dumpTensor;
+        if (startArgs->devProg->devArgs.hostPid != 0) {
+            auto devProg = startArgs->devProg;
+            auto deviceArgs = &devProg->devArgs;
+            SetHostPid(deviceArgs->hostPid);
+            if (enableDump_) {
+                deviceId_ = deviceArgs->deviceId;
+                uint64_t baseAddr = startArgs->contextWorkspaceAddr;
+                baseAddr += devProg->memBudget.aicoreSpilled + devProg->memBudget.tensor.Total() +
+                            devProg->memBudget.debug.dumpTensor;
 
-            dataAddr = baseAddr + schedIdx * DEV_DUMP_DATA_SIZE;
-            DEV_DEBUG("DataAddr=%#lx.", dataAddr);
+                dataAddr = baseAddr + schedIdx * DEV_DUMP_DATA_SIZE;
+                DEV_DEBUG("DataAddr=%#lx.", dataAddr);
+            }
         }
     }
 
