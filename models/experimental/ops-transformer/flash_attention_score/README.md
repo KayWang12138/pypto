@@ -415,8 +415,5 @@ AscendC 文档要求 `drop_mask` 使用 UINT8 类型，但 PyPTO 实现中使用
 ---
 
 ## 参考资料
-
-- [AscendC FlashAttentionScore 文档](../../../ops-transformer/attention/flash_attention_score/README.md)
-- [UPGRADE_PLAN.md](./UPGRADE_PLAN.md) - 详细功能规划
 - [Online Softmax 论文](https://arxiv.org/abs/2006.04768)
 - [Flash Attention 论文](https://arxiv.org/abs/2205.14135)
