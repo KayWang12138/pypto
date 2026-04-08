@@ -29,6 +29,45 @@ bool IsSupportedPartialWriteProducer(const Operation &op)
     return op.GetOpcode() == Opcode::OP_ASSEMBLE || op.GetOpcode() == Opcode::OP_L0C_TO_L1 ||
         IsAllocOpCode(op.GetOpcode());
 }
+
+Status GetPartialWriteReplayAttr(Operation* producerOp, std::vector<int64_t> &toOffset,
+    std::vector<SymbolicScalar> &toDynOffset, std::vector<SymbolicScalar> &fromDynValidShape)
+{
+    if (producerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        auto attr = std::static_pointer_cast<AssembleOpAttribute>(producerOp->GetOpAttribute());
+        if (attr == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Invalid AssembleOpAttribute.");
+            return FAILED;
+        }
+        toOffset = attr->GetToOffset();
+        toDynOffset = attr->GetToDynOffset();
+        fromDynValidShape = attr->GetFromDynValidShape();
+        return SUCCESS;
+    }
+    if (producerOp->GetOpcode() != Opcode::OP_L0C_TO_L1) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Unsupported producer opcode in SpillParticalBuffer.");
+        return FAILED;
+    }
+
+    auto attr = std::static_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
+    if (attr == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid CopyOpAttribute.");
+        return FAILED;
+    }
+    auto iOperand = producerOp->GetInputOperand(0);
+    for (const auto &offsetImm : attr->GetToOffset()) {
+        if (!offsetImm.IsSpecified() || !offsetImm.GetSpecifiedValue().ConcreteValid()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "L0C_TO_L1 replay only supports static concrete toOffset.");
+            return FAILED;
+        }
+        toOffset.push_back(static_cast<int64_t>(offsetImm.GetSpecifiedValue()));
+    }
+    fromDynValidShape = iOperand->GetDynValidShape();
+    if (fromDynValidShape.empty() && !attr->GetToDynValidShape().empty()) {
+        fromDynValidShape = OpImmediate::ToSpecified(attr->GetToDynValidShape());
+    }
+    return SUCCESS;
+}
 } // namespace
 
 OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(
@@ -866,8 +905,7 @@ void OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& b
 }
 
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(
-    LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor, SpillInfo& spillInfo,
-    const std::vector<int64_t> &toOffset)
+    LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor, const std::vector<int64_t> &toOffset)
 {
     LogicalTensorPtr localTensor =
         std::make_shared<LogicalTensor>(function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
@@ -910,61 +948,6 @@ Operation* OoOScheduler::UpdateIssueAttr(Operation &newOp, std::vector<int> memI
 }
 
 namespace {
-struct ProducerOffsetInfo {
-    std::vector<int64_t> toOffset;
-    std::vector<SymbolicScalar> toDynOffset;
-    std::vector<SymbolicScalar> fromDynValidShape;
-};
-
-Status ExtractAssembleOffsetInfo(Operation* producerOp, ProducerOffsetInfo &info)
-{
-    auto attr = std::static_pointer_cast<AssembleOpAttribute>(producerOp->GetOpAttribute());
-    if (attr == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Invalid AssembleOpAttribute.");
-        return FAILED;
-    }
-    info.toOffset = attr->GetToOffset();
-    info.toDynOffset = attr->GetToDynOffset();
-    info.fromDynValidShape = attr->GetFromDynValidShape();
-    return SUCCESS;
-}
-
-Status ExtractL0CToL1OffsetInfo(Operation* producerOp, ProducerOffsetInfo &info)
-{
-    auto attr = std::static_pointer_cast<CopyOpAttribute>(producerOp->GetOpAttribute());
-    if (attr == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Invalid CopyOpAttribute.");
-        return FAILED;
-    }
-    info.toOffset.reserve(attr->GetToOffset().size());
-    for (const auto &offsetImm : attr->GetToOffset()) {
-        if (!offsetImm.IsSpecified() || !offsetImm.GetSpecifiedValue().ConcreteValid()) {
-            APASS_LOG_ERROR_F(Elements::Operation,
-                "L0C_TO_L1 replay only supports static concrete toOffset.");
-            return FAILED;
-        }
-        info.toOffset.push_back(static_cast<int64_t>(offsetImm.GetSpecifiedValue()));
-    }
-    auto iOperand = producerOp->GetInputOperand(0);
-    info.fromDynValidShape = iOperand->GetDynValidShape();
-    if (info.fromDynValidShape.empty() && !attr->GetToDynValidShape().empty()) {
-        info.fromDynValidShape = OpImmediate::ToSpecified(attr->GetToDynValidShape());
-    }
-    return SUCCESS;
-}
-
-Status ExtractProducerOffsetInfo(Operation* producerOp, ProducerOffsetInfo &info)
-{
-    if (producerOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
-        return ExtractAssembleOffsetInfo(producerOp, info);
-    }
-    if (producerOp->GetOpcode() == Opcode::OP_L0C_TO_L1) {
-        return ExtractL0CToL1OffsetInfo(producerOp, info);
-    }
-    APASS_LOG_ERROR_F(Elements::Operation, "Unsupported producer opcode in SpillParticalBuffer.");
-    return FAILED;
-}
-
 Operation* FindAllocForAssembleProducers(const std::vector<Operation*> &assembleOps)
 {
     for (auto *op : assembleOps) {
@@ -982,17 +965,17 @@ Operation* FindAllocForAssembleProducers(const std::vector<Operation*> &assemble
 } // namespace
 
 Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, Operation* producerOp,
-    LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill) {
+    LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill)
+{
     auto iOperand = producerOp->GetInputOperand(0);
-    ProducerOffsetInfo offsetInfo;
-    if (ExtractProducerOffsetInfo(producerOp, offsetInfo) != SUCCESS) {
+    std::vector<int64_t> toOffset;
+    std::vector<SymbolicScalar> toDynOffset, fromDynValidShape;
+    if (GetPartialWriteReplayAttr(producerOp, toOffset, toDynOffset, fromDynValidShape) != SUCCESS) {
         return FAILED;
     }
-    LogicalTensorPtr localTensor = CreateAssemblePartTensor(iOperand, assembleTensor, spillInfo, offsetInfo.toOffset);
+    LogicalTensorPtr localTensor = CreateAssemblePartTensor(iOperand, assembleTensor, toOffset);
     int bufNextUseOrder = GetBufNextUseOrder(allocOp, spillInfo.spillMemId_);
-    if (bufNextUseOrder == -1) {
-        return FAILED;
-    }
+    if (bufNextUseOrder == -1) return FAILED;
     if (isFirst) {
         Opcode allocOpCode = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ?
             Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
@@ -1011,8 +994,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     spillCopyInOp.SetAttr(OpAttributeKey::copyIsNZ, isNZ);
     spillCopyInOp.SetAttr(OpAttributeKey::workspaceBaseOffset, base);
     spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified(offsetInfo.toOffset), localTensor->GetMemoryTypeOriginal(),
-        OpImmediate::Specified(spillInfo.ddrTensor_->GetShape()),
+        OpImmediate::Specified(toOffset), localTensor->GetMemoryTypeOriginal(), OpImmediate::Specified(spillInfo.ddrTensor_->GetShape()),
         OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
     if (UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
@@ -1023,7 +1005,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
-        localTensor->GetMemoryTypeOriginal(), offsetInfo.toOffset, offsetInfo.toDynOffset, offsetInfo.fromDynValidShape));
+        localTensor->GetMemoryTypeOriginal(), toOffset, toDynOffset, fromDynValidShape));
     assembleOp.SetAttr(OpAttributeKey::copyIsNZ, isNZ);
     assembleOp.UpdateLatency(1);
     UpdateIssueAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId},
