@@ -11,12 +11,16 @@ PYPTO_DIR="${TARGET_DIR}/pypto_${TIMESTAMP}"
 # opencode工具路径（从~/.opencode查找）
 OPENCODE_BIN="${HOME_DIR}/.opencode/bin/opencode"
 
+# 源skill目录（优先使用环境变量，默认值为 ~/pypto_monitor）
+PYPTO_SKILL_SOURCE_DIR="${PYPTO_SKILL_SOURCE_DIR:-${HOME_DIR}/pypto_monitor}"
+
 echo "========================================"
 echo "Skill Monitor Test Script"
 echo "========================================"
 echo "  Timestamp: ${TIMESTAMP}"
 echo "  Target Dir: ${TARGET_DIR}"
 echo "  PyPTO Dir: ${PYPTO_DIR}"
+echo "  Skill Source: ${PYPTO_SKILL_SOURCE_DIR}"
 echo "========================================"
 echo ""
 
@@ -42,6 +46,51 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+echo ""
+echo "Step 2.5: Copying required skills from source directory..."
+# 检查源skill目录是否存在
+if [[ ! -d "${PYPTO_SKILL_SOURCE_DIR}" ]]; then
+    echo "[ERROR] Skill source directory not found: ${PYPTO_SKILL_SOURCE_DIR}"
+    echo "[INFO] Please set PYPTO_SKILL_SOURCE_DIR environment variable to the directory containing:"
+    echo "       - pypto-skill-reviewer"
+    echo "       - skill-validation-prompt"
+    echo "[INFO] Example: export PYPTO_SKILL_SOURCE_DIR=/data/x00952168/pypto_monitor"
+    exit 1
+fi
+
+# 定义需要复制的skill
+REQUIRED_SKILLS=("pypto-skill-reviewer" "skill-validation-prompt")
+
+# 检查并复制每个skill
+for skill_name in "${REQUIRED_SKILLS[@]}"; do
+    source_skill="${PYPTO_SKILL_SOURCE_DIR}/.agents/skills/${skill_name}"
+    target_skill="${PYPTO_DIR}/.agents/skills/${skill_name}"
+    
+    if [[ ! -d "${source_skill}" ]]; then
+        echo "[ERROR] Required skill not found: ${skill_name}"
+        echo "[ERROR] Expected at: ${source_skill}"
+        exit 1
+    fi
+    
+    # 创建目标目录父级
+    mkdir -p "${PYPTO_DIR}/.agents/skills"
+    
+    # 如果目标已存在，先删除再复制（避免嵌套）
+    if [[ -d "${target_skill}" ]]; then
+        rm -rf "${target_skill}"
+    fi
+    
+    # 复制skill
+    cp -r "${source_skill}" "${PYPTO_DIR}/.agents/skills/"
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Failed to copy ${skill_name}"
+        exit 1
+    fi
+    
+    echo "  ✓ Copied ${skill_name}"
+done
+
+echo ""
 echo "Step 3: Verifying required resources..."
 # 检查opencode工具
 if [[ ! -f "${OPENCODE_BIN}" ]]; then
@@ -59,18 +108,7 @@ else
     echo "  ✓ Found opencode at ${OPENCODE_BIN}"
 fi
 
-# 检查pypto仓库中的必需skill
-echo "  Checking required skills in pypto repository..."
-REQUIRED_SKILLS=("pypto-skill-reviewer" "skill-validation-prompt")
-for skill in "${REQUIRED_SKILLS[@]}"; do
-    skill_dir="${PYPTO_DIR}/.agents/skills/${skill}"
-    if [[ ! -d "${skill_dir}" ]]; then
-        echo "[ERROR] Required skill ${skill} not found in cloned pypto repository"
-        exit 1
-    fi
-    echo "  ✓ Found ${skill}"
-done
-
+echo ""
 echo "Done! PyPTO directory: ${PYPTO_DIR}"
 echo ""
 
@@ -110,7 +148,8 @@ SKILL_STR=$(IFS=,; echo "${SKILL_LIST[@]}")
 echo "  Starting Task 1 Round 1 (timeout: 30 minutes)..."
 START_TIME=$(date +%s)
 
-timeout 1800 "${OPENCODE_BIN}" run "对所有以下skill调用/skill-validation-prompt：${SKILL_STR}
+# 使用--foreground选项确保timeout正确处理后台进程
+timeout --foreground 1800 "${OPENCODE_BIN}" run "对所有以下skill调用/skill-validation-prompt：${SKILL_STR}
 
 重要要求：
 1. 对每个skill，先创建目录：mkdir -p ./skill_check_report/{skill名}
@@ -120,6 +159,7 @@ timeout 1800 "${OPENCODE_BIN}" run "对所有以下skill调用/skill-validation-
 5. 不要在当前工作目录下直接生成文件" --model zhipuai-coding-plan/glm-5 > "${PYPTO_DIR}/task1_batch.log" 2>&1
 
 TASK1_EXIT_CODE=$?
+echo "  Task 1 Round 1 finished with exit code: $TASK1_EXIT_CODE"
 ELAPSED_TIME=$(( $(date +%s) - START_TIME ))
 
 if [ $TASK1_EXIT_CODE -eq 124 ]; then
@@ -138,7 +178,7 @@ echo "========================================"
 
 MISSING_VALIDATION_SKILLS=()
 for skill_name in "${SKILL_LIST[@]}"; do
-    validation_file="${PYPTO_DIR}/skill_check_report/${skill_name}/validation.md"
+    validation_file="./skill_check_report/${skill_name}/validation.md"
     if [[ ! -f "${validation_file}" ]]; then
         MISSING_VALIDATION_SKILLS+=("${skill_name}")
         echo "  - Missing: ${skill_name}"
@@ -156,7 +196,7 @@ else
     MISSING_SKILL_STR=$(IFS=,; echo "${MISSING_VALIDATION_SKILLS[@]}")
     START_TIME=$(date +%s)
     
-    timeout 1800 "${OPENCODE_BIN}" run "对所有以下skill调用/skill-validation-prompt：${MISSING_SKILL_STR}
+    timeout --foreground 1800 "${OPENCODE_BIN}" run "对所有以下skill调用/skill-validation-prompt：${MISSING_SKILL_STR}
 
 重要要求：
 1. 对每个skill，先创建目录：mkdir -p ./skill_check_report/{skill名}（如果已存在则忽略）
@@ -166,6 +206,7 @@ else
 5. 不要在当前工作目录下直接生成文件" --model zhipuai-coding-plan/glm-5 > "${PYPTO_DIR}/task1_batch_round2.log" 2>&1
     
     TASK1_R2_EXIT_CODE=$?
+    echo "  Task 1 Round 2 finished with exit code: $TASK1_R2_EXIT_CODE"
     ELAPSED_TIME=$(( $(date +%s) - START_TIME ))
     
     if [ $TASK1_R2_EXIT_CODE -eq 124 ]; then
@@ -179,7 +220,7 @@ else
     # Final check: report which skills still missing validation.md
     STILL_MISSING=0
     for skill_name in "${MISSING_VALIDATION_SKILLS[@]}"; do
-        validation_file="${PYPTO_DIR}/skill_check_report/${skill_name}/validation.md"
+        validation_file="./skill_check_report/${skill_name}/validation.md"
         if [[ ! -f "${validation_file}" ]]; then
             echo "  [WARNING] ${skill_name}: validation.md still missing after Round 2"
             STILL_MISSING=$((STILL_MISSING + 1))
@@ -257,12 +298,12 @@ for skill_name in "${SKILL_LIST[@]}"; do
     echo "  Task4 PID: $TASK4_PID (execution_report.md)"
     
     if [ "$TASK2_SKIPPED" = true ]; then
-        echo "  Waiting for Task 4 to complete (timeout: 15 minutes)..."
+        echo "  Waiting for Task 4 to complete (timeout: 30 minutes)..."
     else
-        echo "  Waiting for both tasks to complete (timeout: 15 minutes)..."
+        echo "  Waiting for both tasks to complete (timeout: 30 minutes)..."
     fi
     
-    TIMEOUT_SECONDS=900
+    TIMEOUT_SECONDS=1800
     START_TIME=$(date +%s)
     TIMEOUT_OCCURRED=false
     
@@ -288,7 +329,7 @@ for skill_name in "${SKILL_LIST[@]}"; do
         ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
         
         if [ $ELAPSED_TIME -ge $TIMEOUT_SECONDS ]; then
-            echo "  [TIMEOUT] Tasks exceeded 15 minutes for ${skill_name}"
+            echo "  [TIMEOUT] Tasks exceeded 30 minutes for ${skill_name}"
             if [ "$TASK2_SKIPPED" = false ] && [ "$TASK2_RUNNING" = true ]; then
                 echo "    Killing Task2 PGID $TASK2_PGID..."
                 kill -9 -$TASK2_PGID 2>/dev/null || true
@@ -344,11 +385,12 @@ echo "========================================"
 echo "  Starting Task 3 (timeout: 30 minutes)..."
 START_TIME=$(date +%s)
 
-timeout 1800 "${OPENCODE_BIN}" run "对./skill_check_report下各个skill的两个检查报告(execution_report.md和review.md)进行如下操作：汇总信息 -> 归纳优化点 -> 优化点去重 -> 优化点重要性排序 -> 优化点修改建议生成 -> 生成清单md文件。
+timeout --foreground 1800 "${OPENCODE_BIN}" run "对./skill_check_report下各个skill的两个检查报告(execution_report.md和review.md)进行如下操作：汇总信息 -> 归纳优化点 -> 优化点去重 -> 优化点重要性排序 -> 优化点修改建议生成 -> 生成清单md文件。
 
 重要说明：部分skill可能因超时或其他原因导致报告文件缺失（execution_report.md或review.md），这没关系。请先扫描./skill_check_report下各个skill目录，检查哪些报告文件存在，哪些缺失。对于缺失的报告，在清单md文件中单独标注为'报告缺失'即可，不要报错或中断处理。只对实际存在的报告文件进行汇总和分析。" --model zhipuai-coding-plan/glm-5
 
 TASK3_EXIT_CODE=$?
+echo "  Task 3 finished with exit code: $TASK3_EXIT_CODE"
 ELAPSED_TIME=$(( $(date +%s) - START_TIME ))
 
 if [ $TASK3_EXIT_CODE -eq 124 ]; then
