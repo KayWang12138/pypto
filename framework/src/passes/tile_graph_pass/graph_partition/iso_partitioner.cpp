@@ -121,15 +121,15 @@ Status IsoPartitioner::BuildIsomorphismGroups()
         int32_t currIdx = zeroInQueue[0];
         zeroInQueue.pop_front();
         uint64_t hs = superNodeInfo_->nodeHashList_[currIdx];
-        std::vector<int32_t>& expandCandidate = superNodeInfo_->hash2NodeMap_[hs];
-        bool isLegalStart = true;
-        for (size_t i = 0; i < expandCandidate.size(); i++) {
-            if (idxInLinkNum[expandCandidate[i]] != 0 || currentNodeSet.count(expandCandidate[i]) > 0) {
-                isLegalStart = false;
-                break;
+        const std::vector<int32_t>& hashCandidates = superNodeInfo_->hash2NodeMap_[hs];
+        std::vector<int32_t> expandCandidate;
+        expandCandidate.reserve(hashCandidates.size());
+        for (int32_t candidate : hashCandidates) {
+            if (idxInLinkNum[candidate] == 0 && currentNodeSet.count(candidate) == 0) {
+                expandCandidate.push_back(candidate);
             }
         }
-        if (!isLegalStart) {
+        if (expandCandidate.empty()) {
             continue;
         }
         std::shared_ptr<IsomorphismGraphGroup> currentGraphGroup = std::make_shared<IsomorphismGraphGroup>();
@@ -270,9 +270,8 @@ bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(
     if (!superNodeInfo_->nodeMergeable_[expandCandidate[0]]) {
         return false;
     }
-    if (superNodeInfo_->hash2NodeMap_[superNodeInfo_->nodeHashList_[expandCandidate[0]]].size() != isoGraphs_.size()) {
-        return false;
-    }
+    // The initial isomorphism group may start from the currently ready subset of same-hash supernodes.
+    // Do not require the full same-hash bucket to be ready before expanding this group.
     for (size_t i = 0; i < expandCandidate.size(); i++) {
         int32_t candidate = expandCandidate[i];
         if (idxInLinkNum[candidate] != 0) {
