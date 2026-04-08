@@ -274,6 +274,22 @@ static void Expm1(const TensorData& out, const TensorData& self)
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Sinh(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::sinh_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Cosh(const TensorData& out, const TensorData& self)
+{
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::cosh_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Neg(const TensorData& out, const TensorData& self)
 {
     auto tout = From(out);
@@ -2523,6 +2539,8 @@ static struct CalcOps calcOps = {
     .Exp = Exp,
     .Exp2 = Exp2,
     .Expm1 = Expm1,
+    .Sinh = Sinh,
+    .Cosh = Cosh,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,

@@ -109,6 +109,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_ABS, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_LN, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_BRCB, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_COSH, [this]() { return GenUnaryOp(); }},
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -130,6 +131,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGNBIT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_SINH, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations

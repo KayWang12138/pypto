@@ -391,6 +391,14 @@ void OpcodeManager::RegisterVectorUnary()
         Opcode::OP_SIGNBIT, OpCoreType::AIV, "SIGNBIT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Tsignbit", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_SINH, OpCoreType::AIV, "SINH", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::TSinh", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_COSH, OpCoreType::AIV, "COSH", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TCosh", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorSort()
@@ -1309,6 +1317,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_COPYSIGN, "TCopysign"},
     {Opcode::OP_FLOORDIV, "TFloorDiv"},
     {Opcode::OP_FLOORDIVS, "TFloorDivS"},
+    {Opcode::OP_SINH, "TSinh"},
+    {Opcode::OP_COSH, "TCosh"},
     {Opcode::OP_L1_TO_L0A, "TExtract"},
     {Opcode::OP_L1_TO_L0B, "TExtract"},
     {Opcode::OP_L1_TO_L0_AT, "TExtract"},

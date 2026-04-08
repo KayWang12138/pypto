@@ -98,6 +98,8 @@ enum class Opcode {
     OP_SBITWISELEFTSHIFT,
     OP_BITWISENOT,
     OP_COPYSIGN,
+    OP_SINH,
+    OP_COSH,
     // Binary Vector
     OP_ADD,
     OP_SUB,
@@ -606,7 +608,9 @@ const std::unordered_set<Opcode> UNARY_OPS{
     Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_PAD,       Opcode::OP_FILLPAD,     Opcode::OP_ROWSUM,
     Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM,  Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1,    Opcode::OP_COPY_UB_TO_UB,
     Opcode::OP_ROUND,  Opcode::OP_ROWSUMLINE, Opcode::OP_ABS,       Opcode::OP_LN,          Opcode::OP_ISFINITE,
-    Opcode::OP_HUB,    Opcode::OP_BITWISENOT, Opcode::OP_SIGN,      Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
+    Opcode::OP_HUB,    Opcode::OP_BITWISENOT, Opcode::OP_SIGN,      Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT,
+    Opcode::OP_COSH
+};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_COMPACT,
@@ -620,7 +624,9 @@ const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_ROWARGMINLINE,
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,
-    Opcode::OP_ROWPROD_SINGLE};
+    Opcode::OP_ROWPROD_SINGLE,
+    Opcode::OP_SINH
+};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS,
@@ -904,7 +910,9 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_ROWARGMAXLINE,
     Opcode::OP_ROWPRODLINE,
     Opcode::OP_FLOORDIV,
-    Opcode::OP_FLOORDIVS};
+    Opcode::OP_FLOORDIVS,
+    Opcode::OP_SINH,
+    Opcode::OP_COSH};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{
     Opcode::OP_INDEX_ADD,
