@@ -307,6 +307,86 @@ TEST_F(TestCodegenUnary, TestVecDupUnaligned)
     codeGen.GenCode(*function, {});
 }
 
+TEST_F(TestCodegenUnary, TestVecDupInt8)
+{
+    std::vector<int64_t> shape{32, 1, 32};
+    Element src(DataType::DT_INT8, static_cast<int8_t>(2));
+    std::string funcName = "VECDUP_INT8";
+    TileShape::Current().SetVecTile({16, 1, 16});
+
+    Tensor output(DataType::DT_INT8, shape, "C");
+    FUNCTION(funcName, {output}) { output = npu::tile_fwk::Full(src, DT_INT8, shape); }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenUnary, TestVecDupInt16)
+{
+    std::vector<int64_t> shape{32, 1, 32};
+    Element src(DataType::DT_INT16, static_cast<int16_t>(2));
+    std::string funcName = "VECDUP_INT16";
+    TileShape::Current().SetVecTile({16, 1, 16});
+
+    Tensor output(DataType::DT_INT16, shape, "C");
+    FUNCTION(funcName, {output}) { output = npu::tile_fwk::Full(src, DT_INT16, shape); }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenUnary, TestVecDupUInt8)
+{
+    std::vector<int64_t> shape{32, 1, 32};
+    Element src(DataType::DT_UINT8, static_cast<uint8_t>(2));
+    std::string funcName = "VECDUP_UINT8";
+    TileShape::Current().SetVecTile({16, 1, 16});
+
+    Tensor output(DataType::DT_UINT8, shape, "C");
+    FUNCTION(funcName, {output}) { output = npu::tile_fwk::Full(src, DT_UINT8, shape); }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenUnary, TestVecDupUInt16)
+{
+    std::vector<int64_t> shape{32, 1, 32};
+    Element src(DataType::DT_UINT16, static_cast<uint16_t>(2));
+    std::string funcName = "VECDUP_UINT16";
+    TileShape::Current().SetVecTile({16, 1, 16});
+
+    Tensor output(DataType::DT_UINT16, shape, "C");
+    FUNCTION(funcName, {output}) { output = npu::tile_fwk::Full(src, DT_UINT16, shape); }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenUnary, TestVecDupUInt32)
+{
+    std::vector<int64_t> shape{32, 1, 32};
+    Element src(DataType::DT_UINT32, static_cast<uint32_t>(2));
+    std::string funcName = "VECDUP_UINT32";
+    TileShape::Current().SetVecTile({16, 1, 16});
+
+    Tensor output(DataType::DT_UINT32, shape, "C");
+    FUNCTION(funcName, {output}) { output = npu::tile_fwk::Full(src, DT_UINT32, shape); }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
 TEST_F(TestCodegenUnary, TestRowMaxLine)
 {
     config::SetBuildStatic(true);
