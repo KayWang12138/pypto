@@ -324,9 +324,10 @@ public:
         }
 
         WrapInfoQueueLock(readyWrapCoreFunctionQue_);
+        head = readyWrapCoreFunctionQue_->head;
 #ifdef NO_EARLY_SEND_TASK
         uint32_t taskCount = 0;
-        for (uint32_t i = readyWrapCoreFunctionQue_->head; i < readyWrapCoreFunctionQue_->tail; i++) {
+        for (uint32_t i = head; i < readyWrapCoreFunctionQue_->tail; i++) {
             WrapInfo* info = &readyWrapCoreFunctionQue_->elem[i];
             bool isC1V1Ready =
                 (info->mixResourceType == static_cast<uint8_t>(MixResourceType::MIX_1C1V) &&
@@ -336,14 +337,12 @@ public:
                  info->tasklist[0] != AICORE_TASK_INIT && info->tasklist[1] != AICORE_TASK_INIT &&
                  info->tasklist[2] != AICORE_TASK_INIT); // 2:v1 index
             if (isC1V1Ready || isC1V2Ready) {
-                std::swap(readyWrapCoreFunctionQue_->elem[i], readyWrapCoreFunctionQue_->elem[taskCount]);
+                std::swap(readyWrapCoreFunctionQue_->elem[i], readyWrapCoreFunctionQue_->elem[head + taskCount]);
                 taskCount++;
             }
         }
 #else
-        head = __atomic_load_n(&readyWrapCoreFunctionQue_->head, __ATOMIC_RELAXED);
-        tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_RELAXED);
-        uint32_t taskCount = tail - head;
+        uint32_t taskCount = readyWrapCoreFunctionQue_->tail - head;
 #endif
         if (taskCount == 0) {
             DEV_VERBOSE_DEBUG("mixcore taskCount is zero.");
@@ -368,7 +367,7 @@ public:
         }
         uint32_t valid1c1vCnt = maxReadyCnt - taskTail;
         uint32_t validReadyCnt = taskHead + valid1c1vCnt;
-        __atomic_fetch_add(&readyWrapCoreFunctionQue_->head, validReadyCnt, std::memory_order_release);
+        readyWrapCoreFunctionQue_->head += validReadyCnt;
         WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
 
         WrapInfo** task1c1vPtr = localTasks + taskTail;
@@ -464,30 +463,44 @@ public:
         return true;
     }
 
+    inline WrapInfo* findWrapInfo(uint32_t start, uint32_t end, uint32_t wrapId)
+    {
+        for (uint32_t idx = start; idx < end; idx++) {
+            if (readyWrapCoreFunctionQue_->elem[idx].wrapId == wrapId) {
+                return &readyWrapCoreFunctionQue_->elem[idx];
+            }
+        }
+        return nullptr;
+    }
+
     inline void PushTaskToTasklist(uint32_t wrapId, uint32_t taskId, uint32_t taskIdx)
     {
-        WrapInfo* wrapInfo = nullptr;
-        WrapInfoQueueLock(readyWrapCoreFunctionQue_);
-        for (uint32_t idx = 0; idx < readyWrapCoreFunctionQue_->tail; idx++) {
-            if (readyWrapCoreFunctionQue_->elem[idx].wrapId == wrapId) {
-                wrapInfo = &readyWrapCoreFunctionQue_->elem[idx];
-                break;
-            }
+        uint32_t tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_RELAXED);
+        WrapInfo* wrapInfo = findWrapInfo(0, tail, wrapId);
+        if (wrapInfo != nullptr) {
+            wrapInfo->tasklist[taskIdx] = taskId;
+            return;
         }
 
-        if (wrapInfo == nullptr) {
-            // add a new wrapinfo
-            wrapInfo = &readyWrapCoreFunctionQue_->elem[readyWrapCoreFunctionQue_->tail];
-            wrapInfo->wrapId = wrapId;
-            wrapInfo->mixResourceType = GetMixResourceType(taskId);
-            for (uint32_t i = 0; i < MAX_WRAP_TASK_NUM; i++) {
-                wrapInfo->tasklist[i] = AICORE_TASK_INIT;
-                wrapInfo->aicoreIdxList[i] = 0;
-            }
-            __atomic_fetch_add(&readyWrapCoreFunctionQue_->tail, 1, std::memory_order_release);
+        WrapInfoQueueLock(readyWrapCoreFunctionQue_);
+        wrapInfo = findWrapInfo(tail, readyWrapCoreFunctionQue_->tail, wrapId);
+        if (unlikely(wrapInfo != nullptr)) {
+            WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
+            wrapInfo->tasklist[taskIdx] = taskId;
+            return;
         }
+
+        // add a new wrapinfo
+        wrapInfo = &readyWrapCoreFunctionQue_->elem[readyWrapCoreFunctionQue_->tail];
+        readyWrapCoreFunctionQue_->tail += 1;
         WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
 
+        wrapInfo->wrapId = wrapId;
+        wrapInfo->mixResourceType = GetMixResourceType(taskId);
+        for (uint32_t i = 0; i < MAX_WRAP_TASK_NUM; i++) {
+            wrapInfo->tasklist[i] = AICORE_TASK_INIT;
+            wrapInfo->aicoreIdxList[i] = 0;
+        }
         wrapInfo->tasklist[taskIdx] = taskId;
     }
 
@@ -534,14 +547,15 @@ public:
         WrapInfo* wrapInfo = nullptr;
         uint32_t wrapIdx = 0;
         for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            if (reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx])->wrapId == wrapId) {
-                wrapInfo = reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx]);
+            auto tmpInfo = reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx]);
+            if (tmpInfo->wrapId == wrapId) {
+                wrapInfo = tmpInfo;
                 wrapIdx = idx;
                 break;
             }
         }
 
-        if (wrapInfo == nullptr) {
+        if (unlikely(wrapInfo == nullptr)) {
             DEV_ERROR(
                 DevCommonErr::NULLPTR, "#sche.task.run.wrap.dep.resolve: cant find wrapInfo in wrapQueueForThread!");
             return;
@@ -551,8 +565,9 @@ public:
         wrapInfo->tasklist[taskIdx] = AICORE_TASK_STOP;
 
         CoreType coreType = (taskIdx == WRAP_IDX_AIC) ? CoreType::AIC : CoreType::AIV;
-        AddRunReadyCoreIdxForWrap(wrapInfo->aicoreIdxList[taskIdx], coreType); // free wrap core
-        wrapCoreAvail_[wrapInfo->aicoreIdxList[taskIdx]] = true;
+        uint32_t coreIdx = wrapInfo->aicoreIdxList[taskIdx];
+        AddRunReadyCoreIdxForWrap(coreIdx, coreType); // free wrap core
+        wrapCoreAvail_[coreIdx] = true;
 
         if (IsMixTaskFinish(wrapInfo)) { // all tasks for this wrap finish
             DEV_VERBOSE_DEBUG("wrapId %u 's all tasks finish, release wrapcore", wrapId);
