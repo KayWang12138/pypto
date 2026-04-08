@@ -1926,3 +1926,24 @@ def random(
         shape,
         pypto_impl.Element(pypto_impl.DataType.DT_UINT16, rounds)
     )
+
+
+@op_wrapper
+def normal(
+    key: int,
+    counter0: int,
+    counter1: int,
+    shape: List[int],
+    rounds: int = 10
+) -> Tensor:
+    if len(shape) != 1:
+        raise ValueError(f"shape must be 1-dimensional, got {len(shape)} dimensions")
+    if rounds not in [7, 10]:
+        raise ValueError(f"rounds must be 7 or 10, got {rounds}")
+    
+    return pypto.normal(
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, key),
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, counter0),
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, counter1),
+        shape,
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT16, rounds))

@@ -58,7 +58,7 @@ def test_normal_FP32():
         alg=1
     )
 
-    with tf.compat.v1.Session():
+    with tf.compat.v1.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
         expected = sess.run(rnd)
 
