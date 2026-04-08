@@ -153,7 +153,7 @@ LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     std::cout << "dstRank is " << dstRank << " current rank is " << rank_ << ". IsSignal: " << isSignal << std::endl;
     if (dstRank == rank_) {
-        uin8_t *result = isSignal ? ctrlBase_ : dataBase_;
+        uint8_t *result = isSignal ? ctrlBase_ : dataBase_;
         CheckNotNullPtr(result, "base is nullptr!");
     }
 
@@ -166,7 +166,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
 
     auto it = remoteRanks_.find(dstRank);
     if (it != remoteRanks_.end()) {
-        uint8_t result = isSignal ? it->second->ctrlBase : it->second->dataBase;
+        uint8_t *result = isSignal ? it->second->ctrlBase : it->second->dataBase;
         CheckNotNullPtr(result, "found in remoteRanks, but base is nullptr!");
     }
     auto remote = std::make_unique<RemoteRank>();
