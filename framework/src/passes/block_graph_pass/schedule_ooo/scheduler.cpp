@@ -85,7 +85,7 @@ int OoOScheduler::GetOOperandIdx(Operation* op, int curMemId) {
     return -1;
 }
 
-Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill)
+Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp)
 {
     auto memType = localBufferMap[opReqMemIdsMap[allocOp][0]]->memType;
     APASS_LOG_ERROR_F(Elements::Operation, "======== OoO Spill failed info ===========");
@@ -98,7 +98,7 @@ Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill)
 
     APASS_LOG_ERROR_F(Elements::Operation, "---- current buffer occupancy ----");
     auto corePair = opCoreLocationMap[allocOp];
-    if (isGenSpill) {
+    if (!isMainLoopStage_) {
         auto bufferSlices = bufferManagerMap[corePair.first][corePair.second][memType].GetBufferSlices();
         for (auto memId : bufferSlices) {
             auto occupyOp = GetBufLastWriteOp(allocOp, memId);
@@ -107,8 +107,8 @@ Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill)
                 return FAILED;
             }
             APASS_LOG_ERROR_F(
-                Elements::Operation, "Tensor[%d], size:%lu, range[%lu,%lu], last writer:%s. %s", memId, 
-                localBufferMap[memId]->size, localBufferMap[memId]->start, localBufferMap[memId]->end, 
+                Elements::Operation, "Tensor[%d], size:%lu, range[%lu,%lu], last writer:%s. %s", memId,
+                localBufferMap[memId]->size, localBufferMap[memId]->start, localBufferMap[memId]->end,
                 GetOpInfo(occupyOp).c_str(), GetFormatBacktrace(*occupyOp).c_str());
         }
     } else {
@@ -121,8 +121,8 @@ Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill)
                     return FAILED;
                 }
                 APASS_LOG_ERROR_F(
-                    Elements::Operation, "Tensor[%d], size:%lu, range[%lu,%lu], last writer:%s. %s", memId, 
-                    localBufferMap[memId]->size, localBufferMap[memId]->start, localBufferMap[memId]->end, 
+                    Elements::Operation, "Tensor[%d], size:%lu, range[%lu,%lu], last writer:%s. %s", memId,
+                    localBufferMap[memId]->size, localBufferMap[memId]->start, localBufferMap[memId]->end,
                     GetOpInfo(occupyOp).c_str(), GetFormatBacktrace(*occupyOp).c_str());
             }
         }
@@ -254,7 +254,7 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx, bool& didSpi
             if (memType.second.Empty()) {
                 continue;
             }
-            PrintSpillFailedInfo(memType.second.Front(), false);
+            PrintSpillFailedInfo(memType.second.Front());
         }
         APASS_LOG_ERROR_F(
             Elements::Operation,
@@ -1126,12 +1126,14 @@ Status OoOScheduler::Schedule(
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!");
         return FAILED;
     }
-    // 生成spill指令
+    // 生成spill指令（顺序模拟阶段）
+    isMainLoopStage_ = false;
     if (GenSpillSchedule() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "GenSpillSchedule failed!");
         return FAILED;
     }
-    // 模拟调度
+    // 模拟调度（乱序模拟阶段）
+    isMainLoopStage_ = true;
     if (ScheduleMainLoop() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "ScheduleMainLoop failed!");
         return FAILED;
@@ -1363,7 +1365,7 @@ Status OoOScheduler::UpdateRange(int newMemId, size_t offset, MemoryType memType
     return SUCCESS;
 }
 
-Status OoOScheduler::RearrangeBuffers(Operation* op, bool isGenSpillStage, bool &rearrangeUBBF16)
+Status OoOScheduler::RearrangeBuffers(Operation* op, bool &rearrangeUBBF16)
 {
     LocalBufferPtr allocBuffer = localBufferMap[opReqMemIdsMap[op][0]];
     auto corePair = opCoreLocationMap[op];
@@ -1383,7 +1385,7 @@ Status OoOScheduler::RearrangeBuffers(Operation* op, bool isGenSpillStage, bool 
                 "MemId %d localBuffer and rearrangeScheme range donot match, RearrangeBuffers failed.", memId);
             return FAILED;
         }
-        Operation* occupyOp = GetSpillIssue(op, memId, isGenSpillStage);
+        Operation* occupyOp = GetSpillIssue(op, memId);
         if (occupyOp == nullptr) {
             APASS_LOG_WARN_F(Elements::Operation, "OccupyOp is nullptr, RearrangeBuffers failed. %s", GetFormatBacktrace(*op).c_str());
             return FAILED;
@@ -1395,7 +1397,7 @@ Status OoOScheduler::RearrangeBuffers(Operation* op, bool isGenSpillStage, bool 
         }
         // GenSpillStage阶段的内存整理不需要插入搬运节点
         // ScheduleMainLoop阶段如果是alloc占有的tensor不需要插入搬运节点
-        if (isGenSpillStage || occupyOp->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+        if (!isMainLoopStage_ || occupyOp->GetOpcodeStr().find("ALLOC") != std::string::npos) {
             if (bufferManager.ModifyBufferRange(targetBufferPtr, offset) != SUCCESS) {
                 APASS_LOG_WARN_F(Elements::Tensor, "RearrangeBuffers failed at ModifyBufferRange.");
                 return FAILED;
