@@ -26,6 +26,7 @@ FlashAttentionScoreGrad Golden 参考实现
 """
 
 import logging
+from dataclasses import dataclass
 from typing import Tuple
 
 import torch
@@ -33,6 +34,32 @@ import torch
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
+
+
+@dataclass
+class ForwardDataConfig:
+    """Configuration for generating forward data."""
+
+    batch_size: int
+    num_heads: int
+    seq_len: int
+    head_dim: int
+    dtype: torch.dtype = torch.bfloat16
+    device: str = 'cpu'
+
+
+@dataclass
+class ForwardDataResult:
+    """Result from generate_forward_data."""
+
+    q: torch.Tensor
+    k: torch.Tensor
+    v: torch.Tensor
+    dy: torch.Tensor
+    softmax_max: torch.Tensor
+    softmax_sum: torch.Tensor
+    attention_out: torch.Tensor
+    scale: float
 
 
 class AttentionGradInputs:
@@ -96,106 +123,102 @@ def flash_attention_score_grad_golden(
     return dq_out.to(orig_dtype), dk_out.to(orig_dtype), dv_out.to(orig_dtype)
 
 
-def generate_forward_data(
-        batch_size, num_heads, seq_len, head_dim,
-        dtype=torch.bfloat16, device='cpu'):
-    """生成前向数据和中间结果，供反向测试使用。"""
-    torch.manual_seed(42)
-    scale = 1.0 / (head_dim ** 0.5)
-
+def _generate_tensors(cfg: ForwardDataConfig):
+    """Generate random tensors for forward computation."""
     q = torch.randn(
-        batch_size, num_heads, seq_len, head_dim,
-        dtype=dtype, device=device)
+        cfg.batch_size, cfg.num_heads, cfg.seq_len, cfg.head_dim,
+        dtype=cfg.dtype, device=cfg.device)
     k = torch.randn(
-        batch_size, num_heads, seq_len, head_dim,
-        dtype=dtype, device=device)
+        cfg.batch_size, cfg.num_heads, cfg.seq_len, cfg.head_dim,
+        dtype=cfg.dtype, device=cfg.device)
     v = torch.randn(
-        batch_size, num_heads, seq_len, head_dim,
-        dtype=dtype, device=device)
+        cfg.batch_size, cfg.num_heads, cfg.seq_len, cfg.head_dim,
+        dtype=cfg.dtype, device=cfg.device)
     dy = torch.randn(
-        batch_size, num_heads, seq_len, head_dim,
-        dtype=dtype, device=device)
+        cfg.batch_size, cfg.num_heads, cfg.seq_len, cfg.head_dim,
+        dtype=cfg.dtype, device=cfg.device)
+    return q, k, v, dy
 
-    # 前向计算得到 softmax 统计量
+
+def _compute_forward_outputs(q, k, v, scale, cfg: ForwardDataConfig):
+    """Compute forward pass outputs and softmax statistics."""
     scores = torch.matmul(
         q.float(), k.float().transpose(-2, -1)) * scale
     row_max = scores.amax(dim=-1, keepdim=True)
     exp_scores = torch.exp(scores - row_max)
     row_sum = exp_scores.sum(dim=-1, keepdim=True)
     p_mat = exp_scores / row_sum
-    attention_out = torch.matmul(p_mat, v.float()).to(dtype)
+    attention_out = torch.matmul(p_mat, v.float()).to(cfg.dtype)
 
-    # 填充到 [B, N, S, 8] 格式
     softmax_max = torch.zeros(
-        batch_size, num_heads, seq_len, 8,
-        dtype=torch.float32, device=device)
+        cfg.batch_size, cfg.num_heads, cfg.seq_len, 8,
+        dtype=torch.float32, device=cfg.device)
     softmax_max[:, :, :, 0:1] = row_max
     softmax_sum = torch.zeros(
-        batch_size, num_heads, seq_len, 8,
-        dtype=torch.float32, device=device)
+        cfg.batch_size, cfg.num_heads, cfg.seq_len, 8,
+        dtype=torch.float32, device=cfg.device)
     softmax_sum[:, :, :, 0:1] = row_sum
 
-    return q, k, v, dy, softmax_max, softmax_sum, attention_out, scale
+    return attention_out, softmax_max, softmax_sum
 
 
-def _validate():
-    """自动生成的验证函数"""
-    import numpy as np
+def generate_forward_data(
+        cfg: ForwardDataConfig) -> ForwardDataResult:
+    """生成前向数据和中间结果，供反向测试使用。"""
+    torch.manual_seed(42)
+    scale = 1.0 / (cfg.head_dim ** 0.5)
 
-    logger.info("=" * 60)
-    logger.info("flash_attention_score_grad_golden 验证报告")
-    logger.info("=" * 60)
+    q, k, v, dy = _generate_tensors(cfg)
+    attention_out, softmax_max, softmax_sum = _compute_forward_outputs(
+        q, k, v, scale, cfg)
 
-    test_cases = [
-        {"name": "Level 0: 最小", "B": 1, "N": 1, "S": 16, "D": 64},
-        {"name": "Level 1: 典型", "B": 2, "N": 8, "S": 64, "D": 64},
-        {"name": "Level 2: 中等", "B": 2, "N": 8, "S": 128, "D": 128},
-    ]
+    return ForwardDataResult(
+        q, k, v, dy, softmax_max, softmax_sum, attention_out, scale)
 
-    for tc in test_cases:
+
+def _run_single_test(tc):
+    """Run a single test case and return True if passed."""
+    logger.info(
+        "\n--- %s (B=%d, N=%d, S=%d, D=%d) ---",
+        tc['name'], tc['B'], tc['N'], tc['S'], tc['D'])
+    cfg = ForwardDataConfig(tc['B'], tc['N'], tc['S'], tc['D'])
+    result = generate_forward_data(cfg)
+    inputs = AttentionGradInputs(
+        result.q, result.k, result.v, result.dy,
+        result.softmax_max, result.softmax_sum,
+        result.attention_out, result.scale)
+    dq_out, dk_out, dv_out = flash_attention_score_grad_golden(inputs)
+
+    logger.info("  dq_out shape: %s, dtype: %s", dq_out.shape, dq_out.dtype)
+    logger.info("  dk_out shape: %s, dtype: %s", dk_out.shape, dk_out.dtype)
+    logger.info("  dv_out shape: %s, dtype: %s", dv_out.shape, dv_out.dtype)
+
+    if dq_out.shape != result.q.shape:
+        raise ValueError(
+            f"dq_out shape {dq_out.shape} != q shape {result.q.shape}")
+    if dk_out.shape != result.k.shape:
+        raise ValueError(
+            f"dk_out shape {dk_out.shape} != k shape {result.k.shape}")
+    if dv_out.shape != result.v.shape:
+        raise ValueError(
+            f"dv_out shape {dv_out.shape} != v shape {result.v.shape}")
+    for name, t_val in [("dq_out", dq_out), ("dk_out", dk_out),
+                        ("dv_out", dv_out)]:
+        if torch.isnan(t_val).any():
+            raise ValueError(f"{name} contains NaN")
+        if torch.isinf(t_val).any():
+            raise ValueError(f"{name} contains Inf")
+        t_f = t_val.float()
         logger.info(
-            "\n--- %s (B=%d, N=%d, S=%d, D=%d) ---",
-            tc['name'], tc['B'], tc['N'], tc['S'], tc['D'])
-        q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
-            tc['B'], tc['N'], tc['S'], tc['D']
-        )
-        inputs = AttentionGradInputs(q, k, v, dy, sm, ss, ao, scale)
-        dq_out, dk_out, dv_out = flash_attention_score_grad_golden(inputs)
+            "  %s range: [%.4f, %.4f]", name, t_f.min().item(),
+            t_f.max().item())
 
-        logger.info("  dq_out shape: %s, dtype: %s", dq_out.shape, dq_out.dtype)
-        logger.info("  dk_out shape: %s, dtype: %s", dk_out.shape, dk_out.dtype)
-        logger.info("  dv_out shape: %s, dtype: %s", dv_out.shape, dv_out.dtype)
+    logger.info("  ✓ Passed")
+    return True
 
-        # 基本检查
-        if dq_out.shape != q.shape:
-            raise ValueError(f"dq_out shape {dq_out.shape} != q shape {q.shape}")
-        if dk_out.shape != k.shape:
-            raise ValueError(f"dk_out shape {dk_out.shape} != k shape {k.shape}")
-        if dv_out.shape != v.shape:
-            raise ValueError(f"dv_out shape {dv_out.shape} != v shape {v.shape}")
-        if torch.isnan(dq_out).any():
-            raise ValueError("dq_out contains NaN")
-        if torch.isnan(dk_out).any():
-            raise ValueError("dk_out contains NaN")
-        if torch.isnan(dv_out).any():
-            raise ValueError("dv_out contains NaN")
-        if torch.isinf(dq_out).any():
-            raise ValueError("dq_out contains Inf")
-        if torch.isinf(dk_out).any():
-            raise ValueError("dk_out contains Inf")
-        if torch.isinf(dv_out).any():
-            raise ValueError("dv_out contains Inf")
 
-        # 值域检查
-        for t_name, t_val in [("dq_out", dq_out), ("dk_out", dk_out), ("dv_out", dv_out)]:
-            t_f = t_val.float()
-            logger.info(
-                "  %s range: [%.4f, %.4f]", t_name, t_f.min().item(),
-                t_f.max().item())
-
-        logger.info("  ✓ Passed")
-
-    # 交叉验证
+def _run_autograd_validation():
+    """Run autograd cross-validation."""
     logger.info("\n--- 交叉验证: PyTorch autograd ---")
     batch_size, num_heads, seq_len, head_dim = 1, 2, 16, 32
     scale = 1.0 / (head_dim ** 0.5)
@@ -244,6 +267,26 @@ def _validate():
             raise ValueError(f"{g_name} max diff {diff} >= 1e-4")
 
     logger.info("  ✓ Autograd cross-validation passed")
+
+
+def _validate():
+    """自动生成的验证函数"""
+    import numpy as np
+
+    logger.info("=" * 60)
+    logger.info("flash_attention_score_grad_golden 验证报告")
+    logger.info("=" * 60)
+
+    test_cases = [
+        {"name": "Level 0: 最小", "B": 1, "N": 1, "S": 16, "D": 64},
+        {"name": "Level 1: 典型", "B": 2, "N": 8, "S": 64, "D": 64},
+        {"name": "Level 2: 中等", "B": 2, "N": 8, "S": 128, "D": 128},
+    ]
+
+    for tc in test_cases:
+        _run_single_test(tc)
+
+    _run_autograd_validation()
 
     logger.info("\n" + "=" * 60)
     logger.info("验证完成 - 所有测试通过")

@@ -14,6 +14,8 @@ AscendC vs PyPTO FlashAttentionScoreGrad 性能对比
 使用相同 shape 跑 torch_npu 内置算子 (AscendC) 和 PyPTO 实现，直接对比。
 """
 
+from dataclasses import dataclass
+
 import os
 import sys
 import time
@@ -26,50 +28,50 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from flash_attention_score_grad_golden import generate_forward_data
+from flash_attention_score_grad_golden import (
+    generate_forward_data, ForwardDataConfig,
+)
 from flash_attention_score_grad_impl import (
     flash_attention_score_grad_wrapper, NUM_HEADS, HEAD_DIM,
 )
 
 
-class AscendcConfig:
-    """Container for AscendC run parameters."""
+@dataclass
+class AscendcGradCallArgs:
+    """Arguments for calling AscendC gradient operator."""
 
-    def __init__(self, q, k, v, dy, softmax_max, softmax_sum,
-                 attention_out, scale, num_heads, warmup=5, repeat=20):
-        self.q = q
-        self.k = k
-        self.v = v
-        self.dy = dy
-        self.softmax_max = softmax_max
-        self.softmax_sum = softmax_sum
-        self.attention_out = attention_out
-        self.scale = scale
-        self.num_heads = num_heads
-        self.warmup = warmup
-        self.repeat = repeat
+    q: object
+    k: object
+    v: object
+    dy: object
+    num_heads: int
+    softmax_max: object
+    softmax_sum: object
+    attention_in: object
+    scale: float
+    seq_len: int
+    batch_size: int
 
 
-def _call_ascendc_grad(q, k, v, dy, num_heads, softmax_max, softmax_sum,
-                       attention_in, scale, seq_len, batch_size):
+def _call_ascendc_grad(args: AscendcGradCallArgs):
     """Call AscendC attention gradient operator."""
     return torch_npu.npu_fusion_attention_grad_v2(
-        q, k, v, dy, num_heads,
+        args.q, args.k, args.v, args.dy, args.num_heads,
         pse=None,
         padding_mask=None,
         atten_mask=None,
-        softmax_max=softmax_max,
-        softmax_sum=softmax_sum,
+        softmax_max=args.softmax_max,
+        softmax_sum=args.softmax_sum,
         softmax_in=None,
-        attention_in=attention_in,
-        scale_value=scale,
+        attention_in=args.attention_in,
+        scale_value=args.scale,
         keep_prob=1.0,
         input_layout="BNSD",
-        pre_tokens=seq_len,
-        next_tokens=seq_len,
+        pre_tokens=args.seq_len,
+        next_tokens=args.seq_len,
         seed=0,
         offset=0,
-        numels=batch_size * num_heads * seq_len * seq_len,
+        numels=args.batch_size * args.num_heads * args.seq_len * args.seq_len,
         inner_precise=0,
         sparse_mode=0,
     )
@@ -96,20 +98,22 @@ def run_ascendc(cfg: AscendcConfig):
     softmax_sum_fwd = fwd_result[2]
 
     for _ in range(cfg.warmup):
-        _call_ascendc_grad(
+        ac_args = AscendcGradCallArgs(
             cfg.q, cfg.k, cfg.v, cfg.dy, cfg.num_heads,
             softmax_max_fwd, softmax_sum_fwd, out_fwd,
             cfg.scale, seq_len, batch_size)
+        _call_ascendc_grad(ac_args)
     torch.npu.synchronize()
 
     times = []
     for _ in range(cfg.repeat):
         torch.npu.synchronize()
         t0 = time.perf_counter()
-        _call_ascendc_grad(
+        ac_args = AscendcGradCallArgs(
             cfg.q, cfg.k, cfg.v, cfg.dy, cfg.num_heads,
             softmax_max_fwd, softmax_sum_fwd, out_fwd,
             cfg.scale, seq_len, batch_size)
+        _call_ascendc_grad(ac_args)
         torch.npu.synchronize()
         t1 = time.perf_counter()
         times.append((t1 - t0) * 1000)
@@ -196,8 +200,11 @@ def main():
             batch_size * n_heads * 7 * 2 * seq_len * seq_len * head_dim)
 
         try:
-            q, k, v, dy, sm, ss, ao, scale = generate_forward_data(
+            fwd_cfg = ForwardDataConfig(
                 batch_size, n_heads, seq_len, head_dim, device=device)
+            fwd = generate_forward_data(fwd_cfg)
+            q, k, v, dy = fwd.q, fwd.k, fwd.v, fwd.dy
+            sm, ss, ao, scale = fwd.softmax_max, fwd.softmax_sum, fwd.attention_out, fwd.scale
 
             # AscendC
             try:

@@ -17,7 +17,9 @@ import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flash_attention_score_grad_golden import generate_forward_data
+from flash_attention_score_grad_golden import (
+    ForwardDataConfig, generate_forward_data,
+)
 from flash_attention_score_grad_impl import (
     NUM_HEADS, HEAD_DIM, S_TILE,
     flash_attention_score_grad_kernel_profile,
@@ -39,8 +41,11 @@ if __name__ == "__main__":
 
     batch_size, num_heads, seq_len, head_dim = 2, 8, 1024, 64
     device = f"npu:{device_id}"
-    q, k, v, dy_t, sm, ss, ao, scale = generate_forward_data(
+    fwd_cfg = ForwardDataConfig(
         batch_size, num_heads, seq_len, head_dim, device=device)
+    fwd = generate_forward_data(fwd_cfg)
+    q, k, v, dy_t = fwd.q, fwd.k, fwd.v, fwd.dy
+    sm, ss, ao, scale = fwd.softmax_max, fwd.softmax_sum, fwd.attention_out, fwd.scale
 
     q_flat = q.reshape(-1, head_dim).contiguous()
     k_flat = k.reshape(-1, head_dim).contiguous()
