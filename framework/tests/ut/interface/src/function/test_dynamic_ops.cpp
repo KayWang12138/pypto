@@ -700,7 +700,7 @@ TEST_F(DynamicOpsTest, OpsElementWise)
             if (i == 0) {
                 r0Data = t0Data + t1Data;
             } else {
-                r0Data = r0Data + t1Data; // +t0, +t1
+                r0Data = r0Data + t1Data;     // +t0, +t1
                 if (i < condThreshold) {
                     r0Data = r0Data + t2Data; // +t2 * 5
                 } else {
@@ -710,7 +710,7 @@ TEST_F(DynamicOpsTest, OpsElementWise)
             }
         }
         for (int i = 0; i < loopCount; i++) {
-            r0Data = r0Data + t1Data; // +t1
+            r0Data = r0Data + t1Data;     // +t1
             if (i < condThreshold) {
                 r0Data = r0Data + t2Data; // +t2 * 5
             } else {

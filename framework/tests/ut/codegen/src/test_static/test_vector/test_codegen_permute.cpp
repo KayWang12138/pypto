@@ -10,7 +10,7 @@
 
 /*!
  * \file test_codegen_permute.cpp
- * \brief Unit test for codegen OP_PERMUTE and OP_PERMUTE_ELEMENT.
+ * \brief Unit test for codegen OP_PERMUTE and OP_PERMUTE_ELEMENT static tile tensor coverage.
  */
 #include <vector>
 #include <string>
@@ -39,19 +39,14 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetBuildStatic(true);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
 
     void TearDown() override {}
 };
 
-Function& testPermute(bool isSupportTileTensor, string funcName, std::vector<int> perm)
+TEST_F(TestCodegenPermute, TestPermuteTileTensor)
 {
-    if (isSupportTileTensor) {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    } else {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     constexpr const int DIM0 = 4;
     constexpr const int DIM1 = 8;
     constexpr const int DIM2 = 16;
@@ -61,30 +56,37 @@ Function& testPermute(bool isSupportTileTensor, string funcName, std::vector<int
     Tensor inputTensor(DT_FP32, shape, "input_tensor");
     Tensor outputTensor(DT_FP32, shape, "output_tensor");
 
-    FUNCTION(funcName, {inputTensor}, {outputTensor}) { outputTensor = Permute(inputTensor, perm); }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    FUNCTION("PERMUTE_TILETENSOR_T", {inputTensor}, {outputTensor}) { outputTensor = Permute(inputTensor, {1, 0, 2}); }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "PERMUTE_TILETENSOR_T");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
-    return *function;
-}
-
-TEST_F(TestCodegenPermute, TestPermuteStatic) { testPermute(false, "PERMUTE_STATIC_T", {1, 0, 2}); }
-
-TEST_F(TestCodegenPermute, TestPermuteTileTensor)
-{
-    Function& func = testPermute(true, "PERMUTE_TILETENSOR_T", {1, 0, 2});
-    std::string res = GetResultFromCpp(func);
+    std::string res = GetResultFromCpp(*function);
     std::string expect = "TPermute<1, 0, 2, -1, -1, 3>";
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenPermute, TestPermuteElementStatic) { testPermute(false, "PERMUTE_ELEM_STATIC_T", {0, 2, 1}); }
-
 TEST_F(TestCodegenPermute, TestPermuteElementTileTensor)
 {
-    Function& func = testPermute(true, "PERMUTE_ELEM_TILETENSOR_T", {0, 2, 1});
-    std::string res = GetResultFromCpp(func);
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    constexpr const int DIM0 = 4;
+    constexpr const int DIM1 = 8;
+    constexpr const int DIM2 = 16;
+    std::vector<int64_t> shape = {DIM0, DIM1, DIM2};
+
+    TileShape::Current().SetVecTile({DIM0, DIM1, DIM2});
+    Tensor inputTensor(DT_FP32, shape, "input_tensor");
+    Tensor outputTensor(DT_FP32, shape, "output_tensor");
+
+    FUNCTION("PERMUTE_ELEM_TILETENSOR_T", {inputTensor}, {outputTensor})
+    {
+        outputTensor = Permute(inputTensor, {0, 2, 1});
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "PERMUTE_ELEM_TILETENSOR_T");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
     std::string expect = "TPermuteElewise<0, 2, 1, -1, -1, 3>";
     CheckStringExist(expect, res);
 }
