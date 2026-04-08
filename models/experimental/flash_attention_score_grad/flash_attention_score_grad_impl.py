@@ -376,11 +376,11 @@ def flash_attention_score_grad_wrapper(
     if seq_len % S_TILE != 0:
         raise ValueError(f"seq_len={seq_len} must be multiple of S_TILE={S_TILE}")
 
-    q_flat = wi.query.reshape(-1, D).contiguous()
-    k_flat = wi.key.reshape(-1, D).contiguous()
-    v_flat = wi.value.reshape(-1, D).contiguous()
-    dy_flat = wi.dy.reshape(-1, D).contiguous()
-    ao_flat = wi.attention_out.reshape(-1, D).contiguous()
+    q_flat = wi.query.reshape(-1, head_dim).contiguous()
+    k_flat = wi.key.reshape(-1, head_dim).contiguous()
+    v_flat = wi.value.reshape(-1, head_dim).contiguous()
+    dy_flat = wi.dy.reshape(-1, head_dim).contiguous()
+    ao_flat = wi.attention_out.reshape(-1, head_dim).contiguous()
     sm_flat = wi.softmax_max.reshape(-1, 8).contiguous()
     ss_flat = wi.softmax_sum.reshape(-1, 8).contiguous()
 
