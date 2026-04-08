@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "meta": {
     "title": "PyPTO Skill Reviewer Rules",
     "description": "Single source of truth for all 48 review rules across 9 dimensions",
@@ -15,13 +15,14 @@
   "dimensions": {
     "D1": { "name": "Frontmatter 元数据", "weight": 25 },
     "D2": { "name": "简洁性与效率", "weight": 15 },
-    "D3": { "name": "文件结构与导航", "weight": 10 },
+    "D3": { "name": "文件结构与导航", "weight": 5 },
     "D4": { "name": "语言与表达", "weight": 10 },
     "D5": { "name": "精确性与可执行性", "weight": 10 },
     "D6": { "name": "工作流完整性", "weight": 10 },
     "D7": { "name": "模式与最佳实践", "weight": 5 },
     "D8": { "name": "反模式检测", "weight": 10 },
-    "D9": { "name": "脚本与代码质量", "weight": 5 }
+    "D9": { "name": "脚本与代码质量", "weight": 5 },
+    "D10": { "name": "References 一致性", "weight": 5 }
   },
   "severity_deductions": {
     "S0": 20,
@@ -467,6 +468,42 @@
       "rule": "description 应该 pushy 一些，避免在技能本应发挥作用的场景下却不使用",
       "source": ["A3"],
       "check_strategy": "Check if description expands trigger scope beyond explicit keywords. Look for phrases like 'whenever', 'including', 'or any related to'. PASS with expanding phrases, WARN with only explicit triggers."
+    },
+    {
+      "id": "R49",
+      "severity": "S1",
+      "type": "semantic",
+      "dimension": "D10",
+      "rule": "references/ 目录内容应与 docs/ 保持一致性，不得存在 P0 级别问题",
+      "source": ["A3"],
+      "check_strategy": "Execute Phase 4 references consistency check. Verify no P0 issues found (factual errors, code errors, path errors, API not exist, direct contradiction with docs)"
+    },
+    {
+      "id": "R50",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D10",
+      "rule": "references/ 中的路径应在正确的执行上下文中可访问",
+      "source": ["A1", "A3"],
+      "check_strategy": "Verify file paths exist in correct execution context. Check SKILL.md for context definition (working directory, environment variables, prerequisites)"
+    },
+    {
+      "id": "R51",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D10",
+      "rule": "references/ 中引用的 API 应存在于 docs/ 或官方示例中",
+      "source": ["A3"],
+      "check_strategy": "Search docs/ for referenced APIs. Use grep to verify API existence. Flag non-existent APIs as P0 issues"
+    },
+    {
+      "id": "R52",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D10",
+      "rule": "references/ 中的术语应与 docs/tutorials/appendix/glossary.md 保持一致",
+      "source": ["A3"],
+      "check_strategy": "Compare terminology in references/ with docs glossary. Flag inconsistencies as P1 issues"
     }
   ]
 }
