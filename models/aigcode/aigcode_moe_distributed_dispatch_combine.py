@@ -14,6 +14,7 @@ import dataclasses
 import multiprocessing as mp
 
 import torch
+import torch.distributed as dist
 
 import pypto
 
@@ -34,6 +35,7 @@ AIGCODE_DISPATCH_ROWS = min(
 AIGCODE_CHUNK_TURNS = AIGCODE_LOCAL_TOKENS // AIGCODE_CHUNK_TOKENS
 AIGCODE_TORCH_DTYPE = torch.bfloat16
 AIGCODE_PYPTO_DTYPE = pypto.DT_BF16
+AIGCODE_COMPILE_DEBUG_MODE = 0
 AIGCODE_RUNTIME_DEBUG_MODE = 3
 
 
@@ -87,6 +89,11 @@ def assert_close_tensor(expected: torch.Tensor, actual: torch.Tensor, name: str,
 
 def create_zero_tensor_on_npu(template: torch.Tensor, device_id: int) -> torch.Tensor:
     return torch.zeros(template.shape, dtype=template.dtype, device=f"npu:{device_id}")
+
+
+def sync_ep_group() -> None:
+    dist.barrier()
+    torch.npu.synchronize()
 
 
 def generate_inputs() -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
@@ -188,8 +195,8 @@ def combine_tokens(
     return out_list
 
 
-def build_dispatch_kernel(group_name: str):
-    @pypto.frontend.jit(debug_options={"runtime_debug_mode": AIGCODE_RUNTIME_DEBUG_MODE})
+def build_dispatch_kernel(group_name: str, runtime_debug_mode: int):
+    @pypto.frontend.jit(debug_options={"runtime_debug_mode": runtime_debug_mode})
     def kernel(
         x: pypto.Tensor(
             [AIGCODE_CHUNK_TOKENS, AIGCODE_HIDDEN_SIZE],
@@ -231,8 +238,8 @@ def build_dispatch_kernel(group_name: str):
     return kernel
 
 
-def build_combine_kernel(group_name: str):
-    @pypto.frontend.jit(debug_options={"runtime_debug_mode": AIGCODE_RUNTIME_DEBUG_MODE})
+def build_combine_kernel(group_name: str, runtime_debug_mode: int):
+    @pypto.frontend.jit(debug_options={"runtime_debug_mode": runtime_debug_mode})
     def kernel(
         expand_x: pypto.Tensor(
             [AIGCODE_DISPATCH_ROWS, AIGCODE_HIDDEN_SIZE],
@@ -278,14 +285,18 @@ def run_aigcode_dispatch_combine(
     expert_ids_list: list[torch.Tensor],
     expert_scales_list: list[torch.Tensor],
     logical_rank_id: int,
+    chunk_turns: int,
+    compile_debug_mode: int,
+    runtime_debug_mode: int,
 ) -> None:
+    pypto.set_debug_options(compile_debug_mode=compile_debug_mode, runtime_debug_mode=runtime_debug_mode)
     group_name = config.init_hccl_comm(logical_rank_id)[0]
     physical_device_id = config.get_physical_device_id(logical_rank_id)
 
-    dispatch_kernel = build_dispatch_kernel(group_name)
-    combine_kernel = build_combine_kernel(group_name)
+    dispatch_kernel = build_dispatch_kernel(group_name, runtime_debug_mode)
+    combine_kernel = build_combine_kernel(group_name, runtime_debug_mode)
 
-    for turn in range(AIGCODE_CHUNK_TURNS):
+    for turn in range(chunk_turns):
         start = turn * AIGCODE_CHUNK_TOKENS
         end = start + AIGCODE_CHUNK_TOKENS
         x_chunk_list = [x[start:end] for x in x_list]
@@ -325,6 +336,7 @@ def run_aigcode_dispatch_combine(
             assist_info_actual,
             expert_token_nums_actual,
         )
+        sync_ep_group()
         recv_counts_actual = expert_token_nums_actual.sum(dtype=torch.int32).reshape(1)
         assert_equal_tensor(expand_x_golden, expand_x_actual.cpu(), f"dispatch.expand_x.turn_{turn}")
         assert_equal_tensor(assist_info_golden, assist_info_actual.cpu(), f"dispatch.assist_info.turn_{turn}")
@@ -334,6 +346,7 @@ def run_aigcode_dispatch_combine(
         assert_equal_tensor(recv_counts_golden, recv_counts_actual.cpu(), f"dispatch.recv_counts.turn_{turn}")
 
         combine_kernel(expand_x_actual, assist_info_actual, recv_counts_actual, expert_scales, out_actual)
+        sync_ep_group()
         assert_close_tensor(out_golden, out_actual.cpu(), f"combine.out.turn_{turn}", atol=1e-2)
 
     print(f"rank {logical_rank_id}: SUCCESS")
@@ -349,6 +362,9 @@ def main() -> None:
         AIGCODE_LOCAL_TOKENS % AIGCODE_CHUNK_TOKENS == 0,
         "AIGCODE_LOCAL_TOKENS must be divisible by AIGCODE_CHUNK_TOKENS",
     )
+    chunk_turns = AIGCODE_LOCAL_TOKENS // AIGCODE_CHUNK_TOKENS
+    compile_debug_mode = AIGCODE_COMPILE_DEBUG_MODE
+    runtime_debug_mode = AIGCODE_RUNTIME_DEBUG_MODE
     config = DistributedConfig(world_size=AIGCODE_EP_WORLD_SIZE)
     check_cond(
         config.world_size == AIGCODE_EP_WORLD_SIZE,
@@ -365,7 +381,16 @@ def main() -> None:
     for logical_rank_id in config.logical_ranks:
         process = mp.Process(
             target=run_aigcode_dispatch_combine,
-            args=(config, x_list, expert_ids_list, expert_scales_list, logical_rank_id),
+            args=(
+                config,
+                x_list,
+                expert_ids_list,
+                expert_scales_list,
+                logical_rank_id,
+                chunk_turns,
+                compile_debug_mode,
+                runtime_debug_mode,
+            ),
         )
         process.start()
         processes.append(process)
