@@ -639,7 +639,7 @@ inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation* op)
     return true;
 }
 
-inline void UpdateScopeId(std::vector<Operation*>& opList)
+inline void PropagateScopeInfo(std::vector<Operation*>& opList)
 {
     for (size_t i = 0; i < opList.size(); i++) {
         int targetScope = opList[i]->GetScopeId();
@@ -667,7 +667,8 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         return FAILED;
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
-    UpdateScopeId(opList);
+    PropagateScopeInfo(opList);
+    std::unordered_set<int32_t> parallelMergeProcessedScopes;
     for (size_t i = 0; i < opList.size(); i++) {
         auto targetScope = opList[i]->GetScopeId();
         if (targetScope == -1) {
@@ -676,9 +677,14 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         bool allowParallelMerge = opList[i]->GetAllowParallelMerge();
 
         if (allowParallelMerge) {
+            if (parallelMergeProcessedScopes.count(targetScope) > 0) {
+                continue;
+            }
+            parallelMergeProcessedScopes.insert(targetScope);
+
             std::vector<int32_t> sameScopeOps;
             for (size_t j = 0; j < opList.size(); j++) {
-                if (opList[j]->GetScopeId() == targetScope) {
+                if (opList[j]->GetScopeId() == targetScope && opList[j]->GetAllowParallelMerge()) {
                     sameScopeOps.push_back(j);
                 }
             }

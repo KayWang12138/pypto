@@ -494,7 +494,6 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
 {
     // allowCrossScopeMerge=false：有 scope 的 subgraph 拒绝合并
     // allowCrossScopeMerge=true：有 scope 的 subgraph 只能与 scope=-1 的 subgraph 合并
-    std::cout << "here" << std::endl;
     auto canMergeFrom = [this](const std::shared_ptr<IsomorphismGraphGroup>& fromGroup,
                                const std::shared_ptr<IsomorphismGraphGroup>& toGroup) -> bool {
         for (auto& g : fromGroup->isoGraphs_) {

@@ -50,6 +50,9 @@ Operation& GraphUtils::AddViewOperation(
     Function& function, const ViewOp& view, const std::vector<std::vector<SymbolicScalar>>& outDynShape)
 {
     auto& newOp = AddDynOperation(function, Opcode::OP_VIEW, {view.input}, {view.output}, outDynShape);
+    if (view.originOp != nullptr) {
+        newOp.SetScopeInfo(view.originOp->GetScopeInfo());
+    }
     SetViewAttr(function, newOp, view);
     return newOp;
 }
