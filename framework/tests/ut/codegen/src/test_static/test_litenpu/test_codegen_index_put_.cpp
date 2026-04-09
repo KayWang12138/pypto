@@ -23,6 +23,7 @@
 #include "interface/interpreter/calc.h"
 #include "codegen/codegen.h"
 #include "codegen/litenpu/codegen_litenpu.h"
+#include "codegen/cloudnpu/codegen_cloudnpu.h"
 
 using namespace npu::tile_fwk;
 
@@ -35,6 +36,7 @@ public:
     void SetUp() override {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetBuildStatic(true);
     }
 
     void TearDown() override {}
@@ -57,5 +59,25 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001) {
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "INDEX_PUT_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001_cloud) {
+    PROGRAM("INDEX_PUT_001") {
+        Tensor self(DataType::DT_FP16, {3,3}, "self");
+        Tensor values(DataType::DT_FP16, {2,3}, "values");
+        Tensor indice(DataType::DT_FP16, {2}, "indice");
+        std::vector<Tensor> indices = {indice};
+        bool accumulate = false;
+
+        FUNCTION("INDEX_PUT_001") {           
+            TileShape::Current().SetVecTile({3});
+            IndexPut_(self, indices, values, accumulate);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "INDEX_PUT_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }

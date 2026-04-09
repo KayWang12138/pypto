@@ -216,9 +216,15 @@ __aicore__ inline void TTransMoveOut(DST dst, SRC src, C coordinate) {
     CallTransMove<axis0, axis1, false>(dst, src, coordinate);
 }
 
+#ifdef __LITE_NPU
+template <pto::AtomicType atomicType, typename ValuesDtype, typename ValuesTileDefine, typename ADDR, typename DST_TYPE>
+__aicore__ inline void IndexPutCopyOut(int nBurst, int lenBurst, size_t valuesStrides[], uint64_t ubAddr, ADDR dstAddr) {
+    using DstData = pto::GlobalTensor<DST_TYPE, pto::Shape<-1, -1, -1, -1, -1>, pto::Stride<-1, -1, -1, -1, -1>>;
+#else
 template <pto::AtomicType atomicType, typename ValuesDtype, typename ValuesTileDefine, typename ADDR>
 __aicore__ inline void IndexPutCopyOut(int nBurst, int lenBurst, size_t valuesStrides[], uint64_t ubAddr, ADDR *dstAddr) {
     using DstData = pto::GlobalTensor<ADDR, pto::Shape<-1, -1, -1, -1, -1>, pto::Stride<-1, -1, -1, -1, -1>>;
+#endif
     constexpr size_t MAX_N_BURST = 4095;
     size_t repeat = nBurst / MAX_N_BURST;
     size_t lastNBurst = nBurst - repeat * MAX_N_BURST;
@@ -228,13 +234,21 @@ __aicore__ inline void IndexPutCopyOut(int nBurst, int lenBurst, size_t valuesSt
     for (LoopVar i = 0; i < repeat; ++i) {
         pto::TASSIGN(valuesData, ubAddr);
         ubAddr += MAX_N_BURST * valuesStrides[2] * sizeof(ValuesDtype);
+#ifdef __LITE_NPU
+        DstData dstData(reinterpret_cast<__gm__ DST_TYPE*>(dstAddr), pto::Shape(1, 1, 1, MAX_N_BURST, lenBurst), pto::Stride(0, 0, 0, lenBurst, 0));
+#else
         DstData dstData(dstAddr, pto::Shape(1, 1, 1, MAX_N_BURST, lenBurst), pto::Stride(0, 0, 0, lenBurst, 0));
+#endif
         dstAddr += MAX_N_BURST * lenBurst;
         pto::TSTORE<ValuesTileDefine, DstData, atomicType>(dstData, valuesData);
     }
     if (lastNBurst != 0) {
         pto::TASSIGN(valuesData, ubAddr);
+#ifdef __LITE_NPU
+        DstData dstData(reinterpret_cast<__gm__ DST_TYPE*>(dstAddr), pto::Shape(1, 1, 1, lastNBurst, lenBurst), pto::Stride(0, 0, 0, lenBurst, 0));
+#else
         DstData dstData(dstAddr, pto::Shape(1, 1, 1, lastNBurst, lenBurst), pto::Stride(0, 0, 0, lenBurst, 0));
+#endif
         pto::TSTORE<ValuesTileDefine, DstData, atomicType>(dstData, valuesData);
     }
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
@@ -250,9 +264,15 @@ __aicore__ inline size_t IndexPutGetStride(size_t arr[]) {
     }
 }
 
+#ifdef __LITE_NPU
+template <pto::AtomicType atomicType, size_t dstShapeSize, size_t valuesSize, typename VAL, typename ADDR, typename IDX, typename DST_TYPE>
+__aicore__ inline void DoIndexPut(size_t indicesShape, size_t dstShapes[], size_t valuesStrides[], uint64_t valuesAddr,
+    ADDR dstAddr, IDX indices0, IDX indices1, IDX indices2, IDX indices3) {
+#else
 template <pto::AtomicType atomicType, size_t dstShapeSize, size_t valuesSize, typename VAL, typename ADDR, typename IDX>
 __aicore__ inline void DoIndexPut(size_t indicesShape, size_t dstShapes[], size_t valuesStrides[], uint64_t valuesAddr,
     ADDR *dstAddr, IDX indices0, IDX indices1, IDX indices2, IDX indices3) {
+#endif
     using IndicesDtype = typename IDX::Type;
     using ValuesDtype = std::conditional_t<std::is_same_v<typename VAL::Type, bool>, uint8_t, typename VAL::Type>;
     constexpr auto tileW = Std::tuple_element<valuesSize - 1, typename VAL::TileShape>::type::value;
@@ -261,16 +281,32 @@ __aicore__ inline void DoIndexPut(size_t indicesShape, size_t dstShapes[], size_
     for (LoopVar i = 0; i < indicesShape; ++i) {
         uint64_t dstOffset = 0;
         if constexpr (indicesSize >= 1) {
-            dstOffset += ((__ubuf__ IndicesDtype *) indices0.GetAddr())[i] * IndexPutGetStride<4 - dstShapeSize>(dstShapes);
+            if constexpr (std::is_same<IndicesDtype, half>::value) {
+                dstOffset += static_cast<int32_t>(((__ubuf__ IndicesDtype *) indices0.GetAddr())[i]) * IndexPutGetStride<4 - dstShapeSize>(dstShapes);
+            } else {
+                dstOffset += ((__ubuf__ IndicesDtype *) indices0.GetAddr())[i] * IndexPutGetStride<4 - dstShapeSize>(dstShapes);
+            }
         }
         if constexpr (indicesSize >= 2) {
-            dstOffset += ((__ubuf__ IndicesDtype *) indices1.GetAddr())[i] * IndexPutGetStride<5 - dstShapeSize>(dstShapes);
+            if constexpr (std::is_same<IndicesDtype, half>::value) {
+                dstOffset += static_cast<int32_t>(((__ubuf__ IndicesDtype *) indices1.GetAddr())[i]) * IndexPutGetStride<5 - dstShapeSize>(dstShapes);
+            } else {
+                dstOffset += ((__ubuf__ IndicesDtype *) indices1.GetAddr())[i] * IndexPutGetStride<5 - dstShapeSize>(dstShapes);
+            }
         }
         if constexpr (indicesSize >= 3) {
-            dstOffset += ((__ubuf__ IndicesDtype *) indices2.GetAddr())[i] * IndexPutGetStride<6 - dstShapeSize>(dstShapes);
+            if constexpr (std::is_same<IndicesDtype, half>::value) {
+                dstOffset += static_cast<int32_t>(((__ubuf__ IndicesDtype *) indices2.GetAddr())[i]) * IndexPutGetStride<6 - dstShapeSize>(dstShapes);
+            } else {
+                dstOffset += ((__ubuf__ IndicesDtype *) indices2.GetAddr())[i] * IndexPutGetStride<6 - dstShapeSize>(dstShapes);
+            }
         }
         if constexpr (indicesSize >= 4) {
-            dstOffset += ((__ubuf__ IndicesDtype *) indices3.GetAddr())[i] * IndexPutGetStride<7 - dstShapeSize>(dstShapes);
+            if constexpr (std::is_same<IndicesDtype, half>::value) {
+                dstOffset += static_cast<int32_t>(((__ubuf__ IndicesDtype *) indices3.GetAddr())[i]) * IndexPutGetStride<7 - dstShapeSize>(dstShapes);
+            } else {
+                dstOffset += ((__ubuf__ IndicesDtype *) indices3.GetAddr())[i] * IndexPutGetStride<7 - dstShapeSize>(dstShapes);
+            }
         }
         size_t nBurst = 1;
         size_t lenBurst = dstShapes[2];
@@ -282,11 +318,19 @@ __aicore__ inline void DoIndexPut(size_t indicesShape, size_t dstShapes[], size_
         } else if constexpr (valuesSize == 4) {
             nBurst = dstShapes[1] * dstShapes[0];
         }
+#ifdef __LITE_NPU
+        IndexPutCopyOut<atomicType, ValuesDtype, ValuesTileDefine, ADDR, DST_TYPE>(
+            nBurst, lenBurst, valuesStrides,
+            valuesAddr + i * valuesStrides[4 - valuesSize] * sizeof(ValuesDtype),
+            dstAddr + dstOffset
+        );
+#else
         IndexPutCopyOut<atomicType, ValuesDtype, ValuesTileDefine>(
             nBurst, lenBurst, valuesStrides,
             valuesAddr + i * valuesStrides[4 - valuesSize] * sizeof(ValuesDtype),
             dstAddr + dstOffset
         );
+#endif
     }
 }
 
@@ -313,8 +357,13 @@ __aicore__ inline void TIndexPut(DST dst, VAL values, IDX indices0, IDX indices1
     };
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+#ifdef __LITE_NPU
+    DoIndexPut<atomicType, dstShapeSize, valuesSize, VAL, decltype(dst.GetAddr()), IDX, typename DST::Type>(indicesShape, dstShapes, valuesStrides,
+        values.GetAddr(), dst.GetAddr(), indices0, indices1, indices2, indices3);
+#else
     DoIndexPut<atomicType, dstShapeSize, valuesSize, VAL>(indicesShape, dstShapes, valuesStrides,
         values.GetAddr(), dst.GetAddr(), indices0, indices1, indices2, indices3);
+#endif
     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
 }
