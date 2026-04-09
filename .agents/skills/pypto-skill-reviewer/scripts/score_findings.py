@@ -28,10 +28,10 @@ def load_json(path):
             return json.load(fh)
     except FileNotFoundError:
         logging.error(f"File not found: {path}")
-        sys.exit(1)
+        raise
     except json.JSONDecodeError as e:
         logging.error(f"Invalid JSON in {path}: {e}")
-        sys.exit(1)
+        raise
 
 
 def normalize_status(value):
