@@ -138,7 +138,8 @@ std::map<Operation*, MemoryType> ConvertInserter::GetTobeDefault(LogicalTensorPt
 }
 
 // 提取指定tensor的tobe map，新格式，key为Mem类型，val为需要改mem类型的op指针set
-std::map<MemoryType, std::set<Operation*>> ConvertInserter::GetRequiredTobe(LogicalTensorPtr& tensor) const
+std::map<MemoryType, std::set<Operation*, OpMagicComparator>> ConvertInserter::GetRequiredTobe(
+    LogicalTensorPtr& tensor) const
 {
     if (tensorTobeMap.count(tensor) == 0) {
         APASS_LOG_INFO_F(
@@ -148,7 +149,7 @@ std::map<MemoryType, std::set<Operation*>> ConvertInserter::GetRequiredTobe(Logi
             tensor->GetMagic());
         return {};
     }
-    std::map<MemoryType, std::set<Operation*>> result;
+    std::map<MemoryType, std::set<Operation*, OpMagicComparator>> result;
     for (const auto& item : tensorTobeMap.at(tensor)) {
         result[item.second.second].insert(item.second.first);
     }
@@ -184,10 +185,10 @@ std::map<Operation*, MemoryType> ConvertInserter::GetMemoryTypeFromTensorTobeMap
     return {};
 }
 
-std::map<MemoryType, std::set<Operation*>> ConvertInserter::ReformMap(
+std::map<MemoryType, std::set<Operation*, OpMagicComparator>> ConvertInserter::ReformMap(
     const std::map<int, std::pair<Operation*, MemoryType>>& oriMap) const
 {
-    std::map<MemoryType, std::set<Operation *>> result;
+    std::map<MemoryType, std::set<Operation*, OpMagicComparator>> result;
     for (const auto &item : oriMap) {
         result[item.second.second].insert(item.second.first);
     }
@@ -199,7 +200,7 @@ void ConvertInserter::FilterConflictTensor()
 {
     for (const auto& pairLocal : tensorTobeMap) {
         auto tensorLocal = pairLocal.first;
-        std::map<MemoryType, std::set<Operation *>> tobeMap = ReformMap(pairLocal.second);
+        std::map<MemoryType, std::set<Operation*, OpMagicComparator>> tobeMap = ReformMap(pairLocal.second);
         if (tobeMap.size() == 1) {
             MemoryType requiredMemoryType = tobeMap.begin()->first;
             if (tensorLocal->GetMemoryTypeOriginal() == requiredMemoryType) {
@@ -281,10 +282,10 @@ Status ConvertInserter::RecordConflict(Function& function)
                 continue;
             }
             // step2:解析冲突需求
-            std::map<MemoryType, std::set<Operation*>> tobeMap = conflictMap.at(oOperand->magic);
+            std::map<MemoryType, std::set<Operation*, OpMagicComparator>> tobeMap = conflictMap.at(oOperand->magic);
             for (const auto& item : tobeMap) {
                 MemoryType requiredMemoryType = item.first;
-                std::set<Operation*> consumers = item.second;
+                std::set<Operation*, OpMagicComparator> consumers = item.second;
                 if (requiredMemoryType == oOperand->GetMemoryTypeOriginal()) {
                     continue;
                 }
@@ -316,7 +317,7 @@ Status ConvertInserter::RecordConflict(Function& function)
 // 为每个存在内存冲突的消费者插入convert op
 void ConvertInserter::InsertConvertOpForEachConsumer(
     Function& function, const Operation& op, const std::shared_ptr<LogicalTensor>& oOperand,
-    std::set<Operation*>& consumers, std::vector<MemoryType>& paths)
+    std::set<Operation*, OpMagicComparator>& consumers, std::vector<MemoryType>& paths)
 {
     for (auto consumer : consumers) {
         auto output = RecordInsertConvertOp(oOperand, paths, function, op);
@@ -328,7 +329,7 @@ void ConvertInserter::InsertConvertOpForEachConsumer(
 
 // 特殊场景处理：生成者均为Assemble或者消费者均为View/Assemble，且mem路径中经过DDR
 void ConvertInserter::ProcessSpecialProducersOrConsumers(
-    const Operation& op, const std::shared_ptr<LogicalTensor>& oOperand, std::set<Operation*>& consumers,
+    const Operation& op, const std::shared_ptr<LogicalTensor>& oOperand, std::set<Operation*, OpMagicComparator>& consumers,
     MemoryType& requiredMemoryType)
 {
     // case1:当tensor的生产者都是assemble，并且tensor的mem路径需要经过DDR，则将tensor的ori刷成DDR
@@ -456,7 +457,7 @@ bool ConvertInserter::isAllProducerAssemble(const std::shared_ptr<LogicalTensor>
 }
 
 // 检查tensor所有的消费者是否是view或者assemble
-bool ConvertInserter::isAllConsumersValid(const std::set<Operation*>& consumers) const
+bool ConvertInserter::isAllConsumersValid(const std::set<Operation*, OpMagicComparator>& consumers) const
 {
     for (const auto consumer : consumers) {
         if (consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
@@ -501,7 +502,7 @@ std::shared_ptr<LogicalTensor> ConvertInserter::RecordInsertConvertOp(
 // graph重连
 void ConvertInserter::GraphReconnect(
     const std::shared_ptr<LogicalTensor>& oOperand, std::shared_ptr<LogicalTensor> output,
-    const std::set<Operation*>& consumers, Function& function) const
+    const std::set<Operation*, OpMagicComparator>& consumers, Function& function) const
 {
     for (const auto& consumer : consumers) {
         if (consumer->BelongTo() == &function) {
