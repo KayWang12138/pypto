@@ -277,7 +277,7 @@ def flash_attention_score_grad_kernel(
                 actual_s1 = (s - s1_idx * S_TILE).min(S_TILE)
 
                 pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-                q_i  = pypto.view(q_2d,  [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
+                q_i = pypto.view(q_2d, [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
                 dy_i = pypto.view(dy_2d, [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
                 ao_i = pypto.view(ao_2d, [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
 
@@ -340,7 +340,7 @@ def flash_attention_score_grad_kernel(
                     actual_s1 = (s - s1_idx * S_TILE).min(S_TILE)
 
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-                    q_i  = pypto.view(q_2d,  [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
+                    q_i = pypto.view(q_2d, [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
                     dy_i = pypto.view(dy_2d, [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
                     ao_i = pypto.view(ao_2d, [S_TILE, HEAD_DIM], [s1_off, 0], valid_shape=[actual_s1, HEAD_DIM])
 
@@ -394,17 +394,17 @@ def flash_attention_score_grad_wrapper(
     head_dim: int = HEAD_DIM,
 ):
     """算子 wrapper，供测试调用。"""
-    B, N, S, D = query.shape
-    if N != num_heads or D != head_dim:
-        raise ValueError(f"Shape mismatch: expected N={num_heads}, D={head_dim}, got N={N}, D={D}")
-    if S % S_TILE != 0:
-        raise ValueError(f"S={S} must be multiple of S_TILE={S_TILE}")
+    batch_size, num_heads_out, seq_len, head_dim_out = query.shape
+    if num_heads_out != num_heads or head_dim_out != head_dim:
+        raise ValueError(f"Shape mismatch: expected num_heads={num_heads}, head_dim={head_dim}, got num_heads={num_heads_out}, head_dim={head_dim_out}")
+    if seq_len % S_TILE != 0:
+        raise ValueError(f"seq_len={seq_len} must be multiple of S_TILE={S_TILE}")
 
-    q_flat = query.reshape(-1, D).contiguous()
-    k_flat = key.reshape(-1, D).contiguous()
-    v_flat = value.reshape(-1, D).contiguous()
-    dy_flat = dy.reshape(-1, D).contiguous()
-    ao_flat = attention_out.reshape(-1, D).contiguous()
+    q_flat = query.reshape(-1, head_dim_out).contiguous()
+    k_flat = key.reshape(-1, head_dim_out).contiguous()
+    v_flat = value.reshape(-1, head_dim_out).contiguous()
+    dy_flat = dy.reshape(-1, head_dim_out).contiguous()
+    ao_flat = attention_out.reshape(-1, head_dim_out).contiguous()
     sm_flat = softmax_max.reshape(-1, 8).contiguous()
     ss_flat = softmax_sum.reshape(-1, 8).contiguous()
 
@@ -412,7 +412,7 @@ def flash_attention_score_grad_wrapper(
     dk_flat = torch.empty_like(k_flat)
     dv_flat = torch.empty_like(v_flat)
 
-    batch_tensor = torch.zeros(B, dtype=torch.int32, device=query.device)
+    batch_tensor = torch.zeros(batch_size, dtype=torch.int32, device=query.device)
 
     flash_attention_score_grad_kernel(
         q_flat, k_flat, v_flat, dy_flat,
@@ -422,6 +422,6 @@ def flash_attention_score_grad_wrapper(
         scale_value,
     )
 
-    return (dq_flat.reshape(B, N, S, D),
-            dk_flat.reshape(B, N, S, D),
-            dv_flat.reshape(B, N, S, D))
+    return (dq_flat.reshape(batch_size, num_heads, seq_len, head_dim),
+            dk_flat.reshape(batch_size, num_heads, seq_len, head_dim),
+            dv_flat.reshape(batch_size, num_heads, seq_len, head_dim))
