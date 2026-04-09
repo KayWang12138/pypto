@@ -1206,18 +1206,28 @@ def _output_hook_json(event: str, **kwargs):
 
 
 def _load_hook_input_or_exit() -> dict[str, Any]:
-    raw = sys.stdin.read()
+    import select
+    raw = ""
+    # Try stdin first — non-blocking probe. Works for any caller that pipes data.
+    # select(0) returns immediately: data ready → read; no data → skip to env var.
+    # On a TTY stdin, select(0) also returns immediately (TTY has no pending data),
+    # so this is safe for interactive terminals too — no isatty() check needed.
+    if not sys.stdin.closed:
+        try:
+            if select.select([sys.stdin], [], [], 0)[0]:
+                raw = sys.stdin.read()
+        except (ValueError, OSError):
+            pass
+    # Fall back to env var (OpenCode plugin path)
     if not raw.strip():
         raw = os.environ.get("PYPTO_OP_LINT_HOOK_INPUT", "")
     if not raw.strip():
         return {}
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
-        sys.exit(0)
-    if isinstance(data, dict):
-        return data
-    return {}
+    except (json.JSONDecodeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _rule_ids_for_filename(filename: str) -> list[str]:
