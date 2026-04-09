@@ -39,6 +39,12 @@ constexpr int32_t AIGCODE_TOPK = 4;
 constexpr int32_t AIGCODE_MOE_EXPERT_NUM = 16;
 constexpr int32_t AIGCODE_EP_WORLD_SIZE = 4;
 
+constexpr int32_t QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 = 1024;
+constexpr int32_t QWEN3_NEXT_HIDDEN_SIZE = 4096;
+constexpr int32_t QWEN3_NEXT_TOPK = 2;
+constexpr int32_t QWEN3_NEXT_MOE_EXPERT_NUM = 8;
+constexpr int32_t QWEN3_NEXT_EP_WORLD_SIZE = 8;
+
 constexpr uint64_t MOE_V2_MAX_WIN_SIZE = 1024ULL * 1024ULL * 200ULL;
 
 bool IsSupportedMoeCombineV2Case(
@@ -53,8 +59,13 @@ bool IsSupportedMoeCombineV2Case(
         batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
         epWorldSize == AIGCODE_EP_WORLD_SIZE && moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 &&
         sharedExpertRankNum == 0;
-    return isGlmCase || isAigcodeCase;
+    const bool isQwen3NextCase =
+        batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
+        moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0;
+    return isGlmCase || isAigcodeCase || isQwen3NextCase;
 }
+
 } // namespace
 
 void MoeDistributedCombineValidateExpandX(
@@ -185,9 +196,11 @@ void MoeDistributedCombineValidateMoeEpWorldSize(int32_t epWorldSize)
 
 void MoeDistributedCombineValidateMoeExpertNum(int32_t moeExpertNum)
 {
-    CHECK((moeExpertNum == GLM_V2_MOE_EXPERT_NUM) || (moeExpertNum == AIGCODE_MOE_EXPERT_NUM))
-        << "moeExpertNum only supports " << GLM_V2_MOE_EXPERT_NUM << " or " << AIGCODE_MOE_EXPERT_NUM
-        << ", but got " << moeExpertNum;
+    CHECK(
+        (moeExpertNum == GLM_V2_MOE_EXPERT_NUM) || (moeExpertNum == AIGCODE_MOE_EXPERT_NUM) ||
+        (moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM))
+        << "moeExpertNum only supports " << GLM_V2_MOE_EXPERT_NUM << ", " << AIGCODE_MOE_EXPERT_NUM << " or "
+        << QWEN3_NEXT_MOE_EXPERT_NUM << ", but got " << moeExpertNum;
 }
 
 void TiledMoeDistributedCombineSend(
@@ -355,7 +368,8 @@ void MoeDistributedCombineValidate(
             static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum)))
         << "MoeDistributedCombine constraint violated: only GLM V2 "
            "(batch=8/256, hidden=5120, topK=8, moeExpertNum=160, epWorldSize=4/8) or Aigcode "
-           "(batch=1024, hidden=4096, topK=4, moeExpertNum=16, epWorldSize=4) are supported.";
+           "(batch=1024, hidden=4096, topK=4, moeExpertNum=16, epWorldSize=4) or Qwen3 Next Aigcode "
+           "(batch=1024, hidden=4096, topK=2, moeExpertNum=8, epWorldSize=8) are supported.";
     CHECK(expandX.GetShape(1) == hiddenSize)
         << "MoeDistributedCombine constraint violated: expandX hidden size must match expertScales config.";
     CHECK(out.GetShape(1) == hiddenSize)
@@ -439,6 +453,11 @@ void MoeDistributedCombineV2(
     if (batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
         epWorldSize == AIGCODE_EP_WORLD_SIZE && moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 &&
         sharedExpertRankNum == 0) {
+        unrollList = {8, 4, 2, 1};
+    }
+    if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
+        moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0) {
         unrollList = {8, 4, 2, 1};
     }
     LOOP("MoeDistributedCombineSend", FunctionType::DYNAMIC_LOOP, rowIndex, LoopRange(recvCountsScalar), unrollList)

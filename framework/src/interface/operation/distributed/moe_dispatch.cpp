@@ -40,6 +40,12 @@ constexpr int32_t AIGCODE_TOPK = 4;
 constexpr int32_t AIGCODE_MOE_EXPERT_NUM = 16;
 constexpr int32_t AIGCODE_EP_WORLD_SIZE = 4;
 
+constexpr int32_t QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 = 1024;
+constexpr int32_t QWEN3_NEXT_HIDDEN_SIZE = 4096;
+constexpr int32_t QWEN3_NEXT_TOPK = 2;
+constexpr int32_t QWEN3_NEXT_MOE_EXPERT_NUM = 8;
+constexpr int32_t QWEN3_NEXT_EP_WORLD_SIZE = 8;
+
 constexpr uint64_t MOE_V2_MAX_WIN_SIZE = 1024ULL * 1024ULL * 200ULL;
 
 bool IsSupportedMoeDispatchV1Case(int32_t batchSize, int32_t hiddenSize, int32_t topK, const MoeConfig& moeConfig)
@@ -50,7 +56,11 @@ bool IsSupportedMoeDispatchV1Case(int32_t batchSize, int32_t hiddenSize, int32_t
     const bool isAigcodeCase =
         batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
         moeConfig.routedExpertNum == AIGCODE_MOE_EXPERT_NUM && moeConfig.rankNum == AIGCODE_EP_WORLD_SIZE;
-    return isGlmCase || isAigcodeCase;
+    const bool isQwen3NextCase =
+        batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        topK == QWEN3_NEXT_TOPK && moeConfig.routedExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM &&
+        moeConfig.rankNum == QWEN3_NEXT_EP_WORLD_SIZE;
+    return isGlmCase || isAigcodeCase || isQwen3NextCase;
 }
 
 } // namespace
@@ -548,7 +558,8 @@ void MoeDispatchValidateV1(
         IsSupportedMoeDispatchV1Case(batchSize, hiddenSize, topK, moeConfig))
         << "MoeDispatch constraint violated: only GLM V1 "
            "(batch=8, hidden=5120, topK=8, routedExpertNum=160, rankNum=4/8) or Aigcode V1 "
-           "(batch=1024, hidden=4096, topK=4, routedExpertNum=16, rankNum=4) are supported.";
+           "(batch=1024, hidden=4096, topK=4, routedExpertNum=16, rankNum=4) or Qwen3 Next Aigcode V1 "
+           "(batch=1024, hidden=4096, topK=2, routedExpertNum=8, rankNum=8) are supported.";
     CHECK(checkValidInput(tokenTensor, 2, DataType::DT_BF16, batchSize, hiddenSize, assertResult)) << assertResult;
     int32_t expandXRow = std::min(batchSize * topK * moeConfig.rankNum, batchSize * moeConfig.routedExpertNum);
     CHECK(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, batchSize, topK, assertResult)) << assertResult;

@@ -8,7 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-"""Aigcode distributed MoE dispatch + combine validation with fixed training shape."""
+"""Aigcode distributed MoE dispatch + combine validation with fixed Qwen3 Next training shape."""
 
 import dataclasses
 import multiprocessing as mp
@@ -24,9 +24,9 @@ from utils.distributed_config import DistributedConfig
 AIGCODE_LOCAL_TOKENS = 8192
 AIGCODE_CHUNK_TOKENS = 1024
 AIGCODE_HIDDEN_SIZE = 4096
-AIGCODE_MOE_EXPERT_NUM = 16
-AIGCODE_TOPK = 4
-AIGCODE_EP_WORLD_SIZE = 4
+AIGCODE_MOE_EXPERT_NUM = 8
+AIGCODE_TOPK = 2
+AIGCODE_EP_WORLD_SIZE = 8
 AIGCODE_EXPERTS_PER_RANK = AIGCODE_MOE_EXPERT_NUM // AIGCODE_EP_WORLD_SIZE
 AIGCODE_DISPATCH_ROWS = min(
     AIGCODE_CHUNK_TOKENS * AIGCODE_TOPK * AIGCODE_EP_WORLD_SIZE,
