@@ -131,7 +131,7 @@ Status AssignMemoryTypeChecker::DoPostCheck(Function& function)
             "Postcheck for AssignMemoryType failed since view/assemble has unreachable input-to-output memoryType.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Function, "End Postcheck for AssignMemoryType.");
+    APASS_LOG_INFO_F(Elements::Function, "End Postcheck for AssignMemoryType!");
     return SUCCESS;
 }
 
