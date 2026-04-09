@@ -177,6 +177,7 @@ private:
     std::string InsertOpComment(std::string& tileOpSourceCode) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
+    std::string GenTemplateParamsForPut() const;
     std::string GenTemplateParamsForPutUb2Gm() const;
     std::string GenTemplateParamsForSignal() const;
     std::string GenTemplateParamsForMoeDistributedCombineSend() const;
