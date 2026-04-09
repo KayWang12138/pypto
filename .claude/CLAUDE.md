@@ -65,8 +65,8 @@ actual paths on this machine.
 ### General test commands
 
 ```bash
-# All pypto_block tests
-pytest python/tests/ut/block/ -v
+# Frontend tests (default)
+pytest python/tests/ut/block/frontend/ -v
 
 # Single test file
 pytest python/tests/ut/block/language/parser/test_tiling.py -v
