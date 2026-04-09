@@ -91,11 +91,53 @@ Status ExpandFunction::PostCheck(Function& function)
     return checker.DoPostCheck(function);
 }
 
+Status ExpandFunction::VerifyScopeInfo(Function& function, std::ostringstream& oss) const
+{
+    std::unordered_map<int, Operation::ScopeInfo> scopeInfoMap;
+    std::unordered_map<int, std::unordered_set<CoreType>> scopeCoreTypes;
+    for (auto& op : function.Operations(false)) {
+        const auto& info = op.GetScopeInfo();
+        if (info.scopeId == -1 && (info.allowParallelMerge || info.allowCrossScopeMerge)) {
+            oss << "Op " << op.GetOpcodeStr() << "[" << op.GetOpMagic()
+                << "]: allowParallelMerge and allowCrossScopeMerge must be false when scopeId is -1.";
+            return FAILED;
+        }
+        if (info.scopeId != -1) {
+            auto it = scopeInfoMap.find(info.scopeId);
+            if (it != scopeInfoMap.end()) {
+                const auto& existing = it->second;
+                if (existing.allowParallelMerge != info.allowParallelMerge ||
+                    existing.allowCrossScopeMerge != info.allowCrossScopeMerge) {
+                    oss << "Op " << op.GetOpcodeStr() << "[" << op.GetOpMagic() << "]: scopeId=" << info.scopeId
+                        << " has conflicting allowParallelMerge or allowCrossScopeMerge settings.";
+                    return FAILED;
+                }
+            } else {
+                scopeInfoMap[info.scopeId] = info;
+            }
+            scopeCoreTypes[info.scopeId].insert(op.GetCoreType());
+        }
+    }
+    for (auto& [scopeId, coreTypes] : scopeCoreTypes) {
+        if (!GraphUtils::IsCVMixPlatform() && coreTypes.count(CoreType::AIC) > 0 && coreTypes.count(CoreType::AIV) > 0) {
+            oss << "Cannot mix cube and vector op on a CV seperate platform in function: " << function.GetRawName()
+                << ", please check your setting: sg_set_scope=" << scopeId;
+            return FAILED;
+        }
+    }
+    return SUCCESS;
+}
+
 Status ExpandFunction::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction function [%s].", function.GetRawName().c_str());
     std::ostringstream oss;
-    scopeMap_.clear();
+    if (VerifyScopeInfo(function, oss) != SUCCESS) {
+        APASS_LOG_ERROR_F(
+            Elements::Function, "Function[%s] ScopeInfo verification failed: %s", function.GetRawName().c_str(),
+            oss.str().c_str());
+        return FAILED;
+    }
     bool verifyResult = true;
     for (auto& op : function.Operations(false)) {
         auto verifyOperationEntry = OpcodeManager::Inst().GetVerifyOperationEntry(op.GetOpcode());
@@ -177,18 +219,6 @@ Status ExpandFunction::Expandfunction(Function& function) const
 
 Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
     const auto &info = op.GetScopeInfo();
-    if (info.scopeId >= 0) { // scopeIdx < 0 means no need to merge
-        scopeMap_[info.scopeId].insert(op.GetCoreType());
-        if (!GraphUtils::IsCVMixPlatform() && scopeMap_[info.scopeId].find(CoreType::AIC) != scopeMap_[info.scopeId].end() && 
-            scopeMap_[info.scopeId].find(CoreType::AIV) != scopeMap_[info.scopeId].end()) {
-            APASS_LOG_ERROR_F( 
-                Elements::Function,
-                "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: "
-                "sg_set_scope=%d",
-                function.GetRawName().c_str(), info.scopeId);
-            return FAILED;
-        }
-    }
     std::vector<int64_t> scopeVec = {
         static_cast<int64_t>(info.scopeId),
         static_cast<int64_t>(info.allowParallelMerge),

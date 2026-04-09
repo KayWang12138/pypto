@@ -316,23 +316,9 @@ Status NodeGraphInfo::Build(
             return FAILED;
         }
     }
-    op2Node_.resize(opList.size());
-    nodeCycles_.resize(opList.size());
-    std::vector<int32_t> nodeScopeTmp(node2Op_.size(), -1);
-    nodeScope_.swap(nodeScopeTmp);
-    for (size_t nodeIdx = 0; nodeIdx < node2Op_.size(); nodeIdx++) {
-        nodeCycles_[nodeIdx] = 0;
-        for (size_t opNodeIdx = 0; opNodeIdx < node2Op_[nodeIdx].size(); opNodeIdx++) {
-            int32_t opIdx = node2Op_[nodeIdx][opNodeIdx];
-            op2Node_[opIdx] = nodeIdx;
-            nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
-            int32_t scopeId = operationGraphInfo->opList_[opIdx]->GetScopeId();
-            if (scopeId != -1) {
-                nodeScope_[nodeIdx] = scopeId;
-            }
-        }
-    }
-    BuildInOutGraph(operationGraphInfo, markIsCube);
+    BuildNodeMapping(operationGraphInfo);
+    BuildInOutGraph(operationGraphInfo);
+    SetNodeCoreTypeAndMergeable(operationGraphInfo, markIsCube);
     return SUCCESS;
 }
 
@@ -352,12 +338,12 @@ bool NodeGraphInfo::GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> o
     return isMergeable;
 }
 
-Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube)
+Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo)
 {
-    nodeInGraph_.resize(node2Op_.size());
-    nodeOutGraph_.resize(node2Op_.size());
-    nodeInGraphList_.resize(node2Op_.size());
-    nodeOutGraphList_.resize(node2Op_.size());
+    nodeInGraph_.assign(node2Op_.size(), std::set<int32_t>());
+    nodeOutGraph_.assign(node2Op_.size(), std::set<int32_t>());
+    nodeInGraphList_.assign(node2Op_.size(), std::vector<int32_t>());
+    nodeOutGraphList_.assign(node2Op_.size(), std::vector<int32_t>());
     for (size_t i = 0; i < node2Op_.size(); i++) {
         std::vector<int32_t>& currNode = node2Op_[i];
         for (int32_t opIdx : currNode) {
@@ -374,7 +360,6 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
         nodeInGraphList_[i].insert(nodeInGraphList_[i].begin(), nodeInGraph_[i].begin(), nodeInGraph_[i].end());
         nodeOutGraphList_[i].insert(nodeOutGraphList_[i].begin(), nodeOutGraph_[i].begin(), nodeOutGraph_[i].end());
     }
-    SetNodeCoreTypeAndMergeable(operationGraphInfo, markIsCube);
     return SUCCESS;
 }
 
@@ -706,22 +691,42 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     return ProcessScopeMerge();
 }
 
+void NodeGraphInfo::BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> operationGraphInfo)
+{
+    int32_t numNodes = static_cast<int32_t>(node2Op_.size());
+    op2Node_.resize(operationGraphInfo->opList_.size());
+    nodeScope_.assign(numNodes, Operation::ScopeInfo());
+    nodeCycles_.assign(numNodes, 0);
+    for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
+        for (int32_t opIdx : node2Op_[nodeIdx]) {
+            op2Node_[opIdx] = nodeIdx;
+            const auto& scopeInfo = operationGraphInfo->opList_[opIdx]->GetScopeInfo();
+            if (scopeInfo.scopeId != -1) {
+                nodeScope_[nodeIdx] = scopeInfo;
+            }
+            nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
+        }
+    }
+}
+
 Status SuperNodeGraphBuilder::ProcessScopeMerge()
 {
     int32_t numNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
-    std::map<int32_t, std::set<OpCoreType>> scopeCoreTypes;
-    std::map<int32_t, bool> scopeAllowParallel;
+    std::unordered_map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
+    std::unordered_map<int32_t, bool> scopeAllowParallel;
+    std::unordered_map<int32_t, std::vector<int32_t>> scope2Nodes;
 
     for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-        int32_t scopeId = superNodeInfo_->nodeScope_[nodeIdx];
-        if (scopeId == -1) {
+        const auto& scopeInfo = superNodeInfo_->nodeScope_[nodeIdx];
+        if (scopeInfo.scopeId == -1) {
             continue;
         }
+        scope2Nodes[scopeInfo.scopeId].push_back(nodeIdx);
         for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-            scopeCoreTypes[scopeId].insert(operationInfo_->opCoreType_[opIdx]);
-            if (operationInfo_->opList_[opIdx]->GetAllowParallelMerge()) {
-                scopeAllowParallel[scopeId] = true;
-            }
+            scopeCoreTypes[scopeInfo.scopeId].insert(operationInfo_->opCoreType_[opIdx]);
+        }
+        if (scopeInfo.allowParallelMerge) {
+            scopeAllowParallel[scopeInfo.scopeId] = true;
         }
     }
 
@@ -738,13 +743,16 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
     };
 
     bool needRebuild = false;
+    bool isCVMix = GraphUtils::IsCVMixPlatform();
+    std::map<int32_t, int32_t> scopeToMixId;
 
     for (auto& [scopeId, coreTypes] : scopeCoreTypes) {
         bool hasAic = coreTypes.count(OpCoreType::AIC) > 0;
         bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
 
         if (hasAic && hasAiv) {
-            if (GraphUtils::IsCVMixPlatform()) {
+            if (isCVMix) {
+                scopeToMixId[scopeId] = nextMixId_++;
                 continue;
             } else {
                 APASS_LOG_ERROR_F(
@@ -754,13 +762,11 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
         }
 
         bool allowParallel = scopeAllowParallel.count(scopeId) > 0 && scopeAllowParallel[scopeId];
+        const auto& nodes = scope2Nodes[scopeId];
 
         if (allowParallel) {
             int32_t firstNode = -1;
-            for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-                if (superNodeInfo_->nodeScope_[nodeIdx] != scopeId) {
-                    continue;
-                }
+            for (int32_t nodeIdx : nodes) {
                 if (firstNode == -1) {
                     firstNode = nodeIdx;
                 } else {
@@ -773,12 +779,9 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
                 }
             }
         } else {
-            for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-                if (superNodeInfo_->nodeScope_[nodeIdx] != scopeId) {
-                    continue;
-                }
+            for (int32_t nodeIdx : nodes) {
                 for (int32_t outNodeIdx : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
-                    if (superNodeInfo_->nodeScope_[outNodeIdx] == scopeId) {
+                    if (superNodeInfo_->nodeScope_[outNodeIdx].scopeId == scopeId) {
                         int32_t p1 = findSN(nodeIdx);
                         int32_t p2 = findSN(outNodeIdx);
                         if (p1 != p2) {
@@ -807,48 +810,21 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
         }
 
         superNodeInfo_->node2Op_ = std::move(newNode2Op);
-        int32_t newNumNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
+        superNodeInfo_->BuildNodeMapping(operationInfo_);
+        superNodeInfo_->BuildInOutGraph(operationInfo_);
+        superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, !useCVMixPartition_); 
+    }
 
-        superNodeInfo_->op2Node_.resize(operationInfo_->opList_.size());
-        superNodeInfo_->nodeScope_.assign(newNumNodes, -1);
-        superNodeInfo_->nodeCycles_.assign(newNumNodes, 0);
-
-        for (int32_t nodeIdx = 0; nodeIdx < newNumNodes; nodeIdx++) {
-            for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-                superNodeInfo_->op2Node_[opIdx] = nodeIdx;
-                int32_t sid = operationInfo_->opList_[opIdx]->GetScopeId();
-                if (sid != -1) {
-                    superNodeInfo_->nodeScope_[nodeIdx] = sid;
+    if (isCVMix) {
+        for (const auto& [scopeId, mixId] : scopeToMixId) {
+            const auto& nodes = scope2Nodes[scopeId];
+            for (int32_t nodeIdx : nodes) {
+                for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+                    operationInfo_->opList_[opIdx]->scopeInfo_.SetMixId(mixId);
                 }
-                superNodeInfo_->nodeCycles_[nodeIdx] += operationInfo_->opList_[opIdx]->GetLatency();
-            }
-        }
-
-        superNodeInfo_->BuildInOutGraph(operationInfo_, !useCVMixPartition_);
-    }
-
-    if (GraphUtils::IsCVMixPlatform()) {
-        std::map<int32_t, int32_t> scopeToMixId;
-        for (auto& [scopeId, coreTypes] : scopeCoreTypes) {
-            bool hasAic = coreTypes.count(OpCoreType::AIC) > 0;
-            bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
-            if (hasAic && hasAiv) {
-                scopeToMixId[scopeId] = nextMixId_++;
-            }
-        }
-
-        for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
-            int32_t scopeId = superNodeInfo_->nodeScope_[nodeIdx];
-            auto it = scopeToMixId.find(scopeId);
-            if (it == scopeToMixId.end()) {
-                continue;
-            }
-            for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-                operationInfo_->opList_[opIdx]->scopeInfo_.SetMixId(it->second);
             }
         }
     }
-
     return SUCCESS;
 }
 
