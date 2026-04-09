@@ -46,47 +46,32 @@ class TensorAnnotation:
 class Tensor:
 
     def __init__(self, shape=None, dtype: Union[DataType, None] = None,
-             name: str = "", format=None,
-             data_ptr: Optional[int] = None, device=None, ori_shape=None):
+            name: str = "", format=None,
+            data_ptr: Optional[int] = None, device=None, ori_shape=None):
         self.ori_shape = ori_shape
         self.status_shape = None
-        # dtype和format显式配置标记
+        # Mark explicit dtype and format configuration
         self.explicit_dtype = dtype
         self.explicit_format = format
-        #format没有显式传递用默认值
+        # Use default value if format is not explicitly passed
         ndtype = dtype or pypto.DT_FP32
         nformat = format or TileOpFormat.TILEOP_ND
 
-        # Normalize shape and initialize _base
-        nshape, self.status_shape = self._normalize_shape(shape)
-        self._base = pypto_impl.Tensor(ndtype, nshape, name, nformat)
+        # Normalize shape
+        if shape is None:
+            nshape = []
+        elif shape and all(isinstance(s, int) for s in shape):
+            nshape = list(shape)
+        elif isinstance(shape, list) and self._validate_status_shape(shape):
+            nshape = []
+            self.status_shape = shape
+        else:
+            nshape = to_syms(shape)
+            assert isinstance(nshape, list), "shape must be a list of int or SymbolicScalar"
 
+        self._base = pypto_impl.Tensor(ndtype, nshape, name, nformat)
         self.data_ptr = data_ptr
         self.device = device
-
-    def _normalize_shape(self, shape: Optional[List]) -> Tuple[List, Optional[List]]:
-        """
-        Normalize shape, handling four cases:
-        1. None -> []
-        2. int list -> keep as is
-        3. enum value list -> return as status_shape, shape becomes []
-        4. symbolic value -> convert to symbolic
-        """
-        if shape is None:
-            return [], None
-
-        # Fixed axes: all integers
-        if shape and all(isinstance(s, int) for s in shape):
-            return list(shape), None
-
-        # Enum values
-        if isinstance(shape, list) and self._validate_status_shape(shape):
-            return [], shape
-
-        # Symbolic values
-        sym_shape = to_syms(shape)
-        assert isinstance(sym_shape, list), "shape must be a list of int or SymbolicScalar"
-        return sym_shape, None
 
     @classmethod
     def __class_getitem__(cls, params):

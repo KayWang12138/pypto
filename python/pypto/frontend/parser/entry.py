@@ -432,16 +432,14 @@ class JitCallableWrapper:
                 for i, dim in enumerate(tensor_def.shape)
                 if isinstance(dim, pypto.SymbolicScalar) or dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
             ]
-            # Use dtype from type annotation when provided; otherwise fallback to torch tensor dtype.
-            dtype = tensor_def.dtype if tensor_def.explicit_dtype is not None else None
-            format = tensor_def.format if tensor_def.explicit_format is not None else None
             pto_tensors.append(
                 pypto.from_torch(
                     torch_tensor,
                     name=tensor_def.name,
                     dynamic_axis=dynamic_axis if dynamic_axis else None,
-                    tensor_format=format,
-                    dtype=dtype
+                    # Use dtype from type annotation when provided; otherwise fallback to torch tensor dtype.
+                    dtype=tensor_def.explicit_dtype,
+                    tensor_format=tensor_def.explicit_format
                 )
             )
         return pto_tensors
