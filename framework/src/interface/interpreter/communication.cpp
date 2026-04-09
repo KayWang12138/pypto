@@ -213,7 +213,6 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
         std::cout << "entered atomicType: 0" << std::endl;
         memcpy(base + offset, data->GetData()->data(), slotSize);
     }
-    // TODO: 在 atomicAdd 场景下应该与输入张量类型相关，并不是 uint8_t?
     if (atomicType == 1) {
         std::cout << "entered atomicType: 1" << std::endl;
         uint8_t *ptr = data->GetData()->data();
@@ -233,7 +232,6 @@ void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_
 }
 
 void SimulationCommContext::SignalSingle(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType) {
-    // TODO: 在 atomicAdd 场景下应该与 value 类型相同而非 uint8_t? 在 Signal 场景是不是固定为 int32?
     uint8_t *base = GetRemoteRank(dstRank, true);
     if (slotSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");

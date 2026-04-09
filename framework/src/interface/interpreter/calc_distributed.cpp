@@ -69,19 +69,19 @@ void ExecuteOpShmemSet(ExecuteOperationContext *ctx) {
 
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1 || ctx->ooperandInplaceDataViewList->size() == 2);
-    auto &in = ctx->ioperandDataViewList->at(0);
+    auto &shm = ctx->ioperandDataViewList->at(1);
 
     Distributed::ShmemSetAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
-    size_t slotSize = in->GetSize() * BytesOf(in->GetDataType());
+    size_t slotSize = shm->GetSize() * BytesOf(shm->GetDataType());
     if (!attr.isSetData) {
-        std::cout << "Set rank " << context->GetRank() << "'s signal as 0 from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << std::endl;
-        context->Signal(context->GetRank(), 0, slotSize, in->GetStorageOffset());
+        std::cout << "Set rank " << context->GetRank() << "'s signal as 0 from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << std::endl;
+        context->Signal(context->GetRank(), 0, slotSize, shm->GetStorageOffset());
     } else {
-        std::cout << "Set rank " << context->GetRank() << "'s data as 0 from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << std::endl;
-        context->Set(context->GetRank(), 0, slotSize, in->GetStorageOffset());
+        std::cout << "Set rank " << context->GetRank() << "'s data as 0 from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << std::endl;
+        context->Set(context->GetRank(), 0, slotSize, shm->GetStorageOffset());
     }
 
     std::cout << "=== ExecuteOpShmemSet exited ..." << std::endl;
@@ -94,6 +94,7 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 3);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     auto &in = ctx->ioperandDataViewList->at(1);
+    auto &shm = ctx->ioperandDataViewList->at(2);
 
     Distributed::ShmemPutAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
@@ -107,8 +108,8 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     if (attr.atomicType == Distributed::AtomicType::ADD) {
         atomicType = 1;
     }
-    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << in->GetStorageOffset() << " , atomic type: " << atomicType << std::endl;
-    context->Put(in, dstRank, in->GetStorageOffset(), atomicType);
+    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << shm->GetStorageOffset() << " , atomic type: " << atomicType << std::endl;
+    context->Put(in, dstRank, shm->GetStorageOffset(), atomicType);
 
     std::cout << "=== ExecuteOpShmemPut exited ..." << std::endl;
 }
@@ -119,7 +120,7 @@ void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
 
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
-    auto &in = ctx->ioperandDataViewList->at(1);
+    auto &shm = ctx->ioperandDataViewList->at(1);
 
     Distributed::ShmemSignalAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
@@ -135,9 +136,9 @@ void ExecuteOpShmemSignal(ExecuteOperationContext *ctx) {
     }
     int value = attr.signalValue;
     bool notifyAll = attr.notifyAll;
-    size_t slotSize = in->GetSize() * BytesOf(in->GetDataType());
-    std::cout << "Signal " << value << " to rank " << dstRank << " from offset " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << "; atomicType: " << atomicType << ", notifyAll: " << notifyAll << std::endl;
-    context->Signal(dstRank, value, slotSize, in->GetStorageOffset(), atomicType, notifyAll);
+    size_t slotSize = shm->GetSize() * BytesOf(shm->GetDataType());
+    std::cout << "Signal " << value << " to rank " << dstRank << " from offset " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << "; atomicType: " << atomicType << ", notifyAll: " << notifyAll << std::endl;
+    context->Signal(dstRank, value, slotSize, shm->GetStorageOffset(), atomicType, notifyAll);
 
     std::cout << "=== ExecuteOpShmemSignal exited ..." << std::endl;
 }
@@ -148,7 +149,7 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
 
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto &in = ctx->ioperandDataViewList->at(1);
+    auto &shm = ctx->ioperandDataViewList->at(1);
 
     Distributed::ShmemWaitUntilAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
@@ -157,10 +158,10 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     int srcRank = context->GetRank();
     int expect = attr.expectedSum;
     bool reset = attr.resetSignal;
-    size_t slotSize =  in->GetSize() * BytesOf(in->GetDataType());
+    size_t slotSize =  shm->GetSize() * BytesOf(shm->GetDataType());
 
-    std::cout << "Rank " << srcRank << " is waiting for " << expect << " from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << " reset: " << reset << std::endl;
-    context->Wait(srcRank, expect, slotSize, in->GetStorageOffset(), reset);
+    std::cout << "Rank " << srcRank << " is waiting for " << expect << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << " reset: " << reset << std::endl;
+    context->Wait(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
 
     std::cout << "=== ExecuteOpShmemWaitUntil exited ..." << std::endl;
 }
@@ -171,17 +172,19 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
 
     ASSERT(ctx->ioperandDataViewList->size() == 2);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 2 || ctx->ooperandInplaceDataViewList->size() == 1);
-    auto &in = ctx->ioperandDataViewList->at(1);
+    auto &shm = ctx->ioperandDataViewList->at(1);
+    auto out = ctx->ooperandInplaceDataViewList->at(0);
 
     Distributed::ShmemGetAttr attr;
     ctx->op->GetAttr(OpAttributeKey::distOpAttr, attr);
     
     std::shared_ptr<SimulationCommContext> context = SimulationCommManager::Instance().GetCommContext(attr.group);
     int srcRank = ctx->opInter->EvaluateSymbolicScalar(attr.ownerRank);
-    size_t slotSize = in->GetSize() * BytesOf(in->GetDataType());
+    size_t slotSize = out->GetSize() * BytesOf(out->GetDataType());
 
-    std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << in->GetStorageOffset() << " to " << in->GetStorageOffset() + slotSize << std::endl;
-    context->Get(srcRank, slotSize, in->GetStorageOffset());
+    std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << std::endl;
+    // TODO: 修改 out 的结果为 Get 的结果，并转换为对应类型
+    out = context->Get(srcRank, slotSize, shm->GetStorageOffset());
 
     std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;
 }
