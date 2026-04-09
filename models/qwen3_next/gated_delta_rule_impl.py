@@ -482,9 +482,7 @@ def chunk_gated_delta_rule(b, nqk, nv, d, l):
 
     @pypto.frontend.jit(
         runtime_options={
-            "stitch_function_inner_memory": 128 * 16,
-            "stitch_function_num_initial": 128,
-            "stitch_function_outcast_memory": 128 * 16,
+            "stitch_function_max_num": 128,
         },
     )
     def kernel(
@@ -605,9 +603,7 @@ def chunk_gated_delta_rule_unaligned(b, nqk, nv, d, l):
 
     @pypto.frontend.jit(
         runtime_options={
-            "stitch_function_inner_memory": 128 * 16,
-            "stitch_function_num_initial": 128,
-            "stitch_function_outcast_memory": 128 * 16,
+            "stitch_function_max_num": 128,
         },
     )
     def kernel(
