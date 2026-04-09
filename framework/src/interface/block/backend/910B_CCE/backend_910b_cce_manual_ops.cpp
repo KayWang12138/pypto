@@ -193,7 +193,43 @@ static std::string MakeManualStoreCodegenCCE(const ir::CallPtr& op, codegen::Cod
   std::string dst_ptr = codegen.GetPointer(dst_tensor_var);
 
   codegen.Emit("TASSIGN(" + dst_tensor_var + ", " + dst_ptr + " + " + offset + ");");
-  codegen.Emit("TSTORE(" + dst_tensor_var + ", " + src_tile + ");");
+
+  // Build template parameters: TSTORE<TileData, GlobalData, AtomicType, ReluPreMode>(dst, src, ...)
+  // Per pto-isa: template order is <TileData, GlobalData, AtomicType, ReluPreMode>
+  // Function arg order is (GlobalData& dst, TileData& src, ...)
+  std::string relu_template;
+
+  if (op->HasKwarg("relu_pre_mode")) {
+    const std::string& relu_str = op->GetKwarg<std::string>("relu_pre_mode");
+    std::string relu_enum;
+    if (relu_str == "no_relu") {
+      relu_enum = "ReluPreMode::NoRelu";
+    } else if (relu_str == "normal_relu") {
+      relu_enum = "ReluPreMode::NormalRelu";
+    } else {
+      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+    }
+    relu_template = relu_enum;
+  }
+
+  // Build function arguments
+  std::string args = dst_tensor_var + ", " + src_tile;
+
+  if (op->HasKwarg("pre_quant_scalar")) {
+    int pre_quant = op->GetKwarg<int>("pre_quant_scalar");
+    args += ", " + std::to_string(pre_quant);
+  }
+
+  // Emit TSTORE
+  if (!relu_template.empty()) {
+    // TSTORE<TileData, GlobalData, AtomicType::AtomicNone, ReluPreMode>(dst, src[, preQuant])
+    codegen.Emit("TSTORE<decltype(" + src_tile + "), decltype(" + dst_tensor_var + "), AtomicType::AtomicNone, " + relu_template + ">(" + args + ");");
+  } else if (op->HasKwarg("pre_quant_scalar")) {
+    // TSTORE<TileData, GlobalData>(dst, src, preQuant) — default AtomicType & ReluPreMode
+    codegen.Emit("TSTORE<decltype(" + src_tile + "), decltype(" + dst_tensor_var + ")>(" + args + ");");
+  } else {
+    codegen.Emit("TSTORE(" + args + ");");
+  }
   return "";
 }
 
@@ -252,7 +288,9 @@ static std::string MakeManualMoveCodegenCCE(const ir::CallPtr& op, codegen::Code
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
 
-  // Emit TMOV (with or without AccToVecMode)
+  // Build template parameters
+  std::string template_params = "";
+
   if (op->HasKwarg("acc_to_vec_mode")) {
     const std::string& mode_str = op->GetKwarg<std::string>("acc_to_vec_mode");
     std::string mode_enum;
@@ -267,9 +305,35 @@ static std::string MakeManualMoveCodegenCCE(const ir::CallPtr& op, codegen::Code
     } else {
       throw pypto::ValueError("Invalid acc_to_vec_mode: " + mode_str);
     }
-    codegen.Emit("TMOV<decltype(" + dst + "), decltype(" + src + "), " + mode_enum + ">(" + dst + ", " + src + ");");
+    template_params = ", " + mode_enum;
+  }
+
+  if (op->HasKwarg("relu_pre_mode")) {
+    const std::string& relu_str = op->GetKwarg<std::string>("relu_pre_mode");
+    std::string relu_enum;
+    if (relu_str == "no_relu") {
+      relu_enum = "ReluPreMode::NoRelu";
+    } else if (relu_str == "normal_relu") {
+      relu_enum = "ReluPreMode::NormalRelu";
+    } else {
+      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+    }
+    template_params += ", " + relu_enum;
+  }
+
+  // Build function arguments
+  std::string args = dst + ", " + src;
+
+  if (op->HasKwarg("pre_quant_scalar")) {
+    int pre_quant = op->GetKwarg<int>("pre_quant_scalar");
+    args += ", " + std::to_string(pre_quant);
+  }
+
+  // Emit TMOV
+  if (!template_params.empty()) {
+    codegen.Emit("TMOV<decltype(" + dst + "), decltype(" + src + ")" + template_params + ">(" + args + ");");
   } else {
-    codegen.Emit("TMOV(" + dst + ", " + src + ");");
+    codegen.Emit("TMOV(" + args + ");");
   }
 
   return "";

@@ -100,7 +100,7 @@ def matmul_add_matmul_add(
         tile_out = plm.make_tile(tile_type_out, addr=0x8000, size=8192)
 
         tile_type_nz = plm.TileType(shape=[33, 64], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, valid_shape=[32, 64], blayout=2, slayout=1)
-        tile_nz = plm.make_tile(tile_type_nz, addr=0xA000, size=8192)  # NZ no bank conflict
+        tile_nz = plm.make_tile(tile_type_nz, addr=0xA000, size=8448)  # NZ no bank conflict
 
         off = sub_index * 32
         plm.load(tile_x1, x1, [off, 0])

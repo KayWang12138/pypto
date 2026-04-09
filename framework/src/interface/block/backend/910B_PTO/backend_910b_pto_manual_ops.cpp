@@ -925,12 +925,42 @@ static std::string MakeManualStoreCodegenPTO(const CallPtr& op, codegen::Codegen
     codegen.Emit(pv_line.str());
   }
 
+  // Build optional attributes string
+  std::string attrs;
+  if (op->HasKwarg("relu_pre_mode")) {
+    const std::string& relu_str = op->GetKwarg<std::string>("relu_pre_mode");
+    std::string relu_enum;
+    if (relu_str == "no_relu") {
+      relu_enum = "no_relu";
+    } else if (relu_str == "normal_relu") {
+      relu_enum = "normal_relu";
+    } else {
+      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+    }
+    if (!attrs.empty()) attrs += ", ";
+    attrs += "reluPreMode = #pto<relu_pre_mode " + relu_enum + ">";
+  }
+
+  // Emit pre_quant_scalar as an SSA i64 constant operand if present
+  std::string pre_quant_ssa;
+  if (op->HasKwarg("pre_quant_scalar")) {
+    int pre_quant = op->GetKwarg<int>("pre_quant_scalar");
+    pre_quant_ssa = codegen.NewTemp();
+    codegen.Emit(pre_quant_ssa + " = arith.constant " + std::to_string(pre_quant) + " : i64");
+  }
+
   std::ostringstream tstore_line;
   tstore_line << "pto.tstore ins(" << tile_buf;
   if (!tile_buf_type.empty()) {
     tstore_line << " : " << tile_buf_type;
   }
+  if (!pre_quant_ssa.empty()) {
+    tstore_line << ", " << pre_quant_ssa << " : i64";
+  }
   tstore_line << ") outs(" << partition_view << " : " << partition_type << ")";
+  if (!attrs.empty()) {
+    tstore_line << " {" << attrs << "}";
+  }
   codegen.Emit(tstore_line.str());
 
   return "";
@@ -943,6 +973,91 @@ static std::string MakeManualStoreCodegenPTO(const CallPtr& op, codegen::Codegen
 // ----------------------------------------------------------------------------
 // Memory
 // ----------------------------------------------------------------------------
+
+// ============================================================================
+// manual.move — args = [src, dst]
+// Emits: pto.tmov ins(src : src_type) outs(dst : dst_type) with optional attributes
+// ============================================================================
+static std::string MakeManualMoveCodegenPTO(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2) << "manual.move: expected 2 args, got " << op->args_.size();
+
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string src_type = codegen.GetExprTypeAnnotation(op->args_[0]);
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+  std::string dst_type = codegen.GetExprTypeAnnotation(op->args_[1]);
+
+  // Build attributes
+  std::string attrs = "";
+
+  if (op->HasKwarg("acc_to_vec_mode")) {
+    const std::string& mode_str = op->GetKwarg<std::string>("acc_to_vec_mode");
+    std::string mode_enum;
+    if (mode_str == "single_vec0") {
+      mode_enum = "single_mode_vec0";
+    } else if (mode_str == "single_vec1") {
+      mode_enum = "single_mode_vec1";
+    } else if (mode_str == "dual_split_m") {
+      mode_enum = "dual_mode_split_m";
+    } else if (mode_str == "dual_split_n") {
+      mode_enum = "dual_mode_split_n";
+    } else {
+      throw pypto::ValueError("Invalid acc_to_vec_mode: " + mode_str);
+    }
+    if (!attrs.empty()) attrs += ", ";
+    attrs += "accToVecMode = #pto.acc_to_vec_mode<" + mode_enum + ">";
+  }
+
+  if (op->HasKwarg("relu_pre_mode")) {
+    const std::string& relu_str = op->GetKwarg<std::string>("relu_pre_mode");
+    std::string relu_enum;
+    if (relu_str == "no_relu") {
+      relu_enum = "no_relu";
+    } else if (relu_str == "normal_relu") {
+      relu_enum = "normal_relu";
+    } else {
+      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+    }
+    if (!attrs.empty()) attrs += ", ";
+    attrs += "reluPreMode = #pto<relu_pre_mode " + relu_enum + ">";
+  }
+
+  // Emit pre_quant_scalar as an SSA i64 constant operand if present
+  std::string pre_quant_ssa = "";
+  if (op->HasKwarg("pre_quant_scalar")) {
+    int pre_quant = op->GetKwarg<int>("pre_quant_scalar");
+    pre_quant_ssa = codegen.NewTemp();
+    codegen.Emit(pre_quant_ssa + " = arith.constant " + std::to_string(pre_quant) + " : i64");
+  }
+
+  if (!pre_quant_ssa.empty()) {
+    // preQuantScalar requires generic format:
+    // "pto.tmov"(%src, %dst, %pre) <{operandSegmentSizes = array<i32: 1, 1, 0, 1>, attrs}> :
+    //     (src_type, dst_type, i64) -> ()
+    std::ostringstream oss;
+    oss << "\"pto.tmov\"(" << src << ", " << dst << ", " << pre_quant_ssa << ") <{";
+    oss << "operandSegmentSizes = array<i32: 1, 1, 0, 1>";
+    if (!attrs.empty()) oss << ", " << attrs;
+    oss << "}> : (";
+    oss << (src_type.empty() ? "none" : src_type) << ", ";
+    oss << (dst_type.empty() ? "none" : dst_type) << ", i64) -> ()";
+    codegen.Emit(oss.str());
+  } else {
+    // Declarative assembly format:
+    // pto.tmov ins(%src : type) outs(%dst : type) {attrs}
+    std::ostringstream oss;
+    oss << "pto.tmov ins(" << src;
+    if (!src_type.empty()) oss << " : " << src_type;
+    oss << ") ";
+    oss << "outs(" << dst;
+    if (!dst_type.empty()) oss << " : " << dst_type;
+    oss << ")";
+    if (!attrs.empty()) oss << " {" << attrs << "}";
+    codegen.Emit(oss.str());
+  }
+
+  return "";
+}
 
 REGISTER_BACKEND_OP(Backend910B_PTO, "manual.load")
     .set_pipe(ir::PipeType::MTE2)
@@ -1014,7 +1129,7 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "manual.insert")
 REGISTER_BACKEND_OP(Backend910B_PTO, "manual.move")
     .set_pipe(ir::PipeType::MTE2)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
-      return MakeManualUnaryPTO("pto.tmov", op, codegen);
+      return MakeManualMoveCodegenPTO(op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_PTO, "manual.ub_copy")

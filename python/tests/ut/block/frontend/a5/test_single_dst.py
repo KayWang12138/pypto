@@ -24,6 +24,7 @@ def matmul_add_matmul_add(
     x1: pl.Tensor[[64, 64], pl.FP32],
     x2: pl.Tensor[[64, 64], pl.FP32],
     out: pl.Tensor[[64, 64], pl.FP32],
+    workspace: pl.Tensor[[64, 64], pl.FP32],
 ) -> pl.Tensor[[64, 64], pl.FP32]:
     tile_p_vec = plm.TileType(shape=[32, 64], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec)
     mm1_res = plm.make_tile(tile_p_vec, addr=0x0000, size=8192)
@@ -69,7 +70,8 @@ def matmul_add_matmul_add(
 
         pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
         pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
-        plm.move(mm1_res, tile_c1, acc_to_vec_mode="dual_split_m")  # ACC -> UB
+        # plm.move(mm1_res, tile_c1, acc_to_vec_mode="dual_split_m")  # ACC -> UB
+        plm.store(workspace, tile_c1, [0, 0], relu_pre_mode="normal_relu")  # L0C2GM
         pl.system.set_cross_core(pipe=pl.PipeType.FIX, event_id=0)
 
         plm.load(v_mat, v, [0, 0])
@@ -105,9 +107,11 @@ def matmul_add_matmul_add(
         off = sub_index * 32
         plm.load(tile_x1, x1, [off, 0])
 
+        pl.system.wait_cross_core(pipe=pl.PipeType.MTE2, event_id=0)
+        plm.load(mm1_res, workspace, [off, 0])
+
         pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=1)
         pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=1)
-        pl.system.wait_cross_core(pipe=pl.PipeType.V, event_id=0)
 
         plm.add(tile_out, mm1_res, tile_x1)
         plm.move(tile_nz, tile_out)  # ND2NZ
@@ -136,7 +140,7 @@ def matmul_add_matmul_add(
 
 @fe.jit()
 def test_matmul_add_matmul_add():
-    compiled_lib = fe.compile(matmul_add_matmul_add, arch="a5", codegen_mode="pto")
+    compiled_lib = fe.compile(matmul_add_matmul_add, arch="a5", codegen_mode="cce")
     print("compiled lib path:", compiled_lib.lib_path)
 
     device = "npu:0"
@@ -156,11 +160,57 @@ def test_matmul_add_matmul_add():
     x1 = torch.randn(shape, device=device, dtype=dtype)
     x2 = torch.randn(shape, device=device, dtype=dtype)
     out = torch.zeros(shape, device=device, dtype=dtype)
+    workspace = torch.zeros(shape, device=device, dtype=dtype)  # bmm1
 
-    fe.launch(None, 1, compiled_lib, q, k, v, x1, x2, out)
+    fe.launch(None, 1, compiled_lib, q, k, v, x1, x2, out, workspace)
     torch.npu.synchronize()
 
     c1 = torch.matmul(q, k)
+    c1=torch.relu(c1)
+    v1 = c1 + x1
+    c2 = torch.matmul(v1, v)
+    out_ref = c2 + x2
+
+    print("***********npu output***********")
+    print(out.shape, out.dtype)
+    print(out)
+    print("***********golden output***********")
+    print(out_ref.shape, out_ref.dtype)
+    print(out_ref)
+
+    torch.testing.assert_close(out, out_ref, rtol=1e-2, atol=1e-2)
+    print("result equal!")
+
+
+@fe.jit()
+def test_matmul_add_matmul_add_pto():
+    compiled_lib = fe.compile(matmul_add_matmul_add, arch="a5", codegen_mode="pto")
+    print("compiled lib path:", compiled_lib.lib_path)
+
+    device = "npu:0"
+    torch.npu.set_device(device)
+
+    device_name = torch.npu.get_device_name()
+    if "Ascend950" not in device_name:
+        print(f"Currrent device is not Ascend950, skip.")
+        return
+    shape = [64, 64]
+    torch.manual_seed(24)
+    dtype = torch.float32
+
+    q = torch.randn(shape, device=device, dtype=dtype)
+    k = torch.randn(shape, device=device, dtype=dtype)
+    v = torch.randn(shape, device=device, dtype=dtype)
+    x1 = torch.randn(shape, device=device, dtype=dtype)
+    x2 = torch.randn(shape, device=device, dtype=dtype)
+    out = torch.zeros(shape, device=device, dtype=dtype)
+    workspace = torch.zeros(shape, device=device, dtype=dtype)  # bmm1
+
+    fe.launch(None, 1, compiled_lib, q, k, v, x1, x2, out, workspace)
+    torch.npu.synchronize()
+
+    c1 = torch.matmul(q, k)
+    c1=torch.relu(c1)
     v1 = c1 + x1
     c2 = torch.matmul(v1, v)
     out_ref = c2 + x2
@@ -178,4 +228,5 @@ def test_matmul_add_matmul_add():
 
 if __name__ == "__main__":
     test_matmul_add_matmul_add()
+    test_matmul_add_matmul_add_pto()
     print("\nAll tests passed!")
