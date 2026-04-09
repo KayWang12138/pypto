@@ -24,18 +24,24 @@
 template <typename T0, typename T1, typename T2, typename T3, typename T4>
 TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
 {
+    constexpr auto expTileH = TileOp::GetTensorTileShapeDim<T1, DIM_4TH, MAX_DIMS>();
+    constexpr auto expTileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
+    using ExpByteTile = pto::Tile<pto::TileType::Vec, uint8_t, expTileH, expTileW, pto::BLayout::RowMajor, -1, -1>;
+
     auto dstTile = PtoTile<T0>(dst);
-    auto expTile = PtoTile<T1>(exp);
     auto maxTile = PtoTile<T2>(maxScratch);
     auto scalingTile = PtoTile<T3>(scalingScratch);
     auto srcTile = PtoTile<T4>(src);
+    const auto expLayout = exp.GetLayout();
+    ExpByteTile expByteTile(
+        expLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>(), expLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>());
     dstTile.Assign(dst);
-    expTile.Assign(exp);
     maxTile.Assign(maxScratch);
     scalingTile.Assign(scalingScratch);
     srcTile.Assign(src);
+    pto::TASSIGN(expByteTile, (uint64_t)exp.GetAddr());
     pto::TQUANT_IMPL<pto::QuantType::MXFP8>(
-        dstTile.Data(), srcTile.Data(), &expTile.Data(), &maxTile.Data(), &scalingTile.Data());
+        dstTile.Data(), srcTile.Data(), &expByteTile, &maxTile.Data(), &scalingTile.Data());
 }
 
 #endif
