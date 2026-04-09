@@ -491,17 +491,31 @@ void MoeDistributedCombineV2(
         TileShape::Current().SetVecTile({topK / 2, hiddenSize});
         Tensor shmemGetOutFp32 = npu::tile_fwk::Cast(shmemGetOutFp16, DT_FP32);
 
-        Tensor expertScalesTile = View(expertScales, {1, topK}, {tokenId, 0});
-        int64_t kTileShape = AlignUp(topK, 16);
-        int64_t l0bSize = 65536;
-        ASSERT((BytesOf(DT_FP32) != 0) && (kTileShape != 0)) << "Divisor kTileShape cannot be zero";
-        int64_t nTileShape = l0bSize / BytesOf(DT_FP32) / kTileShape;
-        TileShape::Current().SetCubeTile({1, 1}, {kTileShape, kTileShape}, {nTileShape, nTileShape});
-        Tensor matmulOutFp32 = Matrix::Matmul(DT_FP32, expertScalesTile, shmemGetOutFp32);
+        Tensor outTileFp32;
+        if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+            topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
+            moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0) {
+            Tensor expertScalesTile = View(expertScales, {1, topK}, {tokenId, 0});
+            Tensor token0Fp32 = View(shmemGetOutFp32, {1, hiddenSize}, {0, 0});
+            Tensor token1Fp32 = View(shmemGetOutFp32, {1, hiddenSize}, {1, 0});
+            Tensor scale0 = View(expertScalesTile, {1, 1}, {0, 0});
+            Tensor scale1 = View(expertScalesTile, {1, 1}, {0, 1});
+            TileShape::Current().SetVecTile({1, hiddenSize});
+            Tensor weighted0Fp32 = npu::tile_fwk::Mul(token0Fp32, scale0);
+            Tensor weighted1Fp32 = npu::tile_fwk::Mul(token1Fp32, scale1);
+            outTileFp32 = npu::tile_fwk::Add(weighted0Fp32, weighted1Fp32);
+        } else {
+            Tensor expertScalesTile = View(expertScales, {1, topK}, {tokenId, 0});
+            int64_t kTileShape = AlignUp(topK, 16);
+            int64_t l0bSize = 65536;
+            ASSERT((BytesOf(DT_FP32) != 0) && (kTileShape != 0)) << "Divisor kTileShape cannot be zero";
+            int64_t nTileShape = l0bSize / BytesOf(DT_FP32) / kTileShape;
+            TileShape::Current().SetCubeTile({1, 1}, {kTileShape, kTileShape}, {nTileShape, nTileShape});
+            outTileFp32 = Matrix::Matmul(DT_FP32, expertScalesTile, shmemGetOutFp32);
+        }
 
-        Tensor matmulOutFp16 = npu::tile_fwk::Cast(matmulOutFp32, DT_BF16);
-
-        Assemble(matmulOutFp16, {tokenId, 0}, out);
+        Tensor outTileFp16 = npu::tile_fwk::Cast(outTileFp32, DT_BF16);
+        Assemble(outTileFp16, {tokenId, 0}, out);
     }
 }
 

@@ -12,6 +12,8 @@
 
 import dataclasses
 import multiprocessing as mp
+import os
+import time
 
 import torch
 import torch.distributed as dist
@@ -37,6 +39,20 @@ AIGCODE_TORCH_DTYPE = torch.bfloat16
 AIGCODE_PYPTO_DTYPE = pypto.DT_BF16
 AIGCODE_COMPILE_DEBUG_MODE = 0
 AIGCODE_RUNTIME_DEBUG_MODE = 3
+
+
+def get_env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return int(value)
+
+
+def get_env_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}
 
 
 def check_cond(cond: bool, msg: str) -> None:
@@ -239,7 +255,18 @@ def build_dispatch_kernel(group_name: str, runtime_debug_mode: int):
 
 
 def build_combine_kernel(group_name: str, runtime_debug_mode: int):
-    @pypto.frontend.jit(debug_options={"runtime_debug_mode": runtime_debug_mode})
+    runtime_options = {}
+    device_sched_mode = os.environ.get("AIGCODE_COMBINE_DEVICE_SCHED_MODE")
+    stitch_function_max_num = os.environ.get("AIGCODE_COMBINE_STITCH_FUNCTION_MAX_NUM")
+    runtime_options["device_sched_mode"] = 1 if device_sched_mode is None else int(device_sched_mode)
+    if stitch_function_max_num is not None:
+        runtime_options["stitch_function_max_num"] = int(stitch_function_max_num)
+
+    jit_kwargs = {"debug_options": {"runtime_debug_mode": runtime_debug_mode}}
+    if runtime_options:
+        jit_kwargs["runtime_options"] = runtime_options
+
+    @pypto.frontend.jit(**jit_kwargs)
     def kernel(
         expand_x: pypto.Tensor(
             [AIGCODE_DISPATCH_ROWS, AIGCODE_HIDDEN_SIZE],
@@ -292,9 +319,14 @@ def run_aigcode_dispatch_combine(
     pypto.set_debug_options(compile_debug_mode=compile_debug_mode, runtime_debug_mode=runtime_debug_mode)
     group_name = config.init_hccl_comm(logical_rank_id)[0]
     physical_device_id = config.get_physical_device_id(logical_rank_id)
+    enable_bench = get_env_bool("AIGCODE_ENABLE_BENCH", False)
+    bench_warmup_turns = get_env_int("AIGCODE_BENCH_WARMUP_TURNS", 1)
 
     dispatch_kernel = build_dispatch_kernel(group_name, runtime_debug_mode)
     combine_kernel = build_combine_kernel(group_name, runtime_debug_mode)
+    dispatch_times_ms = []
+    combine_times_ms = []
+    total_times_ms = []
 
     for turn in range(chunk_turns):
         start = turn * AIGCODE_CHUNK_TOKENS
@@ -329,6 +361,7 @@ def run_aigcode_dispatch_combine(
         expert_token_nums_actual = create_zero_tensor_on_npu(expert_token_nums_golden, physical_device_id)
         out_actual = create_zero_tensor_on_npu(out_golden, physical_device_id)
 
+        dispatch_start_time = time.perf_counter()
         dispatch_kernel(
             x,
             expert_ids,
@@ -337,6 +370,7 @@ def run_aigcode_dispatch_combine(
             expert_token_nums_actual,
         )
         sync_ep_group()
+        dispatch_elapsed_ms = (time.perf_counter() - dispatch_start_time) * 1000.0
         recv_counts_actual = expert_token_nums_actual.sum(dtype=torch.int32).reshape(1)
         assert_equal_tensor(expand_x_golden, expand_x_actual.cpu(), f"dispatch.expand_x.turn_{turn}")
         assert_equal_tensor(assist_info_golden, assist_info_actual.cpu(), f"dispatch.assist_info.turn_{turn}")
@@ -345,9 +379,44 @@ def run_aigcode_dispatch_combine(
         )
         assert_equal_tensor(recv_counts_golden, recv_counts_actual.cpu(), f"dispatch.recv_counts.turn_{turn}")
 
+        combine_start_time = time.perf_counter()
         combine_kernel(expand_x_actual, assist_info_actual, recv_counts_actual, expert_scales, out_actual)
         sync_ep_group()
+        combine_elapsed_ms = (time.perf_counter() - combine_start_time) * 1000.0
         assert_close_tensor(out_golden, out_actual.cpu(), f"combine.out.turn_{turn}", atol=1e-2)
+        if enable_bench and turn >= bench_warmup_turns:
+            dispatch_times_ms.append(dispatch_elapsed_ms)
+            combine_times_ms.append(combine_elapsed_ms)
+            total_times_ms.append(dispatch_elapsed_ms + combine_elapsed_ms)
+
+    if enable_bench:
+        check_cond(len(dispatch_times_ms) > 0, "bench requires measured turns after warmup")
+        local_avg = torch.tensor(
+            [
+                sum(dispatch_times_ms) / len(dispatch_times_ms),
+                sum(combine_times_ms) / len(combine_times_ms),
+                sum(total_times_ms) / len(total_times_ms),
+            ],
+            dtype=torch.float32,
+            device=f"npu:{physical_device_id}",
+        )
+        local_max = torch.tensor(
+            [max(dispatch_times_ms), max(combine_times_ms), max(total_times_ms)],
+            dtype=torch.float32,
+            device=f"npu:{physical_device_id}",
+        )
+        dist.all_reduce(local_avg, op=dist.ReduceOp.SUM)
+        dist.all_reduce(local_max, op=dist.ReduceOp.MAX)
+        if logical_rank_id == 0:
+            local_avg_cpu = (local_avg / config.world_size).cpu().tolist()
+            local_max_cpu = local_max.cpu().tolist()
+            print(
+                "BENCH "
+                f"warmup_turns={bench_warmup_turns} measured_turns={len(dispatch_times_ms)} "
+                f"avg_dispatch_ms={local_avg_cpu[0]:.3f} avg_combine_ms={local_avg_cpu[1]:.3f} "
+                f"avg_total_ms={local_avg_cpu[2]:.3f} max_dispatch_ms={local_max_cpu[0]:.3f} "
+                f"max_combine_ms={local_max_cpu[1]:.3f} max_total_ms={local_max_cpu[2]:.3f}"
+            )
 
     print(f"rank {logical_rank_id}: SUCCESS")
 
@@ -362,9 +431,9 @@ def main() -> None:
         AIGCODE_LOCAL_TOKENS % AIGCODE_CHUNK_TOKENS == 0,
         "AIGCODE_LOCAL_TOKENS must be divisible by AIGCODE_CHUNK_TOKENS",
     )
-    chunk_turns = AIGCODE_LOCAL_TOKENS // AIGCODE_CHUNK_TOKENS
-    compile_debug_mode = AIGCODE_COMPILE_DEBUG_MODE
-    runtime_debug_mode = AIGCODE_RUNTIME_DEBUG_MODE
+    chunk_turns = get_env_int("AIGCODE_CHUNK_TURNS", AIGCODE_LOCAL_TOKENS // AIGCODE_CHUNK_TOKENS)
+    compile_debug_mode = get_env_int("AIGCODE_COMPILE_DEBUG_MODE", AIGCODE_COMPILE_DEBUG_MODE)
+    runtime_debug_mode = get_env_int("AIGCODE_RUNTIME_DEBUG_MODE", AIGCODE_RUNTIME_DEBUG_MODE)
     config = DistributedConfig(world_size=AIGCODE_EP_WORLD_SIZE)
     check_cond(
         config.world_size == AIGCODE_EP_WORLD_SIZE,
