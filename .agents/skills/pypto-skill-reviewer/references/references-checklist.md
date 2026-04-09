@@ -41,6 +41,7 @@
 **判断方法**：
 
 **步骤 1：检查 SKILL.md 是否说明了执行上下文**
+
 ```markdown
 # 示例：明确说明工作目录
 ## 约定
@@ -51,6 +52,7 @@
 ```
 
 **步骤 2：检查同类 skill 的惯例**
+
 ```bash
 # 检查其他 skill 是否有相同写法
 grep -r "scripts/" .agents/skills/*/SKILL.md | wc -l
@@ -58,6 +60,7 @@ grep -r "scripts/" .agents/skills/*/SKILL.md | wc -l
 ```
 
 **步骤 3：验证资源是否存在（在正确的上下文中）**
+
 ```bash
 # 错误做法：从项目根目录验证
 ls scripts/xxx.py  # 不存在 → 误判为错误
@@ -85,6 +88,7 @@ ls .agents/skills/<skill>/scripts/xxx.py  # 存在 → 不是错误
 **检查项**：API 名称、参数列表、参数类型、返回值
 
 **验证方法**：
+
 ```bash
 # 搜索 API 定义
 grep -r "pypto\.<api>" docs/api/
@@ -99,6 +103,7 @@ grep -A 20 "def <api>" docs/api/xxx.md
 - **P1** — 概念歧义：示例中使用了真实 API 但声称其不存在（应使用虚构 API 名称）
 
 **示例**：
+
 ```markdown
 # P0 错误：API 不存在
 - `pypto.compile` — 编译 API
@@ -115,6 +120,7 @@ grep -A 20 "def <api>" docs/api/xxx.md
 **检查项**：文件路径存在性、相对路径正确性、头文件路径完整性
 
 **验证方法**：
+
 ```bash
 # 验证路径存在（在正确的上下文中）
 ls <path> 2>/dev/null || echo "NOT_FOUND"
@@ -129,6 +135,7 @@ cd <skill_dir> && ls <relative_path>
 - **P2** — 引用缺失：引用了不存在的资源文件（如 Excel）
 
 **示例**：
+
 ```markdown
 # P0 错误：相对路径错误
 [common_errors.md](../common_errors.md)
@@ -141,6 +148,7 @@ cd <skill_dir> && ls <relative_path>
 **检查项**：命令格式、参数格式、选项值合法性
 
 **验证方法**：
+
 ```bash
 # 检查命令帮助
 <command> --help
@@ -155,6 +163,7 @@ grep -A 10 "<command>" docs/cli/
 - **P2** — 描述模糊：缺少关键参数说明
 
 **示例**：
+
 ```markdown
 # P0 矛盾：与 docs 定义冲突
 # references 说
@@ -180,6 +189,7 @@ grep -A 10 "<command>" docs/cli/
 - **P0** — 函数名错误：调用不存在的函数
 
 **示例**：
+
 ```cpp
 // P0 错误：函数名重复
 EXPECT_EQ_EQ(pass.PostCheck(function), SUCCESS);
@@ -197,6 +207,7 @@ EXPECT_EQ(pass.PostCheck(function), SUCCESS);
 **检查项**：概念术语、组件名称、参数名称是否与 docs 一致
 
 **验证方法**：
+
 ```bash
 # 检查术语表
 grep -i "<term>" docs/tutorials/appendix/glossary.md
@@ -210,6 +221,7 @@ grep -r "Tile Graph\|Tensor Graph" docs/
 - **PASS** — 合理变体：同一概念有多种等价表述
 
 **示例**：
+
 ```markdown
 # P1 不一致
 references: "尾轴 32B 对齐"
@@ -223,6 +235,7 @@ docs: "外轴切分大小满足 32B 对齐" / "尾轴 32B 对齐"
 **检查项**：硬件约束、dtype 支持、版本要求是否与 docs 一致
 
 **验证方法**：
+
 ```bash
 # 检查 dtype 支持
 grep -A 20 "dtype" docs/api/<api>.md
@@ -236,6 +249,7 @@ grep -i "version\|cann\|pytorch" docs/installation/
 - **P2** — 描述模糊：简化写法可能遗漏重要信息
 
 **示例**：
+
 ```markdown
 # P2 模糊
 - dtype: INT8-64

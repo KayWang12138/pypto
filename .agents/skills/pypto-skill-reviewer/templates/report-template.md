@@ -166,6 +166,7 @@
 {{/each}}
 
 {{#if has_references}}
+
 ## References 一致性检查
 
 ### 检查概况
@@ -178,11 +179,13 @@
 | P2 问题数 | {{ref_p2_count}} |
 
 {{#if ref_p0_issues}}
+
 ### P0 必须修复
 
 > 事实性错误，必须修复
 
 {{#each ref_p0_issues}}
+
 #### 问题 {{n}}：{{issue_title}}
 
 - **文件**：`{{file}}:{{line}}`
@@ -196,11 +199,13 @@
 {{/if}}
 
 {{#if ref_p1_issues}}
+
 ### P1 建议修复
 
 > 歧义或可能导致误解的问题，建议修复
 
 {{#each ref_p1_issues}}
+
 #### 问题 {{n}}：{{issue_title}}
 
 - **文件**：`{{file}}:{{line}}`
@@ -214,11 +219,13 @@
 {{/if}}
 
 {{#if ref_p2_issues}}
+
 ### P2 可选修复
 
 > 模糊或不够清晰的问题，可选修复
 
 {{#each ref_p2_issues}}
+
 #### 问题 {{n}}：{{issue_title}}
 
 - **文件**：`{{file}}:{{line}}`
@@ -232,6 +239,7 @@
 {{/if}}
 
 {{#if ref_no_fix_items}}
+
 ### 无需修复项说明
 
 {{#each ref_no_fix_items}}
@@ -240,6 +248,7 @@
 {{/if}}
 
 {{#if ref_linkage_check}}
+
 ### 联动修改检查
 
 {{ref_linkage_check}}

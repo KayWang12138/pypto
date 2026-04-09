@@ -31,9 +31,11 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
 
 1. 读取 [references/rules.json](references/rules.json) 以理解规则定义，因为后续语义评审需识别哪些规则是 semantic 类型，且需从 rules.json 查询 rule_content 用于问题聚合。
 2. 对目标 skill 运行静态检查器，因为 26 条静态规则可通过脚本确定性检查，避免人工误判：
+
    ```bash
    python3 scripts/validate_skill.py <skill-path>
    ```
+
 3. 捕获 JSON 输出 —— 一个 finding 对象数组 `findings_static`。
 4. 验证脚本输出的字段完整性：
    - 检查每个 finding 包含所有必需字段（rule_id/status/severity/dimension/message/evidence/suggested_fix）
@@ -77,12 +79,14 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
 2. 读取 [templates/report-template.md](templates/report-template.md) 获取报告格式。
 3. 将第 1 阶段和第 2 阶段的所有 findings 合并为单一列表，并保存为 `findings_merged.json`。
 4. 对合并后的 findings 运行确定性评分脚本：
+
    ```bash
    python3 scripts/score_findings.py \
      --rules references/rules.json \
      --skill-path <skill-path> \
      --findings findings_merged.json
    ```
+
    将 JSON 输出保存为 `score_result.json` 文件。
 5. 按位置将 findings 聚合为问题：
    - **聚合键**：`file + line_range`（彼此相距 ±5 行内的 findings 合并为一个问题）
@@ -91,10 +95,12 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
    - `rule_content`：从 rules.json 中查询对应 rule_id 的 `rule` 字段内容
 6. 分数、等级、覆盖率、计数（pass/fail/warn/skip）必须使用 `score_result`，不得手工估算。
 7. 按维度计算分数时，以 `score_result.dimensions` 为唯一来源：
+
    ```python
    dimension_raw   = max(0, 100 - sum_of_FAIL_deductions)
    dimension_score = dimension_raw × weight
    ```
+
 8. 应用质量门禁 —— 评分前过滤 findings：
     - **内部错绑**：若某语义 finding 的证据明显引用的是 reviewer 自身而非目标 skill，移除该 finding，并标注原因 `internal_misbound_rule_or_evidence`。
     - **证据不足**：若某语义 finding 的 `evidence.snippet` 无法在目标文件中逐字找到，移除该 finding，并标注原因 `low_information_snippet`。
