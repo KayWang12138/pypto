@@ -151,6 +151,13 @@ static uint32_t FloatToBits(float value)
     return bits;
 }
 
+static uint64_t DoubleToBits(double value)
+{
+    uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
 static float BitsToFloat(uint32_t bits)
 {
     float value = 0.0f;
@@ -183,18 +190,22 @@ static uint8_t EncodeE4M3Fn(float value)
     }
     const float clipped = std::clamp(value, -448.0f, 448.0f);
     uint8_t bestCode = 0;
-    float bestDistance = std::numeric_limits<float>::infinity();
+    double bestDistance = std::numeric_limits<double>::infinity();
+    uint64_t bestDistanceBits = DoubleToBits(bestDistance);
     bool bestEven = true;
     for (int code = 0; code < 256; ++code) {
         if ((code & 0x7F) == 0x7F) {
             continue;
         }
         const float candidate = DecodeE4M3Fn(static_cast<uint8_t>(code));
-        const float distance = std::fabs(candidate - clipped);
+        const double distance = std::fabs(static_cast<double>(candidate) - static_cast<double>(clipped));
+        const uint64_t distanceBits = DoubleToBits(distance);
         const bool isEven = (code & 1) == 0;
-        if (distance < bestDistance || (distance == bestDistance && isEven && !bestEven) ||
-            (distance == bestDistance && isEven == bestEven && static_cast<uint8_t>(code) < bestCode)) {
+        const bool isExactTie = distanceBits == bestDistanceBits;
+        if (distance < bestDistance || (isExactTie && isEven && !bestEven) ||
+            (isExactTie && isEven == bestEven && static_cast<uint8_t>(code) < bestCode)) {
             bestDistance = distance;
+            bestDistanceBits = distanceBits;
             bestCode = static_cast<uint8_t>(code);
             bestEven = isEven;
         }
