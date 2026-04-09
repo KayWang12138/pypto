@@ -34,24 +34,38 @@ if (EXISTS "${_TargetInstallPrefix}/lib/libbacktrace.a" AND EXISTS "${_TargetIns
     )
     message(STATUS "Use libbacktrace from binary, prefix=${_TargetInstallPrefix}")
 else ()
-    get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/libbacktrace" REALPATH)
-    if (NOT EXISTS "${_TargetSourceDir}")
-        get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/libbacktrace-${_TargetVersion}" REALPATH)
-    endif ()
-    if (NOT EXISTS "${_TargetSourceDir}/configure")
-        set(_Msg
-                "Failed to get libbacktrace source dir from "
-                "${PYPTO_THIRD_PARTY_PATH}"
-        )
-        string(REPLACE ";" "" _Msg "${_Msg}")
-        message(FATAL_ERROR "${_Msg}")
-    endif ()
+    # 查找已有源码目录（支持 libbacktrace/ 和 libbacktrace-1.0/ 两种命名）
+    set(_TargetSourceDir "")
+    foreach (_DirName "libbacktrace" "libbacktrace-${_TargetVersion}")
+        get_filename_component(_Dir "${PYPTO_THIRD_PARTY_PATH}/${_DirName}" REALPATH)
+        if (EXISTS "${_Dir}/configure")
+            set(_TargetSourceDir "${_Dir}")
+            break ()
+        endif ()
+    endforeach ()
+
+    # 清理残留的空目录
+    foreach (_DirName "libbacktrace" "libbacktrace-${_TargetVersion}")
+        get_filename_component(_Dir "${PYPTO_THIRD_PARTY_PATH}/${_DirName}" REALPATH)
+        PTO_Fwk_CleanEmptyDir(DIR ${_Dir})
+    endforeach ()
 
     get_filename_component(_TargetBinaryDir "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}/build/libbacktrace-${_TargetVersion}" REALPATH)
     file(MAKE_DIRECTORY "${_TargetInstallPrefix}/include")
     file(MAKE_DIRECTORY "${_TargetInstallPrefix}/lib")
 
-    ExternalProject_Add(ExternalProject_libbacktrace
+    set(_ExtArgs)
+    if ("${_TargetSourceDir}" STREQUAL "")
+        # 源码不存在，使用 git clone 自动下载（目录名 libbacktrace，与 submodule 一致）
+        get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/libbacktrace" REALPATH)
+        list(APPEND _ExtArgs
+                GIT_REPOSITORY "https://github.com/Hzfengsy/libbacktrace.git"
+                GIT_TAG "macho-bundle-support"
+                GIT_SHALLOW TRUE
+        )
+    endif ()
+
+    ExternalProject_Add(ExternalProject_libbacktrace  ${_ExtArgs}
             PREFIX "${CMAKE_CURRENT_BINARY_DIR}/third_party/libbacktrace-${_TargetVersion}"
             SOURCE_DIR "${_TargetSourceDir}"
             BINARY_DIR "${_TargetBinaryDir}"

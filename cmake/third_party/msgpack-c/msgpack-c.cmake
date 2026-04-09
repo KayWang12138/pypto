@@ -32,18 +32,35 @@ if (EXISTS "${_TargetInstallPrefix}/include/msgpack.hpp")
     target_compile_definitions(msgpackc-cxx INTERFACE MSGPACK_NO_BOOST)
     message(STATUS "Use msgpack-c from binary, prefix=${_TargetInstallPrefix}")
 else ()
-    get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" REALPATH)
-    if (NOT EXISTS "${_TargetSourceDir}/include/msgpack.hpp")
-        set(_Msg
-                "Failed to get msgpack-c source dir from "
-                "${PYPTO_THIRD_PARTY_PATH}"
+    # 查找已有源码目录（支持 msgpack-c/ 和 msgpack-c-cpp-7.0.0/ 两种命名）
+    set(_TargetSourceDir "")
+    foreach (_DirName "msgpack-c" "msgpack-c-cpp-${_TargetVersion}")
+        get_filename_component(_Dir "${PYPTO_THIRD_PARTY_PATH}/${_DirName}" REALPATH)
+        if (EXISTS "${_Dir}/include/msgpack.hpp")
+            set(_TargetSourceDir "${_Dir}")
+            break ()
+        endif ()
+    endforeach ()
+
+    # 清理残留的空目录
+    foreach (_DirName "msgpack-c" "msgpack-c-cpp-${_TargetVersion}")
+        get_filename_component(_Dir "${PYPTO_THIRD_PARTY_PATH}/${_DirName}" REALPATH)
+        PTO_Fwk_CleanEmptyDir(DIR ${_Dir})
+    endforeach ()
+
+    set(_ExtArgs)
+    if ("${_TargetSourceDir}" STREQUAL "")
+        # 源码不存在，使用 git clone 自动下载（目录名 msgpack-c，与 submodule 一致）
+        get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" REALPATH)
+        list(APPEND _ExtArgs
+                GIT_REPOSITORY "https://github.com/msgpack/msgpack-c.git"
+                GIT_TAG "cpp-7.0.0"
+                GIT_SHALLOW TRUE
         )
-        string(REPLACE ";" "" _Msg "${_Msg}")
-        message(FATAL_ERROR "${_Msg}")
     endif ()
 
     get_filename_component(_TargetBinaryDir "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}/build/msgpack-c-${_TargetVersion}" REALPATH)
-    ExternalProject_Add(ExternalProject_msgpack_c
+    ExternalProject_Add(ExternalProject_msgpack_c  ${_ExtArgs}
             PREFIX "${CMAKE_CURRENT_BINARY_DIR}/third_party/msgpack-c-${_TargetVersion}"
             SOURCE_DIR "${_TargetSourceDir}"
             BINARY_DIR "${_TargetBinaryDir}"

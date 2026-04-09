@@ -55,11 +55,13 @@ dev = [
     "packaging",
     "pytest",
     "pytest-forked",
+    "pytest-timeout",
     "pytest-xdist",
 ]
 tests = [
     "pytest",
     "pytest-forked",
+    "pytest-timeout",
     "pytest-xdist",
 ]
 
