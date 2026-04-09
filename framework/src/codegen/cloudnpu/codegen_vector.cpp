@@ -161,7 +161,6 @@ std::string CodeGenOpCloudNPU::GenDupOp() const
 {
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-
     std::string dupV;
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
