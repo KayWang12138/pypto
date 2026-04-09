@@ -15,6 +15,8 @@
 
 #ifdef __DEVICE__
 #include "dlog_pub.h"
+#include "trace/atrace_types.h"
+#include "trace/atrace_pub.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -84,5 +86,30 @@ int DlogReportInitialize() { return 0; }
  * @return: 0: SUCCEED, others: FAILED
  */
 int DlogReportFinalize() { return 0; }
+
+TraHandle AtraceCreate([[maybe_unused]]TracerType tracerType, [[maybe_unused]]const char *objName) {
+    return 0;
+}
+
+TraStatus AtraceSubmit([[maybe_unused]]TraHandle handle, [[maybe_unused]]const void *buffer, [[maybe_unused]]uint32_t bufSize) {
+    return 0;
+}
+
+void AtraceDestroy([[maybe_unused]]TraHandle handle) {}
+
+TraEventHandle AtraceEventCreate([[maybe_unused]]const char *eventName) {
+    return 0;
+}
+
+TraStatus AtraceEventBindTrace([[maybe_unused]]TraEventHandle eventHandle, [[maybe_unused]]TraHandle handle) {
+    return 0;
+}
+
+TraStatus AtraceEventReportSync([[maybe_unused]]TraEventHandle eventHandle) {
+    return 0;
+}
+
+void AtraceEventDestroy([[maybe_unused]]TraEventHandle eventHandle) {}
+
 
 #endif
