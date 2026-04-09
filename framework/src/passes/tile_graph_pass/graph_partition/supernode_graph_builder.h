@@ -18,6 +18,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
 class OperationGraphInfo {
@@ -71,6 +72,7 @@ public:
 protected:
     Status BuildOpGraph(const std::vector<Operation*>& opList);
     virtual Status BuildSuperNodeGraph();
+    Status ProcessScopeForCVMix();
     Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers
@@ -103,6 +105,7 @@ protected:
     // Parameters
     bool useReduceBalanceHash_ = true;
     bool useCVMixPartition_ = false;
+    int nextMixId_ = 0;
 
     // Data
     std::shared_ptr<OperationGraphInfo> operationInfo_;
