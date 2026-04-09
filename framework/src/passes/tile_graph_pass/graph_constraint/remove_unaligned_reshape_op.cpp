@@ -21,6 +21,7 @@
 #define MODULE_NAME "RemoveUnalignedReshape"
 
 namespace npu::tile_fwk {
+const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
 /*
 before:
     add->reshape(padded)->mul
@@ -405,7 +406,6 @@ Status RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Op
         // newTensor2(DDR) -- reshape
         LogicalTensor newTensor(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-        const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
         if (newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.",
                 copyOutOutput->magic, computeTensorSize(copyOutOutput), UB_SIZE_THRESHOLD);
@@ -467,7 +467,6 @@ Status RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                 // --copyInOutout(NOTUB)
                 LogicalTensor newTensor(function, copyInInput->Datatype(), copyInInput->GetShape());
                 newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-                const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
                 if (newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
                     APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.",
                         copyInInput->magic, computeTensorSize(copyInInput), UB_SIZE_THRESHOLD);
