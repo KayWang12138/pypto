@@ -467,7 +467,7 @@ void OpcodeManager::RegisterVectorSort()
     RegisterInfo(
         Opcode::OP_QUANT_MX, OpCoreType::AIV, "QUANT_MX", {MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {"TileOp::TQuantMX", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER，{OpAttributeKey::excludeBufferReuse});
+        {"TileOp::TQuantMX", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::excludeBufferReuse});
 }
 
 void OpcodeManager::RegisterVectorReduction()
