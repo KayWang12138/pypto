@@ -30,33 +30,33 @@ HEAD_DIM = 64
 S_TILE = 128  # 优化: 64 → 128
 
 
-def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
+def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                  actual_s1, actual_s2, scale_value, c_tile, v_tile_s, v_tile_d, s_tile_size):
     """计算一个 (s1_tile, s2_tile) 块的 P_ij 和 dS_ij。"""
-    # 计算公式S_ij = Q_i @ K_j^T * scale
+    # 计算公式：S_ij = Q_i @ K_j^T * scale
     pypto.set_vec_tile_shapes(v_tile_s[0], v_tile_s[1])
     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
-    S_ij = pypto.matmul(q_i, k_j, pypto.DT_FP32, b_trans=True)
-    S_ij = pypto.view(S_ij, [s_tile_size, s_tile_size], [0, 0],
+    s_ij = pypto.matmul(q_i, k_j, pypto.DT_FP32, b_trans=True)
+    s_ij = pypto.view(s_ij, [s_tile_size, s_tile_size], [0, 0],
                       valid_shape=[actual_s1, actual_s2])
 
     pypto.set_vec_tile_shapes(v_tile_s[0], v_tile_s[1])
-    S_ij = pypto.mul(S_ij, scale_value)
-    P_ij = pypto.exp(pypto.sub(S_ij, smax_i))
-    P_ij = pypto.div(P_ij, ssum_i)
+    s_ij = pypto.mul(s_ij, scale_value)
+    p_ij = pypto.exp(pypto.sub(s_ij, smax_i))
+    p_ij = pypto.div(p_ij, ssum_i)
 
-    # 计算公式dP_ij = dY_i @ V_j^T
+    # 计算公式：dP_ij = dY_i @ V_j^T
     pypto.set_vec_tile_shapes(v_tile_s[0], v_tile_s[1])
     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
-    dP_ij = pypto.matmul(dy_i, v_j, pypto.DT_FP32, b_trans=True)
-    dP_ij = pypto.view(dP_ij, [s_tile_size, s_tile_size], [0, 0],
+    dp_ij = pypto.matmul(dy_i, v_j, pypto.DT_FP32, b_trans=True)
+    dp_ij = pypto.view(dp_ij, [s_tile_size, s_tile_size], [0, 0],
                        valid_shape=[actual_s1, actual_s2])
 
     # 计算公式：dS_ij = P_ij * (dP_ij - D_i)
     pypto.set_vec_tile_shapes(v_tile_s[0], v_tile_s[1])
-    dS_ij = pypto.mul(P_ij, pypto.sub(dP_ij, D_i))
+    ds_ij = pypto.mul(p_ij, pypto.sub(dp_ij, d_i))
 
-    return P_ij, dS_ij
+    return p_ij, ds_ij
 
 
 @pypto.frontend.jit(
@@ -70,18 +70,18 @@ def compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
     }
 )
 def flash_attention_score_grad_kernel(
-    q:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    k:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    v:             pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dy:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    softmax_max:   pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
-    softmax_sum:   pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
+    q: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    k: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    v: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dy: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    softmax_max: pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
+    softmax_sum: pypto.Tensor([pypto.DYN, ...], pypto.DT_FP32),
     attention_out: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dq:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dk:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    dv:            pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
-    batch_size:    pypto.Tensor([pypto.DYN], pypto.DT_INT32),
-    scale_value:   float,
+    dq: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dk: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    dv: pypto.Tensor([pypto.DYN, ...], pypto.DT_BF16),
+    batch_size: pypto.Tensor([pypto.DYN], pypto.DT_INT32),
+    scale_value: float,
 ):
     b = batch_size.shape[0]
     total = q.shape[0]
@@ -126,7 +126,7 @@ def flash_attention_score_grad_kernel(
 
                 pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                 dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i), pypto.DT_FP32)
-                D_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
+                d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
 
                 dQ_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dQ_acc")
 
@@ -139,11 +139,11 @@ def flash_attention_score_grad_kernel(
                     k_j = pypto.view(k_2d, [S_TILE, HEAD_DIM], [s2_off, 0], valid_shape=[actual_s2, HEAD_DIM])
                     v_j = pypto.view(v_2d, [S_TILE, HEAD_DIM], [s2_off, 0], valid_shape=[actual_s2, HEAD_DIM])
 
-                    _, dS_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
+                    _, ds_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                                             actual_s1, actual_s2, scale_value,
                                             c_tile, v_tile_s, v_tile_d, S_TILE)
 
-                    dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
+                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     dQ_tile = pypto.matmul(dS_bf16, k_j, pypto.DT_FP32)
@@ -189,14 +189,14 @@ def flash_attention_score_grad_kernel(
 
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i), pypto.DT_FP32)
-                    D_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
+                    d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
 
-                    P_ij, dS_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, D_i,
+                    p_ij, ds_ij = compute_tile(q_i, k_j, v_j, dy_i, smax_i, ssum_i, d_i,
                                                actual_s1, actual_s2, scale_value,
                                                c_tile, v_tile_s, v_tile_d, S_TILE)
 
-                    dS_bf16 = pypto.cast(dS_ij, pypto.DT_BF16)
-                    P_bf16 = pypto.cast(P_ij, pypto.DT_BF16)
+                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
+                    P_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     dK_tile = pypto.matmul(dS_bf16, q_i, pypto.DT_FP32, a_trans=True)
@@ -232,8 +232,10 @@ def flash_attention_score_grad_wrapper(
 ):
     """算子 wrapper，供测试调用。"""
     B, N, S, D = query.shape
-    assert N == num_heads and D == head_dim
-    assert S % S_TILE == 0, f"S={S} must be multiple of S_TILE={S_TILE}"
+    if N != num_heads or D != head_dim:
+        raise ValueError(f"Shape mismatch: expected N={num_heads}, D={head_dim}, got N={N}, D={D}")
+    if S % S_TILE != 0:
+        raise ValueError(f"S={S} must be multiple of S_TILE={S_TILE}")
 
     q_flat = query.reshape(-1, D).contiguous()
     k_flat = key.reshape(-1, D).contiguous()
