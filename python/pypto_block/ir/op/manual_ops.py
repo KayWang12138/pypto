@@ -94,6 +94,8 @@ def move(
     src: Expr,
     span: Span | None = None,
     acc_to_vec_mode: str | None = None,
+    relu_pre_mode: str | None = None,
+    pre_quant_scalar: int | None = None,
 ) -> Call:
     """Build manual.move IR call.
 
@@ -102,6 +104,8 @@ def move(
         src: Source tile expression.
         span: Optional source span.
         acc_to_vec_mode: AccToVecMode string for Acc->Vec transfers.
+        relu_pre_mode: ReluPreMode string for TMOV.
+        pre_quant_scalar: Pre-quantization scalar value.
 
     Returns:
         Call expression for manual.move.
@@ -110,6 +114,10 @@ def move(
     kwargs: dict = {}
     if acc_to_vec_mode is not None:
         kwargs["acc_to_vec_mode"] = acc_to_vec_mode
+    if relu_pre_mode is not None:
+        kwargs["relu_pre_mode"] = relu_pre_mode
+    if pre_quant_scalar is not None:
+        kwargs["pre_quant_scalar"] = pre_quant_scalar
     return _ir_core.create_op_call(
         "manual.move", [src, out], kwargs, actual_span
     )
@@ -154,6 +162,8 @@ def store(
     tile: Expr,
     offsets: Sequence[int | Expr] | _ir_core.MakeTuple,
     span: Span | None = None,
+    relu_pre_mode: str | None = None,
+    pre_quant_scalar: int | None = None,
 ) -> Call:
     """Build manual.store IR call.
 
@@ -162,14 +172,21 @@ def store(
         tile: Source tile expression.
         offsets: Offsets tuple or sequence.
         span: Optional source span.
+        relu_pre_mode: ReluPreMode string for TSTORE.
+        pre_quant_scalar: Pre-quantization scalar value.
 
     Returns:
         Call expression for manual.store.
     """
     actual_span = _get_span_or_capture(span)
     offsets_tuple = _to_make_tuple(offsets, actual_span)
+    kwargs: dict = {}
+    if relu_pre_mode is not None:
+        kwargs["relu_pre_mode"] = relu_pre_mode
+    if pre_quant_scalar is not None:
+        kwargs["pre_quant_scalar"] = pre_quant_scalar
     return _ir_core.create_op_call(
-        "manual.store", [tile, offsets_tuple, out], {}, actual_span,
+        "manual.store", [tile, offsets_tuple, out], kwargs, actual_span,
     )
 
 
