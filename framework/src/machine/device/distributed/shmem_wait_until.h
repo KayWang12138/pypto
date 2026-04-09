@@ -206,25 +206,28 @@ public:
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
 
-        int32_t tileCols = (paramInfo_.rawShapeCol + paramInfo_.tileShapeCol - 1) / paramInfo_.tileShapeCol;
-        int32_t tileRows = (paramInfo_.rawShapeRow + paramInfo_.tileShapeRow - 1) / paramInfo_.tileShapeRow;
+        int32_t tileCols = (paramInfo_.rawShape[5] + paramInfo_.tileShapeCol - 1) / paramInfo_.tileShapeCol;
+        int32_t tileRows = (paramInfo_.rawShape[4] + paramInfo_.tileShapeRow - 1) / paramInfo_.tileShapeRow;
+
         int32_t tileRow = info.offset[SHMEM_DIM_ROW] / paramInfo_.tileShapeRow;
         int32_t tileCol = info.offset[SHMEM_DIM_COL] / paramInfo_.tileShapeCol;
         int32_t tileIndex = tileRow * tileCols + tileCol;
         int32_t totalTileNum = tileRows * tileCols;
 
         DEV_DEBUG(
-            "ShmemWaitUntilImpl::EnqueueOp logical rawShape=[%u, %u],"
-            "logical tile=[%u, %u], logical offset=[%u, %u], ownerRank=%u,"
+            "ShmemWaitUntilImpl::EnqueueOp logical rawShape=[%u, %u, %u, %u, %u],"
+            "logical tile=[%u, %u], logical offset=[%u, %u, %u, %u, %u, %u], ownerRank=%u,"
             "actual rawShape=[%u, %d], actual offset=[%u, %d], buffer maxTileNum=%u, bufferStride=%u",
-            paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, paramInfo_.tileShapeRow, paramInfo_.tileShapeCol,
-            info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL], info.offset[OWNER_RANK_ID_INDEX],
+            paramInfo_.rawShape[1], paramInfo_.rawShape[2], paramInfo_.rawShape[3], paramInfo_.rawShape[4], paramInfo_.rawShape[5], 
+            paramInfo_.tileShapeRow, paramInfo_.tileShapeCol,
+            info.offset[0], info.offset[1], info.offset[2], info.offset[3], info.offset[4], info.offset[5], info.offset[0],
             paramInfo_.rankNum, totalTileNum, info.offset[OWNER_RANK_ID_INDEX], tileIndex, paramInfo_.maxTileNum,
             paramInfo_.bufferStride);
 
         int32_t* addr =
             reinterpret_cast<int32_t*>(info.rawAddr) +
-            CalcLinearOffset(totalTileNum, info.offset[OWNER_RANK_ID_INDEX], tileIndex) * paramInfo_.bufferStride;
+            CalcLinearOffset(paramInfo_.rawShape[1], paramInfo_.rawShape[2], paramInfo_.rawShape[3], 
+                totalTileNum, info.offset[0], info.offset[1], info.offset[2], info.offset[3], tileIndex) * paramInfo_.bufferStride;
         return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 
