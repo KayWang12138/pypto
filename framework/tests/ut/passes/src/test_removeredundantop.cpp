@@ -1399,14 +1399,14 @@ TEST_F(TestRemoveRedundantOpPass, RegCopyNoConsumer)
 }
 
 /*
-TestViewHasFlagWithoutGmToUb
+TestViewL1ToL1WithoutFlag
 inCast{8,16}->copyIn->ubTensor1{8,16}->view->ubTensor2{8,16}->copyout->outCast{8,16}
-inCast{8,16}->copyIn->ubTensor1{8,16}->view->ubTensor2{8,16}->copyout->outCast{8,16}
+inCast{8,16}->copyIn->ubTensor1{8,16}->copyout->outCast{8,16}
 */
-TEST_F(TestRemoveRedundantOpPass, TestViewHasFlagWithoutGmToUb)
+TEST_F(TestRemoveRedundantOpPass, TestViewL1ToL1WithoutFlag)
 {
     auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestViewHasFlagWithoutGmToUb", "TestViewHasFlagWithoutGmToUb", nullptr);
+        std::make_shared<Function>(Program::GetInstance(), "TestViewL1ToL1WithoutFlag", "TestViewL1ToL1WithoutFlag", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape = {kNumEight, kNumExpFour};
@@ -1424,7 +1424,6 @@ TEST_F(TestRemoveRedundantOpPass, TestViewHasFlagWithoutGmToUb)
     currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
     auto& view = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {ubTensor2});
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
-    view.SetAttr("op_attr_remain_redundant_op_flag", true);
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
@@ -1443,29 +1442,32 @@ TEST_F(TestRemoveRedundantOpPass, TestViewHasFlagWithoutGmToUb)
 }
 
 /*
-TestViewHasFlagWithGmToUb
-inCast{16,16}->view->ubTensor{16,16}->copyout->outCast{16,16}
-inCast{16,16}->view->ubTensor{16,16}->copyout->outCast{16,16}
+TestViewL1ToL1WithFlag
+inCast{16,16}->copyin->ubTensor1{16,16}->view->ubTensor2{16,16}->copyout->outCast{16,16}
+inCast{16,16}->copyin->ubTensor1{16,16}->view->ubTensor2{16,16}->copyout->outCast{16,16}
 */
-TEST_F(TestRemoveRedundantOpPass, TestViewHasFlagWithGmToUb)
+TEST_F(TestRemoveRedundantOpPass, TestViewL1ToL1WithFlag)
 {
     auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestViewHasFlagWithGmToUb", "TestViewHasFlagWithGmToUb", nullptr);
+        std::make_shared<Function>(Program::GetInstance(), "TestViewL1ToL1WithFlag", "TestViewL1ToL1WithFlag", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     // Prepare the graph
     std::vector<int64_t> shape = {kNumExpFour, kNumExpFour};
     std::vector<int64_t> offset = {kNumZero, kNumZero};
 
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->SetMemoryTypeOriginal(MemoryType::MEM_L1, false);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_L1, false);
     auto outCast = std::make_shared<LogicalTensor>(
         *currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_L1, false);
-    auto& view = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {inCast}, {ubTensor1});
+    auto& view = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {ubTensor2});
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
     view.SetAttr("op_attr_remain_redundant_op_flag", true);
-    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {outCast});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor2}, {outCast});
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
@@ -1473,7 +1475,7 @@ TEST_F(TestRemoveRedundantOpPass, TestViewHasFlagWithGmToUb)
     EXPECT_EQ(RemoveRedundantOpPass.RunOnFunction(*currFunctionPtr), SUCCESS);
 
     uint32_t opNum = currFunctionPtr->Operations().size();
-    EXPECT_EQ(opNum, kNumTwo);
+    EXPECT_EQ(opNum, kNumThree);
     uint32_t viewNum = kNumZero;
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {

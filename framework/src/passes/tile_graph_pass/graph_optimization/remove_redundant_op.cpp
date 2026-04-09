@@ -65,7 +65,7 @@ bool IsDdrToL1OperationWithFlag(const Operation& op)
     }
     auto in = op.GetIOperands().front();
     auto out = op.GetOOperands().front();
-    if (in->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (in->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
         return false;
     }
     if (out->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
