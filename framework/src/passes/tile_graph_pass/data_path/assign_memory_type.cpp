@@ -614,6 +614,24 @@ void AssignMemoryType::AssignMoveOpForView(Operation& operation)
             viewOpAttribute->SetToType(outputTensor->GetMemoryTypeOriginal());
             continue;
         }
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
+            viewOpAttribute->SetToType(MemoryType::MEM_UB);
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "AssignMoveOpForView: View Op[%d] set L0C->UB",
+                operation.GetOpMagic());
+            continue;
+        }
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_UB);
+            viewOpAttribute->SetToType(MemoryType::MEM_L1);
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "AssignMoveOpForView: View Op[%d] set UB->L1",
+                operation.GetOpMagic());
+            continue;
+        }
         APASS_LOG_DEBUG_F(
             Elements::Operation, "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
             operation.GetOpMagic(), tensor->magic, BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(),
