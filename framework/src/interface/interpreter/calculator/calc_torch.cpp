@@ -229,11 +229,10 @@ static float ComputeScalingFromExponent(uint8_t e8m0)
         return std::numeric_limits<float>::quiet_NaN();
     }
     const uint32_t scaleExp = 254u - static_cast<uint32_t>(e8m0);
-    float scaling = BitsToFloat(scaleExp << 23);
-    if (scaling == 0.0f) {
-        scaling = std::ldexp(1.0f, -127);
+    if (scaleExp == 0u) {
+        return std::ldexp(1.0f, -127);
     }
-    return scaling;
+    return BitsToFloat(scaleExp << 23);
 }
 
 static torch::Tensor View(
