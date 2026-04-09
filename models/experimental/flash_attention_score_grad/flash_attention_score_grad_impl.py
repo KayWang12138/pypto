@@ -132,7 +132,7 @@ def flash_attention_score_grad_kernel_profile(
                 dy_ao_fp32 = pypto.cast(pypto.mul(dy_i, ao_i), pypto.DT_FP32)
                 d_i = pypto.sum(dy_ao_fp32, -1, keepdim=True)
 
-                dQ_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dQ_acc")
+                dq_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dq_acc")
 
                 for s2_idx in pypto.loop(s_loop, name="LOOP_s2_dq", idx_name="s2_idx",
                                          unroll_list=[8, 4, 2, 1]):
@@ -147,21 +147,21 @@ def flash_attention_score_grad_kernel_profile(
                                             actual_s1, actual_s2, scale_value,
                                             c_tile, v_tile_s, v_tile_d, S_TILE)
 
-                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
+                    ds_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-                    dQ_tile = pypto.matmul(dS_bf16, k_j, pypto.DT_FP32)
+                    dq_tile = pypto.matmul(ds_bf16, k_j, pypto.DT_FP32)
 
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     if pypto.is_loop_begin(s2_idx):
-                        dQ_acc[:] = dQ_tile
+                        dq_acc[:] = dq_tile
                     else:
-                        dQ_acc[:] = dQ_acc + dQ_tile
+                        dq_acc[:] = dq_acc + dq_tile
 
                     if pypto.is_loop_end(s2_idx):
                         pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-                        dQ_final = pypto.cast(pypto.mul(dQ_acc, scale_value), pypto.DT_BF16)
-                        pypto.assemble(dQ_final, [s1_off, 0], dq_2d)
+                        dq_final = pypto.cast(pypto.mul(dq_acc, scale_value), pypto.DT_BF16)
+                        pypto.assemble(dq_final, [s1_off, 0], dq_2d)
 
             # ===== 趟2: 计算 dK, dV =====
             for s2_idx in pypto.loop(s_loop, name="LOOP_s2_dkv", idx_name="s2_idx"):
@@ -172,8 +172,8 @@ def flash_attention_score_grad_kernel_profile(
                 k_j = pypto.view(k_2d, [S_TILE, HEAD_DIM], [s2_off, 0], valid_shape=[actual_s2, HEAD_DIM])
                 v_j = pypto.view(v_2d, [S_TILE, HEAD_DIM], [s2_off, 0], valid_shape=[actual_s2, HEAD_DIM])
 
-                dK_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dK_acc")
-                dV_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dV_acc")
+                dk_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dk_acc")
+                dv_acc = pypto.tensor([S_TILE, HEAD_DIM], pypto.DT_FP32, "dv_acc")
 
                 for s1_idx in pypto.loop(s_loop, name="LOOP_s1_dkv", idx_name="s1_idx",
                                          unroll_list=[8, 4, 2, 1]):
@@ -199,27 +199,27 @@ def flash_attention_score_grad_kernel_profile(
                                                actual_s1, actual_s2, scale_value,
                                                c_tile, v_tile_s, v_tile_d, S_TILE)
 
-                    dS_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
-                    P_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
+                    ds_bf16 = pypto.cast(ds_ij, pypto.DT_BF16)
+                    p_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
                     pypto.set_cube_tile_shapes(c_tile[0], c_tile[1], c_tile[2])
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-                    dK_tile = pypto.matmul(dS_bf16, q_i, pypto.DT_FP32, a_trans=True)
-                    dV_tile = pypto.matmul(P_bf16, dy_i, pypto.DT_FP32, a_trans=True)
+                    dk_tile = pypto.matmul(ds_bf16, q_i, pypto.DT_FP32, a_trans=True)
+                    dv_tile = pypto.matmul(p_bf16, dy_i, pypto.DT_FP32, a_trans=True)
 
                     pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
                     if pypto.is_loop_begin(s1_idx):
-                        dK_acc[:] = dK_tile
-                        dV_acc[:] = dV_tile
+                        dk_acc[:] = dk_tile
+                        dv_acc[:] = dv_tile
                     else:
-                        dK_acc[:] = dK_acc + dK_tile
-                        dV_acc[:] = dV_acc + dV_tile
+                        dk_acc[:] = dk_acc + dk_tile
+                        dv_acc[:] = dv_acc + dv_tile
 
                     if pypto.is_loop_end(s1_idx):
                         pypto.set_vec_tile_shapes(v_tile_d[0], v_tile_d[1])
-                        dK_final = pypto.cast(pypto.mul(dK_acc, scale_value), pypto.DT_BF16)
-                        dV_final = pypto.cast(dV_acc, pypto.DT_BF16)
-                        pypto.assemble(dK_final, [s2_off, 0], dk_2d)
-                        pypto.assemble(dV_final, [s2_off, 0], dv_2d)
+                        dk_final = pypto.cast(pypto.mul(dk_acc, scale_value), pypto.DT_BF16)
+                        dv_final = pypto.cast(dv_acc, pypto.DT_BF16)
+                        pypto.assemble(dk_final, [s2_off, 0], dk_2d)
+                        pypto.assemble(dv_final, [s2_off, 0], dv_2d)
 
 
 @pypto.frontend.jit(
