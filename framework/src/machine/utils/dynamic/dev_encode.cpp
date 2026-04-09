@@ -2213,6 +2213,7 @@ static uint32_t ExpectedMaxCachedNum()
     int numInitial = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_INITIAL);
     int numStep = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_STEP);
     uint16_t stitchFunctionMaxNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+    printf("numInitial: %d, numStep: %d, stitchFunctionMaxNum: %d\n", numInitial, numStep, stitchFunctionMaxNum);
     if (stitchFunctionMaxNum > 0) {
         return std::min(static_cast<uint32_t>(stitchFunctionMaxNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
     }
@@ -2596,9 +2597,9 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
     uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
     size_t objUsedNum[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)]{
         MAX_STITCH_FUNC_NUM, // DevFunctionDupped
-        1,                      // DynFuncData
-        1,                      // VecStitchList
-        1,                      // DynDevTask
+        1,                   // DynFuncData
+        1,                   // VecStitchList
+        1,                   // DynDevTask
     };
     workspace.CalculateSlabCapacityPerType(
         slabSize, slabCapacity, ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
@@ -2722,7 +2723,8 @@ void DevControlFlowCache::Init(
         dyndevAttr->inoutLink.totalSlot *
         (std::min((uint32_t)EstimatedStitchingCount(), stitchMaxFunctionNum) + SLOTS_NEED_ALLOC_SIZE);
     for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
-        runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
+        runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.HostInitDataSizeOffset(
+            initOffset, slottedCount);
     }
 
     runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, dyndevAttr->inoutLink.totalSlot);
