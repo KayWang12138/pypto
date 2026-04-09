@@ -165,20 +165,6 @@ Status IsomorphismGraphGroup::BuildGraphGroup(
     subVisitedNodeSet_.insert(expandCandidate.begin(), expandCandidate.end());
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
 
-    // 从所有候选node获取 allowCrossScopeMerge，所有node都允许则该subgraph允许
-    bool allowCrossScopeMerge = true;
-    for (int32_t nodeIdx : expandCandidate) {
-        for (int32_t opIdx : superNodeInfo->node2Op_[nodeIdx]) {
-            if (!operationInfo->opList_[opIdx]->GetAllowCrossScopeMerge()) {
-                allowCrossScopeMerge = false;
-                break;
-            }
-        }
-        if (!allowCrossScopeMerge) {
-            break;
-        }
-    }
-
     for (int32_t nodeIdx : expandCandidate) {
         if (InLinkCountDelete(nodeIdx, idxInLinkNum, zeroInQueue) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "In-link count delete failed.");
@@ -190,8 +176,8 @@ Status IsomorphismGraphGroup::BuildGraphGroup(
             return FAILED;
         }
         sgPtr->AddNode(nodeIdx);
-        sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx];
-        sgPtr->SetAllowCrossScopeMerge(allowCrossScopeMerge);  // 新增：设置跨 scope 合并开关
+        sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx].scopeId;
+        sgPtr->SetAllowCrossScopeMerge(superNodeInfo->nodeScope_[nodeIdx].allowCrossScopeMerge);
         isoGraphs_.push_back(sgPtr);
     }
     mergeable_ = superNodeInfo_->nodeMergeable_[expandCandidate[0]];
@@ -203,7 +189,7 @@ Status IsomorphismGraphGroup::InLinkCountDelete(
 {
     for (int32_t consumer : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
         if (consumer < 0 || consumer >= static_cast<int32_t>(idxInLinkNum.size())) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Consumer index illegal in InLinkCountDelete.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Consumer index(%d) illegal in InLinkCountDelete.", consumer);
             return FAILED;
         }
         idxInLinkNum[consumer] -= 1;
@@ -312,7 +298,7 @@ bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(
     }
     for (size_t i = 0; i < expandCandidate.size(); i++) {
         int origScopeId = isoGraphs_[i]->scopeId_;
-        int mergeScopeId = superNodeInfo_->nodeScope_[expandCandidate[i]];
+        int mergeScopeId = superNodeInfo_->nodeScope_[expandCandidate[i]].scopeId;
         if (origScopeId != mergeScopeId) {
             APASS_LOG_INFO_F(
                 Elements::Operation, "Cannot merge supernodes with different scopeId %d and %d.", origScopeId,

@@ -991,6 +991,104 @@ TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
     EXPECT_EQ(subgraphIds.size(), 2);
 }
 
+void GetAttentionFusionGraph(ComputationalGraphBuilder& G)
+{
+    std::vector<int64_t> tileShape{16, 16};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {
+        "sij", "softmax_scale", "max_update", "sum_update",
+        "sij_scale", "tilda_mij", "max_new", "tsub", "tilda_pij",
+        "tilda_pij_fp16", "sum_local", "tsub2", "update_mul",
+        "tmp_mul", "sum_update_out"
+    }), true);
+
+    // Scope 1: softmax forward computation
+    // pypto.mul(sij, softmax_scale)
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij"}, {"sij_scale"}, "MULS_sij_scale", true), true);
+    // pypto.amax(sij_scale, dim=-1, keepdim=True)
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_tilda_mij", true), true);
+    // pypto.maximum(max_update, tilda_mij)
+    EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update", "tilda_mij"}, {"max_new"}, "MAX_max_new", true), true);
+    // pypto.sub(sij_scale, max_new)
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"sij_scale", "max_new"}, {"tsub"}, "SUB_tsub", true), true);
+    // pypto.exp(tsub)
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub"}, {"tilda_pij"}, "EXP_tilda_pij", true), true);
+    // pypto.cast(tilda_pij, dtype)
+    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"tilda_pij"}, {"tilda_pij_fp16"}, "CAST_fp16", true), true);
+    // pypto.sum(tilda_pij, dim=-1, keepdim=True)
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWSUM, {"tilda_pij"}, {"sum_local"}, "ROWSUM_sum_local", true), true);
+
+    // Scope 2: running max/sum update
+    // pypto.sub(max_update, max_new)
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
+    // pypto.exp(tsub2)
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub2"}, {"update_mul"}, "EXP_update_mul", true), true);
+    // sum_update * update_mul
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update", "update_mul"}, {"tmp_mul"}, "MUL_tmp", true), true);
+    // tmp + sum_local
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_mul", "sum_local"}, {"sum_update_out"}, "ADD_sum_update", true), true);
+
+    EXPECT_EQ(G.SetInCast({"sij", "softmax_scale", "max_update", "sum_update"}), true);
+    EXPECT_EQ(G.SetOutCast({"sum_update_out", "tilda_pij_fp16"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestAttentionFusionScopePartition)
+{
+    ComputationalGraphBuilder G;
+    GetAttentionFusionGraph(G);
+
+    // Set scope info for Scope 1 ops (softmax forward, sg_set_scope=1)
+    Operation::ScopeInfo scope1;
+    scope1.scopeId = 1;
+    scope1.allowParallelMerge = true;
+    scope1.allowCrossScopeMerge = false;
+    scope1.mixId = -1;
+    std::vector<std::string> scope1Ops = {
+        "MULS_sij_scale", "ROWMAX_tilda_mij", "MAX_max_new", "SUB_tsub",
+        "EXP_tilda_pij", "CAST_fp16", "ROWSUM_sum_local"
+    };
+    for (const auto& name : scope1Ops) {
+        G.GetOp(name)->SetScopeInfo(scope1);
+    }
+
+    // Set scope info for Scope 2 ops (running max/sum update, sg_set_scope=2)
+    Operation::ScopeInfo scope2;
+    scope2.scopeId = 2;
+    scope2.allowParallelMerge = true;
+    scope2.allowCrossScopeMerge = false;
+    scope2.mixId = -1;
+    std::vector<std::string> scope2Ops = {
+        "SUB_tsub2", "EXP_update_mul", "MUL_tmp", "ADD_sum_update"
+    };
+    for (const auto& name : scope2Ops) {
+        G.GetOp(name)->SetScopeInfo(scope2);
+    }
+
+    Function* function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    function->DumpJsonFile("/home/oiouou/code/pypto/output/b.json");
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    function->DumpJsonFile("/home/oiouou/code/pypto/output/a.json");
+    // Verify all Scope 1 ops share the same subgraph
+    int scope1Subgraph = G.GetOp(scope1Ops[0])->GetSubgraphID();
+    for (const auto& name : scope1Ops) {
+        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope1Subgraph);
+    }
+
+    // Verify all Scope 2 ops share the same subgraph
+    int scope2Subgraph = G.GetOp(scope2Ops[0])->GetSubgraphID();
+    for (const auto& name : scope2Ops) {
+        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope2Subgraph);
+    }
+
+    // Verify Scope 1 and Scope 2 are in different subgraphs
+    EXPECT_NE(scope1Subgraph, scope2Subgraph);
+}
+
 // TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeWithNoScope) {
 //     // 测试 allowCrossScopeMerge=true 允许有 scope 的 subgraph 与无 scope 的 subgraph 合并
 //     ComputationalGraphBuilder G;
