@@ -48,6 +48,10 @@ enum class CalculatorErrorScene : uint32_t {
     SCATTER_INDICES_DIM_INVALID = 0xBF00AU,     // indices 维度不是期望的 2 维
     SCATTER_SRC_RET_DIM_UNSUPPORTED = 0xBF00BU, // src/ret 的维度不是 2 或 4，当前实现不支持
     SCATTER_SRC_RET_DIM_MISMATCH = 0xBF00CU,    // src 与 ret 的维度数量不一致
+
+    // QuantMX 相关
+    QUANTMX_RANK_INVALID = 0xBF00DU,    // QuantMX 仅支持 2D 输入
+    QUANTMX_KALIGN_INVALID = 0xBF00EU,  // QuantMX 要求最后一维 64 对齐
 };
 
 } // namespace npu::tile_fwk::calc_error
