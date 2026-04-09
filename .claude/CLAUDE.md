@@ -65,8 +65,8 @@ actual paths on this machine.
 ### General test commands
 
 ```bash
-# All pypto_block tests
-pytest python/tests/ut/block/ -v
+# Frontend tests (default)
+pytest python/tests/ut/block/frontend/ -v
 
 # Single test file
 pytest python/tests/ut/block/language/parser/test_tiling.py -v
@@ -86,12 +86,12 @@ Tests live under `python/tests/ut/block/` (unit tests) and `python/tests/st/` (s
 
 **Before running any test**, source the setup script first (see `.claude/CLAUDE.local.md` for path). All tests — including frontend "unit" tests — require the environment to be initialized.
 
-**Batch test constraints.** Exclude `test_assert.py` (it intentionally triggers NPU device assertions, corrupting device state for subsequent tests). Set per-test timeout of 30s (`pytest.ini` defaults to `thread` method — kills process via `os._exit` even when blocked in C extensions). Use `--forked` to isolate each test in a subprocess so timeout only kills the child, not the entire batch run:
+**Batch test constraints.** Exclude `test_assert.py` (it intentionally triggers NPU device assertions, corrupting device state for subsequent tests). Timeout options: `--timeout-method=thread` (timer thread calls `os._exit`, works even when main thread blocked in C extensions), `--timeout-func-only` (timer starts only during test function, not setup/teardown — so parent process is not killed when used with `--forked`). `--forked` isolates each test in a child process — timeout kills only the child, parent continues to next test:
 
 ```bash
 pytest python/tests/ut/block/frontend/ -v \
   --ignore=python/tests/ut/block/frontend/debug/test_assert.py \
-  --timeout=30 --forked
+  --timeout=30 --timeout-method=thread --timeout-func-only --forked
 ```
 
 **Checking test progress during batch runs.** When running a batch test, the user may ask via `/btw` how many tests have completed. Respond with the current count from pytest output (look for the progress indicator like `[XX%]` and passed/failed counts).
