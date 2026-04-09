@@ -36,7 +36,7 @@ from typing import Literal, Optional, Sequence, Union
 from dataclasses import dataclass
 from pypto_block.ir.op import block_ops as _ir_block_ops
 from pypto_block.ir.op import manual_ops as _ir_manual
-from pypto_block.ir.utils import _to_make_tuple
+from pypto_block.ir.utils import _normalize_expr, _to_make_tuple
 from pypto_block.pypto_core import DataType
 from pypto_block.pypto_core import ir as _ir_core
 from pypto_block.pypto_core.ir import Expr, MemorySpace, Span
@@ -764,8 +764,13 @@ def gatherb(src: Tile, offsets: Tile, out: Tile) -> None:
 # Element-wise Tile x Scalar binary operations
 # ---------------------------------------------------------------------------
 
-def _scalar_expr(v: int | float | Expr | Scalar) -> Expr:
-    return v.unwrap() if isinstance(v, Scalar) else v
+def _scalar_expr(v: int | float | Expr | Scalar, int_dtype: DataType = DataType.INDEX) -> Expr:
+    if isinstance(v, Scalar):
+        return v.unwrap()
+    elif isinstance(v, (int, float)):
+        return _normalize_expr(v, _span(), int_dtype=int_dtype)
+    else:
+        return v
 
 
 def adds(lhs: Tile, rhs: int | float | Expr | Scalar, out: Tile) -> None:
@@ -933,9 +938,20 @@ def subsc(lhs: Tile, rhs: int | float | Expr | Scalar, rhs2: Tile, out: Tile) ->
     _op("manual.subsc", [lhs.unwrap(), _scalar_expr(rhs), rhs2.unwrap()], out)
 
 
-def sel(mask: Tile, lhs: Tile, rhs: Tile, out: Tile) -> None:
-    """Per-element selection: out[i] = lhs[i] if mask[i] else rhs[i]."""
-    _op("manual.sel", [mask.unwrap(), lhs.unwrap(), rhs.unwrap()], out)
+def sel(mask: Tile, lhs: Tile, rhs: Tile, tmp: Tile, out: Tile) -> None:
+    """Per-element selection: out[i] = lhs[i] if mask_bit[i] else rhs[i].
+    
+    Args:
+        mask: Predicate mask tile (INT8 type, bit-packed).
+            Each byte contains 8 bits for 8 consecutive elements.
+            bit k in byte j corresponds to element at column (j*8 + k).
+            bit=1: select lhs, bit=0: select rhs.
+        lhs: Value when mask bit is 1.
+        rhs: Value when mask bit is 0.
+        tmp: Temporary workspace tile.
+        out: Pre-allocated output tile; rebound on return.
+    """
+    _op("manual.sel", [mask.unwrap(), lhs.unwrap(), rhs.unwrap(), tmp.unwrap()], out)
 
 
 def sels(lhs: Tile, rhs: Tile, select_mode: int | float | Expr | Scalar, out: Tile) -> None:
@@ -968,7 +984,7 @@ def cmps(lhs: Tile, rhs: int | float | Expr | Scalar, out: Tile, cmp_type: int =
         out: Pre-allocated output tile; rebound on return.
         cmp_type: EQ=0, NE=1, LT=2, LE=3, GT=4, GE=5.
     """
-    _op("manual.cmps", [lhs.unwrap(), _scalar_expr(rhs)], out, cmp_type=cmp_type)
+    _op("manual.cmps", [lhs.unwrap(), _scalar_expr(rhs, int_dtype=DataType.INT32)], out, cmp_type=cmp_type)
 
 
 # ---------------------------------------------------------------------------

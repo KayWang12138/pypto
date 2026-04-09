@@ -243,6 +243,16 @@ class TileUsageCollector : public ir::IRVisitor {
   std::set<std::string> op_used_names_;
   // Tiles used as elements in tuple construction (MakeTuple) — only grouping
   std::set<std::string> tuple_only_names_;
+  // Map from Call expr pointer to the Var that holds its result (from AssignStmt)
+  std::map<const ir::Call*, ir::VarPtr> call_to_var_;
+
+  void VisitStmt_(const ir::AssignStmtPtr& op) override {
+    // Build mapping from Call value to the Var that holds it
+    if (auto call = ir::As<ir::Call>(op->value_)) {
+      call_to_var_[call.get()] = op->var_;
+    }
+    ir::IRVisitor::VisitStmt_(op);
+  }
 
   void VisitExpr_(const ir::CallPtr& op) override {
     // Tile vars in Call args are truly used by hardware operations
@@ -296,6 +306,22 @@ class TileUsageCollector : public ir::IRVisitor {
     } else if (auto iter_arg = ir::As<ir::IterArg>(expr)) {
       if (ir::As<ir::TileType>(iter_arg->GetType()) || ir::As<ir::TupleType>(iter_arg->GetType())) {
         op_used_names_.insert(iter_arg->name_);
+      }
+    } else if (auto call = ir::As<ir::Call>(expr)) {
+      // Check if this Call returns a TileType and is assigned to a Var
+      if (ir::As<ir::TileType>(call->GetType()) || ir::As<ir::TupleType>(call->GetType())) {
+        auto it = call_to_var_.find(call.get());
+        if (it != call_to_var_.end()) {
+          if (is_op_arg) {
+            op_used_names_.insert(it->second->name_);
+          } else {
+            tuple_only_names_.insert(it->second->name_);
+          }
+        }
+      }
+      // Also recurse into Call args
+      for (const auto& arg : call->args_) {
+        CollectTileNames(arg, is_op_arg);
       }
     } else if (auto tge = ir::As<ir::TupleGetItemExpr>(expr)) {
       // TupleGetItem accesses a tuple element — the tuple itself is used
@@ -481,6 +507,9 @@ void CCECodegen::EmitSingleGlobalTensors(const ir::FunctionPtr& func,
       const std::string global_name = param_name + "Global";
       context_.RegisterVar(param, global_name);
       tensor_params.emplace_back(param, global_name);
+      // In single-file mode, register pointer mapping for all tensor parameters
+      // The pointer is the parameter name itself (a __gm__ type* pointer)
+      context_.RegisterPointer(global_name, param_name);
     } else if (auto scalar_type = std::dynamic_pointer_cast<const ir::ScalarType>(param->GetType())) {
       context_.RegisterVar(param, param_name);
     }

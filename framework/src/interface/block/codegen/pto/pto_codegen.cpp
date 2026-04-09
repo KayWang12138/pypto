@@ -253,6 +253,7 @@ void PTOCodegen::GenerateFunction(const FunctionPtr& func) {
   emitted_constants_.clear();
   emitted_float_constants_.clear();
   emitted_i64_constants_.clear();
+  emitted_typed_int_constants_.clear();
   float_const_names_.clear();
   extra_alloc_tiles_.clear();
   extra_tile_buf_types_.clear();
@@ -770,7 +771,19 @@ std::string PTOCodegen::GetExprAsCode(const ExprPtr& expr) {
     return GetVarName(var);
   }
   if (auto const_int = As<ir::ConstInt>(expr)) {
-    return GetIndexConstant(const_int->value_);
+    std::string mlir_type = "index";
+    if (auto scalar_type = As<ScalarType>(const_int->GetType())) {
+      mlir_type = GetTypeString(scalar_type->dtype_);
+    }
+    if (mlir_type == "index") {
+      return GetIndexConstant(const_int->value_);
+    }
+    // For non-index types, use visitor to emit typed constant
+    current_expr_value_ = "";
+    VisitExpr(const_int);
+    std::string result = current_expr_value_;
+    current_expr_value_ = "";
+    return result;
   }
   if (auto const_float = As<ir::ConstFloat>(expr)) {
     return GetOrEmitFloatConstant(const_float->value_, "f32");
@@ -1061,6 +1074,9 @@ std::string PTOCodegen::GetExprTypeAnnotation(const ir::ExprPtr& expr) {
     return "f32";
   }
   if (auto const_int = As<ir::ConstInt>(expr)) {
+    if (auto scalar_type = As<ScalarType>(const_int->GetType())) {
+      return GetTypeString(scalar_type->dtype_);
+    }
     return "index";
   }
   return "";
@@ -1205,7 +1221,24 @@ void PTOCodegen::VisitExpr_(const ir::IterArgPtr& op) {
 }
 
 void PTOCodegen::VisitExpr_(const ir::ConstIntPtr& op) {
-  current_expr_value_ = GetOrEmitIndexConstant(op->value_);
+  std::string mlir_type = "index";
+  if (auto scalar_type = As<ScalarType>(op->GetType())) {
+    mlir_type = GetTypeString(scalar_type->dtype_);
+  }
+  
+  if (mlir_type == "index") {
+    current_expr_value_ = GetOrEmitIndexConstant(op->value_);
+  } else {
+    std::string name = "%c" + std::to_string(op->value_) + "_" + mlir_type;
+    std::string key = std::to_string(op->value_) + "_" + mlir_type;
+    if (emitted_typed_int_constants_.find(key) == emitted_typed_int_constants_.end()) {
+      const int constants_indent_level = function_body_indent_level_ > 0 ? function_body_indent_level_ : indent_level_;
+      constants_section_ << std::string(static_cast<size_t>(constants_indent_level) * 2, ' ')
+                         << name << " = arith.constant " << op->value_ << " : " << mlir_type << "\n";
+      emitted_typed_int_constants_.insert(key);
+    }
+    current_expr_value_ = name;
+  }
 }
 
 void PTOCodegen::VisitExpr_(const ir::ConstFloatPtr& op) {
@@ -1959,6 +1992,7 @@ void PTOCodegen::GenerateHelperFunction(const FunctionPtr& func) {
   memref_to_tile_type_.clear();
   emitted_constants_.clear();
   emitted_i64_constants_.clear();
+  emitted_typed_int_constants_.clear();
   tile_valid_shapes_.clear();
   constants_section_.str("");
   constants_section_.clear();

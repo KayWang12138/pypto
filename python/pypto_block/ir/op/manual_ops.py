@@ -51,9 +51,9 @@ def _compute_absolute_offsets(
             tile_idx = tile_dims.index(i)
             shape = tile_shape[tile_idx]
             if isinstance(tile_offset, ConstInt) and isinstance(shape, ConstInt):
-                offset = ConstInt(tile_offset.value * shape.value, DataType.INT64, span)
+                offset = ConstInt(tile_offset.value * shape.value, DataType.INDEX, span)
             else:
-                offset = _ir_core.Mul(tile_offset, shape, DataType.INT64, span)
+                offset = _ir_core.Mul(tile_offset, shape, DataType.INDEX, span)
             offsets.append(offset)
         else:
             offsets.append(tile_offset)
@@ -130,6 +130,38 @@ def move(
         kwargs["pre_quant_scalar"] = pre_quant_scalar
     return _ir_core.create_op_call(
         "manual.move", [src, out], kwargs, actual_span
+    )
+
+
+def sel(
+    out: Expr,
+    mask: Expr,
+    lhs: Expr,
+    rhs: Expr,
+    tmp: Expr,
+    span: Span | None = None,
+) -> Call:
+    """Build manual.sel IR call.
+
+    Per-element selection: out[i] = lhs[i] if mask_bit[i] else rhs[i].
+
+    Args:
+        out: Pre-allocated output tile.
+        mask: Predicate mask tile (INT8 type, bit-packed).
+            Each byte contains 8 bits for 8 consecutive elements.
+            bit k in byte j corresponds to element at column (j*8 + k).
+            bit=1: select lhs, bit=0: select rhs.
+        lhs: Value when mask bit is 1.
+        rhs: Value when mask bit is 0.
+        tmp: Temporary workspace tile.
+        span: Optional source span.
+
+    Returns:
+        Call expression for manual.sel.
+    """
+    actual_span = _get_span_or_capture(span)
+    return _ir_core.create_op_call(
+        "manual.sel", [mask, lhs, rhs, tmp, out], {}, actual_span
     )
 
 

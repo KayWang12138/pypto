@@ -336,6 +336,7 @@ class PTOCodegen : public CodegenBase {
   std::set<double> emitted_float_constants_;
   std::map<double, std::string> float_const_names_;
   std::set<int64_t> emitted_i64_constants_;  // For addr operands
+  std::set<std::string> emitted_typed_int_constants_;  // For typed integer constants (e.g., i32)
 
   /// Maps tuple var name → MakeTuple expression for TupleGetItemExpr resolution
   std::map<std::string, ir::MakeTuplePtr> tuple_var_to_make_tuple_;

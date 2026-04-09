@@ -1451,5 +1451,48 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.dim")
       return MakeTensorDimCodegenCCE(op, codegen);
     });
 
+static std::string MakeTensorReadCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2) << "tensor.read requires 2 arguments (tensor, indices)";
+
+  auto tensor_var = ir::As<ir::Var>(op->args_[0]);
+  CHECK(tensor_var) << "tensor.read first argument must be a Var";
+  auto tensor_type = ir::As<ir::TensorType>(tensor_var->GetType());
+  CHECK(tensor_type) << "tensor.read first argument must be TensorType";
+
+  auto indices_tuple = ir::As<ir::MakeTuple>(op->args_[1]);
+  CHECK(indices_tuple) << "tensor.read second argument must be a MakeTuple of indices";
+
+  std::string tensor_name = codegen.GetVarName(tensor_var);
+  std::string base_ptr = codegen.GetPointer(tensor_name);
+  if (base_ptr.empty()) {
+    base_ptr = tensor_name + ".data()";
+  }
+
+  const auto& indices = indices_tuple->elements_;
+  const auto& shape = tensor_type->shape_;
+
+  std::ostringstream idx_oss;
+  for (size_t i = 0; i < indices.size(); ++i) {
+    if (i > 0) idx_oss << " + ";
+    idx_oss << codegen.GetExprAsCode(indices[i]);
+    for (size_t j = i + 1; j < shape.size(); ++j) {
+      idx_oss << " * " << codegen.GetExprAsCode(shape[j]);
+    }
+  }
+  std::string idx_expr = idx_oss.str();
+
+  // Return expression value (let AssignStmt handle the declaration)
+  // In single-file mode, base_ptr is already a __gm__ pointer parameter.
+  // Directly index into it without casting (casting from __gm__ to local is not allowed).
+  return base_ptr + "[" + idx_expr + "]";
+}
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.read")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeTensorReadCodegenCCE(op, codegen);
+    });
+
 }  // namespace backend
 }  // namespace pypto

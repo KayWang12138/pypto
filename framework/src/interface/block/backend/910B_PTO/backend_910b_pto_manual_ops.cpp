@@ -55,7 +55,7 @@ using ir::Var;
 // Shared mode tables (identical to backend_910b_pto_ops.cpp)
 // ============================================================================
 
-static const std::vector<std::string> kManualCmpModes = {"EQ", "NE", "LT", "LE", "GT", "GE"};
+static const std::vector<std::string> kManualCmpModes = {"eq", "ne", "lt", "le", "gt", "ge"};
 
 // ============================================================================
 // Effective tile size helper
@@ -210,7 +210,7 @@ static const std::vector<std::string> kManualRoundModes = {"NONE", "RINT",  "ROU
 // n_ins:    number of leading input arguments
 // out_idx:  index of the explicit output tile argument (== n_ins)
 // config_attr: optional attribute string inserted after the ins operand list
-//              and before the type annotation, e.g. "{cmpMode = #pto<cmp EQ>}"
+//              and before the type annotation, e.g. "{cmpMode = #pto.cmp<eq>}"
 // ============================================================================
 
 static std::string GenerateManualInsOutsClause(const CallPtr& op, codegen::PTOCodegen& codegen,
@@ -228,7 +228,9 @@ static std::string GenerateManualInsOutsClause(const CallPtr& op, codegen::PTOCo
     if (i > 0) oss << ", ";
     oss << codegen.GetExprAsCode(op->args_[i]);
   }
-  // type annotations
+  // Insert config_attr after last operand, before type annotation
+  if (!config_attr.empty()) oss << " " << config_attr;
+  // type annotations (inside the parentheses)
   std::string type_annot;
   for (size_t i = 0; i < n_ins; ++i) {
     std::string annot = codegen.GetExprTypeAnnotation(op->args_[i]);
@@ -237,14 +239,14 @@ static std::string GenerateManualInsOutsClause(const CallPtr& op, codegen::PTOCo
       type_annot += annot;
     }
   }
-  if (!config_attr.empty()) oss << config_attr;
   if (!type_annot.empty()) oss << " : " << type_annot;
+  oss << ")";
 
   // --- outs clause (explicit last arg) ---
   const size_t out_idx = n_ins;
   std::string out_name = codegen.GetExprAsCode(op->args_[out_idx]);
   std::string out_type = codegen.GetExprTypeAnnotation(op->args_[out_idx]);
-  oss << ") outs(" << out_name;
+  oss << " outs(" << out_name;
   if (!out_type.empty()) oss << " : " << out_type;
   oss << ")";
 
@@ -266,7 +268,9 @@ static std::string GenerateManualInsMidOutsClause(const CallPtr& op, codegen::PT
     if (i > 0) oss << ", ";
     oss << codegen.GetExprAsCode(op->args_[i]);
   }
-  // type annotations
+  // Insert config_attr after last operand, before type annotation
+  if (!config_attr.empty()) oss << " " << config_attr;
+  // type annotations (inside the parentheses)
   std::string type_annot;
   for (size_t i = 0; i < n_ins; ++i) {
     std::string annot = codegen.GetExprTypeAnnotation(op->args_[i]);
@@ -276,13 +280,13 @@ static std::string GenerateManualInsMidOutsClause(const CallPtr& op, codegen::PT
     }
   }
   if (!type_annot.empty()) oss << " : " << type_annot;
-  if (!config_attr.empty()) oss << config_attr;
+  oss << ")";
 
   // --- outs clause (explicit last arg) ---
   const size_t out_idx = 0;
   std::string out_name = codegen.GetExprAsCode(op->args_[out_idx]);
   std::string out_type = codegen.GetExprTypeAnnotation(op->args_[out_idx]);
-  oss << ") outs(" << out_name;
+  oss << " outs(" << out_name;
   if (!out_type.empty()) oss << " : " << out_type;
   oss << ")";
 
@@ -304,7 +308,7 @@ static std::string GenerateManualMixSelfInsOutsClause(const CallPtr& op, codegen
     if (i > 0) oss << ", ";
     oss << codegen.GetExprAsCode(op->args_[i]);
   }
-  // type annotations
+  // type annotations (inside the parentheses)
   std::string type_annot;
   for (size_t i = 0; i < n_ins; ++i) {
     std::string annot = codegen.GetExprTypeAnnotation(op->args_[i]);
@@ -314,13 +318,14 @@ static std::string GenerateManualMixSelfInsOutsClause(const CallPtr& op, codegen
     }
   }
   if (!type_annot.empty()) oss << " : " << type_annot;
-  if (!config_attr.empty()) oss << config_attr;
+  oss << ")";
+  if (!config_attr.empty()) oss << " " << config_attr;
 
   // --- outs clause (explicit last arg) ---
   const size_t out_idx = out_ins;
   std::string out_name = codegen.GetExprAsCode(op->args_[out_idx]);
   std::string out_type = codegen.GetExprTypeAnnotation(op->args_[out_idx]);
-  oss << ") outs(" << out_name;
+  oss << " outs(" << out_name;
   if (!out_type.empty()) oss << " : " << out_type;
   oss << ")";
 
@@ -335,8 +340,9 @@ static std::string GenerateManualMixInsOutsClause(const CallPtr& op, codegen::PT
   // --- ins clause ---
   oss << "ins(";
   oss << codegen.GetExprAsCode(op->args_[0]);
-  if (!config_attr.empty()) oss << config_attr;
-  // type annotations
+  // Insert config_attr inside ins(), after operand, before type annotation
+  if (!config_attr.empty()) oss << " " << config_attr;
+  // type annotations (inside the parentheses)
   std::string type_annot;
   std::string annot = codegen.GetExprTypeAnnotation(op->args_[0]);
   if (!annot.empty()) {
@@ -344,11 +350,13 @@ static std::string GenerateManualMixInsOutsClause(const CallPtr& op, codegen::PT
     type_annot += annot;
   }
   if (!type_annot.empty()) oss << " : " << type_annot;
+  oss << ")";
+
   // --- outs clause (explicit last arg) ---
   const size_t out_idx = n_ins;
   std::string out_name = codegen.GetExprAsCode(op->args_[out_idx]);
   std::string out_type = codegen.GetExprTypeAnnotation(op->args_[out_idx]);
-  oss << ") outs(" << out_name;
+  oss << " outs(" << out_name;
   if (!out_type.empty()) oss << " : " << out_type;
   oss << ")";
 
@@ -599,6 +607,7 @@ static std::string MakeManualCmpsPTO(const std::string& pto_op, const CallPtr& o
 }
 
 // Cast / type-convert (unary + round_mode attr): (src, out) + mode kwarg
+// Format: ins(%src : type) outs(%dst : type) {attr}
 static std::string MakeManualCvtPTO(const std::string& pto_op, const CallPtr& op,
                                     codegen::CodegenBase& cb) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(cb);
@@ -613,7 +622,21 @@ static std::string MakeManualCvtPTO(const std::string& pto_op, const CallPtr& op
   }
   CHECK(mode_idx >= 0) << pto_op << ": unknown round mode '" << mode_str << "'";
   std::string attr = "{rmode = #pto<round_mode " + kManualRoundModes.at(mode_idx) + ">}";
-  codegen.Emit(pto_op + " " + GenerateManualInsOutsClause(op, codegen, 1, attr));
+  
+  // Special format for tcvt: ins(%src {attr} : type) outs(%dst : type)
+  std::ostringstream oss;
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string src_type = codegen.GetExprTypeAnnotation(op->args_[0]);
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+  std::string dst_type = codegen.GetExprTypeAnnotation(op->args_[1]);
+  
+  oss << "ins(" << src << " " << attr;
+  if (!src_type.empty()) oss << " : " << src_type;
+  oss << ") outs(" << dst;
+  if (!dst_type.empty()) oss << " : " << dst_type;
+  oss << ")";
+  
+  codegen.Emit(pto_op + " " + oss.str());
   return "";
 }
 
@@ -1814,7 +1837,7 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "manual.subsc")
 REGISTER_BACKEND_OP(Backend910B_PTO, "manual.sel")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
-      return MakeManualTernaryPTO("pto.tsel", op, codegen);
+      return MakeManualQuaternaryPTO("pto.tsel", op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_PTO, "manual.sels")

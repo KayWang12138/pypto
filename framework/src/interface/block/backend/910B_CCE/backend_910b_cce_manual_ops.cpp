@@ -1492,7 +1492,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.subsc")
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.sel")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
-      return MakeManualTernaryCodegenCCE("TSEL", op, codegen);
+      return MakeManualQuaternaryCodegenCCE("TSEL", op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.sels")
