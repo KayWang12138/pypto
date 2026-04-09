@@ -442,7 +442,7 @@ def pre_compute_2d(
                                    [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_qa")
         x_view1 = pypto.view(token_x, [bs, k // 2], [0, 0])
-        x_view2 = pypto.view(token_x, [bs, k//2], [0, k // 2])
+        x_view2 = pypto.view(token_x, [bs, k // 2], [0, k // 2])
         w_dq1 = pypto.view(w_dq, [k // 2, q_lora_rank], [0, 0])
         w_dq2 = pypto.view(w_dq, [k // 2, q_lora_rank], [k // 2, 0])
         q_a_proj1 = pypto.matmul(x_view1, w_dq1, pypto.DT_FP32)
@@ -724,7 +724,7 @@ def options_list():
 
 @pypto.frontend.jit(
     pass_options={
-        "cube_l1_reuse_setting": {-1: 4},
+        "cube_l1_reuse_setting": {-1: 4},   
     },
     runtime_options={
         "stitch_function_max_num": 128
