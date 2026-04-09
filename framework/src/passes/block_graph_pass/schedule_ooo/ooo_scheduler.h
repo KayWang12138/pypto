@@ -31,8 +31,6 @@ namespace npu::tile_fwk {
 
 inline int BytesPerElement(DataType dataType) { return BytesOf(dataType); }
 
-inline uint64_t CeilAlign(uint64_t a, int b) { return ((a + b - 1) / b) * b; }
-
 enum class CoreLocationType { AIC = 0, AIV0 = 1, AIV1 = 2, UNKNOWN = 3 };
 
 const std::unordered_set<Opcode> USE_LESS_OPS = {

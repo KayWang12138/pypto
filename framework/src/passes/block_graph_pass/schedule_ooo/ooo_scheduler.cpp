@@ -1057,9 +1057,7 @@ Status OoOScheduler::GenRearrangeCopyOp(Operation* allocOp, MemoryType memType, 
         APASS_LOG_WARN_F(Elements::Tensor, "GenRearrangeCopyOp failed at FindMoveFromTensor.");
         return FAILED;
     }
-    if (rearrangeUBBF16) {
-        return SUCCESS;
-    }
+    if (rearrangeUBBF16) return SUCCESS;
     LogicalTensorPtr moveToTensor =
         std::make_shared<LogicalTensor>(function_, moveFromTensor->Datatype(), moveFromTensor->shape);
     // 给moveToTensor分配memId和创建新的localbuffer
@@ -1135,8 +1133,7 @@ Status OoOScheduler::RearrangeBuffers(Operation* op, bool isGenSpillStage, bool 
         auto targetBufferPtr = localBufferMap_[memId];
         if (rearrangeScheme.moveFrom[memId] != targetBufferPtr->start ||
             rearrangeScheme.memSizeMap[memId] != targetBufferPtr->size) {
-            APASS_LOG_WARN_F(
-                Elements::Tensor,
+            APASS_LOG_WARN_F(Elements::Tensor,
                 "MemId %d localBuffer and rearrangeScheme range donot match, RearrangeBuffers failed.", memId);
             return FAILED;
         }
@@ -1165,9 +1162,7 @@ Status OoOScheduler::RearrangeBuffers(Operation* op, bool isGenSpillStage, bool 
                 APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffers failed at GenRearrangeCopyOp.");
                 return FAILED;
             }
-            if (rearrangeUBBF16) {
-                return FAILED;
-            }
+            if (rearrangeUBBF16) return FAILED;
             // 更新moveToTensor的localbuffer和bufferslice range
             if (UpdateRange(newMemId, offset, allocBuffer->memType, bufferManager) != SUCCESS) {
                 APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffers failed at UpdateRange.");
