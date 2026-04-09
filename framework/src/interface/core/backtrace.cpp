@@ -9,6 +9,7 @@
  */
 
 #include "core/error.h"
+#include "interface/utils/common.h"
 
 #include <cxxabi.h>
 #include <cstring>
@@ -112,19 +113,14 @@ static FileLocation GetFileLineFromAddr2line(void* addr)
         return loc;
     }
 
-    // Build addr2line command - use absolute address for executable
-    std::stringstream cmd;
-    cmd << "addr2line -e " << info.dli_fname << " -f -C -p " << addr << " 2>/dev/null";
+    // Build addr2line command arguments - use absolute address for executable
+    std::stringstream addrStr;
+    addrStr << addr;
+    std::vector<std::string> args = {"addr2line", "-e", info.dli_fname, "-f", "-C", "-p", addrStr.str()};
 
-    FILE* fp = popen(cmd.str().c_str(), "r");
-    if (fp == nullptr) {
-        return loc;
-    }
+    std::string output = npu::tile_fwk::SafeExecCommandWithOutput(args);
 
-    char buffer[2048];
-    if (fgets(buffer, sizeof(buffer), fp) != nullptr) {
-        std::string output(buffer);
-
+    if (!output.empty()) {
         // Remove trailing newline
         if (!output.empty() && output.back() == '\n') {
             output.pop_back();
@@ -193,7 +189,6 @@ static FileLocation GetFileLineFromAddr2line(void* addr)
             }
         }
     }
-    pclose(fp);
 
     // Cache the result (even if empty, to avoid repeated failed lookups)
     {

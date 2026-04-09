@@ -14,6 +14,7 @@
  */
 
 #include "source_location.h"
+#include "interface/utils/common.h"
 
 #include <dlfcn.h>
 #include <cstdint>
@@ -44,26 +45,42 @@ void SourceLocation::Init() const
     }
     pcSet.clear();
 
-    size_t n = 0;
-    char* line = nullptr;
     for (auto& [info, pcs] : dlMap) {
-        std::stringstream ss;
-        ss << "addr2line -i -p -e " << info.first << " " << std::hex;
-        for (auto pc : pcs)
-            ss << " " << pc - (intptr_t)info.second;
-        auto fp = popen(ss.str().c_str(), "r");
+        std::vector<std::string> args = {"addr2line", "-i", "-p", "-e", info.first};
         for (auto pc : pcs) {
-            int rc = fp ? getline(&line, &n, fp) : -1;
-            if (rc >= 0 && strstr(line, "inlined by")) {
-                rc = getline(&line, &n, fp);
+            std::stringstream ss;
+            ss << std::hex << (pc - (intptr_t)info.second);
+            args.push_back(ss.str());
+        }
+
+        std::string output = SafeExecCommandWithOutput(args);
+        std::istringstream iss(output);
+        std::string lineStr;
+
+        for (auto pc : pcs) {
+            bool parsed = false;
+            if (std::getline(iss, lineStr)) {
+                if (lineStr.find("inlined by") != std::string::npos) {
+                    if (!std::getline(iss, lineStr)) {
+                        lineStr.clear();
+                    }
+                }
+                if (!lineStr.empty()) {
+                    size_t colonPos = lineStr.find(":");
+                    if (colonPos != std::string::npos) {
+                        locMap[pc]->fname_ = lineStr.substr(0, colonPos);
+                        long lineno = strtol(lineStr.substr(colonPos + 1).c_str(), nullptr, 10);
+                        locMap[pc]->lineno_ = static_cast<int>(lineno);
+                        parsed = true;
+                    } else {
+                        locMap[pc]->fname_ = lineStr;
+                        locMap[pc]->lineno_ = 0;
+                        parsed = true;
+                    }
+                }
             }
-            if (rc >= 0) {
-                char* p = line;
-                char* name = strsep(&p, ":");
-                locMap[pc]->fname_ = name;
-                long lineno = strtol(p, nullptr, 10);
-                locMap[pc]->lineno_ = static_cast<int>(lineno);
-            } else {
+
+            if (!parsed) {
                 std::stringstream os;
                 // addr2line failed, use elfname + offset
                 os << info.first << "(+" << std::hex << pc - (intptr_t)info.second << ")";
@@ -71,9 +88,7 @@ void SourceLocation::Init() const
                 locMap[pc]->lineno_ = 0;
             }
         }
-        pclose(fp);
     }
-    free(line);
 }
 
 int SourceLocation::GetLineno() const
