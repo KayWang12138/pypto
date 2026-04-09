@@ -121,38 +121,6 @@ def matmul_kernel_with_mn_split(
 @pypto.frontend.jit(
     debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
 )
-def matmul_kernel_with_mn_split_nz(
-    a_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_NZ),
-    b_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_NZ),
-    out_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    shape_info: ShapeConfig,
-):
-    m = shape_info.ori_shape[0]
-    n = shape_info.ori_shape[2]
-    m_view = shape_info.view_shape[0]
-    n_view = shape_info.view_shape[1]
-    pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape,
-                                enable_split_k=shape_info.gm_acc)
-    m_loop = (m + m_view - 1) // m_view
-    n_loop = (n + n_view - 1) // n_view
-    for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
-        for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_L0_nIdx", idx_name="n_idx"):
-            if shape_info.a_trans:
-                a_view = a_tensor[:, m_idx * m_view: m_idx * m_view + m_view]
-            else:
-                a_view = a_tensor[m_idx * m_view: m_idx * m_view + m_view, :]
-            if shape_info.b_trans:
-                b_view = b_tensor[n_idx * n_view: n_idx * n_view + n_view, :]
-            else:
-                b_view = b_tensor[:, n_idx * n_view: n_idx * n_view + n_view]
-            out_view = pypto.matmul(a_view, b_view, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
-                                    out_dtype=shape_info.out_dtype)
-            out_tensor[m_idx * m_view: m_idx * m_view + m_view, n_idx * n_view: n_idx * n_view + n_view] = out_view
-
-
-@pypto.frontend.jit(
-    debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
-)
 def bmm_kernel_with_no_mn_split(
     a_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
     b_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
@@ -212,7 +180,7 @@ def test_mm_with_mn_split_nz():
     a1_tensor_nz = torch_npu.npu_format_cast(a1_tensor, 29) if shape_info.a_format_nz else a1_tensor
     b1_tensor_nz = torch_npu.npu_format_cast(b1_tensor, 29) if shape_info.b_format_nz else b1_tensor
     golden = torch.matmul(a1_tensor.to(torch.float32).T, b1_tensor.to(torch.float32).T)
-    matmul_kernel_with_mn_split_nz(
+    matmul_kernel_with_mn_split(
         a1_tensor_nz, b1_tensor_nz, c1_tensor,
         shape_info
     )

@@ -221,7 +221,7 @@ def ifa_func_kernel(
     x_bias: pypto.Tensor(),
     x_scale: pypto.Tensor(),
     x_offset: pypto.Tensor(),
-    weight: pypto.Tensor([], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    weight: pypto.Tensor(),
     quant_bias: pypto.Tensor(),
     deq_scale: pypto.Tensor(),
     q_gamma: pypto.Tensor(),

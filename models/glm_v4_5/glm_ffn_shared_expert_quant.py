@@ -227,9 +227,9 @@ def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_para
 )
 def share_expert_moe_main(
     hidden_states: pypto.tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    w13: pypto.tensor([], format=pypto.TileOpFormat.TILEOP_NZ),
+    w13: pypto.tensor(),
     w13_scale: pypto.tensor(),
-    w2: pypto.tensor([], format=pypto.TileOpFormat.TILEOP_NZ),
+    w2: pypto.tensor(),
     w2_scale: pypto.tensor(),
     ffn_res: pypto.tensor([pypto.DYNAMIC, ...], pypto.DT_BF16)
 ):
