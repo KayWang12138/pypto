@@ -344,10 +344,10 @@ for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
 auto &program = npu::tile_fwk::Program::GetInstance();
 // 创建一个静态函数
 std::string funcName = "test_function";
-program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC, 
+program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC,
                         npu::tile_fwk::GraphGraphType::TENSOR_GRAPH, {}, false);
 // 再次执行会触发CHECK断言，由于funcName重复
-// program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC, 
+// program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC,
 //                      npu::tile_fwk::GraphType::TENSOR_GRAPH, {}, false);
 ```
 

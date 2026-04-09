@@ -62,44 +62,76 @@ enum class BinaryOpType {
 };
 
 template <BinaryOpType T>
-std::string GetBinaryOpName() {
+std::string GetBinaryOpName()
+{
     switch (T) {
-        case BinaryOpType::ADD: return "ADD";
-        case BinaryOpType::SUB: return "SUB";
-        case BinaryOpType::MUL: return "MUL";
-        case BinaryOpType::DIV: return "DIV";
-        case BinaryOpType::MAX: return "MAX";
-        case BinaryOpType::MIN: return "MIN";
-        case BinaryOpType::MAXIMUM: return "MAXIMUM";
-        case BinaryOpType::MINIMUM: return "MINIMUM";
-        case BinaryOpType::LRELU: return "LRELU";
-        case BinaryOpType::POW: return "POW";
-        case BinaryOpType::MOD:return "MOD";
-        case BinaryOpType::REM: return "REM";
-        case BinaryOpType::REMR:return "REMR";
-        case BinaryOpType::CMP:return "CMP";
-        case BinaryOpType::S_ADD: return "S_ADD";
-        case BinaryOpType::S_SUB: return "S_SUB";
-        case BinaryOpType::S_MUL: return "S_MUL";
-        case BinaryOpType::S_DIV: return "S_DIV";
-        case BinaryOpType::S_MAX: return "S_MAX";
-        case BinaryOpType::S_MIN: return "S_MIN";
-        case BinaryOpType::BITWISEAND: return "BITWISEAND";
-        case BinaryOpType::BITWISEOR: return "BITWISEOR";
-        case BinaryOpType::BITWISEXOR: return "BITWISEXOR";
-        case BinaryOpType::EXPANDEXPDIF: return "EXPANDEXPDIF";
-        case BinaryOpType::COPYSIGN: return "COPYSIGN";
-        case BinaryOpType::GCD: return "GCD";
-        case BinaryOpType::FLOORDIV: return "FLOORDIV";
-        default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type"; return "";
+        case BinaryOpType::ADD:
+            return "ADD";
+        case BinaryOpType::SUB:
+            return "SUB";
+        case BinaryOpType::MUL:
+            return "MUL";
+        case BinaryOpType::DIV:
+            return "DIV";
+        case BinaryOpType::MAX:
+            return "MAX";
+        case BinaryOpType::MIN:
+            return "MIN";
+        case BinaryOpType::MAXIMUM:
+            return "MAXIMUM";
+        case BinaryOpType::MINIMUM:
+            return "MINIMUM";
+        case BinaryOpType::LRELU:
+            return "LRELU";
+        case BinaryOpType::POW:
+            return "POW";
+        case BinaryOpType::MOD:
+            return "MOD";
+        case BinaryOpType::REM:
+            return "REM";
+        case BinaryOpType::REMR:
+            return "REMR";
+        case BinaryOpType::CMP:
+            return "CMP";
+        case BinaryOpType::S_ADD:
+            return "S_ADD";
+        case BinaryOpType::S_SUB:
+            return "S_SUB";
+        case BinaryOpType::S_MUL:
+            return "S_MUL";
+        case BinaryOpType::S_DIV:
+            return "S_DIV";
+        case BinaryOpType::S_MAX:
+            return "S_MAX";
+        case BinaryOpType::S_MIN:
+            return "S_MIN";
+        case BinaryOpType::BITWISEAND:
+            return "BITWISEAND";
+        case BinaryOpType::BITWISEOR:
+            return "BITWISEOR";
+        case BinaryOpType::BITWISEXOR:
+            return "BITWISEXOR";
+        case BinaryOpType::EXPANDEXPDIF:
+            return "EXPANDEXPDIF";
+        case BinaryOpType::COPYSIGN:
+            return "COPYSIGN";
+        case BinaryOpType::GCD:
+            return "GCD";
+        case BinaryOpType::FLOORDIV:
+            return "FLOORDIV";
+        default:
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
+            return "";
     }
 }
 
 template <BinaryOpType T, bool WithElement = false, bool WithBrc = false>
-Opcode GetBinaryOpNameCode() {
+Opcode GetBinaryOpNameCode()
+{
     if constexpr (WithElement) {
-#define CASE(X) \
-    case BinaryOpType::X: return Opcode::OP_##X##S
+#define CASE(X)           \
+    case BinaryOpType::X: \
+        return Opcode::OP_##X##S
         switch (T) {
             CASE(ADD);
             CASE(SUB);
@@ -121,15 +153,18 @@ Opcode GetBinaryOpNameCode() {
             CASE(BITWISEXOR);
             CASE(GCD);
             CASE(FLOORDIV);
-            case BinaryOpType::LRELU: return Opcode::OP_LRELU;
-            default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
+            case BinaryOpType::LRELU:
+                return Opcode::OP_LRELU;
+            default:
+                ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
         }
 #undef CASE
     }
 
     if constexpr (WithBrc) {
-#define CASE(X) \
-    case BinaryOpType::X: return Opcode::OP_##X##_BRC
+#define CASE(X)           \
+    case BinaryOpType::X: \
+        return Opcode::OP_##X##_BRC
         switch (T) {
             CASE(ADD);
             CASE(SUB);
@@ -138,13 +173,15 @@ Opcode GetBinaryOpNameCode() {
             CASE(MAX);
             CASE(MIN);
             CASE(GCD);
-            default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
+            default:
+                ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
         }
 #undef CASE
     }
 
-#define CASE(X) \
-    case BinaryOpType::X: return Opcode::OP_##X
+#define CASE(X)           \
+    case BinaryOpType::X: \
+        return Opcode::OP_##X
     switch (T) {
         CASE(ADD);
         CASE(SUB);
@@ -169,7 +206,8 @@ Opcode GetBinaryOpNameCode() {
         CASE(COPYSIGN);
         CASE(GCD);
         CASE(FLOORDIV);
-        default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
+        default:
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
     }
 #undef CASE
 }
@@ -180,17 +218,19 @@ struct LogicalInput {
 };
 
 std::vector<int64_t> BinaryOperationResultShape(LogicalTensorPtr operand1, LogicalTensorPtr operand2);
-LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const std::vector<int> &broadCastShape);
-void CheckBinOpOperandsValid(const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2);
+LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr& operand, const std::vector<int>& broadCastShape);
+void CheckBinOpOperandsValid(const LogicalTensorPtr& operand1, const LogicalTensorPtr& operand2);
 void BinaryOperationOperandCheck(
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
-void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op);
-void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape, std::vector<int64_t> dstShape = {});
+    const std::vector<LogicalTensorPtr>& iOperand, const std::vector<LogicalTensorPtr>& oOperand);
+void CheckBinaryInputTensors(const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2, std::string& op);
+void BroadcastOperandTensor(
+    LogicalTensorPtr& operand, LogicalTensorPtr& other, LogicalTensorPtr result, Function& function,
+    const TileShape& tileShape, std::vector<int64_t> dstShape = {});
 
 // OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX OP_BITWISEAND OP_BITWISEOR OP_BITWISEXOR
 template <BinaryOpType T>
-LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand1, const Tensor &operand2) {
+LogicalTensorPtr TensorBinaryOperation(Function& function, const Tensor& operand1, const Tensor& operand2)
+{
     auto oprandT1 = operand1.GetStorage();
     auto oprandT2 = operand2.GetStorage();
     if (oprandT1->shape.size() != oprandT2->shape.size()) {
@@ -221,12 +261,13 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
 
 // OP_ADDS OP_SUBS OP_MULS OP_DIVS OP_MAXS OP_MINS OP_BITWISEANDS OP_BITWISEORS OP_BITWISEXORS
 template <BinaryOpType T>
-LogicalTensorPtr TensorBinaryOperationScalar(Function &function, LogicalTensorPtr operand1, const Element &value) {
+LogicalTensorPtr TensorBinaryOperationScalar(Function& function, LogicalTensorPtr operand1, const Element& value)
+{
     auto opName = GetBinaryOpName<T>();
     CheckTensorShape(operand1, opName);
     auto result =
         std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape, operand1->GetDynValidShape());
-    auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1}, {result});
+    auto& op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1}, {result});
     op.SetAttribute(OpAttributeKey::scalar, value);
     return result;
 }
@@ -234,10 +275,11 @@ LogicalTensorPtr TensorBinaryOperationScalar(Function &function, LogicalTensorPt
 // OP_S_ADDS OP_S_SUBS OP_S_MULS OP_S_DIVS OP_S_MAXS
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationAllScalar(
-    Function &function, const Tensor &operand1, const Element &value, bool reverseOperand) {
+    Function& function, const Tensor& operand1, const Element& value, bool reverseOperand)
+{
     auto result = std::make_shared<LogicalTensor>(
         function, operand1.GetStorage()->Datatype(), operand1.GetShape(), operand1.GetStorage()->GetDynValidShape());
-    auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1.GetStorage()}, {result});
+    auto& op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1.GetStorage()}, {result});
     op.SetAttribute(OpAttributeKey::scalar, value);
     op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
     return result;
@@ -245,7 +287,8 @@ LogicalTensorPtr TensorBinaryOperationAllScalar(
 
 // OP_S_ADD OP_S_SUB OP_S_MUL OP_S_DIV OP_S_MAX
 template <BinaryOpType T>
-LogicalTensorPtr TensorBinaryOperationAllScalar(Function &function, const Tensor &operand1, const Tensor &operand2) {
+LogicalTensorPtr TensorBinaryOperationAllScalar(Function& function, const Tensor& operand1, const Tensor& operand2)
+{
     auto opName = GetBinaryOpName<T>();
     CheckBinaryInputTensors(operand1.GetStorage(), operand2.GetStorage(), opName);
     auto result = std::make_shared<LogicalTensor>(

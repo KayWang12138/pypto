@@ -21,8 +21,8 @@
 
 namespace npu::tile_fwk {
 enum class TileOperand : int64_t {
-    NONE          = 0,
-    LEFT_OPERAND  = 1,
+    NONE = 0,
+    LEFT_OPERAND = 1,
     RIGHT_OPERAND = 2,
 };
 
@@ -32,43 +32,43 @@ using PenuBroadcastOperand = TileOperand;
 struct PrintScatterElemParam {
     const int axis;
     const int scatterMode;
-    const std::string &dVar;
-    const std::string &s0Var;
-    const std::string &s1Var;
-    std::vector<int64_t> &dstRawShape;
-    std::vector<int64_t> &src1RawShape;
-    const std::vector<std::string> &dataTypeExpr;
+    const std::string& dVar;
+    const std::string& s0Var;
+    const std::string& s1Var;
+    std::vector<int64_t>& dstRawShape;
+    std::vector<int64_t>& src1RawShape;
+    const std::vector<std::string>& dataTypeExpr;
 };
 
 struct PrintScatterParam {
     const int axis;
     const int scatterMode;
-    const std::string &dVar;
-    const std::string &s1Var;
-    const std::string &s2Var;
-    std::vector<int64_t> &dstRawShape;
-    std::vector<int64_t> &src1RawShape;
-    std::vector<int64_t> &src2RawShape;
-    const std::vector<std::string> &dataTypeExpr;
+    const std::string& dVar;
+    const std::string& s1Var;
+    const std::string& s2Var;
+    std::vector<int64_t>& dstRawShape;
+    std::vector<int64_t>& src1RawShape;
+    std::vector<int64_t>& src2RawShape;
+    const std::vector<std::string>& dataTypeExpr;
 };
 
 struct PrintIndexAddParam {
     const int axis;
-    const std::string &dstVar;
-    const std::string &srcVar;
-    const std::string &indicesVar;
-    std::vector<int64_t> &dstRawShape;
-    std::vector<int64_t> &srcRawShape;
-    const std::vector<std::string> &dataTypeExpr;
+    const std::string& dstVar;
+    const std::string& srcVar;
+    const std::string& indicesVar;
+    std::vector<int64_t>& dstRawShape;
+    std::vector<int64_t>& srcRawShape;
+    const std::vector<std::string>& dataTypeExpr;
 };
 
 struct PrintIndexPutParam {
-    const std::string &dVar;
-    const std::string &s1Var;
-    const std::vector<std::string> &s2Var;
-    const std::vector<int64_t> &gmShape;
-    const std::vector<int64_t> &src1RawShape;
-    const std::vector<std::string> &dataTypeExpr;
+    const std::string& dVar;
+    const std::string& s1Var;
+    const std::vector<std::string>& s2Var;
+    const std::vector<int64_t>& gmShape;
+    const std::vector<int64_t>& src1RawShape;
+    const std::vector<std::string>& dataTypeExpr;
     const bool accumulate;
 };
 
@@ -82,45 +82,45 @@ struct WhereParam {
 };
 
 struct PrintDupOpParam {
-    const std::string &dVar;
-    const std::string &dstDtypeStr;
-    const std::string &dupV;
+    const std::string& dVar;
+    const std::string& dstDtypeStr;
+    const std::string& dupV;
 };
 
 struct PrintUnaryParam {
-    const std::string &s0Var;
-    const std::string &dVar;
-    const std::string &srcDtypeStr;
-    const std::string &dstDtypeStr;
+    const std::string& s0Var;
+    const std::string& dVar;
+    const std::string& srcDtypeStr;
+    const std::string& dstDtypeStr;
 };
 
 struct PrintUnaryTmpParam {
-    const std::string &s0Var;
-    const std::string &dVar;
-    const std::string &tmpVar;
-    const std::string &srcDtypeStr;
-    const std::string &dstDtypeStr;
-    const std::string &tmpDtypeStr;
+    const std::string& s0Var;
+    const std::string& dVar;
+    const std::string& tmpVar;
+    const std::string& srcDtypeStr;
+    const std::string& dstDtypeStr;
+    const std::string& tmpDtypeStr;
 };
 
 struct PrintUnaryTmpBuffParam {
-    const std::string &s0Var;
-    const std::string &tmpVar;
-    const std::string &dVar;
-    const std::string &srcDtypeStr;
-    const std::string &tmpDtypeStr;
-    const std::string &dstDtypeStr;
+    const std::string& s0Var;
+    const std::string& tmpVar;
+    const std::string& dVar;
+    const std::string& srcDtypeStr;
+    const std::string& tmpDtypeStr;
+    const std::string& dstDtypeStr;
 };
 
 struct PrintMemCopyWithL0CParam {
     const unsigned uf;
     const unsigned gmIdx;
     const unsigned localIdx;
-    const std::vector<std::string> &addrTypeHead;
-    const std::vector<std::string> &addrExpr;
-    const std::vector<int64_t> &gmShape;
-    const std::vector<int64_t> &localRawShape;
-    const std::vector<std::string> &dataTypeExpr;
+    const std::vector<std::string>& addrTypeHead;
+    const std::vector<std::string>& addrExpr;
+    const std::vector<int64_t>& gmShape;
+    const std::vector<int64_t>& localRawShape;
+    const std::vector<std::string>& dataTypeExpr;
 };
 
 struct PrintMemCopyWithL1Param {
@@ -129,102 +129,102 @@ struct PrintMemCopyWithL1Param {
     const unsigned uf;
     const unsigned gmIdx;
     const unsigned localIdx;
-    const std::vector<std::string> &addrTypeHead;
-    const std::vector<std::string> &addrExpr;
-    const std::vector<int64_t> &gmShape;
-    const std::vector<int64_t> &localRawShape;
-    const std::vector<std::string> &dataTypeExpr;
+    const std::vector<std::string>& addrTypeHead;
+    const std::vector<std::string>& addrExpr;
+    const std::vector<int64_t>& gmShape;
+    const std::vector<int64_t>& localRawShape;
+    const std::vector<std::string>& dataTypeExpr;
 };
 
 struct PrintMemCopyWithUBParam {
     const unsigned gmIdx;
     const unsigned localIdx;
     const bool isSpillingToGM;
-    const std::vector<std::string> &addrTypeHead;
-    std::vector<std::string> &addrExpr;
-    std::vector<std::string> &dataTypeExpr;
+    const std::vector<std::string>& addrTypeHead;
+    std::vector<std::string>& addrExpr;
+    std::vector<std::string>& dataTypeExpr;
 };
 
 struct PrintGatherParam {
-    const std::string &s0Var;
-    const std::string &s1Var;
-    const std::string &dVar;
-    const std::string &src0DtypeStr;
-    const std::string &src1DtypeStr;
-    const std::string &dstDtypeStr;
+    const std::string& s0Var;
+    const std::string& s1Var;
+    const std::string& dVar;
+    const std::string& src0DtypeStr;
+    const std::string& src1DtypeStr;
+    const std::string& dstDtypeStr;
     const int64_t axis;
 };
 
 struct PrintBinaryScalarParam {
-    const std::string &s0Var;
-    const std::string &dVar;
-    const std::string &src0DtypeStr;
-    const std::string &dstDtypeStr;
+    const std::string& s0Var;
+    const std::string& dVar;
+    const std::string& src0DtypeStr;
+    const std::string& dstDtypeStr;
     const size_t dim;
 };
 
 struct PrintBinaryParam {
-    const std::string &s0Var;
-    const std::string &s1Var;
-    const std::string &dVar;
-    const std::string &src0DtypeStr;
-    const std::string &src1DtypeStr;
-    const std::string &dstDtypeStr;
+    const std::string& s0Var;
+    const std::string& s1Var;
+    const std::string& dVar;
+    const std::string& src0DtypeStr;
+    const std::string& src1DtypeStr;
+    const std::string& dstDtypeStr;
 };
 
 struct PrintBinaryBrcParam {
-    const std::string &s0Var;
-    const std::string &s1Var;
-    const std::string &dVar;
-    const std::string &tmpVar;
-    const std::string &src0DtypeStr;
-    const std::string &src1DtypeStr;
-    const std::string &dstDtypeStr;
-    const std::string &tmpDtypeStr;
+    const std::string& s0Var;
+    const std::string& s1Var;
+    const std::string& dVar;
+    const std::string& tmpVar;
+    const std::string& src0DtypeStr;
+    const std::string& src1DtypeStr;
+    const std::string& dstDtypeStr;
+    const std::string& tmpDtypeStr;
 };
 
 struct PrintTransposeDataMoveParam {
     const unsigned gmIdx;
     const unsigned localIdx;
-    const std::string &localVar;
-    const std::vector<int64_t> &gmShape;
-    const std::string &localDtypeStr;
-    const std::string &gmDtypeStr;
+    const std::string& localVar;
+    const std::vector<int64_t>& gmShape;
+    const std::string& localDtypeStr;
+    const std::string& gmDtypeStr;
 };
 
 struct PrintGatherEleParam {
     const int axis;
-    const std::string &dVar;
-    const std::string &s0Var;
-    const std::string &s1Var;
-    std::vector<int64_t> &dstOriginShape;
-    std::vector<int64_t> &dstRawShape;
-    std::vector<int64_t> &src0RawShape;
-    std::vector<int64_t> &src1RawShape;
-    const std::vector<std::string> &dataTypeExpr;
+    const std::string& dVar;
+    const std::string& s0Var;
+    const std::string& s1Var;
+    std::vector<int64_t>& dstOriginShape;
+    std::vector<int64_t>& dstRawShape;
+    std::vector<int64_t>& src0RawShape;
+    std::vector<int64_t>& src1RawShape;
+    const std::vector<std::string>& dataTypeExpr;
 };
 
 struct PrintIndexOutCastParam {
-    const std::string &s0Var;
-    const std::string &s1Var;
-    const std::vector<std::string> &addrExpr;
-    const std::vector<int64_t> &gmShape;
-    std::vector<int64_t> &src0OriginShape;
-    std::vector<int64_t> &src0RawShape;
-    std::vector<int64_t> &src1OriginShape;
-    std::vector<int64_t> &src1RawShape;
-    const std::vector<std::string> &dataTypeExpr;
-    const std::string &cacheMode;
-    const std::string &blockSize;
+    const std::string& s0Var;
+    const std::string& s1Var;
+    const std::vector<std::string>& addrExpr;
+    const std::vector<int64_t>& gmShape;
+    std::vector<int64_t>& src0OriginShape;
+    std::vector<int64_t>& src0RawShape;
+    std::vector<int64_t>& src1OriginShape;
+    std::vector<int64_t>& src1RawShape;
+    const std::vector<std::string>& dataTypeExpr;
+    const std::string& cacheMode;
+    const std::string& blockSize;
 };
 
 struct PrintCumSumParam {
     const int axis;
     const bool flag;
-    const std::string &dVar;
-    const std::string &inputVar;
-    std::vector<int64_t> &inputRawShape;
-    const std::string *dataTypeExpr;
+    const std::string& dVar;
+    const std::string& inputVar;
+    std::vector<int64_t>& inputRawShape;
+    const std::string* dataTypeExpr;
 };
 
 struct DynamicParamPackMTE {

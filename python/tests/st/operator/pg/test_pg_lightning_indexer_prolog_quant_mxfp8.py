@@ -246,7 +246,7 @@ def indexer_prolog(inputs_initial: dict, dims: dict, platform: str = "cpu"):
     s = t // b
 
     if platform == "cpu":
-        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16, torch.float8_e4m3fn, 
+        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16, torch.float8_e4m3fn,
             torch.float8_e8m0fnu] else v.clone().cpu() for k, v in inputs_initial.items()}
     elif platform == "npu":
         inputs = {k: v.clone().npu() for k, v in inputs_initial.items()}
@@ -445,9 +445,9 @@ def lightning_indexer_prolog_quant_mxfp8_pypto(x, q_norm, q_norm_scale, w_qb, w_
         sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_scale_cache, k_cache_index, k_scale_cache_index,
         q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights)
 
-    k_fp8e4m3 = k_fp8e4m3.view(block_num, -1)[:, k_storage_offset: 
+    k_fp8e4m3 = k_fp8e4m3.view(block_num, -1)[:, k_storage_offset:
         k_storage_offset + block_size * n_kv * head_dim].view(block_num, block_size, n_kv, head_dim)
-    k_scale = k_scale.view(block_num, -1)[:, k_scale_storage_offset: 
+    k_scale = k_scale.view(block_num, -1)[:, k_scale_storage_offset:
         k_scale_storage_offset + block_size * n_kv * 1].view(block_num, block_size, n_kv, 1)
 
     q_fp8e4m3 = q_fp8e4m3.view(t, head_num, head_dim)

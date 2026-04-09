@@ -37,7 +37,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(DynamicSoftmaxUtest, utest_softmax_dyn) {
+TEST_F(DynamicSoftmaxUtest, utest_softmax_dyn)
+{
     TileShape::Current().SetVecTile({4, 4, 1, 64});
     std::vector<int64_t> shape = {32, 32, 1, 256};
     DataType dtype = DataType::DT_FP32;

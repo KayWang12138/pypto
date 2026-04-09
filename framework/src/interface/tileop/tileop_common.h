@@ -25,7 +25,7 @@
 #endif
 
 #ifndef __aicore_host__
-#define __aicore_host__ [host, aicore]
+#define __aicore_host__ [ host, aicore ]
 #endif
 
 #ifndef TILEOP
@@ -63,39 +63,15 @@
     wait_flag(PIPE_MTE1, PIPE_MTE2, EVENT_ID7)
 #endif
 
-enum class CopyInMode : int64_t {
-    ND2ND = 0,
-    ND2NZ = 1,
-    NZ2NZ = 2,
-    DN2NZ = 3
-};
+enum class CopyInMode : int64_t { ND2ND = 0, ND2NZ = 1, NZ2NZ = 2, DN2NZ = 3 };
 
-enum class CopyOutMode : int64_t
-{
-    NZ2ND = 0,
-    NZ2NZ = 1,
-    ND2ND = 2,
-    NZ2DN = 3
-};
+enum class CopyOutMode : int64_t { NZ2ND = 0, NZ2NZ = 1, ND2ND = 2, NZ2DN = 3 };
 
-enum class TransMode : int64_t
-{
-    CAST_NONE = 0,
-    CAST_RINT = 1,
-    CAST_ROUND = 2
-};
+enum class TransMode : int64_t { CAST_NONE = 0, CAST_RINT = 1, CAST_ROUND = 2 };
 
-enum class PaddingMode : int64_t {
-    NO_PADDING = 0,
-    PADDING_OUTER = 1,
-    PADDING_INNER = 2
-};
+enum class PaddingMode : int64_t { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
 
-enum class ReLuType : int64_t
-{
-    NoReLu = 0,
-    ReLu = 1
-};
+enum class ReLuType : int64_t { NoReLu = 0, ReLu = 1 };
 
 namespace TileOp {
 enum CastMode {
@@ -109,8 +85,8 @@ enum CastMode {
 };
 
 enum class TileOperand : int64_t {
-    NONE          = 0,
-    LEFT_OPERAND  = 1,
+    NONE = 0,
+    LEFT_OPERAND = 1,
     RIGHT_OPERAND = 2,
 };
 
@@ -131,7 +107,8 @@ constexpr uint32_t BF16_FP32_MAN_LEN = 16;
 constexpr float EPSILON = 1e-6f;
 
 // fp32->bf16, rint mode
-INLINE bfloat16_t Fp32ToBf16R(const float fVal) {
+INLINE bfloat16_t Fp32ToBf16R(const float fVal)
+{
     union Bfloat16Union {
         bfloat16_t bVal;
         uint16_t bNum;
@@ -172,7 +149,8 @@ INLINE bfloat16_t Fp32ToBf16R(const float fVal) {
 }
 
 // bf16->fp32
-INLINE float Bf16ToFp32(const bfloat16_t bVal) {
+INLINE float Bf16ToFp32(const bfloat16_t bVal)
+{
     union Bfloat16Union {
         bfloat16_t bVal;
         uint16_t bNum;
@@ -186,7 +164,8 @@ INLINE float Bf16ToFp32(const bfloat16_t bVal) {
     return fp32Union.fVal;
 }
 
-TILEOP bool IsInteger(float f) {
+TILEOP bool IsInteger(float f)
+{
     union {
         float f;
         uint32_t u;
@@ -195,7 +174,7 @@ TILEOP bool IsInteger(float f) {
     uint32_t bits = converter.u;
     uint32_t exponent = (bits >> 23) & 0xFF;
     uint32_t fraction = bits & 0x7FFFFF;
-    //NaN or Inf
+    // NaN or Inf
     if (exponent == 0xFF) {
         return false;
     }
@@ -211,37 +190,45 @@ TILEOP bool IsInteger(float f) {
     return (fraction & mask) == 0;
 }
 
-inline TILEOP void SetContinuousMask(unsigned n) {
-    set_vector_mask(static_cast<uint64_t>(
-                        (n > MASK_LEN) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(n - MASK_LEN)) - 1) : 0),
+inline TILEOP void SetContinuousMask(unsigned n)
+{
+    set_vector_mask(
+        static_cast<uint64_t>(
+            (n > MASK_LEN) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(n - MASK_LEN)) - 1) : 0),
         static_cast<uint64_t>(
             (n >= MASK_LEN) ? 0xffffffffffffffff : (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(n)) - 1)));
 }
 
 // Calculation linear offset for multi-dimension tensor
-INLINE unsigned CalcLinearOffset(unsigned GmShape1, unsigned GmShape2, unsigned GmShape3, unsigned GmShape4,
-    unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
+INLINE unsigned CalcLinearOffset(
+    unsigned GmShape1, unsigned GmShape2, unsigned GmShape3, unsigned GmShape4, unsigned Offset0, unsigned Offset1,
+    unsigned Offset2, unsigned Offset3, unsigned Offset4)
+{
     return Offset4 + Offset3 * GmShape4 + Offset2 * (GmShape3 * GmShape4) + Offset1 * (GmShape2 * GmShape3 * GmShape4) +
            Offset0 * (GmShape1 * GmShape2 * GmShape3 * GmShape4);
 }
 
 // Calculation linear offset for multi-dimension tensor
-INLINE unsigned CalcLinearOffset(unsigned GmShape1, unsigned GmShape2, unsigned GmShape3, unsigned Offset0,
-    unsigned Offset1, unsigned Offset2, unsigned Offset3) {
+INLINE unsigned CalcLinearOffset(
+    unsigned GmShape1, unsigned GmShape2, unsigned GmShape3, unsigned Offset0, unsigned Offset1, unsigned Offset2,
+    unsigned Offset3)
+{
     return Offset3 + Offset2 * GmShape3 + Offset1 * (GmShape2 * GmShape3) + Offset0 * (GmShape1 * GmShape2 * GmShape3);
 }
 
 // Calculation linear offset for multi-dimension tensor
 INLINE unsigned CalcLinearOffset(
-    unsigned GmShape1, unsigned GmShape2, unsigned Offset0, unsigned Offset1, unsigned Offset2) {
+    unsigned GmShape1, unsigned GmShape2, unsigned Offset0, unsigned Offset1, unsigned Offset2)
+{
     return Offset2 + Offset1 * GmShape2 + Offset0 * (GmShape1 * GmShape2);
 }
 
 // Calculation linear offset for multi-dimension tensor
-INLINE unsigned CalcLinearOffset(unsigned GmShape1, unsigned Offset0, unsigned Offset1) {
+INLINE unsigned CalcLinearOffset(unsigned GmShape1, unsigned Offset0, unsigned Offset1)
+{
     return Offset1 + Offset0 * GmShape1;
 }
-}
+} // namespace TileOp
 
 template <bool b>
 struct BoolInst {
@@ -255,7 +242,8 @@ struct IsSameType : public FalseType {};
 template <typename T>
 struct IsSameType<T, T> : public TrueType {};
 template <typename T>
-TILEOP void SetAtomicAddition() {
+TILEOP void SetAtomicAddition()
+{
     if constexpr (IsSameType<T, float>::value) {
         set_atomic_f32();
     } else if constexpr (IsSameType<T, half>::value) {

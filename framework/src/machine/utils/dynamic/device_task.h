@@ -32,33 +32,39 @@ struct DynDeviceTask : DynDeviceTaskBase {
     WsAllocation selfAlloc;
     WsSlabStageAllocMem taskStageAllocMem;
 
-    static uint32_t GetReadyQueueIndexByCoreType(CoreType coreType) {
+    static uint32_t GetReadyQueueIndexByCoreType(CoreType coreType)
+    {
         if (coreType == CoreType::AICPU) {
             return static_cast<uint32_t>(READY_QUEUE_SIZE) - 1;
         }
         return static_cast<uint32_t>(coreType);
     }
 
-    DynDeviceTask(DeviceWorkspaceAllocator &allocator) {
+    DynDeviceTask(DeviceWorkspaceAllocator& allocator)
+    {
         memset_s(&devTask, sizeof(devTask), 0, sizeof(devTask));
         stitchedList.InitAllocator(allocator);
     }
 
-    predcount_t &GetOperationCurrPredCount(uint32_t id) {
+    predcount_t& GetOperationCurrPredCount(uint32_t id)
+    {
         return stitchedList[FuncID(id)].GetOperationCurrPredCount(TaskID(id));
     }
 
-    int GetOperationCoreType(uint32_t id) {
+    int GetOperationCoreType(uint32_t id)
+    {
         auto callee = stitchedList[FuncID(id)].GetSource()->GetOperationAttrCalleeIndex(TaskID(id));
         return cceBinary[callee].coreType;
     }
 
-    std::string DumpTaskData(uint32_t id) {
-        auto &funcDup = stitchedList[FuncID(id)];
+    std::string DumpTaskData(uint32_t id)
+    {
+        auto& funcDup = stitchedList[FuncID(id)];
         return funcDup.DumpDyn(FuncID(id), TaskID(id), cceBinary);
     }
 
-    void DumpTopo(bool enableVFFusion) {
+    void DumpTopo(bool enableVFFusion)
+    {
         auto header = GetDynFuncDataList();
 #ifdef __DEVICE__
         std::string path = "./output/dyn_topo.txt";
@@ -84,17 +90,19 @@ struct DynDeviceTask : DynDeviceTaskBase {
         of.flush();
     }
 
-    void DumpLeafs() {
+    void DumpLeafs()
+    {
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
             auto lines = stitchedList[funcIdx].DumpLeafs(GetDynFuncDataList()->seqNo, funcIdx);
-            for (auto &&line : lines) {
+            for (auto&& line : lines) {
                 DEV_DEBUG("[DumpLeafs] %s", line.c_str());
             }
         }
     }
 
 #if DEBUG_INFINITE_LIFETIME
-    void DumpTensorAddrInfo(uintdevptr_t dumpTensorWsAddr, uint64_t dumpTensorWsSize) {
+    void DumpTensorAddrInfo(uintdevptr_t dumpTensorWsAddr, uint64_t dumpTensorWsSize)
+    {
         UNUSED(dumpTensorWsAddr);
         UNUSED(dumpTensorWsSize);
         std::stringstream oss;
@@ -105,7 +113,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
         auto str = std::move(oss).str();
         DEV_INFO("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
         DEV_INFO("[DumpTensor] >>>");
-        for (auto &info : infos) {
+        for (auto& info : infos) {
             DEV_INFO("[DumpTensor] %s", info.c_str());
         }
         DEV_INFO("[DumpTensor] <<<");
@@ -114,30 +122,32 @@ struct DynDeviceTask : DynDeviceTaskBase {
 };
 
 #define DYN_DEVICE_TASK_EXT_SIZE 0x300
-static_assert(sizeof(DynDeviceTask) < sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, "Invalid dyn device task extension");
+static_assert(
+    sizeof(DynDeviceTask) < sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, "Invalid dyn device task extension");
 
 struct DeviceTaskCtrl {
     int taskType{0};
     uint64_t taskId{0};
-    DeviceTask *devTask{nullptr};
+    DeviceTask* devTask{nullptr};
     uint64_t initAicFuncNum{0};
     uint64_t initAivFuncNum{0};
-    uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
-    uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
+    uint64_t finishedAicFunctionCnt{0};   // 所有aicpu处理完成的aic function个数，多线程增加修改
+    uint64_t finishedAivFunctionCnt{0};   // 所有aicpu处理完成的aiv function个数，多线程增加修改
     uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
-    uint64_t finishedHubFunctionCnt{0}; // 所有aicpu处理完成的hub function个数，多线程增加修改
+    uint64_t finishedHubFunctionCnt{0};   // 所有aicpu处理完成的hub function个数，多线程增加修改
     // 这些原子变量跨进程了，不能sche与ctrl间两边同时写
     std::atomic<uint64_t> finishedFunctionCnt{0};
     std::atomic<bool> runFlag{false};
     std::atomic<int> runcnt{0};
-    void *ctx{nullptr};
+    void* ctx{nullptr};
     int retCode{0};
     std::atomic<bool> isAicpuIdle[AICORE_TYPE_NUM][MAX_SCHEDULE_AICPU_NUM];
     bool isFirstDevTask{false};
 
     inline bool IsNotFree() { return runFlag.load(std::memory_order_acquire); }
 
-    void PutTask(int ret) {
+    void PutTask(int ret)
+    {
         if (ret != 0)
             retCode = ret;
 
@@ -145,19 +155,20 @@ struct DeviceTaskCtrl {
         int cnt = runcnt.fetch_sub(1, std::memory_order_acq_rel);
         if (cnt == 1) {
             runFlag.store(false, std::memory_order_release); // set finish
-            auto *dynTask = reinterpret_cast<DynDeviceTask*>(devTask);
+            auto* dynTask = reinterpret_cast<DynDeviceTask*>(devTask);
             dynTask->taskStageAllocMem.canFree.store(true);
         } else {
             // wait finish
-            while (runFlag.load(std::memory_order_acquire)) {}
+            while (runFlag.load(std::memory_order_acquire)) {
+            }
         }
     }
 };
 
 constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
-using DeviceTaskCtrlQueue = SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>;
+using DeviceTaskCtrlQueue = SPSCQueue<DeviceTaskCtrl*, DEFAULT_QUEUE_SIZE>;
 
-const uint64_t DEV_ARGS_SIZE = 1024;  // sizeof(DevStartArgs) is enough, tmp for test GE graph
+const uint64_t DEV_ARGS_SIZE = 1024; // sizeof(DevStartArgs) is enough, tmp for test GE graph
 
 const uint64_t DEVICE_TASK_CTRL_POOL_SIZE = AlignUp((MAX_DEVICE_TASK_NUM * sizeof(DeviceTaskCtrl)), 512);
 
@@ -165,8 +176,9 @@ const uint64_t DEVICE_TASK_QUEUE_SIZE = sizeof(DeviceTaskCtrlQueue);
 
 const uint64_t DEVICE_SHM_SIZE = DEV_ARGS_SIZE + DEVICE_TASK_CTRL_POOL_SIZE;
 
-static inline void FillDeviceRuntimeOffset(DevAscendProgram *devProg, uint64_t count) {
-    DeviceRuntimeOffset &offset = devProg->deviceRuntimeOffset;
+static inline void FillDeviceRuntimeOffset(DevAscendProgram* devProg, uint64_t count)
+{
+    DeviceRuntimeOffset& offset = devProg->deviceRuntimeOffset;
 
     offset.startArgsOffset = 0;
     offset.taskCtrlPoolOffset = offset.startArgsOffset + DEV_ARGS_SIZE;
@@ -177,4 +189,4 @@ static inline void FillDeviceRuntimeOffset(DevAscendProgram *devProg, uint64_t c
     offset.count = count;
 }
 
-}
+} // namespace npu::tile_fwk::dynamic

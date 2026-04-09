@@ -35,8 +35,9 @@ public:
     EvaluateSymbol() {}
 
     void EvaluateDynParam(
-        const std::map<std::string, DynParamInfo> &dynParamTable, const std::vector<SymbolicScalar> &linearArgList) {
-        for (auto &paramInfo : dynParamTable) {
+        const std::map<std::string, DynParamInfo>& dynParamTable, const std::vector<SymbolicScalar>& linearArgList)
+    {
+        for (auto& paramInfo : dynParamTable) {
             std::string symbolName = paramInfo.first;
             if (paramInfo.second.dim.IsValid()) {
                 symbolDict_[symbolName] = EvaluateSymbolicScalar(paramInfo.second.dim, linearArgList);
@@ -53,24 +54,27 @@ public:
         }
     }
 
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape, 
-            const std::vector<SymbolicScalar> &linearArgList = {}) {
+    std::vector<int64_t> EvaluateValidShape(
+        const std::vector<SymbolicScalar>& dynValidShape, const std::vector<SymbolicScalar>& linearArgList = {})
+    {
         std::vector<int64_t> result;
-        for (auto &shape : dynValidShape) {
+        for (auto& shape : dynValidShape) {
             result.push_back(EvaluateSymbolicScalar(shape, linearArgList));
         }
         return result;
     }
 
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset, 
-            const std::vector<SymbolicScalar> &linearArgList = {}) {
+    std::vector<int64_t> EvaluateOffset(
+        const std::vector<int64_t>& offset, const std::vector<SymbolicScalar>& dynOffset,
+        const std::vector<SymbolicScalar>& linearArgList = {})
+    {
         std::vector<int64_t> resultOffset;
         if (dynOffset.size() != 0) {
-            for (auto &off : dynOffset) {
+            for (auto& off : dynOffset) {
                 resultOffset.push_back(EvaluateSymbolicScalar(off, linearArgList));
             }
         } else {
-            for (auto &off : offset) {
+            for (auto& off : offset) {
                 resultOffset.push_back(off);
             }
         }
@@ -81,29 +85,36 @@ public:
     bool RuntimeIsLoopEnd(ScalarImmediateType idx, ScalarImmediateType end) { return idx >= end; }
 
     ScalarImmediateType EvaluateSymbolicCall(
-        const std::string &name, const std::vector<ScalarImmediateType> &dataList, const std::vector<SymbolicScalar> &linearArgList);
-    ScalarImmediateType EvaluateSymbolicScalar(const RawSymbolicScalarPtr &ss, const std::vector<SymbolicScalar> &linearArgList = {});
-    ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) { return EvaluateSymbolicScalar(ss.Raw()); }
-    ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss, const std::vector<SymbolicScalar> &linearArgList) {  
-        return EvaluateSymbolicScalar(ss.Raw(), linearArgList); 
+        const std::string& name, const std::vector<ScalarImmediateType>& dataList,
+        const std::vector<SymbolicScalar>& linearArgList);
+    ScalarImmediateType EvaluateSymbolicScalar(
+        const RawSymbolicScalarPtr& ss, const std::vector<SymbolicScalar>& linearArgList = {});
+    ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar& ss) { return EvaluateSymbolicScalar(ss.Raw()); }
+    ScalarImmediateType EvaluateSymbolicScalar(
+        const SymbolicScalar& ss, const std::vector<SymbolicScalar>& linearArgList)
+    {
+        return EvaluateSymbolicScalar(ss.Raw(), linearArgList);
     }
 
-    const std::unordered_map<std::string, ScalarImmediateType> &GetSymbolDict() const { return symbolDict_; }
+    const std::unordered_map<std::string, ScalarImmediateType>& GetSymbolDict() const { return symbolDict_; }
     void UpdateSymbolDict(const std::string key, const ScalarImmediateType value) { symbolDict_[key] = value; }
-    void SetSymbolDict(const std::unordered_map<std::string, ScalarImmediateType> &symbolDict) { symbolDict_ = symbolDict; }
+    void SetSymbolDict(const std::unordered_map<std::string, ScalarImmediateType>& symbolDict)
+    {
+        symbolDict_ = symbolDict;
+    }
 
-    std::vector<std::shared_ptr<LogicalTensorData>> &GetInputDataViewList() { return inputDataViewList_; }
-    void UpdateInputDataViewList(size_t index, const std::shared_ptr<LogicalTensorData> &inputDataView) {
+    std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList() { return inputDataViewList_; }
+    void UpdateInputDataViewList(size_t index, const std::shared_ptr<LogicalTensorData>& inputDataView)
+    {
         inputDataViewList_[index] = inputDataView;
     }
-    void InitInputDataViewList(const std::vector<std::shared_ptr<LogicalTensorData>> &inputDataViewList) {
+    void InitInputDataViewList(const std::vector<std::shared_ptr<LogicalTensorData>>& inputDataViewList)
+    {
         inputDataViewList_ = inputDataViewList;
     }
 
-    std::shared_ptr<FunctionIODataPair> &GetInoutDataPair() { return inoutDataPair_; }
-    void UpdateIODataPair(std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
-        inoutDataPair_ = inoutDataPair;
-    }
+    std::shared_ptr<FunctionIODataPair>& GetInoutDataPair() { return inoutDataPair_; }
+    void UpdateIODataPair(std::shared_ptr<FunctionIODataPair>& inoutDataPair) { inoutDataPair_ = inoutDataPair; }
 
 private:
     std::unordered_map<std::string, ScalarImmediateType> symbolDict_;

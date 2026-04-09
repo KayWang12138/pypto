@@ -52,4 +52,3 @@ def kernel():
         if pypto.is_loop_begin(idx):
             ...
 ```
-

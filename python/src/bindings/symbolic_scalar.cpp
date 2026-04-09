@@ -18,12 +18,12 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void BindSymbolicScalar(py::module &m) {
+void BindSymbolicScalar(py::module& m)
+{
     py::class_<SymbolicScalar> _SymbolicScalar(m, "SymbolicScalar");
 
-    _SymbolicScalar
-        .def(py::init<>())
-        .def(py::init<const SymbolicScalar &>(), py::arg("val"))
+    _SymbolicScalar.def(py::init<>())
+        .def(py::init<const SymbolicScalar&>(), py::arg("val"))
         .def(py::init<std::string>(), py::arg("name"))
         .def(py::init<std::int64_t>(), py::arg("value"))
         .def(py::init<std::string, int64_t>(), py::arg("name"), py::arg("value"));
@@ -48,22 +48,18 @@ void BindSymbolicScalar(py::module &m) {
         .def("Mul", &SymbolicScalar::Mul)
         .def("Div", &SymbolicScalar::Div)
         .def("Mod", &SymbolicScalar::Mod)
-        .def("RAdd", [](const SymbolicScalar &self, int64_t other) { return other + self; })
-        .def("RSub", [](const SymbolicScalar &self, int64_t other) { return other - self; })
-        .def("RMul", [](const SymbolicScalar &self, int64_t other) { return other * self; })
-        .def("RDiv", [](const SymbolicScalar &self, int64_t other) { return other / self; })
-        .def("RMod", [](const SymbolicScalar &self, int64_t other) { return other % self; });
+        .def("RAdd", [](const SymbolicScalar& self, int64_t other) { return other + self; })
+        .def("RSub", [](const SymbolicScalar& self, int64_t other) { return other - self; })
+        .def("RMul", [](const SymbolicScalar& self, int64_t other) { return other * self; })
+        .def("RDiv", [](const SymbolicScalar& self, int64_t other) { return other / self; })
+        .def("RMod", [](const SymbolicScalar& self, int64_t other) { return other % self; });
 
-    _SymbolicScalar
-        .def("AsIntermediateVariable", &SymbolicScalar::AsIntermediateVariable)
+    _SymbolicScalar.def("AsIntermediateVariable", &SymbolicScalar::AsIntermediateVariable)
         .def("IsIntermediateVariable", &SymbolicScalar::IsIntermediateVariable)
         .def("Dump", &SymbolicScalar::Dump)
         .def("Min", &SymbolicScalar::Min, py::arg("other"))
         .def("Max", &SymbolicScalar::Max, py::arg("other"));
 
-    _SymbolicScalar
-        .def("Pos", &SymbolicScalar::Pos)
-        .def("Neg", &SymbolicScalar::Neg)
-        .def("Not", &SymbolicScalar::Not);
+    _SymbolicScalar.def("Pos", &SymbolicScalar::Pos).def("Neg", &SymbolicScalar::Neg).def("Not", &SymbolicScalar::Not);
 }
 } // namespace pypto

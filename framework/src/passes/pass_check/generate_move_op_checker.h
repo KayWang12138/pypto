@@ -26,14 +26,15 @@ namespace npu {
 namespace tile_fwk {
 class GenerateMoveOpChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
+
 private:
-    bool CheckViewOutTensorMemType(const Operation &op) const;
-    bool ValidAssembleOp(const Operation &op) const;
-    bool ValidConvertOp(const Operation &op) const;
-    bool ValidViewOp(const Operation &op) const;
+    bool CheckViewOutTensorMemType(const Operation& op) const;
+    bool ValidAssembleOp(const Operation& op) const;
+    bool ValidConvertOp(const Operation& op) const;
+    bool ValidViewOp(const Operation& op) const;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // GENERATE_MOVE_OP_CHECKER_H
+#endif // GENERATE_MOVE_OP_CHECKER_H

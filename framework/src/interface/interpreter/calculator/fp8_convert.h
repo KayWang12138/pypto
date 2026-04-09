@@ -21,9 +21,9 @@
 namespace npu::tile_fwk {
 
 // Convert FP8 (stored as uint8) to Float32. actualType specifies the FP8 format.
-torch::Tensor Fp8ToFloat32(const torch::Tensor &self, DataType actualType);
+torch::Tensor Fp8ToFloat32(const torch::Tensor& self, DataType actualType);
 
 // Convert Float32 to FP8 (returns uint8 tensor). actualType specifies the FP8 format.
-torch::Tensor Float32ToFp8(const torch::Tensor &self, DataType actualType);
+torch::Tensor Float32ToFp8(const torch::Tensor& self, DataType actualType);
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

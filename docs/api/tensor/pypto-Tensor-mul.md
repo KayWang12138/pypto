@@ -16,4 +16,3 @@ mul(self, other: 'Tensor | int | float') -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.mul](../operation/pypto-mul.md)。
-

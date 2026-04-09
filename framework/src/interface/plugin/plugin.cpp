@@ -17,12 +17,14 @@
 
 namespace npu::tile_fwk {
 
-PluginManager &PluginManager::GetInstance() {
+PluginManager& PluginManager::GetInstance()
+{
     static PluginManager pluginManager;
     return pluginManager;
 }
 
-bool PluginManager::AddPlugin(const std::shared_ptr<PluginBase> &plugin) {
+bool PluginManager::AddPlugin(const std::shared_ptr<PluginBase>& plugin)
+{
     if (pluginDict_.count(plugin->GetName())) {
         return false;
     }
@@ -31,19 +33,22 @@ bool PluginManager::AddPlugin(const std::shared_ptr<PluginBase> &plugin) {
     return true;
 }
 
-void PluginManager::ClearPlugin() {
+void PluginManager::ClearPlugin()
+{
     pluginListDict_.clear();
     pluginDict_.clear();
 }
 
-bool PluginManager::AddPluginCodegenSrc(const std::string &name, const PluginCodegenSrc::EntryType &rawEntry) {
+bool PluginManager::AddPluginCodegenSrc(const std::string& name, const PluginCodegenSrc::EntryType& rawEntry)
+{
     auto entry = std::make_shared<PluginCodegenSrc::EntryType>(rawEntry);
     std::shared_ptr<PluginCodegenSrc> plugin = std::make_shared<PluginCodegenSrc>(name, entry);
     std::shared_ptr<PluginBase> pluginBase = std::static_pointer_cast<PluginBase>(plugin);
     return AddPlugin(pluginBase);
 }
 
-std::string PluginManager::RunPluginCodegenSrc(const std::string &filepath, const std::string &source) {
+std::string PluginManager::RunPluginCodegenSrc(const std::string& filepath, const std::string& source)
+{
     std::string sourceResult = source;
     std::vector<std::shared_ptr<PluginCodegenSrc>> pluginList = GetPlugin<PluginCodegenSrc>();
     if (pluginList.size() != 0) {
@@ -55,4 +60,4 @@ std::string PluginManager::RunPluginCodegenSrc(const std::string &filepath, cons
     return sourceResult;
 }
 
-}
+} // namespace npu::tile_fwk

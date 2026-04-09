@@ -51,7 +51,7 @@ if _peek_run_mode_from_argv("npu") == "sim":
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -59,7 +59,7 @@ def get_device_id():
         print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -144,7 +144,7 @@ def test_tensor_creation_with_datatypes(device_id=None):
     print("=" * 60)
     print("Test: Tensor Creation with Various Data Types")
     print("=" * 60)
-    
+
     data_types = [
         (pypto.DT_INT4, "DT_INT4"),
         (pypto.DT_INT8, "DT_INT8"),
@@ -163,17 +163,17 @@ def test_tensor_creation_with_datatypes(device_id=None):
         (pypto.DT_UINT64, "DT_UINT64"),
         (pypto.DT_BOOL, "DT_BOOL")
     ]
-    
+
     for dtype, dtype_name in data_types:
         print(f"\nCreating tensor with data type: {dtype_name}")
 
         # Create a tensor with shape [2, 3] and the specified data type
         tensor = pypto.tensor([2, 3], dtype, f"tensor_{dtype_name}")
-        
+
         # Access tensor attributes
         print(f"Name: {tensor.name}") # e.g., tensor_DT_INT8
         print(f"Data Type: {tensor.dtype}") # e.g., DT_INT8
-    
+
     print("✓ Tensor creation with various data types completed successfully")
 
 
@@ -233,21 +233,21 @@ def test_basic_tensor_creation(device_id=None):
     print("=" * 60)
     print("Test: Basic Tensor Creation")
     print("=" * 60)
-    
+
     # Create a tensor with shape [2, 3] and FP16 data type
     tensor = pypto.tensor([2, 3], pypto.DT_FP16, "basic_tensor")
-    
+
     # Access tensor attributes
     print(f"Shape: {tensor.shape}") # [2, 3]
     print(f"Data Type: {tensor.dtype}") # DT_FP16
-    print(f"Dimensions: {tensor.dim}") # 2 
+    print(f"Dimensions: {tensor.dim}") # 2
     print(f"Format: {tensor.format}") # TILEOP_ND
     print(f"Name: {tensor.name}") # basic_tensor
-    
+
     # Rename the tensor
     tensor.name = "new_name"
     print(f"New Name: {tensor.name}") # new_name
-    
+
     print("✓ Basic tensor creation completed successfully")
 
 
@@ -256,17 +256,17 @@ def test_tensor_creation_with_format(device_id=None):
     print("=" * 60)
     print("Test: Tensor Creation with Specific Format")
     print("=" * 60)
-    
+
     # Create a tensor using the NZ format
     tensor = pypto.tensor([512, 32], pypto.DT_FP16, "sparse_tensor", pypto.TileOpFormat.TILEOP_NZ)
-    
+
     # Access tensor attributes
     print(f"Shape: {tensor.shape}") # [512, 32]
     print(f"Data Type: {tensor.dtype}") # DT_FP16
-    print(f"Dimensions: {tensor.dim}") # 2 
+    print(f"Dimensions: {tensor.dim}") # 2
     print(f"Format: {tensor.format}") # TILEOP_NZ
     print(f"Name: {tensor.name}") # sparse_tensor
-    
+
     print("✓ Tensor Creation with Specific Format completed successfully")
 
 
@@ -276,7 +276,7 @@ def test_tensor_creation_with_format(device_id=None):
 
 def main():
     """Run tensor creation operation examples.
-    
+
     Usage:
         python creation_ops.py              # Run all examples
         python creation_ops.py --list       # List all available examples
@@ -311,9 +311,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, supports npu and sim.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'arange::test_arange_basic': {
@@ -342,7 +342,7 @@ Examples:
             'function': test_tensor_creation_with_format,
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -353,7 +353,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate case if provided
     device_id = None
     examples_to_run = []
@@ -366,11 +366,11 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = [(key, info) for key, info in sorted(examples.items())]
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Tensor Creation Operation Examples")
     print("=" * 60 + "\n")
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -379,17 +379,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
                 print(f"Running Example {ex_id}: {ex_info['name']}")
                 ex_info['function'](device_id)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All creation tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise
@@ -397,4 +397,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

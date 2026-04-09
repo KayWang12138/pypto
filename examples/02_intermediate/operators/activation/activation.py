@@ -83,8 +83,8 @@ def configure_tiling(x):
         pypto.set_vec_tile_shapes(*tile_list)
     else:
         pypto.set_vec_tile_shapes(32, 128)
-        
-        
+
+
 # Reference implementations for verification
 def silu_golden(x: torch.Tensor) -> torch.Tensor:
     """PyTorch reference implementation of SiLU."""
@@ -212,7 +212,7 @@ def swiglu_activation_kernel(
     sigmoid = pypto.sigmoid(gate)
     swish = gate * sigmoid
     out[:] = swish * up
-    
+
 
 
 def test_swiglu(device_id: int = None, dynamic: bool = False) -> None:

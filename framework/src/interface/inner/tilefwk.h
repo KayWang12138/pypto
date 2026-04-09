@@ -15,6 +15,5 @@
 
 #pragma once
 
-
 #include "function.h"
 #include "interface/program/program.h"

@@ -334,7 +334,6 @@ class JitCallableWrapper:
             args, kwargs
         )
         self._get_or_create_kmodule(non_tensor_values)
-        self._resolve_device(in_tensors)
         if self._debug_options is not None:
             debug_mode = self._debug_options.get("runtime_debug_mode", None)
             if debug_mode == DebugMode.CHECKATTR:
@@ -458,7 +457,7 @@ class JitCallableWrapper:
         """
         if not pypto.get_verify_options().get("enable_pass_verify"):
             return
-        
+
         # Compile and load calculator
         mgr = BuildOnlineManager()
         mgr.build_and_load_calculator()
@@ -514,7 +513,7 @@ class JitCallableWrapper:
         self._parser.input_pto_tensor = args
 
 
-        # Set options AFTER OperatorBegin() to match @pypto.jit behavior
+        # Set options AFTER OperatorBegin() to match @pypto.frontend.jit behavior
 
         self._set_config_option()
 
@@ -527,7 +526,7 @@ class JitCallableWrapper:
         # Execute the deferred parsing (happens on first __call__)
         self._pto_function = self._parser.execute()
 
-        # Reset golden data after compilation, similar to pypto.jit
+        # Reset golden data after compilation
         _pto_verify_datas.reset()
 
     def _parse_call_args(
@@ -650,27 +649,6 @@ class JitCallableWrapper:
             if key is not None:
                 JitCallableWrapper._kernel_module_cache[key] = self.kmodule
 
-    def _resolve_device(self, in_tensors: list) -> torch.device:
-        """Resolve device from in_tensors or run_mode."""
-        if in_tensors:
-            device = in_tensors[0].device
-            for tensor in in_tensors[1:]:
-                if tensor.device != device:
-                    raise RuntimeError(
-                        f"pypto.frontend.jit requires that all input tensors "
-                        f"must be on the same device. Got tensors on devices: "
-                        f"{device} and {tensor.device}"
-                    )
-            return device
-        run_mode = self._runtime_options.get("run_mode", None)
-        if run_mode == pypto.RunMode.NPU:
-            if torch.npu.is_available():
-                return torch.device('npu', torch.npu.current_device())
-            raise RuntimeError("NPU is not available.")
-        if run_mode == pypto.RunMode.SIM:
-            return torch.device('cpu')
-        raise RuntimeError(f"Invalid run mode: {run_mode}.")
-
     def _execute_kernel(
         self,
         torch_tensors: list,
@@ -770,7 +748,7 @@ class JitCallableWrapper:
                 return False
             qualname = func.__qualname__
             return '<locals>' not in qualname and '.' not in qualname
-        
+
         if is_defined_globally(self._original_func):
             name = self._original_func.__name__
             _loop_idx_generator = next(self._global_func_idx_generator)
@@ -927,6 +905,8 @@ class JitCallableWrapper:
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
         if cann_is_configed:
             self._runtime_options.update({"run_mode": pypto.RunMode.NPU.value})
+            if torch.npu.is_available() is False:
+                raise RuntimeError("NPU is not available.")
         else:
             self._runtime_options.update({"run_mode": pypto.RunMode.SIM.value})
 
@@ -1220,7 +1200,7 @@ def jit(
             raise TypeError("jit decorator can only be used on functions")
 
         # Create wrapper without compiling - defer to first call
-        # This matches the behavior of @pypto.jit and avoids backend initialization
+        # This matches the behavior of @pypto.frontend.jit and avoids backend initialization
         # during module load time
         captured_locals = None
         frame = inspect.currentframe()

@@ -22,27 +22,27 @@ DeviceConfig::DeviceConfig()
 {
     Config::prefix = "Device";
     Config::dispatcher = {
-        {"stitchLatency", [&](string v){ stitchLatency = ParseInteger(v); }},
-        {"submitLatency", [&](string v){ submitLatency = ParseInteger(v); }},
-        {"stitchMaxSize", [&](string v){ stitchMaxSize = ParseInteger(v); }},
-        {"submachineTypes", [&](string v){ ParseStrVec(v, submachineTypes); }},
-        {"submitTopo", [&](string v){ submitTopo = ParseBoolean(v); }},
-        {"submitTopoPath", [&](string v){ submitTopoPath = ParseString(v); }},
-        {"replayEnable", [&](string v){ replayEnable = ParseBoolean(v); }},
-        {"replayFile", [&](string v){ replayFile = ParseString(v); }},
-        {"replayTaskTimeScaling", [&](string v){ replayTaskTimeScaling = ParseBoolean(v); }},
+        {"stitchLatency", [&](string v) { stitchLatency = ParseInteger(v); }},
+        {"submitLatency", [&](string v) { submitLatency = ParseInteger(v); }},
+        {"stitchMaxSize", [&](string v) { stitchMaxSize = ParseInteger(v); }},
+        {"submachineTypes", [&](string v) { ParseStrVec(v, submachineTypes); }},
+        {"submitTopo", [&](string v) { submitTopo = ParseBoolean(v); }},
+        {"submitTopoPath", [&](string v) { submitTopoPath = ParseString(v); }},
+        {"replayEnable", [&](string v) { replayEnable = ParseBoolean(v); }},
+        {"replayFile", [&](string v) { replayFile = ParseString(v); }},
+        {"replayTaskTimeScaling", [&](string v) { replayTaskTimeScaling = ParseBoolean(v); }},
     };
 
     Config::recorder = {
-        {"stitchLatency", [&](){ return "stitchLatency = " + ParameterToStr(stitchLatency); }},
-        {"submitLatency", [&](){ return "submitLatency = " + ParameterToStr(submitLatency); }},
-        {"stitchMaxSize", [&](){ return "stitchMaxSize = " + ParameterToStr(stitchMaxSize); }},
-        {"submachineTypes", [&](){ return "submachineTypes = " + ParameterToStr(submachineTypes); }},
-        {"submitTopo", [&](){ return "submitTopo = " + ParameterToStr(submitTopo); }},
-        {"submitTopoPath", [&](){ return "submitTopoPath = " + submitTopoPath; }},
-        {"replayEnable", [&](){ return "replayEnable = " + ParameterToStr(replayEnable); }},
-        {"replayFile", [&](){ return "replayFile = " + replayFile; }},
-        {"replayTaskTimeScaling", [&](){ return "replayTaskTimeScaling = " + ParameterToStr(replayTaskTimeScaling); }},
+        {"stitchLatency", [&]() { return "stitchLatency = " + ParameterToStr(stitchLatency); }},
+        {"submitLatency", [&]() { return "submitLatency = " + ParameterToStr(submitLatency); }},
+        {"stitchMaxSize", [&]() { return "stitchMaxSize = " + ParameterToStr(stitchMaxSize); }},
+        {"submachineTypes", [&]() { return "submachineTypes = " + ParameterToStr(submachineTypes); }},
+        {"submitTopo", [&]() { return "submitTopo = " + ParameterToStr(submitTopo); }},
+        {"submitTopoPath", [&]() { return "submitTopoPath = " + submitTopoPath; }},
+        {"replayEnable", [&]() { return "replayEnable = " + ParameterToStr(replayEnable); }},
+        {"replayFile", [&]() { return "replayFile = " + replayFile; }},
+        {"replayTaskTimeScaling", [&]() { return "replayTaskTimeScaling = " + ParameterToStr(replayTaskTimeScaling); }},
     };
 }
-}
+} // namespace CostModel

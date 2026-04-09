@@ -13,7 +13,6 @@
  * \brief
  */
 
-
 #include "gtest/gtest.h"
 
 #include "interface/tensor/logical_tensor.h"
@@ -34,7 +33,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -46,20 +46,20 @@ public:
     void TearDown() override {}
 };
 
-void RunLLamaLayerGraph(const AttentionDims &dimsCfg) {
+void RunLLamaLayerGraph(const AttentionDims& dimsCfg)
+{
     int b = dimsCfg.b;
     int n = dimsCfg.n;
     int s = dimsCfg.s;
     int d = dimsCfg.d;
-    PROGRAM("LLAMALAYER") {
+    PROGRAM("LLAMALAYER")
+    {
         Tensor H(DataType::DT_FP32, {b * s, n * d}, "H");
         Tensor AW(DataType::DT_FP16, {n * d, n * d * 3}, "AW");
         Tensor DW(DataType::DT_FP16, {n * d, n * d}, "DW");
         Tensor FW(DataType::DT_FP16, {n * d, n * d * 3}, "FW");
         Tensor Res(DT_FP32, {b * s, n * d}, "Res");
-        FUNCTION("LLAMA") {
-            Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG);
-        }
+        FUNCTION("LLAMA") { Res = LlamaLayer(H, AW, DW, FW, dimsCfg, SMALL_DFS_VEC_CFG, DFS_CUBE_CFG); }
     }
 }
 
@@ -95,8 +95,9 @@ TEST_F(GraphTest, llama_1_1_1024_128)
     RunLLamaLayerGraph(dimsCfg);
 }
 
-TEST_F(GraphTest, deepseek_qkvPre) {
-        int b = 2;
+TEST_F(GraphTest, deepseek_qkvPre)
+{
+    int b = 2;
     int s = 128;
     int h = std::get<int>(deepseekConfig1["hiddenSize"]);
     int num_heads = std::get<int>(deepseekConfig1["numAttentionHeads"]);
@@ -120,18 +121,17 @@ TEST_F(GraphTest, deepseek_qkvPre) {
     std::tuple<Tensor, Tensor> res;
     DeepseekAttention Attention(deepseekConfig1, aw, 1);
 
-    FUNCTION("A") {
-        res = Attention.QkvPre(hidden_states);
-    }
+    FUNCTION("A") { res = Attention.QkvPre(hidden_states); }
 }
 
-TEST_F(GraphTest, TestAttentionPost) {
+TEST_F(GraphTest, TestAttentionPost)
+{
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
     int d = 512;
-    int v_head =128;
+    int v_head = 128;
     int h = 256;
     std::vector<int64_t> inShape = {b, n, s, d}; // (b, n, s, d)
     Tensor attnPostIn(DT_FP32, inShape, "attnPostIn");
@@ -139,7 +139,8 @@ TEST_F(GraphTest, TestAttentionPost) {
     Tensor oProjW(DT_FP32, {n * v_head, h}, "oProjW");
     Tensor atten_output;
     ConfigManager::Instance();
-    FUNCTION("AttentionPost") {
+    FUNCTION("AttentionPost")
+    {
         int new_b = attnPostIn.GetShape()[0];
         int new_n = attnPostIn.GetShape()[1];
         int new_s = attnPostIn.GetShape()[2];
@@ -163,7 +164,8 @@ TEST_F(GraphTest, TestAttentionPost) {
     }
 }
 
-TEST_F(GraphTest, Test_deepseekAttention_s_1) {
+TEST_F(GraphTest, Test_deepseekAttention_s_1)
+{
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
@@ -173,7 +175,7 @@ TEST_F(GraphTest, Test_deepseekAttention_s_1) {
     int num_heads = std::get<int>(deepseekConfig1["numAttentionHeads"]);
     int qLoraRank = std::get<int>(deepseekConfig1["qLoraRank"]);
     int qkRopeHeadDim = std::get<int>(deepseekConfig1["qkRopeHeadDim"]); // 64
-    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);         // 512
+    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);       // 512
     int vHeadDim = std::get<int>(deepseekConfig1["vHeadDim"]);
     int qkNopeHeadDim = std::get<int>(deepseekConfig1["qkNopeHeadDim"]);
     int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
@@ -193,23 +195,20 @@ TEST_F(GraphTest, Test_deepseekAttention_s_1) {
     aw.kvBProjWV = Tensor(DT_BF16, {num_heads, kvLoraRank, vHeadDim}, "kvBProjWV");
     aw.oProjW = Tensor(DT_BF16, {num_heads * vHeadDim, h}, "oProjW");
 
-    RoPETileShapeConfig ropeTileConfig{
-        {32, 32},
-        {1, 32, 32},
-        {1, 1, 32, 32},
-        {1, 1, 32, 32, 2}
-    };
+    RoPETileShapeConfig ropeTileConfig{{32, 32}, {1, 32, 32}, {1, 1, 32, 32}, {1, 1, 32, 32, 2}};
 
     Tensor res;
     DeepseekAttention deepseekAttention(deepseekConfig1, aw, 1);
     ConfigManager::Instance();
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         res = deepseekAttention.Forward(
             hidden_states, atten_mask, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
     }
 }
 
-TEST_F(GraphTest, Test_deepseekAttention_pre) {
+TEST_F(GraphTest, Test_deepseekAttention_pre)
+{
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
@@ -219,7 +218,7 @@ TEST_F(GraphTest, Test_deepseekAttention_pre) {
     int num_heads = std::get<int>(deepseekConfig1["numAttentionHeads"]);
     int qLoraRank = std::get<int>(deepseekConfig1["qLoraRank"]);
     int qkRopeHeadDim = std::get<int>(deepseekConfig1["qkRopeHeadDim"]); // 64
-    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);         // 512
+    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);       // 512
     int vHeadDim = std::get<int>(deepseekConfig1["vHeadDim"]);
     int qkNopeHeadDim = std::get<int>(deepseekConfig1["qkNopeHeadDim"]);
     int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
@@ -239,36 +238,30 @@ TEST_F(GraphTest, Test_deepseekAttention_pre) {
     aw.kvBProjWV = Tensor(DT_BF16, {num_heads, kvLoraRank, vHeadDim}, "kvBProjWV");
     aw.oProjW = Tensor(DT_BF16, {num_heads * vHeadDim, h}, "oProjW");
 
-    RoPETileShapeConfig ropeTileConfig{
-        {32, 32},
-        {1, 32, 32},
-        {1, 1, 32, 32},
-        {1, 1, 32, 32, 2}
-    };
+    RoPETileShapeConfig ropeTileConfig{{32, 32}, {1, 32, 32}, {1, 1, 32, 32}, {1, 1, 32, 32, 2}};
 
     std::tuple<Tensor, Tensor> res;
     DeepseekAttention deepseekAttention(deepseekConfig1, aw, 1);
     ConfigManager::Instance();
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         res = deepseekAttention.AtentionPreForward(
             hidden_states, atten_mask, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
     }
 }
 
-
-
-TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
-
+TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16)
+{
     RoPETileShapeConfig ropeTileConfig{
-        {64, 64}, // for cos/sin->cast
-        {1, 64, 64}, // for gather,unsqueeze
+        {64, 64},         // for cos/sin->cast
+        {1, 64, 64},      // for gather,unsqueeze
         {1, 64, 1, 64},
         {1, 64, 1, 32, 2} // for transpose
     };
 
     int B = 1;
-    int N = 32;                // N=32
-    int S = 1;                 // IFA S=1 S=1024
+    int N = 32;             // N=32
+    int S = 1;              // IFA S=1 S=1024
     int qkRopeHeadDim = 64; // qkRopeHeadDim = 64
 
     std::vector<int64_t> qPeShape{B, S, N, qkRopeHeadDim};
@@ -288,7 +281,8 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
     Tensor kEmbed(DT_BF16, kEmbedShape, "kEmbed");
 
     ConfigManager::Instance();
-    FUNCTION("RoPE") {
+    FUNCTION("RoPE")
+    {
         TileShape::Current().SetVecTile({1, 1, 64, 64});
         auto qPeTrans = Transpose(qPe, {1, 2}); // [b,s,n,d]->[b,n,s,d]
 
@@ -304,8 +298,9 @@ TEST_F(GraphTest, test_operation_rope_subgraph_deepseekv3_bf16) {
 }
 
 // inputType: 0-fp16, 1-bf16, 2-fp32
-template <bool splitReduceLastDim = true, bool splitK = false, bool nz= false>
-void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = false) {
+template <bool splitReduceLastDim = true, bool splitK = false, bool nz = false>
+void TestMlaPrologV2(std::vector<int>& params, int inputType, bool isQuant = false)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim
     int b = params[0];
     int s = params[1];
@@ -351,9 +346,9 @@ void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = fal
         w_qb_scale_shape = {1, n * q_head_dim};
     }
 
-
     ConfigManager::Instance();
-    PROGRAM("MlaProlog") {
+    PROGRAM("MlaProlog")
+    {
         Tensor x(dType, x_shape, "x");
         Tensor w_qa(dType, w_qa_shape, "w_qa");
         Tensor w_qb(dTypeQuantIn, w_qb_shape, "w_qb");
@@ -363,7 +358,7 @@ void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = fal
         Tensor gamma_ckv(dType, gamma_ckv_shape, "gamma_ckv");
         Tensor cos(dType, cos_shape, "cos");
         Tensor sin(dType, cos_shape, "sin");
-        Tensor kv_len(DT_INT64, kv_len_shape, "kv_len");  // int64
+        Tensor kv_len(DT_INT64, kv_len_shape, "kv_len"); // int64
         Tensor kv_cache(dType, kv_cache_shape, "kv_cache");
         Tensor kr_cache(dType, kr_cache_shape, "kr_cache");
         // output
@@ -371,9 +366,9 @@ void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = fal
         Tensor output_q_rope(dType, q_rope_out_shape, "output_q_rope");
 
         RoPETileShapeConfigNew ropeConfig{
-            {32, 1, 64}, // (b,s,d)
-            {1, 1, 32, 64}, // Q (b,s,n,d)
-            {32, 1, 1, 64}, // K (b,s,1,d)
+            {32, 1, 64},      // (b,s,d)
+            {1, 1, 32, 64},   // Q (b,s,n,d)
+            {32, 1, 1, 64},   // K (b,s,1,d)
             {32, 1, 1, 32, 2} // (b,s,n,d//2,2)
         };
 
@@ -384,23 +379,32 @@ void TestMlaPrologV2(std::vector<int> &params, int inputType, bool isQuant = fal
             quantInputs.dequantScaleWUqQr = w_qb_scale;
 
             config::SetBuildStatic(true);
-            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_qb_scale, w_kv_b_k, w_kv_a,
-                gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
-                MlaProlog(x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
-                    quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f,  "BNSD", splitReduceLastDim,  splitK);
+            FUNCTION(
+                "MlaProlog_T", {x, w_qa, w_qb, w_qb_scale, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len,
+                                kv_cache, kr_cache, output_q, output_q_rope})
+            {
+                MlaProlog(
+                    x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
+                    quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, "BNSD",
+                    splitReduceLastDim, splitK);
             };
         } else {
             config::SetBuildStatic(true);
-            FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_kv_b_k, w_kv_a,
-                gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope}) {
-                MlaProlog(x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
-                    quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f,  "BNSD", splitReduceLastDim,  splitK);
+            FUNCTION(
+                "MlaProlog_T", {x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache,
+                                kr_cache, output_q, output_q_rope})
+            {
+                MlaProlog(
+                    x, w_qa, w_qb, w_kv_b_k, w_kv_a, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
+                    quantInputs, ropeConfig, output_q, output_q_rope, kv_cache, kr_cache, 1e-5f, 1e-5f, "BNSD",
+                    splitReduceLastDim, splitK);
             };
         }
     }
 }
 
-TEST_F(GraphTest, Test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536) {  // b_n_s_s2_h_q_lora_rank, bfloat16
+TEST_F(GraphTest, Test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536)
+{ // b_n_s_s2_h_q_lora_rank, bfloat16
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -412,12 +416,12 @@ TEST_F(GraphTest, Test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536) {  // b_n_s_s2
     int kvLoraRank = 512;
     int vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestMlaPrologV2(params, 1);
 }
 
-TEST_F(GraphTest, Test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_splitnz) {  // b_n_s_s2_h_q_lora_rank, bfloat16
+TEST_F(GraphTest, Test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_splitnz)
+{ // b_n_s_s2_h_q_lora_rank, bfloat16
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -429,12 +433,12 @@ TEST_F(GraphTest, Test_MlaPrologV2_bfloat16_4_32_1_256_7168_1536_splitnz) {  // 
     int kvLoraRank = 512;
     int vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-        kvLoraRank, vHeadDim};
-    TestMlaPrologV2<true,true>(params, 1);
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
+    TestMlaPrologV2<true, true>(params, 1);
 }
 
-TEST_F(GraphTest, test_mla_bf16_low_quant_smooth) {  // b_n_s_s2_h_q_lora_rank, bfloat16
+TEST_F(GraphTest, test_mla_bf16_low_quant_smooth)
+{ // b_n_s_s2_h_q_lora_rank, bfloat16
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -446,12 +450,12 @@ TEST_F(GraphTest, test_mla_bf16_low_quant_smooth) {  // b_n_s_s2_h_q_lora_rank, 
     int kvLoraRank = 512;
     int vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-                               kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestMlaPrologV2(params, 1, true);
 }
 
-void TestMlaProlog(std::vector<int> &params) {
+void TestMlaProlog(std::vector<int>& params)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim
     int b = params[0];
     int s = params[1];
@@ -479,8 +483,8 @@ void TestMlaProlog(std::vector<int> &params) {
     std::vector<int64_t> q_shape = {b, n, s, kvLoraRank + qkRopeHeadDim};
     std::vector<int64_t> kv_shape = {b, 1, s2, kvLoraRank + qkRopeHeadDim};
 
-
-    PROGRAM("MlaProlog") {
+    PROGRAM("MlaProlog")
+    {
         Tensor x(dType, x_shape, "x");
         Tensor w_qa(dType, w_qa_shape, "w_qa");
         Tensor w_qb(dType, w_qb_shape, "w_qb");
@@ -499,8 +503,8 @@ void TestMlaProlog(std::vector<int> &params) {
         aw.qBProjW = w_qb;
         aw.kvAProjWithMqaW = w_kv_a;
         aw.kvBProjWK = w_kv_b_k;
-        Tensor kvBProjWV;  // not used in MlaProlog
-        Tensor oProjW;       // not used in MlaProlog
+        Tensor kvBProjWV; // not used in MlaProlog
+        Tensor oProjW;    // not used in MlaProlog
         aw.kvBProjWV = kvBProjWV;
         aw.oProjW = oProjW;
 
@@ -508,15 +512,16 @@ void TestMlaProlog(std::vector<int> &params) {
         DeepseekAttention Attention(g_deepseekConfig, aw, 1);
 
         RoPETileShapeConfig ropeTileConfig{
-            {32, 64}, // for cos/sin->cast, [s,d]
-            {1, 32, 64}, // for gather,unsqueeze, [b,s,d]
-            {1, 32, 1, 64}, // [b,n,s,d]
+            {32, 64},          // for cos/sin->cast, [s,d]
+            {1, 32, 64},       // for gather,unsqueeze, [b,s,d]
+            {1, 32, 1, 64},    // [b,n,s,d]
             {1, 32, 1, 64, 64} // for transpose, [b,n,s,d/2,2]
         };
 
         config::SetBuildStatic(true);
-        FUNCTION("MlaProlog_T", {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids,
-                                                                       cos, sin, past_key_states, kv_len, output_q}) {
+        FUNCTION(
+            "MlaProlog_T", {x, w_qa, w_qb, w_kv_a, w_kv_b_k, position_ids, cos, sin, past_key_states, kv_len, output_q})
+        {
             auto q_kv = Attention.MlaPrologFoward(x, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
             output_q = q_kv[0];
             past_key_states = q_kv[1];
@@ -524,7 +529,8 @@ void TestMlaProlog(std::vector<int> &params) {
     }
 }
 
-TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lora_rank
+TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256)
+{ // b_n_s_s2_h_q_lora_rank
     config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
@@ -545,47 +551,53 @@ TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lor
     kvLoraRank = 512;
     vHeadDim = 128;
 
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
-        kvLoraRank, vHeadDim};
+    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim};
     TestMlaProlog(params);
 }
 
-void TestLoopTailBlock(const Tensor &t0, const Tensor &blockTable, Tensor &out, int s) {
+void TestLoopTailBlock(const Tensor& t0, const Tensor& blockTable, Tensor& out, int s)
+{
     int blockSize = 64;
 
-    FUNCTION("main", {t0, blockTable}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s)) {
+    FUNCTION("main", {t0, blockTable}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(t0, 0) / s))
+        {
             SymbolicScalar size = GetTensorData(blockTable, {i, 0});
             Tensor t0s = View(t0, {s, s}, {size, s}, {blockSize * i, 0});
-            Tensor t1s = View(t0, {s/2, s}, {size, s}, {blockSize * i, 0});
+            Tensor t1s = View(t0, {s / 2, s}, {size, s}, {blockSize * i, 0});
             Tensor t1 = Add(t1s, t1s);
             Assemble(t1, {blockSize * i, 0}, out);
         }
     }
 }
 
-TEST_F(GraphTest, TestTailBlock) {
+TEST_F(GraphTest, TestTailBlock)
+{
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     int s = 64;
     int n = 8;
-    Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
+    Tensor t0(DT_FP32, {n * s, s}, "t0"); // [32*8, 32]
     Tensor blockTable{DT_INT32, {n, 1}, "blockTable"};
     Tensor out(DT_FP32, {n * s, s}, "out");
     TestLoopTailBlock(t0, blockTable, out, s);
 }
 
-TEST_F(GraphTest, TestTranspose_MLA_3D_2_add) {
+TEST_F(GraphTest, TestTranspose_MLA_3D_2_add)
+{
     int bs = 8;
     int n = 32;
     int d = 128;
     std::vector<int64_t> shape{bs, n, d};
     std::vector<int64_t> resShape{n, bs, d};
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output(DataType::DT_FP32, resShape, "res");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_3D_2", {input, output}) {
+        FUNCTION("MLA_3D_2", {input, output})
+        {
             TileShape::Current().SetVecTile(NUM_2, NUM_2, NUM_128);
             auto tmp = Transpose(input, {0, 1});
             TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);
@@ -594,7 +606,8 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_add) {
     }
 }
 
-TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape) {
+TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape)
+{
     int bs = 8;
     int n = 32;
     int d = 128;
@@ -603,18 +616,20 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape) {
     std::vector<int64_t> resShape{n, bs * d};
     std::vector<int64_t> flattenShape{n * bs * d};
 
-    PROGRAM("Transpose") {
+    PROGRAM("Transpose")
+    {
         Tensor input(DataType::DT_FP32, shape, "input");
         Tensor output1(DataType::DT_FP32, transposeShape, "res1");
         Tensor output2(DataType::DT_FP32, resShape, "res2");
         Tensor output3(DataType::DT_FP32, flattenShape, "res3");
         config::SetBuildStatic(true);
-        FUNCTION("MLA_3D_2", {input, output1, output2}) {
+        FUNCTION("MLA_3D_2", {input, output1, output2})
+        {
             TileShape::Current().SetVecTile(NUM_2, NUM_2, NUM_128);
-            output1 = Transpose(input, {0, 1}); // [8, 32, 128] --> [32, 8, 128]
+            output1 = Transpose(input, {0, 1});   // [8, 32, 128] --> [32, 8, 128]
             TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);
             output2 = Reshape(output1, resShape); // [32, 8, 128] --> [32, 1024]
-            output3 = Reshape(output1, {-1}); // [32, 8, 128] --> [32 * 8 * 128]
+            output3 = Reshape(output1, {-1});     // [32, 8, 128] --> [32 * 8 * 128]
         }
     }
 }

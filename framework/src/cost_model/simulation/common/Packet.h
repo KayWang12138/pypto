@@ -22,14 +22,8 @@ namespace CostModel {
 struct DataIDType {
     int id;
 
-    bool operator==(const DataIDType &oth) const
-    {
-        return id == oth.id;
-    }
-    bool operator<(const DataIDType &oth) const
-    {
-        return id < oth.id;
-    }
+    bool operator==(const DataIDType& oth) const { return id == oth.id; }
+    bool operator<(const DataIDType& oth) const { return id < oth.id; }
 
     std::string Dump() const;
 };
@@ -68,7 +62,7 @@ struct TaskPack {
     std::vector<DataIDType> incastIdsOnParent;
     std::vector<DataIDType> outcastIdsOnParent;
     TaskCycleInfo cycleInfo;
-    std::vector<bool> externalDependencyReleased;  // True: All dependencies have been pushed to this submachine
+    std::vector<bool> externalDependencyReleased; // True: All dependencies have been pushed to this submachine
 };
 
 struct CachePacket {
@@ -76,7 +70,7 @@ struct CachePacket {
     uint64_t tid = 0;
     CachePacketType type = CachePacketType::REQUEST;
     CacheRequestType requestType = CacheRequestType::DATA_READ_REQ;
-    uint64_t addr = 0;  // functionHash; data address;
+    uint64_t addr = 0; // functionHash; data address;
     uint64_t size = 0;
     CycleInfo cycleInfo;
     [[nodiscard]] std::string Dump() const;
@@ -93,4 +87,4 @@ struct CompletedPacket {
     TaskCycleInfo cycleInfo;
 };
 
-}  // namespace CostModel
+} // namespace CostModel

@@ -13,7 +13,6 @@
  * \brief
  */
 
-
 #include "tilefwk/op_registry.h"
 #include <iosfwd>
 #include <vector>
@@ -32,9 +31,10 @@ const std::string CustomOpCtrolRunFuncName = "PyptoKernelCtrlServer";
 const std::string CustomOpCtrolInitFuncName = "PyptoKernelCtrlServerInit";
 const std::string CustomKerneLib = "CUSTKFCKernel";
 
-std::string GetMachineCompilerPath() {
+std::string GetMachineCompilerPath()
+{
     // ARM arch compiler
-    const char *homePath = std::getenv("ASCEND_HOME_PATH");
+    const char* homePath = std::getenv("ASCEND_HOME_PATH");
     if (homePath == nullptr) {
         return "";
     } else {
@@ -42,12 +42,14 @@ std::string GetMachineCompilerPath() {
     }
 }
 const std::string DeviceMahineCompiler = GetMachineCompilerPath();
-}
+} // namespace
 namespace npu::tile_fwk {
 
 constexpr int DUMP_LEVEL_FOUR = 4;
 
-void GenCustomOpInfo(const std::string &funcName, const std::string &controlAicpuPath, const std::string &constrolSoName) {
+void GenCustomOpInfo(
+    const std::string& funcName, const std::string& controlAicpuPath, const std::string& constrolSoName)
+{
     Json customOp;
     AicpuOpConfig costomInit;
     costomInit.functionName = CustomOpCtrolInitFuncName;
@@ -68,27 +70,31 @@ void GenCustomOpInfo(const std::string &funcName, const std::string &controlAicp
     OpInfoManager::GetInstance().GetCustomOpJsonPath() = fileName;
 }
 
-bool GenTilingFunc(const std::string &funcName, const std::string &controlAicpuPath) {
+bool GenTilingFunc(const std::string& funcName, const std::string& controlAicpuPath)
+{
     std::ostringstream oss;
     oss << "#include <vector>\n";
     oss << "#include <string>\n";
     oss << "#include \"controlFlow_dev" << funcName << ".h\"\n";
     oss << "#include <map>\n";
-    oss << "#include \"" << "tilefwk/aicpu_runtime.h" <<"\"\n";
+    oss << "#include \""
+        << "tilefwk/aicpu_runtime.h"
+        << "\"\n";
     oss << "namespace npu::tile_fwk { \n";
     oss << "using controlFlowFuncPtr = uint64_t (*)(void*, int64_t*, RuntimeCallEntryType*, DevStartArgsBase*);\n";
     oss << "namespace " << funcName << "{\n";
     oss << "controlFlowFuncPtr controlFlowptr = ControlFlowEntry;\n";
     oss << "} // end namespace " << funcName << "\n";
     oss << "extern \"C\" __attribute__((visibility(\"default\"))) void* GetCtrlFlowFunc() {\n";
-    oss << "return reinterpret_cast<void*>(" <<  funcName << "::controlFlowptr);\n";
+    oss << "return reinterpret_cast<void*>(" << funcName << "::controlFlowptr);\n";
     oss << "}\n";
     oss << "}\n";
     std::string fileName = controlAicpuPath + "/control_flow_kernel.cpp";
     return DumpFile(oss.str(), fileName);
 }
 
-bool TieFwkAicpuPreCompile(std::string &preCompileO, std::string &controlAicpuPath) {
+bool TieFwkAicpuPreCompile(std::string& preCompileO, std::string& controlAicpuPath)
+{
     std::stringstream preCompileStream;
     std::string ext = "cpp";
     auto files = GetFiles(controlAicpuPath, ext);
@@ -96,11 +102,8 @@ bool TieFwkAicpuPreCompile(std::string &preCompileO, std::string &controlAicpuPa
     for (auto file : files) {
         std::string objFile = controlAicpuPath + file.substr(0, file.find(".")) + ".o";
         std::string compileCmd = DeviceMahineCompiler + " -Wall -O2 -fPIC -c -std=gnu++17 -fno-common " +
-                                 controlAicpuPath + file +
-                                " -I" + includePath +
-                                " -I" + includePath + "/include/" +
-                                " -I" + GetCurrentSharedLibPath() + "/include/" +
-                                " -o " + objFile;
+                                 controlAicpuPath + file + " -I" + includePath + " -I" + includePath + "/include/" +
+                                 " -I" + GetCurrentSharedLibPath() + "/include/" + " -o " + objFile;
         MACHINE_LOGD("PreCompileCmd is %s, file is %s.\n", compileCmd.c_str(), file.c_str());
         int result = std::system(compileCmd.c_str());
         if (result != 0) {
@@ -113,12 +116,12 @@ bool TieFwkAicpuPreCompile(std::string &preCompileO, std::string &controlAicpuPa
     return true;
 }
 
-bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDirPath, const std::string &preCompileO) {
+bool SharedAicpuCompile(const std::string& funcName, const std::string& aicpuDirPath, const std::string& preCompileO)
+{
     std::string cmdGccCompile = "LD_PRELOAD= " + DeviceMahineCompiler +
                                 " -std=gnu++17 -fno-common -shared -fPIC -O2 -Wl,--no-warn-rwx-segments -o " +
                                 aicpuDirPath + "/lib" + funcName + "_control.so " + preCompileO +
-                                " -Wl,--whole-archive " +
-                                GetCurrentSharedLibPath() + "/libpypto_ctrl_server.a" +
+                                " -Wl,--whole-archive " + GetCurrentSharedLibPath() + "/libpypto_ctrl_server.a" +
                                 " -Wl,--no-whole-archive";
     auto ret = std::system(cmdGccCompile.c_str());
     if (ret != 0) {
@@ -132,7 +135,8 @@ bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDir
     return ReadBytesFromFile(srcSoPath, OpInfoManager::GetInstance().GetControlBuffer());
 }
 
-bool TileFwkAiCpuCompile(const std::string &funcName, const std::string &aicpuDirPath) {
+bool TileFwkAiCpuCompile(const std::string& funcName, const std::string& aicpuDirPath)
+{
     OpInfoManager::GetInstance().GetOpFuncName() = funcName;
     std::string controlAicpuPath = aicpuDirPath + "/" + funcName + "/aicpu/";
     if (!GenTilingFunc(funcName, controlAicpuPath)) {
@@ -140,11 +144,11 @@ bool TileFwkAiCpuCompile(const std::string &funcName, const std::string &aicpuDi
         return false;
     }
     // preCompile
-    std::string preCompileO= "";
+    std::string preCompileO = "";
     if (!TieFwkAicpuPreCompile(preCompileO, controlAicpuPath)) {
         MACHINE_LOGE(HostBackEndErr::PRECOMPILE_FAILED, "Op %s preCompile fail\n", funcName.c_str());
         return false;
     }
     return SharedAicpuCompile(funcName, aicpuDirPath, preCompileO);
 }
-}
+} // namespace npu::tile_fwk

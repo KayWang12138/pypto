@@ -297,7 +297,6 @@ class Tensor:
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
-            assert self._base.dtype == DataType.DT_INT32, "tensor dtype must be DT_INT32."
             return SymbolicScalar.from_base(pypto_impl.GetTensorData(self._base, to_syms(key)))
 
         if all(isinstance(k, slice) for k in key):
@@ -800,6 +799,14 @@ class Tensor:
         return pypto.amin(self, dim, keepdim)
 
     @source_location
+    def argmax(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmax(self, dim, keepdim)
+
+    @source_location
+    def argmin(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmin(self, dim, keepdim)
+
+    @source_location
     def sum(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.sum(self, dim, keepdim)
 
@@ -860,6 +867,10 @@ class Tensor:
     @source_location
     def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
         return pypto.cumsum(self, dim)
+
+    @source_location
+    def cumprod(self: 'Tensor', dim: int) -> 'Tensor':
+        return pypto.cumprod(self, dim)
 
     @source_location
     def gcd(self: 'Tensor', other: 'Tensor | int') -> 'Tensor':

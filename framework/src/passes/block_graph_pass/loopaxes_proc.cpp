@@ -26,7 +26,8 @@
 
 namespace npu {
 namespace tile_fwk {
-Status LoopaxesProc::RunOnFunction(Function &function) {
+Status LoopaxesProc::RunOnFunction(Function& function)
+{
     bool enableVF = config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
     bool useMarkFor = enableVF || config::GetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, false);
     if (!useMarkFor) {
@@ -41,13 +42,15 @@ Status LoopaxesProc::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-void SetOpLoopEnd(std::shared_ptr<Operation> op) {
+void SetOpLoopEnd(std::shared_ptr<Operation> op)
+{
     op->SetAttribute(OpAttributeKey::loopGroupEnd, true);
     APASS_LOG_INFO_F(
         Elements::Operation, "Op Code %s, Op[%d] set loopGroup --End--", op->GetOpcodeStr().c_str(), op->GetOpMagic());
 }
 
-void LoopaxesProc::ClearStatus() {
+void LoopaxesProc::ClearStatus()
+{
     lastGroupIdx = INVALID_LOOP_GROUPID;
     previousOutputMagic = INVALID_LOOP_GROUPID;
     previousLoopAxes.clear();
@@ -57,7 +60,8 @@ void LoopaxesProc::ClearStatus() {
     }
 }
 
-bool NeedClearStatus(const Operation &op) {
+bool NeedClearStatus(const Operation& op)
+{
     auto opCode = op.GetOpcode();
     auto iter = SUPPORT_VF_FUSE_OPS.find(opCode);
     if (iter == SUPPORT_VF_FUSE_OPS.end()) {
@@ -71,7 +75,6 @@ bool NeedClearStatus(const Operation &op) {
             if (hasOneAxis) {
                 return true;
             }
-                                
         }
     }
 
@@ -88,7 +91,8 @@ bool NeedClearStatus(const Operation &op) {
     return false;
 }
 
-Status LoopaxesProc::UpdateOpLoopAxes(Operation &op, Function &subFunc) {
+Status LoopaxesProc::UpdateOpLoopAxes(Operation& op, Function& subFunc)
+{
     if (SKIP_OPCODE_FOR_CODEGEN.find(op.GetOpcode()) != SKIP_OPCODE_FOR_CODEGEN.end()) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "Op Code %s, Op[%d] ignore this op", op.GetOpcodeStr().c_str(), op.GetOpMagic());
@@ -125,35 +129,39 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op, Function &subFunc) {
             if (lastOpInLoop != nullptr) {
                 SetOpLoopEnd(lastOpInLoop);
             }
-            APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] set loopGroup ++Start++",
-                op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_INFO_F(
+                Elements::Operation, "Op Code %s, Op[%d] set loopGroup ++Start++", op.GetOpcodeStr().c_str(),
+                op.GetOpMagic());
         }
         op.SetAttribute(OpAttributeKey::loopGroup, groupIdx);
         op.SetAttribute(OpAttributeKey::loopAxes, loopAxes);
         lastOpInLoop = op.shared_from_this();
         previousOutputMagic = output->GetMagic();
-        APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] groupIdx is %ld, loopAxes is %s",
-            op.GetOpcodeStr().c_str(), op.GetOpMagic(), groupIdx, IntVecToStr(loopAxes).c_str());
+        APASS_LOG_INFO_F(
+            Elements::Operation, "Op Code %s, Op[%d] groupIdx is %ld, loopAxes is %s", op.GetOpcodeStr().c_str(),
+            op.GetOpMagic(), groupIdx, IntVecToStr(loopAxes).c_str());
     }
     return SUCCESS;
 }
 
-Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
+Status LoopaxesProc::UpdateFuncLoopAxes(Function& function)
+{
     if (function.rootFunc_ == nullptr) {
         return SUCCESS;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "Function[%s] has rootFunc.", function.GetMagicName().c_str());
-    for (auto &subProgram : function.rootFunc_->programs_) {
+    for (auto& subProgram : function.rootFunc_->programs_) {
         groupIdx = INVALID_LOOP_GROUPID;
         lastGroupIdx = groupIdx;
         lastOpInLoop.reset();
         if (subProgram.second == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "subProgram[%lu] of Function[%s] is nullptr.", subProgram.first,
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "subProgram[%lu] of Function[%s] is nullptr.", subProgram.first,
                 function.GetMagicName().c_str());
             continue;
         }
-        for (auto &op : subProgram.second->Operations(false)) {
-            auto &subFunc = *subProgram.second;
+        for (auto& op : subProgram.second->Operations(false)) {
+            auto& subFunc = *subProgram.second;
             UpdateOpLoopAxes(op, subFunc);
         }
         if (lastGroupIdx != INVALID_LOOP_GROUPID && lastOpInLoop != nullptr) {
@@ -163,7 +171,8 @@ Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
     return SUCCESS;
 }
 
-bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, const Function &subFunc) {
+bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar>& curLoopAxes, const Function& subFunc)
+{
     if (curLoopAxes.size() != previousLoopAxes.size()) {
         return false;
     }
@@ -171,13 +180,13 @@ bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, 
     for (size_t i = 0; i < curLoopAxes.size(); ++i) {
         auto curExpr = SymbolicExpressionTable::BuildExpression(curLoopAxes[i]);
         auto prevExpr = SymbolicExpressionTable::BuildExpression(previousLoopAxes[i]);
-        if (dynParamTable.find(curExpr) != dynParamTable.end() &&
-            dynParamTable.find(prevExpr) != dynParamTable.end()) {
+        if (dynParamTable.find(curExpr) != dynParamTable.end() && dynParamTable.find(prevExpr) != dynParamTable.end()) {
             auto curParamInfo = dynParamTable[curExpr];
             auto preParamInfo = dynParamTable[prevExpr];
             if (!curParamInfo.replacedSymbol.empty() && !preParamInfo.replacedSymbol.empty() &&
                 curParamInfo.replacedSymbol == preParamInfo.replacedSymbol) {
-                APASS_LOG_INFO_F(Elements::Operation, "%s & %s has same replacedSymbol.", curExpr.c_str(), prevExpr.c_str());
+                APASS_LOG_INFO_F(
+                    Elements::Operation, "%s & %s has same replacedSymbol.", curExpr.c_str(), prevExpr.c_str());
                 return true;
             }
         }

@@ -46,14 +46,16 @@ struct OffsetInfo {
 };
 
 template <int16_t idx, typename U>
-INLINE int64_t GetConvShape(const U &tileTensor) {
+INLINE int64_t GetConvShape(const U& tileTensor)
+{
     static_assert(idx < SHAPE_DIM5, "Idx should be less than 5");
     const auto tileLayout = tileTensor.GetLayout();
     return tileLayout.template GetShapeDim<idx>();
 }
 
 template <int16_t idx, typename U>
-INLINE int64_t GetConvStride(const U &tileTensor) {
+INLINE int64_t GetConvStride(const U& tileTensor)
+{
     static_assert(idx < SHAPE_DIM5, "Idx should be less than 5");
     const auto tileLayout = tileTensor.GetLayout();
     return tileLayout.template GetStrideDim<idx>();
@@ -71,7 +73,8 @@ INLINE int64_t GetConvStride(const U &tileTensor) {
  * isFmap: true -> input, false -> weight
  */
 template <bool isFmap>
-INLINE int64_t CalLoadOffsetNCHW(const ShapeInfo &shapeInfo, const OffsetInfo &offsetInfo) {
+INLINE int64_t CalLoadOffsetNCHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo)
+{
     if constexpr (isFmap) {
         int64_t inputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2;
         int64_t offsetC = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2;
@@ -98,7 +101,8 @@ INLINE int64_t CalLoadOffsetNCHW(const ShapeInfo &shapeInfo, const OffsetInfo &o
  * isFmap: true -> input, false -> weight
  */
 template <bool isFmap>
-INLINE int64_t CalLoadOffsetNCDHW(const ShapeInfo &shapeInfo, const OffsetInfo &offsetInfo) {
+INLINE int64_t CalLoadOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo)
+{
     if constexpr (isFmap) {
         int64_t inputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
         int64_t offsetC = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
@@ -126,7 +130,8 @@ INLINE int64_t CalLoadOffsetNCDHW(const ShapeInfo &shapeInfo, const OffsetInfo &
  * offset3: dst_h_offset
  * offset4: dst_w_offset
  */
-INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo &shapeInfo, const OffsetInfo &offsetInfo) {
+INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo)
+{
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2;
     return offsetInfo.offset0 * outputOneBatchSize + coutOffset + offsetInfo.offset3 * shapeInfo.shape2 +
@@ -143,7 +148,8 @@ INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo &shapeInfo, const OffsetInfo &
  * offset3: dst_h_offset
  * offset4: dst_w_offset
  */
-INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo &shapeInfo, const OffsetInfo &offsetInfo) {
+INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo& shapeInfo, const OffsetInfo& offsetInfo)
+{
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t doutOffset = offsetInfo.offset2 * shapeInfo.shape2 * shapeInfo.shape3;
@@ -163,8 +169,8 @@ INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo &shapeInfo, const OffsetInfo 
  * isFmap: true -> input, false -> weight
  */
 template <bool isFmap, typename T, typename U>
-INLINE void TLoadConv2DDN2NZ(
-    T &dst, U &src, const OffsetInfo &offsetInfo, const ShapeInfo &srcShapeInfo) {
+INLINE void TLoadConv2DDN2NZ(T& dst, U& src, const OffsetInfo& offsetInfo, const ShapeInfo& srcShapeInfo)
+{
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     int64_t srcC = GetConvShape<CONV_IDX_1>(src);
     int64_t srcH = GetConvShape<CONV_IDX_2>(src);
@@ -186,19 +192,22 @@ INLINE void TLoadConv2DDN2NZ(
     using strideDim4 = pto::Stride<1, -1, -1, -1, -1>;
     using globalData = pto::GlobalTensor<typename U::Type, shapeDim4, strideDim4, pto::Layout::NCHW>;
     int64_t gmOffset = CalLoadOffsetNCHW<isFmap>(shapeInfo, offsetInfo);
-    globalData srcGlobal((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
+    globalData srcGlobal(
+        (__gm__ typename U::Type*)(src.GetAddr() + gmOffset),
         shapeDim4(srcShapeInfo.shape0, srcShapeInfo.shape1, srcShapeInfo.shape3, srcShapeInfo.shape4),
         strideDim4(srcStrideN, srcStrideC, srcStrideH, srcStrideW));
     if constexpr (isFmap) {
         constexpr auto bufferSize = stcDstShape0 * stcDstShape1 * stcDstShape2 * stcDstShape3 * BLOCK_ALIGN_BYTE;
-        using tileData = pto::ConvTile<pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::NC1HWC0,
+        using tileData = pto::ConvTile<
+            pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::NC1HWC0,
             pto::ConvTileShape<-1, -1, -1, -1, c0Size>>;
         tileData dstL1(dstShape0, dstShape1, dstShape2, dstShape3);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
         pto::TLOAD(dstL1, srcGlobal);
     } else {
         constexpr auto bufferSize = stcDstShape0 * stcDstShape1 * stcDstShape2 * BLOCK_ALIGN_BYTE;
-        using tileData = pto::ConvTile<pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::FRACTAL_Z,
+        using tileData = pto::ConvTile<
+            pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::FRACTAL_Z,
             pto::ConvTileShape<-1, -1, -1, -1, 1>>;
         tileData dstL1(dstShape0, dstShape1, dstShape2, dstShape3);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
@@ -219,8 +228,8 @@ INLINE void TLoadConv2DDN2NZ(
  * isFmap: true -> input, false -> weight
  */
 template <bool isFmap, typename T, typename U>
-INLINE void TLoadConv3DDN2NZ(
-    T &dst, U &src, const OffsetInfo &offsetInfo, const ShapeInfo &srcShapeInfo) {
+INLINE void TLoadConv3DDN2NZ(T& dst, U& src, const OffsetInfo& offsetInfo, const ShapeInfo& srcShapeInfo)
+{
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     int64_t srcC = GetConvShape<CONV_IDX_1>(src);
     int64_t srcD = GetConvShape<CONV_IDX_2>(src);
@@ -244,7 +253,8 @@ INLINE void TLoadConv3DDN2NZ(
     using strideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
     using globalData = pto::GlobalTensor<typename U::Type, shapeDim5, strideDim5, pto::Layout::NCDHW>;
     int64_t gmOffset = CalLoadOffsetNCDHW<isFmap>(shapeInfo, offsetInfo);
-    globalData srcGlobal((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
+    globalData srcGlobal(
+        (__gm__ typename U::Type*)(src.GetAddr() + gmOffset),
         shapeDim5(
             srcShapeInfo.shape0, srcShapeInfo.shape1, srcShapeInfo.shape2, srcShapeInfo.shape3, srcShapeInfo.shape4),
         strideDim5(srcStrideN, srcStrideC, srcStrideD, srcStrideH, srcStrideW));
@@ -253,14 +263,16 @@ INLINE void TLoadConv3DDN2NZ(
         constexpr auto stcDstShape4 = Std::tuple_element<CONV_IDX_4, typename T::TileShape>::type::value;
         constexpr auto bufferSize =
             stcDstShape0 * stcDstShape1 * stcDstShape2 * stcDstShape3 * stcDstShape4 * BLOCK_ALIGN_BYTE;
-        using tileData = pto::ConvTile<pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::NDC1HWC0,
+        using tileData = pto::ConvTile<
+            pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::NDC1HWC0,
             pto::ConvTileShape<-1, -1, -1, -1, -1, c0Size>>;
         tileData dstL1(dstShape0, dstShape1, dstShape2, dstShape3, dstShape4);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
         pto::TLOAD(dstL1, srcGlobal);
     } else {
         constexpr auto bufferSize = stcDstShape0 * stcDstShape1 * stcDstShape2 * BLOCK_ALIGN_BYTE;
-        using tileData = pto::ConvTile<pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::FRACTAL_Z_3D,
+        using tileData = pto::ConvTile<
+            pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::FRACTAL_Z_3D,
             pto::ConvTileShape<-1, -1, -1, -1, 1>>;
         tileData dstL1(dstShape0, dstShape1, dstShape2, dstShape3);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
@@ -270,8 +282,8 @@ INLINE void TLoadConv3DDN2NZ(
 }
 
 template <bool isConv3D, bool isFmap, typename T, typename U>
-INLINE void TLoadConvDN2NZ(
-    T &dst, U &src, const OffsetInfo &offsetInfo, const ShapeInfo &srcShapeInfo) {
+INLINE void TLoadConvDN2NZ(T& dst, U& src, const OffsetInfo& offsetInfo, const ShapeInfo& srcShapeInfo)
+{
     if constexpr (isConv3D) {
         TLoadConv3DDN2NZ<isFmap>(dst, src, offsetInfo, srcShapeInfo);
     } else {
@@ -281,10 +293,13 @@ INLINE void TLoadConvDN2NZ(
 
 // Copy data from DDR to L1
 template <CopyInMode mode, bool isConv3D, bool isFmap, typename T, typename U>
-TILEOP void TLoadConv(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &offset2,
-    const int64_t &offset3, const int64_t &offset4, const int64_t &shape0, const int64_t &shape1,
-    const int64_t &shape2,const int64_t &shape3, const int64_t &shape4) {
-    static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::GM,
+TILEOP void TLoadConv(
+    T& dst, U& src, const int64_t& offset0, const int64_t& offset1, const int64_t& offset2, const int64_t& offset3,
+    const int64_t& offset4, const int64_t& shape0, const int64_t& shape1, const int64_t& shape2, const int64_t& shape3,
+    const int64_t& shape4)
+{
+    static_assert(
+        T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::GM,
         "[TLoadConv Error]: Src format shoulde be GM and Dst format shoulde be L1");
     OffsetInfo offsetInfo = {offset0, offset1, offset2, offset3, offset4};
     ShapeInfo srcShapeInfo = {shape0, shape1, shape2, shape3, shape4};
@@ -307,7 +322,8 @@ TILEOP void TLoadConv(T &dst, U &src, const int64_t &offset0, const int64_t &off
  * offset4: dst_w_offset
  */
 template <typename T, typename U>
-INLINE void TStoreConv2DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, const int64_t &realM, const int64_t &realN) {
+INLINE void TStoreConv2DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN)
+{
     constexpr auto srcM = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
     constexpr auto srcN = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
     int64_t dstN = GetConvShape<CONV_IDX_0>(dst);
@@ -324,11 +340,12 @@ INLINE void TStoreConv2DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, cons
     using shapeDim4 = pto::Shape<1, -1, -1, -1, -1>;
     using strideDim4 = pto::Stride<1, -1, -1, -1, -1>;
     using globalData = pto::GlobalTensor<typename T::Type, shapeDim4, strideDim4, pto::Layout::NCHW>;
-    globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
-        shapeDim4(dstN, dstC, dstH, dstW),
+    globalData dstGlobal(
+        (__gm__ typename T::Type*)(dst.GetAddr() + gmOffset), shapeDim4(dstN, dstC, dstH, dstW),
         strideDim4(dstStrideN, dstStrideC, dstStrideH, dstStrideW));
-    using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1,
-        pto::SLayout::RowMajor, pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
+    using tileData = pto::Tile<
+        pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
+        pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
     tileData srcL0C(realM, realN);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
     pto::TSTORE(dstGlobal, srcL0C);
@@ -346,7 +363,8 @@ INLINE void TStoreConv2DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, cons
  * offset4: dst_w_offset
  */
 template <typename T, typename U>
-INLINE void TStoreConv3DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, const int64_t &realM, const int64_t &realN) {
+INLINE void TStoreConv3DNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN)
+{
     constexpr auto srcM = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
     constexpr auto srcN = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
     int64_t dstC = GetConvShape<CONV_IDX_1>(dst);
@@ -364,11 +382,12 @@ INLINE void TStoreConv3DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, cons
     using shapeDim5 = pto::Shape<1, -1, -1, -1, -1>;
     using strideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
     using globalData = pto::GlobalTensor<typename T::Type, shapeDim5, strideDim5, pto::Layout::NCDHW>;
-    globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
-        shapeDim5(dstC, dstD, dstH, dstW),
+    globalData dstGlobal(
+        (__gm__ typename T::Type*)(dst.GetAddr() + gmOffset), shapeDim5(dstC, dstD, dstH, dstW),
         strideDim5(dstStrideN, dstStrideC, dstStrideD, dstStrideH, dstStrideW));
-    using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1,
-        pto::SLayout::RowMajor, pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
+    using tileData = pto::Tile<
+        pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor,
+        pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
     tileData srcL0C(realM, realN);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
     pto::TSTORE(dstGlobal, srcL0C);
@@ -376,7 +395,8 @@ INLINE void TStoreConv3DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, cons
 }
 
 template <bool isConv3D, typename T, typename U>
-INLINE void TStoreConvNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, const int64_t &realM, const int64_t &realN) {
+INLINE void TStoreConvNZ2DN(T& dst, U& src, const OffsetInfo& offsetInfo, const int64_t& realM, const int64_t& realN)
+{
     if constexpr (isConv3D) {
         TStoreConv3DNZ2DN(dst, src, offsetInfo, realM, realN);
     } else {
@@ -386,11 +406,14 @@ INLINE void TStoreConvNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, const 
 
 // Copy data from L0C to DDR
 template <CopyOutMode mode, bool isConv3D, typename T, typename U>
-TILEOP void TStoreConv(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &offset2,
-    const int64_t &offset3, const int64_t &offset4, const int64_t &realM, const int64_t &realN) {
+TILEOP void TStoreConv(
+    T& dst, U& src, const int64_t& offset0, const int64_t& offset1, const int64_t& offset2, const int64_t& offset3,
+    const int64_t& offset4, const int64_t& realM, const int64_t& realN)
+{
     constexpr auto srcShapeSize = Std::tuple_size<typename U::Shape>::value;
     static_assert(srcShapeSize == SHAPE_DIM2, "L0C shape size should be 2 Dim");
-    static_assert(T::FORMAT == Hardware::GM && U::FORMAT == Hardware::L0C,
+    static_assert(
+        T::FORMAT == Hardware::GM && U::FORMAT == Hardware::L0C,
         "[TStoreConv Error]: Src format shoulde be L0C and Dst format shoulde be GM");
     OffsetInfo offsetInfo = {offset0, offset1, offset2, offset3, offset4};
     if constexpr (mode == CopyOutMode::NZ2ND) {
@@ -401,25 +424,23 @@ TILEOP void TStoreConv(T &dst, U &src, const int64_t &offset0, const int64_t &of
     return;
 }
 
-template<bool isConv3D, typename U, int64_t elements, int64_t c0Size>
-using select_srcTensor = std::conditional_t<isConv3D,
-    pto::ConvTile<pto::TileType::Mat, 
-                    typename U::Type, 
-                    elements * c0Size * sizeof(typename U::Type), 
-                    pto::Layout::NDC1HWC0, 
-                    pto::ConvTileShape<-1, -1, -1, -1, -1, c0Size>>,
-    pto::ConvTile<pto::TileType::Mat, 
-                    typename U::Type, 
-                    elements * sizeof(typename U::Type), 
-                    pto::Layout::NC1HWC0, 
-                    pto::ConvTileShape<-1, -1, -1, -1, -1>>
->;
+template <bool isConv3D, typename U, int64_t elements, int64_t c0Size>
+using select_srcTensor = std::conditional_t<
+    isConv3D,
+    pto::ConvTile<
+        pto::TileType::Mat, typename U::Type, elements * c0Size * sizeof(typename U::Type), pto::Layout::NDC1HWC0,
+        pto::ConvTileShape<-1, -1, -1, -1, -1, c0Size>>,
+    pto::ConvTile<
+        pto::TileType::Mat, typename U::Type, elements * sizeof(typename U::Type), pto::Layout::NC1HWC0,
+        pto::ConvTileShape<-1, -1, -1, -1, -1>>>;
 
 template <bool isConv3D, typename T, typename U>
-TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos, 
-                    const int64_t &padLeft, const int64_t &padRight, const int64_t &padTop, const int64_t &padBottom, const int64_t &padValue, 
-                    const int64_t &filterH, const int64_t &filterW, const int64_t &dilationH, const int64_t &dilationW, 
-                    const int64_t &strideH, const int64_t &strideW) {
+TILEOP void TLoad3D(
+    T& dst, U& src, const int64_t& mPos, const int64_t& kPos, const int64_t& padLeft, const int64_t& padRight,
+    const int64_t& padTop, const int64_t& padBottom, const int64_t& padValue, const int64_t& filterH,
+    const int64_t& filterW, const int64_t& dilationH, const int64_t& dilationW, const int64_t& strideH,
+    const int64_t& strideW)
+{
     // 2D： n c1 h w c0
     // 3D： n d c1 h w
     constexpr auto static0 = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
@@ -444,7 +465,9 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
     using dstTensor = pto::TileLeft<typename T::Type, staticML0, staticKL0, -1, -1>;
     dstTensor l0(mL0, kL0);
 
-    uint8_t values[4] = {static_cast<uint8_t>(padLeft), static_cast<uint8_t>(padRight), static_cast<uint8_t>(padTop), static_cast<uint8_t>(padBottom)};
+    uint8_t values[4] = {
+        static_cast<uint8_t>(padLeft), static_cast<uint8_t>(padRight), static_cast<uint8_t>(padTop),
+        static_cast<uint8_t>(padBottom)};
     l1.SetPadListArray(values);
     l1.SetFilterH(filterH);
     l1.SetFilterW(filterW);
@@ -478,7 +501,8 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
 }
 
 template <typename T, typename U>
-TILEOP void TLoad2D(T &dst, U &src, const int64_t &indexRow, const int64_t &indexCol) {
+TILEOP void TLoad2D(T& dst, U& src, const int64_t& indexRow, const int64_t& indexCol)
+{
     constexpr auto staticC1HW = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
     constexpr auto staticN1 = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
     constexpr auto staticN0 = Std::tuple_element<CONV_IDX_2, typename U::TileShape>::type::value;
@@ -488,7 +512,9 @@ TILEOP void TLoad2D(T &dst, U &src, const int64_t &indexRow, const int64_t &inde
     int64_t n1 = GetConvShape<CONV_IDX_1>(src);
     int64_t n0 = GetConvShape<CONV_IDX_2>(src);
     int64_t c0 = GetConvShape<CONV_IDX_3>(src);
-    using srcTensor = pto::ConvTile<pto::TileType::Mat, typename U::Type, bufferSize, pto::Layout::FRACTAL_Z, pto::ConvTileShape<-1, -1, staticN0, staticC0>>;
+    using srcTensor = pto::ConvTile<
+        pto::TileType::Mat, typename U::Type, bufferSize, pto::Layout::FRACTAL_Z,
+        pto::ConvTileShape<-1, -1, staticN0, staticC0>>;
     srcTensor l1(c1hw, n1);
 
     constexpr auto staticKL0 = Std::tuple_element<CONV_IDX_0, typename T::TileShape>::type::value;

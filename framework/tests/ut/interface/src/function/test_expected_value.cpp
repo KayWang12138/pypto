@@ -24,20 +24,23 @@ using namespace npu::tile_fwk;
 
 class ExpectedValueTest : public testing::Test {
 public:
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, false);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     }
 };
 
-TEST_F(ExpectedValueTest, TestCheck) {
+TEST_F(ExpectedValueTest, TestCheck)
+{
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(16, 16);
 
@@ -46,7 +49,8 @@ TEST_F(ExpectedValueTest, TestCheck) {
     Tensor b(DataType::DT_FP32, shape, "b");
     Tensor c;
 
-    FUNCTION("Expected") {
+    FUNCTION("Expected")
+    {
         config::SetPassConfig(config::GetPassStrategy(), "MergeViewAssemble", KEY_EXPECTED_VALUE_CHECK, true);
         config::SetPassConfig(config::GetPassStrategy(), "SplitReshapeOp", KEY_EXPECTED_VALUE_CHECK, true);
         config::SetPassConfig(config::GetPassStrategy(), "ConvertRegCopyPass", KEY_EXPECTED_VALUE_CHECK, true);

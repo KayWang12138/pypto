@@ -84,7 +84,8 @@ using UnknownTypePtr = std::shared_ptr<const UnknownType>;
  *
  * \return Shared pointer to UnknownType
  */
-inline UnknownTypePtr GetUnknownType() {
+inline UnknownTypePtr GetUnknownType()
+{
     static const auto unknownType = std::make_shared<UnknownType>();
     return unknownType;
 }
@@ -108,7 +109,8 @@ public:
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ScalarType; }
     [[nodiscard]] std::string TypeName() const override { return "ScalarType"; }
 
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Type::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ScalarType::dtype_, "dtype")));
     }
@@ -141,15 +143,18 @@ struct TileView {
      * \param startOffset Starting offset
      */
     TileView(std::vector<ExprPtr> validShapeIn, std::vector<ExprPtr> strideIn, ExprPtr startOffsetIn)
-        : validShape(std::move(validShapeIn)), stride(std::move(strideIn)), startOffset(std::move(startOffsetIn)) {}
+        : validShape(std::move(validShapeIn)), stride(std::move(strideIn)), startOffset(std::move(startOffsetIn))
+    {}
 
     /**
      * \brief Get field descriptors for reflection-based visitation
      *
      * \return Tuple of field descriptors
      */
-    static constexpr auto GetFieldDescriptors() {
-        return std::make_tuple(reflection::UsualField(&TileView::validShape, "valid_shape"),
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::make_tuple(
+            reflection::UsualField(&TileView::validShape, "valid_shape"),
             reflection::UsualField(&TileView::stride, "stride"),
             reflection::UsualField(&TileView::startOffset, "start_offset"));
     }
@@ -174,7 +179,8 @@ public:
      * \param shape Shape dimensions
      */
     ShapedType(DataType dtype, std::vector<ExprPtr> shape)
-        : dtype_(dtype), shape_(std::move(shape)), memref_(std::nullopt) {}
+        : dtype_(dtype), shape_(std::move(shape)), memref_(std::nullopt)
+    {}
 
     /**
      * \brief Create a shaped type with constant shape
@@ -182,7 +188,7 @@ public:
      * \param dtype Element data type
      * \param shape Shape dimensions
      */
-    ShapedType(DataType dtype, const std::vector<int64_t> &shape, std::optional<MemRefPtr> memref);
+    ShapedType(DataType dtype, const std::vector<int64_t>& shape, std::optional<MemRefPtr> memref);
 
     /**
      * \brief Create a shaped type with optional memory reference (shared_ptr)
@@ -192,14 +198,17 @@ public:
      * \param memref Optional memory reference (shared pointer)
      */
     ShapedType(DataType dtype, std::vector<ExprPtr> shape, std::optional<MemRefPtr> memref)
-        : dtype_(dtype), shape_(std::move(shape)), memref_(std::move(memref)) {}
+        : dtype_(dtype), shape_(std::move(shape)), memref_(std::move(memref))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ShapedType; }
     [[nodiscard]] std::string TypeName() const override { return "ShapedType"; }
 
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
-            Type::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ShapedType::dtype_, "dtype"),
+            Type::GetFieldDescriptors(), std::make_tuple(
+                                             reflection::UsualField(&ShapedType::dtype_, "dtype"),
                                              reflection::UsualField(&ShapedType::shape_, "shape"),
                                              reflection::UsualField(&ShapedType::memref_, "memref")));
     }
@@ -228,8 +237,9 @@ public:
      * \param shape Shape dimensions
      * \param dtype Element data type
      */
-    TensorType(const std::vector<int64_t> &shape, DataType dtype, std::optional<MemRefPtr> memref)
-        : ShapedType(dtype, shape, std::move(memref)) {}
+    TensorType(const std::vector<int64_t>& shape, DataType dtype, std::optional<MemRefPtr> memref)
+        : ShapedType(dtype, shape, std::move(memref))
+    {}
 
     /**
      * \brief Create a tensor type with optional memory reference (shared_ptr)
@@ -239,7 +249,8 @@ public:
      * \param memref Optional memory reference (shared pointer)
      */
     TensorType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref)
-        : ShapedType(dtype, std::move(shape), std::move(memref)) {}
+        : ShapedType(dtype, std::move(shape), std::move(memref))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TensorType; }
     [[nodiscard]] std::string TypeName() const override { return "TensorType"; }
@@ -266,8 +277,8 @@ public:
      * \param shape Shape dimensions (supports multi-dimensional tensors)
      * \param dtype Element data type
      */
-    TileType(std::vector<ExprPtr> shape, DataType dtype)
-        : ShapedType(dtype, std::move(shape)), tileView_(std::nullopt) {}
+    TileType(std::vector<ExprPtr> shape, DataType dtype) : ShapedType(dtype, std::move(shape)), tileView_(std::nullopt)
+    {}
 
     /**
      * \brief Create a tile type with optional memory reference (shared_ptr)
@@ -277,7 +288,8 @@ public:
      * \param memref Optional memory reference (shared pointer)
      */
     TileType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::nullopt) {
+        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::nullopt)
+    {
         // No dimension limit at type level; code generation may have constraints
     }
 
@@ -289,9 +301,11 @@ public:
      * \param memref Optional memory reference (shared pointer)
      * \param tileView Optional tile view information
      */
-    TileType(const std::vector<int64_t> &shape, DataType dtype, std::optional<MemRefPtr> memref,
+    TileType(
+        const std::vector<int64_t>& shape, DataType dtype, std::optional<MemRefPtr> memref,
         std::optional<TileView> tileView)
-        : ShapedType(dtype, shape, std::move(memref)), tileView_(std::move(tileView)) {}
+        : ShapedType(dtype, shape, std::move(memref)), tileView_(std::move(tileView))
+    {}
 
     /**
      * \brief Create a tile type with optional memory reference and tile view (shared_ptr)
@@ -303,13 +317,16 @@ public:
      */
     TileType(
         std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref, std::optional<TileView> tileView)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::move(tileView)) {}
+        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::move(tileView))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TileType; }
     [[nodiscard]] std::string TypeName() const override { return "TileType"; }
 
-    static constexpr auto GetFieldDescriptors() {
-        return std::tuple_cat(ShapedType::GetFieldDescriptors(),
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            ShapedType::GetFieldDescriptors(),
             std::make_tuple(reflection::UsualField(&TileType::tileView_, "tile_view")));
     }
 };
@@ -336,7 +353,8 @@ public:
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TupleType; }
     [[nodiscard]] std::string TypeName() const override { return "TupleType"; }
 
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Type::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&TupleType::types_, "types")));
     }
@@ -370,7 +388,8 @@ using MemRefTypePtr = std::shared_ptr<const MemRefType>;
  *
  * \return Shared pointer to MemRefType
  */
-inline MemRefTypePtr GetMemRefType() {
+inline MemRefTypePtr GetMemRefType()
+{
     static const auto memrefType = std::make_shared<MemRefType>();
     return memrefType;
 }

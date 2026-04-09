@@ -31,33 +31,28 @@ namespace npu::tile_fwk {
 
 class TestCodegenDynExpm1 : public ::testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynExpm1, TestDynOpExpm1) {
+TEST_F(TestCodegenDynExpm1, TestDynOpExpm1)
+{
     std::vector<int64_t> shape = {64, 64};
-    auto function = GenMockFuncDynUnary("TestDynOpExpm1", {shape}, [](Tensor &input, Tensor &output) {
-        output = Expm1(input);
-    });
+    auto function =
+        GenMockFuncDynUnary("TestDynOpExpm1", {shape}, [](Tensor& input, Tensor& output) { output = Expm1(input); });
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
@@ -69,7 +64,7 @@ TEST_F(TestCodegenDynExpm1, TestDynOpExpm1) {
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TExpm1(ubTensor_1, ubTensor_4, ubTensor_1);
+        R"!!!(TExpm1(ubTensor_0, ubTensor_3, ubTensor_0);
 )!!!";
     CheckStringExist(expect, res);
 }

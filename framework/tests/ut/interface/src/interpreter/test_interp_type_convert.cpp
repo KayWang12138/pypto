@@ -25,14 +25,15 @@
 namespace npu::tile_fwk {
 
 template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const T &val) {
+static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t>& shape, const T& val)
+{
     Tensor data(t, shape);
     return std::make_shared<LogicalTensorData>(RawTensorData::CreateConstantTensor(data, val));
 }
 
 template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape,
-                                           const std::vector<T> &vals) {
+static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t>& shape, const std::vector<T>& vals)
+{
     Tensor data(t, shape);
     return std::make_shared<LogicalTensorData>(RawTensorData::CreateTensor(data, vals));
 }
@@ -43,17 +44,19 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 #define ASSERT_ALLCLOSE_ATOL(lhs, rhs, atol) \
     ASSERT(calc::AllClose(lhs, rhs, atol, 1e-5)) << "lhs:\n" << lhs->ToString() << "\nrhs:\n" << rhs->ToString() << "\n"
 
-// Compare FP8 output with golden: Cast FP8 to FP32 first to avoid GetElement crash on FP8 (raw_tensor_data lacks FP8 support)
-#define ASSERT_FP8_ALLCLOSE_ATOL(fp8_out, golden, atol) \
-    do { \
+// Compare FP8 output with golden: Cast FP8 to FP32 first to avoid GetElement crash on FP8 (raw_tensor_data lacks FP8
+// support)
+#define ASSERT_FP8_ALLCLOSE_ATOL(fp8_out, golden, atol)                     \
+    do {                                                                    \
         auto _out_f32 = makeTensorData(DT_FP32, fp8_out->GetShape(), 0.0f); \
-        calc::Cast(_out_f32, fp8_out); \
-        ASSERT_ALLCLOSE_ATOL(_out_f32, golden, atol); \
+        calc::Cast(_out_f32, fp8_out);                                      \
+        ASSERT_ALLCLOSE_ATOL(_out_f32, golden, atol);                       \
     } while (0)
 
 class InterpTypeConvertTest : public testing::Test {
 public:
-    void SetUp() override {
+    void SetUp() override
+    {
         if (!calc::IsVerifyEnabled()) {
             GTEST_SKIP() << "Torch verifier not enabled, skip type conversion tests";
         }
@@ -62,7 +65,8 @@ public:
     }
 };
 
-TEST_F(InterpTypeConvertTest, Fp8SameBitsDifferentFormats) {
+TEST_F(InterpTypeConvertTest, Fp8SameBitsDifferentFormats)
+{
     // A few representative encodings with the *same* 8 bits across formats,
     // but interpreted differently by E4M3/E5M2/E8M0.
     //
@@ -91,7 +95,7 @@ TEST_F(InterpTypeConvertTest, Fp8SameBitsDifferentFormats) {
         {0xA0, -0.125f, -std::exp2(-7.0f), -std::exp2(-31.0f)},
     };
 
-    for (const auto &c : cases) {
+    for (const auto& c : cases) {
         auto e4m3_src = makeTensorData(DT_FP8E4M3, {4}, static_cast<uint8_t>(c.bits));
         auto e5m2_src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(c.bits));
         auto e8m0_src = makeTensorData(DT_FP8E8M0, {4}, static_cast<uint8_t>(c.bits));
@@ -114,7 +118,8 @@ TEST_F(InterpTypeConvertTest, Fp8SameBitsDifferentFormats) {
     }
 }
 
-TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats) {
+TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats)
+{
     // Encodings where E4M3/E5M2 see subnormals but E8M0 still sees normal powers of 2.
     //
     // 0x01 = 0000 0001:
@@ -137,12 +142,12 @@ TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats) {
         float expect_e5m2;
         float expect_e8m0;
     } cases[] = {
-        {0x01,  1.0f / 512.0f,   1.0f / 65536.0f,  std::exp2(-62.0f)},
-        {0x02,  2.0f / 512.0f,   2.0f / 65536.0f,  std::exp2(-61.0f)},
-        {0x81, -1.0f / 512.0f,  -1.0f / 65536.0f, -std::exp2(-62.0f)},
+        {0x01, 1.0f / 512.0f, 1.0f / 65536.0f, std::exp2(-62.0f)},
+        {0x02, 2.0f / 512.0f, 2.0f / 65536.0f, std::exp2(-61.0f)},
+        {0x81, -1.0f / 512.0f, -1.0f / 65536.0f, -std::exp2(-62.0f)},
     };
 
-    for (const auto &c : cases) {
+    for (const auto& c : cases) {
         auto e4m3_src = makeTensorData(DT_FP8E4M3, {4}, static_cast<uint8_t>(c.bits));
         auto e5m2_src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(c.bits));
         auto e8m0_src = makeTensorData(DT_FP8E8M0, {4}, static_cast<uint8_t>(c.bits));
@@ -167,7 +172,8 @@ TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats) {
 // ToOperand: Float32 -> FP8 encoding (used when writing calc results to FP8 storage).
 // Each operation: same binary input (0x55), verify for all three FP8 types. 0x55 decodes to:
 //   E4M3: 13.0,  E5M2: 80.0,  E8M0: 4194304
-TEST_F(InterpTypeConvertTest, Fp8ToOperand) {
+TEST_F(InterpTypeConvertTest, Fp8ToOperand)
+{
     constexpr uint8_t kBits = 0x55;
     const DataType fp8_types[] = {DT_FP8E4M3, DT_FP8E5M2, DT_FP8E8M0};
     const float golden_per_type[3] = {13.0f, 80.0f, 4194304.0f};
@@ -231,20 +237,17 @@ TEST_F(InterpTypeConvertTest, Fp8ToOperand) {
 }
 
 // FP8 E4M3 special values: +0(0x00), -0(0x80), +Max(0x7E), -Max(0xFE), Max alias(0x7F)
-TEST_F(InterpTypeConvertTest, Fp8E4M3SpecialValues) {
+TEST_F(InterpTypeConvertTest, Fp8E4M3SpecialValues)
+{
     struct {
         uint8_t enc;
         float expected;
         bool is_nan;
     } cases[] = {
-        {0x00, 0.0f, false},
-        {0x80, -0.0f, false},
-        {0x7E, 240.0f, false},
-        {0xFE, -240.0f, false},
-        {0x7F, 240.0f, false},
+        {0x00, 0.0f, false}, {0x80, -0.0f, false}, {0x7E, 240.0f, false}, {0xFE, -240.0f, false}, {0x7F, 240.0f, false},
     };
 
-    for (const auto &c : cases) {
+    for (const auto& c : cases) {
         auto src = makeTensorData(DT_FP8E4M3, {4}, static_cast<uint8_t>(c.enc));
         auto out = makeTensorData(DT_FP32, {4}, 0.0f);
         calc::Cast(out, src);
@@ -261,7 +264,8 @@ TEST_F(InterpTypeConvertTest, Fp8E4M3SpecialValues) {
 }
 
 // FP8 E5M2 special values: +0(0x00), -0(0x80), +Inf(0x7C), -Inf(0xFC), NaN(0x7F)
-TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
+TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues)
+{
     struct {
         uint8_t enc;
         float expected;
@@ -270,12 +274,12 @@ TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
     } cases[] = {
         {0x00, 0.0f, false, false},
         {0x80, -0.0f, false, false},
-        {0x7C, std::numeric_limits<float>::infinity(), false, true},   // +Inf
-        {0xFC, -std::numeric_limits<float>::infinity(), false, true},  // -Inf
-        {0x7F, 0.0f, true, false},                                     // NaN
+        {0x7C, std::numeric_limits<float>::infinity(), false, true},  // +Inf
+        {0xFC, -std::numeric_limits<float>::infinity(), false, true}, // -Inf
+        {0x7F, 0.0f, true, false},                                    // NaN
     };
 
-    for (const auto &c : cases) {
+    for (const auto& c : cases) {
         auto src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(c.enc));
         auto out = makeTensorData(DT_FP32, {4}, 0.0f);
         calc::Cast(out, src);
@@ -300,5 +304,4 @@ TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
         }
     }
 }
-}
-
+} // namespace npu::tile_fwk

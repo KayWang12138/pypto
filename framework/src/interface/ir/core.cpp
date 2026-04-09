@@ -22,15 +22,18 @@ Span::Span(std::string filename, int beginLine, int beginColumn, int endLine, in
       beginLine_(beginLine),
       beginColumn_(beginColumn),
       endLine_(endLine),
-      endColumn_(endColumn) {}
+      endColumn_(endColumn)
+{}
 
-std::string Span::ToString() const {
+std::string Span::ToString() const
+{
     std::ostringstream oss;
     oss << filename_ << ":" << beginLine_ << ":" << beginColumn_;
     return oss.str();
 }
 
-bool Span::IsValid() const {
+bool Span::IsValid() const
+{
     if (beginLine_ <= 0 || (beginColumn_ <= 0 && beginColumn_ != -1)) {
         return false;
     }
@@ -46,9 +49,7 @@ bool Span::IsValid() const {
     return endLine_ >= beginLine_ && (endLine_ > beginLine_ || endColumn_ >= beginColumn_);
 }
 
-Span Span::Unknown() {
-    return Span("", -1, -1, -1, -1);
-}
+Span Span::Unknown() { return Span("", -1, -1, -1, -1); }
 
 } // namespace ir
 } // namespace pypto

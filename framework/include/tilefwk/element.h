@@ -35,7 +35,8 @@ public:
     int64_t GetSignedData() const { return data_.sData; }
     uint64_t GetUnsignedData() const { return data_.uData; }
     double GetFloatData() const { return data_.fData; }
-    std::variant<int64_t, uint64_t, double> GetVariantData() const {
+    std::variant<int64_t, uint64_t, double> GetVariantData() const
+    {
         if (IsSigned()) {
             return static_cast<int64_t>(data_.sData);
         } else if (IsUnsigned()) {
@@ -47,31 +48,34 @@ public:
         return int64_t(0);
     }
 
-    bool IsSigned() const {
-        return type_ == DT_INT4 || type_ == DT_INT8 || type_ == DT_INT16 || type_ == DT_INT32 ||
-               type_ == DT_INT64 || type_ == DT_BOOL;
+    bool IsSigned() const
+    {
+        return type_ == DT_INT4 || type_ == DT_INT8 || type_ == DT_INT16 || type_ == DT_INT32 || type_ == DT_INT64 ||
+               type_ == DT_BOOL;
     }
-    bool IsUnsigned() const {
+    bool IsUnsigned() const
+    {
         return type_ == DT_UINT8 || type_ == DT_UINT16 || type_ == DT_UINT32 || type_ == DT_UINT64;
     }
-    bool IsFloat() const {
-        return type_ == DT_FP8 || type_ == DT_FP16 || type_ == DT_FP32 || type_ == DT_BF16 ||
-               type_ == DT_HF4 || type_ == DT_HF8 || type_ == DT_DOUBLE;
+    bool IsFloat() const
+    {
+        return type_ == DT_FP8 || type_ == DT_FP16 || type_ == DT_FP32 || type_ == DT_BF16 || type_ == DT_HF4 ||
+               type_ == DT_HF8 || type_ == DT_DOUBLE;
     }
 
     template <typename T>
     T Cast() const;
-    Element operator+(const Element &rhs) const;
-    Element operator-(const Element &rhs) const;
-    Element operator*(const Element &rhs) const;
-    Element operator/(const Element &rhs) const;
-    Element operator%(const Element &rhs) const;
-    bool operator==(const Element &rhs) const;
-    bool operator!=(const Element &rhs) const;
-    bool operator<(const Element &rhs) const;
-    bool operator<=(const Element &rhs) const;
-    bool operator>(const Element &rhs) const;
-    bool operator>=(const Element &rhs) const;
+    Element operator+(const Element& rhs) const;
+    Element operator-(const Element& rhs) const;
+    Element operator*(const Element& rhs) const;
+    Element operator/(const Element& rhs) const;
+    Element operator%(const Element& rhs) const;
+    bool operator==(const Element& rhs) const;
+    bool operator!=(const Element& rhs) const;
+    bool operator<(const Element& rhs) const;
+    bool operator<=(const Element& rhs) const;
+    bool operator>(const Element& rhs) const;
+    bool operator>=(const Element& rhs) const;
 
     uint64_t Abs(uint64_t value1, uint64_t value2) const;
     int64_t Abs(int64_t value1, int64_t value2) const;
@@ -79,7 +83,8 @@ public:
 
 private:
     template <typename T>
-    void Init(DataType type, T value) {
+    void Init(DataType type, T value)
+    {
         type_ = type;
         if (IsSigned()) {
             data_.sData = static_cast<int64_t>(value);

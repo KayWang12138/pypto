@@ -359,7 +359,7 @@ docker exec -it pypto_x86a3 /bin/bash
     ```
       # 从PyPI源下载并安装
       python3 -m pip install pypto
-   ```   
+   ```
 
 3. **验证**
 

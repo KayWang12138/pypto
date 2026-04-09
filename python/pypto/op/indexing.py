@@ -106,7 +106,7 @@ def index_put_(
     input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False
     ) -> None:
     """
-    Puts values from the tensor `values` into the tensor `input` using the 
+    Puts values from the tensor `values` into the tensor `input` using the
     indices specified in `indices`(which is a tuple of Tensors).
 
     With different numbers of tensors in indices, this function specified output as:
@@ -119,12 +119,12 @@ def index_put_(
     input : Tensor
         Source tensor that needs to be updated in place.
     indices : a tuple of 1-dimensional Tensor(s)
-        The i-th 1-dimensional tensor represents the index along the 
-        i-th dimension in `input`, with a dtype of either int64 or int32. 
+        The i-th 1-dimensional tensor represents the index along the
+        i-th dimension in `input`, with a dtype of either int64 or int32.
         Broadcasting is not currently supported, and each 1-dimensional
         tensor must have the same length.
     values : Tensor
-        Tensor of the same dtype as self. Broadcasting is not currently 
+        Tensor of the same dtype as self. Broadcasting is not currently
         supported. The size of the first dimension of `values` must be
         the same as the length of the 1-dimensional tensors in `indices`.
         All other dimensions must match `input`.
@@ -232,7 +232,7 @@ def index_select(input: Tensor, dim: int, index: Tensor) -> Tensor:
 
     Output shape
     out.shape = (S₀,…,S_{dim-1}, I₀,…,I_{m-1}, S_{dim+1},…,S_{n-1}).
-    That is, the dimension `S_dim` in `param` is replaced by the full shape of `indices`, 
+    That is, the dimension `S_dim` in `param` is replaced by the full shape of `indices`,
     while all other dimensions of `param` are preserved.
 
     For any multi-indices
@@ -443,7 +443,7 @@ def scatter_(
     RuntimeError
         If the dimension of 'index' is not equal to the dimension of 'input'.
         If the index.size(d) > input.size(d)
-        If the index.size(d) > src.size(d) when src is Tensor and d != dim 
+        If the index.size(d) > src.size(d) when src is Tensor and d != dim
         If the value of 'input[i][j][k]' is bigger than the shape size of the dimension of 'input'.
 
     See Also
@@ -505,9 +505,9 @@ def scatter(
 @op_wrapper
 def gathermask(self: Tensor, pattern_mode: int) -> Tensor:
     """
-    Based on the built-in Mask selected by PatternMode, 
-    the positions in the self Tensor where the corresponding Bit is 1 form the output Tensor, 
-    and the values where the Bit is 0 are directly discarded. 
+    Based on the built-in Mask selected by PatternMode,
+    the positions in the self Tensor where the corresponding Bit is 1 form the output Tensor,
+    and the values where the Bit is 0 are directly discarded.
     There are 7 modes for PatternMode:
     - PatternMode=1: Take the first element of every two elements in the last axis.
     - PatternMode=2: Take the second element of every two elements in the last axis.
@@ -527,10 +527,10 @@ def gathermask(self: Tensor, pattern_mode: int) -> Tensor:
     Returns
     -------
     Tensor
-        A new tensor, with the same dtype as `self`, and the Shape of the output Tensor is as follows: 
-        - pattern_mode <= 2, the output shape's trailing axis is self.shape's trailing axis / 2, 
+        A new tensor, with the same dtype as `self`, and the Shape of the output Tensor is as follows:
+        - pattern_mode <= 2, the output shape's trailing axis is self.shape's trailing axis / 2,
             while other axes match the self shape.
-        - When 2 < pattern_mode < 7, the output shape's trailing axis is self.shape's trailing axis divided by 4, 
+        - When 2 < pattern_mode < 7, the output shape's trailing axis is self.shape's trailing axis divided by 4,
             while other axes remain consistent with the self shape.
         - pattern_mode = 7, output shape = self shape.
     Raises

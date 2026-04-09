@@ -23,14 +23,16 @@
 
 struct RuntimeDataTest : UnitTestBase {};
 
-TEST_F(RuntimeDataTest, AllocateDeallocate) {
+TEST_F(RuntimeDataTest, AllocateDeallocate)
+{
     const uint64_t rawSize = 0xf;
     const uint64_t size = 0x10;
     const uint64_t count = 0x4;
-    EXPECT_EQ(sizeof(RuntimeDataRingBufferHead) + size * count, RuntimeDataRingBufferHead::GetRingBufferSize(rawSize, count));
+    EXPECT_EQ(
+        sizeof(RuntimeDataRingBufferHead) + size * count, RuntimeDataRingBufferHead::GetRingBufferSize(rawSize, count));
 
     std::vector<uint8_t> buf(rawSize + sizeof(RuntimeDataRingBufferHead));
-    auto &head = *reinterpret_cast<RuntimeDataRingBufferHead*>(buf.data());
+    auto& head = *reinterpret_cast<RuntimeDataRingBufferHead*>(buf.data());
     head.Initialize(rawSize, count);
     EXPECT_EQ(head.Allocate(), head.GetRuntimeData() + size);
     EXPECT_EQ(0x1, head.GetIndexPending());
@@ -52,19 +54,20 @@ TEST_F(RuntimeDataTest, AllocateDeallocate) {
     EXPECT_EQ(0x6, head.GetIndexPending());
 }
 
-TEST_F(RuntimeDataTest, FullAndAllocate) {
+TEST_F(RuntimeDataTest, FullAndAllocate)
+{
     const uint64_t size = 0x10;
     const uint64_t count = 0x2;
 
     std::vector<uint8_t> buf(size + sizeof(RuntimeDataRingBufferHead));
-    auto &head = *reinterpret_cast<RuntimeDataRingBufferHead*>(buf.data());
+    auto& head = *reinterpret_cast<RuntimeDataRingBufferHead*>(buf.data());
     head.Initialize(size, count);
     EXPECT_EQ(head.Allocate(), head.GetRuntimeData(0x1));
     EXPECT_EQ(0x1, head.GetIndexPending());
     EXPECT_EQ(head.Allocate(), head.GetRuntimeData(0x0));
     EXPECT_EQ(0x2, head.GetIndexPending());
 
-    std::thread th([&head](){
+    std::thread th([&head]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         head.Deallocate(head.GetRuntimeData(0x1));
     });

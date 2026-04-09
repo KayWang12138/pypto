@@ -38,7 +38,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputShapeDimSize) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputShapeDimSize)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {0};
     std::vector<int64_t> shape = {2, 3, 4};
@@ -50,7 +51,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputShapeDimSi
     EXPECT_EQ(ret, 3);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputShapeDim) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputShapeDim)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {0, 1};
     std::vector<int64_t> shape = {2, 3, 4};
@@ -62,70 +64,45 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputShapeDim) 
     EXPECT_EQ(ret, 3);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim1) {
+template <typename T>
+void testGetInputData(DataType dtype, int dim)
+{
     EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {5};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
+    std::vector<int64_t> shape(dim, 5);
+    auto rawData = std::make_shared<RawTensorData>(dtype, shape);
     for (int i = 0; i < 5; i++) {
-        rawData->Get<int32_t>(i) = i * 10;
+        rawData->Get<T>(i) = i * 10;
     }
     auto tensorData = std::make_shared<LogicalTensorData>(rawData);
     std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
     evaluator.InitInputDataViewList(inputList);
 
-    std::vector<ScalarImmediateType> dataList = {0, 2};
-    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim1", dataList, {});
+    std::vector<ScalarImmediateType> dataList = {0, (int64_t)dtype};
+    for (int i = 0; i < dim - 1; i++) {
+        dataList.emplace_back(0);
+    }
+    dataList.emplace_back(2);
+    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputData", dataList, {});
     EXPECT_EQ(ret, 20);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim2) {
-    EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {3, 4};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
-    for (int i = 0; i < 12; i++) {
-        rawData->Get<int32_t>(i) = i * 5;
+TEST_F(TestSymbolicScalarEvaluate, GetInputData)
+{
+    for (auto dim = 1; dim < 5; dim++) {
+        testGetInputData<int8_t>(DT_BOOL, dim);
+        testGetInputData<int8_t>(DT_INT8, dim);
+        testGetInputData<int16_t>(DT_INT16, dim);
+        testGetInputData<int32_t>(DT_INT32, dim);
+        testGetInputData<int64_t>(DT_INT64, dim);
+        testGetInputData<uint8_t>(DT_UINT8, dim);
+        testGetInputData<uint16_t>(DT_UINT16, dim);
+        testGetInputData<uint32_t>(DT_UINT32, dim);
+        testGetInputData<uint64_t>(DT_UINT64, dim);
     }
-    auto tensorData = std::make_shared<LogicalTensorData>(rawData);
-    std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
-    evaluator.InitInputDataViewList(inputList);
-
-    std::vector<ScalarImmediateType> dataParams = {0, 1, 2};
-    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim2", dataParams, {});
-    EXPECT_EQ(ret, 30);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3) {
-    EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {2, 2, 2};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
-    for (int i = 0; i < 8; i++) {
-        rawData->Get<int32_t>(i) = i * 3;
-    }
-    auto tensorData = std::make_shared<LogicalTensorData>(rawData);
-    std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
-    evaluator.InitInputDataViewList(inputList);
-
-    std::vector<ScalarImmediateType> dataParams = {0, 1, 0, 1};
-    auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim3", dataParams, {});
-    EXPECT_EQ(ret, 15);
-}
-
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetInputDataInt32Dim4) {
-    EvaluateSymbol evaluator;
-    std::vector<int64_t> shape = {2, 2, 2, 2};
-    auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
-    for (int i = 0; i < 16; i++) {
-        rawData->Get<int32_t>(i) = i * 2;
-    }
-    auto tensorData = std::make_shared<LogicalTensorData>(rawData);
-    std::vector<std::shared_ptr<LogicalTensorData>> inputList = {tensorData};
-    evaluator.InitInputDataViewList(inputList);
-
-    std::vector<ScalarImmediateType> dataParams = {0, 1, 0, 1, 0};
-    EXPECT_THROW(evaluator.EvaluateSymbolicCall("RUNTIME_GetInputDataInt32Dim4", dataParams, {}), std::exception);
-}
-
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeIsLoopBegin) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeIsLoopBegin)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {5, 5};
     auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_IsLoopBegin", dataList, {});
@@ -136,7 +113,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeIsLoopBegin) {
     EXPECT_EQ(ret, 0);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeIsLoopEnd) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeIsLoopEnd)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {10, 10};
     auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_IsLoopEnd", dataList, {});
@@ -147,7 +125,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeIsLoopEnd) {
     EXPECT_EQ(ret, 0);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetViewValidShapeDim) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetViewValidShapeDim)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {10, 2, 8};
     auto ret = evaluator.EvaluateSymbolicCall("RUNTIME_GetViewValidShapeDim", dataList, {});
@@ -158,7 +137,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetViewValidShapeD
     EXPECT_EQ(ret, 3);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt)
+{
     EvaluateSymbol evaluator;
     std::vector<int64_t> shape = {1};
     auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
@@ -173,7 +153,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt) 
     EXPECT_EQ(ret, 0);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim1) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim1)
+{
     EvaluateSymbol evaluator;
     std::vector<int64_t> shape = {5};
     auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
@@ -191,7 +172,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32
     EXPECT_EQ(ret, 0);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim2) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim2)
+{
     EvaluateSymbol evaluator;
     std::vector<int64_t> shape = {3, 4};
     auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
@@ -209,7 +191,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32
     EXPECT_EQ(ret, 0);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3)
+{
     EvaluateSymbol evaluator;
     std::vector<int64_t> shape = {2, 2, 2};
     auto rawData = std::make_shared<RawTensorData>(DataType::DT_INT32, shape);
@@ -227,7 +210,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeGetTensorDataInt32
     EXPECT_EQ(ret, 0);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeCoaGetValidShape) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeCoaGetValidShape)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {0, 1, 2};
     SymbolicScalar ss1(10);
@@ -241,7 +225,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeCoaGetValidShape) 
     EXPECT_EQ(ret, 50);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeCoaGetOffset) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeCoaGetOffset)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {0, 1, 1};
     SymbolicScalar ss1(100);
@@ -253,20 +238,23 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallRuntimeCoaGetOffset) {
     EXPECT_EQ(ret, 400);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallInvalid) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicCallInvalid)
+{
     EvaluateSymbol evaluator;
     std::vector<ScalarImmediateType> dataList = {1, 2};
     EXPECT_THROW(evaluator.EvaluateSymbolicCall("INVALID_CALL", dataList, {}), std::exception);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarImmediate) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarImmediate)
+{
     EvaluateSymbol evaluator;
     SymbolicScalar ss(42);
     auto ret = evaluator.EvaluateSymbolicScalar(ss);
     EXPECT_EQ(ret, 42);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarSymbol) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarSymbol)
+{
     EvaluateSymbol evaluator;
     SymbolicScalar ss("test_symbol");
     evaluator.UpdateSymbolDict("test_symbol", 99);
@@ -274,7 +262,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarSymbol) {
     EXPECT_EQ(ret, 99);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionUnary) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionUnary)
+{
     EvaluateSymbol evaluator;
     SymbolicScalar ss(10);
     SymbolicScalar neg = ss.Neg();
@@ -282,7 +271,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionUnary) {
     EXPECT_EQ(ret, -10);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionBinary) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionBinary)
+{
     EvaluateSymbol evaluator;
     SymbolicScalar ss1(5);
     SymbolicScalar ss2(3);
@@ -291,7 +281,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionBinary) {
     EXPECT_EQ(ret, 8);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionMultipleMax) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionMultipleMax)
+{
     EvaluateSymbol evaluator;
     SymbolicScalar ss1(10);
     SymbolicScalar ss2(20);
@@ -301,7 +292,8 @@ TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionMultipleMax) 
     EXPECT_EQ(ret, 20);
 }
 
-TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionMultipleMin) {
+TEST_F(TestSymbolicScalarEvaluate, EvaluateSymbolicScalarExpressionMultipleMin)
+{
     EvaluateSymbol evaluator;
     SymbolicScalar ss1(10);
     SymbolicScalar ss2(20);

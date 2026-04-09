@@ -41,4 +41,3 @@ out = t.dtype
 ```python
 输出数据out: DataType.DT_FP32
 ```
-

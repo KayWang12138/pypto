@@ -22,11 +22,12 @@
 namespace pypto {
 namespace ir {
 
-MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span) : Expr(std::move(span)), elements_(std::move(elements)) {
+MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span) : Expr(std::move(span)), elements_(std::move(elements))
+{
     // Collect types from all element expressions
     std::vector<TypePtr> elementTypes;
     elementTypes.reserve(elements_.size());
-    for (const auto &elem : elements_) {
+    for (const auto& elem : elements_) {
         elementTypes.push_back(elem->GetType());
     }
 
@@ -35,7 +36,8 @@ MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span) : Expr(std::move(
 }
 
 TupleGetItemExpr::TupleGetItemExpr(ExprPtr tuple, int index, Span span)
-    : Expr(std::move(span)), tuple_(std::move(tuple)), index_(index) {
+    : Expr(std::move(span)), tuple_(std::move(tuple)), index_(index)
+{
     // Type checking: tuple must have TupleType
     auto tupleType = As<TupleType>(tuple_->GetType());
     INTERNAL_CHECK(tupleType) << "TupleGetItemExpr requires tuple to have TupleType, got "

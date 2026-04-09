@@ -30,7 +30,8 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicIndexerTopk : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -38,16 +39,16 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(
-    Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
     return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
-void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
-
+void TestLightningIndexerTopkQuant(IndexerTile& tileConfig)
+{
     int paramsSize = 9;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", input_param);
@@ -110,10 +111,11 @@ void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
     // std::vector<RawTensorDataPtr> outputDataList = {topkResData, tmpData};
     std::vector<RawTensorDataPtr> outputDataList = {topkResData, tmpData, topkValueData};
 
-    FUNCTION("IndexerTopk", {query, key, qScale, kScale, weights, actSeq, blockTable}, {topkRes, tmpOut, topkValue}) {
-        LightningIndexerTopkImpl(query, key, true, &qScale, &kScale,
-            weights, actSeq, blockTable, topkRes, selectedCount, tileConfig, unrollList,
-            &tmpOut, &topkValue);
+    FUNCTION("IndexerTopk", {query, key, qScale, kScale, weights, actSeq, blockTable}, {topkRes, tmpOut, topkValue})
+    {
+        LightningIndexerTopkImpl(
+            query, key, true, &qScale, &kScale, weights, actSeq, blockTable, topkRes, selectedCount, tileConfig,
+            unrollList, &tmpOut, &topkValue);
     }
 
     DevFuncRunner::Run(
@@ -122,13 +124,14 @@ void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
     constexpr int TOPK_COUNT = 100;
     constexpr float ratio = 5e-3f;
     std::cout << "=======================topkValue===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(topkValueGolden, (float *)topkValueData->data(), PRE_TAIL, 0, TOPK_COUNT, false, true));
+    EXPECT_TRUE(resultCmp(topkValueGolden, (float*)topkValueData->data(), PRE_TAIL, 0, TOPK_COUNT, false, true));
     std::cout << "=======================topkRes===============================" << std::endl;
-    EXPECT_TRUE(resultCmp4TopK(topkResGolden, (int32_t *)topkResData->data(), selectedCount, ratio));
+    EXPECT_TRUE(resultCmp4TopK(topkResGolden, (int32_t*)topkResData->data(), selectedCount, ratio));
 }
 
 // DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2
-TEST_F(DynamicIndexerTopk, indexer_topk_quant_4_b_1_s1_64k_s2) {
+TEST_F(DynamicIndexerTopk, indexer_topk_quant_4_b_1_s1_64k_s2)
+{
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024); // mistake
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024 * 1024);
@@ -136,7 +139,7 @@ TEST_F(DynamicIndexerTopk, indexer_topk_quant_4_b_1_s1_64k_s2) {
     config::SetPassOption(SG_PARALLEL_NUM, 2);
     config::SetRuntimeOption<uint8_t>(
         DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
-                            static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
+                               static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
 
     config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 128);
     config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 128);

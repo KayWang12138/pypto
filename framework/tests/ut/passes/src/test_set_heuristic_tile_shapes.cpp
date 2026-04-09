@@ -37,7 +37,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -46,10 +47,12 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestSetHeuristicTileShapes, TestCube) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+TEST_F(TestSetHeuristicTileShapes, TestCube)
+{
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     // Prepare the graph
     std::vector<int64_t> inputAShape = {64, 128};
     std::vector<int64_t> inputBShape = {128, 64};
@@ -71,10 +74,12 @@ TEST_F(TestSetHeuristicTileShapes, TestCube) {
     EXPECT_EQ(status, SUCCESS);
 }
 
-TEST_F(TestSetHeuristicTileShapes, TestVector) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+TEST_F(TestSetHeuristicTileShapes, TestVector)
+{
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     // Prepare the graph
     std::vector<int64_t> inputShape = {32, 8, 8};
     std::vector<int64_t> reshapeShape = {32, 64};
@@ -94,7 +99,7 @@ TEST_F(TestSetHeuristicTileShapes, TestVector) {
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor2}, {ubTensor3});
     currFunctionPtr->AddOperation(Opcode::OP_ROWMAX, {ubTensor3}, {ubTensor4});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor4}, {ubTensor5});
-    auto &transpose = currFunctionPtr->AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {ubTensor5}, {ubTensor6});
+    auto& transpose = currFunctionPtr->AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {ubTensor5}, {ubTensor6});
     transpose.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{1, 0});
     currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor6}, {outCast});
 
@@ -107,11 +112,12 @@ TEST_F(TestSetHeuristicTileShapes, TestVector) {
     EXPECT_EQ(status, SUCCESS);
 }
 
-
-TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel)
+{
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     // Prepare the graph
     std::vector<int64_t> inputAShape = {64, 128};
     std::vector<int64_t> inputBShape = {128, 64};
@@ -122,11 +128,11 @@ TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
     auto outputC = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputCShape);
 
     currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
-    
-    std::shared_ptr<SemanticLabel> label = std::make_shared<SemanticLabel>("test", "test", 10);
-    std::cout<<currFunctionPtr->GetSortedOperations().size()<<std::endl;
 
-    for(auto &op: currFunctionPtr->GetSortedOperations()){
+    std::shared_ptr<SemanticLabel> label = std::make_shared<SemanticLabel>("test", "test", 10);
+    std::cout << currFunctionPtr->GetSortedOperations().size() << std::endl;
+
+    for (auto& op : currFunctionPtr->GetSortedOperations()) {
         op->SetSemanticLabel(label);
     }
 
@@ -140,10 +146,12 @@ TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
     EXPECT_EQ(status, SUCCESS);
 }
 
-TEST_F(TestSetHeuristicTileShapes, TestPythonJsonGeneration) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+TEST_F(TestSetHeuristicTileShapes, TestPythonJsonGeneration)
+{
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     // Prepare the graph
     std::vector<int64_t> inputAShape = {64, 128};
     std::vector<int64_t> inputBShape = {128, 64};
@@ -159,17 +167,14 @@ TEST_F(TestSetHeuristicTileShapes, TestPythonJsonGeneration) {
     auto& add_op = currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
     add_op.tileShape_.SetCubeTile({64, 64}, {64, 64}, {64, 64});
 
-        
     currFunctionPtr->inCasts_.push_back(inputA);
     currFunctionPtr->inCasts_.push_back(inputB);
     currFunctionPtr->outCasts_.push_back(outputC);
-    
+
     // Run the pass
     SetHeuristicTileShapes setHeuristicTileShapes;
     auto status = setHeuristicTileShapes.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 }
 
-
-
-} // namespace acend
+} // namespace npu::tile_fwk

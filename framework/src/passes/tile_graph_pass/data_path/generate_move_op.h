@@ -29,48 +29,51 @@ namespace npu::tile_fwk {
 key：vector of pair,每个pair记录convert op的from和to的内存类型
 value：Opcode类型
 */
-const std::map<std::pair<MemoryType, MemoryType>,Opcode> platformPathMap = {
-    {{MEM_DEVICE_DDR, MEM_L1},Opcode::OP_COPY_IN},
-    {{MEM_DEVICE_DDR, MEM_UB},Opcode::OP_COPY_IN},
-    {{MEM_L1, MEM_L0A},Opcode::OP_L1_TO_L0A},
-    {{MEM_L1, MEM_L0B},Opcode::OP_L1_TO_L0B},
-    {{MEM_L0C, MEM_DEVICE_DDR},Opcode::OP_COPY_OUT},
-    {{MEM_UB, MEM_DEVICE_DDR},Opcode::OP_COPY_OUT},
-    {{MEM_L0C, MEM_L1},Opcode::OP_L0C_TO_L1},
-    {{MEM_L1, MEM_BT},Opcode::OP_L1_TO_BT},
-    {{MEM_L1, MEM_FIX_QUANT_PRE},Opcode::OP_L1_TO_FIX_QUANT_PRE},
-    {{MEM_L0C, MEM_UB},Opcode::OP_L0C_COPY_UB},
-    {{MEM_UB, MEM_L1},Opcode::OP_UB_COPY_L1},
-    {{MEM_L1, MEM_L0AMX},Opcode::OP_L1_TO_L0A_SCALE},
-    {{MEM_L1, MEM_L0BMX},Opcode::OP_L1_TO_L0B_SCALE},
+const std::map<std::pair<MemoryType, MemoryType>, Opcode> platformPathMap = {
+    {{MEM_DEVICE_DDR, MEM_L1}, Opcode::OP_COPY_IN},
+    {{MEM_DEVICE_DDR, MEM_UB}, Opcode::OP_COPY_IN},
+    {{MEM_L1, MEM_L0A}, Opcode::OP_L1_TO_L0A},
+    {{MEM_L1, MEM_L0B}, Opcode::OP_L1_TO_L0B},
+    {{MEM_L0C, MEM_DEVICE_DDR}, Opcode::OP_COPY_OUT},
+    {{MEM_UB, MEM_DEVICE_DDR}, Opcode::OP_COPY_OUT},
+    {{MEM_L0C, MEM_L1}, Opcode::OP_L0C_TO_L1},
+    {{MEM_L1, MEM_BT}, Opcode::OP_L1_TO_BT},
+    {{MEM_L1, MEM_FIX_QUANT_PRE}, Opcode::OP_L1_TO_FIX_QUANT_PRE},
+    {{MEM_L0C, MEM_UB}, Opcode::OP_L0C_COPY_UB},
+    {{MEM_UB, MEM_L1}, Opcode::OP_UB_COPY_L1},
+    {{MEM_L1, MEM_L0AMX}, Opcode::OP_L1_TO_L0A_SCALE},
+    {{MEM_L1, MEM_L0BMX}, Opcode::OP_L1_TO_L0B_SCALE},
 };
 
 class GenerateMoveOp : public Pass {
 public:
     GenerateMoveOp() : Pass("GenerateMoveOp") {}
     ~GenerateMoveOp() override = default;
+
 private:
-    Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
-    Status CreateMoveOp(Function &function) const;
-    void SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute) const;
-    void SetL0C2L1CopyAttr(Operation &op, const Shape &realShape, const std::vector<OpImmediate> &fromOffset, const std::vector<OpImmediate> &toOffset) const;
-    Status SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const;
-    bool HasSpecificConsumer(const Operation &op) const;
-    void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    Status A23CreateMoveOpForView(Function &function, Operation &op) const;
-    Status A5CreateMoveOpForView(Function &function, Operation &op) const;
-    Status ProcessGmInput(bool &isGmOutput, Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    Status ProcessL0A(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    Status ProcessL0B(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    Status ProcessL0AMX(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    Status ProcessL0BMX(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    Status ProcessDefault(Function &function, Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    void CreateMoveOpForAssemble(Operation &op) const;
-    Status CreateMoveOpForConvert(Function &function, Operation &op) const;
-    void ProcessUB2L1(Function &function, Operation &op) const;
+    Status PreCheck(Function& function) override;
+    Status PostCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
+    Status CreateMoveOp(Function& function) const;
+    void SetCopyAttr(Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    void SetL0C2L1CopyAttr(
+        Operation& op, const Shape& realShape, const std::vector<OpImmediate>& fromOffset,
+        const std::vector<OpImmediate>& toOffset) const;
+    Status SetOpcodeByMemPath(Operation& op, MemoryType from, MemoryType to) const;
+    bool HasSpecificConsumer(const Operation& op) const;
+    void ConvertViewToCopyInWhenInputGm(Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    Status A23CreateMoveOpForView(Function& function, Operation& op) const;
+    Status A5CreateMoveOpForView(Function& function, Operation& op) const;
+    Status ProcessGmInput(bool& isGmOutput, Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    Status ProcessL0A(Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    Status ProcessL0B(Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    Status ProcessL0AMX(Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    Status ProcessL0BMX(Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    Status ProcessDefault(Function& function, Operation& op, ViewOpAttribute* viewOpAttribute) const;
+    void CreateMoveOpForAssemble(Operation& op) const;
+    Status CreateMoveOpForConvert(Function& function, Operation& op) const;
+    void ProcessUB2L1(Function& function, Operation& op) const;
     static int64_t PadUB(int64_t dim, int64_t padValue);
 };
-}
+} // namespace npu::tile_fwk
 #endif // PASS_GENERATE_MOVE_OP_H_

@@ -35,16 +35,16 @@ def test_prelu_onboard():
 
     b_loop_num = math.ceil(shape[0] / view_shape[0])
     s_loop_num = math.ceil(shape[1] / view_shape[1])
-    
+
     with pypto.function("MAIN", input1, weight, output):
         for b_idx in pypto.loop(b_loop_num, name="b0", idx_name="bidx"):
             for s_idx in pypto.loop(s_loop_num, name="s0", idx_name="sidx"):
                 offset_x = b_idx * view_shape[0]
                 offset_y = s_idx * view_shape[1]
-                
-                valid_shape_x = pypto.min(pypto.symbolic_scalar(shape[0]) - offset_x, 
+
+                valid_shape_x = pypto.min(pypto.symbolic_scalar(shape[0]) - offset_x,
                                           pypto.symbolic_scalar(view_shape[0]))
-                valid_shape_y = pypto.min(pypto.symbolic_scalar(shape[1]) - offset_y, 
+                valid_shape_y = pypto.min(pypto.symbolic_scalar(shape[1]) - offset_y,
                                           pypto.symbolic_scalar(view_shape[1]))
                 view_tensor_a = pypto.view(input1, view_shape,
                                            [offset_x, offset_y],
@@ -53,7 +53,7 @@ def test_prelu_onboard():
                 view_tensor_weight = pypto.view(weight, (view_shape[1],),
                                                 [offset_y, ],
                                                 valid_shape=[weight_valid_shape, ])
-                
+
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
                 res = pypto.prelu(view_tensor_a, view_tensor_weight)
                 pypto.assemble(res, [offset_x, offset_y], output)
@@ -67,9 +67,9 @@ def test_prelu_onboard():
     pto_weight_tensor = pypto.from_torch(weight_tensor, "PTO_TENSOR_weight")
     pto_out_tensor = pypto.from_torch(out_tensor, "PTO_TENSOR_output")
     pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_weight_tensor, pto_out_tensor)
-    
+
     golden = torch.where(a_tensor >= 0, a_tensor, weight_tensor * a_tensor)
-    
+
     assert_allclose(out_tensor.flatten(), golden.flatten(), rtol=1e-3, atol=1e-3)
-    
+
     pypto.runtime._device_fini()

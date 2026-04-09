@@ -17,15 +17,20 @@
 #include <queue>
 #include <set>
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
+
 #define MODULE_NAME "InferDiscontinuousInputChecker"
 
 namespace npu {
 namespace tile_fwk {
-std::unordered_set<Opcode> inplaceNodes{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
+std::unordered_set<Opcode> inplaceNodes{
+    Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_RESHAPE, Opcode::OP_INDEX_OUTCAST};
 
-Status checkAssemble(const std::unordered_map<LogicalTensorPtr, int64_t> &tensorMap,
-    const std::unordered_map<LogicalTensorPtr, std::pair<Offset, Offset>> &offsetMap,
-    std::unordered_map<int64_t, int64_t> &rawTensorSize) {
+Status checkAssemble(
+    const std::unordered_map<LogicalTensorPtr, int64_t>& tensorMap,
+    const std::unordered_map<LogicalTensorPtr, std::pair<Offset, Offset>>& offsetMap,
+    std::unordered_map<int64_t, int64_t>& rawTensorSize)
+{
     std::unordered_map<int, Offset> rawMagicToRawOffset;
     for (auto [logicTensor, rawMagic] : tensorMap) {
         auto shape = logicTensor->GetShape();
@@ -40,23 +45,24 @@ Status checkAssemble(const std::unordered_map<LogicalTensorPtr, int64_t> &tensor
         if (rawMagicToRawOffset.find(rawMagic) == rawMagicToRawOffset.end()) {
             rawMagicToRawOffset[rawMagic] = rawOffset;
         } else if (rawMagicToRawOffset[rawMagic] != rawOffset) {
-            APASS_LOG_ERROR_F(Elements::Tensor,
+            APASS_LOG_ERROR_C(TensorErr::TENSOR_SHAPE_MISMATCH, Elements::Operation,
                 "LogicTensor(%d) relative position to rawTensor(%ld) changed after the assemble op.",
                 logicTensor->GetMagic(), static_cast<long>(rawMagic));
             return FAILED;
         }
     }
-    for (auto &[rawMagic, shape] : rawTensorSize) {
+    for (auto& [rawMagic, shape] : rawTensorSize) {
         if (shape != 0) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "RawTensor(%ld) is not fully covered.", static_cast<long>(rawMagic));
+            APASS_LOG_ERROR_C(TensorErr::TENSOR_SHAPE_MISMATCH, Elements::Tensor, "RawTensor(%ld) is not fully covered.", static_cast<long>(rawMagic));
             return FAILED;
         }
     }
     return SUCCESS;
 }
 
-Status checkView(Operation *op) {
-    for (const auto &logicTensor : op->GetIOperands()) {
+Status checkView(Operation* op)
+{
+    for (const auto& logicTensor : op->GetIOperands()) {
         auto producers = logicTensor->GetProducers();
         if (producers.size() != 1 || (*producers.begin())->GetOpcode() != Opcode::OP_VIEW) {
             continue;
@@ -66,7 +72,7 @@ Status checkView(Operation *op) {
             continue;
         }
         if (logicTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            APASS_LOG_ERROR_F(Elements::Tensor,
+            APASS_LOG_ERROR_C(TensorErr::TENSOR_INVALID_MEMORY_TYPE, Elements::Tensor,
                 "Tensor(%d) memory type is MEM_DEVICE_DDR, which is not supported for VIEW->ASSEMBLE case.",
                 logicTensor->GetMagic());
             return FAILED;
@@ -75,7 +81,8 @@ Status checkView(Operation *op) {
     return SUCCESS;
 }
 
-Status checkTensor(const LogicalTensorPtr& tensor) {
+Status checkTensor(const LogicalTensorPtr& tensor)
+{
     std::unordered_map<int64_t, int64_t> rawTensorSize;
     std::unordered_map<LogicalTensorPtr, int64_t> tensorMap;
     std::unordered_map<LogicalTensorPtr, std::pair<Offset, Offset>> offsetMap;
@@ -114,20 +121,21 @@ Status checkTensor(const LogicalTensorPtr& tensor) {
 
     return SUCCESS;
 }
-Status InferDisContinuousInputChecker::DoPostCheck(Function &function) {
+Status InferDisContinuousInputChecker::DoPostCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "PostCheck for DisContinuousInput.");
     if (CheckGraphLoop(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Find loop");
         return FAILED;
     }
 
-    auto &tensorMap = function.GetTensorMap().tensorMap_;
-    for (const auto &tMap : tensorMap) {
-        for (const auto &logicalTensor : tMap.second) {
+    auto& tensorMap = function.GetTensorMap().tensorMap_;
+    for (const auto& tMap : tensorMap) {
+        for (const auto& logicalTensor : tMap.second) {
             if (checkTensor(logicalTensor) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Tensor(%d) CheckTensor Failed.", logicalTensor->GetMagic());
                 return FAILED;
-            } 
+            }
         }
     }
 

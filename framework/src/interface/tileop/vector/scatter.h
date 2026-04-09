@@ -19,7 +19,8 @@
 
 constexpr unsigned SCATTER_MODE_MAX = 3;
 template <int axis, int scatterMode, typename T0, typename T1, typename Scalar>
-TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2) {
+TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2)
+{
     static_assert(scatterMode < SCATTER_MODE_MAX, "Unsupport scatterMode");
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     const auto dstLayout = dst.GetLayout();
@@ -65,11 +66,11 @@ TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2) {
                         if constexpr (scatterMode == 0) {
                             dstAddr[dstOffset] = src2;
                         } else if constexpr (scatterMode == 1) {
-                            dstAddr[dstOffset] = static_cast<typename T0::Type>(static_cast<float>(src2) +
-                                static_cast<float>(dstAddr[dstOffset]));
+                            dstAddr[dstOffset] = static_cast<typename T0::Type>(
+                                static_cast<float>(src2) + static_cast<float>(dstAddr[dstOffset]));
                         } else {
-                            dstAddr[dstOffset] = static_cast<typename T0::Type>(static_cast<float>(src2) *
-                                static_cast<float>(dstAddr[dstOffset]));
+                            dstAddr[dstOffset] = static_cast<typename T0::Type>(
+                                static_cast<float>(src2) * static_cast<float>(dstAddr[dstOffset]));
                         }
                     }
                 }
@@ -81,7 +82,8 @@ TILEOP void TscatterElementS(T0 dst, T1 src1, Scalar src2) {
 }
 
 template <int axis, int scatterMode, typename T0, typename T1, typename T2, typename T3>
-TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp) {
+TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp)
+{
     static_assert(scatterMode < SCATTER_MODE_MAX, "Unsupport scatterMode");
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t expectSize = 5;
@@ -118,11 +120,13 @@ TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp) {
     /* A2 A3不支持vscatter指令，调用pto封装接口会导致性能劣化，因此pypto自行用scalar计算实现，A5正常调用pto接口 */
     constexpr bool scalarFlag = true;
 #else
-    constexpr bool scalarFlag = ((sizeof(typename T1::Type) == 8) || (scatterMode > 0) ||
-        (dstTypeSize == 2 && idxTypeSize == 4)) ? true : false;
+    constexpr bool scalarFlag =
+        ((sizeof(typename T1::Type) == 8) || (scatterMode > 0) || (dstTypeSize == 2 && idxTypeSize == 4)) ? true :
+                                                                                                            false;
 #endif
     constexpr auto dstTileShapeH = TileOp::GetOutterAxisMergeResult<shapeSize, typename T0::TileShape>();
-    using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileShapeH, dstTileW, pto::BLayout::RowMajor>;
+    using dstTileDefine =
+        pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileShapeH, dstTileW, pto::BLayout::RowMajor>;
     using idxTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, 1, idxTileW, pto::BLayout::RowMajor, -1, -1>;
     using srcTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, 1, srcTileW, pto::BLayout::RowMajor>;
     dstTileDefine dstTile;
@@ -149,7 +153,7 @@ TILEOP void Tscatter(T0 dst, T1 src1, T2 src2, T3 tmp) {
                     for (LoopVar m = 0; m < idxShape4; ++m) {
                         typename T1::Type index =
                             *(idxAddr + i * idxStride0 + j * idxStride1 + k * idxStride2 + l * idxStride3 + m);
-                        typename T1::Type src2Offset = 
+                        typename T1::Type src2Offset =
                             i * srcStride0 + j * srcStride1 + k * srcStride2 + l * srcStride3 + m;
                         if constexpr (axis == 0) {
                             dstOffset = index * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + m;

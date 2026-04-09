@@ -16,4 +16,3 @@ index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *, alpha: Optional
 ## 详细说明
 
 请参见[pypto.index\_add\_](../operation/pypto-index_add_.md)。
-

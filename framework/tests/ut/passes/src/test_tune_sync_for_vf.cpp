@@ -9,9 +9,9 @@
  */
 
 /*!
-* \file test_tune_sync_for_vf.cpp
-* \brief Unit test for TuneSyncForVF.
-*/
+ * \file test_tune_sync_for_vf.cpp
+ * \brief Unit test for TuneSyncForVF.
+ */
 #include <gtest/gtest.h>
 #include "tilefwk/platform.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
@@ -39,7 +39,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -49,7 +50,8 @@ public:
     void TearDown() override {}
 };
 
-void BuildGraphForTest(std::shared_ptr<Function> &currFunctionPtr, std::vector<Operation *> &opListPtr) {
+void BuildGraphForTest(std::shared_ptr<Function>& currFunctionPtr, std::vector<Operation*>& opListPtr)
+{
     std::vector<int64_t> shape = {TS_NUM16, TS_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->memoryrange.start = 0;
@@ -72,31 +74,31 @@ void BuildGraphForTest(std::shared_ptr<Function> &currFunctionPtr, std::vector<O
 
     std::vector<std::shared_ptr<LogicalTensor>> input;
     std::vector<std::shared_ptr<LogicalTensor>> output;
-    auto &op1 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEIN, {tensor1}, {tensor2});
+    auto& op1 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEIN, {tensor1}, {tensor2});
     op1.cycleStart = 0;
     op1.cycleEnd = op1.cycleStart + op1.GetLatency();
     opListPtr.emplace_back(&op1);
-    auto &setflag1 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
+    auto& setflag1 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
     setflag1.syncQueue_ = {PipeType::PIPE_MTE2, PipeType::PIPE_V, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&setflag1);
-    auto &vecop1 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor3}, {tensor4});
+    auto& vecop1 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor3}, {tensor4});
     vecop1.cycleStart = TS_NUM15;
     vecop1.cycleEnd = vecop1.cycleStart + vecop1.GetLatency();
     opListPtr.emplace_back(&vecop1);
-    auto &setflag2 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
+    auto& setflag2 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
     setflag2.syncQueue_ = {PipeType::PIPE_V, PipeType::PIPE_MTE3, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&setflag2);
-    auto &waitflag1 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
+    auto& waitflag1 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
     waitflag1.syncQueue_ = {PipeType::PIPE_MTE2, PipeType::PIPE_V, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&waitflag1);
-    auto &vecop2 = currFunctionPtr->AddRawOperation(Opcode::OP_RECIPROCAL, {tensor2}, {tensor5});
+    auto& vecop2 = currFunctionPtr->AddRawOperation(Opcode::OP_RECIPROCAL, {tensor2}, {tensor5});
     vecop2.cycleStart = TS_NUM28;
     vecop2.cycleEnd = vecop2.cycleStart + vecop2.GetLatency();
     opListPtr.emplace_back(&vecop2);
-    auto &waitflag2 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
+    auto& waitflag2 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
     waitflag2.syncQueue_ = {PipeType::PIPE_V, PipeType::PIPE_MTE3, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&waitflag2);
-    auto &op2 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {tensor4}, {tensor6});
+    auto& op2 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {tensor4}, {tensor6});
     op2.cycleStart = TS_NUM42;
     op2.cycleEnd = op2.cycleStart + op2.GetLatency();
     opListPtr.emplace_back(&op2);
@@ -104,25 +106,27 @@ void BuildGraphForTest(std::shared_ptr<Function> &currFunctionPtr, std::vector<O
     currFunctionPtr->setOpMap.emplace(&setflag2, &op2);
     currFunctionPtr->waitOpMap.emplace(&waitflag1, &op1);
     currFunctionPtr->waitOpMap.emplace(&waitflag2, &vecop1);
-    std::vector<Operation *> oriOpList{&op1, &vecop1, &vecop2, &op2};
+    std::vector<Operation*> oriOpList{&op1, &vecop1, &vecop2, &op2};
     currFunctionPtr->oriOpList = oriOpList;
     currFunctionPtr->pipeEndTime[PipeType::PIPE_MTE2] = op1.cycleEnd;
     currFunctionPtr->pipeEndTime[PipeType::PIPE_V] = vecop2.cycleEnd;
     currFunctionPtr->pipeEndTime[PipeType::PIPE_MTE3] = op2.cycleEnd;
 }
 
-TEST_F(TuneSyncForVFTest, TestTuneSyncForVF) {
+TEST_F(TuneSyncForVFTest, TestTuneSyncForVF)
+{
     // Build Graph
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneSync", "TestTuneSync", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestTuneSyncLeaf", "TestTuneSyncLeaf", rootFuncPtr.get());
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestTuneSyncLeaf", "TestTuneSyncLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-    std::vector<Operation *> opListPtr;
+    std::vector<Operation*> opListPtr;
     BuildGraphForTest(currFunctionPtr, opListPtr);
     TuneSyncForVF tuneSync;
     tuneSync.opList_ = opListPtr;
-    for (auto &op : tuneSync.opList_) {
+    for (auto& op : tuneSync.opList_) {
         op->SetAIVCore(AIVCore::AIV0);
     }
     tuneSync.GenPipeOpMap(currFunctionPtr.get());
@@ -131,10 +135,13 @@ TEST_F(TuneSyncForVFTest, TestTuneSyncForVF) {
     EXPECT_EQ(tuneSync.opList_[TS_NUM4]->GetOpcode(), Opcode::OP_RECIPROCAL);
 }
 
-TEST_F(TuneSyncForVFTest, TestMainProcess) {
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
+TEST_F(TuneSyncForVFTest, TestMainProcess)
+{
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainScheduleLeaf", "TestMainScheduleLeaf", rootFuncPtr.get());
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestMainScheduleLeaf", "TestMainScheduleLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<std::shared_ptr<LogicalTensor>> input;
@@ -148,13 +155,15 @@ TEST_F(TuneSyncForVFTest, TestMainProcess) {
     tuneSync.RunOnFunction(*rootFuncPtr.get());
     auto it = rootFuncPtr->rootFunc_->programs_.begin();
     auto funcPtr = it->second;
-    std::vector<Operation *> opList(funcPtr->Operations(false).DuplicatedOpList());
+    std::vector<Operation*> opList(funcPtr->Operations(false).DuplicatedOpList());
     EXPECT_EQ(opList.size(), TS_NUM5);
 }
 
-TEST_F(TuneSyncForVFTest, TestSkip) {
+TEST_F(TuneSyncForVFTest, TestSkip)
+{
     config::SetPassGlobalConfig(KEY_ENABLE_VF, false);
-    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
     TuneSyncForVF tuneSync;
     EXPECT_EQ(tuneSync.RunOnFunction(*rootFuncPtr.get()), SUCCESS);
 }

@@ -229,7 +229,7 @@ def lightning_indexer_compute(input_data_map, params):
             # cur_k形状为(tail_seq, d)
             cur_k = key[cur_block_idx * block_size: (cur_block_idx * block_size + tail_seq), :]
             # 使用随路量化计算，qk_dot形状为(s1 * n1, tail_seq)
-            qk_dot = torch.matmul(cur_q.to(torch.int32), 
+            qk_dot = torch.matmul(cur_q.to(torch.int32),
                                   cur_k.transpose(1, 0).to(torch.int32)).to(torch.float32).relu()
             qk_dot = qk_dot * avoid_fp32_to_fp16_overflow_scale
             qk_dot = qk_dot.to(torch.float16)
@@ -331,7 +331,7 @@ def lightning_indexer(case_name: str) -> bool:
         act_seq = [64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1] # 每个样本的实际序列长度
     elif case_name == "LightningIndexerSTest.lightning_indexer_quant_8_b_2_s1_64k_s2":
         b, s1 = 8, 2
-        act_seq = [32767, 32656, 384, 2000, 64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1]
+        act_seq = [32767, 32656, 384, 2000, 64 * 1024, 971, 32 * 1024 + 101, 129090]
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False

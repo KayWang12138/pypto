@@ -22,10 +22,11 @@
 
 namespace npu {
 namespace tile_fwk {
-inline std::string RealPath(const std::string &path) {
+inline std::string RealPath(const std::string& path)
+{
     std::string res;
-    if (path.empty()) {	
-        return res;	
+    if (path.empty()) {
+        return res;
     }
     if (path.size() >= PATH_MAX) {
         FUNCTION_LOGI("File path %s is too long.", path.c_str());
@@ -38,11 +39,10 @@ inline std::string RealPath(const std::string &path) {
     return std::string(resolvedPath);
 }
 
-inline bool FileExist(const std::string &filePath) {
-    return !RealPath(filePath).empty();
-}
+inline bool FileExist(const std::string& filePath) { return !RealPath(filePath).empty(); }
 
-inline bool IsPathExist(const std::string& path) {
+inline bool IsPathExist(const std::string& path)
+{
     if (path.empty()) {
         return false;
     }
@@ -50,10 +50,11 @@ inline bool IsPathExist(const std::string& path) {
     return (stat(path.c_str(), &buffer) == 0);
 }
 
-inline std::string TrimLine(const std::string& s) {
+inline std::string TrimLine(const std::string& s)
+{
     size_t start = s.find_first_not_of(" \t\n\r");
     size_t end = s.find_last_not_of(" \t\n\r");
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

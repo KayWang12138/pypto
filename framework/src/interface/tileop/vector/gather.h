@@ -19,7 +19,8 @@
 
 #define OP_TILE_OP_GATHER_ELEMENT TgatherElement
 template <int axis, typename T0, typename T1, typename T2, typename T3>
-TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
+TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp)
+{
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t expectSize = 5;
     const auto srcLayout = src0.GetLayout();
@@ -52,7 +53,8 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
     constexpr bool scalarFlag = (sizeof(typename T2::Type) == 8) ? true : false;
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto srcTileShape1 = TileOp::GetOutterAxisMergeResult<shapeSize, typename T1::TileShape>();
-    using srcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
+    using srcTileDefine =
+        pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileShape1, srcTileW, pto::BLayout::RowMajor>;
     using idxTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, 1, idxTileW, pto::BLayout::RowMajor, -1, -1>;
     using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     srcTileDefine srcTile;
@@ -78,23 +80,23 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
                     }
                     for (LoopVar m = 0; m < n4IdxShape; ++m) {
                         auto dstOffset = i * n0DstStride + j * n1DstStride + k * n2DstStride + l * n3DstStride + m;
-                        auto orgIdxValue = 
+                        auto orgIdxValue =
                             *(idxAddr + i * n0IdxStride + j * n1IdxStride + k * n2IdxStride + l * n3IdxStride + m);
                         if constexpr (axis == 0) {
                             newIdxValue =
-                                orgIdxValue * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
+                                orgIdxValue * n0SrcStride + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
                         } else if constexpr (axis == 1) {
                             newIdxValue =
-                                i * n0SrcStride  + orgIdxValue * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
+                                i * n0SrcStride + orgIdxValue * n1SrcStride + k * n2SrcStride + l * n3SrcStride + m;
                         } else if constexpr (axis == 2) {
                             newIdxValue =
-                                i * n0SrcStride  + j * n1SrcStride + orgIdxValue * n2SrcStride + l * n3SrcStride + m;
+                                i * n0SrcStride + j * n1SrcStride + orgIdxValue * n2SrcStride + l * n3SrcStride + m;
                         } else if constexpr (axis == 3) {
                             newIdxValue =
-                                i * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + orgIdxValue * n3SrcStride + m;
+                                i * n0SrcStride + j * n1SrcStride + k * n2SrcStride + orgIdxValue * n3SrcStride + m;
                         } else {
                             newIdxValue =
-                                i * n0SrcStride  + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + orgIdxValue;
+                                i * n0SrcStride + j * n1SrcStride + k * n2SrcStride + l * n3SrcStride + orgIdxValue;
                         }
                         if constexpr (scalarFlag) {
                             dstAddr[dstOffset] = srcAddr[newIdxValue];
@@ -122,9 +124,11 @@ TILEOP void TgatherElement(T0 dst, T1 src0, T2 src1, T3 tmp) {
     }
 }
 
-template <int axis, size_t index0, size_t index1, size_t index2, size_t index3, size_t index4, typename T0, typename T1,
+template <
+    int axis, size_t index0, size_t index1, size_t index2, size_t index3, size_t index4, typename T0, typename T1,
     typename T2, typename C1, typename C2>
-TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) {
+TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate)
+{
     constexpr size_t N = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr size_t srcExpectSize = 4;
@@ -162,11 +166,11 @@ TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) 
     using idxType = typename T2::Type;
     using srcType = typename T1::Type;
     using dstType = typename T0::Type;
-    __gm__ srcType *srcAddr = (__gm__ srcType *)((uint64_t)(src.GetAddr()));
-    __gm__ idxType *idxAddr = (__gm__ idxType *)((uint64_t)(idx.GetAddr()));
+    __gm__ srcType* srcAddr = (__gm__ srcType*)((uint64_t)(src.GetAddr()));
+    __gm__ idxType* idxAddr = (__gm__ idxType*)((uint64_t)(idx.GetAddr()));
     srcAddr += srcOffset;
     idxAddr += idxOffset;
-    __ubuf__ dstType *dstAddr = (__ubuf__ dstType *)((uint64_t)(dst.GetAddr()));
+    __ubuf__ dstType* dstAddr = (__ubuf__ dstType*)((uint64_t)(dst.GetAddr()));
     constexpr auto tileH = Std::tuple_element<shapeSize - 2, typename T0::TileShape>::type::value;
     constexpr auto tileW = Std::tuple_element<shapeSize - 1, typename T0::TileShape>::type::value;
     using ShapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
@@ -174,17 +178,18 @@ TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) 
     using GlobalData = pto::GlobalTensor<srcType, ShapeDim5, StrideDim5>;
     using TileDefine = pto::Tile<pto::TileType::Vec, dstType, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
     if constexpr (axis == 0) {
-        __gm__ idxType *idx0 = idxAddr;
+        __gm__ idxType* idx0 = idxAddr;
         for (LoopVar i = 0; i < n0DstShape; i++) {
-            __gm__ dstType *src0 = srcAddr;
-            __ubuf__ dstType *dst0 = dstAddr;
+            __gm__ dstType* src0 = srcAddr;
+            __ubuf__ dstType* dst0 = dstAddr;
             for (LoopVar j = 0; j < n1DstShape; j++) {
-                __ubuf__ dstType *dst1 = dst0;
+                __ubuf__ dstType* dst1 = dst0;
                 uint64_t index = idx0[j];
                 src0 = srcAddr + index * n0SrcStride;
                 for (LoopVar k = 0; k < n2DstShape; k++) {
                     TileDefine dstTile(n3DstShape, n4DstShape);
-                    GlobalData srcGlobal(src0, pto::Shape(1, 1, 1, n3DstShape, n4DstShape),
+                    GlobalData srcGlobal(
+                        src0, pto::Shape(1, 1, 1, n3DstShape, n4DstShape),
                         pto::Stride(0, 0, 0, n2SrcStride, n3SrcStride));
                     pto::TASSIGN(dstTile, (uint64_t)dst1);
                     pto::TLOAD(dstTile, srcGlobal);
@@ -198,16 +203,17 @@ TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) 
         }
     } else if constexpr (axis == 1) {
         for (LoopVar i = 0; i < n0DstShape; i++) { // a
-            __gm__ dstType *src0 = srcAddr;
-            __gm__ idxType *idx0 = idxAddr;
-            __ubuf__ dstType *dst0 = dstAddr;
+            __gm__ dstType* src0 = srcAddr;
+            __gm__ idxType* idx0 = idxAddr;
+            __ubuf__ dstType* dst0 = dstAddr;
             for (LoopVar j = 0; j < n1DstShape; j++) { // e
-                __ubuf__ dstType *dst1 = dst0;
+                __ubuf__ dstType* dst1 = dst0;
                 for (LoopVar k = 0; k < n2DstShape; k++) {
                     uint64_t index = idx0[k];
                     src0 = srcAddr + index * n1SrcStride;
                     TileDefine dstTile(n3DstShape, n4DstShape);
-                    GlobalData srcGlobal(src0, pto::Shape(1, 1, 1, n3DstShape, n4DstShape),
+                    GlobalData srcGlobal(
+                        src0, pto::Shape(1, 1, 1, n3DstShape, n4DstShape),
                         pto::Stride(0, 0, 0, n2SrcStride, n3SrcStride));
                     pto::TASSIGN(dstTile, (uint64_t)dst1);
                     pto::TLOAD(dstTile, srcGlobal);
@@ -221,14 +227,14 @@ TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) 
         }
     } else if constexpr (axis == 2) {
         for (LoopVar i = 0; i < n0DstShape; i++) {
-            __gm__ dstType *src0 = srcAddr;
-            __ubuf__ dstType *dst0 = dstAddr;
+            __gm__ dstType* src0 = srcAddr;
+            __ubuf__ dstType* dst0 = dstAddr;
             for (LoopVar j = 0; j < n1DstShape; j++) { // b
-                __gm__ idxType *idx0 = idxAddr;
-                __gm__ dstType *src1 = src0;
-                __ubuf__ dstType *dst1 = dst0;
-                for (LoopVar k = 0; k < n2DstShape; k++) { // e
-                    __ubuf__ dstType *dst2 = dst1;
+                __gm__ idxType* idx0 = idxAddr;
+                __gm__ dstType* src1 = src0;
+                __ubuf__ dstType* dst1 = dst0;
+                for (LoopVar k = 0; k < n2DstShape; k++) {     // e
+                    __ubuf__ dstType* dst2 = dst1;
                     for (LoopVar l = 0; l < n3DstShape; l++) { // f
                         uint64_t index = idx0[l];
                         src1 = src0 + index * n2SrcStride;
@@ -250,17 +256,17 @@ TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) 
         }
     } else if constexpr (axis == 3) {
         for (LoopVar i = 0; i < n0DstShape; i++) {
-            __gm__ dstType *src0 = srcAddr;
-            __ubuf__ dstType *dst0 = dstAddr;
+            __gm__ dstType* src0 = srcAddr;
+            __ubuf__ dstType* dst0 = dstAddr;
             for (LoopVar j = 0; j < n1DstShape; j++) { // b
-                __gm__ dstType *src1 = src0;
-                __ubuf__ dstType *dst1 = dst0;
+                __gm__ dstType* src1 = src0;
+                __ubuf__ dstType* dst1 = dst0;
                 for (LoopVar k = 0; k < n2DstShape; k++) { // c
-                    __gm__ dstType *src2 = src1;
-                    __ubuf__ dstType *dst2 = dst1;
-                    __gm__ idxType *idx0 = idxAddr;
+                    __gm__ dstType* src2 = src1;
+                    __ubuf__ dstType* dst2 = dst1;
+                    __gm__ idxType* idx0 = idxAddr;
                     for (LoopVar l = 0; l < n3DstShape; l++) { // e
-                        __ubuf__ dstType *dst3 = dst2;
+                        __ubuf__ dstType* dst3 = dst2;
                         for (LoopVar p = 0; p < n4DstShape; p++) {
                             uint64_t index = idx0[p];
                             src2 = src1 + index;
@@ -288,7 +294,8 @@ TILEOP void Tgather(T0 dst, T1 src, T2 idx, C1 srcCoordinate, C2 idxCoordinate) 
  * 辅助函数，计算 token id 对应物理偏移
  */
 template <typename T2, typename T3, unsigned blockSize>
-INLINE T2 CalaOffset2PageAttention(__gm__ T3 *blockTable, T2 index) {
+INLINE T2 CalaOffset2PageAttention(__gm__ T3* blockTable, T2 index)
+{
     T2 blockID = index / blockSize;            // 这个token对应第几个块，逻辑块
     blockID = blockTable[blockID];             // 页表中存放这个逻辑块到物理块的映射，得到物理块
     T2 blockOffset = index % blockSize;        // token在块内偏移
@@ -319,9 +326,10 @@ INLINE T2 CalaOffset2PageAttention(__gm__ T3 *blockTable, T2 index) {
  * GMIndicesStride* ,步长，用于计算偏移
  * blocktable[e,f] e batch的维度  f ceil(maxtoken/blockSize)
  */
-template <unsigned blockSize,typename T0, typename T1, typename T2, typename T3, typename C1, typename C2, typename C3>
+template <unsigned blockSize, typename T0, typename T1, typename T2, typename T3, typename C1, typename C2, typename C3>
 TILEOP void TgatherInUB(
-    T0 dst, T1 param, T2 indices, T3 blockTable, C1 paramCoordinate, C2 indicesCoordinate, C3 blockTableCoordinate) {
+    T0 dst, T1 param, T2 indices, T3 blockTable, C1 paramCoordinate, C2 indicesCoordinate, C3 blockTableCoordinate)
+{
     constexpr size_t paramExpectSize = 2;
     constexpr size_t indicesExpectSize = 2;
     constexpr size_t blockTableExpectSize = 2;
@@ -351,9 +359,9 @@ TILEOP void TgatherInUB(
     using paramType = typename T1::Type;
     using indicesType = typename T2::Type;
     using blockTableType = typename T3::Type;
-    __gm__ paramType *paramAddr = (__gm__ paramType *)((uint64_t)(param.GetAddr()));
-    __gm__ indicesType *indicesAddr = (__gm__ indicesType *)((uint64_t)(indices.GetAddr()));
-    __gm__ blockTableType *blockTableAddr = (__gm__ blockTableType *)((uint64_t)(blockTable.GetAddr()));
+    __gm__ paramType* paramAddr = (__gm__ paramType*)((uint64_t)(param.GetAddr()));
+    __gm__ indicesType* indicesAddr = (__gm__ indicesType*)((uint64_t)(indices.GetAddr()));
+    __gm__ blockTableType* blockTableAddr = (__gm__ blockTableType*)((uint64_t)(blockTable.GetAddr()));
     paramAddr += paramOffset;
     indicesAddr += indicesOffset;
     blockTableAddr += blockTableOffset;
@@ -364,7 +372,7 @@ TILEOP void TgatherInUB(
      * [1,pagetable]
      * 主要是这个遍历indices 的1轴，
      */
-    __ubuf__ dstType *dstAddr = (__ubuf__ dstType *)((uint64_t)(dst.GetAddr()));
+    __ubuf__ dstType* dstAddr = (__ubuf__ dstType*)((uint64_t)(dst.GetAddr()));
     auto n1IndicesShape = indicesLayout.template GetShapeDim<1, indicesExpectSize>();
     // auto n0ParamStride = paramLayout.template GetStrideDim<index0, paramExpectSize>();
 
@@ -375,7 +383,7 @@ TILEOP void TgatherInUB(
     using StrideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
     using GlobalData = pto::GlobalTensor<paramType, ShapeDim5, StrideDim5>;
     using TileDefine = pto::Tile<pto::TileType::Vec, dstType, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
-    __gm__ paramType *paramTmp = paramAddr;
+    __gm__ paramType* paramTmp = paramAddr;
 
     for (int j = 0; j < n0DstShape; j++) {
         uint64_t index_1 = indicesAddr[j];
@@ -383,7 +391,8 @@ TILEOP void TgatherInUB(
         paramTmp = paramAddr + index_1 * n0ParamLayoutStride; // 得到了实际的地址
 
         TileDefine dstTile(1, n1DstShape);
-        GlobalData srcGlobal(paramTmp, pto::Shape(1, 1, 1, 1, n1DstShape),
+        GlobalData srcGlobal(
+            paramTmp, pto::Shape(1, 1, 1, 1, n1DstShape),
             pto::Stride(0, 0, 0, n0ParamLayoutStride, n1ParamLayoutStride));
         pto::TASSIGN(dstTile, (uint64_t)dstAddr);
         pto::TLOAD(dstTile, srcGlobal);
@@ -394,7 +403,8 @@ TILEOP void TgatherInUB(
 
 #define OP_TILE_OP_GATHER_MASK TGatherMask
 template <int patternMode, typename T0, typename T1>
-TILEOP void TGatherMask(T0 dst, T1 src) {
+TILEOP void TGatherMask(T0 dst, T1 src)
+{
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto srcLayout = src.GetLayout();
@@ -426,10 +436,10 @@ TILEOP void TGatherMask(T0 dst, T1 src) {
         for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
-                    using DstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW,
-                        pto::BLayout::RowMajor, -1, -1>;
-                    using SrcTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, 1, srcTileW,
-                        pto::BLayout::RowMajor, -1, -1>;
+                    using DstTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T0::Type, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+                    using SrcTileDefine =
+                        pto::Tile<pto::TileType::Vec, typename T1::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                     DstTileDefine dstTile(1, dstShape4);
                     SrcTileDefine srcTile(1, srcTileW);
                     auto dstOffset =
@@ -446,9 +456,9 @@ TILEOP void TGatherMask(T0 dst, T1 src) {
                                              (patternMode == 6) ? pto::MaskPattern::P1000 :
                                                                   pto::MaskPattern::P1111;
                     pto::TGATHER<DstTileDefine, SrcTileDefine, pattern>(dstTile, srcTile);
-                #ifdef __DAV_V220
-                pipe_barrier(PIPE_V);
-                #endif
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
                 }
             }
         }

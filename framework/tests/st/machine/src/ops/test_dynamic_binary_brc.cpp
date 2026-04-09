@@ -23,7 +23,8 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicBrcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
+TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign)
+{
     SetInterpreterConfig();
     config::SetOperationOption(KEY_FORCE_COMBINE_AXIS, true);
     TileShape::Current().SetVecTile(32, 128);
@@ -60,8 +61,10 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<float>(out, golden),
     });
-    FUNCTION("main", {input_a, input_b, curSeq}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b)) {
+    FUNCTION("main", {input_a, input_b, curSeq}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(b))
+        {
             auto seq = GetTensorData(curSeq, {batchId, 0});
             Tensor input_a0 = View(input_a, {sq, d}, {seq, d}, {batchId * sq, 0});
             Tensor input_b0 = View(input_b, {sq, 8}, {seq, 8}, {batchId * sq, 0});
@@ -75,5 +78,5 @@ TEST_F(DynamicBrcTest, TestDynamicMulBrcUnalign) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }

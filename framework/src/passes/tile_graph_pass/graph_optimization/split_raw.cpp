@@ -20,7 +20,8 @@
 
 namespace npu {
 namespace tile_fwk {
-std::vector<int64_t> SplitRawTensor::UpdateOffset(std::vector<int64_t> &offset, const std::vector<int64_t> &diff) const {
+std::vector<int64_t> SplitRawTensor::UpdateOffset(std::vector<int64_t>& offset, const std::vector<int64_t>& diff) const
+{
     std::vector<int64_t> result = offset;
     for (size_t i = 0; i < offset.size(); i++) {
         if (offset[i] >= diff[i]) {
@@ -31,7 +32,8 @@ std::vector<int64_t> SplitRawTensor::UpdateOffset(std::vector<int64_t> &offset, 
 }
 
 std::vector<SymbolicScalar> SplitRawTensor::UpdateDynOffset(
-    std::vector<SymbolicScalar> &offset, const std::vector<SymbolicScalar> &diff) const {
+    std::vector<SymbolicScalar>& offset, const std::vector<SymbolicScalar>& diff) const
+{
     std::vector<SymbolicScalar> result = offset;
     for (size_t i = 0; i < offset.size(); i++) {
         if (offset[i] >= diff[i]) {
@@ -41,27 +43,29 @@ std::vector<SymbolicScalar> SplitRawTensor::UpdateDynOffset(
     return result;
 }
 
-void SplitRawTensor::UpdateConsumerView(
-    Function &function, const LogicalTensorPtr &logicalTensor) const {
+void SplitRawTensor::UpdateConsumerView(Function& function, const LogicalTensorPtr& logicalTensor) const
+{
     /* All the consumer View op's attr offset should be corret */
     /* 1. 更新View相关的属性 */
     TensorOffset tensorOffset = logicalTensor->GetTensorOffset();
-    for (const auto &viewOp : logicalTensor->GetConsumers()) {
+    for (const auto& viewOp : logicalTensor->GetConsumers()) {
         if (viewOp->GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
-        auto &output = viewOp->oOperand[0];
+        auto& output = viewOp->oOperand[0];
         if (function.IsFromOutCast(output)) {
-            APASS_LOG_WARN_F(Elements::Tensor, "OP_VIEW oOperand tensor[%d] is outCast; Please check if it is an external output.", output->GetMagic());
+            APASS_LOG_WARN_F(
+                Elements::Tensor, "OP_VIEW oOperand tensor[%d] is outCast; Please check if it is an external output.",
+                output->GetMagic());
             continue;
         }
-        auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
+        auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(viewOp->GetOpAttribute().get());
         if (viewOpAttribute != nullptr) {
             // VIEW操作的offset要相应被修改, 要减去被拆分LogicalTensor的offset
-            auto &fromOffset = viewOpAttribute->GetFromOffset();
+            auto& fromOffset = viewOpAttribute->GetFromOffset();
             fromOffset = UpdateOffset(fromOffset, tensorOffset.GetOffset());
             if (!viewOpAttribute->GetFromDynOffset().empty()) {
-                auto &fromDynOffset = viewOpAttribute->GetFromDynOffset();
+                auto& fromDynOffset = viewOpAttribute->GetFromDynOffset();
                 if (!tensorOffset.GetDynOffset().empty()) {
                     fromDynOffset = UpdateDynOffset(fromDynOffset, tensorOffset.GetDynOffset());
                 } else {
@@ -74,30 +78,32 @@ void SplitRawTensor::UpdateConsumerView(
     }
 }
 
-void SplitRawTensor::UpdateProducerAssemble(
-    Function &function, const LogicalTensorPtr &logicalTensor) const {
+void SplitRawTensor::UpdateProducerAssemble(Function& function, const LogicalTensorPtr& logicalTensor) const
+{
     /* 1. 更新Assemble相关的属性 */
     // Assemble1 ->
     //              logicalTensor(UB) -> Reshape -> UB
     // Assemble2 ->
     TensorOffset tensorOffset = logicalTensor->GetTensorOffset();
-    for (const auto &assembleOp : logicalTensor->GetProducers()) {
+    for (const auto& assembleOp : logicalTensor->GetProducers()) {
         if (assembleOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
             continue;
         }
-        auto &input = assembleOp->iOperand[0];
+        auto& input = assembleOp->iOperand[0];
         if (function.IsFromInCast(input)) {
-            APASS_LOG_WARN_F(Elements::Operation, "OP_ASSEMBLE iOperand tensor[%d] is inCast; Please check if it is an external input.",
+            APASS_LOG_WARN_F(
+                Elements::Operation,
+                "OP_ASSEMBLE iOperand tensor[%d] is inCast; Please check if it is an external input.",
                 input->GetMagic());
             continue;
         }
-        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(assembleOp->GetOpAttribute().get());
+        auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute*>(assembleOp->GetOpAttribute().get());
         if (assembleOpAttribute != nullptr) {
             // Assemble操作的offset要相应被修改, 要减去被拆分LogicalTensor的offset
-            auto &toOffset = assembleOpAttribute->GetToOffset();
+            auto& toOffset = assembleOpAttribute->GetToOffset();
             toOffset = UpdateOffset(toOffset, tensorOffset.GetOffset());
             if (!assembleOpAttribute->GetToDynOffset().empty()) {
-                auto &toDynOffset = assembleOpAttribute->GetToDynOffset();
+                auto& toDynOffset = assembleOpAttribute->GetToDynOffset();
                 if (!tensorOffset.GetDynOffset().empty()) {
                     toDynOffset = UpdateDynOffset(toDynOffset, tensorOffset.GetDynOffset());
                 } else {
@@ -110,14 +116,17 @@ void SplitRawTensor::UpdateProducerAssemble(
     }
 }
 
-bool SplitRawTensor::ShouldProcessTensor(Function &function, const LogicalTensorPtr &singleTensor) const {
+bool SplitRawTensor::ShouldProcessTensor(Function& function, const LogicalTensorPtr& singleTensor) const
+{
     // 检查raw shape 和 shape 是否相等
     if ((singleTensor->GetShape() == singleTensor->tensor->GetRawShape())) {
         return false;
     }
     // 检查是否为InCast或OutCast
     if (function.IsFromOutCast(singleTensor) || function.IsFromInCast(singleTensor)) {
-        APASS_LOG_WARN_F(Elements::Tensor, "Tensor[%d] is inCast or outCast; Please check if it is an external input/output", singleTensor->GetMagic());
+        APASS_LOG_WARN_F(
+            Elements::Tensor, "Tensor[%d] is inCast or outCast; Please check if it is an external input/output",
+            singleTensor->GetMagic());
         return false;
     }
     return true;
@@ -128,28 +137,31 @@ bool SplitRawTensor::ShouldProcessTensor(Function &function, const LogicalTensor
 且rawTensor不是InCast和OutCast(当前Incast、OutCast的Symbol不在tensormap里)、且tensor不是ddr，
 那么需要将重新创建一个shape和当前tensor相同的rawTensor
 */
-void SplitRawTensor::SplitRaw(Function &function) const {
+void SplitRawTensor::SplitRaw(Function& function) const
+{
     std::vector<int> rawIdNeedDelete;
     std::vector<std::pair<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>>> newRawVec;
     // 为了按序访问tensormap, 将tensormap转化为有序map
-    auto &tensorMap = function.GetTensorMap().tensorMap_;
+    auto& tensorMap = function.GetTensorMap().tensorMap_;
     std::map<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>> omap;
-    for (const auto &kv : tensorMap) {
+    for (const auto& kv : tensorMap) {
         omap.insert(kv);
     }
-    for (const auto &ele : omap) {
+    for (const auto& ele : omap) {
         bool needDelete = false;
         std::unordered_set<LogicalTensorPtr> relatedViewOutput;
-        for (const auto &singleLogicalTensor : ele.second) {
+        for (const auto& singleLogicalTensor : ele.second) {
             auto rawShape = singleLogicalTensor->tensor->GetRawShape();
             if (!ShouldProcessTensor(function, singleLogicalTensor)) {
                 continue;
             }
             /* 创建新的rawTensor，并将其后接的View以及view的Consumer的rawtensor刷新为新的rawTensor */
             singleLogicalTensor->tensor = std::make_shared<RawTensor>(
-                singleLogicalTensor->tensor->datatype, singleLogicalTensor->GetShape(),
-                singleLogicalTensor->Format(), singleLogicalTensor->Symbol());
-            APASS_LOG_DEBUG_F(Elements::Operation, "SplitRawTensor::SplitRaw: tensor[%d] updated new raw tensor[%d] with the same raw shape.",
+                singleLogicalTensor->tensor->datatype, singleLogicalTensor->GetShape(), singleLogicalTensor->Format(),
+                singleLogicalTensor->Symbol());
+            APASS_LOG_DEBUG_F(
+                Elements::Operation,
+                "SplitRawTensor::SplitRaw: tensor[%d] updated new raw tensor[%d] with the same raw shape.",
                 singleLogicalTensor->GetMagic(), singleLogicalTensor->GetRawMagic());
             if (singleLogicalTensor->tensor == nullptr) {
                 continue;
@@ -160,7 +172,7 @@ void SplitRawTensor::SplitRaw(Function &function) const {
             UpdateConsumerView(function, singleLogicalTensor);
             UpdateProducerAssemble(function, singleLogicalTensor);
             newRawVec.emplace_back(std::make_pair(singleLogicalTensor->tensor->GetRawMagic(), newSet));
-            for (auto &offset : singleLogicalTensor->offset) {
+            for (auto& offset : singleLogicalTensor->offset) {
                 offset = 0;
             }
         }
@@ -170,25 +182,24 @@ void SplitRawTensor::SplitRaw(Function &function) const {
     }
     // 将tensormap更新回来
     tensorMap.clear();
-    for (const auto &kv : omap) {
+    for (const auto& kv : omap) {
         tensorMap.insert(kv);
     }
-    for (const auto &ele : newRawVec) {
+    for (const auto& ele : newRawVec) {
         function.GetTensorMap().tensorMap_.emplace(ele);
     }
-    for (const auto &id : rawIdNeedDelete) {
+    for (const auto& id : rawIdNeedDelete) {
         function.GetTensorMap().tensorMap_.erase(id);
     }
 }
 
-Status SplitRawTensor::RunOnFunction(Function &function) {
+Status SplitRawTensor::RunOnFunction(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start SplitRaw.");
     SplitRaw(function);
     APASS_LOG_INFO_F(Elements::Function, "===> End SplitRaw.");
     return SUCCESS;
 }
-Status SplitRawTensor::PostCheck(Function &function){
-    return checker.DoPostCheck(function);
-}
+Status SplitRawTensor::PostCheck(Function& function) { return checker.DoPostCheck(function); }
 } // namespace tile_fwk
 } // namespace npu

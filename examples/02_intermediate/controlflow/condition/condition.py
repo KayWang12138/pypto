@@ -152,7 +152,7 @@ def add_scalar_loop_dyn_axis_static_cond_kernel_static(
     val: int,
     flag: bool):
     add_core(input0, input1, output, val, flag)
-    
+
 
 @pypto.frontend.jit(runtime_options={"run_mode": global_run_mode})
 def add_scalar_loop_dyn_axis_static_cond_kernel_dynamic(

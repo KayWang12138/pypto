@@ -52,7 +52,7 @@ void CacheMachine::Xfer()
     nextCycles = INT_MAX;
     nextCycles = std::min(nextCycles, GetQueueNextCycles());
     for (auto iter = misses.begin(), end = misses.end(); iter != end;) {
-        auto &mshr = iter->second;
+        auto& mshr = iter->second;
         nextCycles = std::min(nextCycles, mshr.readyCycle);
         iter++;
     }
@@ -62,10 +62,7 @@ void CacheMachine::Xfer()
     GetSim()->UpdateNextCycles(nextCycles);
 }
 
-std::shared_ptr<SimSys> CacheMachine::GetSim()
-{
-    return sim;
-}
+std::shared_ptr<SimSys> CacheMachine::GetSim() { return sim; }
 
 void CacheMachine::Report()
 {
@@ -73,10 +70,7 @@ void CacheMachine::Report()
     stats->Report(name);
 }
 
-void CacheMachine::RunAtBegin()
-{
-    nextCycles = INT_MAX;
-}
+void CacheMachine::RunAtBegin() { nextCycles = INT_MAX; }
 
 void CacheMachine::InitQueueDelay()
 {
@@ -111,10 +105,7 @@ uint64_t CacheMachine::GetQueueNextCycles()
     return res;
 }
 
-bool CacheMachine::IsTerminate()
-{
-    return (!executingTask && dataRequestQueue.IsTerminate() && responseQueue.empty());
-}
+bool CacheMachine::IsTerminate() { return (!executingTask && dataRequestQueue.IsTerminate() && responseQueue.empty()); }
 
 void CacheMachine::ReceivePacket()
 {
@@ -148,10 +139,10 @@ void CacheMachine::ProcessMSHR()
     auto curCycle = GetSim()->GetCycles();
     // Iterate through all misses.
     for (auto iter = misses.begin(), end = misses.end(); iter != end;) {
-        auto &mshr = iter->second;
+        auto& mshr = iter->second;
         if (mshr.readyCycle <= curCycle) {
             // We are ready.
-            for (const auto &req : mshr.inflyMisses) {
+            for (const auto& req : mshr.inflyMisses) {
                 uint64_t cycle = curCycle + config.l2HitLatency;
                 responseQueue.emplace_back(req, cycle);
             }
@@ -168,7 +159,7 @@ void CacheMachine::ProcessResp()
     // Iterate through all misses.
     while (!responseQueue.empty() && responseQueue.front().second <= curCycle) {
         // We have a response to send.
-        auto &req = responseQueue.front().first;
+        auto& req = responseQueue.front().first;
         auto machine = GetSim()->pidToMachineMp.at(req.pid);
         req.cycleInfo.cacheRespCycle = GetSim()->GetCycles();
         stats->totalResponseLatency += (req.cycleInfo.cacheRespCycle - req.cycleInfo.cacheRecvCycle);
@@ -178,7 +169,7 @@ void CacheMachine::ProcessResp()
     }
 }
 
-void CacheMachine::AddMSHR(const CachePacket &req, uint64_t curCycle)
+void CacheMachine::AddMSHR(const CachePacket& req, uint64_t curCycle)
 {
     auto addr = req.addr;
     auto iter = misses.find(addr);
@@ -188,8 +179,9 @@ void CacheMachine::AddMSHR(const CachePacket &req, uint64_t curCycle)
     }
 
     // Add new MSHR.
-    misses.emplace(std::piecewise_construct, std::forward_as_tuple(addr),
-                   std::forward_as_tuple(addr, curCycle + config.l2MissExtraLatency, req));
+    misses.emplace(
+        std::piecewise_construct, std::forward_as_tuple(addr),
+        std::forward_as_tuple(addr, curCycle + config.l2MissExtraLatency, req));
 }
 
 void CacheMachine::AllocateCache(uint64_t addr, uint64_t currentCycle)
@@ -199,7 +191,7 @@ void CacheMachine::AllocateCache(uint64_t addr, uint64_t currentCycle)
         EvictLRU();
     }
     stats->totalInsertNum++;
-    auto &entry = cache.emplace(addr, CacheEntry()).first->second;
+    auto& entry = cache.emplace(addr, CacheEntry()).first->second;
     entry.addr = addr;
     entry.lastAccess = currentCycle;
     lru.push_back(addr);
@@ -217,7 +209,7 @@ bool CacheMachine::AccessCache(uint64_t addr, uint64_t currentCycle)
     }
     // Hit in cache.
     stats->totalHitNum++;
-    auto &entry = iter->second;
+    auto& entry = iter->second;
     entry.lastAccess = currentCycle;
     lru.erase(entry.lruPos);
     lru.push_back(addr);
@@ -239,4 +231,4 @@ void CacheMachine::RequestData(CachePacket pkt, uint64_t extraDelay)
     lastCycles = GetSim()->GetCycles();
     dataRequestQueue.Enqueue(pkt, extraDelay);
 }
-}
+} // namespace CostModel

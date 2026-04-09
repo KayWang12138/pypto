@@ -21,10 +21,11 @@ namespace npu::tile_fwk {
 
 static int copyOutScheduleDefaultDistance = 5;
 
-std::vector<Operation *> CopyOutResolve::LookupOutcastLastCopyOut(Function *leafFunc) const {
+std::vector<Operation*> CopyOutResolve::LookupOutcastLastCopyOut(Function* leafFunc) const
+{
     // For each outcast, find the last op that writes it.
-    std::vector<Operation *> outcastLastCopyOut(leafFunc->GetOutcast().size());
-    for (auto &op : leafFunc->Operations(false)) {
+    std::vector<Operation*> outcastLastCopyOut(leafFunc->GetOutcast().size());
+    for (auto& op : leafFunc->Operations(false)) {
         Opcode opcode = op.GetOpcode();
         if (!OpcodeManager::Inst().IsCopyOut(opcode)) {
             continue;
@@ -38,7 +39,8 @@ std::vector<Operation *> CopyOutResolve::LookupOutcastLastCopyOut(Function *leaf
     return outcastLastCopyOut;
 }
 
-void CopyOutResolve::CheckOutcastProducer(Function *leafFunc) const {
+void CopyOutResolve::CheckOutcastProducer(Function* leafFunc) const
+{
     std::shared_ptr<LeafFuncAttribute> leafAttr = leafFunc->GetLeafFuncAttribute();
     for (size_t outcastIndex = 0; outcastIndex < leafFunc->GetOutcast().size(); outcastIndex++) {
         if (leafAttr->outcastCopyOutResolveCounterList[outcastIndex] != -1) {
@@ -48,7 +50,7 @@ void CopyOutResolve::CheckOutcastProducer(Function *leafFunc) const {
             if (leafFunc->GetOutcastIndex(outcast) < (int)outcastIndex) {
                 // duplicated outcast in the leaf function
             } else {
-                for (const auto &producer : outcast->GetProducers()) {
+                for (const auto& producer : outcast->GetProducers()) {
                     Opcode producerOpCode = producer->GetOpcode();
                     if (!OpcodeManager::Inst().IsCopyOut(producerOpCode)) {
                         // not a copyout outcast, which should be ignored
@@ -61,24 +63,26 @@ void CopyOutResolve::CheckOutcastProducer(Function *leafFunc) const {
     }
 }
 
-template<typename T>
-static std::vector<T *> DecreaseDictCount(std::unordered_map<T *, int> &dict) {
-    std::vector<T *> zeroCountList;
-    for (auto &[key, distance]: dict) {
+template <typename T>
+static std::vector<T*> DecreaseDictCount(std::unordered_map<T*, int>& dict)
+{
+    std::vector<T*> zeroCountList;
+    for (auto& [key, distance] : dict) {
         distance -= 1;
         if (distance == 0) {
             zeroCountList.push_back(key);
         }
     }
-    for (auto &key : zeroCountList) {
+    for (auto& key : zeroCountList) {
         dict.erase(key);
     }
     return zeroCountList;
 }
 
-void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, Function *leafFunc) const {
-    std::vector<Operation *> outcastLastCopyOut = LookupOutcastLastCopyOut(leafFunc);
-    std::unordered_map<Operation *, int> resolveCopyOutDict;
+void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, Function* leafFunc) const
+{
+    std::vector<Operation*> outcastLastCopyOut = LookupOutcastLastCopyOut(leafFunc);
+    std::unordered_map<Operation*, int> resolveCopyOutDict;
     for (size_t k = 0; k < outcastLastCopyOut.size(); k++) {
         resolveCopyOutDict[outcastLastCopyOut[k]] = (int)k;
     }
@@ -90,12 +94,12 @@ void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, F
 
     auto subgraphID = leafFunc->Operations(false).begin()->GetSubgraphID();
 
-    std::vector<Operation *> opList;
+    std::vector<Operation*> opList;
     std::vector<OperationPtr> leafFuncOpList = leafFunc->GetProgramOp();
-    std::unordered_map<Operation *, int> aicpuCallCopyOutFinishDistanceDict;
-    std::unordered_map<Operation *, int> aicpuCallCopyOutCoalescingDistanceDict;
-    for (auto &leafFuncOp : leafFuncOpList) {
-        Operation *op = leafFuncOp.get();
+    std::unordered_map<Operation*, int> aicpuCallCopyOutFinishDistanceDict;
+    std::unordered_map<Operation*, int> aicpuCallCopyOutCoalescingDistanceDict;
+    for (auto& leafFuncOp : leafFuncOpList) {
+        Operation* op = leafFuncOp.get();
         if (!resolveCopyOutDict.count(op)) {
             opList.push_back(op);
         } else {
@@ -109,9 +113,12 @@ void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, F
             opList.push_back(op);
 
             Opcode opcode = leafFunc->IsCube() ? Opcode::OP_AICPU_CALL_AIC : Opcode::OP_AICPU_CALL_AIV;
-            auto &aicpuCall = leafFunc->AddOperation(opcode, std::vector<std::shared_ptr<LogicalTensor>>({outcast}), {});
+            auto& aicpuCall =
+                leafFunc->AddOperation(opcode, std::vector<std::shared_ptr<LogicalTensor>>({outcast}), {});
             aicpuCall.UpdateSubgraphID(subgraphID);
-            aicpuCall.SetAttribute(OpAttributeKey::aicpuCall, (int64_t)(uint32_t)((AICPU_CALL_NUM_COPYOUT_RESOLVE << AICPU_CALL_ARG_BIT) + copyOutResolveCounter));
+            aicpuCall.SetAttribute(
+                OpAttributeKey::aicpuCall,
+                (int64_t)(uint32_t)((AICPU_CALL_NUM_COPYOUT_RESOLVE << AICPU_CALL_ARG_BIT) + copyOutResolveCounter));
             aicpuCall.GetCommentList().push_back("aicpuCall: " + oss.str());
             aicpuCallCopyOutFinishDistanceDict[&aicpuCall] = copyOutScheduleDefaultDistance;
 
@@ -119,10 +126,10 @@ void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, F
         }
 
         // Find to aicpu call that should be emitted
-        std::vector<Operation *> emittedAicpuCallList = DecreaseDictCount(aicpuCallCopyOutFinishDistanceDict);
+        std::vector<Operation*> emittedAicpuCallList = DecreaseDictCount(aicpuCallCopyOutFinishDistanceDict);
         DecreaseDictCount(aicpuCallCopyOutCoalescingDistanceDict);
 
-        for (auto &emittedAicpuCall : emittedAicpuCallList) {
+        for (auto& emittedAicpuCall : emittedAicpuCallList) {
             opList.push_back(emittedAicpuCall);
             if (aicpuCallCopyOutCoalescingDistanceDict.size() != 0) {
                 // still under previous aicpu call's coalescing region, so don't emit this.
@@ -134,11 +141,11 @@ void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, F
         }
     }
     // Append the rest to tail
-    for (auto &[aicpuCall, dis] : aicpuCallCopyOutFinishDistanceDict) {
+    for (auto& [aicpuCall, dis] : aicpuCallCopyOutFinishDistanceDict) {
         (void)dis;
         opList.push_back(aicpuCall);
-        // tailing call should be ignored. However, because the op is already added by AddOperation, we have to firstly add it,
-        // and then remove it.
+        // tailing call should be ignored. However, because the op is already added by AddOperation, we have to firstly
+        // add it, and then remove it.
         aicpuCall->SetAsDeleted();
     }
 
@@ -152,12 +159,13 @@ void CopyOutResolve::InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, F
     CheckOutcastProducer(leafFunc);
 }
 
-void CopyOutResolve::CopyOutResolveCall(Function &function) const {
+void CopyOutResolve::CopyOutResolveCall(Function& function) const
+{
     if (function.paramConfigs_.copyOutResolveCoalescing == 0) {
         return;
     }
-    for (auto &leaf : function.rootFunc_->programs_) {
-        Function *leafFunc = leaf.second;
+    for (auto& leaf : function.rootFunc_->programs_) {
+        Function* leafFunc = leaf.second;
         InsertCopyOutResolveForLeaf(function.paramConfigs_.copyOutResolveCoalescing, leafFunc);
     }
 }

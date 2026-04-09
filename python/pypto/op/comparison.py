@@ -356,8 +356,8 @@ def argsort(
     dim : int, optional
         The dimension to sort along, if dim is not given, the last dimension of the input is chosen.
     descending : bool
-        Controls the order of sorting. 
-        If `True`, the tensor will be sorted in descending order; 
+        Controls the order of sorting.
+        If `True`, the tensor will be sorted in descending order;
         if `False`, it will be sorted in ascending order.
 
     Returns

@@ -7,6 +7,8 @@ pypto-abs
 pypto-add
 pypto-amax
 pypto-amin
+pypto-argmax
+pypto-argmin
 pypto-arange
 pypto-argsort
 pypto-assemble
@@ -25,6 +27,7 @@ pypto-clone
 pypto-concat
 pypto-copysign
 pypto-cos
+pypto-cumprod
 pypto-cumsum
 pypto-div
 pypto-eq

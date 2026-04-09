@@ -20,20 +20,29 @@
 namespace pypto {
 namespace ir {
 
-std::string MemorySpaceToString(MemorySpace space) {
+std::string MemorySpaceToString(MemorySpace space)
+{
     switch (space) {
-        case MemorySpace::DDR: return "DDR";
-        case MemorySpace::UB: return "UB";
-        case MemorySpace::L1: return "L1";
-        case MemorySpace::L0A: return "L0A";
-        case MemorySpace::L0B: return "L0B";
-        case MemorySpace::L0C: return "L0C";
-        default: return "Unknown";
+        case MemorySpace::DDR:
+            return "DDR";
+        case MemorySpace::UB:
+            return "UB";
+        case MemorySpace::L1:
+            return "L1";
+        case MemorySpace::L0A:
+            return "L0A";
+        case MemorySpace::L0B:
+            return "L0B";
+        case MemorySpace::L0C:
+            return "L0C";
+        default:
+            return "Unknown";
     }
 }
 
 // Helper function to convert string to lowercase
-static std::string ToLowerCase(const std::string &str) {
+static std::string ToLowerCase(const std::string& str)
+{
     std::string result = str;
     std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) { return std::tolower(c); });
     return result;
@@ -46,7 +55,8 @@ MemRef::MemRef(MemorySpace memorySpace, ExprPtr addr, uint64_t size, uint64_t id
       memorySpace_(memorySpace),
       addr_(std::move(addr)),
       size_(size),
-      id_(id) {}
+      id_(id)
+{}
 
 } // namespace ir
 } // namespace pypto

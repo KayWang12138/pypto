@@ -17,13 +17,11 @@
 
 #include "cost_model/simulation/arch/Simulator.h"
 
-namespace CostModel
-{
-    class SimulatorA2A3 : public Simulator
-    {
-    public:
-        uint64_t Run(std::vector<std::string> program) override;
-        const int rGmLatency = 0;
-        const int wGmLatency = 0;
-    };
+namespace CostModel {
+class SimulatorA2A3 : public Simulator {
+public:
+    uint64_t Run(std::vector<std::string> program) override;
+    const int rGmLatency = 0;
+    const int wGmLatency = 0;
+};
 } // namespace CostModel

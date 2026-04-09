@@ -30,12 +30,14 @@ RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tform
       rawshape(std::move(tshape)),
       datatype(t),
       format(tformat),
-      symbol(std::move(tname)) {
+      symbol(std::move(tname))
+{
     dynRawShape = SymbolicScalar::FromConcrete(rawshape);
     memoryId = rawmagic;
 }
 
-Json RawTensor::DumpJson() const {
+Json RawTensor::DumpJson() const
+{
     Json result;
     result[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
     result["datatype"] = datatype;
@@ -53,7 +55,8 @@ Json RawTensor::DumpJson() const {
     return result;
 }
 
-std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
+std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json& rawTensorDump)
+{
     FUNCTION_ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR))
         << rawTensorDump[T_FIELD_KIND].get<int>() << " != " << static_cast<int>(Kind::T_KIND_RAW_TENSOR);
     DataType dtype = static_cast<DataType>(rawTensorDump["datatype"].get<int>());
@@ -72,9 +75,10 @@ std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
     return ret;
 }
 
-std::string RawTensor::DumpType() const {
+std::string RawTensor::DumpType() const
+{
     std::string result = "<";
-    for (auto &value : rawshape) {
+    for (auto& value : rawshape) {
         result += std::to_string((value)) + " x ";
     }
     result += DataType2String(datatype);
@@ -85,7 +89,8 @@ std::string RawTensor::DumpType() const {
     return result;
 }
 
-std::string RawTensor::DumpSSA(bool showType, bool showSymbol) const {
+std::string RawTensor::DumpSSA(bool showType, bool showSymbol) const
+{
     std::ostringstream oss;
     if (showType) {
         oss << DumpType() << " ";
@@ -99,19 +104,14 @@ std::string RawTensor::DumpSSA(bool showType, bool showSymbol) const {
     return oss.str();
 }
 
-std::string RawTensor::Dump() const {
-    return DumpSSA();
-}
+std::string RawTensor::Dump() const { return DumpSSA(); }
 
-bool RawTensor::IsDummy() const {
-    return isDummy_;
-}
+bool RawTensor::IsDummy() const { return isDummy_; }
 
-void RawTensor::SetIsDummy(bool dummy) {
-    isDummy_ = dummy;
-}
+void RawTensor::SetIsDummy(bool dummy) { isDummy_ = dummy; }
 
-void RawTensor::AddRefCount(int value) {
+void RawTensor::AddRefCount(int value)
+{
     FUNCTION_ASSERT(value == 1 || value == -1) << "value: " << value;
     refCount_ += value;
     if (refCount_ < 0) {
@@ -119,7 +119,8 @@ void RawTensor::AddRefCount(int value) {
     }
 }
 
-int64_t RawTensor::GetRawDataSize() const {
+int64_t RawTensor::GetRawDataSize() const
+{
     if (HasNegativeNum<int64_t>(rawshape)) {
         FUNCTION_LOGD("Raw tensor shape has negative. It has dynamic axis.");
         return INT64_MAX;
@@ -127,6 +128,7 @@ int64_t RawTensor::GetRawDataSize() const {
     return GetRawShapeSize() * BytesOf(datatype);
 }
 
-int64_t RawTensor::GetRawShapeSize() const {
+int64_t RawTensor::GetRawShapeSize() const
+{
     return std::accumulate(rawshape.begin(), rawshape.end(), INT64_C(1), std::multiplies<int64_t>());
 }

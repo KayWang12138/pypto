@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -12,7 +13,7 @@
 计算自然对数的底数e的(input - other)次幂，其中other的尾轴或次尾轴的值为1，返回与输入input数据类型及形状相同的Tensor。
 
 $$
-e^(input - other)
+e^{(input - other)}
 $$
 
 ## 函数原型
@@ -25,8 +26,8 @@ expand_exp_dif(input: Tensor, other: Tensor) -> Tensor
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维，并支持按照单个维度广播到相同形状；尾轴或次尾轴的值必须为1；Shape Size不大于2147483647（即INT32_MAX）。 |
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32, DT_BF16。 <br> 不支持空Tensor；Shape仅支持2-4维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_FP32, DT_BF16。 <br> 不支持空Tensor；Shape仅支持2-4维，并支持按照单个维度广播到相同形状；尾轴或次尾轴的值必须为1；Shape Size不大于2147483647（即INT32_MAX）。 |
 
 ## 返回值说明
 
@@ -82,4 +83,3 @@ out = pypto.expand_exp_dif(x, y)
 输出数据out:   [[ 1.       ,  2.718282 ,  7.3890557],
                [ 7.3890557, 20.085537 , 54.59815  ]]
 ```
-

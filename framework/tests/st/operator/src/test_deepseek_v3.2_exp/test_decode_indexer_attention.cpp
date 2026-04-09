@@ -29,11 +29,11 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DecodeIndexerAttentionSTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 namespace {
-void SetPreConfig() {
-}
+void SetPreConfig() {}
 
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isSmooth = false, bool nz = false>
-void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
+void TestDecodeIndexerAttentionSTest(DSIASimpleParams& params)
+{
     SetPreConfig();
 
     int b = params.b;
@@ -80,8 +80,8 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     std::vector<int64_t> kvCacheShape = {blockNum, blockSize, n2, dn};
     std::vector<int64_t> krCacheShape = {blockNum, blockSize, n2, qkRopeHeadDim};
 
-    std::vector<int64_t> qNopeOutShape = {b * s1 , n1, dn};
-    std::vector<int64_t> qRopeOutShape = {b * s1 , n1, qkRopeHeadDim};
+    std::vector<int64_t> qNopeOutShape = {b * s1, n1, dn};
+    std::vector<int64_t> qRopeOutShape = {b * s1, n1, qkRopeHeadDim};
     std::vector<int64_t> rmsResShape = {b, s1, params.q_lora_rank};
 
     std::vector<int64_t> wQbScaleShape = {1, n1 * qHeadDim};
@@ -123,7 +123,7 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     auto dynamicCos = CreateTensorAndData<T>(cosShape, dType, "cos", "/cos.bin", {0, 1});
     auto dynamicSin = CreateTensorAndData<T>(cosShape, dType, "sin", "/sin.bin", {0, 1});
     auto dynamicCacheIndex =
-        CreateTensorAndData<int32_t>(kvLenShape,  DT_INT32, "cacheIndex", "/k_cache_index.bin", {0, 1});
+        CreateTensorAndData<int32_t>(kvLenShape, DT_INT32, "cacheIndex", "/k_cache_index.bin", {0, 1});
 
     auto kvCache = CreateTensorAndData<T>(kvCacheShape, dType, "kvCache", "/kv_cache.bin", {0});
     auto krCache = CreateTensorAndData<T>(krCacheShape, dType, "krCache", "/kr_cache.bin", {0});
@@ -132,7 +132,8 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
 
     // MlaProlog output
     // std::vector<SymbolicScalar> kvCacheDynamicOutShape = {GetInputShape(kvCache.tensor, 0), blockSize, n2, dn};
-    // std::vector<SymbolicScalar> krCacheDynamicOutShape = {GetInputShape(krCache.tensor, 0), blockSize, n2, qkRopeHeadDim};
+    // std::vector<SymbolicScalar> krCacheDynamicOutShape = {GetInputShape(krCache.tensor, 0), blockSize, n2,
+    // qkRopeHeadDim};
 
     auto dynamicBlockTable =
         CreateTensorAndData<int32_t>(blockTableShape, DT_INT32, "blockTable", "/block_table.bin", {0, 1});
@@ -141,7 +142,8 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     SymbolicScalar maxBlockNumSymbol = GetInputShape(dynamicBlockTable.tensor, 1);
     weightFormat = TileOpFormat::TILEOP_NZ;
 
-    auto qW = CreateTensorAndData<T>({qLoraRank, idx_n_heads * idx_head_dim}, dType, "qW", weightFormat, "/wq_b_nz.bin");
+    auto qW =
+        CreateTensorAndData<T>({qLoraRank, idx_n_heads * idx_head_dim}, dType, "qW", weightFormat, "/wq_b_nz.bin");
     auto kW = CreateTensorAndData<T>({h, idx_head_dim}, dType, "kW", weightFormat, "/wk_nz.bin");
     auto projW = CreateTensorAndData<T>({h, idx_n_heads}, dType, "projW", weightFormat, "/weights_proj_nz.bin");
     auto lnW = CreateTensorAndData<T>({idx_head_dim}, dType, "lnW", "/weight_layer_norm.bin");
@@ -151,17 +153,27 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
         CreateTensorAndData<int32_t>(tmpTopkInputShape, DT_INT32, "tmpTopkInput", "/topk_res.bin", {0, 1});
 
     // output
-    auto dynamicSaOut = CreateConstantDynamicOutputTensor<T>(saOutShape, dType, "saOut", 0, {bSymbol, s1Symbol, n1, dn});
-    auto dynamicGatherRes = CreateConstantDynamicOutputTensor<T>(gatherResShape, dType, "gatherRes", 0, {bSymbol * s1Symbol * params.topk, dn + qkRopeHeadDim});
-    auto dynamicTmpRowSumOut = CreateConstantDynamicOutputTensor<float>({b * s1 * n2, maxBlockNumPerBatch * blockSize}, DT_FP32, "tmpRowSumOut", 0, {bSymbol * s1Symbol * n2, maxBlockNumSymbol * blockSize});
-    auto dynamicTmpIndexerTopkRes = CreateConstantDynamicOutputTensor<int32_t>({b, s1, n2, params.topk}, DT_INT32, "tmpIndexerTopkRes", 0, {bSymbol, s1Symbol, n2, params.topk});
+    auto dynamicSaOut =
+        CreateConstantDynamicOutputTensor<T>(saOutShape, dType, "saOut", 0, {bSymbol, s1Symbol, n1, dn});
+    auto dynamicGatherRes = CreateConstantDynamicOutputTensor<T>(
+        gatherResShape, dType, "gatherRes", 0, {bSymbol * s1Symbol * params.topk, dn + qkRopeHeadDim});
+    auto dynamicTmpRowSumOut = CreateConstantDynamicOutputTensor<float>(
+        {b * s1 * n2, maxBlockNumPerBatch * blockSize}, DT_FP32, "tmpRowSumOut", 0,
+        {bSymbol * s1Symbol * n2, maxBlockNumSymbol * blockSize});
+    auto dynamicTmpIndexerTopkRes = CreateConstantDynamicOutputTensor<int32_t>(
+        {b, s1, n2, params.topk}, DT_INT32, "tmpIndexerTopkRes", 0, {bSymbol, s1Symbol, n2, params.topk});
 
-    auto rmsResOut = CreateConstantDynamicOutputTensor<T>(rmsResShape, dType, "rmsResOut", 0, {bSymbol, s1Symbol, params.q_lora_rank});
-    auto queryOut = CreateConstantDynamicOutputTensor<T>(queryShape, dType, "queryOut", 0, {bSymbol, s1Symbol, idx_n_heads, idx_head_dim});
-    auto weightOut = CreateConstantDynamicOutputTensor<T>(weightShape, dType, "weightOut", 0, {bSymbol, s1Symbol, idx_n_heads});
+    auto rmsResOut = CreateConstantDynamicOutputTensor<T>(
+        rmsResShape, dType, "rmsResOut", 0, {bSymbol, s1Symbol, params.q_lora_rank});
+    auto queryOut = CreateConstantDynamicOutputTensor<T>(
+        queryShape, dType, "queryOut", 0, {bSymbol, s1Symbol, idx_n_heads, idx_head_dim});
+    auto weightOut =
+        CreateConstantDynamicOutputTensor<T>(weightShape, dType, "weightOut", 0, {bSymbol, s1Symbol, idx_n_heads});
 
-    auto qNopeOut = CreateConstantDynamicOutputTensor<T>(qNopeOutShape, dType, "qNopeOut", 0, {bSymbol * s1Symbol , n1, dn});
-    auto qRopeOut = CreateConstantDynamicOutputTensor<T>(qRopeOutShape, dType, "qRopeOut", 0, {bSymbol * s1Symbol , n1, qkRopeHeadDim});
+    auto qNopeOut =
+        CreateConstantDynamicOutputTensor<T>(qNopeOutShape, dType, "qNopeOut", 0, {bSymbol * s1Symbol, n1, dn});
+    auto qRopeOut = CreateConstantDynamicOutputTensor<T>(
+        qRopeOutShape, dType, "qRopeOut", 0, {bSymbol * s1Symbol, n1, qkRopeHeadDim});
 
     // 4. golden
     std::vector<T> golden3 = GetGoldenVec<T>(kvCacheShape, "/kv_cache_golden.bin");
@@ -181,9 +193,27 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
 
     // 5.input/outputDataList
     std::vector<RawTensorDataPtr> outputDataList = {dynamicSaOut.dataPtr};
-    std::vector<RawTensorDataPtr> inputDataList = {dynamicX.dataPtr, wDq.dataPtr, wUqQr.dataPtr, wUk.dataPtr, wDkvKr.dataPtr, gammaCq.dataPtr,
-        gammaCkv.dataPtr, dynamicSin.dataPtr, dynamicCos.dataPtr, dynamicCacheIndex.dataPtr, kvCache.dataPtr, krCache.dataPtr, dynamicBlockTable.dataPtr, dynamicActSeqs.dataPtr, qW.dataPtr,
-        kW.dataPtr, projW.dataPtr, lnW.dataPtr, lnBias.dataPtr, indexKCache.dataPtr};
+    std::vector<RawTensorDataPtr> inputDataList = {
+        dynamicX.dataPtr,
+        wDq.dataPtr,
+        wUqQr.dataPtr,
+        wUk.dataPtr,
+        wDkvKr.dataPtr,
+        gammaCq.dataPtr,
+        gammaCkv.dataPtr,
+        dynamicSin.dataPtr,
+        dynamicCos.dataPtr,
+        dynamicCacheIndex.dataPtr,
+        kvCache.dataPtr,
+        krCache.dataPtr,
+        dynamicBlockTable.dataPtr,
+        dynamicActSeqs.dataPtr,
+        qW.dataPtr,
+        kW.dataPtr,
+        projW.dataPtr,
+        lnW.dataPtr,
+        lnBias.dataPtr,
+        indexKCache.dataPtr};
     MlaQuantInputs quantInputs;
 
 #if DSIA_DEBUG == 1
@@ -202,11 +232,13 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     inputDataList.emplace_back(dynamicTmpTopkInput.dataPtr);
 #endif // DSIA_DEBUG
 
-    DecodeIndexerAttention(dynamicX.tensor, wDq.tensor, wUqQr.tensor, wUk.tensor, wDkvKr.tensor, gammaCq.tensor, gammaCkv.tensor, dynamicSin.tensor, dynamicCos.tensor, dynamicCacheIndex.tensor, kvCache.tensor, krCache.tensor, quantInputs,
-        dynamicBlockTable.tensor, dynamicActSeqs.tensor, qW.tensor, kW.tensor, projW.tensor, lnW.tensor, lnBias.tensor, indexKCache.tensor, dynamicSaOut.tensor,
-        dynamicGatherRes.tensor, dynamicTmpTopkInput.tensor, dynamicTmpIndexerTopkRes.tensor, dynamicTmpRowSumOut.tensor,
-        rmsResOut.tensor,queryOut.tensor,weightOut.tensor,qNopeOut.tensor,qRopeOut.tensor,
-        params);
+    DecodeIndexerAttention(
+        dynamicX.tensor, wDq.tensor, wUqQr.tensor, wUk.tensor, wDkvKr.tensor, gammaCq.tensor, gammaCkv.tensor,
+        dynamicSin.tensor, dynamicCos.tensor, dynamicCacheIndex.tensor, kvCache.tensor, krCache.tensor, quantInputs,
+        dynamicBlockTable.tensor, dynamicActSeqs.tensor, qW.tensor, kW.tensor, projW.tensor, lnW.tensor, lnBias.tensor,
+        indexKCache.tensor, dynamicSaOut.tensor, dynamicGatherRes.tensor, dynamicTmpTopkInput.tensor,
+        dynamicTmpIndexerTopkRes.tensor, dynamicTmpRowSumOut.tensor, rmsResOut.tensor, queryOut.tensor,
+        weightOut.tensor, qNopeOut.tensor, qRopeOut.tensor, params);
 
 #ifdef BUILD_WITH_CANN
     uint64_t queryNopeOutBuffer = b * s1 * n1 * dn * BytesOf(dType);
@@ -216,34 +248,38 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
     uint64_t weightOutBuffer = b * s1 * idx_n_heads * BytesOf(dType);
     uint64_t gatherResBuffer = b * s1 * params.topk * (dn + qkRopeHeadDim) * BytesOf(dType);
     uint64_t indexerTopkResBuffer = b * s1 * n2 * params.topk * BytesOf(DT_INT32);
-    auto totalBuffer = queryNopeOutBuffer + queryRopeOutBuffer + rmsResBuffer + queryOutBuffer + weightOutBuffer + gatherResBuffer + indexerTopkResBuffer;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList, DeviceLauncherConfig(totalBuffer)); // output list
+    auto totalBuffer = queryNopeOutBuffer + queryRopeOutBuffer + rmsResBuffer + queryOutBuffer + weightOutBuffer +
+                       gatherResBuffer + indexerTopkResBuffer;
+    DevFuncRunner::Run(
+        Program::GetInstance().GetLastFunction(), inputDataList, outputDataList,
+        DeviceLauncherConfig(totalBuffer)); // output list
     std::cout << "MlaProlog kv ====== " << std::endl;
-    EXPECT_TRUE(resultCmpPrint<T>(golden3, (T *)kvCache.dataPtr->data(), 0.003f, 3));
+    EXPECT_TRUE(resultCmpPrint<T>(golden3, (T*)kvCache.dataPtr->data(), 0.003f, 3));
     std::cout << "MlaProlog kr ====== " << std::endl;
-    EXPECT_TRUE(resultCmpPrint<T>(golden4, (T *)krCache.dataPtr->data(), 0.003f, 3));
+    EXPECT_TRUE(resultCmpPrint<T>(golden4, (T*)krCache.dataPtr->data(), 0.003f, 3));
     std::cout << "kCacheOut ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(kCacheOutGolden, (T *)indexKCache.dataPtr->data(), 0.003f, 0, 1000, false, true, 0));
+    EXPECT_TRUE(resultCmp<T>(kCacheOutGolden, (T*)indexKCache.dataPtr->data(), 0.003f, 0, 1000, false, true, 0));
 
 #if DSIA_DEBUG == 1
     std::cout << "tmpRowSumOut result ====== " << std::endl;
-    EXPECT_TRUE(resultCmp(tmpRowSumOutGolden, (float *)dynamicTmpRowSumOut.dataPtr->data(), 0.01f, 0, 1000, false));
+    EXPECT_TRUE(resultCmp(tmpRowSumOutGolden, (float*)dynamicTmpRowSumOut.dataPtr->data(), 0.01f, 0, 1000, false));
     std::cout << "indexerTopkRes result ====== " << std::endl;
-    resultCmpPrint(indexerTopkResGolden, (int32_t *)dynamicTmpIndexerTopkRes.dataPtr->data(), 0.003f, 8);
+    resultCmpPrint(indexerTopkResGolden, (int32_t*)dynamicTmpIndexerTopkRes.dataPtr->data(), 0.003f, 8);
     std::cout << "!!!!!!!!!!!!!!! dump topk_input_row_sum and topk_output" << std::endl;
     dynamicTmpRowSumOut.dataPtr->ToFile("topk_input_row_sum_npu.bin"); // build/tests/st
     dynamicTmpIndexerTopkRes.dataPtr->ToFile("topk_output_npu.bin");
     std::cout << "!!!!!!!!!!!!!!! replace gather_topk_input by topk_res_golden !!!!!!!!!!!!!!!!" << std::endl;
     std::cout << "gatherRes result ====== " << std::endl;
-    EXPECT_TRUE(resultCmp(gatherResGolden, (T *)dynamicGatherRes.dataPtr->data(), 0.0003f));
+    EXPECT_TRUE(resultCmp(gatherResGolden, (T*)dynamicGatherRes.dataPtr->data(), 0.0003f));
 #endif
     std::cout << "selectAtten result ====== " << std::endl;
-    EXPECT_TRUE(resultCmpPrint(saoutResultGolden, (T *)dynamicSaOut.dataPtr->data(), 0.0005f, 8));
+    EXPECT_TRUE(resultCmpPrint(saoutResultGolden, (T*)dynamicSaOut.dataPtr->data(), 0.0005f, 8));
 #endif
 }
 
 template <typename T = npu::tile_fwk::float16>
-void test_common(DSIASimpleParams params) {
+void test_common(DSIASimpleParams params)
+{
     int paramsSize = 7;
     std::vector<int> inputParams(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试
@@ -256,18 +292,15 @@ void test_common(DSIASimpleParams params) {
     params.cacheMode = "PA_BSND";
     int isQuant = inputParams[5];
     int isSmooth = inputParams[6];
-    std::cout << "=========== DecodeIndexerAttentionSTest: isQuant: " << isQuant << ", isSmooth: " << isSmooth << std::endl;
+    std::cout << "=========== DecodeIndexerAttentionSTest: isQuant: " << isQuant << ", isSmooth: " << isSmooth
+              << std::endl;
 
-    RopeTileShapeConfig ropeTileConfigs = {
-        {128, 128},
-        {32, 128, 128},
-        {1, 128, 128, 128}
-    };
+    RopeTileShapeConfig ropeTileConfigs = {{128, 128}, {32, 128, 128}, {1, 128, 128, 128}};
     IndexerTileShapeConfig indexerConfigs{
         {16, 16, 128, 128, 128, 128}, // c1TileShape
-        {128, 128, 128, 128}, // v1TileShape
+        {128, 128, 128, 128},         // v1TileShape
         {16, 16, 128, 128, 128, 128}, // c2TileShape
-        {128, 128, 128, 128}  // v2TileShape
+        {128, 128, 128, 128}          // v2TileShape
     };
 
     SaTileShapeConfig saTileConfig;
@@ -310,22 +343,26 @@ void test_common(DSIASimpleParams params) {
     }
 }
 
-TEST_F(DecodeIndexerAttentionSTest, mini) {
+TEST_F(DecodeIndexerAttentionSTest, mini)
+{
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }
 
-TEST_F(DecodeIndexerAttentionSTest, 32B) {
+TEST_F(DecodeIndexerAttentionSTest, 32B)
+{
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }
 
-TEST_F(DecodeIndexerAttentionSTest, 24B) {
+TEST_F(DecodeIndexerAttentionSTest, 24B)
+{
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }
 
-TEST_F(DecodeIndexerAttentionSTest, 48B) {
+TEST_F(DecodeIndexerAttentionSTest, 48B)
+{
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common<npu::tile_fwk::bfloat16>(params);
 }

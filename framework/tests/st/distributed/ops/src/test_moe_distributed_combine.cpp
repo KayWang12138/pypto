@@ -22,11 +22,12 @@
 
 namespace npu::tile_fwk::Distributed {
 
-template<typename T>
+template <typename T>
 void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir)
 {
     constexpr size_t paramsSize = 6;
-    auto [batchSize, hiddenSize, moeExpertNum, topK, dtype_num, useV2] = GetParams<paramsSize>(goldenDir  + "/params.bin");
+    auto [batchSize, hiddenSize, moeExpertNum, topK, dtype_num, useV2] =
+        GetParams<paramsSize>(goldenDir + "/params.bin");
 
     DataType dType = GetDataTypeNum(dtype_num);
 
@@ -44,30 +45,32 @@ void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir)
     Tensor out(dType, outShape, "out");
 
     std::string dispatchPath = goldenDir + "/dispatch";
-    std::vector<T> expandXPtr = ReadToVector<T>(
-        dispatchPath + "/y_rank_" + std::to_string(testParam.rankId) + ".bin", inShape);
+    std::vector<T> expandXPtr =
+        ReadToVector<T>(dispatchPath + "/y_rank_" + std::to_string(testParam.rankId) + ".bin", inShape);
     std::vector<int32_t> assistInfoForCombinePtr = ReadToVector<int32_t>(
         dispatchPath + "/combine_info_rank_" + std::to_string(testParam.rankId) + ".bin", combineInfoShape);
     std::vector<int32_t> recvCountsPtr = ReadToVector<int32_t>(
         dispatchPath + "/recv_counts_rank_" + std::to_string(testParam.rankId) + ".bin", recvCountsShape);
-    std::vector<float> expertScalesPtr = ReadToVector<float>(
-        dispatchPath + "/scale_rank_" + std::to_string(testParam.rankId) + ".bin", scaleShape);
+    std::vector<float> expertScalesPtr =
+        ReadToVector<float>(dispatchPath + "/scale_rank_" + std::to_string(testParam.rankId) + ".bin", scaleShape);
 
-    using CombineFunc = std::function<void(const Tensor&, const Tensor&, const Tensor&, const Tensor&, const char*,
-        uint32_t, uint32_t, uint32_t, uint32_t, Tensor&)>;
+    using CombineFunc = std::function<void(
+        const Tensor&, const Tensor&, const Tensor&, const Tensor&, const char*, uint32_t, uint32_t, uint32_t, uint32_t,
+        Tensor&)>;
     CombineFunc func = (useV2 == 1) ? MoeDistributedCombineV2 : MoeDistributedCombine;
 
-    FUNCTION("MoeDistributedCombineMain", {expandX, assistInfoForCombine, recvCounts, expertScales}, {out}) {
-        func(expandX, assistInfoForCombine, recvCounts, expertScales, testParam.group,
-            testParam.rankSize, moeExpertNum, 0, 0, out);
+    FUNCTION("MoeDistributedCombineMain", {expandX, assistInfoForCombine, recvCounts, expertScales}, {out})
+    {
+        func(
+            expandX, assistInfoForCombine, recvCounts, expertScales, testParam.group, testParam.rankSize, moeExpertNum,
+            0, 0, out);
     }
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(expandX, expandXPtr),
-        RawTensorData::CreateTensor<int32_t>(assistInfoForCombine, assistInfoForCombinePtr),
-        RawTensorData::CreateTensor<int32_t>(recvCounts, recvCountsPtr),
-        RawTensorData::CreateTensor<float>(expertScales, expertScalesPtr)
-    });
+    ProgramData::GetInstance().AppendInputs(
+        {RawTensorData::CreateTensor<T>(expandX, expandXPtr),
+         RawTensorData::CreateTensor<int32_t>(assistInfoForCombine, assistInfoForCombinePtr),
+         RawTensorData::CreateTensor<int32_t>(recvCounts, recvCountsPtr),
+         RawTensorData::CreateTensor<float>(expertScales, expertScalesPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 
     DeviceLauncherConfig config;
@@ -85,4 +88,4 @@ template void TestMoeDistributedCombine<float>(OpTestParam& testParam, std::stri
 template void TestMoeDistributedCombine<float16>(OpTestParam& testParam, std::string& goldenDir);
 template void TestMoeDistributedCombine<bfloat16>(OpTestParam& testParam, std::string& goldenDir);
 
-} // namespace tile_fwk::Distributed
+} // namespace npu::tile_fwk::Distributed

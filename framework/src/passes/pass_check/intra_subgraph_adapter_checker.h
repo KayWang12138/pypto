@@ -24,10 +24,10 @@ namespace npu {
 namespace tile_fwk {
 class IntraSubgraphAdapterChecker : Checker {
 public:
-    Status DoPostCheck(Function &function) override;
+    Status DoPostCheck(Function& function) override;
 
 private:
-    Status PostCheckSubgraphTensor(const std::vector<std::vector<Operation *>> &subgraphs);
+    Status PostCheckSubgraphTensor(const std::vector<std::vector<Operation*>>& subgraphs);
 };
 } // namespace tile_fwk
 } // namespace npu

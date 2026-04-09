@@ -66,7 +66,8 @@ struct QuantIndexerPrologOutputGolden {
 };
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName)
+{
     auto shape = tensor.GetShape();
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
@@ -75,7 +76,8 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -83,11 +85,12 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 }
 
 template <typename T, bool nz>
-QuantIndexerPrologInputData PrepareQuantIndexerPrologInputsData(const QuantIndexerPrologInput &inputs) {
+QuantIndexerPrologInputData PrepareQuantIndexerPrologInputsData(const QuantIndexerPrologInput& inputs)
+{
     auto xData = CreateTensorData<T>(inputs.x, "/token_x.bin");
     auto qNormData = CreateTensorData<int8_t>(inputs.qNorm, "/q_norm.bin");
     auto qNormScaleData = CreateTensorData<float>(inputs.qNormScale, "/q_norm_scale.bin");
-    auto wQbData = CreateTensorData<int8_t>(inputs.wQb, nz ? "/w_idx_qb_nz.bin" : "/w_idx_qb.bin"); // nz
+    auto wQbData = CreateTensorData<int8_t>(inputs.wQb, nz ? "/w_idx_qb_nz.bin" : "/w_idx_qb.bin");      // nz
     auto wQbScaleData = CreateTensorData<float>(inputs.wQbScale, "/w_idx_qb_scale.bin");
     auto wkData = CreateTensorData<T>(inputs.wk, nz ? "/w_idx_k_nz.bin" : "/w_idx_k.bin");               // nz
     auto wProjData = CreateTensorData<T>(inputs.wProj, nz ? "/weights_proj_nz.bin" : "/w_idx_proj.bin"); // nz
@@ -101,12 +104,14 @@ QuantIndexerPrologInputData PrepareQuantIndexerPrologInputsData(const QuantIndex
     auto kCacheScaleData = CreateTensorData<npu::tile_fwk::float16>(inputs.kCacheScale, "/idx_k_scale_cache.bin");
     auto kCacheIndexData = CreateTensorData<int64_t>(inputs.kCacheIndex, "/idx_k_cache_index.bin");
 
-    return QuantIndexerPrologInputData{xData, qNormData, qNormScaleData, wQbData, wQbScaleData, wkData, wProjData,
-        lnGammaKData, lnBetaKData, cosIdxRopeData, sinIdxRopeData, hadamardQData, hadamardKData, kCacheData,
-        kCacheScaleData, kCacheIndexData};
+    return QuantIndexerPrologInputData{xData,         qNormData,      qNormScaleData,  wQbData,
+                                       wQbScaleData,  wkData,         wProjData,       lnGammaKData,
+                                       lnBetaKData,   cosIdxRopeData, sinIdxRopeData,  hadamardQData,
+                                       hadamardKData, kCacheData,     kCacheScaleData, kCacheIndexData};
 }
 
-QuantIndexerPrologOutputData PrepareQuantIndexerPrologOutputsData(const QuantIndexerPrologOutput &outputs) {
+QuantIndexerPrologOutputData PrepareQuantIndexerPrologOutputsData(const QuantIndexerPrologOutput& outputs)
+{
     auto qInt8Data = RawTensorData::CreateConstantTensor<int8_t>(outputs.qInt8, 0);
     auto qScaleData = RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(outputs.qScale, 0.0f);
     auto kInt8Data = RawTensorData::CreateConstantTensor<int8_t>(outputs.kInt8, 0);
@@ -115,7 +120,8 @@ QuantIndexerPrologOutputData PrepareQuantIndexerPrologOutputsData(const QuantInd
     return QuantIndexerPrologOutputData{qInt8Data, qScaleData, kInt8Data, kScaleData, weightsData};
 }
 
-QuantIndexerPrologOutputGolden PrepareQuantIndexerPrologOutputsGolden(const QuantIndexerPrologOutput &outputs) {
+QuantIndexerPrologOutputGolden PrepareQuantIndexerPrologOutputsGolden(const QuantIndexerPrologOutput& outputs)
+{
     auto qInt8Golden = getGoldenVec<int8_t>(outputs.qInt8.GetShape(), "/query_golden.bin");
     auto qScaleGolden = getGoldenVec<npu::tile_fwk::float16>(outputs.qScale.GetShape(), "/query_scale_golden.bin");
     auto kInt8Golden = getGoldenVec<int8_t>(outputs.kInt8.GetShape(), "/idx_k_cache_out_golden.bin");
@@ -126,9 +132,10 @@ QuantIndexerPrologOutputGolden PrepareQuantIndexerPrologOutputsGolden(const Quan
 }
 
 template <typename T = npu::tile_fwk::bfloat16, bool nz = true>
-void TestQuantLightningIndexerProlog(QuantIndexerConfigs &configs) {
+void TestQuantLightningIndexerProlog(QuantIndexerConfigs& configs)
+{
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
-    
+
     constexpr int64_t nzFirstDim = 16;
     constexpr int64_t b16C0Dim = 16;
     constexpr int64_t b8C0Dim = 32;
@@ -179,10 +186,25 @@ void TestQuantLightningIndexerProlog(QuantIndexerConfigs &configs) {
     auto symT = GetInputShape(dynamicX, 0);
     auto symBlockNum = GetInputShape(dynamicKCache, 0);
 
-    QuantIndexerPrologInput staticInput{x, qNorm, qNormScale, wQb, wQbScale, wk, wProj, lnGammaK, lnBetaK, cosIdxRope,
-        sinIdxRope, hadamardQ, hadamardK, kCache, kCacheScale, kCacheIndex};
-    QuantIndexerPrologInput dynamicInput{dynamicX, dynamicQNorm, dynamicQNormScale, wQb, wQbScale, wk, wProj, lnGammaK,
-        lnBetaK, dynamicCosIdxRope, dynamicSinIdxRope, hadamardQ, hadamardK, dynamicKCache, dynamicKCacheScale,
+    QuantIndexerPrologInput staticInput{x,         qNorm,    qNormScale,  wQb,        wQbScale,   wk,
+                                        wProj,     lnGammaK, lnBetaK,     cosIdxRope, sinIdxRope, hadamardQ,
+                                        hadamardK, kCache,   kCacheScale, kCacheIndex};
+    QuantIndexerPrologInput dynamicInput{
+        dynamicX,
+        dynamicQNorm,
+        dynamicQNormScale,
+        wQb,
+        wQbScale,
+        wk,
+        wProj,
+        lnGammaK,
+        lnBetaK,
+        dynamicCosIdxRope,
+        dynamicSinIdxRope,
+        hadamardQ,
+        hadamardK,
+        dynamicKCache,
+        dynamicKCacheScale,
         dynamicKCacheIndex};
     QuantIndexerPrologInputData inputData = PrepareQuantIndexerPrologInputsData<T, nz>(staticInput);
 
@@ -205,10 +227,11 @@ void TestQuantLightningIndexerProlog(QuantIndexerConfigs &configs) {
     // output golden
     QuantIndexerPrologOutputGolden outputGolden = PrepareQuantIndexerPrologOutputsGolden(staticOutput);
 
-    std::vector<RawTensorDataPtr> inputDataList = {inputData.xData, inputData.qNormData, inputData.qNormScaleData,
-        inputData.wQbData, inputData.wQbScaleData, inputData.wkData, inputData.wProjData, inputData.lnGammaKData,
-        inputData.lnBetaKData, inputData.cosIdxRopeData, inputData.sinIdxRopeData, inputData.hadamardQData,
-        inputData.hadamardKData, inputData.kCacheData, inputData.kCacheScaleData, inputData.kCacheIndexData};
+    std::vector<RawTensorDataPtr> inputDataList = {
+        inputData.xData,         inputData.qNormData,      inputData.qNormScaleData,  inputData.wQbData,
+        inputData.wQbScaleData,  inputData.wkData,         inputData.wProjData,       inputData.lnGammaKData,
+        inputData.lnBetaKData,   inputData.cosIdxRopeData, inputData.sinIdxRopeData,  inputData.hadamardQData,
+        inputData.hadamardKData, inputData.kCacheData,     inputData.kCacheScaleData, inputData.kCacheIndexData};
 
     std::vector<RawTensorDataPtr> outputDataList = {
         outputData.qInt8Data, outputData.qScaleData, outputData.weightsData};
@@ -225,29 +248,29 @@ void TestQuantLightningIndexerProlog(QuantIndexerConfigs &configs) {
     const float error_threshold = 0.0001f;
     const size_t error_count_threshold = 1000;
     EXPECT_TRUE(resultCmp<int8_t>(
-        outputGolden.qInt8Golden, (int8_t *)outputData.qInt8Data->data(), 1, 0, error_count_threshold, false, true, 0));
+        outputGolden.qInt8Golden, (int8_t*)outputData.qInt8Data->data(), 1, 0, error_count_threshold, false, true, 0));
     std::cout << "qScale ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(outputGolden.qScaleGolden,
-        (npu::tile_fwk::float16 *)outputData.qScaleData->data(), error_threshold, 0, error_count_threshold, false, true,
-        0));
+    EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(
+        outputGolden.qScaleGolden, (npu::tile_fwk::float16*)outputData.qScaleData->data(), error_threshold, 0,
+        error_count_threshold, false, true, 0));
 
     std::cout << "kInt8 ====== " << std::endl;
     EXPECT_TRUE(resultCmp<int8_t>(
-        outputGolden.kInt8Golden, (int8_t *)inputData.kCacheData->data(), 1, 0, error_count_threshold, false, true,
-        0));
+        outputGolden.kInt8Golden, (int8_t*)inputData.kCacheData->data(), 1, 0, error_count_threshold, false, true, 0));
 
     std::cout << "kScale ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(outputGolden.kScaleGolden,
-        (npu::tile_fwk::float16 *)inputData.kCacheScaleData->data(), error_threshold, 0, error_count_threshold,
-        false, true, 0));
+    EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(
+        outputGolden.kScaleGolden, (npu::tile_fwk::float16*)inputData.kCacheScaleData->data(), error_threshold, 0,
+        error_count_threshold, false, true, 0));
 
     std::cout << "weight ======" << std::endl;
-    EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(outputGolden.weightsGolden,
-        (npu::tile_fwk::float16 *)outputData.weightsData->data(), error_threshold, 0, error_count_threshold, false,
-        true, 0));
+    EXPECT_TRUE(resultCmp<npu::tile_fwk::float16>(
+        outputGolden.weightsGolden, (npu::tile_fwk::float16*)outputData.weightsData->data(), error_threshold, 0,
+        error_count_threshold, false, true, 0));
 }
 
-TEST_F(QuantLightningIndexerPrologSTest, b4_s1_2_s2_64k) {
+TEST_F(QuantLightningIndexerPrologSTest, b4_s1_2_s2_64k)
+{
     QuantIndexerConfigs configs;
     configs.qLinear = {32, 32, 512, 512, 128, 128};
     configs.qHd = {64, 64, 128, 128, 128, 128};
@@ -256,7 +279,8 @@ TEST_F(QuantLightningIndexerPrologSTest, b4_s1_2_s2_64k) {
     TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
 }
 
-TEST_F(QuantLightningIndexerPrologSTest, b8_s1_2_s2_64k) {
+TEST_F(QuantLightningIndexerPrologSTest, b8_s1_2_s2_64k)
+{
     QuantIndexerConfigs configs;
     configs.qLinear = {32, 32, 512, 512, 128, 128};
     configs.qHd = {64, 64, 128, 128, 128, 128};
@@ -265,7 +289,8 @@ TEST_F(QuantLightningIndexerPrologSTest, b8_s1_2_s2_64k) {
     TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
 }
 
-TEST_F(QuantLightningIndexerPrologSTest, b1_s1_4k_s2_64k) {
+TEST_F(QuantLightningIndexerPrologSTest, b1_s1_4k_s2_64k)
+{
     QuantIndexerConfigs configs;
     configs.qLinear = {32, 32, 512, 512, 128, 128};
     configs.qHd = {64, 64, 128, 128, 128, 128};
@@ -274,7 +299,8 @@ TEST_F(QuantLightningIndexerPrologSTest, b1_s1_4k_s2_64k) {
     TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
 }
 
-TEST_F(QuantLightningIndexerPrologSTest, b2_s1_4k_s2_64k) {
+TEST_F(QuantLightningIndexerPrologSTest, b2_s1_4k_s2_64k)
+{
     QuantIndexerConfigs configs;
     configs.qLinear = {32, 32, 512, 512, 128, 128};
     configs.qHd = {64, 64, 128, 128, 128, 128};
@@ -283,7 +309,8 @@ TEST_F(QuantLightningIndexerPrologSTest, b2_s1_4k_s2_64k) {
     TestQuantLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(configs);
 }
 
-TEST_F(QuantLightningIndexerPrologSTest, b128_s1_4_s2_8k) {
+TEST_F(QuantLightningIndexerPrologSTest, b128_s1_4_s2_8k)
+{
     QuantIndexerConfigs configs;
     configs.qLinear = {128, 128, 256, 256, 256, 256};
     configs.qHd = {128, 128, 64, 64, 128, 128};
@@ -291,9 +318,7 @@ TEST_F(QuantLightningIndexerPrologSTest, b128_s1_4_s2_8k) {
     configs.wLinear = {32, 32, 512, 512, 64, 64};
     configs.tSubTile = 2;
     configs.chunkSize = 1;
-    configs.l1ReuseParam = {
-        {1, 4}, {3, 4}
-    };
+    configs.l1ReuseParam = {{1, 4}, {3, 4}};
 
     config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 512);
     config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 512);

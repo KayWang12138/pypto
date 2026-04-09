@@ -14,14 +14,15 @@
  */
 
 #pragma once
- 
+
 #include "codegen/symbol_mgr/codegen_symbol.h"
- 
+
 namespace CostModel {
 class SimplifiedMemoryAllocator : public npu::tile_fwk::SymbolManager {
 public:
     ~SimplifiedMemoryAllocator() override = default;
-    std::string QueryVariableName(const AllocKey &key) override {
+    std::string QueryVariableName(const AllocKey& key) override
+    {
         (void)key;
         return "charArray" + std::to_string(++memoryId);
     }
@@ -30,4 +31,4 @@ private:
     int memoryId = 0;
 };
 
-} // CostModel
+} // namespace CostModel

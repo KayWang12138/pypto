@@ -28,4 +28,4 @@ std::string CachePacket::Dump() const
     oss << ", size:" << dec << size << "(Bytes)";
     return oss.str();
 }
-}
+} // namespace CostModel
