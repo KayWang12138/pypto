@@ -1312,6 +1312,10 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_LOAD3D_CONV, "TLoad3D"},
     {Opcode::OP_LOAD2D_CONV, "TLoad2D"},
     {Opcode::OP_L0C_COPY_OUT_CONV, "TStoreConv"},
+    {Opcode::OP_SHMEM_PUT, "TileOp::Distributed::ShmemPut"},
+    {Opcode::OP_SHMEM_GET, "TileOp::Distributed::ShmemGet"},
+    {Opcode::OP_SHMEM_SIGNAL, "TileOp::Distributed::ShmemSignal"},
+    {Opcode::OP_SHMEM_WAIT_UNTIL, "TileOp::Distributed::ShmemWaitUntil"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
