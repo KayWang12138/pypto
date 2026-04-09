@@ -14,6 +14,9 @@
  */
 
 #include "pybind_common.h"
+#include "machine/runtime/distributed/distributed_context.h"
+#include <pybind11/numpy.h>
+#include "acl/acl.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::Distributed;
@@ -160,6 +163,109 @@ void BindDistributed(py::module& m)
     m.def(
         "GetSymbolicScalarPeId", [](std::string group) { return GetHcclRankId(group); }, py::arg("group"),
         "Get local rank id by groupname.");
+    m.def(
+    "GetCommContext", 
+    [](const std::string& group) -> std::pair<int64_t, uint64_t> { 
+        std::vector<uint64_t> hcclContexts = dynamic::DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+        auto hcclOpParam = (TileOp::CommContext*)hcclContexts[0];
+        auto rankNum = hcclOpParam->rankNum;
+        int64_t ctxSize = static_cast<int64_t>(sizeof(TileOp::CommContext)) + 
+            static_cast<int64_t>(sizeof(uint64_t)) * rankNum * dynamic::WIN_TYPE_NUM;
+        auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<string>{group});
+        return {ctxSize, commContext[0]}; 
+    }, 
+    py::arg("group"),
+    "Get CommContextHost addr");
+
+    py::enum_<WinType>(m, "WinType")
+        .value("WIN_EXP", WinType::WIN_EXP)
+        .value("WIN_OUT", WinType::WIN_OUT)
+        .value("WIN_IN", WinType::WIN_IN)
+
+class HcclWin {
+    public:
+        HcclWin(uint64_t addr)
+        {
+            (void)rtMemcpy(&param_, sizeof(param_), (uint8_t*)addr, sizeof(param_), RT_MEMCPY_DEVICE_TO_HOST);
+        }
+
+        std::vector<uint8_t> GetWinValue(WinType winType, size_t byteSize, size_t count = 0UL, size_t offset = 0UL)
+        {
+            CHECK(byteSize == 0 !) << "byteSize must not be 0";
+            auto [devAddr, winSize] = GetWinAddrAndSize(winType);
+            CHECK((devAddr != 0) && (winSize != 0)) << "devAddr and winSize must not be 0";
+            auto maxDataCnt = winSize / sizeof(T);
+            offset = offset % maxDataCnt;
+            if ((count == 0UL) || (count > maxDataCnt - offset)) {
+                count = maxDataCnt - offset;
+            }
+            std::vector<uint8_t> result(count * byteSize, 0);
+            (void)rtMemcpy(
+                result.data(), result.size(), 
+                reinterpret_cast<uint8_t*>(devAddr) + offset * byteSize, 
+                result.size(), 
+                RT_MEMCPY_DEVICE_TO_HOST);
+            return result;
+        }
+
+    private:
+        std::tuple<uint64_t, uint64_t> GetWinAddrAndSize(WinType winType)
+        {
+            uint64_t devAddr = 0UL;
+            uint64_t winSize = 0UL;
+            switch (winType) {
+                case WinType::WIN_EXP:
+                    devAddr = param_.winAddr[param_.statusIndex + param_.rankId];
+                    winSize = param_.winStatusSize;
+                    break;
+                case WinType::WIN_OUT:
+                    devAddr = param_.winAddr[param_.debugIndex + param_.rankId];
+                    winSize = param_.winDebugSize;
+                    break;
+                case WinType::WIN_IN:
+                    devAddr = param_.winAddr[param_.rankId];
+                    winSize = param_.winDataSize;
+                    break;
+                default:
+                    break;
+            }
+            return std::tie(devAddr, winSize);
+        }
+
+    private:
+        TileOp::CommContext param_;
+};
+
+    py::class_<HcclWin>(m, "HcclWin")
+        .def(py::init<uint64_t>(), py::arg("addr"))
+
+        .def("get_win_value", [](HcclWin& self, WinType winType, size_t byte_size, size_t count, size_t offset) {
+            std::vector<uint8_t> raw_data = self.GetWinValue(winType, byte_size, count, offset);
+            
+            // 将原始字节包装为 numpy 的 uint8 数组（零拷贝）
+            py::array_t<uint8_t> py_array(raw_data.size(), raw_data.data());
+            
+            // 由于 vector 生命周期在函数结束销毁，必须转移内存所有权给 Python，
+            // 否则会变成悬空指针引发段错误
+            return py_array;
+        }, 
+        py::arg("win_type"), 
+        py::arg("byte_size"), 
+        py::arg("count") = 0, 
+        py::arg("offset") = 0,
+        py::return_value_policy::move, // 关键：让 Python 接管底层 vector 的内存
+        R"doc(
+            Read raw bytes from window memory.
+            
+            Args:
+                win_type: Window type (WinType.WIN_IN, etc.)
+                byte_size: Bytes per element (e.g., 4 for int32/float32, 8 for int64/float64)
+                count: Number of elements to read (0 means read all remaining)
+                offset: Element offset (not byte offset)
+                
+            Returns:
+                numpy.ndarray of dtype uint8
+        )doc");
 }
 
 } // namespace pypto
