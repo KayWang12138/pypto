@@ -163,6 +163,12 @@ public:
 
     std::string GenAicpuCallOp() const;
 
+    std::string GenQuantizeOp() const;
+    std::string GenDequantizeOp() const;
+    std::string PrintQuantizeTileTensor() const;
+    std::string PrintDequantizeTileTensor() const;
+    // TODO: DeQuantize
+
     std::string GenWhereOp() const;
 
     std::string GenOpCode() const override;
@@ -506,6 +512,8 @@ private:
     const std::unordered_map<Opcode, std::function<std::string()>> gatherScatterOps_;
 
     const std::unordered_map<Opcode, std::function<std::string()>> normalVecOps_;
+
+    const std::unordered_map<Opcode, std::function<std::string()>> quantOps_;
 
     std::unordered_map<Opcode, std::function<std::string()>> perfOps_;
 

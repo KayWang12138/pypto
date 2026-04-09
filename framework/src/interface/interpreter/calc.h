@@ -453,6 +453,28 @@ inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, Logical
     GetCalcOps()->Sort(Trans(value), Trans(index), Trans(self), axis, descending);
 }
 
+// Quantize
+inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints) {
+    TensorData scaleData = Trans(scale);
+    if (zeroPoints == nullptr) {
+        TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
+        GetCalcOps()->Quantize(Trans(out), Trans(input), scaleData, emptyZeroPoints);
+    } else {
+        GetCalcOps()->Quantize(Trans(out), Trans(input), scaleData, Trans(zeroPoints));
+    }
+}
+
+// Dequantize
+inline void Dequantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, LogicalTensorDataPtr zeroPoints) {
+    TensorData scaleData = Trans(scale);
+    if (zeroPoints == nullptr) {
+        TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
+        GetCalcOps()->Dequantize(Trans(out), Trans(input), scaleData, emptyZeroPoints);
+    } else {
+        GetCalcOps()->Dequantize(Trans(out), Trans(input), scaleData, Trans(zeroPoints));
+    }
+}
+
 // matmul
 inline void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->FormatNZ2ND(Trans(out), Trans(self));

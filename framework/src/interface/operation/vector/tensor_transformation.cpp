@@ -252,11 +252,15 @@ Opcode GetTransposeOpName() {
 #undef CASE
 }
 
-inline void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem) {
+inline void UnalignPadTmpBufTile(std::vector<int64_t> &shape, int blockElem, DataType dtype) {
     // tmpbuf按16 8对齐
     auto size = shape.size();
     if (size >= NUM_VALUE_2) {
-        shape[size - NUM_VALUE_2] = AlignUp(shape[size - NUM_VALUE_2], (int64_t)VNCHWCONV_REPEAT);
+        int64_t alignSize = VNCHWCONV_REPEAT;
+        if (dtype == DT_INT8 || dtype == DT_UINT8){
+            alignSize = BLOCK_SIZE;  // int8 特判 按 32 对齐
+        }
+        shape[size - NUM_VALUE_2] = AlignUp(shape[size - NUM_VALUE_2], alignSize);
         shape[size - 1] = AlignUp(shape[size - 1], blockElem);
     }
 }
@@ -278,7 +282,7 @@ void TiledInnerTranspose(Function &function, const TileShape &tileShape, const i
         } else {
             std::vector<int64_t> tmpShape(input.tileInfo.shape);
             int64_t blockElem = BLOCK_SIZE / static_cast<int>(BytesOf(tile->Datatype()));
-            UnalignPadTmpBufTile(tmpShape, blockElem);
+            UnalignPadTmpBufTile(tmpShape, blockElem, tile->Datatype());
             auto tempTensor = std::make_shared<LogicalTensor>(function, tile->Datatype(), tmpShape);
             tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
             auto &op = function.AddOperation(GetTransposeOpName<T>(), {tile}, {resultTile, tempTensor});
