@@ -264,23 +264,20 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& fun
     auto input = op.GetIOperands().front();
     auto output = op.GetOOperands().front();
 
-    auto inDynValidShape = input->GetDynValidShape();
-    auto outDynValidShape = output->GetDynValidShape();
-
     bool hasNonImmediate = false;
     auto changedDims = FindChangedDims(output->shape, input->shape);
     for (const auto& dim : changedDims) {
-        if ((size_t)dim >= outDynValidShape.size()) {
+        if ((size_t)dim >= output->GetDynValidShape().size()) {
             APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%ld] index.",
                 output->GetMagic(), op.GetOpMagic(), static_cast<long>(dim));
             break;
-        } else if (!outDynValidShape[dim].IsImmediate()) {
+        } else if (!output->GetDynValidShape()[dim].IsImmediate()) {
             hasNonImmediate = true;
             break;
         }
     }
     if (hasNonImmediate) {
-        //进行处理签判断，防止误修改
+        //进行处理前判断，防止误修改
         std::vector<LogicalTensorPtr> needToCopyTensors;
         int index = -1;
         Operation* copyOutOp = FindAllProducerCopyOuts(input, op, needToCopyTensors, index);
