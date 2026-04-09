@@ -22,10 +22,10 @@ def test_print_options():
 
 
 def test_pass_option():
-    # int - sg_set_scope现在返回数组格式 [scopeId, 0, 0, -1]
+    # tuple
     pypto.set_pass_options(sg_set_scope=48)
     pass_option = pypto.get_pass_options()
-    assert pass_option["sg_set_scope"] == [48, 0, 0, -1]
+    assert pass_option["sg_set_scope"] == [48, False, False]
     # map
     pypto.set_pass_options(cube_nbuffer_setting={3: 4})
     pass_option = pypto.get_pass_options()
@@ -88,29 +88,29 @@ def test_option_map():
 
 def test_sg_set_scope_new_format():
     # 测试新格式：tuple
-    pypto.set_pass_options(sg_set_scope=(1, True, True, 123))
+    pypto.set_pass_options(sg_set_scope=(1, True, True))
     pass_option = pypto.get_pass_options()
-    assert pass_option["sg_set_scope"] == [1, True, True, 123]
+    assert pass_option["sg_set_scope"] == [1, True, True]
 
     # 测试向后兼容：int
     pypto.set_pass_options(sg_set_scope=48)
     pass_option = pypto.get_pass_options()
-    assert pass_option["sg_set_scope"] == [48, False, False, -1]
+    assert pass_option["sg_set_scope"] == [48, False, False]
 
     # 测试默认值
     pypto.reset_options()
     pass_option = pypto.get_pass_options()
-    assert pass_option["sg_set_scope"] == [-1, False, False, -1]
+    assert pass_option["sg_set_scope"] == [-1, False, False]
 
     # 测试参数校验
     try:
         pypto.set_pass_options(sg_set_scope=(1, True))  # 元素不足
         assert False, "Should raise ValueError"
     except ValueError as e:
-        assert "tuple of 4 elements" in str(e)
+        assert "tuple of 3 elements" in str(e)
 
     try:
-        pypto.set_pass_options(sg_set_scope=(1, "True", True, 123))  # 类型错误
+        pypto.set_pass_options(sg_set_scope=(1, "True", True))  # 类型错误
         assert False, "Should raise ValueError"
     except ValueError as e:
         assert "must be bool" in str(e)

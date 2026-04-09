@@ -1542,7 +1542,7 @@ Operation& Function::AddRawOperation(
         operations_.emplace_back(std::make_shared<Operation>(*this, opCode, iOperands, oOperands, updateTensorMap));
     opPosition_.emplace(op.get(), operations_.size() - 1);
     auto scopeConfig = config::GetPassOption<std::vector<int64_t>>(SG_SET_SCOPE);
-    if (scopeConfig.size() == 4) {
+    if (scopeConfig.size() == 3) {
         operations_.back()->SetScopeInfo(Operation::ScopeInfo::FromConfig(scopeConfig));
     } else if (scopeConfig.size() == 1) {
         operations_.back()->SetScopeId(static_cast<int>(scopeConfig[0]));
