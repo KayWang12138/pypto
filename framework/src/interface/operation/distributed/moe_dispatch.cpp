@@ -960,9 +960,11 @@ void MoeDistributedDispatchBackwardValidateV2(
     CHECK(checkValidInput(recvCounts, 1, DataType::DT_INT32, 1, 0, assertResult)) << assertResult;
     CHECK(checkValidInput(gradX, 2, DataType::DT_BF16, batchSize, hiddenSize, assertResult)) << assertResult;
 
+    constexpr uint64_t signalCol = 128;
     uint64_t shmemSize =
         static_cast<uint64_t>(batchSize) * static_cast<uint64_t>(topK) * static_cast<uint64_t>(hiddenSize) *
-        BytesOf(gradExpandX.GetDataType());
+            BytesOf(gradExpandX.GetDataType()) +
+        static_cast<uint64_t>(batchSize) * signalCol * BytesOf(DataType::DT_INT32);
     CHECK(shmemSize < MOE_V2_MAX_WIN_SIZE)
         << "MoeDispatchBackwardV2 constraint violated: shmem window exceeds the limit. Maximum allowed: "
         << MOE_V2_MAX_WIN_SIZE << ", got: " << shmemSize;
@@ -981,9 +983,11 @@ void MoeDistributedDispatchBackwardV2(
     int32_t topK = InferSupportedMoeTopK(
         batchSize, hiddenSize, static_cast<int32_t>(epWorldSize), static_cast<int32_t>(moeExpertNum),
         static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum));
+    constexpr int32_t signalCol = 128;
 
-    auto shmemTensor =
+    auto shmemDataTensor =
         CreateShmemTensor(group, epWorldSize, gradExpandX.GetDataType(), {1, batchSize * topK, hiddenSize});
+    auto shmemSignalTensor = CreateShmemTensor(group, epWorldSize, DT_INT32, {1, batchSize, signalCol});
 
     SymbolicScalar recvCountsScalar = GetTensorData(recvCounts, {0});
     std::set<int> unrollList =
@@ -997,25 +1001,26 @@ void MoeDistributedDispatchBackwardV2(
         SymbolicScalar kOffset = GetTensorData(assistInfoForCombine, {rowIndex, 2});
 
         Tensor gradExpandXTile = View(gradExpandX, {1, hiddenSize}, {rowIndex, 0});
-        auto shmemDataTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, topK * tokenId + kOffset, 0});
+        auto shmemDataTile = ShmemView(shmemDataTensor, {1, 1, hiddenSize}, {0, topK * tokenId + kOffset, 0});
         TileShape::Current().SetVecTile({1, hiddenSize});
         Tensor predToken(DT_INT32, {1, 1}, "dispatchBackwardSendPredToken");
         Tensor shmemPutOut = ShmemPut(gradExpandXTile, shmemDataTile, rankId, AtomicType::SET, predToken);
 
-        auto shmemSignalTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, tokenId, 0});
+        auto shmemSignalTile = ShmemView(shmemSignalTensor, {1, 1, signalCol}, {0, tokenId, 0});
+        TileShape::Current().SetVecTile({1, signalCol});
         ShmemSignal(shmemSignalTile, rankId, rankId, 1, AtomicType::ADD, shmemPutOut);
     }
 
     SymbolicScalar thisRank = GetHcclRankId(group);
     LOOP("MoeDistributedDispatchBackwardReceive", FunctionType::DYNAMIC_LOOP, tokenId, LoopRange(batchSize))
     {
-        auto shmemSignalTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, tokenId, 0});
-        TileShape::Current().SetVecTile({1, hiddenSize});
+        auto shmemSignalTile = ShmemView(shmemSignalTensor, {1, 1, signalCol}, {0, tokenId, 0});
+        TileShape::Current().SetVecTile({1, signalCol});
         Tensor predToken(DT_INT32, {1, 1}, "dispatchBackwardReceivePredToken");
         Tensor waitUntilOut = ShmemWaitUntil(shmemSignalTile, thisRank, OpType::EQ, topK, true, predToken);
 
         TileShape::Current().SetVecTile({topK, hiddenSize});
-        auto shmemDataTile = ShmemView(shmemTensor, {1, topK, hiddenSize}, {0, topK * tokenId, 0});
+        auto shmemDataTile = ShmemView(shmemDataTensor, {1, topK, hiddenSize}, {0, topK * tokenId, 0});
         Tensor shmemGetOut = ShmemGet(shmemDataTile, thisRank, waitUntilOut);
 
         Tensor gradXTileFp32;
