@@ -31,7 +31,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -41,7 +42,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenArgSort, TestArgSort) {
+TEST_F(TestCodegenArgSort, TestArgSort)
+{
     constexpr const int32_t shape0 = 64;
 
     std::vector<int64_t> input_shape = {shape0};
@@ -53,9 +55,7 @@ TEST_F(TestCodegenArgSort, TestArgSort) {
 
     std::string funcName = "ARGSORT_T";
     config::SetBuildStatic(true);
-    FUNCTION(funcName, {input_a, output}) {
-        output = ArgSort(input_a, -1);
-    }
+    FUNCTION(funcName, {input_a, output}) { output = ArgSort(input_a, -1); }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -47,7 +48,8 @@ public:
 };
 
 template <typename T = npu::tile_fwk::float16>
-void TestKvSlcAttn(const NSAV1SimpleParams &params, SATileShapeConfig& saTileConfig) {
+void TestKvSlcAttn(const NSAV1SimpleParams& params, SATileShapeConfig& saTileConfig)
+{
     int b = params.b;
     int s1 = params.s1;
     int s2 = params.s2;
@@ -105,14 +107,13 @@ void TestKvSlcAttn(const NSAV1SimpleParams &params, SATileShapeConfig& saTileCon
 
     Tensor attenOut(DT_FP32, shape_selAtten, "attenOut");
 
-
-    SelectedAttention(topkIndices, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable,
-        qNope, qRope, attenOut,
-        n1, n2, softmaxScale, front, near, topk, blockSize, cmpBlockSize, slcBlockSize,
-        saTileConfig);
+    SelectedAttention(
+        topkIndices, kvNopeCache, kRopeCache, kvCacheActSeq, blockTable, qNope, qRope, attenOut, n1, n2, softmaxScale,
+        front, near, topk, blockSize, cmpBlockSize, slcBlockSize, saTileConfig);
 }
 
-TEST_F(KvSlcAttnUtest, kv_slc_attn_ut) {
+TEST_F(KvSlcAttnUtest, kv_slc_attn_ut)
+{
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
 
     std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
@@ -125,14 +126,14 @@ TEST_F(KvSlcAttnUtest, kv_slc_attn_ut) {
 
     SATileShapeConfig saTileConfig;
     saTileConfig.kvSlcV0TileShape = {64, 256}; // slcBlockSize=64
-    const int gTile = 128; // for gLoop split
-    const int sTile = 1024; // for s2Loop split
+    const int gTile = 128;                     // for gLoop split
+    const int sTile = 1024;                    // for s2Loop split
     saTileConfig.gTile = gTile;
     saTileConfig.sKvTile = sTile;
-    saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 256, 256}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
-    saTileConfig.v1TileShape = {16, 256}; // (n1, s2Tile)
+    saTileConfig.c1TileShape = {gTile, gTile, 64, 64, 256, 256};   // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
+    saTileConfig.v1TileShape = {16, 256};                          // (n1, s2Tile)
     saTileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
-    saTileConfig.v2TileShape = {64, 128}; // (n1, d)
+    saTileConfig.v2TileShape = {64, 128};                          // (n1, d)
 
     TestKvSlcAttn<npu::tile_fwk::float16>(params, saTileConfig);
 }

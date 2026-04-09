@@ -18,7 +18,8 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-Tensor Softmax(const Tensor &operand) {
+Tensor Softmax(const Tensor& operand)
+{
     auto tRowmax = RowMaxExpand(operand);
     auto tSub = Sub(operand, tRowmax);
     auto tExp = Exp(tSub);
@@ -28,7 +29,8 @@ Tensor Softmax(const Tensor &operand) {
     return tSoftmax;
 }
 
-Tensor SoftmaxNew(const Tensor &operand) {
+Tensor SoftmaxNew(const Tensor& operand)
+{
     // 获取输入数据类型
     auto inputDtype = operand.GetStorage()->Datatype();
     Tensor castOperand = operand;
@@ -52,17 +54,19 @@ Tensor SoftmaxNew(const Tensor &operand) {
     return softmax;
 }
 
-void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
+void SoftmaxDynamicCompute(Tensor& input, Tensor& output)
+{
     // 获取输入形状信息[b, n1, n2, dim], batch轴动态
     SymbolicScalar b = GetInputShape(input, 0);
     int n1 = input.GetShape()[1];
     int n2 = input.GetShape()[2];
     int dim = input.GetShape()[3];
-    //设置Loop处理的batch大小及循环次数
+    // 设置Loop处理的batch大小及循环次数
     int tileB = 1;
     SymbolicScalar bLoop = b / tileB;
     // 定义循环，用于处理每个batch块，每个batch块为(1, 32, 1, 256)
-    LOOP("SOFTMAX_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true) {
+    LOOP("SOFTMAX_LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1), {}, true)
+    {
         // 计算偏移量
         SymbolicScalar bOffset = bIdx * tileB;
         std::vector<SymbolicScalar> outOffset = {bOffset, 0, 0, 0};
@@ -77,9 +81,8 @@ void SoftmaxDynamicCompute(Tensor &input, Tensor &output) {
     }
 }
 
-void SoftmaxDynamic(Tensor &input, Tensor &output) {
-    FUNCTION("SOFTMAX_DYNAMIC_EXAMPLE", {input}, {output}) {
-        SoftmaxDynamicCompute(input, output);
-    }
+void SoftmaxDynamic(Tensor& input, Tensor& output)
+{
+    FUNCTION("SOFTMAX_DYNAMIC_EXAMPLE", {input}, {output}) { SoftmaxDynamicCompute(input, output); }
 }
 } // namespace npu::tile_fwk

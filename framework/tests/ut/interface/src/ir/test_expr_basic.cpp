@@ -30,21 +30,24 @@ namespace ir {
 // Expr Base Class Tests
 // ============================================================================
 
-TEST(ExprBasicTest, TestExprBasicConstructor) {
+TEST(ExprBasicTest, TestExprBasicConstructor)
+{
     // Test basic Expr construction via ConstInt (Expr is abstract with pure virtual GetKind)
     auto expr = std::make_shared<ConstInt>(0, DataType::INT32, Span::Unknown());
     ASSERT_NE(expr, nullptr);
     ASSERT_EQ(expr->TypeName(), "ConstInt");
 }
 
-TEST(ExprBasicTest, TestExprWithType) {
+TEST(ExprBasicTest, TestExprWithType)
+{
     // Test Expr with explicit type via ConstInt
     auto expr = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
     ASSERT_NE(expr, nullptr);
     ASSERT_EQ(expr->GetType()->TypeName(), "ScalarType");
 }
 
-TEST(ExprBasicTest, TestExprGetType) {
+TEST(ExprBasicTest, TestExprGetType)
+{
     // Test Expr GetType method via ConstFloat
     auto expr = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::Unknown());
     auto type = expr->GetType();
@@ -56,56 +59,64 @@ TEST(ExprBasicTest, TestExprGetType) {
 // Op Tests
 // ============================================================================
 
-TEST(ExprBasicTest, TestOpBasicConstructor) {
+TEST(ExprBasicTest, TestOpBasicConstructor)
+{
     // Test basic Op construction
     auto op = std::make_shared<Op>("test_op");
     ASSERT_NE(op, nullptr);
     ASSERT_EQ(op->name_, "test_op");
 }
 
-TEST(ExprBasicTest, TestOpEmptyName) {
+TEST(ExprBasicTest, TestOpEmptyName)
+{
     // Test Op with empty name
     auto op = std::make_shared<Op>("");
     ASSERT_NE(op, nullptr);
     ASSERT_EQ(op->name_, "");
 }
 
-TEST(ExprBasicTest, TestOpSetAttrTypeBool) {
+TEST(ExprBasicTest, TestOpSetAttrTypeBool)
+{
     // Test Op SetAttrType with bool
     auto op = std::make_shared<Op>("test_op");
     op->SetAttrType<bool>("flag");
     ASSERT_TRUE(op->HasAttr("flag"));
 }
 
-TEST(ExprBasicTest, TestOpSetAttrTypeInt) {
+TEST(ExprBasicTest, TestOpSetAttrTypeInt)
+{
     // Test Op SetAttrType with int
     auto op = std::make_shared<Op>("test_op");
     op->SetAttrType<int>("count");
     ASSERT_TRUE(op->HasAttr("count"));
 }
 
-TEST(ExprBasicTest, TestOpSetAttrTypeString) {
+TEST(ExprBasicTest, TestOpSetAttrTypeString)
+{
     // Test Op SetAttrType with string
     auto op = std::make_shared<Op>("test_op");
     op->SetAttrType<std::string>("name");
     ASSERT_TRUE(op->HasAttr("name"));
 }
 
-TEST(ExprBasicTest, TestOpSetAttrTypeDouble) {
+TEST(ExprBasicTest, TestOpSetAttrTypeDouble)
+{
     // Test Op SetAttrType with double
     auto op = std::make_shared<Op>("test_op");
     op->SetAttrType<double>("value");
     ASSERT_TRUE(op->HasAttr("value"));
 }
 
-TEST(ExprBasicTest, TestOpSetAttrTypeDataType) {
+TEST(ExprBasicTest, TestOpSetAttrTypeDataType)
+{
     // Test Op SetAttrType with DataType
     auto op = std::make_shared<Op>("test_op");
     op->SetAttrType<DataType>("dtype");
     ASSERT_TRUE(op->HasAttr("dtype"));
 }
 
-TEST(ExprBasicTest, TestOpHasAttr) {
+TEST(ExprBasicTest, TestOpHasAttr)
+{
     // Test Op HasAttr method
     auto op = std::make_shared<Op>("test_op");
     ASSERT_FALSE(op->HasAttr("nonexistent"));
@@ -115,7 +126,8 @@ TEST(ExprBasicTest, TestOpHasAttr) {
     ASSERT_FALSE(op->HasAttr("other"));
 }
 
-TEST(ExprBasicTest, TestOpGetAttrKeys) {
+TEST(ExprBasicTest, TestOpGetAttrKeys)
+{
     // Test Op GetAttrKeys method
     auto op = std::make_shared<Op>("test_op");
     op->SetAttrType<int>("count");
@@ -125,17 +137,19 @@ TEST(ExprBasicTest, TestOpGetAttrKeys) {
     ASSERT_EQ(keys.size(), 2);
 }
 
-TEST(ExprBasicTest, TestOpGetAttrs) {
+TEST(ExprBasicTest, TestOpGetAttrs)
+{
     // Test Op GetAttrs method
     auto op = std::make_shared<Op>("test_op");
     op->SetAttrType<int>("count");
     op->SetAttrType<bool>("flag");
 
-    const auto &attrs = op->GetAttrs();
+    const auto& attrs = op->GetAttrs();
     ASSERT_EQ(attrs.size(), 2);
 }
 
-TEST(ExprBasicTest, TestOpMultipleAttrs) {
+TEST(ExprBasicTest, TestOpMultipleAttrs)
+{
     // Test Op with multiple attributes
     auto op = std::make_shared<Op>("complex_op");
     op->SetAttrType<bool>("flag1");
@@ -156,21 +170,24 @@ TEST(ExprBasicTest, TestOpMultipleAttrs) {
 // GlobalVar Tests
 // ============================================================================
 
-TEST(ExprBasicTest, TestGlobalVarBasicConstructor) {
+TEST(ExprBasicTest, TestGlobalVarBasicConstructor)
+{
     // Test basic GlobalVar construction
     auto globalVar = std::make_shared<GlobalVar>("my_function");
     ASSERT_NE(globalVar, nullptr);
     ASSERT_EQ(globalVar->name_, "my_function");
 }
 
-TEST(ExprBasicTest, TestGlobalVarEmptyName) {
+TEST(ExprBasicTest, TestGlobalVarEmptyName)
+{
     // Test GlobalVar with empty name
     auto globalVar = std::make_shared<GlobalVar>("");
     ASSERT_NE(globalVar, nullptr);
     ASSERT_EQ(globalVar->name_, "");
 }
 
-TEST(ExprBasicTest, TestGlobalVarInheritance) {
+TEST(ExprBasicTest, TestGlobalVarInheritance)
+{
     // Test that GlobalVar inherits from Op
     auto globalVar = std::make_shared<GlobalVar>("my_function");
     OpPtr op = globalVar; // Should be able to assign to OpPtr
@@ -178,7 +195,8 @@ TEST(ExprBasicTest, TestGlobalVarInheritance) {
     ASSERT_EQ(op->name_, "my_function");
 }
 
-TEST(ExprBasicTest, TestGlobalVarWithAttrs) {
+TEST(ExprBasicTest, TestGlobalVarWithAttrs)
+{
     // Test GlobalVar with attributes
     auto globalVar = std::make_shared<GlobalVar>("my_function");
     globalVar->SetAttrType<bool>("inline");
@@ -189,7 +207,8 @@ TEST(ExprBasicTest, TestGlobalVarWithAttrs) {
 // GlobalVarPtrLess Tests
 // ============================================================================
 
-TEST(ExprBasicTest, TestGlobalVarPtrLess) {
+TEST(ExprBasicTest, TestGlobalVarPtrLess)
+{
     // Test GlobalVarPtrLess defines a strict weak ordering (required by std::map)
     auto varA = std::make_shared<GlobalVar>("alpha");
     auto varB = std::make_shared<GlobalVar>("beta");
@@ -204,7 +223,8 @@ TEST(ExprBasicTest, TestGlobalVarPtrLess) {
     ASSERT_TRUE(aLessB != bLessA) << "Different names must be ordered";
 }
 
-TEST(ExprBasicTest, TestGlobalVarPtrLessEqual) {
+TEST(ExprBasicTest, TestGlobalVarPtrLessEqual)
+{
     // Test GlobalVarPtrLess with equal names
     auto var1 = std::make_shared<GlobalVar>("same");
     auto var2 = std::make_shared<GlobalVar>("same");

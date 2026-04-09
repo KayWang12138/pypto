@@ -18,7 +18,8 @@
 
 namespace npu {
 namespace tile_fwk {
-void MixDependencyAnalyzer::InitSubgraphToFunction(const std::vector<InternalComponentInfo>& components) {
+void MixDependencyAnalyzer::InitSubgraphToFunction(const std::vector<InternalComponentInfo>& components)
+{
     subgraphToFunction.nLIST.resize(components.size());
     subgraphToFunction.subFuncInvokeInfos.resize(components.size());
     // 初始化nList
@@ -34,7 +35,8 @@ void MixDependencyAnalyzer::InitSubgraphToFunction(const std::vector<InternalCom
     }
 }
 
-void MixDependencyAnalyzer::InOutCastRecord(Function* originalMixFunc) {
+void MixDependencyAnalyzer::InOutCastRecord(Function* originalMixFunc)
+{
     for (int i = 0; i < static_cast<int>(subgraphToFunction.nLIST.size()); i++) {
         for (size_t j = 0; j < subgraphToFunction.nLIST[i].size(); j++) {
             for (size_t k = 0; k < subgraphToFunction.nLIST[i][j]->GetIOperands().size(); k++) {
@@ -54,11 +56,12 @@ void MixDependencyAnalyzer::InOutCastRecord(Function* originalMixFunc) {
     }
 }
 
-std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDependencies(Function &mixFunc,
-    std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
+std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDependencies(
+    Function& mixFunc, std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors)
+{
     std::unordered_map<int, std::set<int>> dependencies;
     // 分析子图的所有的op
-    for (auto &op : mixFunc.Operations(false)) {
+    for (auto& op : mixFunc.Operations(false)) {
         if (op.IsNOP()) {
             continue;
         }
@@ -84,9 +87,9 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
                     dependencies[producerInternalID].insert(consumerID);
                     std::pair<int, int> edge = {producerInternalID, consumerID};
                     crossComponentTensors[edge].push_back(oOperand);
-                    APASS_LOG_DEBUG_F(Elements::Tensor, "Recorded cross-component tensor: raw=%d, magic=%d, %d->%d",
-                            oOperand->GetRawMagic(), oOperand->magic,
-                            producerInternalID, consumerID);
+                    APASS_LOG_DEBUG_F(
+                        Elements::Tensor, "Recorded cross-component tensor: raw=%d, magic=%d, %d->%d",
+                        oOperand->GetRawMagic(), oOperand->magic, producerInternalID, consumerID);
                 }
             }
         }
@@ -95,10 +98,11 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
     return dependencies;
 }
 
-void MixDependencyAnalyzer::InitDependencies(std::unordered_map<int, std::set<int>> &dependencies) {
+void MixDependencyAnalyzer::InitDependencies(std::unordered_map<int, std::set<int>>& dependencies)
+{
     // 记录最大的mixsplit id
     maxComponent = 0;
-    for (const auto &pair : dependencies) {
+    for (const auto& pair : dependencies) {
         if (pair.first > maxComponent) {
             maxComponent = pair.first;
         }
@@ -114,7 +118,8 @@ void MixDependencyAnalyzer::InitDependencies(std::unordered_map<int, std::set<in
     }
 }
 
-void MixDependencyAnalyzer::WarshallAlgorithm(std::vector<std::vector<bool>> &matrix) {
+void MixDependencyAnalyzer::WarshallAlgorithm(std::vector<std::vector<bool>>& matrix)
+{
     size_t n = matrix.size();
     for (size_t k = 0; k < n; ++k) {
         for (size_t i = 0; i < n; ++i) {
@@ -125,7 +130,8 @@ void MixDependencyAnalyzer::WarshallAlgorithm(std::vector<std::vector<bool>> &ma
     }
 }
 
-void MixDependencyAnalyzer::UpdateDependencies(std::unordered_map<int, std::set<int>> &dependencies) {
+void MixDependencyAnalyzer::UpdateDependencies(std::unordered_map<int, std::set<int>>& dependencies)
+{
     size_t n = dependencies.size();
     std::vector<std::vector<bool>> matrix(n, std::vector<bool>(n, false));
     for (const auto& pair : dependencies) {
@@ -144,14 +150,16 @@ void MixDependencyAnalyzer::UpdateDependencies(std::unordered_map<int, std::set<
     }
 }
 
-void MixDependencyAnalyzer::ComputeDependencyClosure(std::unordered_map<int, std::set<int>> &dependencies) {
+void MixDependencyAnalyzer::ComputeDependencyClosure(std::unordered_map<int, std::set<int>>& dependencies)
+{
     // 步骤1：初始化直接依赖
     InitDependencies(dependencies);
     // 步骤2：使用Warshall算法将邻接矩阵转换为可达矩阵，时间复杂度为O(n^3)，空间复杂度为O(n^2)
     UpdateDependencies(dependencies);
 }
 
-void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos) {
+void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy>& subFuncInvokeInfos)
+{
     for (size_t i = 0; i < subFuncInvokeInfos.size(); i++) {
         const auto& invokeInfo = subFuncInvokeInfos[i];
         // 提取incast
@@ -174,7 +182,9 @@ void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<Subfun
 }
 
 // 检查incast列表中是否包含指定的tensor
-bool MixDependencyAnalyzer::ContainsTensor(const std::vector<SimpleTensorParam> &tensors, const LogicalTensorPtr &tensor) const {
+bool MixDependencyAnalyzer::ContainsTensor(
+    const std::vector<SimpleTensorParam>& tensors, const LogicalTensorPtr& tensor) const
+{
     for (const auto& incast : tensors) {
         if (incast.tensor == tensor) {
             return true;
@@ -183,7 +193,9 @@ bool MixDependencyAnalyzer::ContainsTensor(const std::vector<SimpleTensorParam> 
     return false;
 }
 
-void MixDependencyAnalyzer::PropagateIncastDependencies(const std::set<int> &targets, const std::vector<SimpleTensorParam> &tensorParams) {
+void MixDependencyAnalyzer::PropagateIncastDependencies(
+    const std::set<int>& targets, const std::vector<SimpleTensorParam>& tensorParams)
+{
     for (int targetComp : targets) {
         for (const auto& incastParam : tensorParams) {
             if (!ContainsTensor(allIncasts[targetComp], incastParam.tensor)) {
@@ -193,7 +205,8 @@ void MixDependencyAnalyzer::PropagateIncastDependencies(const std::set<int> &tar
     }
 }
 
-void MixDependencyAnalyzer::PropagateOutcastDependencies(int targetComp, int sourceComp) {
+void MixDependencyAnalyzer::PropagateOutcastDependencies(int targetComp, int sourceComp)
+{
     auto outcastIt = allOutcasts.find(targetComp);
     if (outcastIt != allOutcasts.end()) {
         for (const auto& outcastParam : outcastIt->second) {
@@ -204,9 +217,11 @@ void MixDependencyAnalyzer::PropagateOutcastDependencies(int targetComp, int sou
     }
 }
 
-void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure) {
+void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(
+    const std::unordered_map<int, std::set<int>>& dependencyClosure)
+{
     // 基于传递闭包传播依赖
-    for (const auto &[sourceComp, targets] : dependencyClosure) {
+    for (const auto& [sourceComp, targets] : dependencyClosure) {
         // 传播incast：source的incast传播给所有依赖它的target
         auto incastIt = allIncasts.find(sourceComp);
         if (incastIt != allIncasts.end()) {
@@ -219,8 +234,10 @@ void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::
     }
 }
 
-void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map<int, std::set<int>> &dependencyClosure,
-                                                        const std::vector<InternalComponentInfo> &components) {
+void MixDependencyAnalyzer::CollectInternalDependencies(
+    const std::unordered_map<int, std::set<int>>& dependencyClosure,
+    const std::vector<InternalComponentInfo>& components)
+{
     // 遍历传递闭包中的每个依赖关系
     for (const auto& [srcComp, dstComps] : dependencyClosure) {
         ComponentType srcType = components[srcComp].componentType;
@@ -239,17 +256,19 @@ void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map
                 // 添加这两个组件间的tensor依赖
                 InternalDependencyInfo depInfo(srcComp, dstComp, srcType);
                 internalDeps.push_back(depInfo);
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Added internal dependency: component %d (%s) -> component %d (%s)",
-                           srcComp, srcType == ComponentType::C_SCOPE ? "C" : "V",
-                           dstComp, dstType == ComponentType::C_SCOPE ? "C" : "V");
+                APASS_LOG_DEBUG_F(
+                    Elements::Tensor, "Added internal dependency: component %d (%s) -> component %d (%s)", srcComp,
+                    srcType == ComponentType::C_SCOPE ? "C" : "V", dstComp,
+                    dstType == ComponentType::C_SCOPE ? "C" : "V");
             }
         }
     }
-    APASS_LOG_INFO_F(Elements::Tensor, "Collected %zu internal dependencies between same-type components",
-               internalDeps.size());
+    APASS_LOG_INFO_F(
+        Elements::Tensor, "Collected %zu internal dependencies between same-type components", internalDeps.size());
 }
 
-void MixDependencyAnalyzer::ObtainMinAdjMatrix(std::vector<std::vector<bool>> &matrix) {
+void MixDependencyAnalyzer::ObtainMinAdjMatrix(std::vector<std::vector<bool>>& matrix)
+{
     size_t n = matrix.size();
     std::vector<std::vector<bool>> matrixCopy = matrix;
     for (size_t i = 0; i < n; ++i) {
@@ -270,26 +289,28 @@ void MixDependencyAnalyzer::ObtainMinAdjMatrix(std::vector<std::vector<bool>> &m
     }
 }
 
-void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> &innerDeps,
-                                                        std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors) {
+void MixDependencyAnalyzer::EliminateRedundantOuterDeps(
+    const std::vector<std::vector<bool>>& innerDeps,
+    std::unordered_map<int, std::vector<SimpleTensorParam>>& allTensors)
+{
     // 初始化，构造tensor到compId的映射
     std::set<int> isRedundant;
     std::vector<bool> outerDeps(maxComponent + 1, false);
     std::unordered_map<LogicalTensorPtr, std::set<int>> tensorToComponents;
-    for (const auto &[compId, incasts] : allTensors) {
+    for (const auto& [compId, incasts] : allTensors) {
         for (const auto& incast : incasts) {
             if (incast.tensor) {
                 tensorToComponents[incast.tensor].insert(compId);
             }
         }
     }
-    for (const auto &pair : tensorToComponents) {
+    for (const auto& pair : tensorToComponents) {
         isRedundant.clear();
         // 用于记录当前的连接关系
         for (int i = 0; i <= maxComponent; ++i) {
             outerDeps[i] = false;
         }
-        for (const auto &compId : pair.second) {
+        for (const auto& compId : pair.second) {
             outerDeps[compId] = true;
         }
         // 若tensor可达i且i可达j，则移除tensor到j的可达关系
@@ -309,20 +330,21 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
             }
         }
         // 删除冗余incast
-        for (const auto &compId : isRedundant) {
+        for (const auto& compId : isRedundant) {
             auto& tensors = allTensors[compId];
-            auto newEnd = std::remove_if(tensors.begin(), tensors.end(),
-                [&](const SimpleTensorParam& param) {
-                    return param.tensor == pair.first;
-                });
+            auto newEnd = std::remove_if(tensors.begin(), tensors.end(), [&](const SimpleTensorParam& param) {
+                return param.tensor == pair.first;
+            });
             tensors.erase(newEnd, tensors.end());
-            APASS_LOG_DEBUG_F(Elements::Tensor, "Removed redundant incast for tensor %d from component %d",
-                        pair.first->GetRawMagic(), compId);
+            APASS_LOG_DEBUG_F(
+                Elements::Tensor, "Removed redundant incast for tensor %d from component %d", pair.first->GetRawMagic(),
+                compId);
         }
     }
 }
 
-std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vector<std::vector<bool>> &matrix) {
+std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vector<std::vector<bool>>& matrix)
+{
     size_t n = matrix.size();
     std::vector<std::vector<bool>> ret(n, std::vector<bool>(n));
     for (size_t i = 0; i < n; ++i) {
@@ -333,18 +355,20 @@ std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vecto
     return ret;
 }
 
-void MixDependencyAnalyzer::EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps) {
+void MixDependencyAnalyzer::EliminateRedundantInnerDeps(std::vector<std::vector<bool>>& innerDeps)
+{
     ObtainMinAdjMatrix(innerDeps);
     std::vector<InternalDependencyInfo> internalDepsCopy = internalDeps;
     internalDeps.clear();
-    for (const auto &dep : internalDepsCopy) {
+    for (const auto& dep : internalDepsCopy) {
         if (innerDeps[dep.srcComp][dep.dstComp]) {
             internalDeps.push_back(dep);
         }
     }
 }
 
-void MixDependencyAnalyzer::EliminateRedundantDependencies() {
+void MixDependencyAnalyzer::EliminateRedundantDependencies()
+{
     APASS_LOG_INFO_F(Elements::Tensor, "Eliminating redundant dependencies...");
     // 生成内部依赖的可达阵
     std::vector<std::vector<bool>> innerDeps(maxComponent + 1, std::vector<bool>(maxComponent + 1, false));
@@ -359,20 +383,22 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies() {
     EliminateRedundantInnerDeps(innerDeps);
 }
 
-Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output) {
+Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput& input, AnalyzerOutput& output)
+{
     Reset();
     InitSubgraphToFunction(input.components);
     // 步骤1：记录直接的incast/outcast(Mix子图整体与外部的依赖)
     APASS_LOG_INFO_F(Elements::Tensor, "Step 1: Recording direct incast/outcast...");
     InOutCastRecord(input.originalMixFunc);
     // 步骤2：分析组件间直接依赖（scope与scope之间的依赖）
-    APASS_LOG_INFO_F(Elements::Tensor, "Step 2: Analyzing inter-component dependencies and recording cross-component tensors...");
+    APASS_LOG_INFO_F(
+        Elements::Tensor, "Step 2: Analyzing inter-component dependencies and recording cross-component tensors...");
     std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>> crossComponentTensors;
     auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc, crossComponentTensors);
     APASS_LOG_INFO_F(Elements::Tensor, "Found %zu cross-component tensor dependencies:", crossComponentTensors.size());
     for (const auto& [edge, tensors] : crossComponentTensors) {
-        APASS_LOG_INFO_F(Elements::Tensor, "  Component %d -> %d: %zu tensor(s)",
-                   edge.first, edge.second, tensors.size());
+        APASS_LOG_INFO_F(
+            Elements::Tensor, "  Component %d -> %d: %zu tensor(s)", edge.first, edge.second, tensors.size());
     }
     // 步骤3：计算依赖传递闭包
     APASS_LOG_INFO_F(Elements::Tensor, "Step 3: Computing dependency closure...");
@@ -384,8 +410,9 @@ Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &inp
     // 验证循环依赖是否合法
     Status validationStatus = ValidateCrossComponentDependencies(input, directDeps, crossComponentTensors);
     if (validationStatus != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Cross-component dependency validation failed, aborting ProcessDependencyAnalyzer...");
-        return FAILED;  // 立即返回，不继续执行
+        APASS_LOG_ERROR_F(
+            Elements::Tensor, "Cross-component dependency validation failed, aborting ProcessDependencyAnalyzer...");
+        return FAILED; // 立即返回，不继续执行
     }
     // 4.2：基于传递闭包传播外部依赖到内部scope
     PropagateExternalDependenciesWithClosure(directDeps);
@@ -401,16 +428,17 @@ Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &inp
     return SUCCESS;
 }
 
-void MixDependencyAnalyzer::Reset() {
+void MixDependencyAnalyzer::Reset()
+{
     internalDeps.clear();
     allIncasts.clear();
     allOutcasts.clear();
 }
 
 Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
-    const AnalyzerInput &input,
-    const std::unordered_map<int, std::set<int>>& directDeps,
-    const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
+    const AnalyzerInput& input, const std::unordered_map<int, std::set<int>>& directDeps,
+    const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors)
+{
     APASS_LOG_INFO_F(Elements::Tensor, "=== VALIDATING CROSS-COMPONENT DEPENDENCY CYCLES ===");
     // 收集双向依赖
     std::vector<std::pair<int, int>> bidirectionalDeps;
@@ -451,27 +479,31 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
     return SUCCESS;
 }
 
-bool MixDependencyAnalyzer::IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const {
+bool MixDependencyAnalyzer::IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const
+{
     auto incastIt = allIncasts.find(compId);
-    if (incastIt == allIncasts.end()) return false;
+    if (incastIt == allIncasts.end())
+        return false;
     for (const auto& param : incastIt->second) {
-        if (param.tensor == tensor) return true;
+        if (param.tensor == tensor)
+            return true;
     }
     return false;
 }
 
 bool MixDependencyAnalyzer::CheckDirectionAndCollectValid(
-    const std::vector<LogicalTensorPtr>& tensors, int src, int dst, bool& hasValid) const {
-
-    if (tensors.empty()) return false;
+    const std::vector<LogicalTensorPtr>& tensors, int src, int dst, bool& hasValid) const
+{
+    if (tensors.empty())
+        return false;
 
     APASS_LOG_INFO_F(Elements::Tensor, "  Component %d -> %d tensors (%zu):", src, dst, tensors.size());
     bool directionValid = false;
     for (auto& tensor : tensors) {
         bool isInIncast = IsTensorInComponentIncasts(dst, tensor);
-        APASS_LOG_INFO_F(Elements::Tensor, "    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
-                  tensor->magic, tensor->GetRawMagic(), dst,
-                  isInIncast ? "YES" : "NO");
+        APASS_LOG_INFO_F(
+            Elements::Tensor, "    - tensor magic=%d (raw=%d), in comp%d.incasts=%s", tensor->magic,
+            tensor->GetRawMagic(), dst, isInIncast ? "YES" : "NO");
         if (isInIncast) {
             directionValid = true;
             hasValid = true;
@@ -480,17 +512,19 @@ bool MixDependencyAnalyzer::CheckDirectionAndCollectValid(
     return directionValid;
 }
 
-void MixDependencyAnalyzer::LogIllegalBidirectionalDependency(
-    int comp1, int comp2, const AnalyzerInput& input) const {
-
+void MixDependencyAnalyzer::LogIllegalBidirectionalDependency(int comp1, int comp2, const AnalyzerInput& input) const
+{
     APASS_LOG_ERROR_F(Elements::Tensor, "ILLEGAL BIDIRECTIONAL DEPENDENCY DETECTED!");
     APASS_LOG_ERROR_F(Elements::Tensor, "==========================================================");
     APASS_LOG_ERROR_F(Elements::Tensor, "Component %d <-> Component %d", comp1, comp2);
-    APASS_LOG_ERROR_F(Elements::Tensor, "Component types: %s <-> %s",
-               input.components[comp1].componentType == ComponentType::C_SCOPE ? "CUBE" :
-               input.components[comp1].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN",
-               input.components[comp2].componentType == ComponentType::C_SCOPE ? "CUBE" :
-               input.components[comp2].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN");
+    APASS_LOG_ERROR_F(
+        Elements::Tensor, "Component types: %s <-> %s",
+        input.components[comp1].componentType == ComponentType::C_SCOPE ? "CUBE" :
+        input.components[comp1].componentType == ComponentType::V_SCOPE ? "VECTOR" :
+                                                                          "UNKNOWN",
+        input.components[comp2].componentType == ComponentType::C_SCOPE ? "CUBE" :
+        input.components[comp2].componentType == ComponentType::V_SCOPE ? "VECTOR" :
+                                                                          "UNKNOWN");
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

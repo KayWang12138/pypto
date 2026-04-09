@@ -21,7 +21,8 @@
 namespace npu::tile_fwk {
 
 namespace {
-void SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t> &pmuEvtType) {
+void SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t>& pmuEvtType)
+{
     // 按照环境变量设置的数值，获取pmu事件类型
     switch (profPmuType) {
         case ARITHMETIC_UTILIZATION:
@@ -50,7 +51,8 @@ void SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t> &pmuEvtTyp
     }
 }
 
-void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t> &pmuEvtType) {
+void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t>& pmuEvtType)
+{
     // 按照环境变量设置的数值，获取pmu事件类型
     switch (profPmuType) {
         case ARITHMETIC_UTILIZATION:
@@ -78,9 +80,10 @@ void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t> &pmuEvtTyp
             MACHINE_LOGW("Invalid profPmuType %d, only support [1,2,4,5,6,7,8].\n", profPmuType);
     }
 }
-}
+} // namespace
 
-void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType) {
+void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType)
+{
     size_t pmuEvtTypeSize = archInfo == ArchInfo::DAV_2201 ? PMU_EVENT_TYPE_MAX_DAV2201 : PMU_EVENT_TYPE_MAX_DAV3510;
     pmuEvtType.resize(pmuEvtTypeSize, 0x0);
     // 获取pmu事件类型环境变量获取方式
@@ -92,11 +95,12 @@ void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>&
     int32_t profPmuType = PIPE_UTILIZATION;
     try {
         profPmuType = std::stoi(eventTypeStr);
-    } catch (const std::exception &e) {
-        MACHINE_LOGW("Invalid PROF_PMU_EVENT_TYPE value [%s], use default PIPE_UTILIZATION. error: %s",
-                    eventTypeStr.c_str(), e.what());
+    } catch (const std::exception& e) {
+        MACHINE_LOGW(
+            "Invalid PROF_PMU_EVENT_TYPE value [%s], use default PIPE_UTILIZATION. error: %s", eventTypeStr.c_str(),
+            e.what());
     }
-    
+
     if (archInfo == ArchInfo::DAV_2201) {
         SetPmuEventTypeDAV2201(profPmuType, pmuEvtType);
     } else if (archInfo == ArchInfo::DAV_3510) {

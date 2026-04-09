@@ -25,15 +25,14 @@ namespace npu {
 namespace tile_fwk {
 class LoopaxesProc : public Pass {
 public:
-    LoopaxesProc() : Pass("LoopaxesProc") {
-        SetSupportedArches({NPUArch::DAV_3510});
-    }
+    LoopaxesProc() : Pass("LoopaxesProc") { SetSupportedArches({NPUArch::DAV_3510}); }
     ~LoopaxesProc() override = default;
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
+
 private:
-    Status UpdateFuncLoopAxes(Function &function);
-    Status UpdateOpLoopAxes(Operation &op, Function &subFunc);
-    bool SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, const Function &subFunc);
+    Status UpdateFuncLoopAxes(Function& function);
+    Status UpdateOpLoopAxes(Operation& op, Function& subFunc);
+    bool SameLoopAxes(const std::vector<SymbolicScalar>& curLoopAxes, const Function& subFunc);
     void ClearStatus();
 
     int64_t groupIdx{INVALID_LOOP_GROUPID};

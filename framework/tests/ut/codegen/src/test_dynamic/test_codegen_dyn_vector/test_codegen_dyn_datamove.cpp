@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
+TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3)
+{
     int n = 1;
     int s = 32;
     int d = 437;
@@ -56,8 +58,10 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, {0, 1});
         }
@@ -71,7 +75,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
+TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4)
+{
     int b = 4;
     int n = 1;
     int s = 32;
@@ -84,8 +89,10 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, {1, 2});
         }
@@ -99,7 +106,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
+TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4)
+{
     int b = 4;
     int n = 1;
     int s = 32;
@@ -112,8 +120,10 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "TestDatamoveAlignDim4";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, {1, 2});
         }

@@ -23,7 +23,8 @@ using namespace npu::tile_fwk::dynamic;
 class ParallelSortSTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -31,19 +32,22 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vecto
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-int64_t Capacity(std::vector<int64_t> &shape) {
+int64_t Capacity(std::vector<int64_t>& shape)
+{
     return std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
 }
 
 template <typename T = float, typename idxT = int>
-void SortStaticTest(int tileSize){
+void SortStaticTest(int tileSize)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
@@ -54,13 +58,13 @@ void SortStaticTest(int tileSize){
 
     std::vector<int64_t> shape = {1, length};
 
-    void *xPtr = readToDev<uint32_t>(GetGoldenDir() + "/x.bin", Capacity(shape));
+    void* xPtr = readToDev<uint32_t>(GetGoldenDir() + "/x.bin", Capacity(shape));
     uint8_t* yPtr = allocDevAddr(Capacity(shape) * sizeof(float));
     uint8_t* yIdxPtr = allocDevAddr(Capacity(shape) * sizeof(float));
 
-    Tensor x(DataType::DT_FP32, shape, (uint8_t *)xPtr, "x");
-    Tensor y(DataType::DT_FP32, shape, (uint8_t *)yPtr, "y");
-    Tensor yIdx(DataType::DT_FP32, shape, (uint8_t *)yIdxPtr, "yIdx");
+    Tensor x(DataType::DT_FP32, shape, (uint8_t*)xPtr, "x");
+    Tensor y(DataType::DT_FP32, shape, (uint8_t*)yPtr, "y");
+    Tensor yIdx(DataType::DT_FP32, shape, (uint8_t*)yIdxPtr, "yIdx");
 
     std::vector<float> yGolden(Capacity(shape));
     std::vector<float> yIdxGolden(Capacity(shape));
@@ -69,19 +73,20 @@ void SortStaticTest(int tileSize){
 
     ConfigManager::Instance();
     config::SetBuildStatic(true);
-    FUNCTION("Sort", {x, y, yIdx}) {
+    FUNCTION("Sort", {x, y, yIdx})
+    {
         TileShape::Current().SetVecTile({1, tileSize});
         std::tie(y, yIdx) = Sort(x, descending);
     }
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     uint64_t taskTime = DeviceRunner::Get().GetTasksTime();
-    std::cout<<"Sort Cost Time is: "<< taskTime << std::endl;
+    std::cout << "Sort Cost Time is: " << taskTime << std::endl;
 
     std::vector<float> yResult(Capacity(shape));
     std::vector<float> yIdxResult(Capacity(shape));
-    machine::GetRA()->CopyFromTensor((uint8_t *)yResult.data(), (uint8_t *)yPtr, Capacity(shape) * sizeof(float));
-    machine::GetRA()->CopyFromTensor((uint8_t *)yIdxResult.data(), (uint8_t *)yIdxPtr, Capacity(shape) * sizeof(float));
+    machine::GetRA()->CopyFromTensor((uint8_t*)yResult.data(), (uint8_t*)yPtr, Capacity(shape) * sizeof(float));
+    machine::GetRA()->CopyFromTensor((uint8_t*)yIdxResult.data(), (uint8_t*)yIdxPtr, Capacity(shape) * sizeof(float));
     std::cout << "y" << std::endl;
     bool cmp = resultCmp(yGolden, yResult, 0);
     std::cout << "yIdx" << std::endl;
@@ -90,8 +95,8 @@ void SortStaticTest(int tileSize){
 }
 
 template <typename T = float, typename idxT = int>
-void SortTest(int tileSize){
-    
+void SortTest(int tileSize)
+{
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];
@@ -118,24 +123,26 @@ void SortTest(int tileSize){
     std::vector<RawTensorDataPtr> outputDataList = {yData, yIdxData};
     std::vector<RawTensorDataPtr> inputDataList = {xData};
 
-    FUNCTION("Sort", {x}, {y, yIdx}) {
-        LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
+    FUNCTION("Sort", {x}, {y, yIdx})
+    {
+        LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1))
+        {
             UNUSED(bIdx);
             TileShape::Current().SetVecTile({1, tileSize});
-            std::tie(y, yIdx)  = Sort(x, descending);
+            std::tie(y, yIdx) = Sort(x, descending);
         }
     }
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "y ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(yGolden, (T *)yData->data(), 0));
+    EXPECT_TRUE(resultCmp<T>(yGolden, (T*)yData->data(), 0));
     std::cout << "yIdx ======" << std::endl;
-    EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT *)yIdxData->data(), 0));
+    EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT*)yIdxData->data(), 0));
 }
 
 template <typename T = float, typename idxT = int>
-void SortWithIndexTest(int tileSize){
-    
+void SortWithIndexTest(int tileSize)
+{
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];
@@ -164,8 +171,10 @@ void SortWithIndexTest(int tileSize){
     std::vector<RawTensorDataPtr> outputDataList = {yData, yIdxData};
     std::vector<RawTensorDataPtr> inputDataList = {xData, idxData};
 
-    FUNCTION("Sort", {x, idx}, {y, yIdx}) {
-        LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
+    FUNCTION("Sort", {x, idx}, {y, yIdx})
+    {
+        LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1))
+        {
             UNUSED(bIdx);
             TileShape::Current().SetVecTile({1, tileSize});
             std::tie(y, yIdx) = SortWithIndex(x, idx, descending);
@@ -174,14 +183,14 @@ void SortWithIndexTest(int tileSize){
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "y ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(yGolden, (T *)yData->data(), 0));
+    EXPECT_TRUE(resultCmp<T>(yGolden, (T*)yData->data(), 0));
     std::cout << "yIdx ======" << std::endl;
-    EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT *)yIdxData->data(), 0));
+    EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT*)yIdxData->data(), 0));
 }
 
 template <typename T = float, typename idxT = int>
-void TopKTest(int tileSize){
-    
+void TopKTest(int tileSize)
+{
     std::vector<int> params(3);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];
@@ -207,8 +216,10 @@ void TopKTest(int tileSize){
     std::vector<RawTensorDataPtr> outputDataList = {yIdxData};
     std::vector<RawTensorDataPtr> inputDataList = {xData};
 
-    FUNCTION("TopK", {x}, {yIdx}) {
-        LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1)) {
+    FUNCTION("TopK", {x}, {yIdx})
+    {
+        LOOP("LOOP_1", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1))
+        {
             UNUSED(bIdx);
             TileShape::Current().SetVecTile({1, tileSize});
             auto res = Sort(x, descending);
@@ -219,33 +230,19 @@ void TopKTest(int tileSize){
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "yIdx ======" << std::endl;
-    EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT *)yIdxData->data(), 0));
+    EXPECT_TRUE(resultCmp<idxT>(yIdxGolden, (idxT*)yIdxData->data(), 0));
 }
 
-TEST_F(ParallelSortSTest, sort_static) {
-    SortStaticTest(256);
-}
+TEST_F(ParallelSortSTest, sort_static) { SortStaticTest(256); }
 
-TEST_F(ParallelSortSTest, sort) {
-    SortTest(256);
-}
+TEST_F(ParallelSortSTest, sort) { SortTest(256); }
 
-TEST_F(ParallelSortSTest, sort_index) {
-    SortWithIndexTest(256);
-}
+TEST_F(ParallelSortSTest, sort_index) { SortWithIndexTest(256); }
 
-TEST_F(ParallelSortSTest, topk) {
-    TopKTest(2048);
-}
+TEST_F(ParallelSortSTest, topk) { TopKTest(2048); }
 
-TEST_F(ParallelSortSTest, fp32_64k) {
-    SortTest(8192);
-}
+TEST_F(ParallelSortSTest, fp32_64k) { SortTest(8192); }
 
-TEST_F(ParallelSortSTest, fp32_128k) {
-    SortTest(8192);
-}
+TEST_F(ParallelSortSTest, fp32_128k) { SortTest(8192); }
 
-TEST_F(ParallelSortSTest, topk_128k_2k) {
-    TopKTest(8192);
-}
+TEST_F(ParallelSortSTest, topk_128k_2k) { TopKTest(8192); }

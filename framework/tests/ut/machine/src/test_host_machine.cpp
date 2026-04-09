@@ -27,29 +27,31 @@ using namespace npu::tile_fwk;
 
 extern "C" {
 struct Backend {
-    void *runPass;
-    void *getResumePath;
-    void *execute;
-    void *simuExecute;
-    void *platform;
-    void *matchCache;
+    void* runPass;
+    void* getResumePath;
+    void* execute;
+    void* simuExecute;
+    void* platform;
+    void* matchCache;
 
-    static Backend &GetBackend();
+    static Backend& GetBackend();
 };
 }
 
 class TestHostMachineLog : public testing::Test {
 public:
-    void SetUp() override {
-        auto &hm = HostMachine::GetInstance();
+    void SetUp() override
+    {
+        auto& hm = HostMachine::GetInstance();
         if (!hm.initialized_.load()) {
             hm.Init(HostMachineMode::API);
         }
         hm.curTask = nullptr;
     }
 
-    void TearDown() override {
-        auto &hm = HostMachine::GetInstance();
+    void TearDown() override
+    {
+        auto& hm = HostMachine::GetInstance();
         if (hm.curTask != nullptr) {
             delete hm.curTask;
             hm.curTask = nullptr;
@@ -58,13 +60,14 @@ public:
     }
 };
 
-TEST_F(TestHostMachineLog, SubTask_CurTaskAlreadyRunning) {
-    auto &hm = HostMachine::GetInstance();
+TEST_F(TestHostMachineLog, SubTask_CurTaskAlreadyRunning)
+{
+    auto& hm = HostMachine::GetInstance();
     hm.mode_ = HostMachineMode::API;
 
     hm.SubTask(nullptr);
     EXPECT_NE(hm.curTask, nullptr);
-    MachineTask *firstTask = hm.curTask;
+    MachineTask* firstTask = hm.curTask;
 
     hm.SubTask(nullptr);
     EXPECT_NE(hm.curTask, nullptr);
@@ -73,11 +76,12 @@ TEST_F(TestHostMachineLog, SubTask_CurTaskAlreadyRunning) {
     delete firstTask;
 }
 
-TEST_F(TestHostMachineLog, Compile_NullTaskWhenCurTaskNull) {
-    auto &hm = HostMachine::GetInstance();
+TEST_F(TestHostMachineLog, Compile_NullTaskWhenCurTaskNull)
+{
+    auto& hm = HostMachine::GetInstance();
     hm.mode_ = HostMachineMode::API;
     hm.curTask = nullptr;
 
-    MachineTask *result = hm.Compile(nullptr);
+    MachineTask* result = hm.Compile(nullptr);
     EXPECT_EQ(result, nullptr);
 }

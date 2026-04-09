@@ -22,28 +22,32 @@
 
 namespace pypto {
 
-TEST(CoreAnyCastTest, TestAnyCastInt) {
+TEST(CoreAnyCastTest, TestAnyCastInt)
+{
     // Test casting to int
     std::any value = 42;
     int result = AnyCast<int>(value);
     ASSERT_EQ(result, 42);
 }
 
-TEST(CoreAnyCastTest, TestAnyCastString) {
+TEST(CoreAnyCastTest, TestAnyCastString)
+{
     // Test casting to string
     std::any value = std::string("hello");
     std::string result = AnyCast<std::string>(value);
     ASSERT_EQ(result, "hello");
 }
 
-TEST(CoreAnyCastTest, TestAnyCastDouble) {
+TEST(CoreAnyCastTest, TestAnyCastDouble)
+{
     // Test casting to double
     std::any value = 3.14;
     double result = AnyCast<double>(value);
     ASSERT_DOUBLE_EQ(result, 3.14);
 }
 
-TEST(CoreAnyCastTest, TestAnyCastBool) {
+TEST(CoreAnyCastTest, TestAnyCastBool)
+{
     // Test casting to bool
     std::any value = true;
     bool result = AnyCast<bool>(value);
@@ -84,7 +88,8 @@ TEST(CoreAnyCastTest, TestAnyCastEmpty) {
 }
 */
 
-TEST(CoreAnyCastTest, TestAnyCastRef) {
+TEST(CoreAnyCastTest, TestAnyCastRef)
+{
     // Test AnyCastRef - reference casting
     std::any value = 42;
 
@@ -114,7 +119,8 @@ TEST(CoreAnyCastTest, TestAnyCastRefTypeMismatch) {
 }
 */
 
-TEST(CoreAnyCastTest, TestAnyCastMultipleTypes) {
+TEST(CoreAnyCastTest, TestAnyCastMultipleTypes)
+{
     // Test casting between different types in sequence
     std::any value1 = 100;
     std::any value2 = std::string("world");
@@ -125,20 +131,22 @@ TEST(CoreAnyCastTest, TestAnyCastMultipleTypes) {
     ASSERT_DOUBLE_EQ(AnyCast<double>(value3), 2.71);
 }
 
-TEST(CoreAnyCastTest, TestAnyCastPointer) {
+TEST(CoreAnyCastTest, TestAnyCastPointer)
+{
     // Test casting pointers
     int original = 42;
     std::any value = &original;
 
     try {
-        int *result = AnyCast<int *>(value);
+        int* result = AnyCast<int*>(value);
         ASSERT_EQ(*result, 42);
     } catch (...) {
         FAIL() << "AnyCast should succeed for pointer type";
     }
 }
 
-TEST(CoreAnyCastTest, TestAnyCastConstRef) {
+TEST(CoreAnyCastTest, TestAnyCastConstRef)
+{
     // Test const reference casting
     std::any value = std::string("test");
 

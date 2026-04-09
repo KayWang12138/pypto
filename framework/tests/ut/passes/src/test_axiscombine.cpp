@@ -32,13 +32,13 @@ class TestAxisCombine : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
 constexpr int64_t K_1 = 1;
@@ -50,19 +50,20 @@ constexpr int64_t K_32 = 32;
 constexpr int64_t K_64 = 64;
 constexpr int64_t K_128 = 128;
 
-TEST_F(TestAxisCombine, Test1) {
+TEST_F(TestAxisCombine, Test1)
+{
     ComputationalGraphBuilder graph;
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, "t1"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, "t2"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, "t3"), true);
-    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
-    auto *rootFuncPtr = graph.GetFunction();
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 127}, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 1}, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 127}, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1", "t2"}, {"t3"}, "add", true), true);
+    auto* rootFuncPtr = graph.GetFunction();
     rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t brcbCnt = 0;
-    for (const auto &op : updatedOperations) {
+    for (const auto& op : updatedOperations) {
         if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++brcbCnt;
             auto outputTensor = op.GetOOperands()[0];
@@ -79,21 +80,22 @@ TEST_F(TestAxisCombine, Test1) {
     EXPECT_EQ(brcbCnt, K_1);
 }
 
-TEST_F(TestAxisCombine, Test2) {
+TEST_F(TestAxisCombine, Test2)
+{
     ComputationalGraphBuilder graph;
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,128}, "t1"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, "t2"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,128}, "t3"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 128}, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 1}, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 128}, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, {"t1"}, {"t2"}, "rowmax", true), true);
     graph.GetOp("rowmax")->SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
-    EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t1","t2"}, {"t3"}, "add", true), true);
-    auto *rootFuncPtr = graph.GetFunction();
+    EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t1", "t2"}, {"t3"}, "add", true), true);
+    auto* rootFuncPtr = graph.GetFunction();
     AxisCombine pass;
     rootFuncPtr->paramConfigs_.combineAxis = true;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t cnt = 0;
-    for (const auto &op : updatedOperations) {
+    for (const auto& op : updatedOperations) {
         if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++cnt;
             auto outputTensor = op.GetOOperands()[0];
@@ -110,29 +112,30 @@ TEST_F(TestAxisCombine, Test2) {
     EXPECT_EQ(cnt, K_1);
 }
 
-TEST_F(TestAxisCombine, Test3) {
+TEST_F(TestAxisCombine, Test3)
+{
     ComputationalGraphBuilder graph;
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,128}, "t1"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,1}, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 128}, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 1}, "t2"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ROWMAX_SINGLE, {"t1"}, {"t2"}, "max", true), true);
     graph.GetOp("max")->SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
 
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,1}, "t3"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,1}, "t4"), true);
-    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2","t3"}, {"t4"}, "add1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 1}, "t3"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 1}, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2", "t3"}, {"t4"}, "add1", true), true);
 
     // left
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,16}, "t5"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,16}, "t6"), true);
-    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2","t5"}, {"t6"}, "add2", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 16}, "t5"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16, 16}, "t6"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2", "t5"}, {"t6"}, "add2", true), true);
 
-    auto *rootFuncPtr = graph.GetFunction();
+    auto* rootFuncPtr = graph.GetFunction();
     rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     // ================== Verify Pass Effect ==================
     auto updatedOperations = rootFuncPtr->Operations();
-    for (const auto &op : updatedOperations) {
+    for (const auto& op : updatedOperations) {
         if (op.GetOpcode() == Opcode::OP_BRCB) {
             auto outputTensor = op.GetOOperands()[0];
             EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
@@ -150,7 +153,8 @@ TEST_F(TestAxisCombine, Test3) {
 }
 
 // Skip insert when Both inputs have last dim shape of 1.
-TEST_F(TestAxisCombine, Test4) {
+TEST_F(TestAxisCombine, Test4)
+{
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {-1, 1}, "t1"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, "t2"), true);
@@ -163,13 +167,13 @@ TEST_F(TestAxisCombine, Test4) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, "t5"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPANDEXPDIF, {"t2", "t4"}, {"t5"}, "expanddif", true), true);
 
-    auto *rootFuncPtr = graph.GetFunction();
+    auto* rootFuncPtr = graph.GetFunction();
     rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     // ================== Verify Pass Effect ==================
     int cnt = 0;
-    for (const auto &op : rootFuncPtr->Operations()) {
+    for (const auto& op : rootFuncPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_EXPAND || op.GetOpcode() == Opcode::OP_BRCB) {
             ++cnt;
         }
@@ -177,7 +181,8 @@ TEST_F(TestAxisCombine, Test4) {
     EXPECT_EQ(cnt, 0);
 }
 
-TEST_F(TestAxisCombine, TestDD) {
+TEST_F(TestAxisCombine, TestDD)
+{
     config::SetOperationOption(KEY_COMBINE_AXIS, true);
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
@@ -187,7 +192,8 @@ TEST_F(TestAxisCombine, TestDD) {
     Tensor T(DT_FP32, tshape, "T");
     Tensor d;
     Tensor output;
-    FUNCTION("Test") {
+    FUNCTION("Test")
+    {
         d = SoftmaxNew(T);
         output = Amax(d, -1, true);
     }

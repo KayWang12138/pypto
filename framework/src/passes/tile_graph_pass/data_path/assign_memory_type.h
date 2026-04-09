@@ -28,31 +28,30 @@ namespace npu::tile_fwk {
 class AssignMemoryType : public Pass {
 public:
     AssignMemoryType() : Pass("AssignMemoryType") {}
-    void SpecialCallInterfaceToBeDeleted(Function &function) {
-        RunOnFunction(function);
-    }
+    void SpecialCallInterfaceToBeDeleted(Function& function) { RunOnFunction(function); }
+
 private:
-    Status PreCheck(Function &function) override;  
-    Status PostCheck(Function &function) override;  
-    Status RunOnFunction(Function &function) override;
-    void AssignMoveOp(Operation &operation);
-    void AssignMoveOpForAssemble(Operation &operation);
-    void AssignMoveOpForView(Operation &operation);
-    void RunOnOperation(Operation &operation);
-    void AssignMemUnknown(Function &function);
-    void ProcessAmulBInput(Operation &operation,LogicalTensorPtr &tensor);
-    void ProcessAssemblewithSpecificMem(Operation &operation);
-    void ProcessViewwithSpecificMem(Operation &operation);
-    void AssignSpecialOpMemtype(Operation &op, bool &infoBufferSize);
-    void AssignOpReshapeMemtype(Operation &op);
-    void AssignOpViewTypeMemtype(Operation &op);
-    void AssignOpNopMemtype(Operation &op);
-    void AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output);
-    void UpdateOverSizedLocalBuffer(Operation &operation);
-    void ProcesSmallTileToLargeTile(Function &function);
-    void ProcessLargeTileToSamllTile(Function &function);
-    bool IsDimMultiple(const Shape &shape1, const Shape &shape2);
-    int64_t CalcLineOffset(const Shape &shape, const Offset &offset);
+    Status PreCheck(Function& function) override;
+    Status PostCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
+    void AssignMoveOp(Operation& operation);
+    void AssignMoveOpForAssemble(Operation& operation);
+    void AssignMoveOpForView(Operation& operation);
+    void RunOnOperation(Operation& operation);
+    void AssignMemUnknown(Function& function);
+    void ProcessAmulBInput(Operation& operation, LogicalTensorPtr& tensor);
+    void ProcessAssemblewithSpecificMem(Operation& operation);
+    void ProcessViewwithSpecificMem(Operation& operation);
+    void AssignSpecialOpMemtype(Operation& op, bool& infoBufferSize);
+    void AssignOpReshapeMemtype(Operation& op);
+    void AssignOpViewTypeMemtype(Operation& op);
+    void AssignOpNopMemtype(Operation& op);
+    void AssignMemtypeForSplitReshape(Operation& op, const LogicalTensorPtr& input, const LogicalTensorPtr& output);
+    void UpdateOverSizedLocalBuffer(Operation& operation);
+    void ProcesSmallTileToLargeTile(Function& function);
+    void ProcessLargeTileToSamllTile(Function& function);
+    bool IsDimMultiple(const Shape& shape1, const Shape& shape2);
+    int64_t CalcLineOffset(const Shape& shape, const Offset& offset);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
     AssignMemoryTypeChecker checker;

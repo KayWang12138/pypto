@@ -22,13 +22,15 @@
 
 namespace npu::tile_fwk::schema {
 
-template<typename Ty0>
-static inline std::string DumpAttr(const Ty0 &arg0) {
+template <typename Ty0>
+static inline std::string DumpAttr(const Ty0& arg0)
+{
     return arg0.Dump();
 }
 
-template<typename Ty0, typename ...Tys>
-static inline std::string DumpAttr(const Ty0 &arg0, const Tys&...args) {
+template <typename Ty0, typename... Tys>
+static inline std::string DumpAttr(const Ty0& arg0, const Tys&... args)
+{
     std::string tail = DumpAttr(args...);
     std::string head = arg0.Dump();
     return head + " " + tail;
@@ -38,39 +40,35 @@ static inline std::string DumpAttr(const Ty0 &arg0, const Tys&...args) {
 #include "schema_def_attr.h"
 #include "schema_def_trace.h"
 
-static inline range Range(uint64_t begin, uint64_t end) {
-    return range(begin, end, end - begin);
-}
+static inline range Range(uint64_t begin, uint64_t end) { return range(begin, end, end - begin); }
 
-#define DEV_TRACE_PREFIX        "#trace:"
+#define DEV_TRACE_PREFIX "#trace:"
 
-#define DEV_TRACE_DEBUG(arg, args...) \
-    do { \
-        using namespace npu::tile_fwk::schema; \
+#define DEV_TRACE_DEBUG(arg, args...)                                             \
+    do {                                                                          \
+        using namespace npu::tile_fwk::schema;                                    \
         DEV_VERBOSE_DEBUG(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
-    } while(0)
-#define DEV_TRACE_INFO(arg, args...) \
-    do { \
-        using namespace npu::tile_fwk::schema; \
+    } while (0)
+#define DEV_TRACE_INFO(arg, args...)                                     \
+    do {                                                                 \
+        using namespace npu::tile_fwk::schema;                           \
         DEV_INFO(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
-    } while(0)
-#define DEV_TRACE_WARN(arg, args...) \
-    do { \
-        using namespace npu::tile_fwk::schema; \
+    } while (0)
+#define DEV_TRACE_WARN(arg, args...)                                     \
+    do {                                                                 \
+        using namespace npu::tile_fwk::schema;                           \
         DEV_WARN(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
-    } while(0)
-#define DEV_TRACE_ERROR(arg, args...) \
-    do { \
-        using namespace npu::tile_fwk::schema; \
+    } while (0)
+#define DEV_TRACE_ERROR(arg, args...)                                                           \
+    do {                                                                                        \
+        using namespace npu::tile_fwk::schema;                                                  \
         DEV_ERROR(ERROR_CODE_UNDEFINED, DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
-    } while(0)
-#define DEV_TRACE_DEBUG_SPLIT(arg, args...) \
-    do { \
-        using namespace npu::tile_fwk::schema; \
+    } while (0)
+#define DEV_TRACE_DEBUG_SPLIT(arg, args...)                                     \
+    do {                                                                        \
+        using namespace npu::tile_fwk::schema;                                  \
         DEV_DEBUG_SPLIT(DEV_TRACE_PREFIX " %s", DumpAttr(arg, ##args).c_str()); \
-    } while(0)
-}
+    } while (0)
+} // namespace npu::tile_fwk::schema
 
-
-
-#endif//SCHEMA_TRACE_H
+#endif // SCHEMA_TRACE_H

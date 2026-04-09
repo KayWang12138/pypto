@@ -18,12 +18,10 @@
 #include "tilefwk/platform.h"
 #include "PvModel.h"
 
-namespace CostModel
-{
-    class PvModelFactory
-    {
-    public:
-        static std::shared_ptr<PvModel> Create();
-        static std::shared_ptr<DynPvModel> CreateDyn();
-    };
+namespace CostModel {
+class PvModelFactory {
+public:
+    static std::shared_ptr<PvModel> Create();
+    static std::shared_ptr<DynPvModel> CreateDyn();
+};
 } // namespace CostModel

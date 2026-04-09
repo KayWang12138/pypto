@@ -25,7 +25,8 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicFFNTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
-TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
+TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN)
+{
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(32, 256);
     TileShape::Current().SetCubeTile({32, 32}, {128, 256}, {128, 128});
@@ -46,11 +47,11 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
     Tensor ffnweight3(DT_FP16, weightShape, "weightShape3", TileOpFormat::TILEOP_NZ);
     Tensor ffnout(DT_FP32, OutShape, "ffnout");
 
-    std::vector<float>hiddenStatesData(BS * H);
-    std::vector<npu::tile_fwk::float16>ffnweight1Data(ExpertDim * H);
-    std::vector<npu::tile_fwk::float16>ffnweight2Data(ExpertDim * H);
-    std::vector<npu::tile_fwk::float16>ffnweight3Data(ExpertDim * H);
-    std::vector<float>golden(BS * H);
+    std::vector<float> hiddenStatesData(BS * H);
+    std::vector<npu::tile_fwk::float16> ffnweight1Data(ExpertDim * H);
+    std::vector<npu::tile_fwk::float16> ffnweight2Data(ExpertDim * H);
+    std::vector<npu::tile_fwk::float16> ffnweight3Data(ExpertDim * H);
+    std::vector<float> golden(BS * H);
 
     readInput(GetGoldenDir() + "/hidden_states.bin", hiddenStatesData);
     readInput(GetGoldenDir() + "/ffnWeight1.bin", ffnweight1Data);
@@ -76,15 +77,16 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
 
-TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
+TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant)
+{
     TileShape::Current().SetVecTile(32, 256);
     TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {128, 128});
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
-    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 10*1024*1024);
+    config::SetPassOption(MG_COPYIN_UPPER_BOUND, 10 * 1024 * 1024);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
 
     constexpr int BATCH_SIZE = 32;
@@ -108,17 +110,17 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     Tensor ffnScale3(DT_FP32, {1, H}, "ffnScale3");
     Tensor ffnout(DT_FP32, OutShape, "ffnout");
 
-    std::vector<int8_t>hiddenStatesData(BS * H);
-    std::vector<float>hiddenStatesScaleData(BS);
-    std::vector<int8_t>ffnweight1Data(ExpertDim * H);
-    std::vector<int8_t>ffnweight2Data(ExpertDim * H);
-    std::vector<int8_t>ffnweight3Data(ExpertDim * H);
+    std::vector<int8_t> hiddenStatesData(BS * H);
+    std::vector<float> hiddenStatesScaleData(BS);
+    std::vector<int8_t> ffnweight1Data(ExpertDim * H);
+    std::vector<int8_t> ffnweight2Data(ExpertDim * H);
+    std::vector<int8_t> ffnweight3Data(ExpertDim * H);
 
-    std::vector<float>ffnScale1Data(ExpertDim);
-    std::vector<float>ffnScale2Data(ExpertDim);
-    std::vector<float>ffnScale3Data(H);
+    std::vector<float> ffnScale1Data(ExpertDim);
+    std::vector<float> ffnScale2Data(ExpertDim);
+    std::vector<float> ffnScale3Data(H);
 
-    std::vector<float>golden(BS * H);
+    std::vector<float> golden(BS * H);
 
     readInput(GetGoldenDir() + "/hidden_states.bin", hiddenStatesData);
     readInput(GetGoldenDir() + "/hidden_states_scale.bin", hiddenStatesScaleData);
@@ -130,7 +132,9 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     readInput(GetGoldenDir() + "/ffnScale3.bin", ffnScale3Data);
     readInput(GetGoldenDir() + "/final_out.bin", golden);
 
-    DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3, ffnout, BASIC_BATCH);
+    DynamicFFNQuant(
+        hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3, ffnout,
+        BASIC_BATCH);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<int8_t>(hiddenStates, hiddenStatesData),
@@ -150,7 +154,7 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 #endif
 }
-}
+} // namespace

@@ -31,17 +31,18 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
-void Construct(ComputationalGraphBuilder &G) {
+void Construct(ComputationalGraphBuilder& G)
+{
     G.AddTensor(DataType::DT_FP16, {16, 128}, MemoryType::MEM_DEVICE_DDR, "inputTensor0");
     G.AddTensor(DataType::DT_FP16, {16, 128}, MemoryType::MEM_DEVICE_DDR, "inputTensor1");
     G.AddTensor(DataType::DT_FP16, {16, 128}, MemoryType::MEM_DEVICE_DDR, "inputTensor2");
@@ -52,29 +53,33 @@ void Construct(ComputationalGraphBuilder &G) {
     auto assemble_0 = G.GetOp("assemble_0");
     auto attrAssemble_0 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{0, 0});
     assemble_0->SetOpAttribute(attrAssemble_0);
-    
+
     G.AddOp(Opcode::OP_ASSEMBLE, {"inputTensor1"}, {"outputTensor"}, "assemble_1");
     auto assemble_1 = G.GetOp("assemble_1");
-    auto attrAssemble_1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{16, 0});
+    auto attrAssemble_1 =
+        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{16, 0});
     assemble_1->SetOpAttribute(attrAssemble_1);
-    
+
     G.AddOp(Opcode::OP_ASSEMBLE, {"inputTensor2"}, {"outputTensor"}, "assemble_2");
     auto assemble_2 = G.GetOp("assemble_2");
-    auto attrAssemble_2 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{32, 0});
+    auto attrAssemble_2 =
+        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{32, 0});
     assemble_2->SetOpAttribute(attrAssemble_2);
-    
+
     G.AddOp(Opcode::OP_ASSEMBLE, {"inputTensor3"}, {"outputTensor"}, "assemble_3");
     auto assemble_3 = G.GetOp("assemble_3");
-    auto attrAssemble_3 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{48, 0});
+    auto attrAssemble_3 =
+        std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{48, 0});
     assemble_3->SetOpAttribute(attrAssemble_3);
-    
+
     G.SetInCast({});
     G.SetOutCast({"outputTensor"});
 }
 
-TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_1) {
+TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_1)
+{
     ComputationalGraphBuilder G;
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     Construct(G);
     // run pass
@@ -85,9 +90,10 @@ TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_1) {
     EXPECT_EQ(function->Operations().size(), 4);
 }
 
-TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_2) {
+TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_2)
+{
     ComputationalGraphBuilder G;
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     Construct(G);
 
@@ -105,7 +111,8 @@ TEST_F(TestInferDiscontinuousInput, testScenarioWithoutInsert_2) {
     EXPECT_EQ(function->Operations().size(), 4);
 }
 
-void check(Function *function, ComputationalGraphBuilder &G) {
+void check(Function* function, ComputationalGraphBuilder& G)
+{
     InferDiscontinuousInput inferDiscontinuousInput;
     EXPECT_EQ(inferDiscontinuousInput.PostCheck(*function), FAILED);
     EXPECT_EQ(inferDiscontinuousInput.Run(*function, "", "", 0), SUCCESS);
@@ -141,9 +148,10 @@ void check(Function *function, ComputationalGraphBuilder &G) {
     auto assembleOp3 = *insertTensor3->GetConsumers().begin();
     EXPECT_EQ(assembleOp3->GetOpcode(), Opcode::OP_ASSEMBLE);
 }
-TEST_F(TestInferDiscontinuousInput, testScenarioInsert_1) {
+TEST_F(TestInferDiscontinuousInput, testScenarioInsert_1)
+{
     ComputationalGraphBuilder G;
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     Construct(G);
     auto inputTensor0 = G.GetTensor("inputTensor0");
@@ -158,9 +166,10 @@ TEST_F(TestInferDiscontinuousInput, testScenarioInsert_1) {
     check(function, G);
 }
 
-TEST_F(TestInferDiscontinuousInput, testScenarioInsert_2) {
+TEST_F(TestInferDiscontinuousInput, testScenarioInsert_2)
+{
     ComputationalGraphBuilder G;
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     Construct(G);
     auto inputTensor0 = G.GetTensor("inputTensor0");
@@ -175,7 +184,8 @@ TEST_F(TestInferDiscontinuousInput, testScenarioInsert_2) {
     check(function, G);
 }
 
-TEST_F(TestInferDiscontinuousInput, testViewAssembleScenario) {
+TEST_F(TestInferDiscontinuousInput, testViewAssembleScenario)
+{
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP16, {16, 128}, MemoryType::MEM_DEVICE_DDR, "t1");
     G.AddTensor(DataType::DT_FP16, {16, 128}, MemoryType::MEM_DEVICE_DDR, "t2");
@@ -187,7 +197,7 @@ TEST_F(TestInferDiscontinuousInput, testViewAssembleScenario) {
     auto assemble = G.GetOp("assemble");
     assemble->SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
 
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
     // run pass
     InferDiscontinuousInput inferDiscontinuousInput;

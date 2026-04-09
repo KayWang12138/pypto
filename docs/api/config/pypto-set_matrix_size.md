@@ -42,4 +42,3 @@ b = pypto.tensor((3, 64, 16), pypto.DT_FP32, "tensor_b")
 pypto.set_matrix_size([32, 64, 16]) #对应输入的Tensor的m，k，n值
 out = pypto.matmul(a, b, pypto.DT_FP32)
 ```
-

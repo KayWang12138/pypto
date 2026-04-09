@@ -1,8 +1,8 @@
 * Copyright (c) 2025 Huawei Technologies Co., Ltd.
-* This program is free software, you can redistribute it and/or modify it under the terms and conditions of 
+* This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 * CANN Open Software License Agreement Version 2.0 (the "License").
 * Please refer to the License for details. You may not use this file except in compliance with the License.
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, 
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 * See LICENSE in the root of the software repository for the full text of the License.
 
@@ -62,8 +62,8 @@ Software: makeself release-2.5.0-patch1
 Copyright notice:
 Copyright (c) 1989, 1991 Free Software Foundation, Inc. copyrighted by the Free Software Foundation Copyright (c) 1998-2023 by Stephane Peter megastep@megastep.org
 
-License: GPL V2.0 
-GNU GENERAL PUBLIC LICENSE 
+License: GPL V2.0
+GNU GENERAL PUBLIC LICENSE
 Version 2, June 1991
 
 Copyright (C) 1989, 1991 Free Software Foundation, Inc.
@@ -85,7 +85,7 @@ Finally, any free program is threatened constantly by software patents. We wish 
 
 The precise terms and conditions for copying, distribution and modification follow.
 
-TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION 
+TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
 0. This License applies to any program or other work which contains a notice placed by the copyright holder saying it may be distributed under the terms of this General Public License. The "Program", below, refers to any such program or work, and a "work based on the Program" means either the Program or any derivative work under copyright law: that is to say, a work containing the Program or a portion of it, either verbatim or with modifications and/or translated into another language. (Hereinafter, translation is included without limitation in the term "modification".) Each licensee is addressed as "you".
 
 Activities other than copying, distribution and modification are not covered by this License; they are outside its scope. The act of running the Program is not restricted, and the output from the Program is covered only if its contents constitute a work based on the Program (independent of having been made by running the Program). Whether that is true depends on what the Program does.
@@ -222,7 +222,7 @@ THE SOFTWARE.
 
 Copyright Notice and License Texts
 Software: eigen 3.4.0
-Copyright notice: 
+Copyright notice:
 Copyright (c) 2020 Arm Ltd. and Contributors
 Copyright (c) 2011, Intel Corporation
 Copyright (c) 2007 Free Software Foundation, Inc. http://fsf.org/
@@ -1466,7 +1466,7 @@ Mozilla Public License Version 2.0
     means any form of the work other than Source Code Form.
 
 1.7. "Larger Work"
-    means a work that combines Covered Software with other material, in 
+    means a work that combines Covered Software with other material, in
     a separate file or files, that is not Covered Software.
 
 1.8. "License"

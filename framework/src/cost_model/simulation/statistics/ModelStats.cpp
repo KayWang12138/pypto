@@ -37,7 +37,7 @@ void ModelStats::Reset()
     coreUseCycles.clear();
 }
 
-void ModelStats::Report(std::string &name)
+void ModelStats::Report(std::string& name)
 {
     rpt->ReportTitle(name);
     rpt->ReportVal("Total Cycles", cycles);

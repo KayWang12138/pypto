@@ -28,8 +28,8 @@ public:
     ~MergeViewAssemble() override = default;
 
 private:
-    Status PreCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
+    Status PreCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
 };
-} // using namespace npu::tile_fwk
+} // namespace npu::tile_fwk
 #endif // PASS_MERGE_VIEW_ASSEMBLE_H_

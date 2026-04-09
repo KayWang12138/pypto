@@ -57,7 +57,7 @@ namespace npu::tile_fwk {
 // for tensor dump
 #define ENABLE_TENSOR_DUMP 1
 
-#define PERF_AICPU_TEST_SWITCH 0 //性能AICPU数据测试
+#define PERF_AICPU_TEST_SWITCH 0 // 性能AICPU数据测试
 
 // ready quene mode for aicore task : Last-in-first-out(LIFO stack mode) or first-in-first-out(FIFO quene mode)
 constexpr bool READY_QUE_LIFO_SWITCH = true;
@@ -74,13 +74,13 @@ constexpr bool SEND_TASK_IMMEDIATELY_SWITCH = true;
 
 #ifdef CONFIG_BAREMETAL
 
-#define CONFIG_PROF                             0
-#define CONFIG_COMM_WAIT_FLAG                   0
+#define CONFIG_PROF 0
+#define CONFIG_COMM_WAIT_FLAG 0
 
 #ifdef __aarch64__
-#define BAREMETAL_RAW_START()                   __asm__ __volatile__("orr x3, x3, x3" : : :"memory")
-#define BAREMETAL_RAW_GET_PMU()                 __asm__ __volatile__("orr x4, x4, x4" : : :"memory")
-#define BAREMETAL_RAW_GET_AND_RESET_PMU()       __asm__ __volatile__("orr x0, x0, x0" : : :"memory")
+#define BAREMETAL_RAW_START() __asm__ __volatile__("orr x3, x3, x3" : : : "memory")
+#define BAREMETAL_RAW_GET_PMU() __asm__ __volatile__("orr x4, x4, x4" : : : "memory")
+#define BAREMETAL_RAW_GET_AND_RESET_PMU() __asm__ __volatile__("orr x0, x0, x0" : : : "memory")
 #else
 #define BAREMETAL_RAW_START()
 #define BAREMETAL_RAW_GET_PMU()
@@ -93,40 +93,40 @@ constexpr bool SEND_TASK_IMMEDIATELY_SWITCH = true;
 #define DEV_PROF(fmt, args...) GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args)
 #endif
 
-#define PROF_START(...) \
-    do { \
-        BAREMETAL_RAW_START(); \
+#define PROF_START(...)                             \
+    do {                                            \
+        BAREMETAL_RAW_START();                      \
         DEV_PROF("[baremetal]start: " __VA_ARGS__); \
     } while (0)
-#define PROF_STAGE_BEGIN_DYN(perfkey, ...) \
-    do { \
+#define PROF_STAGE_BEGIN_DYN(perfkey, ...)        \
+    do {                                          \
         DEV_PROF("[baremetal]get: " __VA_ARGS__); \
-        BAREMETAL_RAW_GET_PMU(); \
-        PerfBegin(perfkey); \
+        BAREMETAL_RAW_GET_PMU();                  \
+        PerfBegin(perfkey);                       \
     } while (0)
-#define PROF_STAGE_END_DYN(perfkey, ...) \
-    do { \
-        PerfEnd(perfkey); \
-        BAREMETAL_RAW_GET_PMU(); \
+#define PROF_STAGE_END_DYN(perfkey, ...)          \
+    do {                                          \
+        PerfEnd(perfkey);                         \
+        BAREMETAL_RAW_GET_PMU();                  \
         DEV_PROF("[baremetal]get: " __VA_ARGS__); \
     } while (0)
-#define PROF_STAGE_BEGIN(perfkey, ...)              PROF_STAGE_BEGIN_DYN(perfkey, __VA_ARGS__)
-#define PROF_STAGE_END(perfkey, ...)                PROF_STAGE_END_DYN(perfkey, __VA_ARGS__)
-#define PROF_STAGE_BEGIN_MTSAFE(perfkey, tid, ...)  PROF_STAGE_BEGIN_DYN(perfkey, __VA_ARGS__)
-#define PROF_STAGE_END_MTSAFE(perfkey, tid, ...)    PROF_STAGE_END_DYN(perfkey, __VA_ARGS__)
+#define PROF_STAGE_BEGIN(perfkey, ...) PROF_STAGE_BEGIN_DYN(perfkey, __VA_ARGS__)
+#define PROF_STAGE_END(perfkey, ...) PROF_STAGE_END_DYN(perfkey, __VA_ARGS__)
+#define PROF_STAGE_BEGIN_MTSAFE(perfkey, tid, ...) PROF_STAGE_BEGIN_DYN(perfkey, __VA_ARGS__)
+#define PROF_STAGE_END_MTSAFE(perfkey, tid, ...) PROF_STAGE_END_DYN(perfkey, __VA_ARGS__)
 
 #else
 
-#define CONFIG_PROF                                 1
-#define CONFIG_COMM_WAIT_FLAG                       1
+#define CONFIG_PROF 1
+#define CONFIG_COMM_WAIT_FLAG 1
 
 #define PROF_START(...)
 
 #if ENABLE_PERF_EVT
-#define PROF_STAGE_BEGIN(perfkey, ...)              PerfBegin(perfkey)
-#define PROF_STAGE_END(perfkey, ...)                PerfEnd(perfkey)
-#define PROF_STAGE_BEGIN_MTSAFE(perfkey, tid, ...)  PerfMtBegin(perfkey, tid)
-#define PROF_STAGE_END_MTSAFE(perfkey, tid, ...)    PerfMtEnd(perfkey, tid)
+#define PROF_STAGE_BEGIN(perfkey, ...) PerfBegin(perfkey)
+#define PROF_STAGE_END(perfkey, ...) PerfEnd(perfkey)
+#define PROF_STAGE_BEGIN_MTSAFE(perfkey, tid, ...) PerfMtBegin(perfkey, tid)
+#define PROF_STAGE_END_MTSAFE(perfkey, tid, ...) PerfMtEnd(perfkey, tid)
 #else
 #define PROF_STAGE_BEGIN(perfkey, ...)
 #define PROF_STAGE_END(perfkey, ...)

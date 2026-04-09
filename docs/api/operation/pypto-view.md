@@ -4,12 +4,17 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
 ## 功能说明
 
 从输入Tensor中取出部分视图，用于后续计算。
+
+## 注意事项
+
+- **需要 valid_shape 时必须用 pypto.view**：当需要指定 `valid_shape`（动态有效数据大小）时，不能使用 `[]` 切片语法，必须使用显式的 `pypto.view` 接口
 
 ## 函数原型
 
@@ -100,4 +105,3 @@ view(input: Tensor, shape: List[int] = None, offsets: List[Union[int, SymbolicSc
      [ -81 -119  127   63  119  -91    7   62]]
 
     ```
-

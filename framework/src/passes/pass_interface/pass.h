@@ -28,46 +28,43 @@ class Pass {
 public:
     explicit Pass(std::string name);
     virtual ~Pass() = default;
-    Status Run(Function &function, const std::string &strategy,
-               const std::string &identifier, size_t runtimeIdx = 0);
-    virtual Status PreCheck(Function &function);
-    virtual Status PostCheck(Function &function);
-    virtual Status DefaultEnabledPreCheck(Function &function);
-    virtual Status DefaultEnabledPostCheck(Function &function);
-    const std::string &LogFolder(const std::string &topFolder, size_t i) const;
-    const std::string &GetName() const { return name_; }
-    void SetPassConfigs(const PassConfigs &config) {
-        passDfxconfigs_ = config;
-    }
-    std::vector<NPUArch> &GetSupportedArches() {
- 	    return supportedArches_;
- 	}
- 	void SetSupportedArches(const std::vector<NPUArch> &supportedArches) {
+    Status Run(Function& function, const std::string& strategy, const std::string& identifier, size_t runtimeIdx = 0);
+    virtual Status PreCheck(Function& function);
+    virtual Status PostCheck(Function& function);
+    virtual Status DefaultEnabledPreCheck(Function& function);
+    virtual Status DefaultEnabledPostCheck(Function& function);
+    const std::string& LogFolder(const std::string& topFolder, size_t i) const;
+    const std::string& GetName() const { return name_; }
+    void SetPassConfigs(const PassConfigs& config) { passDfxconfigs_ = config; }
+    std::vector<NPUArch>& GetSupportedArches() { return supportedArches_; }
+    void SetSupportedArches(const std::vector<NPUArch>& supportedArches)
+    {
         supportedArches_.clear();
         supportedArches_.insert(supportedArches_.end(), supportedArches.begin(), supportedArches.end());
- 	}
+    }
 
 protected:
-    virtual Status RunOnFunction(Function &function) = 0;
+    virtual Status RunOnFunction(Function& function) = 0;
     template <typename T>
-    ConvertedConfigType<T> GetConfig(const std::string &key, const T &defaultValue) {
+    ConvertedConfigType<T> GetConfig(const std::string& key, const T& defaultValue)
+    {
         return config::GetPassConfig(strategy_, identifier_, key, defaultValue);
     }
-    virtual Status CreateLogFolder(const std::string &topFolder, size_t i) const;
-    virtual Status PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction);
-    virtual Status DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction);
-    virtual Status DumpGraphJson(Function& function, const std::string &fileName);
-    virtual Status CreateGraphFolder(Function &function);
-    virtual void handlePreRunDumpGraph(Function &function);
-    virtual Status PreRun(Function &function);
-    virtual Status PostRun(Function &function);
+    virtual Status CreateLogFolder(const std::string& topFolder, size_t i) const;
+    virtual Status PrintFunction(Function& function, const std::string& logFolder, bool beforeFunction);
+    virtual Status DumpFunctionJson(Function& function, const std::string& logFolder, bool beforeFunction);
+    virtual Status DumpGraphJson(Function& function, const std::string& fileName);
+    virtual Status CreateGraphFolder(Function& function);
+    virtual void handlePreRunDumpGraph(Function& function);
+    virtual Status PreRun(Function& function);
+    virtual Status PostRun(Function& function);
     // folderPath: dump路径
-    virtual void DoHealthCheckBefore(Function &function, const std::string &folderPath);
-    virtual void DoHealthCheckAfter(Function &function, const std::string &folderPath);
+    virtual void DoHealthCheckBefore(Function& function, const std::string& folderPath);
+    virtual void DoHealthCheckAfter(Function& function, const std::string& folderPath);
     mutable PassConfigs passDfxconfigs_;
     // 获取dump的文件名，如果是leaffunction，后面两个参数需要配置
-    std::string GetDumpFilePrefix(Function& function, bool before = false,
-                                  Function* subFunction = nullptr, int subFuncId = -1);
+    std::string GetDumpFilePrefix(
+        Function& function, bool before = false, Function* subFunction = nullptr, int subFuncId = -1);
 
 private:
     mutable std::string identifier_;
@@ -79,4 +76,4 @@ private:
     std::vector<NPUArch> supportedArches_;
 };
 } // namespace npu::tile_fwk
-#endif  // PASSES_PASS_H_
+#endif // PASSES_PASS_H_

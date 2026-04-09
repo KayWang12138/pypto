@@ -38,7 +38,7 @@ struct VecTile {
     bool valid() const;
 
     int64_t operator[](int i) const { return tile[i]; }
-    int64_t &operator[](int i) { return tile[i]; }
+    int64_t& operator[](int i) { return tile[i]; }
 
     size_t size() const { return tile.size(); }
 };
@@ -51,7 +51,7 @@ struct CubeTile {
     std::array<int64_t, MAX_M_DIM_SIZE> m;
     std::array<int64_t, MAX_K_DIM_SIZE> k;
     std::array<int64_t, MAX_N_DIM_SIZE> n;
-    bool enableSplitK {false};
+    bool enableSplitK{false};
 
     bool valid() const;
 
@@ -65,7 +65,7 @@ struct ConvTile {
     npu::tile_fwk::Conv::TileL1Info tileL1Info;
     npu::tile_fwk::Conv::TileL0Info tileL0Info;
     bool setL0Tile{false};
-        
+
     bool valid() const;
 
     std::string ToString() const;
@@ -79,7 +79,7 @@ struct DistTile {
     std::array<int, MAX_DIST_DIM_SIZE> row;
     std::array<int, MAX_DIST_DIM_SIZE> col;
     std::array<int, MAX_DIST_DIM_SIZE> rank;
-    int rankId {INT16_MAX};
+    int rankId{INT16_MAX};
 
     bool valid() const;
 
@@ -102,23 +102,20 @@ struct TileShape {
     TileShape();
 
     TileShape(
-        const std::vector<int64_t>& vTile,
-        const CubeTile& cTile,
-        const ConvTile& cvTile,
-        const DistTile& dTile,
-        const std::vector<int64_t>& mSize
-    );
+        const std::vector<int64_t>& vTile, const CubeTile& cTile, const ConvTile& cvTile, const DistTile& dTile,
+        const std::vector<int64_t>& mSize);
 
     /**
      * \brief Set the Vec Tile
      *
      * \param tile
      */
-    void SetVecTile(const std::vector<int64_t> &tile);
-    void SetVecTile(const VecTile &tile);
+    void SetVecTile(const std::vector<int64_t>& tile);
+    void SetVecTile(const VecTile& tile);
 
     template <typename... Args, typename = std::enable_if_t<std::conjunction_v<std::is_integral<Args>...>>>
-    inline void SetVecTile(Args... args) {
+    inline void SetVecTile(Args... args)
+    {
         SetVecTile(std::vector<int64_t>{args...});
     }
 
@@ -127,8 +124,8 @@ struct TileShape {
      *
      * \return const std::vector<int64_t>&
      */
-    const VecTile &GetVecTile() const { return vecTile; }
-    VecTile &GetVecTile() { return vecTile; }
+    const VecTile& GetVecTile() const { return vecTile; }
+    VecTile& GetVecTile() { return vecTile; }
 
     /**
      * \brief Set the Cube Tile
@@ -137,14 +134,15 @@ struct TileShape {
      * \param k
      * \param n
      */
-    void SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m, const std::array<int64_t, MAX_K_DIM_SIZE> &k,
-        const std::array<int64_t, MAX_N_DIM_SIZE> &n, bool enableSplitK = false) ;
+    void SetCubeTile(
+        const std::array<int64_t, MAX_M_DIM_SIZE>& m, const std::array<int64_t, MAX_K_DIM_SIZE>& k,
+        const std::array<int64_t, MAX_N_DIM_SIZE>& n, bool enableSplitK = false);
 
     /**
      * \brief Get the Cube Tile
      */
-    const CubeTile &GetCubeTile() const { return cubeTile; }
-    CubeTile &GetCubeTile() { return cubeTile; }
+    const CubeTile& GetCubeTile() const { return cubeTile; }
+    CubeTile& GetCubeTile() { return cubeTile; }
 
     /**
      * \brief Set the Conv Tile
@@ -153,14 +151,15 @@ struct TileShape {
      * \param tileL0Info
      * \param setL0Tile
      */
-    void SetConvTile(const npu::tile_fwk::Conv::TileL1Info &tileL1Info, 
-        const npu::tile_fwk::Conv::TileL0Info &tileL0Info, bool setL0Tile = false) ;
+    void SetConvTile(
+        const npu::tile_fwk::Conv::TileL1Info& tileL1Info, const npu::tile_fwk::Conv::TileL0Info& tileL0Info,
+        bool setL0Tile = false);
 
     /**
      * \brief Get the Conv Tile
      */
-    const ConvTile &GetConvTile() const { return convTile; }
-    ConvTile &GetConvTile() { return convTile; }
+    const ConvTile& GetConvTile() const { return convTile; }
+    ConvTile& GetConvTile() { return convTile; }
 
     /**
      * \brief Set the Dist Tile
@@ -170,17 +169,16 @@ struct TileShape {
      * \param rank
      */
     void SetDistTile(
-        const std::array<int, MAX_DIST_DIM_SIZE> &row,
-        const std::array<int, MAX_DIST_DIM_SIZE> &col,
-        const std::array<int, MAX_DIST_DIM_SIZE> &rank);
+        const std::array<int, MAX_DIST_DIM_SIZE>& row, const std::array<int, MAX_DIST_DIM_SIZE>& col,
+        const std::array<int, MAX_DIST_DIM_SIZE>& rank);
 
     /**
      * \brief Get the Dist Tile
      *
      * \return const DistTile&
      */
-    const DistTile &GetDistTile() const { return distTile; }
-    DistTile &GetDistTile() { return distTile; }
+    const DistTile& GetDistTile() const { return distTile; }
+    DistTile& GetDistTile() { return distTile; }
 
     /**
      * @brief Set the Dist Rank Id
@@ -200,69 +198,69 @@ struct TileShape {
      *
      * @param col
      */
-    void SetDistTileCol(const std::array<int, MAX_DIST_DIM_SIZE> &col);
+    void SetDistTileCol(const std::array<int, MAX_DIST_DIM_SIZE>& col);
 
     /**
      * @brief Get the Dist Col
      *
      * @return const std::vector<int64_t>&
      */
-    const std::array<int, MAX_DIST_DIM_SIZE> &GetDistTileCol() const { return distTile.col; }
+    const std::array<int, MAX_DIST_DIM_SIZE>& GetDistTileCol() const { return distTile.col; }
 
     /**
      * @brief Set the Dist Row
      *
      * @param row
      */
-    void SetDistTileRow(const std::array<int, MAX_DIST_DIM_SIZE> &row);
+    void SetDistTileRow(const std::array<int, MAX_DIST_DIM_SIZE>& row);
 
     /**
      * @brief Get the Dist Row
      *
      * @return const std::vector<int64_t>&
      */
-    const std::array<int, MAX_DIST_DIM_SIZE> &GetDistTileRow() const { return distTile.row; }
+    const std::array<int, MAX_DIST_DIM_SIZE>& GetDistTileRow() const { return distTile.row; }
 
     /**
      * @brief Set the Dist Rank
      *
      * @param rank
      */
-    void SetDistTileRank(const std::array<int, MAX_DIST_DIM_SIZE> &rank);
+    void SetDistTileRank(const std::array<int, MAX_DIST_DIM_SIZE>& rank);
 
     /**
      * @brief Get the Dist Rank
      *
      * @return const std::vector<int64_t>&
      */
-    const std::array<int, MAX_DIST_DIM_SIZE> &GetDistTileRank() const { return distTile.rank; }
+    const std::array<int, MAX_DIST_DIM_SIZE>& GetDistTileRank() const { return distTile.rank; }
 
     /**
      * @brief Global tile shape
      *
      * @return TileShape&
      */
-    static TileShape &Current();
+    static TileShape& Current();
 
     /**
      * @brief Reset the tile shape
      *
      */
-    void Reset() {
+    void Reset()
+    {
         vecTile = {};
         cubeTile = {{0, 0}, {0, 0, 0}, {0, 0}};
         distTile = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, INT16_MAX};
     }
 
-    void SetMatrixSize(const std::vector<int64_t> &size) ;
+    void SetMatrixSize(const std::vector<int64_t>& size);
 
-    const std::vector<int64_t> &GetMatrixSize() const {
-        return matrixSize;
-    }
+    const std::vector<int64_t>& GetMatrixSize() const { return matrixSize; }
 
     void UpdateScopeDistTile();
 
     std::string ToString(TileType type = TileType::MAX) const;
+
 private:
     VecTile vecTile;
     CubeTile cubeTile;

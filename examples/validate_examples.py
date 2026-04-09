@@ -13,21 +13,21 @@ Parallel Python Script Executor with Adaptive Retry Logic
 
 This utility orchestrates the concurrent execution of Python scripts across multiple hardware devices
 (NPUs), featuring intelligent script analysis, adaptive execution strategies,
-and comprehensive reporting. Designed for validation workflows in CANN-based hardware-accelerated 
+and comprehensive reporting. Designed for validation workflows in CANN-based hardware-accelerated
 environments, it ensures reliable script evaluation.
 
 Key Capabilities:
 - Target Flexibility: Processes single .py files or recursively scans directories, excluding itself.
 - Intelligent Script Analysis (via AST parsing):
     - Detects if name == 'main' guards for direct execution
-    - Skips the entire script by default when @pytest.mark.skip decorators are detected and 
+    - Skips the entire script by default when @pytest.mark.skip decorators are detected and
         the script is run via if __name__ == '__main__':. (Can be disabled via configuration.)
     - Identifies pytest-style tests (test* functions or Test* classes) for pytest dispatch
     - Verifies '--run_mode' argument support for simulation mode filtering
     - Automatically skips files with no executable content
 - Dual Execution Modes:
     - npu (default): Executes eligible scripts on physical hardware devices with device isolation
-    - sim: Filters and runs only scripts that explicitly support '--run_mode' argument 
+    - sim: Filters and runs only scripts that explicitly support '--run_mode' argument
         using virtual workers
 - Script-level skip control:
     - Automatically excludes scripts containing @pytest.mark.skip decorators (enabled by default),
@@ -39,7 +39,7 @@ Key Capabilities:
 - Resource Management:
     - Thread-safe device leasing system for hardware resource allocation
     - Hierarchical process termination (parent + children) on timeout or failure
-    - Device-specific environment isolation (TILE_FWK_DEVICE_ID, ASCEND_VISIBLE_DEVICES, 
+    - Device-specific environment isolation (TILE_FWK_DEVICE_ID, ASCEND_VISIBLE_DEVICES,
         TILE_FWK_STEST_DEVICE_ID)
 - Adaptive Execution Strategies:
     - Single-Device Mode: Serial execution with progressive retry rounds (default: 3)
@@ -91,7 +91,7 @@ Usage Examples:
 
     # 9. Disable pytest auto-detection (skip scripts without __main__ guard)
     python3 examples/validate_examples.py -t examples -d 0 --no-pytest-auto-detect
-    
+
     # 10. Skip serial fallback in multi-device mode (only parallel retries)
     python3 examples/validate_examples.py -t examples -d 0,1,2,3 --no-serial-fallback
 

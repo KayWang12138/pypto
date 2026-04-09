@@ -30,7 +30,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
@@ -40,7 +41,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
+TEST_F(TestCodegenDynIndexAdd, TestIndexAdd)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     constexpr const int S1 = 32;
     constexpr const int D = 64;
@@ -59,8 +61,10 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
     Element alphaVal(DataType::DT_FP32, 1.0);
 
     std::string funcName = "TestIndexAdd";
-    FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = IndexAdd(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
         }
@@ -72,7 +76,8 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynIndexAdd, TestIndexAddLayout) {
+TEST_F(TestCodegenDynIndexAdd, TestIndexAddLayout)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     constexpr const int S1 = 16;
     constexpr const int D = 32;
@@ -92,8 +97,10 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAddLayout) {
 
     ConfigManager::Instance();
     std::string funcName = "IndexAddLayout";
-    FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = IndexAdd(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
         }

@@ -59,12 +59,12 @@ def moe_gating_topk_core(
     config: MoEGatingTopKConfig) -> tuple[pypto.Tensor, pypto.Tensor, pypto.Tensor]:
     """
     Core computation function for MOE Gating TopK
-    
+
     Args:
         x: Input tensor [batch_size, num_experts]
         bias: Bias tensor [num_experts] or None
         config: Configuration object containing all parameters
-    
+
     Returns:
         y_out: Selected and normalized weights [batch_size, k]
         expect_idx_out: Selected expert indices [batch_size, k]
@@ -142,13 +142,13 @@ def moe_gating_topk(
     run_mode: str = "npu"):
     """
     MOE Gating TopK operator with group-based expert selection
-    
+
     Args:
         x_shape: Input tensor shape [batch_size, num_experts]
         bias_shape: Bias tensor shape [num_experts]
         config: Configuration object containing all parameters
         run_mode: Execution mode ('npu' or 'sim')
-    
+
     Returns:
         JIT compiled function
     """
@@ -203,7 +203,7 @@ def moe_gating_topk(
             # Note: The last block may have fewer than bs_size samples
             input_view = pypto.view(x, [bs_size, x_shape[1]], [b_offset, 0])
             pypto.set_vec_tile_shapes(bs_size, x_shape[1])
-            
+
             # Call core computation function
             y_out_loop, expect_idx_out_loop, norm_out_loop = moe_gating_topk_core(
                 input_view,
@@ -223,12 +223,12 @@ def moe_gating_topk_cpu(
     config: MoEGatingTopKConfig):
     """
     CPU reference implementation for MOE Gating TopK
-    
+
     Args:
         x: Input tensor [batch_size, num_experts]
         bias: Bias tensor [num_experts] or None
         config: Configuration object containing all parameters
-    
+
     Returns:
         y: Selected weights [batch_size, k]
         indices: Selected expert indices [batch_size, k]
@@ -256,23 +256,23 @@ def moe_gating_topk_cpu(
         x = x.reshape(x.shape[0], config.group_count, -1)
         if config.group_select_mode == 0:
             # Use max for group selection
-            group_x = torch.amax(x, dim=-1) 
+            group_x = torch.amax(x, dim=-1)
         else:
             # Use topk2 sum for group selection
             group_x, _ = torch.topk(x, 2, dim=-1)
             group_x = group_x[..., -2:].sum(dim=-1)
-        
+
         # Select top-k groups
         indices = torch.argsort(-group_x, dim=-1, stable=True)[:, :config.k_group]
         mask = torch.ones((x.shape[0], config.group_count), dtype=torch.bool, device=x.device)
         mask.scatter_(1, indices, False)
         x = torch.where(mask.unsqueeze(-1), float('-inf'), x)
         x = x.reshape(x.shape[0], -1)
-    
+
     # Step 4: Select top-k experts
     indices = torch.argsort(-x, dim=-1, stable=True)
     indices = indices[:, :config.k]
-    y = torch.gather(original_x, 1, indices)     
+    y = torch.gather(original_x, 1, indices)
 
     # Step 5: Renormalize if sigmoid was used
     if config.norm_type == 1:
@@ -287,7 +287,7 @@ def moe_gating_topk_cpu(
 def get_default_moe_gating_topk_config():
     """
     Get default configuration for MOE Gating TopK operator
-    
+
     Returns:
         MoEGatingTopKConfig: Default configuration object
     """

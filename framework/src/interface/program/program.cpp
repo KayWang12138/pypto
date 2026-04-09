@@ -34,9 +34,10 @@
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
-void GetEnv(const char * const envName, std::string &envValue) {
+void GetEnv(const char* const envName, std::string& envValue)
+{
     const size_t envValueMaxLen = 1024UL * 1024UL;
-    const char * const envTemp = std::getenv(envName);
+    const char* const envTemp = std::getenv(envName);
     if ((envTemp == nullptr) || (strnlen(envTemp, envValueMaxLen) >= envValueMaxLen)) {
         FUNCTION_LOGI("Env[%s] not found.\n", envName);
         return;
@@ -45,22 +46,23 @@ void GetEnv(const char * const envName, std::string &envValue) {
 }
 
 // Program Definitions
-Program::Program() : currentFunctionPtr_(nullptr) {
+Program::Program() : currentFunctionPtr_(nullptr)
+{
     CreateInitFunction();
 
     HostMachine::GetInstance().Init(HostMachineMode::SERVER);
 }
 
-Program::~Program() {
-    HostMachine::GetInstance().Destroy();
-}
+Program::~Program() { HostMachine::GetInstance().Destroy(); }
 
-Program &Program::GetInstance() {
+Program& Program::GetInstance()
+{
     static Program sProgram;
     return sProgram;
 }
 
-void Program::Reset() {
+void Program::Reset()
+{
     name_.clear();
     functionmap_.clear();
     functionMagicNameStack_.clear();
@@ -74,8 +76,9 @@ void Program::Reset() {
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
 }
 
-Function *Program::GetFunctionByRawName(const std::string &rawName) const {
-    for (auto &ele : functionmap_) {
+Function* Program::GetFunctionByRawName(const std::string& rawName) const
+{
+    for (auto& ele : functionmap_) {
         if (ele.second->GetRawName() == rawName) {
             return ele.second.get();
         }
@@ -83,7 +86,8 @@ Function *Program::GetFunctionByRawName(const std::string &rawName) const {
     return nullptr;
 }
 
-void Program::SetCurrentFunction(Function *function) {
+void Program::SetCurrentFunction(Function* function)
+{
     if (function != nullptr) {
         currentFunctionPtr_ = function;
         currentFunctionMagicName_ = function->GetMagicName();
@@ -91,7 +95,8 @@ void Program::SetCurrentFunction(Function *function) {
     FUNCTION_LOGW("Failed to set current function.");
 }
 
-void Program::CreateInitFunction() {
+void Program::CreateInitFunction()
+{
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
     auto newFunc = std::make_shared<Function>(*this, currentFunctionMagicName_, currentFunctionMagicName_, nullptr);
     newFunc->SetFunctionType(FunctionType::EAGER);
@@ -99,18 +104,20 @@ void Program::CreateInitFunction() {
     functionmap_.emplace(currentFunctionMagicName_, std::move(newFunc));
 }
 
-void Program::CreateCallerCalleeLink(Function *caller, Function *callee) {
-    FUNCTION_ASSERT(FError::INVALID_TYPE,
+void Program::CreateCallerCalleeLink(Function* caller, Function* callee)
+{
+    FUNCTION_ASSERT(
+        FError::INVALID_TYPE,
         caller->IsGraphType(GraphType::TENSOR_GRAPH) && callee->IsGraphType(GraphType::TENSOR_GRAPH))
         << "caller graphType: " << GetGraphTypeNameDict().Find(caller->GetGraphType())
         << ", callee graphType: " << GetGraphTypeNameDict().Find(callee->GetGraphType());
     // add callop
-    for (auto &outcast : callee->outCasts_) {
+    for (auto& outcast : callee->outCasts_) {
         auto newOutcast = outcast->Clone(*caller, true);
         caller->outCasts_.push_back(newOutcast);
         caller->GetTensorMap().Insert(newOutcast);
     }
-    for (auto &incast : callee->inCasts_) {
+    for (auto& incast : callee->inCasts_) {
         auto newIncast = incast->Clone(*caller, true);
         caller->inCasts_.push_back(newIncast);
         caller->GetTensorMap().Insert(newIncast);
@@ -135,11 +142,10 @@ void Program::CreateCallerCalleeLink(Function *caller, Function *callee) {
     }
 }
 
-void Program::RefillCompileQueue(Function* func) {
-    functionSequence_.emplace_back(func);
-}
+void Program::RefillCompileQueue(Function* func) { functionSequence_.emplace_back(func); }
 
-void Program::UpdateCompileTask() {
+void Program::UpdateCompileTask()
+{
     // End Prepare stage - it starts at pypto import and ends here
     MonitorManager::Instance().TryEndPrepareStage();
 
@@ -152,51 +158,58 @@ void Program::UpdateCompileTask() {
     MonitorManager::Instance().NotifyCompilationFinished();
 }
 
-void Program::ClearEmptyHiddenFunction() {
+void Program::ClearEmptyHiddenFunction()
+{
     std::vector<std::string> funcNames;
-    for (auto &[name, func] : functionmap_) {
+    for (auto& [name, func] : functionmap_) {
         if (func->IsHiddenFunction() && func->Operations(false).IsEmpty()) {
             funcNames.push_back(name);
         }
     }
-    for (auto &name : funcNames) {
+    for (auto& name : funcNames) {
         functionmap_.erase(name);
     }
 }
 
-void SetParamConfig(Function* currentFuncPtr) {
+void SetParamConfig(Function* currentFuncPtr)
+{
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
     currentFuncPtr->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
     currentFuncPtr->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
     currentFuncPtr->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
-    currentFuncPtr->paramConfigs_.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
-    currentFuncPtr->paramConfigs_.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
-    currentFuncPtr->paramConfigs_.cubeL1ReuseSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
-    currentFuncPtr->paramConfigs_.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
-    currentFuncPtr->paramConfigs_.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
+    currentFuncPtr->paramConfigs_.stitchFunctionNumInitial_ =
+        currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
+    currentFuncPtr->paramConfigs_.stitchFunctionNumStep_ =
+        currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
+    currentFuncPtr->paramConfigs_.cubeL1ReuseSetting =
+        currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
+    currentFuncPtr->paramConfigs_.cubeNBufferSetting =
+        currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
+    currentFuncPtr->paramConfigs_.vecNBufferSetting =
+        currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
     currentFuncPtr->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFuncPtr->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
-    currentFuncPtr->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFuncPtr->paramConfigs_.copyOutResolveCoalescing =
+        currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
     currentFuncPtr->paramConfigs_.combineAxis = currentScope->GetOperationConfig<bool>(KEY_COMBINE_AXIS);
     currentFuncPtr->paramConfigs_.forceCombineAxis = currentScope->GetOperationConfig<bool>(KEY_FORCE_COMBINE_AXIS);
 }
 
 #if ENABLE_HIDDENLOOP
-void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
-        && func->GetFunctionType() == funcType
-        && !func->IsHiddenFunction()) {
+void Program::BeginHiddenLoop(Function* func, const FunctionType& funcType, const std::string funcName)
+{
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH && func->GetFunctionType() == funcType &&
+        !func->IsHiddenFunction()) {
         BeginFunction(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH, {}, true);
     }
 }
 
-void Program::EndHiddenLoop(Function *func, bool generateCall) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
-        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH
-        && func->IsHiddenFunction()
-        && !func->Parent().IsHiddenFunction()) {
+void Program::EndHiddenLoop(Function* func, bool generateCall)
+{
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH &&
+        func->IsHiddenFunction() && !func->Parent().IsHiddenFunction()) {
         func->Parent().SetHiddenFunction(true);
         EndFunction(func->GetRawName(), generateCall);
         func->Parent().SetHiddenFunction(false);
@@ -205,12 +218,13 @@ void Program::EndHiddenLoop(Function *func, bool generateCall) {
 #endif
 
 // Start a new function and push it to the functions vector
-bool Program::BeginFunction(const std::string &funcName,
-    const FunctionType funcType,
-    const GraphType graphType,
-    const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs,
-    bool isHiddenFunction) {
-    if (currentFunctionPtr_->IsFlattening() && (funcType == FunctionType::STATIC && (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
+bool Program::BeginFunction(
+    const std::string& funcName, const FunctionType funcType, const GraphType graphType,
+    const std::vector<std::reference_wrapper<const Tensor>>& explicitOpArgs, bool isHiddenFunction)
+{
+    if (currentFunctionPtr_->IsFlattening() &&
+        (funcType == FunctionType::STATIC &&
+         (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
         // Static function's subfunction should be ignored
         CHECK(FError::IS_EXIST, funcName != currentFunctionPtr_->GetRawName())
             << "funcName: " << funcName << ", currentFuncRawName: " << currentFunctionPtr_->GetRawName();
@@ -240,8 +254,7 @@ bool Program::BeginFunction(const std::string &funcName,
         functionmap_.emplace(funcMagicName, std::move(newFunc));
         currentFunctionMagicName_ = funcMagicName;
     } else {
-        FUNCTION_LOGE_E(FError::IS_EXIST,
-            "funcMagicName[%s] is already in the function map", funcMagicName.c_str());
+        FUNCTION_LOGE_E(FError::IS_EXIST, "funcMagicName[%s] is already in the function map", funcMagicName.c_str());
         currentFunctionMagicName_ = funcMagicName;
         currentFunctionPtr_ = functionmap_[funcMagicName].get();
     }
@@ -252,23 +265,27 @@ bool Program::BeginFunction(const std::string &funcName,
 
 #if ENABLE_HIDDENLOOP
     // Begin new hidden loop for the new function
-    BeginHiddenLoop(currentFunctionPtr_, FunctionType::DYNAMIC_LOOP_PATH,
-        currentFunctionPtr_->GetRawName() + "_hiddenfunc" + std::to_string(currentFunctionPtr_->GetCallopList().size()));
+    BeginHiddenLoop(
+        currentFunctionPtr_, FunctionType::DYNAMIC_LOOP_PATH,
+        currentFunctionPtr_->GetRawName() + "_hiddenfunc" +
+            std::to_string(currentFunctionPtr_->GetCallopList().size()));
 #endif
     return true;
 }
 
-Operation &Program::ConnectCallerGusket(Function &caller, FunctionCallArgs &args) const {
+Operation& Program::ConnectCallerGusket(Function& caller, FunctionCallArgs& args) const
+{
     // callFunc is used for:
     //  1. Submit to machine
     //  2. Draw graph
-    auto &callFunc = caller.AddRawOperation(Opcode::OP_CALL, args.iOperands, args.oOperands, false);
+    auto& callFunc = caller.AddRawOperation(Opcode::OP_CALL, args.iOperands, args.oOperands, false);
     callFunc.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(args.argList, args.outIndexToExpr));
     callFunc.SetOpOffset(args.iOpAttrOffset, args.oOpAttrOffset);
     return callFunc;
 }
 
-Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope> &scope, bool generateCall) {
+Operation* Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>& scope, bool generateCall)
+{
     FUNCTION_ASSERT(FError::EINTERNAL, functionMagicNameStack_.size() != 0)
         << "The stack of functionMagicName is null.";
     auto funcMagicName = currentFunctionPtr_->GetRawName() + "_" + std::to_string(currentFunctionPtr_->GetFuncMagic());
@@ -294,27 +311,31 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 }
 
 // Helper function: Dump tensor graph if needed
-void Program::DumpTensorGraphIfNeeded(Function *result) {
-    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
-        result->IsGraphType(GraphType::TENSOR_GRAPH)) {
+void Program::DumpTensorGraphIfNeeded(Function* result)
+{
+    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) && result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
         result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
     }
 }
 
 // Helper function: Handle task submission
-void Program::HandleTaskSubmission(Function *result) {
-    if (result->IsGraphType(GraphType::TENSOR_GRAPH) || result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
+void Program::HandleTaskSubmission(Function* result)
+{
+    if (result->IsGraphType(GraphType::TENSOR_GRAPH) ||
+        result->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         if (result->IsUnderDynamicFunction() || currentDynamicFunctionPtr_ != nullptr) {
             if (!result->IsHiddenFunction() || result->Operations().size() > 0) {
                 HostMachine::GetInstance().StashTask(result);
             } else {
                 FUNCTION_LOGI("Empty function: %s, skip stashing and removed", result->GetRawName().c_str());
-                auto &scopes = GetTensorSlotManager()->scopeList;
-                scopes.erase(std::remove_if(scopes.begin(), scopes.end(),
-                                 [result](const std::shared_ptr<TensorSlotScope> &scope) {
-                                     return scope->tensorFunc == result;
-                                 }),
+                auto& scopes = GetTensorSlotManager()->scopeList;
+                scopes.erase(
+                    std::remove_if(
+                        scopes.begin(), scopes.end(),
+                        [result](const std::shared_ptr<TensorSlotScope>& scope) {
+                            return scope->tensorFunc == result;
+                        }),
                     scopes.end());
             }
         } else {
@@ -327,8 +348,8 @@ void Program::HandleTaskSubmission(Function *result) {
 }
 
 // End the current function and pop the function index from the stack
-std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
-                                                                          bool generateCall) {
+std::tuple<Function*, Operation*, bool> Program::EndFunction(const std::string& funcName, bool generateCall)
+{
 #if ENABLE_HIDDENLOOP
     // End child hidden loop
     EndHiddenLoop(currentFunctionPtr_, generateCall);
@@ -343,15 +364,16 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     }
     currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
     if (currentFunctionPtr_->IsStatic() && funcName != currentFunctionPtr_->GetRawName()) {
-        FUNCTION_LOGE_E(FError::NOT_EXIST, "Function name not match current: %s != %s",
-            currentFunctionPtr_->GetRawName().c_str(), funcName.c_str());
+        FUNCTION_LOGE_E(
+            FError::NOT_EXIST, "Function name not match current: %s != %s", currentFunctionPtr_->GetRawName().c_str(),
+            funcName.c_str());
         return std::make_tuple(nullptr, nullptr, false);
     }
 
     if (currentFunctionPtr_->IsHiddenFunction() && currentFunctionPtr_->Operations(false).size() <= 0) {
         generateCall = false;
     }
-    Operation *callop = FinishCurrentFunction(scope, generateCall);
+    Operation* callop = FinishCurrentFunction(scope, generateCall);
     bool hit = QueryAndUpdateCurrentFunction();
     auto result = currentFunctionPtr_;
 
@@ -363,14 +385,17 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
 
 #if ENABLE_HIDDENLOOP
     // Begin new hidden loop for parent function
-    BeginHiddenLoop(result, FunctionType::DYNAMIC_LOOP,
-        currentFunctionPtr_->GetRawName() + "_hiddenfunc" + std::to_string(currentFunctionPtr_->GetCallopList().size()));
+    BeginHiddenLoop(
+        result, FunctionType::DYNAMIC_LOOP,
+        currentFunctionPtr_->GetRawName() + "_hiddenfunc" +
+            std::to_string(currentFunctionPtr_->GetCallopList().size()));
 #endif
 
     return std::make_tuple(result, callop, hit);
 }
 
-void Program::PopStackAndUpdateCurrent() {
+void Program::PopStackAndUpdateCurrent()
+{
     if (!functionMagicNameStack_.empty()) {
         currentFunctionMagicName_ = functionMagicNameStack_.back();
         currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
@@ -382,41 +407,47 @@ void Program::PopStackAndUpdateCurrent() {
 }
 
 // Add an operation to the current function and insert operands into the TensorMap
-Operation &Program::AddOperation(const std::string &opName,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand) {
+Operation& Program::AddOperation(
+    const std::string& opName, const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand)
+{
     return AddOperation(FindOpcode(opName), iOperand, oOperand);
 }
 
-Operation &Program::AddOperation(const Opcode opCode,
-    const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-    const std::vector<std::shared_ptr<LogicalTensor>> &oOperand) {
+Operation& Program::AddOperation(
+    const Opcode opCode, const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand)
+{
     // Add the operation to the current function
     FUNCTION_ASSERT(currentFunctionMagicName_ != PROGRAM_ENTRY_FUNCTION_NAME) << "No active function to add operation.";
     return currentFunctionPtr_->AddOperation(opCode, iOperand, oOperand);
 }
 
-std::string Program::DumpStack(const std::string &funcName) const {
+std::string Program::DumpStack(const std::string& funcName) const
+{
     std::ostringstream oss;
     oss << "dump: " << funcName << "\n";
     for (size_t i = 0; i < functionMagicNameStack_.size(); i++) {
         auto func = functionmap_.find(functionMagicNameStack_[i])->second;
         if (func) {
-            oss << "stack-" << i << ": " << functionMagicNameStack_[i] << " " << GetFunctionTypeNameDict().Find(func->GetFunctionType()) << "\n";
+            oss << "stack-" << i << ": " << functionMagicNameStack_[i] << " "
+                << GetFunctionTypeNameDict().Find(func->GetFunctionType()) << "\n";
         } else {
             oss << "stack-:" << i << ": " << functionMagicNameStack_[i] << " is nullptr\n";
         };
     }
     if (currentFunctionPtr_) {
-        oss << "current: " << currentFunctionMagicName_ << " " << GetFunctionTypeNameDict().Find(currentFunctionPtr_->GetFunctionType()) << "\n";
+        oss << "current: " << currentFunctionMagicName_ << " "
+            << GetFunctionTypeNameDict().Find(currentFunctionPtr_->GetFunctionType()) << "\n";
     } else {
         oss << "current: " << currentFunctionMagicName_ << " is nullptr\n";
     }
     return oss.str();
 }
 
-void Program::UpdateAliveTensorsParent(int outcastRawMagic, Function &parent) {
-    for (auto *tensor : aliveTensors_) {
+void Program::UpdateAliveTensorsParent(int outcastRawMagic, Function& parent)
+{
+    for (auto* tensor : aliveTensors_) {
         if (tensor->GetStorage() == nullptr) {
             continue;
         }
@@ -427,7 +458,8 @@ void Program::UpdateAliveTensorsParent(int outcastRawMagic, Function &parent) {
     }
 }
 
-void TraverAndDumpParent(Function *func, Json &programDump) {
+void TraverAndDumpParent(Function* func, Json& programDump)
+{
     if (func != nullptr) {
         TraverAndDumpParent(&func->Parent(), programDump);
         programDump["functions"].emplace_back(func->DumpJson());
@@ -435,7 +467,8 @@ void TraverAndDumpParent(Function *func, Json &programDump) {
     return;
 }
 
-Json Program::DumpJson(Function *mainFunc) const {
+Json Program::DumpJson(Function* mainFunc) const
+{
     Json programDump;
     programDump["version"] = T_VERSION;
     programDump["pass_thread_num"] = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
@@ -446,7 +479,7 @@ Json Program::DumpJson(Function *mainFunc) const {
         std::vector<std::shared_ptr<npu::tile_fwk::Function>> tileGraphFuncs;
         std::shared_ptr<npu::tile_fwk::Function> tensorGraphFunc = nullptr;
         /* 先Dump Leaf、Tensor、PROGRAM_ENTRY */
-        for (const auto &func : functionmap_) {
+        for (const auto& func : functionmap_) {
             if (func.second->GetGraphType() == GraphType::EXECUTE_GRAPH) {
                 rootFuncs.emplace_back(func.second);
                 continue;
@@ -467,13 +500,13 @@ Json Program::DumpJson(Function *mainFunc) const {
         }
         /* Dump RootFunction， rootFunction中涉及Leaf的索引，在LoadJson时需要先LoadLeaf再LoadRoot */
         if (!rootFuncs.empty()) {
-            for (auto &rootFunc : rootFuncs) {
+            for (auto& rootFunc : rootFuncs) {
                 programDump["functions"].emplace_back(rootFunc->DumpJson());
             }
         }
         /* Dump TileGraph, TileGraph Function中涉及 Root的指针，在LoadJson时需要先LoadRoot再LoadTile */
         if (!tileGraphFuncs.empty()) {
-            for (auto &tileGraphFunc : tileGraphFuncs) {
+            for (auto& tileGraphFunc : tileGraphFuncs) {
                 programDump["functions"].emplace_back(tileGraphFunc->DumpJson());
             }
         }
@@ -509,7 +542,7 @@ Json Program::DumpJson(Function *mainFunc) const {
         if (mainFunc->rootFunc_ != nullptr) {
             programDump["functions"].emplace_back(mainFunc->rootFunc_->DumpJson());
             programDump["entryhash"] = mainFunc->rootFunc_->GetFunctionHash().c_str();
-            for (auto &leaf : mainFunc->rootFunc_->programs_) {
+            for (auto& leaf : mainFunc->rootFunc_->programs_) {
                 programDump["functions"].emplace_back(leaf.second->DumpJson());
             }
         }
@@ -520,7 +553,7 @@ Json Program::DumpJson(Function *mainFunc) const {
 
 std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
 {
-    for (auto &func : functionmap_) {
+    for (auto& func : functionmap_) {
         if (func.second->GetFuncMagic() == funcMagic) {
             return func.second;
         }
@@ -529,7 +562,8 @@ std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
     return nullptr;
 }
 
-Function* Program::GetFunctionByMagicName(const std::string &magicName) const {
+Function* Program::GetFunctionByMagicName(const std::string& magicName) const
+{
     auto it = functionmap_.find(magicName);
     if (it != functionmap_.end()) {
         return it->second.get();
@@ -538,14 +572,15 @@ Function* Program::GetFunctionByMagicName(const std::string &magicName) const {
     }
 }
 
-void Program::LoadJson(Json &programJson) {
+void Program::LoadJson(Json& programJson)
+{
     int currFuncMagicJson = programJson["curr_funcmagic"].get<int>();
     functionmap_.clear();
     std::shared_ptr<Function> tensorGraph = nullptr;
     std::shared_ptr<Function> tileGraph = nullptr;
     std::unordered_map<int, std::shared_ptr<Function>> loadedFunctions;
     size_t index = 0;
-    for (auto &functionJson : programJson["functions"]) {
+    for (auto& functionJson : programJson["functions"]) {
         auto functionPtr = Function::LoadJson(*this, functionJson);
         loadedFunctions[index++] = functionPtr;
         if (functionPtr != nullptr) {
@@ -570,13 +605,13 @@ void Program::LoadJson(Json &programJson) {
     }
     // 更新Parent指针
     index = 0;
-    for (auto &functionJson : programJson["functions"]) {
+    for (auto& functionJson : programJson["functions"]) {
         if (functionJson.count("parent_funcmagic") == 0) {
             ++index;
             continue;
         }
         int parentMagic = functionJson["parent_funcmagic"].get<int>();
-        auto &functionPtr = loadedFunctions[index++];
+        auto& functionPtr = loadedFunctions[index++];
         if (functionPtr != nullptr) {
             auto parent = GetFunctionByMagic(parentMagic).get();
             functionPtr->SetParent(parent);
@@ -586,7 +621,8 @@ void Program::LoadJson(Json &programJson) {
     FUNCTION_ASSERT(FError::NOT_EXIST, currentFunctionPtr_ != nullptr) << "loss of pointer.";
 }
 
-void Program::DumpJsonFile(const std::string &fileName, Function *mainFunc) {
+void Program::DumpJsonFile(const std::string& fileName, Function* mainFunc)
+{
     auto filePath = name_ + ".json";
     if (!fileName.empty()) {
         filePath = fileName;
@@ -599,11 +635,12 @@ void Program::DumpJsonFile(const std::string &fileName, Function *mainFunc) {
 }
 
 // Serialize Program briefly
-std::string Program::Dump() const {
+std::string Program::Dump() const
+{
     std::stringstream ss;
     ss << "Program Begin\n";
 
-    for (const auto &func : functionmap_) {
+    for (const auto& func : functionmap_) {
         ss << func.second->Dump();
         ss << "\n";
     }
@@ -612,12 +649,13 @@ std::string Program::Dump() const {
     return ss.str();
 }
 
-bool Program::QueryAndUpdateCurrentFunction() {
+bool Program::QueryAndUpdateCurrentFunction()
+{
     auto cacheValue = TryHitCahce(currentFunctionPtr_->GetFunctionHash());
     if (cacheValue == std::nullopt) {
         functionCache_.Insert(currentFunctionPtr_->GetFunctionHash(), *currentFunctionPtr_);
         if (currentFunctionPtr_->HasParent()) {
-            auto &parent = currentFunctionPtr_->Parent();
+            auto& parent = currentFunctionPtr_->Parent();
             parent.AppendCalleeMagicName(currentFunctionMagicName_);
         }
         return false;
@@ -632,9 +670,10 @@ bool Program::QueryAndUpdateCurrentFunction() {
     }
 }
 
-void Program::VerifyTensorGraph() {
+void Program::VerifyTensorGraph()
+{
     FUNCTION_LOGI("VerifyTensorGraph start.");
-    Function *func = GetLastFunction();
+    Function* func = GetLastFunction();
 
     std::vector<std::shared_ptr<LogicalTensorData>> inputDataViewList;
     std::vector<std::shared_ptr<LogicalTensorData>> outputDataViewList;
@@ -643,12 +682,14 @@ void Program::VerifyTensorGraph() {
     ProgramData::GetInstance().CopyToOutputDataViewList(outputDataViewList);
     ProgramData::GetInstance().CopyToGoldenDataViewList(goldenDataViewList);
 
-    auto &flowVerifier = FlowVerifier::GetInstance();
-    flowVerifier.VerifyTensorGraph(func, inputDataViewList, outputDataViewList, goldenDataViewList, GetTensorSlotManager());
+    auto& flowVerifier = FlowVerifier::GetInstance();
+    flowVerifier.VerifyTensorGraph(
+        func, inputDataViewList, outputDataViewList, goldenDataViewList, GetTensorSlotManager());
     FUNCTION_LOGI("VerifyTensorGraph end.");
 }
 
-void Program::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
+void Program::VerifyPass(Function* func, int passIndex, const std::string& passIdentifier)
+{
     // SubgraphToFunction阶段还未进行validShape推导，会导致非尾块的计算会按照尾块大小进行计算，导致部分数据的拷贝或者计算丢失，
     // 该Pass需要与InferParamIndexPass进行“合并”后才会完成VaildShape推导，才可以完成完整功能；
     FUNCTION_LOGI("VerifyPass start.");
@@ -656,12 +697,13 @@ void Program::VerifyPass(Function *func, int passIndex, const std::string &passI
         FUNCTION_LOGI("Skip verify pass [SubgraphToFunction] for interpreter!");
         return;
     }
-    auto &flowVerifier = FlowVerifier::GetInstance();
+    auto& flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyPass(func, passIndex, passIdentifier);
     FUNCTION_LOGI("VerifyPass end.");
 }
 
-std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
+std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr)
+{
     for (const auto& pair : functionmap_) {
         auto sharedPtr = pair.second;
         if (sharedPtr.get() == rawPtr) {

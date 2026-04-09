@@ -53,6 +53,7 @@ class DistributedConfig:
     def init_hccl_comm(self, logical_rank_id: int) -> list[str]:
         physical_device_id = self.get_physical_device_id(logical_rank_id)
         torch_npu.npu.set_device(physical_device_id)
+        os.environ['TILE_FWK_DEVICE_ID'] = str(physical_device_id)
         dist.init_process_group(
             backend='hccl',
             rank=logical_rank_id,

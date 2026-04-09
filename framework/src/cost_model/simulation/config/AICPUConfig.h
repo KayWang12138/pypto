@@ -28,4 +28,4 @@ struct AICPUConfig : public Config {
     uint64_t resolveCycles = 390;
     uint64_t threadsNum = 1;
 };
-}
+} // namespace CostModel

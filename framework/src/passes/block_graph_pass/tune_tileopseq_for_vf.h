@@ -25,29 +25,31 @@
 namespace npu::tile_fwk {
 class TuneTileOpSeqForVF : public Pass {
 public:
-    TuneTileOpSeqForVF() : Pass("TuneTileOpSeqForVF") {
-        SetSupportedArches({NPUArch::DAV_3510});
-    }
+    TuneTileOpSeqForVF() : Pass("TuneTileOpSeqForVF") { SetSupportedArches({NPUArch::DAV_3510}); }
     ~TuneTileOpSeqForVF() override = default;
 
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 
 private:
-    void ChangeOpSeq(PipeSync &ps, bool isAIV1);
-    bool IsGroupMergeable(PipeSync &ps, size_t left, size_t k, int groupNum);
-    bool IsMergeable(std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, PipeSync &ps, int groupNum);
-    void MoveOpsForMerge(const std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, int groupNum);
-    void FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType);
-    void AdjustUbCopyNd2NzOrder(PipeSync &ps);
-    void ProcessGroupUbCopyOrder(PipeSync &ps, std::vector<Operation *> &group);
-    void CollectGroupIndices(std::vector<Operation *> &group, std::vector<size_t> &ubCopyIndices,
-                             std::vector<size_t> &nonUbCopyIndices, std::vector<size_t> &groupIndices);
-    void JudgeNeedMoveUbCopy(PipeSync &ps, size_t ubCopyIdx, std::vector<size_t> &nonUbCopyIndices,
-                             std::vector<size_t> &needMoveFront, std::vector<size_t> &needMoveBack);
-    void MoveUbCopyOp(const std::vector<size_t> &needMoveFront, const std::vector<size_t> &needMoveBack,
-                      const std::vector<size_t> &nonUbCopyIndices);
-    std::vector<std::vector<Operation *>> mergedOps;
-    std::vector<Operation *> opList_;
+    void ChangeOpSeq(PipeSync& ps, bool isAIV1);
+    bool IsGroupMergeable(PipeSync& ps, size_t left, size_t k, int groupNum);
+    bool IsMergeable(
+        std::unordered_set<Operation*>& moveFrontOp, size_t left, size_t right, PipeSync& ps, int groupNum);
+    void MoveOpsForMerge(const std::unordered_set<Operation*>& moveFrontOp, size_t left, size_t right, int groupNum);
+    void FindPipeVIdx(std::vector<size_t>& pipeVIdx, AIVCore coreType);
+    void AdjustUbCopyNd2NzOrder(PipeSync& ps);
+    void ProcessGroupUbCopyOrder(PipeSync& ps, std::vector<Operation*>& group);
+    void CollectGroupIndices(
+        std::vector<Operation*>& group, std::vector<size_t>& ubCopyIndices, std::vector<size_t>& nonUbCopyIndices,
+        std::vector<size_t>& groupIndices);
+    void JudgeNeedMoveUbCopy(
+        PipeSync& ps, size_t ubCopyIdx, std::vector<size_t>& nonUbCopyIndices, std::vector<size_t>& needMoveFront,
+        std::vector<size_t>& needMoveBack);
+    void MoveUbCopyOp(
+        const std::vector<size_t>& needMoveFront, const std::vector<size_t>& needMoveBack,
+        const std::vector<size_t>& nonUbCopyIndices);
+    std::vector<std::vector<Operation*>> mergedOps;
+    std::vector<Operation*> opList_;
 };
-}
+} // namespace npu::tile_fwk
 #endif // TUNE_TILEOPSEQ_FOR_VF_H

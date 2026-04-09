@@ -4,7 +4,7 @@
 
 - **范围**：F4-F5XXXX
 - 本文档说明 PASS 组件的错误码定义、场景说明与排查建议。
-- 补充错误码时，可注明 **关联 Skill**（链接至 [.opencode/skills](../../.opencode/skills) 下对应技能，便于排查时加载）。
+- 补充错误码时，可注明 **关联 Skill**（链接至 [.agents/skills](../../.agents/skills) 下对应技能，便于排查时加载）。
 
 
 ## 错误码定义与使用说明
@@ -48,7 +48,7 @@
 
    6. TENSOR_MEMORY_ALLOCATION
    ## 描述：Tensor的内存分配配置不合法
-   
+
 
    7. TENSOR_DYNAMIC_ATTR
    ## 描述：动态形状相关属性缺失或配置错误
@@ -76,7 +76,7 @@
    ## 描述：操作的opcode在当前上下文中不合法
    行为：
    - OP不合规
- 
+
 
    4. OP_PRODUCER_CONSUMER
    ## 描述：操作的输入输出依赖关系不完整
@@ -98,7 +98,7 @@
    ## 描述：操作序列中存在不允许的操作组合
    行为：
    - 存在不允许的OP或OP组合
- 
+
  **Function相关错误**：
    1. FUNCTION_GRAPH_STRUCTURE
    ## 描述：Function的图结构不完整或不合法

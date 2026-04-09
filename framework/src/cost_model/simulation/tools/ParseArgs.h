@@ -30,65 +30,63 @@
 namespace CostModel {
 class ParseArgs {
 public:
-    void RegisterParam(const std::string &key, int &value, const std::string &description)
+    void RegisterParam(const std::string& key, int& value, const std::string& description)
     {
-        params_[key] = [this, &value](const std::string &str) {
+        params_[key] = [this, &value](const std::string& str) {
             std::istringstream iss(str);
             iss >> value;
         };
         descriptions_[key] = description;
     }
 
-    void RegisterParam(const std::string &key, bool &value, const std::string &description)
+    void RegisterParam(const std::string& key, bool& value, const std::string& description)
     {
-        params_[key] = [this, &value](const std::string &str) {
-            value = (str == "true" || str == "1");
-        };
+        params_[key] = [this, &value](const std::string& str) { value = (str == "true" || str == "1"); };
         descriptions_[key] = description;
     }
 
-    void RegisterParam(const std::string &key, std::string &value, const std::string &description)
+    void RegisterParam(const std::string& key, std::string& value, const std::string& description)
     {
-        params_[key] = [this, &value](const std::string &str) {
-            value = str;
-        };
+        params_[key] = [this, &value](const std::string& str) { value = str; };
         descriptions_[key] = description;
     }
 
-    void RegisterParam(const std::string &key, std::vector<std::string> &values, const std::string &description)
+    void RegisterParam(const std::string& key, std::vector<std::string>& values, const std::string& description)
     {
         paramArrays_[key] = &values;
         descriptions_[key] = description;
     }
 
-    void ParseSingleArgs(const std::vector<std::string> &args, size_t &currentIndex)
+    void ParseSingleArgs(const std::vector<std::string>& args, size_t& currentIndex)
     {
-        auto &index = args[currentIndex];
+        auto& index = args[currentIndex];
         if (currentIndex + 1 < args.size()) {
             params_[index](args[currentIndex + 1]);
-            ++currentIndex;  // 跳过下一个参数
+            ++currentIndex; // 跳过下一个参数
         } else {
-            SIMULATION_LOGE("ErrCode: F%u, Missing argument for %s",
+            SIMULATION_LOGE(
+                "ErrCode: F%u, Missing argument for %s",
                 static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG), args[currentIndex].c_str());
         }
     }
-    
-    void ParseArrays(const std::vector<std::string> &args, size_t &currentIndex)
+
+    void ParseArrays(const std::vector<std::string>& args, size_t& currentIndex)
     {
         auto arrayIt = paramArrays_.find(args[currentIndex]);
         if (arrayIt != paramArrays_.end()) {
             while (currentIndex + 1 < args.size() && args[currentIndex + 1][0] != '-') {
                 (*arrayIt->second).push_back(args[currentIndex + 1]);
-                ++currentIndex;  // 跳过下一个参数
+                ++currentIndex; // 跳过下一个参数
             }
         } else {
-            SIMULATION_LOGE("ErrCode: F%u, Unknown parameter: %s",
-                            static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG),  args[currentIndex].c_str());
+            SIMULATION_LOGE(
+                "ErrCode: F%u, Unknown parameter: %s",
+                static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_CONFIG), args[currentIndex].c_str());
         }
     }
 
     // 解析参数
-    void Parse(const std::vector<std::string> &args)
+    void Parse(const std::vector<std::string>& args)
     {
         for (size_t i = 0; i < args.size(); ++i) {
             if (args[i][0] == '-') {
@@ -103,9 +101,9 @@ public:
     }
 
 private:
-    std::map<std::string, std::function<void(const std::string &)>> params_;
-    std::map<std::string, std::vector<std::string> *> paramArrays_;
+    std::map<std::string, std::function<void(const std::string&)>> params_;
+    std::map<std::string, std::vector<std::string>*> paramArrays_;
     std::map<std::string, std::string> descriptions_;
 };
-}
+} // namespace CostModel
 #endif

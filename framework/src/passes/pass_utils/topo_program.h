@@ -24,13 +24,12 @@
 
 namespace npu {
 namespace tile_fwk {
-class TopoProgramUtils{
+class TopoProgramUtils {
 public:
-    static void TopoProgram(const std::vector<Operation*>& opList,
-                            const std::vector<std::vector<size_t>>& opInGraph,
-                            const std::vector<std::vector<size_t>>& opOutGraph,
-                            bool isParamIndex);
+    static void TopoProgram(
+        const std::vector<Operation*>& opList, const std::vector<std::vector<size_t>>& opInGraph,
+        const std::vector<std::vector<size_t>>& opOutGraph, bool isParamIndex);
 };
-}
-}
+} // namespace tile_fwk
+} // namespace npu
 #endif

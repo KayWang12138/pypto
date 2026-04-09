@@ -65,9 +65,10 @@ public:
      *
      * \return Type pointer of the expression result
      */
-    [[nodiscard]] const TypePtr &GetType() const { return type_; }
+    [[nodiscard]] const TypePtr& GetType() const { return type_; }
 
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             IRNode::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&Expr::type_, "type")));
     }
@@ -102,10 +103,12 @@ public:
      * \param key Kwarg key (string identifier)
      */
     template <typename T>
-    void SetAttrType(const std::string &key) const {
+    void SetAttrType(const std::string& key) const
+    {
         // Compile-time check: only allow specific types
-        static_assert(std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, std::string> ||
-                          std::is_same_v<T, double> || std::is_same_v<T, DataType>,
+        static_assert(
+            std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, std::string> ||
+                std::is_same_v<T, double> || std::is_same_v<T, DataType>,
             "SetAttrType only accepts: bool, int, std::string, double, DataType");
 
         attrs_.emplace(key, std::type_index(typeid(T)));
@@ -118,7 +121,8 @@ public:
      * \return type_index of the expected type
      * \throws ValueError if kwarg is not registered
      */
-    [[nodiscard]] std::type_index GetAttrType(const std::string &key, const Span &span = Span::Unknown()) const {
+    [[nodiscard]] std::type_index GetAttrType(const std::string& key, const Span& span = Span::Unknown()) const
+    {
         auto it = attrs_.find(key);
         CHECK(it != attrs_.end()) << "Attribute '" << key << "' not found in operator '" << name_ << "'"
                                   << " at " << span.ToString();
@@ -131,17 +135,18 @@ public:
      * \param key Kwarg key
      * \return true if the kwarg is registered
      */
-    [[nodiscard]] bool HasAttr(const std::string &key) const { return attrs_.find(key) != attrs_.end(); }
+    [[nodiscard]] bool HasAttr(const std::string& key) const { return attrs_.find(key) != attrs_.end(); }
 
     /**
      * \brief Get all registered kwarg keys
      *
      * \return Vector of all kwarg keys
      */
-    [[nodiscard]] std::vector<std::string> GetAttrKeys() const {
+    [[nodiscard]] std::vector<std::string> GetAttrKeys() const
+    {
         std::vector<std::string> keys;
         keys.reserve(attrs_.size());
-        for (const auto &pair : attrs_) {
+        for (const auto& pair : attrs_) {
             keys.push_back(pair.first);
         }
         return keys;
@@ -152,7 +157,7 @@ public:
      *
      * \return Map of kwarg keys to expected types
      */
-    [[nodiscard]] const std::unordered_map<std::string, std::type_index> &GetAttrs() const { return attrs_; }
+    [[nodiscard]] const std::unordered_map<std::string, std::type_index>& GetAttrs() const { return attrs_; }
 
     /**
      * \brief Set the pipeline type for this operator
@@ -202,7 +207,7 @@ using GlobalVarPtr = std::shared_ptr<const GlobalVar>;
  * Ensures consistent structural equality and hashing.
  */
 struct GlobalVarPtrLess {
-    bool operator()(const GlobalVarPtr &lhs, const GlobalVarPtr &rhs) const { return lhs->name_ < rhs->name_; }
+    bool operator()(const GlobalVarPtr& lhs, const GlobalVarPtr& rhs) const { return lhs->name_ < rhs->name_; }
 };
 
 /**
@@ -234,7 +239,8 @@ public:
      *
      * \return Tuple of field descriptors (name_ as IGNORE field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::IgnoreField(&Var::name_, "name")));
     }
@@ -288,7 +294,8 @@ public:
      * \param span Source location
      */
     IterArg(std::string name, TypePtr type, ExprPtr initValue, Span span)
-        : Var(std::move(name), std::move(type), std::move(span)), initValue_(std::move(initValue)) {}
+        : Var(std::move(name), std::move(type), std::move(span)), initValue_(std::move(initValue))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::IterArg; }
     [[nodiscard]] std::string TypeName() const override { return "IterArg"; }
@@ -298,7 +305,8 @@ public:
      *
      * \return Tuple of field descriptors (initValue_ as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Var::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&IterArg::initValue_, "initValue")));
     }
@@ -345,9 +353,12 @@ public:
      *
      * \return Tuple of field descriptors
      */
-    static constexpr auto GetFieldDescriptors() {
-        return std::tuple_cat(Var::GetFieldDescriptors(),
-            std::make_tuple(reflection::UsualField(&MemRef::memorySpace_, "memory_space"),
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            Var::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::UsualField(&MemRef::memorySpace_, "memory_space"),
                 reflection::UsualField(&MemRef::addr_, "addr"), reflection::UsualField(&MemRef::size_, "size"),
                 reflection::UsualField(&MemRef::id_, "id")));
     }
@@ -376,7 +387,8 @@ public:
      * \param span Source location
      */
     Call(OpPtr op, std::vector<ExprPtr> args, Span span)
-        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_() {}
+        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_()
+    {}
 
     /**
      * \brief Create a function call expression with explicit type
@@ -387,7 +399,8 @@ public:
      * \param span Source location
      */
     Call(OpPtr op, std::vector<ExprPtr> args, TypePtr type, Span span)
-        : Expr(std::move(span), std::move(type)), op_(std::move(op)), args_(std::move(args)), kwargs_() {}
+        : Expr(std::move(span), std::move(type)), op_(std::move(op)), args_(std::move(args)), kwargs_()
+    {}
 
     /**
      * \brief Create a function call expression with kwargs
@@ -398,7 +411,8 @@ public:
      * \param span Source location
      */
     Call(OpPtr op, std::vector<ExprPtr> args, std::vector<std::pair<std::string, std::any>> kwargs, Span span)
-        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_(std::move(kwargs)) {}
+        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_(std::move(kwargs))
+    {}
 
     /**
      * \brief Create a function call expression with kwargs and explicit type
@@ -409,12 +423,11 @@ public:
      * \param type Result type of the call
      * \param span Source location
      */
-    Call(OpPtr op, std::vector<ExprPtr> args, std::vector<std::pair<std::string, std::any>> kwargs, TypePtr type,
+    Call(
+        OpPtr op, std::vector<ExprPtr> args, std::vector<std::pair<std::string, std::any>> kwargs, TypePtr type,
         Span span)
-        : Expr(std::move(span), std::move(type)),
-          op_(std::move(op)),
-          args_(std::move(args)),
-          kwargs_(std::move(kwargs)) {}
+        : Expr(std::move(span), std::move(type)), op_(std::move(op)), args_(std::move(args)), kwargs_(std::move(kwargs))
+    {}
 
     /**
      * \brief Get a kwarg value with type checking
@@ -425,8 +438,9 @@ public:
      * \return The kwarg value or default
      */
     template <typename T>
-    T GetKwarg(const std::string &key, const T &defaultValue = T{}) const {
-        for (const auto &[k, v] : kwargs_) {
+    T GetKwarg(const std::string& key, const T& defaultValue = T{}) const
+    {
+        for (const auto& [k, v] : kwargs_) {
             if (k == key) {
                 return AnyCast<T>(v, "kwarg key: " + key);
             }
@@ -440,8 +454,9 @@ public:
      * \param key Kwarg key
      * \return true if the kwarg exists
      */
-    [[nodiscard]] bool HasKwarg(const std::string &key) const {
-        for (const auto &kv : kwargs_) {
+    [[nodiscard]] bool HasKwarg(const std::string& key) const
+    {
+        for (const auto& kv : kwargs_) {
             if (kv.first == key) {
                 return true;
             }
@@ -457,9 +472,12 @@ public:
      *
      * \return Tuple of field descriptors (op, args, and kwargs as USUAL fields)
      */
-    static constexpr auto GetFieldDescriptors() {
-        return std::tuple_cat(Expr::GetFieldDescriptors(),
-            std::make_tuple(reflection::UsualField(&Call::op_, "op"), reflection::UsualField(&Call::args_, "args"),
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            Expr::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::UsualField(&Call::op_, "op"), reflection::UsualField(&Call::args_, "args"),
                 reflection::UsualField(&Call::kwargs_, "kwargs")));
     }
 };
@@ -492,7 +510,8 @@ public:
      *
      * \return Tuple of field descriptors
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&MakeTuple::elements_, "elements")));
     }
@@ -528,9 +547,11 @@ public:
      *
      * \return Tuple of field descriptors
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
-            Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&TupleGetItemExpr::tuple_, "tuple"),
+            Expr::GetFieldDescriptors(), std::make_tuple(
+                                             reflection::UsualField(&TupleGetItemExpr::tuple_, "tuple"),
                                              reflection::UsualField(&TupleGetItemExpr::index_, "index")));
     }
 };

@@ -18,19 +18,22 @@
 #include "interface/inner/hash_buffer.h"
 
 namespace npu::tile_fwk {
-inline HashBuffer &SerializeTo(const VecTile &vecTile, HashBuffer &hashBuffer) {
+inline HashBuffer& SerializeTo(const VecTile& vecTile, HashBuffer& hashBuffer)
+{
     hashBuffer.assign(vecTile.tile.begin(), vecTile.tile.end());
     return hashBuffer;
 }
 
-inline HashBuffer &SerializeTo(const CubeTile &cubeTile, HashBuffer &hashBuffer) {
+inline HashBuffer& SerializeTo(const CubeTile& cubeTile, HashBuffer& hashBuffer)
+{
     hashBuffer.Append(cubeTile.m);
     hashBuffer.Append(cubeTile.k);
     hashBuffer.Append(cubeTile.n);
     return hashBuffer;
 }
 
-inline HashBuffer &SerializeTo(const DistTile &distTile, HashBuffer &hashBuffer) {
+inline HashBuffer& SerializeTo(const DistTile& distTile, HashBuffer& hashBuffer)
+{
     hashBuffer.Append(distTile.row);
     hashBuffer.Append(distTile.col);
     hashBuffer.Append(distTile.rank);
@@ -38,11 +41,13 @@ inline HashBuffer &SerializeTo(const DistTile &distTile, HashBuffer &hashBuffer)
     return hashBuffer;
 }
 
-inline void DeserializeFrom(HashBuffer &hashBuffer, VecTile &vecTile) {
+inline void DeserializeFrom(HashBuffer& hashBuffer, VecTile& vecTile)
+{
     vecTile.tile.assign(hashBuffer.begin(), hashBuffer.end());
 }
 
-inline void DeserializeFrom(HashBuffer &hashBuffer, CubeTile &cubeTile) {
+inline void DeserializeFrom(HashBuffer& hashBuffer, CubeTile& cubeTile)
+{
     cubeTile.m[0] = hashBuffer.Get<int64_t>(0);  // offset 0,  m[0]
     cubeTile.m[1] = hashBuffer.Get<int64_t>(2);  // offset 2,  m[1]
     cubeTile.k[0] = hashBuffer.Get<int64_t>(4);  // offset 4,  k[0]
@@ -52,7 +57,8 @@ inline void DeserializeFrom(HashBuffer &hashBuffer, CubeTile &cubeTile) {
     cubeTile.n[1] = hashBuffer.Get<int64_t>(12); // offset 12, n[1]
 }
 
-inline void DeserializeFrom(HashBuffer &hashBuffer, DistTile &distTile) {
+inline void DeserializeFrom(HashBuffer& hashBuffer, DistTile& distTile)
+{
     distTile.row[0] = hashBuffer[0];  // offset 0,  row[0]
     distTile.row[1] = hashBuffer[1];  // offset 1,  row[1]
     distTile.row[2] = hashBuffer[2];  // offset 2,  row[2]
@@ -64,4 +70,4 @@ inline void DeserializeFrom(HashBuffer &hashBuffer, DistTile &distTile) {
     distTile.rank[2] = hashBuffer[8]; // offset 8,  rank[2]
     distTile.rankId = hashBuffer[9];  // offset 9,  rankId
 }
-}; // namespace npu::tile_fwk
+};                                    // namespace npu::tile_fwk

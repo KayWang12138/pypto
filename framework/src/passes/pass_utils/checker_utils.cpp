@@ -15,40 +15,42 @@
 
 #include "checker_utils.h"
 
-namespace npu{
+namespace npu {
 namespace tile_fwk {
-bool OpChecker::CalcTypeChecker::check(Operation *op) const {
-    if (conditions.empty()) return true;
+bool OpChecker::CalcTypeChecker::check(Operation* op) const
+{
+    if (conditions.empty())
+        return true;
     OpCalcType currentType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
     return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
 }
 
-bool OpChecker::CoreTypeChecker::check(Operation *op) const {
-    if (conditions.empty()) return true;
+bool OpChecker::CoreTypeChecker::check(Operation* op) const
+{
+    if (conditions.empty())
+        return true;
     OpCoreType currentType = OpcodeManager::Inst().GetCoreType(op->GetOpcode());
     return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
 }
 
-bool OpChecker::InputMemTypeChecker::check(Operation *op) const {
-    if (conditions.empty()) return true;
-    const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetInputsMemType(op->GetOpcode());
-    return std::any_of(
-        currentType.begin(), 
-        currentType.end(),
-        [this](const MemoryType &memType) {
-            return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
-        });
+bool OpChecker::InputMemTypeChecker::check(Operation* op) const
+{
+    if (conditions.empty())
+        return true;
+    const std::vector<MemoryType>& currentType = OpcodeManager::Inst().GetInputsMemType(op->GetOpcode());
+    return std::any_of(currentType.begin(), currentType.end(), [this](const MemoryType& memType) {
+        return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
+    });
 }
 
-bool OpChecker::OutputMemTypeChecker::check(Operation *op) const {
-    if (conditions.empty()) return true;
-    const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetOutputsMemType(op->GetOpcode());
-    return std::any_of(
-        currentType.begin(), 
-        currentType.end(),
-        [this](const MemoryType &memType) {
-            return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
-        });
+bool OpChecker::OutputMemTypeChecker::check(Operation* op) const
+{
+    if (conditions.empty())
+        return true;
+    const std::vector<MemoryType>& currentType = OpcodeManager::Inst().GetOutputsMemType(op->GetOpcode());
+    return std::any_of(currentType.begin(), currentType.end(), [this](const MemoryType& memType) {
+        return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
+    });
 }
 } // namespace tile_fwk
 } // namespace npu

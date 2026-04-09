@@ -91,7 +91,7 @@ def set_pass_options(*,
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
-    
+
     sg_set_scope : int
         Merged graph parameter, used to manually control graph merging.
     """
@@ -336,8 +336,8 @@ class _Options:
                 opts["cube_tile_shapes"] = self.cube_tile_shapes._impl
             else:
                 opts["cube_tile_shapes"] = CubeTile(*self.cube_tile_shapes)._impl
-        
-                        
+
+
         if self.conv_tile_shapes is not None:
             if isinstance(self.conv_tile_shapes, ConvTile):
                 opts["conv_tile_shapes"] = self.conv_tile_shapes._impl
@@ -546,7 +546,7 @@ class CubeTile:
 
 class ConvTile:
     """ConvTile"""
-    def __init__(self, tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info, 
+    def __init__(self, tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info,
                  set_l0_tile: bool = False):
         """
         ConvTile tile for convolution operation, tile_l1_info for L1 Cache, tile_l0_info for L0 Cache

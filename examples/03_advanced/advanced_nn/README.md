@@ -46,4 +46,3 @@ python3 attention.py
 1. 注意力机制是现代深度学习的基石，建议深入阅读 `attention/README.md` 了解算法细节。
 2. 尝试修改 `attention.py` 中的 Tiling 配置，观察其对运行性能的影响。
 3. 参考 `models` 目录下的真实模型代码，了解如何将本目录的组件应用到工业级项目中。
-

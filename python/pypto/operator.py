@@ -481,7 +481,7 @@ def rms_norm(input: Tensor, gamma: Tensor = None, epsilon: float = 1e-6) -> Tens
     Input x: [[1, 2, 3, 4],
               [5, 6, 7, 8]]
           gamma: [1, 1, 1, 1]
-    Output y: [[0.3651, 0.7302, 1.0954, 1.4605], 
+    Output y: [[0.3651, 0.7302, 1.0954, 1.4605],
                [0.7580, 0.9097, 1.0613, 1.2129]]
     """
     in_dtype = input.dtype

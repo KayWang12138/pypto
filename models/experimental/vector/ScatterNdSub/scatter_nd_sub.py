@@ -37,15 +37,15 @@ def get_device_id():
 
 
 @pypto.frontend.jit(
-    runtime_options={"stitch_function_num_initial": 128, "stitch_function_outcast_memory": 1024, 
+    runtime_options={"stitch_function_num_initial": 128, "stitch_function_outcast_memory": 1024,
                     "stitch_function_inner_memory": 1024}
 )
 def scatter_nd_sub_kernel(
     target: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
     indices: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
     updates: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32)
-): 
-    for bs_idx, tile_batch in pypto.loop_unroll(0, indices.shape[0], 1, name="LOOP_SCATTER_ND_SUB_L0", 
+):
+    for bs_idx, tile_batch in pypto.loop_unroll(0, indices.shape[0], 1, name="LOOP_SCATTER_ND_SUB_L0",
                                                 idx_name="bs_idx", unroll_list=[2048, 1024, 512, 256, 1]):
         b_offset = bs_idx
         b_offset_end = bs_idx + tile_batch
@@ -101,7 +101,7 @@ def test_scatter_nd_sub(device_id: int = None, run_mode: str = "npu", dynamic: b
             size=indices_shape,
             dtype=torch.int32,
             device=device
-        )     
+        )
 
         updates = torch.rand(updates_shape, dtype=torch.float32, device=device) * updates_max_value
         scatter_nd_sub_kernel(target, indices, updates)

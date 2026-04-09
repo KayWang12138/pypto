@@ -4,12 +4,18 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
 ## 功能说明
 
 计算输入与另一输入的最小值。支持二维、三维或四维的Tensor。
+
+## 注意事项
+
+- **不支持 SymbolicScalar 参数**：如果需要对 SymbolicScalar 进行比较，请使用 [SymbolicScalar.min()](../symbolic/pypto-SymbolicScalar-min.md) 方法
+- 两个参数中至少一个为 Tensor 类型
 
 ## 函数原型
 
@@ -66,4 +72,3 @@ out = pypto.minimum(a, b)
 输入数据b: [3, 1, 3]
 输出数据out: [0, 1, 3]
 ```
-

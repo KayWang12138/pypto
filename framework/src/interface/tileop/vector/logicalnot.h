@@ -20,54 +20,47 @@
 #include <type_traits>
 
 template <typename U>
-using select_type = std::conditional_t<
-    std::is_same_v<typename U::Type, float>,
-    float,
-    half
->;
+using select_type = std::conditional_t<std::is_same_v<typename U::Type, float>, float, half>;
 
 template <typename U>
-using select_type_bool = std::conditional_t<
-    std::is_same_v<typename U::Type, bool>,
-    uint8_t,
-    typename U::Type
->;
+using select_type_bool = std::conditional_t<std::is_same_v<typename U::Type, bool>, uint8_t, typename U::Type>;
 
-template <typename T, typename DstTile, typename SrcTile, typename CastTile, typename ExpTile, typename VcmpResTile, typename TileStartAddrUB>
-TILEOP void LogicalNotImpl(DstTile dstTile, SrcTile srcTile, CastTile castTile,
-                            ExpTile oneTile, ExpTile zeroTile, VcmpResTile vcmpResTile, TileStartAddrUB startAddrUBTile)
+template <
+    typename T, typename DstTile, typename SrcTile, typename CastTile, typename ExpTile, typename VcmpResTile,
+    typename TileStartAddrUB>
+TILEOP void LogicalNotImpl(
+    DstTile dstTile, SrcTile srcTile, CastTile castTile, ExpTile oneTile, ExpTile zeroTile, VcmpResTile vcmpResTile,
+    TileStartAddrUB startAddrUBTile)
 {
-    if constexpr (std::is_same<T, bool>::value || std::is_same<T, uint8_t>::value ||
-                std::is_same<T, int8_t>::value) {
+    if constexpr (std::is_same<T, bool>::value || std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value) {
         pto::TCVT(castTile, srcTile, pto::RoundMode::CAST_NONE);
     }
     pto::TEXPANDS(oneTile, 1.0);
     pto::TEXPANDS(zeroTile, 0.0);
 
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
 
     if constexpr (std::is_same<T, half>::value || std::is_same<T, float>::value) {
         pto::TCMP(vcmpResTile, srcTile, zeroTile, pto::CmpMode::EQ);
-    } else if (std::is_same<T, bool>::value || std::is_same<T, uint8_t>::value ||
-                std::is_same<T, int8_t>::value) {
+    } else if (std::is_same<T, bool>::value || std::is_same<T, uint8_t>::value || std::is_same<T, int8_t>::value) {
         pto::TCMP(vcmpResTile, castTile, zeroTile, pto::CmpMode::EQ);
     }
 
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
     pto::TSEL(oneTile, vcmpResTile, oneTile, zeroTile, startAddrUBTile);
-    #ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-    #endif
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
 
     if constexpr (std::is_same<T, float>::value) {
         pto::TCVT(castTile, oneTile, pto::RoundMode::CAST_NONE);
-        #ifdef __DAV_V220
-            pipe_barrier(PIPE_V);
-        #endif
+#ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+#endif
         pto::TCVT(dstTile, castTile, pto::RoundMode::CAST_NONE);
     } else {
         pto::TCVT(dstTile, oneTile, pto::RoundMode::CAST_NONE);
@@ -140,18 +133,14 @@ TILEOP void TLogicalNot(T0 dst, T1 src, T2 tmp)
     startAddrAddr = (startAddrAddr + ALIGN_SIZE - 1) & ~(ALIGN_SIZE - 1);
     __ubuf__ uint8_t* startAddrUB = reinterpret_cast<__ubuf__ uint8_t*>(startAddrAddr);
 
-    using DstTile =
-        pto::Tile<pto::TileType::Vec, uint8_t, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
-    using SrcTile =
-        pto::Tile<pto::TileType::Vec, T, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
-    using CastTile =
-        pto::Tile<pto::TileType::Vec, half, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
-    using ExpTile =
-        pto::Tile<pto::TileType::Vec, U, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
+    using DstTile = pto::Tile<pto::TileType::Vec, uint8_t, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
+    using SrcTile = pto::Tile<pto::TileType::Vec, T, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
+    using CastTile = pto::Tile<pto::TileType::Vec, half, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
+    using ExpTile = pto::Tile<pto::TileType::Vec, U, 1, COUNT_MAX, pto::BLayout::RowMajor, -1, -1>;
     using VcmpResTile =
         pto::Tile<pto::TileType::Vec, uint8_t, 1, COUNT_MAX / 8, pto::BLayout::RowMajor, 1, COUNT_MAX / 8>;
     using TileStartAddrUB = pto::Tile<pto::TileType::Vec, uint8_t, 1, ALIGN_SIZE, pto::BLayout::RowMajor, -1, -1>;
- 	TileStartAddrUB startAddrUBTile(1, ALIGN_SIZE / 8);
+    TileStartAddrUB startAddrUBTile(1, ALIGN_SIZE / 8);
     VcmpResTile vcmpResTile;
     pto::TASSIGN(vcmpResTile, (uint64_t)(vcmpBitResult));
     pto::TASSIGN(startAddrUBTile, (uint64_t)(startAddrUB));
@@ -163,8 +152,10 @@ TILEOP void TLogicalNot(T0 dst, T1 src, T2 tmp)
         for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
-                    auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2 + n3Index * dstStride3;
-                    auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2 + n3Index * srcStride3;
+                    auto dstOffset =
+                        n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2 + n3Index * dstStride3;
+                    auto srcOffset =
+                        n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2 + n3Index * srcStride3;
                     for (LoopVar j = 0; j < numLoop; j++) {
                         auto dstOffsetLoop = dstOffset + j * COUNT_MAX;
                         auto srcOffsetLoop = srcOffset + j * COUNT_MAX;
@@ -178,8 +169,8 @@ TILEOP void TLogicalNot(T0 dst, T1 src, T2 tmp)
                         pto::TASSIGN(castTile, (uint64_t)(castCondition));
                         pto::TASSIGN(oneTile, (uint64_t)(oneCondition));
                         pto::TASSIGN(zeroTile, (uint64_t)(compareCondition));
-                        LogicalNotImpl<T, DstTile, SrcTile, CastTile, ExpTile,
-                                    VcmpResTile, TileStartAddrUB>(dstTile, srcTile, castTile, oneTile, zeroTile, vcmpResTile, startAddrUBTile);
+                        LogicalNotImpl<T, DstTile, SrcTile, CastTile, ExpTile, VcmpResTile, TileStartAddrUB>(
+                            dstTile, srcTile, castTile, oneTile, zeroTile, vcmpResTile, startAddrUBTile);
                     }
                     if (remainAfterLoop > 0) {
                         auto dstOffsetRemain = dstOffset + numLoop * COUNT_MAX;
@@ -194,8 +185,8 @@ TILEOP void TLogicalNot(T0 dst, T1 src, T2 tmp)
                         pto::TASSIGN(castTile, (uint64_t)(castCondition));
                         pto::TASSIGN(oneTile, (uint64_t)(oneCondition));
                         pto::TASSIGN(zeroTile, (uint64_t)(compareCondition));
-                        LogicalNotImpl<T, DstTile, SrcTile, CastTile, ExpTile,
-                                    VcmpResTile, TileStartAddrUB>(dstTile, srcTile, castTile, oneTile, zeroTile, vcmpResTile, startAddrUBTile);
+                        LogicalNotImpl<T, DstTile, SrcTile, CastTile, ExpTile, VcmpResTile, TileStartAddrUB>(
+                            dstTile, srcTile, castTile, oneTile, zeroTile, vcmpResTile, startAddrUBTile);
                     }
                 }
             }

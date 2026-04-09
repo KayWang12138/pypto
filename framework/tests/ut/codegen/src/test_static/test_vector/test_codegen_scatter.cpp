@@ -30,7 +30,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -38,14 +39,13 @@ public:
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
 
-    void TearDown() override {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    void TearDown() override { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 };
 
 constexpr const int SCATER_SHAPE0 = 128;
 constexpr const int SCATER_SHAPE1 = 256;
-TEST_F(TestCodegenScatter, TestScatter) {
+TEST_F(TestCodegenScatter, TestScatter)
+{
     constexpr const int b = 2;
     constexpr const int s = 512;
     constexpr const int nRoutedExperts = 256;
@@ -60,7 +60,8 @@ TEST_F(TestCodegenScatter, TestScatter) {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::string funcName = "SCATTER_T";
-    FUNCTION(funcName) {
+    FUNCTION(funcName)
+    {
         res = Scatter(cnts, topkIds, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
     }
 

@@ -28,7 +28,7 @@ def test_bitwise_ands_onboard():
     pypto.runtime._device_init()
 
     input1 = pypto.tensor(shape, pypto.DT_INT16, "PTO_TENSOR_input1")
-    input2 = 0x00FF 
+    input2 = 0x00FF
     output = pypto.tensor(shape, pypto.DT_INT16, "PTO_TENSOR_output")
 
     b_loop_num = math.ceil(shape[0] / view_shape[0])

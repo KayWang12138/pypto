@@ -34,7 +34,7 @@ key: Opcode类型
 vaule: vector of pair, 每个pair记录了第几个输入和第几个输出存在inplace关系
 */
 const std::unordered_map<Opcode, std::vector<std::pair<size_t, size_t>>> inplaceOpMap = {
-    {   Opcode::OP_A_MULACC_B, {std::pair<size_t, size_t>{2, 0}}},
+    {Opcode::OP_A_MULACC_B, {std::pair<size_t, size_t>{2, 0}}},
     {Opcode::OP_INDEX_OUTCAST, {std::pair<size_t, size_t>{2, 0}}},
 };
 
@@ -48,28 +48,28 @@ private:
     补齐: Status PreCheck(Function &function) override;
     补齐: Status PostCheck(Function &function) override;
     */
-    Status PreCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
-    Status ProcessOp(Function &function);
-    Status InplaceProcessAssemble(Function &function, Operation &op);
-    bool HasSameConsecutive(Operation &op);
-    void ProcessView(Function &function, Operation &op) const;
-    void ProcessAssemble(Function &function, Operation &op);
+    Status PreCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
+    Status ProcessOp(Function& function);
+    Status InplaceProcessAssemble(Function& function, Operation& op);
+    bool HasSameConsecutive(Operation& op);
+    void ProcessView(Function& function, Operation& op) const;
+    void ProcessAssemble(Function& function, Operation& op);
     Status AlignCopyInConsumer(std::shared_ptr<LogicalTensor> tensorGm) const;
     Status AlignCopyOutProducer(std::shared_ptr<LogicalTensor> tensorGm) const;
-    void ProcessReshape(Function &function, Operation &op) const;
-    Status ProcessViewType(Function &function, Operation &op) const;
-    Status ProcessInplaceOp(Function &function, Operation &op) const;
-    Status ValidMeaninglessOp(const Operation &op) const;
-    Status AdjustOffsetAndRawShape(LogicalTensorPtr &fromView, LogicalTensorPtr &toView) const;
-    void ReplaceRawTensor(Function &function, std::shared_ptr<LogicalTensor> logicalTensor,
-        const std::shared_ptr<LogicalTensor> targetTensor, const Operation &op);
-    void ProcessHub(Function &function, Operation &op);
-    void ProcessHubAssembleChain(Function &function, Operation &hubOp, 
-                                           Operation &assembleOp, 
-                                           std::shared_ptr<LogicalTensor> hubInput,
-                                           std::shared_ptr<LogicalTensor> hubOutput);
-    Status RefactorViewConnectForInplace(Function &function);
+    void ProcessReshape(Function& function, Operation& op) const;
+    Status ProcessViewType(Function& function, Operation& op) const;
+    Status ProcessInplaceOp(Function& function, Operation& op) const;
+    Status ValidMeaninglessOp(const Operation& op) const;
+    Status AdjustOffsetAndRawShape(LogicalTensorPtr& fromView, LogicalTensorPtr& toView) const;
+    void ReplaceRawTensor(
+        Function& function, std::shared_ptr<LogicalTensor> logicalTensor,
+        const std::shared_ptr<LogicalTensor> targetTensor, const Operation& op);
+    void ProcessHub(Function& function, Operation& op);
+    void ProcessHubAssembleChain(
+        Function& function, Operation& hubOp, Operation& assembleOp, std::shared_ptr<LogicalTensor> hubInput,
+        std::shared_ptr<LogicalTensor> hubOutput);
+    Status RefactorViewConnectForInplace(Function& function);
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::vector<int> visitedAssembleOp;
     std::vector<int> hubRelatedAssembleOpMagics;

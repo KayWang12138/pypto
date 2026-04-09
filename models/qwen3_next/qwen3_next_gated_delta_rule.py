@@ -166,19 +166,19 @@ def pypto_chunk_gated_delta_rule_dyn(dims, inputs: dict, outputs: dict):
     nv = dims["Nv"]
     d = dims["D"]
     l = dims["L"]
-    act_seq_len = inputs["act_seq_len"]  
+    act_seq_len = inputs["act_seq_len"]
 
     if (act_seq_len % l != 0).any():
-        input_data = [inputs["query"], inputs["key"], inputs["value"], inputs["beta"], inputs["gate"], inputs["states"], 
+        input_data = [inputs["query"], inputs["key"], inputs["value"], inputs["beta"], inputs["gate"], inputs["states"],
                 inputs["mask"], inputs["tril_mask"], inputs["eye_data_unaligned"], inputs["act_seq_len"]]
         output_data = [outputs["core_attn_out"], outputs["final_state"]]
         chunk_gated_delta_rule_unaligned(b, nqk, nv, d, l)(*input_data, *output_data)
     else:
-        input_data = [inputs["query"], inputs["key"], inputs["value"], inputs["beta"], inputs["gate"], inputs["states"], 
+        input_data = [inputs["query"], inputs["key"], inputs["value"], inputs["beta"], inputs["gate"], inputs["states"],
                 inputs["mask"], inputs["tril_mask"], inputs["eye_data"], inputs["act_seq_len"]]
         output_data = [outputs["core_attn_out"], outputs["final_state"]]
         chunk_gated_delta_rule(b, nqk, nv, d, l)(*input_data, *output_data)
-    
+
     torch_npu.npu.synchronize()
 
 
@@ -327,7 +327,7 @@ def segs_chunk_gated_delta_rule_sub_cycle(**kwargs):
         attn_out[:, :, index] = (q_index * g[:, :, index, :, None].exp()) @ last_recurrent_state + attn @ v_new
         last_recurrent_state = last_recurrent_state * g[:, :, index, -1, None, None].exp() + \
             (k_index * (g[:, :, index, -1, None] - g[:, :, index]).exp()[..., None]).transpose(-1, -2) @ v_new
-        
+
     return attn_out, last_recurrent_state
 
 

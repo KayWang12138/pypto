@@ -19,7 +19,8 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
-void OperatorChecker::PreCheck() {
+void OperatorChecker::PreCheck()
+{
     auto func = Program::GetInstance().GetCurrentFunction();
     preOpCount = func->Operations().size();
     preMagic = IdGen<IdType::LOGICAL_TENSOR>::Inst().CurId();
@@ -27,7 +28,8 @@ void OperatorChecker::PreCheck() {
     preRawMagic = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
 }
 
-void OperatorChecker::PostCheck() {
+void OperatorChecker::PostCheck()
+{
     auto func = Program::GetInstance().GetCurrentFunction();
     auto operations = func->Operations();
     int postOpCount = func->Operations().size();
@@ -36,14 +38,14 @@ void OperatorChecker::PostCheck() {
     int postRawMagic = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
 
     for (int i = preOpCount; i < postOpCount; i++) {
-        auto &lop = operations[i];
+        auto& lop = operations[i];
         ASSERT(preOp <= lop.GetOpMagic() && lop.GetOpMagic() < postOp);
-        for (auto &loperand : lop.GetOOperands()) {
+        for (auto& loperand : lop.GetOOperands()) {
             ASSERT(preMagic <= loperand->GetMagic() && loperand->GetMagic() < postMagic);
             ASSERT(preRawMagic <= loperand->tensor->GetRawMagic() && loperand->tensor->GetRawMagic() < postRawMagic);
             for (int j = i + 1; j < postOpCount; j++) {
-                auto &rop = operations[j];
-                for (auto &roperand : rop.GetOOperands()) {
+                auto& rop = operations[j];
+                for (auto& roperand : rop.GetOOperands()) {
                     if (loperand->tensor->GetRawMagic() == roperand->tensor->GetRawMagic()) {
                         ASSERT(!Overlap(loperand, roperand));
                     }
@@ -53,7 +55,8 @@ void OperatorChecker::PostCheck() {
     }
 }
 
-bool OperatorTracer::IsCheckerEnabled() const {
+bool OperatorTracer::IsCheckerEnabled() const
+{
     static int enableChecker = -1;
     if (enableChecker == -1) {
         enableChecker = config::GetPlatformConfig(KEY_ENABLE_CHECKER, 0);

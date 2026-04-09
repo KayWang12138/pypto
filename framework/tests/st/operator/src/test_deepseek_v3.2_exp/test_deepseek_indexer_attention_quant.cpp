@@ -31,13 +31,15 @@ using namespace npu::tile_fwk::dynamic;
 class DeepSeekIndexerAttentionQuantSTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
-void SetPreConfig() {
+void SetPreConfig()
+{
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_2 * NUM_1024 * NUM_1024);
 }
 
-void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
+void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams& params)
+{
     SetPreConfig();
 
     int b = params.b;
@@ -58,9 +60,8 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     int topk = params.topk;
     std::string layoutKey = params.cacheMode;
 
-    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk: "
-                << b << " " << s1 << " " << n1 << " " << n2 << " " << dn << " " << dr << " " << blockNum << " " << blockSize << " " << topk
-                << std::endl;
+    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk: " << b << " " << s1 << " " << n1 << " "
+              << n2 << " " << dn << " " << dr << " " << blockNum << " " << blockSize << " " << topk << std::endl;
 
     std::vector<int32_t> kvCacheActSeqVec(b);
     readInput<int32_t>(GetGoldenDir() + "/actual_seq.bin", kvCacheActSeqVec);
@@ -94,11 +95,10 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     std::vector<int64_t> kScaleCacheShape = {blockNum, blockSize, n2, 4};
 
     std::vector<int64_t> wIdxQbShape = {
-        idx_n_heads * idx_head_dim / b8C0Dim, qLoraRank / nzFirstDim, nzFirstDim, b8C0Dim
-    }; //nz
+        idx_n_heads * idx_head_dim / b8C0Dim, qLoraRank / nzFirstDim, nzFirstDim, b8C0Dim};              // nz
     std::vector<int64_t> wIdxQbScaleShape = {idx_n_heads * idx_head_dim, 1};
-    std::vector<int64_t> wIdxKShape = {idx_head_dim / b16C0Dim, h / nzFirstDim, nzFirstDim, b16C0Dim}; //nz
-    std::vector<int64_t> wIdxProjShape = {idx_n_heads / b16C0Dim, h / nzFirstDim, nzFirstDim, b16C0Dim}; //nz
+    std::vector<int64_t> wIdxKShape = {idx_head_dim / b16C0Dim, h / nzFirstDim, nzFirstDim, b16C0Dim};   // nz
+    std::vector<int64_t> wIdxProjShape = {idx_n_heads / b16C0Dim, h / nzFirstDim, nzFirstDim, b16C0Dim}; // nz
     std::vector<int64_t> layernormGammaKShape = {idx_head_dim};
     std::vector<int64_t> layernormBetaKShape = {idx_head_dim};
     std::vector<int64_t> hadamardQShape = {idx_head_dim, idx_head_dim};
@@ -131,46 +131,66 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     auto wUqQr = CreateTensorAndData<TQuant>(wUqQrShape, dTypeQuant, "wUqQr", TileOpFormat::TILEOP_NZ, "/wUqQr.bin");
     auto wDkvKr = CreateTensorAndData<T>(wDkvKrShape, dType, "wDkvKr", TileOpFormat::TILEOP_NZ, "/wDkvKr.bin");
     auto wUk = CreateTensorAndData<T>(wUkShape, dType, "wUk", TileOpFormat::TILEOP_ND, "/wUk.bin");
-    auto dequantScaleWUqqr = CreateTensorAndData<float>(dequantScaleWUqqrShape, DT_FP32, "dequantScaleWUqqrShape", "/w_qb_scale.bin");
+    auto dequantScaleWUqqr =
+        CreateTensorAndData<float>(dequantScaleWUqqrShape, DT_FP32, "dequantScaleWUqqrShape", "/w_qb_scale.bin");
     auto gammaCq = CreateTensorAndData<T>(gammaCqShape, dType, "gammaCq", TileOpFormat::TILEOP_ND, "/gamma_cq.bin");
     auto gammaCkv = CreateTensorAndData<T>(gammaCkvShape, dType, "gammaCkv", TileOpFormat::TILEOP_ND, "/gamma_ckv.bin");
     auto dynamicCos = CreateTensorAndData<T>(cosShape, dType, "cos", "/cos.bin", {0, 1});
     auto dynamicSin = CreateTensorAndData<T>(cosShape, dType, "sin", "/sin.bin", {0, 1});
     auto kvCache = CreateTensorAndData<TQuant>(kvCacheShape, dTypeQuant, "kvCache", "/kv_cache.bin", {0});
     auto krCache = CreateTensorAndData<T>(krCacheShape, dType, "krCache", "/kr_cache.bin", {0});
-    auto kScaleCache = CreateTensorAndData<float>(kScaleCacheShape, DT_FP32, "kScaleCache", "/kv_quant_scale_cache.bin", {0});
+    auto kScaleCache =
+        CreateTensorAndData<float>(kScaleCacheShape, DT_FP32, "kScaleCache", "/kv_quant_scale_cache.bin", {0});
 
-    auto wIdxQb = CreateTensorAndData<TQuant>(wIdxQbShape, dTypeQuant, "wIdxQb", TileOpFormat::TILEOP_NZ, "/w_idx_qb_nz.bin");
-    auto wIdxQbScale = CreateTensorAndData<float>(wIdxQbScaleShape, DT_FP32, "wIdxQbScale", TileOpFormat::TILEOP_ND, "/w_idx_qb_scale.bin");
+    auto wIdxQb =
+        CreateTensorAndData<TQuant>(wIdxQbShape, dTypeQuant, "wIdxQb", TileOpFormat::TILEOP_NZ, "/w_idx_qb_nz.bin");
+    auto wIdxQbScale = CreateTensorAndData<float>(
+        wIdxQbScaleShape, DT_FP32, "wIdxQbScale", TileOpFormat::TILEOP_ND, "/w_idx_qb_scale.bin");
     auto wIdxK = CreateTensorAndData<T>(wIdxKShape, dType, "wIdxK", TileOpFormat::TILEOP_NZ, "/w_idx_k_nz.bin");
-    auto wIdxProj = CreateTensorAndData<T>(wIdxProjShape, dType, "wIdxProj", TileOpFormat::TILEOP_NZ, "/w_idx_proj_nz.bin");
+    auto wIdxProj =
+        CreateTensorAndData<T>(wIdxProjShape, dType, "wIdxProj", TileOpFormat::TILEOP_NZ, "/w_idx_proj_nz.bin");
     auto layernormGammaK = CreateTensorAndData<T>(layernormGammaKShape, dType, "layernormGammaK", "/ln_gamma.bin");
     auto layernormBetaK = CreateTensorAndData<T>(layernormBetaKShape, dType, "layernormBetaK", "/ln_beta.bin");
     auto hadamardQ = CreateTensorAndData<T>(hadamardQShape, dType, "hadamardQ", "/hadamard_q.bin");
     auto hadamardK = CreateTensorAndData<T>(hadamardKShape, dType, "hadamardK", "/hadamard_k.bin");
     auto idxKCache = CreateTensorAndData<TQuant>(idxKCacheShape, dTypeQuant, "idxKCache", "/k_cache.bin", {0});
-    auto idxKScaleCache = CreateTensorAndData<npu::tile_fwk::float16>(idxKScaleCacheShape, DT_FP16, "idxKScaleCache", "/k_scale_cache.bin", {0});
+    auto idxKScaleCache = CreateTensorAndData<npu::tile_fwk::float16>(
+        idxKScaleCacheShape, DT_FP16, "idxKScaleCache", "/k_scale_cache.bin", {0});
 
     auto dynamicCacheIndex = CreateTensorAndData<int64_t>(kvLenShape, DT_INT64, "cacheIndex", "/kv_len.bin", {0, 1});
-    auto dynamicBlockTable = CreateTensorAndData<int32_t>(blockTableShape, DT_INT32, "blockTable", "/block_table.bin", {0, 1});
+    auto dynamicBlockTable =
+        CreateTensorAndData<int32_t>(blockTableShape, DT_INT32, "blockTable", "/block_table.bin", {0, 1});
 
-    auto dynamicActualSeqLengthsKey = CreateTensorAndData<int32_t>(actualSeqShape, DT_INT32, "actualSeqLengthsKey", "/actual_seq.bin", {0});
+    auto dynamicActualSeqLengthsKey =
+        CreateTensorAndData<int32_t>(actualSeqShape, DT_INT32, "actualSeqLengthsKey", "/actual_seq.bin", {0});
 
     // 3. 构造output
-    auto dynamicSaOut = CreateConstantDynamicOutputTensor<T>(saOutShape, dType, "saOut", 0, {bSymbol, s1Symbol, n1, dn});
+    auto dynamicSaOut =
+        CreateConstantDynamicOutputTensor<T>(saOutShape, dType, "saOut", 0, {bSymbol, s1Symbol, n1, dn});
 
-    auto debugQNopeOut = CreateConstantDynamicOutputTensor<T>(qNopeShape, dType, "debugQNopeOut", 0, {bSymbol * s1Symbol, n1, dn});
-    auto debugQRopeOut = CreateConstantDynamicOutputTensor<T>(qRopeShape, dType, "debugQRopeOut", 0, {bSymbol * s1Symbol, n1, dr});
-    auto debugRmsNormOut = CreateConstantDynamicOutputTensor<int8_t>(rmsNormShape, DT_INT8, "debugRmsNormOut", 1, {bSymbol * s1Symbol, qLoraRank});
-    auto debugRmsNormScaleOut = CreateConstantDynamicOutputTensor<float>(rmsNormScaleShape, DT_FP32, "debugRmsNormScaleOut", 0, {bSymbol * s1Symbol, 1});
+    auto debugQNopeOut =
+        CreateConstantDynamicOutputTensor<T>(qNopeShape, dType, "debugQNopeOut", 0, {bSymbol * s1Symbol, n1, dn});
+    auto debugQRopeOut =
+        CreateConstantDynamicOutputTensor<T>(qRopeShape, dType, "debugQRopeOut", 0, {bSymbol * s1Symbol, n1, dr});
+    auto debugRmsNormOut = CreateConstantDynamicOutputTensor<int8_t>(
+        rmsNormShape, DT_INT8, "debugRmsNormOut", 1, {bSymbol * s1Symbol, qLoraRank});
+    auto debugRmsNormScaleOut = CreateConstantDynamicOutputTensor<float>(
+        rmsNormScaleShape, DT_FP32, "debugRmsNormScaleOut", 0, {bSymbol * s1Symbol, 1});
 
-    auto debugQInt8Out = CreateConstantDynamicOutputTensor<int8_t>(qInt8Shape, DT_INT8, "debugQInt8Out", 0, {bSymbol * s1Symbol, idx_n_heads, idx_head_dim});
-    auto debugQScaleOut = CreateConstantDynamicOutputTensor<npu::tile_fwk::float16>(qScaleShape, DT_FP16, "debugQScaleOut", 0, {bSymbol * s1Symbol, idx_n_heads, 1});
-    auto debugWeightsOut = CreateConstantDynamicOutputTensor<npu::tile_fwk::float16>(weightsShape, DT_FP16, "debugWeightsOut", 0, {bSymbol * s1Symbol, params.idx_n_heads});
+    auto debugQInt8Out = CreateConstantDynamicOutputTensor<int8_t>(
+        qInt8Shape, DT_INT8, "debugQInt8Out", 0, {bSymbol * s1Symbol, idx_n_heads, idx_head_dim});
+    auto debugQScaleOut = CreateConstantDynamicOutputTensor<npu::tile_fwk::float16>(
+        qScaleShape, DT_FP16, "debugQScaleOut", 0, {bSymbol * s1Symbol, idx_n_heads, 1});
+    auto debugWeightsOut = CreateConstantDynamicOutputTensor<npu::tile_fwk::float16>(
+        weightsShape, DT_FP16, "debugWeightsOut", 0, {bSymbol * s1Symbol, params.idx_n_heads});
 
-    auto indexerTopkOut = CreateConstantDynamicOutputTensor<int32_t>(indexerTopkShape, DT_INT32, "indexerTopkOut", 0, {bSymbol, s1Symbol, n2, topk});
-    auto indexerTopkValueOut = CreateConstantDynamicOutputTensor<float>(indexerTopkShape, DT_FP32, "indexerTopkValueOut", 0, {bSymbol, s1Symbol, n2, topk});
-    auto indexerTopkTmpOut = CreateConstantDynamicOutputTensor<float>(indexerTopkTmpOutShape, DT_FP32, "indexerTopkTmpOut", 0, {bSymbol * s1Symbol * n2, maxBlockNumPerBatch * blockSize});
+    auto indexerTopkOut = CreateConstantDynamicOutputTensor<int32_t>(
+        indexerTopkShape, DT_INT32, "indexerTopkOut", 0, {bSymbol, s1Symbol, n2, topk});
+    auto indexerTopkValueOut = CreateConstantDynamicOutputTensor<float>(
+        indexerTopkShape, DT_FP32, "indexerTopkValueOut", 0, {bSymbol, s1Symbol, n2, topk});
+    auto indexerTopkTmpOut = CreateConstantDynamicOutputTensor<float>(
+        indexerTopkTmpOutShape, DT_FP32, "indexerTopkTmpOut", 0,
+        {bSymbol * s1Symbol * n2, maxBlockNumPerBatch * blockSize});
 
     // 4. golden
     auto qNopeGolden = GetGoldenVec<T>(qNopeShape, "/q_golden.bin");
@@ -196,19 +216,45 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     std::vector<RawTensorDataPtr> outputDataList = {
         dynamicSaOut.dataPtr,
 #if QUANT_DSIA_DEBUG == 1
-        debugQNopeOut.dataPtr, debugQRopeOut.dataPtr, debugRmsNormOut.dataPtr, debugRmsNormScaleOut.dataPtr,
-        debugQInt8Out.dataPtr, debugQScaleOut.dataPtr, debugWeightsOut.dataPtr,
-        indexerTopkOut.dataPtr, indexerTopkValueOut.dataPtr, indexerTopkTmpOut.dataPtr
+        debugQNopeOut.dataPtr,
+        debugQRopeOut.dataPtr,
+        debugRmsNormOut.dataPtr,
+        debugRmsNormScaleOut.dataPtr,
+        debugQInt8Out.dataPtr,
+        debugQScaleOut.dataPtr,
+        debugWeightsOut.dataPtr,
+        indexerTopkOut.dataPtr,
+        indexerTopkValueOut.dataPtr,
+        indexerTopkTmpOut.dataPtr
 #endif
     };
     std::vector<RawTensorDataPtr> inputDataList = {
-        dynamicX.dataPtr, wDq.dataPtr, wUqQr.dataPtr, wUk.dataPtr, wDkvKr.dataPtr,
-        gammaCq.dataPtr, gammaCkv.dataPtr, dynamicCos.dataPtr, dynamicSin.dataPtr, kvCache.dataPtr,
-        krCache.dataPtr, kScaleCache.dataPtr, dequantScaleWUqqr.dataPtr, wIdxQb.dataPtr, wIdxQbScale.dataPtr,
-        wIdxK.dataPtr, wIdxProj.dataPtr, layernormGammaK.dataPtr, layernormBetaK.dataPtr, hadamardQ.dataPtr,
-        hadamardK.dataPtr, idxKCache.dataPtr, idxKScaleCache.dataPtr, dynamicBlockTable.dataPtr,
-        dynamicCacheIndex.dataPtr, dynamicActualSeqLengthsKey.dataPtr
-    };
+        dynamicX.dataPtr,
+        wDq.dataPtr,
+        wUqQr.dataPtr,
+        wUk.dataPtr,
+        wDkvKr.dataPtr,
+        gammaCq.dataPtr,
+        gammaCkv.dataPtr,
+        dynamicCos.dataPtr,
+        dynamicSin.dataPtr,
+        kvCache.dataPtr,
+        krCache.dataPtr,
+        kScaleCache.dataPtr,
+        dequantScaleWUqqr.dataPtr,
+        wIdxQb.dataPtr,
+        wIdxQbScale.dataPtr,
+        wIdxK.dataPtr,
+        wIdxProj.dataPtr,
+        layernormGammaK.dataPtr,
+        layernormBetaK.dataPtr,
+        hadamardQ.dataPtr,
+        hadamardK.dataPtr,
+        idxKCache.dataPtr,
+        idxKScaleCache.dataPtr,
+        dynamicBlockTable.dataPtr,
+        dynamicCacheIndex.dataPtr,
+        dynamicActualSeqLengthsKey.dataPtr};
 
     DiaQuantAttr attrs;
     attrs.rmsnormEpsilonCq = params.eps;
@@ -219,19 +265,17 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     attrs.layeroutKey = layoutKey;
     attrs.layeroutQuery = "TND";
 
-    DeepSeekIndexerAttentionQuant(dynamicX.tensor, wDq.tensor, wUqQr.tensor, wUk.tensor, wDkvKr.tensor,
-                                  gammaCq.tensor, gammaCkv.tensor, dynamicCos.tensor, dynamicSin.tensor, dynamicCacheIndex.tensor,
-                                  kvCache.tensor, krCache.tensor, kScaleCache.tensor, dequantScaleWUqqr.tensor,
-                                  wIdxQb.tensor, wIdxQbScale.tensor, wIdxK.tensor, wIdxProj.tensor,
-                                  layernormGammaK.tensor, layernormBetaK.tensor, hadamardQ.tensor, hadamardK.tensor,
-                                  idxKCache.tensor, idxKScaleCache.tensor,
-                                  dynamicActualSeqLengthsKey.tensor, dynamicBlockTable.tensor,
-                                  dynamicSaOut.tensor, attrs, params,
-                                  // debug
-                                  debugQNopeOut.tensor, debugQRopeOut.tensor, debugRmsNormOut.tensor, debugRmsNormScaleOut.tensor,
-                                  debugQInt8Out.tensor, debugQScaleOut.tensor, debugWeightsOut.tensor,
-                                  indexerTopkOut.tensor, indexerTopkValueOut.tensor, indexerTopkTmpOut.tensor
-                                  );
+    DeepSeekIndexerAttentionQuant(
+        dynamicX.tensor, wDq.tensor, wUqQr.tensor, wUk.tensor, wDkvKr.tensor, gammaCq.tensor, gammaCkv.tensor,
+        dynamicCos.tensor, dynamicSin.tensor, dynamicCacheIndex.tensor, kvCache.tensor, krCache.tensor,
+        kScaleCache.tensor, dequantScaleWUqqr.tensor, wIdxQb.tensor, wIdxQbScale.tensor, wIdxK.tensor, wIdxProj.tensor,
+        layernormGammaK.tensor, layernormBetaK.tensor, hadamardQ.tensor, hadamardK.tensor, idxKCache.tensor,
+        idxKScaleCache.tensor, dynamicActualSeqLengthsKey.tensor, dynamicBlockTable.tensor, dynamicSaOut.tensor, attrs,
+        params,
+        // debug
+        debugQNopeOut.tensor, debugQRopeOut.tensor, debugRmsNormOut.tensor, debugRmsNormScaleOut.tensor,
+        debugQInt8Out.tensor, debugQScaleOut.tensor, debugWeightsOut.tensor, indexerTopkOut.tensor,
+        indexerTopkValueOut.tensor, indexerTopkTmpOut.tensor);
 
     // MlaProlog
     uint64_t queryNopeOutBuffer = b * s1 * n1 * dn * BytesOf(dType);
@@ -242,11 +286,10 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     uint64_t qInt8OutBuffer = b * s1 * idx_n_heads * idx_head_dim * BytesOf(DT_INT8);
     uint64_t qScaleOutBuffer = b * s1 * idx_n_heads * BytesOf(DT_FP16);
     uint64_t weightOutBuffer = b * s1 * idx_n_heads * BytesOf(DT_FP16);
-    auto totalBuffer =
-        queryNopeOutBuffer + queryRopeOutBuffer + qNormResBuffer + qNormScaleResBuffer +
-        qInt8OutBuffer + qScaleOutBuffer + weightOutBuffer;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList,
-                       DeviceLauncherConfig(totalBuffer));
+    auto totalBuffer = queryNopeOutBuffer + queryRopeOutBuffer + qNormResBuffer + qNormScaleResBuffer + qInt8OutBuffer +
+                       qScaleOutBuffer + weightOutBuffer;
+    DevFuncRunner::Run(
+        Program::GetInstance().GetLastFunction(), inputDataList, outputDataList, DeviceLauncherConfig(totalBuffer));
 
     // mla prolog debug output
 #if QUANT_DSIA_DEBUG == 1
@@ -271,7 +314,8 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
     std::cout << "qInt8Golden ====== " << std::endl;
     EXPECT_TRUE(resultCmpAbsDelta(qInt8Golden, (int8_t*)debugQInt8Out.dataPtr->data(), 1.0f, 0));
     std::cout << "qScaleGolden ====== " << std::endl;
-    EXPECT_TRUE(resultCmp(qScaleGolden, (npu::tile_fwk::float16*)debugQScaleOut.dataPtr->data(), 0.0005f, 0, 1000, false, true));
+    EXPECT_TRUE(resultCmp(
+        qScaleGolden, (npu::tile_fwk::float16*)debugQScaleOut.dataPtr->data(), 0.0005f, 0, 1000, false, true));
     std::cout << "weightsGolden ====== " << std::endl;
     EXPECT_TRUE(resultCmp(weightsGolden, (npu::tile_fwk::float16*)debugWeightsOut.dataPtr->data(), 0.0005f, 0, 1000));
 #endif
@@ -283,18 +327,20 @@ void TestDeepSeekIndexerAttentionQuantSTest(DSIASimpleParams &params) {
 #if QUANT_DSIA_DEBUG == 1
     // indexer topk debug output
     // std::cout << "indexerTopkTmpOut result ====== " << std::endl;
-    // EXPECT_TRUE(resultCmp(indexerTopkTmpOutGolden, (float *)indexerTopkTmpOut.dataPtr->data(), 0.01f, 0, 1000, true));
+    // EXPECT_TRUE(resultCmp(indexerTopkTmpOutGolden, (float *)indexerTopkTmpOut.dataPtr->data(), 0.01f, 0, 1000,
+    // true));
     std::cout << "indexerTopkValue result ====== " << std::endl;
-    EXPECT_TRUE(resultCmp(indexerTopkValueGolden, (float *)indexerTopkValueOut.dataPtr->data(), 0.05f, 0, 1000, false));
+    EXPECT_TRUE(resultCmp(indexerTopkValueGolden, (float*)indexerTopkValueOut.dataPtr->data(), 0.05f, 0, 1000, false));
     std::cout << "indexerTopkRes result ====== " << std::endl;
-    EXPECT_TRUE(resultCmp4TopK(indexerTopkResGolden, (int32_t *)indexerTopkOut.dataPtr->data(), topk, 0.0005f));
+    EXPECT_TRUE(resultCmp4TopK(indexerTopkResGolden, (int32_t*)indexerTopkOut.dataPtr->data(), topk, 0.0005f));
     // EXPECT_TRUE(resultCmp(indexerTopkResGolden, (int32_t *)indexerTopkOut.dataPtr->data(), 0.0005f, 0, 1000, true));
 #endif
     std::cout << "selectAtten result ====== " << std::endl;
-    EXPECT_TRUE(resultCmp(saOutResultGolden, (T *)dynamicSaOut.dataPtr->data(), 0.005f, 0, 1000));
+    EXPECT_TRUE(resultCmp(saOutResultGolden, (T*)dynamicSaOut.dataPtr->data(), 0.005f, 0, 1000));
 }
 
-void test_common(DSIASimpleParams params) {
+void test_common(DSIASimpleParams params)
+{
     int paramsSize = 6;
     std::vector<int> inputParams(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", inputParams); // 在golden中保存了变化的参数，便于调试
@@ -318,14 +364,14 @@ void test_common(DSIASimpleParams params) {
     indexerTile.addsTile = {1, 1, 1, 4096};
 
     SaTileShapeConfig saTileConfig;
-    const int gTile = 128; // for gLoop split
+    const int gTile = 128;  // for gLoop split
     const int sTile = 2048; // for s2Loop split
     saTileConfig.gTile = gTile;
     saTileConfig.sKvTile = sTile;
     saTileConfig.c1TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, dn+dr) @ (s2Tile, dn+dr) -> (n1, s2Tile)
-    saTileConfig.v1TileShape = {8, 2048}; // (n1, s2Tile)
+    saTileConfig.v1TileShape = {8, 2048};                          // (n1, s2Tile)
     saTileConfig.c2TileShape = {gTile, gTile, 128, 128, 128, 128}; // (n1, s2Tile) @ (s2Tile, dn) -> (n1, d)
-    saTileConfig.v2TileShape = {64, 128}; // (n1, d)
+    saTileConfig.v2TileShape = {64, 128};                          // (n1, d)
 
     params.mlaTileCfg = prologConfig;
     params.indexTileCfg = indexerTile;
@@ -334,17 +380,20 @@ void test_common(DSIASimpleParams params) {
     TestDeepSeekIndexerAttentionQuantSTest(params);
 }
 
-TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp) {
+TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp)
+{
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common(params);
 }
 
-TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp_perf) {
+TEST_F(DeepSeekIndexerAttentionQuantSTest, 4B_mtp_perf)
+{
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common(params);
 }
 
-TEST_F(DeepSeekIndexerAttentionQuantSTest, 32B) {
+TEST_F(DeepSeekIndexerAttentionQuantSTest, 32B)
+{
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     test_common(params);
 }

@@ -282,9 +282,9 @@ class LivenessAnalyzer(ast.NodeVisitor):
 
     def _record_var_use(self, var_name: str):
         """Record a variable use at the current statement.
-        
+
         Use Python function-level scoping semantics, uniformly use current statement ID
-        to record variable usage. Variable deletion timing is determined by 
+        to record variable usage. Variable deletion timing is determined by
         _compute_deletion_points based on the last use location.
         """
         if self.current_stmt_id is not None:

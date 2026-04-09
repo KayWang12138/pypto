@@ -74,7 +74,8 @@ public:
      * \param span Source location
      */
     AssignStmt(VarPtr var, ExprPtr value, Span span)
-        : Stmt(std::move(span)), var_(std::move(var)), value_(std::move(value)) {}
+        : Stmt(std::move(span)), var_(std::move(var)), value_(std::move(value))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::AssignStmt; }
     [[nodiscard]] std::string TypeName() const override { return "AssignStmt"; }
@@ -84,10 +85,12 @@ public:
      *
      * \return Tuple of field descriptors (var and value as DEF and USUAL fields)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
-            Stmt::GetFieldDescriptors(), std::make_tuple(reflection::DefField(&AssignStmt::var_, "var"),
-                                             reflection::UsualField(&AssignStmt::value_, "value")));
+            Stmt::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::DefField(&AssignStmt::var_, "var"), reflection::UsualField(&AssignStmt::value_, "value")));
     }
 };
 
@@ -116,7 +119,8 @@ public:
           condition_(std::move(condition)),
           thenBody_(std::move(thenBody)),
           elseBody_(std::move(elseBody)),
-          returnVars_(std::move(returnVars)) {}
+          returnVars_(std::move(returnVars))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::IfStmt; }
     [[nodiscard]] std::string TypeName() const override { return "IfStmt"; }
@@ -126,9 +130,11 @@ public:
      *
      * \return Tuple of field descriptors (condition, then_body, else_body as USUAL fields)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
-            Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&IfStmt::condition_, "condition"),
+            Stmt::GetFieldDescriptors(), std::make_tuple(
+                                             reflection::UsualField(&IfStmt::condition_, "condition"),
                                              reflection::UsualField(&IfStmt::thenBody_, "then_body"),
                                              reflection::UsualField(&IfStmt::elseBody_, "else_body"),
                                              reflection::DefField(&IfStmt::returnVars_, "return_vars")));
@@ -174,7 +180,8 @@ public:
      *
      * \return Tuple of field descriptors (value as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&YieldStmt::value_, "value")));
     }
@@ -216,7 +223,8 @@ public:
      *
      * \return Tuple of field descriptors (value as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ReturnStmt::value_, "value")));
     }
@@ -261,7 +269,8 @@ public:
      * \param returnVars Return variables (capture final values, accessible after loop)
      * \param span Source location
      */
-    ForStmt(VarPtr loopVar, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iterArgs, StmtPtr body,
+    ForStmt(
+        VarPtr loopVar, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iterArgs, StmtPtr body,
         std::vector<VarPtr> returnVars, Span span)
         : Stmt(std::move(span)),
           loopVar_(std::move(loopVar)),
@@ -270,7 +279,8 @@ public:
           step_(std::move(step)),
           iterArgs_(std::move(iterArgs)),
           body_(std::move(body)),
-          returnVars_(std::move(returnVars)) {}
+          returnVars_(std::move(returnVars))
+    {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ForStmt; }
     [[nodiscard]] std::string TypeName() const override { return "ForStmt"; }
@@ -280,12 +290,14 @@ public:
      *
      * \return Tuple of field descriptors (loop_var as DEF field, others as USUAL fields)
      */
-    static constexpr auto GetFieldDescriptors() {
-        return std::tuple_cat(Stmt::GetFieldDescriptors(),
-            std::make_tuple(reflection::DefField(&ForStmt::loopVar_, "loop_var"),
-                reflection::UsualField(&ForStmt::start_, "start"), reflection::UsualField(&ForStmt::stop_, "stop"),
-                reflection::UsualField(&ForStmt::step_, "step"), reflection::DefField(&ForStmt::iterArgs_, "iter_args"),
-                reflection::UsualField(&ForStmt::body_, "body"),
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            Stmt::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::DefField(&ForStmt::loopVar_, "loop_var"), reflection::UsualField(&ForStmt::start_, "start"),
+                reflection::UsualField(&ForStmt::stop_, "stop"), reflection::UsualField(&ForStmt::step_, "step"),
+                reflection::DefField(&ForStmt::iterArgs_, "iter_args"), reflection::UsualField(&ForStmt::body_, "body"),
                 reflection::DefField(&ForStmt::returnVars_, "return_vars")));
     }
 
@@ -325,7 +337,8 @@ public:
      *
      * \return Tuple of field descriptors (stmts as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&SeqStmts::stmts_, "stmts")));
     }
@@ -364,7 +377,8 @@ public:
      *
      * \return Tuple of field descriptors (stmts as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&OpStmts::stmts_, "stmts")));
     }
@@ -401,7 +415,8 @@ public:
      *
      * \return Tuple of field descriptors (expr as USUAL field)
      */
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::tuple_cat(
             Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&EvalStmt::expr_, "expr")));
     }

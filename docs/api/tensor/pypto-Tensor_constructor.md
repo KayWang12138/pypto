@@ -14,13 +14,13 @@
 ## 函数原型
 
 ```python
-__init__(self, 
-         shape=None, 
+__init__(self,
+         shape=None,
          dtype: Union[DataType, None] = None,
-         name: str = "", 
+         name: str = "",
          format: TileOpFormat = TileOpFormat.TILEOP_ND,
-         data_ptr: Optional[int] = None, 
-         device=None, 
+         data_ptr: Optional[int] = None,
+         device=None,
          ori_shape=None
 )
 ```
@@ -49,30 +49,29 @@ Tensor对象。
 ## 调用示例
 
 ```python
-# 创建空Tensor 
-empty_tensor = pypto.Tensor()  
+# 创建空Tensor
+empty_tensor = pypto.Tensor()
 
-# 创建指定形状和数据类型的Tensor 
-tensor1 = pypto.Tensor(shape=(4, 4), dtype=pypto.DT_FP32) 
-tensor2 = pypto.Tensor(shape=[8, 16, 32], dtype=pypto.DT_INT32)  
+# 创建指定形状和数据类型的Tensor
+tensor1 = pypto.Tensor(shape=(4, 4), dtype=pypto.DT_FP32)
+tensor2 = pypto.Tensor(shape=[8, 16, 32], dtype=pypto.DT_INT32)
 
-# 创建带名称的Tensor 
-named_tensor = pypto.Tensor(shape=(4, 4),      
-                            dtype=pypto.DT_FP32,      
-                            name="input_tensor" )  
+# 创建带名称的Tensor
+named_tensor = pypto.Tensor(shape=(4, 4),
+                            dtype=pypto.DT_FP32,
+                            name="input_tensor" )
 
-# 创建指定格式的Tensor 
-sparse_tensor = pypto.Tensor(shape=(4, 32),      
-                             dtype=pypto.DT_FP32,       
-                             format=pypto.TileOpFormat.TILEOP_NZ )  
+# 创建指定格式的Tensor
+sparse_tensor = pypto.Tensor(shape=(4, 32),
+                             dtype=pypto.DT_FP32,
+                             format=pypto.TileOpFormat.TILEOP_NZ )
 
-# 创建动态Shape的Tensor（使用符号化标量） 
-dynamic_shape = [pypto.SymbolicScalar("N"), 4, 8] 
-dynamic_tensor = pypto.Tensor(shape=dynamic_shape,      
-                              dtype=pypto.DT_FP32 )  
+# 创建动态Shape的Tensor（使用符号化标量）
+dynamic_shape = [pypto.SymbolicScalar("N"), 4, 8]
+dynamic_tensor = pypto.Tensor(shape=dynamic_shape,
+                              dtype=pypto.DT_FP32 )
 
-# 使用 pypto.tensor 便捷函数创建（推荐方式） 
-tensor3 = pypto.tensor((4, 4), pypto.DT_FP32) 
+# 使用 pypto.tensor 便捷函数创建（推荐方式）
+tensor3 = pypto.tensor((4, 4), pypto.DT_FP32)
 tensor4 = pypto.tensor((4, 4), pypto.DT_FP32, name="my_tensor")
 ```
-

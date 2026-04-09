@@ -34,7 +34,8 @@ class JsonOutputValidationTest : public testing::Test {
 protected:
     static std::string jsonFilePath;
 
-    static void SetUpTestCase() {
+    static void SetUpTestCase()
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -49,9 +50,7 @@ protected:
         Tensor input(DT_FP32, shape, "input");
         Tensor output(DT_FP32, shape, "output");
         config::SetSemanticLabel("AddFunction");
-        FUNCTION("AddFunction") {
-            output = Add(input, input);
-        }
+        FUNCTION("AddFunction") { output = Add(input, input); }
         auto folder = config::LogTopFolder() + "/test_json_dumo";
         CreateDir(folder);
         jsonFilePath = folder + "/test_json.json";
@@ -69,7 +68,8 @@ protected:
 
     void SetUp() override {}
 
-    json loadJsonFile() {
+    json loadJsonFile()
+    {
         std::ifstream f(jsonFilePath);
         if (!f.is_open()) {
             throw std::runtime_error("Failed to open file: " + jsonFilePath);
@@ -82,7 +82,8 @@ protected:
 
 std::string JsonOutputValidationTest::jsonFilePath;
 
-TEST_F(JsonOutputValidationTest, VerifyBasicStructure) {
+TEST_F(JsonOutputValidationTest, VerifyBasicStructure)
+{
     ASSERT_FALSE(jsonFilePath.empty()) << "No valid output directory found";
 
     json data;
@@ -93,7 +94,8 @@ TEST_F(JsonOutputValidationTest, VerifyBasicStructure) {
     EXPECT_TRUE(data["functions"].is_array()) << "Functions shoule be an array";
 }
 
-TEST_F(JsonOutputValidationTest, VerifyFunctionStructure) {
+TEST_F(JsonOutputValidationTest, VerifyFunctionStructure)
+{
     ASSERT_FALSE(jsonFilePath.empty()) << "No valid output directory found";
 
     json data = loadJsonFile();
@@ -120,7 +122,8 @@ TEST_F(JsonOutputValidationTest, VerifyFunctionStructure) {
     }
 }
 
-TEST_F(JsonOutputValidationTest, VerifyTensorStructure) {
+TEST_F(JsonOutputValidationTest, VerifyTensorStructure)
+{
     ASSERT_FALSE(jsonFilePath.empty()) << "No valid output directory found";
 
     json data = loadJsonFile();
@@ -144,7 +147,8 @@ TEST_F(JsonOutputValidationTest, VerifyTensorStructure) {
         if (func.contains("rawtensors") && func["rawtensors"].is_array()) {
             for (const auto& rawTensor : func["rawtensors"]) {
                 EXPECT_TRUE(rawTensor.contains(T_FIELD_KIND)) << "RawTensor missing kind field";
-                EXPECT_EQ(rawTensor[T_FIELD_KIND], static_cast<int>(Kind::T_KIND_RAW_TENSOR)) << "Incorrect raw tensor kind";
+                EXPECT_EQ(rawTensor[T_FIELD_KIND], static_cast<int>(Kind::T_KIND_RAW_TENSOR))
+                    << "Incorrect raw tensor kind";
                 EXPECT_TRUE(rawTensor.contains("datatype")) << "RawTensor missing datatype field";
                 EXPECT_TRUE(rawTensor.contains("rawshape")) << "RawTensor missing rawshape field";
                 EXPECT_TRUE(rawTensor.contains("rawmagic")) << "RawTensor missing rawmagic field";
@@ -157,7 +161,8 @@ TEST_F(JsonOutputValidationTest, VerifyTensorStructure) {
     }
 }
 
-TEST_F(JsonOutputValidationTest, VerifyOperationStructure) {
+TEST_F(JsonOutputValidationTest, VerifyOperationStructure)
+{
     ASSERT_FALSE(jsonFilePath.empty()) << "No valid output directory found";
 
     json data = loadJsonFile();

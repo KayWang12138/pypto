@@ -4,12 +4,17 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
 ## 功能说明
 
 创建一个大小为 `size`、填充值全为 `0` 的Tensor。其数据类型由 `dtype` 指定，默认数据类型为 `DT_FP32`。
+
+## 注意事项
+
+- **必须先设置 TileShape**：调用此接口前，必须先通过 [set_vec_tile_shapes](pypto-set_vec_tile_shapes.md) 设置 TileShape
 
 ## 函数原型
 
@@ -56,8 +61,8 @@ x2 = pypto.zeros((2, 3), dtype=pypto.DT_INT32)
 结果示例如下：
 
 ```python
-x1输出数据: [[0., 0., 0.], 
+x1输出数据: [[0., 0., 0.],
              [0., 0., 0.]]
-x2输出数据: [[0, 0, 0], 
+x2输出数据: [[0, 0, 0],
              [0, 0, 0]]
 ```

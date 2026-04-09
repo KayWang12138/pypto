@@ -19,7 +19,7 @@
 #include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
-using VerifyFunc = std::function<bool(const Operation &op, std::ostream &oss, const LogicalTensorPtr &tensor)>;
+using VerifyFunc = std::function<bool(const Operation& op, std::ostream& oss, const LogicalTensorPtr& tensor)>;
 
 constexpr uint32_t VERIFY_SHAPE_SIZE = 0x0001;
 constexpr uint32_t VERIFY_TAIL_ALIGN = 0x0002;
@@ -28,18 +28,15 @@ constexpr uint32_t VERIFY_SHAPE_SIZE_LAST_INPUT = 0x0008;
 
 // customize the check items of opcode
 // for example : {OP_XX, VERIFY_TAIL_ALIGN | VERIFY_FIX_AXIS}
-const std::unordered_map<Opcode, uint32_t> verify_cfg = {
-    {Opcode::OP_INDEX_PUT, VERIFY_SHAPE_SIZE_LAST_INPUT}
-};
+const std::unordered_map<Opcode, uint32_t> verify_cfg = {{Opcode::OP_INDEX_PUT, VERIFY_SHAPE_SIZE_LAST_INPUT}};
 
 const std::unordered_map<Opcode, std::string> axis_name_map = {
-    {Opcode::OP_EXPAND, "EXPANDDIM"},
-    {Opcode::OP_GATHER,      "axis"}
-};
+    {Opcode::OP_EXPAND, "EXPANDDIM"}, {Opcode::OP_GATHER, "axis"}};
 
 class TileShapeVerifier {
 public:
-    static bool Verify([[maybe_unused]] const Function &func, const Operation &op, std::ostream &oss) {
+    static bool Verify([[maybe_unused]] const Function& func, const Operation& op, std::ostream& oss)
+    {
         auto config = GetVerifyConfig(op.GetOpcode());
         if ((config & VERIFY_SHAPE_SIZE) && !RunVerifyFunc(op, oss, VerifyTileShapeSize)) {
             return false;
@@ -60,13 +57,16 @@ public:
     }
 
 private:
-    static bool RunVerifyFunc(const Operation &op, std::ostream &oss, const VerifyFunc &func) {
+    static bool RunVerifyFunc(const Operation& op, std::ostream& oss, const VerifyFunc& func)
+    {
         return func(op, oss, op.GetOOperands().front());
     }
-    static bool RunVerifyFuncLastInput(const Operation &op, std::ostream &oss, const VerifyFunc &func) {
+    static bool RunVerifyFuncLastInput(const Operation& op, std::ostream& oss, const VerifyFunc& func)
+    {
         return func(op, oss, op.GetIOperands().back());
     }
-    static bool VerifyTileShapeSize(const Operation &op, std::ostream &oss, const LogicalTensorPtr &tensor) {
+    static bool VerifyTileShapeSize(const Operation& op, std::ostream& oss, const LogicalTensorPtr& tensor)
+    {
         auto tile_size = op.GetTileShape().GetVecTile().size();
         auto shape_size = tensor->GetShape().size();
         if (tile_size < shape_size) {
@@ -76,7 +76,8 @@ private:
         return true;
     }
 
-    static bool VerifyTileShapeTailAxisAlign(const Operation &op, std::ostream &oss, const LogicalTensorPtr &tensor) {
+    static bool VerifyTileShapeTailAxisAlign(const Operation& op, std::ostream& oss, const LogicalTensorPtr& tensor)
+    {
         if (GetTensorMemoryType(op, tensor) != MemoryType::MEM_UB) {
             return true;
         }
@@ -89,7 +90,8 @@ private:
         return true;
     }
 
-    static bool VerifyTileShapeFixAxis(const Operation &op, std::ostream &oss, const LogicalTensorPtr &tensor) {
+    static bool VerifyTileShapeFixAxis(const Operation& op, std::ostream& oss, const LogicalTensorPtr& tensor)
+    {
         auto shape = tensor->GetShape();
         int64_t axis = op.GetIntAttribute(OP_ATTR_PREFIX + axis_name_map.at(op.GetOpcode()));
         axis = (axis == -1) ? (shape.size() - 1) : axis;
@@ -101,14 +103,16 @@ private:
         return true;
     }
 
-    static uint32_t GetVerifyConfig(const Opcode &opcode) {
+    static uint32_t GetVerifyConfig(const Opcode& opcode)
+    {
         if (verify_cfg.find(opcode) == verify_cfg.end()) {
             return VERIFY_SHAPE_SIZE;
         }
         return verify_cfg.at(opcode);
     }
 
-    static MemoryType GetTensorMemoryType(const Operation &op, const LogicalTensorPtr &tensor) {
+    static MemoryType GetTensorMemoryType(const Operation& op, const LogicalTensorPtr& tensor)
+    {
         auto index = op.GetOOperandIndex(tensor);
         if (index > 0) {
             return OpcodeManager::Inst().GetOutputsMemType(op.GetOpcode())[index];

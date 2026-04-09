@@ -20,7 +20,8 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore) {
+void GenGatedScoreComputePrefillPlus(const Tensor& x, const Tensor& gateW1, const Tensor& gateW2, Tensor& gatingScore)
+{
     DataType dType = x.GetStorage()->Datatype();
     int b = x.GetShape()[0];
     int s = x.GetShape()[1];
@@ -30,11 +31,13 @@ void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, cons
     int L = 64;
 
     SymbolicScalar bLoop = b / tileB;
-    
-    LOOP("LOOP_L0_bIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
+
+    LOOP("LOOP_L0_bIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1))
+    {
         SymbolicScalar block_num = s / L;
 
-        LOOP("LOOP_L1_sIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, block_Idx, LoopRange(0, block_num, 1)) {
+        LOOP("LOOP_L1_sIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, block_Idx, LoopRange(0, block_num, 1))
+        {
             SymbolicScalar bOfs = bIdx * tileB;
             SymbolicScalar blockStart = block_Idx * L;
 
@@ -60,7 +63,8 @@ void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, cons
     }
 }
 
-void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore) {
+void GenGatedScoreComputePrefill(const Tensor& x, const Tensor& gateW1, const Tensor& gateW2, Tensor& gatingScore)
+{
     DataType dType = x.GetStorage()->Datatype();
     int b = x.GetShape()[0];
     int s = x.GetShape()[1];
@@ -70,8 +74,10 @@ void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Te
     int tileS = s;
     SymbolicScalar bLoop = b / tileB;
     SymbolicScalar sLoop = s / tileS;
-    LOOP("LOOP_L0_bIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1)) {
-        LOOP("LOOP_L1_sIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1)) {
+    LOOP("LOOP_L0_bIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bLoop, 1))
+    {
+        LOOP("LOOP_L1_sIdx_gen_gated_score", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1))
+        {
             SymbolicScalar bOfs = bIdx * tileB;
             SymbolicScalar sOfs = sIdx * tileS;
 
@@ -97,10 +103,12 @@ void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Te
     }
 }
 
-void GenGatedScoreFuncPrefill(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore) {
-    FUNCTION("GENGATEDSCORE", {x, gateW1, gateW2}, {gatingScore}) {
+void GenGatedScoreFuncPrefill(const Tensor& x, const Tensor& gateW1, const Tensor& gateW2, Tensor& gatingScore)
+{
+    FUNCTION("GENGATEDSCORE", {x, gateW1, gateW2}, {gatingScore})
+    {
         GenGatedScoreComputePrefillPlus(x, gateW1, gateW2, gatingScore);
     }
 }
 
-} // namespace tile_fwk
+} // namespace npu::tile_fwk

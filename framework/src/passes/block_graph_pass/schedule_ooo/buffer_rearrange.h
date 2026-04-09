@@ -35,31 +35,33 @@ namespace tile_fwk {
 
 struct RearrangeScheme {
     size_t cost = INT_MAX;
-    size_t start;     //  整理区间起始地址
-    size_t end;       //  整理区间结束地址
-    std::vector<int> memIds;                     //  需要整理的内存id列表
+    size_t start;            //  整理区间起始地址
+    size_t end;              //  整理区间结束地址
+    std::vector<int> memIds; //  需要整理的内存id列表
     std::unordered_map<int, size_t> moveFrom;
     std::unordered_map<int, size_t> moveTo;
     std::unordered_map<int, size_t> memSizeMap;
     std::vector<std::pair<int, size_t>> orderedMoveTo;
 
-    void PrintScheme() {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Memory Rearange Scheme,  Span : [%lu, %lu], Cost : %lu", 
-            start, end, cost);
+    void PrintScheme()
+    {
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Memory Rearange Scheme,  Span : [%lu, %lu], Cost : %lu", start, end, cost);
         for (auto memId : memIds) {
             if (moveFrom[memId] != moveTo[memId]) {
-                APASS_LOG_DEBUG_F(Elements::Tensor, "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu, Move From %lu to %lu",
-                    memId, moveFrom[memId], moveFrom[memId] + memSizeMap[memId], memSizeMap[memId],
-                    moveFrom[memId], moveTo[memId]);
+                APASS_LOG_DEBUG_F(
+                    Elements::Tensor, "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu, Move From %lu to %lu",
+                    memId, moveFrom[memId], moveFrom[memId] + memSizeMap[memId], memSizeMap[memId], moveFrom[memId],
+                    moveTo[memId]);
             } else {
-                APASS_LOG_DEBUG_F(Elements::Tensor, "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu",
-                    memId, moveFrom[memId], moveFrom[memId] + memSizeMap[memId], memSizeMap[memId]);
+                APASS_LOG_DEBUG_F(
+                    Elements::Tensor, "    |--- MemId : %d, Ori Span : [%lu, %lu], Size : %lu", memId, moveFrom[memId],
+                    moveFrom[memId] + memSizeMap[memId], memSizeMap[memId]);
             }
         }
     }
 };
 
-RearrangeScheme GetRearrangeScheme(BufferPool &bufferManager, size_t sizeNeeded);
+RearrangeScheme GetRearrangeScheme(BufferPool& bufferManager, size_t sizeNeeded);
 } // namespace tile_fwk
 } // namespace npu
 

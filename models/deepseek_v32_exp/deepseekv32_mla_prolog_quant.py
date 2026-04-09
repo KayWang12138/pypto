@@ -182,7 +182,7 @@ def mla_prolog_quant_v32_compute(inputs):
         q_a_proj = torch.matmul(x_2d.to(torch.float32), w_dq.to(torch.float32))  # [b * s, q_lora_rank]
 
     q_a_proj = q_a_proj.to(torch.bfloat16)
-    
+
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
 
     # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]

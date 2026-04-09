@@ -26,15 +26,16 @@ namespace npu {
 namespace tile_fwk {
 class DuplicateOpChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
+
 private:
-    Status PreCheckGatherIn(const Operation &op);
-    Status ProcessPreCheck(const Operation &op);
-    Status PostCheckGatherIn(const Operation &op);
-    Status PostCheckView(const Operation &op);
-    Status ProcessPostCheck(const Operation &op);
+    Status PreCheckGatherIn(const Operation& op);
+    Status ProcessPreCheck(const Operation& op);
+    Status PostCheckGatherIn(const Operation& op);
+    Status PostCheckView(const Operation& op);
+    Status ProcessPostCheck(const Operation& op);
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // DUPLICATE_OP_CHECKER_H
+#endif // DUPLICATE_OP_CHECKER_H

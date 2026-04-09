@@ -15,7 +15,7 @@
   如果您在本项目中发现了某些Bug，希望对其进行修复，欢迎您新建Issue进行反馈和跟踪处理。
 
   您可以按照[提交Issue/处理Issue任务](https://gitcode.com/cann/community#提交Issue处理Issue任务)指引新建 `Bug-Report|缺陷反馈` 类Issue对Bug进行描述，然后在评论框中输入“/assign”或“/assign @yourself”，将该Issue分配给您进行处理。
-  
+
 - 代码优化
 
   如果您对本项目中某些API实现有泛化性增强/性能优化思路，希望着手实现这些优化点，欢迎您对API进行优化贡献。
@@ -28,7 +28,7 @@
   如果您在本项目中发现某些文档描述错误，欢迎您新建Issue进行反馈和修复。
 
   您可以按照[提交Issue/处理Issue任务](https://gitcode.com/cann/community#提交Issue处理Issue任务)指引新建 `Documentation|文档反馈` 类Issue指出对应文档的问题，然后在评论框中输入“/assign”或“/assign @yourself”，将该Issue分配给您纠正对应文档描述。
-  
+
 - 帮助解决他人Issue
 
   如果社区中他人遇到的问题您有合适的解决方法，欢迎您在Issue中发表评论交流，帮助他人解决问题和痛点，共同优化易用性。

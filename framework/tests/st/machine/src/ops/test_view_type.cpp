@@ -24,7 +24,8 @@ using namespace npu::tile_fwk;
 class ViewType : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName)
+{
     auto shape = tensor.GetShape();
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> values(capacity, 0);
@@ -33,16 +34,17 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
 }
 
 template <typename T>
-static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> GetGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-template<typename InputT, typename OutputT>
-void ViewTypeEntry(const std::vector<int64_t>& mkn) {
-
+template <typename InputT, typename OutputT>
+void ViewTypeEntry(const std::vector<int64_t>& mkn)
+{
     int64_t m = mkn[0];
     int64_t k = mkn[1];
     int64_t n = mkn[2];
@@ -65,18 +67,18 @@ void ViewTypeEntry(const std::vector<int64_t>& mkn) {
     std::vector<RawTensorDataPtr> inputDataList = {xData};
     std::vector<RawTensorDataPtr> outputDataList = {resultData};
 
-    ViewTypeFunc(x, result, dstDtype);  
+    ViewTypeFunc(x, result, dstDtype);
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "====== result ======" << std::endl;
-    EXPECT_TRUE(resultCmp<OutputT>(goldenData, (OutputT *)resultData->data(), 0.005f));
+    EXPECT_TRUE(resultCmp<OutputT>(goldenData, (OutputT*)resultData->data(), 0.005f));
 #endif
 }
 
-template<typename InputT, typename OutputT>
-void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn) {
-
+template <typename InputT, typename OutputT>
+void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn)
+{
     int64_t m = mkn[0];
     int64_t k = mkn[1];
     int64_t n = mkn[2];
@@ -103,13 +105,13 @@ void ViewTypeQuantTestEntry(const std::vector<int64_t>& mkn) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "====== result ======" << std::endl;
-    EXPECT_TRUE(resultCmp<OutputT>(goldenData, (OutputT *)resultData->data(), 0.005f));
+    EXPECT_TRUE(resultCmp<OutputT>(goldenData, (OutputT*)resultData->data(), 0.005f));
 #endif
 }
 
-template<typename InputT, typename OutputT>
-void ViewTypeDequantTestEntry(const std::vector<int64_t>& mkn) {
-
+template <typename InputT, typename OutputT>
+void ViewTypeDequantTestEntry(const std::vector<int64_t>& mkn)
+{
     int64_t m = mkn[0];
     int64_t k = mkn[1];
     int64_t n = mkn[2];
@@ -136,66 +138,78 @@ void ViewTypeDequantTestEntry(const std::vector<int64_t>& mkn) {
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "====== result ======" << std::endl;
-    EXPECT_TRUE(resultCmp<OutputT>(goldenData, (OutputT *)resultData->data(), 0.005f));
+    EXPECT_TRUE(resultCmp<OutputT>(goldenData, (OutputT*)resultData->data(), 0.005f));
 #endif
 }
 
-TEST_F(ViewType, int8_2_float32) {
+TEST_F(ViewType, int8_2_float32)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<int8_t, float>(mkn);
 }
 
-TEST_F(ViewType, int8_2_bfloat16) {
+TEST_F(ViewType, int8_2_bfloat16)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<int8_t, bfloat16>(mkn);
 }
 
-TEST_F(ViewType, int8_2_float16) {
+TEST_F(ViewType, int8_2_float16)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<int8_t, float16>(mkn);
 }
 
-TEST_F(ViewType, float32_2_int8) {
+TEST_F(ViewType, float32_2_int8)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<float, int8_t>(mkn);
 }
 
-TEST_F(ViewType, bfloat16_2_int8) {
+TEST_F(ViewType, bfloat16_2_int8)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<bfloat16, int8_t>(mkn);
 }
 
-TEST_F(ViewType, float16_2_int8) {
+TEST_F(ViewType, float16_2_int8)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<float16, int8_t>(mkn);
 }
 
-TEST_F(ViewType, float16_2_float32) {
+TEST_F(ViewType, float16_2_float32)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<float16, float>(mkn);
 }
 
-TEST_F(ViewType, float32_2_float16) {
+TEST_F(ViewType, float32_2_float16)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<float, float16>(mkn);
 }
 
-TEST_F(ViewType, bfloat16_2_float32) {
+TEST_F(ViewType, bfloat16_2_float32)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<bfloat16, float>(mkn);
 }
 
-TEST_F(ViewType, float32_2_bfloat16) {
+TEST_F(ViewType, float32_2_bfloat16)
+{
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<float, bfloat16>(mkn);
 }
 
-TEST_F(ViewType, quant_test_bf16_2_int8) {
+TEST_F(ViewType, quant_test_bf16_2_int8)
+{
     std::vector<int64_t> mkn = {64, 1, 512};
     ViewTypeQuantTestEntry<bfloat16, int8_t>(mkn);
 }
 
-TEST_F(ViewType, dequant_test_bf16_2_int8) {
+TEST_F(ViewType, dequant_test_bf16_2_int8)
+{
     std::vector<int64_t> mkn = {2048, 1, 656};
     ViewTypeDequantTestEntry<int8_t, bfloat16>(mkn);
 }

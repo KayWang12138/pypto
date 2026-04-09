@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -32,7 +33,7 @@ cos(input: Tensor) -> Tensor
 
 ```python
 x = pypto.tensor([4], pypto.DT_FP32)
-y = pypto.cos(x) 
+y = pypto.cos(x)
 ```
 
 结果示例如下：
@@ -41,4 +42,3 @@ y = pypto.cos(x)
 输入数据x: [0.0000, 0.7854, 1.5708, 2.3562]
 输出数据y: [1.0000, 0.7071, 0.0000, -0.7071]
 ```
-

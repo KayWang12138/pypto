@@ -26,7 +26,8 @@ struct TopKParams {
     bool isLargest;
 };
 
-void TopKOnBoardFunc(TopKParams& params){
+void TopKOnBoardFunc(TopKParams& params)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int32_t shape0 = params.shape0;
@@ -38,18 +39,21 @@ void TopKOnBoardFunc(TopKParams& params){
     uint64_t outputSize = shape0 * k * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     uint8_t* out_ptr1 = allocDevAddr(outputSize);
-    PROGRAM("TOPK") {
+    PROGRAM("TOPK")
+    {
         std::vector<int64_t> input_shape = {shape0, shape1};
         std::vector<int64_t> output_shape = {shape0, k};
 
-        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputSize);
+        void* x_ptr = readToDev(GetGoldenDir() + "/x.bin", inputSize);
         TileShape::Current().SetVecTile({shape0, shape1});
-        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t *)x_ptr, "A");
-        auto output = std::make_tuple(Tensor(DataType::DT_FP32, output_shape, out_ptr, "npu_val"),
-                                      Tensor(DataType::DT_FP32, output_shape, out_ptr1, "resDics"));
+        Tensor input_a(DataType::DT_FP32, input_shape, (uint8_t*)x_ptr, "A");
+        auto output = std::make_tuple(
+            Tensor(DataType::DT_FP32, output_shape, out_ptr, "npu_val"),
+            Tensor(DataType::DT_FP32, output_shape, out_ptr1, "resDics"));
 
         config::SetBuildStatic(true);
-        FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)}) {
+        FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)})
+        {
             output = TopK(input_a, k, -1, isLargest);
         }
     }
@@ -59,8 +63,8 @@ void TopKOnBoardFunc(TopKParams& params){
     std::vector<int32_t> golden_idx(shape0 * k);
     std::vector<float> dev_val(shape0 * k);
     std::vector<int32_t> dev_idx(shape0 * k);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_val.data(), (uint8_t *)out_ptr, outputSize);
-    machine::GetRA()->CopyFromTensor((uint8_t *)dev_idx.data(), (uint8_t *)out_ptr1, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_val.data(), (uint8_t*)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)dev_idx.data(), (uint8_t*)out_ptr1, outputSize);
 
     readInput(GetGoldenDir() + "/val.bin", golden_val);
     readInput(GetGoldenDir() + "/idx.bin", golden_idx);
@@ -71,7 +75,8 @@ void TopKOnBoardFunc(TopKParams& params){
     EXPECT_EQ(ret_idx, true);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_128_32_32_topk) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_128_32_32_topk)
+{
     TopKParams params;
     params.shape0 = 128;
     params.shape1 = 32;
@@ -80,7 +85,8 @@ TEST_F(TopkOnBoardTest, test_operation_tensor_128_32_32_topk) {
     TopKOnBoardFunc(params);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_128_32_16_topk) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_128_32_16_topk)
+{
     TopKParams params;
     params.shape0 = 128;
     params.shape1 = 32;
@@ -89,7 +95,8 @@ TEST_F(TopkOnBoardTest, test_operation_tensor_128_32_16_topk) {
     TopKOnBoardFunc(params);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_4_32_8_topk) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_4_32_8_topk)
+{
     TopKParams params;
     params.shape0 = 4;
     params.shape1 = 32;
@@ -98,7 +105,8 @@ TEST_F(TopkOnBoardTest, test_operation_tensor_4_32_8_topk) {
     TopKOnBoardFunc(params);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_2_16_8_topk) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_2_16_8_topk)
+{
     TopKParams params;
     params.shape0 = 2;
     params.shape1 = 16;
@@ -107,7 +115,8 @@ TEST_F(TopkOnBoardTest, test_operation_tensor_2_16_8_topk) {
     TopKOnBoardFunc(params);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_2_8_4_topk) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_2_8_4_topk)
+{
     TopKParams params;
     params.shape0 = 2;
     params.shape1 = 8;
@@ -116,7 +125,8 @@ TEST_F(TopkOnBoardTest, test_operation_tensor_2_8_4_topk) {
     TopKOnBoardFunc(params);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_1_8_4_topk) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_1_8_4_topk)
+{
     TopKParams params;
     params.shape0 = 1;
     params.shape1 = 8;
@@ -125,7 +135,8 @@ TEST_F(TopkOnBoardTest, test_operation_tensor_1_8_4_topk) {
     TopKOnBoardFunc(params);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_2_288_15_topk) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_2_288_15_topk)
+{
     TopKParams params;
     params.shape0 = 2;
     params.shape1 = 288;
@@ -134,7 +145,8 @@ TEST_F(TopkOnBoardTest, test_operation_tensor_2_288_15_topk) {
     TopKOnBoardFunc(params);
 }
 
-TEST_F(TopkOnBoardTest, test_operation_tensor_2_288_15_topk_reverse) {
+TEST_F(TopkOnBoardTest, test_operation_tensor_2_288_15_topk_reverse)
+{
     TopKParams params;
     params.shape0 = 2;
     params.shape1 = 288;

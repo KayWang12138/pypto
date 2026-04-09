@@ -42,4 +42,3 @@ loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymInt, int]]
 for _ in pypto.loop_unroll(0, 10, 1, name="LOOP_L0_bIdx_mla_prolog", idx_name="b_idx", unroll_list=[1, 2, 4]):
    ...
 ```
-

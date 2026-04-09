@@ -31,16 +31,17 @@ public:
     SymbolicScalar(int64_t value);
 
     /* Symbol type*/
-    SymbolicScalar(const std::string &name);
+    SymbolicScalar(const std::string& name);
     /* Symbol type with explicit value */
-    SymbolicScalar(const std::string &name, int64_t value);
+    SymbolicScalar(const std::string& name, int64_t value);
 
     SymbolicScalar() = default;
-    SymbolicScalar(const SymbolicScalar &val) = default;
-    SymbolicScalar &operator=(const SymbolicScalar &) = default;
+    SymbolicScalar(const SymbolicScalar& val) = default;
+    SymbolicScalar& operator=(const SymbolicScalar&) = default;
 
     bool ConcreteValid() const { return concreteValid_; }
-    int64_t Concrete() const {
+    int64_t Concrete() const
+    {
         ASSERT(concreteValid_) << "concrete value is not valid !";
         return concrete_;
     }
@@ -55,7 +56,8 @@ public:
     void AsIntermediateVariable();
     bool IsIntermediateVariable() const;
 
-    operator int() const {
+    operator int() const
+    {
         ASSERT(concreteValid_) << "concrete value is not valid for int() !";
         return concrete_;
     }
@@ -70,14 +72,16 @@ public:
 #undef SYMBOLIC_SCALAR_DEFINE_UOP
 
 #define SYMBOLIC_SCALAR_DEFINE_BOP(name, bop)                                                    \
-    SymbolicScalar name(const SymbolicScalar &sval) const;                                       \
+    SymbolicScalar name(const SymbolicScalar& sval) const;                                       \
     SymbolicScalar operator bop(const SymbolicScalar sval) const { return name(sval); }          \
     template <typename TyScalar, typename = std::enable_if_t<std::is_integral<TyScalar>::value>> \
-    SymbolicScalar operator bop(TyScalar immediate) const {                                      \
+    SymbolicScalar operator bop(TyScalar immediate) const                                        \
+    {                                                                                            \
         return name(SymbolicScalar(immediate));                                                  \
     }                                                                                            \
     template <typename TyScalar, typename = std::enable_if_t<std::is_integral<TyScalar>::value>> \
-    friend SymbolicScalar operator bop(TyScalar immediate, const SymbolicScalar sval) {          \
+    friend SymbolicScalar operator bop(TyScalar immediate, const SymbolicScalar sval)            \
+    {                                                                                            \
         return SymbolicScalar(immediate).name(sval);                                             \
     }
     SYMBOLIC_SCALAR_DEFINE_BOP(Add, +)
@@ -94,27 +98,29 @@ public:
     SYMBOLIC_SCALAR_DEFINE_BOP(Ge, >=)
 #undef SYMBOLIC_SCALAR_DEFINE_BOP
 
-    SymbolicScalar Min(const SymbolicScalar &sval) const;
-    SymbolicScalar Max(const SymbolicScalar &sval) const;
-    SymbolicScalar Ternary(const SymbolicScalar &sval1, const SymbolicScalar &sval2) const;
+    SymbolicScalar Min(const SymbolicScalar& sval) const;
+    SymbolicScalar Max(const SymbolicScalar& sval) const;
+    SymbolicScalar Ternary(const SymbolicScalar& sval1, const SymbolicScalar& sval2) const;
 
     std::string Dump() const;
 
     SymbolicScalar operator()() const;
-    SymbolicScalar operator()(const SymbolicScalar &arg0) const;
-    SymbolicScalar operator()(const SymbolicScalar &arg0, const SymbolicScalar &arg1) const;
-    SymbolicScalar operator()(const SymbolicScalar &arg0, const SymbolicScalar &arg1, const SymbolicScalar &arg2) const;
-    SymbolicScalar operator()(const SymbolicScalar &arg0, const SymbolicScalar &arg1, const SymbolicScalar &arg2,
-        const SymbolicScalar &arg3) const;
-    SymbolicScalar operator()(const SymbolicScalar &arg0, const SymbolicScalar &arg1, const SymbolicScalar &arg2,
-        const SymbolicScalar &arg3, const SymbolicScalar &arg4) const;
-    SymbolicScalar operator()(const std::vector<SymbolicScalar> &argList) const;
+    SymbolicScalar operator()(const SymbolicScalar& arg0) const;
+    SymbolicScalar operator()(const SymbolicScalar& arg0, const SymbolicScalar& arg1) const;
+    SymbolicScalar operator()(const SymbolicScalar& arg0, const SymbolicScalar& arg1, const SymbolicScalar& arg2) const;
+    SymbolicScalar operator()(
+        const SymbolicScalar& arg0, const SymbolicScalar& arg1, const SymbolicScalar& arg2,
+        const SymbolicScalar& arg3) const;
+    SymbolicScalar operator()(
+        const SymbolicScalar& arg0, const SymbolicScalar& arg1, const SymbolicScalar& arg2, const SymbolicScalar& arg3,
+        const SymbolicScalar& arg4) const;
+    SymbolicScalar operator()(const std::vector<SymbolicScalar>& argList) const;
 
-    friend std::ostream &operator<<(std::ostream &os, const SymbolicScalar &val) { return os << val.Dump(); }
+    friend std::ostream& operator<<(std::ostream& os, const SymbolicScalar& val) { return os << val.Dump(); }
 
 public:
-    static std::vector<int64_t> Concrete(const std::vector<SymbolicScalar> &scalarList, int64_t defValue);
-    static std::vector<SymbolicScalar> FromConcrete(const std::vector<int64_t> &values);
+    static std::vector<int64_t> Concrete(const std::vector<SymbolicScalar>& scalarList, int64_t defValue);
+    static std::vector<SymbolicScalar> FromConcrete(const std::vector<int64_t>& values);
 
 public:
     /* internal use */
@@ -138,28 +144,33 @@ private:
 } // namespace npu::tile_fwk
 
 namespace std {
-#define SYMBOLIC_SCALAR_DEFINE(name, bfn)                                                                          \
-    static inline npu::tile_fwk::SymbolicScalar bfn(const npu::tile_fwk::SymbolicScalar lhs, const npu::tile_fwk::SymbolicScalar rhs) { \
-        return lhs.name(rhs);                                                                                      \
-    }                                                                                                              \
-    template <typename TyScalar, typename = std::enable_if_t<std::is_integral<TyScalar>::value>>                   \
-    npu::tile_fwk::SymbolicScalar bfn(const npu::tile_fwk::SymbolicScalar sval, TyScalar immediate) {                            \
-        return sval.name(npu::tile_fwk::SymbolicScalar(immediate));                                                       \
-    }                                                                                                              \
-    template <typename TyScalar, typename = std::enable_if_t<std::is_integral<TyScalar>::value>>                   \
-    npu::tile_fwk::SymbolicScalar bfn(TyScalar immediate, const npu::tile_fwk::SymbolicScalar sval) {                            \
-        return npu::tile_fwk::SymbolicScalar(immediate).name(sval);                                                       \
+#define SYMBOLIC_SCALAR_DEFINE(name, bfn)                                                           \
+    static inline npu::tile_fwk::SymbolicScalar bfn(                                                \
+        const npu::tile_fwk::SymbolicScalar lhs, const npu::tile_fwk::SymbolicScalar rhs)           \
+    {                                                                                               \
+        return lhs.name(rhs);                                                                       \
+    }                                                                                               \
+    template <typename TyScalar, typename = std::enable_if_t<std::is_integral<TyScalar>::value>>    \
+    npu::tile_fwk::SymbolicScalar bfn(const npu::tile_fwk::SymbolicScalar sval, TyScalar immediate) \
+    {                                                                                               \
+        return sval.name(npu::tile_fwk::SymbolicScalar(immediate));                                 \
+    }                                                                                               \
+    template <typename TyScalar, typename = std::enable_if_t<std::is_integral<TyScalar>::value>>    \
+    npu::tile_fwk::SymbolicScalar bfn(TyScalar immediate, const npu::tile_fwk::SymbolicScalar sval) \
+    {                                                                                               \
+        return npu::tile_fwk::SymbolicScalar(immediate).name(sval);                                 \
     }
 SYMBOLIC_SCALAR_DEFINE(Min, min)
 SYMBOLIC_SCALAR_DEFINE(Max, max)
 #undef SYMBOLIC_SCALAR_DEFINE
 
-#define SYMBOLIC_SCALAR_DEFINE_TRI(name, bfn)                                                \
-static inline npu::tile_fwk::SymbolicScalar bfn(const npu::tile_fwk::SymbolicScalar cond,    \
-    const npu::tile_fwk::SymbolicScalar lhs,                                                 \
-    const npu::tile_fwk::SymbolicScalar rhs){                                                \
-    return cond.name(lhs,rhs);                                                               \
-}
+#define SYMBOLIC_SCALAR_DEFINE_TRI(name, bfn)                                              \
+    static inline npu::tile_fwk::SymbolicScalar bfn(                                       \
+        const npu::tile_fwk::SymbolicScalar cond, const npu::tile_fwk::SymbolicScalar lhs, \
+        const npu::tile_fwk::SymbolicScalar rhs)                                           \
+    {                                                                                      \
+        return cond.name(lhs, rhs);                                                        \
+    }
 SYMBOLIC_SCALAR_DEFINE_TRI(Ternary, ternary)
 #undef SYMBOLIC_SCALAR_DEFINE_TRI
 } // namespace std

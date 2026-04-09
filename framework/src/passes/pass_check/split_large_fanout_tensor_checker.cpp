@@ -20,20 +20,24 @@
 
 namespace npu {
 namespace tile_fwk {
-Status SplitLargeFanoutTensorChecker::DoPreCheck(Function &function) {
+Status SplitLargeFanoutTensorChecker::DoPreCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start Precheck for SplitLargeFanoutTensor.");
     if (CheckAssembleOverlap(function) == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Function, "Precheck of SplitLargeFanoutTensor failed since overlaps of assemble inputs.");
+        APASS_LOG_ERROR_F(
+            Elements::Function, "Precheck of SplitLargeFanoutTensor failed since overlaps of assemble inputs.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function, "End Precheck for SplitLargeFanoutTensor.");
     return SUCCESS;
 }
 
-Status SplitLargeFanoutTensorChecker::DoPostCheck(Function &function) {
+Status SplitLargeFanoutTensorChecker::DoPostCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "===> Start PostCheck for SplitLargeFanoutTensor.");
     if (CheckAssembleOverlap(function) == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Function, "PostCheck of SplitLargeFanoutTensor failed since overlaps of assemble inputs.");
+        APASS_LOG_ERROR_F(
+            Elements::Function, "PostCheck of SplitLargeFanoutTensor failed since overlaps of assemble inputs.");
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Function, "End PostCheck for SplitLargeFanoutTensor.");
