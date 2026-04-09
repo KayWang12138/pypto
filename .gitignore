@@ -31,6 +31,9 @@ tmp
 kernel_meta
 *.egg-info
 
+# Personal CLAUDE config
+.claude/CLAUDE.local.md
+
 # pip install -e 模式
 python/pypto/include/
 python/pypto/lib/

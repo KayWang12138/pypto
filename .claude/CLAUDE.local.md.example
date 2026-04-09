@@ -1,0 +1,15 @@
+# Machine-specific Configuration
+
+Copy this file to `CLAUDE.local.md` and fill in your paths.
+
+## Environment
+- Conda env: `<your-conda-env-name>`
+
+## Paths
+- Setup script: `<path-to-setup.sh>`
+- PTOAS repo: `<path-to-PTOAS-repo>/`
+- PTO ISA repo: `<path-to-pto-isa-repo>/`
+- LLVM MLIR: `<path-to-llvm-project>/`
+  - MLIR source: `mlir/`
+  - Python bindings: `build-shared/tools/mlir/python_packages/mlir_core/mlir`
+- Temp dir: `<path-to-temp-dir>/`

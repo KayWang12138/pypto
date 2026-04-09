@@ -9,9 +9,6 @@
 
 """NPU test: verify SoC specs are dynamically obtained from CANN runtime.
 
-Run prerequisite:
-    source ~/setup.sh
-
 Run:
     pytest tests/ut/frontend/test_soc_platform.py -v
 """

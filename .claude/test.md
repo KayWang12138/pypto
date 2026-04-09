@@ -98,7 +98,7 @@ reduce_dst_rm = plm.make_tile(..., shape=[1, 64], addr=ADDR)             # RowMa
 
 ## Compilation Flow
 ```bash
-source ~/setup.sh  # sets up environment
+source the setup script  # sets up environment
 python3 tests/ut/frontend/test_fa.py
 ```
 
