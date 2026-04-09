@@ -501,9 +501,10 @@ void AiCoreProf::ProgramPmuStartForCore(void* mapBase, int coreIdx, const PmuCtr
     *addrs.startCntCyc1Addr = 0x0;
     *addrs.stopCntCyc0Addr = 0xFFFFFFFF;
     *addrs.stopCntCyc1Addr = 0xFFFFFFFF;
-
+    ctrl0Val_ = *addrs.ctrl0Addr;
     *addrs.ctrl0Addr = cfg.ctrl0Val;
     if (cfg.ctrl1Offset != 0 && addrs.ctrl1Addr != nullptr) {
+        ctrl1Val_ = *addrs.ctrl1Addr;
         *addrs.ctrl1Addr = cfg.ctrl1Val;
     }
 }
@@ -535,6 +536,10 @@ void AiCoreProf::ProfStopPmu()
             memset_s(&pmuMsg_[coreIdx], pmuMsgSize_, 0, pmuMsgSize_);
         }
     });
+    *addrs.ctrl0Addr = ctrl0Val_;
+    if (archInfo_ == ArchInfo::DAV_3510) {
+        *addrs.ctrl1Addr = ctrl1Val_;
+    }
 }
 
 void AiCoreProf::ProfStopHandShake()
