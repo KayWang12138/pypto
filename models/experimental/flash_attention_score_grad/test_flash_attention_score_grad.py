@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flash_attention_score_grad_golden import (
     AttentionGradInputs, generate_forward_data,
     ForwardDataConfig, ForwardDataResult,
+    flash_attention_score_grad_golden,
 )
 from flash_attention_score_grad_impl import flash_attention_score_grad_wrapper
 
