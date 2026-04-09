@@ -933,9 +933,20 @@ def subsc(lhs: Tile, rhs: int | float | Expr | Scalar, rhs2: Tile, out: Tile) ->
     _op("manual.subsc", [lhs.unwrap(), _scalar_expr(rhs), rhs2.unwrap()], out)
 
 
-def sel(mask: Tile, lhs: Tile, rhs: Tile, out: Tile) -> None:
-    """Per-element selection: out[i] = lhs[i] if mask[i] else rhs[i]."""
-    _op("manual.sel", [mask.unwrap(), lhs.unwrap(), rhs.unwrap()], out)
+def sel(mask: Tile, lhs: Tile, rhs: Tile, tmp: Tile, out: Tile) -> None:
+    """Per-element selection: out[i] = lhs[i] if mask_bit[i] else rhs[i].
+    
+    Args:
+        mask: Predicate mask tile (INT8 type, bit-packed).
+            Each byte contains 8 bits for 8 consecutive elements.
+            bit k in byte j corresponds to element at column (j*8 + k).
+            bit=1: select lhs, bit=0: select rhs.
+        lhs: Value when mask bit is 1.
+        rhs: Value when mask bit is 0.
+        tmp: Temporary workspace tile.
+        out: Pre-allocated output tile; rebound on return.
+    """
+    _op("manual.sel", [mask.unwrap(), lhs.unwrap(), rhs.unwrap(), tmp.unwrap()], out)
 
 
 def sels(lhs: Tile, rhs: Tile, select_mode: int | float | Expr | Scalar, out: Tile) -> None:

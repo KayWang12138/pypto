@@ -73,11 +73,12 @@ static std::string GenerateInsOutsClause(const CallPtr& op, codegen::PTOCodegen&
     }
   }
 
+  // Insert config_attr inside ins(), after operands, before type annotation
   if (!config_attr.empty()) {
-    oss << config_attr;
+    oss << " " << config_attr;
   }
 
-  // Add type annotations after colon
+  // Add type annotations inside ins()
   std::string type_annot;
   for (size_t input_idx = 0; input_idx < args_num; ++input_idx) {
     std::string annot = codegen.GetExprTypeAnnotation(op->args_[input_idx]);
@@ -89,11 +90,12 @@ static std::string GenerateInsOutsClause(const CallPtr& op, codegen::PTOCodegen&
   if (!type_annot.empty()) {
     oss << " : " << type_annot;
   }
+  oss << ")";
 
   // Build outs clause with type annotation
   std::string result_target = codegen.GetCurrentResultTarget();
   std::string result_type = codegen.GetCurrentResultTileBufTypeString();
-  oss << ") outs(" << result_target;
+  oss << " outs(" << result_target;
   if (!result_type.empty()) {
     oss << " : " << result_type;
   }
