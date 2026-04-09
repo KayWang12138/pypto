@@ -815,4 +815,54 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestMutiConsumersBetweenCopyOutReshape)
     EXPECT_EQ(currFunctionPtr->Operations().size(), expSize);
 }
 
+// in - COPYIN - COPYOUT - RESHAPE - COPYIN - COPYOUT - out
+//                                 - COPYIN - COPYOUT - out
+
+// 因为搬运超过了UB限额，需要中断报错
+TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1OverUB)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopyOnL1OverUB", "TestCopyToReshapeCopyOnL1OverUB", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> inShapeOverUB = {2024, 32};
+    std::vector<int64_t> reshapeShapeOverUB = {1024, 64};
+    std::vector<int64_t> outShapeOverUB = {2024, 64};
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShapeOverUB);
+    auto copyinTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShapeOverUB);
+    copyinTensor1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    auto copyoutTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShapeOverUB);
+    copyoutTensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape1 = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
+    copyoutTensor1->UpdateDynValidShape(validShape1);
+    auto reshapeTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShapeOverUB);
+    reshapeTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    std::vector<SymbolicScalar> validShape2 = {SymbolicScalar("Input_1_Dim_0"), SymbolicScalar("Input_1_Dim_1")};
+    reshapeTensor->UpdateDynValidShape(validShape2);
+    auto copyinTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShapeOverUB);
+    copyinTensor2->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    auto copyinTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShapeOverUB);
+    copyinTensor3->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outShapeOverUB);
+    outcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyinTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor1}, {copyoutTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {copyoutTensor1}, {reshapeTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshapeTensor}, {copyinTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {reshapeTensor}, {copyinTensor3});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor3}, {outcast});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor2}, {outcast});
+
+
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+
+    RemoveUnalignedReshape removeUnalignedReshapeOpTest;
+    int curSize = currFunctionPtr->Operations().size();
+    EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), FAILED);
+    EXPECT_EQ(currFunctionPtr->Operations().size(), curSize);
+}
+
 
