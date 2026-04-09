@@ -927,37 +927,4 @@ Status OoOScheduler::Schedule(
     return SUCCESS;
 }
 
-// UpdateRemainOpBufId函数不能直接用
-Status OoOScheduler::UpdateMemId(int oldMemId, int newMemId)
-{
-    if (bufRefCount_.find(oldMemId) == bufRefCount_.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d]", oldMemId);
-        return FAILED;
-    }
-    bufRefCount_[newMemId] = 0;
-    for (auto &op : orderedOps) {
-        if (opIsRetiredMap[op]) {
-            continue;
-        }
-        auto& reqMemIds = GetOpMemIds(op);
-        for (auto& memId : reqMemIds) {
-            if (memId == oldMemId) {
-                memId = newMemId;
-                bufRefCount_[oldMemId] -= 1;
-                bufRefCount_[newMemId] += 1;
-            }
-        }
-        for (auto &outTensor : op->GetOOperands()) {
-            if (outTensor->memoryrange.memId == oldMemId) {
-                outTensor->memoryrange.memId = newMemId;
-            }
-        }
-    }
-    if (bufRefCount_[oldMemId] != 0) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "oldMemId %d bufRefCount is not 0, UpdateMemId failed.", oldMemId);
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
 } // namespace npu::tile_fwk
