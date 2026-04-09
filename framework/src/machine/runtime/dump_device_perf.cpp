@@ -211,7 +211,7 @@ inline MetricPerf GetAicpuPrefAddr(const DeviceArgs& args, const uint32_t& turnI
 inline void DumpAicpuDevTask(
     const DeviceArgs& args, json& aicpuPrefArray, const uint32_t& freq, const uint32_t& turnNum)
 {
-    for (uint32_t i = 0; i < args.nrAicpu - 1; i++) {
+    for (uint32_t i = 0; i < args.scheCpuNum + 1; i++) {
         json aicpu;
         std::string coreType = "AICPU";
         if (i == 0) {
