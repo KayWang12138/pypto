@@ -13,6 +13,7 @@ import argparse
 import json
 import logging
 import os
+import sys
 from pathlib import Path
 
 STATUS_PRIORITY = {"FAIL": 4, "WARN": 3, "PASS": 2, "SKIP": 1}
@@ -21,8 +22,16 @@ S0_VETO_CAP = 59.9
 
 
 def load_json(path):
-    with open(path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+    """Load JSON file with error handling."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        logging.error(f"File not found: {path}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        logging.error(f"Invalid JSON in {path}: {e}")
+        sys.exit(1)
 
 
 def normalize_status(value):
@@ -103,7 +112,7 @@ def score(rules_data, findings, skill_path):
         by_rule[rule_id] = merge_findings(by_rule[rule_id], merged)
 
     counts = {"PASS": 0, "FAIL": 0, "WARN": 0, "SKIP": 0}
-    deductions_by_dim = {f"D{i}": 0 for i in range(1, 10)}
+    deductions_by_dim = {f"D{i}": 0 for i in range(1, 11)}
     s0_veto = False
 
     for item in by_rule.values():
@@ -192,7 +201,11 @@ def main():
     result = score(rules_data, findings, args.skill_path)
 
     if args.out:
-        Path(args.out).write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        try:
+            Path(args.out).write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        except (OSError, IOError) as e:
+            logging.error(f"Failed to write output file {args.out}: {e}")
+            sys.exit(1)
     else:
         logging.info(json.dumps(result, indent=2, ensure_ascii=False))
 

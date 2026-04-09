@@ -1,6 +1,6 @@
 # 语义评审检查清单
 
-本检查清单定义了 22 条需要 LLM 判断的语义规则。对每条规则，都必须严格遵循检查要求、证据标准和判定标准。
+本检查清单定义了 26 条需要 LLM 判断的语义规则。对每条规则，都必须严格遵循检查要求、证据标准和判定标准。
 
 ## 输出格式
 
@@ -291,28 +291,7 @@
 
 ## D9 脚本与代码质量
 
-> **注意**：D9 维度下的静态规则（R39-R41）由 validate_skill.py 自动检查。当 `scripts/` 目录不存在时，这些规则自动标记为 SKIP，D9 维度获得满分。
-
-### R39 — Python 脚本语法有效（S2，静态）
-
-**判定**：
-- `PASS`：所有 `.py` 文件语法正确
-- `FAIL`：存在语法错误
-- `SKIP`：不存在 `scripts/` 目录
-
-### R40 — 脚本包含 shebang 行（S2，静态）
-
-**判定**：
-- `PASS`：所有脚本首行以 `#!` 开头
-- `FAIL`：脚本缺少 shebang
-- `SKIP`：不存在 `scripts/` 目录
-
-### R41 — 脚本路径可移植（S2，静态）
-
-**判定**：
-- `PASS`：脚本中无硬编码用户目录路径
-- `FAIL`：存在 `/home/`、`/Users/`、`/root/` 等路径
-- `SKIP`：不存在 `scripts/` 目录
+> **注意**：D9 维度下的静态规则（R39-R41）由 validate_skill.py 自动检查。当 `scripts/` 目录不存在时，这些规则自动标记为 SKIP，D9 维度获得满分。以下仅列出需要人工判断的语义规则。
 
 ### R42 — 脚本包含基础错误处理（S2）
 
@@ -329,6 +308,60 @@
 - `SKIP`：不存在 `scripts/` 目录
 
 
+
+---
+
+## D10 References 一致性
+
+> **注意**：D10 维度的规则用于检查目标 skill 的 `references/` 目录内容与 `docs/` 目录的一致性。当目标 skill 不存在 `references/` 目录时，这些规则自动标记为 SKIP，D10 维度获得满分。
+
+### R49 — references/ 目录内容应与 docs/ 保持一致性（S1）
+
+**检查**：`references/` 目录中的内容不得存在 P0 级别问题（事实性错误、代码错误、路径错误、API 不存在、直接矛盾）。
+
+**证据标准**：引用存在 P0 问题的内容片段，并说明与 docs/ 的矛盾之处。
+
+**判定**：
+- `PASS`：未发现 P0 级别问题
+- `FAIL`：存在至少一个 P0 级别问题
+- `SKIP`：不存在 `references/` 目录
+
+**示例**：
+- ✅ PASS：`"references/ 中的 API 描述与 docs/ 一致，无事实性错误"`
+- ❌ FAIL：`"references/rules.json 中声明的维度权重 D3=10%，但 scoring-spec.md 中为 5%，存在事实矛盾"`
+
+### R50 — references/ 中的路径应在正确的执行上下文中可访问（S2）
+
+**检查**：`references/` 中引用的文件路径应在 SKILL.md 定义的执行上下文（工作目录、环境变量、前置条件）中可访问。
+
+**证据标准**：引用路径引用，并说明在哪个执行上下文中无法访问。
+
+**判定**：
+- `PASS`：所有路径在执行上下文中可访问
+- `FAIL`：存在路径无法访问
+- `SKIP`：不存在 `references/` 目录
+
+### R51 — references/ 中引用的 API 应存在于 docs/ 或官方示例中（S2）
+
+**检查**：`references/` 中引用的 API 名称应在 `docs/` 目录或官方示例中存在。
+
+**证据标准**：引用 API 名称，并说明在 docs/ 中未找到该 API。
+
+**判定**：
+- `PASS`：所有 API 均存在
+- `FAIL`：存在不存在的 API
+- `SKIP`：不存在 `references/` 目录或未引用 API
+
+### R52 — references/ 中的术语应与 docs/tutorials/appendix/glossary.md 保持一致（S2）
+
+**检查**：`references/` 中使用的术语应与 `docs/tutorials/appendix/glossary.md` 中的定义一致。
+
+**证据标准**：引用术语及其在 glossary.md 中的定义，说明不一致之处。
+
+**判定**：
+- `PASS`：术语使用一致
+- `FAIL`：存在术语不一致
+- `SKIP`：不存在 `references/` 目录或 glossary.md
 
 ---
 

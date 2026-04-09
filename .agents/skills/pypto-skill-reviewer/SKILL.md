@@ -1,13 +1,11 @@
 ---
 name: pypto-skill-reviewer
-description:
-  对一个 skill 目录进行质量与最佳实践合规性评审并评分，同时检查 references 文件与 docs 目录的一致性。用于需要审计某个 skill、检查 skill 是否遵循规范、或在发布前评估 skill 的场景。
-  触发词：评审 skill、skill 质量、skill 审计、检查 references、references 一致性、skill 发布前检查。
+description: 对一个 skill 目录进行质量与最佳实践合规性评审并评分，同时检查 references 文件与 docs 目录的一致性。用于需要审计某个 skill、检查 skill 是否遵循规范、或在发布前评估 skill 的场景。触发词：评审 skill、skill 质量、skill 审计、检查 references、references 一致性、skill 发布前检查、whenever you need to evaluate skill quality or audit skill compliance、including any task related to skill validation or quality assessment。
 ---
 
 # PyPTO Skill Reviewer
 
-基于 9 个维度下的 48 条规则，对一个 skill 目录进行评审，并产出带有可执行修复建议的评分报告。
+基于 10 个维度下的 52 条规则，对一个 skill 目录进行评审，并产出带有可执行修复建议的评分报告。
 
 ## 输入
 
@@ -17,11 +15,10 @@ description:
 
 | File | Purpose | Load Timing |
 |------|---------|-------------|
-| [references/rules.json](references/rules.json) | 48 条规则、维度、权重和严重级别的唯一事实来源 | 在第 1 阶段和第 2 阶段开始时读取 |
+| [references/rules.json](references/rules.json) | 52 条规则、维度、权重和严重级别的唯一事实来源 | 在第 1 阶段和第 2 阶段开始时读取 |
 | [references/scoring-spec.md](references/scoring-spec.md) | 评分算法：维度权重、扣分公式、S0 否决、等级映射 | 在第 3 阶段开始时读取 |
-| [references/semantic-checklist.md](references/semantic-checklist.md) | 22 条语义规则的详细检查要求、证据标准和判定准则 | 在第 2 阶段开始时读取 |
+| [references/semantic-checklist.md](references/semantic-checklist.md) | 26 条语义规则的详细检查要求、证据标准和判定准则 | 在第 2 阶段开始时读取 |
 | [references/references-checklist.md](references/references-checklist.md) | References 一致性检查清单：文件基础、内容正确性、语义一致性检查项 | 在第 4 阶段开始时读取 |
-| [references/references-common-issues.md](references/references-common-issues.md) | 常见问题类型：P0/P1/P2 分类定义、识别方法、排除项示例 | 在第 4 阶段开始时读取 |
 | [scripts/validate_skill.py](scripts/validate_skill.py) | 对 26 条静态规则进行确定性静态检查，输出 JSON findings | 在第 1 阶段执行 |
 | [scripts/score_findings.py](scripts/score_findings.py) | 对合并后的 findings 执行确定性打分与覆盖率统计，输出 JSON score | 在第 3 阶段执行 |
 | [templates/report-template.md](templates/report-template.md) | 最终评审报告的 Markdown 模板 | 在第 3 阶段开始时读取 |
@@ -32,9 +29,9 @@ description:
 
 ### 第 1 阶段：静态检查
 
-1. 读取 [references/rules.json](references/rules.json) 以理解规则定义。
-2. 对目标 skill 运行静态检查器：
-   ```
+1. 读取 [references/rules.json](references/rules.json) 以理解规则定义，因为后续语义评审需识别哪些规则是 semantic 类型，且需从 rules.json 查询 rule_content 用于问题聚合。
+2. 对目标 skill 运行静态检查器，因为 26 条静态规则可通过脚本确定性检查，避免人工误判：
+   ```bash
    python3 scripts/validate_skill.py <skill-path>
    ```
 3. 捕获 JSON 输出 —— 一个 finding 对象数组 `findings_static`。
@@ -80,7 +77,7 @@ description:
 2. 读取 [templates/report-template.md](templates/report-template.md) 获取报告格式。
 3. 将第 1 阶段和第 2 阶段的所有 findings 合并为单一列表，并保存为 `findings_merged.json`。
 4. 对合并后的 findings 运行确定性评分脚本：
-   ```
+   ```bash
    python3 scripts/score_findings.py \
      --rules references/rules.json \
      --skill-path <skill-path> \
@@ -94,7 +91,7 @@ description:
    - `rule_content`：从 rules.json 中查询对应 rule_id 的 `rule` 字段内容
 6. 分数、等级、覆盖率、计数（pass/fail/warn/skip）必须使用 `score_result`，不得手工估算。
 7. 按维度计算分数时，以 `score_result.dimensions` 为唯一来源：
-   ```
+   ```python
    dimension_raw   = max(0, 100 - sum_of_FAIL_deductions)
    dimension_score = dimension_raw × weight
    ```
@@ -112,7 +109,7 @@ description:
 
 > **执行条件**：仅当目标 skill 存在 `references/` 目录时执行此阶段。若无该目录，报告中注明"无 references 目录，跳过一致性检查"。
 
-1. 读取 [references/references-checklist.md](references/references-checklist.md) 和 [references/references-common-issues.md](references/references-common-issues.md)。
+1. 读取 [references/references-checklist.md](references/references-checklist.md)
 2. 扫描目标 skill 的 `references/` 目录，获取所有文件列表。
 3. 对每个文件执行一致性检查：
    - **识别关键实体**：提取 API 名称、文件路径、参数、命令、代码示例等
@@ -152,7 +149,7 @@ description:
 
 1. **评审摘要** —— skill 名称、总分（0-100，保留两位小数）、等级（A/B/C/D/F）、S0 否决状态（是/否）、规则统计（pass/fail/warn/skip 计数）
 2. **维度评分表** —— 9 行（D1-D9），每行包含：原始分（0-100）、权重、加权分、扣分明细（列出每个 FAIL 的 rule_id 及其扣分值）
-3. **规则覆盖率** —— 静态计数 + 语义计数 = 总评估数，含按状态拆分（PASS/FAIL/SKIP），覆盖率百分比 = evaluated / 48 × 100%
+3. **规则覆盖率** —— 静态计数 + 语义计数 = 总评估数，含按状态拆分（PASS/FAIL/SKIP），覆盖率百分比 = evaluated / 52 × 100%
 4. **质量门禁** —— 被过滤项的数量与移除原因（internal_misbound / low_information_snippet）
 5. **问题列表** —— 按严重级别分组（S0 → S3），每个问题包含：
    - 引用目标 skill 具体内容的问题描述
@@ -179,7 +176,7 @@ description:
   (a) 核心 6 个章节全部存在，
   (b) 总分 = 各维度加权分之和（±0.01），
   (c) 每条 finding 的 evidence.snippet 都在目标文件中逐字存在，
-  (d) 覆盖率分母 = 48，
+  (d) 覆盖率分母 = 52，
   (e) 若存在 references 目录，第 7 章节必须存在。
 
 ## 错误处理
@@ -198,7 +195,7 @@ description:
 
 - 不要修改目标 skill 目录中的任何文件 —— 这是只读评审。
 - 不要伪造证据 —— 每个 snippet 都必须真实存在于目标文件中。
-- **`rules.json` 是 48 条规则的唯一事实来源**。禁止：
+- **`rules.json` 是 52 条规则的唯一事实来源**。禁止：
   - 发明 rules.json 未定义的规则
   - 修改 rules.json 中的严重级别或维度归属
   - 跳过任何规则 —— 若某规则无法检查，必须以 SKIP 标记并给出原因

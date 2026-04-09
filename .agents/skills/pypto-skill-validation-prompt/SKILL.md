@@ -1,5 +1,5 @@
 ---
-name: skill-validation-prompt
+name: pypto-skill-validation-prompt
 description: "为任意 skill 生成校验提示词（validation prompt）。当需要验证某个 skill 的实际执行效果——即它在真实场景下产出的制品是否符合自身声明的规范——时使用。本技能的输出是一份结构化的中文校验提示词文档，可交给 AI 代理独立执行，产出一份数据驱动的优化报告。适用场景：新 skill 上线前的质量把关、现有 skill 的定期审计、skill 修改后的回归验证。触发词：校验skill、验证skill、生成校验提示词、skill验证、审计skill、skill质量评估。"
 ---
 
@@ -82,7 +82,7 @@ description: "为任意 skill 生成校验提示词（validation prompt）。当
 | | pypto-skill-reviewer | 本 skill |
 |--|---------------------|---------|
 | 校验对象 | SKILL.md 文档质量 | Skill 实际执行效果 |
-| 方法 | 静态 + 语义（48 条规则） | 本地执行 + 远程比对 + 问题溯源 |
+| 方法 | 静态 + 语义（52 条规则） | 本地执行 + 远程比对 + 问题溯源 |
 | 输出 | 评分报告 | 校验提示词 |
 
 两者互补：reviewer 审文档，本 skill 审执行效果。
@@ -101,7 +101,7 @@ description: "为任意 skill 生成校验提示词（validation prompt）。当
 
 ### 阶段 1：深度分析目标 Skill
 
-**按优先级读取（存在则读取）**：
+**按优先级读取**：
 
 1. **SKILL.md** — 工作流、约束、输出格式（必须）
 2. **references/** — 参考文档、模板、规范（可选）
@@ -166,7 +166,7 @@ description: "为任意 skill 生成校验提示词（validation prompt）。当
 3. 校验步骤概览（Step 1 → Step 5）
 4. 远程操作清单（禁止 vs 允许）
 5. 提示词行数（确认 ≤80 行）
-6. 报告输出路径
+6. 提示词输出路径
 
 ## 场景适配
 
