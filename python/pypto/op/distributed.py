@@ -19,7 +19,7 @@ from pypto._utils import to_syms
 from pypto.enum import AtomicType, DataType, OpType
 from pypto.symbolic_scalar import SymbolicScalar
 from pypto.tensor import Tensor, ShmemTensor
-
+import numpy as np
 
 @op_wrapper
 def create_shmem_tensor(
@@ -495,3 +495,16 @@ def __normalize_pred(pred: Union[list[Tensor], None]) -> Tensor:
     if len(pred) == 1:
         return pred[0]
     return pypto_impl.Nop(pred)
+
+class HcclWin:
+    def __init__(self, group_name: str):
+        nbytes, ctx_addr = pypto_impl.GetCommContext(group_name)
+        self._win = pypto_impl.HcclWin(ctx_addr)
+    def read(self, win_type, dtype=np.float32, count: int = 0, offset: int = 0) -> np.ndarray:
+        np_dtype = np.dtype(dtype)
+        byte_size = np_dtype.itemsize
+        raw_bytes = self._win.get_win_value(win_type, byte_size, count, offset)
+        if byte_size == 1:
+            return raw_bytes.view(np_dtype)
+        aligned_size = (raw_bytes.size // byte_size) * byte_size
+        return raw_bytes[:aligned_size].view(np_dtype)
