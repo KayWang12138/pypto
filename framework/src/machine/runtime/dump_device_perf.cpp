@@ -251,7 +251,7 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, ui
     }
     json aicpuPrefArray = json::array();
     DumpAicpuDevTask(args, aicpuPrefArray, freq, sumTurnNum);
-    DumpAicoreDevTask(args, aicpuPrefArray, perfData, freq, sumTurnNum);
+    //DumpAicoreDevTask(args, aicpuPrefArray, perfData, freq, sumTurnNum);
     
     std::string aicpuPerfilePath = npu::tile_fwk::config::LogTopFolder() +
                                    "/machine_trace_perf_data_" + std::to_string(g_last_turn_num) + ".json";

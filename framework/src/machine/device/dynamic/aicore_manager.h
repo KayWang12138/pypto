@@ -146,10 +146,10 @@ public:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
-        ret = DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
+        /*ret = DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
-        }
+        }*/
 
         uint64_t sentAic = 0;
         uint64_t sentAiv = 0;
@@ -784,6 +784,7 @@ private:
 
     inline int32_t DispatchAiCoreTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
                                        int coreIdxStart, int coreIdxEnd) {
+        PerfMtTrace(PERF_TRACE_DEV_TASK_RUN_CORE_TASK, aicpuIdx_);
         int32_t ret = DEVICE_MACHINE_OK;
         if (context_->waitTaskCnt_[static_cast<int>(type)] > 0) {
             ret = ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
@@ -792,6 +793,7 @@ private:
             }
             wrapManager_.DispatchMixCoreTask();
         }
+        PerfMtTrace(PERF_TRACE_DEV_TASK_DISPATCH_TASK, aicpuIdx_);
         if (wrapManager_.GetIsMixarch()) {
             ReadyCoreFunctionQueue* dieReadyQue  = (type == CoreType::AIC) ?  readyDieAicFunctionQue_ : readyDieAivFunctionQue_;
             if (dieReadyQue != readyQue) {
@@ -806,6 +808,7 @@ private:
                 AicpuIsBusy(type);
             }
         }
+        PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_CALLOP_TASK, aicpuIdx_);
         return ret;
     }
     
@@ -905,7 +908,7 @@ private:
         context_->sendCnt_[static_cast<int>(type)]++;
 
         if (isFirstTaskSend_) {
-            PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
+            //PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
         }
 
@@ -945,6 +948,7 @@ private:
         return DEVICE_MACHINE_OK;
     }
     inline int32_t ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
+        PerfMtTrace(PERF_TRACE_DEV_TASK_ENTER_DISPATCH_TASK, aicpuIdx_);
         int32_t ret = DEVICE_MACHINE_OK;
         PerfMtBegin(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
@@ -963,8 +967,9 @@ private:
                     }
                 }
             }
+            PerfMtTrace(PERF_TRACE_DEV_TASK_DISPATCH_RESOL_REG_TASK, aicpuIdx_);
         }
-
+        PerfMtTrace(PERF_TRACE_DEV_TASK_DISPATCH_RESOL_TASK, aicpuIdx_);
         ret = BatchPushReadyQueue();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
@@ -1319,6 +1324,7 @@ private:
     }
 
     inline int32_t ResolveDepDyn(uint64_t finishId, size_t resolveIndexBase = 0, int coreIdx = 0) {
+        PerfMtTrace(PERF_TRACE_DEV_TASK_ENTER_RESOLVE_DEP_DYN, aicpuIdx_);
         int32_t ret = DEVICE_MACHINE_OK;
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(finishId);
@@ -1355,7 +1361,7 @@ private:
                 }
             }
         }
-
+        PerfMtTrace(PERF_TRACE_DEV_TASK_OUT_RESOLVE_DEP_DYN, aicpuIdx_);
         ret = ResolveDynStitched(dyntask, funcId, opIndex, coreIdx);
         return ret;
     }
