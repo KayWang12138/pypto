@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #include <thread>
 #include <sstream>
+#include "interface/utils/common.h"
 #include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
 
@@ -25,24 +26,47 @@ constexpr uint64_t SYMBOL = 1;
 constexpr uint64_t EXPRESSION = 2;
 constexpr int OPERAND_NUM = 2;
 constexpr size_t MIN_EXTREMA_OPERANDS = 2;
+
 namespace npu::tile_fwk {
 
 std::string CompileSourceCode(const std::string& sourceFilePath, const std::string& gcc, const std::string& extraCflag)
 {
     std::string assembleFilePath = sourceFilePath + ".s";
     std::string objectFilePath = sourceFilePath + "_t.o";
-    std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
     std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
-    std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag + " " + macro + " " +
-                         " -I" + includePath + " " + " -I" + GetCurrentSharedLibPath() + "/include/" + " -I" +
-                         includePath + "/tilefwk " + " -S " + sourceFilePath + " -o " + assembleFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdGcc.c_str());
-    FUNCTION_ASSERT(system(cmdGcc.c_str()) == 0);
 
-    std::string cmdAs = LD_PRELOAD + gcc + " -fno-stack-protector -O2 -c " + assembleFilePath + " -o " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdAs.c_str());
-    FUNCTION_ASSERT(system(cmdAs.c_str()) == 0);
+    std::vector<std::string> argsGcc = {gcc, "-fPIC", "-fno-stack-protector", "-O2"};
+    if (!extraCflag.empty()) {
+        argsGcc.push_back(extraCflag);
+    }
+    if (!macro.empty()) {
+        argsGcc.push_back(macro);
+    }
+    argsGcc.push_back("-I" + includePath);
+    argsGcc.push_back("-I" + GetCurrentSharedLibPath() + "/include/");
+    argsGcc.push_back("-I" + includePath + "/tilefwk");
+    argsGcc.push_back("-S");
+    argsGcc.push_back(sourceFilePath);
+    argsGcc.push_back("-o");
+    argsGcc.push_back(assembleFilePath);
+
+    std::string cmdGccLog;
+    for (const auto& arg : argsGcc) {
+        cmdGccLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdGccLog.c_str());
+    FUNCTION_ASSERT(SafeExecCommand(argsGcc) == 0);
+
+    std::vector<std::string> argsAs = {gcc,  "-fno-stack-protector", "-O2", "-c", assembleFilePath,
+                                       "-o", objectFilePath};
+
+    std::string cmdAsLog;
+    for (const auto& arg : argsAs) {
+        cmdAsLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdAsLog.c_str());
+    FUNCTION_ASSERT(SafeExecCommand(argsAs) == 0);
     return objectFilePath;
 }
 
@@ -77,45 +101,64 @@ std::vector<std::string> ParallelCompile(
     return objs;
 }
 
-std::vector<uint8_t> CompileAndLoadSection(
-    const std::string& code, const std::string& sourceFilePath, const std::string& aicpuPath,
-    std::vector<std::string>& exprSrcFiles, const std::string& gcc, const std::string& ld, const std::string& objcopy,
-    const std::string& sectionName, bool needDump, const std::string& extraCflag)
+namespace {
+bool WriteSourceFile(const std::string& code, const std::string& sourceFilePath)
 {
-    if (needDump) {
-        FILE* fsrc = fopen(sourceFilePath.c_str(), "w");
-        if (fsrc == nullptr) {
-            FUNCTION_LOGE_E(FError::BAD_FD, "Fail to open source file %s", sourceFilePath.c_str());
-            return {};
-        }
-        fprintf(fsrc, "%s", code.c_str());
-        fclose(fsrc);
+    FILE* fsrc = fopen(sourceFilePath.c_str(), "w");
+    if (fsrc == nullptr) {
+        FUNCTION_LOGE_E(FError::BAD_FD, "Fail to open source file %s", sourceFilePath.c_str());
+        return false;
     }
-    std::string LD_PRELOAD = "LD_PRELOAD= ";
-    std::string objectFilePath = sourceFilePath + ".o";
-    std::vector<std::string> allSourceFiles;
-    allSourceFiles.emplace_back(sourceFilePath);
-    allSourceFiles.insert(allSourceFiles.end(), exprSrcFiles.begin(), exprSrcFiles.end());
-    std::vector<std::string> objs = ParallelCompile(allSourceFiles, gcc, extraCflag);
-    std::stringstream cmdAs;
-    cmdAs << LD_PRELOAD << ld;
-    for (const auto& obj : objs) {
-        cmdAs << " " << obj;
-    }
-    cmdAs << " -o " << objectFilePath << " -O2 -T " << aicpuPath << "/merge.link";
-    FUNCTION_LOGI("[RunCmd] %s", cmdAs.str().c_str());
-    FUNCTION_ASSERT(system(cmdAs.str().c_str()) == 0);
-    std::string binaryFilePath = sourceFilePath + ".bin";
-    std::string cmdObjcopy =
-        LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
-    FUNCTION_ASSERT(system(cmdObjcopy.c_str()) == 0);
+    fprintf(fsrc, "%s", code.c_str());
+    fclose(fsrc);
+    return true;
+}
 
+bool LinkObjectFiles(
+    const std::vector<std::string>& objs, const std::string& objectFilePath, const std::string& ld,
+    const std::string& aicpuPath)
+{
+    std::vector<std::string> argsLd = {ld};
+    for (const auto& obj : objs) {
+        argsLd.push_back(obj);
+    }
+    argsLd.push_back("-o");
+    argsLd.push_back(objectFilePath);
+    argsLd.push_back("-O2");
+    argsLd.push_back("-T");
+    argsLd.push_back(aicpuPath + "/merge.link");
+
+    std::string cmdLdLog;
+    for (const auto& arg : argsLd) {
+        cmdLdLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdLdLog.c_str());
+    return SafeExecCommand(argsLd) == 0;
+}
+
+bool ExtractBinarySection(
+    const std::string& objectFilePath, const std::string& binaryFilePath, const std::string& sectionName,
+    const std::string& objcopy)
+{
+    std::vector<std::string> argsObjcopy = {
+        objcopy, "--dump-section", sectionName + "=" + binaryFilePath, objectFilePath};
+
+    std::string cmdObjcopyLog;
+    for (const auto& arg : argsObjcopy) {
+        cmdObjcopyLog += arg + " ";
+    }
+    FUNCTION_LOGI("[RunCmd] %s", cmdObjcopyLog.c_str());
+    return SafeExecCommand(argsObjcopy) == 0;
+}
+
+std::vector<uint8_t> ReadBinaryFile(const std::string& binaryFilePath)
+{
     FILE* fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
         FUNCTION_LOGE_E(FError::BAD_FD, "open binary file name failed");
         return {};
     }
+    std::unique_ptr<FILE, decltype(&fclose)> fileGuard(fbin, &fclose);
 
     fseek(fbin, 0, SEEK_END);
     int size = static_cast<int>(ftell(fbin));
@@ -123,11 +166,39 @@ std::vector<uint8_t> CompileAndLoadSection(
     std::vector<uint8_t> binary(size);
     size_t readSize = fread(binary.data(), 1, size, fbin);
     if (readSize != static_cast<size_t>(size)) {
-        fclose(fbin);
         return {};
     }
-    fclose(fbin);
     return binary;
+}
+} // namespace
+
+std::vector<uint8_t> CompileAndLoadSection(
+    const std::string& code, const std::string& sourceFilePath, const std::string& aicpuPath,
+    std::vector<std::string>& exprSrcFiles, const std::string& gcc, const std::string& ld, const std::string& objcopy,
+    const std::string& sectionName, bool needDump, const std::string& extraCflag)
+{
+    if (needDump) {
+        if (!WriteSourceFile(code, sourceFilePath)) {
+            return {};
+        }
+    }
+
+    std::string objectFilePath = sourceFilePath + ".o";
+    std::vector<std::string> allSourceFiles;
+    allSourceFiles.emplace_back(sourceFilePath);
+    allSourceFiles.insert(allSourceFiles.end(), exprSrcFiles.begin(), exprSrcFiles.end());
+    std::vector<std::string> objs = ParallelCompile(allSourceFiles, gcc, extraCflag);
+
+    if (!LinkObjectFiles(objs, objectFilePath, ld, aicpuPath)) {
+        return {};
+    }
+
+    std::string binaryFilePath = sourceFilePath + ".bin";
+    if (!ExtractBinarySection(objectFilePath, binaryFilePath, sectionName, objcopy)) {
+        return {};
+    }
+
+    return ReadBinaryFile(binaryFilePath);
 }
 
 void SymbolicExpressionTable::SetElementKeyOnce(const std::string& key)
