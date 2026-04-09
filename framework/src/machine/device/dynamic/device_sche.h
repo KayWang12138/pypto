@@ -25,6 +25,7 @@
 #include "machine/utils/device_log.h"
 #include "tilefwk/aicore_print.h"
 #include "machine/device/dynamic/aicore_prof.h"
+#include "device_trace.h"
 
 constexpr uint32_t LAUNCH_AICPU_NUM = 5;
 
@@ -541,6 +542,12 @@ struct DynMachineManager {
                 sched_getcpu());
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
+#ifdef __DEVICE__
+        std::string traceInfo = std::to_string(threadIdx) + "start succus";
+        DEV_DEBUG("start to submit pypto trace");
+        DeviceTraceManager::GetInstance();
+        // .SubmitPyptoTrace(traceInfo);
+#endif
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx);
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, beginTime);
         int ret = DEVICE_MACHINE_OK;
@@ -562,6 +569,9 @@ struct DynMachineManager {
         }
         if (++exitNum_ == devArgs.nrAicpu) {
             DeInit();
+#ifdef __DEVICE__
+            // DeviceTraceManager::GetInstance().ReportPyptoTrace();
+#endif
             DEV_INFO("All sche cpu exited.");
         }
         return ret;
