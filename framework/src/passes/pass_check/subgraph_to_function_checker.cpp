@@ -24,23 +24,33 @@ namespace tile_fwk {
 Status SubGraphToFuncChecker::NOPCheck(const Operation& op) const
 {
     if (!op.IsNOP()) {
-        APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "op[%d] is not an NOP. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(
+            OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "op[%d] is not an NOP. %s", op.GetOpMagic(),
+            GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetIOperands().size() > 0) {
-        APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has IOperands size %zu. %s", op.GetOpMagic(), op.GetIOperands().size(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(
+            OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has IOperands size %zu. %s",
+            op.GetOpMagic(), op.GetIOperands().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetInCtrlOperations().size() > 0) {
-        APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has InCtrlOperations size %zu. %s", op.GetOpMagic(), op.GetInCtrlOperations().size(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(
+            OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has InCtrlOperations size %zu. %s",
+            op.GetOpMagic(), op.GetInCtrlOperations().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetOOperands().size() > 0) {
-        APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has OOperands size %zu. %s", op.GetOpMagic(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(
+            OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation, "NOP[%d] has OOperands size %zu. %s",
+            op.GetOpMagic(), op.GetOOperands().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     if (op.GetOutCtrlOperations().size() > 0) {
-        APASS_LOG_ERROR_C(OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "NOP[%d] has OutCtrlOperations size %zu. %s", op.GetOpMagic(), op.GetOutCtrlOperations().size(), GetFormatBacktrace(op).c_str());
+        APASS_LOG_ERROR_C(
+            OperationErr::OP_SPECIAL_CONSTRAINT, Elements::Operation, "NOP[%d] has OutCtrlOperations size %zu. %s",
+            op.GetOpMagic(), op.GetOutCtrlOperations().size(), GetFormatBacktrace(op).c_str());
         return FAILED;
     }
     return SUCCESS;
@@ -51,7 +61,9 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function& function) const
     auto operations = function.Operations();
     int totalSubGraphNum = function.GetTotalSubGraphCount();
     if (operations.size() > 0 && totalSubGraphNum <= 0) {
-        APASS_LOG_ERROR_C(FunctionErr::FUNCTION_GRAPH_STRUCTURE, Elements::Function, "input totalSubGraphNum %d is invalid", totalSubGraphNum);
+        APASS_LOG_ERROR_C(
+            FunctionErr::FUNCTION_GRAPH_STRUCTURE, Elements::Function, "input totalSubGraphNum %d is invalid",
+            totalSubGraphNum);
         return FAILED;
     }
     std::vector<bool> hitSubgraph = std::vector<bool>(totalSubGraphNum, false);
@@ -60,14 +72,16 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function& function) const
         int subGraphId = op.GetSubgraphID();
         if (subGraphId < 0 && NOPCheck(op) != SUCCESS) {
             APASS_LOG_ERROR_C(
-                GraphErr::GRAPH_SUBGRAPH_ID_INVALID, Elements::Graph, "operation %zu has negative subGraphID %d and failed NOP check. %s", i, subGraphId,
+                GraphErr::GRAPH_SUBGRAPH_ID_INVALID, Elements::Graph,
+                "operation %zu has negative subGraphID %d and failed NOP check. %s", i, subGraphId,
                 GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (subGraphId >= totalSubGraphNum) {
             APASS_LOG_ERROR_C(
-                GraphErr::GRAPH_SUBGRAPH_ID_INVALID, Elements::Graph, "operation %zu has subGraphID %d that exceeds totalSubGraphNum %d. %s", i,
-                subGraphId, totalSubGraphNum, GetFormatBacktrace(op).c_str());
+                GraphErr::GRAPH_SUBGRAPH_ID_INVALID, Elements::Graph,
+                "operation %zu has subGraphID %d that exceeds totalSubGraphNum %d. %s", i, subGraphId, totalSubGraphNum,
+                GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         hitSubgraph[subGraphId] = true;
@@ -209,15 +223,16 @@ Status SubGraphToFuncChecker::InAndOutGraphConsistencyCheck(
             size_t parentSeqNo = static_cast<size_t>(inEdgeGraph[i][j]);
             if (nodeColIdx[parentSeqNo] >= outEdgeGraph[parentSeqNo].size()) {
                 APASS_LOG_ERROR_C(
-                    GraphErr::GRAPH_EDGE_CONSISTENCY, Elements::Graph, "node %zu, %zu th parentSeqNo %zu exceeds outgraph[%zu] size %zu", i, j,
-                    parentSeqNo, parentSeqNo, outEdgeGraph[parentSeqNo].size());
+                    GraphErr::GRAPH_EDGE_CONSISTENCY, Elements::Graph,
+                    "node %zu, %zu th parentSeqNo %zu exceeds outgraph[%zu] size %zu", i, j, parentSeqNo, parentSeqNo,
+                    outEdgeGraph[parentSeqNo].size());
                 return FAILED;
             }
             // inEdgeGraph和outEdgeGraph都是按顺序排列的
             if (static_cast<size_t>(outEdgeGraph[parentSeqNo][nodeColIdx[parentSeqNo]++]) != i) {
                 APASS_LOG_ERROR_C(
-                    GraphErr::GRAPH_EDGE_CONSISTENCY, Elements::Graph, "node %zu, %zu th parentSeqNo %zu is not found in outgraph[%zu]", i, j,
-                    parentSeqNo, parentSeqNo);
+                    GraphErr::GRAPH_EDGE_CONSISTENCY, Elements::Graph,
+                    "node %zu, %zu th parentSeqNo %zu is not found in outgraph[%zu]", i, j, parentSeqNo, parentSeqNo);
                 return FAILED;
             }
         }
