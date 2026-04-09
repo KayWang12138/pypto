@@ -318,7 +318,7 @@ Status NodeGraphInfo::Build(
     }
     op2Node_.resize(opList.size());
     nodeCycles_.resize(opList.size());
-    std::vector<int32_t> nodeScopeTmp(node2Op_.size(), -1);
+    std::vector<Operation::ScopeInfo> nodeScopeTmp(node2Op_.size());
     nodeScope_.swap(nodeScopeTmp);
     for (size_t nodeIdx = 0; nodeIdx < node2Op_.size(); nodeIdx++) {
         nodeCycles_[nodeIdx] = 0;
@@ -326,10 +326,8 @@ Status NodeGraphInfo::Build(
             int32_t opIdx = node2Op_[nodeIdx][opNodeIdx];
             op2Node_[opIdx] = nodeIdx;
             nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
-            int32_t scopeId = operationGraphInfo->opList_[opIdx]->GetScopeId();
-            if (scopeId != -1) {
-                nodeScope_[nodeIdx] = scopeId;
-            }
+            const auto& scopeInfo = operationGraphInfo->opList_[opIdx]->GetScopeInfo();
+            nodeScope_[nodeIdx] = scopeInfo;
         }
     }
     BuildInOutGraph(operationGraphInfo, markIsCube);
@@ -709,19 +707,19 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
 Status SuperNodeGraphBuilder::ProcessScopeMerge()
 {
     int32_t numNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
-    std::map<int32_t, std::set<OpCoreType>> scopeCoreTypes;
-    std::map<int32_t, bool> scopeAllowParallel;
+    std::unordered_map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
+    std::unordered_map<int32_t, bool> scopeAllowParallel;
 
     for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-        int32_t scopeId = superNodeInfo_->nodeScope_[nodeIdx];
-        if (scopeId == -1) {
+        const auto& scopeInfo = superNodeInfo_->nodeScope_[nodeIdx];
+        if (scopeInfo.scopeId == -1) {
             continue;
         }
         for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-            scopeCoreTypes[scopeId].insert(operationInfo_->opCoreType_[opIdx]);
-            if (operationInfo_->opList_[opIdx]->GetAllowParallelMerge()) {
-                scopeAllowParallel[scopeId] = true;
-            }
+            scopeCoreTypes[scopeInfo.scopeId].insert(operationInfo_->opCoreType_[opIdx]);
+        }
+        if (scopeInfo.allowParallelMerge) {
+            scopeAllowParallel[scopeInfo.scopeId] = true;
         }
     }
 
@@ -758,7 +756,7 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
         if (allowParallel) {
             int32_t firstNode = -1;
             for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-                if (superNodeInfo_->nodeScope_[nodeIdx] != scopeId) {
+                if (superNodeInfo_->nodeScope_[nodeIdx].scopeId != scopeId) {
                     continue;
                 }
                 if (firstNode == -1) {
@@ -774,11 +772,11 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
             }
         } else {
             for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-                if (superNodeInfo_->nodeScope_[nodeIdx] != scopeId) {
+                if (superNodeInfo_->nodeScope_[nodeIdx].scopeId != scopeId) {
                     continue;
                 }
                 for (int32_t outNodeIdx : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
-                    if (superNodeInfo_->nodeScope_[outNodeIdx] == scopeId) {
+                    if (superNodeInfo_->nodeScope_[outNodeIdx].scopeId == scopeId) {
                         int32_t p1 = findSN(nodeIdx);
                         int32_t p2 = findSN(outNodeIdx);
                         if (p1 != p2) {
@@ -810,15 +808,15 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
         int32_t newNumNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
 
         superNodeInfo_->op2Node_.resize(operationInfo_->opList_.size());
-        superNodeInfo_->nodeScope_.assign(newNumNodes, -1);
+        superNodeInfo_->nodeScope_.assign(newNumNodes, Operation::ScopeInfo());
         superNodeInfo_->nodeCycles_.assign(newNumNodes, 0);
 
         for (int32_t nodeIdx = 0; nodeIdx < newNumNodes; nodeIdx++) {
             for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
                 superNodeInfo_->op2Node_[opIdx] = nodeIdx;
-                int32_t sid = operationInfo_->opList_[opIdx]->GetScopeId();
-                if (sid != -1) {
-                    superNodeInfo_->nodeScope_[nodeIdx] = sid;
+                const auto& scopeInfo = operationInfo_->opList_[opIdx]->GetScopeInfo();
+                if (scopeInfo.scopeId != -1) {
+                    superNodeInfo_->nodeScope_[nodeIdx] = scopeInfo;
                 }
                 superNodeInfo_->nodeCycles_[nodeIdx] += operationInfo_->opList_[opIdx]->GetLatency();
             }
@@ -838,7 +836,7 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
         }
 
         for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
-            int32_t scopeId = superNodeInfo_->nodeScope_[nodeIdx];
+            int32_t scopeId = superNodeInfo_->nodeScope_[nodeIdx].scopeId;
             auto it = scopeToMixId.find(scopeId);
             if (it == scopeToMixId.end()) {
                 continue;
