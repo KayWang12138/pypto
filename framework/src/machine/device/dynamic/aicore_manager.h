@@ -995,7 +995,7 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
-        if (aicoreDump_.IsEnableDump()) {
+        if (unlikely(aicoreDump_.IsEnableDump())) {
             aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
         }
 #endif
@@ -1655,7 +1655,9 @@ private:
         wrapManager_.InitDeviceInfo(deviceArgs, schedIdx_);
 
 #if ENABLE_TENSOR_DUMP
-        aicoreDump_.Init(startArgs, schedIdx);
+        if (unlikely(aicoreDump_.IsEnableDump())) {
+            aicoreDump_.Init(startArgs, schedIdx);
+        }
 #endif
 
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
@@ -1973,7 +1975,7 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
-        if (aicoreDump_.IsEnableDump()) {
+        if (unlikely(aicoreDump_.IsEnableDump())) {
             aicoreDump_.DoDump(curDevTask_, "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
         }
 #endif
