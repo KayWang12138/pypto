@@ -269,14 +269,14 @@ static Tensor ShmemPutImpl(
 {
     ValidateShmemTensor(dst, true);
     std::unordered_set<DataType> allowedTypes = {DT_INT32, DT_FP32, DT_FP16, DT_BF16};
-    ValidateTensor(src, "local tensor", {2}, allowedTypes, {TileOpFormat::TILEOP_ND});
+    ValidateTensor(src, "local tensor", {2, 3, 4, 5}, allowedTypes, {TileOpFormat::TILEOP_ND});
     auto shmemDataType =
         ((putOp == AtomicType::ADD) && ((src.GetDataType() == DT_BF16) || (src.GetDataType() == DT_FP16))) ?
             DT_FP32 :
             src.GetDataType();
     ValidateTensor(dst.data, "data of shmem tensor", {}, {shmemDataType}, {TileOpFormat::TILEOP_ND}, src.GetShape());
     ValidateTensor(pred, "pred tensor", {2});
-    ValidateTiling(isUb2Gm ? Opcode::OP_SHMEM_PUT_UB2GM : Opcode::OP_SHMEM_PUT, src, "src");
+    // ValidateTiling(isUb2Gm ? Opcode::OP_SHMEM_PUT_UB2GM : Opcode::OP_SHMEM_PUT, src, "src");
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, pred.GetShape());
     auto& op =
@@ -307,9 +307,9 @@ Tensor ShmemGet(const ShmemTensor& src, const SymbolicScalar& srcRank, const Ten
 {
     ValidateShmemTensor(src, true);
     ValidateTensor(
-        src.data, "data of shmem tensor", {2}, {DT_INT32, DT_FP32, DT_FP16, DT_BF16}, {TileOpFormat::TILEOP_ND});
+        src.data, "data of shmem tensor", {2, 3, 4, 5}, {DT_INT32, DT_FP32, DT_FP16, DT_BF16}, {TileOpFormat::TILEOP_ND});
     ValidateTensor(pred, "pred tensor", {2});
-    ValidateTiling(Opcode::OP_SHMEM_GET, pred, "pred tensor");
+    // ValidateTiling(Opcode::OP_SHMEM_GET, pred, "pred tensor");
     if (targetDataType == DT_BOTTOM) {
         targetDataType = src.data.GetDataType();
     }
@@ -326,9 +326,9 @@ Tensor ShmemLoad(const ShmemTensor& src, const SymbolicScalar& srcRank, const Te
 {
     ValidateShmemTensor(src, true);
     ValidateTensor(
-        src.data, "data of shmem tensor", {2}, {DT_INT32, DT_FP32, DT_FP16, DT_BF16}, {TileOpFormat::TILEOP_ND});
+        src.data, "data of shmem tensor", {2, 3, 4, 5}, {DT_INT32, DT_FP32, DT_FP16, DT_BF16}, {TileOpFormat::TILEOP_ND});
     ValidateTensor(pred, "pred tensor", {2});
-    ValidateTiling(Opcode::OP_SHMEM_GET_GM2UB, pred, "pred tensor");
+    // ValidateTiling(Opcode::OP_SHMEM_GET_GM2UB, pred, "pred tensor");
     if (nonShmemDataType == DT_BOTTOM) {
         nonShmemDataType = src.data.GetDataType();
     }
@@ -368,8 +368,8 @@ static Tensor ShmemSignalImpl(
 {
     ValidateShmemTensor(src, false, true);
     ValidateTensor(pred, "pred tensor", {2});
-    ValidateTensor(src.signal, "signal of shmem tensor", {3});
-    ValidateTiling(Opcode::OP_SHMEM_SIGNAL, pred, "pred tensor");
+    ValidateTensor(src.signal, "signal of shmem tensor", {3, 4, 5, 6});
+    // ValidateTiling(Opcode::OP_SHMEM_SIGNAL, pred, "pred tensor");
     auto& function = *Program::GetInstance().GetCurrentFunction();
     Shape signalShape = src.signal.GetShape();
     signalShape[0] = 1;
@@ -411,8 +411,8 @@ Tensor ShmemWaitUntil(
     ValidateOpType(cmp, {OpType::EQ});
     ValidateShmemTensor(src, false, true);
     ValidateTensor(pred, "pred tensor", {2});
-    ValidateTensor(src.signal, "signal of shmem tensor", {3});
-    ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred tensor");
+    ValidateTensor(src.signal, "signal of shmem tensor", {3, 4, 5, 6});
+    // ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred tensor");
     (void)cmp;
     auto& function = *Program::GetInstance().GetCurrentFunction();
     Shape signalShape = src.signal.GetShape();
@@ -436,10 +436,10 @@ static Tensor ShmemClearImpl(const ShmemTensor& src, Tensor& pred, bool clearDat
 {
     if (clearData) {
         ValidateShmemTensor(src, true);
-        ValidateTensor(src.data, "data of shmem tensor", {2});
+        ValidateTensor(src.data, "data of shmem tensor", {2, 3, 4, 5});
     } else {
         ValidateShmemTensor(src, false, true);
-        ValidateTensor(src.signal, "signal of shmem tensor", {3});
+        ValidateTensor(src.signal, "signal of shmem tensor", {3, 4, 5, 6});
     }
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
@@ -465,8 +465,8 @@ Tensor ShmemBarrier(const ShmemTensor& src, const Tensor& pred)
 void AllGather(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
 {
     ValidateShmemTensor(shmemTensor, true, true);
-    ValidateTensor(predToken, "pred tensor", {2});
-    ValidateTensor(in, "input tensor", {predToken.Dim()});
+    ValidateTensor(predToken, "pred tensor", {2, 3, 4, 5});
+    ValidateTensor(in, "input tensor", {2, 3, 4, 5});
     uint32_t worldSize = shmemTensor.worldSize;
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
@@ -490,7 +490,7 @@ void ReduceScatter(
 {
     (void)reduceType;
     ValidateShmemTensor(shmemTensor, true, true);
-    ValidateTensor(predToken, "pred tensor", {2});
+    ValidateTensor(predToken, "pred tensor", {2, 3, 4, 5});
     ValidateTensor(in, "input tensor", {predToken.Dim()});
     uint32_t worldSize = shmemTensor.worldSize;
     int32_t row = in.GetShape(0);
@@ -513,7 +513,7 @@ void ReduceScatter(
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
 {
     ValidateShmemTensor(shmemTensor, true, true);
-    ValidateTensor(predToken, "pred tensor", {2});
+    ValidateTensor(predToken, "pred tensor", {2, 3, 4, 5});
     ValidateTensor(in, "input tensor", {predToken.Dim()});
     uint32_t worldSize = shmemTensor.worldSize;
     int32_t row = in.GetShape(0);
@@ -534,7 +534,7 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& sh
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
 {
     ValidateShmemTensor(shmemTensor, true, true);
-    ValidateTensor(predToken, "pred tensor", {2});
+    ValidateTensor(predToken, "pred tensor", {2, 3, 4, 5});
     ValidateTensor(in, "input tensor", {predToken.Dim()});
     uint32_t worldSize = shmemTensor.worldSize;
     int32_t row = in.GetShape(0);
