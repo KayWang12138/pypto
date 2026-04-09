@@ -20,8 +20,6 @@
 
 namespace npu::tile_fwk {
 
-bool IsFp4PackedDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
-
 // Round to nearest integer, ties to even, for non-negative inputs.
 static inline int RoundToNearestEvenFloatPos(float x)
 {

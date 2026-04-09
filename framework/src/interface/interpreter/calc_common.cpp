@@ -18,6 +18,7 @@
 #include "interface/utils/common.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/data_type.h"
+#include "interface/interpreter/calculator/dtype_utils.h"
 #include "interface/interpreter/operation.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/interpreter/verify_error.h"
@@ -238,8 +239,7 @@ REGISTER_CALC_OP(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ExecuteOpCopy);
 
 static bool NeedDecodeToFp32ForDump(DataType dtype)
 {
-    return dtype == DT_INT4 || dtype == DT_FP8 || dtype == DT_HF4 || dtype == DT_HF8 || dtype == DT_FP8E5M2 ||
-           dtype == DT_FP8E4M3 || dtype == DT_FP8E8M0 || dtype == DT_FP4_E2M1X2 || dtype == DT_FP4_E1M2X2;
+    return dtype == DT_INT4 || IsFp8Dtype(dtype) || dtype == DT_HF4 || dtype == DT_HF8 || IsFp4PackedDtype(dtype);
 }
 
 static std::string TensorToDumpString(const LogicalTensorDataPtr& tensor)

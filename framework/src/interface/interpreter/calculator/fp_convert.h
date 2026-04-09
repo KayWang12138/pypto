@@ -16,11 +16,9 @@
 #pragma once
 
 #include <torch/torch.h>
-#include "tilefwk/data_type.h"
+#include "dtype_utils.h"
 
 namespace npu::tile_fwk {
-
-bool IsFp4PackedDtype(DataType t);
 
 // FP8 (stored as uint8) -> float32. actualType specifies the FP8 format.
 torch::Tensor Fp8ToFloat32(const torch::Tensor& self, DataType actualType);

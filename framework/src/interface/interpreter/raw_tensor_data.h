@@ -27,6 +27,7 @@
 #include "interface/inner/element.h"
 #include "interface/configs/config_manager.h"
 #include "interface/tensor/tensor_offset.h"
+#include "interface/interpreter/calculator/dtype_utils.h"
 #include "interface/interpreter/verify_error.h"
 
 namespace npu::tile_fwk {
@@ -70,8 +71,6 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         }
         return n;
     }
-
-    static bool IsFp4PackedDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
 
     static std::vector<int64_t> PackedShapeFromLogical(const std::vector<int64_t>& logicalShape, DataType dtype)
     {

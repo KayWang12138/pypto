@@ -23,17 +23,10 @@
 
 namespace npu::tile_fwk {
 
-static inline bool IsFp8InterpreterDtype(DataType t)
-{
-    return t == DT_FP8 || t == DT_FP8E4M3 || t == DT_FP8E5M2 || t == DT_FP8E8M0;
-}
-
-static inline bool IsFp4PackedStorageDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
-
 // Logical shape is exposed to calculator. Convert back to packed view shape when touching raw storage.
 static std::vector<int64_t> ShapePackedView(const std::vector<int64_t>& logicalShape, DataType dtype)
 {
-    if (logicalShape.empty() || !IsFp4PackedStorageDtype(dtype)) {
+    if (logicalShape.empty() || !IsFp4PackedDtype(dtype)) {
         return logicalShape;
     }
     std::vector<int64_t> s = logicalShape;
@@ -48,12 +41,12 @@ static int64_t LastDimPackedCount(int64_t logicalLast, DataType dtype)
     if (logicalLast < 0) {
         return logicalLast;
     }
-    return IsFp4PackedStorageDtype(dtype) ? ((logicalLast + 1) / 2) : logicalLast;
+    return IsFp4PackedDtype(dtype) ? ((logicalLast + 1) / 2) : logicalLast;
 }
 
 static int64_t StorageOffsetFloatToPacked(int64_t logicalOffset, DataType dtype)
 {
-    if (!IsFp4PackedStorageDtype(dtype)) {
+    if (!IsFp4PackedDtype(dtype)) {
         return logicalOffset;
     }
     return logicalOffset / 2;
@@ -61,7 +54,7 @@ static int64_t StorageOffsetFloatToPacked(int64_t logicalOffset, DataType dtype)
 
 static std::vector<int64_t> StrideFloatToPacked(const std::vector<int64_t>& logicalStride, DataType dtype)
 {
-    if (!IsFp4PackedStorageDtype(dtype)) {
+    if (!IsFp4PackedDtype(dtype)) {
         return logicalStride;
     }
     if (logicalStride.empty()) {
@@ -91,7 +84,7 @@ static int64_t LastDimFloatCount(int64_t packedLast, DataType dtype)
     if (packedLast < 0) {
         return packedLast;
     }
-    return IsFp4PackedStorageDtype(dtype) ? (packedLast * 2) : packedLast;
+    return IsFp4PackedDtype(dtype) ? (packedLast * 2) : packedLast;
 }
 
 #define AXIS_TO_LAST -2
@@ -192,9 +185,9 @@ static at::Scalar From(const Element& elem)
 
 static void ToOperand(const torch::Tensor& src, const torch::Tensor& dst, DataType actualType)
 {
-    if (IsFp8InterpreterDtype(actualType)) {
+    if (IsFp8Dtype(actualType)) {
         dst.copy_(Float32ToFp8(src, actualType));
-    } else if (IsFp4PackedStorageDtype(actualType)) {
+    } else if (IsFp4PackedDtype(actualType)) {
         dst.copy_(Float32ToFp4Packed(src, actualType));
     } else {
         dst.copy_(src);
@@ -225,7 +218,7 @@ static std::pair<torch::Tensor, torch::Tensor> From(const TensorData& data)
         }
         actualView = view;
     }
-    if (IsFp8InterpreterDtype(data.dtype)) {
+    if (IsFp8Dtype(data.dtype)) {
         actualView = Fp8ToFloat32(view, data.dtype);
     } else if (ScalarDataType == torch::kUInt8 && !data.isFp4Packed) {
         actualView = view.to(torch::kFloat32);
