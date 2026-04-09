@@ -754,9 +754,10 @@ class JitCallableWrapper:
                         does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
 
             if in_tensor.device.type == "npu":
-                if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
-                    raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
-                        does not match the format of input tensor definition {input_tensor_def.format}.")
+                if input_tensor_def.explicit_format is not None:
+                    if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
+                        raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
+                            does not match the format of input tensor definition {input_tensor_def.format}.")
 
 
     def _extract_non_tensor_defaults(self) -> dict[str, Any]:

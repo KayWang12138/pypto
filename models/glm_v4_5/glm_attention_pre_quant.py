@@ -243,7 +243,7 @@ def quant_attention_pre_kernel(
     x_bias: pypto.Tensor([], pypto.DT_BF16),
     x_scale: pypto.Tensor([], pypto.DT_BF16),
     x_offset: pypto.Tensor([], pypto.DT_BF16),
-    weight: pypto.Tensor([], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    weight: pypto.Tensor([], pypto.DT_INT8),
     quant_bias: pypto.Tensor([], pypto.DT_INT32),
     deq_scale: pypto.Tensor([], pypto.DT_FP32),
     q_gamma: pypto.Tensor([], pypto.DT_BF16),
