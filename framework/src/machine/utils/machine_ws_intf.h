@@ -54,8 +54,8 @@ struct WrapInfo {
 };
 
 struct WrapInfoQueue {
-    uint32_t head;
-    uint32_t tail;
+    alignas(64) uint32_t head;
+    alignas(64) uint32_t tail;
     uint32_t capacity;
     WrapInfo* elem;
     size_t lock;
