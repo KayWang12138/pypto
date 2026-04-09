@@ -239,7 +239,7 @@ void SimulationCommContext::SignalSingle(int dstRank, int value, size_t slotSize
         throw std::runtime_error("Signal operation would exceed shared memory bounds!");
     }
     std::atomic_thread_fence(std::memory_order_release);
-    int32_t *ctrlBase = static_cast<int32_t *>(base);
+    int32_t *ctrlBase = reinterpret_cast<int32_t *>(base);
     slotSize = slotSize / (sizeof(int32_t) / sizeof(uint8_t));
     offset = offset / (sizeof(int32_t) / sizeof(uint8_t));
     if (atomicType == 0) {
@@ -264,18 +264,21 @@ void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint
 
 void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
     volatile uint8_t *base = reinterpret_cast<volatile uint8_t *>(GetRemoteRank(srcRank, true));
-    uint8_t targetValue = static_cast<uint8_t>(expect);
+    int32_t targetValue = static_cast<int32_t>(expect);
     if (slotSize == 0 || slotSize >= WIN_EXP_SIZE) {
         throw std::runtime_error("Invalid slotSize in Wait operation!");
     }
-    while(base[offset + slotSize - 1] != targetValue) {
+    volatile int32_t *ctrlBase = reinterpret_cast<volatile int32_t *>(base);
+    offset = offset / (sizeof(int32_t) / sizeof(uint8_t));
+    slotSize = slotSize / (sizeof(int32_t) / sizeof(uint8_t));
+    while(ctrlBase[offset + slotSize - 1] != targetValue) {
         std::this_thread::yield();
         std::atomic_thread_fence(std::memory_order_acquire);
     }
     if (reset) {
-        volatile uint8_t *vbase = base;
+        volatile int32_t *vbase = ctrlBase;
         for (size_t i = offset; i < offset + slotSize; i++) {
-            const_cast<volatile uint8_t *>(vbase)[i] = 0;
+            const_cast<volatile int32_t *>(vbase)[i] = 0;
         }
         std::atomic_thread_fence(std::memory_order_release);
     }
