@@ -7,8 +7,8 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""
-"""
+""" """
+
 import ctypes
 import dataclasses
 import functools
@@ -32,15 +32,15 @@ _default_device = "cpu"
 
 # torch.dtype → pl DataType (used to validate tensor args against kernel signature)
 _TORCH_TO_PL_DTYPE: dict = {
-    torch.float16:  DataType.FP16,
+    torch.float16: DataType.FP16,
     torch.bfloat16: DataType.BF16,
-    torch.float32:  DataType.FP32,
-    torch.int8:     DataType.INT8,
-    torch.int16:    DataType.INT16,
-    torch.int32:    DataType.INT32,
-    torch.int64:    DataType.INT64,
-    torch.uint8:    DataType.UINT8,
-    torch.bool:     DataType.BOOL,
+    torch.float32: DataType.FP32,
+    torch.int8: DataType.INT8,
+    torch.int16: DataType.INT16,
+    torch.int32: DataType.INT32,
+    torch.int64: DataType.INT64,
+    torch.uint8: DataType.UINT8,
+    torch.bool: DataType.BOOL,
 }
 
 # pl DataType → ctypes type (used to wrap scalar args before the ctypes call)
@@ -48,17 +48,17 @@ _TORCH_TO_PL_DTYPE: dict = {
 # are distinct Python objects that compare equal (==) but have different hash values,
 # making DataType-keyed dicts unreliable.
 _PL_DTYPE_TO_CTYPE: dict[str, type] = {
-    str(DataType.FP32):   ctypes.c_float,
-    str(DataType.INT8):   ctypes.c_int8,
-    str(DataType.INT16):  ctypes.c_int16,
-    str(DataType.INT32):  ctypes.c_int32,
-    str(DataType.INT64):  ctypes.c_int64,
-    str(DataType.UINT8):  ctypes.c_uint8,
+    str(DataType.FP32): ctypes.c_float,
+    str(DataType.INT8): ctypes.c_int8,
+    str(DataType.INT16): ctypes.c_int16,
+    str(DataType.INT32): ctypes.c_int32,
+    str(DataType.INT64): ctypes.c_int64,
+    str(DataType.UINT8): ctypes.c_uint8,
     str(DataType.UINT16): ctypes.c_uint16,
     str(DataType.UINT32): ctypes.c_uint32,
     str(DataType.UINT64): ctypes.c_uint64,
-    str(DataType.BOOL):   ctypes.c_bool,
-    str(DataType.INDEX):  ctypes.c_int64,
+    str(DataType.BOOL): ctypes.c_bool,
+    str(DataType.INDEX): ctypes.c_int64,
 }
 
 
@@ -67,8 +67,8 @@ class ParamSpec:
     """Description of a single kernel parameter extracted from the IR."""
 
     name: str
-    kind: str                    # "tensor" | "ptr" | "scalar"
-    dtype: DataType              # element dtype
+    kind: str  # "tensor" | "ptr" | "scalar"
+    dtype: DataType  # element dtype
     # Tensor dims: positive int = static, str = named dynamic var, -1 = unnamed dynamic; None for ptr/scalar.
     shape: list[int | str] | None
 
@@ -79,6 +79,7 @@ class CompiledKernel:
 
     lib_path: str
     param_specs: list[ParamSpec]
+
 
 # Pattern for __global__ AICORE void kernel_name(params)
 KERNEL_PATTERN = re.compile(
@@ -136,12 +137,12 @@ def build_call_wrapper(kernel_name: str, params: list[tuple[str, str, bool]]) ->
         else:
             param_decls.append(f"{typ} {name}")
             cast_args.append(name)
-    return f'''extern "C" void call_kernel(
+    return f"""extern "C" void call_kernel(
     uint32_t blockDim, void* stream,
     {", ".join(param_decls)})
 {{
     {kernel_name}<<<blockDim, nullptr, stream>>>({", ".join(cast_args)});
-}}'''
+}}"""
 
 
 def convert(content: str) -> str:
@@ -193,7 +194,8 @@ def _extract_param_specs(prog) -> list[ParamSpec]:
         t = var.type
         if isinstance(t, TensorType):
             shape = [
-                s.value if isinstance(s, ConstInt)
+                s.value
+                if isinstance(s, ConstInt)
                 else (s.name if isinstance(s, Var) else -1)
                 for s in t.shape
             ]
@@ -278,7 +280,11 @@ def _validate_scalar_arg(i: int, arg, spec: ParamSpec) -> None:
         raise TypeError(
             f"arg[{i}] '{spec.name}': float value passed for non-float dtype {spec.dtype}"
         )
-    elif isinstance(arg, int) and not spec.dtype.is_signed_int() and not spec.dtype.is_unsigned_int():
+    elif (
+        isinstance(arg, int)
+        and not spec.dtype.is_signed_int()
+        and not spec.dtype.is_unsigned_int()
+    ):
         raise TypeError(
             f"arg[{i}] '{spec.name}': int value passed for non-integer dtype {spec.dtype}"
         )
@@ -299,8 +305,11 @@ def _expand_tiling_args(args: tuple) -> tuple:
         or the original args if no tiling instance is present.
     """
     from pypto_block.language.typing.tiling import (
-        is_tiling_class, get_tiling_fields, ArrayFieldInfo,
+        is_tiling_class,
+        get_tiling_fields,
+        ArrayFieldInfo,
     )
+
     if not args:
         return args
     last_arg = args[-1]
@@ -353,7 +362,9 @@ def _args_to_ctypes(args: tuple, param_specs: list[ParamSpec]) -> list:
     - dynamic dims → ctypes.c_int64, appended in first-occurrence order
     """
     result = []
-    dyn_var_values: dict[str, int] = {}  # insertion order = first-occurrence order (Python 3.7+)
+    dyn_var_values: dict[
+        str, int
+    ] = {}  # insertion order = first-occurrence order (Python 3.7+)
 
     for arg, spec in zip(args, param_specs):
         if spec.kind in ("tensor", "ptr"):
@@ -379,6 +390,7 @@ def _get_mlir_code(result):
     """Normalize generate() result to MLIR string (support both str and dict)."""
     return result if isinstance(result, str) else "".join(result.values())
 
+
 def _generate_caller_cpp(
     kernel_params: list[tuple[str, str, bool]],
     kernel_cpp_name: str,
@@ -387,7 +399,7 @@ def _generate_caller_cpp(
     enable_print_debug: bool = False,
 ) -> str:
     """Generate extern "C" wrapper that calls the __global__ kernel.
-    
+
     Args:
         param_specs: List of parameter specifications extracted from IR
         kernel_cpp_name: Name of the kernel .cpp file to include
@@ -396,7 +408,7 @@ def _generate_caller_cpp(
         enable_print_debug:
             Reserved compatibility switch from compile(); currently this wrapper
             does not need extra caller-side code changes for print debug.
-    
+
     Returns:
         Generated caller.cpp content as string
     """
@@ -435,13 +447,14 @@ def _generate_caller_cpp(
         "}}\n"
     )
 
+
 def _inject_set_ffts_to_mlir(mlir_code: str) -> str:
     """
     在 MLIR 代码的第一个 func.func 参数列表末尾添加 memref<?xi64> 参数，
     并在函数体开头插入 pto.set_ffts。
     使用括号计数定位参数列表的右括号，避免被类型中的尖括号干扰。
     """
-    func_pattern = re.compile(r'(func\.func\s+@\w+\s*\()')
+    func_pattern = re.compile(r"(func\.func\s+@\w+\s*\()")
     match = func_pattern.search(mlir_code)
     if not match:
         return mlir_code
@@ -449,28 +462,33 @@ def _inject_set_ffts_to_mlir(mlir_code: str) -> str:
     pos = start_pos + 1
     depth = 1
     while depth > 0 and pos < len(mlir_code):
-        if mlir_code[pos] == '(':
+        if mlir_code[pos] == "(":
             depth += 1
-        elif mlir_code[pos] == ')':
+        elif mlir_code[pos] == ")":
             depth -= 1
         pos += 1
     if depth != 0:
         return mlir_code
     right_paren_pos = pos - 1
-    param_str = mlir_code[start_pos+1:right_paren_pos]
-    args = re.findall(r'%arg(\d+)', param_str)
+    param_str = mlir_code[start_pos + 1 : right_paren_pos]
+    args = re.findall(r"%arg(\d+)", param_str)
     next_idx = max(int(i) for i in args) + 1 if args else 0
-    new_param = f", %arg{next_idx}: memref<?xi64>" if param_str.strip() else f"%arg{next_idx}: memref<?xi64>"
+    new_param = (
+        f", %arg{next_idx}: memref<?xi64>"
+        if param_str.strip()
+        else f"%arg{next_idx}: memref<?xi64>"
+    )
     new_param_str = param_str + new_param
-    new_sig = mlir_code[:start_pos+1] + new_param_str + mlir_code[right_paren_pos:]
-    brace_pos = new_sig.find('{', right_paren_pos)
+    new_sig = mlir_code[: start_pos + 1] + new_param_str + mlir_code[right_paren_pos:]
+    brace_pos = new_sig.find("{", right_paren_pos)
     if brace_pos == -1:
         return new_sig
     # 插入 pto.set_ffts 操作
     indent = "    "
     new_op = f"\n{indent}pto.set_ffts %arg{next_idx} : memref<?xi64>"
-    final_code = new_sig[:brace_pos+1] + new_op + new_sig[brace_pos+1:]
+    final_code = new_sig[: brace_pos + 1] + new_op + new_sig[brace_pos + 1 :]
     return final_code
+
 
 def _inject_aic_cross_core_eventid_offset_cce(cpp_code: str, arch: str) -> str:
     """
@@ -485,21 +503,25 @@ def _inject_aic_cross_core_eventid_offset_cce(cpp_code: str, arch: str) -> str:
 
     # [^)]+ matches any expression without nested ')' — covers literals,
     # variables, and array-index expressions such as event_id_arr[i].
-    set_re = re.compile(r'^([ \t]*)(set_intra_block\((\w+),\s*([^)]+)\);)\s*$')
-    wait_re = re.compile(r'^([ \t]*)(wait_intra_block\((\w+),\s*([^)]+)\);)\s*$')
+    set_re = re.compile(r"^([ \t]*)(set_intra_block\((\w+),\s*([^)]+)\);)\s*$")
+    wait_re = re.compile(r"^([ \t]*)(wait_intra_block\((\w+),\s*([^)]+)\);)\s*$")
 
     def _add_16(expr: str) -> str:
         """Return expr+16 as a literal when expr is a plain integer, else as C++ expression."""
         e = expr.strip()
-        return str(int(e) + 16) if re.fullmatch(r'\d+', e) else f"({e}) + 16"
+        return str(int(e) + 16) if re.fullmatch(r"\d+", e) else f"({e}) + 16"
 
     def _make_dup(line_stripped: str) -> str | None:
         m = set_re.match(line_stripped)
         if m:
-            return f"{m.group(1)}set_intra_block({m.group(3)}, {_add_16(m.group(4))});\n"
+            return (
+                f"{m.group(1)}set_intra_block({m.group(3)}, {_add_16(m.group(4))});\n"
+            )
         m = wait_re.match(line_stripped)
         if m:
-            return f"{m.group(1)}wait_intra_block({m.group(3)}, {_add_16(m.group(4))});\n"
+            return (
+                f"{m.group(1)}wait_intra_block({m.group(3)}, {_add_16(m.group(4))});\n"
+            )
         return None
 
     lines = cpp_code.splitlines(keepends=True)
@@ -508,18 +530,18 @@ def _inject_aic_cross_core_eventid_offset_cce(cpp_code: str, arch: str) -> str:
     depth = 0
 
     for line in lines:
-        stripped = line.rstrip('\n\r')
+        stripped = line.rstrip("\n\r")
         result.append(line)
 
         if not in_cube:
-            if stripped.strip() == '#if defined(__DAV_CUBE__)':
+            if stripped.strip() == "#if defined(__DAV_CUBE__)":
                 in_cube = True
                 depth = 1
         else:
             s = stripped.strip()
-            if s.startswith('#if'):
+            if s.startswith("#if"):
                 depth += 1
-            elif s.startswith('#endif'):
+            elif s.startswith("#endif"):
                 depth -= 1
                 if depth == 0:
                     in_cube = False
@@ -528,7 +550,7 @@ def _inject_aic_cross_core_eventid_offset_cce(cpp_code: str, arch: str) -> str:
                 if dup:
                     result.append(dup)
 
-    return ''.join(result)
+    return "".join(result)
 
 
 def _inject_aic_cross_core_eventid_offset(mlir_code: str) -> str:
@@ -540,11 +562,11 @@ def _inject_aic_cross_core_eventid_offset(mlir_code: str) -> str:
       - SSA 值（如 %eid）：插入 arith.constant + arith.addi 再复制 sync 指令。
     使用花括号计数定位 cube section 的边界。
     """
-    cube_section_pattern = re.compile(r'pto\.section\.cube\s*\{')
+    cube_section_pattern = re.compile(r"pto\.section\.cube\s*\{")
     # group(1)=indent  group(2)=full op text  group(3)=set|wait
     # group(4)=pipe name  group(5)=event_id (\d+ or %ssa)  group(6)=trailing attrs
     sync_pattern = re.compile(
-        r'^([ \t]*)(pto\.sync\.(set|wait)\s+#pto\.pipe<(\w+)>,\s*(\d+|%\w+)([^\n]*))\n',
+        r"^([ \t]*)(pto\.sync\.(set|wait)\s+#pto\.pipe<(\w+)>,\s*(\d+|%\w+)([^\n]*))\n",
         re.MULTILINE,
     )
 
@@ -559,39 +581,41 @@ def _inject_aic_cross_core_eventid_offset(mlir_code: str) -> str:
             break
 
         # Append everything up to and including the opening '{'
-        result.append(mlir_code[pos:match.end()])
+        result.append(mlir_code[pos : match.end()])
 
         # Find the matching closing '}' using brace counting
         depth = 1
         scan_pos = match.end()
         while depth > 0 and scan_pos < len(mlir_code):
-            if mlir_code[scan_pos] == '{':
+            if mlir_code[scan_pos] == "{":
                 depth += 1
-            elif mlir_code[scan_pos] == '}':
+            elif mlir_code[scan_pos] == "}":
                 depth -= 1
             scan_pos += 1
 
         if depth != 0:
             # Unmatched brace – leave the rest unchanged
-            result.append(mlir_code[match.end():])
+            result.append(mlir_code[match.end() :])
             break
 
         # cube_content is the text between '{' and the matching '}'
-        cube_content = mlir_code[match.end():scan_pos - 1]
+        cube_content = mlir_code[match.end() : scan_pos - 1]
 
         # Insert duplicate sync ops (event_id + 16) after every sync op
         new_parts = []
         content_pos = 0
         for sync_match in sync_pattern.finditer(cube_content):
-            new_parts.append(cube_content[content_pos:sync_match.end()])
+            new_parts.append(cube_content[content_pos : sync_match.end()])
 
             indent = sync_match.group(1)
-            op_type = sync_match.group(3)    # 'set' or 'wait'
+            op_type = sync_match.group(3)  # 'set' or 'wait'
             pipe_name = sync_match.group(4)  # e.g. 'PIPE_MTE2'
-            event_id = sync_match.group(5)   # literal digits or '%var'
-            trailing = sync_match.group(6)   # optional attrs, e.g. ' {ffts_mode = 0 : i32}'
+            event_id = sync_match.group(5)  # literal digits or '%var'
+            trailing = sync_match.group(
+                6
+            )  # optional attrs, e.g. ' {ffts_mode = 0 : i32}'
 
-            if re.fullmatch(r'\d+', event_id):
+            if re.fullmatch(r"\d+", event_id):
                 # Static integer: compute N+16 as a literal at transform time
                 new_eid = str(int(event_id) + 16)
             else:
@@ -610,12 +634,12 @@ def _inject_aic_cross_core_eventid_offset(mlir_code: str) -> str:
             content_pos = sync_match.end()
 
         new_parts.append(cube_content[content_pos:])
-        result.append(''.join(new_parts))
-        result.append('}')
+        result.append("".join(new_parts))
+        result.append("}")
 
         pos = scan_pos
 
-    return ''.join(result)
+    return "".join(result)
 
 
 def _normalize_arch(arch: str | None) -> str:
@@ -638,8 +662,13 @@ def _detect_print_debug_from_cpp(content: str) -> bool:
     )
 
 
-def _build_bisheng_flags(toolkit_home: str, arch: str, cpp_content: str, has_cross_sync: bool,
-                         enable_print_debug: bool) -> list[str]:
+def _build_bisheng_flags(
+    toolkit_home: str,
+    arch: str,
+    cpp_content: str,
+    has_cross_sync: bool,
+    enable_print_debug: bool,
+) -> list[str]:
     """Build bisheng flags for single-command shared-library compilation.
 
     Determines the npu_arch from the arch ('a2'/'a3'/'a5') and the presence
@@ -652,13 +681,9 @@ def _build_bisheng_flags(toolkit_home: str, arch: str, cpp_content: str, has_cro
 
     if has_cross_sync and not (has_cube and has_vec):
         if has_cube:
-            raise ValueError(
-                f"Contains ffts cross sync but vector code is missing."
-            )
+            raise ValueError(f"Contains ffts cross sync but vector code is missing.")
         elif has_vec:
-            raise ValueError(
-                f"Contains ffts cross sync but cube code is missing."
-            )
+            raise ValueError(f"Contains ffts cross sync but cube code is missing.")
     if has_cube and has_vec:
         npu_arch = "dav-c220" if arch in ("a2", "a3") else "dav-c310"
     elif has_cube:
@@ -679,20 +704,28 @@ def _build_bisheng_flags(toolkit_home: str, arch: str, cpp_content: str, has_cro
         f"-I{toolkit_home}/include",
     ]
     if enable_print_debug:
-        common.extend([
-            "--cce-enable-print",
-            "-D_DEBUG",
-            "-DCCEBlockMaxSize=1048576",
-            "-DPTOAS_ENABLE_CCE_PRINT=1",
-        ])
+        common.extend(
+            [
+                "--cce-enable-print",
+                "-D_DEBUG",
+                "-DCCEBlockMaxSize=1048576",
+                "-DPTOAS_ENABLE_CCE_PRINT=1",
+            ]
+        )
     flags = [f"--cce-aicore-arch={npu_arch}"]
     if has_cube and has_vec:
         flags.append("--cce-fatobj-link")
     return [*flags, *common]
 
 
-def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_debug: bool | None = None,
-            codegen_mode: str = "pto"):
+def compile(
+    prog,
+    clean_up=False,
+    timeout=20,
+    arch: str = "a3",
+    enable_print_debug: bool | None = None,
+    codegen_mode: str = "pto",
+):
     """Compile a PTO program to a shared library.
 
     Args:
@@ -712,14 +745,20 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
     """
     # Deferred compilation: parse KernelDef → ir.Program with arch info
     from pypto_block.frontend.kernel import KernelDef
+
     if isinstance(prog, KernelDef):
         prog = prog.parse(npu_arch=arch)
 
     arch = _normalize_arch(arch)
-    Path("./build").mkdir(parents=True, exist_ok=True)
-    raw_cpp_path = "./build/kernel.cpp"
-    final_kernel = "./build/call_kernel.cpp"
-    lib_path = "./build/call_kernel.so"
+
+    # Use the program name as the build subdirectory so artifacts are
+    # identifiable: ./build/<program_name>/kernel.cpp, etc.
+    prog_name = prog.name if hasattr(prog, "name") and prog.name else "kernel"
+    build_dir = os.path.join(".", "build", prog_name)
+    Path(build_dir).mkdir(parents=True, exist_ok=True)
+    raw_cpp_path = os.path.join(build_dir, "kernel.cpp")
+    final_kernel = os.path.join(build_dir, "call_kernel.cpp")
+    lib_path = os.path.join(build_dir, "call_kernel.so")
 
     if arch in ("a2", "a3"):
         os.environ["npu_arch"] = "dav-c220"
@@ -745,7 +784,7 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
                 # Try multi-line
                 idx = content.splitlines().index(line)
                 all_lines = content.splitlines()
-                combined = "".join(all_lines[idx:idx + 3]).strip()
+                combined = "".join(all_lines[idx : idx + 3]).strip()
                 parsed = parse_kernel_signature(combined, "")
                 if parsed:
                     kernel_name, kernel_params = parsed
@@ -774,7 +813,7 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
         backend.reset_for_testing()
         backend.set_backend_type(BackendType.PTO)
 
-        ir_path = "./build/kernel.pto"
+        ir_path = os.path.join(build_dir, "kernel.pto")
 
         # step 1, Program -> PtoAs-mlir
         pto_codegen = PTOCodegen()
@@ -794,8 +833,18 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
 
         # step 2, IR -> CPP
         result = subprocess.run(
-            ["ptoas", ir_path, "--enable-insert-sync", "--pto-level=level3", f"--pto-arch={arch}", "-o", raw_cpp_path],
-            check=False, timeout=timeout, capture_output=True
+            [
+                "ptoas",
+                ir_path,
+                "--enable-insert-sync",
+                "--pto-level=level3",
+                f"--pto-arch={arch}",
+                "-o",
+                raw_cpp_path,
+            ],
+            check=False,
+            timeout=timeout,
+            capture_output=True,
         )
         if result.returncode != 0:
             print(f"ptoas failed with return code {result.returncode}")
@@ -814,7 +863,9 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
                     break
         if kernel_name is None:
             raise RuntimeError("Could not find kernel name in generated C++ code")
-        resolved_enable_print_debug = needs_print_debug if enable_print_debug is None else enable_print_debug
+        resolved_enable_print_debug = (
+            needs_print_debug if enable_print_debug is None else enable_print_debug
+        )
         if has_ffts_sync:
             kernel_params = kernel_params[:-1]
         caller_content = _generate_caller_cpp(
@@ -822,7 +873,7 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
             kernel_cpp_name="kernel.cpp",
             kernel_name=kernel_name,
             has_cross_core_sync=has_ffts_sync,
-            enable_print_debug=resolved_enable_print_debug
+            enable_print_debug=resolved_enable_print_debug,
         )
         Path(final_kernel).write_text(caller_content, encoding="utf-8")
 
@@ -845,11 +896,16 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
         f"-I{ASCEND_HOME_PATH}/pkg_inc/runtime/runtime",
     ]
     llvm_args = [
-        "-mllvm", "-cce-aicore-stack-size=0x8000",
-        "-mllvm", "-cce-aicore-function-stack-size=0x8000",
-        "-mllvm", "-cce-aicore-record-overflow=false",
-        "-mllvm", "-cce-aicore-addr-transform",
-        "-mllvm", "-cce-aicore-dcci-insert-for-scalar=false",
+        "-mllvm",
+        "-cce-aicore-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-function-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-record-overflow=false",
+        "-mllvm",
+        "-cce-aicore-addr-transform",
+        "-mllvm",
+        "-cce-aicore-dcci-insert-for-scalar=false",
         "--cce-auto-sync=off",
         "-O3",
         "--cce-disable-kernel-global-attr-check",
@@ -857,7 +913,9 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
         "-Wno-unused-command-line-argument",
         "-Werror",
     ]
-    resolved_enable_print_debug = needs_print_debug if enable_print_debug is None else enable_print_debug
+    resolved_enable_print_debug = (
+        needs_print_debug if enable_print_debug is None else enable_print_debug
+    )
     flags = _build_bisheng_flags(
         PTO_LIB_PATH,
         arch,
@@ -867,8 +925,21 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
     )
     flags.extend(runtime_includes)
     result = subprocess.run(
-        ["bisheng", *flags, *llvm_args, final_kernel, "-L", LD_LIB_PATH, "-lruntime", "-lprofapi", "-o", lib_path],
-        check=False, timeout=timeout, capture_output=True
+        [
+            "bisheng",
+            *flags,
+            *llvm_args,
+            final_kernel,
+            "-L",
+            LD_LIB_PATH,
+            "-lruntime",
+            "-lprofapi",
+            "-o",
+            lib_path,
+        ],
+        check=False,
+        timeout=timeout,
+        capture_output=True,
     )
     if result.returncode != 0:
         print(f"bisheng compilation failed with return code {result.returncode}")
@@ -881,6 +952,7 @@ def compile(prog, clean_up=False, timeout=20, arch: str = "a3", enable_print_deb
         os.remove(final_kernel)
 
     return CompiledKernel(lib_path=lib_path, param_specs=_extract_param_specs(prog))
+
 
 def load_lib(lib_path: str, param_specs: list[ParamSpec], clean_up: bool = False):
     lib = ctypes.CDLL(lib_path)
@@ -901,7 +973,9 @@ def load_lib(lib_path: str, param_specs: list[ParamSpec], clean_up: bool = False
     return func_wrapper
 
 
-def launch(stream=None, block_dim=1, compiled_result: "CompiledKernel | str" = "", *args):
+def launch(
+    stream=None, block_dim=1, compiled_result: "CompiledKernel | str" = "", *args
+):
     if isinstance(compiled_result, str):
         if compiled_result == "":
             raise RuntimeError("compiled_result is empty")
@@ -916,9 +990,14 @@ def launch(stream=None, block_dim=1, compiled_result: "CompiledKernel | str" = "
     compiled_func(*args, block_dim=block_dim, stream=stream)
 
 
-def jit(target=None, optimize: bool = True, cache: bool = True,
+def jit(
+    target=None,
+    optimize: bool = True,
+    cache: bool = True,
     preprocess: bool = True,
-    *dargs, **kwargs):
+    *dargs,
+    **kwargs,
+):
     """Mark a function for JIT compilation.
 
     Args:
@@ -941,22 +1020,25 @@ def jit(target=None, optimize: bool = True, cache: bool = True,
 
         # Strip decorator lines before storing source.
         try:
-            source_lines = inspect.getsource(f).split('\n')
-            source_lines = [line for line in source_lines
-                          if '@pto.jit' not in line and '@pto.kernel' not in line]
-            source_code = '\n'.join(source_lines).strip()
+            source_lines = inspect.getsource(f).split("\n")
+            source_lines = [
+                line
+                for line in source_lines
+                if "@pto.jit" not in line and "@pto.kernel" not in line
+            ]
+            source_code = "\n".join(source_lines).strip()
         except OSError:
             source_code = "<source unavailable>"
         # Store JIT function metadata.
         _jit_functions[name] = {
-            'func': f,
-            'name': name,
-            'signature': signature,
-            'source_code': source_code,
-            'target': target or 'cpu',
-            'optimize': optimize,
-            'cache': cache,
-            'kwargs': kwargs
+            "func": f,
+            "name": name,
+            "signature": signature,
+            "source_code": source_code,
+            "target": target or "cpu",
+            "optimize": optimize,
+            "cache": cache,
+            "kwargs": kwargs,
         }
 
         @functools.wraps(f)
@@ -973,5 +1055,3 @@ def jit(target=None, optimize: bool = True, cache: bool = True,
         return decorator(target)
     else:
         return decorator
-
-

@@ -25,8 +25,6 @@ import pytest
 # so that isinstance() checks inside _validate_args() work correctly.
 # ---------------------------------------------------------------------------
 _torch_mock = MagicMock()
-sys.modules.setdefault("torch", _torch_mock)
-sys.modules.setdefault("torch.npu", MagicMock())
 
 
 class _MockTensor:
@@ -56,6 +54,31 @@ from pypto_block.frontend.jit import (  # noqa: E402
 import torch  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _mock_torch_for_convert():
+    """Inject mock torch into sys.modules for the duration of each test only."""
+    import importlib
+
+    _jit_mod = importlib.import_module("pypto_block.frontend.jit")
+
+    _saved_torch = sys.modules.get("torch")
+    _saved_npu = sys.modules.get("torch.npu")
+    _saved_jit_torch = _jit_mod.torch
+    sys.modules["torch"] = _torch_mock
+    sys.modules["torch.npu"] = MagicMock()
+    _jit_mod.torch = _torch_mock
+    yield
+    if _saved_torch is None:
+        sys.modules.pop("torch", None)
+    else:
+        sys.modules["torch"] = _saved_torch
+    if _saved_npu is None:
+        sys.modules.pop("torch.npu", None)
+    else:
+        sys.modules["torch.npu"] = _saved_npu
+    _jit_mod.torch = _saved_jit_torch
+
+
 # ---------------------------------------------------------------------------
 # parse_kernel_signature
 # ---------------------------------------------------------------------------
@@ -63,7 +86,9 @@ import torch  # noqa: E402
 
 def test_parse_signature_pointer_only():
     """Regression: pointer-only params still produce is_ptr=True tuples."""
-    line = "__global__ AICORE void my_kernel(__gm__ float* input, __gm__ float* output) {"
+    line = (
+        "__global__ AICORE void my_kernel(__gm__ float* input, __gm__ float* output) {"
+    )
     result = parse_kernel_signature(line)
     assert result is not None
     name, params = result
@@ -155,7 +180,11 @@ def test_build_wrapper_pointer_only():
 
 def test_build_wrapper_mixed_params():
     """New: scalar params are passed by value (no cast, no uint8_t*)."""
-    params = [("float", "input", True), ("float", "output", True), ("int32_t", "n", False)]
+    params = [
+        ("float", "input", True),
+        ("float", "output", True),
+        ("int32_t", "n", False),
+    ]
     wrapper = build_call_wrapper("scaled_kernel", params)
     # Pointer params
     assert "uint8_t* input" in wrapper
@@ -252,7 +281,9 @@ def test_validate_args_count_mismatch():
     """Wrong number of args raises TypeError."""
     specs = [_tensor_spec("x", DataType.FP32, [64])]
     with pytest.raises(TypeError, match="Expected 1 args, got 2"):
-        _validate_args((_MockTensor([64], torch.float32), _MockTensor([64], torch.float32)), specs)
+        _validate_args(
+            (_MockTensor([64], torch.float32), _MockTensor([64], torch.float32)), specs
+        )
 
 
 def test_validate_args_tensor_ok():
@@ -353,7 +384,9 @@ def test_validate_args_scalar_bool_for_bool_dtype_ok():
 def test_validate_args_scalar_bool_for_float_dtype_raises():
     """bool is rejected for float dtypes (only valid for BOOL/integer dtypes)."""
     specs = [_scalar_spec("scale", DataType.FP32)]
-    with pytest.raises(TypeError, match="bool value passed for non-boolean/non-integer dtype"):
+    with pytest.raises(
+        TypeError, match="bool value passed for non-boolean/non-integer dtype"
+    ):
         _validate_args((True,), specs)
 
 
@@ -384,7 +417,9 @@ def test_args_to_ctypes_tensor():
     result = _args_to_ctypes((tensor,), specs)
     assert len(result) == 1
     assert isinstance(result[0], ctypes.c_void_p)
-    assert result[0].value == tensor.data_ptr() or result[0].value is None  # 0 maps to None
+    assert (
+        result[0].value == tensor.data_ptr() or result[0].value is None
+    )  # 0 maps to None
 
 
 def test_args_to_ctypes_ptr():
@@ -535,9 +570,9 @@ def test_args_to_ctypes_dyn_order():
     result = _args_to_ctypes(args, specs)
     # 2 c_void_p + 3 c_int64 (M=10, N=20, K=30)
     assert len(result) == 5
-    assert isinstance(result[2], ctypes.c_int64) and result[2].value == 10   # M
-    assert isinstance(result[3], ctypes.c_int64) and result[3].value == 20   # N
-    assert isinstance(result[4], ctypes.c_int64) and result[4].value == 30   # K
+    assert isinstance(result[2], ctypes.c_int64) and result[2].value == 10  # M
+    assert isinstance(result[3], ctypes.c_int64) and result[3].value == 20  # N
+    assert isinstance(result[4], ctypes.c_int64) and result[4].value == 30  # K
 
 
 def test_args_to_ctypes_dyn_dedup():
@@ -553,8 +588,8 @@ def test_args_to_ctypes_dyn_dedup():
     result = _args_to_ctypes(args, specs)
     # 2 c_void_p + 2 c_int64 (M=8, N=16) — NOT 4 c_int64
     assert len(result) == 4
-    assert result[2].value == 8    # M
-    assert result[3].value == 16   # N
+    assert result[2].value == 8  # M
+    assert result[3].value == 16  # N
 
 
 def test_args_to_ctypes_no_dyn():
