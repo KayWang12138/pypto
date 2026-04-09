@@ -188,6 +188,45 @@ void BindDistributed(py::module& m)
         py::arg("expandX"), py::arg("assistInfoForCombine"), py::arg("recvCounts"), py::arg("expertScales"),
         py::arg("group"), py::arg("epWorldSize"), py::arg("moeExpertNum"), py::arg("sharedExpertNum"),
         py::arg("sharedExpertRankNum"), py::arg("out"), "Run MoeDistributedCombineV2.");
+
+    m.def(
+        "MoeDistributedCombineBackwardDataV2",
+        [](const Tensor& assistInfoForCombine, const Tensor& recvCounts, const Tensor& expertScales,
+           const Tensor& gradOut, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+           uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& gradExpandX) {
+            Distributed::MoeDistributedCombineBackwardDataV2(
+                assistInfoForCombine, recvCounts, expertScales, gradOut, group, epWorldSize, moeExpertNum,
+                sharedExpertNum, sharedExpertRankNum, gradExpandX);
+        },
+        py::arg("assistInfoForCombine"), py::arg("recvCounts"), py::arg("expertScales"), py::arg("gradOut"),
+        py::arg("group"), py::arg("epWorldSize"), py::arg("moeExpertNum"), py::arg("sharedExpertNum"),
+        py::arg("sharedExpertRankNum"), py::arg("gradExpandX"), "Run MoeDistributedCombineBackwardDataV2.");
+
+    m.def(
+        "MoeDistributedCombineBackwardScalesV2",
+        [](const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts, const Tensor& gradOut,
+           const char* group, uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum,
+           uint32_t sharedExpertRankNum, Tensor& gradExpertScales) {
+            Distributed::MoeDistributedCombineBackwardScalesV2(
+                expandX, assistInfoForCombine, recvCounts, gradOut, group, epWorldSize, moeExpertNum,
+                sharedExpertNum, sharedExpertRankNum, gradExpertScales);
+        },
+        py::arg("expandX"), py::arg("assistInfoForCombine"), py::arg("recvCounts"), py::arg("gradOut"),
+        py::arg("group"), py::arg("epWorldSize"), py::arg("moeExpertNum"), py::arg("sharedExpertNum"),
+        py::arg("sharedExpertRankNum"), py::arg("gradExpertScales"), "Run MoeDistributedCombineBackwardScalesV2.");
+
+    m.def(
+        "MoeDistributedDispatchBackwardV2",
+        [](const Tensor& gradExpandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts, const char* group,
+           uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum,
+           Tensor& gradX) {
+            Distributed::MoeDistributedDispatchBackwardV2(
+                gradExpandX, assistInfoForCombine, recvCounts, group, epWorldSize, moeExpertNum, sharedExpertNum,
+                sharedExpertRankNum, gradX);
+        },
+        py::arg("gradExpandX"), py::arg("assistInfoForCombine"), py::arg("recvCounts"), py::arg("group"),
+        py::arg("epWorldSize"), py::arg("moeExpertNum"), py::arg("sharedExpertNum"),
+        py::arg("sharedExpertRankNum"), py::arg("gradX"), "Run MoeDistributedDispatchBackwardV2.");
 }
 
 } // namespace pypto

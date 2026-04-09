@@ -527,6 +527,91 @@ def moe_distributed_combine_v2(
 
 
 @op_wrapper
+def moe_distributed_combine_backward_data_v2(
+    assist_info_for_combine: Tensor,
+    recv_counts: Tensor,
+    expert_scales: Tensor,
+    grad_out: Tensor,
+    group_name: str,
+    ep_world_size: int,
+    moe_expert_num: int,
+    shared_expert_num: int,
+    shared_expert_rank_num: int,
+    grad_expand_x: Tensor,
+) -> Tensor:
+    """Runs the backend MoeDistributedCombineBackwardDataV2 op."""
+    pypto_impl.MoeDistributedCombineBackwardDataV2(
+        assist_info_for_combine,
+        recv_counts,
+        expert_scales,
+        grad_out,
+        group_name,
+        ep_world_size,
+        moe_expert_num,
+        shared_expert_num,
+        shared_expert_rank_num,
+        grad_expand_x,
+    )
+    return grad_expand_x
+
+
+@op_wrapper
+def moe_distributed_combine_backward_scales_v2(
+    expand_x: Tensor,
+    assist_info_for_combine: Tensor,
+    recv_counts: Tensor,
+    grad_out: Tensor,
+    group_name: str,
+    ep_world_size: int,
+    moe_expert_num: int,
+    shared_expert_num: int,
+    shared_expert_rank_num: int,
+    grad_expert_scales: Tensor,
+) -> Tensor:
+    """Runs the backend MoeDistributedCombineBackwardScalesV2 op."""
+    pypto_impl.MoeDistributedCombineBackwardScalesV2(
+        expand_x,
+        assist_info_for_combine,
+        recv_counts,
+        grad_out,
+        group_name,
+        ep_world_size,
+        moe_expert_num,
+        shared_expert_num,
+        shared_expert_rank_num,
+        grad_expert_scales,
+    )
+    return grad_expert_scales
+
+
+@op_wrapper
+def moe_distributed_dispatch_backward_v2(
+    grad_expand_x: Tensor,
+    assist_info_for_combine: Tensor,
+    recv_counts: Tensor,
+    group_name: str,
+    ep_world_size: int,
+    moe_expert_num: int,
+    shared_expert_num: int,
+    shared_expert_rank_num: int,
+    grad_x: Tensor,
+) -> Tensor:
+    """Runs the backend MoeDistributedDispatchBackwardV2 op."""
+    pypto_impl.MoeDistributedDispatchBackwardV2(
+        grad_expand_x,
+        assist_info_for_combine,
+        recv_counts,
+        group_name,
+        ep_world_size,
+        moe_expert_num,
+        shared_expert_num,
+        shared_expert_rank_num,
+        grad_x,
+    )
+    return grad_x
+
+
+@op_wrapper
 def my_symbolic_pe(group_name: str) -> SymbolicScalar:
     """Gets the symbolic PE.
 

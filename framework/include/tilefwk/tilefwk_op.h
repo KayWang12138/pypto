@@ -609,6 +609,18 @@ void MoeDistributedCombineV2(
     const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts, const Tensor& expertScales,
     const char* group, uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum,
     uint32_t sharedExpertRankNum, Tensor& out);
+void MoeDistributedCombineBackwardDataV2(
+    const Tensor& assistInfoForCombine, const Tensor& recvCounts, const Tensor& expertScales, const Tensor& gradOut,
+    const char* group, uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum,
+    uint32_t sharedExpertRankNum, Tensor& gradExpandX);
+void MoeDistributedCombineBackwardScalesV2(
+    const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts, const Tensor& gradOut,
+    const char* group, uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum,
+    uint32_t sharedExpertRankNum, Tensor& gradExpertScales);
+void MoeDistributedDispatchBackwardV2(
+    const Tensor& gradExpandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts, const char* group,
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum,
+    Tensor& gradX);
 
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor& x, int idxStart);

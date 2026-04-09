@@ -19,6 +19,26 @@
 #include <cinttypes>
 
 namespace npu::tile_fwk::dynamic {
+namespace {
+constexpr uint64_t CURRENT_ROOT_COA_KIND_INDEX = 0;
+constexpr uint64_t CURRENT_ROOT_COA_DIM_INDEX = 1;
+constexpr uint64_t CURRENT_ROOT_COA_BASE_INDEX = 2;
+constexpr uint64_t CURRENT_ROOT_COA_VALUE_INDEX = 3;
+constexpr uint64_t CURRENT_ROOT_COA_DIM_BASE = 1;
+constexpr uint64_t CURRENT_ROOT_COA_VALID_SHAPE_OFFSET = 3;
+
+uint64_t ResolveCurrentRootAttrValue(DeviceExecuteContext* ctx, uint64_t attrIndex)
+{
+    auto* devRoot = ctx->currDevRootDup.GetSource();
+    DEV_ASSERT_MSG(DevCommonErr::NULLPTR, devRoot != nullptr, "GetCurrentRootCoa: current root source is null.");
+    DEV_ASSERT_MSG(
+        DevCommonErr::PARAM_INVALID, attrIndex < static_cast<uint64_t>(devRoot->GetOpAttrSize()),
+        "GetCurrentRootCoa: attr index %" PRIu64 " exceeds op attr size %d.", attrIndex, devRoot->GetOpAttrSize());
+    const SymInt& attr = devRoot->GetSymoffset(0)[attrIndex];
+    return attr.IsExpression() ? ctx->currDevRootDup.GetExpression(attr.Value()) : attr.Value();
+}
+} // namespace
+
 bool DeviceExecuteContext::DuppedRootCached()
 {
     if (!controlFlowCacheActivated) {
@@ -223,6 +243,7 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs* startArgs)
         DeviceExecuteRuntimeCallSlotMarkNeedAlloc,
         DeviceExecuteRuntimeCallGetLoopDieId,
         DeviceExecuteRuntimeCallSetLoopDieId,
+        DeviceExecuteRuntimeCallGetCurrentRootCoa,
     };
     int originalErrorState = this->GetErrorState();
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
@@ -683,5 +704,48 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallSetLoopDieId(void* ctx_, uin
     ctx->SetLoopDieId(ctx->loopDieId_);
     DEV_VERBOSE_DEBUG("Set loop die id:%d:", ctx->loopDieId_);
     return nullptr;
+}
+
+void* DeviceExecuteContext::DeviceExecuteRuntimeCallGetCurrentRootCoa(void* ctx_, uint64_t value)
+{
+    DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
+    if (ctx == nullptr) {
+        DEV_ERROR(CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.ctrlflow.call.current_root_coa: invalid ctx.");
+        return nullptr;
+    }
+
+    auto* param = reinterpret_cast<uint64_t*>(value);
+    DEV_ASSERT_MSG(DevCommonErr::NULLPTR, param != nullptr, "GetCurrentRootCoa: input param is null.");
+
+    const uint64_t kind = param[CURRENT_ROOT_COA_KIND_INDEX];
+    const uint64_t dim = param[CURRENT_ROOT_COA_DIM_INDEX];
+    const uint64_t base = param[CURRENT_ROOT_COA_BASE_INDEX];
+    const uint64_t idx = param[CURRENT_ROOT_COA_VALUE_INDEX];
+    uint64_t result = 0;
+
+    switch (kind) {
+        case RuntimeCurrentRootCoaKind::T_RUNTIME_CURRENT_ROOT_COA_OFFSET:
+            result = ResolveCurrentRootAttrValue(ctx, base + CURRENT_ROOT_COA_DIM_BASE + idx);
+            break;
+        case RuntimeCurrentRootCoaKind::T_RUNTIME_CURRENT_ROOT_COA_VALID_SHAPE:
+            result = ResolveCurrentRootAttrValue(
+                ctx, base + CURRENT_ROOT_COA_DIM_BASE + CURRENT_ROOT_COA_VALID_SHAPE_OFFSET * dim + idx);
+            break;
+        case RuntimeCurrentRootCoaKind::T_RUNTIME_CURRENT_ROOT_COA_ADDR: {
+            auto rawIndex = ResolveCurrentRootAttrValue(ctx, idx);
+            result = ctx->currDevRootDup.GetRawTensorAddr(rawIndex);
+            break;
+        }
+        case RuntimeCurrentRootCoaKind::T_RUNTIME_CURRENT_ROOT_COA_PARAM:
+            result = ResolveCurrentRootAttrValue(ctx, idx);
+            break;
+        default:
+            DEV_ERROR(
+                DevCommonErr::PARAM_INVALID,
+                "#ctrl.ctrlflow.call.current_root_coa: unsupported current root coa kind %" PRIu64 ".", kind);
+            return nullptr;
+    }
+
+    return reinterpret_cast<void*>(static_cast<uintptr_t>(result));
 }
 } // namespace npu::tile_fwk::dynamic

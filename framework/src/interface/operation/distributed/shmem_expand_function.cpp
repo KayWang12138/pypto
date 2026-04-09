@@ -24,7 +24,11 @@ int32_t tileNumOfWaitUntil = 0;
 constexpr uint16_t UB_BUFFER_BYTE_SIZE = 16 * 1024;
 constexpr uint16_t DTYPE_CAST_BYTE_SIZE = 256;
 constexpr uint16_t UB_ALIGN_SIZE = 32;
+} // namespace
 
+void ResetWaitUntilTileCount() { tileNumOfWaitUntil = 0; }
+
+namespace {
 LogicalTensorPtr View2DTile(
     const LogicalTensorPtr dummy, int32_t tileIndex, int32_t tileRowNum, int32_t tileColNum, Function& function)
 {

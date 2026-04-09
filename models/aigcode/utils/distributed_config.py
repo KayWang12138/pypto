@@ -27,16 +27,17 @@ class DistributedConfig:
         self.logical_ranks = list(range(self.world_size))
         self.master_port = self._calculate_port()
 
-    def init_hccl_comm(self, logical_rank_id: int) -> list[str]:
+    def init_hccl_comm(self, logical_rank_id: int, comm_count: int = 1) -> list[str]:
         physical_device_id = self.get_physical_device_id(logical_rank_id)
         torch_npu.npu.set_device(physical_device_id)
-        dist.init_process_group(
-            backend="hccl",
-            rank=logical_rank_id,
-            world_size=self.world_size,
-            init_method=f"tcp://{self.master_ip}:{self.master_port}",
-        )
-        return [self._get_hccl_comm_name(logical_rank_id)]
+        if not dist.is_initialized():
+            dist.init_process_group(
+                backend="hccl",
+                rank=logical_rank_id,
+                world_size=self.world_size,
+                init_method=f"tcp://{self.master_ip}:{self.master_port}",
+            )
+        return [self._get_hccl_comm_name(logical_rank_id) for _ in range(comm_count)]
 
     def get_physical_device_id(self, logical_rank_id: int) -> int:
         if logical_rank_id >= len(self.physical_device_ids):

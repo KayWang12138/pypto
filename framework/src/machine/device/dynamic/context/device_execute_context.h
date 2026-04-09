@@ -132,6 +132,7 @@ private:
     static void* DeviceExecuteRuntimeCallGetLoopDieId(void* ctx_, uint64_t rootKey);
 
     static void* DeviceExecuteRuntimeCallSetLoopDieId(void* ctx_, uint64_t rootKey);
+    static void* DeviceExecuteRuntimeCallGetCurrentRootCoa(void* ctx_, uint64_t value);
     int errorState_{DEVICE_MACHINE_OK};
 };
 } // namespace npu::tile_fwk::dynamic

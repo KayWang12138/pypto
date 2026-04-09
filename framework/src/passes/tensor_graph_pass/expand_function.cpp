@@ -24,6 +24,7 @@
 #include "interface/program/program.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/configs/config_manager.h"
+#include "interface/operation/distributed/distributed_expand.h"
 #include "passes/pass_check/expand_function_checker.h"
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"
@@ -93,6 +94,7 @@ Status ExpandFunction::PostCheck(Function& function)
 Status ExpandFunction::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction function [%s].", function.GetRawName().c_str());
+    Distributed::ResetWaitUntilTileCount();
     std::ostringstream oss;
     scopeMap_.clear();
     bool verifyResult = true;

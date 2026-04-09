@@ -63,6 +63,49 @@ bool IsSupportedMoeDispatchV1Case(int32_t batchSize, int32_t hiddenSize, int32_t
     return isGlmCase || isAigcodeCase || isQwen3NextCase;
 }
 
+int32_t InferSupportedMoeTopK(
+    int32_t batchSize, int32_t hiddenSize, int32_t epWorldSize, int32_t moeExpertNum, int32_t sharedExpertNum,
+    int32_t sharedExpertRankNum)
+{
+    const bool isGlmCase =
+        batchSize == GLM_V1_BATCH_SIZE && hiddenSize == GLM_V1_HIDDEN_SIZE && moeExpertNum == GLM_V1_MOE_EXPERT_NUM &&
+        sharedExpertNum == 0 && sharedExpertRankNum == 0 && (epWorldSize == 4 || epWorldSize == 8);
+    if (isGlmCase) {
+        return GLM_V1_TOPK;
+    }
+
+    const bool isAigcodeCase =
+        batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE &&
+        epWorldSize == AIGCODE_EP_WORLD_SIZE && moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 &&
+        sharedExpertRankNum == 0;
+    if (isAigcodeCase) {
+        return AIGCODE_TOPK;
+    }
+
+    const bool isQwen3NextCase =
+        batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE && moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM &&
+        sharedExpertNum == 0 && sharedExpertRankNum == 0;
+    if (isQwen3NextCase) {
+        return QWEN3_NEXT_TOPK;
+    }
+
+    return 0;
+}
+
+std::set<int> GetMoeDispatchBackwardUnrollList(int32_t batchSize, int32_t hiddenSize, int32_t topK, int32_t epWorldSize)
+{
+    if (batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
+        epWorldSize == AIGCODE_EP_WORLD_SIZE) {
+        return {8, 4, 2, 1};
+    }
+    if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE) {
+        return {8, 4, 2, 1};
+    }
+    return {64, 32, 16, 8, 4, 2, 1};
+}
+
 } // namespace
 
 void TiledDispatchFFNSched(
@@ -883,6 +926,112 @@ void MoeDistributedDispatchV2(
             Tensor localInfoRecvCount = ShmemLoad(curShmemInfoTile, thisRank, cumSumResult);
             Assemble(localInfoRecvCount, std::vector<SymbolicScalar>{offset, 0}, assistInfoForCombine);
         }
+    }
+}
+
+void MoeDistributedDispatchBackwardValidateV2(
+    const Tensor& gradExpandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts, const char* group,
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& gradX)
+{
+    std::string assertResult;
+    CHECK(group != nullptr) << "MoeDispatchBackwardV2 constraint violated: group name can't be nullptr.";
+    CHECK(group[0] != '\0') << "MoeDispatchBackwardV2 constraint violated: group name must be valid, but got '\\0'";
+    CHECK(strnlen(group, 128) < 128)
+        << "MoeDispatchBackwardV2 constraint violated: group name max size must be 128, but got " << strnlen(group, 128);
+    CHECK(epWorldSize > 0) << "MoeDispatchBackwardV2 constraint violated: epWorldSize must be > 0, but got "
+                           << epWorldSize;
+    CHECK(sharedExpertNum == 0) << "MoeDispatchBackwardV2 constraint violated: sharedExpertNum must be 0, but got "
+                                << sharedExpertNum;
+    CHECK(sharedExpertRankNum == 0)
+        << "MoeDispatchBackwardV2 constraint violated: sharedExpertRankNum must be 0, but got " << sharedExpertRankNum;
+
+    int32_t batchSize = gradX.GetShape(0);
+    int32_t hiddenSize = gradX.GetShape(1);
+    int32_t topK = InferSupportedMoeTopK(
+        batchSize, hiddenSize, static_cast<int32_t>(epWorldSize), static_cast<int32_t>(moeExpertNum),
+        static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum));
+    CHECK(topK > 0) << "MoeDispatchBackwardV2 constraint violated: unsupported shape configuration.";
+
+    int32_t expandXRow = std::min(
+        static_cast<int32_t>(batchSize) * topK * static_cast<int32_t>(epWorldSize),
+        static_cast<int32_t>(batchSize) * static_cast<int32_t>(moeExpertNum));
+    CHECK(checkValidInput(gradExpandX, 2, DataType::DT_BF16, expandXRow, hiddenSize, assertResult)) << assertResult;
+    CHECK(checkValidInput(assistInfoForCombine, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult;
+    CHECK(checkValidInput(recvCounts, 1, DataType::DT_INT32, 1, 0, assertResult)) << assertResult;
+    CHECK(checkValidInput(gradX, 2, DataType::DT_BF16, batchSize, hiddenSize, assertResult)) << assertResult;
+
+    uint64_t shmemSize =
+        static_cast<uint64_t>(batchSize) * static_cast<uint64_t>(topK) * static_cast<uint64_t>(hiddenSize) *
+        BytesOf(gradExpandX.GetDataType());
+    CHECK(shmemSize < MOE_V2_MAX_WIN_SIZE)
+        << "MoeDispatchBackwardV2 constraint violated: shmem window exceeds the limit. Maximum allowed: "
+        << MOE_V2_MAX_WIN_SIZE << ", got: " << shmemSize;
+}
+
+void MoeDistributedDispatchBackwardV2(
+    const Tensor& gradExpandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts, const char* group,
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& gradX)
+{
+    MoeDistributedDispatchBackwardValidateV2(
+        gradExpandX, assistInfoForCombine, recvCounts, group, epWorldSize, moeExpertNum, sharedExpertNum,
+        sharedExpertRankNum, gradX);
+
+    int32_t batchSize = gradX.GetShape(0);
+    int32_t hiddenSize = gradX.GetShape(1);
+    int32_t topK = InferSupportedMoeTopK(
+        batchSize, hiddenSize, static_cast<int32_t>(epWorldSize), static_cast<int32_t>(moeExpertNum),
+        static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum));
+
+    auto shmemTensor =
+        CreateShmemTensor(group, epWorldSize, gradExpandX.GetDataType(), {1, batchSize * topK, hiddenSize});
+
+    SymbolicScalar recvCountsScalar = GetTensorData(recvCounts, {0});
+    std::set<int> unrollList =
+        GetMoeDispatchBackwardUnrollList(batchSize, hiddenSize, topK, static_cast<int32_t>(epWorldSize));
+    LOOP(
+        "MoeDistributedDispatchBackwardSend", FunctionType::DYNAMIC_LOOP, rowIndex, LoopRange(recvCountsScalar),
+        unrollList)
+    {
+        SymbolicScalar rankId = GetTensorData(assistInfoForCombine, {rowIndex, 0});
+        SymbolicScalar tokenId = GetTensorData(assistInfoForCombine, {rowIndex, 1});
+        SymbolicScalar kOffset = GetTensorData(assistInfoForCombine, {rowIndex, 2});
+
+        Tensor gradExpandXTile = View(gradExpandX, {1, hiddenSize}, {rowIndex, 0});
+        auto shmemDataTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, topK * tokenId + kOffset, 0});
+        TileShape::Current().SetVecTile({1, hiddenSize});
+        Tensor predToken(DT_INT32, {1, 1}, "dispatchBackwardSendPredToken");
+        Tensor shmemPutOut = ShmemPut(gradExpandXTile, shmemDataTile, rankId, AtomicType::SET, predToken);
+
+        auto shmemSignalTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, tokenId, 0});
+        ShmemSignal(shmemSignalTile, rankId, rankId, 1, AtomicType::ADD, shmemPutOut);
+    }
+
+    SymbolicScalar thisRank = GetHcclRankId(group);
+    LOOP("MoeDistributedDispatchBackwardReceive", FunctionType::DYNAMIC_LOOP, tokenId, LoopRange(batchSize))
+    {
+        auto shmemSignalTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, tokenId, 0});
+        TileShape::Current().SetVecTile({1, hiddenSize});
+        Tensor predToken(DT_INT32, {1, 1}, "dispatchBackwardReceivePredToken");
+        Tensor waitUntilOut = ShmemWaitUntil(shmemSignalTile, thisRank, OpType::EQ, topK, true, predToken);
+
+        TileShape::Current().SetVecTile({topK, hiddenSize});
+        auto shmemDataTile = ShmemView(shmemTensor, {1, topK, hiddenSize}, {0, topK * tokenId, 0});
+        Tensor shmemGetOut = ShmemGet(shmemDataTile, thisRank, waitUntilOut);
+
+        Tensor gradXTileFp32;
+        if (topK == QWEN3_NEXT_TOPK) {
+            TileShape::Current().SetVecTile({1, hiddenSize});
+            Tensor token0Fp32 = Cast(View(shmemGetOut, {1, hiddenSize}, {0, 0}), DT_FP32);
+            Tensor token1Fp32 = Cast(View(shmemGetOut, {1, hiddenSize}, {1, 0}), DT_FP32);
+            gradXTileFp32 = Add(token0Fp32, token1Fp32);
+        } else {
+            Tensor shmemGetOutFp32 = Cast(shmemGetOut, DT_FP32);
+            TileShape::Current().SetVecTile({topK, hiddenSize});
+            gradXTileFp32 = Sum(shmemGetOutFp32, 0, true);
+        }
+
+        Tensor gradXTile = Cast(gradXTileFp32, DT_BF16);
+        Assemble(gradXTile, {tokenId, 0}, gradX);
     }
 }
 } // namespace Distributed

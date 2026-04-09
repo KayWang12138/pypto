@@ -99,6 +99,7 @@ void TiledShmemSignal(
 void TiledShmemWaitUntil(
     Function& function, const TileShape& tileShape, const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op);
+void ResetWaitUntilTileCount();
 void TiledShmemSet(
     Function& function, const TileShape& tileShape, const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op);

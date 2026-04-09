@@ -33,7 +33,15 @@ enum RuntimeCallStage {
     T_RUNTIME_CALL_SLOT_MARK_NEED_ALLOC = 4,
     T_RUNTIME_CALL_GET_DIE_ID = 5,
     T_RUNTIME_CALL_SET_DIE_ID = 6,
-    T_RUNTIME_CALL_MAX = 7,
+    T_RUNTIME_CALL_GET_CURRENT_ROOT_COA = 7,
+    T_RUNTIME_CALL_MAX = 8,
+};
+
+enum RuntimeCurrentRootCoaKind : uint64_t {
+    T_RUNTIME_CURRENT_ROOT_COA_OFFSET = 0,
+    T_RUNTIME_CURRENT_ROOT_COA_VALID_SHAPE = 1,
+    T_RUNTIME_CURRENT_ROOT_COA_ADDR = 2,
+    T_RUNTIME_CURRENT_ROOT_COA_PARAM = 3,
 };
 
 using Call1EntryType = uint64_t (*)(uint64_t);
@@ -145,4 +153,36 @@ __always_inline int64_t RuntimeNe(int64_t input1, int64_t input2) { return input
     int8_t* loopDieId = (int8_t*)runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_GET_DIE_ID](ctx, funcKey);
 
 #define RUNTIME_RootSetDieId(funcKey) runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_SET_DIE_ID](ctx, funcKey)
+
+#define RUNTIME_QueryCurrentRootCoa(kind, dim, base, idx)                                                            \
+    ((exprList)                                                                                                       \
+         ? ([&](uint64_t tkind, uint64_t tdim, uint64_t tbase, uint64_t tidx) -> uint64_t {                          \
+               uint64_t param[] = {tkind, tdim, tbase, tidx};                                                         \
+               return reinterpret_cast<uint64_t>(runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_GET_CURRENT_ROOT_COA]( \
+                   ctx, reinterpret_cast<uint64_t>(&param)));                                                          \
+           }(kind, dim, base, idx))                                                                                    \
+         : 0UL)
+
+#define RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx) \
+    RUNTIME_QueryCurrentRootCoa(T_RUNTIME_CURRENT_ROOT_COA_OFFSET, dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx) \
+    RUNTIME_QueryCurrentRootCoa(T_RUNTIME_CURRENT_ROOT_COA_VALID_SHAPE, dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_ADDR(_, idx) \
+    RUNTIME_QueryCurrentRootCoa(T_RUNTIME_CURRENT_ROOT_COA_ADDR, 0, 0, idx)
+#define RUNTIME_COA_GET_PARAM(idx) RUNTIME_QueryCurrentRootCoa(T_RUNTIME_CURRENT_ROOT_COA_PARAM, 0, 0, idx)
+
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_0(value, dim, base, idx) RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_1(value, dim, base, idx) value
+#define RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST(isConst, value, dim, base, idx) \
+    RUNTIME_COA_GET_PARAM_OFFSET_MAYBE_CONST_##isConst(value, dim, base, idx)
+
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_0(value, dim, base, idx) \
+    RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_1(value, dim, base, idx) value
+#define RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST(isConst, value, dim, base, idx) \
+    RUNTIME_COA_GET_PARAM_VALID_SHAPE_MAYBE_CONST_##isConst(value, dim, base, idx)
+
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_0(value, idx) RUNTIME_COA_GET_PARAM(idx)
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST_1(value, idx) value
+#define RUNTIME_COA_GET_PARAM_MAYBE_CONST(isConst, value, idx) RUNTIME_COA_GET_PARAM_MAYBE_CONST_##isConst(value, idx)
 } // namespace npu::tile_fwk

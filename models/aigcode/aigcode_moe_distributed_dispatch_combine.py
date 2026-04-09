@@ -39,6 +39,7 @@ AIGCODE_TORCH_DTYPE = torch.bfloat16
 AIGCODE_PYPTO_DTYPE = pypto.DT_BF16
 AIGCODE_COMPILE_DEBUG_MODE = 0
 AIGCODE_RUNTIME_DEBUG_MODE = 3
+AIGCODE_COMM_COUNT = 2
 
 
 def get_env_int(name: str, default: int) -> int:
@@ -131,6 +132,16 @@ def generate_inputs() -> tuple[list[torch.Tensor], list[torch.Tensor], list[torc
     return x_list, expert_ids_list, expert_scales_list
 
 
+def generate_grad_outputs() -> list[torch.Tensor]:
+    generator = torch.Generator()
+    generator.manual_seed(1)
+    grad_out_list = []
+    for _ in range(AIGCODE_EP_WORLD_SIZE):
+        grad_out = torch.randn((AIGCODE_LOCAL_TOKENS, AIGCODE_HIDDEN_SIZE), dtype=torch.float32, generator=generator)
+        grad_out_list.append(grad_out.to(AIGCODE_TORCH_DTYPE))
+    return grad_out_list
+
+
 def get_expert_rank_and_offset(expert_id: int, experts_per_rank: int) -> tuple[int, int]:
     return divmod(expert_id, experts_per_rank)
 
@@ -211,6 +222,39 @@ def combine_tokens(
     return out_list
 
 
+def combine_backward_tokens(
+    moe_case: MoeCase,
+    expand_x_list: list[torch.Tensor],
+    assist_info_list: list[torch.Tensor],
+    recv_counts_list: list[torch.Tensor],
+    expert_scales_list: list[torch.Tensor],
+    grad_out_list: list[torch.Tensor],
+) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
+    grad_expand_x_list = [torch.zeros_like(expand_x) for expand_x in expand_x_list]
+    grad_scales_list = [torch.zeros_like(expert_scales, dtype=torch.float32) for expert_scales in expert_scales_list]
+    grad_x_accum_list = [
+        torch.zeros((moe_case.batch_size, moe_case.hidden_size), dtype=torch.float32)
+        for _ in range(moe_case.ep_world_size)
+    ]
+
+    for source_rank_id, (expand_x, assist_info, recv_counts) in enumerate(
+        zip(expand_x_list, assist_info_list, recv_counts_list)
+    ):
+        for row_index in range(recv_counts.item()):
+            target_rank_id, token_id, k_offset = assist_info[row_index].tolist()
+            grad_out_row_fp32 = grad_out_list[target_rank_id][token_id].float()
+            scale = float(expert_scales_list[target_rank_id][token_id, k_offset].item())
+            grad_expand_x_row = (grad_out_row_fp32 * scale).to(AIGCODE_TORCH_DTYPE)
+            grad_expand_x_list[source_rank_id][row_index] = grad_expand_x_row
+            grad_x_accum_list[target_rank_id][token_id] += grad_expand_x_row.float()
+            grad_scales_list[target_rank_id][token_id, k_offset] = torch.dot(
+                grad_out_row_fp32, expand_x[row_index].float()
+            )
+
+    grad_x_list = [grad_x_accum.to(AIGCODE_TORCH_DTYPE) for grad_x_accum in grad_x_accum_list]
+    return grad_expand_x_list, grad_scales_list, grad_x_list
+
+
 def build_dispatch_kernel(group_name: str, runtime_debug_mode: int):
     @pypto.frontend.jit(debug_options={"runtime_debug_mode": runtime_debug_mode})
     def kernel(
@@ -255,12 +299,7 @@ def build_dispatch_kernel(group_name: str, runtime_debug_mode: int):
 
 
 def build_combine_kernel(group_name: str, runtime_debug_mode: int):
-    runtime_options = {}
-    device_sched_mode = os.environ.get("AIGCODE_COMBINE_DEVICE_SCHED_MODE")
-    stitch_function_max_num = os.environ.get("AIGCODE_COMBINE_STITCH_FUNCTION_MAX_NUM")
-    runtime_options["device_sched_mode"] = 1 if device_sched_mode is None else int(device_sched_mode)
-    if stitch_function_max_num is not None:
-        runtime_options["stitch_function_max_num"] = int(stitch_function_max_num)
+    runtime_options = build_runtime_options("AIGCODE_COMBINE", default_device_sched_mode=1)
 
     jit_kwargs = {"debug_options": {"runtime_debug_mode": runtime_debug_mode}}
     if runtime_options:
@@ -306,27 +345,183 @@ def build_combine_kernel(group_name: str, runtime_debug_mode: int):
     return kernel
 
 
+def build_runtime_options(prefix: str, default_device_sched_mode: int = 1) -> dict[str, int]:
+    runtime_options = {}
+    device_sched_mode = os.environ.get(f"{prefix}_DEVICE_SCHED_MODE")
+    stitch_function_max_num = os.environ.get(f"{prefix}_STITCH_FUNCTION_MAX_NUM")
+    runtime_options["device_sched_mode"] = (
+        default_device_sched_mode if device_sched_mode is None else int(device_sched_mode)
+    )
+    if stitch_function_max_num is not None:
+        runtime_options["stitch_function_max_num"] = int(stitch_function_max_num)
+    return runtime_options
+
+
+def build_combine_backward_data_kernel(group_name: str, runtime_debug_mode: int):
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": runtime_debug_mode},
+        runtime_options=build_runtime_options("AIGCODE_COMBINE_BWD_DATA", default_device_sched_mode=1),
+    )
+    def kernel(
+        assist_info_for_combine: pypto.Tensor(
+            [AIGCODE_DISPATCH_ROWS, 3],
+            pypto.DT_INT32,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        recv_counts: pypto.Tensor([1], pypto.DT_INT32, format=pypto.TileOpFormat.TILEOP_ND),
+        expert_scales: pypto.Tensor(
+            [AIGCODE_CHUNK_TOKENS, AIGCODE_TOPK],
+            pypto.DT_FP32,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        grad_out: pypto.Tensor(
+            [AIGCODE_CHUNK_TOKENS, AIGCODE_HIDDEN_SIZE],
+            AIGCODE_PYPTO_DTYPE,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        grad_expand_x: pypto.Tensor(
+            [AIGCODE_DISPATCH_ROWS, AIGCODE_HIDDEN_SIZE],
+            AIGCODE_PYPTO_DTYPE,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+    ):
+        pypto.distributed.moe_distributed_combine_backward_data_v2(
+            assist_info_for_combine,
+            recv_counts,
+            expert_scales,
+            grad_out,
+            group_name,
+            AIGCODE_EP_WORLD_SIZE,
+            AIGCODE_MOE_EXPERT_NUM,
+            0,
+            0,
+            grad_expand_x,
+        )
+
+    return kernel
+
+
+def build_combine_backward_scales_kernel(group_name: str, runtime_debug_mode: int):
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": runtime_debug_mode},
+        runtime_options=build_runtime_options("AIGCODE_COMBINE_BWD_SCALES", default_device_sched_mode=1),
+    )
+    def kernel(
+        expand_x: pypto.Tensor(
+            [AIGCODE_DISPATCH_ROWS, AIGCODE_HIDDEN_SIZE],
+            AIGCODE_PYPTO_DTYPE,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        assist_info_for_combine: pypto.Tensor(
+            [AIGCODE_DISPATCH_ROWS, 3],
+            pypto.DT_INT32,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        recv_counts: pypto.Tensor([1], pypto.DT_INT32, format=pypto.TileOpFormat.TILEOP_ND),
+        grad_out: pypto.Tensor(
+            [AIGCODE_CHUNK_TOKENS, AIGCODE_HIDDEN_SIZE],
+            AIGCODE_PYPTO_DTYPE,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        grad_expert_scales: pypto.Tensor(
+            [AIGCODE_CHUNK_TOKENS, AIGCODE_TOPK],
+            pypto.DT_FP32,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+    ):
+        pypto.distributed.moe_distributed_combine_backward_scales_v2(
+            expand_x,
+            assist_info_for_combine,
+            recv_counts,
+            grad_out,
+            group_name,
+            AIGCODE_EP_WORLD_SIZE,
+            AIGCODE_MOE_EXPERT_NUM,
+            0,
+            0,
+            grad_expert_scales,
+        )
+
+    return kernel
+
+
+def build_dispatch_backward_kernel(group_name: str, runtime_debug_mode: int):
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": runtime_debug_mode},
+        runtime_options=build_runtime_options("AIGCODE_DISPATCH_BWD", default_device_sched_mode=1),
+    )
+    def kernel(
+        grad_expand_x: pypto.Tensor(
+            [AIGCODE_DISPATCH_ROWS, AIGCODE_HIDDEN_SIZE],
+            AIGCODE_PYPTO_DTYPE,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        assist_info_for_combine: pypto.Tensor(
+            [AIGCODE_DISPATCH_ROWS, 3],
+            pypto.DT_INT32,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+        recv_counts: pypto.Tensor([1], pypto.DT_INT32, format=pypto.TileOpFormat.TILEOP_ND),
+        grad_x: pypto.Tensor(
+            [AIGCODE_CHUNK_TOKENS, AIGCODE_HIDDEN_SIZE],
+            AIGCODE_PYPTO_DTYPE,
+            format=pypto.TileOpFormat.TILEOP_ND,
+        ),
+    ):
+        pypto.distributed.moe_distributed_dispatch_backward_v2(
+            grad_expand_x,
+            assist_info_for_combine,
+            recv_counts,
+            group_name,
+            AIGCODE_EP_WORLD_SIZE,
+            AIGCODE_MOE_EXPERT_NUM,
+            0,
+            0,
+            grad_x,
+        )
+
+    return kernel
+
+
 def run_aigcode_dispatch_combine(
     config: DistributedConfig,
     x_list: list[torch.Tensor],
     expert_ids_list: list[torch.Tensor],
     expert_scales_list: list[torch.Tensor],
+    grad_out_list: list[torch.Tensor] | None,
     logical_rank_id: int,
     chunk_turns: int,
     compile_debug_mode: int,
     runtime_debug_mode: int,
 ) -> None:
     pypto.set_debug_options(compile_debug_mode=compile_debug_mode, runtime_debug_mode=runtime_debug_mode)
-    group_name = config.init_hccl_comm(logical_rank_id)[0]
+    group_names = config.init_hccl_comm(logical_rank_id, comm_count=AIGCODE_COMM_COUNT)
+    primary_group_name, secondary_group_name = group_names
     physical_device_id = config.get_physical_device_id(logical_rank_id)
     enable_bench = get_env_bool("AIGCODE_ENABLE_BENCH", False)
+    enable_backward = get_env_bool("AIGCODE_ENABLE_BACKWARD", False)
+    enable_backward_expand_x = get_env_bool("AIGCODE_ENABLE_BACKWARD_EXPAND_X", True)
+    enable_backward_scales = get_env_bool("AIGCODE_ENABLE_BACKWARD_SCALES", True)
     bench_warmup_turns = get_env_int("AIGCODE_BENCH_WARMUP_TURNS", 1)
 
-    dispatch_kernel = build_dispatch_kernel(group_name, runtime_debug_mode)
-    combine_kernel = build_combine_kernel(group_name, runtime_debug_mode)
+    dispatch_kernel = build_dispatch_kernel(primary_group_name, runtime_debug_mode)
+    combine_kernel = build_combine_kernel(primary_group_name, runtime_debug_mode)
+    if enable_backward:
+        check_cond(grad_out_list is not None, "AIGCODE_ENABLE_BACKWARD requires grad_out_list")
+        check_cond(enable_backward_expand_x or enable_backward_scales, "enable at least one backward path")
+        if enable_backward_expand_x:
+            combine_backward_data_kernel = build_combine_backward_data_kernel(secondary_group_name, runtime_debug_mode)
+            dispatch_backward_kernel = build_dispatch_backward_kernel(primary_group_name, runtime_debug_mode)
+        if enable_backward_scales:
+            combine_backward_scales_kernel = build_combine_backward_scales_kernel(primary_group_name, runtime_debug_mode)
     dispatch_times_ms = []
     combine_times_ms = []
     total_times_ms = []
+    combine_backward_data_times_ms = []
+    combine_backward_scales_times_ms = []
+    dispatch_backward_times_ms = []
+    backward_total_times_ms = []
+    full_total_times_ms = []
 
     for turn in range(chunk_turns):
         start = turn * AIGCODE_CHUNK_TOKENS
@@ -334,6 +529,7 @@ def run_aigcode_dispatch_combine(
         x_chunk_list = [x[start:end] for x in x_list]
         expert_ids_chunk_list = [expert_ids[start:end] for expert_ids in expert_ids_list]
         expert_scales_chunk_list = [expert_scales[start:end] for expert_scales in expert_scales_list]
+        grad_out_chunk_list = None if grad_out_list is None else [grad_out[start:end] for grad_out in grad_out_list]
 
         expand_x_golden_list, assist_info_golden_list, expert_token_nums_golden_list, recv_counts_golden_list = (
             dispatch_tokens(CHUNK_CASE, x_chunk_list, expert_ids_chunk_list)
@@ -384,38 +580,146 @@ def run_aigcode_dispatch_combine(
         sync_ep_group()
         combine_elapsed_ms = (time.perf_counter() - combine_start_time) * 1000.0
         assert_close_tensor(out_golden, out_actual.cpu(), f"combine.out.turn_{turn}", atol=1e-2)
+
+        if enable_backward:
+            check_cond(grad_out_chunk_list is not None, "backward requires grad_out chunks")
+            grad_out = grad_out_chunk_list[logical_rank_id].to(f"npu:{physical_device_id}")
+            grad_expand_x_golden_list, grad_scales_golden_list, grad_x_golden_list = combine_backward_tokens(
+                CHUNK_CASE,
+                expand_x_golden_list,
+                assist_info_golden_list,
+                recv_counts_golden_list,
+                expert_scales_chunk_list,
+                grad_out_chunk_list,
+            )
+            grad_expand_x_golden = grad_expand_x_golden_list[logical_rank_id]
+            grad_scales_golden = grad_scales_golden_list[logical_rank_id]
+            grad_x_golden = grad_x_golden_list[logical_rank_id]
+
+            grad_expand_x_actual = create_zero_tensor_on_npu(grad_expand_x_golden, physical_device_id)
+            grad_scales_actual = create_zero_tensor_on_npu(grad_scales_golden, physical_device_id)
+            grad_x_actual = create_zero_tensor_on_npu(grad_x_golden, physical_device_id)
+            combine_backward_data_elapsed_ms = 0.0
+            combine_backward_scales_elapsed_ms = 0.0
+            dispatch_backward_elapsed_ms = 0.0
+
+            if enable_backward_expand_x:
+                combine_backward_data_start_time = time.perf_counter()
+                combine_backward_data_kernel(
+                    assist_info_actual,
+                    recv_counts_actual,
+                    expert_scales,
+                    grad_out,
+                    grad_expand_x_actual,
+                )
+                sync_ep_group()
+                combine_backward_data_elapsed_ms = (time.perf_counter() - combine_backward_data_start_time) * 1000.0
+
+                dispatch_backward_start_time = time.perf_counter()
+                dispatch_backward_kernel(
+                    grad_expand_x_actual,
+                    assist_info_actual,
+                    recv_counts_actual,
+                    grad_x_actual,
+                )
+                sync_ep_group()
+                dispatch_backward_elapsed_ms = (time.perf_counter() - dispatch_backward_start_time) * 1000.0
+
+                assert_close_tensor(
+                    grad_expand_x_golden,
+                    grad_expand_x_actual.cpu(),
+                    f"combine.backward.grad_expand_x.turn_{turn}",
+                    atol=1e-2,
+                )
+                assert_close_tensor(
+                    grad_x_golden,
+                    grad_x_actual.cpu(),
+                    f"dispatch.backward.grad_x.turn_{turn}",
+                    atol=1e-2,
+                )
+
+            if enable_backward_scales:
+                combine_backward_scales_start_time = time.perf_counter()
+                combine_backward_scales_kernel(
+                    expand_x_actual,
+                    assist_info_actual,
+                    recv_counts_actual,
+                    grad_out,
+                    grad_scales_actual,
+                )
+                sync_ep_group()
+                combine_backward_scales_elapsed_ms = (time.perf_counter() - combine_backward_scales_start_time) * 1000.0
+                assert_close_tensor(
+                    grad_scales_golden,
+                    grad_scales_actual.cpu(),
+                    f"combine.backward.grad_scales.turn_{turn}",
+                    atol=1e-2,
+                )
         if enable_bench and turn >= bench_warmup_turns:
             dispatch_times_ms.append(dispatch_elapsed_ms)
             combine_times_ms.append(combine_elapsed_ms)
             total_times_ms.append(dispatch_elapsed_ms + combine_elapsed_ms)
+            if enable_backward:
+                if enable_backward_expand_x:
+                    combine_backward_data_times_ms.append(combine_backward_data_elapsed_ms)
+                    dispatch_backward_times_ms.append(dispatch_backward_elapsed_ms)
+                if enable_backward_scales:
+                    combine_backward_scales_times_ms.append(combine_backward_scales_elapsed_ms)
+                backward_total_ms = (
+                    combine_backward_data_elapsed_ms
+                    + dispatch_backward_elapsed_ms
+                    + combine_backward_scales_elapsed_ms
+                )
+                backward_total_times_ms.append(backward_total_ms)
+                full_total_times_ms.append(dispatch_elapsed_ms + combine_elapsed_ms + backward_total_ms)
 
     if enable_bench:
         check_cond(len(dispatch_times_ms) > 0, "bench requires measured turns after warmup")
-        local_avg = torch.tensor(
-            [
-                sum(dispatch_times_ms) / len(dispatch_times_ms),
-                sum(combine_times_ms) / len(combine_times_ms),
-                sum(total_times_ms) / len(total_times_ms),
-            ],
-            dtype=torch.float32,
-            device=f"npu:{physical_device_id}",
-        )
-        local_max = torch.tensor(
-            [max(dispatch_times_ms), max(combine_times_ms), max(total_times_ms)],
-            dtype=torch.float32,
-            device=f"npu:{physical_device_id}",
-        )
+        metric_names = ["dispatch", "combine", "forward_total"]
+        avg_values = [
+            sum(dispatch_times_ms) / len(dispatch_times_ms),
+            sum(combine_times_ms) / len(combine_times_ms),
+            sum(total_times_ms) / len(total_times_ms),
+        ]
+        max_values = [max(dispatch_times_ms), max(combine_times_ms), max(total_times_ms)]
+        if enable_backward:
+            if enable_backward_expand_x:
+                metric_names.extend(["combine_bwd_data", "dispatch_bwd"])
+                avg_values.extend(
+                    [
+                        sum(combine_backward_data_times_ms) / len(combine_backward_data_times_ms),
+                        sum(dispatch_backward_times_ms) / len(dispatch_backward_times_ms),
+                    ]
+                )
+                max_values.extend([max(combine_backward_data_times_ms), max(dispatch_backward_times_ms)])
+            if enable_backward_scales:
+                metric_names.append("combine_bwd_scales")
+                avg_values.append(sum(combine_backward_scales_times_ms) / len(combine_backward_scales_times_ms))
+                max_values.append(max(combine_backward_scales_times_ms))
+            metric_names.extend(["backward_total", "full_total"])
+            avg_values.extend(
+                [
+                    sum(backward_total_times_ms) / len(backward_total_times_ms),
+                    sum(full_total_times_ms) / len(full_total_times_ms),
+                ]
+            )
+            max_values.extend([max(backward_total_times_ms), max(full_total_times_ms)])
+
+        local_avg = torch.tensor(avg_values, dtype=torch.float32, device=f"npu:{physical_device_id}")
+        local_max = torch.tensor(max_values, dtype=torch.float32, device=f"npu:{physical_device_id}")
         dist.all_reduce(local_avg, op=dist.ReduceOp.SUM)
         dist.all_reduce(local_max, op=dist.ReduceOp.MAX)
         if logical_rank_id == 0:
-            local_avg_cpu = (local_avg / config.world_size).cpu().tolist()
-            local_max_cpu = local_max.cpu().tolist()
+            avg_cpu = (local_avg / config.world_size).cpu().tolist()
+            max_cpu = local_max.cpu().tolist()
+            metric_parts = [
+                f"avg_{name}_ms={avg_value:.3f} max_{name}_ms={max_value:.3f}"
+                for name, avg_value, max_value in zip(metric_names, avg_cpu, max_cpu)
+            ]
             print(
                 "BENCH "
                 f"warmup_turns={bench_warmup_turns} measured_turns={len(dispatch_times_ms)} "
-                f"avg_dispatch_ms={local_avg_cpu[0]:.3f} avg_combine_ms={local_avg_cpu[1]:.3f} "
-                f"avg_total_ms={local_avg_cpu[2]:.3f} max_dispatch_ms={local_max_cpu[0]:.3f} "
-                f"max_combine_ms={local_max_cpu[1]:.3f} max_total_ms={local_max_cpu[2]:.3f}"
+                + " ".join(metric_parts)
             )
 
     print(f"rank {logical_rank_id}: SUCCESS")
@@ -434,6 +738,7 @@ def main() -> None:
     chunk_turns = get_env_int("AIGCODE_CHUNK_TURNS", AIGCODE_LOCAL_TOKENS // AIGCODE_CHUNK_TOKENS)
     compile_debug_mode = get_env_int("AIGCODE_COMPILE_DEBUG_MODE", AIGCODE_COMPILE_DEBUG_MODE)
     runtime_debug_mode = get_env_int("AIGCODE_RUNTIME_DEBUG_MODE", AIGCODE_RUNTIME_DEBUG_MODE)
+    enable_backward = get_env_bool("AIGCODE_ENABLE_BACKWARD", False)
     config = DistributedConfig(world_size=AIGCODE_EP_WORLD_SIZE)
     check_cond(
         config.world_size == AIGCODE_EP_WORLD_SIZE,
@@ -441,9 +746,12 @@ def main() -> None:
     )
 
     x_list, expert_ids_list, expert_scales_list = generate_inputs()
+    grad_out_list = generate_grad_outputs() if enable_backward else None
     share_tensor_list(x_list)
     share_tensor_list(expert_ids_list)
     share_tensor_list(expert_scales_list)
+    if grad_out_list is not None:
+        share_tensor_list(grad_out_list)
 
     mp.set_start_method("spawn", force=True)
     processes = []
@@ -455,6 +763,7 @@ def main() -> None:
                 x_list,
                 expert_ids_list,
                 expert_scales_list,
+                grad_out_list,
                 logical_rank_id,
                 chunk_turns,
                 compile_debug_mode,
