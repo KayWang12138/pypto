@@ -51,11 +51,11 @@ public:
 
 private:
     void CollectReshapeOps(Function& function);
-    void ReplaceDynUnalignedReshapeOps(Function& function);
+    Status ReplaceDynUnalignedReshapeOps(Function& function);
     void ReplaceDynUnalignedReshapeOpsForUB(Function& function, Operation& op);
-    void ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op);
-    void ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp);
-    void ProcessCopyInOfDDRReshape(Function& function, Operation& op, std::vector<Operation*>& copyInOps);
+    Status ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op);
+    Status ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp);
+    Status ProcessCopyInOfDDRReshape(Function& function, Operation& op, std::vector<Operation*>& copyInOps);
     std::unordered_set<int> processedReshapeOps;
     Operation* CopyBranchBetweenCopyOut2Reshape(Function& function, std::vector<LogicalTensorPtr>& needToCopyTensors, const int& index);
     Operation* FindAllProducerCopyOuts(
