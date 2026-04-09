@@ -27,6 +27,7 @@ enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 #define WRAP_IDX_AIC 0
 #define WRAP_IDX_AIV0 1
 #define WRAP_IDX_AIV1 2
+constexpr uint32_t INVALID_WRAP_ID = 0xFFFFFFFFU;
 
 // aic aiv 已经ready的core function id队列
 struct ReadyCoreFunctionQueue {
