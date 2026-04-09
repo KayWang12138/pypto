@@ -171,12 +171,11 @@ public:
 
     // sg_set_scope 相关字段的结构体
     struct ScopeInfo {
-        int scopeId{-1};                          // scope ID
-        bool allowParallelMerge{false};              // 开关1：允许并行分支合并
-        bool allowCrossScopeMerge{false};           // 开关2：允许含有 scope 的 supernode 和其他 supernode 合并
-        int mixId{-1};                           // 开关3：预留的 int 值 (mixId)
+        int scopeId{-1};
+        bool allowParallelMerge{false};
+        bool allowCrossScopeMerge{false};
+        int mixId{-1};
 
-        // 向后兼容的构造函数
         ScopeInfo() = default;
         explicit ScopeInfo(int id) : scopeId(id) {}
         static ScopeInfo FromConfig(const std::vector<int64_t>& config)
@@ -185,9 +184,9 @@ public:
             info.scopeId = static_cast<int>(config[0]);
             info.allowParallelMerge = static_cast<bool>(config[1]);
             info.allowCrossScopeMerge = static_cast<bool>(config[2]);
-            info.mixId = static_cast<int>(config[3]);
             return info;
         }
+        void SetMixId(int id) { mixId = id; }
     };
     friend class Function;
     LogicalTensors iOperand;      // Input operands (now actual objects, not shared_ptr)

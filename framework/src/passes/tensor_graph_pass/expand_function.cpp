@@ -192,12 +192,11 @@ Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
     std::vector<int64_t> scopeVec = {
         static_cast<int64_t>(info.scopeId),
         static_cast<int64_t>(info.allowParallelMerge),
-        static_cast<int64_t>(info.allowCrossScopeMerge),
-        static_cast<int64_t>(info.mixId)
+        static_cast<int64_t>(info.allowCrossScopeMerge)
     };
     config::SetPassOption(SG_SET_SCOPE, scopeVec);
     ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
-    config::SetPassOption(SG_SET_SCOPE, std::vector<int64_t>{-1, 0, 0, -1});
+    config::SetPassOption(SG_SET_SCOPE, std::vector<int64_t>{-1, 0, 0});
     return SUCCESS;
 }
 
