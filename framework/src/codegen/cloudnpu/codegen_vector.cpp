@@ -843,6 +843,89 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenUniformOp() const {
+    auto keyAttr = opAttrs.at(OP_ATTR_PREFIX + "KEY");
+    auto counter0Attr = opAttrs.at(OP_ATTR_PREFIX + "COUNTER0");
+    auto counter1Attr = opAttrs.at(OP_ATTR_PREFIX + "COUNTER1");
+    auto roundsAttr = opAttrs.at(OP_ATTR_PREFIX + "ROUNDS");
+    auto shapeAttr = opAttrs.at(OP_ATTR_PREFIX + "SHAPE");
+
+    uint64_t key = 0;
+    if (keyAttr.HasValue()) {
+        key = AnyCast<Element>(keyAttr).Cast<uint64_t>();
+    }
+    
+    uint64_t counter0 = 0;
+    if (counter0Attr.HasValue()) {
+        counter0 = AnyCast<Element>(counter0Attr).Cast<uint64_t>();
+    }
+    
+    uint64_t counter1 = 0;
+    if (counter1Attr.HasValue()) {
+        counter1 = AnyCast<Element>(counter1Attr).Cast<uint64_t>();
+    }
+
+    uint16_t rounds = 10;
+    if (roundsAttr.HasValue()) {
+        rounds = AnyCast<Element>(roundsAttr).Cast<uint16_t>();
+    }
+
+    std::vector<int64_t> randomShape;
+    if (shapeAttr.HasValue()) {
+        randomShape = AnyCast<std::vector<int64_t>>(shapeAttr);
+    }
+
+    std::string keyStr = std::to_string(key) + "ULL";
+    std::string counter0Str = std::to_string(counter0) + "ULL";
+    std::string counter1Str = std::to_string(counter1) + "ULL";
+    std::string roundsStr = std::to_string(rounds);
+    std::string tileOffsetStr = "0";
+
+    if (isSupportLayout) {
+        std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+        std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+        std::vector<std::string> paramList = {dstTensor, tmpTensor, keyStr, counter0Str, counter1Str, roundsStr, tileOffsetStr};
+        std::ostringstream oss;
+        oss << tileOpName;
+        oss << PrintParams({"(", ")"}, paramList, ", ");
+        oss << STMT_END;
+        return oss.str();
+    }
+
+    // Support non-layout mode
+    enum class OpIdx : int { resIdx = 0, tmpIdx };
+
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::resIdx)]);
+    std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(OpIdx::tmpIdx)]);
+
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::resIdx)]);
+    std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(OpIdx::tmpIdx)]);
+
+    AppendLocalBufVarOffsetInOrder(dstVar, tmpVar);
+    std::ostringstream oss;
+    
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstDtypeStr);
+    paramList.emplace_back(std::to_string(rawShape[0][0]));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    paramList.clear();
+    
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + dstVar;
+    std::string tmp = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + tmpDtypeStr + "*)" + tmpVar;
+    
+    paramList.emplace_back(dst);
+    paramList.emplace_back(tmp);
+    paramList.emplace_back(keyStr);
+    paramList.emplace_back(counter0Str);
+    paramList.emplace_back(counter1Str);
+    paramList.emplace_back(roundsStr);
+    paramList.emplace_back(tileOffsetStr);
+
+    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
+    oss << tileOpName << "<" << templateParam << ">" << "(" << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAddParam& param) const
 {
     // support 2-4 dims
