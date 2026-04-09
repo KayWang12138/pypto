@@ -197,9 +197,10 @@ static void ToOperand(const torch::Tensor& src, const torch::Tensor& dst, DataTy
 static std::pair<torch::Tensor, torch::Tensor> From(const TensorData& data)
 {
     auto ScalarDataType = FromDataType(data.dtype);
+    const bool isFp4Packed = IsFp4PackedDtype(data.dtype);
     torch::Tensor view;
     torch::Tensor actualView;
-    if (data.isFp4Packed) {
+    if (isFp4Packed) {
         auto packedRawShape = ShapePackedView(data.rawShape, data.dtype);
         auto tensor = torch::from_blob(data.dataPtr, packedRawShape, ScalarDataType);
         auto packedShape = ShapePackedView(data.shape, data.dtype);
@@ -220,7 +221,7 @@ static std::pair<torch::Tensor, torch::Tensor> From(const TensorData& data)
     }
     if (IsFp8Dtype(data.dtype)) {
         actualView = Fp8ToFloat32(view, data.dtype);
-    } else if (ScalarDataType == torch::kUInt8 && !data.isFp4Packed) {
+    } else if (ScalarDataType == torch::kUInt8 && !isFp4Packed) {
         actualView = view.to(torch::kFloat32);
     }
     // view == actualView if ScalarDataType != torch::kUInt8
@@ -1131,7 +1132,7 @@ static void FormatND2NZ(const TensorData& out, const TensorData& self)
 
     std::vector<int64_t> nzShape(shape.begin(), shape.end() - 2); // remove last 2 dim, keep only batch dims
     nzShape.push_back(padm);
-    nzShape.push_back(self.isFp4Packed ? padnFloat : padnPacked);
+    nzShape.push_back(IsFp4PackedDtype(self.dtype) ? padnFloat : padnPacked);
     tself = tself.reshape(nzShape); // [b, padm, padn]
     auto tout = From(out);
     ToOperand(tself, tout.first, out.dtype);
@@ -1153,7 +1154,7 @@ static void FormatNZ2ND(const TensorData& out, const TensorData& self)
     // alignup(packed, n0Packed) (see FormatND2NZ). Using unpacked nPacked alone yields n1==0.
     int64_t selfLastFloat = tself.size(tself.dim() - 1);
     int64_t nPackedUnc = LastDimPackedCount(selfLastFloat, self.dtype);
-    int64_t nPacked = self.isFp4Packed ? alignup(nPackedUnc, n0Packed) : nPackedUnc;
+    int64_t nPacked = IsFp4PackedDtype(self.dtype) ? alignup(nPackedUnc, n0Packed) : nPackedUnc;
     int64_t n1 = nPacked / n0Packed;
 
     tself = tself.reshape({-1, n1, m, n0Float}); // [b, n1, m1*m0, n0]
