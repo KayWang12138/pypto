@@ -59,6 +59,31 @@ public:
 };
 
 struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> {
+    static int64_t Numel(const std::vector<int64_t>& shape)
+    {
+        if (shape.empty()) {
+            return 0;
+        }
+        int64_t n = 1;
+        for (auto d : shape) {
+            n *= d;
+        }
+        return n;
+    }
+
+    static bool IsFp4PackedDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
+
+    static std::vector<int64_t> PackedShapeFromLogical(const std::vector<int64_t>& logicalShape, DataType dtype)
+    {
+        if (!IsFp4PackedDtype(dtype) || logicalShape.empty()) {
+            return logicalShape;
+        }
+        auto packed = logicalShape;
+        // One uint8 stores two FP4 elements.
+        packed.back() = (packed.back() + 1) / 2;
+        return packed;
+    }
+
     static int GetDataSize(DataType dataType)
     {
         int result = 0;
@@ -72,10 +97,10 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
                 result = DATA_SIZE_HALF;
                 break;
             case DT_FP4_E2M1X2:
-                result = DATA_SIZE_BYTE;
+                result = DATA_SIZE_HALF;
                 break;
             case DT_FP4_E1M2X2:
-                result = DATA_SIZE_BYTE;
+                result = DATA_SIZE_HALF;
                 break;
             case DT_INT8:
                 result = DATA_SIZE_BYTE;
@@ -157,10 +182,20 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         : dataType_(dataType),
           shape_(shape),
           stride_(ShapeToStride(shape)),
-          nelem(stride_[0] * shape[0]),
+          nelem(Numel(shape)),
           elemSize_(GetDataSize(dataType))
     {
-        this->resize(nelem * elemSize_);
+        size_t bytes = 0;
+        if (elemSize_ > 0) {
+            bytes = static_cast<size_t>(nelem) * static_cast<size_t>(elemSize_);
+        } else if (IsFp4PackedDtype(dataType_)) {
+            auto packedShape = PackedShapeFromLogical(shape_, dataType_);
+            bytes = static_cast<size_t>(Numel(packedShape));
+        } else {
+            // Other sub-byte (e.g. INT4): logical element count, two per byte, odd rounds up.
+            bytes = static_cast<size_t>((nelem + 1) / 2);
+        }
+        this->resize(bytes);
     }
 
     const Shape& GetShape() const { return shape_; }
@@ -172,24 +207,27 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     template <typename T>
     const T& Get(int index) const
     {
-        const void* addr = &this->data()[index * elemSize_];
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, elemSize_ > 0)
+            << "Get() is not supported for packed sub-byte dtypes (use raw bytes).";
+        const void* addr = &this->data()[static_cast<size_t>(index) * static_cast<size_t>(elemSize_)];
         return *static_cast<const T*>(addr);
     }
 
     template <typename T>
     T& Get(int index)
     {
-        void* addr = &this->data()[index * elemSize_];
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, elemSize_ > 0)
+            << "Get() is not supported for packed sub-byte dtypes (use raw bytes).";
+        void* addr = &this->data()[static_cast<size_t>(index) * static_cast<size_t>(elemSize_)];
         return *static_cast<T*>(addr);
     }
 
     Element GetElement(int index) const
     {
         switch (GetDataType()) {
-#define CASE_DATA_TYPE_DIS(ast2Type, dataType, calcType, index) \
-    case ast2Type:                                              \
-        return Element(ast2Type, static_cast<calcType>(Get<dataType>(index)))
-            break;
+#define CASE_DATA_TYPE_DIS(ast2Type, dataType, calcType, indexArg) \
+    case ast2Type:                                                 \
+        return Element(ast2Type, static_cast<calcType>(Get<dataType>(indexArg)))
             DISPATCH_DATA_TYPE(CASE_DATA_TYPE_DIS, index);
 #undef CASE_DATA_TYPE_DIS
             case DT_BOOL:
@@ -370,7 +408,17 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         ofile.close();
     }
 
-    size_t GetDataSize() const { return nelem * elemSize_; }
+    size_t GetDataSize() const
+    {
+        if (elemSize_ > 0) {
+            return static_cast<size_t>(nelem) * static_cast<size_t>(elemSize_);
+        }
+        if (IsFp4PackedDtype(GetDataType())) {
+            auto packedShape = PackedShapeFromLogical(shape_, GetDataType());
+            return static_cast<size_t>(Numel(packedShape));
+        }
+        return static_cast<size_t>((nelem + 1) / 2);
+    }
 
 private:
     uint8_t* devPtr_{nullptr};
@@ -378,7 +426,9 @@ private:
     Shape shape_;
     Stride stride_;
     size_t nelem;
-    size_t elemSize_;
+    // Signed: GetDataSize(DataType) uses -1 (DATA_SIZE_HALF) for FP4/INT4; storing as size_t wrapped to huge
+    // and broke vector allocation in SetVerifyData / RawTensorData::CreateTensor.
+    int elemSize_;
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;

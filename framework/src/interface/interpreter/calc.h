@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -29,6 +30,15 @@ namespace npu::tile_fwk::calc {
 CalcOps* GetCalcOps();
 
 inline bool IsVerifyEnabled() { return GetCalcOps() != nullptr; }
+
+inline bool IsFp4PackedDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
+
+inline void ExpandLastDimForFp4(std::vector<int64_t>& vals)
+{
+    if (!vals.empty() && vals.back() >= 0) {
+        vals.back() *= 2;
+    }
+}
 
 inline TensorData Trans(LogicalTensorDataPtr data)
 {
