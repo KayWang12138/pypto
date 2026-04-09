@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file scheduler.h
+ * \file ooo_scheduler.h
  * \brief
  */
 

@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file estimate_latency.h
+ * \file latency_estimator_.h
  * \brief
  */
 

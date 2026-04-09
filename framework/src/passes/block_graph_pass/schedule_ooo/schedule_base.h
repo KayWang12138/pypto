@@ -70,7 +70,8 @@ protected:
     DependencyManager depManager_;
 
 public:
-    std::vector<int>& GetOpMemIds(Operation* op) {
+    std::vector<int>& GetOpMemIds(Operation* op)
+    {
         auto it = opReqMemIdsMap.find(op);
         if (it != opReqMemIdsMap.end()) {
             return it->second;
@@ -83,23 +84,28 @@ public:
         return inserted.first->second;
     }
 
-    void SetOpMemIds(Operation* op, const std::vector<int>& memIds) {
+    void SetOpMemIds(Operation* op, const std::vector<int>& memIds)
+    {
         opReqMemIdsMap[op] = memIds;
     }
 
-    void ClearOpMemIds(Operation* op) {
+    void ClearOpMemIds(Operation* op)
+    {
         opReqMemIdsMap[op].clear();
     }
 
-    void AddOpMemId(Operation* op, int memId) {
+    void AddOpMemId(Operation* op, int memId)
+    {
         opReqMemIdsMap[op].push_back(memId);
     }
 
-    void ClearAllOpMemIds() {
+    void ClearAllOpMemIds()
+    {
         opReqMemIdsMap.clear();
     }
 
-    bool ReplaceOpMemId(Operation* op, int oldMemId, int newMemId) {
+    bool ReplaceOpMemId(Operation* op, int oldMemId, int newMemId)
+    {
         auto& memIds = opReqMemIdsMap[op];
         bool replaced = false;
         for (auto& memId : memIds) {

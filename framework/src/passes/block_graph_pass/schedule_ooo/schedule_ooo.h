@@ -17,11 +17,11 @@
 #define PASS_SCHEDULE_OOO_H
 
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
-#include "passes/block_graph_pass/schedule_ooo/scheduler.h"
+#include "passes/block_graph_pass/schedule_ooo/ooo_scheduler.h"
 #include "passes/statistics/ooo_schedule_statistic.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/block_graph_pass/schedule_ooo/optimize_sort.h"
-#include "passes/block_graph_pass/schedule_ooo/estimate_latency.h"
+#include "passes/block_graph_pass/schedule_ooo/latency_estimator.h"
 #include "passes/block_graph_pass/schedule_ooo/core_assign.h"
 
 namespace npu::tile_fwk {

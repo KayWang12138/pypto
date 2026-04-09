@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "scheduler.h"
+#include "ooo_scheduler.h"
 #include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
@@ -1284,7 +1284,8 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, Operation* a
     // 查找出可以spill 单个或多个tensor的集合
     std::vector<std::vector<int>> canSpillGroups;
     auto coreLocation = opCoreLocationMap[allocOp];
-    if (bufferManagerMap[coreLocation][allocBuffer->memType].GetSpillGroup(allocBuffer->size, canSpillGroups) != SUCCESS) {
+    auto memType = allocBuffer->memType;
+    if (bufferManagerMap[coreLocation][memType].GetSpillGroup(allocBuffer->size, canSpillGroups) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "GetSpillGroup failed.");
         return FAILED;
     }
@@ -1309,7 +1310,9 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, Operation* a
     return SUCCESS;
 }
 
-Status OoOScheduler::RearrangeBuffer(Operation* allocOp, MemoryType memType, CoreLocationType coreLocation, bool isGenSpill) {
+Status OoOScheduler::RearrangeBuffer(Operation* allocOp, MemoryType memType, CoreLocationType coreLocation,
+    bool isGenSpill)
+{
     std::vector<int> memIds = bufferManagerMap[coreLocation][memType].GetAddrSortedBufs();
     for (auto memId : memIds) {
         auto op = GetSpillIssue(allocOp, memId, isGenSpill);

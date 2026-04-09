@@ -9,11 +9,11 @@
  */
 
 /*!
- * \file scheduler.cpp
+ * \file ooo_scheduler.cpp
  * \brief
  */
 
-#include "scheduler.h"
+#include "ooo_scheduler.h"
 #include "buffer_rearrange.h"
 #include "passes/pass_log/pass_log.h"
 
@@ -324,7 +324,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle)
                 continue;
             }
             Operation* op = pipe.PopFront();
-            //标注op的生命周期
+            // 标注op的生命周期
             op->cycleStart = clock;
             op->cycleEnd = clock + op->GetLatency();
             pipe.busy = true;
@@ -419,16 +419,18 @@ Status OoOScheduler::FreeBuffer(Operation* op)
         }
         if (bufRefCount_[memId] == 0) {
             auto coreLocation = tensorAllocCoreMap[memId];
-            if (bufferManagerMap[coreLocation][localBufferMap_[memId]->memType].Free(localBufferMap_[memId]->id) != SUCCESS) {
+            auto memType = localBufferMap_[memId]->memType;
+            if (bufferManagerMap[coreLocation][memType].Free(localBufferMap_[memId]->id)
+                != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor [%d] failed.", memId);
                 return FAILED;
             }
             // Healthcheck record - update buffer usage statistics
             if (oooCheck.doHealthCheck) {
-                UpdateBufferUsage(localBufferMap_[memId]->memType, memId, true);
+                UpdateBufferUsage(memType, memId, true);
             }
             localBufferMap_[memId]->retireCycle = clock;
-            if (tensorOccupyMap[localBufferMap_[memId]->memType].erase(localBufferMap_[memId]->id) == 0) {
+            if (tensorOccupyMap[memType].erase(localBufferMap_[memId]->id) == 0) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Erase tensor[%d] failed.", memId);
                 return FAILED;
             }
@@ -565,7 +567,8 @@ Status OoOScheduler::RetireIssue(Operation* op)
         if (bufRefCount_[memId] == 0) {
             // 加载时的核信息
             auto coreLocation = tensorAllocCoreMap[memId];
-            if (bufferManagerMap[coreLocation][localBufferMap_[memId]->memType].Free(localBufferMap_[memId]->id) != SUCCESS) {
+            auto memType = localBufferMap_[memId]->memType;
+            if (bufferManagerMap[coreLocation][memType].Free(localBufferMap_[memId]->id) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId);
                 return FAILED;
             }
@@ -702,7 +705,8 @@ std::string OoOScheduler::GetOpInfo(Operation* op) const
     return op->GetOpcodeStr() + "[" + std::to_string(op->GetOpMagic()) + "]";
 }
 
-void OoOScheduler::InitOpViewOps(Operation* op) {
+void OoOScheduler::InitOpViewOps(Operation* op)
+{
     if (op == nullptr) return;
     std::vector<Operation*> viewOps;
     for (auto iOperand : op->GetIOperands()) {
@@ -716,7 +720,8 @@ void OoOScheduler::InitOpViewOps(Operation* op) {
     opViewOpsMap[op] = viewOps;
 }
 
-Status OoOScheduler::InitOpCoreType(Operation* op, const std::unordered_map<Operation*, CoreLocationType>& opCoreMap) {
+Status OoOScheduler::InitOpCoreType(Operation* op, const std::unordered_map<Operation*, CoreLocationType>& opCoreMap)
+{
     if (op == nullptr) return FAILED;
 
     CoreLocationType coreLocation;
@@ -793,8 +798,8 @@ Status OoOScheduler::InitOpEntry(Operation* op, const std::unordered_map<Operati
     return SUCCESS;
 }
 
-Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unordered_map<Operation*, CoreLocationType>& opCoreMap,
-    const std::unordered_set<CoreLocationType> fixCoreConfig)
+Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unordered_map<Operation*,
+    CoreLocationType>& opCoreMap, const std::unordered_set<CoreLocationType> fixCoreConfig)
 {
     orderedOps.clear();
     opExecOrderMap.clear();
