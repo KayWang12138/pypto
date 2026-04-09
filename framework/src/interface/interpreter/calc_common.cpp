@@ -236,7 +236,7 @@ void ExecuteOpCopy(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ExecuteOpCopy);
 
-static bool NeedCastToFp32ForDump(DataType dtype)
+static bool NeedDecodeToFp32ForDump(DataType dtype)
 {
     return dtype == DT_INT4 || dtype == DT_FP8 || dtype == DT_HF4 || dtype == DT_HF8 || dtype == DT_FP8E5M2 ||
            dtype == DT_FP8E4M3 || dtype == DT_FP8E8M0 || dtype == DT_FP4_E2M1X2 || dtype == DT_FP4_E1M2X2;
@@ -247,7 +247,7 @@ static std::string TensorToDumpString(const LogicalTensorDataPtr& tensor)
     if (tensor == nullptr) {
         return "???";
     }
-    if (!NeedCastToFp32ForDump(tensor->GetDataType())) {
+    if (!NeedDecodeToFp32ForDump(tensor->GetDataType())) {
         return tensor->ToString();
     }
     auto shape = tensor->GetShape();

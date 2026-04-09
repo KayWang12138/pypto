@@ -28,10 +28,12 @@ static inline bool IsFp8InterpreterDtype(DataType t)
     return t == DT_FP8 || t == DT_FP8E4M3 || t == DT_FP8E5M2 || t == DT_FP8E8M0;
 }
 
+static inline bool IsFp4PackedStorageDtype(DataType t) { return t == DT_FP4_E2M1X2 || t == DT_FP4_E1M2X2; }
+
 // Logical shape is exposed to calculator. Convert back to packed view shape when touching raw storage.
 static std::vector<int64_t> ShapePackedView(const std::vector<int64_t>& logicalShape, DataType dtype)
 {
-    if (logicalShape.empty() || !IsFp4PackedDtype(dtype)) {
+    if (logicalShape.empty() || !IsFp4PackedStorageDtype(dtype)) {
         return logicalShape;
     }
     std::vector<int64_t> s = logicalShape;
@@ -41,29 +43,17 @@ static std::vector<int64_t> ShapePackedView(const std::vector<int64_t>& logicalS
     return s;
 }
 
-static std::vector<int64_t> ShapeFloatView(const std::vector<int64_t>& logicalShape, DataType dtype)
-{
-    UNUSED(dtype);
-    return logicalShape;
-}
-
-static std::vector<int64_t> PackedOffsetToFloatViewOffset(const std::vector<int64_t>& off, DataType dtype)
-{
-    UNUSED(dtype);
-    return off;
-}
-
 static int64_t LastDimPackedCount(int64_t logicalLast, DataType dtype)
 {
     if (logicalLast < 0) {
         return logicalLast;
     }
-    return IsFp4PackedDtype(dtype) ? ((logicalLast + 1) / 2) : logicalLast;
+    return IsFp4PackedStorageDtype(dtype) ? ((logicalLast + 1) / 2) : logicalLast;
 }
 
 static int64_t StorageOffsetFloatToPacked(int64_t logicalOffset, DataType dtype)
 {
-    if (!IsFp4PackedDtype(dtype)) {
+    if (!IsFp4PackedStorageDtype(dtype)) {
         return logicalOffset;
     }
     return logicalOffset / 2;
@@ -71,7 +61,7 @@ static int64_t StorageOffsetFloatToPacked(int64_t logicalOffset, DataType dtype)
 
 static std::vector<int64_t> StrideFloatToPacked(const std::vector<int64_t>& logicalStride, DataType dtype)
 {
-    if (!IsFp4PackedDtype(dtype)) {
+    if (!IsFp4PackedStorageDtype(dtype)) {
         return logicalStride;
     }
     if (logicalStride.empty()) {
@@ -101,7 +91,7 @@ static int64_t LastDimFloatCount(int64_t packedLast, DataType dtype)
     if (packedLast < 0) {
         return packedLast;
     }
-    return IsFp4PackedDtype(dtype) ? (packedLast * 2) : packedLast;
+    return IsFp4PackedStorageDtype(dtype) ? (packedLast * 2) : packedLast;
 }
 
 #define AXIS_TO_LAST -2
@@ -204,7 +194,7 @@ static void ToOperand(const torch::Tensor& src, const torch::Tensor& dst, DataTy
 {
     if (IsFp8InterpreterDtype(actualType)) {
         dst.copy_(Float32ToFp8(src, actualType));
-    } else if (IsFp4PackedDtype(actualType)) {
+    } else if (IsFp4PackedStorageDtype(actualType)) {
         dst.copy_(Float32ToFp4Packed(src, actualType));
     } else {
         dst.copy_(src);
@@ -216,7 +206,7 @@ static std::pair<torch::Tensor, torch::Tensor> From(const TensorData& data)
     auto ScalarDataType = FromDataType(data.dtype);
     torch::Tensor view;
     torch::Tensor actualView;
-    if (IsFp4PackedDtype(data.dtype)) {
+    if (data.isFp4Packed) {
         auto packedRawShape = ShapePackedView(data.rawShape, data.dtype);
         auto tensor = torch::from_blob(data.dataPtr, packedRawShape, ScalarDataType);
         auto packedShape = ShapePackedView(data.shape, data.dtype);
@@ -237,7 +227,7 @@ static std::pair<torch::Tensor, torch::Tensor> From(const TensorData& data)
     }
     if (IsFp8InterpreterDtype(data.dtype)) {
         actualView = Fp8ToFloat32(view, data.dtype);
-    } else if (ScalarDataType == torch::kUInt8 && !IsFp4PackedDtype(data.dtype)) {
+    } else if (ScalarDataType == torch::kUInt8 && !data.isFp4Packed) {
         actualView = view.to(torch::kFloat32);
     }
     // view == actualView if ScalarDataType != torch::kUInt8
@@ -422,7 +412,7 @@ static void FillPad(const TensorData& out, const TensorData& input, const Elemen
     std::vector<int64_t> out_shape = tout.second.sizes().vec();
     size_t ndim = out_shape.size();
 
-    std::vector<int64_t> rawFloatShape = ShapeFloatView(input.rawShape, input.dtype);
+    std::vector<int64_t> rawFloatShape = input.rawShape;
     std::vector<int64_t> valid_shape = in_shape;
     if (ndim >= 2) {
         valid_shape[ndim - 1] = std::min(in_shape[ndim - 1], rawFloatShape[ndim - 1]);
@@ -550,7 +540,7 @@ static void IsFinite(const TensorData& out, const TensorData& self)
         auto tout = From(out);                                                                           \
         auto tself = From(self);                                                                         \
         if (reverse) {                                                                                   \
-            torch::full_out(tout.second, ShapeFloatView(out.shape, out.dtype), From(scalar));            \
+            torch::full_out(tout.second, out.shape, From(scalar));                                       \
             torch::op_out(tout.second, tout.second, tself.second);                                       \
         } else {                                                                                         \
             torch::op_out(tout.second, tself.second, From(scalar));                                      \
@@ -575,7 +565,7 @@ static void FloorDivS(const TensorData& out, const TensorData& self, const Eleme
     auto tself = From(self);
     auto tscalar = torch::full({}, From(scalar), tself.second.options());
     if (reverse) {
-        torch::full_out(tout.second, ShapeFloatView(out.shape, out.dtype), From(scalar));
+        torch::full_out(tout.second, out.shape, From(scalar));
         torch::floor_divide_out(tout.second, tout.second, tself.second);
     } else {
         torch::floor_divide_out(tout.second, tself.second, tscalar);
@@ -996,7 +986,7 @@ static void Range(const TensorData& out, const Element& start, const Element& en
 {
     auto tmp = torch::arange(From(start), From(end), From(step));
     int64_t expected_numel = 1;
-    for (int64_t dim : ShapeFloatView(out.shape, out.dtype)) {
+    for (int64_t dim : out.shape) {
         expected_numel *= dim;
     }
     ASSERT(calc_error::CalculatorErrorScene::RANGE_NUMEL_MISMATCH, tmp.numel() == expected_numel)
@@ -1091,10 +1081,9 @@ static void Cmps(
         }                                                                                          \
         auto tout = From(out);                                                                     \
         std::vector<int64_t> offset(self.shape.size(), 0);                                         \
-        auto offF = PackedOffsetToFloatViewOffset(offset, out.dtype);                              \
-        auto tbig = View(tout.second, ShapeFloatView(big.shape, big.dtype), offF);                 \
+        auto tbig = View(tout.second, big.shape, offset);                                          \
         tbig.copy_(From(big).second);                                                              \
-        auto tsmall = View(tout.second, ShapeFloatView(small.shape, small.dtype), offF);           \
+        auto tsmall = View(tout.second, small.shape, offset);                                      \
         torch::bop(tsmall, tsmall, From(small).second);                                            \
         ToOperand(tout.second, tout.first, out.dtype);                                             \
     }
@@ -1149,7 +1138,7 @@ static void FormatND2NZ(const TensorData& out, const TensorData& self)
 
     std::vector<int64_t> nzShape(shape.begin(), shape.end() - 2); // remove last 2 dim, keep only batch dims
     nzShape.push_back(padm);
-    nzShape.push_back(IsFp4PackedDtype(self.dtype) ? padnFloat : padnPacked);
+    nzShape.push_back(self.isFp4Packed ? padnFloat : padnPacked);
     tself = tself.reshape(nzShape); // [b, padm, padn]
     auto tout = From(out);
     ToOperand(tself, tout.first, out.dtype);
@@ -1171,16 +1160,16 @@ static void FormatNZ2ND(const TensorData& out, const TensorData& self)
     // alignup(packed, n0Packed) (see FormatND2NZ). Using unpacked nPacked alone yields n1==0.
     int64_t selfLastFloat = tself.size(tself.dim() - 1);
     int64_t nPackedUnc = LastDimPackedCount(selfLastFloat, self.dtype);
-    int64_t nPacked = IsFp4PackedDtype(self.dtype) ? alignup(nPackedUnc, n0Packed) : nPackedUnc;
+    int64_t nPacked = self.isFp4Packed ? alignup(nPackedUnc, n0Packed) : nPackedUnc;
     int64_t n1 = nPacked / n0Packed;
 
-    tself = tself.reshape({-1, n1, m, n0Float});              // [b, n1, m1*m0, n0]
-    tself = tself.permute({0, 0x2, 1, 0x3});                  // [b, m1*m0, n1, n0]
-    tself = tself.reshape(ShapeFloatView(shape, self.dtype)); // [b, m1*m0, n1*n0] float elems
+    tself = tself.reshape({-1, n1, m, n0Float}); // [b, n1, m1*m0, n0]
+    tself = tself.permute({0, 0x2, 1, 0x3});     // [b, m1*m0, n1, n0]
+    tself = tself.reshape(shape);                // [b, m1*m0, n1*n0] float elems
 
     std::vector<int64_t> offset(ndim, 0);
     auto tout = From(out);
-    auto view = View(tself, ShapeFloatView(out.shape, out.dtype), offset);
+    auto view = View(tself, out.shape, offset);
     tout.second.copy_(view);
     ToOperand(tout.second, tout.first, out.dtype);
 }
@@ -1320,7 +1309,7 @@ void OneHot(const TensorData& out, const TensorData& self, int numClasses)
 static void ExpandS(const TensorData& out, const Element& elem)
 {
     auto tout = From(out);
-    torch::full_out(tout.second, ShapeFloatView(out.shape, out.dtype), From(elem));
+    torch::full_out(tout.second, out.shape, From(elem));
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1715,7 +1704,7 @@ static void Reshape(const TensorData& out, const TensorData& self)
 {
     auto tout = From(out);
     auto tself = From(self);
-    auto res = torch::reshape(tself.second, ShapeFloatView(out.shape, out.dtype));
+    auto res = torch::reshape(tself.second, out.shape);
     ToOperand(res, tout.first, out.dtype);
 }
 

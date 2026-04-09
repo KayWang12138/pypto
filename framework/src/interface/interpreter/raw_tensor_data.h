@@ -86,84 +86,20 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
 
     static int GetDataSize(DataType dataType)
     {
-        int result = 0;
-        constexpr int DATA_SIZE_HALF = -1;
-        constexpr int DATA_SIZE_BYTE = 1;
-        constexpr int DATA_SIZE_SHORT = 2;
-        constexpr int DATA_SIZE_INT = 4;
-        constexpr int DATA_SIZE_LONG = 8;
-        switch (dataType) {
-            case DT_INT4:
-                result = DATA_SIZE_HALF;
-                break;
-            case DT_FP4_E2M1X2:
-                result = DATA_SIZE_HALF;
-                break;
-            case DT_FP4_E1M2X2:
-                result = DATA_SIZE_HALF;
-                break;
-            case DT_INT8:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_INT16:
-                result = DATA_SIZE_SHORT;
-                break;
-            case DT_INT32:
-                result = DATA_SIZE_INT;
-                break;
-            case DT_INT64:
-                result = DATA_SIZE_LONG;
-                break;
-            case DT_FP8:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_FP16:
-                result = DATA_SIZE_SHORT;
-                break;
-            case DT_FP32:
-                result = DATA_SIZE_INT;
-                break;
-            case DT_BF16:
-                result = DATA_SIZE_SHORT;
-                break;
-            case DT_HF4:
-                result = DATA_SIZE_HALF;
-                break;
-            case DT_HF8:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_FP8E4M3:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_FP8E5M2:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_FP8E8M0:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_UINT8:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_UINT16:
-                result = DATA_SIZE_SHORT;
-                break;
-            case DT_UINT32:
-                result = DATA_SIZE_INT;
-                break;
-            case DT_UINT64:
-                result = DATA_SIZE_LONG;
-                break;
-            case DT_BOOL:
-                result = DATA_SIZE_BYTE;
-                break;
-            case DT_DOUBLE:
-                result = DATA_SIZE_LONG;
-                break;
-            default:
-                result = 0;
-                break;
+        constexpr int DATA_SIZE_SUB_BYTE = -1;
+        int64_t bits = 0;
+        try {
+            bits = BitsOf(dataType);
+        } catch (...) {
+            return 0;
         }
-        return result;
+        if (bits <= 0) {
+            return 0;
+        }
+        if (bits < 8) {
+            return DATA_SIZE_SUB_BYTE;
+        }
+        return static_cast<int>(bits / 8);
     }
 
     static std::vector<int64_t> ShapeToStride(const std::vector<int64_t>& shape)
@@ -426,7 +362,7 @@ private:
     Shape shape_;
     Stride stride_;
     size_t nelem;
-    // Signed: GetDataSize(DataType) uses -1 (DATA_SIZE_HALF) for FP4/INT4; storing as size_t wrapped to huge
+    // Signed: GetDataSize(DataType) uses -1 for sub-byte dtypes; storing as size_t wrapped to huge
     // and broke vector allocation in SetVerifyData / RawTensorData::CreateTensor.
     int elemSize_;
 };
