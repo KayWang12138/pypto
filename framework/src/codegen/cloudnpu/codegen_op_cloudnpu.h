@@ -177,6 +177,7 @@ private:
     std::string InsertOpComment(std::string& tileOpSourceCode) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
+    std::string GenTemplateParamsForPut() const;
     std::string GenTemplateParamsForPutUb2Gm() const;
     std::string GenTemplateParamsForSignal() const;
     std::string GenTemplateParamsForMoeDistributedCombineSend() const;
@@ -186,7 +187,7 @@ private:
 
     std::string GenOffsetsAndRawShapesForShmemPut() const;
     std::string GenOffsetsAndRawShapesForShmemGet() const;
-    std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
+    std::string GenOffsetsAndRawShapesForShmemPutUB2GM() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineSend() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const;
