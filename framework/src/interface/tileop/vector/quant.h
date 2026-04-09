@@ -29,7 +29,13 @@ TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
     auto maxTile = PtoTile<T2>(maxScratch);
     auto scalingTile = PtoTile<T3>(scalingScratch);
     auto srcTile = PtoTile<T4>(src);
-    pto::TQUANT_IMPL<pto::QuantType::MXFP8>(dstTile, srcTile, &expTile, &maxTile, &scalingTile);
+    dstTile.Assign(dst);
+    expTile.Assign(exp);
+    maxTile.Assign(maxScratch);
+    scalingTile.Assign(scalingScratch);
+    srcTile.Assign(src);
+    pto::TQUANT_IMPL<pto::QuantType::MXFP8>(
+        dstTile.Data(), srcTile.Data(), &expTile.Data(), &maxTile.Data(), &scalingTile.Data());
 }
 
 #endif
