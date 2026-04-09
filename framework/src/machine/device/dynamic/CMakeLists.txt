@@ -33,6 +33,7 @@ file(GLOB CTRL_FILES RELATIVE ${CMAKE_CURRENT_LIST_DIR}
     device_ctrl.cpp
     ../device_log.cpp
     context/*.cpp
+    device_trace.cpp
 )
 
 add_library(pypto_ctrl_server STATIC)
@@ -61,6 +62,7 @@ target_include_directories(pypto_ctrl_server
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/>>
 )
 target_link_directories(pypto_ctrl_server
         PRIVATE
@@ -73,6 +75,7 @@ target_link_libraries(pypto_ctrl_server
             -Wl,--no-as-needed
             c_sec
             slog_stub
+            # atrace_share
             -ldl
             $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
 )

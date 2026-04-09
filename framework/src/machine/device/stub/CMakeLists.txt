@@ -44,6 +44,7 @@ target_include_directories(slog_stub
             $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>
             $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>
             $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/>>
 )
 target_link_directories(slog_stub
         PRIVATE
@@ -58,3 +59,41 @@ target_link_libraries(slog_stub
             -ldl
 )
 set_target_properties(slog_stub PROPERTIES OUTPUT_NAME slog)
+
+add_library(trace_stub SHARED)
+
+target_sources(trace_stub
+        PRIVATE
+            trace_stub.cpp)
+
+target_compile_options(trace_stub
+        PRIVATE
+            -Wall
+            -Wextra
+            -std=gnu++17
+            -rdynamic
+            -O3
+            -shared
+            -fPIC
+            -D__DEVICE__
+            -Werror
+            -fvisibility=default
+)
+target_include_directories(trace_stub
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/>>
+)
+target_link_directories(trace_stub
+        PRIVATE
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/device/>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
+)
+target_link_libraries(trace_stub
+        PRIVATE
+            -Wl,--no-as-needed
+            c_sec
+            -ldl
+)
+
+set_target_properties(trace_stub PROPERTIES OUTPUT_NAME ascend_trace)

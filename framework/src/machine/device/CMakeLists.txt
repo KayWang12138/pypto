@@ -66,6 +66,7 @@ target_include_directories(tile_fwk_server
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/>>
 )
 target_link_directories(tile_fwk_server
         PRIVATE
@@ -78,8 +79,13 @@ target_link_libraries(tile_fwk_server
             -Wl,--no-as-needed
             c_sec
             slog_stub
+            # trace_stub
+            # ascend_trace
+            # atrace_share
+            # $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascend_trace>>
             -ldl
             $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
+            
 )
 set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_server)
 
