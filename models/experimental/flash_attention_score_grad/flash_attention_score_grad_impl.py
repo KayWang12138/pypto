@@ -396,7 +396,10 @@ def flash_attention_score_grad_wrapper(
     """算子 wrapper，供测试调用。"""
     batch_size, num_heads_out, seq_len, head_dim_out = query.shape
     if num_heads_out != num_heads or head_dim_out != head_dim:
-        raise ValueError(f"Shape mismatch: expected num_heads={num_heads}, head_dim={head_dim}, got num_heads={num_heads_out}, head_dim={head_dim_out}")
+        raise ValueError(
+            f"Shape mismatch: expected num_heads={num_heads}, head_dim={head_dim}, "
+            f"got num_heads={num_heads_out}, head_dim={head_dim_out}"
+        )
     if seq_len % S_TILE != 0:
         raise ValueError(f"seq_len={seq_len} must be multiple of S_TILE={S_TILE}")
 
