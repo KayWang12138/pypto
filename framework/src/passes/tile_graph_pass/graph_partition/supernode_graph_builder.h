@@ -44,6 +44,7 @@ public:
         const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent,
         std::vector<std::vector<int32_t>>& node2Op, bool& updated);
     Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
+    void SetNodeCoreTypeAndMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
     int32_t FindParent(std::vector<int32_t>& parent, int32_t i);
     Status MergeSrcToDstIsland(
         const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent, int32_t src,
@@ -72,7 +73,7 @@ public:
 protected:
     Status BuildOpGraph(const std::vector<Operation*>& opList);
     virtual Status BuildSuperNodeGraph();
-    Status ProcessScopeForCVMix();
+    Status ProcessScopeMerge();
     Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers

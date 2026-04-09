@@ -374,6 +374,13 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
         nodeInGraphList_[i].insert(nodeInGraphList_[i].begin(), nodeInGraph_[i].begin(), nodeInGraph_[i].end());
         nodeOutGraphList_[i].insert(nodeOutGraphList_[i].begin(), nodeOutGraph_[i].begin(), nodeOutGraph_[i].end());
     }
+    SetNodeCoreTypeAndMergeable(operationGraphInfo, markIsCube);
+    return SUCCESS;
+}
+
+void NodeGraphInfo::SetNodeCoreTypeAndMergeable(
+    const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube)
+{
     nodeCoreType_.resize(node2Op_.size());
     nodeMergeable_.resize(node2Op_.size());
     for (size_t i = 0; i < node2Op_.size(); i++) {
@@ -399,7 +406,6 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
             operationGraphInfo->opList_[j]->SetAttribute(OpAttributeKey::isCube, isCube);
         }
     }
-    return SUCCESS;
 }
 
 int32_t NodeGraphInfo::GetNodeCycle(int32_t nodeIdx) const
@@ -668,42 +674,6 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     PropagateScopeInfo(opList);
-    if (!GraphUtils::IsCVMixPlatform()) {
-        std::unordered_set<int32_t> parallelMergeProcessedScopes;
-        for (size_t i = 0; i < opList.size(); i++) {
-            auto targetScope = opList[i]->GetScopeId();
-            if (targetScope == -1) {
-                continue;
-            }
-            bool allowParallelMerge = opList[i]->GetAllowParallelMerge();
-            if (allowParallelMerge) {
-                if (parallelMergeProcessedScopes.count(targetScope) > 0) {
-                    continue;
-                }
-                parallelMergeProcessedScopes.insert(targetScope);
-                std::vector<int32_t> sameScopeOps;
-                for (size_t j = 0; j < opList.size(); j++) {
-                    if (opList[j]->GetScopeId() == targetScope && opList[j]->GetAllowParallelMerge()) {
-                        sameScopeOps.push_back(j);
-                    }
-                }
-                if (sameScopeOps.size() > 1) {
-                    for (size_t k = 1; k < sameScopeOps.size(); k++) {
-                        mergePair.emplace_back(sameScopeOps[k], sameScopeOps[0]);
-                        APASS_LOG_DEBUG_F(
-                            Elements::Operation, "Merge parallel ops %d and %d (scope=%d) due to allowParallelMerge",
-                            opList[sameScopeOps[k]]->GetOpMagic(), opList[sameScopeOps[0]]->GetOpMagic(), targetScope);
-                    }
-                }
-            } else {
-                for (auto outputNode : operationInfo_->outGraph_[i]) {
-                    if (opList[outputNode]->GetScopeId() == targetScope) {
-                        mergePair.emplace_back(outputNode, i);
-                    }
-                }
-            }
-        }
-    }
     for (size_t i = 0; i < opList.size(); i++) {
         if (ConvertCombine(operationInfo_, opList, i, mergePair)) {
             continue;
@@ -733,19 +703,12 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         APASS_LOG_ERROR_F(Elements::Function, "Build SuperNodeInfo Failed.");
         return FAILED;
     }
-
-    if (GraphUtils::IsCVMixPlatform()) {
-        return ProcessScopeForCVMix();
-    }
-
-    return SUCCESS;
+    return ProcessScopeMerge();
 }
 
-Status SuperNodeGraphBuilder::ProcessScopeForCVMix()
+Status SuperNodeGraphBuilder::ProcessScopeMerge()
 {
     int32_t numNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
-
-    // Step 1: Collect scopeId -> coreTypes and allowParallelMerge
     std::map<int32_t, std::set<OpCoreType>> scopeCoreTypes;
     std::map<int32_t, bool> scopeAllowParallel;
 
@@ -762,23 +725,16 @@ Status SuperNodeGraphBuilder::ProcessScopeForCVMix()
         }
     }
 
-    // Step 2: Decide per scopeId and build supernode-level disjoint set
     std::vector<int32_t> snParent(numNodes);
     for (int32_t i = 0; i < numNodes; i++) {
         snParent[i] = i;
     }
 
-    auto findSNParent = [&snParent](int32_t i) -> int32_t {
-        int32_t root = i;
-        while (snParent[root] != root) {
-            root = snParent[root];
-        }
+    auto findSN = [&snParent](int32_t i) -> int32_t {
         while (snParent[i] != i) {
-            int32_t next = snParent[i];
-            snParent[i] = root;
-            i = next;
+            i = snParent[i];
         }
-        return root;
+        return i;
     };
 
     bool needRebuild = false;
@@ -788,7 +744,13 @@ Status SuperNodeGraphBuilder::ProcessScopeForCVMix()
         bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
 
         if (hasAic && hasAiv) {
-            continue;
+            if (GraphUtils::IsCVMixPlatform()) {
+                continue;
+            } else {
+                APASS_LOG_ERROR_F(
+                    Elements::Function, "Cannot mix cube and vector op on a CV separate platform, scopeId=%d", scopeId);
+                return FAILED;
+            }
         }
 
         bool allowParallel = scopeAllowParallel.count(scopeId) > 0 && scopeAllowParallel[scopeId];
@@ -802,8 +764,8 @@ Status SuperNodeGraphBuilder::ProcessScopeForCVMix()
                 if (firstNode == -1) {
                     firstNode = nodeIdx;
                 } else {
-                    int32_t p1 = findSNParent(firstNode);
-                    int32_t p2 = findSNParent(nodeIdx);
+                    int32_t p1 = findSN(firstNode);
+                    int32_t p2 = findSN(nodeIdx);
                     if (p1 != p2) {
                         snParent[p2] = p1;
                         needRebuild = true;
@@ -817,8 +779,8 @@ Status SuperNodeGraphBuilder::ProcessScopeForCVMix()
                 }
                 for (int32_t outNodeIdx : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
                     if (superNodeInfo_->nodeScope_[outNodeIdx] == scopeId) {
-                        int32_t p1 = findSNParent(nodeIdx);
-                        int32_t p2 = findSNParent(outNodeIdx);
+                        int32_t p1 = findSN(nodeIdx);
+                        int32_t p2 = findSN(outNodeIdx);
                         if (p1 != p2) {
                             snParent[p2] = p1;
                             needRebuild = true;
@@ -829,13 +791,12 @@ Status SuperNodeGraphBuilder::ProcessScopeForCVMix()
         }
     }
 
-    // Step 3: Rebuild supernode data structures
     if (needRebuild) {
         std::vector<int32_t> parentToNewNode(numNodes, -1);
         std::vector<std::vector<int32_t>> newNode2Op;
 
         for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-            int32_t p = findSNParent(nodeIdx);
+            int32_t p = findSN(nodeIdx);
             if (parentToNewNode[p] == -1) {
                 parentToNewNode[p] = static_cast<int32_t>(newNode2Op.size());
                 newNode2Op.push_back({});
@@ -863,27 +824,28 @@ Status SuperNodeGraphBuilder::ProcessScopeForCVMix()
             }
         }
 
-        superNodeInfo_->BuildInOutGraph(operationInfo_, false);
+        superNodeInfo_->BuildInOutGraph(operationInfo_, !useCVMixPartition_);
     }
 
-    // Step 4: Assign mixId to mixed scope groups
-    std::map<int32_t, int32_t> scopeToMixId;
-    for (auto& [scopeId, coreTypes] : scopeCoreTypes) {
-        bool hasAic = coreTypes.count(OpCoreType::AIC) > 0;
-        bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
-        if (hasAic && hasAiv) {
-            scopeToMixId[scopeId] = nextMixId_++;
+    if (GraphUtils::IsCVMixPlatform()) {
+        std::map<int32_t, int32_t> scopeToMixId;
+        for (auto& [scopeId, coreTypes] : scopeCoreTypes) {
+            bool hasAic = coreTypes.count(OpCoreType::AIC) > 0;
+            bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
+            if (hasAic && hasAiv) {
+                scopeToMixId[scopeId] = nextMixId_++;
+            }
         }
-    }
 
-    for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
-        int32_t scopeId = superNodeInfo_->nodeScope_[nodeIdx];
-        auto it = scopeToMixId.find(scopeId);
-        if (it == scopeToMixId.end()) {
-            continue;
-        }
-        for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-            operationInfo_->opList_[opIdx]->scopeInfo_.SetMixId(it->second);
+        for (size_t nodeIdx = 0; nodeIdx < superNodeInfo_->node2Op_.size(); nodeIdx++) {
+            int32_t scopeId = superNodeInfo_->nodeScope_[nodeIdx];
+            auto it = scopeToMixId.find(scopeId);
+            if (it == scopeToMixId.end()) {
+                continue;
+            }
+            for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+                operationInfo_->opList_[opIdx]->scopeInfo_.SetMixId(it->second);
+            }
         }
     }
 
