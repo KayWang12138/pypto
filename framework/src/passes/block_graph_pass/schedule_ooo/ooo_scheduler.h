@@ -61,11 +61,13 @@ struct IssueQueue {
     IssueQueue() {}
     ~IssueQueue() {}
 
-    void SetCompareFunc(std::function<bool(Operation*, Operation*)> func) {
+    void SetCompareFunc(std::function<bool(Operation*, Operation*)> func)
+    {
         compareFunc = func;
     }
 
-    void Insert(Operation* op) {
+    void Insert(Operation* op)
+    {
         queue.push_back(op);
         if (compareFunc) {
             std::push_heap(queue.begin(), queue.end(), compareFunc);
@@ -74,11 +76,13 @@ struct IssueQueue {
 
     bool Empty() { return queue.size() == 0; }
 
-    Operation* Front() {
+    Operation* Front()
+    {
         return queue[0];
     }
 
-    Operation* PopFront() {
+    Operation* PopFront()
+    {
         if (compareFunc) {
             std::pop_heap(queue.begin(), queue.end(), compareFunc);
         }
@@ -98,6 +102,19 @@ struct SpillInfo {
 };
 
 class OoOScheduler : public ScheduleBase, public ScheduleMainLoopBase {
+public:
+    Status Schedule(
+        const std::vector<Operation*>& opList,
+        const std::unordered_map<Operation*, CoreLocationType>& opCoreMap =
+            std::unordered_map<Operation*, CoreLocationType>(),
+        const std::unordered_set<CoreLocationType> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
+    OoOScheduler(Function& function) : function_(function) {}
+
+    std::vector<Operation*> GetNewOperations() { return newOperations_; }
+    int64_t workspaceOffset{0};
+    OoOSchedulerCheck oooCheck;
+    std::unordered_map<PipeType, int> pipeEndTime;
+
 private:
     // ============ Operation属性管理数据结构 ============
     // 存储排好顺序的Operation指针
@@ -199,12 +216,14 @@ private:
     Status SpillBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillOutBuffer(SpillInfo &spillInfo, Operation* op, size_t &pcIdx, bool isGenSpill);
-    Status CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder, bool &isFinish);
+    Status CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder,
+        bool &isFinish);
     Status CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spillTensor, int spillMemId,
         Operation* &spillCopyoutOp, const SpillInfo &spillInfo);
     Status SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, MemoryType bufferType, bool isGenSpill);
     Status SpillInReshapeBuffer(SpillInfo &spillInfo, Operation* allocOp, bool isGenSpill);
-    Status SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, LogicalTensorPtr reshapeTensor, bool isGenSpill);
+    Status SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, LogicalTensorPtr reshapeTensor,
+        bool isGenSpill);
     LogicalTensorPtr CreateReshapeL1Tensor(LogicalTensorPtr iOperand, LogicalTensorPtr reshapeTensor);
     Status UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &spillInfo, LogicalTensorPtr reshapeTensor);
     Status CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor, LogicalTensorPtr spillTensor,
@@ -243,7 +262,8 @@ private:
         LogicalTensorPtr spillOutTensor, bool needCopyOut);
     bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
     int GetMemidAllocPriority(int memId);
-    Operation* UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, Operation* allocOp, int &bufNextUseOrder, bool isGenSpill);
+    Operation* UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, Operation* allocOp,
+        int &bufNextUseOrder, bool isGenSpill);
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
         SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
@@ -260,8 +280,10 @@ private:
     void UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp);
     void ProcessMoveIssue(Operation* moveOp, Operation* allocOp, MemoryType memType, int oldMemId, int newMemId);
     Status UpdateRange(int newMemId, size_t offset, MemoryType memType, BufferPool &bufferManager);
-    Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
-    Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
+    Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType,
+        bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
+    Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor,
+        LogicalTensorPtr &moveFromTensor);
 
     // ============ 辅助函数：获取Operation属性 ============
     int GetExecOrder(Operation* op) const { return opExecOrderMap.at(op); }
@@ -282,18 +304,7 @@ private:
     // 辅助函数：检查Operation是否在调度中
     bool IsOpInSchedule(Operation* op) const { return opExecOrderMap.find(op) != opExecOrderMap.end(); }
 
-public:
-    Status Schedule(
-        const std::vector<Operation*>& opList,
-        const std::unordered_map<Operation*, CoreLocationType>& opCoreMap =
-            std::unordered_map<Operation*, CoreLocationType>(),
-        const std::unordered_set<CoreLocationType> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
-    OoOScheduler(Function& function) : function_(function) {}
-
-    std::vector<Operation*> GetNewOperations() { return newOperations_; }
-    int64_t workspaceOffset{0};
-    OoOSchedulerCheck oooCheck;
-    std::unordered_map<PipeType, int> pipeEndTime;
+    void UpdateL0MXMap(const std::vector<Operation*> &opList);
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SCHEDULER_H

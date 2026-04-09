@@ -2007,7 +2007,8 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer)
     auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooSchedule.orderedOps[13]->GetOpAttribute());
     EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 0);
     EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 0);
-    EXPECT_TRUE(CheckOpInSet(oooSchedule.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")), oooSchedule.orderedOps[13]));
+    EXPECT_TRUE(CheckOpInSet(oooSchedule.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")),
+        oooSchedule.orderedOps[13]));
 }
 
 TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed)
@@ -2145,7 +2146,8 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1)
     res = ooOSchedule.Init(optimizeSort.operations);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(ooOSchedule.orderedOps.size(), 16);
-    EXPECT_TRUE(CheckOpInSet(ooOSchedule.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")), ooOSchedule.orderedOps[4]));
+    EXPECT_TRUE(CheckOpInSet(ooOSchedule.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")),
+        ooOSchedule.orderedOps[4]));
     EXPECT_EQ(ooOSchedule.orderedOps[15]->GetOpcodeStr(), "COPY_OUT");
     Operation* reshape = nullptr;
     Operation* alloc3 = nullptr;
@@ -2158,7 +2160,8 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1)
     size_t pcIdx = 9;
     res = ooOSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer2, true);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_TRUE(CheckOpInSet(ooOSchedule.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")), ooOSchedule.orderedOps[15]));
+    EXPECT_TRUE(CheckOpInSet(ooOSchedule.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")),
+        ooOSchedule.orderedOps[15]));
     EXPECT_EQ(ooOSchedule.bufRefCount_[0], 0);
     EXPECT_EQ(ooOSchedule.orderedOps[15]->GetOpcodeStr(), "RESHAPE");
     EXPECT_EQ(ooOSchedule.orderedOps.size(), 20);
@@ -2253,7 +2256,8 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer2)
     res = oooScheduler.Init(optimizeSort.operations);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(oooScheduler.orderedOps.size(), 13);
-    EXPECT_TRUE(CheckOpInSet(oooScheduler.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")), oooScheduler.orderedOps[2]));
+    EXPECT_TRUE(CheckOpInSet(oooScheduler.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")),
+        oooScheduler.orderedOps[2]));
     EXPECT_EQ(oooScheduler.orderedOps[10]->GetOpcodeStr(), "L1_ALLOC");
     Operation* reshape = nullptr;
     Operation* alloc3 = nullptr;
@@ -2266,7 +2270,8 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer2)
     size_t pcIdx = 5;
     res = oooScheduler.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer, true);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_TRUE(CheckOpInSet(oooScheduler.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")), oooScheduler.orderedOps[11]));
+    EXPECT_TRUE(CheckOpInSet(oooScheduler.depManager_.GetPredecessors(subGraph.GetOp("COPY_IN1")),
+        oooScheduler.orderedOps[11]));
     EXPECT_EQ(oooScheduler.bufRefCount_[0], 0);
     EXPECT_EQ(oooScheduler.orderedOps[11]->GetOpcodeStr(), "RESHAPE");
     EXPECT_EQ(oooScheduler.orderedOps.size(), 16);

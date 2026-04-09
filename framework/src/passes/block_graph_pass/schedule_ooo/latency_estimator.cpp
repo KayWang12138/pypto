@@ -17,7 +17,8 @@
 
 namespace npu::tile_fwk {
 
-void LatencyEstimator::LaunchReadyIssue() {
+void LatencyEstimator::LaunchReadyIssue()
+{
     for (auto &op : taskList) {
         if (USE_LESS_OPS2.find(op->GetOpcode()) != USE_LESS_OPS2.end() && depManager_.GetPredecessors(op).empty()) {
             auto type = RescheduleUtils::GetOpPipeType(op);

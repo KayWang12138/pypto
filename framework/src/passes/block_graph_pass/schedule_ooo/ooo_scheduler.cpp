@@ -55,7 +55,8 @@ inline bool IsMixGraph(const std::vector<Operation*>& operations)
     return false;
 }
 
-Operation* OoOScheduler::SkipViewChain(Operation* start, bool followProducers) {
+Operation* OoOScheduler::SkipViewChain(Operation* start, bool followProducers)
+{
     if (start == nullptr) return nullptr;
     Operation* op = start;
     Operation* lastView = nullptr;
@@ -74,7 +75,8 @@ Operation* OoOScheduler::SkipViewChain(Operation* start, bool followProducers) {
     return lastView;
 }
 
-int OoOScheduler::GetOOperandIdx(Operation* op, int curMemId) {
+int OoOScheduler::GetOOperandIdx(Operation* op, int curMemId)
+{
     for (size_t i = 0; i < op->GetOOperands().size(); i++) {
         if (op->GetOOperands()[i]->memoryrange.memId == curMemId) {
             return i;
@@ -128,7 +130,8 @@ Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill)
     return SUCCESS;
 }
 
-void OoOScheduler::UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree) {
+void OoOScheduler::UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree)
+{
     if (isFree) {
         int freeBufferSize = localBufferMap_[memId]->size;
         oooCheck.bufferTotalUsage[bufferType] +=
@@ -181,7 +184,8 @@ Status OoOScheduler::CheckAndUpdateLifecycle()
 {
     for (const auto &op : orderedOps) {
         if (!opIsRetiredMap[op]) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Unexecuted op: %s. %s", GetOpInfo(op).c_str(), GetFormatBacktrace(*op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Unexecuted op: %s. %s", GetOpInfo(op).c_str(),
+                GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
         if (opIsAllocMap[op]) {
@@ -371,14 +375,16 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, 
             tensorOccupyMap[memType][reqMemIds[0]] = op;
             localBufferMap_[reqMemIds[0]]->startCycle = clock;
             if (op->GetOutputOperand(0) == nullptr) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] cannot find oOperand[0]. %s", op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] cannot find oOperand[0]. %s",
+                    op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
             newOperations_.push_back(op);
             APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", GetOpInfo(op).c_str());
             pipe.PopFront();
             if (RetireOpAndAwakeSucc(op, commitCnt) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSuccOp failed. %s", GetFormatBacktrace(*op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSuccOp failed. %s",
+                    GetFormatBacktrace(*op).c_str());
                 return FAILED;
             }
         } else {
@@ -496,7 +502,8 @@ Status OoOScheduler::RetireCoreIssue(CoreLocationType coreLocation, uint64_t& co
             }
             continue;
         }
-        APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTING[%d]: %s", pipe.curOpRetireCycle, GetOpInfo(pipe.curIssue).c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTING[%d]: %s", pipe.curOpRetireCycle,
+            GetOpInfo(pipe.curIssue).c_str());
         if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
             nextCycle = pipe.curOpRetireCycle;
         }
@@ -587,7 +594,8 @@ Status OoOScheduler::ExecuteAllocIssue(Operation* op, size_t &pcIdx)
     auto coreLocation = opCoreLocationMap[op];
     if (bufferManagerMap[coreLocation][allocBuffer->memType].IsFull(allocBuffer)) {
         if (GenSpillOp(pcIdx) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s", GetFormatBacktrace(*orderedOps[pcIdx]).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s",
+                GetFormatBacktrace(*orderedOps[pcIdx]).c_str());
             return FAILED;
         }
     }
@@ -738,7 +746,8 @@ Status OoOScheduler::InitOpCoreType(Operation* op, const std::unordered_map<Oper
         } else if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_BT) {
             coreLocation = CoreLocationType::AIC;
         } else if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
-            if (op->GetIOperands().size() == 0 || op->GetInputOperand(0)->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
+            if (op->GetIOperands().size() == 0 ||
+                op->GetInputOperand(0)->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
                 coreLocation = CoreLocationType::AIC;
             } else if (op->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
                 coreLocation = CoreLocationType::AIV0;
@@ -759,7 +768,8 @@ Status OoOScheduler::InitOpCoreType(Operation* op, const std::unordered_map<Oper
     return SUCCESS;
 }
 
-Status OoOScheduler::InitOpEntry(Operation* op, const std::unordered_map<Operation*, CoreLocationType>& opCoreMap) {
+Status OoOScheduler::InitOpEntry(Operation* op, const std::unordered_map<Operation*, CoreLocationType>& opCoreMap)
+{
     if (op == nullptr) return FAILED;
 
     if (IsViewOp(*op)) {
@@ -821,7 +831,8 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
     // 校验并初始化Operation
     for (const auto &op : opList) {
         if (InitOpEntry(op, opCoreMap) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Operation %s[%d] init issue failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Operation %s[%d] init issue failed!",
+                op->GetOpcodeStr().c_str(), op->GetOpMagic());
             return FAILED;
         }
     }
@@ -845,6 +856,33 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
     InitIssueQueuesAndBufferManager();
     LOG_SCOPE_END(tInit);
     return SUCCESS;
+}
+
+void OoOScheduler::UpdateL0MXMap(const std::vector<Operation*> &opList)
+{
+    for (size_t i = 0; i < opList.size(); i++) {
+        if (opList[i]->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
+            auto l0MxOut = opList[i]->GetOOperands()[0];
+            auto consOp = *l0MxOut->GetConsumers().begin();
+            LogicalTensorPtr l0ATensor;
+            LogicalTensorPtr l0BTensor;
+            LogicalTensorPtr l0AMXTensor;
+            LogicalTensorPtr l0BMXTensor;
+            for (auto& l0Tensor : consOp->GetIOperands()) {
+                if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
+                    l0ATensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+                    l0BTensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
+                    l0AMXTensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
+                    l0BMXTensor = l0Tensor;
+                }
+            }
+            l02L0MXMap_[l0ATensor] = l0AMXTensor;
+            l02L0MXMap_[l0BTensor] = l0BMXTensor;
+        }
+    }
 }
 
 Status OoOScheduler::Schedule(
@@ -874,26 +912,7 @@ Status OoOScheduler::Schedule(
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAndUpdateLifecycle failed!");
         return FAILED;
     }
-    for (size_t i = 0; i < opList.size(); i++) {
-        if (opList[i]->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
-            auto l0MxOut = opList[i]->GetOOperands()[0];
-            auto consOp = *l0MxOut->GetConsumers().begin();
-            LogicalTensorPtr l0ATensor, l0BTensor, l0AMXTensor, l0BMXTensor;
-            for (auto& l0Tensor : consOp->GetIOperands()) {
-                if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
-                    l0ATensor = l0Tensor;
-                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
-                    l0BTensor = l0Tensor;
-                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
-                    l0AMXTensor = l0Tensor;
-                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
-                    l0BMXTensor = l0Tensor;
-                }
-            }
-            l02L0MXMap_[l0ATensor] = l0AMXTensor;
-            l02L0MXMap_[l0BTensor] = l0BMXTensor;
-        }
-    }
+    UpdateL0MXMap(opList);
     for (auto& entry : l02L0MXMap_) {
         auto l0Tensor = entry.first;
         auto l0MXTensor = entry.second;
@@ -964,7 +983,8 @@ void OoOScheduler::UpdateMoveOpAttr(Operation& moveOp, Operation& occupyOp)
     }
 }
 
-void OoOScheduler::ProcessMoveIssue(Operation* moveOp, Operation* allocOp, MemoryType memType, int oldMemId, int newMemId) 
+void OoOScheduler::ProcessMoveIssue(Operation* moveOp, Operation* allocOp, MemoryType memType, int oldMemId,
+    int newMemId)
 {
     SetOpMemIds(moveOp, {oldMemId, newMemId});
     opIsRetiredMap[moveOp] = true;
@@ -1023,7 +1043,9 @@ Status OoOScheduler::GetMoveOpInTensor(
     return SUCCESS;
 }
 
-Status OoOScheduler::GenRearrangeCopyOp(Operation* allocOp, MemoryType memType, int oldMemId, int &newMemId, bool &rearrangeUBBF16) {
+Status OoOScheduler::GenRearrangeCopyOp(Operation* allocOp, MemoryType memType, int oldMemId, int &newMemId,
+    bool &rearrangeUBBF16)
+{
     if (memType != MemoryType::MEM_L1 && memType != MemoryType::MEM_UB) {
         APASS_LOG_WARN_F(Elements::Tensor, "Unexpected rearrange tensor memory type found, GenRearrangeCopyOp failed.");
         return FAILED;
@@ -1064,7 +1086,8 @@ Status OoOScheduler::GenRearrangeCopyOp(Operation* allocOp, MemoryType memType, 
     ProcessMoveIssue(&moveOp, allocOp, memType, oldMemId, newMemId);
     // 更新memId
     if (UpdateMemId(oldMemId, newMemId) != SUCCESS) {
-        APASS_LOG_WARN_F(Elements::Operation, "GenRearrangeCopyOp failed at UpdateMemId. %s", GetFormatBacktrace(moveOp).c_str());
+        APASS_LOG_WARN_F(Elements::Operation, "GenRearrangeCopyOp failed at UpdateMemId. %s",
+            GetFormatBacktrace(moveOp).c_str());
         return FAILED;
     }
     // Free oldMemId
@@ -1119,11 +1142,13 @@ Status OoOScheduler::RearrangeBuffers(Operation* op, bool isGenSpillStage, bool 
         }
         Operation* occupyOp = GetSpillIssue(op, memId, isGenSpillStage);
         if (occupyOp == nullptr) {
-            APASS_LOG_WARN_F(Elements::Operation, "OccupyOp is nullptr, RearrangeBuffers failed. %s", GetFormatBacktrace(*op).c_str());
+            APASS_LOG_WARN_F(Elements::Operation, "OccupyOp is nullptr, RearrangeBuffers failed. %s",
+                GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
         if (IsViewOp(*occupyOp) || occupyOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
-            APASS_LOG_WARN_F(Elements::Operation, "Target rearrange tensor(memId: %d)'s occupy op is %d %s, RearrangeBuffers failed. %s",
+            APASS_LOG_WARN_F(Elements::Operation,
+                "Target rearrange tensor(memId: %d)'s occupy op is %d %s, RearrangeBuffers failed. %s",
                 memId, op->GetOpMagic(), op->GetOpcodeStr().c_str(), GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
