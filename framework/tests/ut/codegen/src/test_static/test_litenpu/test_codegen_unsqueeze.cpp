@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class LiteNPUCodeGenTranspose : public testing::Test {
+class LiteNPUCodeGenUnsqueeze : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
@@ -40,17 +40,17 @@ public:
 
     void TearDown() override {}
 };
-
-TEST_F(LiteNPUCodeGenTranspose, Test_Transpose_Lite) {
-    PROGRAM("TestTranspose"){
+// Kirin 9030  to do check
+TEST_F(LiteNPUCodeGenUnsqueeze, Test_Unsqueeze_Lite) {
+    PROGRAM("TestUnsqueeze"){
         TileShape::Current().SetVecTile(8, 8);
         Tensor operand(DT_FP32, {32, 32}, "operand");
         Tensor result;
-        FUNCTION("TestTranspose") {
-            result = Transpose(operand, {-1, 0});
+        FUNCTION("TestUnsqueeze") {
+            result = Unsqueeze(operand, 0);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestTranspose");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestUnsqueeze");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

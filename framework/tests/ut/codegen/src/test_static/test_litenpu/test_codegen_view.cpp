@@ -26,7 +26,7 @@
 
 using namespace npu::tile_fwk;
 
-class LiteNPUCodeGenTranspose : public testing::Test {
+class LiteNPUCodeGenView : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
@@ -41,16 +41,18 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenTranspose, Test_Transpose_Lite) {
-    PROGRAM("TestTranspose"){
+TEST_F(LiteNPUCodeGenView, Test_View_Lite) {
+    PROGRAM("TestView"){
         TileShape::Current().SetVecTile(8, 8);
         Tensor operand(DT_FP32, {32, 32}, "operand");
         Tensor result;
-        FUNCTION("TestTranspose") {
-            result = Transpose(operand, {-1, 0});
+        std::vector<int64_t> new_shape = {16, 16};
+        std::vector<int64_t> offsetsView = {0, 4};
+        FUNCTION("TestView") {
+            result = View(operand, new_shape, offsetsView);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestTranspose");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestView");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
