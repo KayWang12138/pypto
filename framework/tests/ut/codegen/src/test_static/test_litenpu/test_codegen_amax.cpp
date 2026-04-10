@@ -41,18 +41,107 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenAmax, Test_Amax_Lite) {
-    PROGRAM("TestAmax"){
-        TileShape::Current().SetVecTile(8, 8);
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_2d_axis_neg1_keepdims_true) {
+    PROGRAM("AMAX_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE") {
+        TileShape::Current().SetVecTile({8, 8});
         Tensor operand(DT_FP32, {16, 16}, "operand");
         Tensor result;
-        FUNCTION("TestAmax") {
+        FUNCTION("AMAX_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE") {
             result = Amax(operand, -1, true);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestAmax");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+}
 
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_2d_axis_0_keepdims_false) {
+    PROGRAM("AMAX_FP32_2D_AXIS_0_KEEPDIMS_FALSE") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMAX_FP32_2D_AXIS_0_KEEPDIMS_FALSE") {
+            result = Amax(operand, 0, false);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_2D_AXIS_0_KEEPDIMS_FALSE");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_2d_axis_1_keepdims_true) {
+    PROGRAM("AMAX_FP32_2D_AXIS_1_KEEPDIMS_TRUE") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMAX_FP32_2D_AXIS_1_KEEPDIMS_TRUE") {
+            result = Amax(operand, 1, true);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_2D_AXIS_1_KEEPDIMS_TRUE");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp16_2d_axis_neg1_keepdims_false) {
+    PROGRAM("AMAX_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP16, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMAX_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE") {
+            result = Amax(operand, -1, false);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_1d_axis_neg1_keepdims_true) {
+    PROGRAM("AMAX_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE") {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_FP32, {32}, "operand");
+        Tensor result;
+        FUNCTION("AMAX_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE") {
+            result = Amax(operand, -1, true);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_3d_axis_1_keepdims_true) {
+    PROGRAM("AMAX_FP32_3D_AXIS_1_KEEPDIMS_TRUE") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {4, 8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMAX_FP32_3D_AXIS_1_KEEPDIMS_TRUE") {
+            result = Amax(operand, 1, true);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_3D_AXIS_1_KEEPDIMS_TRUE");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenAmax, test_amax_fp32_4d_axis_2_keepdims_false) {
+    PROGRAM("AMAX_FP32_4D_AXIS_2_KEEPDIMS_FALSE") {
+        TileShape::Current().SetVecTile({1, 1, 4, 4});
+        Tensor operand(DT_FP32, {2, 2, 8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMAX_FP32_4D_AXIS_2_KEEPDIMS_FALSE") {
+            result = Amax(operand, 2, false);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMAX_FP32_4D_AXIS_2_KEEPDIMS_FALSE");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
 }

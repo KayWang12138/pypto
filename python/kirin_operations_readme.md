@@ -2682,6 +2682,11 @@ void TiledAssemble(Function &function, const TileShape &tileShape,
 | assemble_int32_003 | (3, 3) | (1, 3) | int32 | 单张量组装，偏移(1,1)到(5,5)张量 |
 | assemble_int32_004 | (4) | (2) | int32 | 1d张量组装，偏移(1)到(6)张量 |
 | assemble_int32_005 | (2, 4) | (1, 2) | int32 | 2d张量组装，偏移(0,2)到(3,6)张量 |
+| assemble_call_fp32_001 | [(2,2),(2,2)] | (1, 2) | fp32 | call方法多张量组装，并行执行 |
+| assemble_call_fp32_002 | [(2,2),(2,2)] | (1, 2) | fp32 | call方法多张量组装，串行执行 |
+| assemble_call_fp32_003 | [(4),(4)] | (2) | fp32 | call方法1d多张量组装 |
+| assemble_call_fp32_004 | [(2,2,2),(2,2,2)] | (1, 1, 2) | fp32 | call方法3d多张量组装 |
+| assemble_call_fp16_001 | [(2,2),(2,2)] | (1, 2) | fp16 | call方法多张量组装，并行执行 |
 ### 6.5. pypto.unsqueeze
 
 #### 6.5.1. 算子计算原理

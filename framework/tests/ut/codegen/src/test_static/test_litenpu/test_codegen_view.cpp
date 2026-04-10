@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_codegen_compare.cpp
+ * \file test_codegen_view.cpp
  * \brief
  */
 
@@ -41,20 +41,137 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenView, Test_View_Lite) {
-    PROGRAM("TestView"){
-        TileShape::Current().SetVecTile(8, 8);
-        Tensor operand(DT_FP32, {32, 32}, "operand");
+TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_2d) {
+    PROGRAM("VIEW_FP32_2D_TO_2D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
         Tensor result;
-        std::vector<int64_t> new_shape = {16, 16};
-        std::vector<int64_t> offsetsView = {0, 4};
-        FUNCTION("TestView") {
-            result = View(operand, new_shape, offsetsView);
+        FUNCTION("VIEW_FP32_2D_TO_2D") {
+            result = View(operand, {4, 16});
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestView");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_2D");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+}
 
+TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_1d) {
+    PROGRAM("VIEW_FP32_2D_TO_1D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP32_2D_TO_1D") {
+            result = View(operand, {64});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_1D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenView, test_view_fp32_1d_to_2d) {
+    PROGRAM("VIEW_FP32_1D_TO_2D") {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_FP32, {64}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP32_1D_TO_2D") {
+            result = View(operand, {8, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_1D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_3d) {
+    PROGRAM("VIEW_FP32_2D_TO_3D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP32_2D_TO_3D") {
+            result = View(operand, {2, 4, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_3D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenView, test_view_fp32_3d_to_2d) {
+    PROGRAM("VIEW_FP32_3D_TO_2D") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {2, 4, 8}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP32_3D_TO_2D") {
+            result = View(operand, {8, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_3D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenView, test_view_fp32_3d_to_4d) {
+    PROGRAM("VIEW_FP32_3D_TO_4D") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {2, 4, 8}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP32_3D_TO_4D") {
+            result = View(operand, {2, 2, 4, 4});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_3D_TO_4D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenView, test_view_fp16_2d_to_2d) {
+    PROGRAM("VIEW_FP16_2D_TO_2D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP16, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP16_2D_TO_2D") {
+            result = View(operand, {4, 16});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP16_2D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenView, test_view_fp32_4d_to_2d) {
+    PROGRAM("VIEW_FP32_4D_TO_2D") {
+        TileShape::Current().SetVecTile({1, 1, 4, 4});
+        Tensor operand(DT_FP32, {2, 2, 4, 4}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP32_4D_TO_2D") {
+            result = View(operand, {8, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_4D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_4d) {
+    PROGRAM("VIEW_FP32_2D_TO_4D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("VIEW_FP32_2D_TO_4D") {
+            result = View(operand, {2, 2, 4, 4});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_4D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
 }

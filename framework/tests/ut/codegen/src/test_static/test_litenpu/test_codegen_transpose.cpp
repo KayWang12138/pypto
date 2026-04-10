@@ -41,18 +41,107 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenTranspose, Test_Transpose_Lite) {
-    PROGRAM("TestTranspose"){
-        TileShape::Current().SetVecTile(8, 8);
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_fp32_2d_axis_neg1_0) {
+    PROGRAM("TRANSPOSE_FP32_2D_AXIS_NEG1_0") {
+        TileShape::Current().SetVecTile({8, 8});
         Tensor operand(DT_FP32, {32, 32}, "operand");
         Tensor result;
-        FUNCTION("TestTranspose") {
+        FUNCTION("TRANSPOSE_FP32_2D_AXIS_NEG1_0") {
             result = Transpose(operand, {-1, 0});
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestTranspose");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_FP32_2D_AXIS_NEG1_0");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+}
 
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_fp32_2d_axis_1_0) {
+    PROGRAM("TRANSPOSE_FP32_2D_AXIS_1_0") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {16, 16}, "operand");
+        Tensor result;
+        FUNCTION("TRANSPOSE_FP32_2D_AXIS_1_0") {
+            result = Transpose(operand, {1, 0});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_FP32_2D_AXIS_1_0");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_fp16_2d_axis_1_0) {
+    PROGRAM("TRANSPOSE_FP16_2D_AXIS_1_0") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP16, {16, 16}, "operand");
+        Tensor result;
+        FUNCTION("TRANSPOSE_FP16_2D_AXIS_1_0") {
+            result = Transpose(operand, {1, 0});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_FP16_2D_AXIS_1_0");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_fp32_3d_axis_0_2_1) {
+    PROGRAM("TRANSPOSE_FP32_3D_AXIS_0_2_1") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {2, 4, 4}, "operand");
+        Tensor result;
+        FUNCTION("TRANSPOSE_FP32_3D_AXIS_0_2_1") {
+            result = Transpose(operand, {0, 2, 1});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_FP32_3D_AXIS_0_2_1");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_fp32_3d_axis_2_1_0) {
+    PROGRAM("TRANSPOSE_FP32_3D_AXIS_2_1_0") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {2, 4, 4}, "operand");
+        Tensor result;
+        FUNCTION("TRANSPOSE_FP32_3D_AXIS_2_1_0") {
+            result = Transpose(operand, {2, 1, 0});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_FP32_3D_AXIS_2_1_0");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_fp32_4d_axis_0_1_3_2) {
+    PROGRAM("TRANSPOSE_FP32_4D_AXIS_0_1_3_2") {
+        TileShape::Current().SetVecTile({1, 1, 4, 4});
+        Tensor operand(DT_FP32, {2, 2, 4, 4}, "operand");
+        Tensor result;
+        FUNCTION("TRANSPOSE_FP32_4D_AXIS_0_1_3_2") {
+            result = Transpose(operand, {0, 1, 3, 2});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_FP32_4D_AXIS_0_1_3_2");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_fp32_4d_axis_3_2_1_0) {
+    PROGRAM("TRANSPOSE_FP32_4D_AXIS_3_2_1_0") {
+        TileShape::Current().SetVecTile({1, 1, 4, 4});
+        Tensor operand(DT_FP32, {2, 2, 4, 4}, "operand");
+        Tensor result;
+        FUNCTION("TRANSPOSE_FP32_4D_AXIS_3_2_1_0") {
+            result = Transpose(operand, {3, 2, 1, 0});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_FP32_4D_AXIS_3_2_1_0");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
 }
