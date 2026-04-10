@@ -53,14 +53,15 @@ std::vector<SymbolicScalar> BuildQuantMXGroupedValidShape(const std::vector<Symb
     return groupedValidShape;
 }
 
-void CheckQuantMXTileShape(const Tensor& input, const std::vector<int64_t>& vecTile)
+void CheckQuantMXTileShape(const LogicalTensorPtr& input, const VecTile& vecTile)
 {
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, vecTile.size() == input.GetShape().size())
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, vecTile.size() == input->GetShape().size())
         << "QuantMX tile shape rank must match input rank.";
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, vecTile.back() > 0) << "QuantMX tile shape last dim must be positive.";
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, vecTile[vecTile.size() - 1] > 0)
+        << "QuantMX tile shape last dim must be positive.";
 
-    const int64_t actualLastTile = std::min<int64_t>(vecTile.back(), input.GetShape().back());
-    const int64_t lastDimBytes = actualLastTile * BytesOf(input.GetDataType());
+    const int64_t actualLastTile = std::min<int64_t>(vecTile[vecTile.size() - 1], input->GetShape().back());
+    const int64_t lastDimBytes = actualLastTile * BytesOf(input->Datatype());
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
         << "QuantMX tile shape's last dim must be 256-byte aligned. Current last dim bytes: " << lastDimBytes;
 }
@@ -109,7 +110,7 @@ void QuantMXTileFunc(
     const auto& exp = oOperand[1];
     const auto& maxScratch = oOperand[2];
     const auto& scalingScratch = oOperand[3];
-    CheckQuantMXTileShape(Tensor(src), tileShape.GetVecTile());
+    CheckQuantMXTileShape(src, tileShape.GetVecTile());
     TileInfo inputTileInfo(src->shape.size(), src->offset.size());
     auto input = Input{Tensor(src), inputTileInfo};
     TiledQuantMXOperation(function, tileShape, 0, input, dst, exp, maxScratch, scalingScratch);
