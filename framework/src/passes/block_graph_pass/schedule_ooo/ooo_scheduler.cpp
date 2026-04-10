@@ -646,6 +646,7 @@ Status OoOScheduler::GenSpillSchedule()
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
+    depManager_.PrintDependencies(orderedOps);
     return SUCCESS;
 }
 
@@ -848,6 +849,7 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
+    depManager_.PrintDependencies(orderedOps);
     if (CheckAllocOp(orderedOps) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
         return FAILED;
