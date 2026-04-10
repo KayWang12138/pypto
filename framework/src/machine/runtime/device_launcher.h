@@ -137,7 +137,7 @@ public:
         if (devConfig.aicpuNum == 0 || devConfig.aicpuNum > maxAicpuNum) {
             devConfig.aicpuNum = maxAicpuNum;
         }
-        devConfig.isTripleStream = config::GetRuntimeOption<bool>(CFG_TRIPLE_STREAM_SCHED);
+        devConfig.isTripleStream = true;
     }
 
     template <typename DeviceMemoryTy>
@@ -155,8 +155,7 @@ public:
             devProg->devArgs.runtimeDataRingBufferAddr =
                 reinterpret_cast<uint64_t>(*CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         } else {
-            devProg->devArgs.runtimeDataRingBufferAddr =
-                (uint64_t)devMem.AllocZero(runtimeDataRingBufferSize, nullptr);
+            devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)devMem.AllocZero(runtimeDataRingBufferSize, nullptr);
         }
 
         uint64_t generalSize = devProg->memBudget.metadata.general;
@@ -173,7 +172,7 @@ public:
             return config.isTripleStream ? scheCpuNum : scheCpuNum + dynamic::MAX_CONTROL_FLOW_AICPU_NUM;
         }
 
-        if ( archInfo== ArchInfo::DAV_3510) {
+        if (archInfo == ArchInfo::DAV_3510) {
             uint32_t oneDieMinCpuNum = aiCpuNum >> 1;
             uint32_t oneDieMaxCpuNum = oneDieMinCpuNum + (aiCpuNum - (oneDieMinCpuNum << 1));
             uint32_t oneDieMinScheCpuNum = scheCpuNum >> 1;
@@ -184,7 +183,7 @@ public:
             return launchCpuNum < aiCpuNum ? launchCpuNum : aiCpuNum;
         } else {
             // sche = 2, need launch 3 aicpu ensure cluster; sche = 3, need launch 5 aicpu
-            uint32_t launchCpuNum =  2 * scheCpuNum - 1;    // 2 : ensure cluster success
+            uint32_t launchCpuNum = 2 * scheCpuNum - 1; // 2 : ensure cluster success
             return launchCpuNum < aiCpuNum ? launchCpuNum : aiCpuNum;
         }
     }
@@ -479,10 +478,9 @@ public:
     static bool IsCaptureMode();
     static void SaveStream(aclrtStream aicoreStream);
     static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI& rtModel);
-    static void AddAicpuStream(aclmdlRI& rtModel, bool tripleStream);
+    static void AddAicpuStream(aclmdlRI& rtModel);
     static int LaunchAicpuKernel(
-        rtAicpuArgsEx_t& rtArgs, bool tripleStream, [[maybe_unused]] bool debugEnable,
-        [[maybe_unused]] Function* function);
+        rtAicpuArgsEx_t& rtArgs, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function);
     static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable);
