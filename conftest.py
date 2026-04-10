@@ -15,6 +15,13 @@ from typing import List, Optional
 
 import pytest
 
+try:
+    import xdist  # noqa: F401
+except ImportError:
+    _HAS_XDIST = False
+else:
+    _HAS_XDIST = True
+
 
 def duration_estimate(seconds: float):
     """
@@ -79,56 +86,57 @@ def _is_case_match_cards(item, target_cards) -> bool:
     return True
 
 
-def pytest_configure_node(node):
-    """pytest-xdist 回调函数, 在 pytest 主进程 fork 出 worker 进程之前被调用.
+if _HAS_XDIST:
+    def pytest_configure_node(node):
+        """pytest-xdist 回调函数, 在 pytest 主进程 fork 出 worker 进程之前被调用.
 
-    :param node: worker 节点
-    """
-    # 获取 DeviceId 列表, 当外部传入 --device 时, 是 STest 场景, 否则是 UTest 场景
-    device_id_lst: Optional[List[int]] = node.config.getoption("--device")
-    cards_per_case: int = node.config.getoption("--cards-per-case", 1)
+        :param node: worker 节点
+        """
+        # 获取 DeviceId 列表, 当外部传入 --device 时, 是 STest 场景, 否则是 UTest 场景
+        device_id_lst: Optional[List[int]] = node.config.getoption("--device")
+        cards_per_case: int = node.config.getoption("--cards-per-case", 1)
 
-    if device_id_lst:
-        if cards_per_case > 1:
-            # 多卡模式
-            if len(device_id_lst) % cards_per_case != 0:
-                raise ValueError(
-                    f"Cannot divide {len(device_id_lst)} devices into groups of {cards_per_case}"
+        if device_id_lst:
+            if cards_per_case > 1:
+                # 多卡模式
+                if len(device_id_lst) % cards_per_case != 0:
+                    raise ValueError(
+                        f"Cannot divide {len(device_id_lst)} devices into groups of {cards_per_case}"
+                    )
+
+                # 计算worker应该分配的设备组
+                num_groups = len(device_id_lst) // cards_per_case
+                worker_idx = int(str(node.gateway.id).lstrip("gw"))
+
+                if worker_idx >= num_groups:
+                    # 没有足够的设备组，这个worker不分配设备
+                    node.gateway.id = "NoDevices"
+                    node.gateway.remote_exec('import os; os.environ.pop("TILE_FWK_DEVICE_ID", None)')
+                    node.gateway.remote_exec('import os; os.environ.pop("TILE_FWK_DEVICE_ID_LIST", None)')
+                    return
+
+                # 分配设备组
+                start_idx = worker_idx * cards_per_case
+                end_idx = start_idx + cards_per_case
+                device_group = device_id_lst[start_idx:end_idx]
+                device_group_str = ",".join(map(str, device_group))
+
+                node.gateway.id = f"Devices[{device_group_str}]"
+                node.gateway.remote_exec(
+                    f'import os; os.environ["TILE_FWK_DEVICE_ID_LIST"] = "{device_group_str}"'
                 )
+            else:
+                # 单卡模式，保持原有逻辑
+                worker_idx = int(str(node.gateway.id).lstrip("gw"))
+                if worker_idx >= len(device_id_lst):
+                    raise ValueError(f"WorkerIdx[{worker_idx}] out of DeviceIdLst{device_id_lst} range.")
+                device_id: int = device_id_lst[worker_idx]
 
-            # 计算worker应该分配的设备组
-            num_groups = len(device_id_lst) // cards_per_case
-            worker_idx = int(str(node.gateway.id).lstrip("gw"))
-
-            if worker_idx >= num_groups:
-                # 没有足够的设备组，这个worker不分配设备
-                node.gateway.id = "NoDevices"
-                node.gateway.remote_exec('import os; os.environ.pop("TILE_FWK_DEVICE_ID", None)')
-                node.gateway.remote_exec('import os; os.environ.pop("TILE_FWK_DEVICE_ID_LIST", None)')
-                return
-
-            # 分配设备组
-            start_idx = worker_idx * cards_per_case
-            end_idx = start_idx + cards_per_case
-            device_group = device_id_lst[start_idx:end_idx]
-            device_group_str = ",".join(map(str, device_group))
-
-            node.gateway.id = f"Devices[{device_group_str}]"
-            node.gateway.remote_exec(
-                f'import os; os.environ["TILE_FWK_DEVICE_ID_LIST"] = "{device_group_str}"'
-            )
+                # 修改 worker 名称, 设置 worker 中的 DeviceId
+                node.gateway.id = f"Device[{device_id}]"  # 体现在回显中
+                node.gateway.remote_exec(f'import os; os.environ["TILE_FWK_DEVICE_ID"] = "{device_id}"')
         else:
-            # 单卡模式，保持原有逻辑
-            worker_idx = int(str(node.gateway.id).lstrip("gw"))
-            if worker_idx >= len(device_id_lst):
-                raise ValueError(f"WorkerIdx[{worker_idx}] out of DeviceIdLst{device_id_lst} range.")
-            device_id: int = device_id_lst[worker_idx]
-
-            # 修改 worker 名称, 设置 worker 中的 DeviceId
-            node.gateway.id = f"Device[{device_id}]"  # 体现在回显中
-            node.gateway.remote_exec(f'import os; os.environ["TILE_FWK_DEVICE_ID"] = "{device_id}"')
-    else:
-        node.gateway.remote_exec(f'import os; os.environ.pop("TILE_FWK_DEVICE_ID", None)')
+            node.gateway.remote_exec(f'import os; os.environ.pop("TILE_FWK_DEVICE_ID", None)')
 
 
 @pytest.hookimpl(tryfirst=True)

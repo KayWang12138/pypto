@@ -1,0 +1,180 @@
+/*
+ * Copyright (c) PyPTO Contributors.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
+ */
+
+#include "block/codegen/cce/code_context.h"
+
+#include <cctype>
+#include <cstddef>
+#include <string>
+
+#include "block/core/logging.h"
+#include "block/ir/expr.h"
+
+namespace pypto {
+
+namespace codegen {
+
+std::string CodeContext::GetVarName(const ir::VarPtr& var) {
+  CHECK(var != nullptr) << "Cannot get name for null variable";
+  auto it = name_to_cpp_.find(var->name_);
+  if (it != name_to_cpp_.end()) {
+    return it->second;
+  }
+  // Auto-register: variable may originate from a different section (Cube/Vector)
+  // that was cleared on section boundary. Use the sanitized IR name.
+  std::string cpp_name = SanitizeName(var);
+  name_to_cpp_[var->name_] = cpp_name;
+  auto_registered_.insert(cpp_name);
+  return cpp_name;
+}
+
+bool CodeContext::IsAutoRegistered(const std::string& cpp_name) const {
+  return auto_registered_.count(cpp_name) > 0;
+}
+
+void CodeContext::RegisterVar(const ir::VarPtr& var, const std::string& cpp_name) {
+  CHECK(var != nullptr) << "Cannot register null variable";
+  CHECK(!cpp_name.empty()) << "Cannot register variable with empty name";
+
+  // Check if this name is already registered (suppress for array access and alias optimizations)
+  auto it = name_to_cpp_.find(var->name_);
+  if (it != name_to_cpp_.end() && it->second != cpp_name &&
+      cpp_name.find('[') == std::string::npos &&
+      !IsAlias(it->second)) {
+    LOG_WARN << "Variable " << var->name_ << " re-registered with different C++ name: " << cpp_name << " vs "
+             << it->second;
+  }
+
+  // Register name-based mapping
+  name_to_cpp_[var->name_] = cpp_name;
+}
+
+void CodeContext::RegisterAlias(const std::string& cpp_name, const std::string& target_name) {
+  // Resolve target through existing alias chain to get canonical name
+  std::string canonical = ResolveAlias(target_name);
+  if (canonical != cpp_name) {  // avoid self-alias
+    alias_map_[cpp_name] = canonical;
+  }
+}
+
+std::string CodeContext::ResolveAlias(const std::string& cpp_name) const {
+  std::string cur = cpp_name;
+  // Follow alias chain (bounded to prevent cycles)
+  for (int depth = 0; depth < 32; ++depth) {
+    auto it = alias_map_.find(cur);
+    if (it == alias_map_.end()) break;
+    cur = it->second;
+  }
+  return cur;
+}
+
+bool CodeContext::IsAlias(const std::string& cpp_name) const {
+  return alias_map_.find(cpp_name) != alias_map_.end();
+}
+
+void CodeContext::Clear() {
+  name_to_cpp_.clear();
+  tensor_to_pointer_.clear();
+  tensor_to_struct_pointer_.clear();
+  alias_map_.clear();
+}
+
+void CodeContext::RegisterPointer(const std::string& tensor_var_name, const std::string& ptr_name) {
+  CHECK(!tensor_var_name.empty()) << "Cannot register pointer with empty tensor var name";
+  CHECK(!ptr_name.empty()) << "Cannot register pointer with empty pointer name";
+
+  auto it = tensor_to_pointer_.find(tensor_var_name);
+  if (it != tensor_to_pointer_.end() && it->second != ptr_name) {
+    LOG_WARN << "Pointer for tensor " << tensor_var_name << " re-registered with: " << ptr_name << " vs "
+             << it->second;
+  }
+  tensor_to_pointer_[tensor_var_name] = ptr_name;
+}
+
+std::string CodeContext::GetPointer(const std::string& tensor_var_name) const {
+  auto it = tensor_to_pointer_.find(tensor_var_name);
+  CHECK(it != tensor_to_pointer_.end()) << "Pointer for tensor " << tensor_var_name << " not found";
+  return it->second;
+}
+
+void CodeContext::RegisterTensorStruct(const std::string& tensor_var_name,
+                                       const std::string& struct_ptr_name) {
+  CHECK(!tensor_var_name.empty()) << "Cannot register Tensor struct with empty tensor var name";
+  CHECK(!struct_ptr_name.empty()) << "Cannot register Tensor struct with empty pointer name";
+
+  auto it = tensor_to_struct_pointer_.find(tensor_var_name);
+  if (it != tensor_to_struct_pointer_.end()) {
+    LOG_WARN << "Tensor struct for tensor " << tensor_var_name << " re-registered with: " << struct_ptr_name
+             << " vs " << it->second;
+  }
+  tensor_to_struct_pointer_[tensor_var_name] = struct_ptr_name;
+}
+
+std::string CodeContext::GetTensorStruct(const std::string& tensor_var_name) const {
+  auto it = tensor_to_struct_pointer_.find(tensor_var_name);
+  CHECK(it != tensor_to_struct_pointer_.end())
+      << "Tensor struct for tensor " << tensor_var_name << " not found";
+  return it->second;
+}
+
+std::string CodeContext::SanitizeName(const ir::VarPtr& var) const {
+  CHECK(var != nullptr) << "Cannot sanitize null variable";
+  auto ir_name = var->name_;
+  if (ir_name.empty()) {
+    return "var";
+  }
+
+  std::string result;
+  result.reserve(ir_name.size());
+
+  // First character must be letter or underscore
+  if (std::isalpha(static_cast<unsigned char>(ir_name[0])) || ir_name[0] == '_') {
+    result += ir_name[0];
+  } else {
+    result += '_';
+  }
+
+  // Subsequent characters can be alphanumeric or underscore
+  for (size_t i = 1; i < ir_name.size(); ++i) {
+    char c = ir_name[i];
+    if (std::isalnum(static_cast<unsigned char>(c)) || c == '_') {
+      result += c;
+    } else {
+      result += '_';
+    }
+  }
+
+  return result;
+}
+
+void CodeContext::ClearAliases() {
+  alias_map_.clear();
+}
+
+void CodeContext::SaveSnapshot() {
+  snap_name_to_cpp_ = name_to_cpp_;
+  snap_ptr_ = tensor_to_pointer_;
+  snap_struct_ = tensor_to_struct_pointer_;
+  snap_alias_ = alias_map_;
+}
+
+void CodeContext::RestoreSnapshot() {
+  name_to_cpp_ = snap_name_to_cpp_;
+  tensor_to_pointer_ = snap_ptr_;
+  tensor_to_struct_pointer_ = snap_struct_;
+  alias_map_ = snap_alias_;
+  auto_registered_.clear();
+}
+
+
+}  // namespace codegen
+
+}  // namespace pypto
