@@ -16,6 +16,9 @@
 #pragma once
 
 #include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #include <algorithm>
 #include <memory>
 #include <map>
@@ -647,4 +650,77 @@ enum class CopyOutMode : int64_t { NZ2ND = 0, NZ2NZ = 1, ND2ND = 2, NZ2DN = 3 };
 
 enum class PaddingMode : int64_t { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
 } // namespace Matrix
+
+inline std::string SafeExecCommandWithOutput(const std::vector<std::string>& args)
+{
+    if (args.empty()) {
+        return "";
+    }
+
+    std::vector<char*> argv;
+    for (const auto& a : args) {
+        argv.push_back(const_cast<char*>(a.c_str()));
+    }
+    argv.push_back(nullptr);
+
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        return "";
+    }
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return "";
+    } else if (pid == 0) {
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    } else {
+        close(pipefd[1]);
+
+        std::string output;
+        char buffer[4096];
+        ssize_t bytesRead;
+        while ((bytesRead = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
+            output.append(buffer, bytesRead);
+        }
+        close(pipefd[0]);
+
+        int status;
+        waitpid(pid, &status, 0);
+        return output;
+    }
+}
+
+inline int SafeExecCommand(const std::vector<std::string>& args)
+{
+    if (args.empty()) {
+        return -1;
+    }
+
+    std::vector<char*> argv;
+    for (const auto& a : args) {
+        argv.push_back(const_cast<char*>(a.c_str()));
+    }
+    argv.push_back(nullptr);
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        return -1;
+    } else if (pid == 0) {
+        execvp(argv[0], argv.data());
+        _exit(127);
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status)) {
+            return WEXITSTATUS(status);
+        }
+        return -1;
+    }
+}
 } // namespace npu::tile_fwk
