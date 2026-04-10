@@ -15,6 +15,7 @@
 
 #include "bindings/torch_tensor_converter.h"
 #include "tilefwk/error.h"
+#include "interface/utils/function_error.h"
 
 #include <stdexcept>
 #include <string>
@@ -130,7 +131,8 @@ int TorchTensorConverter::Convert(
         py::object tensorDevice = torchTensor.attr("device");
 
         auto base = py::getattr(tensorDef, "_base", py::none());
-        ASSERT(py::isinstance<Tensor>(base)) << "the '_base' attribute must be a Tensor type";
+        FUNCTION_ASSERT(FError::INVALID_TYPE, py::isinstance<Tensor>(base))
+            << "the '_base' attribute must be a Tensor type";
         auto& t = base.cast<Tensor&>();
 
         if (!tensorDef.attr("explicit_format").is_none()) {
