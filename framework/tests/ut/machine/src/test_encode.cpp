@@ -155,50 +155,10 @@ TEST_F(TestDevEncode, test_max_stitch_function_num)
     Program::GetInstance().Reset();
     config::Reset();
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-    config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_INITIAL, 256);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_STEP, 0);
+    config::SetRuntimeOption(STITCH_FUNCTION_MAX_NUM, 256);
     DevAscendProgram* devProg1 = BuildAndGetDevProgForExpectedMaxCachedNum();
     ASSERT_NE(devProg1, nullptr);
     EXPECT_EQ(devProg1->stitchMaxFunctionNum, 256u);
-
-    // case2:
-    Program::GetInstance().Reset();
-    config::Reset();
-    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-    config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_INITIAL, 64);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_STEP, 0);
-    DevAscendProgram* devProg2 = BuildAndGetDevProgForExpectedMaxCachedNum();
-    ASSERT_NE(devProg2, nullptr);
-    EXPECT_EQ(devProg2->stitchMaxFunctionNum, 128u);
-
-    // case3:
-    Program::GetInstance().Reset();
-    config::Reset();
-    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-    config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_INITIAL, 64);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_STEP, 20);
-    DevAscendProgram* devProg3 = BuildAndGetDevProgForExpectedMaxCachedNum();
-    ASSERT_NE(devProg3, nullptr);
-    EXPECT_EQ(devProg3->stitchMaxFunctionNum, 1024u);
-
-    // case4:
-    Program::GetInstance().Reset();
-    config::Reset();
-    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-    config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_INITIAL, 64);
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_STEP, 0);
-    config::SetRuntimeOption(STITCH_FUNCTION_MAX_NUM, 512);
-    DevAscendProgram* devProg4 = BuildAndGetDevProgForExpectedMaxCachedNum();
-    ASSERT_NE(devProg4, nullptr);
-    EXPECT_EQ(devProg4->stitchMaxFunctionNum, 512u);
 }
 
 TEST_F(TestDevEncode, test_dev_func_dupped)
