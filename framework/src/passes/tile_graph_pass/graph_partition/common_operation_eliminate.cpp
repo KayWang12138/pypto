@@ -52,7 +52,7 @@ void SortedProducer(std::vector<Operation*>& sortedProducers)
 }
 
 void CollectProducerInfo(
-    const std::vector<Operation*>& sortedProducers, const LogicalTensorPtr& curTensor,
+    const std::vector<Operation*>& sortedProducers,
     std::vector<std::string>& opStrList, std::stringstream& ss)
 {
     for (const auto& op : sortedProducers) {
