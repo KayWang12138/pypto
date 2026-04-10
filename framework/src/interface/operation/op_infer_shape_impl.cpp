@@ -693,8 +693,6 @@ void Load2L1MXScaleInferFunc(Operation* op, std::vector<std::vector<SymbolicScal
         }
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Load2L1MXScaleInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_A_SCALE, Load2L1MXScaleInferFunc);
 
 // MTE infer shape func
 template <bool isTrans = false>
