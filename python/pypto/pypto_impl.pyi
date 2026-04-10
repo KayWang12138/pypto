@@ -558,6 +558,9 @@ def Where(a: Tensor, b: Union[Tensor, Element], c: Union[Tensor, Element]) -> Te
 def Assign(a: Tensor) -> Tensor: ...
 
 
+def QuantMX(input: Tensor) -> Tuple[Tensor, Tensor]: ...
+
+
 class MatmulExtendParam:
     @overload
     def __init__(self): ...

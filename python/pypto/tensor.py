@@ -743,6 +743,10 @@ class Tensor:
         return pypto.topk(self, k, dim, largest)
 
     @source_location
+    def quant_mx(self) -> Tuple['Tensor', 'Tensor']:
+        return pypto.quant_mx(self)
+
+    @source_location
     def sort32(self, index: Optional[int] = None) -> 'Tensor':
         return pypto.sort32(self, index)
 
