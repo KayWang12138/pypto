@@ -469,10 +469,7 @@ def check_ol28(ctx: CheckContext) -> Finding:
     for func in jit_funcs:
         used_fp32_only = set()
         for node in ast.walk(func):
-            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                    and isinstance(node.func.value, ast.Name)
-                    and node.func.value.id == "pypto"
-                    and node.func.attr in FP32_ONLY_OPS):
+            if _is_fp32_only_call(node):
                 used_fp32_only.add(node.func.attr)
         if not used_fp32_only:
             continue
@@ -491,6 +488,19 @@ def check_ol28(ctx: CheckContext) -> Finding:
                         file=impl_file, line=func.lineno)
     return ctx.make_finding("OL28", "PASS",
         "FP32-only API 与 dtype 注解一致", file=impl_file)
+
+
+def _is_fp32_only_call(node: ast.AST) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    if not isinstance(node.func, ast.Attribute):
+        return False
+    owner = node.func.value
+    if not isinstance(owner, ast.Name):
+        return False
+    if owner.id != "pypto":
+        return False
+    return node.func.attr in FP32_ONLY_OPS
 
 
 @register("OL29")
@@ -1210,7 +1220,7 @@ def _run_checks(ctx: CheckContext, rule_ids: list[str]) -> list[Finding]:
 def _output_hook_json(event: str, **kwargs):
     """输出 hookSpecificOutput JSON 到 stdout"""
     output = {"hookSpecificOutput": {"hookEventName": event, **kwargs}}
-    sys.stdout.write(f"{json.dumps(output, ensure_ascii=False)}\n")
+    _write_stdout_json(output)
 
 
 def _load_hook_input_or_exit() -> dict[str, Any]:
@@ -1242,7 +1252,8 @@ def _rule_ids_for_filename(filename: str) -> list[str]:
         return IMPL_RULE_IDS + CONSISTENCY_RULE_IDS
     if filename.endswith("_golden.py"):
         return GOLDEN_RULE_IDS + CONSISTENCY_RULE_IDS
-    if filename.startswith("test_") and filename.endswith(".py"):
+    is_test_file = filename.startswith("test_") and filename.endswith(".py")
+    if is_test_file:
         return TEST_RULE_IDS + CONSISTENCY_RULE_IDS
     return []
 
@@ -1260,7 +1271,12 @@ def _print_findings(findings: list[Finding]):
             "has_s0_fail": has_s0_fail,
         },
     }
-    sys.stdout.write(f"{json.dumps(result, ensure_ascii=False, indent=2)}\n")
+    _write_stdout_json(result, indent=2)
+
+
+def _write_stdout_json(payload: dict[str, Any], indent: Optional[int] = None) -> None:
+    content = json.dumps(payload, ensure_ascii=False, indent=indent)
+    os.write(1, f"{content}\n".encode("utf-8"))
 
 
 def _has_s0_fail(findings: list[Finding]) -> bool:
