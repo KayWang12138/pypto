@@ -374,7 +374,7 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
         LogicalTensor newTensor(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
         if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-            APASS_LOG_WARN_F(Elements::Tensor, "The output[%d] size[%ld] of copyout op[%d] should not exceed %zu.",
+            APASS_LOG_WARN_F(Elements::Tensor, "The output[%d] size[%ld] of copyout op[%d] should not exceed %zu. Consider reducing its size.",
                 copyOutOutput->GetMagic(), copyOutOutput->GetDataSize(), copyOutOp->GetOpMagic(), UB_SIZE_THRESHOLD);
             return;
         }
@@ -434,7 +434,7 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                 LogicalTensor newTensor(function, copyInInput->Datatype(), copyInInput->GetShape());
                 newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-                    APASS_LOG_WARN_F(Elements::Tensor, "The input[%d] size[%ld] of copyin op[%d] should not exceed %zu.",
+                    APASS_LOG_WARN_F(Elements::Tensor, "The input[%d] size[%ld] of copyin op[%d] should not exceed %zu. Consider reducing its size.",
                         copyInInput->GetMagic(), copyInInput->GetDataSize(), copyInOp->GetOpMagic(), UB_SIZE_THRESHOLD);
                     return;
                 }
