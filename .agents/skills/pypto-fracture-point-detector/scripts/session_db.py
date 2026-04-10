@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """
 Opencode Session Database Access Module
 
@@ -9,9 +10,13 @@ This allows the fracture-point-detector skill to access child session data.
 import sqlite3
 import json
 import os
+import logging
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # 默认路径，可通过环境变量 OPENCODE_DB_PATH 覆盖
 DEFAULT_DB_PATH = Path.home() / ".local/share/opencode/opencode.db"
@@ -83,7 +88,7 @@ def get_connection() -> sqlite3.Connection:
     try:
         return sqlite3.connect(DB_PATH)
     except sqlite3.Error as e:
-        raise RuntimeError(f"Failed to connect to database at {DB_PATH}: {e}")
+        raise RuntimeError(f"Failed to connect to database at {DB_PATH}: {e}") from e
 
 
 def get_current_session_id() -> Optional[str]:
@@ -279,21 +284,21 @@ def get_session_parts(session_id: str) -> SessionParts:
 
 if __name__ == "__main__":
     # Quick test
-    print("Testing session_db module...")
+    logger.info("Testing session_db module...")
     
     # Get recent root sessions
     recent = list_recent_root_sessions(limit=5)
-    print(f"\nRecent root sessions: {len(recent)}")
+    logger.info(f"Recent root sessions: {len(recent)}")
     for i, s in enumerate(recent, 1):
-        print(f"  {i}. [{s.id[:12]}...] {s.title}")
+        logger.info(f"  {i}. [{s.id[:12]}...] {s.title}")
     
     # Test get_session_parts
     if recent:
         parts = get_session_parts(recent[0].id)
-        print(f"\nFirst session parts:")
-        print(f"  User messages: {len(parts.user_messages)}")
-        print(f"  Assistant replies: {len(parts.assistant_replies)}")
-        print(f"  Tool calls: {len(parts.tool_calls)}")
-        print(f"  Reasoning: {len(parts.reasoning)}")
+        logger.info("First session parts:")
+        logger.info(f"  User messages: {len(parts.user_messages)}")
+        logger.info(f"  Assistant replies: {len(parts.assistant_replies)}")
+        logger.info(f"  Tool calls: {len(parts.tool_calls)}")
+        logger.info(f"  Reasoning: {len(parts.reasoning)}")
     
-    print("\n✅ Module works correctly!")
+    logger.info("Module works correctly!")
