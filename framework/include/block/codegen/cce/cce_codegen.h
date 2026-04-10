@@ -414,6 +414,9 @@ class CCECodegen : public CodegenBase {
   /// Struct type dedup: maps field signature (CSV) → type name.
   /// Identical structs share the same type definition.
   std::map<std::string, std::string> struct_type_defs_;
+
+  /// Track emitted tile reference aliases to avoid C++ redefinition errors
+  std::set<std::string> emitted_tile_aliases_;
 };
 
 }  // namespace codegen
