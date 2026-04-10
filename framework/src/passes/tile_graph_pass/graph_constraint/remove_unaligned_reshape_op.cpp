@@ -304,7 +304,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
 }
 
 /**
- * @brief 判断 UB 上的tensor尾轴是否32B对齐
+ * @brief 判断 UB 上的tensor尾轴是否已经32B对齐
  */
 inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
 {
@@ -313,8 +313,7 @@ inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
         return false;
     }
 
-    size_t lastIdx = tensor->shape.size() - 1;
-    size_t lastDim = tensor->shape[lastIdx];
+    size_t lastDim = tensor->shape[tensor->shape.size() - 1];
     size_t bytes = BytesOf(tensor->Datatype());
     size_t totalByte = lastDim * bytes;
 
