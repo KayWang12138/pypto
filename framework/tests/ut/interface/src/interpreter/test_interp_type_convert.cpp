@@ -392,12 +392,12 @@ TEST_F(InterpTypeConvertTest, Hf8DecodeNormalExponentBranches)
         float expected;
     } cases[] = {
         // D=001, E_v in {+1,-1}, M_v in [0/8,7/8]
-        {0x10, 2.0f},  // E_v=+1, M_v=0
-        {0x1F, 3.75f}, // E_v=+1, M_v=7/8
-        {0x18, 0.5f},  // E_v=-1, M_v=0
+        {0x10, 2.0f},    // E_v=+1, M_v=0
+        {0x1F, 0.9375f}, // E_v=-1, M_v=7/8
+        {0x18, 0.5f},    // E_v=-1, M_v=0
         // D=01, E_v in ±[2,3], M_v in [0/8,7/8]
         {0x20, 4.0f},  // E_v=+2, M_v=0
-        {0x2F, 7.5f},  // E_v=+2, M_v=7/8
+        {0x2F, 15.0f}, // E_v=+3, M_v=7/8
         {0x30, 0.25f}, // E_v=-2, M_v=0
         // D=10, E_v in ±[4,7], M_v in [0/4,3/4]
         {0x40, 16.0f}, // E_v=+4, M_v=0

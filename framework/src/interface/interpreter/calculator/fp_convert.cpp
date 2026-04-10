@@ -296,7 +296,7 @@ static inline uint8_t EncodeFloatToHf8(float v)
     float mant = normalized - 1.0f;
 
     auto clampInt = [](int x, int lo, int hi) { return std::max(lo, std::min(hi, x)); };
-    if (exponent < 0) {
+    if (exponent <= -16) {
         // Subnormal branch: value=S_v*2^(M_v-23), M_v in [0,7]
         int mv = clampInt(static_cast<int>(std::round(std::log2(absv) + 23.0f)), 0, 7);
         return static_cast<uint8_t>((sign << 7) | mv);

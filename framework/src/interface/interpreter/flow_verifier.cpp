@@ -29,7 +29,7 @@ namespace npu::tile_fwk {
 
 namespace {
 
-// Scalar decode aligned with calculator/fp8_convert.cpp (E4M3, E5M2, E8M0).
+// Scalar decode: FP8 aligned with calculator fp8 paths; HF8 aligned with calculator/fp_convert.cpp (Hf8ToFloat32).
 float DecodeFp8E4M3(uint8_t x)
 {
     const int xi = static_cast<int>(x);
@@ -149,6 +149,7 @@ double Fp8StorageToDouble(uint8_t bits, DataType fmt)
 
 } // namespace
 
+// uint8-backed low-precision float formats: DT_FP8*, DT_HF8. Decodes each byte with Fp8StorageToDouble(fmt).
 FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
     const std::shared_ptr<LogicalTensorData>& goldenDataView, const std::shared_ptr<LogicalTensorData>& outputDataView,
     DataType fp8Format, float rtol, float atol, int errorCountThreshold, int failNum)
