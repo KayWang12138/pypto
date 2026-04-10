@@ -75,6 +75,9 @@ WrapInfoQueue* DeviceTaskContext::AllocWrapQueue(DynDeviceTask* dyntask)
     q->lock = 0;
     q->capacity = dyntask->devTask.mixTaskData.wrapIdNum;
     q->elem = reinterpret_cast<WrapInfo*>(q + 1);
+    for (uint32_t i = 0; i < q->capacity; i++) {
+        q->elem[i].wrapId = INVALID_WRAP_ID;
+    }
     return q;
 }
 
