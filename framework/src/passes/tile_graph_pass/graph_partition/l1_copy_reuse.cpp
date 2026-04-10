@@ -708,6 +708,14 @@ Status L1CopyInReuseMerge::CheckOpListValid(Function& func) const
 {
     auto opOriList = func.Operations();
     for (size_t i = 0; i < opOriList.size(); i++) {
+        if (opOriList[i].GetSubgraphID() < 0) {
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "Operation (opmagic: %d) has illegal SubgraphID(%d); Please review the error messages generated during "
+                "the processing procedure.",
+                opOriList[i].GetOpMagic(), opOriList[i].GetSubgraphID());
+            return FAILED;
+        }
         if (opOriList[i].GetIOperands().size() != 0 &&
             opOriList[i].GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {

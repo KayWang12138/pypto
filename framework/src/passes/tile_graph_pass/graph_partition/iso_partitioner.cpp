@@ -151,6 +151,23 @@ Status IsoPartitioner::BuildIsomorphismGroups()
         }
         isoSubGroups_.push_back(currentGraphGroup);
     }
+    for (size_t i = 0; i < superNodeInfo_->nodeInGraph_.size(); i++) {
+        if (currentNodeSet.count(i) == 0) {
+            uint64_t hs = superNodeInfo_->nodeHashList_[i];
+            std::vector<int32_t>& isoNodes = superNodeInfo_->hash2NodeMap_[hs];
+            std::string isoNodeInfo;
+            for (int32_t nodeIdx : isoNodes) {
+                isoNodeInfo += std::to_string(nodeIdx) + "(in_deg=" +
+                    std::to_string(idxInLinkNum[nodeIdx]) + ",visited=" +
+                    std::to_string(currentNodeSet.count(nodeIdx)) + ") ";
+            }
+            APASS_LOG_ERROR_F(
+                Elements::Operation,
+                "Supernode[%zu] not processed in BuildIsomorphismGroups, hash=%lu, iso_group=[%s].",
+                i, hs, isoNodeInfo.c_str());
+            return FAILED;
+        }
+    }
     return SUCCESS;
 }
 
