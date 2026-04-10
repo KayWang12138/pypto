@@ -46,13 +46,13 @@ pypto.set_vec_tile_shapes(4, 16)
 ### 接口调用示例
 
 ```python
-x = pypto.tensor([1, 2], pypto.DT_FP32)
+x = pypto.tensor([1.0, 2.0], pypto.DT_FP32)
 y = pypto.cbrt(x)
 ```
 
 结果示例如下：
 
 ```python
-Input  x:[[8, -8]]
-Output y:[[2, -2]]
+Input  x:[[8.0, -8.0]]
+Output y:[[2.0, -2.0]]
 ```

@@ -202,6 +202,12 @@ void CodegenPreproc::FixExpandDimForAxisCombine(Operation& op, int dimSize) cons
             op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
         }
     }
+    // 隐式expand场景
+    if (op.HasAttr(OpAttributeKey::brcpIdx)) {
+        int operand = op.GetIntAttribute(OpAttributeKey::brcpIdx);
+        op.SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(0));
+        op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(operand));
+    }
 }
 
 inline bool SkipInputCombineOps3510(Operation& op)
@@ -220,9 +226,19 @@ inline bool SkipInputCombineOps3510(Operation& op)
     return true;
 }
 
+inline bool SkipInputCombineOps(Operation& op, int dimSize)
+{
+    if (op.GetOpcode() == Opcode::OP_BRCB) {
+        return false;
+    }
+    if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        return op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM") != dimSize - NUM1; // 尾轴expand不支持换轴
+    }
+    return true;
+}
+
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function& func) const
 {
-    const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto& subProgram : func.rootFunc_->programs_) {
         for (auto& op : subProgram.second->Operations(false)) {
             if (OpcodeManager::Inst().GetCoreType(op.GetOpcode()) != OpCoreType::AIV && !IsUBCopy(op)) {
@@ -234,7 +250,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function& func) const
             std::vector<bool> inputCombineAxis;
             LogicalTensors inputs = op.GetIOperands();
             for (size_t i = 0; i < inputs.size(); ++i) {
-                if (inputs[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
+                if (inputs[i]->tensor->rawshape.back() == 1 &&
+                    SkipInputCombineOps(op, static_cast<int>(inputs[i]->tensor->rawshape.size()))) {
                     inputCombineAxis.push_back(true);
                 } else {
                     inputCombineAxis.push_back(false);

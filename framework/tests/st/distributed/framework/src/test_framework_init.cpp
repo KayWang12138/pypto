@@ -257,6 +257,7 @@ void TestFrameworkInit(OpTestParam& testParam, HcomTestParam& hcomTestParam, int
 
     // 获取 group name
     CHECK(HcclGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcclGetCommName failed";
+    setenv("TILE_FWK_DEVICE_ID", std::to_string(physicalDeviceId).c_str(), 1);
 
     DISTRIBUTED_LOGI("testParam.rankSize %d\n", testParam.rankSize);
     DISTRIBUTED_LOGI("testParam.rankId %d\n", testParam.rankId);

@@ -25,13 +25,17 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
     const std::string& srcDtypeStr = param.srcDtypeStr;
     const std::string& dVar = param.dVar;
     const std::string& s0Var = param.s0Var;
-    std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    
+    bool hasTmpBuffer = (operandCnt == NUM3);
+    int srcShapeIdx = hasTmpBuffer ? ID2: ID1;
+    
+    std::vector<int64_t> ss = NormalizeShape(rawShape[srcShapeIdx], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::ostringstream oss;
     std::vector<std::string> paramList;
     auto dynDstShape = dynamicValidShape[0];
     std::vector<SymbolicScalar> newDynDstShape = dynDstShape;
-    FillIntVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
     paramList.insert(paramList.end(), {dstDtypeStr, srcDtypeStr});
     for (int i = ID1; i < SHAPE_DIM4; ++i) {
         paramList.emplace_back(std::to_string(ds[i]));
@@ -58,17 +62,24 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
 
 std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
 {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    bool hasTmpBuffer = (operandCnt == NUM3);
+    std::string dstTensor;
+    std::string srcTensor;
+    std::string tmpTensor;
+    dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    if (hasTmpBuffer) {
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+        tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    } else { 
+        srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    }
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
         modeEnum = AnyCast<int64_t>(mode);
     }
-
     int64_t satModeEnum = 0;
     GetAttr(OP_ATTR_PREFIX + "satmode", satModeEnum);
-
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
     std::string lastUse = GetLastUse();
@@ -80,7 +91,12 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
     std::string satModeStr = (satModeEnum == 0) ? "pto::SaturationMode::ON" : "pto::SaturationMode::OFF";
     templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses({dstTensor, srcTensor});
+
+    if (hasTmpBuffer) {
+        oss << WrapParamByParentheses({dstTensor, srcTensor, tmpTensor});
+    } else {
+        oss << WrapParamByParentheses({dstTensor, srcTensor});
+    }
     oss << ";\n";
     return oss.str();
 }
@@ -139,7 +155,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     reduceAxis += SHAPE_DIM4 - rawShape[0].size();
     std::vector<int64_t> srcShape = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> dstShape = NormalizeShape(rawShape[0], SHAPE_DIM4);
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - rawShape[0].size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - rawShape[0].size(), 1);
 
     std::ostringstream os;
     std::vector<std::string> paramList;
@@ -301,10 +317,10 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
     const std::string& s0Var = param.s0Var;
     auto dynDstShape = dynamicValidShape[0];
     std::vector<SymbolicScalar> newDynDstShape = dynDstShape;
-    FillIntVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(newDynDstShape, SHAPE_DIM4 - dynDstShape.size(), 1);
     auto dynSrcShape = dynamicValidShape[1];
     std::vector<SymbolicScalar> newDynSrcShape = dynSrcShape;
-    FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcShape, SHAPE_DIM4 - dynSrcShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(newDynSrcShape, SHAPE_DIM4 - dynSrcShape.size(), 1);
     std::ostringstream os;
     std::vector<std::string> paramList;
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
@@ -439,7 +455,7 @@ std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam& param) const
     paramList.emplace_back(src0);
 
     auto dynSrcShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM3 - dynSrcShape.size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM3 - dynSrcShape.size(), 1);
     for (auto dynShape : dynSrcShape) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
@@ -481,7 +497,7 @@ std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam&
     paramList.emplace_back(src0);
 
     auto dynSrcShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    FillVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
     for (auto dynShape : dynSrcShape) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }

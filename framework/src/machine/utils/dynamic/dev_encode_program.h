@@ -52,6 +52,7 @@ struct DevAscendProgram {
             uint64_t maxStaticOutcastMem;
             uint64_t maxDynamicAssembleOutcastMem;
             uint64_t devTaskBoundaryOutcastNum;
+            uint32_t parallelism{1};
 
             uint64_t MaxOutcastMem() const { return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem); }
 
@@ -63,13 +64,15 @@ struct DevAscendProgram {
                     MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask
                                                                  // boundary outcasts
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
-                return AlignUp(total, ALIGNMENT_32K);
+                return AlignUp(total, ALIGNMENT_32K) * parallelism;
             }
         } tensor;
         uint64_t aicoreSpilled;
         struct {
             uint64_t general;
             uint64_t stitchPool;
+            uint32_t generalSlabSize;
+            uint32_t stitchSlabSize;
 
             uint64_t Total() const { return general + stitchPool; }
         } metadata;
@@ -105,7 +108,6 @@ struct DevAscendProgram {
     DevRelocVector<uint64_t> startArgsInputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsOutputTensorSlotIndexList;
     DevRelocVector<uint64_t> startArgsInputSymbolIndexList;
-    DevRelocVector<SymbolHandler> startArgsSymbolHandlerList;
     DevRelocVector<uint64_t> assembleSlotIndexList;
     DevRelocVector<uint64_t> outputInplaceSlotList;
     DevRelocVector<DevAscendProgramPartialUpdate> partialUpdateList;
@@ -132,7 +134,6 @@ struct DevAscendProgram {
      *      uint64_t startArgsInputTensorSlotIndexListData[]
      *      uint64_t startArgsOutputTensorSlotIndexListData[]
      *      uint64_t startArgsInputSymbolIndexListData[]
-     *      SymbolHandler startArgsSymbolHandlerListData[]
      *      uint64_t assembleSlotIndexList[]
      *      uint64_t outputInplaceSlotList[];
      *      DevAscendProgramPartialUpdate partialUpdateList[]
@@ -298,7 +299,6 @@ struct DevAscendProgram {
 
         RelocOffset(shift, offset, startArgsInputTensorSlotIndexList);
         RelocOffset(shift, offset, startArgsOutputTensorSlotIndexList);
-        RelocOffset(shift, offset, startArgsSymbolHandlerList);
         RelocOffset(shift, offset, startArgsInputSymbolIndexList);
         RelocOffset(shift, offset, assembleSlotIndexList);
         RelocOffset(shift, offset, outputInplaceSlotList);
@@ -319,7 +319,9 @@ struct DevAscendProgram {
 
         RelocOffset(shift, offset, controlFlowCache.inputTensorDataList);
         RelocOffset(shift, offset, controlFlowCache.outputTensorDataList);
-        RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList);
+        for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
+            RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList);
+        }
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.slotContext.slotList);
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool);
         RelocOffset(shift, offset, controlFlowCache.deviceTaskCacheList);
@@ -416,7 +418,7 @@ struct DevAscendProgram {
             disableL2List,
             controlFlowCache.inputTensorDataList,
             controlFlowCache.outputTensorDataList,
-            controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList, // 20
+            controlFlowCache.runtimeBackup.workspace.tensorAllocators[0].slottedOutcastsBlockList, // 20
             controlFlowCache.runtimeBackup.slotContext.slotList,
             controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool,
             controlFlowCache.deviceTaskCacheList,
@@ -474,6 +476,9 @@ struct DevAscendProgram {
 
     const DeviceRuntimeOffset& GetDeviceRuntimeOffset() const { return deviceRuntimeOffset; }
 
+    void SetParallelism(uint32_t parallelism) { memBudget.tensor.parallelism = parallelism; }
+    uint32_t GetParallelism() { return memBudget.tensor.parallelism; }
+
 private:
     friend struct EncodeDevAscendProgramInfo;
 
@@ -492,8 +497,7 @@ private:
     void InitStartArgsABIParamList(
         uintdevptr_t& initOffset, const std::vector<int>& tStartArgsInputTensorSlotIndexList,
         const std::vector<int>& tStartArgsOutputTensorSlotIndexList,
-        const std::vector<int>& tStartArgsInputSymbolIndexList,
-        const std::vector<SymbolHandler>& tStartArgsSymbolHandlerList, const std::vector<int>& tAsembleSlotIndexList,
+        const std::vector<int>& tStartArgsInputSymbolIndexList, const std::vector<int>& tAsembleSlotIndexList,
         const std::vector<int>& tInplaceSlotIndexList, bool fillContent);
     void InitPartialUpdateSlot(
         uintdevptr_t& initOffset, const std::vector<std::vector<uint8_t>>& devEncodeListInput,

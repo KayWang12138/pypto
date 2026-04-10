@@ -59,16 +59,6 @@ inline int GetExpandDim(const std::vector<int64_t>& lhsShape, const std::vector<
     return -1;
 }
 
-static void SetValidShapeForExpand(Operation& expand, const LogicalTensorPtr& refTensor)
-{
-    const auto& validShape = refTensor->GetDynValidShape();
-    if (!validShape.empty()) {
-        expand.SetAttribute(OP_ATTR_PREFIX + "validShape", validShape);
-    } else {
-        expand.SetAttribute(OP_ATTR_PREFIX + "validShape", SymbolicScalar::FromConcrete(refTensor->GetShape()));
-    }
-}
-
 static LogicalTensorPtr CreateAlignedTensor(
     Function& function, const LogicalTensorPtr& srcTensor, const std::vector<int64_t>& alignedShape)
 {
@@ -85,6 +75,22 @@ static void UpdateOperand(
     oldTensor->RemoveConsumer(op);
     op.ReplaceIOperand(idx, newTensor);
     inputTensor[idx] = newTensor;
+}
+
+static void SetAttrForExpand(Operation& op, LogicalTensors& inputTensor, int idx, Shape& shape)
+{
+    int expandDim = inputTensor[idx]->GetShape().size() - 1;
+    op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", expandDim);
+    auto dynValidShape = SymbolicScalar::FromConcrete(shape);
+    if (!(inputTensor[idx]->GetDynValidShape().empty())) {
+        dynValidShape = inputTensor[idx]->GetDynValidShape();
+    }
+    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
+        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetDynValidShape()[expandDim]);
+    } else {
+        dynValidShape[expandDim] = SymbolicScalar(inputTensor[idx ^ 1]->GetShape()[expandDim]);
+    }
+    op.SetAttribute(OP_ATTR_PREFIX + "validShape", dynValidShape);
 }
 
 Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, Operation& op)
@@ -117,9 +123,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]] Function& function, 
             }
             auto alignedTensor = CreateAlignedTensor(function, srcTensor, alignedShape);
             auto& expand = function.AddRawOperation(Opcode::OP_EXPAND, {srcTensor}, {alignedTensor});
-            expand.SetAttribute(
-                OP_ATTR_PREFIX + "EXPANDDIM", GetExpandDim(srcTensor->GetShape(), otherTensor->GetShape()));
-            SetValidShapeForExpand(expand, otherTensor);
+            SetAttrForExpand(expand, inputTensor, idx, alignedShape);
             expand.UpdateSubgraphID(op.GetSubgraphID());
             UpdateOperand(op, idx, srcTensor, alignedTensor, inputTensor);
             continue;

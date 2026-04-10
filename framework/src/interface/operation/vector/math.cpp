@@ -87,8 +87,7 @@ Tensor LogicalNot(const Tensor& self)
                         self.GetDataType() == DT_UINT8 || self.GetDataType() == DT_INT8 ||
                         self.GetDataType() == DT_BOOL || self.GetDataType() == DT_BF16;
     if (!dtypeIsValid) {
-        std::string errorMessage = "Unsurpported Dtype " + DataType2String(self.GetDataType());
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << errorMessage;
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsurpported Dtype " << DataType2String(self.GetDataType());
     }
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
