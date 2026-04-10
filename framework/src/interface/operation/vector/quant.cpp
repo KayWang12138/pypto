@@ -27,8 +27,11 @@ constexpr int64_t QUANT_MX_TILE_ALIGN_BYTES = 256;
 
 void CheckQuantMXInput(const Tensor& input)
 {
-    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, input.GetDataType() == DataType::DT_FP32)
-        << "QuantMX only supports DT_FP32 input.";
+    const auto inputDtype = input.GetDataType();
+    ASSERT(
+        VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
+        inputDtype == DataType::DT_FP16 || inputDtype == DataType::DT_BF16 || inputDtype == DataType::DT_FP32)
+        << "QuantMX only supports DT_FP16, DT_BF16, and DT_FP32 input.";
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input.Format() == TileOpFormat::TILEOP_ND)
         << "QuantMX only supports TILEOP_ND input.";
     ASSERT(

@@ -16,14 +16,16 @@
 #ifndef TILEOP_TILE_OPERATOR_QUANT__H
 #define TILEOP_TILE_OPERATOR_QUANT__H
 
-#include <pto/npu/a5/TQuant.hpp>
-
 #include "pto_tile.h"
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
+
 
 #define OP_TILE_OP_QUANT_MX TQuantMX
 template <typename T0, typename T1, typename T2, typename T3, typename T4>
 TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
 {
+    constexpr int kMxQuantGroupSize = 32;
     const auto dstLayout = dst.GetLayout();
     const auto expLayout = exp.GetLayout();
     const auto maxLayout = maxScratch.GetLayout();
@@ -44,6 +46,11 @@ TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
     auto maxTile = PtoTile<T2>(maxScratch);
     auto scalingTile = PtoTile<T3>(scalingScratch);
     auto srcTile = PtoTile<T4>(src);
+    using SrcTileType = typename decltype(srcTile)::Type;
+    using SrcPadTileType = pto::Tile<
+        SrcTileType::Loc, typename SrcTileType::DType, SrcTileType::Rows, SrcTileType::Cols, SrcTileType::BFractal,
+        SrcTileType::ValidRow, SrcTileType::ValidCol, SrcTileType::SFractal, SrcTileType::SFractalSize,
+        pto::PadValue::Zero, SrcTileType::Compact>;
     ExpByteTile expByteTile(
         expLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>(), expLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>());
 
@@ -55,11 +62,24 @@ TILEOP void TQuantMX(T0 dst, T1 exp, T2 maxScratch, T3 scalingScratch, T4 src)
             for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 auto expTileOffset = n0Index * expStride0 + n1Index * expStride1 + n2Index * expStride2;
+                auto srcTileAddr =
+                    (uint64_t)(src.GetAddr() + GenTileOffset(src, tileOffsets) * sizeof(typename T4::Type));
                 dstTile.Assign(dst, tileOffsets);
                 maxTile.Assign(maxScratch, tileOffsets);
                 scalingTile.Assign(scalingScratch, tileOffsets);
-                srcTile.Assign(src, tileOffsets);
+                srcTile.Assign(srcTileAddr);
                 pto::TASSIGN(expByteTile, (uint64_t)(exp.GetAddr() + expTileOffset * sizeof(typename T1::Type)));
+                if (srcTile.Data().GetValidCol() % kMxQuantGroupSize != 0) {
+                    if constexpr (T4::IsStaticLayout()) {
+                        SrcPadTileType srcPadTile;
+                        pto::TASSIGN(srcPadTile, srcTileAddr);
+                        pto::TFILLPAD_INPLACE(srcPadTile, srcTile.Data());
+                    } else {
+                        SrcPadTileType srcPadTile(srcTile.Data().GetValidRow(), srcTile.Data().GetValidCol());
+                        pto::TASSIGN(srcPadTile, srcTileAddr);
+                        pto::TFILLPAD_INPLACE(srcPadTile, srcTile.Data());
+                    }
+                }
                 pto::TQUANT_IMPL<pto::QuantType::MXFP8>(
                     dstTile.Data(), srcTile.Data(), &expByteTile, &maxTile.Data(), &scalingTile.Data());
             }

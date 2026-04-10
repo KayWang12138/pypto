@@ -231,7 +231,7 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 @op_wrapper
 def quant_mx(input: Tensor) -> Tuple[Tensor, Tensor]:
-    """Quantizes a 2D to 4D FP32 ND tensor to MXFP8.
+    """Quantizes a 2D to 4D FP16/BF16/FP32 ND tensor to MXFP8.
 
     Returns
     -------

@@ -62,11 +62,46 @@ def test_quant_mx_supports_4d():
     assert scale.shape == [2, 3, 8, 4]
 
 
-def test_quant_mx_rejects_non_fp32():
-    x = pypto.tensor((8, 128), pypto.DT_FP16, "x")
+def test_quant_mx_rejects_non_float_input():
+    x = pypto.tensor((8, 128), pypto.DT_INT32, "x")
 
     with pypto.function("QUANT_MX_BAD_DTYPE", x):
         pypto.set_vec_tile_shapes(8, 128)
+        with pytest.raises(RuntimeError):
+            pypto.quant_mx(x)
+
+
+def test_quant_mx_supports_fp16_input():
+    x = pypto.tensor((8, 128), pypto.DT_FP16, "x")
+
+    with pypto.function("QUANT_MX_FP16", x):
+        pypto.set_vec_tile_shapes(8, 128)
+        quantized, scale = pypto.quant_mx(x)
+
+    assert quantized.shape == [8, 128]
+    assert scale.shape == [8, 4]
+    assert quantized.dtype == pypto.DT_FP8E4M3
+    assert scale.dtype == pypto.DT_FP8E8M0
+
+
+def test_quant_mx_supports_bf16_input():
+    x = pypto.tensor((8, 128), pypto.DT_BF16, "x")
+
+    with pypto.function("QUANT_MX_BF16", x):
+        pypto.set_vec_tile_shapes(8, 128)
+        quantized, scale = pypto.quant_mx(x)
+
+    assert quantized.shape == [8, 128]
+    assert scale.shape == [8, 4]
+    assert quantized.dtype == pypto.DT_FP8E4M3
+    assert scale.dtype == pypto.DT_FP8E8M0
+
+
+def test_quant_mx_rejects_fp16_tile_not_256b_aligned():
+    x = pypto.tensor((8, 128), pypto.DT_FP16, "x")
+
+    with pypto.function("QUANT_MX_FP16_BAD_TILE_ALIGN", x):
+        pypto.set_vec_tile_shapes(8, 64)
         with pytest.raises(RuntimeError):
             pypto.quant_mx(x)
 
