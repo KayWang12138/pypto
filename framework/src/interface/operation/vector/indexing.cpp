@@ -249,7 +249,8 @@ void CheckIndexAddParamsInvalid(
         << "Datatype of indices is incorrect";
     // 检验 alpha 溢出
     if (CheckAlphaOverflow(alpha, self.GetDataType())) {
-        ASSERT(VectorErrorCode::ERR_RUNTIME_LOGIC, false) << "Value cannot be converted to type " << DataType2String(self.GetDataType()) << " without overflow!";
+        ASSERT(VectorErrorCode::ERR_RUNTIME_LOGIC, false)
+            << "Value cannot be converted to type " << DataType2String(self.GetDataType()) << " without overflow!";
     }
 }
 
@@ -268,7 +269,9 @@ Tensor IndexAddUB(const Tensor& self, const Tensor& src, const Tensor& indices, 
 }
 
 // IndexAdd in GM
-void IndexAddExpandFunc(Function& function, const IndexAddPara indexaddPara, IndexAddTileInfoPara& indexaddTileInfo)
+void IndexAddExpandFunc(
+    Function& function, const IndexAddPara& indexaddPara, IndexAddTileInfoPara& indexaddTileInfo,
+    const LogicalTensorPtr& cachedDstTile = nullptr, const LogicalTensorPtr& cachedSelfTile = nullptr)
 {
     const LogicalTensorPtr& selfInput = indexaddPara.selfInput;
     const LogicalTensorPtr& srcInput = indexaddPara.srcInput;
@@ -277,8 +280,13 @@ void IndexAddExpandFunc(Function& function, const IndexAddPara indexaddPara, Ind
     const int axis = indexaddPara.axis;
 
     auto selfTile =
-        selfInput->View(function, indexaddTileInfo.selfTileInfo.shape, indexaddTileInfo.selfTileInfo.offset);
-    auto dstTile = dstTensor->View(function, indexaddTileInfo.dstTileInfo.shape, indexaddTileInfo.dstTileInfo.offset);
+        cachedSelfTile ?
+            cachedSelfTile :
+            selfInput->View(function, indexaddTileInfo.selfTileInfo.shape, indexaddTileInfo.selfTileInfo.offset);
+    auto dstTile =
+        cachedDstTile ?
+            cachedDstTile :
+            dstTensor->View(function, indexaddTileInfo.dstTileInfo.shape, indexaddTileInfo.dstTileInfo.offset);
     auto srcTile = srcInput->View(function, indexaddTileInfo.srcTileInfo.shape, indexaddTileInfo.srcTileInfo.offset);
     indexaddTileInfo.indicesTileInfo.offset = {indexaddTileInfo.srcTileInfo.offset[axis]};
     indexaddTileInfo.indicesTileInfo.shape = {indexaddTileInfo.srcTileInfo.shape[axis]};
@@ -289,43 +297,67 @@ void IndexAddExpandFunc(Function& function, const IndexAddPara indexaddPara, Ind
     tmpShape[1] = AlignUp(srcTile->GetShape()[srcTile->GetShape().size() - 1], alignSize);
     auto tmpTile = std::make_shared<LogicalTensor>(function, DT_BF16, tmpShape);
 
-    auto& op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, indexTile}, {dstTensor, tmpTile});
-    // op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
+    auto& op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, indexTile}, {dstTile, tmpTile});
+    op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
     op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
     op.SetAttribute(OpAttributeKey::scalar, indexaddPara.alpha);
 }
 
+using TileCache = std::unordered_map<int64_t, std::pair<LogicalTensorPtr, LogicalTensorPtr>>;
+
 void InnerTiledIndexAdd(
-    size_t cur, Function& function, const TileShape& tileShape, const IndexAddPara indexaddPara,
-    IndexAddTileInfoPara& indexaddTileInfo)
+    size_t cur, Function& function, const TileShape& tileShape, const IndexAddPara& indexaddPara,
+    IndexAddTileInfoPara& indexaddTileInfo, TileCache& tileCache, int64_t encodeKey = 0)
 {
     if (cur == indexaddPara.dstTensor->shape.size()) {
-        IndexAddExpandFunc(function, indexaddPara, indexaddTileInfo);
+        auto it = tileCache.find(encodeKey);
+        if (it == tileCache.end()) {
+            auto selfTile = indexaddPara.selfInput->View(
+                function, indexaddTileInfo.selfTileInfo.shape, indexaddTileInfo.selfTileInfo.offset);
+            auto dstTile = indexaddPara.dstTensor->View(
+                function, indexaddTileInfo.dstTileInfo.shape, indexaddTileInfo.dstTileInfo.offset);
+            it = tileCache.emplace(encodeKey, std::make_pair(dstTile, selfTile)).first;
+        }
+        // 调用缓存的dstTile创建子图
+        IndexAddExpandFunc(function, indexaddPara, indexaddTileInfo, it->second.first, it->second.second);
         return;
     }
-    auto& vecTile = tileShape.GetVecTile();
-    int64_t tmpTile = vecTile[cur];
-    // selfInput.shape[axis]!=srcInput.shape[axis]
-    for (int i = 0; i < indexaddPara.srcInput->GetShape()[cur]; i += tmpTile) {
-        if (static_cast<int>(cur) == indexaddPara.axis) {
-            // self和dst都在GM上，在axis轴不切分
-            indexaddTileInfo.dstTileInfo.offset[cur] = 0;
-            indexaddTileInfo.dstTileInfo.shape[cur] = indexaddPara.dstTensor->shape[cur];
-            indexaddTileInfo.selfTileInfo.offset[cur] = 0;
-            indexaddTileInfo.selfTileInfo.shape[cur] = indexaddPara.selfInput->shape[cur];
-        } else {
-            indexaddTileInfo.dstTileInfo.offset[cur] = i;
-            indexaddTileInfo.dstTileInfo.shape[cur] = std::min(indexaddPara.dstTensor->shape[cur] - i, tmpTile);
-            indexaddTileInfo.selfTileInfo.offset[cur] = i;
-            indexaddTileInfo.selfTileInfo.shape[cur] = std::min(indexaddPara.selfInput->shape[cur] - i, tmpTile);
+    const auto& vecTile = tileShape.GetVecTile();
+    int64_t tileStep = vecTile[cur];
+    const auto& srcShape = indexaddPara.srcInput->GetShape();
+    const auto& dstShape = indexaddPara.dstTensor->GetShape();
+    int64_t numTilesInCurDim = (srcShape[cur] + tileStep - 1) / tileStep;
+    if (static_cast<int>(cur) == indexaddPara.axis) {
+        // self和dst都在GM上，在axis轴不切分
+        indexaddTileInfo.dstTileInfo.offset[cur] = 0;
+        indexaddTileInfo.dstTileInfo.shape[cur] = dstShape[cur];
+        indexaddTileInfo.selfTileInfo.offset[cur] = 0;
+        indexaddTileInfo.selfTileInfo.shape[cur] = dstShape[cur];
+        for (int i = 0; i < srcShape[cur]; i += tileStep) {
+            indexaddTileInfo.srcTileInfo.offset[cur] = i;
+            indexaddTileInfo.srcTileInfo.shape[cur] = std::min(srcShape[cur] - i, tileStep);
+            // axis维度不参与编码，使用同一个encodeKey
+            InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo, tileCache, encodeKey);
         }
-        indexaddTileInfo.srcTileInfo.offset[cur] = i;
-        indexaddTileInfo.srcTileInfo.shape[cur] = std::min(indexaddPara.srcInput->GetShape()[cur] - i, tmpTile);
-        InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo);
+    } else {
+        // 非 axis 维度，dst、self、src都切块
+        int64_t tileIndex = 0; // 当前维度块索引
+        for (int i = 0; i < srcShape[cur]; i += tileStep) {
+            indexaddTileInfo.dstTileInfo.offset[cur] = i;
+            indexaddTileInfo.dstTileInfo.shape[cur] = std::min(dstShape[cur] - i, tileStep);
+            indexaddTileInfo.selfTileInfo.offset[cur] = i;
+            indexaddTileInfo.selfTileInfo.shape[cur] = std::min(dstShape[cur] - i, tileStep);
+            indexaddTileInfo.srcTileInfo.offset[cur] = i;
+            indexaddTileInfo.srcTileInfo.shape[cur] = std::min(srcShape[cur] - i, tileStep);
+            // 使用混合基数编码
+            int64_t newKey = encodeKey * numTilesInCurDim + tileIndex;
+            tileIndex++;
+            InnerTiledIndexAdd(cur + 1, function, tileShape, indexaddPara, indexaddTileInfo, tileCache, newKey);
+        }
     }
 }
 
-void TiledIndexAdd(Function& function, const TileShape& tileShape, const IndexAddPara indexaddPara)
+void TiledIndexAdd(Function& function, const TileShape& tileShape, const IndexAddPara& indexaddPara)
 {
     // Check Operands Valid
     ASSERT(indexaddPara.selfInput->GetShape().size() == indexaddPara.selfInput->GetOffset().size())
@@ -340,10 +372,11 @@ void TiledIndexAdd(Function& function, const TileShape& tileShape, const IndexAd
         TileInfo(indexaddPara.srcInput->GetShape().size(), indexaddPara.srcInput->GetOffset().size()),
         TileInfo(indexaddPara.indicesInput->GetShape().size(), indexaddPara.indicesInput->GetOffset().size()),
         TileInfo(indexaddPara.dstTensor->GetShape().size(), indexaddPara.dstTensor->GetOffset().size())};
-    InnerTiledIndexAdd(0, function, tileShape, indexaddPara, indexaddTileInfo);
+    TileCache tileCache;
+    InnerTiledIndexAdd(0, function, tileShape, indexaddPara, indexaddTileInfo, tileCache);
 }
 
-void TensorIndexAdd(Function& function, const IndexAddPara indexaddPara)
+void TensorIndexAdd(Function& function, const IndexAddPara& indexaddPara)
 {
     auto& op = GraphUtils::AddDynOperation(
         function, Opcode::OP_INDEX_ADD, {indexaddPara.selfInput, indexaddPara.srcInput, indexaddPara.indicesInput},
@@ -1490,7 +1523,8 @@ Tensor RealRange(Element& start, Element& end, Element& step)
     } else if (start.GetDataType() == DT_FP32) {
         resultSize = GetRangeResSize<float, DT_FP32>(start, end, step);
     } else {
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsupported DataType " << DataType2String(start.GetDataType());
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+            << "Unsupported DataType " << DataType2String(start.GetDataType());
     }
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, resultSize > 0)
         << "The positivity or negativity of the step should be aligned with the end-start";
@@ -1511,13 +1545,16 @@ DataType GetComputeDataType(const Element& start, const Element& end, const Elem
     DataType endType = end.GetDataType();
     DataType stepType = step.GetDataType();
     if (IsDataTypeUnsupport(startType)) {
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsupported Start DataType " << DataType2String(startType);
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+            << "Unsupported Start DataType " << DataType2String(startType);
     }
     if (IsDataTypeUnsupport(endType)) {
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsupported End DataType " << DataType2String(endType);
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+            << "Unsupported End DataType " << DataType2String(endType);
     }
     if (IsDataTypeUnsupport(stepType)) {
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsupported Step DataType " << DataType2String(stepType);
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+            << "Unsupported Step DataType " << DataType2String(stepType);
     }
     bool startIsFloat = (startType == DT_FP32 || startType == DT_FP16 || startType == DT_BF16);
     bool endIsFloat = (endType == DT_FP32 || endType == DT_FP16 || endType == DT_BF16);
@@ -1575,7 +1612,8 @@ Tensor Range(const Element& start, const Element& end, const Element& step)
 {
     DataType dataType = GetComputeDataType(start, end, step);
     if (dataType != DT_FP32 && dataType != DT_INT32) {
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsupported Output DataType " << DataType2String(dataType);
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+            << "Unsupported Output DataType " << DataType2String(dataType);
     }
     DataType outputDataType = DT_INT32;
     outputDataType = GetOutputDataType(start, end, step);

@@ -27,7 +27,6 @@ import torch.nn.functional as F
 import torch._prims as prims
 import copy
 from typing import List, Dict, Any
-np.random.seed(42)
 
 g_src_root: Path = Path(Path(__file__).parent, "../../../../../").resolve()
 g_ctrl_path: Path = Path(g_src_root, "cmake/scripts")
