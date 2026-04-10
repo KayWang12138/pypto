@@ -21,4 +21,7 @@
 namespace npu::tile_fwk {
 SymbolicScalar GetHcclRankId(const std::string& groupName);
 SymbolicScalar BindTensor(uint64_t groupIndex, uint64_t memType, uint64_t size, uint64_t maxTileNum = 0);
+SymbolicScalar GetHcclRankIdV2(const Tensor &t);
+SymbolicScalar BindTensorV2(const Tensor &t, uint64_t memType, uint64_t size, uint64_t maxTileNum = 0);
+SymbolicScalar GetInputDataAddr(const Tensor &t);
 } // namespace npu::tile_fwk

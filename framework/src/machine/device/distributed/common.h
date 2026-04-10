@@ -34,6 +34,7 @@ constexpr uint64_t SHMEM_DIM_COL = 2;
 constexpr uint64_t ATTR_STRIDE_OFFSET = 1;
 constexpr uint64_t ATTR_TILEROW_OFFSET = 3;
 constexpr uint64_t ATTR_TILECOL_OFFSET = 4;
+constexpr uint64_t ATTR_COMMCONTEXT_OFFSET = 5;
 
 struct TensorInfo {
     uint64_t rawAddr{0};
@@ -62,21 +63,22 @@ struct AicpuParamInfo {
     uint32_t tileShapeCol{0};
     uint32_t rankNum{0};
     uint32_t maxTileNum{0};
+    uint32_t commContextIndex{0};
 };
 
 inline uint64_t MapVirtualSignalAddr(int64_t* hcclContextAddr, uint64_t vaddr)
 {
-    uint64_t groupIndex = TileOp::Distributed::DecodeShmemAddrGroupIndex(vaddr);
+    //uint64_t groupIndex = TileOp::Distributed::DecodeShmemAddrGroupIndex(vaddr);
     uint64_t offset = TileOp::Distributed::DecodeShmemAddrOffset(vaddr);
-    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr[groupIndex]);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr);
     auto winAddrOffset = hcclOpParam->statusIndex + hcclOpParam->rankId;
     return hcclOpParam->winAddr[winAddrOffset] + offset;
 }
 
 inline uint64_t GetRankNum(int64_t* hcclContextAddr, uint64_t vaddr)
 {
-    uint64_t groupIndex = TileOp::Distributed::DecodeShmemAddrGroupIndex(vaddr);
-    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr[groupIndex]);
+    //uint64_t groupIndex = TileOp::Distributed::DecodeShmemAddrGroupIndex(vaddr);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr);
     return hcclOpParam->rankNum;
 }
 
@@ -131,6 +133,7 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
     paramInfo.bufferStride = aicpuCode[paramInfo.attrIndex + ATTR_STRIDE_OFFSET];
     paramInfo.tileShapeRow = aicpuCode[paramInfo.attrIndex + ATTR_TILEROW_OFFSET];
     paramInfo.tileShapeCol = aicpuCode[paramInfo.attrIndex + ATTR_TILECOL_OFFSET];
+    paramInfo.commContextIndex = aicpuCode[paramInfo.attrIndex + ATTR_COMMCONTEXT_OFFSET];
     return paramInfo;
 }
 } // namespace npu::tile_fwk::Distributed

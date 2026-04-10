@@ -61,6 +61,7 @@ using Call5EntryType = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint
 #define RuntimeIsLoopBegin(idx, begin) ((idx) == (begin))
 #define RuntimeIsLoopEnd(idx, end) ((int64_t)(idx) >= (int64_t)(end))
 #define RuntimeTernaryOP(cond, lhs, rhs) ((cond) ? (lhs) : (rhs))
+#define RUNTIME_GetInputDataAddr(inputIndex) (startArgs->devtensorList[inputIndex].address)
 
 __always_inline int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int64_t viewshape)
 {

@@ -14,6 +14,7 @@
  */
 
 #include "pybind_common.h"
+#include "machine/runtime/distributed/distributed_context.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::Distributed;
@@ -30,18 +31,18 @@ void BindDistributed(py::module& m)
 
     m.def(
         "CreateShmemTensor",
-        [](const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t) {
-            return Distributed::CreateShmemTensor(group, worldSize, dataType, shape, t);
+        [](const Tensor& commTensor, const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t) {
+            return Distributed::CreateShmemTensor(commTensor, group, worldSize, dataType, shape, t);
         },
-        py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("t"),
+        py::arg("commTensor"), py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("t"),
         "Create shmem data.");
 
     m.def(
         "CreateShmemSignal",
-        [](const char* group, int64_t worldSize, ShmemTensor& t) {
-            return Distributed::CreateShmemSignal(group, worldSize, t);
+        [](const Tensor& commTensor, const char* group, int64_t worldSize, ShmemTensor& t) {
+            return Distributed::CreateShmemSignal(commTensor, group, worldSize, t);
         },
-        py::arg("group"), py::arg("worldSize"), py::arg("t"), "Create shmem signal data.");
+        py::arg("commTensor"), py::arg("group"), py::arg("worldSize"), py::arg("t"), "Create shmem signal data.");
 
     m.def(
         "ShmemView",
@@ -158,8 +159,18 @@ void BindDistributed(py::module& m)
         "Store local tensor to shmem.");
 
     m.def(
-        "GetSymbolicScalarPeId", [](std::string group) { return GetHcclRankId(group); }, py::arg("group"),
+        "GetSymbolicScalarPeId", [](const Tensor& commTensor) { return GetHcclRankIdV2(commTensor); }, py::arg("commTensor"),
         "Get local rank id by groupname.");
+
+    m.def(
+        "GetCommContext", 
+        [](const std::string& group) -> std::pair<int64_t, uint64_t> { 
+            int64_t ctxSize = 0;
+            auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<std::string>{group}, &ctxSize);
+            return {ctxSize, commContext[0]}; 
+        }, 
+        py::arg("group"),
+        "Get CommContextHost addr");
 }
 
 } // namespace pypto

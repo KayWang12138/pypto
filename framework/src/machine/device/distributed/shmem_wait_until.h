@@ -177,8 +177,8 @@ public:
     {
         dynDeviceTask_ = dynDeviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
-        hcclContextAddr_ = funcDataList_->startArgs->commContexts;
-        commGroupNum_ = funcDataList_->startArgs->commGroupNum;
+        //hcclContextAddr_ = funcDataList_->startArgs->commContexts;
+        //commGroupNum_ = funcDataList_->startArgs->commGroupNum;
         hashMap_.Init();
     }
 
@@ -223,7 +223,7 @@ public:
             "buffer maxTileNum=%lu, bufferStride=%u",
             info.rawAddr, reinterpret_cast<uint64_t>(addr), paramInfo_.rawShapeRow, paramInfo_.rawShapeCol,
             paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
-            info.offset[OWNER_RANK_ID_INDEX], GetRankNum(hcclContextAddr_, info.vaddr), totalTileNum,
+            info.offset[OWNER_RANK_ID_INDEX], GetRankNum(CommContextAddr_, info.vaddr), totalTileNum,
             info.offset[OWNER_RANK_ID_INDEX], tileIndex, TileOp::Distributed::DecodeShmemAddrMaxTileNum(info.vaddr),
             paramInfo_.bufferStride);
 
@@ -243,6 +243,7 @@ private:
     int64_t* hcclContextAddr_;
     uint64_t commGroupNum_{0};
     AicpuParamInfo paramInfo_;
+    int64_t* CommContextAddr_;
 
     TensorInfo GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode);
 };
