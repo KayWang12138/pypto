@@ -96,7 +96,7 @@ void CollectProducerInfo(
     }
 }
 
-unsigned long ComputeHash(const std::vector<Operation*>& producers, LogicalTensorPtr curTensor)
+unsigned long ComputeHash(const std::vector<Operation*>& producers)
 {
     std::vector<std::string> opStrList;
     std::stringstream ss;
