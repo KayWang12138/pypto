@@ -40,12 +40,18 @@ constexpr int32_t AIGCODE_MOE_EXPERT_NUM = 16;
 constexpr int32_t AIGCODE_EP_WORLD_SIZE = 4;
 
 constexpr int32_t QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 = 1024;
+constexpr int32_t QWEN3_NEXT_CHUNK_BATCH_SIZE_V2 = 2048;
 constexpr int32_t QWEN3_NEXT_HIDDEN_SIZE = 4096;
 constexpr int32_t QWEN3_NEXT_TOPK = 2;
 constexpr int32_t QWEN3_NEXT_MOE_EXPERT_NUM = 8;
 constexpr int32_t QWEN3_NEXT_EP_WORLD_SIZE = 8;
 
 constexpr uint64_t MOE_V2_MAX_WIN_SIZE = 1024ULL * 1024ULL * 200ULL;
+
+bool IsQwen3NextChunkBatchSizeSupported(int32_t batchSize)
+{
+    return batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 || batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V2;
+}
 
 bool IsSupportedMoeCombineV2Case(
     int32_t batchSize, int32_t hiddenSize, int32_t topK, int32_t epWorldSize, int32_t moeExpertNum,
@@ -60,7 +66,7 @@ bool IsSupportedMoeCombineV2Case(
         epWorldSize == AIGCODE_EP_WORLD_SIZE && moeExpertNum == AIGCODE_MOE_EXPERT_NUM && sharedExpertNum == 0 &&
         sharedExpertRankNum == 0;
     const bool isQwen3NextCase =
-        batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        IsQwen3NextChunkBatchSizeSupported(batchSize) && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
         topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
         moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0;
     return isGlmCase || isAigcodeCase || isQwen3NextCase;
@@ -76,6 +82,11 @@ std::set<int> GetMoeCombineV2UnrollList(
         return {8, 4, 2, 1};
     }
     if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
+        moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0) {
+        return {8, 4, 2, 1};
+    }
+    if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V2 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
         topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
         moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0) {
         return {8, 4, 2, 1};
@@ -386,7 +397,7 @@ void MoeDistributedCombineValidate(
         << "MoeDistributedCombine constraint violated: only GLM V2 "
            "(batch=8/256, hidden=5120, topK=8, moeExpertNum=160, epWorldSize=4/8) or Aigcode "
            "(batch=1024, hidden=4096, topK=4, moeExpertNum=16, epWorldSize=4) or Qwen3 Next Aigcode "
-           "(batch=1024, hidden=4096, topK=2, moeExpertNum=8, epWorldSize=8) are supported.";
+           "(batch=1024/2048, hidden=4096, topK=2, moeExpertNum=8, epWorldSize=8) are supported.";
     CHECK(expandX.GetShape(1) == hiddenSize)
         << "MoeDistributedCombine constraint violated: expandX hidden size must match expertScales config.";
     CHECK(out.GetShape(1) == hiddenSize)
@@ -486,45 +497,59 @@ void MoeDistributedCombineV2(
     }
 
     SymbolicScalar thisRank = GetHcclRankId(group);
-    LOOP("MoeDistributedCombineReceive", FunctionType::DYNAMIC_LOOP, tokenId, LoopRange(batchSize))
-    {
-        auto shmemSignalTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, tokenId, 0});
-        TileShape::Current().SetVecTile({1, hiddenSize});
-        Tensor predToken(DT_INT32, {1, 1}, "receivePredToken");
-        Tensor waitUntilOut = ShmemWaitUntil(shmemSignalTile, thisRank, OpType::EQ, topK, true, predToken);
-
-        TileShape::Current().SetVecTile({topK, hiddenSize});
-        auto shmemDataTile = ShmemView(shmemTensor, {1, topK, hiddenSize}, {0, topK * tokenId, 0});
-        Tensor shmemGetOutFp16 = ShmemGet(shmemDataTile, thisRank, waitUntilOut);
-
-        TileShape::Current().SetVecTile({topK / 2, hiddenSize});
-        Tensor shmemGetOutFp32 = npu::tile_fwk::Cast(shmemGetOutFp16, DT_FP32);
-
-        Tensor outTileFp32;
-        if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
-            topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
-            moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0) {
-            Tensor expertScalesTile = View(expertScales, {1, topK}, {tokenId, 0});
-            Tensor token0Fp32 = View(shmemGetOutFp32, {1, hiddenSize}, {0, 0});
-            Tensor token1Fp32 = View(shmemGetOutFp32, {1, hiddenSize}, {1, 0});
-            Tensor scale0 = View(expertScalesTile, {1, 1}, {0, 0});
-            Tensor scale1 = View(expertScalesTile, {1, 1}, {0, 1});
+    // Real Qwen3-Next training hits the AICPU stitch/task limit in the receive path.
+    // Keep the receive work in smaller blocks and force a root submit before each
+    // block so adjacent LOOPs are not stitched into the same root function.
+    int32_t tokenBlock = 32;
+    for (int32_t tokenBlockStart = 0; tokenBlockStart < batchSize; tokenBlockStart += tokenBlock) {
+        int32_t currentBlock = std::min(tokenBlock, batchSize - tokenBlockStart);
+        Tensor expertScalesBlock = View(expertScales, {currentBlock, topK}, {tokenBlockStart, 0});
+        Tensor outBlock = View(out, {currentBlock, hiddenSize}, {tokenBlockStart, 0});
+        auto shmemSignalBlock = ShmemView(shmemTensor, {1, currentBlock, hiddenSize}, {0, tokenBlockStart, 0});
+        auto shmemDataBlock =
+            ShmemView(shmemTensor, {1, currentBlock * topK, hiddenSize}, {0, tokenBlockStart * topK, 0});
+        LOOP(
+            "MoeDistributedCombineReceive" + std::to_string(tokenBlockStart), FunctionType::DYNAMIC_LOOP,
+            tokenOffset, LoopRange(currentBlock), {}, true)
+        {
+            auto shmemSignalTile = ShmemView(shmemSignalBlock, {1, 1, hiddenSize}, {0, tokenOffset, 0});
             TileShape::Current().SetVecTile({1, hiddenSize});
-            Tensor weighted0Fp32 = npu::tile_fwk::Mul(token0Fp32, scale0);
-            Tensor weighted1Fp32 = npu::tile_fwk::Mul(token1Fp32, scale1);
-            outTileFp32 = npu::tile_fwk::Add(weighted0Fp32, weighted1Fp32);
-        } else {
-            Tensor expertScalesTile = View(expertScales, {1, topK}, {tokenId, 0});
-            int64_t kTileShape = AlignUp(topK, 16);
-            int64_t l0bSize = 65536;
-            ASSERT((BytesOf(DT_FP32) != 0) && (kTileShape != 0)) << "Divisor kTileShape cannot be zero";
-            int64_t nTileShape = l0bSize / BytesOf(DT_FP32) / kTileShape;
-            TileShape::Current().SetCubeTile({1, 1}, {kTileShape, kTileShape}, {nTileShape, nTileShape});
-            outTileFp32 = Matrix::Matmul(DT_FP32, expertScalesTile, shmemGetOutFp32);
-        }
+            Tensor predToken(DT_INT32, {1, 1}, "receivePredToken");
+            Tensor waitUntilOut = ShmemWaitUntil(shmemSignalTile, thisRank, OpType::EQ, topK, true, predToken);
 
-        Tensor outTileFp16 = npu::tile_fwk::Cast(outTileFp32, DT_BF16);
-        Assemble(outTileFp16, {tokenId, 0}, out);
+            TileShape::Current().SetVecTile({topK, hiddenSize});
+            auto shmemDataTile = ShmemView(shmemDataBlock, {1, topK, hiddenSize}, {0, topK * tokenOffset, 0});
+            Tensor shmemGetOutFp16 = ShmemGet(shmemDataTile, thisRank, waitUntilOut);
+
+            TileShape::Current().SetVecTile({topK / 2, hiddenSize});
+            Tensor shmemGetOutFp32 = npu::tile_fwk::Cast(shmemGetOutFp16, DT_FP32);
+
+            Tensor outTileFp32;
+            if (IsQwen3NextChunkBatchSizeSupported(batchSize) && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+                topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE &&
+                moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM && sharedExpertNum == 0 && sharedExpertRankNum == 0) {
+                Tensor expertScalesTile = View(expertScalesBlock, {1, topK}, {tokenOffset, 0});
+                Tensor token0Fp32 = View(shmemGetOutFp32, {1, hiddenSize}, {0, 0});
+                Tensor token1Fp32 = View(shmemGetOutFp32, {1, hiddenSize}, {1, 0});
+                Tensor scale0 = View(expertScalesTile, {1, 1}, {0, 0});
+                Tensor scale1 = View(expertScalesTile, {1, 1}, {0, 1});
+                TileShape::Current().SetVecTile({1, hiddenSize});
+                Tensor weighted0Fp32 = npu::tile_fwk::Mul(token0Fp32, scale0);
+                Tensor weighted1Fp32 = npu::tile_fwk::Mul(token1Fp32, scale1);
+                outTileFp32 = npu::tile_fwk::Add(weighted0Fp32, weighted1Fp32);
+            } else {
+                Tensor expertScalesTile = View(expertScalesBlock, {1, topK}, {tokenOffset, 0});
+                int64_t kTileShape = AlignUp(topK, 16);
+                int64_t l0bSize = 65536;
+                ASSERT((BytesOf(DT_FP32) != 0) && (kTileShape != 0)) << "Divisor kTileShape cannot be zero";
+                int64_t nTileShape = l0bSize / BytesOf(DT_FP32) / kTileShape;
+                TileShape::Current().SetCubeTile({1, 1}, {kTileShape, kTileShape}, {nTileShape, nTileShape});
+                outTileFp32 = Matrix::Matmul(DT_FP32, expertScalesTile, shmemGetOutFp32);
+            }
+
+            Tensor outTileFp16 = npu::tile_fwk::Cast(outTileFp32, DT_BF16);
+            Assemble(outTileFp16, {tokenOffset, 0}, outBlock);
+        }
     }
 }
 
@@ -571,6 +596,9 @@ void MoeDistributedCombineBackwardDataV2(
     int32_t topK = expertScales.GetShape(1);
     int32_t hiddenSize = gradOut.GetShape(1);
 
+    std::set<int> unrollList = GetMoeCombineV2UnrollList(
+        batchSize, hiddenSize, topK, static_cast<int32_t>(epWorldSize), static_cast<int32_t>(moeExpertNum),
+        static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum));
     Tensor weightedGradOut(DT_BF16, {batchSize * topK, hiddenSize}, "weightedGradOut");
     LOOP("MoeDistributedCombineBackwardDataPrepare", FunctionType::DYNAMIC_LOOP, tokenId, LoopRange(batchSize))
     {
@@ -602,9 +630,6 @@ void MoeDistributedCombineBackwardDataV2(
     Tensor barrierOut = ShmemBarrier(shmemWeightedGradOut, weightedGradOutPutOut);
 
     SymbolicScalar recvCountsScalar = GetTensorData(recvCounts, {0});
-    std::set<int> unrollList = GetMoeCombineV2UnrollList(
-        batchSize, hiddenSize, topK, static_cast<int32_t>(epWorldSize), static_cast<int32_t>(moeExpertNum),
-        static_cast<int32_t>(sharedExpertNum), static_cast<int32_t>(sharedExpertRankNum));
     LOOP(
         "MoeDistributedCombineBackwardData", FunctionType::DYNAMIC_LOOP, rowIndex, LoopRange(recvCountsScalar),
         unrollList)
@@ -690,34 +715,38 @@ void MoeDistributedCombineBackwardScalesV2(
     }
 
     SymbolicScalar thisRank = GetHcclRankId(group);
-    int32_t tokenBlock = 64;
+    int32_t tokenBlock = 32;
     for (int32_t tokenBlockStart = 0; tokenBlockStart < batchSize; tokenBlockStart += tokenBlock) {
         int32_t currentBlock = std::min(tokenBlock, batchSize - tokenBlockStart);
+        Tensor gradOutBlock = View(gradOut, {currentBlock, hiddenSize}, {tokenBlockStart, 0});
+        Tensor gradExpertScalesBlock =
+            View(gradExpertScales, {currentBlock, topK}, {tokenBlockStart, 0});
+        auto shmemSignalBlock = ShmemView(shmemTensor, {1, currentBlock, hiddenSize}, {0, tokenBlockStart, 0});
+        auto shmemDataBlock =
+            ShmemView(shmemTensor, {1, currentBlock * topK, hiddenSize}, {0, tokenBlockStart * topK, 0});
         LOOP(
             "MoeDistributedCombineBackwardScalesReceive" + std::to_string(tokenBlockStart),
-            FunctionType::DYNAMIC_LOOP, tokenOffset, LoopRange(currentBlock))
+            FunctionType::DYNAMIC_LOOP, tokenOffset, LoopRange(currentBlock), {}, true)
         {
-            SymbolicScalar tokenId = tokenOffset + tokenBlockStart;
-
-            auto shmemSignalTile = ShmemView(shmemTensor, {1, 1, hiddenSize}, {0, tokenId, 0});
+            auto shmemSignalTile = ShmemView(shmemSignalBlock, {1, 1, hiddenSize}, {0, tokenOffset, 0});
             TileShape::Current().SetVecTile({1, hiddenSize});
             Tensor predToken(DT_INT32, {1, 1}, "combineBackwardScalesReceivePredToken");
             Tensor waitUntilOut = ShmemWaitUntil(shmemSignalTile, thisRank, OpType::EQ, topK, true, predToken);
 
             TileShape::Current().SetVecTile({topK, hiddenSize});
-            auto shmemDataTile = ShmemView(shmemTensor, {1, topK, hiddenSize}, {0, topK * tokenId, 0});
+            auto shmemDataTile = ShmemView(shmemDataBlock, {1, topK, hiddenSize}, {0, topK * tokenOffset, 0});
             Tensor shmemGetOut = ShmemGet(shmemDataTile, thisRank, waitUntilOut);
             Tensor shmemGetOutFp32 = Cast(shmemGetOut, DT_FP32);
 
             TileShape::Current().SetVecTile({1, hiddenSize});
-            Tensor gradOutTile = View(gradOut, {1, hiddenSize}, {tokenId, 0});
+            Tensor gradOutTile = View(gradOutBlock, {1, hiddenSize}, {tokenOffset, 0});
             Tensor gradOutTileFp32 = Cast(gradOutTile, DT_FP32);
 
             for (int32_t kOffset = 0; kOffset < topK; ++kOffset) {
                 Tensor tokenTileFp32 = View(shmemGetOutFp32, {1, hiddenSize}, {kOffset, 0});
                 Tensor gradScaleVec = Mul(tokenTileFp32, gradOutTileFp32);
                 Tensor gradScale = Sum(gradScaleVec, -1, true);
-                Assemble(gradScale, {tokenId, kOffset}, gradExpertScales);
+                Assemble(gradScale, {tokenOffset, kOffset}, gradExpertScalesBlock);
             }
         }
     }

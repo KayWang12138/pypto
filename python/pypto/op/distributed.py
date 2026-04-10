@@ -498,6 +498,35 @@ def moe_distributed_dispatch(
 
 
 @op_wrapper
+def moe_distributed_combine(
+    expand_x: Tensor,
+    assist_info_for_combine: Tensor,
+    recv_counts: Tensor,
+    expert_scales: Tensor,
+    group_name: str,
+    ep_world_size: int,
+    moe_expert_num: int,
+    shared_expert_num: int,
+    shared_expert_rank_num: int,
+    out: Tensor,
+) -> Tensor:
+    """Runs the backend MoeDistributedCombine op."""
+    pypto_impl.MoeDistributedCombine(
+        expand_x,
+        assist_info_for_combine,
+        recv_counts,
+        expert_scales,
+        group_name,
+        ep_world_size,
+        moe_expert_num,
+        shared_expert_num,
+        shared_expert_rank_num,
+        out,
+    )
+    return out
+
+
+@op_wrapper
 def moe_distributed_combine_v2(
     expand_x: Tensor,
     assist_info_for_combine: Tensor,

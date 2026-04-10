@@ -41,12 +41,18 @@ constexpr int32_t AIGCODE_MOE_EXPERT_NUM = 16;
 constexpr int32_t AIGCODE_EP_WORLD_SIZE = 4;
 
 constexpr int32_t QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 = 1024;
+constexpr int32_t QWEN3_NEXT_CHUNK_BATCH_SIZE_V2 = 2048;
 constexpr int32_t QWEN3_NEXT_HIDDEN_SIZE = 4096;
 constexpr int32_t QWEN3_NEXT_TOPK = 2;
 constexpr int32_t QWEN3_NEXT_MOE_EXPERT_NUM = 8;
 constexpr int32_t QWEN3_NEXT_EP_WORLD_SIZE = 8;
 
 constexpr uint64_t MOE_V2_MAX_WIN_SIZE = 1024ULL * 1024ULL * 200ULL;
+
+bool IsQwen3NextChunkBatchSizeSupported(int32_t batchSize)
+{
+    return batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 || batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V2;
+}
 
 bool IsSupportedMoeDispatchV1Case(int32_t batchSize, int32_t hiddenSize, int32_t topK, const MoeConfig& moeConfig)
 {
@@ -57,7 +63,7 @@ bool IsSupportedMoeDispatchV1Case(int32_t batchSize, int32_t hiddenSize, int32_t
         batchSize == AIGCODE_CHUNK_BATCH_SIZE_V1 && hiddenSize == AIGCODE_HIDDEN_SIZE && topK == AIGCODE_TOPK &&
         moeConfig.routedExpertNum == AIGCODE_MOE_EXPERT_NUM && moeConfig.rankNum == AIGCODE_EP_WORLD_SIZE;
     const bool isQwen3NextCase =
-        batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        IsQwen3NextChunkBatchSizeSupported(batchSize) && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
         topK == QWEN3_NEXT_TOPK && moeConfig.routedExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM &&
         moeConfig.rankNum == QWEN3_NEXT_EP_WORLD_SIZE;
     return isGlmCase || isAigcodeCase || isQwen3NextCase;
@@ -83,7 +89,7 @@ int32_t InferSupportedMoeTopK(
     }
 
     const bool isQwen3NextCase =
-        batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        IsQwen3NextChunkBatchSizeSupported(batchSize) && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
         epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE && moeExpertNum == QWEN3_NEXT_MOE_EXPERT_NUM &&
         sharedExpertNum == 0 && sharedExpertRankNum == 0;
     if (isQwen3NextCase) {
@@ -100,6 +106,10 @@ std::set<int> GetMoeDispatchBackwardUnrollList(int32_t batchSize, int32_t hidden
         return {8, 4, 2, 1};
     }
     if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V1 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
+        topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE) {
+        return {8, 4, 2, 1};
+    }
+    if (batchSize == QWEN3_NEXT_CHUNK_BATCH_SIZE_V2 && hiddenSize == QWEN3_NEXT_HIDDEN_SIZE &&
         topK == QWEN3_NEXT_TOPK && epWorldSize == QWEN3_NEXT_EP_WORLD_SIZE) {
         return {8, 4, 2, 1};
     }
@@ -602,7 +612,7 @@ void MoeDispatchValidateV1(
         << "MoeDispatch constraint violated: only GLM V1 "
            "(batch=8, hidden=5120, topK=8, routedExpertNum=160, rankNum=4/8) or Aigcode V1 "
            "(batch=1024, hidden=4096, topK=4, routedExpertNum=16, rankNum=4) or Qwen3 Next Aigcode V1 "
-           "(batch=1024, hidden=4096, topK=2, routedExpertNum=8, rankNum=8) are supported.";
+           "(batch=1024/2048, hidden=4096, topK=2, routedExpertNum=8, rankNum=8) are supported.";
     CHECK(checkValidInput(tokenTensor, 2, DataType::DT_BF16, batchSize, hiddenSize, assertResult)) << assertResult;
     int32_t expandXRow = std::min(batchSize * topK * moeConfig.rankNum, batchSize * moeConfig.routedExpertNum);
     CHECK(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, batchSize, topK, assertResult)) << assertResult;
@@ -811,9 +821,8 @@ void MoeDistributedDispatchV2(
     Shape shmemDataSignalgShape = {1, 1, signalCol};
     auto shmemDataSignal = CreateShmemTensor(group, epWorldSize, DT_INT32, shmemDataSignalgShape);
 
-    TileShape::Current().SetVecTile({1, batchSize * topK});
-    Tensor expertIdsVec = Reshape(expertIds, {1, batchSize * topK});
     Tensor offsetTable(DataType::DT_INT32, {batchSize, topK}, "offsetTable");
+    Tensor expertOffsetCounter = Full(Element(DT_INT32, 0), DT_INT32, {moeExpertNum});
     LOOP("MoeDistributedDispatchPrepare", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
     {
         (void)i;
@@ -821,9 +830,9 @@ void MoeDistributedDispatchV2(
             int32_t rowIndex = index / topK;
             int32_t colIndex = index % topK;
             SymbolicScalar remoteExpertId = GetTensorData(expertIds, {rowIndex, colIndex});
-            Tensor tokenOffsetResult = DispatchCalcOccurrences(expertIdsVec, remoteExpertId, index);
-            SymbolicScalar tokenOffset = GetTensorData(tokenOffsetResult, {0, index - 1});
+            SymbolicScalar tokenOffset = GetTensorData(expertOffsetCounter, {remoteExpertId});
             SetTensorData(tokenOffset, {rowIndex, colIndex}, offsetTable);
+            SetTensorData(tokenOffset + 1, {remoteExpertId}, expertOffsetCounter);
         }
     }
 
@@ -859,12 +868,12 @@ void MoeDistributedDispatchV2(
     Tensor shmemCountOut(DT_INT32, {1, 1}, "shmemCountOut");
     LOOP("MoeDistributedDispatchSendCount", FunctionType::DYNAMIC_LOOP, expertId, LoopRange(moeExpertNum))
     {
-        Tensor expertOffset = DispatchCalcOccurrences(expertIdsVec, expertId, batchSize * topK);
         TileShape::Current().SetVecTile({1, 1});
         SymbolicScalar remoteRankId = expertId / expertNumPerRank;
         SymbolicScalar remoteExpertOffset = expertId % expertNumPerRank;
         auto shmemCountTile = ShmemView(shmemCount, {1, 1, 1}, {0, remoteExpertOffset * epWorldSize + thisRank + 1, 0});
-        Tensor totalOffsetTile = View(expertOffset, {1, 1}, {0, batchSize * topK - 1});
+        SymbolicScalar expertCount = GetTensorData(expertOffsetCounter, {expertId});
+        Tensor totalOffsetTile = Full(expertCount, DT_INT32, {1, 1});
         Tensor shmemPutOut = ShmemPut(totalOffsetTile, shmemCountTile, remoteRankId, AtomicType::SET, totalOffsetTile);
         TileShape::Current().SetVecTile({1, signalCol});
         auto shmemCountSignalTile = ShmemView(shmemCountSignal, {1, 1, signalCol}, {0, 0, 0});

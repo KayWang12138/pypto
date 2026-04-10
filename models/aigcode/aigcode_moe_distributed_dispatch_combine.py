@@ -24,11 +24,12 @@ from utils.distributed_config import DistributedConfig
 
 
 AIGCODE_LOCAL_TOKENS = 8192
-AIGCODE_CHUNK_TOKENS = 1024
+AIGCODE_CHUNK_TOKENS = int(os.environ.get("AIGCODE_CHUNK_TOKENS", "1024"))
 AIGCODE_HIDDEN_SIZE = 4096
 AIGCODE_MOE_EXPERT_NUM = 8
 AIGCODE_TOPK = 2
 AIGCODE_EP_WORLD_SIZE = 8
+AIGCODE_SUPPORTED_CHUNK_TOKENS = {1024, 2048}
 AIGCODE_EXPERTS_PER_RANK = AIGCODE_MOE_EXPERT_NUM // AIGCODE_EP_WORLD_SIZE
 AIGCODE_DISPATCH_ROWS = min(
     AIGCODE_CHUNK_TOKENS * AIGCODE_TOPK * AIGCODE_EP_WORLD_SIZE,
@@ -40,6 +41,15 @@ AIGCODE_PYPTO_DTYPE = pypto.DT_BF16
 AIGCODE_COMPILE_DEBUG_MODE = 0
 AIGCODE_RUNTIME_DEBUG_MODE = 3
 AIGCODE_COMM_COUNT = 2
+
+
+if AIGCODE_CHUNK_TOKENS not in AIGCODE_SUPPORTED_CHUNK_TOKENS:
+    raise ValueError(
+        f"AIGCODE_CHUNK_TOKENS must be one of {sorted(AIGCODE_SUPPORTED_CHUNK_TOKENS)}, "
+        f"got {AIGCODE_CHUNK_TOKENS}"
+    )
+if AIGCODE_LOCAL_TOKENS % AIGCODE_CHUNK_TOKENS != 0:
+    raise ValueError("AIGCODE_LOCAL_TOKENS must be divisible by AIGCODE_CHUNK_TOKENS")
 
 
 def get_env_int(name: str, default: int) -> int:
@@ -59,6 +69,13 @@ def get_env_bool(name: str, default: bool = False) -> bool:
 def check_cond(cond: bool, msg: str) -> None:
     if not cond:
         raise ValueError(msg)
+
+
+def get_combine_forward_impl() -> str:
+    impl = os.environ.get("AIGCODE_COMBINE_FORWARD_IMPL", "v2").lower()
+    if impl not in {"v1", "v2"}:
+        raise ValueError(f"AIGCODE_COMBINE_FORWARD_IMPL must be v1 or v2, got {impl}")
+    return impl
 
 
 @dataclasses.dataclass(frozen=True)
@@ -111,6 +128,11 @@ def create_zero_tensor_on_npu(template: torch.Tensor, device_id: int) -> torch.T
 def sync_ep_group() -> None:
     dist.barrier()
     torch.npu.synchronize()
+
+
+def sync_ep_group_for_bench(enable_bench: bool) -> None:
+    if enable_bench:
+        sync_ep_group()
 
 
 def generate_inputs() -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
@@ -255,8 +277,11 @@ def combine_backward_tokens(
     return grad_expand_x_list, grad_scales_list, grad_x_list
 
 
-def build_dispatch_kernel(group_name: str, runtime_debug_mode: int):
-    @pypto.frontend.jit(debug_options={"runtime_debug_mode": runtime_debug_mode})
+def build_dispatch_kernel(group_name: str, runtime_debug_mode: int, use_cache: bool = True):
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": runtime_debug_mode},
+        use_cache=use_cache,
+    )
     def kernel(
         x: pypto.Tensor(
             [AIGCODE_CHUNK_TOKENS, AIGCODE_HIDDEN_SIZE],
@@ -298,10 +323,14 @@ def build_dispatch_kernel(group_name: str, runtime_debug_mode: int):
     return kernel
 
 
-def build_combine_kernel(group_name: str, runtime_debug_mode: int):
+def build_combine_kernel(group_name: str, runtime_debug_mode: int, use_cache: bool = True):
+    combine_impl = get_combine_forward_impl()
     runtime_options = build_runtime_options("AIGCODE_COMBINE", default_device_sched_mode=1)
 
-    jit_kwargs = {"debug_options": {"runtime_debug_mode": runtime_debug_mode}}
+    jit_kwargs = {
+        "debug_options": {"runtime_debug_mode": runtime_debug_mode},
+        "use_cache": use_cache,
+    }
     if runtime_options:
         jit_kwargs["runtime_options"] = runtime_options
 
@@ -329,18 +358,32 @@ def build_combine_kernel(group_name: str, runtime_debug_mode: int):
             format=pypto.TileOpFormat.TILEOP_ND,
         ),
     ):
-        pypto.distributed.moe_distributed_combine_v2(
-            expand_x,
-            assist_info_for_combine,
-            recv_counts,
-            expert_scales,
-            group_name,
-            AIGCODE_EP_WORLD_SIZE,
-            AIGCODE_MOE_EXPERT_NUM,
-            0,
-            0,
-            out,
-        )
+        if combine_impl == "v1":
+            pypto.distributed.moe_distributed_combine(
+                expand_x,
+                assist_info_for_combine,
+                recv_counts,
+                expert_scales,
+                group_name,
+                AIGCODE_EP_WORLD_SIZE,
+                AIGCODE_MOE_EXPERT_NUM,
+                0,
+                0,
+                out,
+            )
+        else:
+            pypto.distributed.moe_distributed_combine_v2(
+                expand_x,
+                assist_info_for_combine,
+                recv_counts,
+                expert_scales,
+                group_name,
+                AIGCODE_EP_WORLD_SIZE,
+                AIGCODE_MOE_EXPERT_NUM,
+                0,
+                0,
+                out,
+            )
 
     return kernel
 
@@ -357,10 +400,23 @@ def build_runtime_options(prefix: str, default_device_sched_mode: int = 1) -> di
     return runtime_options
 
 
-def build_combine_backward_data_kernel(group_name: str, runtime_debug_mode: int):
+def build_pass_options(prefix: str) -> dict:
+    pass_options = {}
+    if int(os.environ.get(f"{prefix}_DISABLE_L1_REUSE", "0")) != 0:
+        pass_options["cube_l1_reuse_setting"] = {-1: 1}
+    return pass_options
+
+
+def build_combine_backward_data_kernel(
+    group_name: str,
+    runtime_debug_mode: int,
+    use_cache: bool = True,
+):
     @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": runtime_debug_mode},
+        pass_options=build_pass_options("AIGCODE_COMBINE_BWD_DATA"),
         runtime_options=build_runtime_options("AIGCODE_COMBINE_BWD_DATA", default_device_sched_mode=1),
+        use_cache=use_cache,
     )
     def kernel(
         assist_info_for_combine: pypto.Tensor(
@@ -401,10 +457,15 @@ def build_combine_backward_data_kernel(group_name: str, runtime_debug_mode: int)
     return kernel
 
 
-def build_combine_backward_scales_kernel(group_name: str, runtime_debug_mode: int):
+def build_combine_backward_scales_kernel(
+    group_name: str,
+    runtime_debug_mode: int,
+    use_cache: bool = True,
+):
     @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": runtime_debug_mode},
         runtime_options=build_runtime_options("AIGCODE_COMBINE_BWD_SCALES", default_device_sched_mode=1),
+        use_cache=use_cache,
     )
     def kernel(
         expand_x: pypto.Tensor(
@@ -445,10 +506,15 @@ def build_combine_backward_scales_kernel(group_name: str, runtime_debug_mode: in
     return kernel
 
 
-def build_dispatch_backward_kernel(group_name: str, runtime_debug_mode: int):
+def build_dispatch_backward_kernel(
+    group_name: str,
+    runtime_debug_mode: int,
+    use_cache: bool = True,
+):
     @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": runtime_debug_mode},
         runtime_options=build_runtime_options("AIGCODE_DISPATCH_BWD", default_device_sched_mode=1),
+        use_cache=use_cache,
     )
     def kernel(
         grad_expand_x: pypto.Tensor(
@@ -557,6 +623,7 @@ def run_aigcode_dispatch_combine(
         expert_token_nums_actual = create_zero_tensor_on_npu(expert_token_nums_golden, physical_device_id)
         out_actual = create_zero_tensor_on_npu(out_golden, physical_device_id)
 
+        sync_ep_group_for_bench(enable_bench)
         dispatch_start_time = time.perf_counter()
         dispatch_kernel(
             x,
@@ -575,6 +642,7 @@ def run_aigcode_dispatch_combine(
         )
         assert_equal_tensor(recv_counts_golden, recv_counts_actual.cpu(), f"dispatch.recv_counts.turn_{turn}")
 
+        sync_ep_group_for_bench(enable_bench)
         combine_start_time = time.perf_counter()
         combine_kernel(expand_x_actual, assist_info_actual, recv_counts_actual, expert_scales, out_actual)
         sync_ep_group()
@@ -604,6 +672,7 @@ def run_aigcode_dispatch_combine(
             dispatch_backward_elapsed_ms = 0.0
 
             if enable_backward_expand_x:
+                sync_ep_group_for_bench(enable_bench)
                 combine_backward_data_start_time = time.perf_counter()
                 combine_backward_data_kernel(
                     assist_info_actual,
@@ -615,6 +684,7 @@ def run_aigcode_dispatch_combine(
                 sync_ep_group()
                 combine_backward_data_elapsed_ms = (time.perf_counter() - combine_backward_data_start_time) * 1000.0
 
+                sync_ep_group_for_bench(enable_bench)
                 dispatch_backward_start_time = time.perf_counter()
                 dispatch_backward_kernel(
                     grad_expand_x_actual,
@@ -639,6 +709,7 @@ def run_aigcode_dispatch_combine(
                 )
 
             if enable_backward_scales:
+                sync_ep_group_for_bench(enable_bench)
                 combine_backward_scales_start_time = time.perf_counter()
                 combine_backward_scales_kernel(
                     expand_x_actual,

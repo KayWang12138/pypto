@@ -61,6 +61,12 @@ class DistributedConfig:
             self.physical_device_ids = list(range(self.world_size))
 
     def _calculate_port(self) -> int:
+        for env_name in ("AIGCODE_MASTER_PORT", "MASTER_PORT"):
+            port_str = os.environ.get(env_name)
+            if port_str:
+                port = int(port_str)
+                if 1024 <= port <= 65535:
+                    return port
         if not self.physical_device_ids:
             return 50001
         port = 5000 + self.physical_device_ids[0]

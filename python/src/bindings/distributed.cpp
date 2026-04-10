@@ -177,6 +177,19 @@ void BindDistributed(py::module& m)
         "Run MoeDistributedDispatch.");
 
     m.def(
+        "MoeDistributedCombine",
+        [](const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+           const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+           uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out) {
+            Distributed::MoeDistributedCombine(
+                expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize, moeExpertNum,
+                sharedExpertNum, sharedExpertRankNum, out);
+        },
+        py::arg("expandX"), py::arg("assistInfoForCombine"), py::arg("recvCounts"), py::arg("expertScales"),
+        py::arg("group"), py::arg("epWorldSize"), py::arg("moeExpertNum"), py::arg("sharedExpertNum"),
+        py::arg("sharedExpertRankNum"), py::arg("out"), "Run MoeDistributedCombine.");
+
+    m.def(
         "MoeDistributedCombineV2",
         [](const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
            const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,

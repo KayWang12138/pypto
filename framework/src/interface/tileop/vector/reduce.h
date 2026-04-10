@@ -20,24 +20,58 @@
 #include "utils/tile_tensor.h"
 
 template <ReduceOp op, typename LastUse, typename T0, typename T1, typename T2>
+struct RowReduceExecutor {
+    TILEOP void Run(T0, T1, T2) {}
+};
+
+template <typename LastUse, typename T0, typename T1, typename T2>
+struct RowReduceExecutor<ReduceOp::SUM, LastUse, T0, T1, T2> {
+    TILEOP void Run(T0 dst, T1 src, T2 tmp)
+    {
+        constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+        constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+        constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
+        PTO_WITH_LAST_USE(pto::TROWSUM(dst, src, tmp), n1, n2, n3);
+    }
+};
+
+template <typename LastUse, typename T0, typename T1, typename T2>
+struct RowReduceExecutor<ReduceOp::MAX, LastUse, T0, T1, T2> {
+    TILEOP void Run(T0 dst, T1 src, T2 tmp)
+    {
+        constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+        constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+        constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
+        PTO_WITH_LAST_USE(pto::TROWMAX(dst, src, tmp), n1, n2, n3);
+    }
+};
+
+template <typename LastUse, typename T0, typename T1, typename T2>
+struct RowReduceExecutor<ReduceOp::MIN, LastUse, T0, T1, T2> {
+    TILEOP void Run(T0 dst, T1 src, T2 tmp)
+    {
+        constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+        constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+        constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
+        PTO_WITH_LAST_USE(pto::TROWMIN(dst, src, tmp), n1, n2, n3);
+    }
+};
+
+template <typename LastUse, typename T0, typename T1, typename T2>
+struct RowReduceExecutor<ReduceOp::PROD, LastUse, T0, T1, T2> {
+    TILEOP void Run(T0 dst, T1 src, T2 tmp)
+    {
+        constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+        constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+        constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
+        PTO_WITH_LAST_USE(pto::TROWPROD(dst, src, tmp), n1, n2, n3);
+    }
+};
+
+template <ReduceOp op, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void ReduceComputeImpl(T0 dst, T1 src, T2 tmp)
 {
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
-    if constexpr (op == ReduceOp::SUM) {
-        PTO_WITH_LAST_USE(pto::TROWSUM(dst, src, tmp), n1, n2, n3);
-    } else if constexpr (op == ReduceOp::MAX) {
-        PTO_WITH_LAST_USE(pto::TROWMAX(dst, src, tmp), n1, n2, n3);
-    } else if constexpr (op == ReduceOp::MIN) {
-        PTO_WITH_LAST_USE(pto::TROWMIN(dst, src, tmp), n1, n2, n3);
-    } else if constexpr (op == ReduceOp::PROD) {
-        PTO_WITH_LAST_USE(pto::TROWPROD(dst, src, tmp), n1, n2, n3);
-    } else if constexpr (op == ReduceOp::ARGMAX) {
-        pto::TROWARGMAX(dst, src, tmp);
-    } else if constexpr (op == ReduceOp::ARGMIN) {
-        pto::TROWARGMIN(dst, src, tmp);
-    }
+    RowReduceExecutor<op, LastUse, T0, T1, T2>{}.Run(dst, src, tmp);
 }
 
 template <ReduceOp op, typename LastUse, typename T0, typename T1, typename T2>
@@ -240,6 +274,21 @@ TILEOP void TRowProdLine(T0 dst, T1 src)
 template <
     int axis, ReduceOp op, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0,
     typename T1, typename T2>
+struct ColReduceWithTmpExecutor {
+    TILEOP void Run(T0, T1, T2) {}
+};
+
+template <int axis, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0, typename T1, typename T2>
+struct ColReduceWithTmpExecutor<axis, ReduceOp::SUM, DstTileDefine, SrcTileDefine, TmpTileDefine, T0, T1, T2> {
+    TILEOP void Run(T0 dstTile, T1 srcTile, T2 tmpTile)
+    {
+        pto::TCOLSUM(dstTile, srcTile, tmpTile, true);
+    }
+};
+
+template <
+    int axis, ReduceOp op, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0,
+    typename T1, typename T2>
 TILEOP void ColReduceWithTmpImp(T0 dst, T1 src, T2 tmp)
 {
     constexpr size_t expectSize = 5;
@@ -283,13 +332,9 @@ TILEOP void ColReduceWithTmpImp(T0 dst, T1 src, T2 tmp)
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
                     pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
-                    if constexpr (op == ReduceOp::SUM) {
-                        pto::TCOLSUM(dstTile, srcTile, tmpTile, true);
-                    } else if constexpr (op == ReduceOp::ARGMAX) {
-                        pto::TCOLARGMAX(dstTile, srcTile, tmpTile);
-                    } else if constexpr (op == ReduceOp::ARGMIN) {
-                        pto::TCOLARGMIN(dstTile, srcTile, tmpTile);
-                    }
+                    ColReduceWithTmpExecutor<
+                        axis, op, DstTileDefine, SrcTileDefine, TmpTileDefine, DstTileDefine, SrcTileDefine,
+                        TmpTileDefine>{}.Run(dstTile, srcTile, tmpTile);
                 }
             }
         }
