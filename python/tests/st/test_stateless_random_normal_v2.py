@@ -79,3 +79,39 @@ def test_normal_FP32():
     assert_allclose(out_data.flatten(), golden.flatten(), rtol=1e-4, atol=1e-4)
 
     pypto.runtime._device_fini()
+
+
+@pytest.mark.soc("950")
+def test_normal_FP16():
+    """Test whether the output of FP16 is correct"""
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    pypto.runtime._device_init()
+
+    view_shape = [32,]
+    tile_shape = [32,]
+
+    shape = [32,]
+    key = [1234]
+    counter = [0, 1]
+    alg = [1]
+    dtype = pypto.DT_FP16
+    output = pypto.tensor(shape, dtype)
+
+    loop_num = math.ceil(shape[0] / view_shape[0])
+    with pypto.function("NORMAL_CONTENT_FP16", output):
+        for idx in pypto.loop(loop_num, name="loop0", idx_name="idx"):
+            offset = idx * view_shape[0]
+            valid_shape = pypto.min(pypto.symbolic_scalar(shape[0]) - offset, pypto.symbolic_scalar(view_shape[0]))
+            pypto.set_vec_tile_shapes(tile_shape[0])
+            res = pypto.stateless_random_normal_v2(shape, key, counter, alg, dtype)
+            pypto.assemble(res, [offset], output)
+
+    assert isinstance(output, pypto.tensor)
+    out_data = np.zeros(shape, dtype=np.float16)
+    pto_out = pypto.from_torch(torch.from_numpy(out_data), "PTO_TENSOR_output")
+    pypto.runtime._device_run_once_data_from_host(pto_out)
+    golden = stateless_random_normal_v2_golden(shape, key, counter, alg, dtype)
+    assert_allclose(out_data.flatten(), golden.flatten(), rtol=1e-3, atol=1e-3)
+
+    pypto.runtime._device_fini()
