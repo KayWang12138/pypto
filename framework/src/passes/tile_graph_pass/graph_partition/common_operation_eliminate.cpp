@@ -198,7 +198,7 @@ std::pair<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::T
             return {nullptr, {}};
         }
     }
-    uint64_t groupHash = ComputeHash(producers, orderedTensor);
+    uint64_t groupHash = ComputeHash(producers);
     if (hashCache.count(groupHash) != 0) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "Tensor[%d] are marked as hash already existed tensor.", orderedTensor->GetMagic());
