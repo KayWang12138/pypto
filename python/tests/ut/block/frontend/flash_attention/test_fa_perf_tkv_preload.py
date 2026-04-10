@@ -13,7 +13,7 @@ Features:
             double-buffered global_max/global_sum (by q_count % 2)
 
 Usage:
-    python3 tests/ut/frontend/flash_attention/test_fa_performance.py
+    python3 python/tests/ut/block/frontend/flash_attention/test_fa_perf_tkv_preload.py
 """
 
 import math
@@ -93,11 +93,14 @@ VA_GMAX1 = [VA_GMAX0[-1] + VB_RED + i * VB_RED for i in range(VEC_ROW_BLOCKS)]
 VA_GSUM_BASE = VA_GMAX1[-1] + VB_RED
 VA_GSUM0 = [VA_GSUM_BASE + i * VB_RED for i in range(VEC_ROW_BLOCKS)]
 VA_GSUM1 = [VA_GSUM0[-1] + VB_RED + i * VB_RED for i in range(VEC_ROW_BLOCKS)]
+GMAX_RM_TOTAL_SIZE = 2 * VEC_ROW_BLOCKS * VB_RED  # total bytes for global_max_rm (all q slots)
+GSUM_RM_TOTAL_SIZE = 2 * VEC_ROW_BLOCKS * VB_RED  # total bytes for global_sum_rm (all q slots)
 # exp_corr: FIFO_SIZE × VEC_ROW_BLOCKS 个 [SOFTMAX_ROWS, 1] 子 tile
 VA_EXP_BASE = VA_GSUM1[-1] + VB_RED
 EXP_CORR_STRIDE = VEC_ROW_BLOCKS * VB_RED   # 每个 fifo slot 的 exp_corr 总大小
 EXP_CORR_ADDRS = [[VA_EXP_BASE + s * EXP_CORR_STRIDE + i * VB_RED
                     for i in range(VEC_ROW_BLOCKS)] for s in range(FIFO_SIZE)]
+EXP_CORR_TOTAL_SIZE = FIFO_SIZE * VEC_ROW_BLOCKS * VB_RED  # total bytes for exp_corr fifo
 VA_AFTER_EXP = VA_EXP_BASE + FIFO_SIZE * EXP_CORR_STRIDE
 VA7  = VA_AFTER_EXP                 # running_o [GU_ROWS, TD] FP32
 VA8  = VA1                          # pv_vec [GU_ROWS, TD] FP32 — REUSE tmp_vec address
@@ -161,99 +164,42 @@ def alloc_cube_buffer():
             (v_mat_0, v_mat_1), (left_0, left_1), (right_0, right_1), (acc_0, acc_1))
 
 
-# Write alloc_vec_state to a temp .py so auto-inline can read its source.
-# All buffers are FLAT 1D tuples to avoid nested-tuple dynamic indexing in IR.
-# Access pattern: buf[q_idx * STRIDE + ri]  instead of buf[q_idx][ri]
-import tempfile as _tf, importlib.util as _ilu, os as _os
-def _gen_alloc_vec_state():
-    lines = ["import pypto_block.language as pl", "import pypto_block.language.op.manual as plm", ""]
-    lines.append("def alloc_vec_state():")
+# Single large tiles + element offset access. All buffers below share their base
+# address and memory area across multiple logical slots; consumers compute the
+# element offset via `buf[off]`.
+def alloc_vec_state():
+    # global_max_rm_buf: [1, SOFTMAX_ROWS] RM FP32, covers 2 * VEC_ROW_BLOCKS slots
+    # offset: (q_idx * VEC_ROW_BLOCKS + ri) * SOFTMAX_ROWS
+    global_max_rm_buf = plm.make_tile(
+        plm.TileType(shape=[1, SOFTMAX_ROWS], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec),
+        addr=VA_GMAX_BASE, size=GMAX_RM_TOTAL_SIZE)
 
-    def _flat_tuple(names):
-        return "(" + ", ".join(names) + ")"
+    # global_sum_rm_buf: [1, SOFTMAX_ROWS] RM FP32, covers 2 * VEC_ROW_BLOCKS slots
+    # offset: (q_idx * VEC_ROW_BLOCKS + ri) * SOFTMAX_ROWS
+    global_sum_rm_buf = plm.make_tile(
+        plm.TileType(shape=[1, SOFTMAX_ROWS], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec),
+        addr=VA_GSUM_BASE, size=GSUM_RM_TOTAL_SIZE)
 
-    # --- global_max_rm_buf: flat (2 * VEC_ROW_BLOCKS) 个 [1, SOFTMAX_ROWS] ---
-    # index: q_idx * VEC_ROW_BLOCKS + ri
-    gmax_names = []
-    for q in range(2):
-        addrs = VA_GMAX0 if q == 0 else VA_GMAX1
-        for ri in range(VEC_ROW_BLOCKS):
-            n = f"gmax_{q}_{ri}"
-            lines.append(f"    {n} = plm.make_tile(plm.TileType(shape=[1, {SOFTMAX_ROWS}], dtype=pl.FP32, "
-                         f"target_memory=pl.MemorySpace.Vec), addr={addrs[ri]}, size={VB_RED})")
-            gmax_names.append(n)
+    # global_sum_buf_64: [GU_ROWS, 1] CM FP32, same memory as global_sum_rm_buf, different view
+    # offset: ((q_count % 2) * GU_BLOCKS + gi) * GU_ROWS
+    global_sum_buf_64 = plm.make_tile(
+        plm.TileType(shape=[GU_ROWS, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2),
+        addr=VA_GSUM_BASE, size=GSUM_RM_TOTAL_SIZE)
 
-    # --- global_sum_buf: flat (2 * VEC_ROW_BLOCKS) 个 [SOFTMAX_ROWS, 1] ---
-    gsum_names = []
-    for q in range(2):
-        addrs = VA_GSUM0 if q == 0 else VA_GSUM1
-        for ri in range(VEC_ROW_BLOCKS):
-            n = f"gsum_{q}_{ri}"
-            lines.append(f"    {n} = plm.make_tile(plm.TileType(shape=[{SOFTMAX_ROWS}, 1], dtype=pl.FP32, "
-                         f"target_memory=pl.MemorySpace.Vec, blayout=2), addr={addrs[ri]}, size={VB_RED})")
-            gsum_names.append(n)
+    # exp_corr_rm_fifo: [1, SOFTMAX_ROWS] RM FP32, covers FIFO_SIZE * VEC_ROW_BLOCKS slots
+    # offset: (p_fifo_slot * VEC_ROW_BLOCKS + ri) * SOFTMAX_ROWS
+    exp_corr_rm_fifo = plm.make_tile(
+        plm.TileType(shape=[1, SOFTMAX_ROWS], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec),
+        addr=VA_EXP_BASE, size=EXP_CORR_TOTAL_SIZE)
 
-    # --- global_sum_rm_buf: flat (2 * VEC_ROW_BLOCKS) 个 [1, SOFTMAX_ROWS] ---
-    gsum_rm_names = []
-    for q in range(2):
-        addrs = VA_GSUM0 if q == 0 else VA_GSUM1
-        for ri in range(VEC_ROW_BLOCKS):
-            n = f"gsum_rm_{q}_{ri}"
-            lines.append(f"    {n} = plm.make_tile(plm.TileType(shape=[1, {SOFTMAX_ROWS}], dtype=pl.FP32, "
-                         f"target_memory=pl.MemorySpace.Vec), addr={addrs[ri]}, size={VB_RED})")
-            gsum_rm_names.append(n)
+    # exp_corr_fifo_64: [GU_ROWS, 1] CM FP32, same memory as exp_corr_rm_fifo, different view
+    # offset: (pv_slot * GU_BLOCKS + gi) * GU_ROWS
+    exp_corr_fifo_64 = plm.make_tile(
+        plm.TileType(shape=[GU_ROWS, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2),
+        addr=VA_EXP_BASE, size=EXP_CORR_TOTAL_SIZE)
 
-    # --- global_sum_buf_64: flat (2 * GU_BLOCKS) 个 [GU_ROWS, 1] ---
-    # index: q_idx * GU_BLOCKS + gi
-    gsum64_names = []
-    softmax_per_gu = GU_ROWS // SOFTMAX_ROWS
-    for q in range(2):
-        addrs = VA_GSUM0 if q == 0 else VA_GSUM1
-        for gi in range(GU_BLOCKS):
-            n = f"gsum64_{q}_{gi}"
-            lines.append(f"    {n} = plm.make_tile(plm.TileType(shape=[{GU_ROWS}, 1], dtype=pl.FP32, "
-                         f"target_memory=pl.MemorySpace.Vec, blayout=2), addr={addrs[gi * softmax_per_gu]}, size={GU_ROWS * 4})")
-            gsum64_names.append(n)
-
-    # --- exp_corr_fifo: flat (FIFO_SIZE * VEC_ROW_BLOCKS) 个 [SOFTMAX_ROWS, 1] ---
-    # index: slot * VEC_ROW_BLOCKS + ri
-    ec_col_names = []
-    ec_rm_names = []
-    for s in range(FIFO_SIZE):
-        for ri in range(VEC_ROW_BLOCKS):
-            addr = EXP_CORR_ADDRS[s][ri]
-            cn = f"ec{s}_{ri}"
-            rn = f"ec{s}_{ri}_rm"
-            lines.append(f"    {cn} = plm.make_tile(plm.TileType(shape=[{SOFTMAX_ROWS}, 1], dtype=pl.FP32, "
-                         f"target_memory=pl.MemorySpace.Vec, blayout=2), addr={addr}, size={VB_RED})")
-            lines.append(f"    {rn} = plm.make_tile(plm.TileType(shape=[1, {SOFTMAX_ROWS}], dtype=pl.FP32, "
-                         f"target_memory=pl.MemorySpace.Vec), addr={addr}, size={VB_RED})")
-            ec_col_names.append(cn); ec_rm_names.append(rn)
-
-    # --- exp_corr_fifo_64: flat (FIFO_SIZE * GU_BLOCKS) 个 [GU_ROWS, 1] ---
-    # index: slot * GU_BLOCKS + gi
-    ec_gu_names = []
-    for s in range(FIFO_SIZE):
-        for gi in range(GU_BLOCKS):
-            addr = EXP_CORR_ADDRS[s][gi * softmax_per_gu]
-            gn = f"ec_gu{s}_{gi}"
-            lines.append(f"    {gn} = plm.make_tile(plm.TileType(shape=[{GU_ROWS}, 1], dtype=pl.FP32, "
-                         f"target_memory=pl.MemorySpace.Vec, blayout=2), addr={addr}, size={GU_ROWS * 4})")
-            ec_gu_names.append(gn)
-
-    lines.append(f"    return ({_flat_tuple(gmax_names)}, {_flat_tuple(gsum_names)}, "
-                 f"{_flat_tuple(gsum_rm_names)}, {_flat_tuple(gsum64_names)}, "
-                 f"{_flat_tuple(ec_col_names)}, {_flat_tuple(ec_rm_names)}, {_flat_tuple(ec_gu_names)})")
-    src = "\n".join(lines) + "\n"
-    tmp = _os.path.join(_tf.gettempdir(), "_alloc_vec_state.py")
-    with open(tmp, "w") as f:
-        f.write(src)
-    spec = _ilu.spec_from_file_location("_alloc_vec_state", tmp)
-    mod = _ilu.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.alloc_vec_state
-
-alloc_vec_state = _gen_alloc_vec_state()
+    return (global_max_rm_buf, global_sum_rm_buf, global_sum_buf_64,
+            exp_corr_rm_fifo, exp_corr_fifo_64)
 
 
 def compute_qk(ctx, state, const_info):
@@ -402,9 +348,10 @@ def softmax_body(ctx, row_off):
         row_start = row_off + ri * SOFTMAX_ROWS
         buf_idx = ri % 2
         next_buf_idx = (ri + 1) % 2
-        global_max_rm_cur = global_max_rm_buf[q_idx * VEC_ROW_BLOCKS + ri]
-        global_sum_rm_cur = global_sum_rm_buf[q_idx * VEC_ROW_BLOCKS + ri]
-        exp_corr_cur = exp_corr_rm_fifo[p_fifo_slot * VEC_ROW_BLOCKS + ri]
+        # element offsets into single-tile buffers (see alloc_vec_state)
+        gmax_off = (q_idx * VEC_ROW_BLOCKS + ri) * SOFTMAX_ROWS
+        gsum_off = (q_idx * VEC_ROW_BLOCKS + ri) * SOFTMAX_ROWS
+        exp_corr_off = (p_fifo_slot * VEC_ROW_BLOCKS + ri) * SOFTMAX_ROWS
         qk_vec = qk_vec_buf[buf_idx]
         p_f16 = p_f16_buf[buf_idx]
         next_qk_vec = qk_vec_buf[next_buf_idx]
@@ -425,33 +372,33 @@ def softmax_body(ctx, row_off):
             plm.row_max(reduce_dst, qk_vec, tmp_vec)
             pl.system.bar_v()
             plm.row_expand_sub(tmp_vec, qk_vec, reduce_dst)
-            plm.muls(global_max_rm_cur, reduce_dst_rm, 1.0)
+            plm.muls(global_max_rm_buf[gmax_off], reduce_dst_rm, 1.0)
             plm.muls(tmp_vec, tmp_vec, SCALE)
             plm.exp(qk_vec, tmp_vec)
             pl.system.bar_v()
             plm.row_sum(reduce_dst, qk_vec, tmp_vec)
             pl.system.bar_v()
-            plm.muls(global_sum_rm_cur, reduce_dst_rm, 1.0)
+            plm.muls(global_sum_rm_buf[gsum_off], reduce_dst_rm, 1.0)
             plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
         if ctx.ki > 0:
             plm.row_max(reduce_dst, qk_vec, tmp_vec)
             pl.system.bar_v()
-            plm.maximum(reduce_dst_rm, reduce_dst_rm, global_max_rm_cur)
+            plm.maximum(reduce_dst_rm, reduce_dst_rm, global_max_rm_buf[gmax_off])
             pl.system.bar_v()
-            plm.sub(exp_corr_cur, global_max_rm_cur, reduce_dst_rm)
+            plm.sub(exp_corr_rm_fifo[exp_corr_off], global_max_rm_buf[gmax_off], reduce_dst_rm)
             pl.system.bar_v()
-            plm.muls(global_max_rm_cur, reduce_dst_rm, 1.0)
+            plm.muls(global_max_rm_buf[gmax_off], reduce_dst_rm, 1.0)
             plm.row_expand_sub(tmp_vec, qk_vec, reduce_dst)
-            plm.muls(exp_corr_cur, exp_corr_cur, SCALE)
+            plm.muls(exp_corr_rm_fifo[exp_corr_off], exp_corr_rm_fifo[exp_corr_off], SCALE)
             plm.muls(tmp_vec, tmp_vec, SCALE)
-            plm.exp(exp_corr_cur, exp_corr_cur)
+            plm.exp(exp_corr_rm_fifo[exp_corr_off], exp_corr_rm_fifo[exp_corr_off])
             plm.exp(qk_vec, tmp_vec)
             plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
             pl.system.bar_v()
-            plm.mul(global_sum_rm_cur, global_sum_rm_cur, exp_corr_cur)
+            plm.mul(global_sum_rm_buf[gsum_off], global_sum_rm_buf[gsum_off], exp_corr_rm_fifo[exp_corr_off])
             plm.row_sum(reduce_dst, qk_vec, tmp_vec)
             pl.system.bar_v()
-            plm.add(global_sum_rm_cur, global_sum_rm_cur, reduce_dst_rm)
+            plm.add(global_sum_rm_buf[gsum_off], global_sum_rm_buf[gsum_off], reduce_dst_rm)
         # Forward: V done reading qk_vec[buf_idx], release for MTE2
         pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE2,
                            event_id=vec_evids_01[buf_idx])
@@ -481,8 +428,9 @@ def compute_gu(ctx, row_off):
     pl.system.wait_cross_core(pipe=pl.PipeType.MTE2, event_id=PV_READY_IDS[pv_slot], max_event_id=PV_MAX_EID)
     for gi in pl.range(0, TS_HALF // GU_ROWS):
         row_start = row_off + gi * GU_ROWS
-        exp_corr_gu_cur = exp_corr_fifo_64[pv_slot * GU_BLOCKS + gi]
-        global_sum_gu_cur = global_sum_buf_64[ctx.q_count % 2 * GU_BLOCKS + gi]
+        # element offsets into single-tile buffers (see alloc_vec_state)
+        exp_corr_gu_off = (pv_slot * GU_BLOCKS + gi) * GU_ROWS
+        global_sum_gu_off = ((ctx.q_count % 2) * GU_BLOCKS + gi) * GU_ROWS
 
         pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE2, event_id=0)
         pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE2, event_id=0)
@@ -500,12 +448,12 @@ def compute_gu(ctx, row_off):
         if ctx.ki == 0:
             plm.move(running_o, pv_vec)
         if ctx.ki != 0:
-            plm.row_expand_mul(running_o, running_o, exp_corr_gu_cur)
+            plm.row_expand_mul(running_o, running_o, exp_corr_fifo_64[exp_corr_gu_off])
             pl.system.bar_v()
             plm.add(running_o, running_o, pv_vec)
         if ctx.ki == ctx.skv_tiles - 1:
             pl.system.bar_v()
-            plm.row_expand_div(running_o, running_o, global_sum_gu_cur)
+            plm.row_expand_div(running_o, running_o, global_sum_buf_64[global_sum_gu_off])
             pl.system.bar_v()
             plm.cast(o_f16, running_o, target_type=pl.FP16, mode="round")
             # Forward: V done with running_o, release for MTE2 next iteration
@@ -613,9 +561,9 @@ def fa_perf_tkv_preload_kernel(
         reduce_dst = plm.make_tile(plm.TileType(shape=[SOFTMAX_ROWS, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2), addr=VA3, size=VB_RED)
         reduce_dst_rm = plm.make_tile(plm.TileType(shape=[1, SOFTMAX_ROWS], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA3, size=VB_RED)
 
-        # All sub-tile buffers generated via temp .py to avoid range() in kernel
-        (global_max_rm_buf, global_sum_buf, global_sum_rm_buf, global_sum_buf_64,
-         exp_corr_fifo, exp_corr_rm_fifo, exp_corr_fifo_64) = alloc_vec_state()
+        # Vector state tiles: one big tile per buffer, accessed via element offset
+        (global_max_rm_buf, global_sum_rm_buf, global_sum_buf_64,
+         exp_corr_rm_fifo, exp_corr_fifo_64) = alloc_vec_state()
 
         running_o = plm.make_tile(plm.TileType(shape=[GU_ROWS, TD], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA7, size=VB4)
         pv_vec    = plm.make_tile(plm.TileType(shape=[GU_ROWS, TD], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA8, size=VB4)

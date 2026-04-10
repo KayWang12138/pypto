@@ -547,6 +547,15 @@ void BindIR(py::module_& m) {
                            py::arg("span"), "Create a tuple element access expression");
   BindFields<TupleGetItemExpr>(tuple_get_item_class);
 
+  // TileOffsetExpr - const shared_ptr
+  auto tile_offset_class =
+      py::class_<TileOffsetExpr, Expr, std::shared_ptr<TileOffsetExpr>>(
+          ir, "TileOffsetExpr", "Tile element offset expression: tile[offset]");
+  tile_offset_class.def(py::init<const ExprPtr&, const ExprPtr&, const Span&>(), py::arg("tile"),
+                        py::arg("offset"), py::arg("span"),
+                        "Create a tile offset expression (element offset)");
+  BindFields<TileOffsetExpr>(tile_offset_class);
+
   // BinaryExpr - abstract, const shared_ptr
   auto binaryexpr_class =
       py::class_<BinaryExpr, Expr, std::shared_ptr<BinaryExpr>>(ir, "BinaryExpr",

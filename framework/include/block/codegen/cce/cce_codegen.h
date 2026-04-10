@@ -178,6 +178,7 @@ class CCECodegen : public CodegenBase {
   void VisitExpr_(const ir::ConstBoolPtr& op) override;
   void VisitExpr_(const ir::CallPtr& op) override;
   void VisitExpr_(const ir::TupleGetItemExprPtr& op) override;
+  void VisitExpr_(const ir::TileOffsetExprPtr& op) override;
 
   // Binary operations
   void VisitExpr_(const ir::AddPtr& op) override;
@@ -405,6 +406,7 @@ class CCECodegen : public CodegenBase {
   // Tile array deduplication: maps "tile0,tile1" → shared Tile array name
   std::map<std::string, std::string> tile_array_decls_;
   int tile_array_counter_ = 0;  ///< Counter for unique Tile array names
+  int tile_offset_counter_ = 0;  ///< Counter for unique TileOffsetExpr temp names
 
   // Tile type dedup: maps tile_type_str → alias name already emitted
   std::map<std::string, std::string> emitted_tile_types_;

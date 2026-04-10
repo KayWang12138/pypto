@@ -89,6 +89,13 @@ void IRVisitor::VisitExpr_(const TupleGetItemExprPtr& op) {
   VisitExpr(op->tuple_);
 }
 
+void IRVisitor::VisitExpr_(const TileOffsetExprPtr& op) {
+  INTERNAL_CHECK(op->tile_) << "TileOffsetExpr has null tile";
+  INTERNAL_CHECK(op->offset_) << "TileOffsetExpr has null offset";
+  VisitExpr(op->tile_);
+  VisitExpr(op->offset_);
+}
+
 // Macro to generate binary visitor with null checks
 #define DEFINE_BINARY_VISITOR(OpType)                                \
   void IRVisitor::VisitExpr_(const OpType##Ptr& op) {                \

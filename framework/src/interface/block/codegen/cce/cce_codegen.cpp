@@ -300,6 +300,9 @@ class TileUsageCollector : public ir::IRVisitor {
     } else if (auto tge = ir::As<ir::TupleGetItemExpr>(expr)) {
       // TupleGetItem accesses a tuple element — the tuple itself is used
       CollectTileNames(tge->tuple_, is_op_arg);
+    } else if (auto toe = ir::As<ir::TileOffsetExpr>(expr)) {
+      // TileOffsetExpr accesses a tile with element offset — the base tile is used
+      CollectTileNames(toe->tile_, is_op_arg);
     } else if (auto mt = ir::As<ir::MakeTuple>(expr)) {
       // MakeTuple elements are just grouping — NOT direct operands
       for (const auto& elem : mt->elements_) {
@@ -1793,6 +1796,50 @@ void CCECodegen::VisitExpr_(const ir::TupleGetItemExprPtr& op) {
   }
 
   current_expr_value_ = tuple_name + "[" + std::to_string(op->index_) + "]";
+}
+
+void CCECodegen::VisitExpr_(const ir::TileOffsetExprPtr& op) {
+  INTERNAL_CHECK(op != nullptr) << "Internal error: null TileOffsetExpr";
+
+  // Get base tile name and offset expression
+  std::string base_tile = GetExprAsCode(op->tile_);
+  std::string offset_expr = GetExprAsCode(op->offset_);
+
+  // Get base tile address — try tile_addresses_ first, then extract from TileType memref
+  std::string base_addr;
+  auto addr_it = tile_addresses_.find(base_tile);
+  if (addr_it != tile_addresses_.end()) {
+    base_addr = addr_it->second;
+  } else {
+    // Fallback: extract address from TileType's memref
+    auto tile_type = ir::As<ir::TileType>(op->tile_->GetType());
+    INTERNAL_CHECK(tile_type != nullptr && tile_type->memref_.has_value())
+        << "TileOffsetExpr: base tile '" << base_tile << "' has no address info";
+    int64_t addr = ExtractConstInt((*tile_type->memref_)->addr_);
+    base_addr = FormatAddressHex(addr);
+  }
+
+  // Compute element size in bytes from dtype
+  auto tile_type = ir::As<ir::TileType>(op->tile_->GetType());
+  INTERNAL_CHECK(tile_type != nullptr) << "TileOffsetExpr tile must have TileType";
+  int elem_bytes = static_cast<int>(tile_type->dtype_.GetBit() / 8);
+  if (elem_bytes == 0) elem_bytes = 1;  // guard sub-byte types
+
+  // Generate unique temp tile name
+  std::string temp_name = base_tile + "_eoff_" + std::to_string(tile_offset_counter_++);
+
+  // Emit: declare temp tile of same type, then TASSIGN with offset address
+  // Use direct type + TASSIGN instead of `auto temp = base;` to avoid undeclared base tile issues.
+  std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);
+  int64_t rows = shape_dims.size() >= 1 ? shape_dims[0] : 1;
+  int64_t cols = shape_dims.size() >= 2 ? shape_dims[1] : 1;
+  std::string type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
+  std::string ctor_args = std::to_string(rows) + ", " + std::to_string(cols);
+  emitter_.EmitLine(type_str + " " + temp_name + "(" + ctor_args + "); " +
+                    "TASSIGN(" + temp_name + ", " + base_addr +
+                    " + (" + offset_expr + ") * " + std::to_string(elem_bytes) + ");");
+
+  current_expr_value_ = temp_name;
 }
 
 // ========================================================================
