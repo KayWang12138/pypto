@@ -33,7 +33,7 @@ Status RemoveUnalignedReshape::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveUnalignedReshape.");
     if (ReplaceDynUnalignedReshapeOps(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Run ReplaceDynUnalignedReshapeOps failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Run ReplaceDynUnalignedReshapeOps failed, function magic: %d.", function.GetFuncMagic());
         return FAILED;
     }
     CollectReshapeOps(function);
@@ -154,7 +154,7 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function& function)
             input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             if (ReplaceDynUnalignedReshapeOpsForDDR(function, op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Function, "Run ReplaceDynUnalignedReshapeOpsForDDR failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "Run ReplaceDynUnalignedReshapeOpsForDDR failed, reshape magic: %d.", op.GetOpMagic());
                 return FAILED;
             }
         }
@@ -303,11 +303,11 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& fun
             copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, needToCopyTensors, index);
         }
         if (ProcessCopyOutOfDDRReshape(function, op, copyOutOp) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Run ProcessCopyOutOfDDRReshape failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "Run ProcessCopyOutOfDDRReshape failed, reshape magic: %d.", op.GetOpMagic());
             return FAILED;
         }
         if (ProcessCopyInOfDDRReshape(function, op, copyInOps) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Run ProcessCopyInOfDDRReshape failed.");
+            APASS_LOG_ERROR_F(Elements::Function, "Run ProcessCopyInOfDDRReshape failed, reshape magic: %d.", op.GetOpMagic());
             return FAILED;
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "Reshape[%d] on GM had processed successfully.", op.GetOpMagic());
@@ -356,22 +356,6 @@ inline int64_t Pad(int64_t dim, int64_t padValue)
     return (dim + padValue - 1) / padValue * padValue;
 }
 
-/**
- * @brief 计算tensor的数据量
- */
-inline int computeTensorSize(const LogicalTensorPtr& tensor) {
-    if (tensor == nullptr || tensor->shape.empty()) {
-        return 0;
-    }
-
-    int bytes = BytesOf(tensor->Datatype());
-    int tensorSize = bytes;
-    for (int dim : tensor->shape) {
-        tensorSize *= dim;
-    }
-    return tensorSize;
-}
-
 inline void ProcessLastDim32BAligned(LogicalTensorPtr tensor) {
     if (!IsLastDim32BAligned(tensor)) {
         size_t lastIdx = tensor->shape.size() - 1;
@@ -404,8 +388,8 @@ Status RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Op
         LogicalTensor newTensor(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
         if (newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.",
-                copyOutOutput->magic, computeTensorSize(copyOutOutput), UB_SIZE_THRESHOLD);
+            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
+                copyOutOutput->magic, copyOutOutput->GetDataSize(), UB_SIZE_THRESHOLD);
             return FAILED;
         }
         auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
@@ -465,8 +449,8 @@ Status RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                 LogicalTensor newTensor(function, copyInInput->Datatype(), copyInInput->GetShape());
                 newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 if (newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.",
-                        copyInInput->magic, computeTensorSize(copyInInput), UB_SIZE_THRESHOLD);
+                    APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
+                        copyInInput->magic, copyInInput->GetDataSize(), UB_SIZE_THRESHOLD);
                     return FAILED;
                 }
                 auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
