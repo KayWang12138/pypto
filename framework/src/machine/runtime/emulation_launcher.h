@@ -29,6 +29,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "machine/runtime/device_launcher.h"
+#include "machine/runtime/memory/memory_manager.h"
 #include "machine/utils/machine_error.h"
 #include "tilefwk/pypto_fwk_log.h"
 
@@ -45,20 +46,16 @@ struct EmulationMemoryUtils {
             MACHINE_LOGE(DevCommonErr::PARAM_INVALID, "AllocDev failed: size=%zu", size);
             return nullptr;
         }
-        uint8_t* rawPtr = (uint8_t*)malloc(size);
-        if (rawPtr == nullptr) {
-            return nullptr;
-        }
-        std::shared_ptr<uint8_t> ptr(rawPtr, free);
-        EmulationAllocatePtrs_.push_back(ptr);
-        return rawPtr;
+        return reinterpret_cast<uint8_t*>(hostMemMgr_.Alloc(size));
     }
 
     uint8_t* AllocZero(uint64_t size, uint8_t** cachedDevAddrHolder)
     {
         (void)cachedDevAddrHolder;
         uint8_t* devPtr = AllocDev(size, nullptr);
-        memset_s(devPtr, size, 0, size);
+        if (devPtr != nullptr) {
+            (void)hostMemMgr_.Memset(devPtr, size, 0, size);
+        }
         return devPtr;
     }
 
@@ -66,7 +63,7 @@ struct EmulationMemoryUtils {
     {
         uint8_t* devPtr = AllocDev(size, cachedDevAddrHolder);
         if (devPtr != nullptr) {
-            memcpy_s(devPtr, size, data, size);
+            (void)hostMemMgr_.Memcpy(devPtr, size, data, size, 0);
         }
         return devPtr;
     }
@@ -78,7 +75,7 @@ struct EmulationMemoryUtils {
         return (T*)CopyToDev((uint8_t*)data.data(), data.size() * sizeof(T), nullptr);
     }
 
-    void CopyFromDev(uint8_t* data, uint8_t* devPtr, uint64_t size) { memcpy_s(data, size, devPtr, size); }
+    void CopyFromDev(uint8_t* data, uint8_t* devPtr, uint64_t size) { (void)hostMemMgr_.Memcpy(data, size, devPtr, size, 0); }
 
     uint8_t* CopyToDev(RawTensorData& data)
     {
@@ -94,7 +91,7 @@ struct EmulationMemoryUtils {
     uint64_t GetL2Offset() { return 0; }
 
 private:
-    std::vector<std::shared_ptr<uint8_t>> EmulationAllocatePtrs_;
+    HostMemoryManager hostMemMgr_;
 };
 
 class EmulationLauncher {

@@ -25,6 +25,7 @@
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 #include "machine/runtime/device_launcher.h"
+#include "machine/runtime/memory/memory_manager.h"
 #include "cost_model/simulation/backend.h"
 #include "machine/runtime/host_prof.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -89,8 +90,10 @@ struct MemoryHelper {
     uint8_t* CopyToDev(uint8_t* data, uint64_t size, uint8_t** cachedDevAddrHolder)
     {
         (void)cachedDevAddrHolder;
-        auto ptr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
-        memcpy_s(ptr, size, data, size);
+        auto ptr = reinterpret_cast<uint8_t*>(hostMemMgr_.Alloc(size));
+        if (ptr != nullptr) {
+            (void)hostMemMgr_.Memcpy(ptr, size, data, size, 0);
+        }
         return ptr;
     }
 
@@ -116,20 +119,24 @@ struct MemoryHelper {
         return data.GetDevPtr();
     }
 
-    void CopyFromDev(uint8_t* data, uint8_t* devPtr, uint64_t size) { memcpy_s(data, size, devPtr, size); }
+    void CopyFromDev(uint8_t* data, uint8_t* devPtr, uint64_t size)
+    {
+        (void)hostMemMgr_.Memcpy(data, size, devPtr, size, 0);
+    }
 
     uint8_t* AllocDev(size_t size, uint8_t** cachedDevAddrHolder)
     {
         (void)cachedDevAddrHolder;
-        uint8_t* devPtr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
-        return devPtr;
+        return reinterpret_cast<uint8_t*>(hostMemMgr_.Alloc(size));
     }
 
     uint8_t* AllocZero(uint64_t size, uint8_t** cachedDevAddrHolder)
     {
         (void)cachedDevAddrHolder;
         uint8_t* devPtr = AllocDev(size, nullptr);
-        memset_s(devPtr, size, 0, size);
+        if (devPtr != nullptr) {
+            (void)hostMemMgr_.Memset(devPtr, size, 0, size);
+        }
         return devPtr;
     }
 
@@ -138,6 +145,7 @@ struct MemoryHelper {
     uint64_t GetL2Offset() { return 0; }
 
     bool isTest_{true};
+    HostMemoryManager hostMemMgr_;
 };
 
 class AiCorePvModelImpl : public CostModel::AiCoreModel {
