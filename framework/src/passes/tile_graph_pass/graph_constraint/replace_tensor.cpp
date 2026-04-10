@@ -901,22 +901,6 @@ inline int64_t Pad(int64_t dim, int64_t padValue)
 }
 
 /**
- * @brief 计算tensor的数据量
- */
-int computeTensorSize(const LogicalTensorPtr& tensor) {
-    if (tensor == nullptr || tensor->shape.empty()) {
-        return 0;
-    }
-
-    int bytes = BytesOf(tensor->Datatype());
-    int tensorSize = bytes;
-    for (int dim : tensor->shape) {
-        tensorSize *= dim;
-    }
-    return tensorSize;
-}
-
-/**
  * @brief 为 UB 内存类型的输入插入拷贝序列 (UB → DDR → UB)
  */
 Status ReplaceTensor::InsertCopyUBOp(Function& function, Operation* needInsertCopyAssOp, LogicalTensorPtr& input)
@@ -965,8 +949,8 @@ Status ReplaceTensor::InsertCopyDDROp(Function& function, Operation* needInsertC
     auto memType = copyInOutput.GetMemoryTypeOriginal();
     if ((memType == MemoryType::MEM_UB) && (copyInOutput.GetDataSize() > UB_SIZE_THRESHOLD)) {
         APASS_LOG_ERROR_F(Elements::Tensor, 
-                          "Tensor [%d] can not copy to UB, tensor size [%d] exceeds the UB size [%d] limit.", input->magic, 
-                          computeTensorSize(input), UB_SIZE_THRESHOLD);
+                          "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.", input->magic, 
+                          input->GetDataSize(), UB_SIZE_THRESHOLD);
         return FAILED;
     }
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
