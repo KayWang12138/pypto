@@ -869,6 +869,19 @@ void ExecuteOpTopK(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
 
+void ExecuteOpQuantMX(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 4);
+    auto out = ctx->ooperandInplaceDataViewList->at(0);
+    auto exp = ctx->ooperandInplaceDataViewList->at(1);
+    auto max = ctx->ooperandInplaceDataViewList->at(2);
+    auto scaling = ctx->ooperandInplaceDataViewList->at(3);
+    auto src = ctx->ioperandDataViewList->at(0);
+    calc::QuantMX(out, exp, max, scaling, src);
+}
+REGISTER_CALC_OP(OP_QUANT_MX, Opcode::OP_QUANT_MX, ExecuteOpQuantMX);
+
 void ExecuteOpBitSort(ExecuteOperationContext* ctx)
 {
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);

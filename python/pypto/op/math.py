@@ -230,6 +230,22 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
+def quant_mx(input: Tensor) -> Tuple[Tensor, Tensor]:
+    """Quantizes a 2D to 4D FP16/BF16/FP32 ND tensor to MXFP8.
+
+    Returns
+    -------
+    tuple
+        A tuple of `(quantized, scale)` where:
+        - `quantized` has the same shape as `input` and dtype `DT_FP8E4M3`
+        - `scale` has the same rank as `input`, with the last dimension changed to `K // 32`,
+          and dtype `DT_FP8E8M0`
+    """
+
+    return pypto_impl.QuantMX(input)
+
+
+@op_wrapper
 def hypot(self: Tensor, other: Tensor) -> Tensor:
     """Computes the hypotenuse of a right-angled triangle given its legs.
 
