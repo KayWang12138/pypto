@@ -302,6 +302,7 @@ enum class Opcode {
     OP_TOPK_SORT,
     OP_TOPK_MERGE,
     OP_TOPK_EXTRACT,
+    OP_QUANT_MX,
     // End: topk for DS3.2-Day0
     // Begin: add for Reduce Atomic
     OP_REDUCE_ACC,
@@ -758,6 +759,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_TOPK_SORT,
     Opcode::OP_TOPK_MERGE,
     Opcode::OP_TOPK_EXTRACT,
+    Opcode::OP_QUANT_MX,
     Opcode::OP_SCATTER_ELEMENT,
     Opcode::OP_SIGN,
     Opcode::OP_SIGNBIT,
