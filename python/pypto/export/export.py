@@ -2,10 +2,8 @@ import torch
 import torch.nn as nn
 import torch.onnx
 import onnx
-import torchair
 
 from pathlib import Path
-from typing import Union
 
 __all__ = ("export_to_onnx", "export_to_torchair")
 
@@ -34,6 +32,13 @@ def export_to_onnx(model: nn.Module, inputs: torch.Tensor, path: str, input_name
 
 def export_to_torchair(model: nn.Module, inputs: torch.Tensor, path: str):
     """Export a PyTorch model to TorchAir format."""
+    try:
+        import torchair
+    except ImportError as e:
+        raise ImportError(
+            "export_to_torchair requires torchair package"
+        ) from e
+
     path = Path(path)
 
     torchair.dynamo_export(

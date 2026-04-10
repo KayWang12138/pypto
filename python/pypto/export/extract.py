@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import os
 import json
 import sys
-from typing import Union, Any
+from typing import Any, Union
 
 import onnx
-import torchair
 
 from .meta_schema import (
     _get_meta_attr_name,
@@ -93,7 +94,7 @@ def _extract_zip_from_onnx_node(
 
 
 def extract_node_from_ge_graph(
-    ge_graph: torchair.ge._ge_graph.GeGraph,
+    ge_graph: "torchair.ge._ge_graph.GeGraph",
     op_type: str,
 ):
     """Return the first GE graph op matching op_type."""
