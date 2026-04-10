@@ -153,7 +153,11 @@ static std::string MakeManualLoadCodegenCCE(const ir::CallPtr& op, codegen::Code
   CHECK(offsets_tuple != nullptr) << "manual.load second argument must be a tuple (offsets)";
 
   auto out_tile = std::dynamic_pointer_cast<const ir::Var>(op->args_[2]);
-  CHECK(out_tile != nullptr) << "manual.load third argument (out) must be a Var";
+  if (!out_tile) {
+    // Support TupleGetItemExpr (e.g., qk_vec_buf[0]) — resolved by GetExprAsCode below
+    CHECK(ir::As<ir::TileType>(op->args_[2]->GetType()) != nullptr)
+        << "manual.load third argument (out) must be a tile (Var or TupleGetItemExpr)";
+  }
 
   std::string src_tensor_var = codegen.GetVarName(src_tensor_var_ptr);
   auto src_tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(src_tensor_var_ptr->GetType());
