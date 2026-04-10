@@ -99,66 +99,7 @@ void ValidatePermutation(const std::vector<int>& perm, int shapeSize)
     }
 }
 
-struct PermuteAxes {
-    int axis0 = -1;
-    int axis1 = -1;
-    int axis2 = -1;
-    int axis3 = -1;
-    int axis4 = -1;
-    int dimCount = 0;
-};
 
-static PermuteAxes ExtractAxes(const std::vector<int>& perm)
-{
-    PermuteAxes axes;
-    axes.dimCount = static_cast<int>(perm.size());
-    if (axes.dimCount > 0)
-        axes.axis0 = perm[0];
-    if (axes.dimCount > 1)
-        axes.axis1 = perm[1];
-    if (axes.dimCount > 2)
-        axes.axis2 = perm[2];
-    if (axes.dimCount > 3)
-        axes.axis3 = perm[3];
-    if (axes.dimCount > 4)
-        axes.axis4 = perm[4];
-    return axes;
-}
-
-static void SetPermuteAttributes(Operation& op, const PermuteAxes& axes)
-{
-    op.SetAttribute(OP_ATTR_PREFIX + "axis0", axes.axis0);
-    op.SetAttribute(OP_ATTR_PREFIX + "axis1", axes.axis1);
-    op.SetAttribute(OP_ATTR_PREFIX + "axis2", axes.axis2);
-    op.SetAttribute(OP_ATTR_PREFIX + "axis3", axes.axis3);
-    op.SetAttribute(OP_ATTR_PREFIX + "axis4", axes.axis4);
-    op.SetAttribute(OP_ATTR_PREFIX + "dimCount", axes.dimCount);
-}
-
-static std::vector<int> ReconstructPerm(const Operation& op)
-{
-    int dimCount = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "dimCount"));
-    PermuteAxes axes;
-    axes.axis0 = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "axis0"));
-    axes.axis1 = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "axis1"));
-    axes.axis2 = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "axis2"));
-    axes.axis3 = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "axis3"));
-    axes.axis4 = static_cast<int>(op.GetIntAttribute(OP_ATTR_PREFIX + "axis4"));
-    axes.dimCount = dimCount;
-
-    std::vector<int> perm;
-    if (dimCount > 0)
-        perm.push_back(axes.axis0);
-    if (dimCount > 1)
-        perm.push_back(axes.axis1);
-    if (dimCount > 2)
-        perm.push_back(axes.axis2);
-    if (dimCount > 3)
-        perm.push_back(axes.axis3);
-    if (dimCount > 4)
-        perm.push_back(axes.axis4);
-    return perm;
-}
 
 static LogicalTensorPtr MakePermutedLogicalTensor(
     Function& function, const LogicalTensorPtr& self, const std::vector<int>& perm)
@@ -183,7 +124,7 @@ Tensor TensorPermuteOperation(Function& function, LogicalTensorPtr self, const s
 {
     auto result = MakePermutedLogicalTensor(function, self, perm);
     auto& op = function.AddOperation(Opcode::OP_PERMUTE, {self}, {result});
-    SetPermuteAttributes(op, ExtractAxes(perm));
+    op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
     function.UpdateTensorDataUsage(op);
     return result;
 }
@@ -200,7 +141,7 @@ void TiledPermuteOperation(
         auto resultTile = result->View(function, resultTileShape, resultTileOffset);
 
         auto& op = function.AddOperation(Opcode::OP_PERMUTE, {srcTile}, {resultTile});
-        SetPermuteAttributes(op, ExtractAxes(perm));
+        op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
         op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
         return;
     }
@@ -219,7 +160,7 @@ void PermuteOperationTileFunc(
 {
     PermuteOperationOperandCheck(iOperand, oOperand);
 
-    std::vector<int> perm = ReconstructPerm(op);
+    std::vector<int> perm = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
 
     TileInfo tileInfo(iOperand[0]->shape.size(), iOperand[0]->offset.size());
     Input input{iOperand[0], tileInfo};
@@ -240,7 +181,7 @@ Tensor TensorElementPermuteOperation(Function& function, LogicalTensorPtr self, 
 {
     auto result = MakePermutedLogicalTensor(function, self, perm);
     auto& op = function.AddOperation(Opcode::OP_PERMUTE_ELEMENT, {self}, {result});
-    SetPermuteAttributes(op, ExtractAxes(perm));
+    op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
     function.UpdateTensorDataUsage(op);
     return result;
 }
@@ -257,7 +198,7 @@ void TiledPermuteElementOperation(
         auto resultTile = result->View(function, resultTileShape, resultTileOffset);
 
         auto& op = function.AddOperation(Opcode::OP_PERMUTE_ELEMENT, {srcTile}, {resultTile});
-        SetPermuteAttributes(op, ExtractAxes(perm));
+        op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
         op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
         return;
     }
@@ -276,7 +217,7 @@ void PermuteElementOperationTileFunc(
 {
     PermuteOperationOperandCheck(iOperand, oOperand);
 
-    std::vector<int> perm = ReconstructPerm(op);
+    std::vector<int> perm = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
 
     TileInfo tileInfo(iOperand[0]->shape.size(), iOperand[0]->offset.size());
     Input input{iOperand[0], tileInfo};

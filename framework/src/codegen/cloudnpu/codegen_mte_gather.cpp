@@ -297,16 +297,6 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const
     return "";
 }
 
-std::string CodeGenOpCloudNPU::GenPermuteOp() const
-{
-    return PrintPermuteLayout();
-}
-
-std::string CodeGenOpCloudNPU::GenPermuteElementOp() const
-{
-    return PrintPermuteElementLayout();
-}
-
 std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const
 {
     constexpr int paramIndex = 1;

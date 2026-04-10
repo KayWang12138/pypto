@@ -1017,41 +1017,20 @@ void PermuteInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &o
     if (!op->GetIOperands().empty()) {
         inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
     }
-
     if (inputValidShape.empty()) {
         return;
     }
-
-    std::vector<int> perm;
-    int dimCount = static_cast<int>(op->GetIntAttribute(OP_ATTR_PREFIX + "dimCount"));
-    if (dimCount > 0) {
-        perm.push_back(static_cast<int>(op->GetIntAttribute(OP_ATTR_PREFIX + "axis0")));
-    }
-    if (dimCount > 1) {
-        perm.push_back(static_cast<int>(op->GetIntAttribute(OP_ATTR_PREFIX + "axis1")));
-    }
-    if (dimCount > 2) {
-        perm.push_back(static_cast<int>(op->GetIntAttribute(OP_ATTR_PREFIX + "axis2")));
-    }
-    if (dimCount > 3) {
-        perm.push_back(static_cast<int>(op->GetIntAttribute(OP_ATTR_PREFIX + "axis3")));
-    }
-    if (dimCount > 4) {
-        perm.push_back(static_cast<int>(op->GetIntAttribute(OP_ATTR_PREFIX + "axis4")));
-    }
-
+    std::vector<int> perm = op->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
     std::vector<SymbolicScalar> resultValidShape;
     resultValidShape.reserve(perm.size());
     for (int axis : perm) {
         resultValidShape.push_back(inputValidShape[axis]);
     }
-
     if (op->GetAttr(OP_ATTR_PREFIX + "validShape", validShape) && !validShape.empty()) {
         outValidShapes.push_back(validShape);
     } else if (!resultValidShape.empty()) {
         outValidShapes.push_back(resultValidShape);
     }
-
     for (size_t idx = 1; idx < oOperands.size(); ++idx) {
         auto outputValidShape = oOperands[idx]->GetDynValidShape();
         if (outputValidShape.empty()) {

@@ -185,6 +185,37 @@ std::string CodeGenOpCloudNPU::GenDupOp() const
     return PrintDupOp({dVar, dstDtypeStr, dupV});
 }
 
+std::string CodeGenOpCloudNPU::PrintPermuteLayout() const
+{
+    size_t srcDim = rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size();
+    auto srcOffsetSymbol = GenGetParamMacroPacked(ToUnderlying(MISOIdx::SRC0_IDX), srcDim, PREFIX_STR_OFFSET);
+    std::string coordCpSrc = WrapParamByParentheses(srcOffsetSymbol);
+    std::string coord4Src = PrintCoord(srcDim, coordCpSrc);
+
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string outputTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+
+    auto permAttr = opAttrs.at(OP_ATTR_PREFIX + "perm");
+    std::vector<int64_t> permVec = AnyCast<std::vector<int64_t>>(permAttr);
+    int axis0 = (permVec.size() > 0) ? static_cast<int>(permVec[0]) : -1;
+    int axis1 = (permVec.size() > 1) ? static_cast<int>(permVec[1]) : -1;
+    int axis2 = (permVec.size() > 2) ? static_cast<int>(permVec[2]) : -1;
+    int axis3 = (permVec.size() > 3) ? static_cast<int>(permVec[3]) : -1;
+    int axis4 = (permVec.size() > 4) ? static_cast<int>(permVec[4]) : -1;
+    int dimCount = static_cast<int>(permVec.size());
+
+    std::vector<std::string> tileOpParamList = {outputTensor, srcTensor, coord4Src};
+    std::ostringstream oss;
+    oss << tileOpName << "<" << axis0 << ", " << axis1 << ", " << axis2 << ", "
+        << axis3 << ", " << axis4 << ", " << dimCount << ">" << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenPermuteOp() const
+{
+    return PrintPermuteLayout();
+}
+
 std::string CodeGenOpCloudNPU::GenTransposeDataMove() const
 {
     bool isCopyLocalToGM = opCode == Opcode::OP_TRANSPOSE_MOVEOUT;

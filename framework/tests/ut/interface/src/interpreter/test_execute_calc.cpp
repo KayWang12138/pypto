@@ -1087,7 +1087,7 @@ TEST_F(CalcCommonTest, ExecuteOpReduceAccBasic)
     EXPECT_FLOAT_EQ(outView->Get<float>(2), 18.f);
 }
 
-// 测试 ExecuteOpPermute，验证 OP_PERMUTE 读取 dimCount/axis0-4 属性后调用 calc::Permute
+// 测试 ExecuteOpPermute，验证 OP_PERMUTE 读取 perm 属性后调用 calc::Permute
 TEST_F(CalcCommonTest, ExecuteOpPermute3D)
 {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestPermute3D", "TestPermute3D", nullptr);
@@ -1099,12 +1099,7 @@ TEST_F(CalcCommonTest, ExecuteOpPermute3D)
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
 
     auto &permuteOp = func->AddOperation(Opcode::OP_PERMUTE, {inputTensor}, {outputTensor});
-    permuteOp.SetAttribute(OP_ATTR_PREFIX + "dimCount", static_cast<int64_t>(3));
-    permuteOp.SetAttribute(OP_ATTR_PREFIX + "axis0", static_cast<int64_t>(1));
-    permuteOp.SetAttribute(OP_ATTR_PREFIX + "axis1", static_cast<int64_t>(0));
-    permuteOp.SetAttribute(OP_ATTR_PREFIX + "axis2", static_cast<int64_t>(2));
-    permuteOp.SetAttribute(OP_ATTR_PREFIX + "axis3", static_cast<int64_t>(-1));
-    permuteOp.SetAttribute(OP_ATTR_PREFIX + "axis4", static_cast<int64_t>(-1));
+    permuteOp.SetAttribute(OP_ATTR_PREFIX + "perm", std::vector<int>{1, 0, 2});
 
     Tensor inputTensorData(DT_FP32, inShape);
     Tensor outputTensorData(DT_FP32, outShape);
