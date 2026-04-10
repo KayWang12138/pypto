@@ -1,0 +1,460 @@
+"""FlashAttention kernel using PyPTO IR manual (non-SSA) mode - BS axis version.
+
+Multi-core with Q tiling loop + double buffer for K loads in Cube section.
+K loaded with DN layout (TLOAD transposes on-chip), TILE_SQ=128, TILE_SKV=128, TILE_D=128.
+
+Features:
+  1. Multi-core: each core processes multiple Q tiles via strided loop
+  2. Double buffer: k_mat ping/pong in MAT space for overlapping K loads with computation
+  3. Backward sync: bar_all() at Q iteration boundary to ensure buffer reuse safety
+  4. BS axis support: 4D tensors [B, Sq, N, D] with offsets [b_idx, sq_off, n_idx, d_off]
+  5. S-dimension stride: N*D (S jumps across N heads, each with D elements)
+  6. Loop order: batch -> head (n_idx) -> Q tiles (qi) -> KV tiles (j)
+
+Tensor shapes:
+  - Q/K/V/O: [B, Sq, N, D], qk_buf: [B, Sq, N, Skv], p_buf: [B, Sq, N, Skv]
+  
+Layout explanation:
+  - BSND: [Batch, SeqLen, NumHeads, HeadDim]
+  - Stride: S-stride = N*D, N-stride = D, D-stride = 1
+  - In BSND layout, different heads are at dimension 2 (N), accessed via n_idx
+  - Sequence length (S) is at dimension 1, accessed via qi (for Q) or j (for K/V)
+
+Usage:
+    python3 tests/ut/frontend/test_fa_bsnd.py
+"""
+
+import math
+import torch
+import torch_npu
+import pypto_block.frontend as fe
+import pypto_block.language as pl
+import pypto_block.language.op.manual as plm
+
+TS = 128
+TKV = 128
+TD = 128
+TS_HALF = TS // 2
+SCALE = 1.0 / math.sqrt(TD)
+
+Q_F16   = TS * TD * 2
+KT_F16  = TD * TKV * 2
+QK_F16  = TS * TKV * 2
+V_F16   = TKV * TD * 2
+P_F16   = TS * TKV * 2
+QK_F32  = TS * TKV * 4
+PV_F32  = TS * TD * 4
+
+MA0 = 0
+MA0_PONG = MA0 + Q_F16
+MA1 = Q_F16 * 2
+MA1_PONG = MA1 + KT_F16
+MA2 = MA1 + KT_F16 * 2
+MA2_PONG = MA2 + P_F16
+MA3 = MA2 + P_F16  * 2
+MA3_PONG = MA3 + V_F16
+
+LA0 = 0
+LA1 = Q_F16
+
+RA0 = 0
+RA1 = KT_F16
+
+CA0 = 0
+CA1 = QK_F32
+
+VB4_KV = TS_HALF * TKV * 4
+VB2_KV = TS_HALF * TKV * 2
+VB4    = TS_HALF * TD * 4
+VB2    = TS_HALF * TD * 2
+VB_RED = TS_HALF * 1 * 4
+VA0 = 0
+VA1 = VA0 + VB4_KV
+VA2 = VA1 + VB4_KV
+VA3 = VA2 + VB2_KV
+VA4 = VA3 + VB_RED
+VA5 = VA4 + VB_RED
+VA6 = VA5 + VB_RED
+VA7 = VA6 + VB_RED
+VA8 = VA7 + VB4
+VA9 = VA8 + VB4
+
+QK_READY = 0
+P_READY = 1
+PV_READY = 2
+PV_CORE_STRIDE = 2 * TS
+
+B = pl.DynVar('B')
+N = pl.DynVar('N')
+Sq2 = pl.DynVar('Sq')
+Skv2 = pl.DynVar('Skv')
+D2 = pl.DynVar('D')
+NumRanges = pl.DynVar('NumRanges')
+
+
+@fe.kernel
+def fa_k_kernel_bs(
+    q: pl.Tensor[[B, Sq2, N, D2], pl.FP16],
+    k: pl.Tensor[[B, Skv2, N, D2], pl.FP16],
+    v: pl.Tensor[[B, Skv2, N, D2], pl.FP16],
+    o: pl.Tensor[[B, Sq2, N, D2], pl.FP16],
+    qk_buf: pl.Tensor[[B, Sq2, N, Skv2], pl.FP32],
+    p_buf: pl.Tensor[[B, Sq2, N, Skv2], pl.FP16],
+    pv_buf: pl.Tensor[[48 * TS, D2], pl.FP32],
+    work_ranges: pl.Tensor[[NumRanges, 2], pl.INT32],
+) -> pl.Tensor[[B, Sq2, N, D2], pl.FP16]:
+    with pl.section_cube():
+        sq_dim = Sq2
+        skv_dim = Skv2
+        sq_tiles = (sq_dim + (TS - 1)) // TS
+        skv_tiles = (skv_dim + (TKV - 1)) // TKV
+        num_cores = pl.block.index_cast(pl.block.get_block_num())
+        core_id = pl.block.index_cast(pl.block.get_block_idx())
+        n_dim = N
+
+        q_mat_type = plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat)
+        q_mat_0 = plm.make_tile(q_mat_type, addr=MA0, size=Q_F16)
+        q_mat_1 = plm.make_tile(q_mat_type, addr=MA0_PONG, size=Q_F16)
+        q_mat_buf = (q_mat_0, q_mat_1)
+
+        k_mat_type = plm.TileType(shape=[TD, TKV], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=1, slayout=2)
+        k_mat_0 = plm.make_tile(k_mat_type, addr=MA1, size=KT_F16)
+        k_mat_1 = plm.make_tile(k_mat_type, addr=MA1_PONG, size=KT_F16)
+        k_mat_buf = (k_mat_0, k_mat_1)
+
+        p_mat_0 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat), addr=MA2, size=P_F16)
+        p_mat_1 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat), addr=MA2_PONG, size=P_F16)
+        p_mat_buf = (p_mat_0, p_mat_1)
+
+        v_mat_0 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat), addr=MA3, size=V_F16)
+        v_mat_1 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat), addr=MA3_PONG, size=V_F16)
+        v_mat_buf = (v_mat_0, v_mat_1)
+
+        left_0 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Left), addr=LA0, size=Q_F16)
+        left_1 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Left), addr=LA1, size=Q_F16)
+        left_buf = (left_0, left_1)
+
+        right_0 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right), addr=RA0, size=KT_F16)
+        right_1 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right), addr=RA1, size=KT_F16)
+        right_buf = (right_0, right_1)
+
+        acc_0 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc), addr=CA0, size=QK_F32)
+        acc_1 = plm.make_tile(plm.TileType(shape=[TS, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc), addr=CA1, size=PV_F32)
+        acc_buf = (acc_0, acc_1)
+
+        event_ids = (0, 1)
+        pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=0)
+        pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=1)
+        pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=2)
+        pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=3)
+
+        pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
+        pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
+        pl.system.sync_src(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=0)
+
+        q_count = 0
+        left_index = 0
+        right_index = 0
+        work_start = pl.block.index_cast(pl.read(work_ranges, [core_id, 0]))
+        work_end = pl.block.index_cast(pl.read(work_ranges, [core_id, 1]))
+        for work_id in pl.range(work_start, work_end):
+            b_idx = work_id // n_dim
+            n_idx = work_id % n_dim
+            for qi in pl.range(0, sq_tiles):
+                pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=0)
+                sq_off = qi * TS
+                q_mat_idx = q_count % 2
+                plm.load_tile(q_mat_buf[q_mat_idx], q, [b_idx, qi, n_idx, 0], tile_dims=[1, 3])
+                pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
+                pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
+
+                for j in pl.range(0, skv_tiles):
+                    buf_idx = (q_count * skv_tiles + j) % 2
+                    skv_off = j * TKV
+
+                    pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
+                    plm.move(left_buf[left_index], q_mat_buf[q_mat_idx])
+                    if j == skv_tiles - 1:
+                        pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=0)
+
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=2)
+                    plm.load_tile(k_mat_buf[buf_idx], k, [b_idx, j, n_idx, 0], layout="dn", tile_dims=[1, 3])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=1)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=1)
+
+                    pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
+                    plm.move(right_buf[right_index], k_mat_buf[buf_idx])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=2)
+
+                    pl.system.sync_dst(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=0)
+                    plm.matmul(acc_buf[buf_idx], left_buf[left_index], right_buf[right_index])
+                    pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
+                    pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
+                    pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
+                    right_index = 1 - right_index
+                    left_index = 1 - left_index
+                    plm.store_tile(qk_buf, acc_buf[buf_idx], [b_idx, qi, n_idx, j], tile_dims=[1, 3])
+                    pl.system.sync_src(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=0)
+
+                    pl.system.set_cross_core(pipe=pl.PipeType.FIX, event_id=QK_READY)
+                    pl.system.wait_cross_core(pipe=pl.PipeType.MTE2, event_id=P_READY)
+
+                    buf_idx_pv = (q_count * skv_tiles + j) % 2
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=1)
+                    plm.load_tile(p_mat_buf[buf_idx], p_buf, [b_idx, qi, n_idx, j], tile_dims=[1, 3])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
+
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=3)
+                    plm.load_tile(v_mat_buf[buf_idx], v, [b_idx, j, n_idx, 0], tile_dims=[1, 3])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=1)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=1)
+
+                    pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
+                    plm.move(left_buf[left_index], p_mat_buf[buf_idx])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=1)
+
+                    pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
+                    plm.move(right_buf[right_index], v_mat_buf[buf_idx])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=3)
+
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=0)
+                    plm.matmul(acc_buf[buf_idx_pv], left_buf[left_index], right_buf[right_index])
+                    pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
+                    pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
+                    pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
+                    right_index = 1 - right_index
+                    left_index = 1 - left_index
+                    plm.store_tile(pv_buf, acc_buf[buf_idx_pv], [core_id * 2 + q_mat_idx, 0])
+                    pl.system.sync_src(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=0)
+                    pl.system.set_cross_core(pipe=pl.PipeType.FIX, event_id=PV_READY)
+                q_count = q_count + 1
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=0)
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=1)
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=2)
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=3)
+        pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
+        pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
+        pl.system.sync_dst(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=0)
+
+    with pl.section_vector():
+        sq_dim = Sq2
+        skv_dim = Skv2
+        sq_tiles = (sq_dim + (TS - 1)) // TS
+        skv_tiles = (skv_dim + (TKV - 1)) // TKV
+        num_cores = pl.block.index_cast(pl.block.get_block_num())
+        core_id = pl.block.index_cast(pl.block.get_block_idx())
+        sub_id = pl.block.index_cast(pl.block.get_subblock_idx())
+        row_off = sub_id * TS_HALF
+
+        qk_vec = plm.make_tile(plm.TileType(shape=[TS_HALF, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA0, size=VB4_KV)
+        tmp_vec = plm.make_tile(plm.TileType(shape=[TS_HALF, TKV], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA1, size=VB4_KV)
+        p_f16 = plm.make_tile(plm.TileType(shape=[TS_HALF, TKV], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec), addr=VA2, size=VB2_KV)
+
+        reduce_dst = plm.make_tile(plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2), addr=VA3, size=VB_RED)
+        global_max = plm.make_tile(plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2), addr=VA4, size=VB_RED)
+        global_sum = plm.make_tile(plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2), addr=VA5, size=VB_RED)
+        exp_corr = plm.make_tile(plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2), addr=VA6, size=VB_RED)
+
+        reduce_dst_rm = plm.make_tile(plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA3, size=VB_RED)
+        global_max_rm = plm.make_tile(plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA4, size=VB_RED)
+        global_sum_rm = plm.make_tile(plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA5, size=VB_RED)
+        exp_corr_rm = plm.make_tile(plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA6, size=VB_RED)
+
+        running_o = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA7, size=VB4)
+        pv_vec = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA8, size=VB4)
+        o_f16 = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec), addr=VA9, size=VB2)
+        q_count = 0
+        n_dim = N
+        work_start = pl.block.index_cast(pl.read(work_ranges, [core_id, 0]))
+        work_end = pl.block.index_cast(pl.read(work_ranges, [core_id, 1]))
+        for work_id in pl.range(work_start, work_end):
+            b_idx = work_id // n_dim
+            n_idx = work_id % n_dim
+            for qi in pl.range(0, sq_tiles):
+                sq_off = qi * TS
+                q_mat_idx = q_count % 2
+                pl.system.wait_cross_core(pipe=pl.PipeType.V, event_id=QK_READY)
+                plm.load_tile(qk_vec, qk_buf, [b_idx, qi * 2 + sub_id, n_idx, 0], tile_dims=[1, 3])
+                pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+                pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+                plm.row_max(reduce_dst, qk_vec, tmp_vec)
+                pl.system.bar_v()
+                plm.row_expand_sub(tmp_vec, qk_vec, reduce_dst)
+                plm.muls(global_max, reduce_dst, 1.0)
+                plm.muls(tmp_vec, tmp_vec, SCALE)
+                plm.exp(qk_vec, tmp_vec)
+                pl.system.bar_v()
+                plm.row_sum(reduce_dst, qk_vec, tmp_vec)
+                pl.system.bar_v()
+                plm.muls(global_sum, reduce_dst, 1.0)
+                plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
+                pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
+                pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
+                plm.store_tile(p_buf, p_f16, [b_idx, qi * 2 + sub_id, n_idx, 0], tile_dims=[1, 3])
+                pl.system.set_cross_core(pipe=pl.PipeType.MTE3, event_id=P_READY)
+
+                pl.system.wait_cross_core(pipe=pl.PipeType.V, event_id=PV_READY)
+                plm.load_tile(running_o, pv_buf, [core_id * 4 + q_mat_idx * 2 + sub_id, 0])
+                pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+                pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+
+                for j in pl.range(1, skv_tiles):
+                    skv_off = j * TKV
+                    pl.system.wait_cross_core(pipe=pl.PipeType.V, event_id=QK_READY)
+                    plm.load_tile(qk_vec, qk_buf, [b_idx, qi * 2 + sub_id, n_idx, j], tile_dims=[1, 3])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+
+                    plm.row_max(reduce_dst, qk_vec, tmp_vec)
+                    pl.system.bar_v()
+                    plm.maximum(reduce_dst_rm, reduce_dst_rm, global_max_rm)
+                    pl.system.bar_v()
+                    plm.sub(exp_corr_rm, global_max_rm, reduce_dst_rm)
+                    pl.system.bar_v()
+                    plm.muls(global_max_rm, reduce_dst_rm, 1.0)
+                    pl.system.bar_v()
+                    plm.row_expand_sub(tmp_vec, qk_vec, reduce_dst)
+                    plm.muls(exp_corr_rm, exp_corr_rm, SCALE)
+                    plm.muls(tmp_vec, tmp_vec, SCALE)
+                    plm.exp(exp_corr_rm, exp_corr_rm)
+                    plm.exp(qk_vec, tmp_vec)
+                    plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
+                    pl.system.bar_v()
+                    plm.mul(global_sum_rm, global_sum_rm, exp_corr_rm)
+                    plm.row_sum(reduce_dst, qk_vec, tmp_vec)
+                    pl.system.bar_v()
+                    plm.add(global_sum_rm, global_sum_rm, reduce_dst_rm)
+
+                    pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
+                    plm.store_tile(p_buf, p_f16, [b_idx, qi * 2 + sub_id, n_idx, j], tile_dims=[1, 3])
+                    pl.system.set_cross_core(pipe=pl.PipeType.MTE3, event_id=P_READY)
+
+                    pl.system.wait_cross_core(pipe=pl.PipeType.V, event_id=PV_READY)
+                    plm.load_tile(pv_vec, pv_buf, [core_id * 4 + q_mat_idx * 2 + sub_id, 0])
+                    pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+                    pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+                    plm.row_expand_mul(running_o, running_o, exp_corr)
+                    plm.add(running_o, running_o, pv_vec)
+                q_count = q_count + 1
+
+                plm.row_expand_div(running_o, running_o, global_sum)
+                plm.cast(o_f16, running_o, target_type=pl.FP16, mode="round")
+                pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
+                pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
+                plm.store_tile(o, o_f16, [b_idx, qi * 2 + sub_id, n_idx, 0], tile_dims=[1, 3])
+    return o
+
+
+def flash_attention_ref_bs(q, k, v, d):
+    scale_val = 1.0 / math.sqrt(d)
+    b, sq, n, d_ = q.shape
+    _, skv, _, _ = k.shape
+    o_ref = torch.zeros_like(q)
+    for bi in range(b):
+        for ni in range(n):
+            qk = torch.matmul(q[bi, :, ni, :].float(), k[bi, :, ni, :].float().T) * scale_val
+            attn = torch.softmax(qk, dim=-1)
+            o_ref[bi, :, ni, :] = torch.matmul(attn, v[bi, :, ni, :].float()).half()
+    return o_ref
+
+
+def test_fa_k_bs():
+    compiled = fe.compile(fa_k_kernel_bs, arch="a3")
+    print("compiled:", compiled.lib_path)
+    device = "npu:5"
+    torch.npu.set_device(device)
+    torch.manual_seed(42)
+    for b, sq, n, skv, d, num_cores in [
+        (25, 256, 1, 256, TD, 24),
+        (2, 1024, 1, 2048, TD, 12),
+        (1, 8192, 4, 8192, TD, 24),
+        (4, 512, 4, 512, TD, 6),
+        (2, 2048, 4, 2048, TD, 24),
+        (7, 512, 3, 512, TD, 6),
+    ]:
+        print(f"\nFA-K-BS (b={b}, sq={sq}, n={n}, skv={skv}, d={d}) cores={num_cores}")
+        q = torch.rand((b, sq, n, d), device=device, dtype=torch.float16)
+        k = torch.rand((b, skv, n, d), device=device, dtype=torch.float16)
+        v = torch.rand((b, skv, n, d), device=device, dtype=torch.float16)
+        o = torch.zeros((b, sq, n, d), device=device, dtype=torch.float16)
+        qk_buf = torch.zeros((b, sq, n, skv), device=device, dtype=torch.float32)
+        p_buf = torch.zeros((b, sq, n, skv), device=device, dtype=torch.float16)
+        pv_buf = torch.zeros((48 * TS, d), device=device, dtype=torch.float32)
+        
+        total_work = b * n
+        work_ranges = torch.zeros((num_cores, 2), device=device, dtype=torch.int32)
+        
+        work_per_core = (total_work + num_cores - 1) // num_cores
+        for core in range(num_cores):
+            work_start = core * work_per_core
+            work_end = min((core + 1) * work_per_core, total_work)
+            work_ranges[core, 0] = work_start
+            work_ranges[core, 1] = work_end
+        
+        actual_num_cores = min(num_cores, total_work)
+        fe.launch(None, actual_num_cores, compiled, q, k, v, o, qk_buf, p_buf, pv_buf, work_ranges)
+        torch.npu.synchronize()
+
+        # Print intermediate results for debugging
+        print(f"  Q shape: {q.shape}, dtype: {q.dtype}")
+        print(f"  K shape: {k.shape}, dtype: {k.dtype}")
+        print(f"  V shape: {v.shape}, dtype: {v.dtype}")
+        print(f"  QK_buf shape: {qk_buf.shape}, dtype: {qk_buf.dtype}")
+        print(f"  P_buf shape: {p_buf.shape}, dtype: {p_buf.dtype}")
+        print(f"  O shape: {o.shape}, dtype: {o.dtype}")
+        
+        # Print statistics of intermediate results
+        print(f"  Q stats: min={q.min().item():.4f}, max={q.max().item():.4f}, mean={q.mean().item():.4f}")
+        print(f"  K stats: min={k.min().item():.4f}, max={k.max().item():.4f}, mean={k.mean().item():.4f}")
+        print(f"  V stats: min={v.min().item():.4f}, max={v.max().item():.4f}, mean={v.mean().item():.4f}")
+        print(f"  QK_buf stats: min={qk_buf.min().item():.4f}, max={qk_buf.max().item():.4f}, mean={qk_buf.mean().item():.4f}")
+        print(f"  P_buf stats: min={p_buf.min().item():.4f}, max={p_buf.max().item():.4f}, mean={p_buf.mean().item():.4f}")
+        print(f"  O stats: min={o.min().item():.4f}, max={o.max().item():.4f}, mean={o.mean().item():.4f}")
+        
+        # Check if QK_buf has NaN or Inf
+        if torch.isnan(qk_buf).any():
+            print(f"  WARNING: QK_buf contains NaN!")
+        if torch.isinf(qk_buf).any():
+            print(f"  WARNING: QK_buf contains Inf!")
+        
+        # Check if P_buf has NaN or Inf
+        if torch.isnan(p_buf).any():
+            print(f"  WARNING: P_buf contains NaN!")
+        if torch.isinf(p_buf).any():
+            print(f"  WARNING: P_buf contains Inf!")
+        
+        # Check if O has NaN or Inf
+        if torch.isnan(o).any():
+            print(f"  WARNING: O contains NaN!")
+        if torch.isinf(o).any():
+            print(f"  WARNING: O contains Inf!")
+        
+        o_ref = flash_attention_ref_bs(q, k, v, d)
+        print(f"  O_ref stats: min={o_ref.min().item():.4f}, max={o_ref.max().item():.4f}, mean={o_ref.mean().item():.4f}")
+        
+        diff = (o - o_ref).abs().max().item()
+        print(f"  max|diff|={diff:.4f}")
+        
+        # Print per-head differences
+        for ni in range(n):
+            diff_head = (o[:, :, ni, :] - o_ref[:, :, ni, :]).abs().max().item()
+            print(f"  Head {ni} max|diff|={diff_head:.4f}")
+        
+        torch.testing.assert_close(o, o_ref, rtol=1e-3, atol=1e-3)
+        print("  PASS")
+
+
+if __name__ == "__main__":
+    print("FA DN layout for K, multi-core + Q tiling + double buffer + BS axis")
+    print("S-dimension stride: N*D (S jumps across N heads)")
+    print("=" * 60)
+    test_fa_k_bs()
+    print("\nAll FlashAttention tests passed!")
