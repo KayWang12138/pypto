@@ -33,6 +33,7 @@ constexpr uint64_t SHMEM_DIM_COL = 2;
 constexpr uint64_t ATTR_STRIDE_OFFSET = 1;
 constexpr uint64_t ATTR_TILEROW_OFFSET = 3;
 constexpr uint64_t ATTR_TILECOL_OFFSET = 4;
+constexpr uint64_t ATTR_COMMCONTEXT_OFFSET = 5;
 
 struct TensorInfo {
     uint64_t rawAddr{0};
@@ -60,6 +61,7 @@ struct AicpuParamInfo {
     uint32_t tileShapeCol{0};
     uint32_t rankNum{0};
     uint32_t maxTileNum{0};
+    uint32_t commContextIndex{0};
 };
 
 inline uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
@@ -146,6 +148,7 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
     paramInfo.bufferStride = aicpuCode[paramInfo.attrIndex + ATTR_STRIDE_OFFSET];
     paramInfo.tileShapeRow = aicpuCode[paramInfo.attrIndex + ATTR_TILEROW_OFFSET];
     paramInfo.tileShapeCol = aicpuCode[paramInfo.attrIndex + ATTR_TILECOL_OFFSET];
+    paramInfo.commContextIndex = aicpuCode[paramInfo.attrIndex + ATTR_COMMCONTEXT_OFFSET];
     return paramInfo;
 }
 } // namespace npu::tile_fwk::Distributed

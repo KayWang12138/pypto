@@ -447,4 +447,8 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam* ctx, uint64_t address)
 
 #define RUNTIME_GetHcclRankId(groupIndex) \
     ((TileOp::CommContext*)(RuntimeGetStartArgs()->commContexts[groupIndex]))->rankId
+#define RUNTIME_GetHcclRankIdV2(addr) ((TileOp::CommContext*)(addr))->rankId
+
+ #define RUNTIME_GetInputDataAddr(inputIndex) \
+ 	(RuntimeGetStartArgs()->devTensorList[(inputIndex)].address)
 #endif // AST_RUNTIME_H

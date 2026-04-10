@@ -241,6 +241,7 @@ private:
     int64_t* hcclContextAddr_;
     uint64_t commGroupNum_{0};
     AicpuParamInfo paramInfo_;
+    uint64_t CommContextAddr_;
 
     uint64_t GetRawAddr(const uint64_t addr);
     TensorInfo GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode);

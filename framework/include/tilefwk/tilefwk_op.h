@@ -559,11 +559,12 @@ struct ShmemTensor {
     Tensor data;
     Tensor signal;
     void* signalOp{nullptr};
+    Tensor* commTensor
 };
-ShmemTensor CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape);
-void CreateShmemTensor(const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t);
-ShmemTensor CreateShmemSignal(const char* group, int64_t worldSize);
-void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor& t);
+ShmemTensor CreateShmemTensor(const Tensor& commContext, const char* group, int64_t worldSize, DataType dataType, const Shape& shape);
+void CreateShmemTensor(const Tensor& commContext, const char* group, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t);
+ShmemTensor CreateShmemSignal(const Tensor& commContext, const char* group, int64_t worldSize);
+void CreateShmemSignal(const Tensor& commContext, const char* group, int64_t worldSize, ShmemTensor& t);
 ShmemTensor ShmemView(
     const ShmemTensor& operand, const std::vector<int64_t>& shapes, const std::vector<int64_t>& offsets);
 ShmemTensor ShmemView(

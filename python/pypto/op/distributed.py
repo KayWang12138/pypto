@@ -22,7 +22,25 @@ from pypto.tensor import Tensor, ShmemTensor
 
 
 @op_wrapper
+def create_comm_tensor(group, device):
+    nbytes, ctx_addr = pypto_impl.GetCommContext(group)
+    metadata = {
+        "data_ptr": ctx_addr,
+        "device": device,
+        "nbytes": nbytes,
+        "dtype": torch.int8,
+        "size": (1, nbytes),
+        "stride": (nbytes, 1),
+        "storage_offset": 0
+    }
+    storage = torch_npu._C._construct_storage_from_data_pointer(
+        metadata["data_ptr"], torch.device(metadata["device"]), metadata["nbytes"]
+    )
+    return torch_npu._C._construct_NPU_Tensor_From_Storage_And_Metadata(metadata, storage)
+
+@op_wrapper
 def create_shmem_tensor(
+    comm_tensor: Tensor,
     group_name: str,
     n_pes: int,
     dtype: DataType,
@@ -57,12 +75,12 @@ def create_shmem_tensor(
     """
     t = ShmemTensor()
     for _ in loop(1, name="CREATE_SHMEM_TENSOR", idx_name="_"):
-        pypto_impl.CreateShmemTensor(group_name, n_pes, dtype, shape, t.base())
+        pypto_impl.CreateShmemTensor(comm_tensor, group_name, n_pes, dtype, shape, t.base())
     return t
 
 
 @op_wrapper
-def create_shmem_signal(group_name: str, n_pes: int) -> ShmemTensor:
+def create_shmem_signal(comm_tensor: Tensor, group_name: str, n_pes: int) -> ShmemTensor:
     """Creates a signal tensor in shared memory.
 
     Parameters
@@ -83,7 +101,7 @@ def create_shmem_signal(group_name: str, n_pes: int) -> ShmemTensor:
     """
     t = ShmemTensor()
     for _ in loop(1, name="CREATE_SHMEM_SIGNAL", idx_name="_"):
-        pypto_impl.CreateShmemSignal(group_name, n_pes, t.base())
+        pypto_impl.CreateShmemSignal(comm_tensor, group_name, n_pes, t.base())
     return t
 
 
@@ -469,7 +487,7 @@ def shmem_clear_signal(
 
 
 @op_wrapper
-def my_symbolic_pe(group_name: str) -> SymbolicScalar:
+def my_symbolic_pe(comm_tensor: Tensor) -> SymbolicScalar:
     """Gets the symbolic PE.
 
     Parameters
@@ -486,7 +504,7 @@ def my_symbolic_pe(group_name: str) -> SymbolicScalar:
     --------
        my_pe = pypto.distributed.my_symbolic_pe(group_name)
     """
-    return SymbolicScalar.from_base(pypto_impl.GetSymbolicScalarPeId(group_name))
+    return SymbolicScalar.from_base(pypto_impl.GetSymbolicScalarPeId(comm_tensor))
 
 
 def __normalize_pred(pred: Union[list[Tensor], None]) -> Tensor:
