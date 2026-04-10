@@ -557,7 +557,7 @@ void ExecuteOpPermute(ExecuteOperationContext* ctx)
     auto& oop = ctx->ooperandInplaceDataViewList->at(0);
     auto& iop = ctx->ioperandDataViewList->at(0);
 
-    std::vector<int64_t> perm = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "perm");
+    std::vector<int64_t> perm = ctx->op->GetVectorIntAttribute(OpAttributeKey::perm);
 
     auto iopDataView = iop->View(iop->GetValidShape(), iop->GetOffset());
     auto oopDataView = oop->View(oop->GetValidShape(), oop->GetOffset());

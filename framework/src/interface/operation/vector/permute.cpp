@@ -122,7 +122,7 @@ Tensor TensorPermuteOperation(Function& function, LogicalTensorPtr self, const s
 {
     auto result = MakePermutedLogicalTensor(function, self, perm);
     auto& op = function.AddOperation(Opcode::OP_PERMUTE, {self}, {result});
-    op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
+    op.SetAttribute(OpAttributeKey::perm, perm);
     function.UpdateTensorDataUsage(op);
     return result;
 }
@@ -139,7 +139,7 @@ void TiledPermuteOperation(
         auto resultTile = result->View(function, resultTileShape, resultTileOffset);
 
         auto& op = function.AddOperation(Opcode::OP_PERMUTE, {srcTile}, {resultTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
+        op.SetAttribute(OpAttributeKey::perm, perm);
         op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
         return;
     }
@@ -158,7 +158,7 @@ void PermuteOperationTileFunc(
 {
     PermuteOperationOperandCheck(iOperand, oOperand);
 
-    std::vector<int> perm = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
+    std::vector<int> perm = op.GetVectorIntAttribute<int>(OpAttributeKey::perm);
 
     TileInfo tileInfo(iOperand[0]->shape.size(), iOperand[0]->offset.size());
     Input input{iOperand[0], tileInfo};
@@ -179,7 +179,7 @@ Tensor TensorElementPermuteOperation(Function& function, LogicalTensorPtr self, 
 {
     auto result = MakePermutedLogicalTensor(function, self, perm);
     auto& op = function.AddOperation(Opcode::OP_PERMUTE_ELEMENT, {self}, {result});
-    op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
+    op.SetAttribute(OpAttributeKey::perm, perm);
     function.UpdateTensorDataUsage(op);
     return result;
 }
@@ -196,7 +196,7 @@ void TiledPermuteElementOperation(
         auto resultTile = result->View(function, resultTileShape, resultTileOffset);
 
         auto& op = function.AddOperation(Opcode::OP_PERMUTE_ELEMENT, {srcTile}, {resultTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
+        op.SetAttribute(OpAttributeKey::perm, perm);
         op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
         return;
     }
@@ -215,7 +215,7 @@ void PermuteElementOperationTileFunc(
 {
     PermuteOperationOperandCheck(iOperand, oOperand);
 
-    std::vector<int> perm = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
+    std::vector<int> perm = op.GetVectorIntAttribute<int>(OpAttributeKey::perm);
 
     TileInfo tileInfo(iOperand[0]->shape.size(), iOperand[0]->offset.size());
     Input input{iOperand[0], tileInfo};

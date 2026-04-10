@@ -1020,7 +1020,7 @@ void PermuteInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &o
     if (inputValidShape.empty()) {
         return;
     }
-    std::vector<int> perm = op->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
+    std::vector<int> perm = op->GetVectorIntAttribute<int>(OpAttributeKey::perm);
     std::vector<SymbolicScalar> resultValidShape;
     resultValidShape.reserve(perm.size());
     for (int axis : perm) {
