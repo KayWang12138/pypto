@@ -715,8 +715,7 @@ std::string CodeGenOpCloudNPU::PrintIndexPut(const PrintIndexPutParam& param) co
 
 std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accumulate) const
 {
-    std::string gmVarName = GenGmParamVar(ID0);
-    std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
     std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
     std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
     std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
