@@ -21,7 +21,7 @@
 #define MODULE_NAME "RemoveUnalignedReshape"
 
 namespace npu::tile_fwk {
-const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB));
+const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
 /*
 before:
     add->reshape(padded)->mul
@@ -32,10 +32,7 @@ after:
 Status RemoveUnalignedReshape::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start RemoveUnalignedReshape.");
-    if (ReplaceDynUnalignedReshapeOps(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Run ReplaceDynUnalignedReshapeOps failed, function magic: %d.", function.GetFuncMagic());
-        return FAILED;
-    }
+    ReplaceDynUnalignedReshapeOps(function);
     CollectReshapeOps(function);
     for (auto& a : copyOuts) {
         GraphUtils::CopyDynStatus(a.output, a.input);
@@ -138,7 +135,7 @@ std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, co
 
     return changedInputAxes;
 }
-Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function& function)
+void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start ReplaceDynUnalignedReshapeOps.");
     for (auto& op : function.Operations()) {
@@ -153,14 +150,10 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function& function)
         } else if (
             input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            if (ReplaceDynUnalignedReshapeOpsForDDR(function, op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Run ReplaceDynUnalignedReshapeOpsForDDR failed, reshape magic: %d.", op.GetOpMagic());
-                return FAILED;
-            }
+            ReplaceDynUnalignedReshapeOpsForDDR(function, op);
         }
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
-    return SUCCESS;
 }
 
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function& function, Operation& op)
@@ -259,19 +252,20 @@ Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& fu
     return newCopyOutOp;
 }
 
-Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op)
+void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op)
 {
     auto input = op.GetIOperands().front();
     auto output = op.GetOOperands().front();
 
+    auto outputValidShape = output->GetDynValidShape();
+
     bool hasNonImmediate = false;
     auto changedDims = FindChangedDims(output->shape, input->shape);
     for (const auto& dim : changedDims) {
-        if ((size_t)dim >= output->GetDynValidShape().size()) {
-            APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%ld] index.",
-                output->GetMagic(), op.GetOpMagic(), static_cast<long>(dim));
+        if ((size_t)dim >= outputValidShape.size()) {
+            APASS_LOG_WARN_F(Elements::Operation, "The dynValidShape of output[%d] of op[%d] has no [%ld] index.", output->GetMagic(), op.GetOpMagic(), static_cast<long>(dim));
             break;
-        } else if (!output->GetDynValidShape()[dim].IsImmediate()) {
+        } else if (!outputValidShape[dim].IsImmediate()) {
             hasNonImmediate = true;
             break;
         }
@@ -283,7 +277,7 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& fun
         Operation* copyOutOp = FindAllProducerCopyOuts(input, op, needToCopyTensors, index);
         if (copyOutOp == nullptr) {
             APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] on GM after multiple ops.", op.GetOpMagic());
-            return SUCCESS;
+            return;
         }
 
         std::vector<Operation*> copyInOps;
@@ -291,29 +285,22 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& fun
         FindAllConsumerCopyIns(output, copyInOps, hasViewOrAssemble);
         if (hasViewOrAssemble) {
             APASS_LOG_WARN_F(Elements::Operation, "Reshape op %d has view or assemble between reshape and copy in, not supported now.", op.GetOpMagic());
-            return SUCCESS;
+            return;
         }
         if (copyInOps.empty()) {
             APASS_LOG_WARN_F(Elements::Operation, "Cannot find copy_in consumers for reshape op %d.", op.GetOpMagic());
-            return SUCCESS;
+            return;
         }
 
         //进行处理
         if (index != -1) {
             copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, needToCopyTensors, index);
         }
-        if (ProcessCopyOutOfDDRReshape(function, op, copyOutOp) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Run ProcessCopyOutOfDDRReshape failed, reshape magic: %d.", op.GetOpMagic());
-            return FAILED;
-        }
-        if (ProcessCopyInOfDDRReshape(function, op, copyInOps) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Run ProcessCopyInOfDDRReshape failed, reshape magic: %d.", op.GetOpMagic());
-            return FAILED;
-        }
+        ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
+        ProcessCopyInOfDDRReshape(function, op, copyInOps);
         APASS_LOG_DEBUG_F(Elements::Operation, "Reshape[%d] on GM had processed successfully.", op.GetOpMagic());
         processedReshapeOps.insert(op.GetOpMagic());
     }
-    return SUCCESS;
 }
 
 /**
@@ -371,7 +358,7 @@ inline void ProcessLastDim32BAligned(LogicalTensorPtr tensor) {
     }
 }
 
-Status RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp)
+void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp)
 {
     // 当copyout的输入是ub输出为ddr可以直接转化为reshapecopyop
     // 否则需要插copy
@@ -383,14 +370,13 @@ Status RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Op
         copyOutOp->SetOpCode(Opcode::OP_RESHAPE_COPY_OUT);
     } else if (copyOutInputMemType != MemoryType::MEM_UB && copyOutOutputMemType == MemoryType::MEM_DEVICE_DDR) {
         // copyOutInput(NOTUB) -- COPYOUT -- copyOutOutput(DDR) -- reshape
-        // copyOutInput(NOTUB) -- COPYOUT -- copyOutOutput(DDR) -- COPYIN -- newTensor(UB) -- RESHAPECOPYOUT --
-        // newTensor2(DDR) -- reshape
+        // copyOutInput(NOTUB) -- COPYOUT -- copyOutOutput(DDR) -- COPYIN -- newTensor(UB) -- RESHAPECOPYOUT -- newTensor2(DDR) -- reshape
         LogicalTensor newTensor(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-        if (newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
-                copyOutOutput->magic, copyOutOutput->GetDataSize(), UB_SIZE_THRESHOLD);
-            return FAILED;
+        if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
+            APASS_LOG_WARN_F(Elements::Tensor, "The output[%d] size[%ld] of copyout op[%d] should not exceed %zu.",
+                copyOutOutput->GetMagic(), copyOutOutput->GetDataSize(), copyOutOp->GetOpMagic(), UB_SIZE_THRESHOLD);
+            return;
         }
         auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
         ProcessLastDim32BAligned(newTensorPtr);
@@ -417,10 +403,9 @@ Status RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Op
         copyOutOutput->RemoveConsumer(&op);
         op.ReplaceInput(newTensor2Ptr, copyOutOutput);
     }
-    return SUCCESS;
 }
 
-Status RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
+void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
     Function& function, Operation& op, std::vector<Operation*>& copyInOps)
 {
     for (auto* copyInOp : copyInOps) {
@@ -448,10 +433,10 @@ Status RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                 // --copyInOutout(NOTUB)
                 LogicalTensor newTensor(function, copyInInput->Datatype(), copyInInput->GetShape());
                 newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-                if (newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-                    APASS_LOG_ERROR_F(Elements::Tensor, "Tensor [%d] can not copy to UB, tensor size [%ld] exceeds the UB size [%d] limit.",
-                        copyInInput->magic, copyInInput->GetDataSize(), UB_SIZE_THRESHOLD);
-                    return FAILED;
+                if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
+                    APASS_LOG_WARN_F(Elements::Tensor, "The input[%d] size[%ld] of copyin op[%d] should not exceed %zu.",
+                        copyInInput->GetMagic(), copyInInput->GetDataSize(), copyInOp->GetOpMagic(), UB_SIZE_THRESHOLD);
+                    return;
                 }
                 auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
                 ProcessLastDim32BAligned(newTensorPtr);
@@ -477,7 +462,6 @@ Status RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
             }
         }
     }
-    return SUCCESS;
 }
 
 /* 从tensor的生产者列表中递归查找所有OP_COPY_OUT：
