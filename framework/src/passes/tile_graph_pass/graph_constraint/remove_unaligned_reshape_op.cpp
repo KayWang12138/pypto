@@ -322,16 +322,6 @@ inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
     return (totalByte % 32) == 0;
 }
 
-inline size_t GetPaddingValue(LogicalTensorPtr& in)
-{
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
-}
-
 /**
  * @brief 为 UB 上尾轴非32B对齐的tensor做32B对齐操作
  */
@@ -341,6 +331,16 @@ inline int64_t Pad(int64_t dim, int64_t padValue)
         return dim;
     }
     return (dim + padValue - 1) / padValue * padValue;
+}
+
+inline size_t GetPaddingValue(LogicalTensorPtr& in)
+{
+    auto bytes = BytesOf(in->Datatype());
+    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
+    if (paddingIter == BLOCK_PADDING_DIM.end()) {
+        return 1;
+    }
+    return paddingIter->second;
 }
 
 inline void ProcessLastDim32BAligned(LogicalTensorPtr tensor) {
@@ -374,7 +374,7 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
         LogicalTensor newTensor(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
         if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-            APASS_LOG_WARN_F(Elements::Tensor, "The output[%d] size[%ld] of copyout op[%d] should not exceed %zu.",
+            APASS_LOG_WARN_F(Elements::Tensor, "The output[%d] size[%ld] of copyout op[%d] should not exceed %zu. Consider reducing its size.",
                 copyOutOutput->GetMagic(), copyOutOutput->GetDataSize(), copyOutOp->GetOpMagic(), UB_SIZE_THRESHOLD);
             return;
         }
@@ -434,7 +434,7 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                 LogicalTensor newTensor(function, copyInInput->Datatype(), copyInInput->GetShape());
                 newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
-                    APASS_LOG_WARN_F(Elements::Tensor, "The input[%d] size[%ld] of copyin op[%d] should not exceed %zu.",
+                    APASS_LOG_WARN_F(Elements::Tensor, "The input[%d] size[%ld] of copyin op[%d] should not exceed %zu. Consider reducing its size.",
                         copyInInput->GetMagic(), copyInInput->GetDataSize(), copyInOp->GetOpMagic(), UB_SIZE_THRESHOLD);
                     return;
                 }
