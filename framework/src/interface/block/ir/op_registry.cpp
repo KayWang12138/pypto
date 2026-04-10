@@ -59,6 +59,11 @@ void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
         throw TypeError("Kwarg '" + key + "' for operator '" + op_name +
                         "' expects MemorySpace, but got incompatible type" + value.type().name());
       }
+    } else if (it->second == std::type_index(typeid(std::vector<int>))) {
+      if (std::type_index(value.type()) != std::type_index(typeid(std::vector<int>))) {
+        throw TypeError("Kwarg '" + key + "' for operator '" + op_name +
+                        "' expects std::vector<int>, but got incompatible type");
+      }
     } else if (std::type_index(value.type()) != it->second) {
       throw TypeError("Kwarg '" + key + "' for operator '" + op_name + "' has incompatible type");
     }

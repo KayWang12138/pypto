@@ -113,6 +113,12 @@ std::vector<std::pair<std::string, std::any>> ConvertKwargsDict(const py::dict& 
       kwargs.emplace_back(key, py::cast<bool>(item.second));
     } else if (py::isinstance<py::int_>(item.second)) {
       kwargs.emplace_back(key, py::cast<int>(item.second));
+    } else if (py::isinstance<py::tuple>(item.second) || py::isinstance<py::list>(item.second)) {
+      std::vector<int> vec;
+      for (auto elem : py::cast<py::sequence>(item.second)) {
+        vec.push_back(py::cast<int>(elem));
+      }
+      kwargs.emplace_back(key, std::move(vec));
     } else if (py::isinstance<py::str>(item.second)) {
       kwargs.emplace_back(key, py::cast<std::string>(item.second));
     } else if (py::isinstance<py::float_>(item.second)) {

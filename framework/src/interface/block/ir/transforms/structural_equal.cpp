@@ -442,6 +442,9 @@ class StructuralEqualImpl {
       } else if (lhs_val.type() == typeid(DataType)) {
         values_equal = (AnyCast<DataType>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
                         AnyCast<DataType>(rhs_val, "comparing kwarg: " + lhs[i].first));
+      } else if (lhs_val.type() == typeid(std::vector<int>)) {
+        values_equal = (AnyCast<std::vector<int>>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
+                        AnyCast<std::vector<int>>(rhs_val, "comparing kwarg: " + lhs[i].first));
       }
       if (!values_equal) {
         if constexpr (AssertMode) {

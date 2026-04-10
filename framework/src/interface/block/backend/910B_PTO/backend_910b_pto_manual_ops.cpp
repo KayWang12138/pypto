@@ -112,16 +112,7 @@ static EffectiveTileSize GetEffectiveTileSize(
 // tile_dims helpers
 // ============================================================================
 
-/// Parse a comma-separated tile_dims string "1,3" -> {1, 3}.
-static std::vector<int> ParseTileDims(const std::string& s) {
-  std::vector<int> result;
-  std::istringstream ss(s);
-  std::string token;
-  while (std::getline(ss, token, ',')) {
-    result.push_back(std::stoi(token));
-  }
-  return result;
-}
+// ParseTileDims removed: tile_dims is now passed as std::vector<int> directly.
 
 /// Build a strided 2D tensor_view for non-contiguous tile dimensions.
 ///
@@ -714,11 +705,11 @@ static std::string MakeManualLoadCodegenPTO(const CallPtr& op, codegen::CodegenB
     }
   }
 
-  // Parse tile_dims kwarg if present (e.g. "1,3" for BSND layout)
+  // Get tile_dims kwarg if present (e.g. [1, 3] for BSND layout)
   std::vector<int> tile_dims_vec;
   bool has_tile_dims = op->HasKwarg("tile_dims");
   if (has_tile_dims) {
-    tile_dims_vec = ParseTileDims(op->GetKwarg<std::string>("tile_dims"));
+    tile_dims_vec = op->GetKwarg<std::vector<int>>("tile_dims");
     INTERNAL_CHECK(tile_dims_vec.size() == 2)
         << "manual.load: tile_dims must have exactly 2 elements";
   }
@@ -936,11 +927,11 @@ static std::string MakeManualStoreCodegenPTO(const CallPtr& op, codegen::Codegen
     }
   }
 
-  // Parse tile_dims kwarg if present (e.g. "1,3" for BSND layout)
+  // Get tile_dims kwarg if present (e.g. [1, 3] for BSND layout)
   std::vector<int> tile_dims_vec;
   bool has_tile_dims = op->HasKwarg("tile_dims");
   if (has_tile_dims) {
-    tile_dims_vec = ParseTileDims(op->GetKwarg<std::string>("tile_dims"));
+    tile_dims_vec = op->GetKwarg<std::vector<int>>("tile_dims");
     INTERNAL_CHECK(tile_dims_vec.size() == 2)
         << "manual.store: tile_dims must have exactly 2 elements";
   }

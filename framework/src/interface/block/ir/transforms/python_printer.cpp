@@ -481,10 +481,18 @@ void IRPythonPrinter::VisitExpr_(const CallPtr& op) {
     } else if (value.type() == typeid(MemorySpace)) {
       stream_ << prefix_ << ".MemorySpace."
               << MemorySpaceToString(AnyCast<MemorySpace>(value, "printing kwarg: " + key));
+    } else if (value.type() == typeid(std::vector<int>)) {
+      const auto& vec = AnyCast<std::vector<int>>(value, "printing kwarg: " + key);
+      stream_ << "[";
+      for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) stream_ << ", ";
+        stream_ << vec[i];
+      }
+      stream_ << "]";
     } else {
       throw TypeError("Invalid kwarg type for key: " + key +
-                      ", expected int, bool, std::string, double, float, DataType, or MemorySpace, "
-                      "but got " +
+                      ", expected int, bool, std::string, double, float, DataType, MemorySpace, "
+                      "or std::vector<int>, but got " +
                       DemangleTypeName(value.type().name()));
     }
   }

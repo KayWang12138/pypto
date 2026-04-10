@@ -234,7 +234,7 @@ def load_tile(
     if layout is not None:
         kwargs["layout"] = layout
     if tile_dims != list(range(tensor_ndim - tile_ndim, tensor_ndim)):
-        kwargs["tile_dims"] = ",".join(str(d) for d in tile_dims)
+        kwargs["tile_dims"] = tile_dims
     return _ir_core.create_op_call(
         "manual.load", [tensor, offsets_tuple, out], kwargs, actual_span
     )
@@ -282,7 +282,7 @@ def store_tile(
 
     kwargs = {}
     if tile_dims != list(range(tensor_ndim - tile_ndim, tensor_ndim)):
-        kwargs["tile_dims"] = ",".join(str(d) for d in tile_dims)
+        kwargs["tile_dims"] = tile_dims
     return _ir_core.create_op_call(
         "manual.store", [tile, offsets_tuple, out], kwargs, actual_span
     )
