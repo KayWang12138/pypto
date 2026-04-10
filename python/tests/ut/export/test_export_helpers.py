@@ -207,7 +207,7 @@ def test_ge_data_type_enum_value_to_torch_dtype_rejects_unmapped():
 
 
 def test_torch_dtype_to_ir_dtype_matches_expected_members():
-    import pypto_ir
+    pypto_ir = pytest.importorskip("pypto_ir")
 
     assert _torch_dtype_to_ir_dtype("torch.float16") == pypto_ir.DataType.FP16
     assert _torch_dtype_to_ir_dtype("torch.float32") == pypto_ir.DataType.FP32
@@ -215,6 +215,7 @@ def test_torch_dtype_to_ir_dtype_matches_expected_members():
 
 
 def test_torch_dtype_to_ir_dtype_rejects_non_torch_prefix():
+    pytest.importorskip("pypto_ir")
     with pytest.raises(ValueError, match="unsupported dtype"):
         _torch_dtype_to_ir_dtype("float32")
 

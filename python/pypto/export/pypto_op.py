@@ -1,11 +1,10 @@
 import datetime
+import importlib
 import inspect
 import json
 import os
 from pathlib import Path
 import random
-import torchair
-import pypto_ir
 
 from .cpp import codegen
 from .cpp import layout
@@ -22,10 +21,6 @@ from .kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
 from . import meta_schema
 from .meta_schema import _is_hidden, _is_user_defined
 from .zip import _zip_source_file_to_b64, _zip_kernel_dir_to_b64, _zip_pto_file_to_b64, _zip_cpp_sources_dir_to_b64
-
-# FIXME temporary import path just for demos, TODO update after ir_converter is finalized and pushed by the developer
-from .ir_converter.ir_converter_tile import convert_kernel_to_tile_ir
-from .ir_converter.compile_and_preview import compile_and_preview
 
 KERNEL_FORMAT__SOURCE = "source"
 KERNEL_FORMAT__BINARY = "binary"
@@ -58,6 +53,29 @@ def _json_dumps_user_meta(meta: dict, *args, **kwargs) -> dict:
     """Serialize only user-defined meta keys to JSON."""
     user_meta = {k: v for k, v in meta.items() if _is_user_defined(k)}
     return json.dumps(user_meta, *args, **kwargs)
+
+# IR helpers can be removed when pypto_ir is merged into pypto
+def _check_pypto_ir_available():
+    """Raise ImportError if pypto_ir is not installed (incl_ir=True path only)."""
+    try:
+        importlib.import_module("pypto_ir")
+    except ImportError as e:
+        raise ImportError(
+            "pypto_op_kernel(..., incl_ir=True) requires the pypto_ir package"
+        ) from e
+
+
+def _load_ir_export_dependencies():
+    """Import pypto_ir and IR converter helpers; used only when exporting IR."""
+    try:
+        import pypto_ir
+        from .ir_converter.ir_converter_tile import convert_kernel_to_tile_ir
+        from .ir_converter.compile_and_preview import compile_and_preview
+    except ImportError as e:
+        raise ImportError(
+            "Kernel IR export (incl_ir=True) requires pypto_ir and IR converter"
+        ) from e
+    return pypto_ir, convert_kernel_to_tile_ir, compile_and_preview
 
 
 def pypto_op_kernel(
@@ -98,6 +116,7 @@ def pypto_op_kernel(
         if incl_ir:
             if vec_tile_shapes is None:
                 raise ValueError("vec_tile_shapes must be specified when incl_ir=True")
+            _check_pypto_ir_available()
 
         fn.__pypto_meta__ = meta_local
         fn.__pypto_options__ = {
@@ -171,6 +190,7 @@ def _create_pypto_op_kernel_export(
         """Convert kernel to tile IR, compile to PTO, and return path to .pto file."""
         if not _dtypes:
             raise ValueError("dtypes cannot be empty")
+        pypto_ir, convert_kernel_to_tile_ir, compile_and_preview = _load_ir_export_dependencies()
         prog = convert_kernel_to_tile_ir(
             kernel_fn=_kernel_fn,
             program_name=_kernel_name,
@@ -377,6 +397,13 @@ def pypto_op_onnx_symbolic(*, pypto_op_kernel):
 def pypto_op_torchair_fx_node_ge_converter(*, pypto_op_kernel):
     """Decorator to register TorchAir GE converter and meta dump for a kernel."""
     def decorator(fn):
+        try:
+            import torchair
+        except ImportError as e:
+            raise ImportError(
+                "pypto_op_torchair_fx_node_ge_converter requires torchair package"
+            ) from e
+
         def _dump_meta(meta: dict):
             """Build GE op context from meta (all keys, types mapped to torchair.ge.attr)."""
             def _get_ge_attr_name(val):
