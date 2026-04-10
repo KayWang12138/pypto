@@ -42,11 +42,23 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
 {
     std::vector<SymbolicScalar> validShape;
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
-                                           Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1};
+                                           Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
+                                           Opcode::OP_UB_COPY_L1};
     
     auto handleCopyOp = [&](const std::vector<std::shared_ptr<LogicalTensor>>& operands, bool isCopyIn) -> bool {
         auto operand = operands.front();
-        bool isFromCast = isCopyIn ? function.IsFromInCast(operand) : function.IsFromOutCast(operand);
+        bool isFromCast = false;
+        if (isCopyIn) {
+            auto it = find(function.inCasts_.begin(), function.inCasts_.end(), operand);
+            if (it != function.inCasts_.end()) {
+                isFromCast = true;
+            }
+        } else {
+            auto it = find(function.outCasts_.begin(), function.outCasts_.end(), operand);
+            if (it != function.outCasts_.end()) {
+                isFromCast = true;
+            }
+        }
         if (!isFromCast) {
             auto shape = OpImmediate::Specified(operand->GetShape());
             validShape = OpImmediate::ToSpecified(shape);

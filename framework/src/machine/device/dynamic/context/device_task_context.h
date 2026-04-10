@@ -119,7 +119,7 @@ public:
     {
         DevAscendFunctionDuppedData* duppedData = dyntask->dynFuncDataCacheList[funcIndex].duppedData;
         auto loopDieId = duppedData->loopDieId_;
-        if (loopDieId > static_cast<int8_t>(DIE_NUM) || loopDieId < -1) {
+        if (loopDieId >= static_cast<int8_t>(DIE_NUM) || loopDieId < -1) {
             loopDieId = -1;
         }
         return loopDieId;

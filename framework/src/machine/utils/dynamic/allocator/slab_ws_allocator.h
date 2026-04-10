@@ -27,13 +27,12 @@ enum class WsAicpuSlabMemType : uint8_t {
     DYN_FUNC_DATA,
     VEC_STITCHED_LIST,
     DEV_DYN_TASK,
+    COHERENT_SLAB_MEM_TYPE_BUTT, // add new slabmemtype should be above this type
     READY_QUE,
     DIE_READY_QUE,
     WRAP_QUEUE,
     WRAP_TASKLIST,
-    COHERENT_SLAB_MEM_TYPE_BUTT, // add new slabmemtype should be above this type
-
-    DUPPED_STITCH,               // stitch pool memory
+    DUPPED_STITCH, // stitch pool memory
     SLAB_MEM_TYPE_BUTT
 };
 constexpr int SLAB_ALLOCATOR_MAX_CACHES = 16;
