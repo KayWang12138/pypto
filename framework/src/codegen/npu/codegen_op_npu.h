@@ -203,6 +203,7 @@ protected:
     std::string GenOffsetsAndRawShapesForShmemSet() const;
     std::string GenOffsetsAndRawShapesDefault() const;
     std::string GenTargetRankStr() const;
+    std::string GenCommContextStr() const;
 
     void AddDivPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
     void UpdateTileTensorInfo();

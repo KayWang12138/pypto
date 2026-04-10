@@ -220,6 +220,7 @@ void TiledShmemPut(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
         tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             MemoryType::MEM_DEVICE_DDR,
             OpImmediate::Specified(nonShmemDataTileOffset),
@@ -260,6 +261,7 @@ void TiledShmemPutUB2GM(
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
         tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             MemoryType::MEM_UB,
             OpImmediate::Specified(inTile->offset),
@@ -303,6 +305,7 @@ void TiledShmemSignal(
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
         tileOp.SetAttr(OpAttributeKey::dontTouch, true);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
     });
 }
 
@@ -371,6 +374,7 @@ void TiledShmemGet(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
         tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             MemoryType::MEM_DEVICE_DDR,
             OpImmediate::Specified(nonShmemDataTileOffset),
@@ -417,6 +421,7 @@ void TiledShmemGetGM2UB(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
         tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(nonShmemDataTileOffset), MEM_UB,
             OpImmediate::Specified(shmemDataTile->shape),
@@ -452,6 +457,7 @@ void TiledShmemSet(
     distOpAttr.setBufferShape = bufferShape;
     tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+    tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
 }
 
 void TiledShmemBindTensor(

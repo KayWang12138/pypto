@@ -29,6 +29,7 @@ struct CommContext {
     uint64_t winStatusSize = 0;
     uint64_t winDebugSize = 0;
     uint64_t totalWinNum = 0;
+    uint64_t offset[3]{0};
     uint64_t winAddr[0]; // 大小rankNum*3，内存排布windata[0~rankNum-1], winStatus[0~rankNum-1], winDebug[0~rankNum-1]
 };
 
@@ -54,10 +55,9 @@ constexpr uint64_t MEMTYPE_MASK = (1UL << MEMTYPE_BITS) - 1UL;
 #define SHMEM_INLINE inline
 #endif
 
-SHMEM_INLINE uint64_t EncodeShmemAddr(uint64_t offset, uint64_t maxTileNum, uint64_t groupIndex, uint64_t memType)
+SHMEM_INLINE uint64_t EncodeShmemAddr(uint64_t offset, uint64_t maxTileNum, uint64_t memType)
 {
-    return offset | (maxTileNum << TILE_NUM_SHIFT) | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) |
-           (1UL << FILL_SHIFT);
+    return offset | (maxTileNum << TILE_NUM_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
 }
 
 SHMEM_INLINE uint64_t DecodeShmemAddrOffset(uint64_t val) { return val & OFFSET_MASK; }

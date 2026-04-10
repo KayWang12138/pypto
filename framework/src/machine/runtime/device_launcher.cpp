@@ -223,7 +223,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceMemoryUtils devMemoryUtilis;
-    DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
+    //DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
     DeviceInitTilingData(devMemoryUtilis, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
@@ -548,7 +548,7 @@ void DeviceLauncher::FillDeviceKernelArgs(
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceMemoryUtils deviceMemoryUtils;
     DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
-    DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
+    //DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
 }
 
 int64_t DeviceLauncher::GetL2Offset()

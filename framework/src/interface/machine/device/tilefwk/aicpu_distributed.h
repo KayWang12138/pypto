@@ -24,3 +24,12 @@
         uint64_t param[] = {tgroupIndex, tmemType, tsize, tmaxTileNum};                                          \
         return (uint64_t)runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_SHMEM_ALLOC](ctx, (uint64_t)(&param)); \
     }(ctx, groupIndex, memType, size, maxTileNum)
+
+#define RUNTIME_GetHcclRankIdV2(addr) \
+ 	((TileOp::CommContext *)(addr))->rankId
+ 	 
+#define RUNTIME_BindTensorV2(addr, memType, size, maxTileNum, index) \
+    [&](void* ctx, uint64_t taddr, uint64_t tmemType, uint64_t tsize, uint64_t tmaxTileNum) -> uint64_t {  \
+        uint64_t param[] = {taddr, tmemType, tsize, tmaxTileNum};                                          \
+        return (uint64_t)runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_SHMEM_ALLOC](ctx, (uint64_t)(&param)); \
+    }(ctx, addr, memType, size, maxTileNum)
