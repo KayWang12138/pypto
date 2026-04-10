@@ -59,6 +59,40 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_001) {
     codeGen.GenCode(*function, {});
 }
 
+TEST_F(LiteNPUCodeGenMatmul, test_matmul_002) {
+    PROGRAM("MATMUL_001") {
+        Tensor a(DataType::DT_FP16, {64, 64}, "a");
+        Tensor b(DataType::DT_FP16, {64, 64}, "b");
+        auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
+        FUNCTION("MATMUL_001") {
+            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64}, false, false);
+            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMatmul, test_matmul_002_cloud) {
+    PROGRAM("MATMUL_001") {
+        Tensor a(DataType::DT_FP16, {64, 64}, "a");
+        Tensor b(DataType::DT_FP16, {64, 64}, "b");
+        auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
+        FUNCTION("MATMUL_001") {
+            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64}, false, false);
+            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
 TEST_F(LiteNPUCodeGenMatmul, test_matmul_001_cloud_test) {
     PROGRAM("MATMUL_001_CLOUD") {
         Tensor a(DataType::DT_FP16, {16, 16}, "a");

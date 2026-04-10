@@ -722,6 +722,11 @@ Status IsoPartitioner::SetParameter(int32_t pgUpperBound, int32_t parallelNum, i
                                     bool useReduceBalanceHash, bool skipPartition)
 {
     skipPartition_ = skipPartition;
+    auto platformSoc = Platform::Instance().GetSoc().GetSocVersion();
+    if (platformSoc == SocVersion::KIRIN_9030) {
+        // 端侧不走IsoPartitioner切图算法，走Mix切图算法
+        skipPartition_ = true;
+    }
     if (skipPartition) {
         return SUCCESS;
     }

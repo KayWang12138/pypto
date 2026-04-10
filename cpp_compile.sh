@@ -10,7 +10,9 @@ make -j16
 
 cd output/bin
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_001
+./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_002
+# ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_002_cloud
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenMatmul.test_matmul_001_cloud_test
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenSigmoid.test_sigmoid_002
-./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.test_index_put_001
+# ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.test_index_put_001
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.test_index_put_001_cloud
