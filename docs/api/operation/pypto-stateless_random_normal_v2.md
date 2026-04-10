@@ -17,19 +17,19 @@ $$
 ## 函数原型
 
 ```python
-stateless_random_normal_v2(shape: Tensor, key: Tensor, counter: Tensor, alg: Tensor, dtype: DataType) -> Tensor
+stateless_random_normal_v2(shape: List[int], key: List[int], counter: List[int], alg: List[int], dtype: DataType) -> Tensor
 ```
 
 ## 参数说明
 
 
-| 参数名  | 输入/输出 | 说明                                                                 |
-|---------|-----------|----------------------------------------------------------------------|
-| shape   | 输入      | 输出Tensor的形状。 <br> 支持的数据类型为：DT_INT32, DT_INT64。                    |
-| key     | 输入      | 随机数生成器的seed。 <br> 支持的数据类型为：DT_UINT64。                            |
-| counter | 输入      | 随机数生成器的计数器。 <br> 支持的数据类型为：DT_UINT64。                           |
-| alg     | 输入      | 随机数生成算法，当前仅支持值1（Philox算法）。 <br> 支持的数据类型为：DT_INT32。     |
-| dtype   | 输入      | 输出Tensor的数据类型。 <br> 支持的数据类型为：DT_FP32, DT_FP16, DT_BF16。         |
+| 参数名  | 输入/输出 | 说明                                                         |
+|---------|-----------|------------------------------------------------------------|
+| shape   | 输入      | 输出Tensor的形状。 <br> 长度支持1-5。                                 |
+| key     | 输入      | 随机数生成器的seed。 <br> 长度仅支持为1。                                 |
+| counter | 输入      | 随机数生成器的计数器。 <br> 长度仅支持为2。                                  |
+| alg     | 输入      | 随机数生成算法，当前仅支持值1（Philox算法），3（auto_select，选择Philox算法）。 <br> 长度仅支持为1。 |
+| dtype   | 输入      | 输出Tensor的数据类型。 <br> 支持的数据类型为：DT_FP32, DT_FP16, DT_BF16。    |
 
 ## 返回值说明
 
@@ -38,15 +38,10 @@ stateless_random_normal_v2(shape: Tensor, key: Tensor, counter: Tensor, alg: Ten
 ## 调用示例
 
 ```python
-shape = torch.tensor([4, 4], dtype=torch.int32)
-key = torch.tensor([1234], dtype=torch.uint64)
-counter = torch.tensor([0, 1], dtype=torch.uint64)
-alg = torch.tensor([1], dtype=torch.int32)
-
-pto_shape_tensor = pypto.from_torch(shape)
-pto_key_tensor = pypto.from_torch(key)
-pto_counter_tensor = pypto.from_torch(counter)
-pto_alg_tensor = pypto.from_torch(alg)
+shape = [4, 4]
+key = [1234]
+counter = [0, 1]
+alg = [1]
 dtype = pypto.DT_FP32
 
 y = pypto.stateless_random_normal_v2(shape, key, counter, alg, dtype)
