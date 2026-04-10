@@ -111,7 +111,6 @@ def static_matmul_add_kernel(
         plm.store(matmul_out, tile_c, [0, 0])
         pl.system.set_cross_core(pipe=pl.PipeType.FIX, event_id=3)
 
-    pl.system.sync_all(aiv_only=False)
     with pl.section_vector():
         pl.system.wait_cross_core(pipe=pl.PipeType.MTE2, event_id=3)
         pl.system.sync_src(set_pipe=pl.PipeType.MTE3, wait_pipe=pl.PipeType.MTE2, event_id=0)

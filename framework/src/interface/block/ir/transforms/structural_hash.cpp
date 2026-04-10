@@ -224,9 +224,15 @@ class StructuralHasher {
         h = hash_combine(h, std::hash<float>{}(AnyCast<float>(value, "hashing kwarg: " + key)));
       } else if (value.type() == typeid(DataType)) {
         h = hash_combine(h, std::hash<uint8_t>{}(AnyCast<DataType>(value, "hashing kwarg: " + key).Code()));
+      } else if (value.type() == typeid(std::vector<int>)) {
+        const auto& vec = AnyCast<std::vector<int>>(value, "hashing kwarg: " + key);
+        for (int v : vec) {
+          h = hash_combine(h, std::hash<int>{}(v));
+        }
       } else {
         throw TypeError("Invalid kwarg type for key: " + key +
-                        ", expected int, bool, std::string, double, float, or DataType, but got " +
+                        ", expected int, bool, std::string, double, float, DataType, "
+                        "or std::vector<int>, but got " +
                         DemangleTypeName(value.type().name()));
       }
     }

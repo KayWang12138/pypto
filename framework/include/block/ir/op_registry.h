@@ -254,8 +254,8 @@ class OpRegistryEntry {
    * Note: This only defines the kwarg schema (what kwargs are allowed and their types).
    * Actual kwarg values are provided per-Call instance when calling OpRegistry::Create().
    *
-   * Only specific types are allowed: bool, int, std::string, double, DataType, MemorySpace
-   * This is enforced at compile-time via static_assert in Op::SetAttrType.
+   * Only specific types are allowed: bool, int, std::string, double, DataType, MemorySpace,
+   * std::vector<int>. This is enforced at compile-time via static_assert in Op::SetAttrType.
    *
    * Example usage:
    * @code
@@ -263,14 +263,14 @@ class OpRegistryEntry {
    *     .set_attr<DataType>("out_dtype")       // OK: DataType is allowed
    *     .set_attr<bool>("a_trans")             // OK: bool is allowed
    *     .set_attr<MemorySpace>("target_memory") // OK: MemorySpace is allowed
+   *     .set_attr<std::vector<int>>("tile_dims") // OK: vector<int> is allowed
    *
    * // The following would cause a compile-time error:
    * // .set_attr<float>("bad_attr")       // ERROR: float is not allowed
-   * // .set_attr<std::vector<int>>("bad") // ERROR: vector is not allowed
    * @endcode
    *
    * @tparam T Expected type of the kwarg value (must be one of: bool, int, std::string, double, DataType,
-   * MemorySpace)
+   * MemorySpace, std::vector<int>)
    * @param key Kwarg key (string identifier)
    * @return Reference to this entry for method chaining
    */

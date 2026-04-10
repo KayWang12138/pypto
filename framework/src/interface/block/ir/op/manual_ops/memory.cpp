@@ -102,6 +102,8 @@ REGISTER_OP("manual.load")
     .add_argument("tensor", "Source tensor (TensorType)")
     .add_argument("offsets", "Offset tuple per dimension (MakeTuple)")
     .add_argument("out", "Pre-allocated destination tile (TileType)")
+    .set_attr<std::string>("layout")
+    .set_attr<std::vector<int>>("tile_dims")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       CHECK(args.size() == 3) << "manual.load requires 3 arguments, got " << args.size();
@@ -122,6 +124,7 @@ REGISTER_OP("manual.store")
     .add_argument("tile", "Source tile (TileType)")
     .add_argument("offsets", "Offset tuple per dimension (MakeTuple)")
     .add_argument("output_tensor", "Destination tensor (TensorType)")
+    .set_attr<std::vector<int>>("tile_dims")
     .set_attr<std::string>("relu_pre_mode")
     .set_attr<int>("pre_quant_scalar")
     .f_deduce_type([](const std::vector<ExprPtr>& args,

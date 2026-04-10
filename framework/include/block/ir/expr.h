@@ -103,8 +103,8 @@ class Op {
    * Defines that this operator accepts a kwarg with the given key and type.
    * This is used for validation when creating Call expressions.
    *
-   * Only specific types are allowed: bool, int, std::string, double, DataType, MemorySpace
-   * This is enforced at compile-time via static_assert.
+   * Only specific types are allowed: bool, int, std::string, double, DataType, MemorySpace,
+   * std::vector<int>. This is enforced at compile-time via static_assert.
    *
    * @tparam T Expected type of the kwarg value (must be one of the allowed types)
    * @param key Kwarg key (string identifier)
@@ -114,8 +114,9 @@ class Op {
     // Compile-time check: only allow specific types
     static_assert(std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, std::string> ||
                       std::is_same_v<T, double> || std::is_same_v<T, DataType> ||
-                      std::is_same_v<T, MemorySpace>,
-                  "SetAttrType only accepts: bool, int, std::string, double, DataType, MemorySpace");
+                      std::is_same_v<T, MemorySpace> || std::is_same_v<T, std::vector<int>>,
+                  "SetAttrType only accepts: bool, int, std::string, double, DataType, MemorySpace, "
+                  "std::vector<int>");
 
     attrs_.emplace(key, std::type_index(typeid(T)));
   }
