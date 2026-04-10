@@ -677,25 +677,6 @@ REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc
 REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, Load2L1InferFunc);
 
-void Load2L1MXScaleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
-{
-    ASSERT(
-        !op->GetIOperands().empty() && op->GetIOperands()[0] != nullptr &&
-        op->GetIOperands()[0]->GetDynValidShape().size() == SHAPE_DIM3);
-    std::vector<SymbolicScalar> srcValidShape = op->GetIOperands()[0]->GetDynValidShape();
-    int64_t copyInMod = static_cast<int64_t>(Matrix::CopyInMode::ND2NZ);
-    op->GetAttr(Matrix::A_MUL_B_COPY_IN_MODE, copyInMod);
-    for (auto output : op->GetOOperands()) {
-        if (copyInMod == static_cast<int64_t>(Matrix::CopyInMode::DN2NZ)) {
-            outValidShapes.push_back({srcValidShape[1], srcValidShape[0], srcValidShape[SHAPE_DIM2]});
-        } else {
-            outValidShapes.push_back({srcValidShape[0], srcValidShape[1], srcValidShape[SHAPE_DIM2]});
-        }
-    }
-}
-REGISTER_INFER_SHAPE_FUNC(OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Load2L1MXScaleInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_A_SCALE, Load2L1MXScaleInferFunc);
-
 // MTE infer shape func
 template <bool isTrans = false>
 void LoadL0InferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
