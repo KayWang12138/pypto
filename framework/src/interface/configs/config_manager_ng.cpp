@@ -277,6 +277,11 @@ void ConfigScope::AddValue(const std::string& key, Any value)
 
 void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
 {
+    if (values_.find(key) == values_.end()) {
+        FUNCTION_LOGE_E(FError::NOT_EXIST, "Config %s not found", key.c_str());
+        return;
+    }
+
     if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
         std::stringstream os("Option:");
         std::map<std::string, Any> node;
