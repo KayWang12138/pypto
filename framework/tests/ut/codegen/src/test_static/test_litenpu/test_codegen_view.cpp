@@ -47,7 +47,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_2d) {
         Tensor operand(DT_FP32, {8, 8}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_2D_TO_2D") {
-            result = View(operand, {4, 16});
+            result = View(operand, {4, 16}, {0, 0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_2D");
@@ -62,7 +62,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_1d) {
         Tensor operand(DT_FP32, {8, 8}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_2D_TO_1D") {
-            result = View(operand, {64});
+            result = View(operand, {64}, {0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_1D");
@@ -77,7 +77,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_1d_to_2d) {
         Tensor operand(DT_FP32, {64}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_1D_TO_2D") {
-            result = View(operand, {8, 8});
+            result = View(operand, {8, 8}, {0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_1D_TO_2D");
@@ -92,7 +92,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_3d) {
         Tensor operand(DT_FP32, {8, 8}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_2D_TO_3D") {
-            result = View(operand, {2, 4, 8});
+            result = View(operand, {2, 4, 8}, {0, 0, 0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_3D");
@@ -107,7 +107,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_3d_to_2d) {
         Tensor operand(DT_FP32, {2, 4, 8}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_3D_TO_2D") {
-            result = View(operand, {8, 8});
+            result = View(operand, {8, 8}, {0, 0, 0, 0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_3D_TO_2D");
@@ -122,7 +122,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_3d_to_4d) {
         Tensor operand(DT_FP32, {2, 4, 8}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_3D_TO_4D") {
-            result = View(operand, {2, 2, 4, 4});
+            result = View(operand, {2, 2, 4, 4}, {0, 0, 0, 0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_3D_TO_4D");
@@ -137,7 +137,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp16_2d_to_2d) {
         Tensor operand(DT_FP16, {8, 8}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP16_2D_TO_2D") {
-            result = View(operand, {4, 16});
+            result = View(operand, {4, 16}, {0, 0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP16_2D_TO_2D");
@@ -152,7 +152,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_4d_to_2d) {
         Tensor operand(DT_FP32, {2, 2, 4, 4}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_4D_TO_2D") {
-            result = View(operand, {8, 8});
+            result = View(operand, {8, 8}, {0, 0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_4D_TO_2D");
@@ -167,7 +167,7 @@ TEST_F(LiteNPUCodeGenView, test_view_fp32_2d_to_4d) {
         Tensor operand(DT_FP32, {8, 8}, "operand");
         Tensor result;
         FUNCTION("VIEW_FP32_2D_TO_4D") {
-            result = View(operand, {2, 2, 4, 4});
+            result = View(operand, {2, 2, 4, 4}, {0, 0, 0, 0});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "VIEW_FP32_2D_TO_4D");

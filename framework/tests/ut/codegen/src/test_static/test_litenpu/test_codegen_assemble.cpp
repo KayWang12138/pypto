@@ -48,7 +48,7 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_fp32_2d_axis_0) {
         Tensor input2(DT_FP32, {4, 8}, "input2");
         Tensor result;
         FUNCTION("ASSEMBLE_FP32_2D_AXIS_0") {
-            result = Assemble({input1, input2}, 0);
+            result = Assemble({{input1, {0}},{input2, {4}}});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_FP32_2D_AXIS_0");
@@ -64,7 +64,7 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_fp32_2d_axis_1) {
         Tensor input2(DT_FP32, {8, 4}, "input2");
         Tensor result;
         FUNCTION("ASSEMBLE_FP32_2D_AXIS_1") {
-            result = Assemble({input1, input2}, 1);
+            result = Assemble({{input1, {0}},{input2, {4}}});
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_FP32_2D_AXIS_1");
@@ -80,7 +80,7 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_fp16_2d_axis_0) {
         Tensor input2(DT_FP16, {4, 8}, "input2");
         Tensor result;
         FUNCTION("ASSEMBLE_FP16_2D_AXIS_0") {
-            result = Assemble({input1, input2}, 0);
+            result = Assemble({{input1, {0}},{input2, {4}}});;
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_FP16_2D_AXIS_0");
@@ -96,7 +96,10 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_fp32_3d_axis_1) {
         Tensor input2(DT_FP32, {2, 4, 8}, "input2");
         Tensor result;
         FUNCTION("ASSEMBLE_FP32_3D_AXIS_1") {
-            result = Assemble({input1, input2}, 1);
+            result = Assemble({
+                {input1, {0, 0}},
+                {input2, {0, 4}}
+            });
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_FP32_3D_AXIS_1");
@@ -112,7 +115,10 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_fp32_4d_axis_2) {
         Tensor input2(DT_FP32, {2, 2, 4, 8}, "input2");
         Tensor result;
         FUNCTION("ASSEMBLE_FP32_4D_AXIS_2") {
-            result = Assemble({input1, input2}, 2);
+            result = Assemble({
+                {input1, {0, 0}},
+                {input2, {0, 4}}
+            });
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_FP32_4D_AXIS_2");
@@ -129,7 +135,11 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_fp32_multiple_tensors_axis_0) {
         Tensor input3(DT_FP32, {2, 8}, "input3");
         Tensor result;
         FUNCTION("ASSEMBLE_FP32_MULTIPLE_TENSORS_AXIS_0") {
-            result = Assemble({input1, input2, input3}, 0);
+            result = result = Assemble({
+                {input1, {0}},
+                {input2, {4}},
+                {input3, {8}}
+            });
         }
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_FP32_MULTIPLE_TENSORS_AXIS_0");
