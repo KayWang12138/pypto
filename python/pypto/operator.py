@@ -511,18 +511,14 @@ def stateless_random_uniform_v2(shape, key, counter, alg, dtype) -> Tensor:
 
     Parameters
     ----------
-    shape: Tensor
+    shape: List
         The shape of the output tensor.
-        The supported data type is DT_INT32, DT_INT64.
-    key: Tensor
-        The key tensor for random number generation.
-        The supported data type is DT_UINT64.
-    counter: Tensor
-        The counter tensor for random number generation.
-        The supported data type is DT_UINT64.
-    alg: Tensor
-        The algorithm to use for random number generation, only support 1(Philox).
-        The supported data type is DT_INT32.
+    key: List
+        The key for random number generation.
+    counter: List
+        The counter for random number generation.
+    alg: List
+        The algorithm to use for random number generation, support 1(Philox) and 3(auto_select, select Philox).
     dtype: DataType
         The data type of the output tensor.
         The supported data types are DT_FP32, DT_FP16, and DT_BF16.
@@ -536,16 +532,10 @@ def stateless_random_uniform_v2(shape, key, counter, alg, dtype) -> Tensor:
 
     Examples
     --------
-    shape = torch.tensor([4, 4], dtype=torch.int32)
-    key = torch.tensor([1234], dtype=torch.uint64)
-    counter = torch.tensor([0, 1], dtype=torch.uint64)
-    alg = torch.tensor([1], dtype=torch.int32)
-
-    pto_shape_tensor = pypto.from_torch(shape)
-    pto_key_tensor = pypto.from_torch(key)
-    pto_counter_tensor = pypto.from_torch(counter)
-    pto_alg_tensor = pypto.from_torch(alg)
-    dtype = pypto.DT_FP32
+    shape = [4, 4]
+    key = [1234]
+    counter = [0, 1]
+    alg = [1]
 
     y = pypto.stateless_random_uniform_v2(shape, key, counter, alg, dtype)
 
@@ -554,21 +544,29 @@ def stateless_random_uniform_v2(shape, key, counter, alg, dtype) -> Tensor:
               [0.02835405 0.10649502 0.45283175 0.87260246]
               [0.6877538  0.24809706 0.95886254 0.24039495]]
     """
-    philox_random_res = pypto.philox_random(shape, key, counter)
-    # if dtype == pypto.DT_FP32:
-    #     uniform_res = uint32_to_float(philox_random_res)
-    # elif dtype == pypto.DT_FP16:
-    #     uniform_res = uint16_to_half(philox_random_res)
-    # else:
-    #     uniform_res = uint16_to_bfloat16(philox_random_res)
-    return philox_random_res
+    if len(key) != 1:
+        raise ValueError(f"input key number should be 1, but got {len(key)}.")
+
+    if len(counter) != 2:
+        raise ValueError(f"input counter number should be 2, but got {len(counter)}.")
+
+    if len(alg) != 1:
+        raise ValueError(f"input alg number should be 1, but got {len(alg)}.")
+
+    alg = alg[0]
+    if alg != 1 and alg != 3:
+        raise ValueError(f"alg only support Philox.")
+
+    counter0, counter1 = counter
+    uniform_res = pypto.random(key[0], counter0, counter1, shape, rounds=10)
+    return uniform_res
 
 
 def box_muller(input: Tensor) -> Tensor:
     """
     eps = 1.0e-7
-    u1 = uint32_to_float(x0)
-    u2 = uint32_to_float(x1)
+    u1 = uniform(x0)
+    u2 = uniform(x1)
     u1 = max(u1, eps)
     v1 = 2.0 * M_PI * u2
     v2 = sqrt(-2.0 * ln(u1))
@@ -608,18 +606,14 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
 
     Parameters
     ----------
-    shape: Tensor
+    shape: List
         The shape of the output tensor.
-        The supported data type is DT_INT32, DT_INT64.
-    key: Tensor
-        The key tensor for random number generation.
-        The supported data type is DT_UINT64.
-    counter: Tensor
-        The counter tensor for random number generation.
-        The supported data type is DT_UINT64.
-    alg: Tensor
-        The algorithm to use for random number generation, only support 1(Philox).
-        The supported data type is DT_INT32.
+    key: List
+        The key for random number generation.
+    counter: List
+        The counter for random number generation.
+    alg: List
+        The algorithm to use for random number generation, support 1(Philox) and 3(auto_select, select Philox).
     dtype: DataType
         The data type of the output tensor.
         The supported data types are DT_FP32, DT_FP16, and DT_BF16.
@@ -628,23 +622,17 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
     -------
     Tensor
         A tensor with the specified shape and data type, containing
-        normally distributed random values with mean 0 and standard deviation 1.
+        uniformly distributed random values in the range [0, 1).
 
 
     Examples
     --------
-    shape = torch.tensor([4, 4], dtype=torch.int32)
-    key = torch.tensor([1234], dtype=torch.uint64)
-    counter = torch.tensor([0, 1], dtype=torch.uint64)
-    alg = torch.tensor([1], dtype=torch.int32)
+    shape = [4, 4]
+    key = [1234]
+    counter = [0, 1]
+    alg = [1]
 
-    pto_shape_tensor = pypto.from_torch(shape)
-    pto_key_tensor = pypto.from_torch(key)
-    pto_counter_tensor = pypto.from_torch(counter)
-    pto_alg_tensor = pypto.from_torch(alg)
-    dtype = pypto.DT_FP32
-
-    y = pypto.stateless_random_uniform_v2(shape, key, counter, alg, dtype)
+    y = pypto.stateless_random_normal_v2(shape, key, counter, alg, dtype)
 
     Output y:[[-0.32364845  1.8577391   0.39556974  0.2311697 ]
               [ 0.24243996 -1.9485782  -0.12983137  2.7137496 ]
@@ -653,12 +641,8 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
     """
     uniform_res = pypto.stateless_random_uniform_v2(shape, key, counter, alg, dtype=pypto.DT_FP32)
     box_muller_res = box_muller(uniform_res)
-    # shape_list = list(shape)
-    shape_list = []
-    for i in range(shape.shape[0]):
-        shape_list.append(shape[i])
 
-    normal_res = pypto.reshape(box_muller_res, shape_list)
+    normal_res = pypto.reshape(box_muller_res, shape)
     if dtype != pypto.DT_FP32:
         normal_res = pypto.cast(normal_res, dtype)
     return normal_res
