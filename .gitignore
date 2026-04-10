@@ -39,6 +39,3 @@ python/pypto/pypto_impl*.so
 # 三方软件
 third_party_path/
 fusion_result.json
-
-# hooks 测试（本地保留，不入仓）
-.agents/hooks/*/tests/
