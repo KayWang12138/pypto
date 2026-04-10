@@ -23,11 +23,13 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "block/backend/910B_CCE/backend_910b_cce.h"
 #include "block/backend/common/backend.h"
 #include "block/codegen/cce/cce_codegen.h"
 #include "block/codegen/codegen_base.h"
+#include "block/core/error.h"
 #include "block/core/logging.h"
 #include "block/ir/expr.h"
 #include "block/ir/kind_traits.h"
@@ -414,14 +416,99 @@ static std::string MakeManualExpandsCodegenCCE(const ir::CallPtr& op, codegen::C
   return "";
 }
 
+static bool NeedsNullPadSourceAliasCCE(const ir::TileTypePtr& tile_type) {
+  return tile_type != nullptr && tile_type->tile_view_.has_value() &&
+         tile_type->tile_view_.value().pad != ir::TilePad::null;
+}
+
+static std::pair<int64_t, int64_t> GetTileRowsCols(const ir::TileTypePtr& tile_type) {
+  CHECK(tile_type != nullptr) << "manual.fillpad-like: expected TileType source";
+  CHECK(tile_type->shape_.size() == 2)
+      << "manual.fillpad-like: expected rank-2 tile, got " << tile_type->shape_.size();
+
+  auto rows = ir::As<ir::ConstInt>(tile_type->shape_[0]);
+  auto cols = ir::As<ir::ConstInt>(tile_type->shape_[1]);
+  CHECK(rows != nullptr && cols != nullptr) << "manual.fillpad-like: expected static tile rows/cols";
+  return {rows->value_, cols->value_};
+}
+
+static std::string BuildNullPadSourceAliasCCE(codegen::CCECodegen& codegen,
+                                              const ir::TileTypePtr& src_tile_type,
+                                              const std::string& src_name) {
+  CHECK(src_tile_type != nullptr) << "manual.fillpad-like: expected TileType source";
+  CHECK(src_tile_type->tile_view_.has_value()) << "manual.fillpad-like: expected source tile_view";
+
+  auto [rows, cols] = GetTileRowsCols(src_tile_type);
+  auto alias_tile_view = src_tile_type->tile_view_.value();
+  alias_tile_view.pad = ir::TilePad::null;
+  auto alias_tile_type = std::make_shared<ir::TileType>(
+      src_tile_type->shape_, src_tile_type->dtype_, src_tile_type->memref_, alias_tile_view);
+
+  std::string alias_tile_type_str = codegen.GetTypeConverter().ConvertTileType(alias_tile_type, rows, cols);
+  static size_t fillpad_alias_counter = 0;
+  std::string alias_suffix = std::to_string(fillpad_alias_counter++);
+  std::string alias_type_name = "__manual_fillpad_src_alias_type_" + alias_suffix;
+  std::string alias_name = "__manual_fillpad_src_alias_" + alias_suffix;
+
+  codegen.Emit("using " + alias_type_name + " = " + alias_tile_type_str + ";");
+  codegen.Emit(alias_type_name + " " + alias_name + "(" + src_name + ".GetValidRow(), " +
+               src_name + ".GetValidCol());");
+  codegen.Emit("TASSIGN(" + alias_name + ", " + codegen.GetTileAddress(src_name) + ");");
+  return alias_name;
+}
+
+static void EmitRestoreFullValidShapeCCE(codegen::CCECodegen& codegen, const ir::TileTypePtr& tile_type,
+                                         const std::string& tile_name) {
+  auto [rows, cols] = GetTileRowsCols(tile_type);
+  codegen.Emit(tile_name + ".SetValidShape(" + std::to_string(rows) + ", " + std::to_string(cols) + ");");
+}
+
 // manual.fillpad — args = [src, dst]
 static std::string MakeManualFillpadCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
-  return MakeManualUnaryCodegenCCE("TFILLPAD", op, codegen_base);
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2) << "manual.fillpad: expected 2 args (src, dst), got " << op->args_.size();
+
+  auto src_tile_type = ir::As<ir::TileType>(op->args_[0]->GetType());
+  CHECK(src_tile_type != nullptr) << "manual.fillpad: expected TileType src";
+
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+  if (src == dst) {
+    std::string src_alias = BuildNullPadSourceAliasCCE(codegen, src_tile_type, src);
+    EmitRestoreFullValidShapeCCE(codegen, src_tile_type, dst);
+    codegen.Emit("TFILLPAD_INPLACE(" + dst + ", " + src_alias + ");");
+    return "";
+  }
+
+  if (NeedsNullPadSourceAliasCCE(src_tile_type)) {
+    src = BuildNullPadSourceAliasCCE(codegen, src_tile_type, src);
+  }
+
+  codegen.Emit("TFILLPAD(" + dst + ", " + src + ");");
+  return "";
 }
 
 // manual.fillpad_expand — args = [src, dst]
 static std::string MakeManualFillpadExpandCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
-  return MakeManualUnaryCodegenCCE("TFILLPAD_EXPAND", op, codegen_base);
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2)
+      << "manual.fillpad_expand: expected 2 args (src, dst), got " << op->args_.size();
+
+  auto src_tile_type = ir::As<ir::TileType>(op->args_[0]->GetType());
+  CHECK(src_tile_type != nullptr) << "manual.fillpad_expand: expected TileType src";
+
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+  if (src == dst) {
+    throw pypto::ValueError("manual.fillpad_expand: inplace is not supported");
+  }
+
+  if (NeedsNullPadSourceAliasCCE(src_tile_type)) {
+    src = BuildNullPadSourceAliasCCE(codegen, src_tile_type, src);
+  }
+
+  codegen.Emit("TFILLPAD_EXPAND(" + dst + ", " + src + ");");
+  return "";
 }
 
 // manual.reshape — args = [src, shape, dst]

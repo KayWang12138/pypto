@@ -20,9 +20,12 @@ Tests verify:
 """
 
 from dataclasses import dataclass
+import os
 import pypto_block.language as pl
 import pypto_block.language.op.manual as plm
 import pytest
+import re
+import shutil
 from pypto_block import DataType, backend, codegen, ir
 from pypto_block.backend import BackendType
 from pypto_block.ir import OptimizationStrategy, PassManager
@@ -32,6 +35,7 @@ from pypto_block.ir.pto_codegen import (
     _generate_arg_unpacking,
     _generate_kernel_wrapper,
     _preprocess_ptoas_output,
+    _run_ptoas,
     generate,
 )
 
@@ -789,7 +793,7 @@ def test_pto_codegen_dump_tile_dynamic_valid_shape_lowering():
 
 
 def test_pto_codegen_manual_fillpad_updates_pad_and_valid_shape():
-    """plm.fillpad should lower to pto.tfillpad using the destination tile's type metadata."""
+    """plm.fillpad should lower through a null-pad source alias before pto.tfillpad."""
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.PTO)
 
@@ -806,6 +810,7 @@ def test_pto_codegen_manual_fillpad_updates_pad_and_valid_shape():
                 shape=[16, 16],
                 dtype=pl.FP32,
                 target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
                 valid_shape=[-1, -1],
             )
             dst_type = plm.TileType(
@@ -827,14 +832,19 @@ def test_pto_codegen_manual_fillpad_updates_pad_and_valid_shape():
     codegen_obj = PTOCodegen()
     mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
 
-    assert "pto.set_validshape" in mlir_code
+    assert mlir_code.count("pto.alloc_tile") == 3
+    assert mlir_code.count("pto.set_validshape") == 1
+    assert "pto.alloc_tile addr = %addr0 valid_row = " in mlir_code
+    assert " valid_col = " in mlir_code
+    assert "pto.tmov ins(" not in mlir_code
     assert "pto.tfillpad ins(" in mlir_code
+    assert "pad=0" in mlir_code
     assert "pad=1" in mlir_code
-    assert "v_row=16, v_col=16" in mlir_code
+    assert "v_row=?, v_col=?" in mlir_code
 
 
 def test_pto_codegen_manual_fillpad_expand_uses_expand_op():
-    """plm.fillpad_expand should lower to pto.tfillpad_expand using the destination tile metadata."""
+    """plm.fillpad_expand should lower through a null-pad source alias before pto.tfillpad_expand."""
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.PTO)
 
@@ -851,6 +861,7 @@ def test_pto_codegen_manual_fillpad_expand_uses_expand_op():
                 shape=[16, 16],
                 dtype=pl.FP32,
                 target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
                 valid_shape=[-1, -1],
             )
             dst_type = plm.TileType(
@@ -872,8 +883,13 @@ def test_pto_codegen_manual_fillpad_expand_uses_expand_op():
     codegen_obj = PTOCodegen()
     mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
 
-    assert "pto.set_validshape" in mlir_code
+    assert mlir_code.count("pto.alloc_tile") == 3
+    assert mlir_code.count("pto.set_validshape") == 1
+    assert "pto.alloc_tile addr = %addr0 valid_row = " in mlir_code
+    assert " valid_col = " in mlir_code
+    assert "pto.tmov ins(" not in mlir_code
     assert "pto.tfillpad_expand ins(" in mlir_code
+    assert "pad=0" in mlir_code
     assert "pad=1" in mlir_code
     assert "rows=16, cols=32" in mlir_code
     assert "v_row=16, v_col=32" in mlir_code
@@ -928,6 +944,125 @@ def test_manual_fillpad_rejects_invalid_pad_modes():
                 plm.fillpad(dst, src)
                 return output
 
+
+def test_manual_fillpad_codegen_emits_same_tile_tfillpad_on_pto():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualFillPadInplacePTOProgram:
+        @pl.function
+        def fillpad_inplace_dynamic_tile(
+            self,
+            rows: pl.Scalar[pl.INDEX],
+            cols: pl.Scalar[pl.INDEX],
+            output: pl.Tensor[[16, 16], pl.FP32],
+        ):
+            src_type = plm.TileType(
+                shape=[16, 16],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
+                valid_shape=[-1, -1],
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=1024)
+            plm.set_validshape(src, rows, cols)
+            plm.fillpad(src, src)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualFillPadInplacePTOProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert mlir_code.count("pto.alloc_tile") == 1
+    assert mlir_code.count("pto.set_validshape") == 1
+    assert "pto.tfillpad ins(" in mlir_code
+    assert "pto.tfillpad_inplace" not in mlir_code
+    assert re.search(r"pto\.tfillpad ins\((%[\w\d]+) : [^)]+\) outs\(\1 : ", mlir_code)
+
+
+def test_manual_fillpad_same_tile_ptoas_lowers_to_tfillpad_inplace(tmp_path):
+    ptoas_root = os.environ.get("PTOAS_ROOT")
+    ptoas_bin = os.path.join(ptoas_root, "ptoas") if ptoas_root else shutil.which("ptoas")
+    if not ptoas_bin:
+        pytest.skip("ptoas not available - skipping PTOAS lowering check")
+
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualFillPadInplacePTOProgram:
+        @pl.function
+        def fillpad_inplace_dynamic_tile(
+            self,
+            rows: pl.Scalar[pl.INDEX],
+            cols: pl.Scalar[pl.INDEX],
+            output: pl.Tensor[[16, 16], pl.FP32],
+        ):
+            src_type = plm.TileType(
+                shape=[16, 16],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
+                valid_shape=[-1, -1],
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=1024)
+            plm.set_validshape(src, rows, cols)
+            plm.fillpad(src, src)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualFillPadInplacePTOProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+    pto_path = tmp_path / "fillpad_inplace.pto"
+    cpp_path = tmp_path / "fillpad_inplace.cpp"
+    pto_path.write_text(mlir_code, encoding="utf-8")
+
+    _run_ptoas(
+        str(pto_path),
+        str(cpp_path),
+        ptoas_flags=["--enable-insert-sync", "--pto-level=level3"],
+    )
+    cpp_code = cpp_path.read_text(encoding="utf-8")
+
+    assert "TFILLPAD_INPLACE(" in cpp_code
+
+
+def test_manual_fillpad_expand_rejects_inplace():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualFillPadExpandInplaceProgram:
+        @pl.function
+        def fillpad_expand_inplace_dynamic_tile(
+            self,
+            rows: pl.Scalar[pl.INDEX],
+            cols: pl.Scalar[pl.INDEX],
+            output: pl.Tensor[[16, 16], pl.FP32],
+        ):
+            src_type = plm.TileType(
+                shape=[16, 16],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
+                valid_shape=[-1, -1],
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=1024)
+            plm.set_validshape(src, rows, cols)
+            plm.fillpad_expand(src, src)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualFillPadExpandInplaceProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(ValueError, match="manual.fillpad_expand: inplace is not supported"):
+        codegen_obj.generate(transformed_program)
 
 def test_manual_fillpad_expand_rejects_invalid_shape_and_pad():
     backend.reset_for_testing()

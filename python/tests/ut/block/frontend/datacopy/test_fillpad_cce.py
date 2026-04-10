@@ -62,6 +62,40 @@ def fillpad_dynamic_cce_kernel(
     return z
 
 
+@fe.kernel
+def fillpad_inplace_dynamic_cce_kernel(
+    x: pl.Tensor[[8, 8], pl.INT32],
+    z: pl.Tensor[[8, 8], pl.INT32],
+) -> pl.Tensor[[8, 8], pl.INT32]:
+    src_type = plm.TileType(
+        shape=[8, 8],
+        dtype=pl.INT32,
+        target_memory=pl.MemorySpace.Vec,
+        pad=plm.TilePad.zero,
+        valid_shape=[-1, -1],
+    )
+    src = plm.make_tile(src_type, addr=0x0000, size=256)
+
+    with pl.section_vector():
+        plm.load(src, x, [0, 0])
+        pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
+
+        plm.set_validshape(src, 5, 7)
+        plm.dump_tile(src)
+
+        plm.fillpad(src, src)
+
+        plm.dump_tile(src)
+
+        pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=1)
+        pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=1)
+        plm.store(z, src, [0, 0])
+        pl.system.bar_all()
+
+    return z
+
+
 @fe.jit()
 def test_fillpad_dynamic_cce():
     compiled_lib = fe.compile(fillpad_dynamic_cce_kernel, arch="a3", codegen_mode="cce")
@@ -91,6 +125,36 @@ def test_fillpad_dynamic_cce():
     print("result equal!")
 
 
+@fe.jit()
+def test_fillpad_inplace_dynamic_cce():
+    compiled_lib = fe.compile(fillpad_inplace_dynamic_cce_kernel, arch="a3", codegen_mode="cce")
+    print("compiled lib path:", compiled_lib.lib_path)
+
+    device = "npu:0"
+    torch.npu.set_device(device)
+
+    x = torch.full((8, 8), -99, device=device, dtype=torch.int32)
+    x[:5, :7] = torch.arange(35, device=device, dtype=torch.int32).reshape(5, 7)
+    z = torch.empty((8, 8), device=device, dtype=torch.int32)
+
+    fe.launch(None, 1, compiled_lib, x, z)
+    torch.npu.synchronize()
+
+    print("***********cce inplace padded output***********")
+    print(z.shape, z.dtype)
+    print(z)
+
+    z_ref = torch.zeros((8, 8), device=device, dtype=torch.int32)
+    z_ref[:5, :7] = x[:5, :7]
+    print("***********golden inplace padded output***********")
+    print(z_ref.shape, z_ref.dtype)
+    print(z_ref)
+
+    torch.testing.assert_close(z, z_ref)
+    print("result equal!")
+
+
 if __name__ == "__main__":
     test_fillpad_dynamic_cce()
+    test_fillpad_inplace_dynamic_cce()
     print("\nAll tests passed!")

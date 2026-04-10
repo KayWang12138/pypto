@@ -25,14 +25,17 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "block/backend/910B_PTO/backend_910b_pto.h"
 #include "block/backend/common/backend.h"
 #include "block/codegen/codegen_base.h"
 #include "block/codegen/pto/pto_codegen.h"
+#include "block/core/error.h"
 #include "block/core/logging.h"
 #include "block/ir/expr.h"
 #include "block/ir/kind_traits.h"
@@ -361,6 +364,89 @@ static std::string GenerateManualMixInsOutsClause(const CallPtr& op, codegen::PT
   return oss.str();
 }
 
+static bool NeedsNullPadSourceAliasPTO(const ir::TileTypePtr& tile_type) {
+  return tile_type != nullptr && tile_type->tile_view_.has_value() &&
+         tile_type->tile_view_.value().pad != ir::TilePad::null;
+}
+
+static std::string GetTileTypeAnnotationOrFallbackPTO(codegen::PTOCodegen& codegen,
+                                                       const ir::ExprPtr& expr,
+                                                       const ir::TileTypePtr& tile_type) {
+  std::string annot = codegen.GetExprTypeAnnotation(expr);
+  if (!annot.empty()) {
+    return annot;
+  }
+  CHECK(tile_type != nullptr) << "expected TileType when building manual fillpad annotation";
+  return codegen.GetTileBufTypeStringFromTileType(tile_type);
+}
+
+static std::pair<std::string, std::string> BuildNullPadSourceAliasPTO(codegen::PTOCodegen& codegen,
+                                                                      const ir::TileTypePtr& src_tile_type,
+                                                                      const std::string& src) {
+  CHECK(src_tile_type != nullptr) << "manual.fillpad-like: expected TileType source";
+  CHECK(src_tile_type->tile_view_.has_value()) << "manual.fillpad-like: expected source tile_view";
+
+  auto alias_tile_view = src_tile_type->tile_view_.value();
+  alias_tile_view.pad = ir::TilePad::null;
+  auto alias_tile_type = std::make_shared<ir::TileType>(
+      src_tile_type->shape_, src_tile_type->dtype_, src_tile_type->memref_, alias_tile_view);
+
+  std::string alias_tile_buf_type = codegen.GetTileBufTypeStringFromTileType(alias_tile_type);
+  std::string alias_tile = codegen.NewTemp();
+  std::string alias_addr = codegen.GetTileAddrSSA(src);
+  if (alias_addr.empty()) {
+    alias_addr = codegen.GetIndexConstant(0);
+  }
+
+  std::ostringstream alloc_line;
+  alloc_line << alias_tile << " = pto.alloc_tile addr = " << alias_addr;
+  if (codegen.IsDynamicTileType(alias_tile_buf_type)) {
+    auto [valid_row, valid_col] = codegen.GetTileValidShape(src);
+    alloc_line << " valid_row = " << valid_row << " valid_col = " << valid_col;
+    codegen.UpdateTileValidShape(alias_tile, valid_row, valid_col);
+  }
+  alloc_line << " : " << alias_tile_buf_type;
+  codegen.Emit(alloc_line.str());
+
+  return {alias_tile, alias_tile_buf_type};
+}
+
+static std::string MakeManualFillPadLikePTO(const std::string& manual_op, const std::string& pto_op, const CallPtr& op,
+                                            codegen::CodegenBase& cb) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(cb);
+  CHECK(op->args_.size() == 2) << pto_op << ": expected 2 args (src, out), got " << op->args_.size();
+
+  auto src_tile_type = As<ir::TileType>(op->args_[0]->GetType());
+  auto dst_tile_type = As<ir::TileType>(op->args_[1]->GetType());
+  CHECK(src_tile_type != nullptr) << pto_op << ": expected TileType src";
+  CHECK(dst_tile_type != nullptr) << pto_op << ": expected TileType dst";
+
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+  std::string src_type = GetTileTypeAnnotationOrFallbackPTO(codegen, op->args_[0], src_tile_type);
+  std::string dst_type = GetTileTypeAnnotationOrFallbackPTO(codegen, op->args_[1], dst_tile_type);
+
+  if (src == dst) {
+    if (manual_op == "manual.fillpad") {
+      // PTOAS textual MLIR recognizes aliased pto.tfillpad and lowers it to
+      // TFILLPAD_INPLACE during EmitC conversion. Keep the same tile value here
+      // and let PTOAS own that lowering.
+      codegen.Emit(pto_op + " ins(" + src + " : " + src_type + ") outs(" + dst + " : " + dst_type + ")");
+      return "";
+    }
+    throw pypto::ValueError("manual.fillpad_expand: inplace is not supported");
+  }
+
+  if (NeedsNullPadSourceAliasPTO(src_tile_type)) {
+    auto [alias_src, alias_src_type] = BuildNullPadSourceAliasPTO(codegen, src_tile_type, src);
+    src = alias_src;
+    src_type = alias_src_type;
+  }
+
+  codegen.Emit(pto_op + " ins(" + src + " : " + src_type + ") outs(" + dst + " : " + dst_type + ")");
+  return "";
+}
+
 // ============================================================================
 // Arity-specific convenience wrappers
 // ============================================================================
@@ -375,11 +461,11 @@ static std::string MakeManualUnaryPTO(const std::string& pto_op, const CallPtr& 
 }
 
 static std::string MakeManualFillPadPTO(const CallPtr& op, codegen::CodegenBase& cb) {
-  return MakeManualUnaryPTO("pto.tfillpad", op, cb);
+  return MakeManualFillPadLikePTO("manual.fillpad", "pto.tfillpad", op, cb);
 }
 
 static std::string MakeManualFillPadExpandPTO(const CallPtr& op, codegen::CodegenBase& cb) {
-  return MakeManualUnaryPTO("pto.tfillpad_expand", op, cb);
+  return MakeManualFillPadLikePTO("manual.fillpad_expand", "pto.tfillpad_expand", op, cb);
 }
 
 // Binary: (lhs, rhs, out)

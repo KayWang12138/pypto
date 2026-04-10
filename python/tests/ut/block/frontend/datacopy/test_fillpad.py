@@ -38,13 +38,11 @@ def fillpad_dynamic_kernel(
     dst = plm.make_tile(dst_type, addr=0x0100, size=256)
 
     with pl.section_vector():
-        plm.set_validshape(src, 5, 7)
         plm.load(src, x, [0, 0])
         pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
         pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
 
-        # The source tile's invalid region is unspecified after TLOAD when pad=null.
-        # This dump is only for state observation, not for judging pad correctness.
+        plm.set_validshape(src, 5, 7)
         plm.dump_tile(src)
 
         plm.fillpad(dst, src)
