@@ -348,6 +348,14 @@ __aicore__ inline constexpr bool JudgeValidShapeEqualTileShape()
 }
 
 template <typename T0>
+__aicore__ inline constexpr bool CheckMxDimension() {
+    if constexpr (T0::IsStaticLayout()) {
+        return true;
+    }
+    return false;
+}
+
+template <typename T0>
 __aicore__ constexpr bool IsConstContinous()
 {
     return JudgeValidShapeEqualTileShape<T0>();
@@ -360,6 +368,19 @@ __aicore__ constexpr bool IsConstContinous()
         return false;
     }
     return IsConstContinous<T1, Args...>();
+}
+
+template <typename T0>
+__aicore__ constexpr bool IsConstContinuousMX() {
+    return CheckMxDimension<T0>();
+}
+
+template <typename T0, typename T1, typename... Args>
+__aicore__ constexpr bool IsConstContinuousMX() {
+    if constexpr (!CheckMxDimension<T0>()) {
+        return false;
+    }
+    return IsConstContinuousMX<T1, Args...>();
 }
 } // namespace TileOp
 
