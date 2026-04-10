@@ -214,7 +214,6 @@ public:
         inOutOperandsCache_.clear();
         opReqMemIdsMap.clear();
         for (const auto &op : list) {
-            std::cout << GetOpInfo(op).c_str() << std::endl;
             for (auto &tensor : op->GetIOperands()) {
                 UpdateBufRefCount(op, tensor);
                 int memId = tensor->memoryrange.memId;

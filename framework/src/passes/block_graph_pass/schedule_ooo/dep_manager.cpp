@@ -139,6 +139,9 @@ std::string DependencyManager::PrintOp(Operation *op) {
 }
 
 void DependencyManager::PrintDependencies(const std::vector<Operation *> &ops) {
+    if (static_cast<int>(LoggerManager::GetManager().level) > static_cast<int>(LoggerLevel::DEBUG)) {
+        return;
+    }
     for (const auto &op : ops) {
         if (inGraph_.find(op) == inGraph_.end() || outGraph_.find(op) == outGraph_.end()) {
             continue;

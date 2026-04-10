@@ -516,6 +516,7 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle)
     for (auto coreLocation : CORE_INIT_CONFIGS) {
         if (RetireCoreIssue(coreLocation, commitCnt, nextCycle) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "RetireIssueStage failed");
+            return FAILED;
         }
     }
     return SUCCESS;
