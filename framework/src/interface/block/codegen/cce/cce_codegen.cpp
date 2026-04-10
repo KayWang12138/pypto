@@ -655,6 +655,7 @@ void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cr
           std::string san_dup = context_.SanitizeName(dup_var);
           std::string san_kept = context_.SanitizeName(kept_var);
           emitter_.EmitLine("auto& " + san_dup + " = " + san_kept + ";");
+          emitted_tile_aliases_.insert(san_dup);
         }
       }
     };
@@ -913,8 +914,9 @@ void CCECodegen::VisitStmt_(const ir::AssignStmtPtr& op) {
           // prologue tile, emit a C++ reference alias so that user-created
           // aliases (e.g., `first_qk = qk_vec_buf[0]`) are valid C++
           // identifiers when used in TLOAD/TSTORE.
-          if (resolved != var_name) {
+          if (resolved != var_name && emitted_tile_aliases_.find(var_name) == emitted_tile_aliases_.end()) {
             emitter_.EmitLine("auto& " + var_name + " = " + resolved + ";");
+            emitted_tile_aliases_.insert(var_name);
           }
         }
       }
