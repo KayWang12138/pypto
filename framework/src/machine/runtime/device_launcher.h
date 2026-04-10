@@ -186,7 +186,10 @@ public:
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
+        devProg->devArgs.nrAic = 32;
+        devProg->devArgs.nrAiv = 64;
+        devProg->devArgs.nrValidAic = 32;
+        int aiCpuNum = 7;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(devProg->devArgs.nrValidAic, aiCpuNum, devProg->devArgs.archInfo);
         devProg->devArgs.maxAicpuNum = aiCpuNum;
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
