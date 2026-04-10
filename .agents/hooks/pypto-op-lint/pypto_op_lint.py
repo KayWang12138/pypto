@@ -1,24 +1,32 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """pypto_op_lint.py — 算子开发流程确定性检查工具
 
 通过 Claude Code hooks / OpenCode plugin 自动触发，
 也可手动执行进行调试。
 """
 
+import argparse
 import ast
 import json
 import os
 import re
-import sys
+import select
+import shutil
 import subprocess
-import argparse
-from dataclasses import dataclass, field, asdict
+import sys
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Optional
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_COMMAND_PATTERN = re.compile(r"python3?\s+.*test_\w+\.py")
+PYTHON_BIN = os.path.abspath(sys.executable)
+GIT_BIN = shutil.which("git")
 
-IMPL_RULE_IDS = ["OL01", "OL02", "OL03", "OL04", "OL05", "OL06", "OL07", "OL08", "OL16", "OL23", "OL25", "OL26", "OL28", "OL29"]
+IMPL_RULE_IDS = [
+    "OL01", "OL02", "OL03", "OL04", "OL05", "OL06", "OL07", "OL08",
+    "OL16", "OL23", "OL25", "OL26", "OL28", "OL29",
+]
 GOLDEN_RULE_IDS = ["OL15"]
 TEST_RULE_IDS = ["OL17", "OL18", "OL19", "OL20", "OL21", "OL22"]
 CONSISTENCY_RULE_IDS = ["OL30", "OL31", "OL32", "OL33", "OL34"]
@@ -563,7 +571,7 @@ def check_ol11(ctx: CheckContext) -> Finding:
     )
     try:
         result = subprocess.run(
-            ["python3", "-c", probe_code],
+            [PYTHON_BIN, "-c", probe_code],
             capture_output=True, text=True, timeout=10,
         )
     except subprocess.TimeoutExpired:
@@ -618,7 +626,7 @@ def check_ol14(ctx: CheckContext) -> Finding:
         status = data.get("stage_status", {})
         if status.get("5") == "completed" or status.get("6") == "completed":
             return ctx.make_finding("OL14", "PASS", "精度已通过")
-    except (json.JSONDecodeError, ValueError):
+    except ValueError:
         pass
     return ctx.make_finding("OL14", "FAIL", "精度未通过（Stage 5/6 未 completed）")
 
@@ -1157,7 +1165,7 @@ def _get_current_stage(op_dir: str) -> int:
     try:
         with open(state_path, "r", encoding="utf-8") as f:
             return int(json.load(f).get("current_stage", 0))
-    except (json.JSONDecodeError, ValueError):
+    except ValueError:
         return 0
 
 
@@ -1169,7 +1177,7 @@ def _get_op_name(op_dir: str) -> str:
                 name = json.load(f).get("operator_name", "")
                 if name:
                     return name
-        except (json.JSONDecodeError, ValueError):
+        except ValueError:
             pass
     return os.path.basename(op_dir)
 
@@ -1202,11 +1210,10 @@ def _run_checks(ctx: CheckContext, rule_ids: list[str]) -> list[Finding]:
 def _output_hook_json(event: str, **kwargs):
     """输出 hookSpecificOutput JSON 到 stdout"""
     output = {"hookSpecificOutput": {"hookEventName": event, **kwargs}}
-    print(json.dumps(output, ensure_ascii=False))
+    sys.stdout.write(f"{json.dumps(output, ensure_ascii=False)}\n")
 
 
 def _load_hook_input_or_exit() -> dict[str, Any]:
-    import select
     raw = ""
     # Try stdin first — non-blocking probe. Works for any caller that pipes data.
     # select(0) returns immediately: data ready → read; no data → skip to env var.
@@ -1225,7 +1232,7 @@ def _load_hook_input_or_exit() -> dict[str, Any]:
         return {}
     try:
         data = json.loads(raw)
-    except (json.JSONDecodeError, ValueError):
+    except ValueError:
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -1241,6 +1248,7 @@ def _rule_ids_for_filename(filename: str) -> list[str]:
 
 
 def _print_findings(findings: list[Finding]):
+    has_s0_fail = _has_s0_fail(findings)
     result = {
         "passed": not any(f.status == "FAIL" for f in findings),
         "findings": [asdict(f) for f in findings],
@@ -1249,41 +1257,46 @@ def _print_findings(findings: list[Finding]):
             "warn": sum(1 for f in findings if f.status == "WARN"),
             "fail": sum(1 for f in findings if f.status == "FAIL"),
             "skip": sum(1 for f in findings if f.status == "SKIP"),
-            "has_s0_fail": any(
-                f.status == "FAIL" and f.severity == "S0" for f in findings
-            ),
+            "has_s0_fail": has_s0_fail,
         },
     }
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    sys.stdout.write(f"{json.dumps(result, ensure_ascii=False, indent=2)}\n")
+
+
+def _has_s0_fail(findings: list[Finding]) -> bool:
+    for finding in findings:
+        if finding.status == "FAIL" and finding.severity == "S0":
+            return True
+    return False
 
 
 # ─── Hook 适配层 ───
 
-def hook_post_edit():
+def hook_post_edit() -> int:
     """PostToolUse[Write|Edit] — 按文件类型 lint"""
     data = _load_hook_input_or_exit()
     file_path = data.get("tool_input", {}).get("file_path", "")
     op_dir = _infer_op_dir(file_path)
     if not op_dir:
-        sys.exit(0)
+        return 0
 
     basename = os.path.basename(file_path)
     stage = None
     if not os.path.isfile(os.path.join(op_dir, ".orchestrator_state.json")):
         stage = _infer_stage_from_filename(basename)
         if stage == 0:
-            sys.exit(0)
+            return 0
     ctx = _build_context(op_dir, stage)
 
     rule_ids = _rule_ids_for_filename(basename)
     if not rule_ids:
-        sys.exit(0)
+        return 0
 
     findings = _run_checks(ctx, rule_ids)
     fails = [f for f in findings if f.status == "FAIL"]
     warns = [f for f in findings if f.status == "WARN"]
     if not fails and not warns:
-        sys.exit(0)
+        return 0
 
     sections = []
     if fails:
@@ -1302,15 +1315,15 @@ def hook_post_edit():
         )
     context_msg = "\n\n".join(sections)
     _output_hook_json("PostToolUse", additionalContext=context_msg)
-    sys.exit(0)
+    return 0
 
 
-def hook_post_bash():
+def hook_post_bash() -> int:
     """PostToolUse[Bash] — 三态解析测试输出"""
     data = _load_hook_input_or_exit()
     command = data.get("tool_input", {}).get("command", "")
     if not TEST_COMMAND_PATTERN.search(command):
-        sys.exit(0)
+        return 0
 
     stdout = data.get("tool_result", {}).get("stdout", "")
     stderr = data.get("tool_result", {}).get("stderr", "")
@@ -1323,47 +1336,53 @@ def hook_post_bash():
         "请以此结果为准，不要自行解读测试输出。"
     )
     _output_hook_json("PostToolUse", additionalContext=context_msg)
-    sys.exit(0)
+    return 0
 
 
-def hook_pre_edit():
+def hook_pre_edit() -> int:
     """PreToolUse[Write|Edit] — 纯 lint 检查，无副作用。
 
     Git 备份逻辑已拆离到独立的 hook_pre_edit_backup()，
     通过 --hook pre-edit-backup 触发，避免 lint 与版本控制写操作耦合。
     """
     # 当前 pre-edit 阶段暂无需前置 lint 检查，保留入口供后续扩展
-    sys.exit(0)
+    return 0
 
 
-def hook_pre_edit_backup():
+def hook_pre_edit_backup() -> int:
     """PreToolUse[Write|Edit] — Stage 6 编辑 impl 前 git auto-commit（独立于 lint）"""
     data = _load_hook_input_or_exit()
     file_path = data.get("tool_input", {}).get("file_path", "")
     if not file_path.endswith("_impl.py"):
-        sys.exit(0)
+        return 0
     op_dir = _infer_op_dir(file_path)
     if not op_dir:
-        sys.exit(0)
+        return 0
     if _get_current_stage(op_dir) != 6:
-        sys.exit(0)
+        return 0
 
     impl_file = os.path.basename(file_path)
     try:
         _ensure_git_init(op_dir)
         subprocess.run(
-            ["git", "add", impl_file],
+            [_git_executable(), "add", impl_file],
             cwd=op_dir, check=True, capture_output=True,
         )
         attempt = _get_stage6_attempt(op_dir)
         subprocess.run(
-            ["git", "commit", "-m",
+            [_git_executable(), "commit", "-m",
              f"backup: {impl_file} before stage6 attempt {attempt}"],
             cwd=op_dir, check=True, capture_output=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass  # git commit 失败（可能无变更），不拦截
-    sys.exit(0)
+    return 0
+
+
+def _git_executable() -> str:
+    if GIT_BIN:
+        return GIT_BIN
+    return "/usr/bin/git"
 
 
 def _ensure_git_init(op_dir: str):
@@ -1377,11 +1396,11 @@ def _ensure_git_init(op_dir: str):
 
     git_dir = current if os.path.basename(current) == "custom" else op_dir
     if not os.path.isdir(os.path.join(git_dir, ".git")):
-        subprocess.run(["git", "init"], cwd=git_dir,
+        subprocess.run([_git_executable(), "init"], cwd=git_dir,
                        check=True, capture_output=True)
-        subprocess.run(["git", "add", "."], cwd=git_dir,
+        subprocess.run([_git_executable(), "add", "."], cwd=git_dir,
                        check=True, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init: operator workspace"],
+        subprocess.run([_git_executable(), "commit", "-m", "init: operator workspace"],
                        cwd=git_dir, check=True, capture_output=True)
 
 
@@ -1392,28 +1411,31 @@ def _get_stage6_attempt(op_dir: str) -> int:
         with open(state_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return int(data.get("stage_retry_count", {}).get("6", 0)) + 1
-    except (json.JSONDecodeError, ValueError, FileNotFoundError):
+    except (ValueError, FileNotFoundError):
         return 1
 
 
-def hook_stop():
+def hook_stop() -> int:
     """Stop — agent 结束前交付门禁"""
     data = _load_hook_input_or_exit()
     cwd = data.get("cwd", os.getcwd())
 
     op_dir = _find_nearest_op_dir(cwd)
     if not op_dir:
-        sys.exit(0)
+        return 0
 
     stage = None
     if not os.path.isfile(os.path.join(op_dir, ".orchestrator_state.json")):
         stage = _infer_stage_from_artifacts(op_dir)
         if stage == 0:
-            sys.exit(0)
+            return 0
     ctx = _build_context(op_dir, stage)
     applicable = [r["id"] for r in ctx.rules if ctx.stage in r.get("stages", [])]
     findings = _run_checks(ctx, applicable)
-    s0_fails = [f for f in findings if f.status == "FAIL" and f.severity == "S0"]
+    s0_fails = []
+    for finding in findings:
+        if finding.status == "FAIL" and finding.severity == "S0":
+            s0_fails.append(finding)
 
     if s0_fails:
         lines = [f"  [{f.rule_id}][{f.severity}] {f.message}" for f in s0_fails]
@@ -1421,8 +1443,8 @@ def hook_stop():
             decision="block",
             reason="[pypto-op-lint] 交付门禁未通过，存在 S0 级违规：\n"
                    + "\n".join(lines))
-        sys.exit(2)
-    sys.exit(0)
+        return 2
+    return 0
 
 
 def _find_nearest_op_dir(cwd: str) -> Optional[str]:
@@ -1448,8 +1470,12 @@ def _parse_verdict(stdout: str, stderr: str, exit_code: int) -> str:
         return "precision_fail"
     if "[PRECISION_PASS]" in combined:
         return "precision_pass"
-    if exit_code != 0 and (stderr.strip() or "traceback" in combined.lower()):
-        return "other"
+    has_runtime_error = exit_code != 0
+    if has_runtime_error:
+        has_stderr = bool(stderr.strip())
+        has_traceback = "traceback" in combined.lower()
+        if has_stderr or has_traceback:
+            return "other"
     return "other"
 
 
@@ -1463,46 +1489,49 @@ def _verdict_detail(verdict: str) -> str:
 
 # ─── 手动模式 ───
 
-def _cmd_run_and_exit(findings: list[Finding]):
+def _cmd_run(findings: list[Finding]) -> int:
     _print_findings(findings)
-    has_s0_fail = any(f.status == "FAIL" and f.severity == "S0" for f in findings)
-    sys.exit(2 if has_s0_fail else 0)
+    return 2 if _has_s0_fail(findings) else 0
 
 
-def cmd_lint_impl(op_dir: str, stage: int):
+def cmd_lint_impl(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
-    _cmd_run_and_exit(_run_checks(ctx, IMPL_RULE_IDS))
+    return _cmd_run(_run_checks(ctx, IMPL_RULE_IDS))
 
 
-def cmd_lint_golden(op_dir: str, stage: int):
+def cmd_lint_golden(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
-    _cmd_run_and_exit(_run_checks(ctx, GOLDEN_RULE_IDS))
+    return _cmd_run(_run_checks(ctx, GOLDEN_RULE_IDS))
 
 
-def cmd_lint_test(op_dir: str, stage: int):
+def cmd_lint_test(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
-    _cmd_run_and_exit(_run_checks(ctx, TEST_RULE_IDS))
+    return _cmd_run(_run_checks(ctx, TEST_RULE_IDS))
 
 
-def cmd_lint_consistency(op_dir: str, stage: int):
+def cmd_lint_consistency(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
-    _cmd_run_and_exit(_run_checks(ctx, CONSISTENCY_RULE_IDS))
+    return _cmd_run(_run_checks(ctx, CONSISTENCY_RULE_IDS))
 
 
-def cmd_check_gate(op_dir: str, stage: int):
+def cmd_check_gate(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
-    gate_rules = [r["id"] for r in ctx.rules
-                  if r.get("target") in ("gate", "flow")
-                  and stage in r.get("stages", [])]
+    gate_rules: list[str] = []
+    for rule in ctx.rules:
+        if rule.get("target") not in ("gate", "flow"):
+            continue
+        if stage not in rule.get("stages", []):
+            continue
+        gate_rules.append(rule["id"])
     # OL23 target=impl 但属于门禁 advisory，显式纳入
     if stage in (5, 6, 7) and "OL23" not in gate_rules:
         gate_rules.append("OL23")
-    _cmd_run_and_exit(_run_checks(ctx, gate_rules))
+    return _cmd_run(_run_checks(ctx, gate_rules))
 
 
 # ─── 入口 ───
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="PyPTO 算子开发流程确定性检查工具")
     parser.add_argument("--hook",
                         choices=["post-edit", "post-bash", "pre-edit",
@@ -1524,35 +1553,36 @@ def main():
     args = parser.parse_args()
 
     if args.hook:
-        {"post-edit": hook_post_edit,
-         "post-bash": hook_post_bash,
-         "pre-edit": hook_pre_edit,
-         "pre-edit-backup": hook_pre_edit_backup,
-         "stop": hook_stop,
-         }[args.hook]()
+        return {"post-edit": hook_post_edit,
+                "post-bash": hook_post_bash,
+                "pre-edit": hook_pre_edit,
+                "pre-edit-backup": hook_pre_edit_backup,
+                "stop": hook_stop,
+                }[args.hook]()
     elif args.lint_impl:
         if not args.op_dir:
             parser.error("--lint-impl 需要 --op-dir")
-        cmd_lint_impl(args.op_dir, args.stage)
+        return cmd_lint_impl(args.op_dir, args.stage)
     elif args.lint_golden:
         if not args.op_dir:
             parser.error("--lint-golden 需要 --op-dir")
-        cmd_lint_golden(args.op_dir, args.stage)
+        return cmd_lint_golden(args.op_dir, args.stage)
     elif args.lint_test:
         if not args.op_dir:
             parser.error("--lint-test 需要 --op-dir")
-        cmd_lint_test(args.op_dir, args.stage)
+        return cmd_lint_test(args.op_dir, args.stage)
     elif args.lint_consistency:
         if not args.op_dir:
             parser.error("--lint-consistency 需要 --op-dir")
-        cmd_lint_consistency(args.op_dir, args.stage)
+        return cmd_lint_consistency(args.op_dir, args.stage)
     elif args.check_gate:
         if not args.op_dir:
             parser.error("--check-gate 需要 --op-dir")
-        cmd_check_gate(args.op_dir, args.stage)
+        return cmd_check_gate(args.op_dir, args.stage)
     else:
         parser.print_help()
+        return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
