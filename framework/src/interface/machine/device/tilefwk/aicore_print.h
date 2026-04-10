@@ -25,7 +25,7 @@
 #include "tileop/utils/layout.h"
 #endif
 
-#define ENABLE_AICORE_PRINT 0
+#define ENABLE_AICORE_PRINT 1
 
 #ifndef CACHE_LINE_SIZE
 #define CACHE_LINE_SIZE 64
@@ -112,13 +112,64 @@ INLINE float DecodeF16(uint16_t bits)
     return SafeBitCast<float>(u);
 }
 
-enum NodeTy { END, NORMAL, FP32, INT, CHAR, STRING, POINTER, BF16, FP16 };
+#define FLOAT8_SIGN_MASK       0x80u
+#define FLOAT8_EXP_MASK        0x78u
+#define FLOAT8_MANT_MASK       0x07u
+#define FLOAT8_SIGN_SHIFT      7
+#define FLOAT8_EXP_SHIFT       3
+#define FLOAT8_HIDDEN_BIT      0x08u
+#define FLOAT8_EXP_BIAS        7
+#define FLOAT8_EXP_SATURATE    0xFu
+#define FLOAT8_SATURATE_MAX    240.0f
+#define FLOAT8_TO_FP32_MANT_SHIFT 20
+#define FLOAT8_SUBNORMAL_FP32_EXP_BASE (FP32_EXP_BIAS - (FLOAT8_EXP_BIAS - 1))
+
+INLINE float DecodeFloat8(uint8_t bits)
+{
+    uint32_t sign = (bits & FLOAT8_SIGN_MASK) >> FLOAT8_SIGN_SHIFT;
+    uint32_t exp  = (bits & FLOAT8_EXP_MASK) >> FLOAT8_EXP_SHIFT;
+    uint32_t mant = bits & FLOAT8_MANT_MASK;
+
+    uint32_t sign32 = sign << FP32_SIGN_SHIFT;
+
+    if (exp == 0 && mant == 0) {
+        return SafeBitCast<float>(sign32);
+    }
+
+    if (exp == FLOAT8_EXP_SATURATE) {
+        uint32_t satBits = sign32 | ((FP32_EXP_BIAS + 7) << FP32_EXP_SHIFT) | (0x7u << FLOAT8_TO_FP32_MANT_SHIFT);
+        return SafeBitCast<float>(satBits);
+    }
+
+    uint32_t exp32;
+    uint32_t mant32;
+    if (exp == 0) {
+        exp32 = FLOAT8_SUBNORMAL_FP32_EXP_BASE;
+        while ((mant & FLOAT8_HIDDEN_BIT) == 0) {
+            mant <<= 1;
+            --exp32;
+        }
+        mant &= FLOAT8_MANT_MASK;
+        mant32 = mant << FLOAT8_TO_FP32_MANT_SHIFT;
+    } else {
+        exp32 = exp - FLOAT8_EXP_BIAS + FP32_EXP_BIAS;
+        mant32 = mant << FLOAT8_TO_FP32_MANT_SHIFT;
+    }
+
+    return SafeBitCast<float>(sign32 | (exp32 << FP32_EXP_SHIFT) | mant32);
+}
+
+enum NodeTy { END, NORMAL, FP32, INT, CHAR, STRING, POINTER, BF16, FP16,
+              TENSOR_HEADER,
+              INDEXED_FP32, INDEXED_INT64, INDEXED_BF16, INDEXED_FP16,
+              FLOAT8, INDEXED_FLOAT8 };
 
 struct LogContext {
     void (*PrintInt)(LogContext* ctx, __gm__ const char** fmt, int64_t val);
     void (*PrintFp32)(LogContext* ctx, __gm__ const char** fmt, float val);
     void (*PrintBf16)(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits);
     void (*PrintFp16)(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits);
+    void (*PrintFloat8)(LogContext* ctx, __gm__ const char** fmt, uint8_t rawBits);
     void (*Print)(LogContext* ctx, __gm__ const char* fmt);
 };
 
@@ -136,6 +187,8 @@ INLINE void __AiCorePrint(LogContext* ctx, __gm__ const char** fmt, T val)
         ctx->PrintBf16(ctx, fmt, SafeBitCast<uint16_t>(val));
     } else if constexpr (std::is_same_v<T, half>) {
         ctx->PrintFp16(ctx, fmt, SafeBitCast<uint16_t>(val));
+    } else if constexpr (std::is_same_v<T, float8_t>) {
+        ctx->PrintFloat8(ctx, fmt, SafeBitCast<uint8_t>(val));
 #endif
     }
 }
@@ -187,6 +240,14 @@ struct AicoreLogger {
         }
     }
 
+    static __aicore__ void __PrintFloat8(LogContext* ctx, __gm__ const char** fmt, uint8_t rawBits)
+    {
+        auto self = reinterpret_cast<AicoreLogger*>(ctx);
+        if (self) {
+            self->PrintFloat8(fmt, rawBits);
+        }
+    }
+
     static __aicore__ void __Print(LogContext* ctx, __gm__ const char* fmt)
     {
         auto self = reinterpret_cast<AicoreLogger*>(ctx);
@@ -206,6 +267,7 @@ struct AicoreLogger {
         ctx.PrintFp32 = __PrintFloat;
         ctx.PrintBf16 = __PrintBf16;
         ctx.PrintFp16 = __PrintF16;
+        ctx.PrintFloat8 = __PrintFloat8;
         ctx.Print = __Print;
     }
 
@@ -268,6 +330,11 @@ struct AicoreLogger {
         EncodeFloatType(fmt, FP16, reinterpret_cast<uint8_t*>(&rawBits), sizeof(rawBits));
     }
 
+    __aicore__ void PrintFloat8(__gm__ const char** fmt, uint8_t rawBits)
+    {
+        EncodeFloatType(fmt, FLOAT8, reinterpret_cast<uint8_t*>(&rawBits), sizeof(rawBits));
+    }
+
     __aicore__ void Print(__gm__ const char* str)
     {
         auto n = Length(str);
@@ -298,6 +365,47 @@ struct AicoreLogger {
 
     INLINE LogContext* context() { return &ctx; }
 
+    template <typename NamePtrT>
+    __aicore__ void EncodeTensorHeader(NamePtrT name, int64_t begin, int64_t end)
+    {
+        Encode(static_cast<uint8_t>(TENSOR_HEADER));
+        short nameLen = 0;
+        while (name[nameLen]) ++nameLen;
+        nameLen += 1;
+        auto nlBytes = reinterpret_cast<uint8_t*>(&nameLen);
+        Encode(nlBytes[0]);
+        Encode(nlBytes[1]);
+        for (short i = 0; name[i]; ++i) {
+            Encode(static_cast<uint8_t>(name[i]));
+        }
+        Encode('\0');
+        auto bBytes = reinterpret_cast<uint8_t*>(&begin);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(bBytes[i]);
+        }
+        auto eBytes = reinterpret_cast<uint8_t*>(&end);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(eBytes[i]);
+        }
+    }
+
+    __aicore__ void EncodeIndexed(NodeTy ty, int64_t index, const uint8_t* val, short valLen)
+    {
+        Encode(static_cast<uint8_t>(ty));
+        auto idxBytes = reinterpret_cast<const uint8_t*>(&index);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(idxBytes[i]);
+        }
+        for (short i = 0; i < valLen; ++i) {
+            Encode(val[i]);
+        }
+    }
+
+    __aicore__ void EncodeEnd()
+    {
+        Encode(static_cast<uint8_t>(END));
+    }
+
 #ifdef __TILE_FWK_HOST__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
@@ -306,7 +414,6 @@ struct AicoreLogger {
         size_t size = 0;
         head_ = remote_->head_;
         if (tail_ < remote_->tail_) {
-            // lose some data
             tail_ = remote_->tail_;
         }
         while (tail_ != head_) {
@@ -320,49 +427,125 @@ struct AicoreLogger {
                 continue;
             }
 
-            auto valOff = tail_ + sizeof(short);
-            tail_ += Read<short>(tail_) + sizeof(short);
-            auto fmtOff = tail_ + sizeof(short);
-            std::string fmt = ReadString(fmtOff);
-            tail_ += Read<short>(tail_) + sizeof(short);
             int n = 0;
             switch (type) {
-                case NORMAL:
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), 0);
+                case TENSOR_HEADER: {
+                    auto nameLen = Read<short>(tail_);
+                    tail_ += sizeof(short);
+                    std::string name;
+                    for (short i = 0; i < nameLen - 1; ++i) {
+                        name += Read<char>(tail_++);
+                    }
+                    tail_++;
+                    auto begin = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    auto end = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    lastTensorName_ = name;
+                    n = snprintf_s(buf, maxSize, maxSize - 1, "tensor '%s', range=[%ld, %ld)\n",
+                                   name.c_str(), begin, end);
                     break;
-                case FP32:
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<float>(valOff));
+                }
+                case INDEXED_FP32: {
+                    int64_t idx = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    float fv = Read<float>(tail_);
+                    tail_ += 4;
+                    n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %f\n",
+                                   lastTensorName_.c_str(), idx, fv);
                     break;
-                case INT:
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff));
+                }
+                case INDEXED_INT64: {
+                    int64_t idx = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    int64_t iv = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %ld\n",
+                                   lastTensorName_.c_str(), idx, iv);
                     break;
-                case CHAR:
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<char>(valOff));
-                    break;
-                case STRING:
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), ReadString(valOff).c_str());
-                    break;
-                case POINTER:
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff));
-                    break;
-                case BF16: {
-                    uint16_t bits = Read<uint16_t>(valOff);
+                }
+                case INDEXED_BF16: {
+                    int64_t idx = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    uint16_t bits = Read<uint16_t>(tail_);
+                    tail_ += 2;
                     float fv = DecodeBf16(bits);
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
+                    n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %f\n",
+                                   lastTensorName_.c_str(), idx, fv);
                     break;
                 }
-                case FP16: {
-                    uint16_t bits = Read<uint16_t>(valOff);
+                case INDEXED_FP16: {
+                    int64_t idx = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    uint16_t bits = Read<uint16_t>(tail_);
+                    tail_ += 2;
                     float fv = DecodeF16(bits);
-                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
+                    n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %f\n",
+                                   lastTensorName_.c_str(), idx, fv);
                     break;
                 }
-                default:
-                    if (n) {
-                        buf[0] = '?';
-                        n = 1;
+                case INDEXED_FLOAT8: {
+                    int64_t idx = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    uint8_t bits = Read<uint8_t>(tail_);
+                    tail_ += 1;
+                    float fv = DecodeFloat8(bits);
+                    n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %f\n",
+                                   lastTensorName_.c_str(), idx, fv);
+                    break;
+                }
+                default: {
+                    auto valOff = tail_ + sizeof(short);
+                    tail_ += Read<short>(tail_) + sizeof(short);
+                    auto fmtOff = tail_ + sizeof(short);
+                    std::string fmt = ReadString(fmtOff);
+                    tail_ += Read<short>(tail_) + sizeof(short);
+                    switch (type) {
+                        case NORMAL:
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), 0);
+                            break;
+                        case FP32:
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<float>(valOff));
+                            break;
+                        case INT:
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff));
+                            break;
+                        case CHAR:
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<char>(valOff));
+                            break;
+                        case STRING:
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), ReadString(valOff).c_str());
+                            break;
+                        case POINTER:
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff));
+                            break;
+                        case BF16: {
+                            uint16_t bits = Read<uint16_t>(valOff);
+                            float fv = DecodeBf16(bits);
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
+                            break;
+                        }
+                        case FP16: {
+                            uint16_t bits = Read<uint16_t>(valOff);
+                            float fv = DecodeF16(bits);
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
+                            break;
+                        }
+                        case FLOAT8: {
+                            uint8_t bits = Read<uint8_t>(valOff);
+                            float fv = DecodeFloat8(bits);
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
+                            break;
+                        }
+                        default:
+                            if (n) {
+                                buf[0] = '?';
+                                n = 1;
+                            }
+                            break;
                     }
                     break;
+                }
             }
             buf += n;
             size += n;
@@ -474,9 +657,25 @@ private:
     {
         if (head_ == tail_ + size_) {
             while (Read<uint8_t>(tail_) != END) {
+                auto segType = Read<uint8_t>(tail_);
                 tail_++;
-                tail_ += Read<short>(tail_) + sizeof(short);
-                tail_ += Read<short>(tail_) + sizeof(short);
+                switch (segType) {
+                    case TENSOR_HEADER: {
+                        auto nl = Read<short>(tail_);
+                        tail_ += sizeof(short) + nl;
+                        tail_ += 8 + 8;
+                        break;
+                    }
+                    case INDEXED_FP32:  tail_ += 8 + 4; break;
+                    case INDEXED_INT64: tail_ += 8 + 8; break;
+                    case INDEXED_BF16:
+                    case INDEXED_FP16:  tail_ += 8 + 2; break;
+                    case INDEXED_FLOAT8: tail_ += 8 + 1; break;
+                    default:
+                        tail_ += Read<short>(tail_) + sizeof(short);
+                        tail_ += Read<short>(tail_) + sizeof(short);
+                        break;
+                }
             }
             tail_++;
         }
@@ -524,6 +723,9 @@ private:
     int64_t size_;
     volatile __gm__ Remote* remote_;
     __gm__ uint8_t* data_;
+#ifdef __TILE_FWK_HOST__
+    std::string lastTensorName_;
+#endif
 };
 
 #if defined(__TILE_FWK_AICORE__) && defined(TILEOP_UTILS_TUPLE_H)
@@ -587,8 +789,48 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end, int
             AiCoreLogF(ctx, "%f\n", data[i]);
         } else if constexpr (std::is_same_v<ElemT, half>) {
             AiCoreLogF(ctx, "%f\n", data[i]);
+        } else if constexpr (std::is_same_v<ElemT, float8_t>) {
+            AiCoreLogF(ctx, "%f\n", data[i]);
 #endif
         }
+    }
+}
+
+template <typename T, typename PtrT, typename NamePtrT>
+INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end,
+                                    int64_t begin, NamePtrT name)
+{
+    using ElemT = std::remove_cv_t<T>;
+    auto* logger = reinterpret_cast<AicoreLogger*>(ctx);
+
+    logger->EncodeTensorHeader(name, begin, end);
+    logger->EncodeEnd();
+    logger->Sync();
+
+    for (int64_t i = begin; i < end; ++i) {
+        if constexpr (std::is_floating_point_v<ElemT>) {
+            float v = static_cast<float>(data[i]);
+            logger->EncodeIndexed(INDEXED_FP32, i, reinterpret_cast<uint8_t*>(&v), sizeof(float));
+        } else if constexpr (std::is_integral_v<ElemT>) {
+            int64_t v = static_cast<int64_t>(data[i]);
+            logger->EncodeIndexed(INDEXED_INT64, i, reinterpret_cast<uint8_t*>(&v), sizeof(int64_t));
+        } else if constexpr (std::is_pointer_v<ElemT>) {
+            int64_t v = reinterpret_cast<int64_t>(data[i]);
+            logger->EncodeIndexed(INDEXED_INT64, i, reinterpret_cast<uint8_t*>(&v), sizeof(int64_t));
+#if IS_AICORE
+        } else if constexpr (std::is_same_v<ElemT, bfloat16_t>) {
+            uint16_t rawBits = SafeBitCast<uint16_t>(data[i]);
+            logger->EncodeIndexed(INDEXED_BF16, i, reinterpret_cast<uint8_t*>(&rawBits), sizeof(uint16_t));
+        } else if constexpr (std::is_same_v<ElemT, half>) {
+            uint16_t rawBits = SafeBitCast<uint16_t>(data[i]);
+            logger->EncodeIndexed(INDEXED_FP16, i, reinterpret_cast<uint8_t*>(&rawBits), sizeof(uint16_t));
+        } else if constexpr (std::is_same_v<ElemT, float8_t>) {
+            uint8_t rawBits = SafeBitCast<uint8_t>(data[i]);
+            logger->EncodeIndexed(INDEXED_FLOAT8, i, &rawBits, sizeof(uint8_t));
+#endif
+        }
+        logger->EncodeEnd();
+        logger->Sync();
     }
 }
 
@@ -598,10 +840,24 @@ INLINE void AiCorePrintGmTensor(LogContext* ctx, __gm__ const T* data, int64_t e
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin);
 }
 
+template <typename T>
+INLINE void AiCorePrintGmTensorNamed(LogContext* ctx, __gm__ const T* data,
+                                      int64_t end, int64_t begin, __gm__ const char* name)
+{
+    __AiCorePrintTensorImpl<T>(ctx, data, end, begin, name);
+}
+
 #if IS_AICORE
 template <typename T>
 INLINE void AiCorePrintUbTensor(LogContext* ctx, __ubuf__ const T* data, int64_t end, int64_t begin = 0)
 {
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin);
+}
+
+template <typename T>
+INLINE void AiCorePrintUbTensorNamed(LogContext* ctx, __ubuf__ const T* data,
+                                      int64_t end, int64_t begin, __ubuf__ const char* name)
+{
+    __AiCorePrintTensorImpl<T>(ctx, data, end, begin, name);
 }
 #endif
