@@ -333,9 +333,9 @@ inline int64_t Pad(int64_t dim, int64_t padValue)
     return (dim + padValue - 1) / padValue * padValue;
 }
 
-inline size_t GetPaddingValue(LogicalTensorPtr& in)
+inline size_t GetPaddingValue(LogicalTensorPtr& inTensor)
 {
-    auto bytes = BytesOf(in->Datatype());
+    auto bytes = BytesOf(inTensor->Datatype());
     auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
     if (paddingIter == BLOCK_PADDING_DIM.end()) {
         return 1;
