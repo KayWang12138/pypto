@@ -143,12 +143,14 @@ struct ShmemPutAttr {
     Shape copyBufferShape;
     AtomicType atomicType = AtomicType::SET;
     SymbolicScalar ownerRank;
+    SymbolicScalar commContext;
 };
 
 struct ShmemGetAttr {
     Shape copyBufferShape;
     AtomicType atomicType = AtomicType::SET;
     SymbolicScalar ownerRank;
+    SymbolicScalar commContext;
 };
 
 struct ShmemSignalAttr {
@@ -160,6 +162,7 @@ struct ShmemSignalAttr {
     bool notifyAll{false};
     int64_t worldSize{0};
     SymbolicScalar ownerRank;
+    SymbolicScalar commContext;
 };
 
 struct ShmemWaitUntilAttr {
@@ -169,18 +172,21 @@ struct ShmemWaitUntilAttr {
     int64_t tileRowShape = 0;
     int64_t tileColShape = 0;
     SymbolicScalar ownerRank;
+    int32_t commContextIndex = 0;
 };
 
 struct ShmemSetAttr {
     bool isSetData{true};
     Shape setBufferShape;
     SymbolicScalar ownerRank;
+    SymbolicScalar commContext;
 };
 
 struct MoeDispatchAttr {
     std::string extraTemplateParam{};
     int64_t topK = 0;
     SymbolicScalar ownerRank;
+    SymbolicScalar commContext;
 };
 
 struct MoeCombineAttr {
@@ -190,6 +196,7 @@ struct MoeCombineAttr {
     int64_t rowOffset{-1};
     int64_t rowShape{-1};
     SymbolicScalar ownerRank;
+    SymbolicScalar commContext;
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE>& tile)

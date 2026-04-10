@@ -453,6 +453,19 @@ std::string CodeGenOpCloudNPU::GenTargetRankStr() const
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenCommContextStr() const
+{
+    if (opAttrs.count(OpAttributeKey::commContext) == 0) {
+        return "";
+    }
+    std::ostringstream oss;
+    auto commContext = AnyCast<SymbolicScalar>(opAttrs.at(OpAttributeKey::commContext));
+    if (commContext.IsValid()) {
+        oss << ", " << SymbolicExpressionTable::BuildExpression(commContext);
+    }
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenDistOp() const
 {
     std::ostringstream oss;
@@ -472,7 +485,7 @@ std::string CodeGenOpCloudNPU::GenDistOp() const
         skipOperands = it->second;
     }
     oss << tileOpName << GenTemplateParams() << "(param, " << GenParamsStr(skipOperands) << GenExtraParamsStr()
-        << GenTargetRankStr() << ", hcclContext);\n";
+        << GenTargetRankStr() << GenCommContextStr() << ", hcclContext);\n";
     return oss.str();
 }
 

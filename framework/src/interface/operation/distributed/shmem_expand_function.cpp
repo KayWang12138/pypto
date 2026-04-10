@@ -221,6 +221,7 @@ void TiledShmemPut(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
     });
 }
 
@@ -254,6 +255,7 @@ void TiledShmemPutUB2GM(
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
     });
 }
 
@@ -289,6 +291,7 @@ void TiledShmemSignal(
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
         tileOp.SetAttr(OpAttributeKey::dontTouch, true);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
     });
 }
 
@@ -358,6 +361,7 @@ void TiledShmemGet(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
     });
 }
 
@@ -397,6 +401,7 @@ void TiledShmemGetGM2UB(
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
         tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(Shape(outUb->shape.size(), 0)), MEM_UB, OpImmediate::Specified(shmemDataTile->shape),
             OpImmediate::Specified(outUb->shape), OpImmediate::Specified(shmemDataTile->dynValidShape_)));
@@ -429,6 +434,7 @@ void TiledShmemSet(
     distOpAttr.setBufferShape = bufferShape;
     tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+    tileOp.SetAttr(OpAttributeKey::commContext, distOpAttr.commContext);
 }
 
 void TiledShmemBindTensor(

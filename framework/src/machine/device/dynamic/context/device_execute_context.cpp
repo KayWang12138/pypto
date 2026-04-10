@@ -602,7 +602,7 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void* ctx_, uint64_t val
 
 void* DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void* ctx_, uint64_t value)
 {
-    uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
+    uint64_t addr = (reinterpret_cast<uint64_t*>(value))[0];
     uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
     uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
     uint64_t maxTileNum = (reinterpret_cast<uint64_t*>(value))[3];
@@ -621,7 +621,7 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void* ctx_, u
     DEV_ASSERT(DevCommonErr::PARAM_CHECK_FAILED, memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
     DEV_ASSERT(DevCommonErr::PARAM_CHECK_FAILED, groupIndex < ctx->args->commGroupNum);
-    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(addr);
     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
     uint64_t shmemAddrEndOffset = ctx->shmemAddrOffset[memType] + size;
     if (shmemAddrEndOffset > winSize) {
@@ -630,7 +630,7 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void* ctx_, u
             DevCommonErr::PARAM_CHECK_FAILED, "#ctrl.unknown: Exceeds winSize limit. Maximum allowed: %lu, got: %lu",
             winSize, shmemAddrEndOffset);
     }
-    uint64_t vaddr = ctx->shmemAddrOffset[memType] | (maxTileNum << TILE_NUM_SHIFT) | (groupIndex << GROUP_SHIFT) |
+    uint64_t vaddr = ctx->shmemAddrOffset[memType] | (maxTileNum << TILE_NUM_SHIFT) |
                      (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     ctx->shmemAddrOffset[memType] += size;
     return reinterpret_cast<void*>(vaddr);

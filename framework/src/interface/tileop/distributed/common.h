@@ -187,12 +187,11 @@ TILEOP uint64_t GetVirtualAddrMemType(uint64_t val)
 }
 
 template <typename T>
-TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t* hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
+TILEOP __gm__ T* MapVirtualAddr(__gm__ void* hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
 {
-    auto groupIndex = GetVirtualAddrGroupIndex((uint64_t)vAddr);
     auto offset = GetVirtualAddrOffset((uint64_t)vAddr);
     auto memType = GetVirtualAddrMemType((uint64_t)vAddr);
-    __gm__ TileOp::CommContext* commCtxParam = (__gm__ TileOp::CommContext*)hcclContext[groupIndex];
+    __gm__ TileOp::CommContext* commCtxParam = (__gm__ TileOp::CommContext*)hcclContext;
     if (memType == 0) {
         return (__gm__ T*)(commCtxParam->winAddr[dstRankId] + offset);
     } else {

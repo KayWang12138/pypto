@@ -651,6 +651,8 @@ void EncodeWaitUntilInfo(const Operation& op, std::vector<int32_t>& code)
             static_cast<int32_t>(distAttr.tileColShape)};
         code.push_back(static_cast<int32_t>(attrs.size()));
         code.insert(code.end(), attrs.begin(), attrs.end());
+        auto commContextIndex = static_cast<int32_t>(distAttr.commContextIndex);
+        code.push_back(commContextIndex);
     }
 }
 

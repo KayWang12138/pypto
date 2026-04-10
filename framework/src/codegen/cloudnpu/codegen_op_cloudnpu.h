@@ -199,6 +199,7 @@ private:
     std::string GenOffsetsAndRawShapesForShmemSet() const;
     std::string GenOffsetsAndRawShapesDefault() const;
     std::string GenTargetRankStr() const;
+    std::string GenCommContextStr() const;
 
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
