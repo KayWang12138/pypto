@@ -102,7 +102,7 @@ unsigned long ComputeHash(const std::vector<Operation*>& producers, LogicalTenso
     std::stringstream ss;
     std::vector<Operation*> sortedProducers = producers;
     SortedProducer(sortedProducers);
-    CollectProducerInfo(sortedProducers, curTensor, opStrList, ss);
+    CollectProducerInfo(sortedProducers, opStrList, ss);
     std::hash<std::string> hasher;
     return hasher(ss.str());
 }
