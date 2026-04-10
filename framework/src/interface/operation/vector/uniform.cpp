@@ -113,7 +113,7 @@ static void TiledUniformBuildIn(Function &function, const TileShape &tileShape, 
         op.SetAttribute(OP_ATTR_PREFIX + "COUNTER0", Element(DT_UINT64, tileCounter0));
         op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, tileCounter1));
         op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
-        op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+        op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", resultTileInfo.shape);
     }
 }
 
