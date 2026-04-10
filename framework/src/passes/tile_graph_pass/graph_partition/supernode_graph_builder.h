@@ -44,8 +44,9 @@ public:
     Status AvoidLoop(
         const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent,
         std::vector<std::vector<int32_t>>& node2Op, bool& updated);
-    Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
+    Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo);
     void SetNodeCoreTypeAndMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
+    void BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> operationGraphInfo);
     int32_t FindParent(std::vector<int32_t>& parent, int32_t i);
     Status MergeSrcToDstIsland(
         const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent, int32_t src,
