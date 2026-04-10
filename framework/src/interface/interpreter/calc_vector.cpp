@@ -557,24 +557,7 @@ void ExecuteOpPermute(ExecuteOperationContext* ctx)
     auto& oop = ctx->ooperandInplaceDataViewList->at(0);
     auto& iop = ctx->ioperandDataViewList->at(0);
 
-    int dimCount = static_cast<int>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "dimCount"));
-    int axis0 = static_cast<int>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis0"));
-    int axis1 = static_cast<int>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis1"));
-    int axis2 = static_cast<int>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis2"));
-    int axis3 = static_cast<int>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis3"));
-    int axis4 = static_cast<int>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis4"));
-
-    std::vector<int64_t> perm;
-    if (dimCount > 0)
-        perm.push_back(axis0);
-    if (dimCount > 1)
-        perm.push_back(axis1);
-    if (dimCount > 2)
-        perm.push_back(axis2);
-    if (dimCount > 3)
-        perm.push_back(axis3);
-    if (dimCount > 4)
-        perm.push_back(axis4);
+    std::vector<int64_t> perm = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "perm");
 
     auto iopDataView = iop->View(iop->GetValidShape(), iop->GetOffset());
     auto oopDataView = oop->View(oop->GetValidShape(), oop->GetOffset());

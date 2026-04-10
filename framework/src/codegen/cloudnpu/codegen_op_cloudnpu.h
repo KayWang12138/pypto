@@ -129,7 +129,6 @@ public:
     std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
     std::string GenPermuteOp() const;
-    std::string GenPermuteElementOp() const;
     std::string GenGatherFromUBOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
@@ -319,7 +318,6 @@ private:
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintPermuteLayout() const;
-    std::string PrintPermuteElementLayout() const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;

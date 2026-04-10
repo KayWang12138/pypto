@@ -591,14 +591,10 @@ void OpcodeManager::RegisterVector()
         TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::AIV, "PERMUTE", {MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_UB}, {"TileOp::TPermute", PIPE_S, PIPE_MTE2, CoreType::AIV},
-        OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis0", OP_ATTR_PREFIX + "axis1", OP_ATTR_PREFIX + "axis2",
-            OP_ATTR_PREFIX + "axis3", OP_ATTR_PREFIX + "axis4", OP_ATTR_PREFIX + "dimCount",
-            OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
+        OpCalcType::OTHER, {OP_ATTR_PREFIX + "perm", OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_PERMUTE_ELEMENT, OpCoreType::AIV, "PERMUTE_ELEMENT", {MemoryType::MEM_DEVICE_DDR},
         {MemoryType::MEM_UB}, {"TileOp::TPermuteElewise", PIPE_S, PIPE_MTE2, CoreType::AIV},
-        OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis0", OP_ATTR_PREFIX + "axis1", OP_ATTR_PREFIX + "axis2",
-            OP_ATTR_PREFIX + "axis3", OP_ATTR_PREFIX + "axis4", OP_ATTR_PREFIX + "dimCount",
-            OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
+        OpCalcType::OTHER, {OP_ATTR_PREFIX + "perm", OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIM"},
