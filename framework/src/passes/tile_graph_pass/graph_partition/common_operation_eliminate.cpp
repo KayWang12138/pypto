@@ -75,13 +75,6 @@ void CollectProducerInfo(
                     ss << ", ";
                 }
             }
-            if (curTensor && !curTensor->GetDynValidShape().empty()) {
-                std::string shapeStr;
-                for (size_t i = 0; i < curTensor->GetDynValidShape().size(); i++) {
-                    shapeStr += curTensor->GetDynValidShape()[i].Dump();
-                }
-                ss << "[" << shapeStr << "]";
-            }
             ss << ")";
             ss << "]";
         }
