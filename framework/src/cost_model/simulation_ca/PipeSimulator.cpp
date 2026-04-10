@@ -73,11 +73,9 @@ static bool GenerateCode(const std::string& buffer, std::string fileName)
 {
     size_t lastSlash = fileName.find_last_of("/\\");
     std::string dirPart = (lastSlash == std::string::npos) ? "" : fileName.substr(0, lastSlash);
-    if (!npu::tile_fwk::IsPathExist(dirPart)) {
-        SIMULATION_LOGE(
-            "ErrCode: F%u, Error: invalid dir path: %s",
-            static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH), dirPart.c_str());
-    }
+    CHECK(npu::tile_fwk::IsPathExist(dirPart)) << "ErrCode: F" <<
+        static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH) << ", Error: invalid dir path: "
+        << dirPart;
     std::ofstream os(fileName);
     if (!os.is_open()) {
         SIMULATION_LOGE(
