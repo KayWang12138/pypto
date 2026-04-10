@@ -7,7 +7,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-"""Frontend tests for plm.mrgsort function."""
+"""Frontend tests for plm.mrgsort functions.
+
+mrgsort (format1): Merge sorted blocks within a single tile.
+
+Both operations produce descending-order output in [val, idx] pair format.
+"""
 
 import torch
 import torch_npu
@@ -15,6 +20,10 @@ import pypto_block.frontend as fe
 import pypto_block.language as pl
 import pypto_block.language.op.manual as plm
 
+
+# ============================================================================
+# mrgsort (format1) tests
+# ============================================================================
 
 @fe.kernel
 def mrgsort_kernel(
@@ -25,22 +34,6 @@ def mrgsort_kernel(
     
     Input must be pre-sorted in blocks of 64 elements in value-index pair format.
     For FP16, each element occupies 4 FP16 values (value + pad + idx_low + idx_high).
-    
-    From PTO_IR_manual.md constraints:
-    - blockLen must be a multiple of 64 (in FP16 columns)
-    - src valid column must be an integer multiple of blockLen * 4
-    - repeatTimes = src valid column / (blockLen * 4) must be in [1, 255]
-    
-    For our case:
-    - Input: 256 elements in value-index pair format = 1024 FP16 columns
-    - Each block: 64 elements = 256 FP16 columns
-    - blockLen = 256
-    - blockLen * 4 = 1024 FP16 columns
-    - src valid column = 1024 FP16 columns
-    - repeatTimes = 1024 / 1024 = 1 block (but actually merges 4 pre-sorted 64-element blocks)
-    
-    Note: blockLen in PTO IR is in FP16 columns, while gen_data.py uses element count.
-    For value-index pairs: blockLen_in_columns = blockLen_in_elements * 4
     """
     pl.system.bar_all()
     
@@ -65,28 +58,10 @@ def mrgsort_kernel(
     return sorted_out
 
 
-@fe.jit()
 def test_mrgsort():
-    """Test mrgsort with blockLen=64.
-    
-    mrgsort merges multiple pre-sorted blocks into one fully sorted output.
-    blockLen=64 means each block has 64 elements.
-    With 256 total elements, we have 4 blocks of 64 elements each.
-    
-    Data format for FP16:
-    - Each element occupies 4 FP16 values: [value, pad, idx_low, idx_high]
-    - idx is stored as two uint16 values (little-endian)
-    
-    Test procedure:
-    1. Generate random data
-    2. Sort each block internally in descending order
-    3. Convert to value-index pair format
-    4. mrgsort merges blocks into fully sorted output
-    5. Verify output matches expected fully sorted result
-    """
+    """Test mrgsort (format1) with blockLen=256."""
     device = "npu:7"
     torch.npu.set_device(device)
-
     torch.manual_seed(0)
     dtype = torch.float16
     
@@ -96,6 +71,7 @@ def test_mrgsort():
     
     a = torch.rand([1, total_elements], device=device, dtype=dtype)
     
+    print("\n=== mrgsort (format1) test ===")
     print("Original data:")
     print("a[0, :16] =", a[0, :16])
     
@@ -123,27 +99,37 @@ def test_mrgsort():
     
     expected_sorted, expected_indices = torch.sort(a, dim=1, descending=True)
     print("\nExpected fully sorted output (descending):")
-    print("expected_sorted[0, :16] =", expected_sorted[0, :16])
+    print(f"  [ref] vals[:16] : {expected_sorted[0, :16].tolist()}")
+    print(f"  [ref] idx[:16]  : {expected_indices[0, :16].tolist()}")
 
-    compiled_lib = fe.compile(mrgsort_kernel, arch="a3")
-    print("compiled lib path:", compiled_lib.lib_path)
-    fe.launch(None, 1, compiled_lib, input_pairs, sorted_out)
+    compiled_cce = fe.compile(mrgsort_kernel, arch="a3", codegen_mode="cce")
+    compiled_pto = fe.compile(mrgsort_kernel, arch="a3", codegen_mode="pto")
     
-    torch.npu.synchronize()
-    
-    print("\n***********npu output***********")
-    print("sorted_out shape:", sorted_out.shape)
-    
-    values = sorted_out[0, 0::4]
-    print("\nExtracted values[:16]:", values[:16])
-    
-    sorted_diff = torch.abs(values - expected_sorted).max().item()
-    print(f"\nMax diff: {sorted_diff}")
-    
-    assert sorted_diff < 1e-3, f"mrgsort failed: max diff {sorted_diff}"
-    print("mrgsort test passed!")
-
+    for tag, lib in [("CCE", compiled_cce), ("PTO", compiled_pto)]:
+        print(f"\n--- {tag} mode ---")
+        print("compiled lib path:", lib.lib_path)
+        
+        sorted_out.zero_()
+        fe.launch(None, 1, lib, input_pairs, sorted_out)
+        torch.npu.synchronize()
+        
+        print(f"\n***********{tag} npu output***********")
+        print("sorted_out shape:", sorted_out.shape)
+        
+        values = sorted_out[0, 0::4]
+        indices = sorted_out[0, 2::4].view(torch.uint16).to(torch.int32) | \
+                  (sorted_out[0, 3::4].view(torch.uint16).to(torch.int32) << 16)
+        print(f"  [{tag}] vals[:16] : {values[:16].tolist()}")
+        print(f"  [{tag}] idx[:16]  : {indices[:16].tolist()}")
+        
+        sorted_diff = torch.abs(values - expected_sorted).max().item()
+        print(f"\nMax diff ({tag} vs ref): {sorted_diff}")
+        
+        assert sorted_diff < 1e-3, f"{tag} mrgsort failed: max diff {sorted_diff}"
+        print(f"{tag} mrgsort test passed!")
 
 if __name__ == "__main__":
+    print("mrgsort (format1) tests")
+    print("=" * 60)
     test_mrgsort()
     print("\nAll tests passed!")

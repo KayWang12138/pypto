@@ -649,6 +649,8 @@ static std::string MakeManualBinaryCvtPTO(const std::string& pto_op1, const std:
 
 // Scalar-to-tile broadcast: (scalar, out)
 // Generates: pto.texpands ins(%scalar : scalar_type) outs(%out : tile_type)
+// pto.texpands requires: scalar element type == dst element type.
+// If scalar has 'index' type, cast index→i64 first, then cast i64 to dst element type if needed.
 static std::string MakeManualExpandsPTO(const std::string& pto_op, const CallPtr& op,
                                         codegen::CodegenBase& cb) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(cb);
@@ -657,6 +659,39 @@ static std::string MakeManualExpandsPTO(const std::string& pto_op, const CallPtr
   std::string scalar_type = codegen.GetExprTypeAnnotation(op->args_[0]);
   std::string out = codegen.GetExprAsCode(op->args_[1]);
   std::string out_type = codegen.GetExprTypeAnnotation(op->args_[1]);
+
+  // pto.texpands does not accept 'index' type — cast to i64 first.
+  if (scalar_type == "index") {
+    std::string casted = codegen.NewTemp();
+    codegen.Emit(casted + " = arith.index_cast " + scalar + " : index to i64");
+    scalar = casted;
+    scalar_type = "i64";
+  }
+
+  // pto.texpands requires scalar element type == dst element type.
+  // If types differ, insert a cast (e.g. i64 → f32 for FP32 dst tiles).
+  auto tile_type = ir::As<ir::TileType>(op->args_[1]->GetType());
+  if (tile_type) {
+    std::string dst_elem_type = codegen.GetTypeString(tile_type->dtype_);
+    if (!dst_elem_type.empty() && dst_elem_type != scalar_type) {
+      std::string casted = codegen.NewTemp();
+      bool dst_is_float = (dst_elem_type == "f16" || dst_elem_type == "f32" ||
+                           dst_elem_type == "bf16" || dst_elem_type == "f64");
+      bool src_is_int = (scalar_type == "i8" || scalar_type == "i16" ||
+                         scalar_type == "i32" || scalar_type == "i64");
+      if (dst_is_float && src_is_int) {
+        codegen.Emit(casted + " = arith.sitofp " + scalar + " : " + scalar_type +
+                     " to " + dst_elem_type);
+      } else {
+        // Fallback: bitcast — may not always be correct but avoids hard failure
+        codegen.Emit(casted + " = arith.bitcast " + scalar + " : " + scalar_type +
+                     " to " + dst_elem_type);
+      }
+      scalar = casted;
+      scalar_type = dst_elem_type;
+    }
+  }
+
   std::ostringstream oss;
   oss << pto_op << " ins(" << scalar;
   if (!scalar_type.empty()) oss << " : " << scalar_type;
