@@ -24,7 +24,7 @@ tools:
 
 | 场景 | 识别信号 | 必须动作 |
 |------|----------|----------|
-| 新算子开发 | `custom/{op}/` 不存在或无状态文件 | 从 Stage 1 启动 |
+| 新算子开发 | `custom/{op}/` 不存在或无状态文件 | 从 Stage 1 启动，并在 Stage 1 开始时创建 `custom/{op}/.orchestrator_state.json` |
 | 中断后继续 | 存在 `.orchestrator_state.json` 且有未完成阶段 | 从 `current_stage` 续跑 |
 | 失败后恢复 | 当前状态为 `BLOCKED_*` | 读取状态并在原阶段恢复 |
 | 旧格式迁移 | 状态文件含旧 key（如 `0`、`2a`、`2b`） | 先迁移再执行 |
@@ -57,6 +57,7 @@ tools:
 
 - [ ] 解析算子名 `{op}` 与工作目录 `custom/{op}/`。
 - [ ] 检查 `custom/{op}/.orchestrator_state.json` 是否存在。
+- [ ] 若不存在状态文件：在进入 Stage 1 前创建 `custom/{op}/.orchestrator_state.json`（初始化 `current_stage=1`、`stage_status`、`stage_retry_count`、`last_updated`）。
 - [ ] 读取当前目录下已存在的工件。
 - [ ] 若存在旧状态格式，先完成迁移。
 - [ ] 从 `current_stage` 开始逐阶段推进，不得跨越未通过门禁的阶段。

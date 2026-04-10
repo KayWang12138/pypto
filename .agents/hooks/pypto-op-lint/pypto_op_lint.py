@@ -25,7 +25,7 @@ GIT_BIN = shutil.which("git")
 
 IMPL_RULE_IDS = [
     "OL01", "OL02", "OL03", "OL04", "OL05", "OL06", "OL07", "OL08",
-    "OL16", "OL23", "OL25", "OL26", "OL28", "OL29",
+    "OL16", "OL23", "OL25", "OL26", "OL28", "OL29", "OL37", "OL38",
 ]
 GOLDEN_RULE_IDS = ["OL15"]
 TEST_RULE_IDS = ["OL17", "OL18", "OL19", "OL20", "OL21", "OL22"]
@@ -388,7 +388,7 @@ def check_ol23(ctx: CheckContext) -> Finding:
 
 @register("OL25")
 def check_ol25(ctx: CheckContext) -> Finding:
-    """Tensor 类型注解必须包含 shape 和 dtype 参数"""
+    """JIT Tensor 参数注解禁止使用 pypto.Tensor() 空参数写法。"""
     impl_file = f"{ctx.op_name}_impl.py"
     tree = ctx.parse_file(impl_file)
     if tree is None:
@@ -406,23 +406,48 @@ def check_ol25(ctx: CheckContext) -> Finding:
             if not _is_pypto_tensor_annotation(ann):
                 continue
             if not isinstance(ann, ast.Call):
-                return ctx.make_finding("OL25", "WARN",
-                    f"参数 `{arg.arg}` 使用 pypto.Tensor 类型注解但未指定 shape 和 dtype，"
-                    "建议使用 pypto.Tensor([shape], dtype) 形式",
-                    file=impl_file, line=arg.lineno)
+                continue
             n_args = len(ann.args)
             if n_args == 0:
                 return ctx.make_finding("OL25", "FAIL",
-                    f"参数 `{arg.arg}` 的 pypto.Tensor() 注解缺少 shape 和 dtype 参数，"
-                    "应使用 pypto.Tensor([shape_dims], dtype) 形式",
-                    file=impl_file, line=ann.lineno)
-            if n_args == 1:
-                return ctx.make_finding("OL25", "WARN",
-                    f"参数 `{arg.arg}` 的 pypto.Tensor 注解只有 shape 参数，缺少 dtype，"
-                    "建议使用 pypto.Tensor([shape], pypto.DT_xxx) 形式",
+                    f"参数 `{arg.arg}` 使用 pypto.Tensor()（未声明 shape/dtype）。"
+                    "这是高风险写法，请改为 pypto.Tensor([shape_dims], pypto.DT_xxx)",
                     file=impl_file, line=ann.lineno)
     return ctx.make_finding("OL25", "PASS",
-        "所有 Tensor 注解均包含 shape 和 dtype", file=impl_file)
+        "未检测到 pypto.Tensor() 空参数写法", file=impl_file)
+
+
+@register("OL38")
+def check_ol38(ctx: CheckContext) -> Finding:
+    """JIT Tensor 参数注解建议写全 shape 与 dtype（告警项）。"""
+    impl_file = f"{ctx.op_name}_impl.py"
+    tree = ctx.parse_file(impl_file)
+    if tree is None:
+        return ctx.make_finding("OL38", "SKIP", f"{impl_file} 不存在或无法解析")
+    jit_funcs = _get_jit_functions(tree)
+    if not jit_funcs:
+        return ctx.make_finding("OL38", "SKIP", "无 jit 函数")
+    for func in jit_funcs:
+        for arg in func.args.args:
+            ann = arg.annotation
+            if ann is None:
+                continue
+            if _is_non_tensor_annotation(ann):
+                continue
+            if not _is_pypto_tensor_annotation(ann):
+                continue
+            if not isinstance(ann, ast.Call):
+                return ctx.make_finding("OL38", "WARN",
+                    f"参数 `{arg.arg}` 的 Tensor 注解未显式给出参数，"
+                    "建议写成 pypto.Tensor([shape_dims], pypto.DT_xxx)",
+                    file=impl_file, line=arg.lineno)
+            if len(ann.args) == 1:
+                return ctx.make_finding("OL38", "WARN",
+                    f"参数 `{arg.arg}` 只声明了 shape，缺少 dtype。"
+                    "建议写成 pypto.Tensor([shape_dims], pypto.DT_xxx)",
+                    file=impl_file, line=ann.lineno)
+    return ctx.make_finding("OL38", "PASS",
+        "JIT Tensor 参数注解已包含 shape 与 dtype", file=impl_file)
 
 
 @register("OL26")
@@ -924,7 +949,7 @@ def _extract_shapes_from_text(content: str) -> set[tuple[int, ...]]:
 
 @register("OL30")
 def check_ol30(ctx: CheckContext) -> Finding:
-    """spec.md 声明支持的 dtype 应在测试文件中覆盖"""
+    """spec.md 声明支持的 dtype 必须在测试文件中覆盖"""
     spec_content = ctx.read_file("spec.md")
     if not spec_content:
         return ctx.make_finding("OL30", "SKIP", "spec.md 不存在")
@@ -940,9 +965,9 @@ def check_ol30(ctx: CheckContext) -> Finding:
     if missing:
         canonical_names = {"fp32": "float32", "fp16": "float16", "bf16": "bfloat16"}
         missing_names = sorted(canonical_names.get(d, d) for d in missing)
-        return ctx.make_finding("OL30", "WARN",
+        return ctx.make_finding("OL30", "FAIL",
             f"spec.md 声明支持的 dtype ({', '.join(missing_names)}) "
-            "在测试文件中未覆盖",
+            "在测试文件中未覆盖；请补充对应 dtype 的测试用例",
             file=test_file)
     return ctx.make_finding("OL30", "PASS", "spec dtype 覆盖与 test 一致")
 
@@ -1259,16 +1284,17 @@ def _rule_ids_for_filename(filename: str) -> list[str]:
 
 
 def _print_findings(findings: list[Finding]):
-    has_s0_fail = _has_s0_fail(findings)
+    has_error_fail = _has_error_fail(findings)
     result = {
         "passed": not any(f.status == "FAIL" for f in findings),
         "findings": [asdict(f) for f in findings],
         "summary": {
             "pass": sum(1 for f in findings if f.status == "PASS"),
             "warn": sum(1 for f in findings if f.status == "WARN"),
+            "info": sum(1 for f in findings if f.status == "INFO"),
             "fail": sum(1 for f in findings if f.status == "FAIL"),
             "skip": sum(1 for f in findings if f.status == "SKIP"),
-            "has_s0_fail": has_s0_fail,
+            "has_error_fail": has_error_fail,
         },
     }
     _write_stdout_json(result, indent=2)
@@ -1279,9 +1305,9 @@ def _write_stdout_json(payload: dict[str, Any], indent: Optional[int] = None) ->
     os.write(1, f"{content}\n".encode("utf-8"))
 
 
-def _has_s0_fail(findings: list[Finding]) -> bool:
+def _has_error_fail(findings: list[Finding]) -> bool:
     for finding in findings:
-        if finding.status == "FAIL" and finding.severity == "S0":
+        if finding.status == "FAIL" and finding.severity == "S1":
             return True
     return False
 
@@ -1311,7 +1337,8 @@ def hook_post_edit() -> int:
     findings = _run_checks(ctx, rule_ids)
     fails = [f for f in findings if f.status == "FAIL"]
     warns = [f for f in findings if f.status == "WARN"]
-    if not fails and not warns:
+    infos = [f for f in findings if f.status == "INFO"]
+    if not fails and not warns and not infos:
         return 0
 
     sections = []
@@ -1328,6 +1355,12 @@ def hook_post_edit() -> int:
             "[pypto-op-lint] 以下提醒建议确认：\n"
             + "\n".join(lines)
             + "\n\n请确认以上提醒项是否需要处理。"
+        )
+    if infos:
+        lines = [f"  [{f.rule_id}][{f.severity}] {f.message}" for f in infos]
+        sections.append(
+            "[pypto-op-lint] 以下信息提示（不影响门禁）：\n"
+            + "\n".join(lines)
         )
     context_msg = "\n\n".join(sections)
     _output_hook_json("PostToolUse", additionalContext=context_msg)
@@ -1448,16 +1481,16 @@ def hook_stop() -> int:
     ctx = _build_context(op_dir, stage)
     applicable = [r["id"] for r in ctx.rules if ctx.stage in r.get("stages", [])]
     findings = _run_checks(ctx, applicable)
-    s0_fails = []
+    error_fails = []
     for finding in findings:
-        if finding.status == "FAIL" and finding.severity == "S0":
-            s0_fails.append(finding)
+        if finding.status == "FAIL" and finding.severity == "S1":
+            error_fails.append(finding)
 
-    if s0_fails:
-        lines = [f"  [{f.rule_id}][{f.severity}] {f.message}" for f in s0_fails]
+    if error_fails:
+        lines = [f"  [{f.rule_id}][{f.severity}] {f.message}" for f in error_fails]
         _output_hook_json("Stop",
             decision="block",
-            reason="[pypto-op-lint] 交付门禁未通过，存在 S0 级违规：\n"
+            reason="[pypto-op-lint] 交付门禁未通过，存在 ERROR（S1）级违规：\n"
                    + "\n".join(lines))
         return 2
     return 0
@@ -1503,11 +1536,93 @@ def _verdict_detail(verdict: str) -> str:
     return "未检测到精度标记，可能是运行失败或其他错误"
 
 
+def _extract_design_identifiers(content: str) -> set[str]:
+    # 仅从“代码相关上下文”提取变量名，减少自然语言文本噪声：
+    # 1) markdown fenced code block
+    # 2) inline code (`...`)
+    code_blocks = re.findall(r"```[\w-]*\n(.*?)```", content, re.S)
+    inline_codes = re.findall(r"`([^`\n]+)`", content)
+    scoped_text = "\n".join(code_blocks + inline_codes)
+
+    tokens = set(re.findall(r"\b[a-z_][a-z0-9_]{2,}\b", scoped_text))
+    blacklist = {
+        "input", "output", "tensor", "shape", "dtype", "dynamic", "algorithm",
+        "default", "stage", "spec", "design", "report", "loop", "tiling",
+        "step", "max", "min", "round", "clamp", "cast", "mul", "add", "sub", "div",
+    }
+    # 只保留更像“中间变量”的命名（snake_case 优先），减少误报
+    return {t for t in tokens if t not in blacklist and ("_" in t or len(t) >= 6)}
+
+
+def _extract_jit_assigned_names(tree: ast.Module) -> set[str]:
+    names: set[str] = set()
+    for func in _get_jit_functions(tree):
+        for node in ast.walk(func):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        names.add(target.id)
+            elif isinstance(node, ast.AnnAssign):
+                if isinstance(node.target, ast.Name):
+                    names.add(node.target.id)
+    return names
+
+
+@register("OL37")
+def check_ol37(ctx: CheckContext) -> Finding:
+    """design 与 impl 的关键命名可追溯性检查（信息提示）"""
+    design_content = ctx.read_file("design.md")
+    if not design_content:
+        return ctx.make_finding("OL37", "SKIP", "design.md 不存在")
+    impl_file = f"{ctx.op_name}_impl.py"
+    tree = ctx.parse_file(impl_file)
+    if tree is None:
+        return ctx.make_finding("OL37", "SKIP", f"{impl_file} 不存在或无法解析")
+
+    design_names = _extract_design_identifiers(design_content)
+    impl_names = _extract_jit_assigned_names(tree)
+    impl_blacklist = {
+        "i", "j", "k", "n", "m", "x", "y", "z", "tmp", "temp", "result", "out",
+        "input", "output",
+    }
+    impl_names = {n for n in impl_names if n not in impl_blacklist}
+
+    # design 中缺少可对齐变量名时直接跳过，避免误报
+    if len(design_names) < 3:
+        return ctx.make_finding(
+            "OL37",
+            "SKIP",
+            "design.md 中可用于对齐的代码变量名不足（<3），跳过可追溯性检查",
+        )
+
+    if not impl_names:
+        return ctx.make_finding("OL37", "SKIP", "未检测到 jit 内局部变量赋值")
+
+    overlap = sorted(design_names & impl_names)
+    # 使用更宽松且稳定的阈值：命中 >=2 且覆盖 design 关键名的 40%
+    if len(overlap) >= 2 and len(overlap) / max(len(design_names), 1) >= 0.4:
+        return ctx.make_finding(
+            "OL37",
+            "PASS",
+            f"design/impl 命名可追溯性良好（命中 {len(overlap)} 个：{', '.join(overlap[:5])}）",
+            file=impl_file,
+        )
+
+    sample_impl = ", ".join(sorted(list(impl_names))[:5])
+    return ctx.make_finding(
+        "OL37",
+        "INFO",
+        "design 与 impl 的关键命名重合较少，建议对齐中间变量命名以提升可追溯性；"
+        f"当前 impl 示例变量：{sample_impl}",
+        file=impl_file,
+    )
+
+
 # ─── 手动模式 ───
 
 def _cmd_run(findings: list[Finding]) -> int:
     _print_findings(findings)
-    return 2 if _has_s0_fail(findings) else 0
+    return 2 if _has_error_fail(findings) else 0
 
 
 def cmd_lint_impl(op_dir: str, stage: int) -> int:
