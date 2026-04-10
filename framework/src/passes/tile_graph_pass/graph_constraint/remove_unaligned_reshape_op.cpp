@@ -322,16 +322,6 @@ inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
     return (totalByte % 32) == 0;
 }
 
-inline size_t GetPaddingValue(LogicalTensorPtr& in)
-{
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
-}
-
 /**
  * @brief 为 UB 上尾轴非32B对齐的tensor做32B对齐操作
  */
@@ -342,6 +332,17 @@ inline int64_t Pad(int64_t dim, int64_t padValue)
     }
     return (dim + padValue - 1) / padValue * padValue;
 }
+
+inline size_t GetPaddingValue(LogicalTensorPtr& in)
+{
+    auto bytes = BytesOf(in->Datatype());
+    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
+    if (paddingIter == BLOCK_PADDING_DIM.end()) {
+        return 1;
+    }
+    return paddingIter->second;
+}
+
 
 inline void ProcessLastDim32BAligned(LogicalTensorPtr tensor) {
     if (!IsLastDim32BAligned(tensor)) {
