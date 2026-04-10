@@ -195,6 +195,11 @@ Status RemoveRedundantOpChecker::PostCheckView(const Operation& op)
 {
     auto viewIn = op.iOperand.front();
     auto viewOut = op.oOperand.front();
+    if (op.HasAttr("op_attr_remain_redundant_op_flag") && viewIn->GetMemoryTypeOriginal() != MemoryType::MEM_L1 && viewOut->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag for DDR to L1 path, skip removing.", op.GetOpMagic());
+        return SUCCESS;
+    }
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op.GetOpAttribute().get());
     if (viewOpAttribute != nullptr && viewOpAttribute->GetToDynValidShape().empty() &&
         viewIn->shape == viewOut->shape && viewIn->GetMemoryTypeOriginal() == viewOut->GetMemoryTypeOriginal()) {

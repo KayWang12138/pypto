@@ -58,7 +58,7 @@ bool EqualInOut(const Operation& op)
     return (equalShape && equalDynValidShape);
 }
 
-bool IsDdrToL1OperationWithFlag(const Operation& op)
+bool IsL1ToL1OperationWithFlag(const Operation& op)
 {
     if (!op.HasAttr("op_attr_remain_redundant_op_flag")) {
         return false;
@@ -76,7 +76,7 @@ bool IsDdrToL1OperationWithFlag(const Operation& op)
 
 bool RemoveRedundantOp::ProcessRedundantOpWithDynShape(Operation& op) const
 {
-    if (IsDdrToL1OperationWithFlag(op)) {
+    if (IsL1ToL1OperationWithFlag(op)) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "op[%d] has attribute op_attr_remain_redundant_op_flag for DDR to L1 path, skip removing.", op.GetOpMagic());
         return false;
