@@ -43,7 +43,7 @@ bool MainBlockCondBulider::CheckShapeEquality(const Shape& shape, const std::vec
     }
 
     for (uint32_t i = 0; i < shape.size(); i++) {
-        if (shape[i] == -1) { // -1: copy_in, copy_out and callop dynamic axis shape
+        if (shape[i] == -1 || (dynShape[i].IsImmediate() && dynShape[i] == 1)) { // -1: copy_in, copy_out and callop dynamic axis shape
             continue;
         }
         cond = (shape[i] == dynShape[i]);
