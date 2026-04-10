@@ -44,11 +44,11 @@ int DeviceExecuteContext::RunInit(DevStartArgs* startArgs, PushTaskEntry tPushTa
     this->devProg = startArgs->devProg;
     parallelCtx.InitParallel(devProg->GetParallelism());
     workspace.Init(startArgs);
+    stitchTaskLoopNumThreshold = devProg->stitchMaxFunctionNum;
     if (devProg->stitchFunctionNumInitial > 0) {
-        stitchTaskLoopNumThreshold =
-            std::min<uint16_t>(devProg->stitchFunctionNumInitial, devProg->stitchMaxFunctionNum);
-        DEV_INFO("First stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
+        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, stitchTaskLoopNumThreshold);
     }
+    DEV_INFO("Stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
 
     slotContext.InitAllocator(workspace, devProg->slotSize);
     slotContext.FillInputOutputSlot(devProg, startArgs);
@@ -127,7 +127,7 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs* startArgs, PushTaskEn
         devProg->ctrlFlowCacheAnchor->MixTaskDataRestore(dynTask);
         taskContext.UpdateReadyTaskNum(dynTask->readyQueueBackup->readyTaskNum);
 
-        //dynamic devtask building need inherit cached last dev task parallinfo
+        // dynamic devtask building need inherit cached last dev task parallinfo
         parallelCtx.info = dynTask->parallelInfo;
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
@@ -389,13 +389,14 @@ void* DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey)
     int ret = DEVICE_MACHINE_OK;
     DevAscendFunction* devRoot = devProg->GetFunction(rootKey);
     DEV_DEBUG("Slloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
-    uint16_t realStitchNumThreshold = parallelCtx.isInParallelForScope ? MAX_STITCH_FUNC_NUM : stitchTaskLoopNumThreshold;
+    uint16_t realStitchNumThreshold =
+        parallelCtx.isInParallelForScope ? MAX_STITCH_FUNC_NUM : stitchTaskLoopNumThreshold;
     if ((stitchContext.Size() == realStitchNumThreshold) ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
         DEV_INFO(
             "[Stitch Finish] Stitch Limit Exceeded. numThreshold=%u rootKey=%lu, func=%s, "
-            "#task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).", realStitchNumThreshold,
-            rootKey, devRoot->GetRawName(), stitchContext.Size(), stitchTaskLoopNumThreshold,
+            "#task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+            realStitchNumThreshold, rootKey, devRoot->GetRawName(), stitchContext.Size(), stitchTaskLoopNumThreshold,
             stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchFunctionsize);
         ret = SubmitToAicoreAndRecycleMemory(false);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -415,7 +416,8 @@ void* DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey)
 
 bool DeviceExecuteContext::NeedSubmmitDevTask(uint64_t rootkey)
 {
-    return (rootkey == RUNTIME_FUNCKEY_FINISH || rootkey == RUNTIME_FUNCKEY_LOOP_BARRIER ||
+    return (
+        rootkey == RUNTIME_FUNCKEY_FINISH || rootkey == RUNTIME_FUNCKEY_LOOP_BARRIER ||
         rootkey == RUNTIME_FUNCKEY_PARALLEL_FOR_END || rootkey == RUNTIME_FUNCKEY_PARALLEL_FOR_BEGIN);
 }
 
@@ -425,7 +427,7 @@ void DeviceExecuteContext::ParallelForBegin()
     workspace.SwitchWParallelWorkSpace(parallelCtx.info.wsId);
 }
 
-void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey)
+void* DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey)
 {
     int ret = DEVICE_MACHINE_OK;
     DEV_DEBUG("Root stitch %lu.", rootKey);
@@ -443,7 +445,8 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey)
     }
 
     if (NeedSubmmitDevTask(rootKey)) {
-        ret = SubmitToAicoreAndRecycleMemory(false, rootKey == RUNTIME_FUNCKEY_FINISH ? true : false,
+        ret = SubmitToAicoreAndRecycleMemory(
+            false, rootKey == RUNTIME_FUNCKEY_FINISH ? true : false,
             (rootKey == RUNTIME_FUNCKEY_PARALLEL_FOR_END) ? true : false);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return RUNTIME_FUNCKEY_ERROR;
