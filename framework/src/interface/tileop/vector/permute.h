@@ -10,7 +10,7 @@
 
 /*!
  * \file permute.h
- * \brief Permute tileOp - GM->UB mode (reference: Tgather)
+ * \brief
  */
 
 #ifndef TILEOP_TILE_OPERATOR_PERMUTE__H

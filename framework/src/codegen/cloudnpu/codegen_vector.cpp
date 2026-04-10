@@ -195,17 +195,16 @@ std::string CodeGenOpCloudNPU::PrintPermuteLayout() const
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string outputTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
 
-    auto permAttr = opAttrs.at(OP_ATTR_PREFIX + "perm");
+    auto permAttr = opAttrs.at(OpAttributeKey::perm);
     const auto& permVec = AnyCast<std::vector<int64_t>>(permAttr);
-    int axes[5] = {-1, -1, -1, -1, -1};
+    std::vector<int> axes(MAX_DIM+1, -1);
     for (size_t i = 0; i < permVec.size() && i < 5; ++i) {
         axes[i] = static_cast<int>(permVec[i]);
     }
-
+    axes[MAX_DIM] = permVec.size();
     std::vector<std::string> tileOpParamList = {outputTensor, srcTensor, coord4Src};
     std::ostringstream oss;
-    oss << tileOpName << "<" << axes[0] << ", " << axes[1] << ", " << axes[2] << ", "
-        << axes[3] << ", " << axes[4] << ", " << permVec.size() << ">"
+    oss << tileOpName << WrapParamByAngleBrackets(axes)
         << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }

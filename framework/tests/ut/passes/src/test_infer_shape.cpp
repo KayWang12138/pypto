@@ -645,7 +645,7 @@ TEST_F(InferShapeTest, TestPermute)
     copyin_op.SetOpAttribute(copyin_Attr);
 
     auto& permute_op = currFunctionPtr->AddOperation(Opcode::OP_PERMUTE, {inTensor}, {outTensor});
-    permute_op.SetAttribute(OP_ATTR_PREFIX + "perm", std::vector<int>{1, 0, 2});
+    permute_op.SetAttribute(OpAttributeKey::perm, std::vector<int>{1, 0, 2});
 
     auto& copyout_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {outTensor}, {outcast});
     (void)copyout_op;
@@ -683,7 +683,7 @@ TEST_F(InferShapeTest, TestPermuteElement)
     copyin_op.SetOpAttribute(copyin_Attr);
 
     auto& permute_op = currFunctionPtr->AddOperation(Opcode::OP_PERMUTE_ELEMENT, {inTensor}, {outTensor});
-    permute_op.SetAttribute(OP_ATTR_PREFIX + "perm", std::vector<int>{0, 2, 1});
+    permute_op.SetAttribute(OpAttributeKey::perm, std::vector<int>{0, 2, 1});
 
     auto& copyout_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {outTensor}, {outcast});
     (void)copyout_op;

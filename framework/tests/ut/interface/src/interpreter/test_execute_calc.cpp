@@ -1099,7 +1099,7 @@ TEST_F(CalcCommonTest, ExecuteOpPermute3D)
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
 
     auto &permuteOp = func->AddOperation(Opcode::OP_PERMUTE, {inputTensor}, {outputTensor});
-    permuteOp.SetAttribute(OP_ATTR_PREFIX + "perm", std::vector<int>{1, 0, 2});
+    permuteOp.SetAttribute(OpAttributeKey::perm, std::vector<int>{1, 0, 2});
 
     Tensor inputTensorData(DT_FP32, inShape);
     Tensor outputTensorData(DT_FP32, outShape);
