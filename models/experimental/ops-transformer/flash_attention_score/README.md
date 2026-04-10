@@ -22,6 +22,7 @@ $$
 - ✅ **Online Softmax 分块计算**
 - ✅ 使用 FP32 进行中间计算以提高精度
 - ✅ 支持注意力掩码处理
+- ✅ 支持 PyTorch `autograd.Function` 封装的训练态 backward
 - ✅ **支持动态轴**：Batch size、Query seq len、KV seq len 均为动态维度，无需重编译
 - ✅ 满足 bfloat16 精度标准：`atol=0.0001, rtol=0.0078125`
 
@@ -31,12 +32,12 @@ $$
 
 Online Softmax 通过分块计算，避免存储完整的 attention matrix：
 
-1. **分块处理**: 将 K 和 V 沿 $S_{kv}$ 维度分块（block_size=16）
+1. **分块处理**: Python 外层按 `Q` 维切块调度，kernel 内将 K 和 V 沿 $S_{kv}$ 维度分块（8B preset 当前默认 `Q=8192, KV=128`）
 2. **动态更新**: 维护三个中间变量
    - `running_max`: 当前最大值
    - `running_sum`: 当前 exp 之和
    - `running_output`: 累积输出
-3. **归一化**: 最终 `output = running_output / running_sum`
+3. **归一化**: 每个 q-block 内最终 `output = running_output / running_sum`
 
 ### 算法步骤
 
@@ -87,9 +88,36 @@ output = running_output / running_sum
 - **Skv (Key/Value sequence length)**: 动态维度，运行时可变，无需重编译
 
 **固定维度**：
-- N (Number of attention heads): 8
-- D (Head dimension): 64
-- Block size: 16
+- N (Number of attention heads): `32`
+- D (Head dimension): `128`
+- 当前默认 block size: `Q=8192, KV=128`
+- 当前默认 KV unroll: `1`
+- 当前默认 vec tile: `128,256`
+- 优化过程总结见 `OPTIMIZATION_SUMMARY.md`
+
+## 真实模型对齐
+
+当前仓库里最容易混淆的是“脚本名”和“实际 MoE 总参数规模”不是一回事。
+
+### `aigcode_8b_jamba_gdn_moe`
+
+来源脚本：
+- `/sharedata/llx/pto/Mindspeed-LLM/examples/mcore/qwen2/pretrain_aigcode_8b_4k_jamba_gdn_moe_cann850_tpe.sh`
+
+真实 attention 形状：
+- Query/Key/Value: `[B, 32, S, 128]`
+- `B=1`
+- `S=8192`
+- `mask=causal`
+
+对应运行方式：
+
+```bash
+python3 flash_attention_score.py flash_attention::test_forward --run_mode npu
+python3 flash_attention_score.py flash_attention::test_backward --run_mode npu --seq_q 128 --seq_kv 128 --mask causal
+python3 flash_attention_score.py flash_attention::benchmark --run_mode npu
+python3 flash_attention_score.py flash_attention::benchmark_train --run_mode npu --seq_q 128 --seq_kv 128 --mask causal
+```
 
 ## 编译与运行
 
@@ -130,9 +158,10 @@ Mean difference: 0.000307
 ### 关键技术点
 
 1. **Online Softmax 分块计算**
-   - Block size: 16
-   - 分块处理 K/V，避免存储完整 attention matrix
-   - 使用 `pypto.loop` 实现循环
+   - Python 外层按 `Q` 分块调度
+   - kernel 内分块处理 K/V，避免存储完整 attention matrix
+- 当前默认 `KV_UNROLL_LIST=1`，优先保证长序列 correctness
+- 对 8B preset，当前默认 `q_block=8192`，优先减少 kernel launch
 
 2. **精度优化**
    - 使用 FP32 进行中间计算
@@ -143,8 +172,8 @@ Mean difference: 0.000307
    - 通过加 -10000.0 实现屏蔽效果
 
 4. **中间变量管理**
-   - 作为函数参数传入（而非函数内创建）
-   - 使用 `.move()` 更新中间变量
+   - kernel 内维护 `running_max / running_sum / running_output`
+   - 为规避多 `q_block` 交互，`q_block` 循环已移到 Python wrapper
 
 ### API 映射
 
@@ -162,32 +191,57 @@ Mean difference: 0.000307
 
 ### 精度测试
 
-- **最大差异**: 0.001953
-- **平均差异**: 0.000000
-- **通过率**: 100%
-- **精度标准**: `rtol=0.0078125, atol=0.0001`
+- `forward`:
+  - `S=64`: max diff `0.001953`
+  - `S=128`: max diff `0.003906`
+  - `S=256`: max diff `0.001953`
+  - `S=512`: max diff `0.001953`
+  - `S=1024`: max diff `0.003906`
+  - `S=2048`: max diff `0.000977`
+  - `S=4096`: max diff `0.001953`
+  - `S=8192`: max diff `0.003906`
+- `backward`:
+  - `S=64`: `dQ/dK/dV` max diff `0.015625 / 0.015625 / 0.003906`
+  - `S=128`: `dQ/dK/dV` max diff `0.008789 / 0.015625 / 0.001953`
+- backward 当前按 BF16 标准使用 `rtol=0.03, atol=0.02`
 
-### 动态轴测试
+### 当前验证配置
 
-已验证以下不同形状的输入，均无需重编译：
+- Model preset: `aigcode_8b_jamba_gdn_moe`
+- Num heads: `32`
+- Head dimension: `128`
+- Block size: `Q=8192, KV=128`
+- KV unroll: `1`
+- Vec tile: `128,256`
 
-| Batch | Query Seq | KV Seq | 结果 |
-|-------|-----------|--------|------|
-| 2 | 32 | 64 | ✓ 通过 |
-| 4 | 64 | 128 | ✓ 通过 |
-| 8 | 128 | 256 | ✓ 通过 |
+### 当前最优 forward 路线
 
-### 测试配置
-
-- Num heads: 8
-- Head dimension: 64
-- Block size: 16
+- 这轮稳定收益最大的优化，是尽量减少外层 `q_block` wrapper 调度，也就是尽可能减少 kernel launch
+- 在同一份稳定代码上，真实 8B 形状 `[1, 32, 8192, 128]` 的 steady-state forward 实测是：
+  - `Q=128`: `4296.957 ms`
+  - `Q=256`: `2263.673 ms`
+  - `Q=512`: `1191.296 ms`
+  - `Q=1024`: `637.811 ms`
+  - `Q=2048`: `375.659 ms`
+  - `Q=4096`: `223.492 ms`
+  - `Q=8192`: `169.533 ms`
+- 当前最优路线的单-kernel runtime_debug 结果：
+  - Output: `output/output_20260402_202451_519913_3042750_C0A890D9`
+  - `AICore End-to-End Time = 168666.34 us`
+  - `Average utilization = 57.19%`
+  - `Average bubble = 10.80%`
+  - `Tasks = 370752`
+- 已验证精度：`Q=8192`, `seq_q=seq_kv=8192`, `causal`, `max diff = 0.001953`
 
 ## 已知限制
 
-1. **Block size 固定**: 当前 block size 固定为 16
-2. **无 Dropout**: 未实现 dropout 功能
-3. **固定维度**: Num heads 固定为 8，Head dim 固定为 64
+1. **训练态 backward 当前只验证到单 block 形状**：
+   `seq_q <= 128` 且 `seq_kv <= 128`
+2. **forward 当前已验证到真实 8B 形状 `S=8192`**：
+   这版默认实现以 correctness-first 为主，`KV` unroll 默认关闭；对 8B preset，当前默认 `q_block=8192`
+3. **CANN masked flash-attention 在小尺寸 benchmark 下存在接口限制**：
+   当前 `causal` 小 mask 需要 `atten_mask_shape=[2048,2048]`，因此 `benchmark_train` 会跳过 CANN 对照
+4. **无 Dropout**: 未实现 dropout 功能
 
 ## 动态轴使用示例
 

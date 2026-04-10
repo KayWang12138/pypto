@@ -31,31 +31,31 @@ def _jit_debug_options_from_env():
 
 def _jit_runtime_options():
     return {
-        "stitch_function_max_num": 256,
-        "device_sched_mode": 1,
+        "stitch_function_max_num": 128,
+        "device_sched_mode": 0,
     }
 
 
 def _jit_pass_options():
     return {
         "pg_upper_bound": 5000000,
-        "cube_l1_reuse_setting": {0: 8},
-        "cube_nbuffer_setting": {0: 4},
-        "vec_nbuffer_setting": {0: 4},
+        "cube_l1_reuse_setting": {-1: 4},
+        "cube_nbuffer_setting": {-1: 4},
+        "vec_nbuffer_setting": {-1: 4},
     }
 
 
-MODEL_PRESET = "aigcode_8b_jamba_gdn_moe"
-
+MODEL_PRESET = "tune_small"  # 使用小shape进行快速调优
 NUM_HEADS = 32
 HEAD_DIM = 128
+BLOCK_SIZE_Q = 8192  # 增大到完整序列长度，避免分块循环
 BLOCK_SIZE_KV = 1024
-BLOCK_SIZE_Q = 8192
 ASSUME_CAUSAL = True
 KV_UNROLL_LIST = (1,)
 QK_CUBE_TILE_SHAPES = ((64, 512), (64, 256), (256, 512))
 PV_CUBE_TILE_SHAPES = ((64, 512), (128, 512), (128, 128))
 VEC_TILE_SHAPES = (16, 512)
+VEC_TILE_SHAPES_V2 = (16, 512)
 
 
 @pypto.frontend.jit(
@@ -82,6 +82,7 @@ def flash_attention_score_kernel_with_mask(
 
     scale = 1.0 / math.sqrt(HEAD_DIM)
 
+    # 在loop外部将4D输入reshape为2D，减少循环内的维度变换开销
     query_2d = pypto.reshape(query, [batch_size * NUM_HEADS * seq_len_q, HEAD_DIM], inplace=True)
     key_2d = pypto.reshape(key, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
     value_2d = pypto.reshape(value, [batch_size * NUM_HEADS * seq_len_kv, HEAD_DIM], inplace=True)
@@ -99,19 +100,10 @@ def flash_attention_score_kernel_with_mask(
             idx_name="n_idx",
             submit_before_loop=True,
         ):
-            cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q)
-            q_start_2d = (b_idx * NUM_HEADS + n_idx) * seq_len_q
 
             oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
             li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
             mi_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "mi_update")
-
-            q_block = pypto.view(
-                query_2d,
-                [BLOCK_SIZE_Q, HEAD_DIM],
-                [q_start_2d, 0],
-                valid_shape=[cur_q_size, HEAD_DIM],
-            )
 
             for kv_block_idx, _ in pypto.loop_unroll(
                 0,
@@ -122,16 +114,28 @@ def flash_attention_score_kernel_with_mask(
                 unroll_list=list(KV_UNROLL_LIST),
                 submit_before_loop=True,
             ):
+
+                # 直接从2D tensor切分query，避免4D view+reshape
+                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q)
+                q_start_2d = (b_idx * NUM_HEADS + n_idx) * seq_len_q
+                q_block = pypto.view(
+                    query_2d,
+                    [BLOCK_SIZE_Q, HEAD_DIM],
+                    [q_start_2d, 0],
+                    valid_shape=[cur_q_size, HEAD_DIM],
+                )
+
                 kv_start = kv_block_idx * BLOCK_SIZE_KV
                 cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
                 is_first_valid_block = pypto.is_loop_begin(kv_block_idx)
                 is_last_valid_block = pypto.is_loop_end(kv_block_idx)
-                kv_start_2d = (b_idx * NUM_HEADS + n_idx) * seq_len_kv + kv_start
 
+                # 直接从2D tensor切分key
+                k_start_2d = (b_idx * NUM_HEADS + n_idx) * seq_len_kv + kv_start
                 k_block = pypto.view(
                     key_2d,
                     [BLOCK_SIZE_KV, HEAD_DIM],
-                    [kv_start_2d, 0],
+                    [k_start_2d, 0],
                     valid_shape=[cur_block_size, HEAD_DIM],
                 )
 
@@ -159,24 +163,28 @@ def flash_attention_score_kernel_with_mask(
                 masked_bias = pypto.mul(mask_block, -10000.0)
                 scores_for_softmax = pypto.add(scores_scaled, masked_bias)
 
+                # 直接从2D tensor切分value
                 v_block = pypto.view(
                     value_2d,
                     [BLOCK_SIZE_KV, HEAD_DIM],
-                    [kv_start_2d, 0],
+                    [k_start_2d, 0],
                     valid_shape=[cur_block_size, HEAD_DIM],
                 )
-                v_block_fp32 = pypto.cast(v_block, pypto.DT_FP32)
+                # v_block_fp32 = pypto.cast(v_block, pypto.DT_FP32)
                 pypto.set_cube_tile_shapes(
                     list(PV_CUBE_TILE_SHAPES[0]),
                     list(PV_CUBE_TILE_SHAPES[1]),
                     list(PV_CUBE_TILE_SHAPES[2]),
                 )
                 if is_first_valid_block:
+                    pypto.set_vec_tile_shapes(*VEC_TILE_SHAPES)
                     block_max = pypto.amax(scores_for_softmax, dim=-1, keepdim=True)
                     p_ij = pypto.exp(pypto.sub(scores_for_softmax, block_max))
                     p_ij = pypto.mul(p_ij, valid_mask)
                     block_sum = pypto.sum(p_ij, dim=-1, keepdim=True)
-                    block_out = pypto.matmul(p_ij, v_block_fp32, pypto.DT_FP32)
+                    p_ij_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
+                    block_out = pypto.matmul(p_ij_bf16, v_block, pypto.DT_FP32)
+                    pypto.set_vec_tile_shapes(*VEC_TILE_SHAPES_V2)
 
                     if is_last_valid_block:
                         o_final = pypto.div(block_out, block_sum)
@@ -192,16 +200,19 @@ def flash_attention_score_kernel_with_mask(
                     li_update[:] = block_sum
                     mi_update[:] = block_max
                 else:
+                    pypto.set_vec_tile_shapes(*VEC_TILE_SHAPES)
                     block_max = pypto.amax(scores_for_softmax, dim=-1, keepdim=True)
                     max_new = pypto.maximum(mi_update, block_max)
                     p_ij = pypto.exp(pypto.sub(scores_for_softmax, max_new))
                     p_ij = pypto.mul(p_ij, valid_mask)
+                    p_ij_bf16 = pypto.cast(p_ij, pypto.DT_BF16)
                     block_sum = pypto.sum(p_ij, dim=-1, keepdim=True)
 
                     update_mul = pypto.exp(pypto.sub(mi_update, max_new))
                     li_new = pypto.add(pypto.mul(li_update, update_mul), block_sum)
 
-                    block_out = pypto.matmul(p_ij, v_block_fp32, pypto.DT_FP32)
+                    block_out = pypto.matmul(p_ij_bf16, v_block, pypto.DT_FP32)
+                    pypto.set_vec_tile_shapes(*VEC_TILE_SHAPES_V2)
 
                     oi_new = pypto.add(pypto.mul(oi_update, update_mul), block_out)
 
