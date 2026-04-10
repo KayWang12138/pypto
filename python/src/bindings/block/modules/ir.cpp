@@ -317,6 +317,7 @@ void BindIR(py::module_& m) {
       .value("Mat", MemorySpace::Mat, "Matrix/L1 buffer")
       .value("Left", MemorySpace::Left, "Left matrix operand buffer")
       .value("Right", MemorySpace::Right, "Right matrix operand buffer")
+      .value("Scaling", MemorySpace::Scaling, "Scaling/FBuffer buffer")
       .value("Acc", MemorySpace::Acc, "Accumulator buffer")
       .export_values();
 
@@ -438,7 +439,8 @@ void BindIR(py::module_& m) {
       .def(py::init<MemorySpace, ExprPtr, uint64_t, uint64_t, Span>(), py::arg("memory_space"),
            py::arg("addr"), py::arg("size"), py::arg("id"), py::arg("span") = Span::unknown(),
            "Create a memory reference with memory_space, addr, size, id, and span")
-      .def_readwrite("memory_space_", &MemRef::memory_space_, "Memory space (DDR, Vec, Mat, Left, Right, Acc)")
+      .def_readwrite("memory_space_", &MemRef::memory_space_,
+                     "Memory space (DDR, Vec, Mat, Left, Right, Scaling, Acc)")
       .def_readwrite("addr_", &MemRef::addr_, "Starting address expression")
       .def_readwrite("size_", &MemRef::size_, "Size in bytes (64-bit unsigned)")
       .def_readwrite("id_", &MemRef::id_, "Unique identifier for this MemRef instance");

@@ -66,6 +66,7 @@ class TypeResolver:
         "Mat": ir.MemorySpace.Mat,
         "Left": ir.MemorySpace.Left,
         "Right": ir.MemorySpace.Right,
+        "Scaling": ir.MemorySpace.Scaling,
         "Acc": ir.MemorySpace.Acc,
     }
 

@@ -1055,6 +1055,158 @@ static std::string MakeManualStoreCodegenPTO(const CallPtr& op, codegen::Codegen
 }
 
 // ============================================================================
+// manual.store_fp codegen
+//
+// Emits:
+//   %pv = pto.partition_view %tensor_view, offsets=[...], sizes=[...] : T -> PTV
+//   pto.tstore_fp ins(%tile_buf : TileBufType, %fp_tile : FpTileBufType)
+//       outs(%pv : PTV)
+// ============================================================================
+static std::string MakeManualStoreFpCodegenPTO(const CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
+
+  CHECK(op->args_.size() == 4)
+      << "manual.store_fp: expected 4 args (tile, fp_tile, offsets, output_tensor), got "
+      << op->args_.size();
+
+  auto tile_type = As<ir::TileType>(op->args_[0]->GetType());
+  INTERNAL_CHECK(tile_type) << "manual.store_fp: first argument must be a Tile";
+  if (!tile_type->memref_.has_value()) {
+    throw pypto::ValueError("manual.store_fp: source tile must have an allocated memory space");
+  }
+  if (tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
+    throw pypto::ValueError("manual.store_fp: source tile must be allocated in Acc memory");
+  }
+
+  auto fp_tile_type = As<ir::TileType>(op->args_[1]->GetType());
+  INTERNAL_CHECK(fp_tile_type) << "manual.store_fp: second argument must be a Tile";
+  if (!fp_tile_type->memref_.has_value()) {
+    throw pypto::ValueError("manual.store_fp: fp tile must have an allocated memory space");
+  }
+  if (fp_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Scaling) {
+    throw pypto::ValueError("manual.store_fp: fp tile must be allocated in Scaling memory");
+  }
+
+  auto offsets_tuple = As<ir::MakeTuple>(op->args_[2]);
+  INTERNAL_CHECK(offsets_tuple) << "manual.store_fp: third argument must be a MakeTuple (offsets)";
+
+  auto output_tensor = As<Var>(op->args_[3]);
+  INTERNAL_CHECK(output_tensor) << "manual.store_fp: fourth argument must be a Var";
+
+  auto tensor_type = As<TensorType>(output_tensor->GetType());
+  INTERNAL_CHECK(tensor_type) << "manual.store_fp: fourth argument must have TensorType";
+
+  size_t tensor_ndim = tensor_type->shape_.size();
+  INTERNAL_CHECK(tensor_ndim >= 2) << "manual.store_fp: tensor must have at least 2 dimensions";
+
+  std::string dtype_str = codegen.GetTypeString(tensor_type->dtype_);
+  std::string tile_buf = codegen.GetExprAsCode(op->args_[0]);
+  std::string tile_buf_type = codegen.GetTileBufTypeStringFromTileType(tile_type);
+  std::string fp_tile_buf = codegen.GetExprAsCode(op->args_[1]);
+  std::string fp_tile_buf_type = codegen.GetTileBufTypeStringFromTileType(fp_tile_type);
+
+  std::vector<std::string> dims(tensor_ndim);
+  for (size_t i = 0; i < tensor_ndim; ++i) {
+    if (auto var_i = As<ir::Var>(tensor_type->shape_[i])) {
+      dims[i] = codegen.GetVarName(var_i);
+    } else {
+      dims[i] = codegen.GetIndexConstant(codegen.GetConstIntValue(tensor_type->shape_[i]));
+    }
+  }
+
+  std::vector<int> tile_dims_vec;
+  bool has_tile_dims = op->HasKwarg("tile_dims");
+  if (has_tile_dims) {
+    tile_dims_vec = op->GetKwarg<std::vector<int>>("tile_dims");
+    INTERNAL_CHECK(tile_dims_vec.size() == 2)
+        << "manual.store_fp: tile_dims must have exactly 2 elements";
+  }
+
+  std::string row_off, col_off;
+  std::string tensor_view, tensor_view_type;
+
+  if (has_tile_dims && tensor_ndim > 2) {
+    std::string raw_ptr = codegen.GetTensorPtr(output_tensor);
+    BuildStridedTileDimsView(codegen, tile_dims_vec, dims, offsets_tuple,
+                             raw_ptr, dtype_str, tensor_ndim, /*is_dn=*/false,
+                             tensor_view, tensor_view_type, row_off, col_off);
+  } else if (tensor_ndim == 2) {
+    row_off = codegen.GetExprAsCode(offsets_tuple->elements_[0]);
+    col_off = codegen.GetExprAsCode(offsets_tuple->elements_[1]);
+    tensor_view = codegen.GetOrCreateTensorView(output_tensor);
+    tensor_view_type = codegen.GetTensorViewTypeString(tensor_type.get());
+  } else {
+    std::string flat_row_off = codegen.GetExprAsCode(offsets_tuple->elements_[0]);
+    for (size_t i = 1; i < tensor_ndim - 1; ++i) {
+      std::string off_i = codegen.GetExprAsCode(offsets_tuple->elements_[i]);
+      std::string new_row_off = codegen.NewTemp();
+      codegen.Emit(new_row_off + " = arith.muli " + flat_row_off + ", " + dims[i] + " : index");
+      std::string tmp = new_row_off;
+      new_row_off = codegen.NewTemp();
+      codegen.Emit(new_row_off + " = arith.addi " + tmp + ", " + off_i + " : index");
+      flat_row_off = new_row_off;
+    }
+    row_off = flat_row_off;
+    col_off = codegen.GetExprAsCode(offsets_tuple->elements_[tensor_ndim - 1]);
+
+    std::string raw_ptr = codegen.GetTensorPtr(output_tensor);
+    std::string flat_row_dim = dims[0];
+    for (size_t i = 1; i < tensor_ndim - 1; ++i) {
+      std::string new_dim = codegen.NewTemp();
+      codegen.Emit(new_dim + " = arith.muli " + flat_row_dim + ", " + dims[i] + " : index");
+      flat_row_dim = new_dim;
+    }
+    std::string col_dim = dims[tensor_ndim - 1];
+    std::string c1 = codegen.GetIndexConstant(1);
+    std::string nd_view = codegen.NewTemp();
+    tensor_view_type = "!pto.tensor_view<?x?x" + dtype_str + ">";
+    std::ostringstream tv_line;
+    tv_line << nd_view << " = pto.make_tensor_view " << raw_ptr
+            << ", shape = [" << flat_row_dim << ", " << col_dim << "],"
+            << " strides = [" << col_dim << ", " << c1 << "]"
+            << " : " << tensor_view_type;
+    codegen.Emit(tv_line.str());
+    tensor_view = nd_view;
+  }
+
+  std::string partition_view = codegen.NewTemp();
+  std::string partition_type;
+  std::ostringstream pv_line;
+
+  auto eff = GetEffectiveTileSize(tile_type);
+  if (eff.is_dynamic) {
+    auto [cur_row, cur_col] = codegen.GetTileValidShape(tile_buf);
+
+    partition_type = "!pto.partition_tensor_view<?x?x" + dtype_str + ">";
+    pv_line << partition_view << " = pto.partition_view " << tensor_view
+            << ", offsets = [" << row_off << ", " << col_off << "]"
+            << ", sizes = [" << cur_row << ", " << cur_col << "]"
+            << " : " << tensor_view_type << " -> " << partition_type;
+    codegen.Emit(pv_line.str());
+  } else {
+    partition_type = "!pto.partition_tensor_view<" + std::to_string(eff.row) + "x" +
+                     std::to_string(eff.col) + "x" + dtype_str + ">";
+    pv_line << partition_view << " = pto.partition_view " << tensor_view
+            << ", offsets = [" << row_off << ", " << col_off << "]"
+            << ", sizes = [" << codegen.GetIndexConstant(eff.row) << ", "
+            << codegen.GetIndexConstant(eff.col) << "]"
+            << " : " << tensor_view_type << " -> " << partition_type;
+    codegen.Emit(pv_line.str());
+  }
+
+  std::ostringstream tstore_line;
+  tstore_line << "pto.tstore_fp ins(" << tile_buf;
+  tstore_line << ", " << fp_tile_buf;
+  if (!tile_buf_type.empty() || !fp_tile_buf_type.empty()) {
+    tstore_line << " : " << tile_buf_type << ", " << fp_tile_buf_type;
+  }
+  tstore_line << ") outs(" << partition_view << " : " << partition_type << ")";
+  codegen.Emit(tstore_line.str());
+
+  return "";
+}
+
+// ============================================================================
 // Op registrations
 // ============================================================================
 
@@ -1157,6 +1309,12 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "manual.store")
     .set_pipe(ir::PipeType::MTE3)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeManualStoreCodegenPTO(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_PTO, "manual.store_fp")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualStoreFpCodegenPTO(op, codegen);
     });
 
 // ============================================================================

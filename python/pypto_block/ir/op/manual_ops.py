@@ -164,6 +164,7 @@ def store(
     span: Span | None = None,
     relu_pre_mode: str | None = None,
     pre_quant_scalar: int | None = None,
+    fp_tile: Expr | None = None,
 ) -> Call:
     """Build manual.store IR call.
 
@@ -174,12 +175,24 @@ def store(
         span: Optional source span.
         relu_pre_mode: ReluPreMode string for TSTORE.
         pre_quant_scalar: Pre-quantization scalar value.
+        fp_tile: Floating-point parameter tile expression for TSTORE_FP.
 
     Returns:
         Call expression for manual.store.
     """
     actual_span = _get_span_or_capture(span)
     offsets_tuple = _to_make_tuple(offsets, actual_span)
+
+    if fp_tile is not None and relu_pre_mode is not None:
+        raise ValueError("fp_tile cannot be used together with relu_pre_mode")
+    if fp_tile is not None and pre_quant_scalar is not None:
+        raise ValueError("fp_tile cannot be used together with pre_quant_scalar")
+
+    if fp_tile is not None:
+        return _ir_core.create_op_call(
+            "manual.store_fp", [tile, fp_tile, offsets_tuple, out], {}, actual_span,
+        )
+
     kwargs: dict = {}
     if relu_pre_mode is not None:
         kwargs["relu_pre_mode"] = relu_pre_mode
@@ -187,6 +200,32 @@ def store(
         kwargs["pre_quant_scalar"] = pre_quant_scalar
     return _ir_core.create_op_call(
         "manual.store", [tile, offsets_tuple, out], kwargs, actual_span,
+    )
+
+
+def store_fp(
+    out: Expr,
+    tile: Expr,
+    fp_tile: Expr,
+    offsets: Sequence[int | Expr] | _ir_core.MakeTuple,
+    span: Span | None = None,
+) -> Call:
+    """Build manual.store_fp IR call.
+
+    Args:
+        out: Out tensor.
+        tile: Source accumulation tile expression.
+        fp_tile: Floating-point parameter tile expression.
+        offsets: Offsets tuple or sequence.
+        span: Optional source span.
+
+    Returns:
+        Call expression for manual.store_fp.
+    """
+    actual_span = _get_span_or_capture(span)
+    offsets_tuple = _to_make_tuple(offsets, actual_span)
+    return _ir_core.create_op_call(
+        "manual.store_fp", [tile, fp_tile, offsets_tuple, out], {}, actual_span,
     )
 
 

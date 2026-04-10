@@ -681,6 +681,7 @@ void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cr
         GenerateTileTypeDeclaration(var_name, tile_type);
       }
       emit_deduped_aliases(ir::MemorySpace::Mat);
+      emit_deduped_aliases(ir::MemorySpace::Scaling);
       emitter_.EmitLine("#endif");
       emitter_.EmitLine("");
     }
@@ -2128,6 +2129,7 @@ class TensorAccessShapeCollector : public ir::IRVisitor {
     // block.store: tensor at arg[3], shapes at arg[2], tile at arg[0]
     // manual.load: tensor at arg[0], tile at arg[2] (no shapes arg)
     // manual.store: tensor at arg[2], tile at arg[0] (no shapes arg)
+    // manual.store_fp: tensor at arg[3], fp_tile at arg[1], tile at arg[0]
     int tensor_arg_idx = -1;
     int shapes_arg_idx = -1;
     int tile_arg_idx = -1;
@@ -2139,6 +2141,8 @@ class TensorAccessShapeCollector : public ir::IRVisitor {
       tensor_arg_idx = 3; shapes_arg_idx = 2; tile_arg_idx = 0;
     } else if (op_name == "manual.store") {
       tensor_arg_idx = 2; tile_arg_idx = 0;
+    } else if (op_name == "manual.store_fp") {
+      tensor_arg_idx = 3; tile_arg_idx = 0;
     }
 
     if (tensor_arg_idx >= 0 &&

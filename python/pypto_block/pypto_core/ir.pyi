@@ -750,6 +750,9 @@ class MemorySpace(enum.Enum):
     Right = ...
     """Right matrix operand buffer."""
 
+    Scaling = ...
+    """Scaling/FBuffer buffer."""
+
     Acc = ...
     """Accumulator buffer."""
 

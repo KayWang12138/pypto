@@ -267,6 +267,44 @@ def test_manual_fillpad_expand_codegen_rejects_inplace():
         generator.generate(optimized_program)
 
 
+def test_manual_store_fp_emits_cce_codegen():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualStoreFpCCEProgram:
+        @pl.function
+        def store_fp_cce_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8],
+        ) -> pl.Tensor[[32, 32], pl.INT8]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            plm.store(output, src, [0, 0], fp_tile=fp)
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualStoreFpCCEProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    kernel_name = list(optimized_program.functions.values())[0].name
+    code = files["kernels/aiv/" + kernel_name + ".cpp"]
+    assert "TSTORE_FP(" in code
+    assert "TileType::Scaling" in code
+    assert "TASSIGN(outputGlobal" in code
+
+
 class TestControlFlowCodegen:
     """Test control flow statement code generation."""
 
@@ -575,7 +613,7 @@ def test_debug_dump_tensor_dynamic_shape_codegen():
     code = files["kernels/aiv/debug_dump_tensor_shape.cpp"]
 
     assert "using __debug_dump_tensor_shape_" in code
-    assert "Shape<1, 1, 1, -1, 16>" in code
+    assert "pto::Shape<1, 1, 1, -1, 16>" in code
     assert "GlobalTensor<float" in code
     assert "TPRINT(__debug_dump_tensor_view_" in code
 
