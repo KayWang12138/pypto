@@ -511,13 +511,13 @@ def stateless_random_uniform_v2(shape, key, counter, alg, dtype) -> Tensor:
 
     Parameters
     ----------
-    shape: List
+    shape: List[int]
         The shape of the output tensor.
-    key: List
+    key: List[int]
         The key for random number generation.
-    counter: List
+    counter: List[int]
         The counter for random number generation.
-    alg: List
+    alg: List[int]
         The algorithm to use for random number generation, support 1(Philox) and 3(auto_select, select Philox).
     dtype: DataType
         The data type of the output tensor.
@@ -567,13 +567,13 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
 
     Parameters
     ----------
-    shape: List
+    shape: List[int]
         The shape of the output tensor.
     key: List
         The key for random number generation.
-    counter: List
+    counter: List[int]
         The counter for random number generation.
-    alg: List
+    alg: List[int]
         The algorithm to use for random number generation, support 1(Philox) and 3(auto_select, select Philox).
     dtype: DataType
         The data type of the output tensor.
