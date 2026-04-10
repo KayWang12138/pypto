@@ -1328,6 +1328,9 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_LOAD3D_CONV, "TLoad3D"},
     {Opcode::OP_LOAD2D_CONV, "TLoad2D"},
     {Opcode::OP_L0C_COPY_OUT_CONV, "TStoreConv"},
+    {Opcode::OP_QUANTIZE_SYM, "TQuant"},
+    {Opcode::OP_QUANTIZE_ASYM, "TQuant"},
+    {Opcode::OP_DEQUANTIZE, "TDequant"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
