@@ -1163,7 +1163,7 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
-        if (unlikely(aicoreDump_.IsEnableDump())) {
+        if (unlikely(isEnableDump)) {
             aicoreDump_.DoDump(devTaskCtx->GetDeviceTask(), "input", newTask, GetPhyIdByBlockId(coreIdx));
         }
 #endif
@@ -1877,7 +1877,8 @@ private:
         context_->Init(deviceArgs, schedIdx);
 
 #if ENABLE_TENSOR_DUMP
-        if (unlikely(startArgs->devProg->devArgs.hostPid != 0)) {
+        isEnableDump = startArgs->devProg->devArgs.hostPid != 0;
+        if (unlikely(isEnableDump)) {
             aicoreDump_.Init(startArgs, schedIdx);
         }
 #endif
@@ -2203,7 +2204,7 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
-        if (unlikely(aicoreDump_.IsEnableDump())) {
+        if (unlikely(isEnableDump)) {
             aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
         }
 #endif
@@ -2357,6 +2358,7 @@ private:
 
     AiCoreProf aicoreProf_;
     AicoreDump aicoreDump_;
+    bool isEnableDump{false};
     int64_t dotStatus_{0};
     bool isSendStop{false};
     std::array<uint8_t, MAX_AICORE_NUM> pingPongFlag_;
