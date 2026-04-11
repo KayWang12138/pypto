@@ -900,6 +900,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{
     Opcode::OP_FLOORDIVS};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{
+    Opcode::OP_INDEX_ADD,
     Opcode::OP_EXP,
     Opcode::OP_RSQRT,
     Opcode::OP_SQRT,

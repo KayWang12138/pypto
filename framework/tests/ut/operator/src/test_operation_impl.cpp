@@ -283,7 +283,7 @@ TEST_F(OperationImplTest, Test_IndexAddUB_INT16)
     FUNCTION("TestIndxAdd") { result = IndexAddUB(self, src, index, axis, alpha); }
 }
 
-TEST_F(OperationImplTest, Test_IndexAddUB_FP32)
+TEST_F(OperationImplTest, Test_IndexAdd_FP32)
 {
     float scalar = 1.2f;
     int axis = 0;
@@ -293,8 +293,7 @@ TEST_F(OperationImplTest, Test_IndexAddUB_FP32)
     Tensor src(DT_FP32, {15, 10, 16}, "operand1");
     Tensor index(DT_INT32, {15}, "operand2");
     Element alpha(DT_FP32, scalar);
-    Tensor result;
-    FUNCTION("TestIndxAdd") { result = IndexAddUB(self, src, index, axis, alpha); }
+    FUNCTION("TestIndxAdd") { IndexAdd_(self, src, index, axis, alpha); }
 }
 
 TEST_F(OperationImplTest, Test_IndexAddUB_FP16)
