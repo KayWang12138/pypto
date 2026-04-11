@@ -170,14 +170,14 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
         int fd = -1;
         int retries = 10;
         while (retries--) {
-            fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
+            fd = shm_open(handler.c_str(), O_RDWR, 0666);
             if (fd != -1) {
                 return fd;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        throw std::runtime_error("GetRemoteRank shm_open " + dataHandler + " error!");
-    }
+        throw std::runtime_error("GetRemoteRank shm_open " + handler + " error!");
+    };
 
     std::lock_guard<std::mutex> lock(remoteMutex_);
 
