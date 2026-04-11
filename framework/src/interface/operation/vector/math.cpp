@@ -87,7 +87,8 @@ Tensor LogicalNot(const Tensor& self)
                         self.GetDataType() == DT_UINT8 || self.GetDataType() == DT_INT8 ||
                         self.GetDataType() == DT_BOOL || self.GetDataType() == DT_BF16;
     if (!dtypeIsValid) {
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsurpported Dtype " << DataType2String(self.GetDataType());
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false)
+            << "Unsurpported Dtype " << DataType2String(self.GetDataType());
     }
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
@@ -1147,6 +1148,115 @@ static Tensor VarResSqueeze(
     return Squeeze(res, dim);
 }
 
+static Tensor WelfordReduceAxis(const Tensor& x, int axis)
+{
+    Shape shape = x.GetShape();
+    int64_t N = shape[axis];
+
+    Shape reducedShape = shape;
+    reducedShape[axis] = 1;
+
+    Tensor meanTensor(DT_FP32, reducedShape);
+    meanTensor = Sum(x, axis, true);
+    meanTensor = Mul(meanTensor, Element(DT_FP32, 1.0f / static_cast<float>(N)));
+
+    Shape expandShape = shape;
+    for (size_t d = 0; d < expandShape.size(); d++) {
+        if (static_cast<int>(d) == axis) {
+            expandShape[d] = reducedShape[d];
+        }
+    }
+
+    Tensor meanExpanded(DT_FP32, expandShape);
+    meanExpanded = Expand(meanTensor, expandShape);
+
+    Tensor delta = Sub(x, meanExpanded);
+    Tensor delta2 = Mul(delta, delta);
+    Tensor m2Tensor(DT_FP32, reducedShape);
+    m2Tensor = Sum(delta2, axis, true);
+
+    return m2Tensor;
+}
+
+static Tensor WelfordReduceAxisPairwise(const Tensor& x, int axis)
+{
+    Shape shape = x.GetShape();
+    int64_t N = shape[axis];
+
+    auto& vecTile = TileShape::Current().GetVecTile();
+    int64_t tileW = vecTile[axis];
+
+    if (N <= tileW) {
+        return WelfordReduceAxis(x, axis);
+    }
+
+    int numTiles = static_cast<int>((N + tileW - 1) / tileW);
+
+    Shape tileShape = shape;
+    tileShape[axis] = std::min(tileW, N);
+    Shape reducedTileShape = shape;
+    reducedTileShape[axis] = 1;
+
+    Tensor firstMean(DT_FP32, reducedTileShape);
+    {
+        std::vector<int64_t> offset(shape.size(), 0);
+        auto tileView = x.GetStorage()->View(*Program::GetInstance().GetCurrentFunction(), tileShape, offset);
+        Tensor tileTensor(DT_FP32, tileShape);
+        tileTensor.GetStorage() = tileView;
+        firstMean = Sum(tileTensor, axis, true);
+        firstMean = Mul(firstMean, Element(DT_FP32, 1.0f / static_cast<float>(tileShape[axis])));
+    }
+
+    Tensor firstM2(DT_FP32, reducedTileShape);
+    {
+        std::vector<int64_t> offset(shape.size(), 0);
+        auto tileView = x.GetStorage()->View(*Program::GetInstance().GetCurrentFunction(), tileShape, offset);
+        Tensor tileTensor(DT_FP32, tileShape);
+        tileTensor.GetStorage() = tileView;
+        firstM2 = WelfordReduceAxis(tileTensor, axis);
+    }
+
+    float mergedCount = static_cast<float>(tileShape[axis]);
+    Tensor mergedMean = firstMean;
+    Tensor mergedM2 = firstM2;
+
+    for (int t = 1; t < numTiles; t++) {
+        int64_t curTileW = std::min(tileW, N - static_cast<int64_t>(t) * tileW);
+        float nextCount = static_cast<float>(curTileW);
+
+        Shape curTileShape = shape;
+        curTileShape[axis] = curTileW;
+        std::vector<int64_t> tileOffset(shape.size(), 0);
+        tileOffset[axis] = static_cast<int64_t>(t) * tileW;
+
+        auto tileView = x.GetStorage()->View(*Program::GetInstance().GetCurrentFunction(), curTileShape, tileOffset);
+        Tensor tileTensor(DT_FP32, curTileShape);
+        tileTensor.GetStorage() = tileView;
+
+        Tensor nextMean(DT_FP32, reducedTileShape);
+        nextMean = Sum(tileTensor, axis, true);
+        nextMean = Mul(nextMean, Element(DT_FP32, 1.0f / nextCount));
+
+        Tensor nextM2 = WelfordReduceAxis(tileTensor, axis);
+
+        float totalCount = mergedCount + nextCount;
+
+        Tensor delta = Sub(nextMean, mergedMean);
+        Tensor ratio = Mul(delta, Element(DT_FP32, nextCount / totalCount));
+        Tensor newMean = Add(mergedMean, ratio);
+
+        Tensor deltaSq = Mul(delta, delta);
+        Tensor cross = Mul(deltaSq, Element(DT_FP32, mergedCount * nextCount / totalCount));
+        Tensor newM2 = Add(Add(mergedM2, nextM2), cross);
+
+        mergedMean = newMean;
+        mergedM2 = newM2;
+        mergedCount = totalCount;
+    }
+
+    return mergedM2;
+}
+
 Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, bool keepDim)
 {
     std::vector<int> innerDim(dim.begin(), dim.end());
@@ -1162,28 +1272,19 @@ Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, b
     }
 
     int calcN = 1;
-    auto res = castInput;
     for (size_t i = 0; i < innerDim.size(); i++) {
         calcN *= static_cast<int>(shape[innerDim[i]]);
     }
-    res = Mul(res, Element(DT_FP32, 1 / static_cast<float>(calcN)));
+
+    auto res = castInput;
     for (size_t i = 0; i < innerDim.size(); i++) {
-        res = Sum(res, innerDim[i], true);
+        int axis = innerDim[i];
+        res = WelfordReduceAxisPairwise(res, axis);
     }
 
-    Shape dstShape = res.GetShape();
-    for (size_t i = 0; i < innerDim.size(); i++) {
-        dstShape[innerDim[i]] = shape[innerDim[i]];
-        res = Expand(res, dstShape);
-    }
+    float invDenom = 1.0f / std::max(1.0f, static_cast<float>(calcN) - correction);
+    res = Mul(res, Element(DT_FP32, invDenom));
 
-    res = Sub(castInput, res);
-    res = Mul(res, res);
-    float count = 1.0f / std::max(0.0f, static_cast<float>(calcN) - correction);
-    res = Mul(res, Element(DT_FP32, count));
-    for (size_t i = 0; i < innerDim.size(); i++) {
-        res = Sum(res, innerDim[i], true);
-    }
     auto oriVecTile = TileShape::Current().GetVecTile();
     if (!keepDim) {
         res = VarResSqueeze(res, innerDim, oriVecTile.tile, dtype);
