@@ -72,15 +72,15 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     const std::string &groupName = groupNames[groupIndex];
     if (memType == 1) {
         std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
-        // TODO: 需要转换为 out 对应的数据类型
-        LogicalTensorDataPtr tmp = SimulationCommManager::Instance().Alloc(groupName, slotSize);
-        out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
+        // TODO: 需要转换为 out 对应的数据类型 => 转换之后会报错
+        out = SimulationCommManager::Instance().Alloc(groupName, slotSize);
+        // out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
     }
     if (memType == 0) {
         std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
-        // TODO: 需要转换为 int32 数据类型
-        LogicalTensorDataPtr tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
-        out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
+        // TODO: 需要转换为 int32 数据类型 => 转换之后会报错？
+        out = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
+        // out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
     }
     std::cout << "=== ExecuteOpBindTensor exited." << std::endl;
 }
@@ -205,7 +205,6 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     size_t slotSize = out->GetSize() * BytesOf(out->GetDataType());
 
     std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << std::endl;
-    // TODO: 修改 out 的结果为 Get 的结果，并转换为对应类型
     LogicalTensorDataPtr tmp = context->Get(srcRank, slotSize, shm->GetStorageOffset());
     out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
 

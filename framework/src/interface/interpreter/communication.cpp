@@ -25,6 +25,7 @@
 #include <iostream>
 #include "interface/tileop/distributed/comm_context.h"
 #include "machine/runtime/distributed/distributed_context.h"
+#include "interface/tensor/float.h"
 
 namespace npu::tile_fwk {
 
@@ -202,6 +203,25 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     return result;
 }
 
+template<typename T>
+void AtomicAddArray(T *dst, const T *src, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        auto *atomicPtr = reinterpret_cast<std::atomic<T>*>(&dst[i]);
+        T old = atomicPtr->load(std::memory_order_relaxed);
+        T newV;
+        do {
+            newV = old + src[i];
+        } while (!atomicPtr->compare_exchange_weak(old, newV));
+    }
+}
+
+template<>
+void AtomicAddArray<int32_t>(int32_t *dst, const int32_t *src, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        __sync_fetch_and_add(&dst[i], src[i]);
+    }
+}
+
 void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t offset, int atomicType) {
     uint8_t *base = GetRemoteRank(dstRank, false);
     size_t slotSize = data->GetSize() * BytesOf(data->GetDataType());
@@ -215,9 +235,38 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
     }
     if (atomicType == 1) {
         std::cout << "entered atomicType: 1" << std::endl;
-        uint8_t *ptr = data->GetData()->data();
-        for (size_t i = 0; i < slotSize; i++) {
-            __sync_fetch_and_add(&base[offset + i], ptr[i]);
+        void *src = reinterpret_cast<void *>(data->GetData()->data());
+        void *dst = reinterpret_cast<void *>(base + offset);
+        switch (data->GetDataType()) {
+            case DT_UINT8:
+                AtomicAddArray<uint8_t>(static_cast<uint8_t *>(dst), static_cast<uint8_t *>(src), data->GetSize());
+                break;
+            case DT_UINT16:
+                AtomicAddArray<uint16_t>(static_cast<uint16_t *>(dst), static_cast<uint16_t *>(src), data->GetSize());
+                break;
+            case DT_UINT32:
+                AtomicAddArray<uint32_t>(static_cast<uint32_t *>(dst), static_cast<uint32_t *>(src), data->GetSize());
+                break;
+            case DT_INT8:
+                AtomicAddArray<int8_t>(static_cast<int8_t *>(dst), static_cast<int8_t *>(src), data->GetSize());
+                break;
+            case DT_INT16:
+                AtomicAddArray<int16_t>(static_cast<int16_t *>(dst), static_cast<int16_t *>(src), data->GetSize());
+                break;
+            case DT_INT32:
+                AtomicAddArray<int32_t>(static_cast<int32_t *>(dst), static_cast<int32_t *>(src), data->GetSize());
+                break;
+            case DT_FP32:
+                AtomicAddArray<float>(static_cast<float *>(dst), static_cast<float *>(src), data->GetSize());
+                break;
+            case DT_FP16:
+                AtomicAddArray<float16>(static_cast<float16 *>(dst), static_cast<float16 *>(src), data->GetSize());
+                break;
+            case DT_BF16:
+                AtomicAddArray<bfloat16>(static_cast<bfloat16 *>(dst), static_cast<bfloat16 *>(src), data->GetSize());
+                break;
+            default:
+                throw std::runtime_error("Unsupported atomic add data type!");
         }
     }
 }
