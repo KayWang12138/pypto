@@ -725,7 +725,7 @@ void InnerTiledScatter(
         Shape tmpShape({idxTile->GetShape()[idxTile->GetShape().size() - 1]});
         auto tmpBuffer = std::make_shared<LogicalTensor>(function, idxTile->Datatype(), tmpShape);
         auto& op = function.AddOperation(Opcode::OP_SCATTER, {selfTile, idxTile, srcTile}, {dstTensor, tmpBuffer});
-        // op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
+        op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", mode);
         return;
