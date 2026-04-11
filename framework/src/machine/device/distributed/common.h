@@ -29,8 +29,8 @@ namespace npu::tile_fwk::Distributed {
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE = 1024;
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE_MOD = AICPU_TASK_ARRAY_SIZE - 1;
 constexpr uint64_t OWNER_RANK_ID_INDEX = 0;
-constexpr uint64_t SHMEM_DIM_ROW = 1;
-constexpr uint64_t SHMEM_DIM_COL = 2;
+constexpr uint64_t SHMEM_DIM_ROW = 4;
+constexpr uint64_t SHMEM_DIM_COL = 5;
 constexpr uint64_t ATTR_STRIDE_OFFSET = 1;
 constexpr uint64_t ATTR_TILEROW_OFFSET = 3;
 constexpr uint64_t ATTR_TILECOL_OFFSET = 4;
@@ -43,8 +43,10 @@ struct TensorInfo {
     int32_t expectedSum{0};
     int32_t signalStride{0};
     bool resetSignal{false};
-    std::vector<uint32_t> offset;
+    // std::vector<uint32_t> offset;
     std::vector<uint32_t> shape;
+
+    uint32_t offset[6] = {0, 0, 0, 0, 0, 0};
 };
 
 struct AicpuParamInfo {
@@ -53,10 +55,16 @@ struct AicpuParamInfo {
     int32_t attrIndex{0};
     int32_t rawShapeIndex{0};
     int32_t shapeIndex{0};
-    uint32_t rawShapeRow{0};
-    uint32_t rawShapeCol{0};
-    uint32_t shapeRow{0};
-    uint32_t shapeCol{0};
+
+    uint32_t rawShape[6] = {1, 1, 1, 1, 1, 1};
+    uint32_t shape[6] = {1, 1, 1, 1, 1, 1};
+    uint32_t dim;
+
+    // uint32_t rawShapeRow{0};
+    // uint32_t rawShapeCol{0};
+    // uint32_t shapeRow{0};
+    // uint32_t shapeCol{0};
+
     uint32_t bufferStride{0};
     uint32_t tileShapeRow{0};
     uint32_t tileShapeCol{0};
@@ -105,6 +113,14 @@ inline unsigned CalcLinearOffset(unsigned GmShape1, unsigned Offset0, unsigned O
     return Offset1 + Offset0 * GmShape1;
 }
 
+inline unsigned CalcLinearOffset(
+    unsigned GmShape1, unsigned GmShape2, unsigned GmShape3, unsigned GmShape4, unsigned Offset0, unsigned Offset1,
+    unsigned Offset2, unsigned Offset3, unsigned Offset4)
+{
+    return Offset4 + Offset3 * GmShape4 + Offset2 * (GmShape3 * GmShape4) + Offset1 * (GmShape2 * GmShape3 * GmShape4) +
+           Offset0 * (GmShape1 * GmShape2 * GmShape3 * GmShape4);
+}
+
 inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode)
 {
     AicpuParamInfo paramInfo;
@@ -116,14 +132,28 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
 
     index = index + aicpuCode[index] + 1;
     paramInfo.rawShapeIndex = index + 1;
-    paramInfo.rawShapeRow =
-        aicpuCode[paramInfo.rawShapeIndex + 1];         // ShmemSignal RawShape[ranksize, row, col], 3表示row的值
-    paramInfo.rawShapeCol =
-        aicpuCode[paramInfo.rawShapeIndex + 2];         // ShmemSignal RawShape[ranksize, row, col], 4表示col的值
-    paramInfo.shapeIndex =
-        paramInfo.rawShapeIndex + aicpuCode[index] / 2; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
-    paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + 1]; // ShmemSignal Shape[ranksize, row, col], 3表示row的值
-    paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + 2]; // ShmemSignal Shape[ranksize, row, col], 4表示col的值
+
+    paramInfo.dim = aicpuCode[paramInfo.inIndex + 2];
+     
+    for (uint32_t i = 0; i < paramInfo.dim && i < 6; ++i) {
+        paramInfo.rawShape[i + (6 - paramInfo.dim)] = aicpuCode[paramInfo.rawShapeIndex + i];
+    }
+
+    paramInfo.shapeIndex = paramInfo.rawShapeIndex + paramInfo.dim;
+
+    for (uint32_t i = 0; i < paramInfo.dim && i < 6; ++i) {
+        paramInfo.shape[i + (6 - paramInfo.dim)] = aicpuCode[paramInfo.shapeIndex + i];
+    }
+
+    // paramInfo.rawShapeRow =
+    //     aicpuCode[paramInfo.rawShapeIndex + 1];         // ShmemSignal RawShape[ranksize, row, col], 3表示row的值
+    // paramInfo.rawShapeCol =
+    //     aicpuCode[paramInfo.rawShapeIndex + 2];         // ShmemSignal RawShape[ranksize, row, col], 4表示col的值
+    // paramInfo.shapeIndex =
+    //     paramInfo.rawShapeIndex + aicpuCode[index] / 2; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
+    // paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + 1]; // ShmemSignal Shape[ranksize, row, col], 3表示row的值
+    // paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + 2]; // ShmemSignal Shape[ranksize, row, col], 4表示col的值
+
     index = index + aicpuCode[index] + 1;
     if (index + 1 < static_cast<int32_t>(aicpuCode.size())) {
         paramInfo.attrIndex = index + 1;
