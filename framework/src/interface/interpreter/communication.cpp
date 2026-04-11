@@ -404,7 +404,7 @@ std::shared_ptr<SimulationCommContext> SimulationCommManager::GetCommContext(con
 
 std::string SimulationCommManager::GetHandler(const std::string &groupName, int rank, bool isSignal) {
     std::string suffix = isSignal ? "_ctrl" : "_data";
-    return groupName + std::to_string(rank) + suffix;
+    return groupName + "-" + std::to_string(rank) + suffix;
 }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/
