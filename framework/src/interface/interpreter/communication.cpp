@@ -77,10 +77,11 @@ SimulationCommContext::RemoteRank::~RemoteRank() {
     }
 }
 
-void SimulationCommContext::Init(const std::string &groupName, int rank, int worldSize) {
+void SimulationCommContext::Init(const std::string &groupName, int rank, int worldSize, uint32_t round) {
     groupName_ = groupName;
     rank_ = rank;
     worldSize_ = worldSize;
+    round_ = round;
 }
 
 void SimulationCommContext::PreAlloc(bool isSignal) {
@@ -90,7 +91,7 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
     if (!isSignal && allocatedData_) {
         return;
     }
-    std::string handler = SimulationCommManager::GetHandler(groupName_, rank_, isSignal);
+    std::string handler = SimulationCommManager::GetHandler(groupName_, rank_, isSignal, round_);
     int fd = shm_open(handler.c_str(), O_CREAT | O_RDWR, 0666);
     if (fd == -1) {
         throw std::runtime_error("shm_open " + handler + " error!");
@@ -173,7 +174,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
         return result;
     }
     auto remote = std::make_unique<RemoteRank>();
-    std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false);
+    std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false, round_);
     int fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
     if (fd == -1) {
         throw std::runtime_error("GetRemoteRank shm_open " + dataHandler + " error!");
@@ -185,7 +186,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     }
     close(fd);
 
-    std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true);
+    std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true, round_);
     fd = shm_open(ctrlHandler.c_str(), O_RDWR, 0666);
     if (fd == -1) {
         throw std::runtime_error("GetRemoteRank shm_open " + ctrlHandler + " error!");
@@ -364,7 +365,7 @@ SimulationCommContext::~SimulationCommContext() {
 // ============================== SimulationCommManager
 std::atomic<uint32_t> SimulationCommManager::round_{0};
 
-void SimulationCommManager::CreateSimulationCommContext(const std::string &groupName) {
+void SimulationCommManager::CreateSimulationCommContext(const std::string &groupName, uint32_t round) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (contexts_.find(groupName) != contexts_.end()) {
@@ -381,11 +382,10 @@ void SimulationCommManager::CreateSimulationCommContext(const std::string &group
     }
 
     auto context = std::make_shared<SimulationCommContext>();
-    context->Init(groupName, rank, worldSize);
+    context->Init(groupName, rank, worldSize, round);
     context->PreAlloc(true);
     context->PreAlloc(false);
     contexts_[groupName] = context;
-    round_.fetch_add(1);
 }
 
 void SimulationCommManager::DestroySimulationCommContext(const std::string &groupName) {
@@ -405,9 +405,9 @@ std::shared_ptr<SimulationCommContext> SimulationCommManager::GetCommContext(con
     return it->second;
 }
 
-std::string SimulationCommManager::GetHandler(const std::string &groupName, int rank, bool isSignal) {
+std::string SimulationCommManager::GetHandler(const std::string &groupName, int rank, bool isSignal, uint32_t round) {
     std::string suffix = isSignal ? "_ctrl" : "_data";
-    return "round_" + std::to_string(round_.load()) + "_" + groupName + "_" + std::to_string(rank) + suffix;
+    return "round_" + std::to_string(round) + "_" + groupName + "_" + std::to_string(rank) + suffix;
 }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/

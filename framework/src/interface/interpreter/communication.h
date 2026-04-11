@@ -34,7 +34,7 @@ class SimulationCommContext {
 public:
     static constexpr size_t WIN_IN_SIZE = 200 * 1024 * 1024;
     static constexpr size_t WIN_EXP_SIZE = 1 * 1024 * 1024;
-    void Init(const std::string &groupName, int rank, int worldSize);
+    void Init(const std::string &groupName, int rank, int worldSize, uint32_t round);
     LogicalTensorDataPtr Alloc(size_t slotSize);
     LogicalTensorDataPtr AllocSignal(size_t slotSize);
 
@@ -55,6 +55,7 @@ public:
         : groupName_(std::move(other.groupName_)),
           rank_(other.rank_),
           worldSize_(other.worldSize_),
+          round_(other.round_),
           dataBase_(other.dataBase_),
           ctrlBase_(other.ctrlBase_),
           dataShmSize_(other.dataShmSize_.load()),
@@ -79,6 +80,7 @@ public:
             groupName_ = std::move(other.groupName_);
             rank_ = other.rank_;
             worldSize_ = other.worldSize_;
+            round_ = other.round_;
             dataBase_ = other.dataBase_;
             ctrlBase_ = other.ctrlBase_;
             dataShmSize_ = other.dataShmSize_.load();
@@ -116,6 +118,7 @@ private:
     std::string groupName_;
     int rank_ = -1;
     int worldSize_ = -1;
+    uint32_t round_ = 0;
 
     uint8_t *dataBase_ = nullptr;
     uint8_t *ctrlBase_ = nullptr;
@@ -138,12 +141,12 @@ public:
         static SimulationCommManager instance;
         return instance;
     }
-    void CreateSimulationCommContext(const std::string &groupName);
+    void CreateSimulationCommContext(const std::string &groupName, uint32_t round=0);
     void DestroySimulationCommContext(const std::string &groupName);
     LogicalTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
     LogicalTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
     std::shared_ptr<SimulationCommContext> GetCommContext(const std::string &groupName);
-    static std::string GetHandler(const std::string &groupName, int rank, bool isSignal);
+    static std::string GetHandler(const std::string &groupName, int rank, bool isSignal, uint32_t round);
 private:
     SimulationCommManager() = default;
     ~SimulationCommManager() = default;
@@ -151,6 +154,5 @@ private:
     SimulationCommManager& operator=(const SimulationCommManager &) = delete;
     std::unordered_map<std::string, std::shared_ptr<SimulationCommContext>> contexts_;
     std::mutex mutex_;
-    static std::atomic<uint32_t> round_;
 };
 }  // namespace npu::tile_fwk
