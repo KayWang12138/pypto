@@ -362,6 +362,8 @@ SimulationCommContext::~SimulationCommContext() {
 }
 
 // ============================== SimulationCommManager
+std::atomic<uint32_t> SimulationCommManager::round_{0};
+
 void SimulationCommManager::CreateSimulationCommContext(const std::string &groupName) {
     std::lock_guard<std::mutex> lock(mutex_);
 

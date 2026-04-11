@@ -151,6 +151,6 @@ private:
     SimulationCommManager& operator=(const SimulationCommManager &) = delete;
     std::unordered_map<std::string, std::shared_ptr<SimulationCommContext>> contexts_;
     std::mutex mutex_;
-    static std::atomic<uint32_t> round_{0};
+    static std::atomic<uint32_t> round_;
 };
 }  // namespace npu::tile_fwk
