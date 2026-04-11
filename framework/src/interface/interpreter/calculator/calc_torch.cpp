@@ -2315,13 +2315,11 @@ static void QuantMX(
     auto input = tself.second.to(torch::kFloat32).contiguous();
     ASSERT(calc_error::CalculatorErrorScene::QUANTMX_RANK_INVALID, input.dim() >= 2 && input.dim() <= 4)
         << "QuantMX interpreter only supports 2D to 4D input.";
-    ASSERT(calc_error::CalculatorErrorScene::QUANTMX_KALIGN_INVALID, input.size(-1) % (MX_QUANT_TILE_BLOCK * 2) == 0)
-        << "QuantMX interpreter requires K aligned to 64.";
 
     auto quantRaw = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kUInt8));
     auto groupedShape = input.sizes().vec();
     const int64_t cols = groupedShape.back();
-    groupedShape.back() /= MX_QUANT_TILE_BLOCK;
+    groupedShape.back() = (cols + MX_QUANT_TILE_BLOCK - 1) / MX_QUANT_TILE_BLOCK;
     auto expRaw = torch::empty(groupedShape, torch::TensorOptions().dtype(torch::kUInt8));
     auto scalingTemp = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kFloat32));
     auto maxTemp = torch::zeros(groupedShape, torch::TensorOptions().dtype(torch::kFloat32));
@@ -2345,6 +2343,9 @@ static void QuantMX(
             float maxAbsValue = 0.0f;
             for (int64_t inner = 0; inner < MX_QUANT_TILE_BLOCK; ++inner) {
                 const int64_t col = group * MX_QUANT_TILE_BLOCK + inner;
+                if (col >= cols) {
+                    continue;
+                }
                 maxAbsValue = std::max(maxAbsValue, std::fabs(inputPtr[row * cols + col]));
             }
             const uint8_t e8m0 = ComputeSharedExponent(maxAbsValue);
@@ -2353,6 +2354,9 @@ static void QuantMX(
             maxPtr[row * groupCols + group] = maxAbsValue;
             for (int64_t inner = 0; inner < MX_QUANT_TILE_BLOCK; ++inner) {
                 const int64_t col = group * MX_QUANT_TILE_BLOCK + inner;
+                if (col >= cols) {
+                    continue;
+                }
                 scalingPtr[row * cols + col] = groupScaling;
                 quantPtr[row * cols + col] = EncodeE4M3Fn(inputPtr[row * cols + col] * groupScaling);
             }

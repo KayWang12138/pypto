@@ -22,8 +22,9 @@ namespace {
 constexpr int64_t QUANT_MX_MIN_RANK = 2;
 constexpr int64_t QUANT_MX_MAX_RANK = 4;
 constexpr int64_t QUANT_MX_GROUP_COLS = 32;
-constexpr int64_t QUANT_MX_INPUT_ALIGN = 64;
 constexpr int64_t QUANT_MX_TILE_ALIGN_BYTES = 256;
+
+int64_t CeilDiv(int64_t dividend, int64_t divisor) { return (dividend + divisor - 1) / divisor; }
 
 void CheckQuantMXInput(const Tensor& input)
 {
@@ -38,14 +39,15 @@ void CheckQuantMXInput(const Tensor& input)
         VectorErrorCode::ERR_PARAM_INVALID,
         QUANT_MX_MIN_RANK <= input.GetShape().size() && input.GetShape().size() <= QUANT_MX_MAX_RANK)
         << "QuantMX only supports 2D to 4D input.";
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input.GetShape().back() % QUANT_MX_INPUT_ALIGN == 0)
-        << "QuantMX requires the last dimension to be aligned to 64.";
+    const int64_t lastDimBytes = input.GetShape().back() * BytesOf(inputDtype);
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
+        << "QuantMX view shape's last dim must be 256-byte aligned. Current last dim bytes: " << lastDimBytes;
 }
 
 std::vector<int64_t> BuildQuantMXGroupedShape(const std::vector<int64_t>& inputShape)
 {
     auto groupedShape = inputShape;
-    groupedShape.back() /= QUANT_MX_GROUP_COLS;
+    groupedShape.back() = CeilDiv(groupedShape.back(), QUANT_MX_GROUP_COLS);
     return groupedShape;
 }
 
@@ -63,8 +65,7 @@ void CheckQuantMXTileShape(const LogicalTensorPtr& input, const VecTile& vecTile
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, vecTile[vecTile.size() - 1] > 0)
         << "QuantMX tile shape last dim must be positive.";
 
-    const int64_t actualLastTile = std::min<int64_t>(vecTile[vecTile.size() - 1], input->GetShape().back());
-    const int64_t lastDimBytes = actualLastTile * BytesOf(input->Datatype());
+    const int64_t lastDimBytes = vecTile[vecTile.size() - 1] * BytesOf(input->Datatype());
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
         << "QuantMX tile shape's last dim must be 256-byte aligned. Current last dim bytes: " << lastDimBytes;
 }
@@ -74,11 +75,12 @@ void TiledQuantMXOperation(
     const LogicalTensorPtr& exp, const LogicalTensorPtr& maxScratch, const LogicalTensorPtr& scalingScratch)
 {
     if (cur == input.tensor.GetShape().size()) {
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input.tileInfo.shape.back() % QUANT_MX_INPUT_ALIGN == 0)
-            << "QuantMX tile width must be aligned to 64.";
+        const int64_t lastDimBytes = input.tileInfo.shape.back() * BytesOf(input.tensor.GetDataType());
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, lastDimBytes % QUANT_MX_TILE_ALIGN_BYTES == 0)
+            << "QuantMX tile width must be 256-byte aligned. Current last dim bytes: " << lastDimBytes;
 
         auto groupedTileShape = input.tileInfo.shape;
-        groupedTileShape.back() /= QUANT_MX_GROUP_COLS;
+        groupedTileShape.back() = CeilDiv(groupedTileShape.back(), QUANT_MX_GROUP_COLS);
         auto groupedTileOffset = input.tileInfo.offset;
         groupedTileOffset.back() /= QUANT_MX_GROUP_COLS;
 

@@ -51,7 +51,7 @@ enum class CalculatorErrorScene : uint32_t {
 
     // QuantMX 相关
     QUANTMX_RANK_INVALID = 0xBF00DU,    // QuantMX 仅支持 2D~4D 输入
-    QUANTMX_KALIGN_INVALID = 0xBF00EU,  // QuantMX 要求最后一维 64 对齐
+    QUANTMX_KALIGN_INVALID = 0xBF00EU,  // QuantMX 对齐约束错误
 };
 
 } // namespace npu::tile_fwk::calc_error

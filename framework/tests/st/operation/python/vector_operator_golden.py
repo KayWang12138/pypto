@@ -2803,12 +2803,10 @@ def gen_quantmx_op_golden(case_name: str, output: Path, case_index: int = None) 
         x = inputs[0].astype(np.float32, copy=False)
         if x.ndim < 2 or x.ndim > 4:
             raise ValueError("QuantMX golden only supports 2D to 4D input.")
-        if x.shape[-1] % 64 != 0:
-            raise ValueError("QuantMX golden requires K aligned to 64.")
 
         cols = x.shape[-1]
         rows = x.size // cols
-        group_cols = cols // 32
+        group_cols = (cols + 31) // 32
         quant = np.empty(x.shape, dtype=np.uint8)
         exp_shape = list(x.shape)
         exp_shape[-1] = group_cols
@@ -2820,13 +2818,16 @@ def gen_quantmx_op_golden(case_name: str, output: Path, case_index: int = None) 
         for row in range(rows):
             for group in range(group_cols):
                 start = group * 32
-                end = start + 32
+                end = min(start + 32, cols)
                 group_data = x_flat[row, start:end]
+                actual_count = end - start
+                if actual_count < 32:
+                    group_data = np.pad(group_data, (0, 32 - actual_count), "constant")
                 max_abs_value = float(np.max(np.abs(group_data)))
                 e8m0 = _compute_shared_exponent(max_abs_value)
                 group_scaling = _compute_scaling_from_exponent(int(e8m0))
                 exp_flat[row, group] = e8m0
-                for inner, value in enumerate(group_data):
+                for inner, value in enumerate(group_data[:actual_count]):
                     quant_flat[row, start + inner] = _encode_e4m3_fn(float(value) * group_scaling)
         return [quant, exp]
 
