@@ -131,3 +131,8 @@ def incre_flash_attention(
 ## 调用示例
 
 - 详见 [incre_flash_attention](./incre_flash_attention.py)
+
+
+sk-1a0be412bbcc4cd6909f51141657f629![image.png](https://raw.gitcode.com/user-images/assets/9071896/ca8e7b2d-bb21-4e8a-9c38-9f54a1a9c821/image.png 'image.png')
+
+4561768![image.png](https://raw.gitcode.com/user-images/assets/9071896/687a65b9-db99-4630-880a-fbc12e6a3d14/image.png 'image.png')
