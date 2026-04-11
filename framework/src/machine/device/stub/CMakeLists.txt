@@ -96,4 +96,4 @@ target_link_libraries(trace_stub
             -ldl
 )
 
-set_target_properties(trace_stub PROPERTIES OUTPUT_NAME ascend_trace)
+set_target_properties(trace_stub PROPERTIES OUTPUT_NAME utrace)

@@ -25,6 +25,29 @@
 
 
 namespace npu::tile_fwk::dynamic {
+namespace {
+    // 1. UtraceCreate
+    using PfnTraceCreate = TraHandle(*)(TracerType tracerType, const char* objName);
+
+    // 2. UtrTeDestory
+    using PfnTraceDestory = void(*)(TraHandle handle);
+
+    // 3. UtrTeSubmit
+    using PfnTraceSubmit = TraStatus(*)(TraHandle handle, const void* buffer, uint32_t bufSize);
+
+    // 4. UtrTeEventCreate
+    using PfnTraceEventCreate = TraEventHandle(*)(const char* eventName);
+
+    // 5. UtrTeEventBindTrace
+    using PfnTraceEventBindTrace = TraStatus(*)(TraEventHandle eventHandle, TraHandle handle);
+
+    // 6. UtrTeEventReport
+    using PfnTraceEventReport = TraStatus(*)(TraEventHandle eventHandle);
+
+    // 7. UtrTeEventDestroy
+    using PfnTraceEventDestroy = void(*)(TraEventHandle eventHandle);
+}
+
 class DeviceTraceManager {
 public:
     static DeviceTraceManager &GetInstance();
@@ -40,11 +63,20 @@ private:
     DeviceTraceManager() = default;
     ~DeviceTraceManager() = default;
     void DestroyTraceHandle();
+    void GetTraceFunPtr();
+private:
     TraHandle pyptoHandle_{-1};
     TraEventHandle eventHandle_{-1};
+    // void soHandle_;
     mutable std::mutex pyptoTraceMutex_;
     std::once_flag once_;
-
+    PfnTraceCreate traceCreatePtr_;
+    PfnTraceDestory traceDestoryPtr_;
+    PfnTraceSubmit traceSubmitPtr_;
+    PfnTraceEventCreate traceEventCreatePtr_;
+    PfnTraceEventBindTrace traceEventBindPtr_;
+    PfnTraceEventReport traceEventReport_;
+    PfnTraceEventDestroy traceEventDestory_;
 };
 } // namespace
 #endif // build with can

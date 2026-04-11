@@ -545,8 +545,7 @@ struct DynMachineManager {
 #ifdef __DEVICE__
         std::string traceInfo = std::to_string(threadIdx) + "start succus";
         DEV_DEBUG("start to submit pypto trace");
-        DeviceTraceManager::GetInstance();
-        // .SubmitPyptoTrace(traceInfo);
+        DeviceTraceManager::GetInstance().SubmitPyptoTrace(traceInfo);
 #endif
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx);
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, beginTime);
@@ -570,7 +569,7 @@ struct DynMachineManager {
         if (++exitNum_ == devArgs.nrAicpu) {
             DeInit();
 #ifdef __DEVICE__
-            // DeviceTraceManager::GetInstance().ReportPyptoTrace();
+        DeviceTraceManager::GetInstance().ReportPyptoTrace();
 #endif
             DEV_INFO("All sche cpu exited.");
         }
