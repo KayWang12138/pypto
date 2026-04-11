@@ -3752,7 +3752,9 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
     }
 
     switch (overlapStatus) {
-        case OverlapStatus::PERFECTLY_MATCH_WITH_ALL: {
+        case OverlapStatus::PERFECTLY_MATCH_WITH_ALL:
+        case OverlapStatus::COVERED_ALL:
+        case OverlapStatus::COVERED: {
             auto assembleResult = std::make_shared<LogicalTensor>(
                 *this, iOperand->Datatype(), iOperand->shape, iOperand->GetDynValidShape(), iOperand->Format(),
                 "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);

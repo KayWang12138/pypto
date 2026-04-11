@@ -312,7 +312,7 @@ void bind_operation(py::module& m)
         "Tensor scatter element noninplace.");
     m.def(
         "Scatter",
-        [](const Tensor& self, const Tensor& indices, const Tensor& src, int axis, ScatterMode reduce) {
+        []( Tensor& self, const Tensor& indices, const Tensor& src, int axis, ScatterMode reduce) {
             return npu::tile_fwk::Scatter(self, indices, src, axis, reduce);
         },
         py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
