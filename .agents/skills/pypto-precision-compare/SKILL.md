@@ -23,13 +23,13 @@ license: 完整条款见 LICENSE.txt
 
 ### 选择指南
 
-**优先使用文件保存方法**（参考 [verify.md](reference/verify.md)）：
+**优先使用文件保存方法**（参考 [verify.md](references/verify.md)）：
 - 需要快速找到问题范围
 - 只需要对比单次循环的数据，不需要对比多个循环迭代
 - 不想修改 kernel 函数签名，保持代码简洁
 - 复杂算子，循环较多，二分对比方法难以将数据搬运到循环外
 
-**切换到二分对比方法**（参考 [binary-search.md](reference/binary-search.md)）：
+**切换到二分对比方法**（参考 [binary-search.md](references/binary-search.md)）：
 - 需要对比多个循环迭代的数据（如 idx=0,1,2,...）
 - 保存的数据文件过大时，用二分法在内存中直接对比减少文件 IO 开销
 
@@ -37,7 +37,7 @@ license: 完整条款见 LICENSE.txt
 
 ### 使用文件保存方法
 
-1. 阅读 [verify.md](reference/verify.md) 了解详细步骤
+1. 阅读 [verify.md](references/verify.md) 了解详细步骤
 2. 在 kernel 中添加 `pypto.pass_verify_save()` 调用
 3. 在 golden 中添加 `torch.save()` 调用
 4. 运行测试生成数据
@@ -45,7 +45,7 @@ license: 完整条款见 LICENSE.txt
 
 ### 使用二分对比方法
 
-1. 阅读 [binary-search.md](reference/binary-search.md) 了解详细步骤
+1. 阅读 [binary-search.md](references/binary-search.md) 了解详细步骤
 2. 修改 kernel 函数签名，添加检查点 tensor 参数
 3. 修改 golden 函数，返回检查点数据
 4. 修改测试函数，创建检查点 tensor 并对比

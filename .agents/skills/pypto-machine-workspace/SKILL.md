@@ -1,3 +1,10 @@
+---
+name: pypto-machine-workspace
+description: |
+  PyPTO workspace 内存异常偏大自动诊断技能。通过逐层拆解内存预算结构、分析日志中各子项占比，定位导致内存超大的具体组件和 Tensor，并给出配置调优或问题归属建议。当遇到 NPU out of memory、rtMalloc failed、workspace 占用异常偏大等问题时使用此技能。Triggers: workspace内存异常、NPU OOM、rtMalloc failed、显存不足、workspace占用过大。
+license: 完整条款见 LICENSE.txt
+---
+
 # Workspace 内存异常偏大自动诊断
 
 此技能用于诊断 PyPTO 运行时 workspace 内存异常偏大的问题。通过逐层拆解内存预算结构、分析日志中各子项占比，定位导致内存超大的具体组件和 Tensor，并给出配置调优或问题归属建议。

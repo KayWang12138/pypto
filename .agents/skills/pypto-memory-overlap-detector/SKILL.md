@@ -38,11 +38,13 @@ license: 完整条款见 LICENSE.txt
 
 **操作步骤**：
 
-### 2.1 打开 Operation 信息 Dump 开关
+### 2.1 打开 verbose log 编译开关
 
 修改 `framework/src/machine/utils/device_switch.h`：
 
-- 设置 `#define ENABLE_DUMP_OPERATION` 为 `1`
+- 设置 `#define ENABLE_COMPILE_VERBOSE_LOG` 为 `1`
+
+> **说明**：此宏启用 verbose log 编译，使 Operation 信息被记录到日志中。
 
 ### 2.2 重新编译 PyPTO whl 包并安装
 
@@ -116,7 +118,7 @@ python3 .agents/skills/pypto-memory-overlap-detector/scripts/add_debug_options.p
 
 修改 `framework/src/machine/utils/device_switch.h`：
 
-- 设置 `#define ENABLE_DUMP_OPERATION` 为 `0`
+- 设置 `#define ENABLE_COMPILE_VERBOSE_LOG` 为 `0`
 
 ---
 

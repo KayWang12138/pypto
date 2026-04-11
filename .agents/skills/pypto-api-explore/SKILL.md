@@ -20,7 +20,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 ## 输出
 
 - **输出件**：API_REPORT.md
-- **格式**：markdown，使用 [templates/API_REPORT.md](templates/API_REPORT.md) 模板
+- **格式**：markdown，使用 [templates/api_report.md](templates/api_report.md) 模板
 - **输出路径**：当前目录或用户指定位置
 
 ---
@@ -95,7 +95,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 
 ### Stage 6: 生成报告
 
-基于 [templates/API_REPORT.md](templates/API_REPORT.md) 模板生成 API_REPORT.md。
+基于 [templates/api_report.md](templates/api_report.md) 模板生成 API_REPORT.md。
 
 ---
 

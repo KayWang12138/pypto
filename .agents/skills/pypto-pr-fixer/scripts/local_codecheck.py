@@ -14,7 +14,8 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict, TypeGuard, cast
+from typing import TypedDict, cast
+from typing_extensions import TypeGuard
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 

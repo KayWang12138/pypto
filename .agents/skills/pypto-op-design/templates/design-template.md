@@ -326,5 +326,7 @@ custom/{operator_name}/
 ### 9.4 生成顺序
 
 ```
-SPEC.md → DESIGN.md → {op}_golden.py → {op}_impl.py → test_{op}.py
+SPEC.md → API_REPORT.md → {op}_golden.py → DESIGN.md → {op}_impl.py → test_{op}.py
 ```
+
+> **说明**：遵循 pypto-op-workflow 定义的标准流程：需求理解 → API 探索 → Golden 生成 → 设计方案 → 代码实现。

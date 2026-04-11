@@ -228,7 +228,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 </tr>
 ```
 
-### 处理流程
+### CodeCheck 处理流程
 
 #### 步骤 1：提取报告 URL
 
