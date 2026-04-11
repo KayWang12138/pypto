@@ -20,12 +20,13 @@ namespace {
 constexpr int64_t QUANT_MX_GROUP_COLS = 32;
 
 struct QuantMXOpFuncArgs : public OpFuncArgs {
-    QuantMXOpFuncArgs(const std::vector<int64_t>& viewShape, const std::vector<int64_t>& tileShape)
-        : viewShape_(viewShape), tileShape_(tileShape)
+    QuantMXOpFuncArgs(const std::vector<int64_t>& viewShape, const std::vector<int64_t>& tileShape, DataType quantDtype)
+        : viewShape_(viewShape), tileShape_(tileShape), quantDtype_(quantDtype)
     {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
+    DataType quantDtype_;
 };
 
 struct QuantMXOpMetaData {
@@ -61,7 +62,7 @@ static void QuantMXOperationExeFunc2D(
                      std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     offset);
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = QuantMX(viewTensor);
+                auto res = QuantMX(viewTensor, args->quantDtype_);
                 auto groupedOffset = offset;
                 groupedOffset.back() = groupedOffset.back() / QUANT_MX_GROUP_COLS;
                 Assemble(std::get<0>(res), offset, outputs[0]);
@@ -102,7 +103,7 @@ static void QuantMXOperationExeFunc3D(
                          std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         offset);
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = QuantMX(viewTensor);
+                    auto res = QuantMX(viewTensor, args->quantDtype_);
                     auto groupedOffset = offset;
                     groupedOffset.back() = groupedOffset.back() / QUANT_MX_GROUP_COLS;
                     Assemble(std::get<0>(res), offset, outputs[0]);
@@ -153,7 +154,7 @@ static void QuantMXOperationExeFunc4D(
                              std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
                             offset);
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = QuantMX(viewTensor);
+                        auto res = QuantMX(viewTensor, args->quantDtype_);
                         auto groupedOffset = offset;
                         groupedOffset.back() = groupedOffset.back() / QUANT_MX_GROUP_COLS;
                         Assemble(std::get<0>(res), offset, outputs[0]);
@@ -175,7 +176,8 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(QuantMXOperationTest, TestQuantMX)
 {
     auto test_data = GetParam().test_data_;
-    auto args = QuantMXOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
+    auto quantDtype = GetDataType(test_data.at("output_tensors")[0].at("dtype"));
+    auto args = QuantMXOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), quantDtype);
     auto testCase = CreateTestCaseDesc<QuantMXOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }

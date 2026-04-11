@@ -416,8 +416,8 @@ void bind_operation(py::module& m)
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
     m.def(
-        "QuantMX", [](const Tensor& input) { return npu::tile_fwk::QuantMX(input); }, py::arg("input"),
-        "Tensor MXFP8 quant.");
+        "QuantMX", [](const Tensor& input, DataType quantDtype) { return npu::tile_fwk::QuantMX(input, quantDtype); },
+        py::arg("input"), py::arg("quantDtype") = DataType::DT_FP8E4M3, "Tensor MX quant.");
     m.def(
         "Sort32", [](const Tensor& self, int index) { return npu::tile_fwk::Sort32(self, index); }, py::arg("operand"),
         py::arg("index"), "Tensor sort32.");

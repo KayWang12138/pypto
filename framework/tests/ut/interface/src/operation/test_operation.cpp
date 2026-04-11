@@ -15,6 +15,7 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/function/function.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 
@@ -79,4 +80,31 @@ TEST_F(OperationOpsTest, LogicalNot_UnsupportedDataType)
     Tensor input(DT_INT32, shape);
 
     EXPECT_THROW(LogicalNot(input), std::exception);
+}
+
+TEST_F(OperationOpsTest, QuantMX_DefaultAndExplicitFp8Output)
+{
+    Tensor defaultInput(DT_FP32, {8, 64}, "defaultInput");
+    FUNCTION("QuantMXDefaultFp8", {defaultInput})
+    {
+        auto defaultRes = QuantMX(defaultInput);
+        EXPECT_EQ(std::get<0>(defaultRes).GetDataType(), DT_FP8E4M3);
+        EXPECT_EQ(std::get<1>(defaultRes).GetDataType(), DT_FP8E8M0);
+    }
+
+    Tensor explicitInput(DT_FP32, {8, 64}, "explicitInput");
+    FUNCTION("QuantMXExplicitFp8", {explicitInput})
+    {
+        auto explicitFp8Res = QuantMX(explicitInput, DT_FP8E4M3);
+        EXPECT_EQ(std::get<0>(explicitFp8Res).GetDataType(), DT_FP8E4M3);
+        EXPECT_EQ(std::get<1>(explicitFp8Res).GetDataType(), DT_FP8E8M0);
+    }
+}
+
+TEST_F(OperationOpsTest, QuantMX_Fp4OutputUnsupported)
+{
+    Tensor input(DT_FP32, {8, 64});
+
+    EXPECT_THROW(QuantMX(input, DT_FP4_E2M1X2), std::exception);
+    EXPECT_THROW(QuantMX(input, DT_FP4_E1M2X2), std::exception);
 }

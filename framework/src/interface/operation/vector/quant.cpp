@@ -26,13 +26,31 @@ constexpr int64_t QUANT_MX_TILE_ALIGN_BYTES = 256;
 
 int64_t CeilDiv(int64_t dividend, int64_t divisor) { return (dividend + divisor - 1) / divisor; }
 
-void CheckQuantMXInput(const Tensor& input)
+bool IsQuantMXFp4Dtype(DataType dtype)
+{
+    return dtype == DataType::DT_FP4_E2M1X2 || dtype == DataType::DT_FP4_E1M2X2;
+}
+
+void CheckQuantMXDtype(DataType quantDtype)
+{
+    ASSERT(
+        VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
+        quantDtype == DataType::DT_FP8E4M3 || IsQuantMXFp4Dtype(quantDtype))
+        << "QuantMX only supports DT_FP8E4M3 output currently, and reserves DT_FP4_E2M1X2/DT_FP4_E1M2X2 "
+           "for future MXFP4 support. Current quant dtype: "
+        << DataType2String(quantDtype);
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, quantDtype == DataType::DT_FP8E4M3)
+        << "QuantMX does not support MXFP4 output yet. Current quant dtype: " << DataType2String(quantDtype);
+}
+
+void CheckQuantMXInput(const Tensor& input, DataType quantDtype)
 {
     const auto inputDtype = input.GetDataType();
     ASSERT(
         VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
         inputDtype == DataType::DT_FP16 || inputDtype == DataType::DT_BF16 || inputDtype == DataType::DT_FP32)
         << "QuantMX only supports DT_FP16, DT_BF16, and DT_FP32 input.";
+    CheckQuantMXDtype(quantDtype);
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, input.Format() == TileOpFormat::TILEOP_ND)
         << "QuantMX only supports TILEOP_ND input.";
     ASSERT(
@@ -115,6 +133,7 @@ void QuantMXTileFunc(
     const auto& exp = oOperand[1];
     const auto& maxScratch = oOperand[2];
     const auto& scalingScratch = oOperand[3];
+    CheckQuantMXDtype(dst->Datatype());
     CheckQuantMXTileShape(src, tileShape.GetVecTile());
     TileInfo inputTileInfo(src->shape.size(), src->offset.size());
     auto input = Input{Tensor(src), inputTileInfo};
@@ -122,15 +141,15 @@ void QuantMXTileFunc(
 }
 } // namespace
 
-std::tuple<Tensor, Tensor> QuantMX(const Tensor& input)
+std::tuple<Tensor, Tensor> QuantMX(const Tensor& input, DataType quantDtype)
 {
     DECLARE_TRACER();
-    CheckQuantMXInput(input);
+    CheckQuantMXInput(input, quantDtype);
 
     const auto& inputShape = input.GetShape();
     const std::vector<int64_t> groupedShape = BuildQuantMXGroupedShape(inputShape);
 
-    auto quantized = Tensor(DataType::DT_FP8E4M3, inputShape, "", TileOpFormat::TILEOP_ND);
+    auto quantized = Tensor(quantDtype, inputShape, "", TileOpFormat::TILEOP_ND);
     auto exp = Tensor(DataType::DT_FP8E8M0, groupedShape, "", TileOpFormat::TILEOP_ND);
     auto maxScratch = Tensor(DataType::DT_FP32, groupedShape, "", TileOpFormat::TILEOP_ND);
     auto scalingScratch = Tensor(DataType::DT_FP32, inputShape, "", TileOpFormat::TILEOP_ND);

@@ -323,7 +323,7 @@ Tensor Sigmoid(Tensor& input);
 
 std::tuple<Tensor, Tensor> Quant(
     const Tensor& input, bool isSymmetry = true, bool hasSmoothFactor = false, const Tensor& smoothFactor = Tensor());
-std::tuple<Tensor, Tensor> QuantMX(const Tensor& input);
+std::tuple<Tensor, Tensor> QuantMX(const Tensor& input, DataType quantDtype = DataType::DT_FP8E4M3);
 
 Tensor ScalarDivS(const Tensor& operand, const Element& value, bool reverseOperand = false);
 Tensor ScalarAddS(const Tensor& operand, const Element& value, bool reverseOperand = false);
