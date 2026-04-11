@@ -113,6 +113,8 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3(
 
 ScalarImmediateType EvaluateSymbolicCallGetHcclRankId(EvaluateSymbol *evaluateSymbol, const std::vector<ScalarImmediateType> &dataList)
 {
+    (void) evaluateSymbol;
+    (void) dataList;
     return 0;
 }
 
