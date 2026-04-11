@@ -385,7 +385,7 @@ void SimulationCommManager::CreateSimulationCommContext(const std::string &group
     context->PreAlloc(true);
     context->PreAlloc(false);
     contexts_[groupName] = context;
-    round_ ++;
+    round_.fetch_add(1);
 }
 
 void SimulationCommManager::DestroySimulationCommContext(const std::string &groupName) {
@@ -407,7 +407,7 @@ std::shared_ptr<SimulationCommContext> SimulationCommManager::GetCommContext(con
 
 std::string SimulationCommManager::GetHandler(const std::string &groupName, int rank, bool isSignal) {
     std::string suffix = isSignal ? "_ctrl" : "_data";
-    return "round_" + std::to_string(round_) + "_" + groupName + "_" + std::to_string(rank) + suffix;
+    return "round_" + std::to_string(round_.load()) + "_" + groupName + "_" + std::to_string(rank) + suffix;
 }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/
