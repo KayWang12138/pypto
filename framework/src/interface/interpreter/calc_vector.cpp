@@ -662,7 +662,8 @@ void ExecuteOpRange(ExecuteOperationContext* ctx)
     } else if (start.GetDataType() == DT_FP32) {
         end = GetEndBySize<float, DT_FP32>(curStart, size, step);
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false) << "Unsupported DataType " << DataType2String(start.GetDataType());
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false)
+            << "Unsupported DataType " << DataType2String(start.GetDataType());
     }
     calc::Range(oop, curStart, end, step);
 }
@@ -766,7 +767,7 @@ void ExecuteOpIndexAdd(ExecuteOperationContext* ctx)
         alpha = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
     }
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
-    calc::IndexAddUB(ret, self, src, indices, axis, alpha);
+    calc::IndexAdd(ret, self, src, indices, axis, alpha);
 }
 REGISTER_CALC_OP(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, ExecuteOpIndexAdd);
 

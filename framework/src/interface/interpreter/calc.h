@@ -416,11 +416,11 @@ inline void GatherMask(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int 
 {
     GetCalcOps()->GatherMask(Trans(out), Trans(self), patternMode);
 }
-inline void IndexAddUB(
+inline void IndexAdd(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr src, LogicalTensorDataPtr indices,
     int axis, const Element& alpha = Element(DT_FP32, 1.0))
 {
-    GetCalcOps()->IndexAddUB(Trans(out), Trans(self), Trans(src), Trans(indices), axis, alpha);
+    GetCalcOps()->IndexAdd(Trans(out), Trans(self), Trans(src), Trans(indices), axis, alpha);
 }
 inline void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal)
 {
