@@ -14,19 +14,25 @@
  */
 
 #include "common_operation_eliminate_checker.h"
+#include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/pass_error.h"
+
+#define MODULE_NAME "CommonOperationEliminate"
 
 namespace npu {
 namespace tile_fwk {
-Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for CommonOperationEliminate.");
-    for (auto &op : function.Operations().DuplicatedOpList()) {
+Status CommonOperationEliminateChecker::DoPreCheck(Function& function)
+{
+    APASS_LOG_INFO_F(Elements::Operation, "PreCheck for CommonOperationEliminate.");
+
+    for (auto& op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
             continue;
         }
         if (op->GetOpAttribute() != nullptr) {
             size_t fromOffsetSize = -1;
             if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op->GetOpAttribute().get())) {
-                auto &fromOffset = viewOpAttribute->GetFromOffset();
+                auto& fromOffset = viewOpAttribute->GetFromOffset();
                 fromOffsetSize = fromOffset.size();
             } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get())) {
                 if (copyOpAttribute->IsCopyOut()) {
@@ -39,12 +45,18 @@ Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
                 continue;
             }
             auto& ioperands = op->GetIOperands();
+            const int opMagic = op->GetOpMagic();
+
             if (ioperands.size() != 1) {
-                ALOG_ERROR_F("View or Copy_In Operation %d with not one input operand.", op->GetOpMagic());
+                APASS_LOG_ERROR_C(OperationErr::OP_INVALID_OPERAND_COUNT, Elements::Operation,
+                                 "View or Copy_In Operation %d with not one input operand.",
+                                 opMagic);
                 return FAILED;
             }
             if (ioperands.front()->offset.size() != fromOffsetSize) {
-                ALOG_ERROR_F("View or Copy_In Operation %d with mismatch input offset shape.", op->GetOpMagic());
+                APASS_LOG_ERROR_C(TensorErr::TENSOR_SHAPE_MISMATCH, Elements::Operation,
+                                 "View or Copy_In Operation %d with mismatch input offset shape.",
+                                 opMagic);
                 return FAILED;
             }
         }

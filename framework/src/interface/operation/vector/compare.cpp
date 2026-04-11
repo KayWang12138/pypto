@@ -17,11 +17,14 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
 
-void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input1, Input &input2,
-    const LogicalTensorPtr &result, TileInfo &resultTileInfo, OpType operation, OutType mode) {
+void TiledCompareOperationImpl(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input1, Input& input2,
+    const LogicalTensorPtr& result, TileInfo& resultTileInfo, OpType operation, OutType mode)
+{
     if (cur == result->shape.size()) {
         auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
@@ -32,10 +35,10 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
 
         if (inputTile1->Datatype() == DT_BF16) {
             convertedTile1 = std::make_shared<LogicalTensor>(function, DT_FP32, inputTile1->GetShape());
-            Operation &castOp1 = function.AddOperation(Opcode::OP_CAST, {inputTile1}, {convertedTile1});
+            Operation& castOp1 = function.AddOperation(Opcode::OP_CAST, {inputTile1}, {convertedTile1});
             castOp1.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
             convertedTile2 = std::make_shared<LogicalTensor>(function, DT_FP32, inputTile2->GetShape());
-            Operation &castOp2 = function.AddOperation(Opcode::OP_CAST, {inputTile2}, {convertedTile2});
+            Operation& castOp2 = function.AddOperation(Opcode::OP_CAST, {inputTile2}, {convertedTile2});
             castOp2.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         }
 
@@ -44,7 +47,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         if (inputTile1->Datatype() == DT_BF16) {
             element_size = BytesOf(DT_FP32);
         }
-        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        ASSERT(VectorErrorCode::ERR_RUNTIME_LOGIC, element_size != 0) << "Element size cannot be zero.";
         int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
         int64_t vcmp_bits_size = (elements_per_chunk + 7) / 8;
 
@@ -54,23 +57,26 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         size_t array_size = elements_per_chunk * element_size;
         size_t aligned_array_size = ((array_size + ALIGN_SIZE - 1) / ALIGN_SIZE) * ALIGN_SIZE;
 
-        size_t total_bytes = vcmpBitResult_size + 3 * aligned_array_size + ALIGN_SIZE;
+        size_t total_bytes = vcmpBitResult_size + 3 * aligned_array_size + ALIGN_SIZE * 2;
         std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
-        auto &op = function.AddOperation(Opcode::OP_CMP, {convertedTile1, convertedTile2}, {resultTile, tmp_tensor});
+        auto& op = function.AddOperation(Opcode::OP_CMP, {convertedTile1, convertedTile2}, {resultTile, tmp_tensor});
+        std::vector<bool> dimMap({true, true});
+        op.SetAttr(OpAttributeKey::rowPad, dimMap);
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
         return;
     }
 
-    auto &vecTile = tileShape.GetVecTile();
+    auto& vecTile = tileShape.GetVecTile();
     int64_t step = vecTile[cur];
 
     if (mode == OutType::BIT && cur == result->shape.size() - 1) {
         step = vecTile[cur] / NUM_VALUE_8;
-        if (step < 1) step = 1;
+        if (step < 1)
+            step = 1;
 
         int64_t actualInputStep = step * NUM_VALUE_8;
 
@@ -105,9 +111,11 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
     }
 }
 
-void TiledCompareOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
-    LogicalTensorPtr operand2, const LogicalTensorPtr &result, OpType operation, OutType mode) {
-    auto broadcastOperand = [&](LogicalTensorPtr &operand, LogicalTensorPtr &other) {
+void TiledCompareOperation(
+    Function& function, const TileShape& tileShape, LogicalTensorPtr operand1, LogicalTensorPtr operand2,
+    const LogicalTensorPtr& result, OpType operation, OutType mode)
+{
+    auto broadcastOperand = [&](LogicalTensorPtr& operand, LogicalTensorPtr& other) {
         auto dstShape = result->shape;
         if (mode == OutType::BIT) {
             dstShape[dstShape.size() - 1] *= NUM_VALUE_8;
@@ -132,7 +140,8 @@ void TiledCompareOperation(Function &function, const TileShape &tileShape, Logic
 }
 
 LogicalTensorPtr TensorCompareOperation(
-    Function &function, const Tensor &self, const Tensor &other, OpType operation, OutType mode) {
+    Function& function, const Tensor& self, const Tensor& other, OpType operation, OutType mode)
+{
     auto operandT1 = self.GetStorage();
     auto operandT2 = other.GetStorage();
     if (operandT1->shape.size() != operandT2->shape.size()) {
@@ -154,9 +163,8 @@ LogicalTensorPtr TensorCompareOperation(
     auto resultType = DT_BOOL;
     if (mode == OutType::BIT) {
         resultType = DT_UINT8;
-        if (!resultShape.empty() && resultShape.back() % NUM_VALUE_8 != 0) {
-            ALOG_ERROR_F("Last dimension must be divisible by 8 in BIT mode");
-        }
+        ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, resultShape.empty() || resultShape.back() % NUM_VALUE_8 == 0)
+            << "Last dimension must be divisible by 8 in BIT mode";
         if (!resultShape.empty()) {
             resultShape.back() /= NUM_VALUE_8;
             if (!resultValidShape.empty()) {
@@ -165,14 +173,17 @@ LogicalTensorPtr TensorCompareOperation(
         }
     }
     auto result = std::make_shared<LogicalTensor>(function, resultType, resultShape, resultValidShape);
-    auto &op = function.AddOperation(Opcode::OP_CMP, {operandT1, operandT2}, {result});
+    auto& op = function.AddOperation(Opcode::OP_CMP, {operandT1, operandT2}, {result});
+    std::vector<bool> dimMap({true, true});
+    op.SetAttr(OpAttributeKey::rowPad, dimMap);
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
     return result;
 }
 
 LogicalTensorPtr TensorCompareOperationScalar(
-    Function &function, const Tensor &operand1, const Element &value, OpType operation, OutType mode) {
+    Function& function, const Tensor& operand1, const Element& value, OpType operation, OutType mode)
+{
     DECLARE_TRACER();
     auto operandT1 = operand1.GetStorage();
     std::vector<int64_t> resultShape = operandT1->shape;
@@ -182,18 +193,19 @@ LogicalTensorPtr TensorCompareOperationScalar(
         resultType = DT_UINT8;
         if (!resultShape.empty()) {
             int64_t lastDim = resultShape.back();
-            if (lastDim % NUM_VALUE_8 != 0) {
-                ALOG_ERROR_F("Last dimension must be divisible by 8 in BIT mode");
-            }
+            ASSERT(VectorErrorCode::ERR_CONFIG_ALIGNMENT, lastDim % NUM_VALUE_8 == 0)
+                << "Last dimension must be divisible by 8 in BIT mode";
             resultShape.back() = lastDim / NUM_VALUE_8;
             if (!resultValidShape.empty()) {
-                auto &lastSymDim = resultValidShape.back();
+                auto& lastSymDim = resultValidShape.back();
                 resultValidShape.back() = lastSymDim / NUM_VALUE_8;
             }
         }
     }
     auto result = std::make_shared<LogicalTensor>(function, resultType, resultShape, resultValidShape);
-    auto &op = function.AddOperation(Opcode::OP_CMPS, {operandT1}, {result});
+    auto& op = function.AddOperation(Opcode::OP_CMPS, {operandT1}, {result});
+    std::vector<bool> dimMap({true});
+    op.SetAttr(OpAttributeKey::rowPad, dimMap);
     op.SetAttribute(OpAttributeKey::scalar, value);
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
     op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
@@ -201,14 +213,24 @@ LogicalTensorPtr TensorCompareOperationScalar(
     return result;
 }
 
-LogicalTensorPtr TensorCompareOperationScalar(Function& function, const Element& value, const Tensor& operand1,	 
-    OpType operation, OutType mode) {	 
-    switch(operation) {
-        case OpType::LT: operation = OpType::GT; break;
-        case OpType::GT: operation = OpType::LT; break;
-        case OpType::LE: operation = OpType::GE; break;
-        case OpType::GE: operation = OpType::LE; break;
-        default: break;
+LogicalTensorPtr TensorCompareOperationScalar(
+    Function& function, const Element& value, const Tensor& operand1, OpType operation, OutType mode)
+{
+    switch (operation) {
+        case OpType::LT:
+            operation = OpType::GT;
+            break;
+        case OpType::GT:
+            operation = OpType::LT;
+            break;
+        case OpType::LE:
+            operation = OpType::GE;
+            break;
+        case OpType::GE:
+            operation = OpType::LE;
+            break;
+        default:
+            break;
     }
     Element converted_value = value;
     if (value.GetDataType() == DataType::DT_BF16) {
@@ -219,8 +241,10 @@ LogicalTensorPtr TensorCompareOperationScalar(Function& function, const Element&
     return TensorCompareOperationScalar(function, operand1, converted_value, operation, mode);
 }
 
-void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input,
-    const Element &scalar, const LogicalTensorPtr &result, TileInfo &resultTileInfo, OpType operation, OutType mode) {
+void TiledCmpsOperationImpl(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input, const Element& scalar,
+    const LogicalTensorPtr& result, TileInfo& resultTileInfo, OpType operation, OutType mode)
+{
     if (cur == result->shape.size()) {
         auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
@@ -228,7 +252,7 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         LogicalTensorPtr convertedTile = inputTile;
         if (inputTile->Datatype() == DT_BF16) {
             convertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, inputTile->GetShape());
-            Operation &castOp = function.AddOperation(Opcode::OP_CAST, {inputTile}, {convertedTile});
+            Operation& castOp = function.AddOperation(Opcode::OP_CAST, {inputTile}, {convertedTile});
             castOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         }
 
@@ -237,7 +261,7 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         if (inputTile->Datatype() == DT_BF16) {
             element_size = BytesOf(DT_FP32);
         }
-        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        ASSERT(VectorErrorCode::ERR_RUNTIME_LOGIC, element_size != 0) << "Element size cannot be zero.";
         int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
         int64_t vcmp_bits_size = (elements_per_chunk + 8 - 1) / 8;
 
@@ -251,7 +275,9 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
-        auto &op = function.AddOperation(Opcode::OP_CMPS, {convertedTile}, {resultTile, tmp_tensor});
+        auto& op = function.AddOperation(Opcode::OP_CMPS, {convertedTile}, {resultTile, tmp_tensor});
+        std::vector<bool> dimMap({true});
+        op.SetAttr(OpAttributeKey::rowPad, dimMap);
 
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_operation", static_cast<int64_t>(operation));
         op.SetAttribute(OP_ATTR_PREFIX + "cmp_mode", static_cast<int64_t>(mode));
@@ -259,12 +285,13 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         return;
     }
 
-    auto &vecTile = tileShape.GetVecTile();
+    auto& vecTile = tileShape.GetVecTile();
     int64_t step = vecTile[cur];
 
     if (mode == OutType::BIT && cur == result->shape.size() - 1) {
         step = vecTile[cur] / NUM_VALUE_8;
-        if (step < 1) step = 1;
+        if (step < 1)
+            step = 1;
 
         int64_t actualInputStep = step * NUM_VALUE_8;
 
@@ -293,39 +320,48 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
     }
 }
 
-void TiledCmpsOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand, const Element &scalar,
-    const LogicalTensorPtr &result, OpType operation, OutType mode) {
+void TiledCmpsOperation(
+    Function& function, const TileShape& tileShape, LogicalTensorPtr operand, const Element& scalar,
+    const LogicalTensorPtr& result, OpType operation, OutType mode)
+{
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
     TiledCmpsOperationImpl(function, tileShape, 0, input, scalar, result, resultTileInfo, operation, mode);
 }
 
-Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode) {
+Tensor Compare(const Tensor& self, const Tensor& other, OpType op, OutType mode)
+{
     DECLARE_TRACER();
     RETURN_CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
 }
 
-Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode) {
+Tensor Compare(const Tensor& self, const Element& other, OpType op, OutType mode)
+{
     DECLARE_TRACER();
     RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
 }
 
-Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode) {
+Tensor Compare(const Element& self, const Tensor& other, OpType op, OutType mode)
+{
     DECLARE_TRACER();
     RETURN_CALL(CompareOperationScalar, *Program::GetInstance().GetCurrentFunction(), self, other, op, mode);
 }
 
-void CompareOperationTileFunc(Function &function, const TileShape &tileShape,
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+void CompareOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)
+{
     BinaryOperationOperandCheck(iOperand, oOperand);
     auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
     auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
     TiledCompareOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0], operation, mode);
 }
 
-void CmpsOperationTileFunc(Function &function, const TileShape &tileShape,
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+void CmpsOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)
+{
     auto operation = static_cast<OpType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
     auto mode = static_cast<OutType>(op.GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
     TiledCmpsOperation(

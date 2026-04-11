@@ -320,11 +320,11 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 def lrelu(other: Tensor, negative_slope: Union[float, Element] = 0.01) -> Tensor:
     """
     Returns a new tensor with the Leaky Rectified Linear Unit (LReLU) function applied element-wise.
-    
+
     The function is defined as:
     y = x if x >= 0
     y = negative_slope * x if x < 0
-    
+
     Parameters
     ----------
     a : Tensor
@@ -367,7 +367,7 @@ def remainder(input: Union[Tensor, int, float], other: Union[Tensor, int, float]
     Parameters
     ----------
     input : Tensor or Number
-        The first input tensor.
+        The first input tensor or a scalar.
     other : Tensor or Number
         The second input tensor or a scalar to remainder operation.
 
@@ -399,15 +399,11 @@ def remainder(input: Union[Tensor, int, float], other: Union[Tensor, int, float]
     if isinstance(input, pypto_impl.Tensor):
         if isinstance(other, pypto_impl.Tensor):
             return pypto_impl.Remainder(input, other)
-        if isinstance(other, float):
-            return pypto_impl.Remainder(input, pypto_impl.Element(DataType.DT_FP32, other))
-        if isinstance(other, int):
-            return pypto_impl.Remainder(input, pypto_impl.Element(DataType.DT_INT32, other))
+        if isinstance(other, float) or isinstance(other, int):
+            return pypto_impl.Remainder(input, pypto_impl.Element(input.dtype, other))
     if isinstance(other, pypto_impl.Tensor):
-        if isinstance(input, int):
-            return pypto_impl.Remainder(pypto_impl.Element(DataType.DT_INT32, input), other)
-        if isinstance(input, float):
-            return pypto_impl.Remainder(pypto_impl.Element(DataType.DT_FP32, input), other)
+        if isinstance(input, float) or isinstance(input, int):
+            return pypto_impl.Remainder(pypto_impl.Element(other.dtype, input), other)
     raise TypeError(f"Unsupported operand types for remainder: {type(input)} and {type(other)}")
 
 
@@ -759,7 +755,7 @@ def abs(a: Tensor) -> Tensor:
 def reciprocal(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the reciprocal of the elements of input
-    
+
     Parameters
     ----------
     input : Tensor
@@ -785,10 +781,10 @@ def reciprocal(a: Tensor) -> Tensor:
 def relu(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the rectified linear unit function applied element-wise.
-    
+
     The function is defined as:
     y = max(0, x)
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1079,7 +1075,7 @@ def sqrt(input: Tensor) -> Tensor:
 def neg(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the negative of the elements of input.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1299,7 +1295,7 @@ def cumsum(
         The tensor after calculating the cumulative sum.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     dim = 0
     out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
@@ -1308,6 +1304,34 @@ def cumsum(
                 [3 5 7]]
     """
     return pypto_impl.cumsum(input, dim)
+
+
+@op_wrapper
+def cumprod(
+    input: Tensor,
+    dim: int
+) -> Tensor:
+    """
+    This function returns the cumulative prod over a given axis.
+    Parameters
+    ---------
+    input: Tensor
+        tensor to be calculated.
+    dim : int
+        specified dimension.
+    out: Tensor
+        The tensor after calculating the cumulative prod.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_FP32)
+    dim = 0
+    out = pypto.cumprod(x, dim)
+    Input  x : [[0 1 2],
+                [3 4 5]]
+    Output out:[[0 1 2],
+                [0 4 10]]
+    """
+    return pypto_impl.cumprod(input, dim)
 
 
 @op_wrapper
@@ -1442,7 +1466,7 @@ def triu(
     diagonal: SymInt = 0
 ) -> Tensor:
     """
-    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of 
+    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of
     the result are set to 0.
     Parameters
     ---------
@@ -1454,7 +1478,7 @@ def triu(
         The tensor after calculation.
     Examples
     ---------
-    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
     diagonal = 0
     out = pypto.triu(x, diagonal)
     Input  x : [[1 2 3],
@@ -1487,7 +1511,7 @@ def tril(
         The tensor after calculation.
     Examples
     ---------
-    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
     diagonal = 0
     out = pypto.tril(x, diagonal)
     Input  x : [[1 2 3],
@@ -1542,7 +1566,7 @@ def isfinite(self: Tensor) -> Tensor:
     --------
     self: Tensor
         The input tensor
-    
+
     Examples
     --------
     self = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
@@ -1603,8 +1627,8 @@ def gcd(
         The tensor after calculating the greatest common divisor of the corresponding elements of input and other.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     out = pypto.gcd(x, y)
     Input  x : [[1 1 2],
                 [3 4 5]]
@@ -1658,9 +1682,9 @@ def var(
 
 @overload
 def var(
-    input: Tensor, 
+    input: Tensor,
     dim: Union[int, List[int], Tuple[int]] = None,
-    *, 
+    *,
     correction: float = 1,
     keepdim: bool = False
 ) -> Tensor:
@@ -1692,7 +1716,7 @@ def var(
 
     Input  x:[[1., 2., 3.],
               [4., 5., 6.]]
-    Output y:[[1.], 
+    Output y:[[1.],
               [1.]]
     """
     ...
@@ -1700,7 +1724,7 @@ def var(
 
 @op_wrapper
 def var(
-    input: Tensor, 
+    input: Tensor,
     dim: Union[int, List[int], Tuple[int]] = None,
     correction: float = 1,
     keepdim: bool = False
@@ -1733,7 +1757,7 @@ def var(
 
     Input  x:[[1., 2., 3.],
               [4., 5., 6.]]
-    Output y:[[1.], 
+    Output y:[[1.],
               [1.]]
     """
     inner_dim = None
@@ -1767,8 +1791,8 @@ def ceil_div(
         The tensor after calculating the ceiling division of the corresponding elements of self and other.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     out = pypto.ceildiv(x, y)
     Input  x : [[1 6 6],
                 [4 6 6]]
@@ -1784,13 +1808,46 @@ def ceil_div(
 
 
 @op_wrapper
+def floor_div(
+    input: Tensor,
+    other: Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the floor division of two tensors.
+    Parameters
+    ---------
+    input: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor containing the floor division results of the corresponding elements in `input` and `other`.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.DT_INT32)
+    y = pypto.tensor([2, 3], pypto.DT_INT32)
+    out = pypto.floor_div(x, y)
+    Input  x : [[1 6 6],
+                [4 6 6]]
+           y : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [1 1 1]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.FloorDiv(input, other)
+    else:
+        return pypto_impl.FloorDiv(input, pypto_impl.Element(input.dtype, other))
+
+
+@op_wrapper
 def prelu(self: Tensor, weight: Tensor) -> Tensor:
     """
     Applies the element-wise parametric rectified linear unit (PReLU) function.
-    
+
     The function is defined as:
     f(x) = max(0, x) + weight * min(0, x)
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1798,18 +1855,18 @@ def prelu(self: Tensor, weight: Tensor) -> Tensor:
     weight : Tensor
         The learnable parameter tensor. For a 4D input tensor, weight should be a 1D tensor
         with size equal to the number of channels (second dimension).
-    
+
     Returns
     -------
     Tensor
         A new tensor containing the element-wise PReLU activation results.
-    
+
     Examples
     --------
     x = pypto.tensor([-1.0, 2.0, -0.5, 3.0], dtype="float32")
     weight = pypto.tensor([0.25], dtype="float32")
     y = pypto.prelu(x, weight)
-    
+
     Input x:  [-1.0, 2.0, -0.5, 3.0]
     Weight:   [0.25]
     Output y: [-0.25, 2.0, -0.125, 3.0]

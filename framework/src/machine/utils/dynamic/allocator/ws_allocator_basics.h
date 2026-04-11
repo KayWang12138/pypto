@@ -29,9 +29,10 @@ enum class WsMemCategory : uint8_t {
 };
 #undef X
 
-inline constexpr const char *GetCategoryName(WsMemCategory category) {
+inline constexpr const char* GetCategoryName(WsMemCategory category)
+{
 #define X(value) #value,
-    constexpr const char *WS_MEM_CATEGORY_NAMELIST[] = {
+    constexpr const char* WS_MEM_CATEGORY_NAMELIST[] = {
 #include "ws_categories.in"
     };
 #undef X
@@ -47,20 +48,29 @@ struct WsAllocation {
     using uintdevptr_t = uint64_t;
 
     uintdevptr_t ptr{0};
+    uint32_t parallelWsId{0};
+
+    WsAllocation() {}
+    WsAllocation(uintdevptr_t addr, uint32_t wsid) : ptr(addr), parallelWsId(wsid) {}
 
     operator bool() const { return ptr != 0; }
 
     template <typename T>
-    T *As() { return reinterpret_cast<T *>(ptr); }
-
-    template <typename T>
-    const T *As() const { return reinterpret_cast<const T *>(ptr); }
-
-    void Invalidate() {
-        ptr = 0;
+    T* As()
+    {
+        return reinterpret_cast<T*>(ptr);
     }
 
-    const char *GetCategoryName() const {
+    template <typename T>
+    const T* As() const
+    {
+        return reinterpret_cast<const T*>(ptr);
+    }
+
+    void Invalidate() { ptr = 0; }
+
+    const char* GetCategoryName() const
+    {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         return ::npu::tile_fwk::dynamic::GetCategoryName(category_);
 #else
@@ -78,7 +88,17 @@ enum class WsAllocatorProperty {
     TENSOR_MEM,
     METADATA_MEM,
 };
-
+inline constexpr const char* GetWsAllocatorPropertyName(WsAllocatorProperty property)
+{
+    switch (property) {
+        case WsAllocatorProperty::TENSOR_MEM:
+            return "Tensordata";
+        case WsAllocatorProperty::METADATA_MEM:
+            return "Metadata";
+        default:
+            return "Undefined";
+    }
+}
 enum class WsMemoryState {
     INSIDE,
     OUTSIDE,
@@ -89,12 +109,14 @@ class WsMemoryVerifier {
     using uintdevptr_t = uint64_t;
 
 public:
-    void Init(uintdevptr_t workspaceAddr, uint64_t workspaceSize) {
+    void Init(uintdevptr_t workspaceAddr, uint64_t workspaceSize)
+    {
         workspaceAddr_ = workspaceAddr;
         workspaceSize_ = workspaceSize;
     }
 
-    WsMemoryState Verify(uintdevptr_t ptr, size_t size) const {
+    WsMemoryState Verify(uintdevptr_t ptr, size_t size) const
+    {
         if (workspaceAddr_ <= ptr && ptr + size <= workspaceAddr_ + workspaceSize_) {
             return WsMemoryState::INSIDE;
         }

@@ -17,14 +17,16 @@
 
 namespace npu::tile_fwk::dynamic {
 #ifndef PAGE_SIZE
-#define PAGE_SIZE       4096
+#define PAGE_SIZE 4096
 #endif
 
 constexpr uint32_t MAX_AICORE_NUM = 108;
 constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
 const uint32_t CORE_NUM_PER_AI_CORE = 3;
+constexpr uint32_t MAX_MANAGER_AIV_NUM = 72;
+const uint8_t INVALID_COREIDX_POSITION = 0xff;
 
 const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;
 const uint64_t REG_SPR_FAST_PATH_OPEN = 0xE;
 const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
-}
+} // namespace npu::tile_fwk::dynamic

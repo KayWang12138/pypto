@@ -34,7 +34,13 @@ scaled_mm(mat_a, mat_b, out_dtype, scale_a, scale_b, *, a_trans = False, b_trans
 | scale_a_trans           | 输入      | 参数scale_a_trans表示输入左矩阵量化参数是否转置，默认为False。 |
 | scale_b_trans           | 输入      | 参数scale_b_trans表示输入右矩阵量化参数是否转置，默认为False。 |
 | c_matrix_nz       | 输入      | 参数c_matrix_nz表示输出矩阵的Format是否采用NZ格式，默认为False，当前仅支持设置False，即输出矩阵仅支持ND格式。 |
-| extend_params     | 输入      | 支持bias及fixpipe的反量化功能，数据类型为字典格式。默认为None，当前仅支持设置None，即不支持bias及fixpipe的反量化功能。 |
+| extend_params     | 输入      | 支持bias及fixpipe的反量化功能，数据类型为字典格式。默认为None，当前仅支持bias场景。详见下表 |
+
+表2：extend_params参数说明
+
+| 参数名            | 说明                                                                 |
+|-------------------|----------------------------------------------------------------------|
+| bias_tensor       | 表示偏置矩阵。 <br> 输入为Tensor类型。 <br> Bias矩阵数据类型可选DT_FP16、DT_BF16和DT_FP32。 <br> bias_tensor只支持ND格式。 <br> bias_tensor的第一维度应置1，且N维度需要与mat_b矩阵的N维度相等。 <br> Bias不支持多核切K功能。 <br> 仅支持矩阵维度为2维场景。 |
 
 ## 返回值说明
 
@@ -52,12 +58,13 @@ mat_a = pypto.tensor([64, 128], pypto.DT_FP8E5M2, "mat_a")
 mat_b = pypto.tensor([128, 32], pypto.DT_FP8E5M2, "mat_b")
 scale_a = pypto.tensor([64, 2, 2], pypto.DT_FP8E8M0, "scale_a")
 scale_b = pypto.tensor([2, 32, 2], pypto.DT_FP8E8M0, "scale_b")
-out1 = pypto.scaled_mm(a1, b1, pypto.DT_BF16, scale_a, scale_b)
+out1 = pypto.scaled_mm(mat_a, mat_b, pypto.DT_BF16, scale_a, scale_b)
 
-mat_a = pypto.tensor([64, 128], pypto.DT_FP8E5M2, "mat_a")
-mat_b = pypto.tensor([128, 32], pypto.DT_FP8E5M2, "mat_b")
+mat_a = pypto.tensor([128, 64], pypto.DT_FP8E5M2, "mat_a")
+mat_b = pypto.tensor([32, 128], pypto.DT_FP8E5M2, "mat_b")
 scale_a = pypto.tensor([2, 64, 2], pypto.DT_FP8E8M0, "scale_a")
 scale_b = pypto.tensor([32, 2, 2], pypto.DT_FP8E8M0, "scale_b")
-out1 = pypto.scaled_mm(a1, b1, pypto.DT_BF16, scale_a, scale_b, scale_a_trans=True, scale_b_trans=True)
+bias = pypto.tensor((1, 32), pypto.DT_FP16, "tensor_bias")
+extend_params = {'bias_tensor': bias}
+out1 = pypto.scaled_mm(mat_a, mat_b, pypto.DT_BF16, scale_a, scale_b, scale_a_trans=True, scale_b_trans=True, extend_params=extend_params)
 ```
-

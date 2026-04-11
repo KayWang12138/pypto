@@ -20,51 +20,56 @@
 #include <stdio.h>
 static int log_level = DLOG_ERROR;
 
-void dav_log([[maybe_unused]]int module_id, [[maybe_unused]]const char *fmt, ...) {}
+void dav_log([[maybe_unused]] int module_id, [[maybe_unused]] const char* fmt, ...) {}
 
-void DlogRecord([[maybe_unused]]int moduleId, int level, [[maybe_unused]]const char *fmt, ...) {
-  if (log_level > level) {
-    return;
-  }
+void DlogRecord([[maybe_unused]] int moduleId, int level, [[maybe_unused]] const char* fmt, ...)
+{
+    if (log_level > level) {
+        return;
+    }
 }
 
-void DlogErrorInner([[maybe_unused]]int module_id, [[maybe_unused]]const char *fmt, ...) {
-  if (log_level > DLOG_ERROR) {
-    return;
-  }
+void DlogErrorInner([[maybe_unused]] int module_id, [[maybe_unused]] const char* fmt, ...)
+{
+    if (log_level > DLOG_ERROR) {
+        return;
+    }
 }
 
-void DlogWarnInner([[maybe_unused]]int module_id, [[maybe_unused]]const char *fmt, ...) {
-  if (log_level > DLOG_WARN) {
-    return;
-  }
+void DlogWarnInner([[maybe_unused]] int module_id, [[maybe_unused]] const char* fmt, ...)
+{
+    if (log_level > DLOG_WARN) {
+        return;
+    }
 }
 
-void DlogInfoInner([[maybe_unused]]int module_id, [[maybe_unused]]const char *fmt, ...) {
-  if (log_level > DLOG_INFO) {
-    return;
-  }
+void DlogInfoInner([[maybe_unused]] int module_id, [[maybe_unused]] const char* fmt, ...)
+{
+    if (log_level > DLOG_INFO) {
+        return;
+    }
 }
 
-void DlogDebugInner([[maybe_unused]]int module_id, [[maybe_unused]]const char *fmt, ...) {
-  if (log_level > DLOG_DEBUG) {
-    return;
-  }
+void DlogDebugInner([[maybe_unused]] int module_id, [[maybe_unused]] const char* fmt, ...)
+{
+    if (log_level > DLOG_DEBUG) {
+        return;
+    }
 }
 
-void DlogEventInner([[maybe_unused]]int module_id, const char *fmt, ...) { dav_log(module_id, fmt); }
+void DlogEventInner([[maybe_unused]] int module_id, const char* fmt, ...) { dav_log(module_id, fmt); }
 
-void DlogInner(int module_id, [[maybe_unused]]int level, const char *fmt, ...) { dav_log(module_id, fmt); }
+void DlogInner(int module_id, [[maybe_unused]] int level, const char* fmt, ...) { dav_log(module_id, fmt); }
 
-
-int dlog_setlevel([[maybe_unused]]int module_id, int level, [[maybe_unused]]int enable_event) {
-  log_level = level;
-  return log_level;
+int dlog_setlevel([[maybe_unused]] int module_id, int level, [[maybe_unused]] int enable_event)
+{
+    log_level = level;
+    return log_level;
 }
 
-int dlog_getlevel([[maybe_unused]]int module_id, [[maybe_unused]]int *enable_event) { return log_level; }
+int dlog_getlevel([[maybe_unused]] int module_id, [[maybe_unused]] int* enable_event) { return log_level; }
 
-int CheckLogLevel([[maybe_unused]]int moduleId, int log_level_check) { return log_level_check >= log_level; }
+int CheckLogLevel([[maybe_unused]] int moduleId, int log_level_check) { return log_level_check >= log_level; }
 
 /**
  * @ingroup plog

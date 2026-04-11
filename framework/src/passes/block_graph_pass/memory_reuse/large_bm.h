@@ -21,32 +21,32 @@
 namespace npu::tile_fwk {
 class LargeBitmap {
 public:
-    explicit LargeBitmap(const size_t &size);
+    explicit LargeBitmap(const size_t& size);
 
     ~LargeBitmap() = default;
 
-    bool operator==(const LargeBitmap &anotherBm) const;
+    bool operator==(const LargeBitmap& anotherBm) const;
 
-    bool operator!=(const LargeBitmap &anotherBm) const;
+    bool operator!=(const LargeBitmap& anotherBm) const;
 
     // set all vector to specific value
-    void SetValues(const uint64_t &value);
+    void SetValues(const uint64_t& value);
 
     // Get the value on position index
-    bool GetBit(const size_t &index) const;
+    bool GetBit(const size_t& index) const;
 
     // Set the value on position index to 1
-    void SetBit(const size_t &index);
+    void SetBit(const size_t& index);
 
     // Combine two bitmap with the following rule.
     // If one bit of either one of the two bitmaps is 1,
     // the result of final bitmap is 1.
-    void Or(const LargeBitmap &anotherBm);
+    void Or(const LargeBitmap& anotherBm);
 
     // Combine two bitmap with the following rule.
     // If one bit of either one of the two bitmaps is 0,
     // the result of final bitmap is 0.
-    void And(const LargeBitmap &anotherBm);
+    void And(const LargeBitmap& anotherBm);
 
     void ClearBit(const size_t bitIdx);
 

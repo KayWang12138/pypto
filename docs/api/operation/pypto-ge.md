@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -27,7 +28,7 @@ ge(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 
 ## 返回值说明
 
-返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值大于或者other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
+返回Shape与输入Tensor一致、数据类型为DT\_BOOL的Tensor。若input对应位置的元素值大于或者等于other对应位置的元素值，则该位置的返回值为True，其余位置的返回值为False。
 
 ## 约束说明
 
@@ -69,4 +70,3 @@ out = pypto.ge(a, b)
 输入数据b: [2.0 2.0 2.0]
 输出数据out: [False, True, True]
 ```
-

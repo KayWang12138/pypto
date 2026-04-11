@@ -26,12 +26,13 @@ namespace npu {
 namespace tile_fwk {
 class GraphPartitionChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
+
 private:
-    Status PostOperationCheck(Function &function);
-    Status PostSubgraphCheck(const std::vector<std::vector<Operation*>> &subgraphs);
+    Status PostOperationCheck(Function& function);
+    Status PostSubgraphCheck(const std::vector<std::vector<Operation*>>& subgraphs);
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // ISO_PARTITIONER_CHECKER_H
+#endif // ISO_PARTITIONER_CHECKER_H

@@ -51,11 +51,14 @@ def ceildiv(a: SymInt, b: SymInt) -> SymInt:
 _source_location_depth = 0
 
 
-def set_source_location(level: int = 1):
+def set_source_location(level: int = 1, filename=None, lineno=None):
     global _source_location_depth
     if _source_location_depth == 0:
-        frame = sys._getframe(level + 1)
-        pypto_impl.SetLocation(frame.f_code.co_filename, frame.f_lineno, "")
+        if filename is None:
+            frame = sys._getframe(level + 1)
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+        pypto_impl.SetLocation(filename, lineno, "")
     _source_location_depth += 1
 
 
@@ -182,7 +185,7 @@ class BuildOnlineManager:
             cmd = f"{self.cmake} --build {build_dir}" + (f" -j {ctx.build_job_num}" if ctx.build_job_num else "")
             subprocess.run(shlex.split(cmd), capture_output=ctx.capture_output, check=True, text=True, encoding='utf-8')
             # CMake Install
-            cmd = f"{self.cmake} --install {build_dir} --prefix={install_dir}"
+            cmd = f"{self.cmake} --install {build_dir} --prefix {install_dir}"
             subprocess.run(shlex.split(cmd), capture_output=ctx.capture_output, check=True, text=True, encoding='utf-8')
             return install_dir
 

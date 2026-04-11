@@ -37,7 +37,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, true);
@@ -45,69 +46,74 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetHostConfig(KEY_STRATEGY, "LoopAxesPassTestStrategy");
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenForLoop, TestForLoop) {
+TEST_F(TestCodegenForLoop, TestForLoop)
+{
     std::vector<int64_t> shape = {2, 2, 2, 8};
+    std::vector<int64_t> oShape = {2, 2, 2, 1};
     std::vector<int64_t> tile_shape = {2, 2, 2, 8};
 
     TileShape::Current().SetVecTile(tile_shape);
-    PassManager &passManager = PassManager::Instance();
+    PassManager& passManager = PassManager::Instance();
     passManager.RegisterStrategy(
         "LoopAxesPassTestStrategy", {
-                                              {"RemoveRedundantReshape",         PassName::REMOVE_REDUNDANT_RESHAPE},
-                                              {        "ExpandFunction",                  PassName::EXPAND_FUNCTION},
-                                              {           "DuplicateOp",                     PassName::DUPLICATE_OP},
-                                              {     "MergeViewAssemble",              PassName::MERGE_VIEW_ASSEMBLE},
-                                              {      "AssignMemoryType",               PassName::ASSIGN_MEMORY_TYPE},
-                                              {"SplitLargeFanoutTensor",        PassName::SPLIT_LARGE_FANOUT_TENSOR},
-                                              {          "SplitReshape",                    PassName::SPLIT_RESHAPE},
-                                              {     "RemoveRedundantOp",              PassName::REMOVE_REDUNDANT_OP},
-                                              {        "GenerateMoveOp",                 PassName::GENERATE_MOVE_OP},
-                                              { "CommonOperationEliminate",    PassName::COMMON_OPERATION_ELIMINATE},
-                                              {              "AxisCombine",                  PassName::AXIS_COMBINE},
-                                              {           "PadLocalBuffer",              PassName::PAD_LOCAL_BUFFER},
-                                              {   "RemoveUnalignedReshape",      PassName::REMOVE_UNALIGNED_RESHAPE},
-                                              {            "ReplaceTensor",                PassName::REPLACE_TENSOR},
-                                              {          "PreGraphProcess",             PassName::PRE_GRAPH_PROCESS},
-                                              {            "InferDynShape",               PassName::INFER_DYN_SHAPE},
-                                              {       "SubgraphToFunction",          PassName::SUBGRAPH_TO_FUNCTION},
-                                              {          "InferParamIndex",             PassName::INFER_PARAM_INDEX},
-                                              {        "SrcDstBufferMerge",          PassName::SRC_DST_BUFFER_MERGE},
-                                              {                 "AddAlloc",                     PassName::ADD_ALLOC},
-                                              {              "OoOSchedule",                  PassName::OOO_SCHEDULE},
-                                              {        "GlobalMemoryReuse",           PassName::GLOBAL_MEMORY_REUSE},
-                                              {              "RemoveAlloc",                  PassName::REMOVE_ALLOC},
-                                              {           "CopyOutResolve",              PassName::COPY_OUT_RESOLVE},
-                                              {               "InsertSync",                   PassName::INSERT_SYNC},
-    });
+                                        {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                        {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                        {"DuplicateOp", PassName::DUPLICATE_OP},
+                                        {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                        {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
+                                        {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+                                        {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                        {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
+                                        {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
+                                        {"CommonOperationEliminate", PassName::COMMON_OPERATION_ELIMINATE},
+                                        {"AxisCombine", PassName::AXIS_COMBINE},
+                                        {"PadLocalBuffer", PassName::PAD_LOCAL_BUFFER},
+                                        {"RemoveUnalignedReshape", PassName::REMOVE_UNALIGNED_RESHAPE},
+                                        {"ReplaceTensor", PassName::REPLACE_TENSOR},
+                                        {"PreGraphProcess", PassName::PRE_GRAPH_PROCESS},
+                                        {"InferDynShape", PassName::INFER_DYN_SHAPE},
+                                        {"SubgraphToFunction", PassName::SUBGRAPH_TO_FUNCTION},
+                                        {"InferParamIndex", PassName::INFER_PARAM_INDEX},
+                                        {"SrcDstBufferMerge", PassName::SRC_DST_BUFFER_MERGE},
+                                        {"AddAlloc", PassName::ADD_ALLOC},
+                                        {"OoOSchedule", PassName::OOO_SCHEDULE},
+                                        {"GlobalMemoryReuse", PassName::GLOBAL_MEMORY_REUSE},
+                                        {"RemoveAlloc", PassName::REMOVE_ALLOC},
+                                        {"CopyOutResolve", PassName::COPY_OUT_RESOLVE},
+                                        {"InsertSync", PassName::INSERT_SYNC},
+                                    });
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "Output");
+    Tensor output(DT_FP32, oShape, "Output");
 
     std::string name = "TestForLoop";
-    FUNCTION(name, {input_a, input_b, output}) {
-        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(name, {input_a, input_b, output})
+    {
+        LOOP(name, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             auto res1 = Add(input_a, input_b);
             auto res2 = Sub(input_a, input_b);
-            output = Mul(res1, res2);
+            auto res3 = Mul(res1, res2);
+            auto res4 = Cast(res3, DT_FP16);
+            auto res5 = Cast(res4, DT_INT8, CAST_NONE, SaturationMode::ON);
+            auto res6 = Cast(res5, DT_FP32);
+            output = Sum(res6, -1, true);
         }
     }
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + name + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     LoopaxesProc lpPass;
     lpPass.RunOnFunction(*function);
     CodegenPreproc cpPass;
-    cpPass.RunOnFunction(*function); 
+    cpPass.RunOnFunction(*function);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -118,12 +124,12 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
     // 定义第一个待检查的目标代码片段
     const std::string expect1 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
-        ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
-        ubTensor_3_low2DimInLoop.SetAddr(ubTensor_3.GetLinearAddr(tileOffsets));
-        ubTensor_1_low2DimInLoop.SetAddr(ubTensor_1.GetLinearAddr(tileOffsets));
-        ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
-        TSub<LastUse3Dim<0, 0, 0>>(ubTensor_11_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
+        ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
+        ubTensor_2_low2DimInLoop.SetAddr(ubTensor_2.GetLinearAddr(tileOffsets));
+        ubTensor_0_low2DimInLoop.SetAddr(ubTensor_0.GetLinearAddr(tileOffsets));
+        ubTensor_4_low2DimInLoop.SetAddr(ubTensor_4.GetLinearAddr(tileOffsets));
+        TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_4_low2DimInLoop, ubTensor_0_low2DimInLoop, ubTensor_2_low2DimInLoop);
+        TSub<LastUse3Dim<0, 1, 1>>(ubTensor_10_low2DimInLoop, ubTensor_0_low2DimInLoop, ubTensor_2_low2DimInLoop);
     }
   }
 })";
@@ -131,13 +137,21 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
 
     const std::string expect2 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
-        ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
-        ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TMul<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_5_low2DimInLoop, ubTensor_11_low2DimInLoop);
+        ubTensor_10_low2DimInLoop.SetAddr(ubTensor_10.GetLinearAddr(tileOffsets));
+        ubTensor_4_low2DimInLoop.SetAddr(ubTensor_4.GetLinearAddr(tileOffsets));
+        TMul<LastUse3Dim<0, 1, 1>>(ubTensor_4_low2DimInLoop, ubTensor_4_low2DimInLoop, ubTensor_10_low2DimInLoop);
     }
   }
 })";
     CheckStringExist(expect2, res);
+
+    const std::string expect3 = R"(
+        auto tileOffsets = TileOffset(idx0, idx1, idx2);
+        ubTensor_31_low2DimInLoop.SetAddr(ubTensor_31.GetLinearAddr(tileOffsets));
+        ubTensor_35_low2DimInLoop.SetAddr(ubTensor_35.GetLinearAddr(tileOffsets));
+        TRowSumSingle<LastUse3Dim<0, 0, 0>>(ubTensor_35_low2DimInLoop, ubTensor_31_low2DimInLoop, ubTensor_36);
+)";
+    CheckStringExist(expect3, res);
 }
 
 } // namespace npu::tile_fwk

@@ -16,9 +16,9 @@
 #include "codegen_op_litenpu.h"
 
 #include <cstring>
+#include <fstream>
 #include <nlohmann/json.hpp>
 
-#include "interface/utils/log.h"
 #include "codegen/utils/parallel_execute.h"
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
@@ -32,22 +32,23 @@
 
 namespace npu::tile_fwk {
 #ifdef SRCPATH
-constexpr const char *SRC_PATH = SRCPATH;
+constexpr const char* SRC_PATH = SRCPATH;
 #else
-constexpr const char *SRC_PATH = ".";
+constexpr const char* SRC_PATH = ".";
 #endif
 
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
 const std::string ENV_PTO_TILE_LIB_CODE_PATH = "PTO_TILE_LIB_CODE_PATH";
 constexpr const int64_t CODE_RESERVED_SIZE = 1024 * 1024;
 
-bool CodeGenLiteNPU::IsCube(const OperationsViewer &operationList) const {
-    auto isL1CopyIn = [](const Operation &op) {
+bool CodeGenLiteNPU::IsCube(const OperationsViewer& operationList) const
+{
+    auto isL1CopyIn = [](const Operation& op) {
         return op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
                op.oOperand[ID0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1;
     };
 
-    for (const auto &oper : operationList) {
+    for (const auto& oper : operationList) {
         if (isL1CopyIn(oper)) {
             return true;
         }
@@ -56,27 +57,33 @@ bool CodeGenLiteNPU::IsCube(const OperationsViewer &operationList) const {
     return false;
 }
 
-void CodeGenLiteNPU::PrintOperand(const std::string &operIO, std::shared_ptr<LogicalTensor> operand) const {
-    CODEGEN_LOGI("insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
+void CodeGenLiteNPU::PrintOperand(const std::string& operIO, std::shared_ptr<LogicalTensor> operand) const
+{
+    CODEGEN_LOGI(
+        "insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
         operand->Dump().c_str());
     CODEGEN_LOGI(
         "range is [%zu, %zu, %d]\n", operand->memoryrange.start, operand->memoryrange.end, operand->memoryrange.memId);
 }
 
-bool CodeGenLiteNPU::HasAllocAttr(const std::shared_ptr<LogicalTensor> &tensor) const {
+bool CodeGenLiteNPU::HasAllocAttr(const std::shared_ptr<LogicalTensor>& tensor) const
+{
     bool needAlloc = false;
     tensor->GetAttr(OpAttributeKey::needAlloc, needAlloc);
     return needAlloc;
 }
 
-void CodeGenLiteNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostringstream &oss) const {
+void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const
+{
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
-        CODEGEN_LOGW("operationList from PASS is empty, func magic name: %s, func hash: %s",
-            subFunc.GetMagicName().c_str(), subFunc.GetFunctionHash().c_str());
+        CODEGEN_LOGW(
+            "operationList from PASS is empty, func magic name: %s, func hash: %s", subFunc.GetMagicName().c_str(),
+            subFunc.GetFunctionHash().c_str());
     }
 
-    CODEGEN_LOGI("TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
+    CODEGEN_LOGI(
+        "TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
         topFunc.Dump().c_str());
 
     std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
@@ -86,7 +93,7 @@ void CodeGenLiteNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostr
     std::string tileOpSourceRegion;
     tileOpSourceRegion.reserve(CODE_RESERVED_SIZE);
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
-    for (const auto &op : operationList) {
+    for (const auto& op : operationList) {
         CODEGEN_LOGI(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
         Opcode opcode = op.GetOpcode();
@@ -105,7 +112,7 @@ void CodeGenLiteNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostr
 
         allocSourceRegion.append(allocSourceCode);
 
-        for (auto &c : op.GetCommentList()) {
+        for (auto& c : op.GetCommentList()) {
             tileOpSourceRegion.append("/*").append(c).append("*/\n");
         }
         tileOpSourceRegion.append(tileOpSourceCode);
@@ -119,12 +126,14 @@ void CodeGenLiteNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostr
     oss << allocSourceRegion << symbolMgr->GenUsingList() << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
 }
 
-std::string CodeGenLiteNPU::GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &symbolMgr) const {
+std::string CodeGenLiteNPU::GenAllocForLocalBuffer(
+    const Operation& op, const std::shared_ptr<SymbolManager>& symbolMgr) const
+{
     std::string allocSourceCode{};
-    auto genExtraAllocForTensor = [this, &symbolMgr, &op](
-                                      const std::shared_ptr<LogicalTensor> &operand) -> std::string {
+    auto genExtraAllocForTensor = [this, &symbolMgr,
+                                   &op](const std::shared_ptr<LogicalTensor>& operand) -> std::string {
         if (CodeGenLiteNPU::HasAllocAttr(operand)) {
-            ALOG_INFO_F("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
+            CODEGEN_LOGI("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
             std::optional<std::string> allocCodeMaybe = GenExtraAlloc(symbolMgr, operand);
             if (allocCodeMaybe.has_value()) {
                 return allocCodeMaybe.value();
@@ -132,12 +141,12 @@ std::string CodeGenLiteNPU::GenAllocForLocalBuffer(const Operation &op, const st
         }
         return "";
     };
-    for (const std::shared_ptr<LogicalTensor> &operand : op.GetIOperands()) {
+    for (const std::shared_ptr<LogicalTensor>& operand : op.GetIOperands()) {
         symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
         CodeGenLiteNPU::PrintOperand("IOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
     }
-    for (const std::shared_ptr<LogicalTensor> &operand : op.GetOOperands()) {
+    for (const std::shared_ptr<LogicalTensor>& operand : op.GetOOperands()) {
         symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
         CodeGenLiteNPU::PrintOperand("OOperand", operand);
         allocSourceCode += genExtraAllocForTensor(operand);
@@ -146,45 +155,40 @@ std::string CodeGenLiteNPU::GenAllocForLocalBuffer(const Operation &op, const st
     return allocSourceCode;
 }
 
-std::string CodeGenLiteNPU::GetParamType(const Function &func) const {
+std::string CodeGenLiteNPU::GetParamType(const Function& func) const
+{
     (void)func; // TODO...
     return GM_PARAM_TYPE_FOR_STATIC;
 }
 
-void CodeGenLiteNPU::GenCode(
-    const std::string &jsonPath, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-    std::ifstream file(jsonPath);
-    ASSERT(file.good()) << "Json file: " << jsonPath << " open failed!!!";
-    Json jsonData;
-    try {
-        file >> jsonData;
-    } catch (const std::exception &e) {
-        ASSERT(false) << "Json file: " << jsonPath << " parsing error: " << e.what();
-    }
-    ALOG_INFO_F("Start GenOpCode by Json");
-    Program::GetInstance().LoadJson(jsonData);
-    Function *func = Program::GetInstance().GetCurrentFunction();
-    ASSERT(func->rootFunc_ != nullptr) << "func can not be nullptr";
-    GenCode(*func, invokeParaOffset);
-}
-
-std::string GetDtype(DataType dtype) {
+std::string GetDtype(DataType dtype)
+{
     switch (dtype) {
-        case DataType::DT_UINT8: return "uint8_t";
-        case DataType::DT_INT8: return "int8_t";
-        case DataType::DT_INT16: return "int16_t";
-        case DataType::DT_INT32: return "int32_t";
-        case DataType::DT_INT64: return "int64_t";
-        case DataType::DT_FP16: return "half";
-        case DataType::DT_FP32: return "float";
-        case DataType::DT_BOOL: return "bool";
-        default: return "unknown";
+        case DataType::DT_UINT8:
+            return "uint8_t";
+        case DataType::DT_INT8:
+            return "int8_t";
+        case DataType::DT_INT16:
+            return "int16_t";
+        case DataType::DT_INT32:
+            return "int32_t";
+        case DataType::DT_INT64:
+            return "int64_t";
+        case DataType::DT_FP16:
+            return "half";
+        case DataType::DT_FP32:
+            return "float";
+        case DataType::DT_BOOL:
+            return "bool";
+        default:
+            return "unknown";
     }
 }
 using SubstMap = std::map<std::string, std::string>;
-static std::string StringSubstitute(std::string const &in, SubstMap const &subst) {
-    const char *tokenHead = "${";
-    const char *tokenTail = "}$";
+static std::string StringSubstitute(std::string const& in, SubstMap const& subst)
+{
+    const char* tokenHead = "${";
+    const char* tokenTail = "}$";
     constexpr size_t tokenSepLen = 2;
 
     std::ostringstream out;
@@ -211,7 +215,8 @@ static std::string StringSubstitute(std::string const &in, SubstMap const &subst
     return out.str();
 }
 
-static bool CompareStrings(const std::string &s1, const std::string &s2) {
+static bool CompareStrings(const std::string& s1, const std::string& s2)
+{
     std::string str1 = s1;
     std::string str2 = s2;
     transform(str1.begin(), str1.end(), str1.begin(), ::tolower);
@@ -220,36 +225,38 @@ static bool CompareStrings(const std::string &s1, const std::string &s2) {
     return str1 < str2;
 }
 
-std::map<int, std::string> GenParamsSymbolMap(const SubfuncParam &subFuncParam,
-    std::vector<std::string> &params, std::map<std::string, std::string> &dTypeMap) {
-    auto &tensorInvokeArgs = subFuncParam.tensorsArgs_;
-    auto &incastInvokeArgs = subFuncParam.inCastArgs_;
-    auto &outcastInvokeArgs = subFuncParam.outCastArgs_;
+std::map<int, std::string> GenParamsSymbolMap(
+    const SubfuncParam& subFuncParam, std::vector<std::string>& params, std::map<std::string, std::string>& dTypeMap)
+{
+    auto& tensorInvokeArgs = subFuncParam.tensorsArgs_;
+    auto& incastInvokeArgs = subFuncParam.inCastArgs_;
+    auto& outcastInvokeArgs = subFuncParam.outCastArgs_;
 
     std::map<int, std::string> symbolMap;
     std::set<std::string> paramsSet;
-    auto f = [&paramsSet, &dTypeMap, &symbolMap](size_t offset, auto &invokeArgs) {
-        ALOG_INFO_F("start offset is %d, arg size is %d", offset, invokeArgs.size());
+    auto f = [&paramsSet, &dTypeMap, &symbolMap](size_t offset, auto& invokeArgs) {
+        CODEGEN_LOGI("start offset is %zu, arg size is %zu", offset, invokeArgs.size());
         for (size_t i = 0; i < invokeArgs.size(); i++) {
-            size_t paramOff = (offset + i);
+            // size_t paramOff = (offset + i);
             uint32_t paramLoc = invokeArgs[i].paramLoc;
-            ALOG_DEBUG("paramLoc ", paramLoc, " --> offset ", paramOff);
-            ALOG_INFO_F(" paramLoc is %d, paramOff is %d, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
-                invokeArgs[i].symDDRId, invokeArgs[i].symName,
-                invokeArgs[i].symbol, static_cast<size_t>(invokeArgs[i].dataType));
+            // CODEGEN_LOGD("paramLoc ", paramLoc, " --> offset ", paramOff);
+            // CODEGEN_LOGI(
+            //     " paramLoc is %d, paramOff is %d, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
+            //     invokeArgs[i].symDDRId, invokeArgs[i].symName, invokeArgs[i].symbol,
+            //     static_cast<size_t>(invokeArgs[i].dataType));
             symbolMap.insert({paramLoc, invokeArgs[i].symbol});
             paramsSet.insert(invokeArgs[i].symbol);
             dTypeMap[invokeArgs[i].symbol] = GetDtype(invokeArgs[i].dataType);
         }
     };
 
-    ALOG_INFO_F("---  start tensorInvokeArgs paramLoc map ---- ");
+    CODEGEN_LOGI("---  start tensorInvokeArgs paramLoc map ---- ");
     f(0, tensorInvokeArgs);
-    ALOG_INFO_F("---  start incastInvokeArgs paramLoc map ---- ");
+    CODEGEN_LOGI("---  start incastInvokeArgs paramLoc map ---- ");
     f(tensorInvokeArgs.size(), incastInvokeArgs);
-    ALOG_INFO_F("---  start outcastInvokeArgs paramLoc map ---- ");
+    CODEGEN_LOGI("---  start outcastInvokeArgs paramLoc map ---- ");
     f(tensorInvokeArgs.size() + incastInvokeArgs.size(), outcastInvokeArgs);
-    for (auto &t : paramsSet) {
+    for (auto& t : paramsSet) {
         params.push_back(t);
     }
     std::sort(params.begin(), params.end(), CompareStrings);
@@ -257,7 +264,8 @@ std::map<int, std::string> GenParamsSymbolMap(const SubfuncParam &subFuncParam,
 }
 
 std::string CodeGenLiteNPU::GenFuncGlobalCodeAfterReplace(
-    const Function &func, std::pair<uint64_t, Function *> subFuncPair, const std::string &subProgramCode) {
+    const Function& func, std::pair<uint64_t, Function*> subFuncPair, const std::string& subProgramCode)
+{
     std::string tpl = R"!!!(
 #include "TileOpImpl.h"
 
@@ -271,7 +279,7 @@ extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
 
     std::string globalParams = "";
     std::string subParams = "";
-    for (auto &p : inOutParams) {
+    for (auto& p : inOutParams) {
         globalParams += "__gm__ " + dTypeMap[p] + "* " + "__restrict__ " + p + ", ";
         subParams += p + ", ";
     }
@@ -281,17 +289,17 @@ extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
     }
 
     SubstMap substMap = {
-        {"FunctionName",                                  func.GetMagicName()},
-        {   "ProgramId",                    std::to_string(subFuncPair.first)},
-        { "SubProgCode",                                       subProgramCode},
-        { "GlobalParams",   globalParams.substr(0, globalParams.length() - 2)},
-        { "SubParams",            subParams.substr(0, subParams.length() - 2)},
+        {"FunctionName", func.GetMagicName()},
+        {"ProgramId", std::to_string(subFuncPair.first)},
+        {"SubProgCode", subProgramCode},
+        {"GlobalParams", globalParams.substr(0, globalParams.length() - 2)},
+        {"SubParams", subParams.substr(0, subParams.length() - 2)},
     };
 
     std::string funCode = StringSubstitute(tpl, substMap);
 
     // GM replace
-    for (auto &ele : symbolMap) {
+    for (auto& ele : symbolMap) {
         std::string oldStr = "RealizedGM" + std::to_string(ele.first) + ".Addr";
         std::string newStr = ele.second;
         size_t pos = 0;
@@ -303,7 +311,8 @@ extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
     return funCode;
 }
 
-std::vector<std::string> CodeGenLiteNPU::GetInOutParams(std::pair<uint64_t, Function *> subFuncPair) {
+std::vector<std::string> CodeGenLiteNPU::GetInOutParams(std::pair<uint64_t, Function*> subFuncPair)
+{
     std::vector<std::string> inOutParams;
     std::map<std::string, std::string> dTypeMap;
     auto symbolMap = GenParamsSymbolMap(subFuncPair.second->GetParameter(), inOutParams, dTypeMap);
@@ -311,9 +320,10 @@ std::vector<std::string> CodeGenLiteNPU::GetInOutParams(std::pair<uint64_t, Func
     return inOutParams;
 }
 
-void CodeGenLiteNPU::GenConfigJson(const std::string &jsonName, const std::string &cppName, const std::string &binName,
-    const std::string &kernelName, const int &workspaceSize, const std::vector<std::string> &argNames,
-    const int &blockDim) const {
+void CodeGenLiteNPU::GenConfigJson(
+    const std::string& jsonName, const std::string& cppName, const std::string& binName, const std::string& kernelName,
+    const int& workspaceSize, const std::vector<std::string>& argNames, const int& blockDim) const
+{
     std::ofstream file;
     file.open(jsonName);
 
@@ -336,29 +346,76 @@ void CodeGenLiteNPU::GenConfigJson(const std::string &jsonName, const std::strin
     file << "]\n}";
 }
 
+// void CodeGenLiteNPU::GenCode(
+//     Function &topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
+//     std::deque<std::function<void(void)>> tasks;
+//     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
+//         std::function task = [this, subFuncPair, &topFunc]() {
+//             CODEGEN_LOGI(" ----- subprogram id [%lu] -----", subFuncPair.first);
+//             auto subFunc = subFuncPair.second;
+//             if (HandleForAICpuSubFunc(*subFunc)) {
+//                 return;
+//             }
+//             std::vector<std::string> inOutParams = GetInOutParams(subFuncPair);
+//             bool isCube = subFunc->IsCube();
+//             CompileInfo_LiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
+//             std::ostringstream leafKernelFunc;
+//             GenFuncBody(*subFunc, topFunc, leafKernelFunc);
+//             std::string funcCode = GenFuncGlobalCodeAfterReplace(topFunc, subFuncPair, leafKernelFunc.str());
+// #ifdef BUILD_WITH_CANN
+//             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+//                 DumpCCE(compileInfo.GetCCEAbsPath(), funcCode);
+//                 DoCompileCCE(compileInfo, ""); // TODO: currently has issue
+//                 int blockDim = 1; // TODO: currently only support one block dim
+//                 int jsonWorkspaceSize = 0; // TODO...
+//                 GenConfigJson(compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
+//                     topFunc.GetMagicName(), jsonWorkspaceSize, inOutParams, blockDim);
+//             }
+// #endif
+//             UpdateSubFunc(subFuncPair, compileInfo);
+//         };
+//         tasks.push_back(task);
+//     }
+//     unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+//     ParallelExecuteAndWait(threadNum, tasks);
+// }
+
 void CodeGenLiteNPU::GenCode(
-    Function &topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
+    Function& topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset)
+{
+    COMPILER_LOGI(
+        "Start Generate AI_CORE code for topFunc: %s, hash: %s", topFunc.GetMagicName().c_str(),
+        topFunc.GetFunctionHash().c_str());
+
+    // compileTasks_.clear();
+
     std::deque<std::function<void(void)>> tasks;
-    for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
+    for (auto& subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
             CODEGEN_LOGI(" ----- subprogram id [%lu] -----", subFuncPair.first);
             auto subFunc = subFuncPair.second;
             if (HandleForAICpuSubFunc(*subFunc)) {
                 return;
             }
-            std::vector<std::string> inOutParams = GetInOutParams(subFuncPair);
             bool isCube = subFunc->IsCube();
             CompileInfo_LiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
             GenFuncBody(*subFunc, topFunc, leafKernelFunc);
             std::string funcCode = GenFuncGlobalCodeAfterReplace(topFunc, subFuncPair, leafKernelFunc.str());
 #ifdef BUILD_WITH_CANN
+            // TODO...
+            //  if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+            //      GenCodeToBinaryTask(funcCode, compileInfo, "");
+            //  }
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
                 DumpCCE(compileInfo.GetCCEAbsPath(), funcCode);
                 DoCompileCCE(compileInfo, ""); // TODO: currently has issue
-                int blockDim = 1; // TODO: currently only support one block dim
-                int jsonWorkspaceSize = 0; // TODO...
-                GenConfigJson(compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
+
+                std::vector<std::string> inOutParams = GetInOutParams(subFuncPair);
+                int blockDim = 1;              // TODO: currently only support one block dim
+                int jsonWorkspaceSize = 0;     // TODO...
+                GenConfigJson(
+                    compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
                     topFunc.GetMagicName(), jsonWorkspaceSize, inOutParams, blockDim);
             }
 #endif
@@ -366,11 +423,19 @@ void CodeGenLiteNPU::GenCode(
         };
         tasks.push_back(task);
     }
-    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    unsigned threadNum = GetCGThreadNum();
     ParallelExecuteAndWait(threadNum, tasks);
+
+// #ifdef BUILD_WITH_CANN
+//     if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+//         ExecuteParallelCompile(topFunc);
+//     }
+// #endif
 }
 
-void CodeGenLiteNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo_LiteNPU &compileInfo) const {
+void CodeGenLiteNPU::UpdateSubFunc(
+    std::pair<uint64_t, Function*> subFuncPair, const CompileInfo_LiteNPU& compileInfo) const
+{
     auto subFunc = subFuncPair.second;
     std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
     attr->kernelName = compileInfo.GetKernelName();
@@ -381,7 +446,8 @@ void CodeGenLiteNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, 
     subFunc->SetLeafFuncAttribute(attr);
 }
 
-bool CodeGenLiteNPU::IsNeedDumpCCE(const std::string &inputFile) const {
+bool CodeGenLiteNPU::IsNeedDumpCCE(const std::string& inputFile) const
+{
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_FORCE_OVERWRITE, true)) {
         // force dump, default is true
         return true;
@@ -393,7 +459,8 @@ bool CodeGenLiteNPU::IsNeedDumpCCE(const std::string &inputFile) const {
     return true;
 }
 
-void CodeGenLiteNPU::DumpCCE(const std::string &fileName, const std::string &code) const {
+void CodeGenLiteNPU::DumpCCE(const std::string& fileName, const std::string& code) const
+{
     if (!IsNeedDumpCCE(fileName)) {
         return;
     }
@@ -406,7 +473,7 @@ void CodeGenLiteNPU::DumpCCE(const std::string &fileName, const std::string &cod
         cceFile << code;
         cceFile.flush();
         cceFile.close();
-    } catch (const std::ofstream::failure &e) {
+    } catch (const std::ofstream::failure& e) {
         CODEGEN_LOGE("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
         cceFile.close();
         std::remove(fileName.c_str());
@@ -415,21 +482,25 @@ void CodeGenLiteNPU::DumpCCE(const std::string &fileName, const std::string &cod
 }
 
 std::optional<std::string> CodeGenLiteNPU::GenExtraAlloc(
-    const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
+    const std::shared_ptr<SymbolManager>& symbolMgr, const std::shared_ptr<LogicalTensor>& tensor) const
+{
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor tensor: ", __FUNCTION__, static_cast<size_t>(memType));
-        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
+        CODEGEN_LOGE_E(
+            OperErr::OPERAND_TYPE_UNSUPPORTED, " memory type(%u) of tensor from PASS is invalid, tensor is: %s",
+            ToUnderlying(memType), tensor->Dump().c_str());
         return std::nullopt;
     }
 
-    const TileRange &memRange = tensor->memoryrange;
+    const TileRange& memRange = tensor->memoryrange;
     auto bufferType = OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
 
     return GenAlloc(symbolMgr, bufferType, tensor->Datatype(), memRange);
 }
 
-std::pair<std::string, std::string> CodeGenLiteNPU::GenAllocVarName(const std::string &prefix, const TileRange &range) const {
+std::pair<std::string, std::string> CodeGenLiteNPU::GenAllocVarName(
+    const std::string& prefix, const TileRange& range) const
+{
     std::ostringstream ss;
     ss << prefix
        // range start/end are always positive
@@ -439,44 +510,50 @@ std::pair<std::string, std::string> CodeGenLiteNPU::GenAllocVarName(const std::s
 }
 
 std::string CodeGenLiteNPU::GenAlloc(
-    const std::shared_ptr<SymbolManager> &sm, BufferType bufferType, DataType dataType, const TileRange &range) const {
+    const std::shared_ptr<SymbolManager>& sm, BufferType bufferType, DataType dataType, const TileRange& range) const
+{
     if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) || (OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
-        ALOG_ERROR_F("%s: invalid bufferType: %d", __FUNCTION__, static_cast<size_t>(bufferType));
-        ASSERT(false);
+        ASSERT(OperErr::OPERAND_TYPE_UNSUPPORTED, false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
         return "";
     }
 
     const std::string prefix = BUFFER_TYPE_TO_PREFIX.at(bufferType);
-    const std::string &addrSpaceQualifier = OPERAND_TYPE_TO_ADDR_TYPE.at(bufferType);
+    // const std::string& addrSpaceQualifier = OPERAND_TYPE_TO_ADDR_TYPE.at(bufferType);
     auto [allocVarName, allocVarNameTileTensor] = GenAllocVarName(prefix, range);
 
-    // must conform to CodeGenOplitenpu::createAllocKey
+    // must conform to CodeGenOpCloudNPU::createAllocKey
     AllocKey key = AllocKey(bufferType, range.start, range.end);
     bool reuse = sm->BindAddrWithVariableName(key, allocVarName, allocVarNameTileTensor);
     if (reuse) {
         return "";
     }
 
-    ALOG_INFO_F(
-        "%s: bind key to name: %s->%s", __FUNCTION__, sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
+    CODEGEN_LOGI("bind key to name: %s->%s", sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 
     std::ostringstream oss;
-    oss << dataTypeStr << " " << addrSpaceQualifier << " *" << allocVarName << " = (" << dataTypeStr << " "
-        << addrSpaceQualifier << " *)get_imm(0x" << std::hex << static_cast<unsigned>(range.start) << "); // size: 0x"
-        << std::hex << static_cast<unsigned>(range.Size()) << "\n";
+    // oss << dataTypeStr << " " << addrSpaceQualifier << " *" << allocVarName << " = (" << dataTypeStr << " "
+    //     << addrSpaceQualifier << " *)get_imm(0x" << std::hex << static_cast<unsigned>(range.start) << "); // size: 0x"
+    //     << std::hex << static_cast<unsigned>(range.Size()) << "\n";
+
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
+        oss << dataTypeStr << " *" << allocVarNameTileTensor << " = (" << dataTypeStr << " *)get_imm(0x" << std::hex
+            << static_cast<unsigned>(range.start) << "); // size: 0x" << std::hex << static_cast<unsigned>(range.Size())
+            << "\n";
+    }
 
     return oss.str();
 }
 
-int CodeGenLiteNPU::CheckInjectStr(const char cmdStr[], size_t strLen) const {
+int CodeGenLiteNPU::CheckInjectStr(const char cmdStr[], size_t strLen) const
+{
     if (cmdStr == nullptr) {
         return -1;
     }
     char filtChar[] = {';', '|', '`', '>', '<'};
     for (size_t i = 0; i < strLen; ++i) {
-        for (const auto &c : filtChar) {
+        for (const auto& c : filtChar) {
             if (cmdStr[i] == c) {
                 return -1;
             }
@@ -485,7 +562,8 @@ int CodeGenLiteNPU::CheckInjectStr(const char cmdStr[], size_t strLen) const {
     return 0;
 }
 
-void CodeGenLiteNPU::DoCompileCCE(const CompileInfo_LiteNPU &compileInfo, const std::string &compileOptions) const {
+void CodeGenLiteNPU::DoCompileCCE(const CompileInfo_LiteNPU& compileInfo, const std::string& compileOptions) const
+{
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
         CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
         return;
@@ -496,7 +574,8 @@ void CodeGenLiteNPU::DoCompileCCE(const CompileInfo_LiteNPU &compileInfo, const 
                      << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
 }
 
-std::string GetIncludePathByLibLiteNPU() {
+std::string GetIncludePathByLibLiteNPU()
+{
     std::string libPath = GetCurrentSharedLibPath();
     if (libPath.empty()) {
         return "";
@@ -512,7 +591,8 @@ std::string GetIncludePathByLibLiteNPU() {
     return "";
 }
 
-std::string CodeGenLiteNPU::GetIncludePathForCompileCCE() const {
+std::string CodeGenLiteNPU::GetIncludePathForCompileCCE() const
+{
     if (!ctx.IsIncludePathEmpty()) {
         CODEGEN_LOGI("include path from ctx is %s", ctx.includePath.c_str());
         return ctx.includePath;
@@ -528,13 +608,14 @@ std::string CodeGenLiteNPU::GetIncludePathForCompileCCE() const {
     return "";
 }
 
-std::string CodeGenLiteNPU::GetPtoTileLibPathByEnv() const {
+std::string CodeGenLiteNPU::GetPtoTileLibPathByEnv() const
+{
     if (!ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         return "";
     }
 
     // Priority 1: Obtain pto-isa from the patch specified by the environment variable "PTO_TILE_LIB_CODE_PATH".
-    const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
+    const char* homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
     if (homePath != nullptr) {
         std::string envPath = std::string(homePath) + "/include";
         ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
@@ -553,7 +634,8 @@ std::string CodeGenLiteNPU::GetPtoTileLibPathByEnv() const {
     return "";
 }
 
-std::string CodeGenLiteNPU::GetCoreArch() const {
+std::string CodeGenLiteNPU::GetCoreArch() const
+{
     if (platform_ == NPUArch::DAV_3113) {
         return "dav-l311";
     } else {
@@ -561,7 +643,8 @@ std::string CodeGenLiteNPU::GetCoreArch() const {
     }
 }
 
-void CodeGenLiteNPU::BuildArchOptions(std::ostringstream &oss) const {
+void CodeGenLiteNPU::BuildArchOptions(std::ostringstream& oss) const
+{
     std::vector<std::string> compileOpts;
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
@@ -577,7 +660,8 @@ void CodeGenLiteNPU::BuildArchOptions(std::ostringstream &oss) const {
 }
 
 // TODO: modify for kirin...
-void CodeGenLiteNPU::BuildIncludes(std::ostringstream &oss) const {
+void CodeGenLiteNPU::BuildIncludes(std::ostringstream& oss) const
+{
     // used for compiling cce
     std::string includePath = GetIncludePathForCompileCCE();
 
@@ -592,7 +676,8 @@ void CodeGenLiteNPU::BuildIncludes(std::ostringstream &oss) const {
     }
 }
 
-void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const {
+void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const
+{
     oss << "-mllvm -cce-aicore-function-stack-size=16384 "
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
@@ -601,7 +686,8 @@ void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream &oss, const std::strin
 }
 
 std::pair<int, std::string> CodeGenLiteNPU::CompileCCE(
-    const CompileInfo_LiteNPU &compileInfo, const std::string &compileOptions) const {
+    const CompileInfo_LiteNPU& compileInfo, const std::string& compileOptions) const
+{
     std::ostringstream oss;
     oss << "bisheng -c -O3 -g -x cce -std=c++17 -w ";
     BuildArchOptions(oss);
@@ -627,7 +713,8 @@ std::pair<int, std::string> CodeGenLiteNPU::CompileCCE(
     return {ret, ccecCmd};
 }
 
-bool CodeGenLiteNPU::HandleForAICpuSubFunc(Function &subFunc) {
+bool CodeGenLiteNPU::HandleForAICpuSubFunc(Function& subFunc)
+{
     if (!subFunc.IsAicpuSubFunction().first) {
         return false;
     }
@@ -638,7 +725,8 @@ bool CodeGenLiteNPU::HandleForAICpuSubFunc(Function &subFunc) {
     return true;
 }
 
-void FloatSpecValMgrLite::UpdateByOp(const Operation &op) {
+void FloatSpecValMgrLite::UpdateByOp(const Operation& op)
+{
     std::vector<Element> eles;
     if (op.HasAttr(OpAttributeKey::scalar)) {
         eles.emplace_back(op.GetElementAttribute(OpAttributeKey::scalar));
@@ -652,7 +740,7 @@ void FloatSpecValMgrLite::UpdateByOp(const Operation &op) {
         return;
     }
 
-    for (const auto &e : eles) {
+    for (const auto& e : eles) {
         if (e.GetDataType() != DataType::DT_FP16 && e.GetDataType() != DataType::DT_FP32) {
             continue;
         }
@@ -663,13 +751,14 @@ void FloatSpecValMgrLite::UpdateByOp(const Operation &op) {
     }
 }
 
-void FloatSpecValMgrLite::PrintFloatSpecVal(std::ostringstream &oss) {
+void FloatSpecValMgrLite::PrintFloatSpecVal(std::ostringstream& oss)
+{
     // print statement like: union {float f; uint32_t u;} float_inf = {.u = 0x7F800000};
-    for (const auto &fs : floatSpecVals_) {
+    for (const auto& fs : floatSpecVals_) {
         std::string dtypeCCE = DataType2CCEStr(fs.dtype);
         oss << "union " << "{" << dtypeCCE << " f; " << "uint32_t u;} " << fs.GetFsVarName()
             << " = {.u = " << fs.GetFsValueStr() << "};\n";
     }
 }
 
-}
+} // namespace npu::tile_fwk

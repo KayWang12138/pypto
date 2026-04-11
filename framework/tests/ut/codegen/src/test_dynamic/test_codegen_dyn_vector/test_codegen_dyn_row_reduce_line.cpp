@@ -37,20 +37,20 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumLine) {
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumLine)
+{
     int shape0 = 6;
     int shape1 = 1;
     int shape2 = 8;
@@ -63,38 +63,25 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumLine) {
     Tensor output(DataType::DT_FP32, outshape, "C");
 
     std::string funcName = "Reduce3dimMoe";
-    FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Sum(input_a, 1, true);
         }
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_23_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_23_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_23_dim_2", fakeParam);
-    }
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumSingleTileTensor) {
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumSingleTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
@@ -109,8 +96,10 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumSingleTileTensor) {
     Tensor output(DataType::DT_FP32, outshape, "C");
 
     std::string funcName = "RowSumSingle_TILETENSOR";
-    FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Sum(input_a, -1, true);
         }
@@ -130,7 +119,8 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowSumSingleTileTensor) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdLine) {
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdLine)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
@@ -145,23 +135,27 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdLine) {
     Tensor output(DataType::DT_FP32, outshape, "B");
 
     std::string funcName = "RowProdLine";
-    FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Prod(input_a, 0, true);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowProdLine<3>(ubTensor_39, ubTensor_36);)";
+    const std::string expect = R"(TRowProdLine<3>(ubTensor_17, ubTensor_14);)";
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdSingleTileTensor) {
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdSingleTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
 
@@ -176,8 +170,10 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdSingleTileTensor) {
     Tensor output(DataType::DT_FP32, outshape, "B");
 
     std::string funcName = "RowProdSingle_TILETENSOR";
-    FUNCTION(funcName, {input_a, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Prod(input_a, -1, true);
         }
@@ -189,14 +185,171 @@ TEST_F(TestCodegenDynRowReduceLine, TestOperationRowProdSingleTileTensor) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.001f),
     });
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TRowProdSingle<LastUse3Dim<0, 0, 0>>(ubTensor_20, ubTensor_17, ubTensor_21);)";
+    const std::string expect = R"(TRowProdSingle<LastUse3Dim<0, 0, 1>>(ubTensor_7, ubTensor_4, ubTensor_8);)";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMaxLine)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    int shape0 = 64;
+    int shape1 = 32;
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {1, shape1};
+
+    TileShape::Current().SetVecTile({64, 16});
+
+    Tensor input_a(DataType::DT_FP32, shape, "A");
+    Tensor output(DataType::DT_FP32, outshape, "B");
+
+    std::string funcName = "RowArgMaxLine";
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            output = ArgMax(input_a, 0, true);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+
+    std::string res = GetResultFromCpp(*function);
+    const std::string expect = R"(TRowArgMaxLine<3>(ubTensor_2, ubTensor_0, ubTensor_3);)";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMaxSingleTileTensor)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    int shape0 = 64;
+    int shape1 = 32;
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
+
+    TileShape::Current().SetVecTile({16, 32});
+
+    Tensor input_a(DataType::DT_FP32, shape, "A");
+    Tensor output(DataType::DT_FP32, outshape, "B");
+
+    std::string funcName = "RowArgMaxSingle_TILETENSOR";
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            output = ArgMax(input_a, -1, true);
+        }
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(input_a, 1.0),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.001f),
+    });
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+
+    std::string res = GetResultFromCpp(*function);
+    const std::string expect = R"(TRowArgMaxSingle(ubTensor_2, ubTensor_0, ubTensor_3);)";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMinLine)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    int shape0 = 64;
+    int shape1 = 32;
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {1, shape1};
+
+    TileShape::Current().SetVecTile({64, 16});
+
+    Tensor input_a(DataType::DT_FP32, shape, "A");
+    Tensor output(DataType::DT_FP32, outshape, "B");
+
+    std::string funcName = "RowArgMinLine";
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            output = ArgMin(input_a, 0, true);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+
+    std::string res = GetResultFromCpp(*function);
+    const std::string expect = R"(TRowArgMinLine<3>(ubTensor_2, ubTensor_0, ubTensor_3);)";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenDynRowReduceLine, TestOperationRowArgMinSingleTileTensor)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    int shape0 = 64;
+    int shape1 = 32;
+    std::vector<int64_t> shape = {shape0, shape1};
+    std::vector<int64_t> outshape = {shape0, 1};
+
+    TileShape::Current().SetVecTile({16, 32});
+
+    Tensor input_a(DataType::DT_FP32, shape, "A");
+    Tensor output(DataType::DT_FP32, outshape, "B");
+
+    std::string funcName = "RowArgMinSingle_TILETENSOR";
+    FUNCTION(funcName, {input_a, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            output = ArgMin(input_a, -1, true);
+        }
+    }
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(input_a, 1.0),
+    });
+
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.001f),
+    });
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+
+    std::string res = GetResultFromCpp(*function);
+    const std::string expect = R"(TRowArgMinSingle(ubTensor_2, ubTensor_0, ubTensor_3);)";
     CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

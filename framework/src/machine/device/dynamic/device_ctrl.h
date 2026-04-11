@@ -25,6 +25,7 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/barrier.h"
+#include "machine/device/dynamic/aicore_prof.h"
 #ifdef __DEVICE__
 #include "log_types.h"
 #endif
@@ -33,44 +34,33 @@
 extern "C" __attribute__((visibility("default"))) void* GetCtrlFlowFunc();
 #endif
 
-extern "C" __attribute__((weak)) int dlog_setlevel(int32_t moduled, int32_t level,  int32_t enableEvent);
+extern "C" __attribute__((weak)) int dlog_setlevel(int32_t moduled, int32_t level, int32_t enableEvent);
 
 namespace npu::tile_fwk::dynamic {
 
 class DeviceCtrlMachine {
 public:
-    void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx) {
+    DeviceTaskCtrl* InitTaskCtrl(int idx, DeviceTask *devTask, DeviceExecuteContext *ctx)
+    {
         if (ctx == nullptr) {
-            DEV_ERROR("Init Task control failed, which ctx is null.");
-            return;
+             DEV_ERROR(	 
+                 CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.push.init_dtask: Init Task control failed, which ctx is null.");
+            return nullptr;
         }
         auto taskCtrl = &GetTaskCtrlInPool(idx);
-        taskCtrl->taskType = type;
-        taskCtrl->devTask = devTask;
-        taskCtrl->taskId = taskId;
-        taskCtrl->initAicFuncNum = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAicCoreFunctionQue)->Size();
-        taskCtrl->initAivFuncNum = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAivCoreFunctionQue)->Size();
-        taskCtrl->finishedAicFunctionCnt = 0;
-        taskCtrl->finishedAivFunctionCnt = 0;
-        taskCtrl->finishedAicpuFunctionCnt = 0;
-        taskCtrl->finishedFunctionCnt.store(0, std::memory_order_relaxed);
-        taskCtrl->runFlag.store(true, std::memory_order_relaxed);
-        taskCtrl->runcnt.store(GetScheAicpuNum(), std::memory_order_relaxed);
-        taskCtrl->ctx = ctx;
-        taskCtrl->retCode = 0;
+        taskCtrl->BindTask(devTask);
+        taskCtrl->SetSchNumCnt(GetScheAicpuNum());
         devTask->aicoreModel = reinterpret_cast<uint64_t>(ctx->aicoreModel);
         if (ctx->costModelData != nullptr) {
             devTask->costModelData = reinterpret_cast<uint64_t>(ctx->costModelData);
         }
-        for (size_t i = 0; i < AICORE_TYPE_NUM; ++i) {
-            for (size_t j = 0; j < MAX_SCHEDULE_AICPU_NUM; ++j) {
-                taskCtrl->isAicpuIdle[i][j].store(true);
-            }
-        }
+        return taskCtrl;
     }
 
-    int AllocNewTaskCtrl() {
-        uint32_t &taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
+    int AllocNewTaskCtrl()
+    {
+        uint32_t& taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
+        TIMEOUT_CHECK_START();
         while (true) {
             if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
                 taskCtrlIndex = 0;
@@ -78,15 +68,50 @@ public:
                 return taskCtrlIndex++;
             }
             taskCtrlIndex++;
+            TIMEOUT_CHECK_AND_RESET(TIMEOUT_ONE_MINUTE, CtrlErr::CTRL_ALLOC_TIMEOUT, "Alloc new task ctrl over 1 min.");
         }
     }
 
-    int PushTask(int type, DynDeviceTask *dynTask, DeviceExecuteContext *ctx) {
-        auto idx = AllocNewTaskCtrl();
-        InitTaskCtrl(idx, type, dynTask->GetIndex(), &dynTask->devTask, ctx);
-        for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
-            GetTaskQueue(i).Enqueue(&GetTaskCtrlInPool(idx));
+    bool SameParallelIterTaskCtrl(DeviceTaskCtrl* srcTaskCtrl, DeviceTaskCtrl* dstTaskCtrl)
+    {
+        if (!srcTaskCtrl->SupportParallel() || !dstTaskCtrl->SupportParallel()) {
+            return false;
         }
+
+        if (srcTaskCtrl->ParallelForId() != dstTaskCtrl->ParallelForId() ||
+            srcTaskCtrl->ParallelIterId() != dstTaskCtrl->ParallelIterId()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    int PushTask(DynDeviceTask *dynTask, DeviceExecuteContext *ctx)
+    {
+        auto idx = AllocNewTaskCtrl();
+        bool appendLastTaskCtrl = false;
+        DeviceTaskCtrl* newTaskCtrl = InitTaskCtrl(idx, &dynTask->devTask, ctx);
+        if (lastTaskCtrl_ && lastTaskCtrl_->SupportParallel()) {
+            if (SameParallelIterTaskCtrl(lastTaskCtrl_, newTaskCtrl)) {
+                lastTaskCtrl_->existNextSameIterTask = true;
+                lastTaskCtrl_->nextSameIterTaskCtrl = reinterpret_cast<uint64_t>(newTaskCtrl);
+                appendLastTaskCtrl = true;
+            } else {
+                lastTaskCtrl_->existNextSameIterTask = false; // Correct the flag
+            }
+        }
+        lastTaskCtrl_ = newTaskCtrl;
+
+        if (dynTask->IsParallelSameIterLastDevTask()) {
+            lastTaskCtrl_->existNextSameIterTask = false;
+        }
+
+        if (!appendLastTaskCtrl) {
+            for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
+                GetTaskQueue(i).Enqueue(newTaskCtrl);
+            }
+        }
+
         return idx;
     }
 
@@ -96,43 +121,22 @@ public:
         }
     }
 
-    int SyncTask(int idx) {
-        while (GetTaskCtrlInPool(idx).IsNotFree())
-            ;
-        return GetTaskCtrlInPool(idx).retCode;
-    }
-
-    int SyncTask(DeviceTaskContext *taskContext = nullptr) {
-        int ret = 0;
-        for (int idx = 0; idx < MAX_DEVICE_TASK_NUM; idx++) {
-            auto rc = SyncTask(idx);
-            if (rc != 0) {
-                ret = rc;
-            }
-            if (taskContext) {
-                taskContext->ReleaseFinishedTasks(PERF_EVT_RELEASE_FINISH_TASK_INSYNC, PERF_EVT_DEALLOCATE_TASK_INSYNC);
-            }
-        }
-        return ret;
-    }
-
-    void RegisterTaskInspector(DeviceTaskInspectorEntry inspectorEntry, void *inspector) {
+    void RegisterTaskInspector(DeviceTaskInspectorEntry inspectorEntry, void* inspector)
+    {
         inspectorEntry_ = inspectorEntry;
         inspector_ = inspector;
     }
 
-    void InitTaskPipeWithSched(DevAscendProgram *devProg) {
-        for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
-            GetTaskCtrlInPool(i).retCode = 0;
-            GetTaskCtrlInPool(i).runFlag = 0;
-        }
-
+    void InitTaskPipeWithSched(DevAscendProgram *devProg)
+    {
         for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
             GetTaskQueue(i).ResetEmpty();
         }
     }
 
-    void InitCtrlFlowCache(DevAscendProgram *devProg, DevControlFlowCache *ctrlFlowCache, DevStartArgs *devStartArgs, bool firstInit) {
+    void InitCtrlFlowCache(
+        DevAscendProgram* devProg, DevControlFlowCache* ctrlFlowCache, DevStartArgs* devStartArgs, bool firstInit)
+    {
         DevControlFlowCache* devCtrlFlowCache = nullptr;
         devCtrlFlowCache = &devProg->controlFlowCache;
         if (devProg->controlFlowCache.isRecording) {
@@ -141,11 +145,15 @@ public:
         } else if (ctrlFlowCache != nullptr) {
             DEV_INFO("Init independent anchor program cache %p.", ctrlFlowCache);
             if (ctrlFlowCache->isRecording) {
-                DEV_ASSERT_MSG(!devProg->controlFlowCache.isRecording, "dev program ctr cache should not record");
+                DEV_ASSERT_MSG(
+                    CtrlErr::CTRL_FLOW_EXEC_FAILED, !devProg->controlFlowCache.isRecording,
+                    "#ctrl.flow.exec: dev program ctr cache should not record");
                 ctrlFlowCache->contextWorkspaceAddr = devStartArgs->contextWorkspaceAddr;
             } else {
-                DEV_ASSERT_MSG(!devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
-                        "should not active dev program cache and independent ctrl cache at same time");
+                DEV_ASSERT_MSG(
+                    CtrlErr::CTRL_FLOW_EXEC_FAILED,
+                    !devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
+                    "#ctrl.flow.exec: should not active dev program cache and independent ctrl cache at same time");
             }
             devCtrlFlowCache = ctrlFlowCache;
             if (devCtrlFlowCache->isActivated && !devCtrlFlowCache->isRelocMetaDev) {
@@ -155,12 +163,17 @@ public:
             }
         }
 
-        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
+        DEV_INFO(
+            "ControlFlowCache: deviceTaskCount=%d, firstInit=%d.", (int)devCtrlFlowCache->deviceTaskCount,
+            (int)firstInit);
 
         /* Currently, sche does not use ctrlFlowCacheAnchor, so that we could record it in devProgram.
          * However, it should be moved into the execute context. */
         devProg->ctrlFlowCacheAnchor = devCtrlFlowCache;
         if (devCtrlFlowCache->deviceTaskCount == 0) {
+            if (!firstInit) {
+                devProg->ResetRerun(); // Clean the dirty data of cell match table from the last launch
+            }
             DEV_INFO("ControlFlowCache: cache have no devtask , ignore it");
             return;
         }
@@ -170,8 +183,8 @@ public:
             // Actual run
             if (!devCtrlFlowCache->isRelocDataDev) {
                 devCtrlFlowCache->isRelocDataDev = true;
-                devCtrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, reinterpret_cast<uint64_t>(devProg),
-                                                                reinterpret_cast<uint64_t>(devCtrlFlowCache));
+                devCtrlFlowCache->TaskAddrRelocProgramAndCtrlCache(
+                    0, 0, reinterpret_cast<uint64_t>(devProg), reinterpret_cast<uint64_t>(devCtrlFlowCache));
                 devCtrlFlowCache->RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
             }
 
@@ -186,12 +199,14 @@ public:
         }
     }
 
-    bool InitDevProgram(DevAscendProgram *devProg) {
+    bool InitDevProgram(DevAscendProgram* devProg)
+    {
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
             devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
 
-            RuntimeDataRingBufferHead *ringBufferHead = reinterpret_cast<RuntimeDataRingBufferHead *>(devProg->GetRuntimeDataList());
+            RuntimeDataRingBufferHead* ringBufferHead =
+                reinterpret_cast<RuntimeDataRingBufferHead*>(devProg->GetRuntimeDataList());
             ringBufferHead->Initialize(devProg->GetDeviceRuntimeOffset().size, devProg->GetDeviceRuntimeOffset().count);
 
             devProg->runtimeDataRingBufferInited = true;
@@ -210,17 +225,21 @@ public:
         return firstInit;
     }
 
-    int InitDyn(DeviceKernelArgs *kargs) {
+    int InitDyn(DeviceKernelArgs* kargs)
+    {
         DEV_INFO("AscendCppDyInitTask begin");
 
-        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        DevAscendProgram* devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = InitDevProgram(devProg);
         PerfEnd(PERF_EVT_INIT);
 
-        RuntimeDataRingBufferHead *ringBufferHead = devProg->GetRuntimeDataList();
+        RuntimeDataRingBufferHead* ringBufferHead = devProg->GetRuntimeDataList();
 
-        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(ringBufferHead->AllocatePrepare());
+        DEV_INFO("AllocatePrepare begin runtimedata: %lu, %lu %lu", ringBufferHead->GetIndexFinished(),
+            ringBufferHead->GetIndexPending(), ringBufferHead->GetRuntimeDataCount());
+        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs*>(ringBufferHead->AllocatePrepare());
+        DEV_INFO("AllocatePrepare end");
 
         devStartArgs->syncFlag = 0;
         devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
@@ -238,7 +257,7 @@ public:
         uint64_t inputSize = *kargs->inputs;
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
-        DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
+        DEV_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
         devStartArgs->devTensorList = inputPtr;
         devStartArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devStartArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
@@ -251,42 +270,44 @@ public:
         devStartArgs->commGroupNum = (kargs->commContexts == nullptr) ? 0 : static_cast<uint64_t>(*kargs->commContexts);
         devStartArgs->commContexts = (devStartArgs->commGroupNum == 0) ? nullptr : kargs->commContexts + 1;
 
-        DevControlFlowCache *ctrlFlowCacheBase = reinterpret_cast<DevControlFlowCache *>(kargs->ctrlFlowCache);
-        DevControlFlowCache *ctrlFlowCache;
+        DevControlFlowCache* ctrlFlowCacheBase = reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache);
+        DevControlFlowCache* ctrlFlowCache;
         if (ctrlFlowCacheBase == nullptr) {
             ctrlFlowCache = ctrlFlowCacheBase;
         } else if (ctrlFlowCacheBase->IsRecording()) {
             ctrlFlowCache = ctrlFlowCacheBase;
         } else {
-            ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
-                reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) +
+            ctrlFlowCache = reinterpret_cast<DevControlFlowCache*>(
+                reinterpret_cast<uint8_t*>(kargs->ctrlFlowCache) +
                 ctrlFlowCacheBase->usedCacheSize * ringBufferHead->GetIndexPendingIndex());
         }
         InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
 
         ringBufferHead->AllocateSubmit();
+        lastTaskCtrl_ = nullptr;
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
 
-    int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
+    int ExecDyn(npu::tile_fwk::DeviceKernelArgs* args)
+    {
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
-        auto devStartArgs = (DevStartArgs *)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
+        auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
         DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        int ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
+        int ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask* dynTask, DeviceExecuteContext* exeCtx) {
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
             DEV_IF_DEBUG {
-                DumpTask(dynTask->GetIndex(), (DeviceTask *)dynTask, true);
+                DumpTask(dynTask->GetIndex(), (DeviceTask*)dynTask, true);
             }
-            PushTask(DEVICE_TASK_TYPE_DYN, dynTask, exeCtx);
+            PushTask(dynTask, exeCtx);
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         if (ret != DEVICE_MACHINE_OK) {
@@ -306,30 +327,34 @@ public:
         return ret;
     }
 
-    void SetModuleLogLevel([[maybe_unused]]DeviceKernelArgs *kargs) {
+    void SetModuleLogLevel([[maybe_unused]] DeviceKernelArgs* kargs)
+    {
 #ifdef __DEVICE__
-        DeviceArgs *devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
+        DeviceArgs* devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
         if (devArgs->devDfxArgAddr != 0) {
-            DevDfxArgs *devDfxArgs = reinterpret_cast<DevDfxArgs*>(devArgs->devDfxArgAddr);
+            DevDfxArgs* devDfxArgs = reinterpret_cast<DevDfxArgs*>(devArgs->devDfxArgAddr);
             if (devDfxArgs->logLevel != -1 && dlog_setlevel != nullptr) {
-                (void)dlog_setlevel(PYPTO, devDfxArgs->logLevel, 1);
+                (void)dlog_setlevel(LOG_MOD_ID, devDfxArgs->logLevel, 1);
             }
         }
 #endif
     }
 
-    int EntryInit(DeviceKernelArgs *kargs) {
+    int EntryInit(DeviceKernelArgs* kargs)
+    {
         SetModuleLogLevel(kargs);
         PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
 #ifdef __DEVICE__
         InitLogSwitch();
+        AiCoreProf::RegDevProf();
 #endif
         if (kargs == nullptr) {
             return -1;
         }
         if (kargs->inputs == nullptr || kargs->cfgdata == nullptr) {
-            DEV_ERROR("Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
-                    kargs->workspace, kargs->cfgdata);
+            DEV_ERROR(
+                DevCommonErr::NULLPTR, "#ctrl.init: Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
+                kargs->workspace, kargs->cfgdata);
             return -1;
         }
         InitDyn(kargs);
@@ -337,7 +362,8 @@ public:
         return 0;
     }
 
-    int EntryMain(DeviceKernelArgs *kargs) {
+    int EntryMain(DeviceKernelArgs* kargs)
+    {
         int rc = ExecDyn(kargs);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
             return 0;
@@ -346,79 +372,87 @@ public:
     }
 
 private:
-    static void DumpTask(int64_t taskId, DeviceTask *devTask, bool isDyn) {
-        DEV_DEBUG("devTask %ld %p.", taskId, devTask);
-        if (devTask == nullptr) {
-            return;
-        }
-
-        DEV_DEBUG("devtask { %lu, %lx, %lx, %lx, %lx, %lu, %lu}.", devTask->coreFunctionCnt,
-            devTask->coreFunctionReadyStateAddr, devTask->readyAicCoreFunctionQue, devTask->readyAivCoreFunctionQue,
-            devTask->coreFuncData.coreFunctionWsAddr, devTask->coreFuncData.stackWorkSpaceAddr,
-            devTask->coreFuncData.stackWorkSpaceSize);
-
+    static void DumpTaskDetail(DeviceTask* devTask, bool isDyn)
+    {
         DEV_DEBUG("===== ready aic func =====");
         ReadyCoreFunctionQueue* readyFunc = reinterpret_cast<ReadyCoreFunctionQueue*>(devTask->readyAicCoreFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
+            DEV_DEBUG("aic taskId[%lu]=%u.", i, readyFunc->elem[i]);
         }
 
         DEV_DEBUG("===== ready aiv func =====");
-        readyFunc = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAivCoreFunctionQue);
+        readyFunc = reinterpret_cast<ReadyCoreFunctionQueue*>(devTask->readyAivCoreFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
+            DEV_DEBUG("aiv taskId[%lu]=%u.", i, readyFunc->elem[i]);
         }
         DEV_DEBUG("===== ready aicpu func =====");
-        readyFunc = reinterpret_cast<ReadyCoreFunctionQueue *>(devTask->readyAicpuFunctionQue);
+        readyFunc = reinterpret_cast<ReadyCoreFunctionQueue*>(devTask->readyAicpuFunctionQue);
         for (uint64_t i = readyFunc->head; i < readyFunc->tail; i++) {
-            DEV_DEBUG( "taskId %u.", readyFunc->elem[i]);
+            DEV_DEBUG("aicpu taskId[%lu]=%u.", i, readyFunc->elem[i]);
         }
 
         if (isDyn) {
             DEV_DEBUG("===== dyn info =====");
             auto dyntask = PtrToPtr<DeviceTask, DynDeviceTask>(devTask);
             int funcIdx = 0;
-            for (auto &func : dyntask->stitchedList) {
-                DEV_DEBUG("func %d %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
+            for (auto& func : dyntask->stitchedList) {
+                DEV_DEBUG("funcIdx=%d, %s.", funcIdx, func.DumpDyn(funcIdx, dyntask->cceBinary).c_str());
                 funcIdx++;
                 (void)func;
             }
         } else {
-            auto coreFunc = reinterpret_cast<CoreFunctionWsAddr *>(devTask->coreFuncData.coreFunctionWsAddr);
+            auto coreFunc = reinterpret_cast<CoreFunctionWsAddr*>(devTask->coreFuncData.coreFunctionWsAddr);
             DEV_DEBUG("===== core func =====");
             for (uint64_t i = 0; i < devTask->coreFunctionCnt; i++) {
-                DEV_DEBUG("taskId %lu binAddr %lx invokeEntry %lx topo %lx.", i, coreFunc[i].functionBinAddr,
+                DEV_DEBUG(
+                    "taskId[%lu]: binAddr=%#lx, invokeEntry=%#lx, topo=%#lx.", i, coreFunc[i].functionBinAddr,
                     coreFunc[i].invokeEntryAddr, coreFunc[i].topoAddr);
-                auto topo = reinterpret_cast<CoreFunctionTopo *>(coreFunc[i].topoAddr);
-                DEV_DEBUG("coreType %lu pstId %lu readyCount %ld depNum %lu .", topo->coreType, topo->psgId,
+                auto topo = reinterpret_cast<CoreFunctionTopo*>(coreFunc[i].topoAddr);
+                DEV_DEBUG(
+                    "  topo: coreType=%lu, psgId=%lu, readyCount=%ld, depNum=%lu.", topo->coreType, topo->psgId,
                     topo->readyCount, topo->depNum);
                 (void)topo;
             }
             DEV_DEBUG("===== ready state =====");
-            auto readyState = reinterpret_cast<CoreFunctionReadyState *>(devTask->coreFunctionReadyStateAddr);
+            auto readyState = reinterpret_cast<CoreFunctionReadyState*>(devTask->coreFunctionReadyStateAddr);
             for (uint64_t i = 0; i < devTask->coreFunctionCnt; i++) {
-                DEV_DEBUG("taskId %lu readyCount %ld coreType %lu.", i, readyState[i].readyCount, readyState[i].coreType);
+                DEV_DEBUG(
+                    "taskId[%lu]: readyCount=%ld, coreType=%lu.", i, readyState[i].readyCount, readyState[i].coreType);
             }
             (void)(readyState);
         }
-        (void)taskId;
         DEV_DEBUG("===== dev task end =====");
     }
+
+    static void DumpTask(int64_t taskId, DeviceTask* devTask, bool isDyn)
+    {
+        DEV_DEBUG("taskId=%ld, devTask=%p, isDyn=%d.", taskId, devTask, static_cast<int>(isDyn));
+        if (devTask == nullptr) {
+            return;
+        }
+
+        DEV_DEBUG(
+            "devtask { coreFunctionCnt=%lu, readyStateAddr=%#lx, "
+            "readyAicQue=%#lx, readyAivQue=%#lx, readyAicpuQue=%#lx, "
+            "coreFuncWsAddr=%#lx, stackWsAddr=%#lx, stackWsSize=%lu }.",
+            devTask->coreFunctionCnt, devTask->coreFunctionReadyStateAddr, devTask->readyAicCoreFunctionQue,
+            devTask->readyAivCoreFunctionQue, devTask->readyAicpuFunctionQue, devTask->coreFuncData.coreFunctionWsAddr,
+            devTask->coreFuncData.stackWorkSpaceAddr, devTask->coreFuncData.stackWorkSpaceSize);
+
+        DumpTaskDetail(devTask, isDyn);
+    }
+
 private:
-    DeviceTaskCtrl &GetTaskCtrlInPool(int index) {
-        return devStartArgs_->deviceRuntimeDataDesc.taskCtrlPool[index];
-    }
-    DeviceTaskCtrlQueue &GetTaskQueue(int index) {
-        return devStartArgs_->deviceRuntimeDataDesc.taskQueueList[index];
-    }
-    uint32_t GetScheAicpuNum() {
-        return devStartArgs_->devCtrlState.schAicpuNum;
-    }
+    DeviceTaskCtrl& GetTaskCtrlInPool(int index) { return devStartArgs_->deviceRuntimeDataDesc.taskCtrlPool[index]; }
+    DeviceTaskCtrlQueue& GetTaskQueue(int index) { return devStartArgs_->deviceRuntimeDataDesc.taskQueueList[index]; }
+    uint32_t GetScheAicpuNum() { return devStartArgs_->devCtrlState.schAicpuNum; }
+
 private:
-    DevStartArgs *devStartArgs_{nullptr};
+    DevStartArgs* devStartArgs_{nullptr};
+    DeviceTaskCtrl* lastTaskCtrl_{nullptr};
 
     /* inspector entry */
     DeviceTaskInspectorEntry inspectorEntry_;
-    void *inspector_;
+    void* inspector_;
 };
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::dynamic

@@ -21,7 +21,8 @@
 
 namespace npu::tile_fwk::schema {
 
-std::string SchemaNode::Dump() const {
+std::string SchemaNode::Dump() const
+{
     std::ostringstream oss;
     if (name == "") {
         oss << "[";
@@ -45,24 +46,25 @@ std::string SchemaNode::Dump() const {
 }
 
 struct Parser {
-    const std::string &text;
+    const std::string& text;
     int base;
 
-    Parser(const std::string &text_, int base_) : text(text_), base(base_) {}
+    Parser(const std::string& text_, int base_) : text(text_), base(base_) {}
 
     struct Token {
         static constexpr int id = 0;
 
         int kind;
         std::string text;
-        Token(int kind_, const std::string &text_ = "") : kind(kind_), text(text_) {}
+        Token(int kind_, const std::string& text_ = "") : kind(kind_), text(text_) {}
 
         int Kind() { return kind; }
         std::string Text() { return text; }
     };
     std::vector<Token> tokenList;
 
-    void Tokenization() {
+    void Tokenization()
+    {
         std::string curr;
         for (size_t idx = base; idx < text.size(); idx++) {
             switch (text[idx]) {
@@ -72,18 +74,18 @@ struct Parser {
                 case ']':
                 case '{':
                 case '}': {
-                        if (curr.size() != 0) {
-                            tokenList.emplace_back(Token::id, curr);
-                            curr.clear();
-                        }
-                        tokenList.emplace_back(text[idx]);
-                    } break;
+                    if (curr.size() != 0) {
+                        tokenList.emplace_back(Token::id, curr);
+                        curr.clear();
+                    }
+                    tokenList.emplace_back(text[idx]);
+                } break;
                 case ' ': {
-                        if (curr.size() != 0) {
-                            tokenList.emplace_back(Token::id, curr);
-                            curr.clear();
-                        }
-                    } break;
+                    if (curr.size() != 0) {
+                        tokenList.emplace_back(Token::id, curr);
+                        curr.clear();
+                    }
+                } break;
                 default:
                     curr.push_back(text[idx]);
                     break;
@@ -96,17 +98,12 @@ struct Parser {
     }
 
     int pos = 0;
-    Token &Current() {
-        return tokenList[pos];
-    }
-    bool Accessible() {
-        return pos < (int)tokenList.size();
-    }
-    void MoveNext() {
-        pos++;
-    }
+    Token& Current() { return tokenList[pos]; }
+    bool Accessible() { return pos < (int)tokenList.size(); }
+    void MoveNext() { pos++; }
 
-    std::shared_ptr<SchemaNode> ParseNode() {
+    std::shared_ptr<SchemaNode> ParseNode()
+    {
         std::shared_ptr<SchemaNode> curr;
         if (Current().Kind() == '[') {
             curr = std::make_shared<SchemaNode>("");
@@ -153,7 +150,8 @@ struct Parser {
         return curr;
     }
 
-    std::vector<std::shared_ptr<SchemaNode>> Parse() {
+    std::vector<std::shared_ptr<SchemaNode>> Parse()
+    {
         Tokenization();
         std::vector<std::shared_ptr<SchemaNode>> nodeList;
         pos = 0;
@@ -172,7 +170,8 @@ struct Parser {
     }
 };
 
-std::vector<std::shared_ptr<SchemaNode>> SchemaNode::ParseSchema(const std::string &schema) {
+std::vector<std::shared_ptr<SchemaNode>> SchemaNode::ParseSchema(const std::string& schema)
+{
     auto pos = schema.find(DEV_TRACE_PREFIX);
     if (pos == std::string::npos) {
         return {};
@@ -183,28 +182,33 @@ std::vector<std::shared_ptr<SchemaNode>> SchemaNode::ParseSchema(const std::stri
     return nodeList;
 }
 
-std::vector<std::shared_ptr<SchemaNode>> SchemaNode::ParseSchema(const std::vector<std::string> &schemaList) {
+std::vector<std::shared_ptr<SchemaNode>> SchemaNode::ParseSchema(const std::vector<std::string>& schemaList)
+{
     std::vector<std::shared_ptr<SchemaNode>> nodeList;
-    for (auto &schema : schemaList) {
+    for (auto& schema : schemaList) {
         auto childList = ParseSchema(schema);
         nodeList.insert(nodeList.end(), childList.begin(), childList.end());
     }
     return nodeList;
 }
 
-static void BuildSchemaDict(std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> &dict, const std::shared_ptr<SchemaNode> &node) {
+static void BuildSchemaDict(
+    std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>>& dict, const std::shared_ptr<SchemaNode>& node)
+{
     dict[node->GetName()].push_back(node);
-    for (auto &child : *node) {
+    for (auto& child : *node) {
         BuildSchemaDict(dict, child);
     }
 }
 
-std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> SchemaNode::BuildDict(const std::vector<std::shared_ptr<SchemaNode>> &nodeList) {
+std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> SchemaNode::BuildDict(
+    const std::vector<std::shared_ptr<SchemaNode>>& nodeList)
+{
     std::map<std::string, std::vector<std::shared_ptr<SchemaNode>>> dict;
-    for (auto &node : nodeList) {
+    for (auto& node : nodeList) {
         BuildSchemaDict(dict, node);
     }
     return dict;
 }
 
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::schema

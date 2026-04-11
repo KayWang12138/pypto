@@ -48,4 +48,3 @@ n2 = t.name
 输出n1: ""
 输出n2: "my_tensor"
 ```
-

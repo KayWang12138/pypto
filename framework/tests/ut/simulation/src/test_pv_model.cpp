@@ -15,12 +15,14 @@
 
 #include <fstream>
 #include "gtest/gtest.h"
+#include "tilefwk/platform.h"
 #include "cost_model/simulation_pv/PvModelImpl.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 
 namespace CostModel {
 
-TEST(PvModelTest, TestAddGlobalAttr) {
+TEST(PvModelTest, TestAddGlobalAttr)
+{
     std::string path("./local_function.cpp");
     std::fstream file(path, std::ios::out);
 
@@ -63,27 +65,23 @@ extern "C" __global__ [aicore] void TENSOR_Matmul_T_root_3_1(__gm__ GMTensorInfo
     ASSERT_EQ(actual, expect);
 }
 
-TEST(PvModelTest, TestFactory) {
+TEST(PvModelTest, TestFactory)
+{
     auto pv = CostModel::PvModelFactory::Create();
     EXPECT_NE(pv, nullptr);
 }
 
-TEST(PvModelTest, TestDynFactory) {
+TEST(PvModelTest, TestDynFactory)
+{
     auto pv = CostModel::PvModelFactory::CreateDyn();
+    EXPECT_NE(pv, nullptr);
+    npu::tile_fwk::Platform::Instance().GetSoc().SetNPUArch(npu::tile_fwk::NPUArch::DAV_3510);
+    pv = CostModel::PvModelFactory::CreateDyn();
     EXPECT_NE(pv, nullptr);
 }
 
-TEST(PvModelTest, TestDynImpl) {
-    auto pv = CostModel::PvModelFactory::CreateDyn();
-    std::vector<uint8_t> test(16);
-    auto addr = pv->CopyToDev(test.data(), test.size());
-    EXPECT_NE(addr, nullptr);
-    addr = pv->AllocWorkspaceDev(128);
-    EXPECT_NE(addr, nullptr);
-    std::vector<uint8_t> copy(16);
-}
-
-TEST(PvModelTest, TestDynCodegen) {
+TEST(PvModelTest, TestDynCodegen)
+{
     std::string org = R"!!!(
 #include "TileOpImpl.h"
 [aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
@@ -118,4 +116,4 @@ extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::Dyn
 )!!!";
     EXPECT_EQ(expect, content);
 }
-}
+} // namespace CostModel

@@ -20,7 +20,6 @@
 #include <unordered_set>
 
 #include "op_print_param_def.h"
-#include "tile_tensor_litenpu.h"
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
@@ -35,18 +34,16 @@
 
 namespace npu::tile_fwk {
 struct CodeGenOpLiteNPUCtx : public CodeGenOpCtx {
-    const Operation &operation;
-
-    CodeGenOpLiteNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, lto, isMainBlk), operation(op) {}
+    CodeGenOpLiteNPUCtx(
+        std::shared_ptr<SymbolManager> sm, Function& tf, Function& sf, const Operation& op,
+        const std::map<int, int>& lto = {}, bool isMainBlk = false)
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk)
+    {}
 };
 
 class CodeGenOpLiteNPU : public CodeGenOp {
 public:
     explicit CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx);
-    CodeGenOpLiteNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-        const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
     ~CodeGenOpLiteNPU() override = default;
 
     std::string GenMemL1CopyIn() const;
@@ -164,6 +161,8 @@ private:
         return ret;
     }
 
+    TileTensor QueryTileTensorByIdx(int paramIdx) const;
+
     std::string GenBarrier() const;
     std::string GenSyncSetOp() const;
     std::string GenSyncWaitOp() const;
@@ -172,7 +171,7 @@ private:
 
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
 
-    TileTensorLiteNPU BuildTileTensor(int paramIdx, const std::string& usingType);
+    TileTensor BuildTileTensor(int paramIdx, const std::string& usingType);
     void UpdateTileTensorShapeAndStride(
         int paramIdx, TileTensor &tileTensor, bool isSpillToGm);
     std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
@@ -181,7 +180,7 @@ private:
         OperandType localType, std::vector<int64_t> gmShape, unsigned localIdx) const;
     std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
 
-    std::string GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const;
+    std::string GenGMAddrExprWithOffset(const std::string& addrExpr) const;
     std::string GenAddrExpr(const std::string &addrExpr, unsigned offsetParam) const;
 
     // update var offset when parent of this var is split by "view" operation. (used for ub var currently)
@@ -235,7 +234,7 @@ private:
     std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
 
     std::pair<std::string, std::string> GetOuterInnerValueStr(
-        const std::vector<int64_t> &gmShape, bool isSpillingToGM = false) const;
+        unsigned gmIdx, const std::vector<int64_t>& gmShape, bool isSpillingToGM = false) const;
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
     // std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
 

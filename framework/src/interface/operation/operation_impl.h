@@ -29,9 +29,10 @@ class Function;
 class Operation;
 using LogicalTensorPtr = std::shared_ptr<LogicalTensor>;
 
-void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode opCode,
-                         const std::vector<std::shared_ptr<LogicalTensor>> &iOperand,
-                         const std::vector<std::shared_ptr<LogicalTensor>> &oOperand, const Operation &op);
+void ExpandOperationInto(
+    Function& function, const TileShape& tileShape, Opcode opCode,
+    const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
+    const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op);
 
 namespace Matrix {
 const size_t M_INDEX = 0;
@@ -50,6 +51,7 @@ const std::string A_MUL_B_TRANS_B = OP_ATTR_PREFIX + "trans_b";
 const std::string A_MUL_B_SCALE_B_COPY_IN_MODE = OP_ATTR_PREFIX + "scale_b_copy_in_mode";
 const std::string A_MUL_B_GM_ACC = OP_ATTR_PREFIX + "gm_acc";
 const std::string A_MUL_B_MX_ATTR = OP_ATTR_PREFIX + "is_mx";
+const std::string REMAIN_REDUNDANT_OP_FLAG = OP_ATTR_PREFIX + "remain_redundant_op_flag";
 const std::string COPY_IN_L1_PADDING_MODE = OP_ATTR_PREFIX + "copy_in_l1_padding_mode";
 const std::string L1_TO_L0_TRANSPOSE = OP_ATTR_PREFIX + "l1_to_l0_transpose";
 const std::string A_MUL_B_BIAS_ATTR = OP_ATTR_PREFIX + "has_bias";
@@ -69,9 +71,10 @@ struct MatmulTensorInfo {
     MemoryType memType;
     bool transFlag;
 
-    MatmulTensorInfo(const std::string &nameIn, DataType dtypeIn, const std::vector<int64_t> &shapeIn,
-                     const std::vector<int64_t> &offsetIn, NodeType nodeTypeIn, TileOpFormat formatIn,
-                     MemoryType memTypeIn, bool transFlagIn = false)
+    MatmulTensorInfo(
+        const std::string& nameIn, DataType dtypeIn, const std::vector<int64_t>& shapeIn,
+        const std::vector<int64_t>& offsetIn, NodeType nodeTypeIn, TileOpFormat formatIn, MemoryType memTypeIn,
+        bool transFlagIn = false)
         : name(nameIn),
           dtype(dtypeIn),
           shape(shapeIn),
@@ -80,8 +83,7 @@ struct MatmulTensorInfo {
           format(formatIn),
           memType(memTypeIn),
           transFlag(transFlagIn)
-    {
-    }
+    {}
 };
 
 struct MatmulTileInfo {
@@ -131,7 +133,8 @@ struct MatmulGraphNodes {
     MatmulGraphNodes(LogicalTensorPtr aTensorIn, LogicalTensorPtr bTensorIn, LogicalTensorPtr gmAccumulationTensorIn)
         : aTensorPtr(aTensorIn), bTensorPtr(bTensorIn), gmAccumulationTensorPtr(gmAccumulationTensorIn){};
 
-    MatmulGraphNodes(LogicalTensorPtr aTensorIn, LogicalTensorPtr aScaleTensorIn, LogicalTensorPtr bTensorIn,
+    MatmulGraphNodes(
+        LogicalTensorPtr aTensorIn, LogicalTensorPtr aScaleTensorIn, LogicalTensorPtr bTensorIn,
         LogicalTensorPtr bScaleTensorIn)
         : aTensorPtr(aTensorIn),
           aScaleTensorPtr(aScaleTensorIn),
@@ -158,7 +161,8 @@ struct MatmulAttrParam {
 
     MatmulAttrParam() = default;
 
-    MatmulAttrParam(bool isATrans, bool isBTrans, bool cMatrixNZ) {
+    MatmulAttrParam(bool isATrans, bool isBTrans, bool cMatrixNZ)
+    {
         transA = isATrans;
         transB = isBTrans;
         isCMatrixNZ = cMatrixNZ;
@@ -169,14 +173,16 @@ struct MatmulAttrParam {
           transAScale(isAScaleTrans),
           transB(isBTrans),
           transBScale(isBScaleTrans),
-          isCMatrixNZ(cMatrixNZ) {
+          isCMatrixNZ(cMatrixNZ)
+    {
         hasMXScale = true;
     }
 };
 
-void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
-                        const LogicalTensorPtr &cTensorPtr, const Operation &op);
-}  // namespace Matrix
+void ConstructTileGraph(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& operandVec,
+    const LogicalTensorPtr& cTensorPtr, const Operation& op);
+} // namespace Matrix
 
 namespace Conv {
 constexpr const int NCHW_N_IDX = 0;
@@ -210,6 +216,7 @@ constexpr uint32_t PAD_TAIL_INDEX = 5;
 constexpr uint32_t PAD_STRIDE_H = 0;
 constexpr uint32_t PAD_STRIDE_W = 1;
 constexpr uint32_t PAD_STRIDE_D = 2;
+constexpr int MAX_LOOP = 2000;
 
 const std::string OP_ATTR_PREFIX = "op_attr_";
 const std::string CONV_PADDINGS_ATTR = OP_ATTR_PREFIX + "paddings";
@@ -289,8 +296,10 @@ struct ConvAttrParam {
 
     ConvAttrParam() = default;
 
-    ConvAttrParam(std::vector<int64_t> paddingsList, std::vector<int64_t> stridesList, std::vector<int64_t> dilationsList,
-                  int64_t groupsValue) {
+    ConvAttrParam(
+        std::vector<int64_t> paddingsList, std::vector<int64_t> stridesList, std::vector<int64_t> dilationsList,
+        int64_t groupsValue)
+    {
         paddings = paddingsList;
         strides = stridesList;
         dilations = dilationsList;
@@ -372,9 +381,10 @@ struct ConvIterInfo {
     bool isLastK = false;
 };
 
-void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
-                        const LogicalTensorPtr &cTensorPtr, const Operation &op);
+void ConstructTileGraph(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& operandVec,
+    const LogicalTensorPtr& cTensorPtr, const Operation& op);
 
 } // namespace Conv
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

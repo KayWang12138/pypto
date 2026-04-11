@@ -34,12 +34,12 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <execinfo.h>
-#include "interface/utils/log.h"
 #include "interface/utils/common.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "machine/utils/machine_error.h"
 #include "memory_pool.h"
 
 constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
@@ -69,13 +69,7 @@ typedef enum tagProcType {
     PROCESS_CPTYPE_MAX
 } processType_t;
 
-enum res_map_type {
-    RES_AICORE = 0,
-    RES_HSCB_AICORE,
-    RES_L2BUFF,
-    RES_C2C,
-    RES_MAP_TYPE_MAX
-};
+enum res_map_type { RES_AICORE = 0, RES_HSCB_AICORE, RES_L2BUFF, RES_C2C, RES_MAP_TYPE_MAX };
 
 struct res_map_info {
     processType_t target_proc_type;
@@ -89,83 +83,83 @@ namespace npu::tile_fwk {
 
 #ifdef BUILD_WITH_CANN
 
-inline void CheckDeviceId() {
+inline void CheckDeviceId()
+{
     int32_t devId = 0;
     int32_t getDeviceResult = rtGetDevice(&devId);
     if (getDeviceResult != RT_ERROR_NONE) {
-        MACHINE_LOGE("fail get device id, check if set device id");
+        MACHINE_LOGE(RtErr::RT_DEVICE_FAILED, "fail get device id, check if set device id");
         return;
     }
 }
 
-inline int32_t GetUserDeviceId() {
+inline int32_t GetUserDeviceId()
+{
     int32_t userDeviceId = 0;
     rtGetDevice(&userDeviceId);
     return userDeviceId;
 }
 
-inline int32_t GetLogDeviceId() {
+inline int32_t GetLogDeviceId()
+{
     int32_t logicDeviceId = 0;
     int32_t userDeviceId = GetUserDeviceId();
-    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
-           userDeviceId << " to logDevId not success";
-    MACHINE_LOGD("Current userDeviceId is %d, logic Deviceid is %d", userDeviceId, logicDeviceId);
+    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE)
+        << "Trans usrDeviceId: " << userDeviceId << " to logDevId not success";
+    MACHINE_LOGD("Current userDeviceId=%d, logicDeviceId=%d.", userDeviceId, logicDeviceId);
     return logicDeviceId;
 }
 
 class RuntimeAgentMemory {
 public:
-    void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
+    void AllocDevAddr(uint8_t** devAddr, uint64_t size)
+    {
         bool success = memPool_.AllocDevAddrInPool(devAddr, size);
         if (!success) {
-            MACHINE_LOGE("RuntimeAgent::AllocDevAddrInPool failed for size %lu", size);
+            MACHINE_LOGE(DevCommonErr::ALLOC_FAILED, "RuntimeAgent::AllocDevAddrInPool failed for size %lu", size);
             devAddr = nullptr;
         } else {
             MACHINE_LOGI("RuntimeAgentMemory: Alloc success %p", *devAddr);
         }
     }
 
-    void FreeDevAddr(uint8_t *devAddr) {
-        if (!devAddr) return; 
+    void FreeDevAddr(uint8_t* devAddr)
+    {
+        if (!devAddr)
+            return;
         memPool_.FreeDevAddr(devAddr);
     }
 
-    void DynamicRecycle() {
-        memPool_.DynamicRecycle();
-    }
+    void DynamicRecycle() { memPool_.DynamicRecycle(); }
 
-    void PrintPoolStatus() {
-        memPool_.PrintPoolStatus();
-    }
+    void PrintPoolStatus() { memPool_.PrintPoolStatus(); }
 
-    bool CheckAllSentinels() {
-        return memPool_.CheckAllSentinels();
-    }
+    bool CheckAllSentinels() { return memPool_.CheckAllSentinels(); }
 
-    static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
+    static void CopyToDev(uint8_t* devDstAddr, uint8_t* hostSrcAddr, uint64_t size)
+    {
         rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
-        MACHINE_LOGD("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %lu", reinterpret_cast<uint64_t>(hostSrcAddr),
+        MACHINE_LOGD(
+            "RuntimeAgent::CopyToDev src=%#lx, dst=%#lx, size=%lu", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devDstAddr), size);
     }
 
-    static void CopyFromDev(uint8_t *hostDstAddr, uint8_t *devSrcAddr, uint64_t size) {
+    static void CopyFromDev(uint8_t* hostDstAddr, uint8_t* devSrcAddr, uint64_t size)
+    {
         rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
     }
 
-    int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType);
-    int GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, std::vector<int64_t> &regsPmu);
+    int GetAicoreRegInfo(std::vector<int64_t>& aic, std::vector<int64_t>& aiv, const int& addrType);
+    int GetAicoreRegInfoForDAV3510(std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu);
 
     // Only used in test case.
-    void *MapAiCoreReg();
-    
-    bool GetValidGetPgMask() const {
-        return validGetPgMask;
-    }
+    void* MapAiCoreReg();
+
+    bool GetValidGetPgMask() const { return validGetPgMask; }
 
 protected:
-    void DestroyMemory() {
-        memPool_.DestroyPool();
-    }
+    void DestroyMemory() { memPool_.DestroyPool(); }
+
 private:
     bool validGetPgMask = true;
     DevMemoryPool memPool_;
@@ -173,41 +167,51 @@ private:
 
 class RuntimeAgentStream {
 public:
-    rtStream_t &GetStream() { return raStreamInstance; }
+    rtStream_t& GetStream() { return raStreamInstance; }
 
-    aclrtStream &GetScheStream() { return raStreamInstanceSche; }
+    aclrtStream& GetScheStream() { return raStreamInstanceSche; }
 
-    rtStream_t &GetCtrlStream() { return raStreamInstanceCtrl; }
+    rtStream_t& GetCtrlStream() { return raStreamInstanceCtrl; }
 
-    void CreateStream() {
+    rtStream_t& GetCurrentStream() { return currentStream; }
+
+    void SetCurrentStream(aclrtStream& stream) { currentStream = stream; }
+
+    void CreateStream()
+    {
         rtStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
         rtStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
         rtStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
     }
-    void DestroyStream() {
+    void DestroyStream()
+    {
         rtStreamDestroy(raStreamInstance);
         rtStreamDestroy(raStreamInstanceSche);
         rtStreamDestroy(raStreamInstanceCtrl);
     }
+
 private:
     rtStream_t raStreamInstance{0};
     rtStream_t raStreamInstanceCtrl{0};
     aclrtStream raStreamInstanceSche{0};
+    aclrtStream currentStream{0};
 };
 
 class RuntimeAgent : public RuntimeAgentMemory, public RuntimeAgentStream {
 public:
-    RuntimeAgent(RuntimeAgent &other) = delete;
+    RuntimeAgent(RuntimeAgent& other) = delete;
 
-    void operator=(const RuntimeAgent &other) = delete;
+    void operator=(const RuntimeAgent& other) = delete;
 
-    static RuntimeAgent *GetAgent() {
+    static RuntimeAgent* GetAgent()
+    {
         static RuntimeAgent inst;
         return &inst;
     }
 
 protected:
-    RuntimeAgent() {
+    RuntimeAgent()
+    {
 #ifdef RUN_WITH_ASCEND_CAMODEL
         // don't call aclInit, it will cause camodel running fail
 #else
@@ -220,15 +224,17 @@ public:
     ~RuntimeAgent() { Finalize(); }
 
 public:
-    static uint64_t GetL2Offset () {
+    static uint64_t GetL2Offset()
+    {
         uint64_t offset = 0;
         int32_t userDeviceId = GetUserDeviceId();
         rtGetL2CacheOffset(userDeviceId, &offset);
-        MACHINE_LOGD("rtGetL2CacheOffset %lu", offset);
+        MACHINE_LOGD("rtGetL2CacheOffset=%lu", offset);
         return offset;
     }
 
-    void CopyFromTensor(uint8_t *hostDstAddr, uint8_t *devSrcAddr, uint64_t size) {
+    void CopyFromTensor(uint8_t* hostDstAddr, uint8_t* devSrcAddr, uint64_t size)
+    {
 #ifdef RUN_WITH_ASCEND_CAMODEL
         rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
 #else
@@ -237,12 +243,14 @@ public:
 #endif
     }
 
-    void FreeTensor(uint8_t *devAddr) {
+    void FreeTensor(uint8_t* devAddr)
+    {
         MACHINE_LOGD("RuntimeAgent::FreeTensor");
         this->FreeDevAddr(devAddr);
     }
 
-    void Finalize() {
+    void Finalize()
+    {
         if (aclInited) {
             DestroyMemory();
             DestroyStream();
@@ -251,11 +259,12 @@ public:
 #endif
         }
 
-        MACHINE_LOGD("RuntimeAgent: runtime quit");
+        MACHINE_LOGD("RuntimeAgent: Runtime quit!");
     }
 
 private:
-    void Init() {
+    void Init()
+    {
         MACHINE_LOGI("RuntimeAgent: Init acl runtime!");
         CheckDeviceId();
         MACHINE_LOGD("RuntimeAgent: Create a default stream!");
@@ -266,9 +275,7 @@ private:
     bool aclInited{false};
 };
 namespace machine {
-inline npu::tile_fwk::RuntimeAgent *GetRA() {
-    return npu::tile_fwk::RuntimeAgent::GetAgent();
-}
+inline npu::tile_fwk::RuntimeAgent* GetRA() { return npu::tile_fwk::RuntimeAgent::GetAgent(); }
 } // namespace machine
 #else
 

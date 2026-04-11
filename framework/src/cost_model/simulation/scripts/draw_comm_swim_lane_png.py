@@ -14,7 +14,7 @@ import json
 import matplotlib.pyplot as plt
 import os
 import argparse
- 
+
 # Define color mapping
 COLORS = {
     "ATTN": "blue",
@@ -51,7 +51,7 @@ def plot_swim_lane(input_data, out_path):
             start = task["execStart"]
             end = task["execEnd"]
             task_type = task["type"]
- 
+
             # Use hlines to draw horizontal bar chart
             ax.hlines(
                 y=y_position,

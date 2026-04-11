@@ -39,7 +39,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -50,7 +51,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
+TEST_F(TestCodegenDynIndexOutCast, IndexOutCast)
+{
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     int S = 1;
     int S2 = 16;
@@ -64,17 +66,22 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     const std::vector<SymbolicScalar> dynValidShape2 = {S, kvLoraRank + qkRopeHeadDim};
 
     TileShape::Current().SetVecTile(16, 16);
-    auto shapeImme = OpImmediate::Specified({16, 16});
 
     Tensor kv_len(DataType::DT_INT64, shape1, "kv_len");
     Tensor past_key_states(DataType::DT_FP32, shape0, "past_key_states");
     Tensor key_states(DataType::DT_FP32, shape2, "key_states"); // [16,16]
 
     std::string funcName = "ScatterUpdate";
-    FUNCTION(funcName, {kv_len, key_states, past_key_states}) {
-        past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
+    FUNCTION(funcName, {kv_len, key_states, past_key_states})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
+            (void)i;
+            past_key_states = ScatterUpdate(past_key_states, kv_len, key_states, -2);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
 
     auto ddrTensor =
@@ -84,13 +91,14 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     auto localTensorSrc1 =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape1, dynValidShape1});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_INDEX_OUTCAST, {localTensorSrc0, localTensorSrc1, ddrTensor}, {ddrTensor});
     op.SetAttribute("axis", 0);
     op.SetAttribute(OpAttributeKey::panzBlockSize, 1);
     std::string cacheMode = "PA_BNSD";
     op.SetAttribute(OpAttributeKey::cacheMode, cacheMode);
     auto to_offset = OpImmediate::Specified({0, 0});
+    auto shapeImme = OpImmediate::Specified({16, 16});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     op.SetOOpAttrOffset(0, 0);
@@ -100,11 +108,8 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[localTensorSrc0->GetMagic()] = localTensorSrc0;
-    function->GetTensorMap().inverseMap_[localTensorSrc1->GetMagic()] = localTensorSrc1;
-
-    cop.Init(op);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -113,23 +118,14 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
-    std::vector<int64_t> scaterShape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(scaterShape);
-    TileShape::Current().SetVecTile(scaterShape);
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
+TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    Tensor inputA(DT_FP32, scaterShape, "A");
-    Tensor inputB(DT_FP32, scaterShape, "B");
-    Tensor output(DT_FP32, scaterShape, "C");
 
-    std::string funcName = "IndexoutTileTensor";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    function->SetUnderDynamicFunction(true);
+    auto function = GenMockFuncDyn("IndexoutTileTensor");
+
+    std::vector<int64_t> scaterShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto indexoutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, scaterShape, dynValidShape});
@@ -143,13 +139,14 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
     LogicalTensors inputs = {localOutTensor, localOutTensor, localOutTensor};
     LogicalTensors outputs = {indexoutTensor};
 
-    auto &indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
+    auto& indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
     indexoutOp.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     indexoutOp.SetAttribute("axis", 0);
     indexoutOp.SetAttribute(OpAttributeKey::panzBlockSize, 1);
     std::string cacheMode = "PA_BNSD";
     indexoutOp.SetAttribute(OpAttributeKey::cacheMode, cacheMode);
     auto to_offset = OpImmediate::Specified({0, 0});
+    auto shapeImme = OpImmediate::Specified(scaterShape);
     indexoutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(indexoutOp.GetOpAttribute());
     indexoutOp.SetOOpAttrOffset(0, 0);
@@ -157,34 +154,32 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(indexoutOp, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[indexoutTensor->GetMagic()] = indexoutTensor;
-    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], indexoutOp, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
 
-    cop.Init(indexoutOp);
-    cop.UpdateTileTensorInfo();
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(TIndexOutcast<0, 1>(gmTensor_9, ubTensor_10, ubTensor_10, Coord2Dim(0, 0));
+    std::string expect = R"!!!(TIndexOutcast<0, 1>(gmTensor_0, ubTensor_1, ubTensor_1, Coord2Dim(0, 0));
 )!!!";
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
+TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned)
+{
     TileShape::Current().SetVecTile({32, 32});
 
-    PassManager &passManager = PassManager::Instance();
+    PassManager& passManager = PassManager::Instance();
     passManager.RegisterStrategy(
         "GenerateMoveOpPassTestStrategy", {
-                                              {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
-                                              {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
-                                              {           "DuplicateOp",              PassName::DUPLICATE_OP},
-                                              {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
-                                              {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+                                              {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                                              {"ExpandFunction", PassName::EXPAND_FUNCTION},
+                                              {"DuplicateOp", PassName::DUPLICATE_OP},
+                                              {"MergeViewAssemble", PassName::MERGE_VIEW_ASSEMBLE},
+                                              {"AssignMemoryType", PassName::ASSIGN_MEMORY_TYPE},
                                               {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
-                                              {          "SplitReshape",             PassName::SPLIT_RESHAPE},
-                                              {     "RemoveRedundantOp",       PassName::REMOVE_REDUNDANT_OP},
-                                              {        "GenerateMoveOp",          PassName::GENERATE_MOVE_OP},
-    });
+                                              {"SplitReshape", PassName::SPLIT_RESHAPE},
+                                              {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
+                                              {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
+                                          });
 
     int h = 32;
     int minusTwo = -2;
@@ -193,8 +188,10 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     Tensor keyStates(DT_INT32, {h, h}, "keyStates");
 
     std::string funcName = "DynIndexOutUnaligned";
-    FUNCTION(funcName + "Main", {idxs, keyStates}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName + "Main", {idxs, keyStates}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = ScatterUpdate(output, idxs, keyStates, minusTwo);
         }
@@ -205,29 +202,14 @@ TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX);
 #endif
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {2, 0, 1, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->InsertDynParam("sym_32_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_32_dim_1", fakeParam);
-        subFunc.second->InsertDynParam("sym_38_dim_0", fakeParam);
-        subFunc.second->InsertDynParam("sym_38_dim_1", fakeParam);
-    }
+
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TileOp::DynTIndexoutcast<int32_t, int32_t, 1, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 0, 0), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_6_dim_1, sym_9_dim_0, sym_9_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
+        R"!!!(TileOp::DynTIndexoutcast<int32_t, int32_t, 1, 32, 32, 32, 0, 1>((__gm__ int32_t*)GET_PARAM_ADDR(param, 2, 28), (__ubuf__ int32_t*)UB_S0_E4096, (__ubuf__ int32_t*)UB_S4096_E8192, 1, 1, sym_6_dim_1, sym_9_dim_0, sym_9_dim_1, 1, 1, GET_PARAM_RAWSHAPE_2(param, 2, 28), 0, 0, (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 28, 1)));
 )!!!";
     CheckStringExist(expect, res);
 }

@@ -18,11 +18,9 @@
 #include <vector>
 #include <string>
 
-namespace CostModel
-{
-    class SimulatorAdaptor
-    {
-    public:
-        std::vector<std::string> Rewrite(const std::vector<std::string> &program) const;
-    };
+namespace CostModel {
+class SimulatorAdaptor {
+public:
+    std::vector<std::string> Rewrite(const std::vector<std::string>& program) const;
+};
 } // namespace CostModel

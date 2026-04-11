@@ -117,8 +117,7 @@ def get_vec_tile_shapes() -> List[int]:
     return scope.get_vec_tile_shapes()
 
 
-def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_multi_data_load: bool = False,
-                        enable_split_k: bool = False):
+def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_split_k: bool = False):
     """ set the tile shapes in cube computation
 
     This operation sets the value of the tile shapes
@@ -139,10 +138,6 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_multi_
         the value of the tile shape in n dimension
         The length of the list must be 2.
 
-    enable_multi_data_load: bool
-        whether the process of moving L1 to L0 is multi data load.
-        default is false (i.e. not multi data load)
-
     enable_split_k: bool
         whether the matmul result accumulated in the GM.
         default is false (i.e. not GM ACC)
@@ -159,11 +154,11 @@ def set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_multi_
 
     """
     # implementation
-    cube_tile = CubeTile(m, k, n, enable_multi_data_load, enable_split_k)
+    cube_tile = CubeTile(m, k, n, enable_split_k)
     pypto_impl.SetScope({"cube_tile_shapes": cube_tile.impl()})
 
 
-def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]:
+def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool]:
     """ get the tile shapes in cube computation
 
     This operation gets the value of the tile shapes
@@ -180,13 +175,13 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
     --------
     >>> pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
     >>> print(pypto.get_cube_tile_shapes())
-    [[16, 16], [256, 512], [128, 128], True, False]
+    [[16, 16], [256, 512], [128, 128], True]
 
     """
     # implementation
     scope = get_current_scope()
     cube_tile = scope.get_cube_tile_shapes()
-    return tuple([cube_tile.m, cube_tile.k, cube_tile.n, cube_tile.enableMultiDataLoad, cube_tile.enableSplitK])
+    return tuple([cube_tile.m, cube_tile.k, cube_tile.n, cube_tile.enableSplitK])
 
 
 def set_conv_tile_shapes(tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info = None):
@@ -275,7 +270,7 @@ def get_conv_tile_shapes() -> Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info
     # implementation
     scope = get_current_scope()
     conv_tile = scope.get_conv_tile_shapes()
-    return tuple([conv_tile.tile_l1_info, conv_tile.tile_l0_info, conv_tile.set_l0_tile])
+    return tuple([conv_tile.tileL1Info, conv_tile.tileL0Info, conv_tile.setL0Tile])
 
 
 def set_matrix_size(size: List[int]):
@@ -421,7 +416,8 @@ def function(name: str, *args) -> Iterator:
         set_source_location(level=2)
         func = pypto_impl.RecordFunc(name, [t.base() for t in in_out_tensors])
         clear_source_location()
-        yield func
+        for _ in loop(1, name="__main__"):
+            yield func
     except Exception as e:
         logging.error("Record function %s failed: %s", name, e)
         raise
@@ -486,11 +482,11 @@ class _LoopFunction:
             setattr(scalar, "_loop_end", self._end)
             return scalar
 
-    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop):
+    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop, parallel):
         loop_range = loop_range.base()
         self._base = pypto_impl.RecordLoopFunc(name, pypto_impl.FunctionType.DYNAMIC_LOOP,
                                              loop_name, loop_range,
-                                             unroll_list, submit_before_loop)
+                                             unroll_list, submit_before_loop, parallel)
         self._begin = loop_range.Begin()
         self._end = loop_range.End()
 
@@ -505,6 +501,7 @@ def _loop_function(
     loop_range: LoopRange,
     unroll_list: Optional[List[int]] = None,
     submit_before_loop: bool = False,
+    parallel: bool = False,
 ):
     if unroll_list is None:
         unroll_set = set()
@@ -516,7 +513,7 @@ def _loop_function(
         frame = sys._getframe(3)
         pypto_impl.BeginScope(name, {}, frame.f_code.co_filename, frame.f_lineno)
         rlf = _LoopFunction(name, loop_name, loop_range,
-                            unroll_set, submit_before_loop)
+                            unroll_set, submit_before_loop, parallel)
         clear_source_location()
         yield rlf
     except Exception as e:
@@ -630,9 +627,10 @@ def loop(
     idx_name = kwargs.get("idx_name", f"loop_idx_{loop_idx}")
     unroll_list = kwargs.get("unroll_list", None)
     submit_before_loop = kwargs.get("submit_before_loop", False)
+    parallel = kwargs.get("parallel", False)
     with _loop_function(
         name, idx_name, _loop_range(
-            start, stop, step), unroll_list, submit_before_loop
+            start, stop, step), unroll_list, submit_before_loop, parallel
     ) as rlf:
         for k in rlf:
             yield k
@@ -679,7 +677,6 @@ def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
         unroll_list.append(1)
 
     ori_name = kwargs.get("name", None)
-    ori_idx_name = kwargs.get("idx_name", None)
 
     nstart = start
     for p in unroll_list:

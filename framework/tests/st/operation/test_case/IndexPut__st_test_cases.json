@@ -2021,6 +2021,1716 @@
                 "func_id": -1
             },
             "index": 23
+        },
+        {
+            "case_index": 24,
+            "case_name": "IndexPutInplace_test_24",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        33
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 33
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        33
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 24
+        },
+        {
+            "case_index": 25,
+            "case_name": "IndexPutInplace_test_25",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        33,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 33
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        33,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 25
+        },
+        {
+            "case_index": 26,
+            "case_name": "IndexPutInplace_test_26",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        33,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 33
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        33,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                11
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 26
+        },
+        {
+            "case_index": 27,
+            "case_name": "IndexPutInplace_test_27",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        33,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 33
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 47
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        33,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 27
+        },
+        {
+            "case_index": 28,
+            "case_name": "IndexPutInplace_test_28",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 28
+        },
+        {
+            "case_index": 29,
+            "case_name": "IndexPutInplace_test_29",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                7
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 29
+        },
+        {
+            "case_index": 30,
+            "case_name": "IndexPutInplace_test_30",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                7,
+                11
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 30
+        },
+        {
+            "case_index": 31,
+            "case_name": "IndexPutInplace_test_31",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 13
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                8
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 31
+        },
+        {
+            "case_index": 32,
+            "case_name": "IndexPutInplace_test_32",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 13
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                8
+            ],
+            "tile_shape": [
+                3,
+                5
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 32
+        },
+        {
+            "case_index": 33,
+            "case_name": "IndexPutInplace_test_33",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 13
+                    }
+                },
+                {
+                    "name": "input4",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 47
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        11,
+                        13,
+                        47
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                8
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 33
+        },
+        {
+            "case_index": 34,
+            "case_name": "IndexPutInplace_test_34",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        3,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        3
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 34
+        },
+        {
+            "case_index": 35,
+            "case_name": "IndexPutInplace_test_35",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        3,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        3
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                5
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 35
+        },
+        {
+            "case_index": 36,
+            "case_name": "IndexPutInplace_test_36",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        3,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        3
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                5,
+                7
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 36
+        },
+        {
+            "case_index": 37,
+            "case_name": "IndexPutInplace_test_37",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        3,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        3
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                5,
+                7,
+                9
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 37
+        },
+        {
+            "case_index": 38,
+            "case_name": "IndexPutInplace_test_38",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 38
+        },
+        {
+            "case_index": 39,
+            "case_name": "IndexPutInplace_test_39",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                5
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 39
+        },
+        {
+            "case_index": 40,
+            "case_name": "IndexPutInplace_test_40",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                5,
+                7
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 40
+        },
+        {
+            "case_index": 41,
+            "case_name": "IndexPutInplace_test_41",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                },
+                {
+                    "name": "input4",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 13
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 41
+        },
+        {
+            "case_index": 42,
+            "case_name": "IndexPutInplace_test_42",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                },
+                {
+                    "name": "input4",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 13
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3,
+                5
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 42
+        },
+        {
+            "case_index": 43,
+            "case_name": "IndexPutInplace_test_43",
+            "operation": "IndexPut_",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1,
+                        "max": 1
+                    }
+                },
+                {
+                    "name": "input1",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                },
+                {
+                    "name": "input2",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 5
+                    }
+                },
+                {
+                    "name": "input3",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 11
+                    }
+                },
+                {
+                    "name": "input4",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 13
+                    }
+                },
+                {
+                    "name": "input5",
+                    "shape": [
+                        10
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 0,
+                        "max": 31
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        11,
+                        13,
+                        31
+                    ],
+                    "dtype": "fp32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7
+            ],
+            "tile_shape": [
+                3
+            ],
+            "params": {
+                "accumulate": false,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 43
         }
     ]
 }

@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -26,17 +27,18 @@ remainder(input: Union[Tensor, int, float], other: Union[Tensor, int, float]) ->
 
 | 参数名 | 输入/输出 | 说明                                                                 |
 |--------|-----------|----------------------------------------------------------------------|
-| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor、int、float。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16。 <br> 不支持空Tensor；Shape仅支持1-5维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor、int、float。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16。 <br> 不支持空Tensor；Shape仅支持1-5维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor、int、float。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16。 <br> 不支持空Tensor；Shape仅支持1-4维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other  | 输入      | 源操作数。 <br> 支持的类型为：Tensor、int、float。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16。 <br> 不支持空Tensor；Shape仅支持1-4维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
 
 ## 返回值说明
 
-返回输出Tensor，Shape为input和other广播后大小。若input和other均为Tensor，则Tensor的数据类型和input、other相同；若有一个输入Tensor数据类型为浮点数，则输出Tensor的数据类型与该Tensor数据类型相同；若一输入为整数Tensor类型，另一个为float，则输出Tensor的数据类型为DT_FP32；若输入均为整数类型，则输出Tensor的数据类型与输入Tensor的数据类型相同。
+返回输出Tensor，Shape为input和other广播后大小，数据类型和输入Tensor的数据类型相同。
 
 ## 约束说明
 
-1.  input 和 other 类型应该相同；
-2.  other 不支持0等特殊值。
+1. input 和 other 均为Tensor时数据类型相同；
+2. other 不支持0等特殊值；
+3. 若输入Tensor的数据类型为DT_INT32，数据范围超过\[-2^24, 2^24\]时不保证精度。
 
 ## 调用示例
 
@@ -55,6 +57,7 @@ pypto.set_vec_tile_shapes(4, 16)
 ```
 
 ### 接口调用示例
+
 ```python
 a = pypto.tensor([7.0, 8.0, 9.0], pypto.DT_FP32)
 b = pypto.tensor([-3.0, -3.0, -3.0], pypto.DT_FP32)
@@ -64,7 +67,7 @@ out = pypto.remainder(a, b)
 结果示例如下：
 
 ```python
-输入数据a:    [7.0, 8.0, 9.0] 
+输入数据a:    [7.0, 8.0, 9.0]
 输入数据b:    [-3.0, -3.0, -3.0]
 输出数据out:  [-2.0, -1.0, 0.0]
 ```

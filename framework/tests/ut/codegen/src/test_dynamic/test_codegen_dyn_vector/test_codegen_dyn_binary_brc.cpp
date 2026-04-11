@@ -26,6 +26,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_common.h"
+#include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {
 
@@ -35,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -46,7 +48,8 @@ public:
 };
 
 // mul (32, 512), (32, 1)
-TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
+TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic)
+{
     config::SetOperationOption(KEY_FORCE_COMBINE_AXIS, true);
     std::vector<int64_t> shape1 = {32, 512};
     std::vector<int64_t> shape2 = {32, 1};
@@ -57,8 +60,10 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     ConfigManager::Instance();
 
     std::string funcName = "MUL_T";
-    FUNCTION(funcName, {input_a, input_b, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input_a, input_b, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             // add RowSumSingle to test brc case
             auto input_c = Sum(input_b, -1, true);
@@ -67,57 +72,21 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_18_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_18_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_19_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_19_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_32_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_32_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_42_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_42_dim_1", fakeParam);
-    }
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic) {
+TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    std::vector<int64_t> shape1 = {32, 256};
-    TileShape::Current().SetVecTile({32, 256});
-    Tensor input_a(DataType::DT_FP32, shape1, "A");
-    Tensor input_b(DataType::DT_FP32, shape1, "B");
-    Tensor output(DataType::DT_FP32, shape1, "C");
     ConfigManager::Instance();
-
-    std::string funcName = "TestAddBrcTileTensorDynamic";
-    FUNCTION(funcName, {input_a, input_b, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(input_a, input_b);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
+    auto function = GenMockFuncDyn("TestAddBrcTileTensorDynamic", {32, 256});
+    for (auto& subFunc : function->rootFunc_->programs_) {
+        for (auto& op : subFunc.second->Operations()) {
             if (op.GetOpcode() == Opcode::OP_ADD) {
                 op.SetAttribute(OpAttributeKey::brcbIdx, 1);
                 std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -127,7 +96,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic) {
                 CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
                 std::string res = cop.GenOpCode();
                 std::string expect =
-                    R"!!!(TAdd<LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand::LEFT_OPERAND>(ubTensor_9, ubTensor_9, ubTensor_11);
+                    R"!!!(TAdd<LastUse3Dim<0, 1, 1>, TileOp::BroadcastOperand::LEFT_OPERAND>(ubTensor_0, ubTensor_0, ubTensor_2);
 )!!!";
                 EXPECT_EQ(res, expect);
                 break;

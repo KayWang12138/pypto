@@ -13,6 +13,7 @@ Softmax 是深度学习中极其常用的算子，尤其在 Attention 机制中�
 ## 核心算法实现
 
 ### 1. 核心计算逻辑 (`softmax_core`)
+
 ```python
 def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     # 找到最后维度的最大值
@@ -28,12 +29,14 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
 ```
 
 ### 2. JIT 内核封装 (`softmax_kernel`)
+
 内核函数负责管理 Tiling 和循环：
+
 ```python
 @pypto.frontend.jit
 def softmax_kernel(
-    x: pypto.Tensor(x_shape, pypto.DT_FP32)
-) -> pypto.Tensor(x_shape, pypto.DT_FP32):
+    x: pypto.Tensor(x_shape, pypto.DT_FP32),
+):
     # 设置 Tiling 形状
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
     # 使用 pypto.loop 处理数据分块
@@ -51,7 +54,11 @@ def softmax_kernel(
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -70,5 +77,6 @@ python3 softmax.py
 - **高性能 Tiling**: 展示了如何针对向量处理单元（Vector Core）配置最佳的计算分块。
 
 ## 注意事项
+
 - 算子的性能高度依赖于 `set_vec_tile_shapes` 的设置，建议根据实际的隐层维度（Hidden Size）进行调优。
 - 本样例展示的是在 dim=-1 上的 Softmax，如需在其他维度计算，需相应调整 `amax` 和 `sum` 的维度参数。

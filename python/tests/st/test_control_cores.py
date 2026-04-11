@@ -74,14 +74,7 @@ def kernel_func(device_id):
                              device=f'npu:{device_id}')
         d_data_list.append(d_data)
 
-        # def inputs and outputs
-        inputs = [a_data, b_data, c_data]
-        outputs = [d_data]
-        pto_inputs = [pypto.from_torch(
-            tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(
-            tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-        matmul_add(pto_inputs[0], pto_inputs[1], pto_inputs[2], pto_outputs[0])
+        matmul_add(a_data, b_data, c_data, d_data)
 
     torch_npu.npu.synchronize()
 
@@ -89,7 +82,7 @@ def kernel_func(device_id):
         # get data and compare result
         d_data_inlist = [c for r in d_data_list[idx].cpu().tolist() for c in r]
         assert d_data_inlist == [k + idx] * len(d_data_inlist)
-    
+
     aic_count, aiv_count = count_core_types("./output")
 
     return aic_count, aiv_count
@@ -108,7 +101,7 @@ def test_rts_stream_control_cores():
     torch.npu.set_device(device_id)
     stream1 = torch.npu.current_stream()
     torch.npu.set_stream_limit(stream1, 8, 27)
-    
+
     aic_count, aiv_count = kernel_func(device_id)
 
 

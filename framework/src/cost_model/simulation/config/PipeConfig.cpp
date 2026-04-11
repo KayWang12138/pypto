@@ -22,19 +22,19 @@ PipeConfig::PipeConfig()
 {
     Config::prefix = "Pipe";
     Config::dispatcher = {
-        {"ubSizeThreshold", [&](string v){ ubSizeThreshold = ParseInteger(v); }},
-        {"l1SizeThreshold", [&](string v){ l1SizeThreshold = ParseInteger(v); }},
-        {"l0aSizeThreshold", [&](string v){ l0aSizeThreshold = ParseInteger(v); }},
-        {"l0bSizeThreshold", [&](string v){ l0bSizeThreshold = ParseInteger(v); }},
-        {"l0cSizeThreshold", [&](string v){ l0cSizeThreshold = ParseInteger(v); }},
+        {"ubSizeThreshold", [&](string v) { ubSizeThreshold = ParseInteger(v); }},
+        {"l1SizeThreshold", [&](string v) { l1SizeThreshold = ParseInteger(v); }},
+        {"l0aSizeThreshold", [&](string v) { l0aSizeThreshold = ParseInteger(v); }},
+        {"l0bSizeThreshold", [&](string v) { l0bSizeThreshold = ParseInteger(v); }},
+        {"l0cSizeThreshold", [&](string v) { l0cSizeThreshold = ParseInteger(v); }},
     };
 
     Config::recorder = {
-        {"ubSizeThreshold", [&](){ return "ubSizeThreshold = " + ParameterToStr(ubSizeThreshold); }},
-        {"l1SizeThreshold", [&](){ return "l1SizeThreshold = " + ParameterToStr(l1SizeThreshold); }},
-        {"l0aSizeThreshold", [&](){ return "l0aSizeThreshold = " + ParameterToStr(l0aSizeThreshold); }},
-        {"l0bSizeThreshold", [&](){ return "l0bSizeThreshold = " + ParameterToStr(l0bSizeThreshold); }},
-        {"l0cSizeThreshold", [&](){ return "l0cSizeThreshold = " + ParameterToStr(l0cSizeThreshold); }},
+        {"ubSizeThreshold", [&]() { return "ubSizeThreshold = " + ParameterToStr(ubSizeThreshold); }},
+        {"l1SizeThreshold", [&]() { return "l1SizeThreshold = " + ParameterToStr(l1SizeThreshold); }},
+        {"l0aSizeThreshold", [&]() { return "l0aSizeThreshold = " + ParameterToStr(l0aSizeThreshold); }},
+        {"l0bSizeThreshold", [&]() { return "l0bSizeThreshold = " + ParameterToStr(l0bSizeThreshold); }},
+        {"l0cSizeThreshold", [&]() { return "l0cSizeThreshold = " + ParameterToStr(l0cSizeThreshold); }},
     };
 }
-}
+} // namespace CostModel

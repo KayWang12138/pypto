@@ -22,26 +22,27 @@ def create_compute_func(shape, dtype):
     """Factory function that creates a new compute function with annotations."""
     tiling = 16
 
-    @pypto.frontend.jit(use_cache=False, debug_options={"runtime_debug_mode": 3})
+    @pypto.frontend.jit(use_cache=False)
     def compute_add(
         a: pypto.Tensor(shape, dtype),
         b: pypto.Tensor(shape, dtype),
-    ) -> pypto.Tensor(shape, dtype):
+        c: pypto.Tensor(shape, dtype),
+    ):
         pypto.set_cube_tile_shapes([tiling, tiling], [tiling, tiling], [tiling, tiling])
-        c = pypto.matmul(a, b, a.dtype)
-        return c
+        c[:] = pypto.matmul(a, b, a.dtype)
     return compute_add
 
 
 def test_correct_annotation():
-    """Test that correct annotation causes no error.""" 
+    """Test that correct annotation causes no error."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     shape = (16, 16)
     dtype = pypto.DT_FP32
     kernel = create_compute_func(shape, dtype)
 
-    kernel(torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'), 
+    kernel(torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
+           torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
            torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
     logging.info(f"✓ Verified: Correct annotation causes no error.")
 
@@ -54,7 +55,8 @@ def test_number_of_input_not_match():
     dtype = pypto.DT_FP32
     kernel = create_compute_func(shape, dtype)
     try:
-        kernel(torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
+        kernel(torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
+               torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
     except RuntimeError as e:
         logging.info(f"✓ Verified: Number of input not match causes an error: {e}")
     else:
@@ -70,7 +72,8 @@ def test_incorrect_number_of_dimensions_annotation():
     kernel = create_compute_func(shape, dtype)
 
     try:
-        kernel(torch.rand((16, 16, 16), dtype=torch.float32, device=f'npu:{device_id}'), 
+        kernel(torch.rand((16, 16, 16), dtype=torch.float32, device=f'npu:{device_id}'),
+               torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
     except ValueError as e:
         logging.info(f"✓ Verified: Incorrect number of dimensions annotation causes an error: {e}")
@@ -86,7 +89,8 @@ def test_incorrect_shape_annotation():
     dtype = pypto.DT_FP32
     kernel = create_compute_func(shape, dtype)
     try:
-        kernel(torch.rand((16, 18), dtype=torch.float32, device=f'npu:{device_id}'), 
+        kernel(torch.rand((16, 18), dtype=torch.float32, device=f'npu:{device_id}'),
+               torch.rand((16, 16), dtype=torch.float32, device=f'npu:{device_id}'),
                torch.rand((16, 16), dtype=torch.float32, device=f'npu:{device_id}'))
     except ValueError as e:
         logging.info(f"✓ Verified: Incorrect shape annotation causes an error: {e}")
@@ -102,8 +106,9 @@ def test_incorrect_dtype_annotation():
     dtype = pypto.DT_FP16
     kernel = create_compute_func(shape, dtype)
     try:
-        kernel(torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'), 
-               torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'))
+        kernel(torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'),
+               torch.rand(shape, dtype=torch.float32, device=f'npu:{device_id}'),
+               torch.rand(shape, dtype=torch.float16, device=f'npu:{device_id}'))
     except ValueError as e:
         logging.info(f"✓ Verified: Incorrect dtype annotation causes an error: {e}")
     else:

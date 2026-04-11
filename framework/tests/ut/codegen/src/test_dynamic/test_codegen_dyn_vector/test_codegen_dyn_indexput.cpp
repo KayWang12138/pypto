@@ -39,7 +39,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -50,7 +51,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynIndexPut, DynIndexPutUnaligned) {
+TEST_F(TestCodegenDynIndexPut, DynIndexPutTileTensor)
+{
     int h = 8;
     std::vector<int64_t> vecTileShape = {h};
     std::vector<int64_t> shape1 = {h, h};
@@ -62,8 +64,10 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutUnaligned) {
     Tensor indices1(DataType::DT_INT32, shape3, "indices1");
     Tensor output(DataType::DT_FP32, shape1, "output");
     std::string funcName = "IndexPut";
-    FUNCTION(funcName, {input, values, indices1}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, values, indices1}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             IndexPut_(input, {indices1}, values);
         }
@@ -75,5 +79,42 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutUnaligned) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TIndexPut<0, 1>(gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 24, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 24, 1))), ubTensor_0, ubTensor_2, ubTensor_2, ubTensor_2, ubTensor_2);
+)!!!";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenDynIndexPut, DynIndexPutDynUnaligned)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    auto function = GenMockFuncDyn("DynIndexPutDynUnaligned");
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShapeIdx = {32};
+    auto input = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto value = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto indices = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
+    auto result = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_INDEX_PUT, {input, value, indices}, {result});
+    op.SetAttribute(OpAttributeKey::accumulate, true);
+    op.SetAttribute(OpAttributeKey::indicesSize, 1);
+    auto shapeImme = OpImmediate::Specified(shape);
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme));
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TileOp::DynTIndexPut<float, float, 2, 1, 64, 64, 1>((__gm__ float*)GET_PARAM_ADDR(param, 0, -1), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 64, 1, 1, GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk

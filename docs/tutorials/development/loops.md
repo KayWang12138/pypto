@@ -13,8 +13,9 @@ SHAPE = (32, 32, 1, 256)
 def add_kernel(
     input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
     input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    out: pypto.Tensor(SHAPE, pypto.DT_FP32),
     val: int
-) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+):
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
     #calculate the loop parameters
@@ -22,17 +23,13 @@ def add_kernel(
     tile_b = 1
     b_loop = b // tile_b
 
-    output = pypto.tensor(SHAPE, pypto.DT_FP32)
-
     for idx in pypto.loop(b_loop):
         b_offset = idx * tile_b
         b_offset_end = (idx + 1) * tile_b
         t0_sub = input0[b_offset:b_offset_end, ...]
         t1_sub = input1[b_offset:b_offset_end, ...]
         t3_sub = t0_sub + t1_sub
-        output[b_offset:b_offset_end, ...] = t3_sub + val
-
-    return output
+        out[b_offset:b_offset_end, ...] = t3_sub + val
 ```
 
 循环使用的pypto.loop的全接口入参如下：
@@ -51,7 +48,7 @@ for idx in pypto.loop(start, end, step, name="label", idx_name="idx_label", subm
 ```python
 for idx in pypto.loop(start, end, step)   #不带loop的名字标签
 for idx in pypto.loop(start, end)         # 默认step=1
-for idx in pypto.loop(end)                # 默认start=0， step=1 
+for idx in pypto.loop(end)                # 默认start=0， step=1
 ```
 
 slicing语法糖的完整样例请参考：[loop.py](../../../examples/02_intermediate/controlflow/loop/loop.py)。
@@ -66,8 +63,9 @@ SHAPE = (32, 32, 1, 256)
 @pypto.frontend.jit
 def add_kernel(
     input0: pypto.Tensor(SHAPE, pypto.DT_FP32),
-    input1: pypto.Tensor(SHAPE, pypto.DT_FP32)
-) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+    input1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    out: pypto.Tensor(SHAPE, pypto.DT_FP32),
+):
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
     #calculate the loop parameters
@@ -75,16 +73,12 @@ def add_kernel(
     tile_b = 1
     b_loop = b // tile_b
 
-    output = pypto.tensor(SHAPE, pypto.DT_FP32)
-
     for idx in pypto.loop(b_loop):
         b_offset = idx * tile_b
         t0_sub = pypto.view(input0, [tile_b, n, s, d], [b_offset, 0, 0, 0])
         t1_sub = pypto.view(input1, [tile_b, n, s, d], [b_offset, 0, 0, 0])
         t3_sub = t0_sub + t1_sub
-        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
-
-    return output
+        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], out)
 ```
 
 view/assemble接口完整样例请参考：[add_scalar_loop_view_assemble.py](../../../examples/01_beginner/transform/add_scalar_loop_view_assemble.py)。
@@ -96,4 +90,3 @@ view/assemble接口完整样例请参考：[add_scalar_loop_view_assemble.py](..
 ```python
 for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx", submit_before_loop=True):
 ```
-

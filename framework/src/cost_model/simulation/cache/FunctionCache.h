@@ -29,7 +29,7 @@ namespace CostModel {
 class SimSys;
 class FunctionCache {
 public:
-    std::unordered_map<uint64_t, FunctionPtr> cache;  // key is function hash
+    std::unordered_map<uint64_t, FunctionPtr> cache; // key is function hash
     std::unordered_map<std::string, uint64_t> funcNameToKey;
     void Insert(FunctionPtr func);
     void CountFunctionCache(uint64_t key, CostModel::Pid pid, CostModel::Tid tid, bool hit);
@@ -52,4 +52,4 @@ private:
     uint64_t missCnt = 0;
     uint64_t maxCacheSize = -1;
 };
-}  // namespace CostModel
+} // namespace CostModel

@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include <iostream>
 #include "tilefwk/cann_host_runtime.h"
 #include "tilefwk/pypto_fwk_log.h"
 
@@ -20,8 +21,11 @@ namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string socVerFuncName = "rtGetSocVersion";
+const std::string socSpecFuncName = "rtGetSocSpec";
+const std::string aiCpuCntFuncName = "rtGetAiCpuCount";
 
-void *CannHostRuntime::GetSymbol(const std::string &sym) {
+void* CannHostRuntime::GetSymbol(const std::string& sym)
+{
 #ifdef BUILD_WITH_CANN
     if (handleDep_ != nullptr && handle_ != nullptr) {
         return dlsym(handle_, sym.c_str());
@@ -31,7 +35,8 @@ void *CannHostRuntime::GetSymbol(const std::string &sym) {
     return nullptr;
 }
 
-CannHostRuntime::CannHostRuntime() {
+CannHostRuntime::CannHostRuntime()
+{
 #ifdef BUILD_WITH_CANN
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
     std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
@@ -42,6 +47,8 @@ CannHostRuntime::CannHostRuntime() {
     handle_ = dlopen(soPath.c_str(), RTLD_LAZY);
     if (handleDep_ != nullptr && handle_ != nullptr) {
         socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
+        socSpecFunc_ = (GetSocSpecFunc)GetSymbol(socSpecFuncName);
+        aiCpuCntFunc_ = (GetAiCpuCntFunc)GetSymbol(aiCpuCntFuncName);
     }
 #endif
     if (handleDep_ == nullptr || handle_ == nullptr) {
@@ -49,7 +56,8 @@ CannHostRuntime::CannHostRuntime() {
     }
 }
 
-CannHostRuntime::~CannHostRuntime() {
+CannHostRuntime::~CannHostRuntime()
+{
     if (handle_ != nullptr) {
         dlclose(handle_);
     }
@@ -58,15 +66,14 @@ CannHostRuntime::~CannHostRuntime() {
     }
 }
 
-CannHostRuntime &CannHostRuntime::Instance() {
+CannHostRuntime& CannHostRuntime::Instance()
+{
     static CannHostRuntime instance;
     return instance;
 }
 
-bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
-// to do
-socVersion = "Kirin9030"; // TODO: need to check BUILD_WITH_CANN
-return true;
+bool CannHostRuntime::GetSocVersion(std::string& socVersion)
+{
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
@@ -76,7 +83,6 @@ return true;
     }
     if (ret == 0) {
         socVersion = std::string(socVer);
-        socVersion = "Kirin9030"; // TODO: need to modify libruntime.so rtGetSocVersion...
         return true;
     }
 #endif
@@ -84,31 +90,41 @@ return true;
     return false;
 }
 
-std::string CannHostRuntime::GetPlatformFile(const std::string &socVersion) {
-    std::string platformFile;
-    if (socVersion.empty()) {
-        return "";
+bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& key, std::string& val)
+{
+#ifdef BUILD_WITH_CANN
+    int ret = 1;
+    char charVal[kMaxLength] = {0};
+    if (socSpecFunc_ != nullptr) {
+        ret = socSpecFunc_(column.c_str(), key.c_str(), charVal, kMaxLength);
     }
-    // get platform file path
-    const char *envPath = std::getenv("ASCEND_HOME_PATH");
-    if (envPath == nullptr) {
-        return "";
+    if (ret == 0) {
+        charVal[kMaxLength - 1] = '\0';
+        val = std::string(charVal);
+        return true;
     }
-    std::string configRelativePath = "data/platform_config/";
-#ifdef PROCESSOR_SUBPATH
-    const char *processorSubpath = PROCESSOR_SUBPATH;
-#else
-    const char *processorSubpath = "";
 #endif
-    std::string platformConfDir = std::string(envPath) + "/" + std::string(processorSubpath) + "/" + configRelativePath;
-    if (RealPath(platformConfDir).empty()) {
-        platformConfDir = std::string(envPath) + "/" + configRelativePath;
-    }
-    platformFile = platformConfDir + socVersion + ".ini";
-    if (RealPath(platformFile).empty()) {
-        return "";
-    }
-    return platformFile;
+    (void)column;
+    (void)key;
+    (void)val;
+    return false;
 }
-}  // namespace tile_fwk
-}  // namespace npu
+
+bool CannHostRuntime::GetAICPUCnt(size_t& aiCpuCnt)
+{
+#ifdef BUILD_WITH_CANN
+    int ret = 1;
+    uint32_t cpuNum = 0;
+    if (aiCpuCntFunc_ != nullptr) {
+        ret = aiCpuCntFunc_(&cpuNum);
+    }
+    if (ret == 0) {
+        aiCpuCnt = static_cast<size_t>(cpuNum);
+        return true;
+    }
+#endif
+    (void)aiCpuCnt;
+    return false;
+}
+} // namespace tile_fwk
+} // namespace npu

@@ -22,10 +22,14 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicAttention : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = false, bool usePrefetch = false>
-void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig, string dataPath,
-        uint64_t timeThreshold, bool isQuant = false, bool isSmooth = false) {
-    (void) timeThreshold;
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = false,
+    bool usePrefetch = false>
+void TestDynamicAttention(
+    std::vector<int>& params, PaTileShapeConfig& paTileConfig, string dataPath, uint64_t timeThreshold,
+    bool isQuant = false, bool isSmooth = false)
+{
+    (void)timeThreshold;
 
     config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
     config::SetRuntimeOption(STITCH_FUNCTION_MAX_NUM, 128);
@@ -42,7 +46,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     int kvLoraRank = params[8];
 
     int vHeadDim = params[9];
-    int blockSize =params[10];
+    int blockSize = params[10];
     int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
 
     std::vector<int> atcSeqs(b);
@@ -144,8 +148,8 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
         }
     }
 
-    Tensor output_q(dType, {b*s*n, kvLoraRank}, "output_q");
-    Tensor output_q_rope(dType, {b*s*n, qkRopeHeadDim}, "output_q_rope");
+    Tensor output_q(dType, {b * s * n, kvLoraRank}, "output_q");
+    Tensor output_q_rope(dType, {b * s * n, qkRopeHeadDim}, "output_q_rope");
     Tensor output_kv_cache(dType, {b * 1 * s2, kvLoraRank}, "output_kv_cache", paFormat);
     Tensor output_kr_cache(dType, {b * 1 * s2, qkRopeHeadDim}, "output_kr_cache", paFormat);
 
@@ -166,10 +170,10 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     postOut.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
 
     int tileB = b;
-    RoPETileShapeConfigNew ropeConfig {
-        {tileB, 1, 64}, // (b,s,d)
-        {tileB, 1, 1, 64}, // Q (b,s,n,d)
-        {tileB, 1, 1, 64}, // K (b,s,1,d)
+    RoPETileShapeConfigNew ropeConfig{
+        {tileB, 1, 64},      // (b,s,d)
+        {tileB, 1, 1, 64},   // Q (b,s,n,d)
+        {tileB, 1, 1, 64},   // K (b,s,1,d)
         {tileB, 1, 1, 32, 2} // (b,s,n,d//2,2)
     };
 
@@ -187,12 +191,12 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     std::vector<T> krCacheValue(capacity_kr_cache, 0);
     std::vector<float> wQbScaleValue(capacity_w_qb_scale, 0);
     std::vector<float> smoothCqValue(capacity_smooth_cq, 0);
-    //pa
-    std::vector<int32_t> blockTableValue(b*maxBlockNumPerBatch, 0);
+    // pa
+    std::vector<int32_t> blockTableValue(b * maxBlockNumPerBatch, 0);
     std::vector<int32_t> actSeqsValue(b, s2);
-    //post
-    std::vector<T> weightUVValue(n*kvLoraRank*vHeadDim, 0);
-    std::vector<int8_t> weightOValue(n * vHeadDim*h, 0);
+    // post
+    std::vector<T> weightUVValue(n * kvLoraRank * vHeadDim, 0);
+    std::vector<int8_t> weightOValue(n * vHeadDim * h, 0);
     std::vector<float> weightOScaleWValue(h, 0);
 
     // read data
@@ -222,7 +226,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     readInput<int8_t>(dataPath + "/w_o.bin", weightOValue); // NZ
     readInput<float>(dataPath + "/w_o_scale_w.bin", weightOScaleWValue);
 
-     // golden
+    // golden
     std::vector<T> q_golden(capacity_q_out, 0);
     std::vector<T> q_rope_golden(capacity_q_rope_out, 0);
     std::vector<T> kv_cache_golden(capacity_kv_cache, 0);
@@ -230,7 +234,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     std::vector<T> golden5(capacity_fake_out, 0);
     std::vector<T> golden6(capacity_fake_out1, 0);
 
-    std::vector<float> atten_out_golden(b * n * s*kvLoraRank, 0);
+    std::vector<float> atten_out_golden(b * n * s * kvLoraRank, 0);
     std::vector<T> attn_output_golden(capacity_x, 0);
 
     readInput<T>(dataPath + "/q_golden.bin", q_golden);
@@ -239,7 +243,7 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     readInput<T>(dataPath + "/kr_cache_golden.bin", kr_cache_golden);
 
     readInput<float>(dataPath + "/atten_out.bin", atten_out_golden); // pa out
-    readInput<T>(dataPath + "/attn_output.bin", attn_output_golden);    // attention out
+    readInput<T>(dataPath + "/attn_output.bin", attn_output_golden); // attention out
 
     auto xData = RawTensorData::CreateTensor<T>(x, xValue);
     auto wDqData = RawTensorData::CreateTensor<T>(wDq, wDqValue);
@@ -282,40 +286,44 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
             quantInputs.smoothScalesCq = smooth_cq;
         }
     }
-    Attention(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
-            output_q, output_q_rope, output_kv_cache, output_kr_cache, quantInputs, ropeConfig, /*---*/
-            blockTable, actSeqs, paOut, blockSize, softmaxScale, paTileConfig, /*---*/
-            weightUV, weightO, weightOScaleW, postOut, 1e-5f, 1e-5f, cacheMode);
+    Attention(
+        x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, output_q, output_q_rope,
+        output_kv_cache, output_kr_cache, quantInputs, ropeConfig,         /*---*/
+        blockTable, actSeqs, paOut, blockSize, softmaxScale, paTileConfig, /*---*/
+        weightUV, weightO, weightOScaleW, postOut, 1e-5f, 1e-5f, cacheMode);
 
 #ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
+    DevFuncRunner::Run(
+        Program::GetInstance().GetLastFunction(),
         {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-         kvCacheData, krCacheData, wQbScaleData, smoothCqData,
-         blockTableData, actSeqsData, weightUVData, weightOData, weightOScaleWData},
+         kvCacheData, krCacheData, wQbScaleData, smoothCqData, blockTableData, actSeqsData, weightUVData, weightOData,
+         weightOScaleWData},
         {postOutData});
 
     std::cout << "====== kvCacheData out: " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(kv_cache_golden, (T *)kvCacheData->data(), 0.001f));
+    EXPECT_TRUE(resultCmp<T>(kv_cache_golden, (T*)kvCacheData->data(), 0.001f));
     std::cout << "====== krCacheData out: " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(kr_cache_golden, (T *)krCacheData->data(), 0.001f));
+    EXPECT_TRUE(resultCmp<T>(kr_cache_golden, (T*)krCacheData->data(), 0.001f));
     std::cout << "====== postOutData out: " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(attn_output_golden, (T *)postOutData->data(), 0.03f, 0, 1000, false, true, 0));
+    EXPECT_TRUE(resultCmp<T>(attn_output_golden, (T*)postOutData->data(), 0.03f, 0, 1000, false, true, 0));
 #endif
 }
 
-TEST_F(DynamicAttention, dynamic_attention_low) { // b_n_s_s2_h_q_lora_rank
+TEST_F(DynamicAttention, dynamic_attention_low)
+{ // b_n_s_s2_h_q_lora_rank
     int b = 4;
     int s = 1;
     int s2 = 256;
-    int h = 7168;   //7168
+    int h = 7168;         // 7168
     int n = 32;
-    int qLoraRank = 1536;   //1536
+    int qLoraRank = 1536; // 1536
     int qkNopeHeadDim = 128;
     int qkRopeHeadDim = 64;
     int kvLoraRank = 512;
     int vHeadDim = 128;
     int blockSize = 256;
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
+    std::vector<int> params = {b,          s,        s2,       n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
+                               kvLoraRank, vHeadDim, blockSize};
 
     const bool splitK = false;
     const bool nz = false;
@@ -329,10 +337,12 @@ TEST_F(DynamicAttention, dynamic_attention_low) { // b_n_s_s2_h_q_lora_rank
     tileConfig.c2TileShape = {nTile, nTile, 64, 64, 128, 128};
     tileConfig.v2TileShape = {nTile, 64};
 
-    TestDynamicAttention<npu::tile_fwk::float16, npu::tile_fwk::float16, splitK, nz>(params, tileConfig, GetGoldenDir(), 10000, false);
+    TestDynamicAttention<npu::tile_fwk::float16, npu::tile_fwk::float16, splitK, nz>(
+        params, tileConfig, GetGoldenDir(), 10000, false);
 }
 
-TEST_F(DynamicAttention, dynamic_attention_high) { // b_n_s_s2_h_q_lora_rank
+TEST_F(DynamicAttention, dynamic_attention_high)
+{ // b_n_s_s2_h_q_lora_rank
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -344,7 +354,8 @@ TEST_F(DynamicAttention, dynamic_attention_high) { // b_n_s_s2_h_q_lora_rank
     int kvLoraRank = 512;
     int vHeadDim = 128;
     int blockSize = 4096;
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
+    std::vector<int> params = {b,          s,        s2,       n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
+                               kvLoraRank, vHeadDim, blockSize};
 
     const bool splitK = false;
     const bool nz = false;
@@ -358,10 +369,12 @@ TEST_F(DynamicAttention, dynamic_attention_high) { // b_n_s_s2_h_q_lora_rank
     paTileConfig.c2TileShape = {nTile, nTile, 256, 256, 128, 128};
     paTileConfig.v2TileShape = {16, 256};
 
-    TestDynamicAttention<npu::tile_fwk::float16, npu::tile_fwk::float16, splitK, nz>(params, paTileConfig, GetGoldenDir(), 10000, false);
+    TestDynamicAttention<npu::tile_fwk::float16, npu::tile_fwk::float16, splitK, nz>(
+        params, paTileConfig, GetGoldenDir(), 10000, false);
 }
 
-TEST_F(DynamicAttention, low_latency_quant_smooth_nz) { // b_n_s_s2_h_q_lora_rank
+TEST_F(DynamicAttention, low_latency_quant_smooth_nz)
+{ // b_n_s_s2_h_q_lora_rank
     int b = 4;
     int s = 1;
     int s2 = 256;
@@ -373,7 +386,8 @@ TEST_F(DynamicAttention, low_latency_quant_smooth_nz) { // b_n_s_s2_h_q_lora_ran
     int kvLoraRank = 512;
     int vHeadDim = 128;
     int blockSize = 256;
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
+    std::vector<int> params = {b,          s,        s2,       n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
+                               kvLoraRank, vHeadDim, blockSize};
 
     const bool splitK = false;
     const bool nz = true;
@@ -389,11 +403,12 @@ TEST_F(DynamicAttention, low_latency_quant_smooth_nz) { // b_n_s_s2_h_q_lora_ran
     paTileConfig.c2TileShape = {nTile, nTile, 64, 64, 128, 128};
     paTileConfig.v2TileShape = {nTile, 64};
 
-    TestDynamicAttention<npu::tile_fwk::float16, int8_t, splitK, nz>(params, paTileConfig, GetGoldenDir(), 10000,
-            isQuant, isSmooth);
+    TestDynamicAttention<npu::tile_fwk::float16, int8_t, splitK, nz>(
+        params, paTileConfig, GetGoldenDir(), 10000, isQuant, isSmooth);
 }
 
-TEST_F(DynamicAttention, high_throughput_quant_smooth_nz) { // b_n_s_s2_h_q_lora_rank
+TEST_F(DynamicAttention, high_throughput_quant_smooth_nz)
+{ // b_n_s_s2_h_q_lora_rank
     int b = 32;
     int s = 1;
     int s2 = 4096;
@@ -405,7 +420,8 @@ TEST_F(DynamicAttention, high_throughput_quant_smooth_nz) { // b_n_s_s2_h_q_lora
     int kvLoraRank = 512;
     int vHeadDim = 128;
     int blockSize = 4096;
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, vHeadDim, blockSize};
+    std::vector<int> params = {b,          s,        s2,       n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim,
+                               kvLoraRank, vHeadDim, blockSize};
 
     const bool splitK = false;
     const bool nz = true;
@@ -425,8 +441,8 @@ TEST_F(DynamicAttention, high_throughput_quant_smooth_nz) { // b_n_s_s2_h_q_lora
     config::SetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY, 11);
     config::SetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY, 32);
 
-    TestDynamicAttention<npu::tile_fwk::float16, int8_t, splitK, nz>(params, paTileConfig, GetGoldenDir(), 10000,
-            isQuant, isSmooth);
+    TestDynamicAttention<npu::tile_fwk::float16, int8_t, splitK, nz>(
+        params, paTileConfig, GetGoldenDir(), 10000, isQuant, isSmooth);
 }
 
 } // namespace

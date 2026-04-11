@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -34,7 +35,7 @@ argsort(input: Tensor, dim: Optional[int]=None, descending: bool=True) -> Tensor
 
 1. 当前不支持ViewShape在dim轴切分，即要求ViewShape[dim] = InputShape[dim]。
 2. 当前仅支持TileShape在dim轴上为32的倍数，即要求TileShape[dim] % 32 = 0。
-3. 当shape较大场景(tileShape Size/tileShape[dim] * ((viewShape[dim] + 31) / 32 * 32) >= 8KB)时，在dim轴的切分数量小于128。
+3. 当shape较大场景`(tileShape Size/tileShape[dim] * ((viewShape[dim] + 31) / 32 * 32) >= 6KB)`时, 排序轴的切分数量小于128。
 4. 对于四维输入，暂不支持在第0轴上进行排序。
 5. 排序时遇到相同值时，采用稳定排序返回对应的索引。
 
@@ -62,9 +63,8 @@ y = pypto.argsort(x, -1, True)
 结果示例如下：
 
 ```python
-输入数据x: [[1.0 2.0 3.0], 
+输入数据x: [[1.0 2.0 3.0],
             [1.0 2.0 3.0]]
 输出数据y: [[2, 1, 0],
             [2, 1, 0]]
 ```
-

@@ -16,8 +16,9 @@
 #include "color_graph.h"
 
 namespace npu::tile_fwk {
-Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_map<int, int> &newColorMap,
-                std::vector<std::set<int>> &colorInGraph, std::vector<std::set<int>> &colorOutGraph)
+Status DFSVisit(
+    std::unordered_set<int>& visited, int preColor, std::unordered_map<int, int>& newColorMap,
+    std::vector<std::set<int>>& colorInGraph, std::vector<std::set<int>>& colorOutGraph)
 {
     std::vector<int> visitStack{preColor};
     std::unordered_set<int> inStack;
@@ -52,14 +53,14 @@ Status DFSVisit(std::unordered_set<int> &visited, int preColor, std::unordered_m
     return SUCCESS;
 }
 
-Status ColorGraph::PreColorSort(Function &function)
+Status ColorGraph::PreColorSort(Function& function)
 {
     int colorNum = function.GetTotalSubGraphCount();
     std::vector<std::set<int>> colorInGraph(colorNum);
     std::vector<std::set<int>> colorOutGraph(colorNum);
-    for (const auto &op : function.Operations()) {
+    for (const auto& op : function.Operations()) {
         int opColor = op.GetSubgraphID();
-        for (const auto &consumer : op.ConsumerOps()) {
+        for (const auto& consumer : op.ConsumerOps()) {
             int consumerColor = consumer->GetSubgraphID();
             if (opColor != consumerColor) {
                 colorInGraph[consumerColor].insert(opColor);
@@ -76,7 +77,7 @@ Status ColorGraph::PreColorSort(Function &function)
         DFSVisit(visited, preColor, newColorMap, colorInGraph, colorOutGraph);
     }
     std::set<int> subgraphSet;
-    for (auto &op : function.Operations()) {
+    for (auto& op : function.Operations()) {
         int opColor = op.GetSubgraphID();
         subgraphSet.insert(opColor);
         op.UpdateSubgraphID(newColorMap[opColor]);
@@ -85,14 +86,15 @@ Status ColorGraph::PreColorSort(Function &function)
     return SUCCESS;
 }
 
-void ColorGraph::InitializeTensorColor(Operation &op) const {
+void ColorGraph::InitializeTensorColor(Operation& op) const
+{
     const int newColor = op.GetSubgraphID();
-    for (auto &input : op.GetIOperands()) {
+    for (auto& input : op.GetIOperands()) {
         if (input->GetProducers().size() == 0) {
             input->subGraphID = newColor;
         }
     }
-    for (auto &output : op.GetOOperands()) {
+    for (auto& output : op.GetOOperands()) {
         TileRange range;
         range.memId = output->tensor->GetRawMagic();
         output->memoryrange = range;

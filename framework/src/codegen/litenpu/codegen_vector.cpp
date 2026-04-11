@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen_op_litenpu.h"
 #include "securec.h"
@@ -36,9 +35,12 @@ std::string GetBrcOprandIdxStrLite(int64_t brcbOperandIdx) {
 
 std::string CodeGenOpLiteNPU::PrintIndexPutLayout(size_t indicesSize, bool accumulate) const {
     std::string gmVarName = GenGmParamVar(ID0);
-    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
+    std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
     std::string valuesTensor = QueryTileTensorNameByIdx(ID2);
-    std::vector<std::string> paramList = {dstTensor, valuesTensor};
+    std::vector<std::string> paramList = {dstTensor, coord, valuesTensor};
     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
         if (i < indicesSize) {
             std::string indices = QueryTileTensorNameByIdx(ID3 + i);
@@ -163,10 +165,10 @@ std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::vector srcShape = this->rawShape[2];
-    ALOG_INFO_F("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
+    CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
     std::vector dstShape = this->rawShape[0];
-    ALOG_INFO_F("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
+    CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -505,9 +507,9 @@ WhereParam CodeGenOpLiteNPU::PrepareWhereParam() const {
     std::vector<std::string> varExpr;
     std::vector<std::string> dataTypeExpr;
     GetWhereVarAndType(varExpr, dataTypeExpr);
-    std::vector<int64_t> ds = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::resIdx)], SHAPE_DIM4);
-    std::vector<int64_t> c0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::condIdx)], SHAPE_DIM4);
-    std::vector<int64_t> s0s = NormalizeShape(this->rawShape[ToUnderlying(WhereOpIdx::src0Idx)], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[ToUnderlying(WhereOpIdx::resIdx)], SHAPE_DIM4);
+    std::vector<int64_t> c0s = NormalizeShape(rawShape[ToUnderlying(WhereOpIdx::condIdx)], SHAPE_DIM4);
+    std::vector<int64_t> s0s = NormalizeShape(rawShape[ToUnderlying(WhereOpIdx::src0Idx)], SHAPE_DIM4);
     std::vector<std::string> templateList;
     templateList.emplace_back(dataTypeExpr[ToUnderlying(WhereOpIdx::resIdx)]);
     templateList.emplace_back(dataTypeExpr[ToUnderlying(WhereOpIdx::condIdx)]);
@@ -525,15 +527,18 @@ WhereParam CodeGenOpLiteNPU::PrepareWhereParam() const {
     }
 
     std::vector<std::string> paramList;
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::resIdx)] + "*)" +
-                           varExpr[ToUnderlying(WhereOpIdx::resIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::tempIdx)] + "*)" +
-                           varExpr[ToUnderlying(WhereOpIdx::tempIdx)]);
-    paramList.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::condIdx)] + "*)" +
-                           varExpr[ToUnderlying(WhereOpIdx::condIdx)]);
+    paramList.emplace_back(
+        "(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::resIdx)] + "*)" +
+        varExpr[ToUnderlying(WhereOpIdx::resIdx)]);
+    paramList.emplace_back(
+        "(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::tempIdx)] + "*)" +
+        varExpr[ToUnderlying(WhereOpIdx::tempIdx)]);
+    paramList.emplace_back(
+        "(__ubuf__ " + dataTypeExpr[ToUnderlying(WhereOpIdx::condIdx)] + "*)" +
+        varExpr[ToUnderlying(WhereOpIdx::condIdx)]);
     std::vector<std::string> dynParamList;
     auto dynSrcShape = dynamicValidShape[ToUnderlying(WhereOpIdx::resIdx)];
-    FillIntVecWithDummyInHead<SymbolicScalar>(
+    FillVecWithDummyInHead<SymbolicScalar>(
         dynSrcShape, SHAPE_DIM4 - dynamicValidShape[ToUnderlying(WhereOpIdx::resIdx)].size(), 1);
     for (int i = 0; i < SHAPE_DIM4; i++) {
         dynParamList.emplace_back(dynSrcShape[i].Dump());

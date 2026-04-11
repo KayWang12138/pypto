@@ -26,22 +26,22 @@ namespace Distributed {
 
 class CommGroupRecorder {
 public:
-    static CommGroupRecorder &GetInstance();
+    static CommGroupRecorder& GetInstance();
 
-    CommGroupRecorder(const CommGroupRecorder &) = delete;
-    CommGroupRecorder &operator=(const CommGroupRecorder &) = delete;
+    CommGroupRecorder(const CommGroupRecorder&) = delete;
+    CommGroupRecorder& operator=(const CommGroupRecorder&) = delete;
 
     // 注册组，返回对应的 groupIndex（自动去重）
-    uint32_t Input(const std::string &hcclGroupName);
+    uint32_t Input(const std::string& hcclGroupName);
 
     // 获取所有 groupName 的列表（按 index 顺序）
-    const std::vector<std::string> &Output() const;
+    const std::vector<std::string>& Output() const;
 
-    std::string PrintString(std::vector<std::string> &commGroups);
+    std::string PrintString(std::vector<std::string>& commGroups);
 
 private:
     CommGroupRecorder() = default;
-    ~CommGroupRecorder() =default;
+    ~CommGroupRecorder() = default;
 
     std::unordered_map<std::string, uint32_t> name2Index_;
     std::vector<std::string> index2Name_;

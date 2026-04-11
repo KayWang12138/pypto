@@ -17,7 +17,7 @@
 
 #include <signal.h>
 #include <sys/ucontext.h>
-
+#include "device_sche_context.h"
 #include "device_common.h"
 #include "aicore_manager.h"
 #include "aicore_constants.h"
@@ -30,9 +30,10 @@ constexpr uint32_t LAUNCH_AICPU_NUM = 5;
 
 namespace npu::tile_fwk::dynamic {
 struct AicoreLogManager {
-    AicoreLogManager() {
+    AicoreLogManager()
+    {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
-        uint8_t *buf = (uint8_t *)data_;
+        uint8_t* buf = (uint8_t*)data_;
         for (uint32_t i = 0; i < MAX_AICORE_NUM; i++) {
             logger[i].Init(buf, PRINT_BUFFER_SIZE);
             buf += PRINT_BUFFER_SIZE;
@@ -40,34 +41,42 @@ struct AicoreLogManager {
     }
     ~AicoreLogManager() { free(data_); }
 
-    void *data_;
+    void* data_;
     AicoreLogger logger[MAX_AICORE_NUM];
 };
 
+typedef void (*sig_act_f)(int signum, siginfo_t* info, void* act);
+
 class DeviceSchedMachine {
 public:
-    DeviceSchedMachine() {
+    DeviceSchedMachine()
+    {
         for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
-            aicoreManager_[i] = std::make_unique<AiCoreManager>(aicpuTaskManager_);
+            aicoreManager_[i] = std::make_unique<AiCoreManager>(schThreadStatus, aicpuTaskManager_);
         }
     }
 
-    void SetStachSchduleContext(int schedIdx, SchduleContext* context) {
+    void SetStachSchduleContext(int schedIdx, SchduleContext* context)
+    {
         aicoreManager_[schedIdx]->SetSchduleContext(context);
     }
 
-    bool CheckAndResetReg(){
-        return aicoreManager_[0]->CheckAndResetReg();
-    }
+    bool CheckAndResetReg() { return aicoreManager_[0]->CheckAndResetReg(); }
 
-    void init(uint32_t schNum) {
+    void init(uint32_t schNum)
+    {
         schAicpuNum_ = schNum;
+        schThreadStatus.Init();
     }
 
-    int RunThread(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *args, int schedIdx) {
+    int RunThread(int threadIdx, DevStartArgs* devStartArgs, DeviceArgs* args, int schedIdx)
+    {
         int ret = 0;
         if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < args->scheCpuNum) {
-            DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u, launchScheAicpu num:%u",
+            DEV_ERROR(
+                DevCommonErr::PARAM_INVALID,
+                "#sche.thread.init: Device machine run invalid args: aicNum=%u, blockdim=%u, launchAicpuNum=%u, "
+                "launchScheAicpuNum=%u",
                 args->nrAic, args->nrValidAic, args->nrAicpu, args->scheCpuNum);
             return DEVICE_MACHINE_ERROR;
         }
@@ -80,22 +89,24 @@ public:
         aicoreManager_[schedIdx]->InitLogger(logManager.logger);
 #endif
         ret = aicoreManager_[schedIdx]->RunManager(threadIdx, devStartArgs, args, schedIdx);
-        DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
+        DEV_INFO("threadIdx=%d end, ret=%d", threadIdx, ret);
         return ret;
     }
 
-    void ResetRegAll() {
-      sleep(1);
-      DEV_ERROR("ResetRegAll");
-      for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-        aicoreManager_[i]->ResetRegAll();
-      }
-      sleep(1);
-      aicoreManager_[0]->CheckAndResetReg();
-      DEV_ERROR("Exception reset reg finish.");
+    void ResetRegAll()
+    {
+        sleep(1);
+        DEV_INFO("ResetRegAll");
+        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
+            aicoreManager_[i]->ResetRegAll();
+        }
+        sleep(1);
+        aicoreManager_[0]->CheckAndResetReg();
+        DEV_INFO("Exception reset reg finish.");
     }
 
-    inline void DumpAicorePerfTrace(std::string file = "") {
+    inline void DumpAicorePerfTrace(std::string file = "")
+    {
         (void)file;
 #if ENABLE_PERF_TRACE
         std::ostringstream oss;
@@ -111,7 +122,7 @@ public:
         while (startPos < totalLength) {
             uint32_t endPos = std::min(startPos + batchSize, totalLength);
             std::string batch = str.substr(startPos, endPos - startPos);
-            DEV_ERROR("tile_fwk aicore prof:%s", batch.c_str());
+            DEV_INFO("tile_fwk aicore prof:%s", batch.c_str());
             startPos = endPos;
         }
 
@@ -125,6 +136,7 @@ public:
     }
 
 private:
+    SchThreadStatus schThreadStatus;
     AicpuTaskManager aicpuTaskManager_;
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     std::unique_ptr<AiCoreManager> aicoreManager_[MAX_SCHEDULE_AICPU_NUM];
@@ -139,38 +151,65 @@ constexpr int SCHE_THREAD_START_IDX = 1;
 
 struct DynMachineManager {
     struct KernelCtrlEntry {
-        void (*sigAct)(int signum, siginfo_t* info, void* act);
-        int (*kernelCtrlServerInit)(void *targ);
-        int (*kernelCtrlServer)(void *targ);
+        int (*kernelCtrlServerInit)(void* targ);
+        int (*kernelCtrlServer)(void* targ);
     };
 
-    int AllocThreadIdxForDav3510(DeviceArgs *devArgs, int cpu, std::atomic<int> &threadIdx) {
-        int maxCpuId = static_cast<int>(devArgs->maxAicpuNum);
-        int die0MaxCpuid = (maxCpuId >> 1);
-        int scheCpuNum = static_cast<int>(devArgs->scheCpuNum);
-        int die0MaxCpuNum = (scheCpuNum >> 1);
-        int die1MaxCpuNum = scheCpuNum - die0MaxCpuNum;
-        int unuseThreadIdx = scheCpuNum + SCHE_THREAD_START_IDX;
-
-        if (die0ThreadIdx_.load() < die0MaxCpuNum && cpu <= die0MaxCpuid) {
-            int curDie0ThreadIdx = die0ThreadIdx_.fetch_add(1) + SCHE_THREAD_START_IDX;
-            threadIdx = curDie0ThreadIdx;
-            return curDie0ThreadIdx;
+    void SetCurThreadIdxForDav3510(int dieMaxCpuNum, int startIdx, int& curThreadIdx, std::atomic<int>& dieThreadIdx)
+    {
+        int expected = 0;
+        while (expected < dieMaxCpuNum) { // ensure thread security
+            int desired = expected + 1;
+            if (dieThreadIdx.compare_exchange_weak(
+                    expected, desired, std::memory_order_acq_rel, std::memory_order_acquire)) {
+                int curDieThreadIdx = expected + startIdx;
+                curThreadIdx = curDieThreadIdx;
+                break;
+            }
         }
-
-        if (die1ThreadIdx_.load() < die1MaxCpuNum && cpu > die0MaxCpuid) {
-            int curDie1ThreadIdx = die1ThreadIdx_.fetch_add(1) + die0MaxCpuNum + SCHE_THREAD_START_IDX;
-            threadIdx = curDie1ThreadIdx;
-            return curDie1ThreadIdx;
-        }
-
-        threadIdx = unuseThreadIdx;
-        return unuseThreadIdx;
     }
 
-    int AllocThreadIdxForDav2201(DeviceArgs *devArgs, int cpu, std::atomic<int> &threadIdx) {
+    int AllocThreadIdxForDav3510(DeviceArgs* devArgs, int cpu, int& curThreadIdx, std::atomic<int>& threadIdx)
+    {
+        int die0MaxCpuid = static_cast<int>(devArgs->maxAicpuNum >> 1);
+        int die0MaxCpuNum = static_cast<int>(devArgs->scheCpuNum >> 1);
+        int die1MaxCpuNum = static_cast<int>(devArgs->scheCpuNum) - die0MaxCpuNum;
+
+        // use CAS, Try to allocate the next available thread index, loop until successfully allocate or exceed the
+        // limit
+        if (cpu <= die0MaxCpuid) {
+            SetCurThreadIdxForDav3510(die0MaxCpuNum, SCHE_THREAD_START_IDX, curThreadIdx, die0ThreadIdx_);
+        } else {
+            SetCurThreadIdxForDav3510(
+                die1MaxCpuNum, die0MaxCpuNum + SCHE_THREAD_START_IDX, curThreadIdx, die1ThreadIdx_);
+        }
+
+        // wait until all threads are ecexuted to prevent threads from being relaunched after exiting
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
+        uint64_t start = GetCycles();
         while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
+            if (GetCycles() - start > TIMEOUT_CYCLES) {
+                DEV_ERROR(
+                    ThreadErr::THREAD_CPU_ALLOC_FAILED,
+                    "#sche.thread.init: Thread alloc timeout: threadIdx=%d, physicalCpu=%d.", curThreadIdx, cpu);
+                return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+            }
+            sched_yield();
+        }
+
+        DEV_INFO("Thread alloc success: physicalCpu=%d, threadIdx=%d.", cpu, curThreadIdx);
+        threadIdx = curThreadIdx;
+        return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
+    }
+
+    int AllocThreadIdxForDav2201(DeviceArgs* devArgs, int cpu, int& curThreadIdx, std::atomic<int>& threadIdx)
+    {
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release);
+        TIMEOUT_CHECK_START();
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
+            TIMEOUT_CHECK_AND_RESET(
+                TIMEOUT_ONE_MINUTE, ThreadErr::THREAD_CPU_ALLOC_FAILED,
+                "#sche.thread.init: Thread alloc timeout over 1 min: threadIdx=%d, physicalCpu=%d.", curThreadIdx, cpu);
             sched_yield();
         }
 
@@ -186,40 +225,46 @@ struct DynMachineManager {
             cpuoff += CPUS_PER_CLUSTER;
         }
         if (clus_id == -1) {
-            return ++threadIdx;
+            curThreadIdx = ++threadIdx;
         }
         if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) {
-            return -1;
+            curThreadIdx = -1;
         }
-        return ++threadIdx;
+        curThreadIdx = ++threadIdx;
+        return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
 
-    int AllocThreadIdx(DeviceArgs *devArgs, std::atomic<int> &threadIdx) {
+    int AllocThreadIdx(DeviceArgs* devArgs, int& curThreadIdx, std::atomic<int>& threadIdx)
+    {
+        int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         if (devArgs->scheCpuNum == 1) {
-            return ++threadIdx;
+            curThreadIdx = ++threadIdx;
+            return ret;
         }
 
+#ifdef __DEVICE__
         int cpu = sched_getcpu();
+#else
+        int cpu = ++simCpuId_;
+#endif
         if (devArgs->archInfo == ArchInfo::DAV_3510) {
-            return AllocThreadIdxForDav3510(devArgs, cpu, threadIdx);
+            ret = AllocThreadIdxForDav3510(devArgs, cpu, curThreadIdx, threadIdx);
         } else if (devArgs->archInfo == ArchInfo::DAV_2201) {
-            return AllocThreadIdxForDav2201(devArgs, cpu, threadIdx);
+            ret = AllocThreadIdxForDav2201(devArgs, cpu, curThreadIdx, threadIdx);
+        } else {
+            curThreadIdx = ++threadIdx;
         }
-
-        return ++threadIdx;
+        return ret;
     }
 
-    void SignalReg(const KernelCtrlEntry &entry) {
-        if (sigReg_) {
-            return;
-        }
-        sigReg_ = true;
+    void SignalReg(const sig_act_f sigAct)
+    {
         DEV_INFO("Exception SignalReg.");
         struct sigaction myAct;
         (void)memset_s(&myAct, sizeof(myAct), 0, sizeof(myAct));
         sigemptyset(&myAct.sa_mask);
         myAct.sa_flags = SA_SIGINFO;
-        myAct.sa_sigaction = entry.sigAct;
+        myAct.sa_sigaction = sigAct;
         sigaction(SIGFPE, &myAct, &oriFPEAct_);
         sigaction(SIGBUS, &myAct, &oriBUSAct_);
         sigaction(SIGSEGV, &myAct, &oriSEGVAct_);
@@ -229,7 +274,8 @@ struct DynMachineManager {
         return;
     }
 
-    int RunCtrl(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry, int threadIdx) {
+    int RunCtrl(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry, int threadIdx)
+    {
         DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
 
         DEV_INFO("ThreadCtrlEnter idx=%d", threadIdx);
@@ -240,69 +286,107 @@ struct DynMachineManager {
         return ret;
     }
 
-    int RunSche(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry, int threadIdx) {
+    int RunSche(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry, int threadIdx)
+    {
         UNUSED(entry);
 
-        DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+        DeviceArgs* devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
 
-        DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
-            static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
-            devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
-        DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
+        DEV_INFO(
+            "TaskType=%d, threadIdx=%d, aicNum=%u, aivNum=%u, aicpuNum=%u, validAicNum=%u.",
+            static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic, devArgs->nrAiv, devArgs->nrAicpu,
+            devArgs->nrValidAic);
+        DEV_INFO(
+            "devQueueAddr=%#lx, sharedBuffer=%#lx, coreRegAddr=%#lx, corePmuAdr=%#lx.", devArgs->devQueueAddr,
             devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
         DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
 
         devArgs->toSubMachineConfig = kargs->toSubMachineConfig;
         SchduleContext localContext;
         int schedIdx = threadIdx - SCHE_THREAD_START_IDX;
-        machine_.SetStachSchduleContext(schedIdx, &localContext);
-        DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
-        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
-        int ret = machine_.RunThread(threadIdx, devStartArgs, devArgs, schedIdx);
+        schMachine_.SetStachSchduleContext(schedIdx, &localContext);
+        DevAscendProgram* devProg = reinterpret_cast<DevAscendProgram*>(kargs->cfgdata);
+        DevStartArgs* devStartArgs =
+            reinterpret_cast<DevStartArgs*>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
+        int ret = schMachine_.RunThread(threadIdx, devStartArgs, devArgs, schedIdx);
 
         DEV_INFO("ThreadScheLeave idx=%d ret=%d", threadIdx, ret);
-        if (ret != DEVICE_MACHINE_OK) {
-            schRunFailed_ = true;
-        }
         return ret;
     }
 
-    void RunPost(DevAscendProgram *devProg) {
-        ReleaseRuntimeDataRingBuffer(devProg);
-        DEV_INFO("All schedule exited, destroy the machine.");
-        DeInit();
-#if ENABLE_PERF_TRACE
-        PerfMtTrace(PERF_TRACE_EXIT, LastFinishThreadIdx_);
-        DEV_ERROR("Begin dump machine perf trace:");
-        PerfEvtMgr::Instance().DumpPerfTrace(devProg->devArgs.scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
-        DEV_IF_DEVICE {
-            machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
+    void RunSchInit(DeviceArgs *args)
+    {
+        if (initSch_.load()) {
+            return;
         }
-        DEV_ERROR("Finish dump machine perf trace.");
+        schMachine_.init(args->scheCpuNum);
+        initSch_.store(true);
+    }
+
+    void RunSchDeInit()
+    {
+        cpumask_ = 0;
+        schExitNum_ = 0;
+        die0ThreadIdx_ = 0;
+        die1ThreadIdx_ = 0;
+        initSch_.store(false);
+#ifndef __DEVICE__
+        simCpuId_ = 0;
 #endif
     }
 
-    int RunUnifiedStream(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+    void RunSchPost(DevAscendProgram *devProg)
+    {
+        ReleaseRuntimeDataRingBuffer(devProg);
+        DEV_INFO("All schedule exited, destroy the machine.");
+    }
+
+	// unified stream
+    void RunUnifiedPost(DevAscendProgram *devProg)
+    {
+        ReleaseRuntimeDataRingBuffer(devProg);
+        DEV_INFO("All schedule exited, destroy the machine.");
+        UnifiedDeInit();
+#if ENABLE_PERF_TRACE
+        PerfMtTrace(PERF_TRACE_EXIT, LastFinishThreadIdx_);
+        DEV_INFO("Begin dump machine perf trace:");
+        PerfEvtMgr::Instance().DumpPerfTrace(devProg->devArgs.scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
+        DEV_IF_DEVICE { schMachine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json"); }
+        DEV_INFO("Finish dump machine perf trace.");
+#endif
+    }
+
+    int RunUnifiedStream(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+    {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+        DeviceArgs* devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         if (devArgs->scheCpuNum > devArgs->nrAicpu - 1) {
-            DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
+            DEV_ERROR(
+                DevCommonErr::PARAM_CHECK_FAILED, "#dev.unistream.init.no_cpu: Aicpu num[%u] less than scheNum[%u].",
+                devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = AllocThreadIdx(devArgs, threadIdx_);
+        int threadIdx = -1;
+        DEV_INFO("Begin alloc thread.");
+        if (AllocThreadIdx(devArgs, threadIdx, threadIdx_) != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            DEV_ERROR(
+                ThreadErr::THREAD_CPU_ALLOC_FAILED, "#sche.thread.init: Current cpu[%d] alloc thread failed.",
+                sched_getcpu());
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+        }
+
         uint64_t allocThreadCycle = GetCycles();
 
         if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
             ret = RunSche(kargs, entry, threadIdx);
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
-            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType));
+            DEV_INFO("TaskType=%d.", static_cast<int>(devArgs->taskType));
             if (devArgs->enableCtrl == 1 && threadIdx == CTRL_CPU_THREAD_IDX) {
                 ret = RunCtrl(kargs, entry, threadIdx);
             } else {
                 threadIdx += devArgs->scheCpuNum;
-                SignalReg(entry);
             }
         }
 
@@ -314,7 +398,7 @@ struct DynMachineManager {
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
-            if (unlikely(!machine_.CheckAndResetReg())) {
+            if (unlikely(!schMachine_.CheckAndResetReg())) {
                 DEV_WARN("Some registers force closed!");
             }
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
@@ -322,7 +406,8 @@ struct DynMachineManager {
         return ret;
     }
 
-    int RunCtrlInitNoLock(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+    int RunCtrlInitNoLock(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+    {
 #ifdef __DEVICE__
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         if (devArgs->aicpuPerfAddr != 0) {
@@ -333,7 +418,9 @@ struct DynMachineManager {
         return ret;
     }
 
-    int RunCtrlInit(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+    // UnifiedStream
+    int RunUnifiedCtrlInit(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+    {
         int ret = DEVICE_MACHINE_OK;
         mutex_.lock();
         if (!initCtrl_.load()) {
@@ -344,27 +431,34 @@ struct DynMachineManager {
         return ret;
     }
 
-    void Init(DeviceArgs *args) {
-        if (init_.load()) {
+    // UnifiedStream
+    void UnifiedInit(DeviceArgs* args)
+    {
+        if (initCtrl_.load()) {
             return;
         }
-        init_.store(true);
+        initCtrl_.store(true);
         ctrlcpuIdx_.store(0);
-        machine_.init(args->scheCpuNum);
+        schMachine_.init(args->scheCpuNum);
+        schRunFailed_ = false;
     }
 
-    void DeInit() {
+    // UnifiedStream
+    void UnifiedDeInit() {
         threadIdx_ = 0;
         finished_ = 0;
         cpumask_ = 0;
+#ifndef __DEVICE__
+        simCpuId_ = 0;
+#endif
         ctrlcpuIdx_ = 0;
         die0ThreadIdx_ = 0;
         die1ThreadIdx_ = 0;
-        init_.store(false);
         initCtrl_.store(false);
     }
 
-    __sighandler_t GetSigHandle(int signum) {
+    __sighandler_t GetSigHandle(int signum)
+    {
         __sighandler_t handle = nullptr;
         if (signum == static_cast<int>(SIGFPE)) {
             handle = oriFPEAct_.sa_handler;
@@ -382,33 +476,34 @@ struct DynMachineManager {
         return handle;
     }
 
-    void SigAct(int signum, siginfo_t* info, void* act) {
+    void SigAct(int signum, siginfo_t* info, void* act)
+    {
         (void)info;
         (void)act;
-        DEV_ERROR("Exception Signum[%d] Act.", signum);
-        PrintBacktrace("signal " + std::to_string(signum));
+        DEV_ERROR(ThreadErr::SIGNAL_HANDLER_ABNORMAL, "#sche.except.signal: Exception Signum[%d] Act.", signum);
+        PrintBacktrace(ThreadErr::SIGNAL_HANDLER_ABNORMAL, "signal " + std::to_string(signum));
         if (reset_.load()) {
-            DEV_ERROR("Exception Already reset.");
+            DEV_WARN("#sche.except.reset: Exception Already reset.");
             sleep(SIGNAL_DELAY_SECONDS);
             return;
         }
         reset_.store(true);
-        if (!init_.load()) {
-            DEV_ERROR("Exception call ori sigact.");
+        if (!initSch_.load() && !initCtrl_.load()) {
+            DEV_ERROR(ThreadErr::SIGNAL_HANDLER_ABNORMAL, "#sche.except.signal: Exception call ori sigact.");
             __sighandler_t handle = GetSigHandle(signum);
             if (handle == SIG_DFL) {
-                DEV_ERROR("Ori sigact SIG_DFL.");
+                DEV_ERROR(ThreadErr::SIGNAL_HANDLER_ABNORMAL, "#sche.except.signal: Ori sigact SIG_DFL.");
                 signal(signum, SIG_DFL);
                 raise(signum);
             } else if (handle == SIG_IGN) {
-                DEV_ERROR("Ori sigact SIG_IGN.");
+                DEV_ERROR(ThreadErr::SIGNAL_HANDLER_ABNORMAL, "#sche.except.signal: Ori sigact SIG_IGN.");
             } else if (handle != nullptr) {
-                DEV_ERROR("Call Ori sigact.");
+                DEV_ERROR(ThreadErr::SIGNAL_HANDLER_ABNORMAL, "#sche.except.signal: Call Ori sigact.");
                 handle(signum);
             }
             return;
         }
-        machine_.ResetRegAll();
+        schMachine_.ResetRegAll();
         sigaction(SIGFPE, &oriFPEAct_, nullptr);
         sigaction(SIGBUS, &oriBUSAct_, nullptr);
         sigaction(SIGSEGV, &oriSEGVAct_, nullptr);
@@ -419,56 +514,72 @@ struct DynMachineManager {
         return;
     }
 
-    void ReleaseRuntimeDataRingBuffer(DevAscendProgram *devProg) {
-        RuntimeDataRingBufferHead *runtimeDataList = devProg->GetRuntimeDataList();
+    void ReleaseRuntimeDataRingBuffer(DevAscendProgram* devProg)
+    {
+        RuntimeDataRingBufferHead* runtimeDataList = devProg->GetRuntimeDataList();
         runtimeDataList->Deallocate(runtimeDataList->GetRuntimeDataCurrent());
+        DEV_INFO("Runtimedata: %lu, %lu", runtimeDataList->GetIndexFinished(), runtimeDataList->GetIndexPending());
     }
 
-    int EntryUnifiedStream(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        auto ret = RunCtrlInit(kargs, entry);
+	// UnifiedStream
+    int EntryUnifiedStream(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+    {
+        auto ret = RunUnifiedCtrlInit(kargs, entry);
         if (ret != DEVICE_MACHINE_OK) {
-            DEV_ERROR("Server init failed");
+            DEV_ERROR(CtrlErr::CTRL_INIT_FAILED, "#dev.unistream.init.ctrl_init: Server init failed");
             return ret;
         }
-        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        DevAscendProgram* devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         kargs->taskWastTime = GetCycles();
-        Init(&devProg->devArgs);
+        UnifiedInit(&devProg->devArgs);
         int rc = RunUnifiedStream(kargs, entry);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
-            RunPost(devProg);
+            RunUnifiedPost(devProg);
             return DEVICE_MACHINE_OK;
         }
         return rc;
     }
 
-    int EntrySplittedStreamCtrl(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        int ret = 0;
-        constexpr int ctrlThreadIdx = 0;
-        uint64_t ctrlStep = splittedInfo_.ctrlStep++;
-        // ctrl start 2 threads: one for ctrl, one for registering signal
-        if (ctrlStep % 2 == 0) {
-            DEV_INFO("CtrlThreadEnter idx=%d round=%d", ctrlThreadIdx, (int)kargs->parameter.globalRound);
-            ret = RunCtrlInitNoLock(kargs, entry);
-            if (ret != 0) {
-                return ret;
-            }
-            ret = RunCtrl(kargs, entry, ctrlThreadIdx);
-            DEV_INFO("CtrlThreadLeave idx=%d ret=%d", ctrlThreadIdx, ret);
-        } else {
-            SignalReg(entry);
+    int EntrySplittedStreamCtrl(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+    {
+        // ctrl start only one thread
+        DEV_INFO("Ctrl enter round=%d", (int)kargs->parameter.globalRound);
+        initCtrl_.store(true);
+        int ret = RunCtrlInitNoLock(kargs, entry);
+        if (ret != 0) {
+            initCtrl_.store(false);
+            return ret;
         }
+        kargs->taskWastTime = GetCycles();
+        ret = RunCtrl(kargs, entry, 0);
+        PerfMtTrace(PERF_TRACE_BEGIN, 0, kargs->taskWastTime);
+        PerfMtTrace(PERF_TRACE_EXIT, 0);
+        DEV_INFO("Ctrl leave ret=%d", ret);
+        initCtrl_.store(false);
+        PerfEvtMgr::Instance().AddCtrlTurn();
         return ret;
     }
 
-    int EntrySplittedStreamSche(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
-
+    int EntrySplittedStreamSche(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+    {
+        DevAscendProgram* devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         splittedInfo_.ScheWait(devProg);
         // After wait, the devStartArgs should be ready.
-
-        DevStartArgs *runtimeDataCurrent = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
+        auto beginTime = GetCycles();
+        DevStartArgs* runtimeDataCurrent =
+            reinterpret_cast<DevStartArgs*>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         auto devArgs = devProg->devArgs;
-        int threadIdx = AllocThreadIdx(&devArgs, runtimeDataCurrent->devScheState.threadIdx);
+        int threadIdx = -1;
+        RunSchInit(&devArgs);
+        if (AllocThreadIdx(&devArgs, threadIdx, runtimeDataCurrent->devScheState.threadIdx) !=
+            npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            DEV_ERROR(
+                ThreadErr::THREAD_CPU_ALLOC_FAILED, "#sche.thread.init: Current cpu[%d] alloc thread failed.",
+                sched_getcpu());
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+        }
+        PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx);
+        PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, beginTime);
         int ret = DEVICE_MACHINE_OK;
         if (threadIdx != -1 && threadIdx <= static_cast<int>(devArgs.scheCpuNum)) {
             DEV_INFO("SchedThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
@@ -476,21 +587,27 @@ struct DynMachineManager {
             DEV_INFO("SchedThreadLeave idx=%d ret=%d", threadIdx, ret);
 
             if (splittedInfo_.ScheSync(runtimeDataCurrent, devArgs.scheCpuNum)) {
-                if (unlikely(!machine_.CheckAndResetReg())) {
+                if (unlikely(!schMachine_.CheckAndResetReg())) {
                     DEV_WARN("Some registers force closed!");
                 }
-                RunPost(devProg);
-                DEV_INFO("All schedule exited, destroy the machine.");
-                return DEVICE_MACHINE_OK;
+                RunSchPost(devProg);
+                PerfEvtMgr::Instance().AddScheduleTurn();
+                ret = DEVICE_MACHINE_OK;
             }
+            PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
+        }
+        if (++schExitNum_ == devArgs.nrAicpu) {
+            RunSchDeInit();
+            DEV_INFO("All sche cpu exited.");
         }
         return ret;
     }
 
-    int Entry(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+    int Entry(DeviceKernelArgs* kargs, const KernelCtrlEntry& entry)
+    {
         switch (kargs->parameter.runMode) {
             case RUN_UNIFIED_STREAM:
-                return EntryUnifiedStream(kargs, entry);
+                return EntryUnifiedStream(kargs, entry); // UnifiedStream
                 break;
             case RUN_SPLITTED_STREAM_CTRL:
                 return EntrySplittedStreamCtrl(kargs, entry);
@@ -499,21 +616,26 @@ struct DynMachineManager {
                 return EntrySplittedStreamSche(kargs, entry);
                 break;
             default:
-                DEV_ERROR("Invalid run mode: %d\n", (int)kargs->parameter.runMode);
+                DEV_ERROR(
+                    DevCommonErr::PARAM_INVALID, "#dev.entry.invalid_mode: Invalid run mode: %d\n",
+                    (int)kargs->parameter.runMode);
                 break;
         }
         return DEVICE_MACHINE_INVALID_RUN_MODE;
     }
 
     int LastFinishThreadIdx_{0};
-    std::atomic<int> threadIdx_{0};
-    std::atomic<int> finished_{0};
+    std::atomic<int> threadIdx_{0}; // UnifiedStream
+    std::atomic<int> finished_{0}; // UnifiedStream
     std::atomic<uint64_t> cpumask_{0};
+    std::atomic<uint32_t> schExitNum_{0};
+#ifndef __DEVICE__
+    std::atomic<int> simCpuId_{0};
+#endif
     std::atomic<int> ctrlcpuIdx_{0};
     std::atomic<int> die0ThreadIdx_{0};
     std::atomic<int> die1ThreadIdx_{0};
-    DeviceSchedMachine machine_;
-    bool sigReg_{false};
+    DeviceSchedMachine schMachine_;
     struct sigaction oriFPEAct_;
     struct sigaction oriBUSAct_;
     struct sigaction oriSEGVAct_;
@@ -521,33 +643,39 @@ struct DynMachineManager {
     struct sigaction oriILLAct_;
     struct sigaction oriBordAct_;
     std::atomic<bool> reset_{false};
-    std::atomic<bool> init_{false};
+    std::atomic<bool> init_{false}; // UnifiedStream
     std::atomic<bool> initCtrl_{false};
-    std::mutex mutex_;
+	std::atomic<bool> initSch_{false};
+    std::mutex mutex_; // UnifiedStream
     std::atomic<bool> schRunFailed_{false};
 
     struct SplittedInfo {
-        std::atomic<uint64_t> ctrlStep{0};
         std::atomic<uint64_t> currentRound{0};
 
-        void ScheWait(DevAscendProgram *devProg) {
+        void ScheWait(DevAscendProgram* devProg)
+        {
+            TIMEOUT_CHECK_START();
             while (unlikely(!devProg->runtimeDataRingBufferInited)) {
                 /* In the first launch, sche must wait for ctrl's ring buffer's initialization.
                  * Otherwise, the ringBufferHead->Empty() is not legal. */
                 RuntimeYield(0);
+                TIMEOUT_CHECK_AND_RESET(
+                    TIMEOUT_ONE_MINUTE, SchedErr::RINGBUFFER_WAIT_TIMEOUT, "Sche wait ring buf init over 1 min.");
             }
-
-            RuntimeDataRingBufferHead *ringBufferHead = devProg->GetRuntimeDataList();
+            RuntimeDataRingBufferHead* ringBufferHead = devProg->GetRuntimeDataList();
             while (unlikely(ringBufferHead->Empty())) {
                 /* Sche must wait until the current devStarArgs has been initialized. */
                 RuntimeYield(0);
+                TIMEOUT_CHECK_AND_RESET(
+                    TIMEOUT_ONE_MINUTE, SchedErr::RINGBUFFER_WAIT_TIMEOUT, "Sche wait ring buf data over 1 min.");
             }
         }
 
-        bool ScheSync(DevStartArgs *devStartArgs, int schNum) {
+        bool ScheSync(DevStartArgs* devStartArgs, int schNum)
+        {
             return ++devStartArgs->devScheState.finished == schNum;
         }
     } splittedInfo_;
 };
 
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::dynamic

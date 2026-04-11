@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "interface/configs/config_manager.h"
+#include "interface/machine/host/machine_task.h"
 #include "operator/models/deepseek/page_attention.h"
 #define private public
 #include "machine/cache_manager/cache_manager.h"
@@ -30,11 +31,13 @@ public:
     void SetUp() override {}
 
     void TearDown() override {}
+
 private:
     bool oriEnableAihacBackend = false;
 };
 
-TEST(CacheManagerUnitTest, test_init_case1) {
+TEST(CacheManagerUnitTest, test_init_case1)
+{
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
@@ -43,7 +46,8 @@ TEST(CacheManagerUnitTest, test_init_case1) {
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
 }
 
-TEST(CacheManagerUnitTest, test_init_case2) {
+TEST(CacheManagerUnitTest, test_init_case2)
+{
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
@@ -51,7 +55,8 @@ TEST(CacheManagerUnitTest, test_init_case2) {
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
 }
 
-TEST(CacheManagerUnitTest, test_match_cache) {
+TEST(CacheManagerUnitTest, test_match_cache)
+{
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
@@ -60,7 +65,8 @@ TEST(CacheManagerUnitTest, test_match_cache) {
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
 }
 
-TEST(CacheManagerUnitTest, test_page_attention) {
+TEST(CacheManagerUnitTest, test_page_attention)
+{
     Program::GetInstance().Reset();
     PaTileShapeConfig tileConfig;
     const int nTile = 32;
@@ -97,19 +103,20 @@ TEST(CacheManagerUnitTest, test_page_attention) {
     Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
     Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
-    PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
-                  tileConfig, 1, false);
-    Function *lastFunc = Program::GetInstance().GetLastFunction();
+    PageAttention(
+        qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
+        tileConfig, 1, false);
+    Function* lastFunc = Program::GetInstance().GetLastFunction();
     EXPECT_NE(lastFunc, nullptr);
-    std::cout << "===hash of last func==" << lastFunc->GetFunctionHash().Data() << lastFunc->GetFunctionTypeStr() << std::endl;
+    std::cout << "===hash of last func==" << lastFunc->GetFunctionHash().Data() << lastFunc->GetFunctionTypeStr()
+              << std::endl;
     config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, true);
     CacheManager cacheManager;
     EXPECT_EQ(cacheManager.Initialize(), true);
     auto task = std::make_shared<MachineTask>(111, lastFunc);
     task->SetCacheKey(lastFunc->GetFunctionHash().Data());
-    auto deviceAgentTask = std::make_unique<DeviceAgentTask>(task);
-    cacheManager.SaveTaskFile(deviceAgentTask.get());
+    cacheManager.SaveTaskFile(task->GetCacheKey(), lastFunc);
     EXPECT_EQ(cacheManager.MatchBinCache(task->GetCacheKey()), true);
-    cacheManager.RecoverTask(lastFunc->GetFunctionHash().Data(), deviceAgentTask.get());
+    cacheManager.RecoverTask(lastFunc->GetFunctionHash().Data(), lastFunc);
 }
-}
+} // namespace npu::tile_fwk

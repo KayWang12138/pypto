@@ -24,10 +24,11 @@
 
 namespace npu::tile_fwk::dynamic {
 struct DeviceMemoryUtils {
-    DeviceMemoryUtils(bool isHugePage = true) :isUseHugePage_(isHugePage) {}
+    DeviceMemoryUtils(bool isHugePage = true) : isUseHugePage_(isHugePage) {}
     static bool IsDevice() { return true; }
-    uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = nullptr;
+    uint8_t* AllocDev(size_t size, uint8_t** cachedDevAddrHolder)
+    {
+        uint8_t* devPtr = nullptr;
         if (cachedDevAddrHolder == nullptr) {
             if (isUseHugePage_) {
                 machine::GetRA()->AllocDevAddr(&devPtr, size);
@@ -47,59 +48,62 @@ struct DeviceMemoryUtils {
         return devPtr;
     }
 
-    uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
+    uint8_t* AllocZero(uint64_t size, uint8_t** cachedDevAddrHolder)
+    {
+        uint8_t* devPtr = AllocDev(size, cachedDevAddrHolder);
         (void)rtMemset(devPtr, size, 0, size);
         return devPtr;
     }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
+    uint8_t* CopyToDev(uint8_t* data, uint64_t size, uint8_t** cachedDevAddrHolder)
+    {
+        uint8_t* devPtr = AllocDev(size, cachedDevAddrHolder);
         rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
         return devPtr;
     }
 
-    void CopyToDev(uint8_t *devPtr, uint8_t *data, uint64_t size) {
+    void CopyToDev(uint8_t* devPtr, uint8_t* data, uint64_t size)
+    {
         rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), cachedDevAddrHolder);
+    T* CopyToDev(std::vector<T> data, uint8_t** cachedDevAddrHolder)
+    {
+        return (T*)CopyToDev((uint8_t*)data.data(), data.size() * sizeof(T), cachedDevAddrHolder);
     }
 
-    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
+    void CopyFromDev(uint8_t* data, uint8_t* devPtr, uint64_t size)
+    {
         rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
     }
 
-    uint8_t *CopyToDev(RawTensorData &data) {
+    uint8_t* CopyToDev(RawTensorData& data)
+    {
         if (data.GetDevPtr() == nullptr) {
-            uint8_t *devPtr = nullptr;
+            uint8_t* devPtr = nullptr;
             machine::GetRA()->AllocDevAddr(&devPtr, data.size());
             if (devPtr == nullptr) {
                 return nullptr;
             }
-            rtMemcpy(devPtr, data.size(), (uint8_t *)data.data(), data.size(), RT_MEMCPY_HOST_TO_DEVICE);
+            rtMemcpy(devPtr, data.size(), (uint8_t*)data.data(), data.size(), RT_MEMCPY_HOST_TO_DEVICE);
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
     }
 
-    void CopyFromDev(RawTensorData &data) {
-        CopyFromDev(data.data(), data.GetDevPtr(), data.size());
-    }
+    void CopyFromDev(RawTensorData& data) { CopyFromDev(data.data(), data.GetDevPtr(), data.size()); }
 
-    void Free(uint8_t* mem) {
+    void Free(uint8_t* mem)
+    {
         if (mem && (!isUseHugePage_)) {
             rtFree(mem);
         }
     }
 
-    uint64_t GetL2Offset() {
-        return machine::GetRA()->GetL2Offset();
-    }
+    uint64_t GetL2Offset() { return machine::GetRA()->GetL2Offset(); }
 
     bool isUseHugePage_{true};
 };
-}
+} // namespace npu::tile_fwk::dynamic
 #endif

@@ -56,6 +56,27 @@ def pytest_addoption(parser: pytest.Parser):
     parser.addoption(
         "--test_case_info", action="store", default="", help="Test case info."
     )
+    parser.addoption(
+        "--cards-per-case", type=int, default=1,
+        help="Number of cards required for each test case. Default is 1 (single-card cases)."
+    )
+
+
+def _is_case_match_cards(item, target_cards) -> bool:
+    """
+    判断测试用例是否匹配目标卡数
+    """
+    cards_marker = item.get_closest_marker("world_size")
+    if cards_marker is None:
+        return True
+    required_cards = cards_marker.args
+    if not required_cards:
+        return True
+
+    if isinstance(required_cards[0], int):
+        return target_cards == required_cards[0]
+
+    return True
 
 
 def pytest_configure_node(node):
@@ -65,35 +86,86 @@ def pytest_configure_node(node):
     """
     # 获取 DeviceId 列表, 当外部传入 --device 时, 是 STest 场景, 否则是 UTest 场景
     device_id_lst: Optional[List[int]] = node.config.getoption("--device")
-    if device_id_lst:
-        # 获取 WorkerIdx, 并获取 DeviceId
-        worker_idx = int(str(node.gateway.id).lstrip("gw"))
-        if worker_idx >= len(device_id_lst):
-            raise ValueError(f"WorkerIdx[{worker_idx}] out of DeviceIdLst{device_id_lst} range.")
-        device_id: int = device_id_lst[worker_idx]
+    cards_per_case: int = node.config.getoption("--cards-per-case", 1)
 
-        # 修改 worker 名称, 设置 worker 中的 DeviceId
-        node.gateway.id = f"Device[{device_id}]"  # 体现在回显中
-        node.gateway.remote_exec(f'import os; os.environ["TILE_FWK_DEVICE_ID"] = "{device_id}"')
+    if device_id_lst:
+        if cards_per_case > 1:
+            # 多卡模式
+            if len(device_id_lst) % cards_per_case != 0:
+                raise ValueError(
+                    f"Cannot divide {len(device_id_lst)} devices into groups of {cards_per_case}"
+                )
+
+            # 计算worker应该分配的设备组
+            num_groups = len(device_id_lst) // cards_per_case
+            worker_idx = int(str(node.gateway.id).lstrip("gw"))
+
+            if worker_idx >= num_groups:
+                # 没有足够的设备组，这个worker不分配设备
+                node.gateway.id = "NoDevices"
+                node.gateway.remote_exec('import os; os.environ.pop("TILE_FWK_DEVICE_ID", None)')
+                node.gateway.remote_exec('import os; os.environ.pop("TILE_FWK_DEVICE_ID_LIST", None)')
+                return
+
+            # 分配设备组
+            start_idx = worker_idx * cards_per_case
+            end_idx = start_idx + cards_per_case
+            device_group = device_id_lst[start_idx:end_idx]
+            device_group_str = ",".join(map(str, device_group))
+
+            node.gateway.id = f"Devices[{device_group_str}]"
+            node.gateway.remote_exec(
+                f'import os; os.environ["TILE_FWK_DEVICE_ID_LIST"] = "{device_group_str}"'
+            )
+        else:
+            # 单卡模式，保持原有逻辑
+            worker_idx = int(str(node.gateway.id).lstrip("gw"))
+            if worker_idx >= len(device_id_lst):
+                raise ValueError(f"WorkerIdx[{worker_idx}] out of DeviceIdLst{device_id_lst} range.")
+            device_id: int = device_id_lst[worker_idx]
+
+            # 修改 worker 名称, 设置 worker 中的 DeviceId
+            node.gateway.id = f"Device[{device_id}]"  # 体现在回显中
+            node.gateway.remote_exec(f'import os; os.environ["TILE_FWK_DEVICE_ID"] = "{device_id}"')
     else:
         node.gateway.remote_exec(f'import os; os.environ.pop("TILE_FWK_DEVICE_ID", None)')
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item, nextitem):
-    device_id: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID", None)
-    if device_id is not None:
-        _set_process_desc(f"Device[{device_id}]")
+    # 优先使用设备组列表
+    device_list_str: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID_LIST", None)
+    if device_list_str is not None:
+        device_list = device_list_str.split(",")
+        _set_process_desc(f"Devices[{','.join(device_list)}]")
+    else:
+        device_id: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID", None)
+        if device_id is not None:
+            _set_process_desc(f"Device[{device_id}]")
     return None
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     """case 进程启动后被调用"""
-    device_id: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID", None)
-    if device_id is not None:
-        case_name: str = str(item.name)
-        _set_process_desc(f"Case(Device[{device_id}]::{case_name})")
+    # 获取当前运行模式下的卡数
+    device_list_str: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID_LIST", None)
+    if device_list_str is not None:
+        # 多卡
+        device_list = device_list_str.split(",")
+    else:
+        # 单卡
+        device_id: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID", None)
+
+    # 设置进程描述
+    case_name: str = str(item.name)
+    if device_list_str is not None:
+        device_list = device_list_str.split(",")
+        _set_process_desc(f"Case(Devices[{','.join(device_list)}]::{case_name})")
+    else:
+        device_id: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID", None)
+        if device_id is not None:
+            _set_process_desc(f"Case(Device[{device_id}]::{case_name})")
     return None  # 继续执行默认的测试流程
 
 
@@ -158,7 +230,7 @@ def _is_case_match_soc(item, target_soc):
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_collection_modifyitems(items):
+def pytest_collection_modifyitems(config, items):
     """
     在所有conftest.py作用域处理完成后进行全局重排序
     """
@@ -177,11 +249,18 @@ def pytest_collection_modifyitems(items):
         # 筛选用例
         filtered_items = [item for item in items if _is_case_match_soc(item, target_soc)]
 
+    # 根据卡数要求过滤用例
+    cards_per_case = config.getoption("--cards-per-case", 1)
+
+    # 在收集阶段就过滤掉不匹配的用例
+    card_filtered_items = [item for item in filtered_items
+                          if _is_case_match_cards(item, cards_per_case)]
+
     # 分离有耗时标识和无耗时标识的测试用例
     timed_tests = []
     untimed_tests = []
 
-    for item in filtered_items:
+    for item in card_filtered_items:
         time_cost = _get_test_time_cost(item)
         if time_cost is not None:
             timed_tests.append((item, time_cost))

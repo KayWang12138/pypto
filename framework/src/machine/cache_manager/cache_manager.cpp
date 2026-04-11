@@ -14,33 +14,31 @@
  */
 
 #include "cache_manager.h"
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "interface/configs/config_manager.h"
-#include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "machine/platform/platform_manager.h"
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "machine/utils/machine_error.h"
 
 namespace npu::tile_fwk {
 namespace {
 const std::string CACHE_FILE_PREFIX = "ast_op_";
-const std::string CACHE_CONTROL_FILE_PREFIX = "pypto_control_";
 const std::string CACHE_BIN_FILE_SUFFIX = ".o";
 const std::string CACHE_CUSTOM_BIN_FILE_SUFFIX = "_control.so";
 const std::string CACHE_CUSTOM_JSON_FILE_SUFFIX = "_control.json";
 const std::string CACHE_KERNEL_FILE_SUFFIX = "_kernel.o";
 const std::string CACHE_LOCK_FILE_SUFFIX = ".lock";
-}
-CacheManager& CacheManager::Instance() {
+} // namespace
+CacheManager& CacheManager::Instance()
+{
     static CacheManager cacheManager;
     return cacheManager;
 }
 
-bool CacheManager::Initialize() {
+bool CacheManager::Initialize()
+{
     if (isInit_) {
         return true;
     }
@@ -51,16 +49,16 @@ bool CacheManager::Initialize() {
     cacheMode_ = CacheMode::Enable;
 
     // create cache dir
-    const char *envPath = std::getenv("HOME");
+    const char* envPath = std::getenv("HOME");
     if (envPath == nullptr) {
-        MACHINE_LOGE("Env[HOME] is not existed or empty.");
+        MACHINE_LOGE(DevCommonErr::GET_ENV_FAILED, "Env[HOME] is not existed or empty.");
         return false;
     }
     std::string homeEnvPath(envPath);
     cacheDirPath_ = homeEnvPath + "/ast_data/" + Platform::Instance().GetSoc().GetShortSocVersion();
     MACHINE_LOGD("Begin to initialize cache manager, cache dir path is [%s].", cacheDirPath_.c_str());
     if (RealPath(cacheDirPath_).empty() && !CreateMultiLevelDir(cacheDirPath_)) {
-        MACHINE_LOGE("Failed to create cache dir[%s].", cacheDirPath_.c_str());
+        MACHINE_LOGE(DevCommonErr::FILE_ERROR, "Failed to create cache dir[%s].", cacheDirPath_.c_str());
         return false;
     }
     MACHINE_LOGI("Cache manager has been initialized at cache dir path[%s].", cacheDirPath_.c_str());
@@ -68,7 +66,8 @@ bool CacheManager::Initialize() {
     return true;
 }
 
-bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
+bool CacheManager::MatchBinCache(const std::string& cacheKey) const
+{
     if (!IsCahceEnable()) {
         return false;
     }
@@ -77,41 +76,41 @@ bool CacheManager::MatchBinCache(const std::string &cacheKey) const {
     }
     std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
     MACHINE_LOGD("Try to check whether bin file[%s] is existed.", cacheBinFile.c_str());
-    std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
-                                        CACHE_CUSTOM_BIN_FILE_SUFFIX;
-    std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
-                                        CACHE_CUSTOM_JSON_FILE_SUFFIX;                                    
+    std::string customSoPath =
+        cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() + CACHE_CUSTOM_BIN_FILE_SUFFIX;
+    std::string customJsonPath =
+        cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() + CACHE_CUSTOM_JSON_FILE_SUFFIX;
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     // check whether both json and bin file is existed
-    bool ret = !RealPath(cacheBinFile).empty() && !RealPath(customSoPath).empty() &&
-                !RealPath(customJsonPath).empty();
+    bool ret = !RealPath(cacheBinFile).empty() && !RealPath(customSoPath).empty() && !RealPath(customJsonPath).empty();
     if (ret) {
-        MACHINE_LOGI("Cache matched, bin file[%s] and [%s] is existed.",
-                     cacheBinFile.c_str(), customSoPath.c_str());
+        MACHINE_LOGI("Cache matched, bin file[%s] and [%s] is existed.", cacheBinFile.c_str(), customSoPath.c_str());
     } else {
-        MACHINE_LOGI("Cache missed, bin file[%s] or [%s] or [%s] is not existed.",
-                     cacheBinFile.c_str(), customSoPath.c_str(), customJsonPath.c_str());
+        MACHINE_LOGI(
+            "Cache missed, bin file[%s] or [%s] or [%s] is not existed.", cacheBinFile.c_str(), customSoPath.c_str(),
+            customJsonPath.c_str());
     }
     return ret;
 }
 
-void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
+void CacheManager::SaveTaskFile(const std::string& cacheKey, const Function* function) const
+{
     if (!IsCahceEnable()) {
         return;
     }
-    if (deviceAgentTask == nullptr || deviceAgentTask->GetFunction() == nullptr) {
+    if (function == nullptr) {
         return;
     }
-    Function *function = deviceAgentTask->GetFunction();
-    std::string basePath = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey();
+    std::string basePath = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey;
     std::string binFilePath = basePath + CACHE_BIN_FILE_SUFFIX;
     std::string kernelFilePath = basePath + CACHE_KERNEL_FILE_SUFFIX;
-    std::string customSoPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
-                                        CACHE_CUSTOM_BIN_FILE_SUFFIX;
-    std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
-                                        CACHE_CUSTOM_JSON_FILE_SUFFIX;
-    MACHINE_LOGD("Try to save bin file[%s], function type is [%s], control bin file[%s].", binFilePath.c_str(),
-                 function->GetFunctionTypeStr().c_str(), customSoPath.c_str());
+    std::string customSoPath =
+        cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() + CACHE_CUSTOM_BIN_FILE_SUFFIX;
+    std::string customJsonPath =
+        cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() + CACHE_CUSTOM_JSON_FILE_SUFFIX;
+    MACHINE_LOGD(
+        "Try to save bin file[%s], function type is [%s], control bin file[%s].", binFilePath.c_str(),
+        function->GetFunctionTypeStr().c_str(), customSoPath.c_str());
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     if (!RealPath(binFilePath).empty() && !RealPath(customSoPath).empty() && !RealPath(customJsonPath).empty()) {
         MACHINE_LOGI("Bin file[%s] and [%s] already exists.", binFilePath.c_str(), customSoPath.c_str());
@@ -119,9 +118,8 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
     }
     if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
         MACHINE_LOGI("Save devProgBinary at bin file[%s].", binFilePath.c_str());
-        std::string lockFilePath =
-            cacheDirPath_ + "/" + CACHE_FILE_PREFIX + deviceAgentTask->compileTask->GetCacheKey() + CACHE_LOCK_FILE_SUFFIX;
-        FILE *fp = LockAndOpenFile(lockFilePath);
+        std::string lockFilePath = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_LOCK_FILE_SUFFIX;
+        FILE* fp = LockAndOpenFile(lockFilePath);
         if (fp == nullptr) {
             return;
         }
@@ -133,8 +131,8 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
             std::vector<uint8_t> controlBin;
             size_t binSize = OpInfoManager::GetInstance().GetControlBuffer().size();
             controlBin.resize(OpInfoManager::GetInstance().GetControlBuffer().size());
-            if (memcpy_s(controlBin.data(), binSize, OpInfoManager::GetInstance().GetControlBuffer().data(),
-                         binSize) != EOK) {
+            if (memcpy_s(controlBin.data(), binSize, OpInfoManager::GetInstance().GetControlBuffer().data(), binSize) !=
+                EOK) {
                 MACHINE_LOGI("Control bin memCpy failed");
                 return;
             }
@@ -145,20 +143,21 @@ void CacheManager::SaveTaskFile(const DeviceAgentTask *deviceAgentTask) const {
     }
 }
 
-bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *deviceAgentTask) const {
+bool CacheManager::RecoverTask(const std::string& cacheKey, const Function* function) const
+{
     if (!IsCahceEnable()) {
         return false;
     }
-    if (deviceAgentTask == nullptr || deviceAgentTask->GetFunction() == nullptr) {
+    if (function == nullptr) {
         return false;
     }
-    Function *function = deviceAgentTask->GetFunction();
     std::string cacheBinFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_BIN_FILE_SUFFIX;
     std::string cacheKernelFile = cacheDirPath_ + "/" + CACHE_FILE_PREFIX + cacheKey + CACHE_KERNEL_FILE_SUFFIX;
-    std::string customJsonPath = cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() +
-                                 CACHE_CUSTOM_JSON_FILE_SUFFIX;
-    MACHINE_LOGD("Try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),
-                 function->GetFunctionTypeStr().c_str());
+    std::string customJsonPath =
+        cacheDirPath_ + "/lib" + OpInfoManager::GetInstance().GetOpFuncName() + CACHE_CUSTOM_JSON_FILE_SUFFIX;
+    MACHINE_LOGD(
+        "Try to recover device task from bin file[%s], function type is [%s].", cacheBinFile.c_str(),
+        function->GetFunctionTypeStr().c_str());
     auto attr = function->GetDyndevAttribute();
     std::lock_guard<std::mutex> lock_guard(cacheMutex_);
     if (function->IsFunctionType(FunctionType::DYNAMIC)) {
@@ -170,4 +169,4 @@ bool CacheManager::RecoverTask(const std::string &cacheKey, DeviceAgentTask *dev
     }
     return true;
 }
-}
+} // namespace npu::tile_fwk

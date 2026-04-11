@@ -18,23 +18,24 @@ def test_unsqueeze_validshape():
     dtype = pypto.DT_FP32
     shape = [32, 32]
     x = pypto.tensor(shape, dtype, "x")
-    
+
     with pypto.function("UNSQUEEZE_VALIDSHAPE", x):
         pypto.set_vec_tile_shapes(32, 32)
-        
+
         # Create a view with validShape different from shape to test validShape propagation
         # View shape is [32, 32], but validShape is [16, 16]
         x_view = pypto.view(x, [32, 32], [0, 0], valid_shape=[16, 16])
-        
+
         # Test unsqueeze at dimension 0
         res = pypto.unsqueeze(x_view, 0)
-        
+
         # Verify shape: [32, 32] -> [1, 32, 32]
         assert res.shape == [1, 32, 32]
-        
+
         # Verify validShape: [16, 16] -> [1, 16, 16]
         assert len(res.valid_shape) == 3
         assert res.valid_shape[0].concrete() == 1
         assert res.valid_shape[1].concrete() == 16
         assert res.valid_shape[2].concrete() == 16
 
+        assert pypto.reshape(res, [-1]).shape == [1024]

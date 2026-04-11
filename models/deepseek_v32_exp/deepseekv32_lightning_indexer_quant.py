@@ -229,7 +229,7 @@ def lightning_indexer_compute(input_data_map, params):
             # cur_k形状为(tail_seq, d)
             cur_k = key[cur_block_idx * block_size: (cur_block_idx * block_size + tail_seq), :]
             # 使用随路量化计算，qk_dot形状为(s1 * n1, tail_seq)
-            qk_dot = torch.matmul(cur_q.to(torch.int32), 
+            qk_dot = torch.matmul(cur_q.to(torch.int32),
                                   cur_k.transpose(1, 0).to(torch.int32)).to(torch.float32).relu()
             qk_dot = qk_dot * avoid_fp32_to_fp16_overflow_scale
             qk_dot = qk_dot.to(torch.float16)
@@ -274,7 +274,7 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
     err_msg = None
 
     # 按元素遍历比较
-    for idx, (exp, act) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
+    for idx, (act, exp) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
         # 按误差阈值分组（每组包含error_count_threshold个元素）
         part_index = idx // error_count_threshold
         # 记录不匹配的索引
@@ -328,11 +328,16 @@ def lightning_indexer(case_name: str) -> bool:
     # 根据测试用例名称配置参数
     if case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2":
         b, s1 = 4, 2  # batch size和query序列长度
-        act_seq = [64 * 1024] * b  # 每个样本的实际序列长度
+        act_seq = [64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1] # 每个样本的实际序列长度
+    elif case_name == "LightningIndexerSTest.lightning_indexer_quant_8_b_2_s1_64k_s2":
+        b, s1 = 8, 2
+        act_seq = [32767, 32656, 384, 2000, 64 * 1024, 971, 32 * 1024 + 101, 129090]
+    elif case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2_perf":
+        b, s1 = 4, 2  # batch size和query序列长度
+        act_seq = [64 * 1024] * b # 每个样本的实际序列长度
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False
-
     # 计算关键参数
     s2 = max(act_seq)  # 最大序列长度
     block_num = sum([(s + block_size - 1) // block_size for s in act_seq])  # 总块数
@@ -365,18 +370,20 @@ def lightning_indexer(case_name: str) -> bool:
     act_seq_key_npu = input_data_map["act_seq"].npu()
     block_table_npu = input_data_map["block_table"].npu()
 
-    unroll_list = [128, 64, 32, 16, 8, 4, 1]
+    topk_res_out = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
+    topk_res_npu = topk_res_out.npu()
 
+    unroll_list = [128, 64, 32, 16, 8, 4, 1]
     configs = LightningIndexerConfigs()
 
-    topk_res_npu = lightning_indexer_decode(n1, d, block_size, block_num, unroll_list, configs, selected_count
-                    )(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu, idx_weight_npu, 
-                    act_seq_key_npu, block_table_npu)
+    lightning_indexer_decode(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu,
+                         idx_weight_npu, act_seq_key_npu, block_table_npu, topk_res_npu,
+                         unroll_list, configs, selected_count)
 
     torch_npu.npu.synchronize()
 
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
-    topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
+    topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-4, selected_count)
 
     return True
 
@@ -385,5 +392,16 @@ def test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2():
     lightning_indexer("LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2")
 
 
+def test_lightning_indexer_topk_quant_8_b_2_s1_64k_s2():
+    lightning_indexer("LightningIndexerSTest.lightning_indexer_quant_8_b_2_s1_64k_s2")
+
+
+@pytest.mark.skip(reason="large shape")
+def test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2_perf():
+    lightning_indexer("LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2_perf")
+
+
 if __name__ == "__main__":
     test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2()
+    test_lightning_indexer_topk_quant_8_b_2_s1_64k_s2()
+    test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2_perf()

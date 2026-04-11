@@ -22,10 +22,12 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpKvCache, const Tensor &cmpKrCache,
-    const Tensor &blockTable, Tensor &cmpCacheIndex, const Tensor &actSeqLen, const Tensor &mlpWk1,
-    const Tensor &mlpWk2, const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpKvCacheOut, Tensor &cmpKrCacheOut,
-    Tensor &auxTensor, const int cmpBlockSize, const int cmpStride, const int rs, CmpAttnTile &tileConfig) {
+void compressKv(
+    const Tensor& kvCache, const Tensor& krCache, const Tensor& cmpKvCache, const Tensor& cmpKrCache,
+    const Tensor& blockTable, Tensor& cmpCacheIndex, const Tensor& actSeqLen, const Tensor& mlpWk1,
+    const Tensor& mlpWk2, const Tensor& mlpCos, const Tensor& mlpSin, Tensor& cmpKvCacheOut, Tensor& cmpKrCacheOut,
+    Tensor& auxTensor, const int cmpBlockSize, const int cmpStride, const int rs, CmpAttnTile& tileConfig)
+{
     /* bellows are function params support
     kvCache: [blockNum * blockSize, n2 * dN], fp16/bf16
     krCache: [blockNum * blockSize, n2 * dR], fp16/bf16
@@ -41,10 +43,12 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
     kvCacheCmpOut: [cmpBlockNum*blockSize, n2*dN], fp16/bf16
     krCacheCmpOut: [cmpBlockNum*blockSize, n2*dR], fp16/bf16
     */
-    FUNCTION("CompressKv",
+    FUNCTION(
+        "CompressKv",
         {kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
-            mlpSin},
-        {cmpKvCacheOut, cmpKrCacheOut, auxTensor}) {
+         mlpSin},
+        {cmpKvCacheOut, cmpKrCacheOut, auxTensor})
+    {
         auto kDtype = kvCache.GetStorage()->Datatype();
 
         const int b = cmpCacheIndex.GetShape()[NUM_VALUE_0];
@@ -64,7 +68,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
 
         Tensor batchConcatNR(kDtype, {b, cmpBlockSize, dN + dR}, "batchConcatNR");
 
-        LOOP("BEFORE_KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true) {
+        LOOP("BEFORE_KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true)
+        {
             // Construct align-shape tensors for store dynamic seqs
             auto curKvLen = GetTensorData(actSeqLen, {bIdx});
             auto t1 = curKvLen % cmpStride == 0;
@@ -74,7 +79,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             auto blockStartOffset = (curKvLen - cmpBlockSize) % blockSize;
             auto tableLoop = blockEndIdx - blockStartIdx + 1;
             IF(t1 * t2) {}
-            ELSE {
+            ELSE
+            {
                 blockStartIdx = 0;
                 blockEndIdx = 0;
                 blockStartOffset = 0;
@@ -84,12 +90,14 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             Tensor kNopeBlock(kDtype, {cmpBlockSize, dN}, "kNopeBlock");
             Tensor kRopeBlock(kDtype, {cmpBlockSize, dR}, "kRopeBlock");
             config::SetSemanticLabel("BlockConcat");
-            IF(tableLoop == 1) {
+            IF(tableLoop == 1)
+            {
                 auto blockIdx = GetTensorData(blockTable, {bIdx, blockStartIdx});
                 kNopeBlock = View(kvCache, {cmpBlockSize, dN}, {blockIdx * blockSize + blockStartOffset, 0});
                 kRopeBlock = View(krCache, {cmpBlockSize, dR}, {blockIdx * blockSize + blockStartOffset, 0});
             }
-            ELSE { // tableLoop == 2
+            ELSE
+            { // tableLoop == 2
                 auto blockIdx0 = GetTensorData(blockTable, {bIdx, blockStartIdx});
                 auto kNopeBlock0 =
                     View(kvCache, {cmpBlockSize / 2, dN}, {(blockIdx0 + 1) * blockSize - cmpBlockSize / 2, 0});
@@ -120,7 +128,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
         }
 
         Tensor batchMlpCompressResult(kDtype, {b, dN + dR}, "batchMlpCompressResult");
-        LOOP("KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1), {}, true) {
+        LOOP("KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1), {}, true)
+        {
             (void)bIdx;
             auto reshapeNR = Reshape(batchConcatNR, {b, cmpBlockSize * (dN + dR)});
             batchMlpCompressResult =
@@ -131,7 +140,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
 
         Tensor batchNopeResult(kDtype, {b, dN}, "batchNopeResult");
         Tensor batchRopeResult(kDtype, {b, dR}, "batchRopeResult");
-        LOOP("AFTER_KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true) {
+        LOOP("AFTER_KV_COMPRESS", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true)
+        {
             // Construct align-shape tensors for store dynamic seqs
             auto curKvLen = GetTensorData(actSeqLen, {bIdx});
             auto t1 = curKvLen % cmpStride == 0;
@@ -139,11 +149,13 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             TileShape::Current().SetVecTile(NUM_32, NUM_64);
             Tensor kNopeCmp(kDtype, {1, dN});
             Tensor kRopeCmp(kDtype, {1, dR});
-            IF(t1 * t2) {
+            IF(t1 * t2)
+            {
                 kNopeCmp = View(batchMlpCompressResult, {1, dN}, {bIdx, 0});
                 kRopeCmp = View(batchMlpCompressResult, {1, dR}, {bIdx, dN});
             }
-            ELSE {
+            ELSE
+            {
                 auto cmpKvCacheDim2 = Reshape(cmpKvCache, {cmpBlockNum * blockSize * n2, dN});
                 auto cmpKrCacheDim2 = Reshape(cmpKrCache, {cmpBlockNum * blockSize * n2, dR});
                 auto index = GetTensorData(cmpCacheIndex, {bIdx, s1 - 1});
@@ -164,7 +176,8 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
             Assemble(kRopeCmp, {bIdx, 0}, batchRopeResult);
         }
 
-        LOOP("UPDATE_CMP_KV_CACHE", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1), {}, true) {
+        LOOP("UPDATE_CMP_KV_CACHE", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(1), {}, true)
+        {
             (void)bIdx;
             auto cmpKvCacheDim2 = Reshape(cmpKvCache, {cmpBlockNum * blockSize * n2, dN});
             auto cmpKrCacheDim2 = Reshape(cmpKrCache, {cmpBlockNum * blockSize * n2, dR});

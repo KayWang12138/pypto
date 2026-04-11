@@ -12,7 +12,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -28,7 +28,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -46,6 +46,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 0
@@ -62,7 +63,7 @@
                         63
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -78,7 +79,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -96,6 +97,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 1
@@ -112,7 +114,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -128,7 +130,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -146,6 +148,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 2
@@ -162,7 +165,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -178,7 +181,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -196,6 +199,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 3
@@ -212,7 +216,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -228,7 +232,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -246,6 +250,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 4
@@ -262,7 +267,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -278,7 +283,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -296,6 +301,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 5
@@ -312,7 +318,7 @@
                         1000
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -328,7 +334,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -346,6 +352,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 6
@@ -362,7 +369,7 @@
                         1024
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -378,7 +385,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -396,6 +403,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 7
@@ -412,7 +420,7 @@
                         1024
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -428,7 +436,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -446,6 +454,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 8
@@ -462,7 +471,7 @@
                         1027
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -478,7 +487,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -496,6 +505,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 9
@@ -512,7 +522,7 @@
                         1016
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -528,7 +538,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -546,6 +556,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 10
@@ -563,7 +574,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -580,7 +591,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -600,6 +611,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 11
@@ -617,7 +629,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -634,7 +646,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -654,6 +666,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 12
@@ -672,7 +685,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -690,7 +703,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -712,6 +725,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 13
@@ -728,7 +742,7 @@
                         1536
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -744,7 +758,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -762,6 +776,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 14
@@ -778,7 +793,7 @@
                         36864
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -794,7 +809,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -812,6 +827,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 15
@@ -828,7 +844,7 @@
                         32768
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -844,7 +860,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -862,6 +878,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 16
@@ -878,7 +895,7 @@
                         16384
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -894,7 +911,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -912,6 +929,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 17
@@ -928,7 +946,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": "nan",
@@ -944,7 +962,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -962,6 +980,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 18
@@ -978,7 +997,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": "inf",
@@ -994,7 +1013,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1012,6 +1031,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 19
@@ -1028,7 +1048,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1044,7 +1064,7 @@
                         0
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1062,6 +1082,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 20
@@ -1078,7 +1099,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1094,7 +1115,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1112,6 +1133,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 21
@@ -1129,7 +1151,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1146,7 +1168,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1166,6 +1188,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 22
@@ -1183,7 +1206,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1200,7 +1223,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1220,6 +1243,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 23
@@ -1237,7 +1261,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1254,7 +1278,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1274,6 +1298,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 24
@@ -1292,7 +1317,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1310,7 +1335,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1332,6 +1357,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 25
@@ -1350,7 +1376,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1368,7 +1394,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1390,6 +1416,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 26
@@ -1408,7 +1435,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1426,7 +1453,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1448,6 +1475,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 27
@@ -1466,7 +1494,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1484,7 +1512,7 @@
                         64
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1506,6 +1534,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 28
@@ -1522,7 +1551,7 @@
                         768
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1538,7 +1567,7 @@
                         1
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1556,6 +1585,7 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 29
@@ -1572,7 +1602,7 @@
                         768
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false,
                     "data_range": {
                         "min": -100,
@@ -1588,7 +1618,7 @@
                         768
                     ],
                     "dtype": "fp32",
-                    "tensor_format": "ND",
+                    "format": "ND",
                     "need_trans": false
                 }
             ],
@@ -1606,9 +1636,1834 @@
                 ],
                 "keepDim": true,
                 "skip": null,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 30
+        },
+        {
+            "case_index": 32,
+            "case_name": "RowMin_int32_4D_dim1_overflow",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        1,
+                        31,
+                        1,
+                        1
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 2,
+                        "max": 2
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        1,
+                        1,
+                        1
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                1,
+                31,
+                1,
+                1
+            ],
+            "tile_shape": [
+                1,
+                31,
+                1,
+                1
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 31
+        },
+        {
+            "case_index": 33,
+            "case_name": "RowMin_int32_4D_dim1_32align_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        127,
+                        9,
+                        15
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1000,
+                        "max": 1000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        1,
+                        9,
+                        15
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                5,
+                127,
+                9,
+                15
+            ],
+            "tile_shape": [
+                1,
+                32,
+                9,
+                16
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 32
+        },
+        {
+            "case_index": 34,
+            "case_name": "RowMin_int32_3D_dim0_non32_nokeepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        31,
+                        17,
+                        63
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -128,
+                        "max": 127
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        17,
+                        63
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                31,
+                17,
+                31
+            ],
+            "tile_shape": [
+                16,
+                17,
+                32
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 33
+        },
+        {
+            "case_index": 35,
+            "case_name": "RowMin_int32_4D_dim1_32align_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        127,
+                        9,
+                        15
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1000,
+                        "max": 1000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        1,
+                        9,
+                        15
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                5,
+                127,
+                9,
+                15
+            ],
+            "tile_shape": [
+                1,
+                32,
+                9,
+                16
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 34
+        },
+        {
+            "case_index": 36,
+            "case_name": "RowMin_int32_3D_dim0_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        63,
+                        33,
+                        65
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -32768,
+                        "max": 32767
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        33,
+                        65
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                63,
+                33,
+                33
+            ],
+            "tile_shape": [
+                16,
+                32,
+                32
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 35
+        },
+        {
+            "case_index": 37,
+            "case_name": "RowMin_int32_4D_dim2_non32_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        3,
+                        17,
+                        63,
+                        31
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -2000000000.0,
+                        "max": 2000000000.0
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        3,
+                        17,
+                        1,
+                        31
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                3,
+                17,
+                63,
+                31
+            ],
+            "tile_shape": [
+                1,
+                8,
+                32,
+                32
+            ],
+            "params": {
+                "dims": [
+                    -2
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 36
+        },
+        {
+            "case_index": 38,
+            "case_name": "RowMin_int32_4D_dim1_non32_nokeepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        7,
+                        95,
+                        17,
+                        9
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -50000.0,
+                        "max": 50000.0
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        7,
+                        17,
+                        9
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7,
+                95,
+                17,
+                9
+            ],
+            "tile_shape": [
+                1,
+                32,
+                16,
+                16
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 37
+        },
+        {
+            "case_index": 39,
+            "case_name": "RowMin_int32_3D_dim1_32align_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        15,
+                        255,
+                        31
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10,
+                        "max": 10
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        15,
+                        1,
+                        31
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                15,
+                255,
+                31
+            ],
+            "tile_shape": [
+                4,
+                128,
+                32
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 38
+        },
+        {
+            "case_index": 40,
+            "case_name": "RowMin_int32_3D_dim1_non32_nokeepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        31,
+                        99,
+                        63
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -9999,
+                        "max": 9999
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        31,
+                        63
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                31,
+                99,
+                63
+            ],
+            "tile_shape": [
+                8,
+                32,
+                64
+            ],
+            "params": {
+                "dims": [
+                    -2
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 39
+        },
+        {
+            "case_index": 41,
+            "case_name": "RowMin_int32_2D_dim0_non32_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        127,
+                        129
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -1000000.0,
+                        "max": 1000000.0
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        129
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                127,
+                129
+            ],
+            "tile_shape": [
+                64,
+                136
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 40
+        },
+        {
+            "case_index": 42,
+            "case_name": "RowMin_int16_4D_dim0_32align_nokeepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        63,
+                        9,
+                        17,
+                        5
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -32768,
+                        "max": 32767
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        9,
+                        17,
+                        5
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                63,
+                9,
+                17,
+                5
+            ],
+            "tile_shape": [
+                8,
+                9,
+                17,
+                16
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 41
+        },
+        {
+            "case_index": 43,
+            "case_name": "RowMin_int16_4D_dim1_32align_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        3,
+                        127,
+                        9,
+                        7
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -999,
+                        "max": 999
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        3,
+                        1,
+                        9,
+                        7
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                3,
+                127,
+                9,
+                7
+            ],
+            "tile_shape": [
+                3,
+                64,
+                9,
+                16
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 42
+        },
+        {
+            "case_index": 44,
+            "case_name": "RowMin_int16_3D_dim0_non32_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        31,
+                        65,
+                        63
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -100,
+                        "max": 100
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        1,
+                        65,
+                        63
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                31,
+                65,
+                63
+            ],
+            "tile_shape": [
+                16,
+                32,
+                64
+            ],
+            "params": {
+                "dims": [
+                    0
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 43
+        },
+        {
+            "case_index": 45,
+            "case_name": "RowMin_int16_4D_dim2_32align_nokeepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        5,
+                        17,
+                        127,
+                        9
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -5,
+                        "max": 5
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        5,
+                        17,
+                        9
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                5,
+                17,
+                127,
+                9
+            ],
+            "tile_shape": [
+                1,
+                17,
+                64,
+                16
+            ],
+            "params": {
+                "dims": [
+                    2
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 44
+        },
+        {
+            "case_index": 46,
+            "case_name": "RowMin_int16_3D_dim1_non32_nokeepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        17,
+                        95,
+                        31
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -3276,
+                        "max": 3276
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        17,
+                        31
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                17,
+                95,
+                31
+            ],
+            "tile_shape": [
+                17,
+                32,
+                32
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 45
+        },
+        {
+            "case_index": 47,
+            "case_name": "RowMin_int16_4D_dim1_non32_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        3,
+                        79,
+                        33,
+                        17
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -10000.0,
+                        "max": 10000.0
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        3,
+                        1,
+                        33,
+                        17
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                3,
+                79,
+                33,
+                17
+            ],
+            "tile_shape": [
+                1,
+                16,
+                33,
+                32
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 46
+        },
+        {
+            "case_index": 48,
+            "case_name": "RowMin_int16_3D_dim1_32align_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        7,
+                        255,
+                        33
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -128,
+                        "max": 127
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        7,
+                        1,
+                        33
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7,
+                255,
+                33
+            ],
+            "tile_shape": [
+                7,
+                128,
+                32
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 47
+        },
+        {
+            "case_index": 49,
+            "case_name": "RowMin_int16_3D_dim1_32align_keepdim",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        7,
+                        255,
+                        33
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": -128,
+                        "max": 127
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        7,
+                        1,
+                        33
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                7,
+                255,
+                33
+            ],
+            "tile_shape": [
+                7,
+                128,
+                32
+            ],
+            "params": {
+                "dims": [
+                    1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 48
+        },
+        {
+            "case_index": 50,
+            "case_name": "RowMin_int16_64_256_safe_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        64,
+                        256
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 100,
+                        "max": 100
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        64,
+                        1
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                64,
+                256
+            ],
+            "tile_shape": [
+                64,
+                256
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 49
+        },
+        {
+            "case_index": 51,
+            "case_name": "RowMin_int16_64_256_safe_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        64,
+                        256
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 100,
+                        "max": 100
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        64
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                64,
+                256
+            ],
+            "tile_shape": [
+                64,
+                256
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 50
+        },
+        {
+            "case_index": 52,
+            "case_name": "RowMin_int16_32_512_overflow_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        512
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 200,
+                        "max": 200
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32,
+                        1
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                32,
+                512
+            ],
+            "tile_shape": [
+                32,
+                512
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 51
+        },
+        {
+            "case_index": 53,
+            "case_name": "RowMin_int16_32_512_overflow_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        512
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 200,
+                        "max": 200
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                32,
+                512
+            ],
+            "tile_shape": [
+                32,
+                512
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 52
+        },
+        {
+            "case_index": 54,
+            "case_name": "RowMin_int16_16_2048_boundary_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        2048
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 16,
+                        "max": 16
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        1
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                16,
+                2048
+            ],
+            "tile_shape": [
+                16,
+                2048
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 53
+        },
+        {
+            "case_index": 55,
+            "case_name": "RowMin_int16_16_2048_boundary_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        2048
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 16,
+                        "max": 16
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                16,
+                2048
+            ],
+            "tile_shape": [
+                16,
+                2048
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 54
+        },
+        {
+            "case_index": 56,
+            "case_name": "RowMin_int32_32_512_safe_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        512
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 10000,
+                        "max": 10000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32,
+                        1
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                32,
+                512
+            ],
+            "tile_shape": [
+                32,
+                512
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 55
+        },
+        {
+            "case_index": 57,
+            "case_name": "RowMin_int32_32_512_safe_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        32,
+                        512
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 10000,
+                        "max": 10000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        32
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                32,
+                512
+            ],
+            "tile_shape": [
+                32,
+                512
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 56
+        },
+        {
+            "case_index": 58,
+            "case_name": "RowMin_int32_16_1024_overflow_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        1024
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 3000000,
+                        "max": 3000000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16,
+                        1
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                16,
+                1024
+            ],
+            "tile_shape": [
+                16,
+                1024
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 57
+        },
+        {
+            "case_index": 59,
+            "case_name": "RowMin_int32_16_1024_overflow_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        16,
+                        1024
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 3000000,
+                        "max": 3000000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        16
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                16,
+                1024
+            ],
+            "tile_shape": [
+                16,
+                1024
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 58
+        },
+        {
+            "case_index": 60,
+            "case_name": "RowMin_int32_8_2048_boundary_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        8,
+                        2048
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 1048576,
+                        "max": 1048576
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        8,
+                        1
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                8,
+                2048
+            ],
+            "tile_shape": [
+                8,
+                2048
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 59
+        },
+        {
+            "case_index": 61,
+            "case_name": "RowMin_int32_8_2048_boundary_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        8,
+                        2048
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 1048576,
+                        "max": 1048576
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        8
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                8,
+                2048
+            ],
+            "tile_shape": [
+                8,
+                2048
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 60
+        },
+        {
+            "case_index": 62,
+            "case_name": "RowMin_int16_48_300_safe_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        48,
+                        300
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 50,
+                        "max": 50
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        48,
+                        1
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                48,
+                300
+            ],
+            "tile_shape": [
+                48,
+                320
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 61
+        },
+        {
+            "case_index": 63,
+            "case_name": "RowMin_int16_48_300_safe_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        48,
+                        300
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 50,
+                        "max": 50
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        48
+                    ],
+                    "dtype": "int16",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                48,
+                300
+            ],
+            "tile_shape": [
+                48,
+                320
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 62
+        },
+        {
+            "case_index": 64,
+            "case_name": "RowMin_int32_12_1200_overflow_keepdim_true",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        12,
+                        1200
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 2000000,
+                        "max": 2000000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        12,
+                        1
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                12,
+                1200
+            ],
+            "tile_shape": [
+                12,
+                1280
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": true,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 63
+        },
+        {
+            "case_index": 65,
+            "case_name": "RowMin_int32_12_1200_overflow_keepdim_false",
+            "operation": "Amin",
+            "input_tensors": [
+                {
+                    "name": "input0",
+                    "shape": [
+                        12,
+                        1200
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false,
+                    "data_range": {
+                        "min": 2000000,
+                        "max": 2000000
+                    }
+                }
+            ],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [
+                        12
+                    ],
+                    "dtype": "int32",
+                    "format": "ND",
+                    "need_trans": false
+                }
+            ],
+            "view_shape": [
+                12,
+                1200
+            ],
+            "tile_shape": [
+                12,
+                1280
+            ],
+            "params": {
+                "dims": [
+                    -1
+                ],
+                "keepDim": false,
+                "skip": null,
+                "on_board": true,
+                "func_id": -1
+            },
+            "index": 64
         }
     ]
 }

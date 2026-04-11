@@ -19,7 +19,7 @@
 #include <functional>
 #include "opcode.h"
 #include "operation.h"
-#include "interface/utils/log.h"
+
 namespace npu::tile_fwk {
 // params: operation*, validshape, symshapes
 using FuncType = std::function<void(Operation* op, std::vector<std::vector<SymbolicScalar>>&)>;
@@ -27,32 +27,32 @@ class InferShapeRegistry {
 private:
     InferShapeRegistry() = default;
     ~InferShapeRegistry() = default;
+
 public:
-    static InferShapeRegistry& GetInstance() {
+    static InferShapeRegistry& GetInstance()
+    {
         static InferShapeRegistry instance;
         return instance;
     }
- 
+
     // 注册默认函数
-    void RegisterInferShapeFunc(const Opcode opcode, FuncType func) {
-        inferShapeFuncs_[opcode] = func;
-    }
-    
+    void RegisterInferShapeFunc(const Opcode opcode, FuncType func) { inferShapeFuncs_[opcode] = func; }
+
     // 调用场景对应的函数
-    void CallInferShapeFunc(Operation* op) {
+    void CallInferShapeFunc(Operation* op)
+    {
         const Opcode opcode = op->GetOpcode();
         std::vector<std::vector<SymbolicScalar>> outValidShapes;
         auto it = inferShapeFuncs_.find(opcode);
         if (it != inferShapeFuncs_.end()) {
             it->second(op, outValidShapes);
         } else {
-            ALOG_WARN_F("Infer shape failed, opcode [%s] doesn't support infer shape.",
-                   op->GetOpcodeStr().c_str());
+            PASS_LOGW("Infer shape failed, opcode [%s] doesn't support infer shape.", op->GetOpcodeStr().c_str());
             // 如果op infershape未注册，那么validshape设置成shape
             for (auto output : op->GetOOperands()) {
                 auto immShape = OpImmediate::Specified(output->GetShape());
                 if (output->GetDynValidShape().empty()) {
-                        std::vector<SymbolicScalar> validShape;
+                    std::vector<SymbolicScalar> validShape;
                     for (auto immDim : immShape) {
                         validShape.push_back(immDim.GetSpecifiedValue());
                     }
@@ -67,17 +67,16 @@ public:
             op->GetOOperands()[i]->UpdateDynValidShape(outValidShapes[i]);
         }
     }
+
 private:
     std::unordered_map<Opcode, FuncType> inferShapeFuncs_;
 };
- 
-#define REGISTER_INFER_SHAPE_FUNC(OpCoreStr, OpType, FuncName) \
-class OpCoreStr##Register { \
-public: \
-    OpCoreStr##Register() { \
-        InferShapeRegistry::GetInstance().RegisterInferShapeFunc(OpType, FuncName); \
-    } \
-}; \
-static OpCoreStr##Register OpCoreStr##_register
+
+#define REGISTER_INFER_SHAPE_FUNC(OpCoreStr, OpType, FuncName)                                                \
+    class OpCoreStr##Register {                                                                               \
+    public:                                                                                                   \
+        OpCoreStr##Register() { InferShapeRegistry::GetInstance().RegisterInferShapeFunc(OpType, FuncName); } \
+    };                                                                                                        \
+    static OpCoreStr##Register OpCoreStr##_register
 } // namespace npu::tile_fwk
 #endif // DEVICE_INFER_SHAPE_H

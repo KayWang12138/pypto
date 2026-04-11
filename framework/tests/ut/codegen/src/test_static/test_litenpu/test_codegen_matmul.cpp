@@ -48,7 +48,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_001) {
         Tensor b(DataType::DT_FP16, {16, 16}, "b");
         auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
         FUNCTION("MATMUL_001") {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16}, false, false);
+            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }
     }
@@ -65,7 +65,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_002) {
         Tensor b(DataType::DT_FP16, {64, 64}, "b");
         auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
         FUNCTION("MATMUL_001") {
-            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64}, false, false);
+            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }
     }
@@ -82,7 +82,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_002_cloud) {
         Tensor b(DataType::DT_FP16, {64, 64}, "b");
         auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
         FUNCTION("MATMUL_001") {
-            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64}, false, false);
+            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }
     }
@@ -99,7 +99,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_001_cloud_test) {
         Tensor b(DataType::DT_FP16, {16, 16}, "b");
         auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
         FUNCTION("MATMUL_001_CLOUD") {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16}, false, false);
+            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }
     }

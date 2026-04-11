@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -12,10 +13,10 @@
 对输入张量逐元素应用 Leaky ReLU（带泄漏的线性整流函数）激活函数。计算公式如下：
 
 $$
-\text{res}_i = 
-\begin{cases} 
+\text{res}_i =
+\begin{cases}
 \text{input}_i & \text{if } \text{input}_i \geq 0 \\
-\text{negative\_slope} \cdot \text{input}_i & \text{if } \text{input}_i < 0 
+\text{negative\_slope} \cdot \text{input}_i & \text{if } \text{input}_i < 0
 \end{cases}
 $$
 
@@ -25,7 +26,7 @@ $$
 ## 函数原型
 
 ```python
-lrelu(input: Tensor, negative_slope: float = 0.01) -> Tensor
+lrelu(input: Tensor, negative_slope: Union[float, Element] = 0.01) -> Tensor
 ```
 
 ## 参数说明
@@ -33,7 +34,7 @@ lrelu(input: Tensor, negative_slope: float = 0.01) -> Tensor
 | 参数名         | 输入/输出 | 说明                                                                 |
 |----------------|-----------|----------------------------------------------------------------------|
 | input          | 输入      | 源操作数。<br>支持的类型为：Tensor。<br>Tensor支持的数据类型为：DT_FP16，DT_BF16，DT_FP32。<br>不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
-| negative_slope | 输入      | 负区间的斜率系数。<br>类型为 float，默认值为 `0.01`。<br>必须为非负实数（≥ 0），不支持 `nan`、`inf` 等特殊值。 |
+| negative_slope | 输入      | 负区间的斜率系数。<br>支持的类型为 float\Element类型。默认值为 `0.01`（float类型），当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br>必须为非负实数（≥ 0），不支持 `nan`、`inf` 等特殊值。 |
 
 ## 返回值说明
 
@@ -43,7 +44,8 @@ lrelu(input: Tensor, negative_slope: float = 0.01) -> Tensor
 
 1.  input 数据类型必须为 DT_FP16、DT_BF16 或 DT_FP32。
 2.  negative_slope 必须为非负浮点数（≥ 0），且不能为 `nan` 或 `inf`。
-3.  不支持 in-place 操作（即输出不能与输入共享内存）。
+3.  negative_slope建议优先使用 Element，传入 float 标量，对于 fp16 场景，不保证正确性。
+4.  不支持 in-place 操作（即输出不能与输入共享内存）。
 
 ## 调用示例
 
@@ -72,4 +74,3 @@ out = pypto.lrelu(a)
 输入数据a:   [[-1.0  0.0  1.0]]
 输出数据out: [[-0.01  0.0   1.0]]
 ```
-

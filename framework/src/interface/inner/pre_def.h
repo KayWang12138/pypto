@@ -34,7 +34,7 @@ struct FunctionInterpreter;
 using LogicalTensorPtr = std::shared_ptr<LogicalTensor>;
 using LogicalTensors = std::vector<LogicalTensorPtr>;
 
-using BinDataPtr = uint8_t *;
+using BinDataPtr = uint8_t*;
 
 constexpr int INVALID_TIME = -1;
 constexpr int NOT_IN_SUBGRAPH = -1;

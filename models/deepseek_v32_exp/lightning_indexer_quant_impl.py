@@ -51,10 +51,10 @@ def lightning_indexer_decode_compute(
     """Compute lightning indexer with quantization support.
     It obtains the top-k positions corresponding to each token based on a series of operations.
     Args:
-        idx_query: Non-contiguous data is not supported, shape (t, n_q, idx_head_dim), dtype INT8. 
-        idx_query_scale: It represents the scaling factor for idx_query. shape (t, n_q, idx_head_dim), dtype FP16. 
-        idx_key_cache: Non-contiguous data is not supported, shape (t, n_kv, idx_head_dim), dtype INT8. 
-        idx_key_scale: It represents the scaling factor for idx_key_cache, shape (t, n_kv, idx_head_dim), dtype FP16. 
+        idx_query: Non-contiguous data is not supported, shape (t, n_q, idx_head_dim), dtype INT8.
+        idx_query_scale: It represents the scaling factor for idx_query. shape (t, n_q, idx_head_dim), dtype FP16.
+        idx_key_cache: Non-contiguous data is not supported, shape (t, n_kv, idx_head_dim), dtype INT8.
+        idx_key_scale: It represents the scaling factor for idx_key_cache, shape (t, n_kv, idx_head_dim), dtype FP16.
         idx_weight: Non-contiguous data is not supported. The data format supports ND, shape (t, n_q), dtype FP16.
         act_seq_key: It represents the number of valid tokens for `key` in different batches. shape (b), dtype INT32.
         block_table: It represents the block mapping table used for KV storage in PageAttention,
@@ -165,7 +165,7 @@ def lightning_indexer_decode_compute(
                 for idx in range(unroll_loop):
                     cur_block_idx = block_table[b_idx, bn_idx + idx]
                     k_s_block = pypto.view(k_scale_2d, [1, block_size], [cur_block_idx, 0],
-                            valid_shape=[1, pypto.min(block_size, cur_seq - (cur_block - 1) * block_size)])
+                            valid_shape=[1, pypto.min(block_size, cur_seq - bn_idx * block_size)])
                     pypto.assemble(pypto.clone(k_s_block), [0, idx * block_size], ks_assemble)
                     pypto.set_vec_tile_shapes(1, 16 * block_size)
 
@@ -179,11 +179,11 @@ def lightning_indexer_decode_compute(
                 eff_seq = cur_seq - casual_offset
                 src_offset = s1_idx
                 dst_offset = b_idx * s1 + s1_idx
+                pad_sc = pypto.tensor([1, selected_count], xdtype, "pad_sc")
 
                 for _ in pypto.loop(eff_seq < selected_count, name="TOPK_LT_SC", idx_name="un_used"):
                     # input pad -inf; res_value pad -inf; res_index pad -1
-                    pad_sc = pypto.tensor([1, selected_count], xdtype, "pad_sc")
-                    pypto.set_pass_options(pg_skip_partition=True)
+                    pypto.set_pass_options(sg_set_scope=1)
                     pypto.set_vec_tile_shapes(1, selected_count)
                     eff_in = pypto.view(max_tensor, [1, selected_count], [src_offset, 0], valid_shape=[1, eff_seq])
                     ax = pypto.view(eff_in, [1, selected_count], [0, 0], valid_shape=[1, eff_seq])
@@ -191,7 +191,8 @@ def lightning_indexer_decode_compute(
                                     valid_shape=[1, selected_count - eff_seq])
                     pypto.assemble(pypto.clone(ax), [0, 0], pad_sc)
                     pypto.assemble(bx, [0, eff_seq], pad_sc)
-                    pypto.set_pass_options(pg_skip_partition=False)
+                    pypto.set_pass_options(sg_set_scope=-1)
+                for _ in pypto.loop(eff_seq < selected_count, name="TOPK_LT_RES", idx_name="un_used"):
                     _, res_index = pypto.topk(pad_sc, k=selected_count, dim=-1, largest=True)
                     index_valid = pypto.view(res_index, [1, selected_count], [0, 0], valid_shape=[1, eff_seq])
                     pypto.set_vec_tile_shapes(1, 1, selected_count)
@@ -202,103 +203,66 @@ def lightning_indexer_decode_compute(
                     pypto.assemble(index_pad, [dst_offset, 0, eff_seq], topk_res)
 
                 for _ in pypto.loop(eff_seq >= selected_count, name="TOPK_GE_SC", idx_name="un_used"):
+                    pypto.set_vec_tile_shapes(1, topk_tile)
                     eff_in = pypto.view(max_tensor, [1, MAX_LI_S2], [src_offset, 0], valid_shape=[1, eff_seq])
-                    eff_3d = pypto.reshape(eff_in, [1, 1, MAX_LI_S2], valid_shape=[1, 1, eff_seq])
+                    _, res_index = pypto.topk(eff_in, k=selected_count, dim=-1, largest=True)
                     pypto.set_vec_tile_shapes(1, 1, topk_tile)
-                    _, res_index = pypto.topk(eff_3d, k=selected_count, dim=-1, largest=True)
-                    pypto.assemble(res_index, [dst_offset, 0, 0], topk_res)
+                    eff_3d = pypto.reshape(res_index, [1, 1, selected_count])
+                    pypto.assemble(pypto.clone(eff_3d), [dst_offset, 0, 0], topk_res)
 
 
+@pypto.frontend.jit(
+    runtime_options={
+        "stitch_function_max_num": 128,
+        "device_sched_mode": 1
+    }
+)
 def lightning_indexer_decode(
-    idx_n_heads, idx_head_dim, block_size, block_num,
-    unroll_list, configs, selected_count=2048):
-    """Factory function for Lightning Indexer Decode kernel.
+    idx_query: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    idx_query_scale: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP16),
+    idx_key_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    idx_key_scale: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
+    idx_weight: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP16),
+    act_seq_key: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
+    block_table: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
+    topk_res: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
 
-    Factory Parameters (fixed dimensions):
-        idx_n_heads: Number of index attention heads (n_q)
-        idx_head_dim: Dimension of each index head
-        block_size: Size of each block in PageAttention
-        block_num: Total number of blocks in KV cache
+    unroll_list, configs, selected_count
+):
+    """JIT-compiled Lightning Indexer for decode phase.
+
+    Args:
+        idx_query: (t, idx_n_heads, idx_head_dim), dtype INT8
+            Query indices for lightning indexing
+        idx_query_scale: (t, idx_n_heads, idx_head_dim), dtype FP16
+            Quantization scale for idx_query
+        idx_key_cache: (block_num, block_size, 1, idx_head_dim), dtype INT8
+            Key cache in PageAttention format
+        idx_key_scale: (block_num, block_size, 1, idx_head_dim), dtype FP16
+            Quantization scale for idx_key_cache
+        idx_weight: (t, idx_n_heads), dtype FP16
+            Attention weights for indexing
+        act_seq_key: (b,), dtype INT32
+            Actual sequence length per batch
+        block_table: (b, max_blocks), dtype INT32
+            Block mapping table for PageAttention
+        topk_res: (t, 1, selected_count), dtype INT32
+            TopK indices for sparse attention
         unroll_list: Multi-level tiling configuration
         configs: LightningIndexerConfigs configuration
-        selected_count: Number of topk selections (default: 2048)
-
-    Returns:
-        Compiled kernel function for lightning indexer decode computation.
+        selected_count: Number of topk selections
     """
-
-    # Define dynamic dimensions
-    t = pypto.frontend.dynamic("t")  # Total tokens = b * s1
-    b = pypto.frontend.dynamic("b")  # Batch size
-    max_blocks = pypto.frontend.dynamic("max_blocks")
-
-    # Assemble tensor shapes
-    idx_query_shape = (t, idx_n_heads, idx_head_dim)
-    idx_query_scale_shape = (t, idx_n_heads)
-    idx_key_cache_shape = (block_num, block_size, 1, idx_head_dim)
-    idx_key_scale_shape = (block_num, block_size, 1)
-    idx_weight_shape = (t, idx_n_heads)
-    act_seq_key_shape = (b,)
-    block_table_shape = (b, max_blocks)
-    topk_res_shape = (t, 1, selected_count)
-
-    @pypto.frontend.jit(
-        runtime_options={
-            "stitch_function_max_num": 128,
-            "device_sched_mode": 1
-        }
+    # Call original compute function
+    lightning_indexer_decode_compute(
+        idx_query,
+        idx_query_scale,
+        idx_key_cache,
+        idx_key_scale,
+        idx_weight,
+        act_seq_key,
+        block_table,
+        topk_res,
+        unroll_list,
+        configs,
+        selected_count
     )
-    def lightning_indexer_decode_kernel(
-        idx_query: pypto.Tensor(idx_query_shape, pypto.DT_INT8),
-        idx_query_scale: pypto.Tensor(idx_query_scale_shape, pypto.DT_FP16),
-        idx_key_cache: pypto.Tensor(idx_key_cache_shape, pypto.DT_INT8),
-        idx_key_scale: pypto.Tensor(idx_key_scale_shape, pypto.DT_FP16),
-        idx_weight: pypto.Tensor(idx_weight_shape, pypto.DT_FP16),
-        act_seq_key: pypto.Tensor(act_seq_key_shape, pypto.DT_INT32),
-        block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
-    ) -> (
-        pypto.Tensor(topk_res_shape, pypto.DT_INT32),
-    ):
-        """JIT-compiled Lightning Indexer for decode phase.
-
-        Args:
-            idx_query: (t, idx_n_heads, idx_head_dim), dtype INT8
-                Query indices for lightning indexing
-            idx_query_scale: (t, idx_n_heads, idx_head_dim), dtype FP16
-                Quantization scale for idx_query
-            idx_key_cache: (block_num, block_size, 1, idx_head_dim), dtype INT8
-                Key cache in PageAttention format
-            idx_key_scale: (block_num, block_size, 1, idx_head_dim), dtype FP16
-                Quantization scale for idx_key_cache
-            idx_weight: (t, idx_n_heads), dtype FP16
-                Attention weights for indexing
-            act_seq_key: (b,), dtype INT32
-                Actual sequence length per batch
-            block_table: (b, max_blocks), dtype INT32
-                Block mapping table for PageAttention
-
-        Returns:
-            topk_res: (t, 1, selected_count), dtype INT32
-                TopK indices for sparse attention
-        """
-        # Create output tensor
-        topk_res = pypto.Tensor(topk_res_shape, pypto.DT_INT32)
-
-        # Call original compute function
-        lightning_indexer_decode_compute(
-            idx_query,
-            idx_query_scale,
-            idx_key_cache,
-            idx_key_scale,
-            idx_weight,
-            act_seq_key,
-            block_table,
-            topk_res,
-            unroll_list,
-            configs,
-            selected_count
-        )
-
-        return topk_res
-
-    return lightning_indexer_decode_kernel

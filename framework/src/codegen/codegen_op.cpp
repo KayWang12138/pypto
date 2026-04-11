@@ -19,6 +19,7 @@
 
 #include "codegen/codegen_common.h"
 #include "codegen/utils/codegen_utils.h"
+#include "codegen/utils/codegen_error.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
 #include "interface/configs/config_manager.h"
@@ -40,13 +41,12 @@ const std::unordered_set<Opcode> OP_SHAPE_FROM_ATTR{
     Opcode::OP_L1_COPY_IN_CONV,
     Opcode::OP_L0C_COPY_OUT_CONV,
 };
-bool IsOpShapeFromAttr(Opcode opcode) {
-    return OP_SHAPE_FROM_ATTR.find(opcode) != OP_SHAPE_FROM_ATTR.end();
-}
+bool IsOpShapeFromAttr(Opcode opcode) { return OP_SHAPE_FROM_ATTR.find(opcode) != OP_SHAPE_FROM_ATTR.end(); }
 } // namespace
 
 template <typename T>
-void CombineLastTwoAxis(std::vector<T> &shape, size_t shapeSize) {
+void CombineLastTwoAxis(std::vector<T>& shape, size_t shapeSize)
+{
     if (shape.size() < NUM2) {
         return;
     }
@@ -54,7 +54,8 @@ void CombineLastTwoAxis(std::vector<T> &shape, size_t shapeSize) {
     shape[shapeSize - NUM2] = 1;
 }
 
-void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput, size_t ioIdx) {
+void CodeGenOp::CombineAxis(const Operation& oper, int operandIdx, bool isInput, size_t ioIdx)
+{
     size_t dim = rawShape[operandIdx].size();
     if (dim <= 1) {
         CODEGEN_LOGW("raw shape dim is %zu, return", dim);
@@ -65,15 +66,16 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
 
     std::vector<bool> needCombineIOIdx;
     if (((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx)) ||
-            (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx))) &&
+         (!isInput && oper.GetAttr(OpAttributeKey::outputCombineAxis, needCombineIOIdx))) &&
         needCombineIOIdx[ioIdx]) {
         CODEGEN_LOGI("needCombineIOIdx is %s", IntVecToStr(needCombineIOIdx).c_str());
         CombineLastTwoAxis(shape[operandIdx], dim);
         CombineLastTwoAxis(rawShape[operandIdx], dim);
         CombineLastTwoAxis(originShape[operandIdx], dim);
         CombineLastTwoAxis(dynamicValidShape[operandIdx], dim);
-        CODEGEN_LOGI("op code %s, operandIdx: %d, after CombineAxis shape is %s, raw shape is %s, originShape is %s, "
-                    "dynamicValidShape is %s",
+        CODEGEN_LOGI(
+            "op code %s, operandIdx: %d, after CombineAxis shape is %s, raw shape is %s, originShape is %s, "
+            "dynamicValidShape is %s",
             oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(shape[operandIdx]).c_str(),
             IntVecToStr(rawShape[operandIdx]).c_str(), IntVecToStr(originShape[operandIdx]).c_str(),
             IntVecToStr(dynamicValidShape[operandIdx]).c_str());
@@ -81,8 +83,10 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
 }
 
 void CodeGenOp::UpdateShape(
-    const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx, bool isInput, size_t ioIdx) {
-    CODEGEN_LOGI("op code %s, operandIdx: %d, shape is %s, raw shape is %s, originShape is %s, dynamicValidShape is %s",
+    const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx, bool isInput, size_t ioIdx)
+{
+    CODEGEN_LOGI(
+        "op code %s, operandIdx: %d, shape is %s, raw shape is %s, originShape is %s, dynamicValidShape is %s",
         oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(logicalTensor.shape).c_str(),
         IntVecToStr(logicalTensor.tensor->rawshape).c_str(), IntVecToStr(logicalTensor.oriShape).c_str(),
         IntVecToStr(logicalTensor.GetDynValidShape()).c_str());
@@ -95,29 +99,30 @@ void CodeGenOp::UpdateShape(
             isMainBlock ? SymbolicScalar::FromConcrete(logicalTensor.shape) : logicalTensor.GetDynValidShape();
     }
 
-    ASSERT(logicalTensor.shape.size() <= UPDATE_SHAPE_MAX_DIM)
+    ASSERT(OperErr::TENSOR_DIM_EXCEEDED, logicalTensor.shape.size() <= UPDATE_SHAPE_MAX_DIM)
         << "only support max dim: " << UPDATE_SHAPE_MAX_DIM << ", Tensor is " << logicalTensor.Dump();
 
     Opcode opcode = oper.GetOpcode();
     if (logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR && IsOpShapeFromAttr(opcode)) {
-        // used for spilling GM scene
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-        ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
-        shape[operandIdx] = attr->GetSpecifiedShape(1);
-        CODEGEN_LOGI("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shape[operandIdx]).c_str());
-    } else { // Local Tensor shape just use shape from LogicalTensor
+        ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
+        // 1. for spilling GM scene 2. for conv
+        shapeFromAttr[operandIdx] = attr->GetSpecifiedShape(1);
+        CODEGEN_LOGI("attrShape(from op CopyOpAttribute) = %s", IntVecToStr(shapeFromAttr[operandIdx]).c_str());
+    } else { // Tile Shape from LogicalTensor (Only used in extremely special cases)
         shape[operandIdx] = logicalTensor.shape;
     }
     if ((opCode == Opcode::OP_L0C_TO_L1) && (operandIdx == 0)) {
         std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-        ASSERT(attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
+        ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << ": missing OpAttr in copy op: \n" << oper.Dump();
         UpdateShapeFromAttr(attr->GetToDynValidShape(), operandIdx);
     }
 
     CombineAxis(oper, operandIdx, isInput, ioIdx);
 }
 
-void CodeGenOp::UpdateOffsetValueFromAttr(const std::vector<OpImmediate> &offsets, int operandIdx) {
+void CodeGenOp::UpdateOffsetValueFromAttr(const std::vector<OpImmediate>& offsets, int operandIdx)
+{
     std::vector<SymbolicScalar> dynOffset(offsets.size());
     for (size_t i = 0; i < offsets.size(); ++i) {
         if (offsets[i].IsSpecified()) {
@@ -129,7 +134,8 @@ void CodeGenOp::UpdateOffsetValueFromAttr(const std::vector<OpImmediate> &offset
     CODEGEN_LOGI("UpdateOffsetValueFromAttr: %s", IntVecToStr(dynOffset).c_str());
 }
 
-void CodeGenOp::UpdateShapeFromAttr(const std::vector<OpImmediate> &toValidShape, int operandIdx) {
+void CodeGenOp::UpdateShapeFromAttr(const std::vector<OpImmediate>& toValidShape, int operandIdx)
+{
     std::vector<SymbolicScalar> validShape(toValidShape.size());
     for (size_t i = 0; i < toValidShape.size(); ++i) {
         if (toValidShape[i].IsSpecified()) {
@@ -140,44 +146,47 @@ void CodeGenOp::UpdateShapeFromAttr(const std::vector<OpImmediate> &toValidShape
     CODEGEN_LOGI("UpdateShapeFromAttr , dynValidShapeFromOpAttr is %s", IntVecToStr(validShape).c_str());
 }
 
-void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
-    const std::set<Opcode> cubeMDLOpCode = {Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT,
-        Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L0C_TO_L1,
-        Opcode::OP_L1_TO_L0A_SCALE, Opcode::OP_L1_TO_L0B_SCALE};
+void CodeGenOp::UpdateOffsetForInput(const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx)
+{
+    static const std::set<Opcode> cubeMDLOpCode = {
+        Opcode::OP_L1_TO_L0A,   Opcode::OP_L1_TO_L0B,       Opcode::OP_L1_TO_L0_AT,
+        Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_BT,        Opcode::OP_L1_TO_FIX_QUANT_PRE,
+        Opcode::OP_L0C_TO_L1,   Opcode::OP_L1_TO_L0A_SCALE, Opcode::OP_L1_TO_L0B_SCALE};
+    bool cubeMDLCondition = cubeMDLOpCode.count(opCode);
+    bool useAttrShapeOffsetForInputGM =
+        OpcodeManager::Inst().IsCopyIn(opCode) && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR;
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    bool cubeMDLCondition = cubeMDLOpCode.count(opCode) && (attr != nullptr);
-    bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
-    if (cubeMDLCondition || (useAttrShapeOffsetForInputGM && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR)) {
+    if (attr != nullptr && (cubeMDLCondition || useAttrShapeOffsetForInputGM)) {
         // only used for 1. L1 Copy; 2. spilling to gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
         CODEGEN_LOGI("start update offset for GM input");
-        ASSERT(attr != nullptr) << ": missing OpAttr in copy in op: \n" << oper.Dump();
         UpdateOffsetValueFromAttr(attr->GetCopyInAttr().first, operandIdx);
         return;
     }
 
     offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
-    CODEGEN_LOGI("UpdateOffsetForInput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
+    CODEGEN_LOGI("UpdateOffsetForInput logicalTensor offset is %s", IntVecToStr(offset[operandIdx]).c_str());
 }
 
-void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor &logicalTensor, int operandIdx) {
-    bool useAttrShapeOffsetForOutputGM = OpcodeManager::Inst().IsCopyOut(opCode);
-    const std::set<Opcode> cubeMDLOutOpCode = {Opcode::OP_L0C_TO_L1};
+void CodeGenOp::UpdateOffsetForOutput(const Operation& oper, const LogicalTensor& logicalTensor, int operandIdx)
+{
+    static const std::set<Opcode> cubeMDLOutOpCode = {Opcode::OP_L0C_TO_L1};
+    bool cubeMDLCondition = cubeMDLOutOpCode.count(opCode);
+    bool useAttrShapeOffsetForOutputGM =
+        OpcodeManager::Inst().IsCopyOut(opCode) && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR;
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    bool cubeMDLCondition = cubeMDLOutOpCode.count(opCode) && (attr != nullptr);
-    if (cubeMDLCondition ||
-        (useAttrShapeOffsetForOutputGM && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR)) {
+    if (attr != nullptr && (cubeMDLCondition || useAttrShapeOffsetForOutputGM)) {
         // only used for 1. L1 Copy; 2. spilling to gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
         CODEGEN_LOGI("start update offset for GM output");
-        ASSERT(attr != nullptr) << ": missing OpAttr in copy in op: \n" << oper.Dump();
         UpdateOffsetValueFromAttr(attr->GetCopyOutAttr().second, operandIdx);
         return;
     }
 
     offset[operandIdx] = logicalTensor.offset; // Local Tensor offset just use offset from LogicalTensor
-    CODEGEN_LOGI("UpdateOffsetForInput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
+    CODEGEN_LOGI("UpdateOffsetForOutput logicalTensor offset is %s", IntVecToStr(offset[operandIdx]).c_str());
 }
 
-void CodeGenOp::UpdateScalarValue(const Operation &ops) {
+void CodeGenOp::UpdateScalarValue(const Operation& ops)
+{
     if (ops.HasAttr(OpAttributeKey::scalar)) {
         extOperandVal = ops.GetElementAttribute(OpAttributeKey::scalar);
     }
@@ -189,7 +198,8 @@ void CodeGenOp::UpdateScalarValue(const Operation &ops) {
     }
 }
 
-bool ShouldSkipIOperand(const std::shared_ptr<LogicalTensor> &tensor, const Operation &ops) {
+bool ShouldSkipIOperand(const std::shared_ptr<LogicalTensor>& tensor, const Operation& ops)
+{
     Opcode opcode = ops.GetOpcode();
     if (opcode == Opcode::OP_A_MUL_B || opcode == Opcode::OP_A_MULACC_B) {
         bool isAcc = false;
@@ -199,22 +209,24 @@ bool ShouldSkipIOperand(const std::shared_ptr<LogicalTensor> &tensor, const Oper
     return false;
 }
 
-void CodeGenOp::Init(const Operation &ops) {
-    ASSERT(ops.iOperand.size() + ops.oOperand.size() <= MAX_OPERANDS)
+void CodeGenOp::Init(const Operation& ops)
+{
+    ASSERT(OperErr::OPERAND_COUNT_EXCEEDED, ops.iOperand.size() + ops.oOperand.size() <= MAX_OPERANDS)
         << "can not support ops.iOperand.size: " << ops.iOperand.size()
         << ", ops.oOperand.size: " << ops.oOperand.size() << ", Op is " << ops.Dump();
 
     isDynamicFunction = functionType == FunctionType::DYNAMIC_LOOP_PATH;
-    isSupportDynamicAligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
-    CODEGEN_LOGI("%s: init CodeGenOp from Operation, isDynamicFunction is %d, isSupportDynamicAligned is %d",
-        __FUNCTION__, isDynamicFunction, isSupportDynamicAligned);
+    isSupportDynamicAligned = isDynamicAligned || config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
 
+    // update opcode and tileOpName
     UpdateTileOpInfo(ops);
-    ASSERT(!tileOpName.empty()) << "empty tileOpName for ops: " << ops.Dump();
+    ASSERT(OperErr::OPERATION_INIT_FAILED, !tileOpName.empty()) << "empty tileOpName for ops: " << ops.Dump();
 
-    // opcode would be refreshed by UpdateTileOpInfo
     isSupportLayout = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false) &&
                       SUPPORT_TILETENSOR_OPS.find(opCode) != SUPPORT_TILETENSOR_OPS.end();
+    CODEGEN_LOGI(
+        "Init CodeGenOp from Operation, isDynamicFunction: %d, isSupportDynamicAligned: %d, isSupportLayout: %d",
+        isDynamicFunction, isSupportDynamicAligned, isSupportLayout);
 
     opCodeStr = OpcodeManager::Inst().GetOpcodeStr(opCode);
 
@@ -223,7 +235,7 @@ void CodeGenOp::Init(const Operation &ops) {
     int iOperandCnt = 0;
 
     for (size_t i = 0; i < ops.oOperand.size(); ++i) {
-        const auto &output = ops.oOperand[i];
+        const auto& output = ops.oOperand[i];
         UpdateCodegenOpInfoByTensor(ops, false, output, operandIdx, i);
         ++oOperandCnt;
     }
@@ -234,7 +246,7 @@ void CodeGenOp::Init(const Operation &ops) {
     }
 
     for (size_t i = 0; i < ops.iOperand.size(); ++i) {
-        const auto &input = ops.iOperand[i];
+        const auto& input = ops.iOperand[i];
         if (ShouldSkipIOperand(input, ops)) {
             continue;
         }
@@ -251,7 +263,8 @@ void CodeGenOp::Init(const Operation &ops) {
 }
 
 void CodeGenOp::UpdateCodegenOpInfoByTensor(
-    const Operation &ops, bool isInput, const std::shared_ptr<LogicalTensor> &tensor, int &operandIdx, size_t ioIdx) {
+    const Operation& ops, bool isInput, const std::shared_ptr<LogicalTensor>& tensor, int& operandIdx, size_t ioIdx)
+{
     operand[operandIdx] = tensor->GetMemoryTypeOriginal() == MEM_DEVICE_DDR ? tensor->tensor->GetRawMagic() :
                                                                               -tensor->tensor->GetRawMagic();
     operandWithMagic[operandIdx] = tensor->GetMagic();
@@ -266,27 +279,29 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
     }
     operandDtype[operandIdx] = tensor->tensor->datatype;
     auto it = OPERAND_TYPE_TO_MEMORY_TYPE.find(tensor->GetMemoryTypeOriginal());
-    ASSERT(it != OPERAND_TYPE_TO_MEMORY_TYPE.end())
+    ASSERT(OperErr::OPERAND_TYPE_UNSUPPORTED, it != OPERAND_TYPE_TO_MEMORY_TYPE.end())
         << "can not support memory type: " << static_cast<size_t>(tensor->GetMemoryTypeOriginal()) << ", Tensor is "
         << tensor->Dump();
     operandType[operandIdx] = it->second;
     ++operandIdx;
 }
 
-void CodeGenOp::UpdateOpAttribute(const Operation &ops) {
+void CodeGenOp::UpdateOpAttribute(const Operation& ops)
+{
     opAttrs = ops.GetAllAttr();
     isInputForceCombineAxis = ops.HasAttr(OpAttributeKey::inputCombineAxis);
 
     ConvertAttribute(ops);
 }
 
-std::string CodeGenOp::GenOpAttr(bool hasExistingParam) const {
+std::string CodeGenOp::GenOpAttr(bool hasExistingParam) const
+{
     if (opAttrs.empty()) {
         return {};
     }
 
     std::vector<std::string> attrList;
-    for (const auto &kv : opAttrs) {
+    for (const auto& kv : opAttrs) {
         if (kv.first.substr(0, OP_ATTR_PREFIX.size()) != OP_ATTR_PREFIX) {
             continue;
         }
@@ -310,54 +325,37 @@ std::string CodeGenOp::GenOpAttr(bool hasExistingParam) const {
     return hasExistingParam ? CONN_COMMA + joined : joined;
 }
 
-void CodeGenOp::ConvertPoolAttribute(const Operation &operation) {
+void CodeGenOp::ConvertPoolAttribute(const Operation& operation)
+{
     auto opc = operation.GetOpcode();
     if (opc != Opcode::OP_MAX_POOL) {
         return;
     }
 
     std::vector<std::string> intAttrStrList{
-        ConvOpAttributeKey::paddingLeft,
-        ConvOpAttributeKey::paddingTop,
-        ConvOpAttributeKey::paddingRight,
-        ConvOpAttributeKey::paddingBottom,
-        ConvOpAttributeKey::strideh,
-        ConvOpAttributeKey::stridew,
-        PoolOpAttributeKey::poolh,
-        PoolOpAttributeKey::poolw,
+        ConvOpAttributeKey::paddingLeft,   ConvOpAttributeKey::paddingTop, ConvOpAttributeKey::paddingRight,
+        ConvOpAttributeKey::paddingBottom, ConvOpAttributeKey::strideh,    ConvOpAttributeKey::stridew,
+        PoolOpAttributeKey::poolh,         PoolOpAttributeKey::poolw,
     };
     for (size_t i = 0; i < intAttrStrList.size(); i++) {
         poolParams.push_back(operation.GetIntAttribute(intAttrStrList[i]));
     }
 }
 
-void CodeGenOp::ConvertAttribute(const Operation &operation) {
-    ASSERT(operation.iOperand.size() + operation.oOperand.size() <= MAX_OPERANDS)
+void CodeGenOp::ConvertAttribute(const Operation& operation)
+{
+    ASSERT(OperErr::OPERAND_COUNT_EXCEEDED, operation.iOperand.size() + operation.oOperand.size() <= MAX_OPERANDS)
         << "can not support operation.iOperand.size: " << operation.iOperand.size()
         << ", operation.oOperand.size: " << operation.oOperand.size() << ", Op is " << operation.Dump();
     if (opCode == Opcode::OP_CONV || opCode == Opcode::OP_CONV_ADD) {
         std::vector<std::string> intAttrStrList{
-            ConvOpAttributeKey::cin,
-            ConvOpAttributeKey::cout,
-            ConvOpAttributeKey::paddingLeft,
-            ConvOpAttributeKey::paddingTop,
-            ConvOpAttributeKey::paddingRight,
-            ConvOpAttributeKey::paddingBottom,
-            ConvOpAttributeKey::strideh,
-            ConvOpAttributeKey::stridew,
-            ConvOpAttributeKey::hposX,
-            ConvOpAttributeKey::hsteP,
-            ConvOpAttributeKey::wposX,
-            ConvOpAttributeKey::wstep,
-            ConvOpAttributeKey::hoffsetY,
-            ConvOpAttributeKey::woffsetY,
-            ConvOpAttributeKey::reluType,
-            ConvOpAttributeKey::reluAlpha,
-            ConvOpAttributeKey::clearFlag,
-            ConvOpAttributeKey::hasAccFlag,
-            ConvOpAttributeKey::hasEltFlag,
-            ConvOpAttributeKey::hasBiasFlag,
-            ConvOpAttributeKey::eltBrcbFlag,
+            ConvOpAttributeKey::cin,        ConvOpAttributeKey::cout,         ConvOpAttributeKey::paddingLeft,
+            ConvOpAttributeKey::paddingTop, ConvOpAttributeKey::paddingRight, ConvOpAttributeKey::paddingBottom,
+            ConvOpAttributeKey::strideh,    ConvOpAttributeKey::stridew,      ConvOpAttributeKey::hposX,
+            ConvOpAttributeKey::hsteP,      ConvOpAttributeKey::wposX,        ConvOpAttributeKey::wstep,
+            ConvOpAttributeKey::hoffsetY,   ConvOpAttributeKey::woffsetY,     ConvOpAttributeKey::reluType,
+            ConvOpAttributeKey::reluAlpha,  ConvOpAttributeKey::clearFlag,    ConvOpAttributeKey::hasAccFlag,
+            ConvOpAttributeKey::hasEltFlag, ConvOpAttributeKey::hasBiasFlag,  ConvOpAttributeKey::eltBrcbFlag,
             ConvOpAttributeKey::eltMode,
         };
         // (Cin, Cout, PaddingLeft, PaddingTop, PaddingRight, PaddingBottom, Stride1, Stride2, HPosX, HStep, WPosX,
@@ -388,7 +386,8 @@ void CodeGenOp::ConvertAttribute(const Operation &operation) {
     ConvertPoolAttribute(operation);
 }
 
-void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
+void CodeGenOp::UpdateTileOpInfo(const Operation& ops)
+{
     opCode = ops.GetOpcode();
     tileOpName = GetTileOpName(opCode);
 
@@ -426,30 +425,33 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
     size_t nameSpaceLen = std::strlen("TileOp::");
     bool isNeedInsertDynPrefix =
         isDynamicFunction && SUPPORT_DYNAMIC_UNALIGNED_OPS.find(opCode) != SUPPORT_DYNAMIC_UNALIGNED_OPS.end();
-    CODEGEN_LOGI("isNeedInsertDynPrefix is %d, opcode = %s", isNeedInsertDynPrefix,
+    CODEGEN_LOGI(
+        "isNeedInsertDynPrefix is %d, opcode = %s", isNeedInsertDynPrefix,
         OpcodeManager::Inst().GetOpcodeStr(opCode).c_str());
     if (isNeedInsertDynPrefix) {
         tileOpName.insert(nameSpaceLen, dynPrefix);
     }
 
-    CODEGEN_LOGI("after UpdateTileOpInfo: tileOpName = %s, opCode = %s", tileOpName.c_str(),
+    CODEGEN_LOGI(
+        "after UpdateTileOpInfo: tileOpName = %s, opCode = %s", tileOpName.c_str(),
         OpcodeManager::Inst().GetOpcodeStr(opCode).c_str());
 }
 
-void CodeGenOp::GetGmParamIdx(const Operation &oper) {
+void CodeGenOp::GetGmParamIdx(const Operation& oper)
+{
     if (!isUnderDynamicFunction || oper.IsNeedStackGM()) {
         auto inParamLocSize = oper.inParamLocation_.size();
         auto outParamLocSize = oper.outParamLocation_.size();
 
         // Ops like UB_ALLOC have output operands, but does not have output
         // param locs, so here we should not assert 'outParamLocSize == outputTensors.size()' !
-        ASSERT(inParamLocSize <= oper.iOperand.size())
+        ASSERT(OperErr::OPERAND_COUNT_NOT_MATCHED, inParamLocSize <= oper.iOperand.size())
             << "size of Op.inParamLocation_ is larger than input operands, Op is " << oper.Dump();
-        ASSERT(outParamLocSize <= oper.oOperand.size())
+        ASSERT(OperErr::OPERAND_COUNT_NOT_MATCHED, outParamLocSize <= oper.oOperand.size())
             << "size of Op.outParamLocation_ is larger than output operands, Op is " << oper.Dump();
 
-        CODEGEN_LOGI("%s: inParamLocation = %s", __FUNCTION__, IntVecToStr(oper.inParamLocation_).c_str());
-        CODEGEN_LOGI("%s: outParamLocation = %s", __FUNCTION__, IntVecToStr(oper.outParamLocation_).c_str());
+        CODEGEN_LOGI("inParamLocation = %s", IntVecToStr(oper.inParamLocation_).c_str());
+        CODEGEN_LOGI("outParamLocation = %s", IntVecToStr(oper.outParamLocation_).c_str());
 
         std::copy(oper.outParamLocation_.begin(), oper.outParamLocation_.end(), paramLocation);
         std::copy(oper.inParamLocation_.begin(), oper.inParamLocation_.end(), paramLocation + oper.oOperand.size());
@@ -468,12 +470,6 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
                 paramLocation[i + iOffset] = oper.GetIOpAttrOffset(i);
             }
         }
-        return;
-    }
-
-    if (oper.GetOpcode() == Opcode::OP_LOAD) {
-        paramLocation[0] = oper.GetIOpAttrOffset(0);
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
         return;
     }
 
@@ -496,24 +492,24 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
     }
 
     if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode())) {
-        const std::shared_ptr<OpAttribute> &attr = oper.GetOpAttribute();
-        ASSERT(attr != nullptr) << "Copy In attr is null, Op is " << oper.Dump();
+        const std::shared_ptr<OpAttribute>& attr = oper.GetOpAttribute();
+        ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << "Copy In attr is null, Op is " << oper.Dump();
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
         paramLocation[1] = oper.GetIOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy In Op %s is %d", tileOpName.c_str(), paramLocation[1]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
+        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
         return;
     }
 
     if (OpcodeManager::Inst().IsCopyOut(oper.GetOpcode())) {
-        const std::shared_ptr<OpAttribute> &attr = oper.GetOpAttribute();
-        ASSERT(attr != nullptr) << "Copy Out attr is null, Op is " << oper.Dump();
+        const std::shared_ptr<OpAttribute>& attr = oper.GetOpAttribute();
+        ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << "Copy Out attr is null, Op is " << oper.Dump();
         std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
         paramLocation[0] = oper.GetOOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy Out Op %s is %d", tileOpName.c_str(), paramLocation[0]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        CODEGEN_LOGI("%s GmTensorParamIdxInCallFunc: %d", __FUNCTION__, GmTensorParamIdxInCallFunc);
+        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
         return;
     }
 }

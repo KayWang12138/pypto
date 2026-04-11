@@ -15,7 +15,8 @@
 
 #include "ut_json_tool.h"
 
-void DumpJsonFile(Json programJson, std::string jsonFilePath) {
+void DumpJsonFile(Json programJson, std::string jsonFilePath)
+{
     std::string filePath = jsonFilePath;
 
     std::ofstream outFile(filePath);
@@ -28,7 +29,8 @@ void DumpJsonFile(Json programJson, std::string jsonFilePath) {
     }
 }
 
-Json LoadJsonFile(std::string jsonFilePath) {
+Json LoadJsonFile(std::string jsonFilePath)
+{
     std::ifstream inFile(jsonFilePath);
     Json readData;
     inFile >> readData;

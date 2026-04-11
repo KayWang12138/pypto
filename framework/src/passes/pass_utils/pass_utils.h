@@ -31,116 +31,104 @@ inline constexpr uint32_t WARNING = 2;
 
 class FunctionUtils {
 public:
-    static void RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
-                                     const size_t outputIndex);
+    static void RelinkOperationInput(
+        Operation* op, const size_t inputIndex, const Operation* targetOp, const size_t outputIndex);
 
-    static bool IsContinuous(const std::vector<std::shared_ptr<LogicalTensor>> &tensors);
+    static bool IsContinuous(const std::vector<std::shared_ptr<LogicalTensor>>& tensors);
 };
 
 constexpr int INVALID_IN_OUT_INDEX = -1;
 // 每个调用子图的实参列表
 class SubfuncInvokeInfoTy {
 public:
-    struct TensorParamPackTy {
-        // 实参Loc和形参Loc需要检查一致
+    struct BaseParamPackTy {
         int paramLoc;
         int ddrId;
-        // the real offset of accessing tensor for this Subgraph
         Offset offset;
         Shape shape;
         Shape rawShape;
         DataType dType;
-        bool isOutputToGM;
         LogicalTensorPtr tensor;
         int opMagic;
         int operandIdx;
 
-        TensorParamPackTy(const int newParamLoc, const int newDdrId, const std::vector<int64_t> &newOffset,
-            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newRawShape, const DataType newDtype,
-            const bool newIsOutputToGM, const LogicalTensorPtr &newTensor, const int newOpMagic, int newOperandIdx)
+    protected:
+        BaseParamPackTy() = default;
+        BaseParamPackTy(
+            const int newParamLoc, const int newDdrId, const std::vector<int64_t>& newOffset,
+            const std::vector<int64_t>& newShape, const std::vector<int64_t>& newRawShape, const DataType newDtype,
+            const LogicalTensorPtr& newTensor, const int newOpMagic, int newOperandIdx)
             : paramLoc(newParamLoc),
               ddrId(newDdrId),
               offset(newOffset),
               shape(newShape),
               rawShape(newRawShape),
               dType(newDtype),
-              isOutputToGM(newIsOutputToGM),
               tensor(newTensor),
               opMagic(newOpMagic),
-              operandIdx(newOperandIdx) {}
-
-        TensorParamPackTy() = default;
-        void Print(std::ostream &osm = std::cout) const;
-        void DumpTensor(std::vector<int64_t> &invokeParam) const;
-        bool operator==(const TensorParamPackTy &other) const;
-        bool operator!=(const TensorParamPackTy &other) const;
+              operandIdx(newOperandIdx)
+        {}
     };
 
-    struct IncastParamPackTy {
-        int paramLoc;
-        int ddrId;
-        Shape shape;
-        Shape rawShape;
-        Offset offset;
-        DataType dType;
-        LogicalTensorPtr tensor;
-        int opMagic;
-        int operandIdx;
+    struct TensorParamPackTy : BaseParamPackTy {
+        bool isOutputToGM;
+
+        TensorParamPackTy(
+            const int newParamLoc, const int newDdrId, const std::vector<int64_t>& newOffset,
+            const std::vector<int64_t>& newShape, const std::vector<int64_t>& newRawShape, const DataType newDdType,
+            const bool newIsOutputToGM, const LogicalTensorPtr& newTensor, const int newOpMagic, int newOperandIdx)
+            : BaseParamPackTy(
+                  newParamLoc, newDdrId, newOffset, newShape, newRawShape, newDdType, newTensor, newOpMagic,
+                  newOperandIdx),
+              isOutputToGM(newIsOutputToGM)
+        {}
+
+        TensorParamPackTy() = default;
+        void Print(std::ostream& osm = std::cout) const;
+        void DumpTensor(std::vector<int64_t>& invokeParam) const;
+        bool operator==(const TensorParamPackTy& other) const;
+        bool operator!=(const TensorParamPackTy& other) const;
+    };
+
+    struct IncastParamPackTy : BaseParamPackTy {
+        bool isOutputToGM{false};
 
         IncastParamPackTy() = default;
 
-        IncastParamPackTy(const int newParamLoc, const int newDdrId, const std::vector<int64_t> &newOffset,
-            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newRawShape, const DataType newDtype,
-            const LogicalTensorPtr &newTensor, const int newOpMagic, int newOperandIdx)
-            : paramLoc(newParamLoc),
-              ddrId(newDdrId),
-              shape(newShape),
-              rawShape(newRawShape),
-              offset(newOffset),
-              dType(newDtype),
-              tensor(newTensor),
-              opMagic(newOpMagic),
-              operandIdx(newOperandIdx) {}
+        IncastParamPackTy(
+            const int newParamLoc, const int newDdrId, const std::vector<int64_t>& newOffset,
+            const std::vector<int64_t>& newShape, const std::vector<int64_t>& newRawShape, const DataType newDdType,
+            const LogicalTensorPtr& newTensor, const int newOpMagic, int newOperandIdx)
+            : BaseParamPackTy(
+                  newParamLoc, newDdrId, newOffset, newShape, newRawShape, newDdType, newTensor, newOpMagic,
+                  newOperandIdx)
+        {}
 
-        void Print(std::ostream &osm = std::cout) const;
-        void DumpIncastInfo(std::vector<int64_t> &invokeParam) const;
-        bool operator==(const IncastParamPackTy &other) const;
-        bool operator!=(const IncastParamPackTy &other) const;
+        void Print(std::ostream& osm = std::cout) const;
+        void DumpIncastInfo(std::vector<int64_t>& invokeParam) const;
+        bool operator==(const IncastParamPackTy& other) const;
+        bool operator!=(const IncastParamPackTy& other) const;
     };
 
-    struct OutcastParamPackTy {
-        int paramLoc;
-        int ddrId;
+    struct OutcastParamPackTy : BaseParamPackTy {
         int refCount;
-        Offset offset;
-        Shape shape;
-        Shape rawShape;
-        DataType dType;
-        LogicalTensorPtr tensor;
-        int opMagic;
-        int operandIdx;
 
-        OutcastParamPackTy(const int newParamLoc, const int newDdrId, const int newRefCount,
-            const std::vector<int64_t> &newShape, const std::vector<int64_t> &rawshape,
-            const std::vector<int64_t> &newOffset, const DataType newDtype, const LogicalTensorPtr &newTensor,
-            const int newOpMagic, int newOperandIdx)
-            : paramLoc(newParamLoc),
-              ddrId(newDdrId),
-              refCount(newRefCount),
-              offset(newOffset),
-              shape(newShape),
-              rawShape(rawshape),
-              dType(newDtype),
-              tensor(newTensor),
-              opMagic(newOpMagic),
-              operandIdx(newOperandIdx) {}
+        OutcastParamPackTy(
+            const int newParamLoc, const int newDdrId, const int newRefCount, const std::vector<int64_t>& newShape,
+            const std::vector<int64_t>& rawshape, const std::vector<int64_t>& newOffset, const DataType newDdType,
+            const LogicalTensorPtr& newTensor, const int newOpMagic, int newOperandIdx)
+            : BaseParamPackTy(
+                  newParamLoc, newDdrId, newOffset, newShape, rawshape, newDdType, newTensor, newOpMagic,
+                  newOperandIdx),
+              refCount(newRefCount)
+        {}
 
         OutcastParamPackTy() = default;
 
-        void Print(std::ostream &osm = std::cout) const;
-        void DumpOutcastInfo(std::vector<int64_t> &invokeParam) const;
-        bool operator==(const OutcastParamPackTy &other) const;
-        bool operator!=(const OutcastParamPackTy &other) const;
+        void Print(std::ostream& osm = std::cout) const;
+        void DumpOutcastInfo(std::vector<int64_t>& invokeParam) const;
+        bool operator==(const OutcastParamPackTy& other) const;
+        bool operator!=(const OutcastParamPackTy& other) const;
     };
 
 public:
@@ -150,23 +138,24 @@ public:
 
     void ConstructActualInvokeParam(int esgId);
 
-    void PrintInvokeInfo(const std::string &extraInfo) const;
+    void PrintInvokeInfo(const std::string& extraInfo) const;
 
     void PrettyPrintInvokeInfo(const int subgraphId) const;
 
-    void DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t *invokeParamPtr) const;
+    void DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t* invokeParamPtr) const;
 
-    inline const std::vector<TensorParamPackTy> &GetTensorParamList() const { return tensorParamList_; }
+    inline const std::vector<TensorParamPackTy>& GetTensorParamList() const { return tensorParamList_; }
 
-    inline const std::vector<IncastParamPackTy> &GetIncastTensorParamList() const { return incastTensorParamList_; }
+    inline const std::vector<IncastParamPackTy>& GetIncastTensorParamList() const { return incastTensorParamList_; }
 
-    inline const std::vector<OutcastParamPackTy> &GetOutcastTensorParamList() const { return outcastTensorParamList_; }
+    inline const std::vector<OutcastParamPackTy>& GetOutcastTensorParamList() const { return outcastTensorParamList_; }
 
     std::tuple<int, int, int> LookupInvokeArgs(const int paramLoc) const;
 
-    bool operator==(const SubfuncInvokeInfoTy &other) const;
-    bool operator!=(const SubfuncInvokeInfoTy &other) const;
+    bool operator==(const SubfuncInvokeInfoTy& other) const;
+    bool operator!=(const SubfuncInvokeInfoTy& other) const;
     friend class Allocator;
+
 private:
     int programSubgraphId_; // The called merged subgraph id
     std::vector<TensorParamPackTy> tensorParamList_;
@@ -185,10 +174,10 @@ public:
         LogicalTensorPtr tensor;
         int opMagic;
 
-        InCastInfoTy(const int newOperandIdx, const int newRealIncastDDRId,
-            const std::vector<int64_t> &newOffset, const std::vector<int64_t> &newShape,
-            const std::vector<int64_t> &newRawShape, const DataType dtype, const LogicalTensorPtr &newTensor,
-            const int newOpMagic)
+        InCastInfoTy(
+            const int newOperandIdx, const int newRealIncastDDRId, const std::vector<int64_t>& newOffset,
+            const std::vector<int64_t>& newShape, const std::vector<int64_t>& newRawShape, const DataType dtype,
+            const LogicalTensorPtr& newTensor, const int newOpMagic)
             : operandIdx(newOperandIdx),
               realIncastDDRId(newRealIncastDDRId),
               offset(newOffset),
@@ -196,7 +185,8 @@ public:
               rawShape(newRawShape),
               dType(dtype),
               tensor(newTensor),
-              opMagic(newOpMagic) {}
+              opMagic(newOpMagic)
+        {}
     };
 
     // Input output tensors of this subgraph invoke
@@ -211,10 +201,10 @@ public:
         LogicalTensorPtr tensor;
         int opMagic;
 
-        TensorInfoTy(const int newOperandIndex, const int newRealDDRId,
-            const std::vector<int64_t> &newOffset, const std::vector<int64_t> &newShape,
-            const std::vector<int64_t> &newRawShape, const DataType newDtype, const bool newIsOutputToGM,
-            const LogicalTensorPtr &newTensor, const int newOpMagic)
+        TensorInfoTy(
+            const int newOperandIndex, const int newRealDDRId, const std::vector<int64_t>& newOffset,
+            const std::vector<int64_t>& newShape, const std::vector<int64_t>& newRawShape, const DataType newDtype,
+            const bool newIsOutputToGM, const LogicalTensorPtr& newTensor, const int newOpMagic)
             : operandIdx(newOperandIndex),
               realDDRId(newRealDDRId),
               offset(newOffset),
@@ -223,7 +213,8 @@ public:
               dType(newDtype),
               isOutputToGM(newIsOutputToGM),
               tensor(newTensor),
-              opMagic(newOpMagic) {}
+              opMagic(newOpMagic)
+        {}
     };
 
     using TensorArgsTy = std::vector<TensorInfoTy>;
@@ -235,12 +226,13 @@ public:
     struct SuccessorIncastRecTy {
         int successorESgId;
         int connectedOperandIdx;
-        ExeSubgraphEdgeTy *successorIncast;
+        ExeSubgraphEdgeTy* successorIncast;
         int opMagic;
 
-        SuccessorIncastRecTy(const int esgId, const int opIdx, ExeSubgraphEdgeTy *exeSubgraphEdgeTy,
-            const int newOpMagic) : successorESgId(esgId), connectedOperandIdx(opIdx),
-            successorIncast(exeSubgraphEdgeTy), opMagic(newOpMagic) {}
+        SuccessorIncastRecTy(
+            const int esgId, const int opIdx, ExeSubgraphEdgeTy* exeSubgraphEdgeTy, const int newOpMagic)
+            : successorESgId(esgId), connectedOperandIdx(opIdx), successorIncast(exeSubgraphEdgeTy), opMagic(newOpMagic)
+        {}
     };
 
     using SuccessorIncastInfoTy = std::vector<SuccessorIncastRecTy>;
@@ -257,10 +249,11 @@ public:
         LogicalTensorPtr tensor;
         int opMagic;
 
-        OutCastInfoTy(const int newSrcESgId, int newOperandIdx, const int newRefCount,
-            const int newDdrId, const SuccessorIncastInfoTy &info, const std::vector<int64_t> &newOffset,
-            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newRawShape, const DataType dtype,
-            const LogicalTensorPtr &newTensor, const int newOpMagic)
+        OutCastInfoTy(
+            const int newSrcESgId, int newOperandIdx, const int newRefCount, const int newDdrId,
+            const SuccessorIncastInfoTy& info, const std::vector<int64_t>& newOffset,
+            const std::vector<int64_t>& newShape, const std::vector<int64_t>& newRawShape, const DataType dtype,
+            const LogicalTensorPtr& newTensor, const int newOpMagic)
             : srcESgId(newSrcESgId),
               operandIdx(newOperandIdx),
               refCount(newRefCount),
@@ -271,44 +264,51 @@ public:
               rawShape(newRawShape),
               dType(dtype),
               tensor(newTensor),
-              opMagic(newOpMagic) {}
+              opMagic(newOpMagic)
+        {}
 
         OutCastInfoTy() = default;
     };
     using OutCastConnectionsTy = std::vector<OutCastInfoTy>;
 
 public:
-    inline void RecordTensorArg(const int operandIdx, const int realDDRId,
-        const std::vector<int64_t> &offset, const std::vector<int64_t> &shape, const std::vector<int64_t> &rawShape,
-        const DataType dtype, const bool isOutputToGM, const LogicalTensorPtr &tensor, const int opMagic) {
-        tensorArgs_.emplace_back(operandIdx, realDDRId, offset, shape, rawShape, dtype, isOutputToGM, tensor,
-                                opMagic);
+    inline void RecordTensorArg(
+        const int operandIdx, const int realDDRId, const std::vector<int64_t>& offset,
+        const std::vector<int64_t>& shape, const std::vector<int64_t>& rawShape, const DataType dtype,
+        const bool isOutputToGM, const LogicalTensorPtr& tensor, const int opMagic)
+    {
+        tensorArgs_.emplace_back(operandIdx, realDDRId, offset, shape, rawShape, dtype, isOutputToGM, tensor, opMagic);
     }
 
     // Record Incast connection, build relation shape with outcast records
-    inline void RecordConnection(const int srcESgId, const int dstESgId, const int operandIndex,
-        const int realIncastDDRId, const std::vector<int64_t> &offset, const std::vector<int64_t> &shape,
-        const std::vector<int64_t> &rawShape, const DataType dtype, const LogicalTensorPtr &tensor, const int opMagic) {
-        connections_.emplace_back(srcESgId, dstESgId,
+    inline void RecordConnection(
+        const int srcESgId, const int dstESgId, const int operandIndex, const int realIncastDDRId,
+        const std::vector<int64_t>& offset, const std::vector<int64_t>& shape, const std::vector<int64_t>& rawShape,
+        const DataType dtype, const LogicalTensorPtr& tensor, const int opMagic)
+    {
+        connections_.emplace_back(
+            srcESgId, dstESgId,
             InCastInfoTy{operandIndex, realIncastDDRId, offset, shape, rawShape, dtype, tensor, opMagic});
     }
 
-    inline void RecordOutcast(const int srcESgId, int srcOperandIdx, const int refCount,
-        const int realOutcastDDRId, const SuccessorIncastInfoTy &incasts, const std::vector<int64_t> &offset,
-        const std::vector<int64_t> &shape, const std::vector<int64_t> &rawShape, const DataType dtype,
-        const LogicalTensorPtr &tensor, const int opMagic) {
+    inline void RecordOutcast(
+        const int srcESgId, int srcOperandIdx, const int refCount, const int realOutcastDDRId,
+        const SuccessorIncastInfoTy& incasts, const std::vector<int64_t>& offset, const std::vector<int64_t>& shape,
+        const std::vector<int64_t>& rawShape, const DataType dtype, const LogicalTensorPtr& tensor, const int opMagic)
+    {
         outCasts_.emplace_back(
-            srcESgId, srcOperandIdx, refCount, realOutcastDDRId, incasts, offset, shape, rawShape, dtype, tensor, opMagic);
+            srcESgId, srcOperandIdx, refCount, realOutcastDDRId, incasts, offset, shape, rawShape, dtype, tensor,
+            opMagic);
     }
 
     // do some sorting after recording all infomations
     void DoFinishRecord();
 
-    const ESgConnectionsTy &GetIncasts() const { return connections_; }
+    const ESgConnectionsTy& GetIncasts() const { return connections_; }
 
-    const OutCastConnectionsTy &GetOutcasts() const { return outCasts_; }
+    const OutCastConnectionsTy& GetOutcasts() const { return outCasts_; }
 
-    const TensorArgsTy &GetTensorArgs() const { return tensorArgs_; }
+    const TensorArgsTy& GetTensorArgs() const { return tensorArgs_; }
 
     CoreType GetGraphType() const { return graphType_; }
 
@@ -319,8 +319,8 @@ public:
     void LoadIncastFromJson(const Json& incastJson, Function* belongTo);
     void LoadOutcastFromJson(const Json& outcastJson, Function* belongTo);
     void LoadTensorFromJson(const Json& tensorJson, Function* belongTo);
-    void LoadJson(const Json &invokeInfoJson, Function *belongTo);
-    void Print(const std::string &extInfo) const;
+    void LoadJson(const Json& invokeInfoJson, Function* belongTo);
+    void Print(const std::string& extInfo) const;
 
 private:
     CoreType graphType_{CoreType::AIV};
@@ -342,9 +342,10 @@ public:
         std::string symbol;
         DataType dataType;
 
-        InCastParamTy(const int newOperandIdx, const int newSymDDRId,
-            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset, const std::string &newSymName,
-            const int newParamLoc, const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
+        InCastParamTy(
+            const int newOperandIdx, const int newSymDDRId, const std::vector<int64_t>& newShape,
+            const std::vector<int64_t>& newOffset, const std::string& newSymName, const int newParamLoc,
+            const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
             : paramLoc(newParamLoc),
               operandIdx(newOperandIdx),
               symDDRId(newSymDDRId),
@@ -352,10 +353,11 @@ public:
               offset(newOffset),
               symName(newSymName),
               symbol(newSymbol),
-              dataType(newDataType) {}
+              dataType(newDataType)
+        {}
 
-        void Print(std::ostream &osm = std::cout) const ;
-        bool CompareParam(const SubfuncInvokeInfoTy::IncastParamPackTy &esgParam) const;
+        void Print(std::ostream& osm = std::cout) const;
+        bool CompareParam(const SubfuncInvokeInfoTy::IncastParamPackTy& esgParam) const;
     };
 
     struct OutCastParamTy {
@@ -369,9 +371,10 @@ public:
         std::string symbol;
         DataType dataType;
 
-        OutCastParamTy(const int newOperandIdx, const int newSymDDRId, const int newRefCount,
-            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset, const std::string &newSymName,
-            const int newParamLoc, const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
+        OutCastParamTy(
+            const int newOperandIdx, const int newSymDDRId, const int newRefCount, const std::vector<int64_t>& newShape,
+            const std::vector<int64_t>& newOffset, const std::string& newSymName, const int newParamLoc,
+            const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
             : paramLoc(newParamLoc),
               operandIdx(newOperandIdx),
               symDDRId(newSymDDRId),
@@ -380,10 +383,11 @@ public:
               shape(newShape),
               symName(newSymName),
               symbol(newSymbol),
-              dataType(newDataType) {}
+              dataType(newDataType)
+        {}
 
-        void Print(std::ostream &osm = std::cout) const;
-        bool CompareParam(const SubfuncInvokeInfoTy::OutcastParamPackTy &esgParam) const;
+        void Print(std::ostream& osm = std::cout) const;
+        bool CompareParam(const SubfuncInvokeInfoTy::OutcastParamPackTy& esgParam) const;
     };
 
     struct TensorParamTy {
@@ -396,9 +400,10 @@ public:
         std::string symbol;
         DataType dataType;
 
-        TensorParamTy(const int newOperandIdx, const int newSymDDRId,
-            const std::vector<int64_t> &newShape, const std::vector<int64_t> &newOffset, const std::string &newSymName,
-            const int newParamLoc, const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
+        TensorParamTy(
+            const int newOperandIdx, const int newSymDDRId, const std::vector<int64_t>& newShape,
+            const std::vector<int64_t>& newOffset, const std::string& newSymName, const int newParamLoc,
+            const std::string newSymbol = "", const DataType newDataType = DataType::DT_BOTTOM)
             : paramLoc(newParamLoc),
               operandIdx(newOperandIdx),
               symDDRId(newSymDDRId),
@@ -406,10 +411,11 @@ public:
               shape(newShape),
               symName(newSymName),
               symbol(newSymbol),
-              dataType(newDataType) {}
+              dataType(newDataType)
+        {}
 
-        void Print(std::ostream &osm = std::cout) const;
-        bool CompareParam(const SubfuncInvokeInfoTy::TensorParamPackTy &esgParam) const;
+        void Print(std::ostream& osm = std::cout) const;
+        bool CompareParam(const SubfuncInvokeInfoTy::TensorParamPackTy& esgParam) const;
     };
 
     using OutCastParamListTy = std::vector<OutCastParamTy>;
@@ -417,34 +423,37 @@ public:
     using TensorParamListTy = std::vector<TensorParamTy>;
 
 public:
-    void AppendIncastParam(const int operandIdx, const int symDDRId, const std::vector<int64_t> &shape,
-        const std::vector<int64_t> &offset, const std::string &symName, const int paramLoc, const std::string &symbol,
-        const DataType dataType) {
+    void AppendIncastParam(
+        const int operandIdx, const int symDDRId, const std::vector<int64_t>& shape, const std::vector<int64_t>& offset,
+        const std::string& symName, const int paramLoc, const std::string& symbol, const DataType dataType)
+    {
         inCastArgs_.emplace_back(
             InCastParamTy(operandIdx, symDDRId, shape, offset, symName, paramLoc, symbol, dataType));
     }
 
-    void AppendOutcastParam(const int operandIdx, const int symDDRId, const int refCount,
-        const std::vector<int64_t> &shape, const std::vector<int64_t> &offset, const std::string &symName,
-        const int paramLoc, const std::string &symbol, const DataType dataType) {
+    void AppendOutcastParam(
+        const int operandIdx, const int symDDRId, const int refCount, const std::vector<int64_t>& shape,
+        const std::vector<int64_t>& offset, const std::string& symName, const int paramLoc, const std::string& symbol,
+        const DataType dataType)
+    {
         outCastArgs_.emplace_back(
             OutCastParamTy(operandIdx, symDDRId, refCount, shape, offset, symName, paramLoc, symbol, dataType));
     }
 
-    void AppendTensorParam(const int operandIdx, const int symDDRId, const std::vector<int64_t> &shape,
-        const std::vector<int64_t> &offset, const std::string &symName, const int paramLoc, const std::string &symbol,
-        const DataType dataType) {
+    void AppendTensorParam(
+        const int operandIdx, const int symDDRId, const std::vector<int64_t>& shape, const std::vector<int64_t>& offset,
+        const std::string& symName, const int paramLoc, const std::string& symbol, const DataType dataType)
+    {
         tensorsArgs_.emplace_back(
             TensorParamTy(operandIdx, symDDRId, shape, offset, symName, paramLoc, symbol, dataType));
     }
 
-    void Finalize() {
-        isFinalized_ = true;
-    }
+    void Finalize() { isFinalized_ = true; }
 
-    void PrettyPrint(const int psgId, std::ostream &osm = std::cout) const;
+    void PrettyPrint(const int psgId, std::ostream& osm = std::cout) const;
     Json ToJson() const;
-    void FromJson(const Json &params);
+    void FromJson(const Json& params);
+
 public:
     TensorParamListTy tensorsArgs_;
     InCastParamListTy inCastArgs_;
@@ -465,27 +474,28 @@ class SubfuncTopologyInfoTy {
 public:
     void SetTableSize(const int n) { topology_.reserve(n); }
 
-    const std::vector<Entry> &GetTopology() const { return topology_; }
+    const std::vector<Entry>& GetTopology() const { return topology_; }
 
     void SetMaxM(const int maxM) { maxM_ = maxM; }
 
-    void AddEntry(const int esgId, const int readState, const setType &succ);
+    void AddEntry(const int esgId, const int readState, const setType& succ);
 
-    void UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int64_t> &extParams);
+    void UpdateEntry(const uint32_t extType, const uint32_t extParamNum, const std::vector<int64_t>& extParams);
 
     std::vector<int> TopoSort();
 
-    void Print(std::ostream &osm = std::cout) const;
+    void Print(std::ostream& osm = std::cout) const;
 
     void DumpEachEntryInfo(
-        int esgId, CoreType coreType, int64_t entryOffset, int64_t *entryParamPtr, int32_t *readyStatePtr) const;
+        int esgId, CoreType coreType, int64_t entryOffset, int64_t* entryParamPtr, int32_t* readyStatePtr) const;
 
     bool IsEsgReady(const int esgId) const;
 
     std::vector<int> GetSuccs(int esgId) const;
 
     Json DumpJson() const;
-    void LoadJson(const Json &topoJson);
+    void LoadJson(const Json& topoJson);
+
 public:
     int maxM_;
     std::vector<Entry> topology_;
@@ -495,7 +505,8 @@ public:
 class CommonUtils {
 public:
     template <typename Container>
-    static std::string ContainerToStr(const Container &container, const std::string &delimiter = ", ") {
+    static std::string ContainerToStr(const Container& container, const std::string& delimiter = ", ")
+    {
         if (container.empty()) {
             return "{}";
         }
@@ -503,16 +514,21 @@ public:
         oss << "{";
         auto it = container.begin();
         oss << *it;
-        std::for_each(std::next(it), container.end(),
-            [&oss, &delimiter](const auto& elem) {
-                oss << delimiter << elem;
-            });
+        std::for_each(
+            std::next(it), container.end(), [&oss, &delimiter](const auto& elem) { oss << delimiter << elem; });
         oss << "}";
         return oss.str();
     }
 
+    // 判断 Tensor 的 shape 是否存在-1
+    static bool ContainsNegativeOne(const Shape& shape)
+    {
+        return std::any_of(shape.begin(), shape.end(), [](int64_t val) { return val == -1; });
+    }
+
     // Number of Elements, 用来计算给定（tensor的）shape的总元素数量
-    static int64_t Numel(const Shape &shape) {
+    static int64_t Numel(const Shape& shape)
+    {
         if (shape.empty())
             return 0;
         int64_t numel = 1;
@@ -521,5 +537,26 @@ public:
         }
         return numel;
     }
+
+    static std::unordered_map<MemoryType, int64_t> GetLocalMemorySize();
+
+    // 安全计算 shape 的乘积，检测溢出
+    // 返回 pair<结果, 是否溢出>，如果溢出则返回 <0, true>
+    static std::pair<int64_t, bool> SafeMultiplyShape(const Shape& shape)
+    {
+        if (shape.empty()) {
+            return {0, false};
+        }
+        int64_t result = 1;
+        for (int64_t dim : shape) {
+            if (result != 0 && dim != 0) {
+                if (result > INT64_MAX / dim) {
+                    return {0, true};
+                }
+            }
+            result *= dim;
+        }
+        return {result, false};
+    }
 };
-}
+} // namespace npu::tile_fwk

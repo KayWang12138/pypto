@@ -23,13 +23,77 @@
 #include "interface/operation/operation.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/program/program.h"
+#define private public
+#include "passes/pass_check/subgraph_to_function_checker.h"
+#undef private
+#include "computational_graph_builder.h"
+#include "tilefwk/tilefwk_op.h"
 
 using namespace npu::tile_fwk;
 using namespace std;
 
+static const std::vector<int64_t> kShape88 = {8, 8};
+
+static void RunPreCheckTest(
+    const std::string& funcName, Opcode opcode, const std::vector<std::string>& iops,
+    const std::vector<std::string>& oops, const std::string& opName, int opSubGraphId, int totalSubGraphCount,
+    Status expectedStatus)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    auto f = std::make_shared<Function>(Program::GetInstance(), funcName, funcName, nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap(funcName, f);
+    ComputationalGraphBuilder G(f.get());
+    for (const auto& t : iops)
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    for (const auto& t : oops)
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    EXPECT_TRUE(G.AddOp(opcode, iops, oops, opName));
+    G.GetOp(opName)->UpdateSubgraphID(opSubGraphId);
+    G.GetFunction()->SetTotalSubGraphCount(totalSubGraphCount);
+    SubGraphToFuncChecker checker;
+    EXPECT_EQ(checker.DoPreCheck(*G.GetFunction()), expectedStatus);
+}
+
+static void RunColorOutGraphCheckTest(
+    const std::string& funcName, const std::vector<std::vector<int>>& colorInGraph,
+    const std::vector<std::vector<int>>& colorOutGraph, Status expectedPostCheckStatus, bool threeOpFork = false)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    auto f = std::make_shared<Function>(Program::GetInstance(), funcName, funcName, nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap(funcName, f);
+    ComputationalGraphBuilder G(f.get());
+    for (const auto& t : {"a", "b", "c"})
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"a"}, {"b"}, "add1"));
+    EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"b"}, {"c"}, "add2"));
+    if (threeOpFork) {
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, "d"));
+        EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"b"}, {"d"}, "add3"));
+        G.GetOp("add3")->UpdateSubgraphID(2);
+        G.GetTensor("d")->subGraphID = 2;
+    }
+    G.GetOp("add1")->UpdateSubgraphID(0);
+    G.GetOp("add2")->UpdateSubgraphID(1);
+    G.GetTensor("a")->subGraphID = G.GetTensor("b")->subGraphID = 0;
+    G.GetTensor("c")->subGraphID = 1;
+    G.GetTensor("b")->isSubGraphBoundary = true;
+    for (const auto& t : {"a", "b", "c"})
+        G.GetTensor(t)->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    if (threeOpFork)
+        G.GetTensor("d")->SetMemoryTypeBoth(MemoryType::MEM_UB);
+    G.GetFunction()->SetTotalSubGraphCount(threeOpFork ? 3 : 2);
+    G.GetFunction()->SetFunctionType(FunctionType::STATIC);
+    SubGraphToFuncChecker checker;
+    EXPECT_EQ(checker.DoPreCheck(*G.GetFunction()), SUCCESS);
+    checker.SetColorGraph(colorInGraph, colorOutGraph);
+    EXPECT_EQ(checker.DoPostCheck(*G.GetFunction()), expectedPostCheckStatus);
+}
+
 class SubgraphToFunctionCheckTest : public testing::Test {
 public:
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
     }
@@ -37,7 +101,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(SubgraphToFunctionCheckTest, TestPrePostCheck) {
+TEST_F(SubgraphToFunctionCheckTest, TestPrePostCheck)
+{
     constexpr int kTileSize = 32;
     constexpr int kVectorSize = 64;
     config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
@@ -60,7 +125,8 @@ TEST_F(SubgraphToFunctionCheckTest, TestPrePostCheck) {
         RawTensorData::CreateConstantTensor<float>(c2, 0.0f),
     });
 
-    FUNCTION("SimpleTest", {a, b}, {c1, c2}) {
+    FUNCTION("SimpleTest", {a, b}, {c1, c2})
+    {
         Tensor temp1 = Add(a, b);
         temp1 = Mul(temp1, a);
         c1 = Sub(temp1, b);
@@ -71,5 +137,132 @@ TEST_F(SubgraphToFunctionCheckTest, TestPrePostCheck) {
     }
     auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_SimpleTest_2");
     EXPECT_NE(mainFunc, nullptr);
-    ALOG_INFO_F("Pre/Post check test completed");
+}
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheck_NonNOP_Fail)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    auto f = std::make_shared<Function>(Program::GetInstance(), "NOPCheckTest", "NOPCheckTest", nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("NOPCheckTest", f);
+    ComputationalGraphBuilder G(f.get());
+    EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, "a"));
+    EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, "b"));
+    EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"a"}, {"b"}, "add_op"));
+    SubGraphToFuncChecker checker;
+    EXPECT_NE(checker.NOPCheck(G.GetFunction()->Operations()[0]), SUCCESS);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_InvalidTotalSubGraphNum_Fail)
+{
+    RunPreCheckTest("TopoTest", Opcode::OP_ADD, {"x"}, {"y"}, "add_op", 0, 0, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_NegativeSubGraphId_NotNOP_Fail)
+{
+    RunPreCheckTest("NegIdTest", Opcode::OP_ADD, {"a"}, {"b"}, "add_op", -1, 1, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheck_NOPWithIOperands_Fail)
+{
+    RunPreCheckTest("NOPIOpTest", Opcode::OP_NOP, {"a"}, {"b"}, "nop_op", -1, 1, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_SubGraphIdOutOfRange_Fail)
+{
+    RunPreCheckTest("OutOfRangeTest", Opcode::OP_ADD, {"a"}, {"b"}, "add_op", 1, 1, FAILED);
+}
+
+static void RunPreCheck2OpTest(
+    const std::string& funcName, int add1SgId, int add2SgId, int totalSubGraphCount, Status expectedStatus)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    auto f = std::make_shared<Function>(Program::GetInstance(), funcName, funcName, nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap(funcName, f);
+    ComputationalGraphBuilder G(f.get());
+    for (const auto& t : {"a", "b", "c"})
+        EXPECT_TRUE(G.AddTensor(DataType::DT_FP32, kShape88, t));
+    EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"a"}, {"b"}, "add1"));
+    EXPECT_TRUE(G.AddOp(Opcode::OP_ADD, {"b"}, {"c"}, "add2"));
+    G.GetOp("add1")->UpdateSubgraphID(add1SgId);
+    G.GetOp("add2")->UpdateSubgraphID(add2SgId);
+    G.GetFunction()->SetTotalSubGraphCount(totalSubGraphCount);
+    SubGraphToFuncChecker checker;
+    EXPECT_EQ(checker.DoPreCheck(*G.GetFunction()), expectedStatus);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphTopo_ParentSubGraphIdGreater_Fail)
+{
+    RunPreCheck2OpTest("ParentGreaterTest", 1, 0, 2, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, InAndOutGraphConsistencyCheck_ParentSeqNoExceeds_Fail)
+{
+    SubGraphToFuncChecker checker;
+    std::vector<std::vector<size_t>> inGraph = {{0, 0}};
+    std::vector<std::vector<size_t>> outGraph = {{0}};
+    EXPECT_NE(checker.InAndOutGraphConsistencyCheck(inGraph, outGraph), SUCCESS);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, InAndOutGraphConsistencyCheck_NodeMismatch_Fail)
+{
+    SubGraphToFuncChecker checker;
+    std::vector<std::vector<size_t>> inGraph = {{0}};
+    std::vector<std::vector<size_t>> outGraph = {{1}};
+    EXPECT_NE(checker.InAndOutGraphConsistencyCheck(inGraph, outGraph), SUCCESS);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, ColorOutGraphCheck_EdgeMissedInColorOutGraph_Fail)
+{
+    RunColorOutGraphCheckTest("ColorTest_EdgeMissed", {{}, {0}, {}}, {{1}, {}, {}}, FAILED, true);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, ColorOutGraphCheck_EdgeInColorNotInOutGraph_Fail)
+{
+    RunColorOutGraphCheckTest("ColorTest_EdgeInColor", {{}, {0}, {0}, {0}}, {{1, 2, 3}, {}, {}, {}}, FAILED, true);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheckHasInCtrlOperations)
+{
+    constexpr int kTileSize = 32;
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_POST_CHECK, true);
+    TileShape::Current().SetVecTile(kTileSize, kTileSize);
+    auto func = std::make_shared<Function>(Program::GetInstance(), "NopCtrlInTest", "NopCtrlInTest", nullptr);
+    Operation& nopOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    Operation& dummyOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    nopOp.AddInCtrlOperation(dummyOp);
+    SubGraphToFuncChecker checker;
+    Status ret = checker.NOPCheck(nopOp);
+    EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheckHasOOperands)
+{
+    constexpr int kTileSize = 32;
+    constexpr int kVectorSize = 64;
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_POST_CHECK, true);
+    TileShape::Current().SetVecTile(kTileSize, kTileSize);
+    std::vector<int64_t> shape = {kVectorSize, kVectorSize};
+    auto func = std::make_shared<Function>(Program::GetInstance(), "NopOutputTest", "NopOutputTest", nullptr);
+    LogicalTensorPtr outTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+    Operation& nopOp = func->AddOperation(Opcode::OP_NOP, {}, {outTensor}, false);
+    SubGraphToFuncChecker checker;
+    Status ret = checker.NOPCheck(nopOp);
+    EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(SubgraphToFunctionCheckTest, NOPCheckHasOutCtrlOperations)
+{
+    constexpr int kTileSize = 32;
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRE_CHECK, true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_POST_CHECK, true);
+    TileShape::Current().SetVecTile(kTileSize, kTileSize);
+    auto func = std::make_shared<Function>(Program::GetInstance(), "NopCtrlOutTest", "NopCtrlOutTest", nullptr);
+    Operation& nopOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    Operation& dummyOp = func->AddOperation(Opcode::OP_NOP, {}, {}, false);
+    nopOp.AddOutCtrlOperation(dummyOp);
+    SubGraphToFuncChecker checker;
+    Status ret = checker.NOPCheck(nopOp);
+    EXPECT_EQ(ret, FAILED);
 }

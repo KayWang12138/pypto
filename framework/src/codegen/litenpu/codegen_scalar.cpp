@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "codegen_op_litenpu.h"
 #include "securec.h"

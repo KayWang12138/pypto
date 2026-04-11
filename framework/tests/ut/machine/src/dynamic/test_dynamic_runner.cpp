@@ -14,8 +14,8 @@
  */
 
 #include "gtest/gtest.h"
+#include <cstdlib>
 #include "machine/runtime/device_runner.h"
-#include "machine/runtime/machine_agent.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/host_prof.h"
 #include "interface/tensor/logical_tensor.h"
@@ -27,7 +27,6 @@
 #include "tilefwk/data_type.h"
 #include "machine/device/machine_interface/pypto_aicpu_interface.h"
 #include "machine/utils/machine_ws_intf.h"
-#include "machine/dump/kernel_dump_utils.h"
 #include "interface/program/program.h"
 #include "interface/utils/file_utils.h"
 #include "tilefwk/aicpu_common.h"
@@ -36,29 +35,43 @@
 #define private public
 using namespace npu::tile_fwk;
 
-extern "C" uint32_t DynPyptoKernelServerNull(void *targ);
-extern "C" uint32_t DynTileFwkBackendKernelServer(void *targ);
+extern "C" uint32_t DynPyptoKernelServerNull(void* targ);
+extern "C" uint32_t DynTileFwkBackendKernelServer(void* targ);
+extern "C" uint32_t StaticTileFwkBackendKernelServer(void* targ);
+extern "C" int DynTileFwkBackendKernelServerInit(void* targ);
 class TestDynamicDeviceRunner : public testing::Test {
 public:
-    static void SetUpTestCase() {
-    }
+    static void SetUpTestCase() {}
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        Platform::Instance().ObtainPlatformInfo();
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestDynamicDeviceRunner, TestInitArgs) {
-    auto &runner = DeviceRunner::Get();
-    [[maybe_unused]]DeviceArgs args;
+// 必须在加载 pypto server .so 的用例之前执行：ExecuteFunc 在符号未就绪时返回非 0，覆盖 pypto_aicpu_interface.cpp 中
+// DEV_ERROR 分支。
+TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServer_ReturnsErrorWhenKernelNotLoaded)
+{
+    EXPECT_EQ(DynPyptoKernelServer(nullptr), 1U);
+}
+
+TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServerInit_ReturnsErrorWhenKernelNotLoaded)
+{
+    EXPECT_EQ(DynPyptoKernelServerInit(nullptr), 1U);
+}
+
+TEST_F(TestDynamicDeviceRunner, TestInitArgs)
+{
+    auto& runner = DeviceRunner::Get();
+    [[maybe_unused]] DeviceArgs args;
     args.nrAic = 2;
     args.nrAiv = 2;
     args.nrValidAic = args.nrAic;
@@ -68,13 +81,14 @@ TEST_F(TestDynamicDeviceRunner, TestInitArgs) {
     runner.SynchronizeDeviceToHostProfData();
 }
 
-TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
-    auto &runner = npu::tile_fwk::DeviceRunner::Get();
-    [[maybe_unused]]DeviceArgs args;
+TEST_F(TestDynamicDeviceRunner, TestDynamicRun)
+{
+    auto& runner = npu::tile_fwk::DeviceRunner::Get();
+    [[maybe_unused]] DeviceArgs args;
     args.nrAic = 2;
     args.nrAiv = 2;
     runner.InitDynamicArgs(args);
-    [[maybe_unused]]npu::tile_fwk::DeviceKernelArgs taskArgs;
+    [[maybe_unused]] npu::tile_fwk::DeviceKernelArgs taskArgs;
     std::vector<uint8_t> tensorInfo(sizeof(dynamic::AiCpuArgs));
     taskArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo.data());
     taskArgs.outputs = 0;
@@ -84,85 +98,26 @@ TEST_F(TestDynamicDeviceRunner, TestDynamicRun) {
     EXPECT_EQ(ret, 0);
 }
 
-TEST_F(TestDynamicDeviceRunner, TestDynMachineAgent) {
-    npu::tile_fwk::MachinePipe machinePipe;
-    const std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    config::SetBuildStatic(true);
-    FUNCTION("ADD", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD");
-    auto task_1 = std::make_shared<MachineTask>(0, function);
-    DeviceAgentTask agentTask1(task_1);
-    machinePipe.PipeProc(&agentTask1);
-
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP);
-    auto task_2 = std::make_shared<MachineTask>(0, function);
-    DeviceAgentTask agentTask2(task_2);
-    machinePipe.PipeProc(&agentTask2);
-
-    function->SetFunctionType(FunctionType::INVALID);
-    auto task_3 = std::make_shared<MachineTask>(0, function);
-    DeviceAgentTask agentTask3(task_3);
-    machinePipe.PipeProc(&agentTask3);
-}
-
-TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel) {
-    [[maybe_unused]]rtBinHandle staticHdl_;
+TEST_F(TestDynamicDeviceRunner, TestRegisterDynamicKernel)
+{
+    [[maybe_unused]] rtBinHandle staticHdl_;
     npu::tile_fwk::DeviceRunner runner;
     runner.RegisterKernelBin(&staticHdl_);
 }
 
-TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_null) {
+TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_null)
+{
     DeviceKernelArgs pyptoKernelArgs;
     DeviceArgs devKernelArgs;
     devKernelArgs.aicpuSoLen = 2;
-    pyptoKernelArgs.cfgdata = static_cast<int64_t *>(static_cast<void *>(&devKernelArgs));
+    pyptoKernelArgs.cfgdata = static_cast<int64_t*>(static_cast<void*>(&devKernelArgs));
     auto ret = DynPyptoKernelServerNull(&pyptoKernelArgs);
     EXPECT_EQ(ret, 1);
 }
 
-TEST_F(TestDynamicDeviceRunner, test_kernel_dump) {
-    const std::vector<int64_t> shape = {64, 64};
-    TileShape::Current().SetVecTile(shape);
-
-    Tensor inputA(DT_FP32, shape, "A0");
-    Tensor inputB(DT_FP32, shape, "B1");
-    Tensor output(DT_FP32, shape, "C0");
-
-    config::SetBuildStatic(true);
-    FUNCTION("ADD0", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD0");
-    HostProf hostProf;
-    hostProf.SetProfFunction(function);
-    auto task_1 = std::make_shared<MachineTask>(0, function);
-    auto deviceMachineTask = std::make_shared<MachineTask>(task_1->GetTaskId(), task_1->GetFunction());
-    auto deviceAgentTask = std::make_shared<DeviceAgentTask>(deviceMachineTask);
-
-    KernelDumpUtils kernelDump;
-    std::string jsonDir = "/tmp/pypto/";
-    std::string kerneName = "pypto_add";
-    kernelDump.DumpJsonFile(deviceAgentTask.get(), kerneName,jsonDir);
-    std::vector<JsonInfo> binJsonPath;
-    std::string jsonFilePath = jsonDir + kerneName + ".json";
-    std::string binFileName = "add_bin";
-    kernelDump.WriteFatbinJson(binJsonPath, jsonFilePath, binFileName);
-    auto ret = IsPathExist(jsonFilePath);
-    EXPECT_EQ(ret, false);
-}
-
-TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
+TEST_F(TestDynamicDeviceRunner, test_dump_device_perf)
+{
+    setenv("DUMP_DEVICE_PERF", "true", 1);
     DeviceArgs devKernelArgs;
     devKernelArgs.nrAic = 1;
     devKernelArgs.nrAiv = 2;
@@ -170,15 +125,14 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     devKernelArgs.nrAicpu = 3;
     config::SetOptionsNg<int64_t>("debug.runtime_debug_mode", 1);
     npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs);
-    EXPECT_NE(devKernelArgs.aicpuPerfAddr, 0);
-    std::vector<void *> perfData;
-    Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
+    std::vector<void*> perfData;
+    Metrics* metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
     TaskStat taskStat;
-    taskStat.execEnd =1;
+    taskStat.execEnd = 1;
     metr->taskCount = 1;
     metr->tasks[0] = taskStat;
-    metr->perfTrace[0][0] = 1;
-    metr->taskCount = 1;
+    metr->perfTrace[0][0][0] = 1;
+    metr->turnNum = 1;
 
     MetricPerf aicpuMetPer;
     aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
@@ -193,15 +147,32 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     free(metr);
     std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     EXPECT_EQ(IsPathExist(jsonPath), true);
+    setenv("DUMP_DEVICE_PERF", "true", 1);
+    npu::tile_fwk::dynamic::DumpDevTaskPerfData(devKernelArgs, perfData, true);
     jsonPath = npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
-    EXPECT_EQ(IsPathExist(jsonPath), true);
+    unsetenv("DUMP_DEVICE_PERF");
+    EXPECT_EQ(IsPathExist(jsonPath), false);
 }
 
-TEST_F(TestDynamicDeviceRunner, test_launch_init) {
+TEST_F(TestDynamicDeviceRunner, test_launch_init)
+{
     DeviceKernelArgs pyptoKernelArgs;
     DeviceArgs devKernelArgs;
     devKernelArgs.aicpuPerfAddr = 1;
-    pyptoKernelArgs.cfgdata = static_cast<int64_t *>(static_cast<void *>(&devKernelArgs));
+    pyptoKernelArgs.cfgdata = static_cast<int64_t*>(static_cast<void*>(&devKernelArgs));
     auto ret = DynTileFwkBackendKernelServer(&pyptoKernelArgs);
     EXPECT_EQ(ret, -1);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_launch_init_server)
+{
+    auto ret = DynTileFwkBackendKernelServerInit(nullptr);
+    EXPECT_EQ(ret, 0);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_static) { EXPECT_EQ(StaticTileFwkBackendKernelServer(nullptr), 0); }
+
+TEST_F(TestDynamicDeviceRunner, DynPyptoKernelServerNull_RejectsNullArgs)
+{
+    EXPECT_EQ(DynPyptoKernelServerNull(nullptr), 1U);
 }

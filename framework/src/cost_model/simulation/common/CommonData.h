@@ -28,43 +28,22 @@ struct PTid {
     Pid pid = -1;
     Tid tid = -1;
 
-    bool operator==(const PTid &oth) const
-    {
-        return pid == oth.pid && tid == oth.tid;
-    }
-    bool operator!=(const PTid &oth) const
-    {
-        return !(*this == oth);
-    }
+    bool operator==(const PTid& oth) const { return pid == oth.pid && tid == oth.tid; }
+    bool operator!=(const PTid& oth) const { return !(*this == oth); }
 
-    bool operator<(const PTid &oth) const
-    {
-        return pid != oth.pid ? pid < oth.pid : tid < oth.tid;
-    }
+    bool operator<(const PTid& oth) const { return pid != oth.pid ? pid < oth.pid : tid < oth.tid; }
 };
 
 struct EventId {
-    PTid ptid;   // by default { -1, -1 }
-    int eid = -1;  // event id
+    PTid ptid;    // by default { -1, -1 }
+    int eid = -1; // event id
 
-    bool operator==(const EventId &oth) const
-    {
-        return ptid == oth.ptid && eid == oth.eid;
-    }
-    bool operator!=(const EventId &oth) const
-    {
-        return !(*this == oth);
-    }
+    bool operator==(const EventId& oth) const { return ptid == oth.ptid && eid == oth.eid; }
+    bool operator!=(const EventId& oth) const { return !(*this == oth); }
 
-    bool operator<(const EventId &oth) const
-    {
-        return ptid != oth.ptid ? ptid < oth.ptid : eid < oth.eid;
-    }
+    bool operator<(const EventId& oth) const { return ptid != oth.ptid ? ptid < oth.ptid : eid < oth.eid; }
 
-    bool Valid() const
-    {
-        return *this != EventId{};
-    }
+    bool Valid() const { return *this != EventId{}; }
 };
 
 struct LogData {
@@ -76,4 +55,4 @@ struct LogData {
     TimeStamp eTime = 0;
     std::string hint = "";
 };
-}
+} // namespace CostModel

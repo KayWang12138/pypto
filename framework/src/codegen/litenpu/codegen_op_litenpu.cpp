@@ -21,14 +21,9 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-CodeGenOpLiteNPU::CodeGenOpLiteNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
-    const std::map<int, int> &locToOffset, bool isUnderDynamicFunc, bool isMainBlk)
-    : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk) {}
-
 // ensure funcType is static, and isUnderDynamicFunc is false
 CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx)
-    : CodeGenOpLiteNPU(ctx.symbolManager, FunctionType::STATIC, ctx.locToOffset,
-        false, ctx.isMainBlock) {
+    : CodeGenOp(ctx) {
     CodeGenOp::Init(ctx.operation);
     UpdateTileTensorInfo();
 }
@@ -218,10 +213,10 @@ void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &
     }
 }
 
-TileTensorLiteNPU CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
+TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
-    TileTensorLiteNPU tileTensor;
+    TileTensor tileTensor;
     tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
 
@@ -235,15 +230,14 @@ TileTensorLiteNPU CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::str
     tileTensor.bufType = operandType[paramIdx];
 
     if (tileTensor.bufType == OperandType::BUF_DDR) {
-        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE, paramIdx) : GenGmParamVar(paramIdx);
+        tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(paramIdx);
     } else {
         tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
     }
 
     tileTensor.usingType = usingType;
 
-    tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" +
-                            std::to_string(IdGen<IdType::CG_VAR_NAME>::Inst().NewId());
+    tileTensor.tensorName = sm->GenTensorName(tileTensor.bufType);
 
     UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm);
 
@@ -259,20 +253,24 @@ void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
 
     auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
     if (iter == SUPPORT_TILETENSOR_OPS.end()) {
-        ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
+        ASSERT(GenCodeErr::OP_CODE_UNSUPPORTED, iter != SUPPORT_TILETENSOR_OPS.end())
+            << "opCode: " << opCodeStr << " not support tile tensor!";
         return;
     }
 
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
-        std::shared_ptr<TileTensorUsingLiteNPU> tileTensorUsing = std::make_shared<TileTensorUsingLiteNPU>(
-            TileTensorUsingLiteNPU{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i], operandType[i],
-                static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]});
+        TileTensorUsing tileTensorUsing{
+            functionType == FunctionType::STATIC || isMainBlock,
+            operandDtype[i],
+            operandType[i],
+            static_cast<int>(rawShape[i].size()),
+            originShape[i],
+            rawShape[i]};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        std::shared_ptr<TileTensorLiteNPU> tileTensor =
-            std::make_shared<TileTensorLiteNPU>(BuildTileTensor(i, usingType));
-        std::string tensorName = sm->AddTileTensor(tileTensor);
+        TileTensor tileTensor = BuildTileTensor(i, usingType);
+        std::string tensorName = sm->AddTileTensor(originalOp.GetOpMagic(), tileTensor);
         tensorNames_[i] = tensorName;
         CODEGEN_LOGI(
             "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
@@ -298,32 +296,40 @@ std::string CodeGenOpLiteNPU::PrintCoord(size_t dim, const std::string &coord) c
     return ret;
 }
 
-std::string CodeGenOpLiteNPU::QueryTileTensorNameByIdx(int paramIdx) const {
-    std::vector<TileTensor> res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
-    if (res.size() == 1) {
-        CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", res[0].tensorName.c_str());
-        return res[0].tensorName;
-    }
-    CODEGEN_LOGI(
-        "paramIdx is %d, tensor magic is %d, res size is %zu", paramIdx, operandWithMagic[paramIdx], res.size());
+TileTensor CodeGenOpLiteNPU::QueryTileTensorByIdx(int paramIdx) const
+{
+    const int tensorMagic = operandWithMagic[paramIdx];
+    const int opMagic = originalOp.GetOpMagic();
+    const TileTensor* tileTensor = nullptr;
+    // bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
+    // if (isInLoop) {
+    //     tileTensor = sm->QueryTileTensorInLoopByMagic(tensorMagic, opMagic);
+    //     // some tensor in loop is reused same tensor out of loop
+    //     if (tileTensor == nullptr) {
+    //         tileTensor = sm->QueryTileTensorByMagic(tensorMagic, opMagic);
+    //     }
+    // } else {
+        tileTensor = sm->QueryTileTensorByMagic(tensorMagic, opMagic);
+    // }
 
-    auto targetRawShape = rawShape[paramIdx];
-    CODEGEN_LOGI("rawShape is %s, targetRawShape is %s", IntVecToStr(rawShape[paramIdx]).c_str(),
-        IntVecToStr(targetRawShape).c_str());
-
-    for (const auto &tileTensor : res) {
-        CODEGEN_LOGI("tileTensor.shapeInLoop.rawShape is %s, tileTensor.rawShape is %s",
-            IntVecToStr(tileTensor.shapeInLoop.rawShape).c_str(), IntVecToStr(tileTensor.rawShape).c_str());
-
-        // Currently only support additional comparison of rawShape
-        if (tileTensor.rawShape == targetRawShape) {
-            CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", tileTensor.tensorName.c_str());
-            return tileTensor.tensorName;
-        }
+    if (tileTensor != nullptr) {
+        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", tileTensor->ToString().c_str());
+        return *tileTensor;
     }
 
-    ASSERT(false) << "paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
-                  << " is not found !!! res size is " << res.size();
-    return "";
+    // ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false)
+    //     << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << tensorMagic << ", op magic " << opMagic
+    //     << ", isInLoop " << isInLoop << " is not found !!!";
+    ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false)
+        << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << tensorMagic << ", op magic " << opMagic
+        << " is not found !!!";
+    static TileTensor emptyTileTensor;
+    return emptyTileTensor;
+}
+
+std::string CodeGenOpLiteNPU::QueryTileTensorNameByIdx(int paramIdx) const
+{
+    const TileTensor& tileTensor = QueryTileTensorByIdx(paramIdx);
+    return tileTensor.tensorName;
 }
 } // namespace npu::tile_fwk

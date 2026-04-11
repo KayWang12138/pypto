@@ -30,7 +30,11 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置 NPU 设备 ID（运行 NPU 样例时必需）
 export TILE_FWK_DEVICE_ID=0
@@ -70,7 +74,7 @@ python3 examples/01_beginner/basic/basic_ops.py --run_mode sim
    - [02_intermediate/operators](02_intermediate/operators/README.md)
    - [02_intermediate/basic_nn](02_intermediate/basic_nn/README.md)
    - [02_intermediate/controlflow](02_intermediate/controlflow/README.md)
-   
+
 
 3. **第三阶段：深度实践**
    - [03_advanced/advanced_nn](03_advanced/advanced_nn/README.md)

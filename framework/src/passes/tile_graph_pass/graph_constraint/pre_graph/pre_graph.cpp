@@ -21,14 +21,15 @@
 #define MODULE_NAME "PreGraphProcess"
 
 namespace npu::tile_fwk {
-void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
+void PreGraphProcess::UpdateCopyOpIsCube(Operation& op) const
+{
     /*
     后续考虑移到InsertCopyOp
     copy_out for producer
     op(copy_in) --> input --> consumerOp(isCube?)
     */
     if (IsCopyIn(op.GetOpcode())) {
-        for (const auto &consumerOps : op.ConsumerOps()) {
+        for (const auto& consumerOps : op.ConsumerOps()) {
             if ((consumerOps->HasAttr(OpAttributeKey::isCube)) &&
                 (consumerOps->GetSubgraphID() == op.GetSubgraphID())) {
                 op.SetAttribute(OpAttributeKey::isCube, consumerOps->GetBoolAttribute(OpAttributeKey::isCube));
@@ -41,7 +42,7 @@ void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     producerOp(isCube?) --> input --> op(copy_out)
     */
     if (IsCopyOut(op.GetOpcode())) {
-        for (const auto &producerOps : op.ProducerOps()) {
+        for (const auto& producerOps : op.ProducerOps()) {
             if ((producerOps->HasAttr(OpAttributeKey::isCube)) &&
                 (producerOps->GetSubgraphID() == op.GetSubgraphID())) {
                 op.SetAttribute(OpAttributeKey::isCube, producerOps->GetBoolAttribute(OpAttributeKey::isCube));
@@ -51,12 +52,13 @@ void PreGraphProcess::UpdateCopyOpIsCube(Operation &op) const {
     }
 }
 
-Status PreGraphProcess::RunOnFunction(Function &function) {
+Status PreGraphProcess::RunOnFunction(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Operation, "===> start PreGraph.");
     ColorGraph colorGraph;
     colorGraph.PreColorSort(function);
     auto opList = function.Operations();
-    for (auto &op : opList) {
+    for (auto& op : opList) {
         colorGraph.InitializeTensorColor(op);
         UpdateCopyOpIsCube(op);
     }
@@ -64,11 +66,12 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     setBoundary.SetTensorBoundary(function);
     // Processing Special Ops
     SetCopyAttr setCopyAttr;
-    for (auto &op : opList) {
+    for (auto& op : opList) {
         if (IsCopyOut(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
             setCopyAttr.ProcessSpecialMTEOperation(op);
         }
-        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN && op.GetOpcode() != Opcode::OP_SHMEM_GET_GM2UB) {
+        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN &&
+            op.GetOpcode() != Opcode::OP_SHMEM_GET_GM2UB) {
             setCopyAttr.ProcessMoveInOperation(op);
         }
     }
@@ -88,12 +91,14 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-Status PreGraphProcess::PreCheck(Function &function) {
+Status PreGraphProcess::PreCheck(Function& function)
+{
     PreGraphProcessChecker checker;
     return checker.DoPreCheck(function);
 }
 
-Status PreGraphProcess::PostCheck(Function &function) {
+Status PreGraphProcess::PostCheck(Function& function)
+{
     PreGraphProcessChecker checker;
     return checker.DoPostCheck(function);
 }

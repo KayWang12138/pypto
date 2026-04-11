@@ -16,4 +16,3 @@ reshape(self, shape: List[int], *, valid_shape: Optional[List[Union[int, Symboli
 ## 详细说明
 
 请参见[pypto.reshape](../operation/pypto-reshape.md)。
-

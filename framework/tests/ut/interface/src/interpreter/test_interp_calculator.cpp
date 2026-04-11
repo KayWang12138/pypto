@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <math.h>
-#include "interface/utils/log.h"
+
 #include "interface/interpreter/thread_pool.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/float.h"
@@ -27,20 +27,22 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::util;
 
 namespace {
-TEST(ThreadPoolTest, Dispatch) {
+TEST(ThreadPoolTest, Dispatch)
+{
     const int nproc = 2;
     struct Handler {
-        static void Entry(void *ctx) {
+        static void Entry(void* ctx)
+        {
             int threadIndex = (intptr_t)ctx;
-            ALOG_INFO("Before: ", threadIndex);
+            VERIFY_LOGI("Before: %d", threadIndex);
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            ALOG_INFO("After: ", threadIndex);
+            VERIFY_LOGI("After: %d", threadIndex);
         }
     };
     {
         ThreadPool pool(nproc);
         for (int i = 0; i < nproc * 2; i++) {
-            pool.SubmitTask((void *)(intptr_t)i, Handler::Entry);
+            pool.SubmitTask((void*)(intptr_t)i, Handler::Entry);
         }
         pool.NotifyAll();
         pool.WaitForAll();

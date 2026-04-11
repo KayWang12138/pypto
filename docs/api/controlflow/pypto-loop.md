@@ -42,4 +42,3 @@ loop(start: SymInt, stop: SymInt, step: Optional[SymInt] = 1, /, **kwargs) -> It
 for _ in pypto.loop(0, 10, 1, name="LOOP_L0_bIdx_mla_prolog", idx_name="b_idx"):
    ...
 ```
-

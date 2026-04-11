@@ -10,7 +10,7 @@
 
 具体Pass列表请参见：framework/src/passes/pass\_mgr/pass\_manager.cpp文件。
 
-**图 1**  计算图编译流程  
+**图 1**  计算图编译流程
 ![](../figures/computation_graph_compilation_process.png "计算图编译流程")
 
 计算图编译各阶段生成的图分别为Tensor Graph、Tile Graph、Block Graph，Execute Graph，这些图是编译过程中的关键产物，表征了PyPTO程序从抽象计算描述到硬件执行的完整编译流程。
@@ -32,7 +32,7 @@
 
 在执行前，可以启用泳道图的采集和输出，利用PyPTO Toolkit可视化工具，直观查看各个子任务在AIC/AIV上的核间并行关系及前后执行顺序，从而帮助开发者更便捷地了解整体流水线分布，并进行针对性的算子性能优化。
 
-**图 2**  计算图执行流程  
+**图 2**  计算图执行流程
 ![](../figures/computation_graph_execution_process.png)
 
 下图展示了PyPTO任务在硬件运行时的AI CPU与AI Core的关系，以及详细的运行流程。主要过程概括为：HostMachine初始化资源\>DeviceMachine通过Stitch生成DeviceTask并调度CallTask\>CoreMachine执行CallTask\>DeviceProgram协调整个流程。
@@ -42,7 +42,7 @@
 -   CoreMachine：运行在AI Core侧，负责接收来自AI CPU分发的CallTask并完成执行。CallTask是在 AIC/AIV 上运行的最小单元，由一系列CCE指令组成，用于在AI Core上执行具体的搬运和计算任务。
 -   DeviceProgram：DeviceProgram是每个PyPTO算子在Device侧运行的核心数据，由Execute Graph中描述的信息结合硬件资源管理生成。
 
-**图 3**  执行态运行示意图  
+**图 3**  执行态运行示意图
 ![](../figures/execution_state_runtime_diagram.png)
 
 ## NPU上板调试
@@ -123,7 +123,9 @@
 
 ## CPU仿真调试
 
-在不具备昇腾设备时，也支持在CPU仿真环境中进行测试体验，并支持用户查看算子的核内流水数据。
+在不具备昇腾设备时，也支持在CPU仿真环境中进行测试体验：
+- 性能仿真：支持用户查看算子的核内流水数据。
+- 精度仿真：支持用户在CPU环境获取算子运算结果（精度仿真依赖CANN软件包）。
 
 若仅需要运行仿真，而且当前环境没有昇腾设备，请勿安装torch\_npu，否则可能运行失败。
 
@@ -132,8 +134,9 @@
 -   手动指定仿真模式：
 
     在算子代码中显式调用`@pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})`，强制启用CPU仿真模式执行算子程序。
+    pypto先执行性能仿真，性能仿真执行完成后，若检测到CANN软件包，则继续执行精度仿真。
 
--   自动识别模式：
+-   自动识别模式（仅支持性能仿真，不支持精度仿真）：
     -   未检测到CANN软件包：自动启用仿真模式（无需显式配置）。
     -   检测到CANN软件包：优先使用真实硬件执行，仿真模式不生效。
 
@@ -151,7 +154,7 @@
     python examples/00_hello_world/hello_world.py --run_mode=sim
     ```
 
-3.  执行成功，在output目录下，生成以下文件信息。
+3.  性能仿真执行成功后，在output目录下，生成以下文件信息。
 
     ![](../figures/zh-cn_image_0000002527468273.png)
 
@@ -161,3 +164,4 @@
 
     泳道图展示每个核内任务调试情况，包含执行耗时、空闲间隔等，可根据具体情况对算子进行调优，如调整张量的分块形状。
 
+5. 精度仿真与NPU执行一致，执行完成后，会返回运行结果，用户可获取结果并进行处理。

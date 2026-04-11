@@ -15,28 +15,25 @@
 
 #pragma once
 
-
 #include "cost_model/simulation/value/TileState.h"
 #include "cost_model/simulation/common/ISA.h"
 
 namespace CostModel {
-    class TileCalculator {
-    private:
-        size_t seq;
+class TileCalculator {
+private:
+    size_t seq;
 
-    private:
-        TileCalculator() : seq(0) {}
-        static TileCalculator instance;  
+private:
+    TileCalculator() : seq(0) {}
+    static TileCalculator instance;
 
-    public:
-        TileCalculator(const TileCalculator&) = delete;  
-        TileCalculator& operator=(const TileCalculator&) = delete;  
-        static TileCalculator& Self() {
-            return instance;
-        }
-        void Reset();
-        void CalculateInput(TilePtr tile, std::shared_ptr<TileState> global);
-        void Calculate(TileOpPtr op, FunctionInvokeInfo &invoke,
-                       std::shared_ptr<TileState> local, std::shared_ptr<TileState> global);
-    };
+public:
+    TileCalculator(const TileCalculator&) = delete;
+    TileCalculator& operator=(const TileCalculator&) = delete;
+    static TileCalculator& Self() { return instance; }
+    void Reset();
+    void CalculateInput(TilePtr tile, std::shared_ptr<TileState> global);
+    void Calculate(
+        TileOpPtr op, FunctionInvokeInfo& invoke, std::shared_ptr<TileState> local, std::shared_ptr<TileState> global);
 };
+}; // namespace CostModel
