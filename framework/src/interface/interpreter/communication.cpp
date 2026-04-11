@@ -93,7 +93,7 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
     std::string handler = SimulationCommManager::GetHandler(groupName_, rank_, isSignal);
     int fd = shm_open(handler.c_str(), O_CREAT | O_RDWR, 0666);
     if (fd == -1) {
-        throw std::runtime_error("shm_open error!");
+        throw std::runtime_error("shm_open " + handler + " error!");
     }
     size_t size = isSignal ? WIN_EXP_SIZE: WIN_IN_SIZE;
     if (ftruncate(fd, size) == -1) {
@@ -176,24 +176,24 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false);
     int fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
     if (fd == -1) {
-        throw std::runtime_error("GetRemoteRank shm_open error!");
+        throw std::runtime_error("GetRemoteRank shm_open " + dataHandler + " error!");
     }
     remote->dataBase = (uint8_t *) mmap(nullptr, WIN_IN_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (remote->dataBase == MAP_FAILED || remote->dataBase == nullptr) {
         close(fd);
-        throw std::runtime_error("GetRemoteRank mmap error!");
+        throw std::runtime_error("GetRemoteRank mmap " + dataHandler + " error!");
     }
     close(fd);
 
     std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true);
     fd = shm_open(ctrlHandler.c_str(), O_RDWR, 0666);
     if (fd == -1) {
-        throw std::runtime_error("GetRemoteRank shm_open error!");
+        throw std::runtime_error("GetRemoteRank shm_open " + ctrlHandler + " error!");
     }
     remote->ctrlBase = (uint8_t *) mmap(nullptr, WIN_EXP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (remote->ctrlBase == MAP_FAILED || remote->ctrlBase == nullptr) {
         close(fd);
-        throw std::runtime_error("GetRemoteRank mmap error!");
+        throw std::runtime_error("GetRemoteRank mmap " + ctrlHandler + " error!");
     }
     close(fd);
 
