@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "communication.h"
+#include <chrono>
 #include <thread>
 #include <cstring>
 #include <cstdlib>
@@ -26,6 +26,7 @@
 #include "interface/tileop/distributed/comm_context.h"
 #include "machine/runtime/distributed/distributed_context.h"
 #include "interface/tensor/float.h"
+#include "communication.h"
 
 namespace npu::tile_fwk {
 
@@ -165,6 +166,19 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
                                 ", world size: " + std::to_string(worldSize_));
     }
 
+    auto openWithRetry = [&](const std::string &handler) {
+        int fd = -1;
+        int retries = 10;
+        while (retries--) {
+            fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
+            if (fd != -1) {
+                return fd;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        throw std::runtime_error("GetRemoteRank shm_open " + dataHandler + " error!");
+    }
+
     std::lock_guard<std::mutex> lock(remoteMutex_);
 
     auto it = remoteRanks_.find(dstRank);
@@ -175,10 +189,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     }
     auto remote = std::make_unique<RemoteRank>();
     std::string dataHandler = SimulationCommManager::GetHandler(groupName_, dstRank, false, round_);
-    int fd = shm_open(dataHandler.c_str(), O_RDWR, 0666);
-    if (fd == -1) {
-        throw std::runtime_error("GetRemoteRank shm_open " + dataHandler + " error!");
-    }
+    int fd = openWithRetry(dataHandler);
     remote->dataBase = (uint8_t *) mmap(nullptr, WIN_IN_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (remote->dataBase == MAP_FAILED || remote->dataBase == nullptr) {
         close(fd);
@@ -187,10 +198,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
     close(fd);
 
     std::string ctrlHandler = SimulationCommManager::GetHandler(groupName_, dstRank, true, round_);
-    fd = shm_open(ctrlHandler.c_str(), O_RDWR, 0666);
-    if (fd == -1) {
-        throw std::runtime_error("GetRemoteRank shm_open " + ctrlHandler + " error!");
-    }
+    fd = openWithRetry(ctrlHandler);
     remote->ctrlBase = (uint8_t *) mmap(nullptr, WIN_EXP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (remote->ctrlBase == MAP_FAILED || remote->ctrlBase == nullptr) {
         close(fd);
@@ -363,8 +371,6 @@ SimulationCommContext::~SimulationCommContext() {
 }
 
 // ============================== SimulationCommManager
-std::atomic<uint32_t> SimulationCommManager::round_{0};
-
 void SimulationCommManager::CreateSimulationCommContext(const std::string &groupName, uint32_t round) {
     std::lock_guard<std::mutex> lock(mutex_);
 
