@@ -358,8 +358,7 @@ void FlowVerifier::VerifyTensorGraph(
     const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
     if (!groupNames.empty()) {
         for (const std::string &groupName: groupNames) {
-            const std::string &name = "tensorgraph-" + groupName;
-            SimulationCommManager::Instance().CreateSimulationCommContext(name);
+            SimulationCommManager::Instance().CreateSimulationCommContext(groupName);
         }
     }
 
@@ -467,8 +466,7 @@ void FlowVerifier::VerifyTensorGraph(
 
     if (!groupNames.empty()) {
         for (const std::string &groupName: groupNames) {
-            const std::string &name = "tensorgraph-" + groupName;
-            SimulationCommManager::Instance().DestroySimulationCommContext(name);
+            SimulationCommManager::Instance().DestroySimulationCommContext(groupName);
         }
     }
 }
@@ -512,8 +510,7 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
     const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
     if (!groupNames.empty()) {
         for (const std::string &groupName: groupNames) {
-            const std::string &name = "pass" + passIdentifier + "-" + groupName;
-            SimulationCommManager::Instance().CreateSimulationCommContext(name);
+            SimulationCommManager::Instance().CreateSimulationCommContext(groupName);
         }
     }
 
@@ -565,8 +562,7 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
 
     if (!groupNames.empty()) {
         for (const std::string &groupName: groupNames) {
-            const std::string &name = "pass" + passIdentifier + "-" + groupName;
-            SimulationCommManager::Instance().DestroySimulationCommContext(name);
+            SimulationCommManager::Instance().DestroySimulationCommContext(groupName);
         }
     }
 }
