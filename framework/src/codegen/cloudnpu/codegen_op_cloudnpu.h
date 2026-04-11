@@ -200,6 +200,7 @@ private:
     std::string GenOffsetsAndRawShapesDefault() const;
     std::string GenTargetRankStr() const;
 
+    void CodeGenOpCloudNPU::AddDivPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
