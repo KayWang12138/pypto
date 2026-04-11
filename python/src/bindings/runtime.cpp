@@ -32,6 +32,7 @@
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
+#include "interface/utils/function_error.h"
 #include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/compiler_monitor/monitor_stage_scope.h"
 
@@ -437,7 +438,8 @@ public:
         auto aicpuArgs = (AiCpuArgs*)aicpuArgBuf.data();
         int64_t* inputp = (int64_t*)(aicpuArgs + 1);
         auto tensorData = (DevTensorData*)(inputp + 2);
-        ASSERT((int64_t)tensors.size() == inputp[0]) << "mismatch tensor size";
+        FUNCTION_ASSERT(FError::INVALID_VAL, static_cast<int64_t>(tensors.size()) == inputp[0])
+            << "mismatch tensor size";
         for (size_t i = 0; i < (size_t)inputp[0]; ++i) {
             auto& t = tensors[i];
             auto addr = (uint64_t)t.GetAddr();
@@ -506,7 +508,7 @@ private:
         auto argNum =
             dynAttr->startArgsInputLogicalTensorList.size() + dynAttr->startArgsOutputLogicalTensorList.size();
         auto argSize = sizeof(AiCpuArgs) + 2 * sizeof(int64_t) + argNum * sizeof(DevTensorData);
-        ASSERT(argSize % 8 == 0);
+        FUNCTION_ASSERT(FError::INVALID_VAL, argSize % 8 == 0);
         aicpuArgBuf.resize(argSize / 8);
 
         auto aicpuArgs = new (aicpuArgBuf.data()) AiCpuArgs();
@@ -682,16 +684,16 @@ public:
             ctrlFlowCache);
 #endif
         int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
-        ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
+        FUNCTION_ASSERT(FError::EINTERNAL, ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
 
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
         ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
+        FUNCTION_ASSERT(FError::EINTERNAL, ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(
             aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+        FUNCTION_ASSERT(FError::EINTERNAL, ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
     void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
@@ -703,7 +705,7 @@ public:
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
-        ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
+        FUNCTION_ASSERT(FError::EINTERNAL, ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
     }
 
     void EslModelLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
