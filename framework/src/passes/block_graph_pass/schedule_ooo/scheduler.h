@@ -89,18 +89,14 @@ struct IssueQueue {
     }
 };
 
-struct SpillInfo {
-    int spillMemId_;
-    Operation* spillOp_ = nullptr;
-    LogicalTensorPtr spillTensor_;
-    LogicalTensorPtr ddrTensor_;
-    // A5 中 L1-spill 且 前序 op 不为 COPY_IN 时 为 true
-    bool isSpecialL1_{false};
+struct SpillContext {
+    std::vector<Operation*> newCopyoutOps;    // spill产生的copyout ops
+    std::vector<Operation*> newAllocOps; // 需要加入allocIssueQueue的alloc ops
+    std::vector<int> spillMemIds;             // 需要从tensorOccupyMap清理的memIds
 };
 
 class OoOScheduler {
 private:
-    // ============ Operation属性管理数据结构 ============
     // 存储排好顺序的Operation指针
     std::vector<Operation*> orderedOps;
     // Operation属性管理
@@ -121,7 +117,7 @@ private:
     std::unordered_map<OpCoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
 
     std::unordered_map<int, int> bufRefCount_;
-    std::unordered_map<MemoryType, std::map<int, Operation*>> tensorOccupyMap;
+    std::unordered_map<int, Operation*> tensorOccupyMap;
     // tensor和其初始化时对应的alloc的core类型 memId-core类型
     std::unordered_map<int, std::pair<OpCoreType, int>> tensorAllocCoreMap;
 
@@ -135,7 +131,6 @@ private:
     Function& function_;
     int issueId{0};
     uint64_t spillIssueCnt{0};
-    bool isMainLoopStage_{false}; // true 表示处于 ScheduleMainLoop 阶段（乱序模拟），false 表示 GenSpillSchedule 阶段（顺序模拟）
     int workspaceMemId{SYMBOL_STACK_BASE};
     uint64_t numTotalIssues{0};
     std::vector<Operation*> newOperations_;
@@ -148,7 +143,6 @@ private:
             std::unordered_map<Operation*, std::pair<OpCoreType, int>>(),
         const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
 
-    // ============ 新增：基于Operation的初始化函数 ============
     Status InitOpEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     Status InitOpCoreType(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitOpViewOps(Operation* op);
@@ -167,7 +161,7 @@ private:
     void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap);
     void InitIssueQueuesAndBufferManager();
 
-    Status GenSpillSchedule();
+    Status SeqSchedule();
     Status ExecuteAllocIssue(Operation* op, size_t &pcIdx);
     Status RetireIssue(Operation* op);
     Status ScheduleMainLoop();
@@ -187,6 +181,7 @@ private:
     Status AllocTensorMemRange(Operation* op);
     Status AllocViewTensorMemRange(Operation &operation);
     Status CheckAndUpdateLifecycle();
+    void ApplySpillContext(SpillContext& ctx, Operation* allocOp);
 
     void UpdateIssueExecOrder();
     size_t ShapeCeilAlign(std::vector<int64_t> shape, DataType dtype);
@@ -196,43 +191,38 @@ private:
     Status PrintSpillFailedInfo(Operation* allocOp);
 
     // gen spill
-    Status GenSpillOp(size_t &pcIdx);
-    Status GenBufferSpill(Operation* allocOp);
-    Status SelectSpillBuffers(LocalBufferPtr allocBuffer, Operation* allocOp,
-        std::vector<int> &spillGroup);
-    Status GetGroupNextUseOrder(std::vector<int> group, Operation* allocOp,
-        std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache);
-    Operation* GetSpillIssue(Operation* allocOp, int memId);
-    bool CheckMachineAndL1(Operation* spillOp, Operation* allocOp);
-    bool CheckParallelL0C2L1(Operation* spillOp);
+    Status GenBufferSpill(Operation* allocOp, SpillContext &ctx);
+    std::vector<int> SelectSpillBuffers(Operation* allocOp);
+    Status GetGroupNextUseTime(std::vector<int> group, Operation* allocOp, std::vector<int> &groupNextUseTime,
+        std::unordered_map<int, size_t> &nextUseTimeCache);
     bool IsBelongSpillBlackList(Operation* spillOp, Operation* op);
     void FindFilterLtags(Operation* allocOp, std::set<Operation*> &filterLtags);
-    Status SpillAllBuffer(Operation* allocOp, LocalBufferPtr allocBuffer);
-    Status SpillMultiBuffer(Operation* allocOp, std::vector<int> spillGroup,
-        LocalBufferPtr allocBuffer);
-    Status GetSpillInfo(Operation* allocOp, int spillMemId, SpillInfo &spillInfo);
-    Status GetSpillTensor(Operation* spillOp, int spillMemId, LogicalTensorPtr &spillTensor);
-    Status SpillBuffer(SpillInfo &spillInfo, Operation* allocOp,
-        LocalBufferPtr allocBuffer);
-    Status SpillOutBuffer(SpillInfo &spillInfo, Operation* op);
-    Status CreateSpecialL1Copyout(SpillInfo &spillInfo, Operation* &spillCopyoutOp, int &bufLastUseOrder, bool &isFinish);
-    Status CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spillTensor, int spillMemId,
-        Operation* &spillCopyoutOp, const SpillInfo &spillInfo);
-    Status SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, MemoryType bufferType);
-    Status SpillInReshapeBuffer(SpillInfo &spillInfo, Operation* allocOp);
-    Status SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, LogicalTensorPtr reshapeTensor);
-    LogicalTensorPtr CreateReshapeL1Tensor(LogicalTensorPtr iOperand, LogicalTensorPtr reshapeTensor);
-    Status UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &spillInfo, LogicalTensorPtr reshapeTensor);
-    Status CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor, LogicalTensorPtr spillTensor,
-        Operation* spillOp, std::pair<Operation*, Operation*> &reloadOps);
-    Status UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* reloadCopyin,
-        Operation* spillOp, int spillMemId, Operation* allocOp);
+    bool CheckMachineAndL1(Operation* spillOp, Operation* allocOp);
+    bool CheckParallelL0C2L1(Operation* spillOp);
+
+    Status SpillBuffer(int memId, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillBufferFromDDR(int spillMemId, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillGeneralBuffer(int spillMemId, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillL1BufferFor3510(int spillMemId, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillReshapeFromDDRFor3510(int spillMemId, Operation* actualSpillOp, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillReshapeL1BufferFor3510(int memId, Operation* actualSpillOp, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status SpillMultiProducerBuffer(int spillMemid, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx);
+    Status CreateParticalBuffer(int spillMemid, Operation* producerOp, LogicalTensorPtr assembleOOperand, Operation* copyoutOp, Operation* spillAllocOp);
+    LogicalTensorPtr CreateLocalTensor(LogicalTensorPtr spillTensor);
+    LogicalTensorPtr CreateGMTensor(LogicalTensorPtr spillTensor, int spillMemId);
+    LogicalTensorPtr CreateParticalTensor(LogicalTensorPtr iOperand, LogicalTensorPtr oriOperand, LogicalTensorPtr spillTensor, std::vector<int64_t> toOffset);
+    Operation* CreateAllocOp(LogicalTensorPtr oOperand);
+    Operation* CloneCopyinOp(Operation* spillOp, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
+    Operation* CreateCopyinOp(LogicalTensorPtr iOperand, LogicalTensorPtr oOperand, std::vector<int64_t> offset, int64_t workspaceBaseOffset);
+    Operation* CreateCopyoutOp(Operation* spillOp, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand, int64_t workspaceBaseOffset);
+    Operation* CreateReshapeOp(LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
+    Operation* CreateAssembleOp(LogicalTensorPtr iOperand, LogicalTensorPtr oOperand, std::shared_ptr<AssembleOpAttribute> assembleAttr);
+
+    Operation* GetSpillOp(int memId);
+    LogicalTensorPtr GetSpillTensor(Operation* spillOp, int spillMemId);
+    Status UpdateSpillOpDepend(Operation* copyinOp, Operation* allocOp, Operation* spillOp, int spillMemId);
     bool HasEnoughBuffer(Operation* allocOp, MemoryType memType);
-    Status SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocOp,
-        LocalBufferPtr allocBuffer);
-    Status SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, Operation* assembleOp,
-        LogicalTensorPtr assembleTensor, bool &isFirst);
-    Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
     Status SpillOnBlock();
     Status SpillOnCoreBlock(OpCoreType coreType, int idx, bool &didSpill);
     Operation* SkipViewChain(Operation* start, bool followProducers);
@@ -240,45 +230,20 @@ private:
     // 新增：插入Operation到orderedOps
     void InsertOrdered(Operation* insertOp);
     // 新增：Tensor输入更新辅助函数
-    void UpdateTensorInputFor(Operation* targetOp, Operation* spillSrcOp, LogicalTensorPtr tensor);
-    void UpdateTensorInputForOperand(Operation* targetOp, size_t index, Operation* spillSrcOp, LogicalTensorPtr tensor);
+    void UpdateOperationInput(Operation* targetOp, Operation* spillOp, LogicalTensorPtr tensor);
     void UpdateTensorInputForView(Operation& op, Operation* spillSrcOp, LogicalTensorPtr tensor);
 
-    Status UpdateReloadIssueDepend(Operation* reloadCopyin, Operation* spillOp, int spillMemId);
-    Status UpdateRemainOpBufId(int oldMemId, int newMemId);
     void ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId);
+    Status UpdateRemainMemid(int oldMemId, int newMemId);
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
-    void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
-        Operation* spillOp, int64_t workspaceBaseOffset);
-    Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
-    int GetBufNextUseOrder(Operation* op, int curMemId);
-    int GetBufLastUseOrder(Operation* op, int curMemId);
-    Operation* GetBufLastWriteOp(Operation* op, int curMemId);
+    int GetBufLastUseTime(Operation* op, int curMemId);
+    int GetBufNextUseTime(Operation* op, int curMemId);
     OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue,
         LogicalTensorPtr spillOutTensor, bool needCopyOut);
-    bool CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType);
-    int GetMemidAllocPriority(int memId);
-    Operation* UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, Operation* allocOp, int &bufNextUseOrder);
-    Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
-    LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
-        SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
-    int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
+    int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
-    Status UpdateCopyOutMode(Operation& copyOutOp);
-    Status UpdateCopyInMode(Operation& copyInOp);
-
-    // buffer rearrange
-    Status RearrangeBuffer(Operation* allocOp, MemoryType memType, std::pair<OpCoreType, int> corePair);
-    Status RearrangeBuffers(Operation* op, bool &rearrangeUBBF16);
-    Status GenRearrangeCopyOp(Operation* op, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
-    Status UpdateMemId(int oldMemId, int newMemId);
-    void UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp);
-    void ProcessMoveIssue(Operation* moveOp, Operation* allocOp, MemoryType memType, int oldMemId, int newMemId);
-    Status UpdateRange(int newMemId, size_t offset, MemoryType memType, BufferPool &bufferManager);
-    Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
-    Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
-
-    // ============ 辅助函数：获取Operation属性 ============
+    Status RearrangeBuffer(Operation* allocOp, MemoryType memType);
+ 
     int GetExecOrder(Operation* op) const { return opExecOrderMap.at(op); }
     PipeType GetPipeType(Operation* op) const { return opPipeTypeMap.at(op); }
     bool IsAlloc(Operation* op) const { return opIsAllocMap.at(op); }
