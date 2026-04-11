@@ -148,6 +148,25 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
 {
     (void)cachedOperator;
     auto dynAttr = function->GetDyndevAttribute();
+
+    std::pair<int, int> maxCVCore;
+
+    auto funcRawName = function->GetRawName();
+    auto& cache = GetMaxCVCoreUsageCache();
+
+    auto it = cache.find(funcRawName);
+    if (it != cache.end()) {
+        maxCVCore = it->second;
+        printf("Found maxCVCoreUsage in global cache by func_name: name=%s, c=%d, v=%d\n", funcRawName.c_str(), maxCVCore.first, maxCVCore.second);
+    } else {
+        printf("WARNING: NOT found maxCVCoreUsage in global cache by func_name=%s\n", funcRawName.c_str());
+        maxCVCore = function->GetMaxCVCoreUsage();
+        printf("Fallback to Function::GetMaxCVCoreUsage: max c is %d, max v is is %d\n", maxCVCore.first, maxCVCore.second);
+    }
+
+    printf("Final max cv is ******** max c is %d, max v is %d, function->GetTotalSubGraphCount() is %d\n", maxCVCore.first, maxCVCore.second, static_cast<int>(function->GetTotalSubGraphCount()));
+    printf("===End Diagnosis ===\n");
+
     DevAscendProgram* devProg = DeviceLauncher::GetDevProg(function);
     DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function, memUtils);
     if (hostCtrlFlowCache == nullptr) {

@@ -28,6 +28,7 @@
 #include <set>
 #include <queue>
 #include <algorithm>
+#include <unordered_map>
 
 #define MODULE_NAME "CodegenPreproc"
 
@@ -336,7 +337,9 @@ inline std::pair<int, int> EstimateRequiredCores(
     std::vector<int> inDegree(subgraphNum, 0);
     for (int i = 0; i < subgraphNum; ++i) {
         for (int consumer : subgraphOutGraph[i]) {
-            inDegree[consumer]++;
+            if (consumer >= 0 && consumer < subgraphNum) {
+                inDegree[consumer]++;
+            }
         }
     }
 
@@ -353,14 +356,20 @@ inline std::pair<int, int> EstimateRequiredCores(
     while (!q.empty()) {
         int node = q.front();
         q.pop();
+
+        if (node < 0 || node >= subgraphNum) {
+            continue;
+        }
         
         int endTime = earliestStart[node] + subgraphLatency[node];
         
         for (int consumer : subgraphOutGraph[node]) {
-            earliestStart[consumer] = std::max(earliestStart[consumer], endTime);
-            inDegree[consumer]--;
-            if (inDegree[consumer] == 0) {
-                q.push(consumer);
+            if (consumer >= 0 && consumer < subgraphNum) {
+                earliestStart[consumer] = std::max(earliestStart[consumer], endTime);
+                inDegree[consumer]--;
+                if (inDegree[consumer] == 0) {
+                    q.push(consumer);
+                }
             }
         }
     }
@@ -427,6 +436,64 @@ inline void EstimateCVCores(Function &function) {
     }
     auto maxCVCores = EstimateRequiredCores(subgraphNum, isCubeGraph, subgraphOutGraph, subgraphLatency);
     function.SetMaxCVCoreUsage(maxCVCores);
+
+    // 保存到全局缓存，供运行时使用
+    auto funcRawName = function.GetRawName();
+
+    // 如果缓存中已存在该函数名，取最大值
+    auto& cache = GetMaxCVCoreUsageCache();
+    auto it = cache.find(funcRawName);
+    if (it != cache.end()) {
+        // 取最大值
+        int maxC = std::max(it->second.first, maxCVCores.first);
+        int maxV = std::max(it->second.second, maxCVCores.second);
+        cache[funcRawName] = {maxC, maxV};
+    } else {
+        // 直接保存
+        cache[funcRawName] = maxCVCores;
+    }
+
+    // 如果函数名包含 LOOP 和 hiddenfunc，尝试推导主函数名
+    // 例如：TENSOR_LOOP_MOE_FUSION_L0_LoopUnroll32_Unroll1_PATH0_hiddenfunc0 -> TENSOR_moe_fusion_kernel
+    if (funcRawName.find("LOOP") == std::string::npos ||
+        funcRawName.find("hiddenfunc") == std::string::npos) {
+        return;
+    }
+
+    // 检查函数类型，如果不是 DYNAMIC_LOOP_PATH，直接返回
+    if (function.GetFunctionType() != FunctionType::DYNAMIC_LOOP_PATH) {
+        return;
+    }
+
+    // 如果没有父函数，直接返回
+    if (!function.HasParent()) {
+        return;
+    }
+
+    auto parentName = function.Parent().GetRawName();
+    GetMaxCVCoreUsageCache()[parentName] = maxCVCores;
+
+    // 尝试找到主函数（JIT函数），并保存 maxCVCoreUsage
+    auto& program = Program::GetInstance();
+    std::vector<std::string> mainFuncNames = {"TENSOR_moe_fusion_kernel", "TENSOR_select_experts_mm_kernel"};
+
+    for (const auto& mainFuncName : mainFuncNames) {
+        auto mainFunc = program.GetFunctionByRawName(mainFuncName);
+        if (mainFunc == nullptr) {
+            continue;
+        }
+
+        auto mainFuncFuncRawName = mainFunc->GetRawName();
+        auto& mainFuncCache = GetMaxCVCoreUsageCache();
+        auto mainFuncIt = mainFuncCache.find(mainFuncFuncRawName);
+        if (mainFuncIt != mainFuncCache.end()) {
+            int maxC = std::max(mainFuncIt->second.first, maxCVCores.first);
+            int maxV = std::max(mainFuncIt->second.second, maxCVCores.second);
+            mainFuncCache[mainFuncFuncRawName] = {maxC, maxV};
+        } else {
+            mainFuncCache[mainFuncFuncRawName] = maxCVCores;
+        }
+    }
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function)

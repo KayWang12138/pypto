@@ -20,6 +20,7 @@
 #include <string>
 #include <memory>
 #include <stack>
+#include <unordered_map>
 
 #include "tilefwk/tilefwk.h"
 #include "interface/operation/operation.h"
@@ -983,4 +984,12 @@ private:
         std::map<Function*, std::set<size_t>>& removeRecord,
         std::map<Function*, std::set<size_t>>& getTensorDataRecord);
 };
+
+// Global cache for maxCVCoreUsage across compile and runtime (using function name as key)
+extern std::unordered_map<std::string, std::pair<int, int>> g_maxCVCoreUsageCache;
+
+// Function to get reference to global cache
+inline std::unordered_map<std::string, std::pair<int, int>>& GetMaxCVCoreUsageCache() {
+    return g_maxCVCoreUsageCache;
+}
 } // namespace npu::tile_fwk

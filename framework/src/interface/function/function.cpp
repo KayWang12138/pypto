@@ -80,6 +80,11 @@ struct ViewKey {
 };
 } // namespace
 
+namespace npu::tile_fwk {
+    // Global cache for maxCVCoreUsage across compile and runtime (using function name as key)
+    std::unordered_map<std::string, std::pair<int, int>> g_maxCVCoreUsageCache;
+}
+
 std::vector<Operation*> OperationsViewer::DuplicatedOpList() const
 {
     std::vector<Operation*> opList;
