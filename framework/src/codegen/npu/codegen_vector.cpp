@@ -1279,28 +1279,28 @@ std::string CodeGenOpNPU::GenScatterElementSOp() const
         {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
 }
 
-std::string CodeGenOpCloudNPU::GenScatterOp() const 
+std::string CodeGenOpNPU::GenScatterOp() const 
 {
- 	     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "scatter_mode"))
- 	         << "cannot get scatter mode attr";
- 	     ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
- 	     ASSERT(isSupportLayout) << "Scatter operation only support TileTensor mode";
- 	     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
- 	     axis += SHAPE_DIM5 - rawShape[ID0].size();
- 	     int scatterMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
- 	     std::string dstTensor = QueryTileTensorNameByIdx(ID0);
- 	     std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
- 	     std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
- 	     std::string idxTensor = QueryTileTensorNameByIdx(ID3);
- 	     std::string src1Tensor = QueryTileTensorNameByIdx(ID4);
- 	     std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
- 	     std::string coord = PrintCoord(rawShape[ID0].size(), WrapParamByParentheses(gmOffsetExpr));
- 	     std::vector<std::string> templateParamList = {std::to_string(axis), std::to_string(scatterMode)};
- 	     std::vector<std::string> tileOpParamList = {dstTensor, idxTensor, src1Tensor, tmpTensor, coord};
- 	     std::ostringstream oss;
- 	     oss << tileOpName << WrapParamByAngleBrackets(templateParamList) << WrapParamByParentheses(tileOpParamList)
- 	         << STMT_END;
- 	     return oss.str();
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "scatter_mode"))
+        << "cannot get scatter mode attr";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(isSupportLayout) << "Scatter operation only support TileTensor mode";
+    int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    axis += SHAPE_DIM5 - rawShape[ID0].size();
+    int scatterMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+    std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
+    std::string idxTensor = QueryTileTensorNameByIdx(ID3);
+    std::string src1Tensor = QueryTileTensorNameByIdx(ID4);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coord = PrintCoord(rawShape[ID0].size(), WrapParamByParentheses(gmOffsetExpr));
+    std::vector<std::string> templateParamList = {std::to_string(axis), std::to_string(scatterMode)};
+    std::vector<std::string> tileOpParamList = {dstTensor, idxTensor, src1Tensor, tmpTensor, coord};
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByAngleBrackets(templateParamList) << WrapParamByParentheses(tileOpParamList)
+        << STMT_END;
+    return oss.str();
  	     
 }
 

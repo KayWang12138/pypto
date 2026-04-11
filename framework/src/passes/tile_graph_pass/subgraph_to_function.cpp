@@ -193,12 +193,8 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     Shape shape = recordInfo.shape;
     auto& op = *nLIST[i][j];
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
-<<<<<<< HEAD
         (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT &&
          op.GetOpcode() != Opcode::OP_INDEX_ADD && op.GetOpcode() != Opcode::OP_SCATTER)) {
-=======
-        (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT && op.GetOpcode() != Opcode::OP_SCATTER)) {
->>>>>>> 2aba1b51 (fix scatter inplace)
         return;
     }
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
