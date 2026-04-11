@@ -17,7 +17,8 @@ from ..tensor import Tensor
 from .._element import Element
 from ..tensor import Tensor
 
-# will be delate
+
+# will be delated
 @op_wrapper
 def index_add__ub(
     input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
@@ -90,7 +91,7 @@ def index_add__ub(
     return input
 
 
-# will be delate
+# will be delated
 @op_wrapper
 def index_add_ub(
     input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1
