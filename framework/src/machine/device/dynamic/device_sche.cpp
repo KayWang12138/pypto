@@ -43,6 +43,14 @@ extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void* targ)
 {
     (void)targ;
+#ifdef __DEVICE__
+    InitLogSwitch();
+    DEV_INFO("=========start to Trace Init=========");
+    DeviceTrace::GetInstance().Initialize();
+    DeviceTrace::GetInstance().SubmitTraceMsg("============wanjianfen==========");
+    DeviceTrace::GetInstance().ReportTraceMsg();
+    DEV_INFO("=========Finish to Trace Init=========");
+#endif
     g_machine_mgr.SignalReg(SigAct);
     return 0;
 }
