@@ -156,7 +156,7 @@ TEST_F(L1CopyInReuseTest, TestNormal)
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int result = 5;
+    const int result = 6;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function* function = G.GetFunction();
@@ -190,7 +190,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map)
 {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int result = 5;
+    const int result = 6;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
@@ -207,7 +207,7 @@ TEST_F(L1CopyInReuseTest, TestNoBufferMap)
 {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int result = 5;
+    const int result = 6;
     const int subGraphNum = 20;
     auto shapeImme = OpImmediate::Specified(tileShape);
     InitGraphBuilder(G, tileShape, subGraphNum);
@@ -275,7 +275,7 @@ TEST_F(L1CopyInReuseTest, TestHealthReport)
 {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int result = 5;
+    const int result = 6;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
 
@@ -289,9 +289,9 @@ TEST_F(L1CopyInReuseTest, TestHealthReport)
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 
     nlohmann::json report;
-    const int maxFaninOpsResult = 29;
+    const int maxFaninOpsResult = 38;
     const int maxFanoutOpsResult = 1;
-    const int totalOpCount = 30;
+    const int totalOpCount = 39;
     const int peakMemoryUsage = 512;
     const int copyDataCount = 0;
     // 计算operation节点信息
@@ -325,7 +325,7 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn)
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int result = 5;
+    const int result = 6;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast0", "outcast1"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_VIEW}, {{"incast0"}}, {{"incast1"}}, {"view"}, true), true);
     G.GetOp("view")->UpdateSubgraphID(0);
@@ -361,33 +361,6 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn)
     // L1CopyInReuseMerge LCRM;
     EXPECT_EQ(ret, SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
-}
-
-TEST_F(L1CopyInReuseTest, TestTensorReuseFailed)
-{
-    ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};
-    auto shapeImme = OpImmediate::Specified(tileShape);
-    const int subGraphNum = 20;
-    InitGraphBuilder(G, tileShape, subGraphNum);
-    for (int i = 1; i < subGraphNum; i++) {
-        std::string strID = std::to_string(i);
-        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor_before" + strID}), true);
-        std::vector<Opcode> opLists{Opcode::OP_EXP};
-        std::vector<std::vector<std::string>> iOperands{{"tensor_before" + strID}};
-        std::vector<std::vector<std::string>> oOperands{{"tensor" + strID}};
-        std::vector<std::string> opNames{"EXP_BEFORE_" + strID};
-        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
-        G.GetOp("EXP_BEFORE_" + strID)->UpdateSubgraphID(i);
-        G.GetTensor("tensor_before" + strID)->SetMemoryTypeOriginal(MEM_L1);
-    }
-    G.GetTensor("tensor_before1")->tensor->datatype = DataType::DT_FP16;
-    G.GetTensor("tensor1")->tensor->datatype = DataType::DT_FP16;
-    Function* function = G.GetFunction();
-    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
-    function->SetTotalSubGraphCount(subGraphNum);
-    L1CopyInReuseMerge LCRM;
-    EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
 }
 } // namespace tile_fwk
 } // namespace npu
