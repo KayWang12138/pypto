@@ -364,3 +364,38 @@ inline void CallSubFuncTask(uint64_t, CoreFuncParam*, int64_t, __gm__ int64_t*) 
 
 - 关闭 `runtime_debug_mode=E2E_HOST_SIM` 即回退到既有路径。
 - 保持 `CostModel/PVmodel RunTestMode` 与 `DEVICE_RT` 路径独立可用。
+
+## 12. 实现映射与完成状态（PR2412 收敛）
+
+本章节用于说明文档设计与当前代码实现的映射关系，避免评审时因命名差异导致对齐偏差。
+
+### 12.1 关键实现映射
+
+- 统一入口保持不变：仍由现有 Python/C++ 入口和 `LauncherRouter` 完成模式分发。
+- `E2E_HOST_SIM` 执行链：`E2EHostSimLauncher` 已从纯路由升级为 `Prepare -> Launch -> Finalize` 生命周期会话。
+- rt 接管：新增 `IMachineRtApi` / `RtApiDispatcher` / `RealRtApi` / `HostRtApi`，E2E 会话内安装 `HostRtApi`，非 E2E 走 `RealRtApi`。
+- Host 仿真基础组件：新增 `HostSimClock`、`HostCoreCtx`、`HostRegBus`、`host_aicore_entry_adapter`。
+- `CallSubFuncTask=5us`：Host 适配层采用逻辑时钟 `AdvanceNs(5000)` 固定建模。
+
+### 12.2 P0/P1/P2 完成状态（实现口径）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| P0-1 路由与执行链 | 已完成 | `E2EHostSimLauncher` 生命周期化，保留现有外部入口与路由。 |
+| P0-2 E2E rt 接管 | 已完成 | 增加 rt dispatcher 抽象，`DeviceLauncher` launch 路径通过 dispatcher 调度。 |
+| P0-3 Host 内存接管 | 已完成（E2E 会话口径） | `HostRtApi + HostMemoryManager + DeviceMemoryManager(dispatcher)` 接管 E2E 会话内存语义，并覆盖 Emulation 输入输出拷贝路径。 |
+| P0-4 线程模型与 5us | 已完成（仿真口径） | `blockdim` 驱动 profile，AICPU/AICORE worker 模型化，5us 固定逻辑时钟。 |
+| P1-1 PGMask 与映射 | 已完成 | 增加 `pgmask` 与 `logical->physical` 映射构建接口与会话注入。 |
+| P1-2 协议收敛 | 已完成（仿真口径） | 协议序列统一为 `HELLO->ACK/FIN->STOP->GOODBYE`，并补充 stop/goodbye 超时保护与强制回收。 |
+| P2-1 UT 覆盖补齐 | 已完成（本轮新增） | 新增路由、profile、映射、协议、`CallSubFuncTask=5us`、HostClock/RegBus、HostRtApi（含 fallback 失败计数）UT 覆盖。 |
+
+### 12.3 测试映射
+
+- `test_e2e_host_sim_launcher`：覆盖模式路由、线程规模、PGMask、逻辑/物理映射、协议序列、HostSimClock、HostRegBus、HostRtApi。
+- `test_aicore_entry`：保留并兼容现有协议与状态检查。
+
+### 12.4 本轮 UT 命令口径（build_ci）
+
+- `build_ci.py` 的 `-u` 参数需使用 gtest suite 过滤名，而非文件名。
+- 推荐命令：
+  - `python3 build_ci.py -f cpp --utest_module machine -u 'TestE2EHostSimLauncher.*,AicoreTest.*' -j 8`

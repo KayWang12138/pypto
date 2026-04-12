@@ -17,10 +17,10 @@
 
 #include <cstdlib>
 #include "securec.h"
+#include "machine/runtime/rt_api/machine_rt_api.h"
 
 #ifdef BUILD_WITH_CANN
 #include "acl/acl_rt.h"
-#include "machine/runtime/runtime.h"
 #endif
 
 namespace npu::tile_fwk::dynamic {
@@ -88,17 +88,9 @@ void* DeviceMemoryManager::Alloc(size_t size)
     if (size == 0) {
         return nullptr;
     }
-#ifdef BUILD_WITH_CANN
-    uint8_t* devPtr = nullptr;
-    if (useHugePage_) {
-        machine::GetRA()->AllocDevAddr(&devPtr, size);
-        return devPtr;
-    }
-    auto ret = rtMalloc(reinterpret_cast<void**>(&devPtr), size, RT_MEMORY_HBM, 0);
-    return ret == RT_ERROR_NONE ? devPtr : nullptr;
-#else
-    return std::malloc(size);
-#endif
+    void* ptr = nullptr;
+    int rc = RtApiDispatcher::Current().Malloc(&ptr, size, useHugePage_);
+    return rc == kMemOpSuccess ? ptr : nullptr;
 }
 
 int DeviceMemoryManager::Free(void* ptr)
@@ -106,16 +98,7 @@ int DeviceMemoryManager::Free(void* ptr)
     if (ptr == nullptr) {
         return kMemOpSuccess;
     }
-#ifdef BUILD_WITH_CANN
-    if (useHugePage_) {
-        return kMemOpSuccess;
-    }
-    auto ret = rtFree(ptr);
-    return ret == RT_ERROR_NONE ? kMemOpSuccess : kMemOpFail;
-#else
-    std::free(ptr);
-    return kMemOpSuccess;
-#endif
+    return RtApiDispatcher::Current().Free(ptr, useHugePage_) == kMemOpSuccess ? kMemOpSuccess : kMemOpFail;
 }
 
 int DeviceMemoryManager::Memcpy(void* dst, size_t dstSize, const void* src, size_t size, int kind)
@@ -123,13 +106,8 @@ int DeviceMemoryManager::Memcpy(void* dst, size_t dstSize, const void* src, size
     if (dst == nullptr || src == nullptr || dstSize < size) {
         return kMemOpFail;
     }
-#ifdef BUILD_WITH_CANN
-    auto ret = rtMemcpy(dst, dstSize, src, size, static_cast<rtMemcpyKind_t>(kind));
-    return ret == RT_ERROR_NONE ? kMemOpSuccess : kMemOpFail;
-#else
-    (void)kind;
-    return memcpy_s(dst, dstSize, src, size);
-#endif
+    return RtApiDispatcher::Current().Memcpy(dst, dstSize, src, size, kind) == kMemOpSuccess ? kMemOpSuccess :
+                                                                                                 kMemOpFail;
 }
 
 int DeviceMemoryManager::Memset(void* dst, size_t dstSize, int value, size_t size)
@@ -137,12 +115,8 @@ int DeviceMemoryManager::Memset(void* dst, size_t dstSize, int value, size_t siz
     if (dst == nullptr || dstSize < size) {
         return kMemOpFail;
     }
-#ifdef BUILD_WITH_CANN
-    auto ret = rtMemset(dst, dstSize, value, size);
-    return ret == RT_ERROR_NONE ? kMemOpSuccess : kMemOpFail;
-#else
-    return memset_s(dst, dstSize, value, size);
-#endif
+    return RtApiDispatcher::Current().Memset(dst, dstSize, value, size) == kMemOpSuccess ? kMemOpSuccess :
+                                                                                             kMemOpFail;
 }
 
 std::unique_ptr<IMemoryManager> MemoryManagerFactory::Create(MemoryMode mode, bool useHugePage)
@@ -154,4 +128,3 @@ std::unique_ptr<IMemoryManager> MemoryManagerFactory::Create(MemoryMode mode, bo
 }
 
 } // namespace npu::tile_fwk::dynamic
-
