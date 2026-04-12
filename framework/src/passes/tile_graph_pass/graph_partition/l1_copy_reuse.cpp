@@ -191,18 +191,34 @@ Status L1CopyInReuseRunner::MergeDupL1CopyIn(Function& func, std::vector<std::ve
     return SUCCESS;
 }
 
-int L1CopyInReuseRunner::GetMaxInColor(const std::vector<int>& nodes, const OperationsViewer& opOriList, int curColor)
-{
-    int maxInColor = -1;
-    for (int j : nodes) {
-        for (int k : inGraph_[j]) {
-            auto opColor = opOriList[k].GetSubgraphID();
-            if (opColor != curColor) {
-                maxInColor = std::max(maxInColor, opColor);
+std::map<int, std::vector<int>> L1CopyInReuseRunner::GetTopoLevels(int color) 
+{ // BFS拓扑排序层级
+    std::vector<int> inDegree(color, 0);
+    std::vector<int> levels(color, 0);
+    std::queue<int> q;
+    for (int i = 0; i < color; ++i) {
+        inDegree[i] = colorInGraph[i].size();
+        if (inDegree[i] == 0) {
+            q.push(i);
+            levels[i] = 1;
+        }
+    }
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        for (int v : colorOutGraph[u]) {
+            levels[v] = std::max(levels[v], levels[u] + 1);
+            inDegree[v]--;
+            if (inDegree[v] == 0) {
+                q.push(v);
             }
         }
     }
-    return maxInColor;
+    std::map<int, std::vector<int>> levelMap;
+    for (int i = 0; i < color; ++i) {
+        levelMap[levels[i]].push_back(i);
+    }
+    return levelMap;
 }
 
 inline std::vector<int> GetCopyIn(
@@ -345,8 +361,7 @@ Status L1CopyInReuseRunner::SetNumLR(std::vector<int>& numLRList)
 
 Status L1CopyInReuseRunner::L1MergeProcess(
     OperationsViewer& opOriList, std::vector<std::vector<int>>& colorNode, std::vector<uint64_t>& hashColor,
-    std::vector<int>& colorCopyIn, std::map<std::vector<uint64_t>, int>& l1InputList, int& tmpColor,
-    std::vector<int>& mergedNum, int& i)
+    std::vector<int>& colorCopyIn, int& i)
 {
     for (auto opIdx : colorNode[i]) {
         if (opOriList[opIdx].HasAttribute(OpAttributeKey::isCube) &&
@@ -411,8 +426,8 @@ void L1CopyInReuseRunner::GetL1ReuseOpOrder(
 }
 
 bool L1CopyInReuseRunner::GetMergedL1(
-    int maxInColor, std::vector<int>& mergedNum, int maxMergeNum, int& tmpColor, int i,
-    std::map<std::vector<uint64_t>, int>& l1InputList, std::vector<uint64_t>& vec, std::vector<int>& colorCopyIn,
+    int maxInColor, int maxMergeNum, int i,
+    std::vector<uint64_t>& vec, std::vector<int>& colorCopyIn,
     std::map<uint64_t, int>& mgRem, uint64_t idx)
 {
     auto copyId = l1InputList.find(vec);
@@ -432,52 +447,52 @@ Status L1CopyInReuseRunner::Phase1(
 {
     // 针对matmul的L1 copy reuse进行子图合并
     auto opOriList = func.Operations();
-    std::map<std::vector<uint64_t>, int> l1InputList;
     std::vector<int> numLRList(hashMap_.size(), 0);
     // CubeL1ReuseMode
     if (SetNumLR(numLRList) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeL1ReuseSetting");
         return FAILED;
     }
-    std::vector<int> mergedNum(color, 1);
-    std::vector<std::pair<int, int>> opOrder(color);
-    std::map<uint64_t, int> mgRem;
-    GetL1ReuseOpOrder(opOrder, mgRem, numLRList, hashColor, color);
-    for (int ii = 0; ii < color; ii++) {
-        int i = opOrder[ii].second;
-        int tmpColor = -1;
-        auto maxInColor = GetMaxInColor(colorNode[i], opOriList, i);
-        size_t j = 0;
-        while (colorCopyIn[i] <= mgCopyInUpperBound_ && j < colorNode[i].size()) {
-            auto opIdx = colorNode[i][j];
-            if (!CanReuse(opOriList[opIdx])) {
+    mergedNum.resize(color, 1);
+    auto levelMap = GetTopoLevels(color); // 合并同一拓扑层级的cube以避免成环
+    for (auto entry : levelMap) {
+        l1InputList.clear();
+        for (int i : entry.second) {
+            tmpColor = -1;
+            size_t j = 0;
+            while (colorCopyIn[i] <= mgCopyInUpperBound_ && j < colorNode[i].size()) {
+                auto opIdx = colorNode[i][j];
+                if (opOriList[opIdx].GetOpcode() != Opcode::OP_COPY_IN ||
+                    opOriList[opIdx].GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_L1) {
+                    j++;
+                    continue;
+                }
+                auto vec = GetGMInputFeature(opOriList[opIdx]);
+                if (vec.size() == 0) {
+                    APASS_LOG_ERROR_F(
+                        Elements::Operation, "Phase1: op %s %d GetGMInputFeature failed. %s",
+                        opOriList[i].GetOpcodeStr().c_str(), opOriList[i].GetOpMagic(),
+                        GetFormatBacktrace(opOriList[i]).c_str());
+                    return FAILED;
+                }
+                auto copyId = l1InputList.find(vec);
+                if (copyId != l1InputList.end() && mergedNum[copyId->second] > 0 &&
+                    colorCopyIn[copyId->second] + colorCopyIn[i] <= mgCopyInUpperBound_ &&
+                    mergedNum[copyId->second] < numLRList[hashOrder_[hashColor[i]]]) {
+                    tmpColor = copyId->second;
+                    break;
+                }
                 j++;
-                continue;
             }
-            auto vec = GetGMInputFeature(opOriList[opIdx]);
-            if (vec.size() == 0) {
+            if (tmpColor == -1) {
+                tmpColor = i;
+            }
+            if (L1MergeProcess(opOriList, colorNode, hashColor, colorCopyIn, i) == FAILED) {
                 APASS_LOG_ERROR_F(
-                    Elements::Operation, "Phase1: op %s %d GetGMInputFeature failed. %s",
-                    opOriList[i].GetOpcodeStr().c_str(), opOriList[i].GetOpMagic(),
+                    Elements::Operation, "L1MergeProcess failed; Please check the L1MergeProcess method. %s",
                     GetFormatBacktrace(opOriList[i]).c_str());
                 return FAILED;
             }
-            if (GetMergedL1(
-                    maxInColor, mergedNum, numLRList[hashOrder_[hashColor[i]]], tmpColor, i, l1InputList, vec,
-                    colorCopyIn, mgRem, hashColor[i])) {
-                break;
-            }
-            j++;
-        }
-        if (tmpColor == -1) {
-            tmpColor = i;
-        }
-        if (L1MergeProcess(opOriList, colorNode, hashColor, colorCopyIn, l1InputList, tmpColor, mergedNum, i) ==
-            FAILED) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "L1MergeProcess failed; Please check the L1MergeProcess method. %s",
-                GetFormatBacktrace(opOriList[i]).c_str());
-            return FAILED;
         }
     }
     return SUCCESS;
@@ -564,6 +579,24 @@ inline std::vector<int> AdjustNumDBCore(int color, int numDB, int mx)
     return pingColorList;
 }
 
+void L1CopyInReuseRunner::BuildInOutGraph(const OperationsViewer &opOriList, int color) 
+{
+    colorInGraph.clear();
+    colorInGraph.resize(color);
+    colorOutGraph.clear();
+    colorOutGraph.resize(color);
+    for (size_t i = 0; i < opOriList.size(); i++) {
+        int currColor = opOriList[i].GetSubgraphID();
+        for (int publisherIdx : inGraph_[i]) {
+            int publisherColor = opOriList[publisherIdx].GetSubgraphID();
+            if (publisherColor != currColor) {
+                colorInGraph[currColor].push_back(publisherColor);
+                colorOutGraph[publisherColor].push_back(currColor);
+            }
+        }
+    }
+}
+
 void L1CopyInReuseRunner::CubeMergeProcess(
     std::vector<std::vector<int>>& colorNode, OperationsViewer& opOriList, std::vector<int>& hashMergeNum,
     std::vector<int>& colorCopyIn)
@@ -575,6 +608,8 @@ void L1CopyInReuseRunner::CubeMergeProcess(
         if (sz > mgCopyInUpperBound_) {
             continue;
         }
+        std::sort(colorValues.begin(), colorValues.end(), [&](int x, int y) 
+            { return dfsColorOrder[x] < dfsColorOrder[y]; });
         int pingColor = -1;
         int mxMerge = mgCopyInUpperBound_ / sz;
         std::vector<int> pingColorList =
@@ -595,13 +630,14 @@ void L1CopyInReuseRunner::CubeMergeProcess(
     }
 }
 
-Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vector<int>>& colorNode)
+Status L1CopyInReuseRunner::InitializeAndLoadConfig(
+    Function& func, int color, std::vector<std::vector<int>>& colorNode,
+    OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
+    std::vector<int>& colorCopyIn)
 {
-    auto opOriList = func.Operations();
-    std::vector<uint64_t> hashColor(color, 0);
+    BuildInOutGraph(opOriList, color);
     hashOrder_.clear();
-    GetColorHash(opOriList, hashColor); // 计算子图哈希，识别同构子图
-    // print hashorder
+    GetColorHash(opOriList, hashColor);
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
     for (auto& entry : hashMap_) {
         APASS_LOG_INFO_F(
@@ -609,15 +645,23 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
             entry.first, IntVecToStr(entry.second).c_str());
     }
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
-    auto colorCopyIn = GetCopyIn(opOriList, color, colorNode); // 记录各子图的大小
+    colorCopyIn = GetCopyIn(opOriList, color, colorNode);
     mgCopyInUpperBound_ = func.paramConfigs_.sgMgCopyInUpperBound;
     numLRMap_ = func.paramConfigs_.cubeL1ReuseSetting;
-    numDBMap_ = func.paramConfigs_.cubeNBufferSetting; // 合并阈值参数设置
+    numDBMap_ = func.paramConfigs_.cubeNBufferSetting;
     L1ReuseMode_ = GetModeBySetting(numLRMap_);
     cubeNBufferMode_ = GetModeBySetting(numDBMap_);
     APASS_LOG_INFO_F(Elements::Operation, "Param Setting mgCopyInUpperBound %d.", mgCopyInUpperBound_);
+    return SUCCESS;
+}
+
+Status L1CopyInReuseRunner::ProcessAndValidate(
+    Function& func, int color, std::vector<std::vector<int>>& colorNode,
+    OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
+    const std::vector<int>& colorCopyIn)
+{
     if (L1ReuseMode_ == 1 && hashMap_.size() != 0) {
-        if (Phase1(func, color, colorNode, colorCopyIn, hashColor) == FAILED) {
+        if (Phase1(func, color, colorNode, const_cast<std::vector<int>&>(colorCopyIn), hashColor) == FAILED) {
             APASS_LOG_ERROR_F(Elements::Function, "Phase1 failed; Please check the Phase1 method.");
             return FAILED;
         }
@@ -628,12 +672,13 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
         HashUpdate(hashMap_, hashOrder_, color, hashColor);
     }
     std::vector<int> hashMergeNum(hashMap_.size(), 1);
-    // NBuffer参数设置
     if (SetNumDB(hashMergeNum) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeNBufferSetting");
         return FAILED;
     }
-    CubeMergeProcess(colorNode, opOriList, hashMergeNum, colorCopyIn);
+    BuildInOutGraph(opOriList, color);
+    DFSSortUtils::DFSSortColor(color, colorInGraph, colorOutGraph, dfsColorOrder);
+    CubeMergeProcess(colorNode, opOriList, hashMergeNum, const_cast<std::vector<int>&>(colorCopyIn));
     MergeProcessIdUpdate(func, colorNode, color);
     for (auto& op : func.Operations()) {
         if (static_cast<size_t>(op.GetSubgraphID()) > func.GetTotalSubGraphCount()) {
@@ -643,10 +688,24 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
             return FAILED;
         }
     }
-    RemoveUselessViews(func); // 删除节点
+    RemoveUselessViews(func);
     func.EraseOperations(true);
     APASS_LOG_DEBUG_F(Elements::Operation, "After L1CopyInReuse.");
     RescheduleUtils::PrintColorNode(func);
+    return SUCCESS;
+}
+
+Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vector<int>>& colorNode)
+{
+    auto opOriList = func.Operations();
+    std::vector<uint64_t> hashColor(color, 0);
+    std::vector<int> colorCopyIn;
+    if (InitializeAndLoadConfig(func, color, colorNode, opOriList, hashColor, colorCopyIn) == FAILED) {
+        return FAILED;
+    }
+    if (ProcessAndValidate(func, color, colorNode, opOriList, hashColor, colorCopyIn) == FAILED) {
+        return FAILED;
+    }
     return SUCCESS;
 }
 
