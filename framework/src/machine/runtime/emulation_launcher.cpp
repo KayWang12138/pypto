@@ -18,6 +18,7 @@
 #include <thread>
 #include "machine/host/backend.h"
 #include "machine/runtime/device_launcher.h"
+#include "machine/runtime/rt_api/machine_rt_api.h"
 #include "machine/utils/machine_error.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void* targ);
@@ -245,6 +246,23 @@ int EmulationLauncher::BuildControlFlowCache(
             function, inputDeviceDataList, outputDeviceDataList, nullptr, outCtrlFlowCache, memUtils, config);
     }
 }
+static int GetMemcpyDeviceToHostKind()
+{
+#ifdef BUILD_WITH_CANN
+    return static_cast<int>(RT_MEMCPY_DEVICE_TO_HOST);
+#else
+    return 0;
+#endif
+}
+
+static int GetMemcpyHostToDeviceKind()
+{
+#ifdef BUILD_WITH_CANN
+    return static_cast<int>(RT_MEMCPY_HOST_TO_DEVICE);
+#else
+    return 0;
+#endif
+}
 
 static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTensorData>& devDataList, bool isInput)
 {
@@ -252,14 +270,36 @@ static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTe
     for (auto& devData : devDataList) {
         auto size = devData.GetDataSize();
         void* ptr = malloc(size);
-        if (isInput) {
-#ifdef BUILD_WITH_CANN
-            rtMemcpy(ptr, size, devData.GetAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
-#endif
+        if (ptr == nullptr) {
+            hostDataList.emplace_back(devData.GetDataType(), nullptr, devData.GetShape());
+            continue;
+        }
+        if (isInput && size > 0) {
+            int rc = RtApiDispatcher::Current().Memcpy(
+                ptr, size, devData.GetAddr(), size, GetMemcpyDeviceToHostKind());
+            if (rc != 0) {
+                free(ptr);
+                ptr = nullptr;
+            }
         }
         hostDataList.emplace_back(devData.GetDataType(), ptr, devData.GetShape());
     }
     return hostDataList;
+}
+
+static void copyBackToDeviceTensorData(
+    const std::vector<DeviceTensorData>& hostDataList, const std::vector<DeviceTensorData>& devDataList)
+{
+    const size_t copyNum = std::min(hostDataList.size(), devDataList.size());
+    for (size_t i = 0; i < copyNum; ++i) {
+        auto* dst = devDataList[i].GetAddr();
+        auto* src = hostDataList[i].GetAddr();
+        auto size = std::min(hostDataList[i].GetDataSize(), devDataList[i].GetDataSize());
+        if (dst == nullptr || src == nullptr || size <= 0) {
+            continue;
+        }
+        (void)RtApiDispatcher::Current().Memcpy(dst, size, src, size, GetMemcpyHostToDeviceKind());
+    }
 }
 
 static void freeHostTensorData(const std::vector<DeviceTensorData>& hostDataList)
@@ -280,6 +320,9 @@ int EmulationLauncher::EmulationLaunchDeviceTensorData(
     DeviceLauncher::ChangeCaptureModeGlobal();
     int rc = EmulationLaunchOnceWithHostTensorData(function, inList, outList, nullptr, memUtils, config);
     freeHostTensorData(inList);
+    if (rc == 0) {
+        copyBackToDeviceTensorData(outList, outDevList);
+    }
     freeHostTensorData(outList);
     return rc;
 }

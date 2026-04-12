@@ -15,6 +15,15 @@
 export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 ```
 
+离线模式下同样可以启用`ccache`加速增量编译，建议将缓存目录设置到可写路径：
+
+```bash
+export CCACHE_DIR=/tmp/pypto_ccache
+mkdir -p "${CCACHE_DIR}"
+ccache -M 20G
+ccache -s
+```
+
 ### 常规安装
 
 此方式适用于生产环境或代码稳定后使用。编译安装后，对Python源码的修改不会体现到已安装的'pypto'包中。对应命令如下：

@@ -15,6 +15,7 @@
 
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/device_launcher_binding.h"
+#include "machine/runtime/rt_api/machine_rt_api.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
 #include "machine/host/perf_analysis.h"
@@ -756,91 +757,24 @@ int DeviceLauncher::LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode)
 int DeviceLauncher::LaunchAicpuKernel(
     rtAicpuArgsEx_t& rtArgs, bool tripleStream, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function)
 {
-#ifdef BUILD_WITH_CANN
-    auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
-    auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
-    auto& devRunner = DeviceRunner::Get();
-    devRunner.GetHostProfInstance().SetProfFunction(function);
-    int ret = 0;
-    auto args = (AiCpuArgs*)rtArgs.args;
-    const int nrAicpu = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu);
-    if (tripleStream) {
-        auto startTime = MsprofSysCycleTime();
-        args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, ctrlStream,
-            RT_KERNEL_USE_SPECIAL_TIMEOUT);
-        devRunner.ReportHostProfInfo(ctrlStream, startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU, false);
-        if (ret != RT_ERROR_NONE) {
-            return ret;
-        }
-        args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
-        startTime = MsprofSysCycleTime();
-        const int scheCpuNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream,
-            RT_KERNEL_USE_SPECIAL_TIMEOUT);
-        devRunner.ReportHostProfInfo(schedStream, startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
-        return ret;
-    } else {
-        args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
-        auto startTime = MsprofSysCycleTime();
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream,
-            RT_KERNEL_USE_SPECIAL_TIMEOUT);
-        devRunner.ReportHostProfInfo(schedStream, startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
-        return ret;
-    }
-#else
-    (void)rtArgs;
-    (void)tripleStream;
-    (void)debugEnable;
-    return 0;
-#endif
+    return RtApiDispatcher::Current().LaunchAicpu(&rtArgs, tripleStream, debugEnable, function);
 }
 
 int DeviceLauncher::LaunchAicoreKernel(
     aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable)
 {
+    uint64_t tilingKey = 0;
+    uint32_t blockDim = 0;
 #ifdef BUILD_WITH_CANN
-    auto& devRunner = DeviceRunner::Get();
-    auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-    auto blockDim = dynamic::GetCfgBlockdim();
-    auto startTime = MsprofSysCycleTime();
-    auto ret = rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
-    devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
-    if (debugEnable) {
-        auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
-        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
-        if (rc != 0) {
-            MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
-            return rc;
-        }
-        devRunner.DumpAiCoreExecutionTimeData();
-        ASSERT(machine::GetRA()->CheckAllSentinels());
-    }
-    if (IsPtoDataDumpEnabled()) {
-        auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
-        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
-        if (rc != 0) {
-            MACHINE_LOGE(HostLauncherErr::SYNC_FAILED, "sync failed");
-            return rc;
-        }
-        uint32_t hostPid = GetProcessId();
-        std::string sourceDir = "output/dump_tensor_" + std::to_string(hostPid);
-        std::string targetDir = config::LogTopFolder() + "/dump_tensor_" + std::to_string(hostPid);
-        if (IsPathExist(sourceDir)) {
-            std::rename(sourceDir.c_str(), targetDir.c_str());
-        }
-    }
-    return ret;
+    tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
+    blockDim = dynamic::GetCfgBlockdim();
 #else
     (void)aicoreStream;
     (void)kernel;
     (void)rtArgs;
     (void)rtTaskCfg;
-    (void)debugEnable;
-    return 0;
 #endif
+    return RtApiDispatcher::Current().LaunchAicore(
+        aicoreStream, kernel, &rtArgs, &rtTaskCfg, debugEnable, blockDim, tilingKey);
 }
 } // namespace npu::tile_fwk::dynamic
