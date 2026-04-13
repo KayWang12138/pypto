@@ -45,28 +45,27 @@ void BindErrors(py::module_& m) {
   PyObject_SetAttrString(internal_error_type, "__module__", PyUnicode_FromString("pypto"));
 
   // Register exception translator to convert C++ exceptions to Python exceptions
-  // This translator includes the full stack trace in the Python exception message
   py::register_exception_translator([](std::exception_ptr p) {
     try {
       if (p) std::rethrow_exception(p);
     } catch (const pypto::ValueError& e) {
       // Catch most specific exceptions first
-      PyErr_SetString(PyExc_ValueError, e.GetFullMessage().c_str());
+      PyErr_SetString(PyExc_ValueError, e.what());
     } catch (const pypto::TypeError& e) {
-      PyErr_SetString(PyExc_TypeError, e.GetFullMessage().c_str());
+      PyErr_SetString(PyExc_TypeError, e.what());
     } catch (const pypto::RuntimeError& e) {
-      PyErr_SetString(PyExc_RuntimeError, e.GetFullMessage().c_str());
+      PyErr_SetString(PyExc_RuntimeError, e.what());
     } catch (const pypto::NotImplementedError& e) {
-      PyErr_SetString(PyExc_NotImplementedError, e.GetFullMessage().c_str());
+      PyErr_SetString(PyExc_NotImplementedError, e.what());
     } catch (const pypto::IndexError& e) {
-      PyErr_SetString(PyExc_IndexError, e.GetFullMessage().c_str());
+      PyErr_SetString(PyExc_IndexError, e.what());
     } catch (const pypto::AssertionError& e) {
-      PyErr_SetString(PyExc_AssertionError, e.GetFullMessage().c_str());
+      PyErr_SetString(PyExc_AssertionError, e.what());
     } catch (const pypto::InternalError& e) {
-      PyErr_SetString(exc_internal_error.ptr(), e.GetFullMessage().c_str());
+      PyErr_SetString(exc_internal_error.ptr(), e.what());
     } catch (const pypto::Error& e) {
       // Catch base Error last as a fallback
-      PyErr_SetString(PyExc_Exception, e.GetFullMessage().c_str());
+      PyErr_SetString(PyExc_Exception, e.what());
     }
   });
 }
