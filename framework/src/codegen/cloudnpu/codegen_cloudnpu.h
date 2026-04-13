@@ -151,6 +151,8 @@ private:
     void DumpCode(const std::string& name, std::ostringstream& code) const;
     int DoCompileCmd(const std::string& compileCmd) const;
 
+    void Prepare(const Function& topFunc);
+
     void BuildArchOptions(std::ostringstream& oss, const CompileInfo& compileInfo) const;
     void BuildIncludes(std::ostringstream& oss) const;
     void BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const;
@@ -177,6 +179,7 @@ private:
 
     mutable std::mutex compileTasksMutex_;
     mutable std::vector<CompileTaskInfo> compileTasks_;
+    std::string rootFuncName_;
 
     NPUArch platform_;
 };
