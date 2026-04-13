@@ -67,6 +67,9 @@ struct Input {
 };
 
 void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op);
+void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCode = Opcode::OP_UNKNOWN);
+void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const std::string& opName);
+
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2);
 std::vector<int> GetBroadcastAxes(const Shape& shape1, const Shape& shape2);
 void CheckAxisRange(const Tensor& tensor, int& axis);
