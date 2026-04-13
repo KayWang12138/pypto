@@ -400,7 +400,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
     if (unlikely(ctx->args->taskEntry.reserved[0] == PRO_LEVEL2 || ctx->args->taskEntry.reserved[0] == PRO_LEVEL1)) {
-        AddMetricStatistic(ctx, ctx->seqNo, taskId, opAttrs[0], param.leafFuncStartCycle);
+        AddMetricStatistic(ctx, ctx->SeqNo(), taskId, opAttrs[0], param.leafFuncStartCycle);
     }
     if (unlikely(npu::tile_fwk::g_is_open_dump_perf_trace_data)) {
         ctx->lastTaskFinishCycle = get_sys_cnt();
