@@ -31,6 +31,12 @@ const std::unordered_map<TargetCoreType, CoreLocationType> targetCoreTypeMap{
     {TargetCoreType::AIV0, CoreLocationType::AIV0},
     {TargetCoreType::AIV1, CoreLocationType::AIV1}};
 
+const std::unordered_map<TargetCoreType, std::string> targetToString{
+    {TargetCoreType::AIC, "AIC"},
+    {TargetCoreType::AIV0, "AIV0"},
+    {TargetCoreType::AIV1, "AIV1"},
+    {TargetCoreType::UNKNOWN, "UNKNOWN"}};
+
 class OoOSchedule : public Pass {
 public:
     OoOSchedule() : Pass("OoOSchedule") {}

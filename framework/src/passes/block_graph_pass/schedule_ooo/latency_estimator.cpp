@@ -55,9 +55,9 @@ void LatencyEstimator::InitLatencyEstimator()
         return;
     }
 
-    depManager_.InitDependencies(taskList);
+    depManager_.PrintDependencies(taskList);
     // 单独初始化 latency 专用的 IssueQueue
-    InitLatencyAllocIssueQueues();
+    InitLatencyIssueQueues();
 }
 
 void LatencyEstimator::InitLatencyIssueQueues()
@@ -172,7 +172,8 @@ Status LatencyEstimator::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memTy
 
 Status LatencyEstimator::LaunchIssueStage(int& nextCycle)
 {
-    for (auto& [coreLocation, queue] : issueQueues)
+    for (auto& [coreLocation, queue] : issueQueues) {
+        void(coreLocation);
         for (auto& [pipeType, pipe] : queue) {
             (void)pipeType;
             if (pipe.Empty() || pipe.busy) {
@@ -185,7 +186,6 @@ Status LatencyEstimator::LaunchIssueStage(int& nextCycle)
             if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
                 nextCycle = pipe.curOpRetireCycle;
             }
-
             APASS_LOG_DEBUG_F(Elements::Operation, "issueQueues Insert: %s.", GetOpInfo(op).c_str());
         }
     }

@@ -144,11 +144,6 @@ Status OoOSchedule::MixSchedule(
     int64_t& maxWorkeSpaceSize)
 {
     APASS_LOG_INFO_F(Elements::Operation, "=============== START MixSchedule ===============");
-    std::unordered_map<TargetCoreType, std::string> targetToString{
-        {TargetCoreType::AIC, "AIC"},
-        {TargetCoreType::AIV0, "AIV0"},
-        {TargetCoreType::AIV1, "AIV1"},
-        {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     TaskSpliter spliter;
     spliter.SplitGraph(opList);
     for (auto& taskNode : spliter.GetTaskGraph().tasks) {

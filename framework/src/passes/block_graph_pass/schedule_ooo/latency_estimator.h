@@ -46,7 +46,7 @@ private:
 
     void InitMemWithoutAlloc();
     void InitLatencyEstimator();
-    void InitLatencyAllocIssueQueues();
+    void InitLatencyIssueQueues();
 };
 } // namespace npu::tile_fwk
 #endif // PASS_ESTIMATE_LATENCY_H

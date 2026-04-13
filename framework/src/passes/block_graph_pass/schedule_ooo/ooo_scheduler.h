@@ -105,7 +105,7 @@ public:
         const std::unordered_map<Operation*, CoreLocationType>& opCoreMap =
             std::unordered_map<Operation*, CoreLocationType>());
     OoOScheduler(Function& function) : function_(&function) {}
-
+    virtual ~OoOScheduler() = default;
     std::vector<Operation*> GetNewOperations() { return newOperations_; }
     int64_t workspaceOffset{0};
     OoOSchedulerCheck oooCheck;
