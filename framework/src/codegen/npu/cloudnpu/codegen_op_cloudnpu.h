@@ -36,20 +36,10 @@
 #include "codegen/npu/codegen_op_npu.h"
 
 namespace npu::tile_fwk {
-struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
-    std::shared_ptr<ForBlockManager> forBlockManager{nullptr};
-
-    CodeGenOpCloudNPUCtx(
-        std::shared_ptr<SymbolManager> sm, Function& tf, Function& sf, const Operation& op,
-        const std::map<int, int>& lto = {}, bool isMainBlk = false, bool isDynAligned = false,
-        std::shared_ptr<ForBlockManager> fbm = nullptr)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned), forBlockManager(std::move(fbm))
-    {}
-};
 
 class CodeGenOpCloudNPU : public CodeGenOpNPU {
 public:
-    explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx);
+    explicit CodeGenOpCloudNPU(const CodeGenOpNPUCtx& ctx);
 
     ~CodeGenOpCloudNPU() override = default;
 

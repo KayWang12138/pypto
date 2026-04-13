@@ -69,7 +69,7 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmp)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -102,7 +102,7 @@ TEST_F(TestCodegenDynCmp, TestDynOpCmpS)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -137,7 +137,7 @@ TEST_F(TestCodegenDynCmp, CmpTileTensor)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();

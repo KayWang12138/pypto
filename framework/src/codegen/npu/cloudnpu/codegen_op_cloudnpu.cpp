@@ -30,7 +30,7 @@ std::unordered_map<Opcode, std::set<int>> SKIP_PROC_PRARAM_IDX_IN_LOOP = {
     {Opcode::OP_ROWMIN_SINGLE, {ID1}},
 };
 
-CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx)
+CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpNPUCtx& ctx)
     : CodeGenOpNPU(ctx),
       mteFixPipeOps_({
           // UB <-> GM

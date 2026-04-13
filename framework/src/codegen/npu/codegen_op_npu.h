@@ -36,6 +36,17 @@
 
 namespace npu::tile_fwk {
 
+struct CodeGenOpNPUCtx : public CodeGenOpCtx {
+    std::shared_ptr<ForBlockManager> forBlockManager{nullptr};
+
+    CodeGenOpNPUCtx(
+        std::shared_ptr<SymbolManager> sm, Function& tf, Function& sf, const Operation& op,
+        const std::map<int, int>& lto = {}, bool isMainBlk = false, bool isDynAligned = false,
+        std::shared_ptr<ForBlockManager> fbm = nullptr)
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned), forBlockManager(std::move(fbm))
+    {}
+};
+
 class CodeGenOpNPU : public CodeGenOp {
 public:
     explicit CodeGenOpNPU(const CodeGenOpCtx &ctx);

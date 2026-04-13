@@ -67,7 +67,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOut)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();
@@ -100,7 +100,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = symbolManager->GenTileTensorDefList();
@@ -134,7 +134,7 @@ TEST_F(TestCodegenSpillOut, L1SpillOut)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
     CodeGenOpCloudNPU cop(opCtx);
 
     cop.GenOpCode();
