@@ -2922,8 +2922,13 @@ class ASTParser:
         "trap",
     })
     _INTERNAL_ONLY_MANUAL_OPS: frozenset[str] = frozenset({
+        "move_fp",
         "store_fp",
     })
+    _INTERNAL_ONLY_MANUAL_OP_HINTS: dict[str, str] = {
+        "move_fp": "Use plm.move(..., fp_tile=...) instead",
+        "store_fp": "Use plm.store(..., fp_tile=...) instead",
+    }
 
     def _parse_manual_op(self, op_name: str, call: ast.Call) -> ir.Expr:
         """Parse a manual (non-SSA) operation call: plm.{op_name}(..., dst=tile).
@@ -2946,7 +2951,7 @@ class ASTParser:
             raise InvalidOperationError(
                 f"Unknown manual operation: {op_name}",
                 span=span,
-                hint="Use plm.store(..., fp_tile=...) instead",
+                hint=self._INTERNAL_ONLY_MANUAL_OP_HINTS[op_name],
             )
 
         # Ops with SSA block semantics — no explicit output tile needed.

@@ -1685,6 +1685,215 @@ def test_manual_store_fp_rejects_non_scaling_fp():
         codegen_obj.generate(transformed_program)
 
 
+def test_manual_move_fp_rejects_pre_quant_scalar():
+    with pytest.raises(ValueError, match="fp_tile cannot be used together with pre_quant_scalar"):
+
+        @pl.program
+        class ManualMoveFpRejectPreQuantProgram:
+            @pl.function
+            def move_fp_reject_pre_quant(self):
+                src_type = plm.TileType(
+                    shape=[32, 32],
+                    dtype=pl.FP32,
+                    target_memory=pl.MemorySpace.Acc,
+                )
+                fp_type = plm.TileType(
+                    shape=[1, 16],
+                    dtype=pl.UINT64,
+                    target_memory=pl.MemorySpace.Scaling,
+                )
+                dst_type = plm.TileType(
+                    shape=[32, 32],
+                    dtype=pl.INT8,
+                    target_memory=pl.MemorySpace.Vec,
+                )
+                src = plm.make_tile(src_type, addr=0x0000, size=4096)
+                fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+                dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+                plm.move(dst, src, pre_quant_scalar=7, fp_tile=fp)
+
+
+def test_manual_move_fp_rejects_dual_split_mode():
+    with pytest.raises(ValueError, match="fp_tile only supports single-mode acc_to_vec_mode"):
+
+        @pl.program
+        class ManualMoveFpRejectDualModeProgram:
+            @pl.function
+            def move_fp_reject_dual_mode(self):
+                src_type = plm.TileType(
+                    shape=[32, 32],
+                    dtype=pl.FP32,
+                    target_memory=pl.MemorySpace.Acc,
+                )
+                fp_type = plm.TileType(
+                    shape=[1, 16],
+                    dtype=pl.UINT64,
+                    target_memory=pl.MemorySpace.Scaling,
+                )
+                dst_type = plm.TileType(
+                    shape=[32, 32],
+                    dtype=pl.INT8,
+                    target_memory=pl.MemorySpace.Vec,
+                )
+                src = plm.make_tile(src_type, addr=0x0000, size=4096)
+                fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+                dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+                plm.move(dst, src, acc_to_vec_mode="dual_split_m", fp_tile=fp)
+
+
+def test_manual_move_fp_emits_pto_tmov_with_fp_operand():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualMoveFpProgram:
+        @pl.function
+        def move_fp_kernel(self):
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            dst_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT8,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+            plm.move(dst, src, fp_tile=fp, acc_to_vec_mode="single_vec0", relu_pre_mode="normal_relu")
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualMoveFpProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert "pto.tmov ins(" in mlir_code
+    assert "loc=scaling" in mlir_code
+    assert "accToVecMode = #pto.acc_to_vec_mode<single_mode_vec0>" in mlir_code
+    assert "reluPreMode = #pto<relu_pre_mode normal_relu>" in mlir_code
+    assert re.search(
+        r"pto\.tmov ins\(%[A-Za-z0-9_]+ : !pto\.tile_buf<[^>]+>, %[A-Za-z0-9_]+ : !pto\.tile_buf<[^>]+>\) "
+        r"outs\(%[A-Za-z0-9_]+ : !pto\.tile_buf<[^>]+>\)",
+        mlir_code,
+    )
+
+
+def test_manual_move_fp_rejects_non_acc_source():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualMoveFpNonAccProgram:
+        @pl.function
+        def move_fp_non_acc_kernel(self):
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            dst_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT8,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+            plm.move(dst, src, fp_tile=fp)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualMoveFpNonAccProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(ValueError, match="manual.move_fp: source tile must be allocated in Acc memory"):
+        codegen_obj.generate(transformed_program)
+
+
+def test_manual_move_fp_rejects_non_scaling_fp():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualMoveFpNonScalingProgram:
+        @pl.function
+        def move_fp_non_scaling_kernel(self):
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            dst_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT8,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+            plm.move(dst, src, fp_tile=fp)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualMoveFpNonScalingProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(ValueError, match="manual.move_fp: fp tile must be allocated in Scaling memory"):
+        codegen_obj.generate(transformed_program)
+
+
+def test_manual_move_fp_rejects_non_vec_destination():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualMoveFpNonVecProgram:
+        @pl.function
+        def move_fp_non_vec_kernel(self):
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            dst_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT8,
+                target_memory=pl.MemorySpace.Mat,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+            plm.move(dst, src, fp_tile=fp)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualMoveFpNonVecProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(ValueError, match="manual.move_fp: destination tile must be allocated in Vec memory"):
+        codegen_obj.generate(transformed_program)
+
+
 # --- Kernel wrapper generation tests ---
 
 

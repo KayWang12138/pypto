@@ -417,6 +417,87 @@ static std::string MakeManualMoveCodegenCCE(const ir::CallPtr& op, codegen::Code
 }
 
 // ============================================================================
+// manual.move_fp — args = [src, fp_tile, dst]
+// Emits TMOV_FP(dst, src, fp) or TMOV<..., FpTileData, AccToVecMode, ReluPreMode>(dst, src, fp);
+// ============================================================================
+static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 3)
+      << "manual.move_fp: expected 3 args, got " << op->args_.size();
+
+  auto src_tile_type = ir::As<ir::TileType>(op->args_[0]->GetType());
+  CHECK(src_tile_type != nullptr) << "manual.move_fp source must be TileType";
+  CHECK(src_tile_type->memref_.has_value())
+      << "manual.move_fp source tile must have an allocated memory space";
+  if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
+    throw pypto::ValueError("manual.move_fp: source tile must be allocated in Acc memory");
+  }
+
+  auto fp_tile_type = ir::As<ir::TileType>(op->args_[1]->GetType());
+  CHECK(fp_tile_type != nullptr) << "manual.move_fp fp tile must be TileType";
+  CHECK(fp_tile_type->memref_.has_value())
+      << "manual.move_fp fp tile must have an allocated memory space";
+  if (fp_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Scaling) {
+    throw pypto::ValueError("manual.move_fp: fp tile must be allocated in Scaling memory");
+  }
+
+  auto dst_tile_type = ir::As<ir::TileType>(op->args_[2]->GetType());
+  CHECK(dst_tile_type != nullptr) << "manual.move_fp destination must be TileType";
+  CHECK(dst_tile_type->memref_.has_value())
+      << "manual.move_fp destination tile must have an allocated memory space";
+  if (dst_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Vec) {
+    throw pypto::ValueError("manual.move_fp: destination tile must be allocated in Vec memory");
+  }
+
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string fp_tile = codegen.GetExprAsCode(op->args_[1]);
+  std::string dst = codegen.GetExprAsCode(op->args_[2]);
+  std::string args = dst + ", " + src + ", " + fp_tile;
+
+  std::string relu_template;
+  if (op->HasKwarg("relu_pre_mode")) {
+    const std::string& relu_str = op->GetKwarg<std::string>("relu_pre_mode");
+    if (relu_str == "no_relu") {
+      relu_template = "ReluPreMode::NoRelu";
+    } else if (relu_str == "normal_relu") {
+      relu_template = "ReluPreMode::NormalRelu";
+    } else {
+      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+    }
+  }
+
+  if (op->HasKwarg("acc_to_vec_mode")) {
+    const std::string& mode_str = op->GetKwarg<std::string>("acc_to_vec_mode");
+    std::string mode_enum;
+    if (mode_str == "single_vec0") {
+      mode_enum = "AccToVecMode::SingleModeVec0";
+    } else if (mode_str == "single_vec1") {
+      mode_enum = "AccToVecMode::SingleModeVec1";
+    } else if (mode_str == "dual_split_m" || mode_str == "dual_split_n") {
+      throw pypto::ValueError("manual.move_fp: fp_tile only supports single-mode acc_to_vec_mode");
+    } else {
+      throw pypto::ValueError("Invalid acc_to_vec_mode: " + mode_str);
+    }
+
+    std::string template_params = ", decltype(" + fp_tile + "), " + mode_enum;
+    if (!relu_template.empty()) {
+      template_params += ", " + relu_template;
+    }
+    codegen.Emit("TMOV<decltype(" + dst + "), decltype(" + src + ")" + template_params + ">(" + args + ");");
+    return "";
+  }
+
+  if (!relu_template.empty()) {
+    codegen.Emit("TMOV_FP<decltype(" + dst + "), decltype(" + src + "), decltype(" + fp_tile + "), " +
+                 relu_template + ">(" + args + ");");
+  } else {
+    codegen.Emit("TMOV_FP(" + args + ");");
+  }
+
+  return "";
+}
+
+// ============================================================================
 // manual.set_validshape — args = [row, col, tile]
 // Emits: tile.SetValidShape(row, col);
 // ============================================================================
@@ -878,6 +959,12 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.move")
     .set_pipe(ir::PipeType::MTE1)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeManualMoveCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "manual.move_fp")
+    .set_pipe(ir::PipeType::FIX)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualMoveFpCodegenCCE(op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.insert")

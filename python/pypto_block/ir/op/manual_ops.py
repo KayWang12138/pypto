@@ -96,6 +96,7 @@ def move(
     acc_to_vec_mode: str | None = None,
     relu_pre_mode: str | None = None,
     pre_quant_scalar: int | None = None,
+    fp_tile: Expr | None = None,
 ) -> Call:
     """Build manual.move IR call.
 
@@ -106,16 +107,25 @@ def move(
         acc_to_vec_mode: AccToVecMode string for Acc->Vec transfers.
         relu_pre_mode: ReluPreMode string for TMOV.
         pre_quant_scalar: Pre-quantization scalar value.
+        fp_tile: Floating-point parameter tile expression for TMOV_FP.
 
     Returns:
         Call expression for manual.move.
     """
     actual_span = _get_span_or_capture(span)
+    if fp_tile is not None and pre_quant_scalar is not None:
+        raise ValueError("fp_tile cannot be used together with pre_quant_scalar")
+    if fp_tile is not None and acc_to_vec_mode in {"dual_split_m", "dual_split_n"}:
+        raise ValueError("fp_tile only supports single-mode acc_to_vec_mode")
     kwargs: dict = {}
     if acc_to_vec_mode is not None:
         kwargs["acc_to_vec_mode"] = acc_to_vec_mode
     if relu_pre_mode is not None:
         kwargs["relu_pre_mode"] = relu_pre_mode
+    if fp_tile is not None:
+        return _ir_core.create_op_call(
+            "manual.move_fp", [src, fp_tile, out], kwargs, actual_span
+        )
     if pre_quant_scalar is not None:
         kwargs["pre_quant_scalar"] = pre_quant_scalar
     return _ir_core.create_op_call(
