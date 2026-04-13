@@ -32,6 +32,9 @@ ScatterMode = pypto_impl.ScatterMode
 SaturationMode = pypto_impl.SaturationMode
 AtomicType = pypto_impl.AtomicType
 DivAlgorithm = pypto_impl.DivAlgorithm
+ExpAlgorithm = pypto_impl.ExpAlgorithm
+SqrtAlgorithm = pypto_impl.SqrtAlgorithm
+LogAlgorithm = pypto_impl.LogAlgorithm
 
 DataType.__repr__ = _enum_repr
 TileOpFormat.__repr__ = _enum_repr
