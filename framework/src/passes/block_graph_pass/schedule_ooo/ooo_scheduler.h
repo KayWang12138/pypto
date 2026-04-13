@@ -185,7 +185,7 @@ private:
     void UpdateIssueExecOrder();
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> opList);
-    Status PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill);
+    Status PrintSpillFailedInfo(Operation* allocOp);
 
     // gen spill
     Status GenBufferSpill(Operation* allocOp, SpillContext &ctx);
@@ -221,7 +221,7 @@ private:
     Status UpdateSpillOpDepend(Operation* copyinOp, Operation* allocOp, Operation* spillOp, int spillMemId);
     bool HasEnoughBuffer(Operation* allocOp, MemoryType memType);
     Status SpillOnBlock();
-    Status SpillOnCoreBlock(OpCoreType coreType, int idx, bool &didSpill);
+    Status SpillOnCoreBlock(CoreLocationType coreLocation, bool& didSpill);
     Operation* SkipViewChain(Operation* start, bool followProducers);
 
     // 新增：插入Operation到orderedOps
