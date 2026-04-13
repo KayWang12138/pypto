@@ -51,7 +51,6 @@ def dequantize_golden(input_tensor, scale, axis, zero_points=None):
 
 
 def test_dequantize_sym_axis_neg1_onboard():
-    """Symmetric dequantization, axis=-1, int8 -> fp32."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
@@ -114,7 +113,6 @@ def test_dequantize_sym_axis_neg1_onboard():
 
 
 def test_dequantize_sym_axis_neg1_aligned_onboard():
-    """Symmetric dequantization, axis=-1, aligned shape, int8 -> fp32."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
@@ -177,7 +175,6 @@ def test_dequantize_sym_axis_neg1_aligned_onboard():
 
 
 def test_dequantize_asym_axis_neg1_onboard():
-    """Asymmetric dequantization, axis=-1, int8 -> fp32."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 

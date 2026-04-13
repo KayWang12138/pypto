@@ -56,7 +56,6 @@ def quantize_golden(input_tensor, scale, axis, output_dtype, zero_points=None):
 
 
 def test_quantize_sym_axis_neg1_onboard():
-    """Symmetric quantization, axis=-1, fp32 -> int8."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
@@ -119,7 +118,6 @@ def test_quantize_sym_axis_neg1_onboard():
 
 
 def test_quantize_sym_axis_neg1_aligned_onboard():
-    """Symmetric quantization, axis=-1, aligned shape, fp32 -> int8."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
@@ -182,7 +180,6 @@ def test_quantize_sym_axis_neg1_aligned_onboard():
 
 
 def test_quantize_asym_axis_neg1_onboard():
-    """Asymmetric quantization, axis=-1, fp32 -> uint8."""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 

@@ -3188,14 +3188,12 @@ def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None)
 
         # Convert to target dtype
         if output_dtype == "int8":
-            # Perform quantization: q = round(x * scale)
             if axis == -1:
                 quantized = ascend_tcvt_int8(input_tensor * scale[..., None])
             elif axis == -2: # axis = -2
                 quantized = ascend_tcvt_int8(input_tensor * scale[..., None, :])
         elif output_dtype == "uint8":
             zero_points = from_numpy(inputs[2])
-            # Perform quantization: q = round(x * scale)
             if axis == -1:
                 quantized = ascend_tcvt_uint8(input_tensor * scale[..., None] + zero_points[..., None])
             elif axis == -2: # axis = -2
@@ -3265,7 +3263,6 @@ def gen_dequantize_op_golden(case_name: str, output: Path, case_index: int = Non
         normalized_axis = axis if axis < 0 else axis - ndim
 
         if use_zero_points and len(inputs) > 2:
-            # Asymmetric dequantization: dst = (src - offset) * scale
             zero_points = inputs[2].astype(np.float32)
             # Broadcast scale and zero_points based on axis
             if normalized_axis == -1:
@@ -3282,7 +3279,6 @@ def gen_dequantize_op_golden(case_name: str, output: Path, case_index: int = Non
                     zero_points = np.expand_dims(zero_points, axis=-2)
             result = (input_float - zero_points) * scale
         else:
-            # Symmetric dequantization: dst = src * scale
             # Broadcast scale based on axis
             if normalized_axis == -1:
                 # Broadcast along last dimension
