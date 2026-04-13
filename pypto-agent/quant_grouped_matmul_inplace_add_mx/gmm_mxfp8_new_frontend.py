@@ -281,14 +281,14 @@ class ShapeConfig:
 
 @pypto.frontend.jit
 def scaled_matmul_kernel(
-    a: pypto.Tensor,
-    b: pypto.Tensor,
-    scaled_a: pypto.Tensor,
-    scaled_b: pypto.Tensor,
-    out: pypto.Tensor,
-    group_list,
-    tile_config
-) -> None:
+    a: pypto.Tensor(),
+    b: pypto.Tensor(),
+    scaled_a: pypto.Tensor(),
+    scaled_b: pypto.Tensor(),
+    out: pypto.Tensor(),
+    group_list: list,
+    tile_config: ShapeConfig
+):
     """
     Scaled matrix multiplication kernel for grouped GEMM with MXFP8 quantization.
 
