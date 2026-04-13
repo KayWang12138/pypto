@@ -23,6 +23,12 @@
 
 #ifdef __TILE_FWK_AICORE__
 #include "tileop/utils/layout.h"
+#if defined(__DAV_M300__) || defined(__DAV_310R6__) || \
+    defined(__DAV_L510__) || (__NPU_ARCH__ == 5102) || \
+    (__NPU_ARCH__ == 9201) || (__NPU_ARCH__ == 3801) || (__NPU_ARCH__ == 3101)
+typedef float8_e4m3_t float8_t;
+#define __FLOAT8_T_AVAILABLE__ 1
+#endif
 #endif
 
 #define ENABLE_AICORE_PRINT 1
@@ -162,7 +168,8 @@ INLINE float DecodeFloat8(uint8_t bits)
 enum NodeTy { END, NORMAL, FP32, INT, CHAR, STRING, POINTER, BF16, FP16,
               TENSOR_HEADER,
               INDEXED_FP32, INDEXED_INT64, INDEXED_BF16, INDEXED_FP16,
-              FLOAT8, INDEXED_FLOAT8 };
+              FLOAT8, INDEXED_FLOAT8,
+              OVERFLOW_WARNING };
 
 struct LogContext {
     void (*PrintInt)(LogContext* ctx, __gm__ const char** fmt, int64_t val);
@@ -187,8 +194,10 @@ INLINE void __AiCorePrint(LogContext* ctx, __gm__ const char** fmt, T val)
         ctx->PrintBf16(ctx, fmt, SafeBitCast<uint16_t>(val));
     } else if constexpr (std::is_same_v<T, half>) {
         ctx->PrintFp16(ctx, fmt, SafeBitCast<uint16_t>(val));
+#ifdef __FLOAT8_T_AVAILABLE__
     } else if constexpr (std::is_same_v<T, float8_t>) {
         ctx->PrintFloat8(ctx, fmt, SafeBitCast<uint8_t>(val));
+#endif
 #endif
     }
 }
@@ -406,6 +415,42 @@ struct AicoreLogger {
         Encode(static_cast<uint8_t>(END));
     }
 
+    __aicore__ int64_t GetBufferSize() const { return size_; }
+
+    __aicore__ int64_t GetTail() const { return tail_; }
+
+    template <typename NamePtrT>
+    __aicore__ void EncodeOverflowWarning(NamePtrT name, int64_t totalBytes, int64_t tailBefore, int64_t tailAfter)
+    {
+        Encode(static_cast<uint8_t>(OVERFLOW_WARNING));
+        short nameLen = 0;
+        while (name[nameLen]) ++nameLen;
+        nameLen += 1;
+        auto nlBytes = reinterpret_cast<uint8_t*>(&nameLen);
+        Encode(nlBytes[0]);
+        Encode(nlBytes[1]);
+        for (short i = 0; name[i]; ++i) {
+            Encode(static_cast<uint8_t>(name[i]));
+        }
+        Encode('\0');
+        auto tbBytes = reinterpret_cast<uint8_t*>(&totalBytes);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(tbBytes[i]);
+        }
+        auto bsBytes = reinterpret_cast<uint8_t*>(&size_);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(bsBytes[i]);
+        }
+        auto tbBeforeBytes = reinterpret_cast<uint8_t*>(&tailBefore);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(tbBeforeBytes[i]);
+        }
+        auto tbAfterBytes = reinterpret_cast<uint8_t*>(&tailAfter);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(tbAfterBytes[i]);
+        }
+    }
+
 #ifdef __TILE_FWK_HOST__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
@@ -492,6 +537,36 @@ struct AicoreLogger {
                     float fv = DecodeFloat8(bits);
                     n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %f\n",
                                    lastTensorName_.c_str(), idx, fv);
+                    break;
+                }
+                case OVERFLOW_WARNING: {
+                    auto nameLen = Read<short>(tail_);
+                    tail_ += sizeof(short);
+                    std::string name;
+                    for (short i = 0; i < nameLen - 1; ++i) {
+                        name += Read<char>(tail_++);
+                    }
+                    tail_++;  // skip '\0'
+                    auto totalBytes = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    auto bufferSize = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    auto tailBefore = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    auto tailAfter = Read<int64_t>(tail_);
+                    tail_ += 8;
+                    int64_t recommendedBytes = totalBytes + 16;  // sizeof(Remote)
+                    recommendedBytes = ((recommendedBytes * 12 / 10 + 1023) / 1024) * 1024;
+                    n = snprintf_s(buf, maxSize, maxSize - 1,
+                        "[WARNING] Ring buffer overflow detected for tensor '%s'! "
+                        "This tensor's encoding (%ld bytes) caused earlier data to be overwritten. "
+                        "Buffer tail advanced from %ld to %ld (delta=%ld bytes), indicating data loss. "
+                        "Buffer data area size is %ld bytes. "
+                        "To avoid overflow, set PRINT_BUFFER_SIZE >= %ld (%ld KB) "
+                        "in framework/src/interface/machine/device/tilefwk/aicpu_common.h:52, "
+                        "then rebuild and reinstall.\n",
+                        name.c_str(), totalBytes, tailBefore, tailAfter, (tailAfter - tailBefore),
+                        bufferSize, recommendedBytes, recommendedBytes / 1024);
                     break;
                 }
                 default: {
@@ -671,6 +746,12 @@ private:
                     case INDEXED_BF16:
                     case INDEXED_FP16:  tail_ += 8 + 2; break;
                     case INDEXED_FLOAT8: tail_ += 8 + 1; break;
+                    case OVERFLOW_WARNING: {
+                        auto nl = Read<short>(tail_);
+                        tail_ += sizeof(short) + nl;
+                        tail_ += 8 + 8 + 8 + 8;  // totalBytes + bufferSize + tailBefore + tailAfter
+                        break;
+                    }
                     default:
                         tail_ += Read<short>(tail_) + sizeof(short);
                         tail_ += Read<short>(tail_) + sizeof(short);
@@ -789,8 +870,10 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end, int
             AiCoreLogF(ctx, "%f\n", data[i]);
         } else if constexpr (std::is_same_v<ElemT, half>) {
             AiCoreLogF(ctx, "%f\n", data[i]);
+#ifdef __FLOAT8_T_AVAILABLE__
         } else if constexpr (std::is_same_v<ElemT, float8_t>) {
             AiCoreLogF(ctx, "%f\n", data[i]);
+#endif
 #endif
         }
     }
@@ -802,6 +885,34 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end,
 {
     using ElemT = std::remove_cv_t<T>;
     auto* logger = reinterpret_cast<AicoreLogger*>(ctx);
+
+    int64_t tailBefore = logger->GetTail();
+
+    int64_t count = end - begin;
+    int64_t perElement = 0;
+    if constexpr (std::is_floating_point_v<ElemT>) {
+        perElement = 13 + 1;   // INDEXED_FP32 (13B) + END (1B) = 14
+    } else if constexpr (std::is_integral_v<ElemT>) {
+        perElement = 17 + 1;   // INDEXED_INT64 (17B) + END (1B) = 18
+    } else if constexpr (std::is_pointer_v<ElemT>) {
+        perElement = 17 + 1;
+#if IS_AICORE
+    } else if constexpr (std::is_same_v<ElemT, bfloat16_t>) {
+        perElement = 11 + 1;
+    } else if constexpr (std::is_same_v<ElemT, half>) {
+        perElement = 11 + 1;
+#ifdef __FLOAT8_T_AVAILABLE__
+    } else if constexpr (std::is_same_v<ElemT, float8_t>) {
+        perElement = 10 + 1;
+#endif
+#endif
+    }
+
+    int64_t nameLen = 0;
+    while (name[nameLen]) ++nameLen;
+    nameLen += 1;
+    int64_t headerSize = 1 + 2 + nameLen + 8 + 8;
+    int64_t totalBytes = headerSize + 1 + (perElement * count);
 
     logger->EncodeTensorHeader(name, begin, end);
     logger->EncodeEnd();
@@ -824,11 +935,22 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end,
         } else if constexpr (std::is_same_v<ElemT, half>) {
             uint16_t rawBits = SafeBitCast<uint16_t>(data[i]);
             logger->EncodeIndexed(INDEXED_FP16, i, reinterpret_cast<uint8_t*>(&rawBits), sizeof(uint16_t));
+#ifdef __FLOAT8_T_AVAILABLE__
         } else if constexpr (std::is_same_v<ElemT, float8_t>) {
             uint8_t rawBits = SafeBitCast<uint8_t>(data[i]);
             logger->EncodeIndexed(INDEXED_FLOAT8, i, &rawBits, sizeof(uint8_t));
 #endif
+#endif
         }
+        logger->EncodeEnd();
+        logger->Sync();
+    }
+
+    int64_t tailAfter = logger->GetTail();
+    bool overflowOccurred = (tailAfter > tailBefore);
+
+    if (overflowOccurred) {
+        logger->EncodeOverflowWarning(name, totalBytes, tailBefore, tailAfter);
         logger->EncodeEnd();
         logger->Sync();
     }
@@ -859,5 +981,105 @@ INLINE void AiCorePrintUbTensorNamed(LogContext* ctx, __ubuf__ const T* data,
                                       int64_t end, int64_t begin, __ubuf__ const char* name)
 {
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin, name);
+}
+
+/**
+ * 将 L1 (__cbuf__) 数据通过 DMA 搬运到 GM 暂存缓冲区。
+ * 内部使用 copy_cbuf_to_gm，支持任意元素类型和数量。
+ *
+ * @param dst   GM 目标地址
+ * @param src   L1 源地址
+ * @param count 元素数量
+ *
+ * @note DMA 最小搬运单位为 32 字节，不足部分会向上取整，
+ *       拷贝的数据可能比请求的略多（尾部填充字节），不影响正确性。
+ */
+template <typename T>
+__aicore__ void L1RawCopyToGM(__gm__ T* dst, __cbuf__ const T* src, int64_t count)
+{
+    int64_t totalBytes = count * sizeof(T);
+    if (totalBytes == 0) {
+        return;
+    }
+
+    uint16_t nBurst;
+    uint16_t lenBurst;
+
+    if (totalBytes >= 32) {
+        // 正常模式：以 32B 块为单位的突发传输
+        nBurst = 1;
+        lenBurst = static_cast<uint16_t>((totalBytes + 31) / 32);
+    } else {
+        // Fallback 模式：直接按字节传输
+        nBurst = 1;
+        lenBurst = static_cast<uint16_t>(totalBytes);
+    }
+
+    copy_cbuf_to_gm(dst, src, 0, nBurst, lenBurst, 0, 0);
+}
+
+/**
+ * 打印 L1 (__cbuf__) tensor 数据（Copy-then-Print, Named 版本）。
+ *
+ * 完整流程：
+ *   1. DMA 搬运：L1 data -> GM staging buffer
+ *   2. 流水线同步：等待 MTE3 完成
+ *   3. 逐值打印：从 GM staging 读值，编码到 print ring buffer
+ *
+ * @param ctx     LogContext 指针（来自 param->ctx）
+ * @param data    L1 数据指针（__cbuf__ 地址空间）
+ * @param end     打印结束索引（不包含）
+ * @param begin   打印起始索引
+ * @param staging GM 暂存缓冲区（通过 workspace + rawTensorDesc 传入）
+ * @param name    tensor 名称（__gm__ 字符串字面量）
+ *
+ * @note staging 缓冲区大小必须 >= (end - begin) * sizeof(T) 字节。
+ * @note 应在 TLoad + wait_flag 完成后调用。
+ */
+template <typename T>
+INLINE void AiCorePrintL1Tensor(LogContext* ctx, __cbuf__ const T* data,
+                                 int64_t end, int64_t begin,
+                                 __gm__ T* staging, __gm__ const char* name)
+{
+    int64_t count = end - begin;
+    if (count <= 0) {
+        return;
+    }
+
+    // Step 1: DMA L1 -> GM staging
+    L1RawCopyToGM(staging, data + begin, count);
+
+    // Step 2: 同步 MTE3 -> S（等待 DMA 完成）
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+
+    // Step 3: 从 GM staging 打印（复用现有 GM 打印 API）
+    AiCorePrintGmTensorNamed<T>(ctx, staging, count, 0, name);
+}
+
+/**
+ * 打印 L1 (__cbuf__) tensor 数据（Copy-then-Print, 无名称版本）。
+ *
+ * @param ctx     LogContext 指针（来自 param->ctx）
+ * @param data    L1 数据指针（__cbuf__ 地址空间）
+ * @param end     打印结束索引（不包含）
+ * @param begin   打印起始索引
+ * @param staging GM 暂存缓冲区（通过 workspace + rawTensorDesc 传入）
+ */
+template <typename T>
+INLINE void AiCorePrintL1Tensor(LogContext* ctx, __cbuf__ const T* data,
+                                 int64_t end, int64_t begin,
+                                 __gm__ T* staging)
+{
+    int64_t count = end - begin;
+    if (count <= 0) {
+        return;
+    }
+
+    L1RawCopyToGM(staging, data + begin, count);
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+
+    AiCorePrintGmTensor<T>(ctx, staging, count, 0);
 }
 #endif
