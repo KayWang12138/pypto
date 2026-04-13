@@ -1089,6 +1089,96 @@ TEST_F(GraphPartitionTest, TestAttentionFusionScopePartition)
     EXPECT_NE(scope1Subgraph, scope2Subgraph);
 }
 
+void GetAttentionElseBranchGraph(ComputationalGraphBuilder& G)
+{
+    std::vector<int64_t> tileShape{16, 16};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {
+        "sij", "max_update", "sum_update", "oi_update_prev", "vj_assemble",
+        "sij_scale", "tilda_mij", "max_new", "tsub1", "tilda_pij", "tilda_pij_half",
+        "sum_local",
+        "tsub2", "update_mul", "tmp_mul", "sum_update_out",
+        "oi_tmp", "tmp_oi", "oi_update_out"
+    }), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij"}, {"sij_scale"}, "MULS_scale", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_mij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update", "tilda_mij"}, {"max_new"}, "MAX_new", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"sij_scale", "max_new"}, {"tsub1"}, "SUB_tsub", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub1"}, {"tilda_pij"}, "EXP_pij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"tilda_pij"}, {"tilda_pij_half"}, "CAST_half", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWSUM, {"tilda_pij"}, {"sum_local"}, "ROWSUM_local", true), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub2"}, {"update_mul"}, "EXP_umul", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update", "update_mul"}, {"tmp_mul"}, "MUL_sum", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_mul", "sum_local"}, {"sum_update_out"}, "ADD_sum", true), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"tilda_pij_half", "vj_assemble"}, {"oi_tmp"}, "MUL_c2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"oi_update_prev", "update_mul"}, {"tmp_oi"}, "MUL_oi", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_oi", "oi_tmp"}, {"oi_update_out"}, "ADD_v2", true), true);
+
+    EXPECT_EQ(G.SetInCast({"sij", "max_update", "sum_update", "oi_update_prev", "vj_assemble"}), true);
+    EXPECT_EQ(G.SetOutCast({"oi_update_out", "sum_update_out"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestAttentionElseBranchScopeId)
+{
+    ComputationalGraphBuilder G;
+    GetAttentionElseBranchGraph(G);
+
+    Operation::ScopeInfo scope1;
+    scope1.scopeId = 1;
+    scope1.allowParallelMerge = true;
+    scope1.allowCrossScopeMerge = false;
+    scope1.mixId = -1;
+    std::vector<std::string> scope1Ops = {
+        "MULS_scale", "ROWMAX_mij", "MAX_new", "SUB_tsub",
+        "EXP_pij", "CAST_half", "ROWSUM_local"
+    };
+    for (const auto& name : scope1Ops) {
+        G.GetOp(name)->SetScopeInfo(scope1);
+    }
+
+    Operation::ScopeInfo scope2;
+    scope2.scopeId = 2;
+    scope2.allowParallelMerge = true;
+    scope2.allowCrossScopeMerge = false;
+    scope2.mixId = -1;
+    std::vector<std::string> scope2Ops = {
+        "SUB_tsub2", "EXP_umul", "MUL_sum", "ADD_sum"
+    };
+    for (const auto& name : scope2Ops) {
+        G.GetOp(name)->SetScopeInfo(scope2);
+    }
+
+    Function* function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    int scope1Subgraph = G.GetOp(scope1Ops[0])->GetSubgraphID();
+    for (const auto& name : scope1Ops) {
+        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope1Subgraph);
+    }
+
+    int scope2Subgraph = G.GetOp(scope2Ops[0])->GetSubgraphID();
+    for (const auto& name : scope2Ops) {
+        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope2Subgraph);
+    }
+
+    EXPECT_NE(scope1Subgraph, scope2Subgraph);
+
+    std::vector<std::string> unscopedOps = {"MUL_c2", "MUL_oi", "ADD_v2"};
+    for (const auto& name : unscopedOps) {
+        EXPECT_NE(G.GetOp(name)->GetSubgraphID(), scope1Subgraph);
+        EXPECT_NE(G.GetOp(name)->GetSubgraphID(), scope2Subgraph);
+    }
+}
+
 // TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeWithNoScope) {
 //     // 测试 allowCrossScopeMerge=true 允许有 scope 的 subgraph 与无 scope 的 subgraph 合并
 //     ComputationalGraphBuilder G;
