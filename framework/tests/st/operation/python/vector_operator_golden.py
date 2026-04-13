@@ -3086,7 +3086,7 @@ def gen_dequantize_op_golden(case_name: str, output: Path, case_index: int = Non
         normalized_axis = axis if axis < 0 else axis - ndim
 
         if use_zero_points and len(inputs) > 2:
-            # Asymmetric: dst = (src - offset) * scale
+            # Asymmetric dequantization: dst = (src - offset) * scale
             zero_points = inputs[2].astype(np.float32)
             # Broadcast scale and zero_points based on axis
             if normalized_axis == -1:
@@ -3103,7 +3103,7 @@ def gen_dequantize_op_golden(case_name: str, output: Path, case_index: int = Non
                     zero_points = np.expand_dims(zero_points, axis=-2)
             result = (input_float - zero_points) * scale
         else:
-            # Symmetric: dst = src * scale
+            # Symmetric dequantization: dst = src * scale
             # Broadcast scale based on axis
             if normalized_axis == -1:
                 # Broadcast along last dimension
