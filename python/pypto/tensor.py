@@ -212,6 +212,9 @@ class Tensor:
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
 
+    def __iter__(self):
+        raise TypeError("Tensor is not iterable.")
+
     @source_location
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
@@ -628,8 +631,9 @@ class Tensor:
         return pypto.prelu(self, weight)
 
     @source_location
-    def div(self, other: 'Tensor | int | float') -> 'Tensor':
-        return pypto.div(self, other)
+    def div(self, other: 'Tensor | int | float',
+            precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> 'Tensor':
+        return pypto.div(self, other, precision_type)
 
     @source_location
     def fmod(self, other: 'Tensor | int | float') -> 'Tensor':

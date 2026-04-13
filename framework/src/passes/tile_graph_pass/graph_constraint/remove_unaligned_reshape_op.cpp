@@ -137,19 +137,20 @@ std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, co
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start ReplaceDynUnalignedReshapeOps.");
-    for (auto& op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE || processedReshapeOps.count(op.GetOpMagic())) {
+    auto opList = function.Operations().DuplicatedOpList();
+    for (auto& op : opList) {
+        if (op->GetOpcode() != Opcode::OP_RESHAPE || processedReshapeOps.count(op->GetOpMagic())) {
             continue;
         }
-        auto input = op.GetIOperands().front();
-        auto output = op.GetOOperands().front();
+        auto input = op->GetIOperands().front();
+        auto output = op->GetOOperands().front();
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             output->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            ReplaceDynUnalignedReshapeOpsForUB(function, op);
+            ReplaceDynUnalignedReshapeOpsForUB(function, *op);
         } else if (
             input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            ReplaceDynUnalignedReshapeOpsForDDR(function, op);
+            ReplaceDynUnalignedReshapeOpsForDDR(function, *op);
         }
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
@@ -273,10 +274,8 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
     if (hasNonImmediate) {
         std::vector<LogicalTensorPtr> needToCopyTensors;
         int index = -1;
-        Operation* copyOutOp = FindAllProducerCopyOuts(input, op, needToCopyTensors, index);
+        Operation* copyOutOp = FindAllProducerCopyOuts(input, op, needToCopyTensors, index, op.GetOpMagic());
         if (copyOutOp == nullptr) {
-            APASS_LOG_WARN_F(
-                Elements::Operation, "Do not follow reshape[%d] on GM after multiple ops.", op.GetOpMagic());
             return;
         }
         if (index != -1) {
@@ -409,11 +408,19 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
  * - 如果遇到OP_VIEW、OP_ASSEMBLE或OP_ASSEMBLE_SSA，递归继续向前追溯
  * - 遇到其他op也继续递归追溯
  */
-Operation* RemoveUnalignedReshape::FindAllProducerCopyOuts(LogicalTensorPtr tensor, Operation& op, std::vector<LogicalTensorPtr>& needToCopyTensors, int& index)
+Operation* RemoveUnalignedReshape::FindAllProducerCopyOuts(
+    LogicalTensorPtr tensor, Operation& op, std::vector<LogicalTensorPtr>& needToCopyTensors, int& index,
+    const int reshapeMagic)
 {
     auto producers = tensor->GetProducers();
     auto consumers = tensor->GetConsumers();
     if (producers.size() != 1) {
+        if (producers.size() > 1) {
+            APASS_LOG_WARN_F(
+                Elements::Operation,
+                "Reshape[%d] has multiple input ops, cannot convert copy_out to reshape_copy_out; Consider moving "
+                "reshape to UB to avoid possible precision issue.", reshapeMagic);
+        }
         return nullptr;
     }
     if (index == -1 && consumers.size() > 1) {
@@ -430,18 +437,23 @@ Operation* RemoveUnalignedReshape::FindAllProducerCopyOuts(LogicalTensorPtr tens
         needToCopyTensors.push_back(tensor);
         return producerOp;
     }
+    if (opcode == Opcode::OP_RESHAPE_COPY_OUT) {
+        return nullptr;
+    }
 
     // 其他类型的op（包括view/assemble或其他op），继续向前追溯
     Operation* copyOutOp = nullptr;
     auto inputOperands = producerOp->GetIOperands();
     if (!inputOperands.empty()) {
-        copyOutOp = FindAllProducerCopyOuts(inputOperands.front(), *producerOp, needToCopyTensors, index);
+        copyOutOp = FindAllProducerCopyOuts(inputOperands.front(), *producerOp,
+            needToCopyTensors, index, reshapeMagic);
     }
     if (copyOutOp != nullptr && copyOutOp->GetOpcode() == Opcode::OP_COPY_OUT) {
         needToCopyTensors.push_back(tensor);
     }
     return copyOutOp;
 }
+
 /* 从tensor的消费者列表中查找OP_COPY_IN，如果遇到OP_VIEW、OP_ASSEMBLE或OP_ASSEMBLE_SSA，
  * 则标记hasViewOrAssemble为true，表示不支持此类场景。
  */
