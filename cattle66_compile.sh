@@ -4,7 +4,7 @@
 export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/gitCode/GBowen666/pto-isa
 
 # 切换到项目根目录
-cd /mnt/workspace/gitCode/GBowen666/pypto/
+#cd /mnt/workspace/gitCode/GBowen666/pypto/
 
 # 清理并创建构建目录
 echo "=== 清理构建目录 ==="
