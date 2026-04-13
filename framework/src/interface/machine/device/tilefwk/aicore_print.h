@@ -113,7 +113,8 @@ INLINE float DecodeF16(uint16_t bits)
 }
 
 enum NodeTy { END, NORMAL, FP32, INT, CHAR, STRING, POINTER, BF16, FP16,
-              TENSOR_HEADER, INDEXED_FP32, INDEXED_INT64, INDEXED_BF16, INDEXED_FP16 };
+              TENSOR_HEADER, INDEXED_FP32, INDEXED_INT64, INDEXED_BF16, INDEXED_FP16,
+              OVERFLOW_WARNING };
 
 struct LogContext {
     void (*PrintInt)(LogContext* ctx, __gm__ const char** fmt, int64_t val);
@@ -351,6 +352,58 @@ struct AicoreLogger {
         Encode(END);
     }
 
+    // 获取 ring buffer 有效数据区大小
+    __aicore__ int64_t GetBufferSize() const { return size_; }
+
+    // 获取当前 tail_ 位置（用于检测覆盖）
+    __aicore__ int64_t GetTail() const { return tail_; }
+
+    // 编码溢出警告信息
+    template <typename NamePtrT>
+    __aicore__ void EncodeOverflowWarning(NamePtrT name, int64_t totalBytes, int64_t bufferSize, int64_t tailBefore, int64_t tailAfter)
+    {
+        // 1. 编码 type
+        Encode(static_cast<uint8_t>(OVERFLOW_WARNING));
+
+        // 2. 编码 nameLen
+        short nameLen = 0;
+        while (name[nameLen]) ++nameLen;
+        nameLen += 1;  // 包含 '\0'
+        auto nlBytes = reinterpret_cast<uint8_t*>(&nameLen);
+        Encode(nlBytes[0]);
+        Encode(nlBytes[1]);
+
+        // 3. 编码 name + '\0'
+        for (short i = 0; name[i]; ++i) {
+            Encode(static_cast<uint8_t>(name[i]));
+        }
+        Encode('\0');
+
+        // 4. 编码 totalBytes
+        auto tbBytes = reinterpret_cast<uint8_t*>(&totalBytes);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(tbBytes[i]);
+        }
+
+        // 5. 编码 bufferSize
+        auto bsBytes = reinterpret_cast<uint8_t*>(&bufferSize);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(bsBytes[i]);
+        }
+
+        // 6. 编码 tailBefore
+        auto tbBeforeBytes = reinterpret_cast<uint8_t*>(&tailBefore);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(tbBeforeBytes[i]);
+        }
+
+        // 7. 编码 tailAfter
+        auto tbAfterBytes = reinterpret_cast<uint8_t*>(&tailAfter);
+        for (size_t i = 0; i < sizeof(int64_t); ++i) {
+            Encode(tbAfterBytes[i]);
+        }
+    }
+
     INLINE LogContext* context() { return &ctx; }
 
 #ifdef __TILE_FWK_HOST__
@@ -441,6 +494,52 @@ struct AicoreLogger {
                     float value = DecodeF16(bits);
                     n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %f\n",
                                    lastTensorName_.c_str(), index, value);
+                    break;
+                }
+
+                case OVERFLOW_WARNING: {
+                    // 1. 读取 nameLen
+                    auto nameLen = Read<short>(tail_);
+                    tail_ += sizeof(short);
+
+                    // 2. 读取 name + '\0'
+                    std::string name;
+                    for (short i = 0; i < nameLen - 1; ++i) {
+                        name += Read<char>(tail_++);
+                    }
+                    tail_++;  // skip '\0'
+
+                    // 3. 读取 totalBytes
+                    auto totalBytes = Read<int64_t>(tail_);
+                    tail_ += 8;
+
+                    // 4. 读取 bufferSize
+                    auto bufferSize = Read<int64_t>(tail_);
+                    tail_ += 8;
+
+                    // 5. 读取 tailBefore
+                    auto tailBefore = Read<int64_t>(tail_);
+                    tail_ += 8;
+
+                    // 6. 读取 tailAfter
+                    auto tailAfter = Read<int64_t>(tail_);
+                    tail_ += 8;
+
+                    // 7. 计算推荐 buffer 大小（含 Remote 开销，向上取整到 KB，留 20% 余量）
+                    int64_t recommendedBytes = totalBytes + 16;  // sizeof(Remote)
+                    recommendedBytes = ((recommendedBytes * 12 / 10 + 1023) / 1024) * 1024;
+
+                    // 8. 输出 warning 信息
+                    n = snprintf_s(buf, maxSize, maxSize - 1,
+                        "[WARNING] Ring buffer overflow detected for tensor '%s'! "
+                        "This tensor's encoding (%ld bytes) caused earlier data to be overwritten. "
+                        "Buffer tail advanced from %ld to %ld (delta=%ld bytes), indicating data loss. "
+                        "Buffer data area size is %ld bytes. "
+                        "To avoid overflow, set PRINT_BUFFER_SIZE >= %ld (%ld KB) "
+                        "in framework/src/interface/machine/device/tilefwk/aicpu_common.h:52, "
+                        "then rebuild and reinstall.\n",
+                        name.c_str(), totalBytes, tailBefore, tailAfter, (tailAfter - tailBefore),
+                        bufferSize, recommendedBytes, recommendedBytes / 1024);
                     break;
                 }
 
@@ -625,6 +724,14 @@ private:
                     case INDEXED_FP16:
                         tail_ += 8 + 2;  // index + bf16/fp16
                         break;
+                    case OVERFLOW_WARNING: {
+                        // 跳过 nameLenLen + name + '\0'
+                        auto nl = Read<short>(tail_);
+                        tail_ += sizeof(short) + nl;
+                        // 跳过 totalBytes + bufferSize + tailBefore + tailAfter
+                        tail_ += 8 + 8 + 8 + 8;
+                        break;
+                    }
                     default: {
                         // 原有类型：valLen + val + fmtLen + fmt
                         tail_ += Read<short>(tail_) + sizeof(short);
@@ -735,6 +842,39 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end,
     using ElemT = std::remove_cv_t<T>;
     auto* logger = reinterpret_cast<AicoreLogger*>(ctx);
 
+    // 记录编码前的 buffer 状态
+    int64_t tailBefore = logger->GetTail();
+
+    // 预计算当前 tensor 的编码量
+    int64_t count = end - begin;
+
+    // 计算每元素编码开销（INDEXED_type + END）
+    int64_t perElement = 0;
+    if constexpr (std::is_floating_point_v<ElemT>) {
+        perElement = 13 + 1;   // INDEXED_FP32 (13B) + END (1B) = 14
+    } else if constexpr (std::is_integral_v<ElemT>) {
+        perElement = 17 + 1;   // INDEXED_INT64 (17B) + END (1B) = 18
+#if IS_AICORE
+    } else if constexpr (std::is_same_v<ElemT, bfloat16_t>) {
+        perElement = 11 + 1;   // INDEXED_BF16 (11B) + END (1B) = 12
+    } else if constexpr (std::is_same_v<ElemT, half>) {
+        perElement = 11 + 1;   // INDEXED_FP16 (11B) + END (1B) = 12
+#endif
+    }
+
+    // 计算 nameLen
+    int64_t nameLen = 0;
+    while (name[nameLen]) ++nameLen;
+    nameLen += 1;  // 含 '\0'
+
+    // 计算总字节数
+    //    TENSOR_HEADER = type(1) + nameLen_field(2) + name(N) + begin(8) + end(8)
+    //    完整编码 = TENSOR_HEADER + END + count × (INDEXED + END)
+    int64_t headerSize = 1 + 2 + nameLen + 8 + 8;
+    int64_t totalBytes = headerSize + 1 + (perElement * count);
+
+    // 正常编码路径（无论是否溢出都执行）
+
     // 1. 编码 TENSOR_HEADER + END + Sync
     logger->EncodeTensorHeader(name, begin, end);
     logger->EncodeEnd();
@@ -763,6 +903,20 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end,
         logger->EncodeEnd();
         logger->Sync();
     }
+
+    // 检查是否发生了覆盖
+    int64_t tailAfter = logger->GetTail();
+    bool overflowOccurred = (tailAfter > tailBefore);
+
+    // 如果发生了覆盖，追加 Warning
+    if (overflowOccurred) {
+        logger->EncodeOverflowWarning(name, totalBytes, logger->GetBufferSize(), tailBefore, tailAfter);
+        logger->EncodeEnd();
+        logger->Sync();
+    }
+
+    logger->EncodeEnd();
+    logger->Sync();
 }
 
 template <typename T>
