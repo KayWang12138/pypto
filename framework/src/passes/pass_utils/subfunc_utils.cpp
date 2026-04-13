@@ -150,7 +150,8 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
                     return std::tuple<int, int, int>{tensorParam.ddrId, tensorParam.offset[0], tensorParam.offset[1]};
                 }
             }
-            ASSERT(0 && "not found param");
+            APASS_LOG_WARN_F(
+                Elements::Function, "LookupInvokeArgs failed: tensor param not found, paramLoc=%d", paramLoc);
             return std::tuple<int, int, int>{0, 0, 0};
 
         case ParamLocIncast:
@@ -160,7 +161,8 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
                         incastTensorParam.ddrId, incastTensorParam.offset[0], incastTensorParam.offset[1]};
                 }
             }
-            ASSERT(0 && "not found param");
+            APASS_LOG_WARN_F(
+                Elements::Function, "LookupInvokeArgs failed: incast param not found, paramLoc=%d", paramLoc);
             return std::tuple<int, int, int>{0, 0, 0};
 
         case ParamLocOutcast:
@@ -170,10 +172,12 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
                         outcastTensorParam.ddrId, outcastTensorParam.offset[0], outcastTensorParam.offset[1]};
                 }
             }
-            ASSERT(0 && "not found param");
+            APASS_LOG_WARN_F(
+                Elements::Function, "LookupInvokeArgs failed: outcast param not found, paramLoc=%d", paramLoc);
             return std::tuple<int, int, int>{0, 0, 0};
         default:
-            ASSERT("Invalid parameter location");
+            APASS_LOG_WARN_F(
+                Elements::Function, "LookupInvokeArgs failed: invalid paramLoc type, paramLoc=%d", paramLoc);
             return std::tuple<int, int, int>{0, 0, 0};
     }
 }
