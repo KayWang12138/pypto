@@ -28,7 +28,7 @@ from torch._subclasses import fake_tensor
 
 import pypto
 
-from utils.distributed_config import DistributedConfig
+from models.glm_v4_5.utils.distributed_config import DistributedConfig
 
 
 @pypto.frontend.jit(
