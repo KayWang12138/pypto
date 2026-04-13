@@ -24,6 +24,8 @@
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/op_info_manager.h"
 #include "interface/operation/distributed/distributed_common.h"
@@ -804,8 +806,17 @@ void CodeGenCloudNPU::ExecuteParallelCompile(const Function& topFunc)
         topFunc.GetFunctionHash().c_str(), parallelJobs, compileTasks_.size());
     CODEGEN_LOGI("Execute: %s", makeCmd.str().c_str());
 
+    int rootFuncIdx = MonitorManager::Instance().GetAndIncrementNextRootFuncIndex();
+    std::string rootFuncName = topFunc.GetMagicName();
+    MonitorManager::Instance().SetCurrentRootFuncIndex(rootFuncIdx);
+    MonitorManager::Instance().SetCurrentRootFuncName(rootFuncName);
+
     auto startTime = std::chrono::high_resolution_clock::now();
-    int ret = DoCompileCmd(makeCmd.str());
+    int ret;
+    {
+        MonitorStageScope compileCmdScope(STAGE_FUNC_TO_BIN, rootFuncIdx, rootFuncName);
+        ret = std::system(makeCmd.str().c_str());
+    }
     auto endTime = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration<double, std::milli>(endTime - startTime);
     CODEGEN_LOGI(
