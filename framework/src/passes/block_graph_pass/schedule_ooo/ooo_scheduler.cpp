@@ -931,7 +931,7 @@ Status OoOScheduler::Schedule(
     return SUCCESS;
 }
 
-void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) {
+void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &opList) {
     std::set<int> allocedRawmagic;
     for (auto &inCast : function_.GetIncast()) {
         allocedRawmagic.insert(inCast->tensor->GetRawMagic());
@@ -941,7 +941,7 @@ void OoOScheduler::AllocWorkspaceGM(const std::vector<Operation *> &operations) 
     }
     std::map<int, TileRange> rawMagicRange;
     std::map<int, int64_t> rawMagicOffset;
-    for (auto &op : operations) {
+    for (auto &op : opList) {
         for (auto &iOperand : op->GetIOperands()) {
             if (allocedRawmagic.count(iOperand->tensor->GetRawMagic()) && rawMagicRange.count(iOperand->tensor->GetRawMagic())) {
                 iOperand->memoryrange = rawMagicRange[iOperand->tensor->GetRawMagic()];
