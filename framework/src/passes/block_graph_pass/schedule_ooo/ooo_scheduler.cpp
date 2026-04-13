@@ -901,7 +901,7 @@ Status OoOScheduler::Schedule(
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!");
         return FAILED;
     }
-    AllocWorkspaceGM(opList)
+    AllocWorkspaceGM(opList);
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "GenSpillSchedule failed!");
