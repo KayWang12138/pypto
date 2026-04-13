@@ -19,6 +19,7 @@ Main Functions:
 """
 
 import multiprocessing as mp
+from dataclasses import dataclass
 
 import numpy as np
 import pytest
@@ -31,22 +32,36 @@ import pypto
 from utils.distributed_config import DistributedConfig
 
 
+@dataclass
+class MatmulAllreduceAddRmsnormArgs:
+    in_tensor
+    matmul_weight
+    residual
+    gamma
+    bias
+    eps
+    group_name
+    world_size
+    out_tensor = None
+    residual_out = None
+
+
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128,
                      "stitch_cfgcache_size": 100000000},
 )
-def matmul_allreduce_add_rmsnorm_kernel(
-    in_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    matmul_weight: pypto.Tensor(),
-    residual: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    gamma: pypto.Tensor(),
-    bias: pypto.Tensor(),
-    out_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    residual_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    eps,
-    group_name,
-    world_size,
-):
+def matmul_allreduce_add_rmsnorm_kernel(args: MatmulAllreduceAddRmsnormArgs):
+    in_tensor = args.in_tensor
+    matmul_weight = args.matmul_weight
+    residual = args.residual
+    gamma = args.gamma
+    bias = args.bias
+    out_tensor = args.out_tensor
+    residual_out = args.residual_out
+    eps = args.eps
+    group_name = args.group_name
+    world_size = args.world_size
+
     batch_size = in_tensor.shape[0]
     hidden_size = matmul_weight.shape[0]
 
@@ -195,10 +210,20 @@ def matmul_allreduce_add_rmsnorm_worker(
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
 
-    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
-        bias.to(device), out_tensor, residual_out]
+    args = MatmulAllreduceAddRmsnormArgs(
+        in_tensor=in_tensor.to(device),
+        matmul_weight=matmul_weight.to(device),
+        residual=residual.to(device),
+        gamma=gamma.to(device),
+        bias=bias.to(device),
+        eps=eps,
+        group_name=groups[0],
+        world_size=config.world_size,
+        out_tensor=out_tensor,
+        residual_out=residual_out
+    )
 
-    matmul_allreduce_add_rmsnorm_kernel(*inputs, eps, groups[0], config.world_size)
+    matmul_allreduce_add_rmsnorm_kernel(args)
 
     np.testing.assert_allclose(
         np.array(out_tensor.cpu().flatten().tolist()),
@@ -216,25 +241,17 @@ def matmul_allreduce_add_rmsnorm_worker(
 
 
 @allow_in_graph
-def matmul_allreduce_add_rmsnorm(
-    in_tensor: torch.Tensor,
-    matmul_weight: torch.Tensor,
-    residual: torch.Tensor,
-    gamma: torch.Tensor,
-    bias: torch.Tensor,
-    eps: float,
-    group_name: str,
-    world_size: int,
-):
-    if isinstance(in_tensor, fake_tensor.FakeTensor):
+def matmul_allreduce_add_rmsnorm(args: MatmulAllreduceAddRmsnormArgs):
+    if isinstance(args.in_tensor, fake_tensor.FakeTensor):
         return None, None
 
-    out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
-    residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
+    out_tensor = torch.empty(args.residual.shape, dtype=torch.bfloat16, device=args.residual.device)
+    residual_out = torch.empty(args.residual.shape, dtype=torch.bfloat16, device=args.residual.device)
 
-    inputs = [in_tensor, matmul_weight, residual, gamma, bias, out_tensor, residual_out]
+    args.out_tensor = out_tensor
+    args.residual_out = residual_out
 
-    matmul_allreduce_add_rmsnorm_kernel(*inputs, eps, group_name, world_size)
+    matmul_allreduce_add_rmsnorm_kernel(args)
 
     return out_tensor, residual_out
 
