@@ -92,8 +92,7 @@ void CodeGenOp::UpdateShape(
         IntVecToStr(logicalTensor.GetDynValidShape()).c_str());
 
     rawShape[operandIdx] = logicalTensor.tensor->rawshape;
-    // need adapt unaligned scene after
-    originShape[operandIdx] = isMainBlock ? logicalTensor.shape : logicalTensor.oriShape;
+    originShape[operandIdx] = logicalTensor.oriShape;
     if (isDynamicFunction) {
         dynamicValidShape[operandIdx] =
             isMainBlock ? SymbolicScalar::FromConcrete(logicalTensor.shape) : logicalTensor.GetDynValidShape();
@@ -152,11 +151,13 @@ void CodeGenOp::UpdateOffsetForInput(const Operation& oper, const LogicalTensor&
         Opcode::OP_L1_TO_L0A,   Opcode::OP_L1_TO_L0B,       Opcode::OP_L1_TO_L0_AT,
         Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_BT,        Opcode::OP_L1_TO_FIX_QUANT_PRE,
         Opcode::OP_L0C_TO_L1,   Opcode::OP_L1_TO_L0A_SCALE, Opcode::OP_L1_TO_L0B_SCALE};
+    static const std::set<Opcode> distOpcode = {Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM};
     bool cubeMDLCondition = cubeMDLOpCode.count(opCode);
+    bool distCondition = distOpcode.count(opCode);
     bool useAttrShapeOffsetForInputGM =
         OpcodeManager::Inst().IsCopyIn(opCode) && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR;
     std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(oper.GetOpAttribute());
-    if (attr != nullptr && (cubeMDLCondition || useAttrShapeOffsetForInputGM)) {
+    if (attr != nullptr && (distCondition || cubeMDLCondition || useAttrShapeOffsetForInputGM)) {
         // only used for 1. L1 Copy; 2. spilling to gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
         CODEGEN_LOGI("start update offset for GM input");
         UpdateOffsetValueFromAttr(attr->GetCopyInAttr().first, operandIdx);
@@ -491,10 +492,8 @@ void CodeGenOp::GetGmParamIdx(const Operation& oper)
         return;
     }
 
-    if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode())) {
-        const std::shared_ptr<OpAttribute>& attr = oper.GetOpAttribute();
-        ASSERT(OperErr::ATTRIBUTE_INVALID, attr != nullptr) << "Copy In attr is null, Op is " << oper.Dump();
-        std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(attr);
+    if (OpcodeManager::Inst().IsCopyIn(oper.GetOpcode()) || (oper.GetOpcode() == Opcode::OP_PERMUTE) ||
+        (oper.GetOpcode() == Opcode::OP_PERMUTE_ELEMENT)) {
         paramLocation[1] = oper.GetIOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy In Op %s is %d", tileOpName.c_str(), paramLocation[1]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");

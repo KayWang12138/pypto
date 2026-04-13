@@ -550,6 +550,22 @@ void ExecuteOpTranspose(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, ExecuteOpTranspose);
 
+void ExecuteOpPermute(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
+
+    std::vector<int64_t> perm = ctx->op->GetVectorIntAttribute(OpAttributeKey::perm);
+
+    auto iopDataView = iop->View(iop->GetValidShape(), iop->GetOffset());
+    auto oopDataView = oop->View(oop->GetValidShape(), oop->GetOffset());
+    calc::Permute(oopDataView, iopDataView, perm);
+}
+REGISTER_CALC_OP(OP_PERMUTE, Opcode::OP_PERMUTE, ExecuteOpPermute);
+REGISTER_CALC_OP(OP_PERMUTE_ELEMENT, Opcode::OP_PERMUTE_ELEMENT, ExecuteOpPermute);
+
 void ExecuteOpLogicalNot(ExecuteOperationContext* ctx)
 {
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
@@ -662,7 +678,8 @@ void ExecuteOpRange(ExecuteOperationContext* ctx)
     } else if (start.GetDataType() == DT_FP32) {
         end = GetEndBySize<float, DT_FP32>(curStart, size, step);
     } else {
-        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false) << "Unsupported DataType " << DataType2String(start.GetDataType());
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false)
+            << "Unsupported DataType " << DataType2String(start.GetDataType());
     }
     calc::Range(oop, curStart, end, step);
 }
@@ -768,7 +785,7 @@ void ExecuteOpIndexAdd(ExecuteOperationContext* ctx)
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     calc::IndexAdd(ret, self, src, indices, axis, alpha);
 }
-REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
+REGISTER_CALC_OP(OP_INDEX_ADD_UB, Opcode::OP_INDEX_ADD_UB, ExecuteOpIndexAdd);
 
 void ExecuteOpTri(ExecuteOperationContext* ctx)
 {

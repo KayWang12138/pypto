@@ -212,6 +212,9 @@ class Tensor:
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
 
+    def __iter__(self):
+        raise TypeError("Tensor is not iterable.")
+
     @source_location
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
@@ -628,8 +631,9 @@ class Tensor:
         return pypto.prelu(self, weight)
 
     @source_location
-    def div(self, other: 'Tensor | int | float') -> 'Tensor':
-        return pypto.div(self, other)
+    def div(self, other: 'Tensor | int | float',
+            precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> 'Tensor':
+        return pypto.div(self, other, precision_type)
 
     @source_location
     def fmod(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -840,6 +844,10 @@ class Tensor:
         return pypto.relu(self)
 
     @source_location
+    def permute(self, perm: List[int]) -> 'Tensor':
+        return pypto.permute(self, perm)
+
+    @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':
         return pypto.transpose(self, dim0, dim1)
 
@@ -854,7 +862,8 @@ class Tensor:
     @source_location
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
                     alpha: Union[int, float] = 1) -> 'Tensor':
-        return pypto.index_add_(self, dim, index, source, alpha=alpha)
+        pypto.index_add_(self, dim, index, source, alpha=alpha)
+        return self
 
     @source_location
     def index_add(self, dim: int, index: 'Tensor', source: 'Tensor', *,

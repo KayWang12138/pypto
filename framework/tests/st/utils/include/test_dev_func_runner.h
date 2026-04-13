@@ -173,7 +173,7 @@ private:
 
             functionDevProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
             functionDevProg->controlFlowCache.RuntimeAddrRelocWorkspace(
-                contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
+                contextWorkspaceAddr, 0, nullptr, nullptr, nullptr, functionDevProg->GetParallelism());
             functionDevProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
             functionDevProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
             functionDevProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(
@@ -307,12 +307,11 @@ private:
         DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();
-        auto ctrlStream = (config_.cpuSeparate || config_.isTripleStream) ? machine::GetRA()->GetCtrlStream() : nullptr;
+        auto ctrlStream = machine::GetRA()->GetCtrlStream();
         for (int i = 0; i < config_.repeatNum; i++) {
             InitKernelInOuts(memoryHelper, kArgs, inputs, outputs, false, dynAttr->disableL2List);
             rc = DeviceRunner::Get().DynamicRun(
-                aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum,
-                config_.isTripleStream);
+                aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             EXPECT_EQ(rc, 0);
             DeviceRunner::Get().SynchronizeDeviceToHostProfData();
         }
@@ -386,10 +385,10 @@ private:
             std::cout << "start thread: " << name << std::endl;
             pthread_setname_np(pthread_self(), name);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            DeviceKernelArgs *localArgs = kArgs;
-            localArgs->parameter.runMode = runMode;
+            DeviceKernelArgs localArgs = *kArgs;
+            localArgs.parameter.runMode = runMode;
             auto rc = 0;
-            rc = DynTileFwkBackendKernelServer(localArgs);
+            rc = DynTileFwkBackendKernelServer(&localArgs);
             EXPECT_EQ(rc, 0);
         };
         aicpus[0] = std::thread(threadFun, RUN_SPLITTED_STREAM_CTRL);

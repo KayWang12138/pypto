@@ -172,20 +172,20 @@ std::string SymbolManager::AddTileTensor(int opMagic, const TileTensor& tileTens
     return tensorName;
 }
 
-const TileTensor* SymbolManager::QueryTileTensorByMagic(int magic, int opMagic) const
+const TileTensor* SymbolManager::QueryTileTensorByMagic(int tensorMagic, int opMagic) const
 {
-    CODEGEN_LOGI("QueryTileTensorByMagic tensor magic is %d, op magic is %d", magic, opMagic);
-    auto iter = tileTensorByMagic_.find({magic, opMagic});
+    CODEGEN_LOGI("QueryTileTensorByMagic tensor magic is %d, op magic is %d", tensorMagic, opMagic);
+    auto iter = tileTensorByMagic_.find({tensorMagic, opMagic});
     if (iter != tileTensorByMagic_.end()) {
         return &iter->second.get();
     }
     return nullptr;
 }
 
-const TileTensor* SymbolManager::QueryTileTensorInLoopByMagic(int magic, int opMagic) const
+const TileTensor* SymbolManager::QueryTileTensorInLoopByMagic(int tensorMagic, int opMagic) const
 {
-    CODEGEN_LOGI("QueryTileTensorInLoopByMagic tensor magic is %d, op magic is %d", magic, opMagic);
-    auto iter = tileTensorByMagicInLoop_.find({magic, opMagic});
+    CODEGEN_LOGI("QueryTileTensorInLoopByMagic tensor magic is %d, op magic is %d", tensorMagic, opMagic);
+    auto iter = tileTensorByMagicInLoop_.find({tensorMagic, opMagic});
     if (iter != tileTensorByMagicInLoop_.end()) {
         return &iter->second.get();
     }
@@ -214,31 +214,6 @@ std::string SymbolManager::QueryTileTensorFullDimByTensorInLoop(const std::strin
     ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, !fullDimTensorName.empty())
         << "tensor in loop: " << tensorName << " is not found in tensorNameInLoopToFullDim_!!!";
     return fullDimTensorName;
-}
-
-const TileTensor& SymbolManager::QueryTileTensorByBufVar(const std::string& bufVarName)
-{
-    for (const auto& tileTensor : tileTensorStorage_) {
-        if (tileTensor.bufVar == bufVarName) {
-            return tileTensor;
-        }
-    }
-
-    ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, false) << "bufVarName " << bufVarName << " is not found !!! ";
-    static TileTensor emptyTileTensor;
-    return emptyTileTensor;
-}
-
-std::string SymbolManager::QueryTileTensorNameByBufVar(const std::string& bufVarName)
-{
-    const TileTensor& tileTensor = QueryTileTensorByBufVar(bufVarName);
-    return tileTensor.tensorName;
-}
-
-std::string SymbolManager::QueryTileTensorTypeByBufVar(const std::string& bufVarName)
-{
-    const TileTensor& tileTensor = QueryTileTensorByBufVar(bufVarName);
-    return tileTensor.usingType;
 }
 
 std::string SymbolManager::GenUsingList()

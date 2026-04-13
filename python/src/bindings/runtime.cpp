@@ -54,22 +54,33 @@ void SetVerifyData(
     const std::vector<DeviceTensorData>& inputs, const std::vector<DeviceTensorData>& outputs,
     const std::vector<DeviceTensorData>& goldens)
 {
+    auto ToLogicalShape = [](DataType dtype, const std::vector<int64_t>& shape) -> std::vector<int64_t> {
+        auto logical = shape;
+        if ((dtype == DT_FP4_E2M1X2 || dtype == DT_FP4_E1M2X2) && !logical.empty()) {
+            logical.back() *= 2;
+        }
+        return logical;
+    };
+
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {
+        auto logicalShape = ToLogicalShape(inputs[i].GetDataType(), inputs[i].GetShape());
         auto rawData =
-            RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t*)inputs[i].GetAddr());
+            RawTensorData::CreateTensor(inputs[i].GetDataType(), logicalShape, (uint8_t*)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
     }
     for (size_t i = 0; i < outputs.size(); i++) {
-        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), outputs[i].GetShape());
+        auto logicalShape = ToLogicalShape(outputs[i].GetDataType(), outputs[i].GetShape());
+        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), logicalShape);
         ProgramData::GetInstance().AppendOutput(rawData);
     }
     for (size_t i = 0; i < goldens.size(); i++) {
         if (goldens[i].GetAddr() == 0) {
             ProgramData::GetInstance().AppendGolden(nullptr);
         } else {
-            auto rawData = RawTensorData::CreateTensor(
-                goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t*)goldens[i].GetAddr());
+            auto logicalShape = ToLogicalShape(goldens[i].GetDataType(), goldens[i].GetShape());
+            auto rawData =
+                RawTensorData::CreateTensor(goldens[i].GetDataType(), logicalShape, (uint8_t*)goldens[i].GetAddr());
             ProgramData::GetInstance().AppendGolden(rawData);
         }
     }
@@ -413,7 +424,10 @@ public:
     {
         if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
             Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
-            return workspaceSize + eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem =
+                eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            workspaceSize = devProg->memBudget.Total();
+            return workspaceSize;
         }
         return workspaceSize;
     }
@@ -543,7 +557,6 @@ public:
         }
     }
 
-    bool IsTripleStream() { return tripleStream; }
     bool IsCompileStageAllComplete() { return compileStageAllComplete; }
 
     KernelBinary* GetKernelBinary(std::vector<DeviceTensorData>& tensors)
@@ -664,15 +677,13 @@ public:
         bool debugEnable = !isCaptureMode && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE(
-            "triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
-            ctrlFlowCache);
+        COMPILER_LOGE("Sequence %ld workspace %p cfgcache %p", sequence.load(), workspace, ctrlFlowCache);
 #endif
         int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
         ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
 
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
-        ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
+        ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
@@ -693,7 +704,8 @@ public:
         ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
     }
 
-    void EslModelLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
+    void EslModelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    {
         DeviceLauncherConfig config;
         ProgramData::GetInstance().Reset();
         InitializeInputOutputData(tensors, {});
@@ -728,9 +740,6 @@ private:
     void InitConfigOptions(py::object& module)
     {
         auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("triple_stream_sched")) {
-            tripleStream = options["triple_stream_sched"].cast<bool>();
-        }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
         }
@@ -766,9 +775,7 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE(
-            "triple_stream_sched: %d, stitch_cfgcache_size: %ld, infer_cache_shape: %d", tripleStream,
-            stitchCfgCacheSize, inferCacheShape);
+        COMPILER_LOGE("stitch_cfgcache_size: %ld, infer_cache_shape: %d", stitchCfgCacheSize, inferCacheShape);
 #endif
     }
 
@@ -818,7 +825,6 @@ private:
 
 private:
     bool inferCacheShape{false};
-    bool tripleStream{true};
     bool isDebugMode{false};
     int64_t stitchCfgCacheSize{0};
     bool compileStageAllComplete{true};
@@ -912,18 +918,18 @@ private:
         }
         kmodule->EmulationLaunch(kbinary, tensors);
 
-#if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE("alloc workspace");
-#endif
         int64_t* wsAddr = nullptr;
         int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
         if (wsSize) {
             auto pyalloc = py::getattr(module, "alloc");
             wsAddr = (int64_t*)pyalloc(wsSize).cast<int64_t>();
         }
+#if ENABALE_VERBOSE_LOG
+        COMPILER_LOGE("alloc workspace %ld", wsSize);
+#endif
         HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
-        DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
+        DeviceLauncher::AddAicpuStream(rtModel);
         HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
 
         uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);

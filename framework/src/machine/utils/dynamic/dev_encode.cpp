@@ -2187,46 +2187,19 @@ static int ParseUnrollTimes(const std::string& rawName)
 static int EstimatedStitchingCount()
 {
     uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-    if (stitchNum > 0) {
-        return stitchNum * MAX_UNROLL_TIMES;
-    }
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
-    return value;
+    return stitchNum * MAX_UNROLL_TIMES;
 }
 
 static int WorkspaceRecyclePeriod()
 {
     uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-    if (stitchNum > 0) {
-        return stitchNum * MAX_UNROLL_TIMES;
-    }
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY);
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
-    return value;
+    return stitchNum * MAX_UNROLL_TIMES;
 }
 
 static uint32_t ExpectedMaxCachedNum()
 {
-    int innerMemAllowedNum = (WorkspaceRecyclePeriod() + MAX_UNROLL_TIMES - 1) / MAX_UNROLL_TIMES;
-    int outcastMemAllowedNum = (EstimatedStitchingCount() + MAX_UNROLL_TIMES - 1) / MAX_UNROLL_TIMES;
-    int numInitial = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_INITIAL);
-    int numStep = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_STEP);
     uint16_t stitchFunctionMaxNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-    if (stitchFunctionMaxNum > 0) {
-        return std::min(static_cast<uint32_t>(stitchFunctionMaxNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
-    }
-    if (numStep != 0) {
-        return static_cast<uint32_t>(MAX_STITCH_FUNC_NUM);
-    }
-    int expectedMaxCachedNum = std::min(numInitial, std::min(innerMemAllowedNum, outcastMemAllowedNum));
-    if (expectedMaxCachedNum <= 0) {
-        return 1;
-    }
-    expectedMaxCachedNum =
-        (expectedMaxCachedNum > (int)MAX_STITCH_FUNC_NUM_LOWER) ? expectedMaxCachedNum : MAX_STITCH_FUNC_NUM_LOWER;
-    MACHINE_LOGD("Max stitch function num  user expected is %d.", expectedMaxCachedNum);
-    return std::min(static_cast<uint32_t>(expectedMaxCachedNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
+    return std::min(static_cast<uint32_t>(stitchFunctionMaxNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
 }
 
 void DevAscendProgram::InitControlFlowCache(
@@ -2268,7 +2241,8 @@ struct EncodeDevAscendProgramInfo {
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.enableVFFusion = GetEnableVFFusion();
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
-        devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (ExpectedMaxCachedNum() + 1);
+        devProg->runtimeOutcastPoolSize =
+            dyndevAttr->inoutLink.totalSlot * (ExpectedMaxCachedNum() + 1) * devProg->GetParallelism();
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
@@ -2594,10 +2568,10 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
     uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
     uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
     size_t objUsedNum[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)]{
-        ExpectedMaxCachedNum(), // DevFunctionDupped
-        1,                      // DynFuncData
-        1,                      // VecStitchList
-        1,                      // DynDevTask
+        MAX_STITCH_FUNC_NUM, // DevFunctionDupped
+        1,                   // DynFuncData
+        1,                   // VecStitchList
+        1,                   // DynDevTask
     };
     workspace.CalculateSlabCapacityPerType(
         slabSize, slabCapacity, ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
@@ -2610,7 +2584,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
         uint32_t requiredSlabNum = (objUsedNum[i] + slabCapacity[i] - 1) / slabCapacity[i];
         // alloc redundant slabpage for DuppedFunction and Readyque to prevent memory border situations
         if (i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA))
-            requiredSlabNum++;
+            requiredSlabNum += 3;
         MACHINE_LOGI("[workspaceSize] RequiredSlabNum[%d] is %u.", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
@@ -2618,7 +2592,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
         "[workspaceSize] General->MetadataSlabSize is %lu.", static_cast<unsigned long>(generalMetadataSlabSize));
     generalMetadataSlabSize =
         (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
-    return generalMetadataSlabSize;
+    return generalMetadataSlabSize * devProg->GetParallelism();
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram& devProg)
@@ -2635,11 +2609,11 @@ static uint64_t CalcStitchWorkspace(DevAscendProgram& devProg)
             continue;
         }
         uint32_t requiredSlabNum =
-            ((objUsedNum[i] << 1) + slabCapacity[i] - 1) / slabCapacity[i]; // UsedNum * 2 for stitch double devFunc
+            ((objUsedNum[i] << 2) + slabCapacity[i] - 1) / slabCapacity[i]; // UsedNum * 4 for stitch 4 devtask
         stitchPoolSize += slabSize * requiredSlabNum;
     }
     MACHINE_LOGD("[workspaceSize] Stitch pool size is %lu, with slab size:%u.", stitchPoolSize, slabSize);
-    return stitchPoolSize;
+    return stitchPoolSize * devProg.GetParallelism();
 }
 
 static uint64_t DumpTensorWorkspace()
@@ -2671,12 +2645,13 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         encodeInfo.Init(&devfunc, false);
         offset = devfunc.GetSize();
     } else {
+        uint32_t parallism = 1; // need get prallism from  parallel option
+        base->SetParallelism(parallism);
         encodeInfo.Init(base, true);
         offset = base->GetSize();
 
         // Calc workspace size
         TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(func, *base);
-
         base->slottableOutcastSlotSize = tensorWsRes.totalExclusiveOutcastSlot + tensorWsRes.totalAssembleOutcastSlot;
 
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
@@ -2688,12 +2663,6 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
             Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
-        base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
-        uint16_t value = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-        if (value > 0) {
-            base->stitchFunctionNumInitial = value;
-        }
-        base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchMaxFunctionNum = ExpectedMaxCachedNum();
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
@@ -2719,7 +2688,10 @@ void DevControlFlowCache::Init(
     uint64_t slottedCount =
         dyndevAttr->inoutLink.totalSlot *
         (std::min((uint32_t)EstimatedStitchingCount(), stitchMaxFunctionNum) + SLOTS_NEED_ALLOC_SIZE);
-    runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
+    for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
+        runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.HostInitDataSizeOffset(
+            initOffset, slottedCount);
+    }
 
     runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, dyndevAttr->inoutLink.totalSlot);
     runtimeBackup.workspace.runtimeOutcastTensorPool.HostInitDataSizeOffset(initOffset, runtimeOutcastPoolSize);
@@ -2734,7 +2706,6 @@ void DevControlFlowCache::Init(
     deviceTaskSkippedCount = 0;
     cacheDataOffset = 0;
     workspaceAddr = 0;
-    stitchMaxFunctionNum_ = stitchMaxFunctionNum;
     dataSize = initOffset - reinterpret_cast<uintdevptr_t>(data);
 }
 

@@ -196,15 +196,15 @@ workspace_tensor = torch.empty(workspace_size * 10, dtype=torch.uint8, device=de
 如果问题不复现，则是workspace使用问题，存在内存踩踏等
 
 5. **leaf function粒度的内存重叠检测**
-（1）打开VERBOSE日志
+（1）打开 Operation 信息 Dump 开关
 `framework/src/machine/utils/device_switch.h`
 ```cpp
-#define ENABLE_COMPILE_VERBOSE_LOG 1
+#define ENABLE_DUMP_OPERATION 1
 ```
 
 （2）打开DEBUG日志，指定日志落盘路径
 ```bash
-export ASCEND_GLOBAL_LOG_LEVEL=0
+export ASCEND_GLOBAL_LOG_LEVEL=1
 export ASCEND_PROCESS_LOG_PATH=./my_log
 ```
 
@@ -243,7 +243,7 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 **关联 Skill**：[pypto-memory-overlap-detector](../../.agents/skills/pypto-memory-overlap-detector/SKILL.md)
 
 6. **复杂特性排除**：
-使用 `pypto-precision-debugger` skill，关闭unroll_list、合轴特性、配置submit_before_loop=True使loop串行执行、确定valid_shape配置正确性、+0.0等，缩小定位范围。
+使用 `pypto-precision-debug` skill，关闭unroll_list、合轴特性、配置submit_before_loop=True使loop串行执行、确定valid_shape配置正确性、+0.0等，缩小定位范围。
 
 
 ### encode 阶段 actualRawMagic 断言触发
@@ -481,3 +481,38 @@ struct {
 4. **查日志上下文**：结合同线程前后日志（如 “Schedule run init succ” 之后、AbnormalStop 相关）确认是首次握手失败还是运行中异常。
 
 **关联 Skill**：[pypto-environment-setup](../../.agents/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
+
+---
+### Host侧捕获异常打印汇编堆栈信息
+
+**问题特征**：执行用例在host打屏输出堆栈信息
+例如：
+```
+floating point exception !!!
+libtile_fwk_interface.so(npu::tile_fwk::Pad(long, long)+0xe) [0X77188ae025ae]
+```
+
+**定位步骤**：
+
+1. **编译带有Debug信息的pypto包并安装**：
+```
+python3 build_ci.py -f=python3 --build_type=Debug
+pip install build_out/pypto*whl --force-reinstall --no-dep
+```
+
+2. **重新执行问题用例**
+
+3. **查找二进制文件位置**：
+如果不清楚包安装在哪里可以使用find全局搜索
+```
+find / -name "libtile_fwk_interface.so"
+```
+
+4. **反汇编得到具体代码行**：
+例如：
+```
+objdump -d -C -l /path/to/libtile_fwk_interface.so | grep -A 20 "npu::tile_fwk::Pad(long, long)>"
+```
+可得到触发问题的函数具体行号。
+
+5.**关联skill**：[pypto-host-stacktrace-analyzer](../../.agents/skills/pypto-host-stacktrace-analyzer/SKILL.md)

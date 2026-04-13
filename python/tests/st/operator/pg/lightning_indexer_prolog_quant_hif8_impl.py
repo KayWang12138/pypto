@@ -237,8 +237,6 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
         "pg_upper_bound": 8192
     },
     runtime_options={
-        "stitch_function_inner_memory": 128 * 128,
-        "stitch_function_outcast_memory": 128 * 128,
         "device_sched_mode": 1
     }
 )
@@ -262,9 +260,9 @@ def lightning_indexer_prolog_quant(
     k_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT64, format=pypto.TileOpFormat.TILEOP_ND),
     k_scale_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
         pypto.DT_INT64, format=pypto.TileOpFormat.TILEOP_ND),
-    q_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC],
+    q_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
         pypto.DT_HF8, format=pypto.TileOpFormat.TILEOP_ND),
-    q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC],
+    q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
         pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
     k_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC],
         pypto.DT_HF8, format=pypto.TileOpFormat.TILEOP_ND),

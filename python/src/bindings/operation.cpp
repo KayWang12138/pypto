@@ -30,7 +30,11 @@ void bind_operation(py::module& m)
     m.def(
         "Mul", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Mul(self, other); }, "Tensor mul.");
     m.def(
-        "Div", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Div(self, other); }, "Tensor div.");
+        "Div",
+        [](const Tensor& self, const Tensor& other, DivAlgorithm precisionType) {
+            return npu::tile_fwk::Div(self, other, precisionType);
+        },
+        py::arg("self"), py::arg("other"), py::arg("precision_type") = DivAlgorithm::HIGH_PRECISION, "Tensor div.");
     m.def(
         "Hypot", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Hypot(self, other); },
         "Tensor hypot.");
@@ -111,6 +115,11 @@ void bind_operation(py::module& m)
         "Exp2", [](const Tensor& self) { return npu::tile_fwk::Exp2(self); }, "Tensor exp2.");
 
     m.def(
+        "Permute",
+        [](const Tensor& self, const std::vector<int>& perm) { return npu::tile_fwk::Permute(self, perm); },
+        "Tensor transpose.");
+
+    m.def(
         "Transpose",
         [](const Tensor& self, const std::vector<int>& perm) { return npu::tile_fwk::Transpose(self, perm); },
         "Tensor transpose.");
@@ -184,8 +193,11 @@ void bind_operation(py::module& m)
         "Mul", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Mul(self, other); },
         "Tensor mul scalar.");
     m.def(
-        "Div", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Div(self, other); },
-        "Tensor div scalar.");
+        "Div",
+        [](const Tensor& self, const Element& other, DivAlgorithm precisionType) {
+            return npu::tile_fwk::Div(self, other, precisionType);
+        },
+        py::arg("self"), py::arg("other"), py::arg("precision_type") = DivAlgorithm::HIGH_PRECISION, "Tensor div scalar.");
     m.def(
         "Fmod", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Fmod(self, other); },
         "Tensor mod scalar.");
@@ -279,12 +291,19 @@ void bind_operation(py::module& m)
         py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter noninplace.");
     m.def(
-        "IndexAdd",
+        "IndexAddUB",
         [](const Tensor& self, const Tensor& src, const Tensor& indices, int axis, const Element& alpha) {
-            return npu::tile_fwk::IndexAdd(self, src, indices, axis, alpha);
+            return npu::tile_fwk::IndexAddUB(self, src, indices, axis, alpha);
         },
         py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
         py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor add with index.");
+    m.def(
+        "IndexAdd_",
+        [](Tensor& self, const Tensor& src, const Tensor& indices, int axis, const Element& alpha) {
+            npu::tile_fwk::IndexAdd_(self, src, indices, axis, alpha);
+        },
+        py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
+        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor add with index inplacely.");
     m.def(
         "GatherElements",
         [](const Tensor& params, const Tensor& indices, int axis) {
