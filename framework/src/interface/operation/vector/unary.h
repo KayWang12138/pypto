@@ -129,4 +129,17 @@ LogicalTensorPtr TensorUnaryOperation(
     return result;
 }
 
+template <UnaryOpType T>
+std::pair<LogicalTensorPtr, Operation*> TensorUnaryOperationWithOp(
+    Function& function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt)
+{
+    auto opName = GetUnaryOpName<T>();
+    CheckTensorShape(operand, opName);
+    datatype = datatype.value_or(operand->tensor->datatype);
+    auto result = std::make_shared<LogicalTensor>(
+        function, *datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
+    Operation* op = &function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
+    return {result, op};
+}
+
 } // namespace npu::tile_fwk
