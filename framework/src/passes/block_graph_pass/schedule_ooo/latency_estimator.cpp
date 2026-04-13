@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file core_assign.cpp
+ * \file latency_estimator.cpp
  * \brief
  */
 
@@ -17,19 +17,86 @@
 
 namespace npu::tile_fwk {
 
+LatencyEstimator::LatencyEstimator(std::vector<Operation*>& newTaskList,
+    std::vector<Operation*>& newOperations, CoreLocationType coreLocation)
+    : OoOScheduler(), taskList(newTaskList), operations(newOperations), coreLocation_(coreLocation)
+{
+    InitMemWithoutAlloc();
+    InitLatencyEstimator();
+}
+
+void LatencyEstimator::InitLatencyEstimator()
+{
+    // 初始化芯片各buffer大小
+    localMemSize = CommonUtils::GetLocalMemorySize();
+    localMemoryCurrentSize = localMemSize;
+
+    // 校验并初始化 Operation，直接使用 taskList 作为调度对象
+    for (const auto& op : taskList) {
+        if (CheckOpBufferSize(op) != SUCCESS) {
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "%s[%d] CheckOpBufferSize failed!",
+                op->GetOpcodeStr().c_str(), op->GetOpMagic());
+            continue;
+        }
+    }
+
+    for (const auto& op : taskList) {
+        opIsRetiredMap[op] = false;
+    }
+
+    if (InitBufRefCount(taskList) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed!");
+        return;
+    }
+
+    if (depManager_.InitDependencies(taskList, true) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
+        return;
+    }
+
+    depManager_.PrintDependencies(taskList);
+    // 单独初始化 latency 专用的 IssueQueue
+    InitLatencyIssueQueues();
+}
+
+void LatencyEstimator::InitLatencyIssueQueues()
+{
+    // 初始化 issueQueues
+    for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
+        issueQueues[coreLocation_][static_cast<PipeType>(i)] = IssueQueue();
+    }
+    allocIssueQueue.clear();
+    // 仅为当前 coreLocation 创建所需内存类型的 alloc 队列
+    if (coreLocation_ == CoreLocationType::AIV0 || coreLocation_ == CoreLocationType::AIV1) {
+        allocIssueQueue[coreLocation_][MemoryType::MEM_UB] = IssueQueue();
+    } else {
+        for (size_t i = 1; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
+            allocIssueQueue[coreLocation_][static_cast<MemoryType>(i)] = IssueQueue();
+        }
+    }
+}
+
 void LatencyEstimator::LaunchReadyIssue()
 {
     for (auto &op : taskList) {
-        if (USE_LESS_OPS2.find(op->GetOpcode()) != USE_LESS_OPS2.end() && depManager_.GetPredecessors(op).empty()) {
+        if (USE_LESS_OPS.find(op->GetOpcode()) != USE_LESS_OPS.end() && depManager_.GetPredecessors(op).empty()) {
             auto type = RescheduleUtils::GetOpPipeType(op);
-            opQueues[type].Insert(op);
+            issueQueues[coreLocation_][type].Insert(op);
         }
         if (IsOpAlloc(op)) {
             auto tensor = op->GetOOperands()[0];
             auto memId = tensor->memoryrange.memId;
-            allocIssueQueue[localBufferMap_[memId]->memType].Insert(op);
+            allocIssueQueue[coreLocation_][localBufferMap_[memId]->memType].Insert(op);
         }
     }
+}
+
+Status LatencyEstimator::PreMainLoop()
+{
+    LaunchReadyIssue();
+    numTotalIssues = taskList.size();
+    return SUCCESS;
 }
 
 Status LatencyEstimator::FreeBuffer(Operation* op)
@@ -67,62 +134,7 @@ Status LatencyEstimator::FreeBuffer(Operation* op)
     return SUCCESS;
 }
 
-Status LatencyEstimator::RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt)
-{
-    commitCnt++;
-    opRetiredInfo[op] = true;
-    if (FreeBuffer(op) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "FreeBuffer failed. %s", GetOpInfo(op).c_str());
-        return FAILED;
-    }
-
-    for (auto succ : depManager_.GetSuccessors(op)) {
-        if (opRetiredInfo[succ]) {
-            continue;
-        }
-        bool ready = true;
-        for (auto pred : depManager_.GetPredecessors(succ)) {
-            if (!opRetiredInfo[pred]) {
-                ready = false;
-                break;
-            }
-        }
-        if (ready) {
-            opQueues[RescheduleUtils::GetOpPipeType(succ)].Insert(succ);
-            APASS_LOG_DEBUG_F(Elements::Operation, "Wakeup: %s", GetOpInfo(succ).c_str());
-        }
-    }
-    return SUCCESS;
-}
-
-Status LatencyEstimator::RetireIssueStage(uint64_t& commitCnt, int& nextCycle)
-{
-    for (auto& [pipeType, pipe] : opQueues) {
-        (void)pipeType;
-        if (!pipe.busy) {
-            continue;
-        }
-        if (pipe.curOpRetireCycle <= clock) { // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
-            Operation* op = pipe.curOp;
-            pipe.busy = false;
-            pipe.curOp = nullptr;
-            APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTE END: %s", GetOpInfo(op).c_str());
-            if (RetireOpAndAwakeSucc(op, commitCnt) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed! %s", GetOpInfo(op).c_str());
-                return FAILED;
-            }
-        } else {
-            APASS_LOG_DEBUG_F(
-                Elements::Operation, "EXECUTING[%d]: %s", pipe.curOpRetireCycle, GetOpInfo(pipe.curOp).c_str());
-            if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
-                nextCycle = pipe.curOpRetireCycle;
-            }
-        }
-    }
-    return SUCCESS;
-}
-
-Status LatencyEstimator::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, OpQueue& pipe)
+Status LatencyEstimator::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, IssueQueue& pipe)
 {
     bool canAlloc = true;
     while (canAlloc) {
@@ -158,38 +170,24 @@ Status LatencyEstimator::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memTy
     return SUCCESS;
 }
 
-Status LatencyEstimator::BufferAllocStage(uint64_t& commitCnt)
-{
-    for (auto& [memoryType, pipe] : allocIssueQueue) {
-        if (pipe.Empty()) {
-            continue;
-        }
-        // 不断按顺序执行alloc指令，直到buffer被占满为止。
-        if (ExecuteAllocIssue(commitCnt, memoryType, pipe) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed.");
-            return FAILED;
-        }
-    }
-    return SUCCESS;
-}
-
 Status LatencyEstimator::LaunchIssueStage(int& nextCycle)
 {
-    // issue from all pipes
-    for (auto& [pipeType, pipe] : opQueues) {
-        (void)pipeType;
-        if (pipe.Empty() || pipe.busy) {
-            continue;
+    for (auto& [coreLocation, queue] : issueQueues) {
+        (void)coreLocation;
+        for (auto& [pipeType, pipe] : queue) {
+            (void)pipeType;
+            if (pipe.Empty() || pipe.busy) {
+                continue;
+            }
+            Operation* op = pipe.PopFront();
+            pipe.busy = true;
+            pipe.curIssue = op;
+            pipe.curOpRetireCycle = clock + op->GetLatency();
+            if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
+                nextCycle = pipe.curOpRetireCycle;
+            }
+            APASS_LOG_DEBUG_F(Elements::Operation, "issueQueues Insert: %s.", GetOpInfo(op).c_str());
         }
-        Operation* op = pipe.PopFront();
-        pipe.busy = true;
-        pipe.curOp = op;
-        pipe.curOpRetireCycle = clock + op->GetLatency();
-        if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
-            nextCycle = pipe.curOpRetireCycle;
-        }
-
-        APASS_LOG_DEBUG_F(Elements::Operation, "opQueues Insert: %s.", GetOpInfo(op).c_str());
     }
     return SUCCESS;
 }
@@ -197,9 +195,9 @@ Status LatencyEstimator::LaunchIssueStage(int& nextCycle)
 Status LatencyEstimator::SpillOnBlock()
 {
     MemoryType spillMemType;
-    if (!allocIssueQueue[MemoryType::MEM_UB].Empty()) {
+    if (!allocIssueQueue[coreLocation_][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
-    } else if (!allocIssueQueue[MemoryType::MEM_L1].Empty()) {
+    } else if (!allocIssueQueue[coreLocation_][MemoryType::MEM_L1].Empty()) {
         spillMemType = MemoryType::MEM_L1;
     } else {
         APASS_LOG_ERROR_F(
@@ -207,7 +205,7 @@ Status LatencyEstimator::SpillOnBlock()
         return FAILED;
     }
 
-    Operation* op = allocIssueQueue[spillMemType].Front();
+    Operation* op = allocIssueQueue[coreLocation_][spillMemType].Front();
     size_t needMemSize = GetInOutOperandCached(op)[0]->MemorySize();
     spillblockMemIds.insert(GetInOutOperandCached(op)[0]->memoryrange.memId);
     localMemoryCurrentSize[spillMemType] += static_cast<long int>(needMemSize);
@@ -218,11 +216,19 @@ Status LatencyEstimator::SpillOnBlock()
     return SUCCESS;
 }
 
-void LatencyEstimator::initLatencyEstimatorOpQueues()
+Status LatencyEstimator::LatencyEstimatorMainLoop()
 {
-    for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
-        opQueues[static_cast<PipeType>(i)] = OpQueue();
+    if (RunMainLoop() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "RunMainLoop failed.");
+        return FAILED;
     }
+    return SUCCESS;
+}
+
+Status LatencyEstimator::PostMainLoop()
+{
+    APASS_LOG_DEBUG_F(Elements::Operation, "\n Estimate Latency: %d", clock);
+    return SUCCESS;
 }
 
 void LatencyEstimator::InitMemWithoutAlloc()
@@ -269,26 +275,4 @@ void LatencyEstimator::InitMemWithoutAlloc()
     }
 }
 
-Status LatencyEstimator::LatencyEstimatorMainLoop()
-{
-    if (RunMainLoop() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "RunMainLoop failed.");
-        return FAILED;
-    }
-    return SUCCESS;
-}
-
-Status LatencyEstimator::PreMainLoop()
-{
-    initLatencyEstimatorOpQueues();
-    LaunchReadyIssue();
-    numTotalIssues = taskList.size();
-    return SUCCESS;
-}
-
-Status LatencyEstimator::PostMainLoop()
-{
-    APASS_LOG_DEBUG_F(Elements::Operation, "\n Estimate Latency: %d", clock);
-    return SUCCESS;
-}
 } // namespace npu::tile_fwk

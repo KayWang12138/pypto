@@ -347,7 +347,7 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     MemoryType memType = spillTensor->GetMemoryTypeOriginal();
     // 创建将spill搬出数据搬回OP_COPY_IN的tensor
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
-            function_, spillTensor->Datatype(), spillTensor->shape, spillTensor->Format());
+            *function_, spillTensor->Datatype(), spillTensor->shape, spillTensor->Format());
     if (UpdateTensorAttr(localTensor, memType, spillTensor, -1) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr local tensor failed!");
         return FAILED;
@@ -355,10 +355,10 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     localTensor->offset = std::vector<int64_t>(localTensor->GetShape().size(), 0);
     // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
     Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
-    auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
+    auto &spillAllocOp = function_->AddRawOperation(allocOp, {}, {localTensor});
     auto &spillCopyInOp = (spillOp->GetOpcode() == Opcode::OP_COPY_IN) ?
-        spillOp->CloneOperation(function_, {spillOutTensor}, {localTensor}) :
-        function_.AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
+        spillOp->CloneOperation(*function_, {spillOutTensor}, {localTensor}) :
+        function_->AddRawOperation(Opcode::OP_COPY_IN, {spillOutTensor}, {localTensor});
 
     if (spillOp->GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, spillOp->GetIOpAttrOffset(0));
@@ -435,7 +435,7 @@ Status OoOScheduler::UpdateReshapeDependAndBuf(Operation* allocOp, SpillInfo &sp
 LogicalTensorPtr OoOScheduler::CreateReshapeL1Tensor(LogicalTensorPtr iOperand, LogicalTensorPtr reshapeTensor)
 {
     LogicalTensorPtr newTensor =
-        std::make_shared<LogicalTensor>(function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
+        std::make_shared<LogicalTensor>(*function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
     newTensor->SetMemoryTypeToBe(iOperand->GetMemoryTypeToBe());
     newTensor->SetMemoryTypeOriginal(iOperand->GetMemoryTypeOriginal());
     newTensor->oriShape = iOperand->shape;
@@ -456,7 +456,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
         return FAILED;
     }
     // 创建 alloc
-    auto& spillAllocOp = function_.AddRawOperation(Opcode::OP_L1_ALLOC, {}, {newTensor});
+    auto& spillAllocOp = function_->AddRawOperation(Opcode::OP_L1_ALLOC, {}, {newTensor});
     spillAllocOp.UpdateLatency(1);
     auto spillAllocOpPtr = UpdateIssueAttr(spillAllocOp, {reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // 创建 copyin
@@ -477,8 +477,8 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
         return FAILED;
     }
     auto &spillCopyInOp = (preOp->GetOpcode() == Opcode::OP_COPY_IN) ?
-        preOp->CloneOperation(function_, {spillInfo.ddrTensor_}, {newTensor}) :
-        function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {newTensor});
+        preOp->CloneOperation(*function_, {spillInfo.ddrTensor_}, {newTensor}) :
+        function_->AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {newTensor});
     if (preOp->GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, preOp->GetIOpAttrOffset(0));
     }
@@ -492,7 +492,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
         return FAILED;
     }
     // 创建 reshape
-    auto& reshapeOp = function_.AddRawOperation(Opcode::OP_RESHAPE, {newTensor}, {reshapeTensor});
+    auto& reshapeOp = function_->AddRawOperation(Opcode::OP_RESHAPE, {newTensor}, {reshapeTensor});
     reshapeOp.UpdateLatency(1);
     auto reshapeOpPtr = UpdateIssueAttr(reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_ALLOC: %s. ", GetOpInfo(spillAllocOpPtr).c_str());
@@ -502,7 +502,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
 }
 
 Status OoOScheduler::SpillInReshapeBuffer(SpillInfo &spillInfo, Operation* allocOp, bool isGenSpill) {
-    LogicalTensorPtr reshapeTensor = std::make_shared<LogicalTensor>(function_,
+    LogicalTensorPtr reshapeTensor = std::make_shared<LogicalTensor>(*function_,
         spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
     if (reshapeTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Create reshape tensor failed!");
@@ -559,7 +559,7 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, Operation* allocOp, Mem
         allocOp) != SUCCESS) {
         reloadOps.first->SetAsDeleted();
         reloadOps.second->SetAsDeleted();
-        function_.EraseOperations();
+        function_->EraseOperations();
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueInfo failed!");
         return FAILED;
     }
@@ -592,7 +592,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     std::vector<int64_t> offset = spillTensor->GetOffset();
 
     LogicalTensorPtr ddrTensor =
-        std::make_shared<LogicalTensor>(function_, ddrRawTensor, offset, spillTensor->GetShape());
+        std::make_shared<LogicalTensor>(*function_, ddrRawTensor, offset, spillTensor->GetShape());
     if (ddrTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR tensor failed!");
         return FAILED;
@@ -605,7 +605,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     }
 
     // 创建spill搬出所需的DDR OP_COPY_OUT
-    Operation &spillOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {spillTensor}, {ddrTensor});
+    Operation &spillOutOp = function_->AddRawOperation(Opcode::OP_COPY_OUT, {spillTensor}, {ddrTensor});
     spillCopyoutOp = &spillOutOp;
     UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillOp, workspaceOffsetTemp);
     if (spillInfo.spillOp_ != spillOp && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
@@ -875,7 +875,7 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(
     std::shared_ptr<AssembleOpAttribute> assembleAttr)
 {
     LogicalTensorPtr localTensor =
-        std::make_shared<LogicalTensor>(function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
+        std::make_shared<LogicalTensor>(*function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
     localTensor->SetMemoryTypeToBe(assembleTensor->GetMemoryTypeToBe());
     localTensor->SetMemoryTypeOriginal(assembleTensor->GetMemoryTypeOriginal());
     localTensor->oriShape = iOperand->shape;
@@ -927,7 +927,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     if (isFirst) {
         // alloc
         Opcode allocOpCode = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
-        auto &spillAllocOp = function_.AddRawOperation(allocOpCode, {}, {localTensor});
+        auto &spillAllocOp = function_->AddRawOperation(allocOpCode, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
         UpdateIssueAttr(spillAllocOp, {assembleTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
         isFirst = false;
@@ -940,7 +940,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
         APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
         return FAILED;
     }
-    auto& spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {localTensor});
+    auto& spillCopyInOp = function_->AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {localTensor});
     int64_t base = 0;
     GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
     spillCopyInOp.SetAttr(OpAttributeKey::workspaceBaseOffset, gmRelatOffset + base);
@@ -954,7 +954,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     }
     UpdateIssueAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     // assemble
-    auto &newAssembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
+    auto &newAssembleOp = function_->AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
     newAssembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(),
         assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
     newAssembleOp.UpdateLatency(1);
@@ -998,7 +998,7 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocO
         return FAILED;
     }
 
-    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_,
+    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(*function_,
         spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
     if (assembleTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Create assemble tensor failed!");

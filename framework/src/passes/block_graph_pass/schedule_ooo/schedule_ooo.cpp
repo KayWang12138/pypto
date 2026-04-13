@@ -65,7 +65,7 @@ void OoOSchedule::OoOHealthCheck(OoOScheduler& oooSchedule, Function& function, 
 {
     if (oooSchedule.oooCheck.doHealthCheck) {
         oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
-        oooSchedule.oooCheck.clock = oooSchedule.clock;
+        oooSchedule.oooCheck.clock = oooSchedule.GetClock();
         oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
         schedulerMap.insert({program.first, oooSchedule});
     }
@@ -144,16 +144,13 @@ Status OoOSchedule::MixSchedule(
     int64_t& maxWorkeSpaceSize)
 {
     APASS_LOG_INFO_F(Elements::Operation, "=============== START MixSchedule ===============");
-    std::unordered_map<TargetCoreType, std::string> targetToString{
-        {TargetCoreType::AIC, "AIC"},
-        {TargetCoreType::AIV0, "AIV0"},
-        {TargetCoreType::AIV1, "AIV1"},
-        {TargetCoreType::UNKNOWN, "UNKNOWN"}};
     TaskSpliter spliter;
     spliter.SplitGraph(opList);
     for (auto& taskNode : spliter.GetTaskGraph().tasks) {
         // 对taskNode.opList_进行排序，并返回预估的latency
-        if (SortAndLatencyEstimate(opList, taskNode.opList_, taskNode.latency) != SUCCESS) {
+        CoreLocationType coreLocation = (taskNode.coreType == ScheduleCoreType::AIC)
+            ? CoreLocationType::AIC : CoreLocationType::AIV0;
+        if (SortAndLatencyEstimate(opList, taskNode.opList_, taskNode.latency, coreLocation) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SortAndLatencyEstimate failed, taskNode[%d].", taskNode.idx);
             return FAILED;
         }
@@ -186,7 +183,7 @@ Status OoOSchedule::MixSchedule(
     }
     OoOScheduler oooSchedule(*program.second);
     oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
-    if (oooSchedule.Schedule(opList, opCoreMap, CORE_INIT_CONFIGS_HARDWARE_TWO_AIV) != SUCCESS) {
+    if (oooSchedule.Schedule(opList, opCoreMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Schedule failed.");
         return FAILED;
     }
@@ -214,16 +211,17 @@ Status OoOSchedule::UpdateOpCoreMap(
 }
 
 Status OoOSchedule::SortAndLatencyEstimate(
-    std::vector<Operation*>& opList, std::vector<Operation*>& taskOpList, int& latency)
+    std::vector<Operation*>& opList, std::vector<Operation*>& taskOpList, int& latency,
+    CoreLocationType coreLocation)
 {
     APASS_LOG_INFO_F(Elements::Operation, "=======>start SortAndLatencyEstimate");
     SortTaskList(opList, taskOpList);
-    LatencyEstimator latencyEstimator(taskOpList, opList);
+    LatencyEstimator latencyEstimator(taskOpList, opList, coreLocation);
     if (latencyEstimator.LatencyEstimatorMainLoop() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SortAndLatencyEstimate LatencyEstimatorMainLoop failed.");
         return FAILED;
     }
-    latency = latencyEstimator.clock;
+    latency = latencyEstimator.GetClock();
     APASS_LOG_INFO_F(Elements::Operation, "=======>end SortAndLatencyEstimate");
     return SUCCESS;
 }

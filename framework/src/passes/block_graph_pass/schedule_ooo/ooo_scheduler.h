@@ -25,7 +25,6 @@
 #include "passes/block_graph_pass/schedule_ooo/dep_manager.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_base.h"
 #include "passes/statistics/ooo_schedule_statistic.h"
-#include "schedule_main_loop_base.h"
 
 namespace npu::tile_fwk {
 
@@ -99,25 +98,30 @@ struct SpillInfo {
     bool isSpecialL1_{false};
 };
 
-class OoOScheduler : public ScheduleBase, public ScheduleMainLoopBase {
+class OoOScheduler : public ScheduleBase {
 public:
     Status Schedule(
         const std::vector<Operation*>& opList,
         const std::unordered_map<Operation*, CoreLocationType>& opCoreMap =
-            std::unordered_map<Operation*, CoreLocationType>(),
-        const std::unordered_set<CoreLocationType> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
-    OoOScheduler(Function& function) : function_(function) {}
-
+            std::unordered_map<Operation*, CoreLocationType>());
+    OoOScheduler(Function& function) : function_(&function) {}
+    virtual ~OoOScheduler() = default;
     std::vector<Operation*> GetNewOperations() { return newOperations_; }
     int64_t workspaceOffset{0};
     OoOSchedulerCheck oooCheck;
     std::unordered_map<PipeType, int> pipeEndTime;
+    int GetClock() const { return clock; }
 
-private:
+protected:
+    OoOScheduler() = default;
+
+    // ===== 共享状态与循环骨架 =====
+    int clock{0};
+    uint64_t numTotalIssues{0};
+    Status RunMainLoop();
+
     // ============ Operation属性管理数据结构 ============
-    // 存储排好顺序的Operation指针
     std::vector<Operation*> orderedOps;
-    // Operation属性管理
     std::unordered_map<Operation*, int> opExecOrderMap;
     std::unordered_map<Operation*, PipeType> opPipeTypeMap;
     std::unordered_map<Operation*, bool> opIsAllocMap;
@@ -125,22 +129,37 @@ private:
     std::unordered_map<Operation*, std::vector<Operation*>> opViewOpsMap;
     std::unordered_map<Operation*, CoreLocationType> opCoreLocationMap;
 
-    std::unordered_set<CoreLocationType> CORE_INIT_CONFIGS;
-
     // 分核数据结构
     std::unordered_map<CoreLocationType, std::map<npu::tile_fwk::MemoryType, BufferPool>> bufferManagerMap;
-
     std::unordered_map<MemoryType, std::map<int, Operation*>> tensorOccupyMap;
-    // tensor和其初始化时对应的alloc的core类型 memId-core类型
     std::unordered_map<int, CoreLocationType> tensorAllocCoreMap;
-
     std::unordered_map<CoreLocationType, std::map<MemoryType, IssueQueue>> allocIssueQueue;
-
     std::unordered_map<CoreLocationType, std::map<PipeType, IssueQueue>> issueQueues;
 
+    // ===== 可共用的 stage 方法 =====
+    virtual Status PreMainLoop();
+    virtual Status PostMainLoop();
+    virtual Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
+    Status RetireCoreIssue(CoreLocationType targetCore, uint64_t& commitCnt, int& nextCycle);
+    Status RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt);
+    virtual Status BufferAllocStage(uint64_t& commitCnt);
+    void LaunchReadyIssue();
+
+    // ===== 需要 LatencyEstimator 覆写的虚函数 =====
+    virtual Status FreeBuffer(Operation* op);
+    virtual Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, IssueQueue &pipe);
+    virtual Status LaunchIssueStage(int& nextCycle);
+    virtual Status SpillOnBlock();
+
+    // 初始化相关
+    void InitIssueQueuesAndBufferManager();
+    void UpdateIssueExecOrder();
+    std::string GetOpInfo(Operation* op) const;
+
+private:
     std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> l02L0MXMap_;
 
-    Function& function_;
+    Function* function_{nullptr};
     int issueId{0};
     uint64_t spillIssueCnt{0};
     int workspaceMemId{SYMBOL_STACK_BASE};
@@ -151,45 +170,25 @@ private:
     Status Init(
         const std::vector<Operation*>& opList,
         const std::unordered_map<Operation*, CoreLocationType>& opCoreMap =
-            std::unordered_map<Operation*, CoreLocationType>(),
-        const std::unordered_set<CoreLocationType> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
+            std::unordered_map<Operation*, CoreLocationType>());
 
-    // ============ 新增：基于Operation的初始化函数 ============
     Status InitOpEntry(Operation* op, const std::unordered_map<Operation*, CoreLocationType>& opCoreMap);
     Status InitOpCoreType(Operation* op, const std::unordered_map<Operation*, CoreLocationType>& opCoreMap);
     void InitOpViewOps(Operation* op);
-    std::string GetOpInfo(Operation* op) const;
     int GetOOperandIdx(Operation* op, int curMemId);
 
-    void InitCoreConfig(const std::vector<Operation *> &opList);
     void InitTensorCoreMap();
-    void InitIssueQueuesAndBufferManager();
 
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(Operation* op, size_t &pcIdx);
     Status RetireIssue(Operation* op);
     Status ScheduleMainLoop();
-    void LaunchReadyIssue();
-    Status RetireCoreIssue(CoreLocationType targetCore, uint64_t& commitCnt, int& nextCycle);
-     // ScheduleMainLoopBase 钩子实现
-    Status PreMainLoop() override;
-    Status PostMainLoop() override;
-    Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle) override;
-    // 新增：基于Operation*的版本
-    Status RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt);
-    Status FreeBuffer(Operation* op);
-    Status BufferAllocStage(uint64_t& commitCnt) override;
-    Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType,
-        IssueQueue &pipe);
-    // 新增：基于Operation*的版本
+
     void HandleViewOp(Operation* op);
-    Status LaunchIssueStage(int& nextCycle) override;
-    // 新增：基于Operation*的版本
     Status AllocTensorMemRange(Operation* op);
     Status AllocViewTensorMemRange(Operation &operation);
     Status CheckAndUpdateLifecycle();
 
-    void UpdateIssueExecOrder();
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> opList);
     Status PrintSpillFailedInfo(Operation* allocOp, bool isGenSpill);
@@ -234,7 +233,6 @@ private:
     Status SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocOp, Operation* assembleOp,
         LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
-    Status SpillOnBlock() override;
     Status SpillOnCoreBlock(CoreLocationType targetCore, bool &didSpill);
     Operation* SkipViewChain(Operation* start, bool followProducers);
 

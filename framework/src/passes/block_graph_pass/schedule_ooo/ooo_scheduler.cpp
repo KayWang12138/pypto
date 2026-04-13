@@ -24,6 +24,51 @@
 
 namespace npu::tile_fwk {
 
+Status OoOScheduler::RunMainLoop()
+{
+    if (PreMainLoop() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "PreMainLoop failed.");
+        return FAILED;
+    }
+
+    uint64_t commitCnt = 0;
+    bool isAllRetired = false;
+    while (!isAllRetired) {
+        int nextCycle = -1;
+        APASS_LOG_DEBUG_F(Elements::Operation, "     clock: %d", clock);
+        if (RetireIssueStage(commitCnt, nextCycle) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "RetireIssueStage failed.");
+            return FAILED;
+        }
+        if (BufferAllocStage(commitCnt) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "BufferAllocStage failed.");
+            return FAILED;
+        }
+        if (LaunchIssueStage(nextCycle) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "LaunchIssueStage failed.");
+            return FAILED;
+        }
+        if (numTotalIssues == commitCnt && nextCycle == -1) {
+            isAllRetired = true;
+            break;
+        }
+        if (nextCycle == -1) {
+            if (SpillOnBlock() != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed.");
+                return FAILED;
+            }
+        } else {
+            clock = nextCycle;
+        }
+    }
+
+    if (PostMainLoop() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "PostMainLoop failed.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 inline std::string coreTypeToString(CoreLocationType coreLocation)
 {
     switch (coreLocation) {
@@ -240,7 +285,8 @@ Status OoOScheduler::SpillOnCoreBlock(CoreLocationType coreLocation, bool& didSp
 Status OoOScheduler::SpillOnBlock()
 {
     bool didSpill = false;
-    for (auto coreLocation : CORE_INIT_CONFIGS) {
+    for (auto& [coreLocation, queue] : allocIssueQueue) {
+        (void)queue;
         if (SpillOnCoreBlock(coreLocation, didSpill) != SUCCESS) {
             APASS_LOG_WARN_F(
                 Elements::Operation, "SpillOnBlock failed/skipped at coreType: %s",
@@ -322,8 +368,8 @@ void OoOScheduler::HandleViewOp(Operation* op)
 Status OoOScheduler::LaunchIssueStage(int& nextCycle)
 {
     // issue from all pipes
-    for (auto coreLocation : CORE_INIT_CONFIGS) {
-        for (auto& [pipeType, pipe] : issueQueues[coreLocation]) {
+    for (auto& [coreLocation, queue] : issueQueues){
+        for (auto& [pipeType, pipe] : queue) {
             if (pipe.Empty() || pipe.busy) {
                 continue;
             }
@@ -397,8 +443,8 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, 
 
 Status OoOScheduler::BufferAllocStage(uint64_t& commitCnt)
 {
-    for (auto coreLocation : CORE_INIT_CONFIGS) {
-        for (auto& [memType, pipe] : allocIssueQueue[coreLocation]) {
+    for (auto& [coreLocation, queue] : allocIssueQueue) {
+        for (auto& [memType, pipe] : queue) {
             if (pipe.Empty()) {
                 continue;
             }
@@ -513,7 +559,8 @@ Status OoOScheduler::RetireCoreIssue(CoreLocationType coreLocation, uint64_t& co
 
 Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle)
 {
-    for (auto coreLocation : CORE_INIT_CONFIGS) {
+    for (auto& [coreLocation, queue] : issueQueues) {
+        (void)queue;
         if (RetireCoreIssue(coreLocation, commitCnt, nextCycle) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "RetireIssueStage failed");
             return FAILED;
@@ -656,7 +703,10 @@ void OoOScheduler::InitIssueQueuesAndBufferManager()
     auto compareFunc = [this](Operation* a, Operation* b) {
         return opExecOrderMap[a] > opExecOrderMap[b];
     };
-
+    std::unordered_set<CoreLocationType> CORE_INIT_CONFIGS =
+        (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(orderedOps)) ?
+        {CoreLocationType::AIC, CoreLocationType::AIV0} :
+        {CoreLocationType::AIC, CoreLocationType::AIV0, CoreLocationType::AIV1};
     // 初始化
     for (auto coreLocation : CORE_INIT_CONFIGS) {
         for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
@@ -697,15 +747,6 @@ void OoOScheduler::InitTensorCoreMap()
             auto memId = op->GetOutputOperand(0)->memoryrange.memId;
             tensorAllocCoreMap[memId] = opCoreLocationMap[op];
         }
-    }
-}
-
-void OoOScheduler::InitCoreConfig(const std::vector<Operation *> &opList)
-{
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_ONE;
-    } else {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_TWO;
     }
 }
 
@@ -811,7 +852,7 @@ Status OoOScheduler::InitOpEntry(Operation* op, const std::unordered_map<Operati
 }
 
 Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unordered_map<Operation*,
-    CoreLocationType>& opCoreMap, const std::unordered_set<CoreLocationType> fixCoreConfig)
+    CoreLocationType>& opCoreMap)
 {
     orderedOps.clear();
     opExecOrderMap.clear();
@@ -825,11 +866,6 @@ Status OoOScheduler::Init(const std::vector<Operation*>& opList, const std::unor
     LOG_SCOPE_BEGIN(tInit, Elements::Function, "Init");
     // 初始化芯片各buffer大小
     localMemSize = CommonUtils::GetLocalMemorySize();
-    if (fixCoreConfig.empty()) {
-        InitCoreConfig(opList);
-    } else {
-        CORE_INIT_CONFIGS = fixCoreConfig;
-    }
     // 校验并初始化Operation
     for (const auto &op : opList) {
         if (InitOpEntry(op, opCoreMap) != SUCCESS) {
@@ -890,14 +926,13 @@ void OoOScheduler::UpdateL0MXMap(const std::vector<Operation*> &opList)
 
 Status OoOScheduler::Schedule(
     const std::vector<Operation*>& opList,
-    const std::unordered_map<Operation*, CoreLocationType>& opCoreMap,
-    const std::unordered_set<CoreLocationType> fixCoreConfig)
+    const std::unordered_map<Operation*, CoreLocationType>& opCoreMap)
 {
     if (opList.empty()) {
         return SUCCESS;
     }
     PrintOpList(opList);
-    if (Init(opList, opCoreMap, fixCoreConfig) != SUCCESS) {
+    if (Init(opList, opCoreMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!");
         return FAILED;
     }
@@ -925,8 +960,8 @@ Status OoOScheduler::Schedule(
             TileRange(localBufferMap_[l0MemID]->start >> 4, localBufferMap_[l0MemID]->end >> 4, l0MemMXID);
     }
     PrintOpList(newOperations_);
-    function_.SetStackWorkespaceSize(workspaceOffset);
-    function_.pipeEndTime = pipeEndTime;
+    function_->SetStackWorkespaceSize(workspaceOffset);
+    function_->pipeEndTime = pipeEndTime;
     return SUCCESS;
 }
 
