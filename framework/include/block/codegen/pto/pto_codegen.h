@@ -254,6 +254,7 @@ class PTOCodegen : public CodegenBase {
   void VisitExpr_(const ir::MinPtr& op) override;
   void VisitExpr_(const ir::NotPtr& op) override;
   void VisitExpr_(const ir::TupleGetItemExprPtr& op) override;
+  void VisitExpr_(const ir::TileOffsetExprPtr& op) override;
 
  private:
   /**

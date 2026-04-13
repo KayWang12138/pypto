@@ -1023,6 +1023,12 @@ std::string PTOCodegen::GetExprTypeAnnotation(const ir::ExprPtr& expr) {
       }
     }
   }
+  // TileOffsetExpr preserves the base tile's TileType — look it up directly
+  if (auto tile_off = As<ir::TileOffsetExpr>(expr)) {
+    if (auto tile_type = As<TileType>(tile_off->GetType())) {
+      return GetTileBufTypeStringFromTileType(tile_type);
+    }
+  }
   if (auto var = As<ir::Var>(expr)) {
     // Check if variable was remapped to a dynamically-allocated tile buffer (e.g., reshape output)
     auto mlir_it = var_to_mlir_.find(var->name_);
@@ -1213,6 +1219,54 @@ void PTOCodegen::VisitExpr_(const ir::ConstBoolPtr& op) {
   std::string val = op->value_ ? "1" : "0";
   Emit(result + " = arith.constant " + val + " : i1");
   current_expr_value_ = result;
+}
+
+void PTOCodegen::VisitExpr_(const ir::TileOffsetExprPtr& op) {
+  INTERNAL_CHECK(op != nullptr) << "Internal error: null TileOffsetExpr";
+
+  // Step 1: Get base tile SSA name and offset expression
+  std::string base_tile = GetExprAsCode(op->tile_);
+  std::string offset_expr = GetExprAsCode(op->offset_);
+
+  // Step 2: Get base tile's i64 address SSA from tile_to_addr_ssa_
+  std::string base_addr = GetTileAddrSSA(base_tile);
+  if (base_addr.empty()) {
+    // Fallback: extract constant address from TileType's memref
+    auto tt = As<TileType>(op->tile_->GetType());
+    INTERNAL_CHECK(tt && tt->memref_.has_value())
+        << "TileOffsetExpr: base tile has no address info";
+    int64_t addr = ir::As<ir::ConstInt>((*tt->memref_)->addr_)->value_;
+    base_addr = GetOrEmitI64Constant(addr);
+  }
+
+  // Step 3: Compute element byte size from dtype
+  auto tile_type = As<TileType>(op->tile_->GetType());
+  INTERNAL_CHECK(tile_type) << "TileOffsetExpr tile must have TileType";
+  int64_t elem_bytes = tile_type->dtype_.GetBit() / 8;
+  if (elem_bytes == 0) elem_bytes = 1;
+
+  // Step 4: Emit address arithmetic (same pattern as manual.insert offset)
+  // Cast offset (index) to i64
+  std::string off_i64 = NewTemp();
+  Emit(off_i64 + " = arith.index_cast " + offset_expr + " : index to i64");
+  // elem_bytes constant
+  std::string elem_const = GetOrEmitI64Constant(elem_bytes);
+  // byte_offset = off_i64 * elem_bytes
+  std::string byte_off = NewTemp();
+  Emit(byte_off + " = arith.muli " + off_i64 + ", " + elem_const + " : i64");
+  // new_addr = base_addr + byte_offset
+  std::string new_addr = NewTemp();
+  Emit(new_addr + " = arith.addi " + base_addr + ", " + byte_off + " : i64");
+
+  // Step 5: Allocate temporary tile buffer at new address
+  std::string temp_tile = NewTemp();
+  std::string tile_buf_type = GetTileBufTypeStringFromTileType(tile_type);
+  Emit(temp_tile + " = pto.alloc_tile addr = " + new_addr + " : " + tile_buf_type);
+
+  // Step 6: Register new tile in tile_to_addr_ssa_ for potential nested usage
+  tile_to_addr_ssa_[temp_tile] = new_addr;
+
+  current_expr_value_ = temp_tile;
 }
 
 // ========================================================================
