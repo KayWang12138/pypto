@@ -51,5 +51,16 @@ TupleGetItemExpr::TupleGetItemExpr(ExprPtr tuple, int index, Span span)
   type_ = tuple_type->types_[index];
 }
 
+TileOffsetExpr::TileOffsetExpr(ExprPtr tile, ExprPtr offset, Span span)
+    : Expr(std::move(span)), tile_(std::move(tile)), offset_(std::move(offset)) {
+  // Type checking: tile must have TileType
+  auto tile_type = As<TileType>(tile_->GetType());
+  CHECK(tile_type) << "TileOffsetExpr requires tile to have TileType, got "
+                   << tile_->GetType()->TypeName();
+
+  // Result type is the same TileType as the original tile
+  type_ = tile_type;
+}
+
 }  // namespace ir
 }  // namespace pypto

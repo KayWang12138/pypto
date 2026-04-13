@@ -1028,6 +1028,24 @@ class TupleGetItemExpr(Expr):
     def __repr__(self) -> str:
         """Detailed representation of the tuple access expression."""
 
+class TileOffsetExpr(Expr):
+    """Tile element offset expression: tile[offset]."""
+
+    tile: Final[Expr]
+    """Original tile expression (must have TileType)."""
+
+    offset: Final[Expr]
+    """Element offset (integer expression)."""
+
+    def __init__(self, tile: Expr, offset: Expr, span: Span) -> None:
+        """Create a tile offset expression.
+
+        Args:
+            tile: Original tile (must have TileType)
+            offset: Element offset
+            span: Source location
+        """
+
 class BinaryExpr(Expr):
     """Base class for binary operations."""
 

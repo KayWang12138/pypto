@@ -46,6 +46,7 @@ enum class ObjectKind {
   Call,
   MakeTuple,
   TupleGetItemExpr,
+  TileOffsetExpr,
   ConstInt,
   ConstFloat,
   ConstBool,

@@ -142,6 +142,21 @@ ExprPtr IRMutator::VisitExpr_(const TupleGetItemExprPtr& op) {
   }
 }
 
+ExprPtr IRMutator::VisitExpr_(const TileOffsetExprPtr& op) {
+  INTERNAL_CHECK(op->tile_) << "TileOffsetExpr has null tile";
+  INTERNAL_CHECK(op->offset_) << "TileOffsetExpr has null offset";
+  auto new_tile = ExprFunctor<ExprPtr>::VisitExpr(op->tile_);
+  auto new_offset = ExprFunctor<ExprPtr>::VisitExpr(op->offset_);
+  INTERNAL_CHECK(new_tile) << "TileOffsetExpr tile mutated to null";
+  INTERNAL_CHECK(new_offset) << "TileOffsetExpr offset mutated to null";
+
+  if (new_tile.get() != op->tile_.get() || new_offset.get() != op->offset_.get()) {
+    return std::make_shared<const TileOffsetExpr>(new_tile, new_offset, op->span_);
+  } else {
+    return op;
+  }
+}
+
 // Macro to generate binary operation mutators with copy-on-write
 #define DEFINE_BINARY_MUTATOR(OpType)                                                                       \
   ExprPtr IRMutator::VisitExpr_(const OpType##Ptr& op) {                                                    \

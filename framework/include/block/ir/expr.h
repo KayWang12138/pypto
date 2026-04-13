@@ -517,6 +517,40 @@ class TupleGetItemExpr : public Expr {
 
 using TupleGetItemExprPtr = std::shared_ptr<const TupleGetItemExpr>;
 
+/**
+ * @brief Tile element offset expression: tile[offset]
+ *
+ * Creates a view of a tile starting at element `offset`.
+ * The result has the same TileType as the original tile,
+ * but the physical address is shifted by offset * sizeof(dtype) bytes.
+ */
+class TileOffsetExpr : public Expr {
+ public:
+  ExprPtr tile_;    ///< Original tile expression (must have TileType)
+  ExprPtr offset_;  ///< Element offset (integer expression)
+
+  /**
+   * @brief Create a tile offset expression
+   *
+   * @param tile Original tile (must have TileType)
+   * @param offset Element offset
+   * @param span Source location
+   */
+  TileOffsetExpr(ExprPtr tile, ExprPtr offset, Span span);
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TileOffsetExpr; }
+  [[nodiscard]] std::string TypeName() const override { return "TileOffsetExpr"; }
+
+  static constexpr auto GetFieldDescriptors() {
+    return std::tuple_cat(Expr::GetFieldDescriptors(),
+                          std::make_tuple(
+                            reflection::UsualField(&TileOffsetExpr::tile_, "tile"),
+                            reflection::UsualField(&TileOffsetExpr::offset_, "offset")));
+  }
+};
+
+using TileOffsetExprPtr = std::shared_ptr<const TileOffsetExpr>;
+
 }  // namespace ir
 }  // namespace pypto
 

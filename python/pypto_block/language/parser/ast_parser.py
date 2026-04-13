@@ -4009,6 +4009,9 @@ class ASTParser:
             index_expr = self.parse_expression(subscript.slice)
 
             value_type = value_expr.type
+            # TileType: tile[offset] → TileOffsetExpr (element offset)
+            if isinstance(value_type, ir.TileType):
+                return ir.TileOffsetExpr(value_expr, index_expr, span)
             if not isinstance(value_type, ir.TupleType):
                 raise ParserTypeError(
                     f"Subscript requires tuple type, got {type(value_type).__name__}",
@@ -4054,8 +4057,12 @@ class ASTParser:
                 self._tuple_select_cache[cache_key] = result
             return result
 
-        # Check if value is tuple type (runtime check)
+        # Check if value is tuple type or tile type (runtime check)
         value_type = value_expr.type
+        # TileType with constant index: tile[const] → TileOffsetExpr
+        if isinstance(value_type, ir.TileType):
+            const_offset = ir.ConstInt(index, ir.Span.unknown())
+            return ir.TileOffsetExpr(value_expr, const_offset, span)
         if not isinstance(value_type, ir.TupleType):
             raise ParserTypeError(
                 f"Subscript requires tuple type, got {type(value_type).__name__}",
