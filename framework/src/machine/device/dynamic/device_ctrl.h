@@ -129,6 +129,10 @@ public:
 
     void InitTaskPipeWithSched(DevAscendProgram *devProg)
     {
+        for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) { 
+             GetTaskCtrlInPool(i).retCode = 0; 
+             GetTaskCtrlInPool(i).runFlag = 0; 
+        }
         for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
             GetTaskQueue(i).ResetEmpty();
         }
