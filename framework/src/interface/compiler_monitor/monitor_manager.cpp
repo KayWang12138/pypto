@@ -55,6 +55,7 @@ void MonitorManager::Initialize(bool enable, int interval_sec, int timeout_sec, 
     stage_timeout_flag_["Prepare"] = false;
     stage_timeout_flag_["Pass"] = false;
     stage_timeout_flag_["CodeGen"] = false;
+    stage_timeout_flag_["FuncKernelToBinary"] = false;
     stage_timeout_flag_["Total"] = false;
     python_stage_ended_ = false;
     stage_elapsed_totals_["Prepare"] = 0.0;
@@ -235,7 +236,7 @@ void MonitorManager::PrintCompilationFinished()
         int n = total_function_count_ > 0 ? total_function_count_ : 1;
         std::ostringstream stage_msg;
         for (const auto& [stage, sec] : stage_elapsed_totals_) {
-            if (stage == "Pass" || stage == "CodeGen") {
+            if (stage == "Pass" || stage == "CodeGen" || stage == "FuncKernelToBinary") {
                 stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec << "s"
                           << " ";
             } else {
@@ -372,6 +373,7 @@ void MonitorManager::EndStage(const std::string& name)
         stage_timeout_flag_["Prepare"] = false;
         stage_timeout_flag_["Pass"] = false;
         stage_timeout_flag_["CodeGen"] = false;
+        stage_timeout_flag_["FuncKernelToBinary"] = false;
     }
     impl_->StopMonitoring();
     auto now = std::chrono::steady_clock::now();
@@ -383,7 +385,7 @@ void MonitorManager::EndStage(const std::string& name)
     double total_elapsed = std::chrono::duration<double>(now - total_start_).count();
 
     std::string stage_finish_msg;
-    if (name == "CodeGen") {
+    if (name == "CodeGen" || name == "FuncKernelToBinary") {
         stage_finish_msg = "[Compiler Monitor] Stage: " + name +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed);

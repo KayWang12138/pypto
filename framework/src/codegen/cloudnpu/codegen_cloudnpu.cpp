@@ -24,6 +24,7 @@
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/op_info_manager.h"
 #include "interface/operation/distributed/distributed_common.h"
@@ -607,7 +608,10 @@ int CodeGenCloudNPU::DoCompileCmd(const std::string& compileCmd) const
     ASSERT(CmpCodeErr::CMD_CHECK_FAILED, ret == 0)
         << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
 
-    ret = std::system(compileCmd.c_str());
+    {
+        MonitorStageScope compileCmdScope("FuncKernelToBinary");
+        ret = std::system(compileCmd.c_str());
+    }
     if (ret != 0) {
         CODEGEN_LOGE_E(
             CmpCodeErr::COMPILE_CODE_FAILED, "kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret,
