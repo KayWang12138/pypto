@@ -55,6 +55,7 @@ void MonitorManager::Initialize(bool enable, int interval_sec, int timeout_sec, 
     stage_timeout_flag_["Prepare"] = false;
     stage_timeout_flag_["Pass"] = false;
     stage_timeout_flag_["CodeGen"] = false;
+    stage_timeout_flag_[STAGE_FUNC_TO_BIN] = false;
     stage_timeout_flag_["Total"] = false;
     python_stage_ended_ = false;
     stage_elapsed_totals_["Prepare"] = 0.0;
@@ -154,6 +155,47 @@ void MonitorManager::SetCurrentFunctionIndex(int k)
     (void)setenv("PYPTO_COMPILER_MONITOR_CURRENT", val.c_str(), 1);
 }
 
+void MonitorManager::SetRootFuncCount(int n)
+{
+    if (!enable_) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    root_func_count_ = n;
+    next_root_func_index_ = 1;
+    current_root_func_index_ = 0;
+}
+
+int MonitorManager::PrepareNextRootFunc(const std::string& rootFuncName)
+{
+    if (!enable_) {
+        return 0;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    int k = next_root_func_index_++;
+    current_root_func_index_ = k;
+    current_root_func_ = rootFuncName;
+    return k;
+}
+
+std::string MonitorManager::GetCurrentRootFuncName() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_root_func_;
+}
+
+int MonitorManager::GetRootFuncCount() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return root_func_count_;
+}
+
+int MonitorManager::GetCurrentRootFuncIndex() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_root_func_index_;
+}
+
 void MonitorManager::TryEndPrepareStage()
 {
     if (!impl_ || !enable_) {
@@ -235,7 +277,7 @@ void MonitorManager::PrintCompilationFinished()
         int n = total_function_count_ > 0 ? total_function_count_ : 1;
         std::ostringstream stage_msg;
         for (const auto& [stage, sec] : stage_elapsed_totals_) {
-            if (stage == "Pass" || stage == "CodeGen") {
+            if (stage == "Pass" || stage == "CodeGen" || stage == STAGE_FUNC_TO_BIN) {
                 stage_msg << " " << ("[" + stage + "]:") << std::fixed << std::setprecision(1) << sec << "s"
                           << " ";
             } else {
@@ -362,7 +404,9 @@ void MonitorManager::StartStage(const std::string& name)
     stage_doing_ = true;
 }
 
-void MonitorManager::EndStage(const std::string& name)
+void MonitorManager::EndStage(const std::string& name) { EndStage(name, current_root_func_index_, current_root_func_); }
+
+void MonitorManager::EndStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!initialized_ || !impl_ || !enable_) {
@@ -372,6 +416,7 @@ void MonitorManager::EndStage(const std::string& name)
         stage_timeout_flag_["Prepare"] = false;
         stage_timeout_flag_["Pass"] = false;
         stage_timeout_flag_["CodeGen"] = false;
+        stage_timeout_flag_[STAGE_FUNC_TO_BIN] = false;
     }
     impl_->StopMonitoring();
     auto now = std::chrono::steady_clock::now();
@@ -383,7 +428,12 @@ void MonitorManager::EndStage(const std::string& name)
     double total_elapsed = std::chrono::duration<double>(now - total_start_).count();
 
     std::string stage_finish_msg;
-    if (name == "CodeGen") {
+    if (name == STAGE_FUNC_TO_BIN) {
+        stage_finish_msg = "[Compiler Monitor] RootFunc(parallel): " + std::to_string(rootFuncIndex) + "/" +
+                           std::to_string(root_func_count_) + " | Stage: CodeGen[" + name + "]" +
+                           "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
+                           " | Total elapsed: " + FormatElapsed(total_elapsed) + " | RootFunc:[" + rootFuncName + "]";
+    } else if (name == "CodeGen") {
         stage_finish_msg = "[Compiler Monitor] Stage: " + name +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed);

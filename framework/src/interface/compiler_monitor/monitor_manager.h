@@ -18,6 +18,7 @@
 #include <string>
 
 namespace npu::tile_fwk {
+const std::string STAGE_FUNC_TO_BIN = "FuncToBin";
 
 class MonitorImpl;
 
@@ -30,11 +31,18 @@ public:
 
     void StartStage(const std::string& name);
     void EndStage(const std::string& name);
+    void EndStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName);
     double GetCurrentStageElapsed(const std::string& name);
 
     void SetTotalFunctionCount(int n);
     int GetAndIncrementNextFunctionIndex();
     void SetCurrentFunctionIndex(int k);
+
+    void SetRootFuncCount(int n);
+    int PrepareNextRootFunc(const std::string& rootFuncName);
+    std::string GetCurrentRootFuncName() const;
+    int GetRootFuncCount() const;
+    int GetCurrentRootFuncIndex() const;
 
     void TryEndPrepareStage();
 
@@ -89,6 +97,10 @@ private:
     int total_function_count_{0};
     int current_function_index_{0};
     int next_function_index_{1};
+    int root_func_count_{0};
+    int current_root_func_index_{0};
+    int next_root_func_index_{1};
+    std::string current_root_func_;
     double last_total_elapsed_{0.0};
 };
 
