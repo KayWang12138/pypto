@@ -273,7 +273,17 @@ bool AssignMemoryType::CheckConsumerRequirements(const LogicalTensorPtr &output,
             if (consumerOpAttribute->GetTo() != targetMemType) {
                 return false;
             }
-        } else {        
+        }
+        else if (consumerOp->GetOpcode() == Opcode::OP_VIEW) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "  consumer Op[%d] is VIEW, attrToType=MEM_UNKNOWN, recursively checking output tensor[%d]",
+                consumerOp->GetOpMagic(), consumerOp->GetOOperands().front()->magic);
+            auto viewOut = consumerOp->GetOOperands().front();
+            if (!CheckConsumerRequirements(viewOut, targetMemType)) {
+                return false;
+            }
+        } 
+        else {        
             const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
             if (inputsMemType.empty()) {
                 APASS_LOG_INFO_F(Elements::Operation,
