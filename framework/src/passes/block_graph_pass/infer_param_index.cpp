@@ -40,54 +40,35 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
 
 Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &function)
 {
-    std::vector<SymbolicScalar> validShape;
-    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
-                                           Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
+    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND, Opcode::OP_RESHAPE,
+                                           Opcode::OP_GATHER, Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
                                            Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
-    auto handleCopyOp = [&](const std::vector<std::shared_ptr<LogicalTensor>>& operands, bool isCopyIn) -> bool {
-        auto operand = operands.front();
-        bool isFromCast = false;
-        auto &casts = isCopyIn ? function.inCasts_ : function.outCasts_;
-        auto it = find(casts.begin(), casts.end(), operand);
-        if (it != casts.end()) {
-            isFromCast = true;
-        }
-        if (!isFromCast) {
-            auto shape = OpImmediate::Specified(operand->GetShape());
-            validShape = OpImmediate::ToSpecified(shape);
-            std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
-            attr->SetShape(shape);
-            operand->UpdateDynValidShape(validShape);
-            return true;
-        }
-        return false;
-    };
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-            if (handleCopyOp(op.GetIOperands(), true)) {
-                return SUCCESS;
-            }
-        }
-        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-            if (handleCopyOp(op.GetOOperands(), false)) {
+        bool isCopyIn = (op.GetOpcode() == Opcode::OP_COPY_IN);
+        bool isCopyOut = (op.GetOpcode() == Opcode::OP_COPY_OUT);
+        if (isCopyIn || isCopyOut) {
+            auto operands = isCopyIn ? op.GetIOperands() : op.GetOOperands();
+            auto &casts = isCopyIn ? function.inCasts_ : function.outCasts_;
+            auto operand = operands.front();
+            if (find(casts.begin(), casts.end(), operand) == casts.end()) {
+                auto shape = OpImmediate::Specified(operand->GetShape());
+                auto validShape = OpImmediate::ToSpecified(shape);
+                std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute())->SetShape(shape);
+                operand->UpdateDynValidShape(validShape);
                 return SUCCESS;
             }
         }
     }
     for (auto outOperand : op.GetOOperands()) {
         if (op.GetOpcode() == Opcode::OP_INDEX_ADD &&
-            !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
-            continue;
-        }
+            !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) continue;
+        std::vector<SymbolicScalar> validShape;
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
             for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
-                validShape.push_back(
-                    SymbolicScalar("sym_" + std::to_string(outOperand->GetMagic()) + "_dim_" + std::to_string(dimIdx)));
+                validShape.emplace_back("sym_" + std::to_string(outOperand->GetMagic()) + "_dim_" + std::to_string(dimIdx));
             }
         }
-        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) { // Assemble的oOperand保持validShape不变
-            outOperand->UpdateDynValidShape(validShape);
-        }
+        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) outOperand->UpdateDynValidShape(validShape);
     }
     return SUCCESS;
 }
