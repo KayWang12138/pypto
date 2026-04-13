@@ -818,7 +818,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestMutiConsumersBetweenCopyOutReshape)
 // in - COPYIN - COPYOUT - RESHAPE - COPYIN - COPYOUT - out
 //                                 - COPYIN - COPYOUT - out
 
-// 因为搬运超过了UB限额，需要中断报错
+// 搬运超过了UB限额，不进行修改
 TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1OverUB)
 {
     auto currFunctionPtr =
