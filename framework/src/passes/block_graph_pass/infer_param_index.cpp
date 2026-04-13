@@ -38,25 +38,31 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
     return ss.str();
 }
 
+bool InferParamIndex::HandleCopyOpShape(const Operation& op, Function &function, bool &isCopyIn)
+{
+    auto operands = isCopyIn ? op.GetIOperands() : op.GetOOperands();
+    auto &casts = isCopyIn ? function.inCasts_ : function.outCasts_;
+    auto operand = operands.front();
+    if (find(casts.begin(), casts.end(), operand) == casts.end()) {
+        auto shape = OpImmediate::Specified(operand->GetShape());
+        auto validShape = OpImmediate::ToSpecified(shape);
+        std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute())->SetShape(shape);
+        operand->UpdateDynValidShape(validShape);
+        return true;
+    }
+    return false;
+}
+
 Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &function)
 {
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND, Opcode::OP_RESHAPE,
                                            Opcode::OP_GATHER, Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
                                            Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        bool isCopyIn = (op.GetOpcode() == Opcode::OP_COPY_IN);
-        bool isCopyOut = (op.GetOpcode() == Opcode::OP_COPY_OUT);
-        if (isCopyIn || isCopyOut) {
-            auto operands = isCopyIn ? op.GetIOperands() : op.GetOOperands();
-            auto &casts = isCopyIn ? function.inCasts_ : function.outCasts_;
-            auto operand = operands.front();
-            if (find(casts.begin(), casts.end(), operand) == casts.end()) {
-                auto shape = OpImmediate::Specified(operand->GetShape());
-                auto validShape = OpImmediate::ToSpecified(shape);
-                std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute())->SetShape(shape);
-                operand->UpdateDynValidShape(validShape);
-                return SUCCESS;
-            }
+    bool isCopyIn = (op.GetOpcode() == Opcode::OP_COPY_IN);
+    bool isCopyOut = (op.GetOpcode() == Opcode::OP_COPY_OUT);
+    if ((isCopyIn || isCopyOut) && Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        if (HandleCopyOpShape(op, function, isCopyIn)) {
+            return SUCCESS;
         }
     }
     for (auto outOperand : op.GetOOperands()) {

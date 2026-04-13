@@ -169,12 +169,12 @@ TEST_F(GetParamIdxTest, TestAddExp)
     EXPECT_TRUE(true);
 }
 
-TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyInNotFromInCast)
+TEST_F(GetParamIdxTest, TestHandleCopyOpShape_CopyInNotFromInCast)
 {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestCopyInNotFromInCast", "TestCopyInNotFromInCast", rootFuncPtr.get());
+        std::make_shared<Function>(Program::GetInstance(), "TestHandleCopyOpShape", "TestHandleCopyOpShape", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -194,7 +194,9 @@ TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyInNotFromInCast)
     copy_op.SetOpAttribute(copyinAttr);
 
     InferParamIndex getParamIndexTest;
-    getParamIndexTest.RunOnFunction(*rootFuncPtr);
+    bool isCopyIn = true;
+    bool result = getParamIndexTest.HandleCopyOpShape(copy_op, *currFunctionPtr, isCopyIn);
+    EXPECT_TRUE(result);
     
     auto updatedAttr = std::static_pointer_cast<CopyOpAttribute>(copy_op.GetOpAttribute());
     auto updatedShape = updatedAttr->GetShape();
@@ -206,12 +208,44 @@ TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyInNotFromInCast)
     EXPECT_TRUE(!(updatedDynValidShape[1].ConcreteValid()));
 }
 
-TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyOutNotFromOutCast)
+TEST_F(GetParamIdxTest, TestHandleCopyOpShape_CopyInFromInCast)
 {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestCopyOutNotFromOutCast", "TestCopyOutNotFromOutCast", rootFuncPtr.get());
+        std::make_shared<Function>(Program::GetInstance(), "TestHandleCopyOpShapeInCast", "TestHandleCopyOpShapeInCast", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    incast1->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
+    
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->UpdateDynValidShape({SymbolicScalar("Z0"), SymbolicScalar("Z1")});
+
+    auto& copy_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast1}, {ubTensor1});
+    std::vector<npu::tile_fwk::OpImmediate> fromOffset = {OpImmediate::Parameter(1), OpImmediate::Parameter(2)};
+    auto copyinAttr = std::make_shared<CopyOpAttribute>(fromOffset, MEM_UB, shapeImme, shapeImme);
+    copy_op.SetIOpAttrOffset(0, 0);
+    copy_op.SetOpAttribute(copyinAttr);
+
+    currFunctionPtr->inCasts_.push_back(incast1);
+
+    InferParamIndex getParamIndexTest;
+    bool isCopyIn = true;
+    bool result = getParamIndexTest.HandleCopyOpShape(copy_op, *currFunctionPtr, isCopyIn);
+    EXPECT_FALSE(result);
+}
+
+TEST_F(GetParamIdxTest, TestHandleCopyOpShape_CopyOutNotFromOutCast)
+{
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestHandleCopyOpShapeOutCast", "TestHandleCopyOpShapeOutCast", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
 
@@ -230,7 +264,9 @@ TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyOutNotFromOutCast)
     copy_op.SetOpAttribute(copyoutAttr);
 
     InferParamIndex getParamIndexTest;
-    getParamIndexTest.RunOnFunction(*rootFuncPtr);
+    bool isCopyIn = false;
+    bool result = getParamIndexTest.HandleCopyOpShape(copy_op, *currFunctionPtr, isCopyIn);
+    EXPECT_TRUE(result);
     
     auto updatedAttr = std::static_pointer_cast<CopyOpAttribute>(copy_op.GetOpAttribute());
     auto updatedShape = updatedAttr->GetShape();
@@ -240,4 +276,35 @@ TEST_F(GetParamIdxTest, TestResetOutputDynValidShape_CopyOutNotFromOutCast)
     EXPECT_EQ(updatedDynValidShape.size(), 2);
     EXPECT_TRUE(updatedDynValidShape[0].ConcreteValid());
     EXPECT_TRUE(updatedDynValidShape[1].ConcreteValid());
+}
+
+TEST_F(GetParamIdxTest, TestHandleCopyOpShape_CopyOutFromOutCast)
+{
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestParams", "TestParams", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestHandleCopyOpShapeOutCastFrom", "TestHandleCopyOpShapeOutCastFrom", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+
+    std::vector<int64_t> shape = {8, 16};
+    auto shapeImme = OpImmediate::Specified(shape);
+    
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    ubTensor1->UpdateDynValidShape({SymbolicScalar("S0"), SymbolicScalar("S1")});
+    
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    outCast->UpdateDynValidShape({SymbolicScalar("Z0"), SymbolicScalar("Z1")});
+
+    auto& copy_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {ubTensor1}, {outCast});
+    auto copyoutAttr = std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({0, 0}), shapeImme, shapeImme);
+    copy_op.SetOOpAttrOffset(0, 0);
+    copy_op.SetOpAttribute(copyoutAttr);
+
+    currFunctionPtr->outCasts_.push_back(outCast);
+
+    InferParamIndex getParamIndexTest;
+    bool isCopyIn = false;
+    bool result = getParamIndexTest.HandleCopyOpShape(copy_op, *currFunctionPtr, isCopyIn);
+    EXPECT_FALSE(result);
 }
