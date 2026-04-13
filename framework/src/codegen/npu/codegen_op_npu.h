@@ -173,7 +173,7 @@ public:
     std::string QueryTileTensorTypeByIdx(int paramIdx) const;
 
 protected:
-    TileTensor QueryTileTensorByIdx(int paramIdx) const;
+    virtual TileTensor QueryTileTensorByIdx(int paramIdx) const;
     std::string InsertOpComment(std::string& tileOpSourceCode) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
@@ -253,8 +253,8 @@ protected:
 
     std::string GetLastUse() const;
 
-    TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
-    void UpdateTileTensorShapeAndStride(
+    virtual TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
+    virtual void UpdateTileTensorShapeAndStride(
         int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop = {});
     std::vector<std::string> BuildStride(const std::vector<int64_t>& input);
 
@@ -276,7 +276,7 @@ protected:
     // get start offset in total block
     SymbolicScalar GetOperandStartOffset(int operandIdx) const;
 
-    std::string GenGmParamVar(unsigned gmParamIdx) const;
+    virtual std::string GenGmParamVar(unsigned gmParamIdx) const;
 
     std::vector<std::string> GenGetParamMacroPacked(unsigned gmParamIdx, int dim, const std::string& prefix) const;
 

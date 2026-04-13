@@ -22,6 +22,13 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpNPUCtx& ctx) : CodeGenOpNPU(ctx) {}
+CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpNPUCtx& ctx) : CodeGenOpNPU(ctx)
+{
+    InitOpsGenMap();
+    forBlkMgr_ = ctx.forBlockManager;
+    CodeGenOp::Init(ctx.operation);
+    UpdateTileTensorInfo();
+    UpdateLoopInfo();
+}
 
 } // namespace npu::tile_fwk

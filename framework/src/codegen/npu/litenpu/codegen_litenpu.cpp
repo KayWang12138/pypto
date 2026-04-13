@@ -106,7 +106,7 @@ void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostr
 
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
         floatSpecValMgr.UpdateByOp(op);
-       CodeGenOpNPU cop(
+        CodeGenOpLiteNPU cop(
             {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
