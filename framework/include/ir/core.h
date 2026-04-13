@@ -82,9 +82,11 @@ enum class ObjectKind {
     YieldStmt,
     ReturnStmt,
     ForStmt,
+    WhileStmt,
     SeqStmts,
-    OpStmts,
     EvalStmt,
+    BreakStmt,
+    ContinueStmt,
 
     // Type kinds
     UnknownType,

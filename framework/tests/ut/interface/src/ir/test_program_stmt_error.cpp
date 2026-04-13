@@ -220,41 +220,6 @@ TEST(ExprTest, TupleGetItemSecondElement)
 }
 
 // ============================================================================
-// Stmt Tests (stmt.cpp)
-// ============================================================================
-
-TEST(StmtTest, OpStmtsWithAssignAndEval)
-{
-    auto span = TestSpan();
-    auto x = std::make_shared<Var>("x", Int32Type(), span);
-    auto one = std::make_shared<ConstInt>(1, DataType::INT32, span);
-    auto assign = std::make_shared<AssignStmt>(x, one, span);
-    auto eval = std::make_shared<EvalStmt>(one, span);
-
-    auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{assign, eval}, span);
-    ASSERT_NE(opStmts, nullptr);
-    ASSERT_EQ(opStmts->stmts_.size(), 2u);
-    ASSERT_EQ(opStmts->GetKind(), ObjectKind::OpStmts);
-    ASSERT_EQ(opStmts->TypeName(), "OpStmts");
-}
-
-TEST(StmtTest, OpStmtsRejectsInvalidStmt)
-{
-    auto span = TestSpan();
-    auto ret = std::make_shared<ReturnStmt>(span);
-    // ReturnStmt is not AssignStmt or EvalStmt, should throw
-    ASSERT_THROW(std::make_shared<OpStmts>(std::vector<StmtPtr>{ret}, span), InternalError);
-}
-
-TEST(StmtTest, OpStmtsEmpty)
-{
-    auto span = TestSpan();
-    auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{}, span);
-    ASSERT_NE(opStmts, nullptr);
-    ASSERT_TRUE(opStmts->stmts_.empty());
-}
-
-// ============================================================================
 // Error Tests (error.cpp)
 // ============================================================================
 
