@@ -3561,6 +3561,8 @@ class ASTParser:
         "col_expand_mul",
         "col_expand_div",
         "col_expand_sub",
+        "col_max",
+        "col_sum",
         "expands",
         "matmul_bias",
         "gemv",

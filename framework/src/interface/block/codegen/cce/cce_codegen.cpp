@@ -2368,8 +2368,8 @@ void CCECodegen::GenerateTileTypeDeclaration(const std::string& var_name, const 
     int64_t addr =
         ExtractConstInt((*tile_type->memref_)->addr_);  // NOLINT(bugprone-unchecked-optional-access)
     std::string addr_str = FormatAddressHex(addr);
-    emitter_.EmitLine(type_alias_name + " " + var_name + "(" +
-                      ctor_args + "); TASSIGN(" +
+    emitter_.EmitLine(type_alias_name + " " + var_name + 
+                      "; TASSIGN(" +
                       var_name + ", " + addr_str + ");");
     tile_addresses_[var_name] = addr_str;
   } else {

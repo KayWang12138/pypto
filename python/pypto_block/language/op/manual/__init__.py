@@ -100,6 +100,8 @@ from .op.manual_ops import (
     row_max,
     row_min,
     row_sum,
+    col_max,
+    col_sum,
     rsqrt,
     sel,
     sels,
@@ -182,7 +184,7 @@ __all__ = [
     #gather
     "gather", "gatherb",
     # Reduction
-    "row_max", "row_sum", "row_min",
+    "row_max", "row_sum", "row_min", "col_max", "col_sum",
     # Sorting
     "sort32", "mrgsort",
     # Broadcast
