@@ -348,40 +348,6 @@ void CodeGenLiteNPU::GenConfigJson(
     file << "]\n}";
 }
 
-// void CodeGenLiteNPU::GenCode(
-//     Function &topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-//     std::deque<std::function<void(void)>> tasks;
-//     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
-//         std::function task = [this, subFuncPair, &topFunc]() {
-//             CODEGEN_LOGI(" ----- subprogram id [%lu] -----", subFuncPair.first);
-//             auto subFunc = subFuncPair.second;
-//             if (HandleForAICpuSubFunc(*subFunc)) {
-//                 return;
-//             }
-//             std::vector<std::string> inOutParams = GetInOutParams(subFuncPair);
-//             bool isCube = subFunc->IsCube();
-//             CompileInfo_LiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
-//             std::ostringstream leafKernelFunc;
-//             GenFuncBody(*subFunc, topFunc, leafKernelFunc);
-//             std::string funcCode = GenFuncGlobalCodeAfterReplace(topFunc, subFuncPair, leafKernelFunc.str());
-// #ifdef BUILD_WITH_CANN
-//             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
-//                 DumpCCE(compileInfo.GetCCEAbsPath(), funcCode);
-//                 DoCompileCCE(compileInfo, ""); // TODO: currently has issue
-//                 int blockDim = 1; // TODO: currently only support one block dim
-//                 int jsonWorkspaceSize = 0; // TODO...
-//                 GenConfigJson(compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
-//                     topFunc.GetMagicName(), jsonWorkspaceSize, inOutParams, blockDim);
-//             }
-// #endif
-//             UpdateSubFunc(subFuncPair, compileInfo);
-//         };
-//         tasks.push_back(task);
-//     }
-//     unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
-//     ParallelExecuteAndWait(threadNum, tasks);
-// }
-
 void CodeGenLiteNPU::GenCode(
     Function& topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset)
 {
@@ -400,7 +366,7 @@ void CodeGenLiteNPU::GenCode(
                 return;
             }
             bool isCube = subFunc->IsCube();
-            CompileInfo_LiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
+            CompileInfoLiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
             GenFuncBody(*subFunc, topFunc, leafKernelFunc);
             std::string funcCode = GenFuncGlobalCodeAfterReplace(topFunc, subFuncPair, leafKernelFunc.str());
@@ -436,7 +402,7 @@ void CodeGenLiteNPU::GenCode(
 }
 
 void CodeGenLiteNPU::UpdateSubFunc(
-    std::pair<uint64_t, Function*> subFuncPair, const CompileInfo_LiteNPU& compileInfo) const
+    std::pair<uint64_t, Function*> subFuncPair, const CompileInfoLiteNPU& compileInfo) const
 {
     auto subFunc = subFuncPair.second;
     std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
@@ -564,7 +530,7 @@ int CodeGenLiteNPU::CheckInjectStr(const char cmdStr[], size_t strLen) const
     return 0;
 }
 
-void CodeGenLiteNPU::DoCompileCCE(const CompileInfo_LiteNPU& compileInfo, const std::string& compileOptions) const
+void CodeGenLiteNPU::DoCompileCCE(const CompileInfoLiteNPU& compileInfo, const std::string& compileOptions) const
 {
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
         CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
@@ -688,7 +654,7 @@ void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream& oss, const std::strin
 }
 
 std::pair<int, std::string> CodeGenLiteNPU::CompileCCE(
-    const CompileInfo_LiteNPU& compileInfo, const std::string& compileOptions) const
+    const CompileInfoLiteNPU& compileInfo, const std::string& compileOptions) const
 {
     std::ostringstream oss;
     oss << "bisheng -c -O3 -g -x cce -std=c++17 -w ";
