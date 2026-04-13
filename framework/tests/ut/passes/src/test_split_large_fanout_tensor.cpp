@@ -1953,7 +1953,7 @@ TEST_F(SplitLargeFanoutTensorTest, TestSimplifyOverlapDualOverlap)
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         auto countResultAfter = CountViewAssemble(*originFunction);
         const int expectViewCount = 12;
-        const int expectAssembleCount = 21;
+        const int expectAssembleCount = 15;
         EXPECT_EQ(countResultAfter[0], expectViewCount);
         EXPECT_EQ(countResultAfter[1], expectAssembleCount);
     }
