@@ -394,7 +394,8 @@ class CCECodegen : public CodegenBase {
 
   // Loop tile hoisting: declarations collected during loop body visit, emitted before outermost loop
   int loop_depth_ = 0;                        ///< Current for-loop nesting depth (0 = not in loop)
-  std::vector<std::string> loop_hoisted_decls_;  ///< Lines to hoist before outermost loop
+  int if_depth_ = 0;                          ///< Current if-stmt nesting depth (0 = not in if)
+  std::vector<std::string> loop_hoisted_decls_;  ///< Lines to hoist before outermost loop/if
 
   // EventId array deduplication: maps (val0, val1) → EventId variable name (2-way)
   std::map<std::pair<int64_t, int64_t>, std::string> event_id_decls_;
