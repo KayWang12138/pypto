@@ -46,33 +46,30 @@ class TensorAnnotation:
 class Tensor:
 
     def __init__(self, shape=None, dtype: Union[DataType, None] = None,
-                 name: str = "", format=None,
-                 data_ptr: Optional[int] = None, device=None, ori_shape=None):
-        self.ori_shape = None
+            name: str = "", format=None,
+            data_ptr: Optional[int] = None, device=None, ori_shape=None):
+        self.ori_shape = ori_shape
         self.status_shape = None
-        self.status_dtype = dtype
-        ndtype = dtype if dtype is not None else pypto.DT_FP32
-        # format显式配置标记
-        self.explicit_format = format is not None
-        #format没有显式传递用默认值
-        if not self.explicit_format:
-            format = TileOpFormat.TILEOP_ND
+        # Mark explicit dtype and format configuration
+        self.explicit_dtype = dtype
+        self.explicit_format = format
+        # Use default value if format is not explicitly passed
+        ndtype = dtype or pypto.DT_FP32
+        nformat = format or TileOpFormat.TILEOP_ND
+
+        # Normalize shape
         if shape is None:
             nshape = []
-            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
-        elif shape and all([isinstance(s, int) for s in shape]):
-            nshape = typing.cast(List[int], shape)
-            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
-            self.ori_shape = ori_shape
+        elif shape and all(isinstance(s, int) for s in shape):
+            nshape = list(shape)
         elif isinstance(shape, list) and self._validate_status_shape(shape):
             nshape = []
             self.status_shape = shape
-            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
         else:
-            sym_shape = to_syms(shape)
-            assert isinstance(
-                sym_shape, list), "shape must be a list of int or SymbolicScalar"
-            self._base = pypto_impl.Tensor(ndtype, sym_shape, name, format)
+            nshape = to_syms(shape)
+            assert isinstance(nshape, list), "shape must be a list of int or SymbolicScalar"
+
+        self._base = pypto_impl.Tensor(ndtype, nshape, name, nformat)
         self.data_ptr = data_ptr
         self.device = device
 
@@ -215,6 +212,9 @@ class Tensor:
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
 
+    def __iter__(self):
+        raise TypeError("Tensor is not iterable.")
+
     @source_location
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
@@ -297,7 +297,6 @@ class Tensor:
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
-            assert self._base.dtype == DataType.DT_INT32, "tensor dtype must be DT_INT32."
             return SymbolicScalar.from_base(pypto_impl.GetTensorData(self._base, to_syms(key)))
 
         if all(isinstance(k, slice) for k in key):
@@ -632,8 +631,9 @@ class Tensor:
         return pypto.prelu(self, weight)
 
     @source_location
-    def div(self, other: 'Tensor | int | float') -> 'Tensor':
-        return pypto.div(self, other)
+    def div(self, other: 'Tensor | int | float',
+            precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> 'Tensor':
+        return pypto.div(self, other, precision_type)
 
     @source_location
     def fmod(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -842,6 +842,10 @@ class Tensor:
     @source_location
     def relu(self) -> 'Tensor':
         return pypto.relu(self)
+
+    @source_location
+    def permute(self, perm: List[int]) -> 'Tensor':
+        return pypto.permute(self, perm)
 
     @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':

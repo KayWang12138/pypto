@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -47,8 +48,6 @@ sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor:
 1. TileShape大小不超过 64KB；
 
 2. 尾轴要 32bytes 对齐；
-
-3. TileShape次尾轴要小于等于255，即 TileShape\[-2\]<=255.
 
 ## 调用示例
 

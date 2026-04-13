@@ -59,7 +59,7 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 
     | 软件包                 | 版本      |
     |:--------------------|:--------|
-    | JSON for Modern C++ | v3.11.3 |                     |
+    | JSON for Modern C++ | v3.11.3 |
     | libboundscheck      | v1.1.16 |
 
     手工准备第三方开源源码包的方法:
@@ -166,8 +166,8 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
 
     > 方法一：安装CANN pto-isa包
     > 根据实际环境下载对应的安装包，下载链接如下(如果浏览器不支持自动下载，请选择右键，"链接另存为...")：
-    > - x86：[cann-pto-isa_8.5.0_linux-x86_64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_x86/cann-pto-isa_linux-x86_64.run)
-    > - aarch64：[cann-pto-isa_8.5.0_linux-aarch64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_aarch64/cann-pto-isa_linux-aarch64.run)
+    > - x86：[cann-pto-isa_linux-x86_64.run](https://ascend-ci.obs.cn-north-4.myhuaweicloud.com/pto-isa/daily/cann-pto-isa_linux-x86_64.run)
+    > - aarch64：[cann-pto-isa_linux-aarch64.run](https://ascend-ci.obs.cn-north-4.myhuaweicloud.com/pto-isa/daily/cann-pto-isa_linux-aarch64.run)
 
     > ```bash
     > # 安装命令

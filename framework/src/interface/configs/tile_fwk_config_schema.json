@@ -218,15 +218,6 @@
                     "minimum": 0,
                     "maximum": 100000000
                 },
-                "stitch_function_size": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "运行时ctrlflow aicpu里控制devicetask处理最大Callop计算量",
-                        "en": "control the maximum CallOp workload that a single device task can process in ctrlflow aicpu"
-                    },
-                    "minimum": 1,
-                    "maximum": 65535
-                },
                 "run_mode": {
                     "type": "integer",
                     "label": {
@@ -434,7 +425,7 @@
                         "en": "Set debug mode during execution stage. 0: disabled; 1: enabled, one-click to enable execution-related configs (e.g. swimlane graph)."
                     },
                     "minimum": 0,
-                    "maximum": 3
+                    "maximum": 1
                 }
             }
         },

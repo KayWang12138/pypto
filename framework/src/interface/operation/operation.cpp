@@ -87,6 +87,8 @@ const std::string OpAttributeKey::scaleValue = "op_attr_scale_value";
 const std::string OpAttributeKey::rowPad = "op_attr_row_pad";
 const std::string OpAttributeKey::ownerRank = "owner_rank";
 const std::string OpAttributeKey::maxTileNum = "max_tile_num";
+const std::string OpAttributeKey::precisionType = "precision_type";
+const std::string OpAttributeKey::perm = "perm";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -180,7 +182,7 @@ Operation::Operation(
         }
     }
 
-    if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
+    if (function_->IsGraphType(GraphType::TENSOR_GRAPH)) {
         tileShape_ = TileShape::Current();
         if (coreType_ == CoreType::AIC) {
             auto& cubeTile = tileShape_.GetCubeTile();
@@ -194,6 +196,9 @@ Operation::Operation(
             FUNCTION_ASSERT(FError::INVALID_VAL, vecTile.valid())
                 << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
         }
+    }
+
+    if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         SetSemanticLabel(config::GetSemanticLabel());
         location_ = SourceLocation::GetLocation();
     }

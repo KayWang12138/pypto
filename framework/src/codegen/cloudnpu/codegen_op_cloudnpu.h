@@ -128,6 +128,7 @@ public:
     std::string PrintGatherDynamicUnaligned() const;
     std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
+    std::string GenPermuteOp() const;
     std::string GenGatherFromUBOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
@@ -174,7 +175,7 @@ public:
 
 private:
     TileTensor QueryTileTensorByIdx(int paramIdx) const;
-    std::string InsertOpComment(const std::string& tileOpSourceCode) const;
+    std::string InsertOpComment(std::string& tileOpSourceCode) const;
 
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForPutUb2Gm() const;
@@ -200,6 +201,7 @@ private:
     std::string GenOffsetsAndRawShapesDefault() const;
     std::string GenTargetRankStr() const;
 
+    void AddDivPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
@@ -210,7 +212,7 @@ private:
     std::vector<T> GetShapeInLoop(const std::vector<T>& input)
     {
         ASSERT(OperErr::TENSOR_DIM_EXCEEDED, input.size() > SHAPE_DIM2)
-            << "input size " << input.size() << " is less than 2";
+            << "input size " << input.size() << " should be greater than 2";
         std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }
@@ -316,6 +318,7 @@ private:
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintPermuteLayout() const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;

@@ -83,6 +83,8 @@ enum class Opcode {
     OP_TRANSPOSE_MOVEOUT,
     OP_TRANSPOSE_VNCHWCONV,
     OP_ABS,
+    OP_PERMUTE,
+    OP_PERMUTE_ELEMENT,
     OP_LN,
     OP_ISFINITE,
     OP_HUB,
@@ -1002,5 +1004,5 @@ inline bool IsOpCodeSupportMultiProducers(Opcode opCode)
 extern std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS;
 extern std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS;
 extern std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN;
-extern std::unordered_set<Opcode> SUPPORT_BRCINLINE;
+extern std::unordered_set<Opcode> SUPPORT_BRC_INLINE;
 } // namespace npu::tile_fwk

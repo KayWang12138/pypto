@@ -1176,7 +1176,6 @@ void GenerateJsonForSemanticLabels(Function& function)
 {
     json semanticJson;
     std::ofstream graph_tiles(config::LogTopFolder() + "/semantic_labels_tiles.json");
-    int operIdx = 0;
 
     if (graph_tiles.is_open()) {
         for (auto& op : function.Operations()) {
@@ -1201,7 +1200,6 @@ void GenerateJsonForSemanticLabels(Function& function)
                 }
                 semanticJson[sem_label]["operation"] = op.GetOpcodeStr();
             }
-            operIdx += 1;
         }
         graph_tiles << semanticJson.dump(4) << std::endl;
     }

@@ -148,7 +148,7 @@ def prolog_quant(x: pypto.Tensor):
 
     scale_quant = temp448 / max_value
     out_fp32 = input_fp32 * scale_quant
-    out_fp8 = pypto.cast(out_fp32, pypto.DT_FP8E4M3)
+    out_fp8 = pypto.cast(out_fp32, pypto.DT_FP8E4M3, satmode=pypto.SaturationMode.ON)
     temp1 = pypto.full(scale_quant.shape, fp8_one_value, pypto.DT_FP32)
     scale_dequant = temp1 / scale_quant
     return (out_fp8, scale_dequant)
@@ -262,9 +262,9 @@ def lightning_indexer_prolog_quant(
     k_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT64, format=pypto.TileOpFormat.TILEOP_ND),
     k_scale_cache_index_in: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
         pypto.DT_INT64, format=pypto.TileOpFormat.TILEOP_ND),
-    q_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC],
+    q_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
         pypto.DT_FP8E4M3, format=pypto.TileOpFormat.TILEOP_ND),
-    q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC],
+    q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC],
         pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
     k_quant_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC],
         pypto.DT_FP8E4M3, format=pypto.TileOpFormat.TILEOP_ND),

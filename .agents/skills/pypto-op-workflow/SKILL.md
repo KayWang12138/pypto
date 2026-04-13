@@ -1,26 +1,25 @@
 ---
 name: pypto-op-workflow
-description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。
-tag: [PyPTO, 算子开发]
+description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。Triggers: 开发算子、算子开发流程、全流程开发、算子开发工作流、operator workflow。"
 ---
 
 # PyPTO 算子开发工作流程
 
-本技能提供 PyPTO 算子开发的完整工作流程指导。正式端到端开发优先使用 `pypto-op-orchestrator`；本 Skill 适合手动串联相关 Skills。
+本技能提供 PyPTO 算子开发的完整工作流程指导，适合手动串联相关 Skills 完成端到端开发。
 
 ## 适用边界
 
 ### 本 Skill 负责什么
 
 - 识别完整开发任务需要经过哪些阶段。
-- 指导用户或上层 Agent 以正确顺序调用相关 Skills。
+- 指导以正确顺序调用相关 Skills。
 - 强调工件依赖关系与推荐执行顺序。
 
 ### 本 Skill 不负责什么
 
-- 不维护 `.orchestrator_state.json`。
-- 不定义全局重试策略、恢复入口或 BLOCKED / SUCCESS 结束态。
-- 不替代 `pypto-op-develop`、`pypto-precision-debugger`、`pypto-op-perf-autotuner` 等阶段型 Skills 的细节职责。
+- 不维护外部状态文件。
+- 不定义全局重试策略、恢复入口或结束态。
+- 不替代 `pypto-op-develop`、`pypto-precision-debug`、`pypto-op-perf-tune` 等阶段型 Skills 的细节职责。
 
 ## 核心原则
 
@@ -39,59 +38,59 @@ tag: [PyPTO, 算子开发]
    - 不要轻易下结论
 
 4. **先确认工件，再进入下游阶段**
-   - `spec.md` 不完整，不进入 API 探索。
-   - `api_report.md` 不完整，不进入 Golden / 设计阶段。
-   - `design.md` 不完整，不进入代码实现。
+   - `SPEC.md` 不完整，不进入 API 探索。
+   - `API_REPORT.md` 不完整，不进入 Golden / 设计阶段。
+   - `DESIGN.md` 不完整，不进入代码实现。
 
 5. **实现、精度修复、性能调优职责分离**
    - `pypto-op-develop` 只负责代码实现与测试入口生成。
-   - `pypto-precision-debugger` 只负责精度问题定位与修复。
-   - `pypto-op-perf-autotuner` 只在精度通过后进入。
+   - `pypto-precision-debug` 只负责精度问题定位与修复。
+   - `pypto-op-perf-tune` 只在精度通过后进入。
 
 ## 执行流程总览
 
 ```
-┌─────────────┐
-│  Stage 1    │
-│  需求理解    │──→ spec.md
-└──────┬──────┘
-       │ spec.md 完整
-       ▼
-┌─────────────┐
-│  Stage 2    │
-│  API 探索   │──→ api_report.md
-└──────┬──────┘
-       │ api_report.md 完整
-       ▼
-┌─────────────┐
-│  Stage 3    │
-│  Golden 生成 │──→ {op}_golden.py
-└──────┬──────┘
-       │ golden 可运行
-       ▼
-┌─────────────┐
-│  Stage 4    │
-│  设计方案    │──→ design.md
-└──────┬──────┘
-       │ design.md 完整
-       ▼
-┌─────────────┐     ┌──────────────────────────────┐
-│  Stage 5    │     │ 首跑三态判定:                  │
-│  代码实现    │──→  │  [PRECISION_PASS] → Stage 7   │
-└──────┬──────┘     │  [PRECISION_FAIL] → Stage 6   │
-       │            │  运行失败 → Stage 5 内重试      │
-       │            └──────────────────────────────┘
-       ▼
-┌─────────────┐
-│  Stage 6    │ ← 仅在精度失败时进入
-│  精度修复    │──→ 修复后重新验证
-└──────┬──────┘
-       │ [PRECISION_PASS]
-       ▼
-┌─────────────┐
-│  Stage 7    │
-│  性能调优    │──→ 性能分析 → 迭代调优
-└─────────────┘
+┌───────────────┐
+│  Stage 1      │
+│  需求理解     │──→ SPEC.md
+└───────┬───────┘
+        │ SPEC.md 完整
+        ▼
+┌───────────────┐
+│  Stage 2      │
+│  API 探索     │──→ API_REPORT.md
+└───────┬───────┘
+        │ API_REPORT.md 完整
+        ▼
+┌───────────────┐
+│  Stage 3      │
+│  Golden 生成  │──→ {op}_golden.py
+└───────┬───────┘
+        │ golden 可运行
+        ▼
+┌───────────────┐
+│  Stage 4      │
+│  设计方案     │──→ DESIGN.md
+└───────┬───────┘
+        │ DESIGN.md 完整
+        ▼
+┌───────────────┐     ┌────────────────────────────────────┐
+│  Stage 5      │     │ 首跑三态判定:                      │
+│  代码实现     │──→  │  [PRECISION_PASS] → Stage 7        │
+└───────┬───────┘     │  [PRECISION_FAIL] → Stage 6        │
+        │             │  运行失败 → Stage 5 内重试         │
+        │             └────────────────────────────────────┘
+        ▼
+┌───────────────┐
+│  Stage 6      │ ← 仅在精度失败时进入
+│  精度修复     │──→ 修复后重新验证
+└───────┬───────┘
+        │ [PRECISION_PASS]
+        ▼
+┌───────────────┐
+│  Stage 7      │
+│  性能调优     │──→ 性能分析 → 迭代调优
+└───────────────┘
 ```
 
 ---
@@ -102,11 +101,11 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-intent-understanding` |
+| **Skill** | `pypto-intent-understand` |
 | **输入** | 用户自然语言描述（算子名称、数学公式、参考链接、代码片段等） |
 | **核心动作** | 解析输入 → 分类（标准参考 / 外部材料 / 自定义 / 直接规格）→ 提取并确认规格 → 生成结构化文档 |
-| **输出工件** | `spec.md`（含算子名、公式、输入输出规格、精度要求、典型配置） |
-| **完成标准** | `spec.md` 包含算子名称、数学公式、输入输出规格（shape + dtype）、精度要求 |
+| **输出工件** | `SPEC.md`（含算子名、公式、输入输出规格、精度要求、典型配置） |
+| **完成标准** | `SPEC.md` 包含算子名称、数学公式、输入输出规格（shape + dtype）、精度要求 |
 
 **关键决策**：
 - 信息完整 → 展示确认后直接生成
@@ -119,10 +118,10 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-api-explorer` |
-| **输入** | `spec.md` 中的计算逻辑与数据规格 |
+| **Skill** | `pypto-api-explore` |
+| **输入** | `SPEC.md` 中的计算逻辑与数据规格 |
 | **核心动作** | 公式分解为原子操作 → 搜索 `docs/api/` 匹配 PyPTO API → 三层约束验证（入口 / API / Tiling）→ 生成报告 |
-| **输出工件** | `api_report.md`（含公式分解、API 映射表、约束清单、Tiling 需求、可行性判定） |
+| **输出工件** | `API_REPORT.md`（含公式分解、API 映射表、约束清单、Tiling 需求、可行性判定） |
 | **完成标准** | 每个原子操作有对应 PyPTO API 映射或标记 unsupported，约束清单完整 |
 
 **关键决策**：
@@ -136,8 +135,8 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-golden-generator` |
-| **输入** | `spec.md` 中的算子名、公式、输入输出规格、典型配置 |
+| **Skill** | `pypto-golden-generate` |
+| **输入** | `SPEC.md` 中的算子名、公式、输入输出规格、典型配置 |
 | **核心动作** | 校验必须字段 → 生成纯 PyTorch golden 函数 → 附带自验证代码 → 运行验证 |
 | **输出工件** | `{op}_golden.py`（导出 `{op}_golden()` 函数） |
 | **完成标准** | golden 函数可独立运行，输出 shape/dtype 与 spec 一致 |
@@ -154,10 +153,10 @@ tag: [PyPTO, 算子开发]
 | 项目 | 说明 |
 |------|------|
 | **Skill** | `pypto-op-design` |
-| **输入** | `spec.md` + `api_report.md` + `{op}_golden.py`（作为计算逻辑参考） |
-| **核心动作** | 特征分析（Cube/Vector/混合、复杂度）→ 信息收集（知识库 + docs 动态查询）→ 生成 design.md 草稿 → 关键点确认 → 输出 |
-| **输出工件** | `design.md`（含 API 映射设计、数据规格、Tiling 策略、Loop 结构、验证方案、性能指标、风险点、交付清单） |
-| **完成标准** | design.md 包含全部必选章节，API 映射和 Tiling 策略经用户确认 |
+| **输入** | `SPEC.md` + `API_REPORT.md` + `{op}_golden.py`（作为计算逻辑参考） |
+| **核心动作** | 特征分析（Cube/Vector/混合、复杂度）→ 信息收集（知识库 + docs 动态查询）→ 生成 DESIGN.md 草稿 → 关键点确认 → 输出 |
+| **输出工件** | `DESIGN.md`（含 API 映射设计、数据规格、Tiling 策略、Loop 结构、验证方案、性能指标、风险点、交付清单） |
+| **完成标准** | DESIGN.md 包含全部必选章节，API 映射和 Tiling 策略经用户确认 |
 
 **关键决策**：
 - 是否需要 Loop → 有动态轴或多步骤计算时必须设计 Loop 结构
@@ -171,7 +170,7 @@ tag: [PyPTO, 算子开发]
 | 项目 | 说明 |
 |------|------|
 | **Skill** | `pypto-op-develop` |
-| **输入** | `spec.md` + `design.md` + `{op}_golden.py` |
+| **输入** | `SPEC.md` + `DESIGN.md` + `{op}_golden.py` |
 | **核心动作** | 环境准备（CANN / pto-isa / device_id）→ 代码生成（impl → test → README）→ 真实首跑验证 → 三态判定 |
 | **输出工件** | `{op}_impl.py`、`test_{op}.py`、`README.md` |
 | **完成标准** | 首跑完成并得到明确的三态判定结果 |
@@ -194,7 +193,7 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-precision-debugger`（辅助：`pypto-binary-search-verify` / `pypto-binary-search-without-verify`） |
+| **Skill** | `pypto-precision-debug`（辅助：`pypto-precision-compare`） |
 | **输入** | `{op}_impl.py` + `{op}_golden.py` + 精度失败的错误信息 |
 | **核心动作** | 基础检查（输入初始化 / tensor 连续性 / dtype）→ 内存排查（workspace / 内存重叠）→ 特性排除（unroll / 合轴 / submit_before_loop）→ 二分定位 → 修复 → 精度复验 |
 | **输出** | 修复后的 `{op}_impl.py`，精度复验通过 |
@@ -212,7 +211,7 @@ tag: [PyPTO, 算子开发]
 
 | 项目 | 说明 |
 |------|------|
-| **Skill** | `pypto-operator-auto-tuner` |
+| **Skill** | `pypto-op-perf-tune` |
 | **输入** | 精度通过的 `{op}_impl.py` + `test_{op}.py` |
 | **核心动作** | 启用性能采集（`debug_options`）→ 运行采集数据 → 分析核心指标（利用率 / 气泡率）→ 制定优化策略 → 应用优化 → 精度复验 → 性能对比 → 迭代 |
 | **输出** | 调优后的 `{op}_impl.py`，性能分析报告 |
@@ -226,11 +225,11 @@ tag: [PyPTO, 算子开发]
 
 ## 交付检查清单
 
-- [ ] 需求规格已明确，`spec.md` 已具备且足以支撑后续开发
+- [ ] 需求规格已明确，`SPEC.md` 已具备且足以支撑后续开发
 - [ ] 环境已满足当前开发要求，或当前环境阻塞点已被明确识别
-- [ ] `api_report.md` 已确认 API 可行性
+- [ ] `API_REPORT.md` 已确认 API 可行性
 - [ ] `{op}_golden.py` 已生成并可作为精度基线
-- [ ] `design.md` 已能指导实现
+- [ ] `DESIGN.md` 已能指导实现
 - [ ] `{op}_impl.py`、`test_{op}.py`、`README.md` 已生成
 - [ ] 精度验证已通过；若未通过，误差原因已定位或修复路径已明确
 - [ ] 若精度通过，已完成性能分析；若进入调优，已有调优前后实测对比

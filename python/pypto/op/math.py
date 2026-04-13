@@ -15,7 +15,7 @@ from .. import pypto_impl
 from .._element import Element
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
-from ..enum import DataType
+from ..enum import DataType, DivAlgorithm
 from ..symbolic_scalar import SymbolicScalar, SymInt
 
 
@@ -185,7 +185,8 @@ def mul(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def div(
+    input: Tensor, other: Union[Tensor, float], precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> Tensor:
     """Computes the element-wise division of `input` and `other`.
 
     This function calculates the formula: `out = input / other`.
@@ -197,6 +198,10 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
         The first input tensor.
     other : Tensor or Number
         The second input tensor or a scalar to divide.
+    precision_type : DivAlgorithm, optional
+        The precision algorithm for division. Default is DivAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use DivAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -222,11 +227,16 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     Input a:    [[2.0 4.0 6.0]]
     Input b:    [[2.0 2.0 2.0]]
     Output out: [[1.0 2.0 3.0]]
+
+    # Using high precision mode for FP16
+    a = pypto.tensor([1, 3], pypto.DT_FP16)
+    b = pypto.tensor([1, 3], pypto.DT_FP16)
+    out = pypto.div(a, b, pypto.DivAlgorithm.HIGH_PRECISION)
     """
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.Div(input, other)
+        return pypto_impl.Div(input, other, precision_type)
     else:
-        return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other))
+        return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other), precision_type)
 
 
 @op_wrapper
@@ -367,7 +377,7 @@ def remainder(input: Union[Tensor, int, float], other: Union[Tensor, int, float]
     Parameters
     ----------
     input : Tensor or Number
-        The first input tensor.
+        The first input tensor or a scalar.
     other : Tensor or Number
         The second input tensor or a scalar to remainder operation.
 
@@ -1838,68 +1848,6 @@ def floor_div(
         return pypto_impl.FloorDiv(input, other)
     else:
         return pypto_impl.FloorDiv(input, pypto_impl.Element(input.dtype, other))
-
-
-@op_wrapper
-def argmax(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
-    """
-    Returns the index of the maximum value in a tensor along a given dimension.
-
-    Parameters
-    ----------
-    input : Tensor
-        The input tensor.
-    dim : int, optional
-        The dimension along which to find the maximum value. Default is -1 (last dimension).
-    keepdim : bool, optional
-        Whether the output tensor has dim retained. Default is False.
-
-    Returns
-    -------
-    Tensor
-        A new tensor containing the indices of the maximum values.
-
-    Examples
-    --------
-    x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
-    y = pypto.argmax(x, dim=1)
-
-    Input x:  [[1.0, 3.0, 2.0],
-              [4.0, 1.0, 5.0]]
-    Output y: [1, 2]
-    """
-    return pypto_impl.ArgMax(input, dim, keepdim)
-
-
-@op_wrapper
-def argmin(input: Tensor, dim: int = -1, keepdim: bool = False) -> Tensor:
-    """
-    Returns the index of the minimum value in a tensor along a given dimension.
-
-    Parameters
-    ----------
-    input : Tensor
-        The input tensor.
-    dim : int, optional
-        The dimension along which to find the minimum value. Default is -1 (last dimension).
-    keepdim : bool, optional
-        Whether the output tensor has dim retained. Default is False.
-
-    Returns
-    -------
-    Tensor
-        A new tensor containing the indices of the minimum values.
-
-    Examples
-    --------
-    x = pypto.tensor([[1, 3, 2], [4, 1, 5]], pypto.DT_FP32)
-    y = pypto.argmin(x, dim=1)
-
-    Input x:  [[1.0, 3.0, 2.0],
-              [4.0, 1.0, 5.0]]
-    Output y: [0, 1]
-    """
-    return pypto_impl.ArgMin(input, dim, keepdim)
 
 
 @op_wrapper

@@ -24,10 +24,7 @@ namespace npu::tile_fwk {
 enum class SymbolHandlerId : uint64_t {
     GetInputShapeDimSize,
     GetInputShapeDim,
-    GetInputDataInt32Dim1,
-    GetInputDataInt32Dim2,
-    GetInputDataInt32Dim3,
-    GetInputDataInt32Dim4,
+    GetInputData,
     GetTensorDataInt32Dim1,
     GetTensorDataInt32Dim2,
     GetTensorDataInt32Dim3,
@@ -43,10 +40,7 @@ enum class SymbolHandlerId : uint64_t {
 const std::unordered_map<std::string, SymbolHandlerId> symbolHandlerIndexDict = {
     {"GetInputShapeDimSize", SymbolHandlerId::GetInputShapeDimSize},
     {"GetInputShapeDim", SymbolHandlerId::GetInputShapeDim},
-    {"GetInputDataInt32Dim1", SymbolHandlerId::GetInputDataInt32Dim1},
-    {"GetInputDataInt32Dim2", SymbolHandlerId::GetInputDataInt32Dim2},
-    {"GetInputDataInt32Dim3", SymbolHandlerId::GetInputDataInt32Dim3},
-    {"GetInputDataInt32Dim4", SymbolHandlerId::GetInputDataInt32Dim4},
+    {"GetInputData", SymbolHandlerId::GetInputData},
     {"GetTensorDataInt32Dim1", SymbolHandlerId::GetTensorDataInt32Dim1},
     {"GetTensorDataInt32Dim2", SymbolHandlerId::GetTensorDataInt32Dim2},
     {"GetTensorDataInt32Dim3", SymbolHandlerId::GetTensorDataInt32Dim3},

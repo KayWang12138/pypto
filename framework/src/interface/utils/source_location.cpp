@@ -61,7 +61,8 @@ void SourceLocation::Init() const
                 char* p = line;
                 char* name = strsep(&p, ":");
                 locMap[pc]->fname_ = name;
-                locMap[pc]->lineno_ = atoi(p);
+                long lineno = strtol(p, nullptr, 10);
+                locMap[pc]->lineno_ = static_cast<int>(lineno);
             } else {
                 std::stringstream os;
                 // addr2line failed, use elfname + offset

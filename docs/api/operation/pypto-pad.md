@@ -4,6 +4,7 @@
 
 | 产品                                        | 是否支持 |
 | :------------------------------------------ | :------: |
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -46,7 +47,7 @@ pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float = 0.
 
 说明：调用该 operation 接口前，应通过 `set_vec_tile_shapes` 设置 TileShape。
 
-TileShape 维度应和**输出（填充后的 Shape）**一致。
+TileShape 维度应和**输出**一致。
 
 示例1：输入 `input` shape 为 `[m, n]`，如果对其在 n 轴右侧填充了 `p`，则输出 shape 为 `[m, n+p]`，TileShape 设置为 `[m1, n1]`，则 `m1`, `n1` 分别用于切分输出的 `m`, `n+p` 轴。
 

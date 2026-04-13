@@ -1,6 +1,7 @@
 ---
 name: pypto-aicore-error-locator
-description: “定位测试案例中出现 aicore error 时的问题 CCE 文件、问题代码行及对应的前端源代码。Triggers: aicore error、定位aicore error的原因、帮我定位aicore error报错”。
+description: 定位测试案例中出现 aicore error 时的问题 CCE 文件和问题代码行。当用户说"aicore error"、"定位 aicore error 的原因"、"帮我定位 aicore error 报错"时使用此技能。
+license: 完整条款见 LICENSE.txt
 ---
 
 # AICore Error 定位器
@@ -9,7 +10,7 @@ description: “定位测试案例中出现 aicore error 时的问题 CCE 文件
 
 ## 工作流程概述
 
-1. 收集必要信息（必须执行）
+1. 初始化默认信息
 2. 排除 machine 框架调度问题
 3. 启用追踪日志
 4. 重新编译和安装
@@ -21,21 +22,17 @@ description: “定位测试案例中出现 aicore error 时的问题 CCE 文件
 
 ---
 
-## 步骤 1：收集必要信息（必须执行）
+## 步骤 1：初始化默认信息
 
-**⚠️ 重要：第一步必须使用 `question` 工具向用户收集信息，严禁猜测或使用默认值。**
+使用以下默认值直接初始化：
 
-使用 `question` 工具收集以下信息：
-
-- **pypto_path**: pypto 项目的根目录路径（绝对路径）
-- **device_log_path**: device log 的落盘路径（若不存在则需创建，绝对路径）
-- **test_cmd**: 触发 aicore error 的完整测试命令
-- **run_path**: 运行测试命令的目录路径（绝对路径）
-
-将收集的路径全部转换成绝对路径，收集到所有信息后才能继续后续步骤。
+- **pypto_path**: 当前工作目录（即 pypto 项目根目录）
+- **device_log_path**: `{pypto_path}/device_log`
+- **run_path**: `{pypto_path}`
+- **test_cmd**: 从用户输入中提取（用户触发此技能时提供的测试命令或问题描述中包含的运行命令）
 
 ---
-**⚠️ 重要提示**: 将bash运行命令超时时间设置为1800000ms
+**⚠️ 重要提示**: 将 bash 运行命令超时时间设置为 1800000ms
 ## 步骤 2：排除 machine 框架调度问题
 
 ### 2.1 注释 CallSubFuncTask
@@ -84,6 +81,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/modify_callsubfunctask
 **脚本参数说明**:
 - `uncomment`: 取消注释 CallSubFuncTask
 - `pypto_path`: pypto 项目的根目录路径（绝对路径或相对路径）
+
 
 
 ---
@@ -149,7 +147,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/get_latest_program_jso
 ### 6.1 查找 trace 日志、分析缺失 leaf index 并定位问题 CCE 文件
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/analyze_trace.py device_log_path run_path/kernel_aicore
+python3 scripts/analyze_trace.py device_log_path run_path/kernel_aicore
 ```
 
 **⚠️ 重要提示**: 若未定位到问题 CCE 文件，请说明原因，**停止执行后续步骤**
@@ -159,7 +157,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/analyze_trace.py devic
 如果有多个问题 CCE 文件，需要分别测试每个文件，以确定哪个是问题文件。若只有一个问题 CCE 文件，测试验证该文件是否为问题文件：
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/test_cce_file.py <cce_file> test_cmd run_path
+python3 scripts/test_cce_file.py <cce_file> test_cmd run_path
 ```
 
 **⚠️ 重要提示**:
@@ -173,7 +171,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/test_cce_file.py <cce_
 ### 7.1 获取 ERROR_IN_T 的值（错误是否在 T 操作中）
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/determine_error_scope.py <cce_file> test_cmd run_path
+python3 scripts/determine_error_scope.py <cce_file> test_cmd run_path
 ```
 
 **⚠️ 重要提示**:
@@ -183,7 +181,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/determine_error_scope.
 ### 7.2 获取二分查找初始范围
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/get_commentable_range.py <cce_file> ERROR_IN_T
+python3 scripts/get_commentable_range.py <cce_file> ERROR_IN_T
 ```
 
 记录输出的 `LEFT` 和 `RIGHT` 值。
@@ -193,7 +191,7 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/get_commentable_range.
 根据上一步的 `LEFT` 和 `RIGHT` 值，执行第一次迭代：
 
 ```bash
-python3 .agents/skills/pypto-aicore-error-locator/scripts/binary_search_iteration.py <cce_file> test_cmd run_path <left> <right> ERROR_IN_T
+python3 scripts/binary_search_iteration.py <cce_file> test_cmd run_path <left> <right> ERROR_IN_T
 ```
 
 记录输出的 `NEXT_LEFT` 和 `NEXT_RIGHT` 值。
@@ -243,6 +241,6 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/locate_source_line.py 
 
 1. **fixed 模式**: 确保 `fixed` 模式启用以保持输出路径不变
 2. **路径规范**: 所有路径必须使用绝对路径
-3. **信息收集**: 第一步必须通过 `question` 工具收集信息，严禁猜测
+3. **默认路径**: 步骤 1 使用默认值初始化，无需收集用户输入
 4. **停止条件**: 遇到不适用的情况或定位失败时，立即停止执行并说明原因
 5. **并行编译问题**: 遇到 `ld.lld: error: undefined` 错误时，需要修改 `parallel_compile` 为 `1` 并从头重新执行

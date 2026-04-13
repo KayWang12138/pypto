@@ -439,7 +439,7 @@ void GetReadyOnHostTensorsSet(std::unordered_set<int>& readyOnHostTensorsSet)
 static bool NeedCrossDie(Function* func, bool isLoop = false)
 {
     if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) &&
-        (!isLoop || (func->GetDynloopAttribute()->parallel == ParallelMode::PARALLEL))) {
+        (!isLoop || (GetFunctionParallelMode(func) == ParallelMode::PARALLEL))) {
         return true;
     }
     return false;
@@ -452,6 +452,7 @@ static void BuildControlFlow(
     std::ostringstream& expressionOss, std::ostringstream& exprHeaderOss, int indent, const std::string& expName,
     std::vector<std::string>& exprSrcFiles, ValDependTensorMeta& valDependTensorMeta)
 {
+    bool supportParallelLoop = false; // enable by the parallism option
     auto funcType = func->GetFunctionType();
     if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss << "#define __TILE_FWK_AICPU__ 1\n"
@@ -543,7 +544,6 @@ static void BuildControlFlow(
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// hash=" << func->GetFunctionHash() << "\n";
         auto attr = func->GetDynloopAttribute();
         ASSERT(attr != nullptr) << "attr is nullptr!";
-        (void)GetFunctionParallelMode(func);
         if (attr->submitBeforeLoop) {
             controlFlowOss << std::setw(indent * TABSIZE) << ' '
                            << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_LOOP_BARRIER); // force submit before LOOP \n";
@@ -567,6 +567,10 @@ static void BuildControlFlow(
                        << iterEnd << ", " << iterStep << ") {\n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = "
                        << iterVar << ";\n";
+        if (attr->parallel && supportParallelLoop) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_BEGIN); // entry parallel for loop \n";
+        }
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_CalcLoopDieId("
                            << attr->iterSymbolName << ", " << iterVar << ", " << iterEnd << ", " << iterStep << ","
@@ -588,6 +592,10 @@ static void BuildControlFlow(
         if (NeedCrossDie(func, true)) {
             controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_ClearLoopDieId("
                            << attr->iterSymbolName << ");\n";
+        }
+        if (attr->parallel && supportParallelLoop) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' '
+                           << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_PARALLEL_FOR_END); // leave parallel for loop \n";
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
@@ -1077,12 +1085,6 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
         }
     }
 
-    for (size_t index = 0; index < attr->symbolTable.GetSymbolTable().size(); index++) {
-        std::string name = attr->symbolTable.GetSymbolTable()[index];
-        if (symbolHandlerIndexDict.count(name)) {
-            attr->startArgsSymbolHandlerList.emplace_back(symbolHandlerIndexDict.find(name)->second, index);
-        }
-    }
     // save dev prog binary
     SetDyndevProgBinary(function);
 }

@@ -324,7 +324,7 @@ REGISTER_CALC_OP(OP_ROWARGMINLINE, Opcode::OP_ROWARGMINLINE, ExecuteOpReduce<Opc
 
 void ExecuteOpCast(ExecuteOperationContext* ctx)
 {
-    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= 2);
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
     auto& ret = ctx->ooperandInplaceDataViewList->at(0);
     auto& iop = ctx->ioperandDataViewList->at(0);
@@ -550,6 +550,22 @@ void ExecuteOpTranspose(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, ExecuteOpTranspose);
 
+void ExecuteOpPermute(ExecuteOperationContext* ctx)
+{
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    auto& oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto& iop = ctx->ioperandDataViewList->at(0);
+
+    std::vector<int64_t> perm = ctx->op->GetVectorIntAttribute(OpAttributeKey::perm);
+
+    auto iopDataView = iop->View(iop->GetValidShape(), iop->GetOffset());
+    auto oopDataView = oop->View(oop->GetValidShape(), oop->GetOffset());
+    calc::Permute(oopDataView, iopDataView, perm);
+}
+REGISTER_CALC_OP(OP_PERMUTE, Opcode::OP_PERMUTE, ExecuteOpPermute);
+REGISTER_CALC_OP(OP_PERMUTE_ELEMENT, Opcode::OP_PERMUTE_ELEMENT, ExecuteOpPermute);
+
 void ExecuteOpLogicalNot(ExecuteOperationContext* ctx)
 {
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
@@ -662,8 +678,7 @@ void ExecuteOpRange(ExecuteOperationContext* ctx)
     } else if (start.GetDataType() == DT_FP32) {
         end = GetEndBySize<float, DT_FP32>(curStart, size, step);
     } else {
-        std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
-        throw std::invalid_argument(errorMessage.c_str());
+        ASSERT(ExecuteOperationScene::INVALID_TENSOR_DTYPE, false) << "Unsupported DataType " << DataType2String(start.GetDataType());
     }
     calc::Range(oop, curStart, end, step);
 }

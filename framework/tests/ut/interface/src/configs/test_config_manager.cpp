@@ -154,7 +154,6 @@ TEST_F(TestConfigManager, NormalRuntimeTest)
         {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
         {STITCH_FUNCTION_NUM_STEP, {0, 128}},
         {STITCH_CFGCACHE_SIZE, {0, 100000000}},
-        {STITCH_FUNCTION_SIZE, {1, 65535}},
         {CFG_RUN_MODE, {0, 1}},
         {CFG_VALID_SHAPE_OPTIMIZE, {0, 1}},
     };
@@ -173,7 +172,6 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest)
         {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
         {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
         {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
-        {STITCH_FUNCTION_SIZE, {0, 65536}},
         {CFG_RUN_MODE, {-1, 2}},
         {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}},
     };
@@ -273,4 +271,13 @@ TEST_F(TestConfigManager, JitScopeGuardBasic)
     }
     auto scopeAfter = cm.CurrentScope();
     EXPECT_EQ(scopeAfter.get(), scopeBefore.get());
+}
+
+TEST_F(TestConfigManager, IsWithinRangeInvalidKey)
+{
+    auto& cm = ConfigManagerNg::GetInstance();
+    auto scope = cm.CurrentScope();
+    Any value = int64_t(100);
+    scope->UpdateValueWithAny("invalid.key.not.in.scope", int64_t(100));
+    EXPECT_EQ(cm.IsWithinRange("invalid.key.not.in.schema", value), false);
 }

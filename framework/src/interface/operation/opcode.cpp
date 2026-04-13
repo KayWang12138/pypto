@@ -589,6 +589,12 @@ void OpcodeManager::RegisterVector()
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Ttranspose_vnchwconv", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::AIV, "PERMUTE", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_UB}, {"TileOp::TPermute", PIPE_S, PIPE_MTE2, CoreType::AIV},
+        OpCalcType::OTHER, {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PERMUTE_ELEMENT, OpCoreType::AIV, "PERMUTE_ELEMENT", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_UB}, {"TileOp::TPermuteElewise", PIPE_S, PIPE_MTE2, CoreType::AIV},
+        OpCalcType::OTHER, {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIM"},
@@ -1264,6 +1270,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_PAIRMAX, "TPairMax"},
     {Opcode::OP_PAIRMIN, "TPairMin"},
     {Opcode::OP_PAIRPROD, "TPairProd"},
+    {Opcode::OP_PERMUTE, "TPermute"},
+    {Opcode::OP_PERMUTE_ELEMENT, "TPermuteElewise"},
     {Opcode::OP_ONEHOT, "TOneHot"},
     {Opcode::OP_VEC_DUP, "TVecDup"},
     {Opcode::OP_RANGE, "TRange"},
@@ -1344,7 +1352,7 @@ std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN = {
     Opcode::OP_BIND_TENSOR, Opcode::OP_NOP,       Opcode::OP_HUB,
 };
 
-std::unordered_set<Opcode> SUPPORT_BRCINLINE{
+std::unordered_set<Opcode> SUPPORT_BRC_INLINE{
     Opcode::OP_ADD,     Opcode::OP_SUB,     Opcode::OP_DIV,          Opcode::OP_MUL,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_EXPANDEXPDIF,
 };

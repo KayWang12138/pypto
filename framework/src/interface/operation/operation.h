@@ -102,6 +102,8 @@ public:
     static const std::string rowPad;
     static const std::string ownerRank;
     static const std::string maxTileNum;
+    static const std::string precisionType;
+    static const std::string perm;
 };
 
 class ConvOpAttributeKey {

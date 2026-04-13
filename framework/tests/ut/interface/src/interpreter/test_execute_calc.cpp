@@ -119,6 +119,52 @@ TEST_F(CalcCommonTest, UnalignedReshapeTriggerPaddingBranch)
     ASSERT_FLOAT_EQ(outputDataView->Get<float>(2), 2.0f);
 }
 
+// 测试 ExecuteOpAssemble，验证 toOffset 生效且仅覆盖目标子区域
+TEST_F(CalcCommonTest, ExecuteOpAssembleWithOffsetBasic)
+{
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestAssembleWithOffset", "TestAssembleWithOffset", nullptr);
+
+    std::vector<int64_t> inShape = {2, 2};
+    std::vector<int64_t> outShape = {3, 4};
+    std::vector<int64_t> toOffset = {1, 1};
+
+    auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
+    auto& assembleOp = func->AddOperation(Opcode::OP_ASSEMBLE, {inputTensor}, {outputTensor});
+    assembleOp.SetAssembleOpAttribute(toOffset);
+
+    Tensor inputTensorData(DT_FP32, inShape);
+    Tensor outputTensorData(DT_FP32, outShape);
+
+    std::vector<float> inputVals = {1.f, 2.f, 3.f, 4.f};
+    auto inputData = RawTensorData::CreateTensor<float>(inputTensorData, inputVals);
+    auto outputData = RawTensorData::CreateConstantTensor<float>(outputTensorData, 0.f);
+
+    auto inputView = std::make_shared<LogicalTensorData>(inputData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
+    ExecuteOperationContext ctx = {
+        &frame, &opInter, &assembleOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+
+    opInter.ExecuteOperation(&ctx);
+
+    // 期望输出 3x4（行优先）：
+    // [0, 0, 0, 0]
+    // [0, 1, 2, 0]
+    // [0, 3, 4, 0]
+    std::vector<float> expected = {0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 2.f, 0.f, 0.f, 3.f, 4.f, 0.f};
+    ASSERT_EQ(outputView->GetSize(), static_cast<int64_t>(expected.size()));
+    for (size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_FLOAT_EQ(outputView->Get<float>(i), expected[i]);
+    }
+}
+
 // 测试 OP_VEC_DUP 在 scalar 为极大 double 时对 FP32 类型输出进行 32 位饱和截断
 TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble)
 {
@@ -1039,5 +1085,64 @@ TEST_F(CalcCommonTest, ExecuteOpReduceAccBasic)
     EXPECT_FLOAT_EQ(outView->Get<float>(0), 12.f);
     EXPECT_FLOAT_EQ(outView->Get<float>(1), 15.f);
     EXPECT_FLOAT_EQ(outView->Get<float>(2), 18.f);
+}
+
+// 测试 ExecuteOpPermute，验证 OP_PERMUTE 读取 perm 属性后调用 calc::Permute
+TEST_F(CalcCommonTest, ExecuteOpPermute3D)
+{
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestPermute3D", "TestPermute3D", nullptr);
+
+    std::vector<int64_t> inShape = {2, 3, 4};
+    std::vector<int64_t> outShape = {3, 2, 4};
+
+    auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inShape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outShape);
+
+    auto &permuteOp = func->AddOperation(Opcode::OP_PERMUTE, {inputTensor}, {outputTensor});
+    permuteOp.SetAttribute(OpAttributeKey::perm, std::vector<int>{1, 0, 2});
+
+    Tensor inputTensorData(DT_FP32, inShape);
+    Tensor outputTensorData(DT_FP32, outShape);
+
+    std::vector<float> inputVals(inShape[0] * inShape[1] * inShape[2]);
+    for (size_t i = 0; i < inputVals.size(); ++i) {
+        inputVals[i] = static_cast<float>(i + 1);
+    }
+    std::vector<float> expectedVals(outShape[0] * outShape[1] * outShape[2], 0.f);
+    int64_t d0 = inShape[0];
+    int64_t d1 = inShape[1];
+    int64_t d2 = inShape[2];
+    for (int64_t i = 0; i < d0; ++i) {
+        for (int64_t j = 0; j < d1; ++j) {
+            for (int64_t k = 0; k < d2; ++k) {
+                int64_t srcIdx = (i * d1 + j) * d2 + k;
+                int64_t dstIdx = (j * d0 + i) * d2 + k;
+                expectedVals[dstIdx] = inputVals[srcIdx];
+            }
+        }
+    }
+
+    auto inputData = RawTensorData::CreateTensor<float>(inputTensorData, inputVals);
+    auto outputData = RawTensorData::CreateConstantTensor<float>(outputTensorData, 0.f);
+
+    auto inputView = std::make_shared<LogicalTensorData>(inputData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView};
+
+    ExecuteOperationContext ctx = {
+        &frame, &opInter, &permuteOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
+
+    opInter.ExecuteOperation(&ctx);
+
+    ASSERT_EQ(outputView->GetSize(), static_cast<int>(expectedVals.size()));
+    for (size_t i = 0; i < expectedVals.size(); ++i) {
+        EXPECT_FLOAT_EQ(outputView->Get<float>(i), expectedVals[i]);
+    }
 }
 } // namespace npu::tile_fwk

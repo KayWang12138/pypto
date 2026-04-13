@@ -87,8 +87,7 @@ Tensor LogicalNot(const Tensor& self)
                         self.GetDataType() == DT_UINT8 || self.GetDataType() == DT_INT8 ||
                         self.GetDataType() == DT_BOOL || self.GetDataType() == DT_BF16;
     if (!dtypeIsValid) {
-        std::string errorMessage = "Unsurpported Dtype " + DataType2String(self.GetDataType());
-        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << errorMessage;
+        ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, false) << "Unsurpported Dtype " << DataType2String(self.GetDataType());
     }
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
@@ -1073,6 +1072,8 @@ Tensor Clip(const Tensor& self, const Tensor& min, const Tensor& max)
         result = Maximum(result, min);
     }
     if (max.GetStorage() != nullptr) {
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, max.GetDataType() == self.GetDataType())
+            << "The datatype of inputs should be same";
         std::vector maxBroadcastAxes = GetBroadcastAxes(max.GetShape(), self.GetShape());
         ASSERT(VectorErrorCode::ERR_PARAM_INVALID, maxBroadcastAxes.size() <= 1)
             << "maxBroadcastAxes size should be <= 1";

@@ -148,7 +148,7 @@ bool ConfigScope::HasConfig(const std::string& key) const
 void ConfigScope::Clear()
 {
     values_.clear();
-    FUNCTION_LOGD("Clear config scope successfully");
+    FUNCTION_LOGD("Clear config scope successfully.");
 }
 
 const std::type_info& ConfigScope::Type(const std::string& key) const
@@ -235,10 +235,13 @@ void DumpRange(
 {
     os << "Range: ";
     if (type == typeid(std::map<int64_t, int64_t>)) {
-        os << "{[" << rangeInfos.at(key + "_key").first << ", " << rangeInfos.at(key + "_key").second << "], ["
-           << rangeInfos.at(key + "_val").first << ", " << rangeInfos.at(key + "_val").second << "]}";
+        os << "{[" << rangeInfos.at(key + "_key").first << ", " 
+           << rangeInfos.at(key + "_key").second << "], ["
+           << rangeInfos.at(key + "_val").first << ", " 
+           << rangeInfos.at(key + "_val").second << "]}";
     } else {
-        os << "[" << rangeInfos.at(key).first << ", " << rangeInfos.at(key).second << "]";
+        os << "[" << rangeInfos.at(key).first << ", " 
+           << rangeInfos.at(key).second << "]";
     }
 }
 
@@ -274,7 +277,9 @@ void ConfigScope::AddValue(const std::string& key, Any value)
 
 void ConfigScope::UpdateValueWithAny(const std::string& key, Any value)
 {
-    if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
+    if (ConfigManagerNg::GetInstance().Range().count(key) == 0) {
+        FUNCTION_LOGE_E(FError::NOT_EXIST, "Key[%s] not found in rangeInfos", key.c_str());
+    } else if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
         std::stringstream os("Option:");
         std::map<std::string, Any> node;
         node[key] = value;
@@ -312,7 +317,7 @@ struct ConfigManagerImpl {
     void PushScope(ConfigScopePtr scope)
     {
         // Ensure the provided scope is not null
-        FUNCTION_ASSERT(scope != nullptr) << "Cannot push a null scope";
+        FUNCTION_ASSERT(scope != nullptr) << "Cannot push a null scope.";
         scopes.push(scope);
     }
 
@@ -352,7 +357,7 @@ struct ConfigManagerImpl {
     void EndScope(const char* file, int lino)
     {
         /* at least default and global two levels */
-        FUNCTION_ASSERT(scopes.size() >= 0x2) << "No scope to pop";
+        FUNCTION_ASSERT(scopes.size() >= 0x2) << "No scope to pop.";
         auto& scope = scopes.top();
         scope->end_file_ = file;
         scope->end_lino_ = lino;
@@ -383,7 +388,7 @@ struct ConfigManagerImpl {
         for (auto& it : values) {
             try {
                 root->AddValue(it.first, it.second);
-                FUNCTION_LOGD("Set option successfully. Key: %s", it.first.c_str());
+                FUNCTION_LOGD("Set option successfully, Key: %s", it.first.c_str());
             } catch (const std::exception& e) {
                 FUNCTION_LOGE_E(
                     FError::INVALID_VAL, "Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
@@ -464,7 +469,7 @@ private:
             confPath = GetConfDir() + "tile_fwk_config.json";
         }
         std::ifstream ifs(confPath);
-        CHECK(ifs.is_open()) << "Open file " << confPath << " failed";
+        CHECK(ifs.is_open()) << "Open file: " << confPath << " failed";
         nlohmann::json jData;
         ifs >> jData;
         LoadConf(jData, "");
