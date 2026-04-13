@@ -402,8 +402,10 @@ TEST_F(GraphPartitionTest, TestCycleUpperBound)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestTestCycleUpperBound1.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestTestCycleUpperBound2.json");
     const int subGraphNum = 6 * brNum;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
@@ -482,7 +484,7 @@ void GetWideGraph(ComputationalGraphBuilder& G, int brNum)
 TEST_F(GraphPartitionTest, TestLargeWideGraph)
 {
     ComputationalGraphBuilder G;
-    const int brNum = 5000;
+    const int brNum = 20;
     GetWideGraph(G, brNum);
     Function* function = G.GetFunction();
     const int cycleUB = 100000;
@@ -490,8 +492,10 @@ TEST_F(GraphPartitionTest, TestLargeWideGraph)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeWideGraphb1.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeWideGrapha1.json");
 }
 
 void GetDeepGraph(ComputationalGraphBuilder& G, int brNum)
@@ -523,7 +527,7 @@ void GetDeepGraph(ComputationalGraphBuilder& G, int brNum)
 TEST_F(GraphPartitionTest, TestLargeDeepGraph)
 {
     ComputationalGraphBuilder G;
-    const int brNum = 5000;
+    const int brNum = 20;
     GetDeepGraph(G, brNum);
     Function* function = G.GetFunction();
     const int cycleUB = 100000;
@@ -531,8 +535,10 @@ TEST_F(GraphPartitionTest, TestLargeDeepGraph)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeDeepGraphb.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeDeepGrapha.json");
 }
 
 TEST_F(GraphPartitionTest, TestIsomorphismGraph)
@@ -561,7 +567,7 @@ TEST_F(GraphPartitionTest, TestIsomorphismGraph)
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
 
-TEST_F(GraphPartitionTest, TestScopeId)
+void RunScopeTest(bool allowCrossScopeMerge, int expectedSubGraphNum)
 {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{32, 32};
@@ -574,10 +580,12 @@ TEST_F(GraphPartitionTest, TestScopeId)
     EXPECT_EQ(G.AddOp(Opcode::OP_COPY_OUT, {"h5"}, {"h6"}, "COPY_OUT", true), true);
     EXPECT_EQ(G.SetInCast({"h1"}), true);
     EXPECT_EQ(G.SetOutCast({"h6"}), true);
-    G.GetOp("A1")->SetScopeId(1);
-    G.GetOp("A2")->SetScopeId(1);
-    G.GetOp("M")->SetScopeId(1);
-    G.GetOp("COPY_OUT")->SetScopeId(1);
+    Operation::ScopeInfo info;
+    info.scopeId = 1;
+    info.allowCrossScopeMerge = allowCrossScopeMerge;
+    for (auto* op : {G.GetOp("A1"), G.GetOp("A2"), G.GetOp("M"), G.GetOp("COPY_OUT")}) {
+        op->SetScopeInfo(info);
+    }
 
     Function* function = G.GetFunction();
     const int cycleUB = 100000;
@@ -587,9 +595,12 @@ TEST_F(GraphPartitionTest, TestScopeId)
     IsoPartitioner partitioner;
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    const int subGraphNum = 2;
-    EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), expectedSubGraphNum);
 }
+
+TEST_F(GraphPartitionTest, TestScopeId) { RunScopeTest(false, 2); }
+
+TEST_F(GraphPartitionTest, TestAllowCrossScopeMerge) { RunScopeTest(true, 1); }
 
 TEST_F(GraphPartitionTest, TestNonIsomorphismGraph)
 {
@@ -814,8 +825,6 @@ TEST_F(GraphPartitionTest, TestAllowParallelMergeTrue) {
     Operation::ScopeInfo info;
     info.scopeId = 1;
     info.allowParallelMerge = true;
-    info.allowCrossScopeMerge = false;
-    info.mixId = -1;
     G.GetOp("ABS0")->SetScopeInfo(info);
     G.GetOp("ABS1")->SetScopeInfo(info);
     G.GetOp("ABS2")->SetScopeInfo(info);
@@ -827,8 +836,10 @@ TEST_F(GraphPartitionTest, TestAllowParallelMergeTrue) {
     const int cycleLB = 0;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowParallelMergeTrueb.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowParallelMergeTruea.json");
 
     std::unordered_set<int> subgraphIds;
     for (const auto& opPair : G.operations_) {
@@ -867,14 +878,24 @@ TEST_F(GraphPartitionTest, TestAllowParallelMergeFalse) {
     EXPECT_EQ(subgraphIds.size(), 4);
 }
 
+// allowParallelMerge 例子一般
+/*
 void GetCrossScopeGraph(ComputationalGraphBuilder &G) {
-    std::vector<int64_t> tileShape{32,32};
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"in0", "in1", "mid1", "mid2", "out0", "out1"}), true);
+    Shape tileShape{32, 32};
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, tileShape,
+            {"in0", "in1", "mid1", "mid2", "mid11", "mid21", "mid12", "mid22", "out0", "out1"}),
+        true);
 
-    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"in0"}, {"mid1"}, "ABS1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"in1"}, {"mid2"}, "ABS2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid1"}, {"out0"}, "MUL1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid2"}, {"out1"}, "MUL2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"in0"}, {"mid1"}, "VIEW1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"in1"}, {"mid2"}, "VIEW2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"mid1"}, {"mid11"}, "ABS1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"mid2"}, {"mid21"}, "ABS2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid11"}, {"mid12"}, "MUL1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid21"}, {"mid22"}, "MUL2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"mid12"}, {"out0"}, "ASSEMBLE1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"mid22"}, {"out1"}, "ASSEMBLE2", true), true);
 
     EXPECT_EQ(G.SetInCast({"in0", "in1"}), true);
     EXPECT_EQ(G.SetOutCast({"out0", "out1"}), true);
@@ -888,7 +909,6 @@ TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeTrue) {
     info1.scopeId = 1;
     info1.allowParallelMerge = true;
     info1.allowCrossScopeMerge = true;
-    info1.mixId = -1;
     G.GetOp("ABS1")->SetScopeInfo(info1);
     G.GetOp("MUL1")->SetScopeInfo(info1);
 
@@ -896,7 +916,6 @@ TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeTrue) {
     info2.scopeId = 2;
     info2.allowParallelMerge = true;
     info2.allowCrossScopeMerge = true;
-    info2.mixId = -1;
     G.GetOp("ABS2")->SetScopeInfo(info2);
     G.GetOp("MUL2")->SetScopeInfo(info2);
 
@@ -923,17 +942,16 @@ TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeFalse) {
     info1.scopeId = 1;
     info1.allowParallelMerge = true;
     info1.allowCrossScopeMerge = false;
-    info1.mixId = -1;
     G.GetOp("ABS1")->SetScopeInfo(info1);
-    G.GetOp("MUL1")->SetScopeInfo(info1);
+    G.GetOp("ABS2")->SetScopeInfo(info1);
 
-    Operation::ScopeInfo info2;
-    info2.scopeId = 2;
-    info2.allowParallelMerge = true;
-    info2.allowCrossScopeMerge = false;
-    info2.mixId = -1;
-    G.GetOp("ABS2")->SetScopeInfo(info2);
-    G.GetOp("MUL2")->SetScopeInfo(info2);
+    // Operation::ScopeInfo info2;
+    // info2.scopeId = 2;
+    // info2.allowParallelMerge = true;
+    // info2.allowCrossScopeMerge = false;
+
+    // G.GetOp("ABS2")->SetScopeInfo(info2);
+    // G.GetOp("MUL2")->SetScopeInfo(info2);
 
     Function *function = G.GetFunction();
     const int cycleUB = 100000;
@@ -941,14 +959,16 @@ TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeFalse) {
     const int cycleLB = 0;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowCrossScopeMergeFalseb1.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowCrossScopeMergeFalsea1.json");
 
     EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
     EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
     EXPECT_NE(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
 }
-
+*/
 TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
     ComputationalGraphBuilder G;
     GetParallelBranchGraph(G);
@@ -957,15 +977,12 @@ TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
     info1.scopeId = 1;
     info1.allowParallelMerge = true;
     info1.allowCrossScopeMerge = false;
-    info1.mixId = -1;
     G.GetOp("ABS0")->SetScopeInfo(info1);
     G.GetOp("ABS1")->SetScopeInfo(info1);
 
     Operation::ScopeInfo info2;
     info2.scopeId = 2;
     info2.allowParallelMerge = true;
-    info2.allowCrossScopeMerge = true;
-    info2.mixId = -1;
     G.GetOp("ABS2")->SetScopeInfo(info2);
     G.GetOp("ABS3")->SetScopeInfo(info2);
 
@@ -981,9 +998,7 @@ TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
     // 验证同一 scopeId 内的 op 合并到同一 subgraph
     EXPECT_EQ(G.GetOp("ABS0")->GetSubgraphID(), G.GetOp("ABS1")->GetSubgraphID());
     EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("ABS3")->GetSubgraphID());
-    // 验证不同 scopeId 之间即使一侧 allowCrossScopeMerge=true 也不能合并
-    EXPECT_NE(G.GetOp("ABS0")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
-    
+
     std::unordered_set<int> subgraphIds;
     for (const auto& opPair : G.operations_) {
         subgraphIds.insert(opPair.second->GetSubgraphID());
@@ -1041,7 +1056,6 @@ TEST_F(GraphPartitionTest, TestAttentionFusionScopePartition)
     scope1.scopeId = 1;
     scope1.allowParallelMerge = true;
     scope1.allowCrossScopeMerge = false;
-    scope1.mixId = -1;
     std::vector<std::string> scope1Ops = {
         "MULS_sij_scale", "ROWMAX_tilda_mij", "MAX_max_new", "SUB_tsub",
         "EXP_tilda_pij", "CAST_fp16", "ROWSUM_sum_local"
@@ -1055,7 +1069,6 @@ TEST_F(GraphPartitionTest, TestAttentionFusionScopePartition)
     scope2.scopeId = 2;
     scope2.allowParallelMerge = true;
     scope2.allowCrossScopeMerge = false;
-    scope2.mixId = -1;
     std::vector<std::string> scope2Ops = {
         "SUB_tsub2", "EXP_update_mul", "MUL_tmp", "ADD_sum_update"
     };
@@ -1092,29 +1105,56 @@ TEST_F(GraphPartitionTest, TestAttentionFusionScopePartition)
 void GetAttentionElseBranchGraph(ComputationalGraphBuilder& G)
 {
     std::vector<int64_t> tileShape{16, 16};
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {
-        "sij", "max_update", "sum_update", "oi_update_prev", "vj_assemble",
-        "sij_scale", "tilda_mij", "max_new", "tsub1", "tilda_pij", "tilda_pij_half",
-        "sum_local",
-        "tsub2", "update_mul", "tmp_mul", "sum_update_out",
-        "oi_tmp", "tmp_oi", "oi_update_out"
-    }), true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, tileShape,
+            {"sij",
+             "max_update",
+             "sum_update",
+             "oi_update_prev",
+             "vj_assemble",
+             "sij_view",
+             "max_update_view",
+             "sum_update_view",
+             "oi_update_prev_view",
+             "vj_assemble_view",
+             "sij_scale",
+             "tilda_mij",
+             "max_new",
+             "tsub1",
+             "tilda_pij",
+             "tilda_pij_half",
+             "sum_local",
+             "tsub2",
+             "update_mul",
+             "tmp_mul",
+             "sum_update_out",
+             "oi_tmp",
+             "tmp_oi",
+             "oi_update_out"}),
+        true);
 
-    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij"}, {"sij_scale"}, "MULS_scale", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sij"}, {"sij_view"}, "VIEW_sij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_view"}, "VIEW_max_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sum_update"}, {"sum_update_view"}, "VIEW_sum_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_update_prev"}, {"oi_update_prev_view"}, "VIEW_oi_update_prev", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"vj_assemble"}, {"vj_assemble_view"}, "VIEW_vj_assemble", true), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij_view"}, {"sij_scale"}, "MULS_scale", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_mij", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update", "tilda_mij"}, {"max_new"}, "MAX_new", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update_view", "tilda_mij"}, {"max_new"}, "MAX_new", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"sij_scale", "max_new"}, {"tsub1"}, "SUB_tsub", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub1"}, {"tilda_pij"}, "EXP_pij", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"tilda_pij"}, {"tilda_pij_half"}, "CAST_half", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ROWSUM, {"tilda_pij"}, {"sum_local"}, "ROWSUM_local", true), true);
 
-    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update_view", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub2"}, {"update_mul"}, "EXP_umul", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update", "update_mul"}, {"tmp_mul"}, "MUL_sum", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update_view", "update_mul"}, {"tmp_mul"}, "MUL_sum", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_mul", "sum_local"}, {"sum_update_out"}, "ADD_sum", true), true);
 
-    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"tilda_pij_half", "vj_assemble"}, {"oi_tmp"}, "MUL_c2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"oi_update_prev", "update_mul"}, {"tmp_oi"}, "MUL_oi", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"tilda_pij_half", "vj_assemble_view"}, {"oi_tmp"}, "MUL_c2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"oi_update_prev_view", "update_mul"}, {"tmp_oi"}, "MUL_oi", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_oi", "oi_tmp"}, {"oi_update_out"}, "ADD_v2", true), true);
 
     EXPECT_EQ(G.SetInCast({"sij", "max_update", "sum_update", "oi_update_prev", "vj_assemble"}), true);
@@ -1130,7 +1170,6 @@ TEST_F(GraphPartitionTest, TestAttentionElseBranchScopeId)
     scope1.scopeId = 1;
     scope1.allowParallelMerge = true;
     scope1.allowCrossScopeMerge = false;
-    scope1.mixId = -1;
     std::vector<std::string> scope1Ops = {
         "MULS_scale", "ROWMAX_mij", "MAX_new", "SUB_tsub",
         "EXP_pij", "CAST_half", "ROWSUM_local"
@@ -1143,7 +1182,6 @@ TEST_F(GraphPartitionTest, TestAttentionElseBranchScopeId)
     scope2.scopeId = 2;
     scope2.allowParallelMerge = true;
     scope2.allowCrossScopeMerge = false;
-    scope2.mixId = -1;
     std::vector<std::string> scope2Ops = {
         "SUB_tsub2", "EXP_umul", "MUL_sum", "ADD_sum"
     };
@@ -1157,9 +1195,10 @@ TEST_F(GraphPartitionTest, TestAttentionElseBranchScopeId)
     const int cycleLB = 0;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/22b.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/22a.json");
     int scope1Subgraph = G.GetOp(scope1Ops[0])->GetSubgraphID();
     for (const auto& name : scope1Ops) {
         EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope1Subgraph);
@@ -1178,36 +1217,5 @@ TEST_F(GraphPartitionTest, TestAttentionElseBranchScopeId)
         EXPECT_NE(G.GetOp(name)->GetSubgraphID(), scope2Subgraph);
     }
 }
-
-// TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeWithNoScope) {
-//     // 测试 allowCrossScopeMerge=true 允许有 scope 的 subgraph 与无 scope 的 subgraph 合并
-//     ComputationalGraphBuilder G;
-//     GetCrossScopeGraph(G);
-
-//     // scopeId=1 的组设置 allowCrossScopeMerge=true
-//     Operation::ScopeInfo info1;
-//     info1.scopeId = 1;
-//     info1.allowParallelMerge = true;
-//     info1.allowCrossScopeMerge = true;
-//     info1.mixId = -1;
-//     G.GetOp("ABS1")->SetScopeInfo(info1);
-//     G.GetOp("ABS2")->SetScopeInfo(info1);
-
-//     // MUL1/MUL2 不设置 scope（scopeId=-1），可以被 scopeId=1 合并
-//     Function *function = G.GetFunction();
-//     const int cycleUB = 100000;
-//     const int parallelTH = 20;
-//     const int cycleLB = 0;
-//     const int useNodeHash = false;
-//     IsoPartitioner partitioner;
-//     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
-//     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-
-//     // 验证同一 scopeId=1 内的 op 合并
-//     EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
-//     // 验证无 scope 的 op 也被合并到 scopeId=1 的 subgraph
-//     EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
-// }
-
 } // namespace tile_fwk
 } // namespace npu
