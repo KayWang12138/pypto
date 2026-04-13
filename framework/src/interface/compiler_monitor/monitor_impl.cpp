@@ -216,6 +216,17 @@ void MonitorImpl::MonitorLoop()
                     (void)fflush(stdout);
                     COMPILER_LOGI("%s", interval_msg.c_str());
                 }
+            } else if (stage == "FuncKernelToBinary") {
+                if (curr_stage_elapsed >= pre_cost) {
+                    interval_msg = "  |__ [Compiler Monitor] RootFunc: " + std::to_string(current_k) + "/" +
+                                   std::to_string(total_n) + " | Stage: " + stage +
+                                   "(processing) | Stage elapsed: " + FormatElapsed(curr_stage_elapsed) +
+                                   " | Total elapsed: " + FormatElapsed(total_elapsed) + " | RootFunc:[" +
+                                   current_func + "]";
+                    (void)fprintf(stdout, "%s\n", interval_msg.c_str());
+                    (void)fflush(stdout);
+                    COMPILER_LOGI("%s", interval_msg.c_str());
+                }
             } else {
                 // CodeGen
                 if (curr_stage_elapsed >= pre_cost) {

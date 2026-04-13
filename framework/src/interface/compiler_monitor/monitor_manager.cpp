@@ -385,7 +385,13 @@ void MonitorManager::EndStage(const std::string& name)
     double total_elapsed = std::chrono::duration<double>(now - total_start_).count();
 
     std::string stage_finish_msg;
-    if (name == "CodeGen" || name == "FuncKernelToBinary") {
+    if (name == "FuncKernelToBinary") {
+        stage_finish_msg = "[Compiler Monitor] RootFunc: " + std::to_string(current_function_index_) + "/" +
+                           std::to_string(total_function_count_) + " | Stage: " + name +
+                           "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
+                           " | Total elapsed: " + FormatElapsed(total_elapsed) + " | RootFunc:[" + current_function_ +
+                           "]";
+    } else if (name == "CodeGen") {
         stage_finish_msg = "[Compiler Monitor] Stage: " + name +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed);
