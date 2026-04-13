@@ -257,7 +257,7 @@ class CompactDumpTensorInfoParser:
             ("funcId", "uint32_t"),
             ("taskId", "uint32_t"),
             ("callopMagic", "uint32_t"),
-            ("coreId", "int32_t"),
+            ("blockIdx", "int32_t"),
             ("dataType", "int32_t"),
             ("rawMagic", "int32_t"),
             ("dims", "int32_t"),
@@ -280,7 +280,7 @@ class CompactDumpTensorInfoParser:
         total = 0
         # 基础字段
         total += FIELD_SIZES["uint32_t"] * 4  # headSize ~ taskId
-        total += FIELD_SIZES["int32_t"] * 4   # coreId ~ dims
+        total += FIELD_SIZES["int32_t"] * 4   # blockIdx ~ dims
         total += FIELD_SIZES["int64_t"] * 2   # execStart ~ execEnd
         total += FIELD_SIZES["uint64_t"] * 3   # rootHash ~ timeStamp
         # 数组字段
@@ -367,7 +367,6 @@ class CompactDumpTensorInfoParser:
             result["rawShape"] = result["rawShape"][:dims]
 
         # 衍生字段（可选）
-        result["exeDuration"] = result.get("exeEnd") - result.get("exeStart")
         result["dataTypeStr"] = _get_data_type(result.get("dataType", 17))[0]
 
         return result
@@ -387,7 +386,7 @@ class CompactDumpTensorInfoParser:
         data.tofile(bin_file)
 
         tensor_info["ioflag"] = bin_file.split("_")[-1][:-5]
-        tensor_info["seqNo"] = bin_file.split("_")[-8]
+        tensor_info["seqNo"] = int(os.path.basename(bin_file).split("_")[1])
 
         tensor_info["bin_file"] = bin_file
 
@@ -410,9 +409,9 @@ class CompactDumpTensorInfoParser:
         # 构建任务执行时间索引，键为 (blockId, taskId, seqNo)
         exec_time_index = {}
         for block_data in data:
-            block_id = block_data.get("blockId")
+            block_idx = block_data.get("blockIdx")
             for task in block_data.get("tasks", []):
-                key = (block_id, task.get("taskId"), task.get("seqNo"))
+                key = (block_idx, task.get("taskId"), task.get("seqNo"))
                 exec_time_index[key] = {
                     "execStart": task.get("execStart", 0),
                     "execEnd": task.get("execEnd", 0)
@@ -423,7 +422,7 @@ class CompactDumpTensorInfoParser:
             if not tensor_infos:
                 continue
                 
-            block_idx = tensor_infos[0].get("coreId")
+            block_idx = tensor_infos[0].get("blockIdx")
             task_id = tensor_infos[0].get("taskId")
             seq_no = tensor_infos[0].get("seqNo")
             key = (block_idx, task_id, seq_no)
@@ -579,7 +578,7 @@ def main():
     tensor_infos.sort(key=lambda x: x.get("timeStamp"))  # 输出前做一次排序
     merge_tensor_infos = parser.merge_raw_tensor()
     tensor_infos.extend(merge_tensor_infos)
-    df = pd.DataFrame(tensor_infos)
+    df = pd.DataFrame(tensor_infos, dtype=object)
     # 转成字符串，防止用excel打开后显示为科学计算法，导致数据截断
     df["rootHash"] = df["rootHash"].apply(lambda x: f'\t{x:.0f}')
     df["funcHash"] = df["funcHash"].apply(lambda x: f'\t{x:.0f}')
