@@ -895,31 +895,48 @@ def compile(
         f"-I{ASCEND_HOME_PATH}/include/experiment/msprof",
         f"-I{ASCEND_HOME_PATH}/pkg_inc/runtime/runtime",
     ]
-    llvm_args = [
-        "-mllvm",
-        "-cce-aicore-stack-size=0x8000",
-        "-mllvm",
-        "-cce-aicore-function-stack-size=0x8000",
-        "-mllvm",
-        "-cce-aicore-record-overflow=false",
-        "-mllvm",
-        "-cce-aicore-addr-transform",
-        "-mllvm",
-        "-cce-aicore-dcci-insert-for-scalar=false",
-        "--cce-auto-sync=off",
-        "--cce-simd-vf-fusion=true",
-        "--enable-pto-tile-fusion",
-        "-mllvm",
-        "-tile-fusion-skip-reduceop-fusion=true",
-        "-mllvm",
-        "-tile-fusion-skip-legality-check=false",
-        ""
-        "-O3",
-        "--cce-disable-kernel-global-attr-check",
-        "-Wno-parentheses-equality",
-        "-Wno-unused-command-line-argument",
-        "-Werror",
-    ]
+    if arch in ("a2", "a3"):
+        llvm_args = [
+            "-mllvm",
+            "-cce-aicore-stack-size=0x8000",
+            "-mllvm",
+            "-cce-aicore-function-stack-size=0x8000",
+            "-mllvm",
+            "-cce-aicore-record-overflow=false",
+            "-mllvm",
+            "-cce-aicore-addr-transform",
+            "-mllvm",
+            "-cce-aicore-dcci-insert-for-scalar=false",
+            "--cce-auto-sync=off",
+            "-O3",
+            "--cce-disable-kernel-global-attr-check",
+            "-Wno-parentheses-equality",
+            "-Wno-unused-command-line-argument",
+            "-Werror",
+        ]
+    else:
+        llvm_args = [
+            "-mllvm",
+            "-cce-aicore-stack-size=0x8000",
+            "-mllvm",
+            "-cce-aicore-function-stack-size=0x8000",
+            "-mllvm",
+            "-cce-aicore-record-overflow=false",
+            "-mllvm",
+            "-cce-aicore-addr-transform",
+            "-mllvm",
+            "-cce-aicore-dcci-insert-for-scalar=false",
+            "--cce-auto-sync=off",
+            "-mllvm",
+            "-tile-fusion-skip-reduceop-fusion=true",
+            "-mllvm",
+            "-tile-fusion-skip-legality-check=false",
+            "-O3",
+            "--cce-disable-kernel-global-attr-check",
+            "-Wno-parentheses-equality",
+            "-Wno-unused-command-line-argument",
+            "-Werror",
+        ]
     resolved_enable_print_debug = (
         needs_print_debug if enable_print_debug is None else enable_print_debug
     )

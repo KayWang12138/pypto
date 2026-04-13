@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from pypto.pypto_core.ir import MemorySpace, PipeType
+from pypto_block.pypto_core.ir import MemorySpace, PipeType
 
 from .data_structures import TileAccessPattern
 
