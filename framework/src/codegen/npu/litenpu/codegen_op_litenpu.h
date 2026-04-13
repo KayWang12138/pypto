@@ -154,6 +154,9 @@ private:
         return ret;
     }
 
+    std::string PrintRowMaxline() const;
+    std::string PrintRowMaxlineTileTensor() const;
+
     TileTensor QueryTileTensorByIdx(int paramIdx) const;
 
     std::string GenBarrier() const;
