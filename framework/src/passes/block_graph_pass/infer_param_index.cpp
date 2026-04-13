@@ -81,6 +81,10 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
         }
     }
     for (auto outOperand : op.GetOOperands()) {
+        if (op.GetOpcode() == Opcode::OP_INDEX_ADD &&
+            !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
+            continue;
+        }
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
             for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
                 validShape.push_back(
@@ -193,7 +197,9 @@ Status InferParamIndex::UpdateValidShape(
     std::map<int, std::vector<SymbolicScalar>>& addr2ValidShapeSpecified)
 {
     for (auto& op : subFunc.Operations(false)) {
+        bool* distCopyType = op.GetAttr<bool>(OpAttributeKey::isDistCopyOut);
         int tensorBaseAddrCoaIndex = IsCopyIn(op.GetOpcode()) ? op.GetIOpAttrOffset(0) : op.GetOOpAttrOffset(0);
+        tensorBaseAddrCoaIndex = (distCopyType && !*distCopyType) ? op.GetIOpAttrOffset(1) : tensorBaseAddrCoaIndex;
         if (tensorBaseAddrCoaIndex == -1) {
             continue;
         }
@@ -204,6 +210,13 @@ Status InferParamIndex::UpdateValidShape(
                 if (attr->GetToDynValidShape().size() != 0 && attr->GetToDynValidShape()[0].IsSpecified()) {
                     addr2ValidShapeSpecified[tensorBaseAddrCoaIndex] =
                         OpImmediate::ToSpecified(attr->GetToDynValidShape());
+                }
+            }
+            if (distCopyType && *distCopyType) {
+                auto attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+                if (attr->GetFromDynValidShape().size() != 0) {
+                    addr2ValidShapeSpecified[tensorBaseAddrCoaIndex] =
+                        OpImmediate::ToSpecified(attr->GetFromDynValidShape());
                 }
             }
         }

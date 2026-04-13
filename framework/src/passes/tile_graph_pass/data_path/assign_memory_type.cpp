@@ -273,7 +273,17 @@ bool AssignMemoryType::CheckConsumerRequirements(const LogicalTensorPtr &output,
             if (consumerOpAttribute->GetTo() != targetMemType) {
                 return false;
             }
-        } else {        
+        }
+        else if (consumerOp->GetOpcode() == Opcode::OP_VIEW) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "  consumer Op[%d] is VIEW, attrToType=MEM_UNKNOWN, recursively checking output tensor[%d]",
+                consumerOp->GetOpMagic(), consumerOp->GetOOperands().front()->magic);
+            auto viewOut = consumerOp->GetOOperands().front();
+            if (!CheckConsumerRequirements(viewOut, targetMemType)) {
+                return false;
+            }
+        } 
+        else {        
             const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(consumerOp->GetOpcode());
             if (inputsMemType.empty()) {
                 APASS_LOG_INFO_F(Elements::Operation,
@@ -657,8 +667,7 @@ void AssignMemoryType::AssignMemUnknown(Function& function)
             inputOperandVisited.insert(i);
             if (i->GetMemoryTypeOriginal() == MemoryType::MEM_UNKNOWN) {
                 MemoryType fromType = MemoryType::MEM_DEVICE_DDR;
-                std::map<MemoryType, std::set<Operation*, OpMagicComparator>> localTobeMap =
-                    inserter.GetRequiredTobe(i);
+                std::map<MemoryType, std::set<Operation*>> localTobeMap = inserter.GetRequiredTobe(i);
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
@@ -681,8 +690,7 @@ void AssignMemoryType::AssignMemUnknown(Function& function)
                 或者图上op的输出数量超过了opcode.cpp中的定义，目前仅有OP_REDUCE_ACC，已有特殊处理
                 */
                 MemoryType fromType = MemoryType::MEM_DEVICE_DDR;
-                std::map<MemoryType, std::set<Operation*, OpMagicComparator>> localTobeMap =
-                    inserter.GetRequiredTobe(o);
+                std::map<MemoryType, std::set<Operation*>> localTobeMap = inserter.GetRequiredTobe(o);
                 if (localTobeMap.size() == 1 && localTobeMap.begin()->first != MemoryType::MEM_UNKNOWN) {
                     fromType = localTobeMap.begin()->first;
                 }
@@ -698,7 +706,6 @@ void AssignMemoryType::AssignMemUnknown(Function& function)
         }
     }
 }
-
 void AssignMemoryType::ProcesSmallTileToLargeTile(Function& function)
 {
     // CASE1:处理cube级联场景小搬大

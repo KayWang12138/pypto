@@ -203,8 +203,9 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
             return;
         }
     }
-     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && (op.GetOpcode() != Opcode::OP_COPY_OUT &&
- 	        op.GetOpcode() != Opcode::OP_INDEX_PUT)) {
+    if (op.HasAttribute(OpAttributeKey::inplaceIdx) &&
+        (op.GetOpcode() != Opcode::OP_COPY_OUT && op.GetOpcode() != Opcode::OP_INDEX_PUT &&
+         op.GetOpcode() != Opcode::OP_INDEX_ADD)) {
         return;
     }
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
@@ -357,7 +358,8 @@ void SubgraphToFunction::ProcessOutputOperands(
         auto offset = oOperand->offset;
         auto shape = oOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) &&
-            (tileOp.GetOpcode() != Opcode::OP_COPY_OUT && tileOp.GetOpcode() != Opcode::OP_INDEX_PUT)) {
+            (tileOp.GetOpcode() != Opcode::OP_COPY_OUT && tileOp.GetOpcode() != Opcode::OP_INDEX_PUT) &&
+            tileOp.GetOpcode() != Opcode::OP_INDEX_ADD) {
             return;
         }
         if (IsCopyOut(tileOp.GetOpcode())) {
@@ -732,6 +734,15 @@ std::shared_ptr<LogicalTensor> GetTensorDataSubgraphTensor(Operation& refOp)
             break;
         case Opcode::OP_SHMEM_GET_GM2UB:
             subgraphTensor = refOp.GetOOperands()[0];
+            break;
+        case Opcode::OP_SHMEM_PUT_UB2GM:
+            subgraphTensor = refOp.GetIOperands()[1];
+            break;
+        case Opcode::OP_SHMEM_GET:
+            subgraphTensor = refOp.GetIOperands()[1];
+            break;
+        case Opcode::OP_SHMEM_PUT:
+            subgraphTensor = refOp.GetIOperands()[2];
             break;
         case Opcode::OP_VIEW:
             subgraphTensor = refOp.GetOOperands()[0];
