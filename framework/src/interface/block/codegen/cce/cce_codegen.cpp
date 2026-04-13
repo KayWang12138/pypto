@@ -185,6 +185,7 @@ std::string CCECodegen::GenerateSingle(const ir::ProgramPtr& program, const std:
 
   // Store arch for use in prologue generation
   arch_ = arch;
+  type_converter_.SetArch(arch);
 
   // Run IR passes (same as PTOCodegen::Generate)
   ir::ProgramPtr lowered = ir::pass::LowerBreakContinue()(program);
@@ -2402,9 +2403,17 @@ void CCECodegen::GenerateTileTypeDeclaration(const std::string& var_name, const 
     int64_t addr =
         ExtractConstInt((*tile_type->memref_)->addr_);  // NOLINT(bugprone-unchecked-optional-access)
     std::string addr_str = FormatAddressHex(addr);
-    emitter_.EmitLine(type_alias_name + " " + var_name + 
-                      "; TASSIGN(" +
-                      var_name + ", " + addr_str + ");");
+    if (arch_ == "a5") {
+      // A5: default-construct then TASSIGN (no ctor args needed)
+      emitter_.EmitLine(type_alias_name + " " + var_name +
+                        "; TASSIGN(" +
+                        var_name + ", " + addr_str + ");");
+    } else {
+      // A2/A3: pass ctor_args to constructor, then TASSIGN
+      emitter_.EmitLine(type_alias_name + " " + var_name + "(" +
+                        ctor_args + "); TASSIGN(" +
+                        var_name + ", " + addr_str + ");");
+    }
     tile_addresses_[var_name] = addr_str;
   } else {
     emitter_.EmitLine(type_alias_name + " " + var_name + "(" +
