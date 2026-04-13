@@ -79,34 +79,10 @@ public:
     std::string GenCmpOp() const;
     
     std::string GenCastOp() const;
-    // std::string GenPadOp() const ;
 
     std::string GenDupOp() const ;
 
-    // std::string GenTransposeDataMove() const ;
-
-    // std::string GenGatherElementOp() const ;
-
-    // std::string GenScatterElementOp() const ;
-
-    // std::string GenIndexOutCastOp() const ;
-
-    // std::string GenFusedOp() const ;
-
-    // std::string GenGatherOp() const ;
-    // std::string GenGatherOpOld() const ;
-
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
-    // std::string GenMemL1SpillIntoGM(const OpInfo &opInfo, bool isCopyL0CToGM, bool isCopyL1ToGM, unsigned uf) const;
-
-    // std::string GenBitSortOp() const;
-    // // std::string GenMrgSortOp() const;
-    // std::string GenExtractOp() const;
-
-    // std::string GenDistOp() const;
-    // std::string GetTemplateDType() const;
-
-    // std::string GenPoolOp() const;
 
     std::string GenWhereOp() const;
 
@@ -232,7 +208,6 @@ private:
     std::pair<std::string, std::string> GetOuterInnerValueStr(
         unsigned gmIdx, const std::vector<int64_t>& gmShape, bool isSpillingToGM = false) const;
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
-    // std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
 
     std::string PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const;
@@ -252,16 +227,6 @@ private:
 
     std::string PrintCastTileTensor() const;
 
-    // SortParam PrepareSortParam() const;
-    // std::string PrintSortDynamicUnaligned(const SortParam &param) const;
-    // std::string PrintSortStatic(const SortParam &param) const;
-    // std::string PrintBitSortDynamicUnaligned(const SortParam &param) const;
-    // std::string PrintBitSortStatic(const SortParam &param) const;
-    // std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
-    // std::string PrintMrgSortStatic(const SortParam &param) const;
-
-    // std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
-    // std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
     std::string PrintBinary() const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintUnaryWithTmpTileTensor() const;
@@ -300,7 +265,6 @@ private:
 
         // L1 <-> GM/BT/L1
         {                Opcode::OP_L1_COPY_IN,              [this]() { return GenMemL1CopyIn(); }},
-        // {               Opcode::OP_L1_COPY_OUT,             [this]() { return GenMemL1CopyOut(); }},
 
         // L0C <-> GM
         {              Opcode::OP_L0C_COPY_OUT,            [this]() { return GenMemL0CCopyOut(); }},
@@ -312,8 +276,6 @@ private:
 
         // // cast op
         {                      Opcode::OP_CAST,                   [this]() { return GenCastOp(); }},
-        // // pad op
-        // {                      Opcode::OP_PAD,                   [this]() { return GenPadOp(); }},
         // binary op: vector operations
         {                       Opcode::OP_ADD,                 [this]() { return GenBinaryOp(); }},
         {                       Opcode::OP_SUB,                 [this]() { return GenBinaryOp(); }},
@@ -325,14 +287,6 @@ private:
         {                   Opcode::OP_PAIRMAX,                 [this]() { return GenBinaryOp(); }},
         {                   Opcode::OP_PAIRMIN,                 [this]() { return GenBinaryOp(); }},
 
-        // // binary op: broadcast associated vector
-        // {                   Opcode::OP_ADD_BRC,            [this]() { return GenBinaryWithBrc(); }},
-        // {                   Opcode::OP_SUB_BRC,            [this]() { return GenBinaryWithBrc(); }},
-        // {                   Opcode::OP_MUL_BRC,            [this]() { return GenBinaryWithBrc(); }},
-        // {                   Opcode::OP_DIV_BRC,            [this]() { return GenBinaryWithBrc(); }},
-        // {                   Opcode::OP_MAX_BRC,            [this]() { return GenBinaryWithBrc(); }},
-        // {                   Opcode::OP_MIN_BRC,            [this]() { return GenBinaryWithBrc(); }},
-
         // // binary op: vector scalar
         {                      Opcode::OP_ADDS,           [this]() { return GenVectorScalarOp(); }},
         {                      Opcode::OP_SUBS,           [this]() { return GenVectorScalarOp(); }},
@@ -341,31 +295,16 @@ private:
         {                      Opcode::OP_MAXS,           [this]() { return GenVectorScalarOp(); }},
         {                      Opcode::OP_MINS,           [this]() { return GenVectorScalarOp(); }},
 
-        // // binary op: vector scalar, scalar mode
-        // {                    Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},
-        // {                    Opcode::OP_S_SUBS, [this]() { return GenVectorScalarOpScalarMode(); }},
-        // {                    Opcode::OP_S_MULS, [this]() { return GenVectorScalarOpScalarMode(); }},
-        // {                    Opcode::OP_S_DIVS, [this]() { return GenVectorScalarOpScalarMode(); }},
-        // {                    Opcode::OP_S_MAXS, [this]() { return GenVectorScalarOpScalarMode(); }},
-        // {                    Opcode::OP_S_MINS, [this]() { return GenVectorScalarOpScalarMode(); }},
-
         // // unary op
         {                       Opcode::OP_EXP,                  [this]() { return GenUnaryOp(); }},
         {                      Opcode::OP_SQRT,                  [this]() { return GenUnaryOp(); }},
         {                    Opcode::OP_EXPAND,                  [this]() { return GenUnaryOp(); }},
         {                Opcode::OP_RECIPROCAL,                  [this]() { return GenUnaryOp(); }},
-        // {                    Opcode::OP_ROWSUM,                  [this]() { return GenUnaryOp(); }},
-        // {                    Opcode::OP_ROWMAX,                  [this]() { return GenUnaryOp(); }},
-        // {                 Opcode::OP_ROWEXPSUM,                  [this]() { return GenUnaryOp(); }},
-        // {                 Opcode::OP_ROWEXPMAX,                  [this]() { return GenUnaryOp(); }},
-        // {             Opcode::OP_COPY_UB_TO_UB,                  [this]() { return GenUnaryOp(); }},
-        // {                Opcode::OP_ROWSUMLINE,                  [this]() { return GenUnaryOp(); }},
         {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
         {                       Opcode::OP_ROWMAXLINE,          [this]() { return GenUnaryOp(); }},
           {                     Opcode::OP_ROWMINLINE,          [this]() { return GenUnaryOp(); }},
 
-        // // unary with temp buffer
-        // {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},
+        // unary with temp buffer
         {             Opcode::OP_ROWSUM_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {             Opcode::OP_ROWMAX_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {             Opcode::OP_ROWMIN_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -373,25 +312,8 @@ private:
         {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
         {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,       [this]() { return GenUnaryOpWithTmpBuff(); }},
 
-        // // gather/scatter op
-        // {                    Opcode::OP_GATHER,                 [this]() { return GenGatherOp(); }},
-        // {            Opcode::OP_GATHER_ELEMENT,          [this]() { return GenGatherElementOp(); }},
-        // {           Opcode::OP_SCATTER_ELEMENT,         [this]() { return GenScatterElementOp(); }},
-
-        // // transpose with gm
-        // {        Opcode::OP_TRANSPOSE_MOVEOUT,        [this]() { return GenTransposeDataMove(); }},
-        // {        Opcode::OP_TRANSPOSE_MOVEIN,        [this]() { return GenTransposeDataMove(); }},
-
         // // vector dup
         {                   Opcode::OP_VEC_DUP,                    [this]() { return GenDupOp(); }},
-
-        // // index outcast
-        // {             Opcode::OP_INDEX_OUTCAST,           [this]() { return GenIndexOutCastOp(); }},
-
-        // // sort
-        // {                   Opcode::OP_BITSORT,                [this]() { return GenBitSortOp(); }},
-        // // {                   Opcode::OP_MRGSORT,                [this]() { return GenMrgSortOp(); }},
-        // {                   Opcode::OP_EXTRACT,                [this]() { return GenExtractOp(); }},
 
         // // matmul
         {                   Opcode::OP_A_MUL_B,             [this]() { return GenCubeOpMatmul(); }},
@@ -406,26 +328,6 @@ private:
         {                     Opcode::OP_BAR_M,                  [this]() { return GenBarrier(); }},
         {                   Opcode::OP_BAR_ALL,                  [this]() { return GenBarrier(); }},
 
-        // distribute op
-        // {              Opcode::OP_WRITE_REMOTE,                   [this]() { return GenDistOp(); }},
-        // {             Opcode::OP_REMOTE_REDUCE,                   [this]() { return GenDistOp(); }},
-        // {             Opcode::OP_REMOTE_GATHER,                   [this]() { return GenDistOp(); }},
-        // {            Opcode::OP_LOCAL_COPY_OUT,                   [this]() { return GenDistOp(); }},
-        // {           Opcode::OP_MOE_FFN_TO_ATTN,                   [this]() { return GenDistOp(); }},
-        // {          Opcode::OP_MOE_ATTN_COMBINE,                   [this]() { return GenDistOp(); }},
-        // {                 Opcode::OP_FFN_SCHED,                   [this]() { return GenDistOp(); }},
-        // {              Opcode::OP_FFN_BATCHING,                   [this]() { return GenDistOp(); }},
-        // {    Opcode::OP_SEND_TO_ROUTING_EXPERT,                   [this]() { return GenDistOp(); }},
-        // {     Opcode::OP_SEND_TO_SHARED_EXPERT,                   [this]() { return GenDistOp(); }},
-        // {         Opcode::OP_DISPATCH_SET_FLAG,                   [this]() { return GenDistOp(); }},
-        // {      Opcode::OP_COPY_TO_LOCAL_EXPERT,                   [this]() { return GenDistOp(); }},
-
-        // // max pool
-        // {                  Opcode::OP_MAX_POOL,                   [this]() { return GenPoolOp(); }},
-
-        // // fused pool
-        // {                  Opcode::OP_FUSED_OP,                  [this]() { return GenFusedOp(); }},
-
         // indexput
         {Opcode::OP_INDEX_PUT, [this]() { return GenIndexPutOp(); }},
 
@@ -438,7 +340,6 @@ private:
         {                    Opcode::OP_WHERE_TS,              [this]() { return GenWhereOp(); }},
         {                    Opcode::OP_WHERE_ST,              [this]() { return GenWhereOp(); }},
         {                    Opcode::OP_WHERE_TT,              [this]() { return GenWhereOp(); }},
-        
 
         // cmp op
         {               Opcode::OP_CMP,                   [this]() { return GenCmpOp(); }},
