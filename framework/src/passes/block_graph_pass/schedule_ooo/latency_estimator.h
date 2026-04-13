@@ -32,7 +32,7 @@ public:
 protected:
     Status PreMainLoop() override;
     Status PostMainLoop() override;
-    void LaunchReadyIssue() override;
+    void LaunchReadyIssue();
     Status FreeBuffer(Operation* op) override;
     Status ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, IssueQueue& pipe) override;
     Status LaunchIssueStage(int& nextCycle) override;

@@ -72,7 +72,7 @@ void LatencyEstimator::InitLatencyIssueQueues()
         allocIssueQueue[coreLocation_][MemoryType::MEM_UB] = IssueQueue();
     } else {
         for (size_t i = 1; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
-            allocIssueQueue[coreLocation][static_cast<MemoryType>(i)] = IssueQueue();
+            allocIssueQueue[coreLocation_][static_cast<MemoryType>(i)] = IssueQueue();
         }
     }
 }
@@ -173,7 +173,7 @@ Status LatencyEstimator::ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memTy
 Status LatencyEstimator::LaunchIssueStage(int& nextCycle)
 {
     for (auto& [coreLocation, queue] : issueQueues) {
-        void(coreLocation);
+        (void)coreLocation;
         for (auto& [pipeType, pipe] : queue) {
             (void)pipeType;
             if (pipe.Empty() || pipe.busy) {

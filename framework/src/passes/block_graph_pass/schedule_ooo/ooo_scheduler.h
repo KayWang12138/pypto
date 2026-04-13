@@ -110,6 +110,7 @@ public:
     int64_t workspaceOffset{0};
     OoOSchedulerCheck oooCheck;
     std::unordered_map<PipeType, int> pipeEndTime;
+    int GetClock() const { return clock; }
 
 protected:
     OoOScheduler() = default;

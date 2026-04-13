@@ -704,7 +704,7 @@ void OoOScheduler::InitIssueQueuesAndBufferManager()
         return opExecOrderMap[a] > opExecOrderMap[b];
     };
     std::unordered_set<CoreLocationType> CORE_INIT_CONFIGS =
-        (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) ?
+        (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(orderedOps)) ?
         {CoreLocationType::AIC, CoreLocationType::AIV0} :
         {CoreLocationType::AIC, CoreLocationType::AIV0, CoreLocationType::AIV1};
     // 初始化

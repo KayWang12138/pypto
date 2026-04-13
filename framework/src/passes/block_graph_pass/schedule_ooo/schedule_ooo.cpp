@@ -65,7 +65,7 @@ void OoOSchedule::OoOHealthCheck(OoOScheduler& oooSchedule, Function& function, 
 {
     if (oooSchedule.oooCheck.doHealthCheck) {
         oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
-        oooSchedule.oooCheck.clock = oooSchedule.clock;
+        oooSchedule.oooCheck.clock = oooSchedule.GetClock();
         oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
         schedulerMap.insert({program.first, oooSchedule});
     }
@@ -221,7 +221,7 @@ Status OoOSchedule::SortAndLatencyEstimate(
         APASS_LOG_ERROR_F(Elements::Operation, "SortAndLatencyEstimate LatencyEstimatorMainLoop failed.");
         return FAILED;
     }
-    latency = latencyEstimator.clock;
+    latency = latencyEstimator.GetClock();
     APASS_LOG_INFO_F(Elements::Operation, "=======>end SortAndLatencyEstimate");
     return SUCCESS;
 }
