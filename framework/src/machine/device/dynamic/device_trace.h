@@ -40,19 +40,6 @@
 
 namespace npu::tile_fwk::dynamic {
 
-struct TraceAttr {
-    int32_t traceLevel;
-    int32_t sampleRate;
-    int32_t bufferSize;
-    char traceName[256];
-};
-
-struct TraceGlobalAttr {
-    int32_t traceId;
-    char tracePath[512];
-    int32_t enableFlag;
-};
-
 enum class TraceError : uint32_t {
     PYPTO_TRACE_SUCCESS = 0,
     LOAD_LIBRARY_FAILED = 1,
@@ -76,7 +63,7 @@ enum class TraceError : uint32_t {
 class DeviceTrace {
 public:
     ~DeviceTrace();
-    TraceError CreateTraceHandle();
+    TraceError CreateTraceHandle(void *targ);
     void SubmitTraceMsg(const std::string &traceMsg);
     void ReportTraceMsg();
     /**
@@ -94,7 +81,7 @@ public:
      *
      * \return SUCCESS if initialization succeeds, error code otherwise
      */
-    TraceError Initialize();
+    TraceError Initialize(void *targ);
 
 private:
 
@@ -163,6 +150,8 @@ private:
      * \param eventHandle Event handle to destroy
      */
     std::function<void(TraEventHandle eventHandle)> TraceEventDestroy{};
+
+    std::function<TraStatus(const TraceGlobalAttr *attr)> TraceSetGlobalAttr{};
 
 private:
     void* handle_{nullptr};

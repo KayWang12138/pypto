@@ -15,6 +15,8 @@
 
 #ifdef __DEVICE__
 #include "device_trace.h"
+#include "machine/device/tilefwk/aicpu_common.h"
+#include "machine/utils/machine_ws_intf.h"
 #include <dlfcn.h>
 #include <cstring>
 
@@ -107,6 +109,11 @@ TraceError DeviceTrace::InitializeAtraceFunctions() {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
+    TraceSetGlobalAttr = reinterpret_cast<TraStatus(*)(const TraceGlobalAttr *attr)>(GetSymbol("AtraceSetGlobalAttr"));
+    if (TraceSetGlobalAttr == nullptr) {
+        return TraceError::SYMBOL_NOT_FOUND;
+    }
+
     return TraceError::PYPTO_TRACE_SUCCESS;
 }
 
@@ -151,6 +158,11 @@ TraceError DeviceTrace::InitializeUtraceFunctions() {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
+    TraceSetGlobalAttr = reinterpret_cast<TraStatus(*)(const TraceGlobalAttr *attr)>(GetSymbol("UtraceSetGlobalAttr"));
+    if (TraceSetGlobalAttr == nullptr) {
+        return TraceError::SYMBOL_NOT_FOUND;
+    }
+
     return TraceError::PYPTO_TRACE_SUCCESS;
 }
 
@@ -191,7 +203,7 @@ TraceError DeviceTrace::UtraceInitialize() {
     return TraceError::LOAD_LIBRARY_FAILED;
 }
 
-TraceError DeviceTrace::Initialize() {
+TraceError DeviceTrace::Initialize(void *targ) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (handle_ != nullptr) {
         DEV_DEBUG("Device trace already initialized");
@@ -201,41 +213,59 @@ TraceError DeviceTrace::Initialize() {
     DEV_INFO("Initializing device trace...");
     if (AtraceInitialize() == TraceError::PYPTO_TRACE_SUCCESS) {
         DEV_INFO("Current using so is libascend_trace.so");
-        return CreateTraceHandle();
+        return CreateTraceHandle(targ);
     }
     
     DEV_WARN("Failed to load libascend_trace.so, trying libutrace.so as fallback");
     if (UtraceInitialize() == TraceError::PYPTO_TRACE_SUCCESS) {
         DEV_INFO("Current using so is libutrace.so");
-        return CreateTraceHandle();
+        return CreateTraceHandle(targ);
     }
     DEV_ERROR(DevCommonErr::LOAD_LIBRARY_FAILED, "Failed to initialize device trace: no trace library available");
     return TraceError::LOAD_LIBRARY_FAILED;
 }
 
-TraceError DeviceTrace::CreateTraceHandle() {
+TraceError DeviceTrace::CreateTraceHandle(void *targ) {
     if (handle_ == nullptr) {
         DEV_ERROR(DevCommonErr::LOAD_LIBRARY_FAILED, "Create Trance handle failed");
         return TraceError::LOAD_LIBRARY_FAILED;
     }
+
+    DeviceKernelArgs* kargs = (DeviceKernelArgs*)targ;
+    DeviceArgs* devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
+    if (devArgs->devDfxArgAddr != 0) {
+        DevDfxArgs* devDfxArgs = reinterpret_cast<DevDfxArgs*>(devArgs->devDfxArgAddr);
+        TraceGlobalAttr traceAttr;
+        traceAttr.saveMode = 1;
+        traceAttr.deviceId = devDfxArgs->deviceId;
+        traceAttr.pid = devDfxArgs->hostPid;
+        DEV_INFO("ArgsAddr: %lu, Set deviceId: %u, pid: %lu, logLevel: %d", 
+            devArgs->devDfxArgAddr, devDfxArgs->deviceId, devDfxArgs->hostPid, devDfxArgs->logLevel);
+        if (TraceSetGlobalAttr(&traceAttr) != 0) {
+            DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Set Trace Global Attr failed");
+            return TraceError::LOAD_LIBRARY_FAILED;
+        }
+        DEV_INFO("Set Global Attr success");
+    }
+
     pyptoHandle_ = TraceCreate(TracerType::TRACER_TYPE_SCHEDULE, GlobalTraceHandleName);
     if (pyptoHandle_ < 0) {
         DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto trace failed");
         return TraceError::LOAD_LIBRARY_FAILED;
     }
-    DEV_INFO("Create pypto trace Handle succeccful");
+    DEV_INFO("Create pypto trace Handle successful");
     eventHandle_ = TraceEventCreate(EventTraceHandleName);
     if (eventHandle_ < 0) {
         DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto event trace failed");
         return TraceError::LOAD_LIBRARY_FAILED;
     }
-    DEV_INFO("Create pypto eventHandle_ succeccful");
+    DEV_INFO("Create pypto eventHandle_ successful");
     auto status = TraceEventBindTrace(eventHandle_, pyptoHandle_);
     if (status < 0) {
         DEV_ERROR(DevCommonErr::PARAM_CHECK_FAILED, "Bind pypto trace handle to pypto event trace failed, error status: %d", status);
         return TraceError::LOAD_LIBRARY_FAILED;
     }
-    DEV_INFO("Bind pypto eventHandle_ succeccful");
+    DEV_INFO("Bind pypto eventHandle_ successful");
     return TraceError::PYPTO_TRACE_SUCCESS;
 }
 

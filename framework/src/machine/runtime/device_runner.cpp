@@ -139,6 +139,7 @@ void* DeviceRunner::DevAlloc(int size)
 
 void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
 {
+    MACHINE_LOGI("==============Set ModuleLogLevel============");
     int logLevel = -1;
     if (dlog_getlevel != nullptr) {
         int32_t enableLog = -1;
@@ -146,10 +147,13 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
     }
     DevDfxArgs devDfxArg;
     devDfxArg.logLevel = logLevel;
+    devDfxArg.deviceId = GetLogDeviceId();
+    devDfxArg.hostPid = getpid();
     if (enableDumpMachinePerfTrace_) {
         devDfxArg.isOpenPerfTrace = 1;
     }
-    MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenPerfTrace);
+    MACHINE_LOGI("Get PYPTO dfxAddr: %lu log level is: %d, openPerTrace: %d, deviceId: %u, pid: %lu\n", args_.devDfxArgAddr,
+         logLevel, devDfxArg.isOpenPerfTrace, devDfxArg.deviceId, devDfxArg.hostPid);
     auto size = sizeof(DevDfxArgs);
     args.devDfxArgAddr = args_.devDfxArgAddr;
     auto ret = RuntimeMemcpy(reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size,
@@ -161,6 +165,7 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
 
 void DeviceRunner::InitDynamicArgs(DeviceArgs& args)
 {
+    GetModuleLogLevel(args);
     devArgs_ = reinterpret_cast<DeviceArgs*>(DevAlloc(sizeof(DeviceArgs)));
     RuntimeMemcpy(
         reinterpret_cast<void*>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs), RtMemcpyKind::HOST_TO_DEVICE);
@@ -193,6 +198,7 @@ void DeviceRunner::ResetPerData()
 
 void DeviceRunner::InitMetaData(DeviceArgs& devArgs)
 {
+    MACHINE_LOGI("==============InitMetaData============");
     auto shmAddr = args_.runtimeDataRingBufferAddr;
     devArgs.runtimeDataRingBufferAddr = shmAddr;
     devArgs.sharedBuffer = args_.sharedBuffer;
