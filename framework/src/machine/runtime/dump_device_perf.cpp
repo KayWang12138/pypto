@@ -24,6 +24,21 @@
 #include "machine/device/distributed/common.h"
 #include "tilefwk/pypto_fwk_log.h"
 namespace npu::tile_fwk::dynamic {
+int Checkcinject(const char cmdStr[], size_t strLen)
+{
+    if (cmdStr == nullptr || strLen == 0) {
+        return -1;
+    }
+    char cmdIllegalChar[] = {';', '|', '<', '>', '`'};
+    for (size_t i = 0; i < strLen; i++) {
+        for (const auto& c : cmdIllegalChar) {
+            if (cmdStr[i] == c) {
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
 constexpr int DUMP_LEVEL_FOUR = 4;
 uint32_t g_last_turn_num = 0;
 extern "C" void DumpDevTaskPerfData(DeviceArgs& args, const std::vector<void*>& perfData, bool isLast)
@@ -102,6 +117,11 @@ void DumpAicoreTaskExectInfo(DeviceArgs& args, const std::vector<void*>& perfDat
         std::string command = "python3 " + draw_swim_lane_py_path + " \"" + jsonFilePath + "\" \"" + topo_txt_path +
                               "\" \"" + program_json_path +
                               "\" --label_type=1 --time_convert_denominator=" + std::to_string(freq);
+        int ret = Checkcinject(command.c_str(), command.size());
+        if (ret != 0) {
+            MACHINE_LOGE(DevCommonErr::CMD_ERROR, "Draw swimlane cmd illegal char.");
+            return;
+        }
         if (system(command.c_str()) != 0) {
             MACHINE_LOGW("Failed to execute draw_swim_lane.py. Stop merging the swimlane.");
         }
@@ -277,12 +297,22 @@ void DumpAicpuPerfInfo(DeviceArgs& args, const std::vector<void*>& perfData, uin
                       npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace_" +
                       std::to_string(g_last_turn_num) + ".json " + npu::tile_fwk::config::LogTopFolder() +
                       "/merged_swimlane.json";
+    int ret = Checkcinject(cmd.c_str(), cmd.size());
+    if (ret != 0) {
+        MACHINE_LOGE(DevCommonErr::CMD_ERROR, "Draw swimlane cmd illegal char.");
+        return;
+    }
     if (system(cmd.c_str()) != 0) {
         MACHINE_LOGW("Failed to execute machine_perf_trace.py, cannot get aicpu perfetto.json.");
     }
     g_last_turn_num = sumTurnNum;
     // Auto run analyze command once DUMP_DEVICE_PERF is enabled in runtime.
     std::string analysisCmd = "python3 " + scriptPath + " analyze " + aicpuPerfilePath;
+    ret = Checkcinject(analysisCmd.c_str(), analysisCmd.size());
+    if (ret != 0) {
+        MACHINE_LOGE(DevCommonErr::CMD_ERROR, "Draw swimlane cmd illegal char.");
+        return;
+    }
     if (system(analysisCmd.c_str()) != 0) {
         MACHINE_LOGW("Failed to execute machine_perf_trace.py analyze.");
     }

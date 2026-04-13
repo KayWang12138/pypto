@@ -14,10 +14,13 @@
  */
 
 #include "machine/compile/aicore_compiler.h"
+#include <cstring>
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
 #include "codegen/utils/parallel_execute.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
@@ -35,6 +38,21 @@ constexpr const char* BISHENG_PROGRAM_CMD = "bisheng";
 constexpr const char* BISHENG_LD_CMD = "ld.lld";
 } // namespace
 
+int Checkcinject(const char cmdStr[], size_t strLen)
+{
+    if (cmdStr == nullptr || strLen == 0) {
+        return -1;
+    }
+    char cmdIllegalChar[] = {';', '|', '<', '>', '`'};
+    for (size_t i = 0; i < strLen; i++) {
+        for (const auto& c : cmdIllegalChar) {
+            if (cmdStr[i] == c) {
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
 static int CompileCoreMachine(
     const std::string& objFile, bool isCube, uint64_t tilingKey, const std::string& headFile,
     const std::string& aicoreSrcFile)
@@ -81,7 +99,11 @@ static int CompileCoreMachine(
         MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile aicore construct cmd failed.");
         return ret;
     }
-    MACHINE_LOGD("Compile ccec command:[%s].", ccecCmd.c_str());
+    ret = Checkcinject(ccecCmd.c_str(), ccecCmd.size());
+    if (ret != 0) {
+        MACHINE_LOGE(HostBackEndErr::COMPILE_AICORE_FAILED, "Compile aicore cmd illegal char.");
+        return ret;
+    }
     ret = std::system(ccecCmd.c_str());
     if (ret != 0) {
         MACHINE_LOGE(HostBackEndErr::COMPILE_CCEC_FAILED, "Compile ccec failed.");
@@ -165,13 +187,52 @@ static int LinkObject(
         return ret;
     }
     MACHINE_LOGD("Link ccec command: [%s].", ccecCmd.c_str());
-    const std::string linkScript = ccePath + "link_" + key + "_" + std::to_string(getpid()) + ".sh";
-    std::ofstream script(linkScript.c_str());
-    script << "#!/bin/bash\n";
-    script << ccecCmd.c_str();
-    script.close();
+    std::string linkScriptTemplate = ccePath + "link_" + key + std::to_string(getpid()) + "_XXXXXX";
+    std::vector<char> linkScriptBuffer(linkScriptTemplate.begin(), linkScriptTemplate.end());
+    linkScriptBuffer.push_back('\0');
+    int fd = mkstemp(linkScriptBuffer.data());
+    if (fd < 0) {
+        MACHINE_LOGE(
+            HostBackEndErr::LINK_FAILED, "Create secure link script failed.");
+        return -1;
+    }
+    const std::string linkScript(linkScriptBuffer.data());
+    if (fchmod(fd, S_IRUSR | S_IWUSR | S_IXUSR) != 0) {
+        MACHINE_LOGE(
+            HostBackEndErr::LINK_FAILED, "Set secure link script permission failed, file[%s].",
+            linkScript.c_str());
+        (void)close(fd);
+        (void)unlink(linkScript.c_str());
+        return -1;
+    }
+    const std::string scriptContent = std::string("#!/bin/bash\n") + ccecCmd;
+    ssize_t writtenSize = write(fd, scriptContent.data(), scriptContent.size());
+    if (writtenSize < 0 || static_cast<size_t>(writtenSize) != scriptContent.size()) {
+        MACHINE_LOGE(
+            HostBackEndErr::LINK_FAILED, "Write secure link script failed, file[%s].",
+            linkScript.c_str());
+        (void)close(fd);
+        (void)unlink(linkScript.c_str());
+        return -1;
+    }
+    if (close(fd) != 0) {
+        MACHINE_LOGE(
+            HostBackEndErr::LINK_FAILED, "Close secure link script failed, file[%s].",
+            linkScript.c_str());
+        (void)unlink(linkScript.c_str());
+        return -1;
+    }
     const std::string ldCmd = "bash " + linkScript;
+    ret = Checkcinject(ldCmd.c_str(), ldCmd.size());
+    if (ret != 0) {
+        MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Link kernel cmd illegal char.");
+        return ret;
+    }
     ret = std::system(ldCmd.c_str());
+    if (unlink(linkScript.c_str()) != 0) {
+        MACHINE_LOGW(
+            "Cleanup secure link script failed, file[%s].", linkScript.c_str());
+    }
     if (ret != 0) {
         MACHINE_LOGE(HostBackEndErr::LINK_FAILED, "Link kernel failed.");
     }
