@@ -62,15 +62,16 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
         }
         return false;
     };
-    
-    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
-        if (handleCopyOp(op.GetIOperands(), true)) {
-            return SUCCESS;
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            if (handleCopyOp(op.GetIOperands(), true)) {
+                return SUCCESS;
+            }
         }
-    }
-    if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
-        if (handleCopyOp(op.GetOOperands(), false)) {
-            return SUCCESS;
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            if (handleCopyOp(op.GetOOperands(), false)) {
+                return SUCCESS;
+            }
         }
     }
     for (auto outOperand : op.GetOOperands()) {
