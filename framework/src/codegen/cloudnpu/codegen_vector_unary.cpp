@@ -17,6 +17,7 @@
 #include "codegen_op_cloudnpu.h"
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
+#include "interface/tilefwk/tilefwk_op.h"
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& param) const
@@ -567,8 +568,31 @@ std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const
     std::vector<std::string> templateParamList;
     std::string lastUse = GetLastUse();
     oss << tileOpName;
+    
+    if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_LN || opCode == Opcode::OP_RSQRT) {
+        int64_t precisionType = 0;
+        (void)GetAttr(OpAttributeKey::precisionType, precisionType);
+        std::string enumName = "";
+        if (opCode == Opcode::OP_EXP) {
+            enumName = "ExpAlgorithm";
+        } else if (opCode == Opcode::OP_SQRT || opCode == Opcode::OP_RSQRT) {
+            enumName = "SqrtAlgorithm";
+        } else if (opCode == Opcode::OP_LN) {
+            enumName = "LogAlgorithm";
+        }
+        if (precisionType == 1) { // HIGH_PRECISION
+            templateParamList.emplace_back("pto::" + enumName + "::HIGH_PRECISION");
+        } else {
+            templateParamList.emplace_back("pto::" + enumName + "::DEFAULT");
+        }
+    }
+    
     if (!lastUse.empty()) {
-        oss << WrapParamByAngleBrackets({lastUse});
+        templateParamList.emplace_back(lastUse);
+    }
+    
+    if (!templateParamList.empty()) {
+        oss << WrapParamByAngleBrackets(templateParamList);
     }
     oss << WrapParamByParentheses({dstTensor, srcTensor});
     oss << ";\n";

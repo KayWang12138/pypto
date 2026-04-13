@@ -51,6 +51,30 @@ enum class DivAlgorithm : uint8_t
     HIGH_PRECISION
 };
 
+enum class SqrtAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
+enum class RsqrtAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
+enum class ExpAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
+enum class LogAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
 namespace experimental {
 struct PrintHelper {
     SymbolicScalar cond;
@@ -149,17 +173,17 @@ Tensor Transpose(const Tensor& self, std::vector<int> perm);
 Tensor Cast(
     const Tensor& self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
 
-Tensor Exp(const Tensor& self);
+Tensor Exp(const Tensor& self, ExpAlgorithm precisionType = ExpAlgorithm::DEFAULT);
 Tensor Exp2(const Tensor& self);
 Tensor Expm1(const Tensor& self);
 Tensor Neg(const Tensor& self);
 Tensor Round(const Tensor& self, const int& decimals = 0);
-Tensor Rsqrt(const Tensor& self);
+Tensor Rsqrt(const Tensor& self, RsqrtAlgorithm precisionType = RsqrtAlgorithm::DEFAULT);
 Tensor Relu(const Tensor& self);
 Tensor Pad(const Tensor& self, const std::vector<int64_t>& padding, std::string mode = "constant", float value = 0.0);
 Tensor FillPad(const Tensor& self, std::string mode = "constant", float value = 0.0);
 Tensor BitwiseNot(const Tensor& self);
-Tensor Sqrt(const Tensor& self);
+Tensor Sqrt(const Tensor& self, SqrtAlgorithm precisionType = SqrtAlgorithm::DEFAULT);
 Tensor Ceil(const Tensor& self);
 Tensor CeilDiv(const Tensor& self, const Tensor& other);
 Tensor CeilDiv(const Tensor& self, const Element& other);
@@ -368,7 +392,7 @@ enum class LogBaseType {
     LOG_2,
     LOG_10,
 };
-Tensor Log(const Tensor& self, LogBaseType base = LogBaseType::LOG_E);
+Tensor Log(const Tensor& self, LogBaseType base = LogBaseType::LOG_E, LogAlgorithm precisionType = LogAlgorithm::DEFAULT);
 Tensor Log1p(const Tensor& self);
 
 Tensor OneHot(const Tensor& self, int numClasses);
