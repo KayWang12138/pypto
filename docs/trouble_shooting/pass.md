@@ -17,6 +17,7 @@
 
 #### 1. TENSOR_NULL_POINTER
 描述：Tensor或其关联的操作存在空指针引用
+
 行为：
 - Tensor的producer为null
 - Tensor的consumer为null
