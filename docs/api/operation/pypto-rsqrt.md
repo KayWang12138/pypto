@@ -15,7 +15,7 @@
 ## 函数原型
 
 ```python
-rsqrt(input: Tensor) -> Tensor
+rsqrt(input: Tensor, precision_type: RsqrtAlgorithm = RsqrtAlgorithm.HIGH_PRECISION) -> Tensor
 ```
 
 ## 参数说明
@@ -24,6 +24,7 @@ rsqrt(input: Tensor) -> Tensor
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
 | input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| precision_type  | 输入      | 精度类型。 <br> 支持的类型为：RsqrtAlgorithm。 <br> 默认值为 RsqrtAlgorithm.HIGH_PRECISION。 <br> HIGH_PRECISION 使用更高精度的计算以减少精度损失；INTRINSIC 直接使用芯片指令。 |
 
 ## 返回值说明
 
@@ -55,4 +56,18 @@ y = pypto.rsqrt(x)
 ```python
 输入数据x: [[1.0  4.0], [16.0  9.0]]
 输出数据y: [[1.0  0.5], [0.25  0.33333]]
+```
+
+### 高精度模式示例
+
+```python
+x = pypto.tensor([2, 2], pypto.DT_FP16)
+y = pypto.rsqrt(x, pypto.RsqrtAlgorithm.HIGH_PRECISION)
+```
+
+### 指令模式示例
+
+```python
+x = pypto.tensor([2, 2], pypto.DT_FP16)
+y = pypto.rsqrt(x, pypto.RsqrtAlgorithm.INTRINSIC)
 ```
