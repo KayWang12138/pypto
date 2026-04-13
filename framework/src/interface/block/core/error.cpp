@@ -9,30 +9,3 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 #include "block/core/error.h"
-
-#include <sstream>
-#include <string>
-
-namespace pypto {
-
-std::string Error::GetFormattedStackTrace() const { return Backtrace::FormatStackTrace(stack_trace_); }
-
-std::string Error::GetFullMessage() const {
-  std::ostringstream oss;
-
-  oss << what();
-
-  // Append C++ stack trace
-  std::string stack_trace = GetFormattedStackTrace();
-  if (!stack_trace.empty()) {
-    oss << "\n\nC++ Traceback (most recent call last):\n";
-    oss << stack_trace;
-  } else {
-    oss << "\n\nNo stack trace available. \n"
-           "(Tip: Build with CMake in Debug or RelWithDebInfo mode to enable stack trace support.)";
-  }
-
-  return oss.str();
-}
-
-}  // namespace pypto

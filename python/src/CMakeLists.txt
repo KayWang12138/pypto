@@ -93,11 +93,9 @@ target_include_directories(pypto_core
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/include
             ${PTO_FWK_SRC_ROOT}/python/src/bindings/block
-            ${LIBBACKTRACE_INSTALL_DIR}/include
 )
 target_link_libraries(pypto_core
         PRIVATE
-            libbacktrace
             msgpackc-cxx
             dl
             Threads::Threads

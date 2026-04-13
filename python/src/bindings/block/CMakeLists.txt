@@ -47,13 +47,11 @@ set_target_properties(${LIBRARY_NAME} PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON
 )
 
-# Link with libbacktrace and msgpack
+# Link with msgpack
 target_include_directories(${LIBRARY_NAME} PRIVATE
-    ${LIBBACKTRACE_INSTALL_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(${LIBRARY_NAME} PRIVATE
-    libbacktrace
     msgpackc-cxx
     dl
 )
@@ -76,5 +74,3 @@ else()
     )
 endif()
 
-# Generate dSYM on macOS for libbacktrace debug symbols
-pypto_add_apple_dsymutil(${LIBRARY_NAME})

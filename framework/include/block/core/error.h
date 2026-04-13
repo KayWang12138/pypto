@@ -11,25 +11,15 @@
 
 /**
  * @file error.h
- * @brief Core error handling framework with stack trace support
+ * @brief Core error handling framework
  *
- * This header provides a comprehensive error handling system that captures
- * stack traces at the point of error creation. It includes a base Error class
+ * This header provides a comprehensive error handling system with a base Error class
  * and several specialized error types that mirror Python's exception hierarchy.
- *
- * Key features:
- * - Automatic stack trace capture using libbacktrace
- * - Multiple error types for different error categories
- * - Formatted stack trace output for debugging
- * - Integration with standard C++ exception mechanisms
  */
 
 #ifndef PYPTO_CORE_ERROR_H_
 #define PYPTO_CORE_ERROR_H_
 
-#include <backtrace.h>
-
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -41,161 +31,14 @@
 namespace pypto {
 
 /**
- * @brief Represents a single frame in a call stack
- *
- * Captures information about a specific point in the execution stack,
- * including the function name, source file location, line number, and
- * program counter value. This information is essential for debugging
- * and understanding the execution context when an error occurs.
- */
-struct StackFrame {
-  std::string function;  // Name of the function at this stack frame
-  std::string filename;  // Source file path where the function is defined
-  int lineno;            // Line number in the source file
-  uintptr_t pc;          // Program counter (instruction pointer) value
-
-  // Default constructor initializing numeric fields to zero
-  StackFrame() : lineno(0), pc(0) {}
-
-  /**
-   * @brief Constructs a stack frame with complete information
-   * @param func Function name
-   * @param file Source file path
-   * @param line Line number in source file
-   * @param program_counter Program counter value at this frame
-   */
-  StackFrame(std::string func, std::string file, int line, uintptr_t program_counter)
-      : function(std::move(func)), filename(std::move(file)), lineno(line), pc(program_counter) {}
-
-  /**
-   * @brief Formats the stack frame as a human-readable string
-   * @return String representation in the format "function (filename:lineno)"
-   */
-  [[nodiscard]] std::string to_string() const;
-};
-
-/**
- * @brief Singleton class for capturing and formatting stack traces
- *
- * This class provides facilities for capturing the current execution stack
- * using libbacktrace and formatting it for display. It uses a singleton pattern
- * to ensure a single backtrace_state instance is shared across the application.
- *
- * Thread-safety: The GetInstance() method is thread-safe, but CaptureStackTrace()
- * should be called with care in multi-threaded contexts.
- */
-class Backtrace {
- public:
-  /**
-   * @brief Get the singleton instance of Backtrace
-   * @return Reference to the singleton Backtrace instance
-   */
-  static Backtrace& GetInstance();
-
-  /**
-   * @brief Capture the current stack trace
-   *
-   * Walks the call stack and captures information about each frame,
-   * including function names, file names, and line numbers.
-   *
-   * @param skip Number of most recent frames to skip (useful for hiding
-   *             internal error handling frames from the trace)
-   * @return Vector of StackFrame objects representing the call stack,
-   *         ordered from most recent (top) to least recent (bottom)
-   */
-  std::vector<StackFrame> CaptureStackTrace(int skip = 0);
-
-  /**
-   * @brief Format a stack trace as a human-readable string
-   * @param frames Vector of stack frames to format
-   * @return Multi-line string representation of the stack trace, with
-   *         each frame on a separate line
-   */
-  static std::string FormatStackTrace(const std::vector<StackFrame>& frames);
-
- public:
-  /// Constructor initializes the backtrace state
-  Backtrace();
-
-  /// Destructor (default implementation)
-  ~Backtrace() = default;
-
-  // Prevent copying to maintain singleton pattern
-  Backtrace(const Backtrace&) = delete;
-  Backtrace& operator=(const Backtrace&) = delete;
-
- private:
-  backtrace_state* state_;  ///< libbacktrace state object for stack walking
-
-  /**
-   * @brief Error callback for libbacktrace
-   * @param data User data pointer
-   * @param msg Error message from libbacktrace
-   * @param errnum Error number
-   */
-  static void ErrorCallback(void* data, const char* msg, int errnum);
-
-  /**
-   * @brief Full callback for libbacktrace stack walking
-   * @param data User data pointer (vector of StackFrame objects)
-   * @param pc Program counter value
-   * @param filename Source file name
-   * @param lineno Line number in source file
-   * @param function Function name
-   * @return 0 to continue walking, non-zero to stop
-   */
-  static int FullCallback(void* data, uintptr_t pc, const char* filename, int lineno, const char* function);
-};
-
-/**
- * @brief Base exception class with automatic stack trace capture
+ * @brief Base exception class
  *
  * This is the fundamental exception type in PyPTO's error hierarchy.
- * When constructed, it automatically captures the current call stack,
- * providing valuable debugging information about where the error originated.
- *
- * All PyPTO exceptions should inherit from this class to benefit from
- * automatic stack trace capture and formatting.
- *
- * The constructor is always inlined to ensure accurate stack traces that
- * exclude the constructor frame itself from the captured trace.
- *
- * Example usage:
- * @code
- *   throw Error("Something went wrong");
- *   // Stack trace will be captured at this point
- * @endcode
+ * All PyPTO exceptions should inherit from this class.
  */
 class Error : public std::runtime_error {
  public:
-  /**
-   * @brief Constructs an Error with a message and captures the stack trace
-   * @param message Error message describing what went wrong
-   */
-  PYPTO_ALWAYS_INLINE explicit Error(const std::string& message) : std::runtime_error(message) {
-    stack_trace_ = Backtrace::GetInstance().CaptureStackTrace();
-  }
-
-  /**
-   * @brief Get the raw stack trace frames
-   * @return Const reference to the vector of captured stack frames
-   */
-  [[nodiscard]] const std::vector<StackFrame>& GetStackTrace() const { return stack_trace_; }
-
-  /**
-   * @brief Get a formatted string representation of the stack trace
-   * @return Multi-line string with each stack frame on a separate line
-   */
-  [[nodiscard]] std::string GetFormattedStackTrace() const;
-
-  /**
-   * @brief Get the complete error message including the stack trace
-   * @return String containing both the error message and formatted stack trace
-   */
-  [[nodiscard]] std::string GetFullMessage() const;
-
- private:
-  std::vector<StackFrame> stack_trace_;  ///< Captured stack frames at error creation
+  explicit Error(const std::string& message) : std::runtime_error(message) {}
 };
 
 /**
