@@ -114,12 +114,13 @@ Status SubGraphToFuncChecker::CheckSubGraphTopo(Function& function) const
 Status SubGraphToFuncChecker::EdgeIndexCheck(const bool found, const int newIndex, const size_t graphSize) const
 {
     if (!found) {
-        APASS_LOG_ERROR_F(Elements::Operation, "op magic not found");
+        APASS_LOG_ERROR_C(FunctionErr::FUNCTION_GRAPH_CONNECTION, Elements::Function, "op magic not found");
         return FAILED;
     }
     if (static_cast<size_t>(newIndex) >= graphSize) {
-        APASS_LOG_ERROR_F(
-            Elements::Operation, "parent index %d is larger than operations_ size %zu", newIndex, graphSize);
+        APASS_LOG_ERROR_C(
+            GraphErr::GRAPH_TOPOLOGY_STRUCTURE,
+            Elements::Graph, "parent index %d is larger than operations_ size %zu", newIndex, graphSize);
         return FAILED;
     }
     return SUCCESS;
