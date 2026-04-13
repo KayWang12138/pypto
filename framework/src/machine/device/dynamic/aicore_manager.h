@@ -287,6 +287,20 @@ public:
                 aicpuIdx_, deviceTaskCtx->GetDeviceTaskCtrl()->finishedFunctionCnt.load(),
                 deviceTaskCtx->GetDeviceTask()->coreFunctionCnt, deviceTaskCtx->TaskId());
         }
+        for (const auto& point : aicpuTaskManager_.profilingPoints) {
+            if (!point.isAllZero()) {
+                DEV_ERROR(SchedErr::CORE_TASK_PROCESS_FAILED,
+                    "=============aicpu profiling: execStart=%lu, execEnd=%lu, taskId=%u, label=%s",
+                    point.execStart, point.execEnd, point.taskId, point.label.c_str());
+            }
+        }
+        for (const auto& point : profilingPoints_) {
+            if (!point.isAllZero()) {
+                DEV_ERROR(SchedErr::CORE_TASK_PROCESS_FAILED,
+                    "=============aicore profiling: execStart=%lu, execEnd=%lu, taskId=%u, label=%s",
+                    point.execStart, point.execEnd, point.taskId, point.label.c_str());
+            }
+        }
         return ret;
     }
 
@@ -1071,6 +1085,10 @@ private:
         }
         DEV_VERBOSE_DEBUG("Send task %lx, origin taskid %lx, at core %d ,type:%d.",
             encodeTaskId, newTask, coreIdx, static_cast<int>(type));
+        auto &point = profilingPoints_[newTask % Utils::PROFILING_LEN];
+        prof_.AsmCntvc(point.execStart);
+        point.taskId = newTask;
+        point.label = "SendTaskToAiCore :: task start";
     }
 
     inline void SetAiCpuStat(int coreIdx, uint64_t taskId)
@@ -2252,5 +2270,7 @@ private:
     friend class AiCoreProf;
 
     bool enableEslModel_;
+    std::array<AicpuProfilingPoint, Utils::PROFILING_LEN> profilingPoints_;
+    Utils prof_;
 };
 } // namespace npu::tile_fwk::dynamic

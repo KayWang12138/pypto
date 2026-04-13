@@ -29,6 +29,7 @@
 #include "interface/operation/opcode.h"
 #include "interface/utils/common.h"
 #include "interface/utils/distributed_error.h"
+#include "utils.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -38,6 +39,7 @@ public:
         SHMEM_WAIT_UNTIL = 0,
         TASK_TYPE_NUM,
     };
+    std::array<AicpuProfilingPoint, Utils::PROFILING_LEN> profilingPoints;
 
     AicpuTaskManager(){};
     ~AicpuTaskManager(){};
@@ -148,6 +150,10 @@ private:
 
     inline int32_t TaskDispatch(uint64_t taskId)
     {
+        auto &point = profilingPoints[taskId % Utils::PROFILING_LEN];
+        prof_.AsmCntvc(point.execStart);
+        point.taskId = taskId;
+        point.label = "wait until TaskDispatch";
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
         if (taskType < TaskType::TASK_TYPE_NUM) {
@@ -163,6 +169,9 @@ private:
 
     inline int32_t PrepareAicpuTask()
     {
+        auto &point = profilingPoints[0];
+        prof_.AsmCntvc(point.execStart);
+        point.label = "prepare";
         for (uint64_t funcId = 0; funcId < curDevTask_->dynFuncDataCacheListSize; ++funcId) {
             auto callList = curDevTask_->dynFuncDataCacheList[funcId].calleeList;
             for (size_t opIndex = 0; opIndex < curDevTask_->dynFuncDataCacheList[funcId].devFunc->GetOperationSize();
@@ -179,6 +188,7 @@ private:
                 }
             }
         }
+        prof_.AsmCntvc(point.execEnd);
         return DEVICE_MACHINE_OK;
     }
 
@@ -191,5 +201,6 @@ private:
     uint64_t sharedBuffer_;
     uint32_t aicNum_;
     uint32_t aivNum_;
+    Utils prof_;
 };
 } // namespace npu::tile_fwk::dynamic
