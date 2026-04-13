@@ -90,8 +90,8 @@
         "codegen": {
             "parallel_compile" : 128,
             "support_dynamic_aligned": false,
-            "fixed_output_path": false,
-            "force_overwrite": true,
+            "fixed_output_path": true,
+            "force_overwrite": false,
             "codegen_support_tile_tensor": true
         },
         "tensor_print": {

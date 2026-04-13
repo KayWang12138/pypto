@@ -53,6 +53,14 @@ const std::unordered_map<size_t, size_t> BLOCK_PADDING_DIM = {{1, 32}, {2, 16}, 
     DTYPE_DESC(DT_FP4_E2M1X2, 1, 4, true, float4_e2m1x2_t, 40) \
     DTYPE_DESC(DT_FP4_E1M2X2, 1, 4, true, float4_e1m2x2_t, 41)
 
+// FP8 显式格式类型仅在 V310 平台可用
+// 这些类型定义需要平台守卫以避免在非 V310 平台上使用
+#ifdef __DAV_V310
+typedef struct { uint8_t val; } float8_e4m3_t;
+typedef struct { uint8_t val; } float8_e5m2_t;
+typedef struct { uint8_t val; } float8_e8m0_t;
+#endif
+
 enum DataType {
 #define DTYPE_DESC(name, byte, bit, is_float, type, cann_type) name,
     DATA_TYPE_ALL
