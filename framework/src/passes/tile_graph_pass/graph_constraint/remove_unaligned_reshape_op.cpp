@@ -409,7 +409,9 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
 {
     for (auto* copyInOp : copyInOps) {
         auto copyInInput = copyInOp->GetIOperands().front();
-        auto copyInOutput = copyInOp->GetOOperands().front();
+        auto copyInInputMemType = copyInInput->GetMemoryTypeOriginal(); 
+        auto copyInOutput = copyInOp->GetOOperands().front();	 
+        auto copyInOutputMemType = copyInOutput->GetMemoryTypeOriginal();
 
         bool copyInShapeSame = true;
         if (copyInInput->GetShape().size() != copyInOutput->GetShape().size()) {
@@ -423,10 +425,10 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
             }
         }
 
-        if (copyInInput->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            if (copyInOutput->GetMemoryTypeOriginal() == MemoryType::MEM_UB && copyInShapeSame) {
+        if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR) {
+            if (copyInOutputMemType == MemoryType::MEM_UB && copyInShapeSame) {
                 copyInOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
-            } else if (copyInOutput->GetMemoryTypeOriginal() != MemoryType::MEM_UB || !copyInShapeSame) {
+            } else if (copyInOutputMemType != MemoryType::MEM_UB || !copyInShapeSame) {
                 // reshape -- copyInInput(DDR) -- COPYIN -- copyInOutout(NOTUB)
                 // reshape -- copyInInput(DDR) -- RESHAPECOPYIN -- newTensor(UB) -- COPYOUT -- newTensor2(DDR) -- COPYIN
                 // --copyInOutout(NOTUB)
