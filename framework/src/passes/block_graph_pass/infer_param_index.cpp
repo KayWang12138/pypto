@@ -44,10 +44,14 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
                                            Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
                                            Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
-    
     auto handleCopyOp = [&](const std::vector<std::shared_ptr<LogicalTensor>>& operands, bool isCopyIn) -> bool {
         auto operand = operands.front();
-        bool isFromCast = isCopyIn ? function.IsFromInCast(operand) : function.IsFromOutCast(operand);
+        bool isFromCast = false;
+        auto &casts = isCopyIn ? function.inCasts_ : function.outCasts_;
+        auto it = find(casts.begin(), casts.end(), operand);
+        if (it != casts.end()) {
+            isFromCast = true;
+        }
         if (!isFromCast) {
             auto shape = OpImmediate::Specified(operand->GetShape());
             validShape = OpImmediate::ToSpecified(shape);
