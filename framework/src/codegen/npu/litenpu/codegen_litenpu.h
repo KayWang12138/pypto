@@ -170,15 +170,6 @@ private:
     NPUArch platform_;
 };
 
-class FloatSpecValMgrLite {
-public:
-    void UpdateByOp(const Operation &op);
-    void PrintFloatSpecVal(std::ostringstream &oss);
-
-private:
-    std::set<FloatSpecVal> floatSpecVals_;
-};
-
 } // namespace npu::tile_fwk
 
 #endif // CODEGEN_CLOUDNPU_H

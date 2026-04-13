@@ -18,6 +18,7 @@
 #include <error.h>
 #include <fstream>
 
+#include "codegen/npu/codegen_npu.h"
 #include "codegen/utils/parallel_execute.h"
 #include "codegen_op_cloudnpu.h"
 #include "codegen/stmt_mgr/codegen_for_block.h"
@@ -680,43 +681,6 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function& subFunc)
     attr->aicpuLeafCode = std::move(code);
     subFunc.SetLeafFuncAttribute(attr);
     return true;
-}
-
-void FloatSpecValMgr::UpdateByOp(const Operation& op)
-{
-    std::vector<Element> eles;
-    if (op.HasAttr(OpAttributeKey::scalar)) {
-        eles.emplace_back(op.GetElementAttribute(OpAttributeKey::scalar));
-    }
-    if (op.HasAttr(OpAttributeKey::vectorScalar)) {
-        auto vecScalars = op.GetVectorElementAttribute(OpAttributeKey::vectorScalar);
-        eles.insert(eles.end(), vecScalars.begin(), vecScalars.end());
-    }
-
-    if (eles.empty()) {
-        return;
-    }
-
-    for (const auto& e : eles) {
-        if (e.GetDataType() == DataType::DT_FP16 || e.GetDataType() == DataType::DT_FP32 ||
-            e.GetDataType() == DataType::DT_BF16) {
-            double value = e.Cast<float>();
-            if (std::isinf(value) || std::isnan(value)) {
-                floatSpecVals_.insert({e.GetDataType(), value});
-            }
-        }
-    }
-}
-
-void FloatSpecValMgr::PrintFloatSpecVal(std::ostringstream& oss)
-{
-    // print statement like: union {float f; uint32_t u;} float_inf = {.u = 0x7F800000};
-    for (const auto& fs : floatSpecVals_) {
-        std::string dtypeCCE = DataType2CCEStr(fs.dtype);
-        oss << "union "
-            << "{" << dtypeCCE << " f; "
-            << "uint32_t u;} " << fs.GetFsVarName() << " = {.u = " << fs.GetFsValueStr() << "};\n";
-    }
 }
 
 void CodeGenCloudNPU::CollectCompileTask(const CompileTaskInfo& task) const

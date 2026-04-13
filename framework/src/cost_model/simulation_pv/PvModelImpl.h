@@ -27,7 +27,7 @@
 #include "cost_model/simulation/pv/PvModel.h"
 #include "cost_model/simulation_pv/PvMemAllocator.h"
 #include "cost_model/simulation/common/CommonTools.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/core_func_data.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"

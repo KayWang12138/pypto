@@ -19,7 +19,6 @@
 #include <utility>
 #include <unordered_set>
 
-#include "op_print_param_def.h"
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
@@ -28,6 +27,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
+#include "codegen/npu/op_print_param_def.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/stmt_mgr/codegen_for_block.h"
 #include "codegen/codegen_op.h"

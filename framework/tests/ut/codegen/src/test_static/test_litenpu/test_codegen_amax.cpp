@@ -22,7 +22,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/interpreter/calc.h"
 #include "codegen/codegen.h"
-#include "codegen/litenpu/codegen_litenpu.h"
+#include "codegen/npu/litenpu/codegen_litenpu.h"
 
 using namespace npu::tile_fwk;
 

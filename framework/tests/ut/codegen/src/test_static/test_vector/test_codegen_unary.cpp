@@ -21,8 +21,8 @@
 #include "codegen/codegen.h"
 #include <vector>
 #include <string>
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 
 namespace npu::tile_fwk {

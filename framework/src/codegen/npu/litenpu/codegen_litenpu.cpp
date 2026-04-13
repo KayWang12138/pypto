@@ -19,6 +19,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 
+#include "codegen/npu/codegen_npu.h"
 #include "codegen/utils/parallel_execute.h"
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/logical_tensor.h"
@@ -87,7 +88,7 @@ void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostr
         topFunc.Dump().c_str());
 
     std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
-    FloatSpecValMgrLite floatSpecValMgr;
+    FloatSpecValMgr floatSpecValMgr;
     std::string allocSourceRegion;
     allocSourceRegion.reserve(CODE_RESERVED_SIZE);
     std::string tileOpSourceRegion;
@@ -723,42 +724,6 @@ bool CodeGenLiteNPU::HandleForAICpuSubFunc(Function& subFunc)
     attr->coreType = CoreType::AICPU;
     subFunc.SetLeafFuncAttribute(attr);
     return true;
-}
-
-void FloatSpecValMgrLite::UpdateByOp(const Operation& op)
-{
-    std::vector<Element> eles;
-    if (op.HasAttr(OpAttributeKey::scalar)) {
-        eles.emplace_back(op.GetElementAttribute(OpAttributeKey::scalar));
-    }
-    if (op.HasAttr(OpAttributeKey::vectorScalar)) {
-        auto vecScalars = op.GetVectorElementAttribute(OpAttributeKey::vectorScalar);
-        eles.insert(eles.end(), vecScalars.begin(), vecScalars.end());
-    }
-
-    if (eles.empty()) {
-        return;
-    }
-
-    for (const auto& e : eles) {
-        if (e.GetDataType() != DataType::DT_FP16 && e.GetDataType() != DataType::DT_FP32) {
-            continue;
-        }
-        double value = e.Cast<float>();
-        if (std::isinf(value) || std::isnan(value)) {
-            floatSpecVals_.insert({e.GetDataType(), value});
-        }
-    }
-}
-
-void FloatSpecValMgrLite::PrintFloatSpecVal(std::ostringstream& oss)
-{
-    // print statement like: union {float f; uint32_t u;} float_inf = {.u = 0x7F800000};
-    for (const auto& fs : floatSpecVals_) {
-        std::string dtypeCCE = DataType2CCEStr(fs.dtype);
-        oss << "union " << "{" << dtypeCCE << " f; " << "uint32_t u;} " << fs.GetFsVarName()
-            << " = {.u = " << fs.GetFsValueStr() << "};\n";
-    }
 }
 
 } // namespace npu::tile_fwk
