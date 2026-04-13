@@ -68,7 +68,6 @@ def test_quantize_sym_axis_neg1_onboard():
 
     pypto.runtime._device_init()
 
-    # 声明有名字的tensor
     input1 = pypto.tensor(input_shape, pypto.DT_FP32, "PTO_TENSOR_input1")
     scale1 = pypto.tensor(scale_shape, pypto.DT_FP32, "PTO_TENSOR_scale1")
     output = pypto.tensor(input_shape, pypto.DT_INT8, "PTO_TENSOR_output")
@@ -78,7 +77,6 @@ def test_quantize_sym_axis_neg1_onboard():
 
     output_dtype = pypto.DT_INT8
 
-    # 构建计算图
     with pypto.function("MAIN", input1, scale1, output):
         for b_idx in pypto.loop(b_loop_num, name="LOOP_B0", idx_name="b_idx"):
             for s_idx in pypto.loop(s_loop_num, name="LOOP_S0", idx_name="s_idx"):
@@ -88,20 +86,22 @@ def test_quantize_sym_axis_neg1_onboard():
                 # View input (2D)
                 view_input = pypto.view(input1, view_shape, offsets,
                     valid_shape=[
-                        pypto.min(pypto.symbolic_scalar(input_shape[0]) - b_idx * view_shape[0], pypto.symbolic_scalar(view_shape[0])),
-                        pypto.min(pypto.symbolic_scalar(input_shape[1]) - s_idx * view_shape[1], pypto.symbolic_scalar(view_shape[1])),
+                        pypto.min(pypto.symbolic_scalar(input_shape[0]) - b_idx * view_shape[0],
+                        pypto.symbolic_scalar(view_shape[0])),
+                        pypto.min(pypto.symbolic_scalar(input_shape[1]) - s_idx * view_shape[1],
+                        pypto.symbolic_scalar(view_shape[1])),
                     ])
 
                 # View scale (1D) - axis=-1, so scale is per-row, shape=[4], view along axis=0
                 view_scale = pypto.view(scale1, [view_shape[0]], [offsets[0]],
                     valid_shape=[
-                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0], pypto.symbolic_scalar(view_shape[0])),
+                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0],
+                                  pypto.symbolic_scalar(view_shape[0])),
                     ])
 
                 res = pypto.quantize(view_input, view_scale, output_dtype, axis)
                 pypto.assemble(res, offsets, output)
 
-    # 准备torch数据
     input_tensor = torch.rand(input_shape, dtype=torch.float32) * 20 - 10
     scale_tensor = torch.rand(scale_shape, dtype=torch.float32) * 0.14 + 0.01
     out_tensor = torch.zeros(input_shape, dtype=torch.int8)
@@ -112,7 +112,6 @@ def test_quantize_sym_axis_neg1_onboard():
 
     pypto.runtime._device_run_once_data_from_host(pto_input1, pto_scale1, pto_output)
 
-    # 验证
     golden = quantize_golden(input_tensor, scale_tensor, axis, torch.int8)
     assert_allclose(out_tensor.flatten(), golden.flatten(), rtol=1e-3, atol=1e-3)
 
@@ -132,7 +131,6 @@ def test_quantize_sym_axis_neg1_aligned_onboard():
 
     pypto.runtime._device_init()
 
-    # 声明有名字的tensor
     input1 = pypto.tensor(input_shape, pypto.DT_FP32, "PTO_TENSOR_input1")
     scale1 = pypto.tensor(scale_shape, pypto.DT_FP32, "PTO_TENSOR_scale1")
     output = pypto.tensor(input_shape, pypto.DT_INT8, "PTO_TENSOR_output")
@@ -142,7 +140,6 @@ def test_quantize_sym_axis_neg1_aligned_onboard():
 
     output_dtype = pypto.DT_INT8
 
-    # 构建计算图
     with pypto.function("MAIN", input1, scale1, output):
         for b_idx in pypto.loop(b_loop_num, name="LOOP_B0", idx_name="b_idx"):
             for s_idx in pypto.loop(s_loop_num, name="LOOP_S0", idx_name="s_idx"):
@@ -152,20 +149,22 @@ def test_quantize_sym_axis_neg1_aligned_onboard():
                 # View input (2D)
                 view_input = pypto.view(input1, view_shape, offsets,
                     valid_shape=[
-                        pypto.min(pypto.symbolic_scalar(input_shape[0]) - b_idx * view_shape[0], pypto.symbolic_scalar(view_shape[0])),
-                        pypto.min(pypto.symbolic_scalar(input_shape[1]) - s_idx * view_shape[1], pypto.symbolic_scalar(view_shape[1])),
+                        pypto.min(pypto.symbolic_scalar(input_shape[0]) - b_idx * view_shape[0],
+                                  pypto.symbolic_scalar(view_shape[0])),
+                        pypto.min(pypto.symbolic_scalar(input_shape[1]) - s_idx * view_shape[1],
+                                  pypto.symbolic_scalar(view_shape[1])),
                     ])
 
                 # View scale (1D)
                 view_scale = pypto.view(scale1, [view_shape[0]], [offsets[0]],
                     valid_shape=[
-                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0], pypto.symbolic_scalar(view_shape[0])),
+                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0],
+                                  pypto.symbolic_scalar(view_shape[0])),
                     ])
 
                 res = pypto.quantize(view_input, view_scale, output_dtype, axis)
                 pypto.assemble(res, offsets, output)
 
-    # 准备torch数据
     input_tensor = torch.rand(input_shape, dtype=torch.float32) * 20 - 10
     scale_tensor = torch.rand(scale_shape, dtype=torch.float32)
     out_tensor = torch.zeros(input_shape, dtype=torch.int8)
@@ -176,7 +175,6 @@ def test_quantize_sym_axis_neg1_aligned_onboard():
 
     pypto.runtime._device_run_once_data_from_host(pto_input1, pto_scale1, pto_output)
 
-    # 验证
     golden = quantize_golden(input_tensor, scale_tensor, axis, torch.int8)
     assert_allclose(out_tensor.flatten(), golden.flatten(), rtol=1e-3, atol=1e-3)
 
@@ -196,7 +194,6 @@ def test_quantize_asym_axis_neg1_onboard():
 
     pypto.runtime._device_init()
 
-    # 声明有名字的tensor
     input1 = pypto.tensor(input_shape, pypto.DT_FP32, "PTO_TENSOR_input1")
     scale1 = pypto.tensor(scale_shape, pypto.DT_FP32, "PTO_TENSOR_scale1")
     zp1 = pypto.tensor(scale_shape, pypto.DT_FP32, "PTO_TENSOR_zp1")
@@ -207,7 +204,6 @@ def test_quantize_asym_axis_neg1_onboard():
 
     output_dtype = pypto.DT_UINT8
 
-    # 构建计算图
     with pypto.function("MAIN", input1, scale1, zp1, output):
         loop_count = 0
         for b_idx in pypto.loop(b_loop_num, name="LOOP_B0", idx_name="b_idx"):
@@ -219,26 +215,29 @@ def test_quantize_asym_axis_neg1_onboard():
                 # View input (2D)
                 view_input = pypto.view(input1, view_shape, offsets,
                     valid_shape=[
-                        pypto.min(pypto.symbolic_scalar(input_shape[0]) - b_idx * view_shape[0], pypto.symbolic_scalar(view_shape[0])),
-                        pypto.min(pypto.symbolic_scalar(input_shape[1]) - s_idx * view_shape[1], pypto.symbolic_scalar(view_shape[1])),
+                        pypto.min(pypto.symbolic_scalar(input_shape[0]) - b_idx * view_shape[0],
+                                  pypto.symbolic_scalar(view_shape[0])),
+                        pypto.min(pypto.symbolic_scalar(input_shape[1]) - s_idx * view_shape[1],
+                                  pypto.symbolic_scalar(view_shape[1])),
                     ])
 
                 # View scale (1D)
                 view_scale = pypto.view(scale1, [view_shape[0]], [offsets[0]],
                     valid_shape=[
-                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0], pypto.symbolic_scalar(view_shape[0])),
+                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0],
+                                  pypto.symbolic_scalar(view_shape[0])),
                     ])
 
                 # View zero_points (1D)
                 view_zp = pypto.view(zp1, [view_shape[0]], [offsets[0]],
                     valid_shape=[
-                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0], pypto.symbolic_scalar(view_shape[0])),
+                        pypto.min(pypto.symbolic_scalar(scale_shape[0]) - offsets[0],
+                                  pypto.symbolic_scalar(view_shape[0])),
                     ])
 
                 res = pypto.quantize(view_input, view_scale, output_dtype, axis, view_zp)
                 pypto.assemble(res, offsets, output)
 
-    # 准备torch数据
     input_tensor = torch.rand(input_shape, dtype=torch.float32) * 20 - 10
     scale_tensor = torch.rand(scale_shape, dtype=torch.float32) * 0.14 + 0.01
     zero_points = torch.rand(scale_shape, dtype=torch.float32) * 10
@@ -251,8 +250,7 @@ def test_quantize_asym_axis_neg1_onboard():
 
     pypto.runtime._device_run_once_data_from_host(pto_input1, pto_scale1, pto_zp1, pto_output)
 
-    # 验证
     golden = quantize_golden(input_tensor, scale_tensor, axis, torch.uint8, zero_points)
     assert_allclose(out_tensor.flatten(), golden.flatten(), rtol=1e-3, atol=1e-3)
 
-    pypto.runtime._device_fini()
+    pypto.runtime._device_fini()
