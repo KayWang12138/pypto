@@ -27,6 +27,11 @@
 
 #### 2. TENSOR_INVALID_MEMORY_TYPE
 描述：Tensor的内存类型配置不合法或不匹配
+行为：
+- Tensor 的内存类型为无效 / 未定义值
+- Tensor 的内存类型与所在子图 / 计算单元要求不兼容
+- 动态形状 Tensor 使用了不合法的内存类型配置
+- 边界 Tensor 未使用规定的内存类型
 
 #### 3. TENSOR_SUBGRAPH_BOUNDARY
 描述：跨子图使用的Tensor未正确标记边界
@@ -47,6 +52,12 @@
 
 #### 6. TENSOR_MEMORY_ALLOCATION
 描述：Tensor的内存分配配置不合法
+行为：
+- 同一内存区域被多个 Tensor 非法重叠占用
+- 内存段划分不合理导致地址越界
+- Tensor 内存大小为0或超出合法分配范围
+- 动态内存分配属性缺失或配置非法
+- Tensor 内存对齐方式不符合硬件约束
 
 #### 7. TENSOR_DYNAMIC_ATTR
 描述：动态形状相关属性缺失或配置错误
@@ -57,7 +68,11 @@
 ### Operation相关错误
 
 #### 1. OP_INVALID_OPERAND_COUNT
-描述：操作的操作数数量不符合预期
+描述：OP的输入输出数量不符合预期
+行为：
+- OP的实际输入Tensor数不合规
+- OP的实际输出Tensor数不合规
+- 控制依赖 / 边带输入数量不符合约束
 
 #### 2. OP_NULL_POINTER
 描述：操作或其属性存在空指针引用
@@ -140,6 +155,10 @@
 
 #### 7. FUNCTION_SPECIAL_STRUCTURE
 描述：Function中存在特殊的结构性问题
+行为：
+- 存在不符合拓扑规范的特殊节点连接方式
+- 子图嵌套结构不符合框架约束
+- Function 内存在不允许的特殊算子组合结构
 
 ### Graph相关错误
 
