@@ -63,6 +63,9 @@ std::string CodeGenOpCloudNPU::GenCVSyncSetOp() const
 {
     auto pipeId = GetPipeId(syncQueue.pipeId_);
     std::ostringstream oss;
+    oss << "#ifdef OPEN_MIX_PERF\n";
+    oss << "taskStat->setEventCycle[taskStat->setEvenIdx++] = get_sys_cnt();\n";
+    oss << "#endif\n";
     oss << "set_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
     return oss.str();
 }
@@ -71,7 +74,13 @@ std::string CodeGenOpCloudNPU::GenCVSyncWaitOp() const
 {
     auto pipeId = GetPipeId(syncQueue.trigPipeId_);
     std::ostringstream oss;
+    oss << "#ifdef OPEN_MIX_PERF\n";
+    oss << "taskStat->waitEventBeforeCycle[taskStat->waitEvenIdx] = get_sys_cnt();\n";
+    oss << "#endif\n";
     oss << "wait_intra_block(" << pipeId << ", " << std::to_string(syncQueue.eventId_) << ");\n";
+    oss << "#ifdef OPEN_MIX_PERF\n";
+    oss << "taskStat->waitEventAfterCycle[taskStat->waitEvenIdx++] = get_sys_cnt();\n";
+    oss << "#endif\n";
     return oss.str();
 }
 

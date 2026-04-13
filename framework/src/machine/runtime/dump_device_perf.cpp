@@ -60,6 +60,27 @@ void ConstructTaskInfo(
             taskObj["taskId"] = taskStats[j].taskId;
             taskObj["execStart"] = taskStats[j].execStart;
             taskObj["execEnd"] = taskStats[j].execEnd;
+            json syncEventsArr = json::array();
+            for (int k = 0; k < taskStats[j].setEvenIdx; ++k) {
+                if (taskStats[j].setEventCycle[k] != 0) {
+                    json setEvent;
+                    setEvent["type"] = "CV_SYNC_SET";
+                    setEvent["eventId"] = k;
+                    setEvent["setCycle"] = taskStats[j].setEventCycle[k];
+                    syncEventsArr.push_back(setEvent);
+                }
+                if (taskStats[j].waitEventBeforeCycle[k] != 0) {
+                    json waitEvent;
+                    waitEvent["type"] = "CV_SYNC_WAIT";
+                    waitEvent["eventId"] = k;
+                    waitEvent["waitBeforeCycle"] = taskStats[j].waitEventBeforeCycle[k];
+                    waitEvent["waitAfterCycle"] = taskStats[j].waitEventAfterCycle[k];
+                    syncEventsArr.push_back(waitEvent);
+                }
+            }
+            if (!syncEventsArr.empty()) {
+                taskObj["syncEvents"] = syncEventsArr;
+            }
             tasksArr.push_back(taskObj);
         }
     }

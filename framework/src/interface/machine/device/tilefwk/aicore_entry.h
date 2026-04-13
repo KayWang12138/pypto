@@ -392,10 +392,18 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
     int64_t gmStackAddr = funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize;
 #endif
 
+    TaskStat* taskStat = nullptr;
+    if (ctx->args->taskEntry.reserved[0] == PRO_LEVEL2 || ctx->args->taskEntry.reserved[0] == PRO_LEVEL1) {
+        Metrics* metrics = reinterpret_cast<Metrics*>(ctx->args->perfTrace);
+        taskStat = &metrics->tasks[ctx->SeqNo()];
+    }
+
     CallSubFuncTask(
         opAttrs[0] + funcData->exprTbl[0], &param,
         gmStackAddr,
-        (__gm__ int64_t*)funcData->startArgs->commContexts);
+        (__gm__ int64_t*)funcData->startArgs->commContexts,
+        taskStat
+        );
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
