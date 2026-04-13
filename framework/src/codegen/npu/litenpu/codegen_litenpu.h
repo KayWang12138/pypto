@@ -25,6 +25,7 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/codegen_common.h"
 #include "interface/configs/config_manager.h"
+#include "codegen/npu/codegen_npu.h"
 
 namespace npu::tile_fwk {
 class CompileInfo_LiteNPU {
@@ -106,11 +107,9 @@ private:
     bool isMainBlock_{false};
 };
 
-class CodeGenLiteNPU : public CodeGenCCE {
+class CodeGenLiteNPU : public CodeGenNPU {
 public:
-    explicit CodeGenLiteNPU(const CodeGenCtx &cctx) : CodeGenCCE(cctx) {
-        platform_ = Platform::Instance().GetSoc().GetNPUArch();
-    };
+    explicit CodeGenLiteNPU(const CodeGenCtx& cctx) : CodeGenNPU(cctx) {};
     ~CodeGenLiteNPU() override = default;
 
     void GenCode(Function& topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset) override;
@@ -166,8 +165,6 @@ private:
         const int &blockDim) const;
 
     std::string GenFuncGlobalCodeAfterReplace(const Function &func, std::pair<uint64_t, Function *> subFuncPair, const std::string &subProgramCode);
-
-    NPUArch platform_;
 };
 
 } // namespace npu::tile_fwk

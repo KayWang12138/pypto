@@ -31,19 +31,12 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/stmt_mgr/codegen_for_block.h"
 #include "codegen/codegen_op.h"
+#include "codegen/npu/codegen_op_npu.h"
 
 namespace npu::tile_fwk {
-struct CodeGenOpLiteNPUCtx : public CodeGenOpCtx {
-    CodeGenOpLiteNPUCtx(
-        std::shared_ptr<SymbolManager> sm, Function& tf, Function& sf, const Operation& op,
-        const std::map<int, int>& lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk)
-    {}
-};
-
-class CodeGenOpLiteNPU : public CodeGenOp {
+class CodeGenOpLiteNPU : public CodeGenOpNPU {
 public:
-    explicit CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx);
+    explicit CodeGenOpLiteNPU(const CodeGenOpCtx &ctx);
     ~CodeGenOpLiteNPU() override = default;
 
     std::string GenMemL1CopyIn() const;

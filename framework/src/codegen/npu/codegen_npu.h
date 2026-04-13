@@ -33,6 +33,17 @@
 
 namespace npu::tile_fwk {
 
+class CodeGenNPU : public CodeGenCCE {
+public:
+    explicit CodeGenNPU(const CodeGenCtx& cgCtx) : CodeGenCCE(cgCtx)
+    {
+        platform_ = Platform::Instance().GetSoc().GetNPUArch();
+    };
+    ~CodeGenNPU() override = default;
+protected:
+    NPUArch platform_;
+};
+
 class FloatSpecValMgr {
 public:
     void UpdateByOp(const Operation& op);

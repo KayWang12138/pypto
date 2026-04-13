@@ -31,7 +31,7 @@ std::unordered_map<Opcode, std::set<int>> SKIP_PROC_PRARAM_IDX_IN_LOOP = {
 };
 
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx)
-    : CodeGenOp(ctx),
+    : CodeGenOpNPU(ctx),
       mteFixPipeOps_({
           // UB <-> GM
           {Opcode::OP_UB_COPY_IN, [this]() { return GenUBCopyIn(); }},

@@ -23,4 +23,6 @@
 
 namespace npu::tile_fwk {
 
+CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpCtx& ctx) : CodeGenOp(ctx) {}
+
 } // namespace npu::tile_fwk

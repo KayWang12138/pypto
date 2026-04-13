@@ -30,6 +30,7 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/codegen_common.h"
 #include "interface/configs/config_manager.h"
+#include "codegen/npu/codegen_npu.h"
 
 namespace npu::tile_fwk {
 
@@ -116,12 +117,9 @@ private:
     bool isMainBlock_{false};
 };
 
-class CodeGenCloudNPU : public CodeGenCCE {
+class CodeGenCloudNPU : public CodeGenNPU {
 public:
-    explicit CodeGenCloudNPU(const CodeGenCtx& cgCtx) : CodeGenCCE(cgCtx)
-    {
-        platform_ = Platform::Instance().GetSoc().GetNPUArch();
-    };
+    explicit CodeGenCloudNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx) {};
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(Function& topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset) override;
@@ -177,8 +175,6 @@ private:
 
     mutable std::mutex compileTasksMutex_;
     mutable std::vector<CompileTaskInfo> compileTasks_;
-
-    NPUArch platform_;
 };
 
 } // namespace npu::tile_fwk

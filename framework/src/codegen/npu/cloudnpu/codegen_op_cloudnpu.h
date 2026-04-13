@@ -33,6 +33,7 @@
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/stmt_mgr/codegen_for_block.h"
 #include "codegen/codegen_op.h"
+#include "codegen/npu/codegen_op_npu.h"
 
 namespace npu::tile_fwk {
 struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
@@ -46,7 +47,7 @@ struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
     {}
 };
 
-class CodeGenOpCloudNPU : public CodeGenOp {
+class CodeGenOpCloudNPU : public CodeGenOpNPU {
 public:
     explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx);
 
