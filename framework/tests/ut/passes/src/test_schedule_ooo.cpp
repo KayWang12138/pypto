@@ -1658,7 +1658,7 @@ TEST_F(ScheduleOoOTest, TestLatencyEstimatorMainLoop)
     taskList.erase(taskList.begin());
     int latency = 0;
     OoOSchedule oooSchedule;
-    Status res = oooSchedule.SortAndLatencyEstimate(opList, taskList, latency);
+    Status res = oooSchedule.SortAndLatencyEstimate(opList, taskList, latency, CoreLocationType::AIV0);
     EXPECT_EQ(res, SUCCESS);
 }
 

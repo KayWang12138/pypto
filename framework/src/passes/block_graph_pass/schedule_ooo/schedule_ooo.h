@@ -31,9 +31,6 @@ const std::unordered_map<TargetCoreType, CoreLocationType> targetCoreTypeMap{
     {TargetCoreType::AIV0, CoreLocationType::AIV0},
     {TargetCoreType::AIV1, CoreLocationType::AIV1}};
 
-const std::unordered_set<CoreLocationType> CORE_INIT_CONFIGS_HARDWARE_TWO_AIV = {
-    CoreLocationType::AIC, CoreLocationType::AIV0, CoreLocationType::AIV1};
-
 class OoOSchedule : public Pass {
 public:
     OoOSchedule() : Pass("OoOSchedule") {}
@@ -46,7 +43,8 @@ private:
     Status PostCheck(Function& function) override;
     void DoHealthCheckAfter(Function& function, const std::string& folderPath) override;
     void SortTaskList(std::vector<Operation*>& operations, std::vector<Operation*>& taskList);
-    Status SortAndLatencyEstimate(std::vector<Operation*>& opList, std::vector<Operation*>& taskOpList, int& latency);
+    Status SortAndLatencyEstimate(std::vector<Operation*>& opList, std::vector<Operation*>& taskOpList, int& latency,
+        CoreLocationType coreLocation);
     void OoOHealthCheck(OoOScheduler& oooSchedule, Function& function, std::pair<uint64_t, Function*>& program);
     Status RecordLastUseMemory(Function& function);
     Status NonMixSchedule(

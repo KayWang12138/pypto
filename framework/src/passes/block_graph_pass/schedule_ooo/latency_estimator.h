@@ -16,46 +16,37 @@
 #ifndef PASS_ESTIMATE_LATENCY_H
 #define PASS_ESTIMATE_LATENCY_H
 
-#include "schedule_base.h"
-#include "schedule_main_loop_base.h"
+#include "ooo_scheduler.h"
 #include <vector>
 
 namespace npu::tile_fwk {
-class LatencyEstimator : public ScheduleBase, public ScheduleMainLoopBase {
+class LatencyEstimator : public OoOScheduler {
 public:
     LatencyEstimator() {}
-    LatencyEstimator(std::vector<Operation*>& newTaskList, std::vector<Operation*>& newOperations)
-        : ScheduleBase(), taskList(newTaskList), operations(newOperations)
-    {
-        InitMemWithoutAlloc();
-        Init(taskList);
-    }
+    LatencyEstimator(std::vector<Operation*>& newTaskList, std::vector<Operation*>& newOperations,
+        CoreLocationType coreLocation);
     ~LatencyEstimator() {}
 
-    std::map<MemoryType, OpQueue> allocIssueQueue; // alloc执行 顺序
-    std::map<PipeType, OpQueue> opQueues;
-    std::map<Operation*, bool> opRetiredInfo;
+    Status LatencyEstimatorMainLoop();
+
+protected:
+    Status PreMainLoop() override;
+    Status PostMainLoop() override;
+    void LaunchReadyIssue() override;
+    Status FreeBuffer(Operation* op) override;
+    Status ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, IssueQueue& pipe) override;
+    Status LaunchIssueStage(int& nextCycle) override;
+    Status SpillOnBlock() override;
+
+private:
     std::vector<Operation*> taskList;
     std::vector<Operation*> operations;
     std::set<int> spillblockMemIds;
+    CoreLocationType coreLocation_;
 
-    void LaunchReadyIssue();
-    Status FreeBuffer(Operation* op);
-    Status RetireOpAndAwakeSucc(Operation* op, uint64_t& commitCnt);
-    // ScheduleMainLoopBase 钩子实现
-    Status PreMainLoop() override;
-    Status PostMainLoop() override;
-    Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle) override;
-    Status ExecuteAllocIssue(uint64_t& commitCnt, MemoryType memType, OpQueue& pipe);
-    Status BufferAllocStage(uint64_t& commitCnt) override;
-    Status LaunchIssueStage(int& nextCycle) override;
-    Status SpillOnBlock() override;
-    void initLatencyEstimatorOpQueues();
     void InitMemWithoutAlloc();
-    // 保留原入口名称,内部直接转发到 ScheduleMainLoopBase::RunMainLoop。
-    Status LatencyEstimatorMainLoop();
-
-private:
+    void InitLatencyEstimator();
+    void InitLatencyAllocIssueQueues();
 };
 } // namespace npu::tile_fwk
-#endif // PASS_SCHEDULE_BASE_H
+#endif // PASS_ESTIMATE_LATENCY_H
