@@ -548,7 +548,7 @@ objdump -d -C -l /path/to/libtile_fwk_interface.so | grep -A 20 "npu::tile_fwk::
 | **AICPU** | **DEV_TASK_BUILD** | Ctrl AICPU 构建 devTask 的耗时（即 stitch 耗时统计） | Ctrl |
 | **AICPU** | **DEV_TASK_RCV** | Sched AICPU 接收到 Ctrl AICPU 构建的 devTask 的耗时 | Sched |
 | **AICore** | **RCV_MODEL** | AICore 接收到 AICPU 发送的 devTask 的耗时 | Sched |
-| **AICore** | **ALL_CALLOP_TASK_EXEC** | 当前 AICore 的 devTask 中所有 leafTask 执行完成的耗时 | Sched |
+| **AICore** | **ALL_LEAF_TASK_EXEC** | 当前 AICore 的 devTask 中所有 leafTask 执行完成的耗时 | Sched |
 
 
 #### 常见异常排查
