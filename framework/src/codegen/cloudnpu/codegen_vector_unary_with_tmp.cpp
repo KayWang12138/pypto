@@ -561,4 +561,56 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const
     return ostring;
 }
 
+std::string CodeGenOpCloudNPU::PrintWelfordVarSingleTileTensor() const
+{
+    std::string dstSumXTensor = QueryTileTensorNameByIdx(0);
+    std::string dstSumX2Tensor = QueryTileTensorNameByIdx(1);
+    std::string tmpTensor = QueryTileTensorNameByIdx(2);
+    std::string srcTensor = QueryTileTensorNameByIdx(3);
+    std::ostringstream oss;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        oss << WrapParamByAngleBrackets({lastUse});
+    }
+    oss << WrapParamByParentheses({dstSumXTensor, dstSumX2Tensor, srcTensor, tmpTensor});
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenWelfordVarSingleOp() const
+{
+    if (isSupportLayout) {
+        return PrintWelfordVarSingleTileTensor();
+    }
+
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+    std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+    std::string dVar1 = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string dVar2 = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+
+    std::vector srcShape = rawShape[ID3];
+    std::vector dstShape = rawShape[ID0];
+
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID3]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufVarOffsetInOrder(dVar1, dVar2, tmpVar, s0Var);
+
+    std::vector<int64_t> os = NormalizeShape(originShape[0], SHAPE_DIM4);
+    std::vector<int64_t> ss = NormalizeShape(rawShape[ID3], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+
+    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    int ret = sprintf_s(
+        buffer, sizeof(buffer),
+        "%s_<%s, %s, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u>"
+        "((__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s, (__ubuf__ %s *)%s);\n",
+        tileOpName.c_str(), dstDtypeStr.c_str(), srcDtypeStr.c_str(), os[0], os[1], os[2], os[3], ds[1], ds[2], ds[3],
+        ss[1], ss[2], ss[3], dstDtypeStr.c_str(), dVar1.c_str(), dstDtypeStr.c_str(), dVar2.c_str(),
+        srcDtypeStr.c_str(), s0Var.c_str(), dstDtypeStr.c_str(), tmpVar.c_str());
+    ASSERT(GenCodeErr::PRINT_FAILED, ret >= 0) << "GenWelfordVarSingleOp sprintf_s failed " << ret;
+    return std::string(buffer);
+}
+
 } // namespace npu::tile_fwk

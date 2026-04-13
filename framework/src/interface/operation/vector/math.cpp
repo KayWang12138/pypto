@@ -1148,113 +1148,71 @@ static Tensor VarResSqueeze(
     return Squeeze(res, dim);
 }
 
-static Tensor WelfordReduceAxis(const Tensor& x, int axis)
+static void TiledWelfordReduceAxis(
+    Function& function, const TileShape& tileShape, const LogicalTensorPtr& in, const LogicalTensorPtr& outM2, int axis,
+    int64_t N)
 {
-    Shape shape = x.GetShape();
-    int64_t N = shape[axis];
-
-    Shape reducedShape = shape;
-    reducedShape[axis] = 1;
-
-    Tensor meanTensor(DT_FP32, reducedShape);
-    meanTensor = Sum(x, axis, true);
-    meanTensor = Mul(meanTensor, Element(DT_FP32, 1.0f / static_cast<float>(N)));
-
-    Shape expandShape = shape;
-    for (size_t d = 0; d < expandShape.size(); d++) {
-        if (static_cast<int>(d) == axis) {
-            expandShape[d] = reducedShape[d];
-        }
-    }
-
-    Tensor meanExpanded(DT_FP32, expandShape);
-    meanExpanded = Expand(meanTensor, expandShape);
-
-    Tensor delta = Sub(x, meanExpanded);
-    Tensor delta2 = Mul(delta, delta);
-    Tensor m2Tensor(DT_FP32, reducedShape);
-    m2Tensor = Sum(delta2, axis, true);
-
-    return m2Tensor;
-}
-
-static Tensor WelfordReduceAxisPairwise(const Tensor& x, int axis)
-{
-    Shape shape = x.GetShape();
-    int64_t N = shape[axis];
-
-    auto& vecTile = TileShape::Current().GetVecTile();
+    auto vecTile = tileShape.GetVecTile();
     int64_t tileW = vecTile[axis];
 
     if (N <= tileW) {
-        return WelfordReduceAxis(x, axis);
+        std::vector<int64_t> reducedShape(in->shape);
+        reducedShape[axis] = 1;
+        std::vector<int64_t> tmpShape = {1, static_cast<int64_t>(BLOCK_SIZE / BytesOf(in->Datatype()))};
+        if (static_cast<size_t>(axis) == (in->shape.size() - 1)) {
+            tmpShape[0] = in->shape[axis - 1];
+            if (static_cast<size_t>(in->shape[axis]) <= REPEAT_BYTE / BytesOf(in->Datatype())) {
+                tmpShape[0] = 1;
+            } else if (static_cast<size_t>(in->shape[axis]) <= NUM2 * REPEAT_BYTE / BytesOf(in->Datatype())) {
+                tmpShape[1] = REPEAT_BYTE / BytesOf(in->Datatype());
+            } else {
+                tmpShape[1] = (((in->shape[axis] * BytesOf(in->Datatype())) / REPEAT_BYTE) / NUM2) * REPEAT_BYTE;
+            }
+        }
+        auto tempBuf = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape, in->GetDynValidShape());
+        auto m2View = outM2->View(function, reducedShape, std::vector<int64_t>(reducedShape.size(), 0));
+        function.AddOperation(Opcode::OP_WELFORDVAR_SINGLE, {in}, {m2View, tempBuf});
+        return;
     }
+
+    std::vector<int64_t> viewShape(in->shape);
+    std::vector<int64_t> reducedShape(in->shape);
+    reducedShape[axis] = 1;
+    std::vector<int64_t> tmpShape = {1, static_cast<int64_t>(BLOCK_SIZE / BytesOf(in->Datatype()))};
+
+    auto firstTileViewShape = viewShape;
+    firstTileViewShape[axis] = std::min(tileW, N);
+    std::vector<int64_t> zeroOffset(in->shape.size(), 0);
+    auto firstTile = in->View(function, firstTileViewShape, zeroOffset);
+
+    auto firstM2 = std::make_shared<LogicalTensor>(function, in->Datatype(), reducedShape, in->GetDynValidShape());
+    auto firstTempBuf = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape, in->GetDynValidShape());
+    function.AddOperation(Opcode::OP_WELFORDVAR_SINGLE, {firstTile}, {firstM2, firstTempBuf});
+
+    auto mergedM2 = firstM2;
 
     int numTiles = static_cast<int>((N + tileW - 1) / tileW);
-
-    Shape tileShape = shape;
-    tileShape[axis] = std::min(tileW, N);
-    Shape reducedTileShape = shape;
-    reducedTileShape[axis] = 1;
-
-    Tensor firstMean(DT_FP32, reducedTileShape);
-    {
-        std::vector<int64_t> offset(shape.size(), 0);
-        auto tileView = x.GetStorage()->View(*Program::GetInstance().GetCurrentFunction(), tileShape, offset);
-        Tensor tileTensor(DT_FP32, tileShape);
-        tileTensor.GetStorage() = tileView;
-        firstMean = Sum(tileTensor, axis, true);
-        firstMean = Mul(firstMean, Element(DT_FP32, 1.0f / static_cast<float>(tileShape[axis])));
-    }
-
-    Tensor firstM2(DT_FP32, reducedTileShape);
-    {
-        std::vector<int64_t> offset(shape.size(), 0);
-        auto tileView = x.GetStorage()->View(*Program::GetInstance().GetCurrentFunction(), tileShape, offset);
-        Tensor tileTensor(DT_FP32, tileShape);
-        tileTensor.GetStorage() = tileView;
-        firstM2 = WelfordReduceAxis(tileTensor, axis);
-    }
-
-    float mergedCount = static_cast<float>(tileShape[axis]);
-    Tensor mergedMean = firstMean;
-    Tensor mergedM2 = firstM2;
-
     for (int t = 1; t < numTiles; t++) {
         int64_t curTileW = std::min(tileW, N - static_cast<int64_t>(t) * tileW);
-        float nextCount = static_cast<float>(curTileW);
 
-        Shape curTileShape = shape;
-        curTileShape[axis] = curTileW;
-        std::vector<int64_t> tileOffset(shape.size(), 0);
+        std::vector<int64_t> curViewShape(in->shape);
+        curViewShape[axis] = curTileW;
+        std::vector<int64_t> tileOffset(in->shape.size(), 0);
         tileOffset[axis] = static_cast<int64_t>(t) * tileW;
 
-        auto tileView = x.GetStorage()->View(*Program::GetInstance().GetCurrentFunction(), curTileShape, tileOffset);
-        Tensor tileTensor(DT_FP32, curTileShape);
-        tileTensor.GetStorage() = tileView;
+        auto tileView = in->View(function, curViewShape, tileOffset);
+        auto nextM2 = std::make_shared<LogicalTensor>(function, in->Datatype(), reducedShape, in->GetDynValidShape());
+        auto nextTempBuf = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape, in->GetDynValidShape());
+        function.AddOperation(Opcode::OP_WELFORDVAR_SINGLE, {tileView}, {nextM2, nextTempBuf});
 
-        Tensor nextMean(DT_FP32, reducedTileShape);
-        nextMean = Sum(tileTensor, axis, true);
-        nextMean = Mul(nextMean, Element(DT_FP32, 1.0f / nextCount));
+        auto newM2 = std::make_shared<LogicalTensor>(function, in->Datatype(), reducedShape, in->GetDynValidShape());
+        function.AddOperation(Opcode::OP_WELFORDVAR_TWOTILE, {mergedM2, nextM2}, {newM2});
 
-        Tensor nextM2 = WelfordReduceAxis(tileTensor, axis);
-
-        float totalCount = mergedCount + nextCount;
-
-        Tensor delta = Sub(nextMean, mergedMean);
-        Tensor ratio = Mul(delta, Element(DT_FP32, nextCount / totalCount));
-        Tensor newMean = Add(mergedMean, ratio);
-
-        Tensor deltaSq = Mul(delta, delta);
-        Tensor cross = Mul(deltaSq, Element(DT_FP32, mergedCount * nextCount / totalCount));
-        Tensor newM2 = Add(Add(mergedM2, nextM2), cross);
-
-        mergedMean = newMean;
         mergedM2 = newM2;
-        mergedCount = totalCount;
     }
 
-    return mergedM2;
+    auto m2Out = outM2->View(function, reducedShape, std::vector<int64_t>(reducedShape.size(), 0));
+    function.AddOperation("TILE_REGISTER_COPY", {mergedM2}, {m2Out});
 }
 
 Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, bool keepDim)
@@ -1264,11 +1222,9 @@ Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, b
 
     DataType dtype = input.GetDataType();
     Shape shape = input.GetShape();
-    auto castInput = Tensor(DT_FP32, shape);
+    Tensor castInput = input;
     if (dtype == DT_FP16 || dtype == DT_BF16) {
         castInput = Cast(input, DT_FP32, CAST_NONE);
-    } else {
-        castInput = input;
     }
 
     int calcN = 1;
@@ -1279,7 +1235,17 @@ Tensor Var(const Tensor& input, const std::vector<int>& dim, float correction, b
     auto res = castInput;
     for (size_t i = 0; i < innerDim.size(); i++) {
         int axis = innerDim[i];
-        res = WelfordReduceAxisPairwise(res, axis);
+        Shape curShape = res.GetShape();
+
+        Shape reducedShape = curShape;
+        reducedShape[axis] = 1;
+
+        Tensor m2Result(DT_FP32, reducedShape);
+        auto& fn = *Program::GetInstance().GetCurrentFunction();
+        auto& newOp = fn.AddOperation(Opcode::OP_WELFORDVAR_SINGLE, {res.GetStorage()}, {m2Result.GetStorage()});
+        newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
+
+        res = m2Result;
     }
 
     float invDenom = 1.0f / std::max(1.0f, static_cast<float>(calcN) - correction);
@@ -1562,4 +1528,28 @@ REGISTER_OPERATION_TILED_FUNC(OP_CUM_PROD, Opcode::OP_CUM_PROD, CumSumOperationT
 REGISTER_OPERATION_TILED_FUNC(OP_TRIUL, Opcode::OP_TRIUL, TriULOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SIGN, Opcode::OP_SIGN, SignOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SIGNBIT, Opcode::OP_SIGNBIT, SignbitOperationTileFunc);
+
+void WelfordVarSingleOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
+{
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    int64_t N = iOperand[0]->shape[axis];
+    TiledWelfordReduceAxis(function, tileShape, iOperand[0], oOperand[0], axis, N);
+}
+
+void WelfordVarTwoTileOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
+{
+    BinaryOperationOperandCheck(iOperand, oOperand);
+    auto viewA = iOperand[0]->View(function, iOperand[0]->shape, iOperand[0]->offset);
+    auto viewB = iOperand[1]->View(function, iOperand[1]->shape, iOperand[1]->offset);
+    auto result = oOperand[0]->View(function, oOperand[0]->shape, oOperand[0]->offset);
+    function.AddOperation("TILE_PAIRSUM", {viewA, viewB}, {result});
+}
+
+REGISTER_OPERATION_TILED_FUNC(OP_WELFORDVAR_SINGLE, Opcode::OP_WELFORDVAR_SINGLE, WelfordVarSingleOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_WELFORDVAR_TWOTILE, Opcode::OP_WELFORDVAR_TWOTILE, WelfordVarTwoTileOperationTileFunc);
 } // namespace npu::tile_fwk

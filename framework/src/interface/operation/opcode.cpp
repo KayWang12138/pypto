@@ -509,53 +509,14 @@ void OpcodeManager::RegisterVectorReduction()
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowargminsingle", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(
-        Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, OpCoreType::AIV, "ROWMAX_COMBINE_AXIS_SINGLE", {MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowmaxsinglecombine", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::outputCombineAxis});
+        Opcode::OP_WELFORDVAR_SINGLE, OpCoreType::AIV, "WELFORDVAR_SINGLE", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Twelfordvarsingle", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE,
+        {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(
-        Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, OpCoreType::AIV, "ROWSUM_COMBINE_AXIS_SINGLE", {MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowsumsinglecombine", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::REDUCE, {OP_ATTR_PREFIX + "AXIS", OpAttributeKey::outputCombineAxis});
-    RegisterInfo(
-        Opcode::OP_ROWSUMLINE, OpCoreType::AIV, "ROWSUMLINE", {MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowsumline", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
-    RegisterInfo(
-        Opcode::OP_ROWARGMAXLINE, OpCoreType::AIV, "ROWARGMAXLINE", {MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowargmaxline", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
-    RegisterInfo(
-        Opcode::OP_ROWARGMINLINE, OpCoreType::AIV, "ROWARGMINLINE", {MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowargminline", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
-    RegisterInfo(
-        Opcode::OP_ROWMAXLINE, OpCoreType::AIV, "ROWMAXLINE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {MemoryType::MEM_UB}, {"TileOp::Trowmaxline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {},
-        TileShapeVerifier::Verify);
-    RegisterInfo(
-        Opcode::OP_ROWMINLINE, OpCoreType::AIV, "ROWMINLINE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {MemoryType::MEM_UB}, {"TileOp::Trowminline", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE, {},
-        TileShapeVerifier::Verify);
-    RegisterInfo(
-        Opcode::OP_ROWPRODLINE, OpCoreType::AIV, "ROWPRODLINE", {MemoryType::MEM_UB},
-        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Trowprodline", PIPE_V, PIPE_V, CoreType::AIV},
-        OpCalcType::REDUCE, {}, TileShapeVerifier::Verify);
-
-    RegisterInfo(
-        Opcode::OP_ROWMAX, OpCoreType::AIV, "ROWMAX", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Trowmaxexpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE,
-        {OpAttributeKey::excludeBufferReuse});
-    RegisterInfo(
-        Opcode::OP_ROWSUM, OpCoreType::AIV, "ROWSUM", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Treducesum", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE);
-    RegisterInfo(
-        Opcode::OP_ROWEXPMAX, OpCoreType::AIV, "ROWEXPMAX", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Trowmaxexpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE,
-        {OpAttributeKey::excludeBufferReuse});
-    RegisterInfo(
-        Opcode::OP_ROWEXPSUM, OpCoreType::AIV, "ROWEXPSUM", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
-        {"TileOp::Trowsumexpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE,
-        {OpAttributeKey::excludeBufferReuse});
+        Opcode::OP_WELFORDVAR_TWOTILE, OpCoreType::AIV, "WELFORDVAR_TWOTILE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB}, {"TileOp::Twelfordvartwotile", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::REDUCE,
+        {OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVector()
@@ -1222,6 +1183,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_ROWMAXLINE, "TRowMaxLine"},
     {Opcode::OP_ROWMINLINE, "TRowMinLine"},
     {Opcode::OP_ROWPRODLINE, "TRowProdLine"},
+    {Opcode::OP_WELFORDVAR_SINGLE, "TWelfordVarSingle"},
+    {Opcode::OP_WELFORDVAR_TWOTILE, "TWelfordVarTwoTile"},
     {Opcode::OP_LOGICALAND, "TLogicalAnd"},
     {Opcode::OP_WHERE_TT, "TWhereTT"},
     {Opcode::OP_WHERE_TS, "TWhereTS"},

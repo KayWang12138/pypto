@@ -87,6 +87,7 @@ public:
 
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
+    std::string GenWelfordVarSingleOp() const;
 
     std::string GenLogicalNotOp() const;
     std::string GenLogicalAndOp() const;
@@ -428,6 +429,7 @@ private:
     std::string PrintRowSumlineStatic(const PrintUnaryTmpBuffParam& param) const;
 
     std::string PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintWelfordVarSingleTileTensor() const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;

@@ -162,6 +162,8 @@ enum class Opcode {
     OP_BITWISEXOR,
     OP_FLOORDIV,
     OP_FLOORDIVS,
+    OP_WELFORDVAR_SINGLE,
+    OP_WELFORDVAR_TWOTILE,
 
     // Cube
     OP_A_MUL_B,
@@ -341,7 +343,7 @@ enum class OpCalcType {
 
 class TileOpCfg {
 public:
-    TileOpCfg(){};
+    TileOpCfg() {};
     TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType)
         : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType)
     {}
@@ -611,7 +613,8 @@ const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{
     Opcode::OP_ROWARGMINLINE,
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE,
-    Opcode::OP_ROWPROD_SINGLE};
+    Opcode::OP_ROWPROD_SINGLE,
+    Opcode::OP_WELFORDVAR_SINGLE};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS,
