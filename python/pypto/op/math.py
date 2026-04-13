@@ -588,7 +588,7 @@ def pow(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
 
 
 @op_wrapper
-def exp(input: Tensor) -> Tensor:
+def exp(input: Tensor, precision_type: ExpAlgorithm = ExpAlgorithm.HIGH_PRECISION) -> Tensor:
     """Computes the element-wise exponential of `input`.
 
     This function calculates the formula: `out = e ** input`.
@@ -597,6 +597,10 @@ def exp(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : ExpAlgorithm, optional
+        The precision algorithm for exponential. Default is ExpAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use ExpAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -614,8 +618,12 @@ def exp(input: Tensor) -> Tensor:
 
     Input x: [0.0    1.0    2.0]
     Output y:[1.0000 2.7183 7.3891]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([3], pypto.DT_FP16)
+    y = pypto.exp(x, pypto.ExpAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Exp(input)
+    return pypto_impl.Exp(input, precision_type.value)
 
 
 @op_wrapper
@@ -1051,7 +1059,7 @@ def trunc(input: Tensor) -> Tensor:
 
 
 @op_wrapper
-def sqrt(input: Tensor) -> Tensor:
+def sqrt(input: Tensor, precision_type: SqrtAlgorithm = SqrtAlgorithm.HIGH_PRECISION) -> Tensor:
     """Computes the element-wise squareroot of `input`.
 
     This function calculates the formula: `out = √input`.
@@ -1060,6 +1068,10 @@ def sqrt(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : SqrtAlgorithm, optional
+        The precision algorithm for square root. Default is SqrtAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use SqrtAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -1077,8 +1089,12 @@ def sqrt(input: Tensor) -> Tensor:
 
     Input x:  [1.0 4.0 9.0 16.0 25.0]
     Output y: [1.0 2.0 3.0 4.0  5.0]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([5], pypto.DT_FP16)
+    y = pypto.sqrt(x, pypto.SqrtAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Sqrt(input)
+    return pypto_impl.Sqrt(input, precision_type.value)
 
 
 @op_wrapper
