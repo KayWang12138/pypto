@@ -36,6 +36,7 @@ void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op)
     ASSERT(shape.size() >= shape_len_limit[0] && shape.size() <= shape_len_limit[1])
         << "The dims of tensor out of range. shape.size(): " << shape.size()
         << "shape_len_limit[0]: " << shape_len_limit[0] << "shape_len_limit[1]" << shape_len_limit[1];
+    CheckTensorDynamicShape(tensor, op);
     size_t shapeSize = 1;
     for (const auto& value : shape) {
         ASSERT(value <= INT32_MAX) << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)";
@@ -43,6 +44,26 @@ void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op)
         ASSERT(shapeSize <= INT32_MAX)
             << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)";
     }
+}
+
+void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCode)
+{
+    if (opCode == Opcode::OP_VIEW || opCode == Opcode::OP_ASSEMBLE || opCode == Opcode::OP_RESHAPE) {
+        return;
+    }
+    for (size_t dimIdx = 0; dimIdx < iOperand->shape.size(); ++dimIdx) {
+        auto i = iOperand->shape[dimIdx];
+        FUNCTION_ASSERT(FError::INVALID_VAL, i != -1)
+            << (opCode != Opcode::OP_UNKNOWN ? "Operation: " + OpcodeManager::Inst().GetOpcodeStr(opCode) : "")
+            << " Input operand (name: " << iOperand->tensor->GetSymbol() << ") "
+            << " at dimension[" << dimIdx << "] has invalid shape value: -1";
+    }
+}
+
+void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const std::string& opName)
+{
+    auto Opcode = OpcodeManager::Inst().GetOpcode(opName);
+    CheckTensorDynamicShape(iOperand, Opcode);
 }
 
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2)
