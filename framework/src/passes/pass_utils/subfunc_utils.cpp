@@ -134,8 +134,8 @@ void SubfuncInvokeInfoTy::DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t* 
     }
 
     if (memcpy_s(
-            invokeParamPtr + invokeParamMemOffset / sizeof(int64_t), invokeParam.size() * sizeof(int64_t),
-            invokeParam.data(), invokeParam.size() * sizeof(int64_t)) != EOK) {
+        invokeParamPtr + invokeParamMemOffset / sizeof(int64_t), invokeParam.size() * sizeof(int64_t),
+        invokeParam.data(), invokeParam.size() * sizeof(int64_t)) != EOK) {
         APASS_LOG_ERROR_F(Elements::Function, "Error: memcpy_s failed in DumpInvokeInfo");
         return;
     }
@@ -769,8 +769,8 @@ void SubfuncTopologyInfoTy::DumpEachEntryInfo(
         entryParam.emplace_back(static_cast<int64_t>(num));
     }
     if (memcpy_s(
-            entryParamPtr + entryOffset / sizeof(int64_t), entryParam.size() * sizeof(int64_t), entryParam.data(),
-            entryParam.size() * sizeof(int64_t)) != EOK) {
+        entryParamPtr + entryOffset / sizeof(int64_t), entryParam.size() * sizeof(int64_t), entryParam.data(),
+        entryParam.size() * sizeof(int64_t)) != EOK) {
         APASS_LOG_ERROR_F(Elements::Function, "Error: memcpy_s failed in DumpEachEntryInfo");
         return;
     }

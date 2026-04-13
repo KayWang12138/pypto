@@ -189,7 +189,8 @@ TEST_F(SubFunctionTest, SubfuncParam_PrettyPrint)
     SubfuncParam subfuncParam;
     subfuncParam.AppendTensorParam(1, 11, {16, 32}, {0, 1}, "tensor_sym", 0, "tensor_symbol", DataType::DT_FP32);
     subfuncParam.AppendIncastParam(2, 22, {64, 65}, {2, 3}, "incast_sym", 1, "incast_symbol", DataType::DT_FP16);
-    subfuncParam.AppendOutcastParam(3, 33, 2, {128, 129}, {4, 5}, "outcast_sym", 2, "outcast_symbol", DataType::DT_INT32);
+    subfuncParam.AppendOutcastParam(
+        3, 33, 2, {128, 129}, {4, 5}, "outcast_sym", 2, "outcast_symbol", DataType::DT_INT32);
 
     std::ostringstream osm;
     subfuncParam.PrettyPrint(123, osm);
