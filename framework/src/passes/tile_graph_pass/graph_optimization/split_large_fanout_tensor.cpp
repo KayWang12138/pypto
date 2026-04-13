@@ -15,6 +15,7 @@
 
 #include "split_large_fanout_tensor.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/merge_view_assemble_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "SplitLargeFanoutTensor"
@@ -33,6 +34,11 @@ Status SplitLargeFanoutTensor::RunOnFunction(Function& function)
                                 "in general DeadOperation Eliminator; Please check abnormal unused operations and "
                                 "error messages (if any) above.");
         return FAILED;
+    }
+    Status status = MergeViewAssembleUtils::MergeViewAssemble(function);
+    if (status != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Merge assemble and view failed.");
+        return status;
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End SplitLargeFanoutTensor.");
     return SUCCESS;
