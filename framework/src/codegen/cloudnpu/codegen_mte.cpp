@@ -67,7 +67,8 @@ std::string CodeGenOpCloudNPU::GenMemL0CCopyOut() const { return GenMemCopyCube(
 std::string CodeGenOpCloudNPU::GenMemCopyCube(bool isLocalToGM, unsigned uf) const
 {
     unsigned gmIdx = isLocalToGM ? 0 : 1;
-    bool isSpillToGm = operand[gmIdx] == SYMBOL_STACK_BASE;
+    int64_t gmOffset{0};
+    bool isSpillToGm = GetTensorAttr(gmIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
     return GenMemCopyVar(isLocalToGM, isSpillToGm, uf);
 }
 
@@ -83,7 +84,7 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned uf) 
     addrTypeHead[l1Idx] = GetAddrTypeByOperandType(BUF_L1);
 
     std::vector<std::string> addrExpr(ID2);
-    addrExpr[gmIdx] = GenGMAddrExprWithOffset(GM_STACK_BASE);
+    addrExpr[gmIdx] = GenGMAddrExprWithOffset(gmIdx, GM_STACK_BASE);
     addrExpr[l1Idx] = sm->QueryVarNameByTensorMagic(operandWithMagic[l1Idx]);
     AppendLocalBufferVarOffset({{l1Idx, addrExpr[l1Idx]}});
 
@@ -290,7 +291,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToBt() const
 std::string CodeGenOpCloudNPU::GenMemUBTransfer(bool isCopyUBToGM) const
 {
     unsigned gmIdx = isCopyUBToGM ? 0 : 1;
-    bool isSpillToGm = operand[gmIdx] == SYMBOL_STACK_BASE;
+    int64_t gmOffset{0};
+    bool isSpillToGm = GetTensorAttr(gmIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
     return GenMemCopyVar(isCopyUBToGM, isSpillToGm);
 }
 
@@ -426,7 +428,7 @@ std::string CodeGenOpCloudNPU::GenMemCopyVar(bool isCopyLocalToGM, bool isSpillT
 
     std::vector<std::string> addrExpr(ID2);
     addrExpr[localIdx] = sm->QueryVarNameByTensorMagic(operandWithMagic[localIdx]);
-    addrExpr[gmIdx] = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE) : GenGmParamVar(gmIdx);
+    addrExpr[gmIdx] = isSpillToGm ? GenGMAddrExprWithOffset(gmIdx, GM_STACK_BASE) : GenGmParamVar(gmIdx);
 
     std::vector<std::string> dataTypeExpr(ID2);
     dataTypeExpr[gmIdx] = DataType2CCEStr(operandDtype[gmIdx]);
@@ -493,10 +495,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     return oss.str();
 }
 
-std::vector<std::string> CodeGenOpCloudNPU::GenTileOpParamForNormalCopyTileTensor(
-    unsigned gmIdx, bool isSpillingToGM) const
+std::vector<std::string> CodeGenOpCloudNPU::GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx) const
 {
-    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(gmIdx, isSpillingToGM);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(gmIdx);
     // e.g. ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
@@ -677,7 +678,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1TileTensor(const PrintMemCopyWi
 
 std::string CodeGenOpCloudNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL1Param& param) const
 {
-    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx, param.isSpillingToGM);
+    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx);
 
     auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape, param.isSpillingToGM);
     if (opCode != Opcode::OP_L1_COPY_IN_A_SCALE && opCode != Opcode::OP_L1_COPY_IN_B_SCALE) {
@@ -713,7 +714,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopy
 // used in L1 spilling scene
 std::string CodeGenOpCloudNPU::PrintMemCopyOutWithL1TileTensor(const PrintMemCopyWithL1Param& param) const
 {
-    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx, param.isSpillingToGM);
+    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx);
 
     int64_t copyOutMode = -1;
     if (opAttrs.count(OpAttributeKey::copyOutMode)) {
@@ -994,7 +995,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
         paramList.emplace_back(std::to_string(localRawShape[i]));
     }
     if (localIdx == 0) { // means op is COPY_IN
-        if (isPartialMem[localIdx]) {
+        bool isPartialMem{false};
+        GetTensorAttr(localIdx, "isPartialMem", isPartialMem);
+        if (isPartialMem) {
             paramList.emplace_back("true");
         }
     }
@@ -1021,11 +1024,11 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     return os.str();
 }
 
-std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM) const
+std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(unsigned gmIdx) const
 {
     int dim = static_cast<int>(rawShape[gmIdx].size());
     std::vector<std::string> gmOffsetExpr;
-    if (isSpillingToGM || functionType == FunctionType::STATIC) {
+    if (functionType == FunctionType::STATIC) {
         return std::vector<std::string>(dim, "0");
     }
 
@@ -1038,7 +1041,7 @@ std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(unsigned gm
 
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam& param) const
 {
-    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx, param.isSpillingToGM);
+    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx);
     std::ostringstream oss;
     oss << tileOpName;
     oss << WrapParamByParentheses(tileOpParamList);
@@ -1078,12 +1081,11 @@ std::string CodeGenOpCloudNPU::GenMemL1ToFB() const
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(const std::string& addrExpr) const
+std::string CodeGenOpCloudNPU::GenGMAddrExprWithOffset(unsigned gmParamIdx, const std::string& addrExpr) const
 {
-    // gm offset of spilling workspace is calculated by pass, the value is saved in dim 0.
-    int64_t gmOffset = 0;
-    // gmOffset Default to 0 when the attribute is not set
-    GetAttr(OpAttributeKey::workspaceBaseOffset, gmOffset);
+    // gm offset of spilling workspace is calculated by pass.
+    int64_t gmOffset{0};
+    GetTensorAttr(gmParamIdx, OpAttributeKey::workspaceBaseOffset, gmOffset);
     std::ostringstream oss;
     if (gmOffset == 0) {
         oss << addrExpr;
