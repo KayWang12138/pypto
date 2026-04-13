@@ -485,6 +485,8 @@ public:
 
     volatile TaskStat* GetTaskStat(int coreIdx, int pos)
     {
+        (void)coreIdx;
+        (void)pos;
         volatile TaskStat* stat = &args_[coreIdx]->taskStat[pos];
         return stat;
     }

@@ -133,7 +133,13 @@ TEST_F(TestDeviceRunner, test_ini_proflevel)
     int32_t aicoreId = 0;
     int32_t subgraphId = 0;
     int32_t taskId = 0;
-    TaskStat* taskStat = new TaskStat{1, 0, 0, 0, 1, 1};
+    TaskStat* taskStat = new TaskStat();
+    taskStat->seqNo = 1;
+    taskStat->subGraphId = 0;
+    taskStat->taskId = 0;
+    taskStat->execStart = 0;
+    taskStat->execEnd = 1;
+    taskStat->waitStart = 1;
     npu::tile_fwk::dynamic::AiCpuTaskStat* aiCpuStat = new npu::tile_fwk::dynamic::AiCpuTaskStat{0, 0, 0, 0, 1};
     npu::tile_fwk::dynamic::AiCpuHandShakeSta handShakeSta;
     prof.ProfGet(aicoreId, subgraphId, taskId, taskStat);
