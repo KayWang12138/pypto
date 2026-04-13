@@ -46,7 +46,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 #ifdef __DEVICE__
     InitLogSwitch();
     DEV_INFO("=========start to Trace Init=========");
-    DeviceTrace::GetInstance().Initialize();
+    DeviceTrace::GetInstance().Initialize(targ);
     DeviceTrace::GetInstance().SubmitTraceMsg("============wanjianfen==========");
     DeviceTrace::GetInstance().ReportTraceMsg();
     DEV_INFO("=========Finish to Trace Init=========");

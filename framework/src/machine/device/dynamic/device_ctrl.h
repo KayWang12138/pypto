@@ -336,6 +336,8 @@ public:
             if (devDfxArgs->logLevel != -1 && dlog_setlevel != nullptr) {
                 (void)dlog_setlevel(LOG_MOD_ID, devDfxArgs->logLevel, 1);
             }
+            DEV_INFO("=================ADDR: %lu, logLevel:%d, deviceId:%u, pid: %lu==================", devArgs->devDfxArgAddr,
+                 devDfxArgs->logLevel, devDfxArgs->deviceId, devDfxArgs->hostPid);
         }
 #endif
     }
