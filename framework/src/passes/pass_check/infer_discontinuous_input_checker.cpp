@@ -121,6 +121,7 @@ Status checkTensor(const LogicalTensorPtr& tensor)
 
     return SUCCESS;
 }
+
 Status InferDisContinuousInputChecker::DoPostCheck(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "PostCheck for DisContinuousInput.");

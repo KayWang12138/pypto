@@ -456,7 +456,7 @@ Status InferMemoryConflict::InferTileShape(
             defaultTile = reshapeTile;
         } else {
             if (SetDefaultShape(tensor, defaultTile) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "SetDefaultShape failed.");
+                APASS_LOG_ERROR_F(Elements::Operation, "SetDefaultShape failed!");
                 return FAILED;
             }
         }
@@ -502,7 +502,7 @@ Status InferMemoryConflict::InsertPrecededCopys(Function& function)
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
             function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
         auto& copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
-        APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d]!", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (op->GetOpcode() == Opcode::OP_RESHAPE) {
             TileShape vecTile = op->GetTileShape();
@@ -511,7 +511,7 @@ Status InferMemoryConflict::InsertPrecededCopys(Function& function)
             }
         }
         if (InferTileShape(copyOp, inputTensor, ObtainTileShape(copyOp.ProducerOps()), reshapeTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed. %s", GetFormatBacktrace(copyOp).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed! %s", GetFormatBacktrace(copyOp).c_str());
             return FAILED;
         }
         inputTensor->RemoveConsumer(op);
@@ -530,14 +530,14 @@ Status InferMemoryConflict::InsertPostCopys(Function& function)
         LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(
             function, newRawTensor, newOffset, outputTensor->GetShape(), outputTensor->GetDynValidShape());
         auto& copyOp = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {newTensor}, {outputTensor});
-        APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d].", copyOp.GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert copy op [%d]!", copyOp.GetOpMagic());
         Shape reshapeTile;
         if (ObtainReshapeTile(*op, ObtainTileShape(op->ProducerOps()).GetVecTile().tile, reshapeTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed. %s", GetFormatBacktrace(*op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeTile failed! %s", GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
         if (InferTileShape(copyOp, outputTensor, ObtainTileShape(copyOp.ConsumerOps()), reshapeTile) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed. %s", GetFormatBacktrace(copyOp).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "InferTileShape failed! %s", GetFormatBacktrace(copyOp).c_str());
             return FAILED;
         }
         outputTensor->RemoveConsumer(op);
