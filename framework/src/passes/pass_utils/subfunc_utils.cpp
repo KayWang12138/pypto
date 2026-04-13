@@ -362,7 +362,10 @@ void SubfuncInvokeInfoTy::LoadJson(const Json& invokeInfoJson, Function* belongT
 
 Json SubfuncInvokeInfoTy::ToJson() const
 {
-    Json j, jins, jouts, jtensors;
+    Json j;
+    Json jins;
+    Json jouts;
+    Json jtensors;
 
     for (const auto& conn : connections_) {
         Json jdata;
@@ -539,7 +542,10 @@ bool SubfuncInvokeInfoTy::OutcastParamPackTy::operator!=(const OutcastParamPackT
 }
 Json SubfuncParam::ToJson() const
 {
-    Json j, jins, jouts, jtensors;
+    Json j;
+    Json jins;
+    Json jouts;
+    Json jtensors;
     for (auto& incast : inCastArgs_) {
         Json jdata;
         jdata["operandIdx"] = incast.operandIdx;

@@ -121,38 +121,6 @@ public:
         bool operator!=(const OutcastParamPackTy& other) const;
     };
 
-public:
-    inline void UpdateProgramSubgraphId(const int psgId) { programSubgraphId_ = psgId; }
-
-    inline int GetProgramId() const { return programSubgraphId_; }
-
-    void ConstructActualInvokeParam(int esgId);
-
-    void PrintInvokeInfo(const std::string& extraInfo) const;
-
-    void PrettyPrintInvokeInfo(const int subgraphId) const;
-
-    void DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t* invokeParamPtr) const;
-
-    inline const std::vector<TensorParamPackTy>& GetTensorParamList() const { return tensorParamList_; }
-
-    inline const std::vector<IncastParamPackTy>& GetIncastTensorParamList() const { return incastTensorParamList_; }
-
-    inline const std::vector<OutcastParamPackTy>& GetOutcastTensorParamList() const { return outcastTensorParamList_; }
-
-    std::tuple<int, int, int> LookupInvokeArgs(const int paramLoc) const;
-
-    bool operator==(const SubfuncInvokeInfoTy& other) const;
-    bool operator!=(const SubfuncInvokeInfoTy& other) const;
-    friend class Allocator;
-
-private:
-    int programSubgraphId_; // The called merged subgraph id
-    std::vector<TensorParamPackTy> tensorParamList_;
-    std::vector<IncastParamPackTy> incastTensorParamList_;
-    std::vector<OutcastParamPackTy> outcastTensorParamList_;
-
-public:
     // seq_no is in called subgraph
     struct InCastInfoTy {
         int operandIdx;
@@ -261,7 +229,30 @@ public:
     };
     using OutCastConnectionsTy = std::vector<OutCastInfoTy>;
 
-public:
+    inline void UpdateProgramSubgraphId(const int psgId) { programSubgraphId_ = psgId; }
+
+    inline int GetProgramId() const { return programSubgraphId_; }
+
+    void ConstructActualInvokeParam(int esgId);
+
+    void PrintInvokeInfo(const std::string& extraInfo) const;
+
+    void PrettyPrintInvokeInfo(const int subgraphId) const;
+
+    void DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t* invokeParamPtr) const;
+
+    inline const std::vector<TensorParamPackTy>& GetTensorParamList() const { return tensorParamList_; }
+
+    inline const std::vector<IncastParamPackTy>& GetIncastTensorParamList() const { return incastTensorParamList_; }
+
+    inline const std::vector<OutcastParamPackTy>& GetOutcastTensorParamList() const { return outcastTensorParamList_; }
+
+    std::tuple<int, int, int> LookupInvokeArgs(const int paramLoc) const;
+
+    bool operator==(const SubfuncInvokeInfoTy& other) const;
+    bool operator!=(const SubfuncInvokeInfoTy& other) const;
+    friend class Allocator;
+
     inline void RecordTensorArg(
         const int operandIdx, const int realDDRId, const std::vector<int64_t>& offset,
         const std::vector<int64_t>& shape, const std::vector<int64_t>& rawShape, const DataType dtype,
@@ -313,6 +304,10 @@ public:
     void Print(const std::string& extInfo) const;
 
 private:
+    int programSubgraphId_; // The called merged subgraph id
+    std::vector<TensorParamPackTy> tensorParamList_;
+    std::vector<IncastParamPackTy> incastTensorParamList_;
+    std::vector<OutcastParamPackTy> outcastTensorParamList_;
     CoreType graphType_{CoreType::AIV};
     TensorArgsTy tensorArgs_;
     ESgConnectionsTy connections_; // InCast
