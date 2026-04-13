@@ -34,7 +34,7 @@
 #include "codegen/npu/codegen_op_npu.h"
 
 namespace npu::tile_fwk {
-class CodeGenOpLiteNPU : public CodeGenOpNPU {
+class CodeGenOpLiteNPU : public CodeGenOp {
 public:
     explicit CodeGenOpLiteNPU(const CodeGenOpCtx &ctx);
     ~CodeGenOpLiteNPU() override = default;

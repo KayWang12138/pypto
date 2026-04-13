@@ -14,12 +14,12 @@
  */
 
 #include "interface/tensor/logical_tensor.h"
-#include "codegen_op_cloudnpu.h"
+#include "codegen_op_npu.h"
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& param) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -60,7 +60,7 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& 
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
+std::string CodeGenOpNPU::PrintCastTileTensor() const
 {
     bool hasTmpBuffer = (operandCnt == NUM3);
     std::string dstTensor;
@@ -101,7 +101,7 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintRowMaxlineStatic(const PrintUnaryParam& param) const
 {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
@@ -136,7 +136,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam& para
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryParam& param) const
 {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
@@ -185,7 +185,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const
+std::string CodeGenOpNPU::PrintRowMaxlineTileTensor() const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -206,7 +206,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintRowMaxline(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintRowMaxline(const PrintUnaryParam& param) const
 {
     if (isSupportLayout) {
         return PrintRowMaxlineTileTensor();
@@ -217,7 +217,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxline(const PrintUnaryParam& param) con
     return PrintRowMaxlineStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::PrintReduceExStatic(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintReduceExStatic(const PrintUnaryParam& param) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -245,9 +245,9 @@ std::string CodeGenOpCloudNPU::PrintReduceExStatic(const PrintUnaryParam& param)
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintReduceEx(const PrintUnaryParam& param) const { return PrintReduceExStatic(param); }
+std::string CodeGenOpNPU::PrintReduceEx(const PrintUnaryParam& param) const { return PrintReduceExStatic(param); }
 
-std::string CodeGenOpCloudNPU::PrintReduceSumStatic(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintReduceSumStatic(const PrintUnaryParam& param) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -271,12 +271,12 @@ std::string CodeGenOpCloudNPU::PrintReduceSumStatic(const PrintUnaryParam& param
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintReduceSum(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintReduceSum(const PrintUnaryParam& param) const
 {
     return PrintReduceSumStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::PrintVcopyStatic(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintVcopyStatic(const PrintUnaryParam& param) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -307,9 +307,9 @@ std::string CodeGenOpCloudNPU::PrintVcopyStatic(const PrintUnaryParam& param) co
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVcopy(const PrintUnaryParam& param) const { return PrintVcopyStatic(param); }
+std::string CodeGenOpNPU::PrintVcopy(const PrintUnaryParam& param) const { return PrintVcopyStatic(param); }
 
-std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam& param, int expandAxis) const
+std::string CodeGenOpNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam& param, int expandAxis) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -355,7 +355,7 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const
+std::string CodeGenOpNPU::PrintExpandLayout(int expandAxis) const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -373,7 +373,7 @@ std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintExpand(
+std::string CodeGenOpNPU::PrintExpand(
     const std::string& s0Var, const std::string& dVar, const std::string& srcDtypeStr,
     const std::string& dstDtypeStr) const
 {
@@ -413,7 +413,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(
     return buffer;
 }
 
-std::string CodeGenOpCloudNPU::PrintOneHotLayout() const
+std::string CodeGenOpNPU::PrintOneHotLayout() const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -422,7 +422,7 @@ std::string CodeGenOpCloudNPU::PrintOneHotLayout() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintOneHot(const PrintUnaryParam& param) const
 {
     if (isSupportLayout) {
         return PrintOneHotLayout();
@@ -467,7 +467,7 @@ std::string CodeGenOpCloudNPU::PrintOneHot(const PrintUnaryParam& param) const
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam& param) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -508,7 +508,7 @@ std::string CodeGenOpCloudNPU::PrintUnaryDynamicUnaligned(const PrintUnaryParam&
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnaryStatic(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintUnaryStatic(const PrintUnaryParam& param) const
 {
     const std::string& dstDtypeStr = param.dstDtypeStr;
     const std::string& srcDtypeStr = param.srcDtypeStr;
@@ -548,7 +548,7 @@ std::string CodeGenOpCloudNPU::PrintUnaryStatic(const PrintUnaryParam& param) co
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBitwiseNot() const
+std::string CodeGenOpNPU::PrintBitwiseNot() const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -558,7 +558,7 @@ std::string CodeGenOpCloudNPU::PrintBitwiseNot() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const
+std::string CodeGenOpNPU::PrintUnaryTileTensor() const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -575,7 +575,7 @@ std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam& param) const
+std::string CodeGenOpNPU::PrintUnary(const PrintUnaryParam& param) const
 {
     if (isSupportLayout) {
         return PrintUnaryTileTensor();
@@ -586,7 +586,7 @@ std::string CodeGenOpCloudNPU::PrintUnary(const PrintUnaryParam& param) const
     return PrintUnaryStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::GenUnaryOp() const
+std::string CodeGenOpNPU::GenUnaryOp() const
 {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);

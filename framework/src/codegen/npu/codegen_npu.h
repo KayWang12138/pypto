@@ -190,4 +190,4 @@ private:
 
 } // namespace npu::tile_fwk
 
-#endif // CODEGEN_CLOUDNPU_H
+#endif // CODEGEN_NPU_H

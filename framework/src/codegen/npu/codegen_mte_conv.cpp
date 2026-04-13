@@ -15,14 +15,14 @@
 #include <iterator>
 #include <string>
 
-#include "codegen_op_cloudnpu.h"
+#include "codegen_op_npu.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/utils/codegen_utils.h"
 #include "interface/utils/conv_error.h"
 #include "securec.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::GetConvCopyInMode() const
+std::string CodeGenOpNPU::GetConvCopyInMode() const
 {
     int64_t copyInMode = -1;
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
@@ -34,7 +34,7 @@ std::string CodeGenOpCloudNPU::GetConvCopyInMode() const
     return CopyInModeToString(static_cast<Matrix::CopyInMode>(copyInMode));
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const
+std::string CodeGenOpNPU::GenMemL1CopyInConv() const
 {
     std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string srcTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
@@ -98,7 +98,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const
+std::string CodeGenOpNPU::GetConvCopyOutMode() const
 {
     int64_t copyOutMode = -1;
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
@@ -111,7 +111,7 @@ std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const
     return CopyOutModeToString(static_cast<Matrix::CopyOutMode>(copyOutMode));
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const
+std::string CodeGenOpNPU::GenMemL1CopyOutConv() const
 {
     std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
     std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
@@ -161,7 +161,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const
+std::string CodeGenOpNPU::GenMemL1ToL0Load3D() const
 {
     std::vector<std::variant<std::string, uint8_t, uint16_t, int, int64_t>> paramList;
 
@@ -223,7 +223,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const
+std::string CodeGenOpNPU::GenMemL1ToL0Load2D() const
 {
     std::vector<std::variant<std::string, uint16_t, int, int64_t>> paramList;
 

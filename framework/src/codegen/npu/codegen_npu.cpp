@@ -30,8 +30,6 @@
 #include "tilefwk/tilefwk.h"
 #include "securec.h"
 
-#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h" // TODO
-
 namespace npu::tile_fwk {
 
 void FloatSpecValMgr::UpdateByOp(const Operation& op)
@@ -181,7 +179,7 @@ void CodeGenNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostrings
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
         floatSpecValMgr.UpdateByOp(op);
 
-        CodeGenOpCloudNPU cop(
+        CodeGenOpNPU cop(
             {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(GenCodeErr::GEN_OP_CODE_FAILED, tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
@@ -472,7 +470,7 @@ std::string CodeGenNPU::GenAlloc(
     const std::string& addrSpaceQualifier = OPERAND_TYPE_TO_ADDR_TYPE.at(bufferType);
     auto [allocVarName, allocVarNameTileTensor] = GenAllocVarName(prefix, range);
 
-    // must conform to CodeGenOpCloudNPU::createAllocKey
+    // must conform to CodeGenOpNPU::createAllocKey
     AllocKey key = AllocKey(bufferType, range.start, range.end);
     bool reuse = sm->BindAddrWithVariableName(key, allocVarName, allocVarNameTileTensor);
     if (reuse) {
