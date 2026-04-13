@@ -365,6 +365,8 @@ private:
         // {             Opcode::OP_COPY_UB_TO_UB,                  [this]() { return GenUnaryOp(); }},
         // {                Opcode::OP_ROWSUMLINE,                  [this]() { return GenUnaryOp(); }},
         {                       Opcode::OP_ABS,                  [this]() { return GenUnaryOp(); }},
+        {                       Opcode::OP_ROWMAXLINE,          [this]() { return GenUnaryOp(); }},
+          {                     Opcode::OP_ROWMINLINE,          [this]() { return GenUnaryOp(); }},
 
         // // unary with temp buffer
         // {                   Opcode::OP_COMPACT,       [this]() { return GenUnaryOpWithTmpBuff(); }},
