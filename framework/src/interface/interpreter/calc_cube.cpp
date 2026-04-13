@@ -34,7 +34,7 @@ void ExecuteOpAMulB(ExecuteOperationContext* ctx)
     Opcode opcode = ctx->op->GetOpcode();
     bool isAccOp = (opcode == Opcode::OP_A_MULACC_B || opcode == Opcode::OP_A_MULACC_BT);
     bool hasMXScale = ctx->op->HasAttr(Matrix::A_MUL_B_MX_ATTR) && ctx->op->GetBoolAttribute(Matrix::A_MUL_B_MX_ATTR);
-    constexpr int64_t DN2NZ_MODE = static_cast<int64_t>(npu::tile_fwk::CopyInMode::DN2NZ);
+    constexpr int64_t DN2NZ_MODE = static_cast<int64_t>(Matrix::CopyInMode::DN2NZ);
     bool transAScale = hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) &&
                        ctx->op->GetIntAttribute(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) == DN2NZ_MODE;
     bool transBScale = hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_B_COPY_IN_MODE) &&
