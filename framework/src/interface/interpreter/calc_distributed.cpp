@@ -20,6 +20,7 @@
 #include "tilefwk/error.h"
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/comm_group_recorder.h"
+#include "calc.h"
 #include "communication.h"
 #include "interface/operation/distributed/distributed_common.h"
 
@@ -130,8 +131,12 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     if (attr.atomicType == Distributed::AtomicType::ADD) {
         atomicType = 1;
     }
-    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << shm->GetStorageOffset() << " , atomic type: " << atomicType << std::endl;
-    context->Put(in, dstRank, shm->GetStorageOffset(), atomicType);
+    
+    auto castedIn = LogicalTensorData::CreateEmpty(shm->GetDataType(), shm->GetShape(), shm->GetValidShape(), shm->GetShape());
+    calc::Cast(castedIn, in);
+
+    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + castedIn->GetSize() + << " , atomic type: " << atomicType << std::endl;
+    context->Put(castedIn, dstRank, shm->GetStorageOffset(), atomicType);
 
     std::cout << "=== ExecuteOpShmemPut exited ..." << std::endl;
 }
