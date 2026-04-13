@@ -28,6 +28,13 @@ std::string CodeContext::GetVarName(const ir::VarPtr& var) {
   if (it != name_to_cpp_.end()) {
     return it->second;
   }
+  // Fallback: when a Var references a pre-SSA base name (e.g. `_buf_tile_0`)
+  // that was versioned by the SSA pass to `<name>_0` but the reference site
+  // was not updated, look up the first versioned form.
+  auto v0 = name_to_cpp_.find(var->name_ + "_0");
+  if (v0 != name_to_cpp_.end()) {
+    return v0->second;
+  }
   // Auto-register: variable may originate from a different section (Cube/Vector)
   // that was cleared on section boundary. Use the sanitized IR name.
   std::string cpp_name = SanitizeName(var);
@@ -172,6 +179,18 @@ void CodeContext::RestoreSnapshot() {
   tensor_to_struct_pointer_ = snap_struct_;
   alias_map_ = snap_alias_;
   auto_registered_.clear();
+  // Re-overlay persistent Var bindings (hoisted array/event-id aliases) so
+  // that Cube-section registrations remain visible in Vec section and vice versa.
+  for (const auto& [k, v] : persistent_name_to_cpp_) {
+    name_to_cpp_[k] = v;
+  }
+}
+
+void CodeContext::RegisterVarPersistent(const ir::VarPtr& var, const std::string& cpp_name) {
+  CHECK(var != nullptr) << "Cannot register null variable";
+  CHECK(!cpp_name.empty()) << "Cannot register variable with empty name";
+  name_to_cpp_[var->name_] = cpp_name;
+  persistent_name_to_cpp_[var->name_] = cpp_name;
 }
 
 

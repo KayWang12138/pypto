@@ -57,6 +57,7 @@ from .dsl_api import (
 )
 from .op.auto.op.auto_ops import block
 from .op import system_ops as system
+from .op import mutex_ops as mutex
 from .op.auto.op.auto_ops import tensor
 from .op.auto.op.auto_ops import (
     abs,
@@ -141,6 +142,22 @@ from .parser.text_parser import loads, loads_program, parse, parse_program
 from .typing import DynVar, InOut, IntLike, Out, Ptr, Scalar, Tensor, Tile, dynamic
 from .typing.tensor import TensorViewSpec as view
 from .typing.dynamic import dynamic as dynamic
+from .buffer import (
+    Buffer,
+    BufferSlot,
+    L0ABuffer,
+    L0ANBuffer,
+    L0BBuffer,
+    L0BNBuffer,
+    L0CBuffer,
+    L0CNBuffer,
+    L1Buffer,
+    L1NBuffer,
+    NBuffer,
+    TileSpec,
+    UBBuffer,
+    UBNBuffer,
+)
 
 
 def struct(**kwargs: Any) -> Any:
@@ -229,6 +246,7 @@ __all__ = [
     "section_cube",
     "block",
     "system",
+    "mutex",
     "tensor",
     # Unified dispatch
     "add",
@@ -347,4 +365,19 @@ __all__ = [
     "UINT64",
     "BOOL",
     "INDEX",
+    # Buffer management (A5 Mutex-based)
+    "Buffer",
+    "BufferSlot",
+    "NBuffer",
+    "TileSpec",
+    "UBBuffer",
+    "UBNBuffer",
+    "L1Buffer",
+    "L1NBuffer",
+    "L0ABuffer",
+    "L0ANBuffer",
+    "L0BBuffer",
+    "L0BNBuffer",
+    "L0CBuffer",
+    "L0CNBuffer",
 ]

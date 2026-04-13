@@ -72,6 +72,7 @@ class KernelDef:
         auto_sync: Whether to enable automatic sync insertion.
         meta_data: Optional metadata.
         helper_funcs: List of ``ir.Function`` from ``@pl.func`` helpers.
+        auto_mutex: Whether to enable automatic mutex lock/unlock insertion.
     """
 
     def __init__(
@@ -90,6 +91,7 @@ class KernelDef:
         auto_sync: bool,
         meta_data: Any,
         helper_funcs: list,
+        auto_mutex: bool = False,
     ) -> None:
         self._func = func
         self._source_file = source_file
@@ -103,6 +105,7 @@ class KernelDef:
         self._func_type = func_type
         self._strict_ssa = strict_ssa
         self._auto_sync = auto_sync
+        self._auto_mutex = auto_mutex
         self._meta_data = meta_data
         self._helper_funcs = helper_funcs
 
@@ -129,6 +132,7 @@ class KernelDef:
                 strict_ssa=self._strict_ssa,
                 closure_vars=self._closure_vars,
                 auto_sync=self._auto_sync,
+                auto_mutex=self._auto_mutex,
                 npu_arch=npu_arch,
             )
 
@@ -186,6 +190,7 @@ def kernel(
     type: ir.FunctionType = ir.FunctionType.Opaque,
     strict_ssa: bool = False,
     auto_sync: bool = False,
+    auto_mutex: bool = False,
 ) -> "KernelDef":
     """Decorator that captures a DSL function for deferred compilation.
 
@@ -272,6 +277,7 @@ def kernel(
             auto_sync=auto_sync,
             meta_data=meta_data,
             helper_funcs=helper_funcs,
+            auto_mutex=auto_mutex,
         )
 
     # Support both @fe.kernel and @fe.kernel(name=..., type=...)

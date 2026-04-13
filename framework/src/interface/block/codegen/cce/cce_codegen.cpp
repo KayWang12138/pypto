@@ -255,6 +255,21 @@ std::string CCECodegen::GenerateSingle(const ir::ProgramPtr& program, const std:
   context_.Clear();
   single_file_mode_ = true;
 
+  // Pre-scan: collect Var names used as runtime buf_id (Mutex) so the N-way
+  // optimizer can emit a uint8_t/_bid_ array for them instead of event_t/_eid_.
+  buf_id_var_names_.clear();
+  CollectBufIdVarNames(kernel_func->body_, buf_id_var_names_);
+
+  // Pre-scan: collect Var names that appear in any read position, used to
+  // drop unused phi return_vars in IfStmt codegen.
+  var_read_names_.clear();
+  CollectVarReadNames(kernel_func->body_, var_read_names_);
+
+  // Pre-scan: collect mutex_id → pipe mappings per section for A5 V-pipe optimization.
+  cube_mutex_pipes_.clear();
+  vec_mutex_pipes_.clear();
+  CollectMutexPipeInfo(kernel_func->body_);
+
   // Detect cross-core sync (a5 uses hardware sync, not ffts)
   bool has_cross_sync = DetectCrossCoreSyncOps(kernel_func->body_);
   bool needs_ffts = has_cross_sync && (arch_ != "a5");
@@ -268,6 +283,13 @@ std::string CCECodegen::GenerateSingle(const ir::ProgramPtr& program, const std:
   if (!struct_type_defs_.empty()) {
     emitter_.EmitLine("");
   }
+
+  // Emit BufferSlot template struct for NBuffer tile+bid arrays
+  emitter_.EmitLine("template <typename TileData>");
+  emitter_.EmitLine("struct BufferSlot { TileData tile; uint8_t bid; };");
+  emitter_.EmitLine("");
+  buffer_slot_struct_emitted_ = true;
+  buffer_slot_decls_emitted_.clear();
 
   // Generate prologue and body
   GenerateSinglePrologue(kernel_func, needs_ffts);
@@ -336,7 +358,43 @@ class TileUsageCollector : public ir::IRVisitor {
     ir::IRVisitor::VisitStmt_(op);
   }
 
+  // Record let-binding edges `lhs = rhs_var` for tile-typed vars so callers can
+  // propagate `ifstmt_return_var_names_` across copy-assignments. Needed because
+  // `let_x = _tidx_N` inherits _tidx_N's TileType (and its memref address from
+  // the first yield branch), which would otherwise cause spurious dedup aliases
+  // like `auto& let_x = <first_branch_tile>;` even though let_x's real value is
+  // a dynamic array[idx] produced by the N-way-select optimization.
+  void VisitStmt_(const ir::AssignStmtPtr& op) override {
+    if (op->var_ && op->value_ &&
+        (ir::As<ir::TileType>(op->var_->GetType()) ||
+         ir::As<ir::TupleType>(op->var_->GetType()))) {
+      if (auto rhs_var = ir::As<ir::Var>(op->value_)) {
+        tile_assign_edges_.emplace_back(op->var_->name_, rhs_var->name_);
+      }
+    }
+    ir::IRVisitor::VisitStmt_(op);
+  }
+
   std::set<std::string> ifstmt_return_var_names_;
+  // (lhs, rhs) pairs for tile-typed `lhs = rhs_var` copy-assignments.
+  std::vector<std::pair<std::string, std::string>> tile_assign_edges_;
+
+  // Propagate ifstmt_return_var_names_ across tile copy-assignments to a
+  // fixpoint. If `a = _tidx_N` and `b = a`, both a and b are marked so they
+  // skip prologue emission / dedup aliasing.
+  void PropagateIfStmtReturnVars() {
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (const auto& [lhs, rhs] : tile_assign_edges_) {
+        if (ifstmt_return_var_names_.count(rhs) &&
+            !ifstmt_return_var_names_.count(lhs)) {
+          ifstmt_return_var_names_.insert(lhs);
+          changed = true;
+        }
+      }
+    }
+  }
 
   // Get names of tiles that are used in ops or yields (not just tuple grouping)
   std::set<std::string> GetUsedNames() const { return op_used_names_; }
@@ -398,11 +456,33 @@ class TileUsageSectionCollector : public ir::IRVisitor {
   std::map<std::string, std::set<ir::SectionKind>> tile_usage_sections_;
   std::optional<ir::SectionKind> current_section_;
 
+  // Map tuple Var names → their element tile Var names (from MakeTuple AssignStmt).
+  std::map<std::string, std::vector<std::string>> tuple_element_names_;
+
   void VisitStmt_(const ir::SectionStmtPtr& op) override {
     auto prev = current_section_;
     current_section_ = op->section_kind_;
     ir::IRVisitor::VisitStmt_(op);
     current_section_ = prev;
+  }
+
+  // Collect MakeTuple → element tile Var associations (outside or inside sections).
+  void VisitStmt_(const ir::AssignStmtPtr& op) override {
+    if (op && op->value_) {
+      if (auto mt = ir::As<ir::MakeTuple>(op->value_)) {
+        auto var = op->var_;
+        if (var && ir::As<ir::TupleType>(var->GetType())) {
+          for (const auto& elem : mt->elements_) {
+            if (auto elem_var = ir::As<ir::Var>(elem)) {
+              if (ir::As<ir::TileType>(elem_var->GetType())) {
+                tuple_element_names_[var->name_].push_back(elem_var->name_);
+              }
+            }
+          }
+        }
+      }
+    }
+    ir::IRVisitor::VisitStmt_(op);
   }
 
   void VisitExpr_(const ir::CallPtr& op) override {
@@ -414,6 +494,29 @@ class TileUsageSectionCollector : public ir::IRVisitor {
     ir::IRVisitor::VisitExpr_(op);
   }
 
+  // YieldStmt args also reference tiles (NBuffer if-chain uses yield for tile selection).
+  void VisitStmt_(const ir::YieldStmtPtr& op) override {
+    if (current_section_.has_value() && op) {
+      for (const auto& val : op->value_) {
+        CollectTileVarNames(val);
+      }
+    }
+    ir::IRVisitor::VisitStmt_(op);
+  }
+
+  // After traversal, propagate section usage from tuples to their element tiles.
+  void PropagateToTupleElements() {
+    for (const auto& [tuple_name, elem_names] : tuple_element_names_) {
+      auto it = tile_usage_sections_.find(tuple_name);
+      if (it == tile_usage_sections_.end()) continue;
+      for (const auto& elem_name : elem_names) {
+        for (const auto& section : it->second) {
+          tile_usage_sections_[elem_name].insert(section);
+        }
+      }
+    }
+  }
+
  private:
   void CollectTileVarNames(const ir::ExprPtr& expr) {
     if (!expr) return;
@@ -421,11 +524,16 @@ class TileUsageSectionCollector : public ir::IRVisitor {
       if (ir::As<ir::TileType>(var->GetType())) {
         tile_usage_sections_[var->name_].insert(*current_section_);
       }
+      // Also track tuple Var usage (for propagation to elements)
+      if (ir::As<ir::TupleType>(var->GetType())) {
+        tile_usage_sections_[var->name_].insert(*current_section_);
+      }
     } else if (auto tge = ir::As<ir::TupleGetItemExpr>(expr)) {
       CollectTileVarNames(tge->tuple_);
     }
   }
 };
+
 
 // Extract valid_shape constructor arguments from a TileType for CCE code generation.
 //
@@ -632,6 +740,10 @@ void CCECodegen::EmitSingleTileDeclarations(const ir::FunctionPtr& func) {
   if (func->body_) {
     usage_section_collector.VisitStmt(func->body_);
   }
+  // Propagate section usage from tuple Vars to their element tile Vars.
+  // NBuffer tile tuples are declared outside sections but referenced inside
+  // via TupleGetItemExpr; this ensures elements inherit the correct section.
+  usage_section_collector.PropagateToTupleElements();
   const auto& tile_usage_sections = usage_section_collector.tile_usage_sections_;
 
   // Filter and deduplicate tiles
@@ -657,6 +769,10 @@ std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> CCECodegen::FilterPrologueTi
   // Collect actually-used tile names
   TileUsageCollector usage_collector;
   usage_collector.VisitStmt(func->body_);
+  // Propagate IfStmt return_var-ness across tile copy-assignments so let-bindings
+  // like `gmax_p = _tidx_N` (after N-way-select) also skip prologue emission
+  // and same-address dedup aliasing.
+  usage_collector.PropagateIfStmtReturnVars();
   const auto& used = usage_collector.GetUsedNames();
   const auto& ifstmt_rvs = usage_collector.ifstmt_return_var_names_;
 
@@ -736,12 +852,47 @@ void CCECodegen::EmitSectionAwareTiles(
   std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> vec_tiles;
   std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> shared_tiles;
 
+  // Helper: look up parent tuple usage sections for NBuffer tile elements.
+  // NBuffer tiles are named like _nbuf_*_tiles_0_0 — strip trailing _N to
+  // find the tuple Var name and check if it's used across sections.
+  auto find_parent_usage = [&](const std::string& name)
+      -> std::map<std::string, std::set<ir::SectionKind>>::const_iterator {
+    std::string cur = name;
+    auto pos = cur.rfind('_');
+    while (pos != std::string::npos && pos > 0) {
+      cur = cur.substr(0, pos);
+      auto it = tile_usage_sections.find(cur);
+      if (it != tile_usage_sections.end()) return it;
+      pos = cur.rfind('_');
+    }
+    return tile_usage_sections.end();
+  };
+
   for (const auto& [var, tile_type] : tile_vars) {
+    // Check direct usage across multiple sections → shared
     auto usage_it = tile_usage_sections.find(var->name_);
     if (usage_it != tile_usage_sections.end() && usage_it->second.size() > 1) {
       shared_tiles.emplace_back(var, tile_type);
       continue;
     }
+    // Check parent tuple usage (NBuffer tiles)
+    if (usage_it == tile_usage_sections.end()) {
+      usage_it = find_parent_usage(var->name_);
+    }
+    if (usage_it != tile_usage_sections.end() && usage_it->second.size() > 1) {
+      shared_tiles.emplace_back(var, tile_type);
+      continue;
+    }
+    // Single-section usage from direct or parent lookup
+    if (usage_it != tile_usage_sections.end() && usage_it->second.size() == 1) {
+      if (*usage_it->second.begin() == ir::SectionKind::Cube) {
+        cube_tiles.emplace_back(var, tile_type);
+      } else {
+        vec_tiles.emplace_back(var, tile_type);
+      }
+      continue;
+    }
+    // Fallback: use tile_sections or memory space
     auto it = tile_sections.find(var);
     if (it != tile_sections.end()) {
       if (it->second == ir::SectionKind::Cube) {
@@ -827,6 +978,9 @@ void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cr
 void CCECodegen::VisitStmt_(const ir::SectionStmtPtr& op) {
   INTERNAL_CHECK(op != nullptr) << "Internal error: null SectionStmt";
 
+  // Flush any pending tile N-way before entering a new section
+  FlushPendingTileNWay();
+
   if (single_file_mode_) {
     // Emit #if defined(__DAV_CUBE__) / #if defined(__DAV_VEC__)
     if (op->section_kind_ == ir::SectionKind::Cube) {
@@ -843,13 +997,22 @@ void CCECodegen::VisitStmt_(const ir::SectionStmtPtr& op) {
     section_snapshot_saved_ = true;
   } else {
     context_.RestoreSnapshot();
+    // On subsequent section entries, re-emit cross-section array declarations
+    // (e.g. N-way event_id arrays) so they are visible inside this section's
+    // #if guard. The Var bindings are already persistent via RegisterVarPersistent.
+    for (const auto& decl : cross_section_decls_) {
+      emitter_.EmitLine(decl);
+    }
+    if (!cross_section_decls_.empty()) {
+      emitter_.EmitLine("");
+    }
   }
   event_id_decls_.clear();
-  event_id_decls_nway_.clear();
-  event_id_names_used_.clear();
-  event_id_nway_counter_ = 0;
+  // Keep event_id_decls_nway_ and event_id_names_used_ across sections so that
+  // Vec section can reuse Cube-section N-way arrays (no duplicate declarations).
   tile_array_decls_.clear();
   tile_array_counter_ = 0;
+  buffer_slot_decls_emitted_.clear();
   // Note: keep tile_addresses_ and emitted_tile_types_ — they contain prologue data
   // needed across all sections (tile TASSIGN addresses, type aliases).
 
@@ -1128,12 +1291,26 @@ void CCECodegen::VisitStmt_(const ir::AssignStmtPtr& op) {
       current_target_var_ = "";
       return;
     }
+
     // In VF scope, TileOffsetExpr results are __ubuf__ pointers
     if (in_vf_scope_ && ir::As<ir::TileOffsetExpr>(op->value_)) {
       emitter_.EmitLine("__ubuf__ uint8_t *" + var_name + " = " + current_expr_value_ + ";");
       vf_ptr_vars_.insert(var_name);
       current_expr_value_ = "";
     } else {
+      // Scalar expression inlining: if a scalar SSA temp is read exactly once,
+      // register it as an inline expression alias instead of emitting a declaration.
+      // `auto task_id_11 = (task_id_6 + 1); task_id_6 = task_id_11;` becomes
+      // `task_id_6 = (task_id_6 + 1);` with no intermediate variable.
+      if (ir::As<ir::ScalarType>(var_type)) {
+        auto it = var_read_counts_.find(op->var_->name_);
+        if (it != var_read_counts_.end() && it->second <= 1) {
+          context_.RegisterVar(op->var_, current_expr_value_);
+          current_expr_value_ = "";
+          current_target_var_ = "";
+          return;
+        }
+      }
       emitter_.EmitLine("auto " + var_name + " = " + current_expr_value_ + ";");
       current_expr_value_ = "";
     }
@@ -1322,11 +1499,21 @@ bool CCECodegen::TryEmitNWaySelect(const ir::IfStmtPtr& op) {
       }
       if (!all_have_addr) return false;
 
-      std::string dedup_key = index_expr + ":";
+      // Dedup by element values + section; index_expr only affects which
+      // element is read at the use site, not the array's contents.
+      std::string tile_section_tag =
+          (current_section_kind_ == ir::SectionKind::Cube) ? "cube:" : "vec:";
+      std::string dedup_key = tile_section_tag;
       for (auto& v : vals) { dedup_key += v + ","; }
       std::string arr_name;
       if (tile_array_decls_.count(dedup_key)) {
         arr_name = tile_array_decls_[dedup_key];
+        // If this tile array was already merged into a BufferSlot, use .tile accessor
+        std::string access = arr_name + "[" + index_expr + "]";
+        if (buffer_slot_decls_emitted_.count(dedup_key)) {
+          access = arr_name + "[" + index_expr + "].tile";
+        }
+        context_.RegisterVarPersistent(return_var, access);
       } else {
         auto pos = vals[0].rfind('_');
         arr_name = (pos != std::string::npos) ? vals[0].substr(0, pos) : vals[0];
@@ -1340,19 +1527,31 @@ bool CCECodegen::TryEmitNWaySelect(const ir::IfStmtPtr& op) {
         int64_t rows = shape_dims.size() >= 1 ? shape_dims[0] : 1;
         int64_t cols = shape_dims.size() >= 2 ? shape_dims[1] : 1;
         std::string tile_type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
-        std::ostringstream arr_elems;
-        for (size_t j = 0; j < vals.size(); ++j) {
-          if (j > 0) arr_elems << ", ";
-          arr_elems << vals[j];
-        }
-        std::string arr_decl = tile_type_str + " " + arr_name + "[] = {" + arr_elems.str() + "};";
-        if (loop_depth_ > 0 || if_depth_ > 0) {
-          loop_hoisted_decls_.push_back(arr_decl);
+
+        // Only defer NBuffer tiles (name starts with _nbuf_) for BufferSlot pairing.
+        // Non-NBuffer tuples (e.g. global_sum_buf from make_tile Python tuples)
+        // have no corresponding bid N-way and must emit immediately.
+        bool is_nbuf_tile = (arr_name.find("_nbuf_") == 0);
+        if (is_nbuf_tile) {
+          FlushPendingTileNWay();
+          pending_tile_nway_ = PendingTileNWay{
+              index_expr, arr_name, tile_type_str, vals, return_var, dedup_key};
         } else {
-          emitter_.EmitLine(arr_decl);
+          FlushPendingTileNWay();
+          std::ostringstream arr_elems;
+          for (size_t j = 0; j < vals.size(); ++j) {
+            if (j > 0) arr_elems << ", ";
+            arr_elems << vals[j];
+          }
+          std::string arr_decl = tile_type_str + " " + arr_name + "[] = {" + arr_elems.str() + "};";
+          if (loop_depth_ > 0 || if_depth_ > 0) {
+            loop_hoisted_decls_.push_back(arr_decl);
+          } else {
+            emitter_.EmitLine(arr_decl);
+          }
         }
+        context_.RegisterVarPersistent(return_var, arr_name + "[" + index_expr + "]");
       }
-      context_.RegisterVar(return_var, arr_name + "[" + index_expr + "]");
 
     } else if (ir::As<ir::ScalarType>(return_type)) {
       bool all_num = true;
@@ -1361,33 +1560,131 @@ bool CCECodegen::TryEmitNWaySelect(const ir::IfStmtPtr& op) {
       }
       if (!all_num) return false;
 
-      std::string dedup_key = index_expr + ":";
-      for (auto& v : vals) { dedup_key += v + ","; }
-      std::string eid_name;
-      if (event_id_decls_nway_.count(dedup_key)) {
-        eid_name = event_id_decls_nway_[dedup_key];
-      } else {
-        eid_name = "_eid";
-        for (auto& v : vals) eid_name += "_" + v;
-        std::string base_name = eid_name;
-        while (event_id_names_used_.count(eid_name)) {
-          eid_name = base_name + "_" + std::to_string(event_id_nway_counter_++);
-        }
-        event_id_names_used_.insert(eid_name);
-        event_id_decls_nway_[dedup_key] = eid_name;
-        std::ostringstream arr_elems;
-        for (size_t j = 0; j < vals.size(); ++j) {
-          if (j > 0) arr_elems << ", ";
-          arr_elems << "(event_t)" << vals[j];
-        }
-        std::string decl_line = "const event_t " + eid_name + "[] = {" + arr_elems.str() + "};";
-        if (loop_depth_ > 0 || if_depth_ > 0) {
-          loop_hoisted_decls_.push_back(decl_line);
+      // Determine whether this return_var is used as a buf_id (Mutex) or an
+      // event_id. buf_id uses ``uint8_t _bid_...`` to avoid semantic confusion
+      // with event_id arrays (``event_t _eid_...``).
+      bool is_buf_id = buf_id_var_names_.count(return_var->name_) > 0;
+
+      // Try to merge with pending tile N-way into a BufferSlot struct array.
+      if (is_buf_id && pending_tile_nway_.has_value() &&
+          pending_tile_nway_->index_expr == index_expr &&
+          pending_tile_nway_->tile_vals.size() == vals.size()) {
+        auto& pending = *pending_tile_nway_;
+        // Compute BufferSlot array name from tile array name
+        std::string slot_name = pending.arr_name;
+        auto suffix_pos = slot_name.find("_tiles_0_arr");
+        if (suffix_pos != std::string::npos) {
+          slot_name = slot_name.substr(0, suffix_pos);
         } else {
-          emitter_.EmitLine(decl_line);
+          // Fallback: strip _arr
+          auto arr_pos = slot_name.rfind("_arr");
+          if (arr_pos != std::string::npos) slot_name = slot_name.substr(0, arr_pos);
         }
+
+        // Build BufferSlot dedup key
+        std::string bs_section_tag =
+            (current_section_kind_ == ir::SectionKind::Cube) ? "cube:" : "vec:";
+        std::string bs_dedup_key = bs_section_tag + "bs:";
+        for (auto& v : pending.tile_vals) bs_dedup_key += v + ",";
+        bs_dedup_key += ":";
+        for (auto& v : vals) bs_dedup_key += v + ",";
+
+        if (!buffer_slot_decls_emitted_.count(bs_dedup_key)) {
+          buffer_slot_decls_emitted_.insert(bs_dedup_key);
+          // Also mark the tile dedup_key so dedup-hit path uses .tile accessor
+          buffer_slot_decls_emitted_.insert(pending.dedup_key);
+          // Update tile_array_decls_ to point to slot_name instead of arr_name
+          tile_array_decls_[pending.dedup_key] = slot_name;
+
+          // Emit BufferSlot template struct (once per file)
+          if (!buffer_slot_struct_emitted_) {
+            buffer_slot_struct_emitted_ = true;
+            // The struct definition is emitted at class level (before function body)
+            // but since we're inside function body, emit it here as a local struct.
+            // C++ allows local struct definitions inside function scope.
+          }
+
+          // Build aggregate initializer: {{tile_0, bid_0}, {tile_1, bid_1}}
+          std::ostringstream init;
+          for (size_t j = 0; j < pending.tile_vals.size(); ++j) {
+            if (j > 0) init << ", ";
+            init << "{" << pending.tile_vals[j] << ", (uint8_t)" << vals[j] << "}";
+          }
+          std::string decl = "BufferSlot<" + pending.tile_type_str + "> " +
+                             slot_name + "[] = {" + init.str() + "};";
+          if (loop_depth_ > 0 || if_depth_ > 0) {
+            loop_hoisted_decls_.push_back(decl);
+          } else {
+            emitter_.EmitLine(decl);
+          }
+        }
+
+        // Re-register tile var to use .tile accessor
+        context_.RegisterVarPersistent(pending.return_var,
+                                       slot_name + "[" + index_expr + "].tile");
+        // Register bid var to use .bid accessor
+        context_.RegisterVar(return_var, slot_name + "[" + index_expr + "].bid");
+        // Store bid dedup so subsequent hits reuse the BufferSlot
+        std::string bid_section_tag =
+            (current_section_kind_ == ir::SectionKind::Cube ? "cube:" : "vec:");
+        std::string bid_dedup_key = bid_section_tag + "_bid:";
+        for (auto& v : vals) bid_dedup_key += v + ",";
+        event_id_decls_nway_[bid_dedup_key] = slot_name;
+        // Mark this bid dedup key as a BufferSlot (uses .bid accessor)
+        buffer_slot_decls_emitted_.insert("bid:" + bid_dedup_key);
+        pending_tile_nway_ = std::nullopt;
+
+      } else {
+        // No pairing — flush pending tile as standalone array, emit bid/eid normally
+        FlushPendingTileNWay();
+
+        const std::string prefix = is_buf_id ? "_bid" : "_eid";
+        const std::string elem_type = is_buf_id ? "uint8_t" : "event_t";
+        const std::string cast_type = is_buf_id ? "(uint8_t)" : "(event_t)";
+
+        // buf_id dedup keys are section-local (Cube/Vec have independent buf_id
+        // spaces); event_id dedup keys are global (cross-core sync). Dedup on
+        // element values only — index_expr affects the use site, not the array.
+        std::string section_tag = is_buf_id ?
+            (current_section_kind_ == ir::SectionKind::Cube ? "cube:" : "vec:") : "";
+        std::string dedup_key = section_tag + prefix + ":";
+        for (auto& v : vals) { dedup_key += v + ","; }
+
+        std::string eid_name;
+        if (event_id_decls_nway_.count(dedup_key)) {
+          eid_name = event_id_decls_nway_[dedup_key];
+          // If this dedup hit points to a BufferSlot, use .bid accessor
+          if (buffer_slot_decls_emitted_.count("bid:" + dedup_key)) {
+            context_.RegisterVar(return_var, eid_name + "[" + index_expr + "].bid");
+            continue;
+          }
+        } else {
+          eid_name = prefix;
+          for (auto& v : vals) eid_name += "_" + v;
+          std::string base_name = eid_name;
+          while (event_id_names_used_.count(eid_name)) {
+            eid_name = base_name + "_" + std::to_string(event_id_nway_counter_++);
+          }
+          event_id_names_used_.insert(eid_name);
+          event_id_decls_nway_[dedup_key] = eid_name;
+          std::ostringstream arr_elems;
+          for (size_t j = 0; j < vals.size(); ++j) {
+            if (j > 0) arr_elems << ", ";
+            arr_elems << cast_type << vals[j];
+          }
+          std::string decl_line = "const " + elem_type + " " + eid_name +
+                                  "[] = {" + arr_elems.str() + "};";
+          if (!is_buf_id) {
+            cross_section_decls_.push_back(decl_line);
+          }
+          if (loop_depth_ > 0 || if_depth_ > 0) {
+            loop_hoisted_decls_.push_back(decl_line);
+          } else {
+            emitter_.EmitLine(decl_line);
+          }
+        }
+        context_.RegisterVar(return_var, eid_name + "[" + index_expr + "]");
       }
-      context_.RegisterVar(return_var, eid_name + "[" + index_expr + "]");
 
     } else {
       return false;
@@ -1396,11 +1693,49 @@ bool CCECodegen::TryEmitNWaySelect(const ir::IfStmtPtr& op) {
   return true;
 }
 
+void CCECodegen::FlushPendingTileNWay() {
+  if (!pending_tile_nway_.has_value()) return;
+  auto& pending = *pending_tile_nway_;
+  // Emit as standalone tile array (no BufferSlot pairing)
+  std::ostringstream arr_elems;
+  for (size_t j = 0; j < pending.tile_vals.size(); ++j) {
+    if (j > 0) arr_elems << ", ";
+    arr_elems << pending.tile_vals[j];
+  }
+  std::string arr_decl = pending.tile_type_str + " " + pending.arr_name +
+                          "[] = {" + arr_elems.str() + "};";
+  if (loop_depth_ > 0 || if_depth_ > 0) {
+    loop_hoisted_decls_.push_back(arr_decl);
+  } else {
+    emitter_.EmitLine(arr_decl);
+  }
+  pending_tile_nway_ = std::nullopt;
+}
+
 bool CCECodegen::TryEmitIdentityElseIf(const ir::IfStmtPtr& op) {
   if (!op->else_body_.has_value() || op->return_vars_.empty()) return false;
 
-  auto else_yields = ExtractYieldNames(*op->else_body_);
-  if (else_yields.size() != op->return_vars_.size()) return false;
+  // Extract else-yield Vars directly so we can resolve through name_to_cpp_
+  // (not just alias_map_) — that catches cases where a Var was registered to
+  // an expression like "arr[idx]" by the AssignVar->Tile path after N-way-select.
+  auto extract_yield_vars = [](const ir::StmtPtr& body) -> std::vector<ir::VarPtr> {
+    std::vector<ir::VarPtr> result;
+    ir::YieldStmtPtr yield_stmt;
+    if (auto y = ir::As<ir::YieldStmt>(body)) yield_stmt = y;
+    else if (auto seq = ir::As<ir::SeqStmts>(body)) {
+      if (!seq->stmts_.empty()) yield_stmt = ir::As<ir::YieldStmt>(seq->stmts_.back());
+    }
+    if (!yield_stmt) return {};
+    for (const auto& val : yield_stmt->value_) {
+      auto v = ir::As<ir::Var>(val);
+      if (!v) return {};  // only handle pure-Var yields here
+      result.push_back(v);
+    }
+    return result;
+  };
+
+  auto else_yield_vars = extract_yield_vars(*op->else_body_);
+  if (else_yield_vars.size() != op->return_vars_.size()) return false;
 
   // Check: the else body should be just a YieldStmt (no other side effects)
   auto else_body_ptr = *op->else_body_;
@@ -1415,10 +1750,26 @@ bool CCECodegen::TryEmitIdentityElseIf(const ir::IfStmtPtr& op) {
   }
   if (!else_is_just_yield) return false;
 
-  // Save the pre-if resolved names (the else-yield identity values)
+  // Save the pre-if resolved names by consulting name_to_cpp_ (GetVarName).
   std::vector<std::string> pre_if_names;
-  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-    pre_if_names.push_back(context_.ResolveAlias(else_yields[i]));
+  for (const auto& v : else_yield_vars) {
+    pre_if_names.push_back(context_.ResolveAlias(context_.GetVarName(v)));
+  }
+
+  // Reject if any pre_if_name is a complex expression (contains '[', '(', etc.):
+  // identity-else treats pre_if_name as a C++ lvalue to assign into, but a
+  // resolved name like `arr[idx]` (from N-way-select) would emit
+  // `arr[idx] = new_val` which overwrites element storage instead of phi'ing.
+  // Force full phi path for such cases so a real C++ lvalue is declared.
+  auto is_simple_identifier = [](const std::string& s) {
+    if (s.empty()) return false;
+    for (char c : s) {
+      if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_')) return false;
+    }
+    return true;
+  };
+  for (const auto& name : pre_if_names) {
+    if (!is_simple_identifier(name)) return false;
   }
 
   // Register return vars to the pre-if names
@@ -1507,8 +1858,45 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
   INTERNAL_CHECK(op->condition_ != nullptr) << "Internal error: IfStmt has null condition";
   INTERNAL_CHECK(op->then_body_ != nullptr) << "Internal error: IfStmt has null then_body";
 
+  // Drop phi return_vars with no downstream consumer. The SSA pass
+  // conservatively inserts phi nodes whenever a variable is re-assigned
+  // across control flow, but if no one reads the phi output, emitting a
+  // declaration + per-branch yield-assignment is pure dead code.
+  ir::IfStmtPtr effective_op = op;
+  if (!op->return_vars_.empty()) {
+    bool any_used = false;
+    for (const auto& rv : op->return_vars_) {
+      if (rv && var_read_names_.count(rv->name_)) { any_used = true; break; }
+    }
+    if (!any_used) {
+      // An else-body consisting only of YieldStmts also becomes dead once
+      // return_vars are dropped — the yields have no consumer.
+      auto else_is_only_yields = [](const ir::StmtPtr& s) -> bool {
+        if (!s) return false;
+        if (ir::As<ir::YieldStmt>(s)) return true;
+        if (auto seq = ir::As<ir::SeqStmts>(s)) {
+          for (const auto& st : seq->stmts_) {
+            if (!ir::As<ir::YieldStmt>(st)) return false;
+          }
+          return !seq->stmts_.empty();
+        }
+        return false;
+      };
+      std::optional<ir::StmtPtr> new_else = op->else_body_;
+      if (new_else.has_value() && else_is_only_yields(*new_else)) {
+        new_else = std::nullopt;
+      }
+      effective_op = std::make_shared<ir::IfStmt>(
+          op->condition_, op->then_body_, new_else,
+          std::vector<ir::VarPtr>{}, op->span_);
+    }
+  }
+
   // N-way select optimization: if(x==0){A} else{if(x==1){B}...} → array[x]
-  if (TryEmitNWaySelect(op)) return;
+  if (TryEmitNWaySelect(effective_op)) return;
+
+  // N-way didn't match — flush any pending tile that was waiting for a bid pair
+  FlushPendingTileNWay();
 
   // If-level hoisting: buffer output so array decls can be hoisted before the if
   bool is_outermost_if = (loop_depth_ == 0 && if_depth_ == 0);
@@ -1523,8 +1911,8 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
   }
 
   // Try identity-else optimization, fall back to full phi codegen
-  if (!TryEmitIdentityElseIf(op)) {
-    EmitFullPhiIf(op);
+  if (!TryEmitIdentityElseIf(effective_op)) {
+    EmitFullPhiIf(effective_op);
   }
 
   if_depth_--;
@@ -2256,6 +2644,174 @@ std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> CCECodegen::CollectTileVaria
   TileCollector collector;
   collector.VisitStmt(stmt);
   return collector.tile_vars_;
+}
+
+namespace {
+
+class BufIdVarCollector : public ir::IRVisitor {
+ public:
+  std::set<std::string> buf_id_var_names_;
+
+  void VisitExpr_(const ir::CallPtr& op) override {
+    if (op && op->op_) {
+      const std::string& name = op->op_->name_;
+      if ((name == "system.mutex_lock_dyn" || name == "system.mutex_unlock_dyn") &&
+          !op->args_.empty()) {
+        if (auto var = ir::As<ir::Var>(op->args_[0])) {
+          buf_id_var_names_.insert(var->name_);
+        }
+      }
+    }
+    ir::IRVisitor::VisitExpr_(op);
+  }
+};
+
+// Collect names of Var nodes that appear in any read position — Call args,
+// Yield values, AssignStmt RHS, return values, expressions inside subscripts,
+// for-loop ranges, etc. A phi return_var whose name is not in this set has
+// no consumer and can be safely dropped from IfStmt codegen.
+class VarReadCollector : public ir::IRVisitor {
+ public:
+  std::set<std::string> var_read_names_;
+  std::unordered_map<std::string, int> var_read_counts_;
+
+  // Any time we visit a Var as a sub-expression (via the default Expr walk),
+  // it is in a read position — the write site is an AssignStmt.var_ which
+  // the default Stmt walker does not route through VisitExpr.
+  void VisitExpr_(const ir::VarPtr& op) override {
+    if (op) {
+      var_read_names_.insert(op->name_);
+      var_read_counts_[op->name_]++;
+    }
+  }
+
+  void VisitExpr_(const ir::IterArgPtr& op) override {
+    if (op) {
+      var_read_names_.insert(op->name_);
+      var_read_counts_[op->name_]++;
+      if (op->initValue_) VisitExpr(op->initValue_);
+    }
+  }
+
+  void VisitStmt_(const ir::AssignStmtPtr& op) override {
+    // Skip op->var_ (LHS is a definition, not a use). Walk the RHS.
+    if (op && op->value_) VisitExpr(op->value_);
+  }
+
+  void VisitStmt_(const ir::IfStmtPtr& op) override {
+    // Skip op->return_vars_ — they are phi outputs (definitions), not reads.
+    // Walk condition + branches explicitly.
+    if (!op) return;
+    if (op->condition_) VisitExpr(op->condition_);
+    if (op->then_body_) VisitStmt(op->then_body_);
+    if (op->else_body_.has_value() && *op->else_body_) VisitStmt(*op->else_body_);
+  }
+
+  void VisitStmt_(const ir::ForStmtPtr& op) override {
+    // Similar concern for For loops: return_vars_ (output iter args) are
+    // written, not read, on each iteration's phi merge.
+    if (!op) return;
+    if (op->start_) VisitExpr(op->start_);
+    if (op->stop_) VisitExpr(op->stop_);
+    if (op->step_) VisitExpr(op->step_);
+    for (const auto& ia : op->iter_args_) {
+      if (ia && ia->initValue_) VisitExpr(ia->initValue_);
+    }
+    if (op->body_) VisitStmt(op->body_);
+  }
+};
+
+}  // namespace
+
+void CCECodegen::CollectVarReadNames(const ir::StmtPtr& stmt,
+                                     std::set<std::string>& out) const {
+  if (!stmt) return;
+  VarReadCollector collector;
+  collector.VisitStmt(stmt);
+  out = std::move(collector.var_read_names_);
+  // Also populate read counts on the mutable codegen instance
+  const_cast<CCECodegen*>(this)->var_read_counts_ = std::move(collector.var_read_counts_);
+}
+
+void CCECodegen::CollectBufIdVarNames(const ir::StmtPtr& stmt,
+                                      std::set<std::string>& out) const {
+  if (!stmt) return;
+  BufIdVarCollector collector;
+  collector.VisitStmt(stmt);
+  out = std::move(collector.buf_id_var_names_);
+}
+
+namespace {
+
+class MutexPipeCollector : public ir::IRVisitor {
+ public:
+  std::map<int, std::set<ir::PipeType>> cube_mutex_pipes;
+  std::map<int, std::set<ir::PipeType>> vec_mutex_pipes;
+
+  void VisitStmt_(const ir::SectionStmtPtr& op) override {
+    auto prev = current_section_;
+    current_section_ = op->section_kind_;
+    ir::IRVisitor::VisitStmt_(op);
+    current_section_ = prev;
+  }
+
+  void VisitExpr_(const ir::CallPtr& op) override {
+    if (op && op->op_) {
+      const std::string& name = op->op_->name_;
+      bool is_mutex = (name == "system.mutex_lock" || name == "system.mutex_unlock" ||
+                       name == "system.mutex_lock_dyn" || name == "system.mutex_unlock_dyn");
+      if (is_mutex) {
+        ir::PipeType pipe = ir::PipeType::S;
+        int static_bid = -1;
+        std::vector<int> dyn_bids;
+        for (const auto& [key, value] : op->kwargs_) {
+          if (key == "pipe") pipe = static_cast<ir::PipeType>(std::any_cast<int>(value));
+          if (key == "mutex_id") static_bid = std::any_cast<int>(value);
+          if (key == "buf_id_values") dyn_bids = std::any_cast<std::vector<int>>(value);
+        }
+        auto& target = (current_section_ == ir::SectionKind::Cube)
+                            ? cube_mutex_pipes : vec_mutex_pipes;
+        auto record = [&](int bid) { target[bid].insert(pipe); };
+        if (static_bid >= 0) record(static_bid);
+        for (int bid : dyn_bids) record(bid);
+        if (static_bid < 0 && dyn_bids.empty()) {
+          int max_id = 2;
+          for (const auto& [key, value] : op->kwargs_) {
+            if (key == "max_mutex_id") max_id = std::any_cast<int>(value);
+          }
+          for (int i = 0; i < max_id; ++i) record(i);
+        }
+      }
+    }
+    ir::IRVisitor::VisitExpr_(op);
+  }
+
+ private:
+  ir::SectionKind current_section_ = ir::SectionKind::Vector;
+};
+
+}  // namespace
+
+void CCECodegen::CollectMutexPipeInfo(const ir::StmtPtr& stmt) {
+  if (!stmt) return;
+  MutexPipeCollector collector;
+  collector.VisitStmt(stmt);
+  cube_mutex_pipes_ = std::move(collector.cube_mutex_pipes);
+  vec_mutex_pipes_ = std::move(collector.vec_mutex_pipes);
+}
+
+bool CCECodegen::ShouldSkipVPipeMutex(ir::PipeType pipe, const std::vector<int>& buf_ids) const {
+  if (pipe != ir::PipeType::V || arch_ != "a5") return false;
+  const auto& section_map = (current_section_kind_ == ir::SectionKind::Cube)
+                                ? cube_mutex_pipes_ : vec_mutex_pipes_;
+  for (int bid : buf_ids) {
+    auto it = section_map.find(bid);
+    if (it == section_map.end()) continue;
+    for (auto p : it->second) {
+      if (p != ir::PipeType::V) return false;
+    }
+  }
+  return true;
 }
 
 std::map<std::string, std::vector<ir::ExprPtr>> CCECodegen::CollectTensorAccessShapes(

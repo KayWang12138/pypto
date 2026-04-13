@@ -1805,6 +1805,141 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "system.sync_all")
       return MakeSystemSyncAllCodegenPTO(op, codegen);
     });
 
+// ============================================================================
+// Mutex (Buffer-ID Token) — A5 only
+// ----------------------------------------------------------------------------
+// Lowers system.mutex_lock/unlock to pto.get_buf/pto.rls_buf. The user-level
+// API uses a PipeType (matching Ascend C's Mutex::Lock<pipe>()), which we map
+// to a canonical SyncOpType for the pto.pipe_event_type attribute.
+// ============================================================================
+
+// Map high-level PipeType to canonical SyncOpType name used by pto.get_buf.
+// Reference: PTOAS PTOAttrs.td PTO_SyncOpTypeEnum.
+static std::string PipeToSyncOpTypeStr(int pipe_val) {
+  switch (static_cast<ir::PipeType>(pipe_val)) {
+    case ir::PipeType::MTE2: return "TLOAD";
+    case ir::PipeType::MTE1: return "TMOV_M2L";
+    case ir::PipeType::MTE3: return "TSTORE_VEC";
+    case ir::PipeType::M:    return "TMATMUL";
+    case ir::PipeType::V:    return "TVEC";
+    case ir::PipeType::FIX:  return "TSTORE_ACC";
+    default:                 return "TVEC";
+  }
+}
+
+static std::string MakeMutexLockCodegenPTO(const CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
+  auto pipe = op->GetKwarg<int>("pipe");
+  auto mutex_id = op->GetKwarg<int>("mutex_id");
+  int mode = 0;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "mode") mode = std::any_cast<int>(value);
+  }
+  std::ostringstream oss;
+  oss << "pto.get_buf [#pto.pipe_event_type<" << PipeToSyncOpTypeStr(pipe)
+      << ">, " << mutex_id << "]";
+  if (mode != 0) oss << " { mode = " << mode << " : i32 }";
+  codegen.Emit(oss.str());
+  return "";
+}
+
+static std::string MakeMutexUnlockCodegenPTO(const CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
+  auto pipe = op->GetKwarg<int>("pipe");
+  auto mutex_id = op->GetKwarg<int>("mutex_id");
+  int mode = 0;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "mode") mode = std::any_cast<int>(value);
+  }
+  std::ostringstream oss;
+  oss << "pto.rls_buf [#pto.pipe_event_type<" << PipeToSyncOpTypeStr(pipe)
+      << ">, " << mutex_id << "]";
+  if (mode != 0) oss << " { mode = " << mode << " : i32 }";
+  codegen.Emit(oss.str());
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_PTO, "system.mutex_lock")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexLockCodegenPTO(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_PTO, "system.mutex_unlock")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexUnlockCodegenPTO(op, codegen);
+    });
+
+// Dynamic mutex_id variants: pto.get_buf/rls_buf only accept static I32Attr
+// buf_id, so we lower dynamic IDs to an if-chain. The actual buf_id values
+// come from the ``buf_id_values`` kwarg (e.g. [2, 3] for b_l1_db).
+// Fallback: 0, 1, ..., max_mutex_id-1 when buf_id_values is absent.
+static std::vector<int> GetBufIdValues(const CallPtr& op) {
+  std::vector<int> values;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "buf_id_values") {
+      values = std::any_cast<std::vector<int>>(value);
+      return values;
+    }
+  }
+  // Fallback: 0..max_mutex_id-1
+  int max_id = 2;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "max_mutex_id") max_id = std::any_cast<int>(value);
+  }
+  for (int i = 0; i < max_id; ++i) values.push_back(i);
+  return values;
+}
+
+static std::string MakeMutexLockDynCodegenPTO(const CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
+  auto pipe = op->GetKwarg<int>("pipe");
+  std::string op_type_str = PipeToSyncOpTypeStr(pipe);
+  std::string mutex_id_expr = codegen.GetExprAsCode(op->args_[0]);
+  auto buf_ids = GetBufIdValues(op);
+  for (int bid : buf_ids) {
+    std::string ci = codegen.GetIndexConstant(static_cast<int64_t>(bid));
+    std::string cond = codegen.NewTemp();
+    codegen.Emit(cond + " = arith.cmpi eq, " + mutex_id_expr + ", " + ci + " : index");
+    codegen.Emit("scf.if " + cond + " {");
+    codegen.Emit("  pto.get_buf [#pto.pipe_event_type<" + op_type_str + ">, "
+                 + std::to_string(bid) + "]");
+    codegen.Emit("}");
+  }
+  return "";
+}
+
+static std::string MakeMutexUnlockDynCodegenPTO(const CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
+  auto pipe = op->GetKwarg<int>("pipe");
+  std::string op_type_str = PipeToSyncOpTypeStr(pipe);
+  std::string mutex_id_expr = codegen.GetExprAsCode(op->args_[0]);
+  auto buf_ids = GetBufIdValues(op);
+  for (int bid : buf_ids) {
+    std::string ci = codegen.GetIndexConstant(static_cast<int64_t>(bid));
+    std::string cond = codegen.NewTemp();
+    codegen.Emit(cond + " = arith.cmpi eq, " + mutex_id_expr + ", " + ci + " : index");
+    codegen.Emit("scf.if " + cond + " {");
+    codegen.Emit("  pto.rls_buf [#pto.pipe_event_type<" + op_type_str + ">, "
+                 + std::to_string(bid) + "]");
+    codegen.Emit("}");
+  }
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_PTO, "system.mutex_lock_dyn")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexLockDynCodegenPTO(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_PTO, "system.mutex_unlock_dyn")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexUnlockDynCodegenPTO(op, codegen);
+    });
+
 // Helper function for BlockGetVal
 static std::string MakeBlockGetValCodegenPTO(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
@@ -2061,6 +2196,45 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "tensor.read")
     .set_pipe(ir::PipeType::S)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeTensorReadCodegenPTO(op, codegen);
+    });
+
+// ============================================================================
+// Struct ops for PTO — no-op stubs.
+//
+// The NBuffer auto-rotate cursor uses struct.declare/get/set to manage a
+// mutable counter. CCE codegen translates these to C++ struct field access.
+// PTO IR is pure SSA and does not support mutable variables (no memref in
+// user-authored PTO IR). For now these are no-ops: struct.get returns
+// constant 0 (always selects slot 0), struct.set is ignored.
+//
+// To use NBuffer double-buffer with PTO codegen, use the tuple-index
+// pattern: tiles[buf_idx] with buf_idx = (i // tile) % num_slots.
+// ============================================================================
+
+// struct.declare → no-op (cursor state not tracked in PTO SSA mode).
+REGISTER_BACKEND_OP(Backend910B_PTO, "struct.declare")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+      return std::string("");
+    });
+
+// struct.get → return constant 0 (always slot 0 in PTO mode).
+REGISTER_BACKEND_OP(Backend910B_PTO, "struct.get")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+      auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
+      std::string c0 = codegen.GetIndexConstant(0);
+      // Set last_assigned_temp_ so VisitExpr_(CallPtr) propagates to current_expr_value_.
+      // NewTemp() isn't needed — just reuse the constant directly.
+      codegen.SetLastAssignedTemp(c0);
+      return std::string("");
+    });
+
+// struct.set → no-op (cursor advance has no effect in PTO mode).
+REGISTER_BACKEND_OP(Backend910B_PTO, "struct.set")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+      return std::string("");
     });
 
 }  // namespace backend

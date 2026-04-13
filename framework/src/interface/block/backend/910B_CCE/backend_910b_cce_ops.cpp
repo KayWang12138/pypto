@@ -1798,5 +1798,110 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.read")
       return MakeTensorReadCodegenCCE(op, codegen);
     });
 
+// ============================================================================
+// Mutex (Buffer-ID Token) — A5 CCE Codegen
+// ----------------------------------------------------------------------------
+// Lowers system.mutex_lock/unlock to CCE intrinsics get_buf/rls_buf.
+// API: get_buf(PIPE_MTE2, mutexId, 0);  rls_buf(PIPE_MTE2, mutexId, 0);
+// ============================================================================
+
+static std::string MakeMutexLockCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  auto pipe = static_cast<ir::PipeType>(op->GetKwarg<int>("pipe"));
+  auto mutex_id = op->GetKwarg<int>("mutex_id");
+  if (codegen.ShouldSkipVPipeMutex(pipe, {mutex_id})) return "";
+  int mode = 0;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "mode") mode = std::any_cast<int>(value);
+  }
+  std::string pipe_str = PipeTypeToCCEString(pipe);
+  codegen.Emit("get_buf(" + pipe_str + ", " + std::to_string(mutex_id) + ", " + std::to_string(mode) + ");");
+  return "";
+}
+
+static std::string MakeMutexUnlockCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  auto pipe = static_cast<ir::PipeType>(op->GetKwarg<int>("pipe"));
+  auto mutex_id = op->GetKwarg<int>("mutex_id");
+  if (codegen.ShouldSkipVPipeMutex(pipe, {mutex_id})) return "";
+  int mode = 0;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "mode") mode = std::any_cast<int>(value);
+  }
+  std::string pipe_str = PipeTypeToCCEString(pipe);
+  codegen.Emit("rls_buf(" + pipe_str + ", " + std::to_string(mutex_id) + ", " + std::to_string(mode) + ");");
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "system.mutex_lock")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexLockCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "system.mutex_unlock")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexUnlockCodegenCCE(op, codegen);
+    });
+
+// Dynamic mutex_id: the mutex_id expression is already a runtime value
+// (e.g. from tuple-index if-else chain). get_buf/rls_buf take runtime args.
+static std::vector<int> GetBufIdValuesFromKwargs(const ir::CallPtr& op) {
+  std::vector<int> values;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "buf_id_values") {
+      values = std::any_cast<std::vector<int>>(value);
+      return values;
+    }
+  }
+  int max_id = 2;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "max_mutex_id") max_id = std::any_cast<int>(value);
+  }
+  for (int i = 0; i < max_id; ++i) values.push_back(i);
+  return values;
+}
+
+static std::string MakeMutexLockDynCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  auto pipe = static_cast<ir::PipeType>(op->GetKwarg<int>("pipe"));
+  if (codegen.ShouldSkipVPipeMutex(pipe, GetBufIdValuesFromKwargs(op))) return "";
+  int mode = 0;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "mode") mode = std::any_cast<int>(value);
+  }
+  std::string pipe_str = PipeTypeToCCEString(pipe);
+  std::string mutex_id_expr = codegen.GetExprAsCode(op->args_[0]);
+  codegen.Emit("get_buf(" + pipe_str + ", " + mutex_id_expr + ", " + std::to_string(mode) + ");");
+  return "";
+}
+
+static std::string MakeMutexUnlockDynCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  auto pipe = static_cast<ir::PipeType>(op->GetKwarg<int>("pipe"));
+  if (codegen.ShouldSkipVPipeMutex(pipe, GetBufIdValuesFromKwargs(op))) return "";
+  int mode = 0;
+  for (const auto& [key, value] : op->kwargs_) {
+    if (key == "mode") mode = std::any_cast<int>(value);
+  }
+  std::string pipe_str = PipeTypeToCCEString(pipe);
+  std::string mutex_id_expr = codegen.GetExprAsCode(op->args_[0]);
+  codegen.Emit("rls_buf(" + pipe_str + ", " + mutex_id_expr + ", " + std::to_string(mode) + ");");
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "system.mutex_lock_dyn")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexLockDynCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "system.mutex_unlock_dyn")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeMutexUnlockDynCodegenCCE(op, codegen);
+    });
+
 }  // namespace backend
 }  // namespace pypto

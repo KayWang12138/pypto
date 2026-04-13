@@ -7,35 +7,23 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-"""System operations for PyPTO Language DSL.
+"""Mutex (buffer-id token) namespace for PyPTO Language DSL.
 
-Re-exports from pypto_block.ir.op.system_ops. System ops have no language-level
-type wrappers (they take/return no Tensor/Tile/Scalar), so this is a
-straight pass-through.
+Exposes ``pl.mutex.lock`` / ``pl.mutex.unlock`` for the A5-only Mutex
+synchronization primitive. These are thin re-exports of
+``pypto_block.ir.op.system_ops.mutex_lock`` / ``mutex_unlock`` — renamed
+so users write the natural form::
+
+    pl.mutex.lock(pl.PipeType.MTE2, buf_id)
+    plm.load(tile, ...)
+    pl.mutex.unlock(pl.PipeType.MTE2, buf_id)
+
+The underlying ops lower to ``pto.get_buf`` / ``pto.rls_buf`` in the PTO
+backend, corresponding to Ascend C's ``Mutex::Lock<pipe>(id)`` /
+``Mutex::Unlock<pipe>(id)``.
 """
 
-from pypto_block.ir.op.system_ops import (
-    bar_all,
-    bar_m,
-    bar_v,
-    mutex_lock,
-    mutex_unlock,
-    set_cross_core,
-    sync_all,
-    sync_dst,
-    sync_src,
-    wait_cross_core,
-)
+from pypto_block.ir.op.system_ops import mutex_lock as lock
+from pypto_block.ir.op.system_ops import mutex_unlock as unlock
 
-__all__ = [
-    "sync_src",
-    "sync_dst",
-    "bar_v",
-    "bar_m",
-    "bar_all",
-    "set_cross_core",
-    "wait_cross_core",
-    "sync_all",
-    "mutex_lock",
-    "mutex_unlock",
-]
+__all__ = ["lock", "unlock"]
