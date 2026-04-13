@@ -907,6 +907,13 @@ def compile(
         "-mllvm",
         "-cce-aicore-dcci-insert-for-scalar=false",
         "--cce-auto-sync=off",
+        "--cce-simd-vf-fusion=true",
+        "--enable-pto-tile-fusion",
+        "-mllvm",
+        "-tile-fusion-skip-reduceop-fusion=true",
+        "-mllvm",
+        "-tile-fusion-skip-legality-check=false",
+        ""
         "-O3",
         "--cce-disable-kernel-global-attr-check",
         "-Wno-parentheses-equality",

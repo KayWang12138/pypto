@@ -102,6 +102,35 @@ static std::string MakeManualRowReductionCodegenCCE(const std::string& cce_op_na
 }
 
 // ============================================================================
+// Helper: Manual col-reduction op — args = [tile, tmp, dst]
+// TCOLMAX emits: TCOLMAX(dst, tile);          — 2-arg form (no tmp)
+// TCOLSUM emits: TCOLSUM(dst, tile, tmp, false); — 4-arg form
+// ============================================================================
+static std::string MakeManualColMaxCodegenCCE(const ir::CallPtr& op,
+                                              codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 3) << "TCOLMAX: expected 3 args (tile, tmp, dst), got "
+                               << op->args_.size();
+  std::string tile = codegen.GetExprAsCode(op->args_[0]);
+  // args_[1] is tmp — not used by TCOLMAX
+  std::string dst = codegen.GetExprAsCode(op->args_[2]);
+  codegen.Emit("TCOLMAX(" + dst + ", " + tile + ");");
+  return "";
+}
+
+static std::string MakeManualColSumCodegenCCE(const ir::CallPtr& op,
+                                              codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 3) << "TCOLSUM: expected 3 args (tile, tmp, dst), got "
+                               << op->args_.size();
+  std::string tile = codegen.GetExprAsCode(op->args_[0]);
+  std::string tmp = codegen.GetExprAsCode(op->args_[1]);
+  std::string dst = codegen.GetExprAsCode(op->args_[2]);
+  codegen.Emit("TCOLSUM(" + dst + ", " + tile + ", " + tmp + ", false);");
+  return "";
+}
+
+// ============================================================================
 // Helper: Manual row-expand op — args = [tile, reduction_tile, dst]
 // Emits: OP(dst, tile, reduction_tile);
 // ============================================================================
@@ -1134,6 +1163,18 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.row_min")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeManualRowReductionCodegenCCE("TROWMIN", op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "manual.col_max")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualColMaxCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "manual.col_sum")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualColSumCodegenCCE(op, codegen);
     });
 
 // ============================================================================
