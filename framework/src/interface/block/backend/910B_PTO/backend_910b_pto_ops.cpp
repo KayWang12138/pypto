@@ -709,9 +709,19 @@ static std::string MakeTensorPrintCodegenPTO(const CallPtr& op, codegen::Codegen
   auto tensor_type = As<TensorType>(tensor->GetType());
   INTERNAL_CHECK(tensor_type) << "debug.dump_tensor tensor argument must have TensorType";
 
-  std::string tensor_view = codegen.GetOrCreateTensorView(tensor);
-  std::string tensor_view_type = codegen.GetTensorViewTypeString(tensor_type.get());
   std::string dtype_str = codegen.GetTypeString(tensor_type->dtype_);
+  const ir::TensorLayout tensor_layout = tensor_type->tensor_view_.has_value()
+                                             ? tensor_type->tensor_view_->layout
+                                             : ir::TensorLayout::ND;
+  if (tensor_layout == ir::TensorLayout::NZ) {
+    throw pypto::ValueError(
+        "debug.dump_tensor: NZ tensor printing is not yet supported in PTO lowering; "
+        "the current make_tensor_view lowering cannot build a verifier-valid NZ tensor_view");
+  }
+
+  std::string tensor_view_type = codegen.GetTensorViewTypeString(tensor_type.get());
+  std::string tensor_view = codegen.GetOrCreateTensorView(tensor);
+
   std::string partition_type = GetPartitionType(shapes_tuple.get(), dtype_str);
 
   std::string partition_view = codegen.NewTemp();

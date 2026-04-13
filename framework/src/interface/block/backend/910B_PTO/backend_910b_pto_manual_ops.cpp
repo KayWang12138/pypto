@@ -936,6 +936,20 @@ static std::string MakeManualStoreCodegenPTO(const CallPtr& op, codegen::Codegen
         << "manual.store: tile_dims must have exactly 2 elements";
   }
 
+  const ir::TensorLayout output_layout = tensor_type->tensor_view_.has_value()
+                                             ? tensor_type->tensor_view_->layout
+                                             : ir::TensorLayout::ND;
+  const bool has_custom_stride = tensor_type->tensor_view_.has_value() &&
+                                 !tensor_type->tensor_view_->stride.empty();
+  if (output_layout == ir::TensorLayout::DN) {
+    throw pypto::ValueError("manual.store: DN layout is not supported for store output");
+  }
+  if (output_layout == ir::TensorLayout::NZ) {
+    throw pypto::ValueError(
+        "manual.store: NZ output is not yet supported in PTO lowering; "
+        "the current make_tensor_view lowering cannot build a verifier-valid NZ tensor_view");
+  }
+
   std::string row_off, col_off;
   std::string tensor_view, tensor_view_type;
 

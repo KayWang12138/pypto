@@ -639,6 +639,34 @@ def test_pto_codegen_dump_tensor_static_window_lowering():
     assert "!pto.partition_tensor_view<20x24xf32>" in mlir_code
 
 
+def test_pto_codegen_dump_tensor_rejects_nz_layout():
+    """plm.dump_tensor should fail fast on NZ tensors until PTO NZ lowering is implemented."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class DumpWindowNzProgram:
+        @pl.function
+        def dump_window_nz(
+            self,
+            input: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+            output: pl.Tensor[[32, 32], pl.FP32],
+        ):
+            plm.dump_tensor(input, offsets=[0, 0], shapes=[16, 16])
+            tile = pl.load(output, offsets=[0, 0], shapes=[16, 16])
+            pl.store(tile, offsets=[0, 0], shapes=[16, 16], output_tensor=output)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(DumpWindowNzProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(
+        ValueError,
+        match="debug.dump_tensor: NZ tensor printing is not yet supported in PTO lowering",
+    ):
+        codegen_obj.generate(transformed_program)
+
+
 def test_pto_codegen_dump_tile_lowering():
     """plm.dump_tile lowers directly to pto.tprint on the tile value."""
     backend.reset_for_testing()
@@ -1463,6 +1491,67 @@ def test_manual_store_with_relu_and_pre_quant_still_emits_pto_tstore():
         r"outs\(%[A-Za-z0-9_]+ : !pto\.partition_tensor_view<[^>]+>\)",
         mlir_code,
     )
+
+
+def test_manual_store_rejects_nz_output_layout():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualStoreNzProgram:
+        @pl.function
+        def store_nz_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8, pl.NZ],
+        ) -> pl.Tensor[[32, 32], pl.INT8, pl.NZ]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            plm.store(output, src, [0, 0], pre_quant_scalar=7)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualStoreNzProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(
+        ValueError,
+        match="manual.store: NZ output is not yet supported in PTO lowering",
+    ):
+        codegen_obj.generate(transformed_program)
+
+
+def test_manual_store_rejects_dn_output_layout():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualStoreDnProgram:
+        @pl.function
+        def store_dn_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8, pl.DN],
+        ) -> pl.Tensor[[32, 32], pl.INT8, pl.DN]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            plm.store(output, src, [0, 0])
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualStoreDnProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(ValueError, match="manual.store: DN layout is not supported for store output"):
+        codegen_obj.generate(transformed_program)
+
+
 def test_manual_store_fp_rejects_non_acc_source():
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.PTO)
@@ -1762,8 +1851,6 @@ class TestTensorStrideCodegen:
         assert "shape = [%c64, %c64]" in mlir_code
         # Default stride for [64, 64] is [64, 1]
         assert "strides = [%c64, %c1]" in mlir_code
-
-
 class TestAddPtrCodegen:
     """Tests for pl.addptr generating pto.addptr in ptoas codegen."""
 
