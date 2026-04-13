@@ -214,7 +214,7 @@ Tensor Neg(const Tensor& self)
     }
 }
 
-Tensor Log(const Tensor& self, LogBaseType base)
+Tensor Log(const Tensor& self, LogBaseType base, LogAlgorithm precisionType)
 {
     DECLARE_TRACER();
     ASSERT(
@@ -238,8 +238,9 @@ Tensor Log(const Tensor& self, LogBaseType base)
     }
 
     auto resTensor = Tensor(DataType::DT_FP32, self.GetShape());
-    resTensor =
-        CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), operandCast.GetStorage());
+    auto [resTensorStorage, op] = TensorUnaryOperationWithOp<UnaryOpType::LN>(*Program::GetInstance().GetCurrentFunction(), operandCast.GetStorage());
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    resTensor = resTensorStorage;
 
     auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self.GetShape());
     if (base == LogBaseType::LOG_2) {
