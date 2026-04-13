@@ -27,7 +27,7 @@
 - Tensor的生产者中存在null producer
 
 #### 2. TENSOR_INVALID_MEMORY_TYPE
-描述：Tensor的内存类型配置不合法或不匹配
+描述：Tensor的内存类型配置不合法或不匹配\
 行为：
 - Tensor 的内存类型为无效 / 未定义值
 - Tensor 的内存类型与所在子图 / 计算单元要求不兼容
