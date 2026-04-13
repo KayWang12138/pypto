@@ -1,6 +1,21 @@
-# References 一致性检查清单
+# 知识库一致性检查清单
 
-本检查清单定义了对 skill 的 `references/` 目录进行一致性检查的详细流程和标准。仅在目标 skill 存在 `references/` 目录时执行。
+本检查清单定义了对 skill 中的知识内容进行一致性检查的详细流程和标准，对应 R49-R52 四条知识规则。
+
+**检查范围**：
+- `references/` 目录（若存在）
+- `SKILL.md` 中的知识性内容（API 说明、路径说明、术语定义等）
+
+**排除内容**：流程语义内容（如"运行脚本""读取文件""检查结果"）不需要检查。
+
+## 关联规则
+
+| 规则 | 严重度 | 检查内容 |
+|------|--------|----------|
+| R49 | S1 | skill 中的知识内容（references/ 和 SKILL.md）应与 docs/ 保持一致性，不得存在 P0 级别问题 |
+| R50 | S2 | skill 中的路径应在正确的执行上下文中可访问 |
+| R51 | S2 | skill 中引用的 API 应存在于 docs/ 或官方示例中 |
+| R52 | S2 | skill 中的术语应与 docs/tutorials/appendix/glossary.md 保持一致 |
 
 ## 输出格式
 
@@ -78,6 +93,21 @@ ls .agents/skills/<skill>/scripts/xxx.py  # 存在 → 不是错误
 | Markdown (.md) | 文本内容、API 引用、路径引用 |
 | JSON/YAML | 结构有效性、字段正确性 |
 | Python/Shell 脚本 | 语法、路径可移植性 |
+
+### 1.3 提取 SKILL.md 知识内容
+
+识别 `SKILL.md` 中需要检查的知识性内容：
+
+| 内容类型 | 识别模式 |
+|----------|----------|
+| API 说明 | `pypto.xxx` API 名称及参数说明 |
+| 路径说明 | 文件路径引用（如 `docs/xxx.md`、`scripts/xxx.py`） |
+| 术语定义 | 框架概念术语（tile、tensor、pass、codegen、ub、gm 等） |
+
+**排除模式**（流程语义，不检查）：
+- 工作流步骤描述（如"运行脚本""读取文件""检查结果"）
+- 检查策略说明（如"Parse frontmatter, validate with regex"）
+- Skill 内部定义（如评审规则、报告模板）
 
 ---
 

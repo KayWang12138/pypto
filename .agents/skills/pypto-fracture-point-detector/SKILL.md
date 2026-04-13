@@ -49,13 +49,13 @@ description: |
 - **无参数或 `scope=current`（默认）**：只分析当前 session，跳过步骤 0.1-0.3，直接进入核心分析步骤
 - **`scope=full`**：获取当前 session 及其所有子会话的原始数据，执行步骤 0.1-0.3
 
----
+#### 子会话数据获取（scope=full）
 
-## 子会话数据获取（scope=full）
+> **重要说明**：子会话数据获取功能依赖于 opencode 框架的特定实现（SQLite 数据库）。在其他 agent 框架下，此功能可能不可用或需要重新实现数据访问层。若当前环境不支持数据库访问，应使用 `scope=current` 模式。
 
 当使用 `scope=full` 时，通过 opencode 的 SQLite 数据库读取会话数据。默认路径为 `~/.local/share/opencode/opencode.db`，可通过环境变量 `OPENCODE_DB_PATH` 覆盖。
 
-### 步骤 0.1：获取当前 Session ID
+#### 步骤 0.1：获取当前 Session ID
 
 ```python
 from scripts.session_db import get_current_session_id, get_session_title
@@ -64,7 +64,7 @@ current_session_id = get_current_session_id()
 current_session_title = get_session_title(current_session_id)
 ```
 
-### 步骤 0.2：确认 Session 正确性
+#### 步骤 0.2：确认 Session 正确性
 
 **情况 A：推断的 session 标题与当前对话内容匹配**
 
@@ -81,7 +81,7 @@ recent_sessions = list_recent_root_sessions(limit=10)
 
 仅在无法确定时才需要用户确认。
 
-### 步骤 0.3：获取子会话数据
+#### 步骤 0.3：获取子会话数据
 
 ```python
 from scripts.session_db import get_child_sessions, get_session_parts
@@ -97,11 +97,11 @@ child_parts = [get_session_parts(c.id) for c in children]
 
 ---
 
-## 核心分析步骤（步骤 1-9）
+### 核心分析步骤（步骤 1-9）
 
 以下步骤为两种模式共用，用于分析单个 session：
 
-### 步骤 1：读取各个 Session（主session + 子Session） 上下文
+#### 步骤 1：读取各个 Session（主session + 子Session） 上下文
 
 读取 session 的完整对话历史，重点关注：
 - 工具调用及其返回结果（尤其是错误和空结果）
@@ -111,7 +111,7 @@ child_parts = [get_session_parts(c.id) for c in children]
 
 **成功标准**：完成回顾后，应能列出 session 中涉及的所有关键实体和操作。
 
-### 步骤 2：实体识别
+#### 步骤 2：实体识别
 
 从对话历史中识别所有涉及的 pypto 实体。识别模式见 `references/entity-patterns.md`，主要包括：
 - **API**：匹配 `pypto.xxx` 模式的 API 调用
@@ -122,7 +122,7 @@ child_parts = [get_session_parts(c.id) for c in children]
 
 **成功标准**：完成识别后，应产出实体列表，每个实体标注复杂度等级。
 
-### 步骤 3：信号检测
+#### 步骤 3：信号检测
 
 按实体聚合，逐一检测 10 类信号。每个信号对应一个或多个断裂点类型。检测规则和阈值见 `references/detection-rules.md`。
 
@@ -138,7 +138,7 @@ child_parts = [get_session_parts(c.id) for c in children]
 
 **成功标准**：完成检测后，应产出信号列表，每个信号标注对应断裂点类型。
 
-### 步骤 4：断裂点判定
+#### 步骤 4：断裂点判定
 
 将检测到的信号匹配到 19 种断裂点类型，并评估置信度。
 
@@ -153,21 +153,21 @@ child_parts = [get_session_parts(c.id) for c in children]
 - 满足 1 个条件 → 中置信度 → 输出
 - 不满足任何条件 → 低置信度 → **剔除**
 
-### 步骤 5：去重与合并
+#### 步骤 5：去重与合并
 
 同一实体 + 同一断裂点类型 = 同一个断裂点。合并所有触发的信号和证据片段。
 
 **scope=full 模式**：合并所有 session（主 + 子）的断裂点，为每个断裂点标记来源 session（"主 Session" 或 "子 Session-{short_id}"）。
 
-### 步骤 6：关联标记
+#### 步骤 6：关联标记
 
 相同实体的不同断裂点自动标记为关联。例如 `pypto.reshape` 同时有 D1（文档缺失）和 C1（反复重试），它们互相关联。
 
-### 步骤 7：置信度过滤
+#### 步骤 7：置信度过滤
 
 剔除所有低置信度的断裂点。只有中/高置信度的断裂点进入最终报告。
 
-### 步骤 8：环境信息获取
+#### 步骤 8：环境信息获取
 
 执行以下命令获取环境信息，**任何命令失败则对应字段标记为"未知"**，不影响报告生成：
 
@@ -179,7 +179,7 @@ child_parts = [get_session_parts(c.id) for c in children]
 | Python 版本 | `python --version 2>/dev/null \|\| echo "Unknown"` |
 | 操作系统 | `cat /etc/os-release 2>/dev/null \| grep PRETTY_NAME \|\| echo "Unknown"` |
 
-### 步骤 9：报告生成
+#### 步骤 9：报告生成
 
 根据检测结果生成报告：
 

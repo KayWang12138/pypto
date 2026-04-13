@@ -47,7 +47,7 @@
 | {{rule_id}} | {{status}} | {{dimension}} | {{severity}} | {{type}} |
 {{/each}}
 
-## 质量闸门
+## 质量门禁
 
 | 类型 | 数量 | 说明 |
 |------|------|------|
@@ -167,13 +167,14 @@
 
 {{#if has_references}}
 
-## References 一致性检查
+## 知识库一致性检查
 
 ### 检查概况
 
 | 统计项 | 数量 |
 |--------|------|
-| 检查文件数 | {{ref_file_count}} |
+| references/ 文件数 | {{ref_file_count}} |
+| SKILL.md 知识内容 | {{skill_knowledge_count}} |
 | P0 问题数 | {{ref_p0_count}} |
 | P1 问题数 | {{ref_p1_count}} |
 | P2 问题数 | {{ref_p2_count}} |
@@ -254,5 +255,5 @@
 {{ref_linkage_check}}
 {{/if}}
 {{else}}
-**References 一致性检查**：目标 skill 无 references 目录，跳过一致性检查。
+**知识库一致性检查**：未检测到知识性内容，R49-R52 自动 SKIP。
 {{/if}}

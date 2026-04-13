@@ -1,6 +1,6 @@
 ---
 name: pypto-skill-reviewer
-description: 对一个 skill 目录进行质量与最佳实践合规性评审并评分，同时检查 references 文件与 docs 目录的一致性。用于需要审计某个 skill、检查 skill 是否遵循规范、或在发布前评估 skill 的场景。触发词：评审 skill、skill 质量、skill 审计、检查 references、references 一致性、skill 发布前检查、whenever you need to evaluate skill quality or audit skill compliance、including any task related to skill validation or quality assessment。
+description: 对一个 skill 目录进行质量与最佳实践合规性评审并评分，同时检查 references 文件与 docs 目录的一致性。用于需要审计某个 skill、检查 skill 是否遵循规范、或在发布前评估 skill 的场景。触发词：评审 skill、skill 质量、skill 审计、检查 references。
 ---
 
 # PyPTO Skill Reviewer
@@ -17,19 +17,19 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
 |------|---------|-------------|
 | [references/rules.json](references/rules.json) | 52 条规则、维度、权重和严重级别的唯一事实来源 | 在第 1 阶段和第 2 阶段开始时读取 |
 | [references/scoring-spec.md](references/scoring-spec.md) | 评分算法：维度权重、扣分公式、S0 否决、等级映射 | 在第 3 阶段开始时读取 |
-| [references/semantic-checklist.md](references/semantic-checklist.md) | 26 条语义规则的详细检查要求、证据标准和判定准则 | 在第 2 阶段开始时读取 |
-| [references/references-checklist.md](references/references-checklist.md) | References 一致性检查清单：文件基础、内容正确性、语义一致性检查项 | 在第 4 阶段开始时读取 |
+| [references/semantic-checklist.md](references/semantic-checklist.md) | 22 条语义规则的详细检查要求、证据标准和判定准则 | 在第 2 阶段开始时读取 |
+| [references/knowledge-checklist.md](references/knowledge-checklist.md) | 知识库一致性检查清单：检查范围、内容正确性、语义一致性检查项 | 在第 4 阶段开始时读取 |
 | [scripts/validate_skill.py](scripts/validate_skill.py) | 对 26 条静态规则进行确定性静态检查，输出 JSON findings | 在第 1 阶段执行 |
 | [scripts/score_findings.py](scripts/score_findings.py) | 对合并后的 findings 执行确定性打分与覆盖率统计，输出 JSON score | 在第 3 阶段执行 |
 | [templates/report-template.md](templates/report-template.md) | 最终评审报告的 Markdown 模板 | 在第 3 阶段开始时读取 |
 
 ## 工作流程
 
-执行四个阶段。第 1 阶段和第 2 阶段可并行运行。第 4 阶段为可选阶段，仅在目标 skill 存在 `references/` 目录时执行。
+执行四个阶段。第 1 阶段和第 2 阶段可并行运行。第 4 阶段检查知识库一致性（references/ + SKILL.md 知识内容）。
 
 ### 第 1 阶段：静态检查
 
-1. 读取 [references/rules.json](references/rules.json) 以理解规则定义，因为后续语义评审需识别哪些规则是 semantic 类型，且需从 rules.json 查询 rule_content 用于问题聚合。
+1. 读取 [references/rules.json](references/rules.json) 以理解规则定义，因为后续语义评审需识别哪些规则是 semantic 类型，知识检查需识别哪些规则是 knowledge 类型，且需从 rules.json 查询 rule_content 用于问题聚合。
 2. 对目标 skill 运行静态检查器，因为 26 条静态规则可通过脚本确定性检查，避免人工误判：
 
    ```bash
@@ -111,30 +111,27 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
     - **错误处理**：若脚本执行失败，记录错误并跳过该步骤，不可陷入"生成脚本→尝试读取结果→失败→重试"的死循环
     - **直接渲染**：仅在无法使用辅助脚本时，才可直接使用模板渲染报告内容（不推荐）
 
-### 第 4 阶段：References 一致性检查（可选）
+### 第 4 阶段：知识库一致性检查
 
-> **执行条件**：仅当目标 skill 存在 `references/` 目录时执行此阶段。若无该目录，报告中注明"无 references 目录，跳过一致性检查"。
+此阶段检查 skill 中的知识内容与 `docs/` 目录的一致性，处理 knowledge 类型规则（R49-R52）。
 
-1. 读取 [references/references-checklist.md](references/references-checklist.md)
-2. 扫描目标 skill 的 `references/` 目录，获取所有文件列表。
-3. 对每个文件执行一致性检查：
-   - **识别关键实体**：提取 API 名称、文件路径、参数、命令、代码示例等
-   - **搜索 docs 验证**：在 `docs/` 目录中搜索对应内容
-   - **对比分析**：识别错误、歧义、模糊描述
-4. 对发现的问题进行分类（P0/P1/P2）：
-   - **P0 必须修复**：事实性错误、代码错误、路径错误、API 不存在
-   - **P1 建议修复**：概念歧义、术语不一致、正则/格式错误
-   - **P2 可选修复**：描述模糊、引用缺失
-   - **无需修复**：合理简化、更严格规范、内部知识、无对应 docs
-5. 对 P0/P1 问题进行二次验证：
-   - 确认错误存在（重新读取文件确认问题位置）
-   - 排除特殊情况（检查执行上下文、环境变量说明）
-   - 检查联动修改（确认修复后是否需要修改 skill 内其他文件）
-6. 将 references 检查结果作为独立章节添加到评审报告中。
+**检查范围**：
+- `references/` 目录（若存在）
+- `SKILL.md` 中的知识性内容（API 说明、路径说明、术语定义等）
 
-**核心原则**：
-- **以 docs 为标杆**：错误 = 与 docs 事实矛盾；歧义 = 可能被误解；模糊 = 关键信息不清晰
-- **不死脑筋**：合理简化、更严格规范、无对应 docs 的内容不属于问题
+**排除内容**：流程语义内容（如"运行脚本""读取文件"）不需要检查。
+
+1. 读取 [references/rules.json](references/rules.json) 识别 knowledge 类型规则（R49-R52）。
+2. 读取 [references/knowledge-checklist.md](references/knowledge-checklist.md) 获取详细检查流程。
+3. 扫描 `references/` 目录（若存在），获取文件列表。
+4. 提取 `SKILL.md` 知识性内容：
+   - API：`pypto.xxx` API 名称及说明
+   - 路径：文件路径、命令路径引用
+   - 术语：框架概念术语（tile、tensor、pass、codegen 等）
+5. 对提取的知识内容执行一致性检查（识别实体 → 搜索 docs 验证 → 对比分析）。
+6. 问题分类（P0/P1/P2）并二次验证。
+7. 生成 R49-R52 finding 对象，添加到合并列表。
+8. 将知识库检查结果作为独立章节添加到评审报告。
 
 ## 输出
 
@@ -151,11 +148,11 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
 
 直接向用户输出完整的 Markdown 评审报告。报告必须包含以下全部章节 —— 缺少任意章节都视为不完整。
 
-**核心评审章节（6 个）**：
+**核心评审章节（7 个）**：
 
 1. **评审摘要** —— skill 名称、总分（0-100，保留两位小数）、等级（A/B/C/D/F）、S0 否决状态（是/否）、规则统计（pass/fail/warn/skip 计数）
-2. **维度评分表** —— 9 行（D1-D9），每行包含：原始分（0-100）、权重、加权分、扣分明细（列出每个 FAIL 的 rule_id 及其扣分值）
-3. **规则覆盖率** —— 静态计数 + 语义计数 = 总评估数，含按状态拆分（PASS/FAIL/SKIP），覆盖率百分比 = evaluated / 52 × 100%
+2. **维度评分表** —— 10 行（D1-D10），每行包含：原始分（0-100）、权重、加权分、扣分明细（列出每个 FAIL 的 rule_id 及其扣分值）
+3. **规则覆盖率** —— 静态计数 + 语义计数 + 知识计数 = 总评估数，含按状态拆分（PASS/FAIL/SKIP），覆盖率百分比 = evaluated / 52 × 100%
 4. **质量门禁** —— 被过滤项的数量与移除原因（internal_misbound / low_information_snippet）
 5. **问题列表** —— 按严重级别分组（S0 → S3），每个问题包含：
    - 引用目标 skill 具体内容的问题描述
@@ -163,27 +160,22 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
    - 位置（`file:line`）与证据（来自目标的逐字片段，≥10 个字符）
    - 含修改前/后对比的具体修复建议
 6. **通过规则汇总** —— 按维度分组的全部通过 rule_id
-
-**References 一致性检查章节（可选）**：
-
-若目标 skill 存在 `references/` 目录，报告需额外包含：
-
-7. **References 一致性检查** —— 包含以下子章节：
-   - 检查概况（文件数量、问题统计）
+7. **知识库一致性检查** —— 包含以下子章节：
+   - 检查概况（references/ 文件数量、SKILL.md 知识内容、问题统计、R49-R52 规则状态）
    - P0 必须修复问题列表
    - P1 建议修复问题列表
    - P2 可选修复问题列表
    - 无需修复项说明（若有）
    - 联动修改检查（若有）
 
-若无 `references/` 目录，在第 6 章节后注明："目标 skill 无 references 目录，跳过一致性检查"。
+若 skill 中不存在知识性内容（既无 references/ 目录，SKILL.md 中也无 API/路径/术语等知识内容），在第 7 章节注明："未检测到知识性内容，R49-R52 自动 SKIP"。
 
 **成功标准**：一个有效报告需满足：
-  (a) 核心 6 个章节全部存在，
+  (a) 核心 7 个章节全部存在，
   (b) 总分 = 各维度加权分之和（±0.01），
   (c) 每条 finding 的 evidence.snippet 都在目标文件中逐字存在，
   (d) 覆盖率分母 = 52，
-  (e) 若存在 references 目录，第 7 章节必须存在。
+  (e) 第 7 章节（知识库一致性检查）必须存在。
 
 ## 错误处理
 
@@ -218,7 +210,7 @@ description: 对一个 skill 目录进行质量与最佳实践合规性评审并
   - 禁止在 Python 代码中使用中文标点符号（如 `、` `。` `：` 等）
   - 注释和说明性文本可以使用中文，但必须使用标准 ASCII 标点（逗号、句号、冒号）
   - 字符串值若需包含中文文本，必须使用英文标点符号分隔
-- **References 一致性检查的额外约束**：
+- **知识规则检查的额外约束**：
   - 以 `docs/` 目录为唯一标杆，不以经验推断代替文档验证
   - 标记问题前必须确认执行上下文（工作目录、环境变量、前置条件）
   - 合理简化、更严格规范、内部知识不属于问题，不应误报
