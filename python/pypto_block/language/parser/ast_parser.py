@@ -4063,7 +4063,7 @@ class ASTParser:
         value_type = value_expr.type
         # TileType with constant index: tile[const] → TileOffsetExpr
         if isinstance(value_type, ir.TileType):
-            const_offset = ir.ConstInt(index, ir.Span.unknown())
+            const_offset = ir.ConstInt(index, DataType.INDEX, ir.Span.unknown())
             return ir.TileOffsetExpr(value_expr, const_offset, span)
         if not isinstance(value_type, ir.TupleType):
             raise ParserTypeError(
