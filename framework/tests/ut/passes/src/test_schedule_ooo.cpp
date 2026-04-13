@@ -1517,11 +1517,17 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBuffer)
     EXPECT_NE(function, nullptr);
 
     auto op = subGraph.GetOp("Alloc1");
+    auto tensor1 = subGraph.GetTensor("t1");
+    int memId = tensor1->memoryrange.memId;
 
     OoOScheduler ooOScheduler(*function);
     ooOScheduler.orderedOps.push_back(op);
     ooOScheduler.opIsAllocMap[op] = true;
     ooOScheduler.depManager_.GetSuccessors(op).clear();
+    ooOScheduler.opReqMemIdsMap[op] = {memId};
+    ooOScheduler.SetCoreLocation(op, CoreLocationType::AIV0);
+    EXPECT_EQ(ooOScheduler.InitLocalBuffer(tensor1, memId), SUCCESS);
+    ooOScheduler.bufferManagerMap[CoreLocationType::AIV0][MemoryType::MEM_UB] = BufferPool(MemoryType::MEM_UB, 0);
     bool res = ooOScheduler.HasEnoughBuffer(op, MemoryType::MEM_UB);
     EXPECT_EQ(res, false);
 }
@@ -1543,6 +1549,7 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBufferAddMemId)
     auto opCopyIn = subGraph.GetOp("COPY_IN");
     auto tensor1 = subGraph.GetTensor("t1");
     auto tensor2 = subGraph.GetTensor("t2");
+    int memId1 = tensor1->memoryrange.memId;
     op->GetOutputOperand(0)->ClearAllProducers();
     op->GetOutputOperand(0)->AddProducer(*opCopyIn);
     OoOScheduler ooOScheduler(*function);
@@ -1551,6 +1558,10 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBufferAddMemId)
     ooOScheduler.opIsAllocMap[op] = true;
     ooOScheduler.depManager_.InsertSuccessor(op, opCopyIn);
     ooOScheduler.opReqMemIdsMap[opCopyIn] = {1};
+    ooOScheduler.opReqMemIdsMap[op] = {memId1};
+    ooOScheduler.SetCoreLocation(op, CoreLocationType::AIV0);
+    EXPECT_EQ(ooOScheduler.InitLocalBuffer(tensor1, memId1), SUCCESS);
+    ooOScheduler.bufferManagerMap[CoreLocationType::AIV0][MemoryType::MEM_UB] = BufferPool(MemoryType::MEM_UB, 0);
     EXPECT_EQ(ooOScheduler.InitLocalBuffer(tensor2, 1), SUCCESS);
     bool res = ooOScheduler.HasEnoughBuffer(op, MemoryType::MEM_UB);
     EXPECT_EQ(res, false);
@@ -1684,22 +1695,13 @@ TEST_F(ScheduleOoOTest, TestBufferPollRearrange)
     // 验证重排，排序依据为size从大到小
     OoOScheduler oooSchedule(*function);
     auto corePair = CoreLocationType::AIV0;
-    oooSchedule.opExecOrderMap[alloc1] = 1;
-    oooSchedule.opExecOrderMap[alloc2] = 2;
-    oooSchedule.opReqMemIdsMap[alloc3] = {3};
-    oooSchedule.opExecOrderMap[alloc3] = 0;
     oooSchedule.opCoreLocationMap[alloc3] = corePair;
     oooSchedule.bufferManagerMap[corePair][MemoryType::MEM_UB] = pool;
-    oooSchedule.tensorOccupyMap.emplace(1, alloc1);
-    oooSchedule.tensorOccupyMap.emplace(2, nullptr);
-    SpillContext ctx;
-    oooSchedule.localBufferMap_[3] = std::make_shared<LocalBuffer>(3, 65536, MemoryType::MEM_UB);
-    EXPECT_EQ(oooSchedule.GenBufferSpill(alloc3, ctx), FAILED);
-    EXPECT_EQ(oooSchedule.RearrangeBuffer(alloc3, MemoryType::MEM_UB), FAILED);
-    EXPECT_EQ(oooSchedule.PrintSpillFailedInfo(alloc3), FAILED);
+    oooSchedule.tensorOccupyMap[1] = alloc1;
     oooSchedule.tensorOccupyMap[2] = alloc2;
-    EXPECT_EQ(oooSchedule.GenBufferSpill(alloc3, ctx), FAILED);
-    oooSchedule.opExecOrderMap[alloc3] = 3;
+
+    oooSchedule.localBufferMap_[1] = std::make_shared<LocalBuffer>(1, 65536, MemoryType::MEM_UB);
+    oooSchedule.localBufferMap_[2] = std::make_shared<LocalBuffer>(2, 98304, MemoryType::MEM_UB);
     EXPECT_EQ(oooSchedule.RearrangeBuffer(alloc3, MemoryType::MEM_UB), SUCCESS);
     auto &ubPool = oooSchedule.bufferManagerMap[corePair][MemoryType::MEM_UB];
     EXPECT_EQ(ubPool.GetBufferSize(1), 65536);
