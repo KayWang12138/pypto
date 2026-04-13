@@ -1240,6 +1240,64 @@ static void QuantPreCompute(
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static torch::Tensor BuildMXScaleForA(const torch::Tensor& scaleA, bool scaleATrans, int64_t mSize, int64_t kSize)
+{
+    auto localScaleA = scaleA;
+    ASSERT(calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleA.dim() == 3)
+        << "MX scale_a must be 3D, got dim: " << localScaleA.dim();
+    torch::Tensor merged;
+    if (!scaleATrans) {
+        // test reference: scale_a.view(m, k / 32)
+        ASSERT(
+            calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH,
+            localScaleA.size(0) == mSize && localScaleA.size(2) == 2)
+            << "MX scale_a shape mismatch, expected [M, K/64, 2], got [" << localScaleA.size(0) << ", "
+            << localScaleA.size(1) << ", " << localScaleA.size(2) << "]";
+        merged = localScaleA.reshape({mSize, -1});
+    } else {
+        // test reference: torch.transpose(scale_a, -2, -1).reshape(k / 32, m).T
+        ASSERT(
+            calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH,
+            localScaleA.size(1) == mSize && localScaleA.size(2) == 2)
+            << "MX trans scale_a shape mismatch, expected [K/64, M, 2], got [" << localScaleA.size(0) << ", "
+            << localScaleA.size(1) << ", " << localScaleA.size(2) << "]";
+        merged = localScaleA.transpose(-2, -1).reshape({-1, mSize}).transpose(0, 1);
+    }
+    auto expanded = merged.repeat_interleave(32, 1);
+    ASSERT(calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, expanded.size(1) == kSize)
+        << "MX scale_a expanded K mismatch, got " << expanded.size(1) << ", expect " << kSize;
+    return expanded;
+}
+
+static torch::Tensor BuildMXScaleForB(const torch::Tensor& scaleB, bool scaleBTrans, int64_t kSize, int64_t nSize)
+{
+    auto localScaleB = scaleB;
+    ASSERT(calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, localScaleB.dim() == 3)
+        << "MX scale_b must be 3D, got dim: " << localScaleB.dim();
+    torch::Tensor merged;
+    if (!scaleBTrans) {
+        // test reference: torch.transpose(scale_b, -2, -1).reshape(k / 32, n)
+        ASSERT(
+            calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH,
+            localScaleB.size(1) == nSize && localScaleB.size(2) == 2)
+            << "MX scale_b shape mismatch, expected [K/64, N, 2], got [" << localScaleB.size(0) << ", "
+            << localScaleB.size(1) << ", " << localScaleB.size(2) << "]";
+        merged = localScaleB.transpose(-2, -1).reshape({-1, nSize});
+    } else {
+        // test reference: scale_b.view(n, k / 32).T
+        ASSERT(
+            calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH,
+            localScaleB.size(0) == nSize && localScaleB.size(2) == 2)
+            << "MX trans scale_b shape mismatch, expected [N, K/64, 2], got [" << localScaleB.size(0) << ", "
+            << localScaleB.size(1) << ", " << localScaleB.size(2) << "]";
+        merged = localScaleB.reshape({nSize, -1}).transpose(0, 1);
+    }
+    auto expanded = merged.repeat_interleave(32, 0);
+    ASSERT(calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH, expanded.size(0) == kSize)
+        << "MX scale_b expanded K mismatch, got " << expanded.size(0) << ", expect " << kSize;
+    return expanded;
+}
+
 static void MatMul(
     const TensorData& out, const TensorData& self, const TensorData& other, const TensorData* acc, MatMulParam& param)
 {
@@ -1273,6 +1331,21 @@ static void MatMul(
     }
     if (tother.second.scalar_type() != calcType) {
         tother.second = tother.second.to(calcType);
+    }
+    if (param.aScalePtr != nullptr && param.bScalePtr != nullptr) {
+        auto taScale = From(*param.aScalePtr).second.to(calcType);
+        auto tbScale = From(*param.bScalePtr).second.to(calcType);
+        ASSERT(
+            calc_error::CalculatorErrorScene::MATMUL_INPUT_SHAPE_MISMATCH,
+            tself.second.dim() == 2 && tother.second.dim() == 2)
+            << "MX MatMul currently only supports 2D matrices.";
+        int64_t mSize = tself.second.size(0);
+        int64_t kSize = tself.second.size(1);
+        int64_t nSize = tother.second.size(1);
+        auto aScaleExpanded = BuildMXScaleForA(taScale, param.aScaleTrans, mSize, kSize);
+        auto bScaleExpanded = BuildMXScaleForB(tbScale, param.bScaleTrans, kSize, nSize);
+        tself.second = tself.second.mul(aScaleExpanded);
+        tother.second = tother.second.mul(bScaleExpanded);
     }
     if (!param.kStep || param.kStep == tself.second.size(-1)) {
         if (param.biasPtr != nullptr) {
