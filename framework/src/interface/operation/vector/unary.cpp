@@ -18,6 +18,7 @@
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "interface/utils/vector_error.h"
+#include "interface/tilefwk/tilefwk_op.h"
 
 namespace npu::tile_fwk {
 
@@ -31,17 +32,21 @@ void UnaryOperationOperandCheck(
 template <UnaryOpType T>
 void TiledUnaryOperation(
     Function& function, const TileShape& tileShape, size_t cur, Input& input, const LogicalTensorPtr& result,
-    uint32_t workspaceSize = 0)
+    uint32_t workspaceSize = 0, int64_t precisionType = 0)
 {
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        Operation* op = nullptr;
         if (workspaceSize == 0) {
-            function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile});
+            op = &function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile});
         } else {
             LogicalTensorPtr workspace =
                 std::make_shared<LogicalTensor>(function, DT_UINT8, std::vector<int64_t>{workspaceSize});
-            function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile, workspace});
+            op = &function.AddOperation(GetUnaryOpNameCode<T>(), {tile}, {resultTile, workspace});
+        }
+        if (T == UnaryOpType::EXP || T == UnaryOpType::SQRT) {
+            op->SetAttribute(OpAttributeKey::precisionType, precisionType);
         }
         return;
     }
@@ -49,28 +54,30 @@ void TiledUnaryOperation(
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
-        TiledUnaryOperation<T>(function, tileShape, cur + 1, input, result, workspaceSize);
+        TiledUnaryOperation<T>(function, tileShape, cur + 1, input, result, workspaceSize, precisionType);
     }
 }
 
 template <UnaryOpType T>
 void TiledUnaryOperation(
     Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand, const LogicalTensorPtr& result,
-    int32_t workspaceSize = 0)
+    int32_t workspaceSize = 0, int64_t precisionType = 0)
 {
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size())
         << "The shape size of operand and offset must be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
-    TiledUnaryOperation<T>(function, tileShape, 0, input, result, workspaceSize);
+    TiledUnaryOperation<T>(function, tileShape, 0, input, result, workspaceSize, precisionType);
 }
 
-Tensor Exp(const Tensor& self)
+Tensor Exp(const Tensor& self, ExpAlgorithm precisionType)
 {
     DECLARE_TRACER();
 
-    RETURN_CALL(UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    auto [result, op] = TensorUnaryOperationWithOp<UnaryOpType::EXP>(*Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Ln(const Tensor& operand)
@@ -119,11 +126,13 @@ Tensor Rsqrt(const Tensor& self)
     return result;
 }
 
-Tensor Sqrt(const Tensor& self)
+Tensor Sqrt(const Tensor& self, SqrtAlgorithm precisionType)
 {
     DECLARE_TRACER();
 
-    RETURN_CALL(UnaryOperation<UnaryOpType::SQRT>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    auto [result, op] = TensorUnaryOperationWithOp<UnaryOpType::SQRT>(*Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
+    return Tensor(result);
 }
 
 Tensor Relu(const Tensor& self)
@@ -237,7 +246,11 @@ void ExpOperationTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     UnaryOperationOperandCheck(iOperand, oOperand);
-    return TiledUnaryOperation<UnaryOpType::EXP>(function, tileShape, iOperand[0], oOperand[0]);
+    int64_t precisionType = static_cast<int64_t>(ExpAlgorithm::DEFAULT);
+    if (op.HasAttr(OpAttributeKey::precisionType)) {
+        precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
+    }
+    return TiledUnaryOperation<UnaryOpType::EXP>(function, tileShape, iOperand[0], oOperand[0], 0, precisionType);
 }
 
 void RsqrtOperationTileFunc(
@@ -285,7 +298,11 @@ void SqrtOperationTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     UnaryOperationOperandCheck(iOperand, oOperand);
-    return TiledUnaryOperation<UnaryOpType::SQRT>(function, tileShape, iOperand[0], oOperand[0]);
+    int64_t precisionType = static_cast<int64_t>(SqrtAlgorithm::DEFAULT);
+    if (op.HasAttr(OpAttributeKey::precisionType)) {
+        precisionType = op.GetIntAttribute(OpAttributeKey::precisionType);
+    }
+    return TiledUnaryOperation<UnaryOpType::SQRT>(function, tileShape, iOperand[0], oOperand[0], 0, precisionType);
 }
 
 void BitwiseNotOperationTileFunc(
