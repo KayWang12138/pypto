@@ -168,7 +168,7 @@ uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
 
     auto openWithRetry = [&](const std::string &handler) {
         int fd = -1;
-        int retries = 10;
+        int retries = 1000;
         while (retries--) {
             fd = shm_open(handler.c_str(), O_RDWR, 0666);
             if (fd != -1) {
