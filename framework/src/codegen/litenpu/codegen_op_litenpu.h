@@ -19,6 +19,7 @@
 #include <utility>
 #include <unordered_set>
 
+#include "op_print_param_def.h"
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
@@ -27,16 +28,22 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "codegen/npu/op_print_param_def.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/stmt_mgr/codegen_for_block.h"
 #include "codegen/codegen_op.h"
-#include "codegen/npu/codegen_op_npu.h"
 
 namespace npu::tile_fwk {
-class CodeGenOpLiteNPU : public CodeGenOpNPU {
+struct CodeGenOpLiteNPUCtx : public CodeGenOpCtx {
+    CodeGenOpLiteNPUCtx(
+        std::shared_ptr<SymbolManager> sm, Function& tf, Function& sf, const Operation& op,
+        const std::map<int, int>& lto = {}, bool isMainBlk = false)
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk)
+    {}
+};
+
+class CodeGenOpLiteNPU : public CodeGenOp {
 public:
-    explicit CodeGenOpLiteNPU(const CodeGenOpCtx &ctx);
+    explicit CodeGenOpLiteNPU(const CodeGenOpLiteNPUCtx &ctx);
     ~CodeGenOpLiteNPU() override = default;
 
     std::string GenMemL1CopyIn() const;
@@ -246,6 +253,8 @@ private:
 
     std::string PrintUnary() const;
     std::string PrintUnaryTileTensor() const;
+    std::string PrintRowMaxline() const;
+    std::string PrintRowMaxlineTileTensor() const;
 
     std::string PrintCastTileTensor() const;
 

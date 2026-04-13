@@ -216,6 +216,35 @@ std::string CodeGenOpLiteNPU::GenUnaryOpWithTmpBuff() const {
     return ostring;
 }
 
+std::string CodeGenOpLiteNPU::PrintRowMaxlineTileTensor() const
+{
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    int reduceAxis{-1};
+    auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
+    if (axis.HasValue()) {
+        reduceAxis = AnyCast<int64_t>(axis);
+    }
+
+    bool isValidAxis = ((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)));
+    ASSERT(OperErr::ATTRIBUTE_INVALID, isValidAxis) << "unsupported reduce axis: " << reduceAxis;
+    reduceAxis += SHAPE_DIM5 - rawShape[0].size();
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({std::to_string(reduceAxis)});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor});
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpLiteNPU::PrintRowMaxline() const
+{
+    if (isSupportLayout) {
+        return PrintRowMaxlineTileTensor();
+    }
+    return "";
+}
+
 std::string CodeGenOpLiteNPU::PrintUnaryTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -266,7 +295,9 @@ std::string CodeGenOpLiteNPU::GenUnaryOp() const {
                opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT || opCode == Opcode::OP_BRCB ||
                opCode == Opcode::OP_CEIL|| opCode == Opcode::OP_FLOOR|| opCode == Opcode::OP_TRUNC || opCode == Opcode::OP_ISFINITE) {
         return PrintUnary();
-    }  
+    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {
+        return PrintRowMaxline();
+    }
     CODEGEN_LOGI("unsupported tileop: %s", opCodeStr.c_str());
     return "CG_ERROR";
 }
