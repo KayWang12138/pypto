@@ -6,12 +6,15 @@
 CachePolicy
 CastMode
 DataType
+DivAlgorithm
+ExpAlgorithm
 LogBaseType
 OpType
 OutType
 ReduceMode
 ReLuType
 ScatterMode
+SqrtAlgorithm
 TileOpFormat
 TransMode
 pypto-bytes_of

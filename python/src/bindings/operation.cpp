@@ -107,7 +107,11 @@ void bind_operation(py::module& m)
         py::arg("operand"), py::arg("dstDataType"), "Tensor view_type.");
 
     m.def(
-        "Exp", [](const Tensor& self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
+        "Exp",
+        [](const Tensor& self, ExpAlgorithm precisionType) {
+            return npu::tile_fwk::Exp(self, precisionType);
+        },
+        py::arg("self"), py::arg("precision_type") = ExpAlgorithm::HIGH_PRECISION, "Tensor exp.");
     m.def(
         "Expm1", [](const Tensor& self) { return npu::tile_fwk::Expm1(self); }, "Tensor expm1.");
 
@@ -144,7 +148,11 @@ void bind_operation(py::module& m)
     m.def(
         "Rsqrt", [](const Tensor& self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
     m.def(
-        "Sqrt", [](const Tensor& self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
+        "Sqrt",
+        [](const Tensor& self, SqrtAlgorithm precisionType) {
+            return npu::tile_fwk::Sqrt(self, precisionType);
+        },
+        py::arg("self"), py::arg("precision_type") = SqrtAlgorithm::HIGH_PRECISION, "Tensor sqrt.");
     m.def(
         "Sign", [](const Tensor& self) { return npu::tile_fwk::Sign(self); }, "Tensor sign.");
     m.def(
