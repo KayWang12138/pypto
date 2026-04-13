@@ -98,12 +98,12 @@ Status OoOScheduler::PrintSpillFailedInfo(Operation* allocOp)
 
     APASS_LOG_ERROR_F(Elements::Operation, "---- current buffer occupancy ----");
     for (auto& occupy : tensorOccupyMap) {
-        if (localBufferMap[occupy.first]->memType != memType) {
+        if (localBufferMap_[occupy.first]->memType != memType) {
             continue;
         }
         APASS_LOG_ERROR_F(
                     Elements::Operation, "Tensor[%d], size:%lu, range[%lu,%lu], last writer:%s. %s", occupy.first,
-                    localBufferMap[occupy.first]->size, localBufferMap[occupy.first]->start, localBufferMap[occupy.first]->end,
+                    localBufferMap_[occupy.first]->size, localBufferMap_[occupy.first]->start, localBufferMap_[occupy.first]->end,
                     GetOpInfo(occupy.second).c_str(), GetFormatBacktrace(*occupy.second).c_str());
     }
     return SUCCESS;

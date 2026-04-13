@@ -13,10 +13,8 @@
  * \brief
  */
 
-#include "scheduler.h"
+#include "ooo_scheduler.h"
 #include "passes/pass_log/pass_log.h"
-
-#define MODULE_NAME "OoOSchedule"
 
 namespace npu::tile_fwk {
 
@@ -123,18 +121,18 @@ bool OoOScheduler::IsBelongSpillBlackList(Operation* spillOp, Operation* op) {
 }
 
 void OoOScheduler::FindFilterLtags(Operation* allocOp, std::set<Operation*> &filterLtags) {
-    auto dstOpList = GetSuccessors(allocOp);
+    auto dstOpList = depManager_.GetSuccessors(allocOp);
     auto dstOp = *dstOpList.begin();
     if (COPY_IN_OPS.find(dstOp->GetOpcode()) != COPY_IN_OPS.end()) {
-        for (auto &dstOpId : GetSuccessors(dstOp)) {
+        for (auto &dstOpId : depManager_.GetSuccessors(dstOp)) {
             auto dstOp_level0 = dstOpId;
-            for (auto &inOp : GetPredecessors(dstOp_level0)) {
+            for (auto &inOp : depManager_.GetPredecessors(dstOp_level0)) {
                 filterLtags.insert(inOp);
             }
         }
     }
     for (auto &dstOp_level1 : dstOpList) {
-        for (auto &inOp : GetPredecessors(dstOp_level1)) {
+        for (auto &inOp : depManager_.GetPredecessors(dstOp_level1)) {
             filterLtags.insert(inOp);
         }
     }
@@ -280,7 +278,7 @@ Status OoOScheduler::SpillGeneralBuffer(int spillMemId, Operation* spillOp, Logi
     opIsRetiredMap[copyoutOp] = true;
     opIsAllocMap[copyoutOp] = false;
     opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
-    for (auto preOp : GetPredecessors(spillOp)) {
+    for (auto preOp : depManager_.GetPredecessors(spillOp)) {
         if (opIsAllocMap[preOp]) {
             opCoreLocationMap[copyoutOp] = opCoreLocationMap[preOp];
             UpdateOpInternalSubgraphID(*copyoutOp, preOp);
@@ -341,7 +339,7 @@ Status OoOScheduler::SpillL1BufferFor3510(int memId, Operation* spillOp, Logical
         }
     } else {
         Operation* actualSpillOp = nullptr;
-        for (auto &preOp : GetPredecessors(spillOp)) {
+        for (auto &preOp : depManager_.GetPredecessors(spillOp)) {
             if (!opIsAllocMap[preOp]) {
                 actualSpillOp = preOp;
             }
@@ -432,7 +430,7 @@ Status OoOScheduler::SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, 
         if (opIsRetiredMap[op] || opIsAllocMap[op]) {
             continue;
         }
-        auto predecessors = GetPredecessors(op);
+        auto predecessors = depManager_.GetPredecessors(op);
         for (auto predOp : predecessors) {
             if (opIsAllocMap[predOp]) {
                 auto& predReqMemIds = opReqMemIdsMap[predOp];
@@ -456,7 +454,7 @@ Status OoOScheduler::SpillReshapeFromDDRFor3510(int memId, Operation* actualSpil
     LogicalTensorPtr reshapeTensor = CreateLocalTensor(spillTensor);
     LogicalTensorPtr copyinTensor = CreateParticalTensor(preSpillTensor, reshapeTensor, preSpillTensor, preSpillTensor->GetOffset());
 
-    auto &successors = GetSuccessors(spillOp);
+    auto &successors = depManager_.GetSuccessors(spillOp);
     for (auto succOp : successors) {
         if (!opIsRetiredMap[succOp]) {
             auto& reqMemIds = opReqMemIdsMap[succOp];
@@ -549,7 +547,7 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
     LogicalTensorPtr reshapeTensor = CreateLocalTensor(spillTensor);
     LogicalTensorPtr l1Tensor = CreateParticalTensor(preSpillTensor, reshapeTensor, spillTensor, preSpillTensor->GetOffset());
 
-    for (auto succOp : GetSuccessors(spillOp)) {
+    for (auto succOp : depManager_.GetSuccessors(spillOp)) {
         if (!opIsRetiredMap[succOp]) {
             auto& reqMemIds = opReqMemIdsMap[succOp];
             if (std::count(reqMemIds.begin(), reqMemIds.end(), spillMemId) > 0) {
@@ -627,7 +625,7 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
         if (opIsRetiredMap[op] || opIsAllocMap[op]) {
             continue;
         }
-        auto predecessors = GetPredecessors(op);
+        auto predecessors = depManager_.GetPredecessors(op);
         for (auto predOp : predecessors) {
             if (opIsAllocMap[predOp]) {
                 auto& predReqMemIds = opReqMemIdsMap[predOp];
@@ -688,7 +686,7 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
     opIsRetiredMap[copyoutOp] = true;
     opIsAllocMap[copyoutOp] = false;
     opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
-    for (auto preOp : GetPredecessors(spillOp)) {
+    for (auto preOp : depManager_.GetPredecessors(spillOp)) {
         if (opIsAllocMap[preOp]) {
             opCoreLocationMap[copyoutOp] = opCoreLocationMap[preOp];
             UpdateOpInternalSubgraphID(*copyoutOp, preOp);
@@ -700,7 +698,7 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
     }
     opExecOrderMap[copyoutOp] = bufLastUseTime + 1;
     InsertOrdered(copyoutOp);
-    for (auto &succOp : GetSuccessors(spillOp)) {
+    for (auto &succOp : depManager_.GetSuccessors(spillOp)) {
         if (!opIsRetiredMap[succOp] &&
             (std::count(opReqMemIdsMap[succOp].begin(), opReqMemIdsMap[succOp].end(), spillMemid) > 0)) {
             UpdateOperationInput(succOp, spillOp, assembleOOperand);
@@ -955,7 +953,7 @@ LogicalTensorPtr OoOScheduler::GetSpillTensor(Operation* spillOp, int spillMemId
 }
 
 Status OoOScheduler::UpdateSpillOpDepend(Operation* copyinOp, Operation* allocOp, Operation* spillOp, int spillMemId) {
-    auto& successors = GetSuccessors(spillOp);
+    auto& successors = depManager_.GetSuccessors(spillOp);
     for (auto succOp : successors) {
         if (!opIsRetiredMap[succOp]) {
             auto& reqMemIds = opReqMemIdsMap[succOp];
@@ -971,7 +969,7 @@ Status OoOScheduler::UpdateSpillOpDepend(Operation* copyinOp, Operation* allocOp
         if (opIsRetiredMap[op] || opIsAllocMap[op]) {
             continue;
         }
-        auto predecessors = GetSuccessors(op);
+        auto predecessors = depManager_.GetSuccessors(op);
         for (auto predOp : predecessors) {
             if (opIsAllocMap[predOp]) {
                 auto& predReqMemIds = opReqMemIdsMap[predOp];
