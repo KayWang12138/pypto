@@ -1191,7 +1191,7 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
               }
               std::string arr_decl =
                   tile_type_str + " " + arr_name + "[] = {" + arr_elems.str() + "};";
-              if (loop_depth_ > 0) {
+              if (loop_depth_ > 0 || if_depth_ > 0) {
                 loop_hoisted_decls_.push_back(arr_decl);
               } else {
                 emitter_.EmitLine(arr_decl);
@@ -1237,7 +1237,7 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
               }
               std::string decl_line =
                   "const event_t " + eid_name + "[] = {" + arr_elems.str() + "};";
-              if (loop_depth_ > 0) {
+              if (loop_depth_ > 0 || if_depth_ > 0) {
                 loop_hoisted_decls_.push_back(decl_line);
               } else {
                 emitter_.EmitLine(decl_line);
@@ -1261,6 +1261,20 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
   }
 
   // ---------- Standard if/else codegen (fallback) ----------
+
+  // --- If-level hoisting: buffer output so array decls generated inside if/else
+  //     bodies can be hoisted before the if statement (same idea as loop hoisting).
+  //     Only needed when outside loops (loop_depth_ == 0) at the outermost if. ---
+  bool is_outermost_if = (loop_depth_ == 0 && if_depth_ == 0);
+  if_depth_++;
+
+  std::string pre_if_code;
+  int saved_if_indent = emitter_.GetIndentLevel();
+  if (is_outermost_if) {
+    pre_if_code = emitter_.GetCode();
+    emitter_.Clear();
+    emitter_.SetIndentLevel(saved_if_indent);
+  }
 
   // --- Identity-else optimization: detect if else yields are all identity (same as pre-if values) ---
   bool identity_else = false;
@@ -1515,6 +1529,26 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
     }
 
     emitter_.EmitLine("}");
+  }
+
+  if_depth_--;
+
+  // --- If-level hoisting: insert collected declarations before the if statement ---
+  if (is_outermost_if) {
+    std::string if_code = emitter_.GetCode();
+    emitter_.Clear();
+    emitter_.SetIndentLevel(saved_if_indent);
+    emitter_.EmitRaw(pre_if_code);
+
+    if (!loop_hoisted_decls_.empty()) {
+      for (const auto& decl : loop_hoisted_decls_) {
+        emitter_.EmitLine(decl);
+      }
+      emitter_.EmitLine("");
+      loop_hoisted_decls_.clear();
+    }
+
+    emitter_.EmitRaw(if_code);
   }
 }
 
