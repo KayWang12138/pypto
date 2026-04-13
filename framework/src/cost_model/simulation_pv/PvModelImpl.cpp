@@ -301,6 +301,9 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function* func
 
         if (level_ > 0) {
             char cmd[2048];
+            CHECK(npu::tile_fwk::FileExist(task_.objPath[subFuncPair.first])) << "ErrCode: F" <<
+                static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH) 
+                << ", obj file does not exist. objPath: " << task_.objPath[subFuncPair.first];
             (void)snprintf_s(
                 cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s",
                 task_.objPath[subFuncPair.first].c_str(), task_.binPath[subFuncPair.first].c_str());
@@ -508,14 +511,6 @@ void DynPvModelImpl::Run(DynFuncData* funcdata, int coreId, int funcId, int task
     silencer.restore();
 }
 
-uint64_t DynPvModelImpl::LookupWorkspace(uint64_t addr)
-{
-    if (addr == workspace_.hostPtr) {
-        return workspace_.devPtr;
-    }
-    return 0;
-}
-
 uint64_t DynPvModelImpl::LookupData(uint64_t addr)
 {
     for (auto &d : data_) {
@@ -578,8 +573,13 @@ void DynPvModelImpl::BuildFuncData(DynFuncData *funcdata, DynFuncData *dupData, 
 void DynPvModelImpl::BuildFuncDataWorkSpace(DynFuncData *funcdata, DynFuncData *dupData)
 {
     if (funcdata->workspaceAddr) {
-        workspace_.hostPtr = funcdata->workspaceAddr;
-        dupData->workspaceAddr = workspace_.devPtr;
+        dupData->workspaceAddr = allocator_->workspaceBase_;
+    } else {
+        dupData->workspaceAddr = 0;
+    }
+
+    if (funcdata->stackWorkSpaceSize) {
+        dupData->workspaceAddr = allocator_->stackWorkSapceBase_;
     } else {
         dupData->workspaceAddr = 0;
     }
@@ -641,16 +641,8 @@ void DynPvModelImpl::LoadPvConfig(DynFuncData *funcdata, uint64_t opAttrOffset, 
         para_args.push_back(data_[i].devPtr);
     }
 
-    // input workspace
-    if (dupData->workspaceAddr) {
-        std::vector<uint8_t> workspaceData(reinterpret_cast<uint8_t *>(workspace_.hostPtr),
-            reinterpret_cast<uint8_t *>(workspace_.hostPtr) + workspace_.size);
-        pv_mem_write_(0, workspace_.devPtr, workspace_.size, workspaceData.data(), subcoreId_, coreId_);
-        para_args.push_back(workspace_.devPtr);
-    }
-
-    pv_mem_write_(uint32_t(0), HBM_SATRT_ADDR, para_args.size() * sizeof(uint64_t), (uint8_t *)(&para_args[0]),
-        subcoreId_, coreId_);
+    pv_mem_write_(uint32_t(0), allocator_->hbmParaBase_, para_args.size() * sizeof(uint64_t),
+        (uint8_t *)(&para_args[0]), subcoreId_, coreId_);
 }
 
 void DynPvModelImpl::RunModel()
@@ -662,10 +654,6 @@ void DynPvModelImpl::RunModel()
 
     for (size_t i = 0; i < data_.size(); i++) {
         CopyToHost(data_[i].hostPtr, data_[i].devPtr, data_[i].size);
-    }
-
-    if (workspace_.hostPtr) {
-        CopyToHost(workspace_.hostPtr, workspace_.devPtr, workspace_.size);
     }
 }
 

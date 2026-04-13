@@ -27,6 +27,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/eslmodel_launcher.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
@@ -53,22 +54,33 @@ void SetVerifyData(
     const std::vector<DeviceTensorData>& inputs, const std::vector<DeviceTensorData>& outputs,
     const std::vector<DeviceTensorData>& goldens)
 {
+    auto ToLogicalShape = [](DataType dtype, const std::vector<int64_t>& shape) -> std::vector<int64_t> {
+        auto logical = shape;
+        if ((dtype == DT_FP4_E2M1X2 || dtype == DT_FP4_E1M2X2) && !logical.empty()) {
+            logical.back() *= 2;
+        }
+        return logical;
+    };
+
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {
+        auto logicalShape = ToLogicalShape(inputs[i].GetDataType(), inputs[i].GetShape());
         auto rawData =
-            RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t*)inputs[i].GetAddr());
+            RawTensorData::CreateTensor(inputs[i].GetDataType(), logicalShape, (uint8_t*)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
     }
     for (size_t i = 0; i < outputs.size(); i++) {
-        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), outputs[i].GetShape());
+        auto logicalShape = ToLogicalShape(outputs[i].GetDataType(), outputs[i].GetShape());
+        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), logicalShape);
         ProgramData::GetInstance().AppendOutput(rawData);
     }
     for (size_t i = 0; i < goldens.size(); i++) {
         if (goldens[i].GetAddr() == 0) {
             ProgramData::GetInstance().AppendGolden(nullptr);
         } else {
-            auto rawData = RawTensorData::CreateTensor(
-                goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t*)goldens[i].GetAddr());
+            auto logicalShape = ToLogicalShape(goldens[i].GetDataType(), goldens[i].GetShape());
+            auto rawData =
+                RawTensorData::CreateTensor(goldens[i].GetDataType(), logicalShape, (uint8_t*)goldens[i].GetAddr());
             ProgramData::GetInstance().AppendGolden(rawData);
         }
     }
@@ -412,7 +424,9 @@ public:
     {
         if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
             Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
-            return workspaceSize + eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            workspaceSize = devProg->memBudget.Total();
+            return workspaceSize;
         }
         return workspaceSize;
     }
@@ -692,6 +706,18 @@ public:
         ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
     }
 
+    void EslModelLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
+        DeviceLauncherConfig config;
+        ProgramData::GetInstance().Reset();
+        InitializeInputOutputData(tensors, {});
+        int ret = EslModelLauncher::EslModelRunOnce(kernel->GetKernelBin(), config);
+        for (size_t i = 0; i < tensors.size(); i++) {
+            auto input = ProgramData::GetInstance().GetInputData(i);
+            StringUtils::DataCopy(tensors[i].GetAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
+        }
+        ASSERT(ret == RT_ERROR_NONE) << "EslModelLaunch run failed: " << ret;
+    }
+
 private:
     void InitCachedArgs()
     {
@@ -893,18 +919,22 @@ private:
 
     void DoLaunch(KernelBinary* kbinary)
     {
+        if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
+            kmodule->EslModelLaunch(kbinary, tensors);
+            return;
+        }
         kmodule->EmulationLaunch(kbinary, tensors);
 
+    int64_t* wsAddr = nullptr;
+    int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
+    if (wsSize) {
+        auto pyalloc = py::getattr(module, "alloc");
+        wsAddr = (int64_t*)pyalloc(wsSize).cast<int64_t>();
+    }
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE("alloc workspace");
+    COMPILER_LOGE("alloc workspace %ld", wsSize);
 #endif
-        int64_t* wsAddr = nullptr;
-        int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
-        if (wsSize) {
-            auto pyalloc = py::getattr(module, "alloc");
-            wsAddr = (int64_t*)pyalloc(wsSize).cast<int64_t>();
-        }
-        HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
+    HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
         DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
         HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
