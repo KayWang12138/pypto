@@ -251,7 +251,7 @@ private:
     void ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int oldMemId, int newMemId);
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
-        Operation* spillOp, int64_t workspaceBaseOffset);
+        Operation* spillOp);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
     int GetBufNextUseOrder(Operation* op, int curMemId);
     int GetBufLastUseOrder(Operation* op, int curMemId);
