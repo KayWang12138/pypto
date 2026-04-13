@@ -88,6 +88,7 @@ void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostr
         topFunc.Dump().c_str());
 
     std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
+    std::shared_ptr<ForBlockManager> forBlkMgr = std::make_shared<ForBlockManager>(symbolMgr);
     FloatSpecValMgr floatSpecValMgr;
     std::string allocSourceRegion;
     allocSourceRegion.reserve(CODE_RESERVED_SIZE);
@@ -105,8 +106,8 @@ void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostr
 
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
         floatSpecValMgr.UpdateByOp(op);
-
-        CodeGenOpLiteNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
+       CodeGenOpNPU cop(
+            {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
             << "Generate code of op failed, op is " << op.Dump();
