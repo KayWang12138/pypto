@@ -103,6 +103,7 @@ pypto-transpose
 pypto-tril
 pypto-triu
 pypto-trunc
+pypto-uniform
 pypto-unsqueeze
 pypto-var
 pypto-view
