@@ -1689,6 +1689,10 @@ void CCECodegen::VisitStmt_(const ir::ForStmtPtr& op) {
   bool is_outermost_loop = (loop_depth_ == 0);
   loop_depth_++;
 
+  // Snapshot current hoisted-decl count so we only hoist entries added during
+  // this loop's body, leaving pre-existing entries for an outer if/loop to handle.
+  size_t hoist_start_idx = loop_hoisted_decls_.size();
+
   std::string pre_for_code;
   int saved_indent = emitter_.GetIndentLevel();
   if (is_outermost_loop) {
@@ -1741,12 +1745,14 @@ void CCECodegen::VisitStmt_(const ir::ForStmtPtr& op) {
     emitter_.SetIndentLevel(saved_indent);
     emitter_.EmitRaw(pre_for_code);
 
-    if (!loop_hoisted_decls_.empty()) {
-      for (const auto& decl : loop_hoisted_decls_) {
-        emitter_.EmitLine(decl);
+    // Only hoist declarations added during this loop's body (from hoist_start_idx onward).
+    // Pre-existing entries belong to an outer if/loop and must not be consumed here.
+    if (loop_hoisted_decls_.size() > hoist_start_idx) {
+      for (size_t i = hoist_start_idx; i < loop_hoisted_decls_.size(); ++i) {
+        emitter_.EmitLine(loop_hoisted_decls_[i]);
       }
       emitter_.EmitLine("");
-      loop_hoisted_decls_.clear();
+      loop_hoisted_decls_.resize(hoist_start_idx);
     }
 
     emitter_.EmitRaw(for_code);

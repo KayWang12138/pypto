@@ -101,7 +101,7 @@ def test_fillpad_dynamic_cce():
     compiled_lib = fe.compile(fillpad_dynamic_cce_kernel, arch="a3", codegen_mode="cce")
     print("compiled lib path:", compiled_lib.lib_path)
 
-    device = "npu:0"
+    device = "npu:5"
     torch.npu.set_device(device)
 
     x = torch.full((8, 8), -99, device=device, dtype=torch.int32)
@@ -130,7 +130,7 @@ def test_fillpad_inplace_dynamic_cce():
     compiled_lib = fe.compile(fillpad_inplace_dynamic_cce_kernel, arch="a3", codegen_mode="cce")
     print("compiled lib path:", compiled_lib.lib_path)
 
-    device = "npu:0"
+    device = "npu:5"
     torch.npu.set_device(device)
 
     x = torch.full((8, 8), -99, device=device, dtype=torch.int32)
