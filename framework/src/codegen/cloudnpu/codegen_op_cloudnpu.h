@@ -341,7 +341,7 @@ private:
     std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam& param) const;
 
-    std::vector<std::string> GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const;
+    std::vector<std::string> GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx) const;
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam& param) const;
@@ -364,7 +364,7 @@ private:
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam& param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam& param) const;
     std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam& param) const;
-    std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
+    std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx) const;
 
     std::string PrintGather(const PrintGatherParam& param) const;
     std::string PrintGatherDynamicUnaligned(const PrintGatherParam& param) const;

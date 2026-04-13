@@ -495,10 +495,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     return oss.str();
 }
 
-std::vector<std::string> CodeGenOpCloudNPU::GenTileOpParamForNormalCopyTileTensor(
-    unsigned gmIdx, bool isSpillingToGM) const
+std::vector<std::string> CodeGenOpCloudNPU::GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx) const
 {
-    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(gmIdx, isSpillingToGM);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(gmIdx);
     // e.g. ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
@@ -679,7 +678,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1TileTensor(const PrintMemCopyWi
 
 std::string CodeGenOpCloudNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopyWithL1Param& param) const
 {
-    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx, param.isSpillingToGM);
+    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx);
 
     auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape, param.isSpillingToGM);
     if (opCode != Opcode::OP_L1_COPY_IN_A_SCALE && opCode != Opcode::OP_L1_COPY_IN_B_SCALE) {
@@ -715,7 +714,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopy
 // used in L1 spilling scene
 std::string CodeGenOpCloudNPU::PrintMemCopyOutWithL1TileTensor(const PrintMemCopyWithL1Param& param) const
 {
-    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx, param.isSpillingToGM);
+    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx);
 
     int64_t copyOutMode = -1;
     if (opAttrs.count(OpAttributeKey::copyOutMode)) {
@@ -1025,11 +1024,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUBDynamicSupportUnaligned(const P
     return os.str();
 }
 
-std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM) const
+std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(unsigned gmIdx) const
 {
     int dim = static_cast<int>(rawShape[gmIdx].size());
     std::vector<std::string> gmOffsetExpr;
-    (void) isSpillingToGM;
     if (functionType == FunctionType::STATIC) {
         return std::vector<std::string>(dim, "0");
     }
@@ -1043,7 +1041,7 @@ std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(unsigned gm
 
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam& param) const
 {
-    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx, param.isSpillingToGM);
+    std::vector<std::string> tileOpParamList = GenTileOpParamForNormalCopyTileTensor(param.gmIdx);
     std::ostringstream oss;
     oss << tileOpName;
     oss << WrapParamByParentheses(tileOpParamList);
