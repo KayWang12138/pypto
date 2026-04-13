@@ -133,9 +133,12 @@ void SubfuncInvokeInfoTy::DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t* 
         outcastTensorParam.DumpOutcastInfo(invokeParam);
     }
 
-    (void)memcpy_s(
-        invokeParamPtr + invokeParamMemOffset / sizeof(int64_t), invokeParam.size() * sizeof(int64_t),
-        invokeParam.data(), invokeParam.size() * sizeof(int64_t));
+    if (memcpy_s(
+            invokeParamPtr + invokeParamMemOffset / sizeof(int64_t), invokeParam.size() * sizeof(int64_t),
+            invokeParam.data(), invokeParam.size() * sizeof(int64_t)) != EOK) {
+        APASS_LOG_ERROR_F(Elements::Function, "Error: memcpy_s failed in DumpInvokeInfo");
+        return;
+    }
 }
 
 std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramLoc) const
@@ -147,7 +150,7 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
                     return std::tuple<int, int, int>{tensorParam.ddrId, tensorParam.offset[0], tensorParam.offset[1]};
                 }
             }
-            assert(0 && "not found param");
+            ASSERT(0 && "not found param");
             return std::tuple<int, int, int>{0, 0, 0};
 
         case ParamLocIncast:
@@ -157,7 +160,7 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
                         incastTensorParam.ddrId, incastTensorParam.offset[0], incastTensorParam.offset[1]};
                 }
             }
-            assert(0 && "not found param");
+            ASSERT(0 && "not found param");
             return std::tuple<int, int, int>{0, 0, 0};
 
         case ParamLocOutcast:
@@ -167,10 +170,10 @@ std::tuple<int, int, int> SubfuncInvokeInfoTy::LookupInvokeArgs(const int paramL
                         outcastTensorParam.ddrId, outcastTensorParam.offset[0], outcastTensorParam.offset[1]};
                 }
             }
-            assert(0 && "not found param");
+            ASSERT(0 && "not found param");
             return std::tuple<int, int, int>{0, 0, 0};
         default:
-            assert("Invalid parameter location");
+            ASSERT("Invalid parameter location");
             return std::tuple<int, int, int>{0, 0, 0};
     }
 }
@@ -759,9 +762,12 @@ void SubfuncTopologyInfoTy::DumpEachEntryInfo(
     for (auto& num : topology_[esgId].outGraph) {
         entryParam.emplace_back(static_cast<int64_t>(num));
     }
-    (void)memcpy_s(
-        entryParamPtr + entryOffset / sizeof(int64_t), entryParam.size() * sizeof(int64_t), entryParam.data(),
-        entryParam.size() * sizeof(int64_t));
+    if (memcpy_s(
+            entryParamPtr + entryOffset / sizeof(int64_t), entryParam.size() * sizeof(int64_t), entryParam.data(),
+            entryParam.size() * sizeof(int64_t)) != EOK) {
+        APASS_LOG_ERROR_F(Elements::Function, "Error: memcpy_s failed in DumpEachEntryInfo");
+        return;
+    }
     *(readyStatePtr + static_cast<int32_t>(esgId) * MAGIC_NUM_TWO) = static_cast<int32_t>(topology_[esgId].readyState);
     *(readyStatePtr + static_cast<int32_t>(esgId) * MAGIC_NUM_TWO + 1) = static_cast<int32_t>(coreType);
 }
