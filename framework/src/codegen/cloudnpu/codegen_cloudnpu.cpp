@@ -91,7 +91,7 @@ std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function& topFunc
     // kernel func param
     std::string paramType = GetParamType(topFunc, compileInfo.isUnderDyn());
     funcHeader << "(" << paramType
-               << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam)";
+               << "* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, TaskStat* taskStat)";
     auto funcDec = funcHeader.str() + ";";
     compileInfo.SetFuncDeclare(funcDec);
     funcHeader << " {\n";
@@ -539,6 +539,11 @@ void CodeGenCloudNPU::BuildArchOptions(std::ostringstream& oss, const CompileInf
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
     }
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_ENABLE_PROF_AICORE_TIME, false) ||
+        ConfigManager::Instance().GetCodeGenConfig<int64_t>(CFG_RUNTIME_DBEUG_MODE, 0) == CFG_DEBUG_ALL) {
+        compileOpts.emplace_back("-DOPEN_MIX_PERF");
+    }
+
     if (platform_ == NPUArch::DAV_2201) {
         compileOpts.emplace_back("-D__DAV_V220");
         compileOpts.emplace_back("-DMEMORY_BASE");
