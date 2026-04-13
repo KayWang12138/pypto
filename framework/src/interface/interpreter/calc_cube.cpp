@@ -17,6 +17,7 @@
 #include "interface/interpreter/operation.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/interpreter/verify_error.h"
+#include "interface/utils/common.h"
 
 using namespace npu::tile_fwk::calc;
 
@@ -33,12 +34,11 @@ void ExecuteOpAMulB(ExecuteOperationContext* ctx)
     Opcode opcode = ctx->op->GetOpcode();
     bool isAccOp = (opcode == Opcode::OP_A_MULACC_B || opcode == Opcode::OP_A_MULACC_BT);
     bool hasMXScale = ctx->op->HasAttr(Matrix::A_MUL_B_MX_ATTR) && ctx->op->GetBoolAttribute(Matrix::A_MUL_B_MX_ATTR);
-    bool transAScale =
-        hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) &&
-        ctx->op->GetIntAttribute(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);
-    bool transBScale =
-        hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_B_COPY_IN_MODE) &&
-        ctx->op->GetIntAttribute(Matrix::A_MUL_B_SCALE_B_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);
+    constexpr int64_t DN2NZ_MODE = static_cast<int64_t>(npu::tile_fwk::CopyInMode::DN2NZ);
+    bool transAScale = hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) &&
+                       ctx->op->GetIntAttribute(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) == DN2NZ_MODE;
+    bool transBScale = hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_B_COPY_IN_MODE) &&
+                       ctx->op->GetIntAttribute(Matrix::A_MUL_B_SCALE_B_COPY_IN_MODE) == DN2NZ_MODE;
     bool hasBias = ctx->op->HasAttr(Matrix::A_MUL_B_BIAS_ATTR) && ctx->op->GetBoolAttribute(Matrix::A_MUL_B_BIAS_ATTR);
     size_t biasIndex = 2;
     if (!isAccOp && hasMXScale) {
