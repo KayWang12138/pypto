@@ -400,6 +400,19 @@ void ReplaceCommonSymbol(Function* leafFunc, std::vector<std::vector<SymbolicSca
     }
 }
 
+inline SymbolicScalar BuildNotConstCoa(const DynParamInfo& paramInfo)
+{
+    if (paramInfo.type == DynParamInfoType::OFFSET) {
+        return MAYBE_CONST_COA_GetOffset(
+            0, -1, paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
+    }
+    if (paramInfo.type == DynParamInfoType::VALID_SHAPE) {
+        return MAYBE_CONST_COA_GetValidShape(
+            0, -1, paramInfo.dimSize, paramInfo.tensorBaseAddrCoaIndex, paramInfo.dimIndex);
+    }
+    return MAYBE_CONST_COA_GetParam(0, -1, paramInfo.dimIndex);
+}
+
 inline SymbolicScalar BuildMaybeConstCoa(int attrValue, const DynParamInfo& paramInfo)
 {
     if (paramInfo.type == DynParamInfoType::OFFSET) {
@@ -442,6 +455,8 @@ void ReBuildConcreteParam(Function* leafFunc, std::vector<std::vector<SymbolicSc
             return true;
         };
         if (!isConstParam(coaIdx)) {
+            auto constParam1 = BuildNotConstCoa(dynParam.second);
+            leafFunc->GetMutableDynParam(dynParam.first).dim = constParam1;
             continue;
         }
         auto constParam = BuildMaybeConstCoa(scalarValue.attrValue, dynParam.second);
