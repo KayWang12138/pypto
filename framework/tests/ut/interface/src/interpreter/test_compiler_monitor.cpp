@@ -19,6 +19,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/compiler_monitor/monitor_impl.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 namespace npu::tile_fwk {
 class CompilerMonitor : public testing::Test {
@@ -73,6 +74,120 @@ TEST_F(CompilerMonitor, CompilerMonitorTestPrint)
     impl_->Stop();
 
     delete impl_;
+}
+
+TEST_F(CompilerMonitor, CompilerMonitorRootFuncBasic)
+{
+    MonitorManager::Instance().Initialize(true, 2, 4, 5);
+    MonitorManager::Instance().SetTotalFunctionCount(3);
+    MonitorManager::Instance().SetRootFuncCount(4);
+
+    EXPECT_EQ(MonitorManager::Instance().GetRootFuncCount(), 4);
+
+    int idx1 = MonitorManager::Instance().PrepareNextRootFunc();
+    EXPECT_EQ(idx1, 1);
+
+    int idx2 = MonitorManager::Instance().PrepareNextRootFunc();
+    EXPECT_EQ(idx2, 2);
+
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN, idx1, "func_A");
+    auto stages = MonitorManager::Instance().GetActiveStages();
+    EXPECT_EQ(stages.size(), 1u);
+    EXPECT_EQ(stages[0].rootFuncIndex, 1);
+    EXPECT_EQ(stages[0].rootFuncName, "func_A");
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, idx1, "func_A");
+
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN, idx2, "func_B");
+    stages = MonitorManager::Instance().GetActiveStages();
+    EXPECT_EQ(stages.size(), 1u);
+    EXPECT_EQ(stages[0].rootFuncIndex, 2);
+    EXPECT_EQ(stages[0].rootFuncName, "func_B");
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, idx2, "func_B");
+
+    stages = MonitorManager::Instance().GetActiveStages();
+    EXPECT_EQ(stages.size(), 0u);
+
+    MonitorManager::Instance().NotifyCompilationFinished();
+}
+
+TEST_F(CompilerMonitor, CompilerMonitorFuncToBinStage)
+{
+    MonitorManager::Instance().Initialize(true, 2, 4, 5);
+    MonitorManager::Instance().SetTotalFunctionCount(3);
+    MonitorManager::Instance().SetRootFuncCount(2);
+    MonitorManager::Instance().SetCurrentFunctionIndex(1);
+    MonitorManager::Instance().SetCurrentFunctionName("leaf_func_1");
+
+    int rootFuncIdx = MonitorManager::Instance().PrepareNextRootFunc();
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN, rootFuncIdx, "root_func_1");
+    sleep(1);
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, rootFuncIdx, "root_func_1");
+
+    int rootFuncIdx2 = MonitorManager::Instance().PrepareNextRootFunc();
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN, rootFuncIdx2, "root_func_2");
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, rootFuncIdx2, "root_func_2");
+
+    MonitorManager::Instance().NotifyCompilationFinished();
+}
+
+TEST_F(CompilerMonitor, CompilerMonitorStageScopeRootFunc)
+{
+    MonitorManager::Instance().Initialize(true, 2, 4, 5);
+    MonitorManager::Instance().SetTotalFunctionCount(2);
+    MonitorManager::Instance().SetRootFuncCount(2);
+
+    {
+        MonitorStageScope scope("Pass");
+        sleep(1);
+    }
+
+    {
+        MonitorStageScope scope(STAGE_FUNC_TO_BIN, 1, "root_func_A");
+        sleep(1);
+    }
+
+    MonitorManager::Instance().NotifyCompilationFinished();
+}
+
+TEST_F(CompilerMonitor, CompilerMonitorFuncToBinProcessing)
+{
+    MonitorManager::Instance().SetProcessingThresholdSec(3);
+    MonitorManager::Instance().Initialize(true, 3, -1, -1);
+    MonitorManager::Instance().SetTotalFunctionCount(4);
+    MonitorManager::Instance().SetRootFuncCount(3);
+
+    int idx1 = MonitorManager::Instance().PrepareNextRootFunc();
+    int idx2 = MonitorManager::Instance().PrepareNextRootFunc();
+    int idx3 = MonitorManager::Instance().PrepareNextRootFunc();
+
+    EXPECT_EQ(idx1, 1);
+    EXPECT_EQ(idx2, 2);
+    EXPECT_EQ(idx3, 3);
+
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN, idx1, "func_Alpha");
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN, idx2, "func_Beta");
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN, idx3, "func_Gamma");
+
+    auto stages = MonitorManager::Instance().GetActiveStages();
+    EXPECT_EQ(stages.size(), 3u);
+    EXPECT_EQ(stages[0].rootFuncIndex, 1);
+    EXPECT_EQ(stages[0].rootFuncName, "func_Alpha");
+    EXPECT_EQ(stages[1].rootFuncIndex, 2);
+    EXPECT_EQ(stages[1].rootFuncName, "func_Beta");
+    EXPECT_EQ(stages[2].rootFuncIndex, 3);
+    EXPECT_EQ(stages[2].rootFuncName, "func_Gamma");
+
+    sleep(10);
+
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, idx1, "func_Alpha");
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, idx2, "func_Beta");
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, idx3, "func_Gamma");
+
+    stages = MonitorManager::Instance().GetActiveStages();
+    EXPECT_EQ(stages.size(), 0u);
+
+    MonitorManager::Instance().NotifyCompilationFinished();
+    MonitorManager::Instance().SetProcessingThresholdSec(60);
 }
 
 } // namespace npu::tile_fwk
