@@ -406,7 +406,7 @@ private:
     void RunTestMode(DeviceKernelArgs* kArgs, int maxCpuNum)
     {
         (void)kArgs;
-        std::vector<std::thread> aicpus(maxCpuNum);
+        (void)maxCpuNum;
         std::atomic<int> idx{0};
         auto* devProg = (DevAscendProgram*)(kArgs->cfgdata);
         size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
@@ -414,6 +414,7 @@ private:
             devProg->devArgs.runtimeDataRingBufferAddr + sizeof(RuntimeDataRingBufferHead) + DEV_ARGS_SIZE;
         (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
         int launchAiCpuNum = static_cast<int>(devProg->devArgs.nrAicpu + dynamic::MAX_CONTROL_FLOW_AICPU_NUM);
+        std::vector<std::thread> aicpus(launchAiCpuNum);
         auto threadFun = [&](uint32_t runMode) {
             int tidx = idx++;
             cpu_set_t cpuset;
