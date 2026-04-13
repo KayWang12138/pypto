@@ -31,7 +31,7 @@ import torch.nn.functional as F
 
 import pypto
 
-from utils.distributed_config import DistributedConfig
+from models.glm_v4_5.utils.distributed_config import DistributedConfig
 
 TensorList = list[torch.Tensor]
 
