@@ -752,8 +752,8 @@ class Tensor:
         return pypto.mrgsort(self, mergesize)
 
     @source_location
-    def exp(self) -> 'Tensor':
-        return pypto.exp(self)
+    def exp(self, precision_type: 'ExpAlgorithm' = pypto.ExpAlgorithm.HIGH_PRECISION) -> 'Tensor':
+        return pypto.exp(self, precision_type)
 
     @source_location
     def sign(self) -> 'Tensor':
@@ -820,8 +820,8 @@ class Tensor:
         return pypto.rsqrt(self)
 
     @source_location
-    def sqrt(self) -> 'Tensor':
-        return pypto.sqrt(self)
+    def sqrt(self, precision_type: 'SqrtAlgorithm' = pypto.SqrtAlgorithm.HIGH_PRECISION) -> 'Tensor':
+        return pypto.sqrt(self, precision_type)
 
     @source_location
     def ceil(self) -> 'Tensor':
