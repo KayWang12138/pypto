@@ -51,6 +51,8 @@ public:
     {
         Init(topFunc, subFuncPair.first);
     };
+    virtual ~CompileInfo() = default;
+
     std::string GetCCEAbsPath() const { return cceAbsPath_; }
     void SetCCEAbsPath(const std::string& cceAbsPath) { cceAbsPath_ = cceAbsPath; }
 
@@ -63,7 +65,7 @@ public:
     bool IsCube() const { return isCube_; }
     bool isUnderDyn() const { return isUnderDyn_; }
 
-private:
+protected:
     void Init(Function& topFunc, uint64_t subProgramId)
     {
         std::string coreType = isCube_ ? "aic" : "aiv";

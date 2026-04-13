@@ -311,13 +311,8 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_AICPU_CALL_AIC, [this]() { return GenAicpuCallOp(); }},
           {Opcode::OP_AICPU_CALL_AIV, [this]() { return GenAicpuCallOp(); }},
       })
-{
-    InitOpsGenMap();
-    forBlkMgr_ = ctx.forBlockManager;
-    CodeGenOp::Init(ctx.operation);
-    UpdateTileTensorInfo();
-    UpdateLoopInfo();
-}
+{}
+
 void CodeGenOpNPU::InitOpsGenMap()
 {
     InitScalaOpsMap();
@@ -351,8 +346,7 @@ void CodeGenOpNPU::InitPerfOpsMap() { opsGenMap_.insert(perfOps_.cbegin(), perfO
 
 void CodeGenOpNPU::InitAICPUOpsMap() { opsGenMap_.insert(aicpuOps_.cbegin(), aicpuOps_.cend()); }
 
-void CodeGenOpNPU::AppendLocalBufferVarOffset(
-    const std::map<unsigned, std::reference_wrapper<std::string>>& vars) const
+void CodeGenOpNPU::AppendLocalBufferVarOffset(const std::map<unsigned, std::reference_wrapper<std::string>>& vars) const
 {
     for (auto& kv : vars) {
         auto operandIdx = kv.first;
@@ -556,8 +550,7 @@ void CodeGenOpNPU::UpdateTileTensorShapeAndStride(
     tileTensor.stride = BuildStride(newRawShape);
 }
 
-TileTensor CodeGenOpNPU::BuildTileTensor(
-    int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
+TileTensor CodeGenOpNPU::BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
 {
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
@@ -838,6 +831,5 @@ std::string CodeGenOpNPU::GetLastUse() const
     oss << WrapParamByAngleBrackets(val);
     return oss.str();
 }
-
 
 } // namespace npu::tile_fwk
