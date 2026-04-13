@@ -14,11 +14,12 @@
  */
 
 #ifdef __DEVICE__
+#include <dlfcn.h>
+#include <string>
 #include "device_trace.h"
 #include "machine/device/tilefwk/aicpu_common.h"
 #include "machine/utils/machine_ws_intf.h"
-#include <dlfcn.h>
-#include <cstring>
+#include "driver/ascend_hal_base.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -237,7 +238,9 @@ TraceError DeviceTrace::CreateTraceHandle(void *targ) {
         DevDfxArgs* devDfxArgs = reinterpret_cast<DevDfxArgs*>(devArgs->devDfxArgAddr);
         TraceGlobalAttr traceAttr;
         traceAttr.saveMode = 1;
-        traceAttr.deviceId = devDfxArgs->deviceId;
+        uint32_t localDevId = 0;
+        drvGetLocalDevIDByHostDevID(devDfxArgs->deviceId, &localDevId);
+        traceAttr.deviceId = static_cast<uint8_t>(localDevId);
         traceAttr.pid = devDfxArgs->hostPid;
         DEV_INFO("ArgsAddr: %lu, Set deviceId: %u, pid: %lu, logLevel: %d", 
             devArgs->devDfxArgAddr, devDfxArgs->deviceId, devDfxArgs->hostPid, devDfxArgs->logLevel);
