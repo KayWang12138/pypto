@@ -35,7 +35,7 @@ class GmmGoldenInputs:
         a: Input tensor of shape [M, K]
         b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
         scaled_a: Scale factors for input tensor
-        scaled_b: Scale factors for weight tensor
+        scaled_b:: Scale factors for weight tensor
         group_list: List of group sizes for each weight group
         a_trans: Whether input tensor is transposed
         b_trans: Whether weight tensor is transposed
@@ -50,7 +50,7 @@ class GmmGoldenInputs:
 
 
 @dataclass
-class GmmMxf8Inputs:
+class GmmMxfp8Inputs:
     """
     Input parameters for generating MXFP8 output.
 
@@ -279,7 +279,7 @@ class ShapeConfig:
     description: str = ""
 
 
-@pypto.jit
+@pypto.frontend.jit
 def scaled_matmul_kernel(
     a: pypto.Tensor,
     b: pypto.Tensor,
@@ -364,7 +364,7 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     out = torch.zeros(out_shape, dtype=torch.float32).npu()
 
     # Execute scaled matrix multiplication kernel with new frontend
-    # New frontend directly handles: torch tensors without explicit conversion
+    # New frontend: directly pass torch tensors without manual conversion
     scaled_matmul_kernel(a, b, scaled_a, scaled_b, out, group_list, tile_config)
 
     out = out.to(torch.float32)
