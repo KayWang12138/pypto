@@ -106,6 +106,31 @@ void bind_enum(py::module& m)
         .value("INTRINSIC", DivAlgorithm::DEFAULT)
         .value("HIGH_PRECISION", DivAlgorithm::HIGH_PRECISION)
         .export_values();
+    
+    py::enum_<SqrtAlgorithm>(m, "SqrtAlgorithm")
+        .value("INTRINSIC", SqrtAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", SqrtAlgorithm::HIGH_PRECISION)
+        .export_values();
+
+    py::enum_<RsqrtAlgorithm>(m, "RsqrtAlgorithm")
+        .value("INTRINSIC", RsqrtAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", RsqrtAlgorithm::HIGH_PRECISION)
+        .export_values();
+
+    py::enum_<ExpAlgorithm>(m, "ExpAlgorithm")
+        .value("INTRINSIC", ExpAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", ExpAlgorithm::HIGH_PRECISION)
+        .export_values();
+
+    py::enum_<LogAlgorithm>(m, "LogAlgorithm")
+        .value("INTRINSIC", LogAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", LogAlgorithm::HIGH_PRECISION)
+        .export_values();
+
+    py::enum_<RecipAlgorithm>(m, "RecipAlgorithm")
+        .value("INTRINSIC", RecipAlgorithm::DEFAULT)
+        .value("HIGH_PRECISION", RecipAlgorithm::HIGH_PRECISION)
+        .export_values();
 
     py::enum_<TileType>(m, "TileType")
         .value("VEC", TileType::VEC)
