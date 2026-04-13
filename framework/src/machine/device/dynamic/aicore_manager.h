@@ -1172,7 +1172,7 @@ private:
         devTaskCtx->sendCnt[static_cast<int>(type)]++;
 
         if (!devTaskCtx->isFirstTaskSend) {
-            PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
+            PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_LEAF_TASK, aicpuIdx_);
             devTaskCtx->isFirstTaskSend = true;
         }
 
