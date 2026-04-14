@@ -39,7 +39,9 @@ void CheckNotNullPtr(uint8_t *ptr, const char *message) {
 int GetRankId(const std::string &groupName) {
     const char* rankStr = std::getenv("RANK");
     if (rankStr != nullptr) {
-        return std::atoi(rankStr);
+        int rankId = std::atoi(rankStr);
+        std::cout << "current rank is " << rankId << std::endl;
+        return rankId;
     }
 
     auto it = g_context.find(groupName);
@@ -48,13 +50,16 @@ int GetRankId(const std::string &groupName) {
     }
     TileOp::CommContext *context = (TileOp::CommContext *)(it->second.second);
     int rankId = context->rankId;
+    std::cout << "current rank is " << rankId << std::endl;
     return rankId;
 }
 
 int GetWorldSize(const std::string &groupName) {
     const char* worldSizeStr = std::getenv("WORLD_SIZE");
     if (worldSizeStr != nullptr) {
-        return std::atoi(worldSizeStr);
+        int worldSize = std::atoi(worldSizeStr);
+        std::cout << "current world_size is " << worldSize << std::endl;
+        return worldSize;
     }
 
     auto it = g_context.find(groupName);
@@ -63,6 +68,7 @@ int GetWorldSize(const std::string &groupName) {
     }
     TileOp::CommContext *context = (TileOp::CommContext *)(it->second.second);
     int worldSize = context->rankNum;
+    std::cout << "current world_size is " << worldSize << std::endl;
     return worldSize;
 }
 
@@ -83,6 +89,34 @@ void SimulationCommContext::Init(const std::string &groupName, int rank, int wor
     rank_ = rank;
     worldSize_ = worldSize;
     round_ = round;
+    
+    waitWorkerStop_ = false;
+    waitWorkerThread_ = std::thread([this]() {
+        while (true) {
+            std::unique_lock<std::mutex> lock(waitTaskMutex_);
+            waitTaskCV_.wait(lock, [this]() {
+                return !waitTaskQueue_.empty() || waitWorkerStop_;
+            });
+            
+            if (waitWorkerStop_ && waitTaskQueue_.empty()) {
+                break;
+            }
+            
+            if (!waitTaskQueue_.empty()) {
+                WaitTask task = std::move(waitTaskQueue_.front());
+                waitTaskQueue_.pop();
+                lock.unlock();
+                
+                try {
+                    this->Wait(task.srcRank, task.expect, task.slotSize, task.offset, task.reset);
+                    task.promise.set_value();
+                } catch (const std::exception &e) {
+                    std::cerr << "Wait worker thread exception: " << e.what() << std::endl;
+                    task.promise.set_exception(std::current_exception());
+                }
+            }
+        }
+    });
 }
 
 void SimulationCommContext::PreAlloc(bool isSignal) {
@@ -120,30 +154,34 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
         dataName_ = handler;
         memset(dataBase_, 0, WIN_IN_SIZE);
     }
+    std::cout << "round " << round_ << " prealloc for " << handler << std::endl;
 }
 
-LogicalTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
+RawTensorDataPtr SimulationCommContext::Alloc(DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(allocMutex_);
 
     if (!allocatedData_) {
         throw std::runtime_error("data area not pre-allocated!");
     }
 
+    size_t slotSize = BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
     size_t beforeSize = dataShmSize_.load();
     size_t shmSize = beforeSize + slotSize;
     if (shmSize > WIN_IN_SIZE) {
         throw std::runtime_error("Out of pre-allocated memory!");
     }
     dataShmSize_.store(shmSize);
-    RawTensorDataPtr result = RawTensorData::CreateTensor(DT_INT8, {1, static_cast<int64_t>(slotSize)}, dataBase_ + beforeSize);
-    return std::make_shared<LogicalTensorData>(result);
+    std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
+
+    return RawTensorData::CreateTensor(dataType, shape, dataBase_ + slotSize);
 }
 
-LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
+RawTensorDataPtr SimulationCommContext::AllocSignal(DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(allocMutex_);
     if (!allocatedSignal_) {
         throw std::runtime_error("signal area not pre-allocated!");
     }
+    size_t slotSize = BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
 
     size_t beforeSize = ctrlShmSize_.load();
     size_t shmSize = beforeSize + slotSize;
@@ -151,8 +189,9 @@ LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
         throw std::runtime_error("Out of pre-allocated memory!");
     }
     ctrlShmSize_.store(shmSize);
-    RawTensorDataPtr result = RawTensorData::CreateTensor(DT_INT8, {1, static_cast<int64_t>(slotSize)}, ctrlBase_ + beforeSize);
-    return std::make_shared<LogicalTensorData>(result);
+    std::cout << "round " << round_ << " allocSignal " << slotSize << "B for rank " << rank_ << std::endl;
+
+    return RawTensorData::CreateTensor(dataType, shape, ctrlBase_ + slotSize);
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
@@ -280,6 +319,7 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
                 throw std::runtime_error("Unsupported atomic add data type!");
         }
     }
+    std::cout << "round " << round_ << " put " << data << "to rank " << dstRank << " offset:" << offset << std::endl;
 }
 
 void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_t offset) {
@@ -288,6 +328,7 @@ void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_
         throw std::runtime_error("Set operation would exceed shared memory bounds!");
     }
     std::atomic_thread_fence(std::memory_order_release);
+    std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
     memset(base + offset, value, slotSize);
 }
 
@@ -308,6 +349,7 @@ void SimulationCommContext::SignalSingle(int dstRank, int value, size_t slotSize
             __sync_fetch_and_add(&ctrlBase[offset + i], value);
         }
     }
+    std::cout << "round " << round_ << " send signal " << value << " to rank " << dstRank << std::endl;
 }
 
 void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType, bool notifyAll) {
@@ -329,6 +371,7 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     volatile int32_t *ctrlBase = reinterpret_cast<volatile int32_t *>(base);
     offset = offset / (sizeof(int32_t) / sizeof(uint8_t));
     slotSize = slotSize / (sizeof(int32_t) / sizeof(uint8_t));
+    std::cout << "round " << round_ << " waitting " << targetValue << " for rank " << srcRank << std::endl;
     while(ctrlBase[offset + slotSize - 1] != targetValue) {
         std::this_thread::yield();
         std::atomic_thread_fence(std::memory_order_acquire);
@@ -342,16 +385,57 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     }
 }
 
-LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, uint64_t offset) {
+uint64_t SimulationCommContext::WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
+    uint64_t taskId = nextTaskId_++;
+    
+    std::promise<void> promise;
+    std::shared_future<void> fut = promise.get_future().share();
+    {
+        std::lock_guard<std::mutex> lock(waitTaskMutex_);
+        waitTaskFutures_[taskId] = fut;
+        waitTaskQueue_.push({taskId, srcRank, expect, slotSize, offset, reset, std::move(promise)});
+        waitTaskCV_.notify_one();
+    }
+    
+    return taskId;
+}
+
+void SimulationCommContext::WaitComplete(uint64_t taskId) {
+    std::shared_future<void> fut;
+    {
+        std::lock_guard<std::mutex> lock(waitTaskMutex_);
+        auto it = waitTaskFutures_.find(taskId);
+        if (it == waitTaskFutures_.end()) {
+            return;
+        }
+        
+        fut = it->second;
+    }
+    fut.wait();
+}
+
+LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, DataType datatype, const Shape &shape, uint64_t offset) {
     uint8_t *base = GetRemoteRank(srcRank, false);
+    size_t slotSize = BytesOf(datatype) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
     if (offset + slotSize > WIN_IN_SIZE) {
         throw std::runtime_error("Get operation would exceed shared memory bound!");
     }
-    RawTensorDataPtr result = RawTensorData::CreateTensor(DT_UINT8, {1, static_cast<int64_t>(slotSize)}, base + offset);
+    std::cout << "round " << round_ << " get " << slotSize << "B data from rank " << srcRank << std::endl;
+    RawTensorDataPtr result = RawTensorData::CreateTensor(datatype, shape, base + offset);
     return std::make_shared<LogicalTensorData>(result);
 }
 
 void SimulationCommContext::Destroy() {
+    {
+        std::lock_guard<std::mutex> lock(waitTaskMutex_);
+        waitWorkerStop_ = true;
+        waitTaskCV_.notify_all();
+    }
+    
+    if (waitWorkerThread_.joinable()) {
+        waitWorkerThread_.join();
+    }
+    
     if (ctrlBase_) {
         munmap(ctrlBase_, WIN_EXP_SIZE);
         ctrlBase_ = nullptr;
@@ -369,6 +453,8 @@ void SimulationCommContext::Destroy() {
         shm_unlink(dataName_.c_str());
         dataName_.clear();
     }
+    std::cout << "round " << round_ << " released rank " << rank_ << std::endl;
+
     allocatedData_ = false;
     allocatedSignal_ = false;
     dataShmSize_ = 0;
@@ -409,6 +495,16 @@ void SimulationCommManager::DestroySimulationCommContext(const std::string &grou
     if (it == contexts_.end()) {
         return;
     }
+    {
+        std::lock_guard<std::mutex> waitLock(waitTaskMutex_);
+        for (auto waitIt = waitTaskMap_.begin(); waitIt != waitTaskMap_.end();) {
+            if (waitIt->second.first == it->second) {
+                waitIt = waitTaskMap_.erase(waitIt);
+            } else {
+                ++waitIt;
+            }
+        }
+    }
     contexts_.erase(it);
 }
 
@@ -425,25 +521,52 @@ std::string SimulationCommManager::GetHandler(const std::string &groupName, int 
     return "round_" + std::to_string(round) + "_" + groupName + "_" + std::to_string(rank) + suffix;
 }
 
+std::unordered_map<Operation*, std::pair<std::shared_ptr<SimulationCommContext>, uint64_t>> SimulationCommManager::waitTaskMap_;
+std::unordered_map<Operation*, std::future<void>> SimulationCommManager::waitTaskFutures_;
+std::mutex SimulationCommManager::waitTaskMutex_;
+
+void SimulationCommManager::RegisterWaitTask(Operation* op, std::shared_ptr<SimulationCommContext> context, uint64_t taskId) {
+    std::lock_guard<std::mutex> lock(waitTaskMutex_);
+    waitTaskMap_[op] = {context, taskId};
+}
+
+std::future<void>* SimulationCommManager::GetWaitTaskFuture(Operation* op) {
+    std::lock_guard<std::mutex> lock(waitTaskMutex_);
+    auto it = waitTaskMap_.find(op);
+    if (it == waitTaskMap_.end()) {
+        return nullptr;
+    }
+    
+    auto context = it->second.first;
+    auto taskId = it->second.second;
+    
+    auto future = std::async(std::launch::deferred, [context, taskId]() {
+        context->WaitComplete(taskId);
+    });
+    
+    waitTaskFutures_[op] = std::move(future);
+    return &waitTaskFutures_[op];
+}
+
 /* Alloc a new tensor in WIN area, and record the offset.*/
-LogicalTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
+RawTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    auto result = it->second->Alloc(slotSize);
+    auto result = it->second->Alloc(dataType, shape);
     return result;
 }
 
-LogicalTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
+RawTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, DataType dataType, const Shape& shape) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    auto result = it->second->AllocSignal(slotSize);
+    auto result = it->second->AllocSignal(dataType, shape);
     return result;
 }
 

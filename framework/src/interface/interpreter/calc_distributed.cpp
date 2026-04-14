@@ -42,48 +42,38 @@ LogicalTensorDataPtr ConvertTensorData(LogicalTensorDataPtr src, const std::vect
     ASSERT(srcSize == targetSize) << "Source and target tensor sizes do not match! srcSize: " << srcSize << ", targetSize: " << targetSize;
 
     RawTensorDataPtr targetData = std::make_shared<RawTensorData>(targetDtype, targetShape);
-    StringUtils::DataCopy(targetData->data(), targetSize, src->GetData()->data(), srcSize);
+    // StringUtils::DataCopy(targetData->data(), targetSize, src->GetData()->data(), srcSize);
+    targetData->assign(src->GetData()->data(), src->GetData()->data() + srcSize);
 
     return std::make_shared<LogicalTensorData>(targetData);
 }
 
-std::vector<uint64_t> UnBind(ExecuteOperationContext *ctx, SymbolicScalar attr) {
-    std::shared_ptr<RawSymbolicExpression> expr = std::static_pointer_cast<RawSymbolicExpression>(attr.Raw());
-    ASSERT(expr->Opcode() == SymbolicOpcode::T_MOP_CALL);
-    std::vector<uint64_t> parameters;
-    for (size_t i = 1; i < expr->OperandList().size(); i++) {
-        ScalarImmediateType value = ctx->opInter->EvaluateSymbolicScalar(SymbolicScalar(expr->OperandList()[i]));
-        parameters.emplace_back(value);
-    }
-    return parameters;
-}
-
 void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
-    std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
-    ASSERT(ctx->ioperandDataViewList->size() == 0);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto &out = ctx->ooperandInplaceDataViewList->at(0);
-    SymbolicScalar attr = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
-    std::vector<uint64_t> parameters = UnBind(ctx, attr);
-    uint64_t groupIndex = parameters[0];
-    uint64_t memType = parameters[1];
-    uint64_t slotSize = parameters[2];
-    const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
-    ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
-    const std::string &groupName = groupNames[groupIndex];
-    if (memType == 1) {
-        std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
-        // TODO: 需要转换为 out 对应的数据类型 => 转换之后会报错
-        out = SimulationCommManager::Instance().Alloc(groupName, slotSize);
-        // out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
-    }
-    if (memType == 0) {
-        std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
-        // TODO: 需要转换为 int32 数据类型 => 转换之后会报错？
-        out = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
-        // out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
-    }
-    std::cout << "=== ExecuteOpBindTensor exited." << std::endl;
+    // std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
+    // ASSERT(ctx->ioperandDataViewList->size() == 0);
+    // ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    // LogicalTensorDataPtr out = ctx->ooperandInplaceDataViewList->at(0);
+
+    // SymbolicScalar attr = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+    // std::vector<uint64_t> parameters = UnBind(ctx, attr);
+    // uint64_t groupIndex = parameters[0];
+    // uint64_t memType = parameters[1];
+    // uint64_t slotSize = parameters[2];
+    // const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    // ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
+    // const std::string &groupName = groupNames[groupIndex];
+    // if (memType == 1) {
+    //     std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
+    //     RawTensorDataPtr tmp = SimulationCommManager::Instance().Alloc(groupName, slotSize);
+    //     *out = LogicalTensorData(tmp, out->GetShape(), out->GetValidShape(), out->GetOffset());
+    // }
+    // if (memType == 0) {
+    //     std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
+    //     RawTensorDataPtr tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
+    //     *out = LogicalTensorData(tmp, out->GetShape(), out->GetValidShape(), out->GetOffset());
+    // }
+    // std::cout << "=== ExecuteOpBindTensor exited." << std::endl;
+    (void) ctx;
 }
 REGISTER_CALC_OP(OP_BIND_TENSOR, Opcode::OP_BIND_TENSOR, ExecuteOpBindTensor);
 
@@ -188,7 +178,12 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     size_t slotSize =  shm->GetSize() * BytesOf(shm->GetDataType());
 
     std::cout << "Rank " << srcRank << " is waiting for " << expect << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << " reset: " << reset << std::endl;
-    context->Wait(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
+    uint64_t taskId = context->WaitAsync(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
+    std::cout << "WaitUntil add task " << taskId << std::endl;
+    // context->Wait(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
+    
+    // Register the WaitUntil task with the operation for dependency resolution
+    SimulationCommManager::RegisterWaitTask(ctx->op, context, taskId);
 
     std::cout << "=== ExecuteOpShmemWaitUntil exited ..." << std::endl;
 }
@@ -210,8 +205,8 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
     size_t slotSize = out->GetSize() * BytesOf(out->GetDataType());
 
     std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << std::endl;
-    LogicalTensorDataPtr tmp = context->Get(srcRank, slotSize, shm->GetStorageOffset());
-    out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
+    LogicalTensorDataPtr tmp = context->Get(srcRank, out->GetDataType(), out->GetShape(), shm->GetStorageOffset());
+    calc::Copy(out, tmp);
 
     std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;
 }
