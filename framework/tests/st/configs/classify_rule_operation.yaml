@@ -220,6 +220,7 @@ stest:
       - TestWhere/WhereOperationTest.TestWhere/15
       - TestWhere/WhereOperationTest.TestWhere/22
       - TestWhere/WhereOperationTest.TestWhere/31
+      - TestUniform/UniformOperationTest.TestUniform/7
       - TestFull/FullOperationTest.TestFull/0
       - TestFull/FullOperationTest.TestFull/5
       - TestFull/FullOperationTest.TestFull/9
