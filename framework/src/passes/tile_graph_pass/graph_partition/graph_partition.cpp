@@ -21,6 +21,50 @@
 
 namespace npu::tile_fwk {
 
+namespace {
+
+Status RunIsoPartition(Function &function)
+{
+    APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: IsoPartitioner.");
+    IsoPartitioner partitioner;
+    if (partitioner.SetParameter(
+            function.paramConfigs_.sgPgUpperBound,
+            function.paramConfigs_.sgParallelNum,
+            function.paramConfigs_.sgPgLowerBound,
+            true,
+            function.paramConfigs_.pgSkipPartition) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
+        return FAILED;
+    }
+    if (partitioner.PartitionGraph(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "GraphPartition failed.");
+        return FAILED;
+    }
+    APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartition.");
+    return SUCCESS;
+}
+
+Status RunOspPartition(Function &function, const std::string &partitionMode)
+{
+    APASS_LOG_INFO_F(Elements::Function,
+        "===> Start GraphPartition. Mode: %s", partitionMode.c_str());
+    OspMode mode = (partitionMode == "OspBsp") ? OspMode::MERKLEBSP : OspMode::SARKAR;
+
+    OspPartitioner partitioner(mode);
+    if (partitioner.SetParameter(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
+        return FAILED;
+    }
+    if (partitioner.PartitionGraph(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "GraphPartitionOSP failed.");
+        return FAILED;
+    }
+    APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartitionOSP.");
+    return SUCCESS;
+}
+
+}  // namespace
+
 Status GraphPartition::RunOnFunction(Function &function)
 {
     const std::string partitionMode = function.paramConfigs_.sgPartitionAlgorithm;
@@ -29,53 +73,13 @@ Status GraphPartition::RunOnFunction(Function &function)
         for (auto &op : function.Operations()) {
             op.UpdateSubgraphID(0);
         }
-
         function.SetTotalSubGraphCount(1);
         APASS_LOG_INFO_F(Elements::Operation, "Graph Partition is skipped.");
         return SUCCESS;
     } else if (partitionMode == "Iso") {
-        APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: IsoPartitioner.");
-        IsoPartitioner partitioner;
-        if (partitioner.SetParameter(
-            function.paramConfigs_.sgPgUpperBound,
-            function.paramConfigs_.sgParallelNum,
-            function.paramConfigs_.sgPgLowerBound,
-            true,
-            function.paramConfigs_.pgSkipPartition) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
-            return FAILED;
-        }
-
-        if (partitioner.PartitionGraph(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "GraphPartition failed.");
-            return FAILED;
-        }
-
-        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartition.");
-        return SUCCESS;
-    } else if ((partitionMode == "OspSarkar") || (partitionMode == "OspBsp"))  {
-        APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: %s", partitionMode.c_str());
-        OspMode mode{OspMode::SARKAR};
-
-        if (partitionMode == "OspSarkar") {
-            mode = OspMode::SARKAR;
-        } else if (partitionMode == "OspBsp") {
-            mode = OspMode::MERKLEBSP;
-        }
-
-        OspPartitioner partitioner(mode);
-        if (partitioner.SetParameter(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
-            return FAILED;
-        }
-
-        if (partitioner.PartitionGraph(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "GraphPartitionOSP failed.");
-            return FAILED;
-        }
-
-        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartitionOSP.");
-        return SUCCESS;
+        return RunIsoPartition(function);
+    } else if (partitionMode == "OspSarkar" || partitionMode == "OspBsp") {
+        return RunOspPartition(function, partitionMode);
     } else {
         APASS_LOG_ERROR_F(Elements::Operation, "Invalid partition mode.");
         return FAILED;
