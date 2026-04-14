@@ -31,10 +31,14 @@ tmp
 kernel_meta
 *.egg-info
 
+# Personal CLAUDE config
+.claude/CLAUDE.local.md
+
 # pip install -e 模式
 python/pypto/include/
 python/pypto/lib/
 python/pypto/pypto_impl*.so
+python/pypto_block/pypto_core*.so
 
 # 三方软件
 third_party_path/

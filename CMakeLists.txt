@@ -66,6 +66,7 @@ include(cmake/intf.cmake)
 include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 include(cmake/third_party/libboundscheck/libboundscheck.cmake)
 include(cmake/third_party/googletest/googletest.cmake)
+include(cmake/third_party/msgpack-c/msgpack-c.cmake)
 
 
 ########################################################################################################################
@@ -115,6 +116,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             TARGETS     ${InstallTargets}
     )
     install(TARGETS pypto_impl LIBRARY DESTINATION "${PyPTO_WhlName}" COMPONENT pypto_impl_lib)
+    install(TARGETS pypto_core LIBRARY DESTINATION "pypto_block" COMPONENT pypto_core_lib)
 
     # 安装 配置文件
     install(FILES
