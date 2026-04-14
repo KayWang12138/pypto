@@ -32,35 +32,49 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override
-    {
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+<<<<<<< HEAD
+    void SetUp() override{
+        == == == = void SetUp() override{
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                     config::Reset();
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenConcat, test_concat_001)
 {
     PROGRAM("CONCAT_001")
     {
-        Tensor input0(DataType::DT_FP16, {16, 6}, "input0");
-        Tensor input1(DataType::DT_FP16, {16, 10}, "input1");
-        std::vector<Tensor> input = {input0, input1};
-        int32_t axis = 1;
-
-        auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
-        FUNCTION("CONCAT_001")
+        == == == = TEST_F(LiteNPUCodeGenConcat, test_concat_001)
         {
-            TileShape::Current().SetVecTile({16, 16});
-            output = Cat(input, axis);
-        }
-    }
+            PROGRAM("CONCAT_001")
+            {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                Tensor input0(DataType::DT_FP16, {16, 6}, "input0");
+                Tensor input1(DataType::DT_FP16, {16, 10}, "input1");
+                std::vector<Tensor> input = {input0, input1};
+                int32_t axis = 1;
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "CONCAT_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
+<<<<<<< HEAD
+                FUNCTION("CONCAT_001")
+                {
+                    == == == = FUNCTION("CONCAT_001")
+                    {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                        TileShape::Current().SetVecTile({16, 16});
+                        output = Cat(input, axis);
+                    }
+                }
+
+                auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "CONCAT_001");
+                npu::tile_fwk::CodeGenCtx ctx;
+                npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                codeGen.GenCode(*function, {});
+            }

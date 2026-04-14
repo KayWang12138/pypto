@@ -214,7 +214,11 @@ std::string CodeGenOpNPU::PrintPermuteLayout() const
     return oss.str();
 }
 
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_vector.cpp
 std::string CodeGenOpNPU::GenPermuteOp() const { return PrintPermuteLayout(); }
+=======
+std::string CodeGenOpNPU::GenPermuteOp() const { return PrintPermuteLayout(); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_vector.cpp
 
 std::string CodeGenOpNPU::GenTransposeDataMove() const
 {
@@ -1341,7 +1345,11 @@ std::string CodeGenOpNPU::GenScatterOp() const
         {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
 }
 
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_vector.cpp
 void CodeGenOpNPU::GetWhereVarAndType(std::vector<std::string>& varExpr, std::vector<std::string>& dataTypeExpr) const
+=======
+void CodeGenOpNPU::GetWhereVarAndType(std::vector<std::string>& varExpr, std::vector<std::string>& dataTypeExpr) const
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_vector.cpp
 {
     varExpr.clear();
     dataTypeExpr.clear();

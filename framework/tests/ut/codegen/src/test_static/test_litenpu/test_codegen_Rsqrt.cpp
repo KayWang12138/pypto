@@ -26,21 +26,43 @@
 #include "codegen/npu/litenpu/codegen_litenpu.h"
 using namespace npu::tile_fwk;
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
 class LiteNPUCodegenRsqrt : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
     static void SetUpTestCase() {}
 
+<<<<<<< HEAD
+    void SetUp() override{
+=======
     void SetUp() override
     {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
+
+<<<<<<< HEAD
+// FP16 用例
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_001)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {112}, "input");
+        auto output = Tensor(DataType::DT_FP16, {112}, "output");
+        FUNCTION("RSQRT_fp16_001")
+        {
+=======
 
 // FP16 用例
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_001)
@@ -51,6 +73,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_001)
         auto output = Tensor(DataType::DT_FP16, {112}, "output");
         FUNCTION("RSQRT_fp16_001")
         {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({50});
             output = Rsqrt(input);
         }
@@ -62,6 +85,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_001)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_002)
 {
     PROGRAM("RSQRT")
@@ -70,6 +94,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_002)
         auto output = Tensor(DataType::DT_FP16, {100}, "output");
         FUNCTION("RSQRT_fp16_002")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_002)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {100}, "input");
+        auto output = Tensor(DataType::DT_FP16, {100}, "output");
+        FUNCTION("RSQRT_fp16_002")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({100});
             output = Rsqrt(input);
         }
@@ -81,6 +115,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_002)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_003)
 {
     PROGRAM("RSQRT")
@@ -89,6 +124,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_003)
         auto output = Tensor(DataType::DT_FP16, {4, 128}, "output");
         FUNCTION("RSQRT_fp16_003")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_003)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {4, 128}, "input");
+        auto output = Tensor(DataType::DT_FP16, {4, 128}, "output");
+        FUNCTION("RSQRT_fp16_003")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({2, 32});
             output = Rsqrt(input);
         }
@@ -100,6 +145,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_003)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_004)
 {
     PROGRAM("RSQRT")
@@ -108,6 +154,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_004)
         auto output = Tensor(DataType::DT_FP16, {4, 130}, "output");
         FUNCTION("RSQRT_fp16_004")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_004)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {4, 130}, "input");
+        auto output = Tensor(DataType::DT_FP16, {4, 130}, "output");
+        FUNCTION("RSQRT_fp16_004")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 130});
             output = Rsqrt(input);
         }
@@ -119,6 +175,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_004)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_005)
 {
     PROGRAM("RSQRT")
@@ -127,6 +184,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_005)
         auto output = Tensor(DataType::DT_FP16, {2, 4, 160}, "output");
         FUNCTION("RSQRT_fp16_005")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_005)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {2, 4, 160}, "input");
+        auto output = Tensor(DataType::DT_FP16, {2, 4, 160}, "output");
+        FUNCTION("RSQRT_fp16_005")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 2, 32});
             output = Rsqrt(input);
         }
@@ -138,6 +205,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_005)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_006)
 {
     PROGRAM("RSQRT")
@@ -146,6 +214,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_006)
         auto output = Tensor(DataType::DT_FP16, {2, 4, 140}, "output");
         FUNCTION("RSQRT_fp16_006")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_006)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {2, 4, 140}, "input");
+        auto output = Tensor(DataType::DT_FP16, {2, 4, 140}, "output");
+        FUNCTION("RSQRT_fp16_006")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 2, 140});
             output = Rsqrt(input);
         }
@@ -157,6 +235,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_006)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_007)
 {
     PROGRAM("RSQRT")
@@ -165,6 +244,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_007)
         auto output = Tensor(DataType::DT_FP16, {2, 5, 152}, "output");
         FUNCTION("RSQRT_fp16_007")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_007)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {2, 5, 152}, "input");
+        auto output = Tensor(DataType::DT_FP16, {2, 5, 152}, "output");
+        FUNCTION("RSQRT_fp16_007")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 5, 32});
             output = Rsqrt(input);
         }
@@ -176,6 +265,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_007)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_008)
 {
     PROGRAM("RSQRT")
@@ -184,6 +274,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_008)
         auto output = Tensor(DataType::DT_FP16, {2, 3, 170}, "output");
         FUNCTION("RSQRT_fp16_008")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_008)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {2, 3, 170}, "input");
+        auto output = Tensor(DataType::DT_FP16, {2, 3, 170}, "output");
+        FUNCTION("RSQRT_fp16_008")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 3, 170});
             output = Rsqrt(input);
         }
@@ -195,6 +295,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_008)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_009)
 {
     PROGRAM("RSQRT")
@@ -203,6 +304,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_009)
         auto output = Tensor(DataType::DT_FP16, {5, 2, 4, 176}, "output");
         FUNCTION("RSQRT_fp16_009")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_009)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {5, 2, 4, 176}, "input");
+        auto output = Tensor(DataType::DT_FP16, {5, 2, 4, 176}, "output");
+        FUNCTION("RSQRT_fp16_009")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({2, 1, 2, 16});
             output = Rsqrt(input);
         }
@@ -214,6 +325,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_009)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_010)
 {
     PROGRAM("RSQRT")
@@ -222,6 +334,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_010)
         auto output = Tensor(DataType::DT_FP16, {5, 2, 4, 130}, "output");
         FUNCTION("RSQRT_fp16_010")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_010)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {5, 2, 4, 130}, "input");
+        auto output = Tensor(DataType::DT_FP16, {5, 2, 4, 130}, "output");
+        FUNCTION("RSQRT_fp16_010")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 1, 1, 130});
             output = Rsqrt(input);
         }
@@ -233,6 +355,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_010)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_011)
 {
     PROGRAM("RSQRT")
@@ -241,6 +364,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_011)
         auto output = Tensor(DataType::DT_FP16, {2, 3, 5, 134}, "output");
         FUNCTION("RSQRT_fp16_011")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_011)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {2, 3, 5, 134}, "input");
+        auto output = Tensor(DataType::DT_FP16, {2, 3, 5, 134}, "output");
+        FUNCTION("RSQRT_fp16_011")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 1, 5, 32});
             output = Rsqrt(input);
         }
@@ -252,6 +385,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_011)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_012)
 {
     PROGRAM("RSQRT")
@@ -260,6 +394,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_012)
         auto output = Tensor(DataType::DT_FP16, {4, 2, 6, 135}, "output");
         FUNCTION("RSQRT_fp16_012")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_012)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {4, 2, 6, 135}, "input");
+        auto output = Tensor(DataType::DT_FP16, {4, 2, 6, 135}, "output");
+        FUNCTION("RSQRT_fp16_012")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({2, 2, 3, 32});
             output = Rsqrt(input);
         }
@@ -271,6 +415,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_012)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_013)
 {
     PROGRAM("RSQRT")
@@ -279,6 +424,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_013)
         auto output = Tensor(DataType::DT_FP16, {6, 2, 4, 130}, "output");
         FUNCTION("RSQRT_fp16_013")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_013)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {6, 2, 4, 130}, "input");
+        auto output = Tensor(DataType::DT_FP16, {6, 2, 4, 130}, "output");
+        FUNCTION("RSQRT_fp16_013")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 1, 4, 130});
             output = Rsqrt(input);
         }
@@ -290,6 +445,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_013)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_014)
 {
     PROGRAM("RSQRT")
@@ -298,6 +454,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_014)
         auto output = Tensor(DataType::DT_FP16, {3, 2, 3, 139}, "output");
         FUNCTION("RSQRT_fp16_014")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_014)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {3, 2, 3, 139}, "input");
+        auto output = Tensor(DataType::DT_FP16, {3, 2, 3, 139}, "output");
+        FUNCTION("RSQRT_fp16_014")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 2, 1, 139});
             output = Rsqrt(input);
         }
@@ -309,6 +475,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_014)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_015)
 {
     PROGRAM("RSQRT")
@@ -317,6 +484,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_015)
         auto output = Tensor(DataType::DT_FP16, {6, 3, 5, 141}, "output");
         FUNCTION("RSQRT_fp16_015")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_015)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP16, {6, 3, 5, 141}, "input");
+        auto output = Tensor(DataType::DT_FP16, {6, 3, 5, 141}, "output");
+        FUNCTION("RSQRT_fp16_015")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({3, 3, 5, 32});
             output = Rsqrt(input);
         }
@@ -329,6 +506,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp16_015)
 }
 
 // FP32 用例
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_001)
 {
     PROGRAM("RSQRT")
@@ -337,6 +515,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_001)
         auto output = Tensor(DataType::DT_FP32, {112}, "output");
         FUNCTION("RSQRT_fp32_001")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_001)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {112}, "input");
+        auto output = Tensor(DataType::DT_FP32, {112}, "output");
+        FUNCTION("RSQRT_fp32_001")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({50});
             output = Rsqrt(input);
         }
@@ -348,6 +536,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_001)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_002)
 {
     PROGRAM("RSQRT")
@@ -356,6 +545,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_002)
         auto output = Tensor(DataType::DT_FP32, {100}, "output");
         FUNCTION("RSQRT_fp32_002")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_002)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {100}, "input");
+        auto output = Tensor(DataType::DT_FP32, {100}, "output");
+        FUNCTION("RSQRT_fp32_002")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({100});
             output = Rsqrt(input);
         }
@@ -367,6 +566,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_002)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_003)
 {
     PROGRAM("RSQRT")
@@ -375,6 +575,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_003)
         auto output = Tensor(DataType::DT_FP32, {4, 128}, "output");
         FUNCTION("RSQRT_fp32_003")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_003)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {4, 128}, "input");
+        auto output = Tensor(DataType::DT_FP32, {4, 128}, "output");
+        FUNCTION("RSQRT_fp32_003")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({2, 32});
             output = Rsqrt(input);
         }
@@ -386,6 +596,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_003)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_004)
 {
     PROGRAM("RSQRT")
@@ -394,6 +605,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_004)
         auto output = Tensor(DataType::DT_FP32, {4, 130}, "output");
         FUNCTION("RSQRT_fp32_004")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_004)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {4, 130}, "input");
+        auto output = Tensor(DataType::DT_FP32, {4, 130}, "output");
+        FUNCTION("RSQRT_fp32_004")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 130});
             output = Rsqrt(input);
         }
@@ -405,6 +626,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_004)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_005)
 {
     PROGRAM("RSQRT")
@@ -413,6 +635,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_005)
         auto output = Tensor(DataType::DT_FP32, {2, 4, 160}, "output");
         FUNCTION("RSQRT_fp32_005")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_005)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {2, 4, 160}, "input");
+        auto output = Tensor(DataType::DT_FP32, {2, 4, 160}, "output");
+        FUNCTION("RSQRT_fp32_005")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 2, 32});
             output = Rsqrt(input);
         }
@@ -424,6 +656,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_005)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_006)
 {
     PROGRAM("RSQRT")
@@ -432,6 +665,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_006)
         auto output = Tensor(DataType::DT_FP32, {2, 4, 140}, "output");
         FUNCTION("RSQRT_fp32_006")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_006)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {2, 4, 140}, "input");
+        auto output = Tensor(DataType::DT_FP32, {2, 4, 140}, "output");
+        FUNCTION("RSQRT_fp32_006")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 2, 140});
             output = Rsqrt(input);
         }
@@ -443,6 +686,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_006)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_007)
 {
     PROGRAM("RSQRT")
@@ -451,6 +695,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_007)
         auto output = Tensor(DataType::DT_FP32, {2, 5, 152}, "output");
         FUNCTION("RSQRT_fp32_007")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_007)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {2, 5, 152}, "input");
+        auto output = Tensor(DataType::DT_FP32, {2, 5, 152}, "output");
+        FUNCTION("RSQRT_fp32_007")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 5, 32});
             output = Rsqrt(input);
         }
@@ -462,6 +716,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_007)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_008)
 {
     PROGRAM("RSQRT")
@@ -470,6 +725,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_008)
         auto output = Tensor(DataType::DT_FP32, {2, 3, 170}, "output");
         FUNCTION("RSQRT_fp32_008")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_008)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {2, 3, 170}, "input");
+        auto output = Tensor(DataType::DT_FP32, {2, 3, 170}, "output");
+        FUNCTION("RSQRT_fp32_008")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 3, 170});
             output = Rsqrt(input);
         }
@@ -481,6 +746,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_008)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_009)
 {
     PROGRAM("RSQRT")
@@ -489,6 +755,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_009)
         auto output = Tensor(DataType::DT_FP32, {5, 2, 4, 176}, "output");
         FUNCTION("RSQRT_fp32_009")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_009)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {5, 2, 4, 176}, "input");
+        auto output = Tensor(DataType::DT_FP32, {5, 2, 4, 176}, "output");
+        FUNCTION("RSQRT_fp32_009")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({2, 1, 2, 16});
             output = Rsqrt(input);
         }
@@ -500,6 +776,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_009)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_010)
 {
     PROGRAM("RSQRT")
@@ -508,6 +785,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_010)
         auto output = Tensor(DataType::DT_FP32, {5, 2, 4, 130}, "output");
         FUNCTION("RSQRT_fp32_010")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_010)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {5, 2, 4, 130}, "input");
+        auto output = Tensor(DataType::DT_FP32, {5, 2, 4, 130}, "output");
+        FUNCTION("RSQRT_fp32_010")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 1, 1, 130});
             output = Rsqrt(input);
         }
@@ -519,6 +806,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_010)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_011)
 {
     PROGRAM("RSQRT")
@@ -527,6 +815,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_011)
         auto output = Tensor(DataType::DT_FP32, {2, 3, 5, 134}, "output");
         FUNCTION("RSQRT_fp32_011")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_011)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {2, 3, 5, 134}, "input");
+        auto output = Tensor(DataType::DT_FP32, {2, 3, 5, 134}, "output");
+        FUNCTION("RSQRT_fp32_011")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 1, 5, 32});
             output = Rsqrt(input);
         }
@@ -538,6 +836,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_011)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_012)
 {
     PROGRAM("RSQRT")
@@ -546,6 +845,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_012)
         auto output = Tensor(DataType::DT_FP32, {4, 2, 6, 135}, "output");
         FUNCTION("RSQRT_fp32_012")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_012)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {4, 2, 6, 135}, "input");
+        auto output = Tensor(DataType::DT_FP32, {4, 2, 6, 135}, "output");
+        FUNCTION("RSQRT_fp32_012")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({2, 2, 3, 32});
             output = Rsqrt(input);
         }
@@ -557,6 +866,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_012)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_013)
 {
     PROGRAM("RSQRT")
@@ -565,6 +875,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_013)
         auto output = Tensor(DataType::DT_FP32, {6, 2, 4, 130}, "output");
         FUNCTION("RSQRT_fp32_013")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_013)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {6, 2, 4, 130}, "input");
+        auto output = Tensor(DataType::DT_FP32, {6, 2, 4, 130}, "output");
+        FUNCTION("RSQRT_fp32_013")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 1, 4, 130});
             output = Rsqrt(input);
         }
@@ -576,6 +896,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_013)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_014)
 {
     PROGRAM("RSQRT")
@@ -584,6 +905,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_014)
         auto output = Tensor(DataType::DT_FP32, {3, 2, 3, 139}, "output");
         FUNCTION("RSQRT_fp32_014")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_014)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {3, 2, 3, 139}, "input");
+        auto output = Tensor(DataType::DT_FP32, {3, 2, 3, 139}, "output");
+        FUNCTION("RSQRT_fp32_014")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({1, 2, 1, 139});
             output = Rsqrt(input);
         }
@@ -595,6 +926,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_014)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_015)
 {
     PROGRAM("RSQRT")
@@ -603,6 +935,16 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_015)
         auto output = Tensor(DataType::DT_FP32, {6, 3, 5, 141}, "output");
         FUNCTION("RSQRT_fp32_015")
         {
+=======
+TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_015)
+{
+    PROGRAM("RSQRT")
+    {
+        Tensor input(DataType::DT_FP32, {6, 3, 5, 141}, "input");
+        auto output = Tensor(DataType::DT_FP32, {6, 3, 5, 141}, "output");
+        FUNCTION("RSQRT_fp32_015")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({3, 3, 5, 32});
             output = Rsqrt(input);
         }
@@ -613,3 +955,7 @@ TEST_F(LiteNPUCodegenRsqrt, test_Rsqrt_fp32_015)
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481

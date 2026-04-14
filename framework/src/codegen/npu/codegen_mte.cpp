@@ -23,7 +23,11 @@
 namespace npu::tile_fwk {
 const std::string TSTORE_CONF = "TStoreConfig";
 
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_mte.cpp
 DynamicParamPackMTE CodeGenOpNPU::PrepareDynamicShapeInfoForMTE(int dynShapeIdx, int shapeDim, bool isGmSpill) const
+=======
+DynamicParamPackMTE CodeGenOpNPU::PrepareDynamicShapeInfoForMTE(int dynShapeIdx, int shapeDim, bool isGmSpill) const
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_mte.cpp
 {
     DynamicParamPackMTE pack;
     int dim = static_cast<int>(rawShape[dynShapeIdx].size());
@@ -492,7 +496,11 @@ std::string CodeGenOpNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0
     return oss.str();
 }
 
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_mte.cpp
 std::vector<std::string> CodeGenOpNPU::GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const
+=======
+std::vector<std::string> CodeGenOpNPU::GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_mte.cpp
 {
     std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(gmIdx, isSpillingToGM);
     // e.g. ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))

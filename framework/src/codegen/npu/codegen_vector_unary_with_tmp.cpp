@@ -294,7 +294,11 @@ std::string CodeGenOpNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam& param
     return oss.str();
 }
 
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_vector_unary_with_tmp.cpp
 std::string CodeGenOpNPU::PrintCompact(const PrintUnaryTmpBuffParam& param) const { return PrintCompactStatic(param); }
+=======
+std::string CodeGenOpNPU::PrintCompact(const PrintUnaryTmpBuffParam& param) const { return PrintCompactStatic(param); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_vector_unary_with_tmp.cpp
 
 std::string CodeGenOpNPU::PrintExp2Layout() const
 {

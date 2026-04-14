@@ -192,6 +192,7 @@ std::string CodeGenOpNPU::GenTemplateParamsDefault() const
 
 std::string CodeGenOpNPU::GenTemplateParams() const
 {
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_distributed.cpp
     static const std::unordered_map<Opcode, std::function<std::string(CodeGenOpNPU const*)>> templateParamHandlers = {
         {Opcode::OP_SHMEM_PUT, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
         {Opcode::OP_SHMEM_GET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
@@ -203,6 +204,19 @@ std::string CodeGenOpNPU::GenTemplateParams() const
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
          [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineReceive(); }},
         {Opcode::OP_SHMEM_SET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSet(); }}};
+=======
+    static const std::unordered_map<Opcode, std::function<std::string(CodeGenOpNPU const*)>> templateParamHandlers = {
+        {Opcode::OP_SHMEM_PUT, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
+        {Opcode::OP_SHMEM_GET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
+        {Opcode::OP_SHMEM_PUT_UB2GM, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutUb2Gm(); }},
+        {Opcode::OP_SHMEM_GET_GM2UB, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
+        {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSignal(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
+         [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineSend(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+         [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineReceive(); }},
+        {Opcode::OP_SHMEM_SET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSet(); }}};
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_distributed.cpp
 
     auto handler = templateParamHandlers.find(opCode);
     if (handler != templateParamHandlers.end()) {
@@ -400,12 +414,16 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemSet() const
 
 std::string CodeGenOpNPU::GenOffsetsAndRawShapesDefault() const { return ""; }
 
-std::string CodeGenOpNPU::GenExtraParamsStr() const
-{
+std::string CodeGenOpNPU::GenExtraParamsStr() const {
     static const std::unordered_map<Opcode, std::function<std::string(CodeGenOpNPU const*)>>
         offsetsAndRawShapesHandlers = {
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_distributed.cpp
             {Opcode::OP_SHMEM_PUT, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemPut(); }},
             {Opcode::OP_SHMEM_GET, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemGet(); }},
+=======
+            {Opcode::OP_SHMEM_PUT, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemPut(); }},
+            {Opcode::OP_SHMEM_GET, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemGet(); }},
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_distributed.cpp
             {Opcode::OP_SHMEM_PUT_UB2GM,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemPutUB(); }},
             {Opcode::OP_SHMEM_GET_GM2UB,
@@ -415,7 +433,11 @@ std::string CodeGenOpNPU::GenExtraParamsStr() const
             {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineSend(); }},
             {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_distributed.cpp
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineReceive(); }},
+=======
+             [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineReceive(); }},
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_distributed.cpp
             {Opcode::OP_SEND_TO_ROUTING_EXPERT,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForSendToRoutingExpert(); }},
             {Opcode::OP_SEND_TO_SHARED_EXPERT,
@@ -432,15 +454,19 @@ std::string CodeGenOpNPU::GenExtraParamsStr() const
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
             {Opcode::OP_FFN_COMBINEINFO,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForFfnCombineInfo(); }},
+<<<<<<< HEAD:framework/src/codegen/npu/codegen_distributed.cpp
             {Opcode::OP_SHMEM_SET, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemSet(); }}};
+=======
+            {Opcode::OP_SHMEM_SET, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemSet(); }}};
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481:framework/src/codegen/cloudnpu/codegen_distributed.cpp
 
-    auto handler = offsetsAndRawShapesHandlers.find(opCode);
-    if (handler != offsetsAndRawShapesHandlers.end()) {
-        return handler->second(this);
-    } else {
-        return GenOffsetsAndRawShapesDefault();
-    }
+auto handler = offsetsAndRawShapesHandlers.find(opCode);
+if (handler != offsetsAndRawShapesHandlers.end()) {
+    return handler->second(this);
+} else {
+    return GenOffsetsAndRawShapesDefault();
 }
+} // namespace npu::tile_fwk
 
 std::string CodeGenOpNPU::GenTargetRankStr() const
 {

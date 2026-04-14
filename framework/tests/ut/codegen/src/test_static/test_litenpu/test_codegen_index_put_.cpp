@@ -33,28 +33,48 @@ public:
 
     static void SetUpTestCase() {}
 
+<<<<<<< HEAD
+    void SetUp() override{
+=======
     void SetUp() override
     {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001)
 {
     PROGRAM("INDEX_PUT_001")
     {
         Tensor self(DataType::DT_FP16, {3, 3}, "self");
         Tensor values(DataType::DT_FP16, {2, 3}, "values");
+=======
+TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001)
+{
+    PROGRAM("INDEX_PUT_001")
+    {
+        Tensor self(DataType::DT_FP16, {3, 3}, "self");
+        Tensor values(DataType::DT_FP16, {2, 3}, "values");
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         Tensor indice(DataType::DT_INT32, {2}, "indice");
         std::vector<Tensor> indices = {indice};
         bool accumulate = false;
 
+<<<<<<< HEAD
         FUNCTION("INDEX_PUT_001")
         {
+=======
+        FUNCTION("INDEX_PUT_001")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({3});
             IndexPut_(self, indices, values, accumulate);
         }
@@ -66,18 +86,32 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001_cloud)
 {
     PROGRAM("INDEX_PUT_001")
     {
         Tensor self(DataType::DT_FP16, {3, 3}, "self");
         Tensor values(DataType::DT_FP16, {2, 3}, "values");
+=======
+TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001_cloud)
+{
+    PROGRAM("INDEX_PUT_001")
+    {
+        Tensor self(DataType::DT_FP16, {3, 3}, "self");
+        Tensor values(DataType::DT_FP16, {2, 3}, "values");
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         Tensor indice(DataType::DT_INT32, {2}, "indice");
         std::vector<Tensor> indices = {indice};
         bool accumulate = false;
 
+<<<<<<< HEAD
         FUNCTION("INDEX_PUT_001")
         {
+=======
+        FUNCTION("INDEX_PUT_001")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetVecTile({3});
             IndexPut_(self, indices, values, accumulate);
         }
@@ -87,4 +121,8 @@ TEST_F(LiteNPUCodeGenIndexPut, test_index_put_001_cloud)
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481

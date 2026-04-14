@@ -32,16 +32,21 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override
-    {
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+<<<<<<< HEAD
+    void SetUp() override{
+        == == == = void SetUp() override{
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                     config::Reset();
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenDiv, test_div_001)
 {
     PROGRAM("DIV_001")
@@ -51,33 +56,54 @@ TEST_F(LiteNPUCodeGenDiv, test_div_001)
         auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
         FUNCTION("DIV_001")
         {
-            TileShape::Current().SetVecTile({16, 16});
-            output = Div(input0, input1);
-        }
-    }
+            == == == = TEST_F(LiteNPUCodeGenDiv, test_div_001)
+            {
+                PROGRAM("DIV_001")
+                {
+                    Tensor input0(DataType::DT_FP16, {16, 16}, "input0");
+                    Tensor input1(DataType::DT_FP16, {16, 16}, "input1");
+                    auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
+                    FUNCTION("DIV_001")
+                    {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                        TileShape::Current().SetVecTile({16, 16});
+                        output = Div(input0, input1);
+                    }
+                }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "DIV_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "DIV_001");
+                npu::tile_fwk::CodeGenCtx ctx;
+                npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                codeGen.GenCode(*function, {});
+            }
 
-TEST_F(LiteNPUCodeGenDiv, test_div_002)
-{
-    PROGRAM("DIV_002")
-    {
-        Tensor input0(DataType::DT_FP16, {16, 16}, "input0");
-        Element input1(DataType::DT_FP16, 1.2);
-        auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
-        FUNCTION("DIV_002")
-        {
-            TileShape::Current().SetVecTile({16, 16});
-            output = Div(input0, input1);
-        }
-    }
+<<<<<<< HEAD
+            TEST_F(LiteNPUCodeGenDiv, test_div_002)
+            {
+                PROGRAM("DIV_002")
+                {
+                    Tensor input0(DataType::DT_FP16, {16, 16}, "input0");
+                    Element input1(DataType::DT_FP16, 1.2);
+                    auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
+                    FUNCTION("DIV_002")
+                    {
+                        == == == = TEST_F(LiteNPUCodeGenDiv, test_div_002)
+                        {
+                            PROGRAM("DIV_002")
+                            {
+                                Tensor input0(DataType::DT_FP16, {16, 16}, "input0");
+                                Element input1(DataType::DT_FP16, 1.2);
+                                auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
+                                FUNCTION("DIV_002")
+                                {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                                    TileShape::Current().SetVecTile({16, 16});
+                                    output = Div(input0, input1);
+                                }
+                            }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "DIV_002");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                            auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "DIV_002");
+                            npu::tile_fwk::CodeGenCtx ctx;
+                            npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                            codeGen.GenCode(*function, {});
+                        }

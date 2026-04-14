@@ -32,105 +32,161 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override
-    {
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+<<<<<<< HEAD
+    void SetUp() override{
+        == == == = void SetUp() override{
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                     config::Reset();
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenMaximum, test_maximum_001)
 {
     PROGRAM("MAXIMUM_001")
     {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor input(DT_FP32, {8, 8}, "input");
-        Tensor other(DT_FP32, {8, 8}, "other");
-        std::vector<int64_t> dstShape = {8, 8};
-        Tensor output;
-        FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
-    }
+        == == == = TEST_F(LiteNPUCodeGenMaximum, test_maximum_001)
+        {
+            PROGRAM("MAXIMUM_001")
+            {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                TileShape::Current().SetVecTile({4, 4});
+                Tensor input(DT_FP32, {8, 8}, "input");
+                Tensor other(DT_FP32, {8, 8}, "other");
+                std::vector<int64_t> dstShape = {8, 8};
+                Tensor output;
+<<<<<<< HEAD
+                FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+                == == == = FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+            }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+            auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
+            npu::tile_fwk::CodeGenCtx ctx;
+            npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+            codeGen.GenCode(*function, {});
+        }
 
-TEST_F(LiteNPUCodeGenMaximum, test_maximum_002)
-{
-    PROGRAM("MAXIMUM_001")
-    {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor input(DT_FP32, {8, 8}, "input");
-        Element other(DT_FP32, 1.0);
-        std::vector<int64_t> dstShape = {8, 8};
-        Tensor output;
-        FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
-    }
+<<<<<<< HEAD
+        TEST_F(LiteNPUCodeGenMaximum, test_maximum_002)
+        {
+            PROGRAM("MAXIMUM_001")
+            {
+                == == == = TEST_F(LiteNPUCodeGenMaximum, test_maximum_002)
+                {
+                    PROGRAM("MAXIMUM_001")
+                    {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                        TileShape::Current().SetVecTile({4, 4});
+                        Tensor input(DT_FP32, {8, 8}, "input");
+                        Element other(DT_FP32, 1.0);
+                        std::vector<int64_t> dstShape = {8, 8};
+                        Tensor output;
+<<<<<<< HEAD
+                        FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+                        == == == = FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                    }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
+                    npu::tile_fwk::CodeGenCtx ctx;
+                    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                    codeGen.GenCode(*function, {});
+                }
 
-// 无法生成.cpp文件
-TEST_F(LiteNPUCodeGenMaximum, test_maximum_003)
-{
-    PROGRAM("MAXIMUM_001")
-    {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor input(DT_FP32, {8, 8, 1}, "input");
-        Tensor other(DT_FP32, {1, 8, 8}, "other");
-        std::vector<int64_t> dstShape = {8, 8, 8};
-        Tensor output;
-        FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
-    }
+                // 无法生成.cpp文件
+<<<<<<< HEAD
+                TEST_F(LiteNPUCodeGenMaximum, test_maximum_003)
+                {
+                    PROGRAM("MAXIMUM_001")
+                    {
+                        == == == = TEST_F(LiteNPUCodeGenMaximum, test_maximum_003)
+                        {
+                            PROGRAM("MAXIMUM_001")
+                            {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                                TileShape::Current().SetVecTile({4, 4});
+                                Tensor input(DT_FP32, {8, 8, 1}, "input");
+                                Tensor other(DT_FP32, {1, 8, 8}, "other");
+                                std::vector<int64_t> dstShape = {8, 8, 8};
+                                Tensor output;
+<<<<<<< HEAD
+                                FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+                                == == == = FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                            }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                            auto function =
+                                Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
+                            npu::tile_fwk::CodeGenCtx ctx;
+                            npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                            codeGen.GenCode(*function, {});
+                        }
 
-// 可以正确生成.cpp文件，结合上一个用例，说明仅支持单轴广播
-TEST_F(LiteNPUCodeGenMaximum, test_maximum_004)
-{
-    PROGRAM("MAXIMUM_001")
-    {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor input(DT_FP32, {8, 8}, "input");
-        Tensor other(DT_FP32, {1, 8}, "other");
-        std::vector<int64_t> dstShape = {8, 8};
-        Tensor output;
-        FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
-    }
+                        // 可以正确生成.cpp文件，结合上一个用例，说明仅支持单轴广播
+<<<<<<< HEAD
+                        TEST_F(LiteNPUCodeGenMaximum, test_maximum_004)
+                        {
+                            PROGRAM("MAXIMUM_001")
+                            {
+                                == == == = TEST_F(LiteNPUCodeGenMaximum, test_maximum_004)
+                                {
+                                    PROGRAM("MAXIMUM_001")
+                                    {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                                        TileShape::Current().SetVecTile({4, 4});
+                                        Tensor input(DT_FP32, {8, 8}, "input");
+                                        Tensor other(DT_FP32, {1, 8}, "other");
+                                        std::vector<int64_t> dstShape = {8, 8};
+                                        Tensor output;
+<<<<<<< HEAD
+                                        FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+                                        == == == = FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                                    }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                                    auto function =
+                                        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
+                                    npu::tile_fwk::CodeGenCtx ctx;
+                                    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                                    codeGen.GenCode(*function, {});
+                                }
 
-// 无法生成.cpp文件
-TEST_F(LiteNPUCodeGenMaximum, test_maximum_005)
-{
-    PROGRAM("MAXIMUM_001")
-    {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor input(DT_FP32, {8, 8}, "input");
-        Tensor other(DT_FP32, {1}, "other");
-        std::vector<int64_t> dstShape = {8, 8};
-        Tensor output;
-        FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
-    }
+                                // 无法生成.cpp文件
+<<<<<<< HEAD
+                                TEST_F(LiteNPUCodeGenMaximum, test_maximum_005)
+                                {
+                                    PROGRAM("MAXIMUM_001")
+                                    {
+                                        == == == = TEST_F(LiteNPUCodeGenMaximum, test_maximum_005)
+                                        {
+                                            PROGRAM("MAXIMUM_001")
+                                            {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                                                TileShape::Current().SetVecTile({4, 4});
+                                                Tensor input(DT_FP32, {8, 8}, "input");
+                                                Tensor other(DT_FP32, {1}, "other");
+                                                std::vector<int64_t> dstShape = {8, 8};
+                                                Tensor output;
+<<<<<<< HEAD
+                                                FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+                                                == == == = FUNCTION("MAXIMUM_001") { output = Maximum(input, other); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                                            }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MAXIMUM_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                                            auto function = Program::GetInstance().GetFunctionByRawName(
+                                                FUNCTION_PREFIX + "MAXIMUM_001");
+                                            npu::tile_fwk::CodeGenCtx ctx;
+                                            npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                                            codeGen.GenCode(*function, {});
+<<<<<<< HEAD
+                                        }
+                                        == == == =
+                                    }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481

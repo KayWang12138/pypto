@@ -33,16 +33,23 @@ public:
 
     static void SetUpTestCase() {}
 
+<<<<<<< HEAD
+    void SetUp() override{
+=======
     void SetUp() override
     {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenMatmul, test_matmul_001)
 {
     PROGRAM("MATMUL_001")
@@ -52,6 +59,17 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_001)
         auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
         FUNCTION("MATMUL_001")
         {
+=======
+TEST_F(LiteNPUCodeGenMatmul, test_matmul_001)
+{
+    PROGRAM("MATMUL_001")
+    {
+        Tensor a(DataType::DT_FP16, {16, 16}, "a");
+        Tensor b(DataType::DT_FP16, {16, 16}, "b");
+        auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
+        FUNCTION("MATMUL_001")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }
@@ -63,6 +81,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_001)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenMatmul, test_matmul_002)
 {
     PROGRAM("MATMUL_001")
@@ -72,6 +91,17 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_002)
         auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
         FUNCTION("MATMUL_001")
         {
+=======
+TEST_F(LiteNPUCodeGenMatmul, test_matmul_002)
+{
+    PROGRAM("MATMUL_001")
+    {
+        Tensor a(DataType::DT_FP16, {64, 64}, "a");
+        Tensor b(DataType::DT_FP16, {64, 64}, "b");
+        auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
+        FUNCTION("MATMUL_001")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }
@@ -83,6 +113,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_002)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenMatmul, test_matmul_002_cloud)
 {
     PROGRAM("MATMUL_001")
@@ -92,6 +123,17 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_002_cloud)
         auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
         FUNCTION("MATMUL_001")
         {
+=======
+TEST_F(LiteNPUCodeGenMatmul, test_matmul_002_cloud)
+{
+    PROGRAM("MATMUL_001")
+    {
+        Tensor a(DataType::DT_FP16, {64, 64}, "a");
+        Tensor b(DataType::DT_FP16, {64, 64}, "b");
+        auto c = Tensor(DataType::DT_FP16, {64, 64}, "c");
+        FUNCTION("MATMUL_001")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {64, 64});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }
@@ -103,6 +145,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_002_cloud)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenMatmul, test_matmul_001_cloud_test)
 {
     PROGRAM("MATMUL_001_CLOUD")
@@ -112,6 +155,17 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_001_cloud_test)
         auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
         FUNCTION("MATMUL_001_CLOUD")
         {
+=======
+TEST_F(LiteNPUCodeGenMatmul, test_matmul_001_cloud_test)
+{
+    PROGRAM("MATMUL_001_CLOUD")
+    {
+        Tensor a(DataType::DT_FP16, {16, 16}, "a");
+        Tensor b(DataType::DT_FP16, {16, 16}, "b");
+        auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
+        FUNCTION("MATMUL_001_CLOUD")
+        {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
             c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
         }

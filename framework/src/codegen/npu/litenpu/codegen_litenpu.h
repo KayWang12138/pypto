@@ -49,7 +49,11 @@ private:
 
 class CodeGenLiteNPU : public CodeGenNPU {
 public:
+<<<<<<< HEAD
     explicit CodeGenLiteNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx){};
+=======
+    explicit CodeGenLiteNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx){};
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     ~CodeGenLiteNPU() override = default;
 
     void GenCode(Function& topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset) override;

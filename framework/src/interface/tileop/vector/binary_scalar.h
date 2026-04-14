@@ -31,8 +31,13 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1)
 
     if constexpr (op == BinaryScalarOp::SUB) {
         if constexpr (std::is_same<Scalar, half>::value) {
+<<<<<<< HEAD
             PTO_WITH_LAST_USE(
                 pto::TADDS(dst, src0, static_cast<half>(static_cast<float>(-1) * static_cast<float>(src1))), n1, n2);
+=======
+            PTO_WITH_LAST_USE(
+                pto::TADDS(dst, src0, static_cast<half>(static_cast<float>(-1) * static_cast<float>(src1))), n1, n2);
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         } else {
             PTO_WITH_LAST_USE(pto::TADDS(dst, src0, -src1), n1, n2);
         }

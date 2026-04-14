@@ -296,8 +296,13 @@ void CodeGenLiteNPU::GenConfigJson(
     file << "{\n"
          << "   \"kernelFile\": \"" << cppName << "\",\n"
          << "   \"kernelBin\": \"" << binName << "\",\n"
+<<<<<<< HEAD
          << "   \"kernelName\": \"" << kernelName + "_main"
          << "\",\n"
+=======
+         << "   \"kernelName\": \"" << kernelName + "_main"
+         << "\",\n"
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
          << "   \"workspaceSize\": " << workspaceSize << ",\n"
          << "   \"blockDim\": " << blockDim << ",\n"
          << "   \"argNames\": [";
@@ -361,4 +366,8 @@ extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
     return funCode;
 }
 
+<<<<<<< HEAD
 } // namespace npu::tile_fwk
+=======
+} // namespace npu::tile_fwk
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481

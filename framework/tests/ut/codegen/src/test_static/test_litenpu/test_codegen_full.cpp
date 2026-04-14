@@ -32,34 +32,48 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override
-    {
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+<<<<<<< HEAD
+    void SetUp() override{
+        == == == = void SetUp() override{
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                     config::Reset();
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenFull, test_full_001)
 {
     PROGRAM("FULL_001")
     {
-        Element input(DataType::DT_FP16, 1.2);
-        DataType dataType = DataType::DT_FP16;
-        std::vector<int64_t> dstShape = {16, 16};
-
-        auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
-        FUNCTION("FULL_001")
+        == == == = TEST_F(LiteNPUCodeGenFull, test_full_001)
         {
-            TileShape::Current().SetVecTile({16, 16});
-            output = Full(input, dataType, dstShape);
-        }
-    }
+            PROGRAM("FULL_001")
+            {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                Element input(DataType::DT_FP16, 1.2);
+                DataType dataType = DataType::DT_FP16;
+                std::vector<int64_t> dstShape = {16, 16};
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "FULL_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
+                auto output = Tensor(DataType::DT_FP16, {16, 16}, "output");
+<<<<<<< HEAD
+                FUNCTION("FULL_001")
+                {
+                    == == == = FUNCTION("FULL_001")
+                    {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
+                        TileShape::Current().SetVecTile({16, 16});
+                        output = Full(input, dataType, dstShape);
+                    }
+                }
+
+                auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "FULL_001");
+                npu::tile_fwk::CodeGenCtx ctx;
+                npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+                codeGen.GenCode(*function, {});
+            }

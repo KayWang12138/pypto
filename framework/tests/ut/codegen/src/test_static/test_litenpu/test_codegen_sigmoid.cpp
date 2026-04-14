@@ -32,16 +32,23 @@ public:
 
     static void SetUpTestCase() {}
 
+<<<<<<< HEAD
+    void SetUp() override{
+=======
     void SetUp() override
     {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenSigmoid, test_sigmoid_002)
 {
     PROGRAM("SIGMOID_002")
@@ -51,6 +58,17 @@ TEST_F(LiteNPUCodeGenSigmoid, test_sigmoid_002)
         FUNCTION("SIGMOID_002")
         {
             TileShape::Current().SetVecTile({100});
+=======
+TEST_F(LiteNPUCodeGenSigmoid, test_sigmoid_002)
+{
+    PROGRAM("SIGMOID_002")
+    {
+        Tensor input(DataType::DT_FP16, {100}, "input");
+        auto output = Tensor(DataType::DT_FP16, {100}, "output");
+        FUNCTION("SIGMOID_002")
+        {
+            TileShape::Current().SetVecTile({100});
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
             output = Sigmoid(input);
         }
     }

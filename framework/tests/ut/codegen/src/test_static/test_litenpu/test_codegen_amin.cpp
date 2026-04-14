@@ -32,16 +32,23 @@ public:
 
     static void SetUpTestCase() {}
 
+<<<<<<< HEAD
+    void SetUp() override{
+=======
     void SetUp() override
     {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_neg1_keepdims_true)
 {
     PROGRAM("AMIN_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE")
@@ -53,11 +60,25 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_neg1_keepdims_true)
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE");
+=======
+TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_neg1_keepdims_true)
+{
+    PROGRAM("AMIN_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE")
+    {
+        TileShape::Current().SetVecTile({8, 8});
+        Tensor operand(DT_FP32, {16, 16}, "operand");
+        Tensor result;
+        FUNCTION("AMIN_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE") { result = Amin(operand, -1, true); }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_2D_AXIS_NEG1_KEEPDIMS_TRUE");
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_0_keepdims_false)
 {
     PROGRAM("AMIN_FP32_2D_AXIS_0_KEEPDIMS_FALSE")
@@ -66,6 +87,16 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_0_keepdims_false)
         Tensor operand(DT_FP32, {8, 8}, "operand");
         Tensor result;
         FUNCTION("AMIN_FP32_2D_AXIS_0_KEEPDIMS_FALSE") { result = Amin(operand, 0, false); }
+=======
+TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_0_keepdims_false)
+{
+    PROGRAM("AMIN_FP32_2D_AXIS_0_KEEPDIMS_FALSE")
+    {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMIN_FP32_2D_AXIS_0_KEEPDIMS_FALSE") { result = Amin(operand, 0, false); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_2D_AXIS_0_KEEPDIMS_FALSE");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -73,6 +104,7 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_0_keepdims_false)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_1_keepdims_true)
 {
     PROGRAM("AMIN_FP32_2D_AXIS_1_KEEPDIMS_TRUE")
@@ -81,6 +113,16 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_1_keepdims_true)
         Tensor operand(DT_FP32, {8, 8}, "operand");
         Tensor result;
         FUNCTION("AMIN_FP32_2D_AXIS_1_KEEPDIMS_TRUE") { result = Amin(operand, 1, true); }
+=======
+TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_1_keepdims_true)
+{
+    PROGRAM("AMIN_FP32_2D_AXIS_1_KEEPDIMS_TRUE")
+    {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMIN_FP32_2D_AXIS_1_KEEPDIMS_TRUE") { result = Amin(operand, 1, true); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_2D_AXIS_1_KEEPDIMS_TRUE");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -88,6 +130,7 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_2d_axis_1_keepdims_true)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenAmin, test_amin_fp16_2d_axis_neg1_keepdims_false)
 {
     PROGRAM("AMIN_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE")
@@ -99,11 +142,25 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp16_2d_axis_neg1_keepdims_false)
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE");
+=======
+TEST_F(LiteNPUCodeGenAmin, test_amin_fp16_2d_axis_neg1_keepdims_false)
+{
+    PROGRAM("AMIN_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE")
+    {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP16, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMIN_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE") { result = Amin(operand, -1, false); }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP16_2D_AXIS_NEG1_KEEPDIMS_FALSE");
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_1d_axis_neg1_keepdims_true)
 {
     PROGRAM("AMIN_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE")
@@ -115,11 +172,25 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_1d_axis_neg1_keepdims_true)
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE");
+=======
+TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_1d_axis_neg1_keepdims_true)
+{
+    PROGRAM("AMIN_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE")
+    {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_FP32, {32}, "operand");
+        Tensor result;
+        FUNCTION("AMIN_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE") { result = Amin(operand, -1, true); }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_1D_AXIS_NEG1_KEEPDIMS_TRUE");
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_3d_axis_1_keepdims_true)
 {
     PROGRAM("AMIN_FP32_3D_AXIS_1_KEEPDIMS_TRUE")
@@ -128,6 +199,16 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_3d_axis_1_keepdims_true)
         Tensor operand(DT_FP32, {4, 8, 8}, "operand");
         Tensor result;
         FUNCTION("AMIN_FP32_3D_AXIS_1_KEEPDIMS_TRUE") { result = Amin(operand, 1, true); }
+=======
+TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_3d_axis_1_keepdims_true)
+{
+    PROGRAM("AMIN_FP32_3D_AXIS_1_KEEPDIMS_TRUE")
+    {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {4, 8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMIN_FP32_3D_AXIS_1_KEEPDIMS_TRUE") { result = Amin(operand, 1, true); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_3D_AXIS_1_KEEPDIMS_TRUE");
     npu::tile_fwk::CodeGenCtx ctx;
@@ -135,6 +216,7 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_3d_axis_1_keepdims_true)
     codeGen.GenCode(*function, {});
 }
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_4d_axis_2_keepdims_false)
 {
     PROGRAM("AMIN_FP32_4D_AXIS_2_KEEPDIMS_FALSE")
@@ -143,9 +225,23 @@ TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_4d_axis_2_keepdims_false)
         Tensor operand(DT_FP32, {2, 2, 8, 8}, "operand");
         Tensor result;
         FUNCTION("AMIN_FP32_4D_AXIS_2_KEEPDIMS_FALSE") { result = Amin(operand, 2, false); }
+=======
+TEST_F(LiteNPUCodeGenAmin, test_amin_fp32_4d_axis_2_keepdims_false)
+{
+    PROGRAM("AMIN_FP32_4D_AXIS_2_KEEPDIMS_FALSE")
+    {
+        TileShape::Current().SetVecTile({1, 1, 4, 4});
+        Tensor operand(DT_FP32, {2, 2, 8, 8}, "operand");
+        Tensor result;
+        FUNCTION("AMIN_FP32_4D_AXIS_2_KEEPDIMS_FALSE") { result = Amin(operand, 2, false); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "AMIN_FP32_4D_AXIS_2_KEEPDIMS_FALSE");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481

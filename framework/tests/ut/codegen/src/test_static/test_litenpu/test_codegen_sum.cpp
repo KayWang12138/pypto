@@ -32,16 +32,23 @@ public:
 
     static void SetUpTestCase() {}
 
+<<<<<<< HEAD
+    void SetUp() override{
+=======
     void SetUp() override
     {
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetBuildStatic(true);
-    }
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    config::SetBuildStatic(true);
+}
 
-    void TearDown() override {}
-};
+    void TearDown() override
+{}
+}
+;
 
+<<<<<<< HEAD
 TEST_F(LiteNPUCodeGenSum, Test_Sum_Lite)
 {
     PROGRAM("TestSum")
@@ -50,9 +57,23 @@ TEST_F(LiteNPUCodeGenSum, Test_Sum_Lite)
         Tensor operand(DT_FP32, {16, 16}, "operand");
         Tensor result;
         FUNCTION("TestSum") { result = Sum(operand, -1, true); }
+=======
+TEST_F(LiteNPUCodeGenSum, Test_Sum_Lite)
+{
+    PROGRAM("TestSum")
+    {
+        TileShape::Current().SetVecTile(8, 8);
+        Tensor operand(DT_FP32, {16, 16}, "operand");
+        Tensor result;
+        FUNCTION("TestSum") { result = Sum(operand, -1, true); }
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TestSum");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 7eb5107b3132f71277db6ee374fffa12949f5481
