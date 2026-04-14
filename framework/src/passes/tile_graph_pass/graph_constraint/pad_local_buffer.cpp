@@ -15,6 +15,7 @@
 
 #include "pad_local_buffer.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/alignment_utils.h"
 #include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "PadLocalBuffer"
@@ -222,12 +223,7 @@ void PadLocalBuffer::PadMatmul(Operation& op, LogicalTensorPtr& in)
 
 size_t GetPaddingValue(LogicalTensorPtr& in)
 {
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
+    return static_cast<size_t>(AlignmentUtils::GetLastDimAlignBaseOrOne(in));
 }
 
 size_t GetLastDimBytes(const LogicalTensorPtr& tensor)

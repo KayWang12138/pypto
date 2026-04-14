@@ -100,8 +100,8 @@ void SetUpPassStrategy()
                                     {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
                                     {"CommonOperationEliminate", PassName::COMMON_OPERATION_ELIMINATE},
                                     {"L1CopyInReuseMerge", PassName::L1_COPY_IN_REUSE_MERGE},
-                                    {"PadLocalBuffer", PassName::PAD_LOCAL_BUFFER},
                                     {"RemoveUnalignedReshape", PassName::REMOVE_UNALIGNED_RESHAPE},
+                                    {"PadLocalBuffer", PassName::PAD_LOCAL_BUFFER},
                                     {"ReplaceTensor", PassName::REPLACE_TENSOR},
                                 });
 }

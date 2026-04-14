@@ -16,11 +16,43 @@
 #include "remove_unaligned_reshape_op.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_utils/alignment_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "RemoveUnalignedReshape"
 
 namespace npu::tile_fwk {
+namespace {
+Shape InferAvailableRawShape(const LogicalTensorPtr& tensor)
+{
+    if (tensor == nullptr || tensor->tensor == nullptr) {
+        return {};
+    }
+    if (!tensor->tensor->oriRawshape.empty()) {
+        return tensor->tensor->oriRawshape;
+    }
+    if (!tensor->tensor->rawshape.empty()) {
+        return tensor->tensor->rawshape;
+    }
+    if (!tensor->oriShape.empty()) {
+        return tensor->oriShape;
+    }
+    return tensor->shape;
+}
+
+Shape InferAvailableOriShape(const LogicalTensorPtr& tensor)
+{
+    if (tensor == nullptr) {
+        return {};
+    }
+    if (!tensor->oriShape.empty()) {
+        return tensor->oriShape;
+    }
+    return tensor->shape;
+}
+
+} // namespace
+
 /*
 before:
     add->reshape(padded)->mul
@@ -67,13 +99,14 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
     LogicalTensorPtr& ioTensor)
 {
     if (rawIO.count(ioTensor->tensor->rawmagic) == 0) {
-        auto reshapeRawTensor =
-            std::make_shared<RawTensor>(ioTensor->Datatype(), ioTensor->tensor->oriRawshape, ioTensor->Format());
+        auto rawShape = InferAvailableRawShape(ioTensor);
+        auto reshapeRawTensor = std::make_shared<RawTensor>(ioTensor->Datatype(), rawShape, ioTensor->Format());
         reshapeRawTensor->oriRawshape = reshapeRawTensor->rawshape;
         rawIO.insert({ioTensor->tensor->rawmagic, reshapeRawTensor});
     }
+    auto oriShape = InferAvailableOriShape(ioTensor);
     auto newReshapeIO = std::make_shared<LogicalTensor>(
-        function, rawIO[ioTensor->tensor->rawmagic], ioTensor->offset, ioTensor->oriShape);
+        function, rawIO[ioTensor->tensor->rawmagic], ioTensor->offset, oriShape);
     newReshapeIO->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     newReshapeIO->subGraphID = op.GetSubgraphID();
     newReshapeIO->isSubGraphBoundary = true;
@@ -83,28 +116,7 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
 
 bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
 {
-    int lastIdx;
-    for (const auto& input : op.GetIOperands()) {
-        if (input != nullptr && input->tensor != nullptr) {
-            lastIdx = input->shape.size() - 1;
-            if (input->shape.size() == input->tensor->oriRawshape.size() &&
-                input->shape.size() == input->tensor->rawshape.size() &&
-                input->tensor->oriRawshape[lastIdx] != input->tensor->rawshape[lastIdx]) {
-                return true;
-            }
-        }
-    }
-    for (const auto& output : op.GetOOperands()) {
-        if (output != nullptr && output->tensor != nullptr) {
-            lastIdx = output->shape.size() - 1;
-            if (output->shape.size() == output->tensor->oriRawshape.size() &&
-                output->shape.size() == output->tensor->rawshape.size() &&
-                output->tensor->oriRawshape[lastIdx] != output->tensor->rawshape[lastIdx]) {
-                return true;
-            }
-        }
-    }
-    return false;
+    return AlignmentUtils::HasUnalignedInputOrOutput(op);
 }
 
 std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, const std::vector<int64_t>& outputShapes)

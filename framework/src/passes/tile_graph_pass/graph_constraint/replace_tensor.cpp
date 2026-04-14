@@ -15,6 +15,7 @@
 
 #include "replace_tensor.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/alignment_utils.h"
 
 #define MODULE_NAME "ReplaceTensor"
 
@@ -861,46 +862,6 @@ std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMa
 }
 
 /**
- * @brief 判断 UB 上的tensor尾轴是否32B对齐
- */
-inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
-{
-    // 空shape视为非32B对齐
-    if (tensor->shape.empty()) {
-        return false;
-    }
-
-    size_t lastIdx = tensor->shape.size() - 1;
-    size_t lastDim = tensor->shape[lastIdx];
-    size_t bytes = BytesOf(tensor->Datatype());
-    size_t totalByte = lastDim * bytes;
-
-    // 判断是否32字节对齐
-    return (totalByte % 32) == 0;
-}
-
-inline size_t GetPaddingValue(LogicalTensorPtr& in)
-{
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
-}
-
-/**
- * @brief 为 UB 上尾轴非32B对齐的tensor做32B对齐操作
- */
-inline int64_t Pad(int64_t dim, int64_t padValue)
-{
-    if (padValue == 0) {
-        return dim;
-    }
-    return (dim + padValue - 1) / padValue * padValue;
-}
-
-/**
  * @brief 计算tensor的数据量
  */
 int computeTensorSize(const LogicalTensorPtr& tensor) {
@@ -970,18 +931,18 @@ Status ReplaceTensor::InsertCopyDDROp(Function& function, Operation* needInsertC
         return FAILED;
     }
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
-    if (memType == MemoryType::MEM_UB && !IsLastDim32BAligned(copyInOutputPtr)) {
+    if (memType == MemoryType::MEM_UB && !AlignmentUtils::IsLastDim32BAligned(copyInOutputPtr)) {
         size_t lastIdx = copyInOutputPtr->shape.size() - 1;
-        size_t paddingValue = GetPaddingValue(copyInOutputPtr); // 根据数据类型，判断需要pad到几个元素
+        size_t paddingValue = static_cast<size_t>(AlignmentUtils::GetLastDimAlignBaseOrOne(copyInOutputPtr));
 
         // 保存rawshape
         copyInOutputPtr->oriShape = copyInOutputPtr->shape;
         copyInOutputPtr->tensor->oriRawshape = copyInOutputPtr->tensor->rawshape;
 
         // pad 32B
-        copyInOutputPtr->shape[lastIdx] = Pad(copyInOutputPtr->shape[lastIdx], paddingValue);
+        copyInOutputPtr->shape[lastIdx] = AlignUp(copyInOutputPtr->shape[lastIdx], paddingValue);
         copyInOutputPtr->tensor->rawshape[lastIdx] =
-            Pad(copyInOutputPtr->tensor->oriRawshape[lastIdx], copyInOutputPtr->shape[lastIdx]);
+            AlignUp(copyInOutputPtr->tensor->oriRawshape[lastIdx], copyInOutputPtr->shape[lastIdx]);
     }
     auto& copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
