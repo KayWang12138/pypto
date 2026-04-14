@@ -1,0 +1,2 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape
+Transpose_test_16,"[1, 16, 4, 16]",fp16,ND,"[-10, 10]","[1, 1, 4, 16, 16]",fp16,ND,"[1, 16, 4, 16]","[1, 16, 4, 16]"
