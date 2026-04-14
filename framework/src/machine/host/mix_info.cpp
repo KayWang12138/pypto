@@ -1,0 +1,125 @@
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include "mix_info.h"
+#include "interface/program/program.h"
+#include "interface/operation/operation.h"
+using json = nlohmann::json;
+namespace npu {
+namespace tile_fwk {
+
+void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>>& leafFunctions)
+{
+    auto funcType = func->GetGraphType();
+    if (func->IsFunctionTypeAndGraphType(
+            {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH},
+            GraphType::TENSOR_GRAPH)) {
+        for (auto callop : func->GetCallopList()) {
+            auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
+            auto callFunc = Program::GetInstance().GetFunctionByMagicName(callopAttr->GetCalleeMagicName());
+            if (callFunc == nullptr) {
+                continue;
+            }
+            GetExecuteFunc(callFunc, leafFunctions);
+        }
+        return;
+    } else if (funcType == GraphType::EXECUTE_GRAPH) {
+        for (auto callop : func->GetCallopList()) {
+            auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
+            auto wrapId = callopAttr->wrapId;
+            if (wrapId == -1) {
+                continue;
+            }
+            auto callFunc = Program::GetInstance().GetFunctionByMagicName(callopAttr->GetCalleeMagicName());
+            if (callFunc == nullptr) {
+                continue;
+            }
+            leafFunctions[wrapId].insert(callFunc);
+        }
+        return;
+    } else if (funcType == GraphType::TILE_GRAPH) {
+        GetExecuteFunc(func->GetRootFunction(), leafFunctions);
+    }
+    return;
+}
+
+struct SyncInfo {
+    bool isSet;
+    int eventID;
+};
+
+struct CoreTask {
+    uint64_t hashValue;
+    std::vector<SyncInfo> syncMsg;
+};
+
+struct WrapInfo {
+    int wrapID;
+    std::vector<CoreTask> coreTask;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SyncInfo, isSet, eventID)
+
+// 绑定CoreTask
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CoreTask, hashValue, syncMsg)
+
+// 绑定WrapInfo
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WrapInfo, wrapID, coreTask)
+
+void DumpMixInfo(const std::map<Function*, std::map<int, WrapInfo>>& wrapInfos) {
+    std::map<uint64_t, std::vector<WrapInfo>> wrapinfoList;
+    for (auto& [root, rootWrapinfo] : wrapInfos) {
+        std::vector<WrapInfo> rootWrapinfoList;
+        for (auto& [wrapId, wrapInfo] : rootWrapinfo) {
+            rootWrapinfoList.push_back(wrapInfo);
+        }
+        wrapinfoList[root->GetFunctionHash().GetHash()] = rootWrapinfoList;
+    }
+    json j = wrapinfoList;
+    std::string path = npu::tile_fwk::config::GetAbsoluteTopFolder() + "/mix_event_info.json";
+    std::ofstream of(path);
+    if (of.is_open()) {
+        of << j.dump(4);
+        of.close();
+    }
+}
+
+int GetMixInfoMain(Function* topFunc)
+{
+    std::map<int, std::set<Function*>> leafFunctions;
+    GetExecuteFunc(topFunc, leafFunctions);
+    std::map<Function*, std::map<int, WrapInfo>> wrapInfos;
+    for (auto& [wrapID, leafFuncs] : leafFunctions) {
+        for (auto& leafFunc : leafFuncs) {
+            auto leafAttr = leafFunc->GetLeafFuncAttribute();
+            if (leafAttr == nullptr || leafFunc->GetRootFunction() == nullptr) {
+                continue;
+            }
+            auto rootFunction = leafFunc->GetRootFunction();
+            if (wrapInfos.find(rootFunction) == wrapInfos.end() ||
+                wrapInfos[rootFunction].find(wrapID) == wrapInfos[rootFunction].end()) {
+                WrapInfo info;
+                info.wrapID = wrapID;
+                wrapInfos[rootFunction][wrapID] = info;
+            }
+            CoreTask leafFuncSyncInfo;
+            leafFuncSyncInfo.hashValue = leafFunc->GetFunctionHash().GetHash();
+            for (auto& op : leafFunc->Operations(false).DuplicatedOpList()) {
+                SyncInfo syncInfo;
+                if (op->GetOpcode() == Opcode::OP_CV_SYNC_SRC) {
+                    syncInfo.isSet = true;
+                } else if (op->GetOpcode() == Opcode::OP_CV_SYNC_DST) {
+                    syncInfo.isSet = false;
+                } else {
+                    continue;
+                }
+                syncInfo.eventID = op->GetSyncQueue().eventId_;
+                leafFuncSyncInfo.syncMsg.push_back(syncInfo);
+            }
+            wrapInfos[rootFunction][wrapID].coreTask.push_back(leafFuncSyncInfo);
+        }
+    }
+    DumpMixInfo(wrapInfos);
+    return 0;
+}
+} // namespace tile_fwk
+} // namespace npu
