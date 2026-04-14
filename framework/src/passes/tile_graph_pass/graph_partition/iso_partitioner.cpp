@@ -712,11 +712,6 @@ Status IsoPartitioner::SetParameter(
     int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash, bool skipPartition)
 {
     skipPartition_ = skipPartition;
-    auto platform = Platform::Instance().GetSoc().GetNPUArch();
-    if (platform == NPUArch::DAV_3113) {
-        // 端侧不走IsoPartitioner切图算法，走Mix切图算法
-        skipPartition_ = true;
-    }
     if (skipPartition) {
         return SUCCESS;
     }

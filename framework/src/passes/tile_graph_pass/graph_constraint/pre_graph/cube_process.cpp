@@ -337,13 +337,9 @@ Status CubeProcess::AlignGMTensor(Function& function, std::vector<Operation*>& l
     return SUCCESS;
 }
 
-Status CubeProcess::UpdateCubeOp(Function &function) {
-    auto platform = Platform::Instance().GetSoc().GetNPUArch();
-    if (platform == NPUArch::DAV_3113) {
-        return SUCCESS;
-    }
-
-    for (auto &op : function.Operations()) {
+Status CubeProcess::UpdateCubeOp(Function& function)
+{
+    for (auto& op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_A_MUL_B && op.GetOpcode() != Opcode::OP_A_MULACC_B) {
             continue;
         }

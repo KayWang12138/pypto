@@ -354,8 +354,7 @@ public:
 
     Die& GetDies() { return die_; }
     NPUArch GetNPUArch() const { 
-        //return version_;
-        return NPUArch::DAV_3113;
+        return version_;
     }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }

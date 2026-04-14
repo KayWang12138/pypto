@@ -22,9 +22,6 @@
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/interpreter/calc.h"
-#include "codegen/codegen.h"
-#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/npu/litenpu/codegen_litenpu.h"
 using namespace npu::tile_fwk;
 
 class OperationImplTest : public testing::Test {
@@ -37,7 +34,6 @@ public:
     {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-
     }
 
     void TearDown() override {}
