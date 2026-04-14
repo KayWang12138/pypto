@@ -553,8 +553,8 @@ INLINE void KernelEntry(
         }
         lastTaskIdx = AICORE_TASK_INIT;
         if (bIsExit) {
-            DfxProcWhenCoreExit(&ctx, args, metric);
             WaitWaveSignal(args); // no data exit
+            DfxProcWhenCoreExit(&ctx, args, metric);
             return;
         }
         parallelDevTask = GetCoreFuncionData(&ctx, args, parallelDevTask);
