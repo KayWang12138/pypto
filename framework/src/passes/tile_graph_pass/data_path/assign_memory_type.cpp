@@ -970,6 +970,13 @@ bool AssignMemoryType::CheckInnerAxisC0Size(const LogicalTensorPtr &input,
             static_cast<long>(inputDtypeBytes), static_cast<long>(outputDtypeBytes));
         return false;
     }
+    // 检查 32 是否能被数据类型字节数整除（避免整数除法截断）
+    if (32 % inputDtypeBytes != 0 || 32 % outputDtypeBytes != 0) {
+        APASS_LOG_DEBUG_F(Elements::Operation,
+            "CheckInnerAxisC0Size: 32 not divisible by dtype bytes, input=%ld, output=%ld",
+            static_cast<long>(inputDtypeBytes), static_cast<long>(outputDtypeBytes));
+        return false;
+    }
     // C0 size = 32 字节 / 元素字节数 = 每轴元素个数
     int64_t inputC0Size = 32 / inputDtypeBytes;
     int64_t outputC0Size = 32 / outputDtypeBytes;
