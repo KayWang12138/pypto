@@ -23,6 +23,34 @@
 
 namespace npu::tile_fwk {
 namespace {
+Shape InferAvailableRawShape(const LogicalTensorPtr& tensor)
+{
+    if (tensor == nullptr || tensor->tensor == nullptr) {
+        return {};
+    }
+    if (!tensor->tensor->oriRawshape.empty()) {
+        return tensor->tensor->oriRawshape;
+    }
+    if (!tensor->tensor->rawshape.empty()) {
+        return tensor->tensor->rawshape;
+    }
+    if (!tensor->oriShape.empty()) {
+        return tensor->oriShape;
+    }
+    return tensor->shape;
+}
+
+Shape InferAvailableOriShape(const LogicalTensorPtr& tensor)
+{
+    if (tensor == nullptr) {
+        return {};
+    }
+    if (!tensor->oriShape.empty()) {
+        return tensor->oriShape;
+    }
+    return tensor->shape;
+}
+
 bool IsRawLastDimUnaligned(const LogicalTensorPtr& tensor)
 {
     if (tensor == nullptr || tensor->tensor == nullptr || tensor->shape.empty()) {
@@ -109,13 +137,14 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
     LogicalTensorPtr& ioTensor)
 {
     if (rawIO.count(ioTensor->tensor->rawmagic) == 0) {
-        auto reshapeRawTensor =
-            std::make_shared<RawTensor>(ioTensor->Datatype(), ioTensor->tensor->oriRawshape, ioTensor->Format());
+        auto rawShape = InferAvailableRawShape(ioTensor);
+        auto reshapeRawTensor = std::make_shared<RawTensor>(ioTensor->Datatype(), rawShape, ioTensor->Format());
         reshapeRawTensor->oriRawshape = reshapeRawTensor->rawshape;
         rawIO.insert({ioTensor->tensor->rawmagic, reshapeRawTensor});
     }
+    auto oriShape = InferAvailableOriShape(ioTensor);
     auto newReshapeIO = std::make_shared<LogicalTensor>(
-        function, rawIO[ioTensor->tensor->rawmagic], ioTensor->offset, ioTensor->oriShape);
+        function, rawIO[ioTensor->tensor->rawmagic], ioTensor->offset, oriShape);
     newReshapeIO->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     newReshapeIO->subGraphID = op.GetSubgraphID();
     newReshapeIO->isSubGraphBoundary = true;
