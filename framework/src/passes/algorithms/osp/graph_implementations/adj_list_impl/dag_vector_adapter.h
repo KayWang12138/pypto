@@ -151,13 +151,13 @@ public:
     {
         return vertices_[v].memWeight_;
     }
-    [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const
-    {
-        return vertices_[v].vertexType_;
-    }
     [[nodiscard]] VertexTypeType NumVertexTypes() const
     {
         return numVertexTypes_;
+    }
+    [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const
+    {
+        return vertices_[v].vertexType_;
     }
 
     void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight)

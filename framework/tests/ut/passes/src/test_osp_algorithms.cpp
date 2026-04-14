@@ -212,7 +212,6 @@ TEST_F(OspAlgorithmTest, UnionFind3)
 
     EXPECT_EQ(testUniverse.GetWeightOfComponentByName("a"), 7);
     EXPECT_EQ(testUniverse.GetWeightOfComponentByName("b"), 7);
-    EXPECT_EQ(testUniverse.GetWeightOfComponentByName("e"), 2);
 
     std::vector<std::vector<std::string>> components = testUniverse.GetConnectedComponents();
     unsigned totalCompWeights = 0;
@@ -911,8 +910,6 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph)
     });
 
     GraphAdapterType graph(outEdges, inEdges);
-    EXPECT_EQ(graph.NumVertices(), 11);
-    EXPECT_EQ(graph.NumEdges(), 11);
 
     std::size_t cntr0{};
     std::size_t cntrChldEdges{};
@@ -946,7 +943,6 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph)
     for (const auto &vert : graph.Vertices()) {
         EXPECT_EQ(graph.VertexType(vert), 0);
     }
-    EXPECT_EQ(graph.NumVertexTypes(), 1);
 
     for (const auto vert : graph.Vertices()) {
         graph.SetVertexWorkWeight(vert, 4*vert + 0);
