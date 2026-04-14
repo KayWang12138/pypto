@@ -73,7 +73,7 @@ void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor
     ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {row, col});
     ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
         << "payloadChunkCount must be <= row dimension (" << row << ")";
@@ -81,7 +81,8 @@ void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor
         << "chunksPerSignal must be <= payloadChunkCount, but got "
         << chunksPerSignal << " > " << payloadChunkCount;
 
-    OneShotCommunicatorV5 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
+    ShmemTensor v10ShmemTensor = shmemTensor;
+    OneShotCommunicatorV5 comm(v10ShmemTensor, payloadChunkCount, chunksPerSignal);
 
     // Phase 1: Scatter — group-major puts; signal AFTER each group per rank.
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
@@ -113,6 +114,8 @@ void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor
             Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
         }
     }
+    Tensor clearDep = out;
+    (void)ShmemClearSignal(v10ShmemTensor, clearDep);
 }
 
 // OneShotAllReduce_v10_pipe_ge: SHMEM-only, chunked, pipelined GE variant.
@@ -136,7 +139,7 @@ void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, Shm
     ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {row, col});
     ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
         << "payloadChunkCount must be <= row dimension (" << row << ")";
@@ -144,7 +147,8 @@ void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, Shm
         << "chunksPerSignal must be <= payloadChunkCount, but got "
         << chunksPerSignal << " > " << payloadChunkCount;
 
-    OneShotCommunicatorV5 comm(shmemTensor, payloadChunkCount, chunksPerSignal);
+    ShmemTensor v10ShmemTensor = shmemTensor;
+    OneShotCommunicatorV5 comm(v10ShmemTensor, payloadChunkCount, chunksPerSignal);
 
     for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
         uint32_t begin = comm.GroupBeginChunk(groupId);
@@ -173,6 +177,8 @@ void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, Shm
             Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
         }
     }
+    Tensor clearDep = out;
+    (void)ShmemClearSignal(v10ShmemTensor, clearDep);
 }
 
 void ValidateGroup(const char* group)
@@ -235,10 +241,10 @@ void ValidateTensor(const Tensor& tensor, const std::string& tensorDesc,
     const std::unordered_set<TileOpFormat>& allowedFormats,
     const Shape& expectShape)
 {
-    ValidateDim(tensor, desc, allowedDims);
-    ValidateDataType(tensor, desc, allowedTypes);
-    ValidateFormat(tensor, desc, allowedFormats);
-    ValidateShape(tensor, desc, expectShape);
+    ValidateDim(tensor, tensorDesc, allowedDims);
+    ValidateDataType(tensor, tensorDesc, allowedTypes);
+    ValidateFormat(tensor, tensorDesc, allowedFormats);
+    ValidateShape(tensor, tensorDesc, expectShape);
 }
 
 void ValidateOpType(OpType cmp, const std::unordered_set<OpType>& allowedOpTypes)
@@ -585,7 +591,7 @@ Tensor ShmemWaitUntil(
         << "ShmemWaitUntil: clearSignal must be false when using GE semantics";
     ValidateShmemTensor(src, false, true);
     ValidateTensor(pred, "pred", {2});
-    ValidateTensor(src.signal, "src.signal", {4});
+    ValidateTensor(src.signal, "src.signal", {3});
     ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred");
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape signalShape = src.signal.GetShape();

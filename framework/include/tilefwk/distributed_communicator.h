@@ -38,8 +38,8 @@ public:
         : shmemTensor_(shmemTensor)
         , worldSize_(static_cast<uint32_t>(shmemTensor.worldSize))
         , thisRank_(GetHcclRankId(shmemTensor.group))
-        , row_(shmemTensor.data.GetShape()[1])
-        , col_(shmemTensor.data.GetShape()[2])
+        , row_(shmemTensor.data.GetShape()[shmemTensor.data.GetShape().size() - 2])
+        , col_(shmemTensor.data.GetShape()[shmemTensor.data.GetShape().size() - 1])
     {}
 
     uint32_t WorldSize() const { return worldSize_; }
@@ -141,8 +141,8 @@ public:
     Tensor Put(const Tensor& pred, const Tensor& inChunk, uint32_t targetRank,
         uint32_t chunkId, AtomicType atomicType) const
     {
-        auto chunkView = ShmemView(shmemTensor_, {1, ChunkRows(chunkId), col_},
-            std::vector<SymbolicScalar>{0, ChunkStartRow(chunkId), 0});
+        auto chunkView = ShmemView(shmemTensor_, {ChunkRows(chunkId), col_},
+            std::vector<SymbolicScalar>{ChunkStartRow(chunkId), 0});
         return ShmemPut(inChunk, chunkView, targetRank, atomicType, pred);
     }
 
@@ -152,8 +152,8 @@ public:
     Tensor SignalGroup(const Tensor& pred, uint32_t targetRank,
         uint32_t /*groupId*/, AtomicType atomicType) const
     {
-        auto fullView = ShmemView(shmemTensor_, {1, row_, col_},
-            std::vector<SymbolicScalar>{0, 0, 0});
+        auto fullView = ShmemView(shmemTensor_, {row_, col_},
+            std::vector<SymbolicScalar>{0, 0});
         return ShmemSignal(fullView, targetRank, targetRank, 1, atomicType, pred);
     }
 
@@ -163,8 +163,8 @@ public:
     Tensor WaitGroup(const Tensor& dep, uint32_t groupId) const
     {
         ASSERT(groupId < SignalGroupCount()) << "groupId out of range: " << groupId;
-        auto fullView = ShmemView(shmemTensor_, {1, row_, col_},
-            std::vector<SymbolicScalar>{0, 0, 0});
+        auto fullView = ShmemView(shmemTensor_, {row_, col_},
+            std::vector<SymbolicScalar>{0, 0});
         int32_t threshold = static_cast<int32_t>((groupId + 1) * worldSize_);
         return ShmemWaitUntil(fullView, thisRank_, OpType::GE, threshold, false, dep);
     }
@@ -172,8 +172,8 @@ public:
     // Read one reduced chunk after WaitGroup.
     Tensor PullChunk(const Tensor& waitToken, uint32_t chunkId, DataType dtype) const
     {
-        auto chunkView = ShmemView(shmemTensor_, {1, ChunkRows(chunkId), col_},
-            std::vector<SymbolicScalar>{0, ChunkStartRow(chunkId), 0});
+        auto chunkView = ShmemView(shmemTensor_, {ChunkRows(chunkId), col_},
+            std::vector<SymbolicScalar>{ChunkStartRow(chunkId), 0});
         return ShmemGet(chunkView, thisRank_, waitToken, dtype);
     }
 

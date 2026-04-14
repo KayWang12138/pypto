@@ -20,6 +20,10 @@ target_compile_options(Dist_GTest_Inc
         INTERFACE
             -Wno-float-equal
 )
+target_link_libraries(Dist_GTest_Inc
+        INTERFACE
+            GTest::gtest
+)
 target_include_directories(Dist_GTest_Inc
         INTERFACE
             ${GTest_Gtest_Inc}

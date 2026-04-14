@@ -26,19 +26,6 @@ namespace Distributed {
 
 namespace {
 
-void InitAllReduceShmemTensor(const Tensor& in, const OpTestParam& testParam,
-    const Shape& shmemDataShape, ShmemTensor& shmemTensor)
-{
-    DataType shmemDataType = in.GetDataType();
-    if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-        shmemDataType = DT_FP32;
-    }
-    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-        (void)index;
-        CreateShmemTensor(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemTensor);
-    }
-}
-
 } // namespace
 
 template<typename T>
@@ -112,8 +99,9 @@ template void TestAllReduce<bfloat16>(OpTestParam &testParam, std::string& golde
 template<typename T>
 void TestAllReduce_v10(OpTestParam &testParam, std::string &goldenDir)
 {
-    constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
+    constexpr size_t paramsSize = 8;
+    auto [row, col, validRow, validCol, typeNum, tileRow, tileCol, useTwoShot] =
+        GetParams<paramsSize>(goldenDir + "/params.bin");
     (void)useTwoShot;
     DataType dType = GetDataTypeNum(typeNum);
 
@@ -133,10 +121,11 @@ void TestAllReduce_v10(OpTestParam &testParam, std::string &goldenDir)
     });
 
     uint32_t chunkCount = static_cast<uint32_t>(row);  // one chunk per row: maximum granularity
-    uint32_t chunksPerSignal = 1;                        // one chunk per signal group: maximum granularity
+    uint32_t chunksPerSignal = 1;
 
-    Shape shmemDataShape{1, row, col};
+    Shape shmemDataShape{row, col};
     FUNCTION("ALLREDUCE_V10", {in}, {out}) {
+        in.GetStorage()->UpdateDynValidShape(std::vector<SymbolicScalar>{validRow, validCol});
         TileShape::Current().SetVecTile({tileRow, tileCol});
         ShmemTensor shmemTensor;
         DataType shmemDataType = in.GetDataType();
@@ -165,8 +154,9 @@ template void TestAllReduce_v10<bfloat16>(OpTestParam &testParam, std::string& g
 template<typename T>
 void TestAllReduce_v10_pipe_ge(OpTestParam &testParam, std::string &goldenDir)
 {
-    constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
+    constexpr size_t paramsSize = 8;
+    auto [row, col, validRow, validCol, typeNum, tileRow, tileCol, useTwoShot] =
+        GetParams<paramsSize>(goldenDir + "/params.bin");
     (void)useTwoShot;
     DataType dType = GetDataTypeNum(typeNum);
 
@@ -188,8 +178,9 @@ void TestAllReduce_v10_pipe_ge(OpTestParam &testParam, std::string &goldenDir)
     uint32_t chunkCount = static_cast<uint32_t>(row);
     uint32_t chunksPerSignal = 1;
 
-    Shape shmemDataShape{1, row, col};
+    Shape shmemDataShape{row, col};
     FUNCTION("ALLREDUCE_V10_PIPE_GE", {in}, {out}) {
+        in.GetStorage()->UpdateDynValidShape(std::vector<SymbolicScalar>{validRow, validCol});
         TileShape::Current().SetVecTile({tileRow, tileCol});
         ShmemTensor shmemTensor;
         DataType shmemDataType = in.GetDataType();

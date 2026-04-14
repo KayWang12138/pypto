@@ -77,6 +77,7 @@ TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
     info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
+    info.signalStride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
     info.vaddr = funcData.rawTensorAddr[desc->offsetOrIndex];

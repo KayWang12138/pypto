@@ -116,14 +116,19 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
 
     index = index + aicpuCode[index] + 1;
     paramInfo.rawShapeIndex = index + 1;
-    paramInfo.rawShapeRow =
-        aicpuCode[paramInfo.rawShapeIndex + 1];         // ShmemSignal RawShape[ranksize, row, col], 3表示row的值
-    paramInfo.rawShapeCol =
-        aicpuCode[paramInfo.rawShapeIndex + 2];         // ShmemSignal RawShape[ranksize, row, col], 4表示col的值
+    int32_t rawShapeDim = aicpuCode[index] / 2; // rawshape + shape are encoded back-to-back
+    if (rawShapeDim >= 2) {
+        // Keep row/col decoding aligned with current layout by always reading tail dims.
+        // This works for [rank,row,col] and extended layouts [...,row,col].
+        paramInfo.rawShapeRow = aicpuCode[paramInfo.rawShapeIndex + rawShapeDim - 2];
+        paramInfo.rawShapeCol = aicpuCode[paramInfo.rawShapeIndex + rawShapeDim - 1];
+    }
     paramInfo.shapeIndex =
-        paramInfo.rawShapeIndex + aicpuCode[index] / 2; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
-    paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + 1]; // ShmemSignal Shape[ranksize, row, col], 3表示row的值
-    paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + 2]; // ShmemSignal Shape[ranksize, row, col], 4表示col的值
+        paramInfo.rawShapeIndex + rawShapeDim; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
+    if (rawShapeDim >= 2) {
+        paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + rawShapeDim - 2];
+        paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + rawShapeDim - 1];
+    }
     index = index + aicpuCode[index] + 1;
     if (index + 1 < static_cast<int32_t>(aicpuCode.size())) {
         paramInfo.attrIndex = index + 1;

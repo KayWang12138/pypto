@@ -25,9 +25,6 @@
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
-constexpr int32_t ATTR_STRIDE_OFFSET = 1;
-constexpr int32_t ATTR_TILEROW_OFFSET = 3;
-constexpr int32_t ATTR_TILECOL_OFFSET = 4;
 struct SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
         taskId_ = taskId;
@@ -205,28 +202,79 @@ public:
         TensorInfo info = ShmemWaitUntilImpl::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
-        int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
-        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILEROW_OFFSET];
-        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILECOL_OFFSET];
+        int32_t stride = info.signalStride;
+        if (stride <= 0) {
+            DEV_ERROR(
+                DistributedErrorCode::INVALID_SHMEM_TENSOR,
+                "ctrl.task.pre.task.prepare#: invalid signal stride=%d", stride);
+            return dynamic::DEVICE_MACHINE_ERROR;
+        }
+        if (info.offset.size() < 3) {
+            DEV_ERROR(
+                DistributedErrorCode::INVALID_SHMEM_TENSOR,
+                "ctrl.task.pre.task.prepare#: invalid signal offset dim=%lu, expected >= 3",
+                info.offset.size());
+            return dynamic::DEVICE_MACHINE_ERROR;
+        }
+
+        const uint64_t ownerRankIndex = 0;
+        uint64_t rowOffsetIndex = info.offset.size() - 2;
+        uint64_t colOffsetIndex = info.offset.size() - 1;
 
         int32_t tileCols = (paramInfo_.rawShapeCol + paramInfo_.tileShapeCol - 1) / paramInfo_.tileShapeCol;
         int32_t tileRows = (paramInfo_.rawShapeRow + paramInfo_.tileShapeRow - 1) / paramInfo_.tileShapeRow;
-        int32_t tileRow = info.offset[SHMEM_DIM_ROW] / paramInfo_.tileShapeRow;
-        int32_t tileCol = info.offset[SHMEM_DIM_COL] / paramInfo_.tileShapeCol;
+        int32_t tileRow = info.offset[rowOffsetIndex] / paramInfo_.tileShapeRow;
+        int32_t tileCol = info.offset[colOffsetIndex] / paramInfo_.tileShapeCol;
         int32_t tileIndex = tileRow * tileCols + tileCol;
         int32_t totalTileNum = tileRows * tileCols;
+        if (tileIndex < 0 || tileIndex >= totalTileNum) {
+            DEV_ERROR(
+                DistributedErrorCode::INVALID_SHMEM_TENSOR,
+                "ctrl.task.pre.task.prepare#: invalid tileIndex=%d, totalTileNum=%d, offset=[%u,%u], tile=[%u,%u],"
+                " rawShape=[%u,%u]",
+                tileIndex, totalTileNum, info.offset[rowOffsetIndex], info.offset[colOffsetIndex], paramInfo_.tileShapeRow,
+                paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol);
+            return dynamic::DEVICE_MACHINE_ERROR;
+        }
+        uint64_t rankNum = GetRankNum(hcclContextAddr_, info.vaddr);
+        if (info.offset[ownerRankIndex] >= rankNum) {
+            DEV_ERROR(
+                DistributedErrorCode::INVALID_SHMEM_TENSOR,
+                "ctrl.task.pre.task.prepare#: ownerRank=%u out of range rankNum=%lu",
+                info.offset[ownerRankIndex], rankNum);
+            return dynamic::DEVICE_MACHINE_ERROR;
+        }
+        uint64_t maxTileNum = TileOp::Distributed::DecodeShmemAddrMaxTileNum(info.vaddr);
+        if (static_cast<uint64_t>(totalTileNum) > maxTileNum) {
+            DEV_ERROR(
+                DistributedErrorCode::INVALID_SHMEM_TENSOR,
+                "ctrl.task.pre.task.prepare#: totalTileNum=%d exceeds maxTileNum=%lu", totalTileNum, maxTileNum);
+            return dynamic::DEVICE_MACHINE_ERROR;
+        }
+        uint64_t logicalSignalIndex =
+            (static_cast<uint64_t>(info.offset[ownerRankIndex]) * static_cast<uint64_t>(totalTileNum) +
+                static_cast<uint64_t>(tileIndex)) * static_cast<uint64_t>(stride);
+        uint64_t logicalSignalCapacity = rankNum * maxTileNum * static_cast<uint64_t>(stride);
+        if (logicalSignalIndex >= logicalSignalCapacity) {
+            DEV_ERROR(
+                DistributedErrorCode::INVALID_SHMEM_TENSOR,
+                "ctrl.task.pre.task.prepare#: signal index OOB index=%lu capacity=%lu (ownerRank=%u,"
+                " tileIndex=%d, totalTileNum=%d, stride=%d, rankNum=%lu, maxTileNum=%lu)",
+                logicalSignalIndex, logicalSignalCapacity, info.offset[ownerRankIndex], tileIndex, totalTileNum,
+                stride, rankNum, maxTileNum);
+            return dynamic::DEVICE_MACHINE_ERROR;
+        }
 
         DEV_DEBUG(
             "ShmemWaitUntilImpl::EnqueueOp logical rawShape=[%u, %u],"
             "logical tile=[%u, %u], logical offset=[%u, %u], ownerRank=%u,"
             "actual rawShape=[%lu, %d], actual offset=[%u, %d], buffer maxTileNum=%lu, bufferStride=%u",
             paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, paramInfo_.tileShapeRow, paramInfo_.tileShapeCol,
-            info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL], info.offset[OWNER_RANK_ID_INDEX],
-            GetRankNum(hcclContextAddr_, info.vaddr), totalTileNum, info.offset[OWNER_RANK_ID_INDEX], tileIndex,
-            TileOp::Distributed::DecodeShmemAddrMaxTileNum(info.vaddr), paramInfo_.bufferStride);
+            info.offset[rowOffsetIndex], info.offset[colOffsetIndex], info.offset[ownerRankIndex], rankNum, totalTileNum,
+            info.offset[ownerRankIndex], tileIndex, maxTileNum, paramInfo_.bufferStride);
 
-        int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) + info.offset[SRC_SHMEM_SIGNAL_ID] * paramInfo_.rawRankShape * totalTileNum * stride +
-            (info.offset[SRC_RANK_ID] * totalTileNum + tileIndex) * stride;
+        int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) +
+            (info.offset[ownerRankIndex] * totalTileNum + tileIndex) * stride;
         return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 
