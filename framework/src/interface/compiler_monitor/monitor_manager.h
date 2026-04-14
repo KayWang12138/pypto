@@ -39,7 +39,7 @@ public:
     void SetCurrentFunctionIndex(int k);
 
     void SetRootFuncCount(int n);
-    int PrepareNextRootFunc(const std::string& rootFuncName);
+    int PrepareNextRootFunc();
     std::string GetCurrentRootFuncName() const;
     int GetRootFuncCount() const;
     int GetCurrentRootFuncIndex() const;

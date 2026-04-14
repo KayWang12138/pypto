@@ -609,7 +609,7 @@ int CodeGenCloudNPU::DoCompileCmd(const std::string& compileCmd) const
     ASSERT(CmpCodeErr::CMD_CHECK_FAILED, ret == 0)
         << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
 
-    int rootFuncIdx = MonitorManager::Instance().PrepareNextRootFunc(rootFuncName_);
+    int rootFuncIdx = MonitorManager::Instance().PrepareNextRootFunc();
     {
         MonitorStageScope compileCmdScope(STAGE_FUNC_TO_BIN, rootFuncIdx, rootFuncName_);
         ret = std::system(compileCmd.c_str());

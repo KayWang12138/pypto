@@ -166,15 +166,13 @@ void MonitorManager::SetRootFuncCount(int n)
     current_root_func_index_ = 0;
 }
 
-int MonitorManager::PrepareNextRootFunc(const std::string& rootFuncName)
+int MonitorManager::PrepareNextRootFunc()
 {
     if (!enable_) {
         return 0;
     }
     std::lock_guard<std::mutex> lock(mutex_);
     int k = next_root_func_index_++;
-    current_root_func_index_ = k;
-    current_root_func_ = rootFuncName;
     return k;
 }
 
