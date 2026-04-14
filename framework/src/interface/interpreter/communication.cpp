@@ -112,10 +112,12 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
     if (isSignal) {
         ctrlBase_ = base;
         allocatedSignal_ = true;
+        ctrlName_ = handler;
         memset(ctrlBase_, 0, WIN_EXP_SIZE);
     } else {
         dataBase_ = base;
         allocatedData_ = true;
+        dataName_ = handler;
         memset(dataBase_, 0, WIN_IN_SIZE);
     }
 }
@@ -145,7 +147,7 @@ LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
 
     size_t beforeSize = ctrlShmSize_.load();
     size_t shmSize = beforeSize + slotSize;
-    if (ctrlShmSize_ > WIN_EXP_SIZE) {
+    if (shmSize > WIN_EXP_SIZE) {
         throw std::runtime_error("Out of pre-allocated memory!");
     }
     ctrlShmSize_.store(shmSize);
@@ -354,12 +356,19 @@ void SimulationCommContext::Destroy() {
         munmap(ctrlBase_, WIN_EXP_SIZE);
         ctrlBase_ = nullptr;
     }
+    if (!ctrlName_.empty()) {
+        shm_unlink(ctrlName_.c_str());
+        ctrlName_.clear();
+    }
 
     if (dataBase_) {
         munmap(dataBase_, WIN_IN_SIZE);
         dataBase_ = nullptr;
     }
-    
+    if (!dataName_.empty()) {
+        shm_unlink(dataName_.c_str());
+        dataName_.clear();
+    }
     allocatedData_ = false;
     allocatedSignal_ = false;
     dataShmSize_ = 0;

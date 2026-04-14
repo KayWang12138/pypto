@@ -135,7 +135,7 @@ void ExecuteOpShmemPut(ExecuteOperationContext *ctx) {
     auto castedIn = LogicalTensorData::CreateEmpty(shm->GetDataType(), shm->GetShape(), shm->GetValidShape(), shm->GetShape());
     calc::Cast(castedIn, in);
 
-    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + castedIn->GetSize() + << " , atomic type: " << atomicType << std::endl;
+    std::cout << "Put data " << in <<" to dstRank " << dstRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + castedIn->GetSize() * BytesOf(castedIn->GetDataType()) + << " , atomic type: " << atomicType << std::endl;
     context->Put(castedIn, dstRank, shm->GetStorageOffset(), atomicType);
 
     std::cout << "=== ExecuteOpShmemPut exited ..." << std::endl;
