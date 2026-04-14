@@ -30,7 +30,6 @@ Status SplitLargeFanoutTensor::RunOnFunction(Function& function)
     EraseRedundantViewOp(function);
     Status status = MergeViewAssembleUtils::MergeViewAssemble(function);
     if (status != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "Merge assemble and view failed.");
         return status;
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End SplitLargeFanoutTensor.");
