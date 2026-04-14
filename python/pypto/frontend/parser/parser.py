@@ -151,6 +151,28 @@ def _catch_parser_errors(func):
     return wrapper
 
 
+class BuiltinFunctionTransformer(ast.NodeTransformer):
+    """AST transformer to convert builtin builtin min()/max() calls to pypto.min()/pypto.max()."""
+
+    def visit_Call(self, call_node: ast.Call) -> ast.Call:
+        """Visit Call nodes and transform min()/max() to pypto.min()/pypto.max()."""
+        self.generic_visit(call_node)
+
+        if isinstance(call_node.func, ast.Name) and call_node.func.id in ('min', 'max'):
+            new_call = ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id='pypto', ctx=ast.Load()),
+                    attr=call_node.func.id,
+                    ctx=ast.Load()
+                ),
+                args=call_node.args,
+                keywords=call_node.keywords
+            )
+            ast.copy_location(new_call, call_node)
+            return new_call
+        return call_node
+
+
 class Parser(ast.NodeVisitor):
     """Main parser for PTO Script that converts Python AST to PTO IR.
 
@@ -233,6 +255,7 @@ class Parser(ast.NodeVisitor):
         self._lowered_signature_cache = None
         self._bound_dim_values: Optional[dict[str, SymInt]] = None
         self.input_pto_tensor: Optional[list[pypto.Tensor]] = None
+        self._builtin_transformer = BuiltinFunctionTransformer()
 
     @staticmethod
     def match_input_shapes(
@@ -632,6 +655,24 @@ class Parser(ast.NodeVisitor):
                             return True
         return False
 
+    def _transform_builtin_functions(self, node: Union[ast.Expression, ast.expr]) -> Union[ast.Expression, ast.expr]:
+        """Transform builtin min()/max() calls to pypto.min()/pypto.max().
+
+        This method walks through the AST and replaces any calls to the builtin
+        min() or max() functions with calls to pypto.min() or pypto.max().
+
+        Parameters
+        ----------
+        node : Union[ast.Expression, ast.expr]
+            The expression node to transform.
+
+        Returns
+        -------
+        Union[ast.Expression, ast.expr]
+            The transformed expression node.
+        """
+        return self._builtin_transformer.visit(node)
+
     def _eval_expr(
         self,
         node: Union[ast.Expression, ast.expr],
@@ -657,6 +698,8 @@ class Parser(ast.NodeVisitor):
         """
         if isinstance(node, ast.Expr) and hasattr(node, "value"):
             node = node.value
+
+        node = self._transform_builtin_functions(node)
 
         if isinstance(node, ast.Call):
             nested_result = self._try_nested_call(node, extra_vars)
