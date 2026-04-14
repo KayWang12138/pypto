@@ -345,5 +345,18 @@ static_assert(sizeof(RtLoadBinaryOptionValue) == sizeof(rtLoadBinaryOptionValue_
 static_assert(sizeof(RtLoadBinaryOption) == sizeof(rtLoadBinaryOption_t));
 static_assert(sizeof(RtLoadBinaryConfig) == sizeof(rtLoadBinaryConfig_t));
 static_assert(sizeof(RtArgsSizeInfo) == sizeof(rtArgsSizeInfo_t));
+static_assert(sizeof(RtExceptionErrRegInfo) == sizeof(rtExceptionErrRegInfo_t));
+static_assert(sizeof(RtErrRegInfo) == sizeof(rtErrRegInfo_t));
+static_assert(sizeof(RtExceptionKernelInfo) == sizeof(rtExceptionKernelInfo_t));
+static_assert(sizeof(RtExceptionArgsInfo) == sizeof(rtExceptionArgsInfo_t));
+static_assert(sizeof(RtFftsPlusExDetailInfo) == sizeof(rtFftsPlusExDetailInfo_t));
+static_assert(sizeof(RtAicoreExDetailInfo) == sizeof(rtAicoreExDetailInfo_t));
+static_assert(sizeof(RtUbExDetailInfo) == sizeof(rtUbExDetailInfo_t));
+static_assert(sizeof(RtCcuMissionDetailInfo) == sizeof(rtCcuMissionDetailInfo_t));
+static_assert(sizeof(RtMultiCCUExDetailInfo) == sizeof(rtMultiCCUExDetailInfo_t));
+static_assert(sizeof(RtFusionAICoreCCUExDetailInfo) == sizeof(rtFusionAICoreCCUExDetailInfo_t));
+static_assert(sizeof(RtFusionExDetailInfo) == sizeof(rtFusionExDetailInfo_t));
+static_assert(sizeof(RtExceptionExpandInfo) == sizeof(rtExceptionExpandInfo_t));
+static_assert(sizeof(RtExceptionInfo) == sizeof(rtExceptionInfo_t));
 #endif
 }
