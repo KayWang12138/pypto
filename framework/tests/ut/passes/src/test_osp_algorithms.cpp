@@ -48,7 +48,6 @@
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.h"
 #include "passes/algorithms/osp/graph_implementations/integral_range.h"
 
-
 namespace npu::tile_fwk {
 namespace osp {
 
@@ -70,7 +69,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(OspAlgorithmTest, UnionFind1) {
+TEST_F(OspAlgorithmTest, UnionFind1)
+{
     std::vector<std::string> names({"a", "b", "c", "d", "e", "f"});
     UnionFindUniverse<std::string, unsigned, int> testUniverse;
     for (const auto &name : names) {
@@ -124,7 +124,8 @@ TEST_F(OspAlgorithmTest, UnionFind1) {
     EXPECT_NE(testUniverse.FindOriginByName("a"), testUniverse.FindOriginByName("f"));
 }
 
-TEST_F(OspAlgorithmTest, UnionFind2) {
+TEST_F(OspAlgorithmTest, UnionFind2)
+{
     std::vector<std::string> names({"a", "b", "c", "d", "e", "f", "g", "h", "i"});
     UnionFindUniverse<std::string, unsigned, int> testUniverse;
 
@@ -175,7 +176,8 @@ TEST_F(OspAlgorithmTest, UnionFind2) {
     EXPECT_EQ(testUniverse.GetNumberOfConnectedComponents(), 0);
 }
 
-TEST_F(OspAlgorithmTest, UnionFind3) {
+TEST_F(OspAlgorithmTest, UnionFind3)
+{
     std::vector<std::string> names({"a", "b", "c", "d", "e", "f"});
     std::vector<unsigned> weights({1, 2, 1, 3, 1, 1});
 
@@ -240,7 +242,8 @@ TEST_F(OspAlgorithmTest, UnionFind3) {
     }
 }
 
-TEST_F(OspAlgorithmTest, IntSqrt) {
+TEST_F(OspAlgorithmTest, IntSqrt)
+{
     for (std::size_t root = 1U; root < 200U; ++root) {
         for (std::size_t num = root * root; num < (root + 1U) * (root + 1U); ++num) {
             EXPECT_EQ(IntSqrtFloor(num), root);
@@ -254,7 +257,8 @@ TEST_F(OspAlgorithmTest, IntSqrt) {
     }
 }
 
-TEST_F(OspAlgorithmTest, Divisors) {
+TEST_F(OspAlgorithmTest, Divisors)
+{
     for (std::size_t num = 1U; num < 1000U; ++num) {
         const std::vector<std::size_t> divs = DivisorsList(num);
         for (const std::size_t &div : divs) {
@@ -273,7 +277,8 @@ TEST_F(OspAlgorithmTest, Divisors) {
     }
 }
 
-bool thueMorseGen(long unsigned int n) {
+bool thueMorseGen(long unsigned int n)
+{
     unsigned long int bin_sum = 0;
     while (n != 0) {
         bin_sum += n % 2;
@@ -282,7 +287,8 @@ bool thueMorseGen(long unsigned int n) {
     return bool(bin_sum % 2);
 }
 
-TEST_F(OspAlgorithmTest, RandomBiasedCoin) {
+TEST_F(OspAlgorithmTest, RandomBiasedCoin)
+{
     BiasedRandom Coin;
     bool valAnd = true;
     bool valOr = false;
@@ -297,7 +303,8 @@ TEST_F(OspAlgorithmTest, RandomBiasedCoin) {
     EXPECT_TRUE(valOr);
 }
 
-TEST_F(OspAlgorithmTest, ThueMorse) {
+TEST_F(OspAlgorithmTest, ThueMorse)
+{
     ThueMorseSequence coin(0);
 
     std::vector<bool> beginning(
@@ -316,7 +323,8 @@ TEST_F(OspAlgorithmTest, ThueMorse) {
     }
 }
 
-TEST_F(OspAlgorithmTest, InPlaceInversePermutationRandom) {
+TEST_F(OspAlgorithmTest, InPlaceInversePermutationRandom)
+{
     std::vector<unsigned> vec(20);
     std::iota(vec.begin(), vec.end(), 0);
     std::vector<unsigned> sol(vec);
@@ -339,7 +347,8 @@ TEST_F(OspAlgorithmTest, InPlaceInversePermutationRandom) {
     }
 }
 
-TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar) {
+TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar)
+{
     std::vector<char> vec({'a', 'b', 'c', 'd', 'e', 'f', 'g'});
     std::vector<std::size_t> perm({4, 0, 1, 2, 3, 6, 5});
     std::vector<char> sol({'e', 'a', 'b', 'c', 'd', 'g', 'f'});
@@ -350,7 +359,8 @@ TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar) {
     }
 }
 
-TEST_F(OspAlgorithmTest, Architecture) {
+TEST_F(OspAlgorithmTest, Architecture)
+{
     std::vector<std::vector<WorkType>> uniformSentCosts = {
         {0, 1, 1, 1},
         {1, 0, 1, 1},
@@ -400,14 +410,16 @@ TEST_F(OspAlgorithmTest, Architecture) {
     EXPECT_EQ(architecture.CommunicationCosts(0, 0), 0);
 }
 
-TEST_F(OspAlgorithmTest, EmptyGraph) {
+TEST_F(OspAlgorithmTest, EmptyGraph)
+{
     GraphType graph;
 
     EXPECT_EQ(graph.NumVertices(), 0);
     EXPECT_EQ(graph.NumEdges(), 0);
 }
 
-TEST_F(OspAlgorithmTest, NoEdgesGraph) {
+TEST_F(OspAlgorithmTest, NoEdgesGraph)
+{
     const std::vector<std::pair<VertType, VertType>> edges({});
 
     GraphType graph(10, edges);
@@ -416,7 +428,8 @@ TEST_F(OspAlgorithmTest, NoEdgesGraph) {
     EXPECT_EQ(graph.NumEdges(), 0);
 }
 
-GraphType LineGraph() {
+GraphType LineGraph()
+{
     const std::set<std::pair<VertType, VertType>> edges({
         {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7}
     });
@@ -424,7 +437,8 @@ GraphType LineGraph() {
     return GraphType(8, edges);
 }
 
-TEST_F(OspAlgorithmTest, TestLineGraph) {
+TEST_F(OspAlgorithmTest, TestLineGraph)
+{
     const GraphType graph = LineGraph();
 
     EXPECT_EQ(graph.NumVertices(), 8);
@@ -469,7 +483,8 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
     }
 }
 
-GraphType SimpleGraph() {
+GraphType SimpleGraph()
+{
     const std::vector<std::pair<VertType, VertType>> edges({
         {0,  1}, {2,  3}, {6, 10}, {7,  9}, {0,  2}, {4,  6}, {1,  6}, {6,  7}, {5,  6}, {3,  7}, {1,  2}
     });
@@ -477,13 +492,16 @@ GraphType SimpleGraph() {
     return GraphType(11, edges);
 }
 
-TEST_F(OspAlgorithmTest, Graph1) {
+TEST_F(OspAlgorithmTest, Graph1)
+{
     const GraphType graph = SimpleGraph();
 
     EXPECT_EQ(graph.NumVertices(), 11);
     EXPECT_EQ(graph.NumEdges(), 11);
 
-    std::size_t cntr0{}, cntrChldEdges{}, cntrParEdges{};
+    std::size_t cntr0{};
+    std::size_t cntrChldEdges{};
+    std::size_t cntrParEdges{};
     for (const auto &vert : graph.Vertices()) {
         EXPECT_EQ(vert, cntr0++);
         cntrChldEdges += graph.OutDegree(vert);
@@ -532,7 +550,8 @@ TEST_F(OspAlgorithmTest, Graph1) {
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphWorkWeights) {
+TEST_F(OspAlgorithmTest, GraphWorkWeights)
+{
     std::vector<unsigned> ww(11);
     std::iota(ww.begin(), ww.end(), 0);
 
@@ -550,7 +569,8 @@ TEST_F(OspAlgorithmTest, GraphWorkWeights) {
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphCommWeights) {
+TEST_F(OspAlgorithmTest, GraphCommWeights)
+{
     std::vector<unsigned> cw(11);
     std::iota(cw.begin(), cw.end(), 11);
 
@@ -568,7 +588,8 @@ TEST_F(OspAlgorithmTest, GraphCommWeights) {
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphMemWeights) {
+TEST_F(OspAlgorithmTest, GraphMemWeights)
+{
     std::vector<unsigned> mw(11);
     std::iota(mw.begin(), mw.end(), 22);
 
@@ -587,7 +608,8 @@ TEST_F(OspAlgorithmTest, GraphMemWeights) {
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphVtype) {
+TEST_F(OspAlgorithmTest, GraphVtype)
+{
     std::vector<unsigned> vt(11);
     std::iota(vt.begin(), vt.end(), 33);
 
@@ -606,7 +628,8 @@ TEST_F(OspAlgorithmTest, GraphVtype) {
     }
 }
 
-TEST_F(OspAlgorithmTest, ExpansionMapValidity) {
+TEST_F(OspAlgorithmTest, ExpansionMapValidity)
+{
     const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap1 = {{0}, {1}, {2}, {3}};
     EXPECT_TRUE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap1));
 
@@ -623,7 +646,8 @@ TEST_F(OspAlgorithmTest, ExpansionMapValidity) {
     EXPECT_FALSE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap5));
 }
 
-TEST_F(OspAlgorithmTest, ContractionMapValidity) {
+TEST_F(OspAlgorithmTest, ContractionMapValidity)
+{
     const std::vector<VertexIdxT<GraphType>> contractionMap1 = {0, 1, 2, 3};
     EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap1));
 
@@ -637,7 +661,8 @@ TEST_F(OspAlgorithmTest, ContractionMapValidity) {
     EXPECT_FALSE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap4));
 }
 
-TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
+TEST_F(OspAlgorithmTest, ContractionMapCoarsening)
+{
     std::set<std::pair<VertexIdxT<GraphType>, VertexIdxT<GraphType>>> edges({
         {0, 1},
         {1, 2}
@@ -671,7 +696,8 @@ TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
     }
 }
 
-TEST_F(OspAlgorithmTest, TestTopSort) {
+TEST_F(OspAlgorithmTest, TestTopSort)
+{
     const GraphType graph = SimpleGraph();
 
     std::vector<VertexIdxT<GraphType>> verts(graph.NumVertices());
@@ -687,7 +713,8 @@ TEST_F(OspAlgorithmTest, TestTopSort) {
     }
 }
 
-TEST_F(OspAlgorithmTest, NodeDistances) {
+TEST_F(OspAlgorithmTest, NodeDistances)
+{
     const std::vector<unsigned> botDistAns = {5, 4, 3, 2, 3, 3, 2, 1, 0, 0, 0};
     const std::vector<unsigned> topDistAns = {0, 1, 2, 3, 0, 0, 2, 4, 0, 5, 3};
 
@@ -704,7 +731,8 @@ TEST_F(OspAlgorithmTest, NodeDistances) {
     }
 }
 
-TEST_F(OspAlgorithmTest, TestIntegralRange) {
+TEST_F(OspAlgorithmTest, TestIntegralRange)
+{
     const std::size_t length0 = 0U;
     for (const auto val : IntegralRange(length0)) {
         EXPECT_TRUE(false);
@@ -736,7 +764,8 @@ TEST_F(OspAlgorithmTest, TestIntegralRange) {
 template<typename OtherGraphType>
 void testValidContractionMap(const GraphType &graph,
                              const OtherGraphType &coarseGraph,
-                             const std::vector<VertexIdxT<GraphType>> &contractionMap) {
+                             const std::vector<VertexIdxT<GraphType>> &contractionMap)
+{
     EXPECT_EQ(contractionMap.size(), graph.NumVertices());
     EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap));
 
@@ -748,7 +777,9 @@ void testValidContractionMap(const GraphType &graph,
     std::vector<VertexIdxT<GraphType>> coarseVerts(coarseGraph.NumVertices());
     std::iota(coarseVerts.begin(), coarseVerts.end(), 0);
     const auto coarseTopOrder = GetTopOrder<OtherGraphType>(coarseGraph);
-    EXPECT_TRUE(std::is_permutation(coarseTopOrder.cbegin(), coarseTopOrder.cend(), coarseVerts.cbegin(), coarseVerts.cend()));
+    EXPECT_TRUE(std::is_permutation(
+        coarseTopOrder.cbegin(), coarseTopOrder.cend(),
+        coarseVerts.cbegin(), coarseVerts.cend()));
     for (const auto vert : coarseGraph.Vertices()) {
         for (const auto chld : coarseGraph.Children(vert)) {
             EXPECT_GT(std::distance(std::find(coarseTopOrder.cbegin(), coarseTopOrder.cend(), vert),
@@ -775,7 +806,8 @@ void testValidContractionMap(const GraphType &graph,
     }
 }
 
-GraphType SimpleGraphWithVertexTypes() {
+GraphType SimpleGraphWithVertexTypes()
+{
     std::vector<unsigned> vt(11, 0);
     vt[0] = 1U;
     vt[1] = 1U;
@@ -789,7 +821,8 @@ GraphType SimpleGraphWithVertexTypes() {
     return graph;
 }
 
-void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
+void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser)
+{
     GraphType graph = SimpleGraphWithVertexTypes();
 
     GraphType coarseGraph;
@@ -799,7 +832,8 @@ void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
     testValidContractionMap(graph, coarseGraph, contractionMap);
 }
 
-TEST_F(OspAlgorithmTest, CoarsenSarkar) {
+TEST_F(OspAlgorithmTest, CoarsenSarkar)
+{
     sarkar_params::Parameters<VWorkwT<GraphType>> params;
     params.mode_ = sarkar_params::Mode::LINES;
     params.commCost_ = 100;
@@ -850,8 +884,8 @@ TEST_F(OspAlgorithmTest, CoarsenSarkar) {
     testCoarseningAlgorithm(coarser);
 }
 
-
-TEST_F(OspAlgorithmTest, CoarsenSarkarML) {
+TEST_F(OspAlgorithmTest, CoarsenSarkarML)
+{
     sarkar_params::MulParameters<VWorkwT<GraphType>> params;
     params.commCostVec_ = {100};
 
@@ -866,7 +900,8 @@ TEST_F(OspAlgorithmTest, CoarsenSarkarML) {
     testCoarseningAlgorithm(coarser);
 }
 
-TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
+TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph)
+{
     const std::vector<std::vector<VertType>> outEdges({
         {1, 2}, {2, 6}, {3}, {7}, {6}, {6}, {7, 10}, {9}, {}, {}, {}
     });
@@ -879,7 +914,9 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
     EXPECT_EQ(graph.NumVertices(), 11);
     EXPECT_EQ(graph.NumEdges(), 11);
 
-    std::size_t cntr0{}, cntrChldEdges{}, cntrParEdges{};
+    std::size_t cntr0{};
+    std::size_t cntrChldEdges{};
+    std::size_t cntrParEdges{};
     for (const auto &vert : graph.Vertices()) {
         EXPECT_EQ(vert, cntr0++);
         cntrChldEdges += graph.OutDegree(vert);
@@ -925,7 +962,8 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
     }
 }
 
-TEST_F(OspAlgorithmTest, BspSchedulers) {
+TEST_F(OspAlgorithmTest, BspSchedulers)
+{
     BspInstance<GraphType> bspInst;
     bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
     bspInst.GetComputationalDag() = SimpleGraph();
@@ -939,11 +977,11 @@ TEST_F(OspAlgorithmTest, BspSchedulers) {
     GreedyChildren<GraphType> children;
     children.ComputeSchedule(schedule);
     EXPECT_TRUE(schedule.IsValid());
-        
+
     KlImprover<GraphType, KlHyperTotalCommCostFunction<GraphType, double, 1>, 1, double> kl;
     kl.SetSuperstepRemoveStrengthParameter(1.0);
     kl.SetTimeQualityParameter(1.0);
-    
+
     ComboScheduler<GraphType> growlocalKl(growlocal, kl);
     growlocalKl.ComputeSchedule(schedule);
     EXPECT_TRUE(schedule.IsValid());
@@ -961,7 +999,8 @@ TEST_F(OspAlgorithmTest, BspSchedulers) {
     EXPECT_TRUE(schedule.IsValid());
 }
 
-TEST_F(OspAlgorithmTest, CoarsenMerkleBsp) {
+TEST_F(OspAlgorithmTest, CoarsenMerkleBsp)
+{
     BspInstance<GraphType> bspInst;
     bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
     bspInst.GetArchitecture().SetProcessorsWithTypes(std::vector<unsigned>({0U, 0U, 1U}));
@@ -970,11 +1009,11 @@ TEST_F(OspAlgorithmTest, CoarsenMerkleBsp) {
 
     GrowLocalAutoCores<ConstrGraphType> growlocal;
     GreedyChildren<ConstrGraphType> children;
-        
+
     KlImprover<ConstrGraphType, KlHyperTotalCommCostFunction<ConstrGraphType, double, 1>, 1, double> kl;
     kl.SetSuperstepRemoveStrengthParameter(1.0);
     kl.SetTimeQualityParameter(1.0);
-    
+
     ComboScheduler<ConstrGraphType> growlocalKl(growlocal, kl);
     ComboScheduler<ConstrGraphType> childrenKl(children, kl);
 
@@ -984,7 +1023,8 @@ TEST_F(OspAlgorithmTest, CoarsenMerkleBsp) {
     scheduler.AddSerialScheduler();
 
     std::vector<uint64_t> nodeHashList(bspInst.GetComputationalDag().NumVertices(), 7U);
-    MerkleHashComputer<GraphType, PrecomBwdMerkleNodeHashFunc<GraphType>> hashComputer(bspInst.GetComputationalDag(), bspInst.GetComputationalDag(), nodeHashList);
+    MerkleHashComputer<GraphType, PrecomBwdMerkleNodeHashFunc<GraphType>> hashComputer(
+        bspInst.GetComputationalDag(), bspInst.GetComputationalDag(), nodeHashList);
     IsomorphicSubgraphScheduler<GraphType, ConstrGraphType> isoScheduler(scheduler, hashComputer);
     isoScheduler.SetWorkThreshold(200);
     isoScheduler.SetCriticalPathThreshold(500);

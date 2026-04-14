@@ -278,7 +278,7 @@ TEST_F(GraphPartitionTest, TestIsoParameterFailure)
     EXPECT_EQ(partitioner.PartitionGraph(*function), FAILED);
 }
 
-TEST_F(GraphPartitionTest, TestOspParameter) 
+TEST_F(GraphPartitionTest, TestOspParameter)
 {
     ComputationalGraphBuilder G;
     Function *function = G.GetFunction();
@@ -314,7 +314,7 @@ TEST_F(GraphPartitionTest, TestEmptyGraph)
     EXPECT_EQ(function->GetTotalSubGraphCount(), 0);
 }
 
-TEST_F(GraphPartitionTest, TestSarkarEmptyGraph) 
+TEST_F(GraphPartitionTest, TestSarkarEmptyGraph)
 {
     const std::string partitionAlg = "OspSarkar";
 
@@ -327,7 +327,7 @@ TEST_F(GraphPartitionTest, TestSarkarEmptyGraph)
     EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
 }
 
-TEST_F(GraphPartitionTest, TestOrbitBspEmptyGraph) 
+TEST_F(GraphPartitionTest, TestOrbitBspEmptyGraph)
 {
     const std::string partitionAlg = "OspBsp";
 
@@ -340,7 +340,7 @@ TEST_F(GraphPartitionTest, TestOrbitBspEmptyGraph)
     EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
 }
 
-TEST_F(GraphPartitionTest, TestPartitionerParameterFailure) 
+TEST_F(GraphPartitionTest, TestPartitionerParameterFailure)
 {
     const std::string partitionAlg = "NotExistent";
 
@@ -353,9 +353,9 @@ TEST_F(GraphPartitionTest, TestPartitionerParameterFailure)
     EXPECT_EQ(gpp.RunOnFunction(*function), FAILED);
 }
 
-void GetCubeVectorGraph(ComputationalGraphBuilder &G, int brNum) 
+void GetCubeVectorGraph(ComputationalGraphBuilder &G, int brNum)
 {
-    std::vector<int64_t> tileShape{16,16};
+    std::vector<int64_t> tileShape{16, 16};
     std::vector<std::string> inTensorNames;
     for (int i = 0; i < brNum; i++) {
         std::string br = std::to_string(i);
@@ -443,7 +443,7 @@ TEST_F(GraphPartitionTest, TestCVGraph)
     EXPECT_EQ(subgraphIDs.size(), subGraphNum);
 }
 
-TEST_F(GraphPartitionTest, TestOspCVGraph) 
+TEST_F(GraphPartitionTest, TestOspCVGraph)
 {
     for (const auto partitionAlg : {"Iso", "OspSarkar", "OspBsp"}) {
         ComputationalGraphBuilder G;
@@ -488,7 +488,7 @@ TEST_F(GraphPartitionTest, TestOspCVGraph)
     }
 }
 
-TEST_F(GraphPartitionTest, TestMixCVGraph) 
+TEST_F(GraphPartitionTest, TestMixCVGraph)
 {
     for (const auto mode : {OspMode::SARKAR, OspMode::MERKLEBSP}) {
         ComputationalGraphBuilder G;
@@ -510,9 +510,9 @@ TEST_F(GraphPartitionTest, TestMixCVGraph)
     }
 }
 
-void GetMergeableGraph(ComputationalGraphBuilder &G, int brNum) 
+void GetMergeableGraph(ComputationalGraphBuilder &G, int brNum)
 {
-    std::vector<int64_t> tileShape{16,16};
+    std::vector<int64_t> tileShape{16, 16};
     std::vector<std::string> inCast;
     std::vector<std::string> outCast;
     for (int i = 0; i < brNum; i++) {
