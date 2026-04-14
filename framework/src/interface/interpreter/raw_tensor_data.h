@@ -333,6 +333,11 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     void SetDevPtr(uint8_t* ptr) { devPtr_ = ptr; }
     uint8_t* GetDevPtr() { return devPtr_; }
 
+    bool IsSharedMemory() const { return isSharedMemory_; }
+    int GetGroupIndex() const { return groupIndex_; }
+    int GetMemType() const { return memType_; }
+    size_t GetShmemOffset() const { return shmemOffset_; }
+
     void ToFile(const std::string& path) const
     {
         std::ofstream ofile(path, std::ios::out | std::ios::binary);
@@ -355,6 +360,15 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         return static_cast<size_t>((nelem + 1) / 2);
     }
 
+    void SetExternalBuffer(void* ptr, size_t size) {
+        externalBufferPtr_ = ptr;
+        externalBufferSize_ = size;
+    }
+
+    bool UsesExternalBuffer() const { return externalBufferPtr_ != nullptr; }
+    void* GetExternalBuffer() const { return externalBufferPtr_; }
+    size_t GetExternalBufferSize() const { return externalBufferSize_; }
+
 private:
     uint8_t* devPtr_{nullptr};
     DataType dataType_;
@@ -364,6 +378,14 @@ private:
     // Signed: GetDataSize(DataType) uses -1 for sub-byte dtypes; storing as size_t wrapped to huge
     // and broke vector allocation in SetVerifyData / RawTensorData::CreateTensor.
     int elemSize_;
+    
+    bool isSharedMemory_{false};
+    int groupIndex_{-1};
+    int memType_{0};
+    size_t shmemOffset_{0};
+    void* shmemPtr_{nullptr};
+    void* externalBufferPtr_{nullptr};
+    size_t externalBufferSize_{0};
 };
 
 using RawTensorDataPtr = std::shared_ptr<RawTensorData>;
