@@ -41,121 +41,531 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_1d_axis_0) {
-    PROGRAM("UNSQUEEZE_FP32_1D_AXIS_0") {
+// fp16 test cases
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_001) {
+    PROGRAM("UNSQUEEZE_FP16_001") {
         TileShape::Current().SetVecTile({16});
-        Tensor operand(DT_FP32, {16}, "operand");
+        Tensor operand(DT_FP16, {2}, "operand");
         Tensor result;
-        FUNCTION("UNSQUEEZE_FP32_1D_AXIS_0") {
+        FUNCTION("UNSQUEEZE_FP16_001") {
             result = Unsqueeze(operand, 0);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_1D_AXIS_0");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_1d_axis_neg1) {
-    PROGRAM("UNSQUEEZE_FP32_1D_AXIS_NEG1") {
-        TileShape::Current().SetVecTile({16});
-        Tensor operand(DT_FP32, {16}, "operand");
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_002) {
+    PROGRAM("UNSQUEEZE_FP16_002") {
+        TileShape::Current().SetVecTile({1, 16});
+        Tensor operand(DT_FP16, {2, 3}, "operand");
         Tensor result;
-        FUNCTION("UNSQUEEZE_FP32_1D_AXIS_NEG1") {
-            result = Unsqueeze(operand, -1);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_1D_AXIS_NEG1");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_2d_axis_0) {
-    PROGRAM("UNSQUEEZE_FP32_2D_AXIS_0") {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor operand(DT_FP32, {4, 4}, "operand");
-        Tensor result;
-        FUNCTION("UNSQUEEZE_FP32_2D_AXIS_0") {
+        FUNCTION("UNSQUEEZE_FP16_002") {
             result = Unsqueeze(operand, 0);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_2D_AXIS_0");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_002");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_2d_axis_1) {
-    PROGRAM("UNSQUEEZE_FP32_2D_AXIS_1") {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor operand(DT_FP32, {4, 4}, "operand");
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_003) {
+    PROGRAM("UNSQUEEZE_FP16_003") {
+        TileShape::Current().SetVecTile({1, 16});
+        Tensor operand(DT_FP16, {2, 3}, "operand");
         Tensor result;
-        FUNCTION("UNSQUEEZE_FP32_2D_AXIS_1") {
+        FUNCTION("UNSQUEEZE_FP16_003") {
             result = Unsqueeze(operand, 1);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_2D_AXIS_1");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_003");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_2d_axis_neg1) {
-    PROGRAM("UNSQUEEZE_FP32_2D_AXIS_NEG1") {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor operand(DT_FP32, {4, 4}, "operand");
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_004) {
+    PROGRAM("UNSQUEEZE_FP16_004") {
+        TileShape::Current().SetVecTile({1, 1, 16});
+        Tensor operand(DT_FP16, {2, 3, 4}, "operand");
         Tensor result;
-        FUNCTION("UNSQUEEZE_FP32_2D_AXIS_NEG1") {
-            result = Unsqueeze(operand, -1);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_2D_AXIS_NEG1");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_2d_axis_0) {
-    PROGRAM("UNSQUEEZE_FP16_2D_AXIS_0") {
-        TileShape::Current().SetVecTile({4, 4});
-        Tensor operand(DT_FP16, {4, 4}, "operand");
-        Tensor result;
-        FUNCTION("UNSQUEEZE_FP16_2D_AXIS_0") {
-            result = Unsqueeze(operand, 0);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_2D_AXIS_0");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_3d_axis_1) {
-    PROGRAM("UNSQUEEZE_FP32_3D_AXIS_1") {
-        TileShape::Current().SetVecTile({2, 4, 4});
-        Tensor operand(DT_FP32, {2, 4, 4}, "operand");
-        Tensor result;
-        FUNCTION("UNSQUEEZE_FP32_3D_AXIS_1") {
-            result = Unsqueeze(operand, 1);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_3D_AXIS_1");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_4d_axis_2) {
-    PROGRAM("UNSQUEEZE_FP32_4D_AXIS_2") {
-        TileShape::Current().SetVecTile({1, 1, 4, 4});
-        Tensor operand(DT_FP32, {2, 2, 4, 4}, "operand");
-        Tensor result;
-        FUNCTION("UNSQUEEZE_FP32_4D_AXIS_2") {
+        FUNCTION("UNSQUEEZE_FP16_004") {
             result = Unsqueeze(operand, 2);
         }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_4D_AXIS_2");
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_004");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_005) {
+    PROGRAM("UNSQUEEZE_FP16_005") {
+        TileShape::Current().SetVecTile({1, 1, 1, 16});
+        Tensor operand(DT_FP16, {2, 3, 4, 5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP16_005") {
+            result = Unsqueeze(operand, 3);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_005");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_006) {
+    PROGRAM("UNSQUEEZE_FP16_006") {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_FP16, {5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP16_006") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_006");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_007) {
+    PROGRAM("UNSQUEEZE_FP16_007") {
+        TileShape::Current().SetVecTile({1, 16});
+        Tensor operand(DT_FP16, {3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP16_007") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_007");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_008) {
+    PROGRAM("UNSQUEEZE_FP16_008") {
+        TileShape::Current().SetVecTile({1, 2, 16});
+        Tensor operand(DT_FP16, {3, 4, 5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP16_008") {
+            result = Unsqueeze(operand, 1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_008");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_009) {
+    PROGRAM("UNSQUEEZE_FP16_009") {
+        TileShape::Current().SetVecTile({1, 1, 1, 1, 16});
+        Tensor operand(DT_FP16, {2, 3, 4, 5, 6}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP16_009") {
+            result = Unsqueeze(operand, 4);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_009");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp16_010) {
+    PROGRAM("UNSQUEEZE_FP16_010") {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_FP16, {4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP16_010") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP16_010");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// fp32 test cases
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_001) {
+    PROGRAM("UNSQUEEZE_FP32_001") {
+        TileShape::Current().SetVecTile({8});
+        Tensor operand(DT_FP32, {2}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_001") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_002) {
+    PROGRAM("UNSQUEEZE_FP32_002") {
+        TileShape::Current().SetVecTile({1, 8});
+        Tensor operand(DT_FP32, {2, 3}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_002") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_002");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_003) {
+    PROGRAM("UNSQUEEZE_FP32_003") {
+        TileShape::Current().SetVecTile({1, 8});
+        Tensor operand(DT_FP32, {2, 3}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_003") {
+            result = Unsqueeze(operand, 1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_003");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_004) {
+    PROGRAM("UNSQUEEZE_FP32_004") {
+        TileShape::Current().SetVecTile({1, 1, 8});
+        Tensor operand(DT_FP32, {2, 3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_004") {
+            result = Unsqueeze(operand, 2);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_004");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_005) {
+    PROGRAM("UNSQUEEZE_FP32_005") {
+        TileShape::Current().SetVecTile({1, 1, 1, 8});
+        Tensor operand(DT_FP32, {2, 3, 4, 5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_005") {
+            result = Unsqueeze(operand, 3);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_005");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_006) {
+    PROGRAM("UNSQUEEZE_FP32_006") {
+        TileShape::Current().SetVecTile({8});
+        Tensor operand(DT_FP32, {5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_006") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_006");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_007) {
+    PROGRAM("UNSQUEEZE_FP32_007") {
+        TileShape::Current().SetVecTile({1, 8});
+        Tensor operand(DT_FP32, {3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_007") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_007");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_008) {
+    PROGRAM("UNSQUEEZE_FP32_008") {
+        TileShape::Current().SetVecTile({1, 2, 8});
+        Tensor operand(DT_FP32, {3, 4, 5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_008") {
+            result = Unsqueeze(operand, 1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_008");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_009) {
+    PROGRAM("UNSQUEEZE_FP32_009") {
+        TileShape::Current().SetVecTile({1, 1, 1, 1, 8});
+        Tensor operand(DT_FP32, {2, 3, 4, 5, 6}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_009") {
+            result = Unsqueeze(operand, 4);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_009");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_fp32_010) {
+    PROGRAM("UNSQUEEZE_FP32_010") {
+        TileShape::Current().SetVecTile({8});
+        Tensor operand(DT_FP32, {4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_FP32_010") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_FP32_010");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// int8 test cases
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int8_001) {
+    PROGRAM("UNSQUEEZE_INT8_001") {
+        TileShape::Current().SetVecTile({32});
+        Tensor operand(DT_INT8, {2}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT8_001") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT8_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int8_002) {
+    PROGRAM("UNSQUEEZE_INT8_002") {
+        TileShape::Current().SetVecTile({1, 32});
+        Tensor operand(DT_INT8, {2, 3}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT8_002") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT8_002");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int8_003) {
+    PROGRAM("UNSQUEEZE_INT8_003") {
+        TileShape::Current().SetVecTile({1, 1, 32});
+        Tensor operand(DT_INT8, {2, 3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT8_003") {
+            result = Unsqueeze(operand, 2);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT8_003");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int8_004) {
+    PROGRAM("UNSQUEEZE_INT8_004") {
+        TileShape::Current().SetVecTile({32});
+        Tensor operand(DT_INT8, {5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT8_004") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT8_004");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int8_005) {
+    PROGRAM("UNSQUEEZE_INT8_005") {
+        TileShape::Current().SetVecTile({1, 32});
+        Tensor operand(DT_INT8, {3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT8_005") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT8_005");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// int16 test cases
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int16_001) {
+    PROGRAM("UNSQUEEZE_INT16_001") {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_INT16, {2}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT16_001") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT16_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int16_002) {
+    PROGRAM("UNSQUEEZE_INT16_002") {
+        TileShape::Current().SetVecTile({1, 16});
+        Tensor operand(DT_INT16, {2, 3}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT16_002") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT16_002");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int16_003) {
+    PROGRAM("UNSQUEEZE_INT16_003") {
+        TileShape::Current().SetVecTile({1, 1, 16});
+        Tensor operand(DT_INT16, {2, 3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT16_003") {
+            result = Unsqueeze(operand, 2);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT16_003");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int16_004) {
+    PROGRAM("UNSQUEEZE_INT16_004") {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_INT16, {5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT16_004") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT16_004");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int16_005) {
+    PROGRAM("UNSQUEEZE_INT16_005") {
+        TileShape::Current().SetVecTile({1, 16});
+        Tensor operand(DT_INT16, {3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT16_005") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT16_005");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// int32 test cases
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int32_001) {
+    PROGRAM("UNSQUEEZE_INT32_001") {
+        TileShape::Current().SetVecTile({8});
+        Tensor operand(DT_INT32, {2}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT32_001") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT32_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int32_002) {
+    PROGRAM("UNSQUEEZE_INT32_002") {
+        TileShape::Current().SetVecTile({1, 8});
+        Tensor operand(DT_INT32, {2, 3}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT32_002") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT32_002");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int32_003) {
+    PROGRAM("UNSQUEEZE_INT32_003") {
+        TileShape::Current().SetVecTile({1, 1, 8});
+        Tensor operand(DT_INT32, {2, 3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT32_003") {
+            result = Unsqueeze(operand, 2);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT32_003");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int32_004) {
+    PROGRAM("UNSQUEEZE_INT32_004") {
+        TileShape::Current().SetVecTile({8});
+        Tensor operand(DT_INT32, {5}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT32_004") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT32_004");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenUnsqueeze, test_unsqueeze_int32_005) {
+    PROGRAM("UNSQUEEZE_INT32_005") {
+        TileShape::Current().SetVecTile({1, 8});
+        Tensor operand(DT_INT32, {3, 4}, "operand");
+        Tensor result;
+        FUNCTION("UNSQUEEZE_INT32_005") {
+            result = Unsqueeze(operand, 0);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "UNSQUEEZE_INT32_005");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
