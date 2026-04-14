@@ -1037,7 +1037,6 @@ OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(
     }
     spillInfo.allocOccupiedSize = allocOccupied;
     if (needCopyOut) {
-        auto dtype = spillOutTensor->tensor->datatype;
         spillInfo.spillCopyoutSize = spillOutTensor->tensor->GetRawDataSize();
     } else {
         spillInfo.spillCopyoutSize = 0;
