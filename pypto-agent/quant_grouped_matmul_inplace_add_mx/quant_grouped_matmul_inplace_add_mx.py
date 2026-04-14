@@ -332,7 +332,13 @@ def scaled_matmul_kernel(
             tile_config.k_tile_shape,
             tile_config.n_tile_shape
         )
-        y[i] = pypto.scaled_mm(x, weight, pypto.DT_FP32, scaled_x, scaled_weight)
+        mm_result = pypto.scaled_mm(x, weight, pypto.DT_FP32, scaled_x, scaled_weight)
+        
+        # 使用 index_put_ 进行原地累加
+        # values 需要是 [1, M, N] 以满足约束：(input.dim=3) + 1 = (indices.size=1) + (values.dim=3)
+        mm_result_3d = pypto.unsqueeze(mm_result, 0)
+        index_tensor = pypto.tensor([i], pypto.DT_INT32)
+        pypto.index_put_(y, (index_tensor,), mm_result_3d, accumulate=True)
 
 
 def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
