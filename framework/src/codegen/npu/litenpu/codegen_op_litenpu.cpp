@@ -91,11 +91,9 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& us
 }
 
 void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
-    int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop)
+    int paramIdx, TileTensor& tileTensor, [[maybe_unused]] bool isSpillToGm,
+    [[maybe_unused]] const ShapeInLoop& shapeInLoop)
 {
-    (void)isSpillToGm; // TODO...
-    (void)shapeInLoop; // TODO...
-
     auto newOriginShape = originShape[paramIdx];
     auto newRawShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.rawShape : rawShape[paramIdx];
     auto newDynValidShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape : dynamicValidShape[paramIdx];

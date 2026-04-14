@@ -40,7 +40,7 @@ public:
     explicit CodeGenOpLiteNPU(const CodeGenOpNPUCtx& ctx);
     ~CodeGenOpLiteNPU() override = default;
 
-protected:
+private:
     TileTensor QueryTileTensorByIdx(int paramIdx) const override;
 
     std::string GenGmParamVar(unsigned gmParamIdx) const override;

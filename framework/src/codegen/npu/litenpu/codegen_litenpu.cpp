@@ -34,6 +34,7 @@
 namespace npu::tile_fwk {
 
 using SubstMap = std::map<std::string, std::string>;
+
 static std::string StringSubstitute(std::string const& in, SubstMap const& subst)
 {
     const char* tokenHead = "${";
@@ -64,7 +65,7 @@ static std::string StringSubstitute(std::string const& in, SubstMap const& subst
     return out.str();
 }
 
-std::string GetDtype(DataType dtype)
+static std::string GetDtype(DataType dtype)
 {
     switch (dtype) {
         case DataType::DT_UINT8:
@@ -98,7 +99,7 @@ static bool CompareStrings(const std::string& s1, const std::string& s2)
     return str1 < str2;
 }
 
-std::map<int, std::string> GenParamsSymbolMap(
+std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
     const SubfuncParam& subFuncParam, std::vector<std::string>& params, std::map<std::string, std::string>& dTypeMap)
 {
     auto& tensorInvokeArgs = subFuncParam.tensorsArgs_;
@@ -110,13 +111,13 @@ std::map<int, std::string> GenParamsSymbolMap(
     auto f = [&paramsSet, &dTypeMap, &symbolMap](size_t offset, auto& invokeArgs) {
         CODEGEN_LOGI("start offset is %zu, arg size is %zu", offset, invokeArgs.size());
         for (size_t i = 0; i < invokeArgs.size(); i++) {
-            // size_t paramOff = (offset + i);
+            size_t paramOff = (offset + i);
             uint32_t paramLoc = invokeArgs[i].paramLoc;
-            // CODEGEN_LOGD("paramLoc ", paramLoc, " --> offset ", paramOff);
-            // CODEGEN_LOGI(
-            //     " paramLoc is %d, paramOff is %d, SymDDRId is %d, SymName is %s", paramLoc, paramOff,
-            //     invokeArgs[i].symDDRId, invokeArgs[i].symName, invokeArgs[i].symbol,
-            //     static_cast<size_t>(invokeArgs[i].dataType));
+            CODEGEN_LOGD("paramLoc %u --> offset %zu", paramLoc, paramOff);
+            CODEGEN_LOGI(
+                " paramLoc is %u, paramOff is %zu, SymDDRId is %d, SymName is %s, Symbol is %s, dataType is %zu",
+                paramLoc, paramOff, invokeArgs[i].symDDRId, invokeArgs[i].symName.c_str(), invokeArgs[i].symbol.c_str(),
+                static_cast<size_t>(invokeArgs[i].dataType));
             symbolMap.insert({paramLoc, invokeArgs[i].symbol});
             paramsSet.insert(invokeArgs[i].symbol);
             dTypeMap[invokeArgs[i].symbol] = GetDtype(invokeArgs[i].dataType);
@@ -256,10 +257,8 @@ void CodeGenLiteNPU::BuildArchOptions(std::ostringstream& oss, const CompileInfo
     oss << allCompileOpts << " ";
 }
 
-std::string CodeGenLiteNPU::GetCoreArch(const CompileInfo& compileInfo) const
+std::string CodeGenLiteNPU::GetCoreArch([[maybe_unused]] const CompileInfo& compileInfo) const
 {
-    (void)compileInfo; // TODO...
-
     if (platform_ == NPUArch::DAV_3113) {
         return "dav-l311";
     } else {

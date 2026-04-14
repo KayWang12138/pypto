@@ -54,6 +54,7 @@ public:
 
     void GenCode(Function& topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset) override;
 
+private:
     void GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const override;
 
     void BuildArchOptions(std::ostringstream& oss, const CompileInfo& compileInfo) const override;
@@ -64,6 +65,10 @@ public:
 
     std::string GenFuncGlobalCodeAfterReplace(
         const Function& func, std::pair<uint64_t, Function*> subFuncPair, const std::string& subProgramCode);
+
+    std::map<int, std::string> GenParamsSymbolMap(
+        const SubfuncParam& subFuncParam, std::vector<std::string>& params,
+        std::map<std::string, std::string>& dTypeMap);
 
     std::vector<std::string> GetInOutParams(std::pair<uint64_t, Function*> subFuncPair);
 
