@@ -159,7 +159,10 @@ struct LambdaVectorContainer {
      * @param proc Processor ID
      * @return true if the processor has at least one assignment to the node
      */
-    inline bool HasProcEntry(const VertexIdxT node, const unsigned proc) const { return nodeLambdaVec_[node][proc] > 0; }
+    inline bool HasProcEntry(const VertexIdxT node, const unsigned proc) const
+    {
+        return nodeLambdaVec_[node][proc] > 0;
+    }
 
     /**
      * @brief Check if a processor has no entry for a given node.
@@ -167,7 +170,10 @@ struct LambdaVectorContainer {
      * @param proc Processor ID
      * @return true if the processor has no assignments to the node
      */
-    inline bool HasNoProcEntry(const VertexIdxT node, const unsigned proc) const { return nodeLambdaVec_[node][proc] == 0; }
+    inline bool HasNoProcEntry(const VertexIdxT node, const unsigned proc) const
+    {
+        return nodeLambdaVec_[node][proc] == 0;
+    }
 
     /**
      * @brief Get a reference to the processor count for a given node.

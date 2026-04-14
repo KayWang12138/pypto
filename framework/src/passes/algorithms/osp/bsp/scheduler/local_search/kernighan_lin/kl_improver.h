@@ -287,21 +287,55 @@ protected:
         affinityTableNode[moveProc][windowSize] += (otherAffinity - prevOtherAffinity);
     }
 
-    void HandleSameStepSameNode(VertexType node, const KlMove &move, const PreMoveWorkData<VertexWorkWeightT> &prevWorkData, std::vector<std::vector<CostT>> &affinityTableNode, KlGainUpdateInfo &updateInfo);
-    void HandleSameStepDifferentNodeMaxChanged(VertexType node, const KlMove &move, VertexWorkWeightT vertexWeight, VertexWorkWeightT prevMaxWork, VertexWorkWeightT newMaxWeight, unsigned idx, std::vector<std::vector<CostT>> &affinityTableNode);
-    void HandleSameStepDifferentNodeMaxUnchanged(VertexType node, const KlMove &move, VertexWorkWeightT vertexWeight, VertexWorkWeightT prevMaxWork, VertexWorkWeightT newMaxWeight, unsigned idx, std::vector<std::vector<CostT>> &affinityTableNode);
-    void HandleSameStepMove(VertexType node, const KlMove &move, const PreMoveWorkData<VertexWorkWeightT> &prevWorkData, std::vector<std::vector<CostT>> &affinityTableNode, KlGainUpdateInfo &updateInfo);
-    KlGainUpdateInfo UpdateNodeWorkAffinityAfterMove(VertexType node, KlMove move, const PreMoveWorkData<VertexWorkWeightT> &prevWorkData, std::vector<std::vector<CostT>> &affinityTableNode);
-    void ProcessWorkUpdateStep(VertexType node, unsigned nodeStep, unsigned nodeProc, VertexWorkWeightT vertexWeight, unsigned moveStep, unsigned moveProc, VertexWorkWeightT moveCorrectionNodeWeight,
-                               const VertexWorkWeightT prevMoveStepMaxWork, const VertexWorkWeightT prevMoveStepSecondMaxWork, unsigned prevMoveStepMaxWorkProcessorCount,
-                               bool &updateStep, bool &updateEntireStep, bool &fullUpdate, std::vector<std::vector<CostT>> &affinityTableNode);
-    void UpdateNodeWorkAffinity(NodeSelectionContainerT &nodes, KlMove move, const PreMoveWorkData<VertexWorkWeightT> &prevWorkData, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain);
-    void UpdateBestMove(VertexType node, unsigned step, unsigned proc, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData);
-    void UpdateBestMove(VertexType node, unsigned step, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData);
-    void UpdateMaxGain(KlMove move, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain, ThreadSearchContext &threadData);
-    void ComputeWorkAffinity(VertexType node, std::vector<std::vector<CostT>> &affinityTableNode, ThreadSearchContext &threadData);
+    void HandleSameStepSameNode(VertexType node, const KlMove &move,
+                                const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
+                                std::vector<std::vector<CostT>> &affinityTableNode,
+                                KlGainUpdateInfo &updateInfo);
+    void HandleSameStepDifferentNodeMaxChanged(
+        VertexType node, const KlMove &move, VertexWorkWeightT vertexWeight,
+        VertexWorkWeightT prevMaxWork, VertexWorkWeightT newMaxWeight,
+        unsigned idx, std::vector<std::vector<CostT>> &affinityTableNode);
+    void HandleSameStepDifferentNodeMaxUnchanged(
+        VertexType node, const KlMove &move, VertexWorkWeightT vertexWeight,
+        VertexWorkWeightT prevMaxWork, VertexWorkWeightT newMaxWeight,
+        unsigned idx, std::vector<std::vector<CostT>> &affinityTableNode);
+    void HandleSameStepMove(VertexType node, const KlMove &move,
+                            const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
+                            std::vector<std::vector<CostT>> &affinityTableNode,
+                            KlGainUpdateInfo &updateInfo);
+    KlGainUpdateInfo UpdateNodeWorkAffinityAfterMove(
+        VertexType node, KlMove move,
+        const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
+        std::vector<std::vector<CostT>> &affinityTableNode);
+    void ProcessWorkUpdateStep(
+        VertexType node, unsigned nodeStep, unsigned nodeProc,
+        VertexWorkWeightT vertexWeight, unsigned moveStep,
+        unsigned moveProc, VertexWorkWeightT moveCorrectionNodeWeight,
+        const VertexWorkWeightT prevMoveStepMaxWork,
+        const VertexWorkWeightT prevMoveStepSecondMaxWork,
+        unsigned prevMoveStepMaxWorkProcessorCount,
+        bool &updateStep, bool &updateEntireStep, bool &fullUpdate,
+        std::vector<std::vector<CostT>> &affinityTableNode);
+    void UpdateNodeWorkAffinity(
+        NodeSelectionContainerT &nodes, KlMove move,
+        const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
+        std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain);
+    void UpdateBestMove(VertexType node, unsigned step, unsigned proc,
+                        NodeSelectionContainerT &affinityTable,
+                        ThreadSearchContext &threadData);
+    void UpdateBestMove(VertexType node, unsigned step,
+                        NodeSelectionContainerT &affinityTable,
+                        ThreadSearchContext &threadData);
+    void UpdateMaxGain(KlMove move,
+                       std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
+                       ThreadSearchContext &threadData);
+    void ComputeWorkAffinity(VertexType node,
+                             std::vector<std::vector<CostT>> &affinityTableNode,
+                             ThreadSearchContext &threadData);
 
-    inline void RecomputeNodeMaxGain(VertexType node, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData)
+    inline void RecomputeNodeMaxGain(VertexType node,
+                                     NodeSelectionContainerT &affinityTable,
+                                     ThreadSearchContext &threadData)
     {
         const auto bestMove = ComputeBestMove<true>(node, affinityTable[node], threadData);
         threadData.maxGainHeap_.Update(node, bestMove);
@@ -323,22 +357,29 @@ protected:
     enum class QuickMoveResult { kContinue, kSkip, kAbort };
     enum class InnerIterResult { kContinue, kBreak, kSkip };
 
-    QuickMoveResult ProcessQuickMoveCandidate(VertexType nextNodeToMove, unsigned &innerIter, ThreadSearchContext &threadData,
-                                              std::unordered_set<VertexType> &localLock, std::vector<VertexType> &quickMovesStack);
+    QuickMoveResult ProcessQuickMoveCandidate(
+        VertexType nextNodeToMove, unsigned &innerIter,
+        ThreadSearchContext &threadData,
+        std::unordered_set<VertexType> &localLock,
+        std::vector<VertexType> &quickMovesStack);
 
     void RunQuickMoves(unsigned &innerIter, ThreadSearchContext &threadData,
                        const CostT changeInCost, const VertexType bestMoveNode);
 
 
 
-    InnerIterResult HandleViolationEscalation(unsigned &violationRemovedCount, unsigned &resetCounter, unsigned &innerIter,
-                                              bool iterInitalFeasible, ThreadSearchContext &threadData);
+    InnerIterResult HandleViolationEscalation(
+        unsigned &violationRemovedCount, unsigned &resetCounter,
+        unsigned &innerIter, bool iterInitalFeasible,
+        ThreadSearchContext &threadData);
 
     InnerIterResult HandleViolations(unsigned &violationRemovedCount, unsigned &resetCounter, unsigned &innerIter,
                                      bool iterInitalFeasible, ThreadSearchContext &threadData);
 
-    bool ProcessInnerIteration(const KlMove &bestMove,std::vector<VertexType> &newNodes,
-                               std::vector<VertexType> &unlockNodes, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
+    bool ProcessInnerIteration(const KlMove &bestMove,
+                               std::vector<VertexType> &newNodes,
+                               std::vector<VertexType> &unlockNodes,
+                               std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
                                const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
                                ThreadSearchContext &threadData);
 
@@ -352,11 +393,15 @@ protected:
 
     void RunLocalSearch(ThreadSearchContext &threadData);
     bool OtherThreadsFinished(const unsigned threadId);
-    inline void UpdateAffinities(const KlMove &bestMove, ThreadSearchContext &threadData,
-                                 std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain, std::vector<VertexType> &newNodes,
+    inline void UpdateAffinities(const KlMove &bestMove,
+                                 ThreadSearchContext &threadData,
+                                 std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
+                                 std::vector<VertexType> &newNodes,
                                  const PreMoveWorkData<VertexWorkWeightT> &prevWorkData);
 
-    inline bool BlockedEdgeStrategy(VertexType node, std::vector<VertexType> &unlockNodes, ThreadSearchContext &threadData);
+    inline bool BlockedEdgeStrategy(VertexType node,
+                                     std::vector<VertexType> &unlockNodes,
+                                     ThreadSearchContext &threadData);
     inline void AdjustLocalSearchParameters(unsigned outerIter, unsigned noImpCounter, ThreadSearchContext &threadData);
     bool IsLocalSearchBlocked(ThreadSearchContext &threadData);
     void SetParameters(VertexIdxT<GraphT> numNodes);
@@ -366,7 +411,9 @@ protected:
     void CleanupDatastructures();
     void UpdateAvgGain(const CostT gain, const unsigned numIter, double &averageGain);
     void InsertGainHeap(ThreadSearchContext &threadData);
-    void InsertNewNodesGainHeap(std::vector<VertexType> &newNodes, NodeSelectionContainerT &nodes, ThreadSearchContext &threadData);
+    void InsertNewNodesGainHeap(std::vector<VertexType> &newNodes,
+                                NodeSelectionContainerT &nodes,
+                                ThreadSearchContext &threadData);
 
     inline void ComputeNodeAffinities(VertexType node,
                                       std::vector<std::vector<CostT>> &affinityTableNode,
@@ -386,10 +433,13 @@ protected:
         if (SelectNodesCheckRemoveSuperstep(threadData.stepToRemove_, threadData)) {
             activeSchedule_.SwapEmptyStepFwd(threadData.stepToRemove_, threadData.endStep_);
             threadData.endStep_--;
-            threadData.localSearchStartStep_ = static_cast<unsigned>(threadData.activeScheduleData_.appliedMoves_.size());
-            threadData.activeScheduleData_.UpdateCost(static_cast<CostT>(-1.0 * instance_->SynchronisationCosts()));
+            threadData.localSearchStartStep_
+                = static_cast<unsigned>(threadData.activeScheduleData_.appliedMoves_.size());
+            threadData.activeScheduleData_.UpdateCost(
+                static_cast<CostT>(-1.0 * instance_->SynchronisationCosts()));
 
-            if (threadData.activeScheduleData_.currentViolations_.size() > parameters_.initialViolationThreshold_) {
+            if (threadData.activeScheduleData_.currentViolations_.size()
+                > parameters_.initialViolationThreshold_) {
                 activeSchedule_.RevertToBestSchedule(threadData.localSearchStartStep_,
                                                      threadData.stepToRemove_,
                                                      commCostF_,
@@ -401,12 +451,14 @@ protected:
                     = static_cast<unsigned>(threadData.activeScheduleData_.currentViolations_.size());
                 threadData.maxInnerIterations_
                     = std::max(threadData.unlockEdgeBacktrackCounter_ * 5u, parameters_.maxInnerIterationsReset_);
-                threadData.maxNoVioaltionsRemovedBacktrack_ = parameters_.maxNoVioaltionsRemovedBacktrackForRemoveStepReset_;
+                threadData.maxNoVioaltionsRemovedBacktrack_
+                    = parameters_.maxNoVioaltionsRemovedBacktrackForRemoveStepReset_;
                 return;
             }
         }
         threadData.localSearchStartStep_ = 0;
-        threadData.selectionStrategy_.SelectActiveNodes(threadData.affinityTable_, threadData.startStep_, threadData.endStep_);
+        threadData.selectionStrategy_.SelectActiveNodes(
+            threadData.affinityTable_, threadData.startStep_, threadData.endStep_);
     }
 
     bool CheckRemoveSuperstep(unsigned step);

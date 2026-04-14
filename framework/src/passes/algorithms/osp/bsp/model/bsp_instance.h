@@ -36,7 +36,8 @@ namespace osp {
  * It aggregates three main components:
  *
  * 1. **Computational DAG**: The directed acyclic graph representing the program to be executed.
- *    It defines the tasks (nodes), their dependencies (directed edges), and associated weights (work, memory, communication).
+ *    It defines the tasks (nodes), their dependencies (directed edges), and associated weights
+ *    (work, memory, communication).
  *
  * 2. **BSP Architecture**: The hardware model description, including the number of processors,
  *    their types, memory bounds, and communication/synchronization costs.
@@ -124,7 +125,8 @@ public:
 
     template <typename GraphTOther>
     explicit BspInstance(const BspInstance<GraphTOther> &other)
-        : architecture_(other.GetArchitecture()), nodeProcessorCompatibility_(other.GetNodeProcessorCompatibilityMatrix())
+        : architecture_(other.GetArchitecture()),
+          nodeProcessorCompatibility_(other.GetNodeProcessorCompatibilityMatrix())
     {
         ConstructComputationalDag(other.GetComputationalDag(), cdag_);
     }
@@ -203,7 +205,10 @@ public:
     /**
      * @brief Returns the flattened send costs vector.
      */
-    [[nodiscard]] const std::vector<VCommwT<GraphT>> &SendCostsVector() const { return architecture_.SendCostsVector(); }
+    [[nodiscard]] const std::vector<VCommwT<GraphT>> &SendCostsVector() const
+    {
+        return architecture_.SendCostsVector();
+    }
 
     /**
      * @brief Returns the communication costs of the BSP architecture.
@@ -244,7 +249,10 @@ public:
      * @brief Returns the processor type for a given processor index. Does not perform bounds checking.
      * @param proc The processor index.
      */
-    [[nodiscard]] VertexTypeTOrDefault ProcessorType(const unsigned proc) const { return architecture_.ProcessorType(proc); }
+    [[nodiscard]] VertexTypeTOrDefault ProcessorType(const unsigned proc) const
+    {
+        return architecture_.ProcessorType(proc);
+    }
 
     /**
      * @brief Checks if a node is compatible with a processor. Does not perform bounds checking.
@@ -292,7 +300,8 @@ public:
     }
 
     /**
-     * @brief Sets the compatibility matrix to be diagonal. This implies that node type `i` is only compatible with processor type `i`.
+     * @brief Sets the compatibility matrix to be diagonal. This implies that node type `i` is only
+     * compatible with processor type `i`.
      * @param number_of_types The number of types.
      */
     void SetDiagonalCompatibilityMatrix(const VertexTypeTOrDefault numberOfTypes)

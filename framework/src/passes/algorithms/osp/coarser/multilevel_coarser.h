@@ -130,7 +130,8 @@ void MultilevelCoarser<GraphT, GraphTCoarse>::CompactifyDagHistory()
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector<VertexIdxT<GraphTCoarse>> &&contractionMap)
+ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(
+    std::vector<VertexIdxT<GraphTCoarse>> &&contractionMap)
 {
     std::unique_ptr<GraphTCoarse> newGraph = std::make_unique<GraphTCoarse>();
 
@@ -159,8 +160,9 @@ ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector<VertexIdxT<GraphTCoarse>> &&contractionMap,
-                                                                     GraphTCoarse &&contractedGraph)
+ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(
+    std::vector<VertexIdxT<GraphTCoarse>> &&contractionMap,
+    GraphTCoarse &&contractedGraph)
 {
     std::unique_ptr<GraphTCoarse> graphPtr(new GraphTCoarse(std::forward<GraphTCoarse>(contractedGraph)));
     dagHistory_.emplace_back(std::move(graphPtr));

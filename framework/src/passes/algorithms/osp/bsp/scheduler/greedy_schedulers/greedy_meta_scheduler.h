@@ -28,8 +28,8 @@ namespace osp {
 
 /**
  * @class GreedyMetaScheduler
- * @brief The GreedyMetaScheduler class represents a meta-scheduler that selects the best schedule produced from a list of
- * added schedulers.
+ * @brief The GreedyMetaScheduler class represents a meta-scheduler that
+ * selects the best schedule produced from a list of added schedulers.
  *
  * This class inherits from the Scheduler class and implements the ComputeSchedule() methods.
  * The ComputeSchedule() method iterates through a list of schedulers, computes a schedule using each one,

@@ -65,9 +65,15 @@ std::vector<VertexIdxT<GraphT>> GetTopOrder(const GraphT &graph)
         }
 
         if (static_cast<VertexType>(topOrder.size()) != graph.NumVertices()) {
-            APASS_LOG_ERROR_F(Elements::Config, "Error during topological ordering: TopOrder.size() != graph.NumVertices() [%d != %d]", static_cast<int>(topOrder.size()), static_cast<int>(graph.NumVertices()));
-            throw std::runtime_error("Error during topological ordering: TopOrder.size() != graph.NumVertices() ["
-                                    + std::to_string(topOrder.size()) + " != " + std::to_string(graph.NumVertices()) + "]");
+            APASS_LOG_ERROR_F(Elements::Config,
+                "Error during topological ordering: "
+                "TopOrder.size() != graph.NumVertices() [%d != %d]",
+                static_cast<int>(topOrder.size()),
+                static_cast<int>(graph.NumVertices()));
+            throw std::runtime_error(
+                "Error during topological ordering: TopOrder.size() != graph.NumVertices() ["
+                + std::to_string(topOrder.size()) + " != "
+                + std::to_string(graph.NumVertices()) + "]");
         }
 
         return topOrder;

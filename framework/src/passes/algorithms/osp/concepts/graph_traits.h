@@ -91,7 +91,8 @@ struct DirectedEdge {
 /**
  * @brief Helper struct to extract the edge descriptor type of a directed graph.
  *
- * If the graph defines `directed_edge_descriptor`, it is extracted; otherwise, `directed_edge` is used as a default implementation.
+ * If the graph defines `directed_edge_descriptor`, it is extracted;
+ * otherwise, `directed_edge` is used as a default implementation.
  */
 template <typename T, bool hasEdge>
 struct DirectedGraphEdgeDescTraitsHelper {
@@ -113,8 +114,8 @@ using EdgeDescT = typename DirectedGraphEdgeDescTraits<T>::DirectedEdgeDescripto
 
 /**
  * @brief Check if a graph guarantees vertices are stored/iterated in topological order.
- * It allows a graph implementation to notify algorithms that vertices are stored/iterated in topological order which can be used
- * to optimize the algorithm.
+ * It allows a graph implementation to notify algorithms that vertices are stored/iterated
+ * in topological order which can be used to optimize the algorithm.
  */
 template <typename T, typename = void>
 struct HasVerticesInTopOrderTrait : std::false_type {};

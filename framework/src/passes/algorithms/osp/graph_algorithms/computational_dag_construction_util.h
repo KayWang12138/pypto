@@ -25,9 +25,10 @@ namespace osp {
  * @brief Constructs a computational DAG from another graph.
  *
  * This function copies the structure and properties of a source graph into a target graph structure.
- * Assumes that the vertices of the source graph are indexed from 0 to N-1. If the target graph is empty, indices are sequentially
- * assigned starting from 0. If the target graph is not empty, new vertices will be added to the target graph and their indices
- * will be sequentially assigned starting from the index N.
+ * Assumes that the vertices of the source graph are indexed from 0 to N-1. If the target
+ * graph is empty, indices are sequentially assigned starting from 0. If the target graph
+ * is not empty, new vertices will be added to the target graph and their indices will be
+ * sequentially assigned starting from the index N.
  *
  * @tparam GraphFrom The type of the source graph. Must satisfy `is_computational_dag`.
  * @tparam GraphTo The type of the target graph. Must satisfy `is_constructable_cdag_vertex`.
@@ -41,7 +42,9 @@ void ConstructComputationalDag(const GraphFrom &from, GraphTo &to)
     vertexMap.reserve(from.NumVertices());
 
     for (const auto &vIdx : from.Vertices()) {
-        vertexMap.push_back(to.AddVertex(from.VertexWorkWeight(vIdx), from.VertexCommWeight(vIdx), from.VertexMemWeight(vIdx), from.VertexType(vIdx)));
+        vertexMap.push_back(to.AddVertex(
+            from.VertexWorkWeight(vIdx), from.VertexCommWeight(vIdx),
+            from.VertexMemWeight(vIdx), from.VertexType(vIdx)));
     }
 
     for (const auto &v : from.Vertices()) {

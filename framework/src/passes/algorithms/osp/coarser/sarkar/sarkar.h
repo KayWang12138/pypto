@@ -75,34 +75,44 @@ private:
     VertexIdxT<GraphTIn> SingleContraction(VWorkwT<GraphTIn> commCost,
                                            const GraphTIn &graph,
                                            std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
-    VertexIdxT<GraphTIn> AllChildrenContraction(VWorkwT<GraphTIn> commCost,
-                                                const GraphTIn &graph,
-                                                std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
-    VertexIdxT<GraphTIn> SomeChildrenContraction(VWorkwT<GraphTIn> commCost,
-                                                 const GraphTIn &graph,
-                                                 std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
-    VertexIdxT<GraphTIn> AllParentsContraction(VWorkwT<GraphTIn> commCost,
-                                               const GraphTIn &graph,
-                                               std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
-    VertexIdxT<GraphTIn> SomeParentsContraction(VWorkwT<GraphTIn> commCost,
-                                                const GraphTIn &graph,
-                                                std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
+    VertexIdxT<GraphTIn> AllChildrenContraction(
+        VWorkwT<GraphTIn> commCost,
+        const GraphTIn &graph,
+        std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
+    VertexIdxT<GraphTIn> SomeChildrenContraction(
+        VWorkwT<GraphTIn> commCost,
+        const GraphTIn &graph,
+        std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
+    VertexIdxT<GraphTIn> AllParentsContraction(
+        VWorkwT<GraphTIn> commCost,
+        const GraphTIn &graph,
+        std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
+    VertexIdxT<GraphTIn> SomeParentsContraction(
+        VWorkwT<GraphTIn> commCost,
+        const GraphTIn &graph,
+        std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
     VertexIdxT<GraphTIn> LevelContraction(VWorkwT<GraphTIn> commCost,
                                           const GraphTIn &graph,
                                           std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
 
-    VertexIdxT<GraphTIn> HomogeneousBufferMerge(VWorkwT<GraphTIn> commCost,
-                                                const GraphTIn &graph,
-                                                std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
-    std::vector<std::size_t> HomogeneousMerge(const std::size_t number, const std::size_t minSize, const std::size_t maxSize) const;
+    VertexIdxT<GraphTIn> HomogeneousBufferMerge(
+        VWorkwT<GraphTIn> commCost,
+        const GraphTIn &graph,
+        std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const;
+    std::vector<std::size_t> HomogeneousMerge(
+        const std::size_t number,
+        const std::size_t minSize,
+        const std::size_t maxSize) const;
 
     std::vector<std::size_t> ComputeNodeHashes(const GraphTIn &graph,
                                                const std::vector<VertexIdxT<GraphTIn>> &vertexPoset,
                                                const std::vector<VWorkwT<GraphTIn>> &dist) const;
 
 public:
-    virtual std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(const GraphTIn &dagIn) override;
-    std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(const GraphTIn &dagIn, VertexIdxT<GraphTIn> &diff);
+    virtual std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(
+        const GraphTIn &dagIn) override;
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(
+        const GraphTIn &dagIn, VertexIdxT<GraphTIn> &diff);
 
     inline void SetParameters(const sarkar_params::Parameters<VWorkwT<GraphTIn>> &params) { params_ = params; };
 
@@ -125,7 +135,8 @@ std::vector<VertexIdxT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotPosetMap(co
 {
     std::vector<VertexIdxT<GraphTIn>> botPosetMap = GetBottomNodeDistance<GraphTIn, VertexIdxT<GraphTIn>>(graph);
 
-    const VertexIdxT<GraphTIn> max = botPosetMap.size() == 0U ? 0 : *std::max_element(botPosetMap.begin(), botPosetMap.end()) + 1;
+    const VertexIdxT<GraphTIn> max
+        = botPosetMap.size() == 0U ? 0 : *std::max_element(botPosetMap.begin(), botPosetMap.end()) + 1;
 
     for (std::size_t i = 0; i < botPosetMap.size(); i++) {
         botPosetMap[i] = max - botPosetMap[i];
@@ -183,7 +194,9 @@ std::vector<VWorkwT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotDistance(VWork
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+    VWorkwT<GraphTIn> commCost,
+    const GraphTIn &graph,
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
 {
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
@@ -193,7 +206,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
-    auto cmp = [](const std::tuple<long, VertexType, VertexType> &lhs, const std::tuple<long, VertexType, VertexType> &rhs) {
+    auto cmp = [](const std::tuple<long, VertexType, VertexType> &lhs,
+                  const std::tuple<long, VertexType, VertexType> &rhs) {
         return (std::get<0>(lhs) > std::get<0>(rhs))
                || ((std::get<0>(lhs) == std::get<0>(rhs)) && (std::get<1>(lhs) < std::get<1>(rhs)))
                || ((std::get<0>(lhs) == std::get<0>(rhs)) && (std::get<1>(lhs) == std::get<1>(rhs))
@@ -258,8 +272,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
     std::vector<bool> partitionedSourceFlag(graph.NumVertices(), false);
     std::vector<bool> partitionedTargetFlag(graph.NumVertices(), false);
 
-    VertexIdxT<GraphTIn> maxCorseningNum
-        = graph.NumVertices() - static_cast<VertexIdxT<GraphTIn>>(static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
+    VertexIdxT<GraphTIn> maxCorseningNum = graph.NumVertices()
+        - static_cast<VertexIdxT<GraphTIn>>(
+            static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
 
     VertexIdxT<GraphTIn> counter = 0;
     long minSave = std::numeric_limits<long>::lowest();
@@ -328,7 +343,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllChildrenContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+    VWorkwT<GraphTIn> commCost,
+    const GraphTIn &graph,
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
 {
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
@@ -413,8 +430,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllChildrenContraction(
 
     std::vector<bool> partitionedFlag(graph.NumVertices(), false);
 
-    VertexIdxT<GraphTIn> maxCorseningNum
-        = graph.NumVertices() - static_cast<VertexIdxT<GraphTIn>>(static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
+    VertexIdxT<GraphTIn> maxCorseningNum = graph.NumVertices()
+        - static_cast<VertexIdxT<GraphTIn>>(
+            static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
 
     VertexIdxT<GraphTIn> counter = 0;
     long minSave = std::numeric_limits<long>::lowest();

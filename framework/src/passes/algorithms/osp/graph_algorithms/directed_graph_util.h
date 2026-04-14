@@ -79,7 +79,8 @@ VWorkwT<GraphT> CriticalPathWeight(const GraphT &graph)
 }
 
 template <typename GraphT>
-std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph)
+std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(
+    const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph)
 {
     for (const auto &edge : OutEdges(src, graph)) {
         if (Target(edge, graph) == dest) {

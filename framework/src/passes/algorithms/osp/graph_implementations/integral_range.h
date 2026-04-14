@@ -121,7 +121,10 @@ public:
             return current_ == other.current_;
         }
 
-        [[nodiscard]] constexpr bool operator!=(const IntegralIterator &other) const noexcept { return !(*this == other); }
+        [[nodiscard]] constexpr bool operator!=(const IntegralIterator &other) const noexcept
+        {
+            return !(*this == other);
+        }
 
         constexpr IntegralIterator &operator+=(difference_type n) noexcept
         {
@@ -134,7 +137,9 @@ public:
             return temp += n;
         }
 
-        [[nodiscard]] friend constexpr IntegralIterator operator+(difference_type n, const IntegralIterator &it) noexcept {
+        [[nodiscard]] friend constexpr IntegralIterator operator+(
+            difference_type n, const IntegralIterator &it) noexcept
+        {
             return it + n;
         }
 
@@ -149,15 +154,24 @@ public:
             return temp -= n;
         }
 
-        [[nodiscard]] constexpr difference_type operator-(const IntegralIterator &other) const noexcept {
-            return static_cast<difference_type>(current_) - static_cast<difference_type>(other.current_);
+        [[nodiscard]] constexpr difference_type operator-(
+            const IntegralIterator &other) const noexcept
+        {
+            return static_cast<difference_type>(current_)
+                - static_cast<difference_type>(other.current_);
         }
 
         [[nodiscard]] constexpr value_type operator[](difference_type n) const noexcept { return *(*this + n); }
 
-        [[nodiscard]] constexpr bool operator<(const IntegralIterator &other) const noexcept { return current_ < other.current_; }
+        [[nodiscard]] constexpr bool operator<(const IntegralIterator &other) const noexcept
+        {
+            return current_ < other.current_;
+        }
 
-        [[nodiscard]] constexpr bool operator>(const IntegralIterator &other) const noexcept { return current_ > other.current_; }
+        [[nodiscard]] constexpr bool operator>(const IntegralIterator &other) const noexcept
+        {
+            return current_ > other.current_;
+        }
 
         [[nodiscard]] constexpr bool operator<=(const IntegralIterator &other) const noexcept {
             return current_ <= other.current_;

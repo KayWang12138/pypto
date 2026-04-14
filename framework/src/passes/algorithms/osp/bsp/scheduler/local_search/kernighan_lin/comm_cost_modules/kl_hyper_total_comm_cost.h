@@ -48,7 +48,10 @@ struct KlHyperTotalCommCostFunction {
 
     const std::string Name() const { return "hyper_total_comm_cost"; }
 
-    inline bool IsCompatible(VertexType node, unsigned proc) { return activeSchedule_->GetInstance().IsCompatible(node, proc); }
+    inline bool IsCompatible(VertexType node, unsigned proc)
+    {
+        return activeSchedule_->GetInstance().IsCompatible(node, proc);
+    }
 
     void Initialize(KlActiveSchedule<GraphT, CostT> &sched, CompatibleProcessorRange<GraphT> &pRange)
     {
@@ -85,8 +88,9 @@ struct KlHyperTotalCommCostFunction {
                 const unsigned targetProc = activeSchedule_->AssignedProcessor(target);
 
                 if (nodeLambdaMap_.IncreaseProcCount(vertex, targetProc)) {
+                    // is 0 if targetProc == vertexProc
                     commCosts += vCommCost
-                                 * instance_->CommunicationCosts(vertexProc, targetProc);    // is 0 if targetProc == vertexProc
+                                 * instance_->CommunicationCosts(vertexProc, targetProc);
                 }
             }
         }
@@ -322,8 +326,10 @@ struct KlHyperTotalCommCostFunction {
             const CostT commGain = graph_->VertexCommWeight(source) * commMultiplier_;
             for (const unsigned p : procRange_->CompatibleProcessorsVertex(source)) {
                 if (p == sourceProc) continue;
-                const CostT commCost = ChangeCommCost(instance_->CommunicationCosts(p, move.fromProc_),
-                                                      instance_->CommunicationCosts(sourceProc, move.fromProc_), commGain);
+                const CostT commCost = ChangeCommCost(
+                    instance_->CommunicationCosts(p, move.fromProc_),
+                    instance_->CommunicationCosts(sourceProc, move.fromProc_),
+                    commGain);
                 for (unsigned idx = sourceStartIdx; idx < windowBound; idx++) {
                     affinityTableSource[p][idx] -= commCost;
                 }
@@ -334,8 +340,10 @@ struct KlHyperTotalCommCostFunction {
             const CostT commGain = graph_->VertexCommWeight(source) * commMultiplier_;
             for (const unsigned p : procRange_->CompatibleProcessorsVertex(source)) {
                 if (p == sourceProc) continue;
-                const CostT commCost = ChangeCommCost(instance_->CommunicationCosts(p, move.toProc_),
-                                                      instance_->CommunicationCosts(sourceProc, move.toProc_), commGain);
+                const CostT commCost = ChangeCommCost(
+                    instance_->CommunicationCosts(p, move.toProc_),
+                    instance_->CommunicationCosts(sourceProc, move.toProc_),
+                    commGain);
                 for (unsigned idx = sourceStartIdx; idx < windowBound; idx++) {
                     affinityTableSource[p][idx] += commCost;
                 }
@@ -368,8 +376,10 @@ struct KlHyperTotalCommCostFunction {
             const unsigned targetStartIdx = StartIdx(targetStep, startStep);
             auto &affinityTable = threadData.affinityTable_.At(target);
 
-            UpdateChildAffinityFromStep(move, target, targetStep, targetProc, targetStartIdx, endStep, penalty, reward, affinityTable);
-            UpdateChildAffinityToStep(move, target, targetStep, targetProc, targetStartIdx, endStep, penalty, reward, affinityTable);
+            UpdateChildAffinityFromStep(move, target, targetStep, targetProc,
+                                        targetStartIdx, endStep, penalty, reward, affinityTable);
+            UpdateChildAffinityToStep(move, target, targetStep, targetProc,
+                                      targetStartIdx, endStep, penalty, reward, affinityTable);
 
             if (move.toProc_ != move.fromProc_) {
                 UpdateChildLambdaAffinity(move, target, targetStep, targetProc, targetStartIdx, endStep, affinityTable);
@@ -408,11 +418,14 @@ struct KlHyperTotalCommCostFunction {
             const unsigned sourceStartIdx = StartIdx(sourceStep, startStep);
             auto &affinityTableSource = threadData.affinityTable_.At(source);
 
-            UpdateSourceAffinityFromStep(move, source, sourceStep, sourceProc, sourceStartIdx, endStep, penalty, reward, affinityTableSource);
-            UpdateSourceAffinityToStep(move, source, sourceStep, sourceProc, sourceStartIdx, endStep, penalty, reward, affinityTableSource);
+            UpdateSourceAffinityFromStep(move, source, sourceStep, sourceProc,
+                                         sourceStartIdx, endStep, penalty, reward, affinityTableSource);
+            UpdateSourceAffinityToStep(move, source, sourceStep, sourceProc,
+                                       sourceStartIdx, endStep, penalty, reward, affinityTableSource);
 
             if (move.toProc_ != move.fromProc_) {
-                UpdateSourceLambdaCommCost(move, source, sourceProc, sourceStartIdx, endStep, sourceStep, affinityTableSource);
+                UpdateSourceLambdaCommCost(move, source, sourceProc,
+                                          sourceStartIdx, endStep, sourceStep, affinityTableSource);
             }
         }
     }

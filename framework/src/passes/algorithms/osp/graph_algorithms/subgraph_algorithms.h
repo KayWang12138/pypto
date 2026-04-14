@@ -38,7 +38,9 @@ std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSub
 
     for (const auto &node : selectedNodes) {
         localIdx[node] = dagOut.NumVertices();
-        dagOut.AddVertex(dag.VertexWorkWeight(node), dag.VertexCommWeight(node), dag.VertexMemWeight(node), dag.VertexType(node));
+        dagOut.AddVertex(
+            dag.VertexWorkWeight(node), dag.VertexCommWeight(node),
+            dag.VertexMemWeight(node), dag.VertexType(node));
     }
     
     for (const auto &node : selectedNodes) {

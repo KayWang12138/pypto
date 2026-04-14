@@ -80,13 +80,17 @@ public:
      * @param bspScheduler The underlying scheduler.
      * @param hashComputer The pre-computed hash computer for the graph.
      */
-    IsomorphicSubgraphScheduler(Scheduler<ConstrGraphT> &bspScheduler, const HashComputer<VertexIdxT<GraphT>> &hashComputer)
+    IsomorphicSubgraphScheduler(Scheduler<ConstrGraphT> &bspScheduler,
+                                const HashComputer<VertexIdxT<GraphT>> &hashComputer)
         : hashComputer_(&hashComputer), bspScheduler_(&bspScheduler) {}
 
     virtual ~IsomorphicSubgraphScheduler() {}
     void SetMergeDifferentTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
     void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
-    void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold) { criticalPathThreshold_ = criticalPathThreshold; }
+    void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold)
+    {
+        criticalPathThreshold_ = criticalPathThreshold;
+    }
     void SetOrbitLockRatio(double orbitLockRatio) { orbitLockRatio_ = orbitLockRatio; }
     void SetNaturalBreaksCountPercentage(double naturalBreaksCountPercentage)
     {
@@ -132,14 +136,17 @@ public:
         auto isomorphicGroups = orbitProcessor.GetFinalGroups();
 
         std::vector<bool> wasTrimmed(isomorphicGroups.size(), false);
-        TrimSubgraphGroups(isomorphicGroups, instance, wasTrimmed);    // Apply trimming and record which groups were affected
+        // Apply trimming and record which groups were affected
+        TrimSubgraphGroups(isomorphicGroups, instance, wasTrimmed);
 
         auto input = PrepareSubgraphSchedulingInput(instance, isomorphicGroups, wasTrimmed);
 
         EftSubgraphScheduler<ConstrGraphT> etfScheduler;
-        SubgraphSchedule subgraphSchedule
-            = etfScheduler.Run(input.instance_, input.multiplicities_, input.requiredProcTypes_, input.maxNumProcessors_);
-        subgraphSchedule.wasTrimmed_ = std::move(wasTrimmed);    // Pass through trimming info
+        SubgraphSchedule subgraphSchedule = etfScheduler.Run(
+            input.instance_, input.multiplicities_,
+            input.requiredProcTypes_, input.maxNumProcessors_);
+        // Pass through trimming info
+        subgraphSchedule.wasTrimmed_ = std::move(wasTrimmed);
 
         std::vector<VertexIdxT<GraphT>> partition(instance.NumberOfVertices(), 0);
         ScheduleIsomorphicGroup(instance, isomorphicGroups, subgraphSchedule, partition);
@@ -332,9 +339,12 @@ protected:
 
         size_t coarseNodeIdx = 0;
         for (const auto &group : isomorphicGroups) {
-            result.maxNumProcessors_[coarseNodeIdx] = static_cast<unsigned>(group.size() * group.subgraphs_[0].size());
+            result.maxNumProcessors_[coarseNodeIdx]
+                = static_cast<unsigned>(group.size() * group.subgraphs_[0].size());
             result.multiplicities_[coarseNodeIdx]
-                = (wasTrimmed[coarseNodeIdx] && allowUseTrimmedScheduler_) ? 1 : static_cast<unsigned>(group.subgraphs_.size());
+                = (wasTrimmed[coarseNodeIdx] && allowUseTrimmedScheduler_)
+                      ? 1
+                      : static_cast<unsigned>(group.subgraphs_.size());
             result.requiredProcTypes_[coarseNodeIdx].assign(numProcTypes, 0);
 
             AccumulateGroupProcTypes(originalInstance, group, numProcTypes,
@@ -388,11 +398,12 @@ protected:
         return mapping;
     }
 
-    void ApplyPartitionPattern(const std::vector<VertexIdxT<GraphT>> &subgraphVerticesSorted,
-                               const std::unordered_map<VertexIdxT<GraphT>, VertexIdxT<ConstrGraphT>> &vertexToRepLocalIdx,
-                               const BspSchedule<ConstrGraphT> &bspSchedule, bool maxBsp,
-                               const std::map<std::pair<unsigned, unsigned>, VertexIdxT<GraphT>> &spProcToRelativePartition,
-                               VertexIdxT<GraphT> partitionOffset,
+    void ApplyPartitionPattern(
+        const std::vector<VertexIdxT<GraphT>> &subgraphVerticesSorted,
+        const std::unordered_map<VertexIdxT<GraphT>, VertexIdxT<ConstrGraphT>> &vertexToRepLocalIdx,
+        const BspSchedule<ConstrGraphT> &bspSchedule, bool maxBsp,
+        const std::map<std::pair<unsigned, unsigned>, VertexIdxT<GraphT>> &spProcToRelativePartition,
+        VertexIdxT<GraphT> partitionOffset,
                                std::vector<VertexIdxT<GraphT>> &partition)
     {
         for (const auto &currentVertex : subgraphVerticesSorted) {
@@ -404,9 +415,10 @@ protected:
         }
     }
 
-    void ScheduleIsomorphicGroup(const BspInstance<GraphT> &instance,
-                                 const std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
-                                 const SubgraphSchedule &subSched,
+    void ScheduleIsomorphicGroup(
+        const BspInstance<GraphT> &instance,
+        const std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
+        const SubgraphSchedule &subSched,
                                  std::vector<VertexIdxT<GraphT>> &partition)
     {
         VertexIdxT<GraphT> currentPartitionIdx = 0;
@@ -424,7 +436,8 @@ protected:
             const auto &procsForGroup = subSched.nodeAssignedWorkerPerType_[groupIdx];
             std::vector<VMemwT<ConstrGraphT>> memWeights(procsForGroup.size(), 0);
             for (unsigned procType = 0; procType < procsForGroup.size(); ++procType) {
-                memWeights[procType] = static_cast<VMemwT<ConstrGraphT>>(instance.GetArchitecture().MaxMemoryBoundProcType(procType));
+                memWeights[procType] = static_cast<VMemwT<ConstrGraphT>>(
+                    instance.GetArchitecture().MaxMemoryBoundProcType(procType));
             }
             representativeInstance.GetArchitecture().SetProcessorsConsequTypes(procsForGroup, memWeights);
             representativeInstance.SetNodeProcessorCompatibility(instance.GetProcessorCompatibilityMatrix());
@@ -437,7 +450,8 @@ protected:
             Scheduler<ConstrGraphT> *schedulerForGroupPtr = bspScheduler_;
             std::unique_ptr<Scheduler<ConstrGraphT>> trimmedSchedulerOwner;
             if (subSched.wasTrimmed_[groupIdx] && minNonZeroProcs > 1 && allowUseTrimmedScheduler_) {
-                trimmedSchedulerOwner = std::make_unique<TrimmedGroupScheduler<ConstrGraphT>>(*bspScheduler_, minNonZeroProcs);
+                trimmedSchedulerOwner = std::make_unique<TrimmedGroupScheduler<ConstrGraphT>>(
+                    *bspScheduler_, minNonZeroProcs);
                 schedulerForGroupPtr = trimmedSchedulerOwner.get();
             }
 

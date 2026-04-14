@@ -136,7 +136,10 @@ public:
     [[nodiscard]] const std::vector<VertexIdx> &Parents(const VertexIdx v) const { return inNeigbors_[v]; }
     [[nodiscard]] const std::vector<VertexIdx> &Children(const VertexIdx v) const { return outNeigbors_[v]; }
     [[nodiscard]] VertexIdx InDegree(const VertexIdx v) const { return static_cast<VertexIdx>(inNeigbors_[v].size()); }
-    [[nodiscard]] VertexIdx OutDegree(const VertexIdx v) const { return static_cast<VertexIdx>(outNeigbors_[v].size()); }
+    [[nodiscard]] VertexIdx OutDegree(const VertexIdx v) const
+    {
+        return static_cast<VertexIdx>(outNeigbors_[v].size());
+    }
     [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const { return vertices_[v].workWeight_; }
     [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const { return vertices_[v].commWeight_; }
     [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const { return vertices_[v].memWeight_; }
@@ -167,7 +170,10 @@ public:
         vertices_.at(v).commWeight_ = commWeight;
     }
 
-    void SetVertexMemWeight(const VertexIdx v, const VertexMemWeightType memWeight) { vertices_.at(v).memWeight_ = memWeight; }
+    void SetVertexMemWeight(const VertexIdx v, const VertexMemWeightType memWeight)
+    {
+        vertices_.at(v).memWeight_ = memWeight;
+    }
 
     void SetVertexType(const VertexIdx v, const VertexTypeType vertexType)
     {

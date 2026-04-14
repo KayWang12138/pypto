@@ -83,7 +83,10 @@ public:
      *
      * @param minWorkPerProcessor The minimum work weight to justify assigning a processor.
      */
-    void SetMinWorkPerProcessor(const VWorkwT<GraphT> minWorkPerProcessor) { minWorkPerProcessor_ = minWorkPerProcessor; }
+    void SetMinWorkPerProcessor(const VWorkwT<GraphT> minWorkPerProcessor)
+    {
+        minWorkPerProcessor_ = minWorkPerProcessor;
+    }
 
 private:
     using JobIdT = VertexIdxT<GraphT>;
@@ -146,7 +149,9 @@ private:
             }
             job.totalWork_ = graph.VertexWorkWeight(idx);
             job.maxNumProcs_ = std::min(
-                maxNumProcs[idx], static_cast<unsigned>((job.totalWork_ + minWorkPerProcessor_ - 1) / minWorkPerProcessor_));
+                maxNumProcs[idx],
+                static_cast<unsigned>(
+                    (job.totalWork_ + minWorkPerProcessor_ - 1) / minWorkPerProcessor_));
             job.multiplicity_ = std::min(multiplicities[idx], job.maxNumProcs_);
             job.requiredProcTypes_ = requiredProcTypes[idx];
             job.assignedWorkers_.resize(numWorkerTypes, 0);
@@ -215,7 +220,8 @@ private:
         return result;
     }
 
-    void AssignAndStartJobs(std::vector<unsigned> &availableWorkers, std::vector<JobIdT> &runningJobs, double currentTime)
+    void AssignAndStartJobs(std::vector<unsigned> &availableWorkers,
+                            std::vector<JobIdT> &runningJobs, double currentTime)
     {
         const size_t numWorkerTypes = availableWorkers.size();
         std::vector<Job *> jobsToStart;
@@ -256,7 +262,8 @@ private:
             job.status_ = JobStatus::RUNNING;
             job.startTime_ = currentTime;
 
-            unsigned totalAssignedWorkers = std::accumulate(job.assignedWorkers_.begin(), job.assignedWorkers_.end(), 0u);
+            unsigned totalAssignedWorkers = std::accumulate(
+                job.assignedWorkers_.begin(), job.assignedWorkers_.end(), 0u);
             double execTime = (totalAssignedWorkers > 0)
                                   ? static_cast<double>(job.totalWork_) / static_cast<double>(totalAssignedWorkers)
                                   : 0.0;
@@ -267,7 +274,8 @@ private:
         }
     }
 
-    void DistributeProportionalWorkers(const std::vector<Job *> &jobsToStart, std::vector<unsigned> &availableWorkers,
+    void DistributeProportionalWorkers(const std::vector<Job *> &jobsToStart,
+                                       std::vector<unsigned> &availableWorkers,
                                        VWorkwT<GraphT> totalRunnablePriority)
     {
         const size_t numWorkerTypes = availableWorkers.size();
@@ -286,9 +294,10 @@ private:
                         = (totalRunnablePriority > 0)
                               ? (static_cast<double>(job.upwardRank_) / static_cast<double>(totalRunnablePriority))
                               : (1.0 / static_cast<double>(jobsToStart.size()));
-                    const unsigned proportionalShare
-                        = static_cast<unsigned>(static_cast<double>(remainingWorkersPool[typeIdx]) * proportion);
-                    const unsigned numProportionalChunks = (job.multiplicity_ > 0) ? proportionalShare / job.multiplicity_ : 0;
+                    const unsigned proportionalShare = static_cast<unsigned>(
+                        static_cast<double>(remainingWorkersPool[typeIdx]) * proportion);
+                    const unsigned numProportionalChunks
+                        = (job.multiplicity_ > 0) ? proportionalShare / job.multiplicity_ : 0;
                     const unsigned numAvailableChunks
                         = (job.multiplicity_ > 0) ? availableWorkers[typeIdx] / job.multiplicity_ : 0;
                     const unsigned numChunksAllowedByMax
@@ -324,8 +333,10 @@ private:
         }
     }
 
-    void ProcessCompletedJobs(std::vector<JobIdT> &runningJobs, std::vector<unsigned> &availableWorkers, unsigned &completedCount,
-                              double currentTime, const GraphT &graph)
+    void ProcessCompletedJobs(std::vector<JobIdT> &runningJobs,
+                              std::vector<unsigned> &availableWorkers,
+                              unsigned &completedCount, double currentTime,
+                              const GraphT &graph)
     {
         const size_t numWorkerTypes = availableWorkers.size();
         for (size_t i = 0; i < runningJobs.size();) {

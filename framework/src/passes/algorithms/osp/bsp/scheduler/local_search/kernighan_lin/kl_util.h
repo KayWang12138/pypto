@@ -111,10 +111,19 @@ public:
     inline bool IsSelected(VertexType node) const { return nodeIsSelected_[node]; }
     inline const std::vector<size_t> &GetSelectedNodesIndices() const { return selectedNodesIdx_; }
     inline size_t GetSelectedNodesIdx(VertexType node) const { return selectedNodesIdx_[node]; }
-    inline std::vector<std::vector<CostT>> &operator[](VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
+    inline std::vector<std::vector<CostT>> &operator[](VertexType node)
+    {
+        return affinityTable_[selectedNodesIdx_[node]];
+    }
     inline std::vector<std::vector<CostT>> &At(VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
-    inline const std::vector<std::vector<CostT>> &At(VertexType node) const { return affinityTable_[selectedNodesIdx_[node]]; }
-    inline std::vector<std::vector<CostT>> &GetAffinityTable(VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
+    inline const std::vector<std::vector<CostT>> &At(VertexType node) const
+    {
+        return affinityTable_[selectedNodesIdx_[node]];
+    }
+    inline std::vector<std::vector<CostT>> &GetAffinityTable(VertexType node)
+    {
+        return affinityTable_[selectedNodesIdx_[node]];
+    }
 
     bool Insert(VertexType node)
     {
@@ -218,7 +227,8 @@ struct VertexSelectionStrategy {
 
     unsigned maxWorkCounter_ = 0;
 
-    inline void Initialize(const KlActiveScheduleT &sche, std::mt19937 &gen, const unsigned startStep, const unsigned endStep)
+    inline void Initialize(const KlActiveScheduleT &sche, std::mt19937 &gen,
+                           const unsigned startStep, const unsigned endStep)
     {
         activeSchedule_ = &sche;
         graph_ = &(sche.GetInstance().GetComputationalDag());

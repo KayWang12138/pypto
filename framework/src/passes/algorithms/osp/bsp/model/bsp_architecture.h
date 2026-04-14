@@ -33,15 +33,18 @@ namespace osp {
 /**
  * @enum MemoryConstraintType
  * @brief Enumerates the different types of memory constraints.
- * Memory bounds are set per processor and apply to aggregated memory weights of nodes according to the different types of memory
- * constraints.
+ * Memory bounds are set per processor and apply to aggregated memory weights of nodes
+ * according to the different types of memory constraints.
  */
 enum class MemoryConstraintType {
     NONE,   /** No memory constraints. */
-    LOCAL,  /** The memory bounds apply to the sum of memory weights of nodes assigned to the same processor and superstep. */
-    GLOBAL, /** The memory bounds apply to the sum of memory weights of the nodes assigned to the same processor. */
-    PERSISTENT_AND_TRANSIENT /** Memory bounds apply to the sum of memory weights of nodes assigned to the same processor plus
-                                 the maximum communication weight of a node assigned to a processor. */
+    LOCAL,  /** The memory bounds apply to the sum of memory weights of nodes assigned to the same
+                processor and superstep. */
+    GLOBAL, /** The memory bounds apply to the sum of memory weights of the nodes assigned
+                to the same processor. */
+    PERSISTENT_AND_TRANSIENT /** Memory bounds apply to the sum of memory weights of nodes
+                                 assigned to the same processor plus the maximum communication
+                                 weight of a node assigned to a processor. */
 };
 
 /**
@@ -53,11 +56,13 @@ enum class MemoryConstraintType {
  * bounds. It provides methods to set and retrieve these values.
  *
  * **Processors:**
- * The architecture consists of p processors, indexed from 0 to p-1. Note that processor indices are represented using `unsigned`.
+ * The architecture consists of p processors, indexed from 0 to p-1. Note that processor indices are
+ * represented using `unsigned`.
  *
  * **Processor Types:**
  * Processors can have different types, which are represented by non-negative integers.
- * Processor types are assumed to be consecutive integers starting from 0. Note that processor types are represented using `unsigned`.
+ * Processor types are assumed to be consecutive integers starting from 0. Note that processor types are
+ * represented using `unsigned`.
  * Processor types are used to express compatabilities, which can be specified in the BspInstance, regarding node types.
  *
  * **Communication and Synchronization Costs:**
@@ -92,8 +97,8 @@ private:
     std::vector<VMemwT<GraphT>> memoryBound_;
 
 
-    /** @brief The architecture allows to specify processor types. Processor types are used to express compatabilities, which can
-     * be specified in the BspInstance, regarding node types. */
+    /** @brief The architecture allows to specify processor types. Processor types are used to express
+     * compatabilities, which can be specified in the BspInstance, regarding node types. */
     std::vector<unsigned> processorTypes_;
 
     /** @brief A flattened p x p matrix of send costs. Access via index [i * numberOfProcessors_ + j]. */
@@ -140,8 +145,8 @@ public:
      * @param CommunicationCost The communication cost between processors. Default: 1.
      * @param SynchronisationCost The synchronization cost between processors. Default: 2.
      * @param MemoryBound The memory bound for each processor (default: 100).
-     * @param SendCosts The matrix of send costs between processors. Needs to be a processors x processors matrix. Diagonal
-     * entries are forced to zero. Default: empty (uniform costs).
+     * @param SendCosts The matrix of send costs between processors. Needs to be a processors x
+     * processors matrix. Diagonal entries are forced to zero. Default: empty (uniform costs).
      */
     BspArchitecture(const unsigned numberOfProcessors = 2U,
                     const VCommwT<GraphT> communicationCost = 1U,
@@ -164,13 +169,17 @@ public:
             InitializeUniformSendCosts();
         } else {
             if (numberOfProcessors != sendCosts.size()) {
-                APASS_LOG_ERROR_F(Elements::Config, "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
-                throw std::invalid_argument("sendCosts_ needs to be a processors x processors matrix.\n");
+                APASS_LOG_ERROR_F(Elements::Config,
+                    "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
+                throw std::invalid_argument(
+                    "sendCosts_ needs to be a processors x processors matrix.\n");
             }
-            if (std::any_of(sendCosts.begin(), sendCosts.end(), [numberOfProcessors](const auto &thing) {
-                    return thing.size() != numberOfProcessors;
-                })) {
-                APASS_LOG_ERROR_F(Elements::Config, "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
+            if (std::any_of(sendCosts.begin(), sendCosts.end(),
+                    [numberOfProcessors](const auto &thing) {
+                        return thing.size() != numberOfProcessors;
+                    })) {
+                APASS_LOG_ERROR_F(Elements::Config,
+                    "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
                 throw std::invalid_argument("sendCosts_ needs to be a processors x processors matrix.\n");
             }
 
@@ -221,8 +230,8 @@ public:
      * @param NumberOfProcessors The number of processors. Must be greater than 0.
      * @param CommunicationCost The communication cost.
      * @param SynchronisationCost The synchronization cost.
-     * @param SendCosts The matrix of send costs between processors. Needs to be a processors x processors matrix. Diagonal
-     * entries are forced to zero.
+     * @param SendCosts The matrix of send costs between processors. Needs to be a processors x
+     * processors matrix. Diagonal entries are forced to zero.
      */
     BspArchitecture(const unsigned numberOfProcessors,
                     const VCommwT<GraphT> communicationCost,
@@ -250,8 +259,10 @@ public:
     void SetMemoryBound(const std::vector<VMemwT<GraphT>> &memoryBound)
     {
         if (memoryBound.size() != numberOfProcessors_) {
-            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Memory bound vector size does not match number of processors.");
-            throw std::invalid_argument("Invalid Argument: Memory bound vector size does not match number of processors.");
+            APASS_LOG_ERROR_F(Elements::Config,
+                "Invalid Argument: Memory bound vector size does not match number of processors.");
+            throw std::invalid_argument(
+                "Invalid Argument: Memory bound vector size does not match number of processors.");
         }
         memoryBound_ = memoryBound;
     }
@@ -300,8 +311,9 @@ public:
     }
 
     /**
-     * @brief Sets the number of processors and their types. Number of processors is set to the size of the processor types
-     * vector. Resets send costs to uniform (1). Resets memory bound to 100 for all processors.
+     * @brief Sets the number of processors and their types. Number of processors is set to the
+     * size of the processor types vector. Resets send costs to uniform (1). Resets memory bound
+     * to 100 for all processors.
      * @param processorTypes The types of the respective processors.
      */
     void SetProcessorsWithTypes(const std::vector<VTypeT<GraphT>> &processorTypes)
@@ -326,7 +338,8 @@ public:
 
     /**
      * @brief Sets processors based on counts of consecutive types.
-     * The architecture will have processorTypeCount[0] processors of type 0, processorTypeCount[1] processors of type 1, etc.
+     * The architecture will have processorTypeCount[0] processors of type 0,
+     * processorTypeCount[1] processors of type 1, etc.
      * The memory bound for each processor of type i is set to processorTypeMemory[i].
      * The send costs are set to uniform (1).
      * @param processorTypeCount Vector where index is type and value is count of processors of that type.
@@ -336,8 +349,10 @@ public:
                                    const std::vector<VMemwT<GraphT>> &processorTypeMemory)
     {
         if (processorTypeCount.size() != processorTypeMemory.size()) {
-            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
-            throw std::invalid_argument("Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
+            APASS_LOG_ERROR_F(Elements::Config,
+                "Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
+            throw std::invalid_argument(
+                "Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
         }
 
         if (processorTypeCount.size() > std::numeric_limits<unsigned>::max()) {
@@ -381,7 +396,10 @@ public:
      * @brief Returns the maximum memory bound over all processors.
      * @return The maximum memory bound.
      */
-    [[nodiscard]] VMemwT<GraphT> MaxMemoryBound() const { return *(std::max_element(memoryBound_.begin(), memoryBound_.end())); }
+    [[nodiscard]] VMemwT<GraphT> MaxMemoryBound() const
+    {
+        return *(std::max_element(memoryBound_.begin(), memoryBound_.end()));
+    }
 
     /**
      * @brief Returns the maximum memory bound over all processors of a specific type.
@@ -418,12 +436,14 @@ public:
     [[nodiscard]] VCommwT<GraphT> SynchronisationCosts() const { return synchronisationCosts_; }
 
     /**
-     * @brief Returns a the send costs matrix. Internally the matrix is stored as a flattened matrix. The allocates, computes and
-     * returns the matrix on the fly.
+     * @brief Returns a the send costs matrix. Internally the matrix is stored as a flattened
+     * matrix. The allocates, computes and returns the matrix on the fly.
      * @return The send costs matrix.
      */
-    [[nodiscard]] std::vector<std::vector<VCommwT<GraphT>>> SendCost() const {
-        std::vector<std::vector<VCommwT<GraphT>>> matrix(numberOfProcessors_, std::vector<VCommwT<GraphT>>(numberOfProcessors_));
+    [[nodiscard]] std::vector<std::vector<VCommwT<GraphT>>> SendCost() const
+    {
+        std::vector<std::vector<VCommwT<GraphT>>> matrix(
+            numberOfProcessors_, std::vector<VCommwT<GraphT>>(numberOfProcessors_));
         for (unsigned i = 0; i < numberOfProcessors_; ++i) {
             for (unsigned j = 0; j < numberOfProcessors_; ++j) {
                 matrix[i][j] = sendCosts_[FlatIndex(i, j)];
@@ -464,7 +484,10 @@ public:
      * @param p2 The index of the second processor.
      * @return The send costs between the two processors.
      */
-    [[nodiscard]] VCommwT<GraphT> SendCosts(const unsigned p1, const unsigned p2) const { return sendCosts_[FlatIndex(p1, p2)]; }
+    [[nodiscard]] VCommwT<GraphT> SendCosts(const unsigned p1, const unsigned p2) const
+    {
+        return sendCosts_[FlatIndex(p1, p2)];
+    }
 
     /**
      * @brief Returns the type of a specific processor. Does not perform bounds checking.

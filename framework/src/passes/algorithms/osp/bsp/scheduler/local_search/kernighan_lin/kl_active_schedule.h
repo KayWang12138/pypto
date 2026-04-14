@@ -97,7 +97,10 @@ struct KlActiveScheduleWorkDatastructures {
 
         WeightProc(WorkWeightT work, unsigned proc) : work_(work), proc_(proc) {}
 
-        bool operator<(WeightProc const &rhs) const { return (work_ > rhs.work_) or (work_ == rhs.work_ and proc_ < rhs.proc_); }
+        bool operator<(WeightProc const &rhs) const
+        {
+            return (work_ > rhs.work_) or (work_ == rhs.work_ and proc_ < rhs.proc_);
+        }
     };
 
     std::vector<std::vector<WeightProc>> stepProcessorWork_;
@@ -327,9 +330,15 @@ public:
 
     inline VWorkwT<GraphT> GetStepMaxWork(unsigned step) const { return workDatastructures_.StepMaxWork(step); }
 
-    inline VWorkwT<GraphT> GetStepSecondMaxWork(unsigned step) const { return workDatastructures_.StepSecondMaxWork(step); }
+    inline VWorkwT<GraphT> GetStepSecondMaxWork(unsigned step) const
+    {
+        return workDatastructures_.StepSecondMaxWork(step);
+    }
 
-    inline std::vector<unsigned> &GetStepMaxWorkProcessorCount() { return workDatastructures_.stepMaxWorkProcessorCount_; }
+    inline std::vector<unsigned> &GetStepMaxWorkProcessorCount()
+    {
+        return workDatastructures_.stepMaxWorkProcessorCount_;
+    }
 
     inline VWorkwT<GraphT> GetStepProcessorWork(unsigned step, unsigned proc) const
     {
@@ -458,7 +467,8 @@ private:
     }
 
     template <typename IsViolationFn>
-    void ProcessEdgeViolation(const EdgeType &edge, VertexType neighbor, IsViolationFn &&isViolation, ThreadDataT &threadData)
+    void ProcessEdgeViolation(const EdgeType &edge, VertexType neighbor,
+                              IsViolationFn &&isViolation, ThreadDataT &threadData)
     {
         const bool currentlyViolated = threadData.currentViolations_.find(edge) != threadData.currentViolations_.end();
         if (!currentlyViolated) {
@@ -484,12 +494,16 @@ private:
 
         for (const auto &edge : OutEdges(node, instance_->GetComputationalDag())) {
             const auto &child = Target(edge, instance_->GetComputationalDag());
-            ProcessEdgeViolation(edge, child, [&]() { return IsOutEdgeViolation(nodeStep, nodeProc, child); }, threadData);
+            ProcessEdgeViolation(edge, child,
+                                [&]() { return IsOutEdgeViolation(nodeStep, nodeProc, child); },
+                                threadData);
         }
 
         for (const auto &edge : InEdges(node, instance_->GetComputationalDag())) {
             const auto &parent = Source(edge, instance_->GetComputationalDag());
-            ProcessEdgeViolation(edge, parent, [&]() { return IsInEdgeViolation(nodeStep, nodeProc, parent); }, threadData);
+            ProcessEdgeViolation(edge, parent,
+                                [&]() { return IsInEdgeViolation(nodeStep, nodeProc, parent); },
+                                threadData);
         }
 
         threadData.feasible_ = threadData.currentViolations_.empty();

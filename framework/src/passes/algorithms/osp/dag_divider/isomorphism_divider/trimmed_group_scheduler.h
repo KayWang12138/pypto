@@ -152,7 +152,10 @@ private:
 
             std::vector<VertexIdxT<ConstrGraphT>> groupVertices;
             for (unsigned compIdx : componentIndicesPerGroup[i]) {
-                groupVertices.insert(groupVertices.end(), componentsVertices[compIdx].begin(), componentsVertices[compIdx].end());
+                groupVertices.insert(
+                    groupVertices.end(),
+                    componentsVertices[compIdx].begin(),
+                    componentsVertices[compIdx].end());
             }
             std::sort(groupVertices.begin(), groupVertices.end());
 
@@ -176,7 +179,8 @@ private:
 
                 const unsigned procType = subArch.ProcessorType(subProc);
                 const unsigned localIdxWithinType = subProc - subArchProcTypeOffsets[procType];
-                const unsigned globalProc = archProcTypeOffsets[procType] + (i * subProcCounts[procType]) + localIdxWithinType;
+                const unsigned globalProc = archProcTypeOffsets[procType]
+                    + (i * subProcCounts[procType]) + localIdxWithinType;
 
                 schedule.SetAssignedProcessor(vGlobal, globalProc);
                 schedule.SetAssignedSuperstep(vGlobal, subSuperstep);

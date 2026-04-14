@@ -32,7 +32,8 @@ namespace osp {
  * @brief A pairing heap implementation.
  *
  * This class implements a pairing heap, which is a type of heap data structure with excellent amortized performance.
- * It supports standard heap operations such as insertion, finding the minimum element, and deleting the minimum element.
+ * It supports standard heap operations such as insertion, finding the minimum element,
+ * and deleting the minimum element.
  *
  * @tparam Key The type of the keys stored in the heap. keys must be hashable and comparable.
  * @tparam Value The type of the values associated with the keys. Values are used for ordering the heap.

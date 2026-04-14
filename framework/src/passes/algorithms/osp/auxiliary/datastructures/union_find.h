@@ -211,7 +211,10 @@ bool UnionFindUniverse<T, IndexT, WorkwT>::IsInUniverse(const T &name) const noe
 }
 
 template <typename T, typename IndexT, typename WorkwT>
-T UnionFindUniverse<T, IndexT, WorkwT>::FindOriginByName(const T &name) { return universe_[FindOrigin(namesToIndices_.at(name))].name_; }
+T UnionFindUniverse<T, IndexT, WorkwT>::FindOriginByName(const T &name)
+{
+    return universe_[FindOrigin(namesToIndices_.at(name))].name_;
+}
 
 template <typename T, typename IndexT, typename WorkwT>
 void UnionFindUniverse<T, IndexT, WorkwT>::JoinByName(const T &name, const T &otherName)

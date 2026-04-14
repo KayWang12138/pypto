@@ -54,7 +54,8 @@ private:
     private:
         const GraphT *graph_;                  // Pointer to the graph
         VertexIdxT<GraphT> currentVertex_;     // Current source vertex
-        ChildIteratorT currentChild_;          // Iterator to the current target vertex in current_vertex's adjacency list
+        ChildIteratorT currentChild_;          // Iterator to the current target vertex
+                                              // in current_vertex's adjacency list
         VertexIdxT<GraphT> currentEdgeIdx_;    // Global index of the current edge in the traversal order
 
         void AdvanceToValid()
@@ -237,7 +238,10 @@ private:
             return temp;
         }
 
-        [[nodiscard]] bool operator==(const IncidentEdgeIterator &other) const noexcept { return currentIt_ == other.currentIt_; }
+        [[nodiscard]] bool operator==(const IncidentEdgeIterator &other) const noexcept
+        {
+            return currentIt_ == other.currentIt_;
+        }
 
         [[nodiscard]] bool operator!=(const IncidentEdgeIterator &other) const noexcept { return !(*this == other); }
     };

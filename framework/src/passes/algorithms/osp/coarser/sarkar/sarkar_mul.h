@@ -150,7 +150,9 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunSingleContractionMode(VertexIdx
     }
 
     status = std::max(
-        status, MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::move(contractionMap), std::move(coarsenedDag)));
+        status,
+        MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(
+            std::move(contractionMap), std::move(coarsenedDag)));
 
     VertexIdxT<GraphT> newNumVertices = MultilevelCoarser<GraphT, GraphTCoarse>::dagHistory_.back()->NumVertices();
     diffVertices = currentNumVertices - newNumVertices;
@@ -183,7 +185,9 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunPartialFanContractions(bool &ch
     VertexIdxT<GraphT> diff = 0;
     unsigned innerNoChange = 0;
     while (innerNoChange < mlParams_.maxNumIterationWithoutChanges_) {
-        params_.mode_ = thueCoin_.GetFlip() ? sarkar_params::Mode::FAN_IN_PARTIAL : sarkar_params::Mode::FAN_OUT_PARTIAL;
+        params_.mode_ = thueCoin_.GetFlip()
+            ? sarkar_params::Mode::FAN_IN_PARTIAL
+            : sarkar_params::Mode::FAN_OUT_PARTIAL;
         UpdateParams();
         status = std::max(status, RunSingleContractionMode(diff));
         

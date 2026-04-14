@@ -23,8 +23,8 @@
  * @brief Concepts for Constructable and Modifiable Computational DAGs.
  *
  * This file defines concepts that validate whether a graph type supports dynamic construction
- * and modification of its structure and properties. These concepts are useful for algorithms that need to build or transform graphs,
- * such as graph generators or coarsening algorithms.
+ * and modification of its structure and properties. These concepts are useful for algorithms
+ * that need to build or transform graphs, such as graph generators or coarsening algorithms.
  */
 
 namespace npu::tile_fwk {
@@ -45,7 +45,9 @@ struct IsConstructableCdagVertex : std::false_type {};
 template <typename T>
 struct IsConstructableCdagVertex<T,
                                  std::void_t<decltype(std::declval<T>().AddVertex(
-                                     std::declval<VWorkwT<T>>(), std::declval<VCommwT<T>>(), std::declval<VMemwT<T>>()))>>
+                                     std::declval<VWorkwT<T>>(),
+                                     std::declval<VCommwT<T>>(),
+                                     std::declval<VMemwT<T>>()))>>
     : std::conjunction<std::is_constructible<T, VertexIdxT<T>>> {};
 
 template <typename T>

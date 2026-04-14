@@ -39,10 +39,11 @@ namespace osp {
  * - Manipulate the schedule, including updating assignments and merging supersteps.
  *
  * This class is templated on `GraphT`, which must satisfy the `computational_dag_concept`.
- * Moreover, the work and communication weights of the nodes must be of the same type in order to properly compute the cost.
+ * Moreover, the work and communication weights of the nodes must be of the same type in order to
+ * properly compute the cost.
  *
- * It interacts closely with `BspInstance` to access problem-specific data and constraints. In fact, a `BspSchedule` object is
- * tied to a `BspInstance` object.
+ * It interacts closely with `BspInstance` to access problem-specific data and constraints. In fact,
+ * a `BspSchedule` object is tied to a `BspInstance` object.
  *
  * @tparam GraphT The type of the computational DAG, which must satisfy `is_computational_dag_v`.
  */
@@ -83,7 +84,9 @@ public:
     BspSchedule(const BspInstance<GraphT> &inst,
                 const std::vector<unsigned> &processorAssignment,
                 const std::vector<unsigned> &superstepAssignment)
-        : instance_(&inst), nodeToProcessorAssignment_(processorAssignment), nodeToSuperstepAssignment_(superstepAssignment)
+        : instance_(&inst),
+          nodeToProcessorAssignment_(processorAssignment),
+          nodeToSuperstepAssignment_(superstepAssignment)
     {
         UpdateNumberOfSupersteps();
     }
@@ -235,8 +238,9 @@ public:
 
     /**
      * @brief Returns the staleness of the schedule.
-     * The staleness determines the minimum number of supersteps that must elapse between the assignment of a node to a processor
-     * and the assignment of one of its neighbors to a different processor. The staleness for the BspSchedule is always 1.
+     * The staleness determines the minimum number of supersteps that must elapse between the
+     * assignment of a node to a processor and the assignment of one of its neighbors to a different
+     * processor. The staleness for the BspSchedule is always 1.
      *
      * @return The staleness of the schedule.
      */
@@ -258,7 +262,8 @@ public:
             }
 
         } else {            
-            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument while assigning node to superstep: index out of range.");
+            APASS_LOG_ERROR_F(Elements::Config,
+                "Invalid Argument while assigning node to superstep: index out of range.");
             throw std::invalid_argument("Invalid Argument while assigning node to superstep: index out of range.");
         }
     }
@@ -269,11 +274,15 @@ public:
      * @param node The node for which to set the assigned processor.
      * @param processor The processor to assign to the node.
      */
-    void SetAssignedProcessor(const VertexIdx node, const unsigned processor) { nodeToProcessorAssignment_.at(node) = processor; }
+    void SetAssignedProcessor(const VertexIdx node, const unsigned processor)
+    {
+        nodeToProcessorAssignment_.at(node) = processor;
+    }
 
     /**
      * @brief Computes the work costs of the schedule.
-     * The workload of a processor in a superstep is the sum of the workloads of all nodes assigned to that processor in that superstep.
+     * The workload of a processor in a superstep is the sum of the workloads of all nodes assigned
+     * to that processor in that superstep.
      * The workload in a superstep is the maximum workload of any processor in that superstep.
      * The work cost of the schedule is the sum of the workloads of all supersteps.
      *

@@ -52,8 +52,9 @@ public:
      * @param vertex_contraction_map Output mapping from dag_in to coarsened_dag.
      * @return A status code indicating the success or failure of the coarsening operation.
      */
-    virtual bool CoarsenDag(const GraphTIn &dagIn, GraphTOut &coarsenedDag, std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap)
-        = 0;
+    virtual bool CoarsenDag(const GraphTIn &dagIn,
+                            GraphTOut &coarsenedDag,
+                            std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) = 0;
 
     /**
      * @brief Destructor for the Coarser class.

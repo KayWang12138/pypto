@@ -222,7 +222,11 @@ private:
             changed = false;
             for (const auto u : currentCoarseGraph.Vertices()) {
                 for (const auto v : currentCoarseGraph.Children(u)) {
-                    if (ShouldSkipEdge(u, v, currentCoarseGraph, currentGroups, vertexPoset, vertexBotPoset, workThreshold)) continue;
+                    if (ShouldSkipEdge(u, v, currentCoarseGraph, currentGroups,
+                                       vertexPoset, vertexBotPoset, workThreshold))
+                    {
+                        continue;
+                    }
 
                     std::vector<std::vector<VertexType>> newSubgraphs;
                     ConstrGraphT tempCoarseGraph;
@@ -276,8 +280,10 @@ private:
 
         const std::size_t uSize = currentGroups[u].size();
         const std::size_t vSize = currentGroups[v].size();
-        const bool uSig = (uSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(u) > lockThresholdPerType[uType]);
-        const bool vSig = (vSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(v) > lockThresholdPerType[vType]);
+        const bool uSig = (uSize >= minSymmetry_)
+            && (currentCoarseGraph.VertexWorkWeight(u) > lockThresholdPerType[uType]);
+        const bool vSig = (vSize >= minSymmetry_)
+            && (currentCoarseGraph.VertexWorkWeight(v) > lockThresholdPerType[vType]);
 
         return (uSig && vSig && newSize < std::min(uSize, vSize)) ||
                ((uSig ^ vSig) && newSize < (uSig ? uSize : vSize));
@@ -303,7 +309,9 @@ private:
                 VertexType u = Source(edge, currentCoarseGraph);
                 VertexType v = Target(edge, currentCoarseGraph);
 
-                if (!IsEdgeMergeCandidate(u, v, currentCoarseGraph, vertexPoset, vertexBotPoset, mergeDifferentNodeTypes)) {
+                if (!IsEdgeMergeCandidate(u, v, currentCoarseGraph,
+                                         vertexPoset, vertexBotPoset, mergeDifferentNodeTypes))
+                {
                     continue;
                 }
 
@@ -334,8 +342,9 @@ private:
 
                 auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
 
-                if (CriticalPathWeight(tempCoarseGraph) > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
-                                                           + CriticalPathWeight(currentCoarseGraph)))
+                if (CriticalPathWeight(tempCoarseGraph)
+                    > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
+                       + CriticalPathWeight(currentCoarseGraph)))
                 {
                     nonViableCritPathEdgesCache_.insert({u, v});
                     continue;
@@ -354,7 +363,10 @@ public:
     explicit OrbitGraphProcessor() {}
     void SetMergeDifferentNodeTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
     void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
-    void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold) { criticalPathThreshold_ = criticalPathThreshold; }
+    void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold)
+    {
+        criticalPathThreshold_ = criticalPathThreshold;
+    }
     void SetLockRatio(double lockRatio) { lockOrbitRatio_ = lockRatio; }
     void SetNaturalBreaksCountPercentage(double percentage) { naturalBreaksCountPercentage_ = percentage; }
 
@@ -465,7 +477,8 @@ private:
         for (const auto &pair: orbitSizeCounts) {
             totalOrbitGroups += pair.second;
         }
-        size_t countThreshold = static_cast<size_t>(static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
+        size_t countThreshold = static_cast<size_t>(
+            static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
         if (countThreshold == 0 && totalOrbitGroups > 0) {
             countThreshold = 1;
         }
@@ -515,14 +528,18 @@ private:
             const bool isLastLoop = (sym == symmetryLevelsToTest.back());
 
             nonViableEdgesCache_.clear();
-            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, false, isLastLoop, lockThresholdPerType);
+            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups,
+                                    false, isLastLoop, lockThresholdPerType);
 
             if (mergeDifferentNodeTypes_) {
-                ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType);
+                ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups,
+                                        mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType);
             }
 
             nonViableCritPathEdgesCache_.clear();
-            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType, criticalPathThreshold_);
+            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups,
+                                    mergeDifferentNodeTypes_, isLastLoop,
+                                    lockThresholdPerType, criticalPathThreshold_);
         }
 
         nonViableEdgesCache_.clear();

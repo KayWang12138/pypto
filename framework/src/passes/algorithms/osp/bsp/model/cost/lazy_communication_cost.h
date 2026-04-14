@@ -81,8 +81,10 @@ struct LazyCommunicationCost {
         const auto &numberOfProcessors = schedule.GetInstance().NumberOfProcessors();
         const auto &numberOfSupersteps = schedule.NumberOfSupersteps();
 
-        std::vector<std::vector<VCommwT<GraphT>>> rec(numberOfProcessors, std::vector<VCommwT<GraphT>>(numberOfSupersteps, 0));
-        std::vector<std::vector<VCommwT<GraphT>>> send(numberOfProcessors, std::vector<VCommwT<GraphT>>(numberOfSupersteps, 0));
+        std::vector<std::vector<VCommwT<GraphT>>> rec(
+            numberOfProcessors, std::vector<VCommwT<GraphT>>(numberOfSupersteps, 0));
+        std::vector<std::vector<VCommwT<GraphT>>> send(
+            numberOfProcessors, std::vector<VCommwT<GraphT>>(numberOfSupersteps, 0));
 
         ComputeLazyCommunicationCosts(schedule, rec, send);
         const auto maxCommPerStep = cost_helpers::ComputeMaxCommPerStep(schedule, rec, send);

@@ -49,7 +49,8 @@ public:
         : instance_(&schedule.GetInstance()), numberOfSupersteps_(schedule.NumberOfSupersteps())
     {
         stepProcessorVertices_.resize(schedule.NumberOfSupersteps(),
-                                      std::vector<std::unordered_set<VertexIdx>>(schedule.GetInstance().NumberOfProcessors()));
+            std::vector<std::unordered_set<VertexIdx>>(
+                schedule.GetInstance().NumberOfProcessors()));
 
         for (const auto v : schedule.GetInstance().Vertices()) {
             const unsigned step = schedule.AssignedSuperstep(v);
@@ -75,8 +76,16 @@ public:
      * @brief Get the internal node assignment structure.
      * @return Reference to the vector of vectors of unordered sets of vertices.
      */
-    [[nodiscard]] const std::vector<std::vector<std::unordered_set<VertexIdx>>> &GetProcessorStepVertices() const { return stepProcessorVertices_;  }
-    [[nodiscard]] std::vector<std::vector<std::unordered_set<VertexIdx>>> &GetProcessorStepVertices() { return stepProcessorVertices_;  }
+    [[nodiscard]] const std::vector<std::vector<std::unordered_set<VertexIdx>>> &
+    GetProcessorStepVertices() const
+    {
+        return stepProcessorVertices_;
+    }
+    [[nodiscard]] std::vector<std::vector<std::unordered_set<VertexIdx>>> &
+    GetProcessorStepVertices()
+    {
+        return stepProcessorVertices_;
+    }
 };
 
 }    // namespace osp
