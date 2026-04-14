@@ -1,18 +1,17 @@
-"""FlashAttention DN-mode performance kernel using PyPTO IR manual (non-SSA) mode.
+"""FlashAttention performance kernel using PyPTO IR manual (non-SSA) mode — DN mode.
 
-Double-buffered cross-core communication + QK pre-compute pattern, DN layout.
+DN (DecN) mode differences vs standard ND mode:
+  - compute_qk: K x Q^T (left/right swapped vs Q x K^T),
+                Q loaded with layout="dn" → L1 shape [TD, TS] blayout=1/slayout=2,
+                K loaded normally → L1 shape [TKV, TD] blayout=2/slayout=1,
+                matmul Left=K, Right=Q^T, acc output shape [TKV, TS],
+                acc_to_vec_mode="dual_split_n" (split along N=TS axis)
+  - softmax:    column-direction ops on qk_vec[TKV, TS_HALF]
+                (col_max / col_expand_sub / col_sum replacing row_* equivalents)
+  - compute_pv: P[TS, TKV] (blayout=1/slayout=2) x V[TKV, TD] → acc[TS, TD],
+                TINSERT uses index_col=TS_HALF*sub_id (column offset)
+
 Reference: fa_performance_dn_kernel.cpp
-
-DN mode differences vs ND:
-  - Q loaded with DN layout (transposed in hardware): GM[TS, TD] -> Mat[TD, TS]
-  - QK acc result: [TKV, TS] (transposed from ND's [TS, TKV])
-  - ACC->Vec via dual_split_n: qk_vec shape [TKV, TS_HALF] (vs ND's [TS_HALF, TKV])
-  - Softmax: column-wise reduction (col_max/col_sum) on [TKV, TS_HALF] data
-  - Global max/sum: shape [1, TS_HALF] row vectors (vs ND's [TS_HALF, 1] col vectors)
-  - P mat for PV: [TS, TKV], loaded from GM with DN layout
-
-Usage:
-    python3 tests/ut/frontend/a5/test_fa_perf_tkv_preload_dn.py
 """
 
 import math
@@ -35,46 +34,52 @@ TS = 128;  TKV = 128;  TD = 128
 TS_HALF = TS // 2
 SCALE = 1.0 / math.sqrt(TD)
 
-# Cube tiles
-Q_F16 = TS * TD * 2;   KT_F16 = TD * TKV * 2;  V_F16 = TKV * TD * 2
-# DN: QK acc is [TKV, TS], same byte count as ND [TS, TKV]
-P_F16 = TS * TKV * 2;  QK_HALF_F32 = TKV * TS * 4;  PV_HALF_F32 = TS * TD * 4
+# Cube tile byte sizes
+Q_F16        = TS  * TD  * 2   # [TS,  TD]  FP16 = 32KB  (DN: stored as [TD, TS])
+KT_F16       = TKV * TD  * 2   # [TKV, TD]  FP16 = 32KB  (DN: K normal layout)
+V_F16        = TKV * TD  * 2   # [TKV, TD]  FP16 = 32KB
+P_F16        = TS  * TKV * 2   # [TS,  TKV] FP16 = 32KB
+QK_HALF_F32  = TKV * TS  * 4   # [TKV, TS]  FP32 = 64KB  (DN acc shape)
+PV_HALF_F32  = TS  * TD  * 4   # [TS,  TD]  FP32 = 64KB
 
 # ---- MAT (512KB) ----
 MA0 = 0;                  MA0_PONG = MA0 + Q_F16
 MA1 = Q_F16 * 2;          MA1_PONG = MA1 + KT_F16
 MA2 = MA1 + KT_F16 * 2;   MA2_PONG = MA2 + P_F16
 MA3 = MA2 + P_F16 * 2;    MA3_PONG = MA3 + V_F16
-LA0 = 0;  LA1 = Q_F16
-RA0 = 0;  RA1 = KT_F16
+# DN: Left holds K [TKV,TD], Right holds Q^T [TD,TS]
+# All sizes = 32KB so address offsets are unchanged
+LA0 = 0;  LA1 = KT_F16
+RA0 = 0;  RA1 = Q_F16
 CA0 = 0;  CA1 = QK_HALF_F32
 
 # ---- VEC addresses (248KB on a5) ----
-# DN: qk_vec shape [TKV, TS_HALF], same byte count as ND [TS_HALF, TKV]
-VB4_KV = TKV * TS_HALF * 4;  VB2_KV = TKV * TS_HALF * 2
-VB4    = TS_HALF * TD * 4;   VB2    = TS_HALF * TD * 2
-VB6    = (TKV + 1) * TS_HALF * 2   # DN tile_nz [TKV+1, TS_HALF] FP16
-# DN: reduce shape [1, TS_HALF] — same byte count as ND [TS_HALF, 1]
-VB_RED = 1 * TS_HALF * 4     # 256B — [1, TS_HALF] FP32
+VB4_KV = TS_HALF * TKV * 4   # [TS_HALF, TKV] or [TKV, TS_HALF] FP32 = 32KB (same bytes)
+VB2_KV = TS_HALF * TKV * 2   # [TS_HALF, TKV] or [TKV, TS_HALF] FP16 = 16KB
+VB4    = TS_HALF * TD * 4     # [TS_HALF, TD]  FP32 = 32KB
+VB2    = TS_HALF * TD * 2     # [TS_HALF, TD]  FP16 = 16KB
+# DN: tile_nz shape is [TKV+1, TS_HALF] = [129, 64] (was [TS_HALF+1, TD] = [65, 128])
+VB6_DN = (TKV + 1) * TS_HALF * 2   # 129 * 64 * 2 = 16512 B
+VB_RED = TS_HALF * 1 * 4            # [TS_HALF, 1] FP32 = 256 B
 
-VA0  = 0                       # qk_vec [TKV, TS_HALF]
-VA1  = VA0 + VB4_KV            # tmp_vec [TKV, TS_HALF]
-VA2  = VA1 + VB4_KV            # p_f16 [TKV, TS_HALF]
-VA3  = VA2 + VB2_KV            # reduce_dst [1, TS_HALF]
-# global_max x 2 (by q_count % 2)
+VA0  = 0                       # qk_vec  [TKV, TS_HALF] FP32 (DN shape)
+VA1  = VA0 + VB4_KV            # tmp_vec [TKV, TS_HALF] FP32
+VA2  = VA1 + VB4_KV            # p_f16   [TKV, TS_HALF] FP16
+VA3  = VA2 + VB2_KV            # reduce_dst / reduce_dst_rm (dual view)
+# global_max × 2 (by q_count % 2)
 VA_GMAX0 = VA3 + VB_RED;  VA_GMAX1 = VA_GMAX0 + VB_RED
-# global_sum x 2 (by q_count % 2)
+# global_sum × 2 (by q_count % 2)
 VA_GSUM0 = VA_GMAX1 + VB_RED;  VA_GSUM1 = VA_GSUM0 + VB_RED
-# exp_corr x FIFO_SIZE (by task_id % FIFO_SIZE)
+# exp_corr × FIFO_SIZE (by task_id % FIFO_SIZE)
 VA_EXP_BASE = VA_GSUM1 + VB_RED
 EXP_CORR_ADDRS = [VA_EXP_BASE + i * VB_RED for i in range(FIFO_SIZE)]
 VA_AFTER_EXP = VA_EXP_BASE + FIFO_SIZE * VB_RED
-VA7  = VA_AFTER_EXP            # running_o [TS_HALF, TD]
-VA8  = VA7 + VB4               # pv_vec [TS_HALF, TD]
-VA9  = VA8 + VB4               # o_f16 [TS_HALF, TD]
-VA10 = VA9 + VB2
-VA11 = VA10 + VB6       # qk_vec1 [TKV, TS_HALF]
-VA12 = VA11 + VB4_KV    # pv_vec1 [TS_HALF, TD]
+VA7  = VA_AFTER_EXP            # running_o [TS_HALF, TD] FP32
+VA8  = VA7 + VB4               # pv_vec    [TS_HALF, TD] FP32
+VA9  = VA8 + VB4               # o_f16     [TS_HALF, TD] FP16
+VA10 = VA9 + VB2               # tile_nz   [TKV+1, TS_HALF] FP16 (DN shape)
+VA11 = VA10 + VB6_DN           # qk_vec1   [TKV, TS_HALF] FP32 (slot 1)
+VA12 = VA11 + VB4_KV           # pv_vec1   [TS_HALF, TD] FP32 (slot 1)
 assert VA12 + VB4 <= 248 * 1024, f"VEC overflow: {VA12 + VB4} > {248*1024}"
 
 event_ids_01 = (0, 1)
@@ -89,6 +94,7 @@ QK_MAX_EID = FIFO_SIZE
 P_MAX_EID  = 2 * FIFO_SIZE
 PV_MAX_EID = 3 * FIFO_SIZE
 
+# PV buffer: 2 Q-slots × FIFO_SIZE task-slots per core
 PV_CORE_STRIDE = 2 * FIFO_SIZE * TS
 
 Sq2      = pl.DynVar('Sq')
@@ -98,26 +104,74 @@ D2       = pl.DynVar('D')
 
 
 # ================================================================
-# Generate exp_corr FIFO allocator (static addresses, no subscript in kernel)
-# ================================================================
-import tempfile as _tf, importlib.util as _ilu, os as _os
+def alloc_cube_buffer():
+    # DN mode:
+    #   QK matmul: K [TKV, TD] × Q^T [TD, TS] → acc [TKV, TS]
+    #   PV matmul: P [TS, TKV] × V  [TKV, TD] → acc [TS,  TD]
+    #
+    #   Q loaded with layout="dn" → L1 stored as [TD, TS]
+    #     blayout=1(RowMajor)/slayout=2(ColMajor) — Left format
+    #   K loaded normally → L1 as [TKV, TD]
+    #     blayout=2(ColMajor)/slayout=1(RowMajor) — Right format
 
+    # q_mat: [TD, TS] RowMajor/ColMajor (Left format, receives DN-loaded Q)
+    q_mat_type = plm.TileType(shape=[TD, TS], dtype=pl.FP16,
+                               target_memory=pl.MemorySpace.Mat, blayout=1, slayout=2)
+    q_mat_0 = plm.make_tile(q_mat_type, addr=MA0, size=Q_F16)
+    q_mat_1 = plm.make_tile(q_mat_type, addr=MA0_PONG, size=Q_F16)
+
+    # k_mat: [TKV, TD] ColMajor/RowMajor (Right format, normal load)
+    k_mat_type = plm.TileType(shape=[TKV, TD], dtype=pl.FP16,
+                               target_memory=pl.MemorySpace.Mat, blayout=2, slayout=1)
+    k_mat_0 = plm.make_tile(k_mat_type, addr=MA1, size=KT_F16)
+    k_mat_1 = plm.make_tile(k_mat_type, addr=MA1_PONG, size=KT_F16)
+
+    # v_mat: [TKV, TD] ColMajor/RowMajor (Right format, same as k_mat)
+    v_mat_type = plm.TileType(shape=[TKV, TD], dtype=pl.FP16,
+                               target_memory=pl.MemorySpace.Mat, blayout=2, slayout=1)
+    v_mat_0 = plm.make_tile(v_mat_type, addr=MA3, size=V_F16)
+    v_mat_1 = plm.make_tile(v_mat_type, addr=MA3_PONG, size=V_F16)
+
+    # Left: holds K [TKV, TD] for QK, or P [TS, TKV] for PV
+    left_0 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16,
+                                         target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA0, size=KT_F16)
+    left_1 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16,
+                                         target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA1, size=KT_F16)
+    # Right: holds Q^T [TD, TS] for QK, or V [TKV, TD] for PV
+    right_0 = plm.make_tile(plm.TileType(shape=[TD, TS], dtype=pl.FP16,
+                                          target_memory=pl.MemorySpace.Right), addr=RA0, size=Q_F16)
+    right_1 = plm.make_tile(plm.TileType(shape=[TD, TS], dtype=pl.FP16,
+                                          target_memory=pl.MemorySpace.Right), addr=RA1, size=Q_F16)
+
+    # acc_0: [TKV, TS] FP32 — QK matmul output (DN: K×Q^T)
+    acc_0 = plm.make_tile(plm.TileType(shape=[TKV, TS], dtype=pl.FP32,
+                                        target_memory=pl.MemorySpace.Acc), addr=CA0, size=QK_HALF_F32)
+    # acc_1: [TS, TD] FP32 — PV matmul output (same as ND mode)
+    acc_1 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP32,
+                                        target_memory=pl.MemorySpace.Acc), addr=CA1, size=PV_HALF_F32)
+
+    return ((q_mat_0, q_mat_1), (k_mat_0, k_mat_1),
+            (v_mat_0, v_mat_1), (left_0, left_1), (right_0, right_1), acc_0, acc_1)
+
+
+# Write alloc_exp_corr_fifo to a temp .py so auto-inline can read its source.
+import tempfile as _tf, importlib.util as _ilu, os as _os
 def _gen_alloc_exp_corr():
     lines = ["import pypto_block.language as pl", "import pypto_block.language.op.manual as plm", ""]
     lines.append("def alloc_exp_corr_fifo():")
-    names, col_names = [], []
+    names, rm_names = [], []
     for i, addr in enumerate(EXP_CORR_ADDRS):
-        lines.append(f"    ec{i} = plm.make_tile(plm.TileType(shape=[1, {TS_HALF}], dtype=pl.FP32, "
-                     f"target_memory=pl.MemorySpace.Vec), addr={addr}, size={VB_RED})")
-        lines.append(f"    ec{i}_col = plm.make_tile(plm.TileType(shape=[{TS_HALF}, 1], dtype=pl.FP32, "
+        lines.append(f"    ec{i} = plm.make_tile(plm.TileType(shape=[{TS_HALF}, 1], dtype=pl.FP32, "
                      f"target_memory=pl.MemorySpace.Vec, blayout=2), addr={addr}, size={VB_RED})")
-        names.append(f"ec{i}"); col_names.append(f"ec{i}_col")
-    lines.append(f"    return ({', '.join(names)}), ({', '.join(col_names)})")
+        lines.append(f"    ec{i}_rm = plm.make_tile(plm.TileType(shape=[1, {TS_HALF}], dtype=pl.FP32, "
+                     f"target_memory=pl.MemorySpace.Vec), addr={addr}, size={VB_RED})")
+        names.append(f"ec{i}"); rm_names.append(f"ec{i}_rm")
+    lines.append(f"    return ({', '.join(names)}), ({', '.join(rm_names)})")
     src = "\n".join(lines) + "\n"
-    tmp = _os.path.join(_tf.gettempdir(), "_alloc_exp_corr_dn_fifo.py")
+    tmp = _os.path.join(_tf.gettempdir(), "_alloc_exp_corr_fifo_dn.py")
     with open(tmp, "w") as f:
         f.write(src)
-    spec = _ilu.spec_from_file_location("_alloc_exp_corr_dn_fifo", tmp)
+    spec = _ilu.spec_from_file_location("_alloc_exp_corr_fifo_dn", tmp)
     mod = _ilu.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod.alloc_exp_corr_fifo
@@ -125,89 +179,36 @@ def _gen_alloc_exp_corr():
 alloc_exp_corr_fifo = _gen_alloc_exp_corr()
 
 
-# ================================================================
-def alloc_cube_buffer():
-    # DN mode: Q mat is [TD, TS] (transposed from ND [TS, TD])
-    q_mat_type = plm.TileType(shape=[TD, TS], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=2, slayout=1)
-    q_mat_0 = plm.make_tile(q_mat_type, addr=MA0, size=Q_F16)
-    q_mat_1 = plm.make_tile(q_mat_type, addr=MA0_PONG, size=Q_F16)
-
-    k_mat_type = plm.TileType(shape=[TD, TKV], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=1, slayout=2)
-    k_mat_0 = plm.make_tile(k_mat_type, addr=MA1, size=KT_F16)
-    k_mat_1 = plm.make_tile(k_mat_type, addr=MA1_PONG, size=KT_F16)
-
-    v_mat_type = plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat)
-    v_mat_0 = plm.make_tile(v_mat_type, addr=MA3, size=V_F16)
-    v_mat_1 = plm.make_tile(v_mat_type, addr=MA3_PONG, size=V_F16)
-
-    left_0 = plm.make_tile(plm.TileType(shape=[TD, TS], dtype=pl.FP16, target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA0, size=Q_F16)
-    left_1 = plm.make_tile(plm.TileType(shape=[TD, TS], dtype=pl.FP16, target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA1, size=Q_F16)
-    right_0 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right, blayout=1, slayout=2), addr=RA0, size=KT_F16)
-    right_1 = plm.make_tile(plm.TileType(shape=[TKV, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Right, blayout=1, slayout=2), addr=RA1, size=KT_F16)
-
-    # DN QK acc: [TKV, TS]
-    acc_buf1 = plm.make_tile(plm.TileType(shape=[TKV, TS], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc, blayout=2, slayout=1, fractal=1024), addr=CA0, size=QK_HALF_F32)
-    acc_buf2 = plm.make_tile(plm.TileType(shape=[TKV, TS], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc, blayout=2, slayout=1, fractal=1024), addr=CA1, size=QK_HALF_F32)
-
-    return q_mat_0, q_mat_1, k_mat_0, k_mat_1, v_mat_0, v_mat_1, left_0, left_1, right_0, right_1, acc_buf1, acc_buf2
-
-
 def compute_qk(ctx, state, const_info):
-    """DN QK = Q^T * K -> ACC[TKV,TS] -> Vec[TKV,TS_HALF] via dual_split_n."""
+    """DN: KQ^T = K * Q^T. K loaded normally, Q loaded with layout="dn" (→ L1 as [TD,TS]).
+    Left=K, Right=Q^T. acc output shape [TKV, TS]. acc_to_vec_mode=dual_split_n."""
     qk_fifo_slot = ctx.task_id % FIFO_SIZE
     skv_off = ctx.ki * TKV
     buf_idx = (ctx.q_count * ctx.skv_tiles + ctx.ki) % 2
     pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=event_ids_01[buf_idx])
+    # DN: Q loaded with layout="dn" → stored in L1 as [TD, TS] (transposed)
     if ctx.ki == 0:
-        if ctx.q_count % 2 == 0:
-            plm.load(q_mat_0, q, [ctx.sq_off, 0], layout="dn")
-        else:
-            plm.load(q_mat_1, q, [ctx.sq_off, 0], layout="dn")
-    if buf_idx == 0:
-        plm.load(k_mat_0, k, [skv_off, 0], layout="dn")
-    else:
-        plm.load(k_mat_1, k, [skv_off, 0], layout="dn")
+        plm.load(q_mat_buf[ctx.q_count % 2], q, [ctx.sq_off, 0], layout="dn")
+    # DN: K loaded normally (no layout="dn")
+    plm.load(k_mat_buf[buf_idx], k, [skv_off, 0])
     pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.MTE1, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=event_ids_01[state.l0ab_idx])
-    if state.l0ab_idx == 0:
-        if ctx.q_count % 2 == 0:
-            plm.move(left_0, q_mat_0)
-        else:
-            plm.move(left_0, q_mat_1)
-    else:
-        if ctx.q_count % 2 == 0:
-            plm.move(left_1, q_mat_0)
-        else:
-            plm.move(left_1, q_mat_1)
-    if state.l0ab_idx == 0:
-        if buf_idx == 0:
-            plm.move(right_0, k_mat_0)
-        else:
-            plm.move(right_0, k_mat_1)
-    else:
-        if buf_idx == 0:
-            plm.move(right_1, k_mat_0)
-        else:
-            plm.move(right_1, k_mat_1)
+    # DN: K → Left, Q^T → Right (swapped vs ND mode)
+    plm.move(left_buf[state.l0ab_idx],  k_mat_buf[buf_idx])
+    plm.move(right_buf[state.l0ab_idx], q_mat_buf[ctx.q_count % 2])
     pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
     pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=event_ids_01[buf_idx])
     pl.system.sync_dst(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=event_ids_01[state.l0c_idx])
     if state.l0c_idx == 0:
-        if state.l0ab_idx == 0:
-            plm.matmul(acc_buf1, left_0, right_0)
-        else:
-            plm.matmul(acc_buf1, left_1, right_1)
+        plm.matmul(acc_buf1, left_buf[state.l0ab_idx], right_buf[state.l0ab_idx])
     else:
-        if state.l0ab_idx == 0:
-            plm.matmul(acc_buf2, left_0, right_0)
-        else:
-            plm.matmul(acc_buf2, left_1, right_1)
+        plm.matmul(acc_buf2, left_buf[state.l0ab_idx], right_buf[state.l0ab_idx])
     pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
     pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=event_ids_01[state.l0ab_idx])
-    # DN: dual_split_n -> qk_vec shape [TKV, TS_HALF]
+    # DN: acc shape [TKV, TS] → split along N=TS axis → each sub-block gets [TKV, TS_HALF]
     if qk_fifo_slot == 0:
         if state.l0c_idx == 0:
             plm.move(qk_vec, acc_buf1, acc_to_vec_mode="dual_split_n")
@@ -226,65 +227,44 @@ def compute_qk(ctx, state, const_info):
 
 
 def compute_pv(ctx, state, const_info):
-    """PV = P * V -> ACC[TS,TD] -> Vec[TS_HALF,TD] via dual_split_m (same as ND)."""
+    """DN: PV = P * V. P[TS,TKV] (blayout=1/slayout=2) × V[TKV,TD] → acc[TS,TD].
+    P is read from L1 p_mat_buf (filled by TINSERT in softmax_body). acc_to_vec_mode unchanged."""
     pv_task_slot = ctx.task_id % FIFO_SIZE
     sv_off = ctx.ki * TKV
     pv_fifo_slot = ctx.task_id % FIFO_SIZE
     buf_idx = (ctx.q_count * ctx.skv_tiles + ctx.ki) % 2
     pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=event_ids_23[buf_idx])
-    if buf_idx == 0:
-        plm.load(v_mat_0, v, [sv_off, 0])
-    else:
-        plm.load(v_mat_1, v, [sv_off, 0])
+    plm.load(v_mat_buf[buf_idx], v, [sv_off, 0])
     pl.system.wait_cross_core(pipe=pl.PipeType.MTE1, event_id=P_READY_IDS[pv_fifo_slot], max_event_id=P_MAX_EID)
     pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=event_ids_01[state.l0ab_idx])
+    # DN: P[TS,TKV] → Left, V[TKV,TD] → Right (P in L1 with blayout=1/slayout=2)
     if buf_idx == 0:
-        if state.l0ab_idx == 0:
-            plm.move(left_0, p_mat_buf1)
-        else:
-            plm.move(left_1, p_mat_buf1)
+        plm.move(left_buf[state.l0ab_idx], p_mat_buf1)
     else:
-        if state.l0ab_idx == 0:
-            plm.move(left_0, p_mat_buf2)
-        else:
-            plm.move(left_1, p_mat_buf2)
-    if state.l0ab_idx == 0:
-        if buf_idx == 0:
-            plm.move(right_0, v_mat_0)
-        else:
-            plm.move(right_0, v_mat_1)
-    else:
-        if buf_idx == 0:
-            plm.move(right_1, v_mat_0)
-        else:
-            plm.move(right_1, v_mat_1)
+        plm.move(left_buf[state.l0ab_idx], p_mat_buf2)
+    plm.move(right_buf[state.l0ab_idx], v_mat_buf[buf_idx])
     pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=event_ids_23[buf_idx])
     pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=event_ids_01[state.l0c_idx])
     if state.l0c_idx == 0:
-        if state.l0ab_idx == 0:
-            plm.matmul(acc_buf_pv, left_0, right_0)
-        else:
-            plm.matmul(acc_buf_pv, left_1, right_1)
+        plm.matmul(acc_buf1, left_buf[state.l0ab_idx], right_buf[state.l0ab_idx])
     else:
-        if state.l0ab_idx == 0:
-            plm.matmul(acc_buf_pv2, left_0, right_0)
-        else:
-            plm.matmul(acc_buf_pv2, left_1, right_1)
+        plm.matmul(acc_buf2, left_buf[state.l0ab_idx], right_buf[state.l0ab_idx])
     pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.FIX, event_id=0)
     pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=event_ids_01[state.l0ab_idx])
+    # PV acc shape [TS, TD] → split along M=TS axis, same as ND mode
     if pv_task_slot == 0:
         if state.l0c_idx == 0:
-            plm.move(pv_vec, acc_buf_pv, acc_to_vec_mode="dual_split_m")
+            plm.move(pv_vec, acc_buf1, acc_to_vec_mode="dual_split_m")
         else:
-            plm.move(pv_vec, acc_buf_pv2, acc_to_vec_mode="dual_split_m")
+            plm.move(pv_vec, acc_buf2, acc_to_vec_mode="dual_split_m")
     else:
         if state.l0c_idx == 0:
-            plm.move(pv_vec1, acc_buf_pv, acc_to_vec_mode="dual_split_m")
+            plm.move(pv_vec1, acc_buf1, acc_to_vec_mode="dual_split_m")
         else:
-            plm.move(pv_vec1, acc_buf_pv2, acc_to_vec_mode="dual_split_m")
+            plm.move(pv_vec1, acc_buf2, acc_to_vec_mode="dual_split_m")
     pl.system.sync_src(set_pipe=pl.PipeType.FIX, wait_pipe=pl.PipeType.M, event_id=event_ids_01[state.l0c_idx])
     pl.system.set_cross_core(pipe=pl.PipeType.FIX, event_id=PV_READY_IDS[pv_task_slot], max_event_id=PV_MAX_EID)
     state.l0ab_idx = 1 - state.l0ab_idx
@@ -294,163 +274,101 @@ def compute_pv(ctx, state, const_info):
 
 @pl.inline
 def softmax_body(ctx, sq_dim, row_off):
-    """DN softmax body. qk_vec shape [TKV, TS_HALF]; use col_max/col_sum.
-    Accesses gmax_0/1, gsum_0/1, exp_corr_0/1 from enclosing scope.
+    """DN softmax: column-direction ops on qk_vec[TKV, TS_HALF].
+    col_max/col_sum/col_expand_sub replace row_* ops.
+    reduce_dst_rm [1, TS_HALF] RM used throughout (col reduce result shape).
+    TINSERT uses index_col=TS_HALF*sub_id to write each sub-block's columns into p_mat.
     """
     p_fifo_slot = ctx.task_id % FIFO_SIZE
-    skv_off = ctx.ki * TKV
     q_idx = ctx.q_count % 2
     buf_idx = (ctx.q_count * ctx.skv_tiles + ctx.ki) % 2
     sub_id = pl.block.index_cast(pl.block.get_subblock_idx())
-    if q_idx == 0:
-        if p_fifo_slot == 0:
-            if ctx.ki == 0:
-                # col_max(out, tile, tmp): out = col_max(qk_vec) into reduce_dst [1,TS_HALF]
-                plm.col_max(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                # col_expand_sub(out, tile, col_vec): tmp_vec = qk_vec - broadcast_col(reduce_dst)
-                plm.col_expand_sub(tmp_vec, qk_vec, reduce_dst)
-                plm.muls(gmax_0, reduce_dst, 1.0)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.col_sum(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.muls(gsum_0, reduce_dst, 1.0)
-                plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
-            if ctx.ki > 0:
-                plm.col_max(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.maximum(reduce_dst, reduce_dst, gmax_0)
-                pl.system.bar_v()
-                plm.sub(exp_corr_0, gmax_0, reduce_dst)
-                pl.system.bar_v()
-                plm.muls(gmax_0, reduce_dst, 1.0)
-                pl.system.bar_v()
-                plm.col_expand_sub(tmp_vec, qk_vec, reduce_dst)
-                plm.muls(exp_corr_0, exp_corr_0, SCALE)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(exp_corr_0, exp_corr_0)
-                plm.exp(qk_vec, tmp_vec)
-                plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
-                pl.system.bar_v()
-                plm.mul(gsum_0, gsum_0, exp_corr_0)
-                plm.col_sum(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.add(gsum_0, gsum_0, reduce_dst)
-        elif p_fifo_slot == 1:
-            if ctx.ki == 0:
-                plm.col_max(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.col_expand_sub(tmp_vec, qk_vec1, reduce_dst)
-                plm.muls(gmax_0, reduce_dst, 1.0)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.col_sum(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.muls(gsum_0, reduce_dst, 1.0)
-                plm.cast(p_f16, qk_vec1, target_type=pl.FP16, mode="round")
-            if ctx.ki > 0:
-                plm.col_max(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.maximum(reduce_dst, reduce_dst, gmax_0)
-                pl.system.bar_v()
-                plm.sub(exp_corr_1, gmax_0, reduce_dst)
-                pl.system.bar_v()
-                plm.muls(gmax_0, reduce_dst, 1.0)
-                pl.system.bar_v()
-                plm.col_expand_sub(tmp_vec, qk_vec1, reduce_dst)
-                plm.muls(exp_corr_1, exp_corr_1, SCALE)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(exp_corr_1, exp_corr_1)
-                plm.exp(qk_vec1, tmp_vec)
-                plm.cast(p_f16, qk_vec1, target_type=pl.FP16, mode="round")
-                pl.system.bar_v()
-                plm.mul(gsum_0, gsum_0, exp_corr_1)
-                plm.col_sum(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.add(gsum_0, gsum_0, reduce_dst)
-    else:
-        if p_fifo_slot == 0:
-            if ctx.ki == 0:
-                plm.col_max(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.col_expand_sub(tmp_vec, qk_vec, reduce_dst)
-                plm.muls(gmax_1, reduce_dst, 1.0)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.col_sum(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.muls(gsum_1, reduce_dst, 1.0)
-                plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
-            if ctx.ki > 0:
-                plm.col_max(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.maximum(reduce_dst, reduce_dst, gmax_1)
-                pl.system.bar_v()
-                plm.sub(exp_corr_0, gmax_1, reduce_dst)
-                pl.system.bar_v()
-                plm.muls(gmax_1, reduce_dst, 1.0)
-                pl.system.bar_v()
-                plm.col_expand_sub(tmp_vec, qk_vec, reduce_dst)
-                plm.muls(exp_corr_0, exp_corr_0, SCALE)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(exp_corr_0, exp_corr_0)
-                plm.exp(qk_vec, tmp_vec)
-                plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
-                pl.system.bar_v()
-                plm.mul(gsum_1, gsum_1, exp_corr_0)
-                plm.col_sum(reduce_dst, qk_vec, tmp_vec)
-                pl.system.bar_v()
-                plm.add(gsum_1, gsum_1, reduce_dst)
-        elif p_fifo_slot == 1:
-            if ctx.ki == 0:
-                plm.col_max(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.col_expand_sub(tmp_vec, qk_vec1, reduce_dst)
-                plm.muls(gmax_1, reduce_dst, 1.0)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.col_sum(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.muls(gsum_1, reduce_dst, 1.0)
-                plm.cast(p_f16, qk_vec1, target_type=pl.FP16, mode="round")
-            if ctx.ki > 0:
-                plm.col_max(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.maximum(reduce_dst, reduce_dst, gmax_1)
-                pl.system.bar_v()
-                plm.sub(exp_corr_1, gmax_1, reduce_dst)
-                pl.system.bar_v()
-                plm.muls(gmax_1, reduce_dst, 1.0)
-                pl.system.bar_v()
-                plm.col_expand_sub(tmp_vec, qk_vec1, reduce_dst)
-                plm.muls(exp_corr_1, exp_corr_1, SCALE)
-                plm.muls(tmp_vec, tmp_vec, SCALE)
-                plm.exp(exp_corr_1, exp_corr_1)
-                plm.exp(qk_vec1, tmp_vec)
-                plm.cast(p_f16, qk_vec1, target_type=pl.FP16, mode="round")
-                pl.system.bar_v()
-                plm.mul(gsum_1, gsum_1, exp_corr_1)
-                plm.col_sum(reduce_dst, qk_vec1, tmp_vec)
-                pl.system.bar_v()
-                plm.add(gsum_1, gsum_1, reduce_dst)
+    global_max_rm_cur = global_max_rm_buf[q_idx]
+    global_sum_rm_cur = global_sum_rm_buf[q_idx]
+    if p_fifo_slot == 0:
+        if ctx.ki == 0:
+            # DN: col_max reduces along TKV rows → result [1, TS_HALF] in reduce_dst_rm
+            plm.col_max(reduce_dst_rm, qk_vec, tmp_vec)
+            pl.system.bar_v()
+            plm.col_expand_sub(tmp_vec, qk_vec, reduce_dst_rm)
+            plm.muls(global_max_rm_cur, reduce_dst_rm, 1.0)
+            plm.muls(tmp_vec, tmp_vec, SCALE)
+            plm.exp(qk_vec, tmp_vec)
+            pl.system.bar_v()
+            plm.col_sum(reduce_dst_rm, qk_vec, tmp_vec)
+            pl.system.bar_v()
+            plm.muls(global_sum_rm_cur, reduce_dst_rm, 1.0)
+            plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
+        if ctx.ki > 0:
+            plm.col_max(reduce_dst_rm, qk_vec, tmp_vec)
+            pl.system.bar_v()
+            plm.maximum(reduce_dst_rm, reduce_dst_rm, global_max_rm_cur)
+            pl.system.bar_v()
+            plm.sub(exp_corr_rm_fifo[p_fifo_slot], global_max_rm_cur, reduce_dst_rm)
+            pl.system.bar_v()
+            plm.muls(global_max_rm_cur, reduce_dst_rm, 1.0)
+            pl.system.bar_v()
+            plm.col_expand_sub(tmp_vec, qk_vec, reduce_dst_rm)
+            plm.muls(exp_corr_rm_fifo[p_fifo_slot], exp_corr_rm_fifo[p_fifo_slot], SCALE)
+            plm.muls(tmp_vec, tmp_vec, SCALE)
+            plm.exp(exp_corr_rm_fifo[p_fifo_slot], exp_corr_rm_fifo[p_fifo_slot])
+            plm.exp(qk_vec, tmp_vec)
+            plm.cast(p_f16, qk_vec, target_type=pl.FP16, mode="round")
+            pl.system.bar_v()
+            plm.mul(global_sum_rm_cur, global_sum_rm_cur, exp_corr_rm_fifo[p_fifo_slot])
+            plm.col_sum(reduce_dst_rm, qk_vec, tmp_vec)
+            pl.system.bar_v()
+            plm.add(global_sum_rm_cur, global_sum_rm_cur, reduce_dst_rm)
+    elif p_fifo_slot == 1:
+        if ctx.ki == 0:
+            plm.col_max(reduce_dst_rm, qk_vec1, tmp_vec)
+            pl.system.bar_v()
+            plm.col_expand_sub(tmp_vec, qk_vec1, reduce_dst_rm)
+            plm.muls(global_max_rm_cur, reduce_dst_rm, 1.0)
+            plm.muls(tmp_vec, tmp_vec, SCALE)
+            plm.exp(qk_vec1, tmp_vec)
+            pl.system.bar_v()
+            plm.col_sum(reduce_dst_rm, qk_vec1, tmp_vec)
+            pl.system.bar_v()
+            plm.muls(global_sum_rm_cur, reduce_dst_rm, 1.0)
+            plm.cast(p_f16, qk_vec1, target_type=pl.FP16, mode="round")
+        if ctx.ki > 0:
+            plm.col_max(reduce_dst_rm, qk_vec1, tmp_vec)
+            pl.system.bar_v()
+            plm.maximum(reduce_dst_rm, reduce_dst_rm, global_max_rm_cur)
+            pl.system.bar_v()
+            plm.sub(exp_corr_rm_fifo[p_fifo_slot], global_max_rm_cur, reduce_dst_rm)
+            pl.system.bar_v()
+            plm.muls(global_max_rm_cur, reduce_dst_rm, 1.0)
+            pl.system.bar_v()
+            plm.col_expand_sub(tmp_vec, qk_vec1, reduce_dst_rm)
+            plm.muls(exp_corr_rm_fifo[p_fifo_slot], exp_corr_rm_fifo[p_fifo_slot], SCALE)
+            plm.muls(tmp_vec, tmp_vec, SCALE)
+            plm.exp(exp_corr_rm_fifo[p_fifo_slot], exp_corr_rm_fifo[p_fifo_slot])
+            plm.exp(qk_vec1, tmp_vec)
+            plm.cast(p_f16, qk_vec1, target_type=pl.FP16, mode="round")
+            pl.system.bar_v()
+            plm.mul(global_sum_rm_cur, global_sum_rm_cur, exp_corr_rm_fifo[p_fifo_slot])
+            plm.col_sum(reduce_dst_rm, qk_vec1, tmp_vec)
+            pl.system.bar_v()
+            plm.add(global_sum_rm_cur, global_sum_rm_cur, reduce_dst_rm)
+    # DN: TMOV p_f16[TKV, TS_HALF] → tile_nz[TKV+1, TS_HALF] (NZ conversion)
     plm.move(tile_nz, p_f16)
     pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
     pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
+    # DN: TINSERT with column offset — each sub-block writes its TS_HALF columns
+    #   sub_id=0 → index_col=0      (cols   0..63)
+    #   sub_id=1 → index_col=TS_HALF (cols  64..127)
     if buf_idx == 0:
-        plm.insert(p_mat_buf1, tile_nz, offset=(64 * sub_id * 32))
+        plm.insert(p_mat_buf1, tile_nz, index_col=TS_HALF * sub_id)
     else:
-        plm.insert(p_mat_buf2, tile_nz, offset=(64 * sub_id * 32))
+        plm.insert(p_mat_buf2, tile_nz, index_col=TS_HALF * sub_id)
     return
 
 
 @pl.inline
 def compute_p(ctx, sq_dim, row_off):
-    """Softmax on QK tile -> P. Includes cross-core sync."""
+    """Softmax on KQ tile → P. Includes cross-core sync."""
     p_fifo_slot = ctx.task_id % FIFO_SIZE
     pl.system.wait_cross_core(pipe=pl.PipeType.V, event_id=QK_READY_IDS[p_fifo_slot], max_event_id=QK_MAX_EID)
     softmax_body(ctx, sq_dim, row_off)
@@ -459,28 +377,23 @@ def compute_p(ctx, sq_dim, row_off):
 
 
 def compute_gu(ctx, row_off):
-    """GU: running output update. exp_corr_col shape [TS_HALF,1] for row_expand_mul."""
+    """GU: running output update. Unchanged from ND mode (pv_vec/pv_vec1 are [TS_HALF,TD])."""
     pv_slot = ctx.task_id % FIFO_SIZE
     pl.system.wait_cross_core(pipe=pl.PipeType.V, event_id=PV_READY_IDS[pv_slot], max_event_id=PV_MAX_EID)
     if pv_slot == 0:
         if ctx.ki == 0:
             plm.move(running_o, pv_vec)
         if ctx.ki > 0:
-            # exp_corr_col_0 is [TS_HALF, 1] alias of exp_corr_0 [1, TS_HALF]
-            plm.row_expand_mul(running_o, running_o, exp_corr_col_0)
+            plm.row_expand_mul(running_o, running_o, exp_corr_fifo[pv_slot])
             plm.add(running_o, running_o, pv_vec)
     else:
         if ctx.ki == 0:
             plm.move(running_o, pv_vec1)
         if ctx.ki > 0:
-            plm.row_expand_mul(running_o, running_o, exp_corr_col_1)
+            plm.row_expand_mul(running_o, running_o, exp_corr_fifo[pv_slot])
             plm.add(running_o, running_o, pv_vec1)
     if ctx.ki == ctx.skv_tiles - 1:
-        # gsum_col_0/1 is [TS_HALF, 1] alias for row_expand_div
-        if ctx.q_count % 2 == 0:
-            plm.row_expand_div(running_o, running_o, gsum_col_0)
-        else:
-            plm.row_expand_div(running_o, running_o, gsum_col_1)
+        plm.row_expand_div(running_o, running_o, global_sum_buf[ctx.q_count % 2])
         plm.cast(o_f16, running_o, target_type=pl.FP16, mode="round")
         pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
         pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=0)
@@ -497,8 +410,8 @@ def fa_perf_tkv_preload_dn_kernel(
     k: pl.Tensor[[Skv2, D2], pl.FP16],
     v: pl.Tensor[[Skv2, D2], pl.FP16],
     o: pl.Tensor[[Sq2, D2], pl.FP16],
-    qk_buf: pl.Tensor[[Sq_fifo, Skv2], pl.FP32],
-    p_buf:  pl.Tensor[[Sq_fifo, Skv2], pl.FP16],
+    qk_buf: pl.Tensor[[Sq_fifo, Skv2], pl.FP32],        # FIFO_SIZE × Sq rows (DN: shape same)
+    p_buf:  pl.Tensor[[Sq_fifo, Skv2], pl.FP16],         # FIFO_SIZE × Sq rows
     pv_buf: pl.Tensor[[48 * PV_CORE_STRIDE, D2], pl.FP32],
 ) -> pl.Tensor[[Sq2, D2], pl.FP16]:
 
@@ -509,23 +422,27 @@ def fa_perf_tkv_preload_dn_kernel(
     num_cores = pl.block.index_cast(pl.block.get_block_num())
     core_id = pl.block.index_cast(pl.block.get_block_idx())
 
-    # DN: qk_vec shape [TKV, TS_HALF]
-    qk_vec  = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA0,  size=VB4_KV)
-    qk_vec1 = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA11, size=VB4_KV)
-    pv_vec  = plm.make_tile(plm.TileType(shape=[TS_HALF, TD],  dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA8,  size=VB4)
-    pv_vec1 = plm.make_tile(plm.TileType(shape=[TS_HALF, TD],  dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA12, size=VB4)
-    running_o = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA7, size=VB4)
+    # DN: qk_vec shape [TKV, TS_HALF] (acc dual_split_n result per sub-block)
+    qk_vec  = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP32,
+                                          target_memory=pl.MemorySpace.Vec), addr=VA0, size=VB4_KV)
+    qk_vec1 = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP32,
+                                          target_memory=pl.MemorySpace.Vec), addr=VA11, size=VB4_KV)
+    pv_vec  = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP32,
+                                          target_memory=pl.MemorySpace.Vec), addr=VA8, size=VB4)
+    pv_vec1 = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP32,
+                                          target_memory=pl.MemorySpace.Vec), addr=VA12, size=VB4)
+    running_o = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP32,
+                                            target_memory=pl.MemorySpace.Vec), addr=VA7, size=VB4)
 
-    p_mat_type = plm.TileType(shape=[TS, TKV], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=2, slayout=1)
-    p_mat_buf1 = plm.make_tile(p_mat_type, addr=MA2,      size=P_F16)
+    # DN: p_mat with blayout=1(RowMajor)/slayout=2(ColMajor) — Left format for P×V matmul
+    p_mat_type = plm.TileType(shape=[TS, TKV], dtype=pl.FP16,
+                               target_memory=pl.MemorySpace.Mat, blayout=1, slayout=2)
+    p_mat_buf1 = plm.make_tile(p_mat_type, addr=MA2, size=P_F16)
     p_mat_buf2 = plm.make_tile(p_mat_type, addr=MA2_PONG, size=P_F16)
 
     # =================== CUBE SECTION ===================
     with pl.section_cube():
-        q_mat_0, q_mat_1, k_mat_0, k_mat_1, v_mat_0, v_mat_1, left_0, left_1, right_0, right_1, acc_buf1, acc_buf2 = alloc_cube_buffer()
-        # PV acc: [TS, TD]
-        acc_buf_pv  = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc, blayout=2, slayout=1, fractal=1024), addr=0x10000, size=PV_HALF_F32)
-        acc_buf_pv2 = plm.make_tile(plm.TileType(shape=[TS, TD], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc, blayout=2, slayout=1, fractal=1024), addr=0x0,     size=PV_HALF_F32)
+        q_mat_buf, k_mat_buf, v_mat_buf, left_buf, right_buf, acc_buf1, acc_buf2 = alloc_cube_buffer()
 
         pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=0)
         pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=1)
@@ -571,34 +488,50 @@ def fa_perf_tkv_preload_dn_kernel(
 
     # =================== VECTOR SECTION ===================
     with pl.section_vector():
-        # DN: tmp_vec and p_f16 match qk_vec shape [TKV, TS_HALF]
-        tmp_vec    = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA1, size=VB4_KV)
-        p_f16      = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec), addr=VA2, size=VB2_KV)
-        # DN: reduce_dst shape [1, TS_HALF] (row vector — result of col_max/col_sum)
-        reduce_dst = plm.make_tile(plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec), addr=VA3, size=VB_RED)
+        # DN: tmp_vec [TKV, TS_HALF] FP32 — scratch for col ops
+        tmp_vec = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP32,
+                                              target_memory=pl.MemorySpace.Vec), addr=VA1, size=VB4_KV)
+        # DN: p_f16 [TKV, TS_HALF] FP16 — cast output before TINSERT
+        p_f16   = plm.make_tile(plm.TileType(shape=[TKV, TS_HALF], dtype=pl.FP16,
+                                              target_memory=pl.MemorySpace.Vec), addr=VA2, size=VB2_KV)
+        # reduce_dst: both CM and RM views at VA3 (dual view, same 256B)
+        # DN: col ops produce [1, TS_HALF] RM result → use reduce_dst_rm directly
+        reduce_dst    = plm.make_tile(plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32,
+                                                    target_memory=pl.MemorySpace.Vec, blayout=2),
+                                      addr=VA3, size=VB_RED)
+        reduce_dst_rm = plm.make_tile(plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32,
+                                                    target_memory=pl.MemorySpace.Vec),
+                                      addr=VA3, size=VB_RED)
 
-        red_type     = plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec)
-        red_col_type = plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32, target_memory=pl.MemorySpace.Vec, blayout=2)
+        red_type    = plm.TileType(shape=[TS_HALF, 1], dtype=pl.FP32,
+                                    target_memory=pl.MemorySpace.Vec, blayout=2)
+        red_rm_type = plm.TileType(shape=[1, TS_HALF], dtype=pl.FP32,
+                                    target_memory=pl.MemorySpace.Vec)
 
-        # Double-buffered global_max / global_sum — shape [1, TS_HALF]
-        gmax_0 = plm.make_tile(red_type, addr=VA_GMAX0, size=VB_RED)
-        gmax_1 = plm.make_tile(red_type, addr=VA_GMAX1, size=VB_RED)
-        gsum_0 = plm.make_tile(red_type, addr=VA_GSUM0, size=VB_RED)
-        gsum_1 = plm.make_tile(red_type, addr=VA_GSUM1, size=VB_RED)
-        # Column-vector views of gsum for row_expand_div in GU
-        gsum_col_0 = plm.make_tile(red_col_type, addr=VA_GSUM0, size=VB_RED)
-        gsum_col_1 = plm.make_tile(red_col_type, addr=VA_GSUM1, size=VB_RED)
+        # Double-buffered global_max / global_sum (by q_count % 2)
+        gmax_rm_0 = plm.make_tile(red_rm_type, addr=VA_GMAX0, size=VB_RED)
+        gmax_rm_1 = plm.make_tile(red_rm_type, addr=VA_GMAX1, size=VB_RED)
+        global_max_rm_buf = (gmax_rm_0, gmax_rm_1)
 
-        # FIFO exp_corr — shape [1, TS_HALF] for element-wise mul, [TS_HALF, 1] for row_expand_mul
-        exp_corr_fifo, exp_corr_col_fifo = alloc_exp_corr_fifo()
-        exp_corr_0     = exp_corr_fifo[0]
-        exp_corr_col_0 = exp_corr_col_fifo[0]
-        exp_corr_1     = exp_corr_fifo[1]
-        exp_corr_col_1 = exp_corr_col_fifo[1]
+        gsum_0    = plm.make_tile(red_type,    addr=VA_GSUM0, size=VB_RED)
+        gsum_1    = plm.make_tile(red_type,    addr=VA_GSUM1, size=VB_RED)
+        gsum_rm_0 = plm.make_tile(red_rm_type, addr=VA_GSUM0, size=VB_RED)
+        gsum_rm_1 = plm.make_tile(red_rm_type, addr=VA_GSUM1, size=VB_RED)
+        global_sum_buf    = (gsum_0, gsum_1)
+        global_sum_rm_buf = (gsum_rm_0, gsum_rm_1)
 
-        o_f16     = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec), addr=VA9, size=VB2)
-        tile_type_nz = plm.TileType(shape=[TKV + 1, TS_HALF], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, valid_shape=[TKV, TS_HALF], blayout=2, slayout=1)
-        tile_nz = plm.make_tile(tile_type_nz, addr=VA10, size=VB6)
+        # FIFO exp_corr (by task_id % FIFO_SIZE)
+        exp_corr_fifo, exp_corr_rm_fifo = alloc_exp_corr_fifo()
+
+        o_f16 = plm.make_tile(plm.TileType(shape=[TS_HALF, TD], dtype=pl.FP16,
+                                            target_memory=pl.MemorySpace.Vec), addr=VA9, size=VB2)
+
+        # DN: tile_nz shape [TKV+1, TS_HALF] = [129, 64]
+        #   valid_shape=[TKV, TS_HALF]=[128,64], blayout=2(ColMajor)/slayout=1(RowMajor) — NZ format
+        tile_type_nz = plm.TileType(shape=[TKV + 1, TS_HALF], dtype=pl.FP16,
+                                     target_memory=pl.MemorySpace.Vec,
+                                     valid_shape=[TKV, TS_HALF], blayout=2, slayout=1)
+        tile_nz = plm.make_tile(tile_type_nz, addr=VA10, size=VB6_DN)
 
         task_id = 0
         q_count = 0
@@ -608,6 +541,11 @@ def fa_perf_tkv_preload_dn_kernel(
         row_off = sub_id * TS_HALF
         for qi in pl.range(core_id, sq_tiles, num_cores):
             sq_off = qi * TS
+            q_idx = q_count % 2
+            global_max_rm_cur = global_max_rm_buf[q_idx]
+            global_sum_cur    = global_sum_buf[q_idx]
+            global_sum_rm_cur = global_sum_rm_buf[q_idx]
+
             for ki in pl.range(0, skv_tiles):
                 ctx_curr = ctx_arr[task_id % 3]
                 ctx_curr.sq_off = sq_off
@@ -646,20 +584,22 @@ def flash_attention_ref(q, k, v, d):
     return qk, x_exp, torch.matmul(attn, v.float()).half()
 
 
-def test_fa_perf_dn():
+def test_fa_perf():
     compiled = fe.compile(fa_perf_tkv_preload_dn_kernel, arch="a5", codegen_mode="cce")
     print("compiled:", compiled.lib_path)
     device = "npu:0"
     torch.npu.set_device(device)
     torch.manual_seed(42)
     for sq, skv, d, num_cores in [
+        # (128, 128, TD, 1),
+        # (512, 512, TD, 4),
         (8192, 8192, TD, 28),
     ]:
         print(f"\nFA-Perf DN ({sq},{skv},{d}) cores={num_cores}  QK_PRELOAD={QK_PRELOAD}")
-        q_t = torch.rand((sq, d), device=device, dtype=torch.float16)
-        k_t = torch.rand((skv, d), device=device, dtype=torch.float16)
-        v_t = torch.rand((skv, d), device=device, dtype=torch.float16)
-        o_t = torch.zeros((sq, d), device=device, dtype=torch.float16)
+        q_t  = torch.rand((sq, d),  device=device, dtype=torch.float16)
+        k_t  = torch.rand((skv, d), device=device, dtype=torch.float16)
+        v_t  = torch.rand((skv, d), device=device, dtype=torch.float16)
+        o_t  = torch.zeros((sq, d), device=device, dtype=torch.float16)
         qk_t = torch.zeros((sq * FIFO_SIZE, skv), device=device, dtype=torch.float32)
         p_t  = torch.zeros((sq * FIFO_SIZE, skv), device=device, dtype=torch.float16)
         pv_t = torch.zeros((48 * PV_CORE_STRIDE, d), device=device, dtype=torch.float32)
@@ -675,5 +615,5 @@ def test_fa_perf_dn():
 if __name__ == "__main__":
     print(f"FA perf DN: double-buffer + QK pre-compute (QK_PRELOAD={QK_PRELOAD}, FIFO={FIFO_SIZE})")
     print("=" * 60)
-    test_fa_perf_dn()
+    test_fa_perf()
     print("\nAll FlashAttention DN tests passed!")

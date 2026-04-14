@@ -185,7 +185,6 @@ std::string CCECodegen::GenerateSingle(const ir::ProgramPtr& program, const std:
 
   // Store arch for use in prologue generation
   arch_ = arch;
-  type_converter_.SetArch(arch);
 
   // Run IR passes (same as PTOCodegen::Generate)
   ir::ProgramPtr lowered = ir::pass::LowerBreakContinue()(program);
@@ -1333,18 +1332,10 @@ void CCECodegen::EmitFullPhiIf(const ir::IfStmtPtr& op) {
       std::string tile_type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
       if (loop_depth_ > 0) {
         loop_hoisted_decls_.push_back("using " + type_alias_name + " = " + tile_type_str + ";");
-        if (arch_ == "a5") {
-          loop_hoisted_decls_.push_back(type_alias_name + " " + return_var_name + ";");
-        } else {
-          loop_hoisted_decls_.push_back(type_alias_name + " " + return_var_name + "(" + ctor_args + ");");
-        }
+        loop_hoisted_decls_.push_back(type_alias_name + " " + return_var_name + ";");
       } else {
         emitter_.EmitLine("using " + type_alias_name + " = " + tile_type_str + ";");
-        if (arch_ == "a5") {
-          emitter_.EmitLine(type_alias_name + " " + return_var_name + ";");
-        } else {
-          emitter_.EmitLine(type_alias_name + " " + return_var_name + "(" + ctor_args + ");");
-        }
+        emitter_.EmitLine(type_alias_name + " " + return_var_name + ";");
       }
     } else if (auto tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(return_var->GetType())) {
       GenerateGlobalTensorTypeDeclaration(return_var_name, tensor_type);
@@ -1764,20 +1755,9 @@ void CCECodegen::VisitExpr_(const ir::TileOffsetExprPtr& op) {
   int64_t rows = shape_dims.size() >= 1 ? shape_dims[0] : 1;
   int64_t cols = shape_dims.size() >= 2 ? shape_dims[1] : 1;
   std::string type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
-  // A5: valid_shape is baked into template params, so use default constructor.
-  // A2/A3: pass rows, cols to constructor.
-  std::string decl_and_assign;
-  if (arch_ == "a5") {
-    decl_and_assign = type_str + " " + temp_name + "; " +
-                      "TASSIGN(" + temp_name + ", " + base_addr +
-                      " + (" + offset_expr + ") * " + std::to_string(elem_bytes) + ");";
-  } else {
-    std::string ctor_args = std::to_string(rows) + ", " + std::to_string(cols);
-    decl_and_assign = type_str + " " + temp_name + "(" + ctor_args + "); " +
-                      "TASSIGN(" + temp_name + ", " + base_addr +
-                      " + (" + offset_expr + ") * " + std::to_string(elem_bytes) + ");";
-  }
-  emitter_.EmitLine(decl_and_assign);
+  emitter_.EmitLine(type_str + " " + temp_name + "; " +
+                    "TASSIGN(" + temp_name + ", " + base_addr +
+                    " + (" + offset_expr + ") * " + std::to_string(elem_bytes) + ");");
 
   current_expr_value_ = temp_name;
 }
@@ -2311,26 +2291,12 @@ void CCECodegen::GenerateTileTypeDeclaration(const std::string& var_name, const 
     int64_t addr =
         ExtractConstInt((*tile_type->memref_)->addr_);  // NOLINT(bugprone-unchecked-optional-access)
     std::string addr_str = FormatAddressHex(addr);
-    if (arch_ == "a5") {
-      // A5: default-construct then TASSIGN (no ctor args needed)
-      emitter_.EmitLine(type_alias_name + " " + var_name +
-                        "; TASSIGN(" +
-                        var_name + ", " + addr_str + ");");
-    } else {
-      // A2/A3: pass ctor_args to constructor, then TASSIGN
-      emitter_.EmitLine(type_alias_name + " " + var_name + "(" +
-                        ctor_args + "); TASSIGN(" +
-                        var_name + ", " + addr_str + ");");
-    }
+    emitter_.EmitLine(type_alias_name + " " + var_name +
+                      "; TASSIGN(" +
+                      var_name + ", " + addr_str + ");");
     tile_addresses_[var_name] = addr_str;
   } else {
-    if (arch_ == "a5") {
-      // A5: valid_shape baked into template params — use default constructor (no ctor args)
-      emitter_.EmitLine(type_alias_name + " " + var_name + ";");
-    } else {
-      emitter_.EmitLine(type_alias_name + " " + var_name + "(" +
-                        ctor_args + ");");
-    }
+    emitter_.EmitLine(type_alias_name + " " + var_name + ";");
   }
 }
 

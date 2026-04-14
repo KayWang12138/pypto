@@ -63,11 +63,9 @@ std::string ConvertTilePadToPTOValue(ir::TilePad pad) {
 
 std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int64_t rows,
                                            int64_t cols) const {
-  const bool is_a5 = (arch_ == "a5");
   std::ostringstream type_alias;
   if (!tile_type->memref_.has_value()) {
     // No memref: IfStmt return variable or intermediate tile.
-    // Still generate proper Tile type using tile_view if available.
     std::string tile_type_str = "TileType::Vec";
     std::string BLayout = "RowMajor";
     std::string SLayout = "NoneBox";
@@ -76,9 +74,9 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
     if (cols == 1) {
       BLayout = "ColMajor";
     }
-    // A5: use valid_shape for type-template rows/cols; A2/A3: always -1,-1.
-    std::string type_rows = is_a5 ? std::to_string(rows) : "-1";
-    std::string type_cols = is_a5 ? std::to_string(cols) : "-1";
+    // Always use actual rows/cols as type-template parameters.
+    std::string type_rows = std::to_string(rows);
+    std::string type_cols = std::to_string(cols);
     if (tile_type->tile_view_.has_value()) {
       const auto& tv = tile_type->tile_view_.value();
       BLayout = ConvertTileLayout(tv.blayout);
@@ -90,8 +88,8 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
       if (tv.blayout == TL::col_major && tv.slayout == TL::row_major) tile_type_str = "TileType::Mat";
       else if (tv.blayout == TL::row_major && tv.slayout == TL::row_major) tile_type_str = "TileType::Left";
       else if (tv.blayout == TL::row_major && tv.slayout == TL::col_major) tile_type_str = "TileType::Right";
-      // A5: override rows/cols from valid_shape if available.
-      if (is_a5 && !tv.valid_shape.empty()) {
+      // Override rows/cols from valid_shape if available.
+      if (!tv.valid_shape.empty()) {
         std::string r = tv.valid_shape.size() >= 1 ? ResolveValidShapeDim(tv.valid_shape[0], rows) : "";
         std::string c = tv.valid_shape.size() >= 2 ? ResolveValidShapeDim(tv.valid_shape[1], cols) : "";
         if (!r.empty()) type_rows = r;
@@ -115,9 +113,9 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
   std::string SLayout = "NoneBox";
   std::string fractal = "512";
   std::string pad_value;
-  // A5: use valid_shape for type-template rows/cols; A2/A3: always -1,-1.
-  std::string type_rows = is_a5 ? std::to_string(rows) : "-1";
-  std::string type_cols = is_a5 ? std::to_string(cols) : "-1";
+  // Always use actual rows/cols as type-template parameters.
+  std::string type_rows = std::to_string(rows);
+  std::string type_cols = std::to_string(cols);
 
   if (cols == 1) {
     BLayout = "ColMajor";
@@ -128,8 +126,8 @@ std::string TypeConverter::ConvertTileType(const ir::TileTypePtr& tile_type, int
     fractal = std::to_string(tv.fractal);
     pad_value = ConvertTilePadToPTOValue(tv.pad);
   }
-  // A5: override rows/cols from valid_shape if available (independent of cols==1 branch).
-  if (is_a5 && tile_type->tile_view_.has_value()) {
+  // Override rows/cols from valid_shape if available (independent of cols==1 branch).
+  if (tile_type->tile_view_.has_value()) {
     const auto& tv = tile_type->tile_view_.value();
     if (!tv.valid_shape.empty()) {
       std::string r = tv.valid_shape.size() >= 1 ? ResolveValidShapeDim(tv.valid_shape[0], rows) : "";
