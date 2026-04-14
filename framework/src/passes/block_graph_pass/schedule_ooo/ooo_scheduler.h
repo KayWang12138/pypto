@@ -230,6 +230,7 @@ private:
     void UpdateOperationInput(Operation* targetOp, Operation* spillOp, LogicalTensorPtr tensor);
     void UpdateTensorInputForView(Operation& op, Operation* spillSrcOp, LogicalTensorPtr tensor);
 
+    void ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int oldMemId, int newMemId);
     void ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId);
     Status UpdateRemainMemid(int oldMemId, int newMemId);
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);

@@ -1070,6 +1070,33 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
     }
 }
 
+void OoOScheduler::ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int oldMemId, int newMemId)
+{
+    std::vector<Operation*> viewConsumers;
+    for (auto* consumer : startTensor->GetConsumers()) {
+        if (IsViewOp(*consumer)) {
+            viewConsumers.push_back(consumer);
+        }
+    }
+
+    while (!viewConsumers.empty()) {
+        Operation* viewOp = viewConsumers.back();
+        viewConsumers.pop_back();
+        auto viewOutTensor = viewOp->GetOutputOperand(0);
+        if (viewOutTensor == nullptr) {
+            continue;
+        }
+        if (viewOutTensor->memoryrange.memId == oldMemId) {
+            viewOutTensor->memoryrange.memId = newMemId;
+        }
+        for (auto* consumer : viewOutTensor->GetConsumers()) {
+            if (IsViewOp(*consumer)) {
+                viewConsumers.push_back(consumer);
+            }
+        }
+    }
+}
+
 void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId) {
     auto& reqMemIds = opReqMemIdsMap[op];
     for (auto memId : reqMemIds) {
@@ -1080,6 +1107,7 @@ void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId)
     for (auto &outTensor : op->GetOOperands()) {
         if (outTensor->memoryrange.memId == oldMemId) {
             outTensor->memoryrange.memId = newMemId;
+            ReplaceViewOpChainMemId(outTensor, oldMemId, newMemId);
         }
     }
 }
