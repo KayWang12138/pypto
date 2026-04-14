@@ -15,6 +15,7 @@
 
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "interface/interpreter/function.h"
+#include "interface/interpreter/communication.h"
 #include "interface/operation/attribute.h"
 #include "tensor/symbolic_scalar.h"
 
@@ -113,9 +114,12 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3(
 
 ScalarImmediateType EvaluateSymbolicCallGetHcclRankId(EvaluateSymbol *evaluateSymbol, const std::vector<ScalarImmediateType> &dataList)
 {
-    (void) evaluateSymbol;
-    (void) dataList;
-    return 0;
+    size_t hcclIdx = static_cast<size_t>(dataList[0]);
+    const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+    ASSERT(hcclIdx < groupNames.size(), "hcclIndex overflowed!");
+    const std::string &groupName = groupNames[hcclIdx];
+    auto ctx = SimulationCommManager::Instance().GetCommContext(groupName);
+    return ctx->GetRank();
 }
 
 ScalarImmediateType EvaluateSymbolicCallGetParaAddr(EvaluateSymbol*, const std::vector<ScalarImmediateType>&)

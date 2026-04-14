@@ -20,6 +20,8 @@
 #include <unordered_map>
 #include <mutex>
 #include <memory>
+#include <queue>
+#include <condition_variable>
 #include "raw_tensor_data.h"
 
 
@@ -46,6 +48,7 @@ public:
     void Set(int dstRank, int value, size_t slotSize, uint64_t offset = 0);
     void Signal(int dstRank, int value, size_t slotSize, uint64_t offset = 0, int atomicType = 0, bool notifyAll = false);
     void Wait(int srcRank, int expect, size_t slotSize, uint64_t offset = 0, bool reset = false);
+    void WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset = 0, bool reset = false);
     LogicalTensorDataPtr Get(int srcRank, size_t slotSize, uint64_t offset = 0);
 
     SimulationCommContext() = default;
@@ -133,6 +136,20 @@ private:
     std::mutex remoteMutex_;
     std::mutex allocMutex_;
     std::unordered_map<int, std::unique_ptr<RemoteRank>> remoteRanks_;
+    
+    struct WaitTask {
+        int srcRank;
+        int expect;
+        size_t slotSize;
+        uint64_t offset;
+        bool reset;
+    };
+    
+    std::thread waitWorkerThread_;
+    std::mutex waitTaskMutex_;
+    std::condition_variable waitTaskCV_;
+    std::queue<WaitTask> waitTaskQueue_;
+    bool waitWorkerStop_ = false;
 };
 
 class SimulationCommManager {

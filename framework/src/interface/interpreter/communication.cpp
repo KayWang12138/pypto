@@ -83,6 +83,32 @@ void SimulationCommContext::Init(const std::string &groupName, int rank, int wor
     rank_ = rank;
     worldSize_ = worldSize;
     round_ = round;
+    
+    waitWorkerStop_ = false;
+    waitWorkerThread_ = std::thread([this]() {
+        while (true) {
+            std::unique_lock<std::mutex> lock(waitTaskMutex_);
+            waitTaskCV_.wait(lock, [this]() {
+                return !waitTaskQueue_.empty() || waitWorkerStop_;
+            });
+            
+            if (waitWorkerStop_ && waitTaskQueue_.empty()) {
+                break;
+            }
+            
+            if (!waitTaskQueue_.empty()) {
+                WaitTask task = waitTaskQueue_.front();
+                waitTaskQueue_.pop();
+                lock.unlock();
+                
+                try {
+                    this->Wait(task.srcRank, task.expect, task.slotSize, task.offset, task.reset);
+                } catch (const std::exception &e) {
+                    std::cerr << "Wait worker thread exception: " << e.what() << std::endl;
+                }
+            }
+        }
+    });
 }
 
 void SimulationCommContext::PreAlloc(bool isSignal) {
@@ -342,6 +368,12 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     }
 }
 
+void SimulationCommContext::WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
+    std::lock_guard<std::mutex> lock(waitTaskMutex_);
+    waitTaskQueue_.push({srcRank, expect, slotSize, offset, reset});
+    waitTaskCV_.notify_one();
+}
+
 LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, uint64_t offset) {
     uint8_t *base = GetRemoteRank(srcRank, false);
     if (offset + slotSize > WIN_IN_SIZE) {
@@ -352,6 +384,16 @@ LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, ui
 }
 
 void SimulationCommContext::Destroy() {
+    {
+        std::lock_guard<std::mutex> lock(waitTaskMutex_);
+        waitWorkerStop_ = true;
+        waitTaskCV_.notify_all();
+    }
+    
+    if (waitWorkerThread_.joinable()) {
+        waitWorkerThread_.join();
+    }
+    
     if (ctrlBase_) {
         munmap(ctrlBase_, WIN_EXP_SIZE);
         ctrlBase_ = nullptr;
