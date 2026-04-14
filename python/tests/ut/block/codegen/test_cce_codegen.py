@@ -12,6 +12,7 @@
 import pypto_block.language as pl
 import pypto_block.language.op.manual as plm
 import pytest
+import re
 from pypto_block import DataType, backend, codegen, ir
 from pypto_block.backend import BackendType
 from pypto_block.ir.builder import IRBuilder
@@ -649,6 +650,33 @@ def test_debug_dump_tensor_dynamic_window_codegen():
     assert " + (" in code or " + " in code
 
 
+def test_debug_dump_tensor_location_header_codegen():
+    """CCE debug.dump_tensor with loc=True should emit a location header before the dump."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class DebugDumpTensorLocProgram:
+        @pl.function
+        def debug_dump_tensor_loc(
+            self,
+            input: pl.Tensor[[32, 32], pl.FP32],
+            output: pl.Tensor[[32, 32], pl.FP32],
+        ):
+            plm.dump_tensor(input, loc=True)
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(DebugDumpTensorLocProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    code = files["kernels/aiv/debug_dump_tensor_loc.cpp"]
+
+    assert re.search(r'cce::printf\("\[test_cce_codegen\.py:\d+\] dump_tensor\\n"\);', code)
+    assert "TPRINT(" in code
+
+
 def test_debug_dump_tile_dynamic_offset_codegen():
     """CCE dump_tile window lowering should emit runtime clamp logic and direct printing."""
     backend.reset_for_testing()
@@ -679,6 +707,34 @@ def test_debug_dump_tile_dynamic_offset_codegen():
     assert "pto::GetTileOffset" in code
     assert "pto::PrintValue(" in code
     assert 'cce::printf("=== [TPRINT Tile Window]' in code
+
+
+def test_debug_dump_tile_location_header_codegen():
+    """CCE dump_tile with loc=True should emit a location header before the dump."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class DebugDumpTileLocProgram:
+        @pl.function
+        def debug_dump_tile_loc(
+            self,
+            input: pl.Tensor[[32, 32], pl.FP32],
+            output: pl.Tensor[[32, 32], pl.FP32],
+        ):
+            tile = pl.load(input, offsets=[0, 0], shapes=[16, 16])
+            plm.dump_tile(tile, loc=True)
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(DebugDumpTileLocProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    code = files["kernels/aiv/debug_dump_tile_loc.cpp"]
+
+    assert re.search(r'cce::printf\("\[test_cce_codegen\.py:\d+\] dump_tile\\n"\);', code)
+    assert "TPRINT(" in code
 
 
 if __name__ == "__main__":

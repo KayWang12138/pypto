@@ -42,8 +42,8 @@ def dump_tensor_add_kernel(
         pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=1)
         plm.store(z, tile_c, [0, 0])
         pl.system.bar_all()
-        plm.dump_tensor(z)
-        plm.dump_tensor(z, offsets=[8, 0], shapes=[8, 8])
+        plm.dump_tensor(z, loc=True)
+        plm.dump_tensor(z, offsets=[8, 0], shapes=[8, 8], loc=True)
 
     return z
 

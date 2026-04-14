@@ -2794,7 +2794,48 @@ class ASTParser:
             )
 
         if op_name == "assert_":
-            return self._parse_assert_op(call, call_span)
+            kwargs = self._parse_op_kwargs(call)
+            unknown_kwargs = sorted(key for key in kwargs if key != "loc")
+            if unknown_kwargs:
+                raise ParserSyntaxError(
+                    "assert_ only accepts keyword argument 'loc', got "
+                    + ", ".join(unknown_kwargs),
+                    span=call_span,
+                )
+            if len(call.args) < 1:
+                raise ParserSyntaxError(
+                    f"assert_ requires at least 1 argument (condition), got {len(call.args)}",
+                    span=call_span,
+                )
+            loc = kwargs.get("loc", False)
+            if not isinstance(loc, bool):
+                raise ParserSyntaxError("assert_ keyword argument 'loc' must be bool", span=call_span)
+
+            condition = self.parse_expression(call.args[0])
+            condition_text = self.span_tracker.get_source_text(call.args[0])
+
+            if len(call.args) == 1:
+                return ir_op.debug.assert_(
+                    condition, condition_text=condition_text, loc=loc, span=call_span
+                )
+
+            format_node = call.args[1]
+            if not isinstance(format_node, ast.Constant) or not isinstance(format_node.value, str):
+                raise ParserTypeError(
+                    "assert_ message must be a string literal",
+                    span=self.span_tracker.get_span(format_node),
+                    hint='Use a literal like plm.assert_(cond, "bad state") or plm.assert_(cond, "x=%d", x)',
+                )
+
+            args = [self.parse_expression(arg) for arg in call.args[2:]]
+            return ir_op.debug.assert_(
+                condition,
+                format_node.value,
+                *args,
+                condition_text=condition_text,
+                loc=loc,
+                span=call_span,
+            )
 
         if op_name == "trap":
             if call.keywords:
@@ -2811,7 +2852,32 @@ class ASTParser:
             return ir_op.debug.trap(span=call_span)
 
         if op_name == "printf":
-            return self._parse_printf_op(call, call_span)
+            kwargs = self._parse_op_kwargs(call)
+            unknown_kwargs = sorted(key for key in kwargs if key != "loc")
+            if unknown_kwargs:
+                raise ParserSyntaxError(
+                    "printf only accepts keyword argument 'loc', got " + ", ".join(unknown_kwargs),
+                    span=call_span,
+                )
+            if len(call.args) < 1:
+                raise ParserSyntaxError(
+                    f"printf requires at least a format string, got {len(call.args)} arguments",
+                    span=call_span,
+                )
+            loc = kwargs.get("loc", False)
+            if not isinstance(loc, bool):
+                raise ParserSyntaxError("printf keyword argument 'loc' must be bool", span=call_span)
+
+            format_node = call.args[0]
+            if not isinstance(format_node, ast.Constant) or not isinstance(format_node.value, str):
+                raise ParserTypeError(
+                    "printf format must be a string literal",
+                    span=self.span_tracker.get_span(format_node),
+                    hint='Use a literal like plm.printf("hello\\n") or plm.printf("x=%d\\n", value)',
+                )
+
+            args = [self.parse_expression(arg) for arg in call.args[1:]]
+            return ir_op.debug.printf(format_node.value, *args, loc=loc, span=call_span)
 
         raise InvalidOperationError(
             f"Unknown debug operation: {op_name}",

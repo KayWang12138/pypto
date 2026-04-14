@@ -89,6 +89,62 @@ static std::string JoinExpressions(const std::vector<std::string>& expressions, 
   return oss.str();
 }
 
+static std::string EscapeCxxStringLiteral(const std::string& text) {
+  std::ostringstream oss;
+  for (char c : text) {
+    switch (c) {
+      case '\\':
+        oss << "\\\\";
+        break;
+      case '"':
+        oss << "\\\"";
+        break;
+      case '\n':
+        oss << "\\n";
+        break;
+      case '\t':
+        oss << "\\t";
+        break;
+      case '\r':
+        oss << "\\r";
+        break;
+      default:
+        oss << c;
+        break;
+    }
+  }
+  return oss.str();
+}
+
+static std::string FormatDebugLocation(const ir::Span& span) {
+  if (!span.is_valid() || span.filename_.empty() || span.begin_line_ <= 0) {
+    return "";
+  }
+
+  size_t last_sep = span.filename_.find_last_of("/\\");
+  std::string basename = last_sep == std::string::npos ? span.filename_ : span.filename_.substr(last_sep + 1);
+  if (basename.empty()) {
+    return "";
+  }
+  return "[" + basename + ":" + std::to_string(span.begin_line_) + "]";
+}
+
+static std::string FormatDebugLocationHeader(const ir::Span& span, const std::string& op_name) {
+  std::string location = FormatDebugLocation(span);
+  if (location.empty()) {
+    return "";
+  }
+  return location + " " + op_name;
+}
+
+static void EmitDebugLocationHeaderCCE(codegen::CCECodegen& codegen, const ir::Span& span,
+                                       const std::string& op_name) {
+  std::string header = FormatDebugLocationHeader(span, op_name);
+  if (!header.empty()) {
+    codegen.Emit("cce::printf(\"" + EscapeCxxStringLiteral(header + "\n") + "\");");
+  }
+}
+
 static bool HasDynamicTensorShape(const ir::TensorTypePtr& tensor_type) {
   for (const auto& dim : tensor_type->shape_) {
     if (!ir::As<ir::ConstInt>(dim)) {
@@ -265,6 +321,9 @@ static std::string ComputeRuntimeStrideBasedOffset(codegen::CCECodegen& codegen,
 static std::string MakeDebugDumpTensorCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 3) << "debug.dump_tensor requires 3 arguments, but got " << op->args_.size();
+  if (op->GetKwarg<bool>("show_location", false)) {
+    EmitDebugLocationHeaderCCE(codegen, op->span_, "dump_tensor");
+  }
 
   auto tensor_var = ir::As<ir::Var>(op->args_[0]);
   CHECK(tensor_var) << "debug.dump_tensor first argument must be a Var";
@@ -343,6 +402,9 @@ static std::string MakeDebugDumpTileCodegenCCE(const ir::CallPtr& op, codegen::C
   CHECK(op->args_.size() == 1 || op->args_.size() == 3)
       << "debug.dump_tile requires 1 argument (tile) or 3 arguments (tile, offsets, shapes), but got "
       << op->args_.size();
+  if (op->GetKwarg<bool>("show_location", false)) {
+    EmitDebugLocationHeaderCCE(codegen, op->span_, "dump_tile");
+  }
 
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   if (op->args_.size() == 1) {
