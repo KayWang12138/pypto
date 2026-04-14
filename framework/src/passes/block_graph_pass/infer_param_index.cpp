@@ -41,11 +41,11 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
 Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
 {
     std::vector<SymbolicScalar> validShape;
-    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
-                                           Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
+    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,         Opcode::OP_RESHAPE,
+                                           Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB,   Opcode::OP_GATHER_IN_L1,
                                            Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
     for (auto outOperand : op.GetOOperands()) {
-        if (op.GetOpcode() == Opcode::OP_INDEX_ADD &&
+        if ((op.GetOpcode() == Opcode::OP_INDEX_ADD || op.GetOpcode() == Opcode::OP_NCHW2NC1HWC0) &&
             !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
             continue;
         }
