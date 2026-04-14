@@ -937,6 +937,7 @@ private:
 
         kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
         HOST_PERF_TRACE(TracePhase::Launch);
+        DumpIOTensorsWithCann(aicoreStream, tensors, kbinary->GetFunction()->GetRawName());
     }
 };
 
