@@ -26,6 +26,7 @@ enum class HalFunc {
     Bottom
 };
 
+const std::string kHalLibName = "libascend_hal.so";
 const std::map<HalFunc, std::string> kHalFuncStrMap {
     {HalFunc::MemCtl, "halMemCtl"},
     {HalFunc::ResMap, "halResMap"},

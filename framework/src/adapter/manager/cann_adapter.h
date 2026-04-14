@@ -45,17 +45,11 @@ public:
             return false;
         }
         ADAPTER_LOGD("Library[%s] has been load.", libName.c_str());
-        InitFunctions(funcNameMap);
+        if (!InitFunctions(funcNameMap)) {
+            return false;
+        }
         isInit_ = true;
         return true;
-    }
-    void Initialize(const std::map<EnumType, std::string> &funcNameMap)
-    {
-        if (isInit_) {
-            return;
-        }
-        InitFunctions(funcNameMap);
-        isInit_ = true;
     }
     void *GetFunction(const EnumType func) const
     {
@@ -66,17 +60,20 @@ public:
     }
 
 private:
-    void InitFunctions(const std::map<EnumType, std::string> &funcNameMap) {
+    bool InitFunctions(const std::map<EnumType, std::string> &funcNameMap) {
+        bool ret = true;
         functions_.fill(nullptr);
         for (const std::pair<const EnumType, std::string> &item : funcNameMap) {
             void *func = libHandler_.GetFunction(item.second);
             if (func == nullptr) {
                 ADAPTER_LOGI("Fail to load function[%s]", item.second.c_str());
+                ret = false;
                 continue;
             }
             ADAPTER_LOGD("Function[%s] has been load successfully.", item.second.c_str());
             functions_[static_cast<size_t>(item.first)] = func;
         }
+        return ret;
     }
     bool isInit_;
     PluginHandler libHandler_;

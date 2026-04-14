@@ -26,12 +26,7 @@ PluginHandler::~PluginHandler()
 
 bool PluginHandler::OpenHandler(const std::string &libName)
 {
-    const char *homePath =  std::getenv("ASCEND_HOME_PATH");
-    if (homePath == nullptr) {
-        return false;
-    }
-    std::string libPath = std::string(homePath) + "/lib64/" + libName;
-    handler_ = dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
+    handler_ = dlopen(libName.c_str(), RTLD_NOW | RTLD_GLOBAL);
     return handler_ != nullptr;
 }
 

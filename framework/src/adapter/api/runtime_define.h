@@ -280,23 +280,23 @@ struct RtUbInfo {
     uint16_t piValue;  // directWqe类型下该字段无效
 };
 
-#define UB_DB_SEND_MAX_NUM (4)
-#define RT_CCU_SQE_ARGS_LEN     (13U)
-#define RT_MAX_CCU_EXCEPTION_INFO_SIZE (64U)
-#define FUSION_SUB_TASK_MAX_CCU_NUM (8U)
+#define RT_UB_DB_SEND_MAX_NUM          (4)
+#define RT_RT_CCU_SQE_ARGS_LEN         (13U)
+#define RT_MAX_CCU_EXCEPTION_INFO_SIZE (128U)
+#define RT_FUSION_SUB_TASK_MAX_CCU_NUM (8U)
 
 struct RtUbExDetailInfo {
     RtUbExType ubType;
     uint8_t ubNum;
     uint8_t resv[3];
-    RtUbInfo info[UB_DB_SEND_MAX_NUM];
+    RtUbInfo info[RT_UB_DB_SEND_MAX_NUM];
 };
 
 struct RtCcuMissionDetailInfo {
     uint8_t dieId;
     uint8_t missionId;
     uint16_t instrId;
-    uint64_t args[RT_CCU_SQE_ARGS_LEN];
+    uint64_t args[RT_RT_CCU_SQE_ARGS_LEN];
     uint8_t status;
     uint8_t subStatus;
     uint8_t panicLog[RT_MAX_CCU_EXCEPTION_INFO_SIZE];
@@ -304,7 +304,7 @@ struct RtCcuMissionDetailInfo {
 
 struct RtMultiCCUExDetailInfo {
     uint16_t ccuMissionNum;
-    RtCcuMissionDetailInfo missionInfo[FUSION_SUB_TASK_MAX_CCU_NUM];
+    RtCcuMissionDetailInfo missionInfo[RT_FUSION_SUB_TASK_MAX_CCU_NUM];
 };
 
 enum class RtFusionExType {
