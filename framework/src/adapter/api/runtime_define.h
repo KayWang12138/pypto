@@ -19,7 +19,11 @@
 #include <cstddef>
 
 namespace npu::tile_fwk {
+<<<<<<< HEAD
 constexpr int32_t RT_SUCCESS = 0; // success
+=======
+const int32_t RT_SUCCESS = 0; // success
+>>>>>>> 7d5c3dda (feat(machine): Adjust tile_fwk_adapter to tile_fwk_runtime)
 
 #define RT_MEMORY_HBM (0x2U)       // HBM memory on device
 #define RT_MEMORY_POLICY_HUGE_PAGE_FIRST (0x400U)    // Malloc mem prior huge page, then default page, 0x1U << 10U
@@ -240,6 +244,23 @@ struct RtArgsSizeInfo {
     uint32_t atomicIndex;
 };
 
+enum class RtCoreType {
+    AIC = 0,
+    AIV,
+};
+
+struct RtExceptionErrRegInfo {
+    uint32_t coreId;
+    RtCoreType coreType;
+    uint32_t errReg[20];
+};
+
+#define RT_ERR_REG_MAX_CORE_NUM 75U
+struct RtErrRegInfo {
+    uint32_t coreNum;
+    RtExceptionErrRegInfo exceptionErrReg[RT_ERR_REG_MAX_CORE_NUM];
+};
+
 struct RtExceptionKernelInfo {
     uint32_t binSize;
     RtBinHandle bin; // binHandle
@@ -249,6 +270,7 @@ struct RtExceptionKernelInfo {
     uint16_t dfxSize;
     uint8_t reserved[2]; // 填补空间以保持四字节对齐
     int32_t elfDataFlag;
+    RtErrRegInfo errRegInfo;
 };
 
 struct RtExceptionArgsInfo {
@@ -280,23 +302,38 @@ struct RtUbInfo {
     uint16_t piValue;  // directWqe类型下该字段无效
 };
 
+<<<<<<< HEAD
 #define UB_DB_SEND_MAX_NUM (4)
 #define RT_CCU_SQE_ARGS_LEN     (13U)
 #define RT_MAX_CCU_EXCEPTION_INFO_SIZE (64U)
 #define FUSION_SUB_TASK_MAX_CCU_NUM (8U)
+=======
+#define RT_UB_DB_SEND_MAX_NUM          (4)
+#define RT_RT_CCU_SQE_ARGS_LEN         (13U)
+#define RT_MAX_CCU_EXCEPTION_INFO_SIZE (64U)
+#define RT_FUSION_SUB_TASK_MAX_CCU_NUM (8U)
+>>>>>>> 7d5c3dda (feat(machine): Adjust tile_fwk_adapter to tile_fwk_runtime)
 
 struct RtUbExDetailInfo {
     RtUbExType ubType;
     uint8_t ubNum;
     uint8_t resv[3];
+<<<<<<< HEAD
     RtUbInfo info[UB_DB_SEND_MAX_NUM];
+=======
+    RtUbInfo info[RT_UB_DB_SEND_MAX_NUM];
+>>>>>>> 7d5c3dda (feat(machine): Adjust tile_fwk_adapter to tile_fwk_runtime)
 };
 
 struct RtCcuMissionDetailInfo {
     uint8_t dieId;
     uint8_t missionId;
     uint16_t instrId;
+<<<<<<< HEAD
     uint64_t args[RT_CCU_SQE_ARGS_LEN];
+=======
+    uint64_t args[RT_RT_CCU_SQE_ARGS_LEN];
+>>>>>>> 7d5c3dda (feat(machine): Adjust tile_fwk_adapter to tile_fwk_runtime)
     uint8_t status;
     uint8_t subStatus;
     uint8_t panicLog[RT_MAX_CCU_EXCEPTION_INFO_SIZE];
@@ -304,7 +341,11 @@ struct RtCcuMissionDetailInfo {
 
 struct RtMultiCCUExDetailInfo {
     uint16_t ccuMissionNum;
+<<<<<<< HEAD
     RtCcuMissionDetailInfo missionInfo[FUSION_SUB_TASK_MAX_CCU_NUM];
+=======
+    RtCcuMissionDetailInfo missionInfo[RT_FUSION_SUB_TASK_MAX_CCU_NUM];
+>>>>>>> 7d5c3dda (feat(machine): Adjust tile_fwk_adapter to tile_fwk_runtime)
 };
 
 enum class RtFusionExType {

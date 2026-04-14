@@ -18,7 +18,6 @@ target_include_directories(tile_fwk_runtime
 )
 target_compile_definitions(tile_fwk_runtime
         PUBLIC
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
 )
 target_link_directories(tile_fwk_runtime
@@ -48,25 +47,3 @@ endif ()
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
 
-add_library(tile_fwk_runtime_stub SHARED)
-target_sources(tile_fwk_runtime_stub PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
-target_include_directories(tile_fwk_runtime_stub
-        PRIVATE
-            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
-)
-target_compile_definitions(tile_fwk_runtime_stub
-        PRIVATE
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
-)
-target_link_libraries(tile_fwk_runtime_stub
-        PUBLIC
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>>
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>>
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_compiler>>
-            $<BUILD_INTERFACE:json>
-        PRIVATE
-            intf_pub_cxx17
-            tile_fwk_intf_pub
-            dl
-            c_sec
-)
