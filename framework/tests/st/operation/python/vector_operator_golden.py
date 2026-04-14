@@ -110,6 +110,15 @@ def load_test_cases_from_json(json_file: str) -> list:
     return test_cases
 
 
+def get_c_sizeof_type(type_str):
+    type_dict = {
+        "bfloat16": 2,
+        "float16": 2,
+        "float32": 4
+    }
+    return type_dict[type_str]
+
+
 def gen_op_golden(
     op: str, golden_func, output_path: Path, case_index: int = None
 ) -> bool:
@@ -1684,6 +1693,39 @@ def gen_transpose_op_golden(
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Transpose", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestTransData/TransDataOperationTest.TestTransData",
+    ]
+)
+def gen_transpose_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    def golden_func(inputs: list, config: dict):
+        if inputs[0].dtype == bfloat16:
+            input_tensor = torch.as_tensor(inputs[0].astype(np.float32)).to(torch.bfloat16)
+        else:
+            input_tensor = torch.from_numpy(inputs[0])
+        N, C,H, W=input_tensor.shape
+        C0 = int(32 / get_c_sizeof_type(str(inputs[0].dtype)))
+        C1 = (C +C0 -1) //C0
+        totalC = C0 * C1
+        if C <totalC:
+            padSize = totalC -C
+            input_tensor = F.pad(input_tensor,(0,0,0,0,0,padSize))
+        input_tensor = input_tensor.view(N,C1,C0,H,W)
+        res = input_tensor.permute(0,1,3,4,2).contiguous()
+
+        if inputs[0].dtype == bfloat16:
+            res = res.to(torch.float32).numpy().astype(bfloat16)
+            return [res]
+
+        return [res.numpy()]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("TransData", golden_func, output, case_index)
 
 
 @TestCaseLoader.reg_params_handler(ops=["Permute"])
