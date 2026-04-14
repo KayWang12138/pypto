@@ -249,7 +249,7 @@ void CodeGenCloudNPU::GenCode(
         "Start Generate AI_CORE code for topFunc: %s, hash: %s", topFunc.GetMagicName().c_str(),
         topFunc.GetFunctionHash().c_str());
 
-    compileTasks_.clear();
+    Prepare(topFunc);
 
     std::deque<std::function<void(void)>> tasks;
     for (auto& subFuncPair : topFunc.rootFunc_->programs_) {
@@ -609,13 +609,24 @@ int CodeGenCloudNPU::DoCompileCmd(const std::string& compileCmd) const
     ASSERT(CmpCodeErr::CMD_CHECK_FAILED, ret == 0)
         << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
 
-    ret = std::system(compileCmd.c_str());
+    int rootFuncIdx = MonitorManager::Instance().PrepareNextRootFunc(rootFuncName_);
+
+    {
+        MonitorStageScope compileCmdScope(STAGE_FUNC_TO_BIN, rootFuncIdx, rootFuncName_);
+        ret = std::system(compileCmd.c_str());
+    }
     if (ret != 0) {
         CODEGEN_LOGE_E(
             CmpCodeErr::COMPILE_CODE_FAILED, "kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret,
             compileCmd.c_str());
     }
     return ret;
+}
+
+void CodeGenCloudNPU::Prepare(const Function& topFunc)
+{
+    compileTasks_.clear();
+    rootFuncName_ = topFunc.GetMagicName();
 }
 
 void EncodeWaitUntilInfo(const Operation& op, std::vector<int32_t>& code)
@@ -806,17 +817,8 @@ void CodeGenCloudNPU::ExecuteParallelCompile(const Function& topFunc)
         topFunc.GetFunctionHash().c_str(), parallelJobs, compileTasks_.size());
     CODEGEN_LOGI("Execute: %s", makeCmd.str().c_str());
 
-    int rootFuncIdx = MonitorManager::Instance().GetAndIncrementNextRootFuncIndex();
-    std::string rootFuncName = topFunc.GetMagicName();
-    MonitorManager::Instance().SetCurrentRootFuncIndex(rootFuncIdx);
-    MonitorManager::Instance().SetCurrentRootFuncName(rootFuncName);
-
     auto startTime = std::chrono::high_resolution_clock::now();
-    int ret;
-    {
-        MonitorStageScope compileCmdScope(STAGE_FUNC_TO_BIN, rootFuncIdx, rootFuncName);
-        ret = std::system(makeCmd.str().c_str());
-    }
+    int ret = DoCompileCmd(makeCmd.str());
     auto endTime = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration<double, std::milli>(endTime - startTime);
     CODEGEN_LOGI(
