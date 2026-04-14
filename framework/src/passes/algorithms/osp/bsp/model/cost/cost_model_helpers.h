@@ -33,7 +33,8 @@ template <typename GraphT>
 std::vector<VCommwT<GraphT>> ComputeMaxCommPerStep(const BspInstance<GraphT> &instance,
                                                    unsigned numberOfSupersteps,
                                                    const std::vector<std::vector<VCommwT<GraphT>>> &rec,
-                                                   const std::vector<std::vector<VCommwT<GraphT>>> &send) {
+                                                   const std::vector<std::vector<VCommwT<GraphT>>> &send)
+{
     std::vector<VCommwT<GraphT>> maxCommPerStep(numberOfSupersteps, 0);
     for (unsigned step = 0; step < numberOfSupersteps; step++) {
         VCommwT<GraphT> maxSend = 0;
@@ -55,7 +56,8 @@ std::vector<VCommwT<GraphT>> ComputeMaxCommPerStep(const BspInstance<GraphT> &in
 template <typename GraphT>
 std::vector<VCommwT<GraphT>> ComputeMaxCommPerStep(const BspSchedule<GraphT> &schedule,
                                                    const std::vector<std::vector<VCommwT<GraphT>>> &rec,
-                                                   const std::vector<std::vector<VCommwT<GraphT>>> &send) {
+                                                   const std::vector<std::vector<VCommwT<GraphT>>> &send)
+{
     return ComputeMaxCommPerStep(schedule.GetInstance(), schedule.NumberOfSupersteps(), rec, send);
 }
 
@@ -63,7 +65,8 @@ template <typename GraphT>
 std::vector<VWorkwT<GraphT>> ComputeMaxWorkPerStep(const BspInstance<GraphT> &instance,
                                                    unsigned numberOfSupersteps,
                                                    const std::vector<unsigned> &nodeToProcessorAssignment,
-                                                   const std::vector<unsigned> &nodeToSuperstepAssignment) {
+                                                   const std::vector<unsigned> &nodeToSuperstepAssignment)
+{
     std::vector<std::vector<VWorkwT<GraphT>>> work = std::vector<std::vector<VWorkwT<GraphT>>>(
         numberOfSupersteps, std::vector<VWorkwT<GraphT>>(instance.NumberOfProcessors(), 0));
     for (const auto &node : instance.Vertices()) {
@@ -87,7 +90,8 @@ std::vector<VWorkwT<GraphT>> ComputeMaxWorkPerStep(const BspInstance<GraphT> &in
 }
 
 template <typename GraphT>
-std::vector<VWorkwT<GraphT>> ComputeMaxWorkPerStep(const BspSchedule<GraphT> &schedule) {
+std::vector<VWorkwT<GraphT>> ComputeMaxWorkPerStep(const BspSchedule<GraphT> &schedule)
+{
     return ComputeMaxWorkPerStep(
         schedule.GetInstance(), schedule.NumberOfSupersteps(), schedule.AssignedProcessors(), schedule.AssignedSupersteps());
 }
@@ -96,7 +100,8 @@ template <typename GraphT>
 VWorkwT<GraphT> ComputeWorkCosts(const BspInstance<GraphT> &instance,
                                  unsigned numberOfSupersteps,
                                  const std::vector<unsigned> &nodeToProcessorAssignment,
-                                 const std::vector<unsigned> &nodeToSuperstepAssignment) {
+                                 const std::vector<unsigned> &nodeToSuperstepAssignment)
+{
     std::vector<VWorkwT<GraphT>> maxWorkPerStep
         = ComputeMaxWorkPerStep(instance, numberOfSupersteps, nodeToProcessorAssignment, nodeToSuperstepAssignment);
 
@@ -104,7 +109,8 @@ VWorkwT<GraphT> ComputeWorkCosts(const BspInstance<GraphT> &instance,
 }
 
 template <typename GraphT>
-VWorkwT<GraphT> ComputeWorkCosts(const BspSchedule<GraphT> &schedule) {
+VWorkwT<GraphT> ComputeWorkCosts(const BspSchedule<GraphT> &schedule)
+{
     return ComputeWorkCosts(
         schedule.GetInstance(), schedule.NumberOfSupersteps(), schedule.AssignedProcessors(), schedule.AssignedSupersteps());
 }

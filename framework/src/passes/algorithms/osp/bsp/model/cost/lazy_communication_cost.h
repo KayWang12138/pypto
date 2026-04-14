@@ -31,7 +31,8 @@ void ComputeLazyCommunicationCosts(const BspInstance<GraphT> &instance,
                                    const std::vector<unsigned> &nodeToSuperstepAssignment,
                                    const unsigned staleness,
                                    std::vector<std::vector<VCommwT<GraphT>>> &rec,
-                                   std::vector<std::vector<VCommwT<GraphT>>> &send) {
+                                   std::vector<std::vector<VCommwT<GraphT>>> &send)
+{
     for (const auto &node : instance.Vertices()) {
         std::vector<unsigned> stepNeeded(instance.NumberOfProcessors(), numberOfSupersteps);
         for (const auto &target : instance.GetComputationalDag().Children(node)) {
@@ -56,7 +57,8 @@ void ComputeLazyCommunicationCosts(const BspInstance<GraphT> &instance,
 template <typename GraphT>
 void ComputeLazyCommunicationCosts(const BspSchedule<GraphT> &schedule,
                                    std::vector<std::vector<VCommwT<GraphT>>> &rec,
-                                   std::vector<std::vector<VCommwT<GraphT>>> &send) {
+                                   std::vector<std::vector<VCommwT<GraphT>>> &send)
+{
     ComputeLazyCommunicationCosts(schedule.GetInstance(),
                                   schedule.NumberOfSupersteps(),
                                   schedule.AssignedProcessors(),
@@ -74,7 +76,8 @@ template <typename GraphT>
 struct LazyCommunicationCost {
     using CostType = VWorkwT<GraphT>;
 
-    CostType operator()(const BspSchedule<GraphT> &schedule) const {
+    CostType operator()(const BspSchedule<GraphT> &schedule) const
+    {
         const auto &numberOfProcessors = schedule.GetInstance().NumberOfProcessors();
         const auto &numberOfSupersteps = schedule.NumberOfSupersteps();
 

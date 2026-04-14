@@ -63,7 +63,8 @@ public:
 };
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::Run(const GraphT &graph) {
+ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::Run(const GraphT &graph)
+{
     ClearComputationData();
     originalGraph_ = &graph;
 
@@ -78,7 +79,8 @@ ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::Run(const GraphT &graph) {
 }
 
 template <typename GraphT, typename GraphTCoarse>
-void MultilevelCoarser<GraphT, GraphTCoarse>::ClearComputationData() {
+void MultilevelCoarser<GraphT, GraphTCoarse>::ClearComputationData()
+{
     dagHistory_.clear();
     dagHistory_.shrink_to_fit();
 
@@ -87,7 +89,8 @@ void MultilevelCoarser<GraphT, GraphTCoarse>::ClearComputationData() {
 }
 
 template <typename GraphT, typename GraphTCoarse>
-void MultilevelCoarser<GraphT, GraphTCoarse>::CompactifyDagHistory() {
+void MultilevelCoarser<GraphT, GraphTCoarse>::CompactifyDagHistory()
+{
     if (dagHistory_.size() < 3) {
         return;
     }
@@ -100,7 +103,8 @@ void MultilevelCoarser<GraphT, GraphTCoarse>::CompactifyDagHistory() {
 
     if ((static_cast<double>(dagHistory_[dagIndxFirst - 1]->NumVertices())
          / static_cast<double>(dagHistory_[dagIndxSecond - 1]->NumVertices()))
-        > 1.25) {
+        > 1.25)
+    {
         return;
     }
 
@@ -126,7 +130,8 @@ void MultilevelCoarser<GraphT, GraphTCoarse>::CompactifyDagHistory() {
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector<VertexIdxT<GraphTCoarse>> &&contractionMap) {
+ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector<VertexIdxT<GraphTCoarse>> &&contractionMap)
+{
     std::unique_ptr<GraphTCoarse> newGraph = std::make_unique<GraphTCoarse>();
 
     std::unique_ptr<std::vector<VertexIdxT<GraphTCoarse>>> contrMapPtr(
@@ -155,7 +160,8 @@ ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector
 
 template <typename GraphT, typename GraphTCoarse>
 ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector<VertexIdxT<GraphTCoarse>> &&contractionMap,
-                                                                     GraphTCoarse &&contractedGraph) {
+                                                                     GraphTCoarse &&contractedGraph)
+{
     std::unique_ptr<GraphTCoarse> graphPtr(new GraphTCoarse(std::forward<GraphTCoarse>(contractedGraph)));
     dagHistory_.emplace_back(std::move(graphPtr));
 
@@ -168,7 +174,8 @@ ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector
 }
 
 template <typename GraphT, typename GraphTCoarse>
-std::vector<VertexIdxT<GraphTCoarse>> MultilevelCoarser<GraphT, GraphTCoarse>::GetCombinedContractionMap() const {
+std::vector<VertexIdxT<GraphTCoarse>> MultilevelCoarser<GraphT, GraphTCoarse>::GetCombinedContractionMap() const
+{
     std::vector<VertexIdxT<GraphTCoarse>> combinedContractionMap(originalGraph_->NumVertices());
     std::iota(combinedContractionMap.begin(), combinedContractionMap.end(), 0);
 
@@ -184,7 +191,8 @@ std::vector<VertexIdxT<GraphTCoarse>> MultilevelCoarser<GraphT, GraphTCoarse>::G
 template <typename GraphT, typename GraphTCoarse>
 bool MultilevelCoarser<GraphT, GraphTCoarse>::CoarsenDag(const GraphT &dagIn,
                                                          GraphTCoarse &coarsenedDag,
-                                                         std::vector<VertexIdxT<GraphTCoarse>> &vertexContractionMap) {
+                                                         std::vector<VertexIdxT<GraphTCoarse>> &vertexContractionMap)
+{
     ClearComputationData();
 
     ReturnStatus status = Run(dagIn);
@@ -204,7 +212,8 @@ bool MultilevelCoarser<GraphT, GraphTCoarse>::CoarsenDag(const GraphT &dagIn,
 }
 
 template <typename GraphT, typename GraphTCoarse>
-void MultilevelCoarser<GraphT, GraphTCoarse>::AddIdentityContraction() {
+void MultilevelCoarser<GraphT, GraphTCoarse>::AddIdentityContraction()
+{
     std::size_t nVert;
     if (dagHistory_.size() == 0) {
         nVert = static_cast<std::size_t>(originalGraph_->NumVertices());

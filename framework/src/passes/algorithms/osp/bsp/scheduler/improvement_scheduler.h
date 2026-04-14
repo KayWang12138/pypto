@@ -68,7 +68,8 @@ public:
 
     virtual ~ComboScheduler() = default;
 
-    virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override {
+    virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override
+    {
         ReturnStatus status = baseScheduler_.ComputeSchedule(schedule);
         if (status != ReturnStatus::OSP_SUCCESS and status != ReturnStatus::OSP_BEST_FOUND) {
             return status;

@@ -55,7 +55,8 @@ private:
     Compare comp_;
 
     // Melds two heaps together.
-    Node *Meld(Node *heap1, Node *heap2) {
+    Node *Meld(Node *heap1, Node *heap2)
+    {
         if (!heap1) {
             return heap2;
         }
@@ -79,7 +80,8 @@ private:
     }
 
     // Merges a list of sibling heaps using a two-pass strategy.
-    Node *MultipassMerge(Node *firstSibling) {
+    Node *MultipassMerge(Node *firstSibling)
+    {
         if (!firstSibling) {
             return nullptr;
         }
@@ -118,7 +120,8 @@ private:
     }
 
     // Cuts a node from its parent and siblings.
-    void Cut(Node *node) {
+    void Cut(Node *node)
+    {
         if (node == root_) {
             return;
         }
@@ -144,7 +147,8 @@ public:
      * @brief Copy constructor.
      * @param other The PairingHeap to copy from.
      */
-    PairingHeap(const PairingHeap &other) : numElements_(other.numElements_), comp_(other.comp_) {
+    PairingHeap(const PairingHeap &other) : numElements_(other.numElements_), comp_(other.comp_)
+    {
         root_ = nullptr;
         if (!other.root_) {
             return;
@@ -200,7 +204,8 @@ public:
      * @param other The PairingHeap to assign from.
      * @return Reference to this heap.
      */
-    PairingHeap &operator=(const PairingHeap &other) {
+    PairingHeap &operator=(const PairingHeap &other)
+    {
         if (this != &other) {
             PairingHeap temp(other);
             std::swap(root_, temp.root_);
@@ -245,7 +250,8 @@ public:
      * @param key The key to insert.
      * @param value The value associated with the key.
      */
-    void Push(const Key &key, const Value &value) {
+    void Push(const Key &key, const Value &value)
+    {
         Node *newNode = new Node{key, value};
         const auto pair = nodeMap_.emplace(key, newNode);
         const bool &success = pair.second;
@@ -271,7 +277,8 @@ public:
      * @brief Removes and returns the key with the minimum (or maximum) value.
      * @return The key that was at the top of the heap.
      */
-    Key Pop() {
+    Key Pop()
+    {
         if (IsEmpty()) {
             APASS_LOG_ERROR_F(Elements::Config, "Heap is empty.");
             throw std::runtime_error("Heap is empty.");
@@ -294,7 +301,8 @@ public:
      * @param key The key whose value to update.
      * @param newValue The new value.
      */
-    void Update(const Key &key, const Value &newValue) {
+    void Update(const Key &key, const Value &newValue)
+    {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
             APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
@@ -334,7 +342,8 @@ public:
      * @brief Removes an arbitrary key from the heap.
      * @param key The key to remove.
      */
-    void Erase(const Key &key) {
+    void Erase(const Key &key)
+    {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
             APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
@@ -375,7 +384,8 @@ public:
     /**
      * @brief Removes all elements from the heap.
      */
-    void Clear() {
+    void Clear()
+    {
         if (!root_) { return; }
 
         std::vector<Node *> toVisit;

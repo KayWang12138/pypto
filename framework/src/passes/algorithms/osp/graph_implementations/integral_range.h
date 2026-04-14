@@ -91,23 +91,27 @@ public:
          */
         [[nodiscard]] constexpr ArrowProxy operator->() const noexcept { return ArrowProxy{current_}; }
 
-        constexpr IntegralIterator &operator++() noexcept {
+        constexpr IntegralIterator &operator++() noexcept
+        {
             ++current_;
             return *this;
         }
 
-        constexpr IntegralIterator operator++(int) noexcept {
+        constexpr IntegralIterator operator++(int) noexcept
+        {
             IntegralIterator temp = *this;
             ++(*this);
             return temp;
         }
 
-        constexpr IntegralIterator &operator--() noexcept {
+        constexpr IntegralIterator &operator--() noexcept
+        {
             --current_;
             return *this;
         }
 
-        constexpr IntegralIterator operator--(int) noexcept {
+        constexpr IntegralIterator operator--(int) noexcept
+        {
             IntegralIterator temp = *this;
             --(*this);
             return temp;
@@ -119,7 +123,8 @@ public:
 
         [[nodiscard]] constexpr bool operator!=(const IntegralIterator &other) const noexcept { return !(*this == other); }
 
-        constexpr IntegralIterator &operator+=(difference_type n) noexcept {
+        constexpr IntegralIterator &operator+=(difference_type n) noexcept
+        {
             current_ = static_cast<value_type>(current_ + n);
             return *this;
         }
@@ -133,7 +138,8 @@ public:
             return it + n;
         }
 
-        constexpr IntegralIterator &operator-=(difference_type n) noexcept {
+        constexpr IntegralIterator &operator-=(difference_type n) noexcept
+        {
             current_ = static_cast<value_type>(current_ - n);
             return *this;
         }

@@ -113,11 +113,13 @@ protected:
 
         inline unsigned NumSteps() const { return endStep_ - startStep_ + 1; }
 
-        inline unsigned StartIdx(const unsigned nodeStep) const {
+        inline unsigned StartIdx(const unsigned nodeStep) const
+        {
             return nodeStep < startStep_ + windowSize ? windowSize - (nodeStep - startStep_) : 0;
         }
 
-        inline unsigned EndIdx(unsigned nodeStep) const {
+        inline unsigned EndIdx(unsigned nodeStep) const
+        {
             return nodeStep + windowSize <= endStep_ ? windowRange_ : windowRange_ - (nodeStep + windowSize - endStep_);
         }
     };
@@ -138,15 +140,18 @@ protected:
     std::vector<ThreadSearchContext> threadDataVec_;
     std::vector<bool> threadFinishedVec_;
 
-    inline unsigned RelStepIdx(const unsigned nodeStep, const unsigned moveStep) const {
+    inline unsigned RelStepIdx(const unsigned nodeStep, const unsigned moveStep) const
+    {
         return (moveStep >= nodeStep) ? ((moveStep - nodeStep) + windowSize) : (windowSize - (nodeStep - moveStep));
     }
 
-    inline bool IsCompatible(VertexType node, unsigned proc) const {
+    inline bool IsCompatible(VertexType node, unsigned proc) const
+    {
         return activeSchedule_.GetInstance().IsCompatible(node, proc);
     }
 
-    void SetStartStep(const unsigned step, ThreadSearchContext &threadData) {
+    void SetStartStep(const unsigned step, ThreadSearchContext &threadData)
+    {
         threadData.startStep_ = step;
         threadData.stepToRemove_ = step;
         threadData.stepSelectionCounter_ = step;
@@ -164,7 +169,8 @@ protected:
 
     KlMove GetBestMove(NodeSelectionContainerT &affinityTable,
                        VectorVertexLockManager<VertexType> &lockManager,
-                       HeapDatastructure &maxGainHeap) {
+                       HeapDatastructure &maxGainHeap)
+    {
         // To introduce non-determinism and help escape local optima, if there are multiple moves with the same
         // top gain, we randomly select one. We check up to `local_max` ties.
         const unsigned localMax = 50;
@@ -192,7 +198,8 @@ protected:
                                           CostT &maxGain,
                                           unsigned &maxProc,
                                           unsigned &maxStep,
-                                          const std::vector<std::vector<CostT>> &affinityTableNode) const {
+                                          const std::vector<std::vector<CostT>> &affinityTableNode) const
+    {
         for (const unsigned p : procRange_.CompatibleProcessorsVertex(node)) {
             const CostT gain = affinityCurrentProcStep - affinityTableNode[p][idx];
             if (gain > maxGain) {
@@ -206,7 +213,8 @@ protected:
     template <bool moveToSameSuperStep>
     KlMove ComputeBestMove(VertexType node,
                            const std::vector<std::vector<CostT>> &affinityTableNode,
-                           ThreadSearchContext &threadData) {
+                           ThreadSearchContext &threadData)
+    {
         const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
         const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
 
@@ -251,7 +259,8 @@ protected:
                                    VertexWorkWeightT maxWork,
                                    VertexWorkWeightT secondMaxWork,
                                    VertexWorkWeightT stepProcWork,
-                                   unsigned maxWorkProcCount) {
+                                   unsigned maxWorkProcCount)
+    {
         const bool isSoleMaxProcessor = (maxWorkProcCount == 1) && (maxWork == stepProcWork);
         return isSoleMaxProcessor ? std::min(vertexWeight, maxWork - secondMaxWork) : 0.0;
     }
@@ -264,7 +273,8 @@ protected:
                                 VertexWorkWeightT newMaxWeight,
                                 CostT prevNodeProcAffinity,
                                 CostT newNodeProcAffinity,
-                                std::vector<std::vector<CostT>> &affinityTableNode) {
+                                std::vector<std::vector<CostT>> &affinityTableNode)
+    {
         if (activeSchedule_.AssignedProcessor(node) == moveProc || !IsCompatible(node, moveProc)) {
             return;
         }
@@ -291,14 +301,16 @@ protected:
     void UpdateMaxGain(KlMove move, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain, ThreadSearchContext &threadData);
     void ComputeWorkAffinity(VertexType node, std::vector<std::vector<CostT>> &affinityTableNode, ThreadSearchContext &threadData);
 
-    inline void RecomputeNodeMaxGain(VertexType node, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData) {
+    inline void RecomputeNodeMaxGain(VertexType node, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData)
+    {
         const auto bestMove = ComputeBestMove<true>(node, affinityTable[node], threadData);
         threadData.maxGainHeap_.Update(node, bestMove);
     }
 
     inline CostT ComputeSameStepAffinity(const VertexWorkWeightT &maxWorkForStep,
                                          const VertexWorkWeightT &newWeight,
-                                         const CostT &nodeProcAffinity) {
+                                         const CostT &nodeProcAffinity)
+    {
         const CostT maxWorkAfterRemoval = static_cast<CostT>(maxWorkForStep) - nodeProcAffinity;
         if (newWeight > maxWorkAfterRemoval) {
             return newWeight - maxWorkAfterRemoval;
@@ -358,7 +370,8 @@ protected:
 
     inline void ComputeNodeAffinities(VertexType node,
                                       std::vector<std::vector<CostT>> &affinityTableNode,
-                                      ThreadSearchContext &threadData) {
+                                      ThreadSearchContext &threadData)
+    {
         ComputeWorkAffinity(node, affinityTableNode, threadData);
         commCostF_.ComputeCommAffinity(node,
                                        affinityTableNode,
@@ -368,7 +381,8 @@ protected:
                                        threadData.endStep_);
     }
 
-    void SelectActiveNodes(ThreadSearchContext &threadData) {
+    void SelectActiveNodes(ThreadSearchContext &threadData)
+    {
         if (SelectNodesCheckRemoveSuperstep(threadData.stepToRemove_, threadData)) {
             activeSchedule_.SwapEmptyStepFwd(threadData.stepToRemove_, threadData.endStep_);
             threadData.endStep_--;
@@ -406,7 +420,8 @@ public:
 
     virtual ~KlImprover() = default;
 
-    virtual ReturnStatus ImproveSchedule(BspSchedule<GraphT> &schedule) override {
+    virtual ReturnStatus ImproveSchedule(BspSchedule<GraphT> &schedule) override
+    {
         if (schedule.GetInstance().NumberOfProcessors() < 2) {
             return ReturnStatus::OSP_BEST_FOUND;
         }
@@ -441,14 +456,16 @@ public:
         }
     }
 
-    virtual ReturnStatus ImproveScheduleWithTimeLimit(BspSchedule<GraphT> &schedule) override {
+    virtual ReturnStatus ImproveScheduleWithTimeLimit(BspSchedule<GraphT> &schedule) override
+    {
         computeWithTimeLimit_ = true;
         return ImproveSchedule(schedule);
     }
 
     virtual void SetTimeQualityParameter(const double timeQuality) { this->parameters_.timeQuality_ = timeQuality; }
 
-    virtual void SetSuperstepRemoveStrengthParameter(const double superstepRemoveStrength) {
+    virtual void SetSuperstepRemoveStrengthParameter(const double superstepRemoveStrength)
+    {
         this->parameters_.superstepRemoveStrength_ = superstepRemoveStrength;
     }
 };

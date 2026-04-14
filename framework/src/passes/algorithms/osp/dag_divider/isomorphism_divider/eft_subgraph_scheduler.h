@@ -72,7 +72,8 @@ public:
     SubgraphSchedule Run(const BspInstance<GraphT> &instance,
                          const std::vector<unsigned> &multiplicities,
                          const std::vector<std::vector<VWorkwT<GraphT>>> &requiredProcTypes,
-                         const std::vector<unsigned> &maxNumProcs) {
+                         const std::vector<unsigned> &maxNumProcs)
+    {
         PrepareForScheduling(instance, multiplicities, requiredProcTypes, maxNumProcs);
         return ExecuteSchedule(instance);
     }
@@ -110,7 +111,8 @@ private:
     };
 
     struct JobPtrCompare {
-        bool operator()(const Job *lhs, const Job *rhs) const {
+        bool operator()(const Job *lhs, const Job *rhs) const
+    {
             if (lhs->upwardRank_ != rhs->upwardRank_) {
                 return lhs->upwardRank_ > rhs->upwardRank_;
             }
@@ -124,7 +126,8 @@ private:
     void PrepareForScheduling(const BspInstance<GraphT> &instance,
                               const std::vector<unsigned> &multiplicities,
                               const std::vector<std::vector<VWorkwT<GraphT>>> &requiredProcTypes,
-                              const std::vector<unsigned> &maxNumProcs) {
+                              const std::vector<unsigned> &maxNumProcs)
+    {
         jobs_.resize(instance.NumberOfVertices());
         const auto &graph = instance.GetComputationalDag();
         const size_t numWorkerTypes = instance.GetArchitecture().GetProcessorTypeCount().size();
@@ -153,7 +156,8 @@ private:
         }
     }
 
-    void CalculateUpwardRanks(const GraphT &graph) {
+    void CalculateUpwardRanks(const GraphT &graph)
+    {
         const auto reverseTopOrder = GetTopOrderReverse(graph);
 
         for (const auto &vertex : reverseTopOrder) {
@@ -167,7 +171,8 @@ private:
         }
     }
 
-    SubgraphSchedule ExecuteSchedule(const BspInstance<GraphT> &instance) {
+    SubgraphSchedule ExecuteSchedule(const BspInstance<GraphT> &instance)
+    {
         double currentTime = 0.0;
         std::vector<unsigned> availableWorkers = instance.GetArchitecture().GetProcessorTypeCount();
         std::vector<JobIdT> runningJobs;
@@ -210,7 +215,8 @@ private:
         return result;
     }
 
-    void AssignAndStartJobs(std::vector<unsigned> &availableWorkers, std::vector<JobIdT> &runningJobs, double currentTime) {
+    void AssignAndStartJobs(std::vector<unsigned> &availableWorkers, std::vector<JobIdT> &runningJobs, double currentTime)
+    {
         const size_t numWorkerTypes = availableWorkers.size();
         std::vector<Job *> jobsToStart;
         VWorkwT<GraphT> totalRunnablePriority = 0.0;
@@ -262,7 +268,8 @@ private:
     }
 
     void DistributeProportionalWorkers(const std::vector<Job *> &jobsToStart, std::vector<unsigned> &availableWorkers,
-                                       VWorkwT<GraphT> totalRunnablePriority) {
+                                       VWorkwT<GraphT> totalRunnablePriority)
+    {
         const size_t numWorkerTypes = availableWorkers.size();
         const std::vector<unsigned> remainingWorkersPool = availableWorkers;    // Snapshot for calculation
 
@@ -296,7 +303,8 @@ private:
         }
     }
 
-    void DistributeGreedyWorkers(const std::vector<Job *> &jobsToStart, std::vector<unsigned> &availableWorkers) {
+    void DistributeGreedyWorkers(const std::vector<Job *> &jobsToStart, std::vector<unsigned> &availableWorkers)
+    {
         const size_t numWorkerTypes = availableWorkers.size();
         for (Job *jobPtr : jobsToStart) {
             Job &job = *jobPtr;
@@ -317,7 +325,8 @@ private:
     }
 
     void ProcessCompletedJobs(std::vector<JobIdT> &runningJobs, std::vector<unsigned> &availableWorkers, unsigned &completedCount,
-                              double currentTime, const GraphT &graph) {
+                              double currentTime, const GraphT &graph)
+    {
         const size_t numWorkerTypes = availableWorkers.size();
         for (size_t i = 0; i < runningJobs.size();) {
             Job &job = jobs_.at(runningJobs[i]);

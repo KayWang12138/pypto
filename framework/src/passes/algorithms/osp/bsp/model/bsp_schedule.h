@@ -83,7 +83,8 @@ public:
     BspSchedule(const BspInstance<GraphT> &inst,
                 const std::vector<unsigned> &processorAssignment,
                 const std::vector<unsigned> &superstepAssignment)
-        : instance_(&inst), nodeToProcessorAssignment_(processorAssignment), nodeToSuperstepAssignment_(superstepAssignment) {
+        : instance_(&inst), nodeToProcessorAssignment_(processorAssignment), nodeToSuperstepAssignment_(superstepAssignment)
+    {
         UpdateNumberOfSupersteps();
     }
 
@@ -104,7 +105,8 @@ public:
      * @param schedule The schedule to copy.
      * @return A reference to this schedule.
      */
-    BspSchedule<GraphT> &operator=(const BspSchedule<GraphT> &schedule) {
+    BspSchedule<GraphT> &operator=(const BspSchedule<GraphT> &schedule)
+    {
         if (this != &schedule) {
             instance_ = schedule.instance_;
             numberOfSupersteps_ = schedule.numberOfSupersteps_;
@@ -131,7 +133,8 @@ public:
      * @param schedule The schedule to move.
      * @return A reference to this schedule.
      */
-    BspSchedule<GraphT> &operator=(BspSchedule<GraphT> &&schedule) noexcept {
+    BspSchedule<GraphT> &operator=(BspSchedule<GraphT> &&schedule) noexcept
+    {
         if (this != &schedule) {
             instance_ = schedule.instance_;
             numberOfSupersteps_ = schedule.numberOfSupersteps_;
@@ -176,7 +179,8 @@ public:
 
     unsigned& NumberOfSupersteps() { return numberOfSupersteps_; }
 
-    void Clear() {
+    void Clear()
+    {
         nodeToProcessorAssignment_.clear();
         nodeToSuperstepAssignment_.clear();
         numberOfSupersteps_ = 0;
@@ -185,7 +189,8 @@ public:
     /**
      * @brief Updates the number of supersteps based on the current assignment.
      */
-    void UpdateNumberOfSupersteps() {
+    void UpdateNumberOfSupersteps()
+    {
         numberOfSupersteps_ = 0;
         for (VertexIdxT<GraphT> i = 0; i < static_cast<VertexIdxT<GraphT>>(instance_->NumberOfVertices()); ++i) {
             if (nodeToSuperstepAssignment_[i] >= numberOfSupersteps_) {
@@ -243,7 +248,8 @@ public:
      * @param node The node for which to set the assigned superstep.
      * @param superstep The superstep to assign to the node.
      */
-    void SetAssignedSuperstep(const VertexIdx node, const unsigned superstep) {
+    void SetAssignedSuperstep(const VertexIdx node, const unsigned superstep)
+    {
         if (node < instance_->NumberOfVertices()) {
             nodeToSuperstepAssignment_[node] = superstep;
 
@@ -304,7 +310,8 @@ public:
      */
     [[nodiscard]] bool SatisfiesPrecedenceConstraints() const {
         if (static_cast<VertexIdxT<GraphT>>(nodeToProcessorAssignment_.size()) != instance_->NumberOfVertices()
-            || static_cast<VertexIdxT<GraphT>>(nodeToSuperstepAssignment_.size()) != instance_->NumberOfVertices()) {
+            || static_cast<VertexIdxT<GraphT>>(nodeToSuperstepAssignment_.size()) != instance_->NumberOfVertices())
+    {
             return false;
         }
 

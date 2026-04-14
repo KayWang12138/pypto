@@ -73,7 +73,8 @@ public:
         double desiredParallelism;
     };
 
-    void InitializeScheduleDataStructures(BspSchedule<GraphT> &schedule, ScheduleState &state) {
+    void InitializeScheduleDataStructures(BspSchedule<GraphT> &schedule, ScheduleState &state)
+    {
         const auto &instance = schedule.GetInstance();
         const auto &g = instance.GetComputationalDag();
         const auto n = instance.NumberOfVertices();
@@ -96,7 +97,8 @@ public:
         state.desiredParallelism = static_cast<double>(p);
     }
 
-    virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override {
+    virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override
+    {
         const auto &instance = schedule.GetInstance();
         const auto &g = instance.GetComputationalDag();
         const auto n = instance.NumberOfVertices();
@@ -159,7 +161,8 @@ public:
 private:
 
     void InitializeReadyQueue(const GraphT &g, std::unordered_set<VertexIdx> &ready, 
-                              std::vector<VertexIdx> &predec) {
+                              std::vector<VertexIdx> &predec)
+    {
         for (const auto &node : g.Vertices()) {
             predec[node] = g.InDegree(node);
             if (predec[node] == 0) {
@@ -168,7 +171,8 @@ private:
         }
     }
 
-    VertexIdx ChooseNode(std::vector<VertexIdx> &procReady, std::vector<VertexIdx> &allReady) {
+    VertexIdx ChooseNode(std::vector<VertexIdx> &procReady, std::vector<VertexIdx> &allReady)
+    {
         VertexIdx chosenNode = std::numeric_limits<VertexIdx>::max();
         
         if (!procReady.empty()) {
@@ -186,7 +190,8 @@ private:
 
     void UpdateSuccessors(const GraphT &g, VertexIdx node, unsigned proc, unsigned p,
                          std::vector<unsigned> &nodeToProc, std::vector<VertexIdx> &predec,
-                         std::vector<VertexIdx> &newReady, std::vector<VertexIdx> &procReady) {
+                         std::vector<VertexIdx> &newReady, std::vector<VertexIdx> &procReady)
+    {
         for (const auto &succ : g.Children(node)) {
             if (nodeToProc[succ] == std::numeric_limits<unsigned>::max()) {
                 nodeToProc[succ] = proc;
@@ -211,7 +216,8 @@ private:
                                 std::vector<VertexIdx> &newReady,
                                 std::vector<VertexIdx> &allReady,
                                 const std::unordered_set<VertexIdx> &ready,
-                                unsigned p) {
+                                unsigned p)
+    {
         for (unsigned pIdx = 0; pIdx < p; pIdx++) {
             newAssignments[pIdx].clear();
             procReady[pIdx].clear();
@@ -229,7 +235,8 @@ private:
                                          std::vector<VertexIdx> &predec,
                                          std::vector<VertexIdx> &newReady,
                                          VertexIdx &newTotalAssigned,
-                                         unsigned p) {
+                                         unsigned p)
+    {
         VWorkwT<GraphT> weightLimit = 0;
 
         while (assignments.size() < limit) {
@@ -256,7 +263,8 @@ private:
                                                std::vector<unsigned> &nodeToProc,
                                                std::vector<VertexIdx> &predec,
                                                std::vector<VertexIdx> &newReady,
-                                               VertexIdx &newTotalAssigned) {
+                                               VertexIdx &newTotalAssigned)
+    {
         VWorkwT<GraphT> totalWeightAssigned = weightLimit;
 
         for (unsigned proc = 1; proc < p; ++proc) {
@@ -294,7 +302,8 @@ private:
                                          const BspInstance<GraphT> &instance, double currentBestScore,
                                          double currentBestParallelism, VWorkwT<GraphT> minWeightParallelCheck,
                                          VWorkwT<GraphT> minSuperstepWeight, double desiredParallelism,
-                                         VertexIdx totalAssigned, VertexIdx newTotalAssigned, VertexIdx n) {
+                                         VertexIdx totalAssigned, VertexIdx newTotalAssigned, VertexIdx n)
+    {
         SuperstepEvaluation result;
         result.acceptStep = false;
         result.continueAttempts = true;
@@ -339,7 +348,8 @@ private:
 
     void RollbackAssignments(const std::vector<std::vector<VertexIdx>> &newAssignments,
                             const GraphT &g, std::vector<unsigned> &nodeToProc,
-                            std::vector<VertexIdx> &predec, unsigned p) {
+                            std::vector<VertexIdx> &predec, unsigned p)
+    {
         for (unsigned proc = 0; proc < p; ++proc) {
             for (const auto &node : newAssignments[proc]) {
                 nodeToProc[node] = std::numeric_limits<unsigned>::max();
@@ -359,7 +369,8 @@ private:
                               std::vector<unsigned> &nodeToSupstep,
                               std::vector<VertexIdx> &predec,
                               const GraphT &g, unsigned supstep,
-                              VertexIdx &totalAssigned, unsigned p) {
+                              VertexIdx &totalAssigned, unsigned p)
+    {
         for (const auto &node : bestNewReady) {
             ready.insert(node);
         }

@@ -54,7 +54,8 @@ public:
 
     void ResetScheduler() { schedulers_.clear(); }
 
-    ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override {
+    ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override
+    {
         if (schedule.GetInstance().GetArchitecture().NumberOfProcessors() == 1) {
             serialScheduler_.ComputeSchedule(schedule);
             return ReturnStatus::OSP_SUCCESS;

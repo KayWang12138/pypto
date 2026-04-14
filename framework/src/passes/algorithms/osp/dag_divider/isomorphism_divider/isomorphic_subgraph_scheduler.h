@@ -88,13 +88,15 @@ public:
     void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
     void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold) { criticalPathThreshold_ = criticalPathThreshold; }
     void SetOrbitLockRatio(double orbitLockRatio) { orbitLockRatio_ = orbitLockRatio; }
-    void SetNaturalBreaksCountPercentage(double naturalBreaksCountPercentage) {
+    void SetNaturalBreaksCountPercentage(double naturalBreaksCountPercentage)
+    {
         naturalBreaksCountPercentage_ = naturalBreaksCountPercentage;
     }
     void SetAllowTrimmedScheduler(bool flag) { allowUseTrimmedScheduler_ = flag; }
     void DisableUseMaxGroupSize() { useMaxGroupSize_ = false; }
     void SetUseMaxBsp(bool flag) { useMaxBsp_ = flag; }
-    void EnableUseMaxGroupSize(const unsigned maxGroupSize) {
+    void EnableUseMaxGroupSize(const unsigned maxGroupSize)
+    {
         useMaxGroupSize_ = true;
         maxGroupSize_ = maxGroupSize;
     }  
@@ -108,7 +110,8 @@ public:
      * @param instance The BSP instance containing the graph and architecture.
      * @return A vector mapping each vertex index to a processor/partition ID.
      */
-    std::vector<VertexIdxT<GraphT>> ComputePartition(const BspInstance<GraphT> &instance) {
+    std::vector<VertexIdxT<GraphT>> ComputePartition(const BspInstance<GraphT> &instance)
+    {
         OrbitGraphProcessor<GraphT, ConstrGraphT> orbitProcessor;
         orbitProcessor.SetWorkThreshold(workThreshold_);
         orbitProcessor.SetMergeDifferentNodeTypes(mergeDifferentNodeTypes_);
@@ -155,7 +158,8 @@ protected:
 
     std::pair<bool, VTypeT<GraphT>> IsSingleTypeGroup(
         const typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
-        const BspInstance<GraphT> &instance) const {
+        const BspInstance<GraphT> &instance) const
+    {
         if (group.subgraphs_.empty() || group.subgraphs_[0].empty()) {
             return {false, 0};
         }
@@ -174,7 +178,8 @@ protected:
 
     unsigned DetermineEffectiveMinProcCount(
         const typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
-        const BspInstance<GraphT> &instance) const {
+        const BspInstance<GraphT> &instance) const
+    {
         unsigned effectiveMinProcTypeCount = 0;
 
         if (useMaxGroupSize_) {
@@ -221,7 +226,8 @@ protected:
                               unsigned gcd,
                               unsigned groupSize,
                               size_t groupIdx,
-                              std::vector<bool> &wasTrimmed) {
+                              std::vector<bool> &wasTrimmed)
+    {
         if (allowUseTrimmedScheduler_) {
             gcd = 1;
         }
@@ -263,7 +269,8 @@ protected:
      */
     void TrimSubgraphGroups(std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
                             const BspInstance<GraphT> &instance,
-                            std::vector<bool> &wasTrimmed) {
+                            std::vector<bool> &wasTrimmed)
+    {
         for (size_t groupIdx = 0; groupIdx < isomorphicGroups.size(); ++groupIdx) {
             auto &group = isomorphicGroups[groupIdx];
             const unsigned groupSize = static_cast<unsigned>(group.size());
@@ -293,7 +300,8 @@ protected:
                                   unsigned numProcTypes,
                                   std::vector<VWorkwT<GraphT>> &requiredProcTypes,
                                   std::vector<VertexIdxT<ConstrGraphT>> &contractionMap,
-                                  size_t coarseNodeIdx) {
+                                  size_t coarseNodeIdx)
+    {
         for (const auto &subgraph : group.subgraphs_) {
             for (const auto &vertex : subgraph) {
                 contractionMap[vertex] = static_cast<VertexIdxT<ConstrGraphT>>(coarseNodeIdx);
@@ -311,7 +319,8 @@ protected:
     SubgraphSchedulerInput<GraphT, ConstrGraphT> PrepareSubgraphSchedulingInput(
         const BspInstance<GraphT> &originalInstance,
         const std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
-        const std::vector<bool> &wasTrimmed) {
+        const std::vector<bool> &wasTrimmed)
+    {
         SubgraphSchedulerInput<GraphT, ConstrGraphT> result;
         result.instance_.GetArchitecture() = originalInstance.GetArchitecture();
         const unsigned numProcTypes = originalInstance.GetArchitecture().GetNumberOfProcessorTypes();
@@ -339,7 +348,8 @@ protected:
 
     std::pair<std::map<std::pair<unsigned, unsigned>, VertexIdxT<GraphT>>, VertexIdxT<GraphT>>
     BuildRelativePartitionMap(const BspSchedule<ConstrGraphT> &bspSchedule,
-                              VertexIdxT<GraphT> numRepVertices, bool maxBsp) {
+                              VertexIdxT<GraphT> numRepVertices, bool maxBsp)
+    {
         std::map<std::pair<unsigned, unsigned>, VertexIdxT<GraphT>> spProcToRelativePartition;
         VertexIdxT<GraphT> numPartitionsPerSubgraph = 0;
         for (VertexIdxT<GraphT> j = 0; j < numRepVertices; ++j) {
@@ -355,7 +365,8 @@ protected:
     std::unordered_map<VertexIdxT<GraphT>, VertexIdxT<ConstrGraphT>>
     BuildIsomorphicVertexMapping(const BspInstance<GraphT> &instance,
                                  const std::vector<VertexIdxT<GraphT>> &subgraphVerticesSorted,
-                                 const MerkleHashComputer<ConstrGraphT> &repHasher) {
+                                 const MerkleHashComputer<ConstrGraphT> &repHasher)
+    {
         ConstrGraphT currentSubgraphGraph;
         auto originalToLocalMap = CreateInducedSubgraphMap(
             instance.GetComputationalDag(), currentSubgraphGraph, subgraphVerticesSorted);
@@ -382,7 +393,8 @@ protected:
                                const BspSchedule<ConstrGraphT> &bspSchedule, bool maxBsp,
                                const std::map<std::pair<unsigned, unsigned>, VertexIdxT<GraphT>> &spProcToRelativePartition,
                                VertexIdxT<GraphT> partitionOffset,
-                               std::vector<VertexIdxT<GraphT>> &partition) {
+                               std::vector<VertexIdxT<GraphT>> &partition)
+    {
         for (const auto &currentVertex : subgraphVerticesSorted) {
             const auto repLocalIdx = vertexToRepLocalIdx.at(currentVertex);
             auto spPair = maxBsp ? std::make_pair(static_cast<unsigned>(repLocalIdx), 0U)
@@ -395,7 +407,8 @@ protected:
     void ScheduleIsomorphicGroup(const BspInstance<GraphT> &instance,
                                  const std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
                                  const SubgraphSchedule &subSched,
-                                 std::vector<VertexIdxT<GraphT>> &partition) {
+                                 std::vector<VertexIdxT<GraphT>> &partition)
+    {
         VertexIdxT<GraphT> currentPartitionIdx = 0;
 
         for (size_t groupIdx = 0; groupIdx < isomorphicGroups.size(); ++groupIdx) {

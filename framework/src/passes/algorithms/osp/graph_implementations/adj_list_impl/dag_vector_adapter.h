@@ -78,7 +78,8 @@ public:
      * @warning The adapter stores pointers to these vectors. They must remain valid for the lifetime of the adapter.
      */
     DagVectorAdapter(const std::vector<std::vector<IndexT>> &outNeigbors, const std::vector<std::vector<IndexT>> &inNeigbors)
-        : vertices_(outNeigbors.size()), outNeigbors_(&outNeigbors), inNeigbors_(&inNeigbors), numEdges_(0), numVertexTypes_(1) {
+        : vertices_(outNeigbors.size()), outNeigbors_(&outNeigbors), inNeigbors_(&inNeigbors), numEdges_(0), numVertexTypes_(1)
+    {
         for (VertexIdx i = 0; i < static_cast<VertexIdx>(outNeigbors.size()); ++i) {
             vertices_[i].id_ = i;
             numEdges_ += outNeigbors[i].size();
@@ -94,7 +95,8 @@ public:
 
 
     void SetInOutNeighbors(const std::vector<std::vector<IndexT>> &inNeigbors,
-                           const std::vector<std::vector<IndexT>> &outNeigbors) {
+                           const std::vector<std::vector<IndexT>> &outNeigbors)
+    {
         outNeigbors_ = &outNeigbors;
         inNeigbors_ = &inNeigbors;
 
@@ -126,7 +128,8 @@ public:
     void SetVertexCommWeight(const VertexIdx v, const VertexCommWeightType commWeight) { vertices_.at(v).commWeight_ = commWeight; }
     void SetVertexMemWeight(const VertexIdx v, const VertexMemWeightType memWeight) { vertices_.at(v).memWeight_ = memWeight; }
 
-    void SetVertexType(const VertexIdx v, const VertexTypeType vertexType) {
+    void SetVertexType(const VertexIdx v, const VertexTypeType vertexType)
+    {
         vertices_.at(v).vertexType_ = vertexType;
         numVertexTypes_ = std::max(numVertexTypes_, vertexType + 1);
     }

@@ -33,13 +33,15 @@ struct RewardPenaltyStrategy {
     CostT penalty_ = 0;
     CostT reward_ = 0;
 
-    void Initialize(KlActiveScheduleT &sched, const CostT maxComm, const CostT maxWork) {
+    void Initialize(KlActiveScheduleT &sched, const CostT maxComm, const CostT maxWork)
+    {
         maxWeight_ = std::max(maxWork, maxComm * sched.GetInstance().CommunicationCosts());
         activeSchedule_ = &sched;
         initialPenalty_ = static_cast<CostT>(std::sqrt(maxWeight_));
     }
 
-    void InitRewardPenalty(double multiplier = 1.0) {
+    void InitRewardPenalty(double multiplier = 1.0)
+    {
         multiplier = std::min(multiplier, 10.0);
         penalty_ = static_cast<CostT>(initialPenalty_ * multiplier);
         reward_ = static_cast<CostT>(maxWeight_ * multiplier);
@@ -80,7 +82,8 @@ private:
     size_t lastIdx_;
 
 public:
-    void Initialize(const KlActiveScheduleT &sche, const std::size_t initialTableSize) {
+    void Initialize(const KlActiveScheduleT &sche, const std::size_t initialTableSize)
+{
         activeSchedule_ = &sche;
         graph_ = &(sche.GetInstance().GetComputationalDag());
 
@@ -113,7 +116,8 @@ public:
     inline const std::vector<std::vector<CostT>> &At(VertexType node) const { return affinityTable_[selectedNodesIdx_[node]]; }
     inline std::vector<std::vector<CostT>> &GetAffinityTable(VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
 
-    bool Insert(VertexType node) {
+    bool Insert(VertexType node)
+    {
         if (nodeIsSelected_[node]) {
             return false;    // Node is already in the table.
         }
@@ -150,18 +154,21 @@ public:
         return true;
     }
 
-    void Remove(VertexType node) {
+    void Remove(VertexType node)
+    {
         nodeIsSelected_[node] = false;
         gaps_.push_back(selectedNodesIdx_[node]);
     }
 
-    void ResetNodeSelection() {
+    void ResetNodeSelection()
+    {
         nodeIsSelected_.assign(nodeIsSelected_.size(), false);
         gaps_.clear();
         lastIdx_ = 0;
     }
 
-    void Clear() {
+    void Clear()
+    {
         nodeIsSelected_.clear();
         selectedNodesIdx_.clear();
         affinityTable_.clear();
@@ -170,7 +177,8 @@ public:
         lastIdx_ = 0;
     }
 
-    void Trim() {
+    void Trim()
+    {
         while (!gaps_.empty() && lastIdx_ > 0) {
             size_t lastElementIdx = lastIdx_ - 1;
             if (!nodeIsSelected_[selectedNodes_[lastElementIdx]]) {
@@ -210,7 +218,8 @@ struct VertexSelectionStrategy {
 
     unsigned maxWorkCounter_ = 0;
 
-    inline void Initialize(const KlActiveScheduleT &sche, std::mt19937 &gen, const unsigned startStep, const unsigned endStep) {
+    inline void Initialize(const KlActiveScheduleT &sche, std::mt19937 &gen, const unsigned startStep, const unsigned endStep)
+    {
         activeSchedule_ = &sche;
         graph_ = &(sche.GetInstance().GetComputationalDag());
         gen_ = &gen;
@@ -218,7 +227,8 @@ struct VertexSelectionStrategy {
         permutation_.reserve(graph_->NumVertices() / activeSchedule_->NumSteps() * (endStep - startStep));
     }
 
-    inline void Setup(const unsigned startStep, const unsigned endStep) {
+    inline void Setup(const unsigned startStep, const unsigned endStep)
+    {
         maxWorkCounter_ = startStep;
         strategyCounter_ = 0;
         permutation_.clear();
@@ -237,7 +247,8 @@ struct VertexSelectionStrategy {
         std::shuffle(permutation_.begin(), permutation_.end(), *gen_);
     }
 
-    inline void SelectActiveNodes(ContainerT &nodeSelection, const unsigned startStep, const unsigned endStep) {
+    inline void SelectActiveNodes(ContainerT &nodeSelection, const unsigned startStep, const unsigned endStep)
+    {
         if (strategyCounter_ < 3) {
             SelectNodesPermutationThreshold(selectionThreshold_, nodeSelection);
         } else if (strategyCounter_ == 4) {
@@ -251,7 +262,8 @@ struct VertexSelectionStrategy {
     void SelectNodesViolations(ContainerT &nodeSelection,
                                std::unordered_set<EdgeType> &currentViolations,
                                const unsigned startStep,
-                               const unsigned endStep) {
+                               const unsigned endStep)
+    {
         for (const auto &edge : currentViolations) {
             const auto sourceV = Source(edge, *graph_);
             const auto targetV = Target(edge, *graph_);
@@ -268,7 +280,8 @@ struct VertexSelectionStrategy {
         }
     }
 
-    void SelectNodesPermutationThreshold(const std::size_t &threshold, ContainerT &nodeSelection) {
+    void SelectNodesPermutationThreshold(const std::size_t &threshold, ContainerT &nodeSelection)
+    {
         const size_t bound = std::min(threshold + permutationIdx_, permutation_.size());
         for (std::size_t i = permutationIdx_; i < bound; i++) {
             nodeSelection.Insert(permutation_[i]);
@@ -284,7 +297,8 @@ struct VertexSelectionStrategy {
     void SelectNodesMaxWorkProc(const std::size_t &threshold,
                                 ContainerT &nodeSelection,
                                 const unsigned startStep,
-                                const unsigned endStep) {
+                                const unsigned endStep)
+    {
         while (nodeSelection.size() < threshold) {
             if (maxWorkCounter_ > endStep) {
                 maxWorkCounter_ = startStep;    // wrap around
@@ -296,7 +310,8 @@ struct VertexSelectionStrategy {
         }
     }
 
-    void SelectNodesMaxWorkProcHelper(const std::size_t &threshold, unsigned step, ContainerT &nodeSelection) {
+    void SelectNodesMaxWorkProcHelper(const std::size_t &threshold, unsigned step, ContainerT &nodeSelection)
+    {
         const unsigned numMaxWorkProc = activeSchedule_->workDatastructures_.stepMaxWorkProcessorCount_[step];
         for (unsigned idx = 0; idx < numMaxWorkProc; idx++) {
             const unsigned proc = activeSchedule_->workDatastructures_.stepProcessorWork_[step][idx].proc_;

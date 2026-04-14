@@ -88,13 +88,15 @@ protected:
                 const VertexIdx vert)
                 : csrEdgeParents_(csrEdgeParents), csrTargetPtr_(csrTargetPtr), vert_(vert) {};
 
-            inline auto cbegin() const {
+            inline auto cbegin() const
+            {
                 auto it = csrEdgeParents_.cbegin();
                 std::advance(it, csrTargetPtr_[vert_]);
                 return it;
             }
 
-            inline auto cend() const {
+            inline auto cend() const
+            {
                 auto it = csrEdgeParents_.cbegin();
                 std::advance(it, csrTargetPtr_[vert_ + 1]);
                 return it;
@@ -103,13 +105,15 @@ protected:
             inline auto begin() const { return cbegin(); }
             inline auto end() const { return cend(); }
 
-            inline auto crbegin() const {
+            inline auto crbegin() const
+            {
                 auto it = csrEdgeParents_.crbegin();
                 std::advance(it, csrTargetPtr_[csrTargetPtr_.size() - 1] - csrTargetPtr_[vert_ + 1]);
                 return it;
             };
 
-            inline auto crend() const {
+            inline auto crend() const
+            {
                 auto it = csrEdgeParents_.crbegin();
                 std::advance(it, csrTargetPtr_[csrTargetPtr_.size() - 1] - csrTargetPtr_[vert_]);
                 return it;
@@ -119,7 +123,8 @@ protected:
             inline auto rend() const { return crend(); };
         };
 
-        inline ParentRange Parents(const VertexIdx vert) const {
+        inline ParentRange Parents(const VertexIdx vert) const
+        {
             return ParentRange(csrEdgeParents_, csrTargetPtr_, vert);
         }
     };
@@ -143,7 +148,8 @@ protected:
 
         inline EdgeT NumberOfChildren(const VertexIdx v) const { return cscSourcePtr_[v + 1] - cscSourcePtr_[v]; }
 
-        inline VertexIdx Source(const EdgeT &indx) const {
+        inline VertexIdx Source(const EdgeT &indx) const
+        {
             auto it = std::upper_bound(cscSourcePtr_.cbegin(), cscSourcePtr_.cend(), indx);
             VertexIdx src = static_cast<VertexIdx>(std::distance(cscSourcePtr_.cbegin(), it) - 1);
             return src;
@@ -164,13 +170,15 @@ protected:
                 const VertexIdx vert)
                 : cscEdgeChildren_(cscEdgeChildren), cscSourcePtr_(cscSourcePtr), vert_(vert) {};
 
-            inline auto cbegin() const {
+            inline auto cbegin() const
+            {
                 auto it = cscEdgeChildren_.cbegin();
                 std::advance(it, cscSourcePtr_[vert_]);
                 return it;
             };
 
-            inline auto cend() const {
+            inline auto cend() const
+            {
                 auto it = cscEdgeChildren_.cbegin();
                 std::advance(it, cscSourcePtr_[vert_ + 1]);
                 return it;
@@ -179,13 +187,15 @@ protected:
             inline auto begin() const { return cbegin(); };
             inline auto end() const { return cend(); };
 
-            inline auto crbegin() const {
+            inline auto crbegin() const
+            {
                 auto it = cscEdgeChildren_.crbegin();
                 std::advance(it, cscSourcePtr_[cscSourcePtr_.size() - 1] - cscSourcePtr_[vert_ + 1]);
                 return it;
             };
 
-            inline auto crend() const {
+            inline auto crend() const
+            {
                 auto it = cscEdgeChildren_.crbegin();
                 std::advance(it, cscSourcePtr_[cscSourcePtr_.size() - 1] - cscSourcePtr_[vert_]);
                 return it;
@@ -195,7 +205,8 @@ protected:
             inline auto rend() const { return crend(); };
         };
 
-        inline ChildrenRange Children(const VertexIdx vert) const {
+        inline ChildrenRange Children(const VertexIdx vert) const
+        {
             return ChildrenRange(cscEdgeChildren_, cscSourcePtr_, vert);
         }
     };
@@ -223,7 +234,8 @@ public:
 
     template <template <typename, typename...> class Container>
     CompactSparseGraph(VertexIdx numVertices, const Container<std::pair<VertexIdx, VertexIdx>> &edges)
-        : numberOfVertices_(numVertices), numberOfEdges_(static_cast<EdgeT>(edges.size())) {
+        : numberOfVertices_(numVertices), numberOfEdges_(static_cast<EdgeT>(edges.size()))
+    {
         vertWorkWeights_ = std::vector<VertexWorkWeightType>(NumVertices(), 1);
         vertCommWeights_ = std::vector<VertexCommWeightType>(NumVertices(), 0);
         vertMemWeights_ = std::vector<VertexMemWeightType>(NumVertices(), 0);
@@ -290,16 +302,20 @@ public:
 
     inline VertexTypeType NumVertexTypes() const { return numberOfVertexTypes_; };
 
-    inline void SetVertexWorkWeight(const VertexIdx &v, const VertexWorkWeightType workWeight) {
+    inline void SetVertexWorkWeight(const VertexIdx &v, const VertexWorkWeightType workWeight)
+    {
         vertWorkWeights_[v] = workWeight;
     }
-    inline void SetVertexCommWeight(const VertexIdx &v, const VertexCommWeightType commWeight) {
+    inline void SetVertexCommWeight(const VertexIdx &v, const VertexCommWeightType commWeight)
+    {
         vertCommWeights_[v] = commWeight;
     }
-    inline void SetVertexMemWeight(const VertexIdx &v, const VertexMemWeightType memWeight) {
+    inline void SetVertexMemWeight(const VertexIdx &v, const VertexMemWeightType memWeight)
+    {
         vertMemWeights_[v] = memWeight;
     }
-    inline void SetVertexType(const VertexIdx &v, const VertexTypeType vertexType) {
+    inline void SetVertexType(const VertexIdx &v, const VertexTypeType vertexType)
+    {
         vertTypes_[v] = vertexType;
         numberOfVertexTypes_ = std::max(numberOfVertexTypes_, vertexType);
     }

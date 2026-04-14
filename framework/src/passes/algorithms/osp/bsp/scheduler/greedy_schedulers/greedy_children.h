@@ -34,7 +34,8 @@ private:
 public:
     GreedyChildren(bool ensureEnoughSources = true) : Scheduler<GraphT>(), ensureEnoughSources_(ensureEnoughSources) {}
 
-    ReturnStatus ComputeSchedule(BspSchedule<GraphT> &sched) override {
+    ReturnStatus ComputeSchedule(BspSchedule<GraphT> &sched) override
+    {
         using VertexType = VertexIdxT<GraphT>;
         const auto &instance = sched.GetInstance();
         const auto &graph = instance.GetComputationalDag();
@@ -57,7 +58,8 @@ public:
                 nodeAdded = false;
                 for (auto iter = next.begin(); iter != next.cend(); iter++) {
                     if (TryScheduleNode(sched, instance, graph, iter, nodesAssignedThisSuperstep,
-                                       processorWeights, predecessorsCount, next, superstepCounter)) {
+                                       processorWeights, predecessorsCount, next, superstepCounter))
+                {
                         nodeAdded = true;
                         break;
                     }
@@ -75,7 +77,8 @@ public:
 private:
     void InitializeScheduleState(
         BspSchedule<GraphT> &sched, const GraphT &graph,
-        std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next) {
+        std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next)
+{
         
         for (const auto &v : graph.Vertices()) {
             sched.SetAssignedProcessor(v, std::numeric_limits<unsigned>::max());
@@ -97,7 +100,8 @@ private:
         VertexIdxT<GraphT> node,
         VertexIdxT<GraphT> parent,
         bool &processorSet,
-        unsigned &processorToBeAllocated) {
+        unsigned &processorToBeAllocated)
+    {
         
         const unsigned parProc = sched.AssignedProcessor(parent);
         
@@ -116,7 +120,8 @@ private:
     ParentCompatibilityResult CheckParentCompatibility(
         const GraphT &graph, const BspSchedule<GraphT> &sched,
         const BspInstance<GraphT> &instance, VertexIdxT<GraphT> node,
-        const std::unordered_set<VertexIdxT<GraphT>> &nodesAssignedThisSuperstep) {
+        const std::unordered_set<VertexIdxT<GraphT>> &nodesAssignedThisSuperstep)
+    {
         
         bool processorSet = false;
         unsigned processorToBeAllocated = 0;
@@ -134,7 +139,8 @@ private:
 
     unsigned FindBestProcessor(
         const BspInstance<GraphT> &instance, VertexIdxT<GraphT> node,
-        const std::vector<VWorkwT<GraphT>> &processorWeights) {
+        const std::vector<VWorkwT<GraphT>> &processorWeights)
+    {
         
         VWorkwT<GraphT> minWeight = std::numeric_limits<VWorkwT<GraphT>>::max();
         unsigned bestProc = std::numeric_limits<unsigned>::max();
@@ -154,7 +160,8 @@ private:
     void UpdateReadyQueue(
         const GraphT &graph, VertexIdxT<GraphT> node,
         std::vector<VertexIdxT<GraphT>> &predecessorsCount,
-        std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next) {
+        std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next)
+    {
         
         std::vector<VertexIdxT<GraphT>> newNodes;
         for (const auto &chld : graph.Children(node)) {
@@ -176,7 +183,8 @@ private:
         std::vector<VWorkwT<GraphT>> &processorWeights,
         std::vector<VertexIdxT<GraphT>> &predecessorsCount,
         std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next,
-        unsigned superstepCounter) {
+        unsigned superstepCounter)
+    {
         
         const auto &node = iter->second;
         

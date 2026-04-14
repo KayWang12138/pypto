@@ -29,7 +29,8 @@ namespace npu::tile_fwk {
 namespace osp {
 
 template <typename T, typename Ind>
-void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
+void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm)
+{
     static_assert(std::is_integral_v<Ind>);
     static_assert(std::is_unsigned_v<Ind>);
 
@@ -46,7 +47,8 @@ void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
 namespace coarser_util {
 
 template <typename GraphTOut>
-bool CheckValidContractionMap(const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
+bool CheckValidContractionMap(const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap)
+{
     std::set<VertexIdxT<GraphTOut>> image(vertexContractionMap.cbegin(), vertexContractionMap.cend());
     const VertexIdxT<GraphTOut> imageSize = static_cast<VertexIdxT<GraphTOut>>(image.size());
 
@@ -75,7 +77,8 @@ struct AccMax {
  */
 template <typename GraphTIn, class GraphTOut>
 bool InitializeCoarseGraph(
-    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
+    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap)
+{
     static_assert(isDirectConstructableCdagV<GraphTOut> || isConstructableCdagV<GraphTOut>,
         "Out-Graph must be (directly) constructable.");
 
@@ -120,7 +123,8 @@ bool InitializeCoarseGraph(
 template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<VWorkwT<GraphTIn>>,
     typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
 void AccumulateVertexWeights(
-    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
+    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap)
+{
     for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
         coarsenedDag.SetVertexWorkWeight(vertexContractionMap[vert],
             VWorkAccMethod()(coarsenedDag.VertexWorkWeight(vertexContractionMap[vert]), dagIn.VertexWorkWeight(vert)));
@@ -138,7 +142,8 @@ void AccumulateVertexWeights(
 template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<VWorkwT<GraphTIn>>,
     typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
 bool ConstructCoarseDag(
-    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
+    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap)
+{
     if (vertexContractionMap.size() == 0) {
         coarsenedDag = GraphTOut();
         return true;
@@ -151,7 +156,8 @@ bool ConstructCoarseDag(
 }
 
 template <typename GraphTIn>
-bool CheckValidExpansionMap(const std::vector<std::vector<VertexIdxT<GraphTIn>>> &vertexExpansionMap) {
+bool CheckValidExpansionMap(const std::vector<std::vector<VertexIdxT<GraphTIn>>> &vertexExpansionMap)
+{
     std::size_t cntr = 0;
 
     std::vector<bool> preImage;
@@ -175,7 +181,8 @@ bool CheckValidExpansionMap(const std::vector<std::vector<VertexIdxT<GraphTIn>>>
 
 template <typename GraphTIn, typename GraphTOut>
 std::vector<VertexIdxT<GraphTOut>> InvertVertexExpansionMap(
-    const std::vector<std::vector<VertexIdxT<GraphTIn>>> &vertexExpansionMap) {
+    const std::vector<std::vector<VertexIdxT<GraphTIn>>> &vertexExpansionMap)
+{
     VertexIdxT<GraphTIn> numVert = 0;
     for (const auto &group : vertexExpansionMap) {
         for (const VertexIdxT<GraphTIn> &vert : group) {
@@ -194,7 +201,8 @@ std::vector<VertexIdxT<GraphTOut>> InvertVertexExpansionMap(
 }
 
 template <typename GraphTIn>
-void ReorderExpansionMap(const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &vertexExpansionMap) {
+void ReorderExpansionMap(const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &vertexExpansionMap)
+{
     std::vector<std::size_t> vertexContractionMap(graph.NumVertices());
     for (std::size_t i = 0; i < vertexExpansionMap.size(); i++) {
         for (const VertexIdxT<GraphTIn> &vert : vertexExpansionMap[i]) {

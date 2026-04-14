@@ -76,7 +76,8 @@ public:
      * @param NumVertices The number of vertices to initialize.
      */
     explicit ComputationalDagVectorImpl(const VertexIdx numVertices)
-        : vertices_(numVertices), outNeigbors_(numVertices), inNeigbors_(numVertices), numEdges_(0), numVertexTypes_(0) {
+        : vertices_(numVertices), outNeigbors_(numVertices), inNeigbors_(numVertices), numEdges_(0), numVertexTypes_(0)
+    {
         for (VertexIdx i = 0; i < numVertices; ++i) {
             vertices_[i].id_ = i;
         }
@@ -95,7 +96,8 @@ public:
      * @param other The source graph to copy from.
      */
     template <typename GraphT>
-    explicit ComputationalDagVectorImpl(const GraphT &other) {
+    explicit ComputationalDagVectorImpl(const GraphT &other)
+    {
         ConstructComputationalDag(other, *this);
     }
 
@@ -104,12 +106,14 @@ public:
           outNeigbors_(std::move(other.outNeigbors_)),
           inNeigbors_(std::move(other.inNeigbors_)),
           numEdges_(other.numEdges_),
-          numVertexTypes_(other.numVertexTypes_) {
+          numVertexTypes_(other.numVertexTypes_)
+    {
         other.numEdges_ = 0;
         other.numVertexTypes_ = 0;
     };
 
-    ComputationalDagVectorImpl &operator=(ComputationalDagVectorImpl &&other) noexcept {
+    ComputationalDagVectorImpl &operator=(ComputationalDagVectorImpl &&other) noexcept
+    {
         if (this != &other) {
             vertices_ = std::move(other.vertices_);
             outNeigbors_ = std::move(other.outNeigbors_);
@@ -140,7 +144,8 @@ public:
     VertexIdx AddVertex(const VertexWorkWeightType workWeight,
                         const VertexCommWeightType commWeight,
                         const VertexMemWeightType memWeight,
-                        const VertexTypeType vertexType = 0) {
+                        const VertexTypeType vertexType = 0)
+    {
         vertices_.emplace_back(vertices_.size(), workWeight, commWeight, memWeight, vertexType);
         outNeigbors_.push_back({});
         inNeigbors_.push_back({});
@@ -152,24 +157,29 @@ public:
 
     [[nodiscard]] VertexTypeType NumVertexTypes() const { return numVertexTypes_; }
 
-    void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight) {
+    void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight)
+    {
         vertices_.at(v).workWeight_ = workWeight;
     }
 
-    void SetVertexCommWeight(const VertexIdx v, const VertexCommWeightType commWeight) {
+    void SetVertexCommWeight(const VertexIdx v, const VertexCommWeightType commWeight)
+    {
         vertices_.at(v).commWeight_ = commWeight;
     }
 
     void SetVertexMemWeight(const VertexIdx v, const VertexMemWeightType memWeight) { vertices_.at(v).memWeight_ = memWeight; }
 
-    void SetVertexType(const VertexIdx v, const VertexTypeType vertexType) {
+    void SetVertexType(const VertexIdx v, const VertexTypeType vertexType)
+    {
         vertices_.at(v).vertexType_ = vertexType;
         numVertexTypes_ = std::max(numVertexTypes_, vertexType + 1);
     }
 
-    bool AddEdge(const VertexIdx source, const VertexIdx target) {
+    bool AddEdge(const VertexIdx source, const VertexIdx target)
+    {
         if (source >= static_cast<VertexIdx>(vertices_.size()) || target >= static_cast<VertexIdx>(vertices_.size())
-            || source == target) {
+            || source == target)
+    {
             return false;
         }
 

@@ -46,7 +46,8 @@ public:
      * @param schedule The source schedule to copy from.
      */
     SetSchedule(const BspSchedule<GraphT> &schedule)
-        : instance_(&schedule.GetInstance()), numberOfSupersteps_(schedule.NumberOfSupersteps()) {
+        : instance_(&schedule.GetInstance()), numberOfSupersteps_(schedule.NumberOfSupersteps())
+    {
         stepProcessorVertices_.resize(schedule.NumberOfSupersteps(),
                                       std::vector<std::unordered_set<VertexIdx>>(schedule.GetInstance().NumberOfProcessors()));
 
@@ -61,7 +62,8 @@ public:
     }
 
     ~SetSchedule() = default;
-    void Clear() {
+    void Clear()
+    {
         stepProcessorVertices_.clear();
         numberOfSupersteps_ = 0;
     }

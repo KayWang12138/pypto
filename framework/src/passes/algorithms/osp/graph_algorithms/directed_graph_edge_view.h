@@ -57,7 +57,8 @@ private:
         ChildIteratorT currentChild_;          // Iterator to the current target vertex in current_vertex's adjacency list
         VertexIdxT<GraphT> currentEdgeIdx_;    // Global index of the current edge in the traversal order
 
-        void AdvanceToValid() {
+        void AdvanceToValid()
+        {
             while (currentVertex_ != graph_->NumVertices()) {
                 if (graph_->Children(currentVertex_).begin() != graph_->Children(currentVertex_).end()) {
                     currentChild_ = graph_->Children(currentVertex_).begin();
@@ -76,12 +77,14 @@ private:
         DirectedEdgeIterator &operator=(const DirectedEdgeIterator &other) = default;
         DirectedEdgeIterator &operator=(DirectedEdgeIterator &&other) noexcept = default;
 
-        explicit DirectedEdgeIterator(const GraphT &graph1) : graph_(&graph1), currentVertex_(0), currentEdgeIdx_(0) {
+        explicit DirectedEdgeIterator(const GraphT &graph1) : graph_(&graph1), currentVertex_(0), currentEdgeIdx_(0)
+        {
             AdvanceToValid();
         }
 
         DirectedEdgeIterator(const VertexIdxT<GraphT> edgeIdx, const GraphT &graph1)
-            : graph_(&graph1), currentVertex_(0), currentEdgeIdx_(edgeIdx) {
+            : graph_(&graph1), currentVertex_(0), currentEdgeIdx_(edgeIdx)
+        {
             if (currentEdgeIdx_ >= graph_->NumEdges()) {
                 currentEdgeIdx_ = graph_->NumEdges();
                 currentVertex_ = graph_->NumVertices();
@@ -111,7 +114,8 @@ private:
 
         [[nodiscard]] ArrowProxy operator->() const { return {operator*()}; }
 
-        DirectedEdgeIterator &operator++() {
+        DirectedEdgeIterator &operator++()
+        {
             currentChild_++;
             currentEdgeIdx_++;
 
@@ -122,7 +126,8 @@ private:
             return *this;
         }
 
-        DirectedEdgeIterator operator++(int) {
+        DirectedEdgeIterator operator++(int)
+        {
             DirectedEdgeIterator temp = *this;
             ++(*this);
             return temp;
@@ -206,23 +211,27 @@ private:
 
         [[nodiscard]] ArrowProxy operator->() const { return {operator*()}; }
 
-        IncidentEdgeIterator &operator++() {
+        IncidentEdgeIterator &operator++()
+        {
             ++currentIt_;
             return *this;
         }
 
-        IncidentEdgeIterator operator++(int) {
+        IncidentEdgeIterator operator++(int)
+        {
             IncidentEdgeIterator temp = *this;
             ++(*this);
             return temp;
         }
 
-        IncidentEdgeIterator &operator--() {
+        IncidentEdgeIterator &operator--()
+        {
             --currentIt_;
             return *this;
         }
 
-        IncidentEdgeIterator operator--(int) {
+        IncidentEdgeIterator operator--(int)
+        {
             IncidentEdgeIterator temp = *this;
             --(*this);
             return temp;

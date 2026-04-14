@@ -35,7 +35,8 @@ namespace osp {
  * @param to The target graph.
  */
 template <typename GraphFrom, typename GraphTo>
-void ConstructComputationalDag(const GraphFrom &from, GraphTo &to) {
+void ConstructComputationalDag(const GraphFrom &from, GraphTo &to)
+{
     std::vector<VertexIdxT<GraphTo>> vertexMap;
     vertexMap.reserve(from.NumVertices());
 

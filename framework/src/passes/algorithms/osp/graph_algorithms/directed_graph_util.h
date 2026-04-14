@@ -44,7 +44,8 @@ namespace osp {
  * @return true if there is an edge from src to dest, false otherwise.
  */
 template <typename GraphT>
-bool Edge(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph) {
+bool Edge(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph)
+{
     for (const auto &child : graph.Children(src)) {
         if (child == dest) {
             return true;
@@ -54,7 +55,8 @@ bool Edge(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const G
 }
 
 template <typename GraphT>
-VWorkwT<GraphT> CriticalPathWeight(const GraphT &graph) {
+VWorkwT<GraphT> CriticalPathWeight(const GraphT &graph)
+{
     if (graph.NumVertices() == 0) {return 0; }
 
     std::vector<VWorkwT<GraphT>> topLength(graph.NumVertices(), 0);
@@ -77,7 +79,8 @@ VWorkwT<GraphT> CriticalPathWeight(const GraphT &graph) {
 }
 
 template <typename GraphT>
-std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph) {
+std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph)
+{
     for (const auto &edge : OutEdges(src, graph)) {
         if (Target(edge, graph) == dest) {
             return {edge, true};
@@ -99,7 +102,8 @@ std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(const VertexIdxT<GraphT> &src, const
  * @return The total number of weakly connected components.
  */
 template <typename GraphT>
-std::size_t ComputeWeaklyConnectedComponents(const GraphT &graph, std::vector<VertexIdxT<GraphT>> &components) {
+std::size_t ComputeWeaklyConnectedComponents(const GraphT &graph, std::vector<VertexIdxT<GraphT>> &components)
+{
     using VertexType = VertexIdxT<GraphT>;
 
     if (graph.NumVertices() == 0) {
@@ -146,7 +150,8 @@ std::size_t ComputeWeaklyConnectedComponents(const GraphT &graph, std::vector<Ve
  * @return The number of weakly connected components.
  */
 template <typename GraphT>
-std::size_t CountWeaklyConnectedComponents(const GraphT &graph) {
+std::size_t CountWeaklyConnectedComponents(const GraphT &graph)
+{
     std::vector<VertexIdxT<GraphT>> components;
     return ComputeWeaklyConnectedComponents(graph, components);
 }

@@ -63,7 +63,8 @@ struct LambdaVectorContainer {
              * @brief Construct iterator at the beginning, skipping initial zeros.
              * @param vec Reference to the vector to iterate over
              */
-            LambdaVectorIterator(const std::vector<unsigned> &vec) : vec_(vec), index_(0) {
+            LambdaVectorIterator(const std::vector<unsigned> &vec) : vec_(vec), index_(0)
+            {
                 // Advance to the first valid entry
                 while (index_ < vec_.size() && vec_[index_] == 0) {
                     ++index_;
@@ -81,7 +82,8 @@ struct LambdaVectorContainer {
              * @brief Advance to the next non-zero entry.
              * @return Reference to this iterator
              */
-            LambdaVectorIterator &operator++() {
+            LambdaVectorIterator &operator++()
+            {
                 ++index_;
                 while (index_ < vec_.size() && vec_[index_] == 0) {
                     ++index_;
@@ -134,7 +136,8 @@ struct LambdaVectorContainer {
      * @param NumVertices Number of nodes in the schedule
      * @param num_procs Number of processors in the system
      */
-    inline void Initialize(const VertexIdxT numVertices, const unsigned numProcs) {
+    inline void Initialize(const VertexIdxT numVertices, const unsigned numProcs)
+    {
         nodeLambdaVec_.assign(numVertices, std::vector<unsigned>(numProcs, 0));
         numProcs_ = numProcs;
     }
@@ -181,7 +184,8 @@ struct LambdaVectorContainer {
      * @return The count value for the processor at the node
      * @pre has_proc_entry(node, proc) must be true
      */
-    inline unsigned GetProcEntry(const VertexIdxT node, const unsigned proc) const {
+    inline unsigned GetProcEntry(const VertexIdxT node, const unsigned proc) const
+    {
         return nodeLambdaVec_[node][proc];
     }
 
@@ -192,7 +196,8 @@ struct LambdaVectorContainer {
      * @return The count value for the processor at the node
      * @pre has_proc_entry(node, proc) must be true
      */
-    inline unsigned GetProcCount(const VertexIdxT node) const {
+    inline unsigned GetProcCount(const VertexIdxT node) const
+    {
         unsigned count = 0;
         for (unsigned proc = 0; proc < numProcs_; ++proc) {
             if (nodeLambdaVec_[node][proc] > 0) {
@@ -208,7 +213,8 @@ struct LambdaVectorContainer {
      * @param proc Processor ID
      * @return true if this is the first assignment of this processor to the node
      */
-    inline bool IncreaseProcCount(const VertexIdxT node, const unsigned proc) {
+    inline bool IncreaseProcCount(const VertexIdxT node, const unsigned proc)
+    {
         nodeLambdaVec_[node][proc]++;
         return nodeLambdaVec_[node][proc] == 1;
     }
@@ -220,7 +226,8 @@ struct LambdaVectorContainer {
      * @return true if this was the last assignment of this processor to the node
      * @pre has_proc_entry(node, proc) must be true
      */
-    inline bool DecreaseProcCount(const VertexIdxT node, const unsigned proc) {
+    inline bool DecreaseProcCount(const VertexIdxT node, const unsigned proc)
+    {
         nodeLambdaVec_[node][proc]--;
         return nodeLambdaVec_[node][proc] == 0;
     }

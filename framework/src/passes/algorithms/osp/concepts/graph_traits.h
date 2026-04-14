@@ -137,7 +137,8 @@ inline constexpr bool hasVerticesInTopOrderV = HasVerticesInTopOrderTrait<T>::va
  */
 template <typename GraphT>
 struct std::hash<npu::tile_fwk::osp::DirectedEdge<GraphT>> {
-    std::size_t operator()(const npu::tile_fwk::osp::DirectedEdge<GraphT> &p) const noexcept {
+    std::size_t operator()(const npu::tile_fwk::osp::DirectedEdge<GraphT> &p) const noexcept
+{
         // Combine hashes of source and target
         std::size_t h1 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.source_);
         std::size_t h2 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.target_);

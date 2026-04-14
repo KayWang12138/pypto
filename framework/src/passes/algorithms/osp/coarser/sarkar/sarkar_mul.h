@@ -72,7 +72,8 @@ private:
     ReturnStatus RunLevelContractions(bool &change);
 
 public:
-    void SetParameters(sarkar_params::MulParameters<VWorkwT<GraphT>> mlParams) {
+    void SetParameters(sarkar_params::MulParameters<VWorkwT<GraphT>> mlParams)
+{
         mlParams_ = std::move(mlParams);
         SetSeed();
         InitParams();
@@ -80,14 +81,16 @@ public:
 };
 
 template <typename GraphT, typename GraphTCoarse>
-void SarkarMul<GraphT, GraphTCoarse>::SetSeed() {
+void SarkarMul<GraphT, GraphTCoarse>::SetSeed()
+{
     constexpr std::size_t seedReduction = 4096U;
     thueCoin_ = ThueMorseSequence(mlParams_.seed_ % seedReduction);
     balancedRandom_ = BiasedRandom(mlParams_.seed_);
 }
 
 template <typename GraphT, typename GraphTCoarse>
-void SarkarMul<GraphT, GraphTCoarse>::InitParams() {
+void SarkarMul<GraphT, GraphTCoarse>::InitParams()
+{
     firstCoarsen_ = true;
 
     params_.geomDecay_ = mlParams_.geomDecay_;
@@ -111,13 +114,15 @@ void SarkarMul<GraphT, GraphTCoarse>::InitParams() {
 }
 
 template <typename GraphT, typename GraphTCoarse>
-void SarkarMul<GraphT, GraphTCoarse>::UpdateParams() {
+void SarkarMul<GraphT, GraphTCoarse>::UpdateParams()
+{
     coarserInitial_.SetParameters(params_);
     coarserSecondary_.SetParameters(params_);
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunSingleContractionMode(VertexIdxT<GraphT> &diffVertices) {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunSingleContractionMode(VertexIdxT<GraphT> &diffVertices)
+{
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
 
     VertexIdxT<GraphT> currentNumVertices;
@@ -154,7 +159,8 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunSingleContractionMode(VertexIdx
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLineContractions(bool &change) {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLineContractions(bool &change)
+{
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
     VertexIdxT<GraphT> diff = 0;
     unsigned innerNoChange = 0;
@@ -171,7 +177,8 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLineContractions(bool &change) 
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunPartialFanContractions(bool &change) {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunPartialFanContractions(bool &change)
+{
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
     VertexIdxT<GraphT> diff = 0;
     unsigned innerNoChange = 0;
@@ -187,7 +194,8 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunPartialFanContractions(bool &ch
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunFullFanContractions(bool &change) {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunFullFanContractions(bool &change)
+{
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
     VertexIdxT<GraphT> diff = 0;
     unsigned innerNoChange = 0;
@@ -204,7 +212,8 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunFullFanContractions(bool &chang
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLevelContractions(bool &change) {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLevelContractions(bool &change)
+{
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
     VertexIdxT<GraphT> diff = 0;
     unsigned innerNoChange = 0;
@@ -222,7 +231,8 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLevelContractions(bool &change)
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions(VWorkwT<GraphT> commCost) {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions(VWorkwT<GraphT> commCost)
+{
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
 
     params_.commCost_ = commCost;
@@ -255,14 +265,16 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions(VWorkwT<GraphT> co
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunBufferMerges() {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunBufferMerges()
+{
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
 
     unsigned noChange = 0;
     while (noChange < mlParams_.maxNumIterationWithoutChanges_) {
         VertexIdxT<GraphT> diff = 0;
         if ((mlParams_.bufferMergeMode_ == sarkar_params::BufferMergeMode::HOMOGENEOUS)
-            || (mlParams_.bufferMergeMode_ == sarkar_params::BufferMergeMode::FULL)) {
+            || (mlParams_.bufferMergeMode_ == sarkar_params::BufferMergeMode::FULL))
+        {
             params_.mode_ = sarkar_params::Mode::HOMOGENEOUS_BUFFER;
             UpdateParams();
             status = std::max(status, RunSingleContractionMode(diff));
@@ -302,7 +314,8 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunBufferMerges() {
 }
 
 template <typename GraphT, typename GraphTCoarse>
-ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions() {
+ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions()
+{
     InitParams();
 
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;

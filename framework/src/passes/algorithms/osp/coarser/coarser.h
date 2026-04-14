@@ -73,7 +73,8 @@ public:
 
     virtual bool CoarsenDag(const GraphTIn &dagIn,
                             GraphTOut &coarsenedDag,
-                            std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) override {
+                            std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) override
+    {
         if (dagIn.NumVertices() == 0) {
             vertexContractionMap = std::vector<VertexIdxT<GraphTOut>>();
             return true;

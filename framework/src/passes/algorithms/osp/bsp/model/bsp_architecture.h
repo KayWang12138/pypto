@@ -103,11 +103,13 @@ private:
     MemoryConstraintType memoryConstraintType_ = MemoryConstraintType::NONE;
 
     /** @brief Helper function to calculate the index of a flattened p x p matrix. */
-    std::size_t FlatIndex(const unsigned row, const unsigned col) const {
+    std::size_t FlatIndex(const unsigned row, const unsigned col) const
+    {
         return static_cast<std::size_t>(row) * numberOfProcessors_ + col;
     }
 
-    void UpdateNumberOfProcessorTypes() {
+    void UpdateNumberOfProcessorTypes()
+    {
         numberOfProcessorTypes_ = 0U;
         for (unsigned p = 0U; p < numberOfProcessors_; p++) {
             if (processorTypes_[p] >= numberOfProcessorTypes_) {
@@ -116,13 +118,15 @@ private:
         }
     }
 
-    void SetSendCostDiagonalToZero() {
+    void SetSendCostDiagonalToZero()
+    {
         for (unsigned i = 0U; i < numberOfProcessors_; i++) {
             sendCosts_[FlatIndex(i, i)] = 0U;
         }
     }
 
-    void InitializeUniformSendCosts() {
+    void InitializeUniformSendCosts()
+    {
         sendCosts_.assign(numberOfProcessors_ * numberOfProcessors_, 1U);
         SetSendCostDiagonalToZero();
     }
@@ -149,7 +153,8 @@ public:
           communicationCosts_(communicationCost),
           synchronisationCosts_(synchronisationCost),
           memoryBound_(numberOfProcessors, memoryBound),
-          processorTypes_(numberOfProcessors, 0U) {
+          processorTypes_(numberOfProcessors, 0U)
+    {
         if (numberOfProcessors == 0U) {
             APASS_LOG_ERROR_F(Elements::Config, "BspArchitecture: Number of processors must be greater than 0.");
             throw std::runtime_error("BspArchitecture: Number of processors must be greater than 0.");
@@ -198,7 +203,8 @@ public:
           synchronisationCosts_(other.SynchronisationCosts()),
           memoryBound_(other.MemoryBound()),
           processorTypes_(other.ProcessorTypes()),
-          sendCosts_(other.SendCostsVector()) {
+          sendCosts_(other.SendCostsVector())
+    {
         static_assert(std::is_same_v<VMemwT<GraphT>, VMemwT<GraphTOther>>,
                       "BspArchitecture: GraphT and Graph_t_other have the same memory weight type.");
 
@@ -241,7 +247,8 @@ public:
      * @brief Sets the memory bound for all processors using a vector.
      * @param MemoryBound The vector of memory bounds.
      */
-    void SetMemoryBound(const std::vector<VMemwT<GraphT>> &memoryBound) {
+    void SetMemoryBound(const std::vector<VMemwT<GraphT>> &memoryBound)
+    {
         if (memoryBound.size() != numberOfProcessors_) {
             APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Memory bound vector size does not match number of processors.");
             throw std::invalid_argument("Invalid Argument: Memory bound vector size does not match number of processors.");
@@ -254,7 +261,8 @@ public:
      * @param MemoryBound The new memory bound for the processor.
      * @param processorIndex The processor index. Must be less than numberOfProcessors_.
      */
-    void SetMemoryBound(const VMemwT<GraphT> memoryBound, const unsigned processorIndex) {
+    void SetMemoryBound(const VMemwT<GraphT> memoryBound, const unsigned processorIndex)
+    {
         memoryBound_.at(processorIndex) = memoryBound;
     }
 
@@ -275,7 +283,8 @@ public:
      * Resets send costs to uniform (1) and diagonal to 0. The memory bound is set to 100 for all processors.
      * @param numberOfProcessors The number of processors. Must be greater than 0.
      */
-    void SetNumberOfProcessors(const unsigned numberOfProcessors) {
+    void SetNumberOfProcessors(const unsigned numberOfProcessors)
+    {
         if (numberOfProcessors == 0) {
             APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Number of processors must be greater than 0.");
             throw std::invalid_argument("Invalid Argument: Number of processors must be greater than 0.");
@@ -295,7 +304,8 @@ public:
      * vector. Resets send costs to uniform (1). Resets memory bound to 100 for all processors.
      * @param processorTypes The types of the respective processors.
      */
-    void SetProcessorsWithTypes(const std::vector<VTypeT<GraphT>> &processorTypes) {
+    void SetProcessorsWithTypes(const std::vector<VTypeT<GraphT>> &processorTypes)
+    {
         if (processorTypes.empty()) {
             APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Processor types vector is empty.");
             throw std::invalid_argument("Invalid Argument: Processor types vector is empty.");
@@ -323,7 +333,8 @@ public:
      * @param processorTypeMemory Vector where index is type and value is memory bound for that type.
      */
     void SetProcessorsConsequTypes(const std::vector<VTypeT<GraphT>> &processorTypeCount,
-                                   const std::vector<VMemwT<GraphT>> &processorTypeMemory) {
+                                   const std::vector<VMemwT<GraphT>> &processorTypeMemory)
+    {
         if (processorTypeCount.size() != processorTypeMemory.size()) {
             APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
             throw std::invalid_argument("Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
@@ -478,7 +489,8 @@ public:
 
     [[nodiscard]] MemoryConstraintType GetMemoryConstraintType() const { return memoryConstraintType_; }
 
-    void SetMemoryConstraintType(const MemoryConstraintType memoryConstraintType) {
+    void SetMemoryConstraintType(const MemoryConstraintType memoryConstraintType)
+    {
         memoryConstraintType_ = memoryConstraintType;
     }
 };

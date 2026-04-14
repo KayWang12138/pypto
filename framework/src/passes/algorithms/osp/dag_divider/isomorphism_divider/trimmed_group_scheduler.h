@@ -51,7 +51,8 @@ public:
     TrimmedGroupScheduler(Scheduler<ConstrGraphT> &scheduler, unsigned minNonZeroProcs)
         : subScheduler_(&scheduler), minNonZeroProcs_(minNonZeroProcs) {}
 
-    ReturnStatus ComputeSchedule(BspSchedule<ConstrGraphT> &schedule) override {
+    ReturnStatus ComputeSchedule(BspSchedule<ConstrGraphT> &schedule) override
+    {
         const auto &instance = schedule.GetInstance();
         const ConstrGraphT &dag = instance.GetComputationalDag();
 
@@ -80,7 +81,8 @@ private:
      * @param numComponents Total number of components.
      * @return A vector where each element is a list of component indices assigned to a processor group.
      */
-    std::vector<std::vector<unsigned>> DistributeComponents(size_t numComponents) {
+    std::vector<std::vector<unsigned>> DistributeComponents(size_t numComponents)
+    {
         const unsigned baseCount = static_cast<unsigned>(numComponents) / minNonZeroProcs_;
         const unsigned remainder = static_cast<unsigned>(numComponents) % minNonZeroProcs_;
 
@@ -102,7 +104,8 @@ private:
      * @param arch The global architecture.
      * @return The sub-architecture.
      */
-    BspArchitecture<ConstrGraphT> BuildSubArchitecture(const BspArchitecture<ConstrGraphT> &arch) {
+    BspArchitecture<ConstrGraphT> BuildSubArchitecture(const BspArchitecture<ConstrGraphT> &arch)
+    {
         std::vector<unsigned> subProcCounts(arch.GetNumberOfProcessorTypes());
         std::vector<VMemwT<ConstrGraphT>> memWeights(arch.GetNumberOfProcessorTypes(), 0);
 
@@ -122,7 +125,8 @@ private:
     ReturnStatus SolveAndMapSubProblems(BspSchedule<ConstrGraphT> &schedule,
                                         const std::vector<std::vector<unsigned>> &componentIndicesPerGroup,
                                         const std::vector<std::vector<VertexIdxT<ConstrGraphT>>> &componentsVertices,
-                                        const BspArchitecture<ConstrGraphT> &subArch) {
+                                        const BspArchitecture<ConstrGraphT> &subArch)
+    {
         const auto &instance = schedule.GetInstance();
         const auto &arch = instance.GetArchitecture();
         const auto &dag = instance.GetComputationalDag();

@@ -49,7 +49,8 @@ public:
      *
      * @param inst The BspInstance.
      */
-    void Initialize(const BspInstance<GraphT> &inst) {
+    void Initialize(const BspInstance<GraphT> &inst)
+    {
         instance_ = &inst;
   
         typeProcessorIdx_.assign(inst.GetComputationalDag().NumVertexTypes(), {});

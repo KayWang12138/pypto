@@ -41,7 +41,8 @@ public:
      *
      * @param precomputedHashes A vector of hash values for objects 0 to n-1.
      */
-    PrecomputedHashComputer(const std::vector<std::size_t> &precomputedHashes) : vertexHashes_(precomputedHashes) {
+    PrecomputedHashComputer(const std::vector<std::size_t> &precomputedHashes) : vertexHashes_(precomputedHashes)
+    {
         for (std::size_t i = 0; i < vertexHashes_.size(); ++i) {
             const auto &hash = vertexHashes_[i];
             orbits_[hash].push_back(static_cast<IndexType>(i));
@@ -56,7 +57,8 @@ public:
 
     std::size_t NumOrbits() const override { return orbits_.size(); }
 
-    const std::vector<IndexType> &GetOrbit(const IndexType &v) const override {
+    const std::vector<IndexType> &GetOrbit(const IndexType &v) const override
+    {
         return this->GetOrbitFromHash(this->GetVertexHash(v));
     }
 

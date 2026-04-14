@@ -73,7 +73,8 @@ class MerkleHashComputer : public HashComputer<VertexIdxT<GraphT>> {
 
     NodeHashFuncT nodeHashFunc_;
 
-    void ComputeHashesHelper(const VertexType &v, std::vector<std::size_t> &parentChildHashes) {
+    void ComputeHashesHelper(const VertexType &v, std::vector<std::size_t> &parentChildHashes)
+    {
         std::sort(parentChildHashes.begin(), parentChildHashes.end());
 
         std::size_t hash = nodeHashFunc_(v);
@@ -91,7 +92,8 @@ class MerkleHashComputer : public HashComputer<VertexIdxT<GraphT>> {
     }
 
     template <typename RetT = void>
-    std::enable_if_t<forward, RetT> ComputeHashes(const GraphT &graph) {
+    std::enable_if_t<forward, RetT> ComputeHashes(const GraphT &graph)
+    {
         const size_t numVertices = graph.NumVertices();
         vertexHashes_.resize(numVertices);
         std::vector<std::size_t> neighborHashes;
@@ -107,7 +109,8 @@ class MerkleHashComputer : public HashComputer<VertexIdxT<GraphT>> {
     }
 
     template <typename RetT = void>
-    std::enable_if_t<not forward, RetT> ComputeHashes(const GraphT &graph) {
+    std::enable_if_t<not forward, RetT> ComputeHashes(const GraphT &graph)
+    {
         const size_t numVertices = graph.NumVertices();
         vertexHashes_.resize(numVertices);
         std::vector<std::size_t> neighborHashes;
@@ -132,7 +135,8 @@ public:
      */
     template <typename... Args>
     MerkleHashComputer(const GraphT &graph, Args &&...args)
-        : HashComputer<VertexType>(), nodeHashFunc_(std::forward<Args>(args)...) {
+        : HashComputer<VertexType>(), nodeHashFunc_(std::forward<Args>(args)...)
+    {
         ComputeHashes(graph);
     }
 
@@ -144,7 +148,8 @@ public:
 
     std::size_t NumOrbits() const override { return orbits_.size(); }
 
-    const std::vector<VertexType> &GetOrbit(const VertexType &v) const override {
+    const std::vector<VertexType> &GetOrbit(const VertexType &v) const override
+    {
         return this->GetOrbitFromHash(this->GetVertexHash(v));
     }
 
@@ -166,7 +171,8 @@ public:
  * @return True if they have the same orbit structure, false otherwise.
  */
 template <typename GraphT, typename NodeHashFuncT = UniformNodeHashFunc<VertexIdxT<GraphT>>, bool forward = true>
-bool AreIsomorphicByMerkleHash(const GraphT &g1, const GraphT &g2) {
+bool AreIsomorphicByMerkleHash(const GraphT &g1, const GraphT &g2)
+{
     if (g1.NumVertices() != g2.NumVertices() || g1.NumEdges() != g2.NumEdges()) {
         return false;
     }

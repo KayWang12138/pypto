@@ -30,7 +30,8 @@ namespace npu::tile_fwk {
 namespace osp {
 
 template <typename T = unsigned, typename GraphT, typename NeighborFunc, typename IterFunc>
-std::vector<T> GetNodeDistanceImpl(const GraphT &graph, NeighborFunc getNeighbors, IterFunc iterate) {
+std::vector<T> GetNodeDistanceImpl(const GraphT &graph, NeighborFunc getNeighbors, IterFunc iterate)
+{
     static_assert(std::is_integral_v<T>, "T must be of integral type");
     std::vector<T> distance(graph.NumVertices(), 0);
     iterate([&](auto v) {
@@ -42,14 +43,16 @@ std::vector<T> GetNodeDistanceImpl(const GraphT &graph, NeighborFunc getNeighbor
 }
 
 template <typename GraphT, typename T = unsigned>
-std::vector<T> GetBottomNodeDistance(const GraphT &graph) {
+std::vector<T> GetBottomNodeDistance(const GraphT &graph)
+{
     const auto topOrder = GetTopOrder(graph);
     return GetNodeDistanceImpl<T>(graph, [&](auto v) { return graph.Children(v); },
         [&](auto f) { for (auto it = topOrder.crbegin(); it != topOrder.crend(); ++it) f(*it); });
 }
 
 template <typename GraphT, typename T = unsigned>
-std::vector<T> GetTopNodeDistance(const GraphT &graph) {
+std::vector<T> GetTopNodeDistance(const GraphT &graph)
+{
     return GetNodeDistanceImpl<T>(graph, [&](auto v) { return graph.Parents(v); },
         [&](auto f) { for (const auto &v : GetTopOrder(graph)) f(v); });
 }

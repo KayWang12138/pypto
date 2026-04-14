@@ -27,7 +27,8 @@ namespace npu::tile_fwk {
 namespace osp {
 
 template <typename GraphT>
-std::vector<VertexIdxT<GraphT>> GetTopOrder(const GraphT &graph) {
+std::vector<VertexIdxT<GraphT>> GetTopOrder(const GraphT &graph)
+{
     if constexpr (hasVerticesInTopOrderV<GraphT>) {
         std::vector<VertexIdxT<GraphT>> topOrd(graph.NumVertices());
         std::iota(topOrd.begin(), topOrd.end(), static_cast<VertexIdxT<GraphT>>(0));
@@ -74,7 +75,8 @@ std::vector<VertexIdxT<GraphT>> GetTopOrder(const GraphT &graph) {
 }
 
 template <typename GraphT>
-std::vector<VertexIdxT<GraphT>> GetTopOrderReverse(const GraphT &graph) {
+std::vector<VertexIdxT<GraphT>> GetTopOrderReverse(const GraphT &graph)
+{
     std::vector<VertexIdxT<GraphT>> topOrder = GetTopOrder(graph);
     std::reverse(topOrder.begin(), topOrder.end());
     return topOrder;

@@ -121,7 +121,8 @@ public:
 };
 
 template <typename GraphTIn, typename GraphTOut>
-std::vector<VertexIdxT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotPosetMap(const GraphTIn &graph) const {
+std::vector<VertexIdxT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotPosetMap(const GraphTIn &graph) const
+{
     std::vector<VertexIdxT<GraphTIn>> botPosetMap = GetBottomNodeDistance<GraphTIn, VertexIdxT<GraphTIn>>(graph);
 
     const VertexIdxT<GraphTIn> max = botPosetMap.size() == 0U ? 0 : *std::max_element(botPosetMap.begin(), botPosetMap.end()) + 1;
@@ -135,7 +136,8 @@ std::vector<VertexIdxT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotPosetMap(co
 
 template <typename GraphTIn, typename GraphTOut>
 std::vector<VWorkwT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetTopDistance(VWorkwT<GraphTIn> commCost,
-                                                                           const GraphTIn &graph) const {
+                                                                           const GraphTIn &graph) const
+{
     std::vector<VWorkwT<GraphTIn>> topDist(graph.NumVertices(), 0);
 
     for (const auto &vertex : GetTopOrder<GraphTIn>(graph)) {
@@ -156,7 +158,8 @@ std::vector<VWorkwT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetTopDistance(VWork
 
 template <typename GraphTIn, typename GraphTOut>
 std::vector<VWorkwT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotDistance(VWorkwT<GraphTIn> commCost,
-                                                                           const GraphTIn &graph) const {
+                                                                           const GraphTIn &graph) const
+{
     std::vector<VWorkwT<GraphTIn>> botDist(graph.NumVertices(), 0);
 
     const auto topOrder = GetTopOrder<GraphTIn>(graph);
@@ -180,7 +183,8 @@ std::vector<VWorkwT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotDistance(VWork
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
+    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
 
@@ -324,7 +328,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllChildrenContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
+    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
 

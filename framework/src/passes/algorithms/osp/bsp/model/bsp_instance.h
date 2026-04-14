@@ -124,7 +124,8 @@ public:
 
     template <typename GraphTOther>
     explicit BspInstance(const BspInstance<GraphTOther> &other)
-        : architecture_(other.GetArchitecture()), nodeProcessorCompatibility_(other.GetNodeProcessorCompatibilityMatrix()) {
+        : architecture_(other.GetArchitecture()), nodeProcessorCompatibility_(other.GetNodeProcessorCompatibilityMatrix())
+    {
         ConstructComputationalDag(other.GetComputationalDag(), cdag_);
     }
 
@@ -271,7 +272,8 @@ public:
      * @brief Sets the node-processor compatibility matrix. The matrix is copied. Dimensions are not checked.
      * @param compatibility_ The compatibility matrix.
      */
-    void SetNodeProcessorCompatibility(const std::vector<std::vector<bool>> &compatibility) {
+    void SetNodeProcessorCompatibility(const std::vector<std::vector<bool>> &compatibility)
+    {
         nodeProcessorCompatibility_ = compatibility;
     }
 
@@ -293,7 +295,8 @@ public:
      * @brief Sets the compatibility matrix to be diagonal. This implies that node type `i` is only compatible with processor type `i`.
      * @param number_of_types The number of types.
      */
-    void SetDiagonalCompatibilityMatrix(const VertexTypeTOrDefault numberOfTypes) {
+    void SetDiagonalCompatibilityMatrix(const VertexTypeTOrDefault numberOfTypes)
+    {
         nodeProcessorCompatibility_.assign(numberOfTypes, std::vector<bool>(numberOfTypes, false));
         for (VertexTypeTOrDefault i = 0; i < numberOfTypes; ++i) {
             nodeProcessorCompatibility_[i][i] = true;

@@ -76,7 +76,8 @@ private:
 
     struct PairHasher {
         template <class T1, class T2>
-        std::size_t operator()(const std::pair<T1, T2> &p) const {
+        std::size_t operator()(const std::pair<T1, T2> &p) const
+        {
             auto h1 = std::hash<T1>{}(p.first);
             auto h2 = std::hash<T2>{}(p.second);
             HashCombine(h1, h2);
@@ -88,7 +89,8 @@ private:
     std::unordered_set<std::pair<VertexType, VertexType>, PairHasher> nonViableCritPathEdgesCache_;
 
     std::pair<ConstrGraphT, std::vector<VertexType>> SimulateMerge(VertexType u, VertexType v,
-                                                                   const ConstrGraphT &currentCoarseGraph) const {
+                                                                   const ConstrGraphT &currentCoarseGraph) const
+    {
         std::vector<VertexType> tempContractionMap(currentCoarseGraph.NumVertices());
         VertexType newIdx = 0;
         for (VertexType i = 0; i < static_cast<VertexType>(tempContractionMap.size()); ++i) {
@@ -108,7 +110,8 @@ private:
                      const std::vector<VertexType> &groupRemap,
                      std::vector<std::vector<VertexType>> &&newSubgraphs,
                      ConstrGraphT &currentCoarseGraph,
-                     std::vector<Group> &currentGroups) {
+                     std::vector<Group> &currentGroups)
+    {
         currentCoarseGraph = std::move(nextCoarseGraph);
 
         // Update caches for new vertex indices
@@ -141,7 +144,8 @@ private:
                        const std::vector<Group> &currentGroups,
                        const std::vector<VertexIdxT<ConstrGraphT>> &vertexPoset,
                        const std::vector<VertexIdxT<ConstrGraphT>> &vertexBotPoset,
-                       const VWorkwT<ConstrGraphT> workThreshold) const {
+                       const VWorkwT<ConstrGraphT> workThreshold) const
+    {
         // Check node type compatibility
         if (not mergeDifferentNodeTypes_) {
             if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
@@ -177,7 +181,8 @@ private:
     bool TryMergeEdge(VertexType u, VertexType v, const GraphT &originalDag, const ConstrGraphT &currentCoarseGraph,
                      const std::vector<Group> &currentGroups, const VWorkwT<ConstrGraphT> pathThreshold,
                      std::vector<std::vector<VertexType>> &outNewSubgraphs, ConstrGraphT &outTempGraph,
-                     std::vector<VertexType> &outTempContractionMap) {
+                     std::vector<VertexType> &outTempContractionMap)
+    {
         // Check merge structural viability
         const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], outNewSubgraphs);
         if (!mergeIsValid) {
@@ -190,7 +195,8 @@ private:
 
         if (CriticalPathWeight(tempCoarseGraph)
             > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(outNewSubgraphs.size())
-               + CriticalPathWeight(currentCoarseGraph))) {
+               + CriticalPathWeight(currentCoarseGraph)))
+        {
             nonViableCritPathEdgesCache_.insert({u, v});
             return false;
         }
@@ -204,7 +210,8 @@ private:
                           ConstrGraphT &currentCoarseGraph,
                           std::vector<Group> &currentGroups,
                           const VWorkwT<ConstrGraphT> workThreshold,
-                          const VWorkwT<ConstrGraphT> pathThreshold = 0) {
+                          const VWorkwT<ConstrGraphT> pathThreshold = 0)
+    {
         bool changed = true;
         while (changed) {
             const std::vector<VertexIdxT<ConstrGraphT>> vertexPoset
@@ -239,7 +246,8 @@ private:
                               const ConstrGraphT &currentCoarseGraph,
                               const std::vector<VertexIdxT<ConstrGraphT>> &vertexPoset,
                               const std::vector<VertexIdxT<ConstrGraphT>> &vertexBotPoset,
-                              const bool mergeDifferentNodeTypes) {
+                              const bool mergeDifferentNodeTypes)
+    {
         if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
             return false;
         }
@@ -257,7 +265,8 @@ private:
                                     const std::vector<Group> &currentGroups,
                                     const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
                                     const bool mergeDifferentNodeTypes,
-                                    std::size_t newSize) {
+                                    std::size_t newSize)
+    {
         VTypeT<GraphT> uType = 0;
         VTypeT<GraphT> vType = 0;
         if (not mergeDifferentNodeTypes) {
@@ -280,7 +289,8 @@ private:
                                   const bool mergeDifferentNodeTypes,
                                   const bool mergeBelowThreshold,
                                   const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
-                                  const VWorkwT<ConstrGraphT> pathThreshold = 0) {
+                                  const VWorkwT<ConstrGraphT> pathThreshold = 0)
+    {
         bool changed = true;
         while (changed) {
             const std::vector<VertexIdxT<ConstrGraphT>> vertexPoset
@@ -316,7 +326,8 @@ private:
                 }
 
                 if (IsSignificanceMergeBlocked(u, v, currentCoarseGraph, currentGroups,
-                                               lockThresholdPerType, mergeDifferentNodeTypes, newSize)) {
+                                               lockThresholdPerType, mergeDifferentNodeTypes, newSize))
+                {
                     nonViableEdgesCache_.insert({u, v});
                     continue;
                 }
@@ -324,7 +335,8 @@ private:
                 auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
 
                 if (CriticalPathWeight(tempCoarseGraph) > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
-                                                           + CriticalPathWeight(currentCoarseGraph))) {
+                                                           + CriticalPathWeight(currentCoarseGraph)))
+                {
                     nonViableCritPathEdgesCache_.insert({u, v});
                     continue;
                 }
@@ -355,7 +367,8 @@ public:
      * @param dag The input computational DAG.
      * @param hasher The hash computer providing orbit information.
      */
-    void DiscoverIsomorphicGroups(const GraphT &dag, const HashComputer<VertexType> &hasher) {
+    void DiscoverIsomorphicGroups(const GraphT &dag, const HashComputer<VertexType> &hasher)
+    {
         coarseGraph_ = ConstrGraphT();
         contractionMap_.clear();
         finalCoarseGraph_ = ConstrGraphT();
@@ -413,7 +426,8 @@ public:
 
 private:
     std::vector<size_t> FindSignificantSymmetryLevels(const std::map<size_t, size_t> &orbitSizeCounts,
-                                                      size_t countThreshold) {
+                                                      size_t countThreshold)
+{
         std::vector<size_t> sortedSizes;
         sortedSizes.reserve(orbitSizeCounts.size());
         for (const auto &pair: orbitSizeCounts) {
@@ -430,7 +444,8 @@ private:
         return levels;
     }
 
-    size_t FindFallbackSymmetryLevel(const std::map<size_t, size_t> &orbitSizeCounts) {
+    size_t FindFallbackSymmetryLevel(const std::map<size_t, size_t> &orbitSizeCounts)
+    {
         size_t maxCount = 0;
         size_t sizeWithMaxCount = 0;
         for (const auto &[size, count] : orbitSizeCounts) {
@@ -442,7 +457,8 @@ private:
         return sizeWithMaxCount;
     }
 
-    std::vector<size_t> ComputeSymmetryLevels(const std::map<size_t, size_t> orbitSizeCounts) {
+    std::vector<size_t> ComputeSymmetryLevels(const std::map<size_t, size_t> orbitSizeCounts)
+    {
         minSymmetry_ = 2;
 
         size_t totalOrbitGroups = 0;
@@ -478,7 +494,8 @@ private:
     void PerformCoarseningAdaptiveSymmetry(const GraphT &originalDag,
                                            const ConstrGraphT &initialCoarseGraph,
                                            const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
-                                           const std::vector<size_t> &symmetryLevelsToTest) {
+                                           const std::vector<size_t> &symmetryLevelsToTest)
+    {
         finalCoarseGraph_ = ConstrGraphT();
         finalContractionMap_.clear();
 
@@ -529,7 +546,8 @@ private:
     bool IsMergeViable(const GraphT &originalDag,
                        const Group &groupU,
                        const Group &groupV,
-                       std::vector<std::vector<VertexType>> &outNewSubgraphs) const {
+                       std::vector<std::vector<VertexType>> &outNewSubgraphs) const
+    {
         std::vector<VertexType> allNodes;
         const size_t uNodes = groupU.subgraphs_.empty() ? 0 : groupU.subgraphs_.size() * groupU.subgraphs_[0].size();
         const size_t vNodes = groupV.subgraphs_.empty() ? 0 : groupV.subgraphs_.size() * groupV.subgraphs_[0].size();
