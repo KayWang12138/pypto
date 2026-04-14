@@ -62,7 +62,6 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
     ASSERT(ctx->ioperandDataViewList->size() == 0);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto &out = ctx->ooperandInplaceDataViewList->at(0);
     SymbolicScalar attr = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
     std::vector<uint64_t> parameters = UnBind(ctx, attr);
     uint64_t groupIndex = parameters[0];
