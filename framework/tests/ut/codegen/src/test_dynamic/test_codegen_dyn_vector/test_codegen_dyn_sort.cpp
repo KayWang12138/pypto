@@ -70,7 +70,7 @@ std::string generateCodeForOp(TestContext& tc)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(*tc.op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *tc.function, *tc.function->rootFunc_->programs_[0], *tc.op, {}, true);
+    CodeGenOpNPUCtx opCtx(symbolManager, *tc.function, *tc.function->rootFunc_->programs_[0], *tc.op, {}, true);
     CodeGenOpCloudNPU cop(opCtx);
     return cop.GenOpCode();
 }
@@ -171,7 +171,7 @@ TEST_F(TestCodegenDynSort, TestDynTiledMgrSort)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -210,7 +210,7 @@ void TestTopkBody(Opcode opCode, const std::string& expect)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     EXPECT_EQ(res, expect);

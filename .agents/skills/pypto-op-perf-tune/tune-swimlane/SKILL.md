@@ -116,7 +116,7 @@ pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256],
 
 ```bash
 # Step 1: 用 analyze_swimlane.py 分析泳道图数据
-python3 .agents/skills/pypto-operator-auto-tuner/scripts/analyze_swimlane.py \
+python3 scripts/analyze_swimlane.py \
     output/output_<最新目录>
 
 # Step 2: 从输出确定：
@@ -211,7 +211,7 @@ vector合图往往需要 pg_upper_bound 和 vec_nbuffer_setting 配合使用，�
 - vec_nbuffer_setting：表示同构的并行子图合图的任务数量，-2:1不需要改变，-1:2代表，所有的vector均按照2的粒度进行合图
 
 **调优方法**：
-1. 运行 [analyze_swimlane.py](../scripts/analyze_swimlane.py)，查看 `[AIV]` 部分的输出
+1. 运行 [analyze_swimlane.py](scripts/analyze_swimlane.py)，查看 `[AIV]` 部分的输出
 2. 根据 `psgId` 确定 hashorder，根据 `t/iter` 确定粒度参考值
 3. t/iter=1 的组先设为 1，t/iter≥2 的组设为对应值或更小
 4. 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
@@ -219,24 +219,142 @@ vector合图往往需要 pg_upper_bound 和 vec_nbuffer_setting 配合使用，�
 **参考资料**
 - [vec_nbuffer_setting 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 
-##### 3.1.2 手动合图方案
+##### 3.1.2 手动合图方案（sg_set_scope）
+
+通过 `sg_set_scope` 将有数据依赖的连续 Vector 操作强制合并到同一子图，减少子图间调度开销和数据搬运。
+
 ```python
-# 开始合图
 pypto.set_pass_options(sg_set_scope=1)
-# ... 操作 ...
-# 结束合图
+# ... 连续的 Vector 操作（有直接数据依赖、同循环层级、无 Cube 夹杂）...
 pypto.set_pass_options(sg_set_scope=-1)
 ```
 
-**融合目标**：
-- 上下游 Operation 间传输数据量较大
-- 多个 Operation 切分后变成并行的连通分支
+**约束**：
+- 仅对有直接上下游数据依赖的 Vector 操作生效
+- 不要包裹 Cube（matmul）操作，也不要包裹其后继含 Cube 的节点
+- 跨 `pypto.loop` 边界不能合并
+- 每个 scope 使用不同的正整数 ID
 
-**注意**
-- 当前主要考虑在连续的 Vector 计算过程中使用，暂不支持将 Matmul Operation 与 Vector Operation 进行合图。
-- `sg_set_scope` 不适合包含 cube 操作的场景。
+###### 3.1.2.1 依赖链分析工具
+
+使用 `analyze_aiv_dep_chains.py` 从 `dyn_topo.txt` 中提取 AIV 任务之间的依赖链路，自动识别 cube 边界并给出 sg_set_scope 合并建议。
+
+**用法**：
+
+```bash
+python3 scripts/analyze_aiv_dep_chains.py <output_dir>
+python3 scripts/analyze_aiv_dep_chains.py <output_dir> --json result.json
+```
+
+**输入文件**（`output_dir` 中）：
+- `dyn_topo.txt` — 任务动态拓扑（含 successors 依赖，必需）
+- `program.json` — 程序编译数据（可选，用于标注操作类型）
+
+**输出分两部分**：
+
+**Part 1: 原始依赖链**（完整链路，不截断）
+
+```
+链路A（16次）
+3907163356593077760
+  │
+  ▼
+2360323566658746396
+  │
+  ▼
+2768731787098226973
+  3907163356593077760: op=10001, psg=1, [vec] CAST+CAST
+  2360323566658746396: op=10002, psg=2, [vec] MUL+CAST+CAST+ROWSUM_SINGLE
+  2768731787098226973: op=10001, psg=1, [vec] MULS+SUB+EXP+DIV+SUB+MUL+CAST+CAST
+```
+
+**Part 2: sg_set_scope 优化建议**（在 cube 边界截断）
+
+脚本自动检测每个 AIV 节点的后继是否包含 cube（matmul）任务。截断规则：
+- 遇到后继含 cube 的 AIV 节点时，**保留该节点但不继续展开后继**
+- 截断后 ≥2 节点且 psgId 有变化的链段，建议用 `sg_set_scope` 合并
+
+```
+sg_set_scope 优化建议
+
+  建议 1: 截断后 3 个节点, 16 次, psgId 变化: 1 → 2 → 1
+    3907163356593077760
+      │
+      ▼
+    2360323566658746396
+      │
+      ▼
+    2768731787098226973
+    3907163356593077760: psg=1, [vec] CAST+CAST
+    2360323566658746396: psg=2, [vec] MUL+CAST+CAST+ROWSUM_SINGLE
+    2768731787098226973: psg=1, [vec] MULS+SUB+EXP+DIV+SUB+MUL+CAST+CAST [✂ cube边界]
+    → 建议: 用 sg_set_scope 包裹 psgId 1 → 2 → 1 的 vector 操作
+    ✂ 截断点 (后继含 cube): ['2768731787098226973']
+```
+
+**输出字段说明**：
+- **leafHash**：叶子函数哈希，通过 `program.json` 的 `hash` 字段可映射到具体函数
+- **opmagic**：操作类型标识
+- **psgId**：当前所属子图 ID
+- **[vec]/[cube]**：操作核心类型（基于 opcode 自动判断，含 `A_MUL_B/A_MULACC_B` 为 cube，否则为 vec）
+- **opcode 序列**：过滤掉框架指令后的实际计算指令
+- **✂ cube边界**：该 AIV 节点的后继包含 cube 任务
+
+**⚠️ 重要：脚本建议是候选，必须经过 3.1.2.2 映射验证后才能实施。**
+
+###### 3.1.2.2 从建议到实施的验证流程
+
+脚本的优化建议是基于 `dyn_topo.txt` 的自动分析，不能直接用于修改前端代码。必须通过 `program.json` 的 `file`/`line` 字段将 leafHash 映射到前端代码，验证可合并性，并确认代码连续性。
+
+详细的映射方法和自动映射工具参见 [leafHash → 前端代码映射方法](references/leafhash-to-code-mapping.md)。
+
+**自动映射工具**：
+
+```bash
+# 查看指定 leafHash 的代码位置
+python3 scripts/leafhash_to_code.py <output_dir> --leafhash <hash>
+
+# 查看所有 leafHash
+python3 scripts/leafhash_to_code.py <output_dir>
+```
+
+**验证检查清单**（对建议中的每个链段逐项检查）：
+
+| 检查项 | 验证方法 | 通过标准 |
+|:---|:---|:---|
+| 数据依赖 | dyn_topo 中存在 VEC→VEC successors 边 | 有直接数据依赖 |
+| 同循环层级 | dyn_topo 的 rootIndex 比对 | 所有节点 rootIndex 相同 |
+| 纯 vector 操作 | program.json ops 中无 A_MUL_B/A_MULACC_B | 无 cube 指令 |
+| 无 cube 后置依赖 | dyn_topo successors 中无 coreType=1 | 后继不含 matmul |
+| 代码行连续性 | file/line 映射，确认中间无夹杂 | scope 内只有被合并的操作 |
+| ✂ cube边界节点排除 | 脚本标记的截断点 | 有 cube 后继的节点不参与合并 |
+
+**只有全部通过的链段才是可合并的。**
+
+**代码连续性检查与调整**：
+
+通过 `leafhash_to_code.py` 确认每个 leafHash 对应的前端代码行后，检查待合并的代码行之间是否夹带不相关操作。如果两个 leaf 对应的代码行之间有其他操作（如无关变量的 view），直接包裹 sg_set_scope 会把这些操作也卷入合并。
+
+此时需要调整前端代码顺序，将不相关的操作移到 sg_set_scope 包裹范围之外，使待合并的操作紧密相邻。PyPTO 是声明式构图，只要数据依赖关系不变，代码顺序可以调整。
+
+**调整原则**：
+- 只移动与合并段无数据依赖的操作
+- 移动后的代码不能跨越 `pypto.loop` 边界
+- scope 必须覆盖所有参与合并的 leaf 的全部代码行，不能只包裹部分操作
+- 调整后必须重新运行精度验证
+
+**完整工作流程**：
+1. 运行测试用例采集泳道数据（需 `debug_options={"runtime_debug_mode": 1}`）
+2. 运行 `analyze_aiv_dep_chains.py` 分析依赖链，获取 Part 2 优化建议
+3. 运行 `leafhash_to_code.py` 将 leafHash 映射到前端代码行
+4. 用验证检查清单过滤，排除不可合并的段
+5. 检查代码连续性：合并段对应的代码行之间是否有不相关操作
+6. 如有夹杂，调整代码顺序使合并段紧密相邻
+7. 在连续的代码段位置插入 `sg_set_scope`
+8. 验证精度和性能
 
 **参考资料**
+- [leafHash → 前端代码映射方法](references/leafhash-to-code-mapping.md)
 - [sg_set_scope 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 
 
@@ -258,7 +376,7 @@ pypto.set_pass_options(sg_set_scope=-1)
 )
 ```
 **调优方法**：
-1. 运行 [analyze_swimlane.py](../scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
+1. 运行 [analyze_swimlane.py](scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
 2. 根据 `psgId` 确定 hashorder，优先对 total 耗时大且有重复搬运的子图调优
 3. `t/iter` 越大（内层循环次数越多），L1 复用收益越高，可设更大粒度
 4. 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
@@ -278,7 +396,7 @@ pypto.set_pass_options(sg_set_scope=-1)
 )
 ```
 **调优方法**：
-1. 运行 [analyze_swimlane.py](../scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
+1. 运行 [analyze_swimlane.py](scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
 2. 根据 `psgId` 确定 hashorder，根据 `t/iter` 和 avg 耗时确定粒度
 3. avg<10us 且 t/iter≥2 的组优先设置 `cube_nbuffer_setting: {psgId: t/iter}`
 4. 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
@@ -334,7 +452,7 @@ pypto.set_pass_options(sg_set_scope=-1)
 # Task Count: 1664 → 6400, 利用率: 58.8% → 48.7%
 ```
 
-**建议**：始终使用 [analyze_swimlane.py](../scripts/analyze_swimlane.py) 分析泳道图获取 psgId 和 t/iter 后手动精确配置，避免使用空字典 `{}` 自动模式。
+**建议**：始终使用 [analyze_swimlane.py](scripts/analyze_swimlane.py) 分析泳道图获取 psgId 和 t/iter 后手动精确配置，避免使用空字典 `{}` 自动模式。
 
 
 ### 4. 调度策略调优
@@ -379,27 +497,14 @@ pypto.set_pass_options(sg_set_scope=-1)
        # 计算逻辑
    ```
 
- 3. **L1Reuse 优化**（需先分析泳道图）
-    ```python
-    # Step 1: 运行 analyze_swimlane.py 获取 psgId(=hashorder) 和 t/iter
-    # Step 2: 根据输出设置
-    pypto.set_pass_options(cube_l1_reuse_setting={0: 8})
-    ```
-    ⚠️ 使用 [analyze_swimlane.py](../scripts/analyze_swimlane.py) 获取 psgId 和 t/iter 后再设置，禁止盲猜。
+3. **L1Reuse 优化**
 
 4. **调整任务粒度**
 - 增大 loop 的 tile size
 - 减少 loop 层级
 
-5. **vector 合图**
-    ```python
-    @pypto.frontend.jit(
-        pass_options={
-            "pg_upper_bound": 50000,
-            "vec_nbuffer_setting": {-2: 1, -1: 2}
-            }
-    )
-    ```
+5. **合图调优**
+
 
 ### 建议 2：核心利用率低
 

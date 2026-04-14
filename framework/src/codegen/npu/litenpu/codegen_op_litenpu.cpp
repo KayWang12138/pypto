@@ -21,204 +21,49 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+
 // ensure funcType is static, and isUnderDynamicFunc is false
-CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpCtx &ctx)
-    : CodeGenOpNPU(ctx) {
+CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpNPUCtx& ctx) : CodeGenOpNPU(ctx)
+{
+    InitOpsGenMap();
+    forBlkMgr_ = ctx.forBlockManager;
     CodeGenOp::Init(ctx.operation);
     UpdateTileTensorInfo();
+    UpdateLoopInfo();
 }
 
-void CodeGenOpLiteNPU::AppendLocalBufferVarOffset(
-    const std::map<unsigned, std::reference_wrapper<std::string>> &vars) const {
-    for (auto &kv : vars) {
-        auto operandIdx = kv.first;
-        int64_t resOffset{0};
+TileTensor CodeGenOpLiteNPU::QueryTileTensorByIdx(int paramIdx) const
+{
+    const int tensorMagic = operandWithMagic[paramIdx];
+    const int opMagic = originalOp.GetOpMagic();
+    const TileTensor* tileTensor = nullptr;
 
-        std::vector<int64_t> varOffset = offset[operandIdx];
-        if (varOffset.empty()) {
-            continue;
-        }
+    tileTensor = sm->QueryTileTensorByMagic(tensorMagic, opMagic);
 
-        std::vector<int64_t> varRawShape = rawShape[operandIdx];
-        ASSERT(!varRawShape.empty()) << "varRawShape is empty!! operandIdx: " << operandIdx;
-        ASSERT(varOffset.size() == varRawShape.size())
-            << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
-            << IntVecToStr(varRawShape) << ", size " << varRawShape.size()
-            << " is not equal!! operandIdx: " << operandIdx;
-
-        resOffset = CalcLinearOffset(varRawShape, varOffset);
-        if (resOffset == 0) {
-            continue;
-        }
-
-        std::string &var = kv.second.get();
-
-        ASSERT(!var.empty()) << "operandIdx: " << operandIdx << ", var is empty !!";
-        CODEGEN_LOGI("var: %s, varRawShape: %s, varOffset: %s, resOffset: %ld", var.c_str(),
-            IntVecToStr(varRawShape).c_str(), IntVecToStr(varOffset).c_str(), static_cast<long>(resOffset));
-
-        var.append(" + ").append(std::to_string(resOffset));
+    if (tileTensor != nullptr) {
+        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", tileTensor->ToString().c_str());
+        return *tileTensor;
     }
+
+    ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false) << "TileTensor: paramIdx " << paramIdx << ", tensor magic "
+                                                << tensorMagic << ", op magic " << opMagic << " is not found !!!";
+    static TileTensor emptyTileTensor;
+    return emptyTileTensor;
 }
 
-SymbolicScalar CodeGenOpLiteNPU::GetOperandStartOffsetLite(int operandIdx) const {
-    std::vector varOffset = offset[operandIdx];
-    if (varOffset.empty()) {
-        return 0;
-    }
-
-    const auto &dynOffset = dynamicOffset[operandIdx];
-    if (!dynOffset.empty()) {
-        std::vector varRawShape = rawShape[operandIdx]; // 内部应该不能出现dynRawShape，所以这里用立即数即可
-        ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
-        ASSERT(dynOffset.size() == varRawShape.size())
-            << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
-            << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
-
-        SymbolicScalar resOffset = 0;
-        for (size_t i = 0; i < dynOffset.size(); i++) {
-            resOffset = resOffset * varRawShape[i];
-            resOffset = resOffset + dynOffset[i];
-        }
-
-        ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
-        CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
-        CODEGEN_LOGD(" varOffset: %s", SymbolicVecToStr(dynOffset).c_str());
-        CODEGEN_LOGD(" resOffset: %s", resOffset.Dump().c_str());
-        if (resOffset.ConcreteValid()) {
-            return resOffset.Concrete();
-        }
-        return SymbolicExpressionTable::BuildExpression(resOffset);
-    }
-
-    std::vector varRawShape = rawShape[operandIdx];
-    ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
-    ASSERT(varOffset.size() == varRawShape.size())
-        << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
-        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
-
-    int64_t resOffset = CalcLinearOffset(varRawShape, varOffset);
-    if (resOffset == 0) {
-        return 0;
-    }
-
-    ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
-    CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
-    CODEGEN_LOGD(" varOffset: %s", IntVecToStr(varOffset).c_str());
-    CODEGEN_LOGD(" resOffset: %ld", static_cast<long>(resOffset));
-    return resOffset;
-}
-
-std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const {
+std::string CodeGenOpLiteNPU::GenGmParamVar(unsigned gmParamIdx) const
+{
     return std::string("RealizedGM") + std::to_string(paramLocation[gmParamIdx]) + ".Addr";
 }
 
-std::vector<std::string> CodeGenOpLiteNPU::GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const {
-    std::vector<std::string> argList;
-    for (auto &expr : exprList) {
-        std::string exprStr = SymbolicExpressionTable::BuildExpression(expr);
-        argList.push_back(exprStr);
-    }
-    return argList;
-}
-
-bool CodeGenOpLiteNPU::CombineAxis(std::vector<std::vector<int64_t> *> &shapes, bool secondLastAxis) const {
-    size_t num;
-    {
-        auto iter = shapes.begin();
-        num = (*iter)->size();
-        for (; iter != shapes.end(); ++iter) {
-            ASSERT(num == (*iter)->size()) << "shapes have to be the same!";
-        }
-    }
-
-    if (secondLastAxis) {
-        num--;
-    }
-
-    int64_t i = num - 1;
-    for (; i >= 0; i--) {
-        bool match = true;
-        auto iter = shapes.begin();
-        int s = (*iter)->at(i);
-        for (; iter != shapes.end(); ++iter) {
-            if (s != (*iter)->at(i)) {
-                match = false;
-                break;
-            }
-        }
-        if (!match) {
-            if (i >= static_cast<int64_t>(num - NUM2)) {
-                return false;
-            }
-            break;
-        }
-    }
-
-    i = std::max(i, static_cast<int64_t>(0));
-    size_t numVec = shapes.size();
-    std::vector<int> acc(numVec, 1);
-    for (size_t j = i; j < num - 1; j++) {
-        for (size_t k = 0; k < numVec; k++) {
-            acc[k] *= shapes[k]->at(j);
-            shapes[k]->at(j) = 1;
-        }
-    }
-    for (size_t k = 0; k < numVec; k++) {
-        shapes[k]->at(num - 1) = acc[k] * shapes[k]->at(num - 1);
-    }
-
-    for (size_t k = 0; k < numVec; k++) {
-        // remove redundant ones so better chance for repeat
-        shapes[k]->erase(shapes[k]->begin() + i, shapes[k]->begin() + (num - 1));
-        // pad ones to preserve shape length
-        shapes[k]->insert(shapes[k]->begin(), (num - 1) - i, 1);
-    }
-
-    return true;
-}
-
-std::vector<std::string> CodeGenOpLiteNPU::BuildStride(const std::vector<int64_t> &input) {
-    if (input.empty()) {
-        return {};
-    }
-
-    std::vector<std::string> res(input.size(), "1");
-    int64_t base = 1;
-    for (int i = input.size() - 2; i >= 0; --i) {
-        base *= input[i + 1];
-        res[i] = std::to_string(base);
-    }
-
-    return res;
-}
-
-void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm) {
-    (void)isSpillToGm; // TODO...
-    auto newOriginShape = originShape[paramIdx];
-    auto newRawShape = rawShape[paramIdx];
-    auto newDynValidShape = dynamicValidShape[paramIdx];
-    CODEGEN_LOGI("newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", IntVecToStr(newOriginShape).c_str(),
-        IntVecToStr(newRawShape).c_str(), IntVecToStr(newDynValidShape).c_str());
-
-    tileTensor.rawShape = newRawShape;
-
-    // ---- static ----
-    if (functionType == FunctionType::STATIC) {
-        for (auto s : newOriginShape) {
-            tileTensor.shape.emplace_back(std::to_string(s));
-        }
-        tileTensor.stride = BuildStride(newRawShape);
-        return;
-    }
-}
-
-TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
+TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop)
+{
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
     TileTensor tileTensor;
     tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
+    tileTensor.shapeInLoop = shapeInLoop;
 
     if (tileTensor.isConstant) {
         tileTensor.dim = originShape[paramIdx].size();
@@ -238,98 +83,34 @@ TileTensor CodeGenOpLiteNPU::BuildTileTensor(int paramIdx, const std::string &us
     tileTensor.usingType = usingType;
 
     tileTensor.tensorName = sm->GenTensorName(tileTensor.bufType);
-
-    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm);
+    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
 
     tileTensor.localBufOffset = offset[paramIdx];
 
     return tileTensor;
 }
 
-void CodeGenOpLiteNPU::UpdateTileTensorInfo() {
-    if (!isSupportLayout) {
+void CodeGenOpLiteNPU::UpdateTileTensorShapeAndStride(
+    int paramIdx, TileTensor& tileTensor, [[maybe_unused]] bool isSpillToGm,
+    [[maybe_unused]] const ShapeInLoop& shapeInLoop)
+{
+    auto newOriginShape = originShape[paramIdx];
+    auto newRawShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.rawShape : rawShape[paramIdx];
+    auto newDynValidShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape : dynamicValidShape[paramIdx];
+    CODEGEN_LOGI(
+        "newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", IntVecToStr(newOriginShape).c_str(),
+        IntVecToStr(newRawShape).c_str(), IntVecToStr(newDynValidShape).c_str());
+
+    tileTensor.rawShape = newRawShape;
+
+    // ---- static ----
+    if (functionType == FunctionType::STATIC) {
+        for (auto s : newOriginShape) {
+            tileTensor.shape.emplace_back(std::to_string(s));
+        }
+        tileTensor.stride = BuildStride(newRawShape);
         return;
     }
-
-    auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
-    if (iter == SUPPORT_TILETENSOR_OPS.end()) {
-        ASSERT(GenCodeErr::OP_CODE_UNSUPPORTED, iter != SUPPORT_TILETENSOR_OPS.end())
-            << "opCode: " << opCodeStr << " not support tile tensor!";
-        return;
-    }
-
-    tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
-
-    for (int i = 0; i < operandCnt; ++i) {
-        TileTensorUsing tileTensorUsing{
-            functionType == FunctionType::STATIC || isMainBlock,
-            operandDtype[i],
-            operandType[i],
-            static_cast<int>(rawShape[i].size()),
-            originShape[i],
-            rawShape[i]};
-        std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
-        TileTensor tileTensor = BuildTileTensor(i, usingType);
-        std::string tensorName = sm->AddTileTensor(originalOp.GetOpMagic(), tileTensor);
-        tensorNames_[i] = tensorName;
-        CODEGEN_LOGI(
-            "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
-    }
 }
 
-std::string CodeGenOpLiteNPU::GetLastUse() const {
-    if (!opAttrs.count(OpAttributeKey::lastUse)) {
-        return "";
-    }
-    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
-    int valSize = val.size();
-    ASSERT(valSize != 0) << "GetLastUse error!!!";
-    std::ostringstream oss;
-    oss << "LastUse" << valSize << "Dim";
-    oss << WrapParamByAngleBrackets(val);
-    return oss.str();
-}
-
-std::string CodeGenOpLiteNPU::PrintCoord(size_t dim, const std::string &coord) const {
-    std::string ret = COORD;
-    ret.append(std::to_string(dim)).append(DIM).append(coord);
-    return ret;
-}
-
-TileTensor CodeGenOpLiteNPU::QueryTileTensorByIdx(int paramIdx) const
-{
-    const int tensorMagic = operandWithMagic[paramIdx];
-    const int opMagic = originalOp.GetOpMagic();
-    const TileTensor* tileTensor = nullptr;
-    // bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
-    // if (isInLoop) {
-    //     tileTensor = sm->QueryTileTensorInLoopByMagic(tensorMagic, opMagic);
-    //     // some tensor in loop is reused same tensor out of loop
-    //     if (tileTensor == nullptr) {
-    //         tileTensor = sm->QueryTileTensorByMagic(tensorMagic, opMagic);
-    //     }
-    // } else {
-        tileTensor = sm->QueryTileTensorByMagic(tensorMagic, opMagic);
-    // }
-
-    if (tileTensor != nullptr) {
-        CODEGEN_LOGI("QueryTileTensorByIdx found: %s", tileTensor->ToString().c_str());
-        return *tileTensor;
-    }
-
-    // ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false)
-    //     << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << tensorMagic << ", op magic " << opMagic
-    //     << ", isInLoop " << isInLoop << " is not found !!!";
-    ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false)
-        << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << tensorMagic << ", op magic " << opMagic
-        << " is not found !!!";
-    static TileTensor emptyTileTensor;
-    return emptyTileTensor;
-}
-
-std::string CodeGenOpLiteNPU::QueryTileTensorNameByIdx(int paramIdx) const
-{
-    const TileTensor& tileTensor = QueryTileTensorByIdx(paramIdx);
-    return tileTensor.tensorName;
-}
 } // namespace npu::tile_fwk

@@ -108,7 +108,7 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();
@@ -154,7 +154,7 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor)
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(indexoutOp, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], indexoutOp, {}, true);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], indexoutOp, {}, true);
     CodeGenOpCloudNPU cop(opCtx);
 
     std::string res = cop.GenOpCode();

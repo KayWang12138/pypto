@@ -422,8 +422,13 @@ def function(name: str, *args) -> Iterator:
         logging.error("Record function %s failed: %s", name, e)
         raise
     finally:
-        assert func
-        func.EndFunction()
+        if func is None:
+            raise RuntimeError("function recording failed")
+        try:
+            func.EndFunction()
+        except Exception:
+            if sys.exc_info()[1] is None:
+                raise
         Controller.end_function()
 
 
