@@ -47,12 +47,8 @@ struct GrowLocalAutoCoresParams {
  */
 template <typename GraphT>
 class GrowLocalAutoCores : public Scheduler<GraphT> {
-private:
-    using VertexIdx = typename GraphT::VertexIdx;
-
-    GrowLocalAutoCoresParams<VWorkwT<GraphT>> params_;
-
 public:
+    using VertexIdx = typename GraphT::VertexIdx;
 
     GrowLocalAutoCores(GrowLocalAutoCoresParams<VWorkwT<GraphT>> params = GrowLocalAutoCoresParams<VWorkwT<GraphT>>())
         : params_(params) {}
@@ -159,6 +155,7 @@ public:
     }
 
 private:
+    GrowLocalAutoCoresParams<VWorkwT<GraphT>> params_;
 
     void InitializeReadyQueue(const GraphT &g, std::unordered_set<VertexIdx> &ready, 
                               std::vector<VertexIdx> &predec)

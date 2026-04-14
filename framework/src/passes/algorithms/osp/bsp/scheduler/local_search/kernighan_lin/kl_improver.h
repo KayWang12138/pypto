@@ -67,6 +67,60 @@ template <typename GraphT,
           unsigned windowSize = 1,
           typename CostT = double>
 class KlImprover : public ImprovementScheduler<GraphT> {
+public:
+    KlImprover(unsigned seed = 42) : ImprovementScheduler<GraphT>() { gen_ = std::mt19937(seed); }
+
+    virtual ~KlImprover() = default;
+
+    virtual ReturnStatus ImproveSchedule(BspSchedule<GraphT> &schedule) override
+    {
+        if (schedule.GetInstance().NumberOfProcessors() < 2) {
+            return ReturnStatus::OSP_BEST_FOUND;
+        }
+
+        const unsigned numThreads = 1;
+
+        threadDataVec_.resize(numThreads);
+        threadFinishedVec_.assign(numThreads, true);
+
+        SetParameters(schedule.GetInstance().NumberOfVertices());
+        InitializeDatastructures(schedule);
+        const CostT initialCost = activeSchedule_.GetCost();
+        const unsigned numSteps = schedule.NumberOfSupersteps();
+
+        SetStartStep(0, threadDataVec_[0]);
+        threadDataVec_[0].endStep_ = (numSteps > 0) ? numSteps - 1 : 0;
+
+        auto &threadData = this->threadDataVec_[0];
+        threadData.activeScheduleData_.InitializeCost(activeSchedule_.GetCost());
+        threadData.selectionStrategy_.Setup(threadData.startStep_, threadData.endStep_);
+        RunLocalSearch(threadData);
+
+        SynchronizeActiveSchedule(numThreads);
+
+        if (initialCost > activeSchedule_.GetCost()) {
+            activeSchedule_.WriteSchedule(schedule);
+            CleanupDatastructures();
+            return ReturnStatus::OSP_SUCCESS;
+        } else {
+            CleanupDatastructures();
+            return ReturnStatus::OSP_BEST_FOUND;
+        }
+    }
+
+    virtual ReturnStatus ImproveScheduleWithTimeLimit(BspSchedule<GraphT> &schedule) override
+    {
+        computeWithTimeLimit_ = true;
+        return ImproveSchedule(schedule);
+    }
+
+    virtual void SetTimeQualityParameter(const double timeQuality) { this->parameters_.timeQuality_ = timeQuality; }
+
+    virtual void SetSuperstepRemoveStrengthParameter(const double superstepRemoveStrength)
+    {
+        this->parameters_.superstepRemoveStrength_ = superstepRemoveStrength;
+    }
+
 protected:
     constexpr static unsigned windowRange_ = 2 * windowSize + 1;
     constexpr static bool enableQuickMoves_ = true;
@@ -465,61 +519,6 @@ protected:
     bool SelectNodesCheckRemoveSuperstep(unsigned &step, ThreadSearchContext &threadData);
     bool ScatterNodesSuperstep(unsigned step, ThreadSearchContext &threadData);
     void SynchronizeActiveSchedule(const unsigned numThreads);
-
-public:
-
-    KlImprover(unsigned seed = 42) : ImprovementScheduler<GraphT>() { gen_ = std::mt19937(seed); }
-
-    virtual ~KlImprover() = default;
-
-    virtual ReturnStatus ImproveSchedule(BspSchedule<GraphT> &schedule) override
-    {
-        if (schedule.GetInstance().NumberOfProcessors() < 2) {
-            return ReturnStatus::OSP_BEST_FOUND;
-        }
-
-        const unsigned numThreads = 1;
-
-        threadDataVec_.resize(numThreads);
-        threadFinishedVec_.assign(numThreads, true);
-
-        SetParameters(schedule.GetInstance().NumberOfVertices());
-        InitializeDatastructures(schedule);
-        const CostT initialCost = activeSchedule_.GetCost();
-        const unsigned numSteps = schedule.NumberOfSupersteps();
-
-        SetStartStep(0, threadDataVec_[0]);
-        threadDataVec_[0].endStep_ = (numSteps > 0) ? numSteps - 1 : 0;
-
-        auto &threadData = this->threadDataVec_[0];
-        threadData.activeScheduleData_.InitializeCost(activeSchedule_.GetCost());
-        threadData.selectionStrategy_.Setup(threadData.startStep_, threadData.endStep_);
-        RunLocalSearch(threadData);
-
-        SynchronizeActiveSchedule(numThreads);
-
-        if (initialCost > activeSchedule_.GetCost()) {
-            activeSchedule_.WriteSchedule(schedule);
-            CleanupDatastructures();
-            return ReturnStatus::OSP_SUCCESS;
-        } else {
-            CleanupDatastructures();
-            return ReturnStatus::OSP_BEST_FOUND;
-        }
-    }
-
-    virtual ReturnStatus ImproveScheduleWithTimeLimit(BspSchedule<GraphT> &schedule) override
-    {
-        computeWithTimeLimit_ = true;
-        return ImproveSchedule(schedule);
-    }
-
-    virtual void SetTimeQualityParameter(const double timeQuality) { this->parameters_.timeQuality_ = timeQuality; }
-
-    virtual void SetSuperstepRemoveStrengthParameter(const double superstepRemoveStrength)
-    {
-        this->parameters_.superstepRemoveStrength_ = superstepRemoveStrength;
-    }
 };
 
 }    // namespace osp

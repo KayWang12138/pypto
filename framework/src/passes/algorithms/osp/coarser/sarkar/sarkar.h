@@ -65,6 +65,27 @@ struct Parameters {
 
 template <typename GraphTIn, typename GraphTOut>
 class Sarkar : public CoarserGenExpansionMap<GraphTIn, GraphTOut> {
+public:
+    virtual std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(
+        const GraphTIn &dagIn) override;
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(
+        const GraphTIn &dagIn, VertexIdxT<GraphTIn> &diff);
+
+    inline void SetParameters(const sarkar_params::Parameters<VWorkwT<GraphTIn>> &params) { params_ = params; };
+
+    inline sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters() { return params_; };
+
+    inline const sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters() const { return params_; };
+
+    Sarkar(sarkar_params::Parameters<VWorkwT<GraphTIn>> params = sarkar_params::Parameters<VWorkwT<GraphTIn>>())
+        : params_(params) {};
+
+    Sarkar(const Sarkar &) = default;
+    Sarkar(Sarkar &&) = default;
+    Sarkar &operator=(const Sarkar &) = default;
+    Sarkar &operator=(Sarkar &&) = default;
+    virtual ~Sarkar() override = default;
+
 private:
     sarkar_params::Parameters<VWorkwT<GraphTIn>> params_;
 
@@ -107,27 +128,6 @@ private:
     std::vector<std::size_t> ComputeNodeHashes(const GraphTIn &graph,
                                                const std::vector<VertexIdxT<GraphTIn>> &vertexPoset,
                                                const std::vector<VWorkwT<GraphTIn>> &dist) const;
-
-public:
-    virtual std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(
-        const GraphTIn &dagIn) override;
-    std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(
-        const GraphTIn &dagIn, VertexIdxT<GraphTIn> &diff);
-
-    inline void SetParameters(const sarkar_params::Parameters<VWorkwT<GraphTIn>> &params) { params_ = params; };
-
-    inline sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters() { return params_; };
-
-    inline const sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters() const { return params_; };
-
-    Sarkar(sarkar_params::Parameters<VWorkwT<GraphTIn>> params = sarkar_params::Parameters<VWorkwT<GraphTIn>>())
-        : params_(params) {};
-
-    Sarkar(const Sarkar &) = default;
-    Sarkar(Sarkar &&) = default;
-    Sarkar &operator=(const Sarkar &) = default;
-    Sarkar &operator=(Sarkar &&) = default;
-    virtual ~Sarkar() override = default;
 };
 
 template <typename GraphTIn, typename GraphTOut>

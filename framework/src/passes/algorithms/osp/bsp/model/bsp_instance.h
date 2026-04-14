@@ -58,39 +58,6 @@ namespace osp {
  */
 template <typename GraphT>
 class BspInstance {
-private:
-    /**
-     * @brief The computational DAG representing the program structure.
-     *
-     * It contains the graph topology (nodes and directed edges) as well as attributes such as node types,
-     * work weights, memory weights, and edge communication weights.
-     */
-    GraphT cdag_;
-    /**
-     * @brief The BSP architecture model.
-     *
-     * It defines the hardware characteristics including processor types, memory limits,
-     * communication bandwidth/latency (send costs), and global synchronization costs.
-     */
-    BspArchitecture<GraphT> architecture_;
-
-    /**
-     * @brief Stores the compatibility between node types and processor types.
-     *
-     * The architecture defines a type for each processor, and the DAG defines a type for each node.
-     * This matrix stores for each node type and processor type whether they are compatible, i.e.,
-     * if a node of that type can be assigned to a processor of the given type in a schedule.
-     * @note The outer vector is indexed by node type, the inner vector is indexed by processor type.
-     */
-    std::vector<std::vector<bool>> nodeProcessorCompatibility_ = std::vector<std::vector<bool>>({{true}});
-
-    /**
-     * @brief The type of the vectex types in the computational DAG.
-     * If the DAG does not support vertex types, this is `unsigned`.
-     */
-    using VertexTypeTOrDefault = VTypeT<GraphT>;
-    using ProcessorTypeT = unsigned;
-
 public:
     /**
      * @brief Default constructor for the BspInstance class.
@@ -312,6 +279,38 @@ public:
         }
     }
 
+private:
+    /**
+     * @brief The computational DAG representing the program structure.
+     *
+     * It contains the graph topology (nodes and directed edges) as well as attributes such as node types,
+     * work weights, memory weights, and edge communication weights.
+     */
+    GraphT cdag_;
+    /**
+     * @brief The BSP architecture model.
+     *
+     * It defines the hardware characteristics including processor types, memory limits,
+     * communication bandwidth/latency (send costs), and global synchronization costs.
+     */
+    BspArchitecture<GraphT> architecture_;
+
+    /**
+     * @brief Stores the compatibility between node types and processor types.
+     *
+     * The architecture defines a type for each processor, and the DAG defines a type for each node.
+     * This matrix stores for each node type and processor type whether they are compatible, i.e.,
+     * if a node of that type can be assigned to a processor of the given type in a schedule.
+     * @note The outer vector is indexed by node type, the inner vector is indexed by processor type.
+     */
+    std::vector<std::vector<bool>> nodeProcessorCompatibility_ = std::vector<std::vector<bool>>({{true}});
+
+    /**
+     * @brief The type of the vectex types in the computational DAG.
+     * If the DAG does not support vertex types, this is `unsigned`.
+     */
+    using VertexTypeTOrDefault = VTypeT<GraphT>;
+    using ProcessorTypeT = unsigned;
 };
 
 }    // namespace osp

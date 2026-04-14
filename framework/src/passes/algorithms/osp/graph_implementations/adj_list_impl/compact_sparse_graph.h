@@ -53,178 +53,6 @@ public:
     static bool constexpr parentsInTopOrder_ = true;
     static bool constexpr parentsInVertexOrder_ = true;
 
-private:
-    using ThisT =
-        CompactSparseGraph<VertT, EdgeT, WorkWeightType, CommWeightType, MemWeightType, VertexTypeTemplateType>;
-
-protected:
-    class CompactParentEdges {
-    private:
-        // Compressed Sparse Row (CSR)
-        std::vector<VertexIdx> csrEdgeParents_;
-        std::vector<EdgeT> csrTargetPtr_;
-
-    public:
-        CompactParentEdges() = default;
-        CompactParentEdges(const CompactParentEdges &other) = default;
-        CompactParentEdges(CompactParentEdges &&other) = default;
-        CompactParentEdges &operator=(const CompactParentEdges &other) = default;
-        CompactParentEdges &operator=(CompactParentEdges &&other) = default;
-        ~CompactParentEdges() = default;
-
-        CompactParentEdges(std::vector<VertexIdx> &&csrEdgeParents, std::vector<EdgeT> &&csrTargetPtr)
-            : csrEdgeParents_(std::move(csrEdgeParents)), csrTargetPtr_(std::move(csrTargetPtr)) {};
-
-        inline EdgeT NumberOfParents(const VertexIdx v) const { return csrTargetPtr_[v + 1] - csrTargetPtr_[v]; }
-
-        class ParentRange {
-        private:
-            const std::vector<VertexIdx> &csrEdgeParents_;
-            const std::vector<EdgeT> &csrTargetPtr_;
-            const VertexIdx vert_;
-
-        public:
-            ParentRange(const std::vector<VertexIdx> &csrEdgeParents, const std::vector<EdgeT> &csrTargetPtr,
-                const VertexIdx vert)
-                : csrEdgeParents_(csrEdgeParents), csrTargetPtr_(csrTargetPtr), vert_(vert) {};
-
-            inline auto cbegin() const
-            {
-                auto it = csrEdgeParents_.cbegin();
-                std::advance(it, csrTargetPtr_[vert_]);
-                return it;
-            }
-
-            inline auto cend() const
-            {
-                auto it = csrEdgeParents_.cbegin();
-                std::advance(it, csrTargetPtr_[vert_ + 1]);
-                return it;
-            }
-
-            inline auto begin() const { return cbegin(); }
-            inline auto end() const { return cend(); }
-
-            inline auto crbegin() const
-            {
-                auto it = csrEdgeParents_.crbegin();
-                std::advance(it, csrTargetPtr_[csrTargetPtr_.size() - 1] - csrTargetPtr_[vert_ + 1]);
-                return it;
-            };
-
-            inline auto crend() const
-            {
-                auto it = csrEdgeParents_.crbegin();
-                std::advance(it, csrTargetPtr_[csrTargetPtr_.size() - 1] - csrTargetPtr_[vert_]);
-                return it;
-            };
-
-            inline auto rbegin() const { return crbegin(); };
-            inline auto rend() const { return crend(); };
-        };
-
-        inline ParentRange Parents(const VertexIdx vert) const
-        {
-            return ParentRange(csrEdgeParents_, csrTargetPtr_, vert);
-        }
-    };
-
-    class CompactChildrenEdges {
-    private:
-        // Compressed Sparse Column (CSC)
-        std::vector<VertexIdx> cscEdgeChildren_;
-        std::vector<EdgeT> cscSourcePtr_;
-
-    public:
-        CompactChildrenEdges() = default;
-        CompactChildrenEdges(const CompactChildrenEdges &other) = default;
-        CompactChildrenEdges(CompactChildrenEdges &&other) = default;
-        CompactChildrenEdges &operator=(const CompactChildrenEdges &other) = default;
-        CompactChildrenEdges &operator=(CompactChildrenEdges &&other) = default;
-        ~CompactChildrenEdges() = default;
-
-        CompactChildrenEdges(std::vector<VertexIdx> &&cscEdgeChildren, std::vector<EdgeT> &&cscSourcePtr)
-            : cscEdgeChildren_(std::move(cscEdgeChildren)), cscSourcePtr_(std::move(cscSourcePtr)) {};
-
-        inline EdgeT NumberOfChildren(const VertexIdx v) const { return cscSourcePtr_[v + 1] - cscSourcePtr_[v]; }
-
-        inline VertexIdx Source(const EdgeT &indx) const
-        {
-            auto it = std::upper_bound(cscSourcePtr_.cbegin(), cscSourcePtr_.cend(), indx);
-            VertexIdx src = static_cast<VertexIdx>(std::distance(cscSourcePtr_.cbegin(), it) - 1);
-            return src;
-        };
-
-        inline VertexIdx Target(const EdgeT &indx) const { return cscEdgeChildren_[indx]; };
-
-        inline EdgeT ChildrenIndxBegin(const VertexIdx &vert) const { return cscSourcePtr_[vert]; };
-
-        class ChildrenRange {
-        private:
-            const std::vector<VertexIdx> &cscEdgeChildren_;
-            const std::vector<EdgeT> &cscSourcePtr_;
-            const VertexIdx vert_;
-
-        public:
-            ChildrenRange(const std::vector<VertexIdx> &cscEdgeChildren, const std::vector<EdgeT> &cscSourcePtr,
-                const VertexIdx vert)
-                : cscEdgeChildren_(cscEdgeChildren), cscSourcePtr_(cscSourcePtr), vert_(vert) {};
-
-            inline auto cbegin() const
-            {
-                auto it = cscEdgeChildren_.cbegin();
-                std::advance(it, cscSourcePtr_[vert_]);
-                return it;
-            };
-
-            inline auto cend() const
-            {
-                auto it = cscEdgeChildren_.cbegin();
-                std::advance(it, cscSourcePtr_[vert_ + 1]);
-                return it;
-            };
-
-            inline auto begin() const { return cbegin(); };
-            inline auto end() const { return cend(); };
-
-            inline auto crbegin() const
-            {
-                auto it = cscEdgeChildren_.crbegin();
-                std::advance(it, cscSourcePtr_[cscSourcePtr_.size() - 1] - cscSourcePtr_[vert_ + 1]);
-                return it;
-            };
-
-            inline auto crend() const
-            {
-                auto it = cscEdgeChildren_.crbegin();
-                std::advance(it, cscSourcePtr_[cscSourcePtr_.size() - 1] - cscSourcePtr_[vert_]);
-                return it;
-            };
-
-            inline auto rbegin() const { return crbegin(); };
-            inline auto rend() const { return crend(); };
-        };
-
-        inline ChildrenRange Children(const VertexIdx vert) const
-        {
-            return ChildrenRange(cscEdgeChildren_, cscSourcePtr_, vert);
-        }
-    };
-
-    VertexIdx numberOfVertices_ = static_cast<VertT>(0);
-    EdgeT numberOfEdges_ = static_cast<EdgeT>(0);
-
-    CompactParentEdges csrInEdges_;
-    CompactChildrenEdges cscOutEdges_;
-
-    VertexTypeType numberOfVertexTypes_ = static_cast<VertexTypeType>(1);
-
-    std::vector<VertexWorkWeightType> vertWorkWeights_;
-    std::vector<VertexCommWeightType> vertCommWeights_;
-    std::vector<VertexMemWeightType> vertMemWeights_;
-    std::vector<VertexTypeType> vertTypes_;
-
-public:
     CompactSparseGraph() = default;
     CompactSparseGraph(const CompactSparseGraph &other) = default;
     CompactSparseGraph(CompactSparseGraph &&other) = default;
@@ -319,6 +147,177 @@ public:
         vertTypes_[v] = vertexType;
         numberOfVertexTypes_ = std::max(numberOfVertexTypes_, vertexType);
     }
+
+protected:
+    class CompactParentEdges {
+    public:
+        CompactParentEdges() = default;
+        CompactParentEdges(const CompactParentEdges &other) = default;
+        CompactParentEdges(CompactParentEdges &&other) = default;
+        CompactParentEdges &operator=(const CompactParentEdges &other) = default;
+        CompactParentEdges &operator=(CompactParentEdges &&other) = default;
+        ~CompactParentEdges() = default;
+
+        CompactParentEdges(std::vector<VertexIdx> &&csrEdgeParents, std::vector<EdgeT> &&csrTargetPtr)
+            : csrEdgeParents_(std::move(csrEdgeParents)), csrTargetPtr_(std::move(csrTargetPtr)) {};
+
+        inline EdgeT NumberOfParents(const VertexIdx v) const { return csrTargetPtr_[v + 1] - csrTargetPtr_[v]; }
+
+        class ParentRange {
+        public:
+            ParentRange(const std::vector<VertexIdx> &csrEdgeParents, const std::vector<EdgeT> &csrTargetPtr,
+                const VertexIdx vert)
+                : csrEdgeParents_(csrEdgeParents), csrTargetPtr_(csrTargetPtr), vert_(vert) {};
+
+            inline auto cbegin() const
+            {
+                auto it = csrEdgeParents_.cbegin();
+                std::advance(it, csrTargetPtr_[vert_]);
+                return it;
+            }
+
+            inline auto cend() const
+            {
+                auto it = csrEdgeParents_.cbegin();
+                std::advance(it, csrTargetPtr_[vert_ + 1]);
+                return it;
+            }
+
+            inline auto begin() const { return cbegin(); }
+            inline auto end() const { return cend(); }
+
+            inline auto crbegin() const
+            {
+                auto it = csrEdgeParents_.crbegin();
+                std::advance(it, csrTargetPtr_[csrTargetPtr_.size() - 1] - csrTargetPtr_[vert_ + 1]);
+                return it;
+            };
+
+            inline auto crend() const
+            {
+                auto it = csrEdgeParents_.crbegin();
+                std::advance(it, csrTargetPtr_[csrTargetPtr_.size() - 1] - csrTargetPtr_[vert_]);
+                return it;
+            };
+
+            inline auto rbegin() const { return crbegin(); };
+            inline auto rend() const { return crend(); };
+
+        private:
+            const std::vector<VertexIdx> &csrEdgeParents_;
+            const std::vector<EdgeT> &csrTargetPtr_;
+            const VertexIdx vert_;
+        };
+
+        inline ParentRange Parents(const VertexIdx vert) const
+        {
+            return ParentRange(csrEdgeParents_, csrTargetPtr_, vert);
+        }
+
+    private:
+        // Compressed Sparse Row (CSR)
+        std::vector<VertexIdx> csrEdgeParents_;
+        std::vector<EdgeT> csrTargetPtr_;
+    };
+
+    class CompactChildrenEdges {
+    public:
+        CompactChildrenEdges() = default;
+        CompactChildrenEdges(const CompactChildrenEdges &other) = default;
+        CompactChildrenEdges(CompactChildrenEdges &&other) = default;
+        CompactChildrenEdges &operator=(const CompactChildrenEdges &other) = default;
+        CompactChildrenEdges &operator=(CompactChildrenEdges &&other) = default;
+        ~CompactChildrenEdges() = default;
+
+        CompactChildrenEdges(std::vector<VertexIdx> &&cscEdgeChildren, std::vector<EdgeT> &&cscSourcePtr)
+            : cscEdgeChildren_(std::move(cscEdgeChildren)), cscSourcePtr_(std::move(cscSourcePtr)) {};
+
+        inline EdgeT NumberOfChildren(const VertexIdx v) const { return cscSourcePtr_[v + 1] - cscSourcePtr_[v]; }
+
+        inline VertexIdx Source(const EdgeT &indx) const
+        {
+            auto it = std::upper_bound(cscSourcePtr_.cbegin(), cscSourcePtr_.cend(), indx);
+            VertexIdx src = static_cast<VertexIdx>(std::distance(cscSourcePtr_.cbegin(), it) - 1);
+            return src;
+        };
+
+        inline VertexIdx Target(const EdgeT &indx) const { return cscEdgeChildren_[indx]; };
+
+        inline EdgeT ChildrenIndxBegin(const VertexIdx &vert) const { return cscSourcePtr_[vert]; };
+
+        class ChildrenRange {
+        public:
+            ChildrenRange(const std::vector<VertexIdx> &cscEdgeChildren, const std::vector<EdgeT> &cscSourcePtr,
+                const VertexIdx vert)
+                : cscEdgeChildren_(cscEdgeChildren), cscSourcePtr_(cscSourcePtr), vert_(vert) {};
+
+            inline auto cbegin() const
+            {
+                auto it = cscEdgeChildren_.cbegin();
+                std::advance(it, cscSourcePtr_[vert_]);
+                return it;
+            };
+
+            inline auto cend() const
+            {
+                auto it = cscEdgeChildren_.cbegin();
+                std::advance(it, cscSourcePtr_[vert_ + 1]);
+                return it;
+            };
+
+            inline auto begin() const { return cbegin(); };
+            inline auto end() const { return cend(); };
+
+            inline auto crbegin() const
+            {
+                auto it = cscEdgeChildren_.crbegin();
+                std::advance(it, cscSourcePtr_[cscSourcePtr_.size() - 1] - cscSourcePtr_[vert_ + 1]);
+                return it;
+            };
+
+            inline auto crend() const
+            {
+                auto it = cscEdgeChildren_.crbegin();
+                std::advance(it, cscSourcePtr_[cscSourcePtr_.size() - 1] - cscSourcePtr_[vert_]);
+                return it;
+            };
+
+            inline auto rbegin() const { return crbegin(); };
+            inline auto rend() const { return crend(); };
+
+        private:
+            const std::vector<VertexIdx> &cscEdgeChildren_;
+            const std::vector<EdgeT> &cscSourcePtr_;
+            const VertexIdx vert_;
+        };
+
+        inline ChildrenRange Children(const VertexIdx vert) const
+        {
+            return ChildrenRange(cscEdgeChildren_, cscSourcePtr_, vert);
+        }
+
+    private:
+        // Compressed Sparse Column (CSC)
+        std::vector<VertexIdx> cscEdgeChildren_;
+        std::vector<EdgeT> cscSourcePtr_;
+    };
+
+    VertexIdx numberOfVertices_ = static_cast<VertT>(0);
+    EdgeT numberOfEdges_ = static_cast<EdgeT>(0);
+
+    CompactParentEdges csrInEdges_;
+    CompactChildrenEdges cscOutEdges_;
+
+    VertexTypeType numberOfVertexTypes_ = static_cast<VertexTypeType>(1);
+
+    std::vector<VertexWorkWeightType> vertWorkWeights_;
+    std::vector<VertexCommWeightType> vertCommWeights_;
+    std::vector<VertexMemWeightType> vertMemWeights_;
+    std::vector<VertexTypeType> vertTypes_;
+
+private:
+    using ThisT =
+        CompactSparseGraph<VertT, EdgeT, WorkWeightType, CommWeightType, MemWeightType, VertexTypeTemplateType>;
 };
 
 } // namespace osp

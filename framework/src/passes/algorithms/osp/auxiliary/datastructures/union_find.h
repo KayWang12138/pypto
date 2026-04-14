@@ -68,17 +68,6 @@ struct UnionFindObject {
  */
 template <typename T, typename IndexT, typename WorkwT>
 class UnionFindUniverse {
-private:
-    std::vector<UnionFindObject<T, IndexT, WorkwT>> universe_;
-    std::unordered_map<T, IndexT> namesToIndices_;
-    std::set<IndexT> componentIndices_;
-
-    IndexT FindOrigin(IndexT index);
-    bool Join(IndexT index, IndexT otherIndex);
-
-    IndexT GetIndexFromName(const T &name) const;
-    void AddObjectInternal(const T &name, WorkwT weight);
-
 public:
     explicit UnionFindUniverse() = default;
 
@@ -94,7 +83,7 @@ public:
      * @param weight Weight of the object.
      */
     void AddObject(const T &name, const WorkwT weight = 0);
-    
+
     /**
      * @brief Joins the components containing the two objects.
      * @param name Name of the first object.
@@ -115,7 +104,7 @@ public:
      * @return The name of the component's representative.
      */
     [[nodiscard]] T FindOriginByName(const T &name);
-    
+
     /**
      * @brief Retrieves the current number of connected components.
      * @return Number of disjoint sets.
@@ -127,7 +116,7 @@ public:
      * @return Vector of components, where each component is a vector of names.
      */
     [[nodiscard]] std::vector<std::vector<T>> GetConnectedComponents();
-    
+
     /**
      * @brief Retrieves the weight of the component containing the given object.
      * @param name Name of the object.
@@ -139,6 +128,17 @@ public:
     * @brief Resets the universe, clearing all objects and components.
     */
     void Reset();
+
+private:
+    std::vector<UnionFindObject<T, IndexT, WorkwT>> universe_;
+    std::unordered_map<T, IndexT> namesToIndices_;
+    std::set<IndexT> componentIndices_;
+
+    IndexT FindOrigin(IndexT index);
+    bool Join(IndexT index, IndexT otherIndex);
+
+    IndexT GetIndexFromName(const T &name) const;
+    void AddObjectInternal(const T &name, WorkwT weight);
 };
 
 template <typename T, typename IndexT, typename WorkwT>

@@ -30,8 +30,16 @@ namespace osp {
 template <typename GraphT, typename GraphTCoarse>
 class MultilevelCoarser : public Coarser<GraphT, GraphTCoarse> {
 
-private:
-    const GraphT *originalGraph_;
+public:
+    MultilevelCoarser() : originalGraph_(nullptr) {};
+    MultilevelCoarser(const GraphT &graph) : originalGraph_(&graph) {};
+    virtual ~MultilevelCoarser() = default;
+
+    bool CoarsenDag(const GraphT &dagIn,
+                    GraphTCoarse &coarsenedDag,
+                    std::vector<VertexIdxT<GraphTCoarse>> &vertexContractionMap) override;
+
+    ReturnStatus Run(const GraphT &graph);
 
 protected:
     inline const GraphT *GetOriginalGraph() const { return originalGraph_; };
@@ -50,16 +58,8 @@ protected:
 
     void ClearComputationData();
 
-public:
-    MultilevelCoarser() : originalGraph_(nullptr) {};
-    MultilevelCoarser(const GraphT &graph) : originalGraph_(&graph) {};
-    virtual ~MultilevelCoarser() = default;
-
-    bool CoarsenDag(const GraphT &dagIn,
-                    GraphTCoarse &coarsenedDag,
-                    std::vector<VertexIdxT<GraphTCoarse>> &vertexContractionMap) override;
-
-    ReturnStatus Run(const GraphT &graph);
+private:
+    const GraphT *originalGraph_;
 };
 
 template <typename GraphT, typename GraphTCoarse>

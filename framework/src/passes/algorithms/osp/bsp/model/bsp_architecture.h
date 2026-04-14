@@ -80,62 +80,6 @@ enum class MemoryConstraintType {
  */
 template <typename GraphT>
 class BspArchitecture {
-private:
-    /** @brief The number of processors in the architecture. Must be at least 1. */
-    unsigned numberOfProcessors_;
-
-    /** @brief The number of processor types in the architecture. See processorTypes_ for more details. */
-    unsigned numberOfProcessorTypes_;
-
-    /** @brief The communication costs, typically denoted 'g' for the BSP model. */
-    VCommwT<GraphT> communicationCosts_;
-
-    /** @brief The synchronisation costs, typically denoted 'L' for the BSP model. */
-    VCommwT<GraphT> synchronisationCosts_;
-
-    /** @brief The architecture allows to specify memory bounds per processor. */
-    std::vector<VMemwT<GraphT>> memoryBound_;
-
-
-    /** @brief The architecture allows to specify processor types. Processor types are used to express
-     * compatabilities, which can be specified in the BspInstance, regarding node types. */
-    std::vector<unsigned> processorTypes_;
-
-    /** @brief A flattened p x p matrix of send costs. Access via index [i * numberOfProcessors_ + j]. */
-    std::vector<VCommwT<GraphT>> sendCosts_;
-
-    /** @brief The memory constraint type. */
-    MemoryConstraintType memoryConstraintType_ = MemoryConstraintType::NONE;
-
-    /** @brief Helper function to calculate the index of a flattened p x p matrix. */
-    std::size_t FlatIndex(const unsigned row, const unsigned col) const
-    {
-        return static_cast<std::size_t>(row) * numberOfProcessors_ + col;
-    }
-
-    void UpdateNumberOfProcessorTypes()
-    {
-        numberOfProcessorTypes_ = 0U;
-        for (unsigned p = 0U; p < numberOfProcessors_; p++) {
-            if (processorTypes_[p] >= numberOfProcessorTypes_) {
-                numberOfProcessorTypes_ = processorTypes_[p] + 1U;
-            }
-        }
-    }
-
-    void SetSendCostDiagonalToZero()
-    {
-        for (unsigned i = 0U; i < numberOfProcessors_; i++) {
-            sendCosts_[FlatIndex(i, i)] = 0U;
-        }
-    }
-
-    void InitializeUniformSendCosts()
-    {
-        sendCosts_.assign(numberOfProcessors_ * numberOfProcessors_, 1U);
-        SetSendCostDiagonalToZero();
-    }
-
 public:
     /**
      * @brief Constructs a BspArchitecture object with the specified number of processors, communication cost, and
@@ -515,6 +459,61 @@ public:
     void SetMemoryConstraintType(const MemoryConstraintType memoryConstraintType)
     {
         memoryConstraintType_ = memoryConstraintType;
+    }
+
+private:
+    /** @brief The number of processors in the architecture. Must be at least 1. */
+    unsigned numberOfProcessors_;
+
+    /** @brief The number of processor types in the architecture. See processorTypes_ for more details. */
+    unsigned numberOfProcessorTypes_;
+
+    /** @brief The communication costs, typically denoted 'g' for the BSP model. */
+    VCommwT<GraphT> communicationCosts_;
+
+    /** @brief The synchronisation costs, typically denoted 'L' for the BSP model. */
+    VCommwT<GraphT> synchronisationCosts_;
+
+    /** @brief The architecture allows to specify memory bounds per processor. */
+    std::vector<VMemwT<GraphT>> memoryBound_;
+
+    /** @brief The architecture allows to specify processor types. Processor types are used to express
+     * compatabilities, which can be specified in the BspInstance, regarding node types. */
+    std::vector<unsigned> processorTypes_;
+
+    /** @brief A flattened p x p matrix of send costs. Access via index [i * numberOfProcessors_ + j]. */
+    std::vector<VCommwT<GraphT>> sendCosts_;
+
+    /** @brief The memory constraint type. */
+    MemoryConstraintType memoryConstraintType_ = MemoryConstraintType::NONE;
+
+    /** @brief Helper function to calculate the index of a flattened p x p matrix. */
+    std::size_t FlatIndex(const unsigned row, const unsigned col) const
+    {
+        return static_cast<std::size_t>(row) * numberOfProcessors_ + col;
+    }
+
+    void UpdateNumberOfProcessorTypes()
+    {
+        numberOfProcessorTypes_ = 0U;
+        for (unsigned p = 0U; p < numberOfProcessors_; p++) {
+            if (processorTypes_[p] >= numberOfProcessorTypes_) {
+                numberOfProcessorTypes_ = processorTypes_[p] + 1U;
+            }
+        }
+    }
+
+    void SetSendCostDiagonalToZero()
+    {
+        for (unsigned i = 0U; i < numberOfProcessors_; i++) {
+            sendCosts_[FlatIndex(i, i)] = 0U;
+        }
+    }
+
+    void InitializeUniformSendCosts()
+    {
+        sendCosts_.assign(numberOfProcessors_ * numberOfProcessors_, 1U);
+        SetSendCostDiagonalToZero();
     }
 };
 

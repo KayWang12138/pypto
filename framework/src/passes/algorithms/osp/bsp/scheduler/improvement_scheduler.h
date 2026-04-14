@@ -30,9 +30,6 @@ namespace osp {
  */
 template <typename GraphT>
 class ImprovementScheduler {
-protected:
-    unsigned timeLimitSeconds_; /**< The time limit in seconds for the improvement algorithm. */
-
 public:
     /**
      * @brief Constructor for ImprovementScheduler.
@@ -54,14 +51,13 @@ public:
      * @return The status of the improvement operation.
      */
     virtual ReturnStatus ImproveScheduleWithTimeLimit(BspSchedule<GraphT> &schedule) = 0;
+
+protected:
+    unsigned timeLimitSeconds_; /**< The time limit in seconds for the improvement algorithm. */
 };
 
 template <typename GraphT>
 class ComboScheduler : public Scheduler<GraphT> {
-private:
-    Scheduler<GraphT> &baseScheduler_;
-    ImprovementScheduler<GraphT> &improvementScheduler_;
-
 public:
     ComboScheduler(Scheduler<GraphT> &base, ImprovementScheduler<GraphT> &improvement)
         : Scheduler<GraphT>(), baseScheduler_(base), improvementScheduler_(improvement) {}
@@ -77,6 +73,10 @@ public:
 
         return improvementScheduler_.ImproveSchedule(schedule);
     }
+
+private:
+    Scheduler<GraphT> &baseScheduler_;
+    ImprovementScheduler<GraphT> &improvementScheduler_;
 };
 
 }    // namespace osp

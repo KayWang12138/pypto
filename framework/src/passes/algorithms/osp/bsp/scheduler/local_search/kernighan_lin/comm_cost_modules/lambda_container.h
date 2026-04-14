@@ -37,9 +37,6 @@ struct LambdaVectorContainer {
      * with zero assignments.
      */
     class LambdaVectorRange {
-    private:
-        const std::vector<unsigned> &vec_;
-
     public:
         /**
          * @brief Iterator that skips zero entries in the lambda vector.
@@ -48,17 +45,13 @@ struct LambdaVectorContainer {
          * for all processors with non-zero assignment counts.
          */
         class LambdaVectorIterator {
+        public:
             using iterator_category = std::input_iterator_tag;
             using value_type = std::pair<unsigned, unsigned>;
             using difference_type = std::ptrdiff_t;
             using pointer = value_type *;
             using reference = value_type &;
 
-        private:
-            const std::vector<unsigned> &vec_;
-            unsigned index_;
-
-        public:
             /**
              * @brief Construct iterator at the beginning, skipping initial zeros.
              * @param vec Reference to the vector to iterate over
@@ -110,6 +103,10 @@ struct LambdaVectorContainer {
              * @return true if iterators point to different positions
              */
             bool operator!=(const LambdaVectorIterator &other) const { return !(*this == other); }
+
+        private:
+            const std::vector<unsigned> &vec_;
+            unsigned index_;
         };
 
         /**
@@ -123,6 +120,9 @@ struct LambdaVectorContainer {
 
         /// Get iterator to the end
         LambdaVectorIterator end() { return LambdaVectorIterator(vec_, static_cast<unsigned>(vec_.size())); }
+
+    private:
+        const std::vector<unsigned> &vec_;
     };
 
     /// 2D vector: for each node, stores processor assignment counts

@@ -30,14 +30,6 @@ namespace osp {
  */
 template <typename GraphT>
 class SetSchedule {
-private:
-    using VertexIdx = VertexIdxT<GraphT>;
-
-    const BspInstance<GraphT> *instance_ = nullptr;
-
-    unsigned numberOfSupersteps_ = 0;
-    std::vector<std::vector<std::unordered_set<VertexIdx>>> stepProcessorVertices_;
-
 public:
     SetSchedule() = default;
 
@@ -86,6 +78,14 @@ public:
     {
         return stepProcessorVertices_;
     }
+
+private:
+    using VertexIdx = VertexIdxT<GraphT>;
+
+    const BspInstance<GraphT> *instance_ = nullptr;
+
+    unsigned numberOfSupersteps_ = 0;
+    std::vector<std::vector<std::unordered_set<VertexIdx>>> stepProcessorVertices_;
 };
 
 }    // namespace osp

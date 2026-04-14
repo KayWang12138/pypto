@@ -28,9 +28,6 @@ namespace osp {
 
 template <typename GraphT>
 class GreedyChildren : public Scheduler<GraphT> {
-private:
-    bool ensureEnoughSources_;
-
 public:
     GreedyChildren(bool ensureEnoughSources = true) : Scheduler<GraphT>(), ensureEnoughSources_(ensureEnoughSources) {}
 
@@ -50,10 +47,10 @@ public:
         while (!next.empty()) {
             std::unordered_set<VertexType> nodesAssignedThisSuperstep;
             std::vector<VWorkwT<GraphT>> processorWeights(instance.NumberOfProcessors(), 0);
-            
+
             bool fewSources = next.size() < instance.NumberOfProcessors();
             bool nodeAdded = true;
-            
+
             while (!next.empty() && nodeAdded) {
                 nodeAdded = false;
                 for (auto iter = next.begin(); iter != next.cend(); iter++) {
@@ -75,6 +72,8 @@ public:
     }
 
 private:
+    bool ensureEnoughSources_;
+
     void InitializeScheduleState(
         BspSchedule<GraphT> &sched, const GraphT &graph,
         std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next)

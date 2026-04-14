@@ -68,20 +68,6 @@ struct AdaptiveAffinityTable {
     constexpr static unsigned windowRange_ = 2 * windowSize + 1;
     using VertexType = VertexIdxT<GraphT>;
 
-private:
-    const KlActiveScheduleT *activeSchedule_;
-    const GraphT *graph_;
-
-    std::vector<bool> nodeIsSelected_;
-    std::vector<size_t> selectedNodesIdx_;
-
-    std::vector<std::vector<std::vector<CostT>>> affinityTable_;
-    std::vector<VertexType> selectedNodes_;
-
-    std::vector<size_t> gaps_;
-    size_t lastIdx_;
-
-public:
     void Initialize(const KlActiveScheduleT &sche, const std::size_t initialTableSize)
 {
         activeSchedule_ = &sche;
@@ -210,6 +196,19 @@ public:
         }
         gaps_.clear();
     }
+
+private:
+    const KlActiveScheduleT *activeSchedule_;
+    const GraphT *graph_;
+
+    std::vector<bool> nodeIsSelected_;
+    std::vector<size_t> selectedNodesIdx_;
+
+    std::vector<std::vector<std::vector<CostT>>> affinityTable_;
+    std::vector<VertexType> selectedNodes_;
+
+    std::vector<size_t> gaps_;
+    size_t lastIdx_;
 };
 
 template <typename GraphT, typename ContainerT, typename KlActiveScheduleT>

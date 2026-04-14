@@ -35,9 +35,6 @@ template <typename T>
 class IntegralRange {
     static_assert(std::is_integral<T>::value, "IntegralRange requires an integral type");
 
-    T start_;
-    T finish_;
-
 public:
     /**
      * @brief Iterator for the IntegralRange.
@@ -60,10 +57,6 @@ public:
             constexpr const T *operator->() const noexcept { return &value_; }
         };
 
-    private:
-        value_type current_;
-
-    public:
         /**
          * @brief Default constructor. Initializes iterator to 0.
          */
@@ -161,7 +154,9 @@ public:
                 - static_cast<difference_type>(other.current_);
         }
 
-        [[nodiscard]] constexpr value_type operator[](difference_type n) const noexcept { return *(*this + n); }
+        [[nodiscard]] constexpr value_type operator[](difference_type n) const noexcept {
+            return *(*this + n);
+        }
 
         [[nodiscard]] constexpr bool operator<(const IntegralIterator &other) const noexcept
         {
@@ -180,11 +175,13 @@ public:
         [[nodiscard]] constexpr bool operator>=(const IntegralIterator &other) const noexcept {
             return current_ >= other.current_;
         }
+
+    private:
+        value_type current_;
     };
 
     using ReverseIntegralIterator = std::reverse_iterator<IntegralIterator>;
 
-public:
     /**
      * @brief Constructs a range [0, end).
      * @param end_ The exclusive upper bound.
@@ -208,11 +205,15 @@ public:
 
     [[nodiscard]] constexpr ReverseIntegralIterator rbegin() const noexcept { return ReverseIntegralIterator(end()); }
 
-    [[nodiscard]] constexpr ReverseIntegralIterator crbegin() const noexcept { return ReverseIntegralIterator(cend()); }
+    [[nodiscard]] constexpr ReverseIntegralIterator crbegin() const noexcept {
+        return ReverseIntegralIterator(cend());
+    }
 
     [[nodiscard]] constexpr ReverseIntegralIterator rend() const noexcept { return ReverseIntegralIterator(begin()); }
 
-    [[nodiscard]] constexpr ReverseIntegralIterator crend() const noexcept { return ReverseIntegralIterator(cbegin()); }
+    [[nodiscard]] constexpr ReverseIntegralIterator crend() const noexcept {
+        return ReverseIntegralIterator(cbegin());
+    }
 
     /**
      * @brief Returns the number of elements in the range.
@@ -225,6 +226,10 @@ public:
      * @return True if the range is empty, false otherwise.
      */
     [[nodiscard]] constexpr bool empty() const noexcept { return start_ == finish_; }
+
+private:
+    T start_;
+    T finish_;
 };
 
 }    // namespace osp

@@ -41,106 +41,7 @@ namespace osp {
  */
 template <typename Key, typename Value, typename Compare>
 class PairingHeap {
-private:
-    struct Node {
-        Key key_;
-        Value value_;
-        Node *child_ = nullptr;           // Leftmost child
-        Node *nextSibling_ = nullptr;     // Sibling to the right
-        Node *prevOrParent_ = nullptr;    // If leftmost child, parent; otherwise, left sibling.
-    };
-
-    Node *root_ = nullptr;
-    std::unordered_map<Key, Node *> nodeMap_;
-    size_t numElements_ = 0;
-    Compare comp_;
-
-    // Melds two heaps together.
-    Node *Meld(Node *heap1, Node *heap2)
-    {
-        if (!heap1) {
-            return heap2;
-        }
-        if (!heap2) {
-            return heap1;
-        }
-
-        if (comp_(heap2->value_, heap1->value_)) {
-            std::swap(heap1, heap2);
-        }
-
-        // heap2 becomes the new leftmost child of heap1
-        heap2->nextSibling_ = heap1->child_;
-        if (heap1->child_) {
-            heap1->child_->prevOrParent_ = heap2;
-        }
-        heap1->child_ = heap2;
-        heap2->prevOrParent_ = heap1;
-
-        return heap1;
-    }
-
-    // Merges a list of sibling heaps using a two-pass strategy.
-    Node *MultipassMerge(Node *firstSibling)
-    {
-        if (!firstSibling) {
-            return nullptr;
-        }
-
-        std::vector<Node *> heapList;
-        Node *current = firstSibling;
-        while (current) {
-            Node *next = current->nextSibling_;
-            current->nextSibling_ = nullptr;
-            current->prevOrParent_ = nullptr;
-            heapList.push_back(current);
-            current = next;
-        }
-
-        if (heapList.size() <= 1) {
-            return heapList.empty() ? nullptr : heapList[0];
-        }
-
-        // Merge pairs from left to right
-        std::vector<Node *> mergedHeaps;
-        mergedHeaps.reserve((heapList.size() + 1) / 2);
-        for (size_t i = 0; i + 1 < heapList.size(); i += 2) {
-            mergedHeaps.push_back(Meld(heapList[i], heapList[i + 1]));
-        }
-        if (heapList.size() % 2 == 1) {
-            mergedHeaps.push_back(heapList.back());
-        }
-
-        // Merge resulting heaps from right to left
-        Node *finalHeap = mergedHeaps.back();
-        for (auto it = mergedHeaps.rbegin() + 1; it != mergedHeaps.rend(); ++it) {
-            finalHeap = Meld(finalHeap, *it);
-        }
-
-        return finalHeap;
-    }
-
-    // Cuts a node from its parent and siblings.
-    void Cut(Node *node)
-    {
-        if (node == root_) {
-            return;
-        }
-
-        if (node->prevOrParent_->child_ == node) {    // is leftmost child
-            node->prevOrParent_->child_ = node->nextSibling_;
-        } else {    // is not leftmost child
-            node->prevOrParent_->nextSibling_ = node->nextSibling_;
-        }
-        if (node->nextSibling_) {
-            node->nextSibling_->prevOrParent_ = node->prevOrParent_;
-        }
-        node->nextSibling_ = nullptr;
-        node->prevOrParent_ = nullptr;
-    }
-
 public:
-
     PairingHeap() = default;
     ~PairingHeap() { Clear(); }
 
@@ -451,6 +352,104 @@ public:
             }
         }
         return topKeys;
+    }
+
+private:
+    struct Node {
+        Key key_;
+        Value value_;
+        Node *child_ = nullptr;           // Leftmost child
+        Node *nextSibling_ = nullptr;     // Sibling to the right
+        Node *prevOrParent_ = nullptr;    // If leftmost child, parent; otherwise, left sibling.
+    };
+
+    Node *root_ = nullptr;
+    std::unordered_map<Key, Node *> nodeMap_;
+    size_t numElements_ = 0;
+    Compare comp_;
+
+    // Melds two heaps together.
+    Node *Meld(Node *heap1, Node *heap2)
+    {
+        if (!heap1) {
+            return heap2;
+        }
+        if (!heap2) {
+            return heap1;
+        }
+
+        if (comp_(heap2->value_, heap1->value_)) {
+            std::swap(heap1, heap2);
+        }
+
+        // heap2 becomes the new leftmost child of heap1
+        heap2->nextSibling_ = heap1->child_;
+        if (heap1->child_) {
+            heap1->child_->prevOrParent_ = heap2;
+        }
+        heap1->child_ = heap2;
+        heap2->prevOrParent_ = heap1;
+
+        return heap1;
+    }
+
+    // Merges a list of sibling heaps using a two-pass strategy.
+    Node *MultipassMerge(Node *firstSibling)
+    {
+        if (!firstSibling) {
+            return nullptr;
+        }
+
+        std::vector<Node *> heapList;
+        Node *current = firstSibling;
+        while (current) {
+            Node *next = current->nextSibling_;
+            current->nextSibling_ = nullptr;
+            current->prevOrParent_ = nullptr;
+            heapList.push_back(current);
+            current = next;
+        }
+
+        if (heapList.size() <= 1) {
+            return heapList.empty() ? nullptr : heapList[0];
+        }
+
+        // Merge pairs from left to right
+        std::vector<Node *> mergedHeaps;
+        mergedHeaps.reserve((heapList.size() + 1) / 2);
+        for (size_t i = 0; i + 1 < heapList.size(); i += 2) {
+            mergedHeaps.push_back(Meld(heapList[i], heapList[i + 1]));
+        }
+        if (heapList.size() % 2 == 1) {
+            mergedHeaps.push_back(heapList.back());
+        }
+
+        // Merge resulting heaps from right to left
+        Node *finalHeap = mergedHeaps.back();
+        for (auto it = mergedHeaps.rbegin() + 1; it != mergedHeaps.rend(); ++it) {
+            finalHeap = Meld(finalHeap, *it);
+        }
+
+        return finalHeap;
+    }
+
+    // Cuts a node from its parent and siblings.
+    void Cut(Node *node)
+    {
+        if (node == root_) {
+            return;
+        }
+
+        if (node->prevOrParent_->child_ == node) {    // is leftmost child
+            node->prevOrParent_->child_ = node->nextSibling_;
+        } else {    // is not leftmost child
+            node->prevOrParent_->nextSibling_ = node->nextSibling_;
+        }
+        if (node->nextSibling_) {
+            node->nextSibling_->prevOrParent_ = node->prevOrParent_;
+        }
+        node->nextSibling_ = nullptr;
+        node->prevOrParent_ = nullptr;
     }
 };
 

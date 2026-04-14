@@ -55,6 +55,92 @@ public:
         inline size_t size() const { return subgraphs_.size(); }
     };
 
+    explicit OrbitGraphProcessor() {}
+    void SetMergeDifferentNodeTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
+    void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
+    void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold)
+    {
+        criticalPathThreshold_ = criticalPathThreshold;
+    }
+    void SetLockRatio(double lockRatio) { lockOrbitRatio_ = lockRatio; }
+    void SetNaturalBreaksCountPercentage(double percentage) { naturalBreaksCountPercentage_ = percentage; }
+
+    /**
+     * @brief Discovers isomorphic groups (orbits) in the DAG and constructs an initial coarse graph.
+     *
+     * Uses a HashComputer to identify symmetric nodes (orbits) and groups them.
+     * Then performs coarsening (either adaptive or static) to merge these groups further.
+     *
+     * @param dag The input computational DAG.
+     * @param hasher The hash computer providing orbit information.
+     */
+    void DiscoverIsomorphicGroups(const GraphT &dag, const HashComputer<VertexType> &hasher)
+    {
+        coarseGraph_ = ConstrGraphT();
+        contractionMap_.clear();
+        finalCoarseGraph_ = ConstrGraphT();
+        finalContractionMap_.clear();
+        finalGroups_.clear();
+        nonViableEdgesCache_.clear();
+        nonViableCritPathEdgesCache_.clear();
+
+        if (dag.NumVertices() == 0) return;
+        const auto &orbits = hasher.GetOrbits();
+
+        contractionMap_.assign(dag.NumVertices(), 0);
+        VertexType coarseNodeIdx = 0;
+
+        for (const auto &hashVerticesPair : orbits) {
+            const auto &vertices = hashVerticesPair.second;
+            for (const auto v : vertices) {
+                contractionMap_[v] = coarseNodeIdx;
+            }
+            coarseNodeIdx++;
+        }
+
+        std::vector<VWorkwT<GraphT>> workPerVertexType;
+        workPerVertexType.resize(mergeDifferentNodeTypes_ ? 1U : dag.NumVertexTypes(), 0);
+
+        std::map<size_t, size_t> orbitSizeCounts;
+        for (const auto &orbit : orbits) {
+            const auto &vertices = orbit.second;
+            const size_t orbitSize = vertices.size();
+            if (orbitSize == 1U) continue;
+
+            orbitSizeCounts[orbitSize]++;
+
+            VWorkwT<GraphT> orbitWork = 0;
+            for (const auto v : vertices) {
+                orbitWork += dag.VertexWorkWeight(v);
+            }
+
+            if (not mergeDifferentNodeTypes_) {
+                workPerVertexType[dag.VertexType(vertices[0])] += orbitWork;
+            } else {
+                workPerVertexType[0] += orbitWork;
+            }
+        }
+
+        std::vector<VWorkwT<GraphT>> lockThresholdPerType(workPerVertexType.size());
+        for (size_t i = 0; i < workPerVertexType.size(); ++i) {
+            lockThresholdPerType[i] = static_cast<VWorkwT<GraphT>>(lockOrbitRatio_ * workPerVertexType[i]);
+        }
+
+        std::vector<size_t> symmetryLevelsToTest = ComputeSymmetryLevels(orbitSizeCounts);
+        coarser_util::ConstructCoarseDag(dag, coarseGraph_, contractionMap_);
+        PerformCoarseningAdaptiveSymmetry(dag, coarseGraph_, lockThresholdPerType, symmetryLevelsToTest);
+    }
+
+    const ConstrGraphT &GetCoarseGraph() const { return coarseGraph_; }
+
+    const std::vector<VertexType> &GetContractionMap() const { return contractionMap_; }
+
+    const ConstrGraphT &GetFinalCoarseGraph() const { return finalCoarseGraph_; }
+
+    const std::vector<VertexType> &GetFinalContractionMap() const { return finalContractionMap_; }
+
+    const std::vector<Group> &GetFinalGroups() const { return finalGroups_; }
+
 private:
     // Results from the first (orbit) coarsening step
     ConstrGraphT coarseGraph_;
@@ -178,13 +264,17 @@ private:
         return false;
     }
 
-    bool TryMergeEdge(VertexType u, VertexType v, const GraphT &originalDag, const ConstrGraphT &currentCoarseGraph,
-                     const std::vector<Group> &currentGroups, const VWorkwT<ConstrGraphT> pathThreshold,
-                     std::vector<std::vector<VertexType>> &outNewSubgraphs, ConstrGraphT &outTempGraph,
-                     std::vector<VertexType> &outTempContractionMap)
+    bool TryMergeEdge(VertexType u, VertexType v, const GraphT &originalDag,
+                      const ConstrGraphT &currentCoarseGraph,
+                      const std::vector<Group> &currentGroups,
+                      const VWorkwT<ConstrGraphT> pathThreshold,
+                      std::vector<std::vector<VertexType>> &outNewSubgraphs,
+                      ConstrGraphT &outTempGraph,
+                      std::vector<VertexType> &outTempContractionMap)
     {
         // Check merge structural viability
-        const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], outNewSubgraphs);
+        const bool mergeIsValid
+            = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], outNewSubgraphs);
         if (!mergeIsValid) {
             nonViableEdgesCache_.insert({u, v});
             return false;
@@ -241,7 +331,7 @@ private:
                     changed = true;
                     break;
                 }
-                if (changed) break;                
+                if (changed) break;
             }
         }
     }
@@ -255,7 +345,9 @@ private:
         if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
             return false;
         }
-        if (not mergeDifferentNodeTypes && currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
+        if (not mergeDifferentNodeTypes
+            && currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v))
+        {
             return false;
         }
         if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
@@ -316,7 +408,8 @@ private:
                 }
 
                 std::vector<std::vector<VertexType>> newSubgraphs;
-                const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs);
+                const bool mergeIsValid
+                    = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs);
                 const std::size_t newSize = newSubgraphs.size();
 
                 if (!mergeIsValid) {
@@ -326,7 +419,8 @@ private:
 
                 const bool mergeViable = (newSize >= currentSymmetry_);
                 const bool bothBelowMinimalThreshold = mergeBelowThreshold
-                    && (currentGroups[u].size() < minSymmetry_) && (currentGroups[v].size() < minSymmetry_);
+                    && (currentGroups[u].size() < minSymmetry_)
+                    && (currentGroups[v].size() < minSymmetry_);
 
                 if (!mergeViable && !bothBelowMinimalThreshold) {
                     nonViableEdgesCache_.insert({u, v});
@@ -334,16 +428,19 @@ private:
                 }
 
                 if (IsSignificanceMergeBlocked(u, v, currentCoarseGraph, currentGroups,
-                                               lockThresholdPerType, mergeDifferentNodeTypes, newSize))
+                                               lockThresholdPerType, mergeDifferentNodeTypes,
+                                               newSize))
                 {
                     nonViableEdgesCache_.insert({u, v});
                     continue;
                 }
 
-                auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
+                auto [tempCoarseGraph, tempContractionMap]
+                    = SimulateMerge(u, v, currentCoarseGraph);
 
                 if (CriticalPathWeight(tempCoarseGraph)
-                    > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
+                    > (pathThreshold
+                           * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
                        + CriticalPathWeight(currentCoarseGraph)))
                 {
                     nonViableCritPathEdgesCache_.insert({u, v});
@@ -359,87 +456,10 @@ private:
         }
     }
 
-public:
-    explicit OrbitGraphProcessor() {}
-    void SetMergeDifferentNodeTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
-    void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
-    void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold)
+    std::vector<size_t> FindSignificantSymmetryLevels(
+        const std::map<size_t, size_t> &orbitSizeCounts,
+        size_t countThreshold)
     {
-        criticalPathThreshold_ = criticalPathThreshold;
-    }
-    void SetLockRatio(double lockRatio) { lockOrbitRatio_ = lockRatio; }
-    void SetNaturalBreaksCountPercentage(double percentage) { naturalBreaksCountPercentage_ = percentage; }
-
-    /**
-     * @brief Discovers isomorphic groups (orbits) in the DAG and constructs an initial coarse graph.
-     *
-     * Uses a HashComputer to identify symmetric nodes (orbits) and groups them.
-     * Then performs coarsening (either adaptive or static) to merge these groups further.
-     *
-     * @param dag The input computational DAG.
-     * @param hasher The hash computer providing orbit information.
-     */
-    void DiscoverIsomorphicGroups(const GraphT &dag, const HashComputer<VertexType> &hasher)
-    {
-        coarseGraph_ = ConstrGraphT();
-        contractionMap_.clear();
-        finalCoarseGraph_ = ConstrGraphT();
-        finalContractionMap_.clear();
-        finalGroups_.clear();
-        nonViableEdgesCache_.clear();
-        nonViableCritPathEdgesCache_.clear();
-
-        if (dag.NumVertices() == 0) return;
-        const auto &orbits = hasher.GetOrbits();
-
-        contractionMap_.assign(dag.NumVertices(), 0);
-        VertexType coarseNodeIdx = 0;
-
-        for (const auto &hashVerticesPair : orbits) {
-            const auto &vertices = hashVerticesPair.second;
-            for (const auto v : vertices) {
-                contractionMap_[v] = coarseNodeIdx;
-            }
-            coarseNodeIdx++;
-        }
-
-        std::vector<VWorkwT<GraphT>> workPerVertexType;
-        workPerVertexType.resize(mergeDifferentNodeTypes_ ? 1U : dag.NumVertexTypes(), 0);
-
-        std::map<size_t, size_t> orbitSizeCounts;
-        for (const auto &orbit : orbits) {
-            const auto &vertices = orbit.second;
-            const size_t orbitSize = vertices.size();
-            if (orbitSize == 1U) continue;
-
-            orbitSizeCounts[orbitSize]++;
-
-            VWorkwT<GraphT> orbitWork = 0;
-            for (const auto v : vertices) {
-                orbitWork += dag.VertexWorkWeight(v);
-            }
-
-            if (not mergeDifferentNodeTypes_) {
-                workPerVertexType[dag.VertexType(vertices[0])] += orbitWork;
-            } else {
-                workPerVertexType[0] += orbitWork;
-            }
-        }
-
-        std::vector<VWorkwT<GraphT>> lockThresholdPerType(workPerVertexType.size());
-        for (size_t i = 0; i < workPerVertexType.size(); ++i) {
-            lockThresholdPerType[i] = static_cast<VWorkwT<GraphT>>(lockOrbitRatio_ * workPerVertexType[i]);
-        }
-
-        std::vector<size_t> symmetryLevelsToTest = ComputeSymmetryLevels(orbitSizeCounts);
-        coarser_util::ConstructCoarseDag(dag, coarseGraph_, contractionMap_);
-        PerformCoarseningAdaptiveSymmetry(dag, coarseGraph_, lockThresholdPerType, symmetryLevelsToTest);
-    }
-
-private:
-    std::vector<size_t> FindSignificantSymmetryLevels(const std::map<size_t, size_t> &orbitSizeCounts,
-                                                      size_t countThreshold)
-{
         std::vector<size_t> sortedSizes;
         sortedSizes.reserve(orbitSizeCounts.size());
         for (const auto &pair: orbitSizeCounts) {
@@ -449,7 +469,9 @@ private:
 
         std::vector<size_t> levels;
         for (const size_t currentSize : sortedSizes) {
-            if (currentSize >= minSymmetry_ && orbitSizeCounts.at(currentSize) >= countThreshold) {
+            if (currentSize >= minSymmetry_
+                && orbitSizeCounts.at(currentSize) >= countThreshold)
+            {
                 levels.push_back(currentSize);
             }
         }
@@ -483,7 +505,8 @@ private:
             countThreshold = 1;
         }
 
-        std::vector<size_t> symmetryLevelsToTest = FindSignificantSymmetryLevels(orbitSizeCounts, countThreshold);
+        std::vector<size_t> symmetryLevelsToTest
+            = FindSignificantSymmetryLevels(orbitSizeCounts, countThreshold);
 
         if (symmetryLevelsToTest.empty()) {
             const size_t fallback = FindFallbackSymmetryLevel(orbitSizeCounts);
@@ -504,10 +527,11 @@ private:
         return symmetryLevelsToTest;
     }
 
-    void PerformCoarseningAdaptiveSymmetry(const GraphT &originalDag,
-                                           const ConstrGraphT &initialCoarseGraph,
-                                           const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
-                                           const std::vector<size_t> &symmetryLevelsToTest)
+    void PerformCoarseningAdaptiveSymmetry(
+        const GraphT &originalDag,
+        const ConstrGraphT &initialCoarseGraph,
+        const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
+        const std::vector<size_t> &symmetryLevelsToTest)
     {
         finalCoarseGraph_ = ConstrGraphT();
         finalContractionMap_.clear();
@@ -533,7 +557,8 @@ private:
 
             if (mergeDifferentNodeTypes_) {
                 ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups,
-                                        mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType);
+                                        mergeDifferentNodeTypes_, isLastLoop,
+                                        lockThresholdPerType);
             }
 
             nonViableCritPathEdgesCache_.clear();
@@ -547,7 +572,9 @@ private:
 
         // Rebuild contraction map from currentGroups
         currentContractionMap.assign(originalDag.NumVertices(), 0);
-        for (VertexType coarseIdx = 0; coarseIdx < static_cast<VertexType>(currentGroups.size()); ++coarseIdx) {
+        for (VertexType coarseIdx = 0;
+             coarseIdx < static_cast<VertexType>(currentGroups.size()); ++coarseIdx)
+        {
             for (const auto &subgraph : currentGroups[coarseIdx].subgraphs_) {
                 for (const auto v : subgraph) {
                     currentContractionMap[v] = coarseIdx;
@@ -566,8 +593,10 @@ private:
                        std::vector<std::vector<VertexType>> &outNewSubgraphs) const
     {
         std::vector<VertexType> allNodes;
-        const size_t uNodes = groupU.subgraphs_.empty() ? 0 : groupU.subgraphs_.size() * groupU.subgraphs_[0].size();
-        const size_t vNodes = groupV.subgraphs_.empty() ? 0 : groupV.subgraphs_.size() * groupV.subgraphs_[0].size();
+        const size_t uNodes
+            = groupU.subgraphs_.empty() ? 0 : groupU.subgraphs_.size() * groupU.subgraphs_[0].size();
+        const size_t vNodes
+            = groupV.subgraphs_.empty() ? 0 : groupV.subgraphs_.size() * groupV.subgraphs_[0].size();
         allNodes.reserve(uNodes + vNodes);
         for (const auto &sg : groupU.subgraphs_) {
             allNodes.insert(allNodes.end(), sg.begin(), sg.end());
@@ -604,17 +633,6 @@ private:
         }
         return true;
     }
-
-public:
-    const ConstrGraphT &GetCoarseGraph() const { return coarseGraph_; }
-
-    const std::vector<VertexType> &GetContractionMap() const { return contractionMap_; }
-
-    const ConstrGraphT &GetFinalCoarseGraph() const { return finalCoarseGraph_; }
-
-    const std::vector<VertexType> &GetFinalContractionMap() const { return finalContractionMap_; }
-
-    const std::vector<Group> &GetFinalGroups() const { return finalGroups_; }
 };
 
 }    // namespace osp

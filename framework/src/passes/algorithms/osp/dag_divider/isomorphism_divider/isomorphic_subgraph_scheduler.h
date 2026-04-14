@@ -52,21 +52,6 @@ namespace osp {
  */
 template <typename GraphT, typename ConstrGraphT>
 class IsomorphicSubgraphScheduler {
-private:
-    const HashComputer<VertexIdxT<GraphT>> *hashComputer_;
-
-    Scheduler<ConstrGraphT> *bspScheduler_;
-    bool useMaxGroupSize_ = false;
-    unsigned maxGroupSize_ = 0;
-    VWorkwT<ConstrGraphT> workThreshold_ = 10;
-    VWorkwT<ConstrGraphT> criticalPathThreshold_ = 10;
-    double orbitLockRatio_ = 0.5;
-    double naturalBreaksCountPercentage_ = 0.1;
-    bool mergeDifferentNodeTypes_ = false;
-    bool allowUseTrimmedScheduler_ = false;
-    bool useMaxBsp_ = false;
-
-
 public:
     /**
      * @brief Constructs the scheduler with a reference to a base BSP scheduler.
@@ -103,7 +88,7 @@ public:
     {
         useMaxGroupSize_ = true;
         maxGroupSize_ = maxGroupSize;
-    }  
+    }
 
     /**
      * @brief Computes the partition of the graph.
@@ -478,6 +463,20 @@ protected:
             }
         }
     }
+
+private:
+    const HashComputer<VertexIdxT<GraphT>> *hashComputer_;
+
+    Scheduler<ConstrGraphT> *bspScheduler_;
+    bool useMaxGroupSize_ = false;
+    unsigned maxGroupSize_ = 0;
+    VWorkwT<ConstrGraphT> workThreshold_ = 10;
+    VWorkwT<ConstrGraphT> criticalPathThreshold_ = 10;
+    double orbitLockRatio_ = 0.5;
+    double naturalBreaksCountPercentage_ = 0.1;
+    bool mergeDifferentNodeTypes_ = false;
+    bool allowUseTrimmedScheduler_ = false;
+    bool useMaxBsp_ = false;
 };
 
 }    // namespace osp
