@@ -38,7 +38,6 @@ struct MulParameters {
     unsigned maxNumIterationWithoutChanges_{3U};
     BufferMergeMode bufferMergeMode_{BufferMergeMode::OFF};
 };
-
 }    // namespace sarkar_params
 
 template <typename GraphT, typename GraphTCoarse>
@@ -334,7 +333,6 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions()
 
     return status;
 }
-
 }    // end namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_SARKAR_MUL_HPP

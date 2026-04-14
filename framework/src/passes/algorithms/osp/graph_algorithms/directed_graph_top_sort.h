@@ -33,7 +33,6 @@ std::vector<VertexIdxT<GraphT>> GetTopOrder(const GraphT &graph)
         std::vector<VertexIdxT<GraphT>> topOrd(graph.NumVertices());
         std::iota(topOrd.begin(), topOrd.end(), static_cast<VertexIdxT<GraphT>>(0));
         return topOrd;
-
     } else {
         using VertexType = VertexIdxT<GraphT>;
 
@@ -87,7 +86,6 @@ std::vector<VertexIdxT<GraphT>> GetTopOrderReverse(const GraphT &graph)
     std::reverse(topOrder.begin(), topOrder.end());
     return topOrder;
 }
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_DIRECTED_GRAPH_TOP_SORT_HPP

@@ -53,7 +53,6 @@ void ConstructComputationalDag(const GraphFrom &from, GraphTo &to)
         }
     }
 }
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_COMPUTATIONAL_DAG_CONSTRUCTION_UTIL_HPP

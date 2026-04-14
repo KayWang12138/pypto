@@ -158,11 +158,6 @@ public:
         return vertexHashes_;
     }
 
-    std::size_t NumOrbits() const override
-    {
-        return orbits_.size();
-    }
-
     const std::vector<VertexType> &GetOrbit(const VertexType &v) const override
     {
         return this->GetOrbitFromHash(this->GetVertexHash(v));
@@ -176,6 +171,11 @@ public:
     const std::vector<VertexType> &GetOrbitFromHash(const std::size_t &hash) const override
     {
         return orbits_.at(hash);
+    }
+
+    std::size_t NumOrbits() const override
+    {
+        return orbits_.size();
     }
 };
 
@@ -244,7 +244,6 @@ struct PrecomBwdMerkleNodeHashFunc {
         return bwMerkleHash_.GetVertexHash(v);
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_MERKLEHASH_COMPUTER_HPP

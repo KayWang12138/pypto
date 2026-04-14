@@ -16,9 +16,11 @@ namespace osp {
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateChildAffinityToStep(const KlMove &move, VertexType target, unsigned targetStep,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateChildAffinityToStep(
+    const KlMove &move, VertexType target, unsigned targetStep,
                                 unsigned targetProc, unsigned targetStartIdx, unsigned endStep,
-                                const CostT &penalty, const CostT &reward, AffinityTableT &affinityTable) {
+                                const CostT &penalty, const CostT &reward, AffinityTableT &affinityTable)
+{
     if (move.toStep_ < targetStep + (move.toProc_ == targetProc)) {
         unsigned idx = targetStartIdx;
         const unsigned diff = targetStep - move.toStep_;
@@ -49,9 +51,11 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateChildAffinit
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateChildLambdaAffinity(const KlMove &move, VertexType target, unsigned targetStep,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateChildLambdaAffinity(
+    const KlMove &move, VertexType target, unsigned targetStep,
                                 unsigned targetProc, unsigned targetStartIdx, unsigned endStep,
-                                AffinityTableT &affinityTable) {
+                                AffinityTableT &affinityTable)
+{
     const CostT commGain = graph_->VertexCommWeight(move.node_) * commMultiplier_;
     const unsigned windowBound = EndIdx(targetStep, endStep);
 
@@ -78,10 +82,12 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateChildLambdaA
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeChildCommAffinity(VertexType node, AffinityTableT &affinityTableNode,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeChildCommAffinity(
+    VertexType node, AffinityTableT &affinityTableNode,
                                 const CostT &penalty, const CostT &reward,
                                 unsigned nodeStep, unsigned nodeProc,
-                                unsigned nodeStartIdx, unsigned windowBound) {
+                                unsigned nodeStartIdx, unsigned windowBound)
+{
     for (const auto &target : instance_->GetComputationalDag().Children(node)) {
         const unsigned targetStep = activeSchedule_->AssignedSuperstep(target);
         const unsigned targetProc = activeSchedule_->AssignedProcessor(target);
@@ -115,8 +121,10 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeChildCommAf
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeLambdaProcAffinity(VertexType node, AffinityTableT &affinityTableNode,
-                                unsigned nodeProc, unsigned nodeStartIdx, unsigned windowBound) {
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeLambdaProcAffinity(
+    VertexType node, AffinityTableT &affinityTableNode,
+                                unsigned nodeProc, unsigned nodeStartIdx, unsigned windowBound)
+{
     const CostT commGain = graph_->VertexCommWeight(node) * commMultiplier_;
     for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
         if (p == nodeProc) {
@@ -125,7 +133,8 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeLambdaProcA
         for (const auto lambdaPair : nodeLambdaMap_.IterateProcEntries(node)) {
             const auto &lambdaProc = lambdaPair.first;
             const CostT commCost = ChangeCommCost(
-                instance_->CommunicationCosts(p, lambdaProc), instance_->CommunicationCosts(nodeProc, lambdaProc), commGain);
+                instance_->CommunicationCosts(p, lambdaProc),
+                instance_->CommunicationCosts(nodeProc, lambdaProc), commGain);
             for (unsigned idx = nodeStartIdx; idx < windowBound; idx++) {
                 affinityTableNode[p][idx] += commCost;
             }
@@ -135,11 +144,13 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeLambdaProcA
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentStepAffinity(VertexType node, AffinityTableT &affinityTableNode,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentStepAffinity(
+    VertexType node, AffinityTableT &affinityTableNode,
                                 const CostT &penalty, const CostT &reward,
                                 unsigned nodeStep, unsigned nodeProc,
                                 unsigned sourceStep, unsigned sourceProc,
-                                unsigned nodeStartIdx, unsigned windowBound) {
+                                unsigned nodeStartIdx, unsigned windowBound)
+{
     if (sourceStep < nodeStep + (sourceProc == nodeProc)) {
         const unsigned diff = nodeStep - sourceStep;
         const unsigned bound = windowSize >= diff ? windowSize - diff + 1 : 0;
@@ -169,9 +180,11 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentStepA
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentLambdaAffinity(VertexType node, AffinityTableT &affinityTableNode,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentLambdaAffinity(
+    VertexType node, AffinityTableT &affinityTableNode,
                                     VertexType source, unsigned nodeProc, unsigned sourceProc,
-                                    unsigned nodeStartIdx, unsigned windowBound) {
+                                    unsigned nodeStartIdx, unsigned windowBound)
+{
     const CostT sourceCommGain = graph_->VertexCommWeight(source) * commMultiplier_;
     for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
         if (p == nodeProc) {
@@ -192,10 +205,12 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentLambd
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentCommAffinity(VertexType node, AffinityTableT &affinityTableNode,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeParentCommAffinity(
+    VertexType node, AffinityTableT &affinityTableNode,
                                 const CostT &penalty, const CostT &reward,
                                 unsigned nodeStep, unsigned nodeProc,
-                                unsigned nodeStartIdx, unsigned windowBound) {
+                                unsigned nodeStartIdx, unsigned windowBound)
+{
     for (const auto &source : instance_->GetComputationalDag().Parents(node)) {
         const unsigned sourceStep = activeSchedule_->AssignedSuperstep(source);
         const unsigned sourceProc = activeSchedule_->AssignedProcessor(source);
@@ -214,7 +229,8 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeCommAffinit
                             const CostT &penalty,
                             const CostT &reward,
                             const unsigned startStep,
-                            const unsigned endStep) {
+                            const unsigned endStep)
+{
     const unsigned nodeStep = activeSchedule_->AssignedSuperstep(node);
     const unsigned nodeProc = activeSchedule_->AssignedProcessor(node);
     const unsigned windowBound = EndIdx(nodeStep, endStep);
@@ -229,10 +245,12 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::ComputeCommAffinit
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename ThreadDataT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateSourceLambdaToProc(const KlMove &move, VertexType source, unsigned sourceProc,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateSourceLambdaToProc(
+    const KlMove &move, VertexType source, unsigned sourceProc,
                                 unsigned startStep, unsigned endStep,
                                 std::map<VertexType, KlGainUpdateInfo> &maxGainRecompute,
-                                ThreadDataT &threadData) {
+                                ThreadDataT &threadData)
+{
     if (nodeLambdaMap_.GetProcEntry(source, move.toProc_) == 1) {
         const CostT commGain = graph_->VertexCommWeight(source) * commMultiplier_;
         for (const auto &target : instance_->GetComputationalDag().Children(source)) {
@@ -262,9 +280,11 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateSourceLambda
 
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
-void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateSourceAffinityFromStep(const KlMove &move, VertexType source, unsigned sourceStep,
+void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateSourceAffinityFromStep(
+    const KlMove &move, VertexType source, unsigned sourceStep,
                                     unsigned sourceProc, unsigned sourceStartIdx, unsigned endStep,
-                                    const CostT &penalty, const CostT &reward, AffinityTableT &affinityTableSource) {
+                                    const CostT &penalty, const CostT &reward, AffinityTableT &affinityTableSource)
+{
     if (move.fromStep_ < sourceStep + (move.fromProc_ != sourceProc)) {
         const unsigned diff = sourceStep - move.fromStep_;
         const unsigned bound = windowSize > diff ? windowSize - diff : 0;
@@ -291,8 +311,6 @@ void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateSourceAffini
         }
     }
 }
-
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_KL_HYPER_TOTAL_COMM_COST_TPP

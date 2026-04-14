@@ -272,7 +272,6 @@ struct LambdaVectorContainer {
         return LambdaVectorRange(nodeLambdaVec_[node]);
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_LAMBDA_CONTAINER_HPP

@@ -192,7 +192,6 @@ private:
         return ReturnStatus::OSP_SUCCESS;
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_TRIMMED_GROUP_SCHEDULER_HPP

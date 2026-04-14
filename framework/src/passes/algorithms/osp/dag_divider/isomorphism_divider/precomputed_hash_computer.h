@@ -81,7 +81,6 @@ public:
         return orbits_.at(hash);
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_PRECOMPUTEDHASH_COMPUTER_HPP

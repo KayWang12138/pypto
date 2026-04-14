@@ -158,7 +158,6 @@ private:
     std::size_t numEdges_ = 0;
     unsigned numVertexTypes_ = 0;
 };
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_DAG_VECTOR_ADAPTER_HPP

@@ -26,7 +26,8 @@ struct KlUpdateInfo {
 
     KlUpdateInfo() = default;
 
-    KlUpdateInfo(VertexType n) : node_(n), fullUpdate_(false), updateEntireToStep_(false), updateEntireFromStep_(false) {}
+    KlUpdateInfo(VertexType n)
+        : node_(n), fullUpdate_(false), updateEntireToStep_(false), updateEntireFromStep_(false) {}
 
     KlUpdateInfo(VertexType n, bool full)
         : node_(n), fullUpdate_(full), updateEntireToStep_(false), updateEntireFromStep_(false) {}
@@ -37,7 +38,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleSameStepSam
                             const KlMove &move,
                             const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
                             std::vector<std::vector<CostT>> &affinityTableNode,
-                            KlGainUpdateInfo &updateInfo) {
+                            KlGainUpdateInfo &updateInfo)
+{
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
     const VertexWorkWeightT vertexWeight = graph_->VertexWorkWeight(node);
     const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
@@ -89,7 +91,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleSameStepDif
                                             VertexWorkWeightT prevMaxWork,
                                             VertexWorkWeightT newMaxWeight,
                                             unsigned idx,
-                                            std::vector<std::vector<CostT>> &affinityTableNode) {
+                                            std::vector<std::vector<CostT>> &affinityTableNode)
+{
     for (const unsigned proc : procRange_.CompatibleProcessorsVertex(node)) {
         const VertexWorkWeightT newWeight
             = vertexWeight + activeSchedule_.GetStepProcessorWork(move.fromStep_, proc);
@@ -134,7 +137,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleSameStepDif
                                                 VertexWorkWeightT prevMaxWork,
                                                 VertexWorkWeightT newMaxWeight,
                                                 unsigned idx,
-                                                std::vector<std::vector<CostT>> &affinityTableNode) {
+                                                std::vector<std::vector<CostT>> &affinityTableNode)
+{
     if (IsCompatible(node, move.fromProc_)) {
         const VertexWorkWeightT fromNewWeight
             = vertexWeight + activeSchedule_.GetStepProcessorWork(move.fromStep_, move.fromProc_);
@@ -169,7 +173,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleSameStepMov
                         const KlMove &move,
                         const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
                         std::vector<std::vector<CostT>> &affinityTableNode,
-                        KlGainUpdateInfo &updateInfo) {
+                        KlGainUpdateInfo &updateInfo)
+{
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
     const VertexWorkWeightT vertexWeight = graph_->VertexWorkWeight(node);
 
@@ -189,19 +194,23 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleSameStepMov
         const unsigned idx = RelStepIdx(nodeStep, move.fromStep_);
         if (prevMaxWork != newMaxWeight) {
             updateInfo.updateEntireFromStep_ = true;
-            HandleSameStepDifferentNodeMaxChanged(node, move, vertexWeight, prevMaxWork, newMaxWeight, idx, affinityTableNode);
+            HandleSameStepDifferentNodeMaxChanged(
+                node, move, vertexWeight, prevMaxWork, newMaxWeight, idx, affinityTableNode);
         } else {
-            HandleSameStepDifferentNodeMaxUnchanged(node, move, vertexWeight, prevMaxWork, newMaxWeight, idx, affinityTableNode);
+            HandleSameStepDifferentNodeMaxUnchanged(
+                node, move, vertexWeight, prevMaxWork, newMaxWeight, idx, affinityTableNode);
         }
     }
 }
 
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::KlGainUpdateInfo KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateNodeWorkAffinityAfterMove(VertexType node,
+typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::KlGainUpdateInfo
+KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateNodeWorkAffinityAfterMove(VertexType node,
                                                     KlMove move,
                                                     const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
-                                                    std::vector<std::vector<CostT>> &affinityTableNode) {
+                                                    std::vector<std::vector<CostT>> &affinityTableNode)
+{
     KlGainUpdateInfo updateInfo(node);
 
     if (move.fromStep_ == move.toStep_) {
@@ -210,26 +219,33 @@ typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::KlGainUpdateI
         const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
         const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
         const VertexWorkWeightT vertexWeight = graph_->VertexWorkWeight(node);
-        ProcessWorkUpdateStep(node, nodeStep, nodeProc, vertexWeight, move.fromStep_, move.fromProc_, graph_->VertexWorkWeight(move.node_),
-                                prevWorkData.fromStepMaxWork_, prevWorkData.fromStepSecondMaxWork_, prevWorkData.fromStepMaxWorkProcessorCount_,
-                                updateInfo.updateFromStep_, updateInfo.updateEntireFromStep_, updateInfo.fullUpdate_, affinityTableNode);
-        ProcessWorkUpdateStep(node, nodeStep, nodeProc, vertexWeight, move.toStep_, move.toProc_, -graph_->VertexWorkWeight(move.node_),
-                                prevWorkData.toStepMaxWork_, prevWorkData.toStepSecondMaxWork_, prevWorkData.toStepMaxWorkProcessorCount_,
-                                updateInfo.updateToStep_, updateInfo.updateEntireToStep_, updateInfo.fullUpdate_, affinityTableNode);
+        ProcessWorkUpdateStep(
+            node, nodeStep, nodeProc, vertexWeight, move.fromStep_, move.fromProc_,
+            graph_->VertexWorkWeight(move.node_), prevWorkData.fromStepMaxWork_,
+            prevWorkData.fromStepSecondMaxWork_, prevWorkData.fromStepMaxWorkProcessorCount_,
+            updateInfo.updateFromStep_, updateInfo.updateEntireFromStep_,
+            updateInfo.fullUpdate_, affinityTableNode);
+        ProcessWorkUpdateStep(
+            node, nodeStep, nodeProc, vertexWeight, move.toStep_, move.toProc_,
+            -graph_->VertexWorkWeight(move.node_), prevWorkData.toStepMaxWork_,
+            prevWorkData.toStepSecondMaxWork_, prevWorkData.toStepMaxWorkProcessorCount_,
+            updateInfo.updateToStep_, updateInfo.updateEntireToStep_,
+            updateInfo.fullUpdate_, affinityTableNode);
     }
 
     return updateInfo;
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-CostT KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ApplyMove(KlMove move, ThreadSearchContext &threadData) {
+CostT KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ApplyMove(KlMove move, ThreadSearchContext &threadData)
+{
     activeSchedule_.ApplyMove(move, threadData.activeScheduleData_);
     commCostF_.UpdateDatastructureAfterMove(move, threadData.startStep_, threadData.endStep_);
     CostT changeInCost = -move.gain_;
     changeInCost += static_cast<CostT>(threadData.activeScheduleData_.resolvedViolations_.size())
                     * threadData.rewardPenaltyStrat_.reward_;
-    changeInCost
-        -= static_cast<CostT>(threadData.activeScheduleData_.newViolations_.size()) * threadData.rewardPenaltyStrat_.penalty_;
+    changeInCost -= static_cast<CostT>(threadData.activeScheduleData_.newViolations_.size())
+        * threadData.rewardPenaltyStrat_.penalty_;
 
     threadData.activeScheduleData_.UpdateCost(changeInCost);
 
@@ -237,8 +253,11 @@ CostT KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ApplyMove(KlMove
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::QuickMoveResult KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessQuickMoveCandidate(VertexType nextNodeToMove, unsigned &innerIter, ThreadSearchContext &threadData,
-                                            std::unordered_set<VertexType> &localLock, std::vector<VertexType> &quickMovesStack) {
+typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::QuickMoveResult
+KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessQuickMoveCandidate(
+    VertexType nextNodeToMove, unsigned &innerIter, ThreadSearchContext &threadData,
+    std::unordered_set<VertexType> &localLock, std::vector<VertexType> &quickMovesStack)
+{
     threadData.rewardPenaltyStrat_.InitRewardPenalty(
         static_cast<double>(threadData.activeScheduleData_.currentViolations_.size()) + 1.0);
     ComputeNodeAffinities(nextNodeToMove, threadData.localAffinityTable_, threadData);
@@ -274,7 +293,8 @@ template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, type
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunQuickMoves(unsigned &innerIter,
                     ThreadSearchContext &threadData,
                     const CostT changeInCost,
-                    const VertexType bestMoveNode) {
+                    const VertexType bestMoveNode)
+{
     innerIter++;
 
     const size_t numAppliedMoves = threadData.activeScheduleData_.appliedMoves_.size() - 1;
@@ -294,14 +314,17 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunQuickMoves(uns
         auto nextNodeToMove = quickMovesStack.back();
         quickMovesStack.pop_back();
 
-        QuickMoveResult result = ProcessQuickMoveCandidate(nextNodeToMove, innerIter, threadData, localLock, quickMovesStack);
+        QuickMoveResult result = ProcessQuickMoveCandidate(
+            nextNodeToMove, innerIter, threadData, localLock, quickMovesStack);
         if (result == QuickMoveResult::kAbort) {
             break;
         }
     }
 
     if (!threadData.activeScheduleData_.feasible_) {
-        activeSchedule_.RevertScheduleToBound(numAppliedMoves, savedCost, true, commCostF_, threadData.activeScheduleData_, threadData.startStep_, threadData.endStep_);
+        activeSchedule_.RevertScheduleToBound(
+            numAppliedMoves, savedCost, true, commCostF_,
+            threadData.activeScheduleData_, threadData.startStep_, threadData.endStep_);
     }
 
     threadData.affinityTable_.Trim();
@@ -311,15 +334,19 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunQuickMoves(uns
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InnerIterResult KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleViolationEscalation(unsigned &violationRemovedCount, unsigned &resetCounter, unsigned &innerIter,
-                                            bool iterInitalFeasible, ThreadSearchContext &threadData) {
+typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InnerIterResult
+KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleViolationEscalation(
+    unsigned &violationRemovedCount, unsigned &resetCounter, unsigned &innerIter,
+    bool iterInitalFeasible, ThreadSearchContext &threadData)
+{
     violationRemovedCount++;
     if (violationRemovedCount <= 3) {
         return InnerIterResult::kContinue;
     }
 
     if (resetCounter >= threadData.maxNoVioaltionsRemovedBacktrack_
-        || (iterInitalFeasible && threadData.activeScheduleData_.cost_ >= threadData.activeScheduleData_.bestCost_)) {
+        || (iterInitalFeasible && threadData.activeScheduleData_.cost_ >= threadData.activeScheduleData_.bestCost_))
+    {
         return InnerIterResult::kBreak;
     }
 
@@ -340,8 +367,11 @@ typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InnerIterResu
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InnerIterResult KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleViolations(unsigned &violationRemovedCount, unsigned &resetCounter, unsigned &innerIter,
-                                    bool iterInitalFeasible, ThreadSearchContext &threadData) {
+typename KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InnerIterResult
+KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::HandleViolations(
+    unsigned &violationRemovedCount, unsigned &resetCounter, unsigned &innerIter,
+    bool iterInitalFeasible, ThreadSearchContext &threadData)
+{
     if (threadData.activeScheduleData_.currentViolations_.size() == 0) {
         return InnerIterResult::kContinue;
     }
@@ -359,7 +389,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessInnerItera
                             std::vector<VertexType> &unlockNodes,
                             std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
                             const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
-                            ThreadSearchContext &threadData) {
+                            ThreadSearchContext &threadData)
+{
     if (IsLocalSearchBlocked(threadData)) {
         if (not BlockedEdgeStrategy(bestMove.node_, unlockNodes, threadData)) {
             return false;
@@ -387,7 +418,8 @@ template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, type
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunInnerLoop(ThreadSearchContext &threadData,
                     std::vector<VertexType> &newNodes,
                     std::vector<VertexType> &unlockNodes,
-                    std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain) {
+                    std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain)
+{
     unsigned innerIter = 0;
     unsigned violationRemovedCount = 0;
     unsigned resetCounter = 0;
@@ -415,7 +447,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunInnerLoop(Thre
             }
         }
 
-        InnerIterResult violationResult = HandleViolations(violationRemovedCount, resetCounter, innerIter, iterInitalFeasible, threadData);
+        InnerIterResult violationResult = HandleViolations(
+            violationRemovedCount, resetCounter, innerIter, iterInitalFeasible, threadData);
         if (violationResult == InnerIterResult::kBreak) {
             break;
         }
@@ -432,10 +465,12 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunInnerLoop(Thre
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ShouldTerminateOuterLoop(const std::chrono::time_point<std::chrono::high_resolution_clock> &startTime,
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ShouldTerminateOuterLoop(
+    const std::chrono::time_point<std::chrono::high_resolution_clock> &startTime,
                                 unsigned &noImprovementIterCounter,
                                 CostT initialInnerIterCost,
-                                ThreadSearchContext &threadData) {
+                                ThreadSearchContext &threadData)
+{
     if (computeWithTimeLimit_) {
         auto finishTime = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::seconds>(finishTime - startTime).count();
@@ -461,7 +496,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ShouldTerminateOu
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunLocalSearch(ThreadSearchContext &threadData) {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunLocalSearch(ThreadSearchContext &threadData)
+{
     std::vector<VertexType> newNodes;
     std::vector<VertexType> unlockNodes;
     std::map<VertexType, KlGainUpdateInfo> recomputeMaxGain;
@@ -498,7 +534,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::RunLocalSearch(Th
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::OtherThreadsFinished(const unsigned threadId) {
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::OtherThreadsFinished(const unsigned threadId)
+{
     const size_t numThreads = threadFinishedVec_.size();
     if (numThreads == 1) {
         return false;
@@ -517,15 +554,17 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateAffinities(
                                 ThreadSearchContext &threadData,
                                 std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
                                 std::vector<VertexType> &newNodes,
-                                const PreMoveWorkData<VertexWorkWeightT> &prevWorkData) {
+                                const PreMoveWorkData<VertexWorkWeightT> &prevWorkData)
+{
     UpdateNodeWorkAffinity(threadData.affinityTable_, bestMove, prevWorkData, recomputeMaxGain);
     commCostF_.UpdateNodeCommAffinity(bestMove, threadData, threadData.rewardPenaltyStrat_.penalty_,
                                         threadData.rewardPenaltyStrat_.reward_, recomputeMaxGain, newNodes);
-    
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::BlockedEdgeStrategy(VertexType node, std::vector<VertexType> &unlockNodes, ThreadSearchContext &threadData) {
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::BlockedEdgeStrategy(
+    VertexType node, std::vector<VertexType> &unlockNodes, ThreadSearchContext &threadData)
+{
     if (threadData.unlockEdgeBacktrackCounter_ > 1) {
         for (const auto vertexEdgePair : threadData.activeScheduleData_.newViolations_) {
             const auto &e = vertexEdgePair.second;
@@ -547,9 +586,12 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::BlockedEdgeStrate
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::AdjustLocalSearchParameters(unsigned outerIter, unsigned noImpCounter, ThreadSearchContext &threadData) {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::AdjustLocalSearchParameters(
+    unsigned outerIter, unsigned noImpCounter, ThreadSearchContext &threadData)
+{
     if (noImpCounter >= threadData.noImprovementIterationsReducePenalty_
-        && threadData.rewardPenaltyStrat_.initialPenalty_ > 1.0) {
+        && threadData.rewardPenaltyStrat_.initialPenalty_ > 1.0)
+{
         threadData.rewardPenaltyStrat_.initialPenalty_
             = static_cast<CostT>(std::floor(std::sqrt(threadData.rewardPenaltyStrat_.initialPenalty_)));
         threadData.unlockEdgeBacktrackCounterReset_ += 1;
@@ -557,7 +599,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::AdjustLocalSearch
     }
 
     if (parameters_.tryRemoveStepAfterNumOuterIterations_ > 0
-        && ((outerIter + 1) % parameters_.tryRemoveStepAfterNumOuterIterations_) == 0) {
+        && ((outerIter + 1) % parameters_.tryRemoveStepAfterNumOuterIterations_) == 0)
+    {
         threadData.stepSelectionEpochCounter_ = 0;
     }
 
@@ -570,7 +613,9 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::AdjustLocalSearch
 
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ScatterNodesSuperstep(unsigned step, ThreadSearchContext &threadData) {
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ScatterNodesSuperstep(
+    unsigned step, ThreadSearchContext &threadData)
+{
     bool abort = false;
 
     for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
@@ -589,7 +634,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ScatterNodesSuper
             }
 
             ApplyMove(bestMove, threadData);
-            if (threadData.activeScheduleData_.currentViolations_.size() > parameters_.abortScatterNodesViolationThreshold_) {
+            if (threadData.activeScheduleData_.currentViolations_.size()
+                > parameters_.abortScatterNodesViolationThreshold_) {
                 abort = true;
                 break;
             }
@@ -618,7 +664,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ScatterNodesSuper
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SynchronizeActiveSchedule(const unsigned numThreads) {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SynchronizeActiveSchedule(const unsigned numThreads)
+{
     if (numThreads == 1) {    // single thread case
         activeSchedule_.SetCost(threadDataVec_[0].activeScheduleData_.cost_);
         activeSchedule_.GetVectorSchedule().NumberOfSupersteps() = threadDataVec_[0].NumSteps();
@@ -643,12 +690,14 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SynchronizeActive
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SetParameters(VertexIdxT<GraphT> numNodes) {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SetParameters(VertexIdxT<GraphT> numNodes)
+{
     const unsigned logNumNodes = (numNodes > 1) ? static_cast<unsigned>(std::log(numNodes)) : 1;
 
     // Total number of outer iterations. Proportional to sqrt N.
     parameters_.maxOuterIterations_
-        = static_cast<unsigned>(std::sqrt(numNodes) * (parameters_.timeQuality_ * 10.0) / parameters_.numParallelLoops_);
+        = static_cast<unsigned>(
+            std::sqrt(numNodes) * (parameters_.timeQuality_ * 10.0) / parameters_.numParallelLoops_);
 
     // Number of times to reset the search for violations before giving up.
     parameters_.maxNoVioaltionsRemovedBacktrackReset_ = parameters_.timeQuality_ < 0.75  ? 1
@@ -663,10 +712,12 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SetParameters(Ver
                                                                                            : 3;
     parameters_.removeStepEpocs_ = static_cast<unsigned>(parameters_.superstepRemoveStrength_ * 4.0);
 
-    parameters_.minInnerIterReset_ = static_cast<unsigned>(logNumNodes + logNumNodes * (1.0 + parameters_.timeQuality_));
+    parameters_.minInnerIterReset_
+        = static_cast<unsigned>(logNumNodes + logNumNodes * (1.0 + parameters_.timeQuality_));
 
     if (parameters_.removeStepEpocs_ > 0) {
-        parameters_.tryRemoveStepAfterNumOuterIterations_ = parameters_.maxOuterIterations_ / parameters_.removeStepEpocs_;
+        parameters_.tryRemoveStepAfterNumOuterIterations_
+            = parameters_.maxOuterIterations_ / parameters_.removeStepEpocs_;
     } else {
         // Effectively disable superstep removal if remove_step_epocs is 0.
         parameters_.tryRemoveStepAfterNumOuterIterations_ = parameters_.maxOuterIterations_ + 1;
@@ -686,7 +737,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateNodeWorkAff
     NodeSelectionContainerT &nodes,
     KlMove move,
     const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
-    std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain) {
+    std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain)
+{
     const size_t activeCount = nodes.size();
 
     for (size_t i = 0; i < activeCount; ++i) {
@@ -701,7 +753,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateNodeWorkAff
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateMaxGain(
-    KlMove move, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain, ThreadSearchContext &threadData) {
+    KlMove move, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain, ThreadSearchContext &threadData)
+{
     for (auto &pair : recomputeMaxGain) {
         if (pair.second.fullUpdate_) {
             RecomputeNodeMaxGain(pair.first, threadData.affinityTable_, threadData);
@@ -725,7 +778,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateMaxGain(
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ComputeWorkAffinity(
-    VertexType node, std::vector<std::vector<CostT>> &affinityTableNode, ThreadSearchContext &threadData) {
+    VertexType node, std::vector<std::vector<CostT>> &affinityTableNode, ThreadSearchContext &threadData)
+{
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
     const VertexWorkWeightT vertexWeight = graph_->VertexWorkWeight(node);
 
@@ -750,7 +804,9 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ComputeWorkAffini
                                     && (maxWorkForStep == activeSchedule_.GetStepProcessorWork(nodeStep, nodeProc));
 
     const CostT nodeProcAffinity
-        = isSoleMaxProcessor ? std::min(vertexWeight, maxWorkForStep - activeSchedule_.GetStepSecondMaxWork(nodeStep)) : 0.0;
+        = isSoleMaxProcessor
+            ? std::min(vertexWeight, maxWorkForStep - activeSchedule_.GetStepSecondMaxWork(nodeStep))
+            : 0.0;
     affinityTableNode[nodeProc][windowSize] = nodeProcAffinity;
 
     for (const unsigned proc : procRange_.CompatibleProcessorsVertex(node)) {
@@ -764,9 +820,15 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ComputeWorkAffini
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdateStep(VertexType node, unsigned nodeStep, unsigned nodeProc, VertexWorkWeightT vertexWeight, unsigned moveStep, 
-    unsigned moveProc, VertexWorkWeightT moveCorrectionNodeWeight, const VertexWorkWeightT prevMoveStepMaxWork, const VertexWorkWeightT prevMoveStepSecondMaxWork, 
-    unsigned prevMoveStepMaxWorkProcessorCount, bool &updateStep, bool &updateEntireStep, bool &fullUpdate, std::vector<std::vector<CostT>> &affinityTableNode) {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdateStep(
+    VertexType node, unsigned nodeStep, unsigned nodeProc, VertexWorkWeightT vertexWeight,
+    unsigned moveStep, unsigned moveProc, VertexWorkWeightT moveCorrectionNodeWeight,
+    const VertexWorkWeightT prevMoveStepMaxWork,
+    const VertexWorkWeightT prevMoveStepSecondMaxWork,
+    unsigned prevMoveStepMaxWorkProcessorCount, bool &updateStep,
+    bool &updateEntireStep, bool &fullUpdate,
+    std::vector<std::vector<CostT>> &affinityTableNode)
+{
     const unsigned lowerBound = moveStep > windowSize ? moveStep - windowSize : 0;
     if (lowerBound <= nodeStep && nodeStep <= moveStep + windowSize) {
         updateStep = true;
@@ -775,17 +837,21 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdate
             const VertexWorkWeightT newSecondMaxWeight = activeSchedule_.GetStepSecondMaxWork(moveStep);
             const VertexWorkWeightT newStepProcWork = activeSchedule_.GetStepProcessorWork(nodeStep, nodeProc);
 
-            const VertexWorkWeightT prevStepProcWork = (nodeProc == moveProc) ? newStepProcWork + moveCorrectionNodeWeight
-                                                                              : newStepProcWork;
+            const VertexWorkWeightT prevStepProcWork
+                = (nodeProc == moveProc) ? newStepProcWork + moveCorrectionNodeWeight
+                                         : newStepProcWork;
             const bool prevIsSoleMaxProcessor = (prevMoveStepMaxWorkProcessorCount == 1)
                                                 && (prevMoveStepMaxWork == prevStepProcWork);
             const CostT prevNodeProcAffinity
-                = prevIsSoleMaxProcessor ? std::min(vertexWeight, prevMoveStepMaxWork - prevMoveStepSecondMaxWork) : 0.0;
+                = prevIsSoleMaxProcessor
+                    ? std::min(vertexWeight, prevMoveStepMaxWork - prevMoveStepSecondMaxWork)
+                    : 0.0;
 
             const bool newIsSoleMaxProcessor = (activeSchedule_.GetStepMaxWorkProcessorCount()[nodeStep] == 1)
                                                && (newMaxWeight == newStepProcWork);
-            const CostT newNodeProcAffinity = newIsSoleMaxProcessor ? std::min(vertexWeight, newMaxWeight - newSecondMaxWeight)
-                                                                    : 0.0;
+            const CostT newNodeProcAffinity = newIsSoleMaxProcessor
+                ? std::min(vertexWeight, newMaxWeight - newSecondMaxWeight)
+                : 0.0;
 
             const CostT diff = newNodeProcAffinity - prevNodeProcAffinity;
             const bool updateNodeProcAffinity = std::abs(diff) > epsilon_;
@@ -802,8 +868,10 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdate
                         continue;
                     }
 
-                    const VertexWorkWeightT newWeight = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, proc);
-                    const CostT prevOtherAffinity = ComputeSameStepAffinity(prevMoveStepMaxWork, newWeight, prevNodeProcAffinity);
+                    const VertexWorkWeightT newWeight
+                        = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, proc);
+                    const CostT prevOtherAffinity
+                        = ComputeSameStepAffinity(prevMoveStepMaxWork, newWeight, prevNodeProcAffinity);
                     const CostT otherAffinity = ComputeSameStepAffinity(newMaxWeight, newWeight, newNodeProcAffinity);
 
                     affinityTableNode[proc][windowSize] += (otherAffinity - prevOtherAffinity);
@@ -812,14 +880,17 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdate
 
             if (nodeProc != moveProc && IsCompatible(node, moveProc)) {
                 const VertexWorkWeightT prevNewWeight
-                    = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, moveProc) + moveCorrectionNodeWeight;
-                const CostT prevOtherAffinity = ComputeSameStepAffinity(prevMoveStepMaxWork, prevNewWeight, prevNodeProcAffinity);
-                const VertexWorkWeightT newWeight = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, moveProc);
+                    = vertexWeight
+                        + activeSchedule_.GetStepProcessorWork(nodeStep, moveProc)
+                        + moveCorrectionNodeWeight;
+                const CostT prevOtherAffinity = ComputeSameStepAffinity(
+                    prevMoveStepMaxWork, prevNewWeight, prevNodeProcAffinity);
+                const VertexWorkWeightT newWeight
+                    = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, moveProc);
                 const CostT otherAffinity = ComputeSameStepAffinity(newMaxWeight, newWeight, newNodeProcAffinity);
 
                 affinityTableNode[moveProc][windowSize] += (otherAffinity - prevOtherAffinity);
             }
-
         } else {
             const VertexWorkWeightT newMaxWeight = activeSchedule_.GetStepMaxWork(moveStep);
             const unsigned idx = RelStepIdx(nodeStep, moveStep);
@@ -828,38 +899,50 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdate
 
                 // update moving to all procs with special for moveProc
                 for (const unsigned proc : procRange_.CompatibleProcessorsVertex(node)) {
-                    const VertexWorkWeightT newWeight = vertexWeight + activeSchedule_.GetStepProcessorWork(moveStep, proc);
+                    const VertexWorkWeightT newWeight
+                        = vertexWeight + activeSchedule_.GetStepProcessorWork(moveStep, proc);
                     if (proc != moveProc) {
                         const CostT prevAffinity = prevMoveStepMaxWork < newWeight
-                                                       ? static_cast<CostT>(newWeight) - static_cast<CostT>(prevMoveStepMaxWork)
-                                                       : 0.0;
-                        const CostT newAffinity
-                            = newMaxWeight < newWeight ? static_cast<CostT>(newWeight) - static_cast<CostT>(newMaxWeight) : 0.0;
+                            ? static_cast<CostT>(newWeight)
+                                - static_cast<CostT>(prevMoveStepMaxWork)
+                            : 0.0;
+                        const CostT newAffinity = newMaxWeight < newWeight
+                            ? static_cast<CostT>(newWeight)
+                                - static_cast<CostT>(newMaxWeight)
+                            : 0.0;
                         affinityTableNode[proc][idx] += newAffinity - prevAffinity;
-
                     } else {
                         const VertexWorkWeightT prevNewWeight
-                            = vertexWeight + activeSchedule_.GetStepProcessorWork(moveStep, proc) + moveCorrectionNodeWeight;
+                            = vertexWeight
+                                + activeSchedule_.GetStepProcessorWork(moveStep, proc)
+                                + moveCorrectionNodeWeight;
                         const CostT prevAffinity = prevMoveStepMaxWork < prevNewWeight
-                                                       ? static_cast<CostT>(prevNewWeight) - static_cast<CostT>(prevMoveStepMaxWork)
-                                                       : 0.0;
+                            ? static_cast<CostT>(prevNewWeight)
+                                - static_cast<CostT>(prevMoveStepMaxWork)
+                            : 0.0;
 
-                        const CostT newAffinity
-                            = newMaxWeight < newWeight ? static_cast<CostT>(newWeight) - static_cast<CostT>(newMaxWeight) : 0.0;
+                        const CostT newAffinity = newMaxWeight < newWeight
+                            ? static_cast<CostT>(newWeight)
+                                - static_cast<CostT>(newMaxWeight)
+                            : 0.0;
                         affinityTableNode[proc][idx] += newAffinity - prevAffinity;
                     }
                 }
             } else {
                 // update only moveProc
                 if (IsCompatible(node, moveProc)) {
-                    const VertexWorkWeightT newWeight = vertexWeight + activeSchedule_.GetStepProcessorWork(moveStep, moveProc);
+                    const VertexWorkWeightT newWeight
+                        = vertexWeight + activeSchedule_.GetStepProcessorWork(moveStep, moveProc);
                     const VertexWorkWeightT prevNewWeight = newWeight + moveCorrectionNodeWeight;
                     const CostT prevAffinity = prevMoveStepMaxWork < prevNewWeight
-                                                   ? static_cast<CostT>(prevNewWeight) - static_cast<CostT>(prevMoveStepMaxWork)
-                                                   : 0.0;
+                        ? static_cast<CostT>(prevNewWeight)
+                            - static_cast<CostT>(prevMoveStepMaxWork)
+                        : 0.0;
 
-                    const CostT newAffinity
-                        = newMaxWeight < newWeight ? static_cast<CostT>(newWeight) - static_cast<CostT>(newMaxWeight) : 0.0;
+                    const CostT newAffinity = newMaxWeight < newWeight
+                        ? static_cast<CostT>(newWeight)
+                            - static_cast<CostT>(newMaxWeight)
+                        : 0.0;
                     affinityTableNode[moveProc][idx] += newAffinity - prevAffinity;
                 }
             }
@@ -869,7 +952,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdate
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SelectNodesCheckRemoveSuperstep(
-    unsigned &stepToRemove, ThreadSearchContext &threadData) {
+    unsigned &stepToRemove, ThreadSearchContext &threadData)
+{
     if (threadData.stepSelectionEpochCounter_ >= parameters_.nodeMaxStepSelectionEpochs_ || threadData.NumSteps() < 3) {
         return false;
     }
@@ -894,7 +978,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SelectNodesCheckR
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::CheckRemoveSuperstep(unsigned step) {
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::CheckRemoveSuperstep(unsigned step)
+{
     if (activeSchedule_.NumSteps() < 2) {
         return false;
     }
@@ -908,7 +993,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::CheckRemoveSupers
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ResetInnerSearchStructures(
-    ThreadSearchContext &threadData) const {
+    ThreadSearchContext &threadData) const
+{
     threadData.unlockEdgeBacktrackCounter_ = threadData.unlockEdgeBacktrackCounterReset_;
     threadData.maxInnerIterations_ = parameters_.maxInnerIterationsReset_;
     threadData.maxNoVioaltionsRemovedBacktrack_ = parameters_.maxNoVioaltionsRemovedBacktrackReset_;
@@ -920,7 +1006,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ResetInnerSearchS
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::IsLocalSearchBlocked(
-    ThreadSearchContext &threadData) {
+    ThreadSearchContext &threadData)
+{
     for (const auto &pair : threadData.activeScheduleData_.newViolations_) {
         if (threadData.lockManager_.IsLocked(pair.first)) {
             return true;
@@ -931,7 +1018,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::IsLocalSearchBloc
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InitializeDatastructures(
-    BspSchedule<GraphT> &schedule) {
+    BspSchedule<GraphT> &schedule)
+{
     inputSchedule_ = &schedule;
     instance_ = &schedule.GetInstance();
     graph_ = &instance_->GetComputationalDag();
@@ -960,12 +1048,14 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InitializeDatastr
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateAvgGain(const CostT gain,
                                                                                                 const unsigned numIter,
-                                                                                                double &averageGain) {
+                                                                                                double &averageGain)
+{
     averageGain = static_cast<double>((averageGain * numIter + gain)) / (numIter + 1.0);
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InsertGainHeap(ThreadSearchContext &threadData) {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InsertGainHeap(ThreadSearchContext &threadData)
+{
     const size_t activeCount = threadData.affinityTable_.size();
 
     for (size_t i = 0; i < activeCount; ++i) {
@@ -978,7 +1068,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InsertGainHeap(Th
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InsertNewNodesGainHeap(
-    std::vector<VertexType> &newNodes, NodeSelectionContainerT &nodes, ThreadSearchContext &threadData) {
+    std::vector<VertexType> &newNodes, NodeSelectionContainerT &nodes, ThreadSearchContext &threadData)
+{
     for (const auto &node : newNodes) {
         nodes.Insert(node);
         ComputeNodeAffinities(node, threadData.affinityTable_.At(node), threadData);
@@ -988,14 +1079,17 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InsertNewNodesGai
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::CleanupDatastructures() {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::CleanupDatastructures()
+{
     threadDataVec_.clear();
     activeSchedule_.Clear();
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateBestMove(
-    VertexType node, unsigned step, unsigned proc, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData) {
+    VertexType node, unsigned step, unsigned proc,
+    NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData)
+{
     const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
 
@@ -1032,7 +1126,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateBestMove(
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
 void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateBestMove(
-    VertexType node, unsigned step, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData) {
+    VertexType node, unsigned step, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData)
+{
     const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
 
@@ -1079,7 +1174,6 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateBestMove(
         }
     }
 }
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_KL_IMPROVER_TPP

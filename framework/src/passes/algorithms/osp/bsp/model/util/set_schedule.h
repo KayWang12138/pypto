@@ -86,7 +86,6 @@ private:
     unsigned numberOfSupersteps_ = 0;
     std::vector<std::vector<std::unordered_set<VertexIdx>>> stepProcessorVertices_;
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_SET_SCHEDULE_H

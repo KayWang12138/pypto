@@ -266,7 +266,6 @@ void UnionFindUniverse<T, IndexT, WorkwT>::AddObject(const T &name, const WorkwT
 {
     AddObjectInternal(name, weight);
 }
-
 } // namespace osp
 } // namespace npu::tile_fwk
 #endif // PASS_OSP_UNION_FIND_H

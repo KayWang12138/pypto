@@ -118,7 +118,6 @@ VWorkwT<GraphT> ComputeWorkCosts(const BspSchedule<GraphT> &schedule)
         schedule.AssignedProcessors(),
         schedule.AssignedSupersteps());
 }
-
 }    // namespace cost_helpers
 }    // namespace osp
 } // namespace npu::tile_fwk

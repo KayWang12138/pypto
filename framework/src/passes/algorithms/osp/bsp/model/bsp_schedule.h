@@ -255,7 +255,6 @@ public:
             if (superstep >= numberOfSupersteps_) {
                 numberOfSupersteps_ = superstep + 1;
             }
-
         } else {
             APASS_LOG_ERROR_F(Elements::Config,
                 "Invalid Argument while assigning node to superstep: index out of range.");
@@ -384,7 +383,6 @@ protected:
     std::vector<unsigned> nodeToProcessorAssignment_;
     std::vector<unsigned> nodeToSuperstepAssignment_;
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_BSP_SCHEDULE_H

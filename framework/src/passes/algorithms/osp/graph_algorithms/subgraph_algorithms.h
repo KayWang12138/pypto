@@ -53,7 +53,6 @@ std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSub
 
     return localIdx;
 }
-
 }    // end namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_SUBGRAPH_ALGORITHMS_HPP

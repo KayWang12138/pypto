@@ -102,7 +102,6 @@ struct LazyCommunicationCost {
         return commCosts + cost_helpers::ComputeWorkCosts(schedule);
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_LAZY_COMMUNICATION_COST_H

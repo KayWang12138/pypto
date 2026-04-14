@@ -234,7 +234,6 @@ private:
     T start_;
     T finish_;
 };
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif // OSP_INTEGRAL_RANGE_HPP

@@ -185,7 +185,6 @@ struct KlActiveScheduleWorkDatastructures {
 
             ArrangeSuperstepData(move.toStep_);
             ArrangeSuperstepData(move.fromStep_);
-
         } else {
             StepProcWork(move.toStep_, move.toProc_) += workWeight;
             StepProcWork(move.fromStep_, move.fromProc_) -= workWeight;
@@ -292,7 +291,6 @@ struct ThreadLocalActiveScheduleData {
         }
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_KL_ACTIVE_SCHEDULE_TYPES_H

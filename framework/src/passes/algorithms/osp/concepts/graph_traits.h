@@ -132,7 +132,6 @@ struct HasVerticesInTopOrderTrait<T, std::void_t<decltype(T::verticesInTopOrder_
 
 template <typename T>
 inline constexpr bool hasVerticesInTopOrderV = HasVerticesInTopOrderTrait<T>::value;
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 

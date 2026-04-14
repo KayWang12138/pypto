@@ -260,7 +260,6 @@ void ReorderExpansionMap(const GraphTIn &graph, std::vector<std::vector<VertexId
     InversePermuteInplace(vertexExpansionMap, topOrder);
     return;
 }
-
 } // end namespace coarser_util
 } // end namespace osp
 } // namespace npu::tile_fwk

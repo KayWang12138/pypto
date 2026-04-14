@@ -368,7 +368,6 @@ private:
         }
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_EFT_SUBGRAPH_SCHEDULER_HPP

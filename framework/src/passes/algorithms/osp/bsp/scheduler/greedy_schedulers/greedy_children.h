@@ -209,7 +209,6 @@ private:
         return true;
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_GREEDY_CHILDREN_HPP

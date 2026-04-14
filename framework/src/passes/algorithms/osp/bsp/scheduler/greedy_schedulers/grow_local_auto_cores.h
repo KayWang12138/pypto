@@ -386,7 +386,6 @@ private:
         }
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_GROW_LOCAL_AUTO_CORES_HPP

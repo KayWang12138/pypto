@@ -524,7 +524,6 @@ private:
         SetSendCostDiagonalToZero();
     }
 };
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif // OSP_BSP_ARCHITECTURE_H

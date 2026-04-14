@@ -222,13 +222,13 @@ protected:
                 return it;
             }
 
-            inline auto begin() const
-            {
-                return cbegin();
-            }
             inline auto end() const
             {
                 return cend();
+            }
+            inline auto begin() const
+            {
+                return cbegin();
             }
 
             inline auto crbegin() const
@@ -245,13 +245,13 @@ protected:
                 return it;
             };
 
-            inline auto rbegin() const
-            {
-                return crbegin();
-            }
             inline auto rend() const
             {
                 return crend();
+            }
+            inline auto rbegin() const
+            {
+                return crbegin();
             }
 
         private:
@@ -391,7 +391,6 @@ private:
     using ThisT =
         CompactSparseGraph<VertT, EdgeT, WorkWeightType, CommWeightType, MemWeightType, VertexTypeTemplateType>;
 };
-
 } // namespace osp
 } // namespace npu::tile_fwk
 #endif // PASS_OSP_COMPACT_SPARSE_GRAPH_HPP

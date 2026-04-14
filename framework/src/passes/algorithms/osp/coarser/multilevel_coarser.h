@@ -231,7 +231,6 @@ void MultilevelCoarser<GraphT, GraphTCoarse>::AddIdentityContraction()
     AddContraction(std::move(contractionMap));
     CompactifyDagHistory();
 }
-
 }    // end namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_MULTILEVEL_COARSER_HPP

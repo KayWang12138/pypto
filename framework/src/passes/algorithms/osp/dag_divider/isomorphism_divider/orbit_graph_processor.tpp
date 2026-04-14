@@ -611,6 +611,5 @@ bool OrbitGraphProcessor<GraphT, ConstrGraphT>::IsMergeViable(
     }
     return true;
 }
-
 }    // namespace osp
 } // namespace npu::tile_fwk

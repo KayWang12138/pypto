@@ -78,7 +78,6 @@ private:
     Scheduler<GraphT> &baseScheduler_;
     ImprovementScheduler<GraphT> &improvementScheduler_;
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_IMPROVEMENT_SCHEDULER_HPP

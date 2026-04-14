@@ -504,7 +504,6 @@ struct KlHyperTotalCommCostFunction {
                              const CostT &penalty, const CostT &reward,
                              const unsigned startStep, const unsigned endStep);
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #include "kl_hyper_total_comm_cost.tpp"

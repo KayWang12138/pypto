@@ -50,7 +50,6 @@ private:
     long unsigned int next_;
     std::vector<bool> sequence_;
 };
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif    // OSP_BALANCED_COIN_FLIPS_H

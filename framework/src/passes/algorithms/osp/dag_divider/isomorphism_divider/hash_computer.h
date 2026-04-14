@@ -75,7 +75,6 @@ public:
      */
     virtual const std::vector<IndexType> &GetOrbitFromHash(const std::size_t &hash) const = 0;
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_HASH_COMPUTER_HPP

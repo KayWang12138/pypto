@@ -494,7 +494,6 @@ private:
     bool allowUseTrimmedScheduler_ = false;
     bool useMaxBsp_ = false;
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 

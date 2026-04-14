@@ -389,7 +389,6 @@ void KlActiveSchedule<GraphT, CostT>::SwapSteps(const unsigned step1, const unsi
     std::swap(setSchedule_.GetProcessorStepVertices()[step1], setSchedule_.GetProcessorStepVertices()[step2]);
     workDatastructures_.SwapSteps(step1, step2);
 }
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_KL_ACTIVE_SCHEDULE_HPP

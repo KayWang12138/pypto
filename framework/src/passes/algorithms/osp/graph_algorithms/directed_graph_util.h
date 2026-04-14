@@ -156,7 +156,6 @@ std::size_t CountWeaklyConnectedComponents(const GraphT &graph)
     std::vector<VertexIdxT<GraphT>> components;
     return ComputeWeaklyConnectedComponents(graph, components);
 }
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_DIRECTED_GRAPH_UTIL_HPP

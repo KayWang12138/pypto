@@ -60,7 +60,6 @@ struct Parameters {
     CommCostType smallWeightThreshold_{std::numeric_limits<CommCostType>::lowest()};
     bool useTopPoset_{true};
 };
-
 }    // namespace sarkar_params
 
 template <typename GraphTIn, typename GraphTOut>
@@ -216,7 +215,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
     auto cmp = [](const std::tuple<long, VertexType, VertexType> &lhs,
-                  const std::tuple<long, VertexType, VertexType> &rhs) {
+                  const std::tuple<long, VertexType, VertexType> &rhs)
+    {
         return (std::get<0>(lhs) > std::get<0>(rhs))
                || ((std::get<0>(lhs) == std::get<0>(rhs)) && (std::get<1>(lhs) < std::get<1>(rhs)))
                || ((std::get<0>(lhs) == std::get<0>(rhs)) && (std::get<1>(lhs) == std::get<1>(rhs))
@@ -495,7 +495,6 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllChildrenContraction(
 
     return counter;
 }
-
 }    // end namespace osp
 }    // namespace npu::tile_fwk
 #include "sarkar.tpp"

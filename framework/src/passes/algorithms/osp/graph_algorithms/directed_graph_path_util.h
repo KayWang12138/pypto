@@ -56,7 +56,6 @@ std::vector<T> GetTopNodeDistance(const GraphT &graph)
     return GetNodeDistanceImpl<T>(graph, [&](auto v) { return graph.Parents(v); },
         [&](auto f) { for (const auto &v : GetTopOrder(graph)) f(v); });
 }
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_DIRECTED_GRAPH_PATH_UTIL_HPP

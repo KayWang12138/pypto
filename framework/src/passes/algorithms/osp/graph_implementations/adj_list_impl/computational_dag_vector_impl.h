@@ -220,7 +220,6 @@ using ComputationalDagVectorImplDefUnsignedT = ComputationalDagVectorImpl<CDagVe
  * @brief Default implementation of a computational DAG using signed integer weights.
  */
 using ComputationalDagVectorImplDefIntT = ComputationalDagVectorImpl<CDagVertexImplInt>;
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_COMPUTATIONAL_DAG_VECTOR_IMPL_HPP

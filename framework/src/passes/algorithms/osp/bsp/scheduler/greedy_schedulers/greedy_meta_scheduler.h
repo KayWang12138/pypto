@@ -85,7 +85,6 @@ public:
         return ReturnStatus::OSP_SUCCESS;
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_GREEDY_META_SCHEDULER_HPP

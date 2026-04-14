@@ -201,9 +201,7 @@ private:
         }
         return chosenProcs;
     }
-
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_SERIAL_HPP

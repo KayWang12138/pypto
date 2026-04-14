@@ -59,7 +59,6 @@ inline constexpr bool isConstructableCdagV = IsConstructableCdagVertex<T>::value
 template <typename T>
 inline constexpr bool isDirectConstructableCdagV
     = std::is_constructible<T, VertexIdxT<T>, std::set<std::pair<VertexIdxT<T>, VertexIdxT<T>>>>::value;
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif // OSP_CONSTRUCTABLE_COMPUTATIONAL_DAG_CONCEPT_HPP

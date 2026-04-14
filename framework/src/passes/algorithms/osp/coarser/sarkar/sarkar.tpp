@@ -15,7 +15,8 @@ namespace npu::tile_fwk {
 namespace osp {
 
 template <typename IntegralType>
-IntegralType IntSqrtFloor(IntegralType num) {
+IntegralType IntSqrtFloor(IntegralType num)
+{
     static_assert(std::is_integral_v<IntegralType>);
     if (num <= 0) {
         return 0;
@@ -42,7 +43,8 @@ IntegralType IntSqrtFloor(IntegralType num) {
 }
 
 template <typename IntegralType>
-std::vector<IntegralType> DivisorsList(IntegralType num) {
+std::vector<IntegralType> DivisorsList(IntegralType num)
+{
     static_assert(std::is_integral_v<IntegralType>);
     if (num == 0) {
         return std::vector<IntegralType>({0});
@@ -69,7 +71,9 @@ std::vector<IntegralType> DivisorsList(IntegralType num) {
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllParentsContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
+    VWorkwT<GraphTIn> commCost, const GraphTIn &graph,
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
 
@@ -87,14 +91,14 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllParentsContraction(
             continue;
         }
 
-        bool shouldSkip = false;               
+        bool shouldSkip = false;
         for (const VertexType &groupHead : graph.Parents(groupFoot)) {
             if (graph.VertexType(groupHead) != graph.VertexType(groupFoot)) {
                 shouldSkip = true;
                 break;
             }
         }
-        
+
         if (shouldSkip) {
             continue;
         }
@@ -155,7 +159,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllParentsContraction(
     std::vector<bool> partitionedFlag(graph.NumVertices(), false);
 
     VertexIdxT<GraphTIn> maxCorseningNum
-        = graph.NumVertices() - static_cast<VertexIdxT<GraphTIn>>(static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
+        = graph.NumVertices()
+            - static_cast<VertexIdxT<GraphTIn>>(
+                static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
 
     VertexIdxT<GraphTIn> counter = 0;
     long minSave = std::numeric_limits<long>::lowest();
@@ -211,43 +217,53 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllParentsContraction(
 }
 
 template <typename GraphTIn, typename GraphTOut>
-std::vector<std::vector<VertexIdxT<GraphTIn>>> Sarkar<GraphTIn, GraphTOut>::GenerateVertexExpansionMap(const GraphTIn &dagIn,
-                                                                                                       VertexIdxT<GraphTIn> &diff) {
+std::vector<std::vector<VertexIdxT<GraphTIn>>>
+Sarkar<GraphTIn, GraphTOut>::GenerateVertexExpansionMap(
+    const GraphTIn &dagIn, VertexIdxT<GraphTIn> &diff)
+{
     std::vector<std::vector<VertexIdxT<GraphTIn>>> expansionMap;
 
     switch (params_.mode_) {
-        case sarkar_params::Mode::LINES: {
+        case sarkar_params::Mode::LINES:
+    {
             diff = SingleContraction(params_.commCost_, dagIn, expansionMap);
         } break;
 
-        case sarkar_params::Mode::FAN_IN_FULL: {
+        case sarkar_params::Mode::FAN_IN_FULL:
+        {
             diff = AllParentsContraction(params_.commCost_, dagIn, expansionMap);
         } break;
 
-        case sarkar_params::Mode::FAN_IN_PARTIAL: {
+        case sarkar_params::Mode::FAN_IN_PARTIAL:
+        {
             diff = SomeParentsContraction(params_.commCost_, dagIn, expansionMap);
         } break;
 
-        case sarkar_params::Mode::FAN_OUT_FULL: {
+        case sarkar_params::Mode::FAN_OUT_FULL:
+        {
             diff = AllChildrenContraction(params_.commCost_, dagIn, expansionMap);
         } break;
 
-        case sarkar_params::Mode::FAN_OUT_PARTIAL: {
+        case sarkar_params::Mode::FAN_OUT_PARTIAL:
+        {
             diff = SomeChildrenContraction(params_.commCost_, dagIn, expansionMap);
         } break;
 
         case sarkar_params::Mode::LEVEL_EVEN:
-        case sarkar_params::Mode::LEVEL_ODD: {
+        case sarkar_params::Mode::LEVEL_ODD:
+        {
             diff = LevelContraction(params_.commCost_, dagIn, expansionMap);
         } break;
 
         case sarkar_params::Mode::FAN_IN_BUFFER:
         case sarkar_params::Mode::FAN_OUT_BUFFER:
-        case sarkar_params::Mode::HOMOGENEOUS_BUFFER: {
+        case sarkar_params::Mode::HOMOGENEOUS_BUFFER:
+        {
             diff = HomogeneousBufferMerge(params_.commCost_, dagIn, expansionMap);
         } break;
 
-        default: {
+        default:
+        {
             diff = 0;
         } break;
     }
@@ -257,14 +273,18 @@ std::vector<std::vector<VertexIdxT<GraphTIn>>> Sarkar<GraphTIn, GraphTOut>::Gene
 }
 
 template <typename GraphTIn, typename GraphTOut>
-std::vector<std::vector<VertexIdxT<GraphTIn>>> Sarkar<GraphTIn, GraphTOut>::GenerateVertexExpansionMap(const GraphTIn &dagIn) {
+std::vector<std::vector<VertexIdxT<GraphTIn>>>
+Sarkar<GraphTIn, GraphTOut>::GenerateVertexExpansionMap(const GraphTIn &dagIn)
+{
     VertexIdxT<GraphTIn> dummy;
     return GenerateVertexExpansionMap(dagIn, dummy);
 }
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
+    VWorkwT<GraphTIn> commCost, const GraphTIn &graph,
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
 
@@ -272,7 +292,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
-    auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs, const std::pair<long, std::vector<VertexType>> &rhs) {
+    auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs,
+                  const std::pair<long, std::vector<VertexType>> &rhs) {
         return (lhs.first > rhs.first) || ((lhs.first == rhs.first) && (lhs.second < rhs.second));
     };
     std::set<std::pair<long, std::vector<VertexType>>, decltype(cmp)> vertPriority(cmp);
@@ -308,7 +329,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
             const VWorkwT<GraphTIn> tDist = topDist[*chldIterStart];
             const VWorkwT<GraphTIn> bDist = botDist[*chldIterStart];
             auto chldIterEnd = chldIterStart;
-            while (chldIterEnd != childrenPriority.cend() && tDist == topDist[*chldIterEnd] && bDist == botDist[*chldIterEnd]) {
+            while (chldIterEnd != childrenPriority.cend()
+                   && tDist == topDist[*chldIterEnd] && bDist == botDist[*chldIterEnd]) {
                 if (graph.VertexType(groupHead) != graph.VertexType(*chldIterEnd)) {
                     break;
                 }
@@ -381,7 +403,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
     std::vector<bool> partitionedHeadFlag(graph.NumVertices(), false);
 
     VertexIdxT<GraphTIn> maxCorseningNum
-        = graph.NumVertices() - static_cast<VertexIdxT<GraphTIn>>(static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
+        = graph.NumVertices()
+            - static_cast<VertexIdxT<GraphTIn>>(
+                static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
 
     VertexIdxT<GraphTIn> counter = 0;
     long minSave = std::numeric_limits<long>::lowest();
@@ -408,7 +432,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
         }
 
         for (const VertexType &chld : graph.Children(groupHead)) {
-            if ((std::find(contractionEnsemble.cbegin(), contractionEnsemble.cend(), chld) == contractionEnsemble.cend())
+            if ((std::find(contractionEnsemble.cbegin(), contractionEnsemble.cend(), chld)
+                    == contractionEnsemble.cend())
                 && (vertexPoset[chld] == vertexPoset[groupHead] + 1)) {
                 if ((partitionedFlag[chld]) && (!partitionedHeadFlag[chld])) {
                     shouldSkip = true;
@@ -442,7 +467,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
+    VWorkwT<GraphTIn> commCost, const GraphTIn &graph,
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
 
@@ -450,7 +477,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
-    auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs, const std::pair<long, std::vector<VertexType>> &rhs) {
+    auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs,
+                  const std::pair<long, std::vector<VertexType>> &rhs) {
         return (lhs.first > rhs.first) || ((lhs.first == rhs.first) && (lhs.second < rhs.second));
     };
     std::set<std::pair<long, std::vector<VertexType>>, decltype(cmp)> vertPriority(cmp);
@@ -477,16 +505,17 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
         std::vector<std::pair<typename std::set<VertexType, decltype(cmpPar)>::const_iterator,
                               typename std::set<VertexType, decltype(cmpPar)>::const_iterator>>
             admissbleParentGroups;
-        for (auto parIterStart = parentsPriority.cbegin(); parIterStart != parentsPriority.cend();) {            
+        for (auto parIterStart = parentsPriority.cbegin(); parIterStart != parentsPriority.cend();) {
             if (graph.VertexType(groupFoot) != graph.VertexType(*parIterStart)) {
                 ++parIterStart;
                 continue;
-            }            
+            }
 
             const VWorkwT<GraphTIn> tDist = topDist[*parIterStart];
             const VWorkwT<GraphTIn> bDist = botDist[*parIterStart];
             auto parIterEnd = parIterStart;
-            while (parIterEnd != parentsPriority.cend() && tDist == topDist[*parIterEnd] && bDist == botDist[*parIterEnd]) {
+            while (parIterEnd != parentsPriority.cend()
+                   && tDist == topDist[*parIterEnd] && bDist == botDist[*parIterEnd]) {
                 if (graph.VertexType(groupFoot) != graph.VertexType(*parIterEnd)) {
                     break;
                 }
@@ -559,7 +588,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
     std::vector<bool> partitionedFootFlag(graph.NumVertices(), false);
 
     VertexIdxT<GraphTIn> maxCorseningNum
-        = graph.NumVertices() - static_cast<VertexIdxT<GraphTIn>>(static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
+        = graph.NumVertices()
+            - static_cast<VertexIdxT<GraphTIn>>(
+                static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
 
     VertexIdxT<GraphTIn> counter = 0;
     long minSave = std::numeric_limits<long>::lowest();
@@ -610,7 +641,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
+    VWorkwT<GraphTIn> commCost, const GraphTIn &graph,
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
 
@@ -619,13 +652,16 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
-    auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs, const std::pair<long, std::vector<VertexType>> &rhs) {
+    auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs,
+                  const std::pair<long, std::vector<VertexType>> &rhs) {
         return (lhs.first > rhs.first) || ((lhs.first == rhs.first) && (lhs.second < rhs.second));
     };
     std::set<std::pair<long, std::vector<VertexType>>, decltype(cmp)> vertPriority(cmp);
 
-    const VertexIdxT<GraphTIn> minLevel = vertexPoset.size() == 0U ? 0U : *std::min_element(vertexPoset.cbegin(), vertexPoset.cend());
-    const VertexIdxT<GraphTIn> maxLevel = vertexPoset.size() == 0U ? 0U : *std::max_element(vertexPoset.cbegin(), vertexPoset.cend());
+    const VertexIdxT<GraphTIn> minLevel = vertexPoset.size() == 0U
+        ? 0U : *std::min_element(vertexPoset.cbegin(), vertexPoset.cend());
+    const VertexIdxT<GraphTIn> maxLevel = vertexPoset.size() == 0U
+        ? 0U : *std::max_element(vertexPoset.cbegin(), vertexPoset.cend());
 
     const VertexIdxT<GraphTIn> parity = params_.mode_ == sarkar_params::Mode::LEVEL_EVEN ? 0 : 1;
 
@@ -716,7 +752,9 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
     std::vector<bool> partitionedFlag(graph.NumVertices(), false);
 
     VertexIdxT<GraphTIn> maxCorseningNum
-        = graph.NumVertices() - static_cast<VertexIdxT<GraphTIn>>(static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
+        = graph.NumVertices()
+            - static_cast<VertexIdxT<GraphTIn>>(
+                static_cast<double>(graph.NumVertices()) * params_.geomDecay_);
 
     VertexIdxT<GraphTIn> counter = 0;
     long minSave = std::numeric_limits<long>::lowest();
@@ -774,9 +812,11 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
 }
 
 template <typename GraphTIn, typename GraphTOut>
-std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::ComputeNodeHashes(const GraphTIn &graph,
-                                                                        const std::vector<VertexIdxT<GraphTIn>> &vertexPoset,
-                                                                        const std::vector<VWorkwT<GraphTIn>> &dist) const {
+std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::ComputeNodeHashes(
+    const GraphTIn &graph,
+    const std::vector<VertexIdxT<GraphTIn>> &vertexPoset,
+    const std::vector<VWorkwT<GraphTIn>> &dist) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
 
     std::vector<std::size_t> hashes(graph.NumVertices());
@@ -794,7 +834,8 @@ std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::ComputeNodeHashes(const Gr
 template <typename GraphTIn, typename GraphTOut>
 std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::HomogeneousMerge(const std::size_t number,
                                                                        const std::size_t minSize,
-                                                                       const std::size_t maxSize) const {
+                                                                       const std::size_t maxSize) const
+{
     std::size_t bestDiv = 1U;
     const std::size_t minSizeAtLeastOne = minSize > 1U ? minSize : 1U;
     const std::size_t maxSizeAtLeastOne = maxSize > 1U ? maxSize : 1U;
@@ -848,7 +889,9 @@ std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::HomogeneousMerge(const std
 
 template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
-    VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
+    VWorkwT<GraphTIn> commCost, const GraphTIn &graph,
+    std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const
+{
     using VertexType = VertexIdxT<GraphTIn>;
     expansionMapOutput.clear();
 
@@ -859,7 +902,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
 
     std::vector<std::size_t> hashValuesCombined(graph.NumVertices(), 1729U);
 
-    if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+    if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER
+        || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
         const std::vector<std::size_t> hashValues = ComputeNodeHashes(graph, vertexTopPoset, topDist);
         std::vector<std::size_t> hashValuesWithParents = hashValues;
         for (const VertexType &par : graph.Vertices()) {
@@ -871,7 +915,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
             HashCombine(hashValuesCombined[vert], hashValuesWithParents[vert]);
         }
     }
-    if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+    if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER
+        || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
         const std::vector<std::size_t> hashValues = ComputeNodeHashes(graph, vertexBotPoset, botDist);
         std::vector<std::size_t> hashValuesWithChildren = hashValues;
         for (const VertexType &chld : graph.Vertices()) {
@@ -918,14 +963,16 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
         }
 
         std::set<VertexType> parents;
-        if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+        if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER
+            || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
             for (const VertexType &par : graph.Parents(vert)) {
                 parents.emplace(par);
             }
         }
 
         std::set<VertexType> children;
-        if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+        if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER
+            || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
             for (const VertexType &chld : graph.Children(vert)) {
                 children.emplace(chld);
             }
@@ -952,7 +999,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
                 continue;
             }
 
-            if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+            if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER
+                || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
                 std::set<VertexType> candidateParents;
                 for (const VertexType &par : graph.Parents(vertCandidate)) {
                     candidateParents.emplace(par);
@@ -962,7 +1010,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
                 }
             }
 
-            if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+            if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER
+                || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
                 std::set<VertexType> candidateChildren;
                 for (const VertexType &chld : graph.Children(vertCandidate)) {
                     candidateChildren.emplace(chld);
@@ -980,12 +1029,14 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
 
         const VWorkwT<GraphTIn> desiredVerticesInGroup = graph.VertexWorkWeight(vert) == 0
                                                              ? std::numeric_limits<VWorkwT<GraphTIn>>::lowest()
-                                                             : params_.smallWeightThreshold_ / graph.VertexWorkWeight(vert);
+                                                             : params_.smallWeightThreshold_
+                                                                   / graph.VertexWorkWeight(vert);
         const VWorkwT<GraphTIn> maxVerticesInGroup = graph.VertexWorkWeight(vert) == 0
                                                          ? std::numeric_limits<VWorkwT<GraphTIn>>::max()
                                                          : params_.maxWeight_ / graph.VertexWorkWeight(vert);
 
-        const std::size_t minDesiredSize = desiredVerticesInGroup < 2 ? 2U : static_cast<std::size_t>(desiredVerticesInGroup);
+        const std::size_t minDesiredSize
+            = desiredVerticesInGroup < 2 ? 2U : static_cast<std::size_t>(desiredVerticesInGroup);
         const std::size_t maxDesiredSize
             = std::max(minDesiredSize, std::min(minDesiredSize * 2U, static_cast<std::size_t>(maxVerticesInGroup)));
 
@@ -1014,7 +1065,6 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
 
     return counter;
 }
-
 }    // end namespace osp
 }    // namespace npu::tile_fwk
 #endif // PASS_OSP_SARKAR_TPP

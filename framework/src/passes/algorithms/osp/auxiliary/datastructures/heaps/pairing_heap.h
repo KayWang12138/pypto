@@ -461,7 +461,6 @@ private:
  */
 template <typename Key, typename Value>
 using MaxPairingHeap = PairingHeap<Key, Value, std::greater<Value>>;
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_PAIRING_HEAP_H

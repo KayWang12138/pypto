@@ -369,7 +369,6 @@ struct VertexSelectionStrategy {
         }
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_KL_UTIL_HPP

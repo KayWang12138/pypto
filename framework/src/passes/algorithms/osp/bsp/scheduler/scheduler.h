@@ -52,9 +52,7 @@ public:
      *         ReturnStatus::OSP_ERROR if an error occurred, or other status codes as appropriate.
      */
     virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) = 0;
-
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_SCHEDULER_HPP

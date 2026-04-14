@@ -63,7 +63,6 @@ using CDagVertexImplInt = CDagVertexImpl<std::size_t, int, int, int, unsigned>;
  * @brief A vertex implementation with unsigned weights. Indexed by std::size_t. Node types are unsigned.
  */
 using CDagVertexImplUnsigned = CDagVertexImpl<std::size_t, unsigned, unsigned, unsigned, unsigned>;
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_CDAG_VERTEX_IMPL_HPP

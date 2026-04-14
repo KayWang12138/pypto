@@ -64,7 +64,6 @@ public:
                 }
             }
         }
-
     }
 
     /**
@@ -87,7 +86,6 @@ public:
         return CompatibleProcessorsType(instance_->GetComputationalDag().VertexType(vertex));
     }
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_COMPATIBLE_PROCESSOR_RANGE_H

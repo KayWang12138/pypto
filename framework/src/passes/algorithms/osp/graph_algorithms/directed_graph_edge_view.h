@@ -39,8 +39,8 @@ public:
         using iterator_category = std::forward_iterator_tag;
         using difference_type = std::ptrdiff_t;
         using value_type = DirectedEdge<GraphT>;
-        using pointer = value_type *;
         using reference = value_type &;
+        using pointer = value_type *;
 
         struct ArrowProxy {
             value_type value_;
@@ -316,7 +316,6 @@ using OutEdgeView = IncidentEdgeView<GraphT, true>;
  */
 template <typename GraphT>
 using InEdgeView = IncidentEdgeView<GraphT, false>;
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_DIRECTED_GRAPH_EDGE_VIEW_HPP

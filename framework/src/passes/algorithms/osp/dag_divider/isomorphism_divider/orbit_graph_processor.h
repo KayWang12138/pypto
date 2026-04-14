@@ -230,7 +230,6 @@ private:
                        const Group &groupV,
                        std::vector<std::vector<VertexType>> &outNewSubgraphs) const;
 };
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 

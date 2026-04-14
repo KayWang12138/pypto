@@ -316,9 +316,7 @@ private:
      * @note The outer vector is indexed by node type, the inner vector is indexed by processor type.
      */
     std::vector<std::vector<bool>> nodeProcessorCompatibility_ = std::vector<std::vector<bool>>({{true}});
-
 };
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif // OSP_BSP_INSTANCE_H

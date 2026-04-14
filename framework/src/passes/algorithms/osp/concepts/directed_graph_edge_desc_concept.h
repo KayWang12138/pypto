@@ -70,7 +70,6 @@ inline InEdgeView<GraphT> InEdges(VertexIdxT<GraphT> v, const GraphT &graph)
 {
     return InEdgeView<GraphT>(graph, v);
 }
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif // OSP_DIRECTED_GRAPH_EDGE_DESC_CONCEPT_HPP
