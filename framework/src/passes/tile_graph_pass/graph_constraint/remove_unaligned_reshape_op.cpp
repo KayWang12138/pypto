@@ -23,6 +23,20 @@
 
 namespace npu::tile_fwk {
 namespace {
+bool IsRawLastDimUnaligned(const LogicalTensorPtr& tensor)
+{
+    if (tensor == nullptr || tensor->tensor == nullptr || tensor->shape.empty()) {
+        return false;
+    }
+    auto lastIdx = tensor->shape.size() - 1;
+    const auto& oriRawShape = tensor->tensor->oriRawshape;
+    const auto& rawShape = tensor->tensor->rawshape;
+    if (oriRawShape.size() != tensor->shape.size() || rawShape.size() != tensor->shape.size()) {
+        return false;
+    }
+    return oriRawShape[lastIdx] != rawShape[lastIdx];
+}
+
 bool NeedPadLastDim(const LogicalTensorPtr& tensor)
 {
     if (tensor == nullptr || tensor->tensor == nullptr || tensor->shape.empty()) {
@@ -119,7 +133,7 @@ bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
         if (i < inputAxis.size() && inputAxis[i]) {
             continue;
         }
-        if (NeedPadLastDim(op.GetIOperands()[i])) {
+        if (IsRawLastDimUnaligned(op.GetIOperands()[i]) || NeedPadLastDim(op.GetIOperands()[i])) {
             return true;
         }
     }
@@ -127,7 +141,7 @@ bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
         if (i < outputAxis.size() && outputAxis[i]) {
             continue;
         }
-        if (NeedPadLastDim(op.GetOOperands()[i])) {
+        if (IsRawLastDimUnaligned(op.GetOOperands()[i]) || NeedPadLastDim(op.GetOOperands()[i])) {
             return true;
         }
     }
