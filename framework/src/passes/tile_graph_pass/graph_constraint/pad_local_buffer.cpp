@@ -801,6 +801,10 @@ bool PadLocalBuffer::DoElementwiseLikePadding(
 void PadLocalBuffer::PadVectorForAxisCombine(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
 {
+    if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
+        PadMatmul(op, in);
+        return;
+    }
     if (in->shape.empty()) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "Vector Op %d %s input %d shape size is less than 2; Please check the input size. %s",
