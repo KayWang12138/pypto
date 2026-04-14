@@ -39,6 +39,8 @@ private:
                                           const LogicalTensorPtr &output) const;
     void AssignMoveOpForAssemble(Operation& operation);
     void AssignMoveOpForView(Operation& operation);
+    void ProcessSingleViewInput(Operation& operation, ViewOpAttribute* viewOpAttribute,
+                                const LogicalTensorPtr& tensor, MemoryType toType, bool unaligned);
     void RunOnOperation(Operation& operation);
     void AssignMemUnknown(Function& function);
     void ProcessAmulBInput(Operation& operation, LogicalTensorPtr& tensor);
