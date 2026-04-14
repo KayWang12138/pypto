@@ -41,10 +41,23 @@ public:
     explicit L1CopyInReuseRunner(const std::vector<std::vector<int>>& inGraph1) : inGraph_(inGraph1) {}
     ~L1CopyInReuseRunner() {}
     Status Run(Function& func, int color, std::vector<std::vector<int>>& colorNode);
+    // 重置全局 hashOrder 计数器（用于测试）
+    static void ResetGlobalHashOrderCounters()
+    {
+        globalL1ReuseHashOrder_ = 0;
+        globalCubeMergeHashOrder_ = 0;
+    }
+    // 静态工具函数，可被外部调用
+    static bool CanReuse(const Operation& op);
+    static int GetModeBySetting(const std::map<int64_t, int64_t>& setting);
+    static std::vector<int> GetCopyIn(
+        const OperationsViewer& opOriList, int color, std::vector<std::vector<int>>& colorNode);
+    static void GetOriList(Function& func, std::vector<Operation*>& oriList);
 
 private:
     void GetOpHash(std::vector<uint64_t>& hashList, const std::string op, int idx);
-    void GetColorHash(const OperationsViewer& opOriList, std::vector<uint64_t>& hashColor);
+    void GetColorHash(const OperationsViewer& opOriList, std::vector<uint64_t>& hashColor,
+                      const std::vector<std::vector<int>>& colorNode);
     int GetMaxInColor(const std::vector<int>& nodes, const OperationsViewer& opOriList, int curColor);
     Status MergeDupL1CopyIn(Function& func, std::vector<std::vector<int>>& colorNode, int color);
     void MergeProcessIdUpdate(Function& func, std::vector<std::vector<int>>& colorNode, int color);
@@ -58,7 +71,7 @@ private:
         Function& func, int color, std::vector<std::vector<int>>& colorNode, std::vector<int>& colorCopyIn,
         std::vector<uint64_t>& hashColor);
     void GetL1ReuseOpOrder(
-        std::vector<std::pair<int, int>>& opOrder, std::map<uint64_t, int>& mgRem, std::vector<int>& numLRList,
+        std::vector<std::pair<int, int>>& opOrder, std::map<uint64_t, int>& mgRem, std::map<int, int>& numLRMap,
         std::vector<uint64_t>& hashColor, int color);
     bool GetMergedL1(
         int maxInColor, std::vector<int>& mergedNum, int maxMergeNum, int& tmpColor, int i,
@@ -69,10 +82,12 @@ private:
         std::vector<int>& colorCopyIn, std::map<std::vector<uint64_t>, int>& l1InputList, int& tmpColor,
         std::vector<int>& mergedNum, int& i);
     void CubeMergeProcess(
-        std::vector<std::vector<int>>& colorNode, OperationsViewer& opOriList, std::vector<int>& hashMergeNum,
+        std::vector<std::vector<int>>& colorNode, OperationsViewer& opOriList, std::map<int, int>& hashMergeNumMap,
         std::vector<int>& colorCopyIn);
-    Status SetNumLR(std::vector<int>& numLRList);
-    Status SetNumDB(std::vector<int>& numDBList);
+    Status SetNumLR(std::map<int, int>& numLRMapResult);
+    Status SetNumDB(std::map<int, int>& numDBMapResult);
+    void HashUpdate(int color, const std::vector<uint64_t>& hashColor, OperationsViewer& opOriList,
+                    std::vector<std::vector<int>>& colorNode);
     const std::vector<std::vector<int>>& inGraph_;
     std::unordered_map<int, int> replacedCopyMap_;
     std::unordered_map<int, int> tensormagic2Op_;
@@ -83,6 +98,8 @@ private:
     int mgCopyInUpperBound_;
     int L1ReuseMode_;
     int cubeNBufferMode_;
+    static int globalL1ReuseHashOrder_;      // L1复用阶段全局计数器
+    static int globalCubeMergeHashOrder_;    // Cube合并阶段全局计数器
 };
 
 class L1CopyInReuseMerge : public Pass {
