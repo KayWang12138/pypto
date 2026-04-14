@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <vector>
 #include "tilefwk/aikernel_data.h"
+#include "tilefwk/tilefwk_op.h"
 #include "machine/utils/dynamic/dev_encode_types.h"
 #include "tileop/distributed/comm_context.h"
 
@@ -34,6 +35,7 @@ constexpr uint64_t SHMEM_DIM_COL = 2;
 constexpr uint64_t ATTR_STRIDE_OFFSET = 1;
 constexpr uint64_t ATTR_TILEROW_OFFSET = 3;
 constexpr uint64_t ATTR_TILECOL_OFFSET = 4;
+constexpr uint64_t ATTR_CMPTYPE_OFFSET = 5;
 
 struct TensorInfo {
     uint64_t rawAddr{0};
@@ -42,6 +44,7 @@ struct TensorInfo {
     uint64_t vaddr{0};
     int32_t expectedSum{0};
     int32_t signalStride{0};
+    int32_t cmpType{static_cast<int32_t>(OpType::EQ)};
     bool resetSignal{false};
     std::vector<uint32_t> offset;
     std::vector<uint32_t> shape;

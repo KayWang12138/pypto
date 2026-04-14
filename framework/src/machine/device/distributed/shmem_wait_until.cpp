@@ -38,7 +38,9 @@ inline bool SignalTileOp::PollCompleted() const
     if constexpr (!npu::tile_fwk::dynamic::IsDeviceMode()) {
         return true;
     }
-    if (addr_[0] != expectedSum_) {
+    const int32_t signalValue = addr_[0];
+    const bool isGeCmp = (cmpType_ == static_cast<int32_t>(OpType::GE));
+    if ((isGeCmp && signalValue < expectedSum_) || (!isGeCmp && signalValue != expectedSum_)) {
         return false;
     }
     if (resetSignal_) {
@@ -78,6 +80,7 @@ TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
     info.signalStride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
+    info.cmpType = aicpuCode[paramInfo_.attrIndex + ATTR_CMPTYPE_OFFSET];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
     info.vaddr = funcData.rawTensorAddr[desc->offsetOrIndex];

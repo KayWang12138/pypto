@@ -114,8 +114,6 @@ void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor
             Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
         }
     }
-    Tensor clearDep = out;
-    (void)ShmemClearSignal(v10ShmemTensor, clearDep);
 }
 
 // OneShotAllReduce_v10_pipe_ge: SHMEM-only, chunked, pipelined GE variant.
@@ -139,7 +137,7 @@ void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, Shm
     ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {row, col});
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
     ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
         << "payloadChunkCount must be <= row dimension (" << row << ")";
@@ -177,8 +175,6 @@ void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, Shm
             Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
         }
     }
-    Tensor clearDep = out;
-    (void)ShmemClearSignal(v10ShmemTensor, clearDep);
 }
 
 void ValidateGroup(const char* group)
@@ -723,7 +719,7 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& sh
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     int32_t rowPerRank = row / worldSize;
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {worldSize, rowPerRank, col});
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {rowPerRank, col});
     ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
         auto shmemDataTile = ShmemView(shmemTensor, {rowPerRank, col}, std::vector<SymbolicScalar>{0, 0});
