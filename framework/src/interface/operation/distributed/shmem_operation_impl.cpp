@@ -137,7 +137,7 @@ void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, Shm
     ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {1, row, col});
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {row, col});
     ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
         << "payloadChunkCount must be <= row dimension (" << row << ")";
