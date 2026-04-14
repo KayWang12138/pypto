@@ -26,6 +26,7 @@
 #include "machine/utils/device_log.h"
 #include "machine/utils/barrier.h"
 #include "machine/device/dynamic/aicore_prof.h"
+#include "device_trace.h"
 #ifdef __DEVICE__
 #include "log_types.h"
 #endif
@@ -258,6 +259,7 @@ public:
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
         DEV_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
+        TRACE_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
         devStartArgs->devTensorList = inputPtr;
         devStartArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devStartArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
@@ -292,6 +294,7 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs* args)
     {
         DEV_INFO("start control flow.");
+        TRACE_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
@@ -311,9 +314,11 @@ public:
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);
         if (ret != DEVICE_MACHINE_OK) {
+            DeviceTrace::GetInstance().ReportTraceMsg();
             return ret;
         }
         DEV_INFO("end control flow.");
+        TRACE_INFO("end control flow.");
         PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
@@ -359,7 +364,9 @@ public:
                 kargs->workspace, kargs->cfgdata);
             return -1;
         }
+        TRACE_INFO("Start to init devprog");
         InitDyn(kargs);
+        TRACE_INFO("Finish init devprog");
         PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
         return 0;
     }

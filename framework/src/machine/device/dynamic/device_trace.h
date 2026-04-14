@@ -31,16 +31,42 @@
 #include <mutex>
 #include <string>
 #include <cstdint>
+#include "machine/utils/device_log.h"
+#include "machine/utils/machine_error.h"
+
+#define MAX_MSG_LEN 112
+#define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+static void TraceInfo(const char* fmt, ...)
+{
+    char traceBuf[MAX_MSG_LEN] = {0};
+
+    auto ret = snprintf_s(traceBuf, MAX_MSG_LEN, MAX_MSG_LEN - 1, fmt);
+    if (ret != 0) {
+        DEV_WARN("Trace info is not success");
+        return;
+    }
+    npu::tile_fwk::dynamic::DeviceTrace::GetInstance().SubmitTraceMsg(traceBuf);
+}
+
+// 上层包装：自动带入 文件名、行号、函数名
+#define TRACE_INFO(fmt, ...) \
+    TraceInfo("[%s:%d] %s: " fmt, FILENAME, __LINE__, __func__, ##__VA_ARGS__) \
+
+// #define TRACE_INFO(fmt, ...)            \
+// do {                                    \
+//     char traceBuf[MAX_MSG_LEN] = {0};          \
+//     snprintf_s(traceBuf, MAX_MSG_LEN, MAX_MSG_LEN - 1, "[%s:%d] %s: " fmt, \
+//              FILENAME, __LINE__, __func__, ##__VA_ARGS__);                       \
+//     npu::tile_fwk::dynamic::DeviceTrace::GetInstance().SubmitTraceMsg(traceBuf); \
+// } while(0)                                                                       \
+
 #ifdef __DEVICE__
 #include "trace/atrace_types.h"
 #include "trace/atrace_pub.h"
 
-#include "machine/utils/device_log.h"
-#include "machine/utils/machine_error.h"
-
 namespace npu::tile_fwk::dynamic {
 
-enum class TraceError : uint32_t {
+enum class TraceError : uint32_tDEVICE_MACHINE_OK
     PYPTO_TRACE_SUCCESS = 0,
     LOAD_LIBRARY_FAILED = 1,
     SYMBOL_NOT_FOUND = 2,
@@ -192,7 +218,20 @@ private:
      */
     void* GetSymbol(const std::string& symbolName);
 };
-
+}
+#else
+namespace npu::tile_fwk::dynamic {
+class DeviceTrace {
+public:
+    static DeviceTrace& GetInstance() {
+        static DeviceTrace deviceTrace;
+        return deviceTrace;
+    }
+    void SubmitTraceMsg(const std::string &traceMsg) {
+        DEV_INFO("Trace submit msg: %s", traceMsg.c_str());
+    }
+    void ReportTraceMsg() {}
+};
 } // namespace npu::tile_fwk::dynamic
 #endif
 #endif // DEVICE_TRACE_H
