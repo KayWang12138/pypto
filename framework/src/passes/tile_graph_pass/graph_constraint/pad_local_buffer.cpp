@@ -275,7 +275,18 @@ void PadLocalBuffer::PadVector256(Operation& op, LogicalTensorPtr& in, bool need
 void PadLocalBuffer::PadVector(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw, bool noPadding)
 {
-    if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
+    bool isUb2L1Copy = false;
+    if (!op.iOperand.empty() && !op.oOperand.empty()) {
+        auto inputMemType = op.iOperand[0]->GetMemoryTypeOriginal();
+        auto outputMemType = op.oOperand[0]->GetMemoryTypeOriginal();
+        isUb2L1Copy = (inputMemType == MemoryType::MEM_UB && outputMemType == MemoryType::MEM_L1);
+    }
+    if (isUb2L1Copy) {
+        if (op.GetOpcode() != Opcode::OP_UB_COPY_L1) {
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "UB to L1 copy operation expected OP_UB_COPY_L1, but got %s. %s",
+                op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+        }
         PadMatmul(op, in);
         return;
     }
