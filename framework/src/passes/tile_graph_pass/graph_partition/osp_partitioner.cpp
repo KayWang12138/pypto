@@ -31,9 +31,12 @@ Status OspPartitioner::BuildSuperNodeGraph()
 {
     std::vector<Operation*> &opList = operationInfo_->opList_;
     if (opList.size() != operationInfo_->inGraph_.size() || opList.size() != operationInfo_->outGraph_.size()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Osp: Operation inGraph and outGraph have not been initialized.\n"
-                          "Operation list size (%zu) does not match with Operation In- and Out-Graph size (%zu, respectively %zu).",
-                          opList.size(), operationInfo_->inGraph_.size(), operationInfo_->outGraph_.size());
+        APASS_LOG_ERROR_F(Elements::Function,
+            "Osp: Operation inGraph and outGraph have not been initialized.\n"
+            "Operation list size (%zu) does not match with Operation "
+            "In- and Out-Graph size (%zu, respectively %zu).",
+            opList.size(), operationInfo_->inGraph_.size(),
+            operationInfo_->outGraph_.size());
         return FAILED;
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
@@ -68,7 +71,7 @@ Status OspPartitioner::PartitionGraph(Function &function)
     if (BuildSuperNodeGraph() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in building SuperNode graph.");
         return FAILED;
-    }    
+    }
     if (ospMode_ == OspMode::MERKLEBSP) {
         BuildHashValues();
     }
@@ -85,11 +88,9 @@ Status OspPartitioner::RunOspPartition(Function &function)
     std::vector<VertType> vertexContractionMap;
     CoarseGraphType coarseGraph;
 
-    switch (ospMode_)
-    {
+    switch (ospMode_) {
         case OspMode::SARKAR:
-        default:
-        {
+        default: {
             GraphType graph;
             if (ConstructDag(graph) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph.");
@@ -98,9 +99,7 @@ Status OspPartitioner::RunOspPartition(Function &function)
             status = RunSarkar(graph, coarseGraph, vertexContractionMap);
         }
         break;
-
-        case OspMode::MERKLEBSP:
-        {
+        case OspMode::MERKLEBSP: {
             osp::BspInstance<GraphType> bspInstance;
             if (ConstructBspInstance(bspInstance) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate a bsp instance.");
@@ -108,7 +107,7 @@ Status OspPartitioner::RunOspPartition(Function &function)
             }
             status = RunMerkleBsp(bspInstance, vertexContractionMap);
         }
-        break;       
+        break;
     }
 
     if (status == FAILED) {
@@ -123,7 +122,8 @@ Status OspPartitioner::RunOspPartition(Function &function)
     return status;
 }
 
-Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph, std::vector<VertType> &vertexContractionMap)
+Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph,
+                                 std::vector<VertType> &vertexContractionMap)
 {
     osp::sarkar_params::MulParameters<WorkType> params;
     params.seed_ = 1729U;
@@ -131,7 +131,7 @@ Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarse
     params.leniency_ = 0.005;
     params.commCostVec_ = std::vector<WorkType>({1, 2, 5, 10, 20, 50, 100, 200, 500, 1000});
     params.maxWeight_ = archParameters_.partitionWorkUpperBound_;
-    params.smallWeightThreshold_ = archParameters_.partitionWorkLowerBound_; 
+    params.smallWeightThreshold_ = archParameters_.partitionWorkLowerBound_;
     params.maxNumIterationWithoutChanges_ = 3U;
     params.bufferMergeMode_ = osp::sarkar_params::BufferMergeMode::FULL;
 
@@ -147,14 +147,16 @@ Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarse
     return SUCCESS;
 }
 
-Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<VertType> &vertexContractionMap) {
+Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst,
+                                    std::vector<VertType> &vertexContractionMap)
+{
     osp::GrowLocalAutoCores<ConstrGraphType> growlocal;
     osp::GreedyChildren<ConstrGraphType> children;
-        
+
     osp::KlImprover<ConstrGraphType, osp::KlHyperTotalCommCostFunction<ConstrGraphType, double, 1>, 1, double> kl;
     kl.SetSuperstepRemoveStrengthParameter(1.0);
     kl.SetTimeQualityParameter(1.0);
-    
+
     osp::ComboScheduler<ConstrGraphType> growlocalKl(growlocal, kl);
     osp::ComboScheduler<ConstrGraphType> childrenKl(children, kl);
 
@@ -166,16 +168,18 @@ Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, 
     scheduler.AddScheduler(childrenKl);
     scheduler.AddSerialScheduler();
 
-    osp::MerkleHashComputer<GraphType, osp::PrecomBwdMerkleNodeHashFunc<GraphType>> hashComputer(bspInst.GetComputationalDag(), bspInst.GetComputationalDag(), this->superNodeInfo_->nodeHashList_);
+    osp::MerkleHashComputer<GraphType, osp::PrecomBwdMerkleNodeHashFunc<GraphType>>
+        hashComputer(bspInst.GetComputationalDag(), bspInst.GetComputationalDag(),
+                     this->superNodeInfo_->nodeHashList_);
     osp::IsomorphicSubgraphScheduler<GraphType, ConstrGraphType> isoScheduler(scheduler, hashComputer);
     isoScheduler.SetMergeDifferentTypes(useCVMixPartition_);
     isoScheduler.SetWorkThreshold(200);
     isoScheduler.SetCriticalPathThreshold(500);
-    vertexContractionMap = isoScheduler.ComputePartition(bspInst);  
+    vertexContractionMap = isoScheduler.ComputePartition(bspInst);
     return SUCCESS;
 }
 
-Status OspPartitioner::UpdatePartitionResult(Function &function, std::vector<VertType> &vertexContractionMap) 
+Status OspPartitioner::UpdatePartitionResult(Function &function, std::vector<VertType> &vertexContractionMap)
 {
     int32_t numColors = 0;
     for (size_t i = 0; i < vertexContractionMap.size(); ++i) {
@@ -194,7 +198,7 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
 {
     std::set<int32_t> operandsInChildSupernodes;
     const auto &children = superNodeInfo_->nodeOutGraphList_[vertex];
-    for (const auto &child : children) {       
+    for (const auto &child : children) {
         const auto &childOperators = superNodeInfo_->node2Op_[child];
 
         for (const auto &op : childOperators) {
@@ -202,7 +206,7 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
         }
     }
 
-    const auto &operators = superNodeInfo_->node2Op_[vertex]; 
+    const auto &operators = superNodeInfo_->node2Op_[vertex];
     WorkType commWeight = 10;
     WorkType memWeight = 10;
 
@@ -222,7 +226,7 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
                 if (operationInfo_->magic2Idx_.count(consumer->GetOpMagic()) == 0) {
                     continue;
                 }
-                
+
                 int32_t operationIdx = operationInfo_->magic2Idx_[consumer->GetOpMagic()];
                 if (operandsInChildSupernodes.find(operationIdx) == operandsInChildSupernodes.end()) {
                     continue;
@@ -244,7 +248,9 @@ OspPartitioner::VTypeType OspPartitioner::GetOspCoreTypeSplit(OpCoreType coreTyp
     if (it != ospCoreTypeMapSplit.end()) {
         return it->second;
     }
-    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapSplit.", static_cast<int>(coreType));
+    APASS_LOG_ERROR_F(Elements::Operation,
+        "OpCoreType (%d) not found in ospCoreTypeMapSplit.",
+        static_cast<int>(coreType));
     return 0U;
 }
 
@@ -254,21 +260,26 @@ OspPartitioner::VTypeType OspPartitioner::GetOspCoreTypeMix(OpCoreType coreType)
     if (it != ospCoreTypeMapMix.end()) {
         return it->second;
     }
-    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapMix.", static_cast<int>(coreType));
+    APASS_LOG_ERROR_F(Elements::Operation,
+        "OpCoreType (%d) not found in ospCoreTypeMapMix.",
+        static_cast<int>(coreType));
     return 0U;
 }
 
 Status OspPartitioner::ConstructDagCVSplit(GraphType &graph)
-{    
+{
     if (ConstructDagCVMix(graph) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Construct CV Mixed Dag has failed.");
         return FAILED;
     }
-    
+
     for (const auto &superNode : graph.Vertices()) {
         const OpCoreType vertexType = superNodeInfo_->nodeCoreType_[superNode];
         if (vertexType != OpCoreType::AIC && vertexType != OpCoreType::AIV && vertexType != OpCoreType::AICPU) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SuperNode (%d) has core type (%d) which is neither cube nor vector nor ai-scalar.", static_cast<int>(superNode), static_cast<int>(vertexType));
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "SuperNode (%d) has core type (%d) which is neither cube"
+                " nor vector nor ai-scalar.",
+                static_cast<int>(superNode), static_cast<int>(vertexType));
             return FAILED;
         }
         graph.SetVertexType(superNode, GetOspCoreTypeSplit(vertexType));
@@ -278,16 +289,19 @@ Status OspPartitioner::ConstructDagCVSplit(GraphType &graph)
 }
 
 Status OspPartitioner::ConstructDagCVMix(GraphType &graph)
-{    
+{
     graph = GraphType(superNodeInfo_->nodeOutGraphList_, superNodeInfo_->nodeInGraphList_);
-    
+
     for (const auto &superNode : graph.Vertices()) {
-        graph.SetVertexWorkWeight(superNode, superNodeInfo_->nodeCycles_[superNode]); 
+        graph.SetVertexWorkWeight(superNode, superNodeInfo_->nodeCycles_[superNode]);
         SetVertexCommMemWeight(graph, superNode);
 
         OpCoreType vertexType = superNodeInfo_->nodeCoreType_[superNode];
         if (vertexType != OpCoreType::AIC && vertexType != OpCoreType::AIV && vertexType != OpCoreType::AICPU) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SuperNode (%d) has core type (%d) which is neither cube nor vector nor ai-scalar.", static_cast<int>(superNode), static_cast<int>(vertexType));
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "SuperNode (%d) has core type (%d) which is neither cube"
+                " nor vector nor ai-scalar.",
+                static_cast<int>(superNode), static_cast<int>(vertexType));
             return FAILED;
         }
         graph.SetVertexType(superNode, GetOspCoreTypeMix(vertexType));
@@ -305,17 +319,19 @@ void OspPartitioner::ConstructBspArchCVSplit(osp::BspArchitecture<GraphType> &bs
     const size_t numCores = numCubeCores + numVectorCores + numAiScalarCores;
     std::vector<VTypeType> procTypes(numCores);
     std::vector<WorkType> procMemoryBound(numCores);
-    
+
     for (size_t i = 0; i < numCores; i++) {
         if (i < numCubeCores) { // Cube Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AIC);
-            procMemoryBound[i] = static_cast<WorkType>( Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1) );
+            procMemoryBound[i] = static_cast<WorkType>(
+                Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1));
         } else if (i < numCubeCores + numVectorCores) { // Vector Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AIV);
-            procMemoryBound[i] = static_cast<WorkType>( Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB) );
+            procMemoryBound[i] = static_cast<WorkType>(
+                Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB));
         } else { // AI Scalar Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AICPU);
-            procMemoryBound[i] = std::numeric_limits< WorkType >::max();
+            procMemoryBound[i] = std::numeric_limits<WorkType>::max();
         }
     }
     bspArch.SetProcessorsWithTypes(procTypes);
@@ -341,19 +357,22 @@ Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bs
     std::vector<VTypeType> procTypes(numCores);
     std::vector<WorkType> procMemoryBound(numCores);
 
-    const size_t cubeVecMemoryBound = ((numCubeCores != 0U ? 1U : 0U)) * Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1)
-                                    + (numVecPerCube * Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB));
+    const size_t cubeVecMemoryBound =
+        ((numCubeCores != 0U ? 1U : 0U))
+            * Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1)
+        + (numVecPerCube
+            * Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB));
 
     for (size_t i = 0; i < numCores; i++) {
         if (i < numCubeCores) { // Cube Vector Core Mix
             procTypes[i] = GetOspCoreTypeMix(OpCoreType::AIC);
-            procMemoryBound[i] = static_cast<WorkType>( cubeVecMemoryBound );
+            procMemoryBound[i] = static_cast<WorkType>(cubeVecMemoryBound);
         } else { // AI Scalar Cores
             procTypes[i] = GetOspCoreTypeMix(OpCoreType::AICPU);
-            procMemoryBound[i] = std::numeric_limits< WorkType >::max();
+            procMemoryBound[i] = std::numeric_limits<WorkType>::max();
         }
     }
-    
+
     bspArch.SetProcessorsWithTypes(procTypes);
     bspArch.SetMemoryBound(procMemoryBound);
     bspArch.SetCommunicationCosts(archParameters_.commCost_);
@@ -365,7 +384,7 @@ Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bs
 Status OspPartitioner::ConstructDag(GraphType &graph)
 {
     if (useCVMixPartition_) {
-        if(ConstructDagCVMix(graph) != SUCCESS) {
+        if (ConstructDagCVMix(graph) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph with CV mix.");
             return FAILED;
         }
@@ -385,7 +404,7 @@ Status OspPartitioner::ConstructBspInstance(osp::BspInstance<GraphType> &bspInst
             APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate bsp architecture with CV mix.");
             return FAILED;
         }
-        if(ConstructDagCVMix(bspInst.GetComputationalDag()) != SUCCESS) {
+        if (ConstructDagCVMix(bspInst.GetComputationalDag()) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph with CV mix.");
             return FAILED;
         }
@@ -396,7 +415,8 @@ Status OspPartitioner::ConstructBspInstance(osp::BspInstance<GraphType> &bspInst
             return FAILED;
         }
     }
-    unsigned numTypes = std::max(bspInst.GetArchitecture().GetNumberOfProcessorTypes(), static_cast<unsigned>( bspInst.GetComputationalDag().NumVertexTypes()));
+    unsigned numTypes = std::max(bspInst.GetArchitecture().GetNumberOfProcessorTypes(),
+        static_cast<unsigned>(bspInst.GetComputationalDag().NumVertexTypes()));
     bspInst.SetDiagonalCompatibilityMatrix(numTypes);
     return SUCCESS;
 }
@@ -412,8 +432,9 @@ uint64_t OspPartitioner::CombineHash(const uint64_t h1, const uint64_t h2) const
     return seed;
 }
 
-uint64_t OspPartitioner::CombineNeighborHashes(uint64_t baseHash, const std::vector<int32_t> &neighbors,
-                                                const std::vector<uint64_t> &hashSource)
+uint64_t OspPartitioner::CombineNeighborHashes(
+    uint64_t baseHash, const std::vector<int32_t> &neighbors,
+    const std::vector<uint64_t> &hashSource)
 {
     std::vector<uint64_t> hashes;
     for (int32_t j : neighbors) {
@@ -452,7 +473,8 @@ Status OspPartitioner::BuildHashValues()
         opHashListFront[i] = CombineNeighborHashes(operationInfo_->opHashList_[i], inNeighbors, opHashListFront);
     }
     for (int32_t i = static_cast<int32_t>(numOps - 1); i >= 0; i--) {
-        const std::vector<int32_t> outNeighbors(operationInfo_->outGraph_[i].begin(), operationInfo_->outGraph_[i].end());
+        const std::vector<int32_t> outNeighbors(
+            operationInfo_->outGraph_[i].begin(), operationInfo_->outGraph_[i].end());
         opHashListBack[i] = CombineNeighborHashes(opHashListBack[i], outNeighbors, opHashListBack);
     }
 
@@ -465,17 +487,22 @@ Status OspPartitioner::BuildHashValues()
     return SUCCESS;
 }
 
-Status OspPartitioner::SetParameter(const Function &function) {
+Status OspPartitioner::SetParameter(const Function &function)
+{
     const auto pgUpperBound = function.paramConfigs_.sgPgUpperBound;
     if (pgUpperBound < 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "Illegal pgUpperBound: %d; Parameter pgUpperBound must be non-negative.", pgUpperBound);
+        APASS_LOG_ERROR_F(Elements::Config,
+            "Illegal pgUpperBound: %d; Parameter pgUpperBound must be non-negative.",
+            pgUpperBound);
         return FAILED;
     }
     archParameters_.partitionWorkUpperBound_ = pgUpperBound;
 
     const auto pgLowerBound = function.paramConfigs_.sgPgLowerBound;
     if (pgLowerBound < 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "Illegal pgLowerBound: %d; Parameter pgLowerBound must be non-negative.", pgLowerBound);
+        APASS_LOG_ERROR_F(Elements::Config,
+            "Illegal pgLowerBound: %d; Parameter pgLowerBound must be non-negative.",
+            pgLowerBound);
         return FAILED;
     }
     archParameters_.partitionWorkLowerBound_ = pgLowerBound;

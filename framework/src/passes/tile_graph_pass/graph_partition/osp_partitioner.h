@@ -44,7 +44,7 @@ struct ArchParameters {
 };
 
 enum class OspMode {
-    SARKAR      = 1, 
+    SARKAR      = 1,
     MERKLEBSP   = 2
 };
 

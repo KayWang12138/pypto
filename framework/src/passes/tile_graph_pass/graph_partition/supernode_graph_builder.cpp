@@ -628,8 +628,11 @@ bool SuperNodeGraphBuilder::MulAccCombine(
     return false;
 }
 
-bool SuperNodeGraphBuilder::ExpandCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*>& opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>>& mergePair)
+bool SuperNodeGraphBuilder::ExpandCombine(
+    const std::shared_ptr<OperationGraphInfo> operationInfo,
+    std::vector<Operation*>& opList,
+    int32_t i,
+    std::vector<std::pair<int32_t, int32_t>>& mergePair)
 {
     if (i < 0 || i >= static_cast<int32_t>(opList.size())) {
         return false;
@@ -638,8 +641,10 @@ bool SuperNodeGraphBuilder::ExpandCombine(const std::shared_ptr<OperationGraphIn
     if (opList[i]->GetOpcode() == Opcode::OP_EXPAND) {
         if (operationInfo->outGraph_[i].size() == 1U) {
             mergePair.emplace_back(i, *(operationInfo->outGraph_[i].begin()));
-            APASS_LOG_DEBUG_F(Elements::Operation, "Combine %d and %d for Expand in building SuperNode.",
-                         opList[i]->GetOpMagic(), opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "Combine %d and %d for Expand in building SuperNode.",
+                opList[i]->GetOpMagic(),
+                opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
             return true;
         }
     }

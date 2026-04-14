@@ -61,7 +61,7 @@ using VertexImpl = osp::CDagVertexImpl<VertType, WorkType, WorkType, WorkType, V
 using GraphAdapterType = osp::DagVectorAdapter<VertexImpl>;
 using ConstrGraphType = osp::ComputationalDagVectorImpl<VertexImpl>;
 
-class OspAlgorithmTest : public testing::Test {
+class TestOspAlgorithms : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
@@ -69,7 +69,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(OspAlgorithmTest, UnionFind1)
+TEST_F(TestOspAlgorithms, UnionFind1)
 {
     std::vector<std::string> names({"a", "b", "c", "d", "e", "f"});
     UnionFindUniverse<std::string, unsigned, int> testUniverse;
@@ -124,7 +124,7 @@ TEST_F(OspAlgorithmTest, UnionFind1)
     EXPECT_NE(testUniverse.FindOriginByName("a"), testUniverse.FindOriginByName("f"));
 }
 
-TEST_F(OspAlgorithmTest, UnionFind2)
+TEST_F(TestOspAlgorithms, UnionFind2)
 {
     std::vector<std::string> names({"a", "b", "c", "d", "e", "f", "g", "h", "i"});
     UnionFindUniverse<std::string, unsigned, int> testUniverse;
@@ -176,7 +176,7 @@ TEST_F(OspAlgorithmTest, UnionFind2)
     EXPECT_EQ(testUniverse.GetNumberOfConnectedComponents(), 0);
 }
 
-TEST_F(OspAlgorithmTest, UnionFind3)
+TEST_F(TestOspAlgorithms, UnionFind3)
 {
     std::vector<std::string> names({"a", "b", "c", "d", "e", "f"});
     std::vector<unsigned> weights({1, 2, 1, 3, 1, 1});
@@ -241,7 +241,7 @@ TEST_F(OspAlgorithmTest, UnionFind3)
     }
 }
 
-TEST_F(OspAlgorithmTest, IntSqrt)
+TEST_F(TestOspAlgorithms, IntSqrt)
 {
     for (std::size_t root = 1U; root < 200U; ++root) {
         for (std::size_t num = root * root; num < (root + 1U) * (root + 1U); ++num) {
@@ -256,7 +256,7 @@ TEST_F(OspAlgorithmTest, IntSqrt)
     }
 }
 
-TEST_F(OspAlgorithmTest, Divisors)
+TEST_F(TestOspAlgorithms, Divisors)
 {
     for (std::size_t num = 1U; num < 1000U; ++num) {
         const std::vector<std::size_t> divs = DivisorsList(num);
@@ -286,7 +286,7 @@ bool thueMorseGen(long unsigned int n)
     return bool(bin_sum % 2);
 }
 
-TEST_F(OspAlgorithmTest, RandomBiasedCoin)
+TEST_F(TestOspAlgorithms, RandomBiasedCoin)
 {
     BiasedRandom Coin;
     bool valAnd = true;
@@ -302,7 +302,7 @@ TEST_F(OspAlgorithmTest, RandomBiasedCoin)
     EXPECT_TRUE(valOr);
 }
 
-TEST_F(OspAlgorithmTest, ThueMorse)
+TEST_F(TestOspAlgorithms, ThueMorse)
 {
     ThueMorseSequence coin(0);
 
@@ -322,7 +322,7 @@ TEST_F(OspAlgorithmTest, ThueMorse)
     }
 }
 
-TEST_F(OspAlgorithmTest, InPlaceInversePermutationRandom)
+TEST_F(TestOspAlgorithms, InPlaceInversePermutationRandom)
 {
     std::vector<unsigned> vec(20);
     std::iota(vec.begin(), vec.end(), 0);
@@ -346,7 +346,7 @@ TEST_F(OspAlgorithmTest, InPlaceInversePermutationRandom)
     }
 }
 
-TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar)
+TEST_F(TestOspAlgorithms, InPlaceInversePermutationChar)
 {
     std::vector<char> vec({'a', 'b', 'c', 'd', 'e', 'f', 'g'});
     std::vector<std::size_t> perm({4, 0, 1, 2, 3, 6, 5});
@@ -358,7 +358,7 @@ TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar)
     }
 }
 
-TEST_F(OspAlgorithmTest, Architecture)
+TEST_F(TestOspAlgorithms, Architecture)
 {
     std::vector<std::vector<WorkType>> uniformSentCosts = {
         {0, 1, 1, 1},
@@ -409,7 +409,7 @@ TEST_F(OspAlgorithmTest, Architecture)
     EXPECT_EQ(architecture.CommunicationCosts(0, 0), 0);
 }
 
-TEST_F(OspAlgorithmTest, EmptyGraph)
+TEST_F(TestOspAlgorithms, EmptyGraph)
 {
     GraphType graph;
 
@@ -417,7 +417,7 @@ TEST_F(OspAlgorithmTest, EmptyGraph)
     EXPECT_EQ(graph.NumEdges(), 0);
 }
 
-TEST_F(OspAlgorithmTest, NoEdgesGraph)
+TEST_F(TestOspAlgorithms, NoEdgesGraph)
 {
     const std::vector<std::pair<VertType, VertType>> edges({});
 
@@ -436,7 +436,7 @@ GraphType LineGraph()
     return GraphType(8, edges);
 }
 
-TEST_F(OspAlgorithmTest, TestLineGraph)
+TEST_F(TestOspAlgorithms, TestLineGraph)
 {
     const GraphType graph = LineGraph();
 
@@ -491,7 +491,7 @@ GraphType SimpleGraph()
     return GraphType(11, edges);
 }
 
-TEST_F(OspAlgorithmTest, Graph1)
+TEST_F(TestOspAlgorithms, Graph1)
 {
     const GraphType graph = SimpleGraph();
 
@@ -549,7 +549,7 @@ TEST_F(OspAlgorithmTest, Graph1)
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphWorkWeights)
+TEST_F(TestOspAlgorithms, GraphWorkWeights)
 {
     std::vector<unsigned> ww(11);
     std::iota(ww.begin(), ww.end(), 0);
@@ -568,7 +568,7 @@ TEST_F(OspAlgorithmTest, GraphWorkWeights)
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphCommWeights)
+TEST_F(TestOspAlgorithms, GraphCommWeights)
 {
     std::vector<unsigned> cw(11);
     std::iota(cw.begin(), cw.end(), 11);
@@ -587,7 +587,7 @@ TEST_F(OspAlgorithmTest, GraphCommWeights)
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphMemWeights)
+TEST_F(TestOspAlgorithms, GraphMemWeights)
 {
     std::vector<unsigned> mw(11);
     std::iota(mw.begin(), mw.end(), 22);
@@ -607,7 +607,7 @@ TEST_F(OspAlgorithmTest, GraphMemWeights)
     }
 }
 
-TEST_F(OspAlgorithmTest, GraphVtype)
+TEST_F(TestOspAlgorithms, GraphVtype)
 {
     std::vector<unsigned> vt(11);
     std::iota(vt.begin(), vt.end(), 33);
@@ -627,7 +627,7 @@ TEST_F(OspAlgorithmTest, GraphVtype)
     }
 }
 
-TEST_F(OspAlgorithmTest, ExpansionMapValidity)
+TEST_F(TestOspAlgorithms, ExpansionMapValidity)
 {
     const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap1 = {{0}, {1}, {2}, {3}};
     EXPECT_TRUE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap1));
@@ -645,7 +645,7 @@ TEST_F(OspAlgorithmTest, ExpansionMapValidity)
     EXPECT_FALSE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap5));
 }
 
-TEST_F(OspAlgorithmTest, ContractionMapValidity)
+TEST_F(TestOspAlgorithms, ContractionMapValidity)
 {
     const std::vector<VertexIdxT<GraphType>> contractionMap1 = {0, 1, 2, 3};
     EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap1));
@@ -660,7 +660,7 @@ TEST_F(OspAlgorithmTest, ContractionMapValidity)
     EXPECT_FALSE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap4));
 }
 
-TEST_F(OspAlgorithmTest, ContractionMapCoarsening)
+TEST_F(TestOspAlgorithms, ContractionMapCoarsening)
 {
     std::set<std::pair<VertexIdxT<GraphType>, VertexIdxT<GraphType>>> edges({
         {0, 1},
@@ -695,7 +695,7 @@ TEST_F(OspAlgorithmTest, ContractionMapCoarsening)
     }
 }
 
-TEST_F(OspAlgorithmTest, TestTopSort)
+TEST_F(TestOspAlgorithms, TestTopSort)
 {
     const GraphType graph = SimpleGraph();
 
@@ -712,7 +712,7 @@ TEST_F(OspAlgorithmTest, TestTopSort)
     }
 }
 
-TEST_F(OspAlgorithmTest, NodeDistances)
+TEST_F(TestOspAlgorithms, NodeDistances)
 {
     const std::vector<unsigned> botDistAns = {5, 4, 3, 2, 3, 3, 2, 1, 0, 0, 0};
     const std::vector<unsigned> topDistAns = {0, 1, 2, 3, 0, 0, 2, 4, 0, 5, 3};
@@ -730,7 +730,7 @@ TEST_F(OspAlgorithmTest, NodeDistances)
     }
 }
 
-TEST_F(OspAlgorithmTest, TestIntegralRange)
+TEST_F(TestOspAlgorithms, TestIntegralRange)
 {
     const std::size_t length0 = 0U;
     for (const auto val : IntegralRange(length0)) {
@@ -831,7 +831,7 @@ void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser)
     testValidContractionMap(graph, coarseGraph, contractionMap);
 }
 
-TEST_F(OspAlgorithmTest, CoarsenSarkar)
+TEST_F(TestOspAlgorithms, CoarsenSarkar)
 {
     sarkar_params::Parameters<VWorkwT<GraphType>> params;
     params.mode_ = sarkar_params::Mode::LINES;
@@ -883,7 +883,7 @@ TEST_F(OspAlgorithmTest, CoarsenSarkar)
     testCoarseningAlgorithm(coarser);
 }
 
-TEST_F(OspAlgorithmTest, CoarsenSarkarML)
+TEST_F(TestOspAlgorithms, CoarsenSarkarML)
 {
     sarkar_params::MulParameters<VWorkwT<GraphType>> params;
     params.commCostVec_ = {100};
@@ -899,7 +899,7 @@ TEST_F(OspAlgorithmTest, CoarsenSarkarML)
     testCoarseningAlgorithm(coarser);
 }
 
-TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph)
+TEST_F(TestOspAlgorithms, DagAdaptorSimpleGraph)
 {
     const std::vector<std::vector<VertType>> outEdges({
         {1, 2}, {2, 6}, {3}, {7}, {6}, {6}, {7, 10}, {9}, {}, {}, {}
@@ -958,7 +958,7 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph)
     }
 }
 
-TEST_F(OspAlgorithmTest, BspSchedulers)
+TEST_F(TestOspAlgorithms, BspSchedulers)
 {
     BspInstance<GraphType> bspInst;
     bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
@@ -995,7 +995,7 @@ TEST_F(OspAlgorithmTest, BspSchedulers)
     EXPECT_TRUE(schedule.IsValid());
 }
 
-TEST_F(OspAlgorithmTest, CoarsenMerkleBsp)
+TEST_F(TestOspAlgorithms, CoarsenMerkleBsp)
 {
     BspInstance<GraphType> bspInst;
     bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);

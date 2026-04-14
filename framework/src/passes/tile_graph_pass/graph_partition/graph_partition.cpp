@@ -22,7 +22,7 @@
 namespace npu::tile_fwk {
 
 Status GraphPartition::RunOnFunction(Function &function)
-{    
+{
     const std::string partitionMode = function.paramConfigs_.sgPartitionAlgorithm;
 
     if (function.paramConfigs_.pgSkipPartition) {
@@ -37,10 +37,10 @@ Status GraphPartition::RunOnFunction(Function &function)
         APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: IsoPartitioner.");
         IsoPartitioner partitioner;
         if (partitioner.SetParameter(function.paramConfigs_.sgPgUpperBound,
-                                    function.paramConfigs_.sgParallelNum,
-                                    function.paramConfigs_.sgPgLowerBound,
-                                    true,
-                                    function.paramConfigs_.pgSkipPartition) != SUCCESS) {
+            function.paramConfigs_.sgParallelNum,
+            function.paramConfigs_.sgPgLowerBound,
+            true,
+            function.paramConfigs_.pgSkipPartition) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
             return FAILED;
         }
@@ -73,7 +73,7 @@ Status GraphPartition::RunOnFunction(Function &function)
             return FAILED;
         }
 
-        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartitionOSP.");        
+        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartitionOSP.");
         return SUCCESS;
     } else {
         APASS_LOG_ERROR_F(Elements::Operation, "Invalid partition mode.");
