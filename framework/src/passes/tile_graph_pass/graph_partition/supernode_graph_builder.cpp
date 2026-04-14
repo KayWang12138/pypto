@@ -145,8 +145,24 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
     const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent, int32_t src,
     int32_t dst)
 {
+    APASS_LOG_DEBUG_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: Request merge src_idx=%d [opMagic=%d, opcode=%s, coreType=%s] "
+        "to dst_idx=%d [opMagic=%d, opcode=%s, coreType=%s]",
+        src, operationGraphInfo->opList_[src]->GetOpMagic(), operationGraphInfo->opList_[src]->GetOpcodeStr().c_str(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[src]).c_str(), dst,
+        operationGraphInfo->opList_[dst]->GetOpMagic(), operationGraphInfo->opList_[dst]->GetOpcodeStr().c_str(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[dst]).c_str());
     int32_t srcParent = FindParent(parent, src);
     int32_t dstParent = FindParent(parent, dst);
+    APASS_LOG_DEBUG_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: Found parents - srcParent_idx=%d [opMagic=%d, coreType=%s], "
+        "dstParent_idx=%d [opMagic=%d, coreType=%s]",
+        srcParent, operationGraphInfo->opList_[srcParent]->GetOpMagic(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[srcParent]).c_str(), dstParent,
+        operationGraphInfo->opList_[dstParent]->GetOpMagic(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[dstParent]).c_str());
     if (srcParent == -1 || dstParent == -1) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "Merge node in the disjoint set failed.%s",
@@ -181,11 +197,16 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
                                                 operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_ASSEMBLE);
     isAICPUandAssemble = isAICPUandAssemble || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
                                                 operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_ASSEMBLE);
+    APASS_LOG_DEBUG_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: Mergeability check - isAICPUandVIEW=%d, isAICPUandAssemble=%d, "
+        "hubWithViewAssemble=%d, CoreTypeMergeable=%d",
+        isAICPUandVIEW, isAICPUandAssemble, hubWithViewAssemble, operationGraphInfo->CoreTypeMergeable(coreTypes));
     if ((!hubWithViewAssemble) && (!isAICPUandVIEW) && (!isAICPUandAssemble) &&
         (!operationGraphInfo->CoreTypeMergeable(coreTypes))) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "Try to merge operations with different OpCoreType in building SuperNode.");
-        std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
+        std::vector<int> mergeIdxs{src, srcParent, dst, dstParent};
         for (int mergeIdx : mergeIdxs) {
             auto& mergeOp = operationGraphInfo->opList_[mergeIdx];
             APASS_LOG_ERROR_F(
@@ -196,6 +217,12 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
         return FAILED;
     }
     parent[srcParent] = dstParent;
+    APASS_LOG_DEBUG_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: SUCCESS - Merged srcParent_idx=%d [opMagic=%d] "
+        "into dstParent_idx=%d [opMagic=%d]",
+        srcParent, operationGraphInfo->opList_[srcParent]->GetOpMagic(), dstParent,
+        operationGraphInfo->opList_[dstParent]->GetOpMagic());
     return SUCCESS;
 }
 
@@ -410,7 +437,7 @@ int32_t NodeGraphInfo::GetNodeCycle(int32_t nodeIdx) const
     return nodeCycles_[nodeIdx];
 }
 
-Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*>& opList)
+Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*>& opList, const Function& function)
 {
     operationInfo_ = std::make_shared<OperationGraphInfo>();
     if (operationInfo_ == nullptr) {
@@ -423,7 +450,25 @@ Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*>& opList
     operationInfo_->opHashList_.resize(opList.size());
     operationInfo_->opCoreType_.resize(opList.size());
     operationInfo_->useCVMixPartition_ = useCVMixPartition_;
+
+    int64_t totalLatency = 0;
     for (size_t i = 0; i < opList.size(); i++) {
+        int64_t latency = opList[i]->GetLatency();
+        totalLatency += latency;
+        operationInfo_->magic2Idx_[opList[i]->GetOpMagic()] = i;
+    }
+
+    APASS_LOG_ERROR_F(
+        Elements::Function, "Function: %s, OpCount: %zu, TotalLatency: %ld", function.GetRawName().c_str(),
+        opList.size(), totalLatency);
+    operationInfo_->opList_ = opList;
+    operationInfo_->inGraph_.resize(opList.size());
+    operationInfo_->outGraph_.resize(opList.size());
+    operationInfo_->opHashList_.resize(opList.size());
+    operationInfo_->opCoreType_.resize(opList.size());
+    operationInfo_->useCVMixPartition_ = useCVMixPartition_;
+    for (size_t i = 0; i < opList.size(); i++) {
+        opList[i]->GetLatency();
         operationInfo_->magic2Idx_[opList[i]->GetOpMagic()] = i;
     }
     for (size_t i = 0; i < opList.size(); i++) {
