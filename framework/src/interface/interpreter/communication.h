@@ -37,8 +37,8 @@ public:
     static constexpr size_t WIN_IN_SIZE = 200 * 1024 * 1024;
     static constexpr size_t WIN_EXP_SIZE = 1 * 1024 * 1024;
     void Init(const std::string &groupName, int rank, int worldSize, uint32_t round);
-    LogicalTensorDataPtr Alloc(size_t slotSize);
-    LogicalTensorDataPtr AllocSignal(size_t slotSize);
+    void Alloc(size_t slotSize);
+    void AllocSignal(size_t slotSize);
 
     int GetRank() const {return rank_;};
     int GetWorldSize() const {return worldSize_;};

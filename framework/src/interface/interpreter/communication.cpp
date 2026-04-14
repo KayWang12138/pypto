@@ -464,25 +464,23 @@ std::string SimulationCommManager::GetHandler(const std::string &groupName, int 
 }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/
-LogicalTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
+void SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    auto result = it->second->Alloc(slotSize);
-    return result;
+    it->second->Alloc(slotSize);
 }
 
-LogicalTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
+void SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    auto result = it->second->AllocSignal(slotSize);
-    return result;
+    it->second->AllocSignal(slotSize);
 }
 
 } // namespace npu:tile_fwk
