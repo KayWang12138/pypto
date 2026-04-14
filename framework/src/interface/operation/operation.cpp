@@ -341,11 +341,8 @@ void DebugJson(const Json& j)
     printf("%s\n", s.c_str());
 }
 
-Json Operation::DumpJson(bool dumpTensor) const
+void Operation::DumpOperandsJson(Json& opDump, bool dumpTensor) const
 {
-    Json opDump;
-    opDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_OPERATION);
-
     Json ioperandsDump = Json::array();
     Json ooperandsDump = Json::array();
     for (auto& i : iOperand) {
@@ -364,28 +361,33 @@ Json Operation::DumpJson(bool dumpTensor) const
     }
     opDump["ioperands"] = ioperandsDump;
     opDump["ooperands"] = ooperandsDump;
-    opDump["opcode"] = GetOpcodeStr();
-    opDump["latency"] = GetLatency();
+}
 
-    if (IsCall()) {
-        auto calleeHash = std::static_pointer_cast<CallOpAttribute>(GetOpAttribute())->GetCalleeHash();
-        Function* callee = nullptr;
-        for (auto& ele : Program::GetInstance().GetFunctionMap()) {
-            if (ele.second->GetFunctionHash() == calleeHash) {
-                callee = ele.second.get();
-            }
-        }
-        if (callee == nullptr) {
-            FUNCTION_LOGE_E(FError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
-        } else {
-            if (callee->rootFunc_ == nullptr) {
-                opDump["calleehash"] = calleeHash.Data();
-            } else {
-                opDump["calleehash"] = callee->rootFunc_->GetFunctionHash().Data();
-            }
+void Operation::DumpCalleeHashJson(Json& opDump) const
+{
+    if (!IsCall()) {
+        return;
+    }
+    auto calleeHash = std::static_pointer_cast<CallOpAttribute>(GetOpAttribute())->GetCalleeHash();
+    Function* callee = nullptr;
+    for (auto& ele : Program::GetInstance().GetFunctionMap()) {
+        if (ele.second->GetFunctionHash() == calleeHash) {
+            callee = ele.second.get();
         }
     }
+    if (callee == nullptr) {
+        FUNCTION_LOGE_E(FError::NOT_EXIST, "Cannot find function by calleeHash %s", calleeHash.c_str());
+        return;
+    }
+    if (callee->rootFunc_ == nullptr) {
+        opDump["calleehash"] = calleeHash.Data();
+    } else {
+        opDump["calleehash"] = callee->rootFunc_->GetFunctionHash().Data();
+    }
+}
 
+void Operation::DumpLocationJson(Json& opDump) const
+{
     opDump["opmagic"] = GetOpMagic();
     if (semanticLabel_) {
         Json jlabel;
@@ -399,8 +401,10 @@ Json Operation::DumpJson(bool dumpTensor) const
         opDump["line"] = location_->GetLineno();
         opDump["backtrace"] = location_->GetBacktrace();
     }
+}
 
-    opDump["subgraphid"] = subgraphID_;
+void Operation::DumpParamLocationJson(Json& opDump) const
+{
     Json inLocation = Json::array();
     Json outLocation = Json::array();
     for (auto& inLoc : inParamLocation_) {
@@ -417,39 +421,72 @@ Json Operation::DumpJson(bool dumpTensor) const
         opDump["out_param_loc"] = outLocation;
         opDump["static"]["out_param_loc"] = opDump["out_param_loc"];
     }
-    if (opcode_ == Opcode::OP_CALL &&
-        BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
-        auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
-        auto programId = callAttr->invokeInfo_->GetProgramId();
-        auto programIter = function_->programs_.find(programId);
-        if (programIter != function_->programs_.end()) {
-            auto programFuncMagic = programIter->second->GetFuncMagic();
-            opDump["program_funcmagic"] = programFuncMagic;
-        } else {
-            opDump["program_funcmagic"] = programFuncMagic_;
-        }
-        auto attr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
-        opDump["invoke_info"] = attr->DumpInvokeInfoJson();
-        opDump["static"]["invoke_info"] = opDump["invoke_info"];
-    }
+}
 
-    if (isTileOp_) {
-        HashBuffer vecBuffer, cubeBuffer, distBuffer;
-        opDump["tile"]["vec"] = std::basic_string(SerializeTo(tileShape_.GetVecTile(), vecBuffer));
-        opDump["tile"]["cube"] = std::basic_string(SerializeTo(tileShape_.GetCubeTile(), cubeBuffer));
-        opDump["tile"]["comm"] = std::basic_string(SerializeTo(tileShape_.GetDistTile(), distBuffer));
+void Operation::DumpCallOpInfoJson(Json& opDump) const
+{
+    if (opcode_ != Opcode::OP_CALL ||
+        !BelongTo()->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::EXECUTE_GRAPH)) {
+        return;
     }
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
+    auto programId = callAttr->invokeInfo_->GetProgramId();
+    auto programIter = function_->programs_.find(programId);
+    if (programIter != function_->programs_.end()) {
+        opDump["program_funcmagic"] = programIter->second->GetFuncMagic();
+    } else {
+        opDump["program_funcmagic"] = programFuncMagic_;
+    }
+    auto attr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
+    opDump["invoke_info"] = attr->DumpInvokeInfoJson();
+    opDump["static"]["invoke_info"] = opDump["invoke_info"];
+}
 
+void Operation::DumpTileInfoJson(Json& opDump) const
+{
+    if (!isTileOp_) {
+        return;
+    }
+    HashBuffer vecBuffer, cubeBuffer, distBuffer;
+    opDump["tile"]["vec"] = std::basic_string(SerializeTo(tileShape_.GetVecTile(), vecBuffer));
+    opDump["tile"]["cube"] = std::basic_string(SerializeTo(tileShape_.GetCubeTile(), cubeBuffer));
+    opDump["tile"]["comm"] = std::basic_string(SerializeTo(tileShape_.GetDistTile(), distBuffer));
+}
+
+void Operation::DumpAttributesJson(Json& opDump) const
+{
     if (GetOpAttribute() != nullptr) {
         opDump["attr"] = GetOpAttribute()->DumpDynJson();
     }
-
     for (const auto& pair : GetAllAttr()) {
         opDump["op_attr"][pair.first] = DumpAttrJson(pair.first);
     }
-
     opDump["sync_queue"] = syncQueue_.ToJson();
     opDump["static"]["sync_queue"] = opDump["sync_queue"];
+}
+
+Json Operation::DumpJson(bool dumpTensor) const
+{
+    Json opDump;
+    opDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_OPERATION);
+
+    DumpOperandsJson(opDump, dumpTensor);
+    opDump["opcode"] = GetOpcodeStr();
+    opDump["latency"] = GetLatency();
+
+    DumpCalleeHashJson(opDump);
+    DumpLocationJson(opDump);
+
+    opDump["subgraphid"] = subgraphID_;
+    opDump["l1ReuseHashOrder"] = l1ReuseHashOrder_;
+    opDump["cubeMergeHashOrder"] = cubeMergeHashOrder_;
+    opDump["vecMergeHashOrder"] = vecMergeHashOrder_;
+
+    DumpParamLocationJson(opDump);
+    DumpCallOpInfoJson(opDump);
+    DumpTileInfoJson(opDump);
+    DumpAttributesJson(opDump);
+
     return opDump;
 }
 
