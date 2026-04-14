@@ -124,10 +124,10 @@ TEST_F(OperationImplTest, test_CeilDiv_int32)
 
 TEST_F(OperationImplTest, test_Compare_BOOL)
 {
-    TileShape::Current().SetVecTile({4, 4});
-    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    TileShape::Current().SetVecTile({8, 8, 8});
+    Tensor operand1(DT_FP32, {8, 8, 8}, "operand1");
     Tensor operand2(DT_FP32, {8, 8}, "operand2");
-    std::vector<int64_t> dstShape = {8, 8};
+    std::vector<int64_t> dstShape = {8, 8, 8};
     Tensor result;
     FUNCTION("TestCompare") { result = Compare(operand1, operand2, OpType::EQ, OutType::BOOL); }
 }

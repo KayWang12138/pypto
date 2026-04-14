@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # 设置环境变量
-export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/gitCode/GBowen666/pto-isa
-
+#export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/gitCode/GBowen666/pto-isa
+export PTO_TILE_LIB_CODE_PATH=/mnt/workspace/gitCode/cann/pto_isa/pto-isa
 # 切换到项目根目录
 #cd /mnt/workspace/gitCode/GBowen666/pypto/
 
