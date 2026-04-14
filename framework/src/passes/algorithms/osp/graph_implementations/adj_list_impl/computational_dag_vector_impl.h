@@ -160,13 +160,13 @@ public:
     {
         return static_cast<VertexIdx>(outNeigbors_[v].size());
     }
-    [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const
-    {
-        return vertices_[v].workWeight_;
-    }
     [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const
     {
         return vertices_[v].commWeight_;
+    }
+    [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const
+    {
+        return vertices_[v].workWeight_;
     }
     [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const
     {
