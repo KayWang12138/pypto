@@ -82,8 +82,7 @@ public:
                 readyNodes.pop_front();
 
                 if (TryScheduleNode(schedule, dag, v, nodeTypeCompatibleProcessors,
-                                   currentSuperstep, inDegree, readyNodes, deferredNodes))
-                {
+                    currentSuperstep, inDegree, readyNodes, deferredNodes)) {
                     ++scheduledNodesCount;
                 }
             }
@@ -140,8 +139,7 @@ private:
     {
         for (const auto &parent : dag.Parents(v)) {
             if (schedule.AssignedSuperstep(parent) == currentSuperstep &&
-                schedule.AssignedProcessor(parent) != p)
-        {
+                schedule.AssignedProcessor(parent) != p) {
                 return false;
             }
         }

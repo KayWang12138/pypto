@@ -54,8 +54,7 @@ public:
                 nodeAdded = false;
                 for (auto iter = next.begin(); iter != next.cend(); iter++) {
                     if (TryScheduleNode(sched, instance, graph, iter, nodesAssignedThisSuperstep,
-                                       processorWeights, predecessorsCount, next, superstepCounter))
-                {
+                        processorWeights, predecessorsCount, next, superstepCounter)) {
                         nodeAdded = true;
                         break;
                     }

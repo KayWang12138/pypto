@@ -104,8 +104,7 @@ void MultilevelCoarser<GraphT, GraphTCoarse>::CompactifyDagHistory()
 
     if ((static_cast<double>(dagHistory_[dagIndxFirst - 1]->NumVertices())
          / static_cast<double>(dagHistory_[dagIndxSecond - 1]->NumVertices()))
-        > 1.25)
-    {
+        > 1.25) {
         return;
     }
 

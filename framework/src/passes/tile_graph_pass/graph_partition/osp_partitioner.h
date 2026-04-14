@@ -10,7 +10,8 @@
 
 /*!
  * \file osp_partitioner.h
- * \brief This file declares the OspPartitioner class, which is a tile graph pass that fuses single operations into kernels using OSP algorithms.
+ * \brief This file declares the OspPartitioner class, which is a tile graph pass that fuses
+ * single operations into kernels using OSP algorithms.
  */
 
 #ifndef PASS_OSP_PARTITIONER_H

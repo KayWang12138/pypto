@@ -498,8 +498,7 @@ protected:
                 static_cast<CostT>(-1.0 * instance_->SynchronisationCosts()));
 
             if (threadData.activeScheduleData_.currentViolations_.size()
-                > parameters_.initialViolationThreshold_)
-            {
+                > parameters_.initialViolationThreshold_) {
                 activeSchedule_.RevertToBestSchedule(threadData.localSearchStartStep_,
                                                      threadData.stepToRemove_,
                                                      commCostF_,

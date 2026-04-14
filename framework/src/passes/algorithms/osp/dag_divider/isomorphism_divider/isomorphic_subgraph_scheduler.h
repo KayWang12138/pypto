@@ -287,7 +287,6 @@ protected:
             }
 
             unsigned effectiveMinProcTypeCount = DetermineEffectiveMinProcCount(group, instance);
-
             // If effective_min_proc_type_count is 1, no trimming is needed as gcd(X, 1) = 1.
             if (effectiveMinProcTypeCount <= 1) {
                 continue;
@@ -348,7 +347,7 @@ protected:
             result.requiredProcTypes_[coarseNodeIdx].assign(numProcTypes, 0);
 
             AccumulateGroupProcTypes(originalInstance, group, numProcTypes,
-                                    result.requiredProcTypes_[coarseNodeIdx], contractionMap, coarseNodeIdx);
+                result.requiredProcTypes_[coarseNodeIdx], contractionMap, coarseNodeIdx);
             ++coarseNodeIdx;
         }
         coarser_util::ConstructCoarseDag(

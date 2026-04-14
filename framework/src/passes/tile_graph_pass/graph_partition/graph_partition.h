@@ -10,7 +10,7 @@
 
 /*!
  * \file graph_partition.h
- * \brief Contains the GraphPartition Pass, which instantiates the specified GraphPartition Pass Algorithm. 
+ * \brief Contains the GraphPartition Pass, which instantiates the specified GraphPartition Pass Algorithm.
  */
 
 #ifndef PASS_GRAPH_PARTITION_H

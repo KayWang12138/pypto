@@ -219,8 +219,7 @@ public:
     bool AddEdge(const VertexIdx source, const VertexIdx target)
     {
         if (source >= static_cast<VertexIdx>(vertices_.size()) || target >= static_cast<VertexIdx>(vertices_.size())
-            || source == target)
-    {
+            || source == target) {
             return false;
         }
 

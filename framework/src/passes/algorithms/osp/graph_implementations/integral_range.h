@@ -165,7 +165,8 @@ public:
                 - static_cast<difference_type>(other.current_);
         }
 
-        [[nodiscard]] constexpr value_type operator[](difference_type n) const noexcept {
+        [[nodiscard]] constexpr value_type operator[](difference_type n) const noexcept
+        {
             return *(*this + n);
         }
 

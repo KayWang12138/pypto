@@ -347,8 +347,7 @@ public:
     [[nodiscard]] bool SatisfiesPrecedenceConstraints() const
     {
         if (static_cast<VertexIdxT<GraphT>>(nodeToProcessorAssignment_.size()) != instance_->NumberOfVertices()
-            || static_cast<VertexIdxT<GraphT>>(nodeToSuperstepAssignment_.size()) != instance_->NumberOfVertices())
-    {
+            || static_cast<VertexIdxT<GraphT>>(nodeToSuperstepAssignment_.size()) != instance_->NumberOfVertices()) {
             return false;
         }
 

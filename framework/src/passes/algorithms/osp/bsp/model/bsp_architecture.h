@@ -118,10 +118,9 @@ public:
                     "sendCosts_ needs to be a processors x processors matrix.\n");
             }
             if (std::any_of(sendCosts.begin(), sendCosts.end(),
-                    [numberOfProcessors](const auto &thing) {
-                        return thing.size() != numberOfProcessors;
-                    }))
-                    {
+                [numberOfProcessors](const auto &thing) {
+                    return thing.size() != numberOfProcessors;
+                })) {
                 APASS_LOG_ERROR_F(Elements::Config,
                     "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
                 throw std::invalid_argument("sendCosts_ needs to be a processors x processors matrix.\n");

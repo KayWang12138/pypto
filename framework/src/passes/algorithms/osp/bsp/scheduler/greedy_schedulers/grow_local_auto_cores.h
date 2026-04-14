@@ -110,7 +110,8 @@ public:
 
         while (totalAssigned < n) {
             unsigned limit = params_.minSuperstepSize_;
-            double bestScore = 0, bestParallelism = 0;
+            double bestScore = 0;
+            double bestParallelism = 0;
             bool continueSuperstepAttempts = true;
 
             while (continueSuperstepAttempts) {
