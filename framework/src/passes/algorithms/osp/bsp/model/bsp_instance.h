@@ -57,7 +57,7 @@ namespace osp {
  */
 template <typename GraphT>
 class BspInstance {
-  private:
+private:
     /**
      * @brief The computational DAG representing the program structure.
      *
@@ -90,7 +90,7 @@ class BspInstance {
     using VertexTypeTOrDefault = VTypeT<GraphT>;
     using ProcessorTypeT = unsigned;
 
-  public:
+public:
     /**
      * @brief Default constructor for the BspInstance class.
      */

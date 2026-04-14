@@ -35,7 +35,7 @@ class PrecomputedHashComputer : public HashComputer<IndexType> {
     std::vector<std::size_t> vertexHashes_;
     std::unordered_map<std::size_t, std::vector<IndexType>> orbits_;
 
-  public:
+public:
     /**
      * @brief Construct a new Precomputed Hash Computer object.
      *

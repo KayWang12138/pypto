@@ -35,7 +35,7 @@ namespace osp {
  */
 template <typename GraphT>
 class Serial : public Scheduler<GraphT> {
-  public:
+public:
     /**
      * @brief Default constructor for Serial.
      */
@@ -100,7 +100,7 @@ class Serial : public Scheduler<GraphT> {
     }
 
 
-    private: 
+private:
 
     std::vector<std::vector<unsigned>> BuildCompatibilityMatrix(
         const BspInstance<GraphT> &instance, const GraphT &dag,

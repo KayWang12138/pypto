@@ -40,7 +40,7 @@ namespace osp {
  */
 template <typename Key, typename Value, typename Compare>
 class PairingHeap {
-  private:
+private:
     struct Node {
         Key key_;
         Value value_;
@@ -135,7 +135,7 @@ class PairingHeap {
         node->prevOrParent_ = nullptr;
     }
 
-  public:
+public:
 
     PairingHeap() = default;
     ~PairingHeap() { Clear(); }

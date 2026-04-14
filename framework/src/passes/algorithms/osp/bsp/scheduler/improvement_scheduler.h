@@ -30,10 +30,10 @@ namespace osp {
  */
 template <typename GraphT>
 class ImprovementScheduler {
-  protected:
+protected:
     unsigned timeLimitSeconds_; /**< The time limit in seconds for the improvement algorithm. */
 
-  public:
+public:
     /**
      * @brief Constructor for ImprovementScheduler.
      * @param timelimit The time limit in seconds for the improvement algorithm. Default is 3600 seconds (1 hour).
@@ -58,11 +58,11 @@ class ImprovementScheduler {
 
 template <typename GraphT>
 class ComboScheduler : public Scheduler<GraphT> {
-  private:
+private:
     Scheduler<GraphT> &baseScheduler_;
     ImprovementScheduler<GraphT> &improvementScheduler_;
 
-  public:
+public:
     ComboScheduler(Scheduler<GraphT> &base, ImprovementScheduler<GraphT> &improvement)
         : Scheduler<GraphT>(), baseScheduler_(base), improvementScheduler_(improvement) {}
 

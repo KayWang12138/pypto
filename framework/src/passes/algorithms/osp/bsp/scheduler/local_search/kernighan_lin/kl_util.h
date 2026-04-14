@@ -66,7 +66,7 @@ struct AdaptiveAffinityTable {
     constexpr static unsigned windowRange_ = 2 * windowSize + 1;
     using VertexType = VertexIdxT<GraphT>;
 
-  private:
+private:
     const KlActiveScheduleT *activeSchedule_;
     const GraphT *graph_;
 
@@ -79,7 +79,7 @@ struct AdaptiveAffinityTable {
     std::vector<size_t> gaps_;
     size_t lastIdx_;
 
-  public:
+public:
     void Initialize(const KlActiveScheduleT &sche, const std::size_t initialTableSize) {
         activeSchedule_ = &sche;
         graph_ = &(sche.GetInstance().GetComputationalDag());

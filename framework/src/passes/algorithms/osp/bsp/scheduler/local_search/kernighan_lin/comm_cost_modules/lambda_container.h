@@ -37,10 +37,10 @@ struct LambdaVectorContainer {
      * with zero assignments.
      */
     class LambdaVectorRange {
-      private:
+    private:
         const std::vector<unsigned> &vec_;
 
-      public:
+    public:
         /**
          * @brief Iterator that skips zero entries in the lambda vector.
          *
@@ -54,11 +54,11 @@ struct LambdaVectorContainer {
             using pointer = value_type *;
             using reference = value_type &;
 
-          private:
+        private:
             const std::vector<unsigned> &vec_;
             unsigned index_;
 
-          public:
+        public:
             /**
              * @brief Construct iterator at the beginning, skipping initial zeros.
              * @param vec Reference to the vector to iterate over

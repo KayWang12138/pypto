@@ -273,7 +273,7 @@ struct ThreadLocalActiveScheduleData {
 
 template <typename GraphT, typename CostT>
 class KlActiveSchedule {
-  private:
+private:
     using VertexType = VertexIdxT<GraphT>;
     using EdgeType = EdgeDescT<GraphT>;
     using KlMove = KlMoveStruct<CostT, VertexType>;
@@ -287,7 +287,7 @@ class KlActiveSchedule {
     CostT cost_ = 0;
     bool feasible_ = true;
 
-  public:
+public:
     virtual ~KlActiveSchedule() = default;
 
     inline const BspInstance<GraphT> &GetInstance() const { return *instance_; }
@@ -398,7 +398,7 @@ class KlActiveSchedule {
     void SwapEmptyStepBwd(const unsigned toStep, const unsigned emptyStep);
     void SwapSteps(const unsigned step1, const unsigned step2);
 
-  private:
+private:
     template <typename CommDatastructuresT>
     void RevertMoves(const size_t bound,
                      CommDatastructuresT &commDatastructures,

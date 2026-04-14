@@ -75,7 +75,7 @@ enum class MemoryConstraintType {
  */
 template <typename GraphT>
 class BspArchitecture {
-  private:
+private:
     /** @brief The number of processors in the architecture. Must be at least 1. */
     unsigned numberOfProcessors_;
 
@@ -127,7 +127,7 @@ class BspArchitecture {
         SetSendCostDiagonalToZero();
     }
 
-  public:
+public:
     /**
      * @brief Constructs a BspArchitecture object with the specified number of processors, communication cost, and
      * synchronization cost.

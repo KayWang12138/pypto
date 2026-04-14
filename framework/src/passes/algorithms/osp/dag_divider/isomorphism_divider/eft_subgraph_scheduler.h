@@ -57,7 +57,7 @@ struct SubgraphSchedule {
  */
 template <typename GraphT>
 class EftSubgraphScheduler {
-  public:
+public:
     EftSubgraphScheduler() = default;
 
     /**
@@ -84,7 +84,7 @@ class EftSubgraphScheduler {
      */
     void SetMinWorkPerProcessor(const VWorkwT<GraphT> minWorkPerProcessor) { minWorkPerProcessor_ = minWorkPerProcessor; }
 
-  private:
+private:
     using JobIdT = VertexIdxT<GraphT>;
 
     VWorkwT<GraphT> minWorkPerProcessor_ = 2000;

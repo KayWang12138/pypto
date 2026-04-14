@@ -58,7 +58,7 @@ namespace osp {
  */
 template <typename VImpl>
 class DagVectorAdapter {
-  public:
+public:
     using VertexIdx = typename VImpl::VertexIdxType;
     using IndexT = VertexIdx;
 
@@ -131,7 +131,7 @@ class DagVectorAdapter {
         numVertexTypes_ = std::max(numVertexTypes_, vertexType + 1);
     }
 
-  private:
+private:
     std::vector<VImpl> vertices_;
 
     const std::vector<std::vector<IndexT>> *outNeigbors_;

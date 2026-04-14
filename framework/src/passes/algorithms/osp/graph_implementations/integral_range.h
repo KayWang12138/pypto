@@ -38,14 +38,14 @@ class IntegralRange {
     T start_;
     T finish_;
 
-  public:
+public:
     /**
      * @brief Iterator for the IntegralRange.
      *
      * This iterator satisfies the RandomAccessIterator concept.
      */
     class IntegralIterator {    // public for std::reverse_iterator
-      public:
+    public:
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
         using value_type = T;
@@ -60,10 +60,10 @@ class IntegralRange {
             constexpr const T *operator->() const noexcept { return &value_; }
         };
 
-      private:
+    private:
         value_type current_;
 
-      public:
+    public:
         /**
          * @brief Default constructor. Initializes iterator to 0.
          */
@@ -164,7 +164,7 @@ class IntegralRange {
 
     using ReverseIntegralIterator = std::reverse_iterator<IntegralIterator>;
 
-  public:
+public:
     /**
      * @brief Constructs a range [0, end).
      * @param end_ The exclusive upper bound.

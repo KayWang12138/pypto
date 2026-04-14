@@ -28,10 +28,10 @@ namespace osp {
 
 template <typename GraphT>
 class GreedyChildren : public Scheduler<GraphT> {
-  private:
+private:
     bool ensureEnoughSources_;
 
-  public:
+public:
     GreedyChildren(bool ensureEnoughSources = true) : Scheduler<GraphT>(), ensureEnoughSources_(ensureEnoughSources) {}
 
     ReturnStatus ComputeSchedule(BspSchedule<GraphT> &sched) override {
@@ -72,7 +72,7 @@ class GreedyChildren : public Scheduler<GraphT> {
         return ReturnStatus::OSP_SUCCESS;
     }
 
-  private:
+private:
     void InitializeScheduleState(
         BspSchedule<GraphT> &sched, const GraphT &graph,
         std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next) {

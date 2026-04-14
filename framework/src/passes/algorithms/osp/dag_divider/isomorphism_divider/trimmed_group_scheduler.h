@@ -42,7 +42,7 @@ class TrimmedGroupScheduler : public Scheduler<ConstrGraphT> {
     Scheduler<ConstrGraphT> *subScheduler_;
     unsigned minNonZeroProcs_;
 
-  public:
+public:
     /**
      * @brief Constructs a TrimmedGroupScheduler.
      * @param scheduler The sub-scheduler to use for scheduling individual component groups.
@@ -74,7 +74,7 @@ class TrimmedGroupScheduler : public Scheduler<ConstrGraphT> {
         return SolveAndMapSubProblems(schedule, componentIndicesPerGroup, componentsVertices, subArch);
     }
 
-  private:
+private:
     /**
      * @brief Distributes components among the processor groups.
      * @param numComponents Total number of components.

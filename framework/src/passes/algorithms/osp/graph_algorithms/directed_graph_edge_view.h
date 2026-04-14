@@ -32,13 +32,13 @@ namespace osp {
  */
 template <typename GraphT>
 class EdgeView {
-  private:
+private:
 
     const GraphT &graph_;
 
     template <typename ChildIteratorT>
     class DirectedEdgeIterator {
-      public:
+    public:
         using iterator_category = std::forward_iterator_tag;
         using difference_type = std::ptrdiff_t;
         using value_type = DirectedEdge<GraphT>;
@@ -51,7 +51,7 @@ class EdgeView {
             const value_type *operator->() const noexcept { return &value_; }
         };
 
-      private:
+    private:
         const GraphT *graph_;                  // Pointer to the graph
         VertexIdxT<GraphT> currentVertex_;     // Current source vertex
         ChildIteratorT currentChild_;          // Iterator to the current target vertex in current_vertex's adjacency list
@@ -67,7 +67,7 @@ class EdgeView {
             }
         }
 
-      public:
+    public:
         DirectedEdgeIterator() noexcept : graph_(nullptr), currentVertex_(0), currentEdgeIdx_(0) {}
 
         DirectedEdgeIterator(const DirectedEdgeIterator &other) = default;
@@ -135,7 +135,7 @@ class EdgeView {
         [[nodiscard]] bool operator!=(const DirectedEdgeIterator &other) const noexcept { return !(*this == other); }
     };
 
-  public:
+public:
     using DirEdgeIterator
         = DirectedEdgeIterator<decltype(std::declval<GraphT>().Children(std::declval<VertexIdxT<GraphT>>()).begin())>;
     using Iterator = DirEdgeIterator;
@@ -167,14 +167,14 @@ class EdgeView {
  */
 template <typename GraphT, bool isOutgoing>
 class IncidentEdgeView {
-  private:
+private:
 
     const GraphT &graph_;
     VertexIdxT<GraphT> anchorVertex_;
 
     template <typename ChildIteratorT>
     class IncidentEdgeIterator {
-      public:
+    public:
         using iterator_category = typename std::iterator_traits<ChildIteratorT>::iterator_category;
         using difference_type = std::ptrdiff_t;
         using value_type = DirectedEdge<GraphT>;
@@ -187,11 +187,11 @@ class IncidentEdgeView {
             const value_type *operator->() const noexcept { return &value_; }
         };
 
-      private:
+    private:
         VertexIdxT<GraphT> anchorVertex_;
         ChildIteratorT currentIt_;
 
-      public:
+    public:
         IncidentEdgeIterator() = default;
 
         IncidentEdgeIterator(VertexIdxT<GraphT> u, ChildIteratorT it) : anchorVertex_(u), currentIt_(it) {}
@@ -239,7 +239,7 @@ class IncidentEdgeView {
                              decltype(std::declval<GraphT>().Children(std::declval<VertexIdxT<GraphT>>()).begin()),
                              decltype(std::declval<GraphT>().Parents(std::declval<VertexIdxT<GraphT>>()).begin())>;
 
-  public:
+public:
     using Iterator = IncidentEdgeIterator<BaseIteratorType>;
     using ConstIterator = Iterator;
 

@@ -67,7 +67,7 @@ template <typename GraphT,
           unsigned windowSize = 1,
           typename CostT = double>
 class KlImprover : public ImprovementScheduler<GraphT> {
-  protected:
+protected:
     constexpr static unsigned windowRange_ = 2 * windowSize + 1;
     constexpr static bool enableQuickMoves_ = true;
     constexpr static double epsilon_ = 1e-9;
@@ -400,7 +400,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     bool ScatterNodesSuperstep(unsigned step, ThreadSearchContext &threadData);
     void SynchronizeActiveSchedule(const unsigned numThreads);
 
-  public:
+public:
 
     KlImprover(unsigned seed = 42) : ImprovementScheduler<GraphT>() { gen_ = std::mt19937(seed); }
 

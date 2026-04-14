@@ -43,7 +43,7 @@ struct MulParameters {
 
 template <typename GraphT, typename GraphTCoarse>
 class SarkarMul : public MultilevelCoarser<GraphT, GraphTCoarse> {
-  private:
+private:
     bool firstCoarsen_{true};
     ThueMorseSequence thueCoin_{42U};
     BiasedRandom balancedRandom_{42U};
@@ -71,7 +71,7 @@ class SarkarMul : public MultilevelCoarser<GraphT, GraphTCoarse> {
     ReturnStatus RunFullFanContractions(bool &change);
     ReturnStatus RunLevelContractions(bool &change);
 
-  public:
+public:
     void SetParameters(sarkar_params::MulParameters<VWorkwT<GraphT>> mlParams) {
         mlParams_ = std::move(mlParams);
         SetSeed();

@@ -36,7 +36,7 @@ enum class ReturnStatus { OSP_SUCCESS, OSP_BEST_FOUND, OSP_ERROR };
  */
 template <typename GraphT>
 class Scheduler {
-  public:
+public:
 
     Scheduler() = default;
     virtual ~Scheduler() = default;

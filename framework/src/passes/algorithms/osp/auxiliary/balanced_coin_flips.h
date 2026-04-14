@@ -23,12 +23,12 @@ namespace npu::tile_fwk {
 namespace osp {
 
 class BiasedRandom {
-  public:
+public:
     bool GetFlip();
 
     BiasedRandom(std::size_t seed = 1729U) : gen_(seed), trueBias_(0) {};
 
-  private:
+private:
     /// @brief Random number generator
     std::mt19937 gen_;
     /// @brief Biases the coin towards true
@@ -38,12 +38,12 @@ class BiasedRandom {
 /// @brief Generates the Thue Morse Sequence
 /// @param shift Starting point in the sequence
 class ThueMorseSequence {
-  public:
+public:
     bool GetFlip();
 
     ThueMorseSequence(long unsigned int shift = 0U) : next_(shift) { sequence_.emplace_back(false); }
 
-  private:
+private:
     long unsigned int next_;
     std::vector<bool> sequence_;
 };

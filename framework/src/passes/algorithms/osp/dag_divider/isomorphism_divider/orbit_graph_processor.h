@@ -44,7 +44,7 @@ namespace osp {
  */
 template <typename GraphT, typename ConstrGraphT>
 class OrbitGraphProcessor {
-  public:
+public:
     using VertexType = VertexIdxT<GraphT>;
 
     // Represents a group of isomorphic subgraphs, corresponding to a single node in a coarse graph.
@@ -55,7 +55,7 @@ class OrbitGraphProcessor {
         inline size_t size() const { return subgraphs_.size(); }
     };
 
-  private:
+private:
     // Results from the first (orbit) coarsening step
     ConstrGraphT coarseGraph_;
     std::vector<VertexType> contractionMap_;
@@ -338,7 +338,7 @@ class OrbitGraphProcessor {
         }
     }
 
-  public:
+public:
     explicit OrbitGraphProcessor() {}
     void SetMergeDifferentNodeTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
     void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
@@ -411,7 +411,7 @@ class OrbitGraphProcessor {
         PerformCoarseningAdaptiveSymmetry(dag, coarseGraph_, lockThresholdPerType, symmetryLevelsToTest);
     }
 
-  private:
+private:
     std::vector<size_t> FindSignificantSymmetryLevels(const std::map<size_t, size_t> &orbitSizeCounts,
                                                       size_t countThreshold) {
         std::vector<size_t> sortedSizes;
@@ -570,7 +570,7 @@ class OrbitGraphProcessor {
         return true;
     }
 
-  public:
+public:
     const ConstrGraphT &GetCoarseGraph() const { return coarseGraph_; }
 
     const std::vector<VertexType> &GetContractionMap() const { return contractionMap_; }

@@ -60,7 +60,7 @@ namespace osp {
  */
 template <typename VImpl>
 class ComputationalDagVectorImpl {
-  public:
+public:
     using VertexIdx = typename VImpl::VertexIdxType;
 
     using VertexWorkWeightType = typename VImpl::WorkWeightType;
@@ -185,7 +185,7 @@ class ComputationalDagVectorImpl {
         return true;
     }
 
-  private:
+private:
     std::vector<VImpl> vertices_;
 
     std::vector<std::vector<VertexIdx>> outNeigbors_;

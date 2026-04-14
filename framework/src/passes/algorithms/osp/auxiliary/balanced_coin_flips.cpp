@@ -17,7 +17,8 @@
 
 using namespace npu::tile_fwk::osp;
 
-bool BiasedRandom::GetFlip() {
+bool BiasedRandom::GetFlip()
+{
     constexpr int genuineRandomSize = 3;
     constexpr int numberTwo = 2;
     int dieSize = numberTwo * genuineRandomSize + abs(trueBias_);
@@ -42,7 +43,8 @@ bool BiasedRandom::GetFlip() {
     }
 }
 
-bool ThueMorseSequence::GetFlip() {
+bool ThueMorseSequence::GetFlip()
+{
     for (long unsigned int i = sequence_.size(); i <= next_; i++) {
         constexpr long unsigned int numberTwo = 2U;
         if (i % numberTwo == 0) {

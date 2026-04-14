@@ -123,7 +123,7 @@ class MerkleHashComputer : public HashComputer<VertexIdxT<GraphT>> {
         }
     }
 
-  public:
+public:
     /**
      * @brief Constructs the MerkleHashComputer and immediately computes the hashes.
      * @tparam Args Arguments forwarded to the NodeHashFuncT constructor.

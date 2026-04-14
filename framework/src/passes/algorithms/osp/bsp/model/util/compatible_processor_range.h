@@ -31,7 +31,7 @@ class CompatibleProcessorRange {
     std::vector<std::vector<unsigned>> typeProcessorIdx_;
     const BspInstance<GraphT> *instance_ = nullptr;
 
-  public:
+public:
     /**
      * @brief Default constructor.
      */

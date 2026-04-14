@@ -33,7 +33,7 @@ namespace osp {
  */
 template <typename IndexType>
 class HashComputer {
-  public:
+public:
     virtual ~HashComputer() = default;
 
     /**

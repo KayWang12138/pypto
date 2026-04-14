@@ -48,7 +48,7 @@ namespace osp {
  */
 template <typename GraphT>
 class BspSchedule {
-  protected:
+protected:
     using VertexIdx = VertexIdxT<GraphT>;
 
     const BspInstance<GraphT> *instance_;
@@ -58,7 +58,7 @@ class BspSchedule {
     std::vector<unsigned> nodeToProcessorAssignment_;
     std::vector<unsigned> nodeToSuperstepAssignment_;
 
-  public:
+public:
     BspSchedule() = default;
     
     /**

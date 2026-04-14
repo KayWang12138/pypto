@@ -43,7 +43,7 @@ class Coarser {
     static_assert(std::is_same_v<VCommwT<GraphTIn>, VCommwT<GraphTOut>>,
                   "GraphTIn and GraphTOut must have the same communication weight type");
 
-  public:
+public:
     /**
      * @brief Coarsens the input computational DAG into a simplified version.
      *
@@ -68,7 +68,7 @@ class Coarser {
  */
 template <typename GraphTIn, typename GraphTOut>
 class CoarserGenExpansionMap : public Coarser<GraphTIn, GraphTOut> {
-  public:
+public:
     virtual std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(const GraphTIn &dagIn) = 0;
 
     virtual bool CoarsenDag(const GraphTIn &dagIn,

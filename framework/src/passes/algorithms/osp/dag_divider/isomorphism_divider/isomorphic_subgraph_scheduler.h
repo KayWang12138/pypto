@@ -52,7 +52,7 @@ namespace osp {
  */
 template <typename GraphT, typename ConstrGraphT>
 class IsomorphicSubgraphScheduler {
-  private:
+private:
     const HashComputer<VertexIdxT<GraphT>> *hashComputer_;
 
     Scheduler<ConstrGraphT> *bspScheduler_;
@@ -67,7 +67,7 @@ class IsomorphicSubgraphScheduler {
     bool useMaxBsp_ = false;
 
 
-  public:
+public:
     /**
      * @brief Constructs the scheduler with a reference to a base BSP scheduler.
      * @param bspScheduler The underlying scheduler to use for scheduling individual subgraphs.
@@ -144,7 +144,7 @@ class IsomorphicSubgraphScheduler {
         return partition;
     }
 
-  protected:
+protected:
     template <typename GT, typename CGT>
     struct SubgraphSchedulerInput {
         BspInstance<CGT> instance_;

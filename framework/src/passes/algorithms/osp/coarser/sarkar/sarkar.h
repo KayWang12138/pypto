@@ -65,7 +65,7 @@ struct Parameters {
 
 template <typename GraphTIn, typename GraphTOut>
 class Sarkar : public CoarserGenExpansionMap<GraphTIn, GraphTOut> {
-  private:
+private:
     sarkar_params::Parameters<VWorkwT<GraphTIn>> params_;
 
     std::vector<VertexIdxT<GraphTIn>> GetBotPosetMap(const GraphTIn &graph) const;
@@ -100,7 +100,7 @@ class Sarkar : public CoarserGenExpansionMap<GraphTIn, GraphTOut> {
                                                const std::vector<VertexIdxT<GraphTIn>> &vertexPoset,
                                                const std::vector<VWorkwT<GraphTIn>> &dist) const;
 
-  public:
+public:
     virtual std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(const GraphTIn &dagIn) override;
     std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(const GraphTIn &dagIn, VertexIdxT<GraphTIn> &diff);
 

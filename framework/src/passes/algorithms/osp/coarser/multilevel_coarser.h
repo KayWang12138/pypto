@@ -30,10 +30,10 @@ namespace osp {
 template <typename GraphT, typename GraphTCoarse>
 class MultilevelCoarser : public Coarser<GraphT, GraphTCoarse> {
 
-  private:
+private:
     const GraphT *originalGraph_;
 
-  protected:
+protected:
     inline const GraphT *GetOriginalGraph() const { return originalGraph_; };
 
     std::vector<std::unique_ptr<GraphTCoarse>> dagHistory_;
@@ -50,7 +50,7 @@ class MultilevelCoarser : public Coarser<GraphT, GraphTCoarse> {
 
     void ClearComputationData();
 
-  public:
+public:
     MultilevelCoarser() : originalGraph_(nullptr) {};
     MultilevelCoarser(const GraphT &graph) : originalGraph_(&graph) {};
     virtual ~MultilevelCoarser() = default;

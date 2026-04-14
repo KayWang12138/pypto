@@ -43,7 +43,7 @@ class GreedyMetaScheduler : public Scheduler<GraphT> {
     Serial<GraphT> serialScheduler_;
     std::vector<Scheduler<GraphT> *> schedulers_;
 
-  public:
+public:
 
     GreedyMetaScheduler() : Scheduler<GraphT>() {}
     ~GreedyMetaScheduler() override = default;
