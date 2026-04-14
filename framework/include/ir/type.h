@@ -19,7 +19,7 @@
 #include "core/dtype.h"
 #include "core/logging.h"
 #include "ir/core.h"
-#include "ir/memref.h"
+#include "ir/memory_space.h"
 #include "ir/reflection/field_traits.h"
 
 namespace pypto {
@@ -28,6 +28,9 @@ namespace ir {
 // Forward declaration
 class Expr;
 using ExprPtr = std::shared_ptr<const Expr>;
+
+class MemRef;
+using MemRefPtr = std::shared_ptr<const MemRef>;
 
 /**
  * \brief Base class for type representations in the IR

@@ -10,12 +10,13 @@
 
 #include "ir/memref.h"
 
-#include <algorithm>
 #include <string>
 #include <utility>
 
-#include "ir/expr.h"
 #include "ir/type.h"
+#include "ir/kind_traits.h"
+#include "ir/expr.h"
+#include "ir/scalar_expr.h"
 
 namespace pypto {
 namespace ir {
@@ -25,38 +26,77 @@ std::string MemorySpaceToString(MemorySpace space)
     switch (space) {
         case MemorySpace::DDR:
             return "DDR";
-        case MemorySpace::UB:
-            return "UB";
-        case MemorySpace::L1:
-            return "L1";
-        case MemorySpace::L0A:
-            return "L0A";
-        case MemorySpace::L0B:
-            return "L0B";
-        case MemorySpace::L0C:
-            return "L0C";
+        case MemorySpace::Vec:
+            return "Vec";
+        case MemorySpace::Mat:
+            return "Mat";
+        case MemorySpace::Left:
+            return "Left";
+        case MemorySpace::Right:
+            return "Right";
+        case MemorySpace::Acc:
+            return "Acc";
+        case MemorySpace::Bias:
+            return "Bias";
         default:
             return "Unknown";
     }
 }
 
-// Helper function to convert string to lowercase
-static std::string ToLowerCase(const std::string& str)
+MemorySpace StringToMemorySpace(const std::string& str)
 {
-    std::string result = str;
-    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) { return std::tolower(c); });
-    return result;
+    if (str == "DDR")
+        return MemorySpace::DDR;
+    if (str == "Vec")
+        return MemorySpace::Vec;
+    if (str == "Mat")
+        return MemorySpace::Mat;
+    if (str == "Left")
+        return MemorySpace::Left;
+    if (str == "Right")
+        return MemorySpace::Right;
+    if (str == "Acc")
+        return MemorySpace::Acc;
+    if (str == "Bias")
+        return MemorySpace::Bias;
+    throw ValueError("Unknown MemorySpace: " + str);
 }
 
 // MemRef implementation
-MemRef::MemRef(MemorySpace memorySpace, ExprPtr addr, uint64_t size, uint64_t id, Span span)
-    : Var("mem_" + ToLowerCase(MemorySpaceToString(memorySpace)) + "_" + std::to_string(id), GetMemRefType(),
-          std::move(span)),
-      memorySpace_(memorySpace),
-      addr_(std::move(addr)),
-      size_(size),
-      id_(id)
+MemRef::MemRef(VarPtr base, ExprPtr byte_offset, uint64_t size, Span span)
+    : Var(base->name_, GetMemRefType(), std::move(span)),
+      base_(std::move(base)),
+      byte_offset_(std::move(byte_offset)),
+      size_(size)
 {}
+
+MemRef::MemRef(VarPtr base, int64_t byte_offset, uint64_t size, Span span)
+    : MemRef(
+          std::move(base), std::make_shared<ConstInt>(byte_offset, DataType::INDEX, Span::Unknown()), size,
+          std::move(span))
+{}
+
+MemRef::MemRef(std::string name, VarPtr base, ExprPtr byte_offset, uint64_t size, Span span)
+    : Var(std::move(name), GetMemRefType(), std::move(span)),
+      base_(std::move(base)),
+      byte_offset_(std::move(byte_offset)),
+      size_(size)
+{}
+
+bool MemRef::MayAlias(const MemRefPtr& a, const MemRefPtr& b)
+{
+    if (a->base_.get() != b->base_.get())
+        return false;
+
+    auto off_a = As<ConstInt>(a->byte_offset_);
+    auto off_b = As<ConstInt>(b->byte_offset_);
+    if (off_a && off_b) {
+        int64_t end_a = off_a->value_ + static_cast<int64_t>(a->size_);
+        int64_t end_b = off_b->value_ + static_cast<int64_t>(b->size_);
+        return off_a->value_ < end_b && off_b->value_ < end_a;
+    }
+    return true; // same base, symbolic offsets → conservatively alias
+}
 
 } // namespace ir
 } // namespace pypto
