@@ -1104,51 +1104,89 @@ TEST_F(GraphPartitionTest, TestAttentionFusionScopePartition)
 
 void GetAttentionElseBranchGraph(ComputationalGraphBuilder& G)
 {
-    std::vector<int64_t> tileShape{16, 16};
+    std::vector<int64_t> shapeSij{12, 512};
+    std::vector<int64_t> shapeOne{12, 1};
+    std::vector<int64_t> shapeOi{12, 128};
+    std::vector<int64_t> shapeVj{-1, 128};
     EXPECT_EQ(
         G.AddTensors(
-            DataType::DT_FP32, tileShape,
-            {"sij",
-             "max_update",
-             "sum_update",
-             "oi_update_prev",
-             "vj_assemble",
-             "sij_view",
-             "max_update_view",
-             "sum_update_view",
-             "oi_update_prev_view",
-             "vj_assemble_view",
-             "sij_scale",
-             "tilda_mij",
-             "max_new",
-             "tsub1",
-             "tilda_pij",
-             "tilda_pij_half",
-             "sum_local",
-             "tsub2",
-             "update_mul",
-             "tmp_mul",
-             "sum_update_out",
-             "oi_tmp",
-             "tmp_oi",
-             "oi_update_out"}),
+            DataType::DT_FP32, shapeSij,
+            {"sij", "sij_view", "sij_scale", "tsub1", "tilda_pij", "tilda_pij_half", "oi_tmp"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, shapeOne,
+            {"max_update", "sum_update", "max_update_view", "max_update_view2", "sum_update_view",
+             "tilda_mij", "max_new", "sum_local", "tsub2", "update_mul", "tmp_mul", "sum_update_out"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, shapeOi,
+            {"oi_update_prev", "oi_update_prev_view", "tmp_oi", "oi_update_out"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, shapeVj,
+            {"vj_assemble", "vj_assemble_view"}),
+        true);
+
+    Shape matmulShape{128, 128};
+    Shape matmulResultShape{12, 128};
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, matmulShape,
+            std::vector<MemoryType>{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1},
+            {"v1_l1", "v2_l1", "v3_l1", "v4_l1"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, matmulShape,
+            std::vector<MemoryType>{MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0B, MemoryType::MEM_L0B},
+            {"v1_l0b", "v2_l0b", "v3_l0b", "v4_l0b"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, matmulShape,
+            std::vector<MemoryType>{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+                                    MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+            {"v1_gm", "v2_gm", "v3_gm", "v4_gm"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, matmulResultShape,
+            std::vector<MemoryType>{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1,
+                                    MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1},
+            {"a1_l1", "a2_l1", "a3_l1", "a4_l1", "a1_gm", "a2_gm", "a3_gm", "a4_gm"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, matmulResultShape,
+            std::vector<MemoryType>{MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0A, MemoryType::MEM_L0A},
+            {"a1_l0a", "a2_l0a", "a3_l0a", "a4_l0a"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, matmulResultShape,
+            std::vector<MemoryType>{MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_L0C},
+            {"matmul_result_a", "matmul_result_b", "matmul_result_c", "matmul_result_d"}),
         true);
 
     EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sij"}, {"sij_view"}, "VIEW_sij", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_view"}, "VIEW_max_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_view2"}, "VIEW_max_update2", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sum_update"}, {"sum_update_view"}, "VIEW_sum_update", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_update_prev"}, {"oi_update_prev_view"}, "VIEW_oi_update_prev", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"vj_assemble"}, {"vj_assemble_view"}, "VIEW_vj_assemble", true), true);
 
     EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij_view"}, {"sij_scale"}, "MULS_scale", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_mij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX_SINGLE, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_mij", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update_view", "tilda_mij"}, {"max_new"}, "MAX_new", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"sij_scale", "max_new"}, {"tsub1"}, "SUB_tsub", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub1"}, {"tilda_pij"}, "EXP_pij", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"tilda_pij"}, {"tilda_pij_half"}, "CAST_half", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ROWSUM, {"tilda_pij"}, {"sum_local"}, "ROWSUM_local", true), true);
 
-    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update_view", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update_view2", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub2"}, {"update_mul"}, "EXP_umul", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update_view", "update_mul"}, {"tmp_mul"}, "MUL_sum", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_mul", "sum_local"}, {"sum_update_out"}, "ADD_sum", true), true);
@@ -1156,6 +1194,51 @@ void GetAttentionElseBranchGraph(ComputationalGraphBuilder& G)
     EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"tilda_pij_half", "vj_assemble_view"}, {"oi_tmp"}, "MUL_c2", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"oi_update_prev_view", "update_mul"}, {"tmp_oi"}, "MUL_oi", true), true);
     EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_oi", "oi_tmp"}, {"oi_update_out"}, "ADD_v2", true), true);
+
+    // vj_assemble_view -> VIEW -> v1_l1 ~ v4_l1 -> L1_TO_L0A -> v1_l0a ~ v4_l0a
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"vj_assemble_view"}, {"v1_gm"}, "VIEW_v1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"vj_assemble_view"}, {"v2_gm"}, "VIEW_v2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"vj_assemble_view"}, {"v3_gm"}, "VIEW_v3", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"vj_assemble_view"}, {"v4_gm"}, "VIEW_v4", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"v1_gm"}, {"v1_l1"}, "VIEW_v11", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"v2_gm"}, {"v2_l1"}, "VIEW_v22", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"v3_gm"}, {"v3_l1"}, "VIEW_v33", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"v4_gm"}, {"v4_l1"}, "VIEW_v44", true), true);
+    // v1_l1 ~ v4_l1 -> VIEW(to L0B) -> v1_l0b ~ v4_l0b
+    {
+        std::vector<std::pair<std::string, std::string>> vViews = {
+            {"v1_l1", "v1_l0b"}, {"v2_l1", "v2_l0b"}, {"v3_l1", "v3_l0b"}, {"v4_l1", "v4_l0b"}};
+        for (int i = 0; i < static_cast<int>(vViews.size()); i++) {
+            std::string opName = "VIEW_L0B_v" + std::to_string(i + 1);
+            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {vViews[i].first}, {vViews[i].second}, opName, true), true);
+            auto viewOp = G.GetOp(opName);
+            std::vector<int64_t> offset = {0, 0, 0};
+            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0B));
+        }
+    }
+
+    // tilda_pij_half -> ASSEMBLE -> a1_l1 ~ a4_l1 -> VIEW(to L0A) -> a1_l0a ~ a4_l0a
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"tilda_pij_half"}, {"a1_l1"}, "ASSEMBLE_a1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"tilda_pij_half"}, {"a2_l1"}, "ASSEMBLE_a2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"tilda_pij_half"}, {"a3_l1"}, "ASSEMBLE_a3", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"tilda_pij_half"}, {"a4_l1"}, "ASSEMBLE_a4", true), true);
+    {
+        std::vector<std::pair<std::string, std::string>> aViews = {
+            {"a1_l1", "a1_l0a"}, {"a2_l1", "a2_l0a"}, {"a3_l1", "a3_l0a"}, {"a4_l1", "a4_l0a"}};
+        for (int i = 0; i < static_cast<int>(aViews.size()); i++) {
+            std::string opName = "VIEW_L0A_a" + std::to_string(i + 1);
+            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {aViews[i].first}, {aViews[i].second}, opName, true), true);
+            auto viewOp = G.GetOp(opName);
+            std::vector<int64_t> offset = {0, 0, 0};
+            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0A));
+        }
+    }
+
+    // matmul chain: a = v1*a1, b += v2*a2, c += v3*a3, d += v4*a4
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MUL_B, {"a1_l0a", "v1_l0b"}, {"matmul_result_a"}, "MMUL_a", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a2_l0a", "v2_l0b", "matmul_result_a"}, {"matmul_result_b"}, "MMACC_b", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a3_l0a", "v3_l0b", "matmul_result_b"}, {"matmul_result_c"}, "MMACC_c", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a4_l0a", "v4_l0b", "matmul_result_c"}, {"matmul_result_d"}, "MMACC_d", true), true);
 
     EXPECT_EQ(G.SetInCast({"sij", "max_update", "sum_update", "oi_update_prev", "vj_assemble"}), true);
     EXPECT_EQ(G.SetOutCast({"oi_update_out", "sum_update_out"}), true);
@@ -1174,9 +1257,9 @@ TEST_F(GraphPartitionTest, TestAttentionElseBranchScopeId)
         "MULS_scale", "ROWMAX_mij", "MAX_new", "SUB_tsub",
         "EXP_pij", "CAST_half", "ROWSUM_local"
     };
-    for (const auto& name : scope1Ops) {
-        G.GetOp(name)->SetScopeInfo(scope1);
-    }
+    // for (const auto& name : scope1Ops) {
+    //     G.GetOp(name)->SetScopeInfo(scope1);
+    // }
 
     Operation::ScopeInfo scope2;
     scope2.scopeId = 2;
@@ -1195,10 +1278,10 @@ TEST_F(GraphPartitionTest, TestAttentionElseBranchScopeId)
     const int cycleLB = 0;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/22b.json");
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/99b.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/22a.json");
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/99a.json");
     int scope1Subgraph = G.GetOp(scope1Ops[0])->GetSubgraphID();
     for (const auto& name : scope1Ops) {
         EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope1Subgraph);
