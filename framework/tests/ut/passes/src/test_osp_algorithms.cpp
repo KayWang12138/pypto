@@ -23,7 +23,7 @@
 
 #define MODULE_NAME "OspTests"
 
-#include "passes/algorithms/osp/auxiliary/datastructures/union_find.h"
+#include "passes/algorithms/osp/auxiliary/datastructures/union_find_universe.h"
 #include "passes/algorithms/osp/auxiliary/balanced_coin_flips.h"
 #include "passes/algorithms/osp/bsp/model/bsp_architecture.h"
 #include "passes/algorithms/osp/bsp/model/bsp_instance.h"

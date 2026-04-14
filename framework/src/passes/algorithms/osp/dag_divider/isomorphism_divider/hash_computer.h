@@ -21,7 +21,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class HashComputer
  * @brief Abstract base class for computing and managing hash values and orbits for graph vertices.

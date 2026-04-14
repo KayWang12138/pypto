@@ -33,7 +33,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class OrbitGraphProcessor
  * @brief A simple processor that groups nodes of a DAG based on their Merkle hash.

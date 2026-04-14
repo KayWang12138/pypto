@@ -28,7 +28,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename VertT = std::size_t, typename EdgeT = std::size_t, typename WorkWeightType = unsigned,
     typename CommWeightType = unsigned, typename MemWeightType = unsigned, typename VertexTypeTemplateType = unsigned>
 class CompactSparseGraph {

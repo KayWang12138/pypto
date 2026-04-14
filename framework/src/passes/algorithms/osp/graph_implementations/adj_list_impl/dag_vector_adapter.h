@@ -23,7 +23,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Adapter to view a pair of adjacency lists (out-neighbors and in-neighbors) as a computational DAG.
  *
@@ -112,11 +111,26 @@ public:
         numVertexTypes_ = 1;
     }
 
-    [[nodiscard]] auto Vertices() const { return IntegralRange<VertexIdx>(static_cast<VertexIdx>(vertices_.size())); }
-    [[nodiscard]] VertexIdx NumVertices() const { return static_cast<VertexIdx>(vertices_.size()); }
-    [[nodiscard]] VertexIdx NumEdges() const { return static_cast<VertexIdx>(numEdges_); }
-    [[nodiscard]] auto Parents(const VertexIdx v) const { return (*inNeigbors_)[v]; }
-    [[nodiscard]] auto Children(const VertexIdx v) const { return (*outNeigbors_)[v]; }
+    [[nodiscard]] auto Vertices() const
+    {
+        return IntegralRange<VertexIdx>(static_cast<VertexIdx>(vertices_.size()));
+    }
+    [[nodiscard]] VertexIdx NumVertices() const
+    {
+        return static_cast<VertexIdx>(vertices_.size());
+    }
+    [[nodiscard]] VertexIdx NumEdges() const
+    {
+        return static_cast<VertexIdx>(numEdges_);
+    }
+    [[nodiscard]] auto Parents(const VertexIdx v) const
+    {
+        return (*inNeigbors_)[v];
+    }
+    [[nodiscard]] auto Children(const VertexIdx v) const
+    {
+        return (*outNeigbors_)[v];
+    }
     [[nodiscard]] VertexIdx InDegree(const VertexIdx v) const
     {
         return static_cast<VertexIdx>((*inNeigbors_)[v].size());
@@ -125,11 +139,26 @@ public:
     {
         return static_cast<VertexIdx>((*outNeigbors_)[v].size());
     }
-    [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const { return vertices_[v].workWeight_; }
-    [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const { return vertices_[v].commWeight_; }
-    [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const { return vertices_[v].memWeight_; }
-    [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const { return vertices_[v].vertexType_; }
-    [[nodiscard]] VertexTypeType NumVertexTypes() const { return numVertexTypes_; }
+    [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const
+    {
+        return vertices_[v].workWeight_;
+    }
+    [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const
+    {
+        return vertices_[v].commWeight_;
+    }
+    [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const
+    {
+        return vertices_[v].memWeight_;
+    }
+    [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const
+    {
+        return vertices_[v].vertexType_;
+    }
+    [[nodiscard]] VertexTypeType NumVertexTypes() const
+    {
+        return numVertexTypes_;
+    }
 
     void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight)
     {

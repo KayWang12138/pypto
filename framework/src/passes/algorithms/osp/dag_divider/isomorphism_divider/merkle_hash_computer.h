@@ -31,7 +31,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename VertexType, std::size_t defautlVal = 11U>
 struct UniformNodeHashFunc {
     using ResultType = std::size_t;

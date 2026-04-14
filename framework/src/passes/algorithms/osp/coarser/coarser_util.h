@@ -27,7 +27,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename T, typename Ind>
 void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm)
 {
@@ -45,7 +44,6 @@ void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm)
 }
 
 namespace coarser_util {
-
 template <typename GraphTOut>
 bool CheckValidContractionMap(const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap)
 {

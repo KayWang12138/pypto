@@ -25,7 +25,6 @@
  */
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Default implementation to get the source vertex of an edge.
  */

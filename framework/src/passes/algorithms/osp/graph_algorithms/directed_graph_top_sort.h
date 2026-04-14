@@ -25,7 +25,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT>
 std::vector<VertexIdxT<GraphT>> GetTopOrder(const GraphT &graph)
 {

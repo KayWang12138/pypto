@@ -29,7 +29,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @enum MemoryConstraintType
  * @brief Enumerates the different types of memory constraints.
@@ -121,7 +120,8 @@ public:
             if (std::any_of(sendCosts.begin(), sendCosts.end(),
                     [numberOfProcessors](const auto &thing) {
                         return thing.size() != numberOfProcessors;
-                    })) {
+                    }))
+                    {
                 APASS_LOG_ERROR_F(Elements::Config,
                     "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
                 throw std::invalid_argument("sendCosts_ needs to be a processors x processors matrix.\n");
@@ -187,7 +187,10 @@ public:
      * @brief Returns a view of processor indices from 0 to numberOfProcessors_ - 1.
      * @return An integral view of processor indices.
      */
-    [[nodiscard]] auto Processors() const { return IntegralRange<unsigned>(numberOfProcessors_); }
+    [[nodiscard]] auto Processors() const
+    {
+        return IntegralRange<unsigned>(numberOfProcessors_);
+    }
 
     /**
      * @brief Sets the memory bound for all processors.
@@ -335,14 +338,20 @@ public:
      * @brief Returns the memory bounds of all processors.
      * @return Vector of memory bounds.
      */
-    [[nodiscard]] const std::vector<VMemwT<GraphT>> &MemoryBound() const { return memoryBound_; }
+    [[nodiscard]] const std::vector<VMemwT<GraphT>> &MemoryBound() const
+    {
+        return memoryBound_;
+    }
 
     /**
      * @brief Returns the memory bound of a specific processor.
      * @param proc The processor index.
      * @return The memory bound.
      */
-    [[nodiscard]] VMemwT<GraphT> MemoryBound(const unsigned proc) const { return memoryBound_[proc]; }
+    [[nodiscard]] VMemwT<GraphT> MemoryBound(const unsigned proc) const
+    {
+        return memoryBound_[proc];
+    }
 
     /**
      * @brief Returns the maximum memory bound over all processors.
@@ -359,7 +368,8 @@ public:
      * @param procType The processor type.
      * @return The maximum memory bound.
      */
-    [[nodiscard]] VMemwT<GraphT> MaxMemoryBoundProcType(const VTypeT<GraphT> procType) const {
+    [[nodiscard]] VMemwT<GraphT> MaxMemoryBoundProcType(const VTypeT<GraphT> procType) const
+    {
         VMemwT<GraphT> maxMem = 0U;
         for (unsigned proc = 0U; proc < numberOfProcessors_; proc++) {
             if (processorTypes_[proc] == procType) {
@@ -373,19 +383,28 @@ public:
      * @brief Returns the number of processors.
      * @return The number of processors.
      */
-    [[nodiscard]] unsigned NumberOfProcessors() const { return numberOfProcessors_; }
+    [[nodiscard]] unsigned NumberOfProcessors() const
+    {
+        return numberOfProcessors_;
+    }
 
     /**
      * @brief Returns the communication costs.
      * @return The communication costs.
      */
-    [[nodiscard]] VCommwT<GraphT> CommunicationCosts() const { return communicationCosts_; }
+    [[nodiscard]] VCommwT<GraphT> CommunicationCosts() const
+    {
+        return communicationCosts_;
+    }
 
     /**
      * @brief Returns the synchronization costs.
      * @return The synchronization costs.
      */
-    [[nodiscard]] VCommwT<GraphT> SynchronisationCosts() const { return synchronisationCosts_; }
+    [[nodiscard]] VCommwT<GraphT> SynchronisationCosts() const
+    {
+        return synchronisationCosts_;
+    }
 
     /**
      * @brief Returns a the send costs matrix. Internally the matrix is stored as a flattened
@@ -408,13 +427,19 @@ public:
      * @brief Returns the flattened send costs vector.
      * @return The send costs vector.
      */
-    [[nodiscard]] const std::vector<VCommwT<GraphT>> &SendCostsVector() const { return sendCosts_; }
+    [[nodiscard]] const std::vector<VCommwT<GraphT>> &SendCostsVector() const
+    {
+        return sendCosts_;
+    }
 
     /**
      * @brief Returns the processor types.
      * @return Vector of processor types.
      */
-    [[nodiscard]] const std::vector<unsigned> &ProcessorTypes() const { return processorTypes_; }
+    [[nodiscard]] const std::vector<unsigned> &ProcessorTypes() const
+    {
+        return processorTypes_;
+    }
 
     /**
      * @brief Returns the communication costs between two processors. Does not perform bounds checking.
@@ -424,7 +449,8 @@ public:
      * @param p2 The index of the second processor.
      * @return The communication costs between the two processors.
      */
-    [[nodiscard]] VCommwT<GraphT> CommunicationCosts(const unsigned p1, const unsigned p2) const {
+    [[nodiscard]] VCommwT<GraphT> CommunicationCosts(const unsigned p1, const unsigned p2) const
+    {
         return communicationCosts_ * sendCosts_[FlatIndex(p1, p2)];
     }
 
@@ -446,13 +472,17 @@ public:
      * @param p1 The processor index.
      * @return The processor type.
      */
-    [[nodiscard]] VTypeT<GraphT> ProcessorType(const unsigned p1) const { return processorTypes_[p1]; }
+    [[nodiscard]] VTypeT<GraphT> ProcessorType(const unsigned p1) const
+    {
+        return processorTypes_[p1];
+    }
 
     /**
      * @brief Returns the count of processors for each type.
      * @return Vector where index is type and value is count.
      */
-    [[nodiscard]] std::vector<unsigned> GetProcessorTypeCount() const {
+    [[nodiscard]] std::vector<unsigned> GetProcessorTypeCount() const
+    {
         std::vector<unsigned> typeCount(numberOfProcessorTypes_, 0U);
         for (unsigned p = 0U; p < numberOfProcessors_; p++) {
             typeCount[processorTypes_[p]]++;
@@ -460,9 +490,15 @@ public:
         return typeCount;
     }
 
-    [[nodiscard]] unsigned GetNumberOfProcessorTypes() const { return numberOfProcessorTypes_; };
+    [[nodiscard]] unsigned GetNumberOfProcessorTypes() const
+    {
+        return numberOfProcessorTypes_;
+    }
 
-    [[nodiscard]] MemoryConstraintType GetMemoryConstraintType() const { return memoryConstraintType_; }
+    [[nodiscard]] MemoryConstraintType GetMemoryConstraintType() const
+    {
+        return memoryConstraintType_;
+    }
 
     void SetMemoryConstraintType(const MemoryConstraintType memoryConstraintType)
     {

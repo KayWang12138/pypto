@@ -21,7 +21,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 class BiasedRandom {
 public:
     bool GetFlip();

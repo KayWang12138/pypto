@@ -35,7 +35,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 struct KlParameter {
     double timeQuality_ = 0.8;
     double superstepRemoveStrength_ = 0.5;

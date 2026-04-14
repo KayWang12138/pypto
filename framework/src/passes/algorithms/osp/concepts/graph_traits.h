@@ -31,7 +31,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename T>
 using VertexIdxT = typename T::VertexIdx;
 

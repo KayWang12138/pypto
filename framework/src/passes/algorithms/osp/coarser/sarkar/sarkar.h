@@ -26,7 +26,7 @@
 #include <cmath>
 #include <type_traits>
 
-#include "passes/algorithms/osp/auxiliary/datastructures/union_find.h"
+#include "passes/algorithms/osp/auxiliary/datastructures/union_find_universe.h"
 #include "passes/algorithms/osp/coarser/coarser.h"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.h"
 
@@ -34,9 +34,7 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 namespace sarkar_params {
-
 enum class Mode {
     LINES,
     FAN_IN_FULL,

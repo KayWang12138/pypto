@@ -22,7 +22,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT, typename CostT, unsigned windowSize = 1>
 struct KlHyperTotalCommCostFunction {
     using VertexType = VertexIdxT<GraphT>;

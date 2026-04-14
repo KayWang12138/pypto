@@ -26,7 +26,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief A vector-based implementation of a computational DAG.
  *
@@ -129,21 +128,54 @@ public:
 
     ~ComputationalDagVectorImpl() = default;
 
-    [[nodiscard]] auto Vertices() const { return IntegralRange<VertexIdx>(static_cast<VertexIdx>(vertices_.size())); }
-    [[nodiscard]] VertexIdx NumVertices() const { return static_cast<VertexIdx>(vertices_.size()); }
-    [[nodiscard]] bool empty() const { return vertices_.empty(); }
-    [[nodiscard]] VertexIdx NumEdges() const { return numEdges_; }
-    [[nodiscard]] const std::vector<VertexIdx> &Parents(const VertexIdx v) const { return inNeigbors_[v]; }
-    [[nodiscard]] const std::vector<VertexIdx> &Children(const VertexIdx v) const { return outNeigbors_[v]; }
-    [[nodiscard]] VertexIdx InDegree(const VertexIdx v) const { return static_cast<VertexIdx>(inNeigbors_[v].size()); }
+    [[nodiscard]] auto Vertices() const
+    {
+        return IntegralRange<VertexIdx>(static_cast<VertexIdx>(vertices_.size()));
+    }
+    [[nodiscard]] VertexIdx NumVertices() const
+    {
+        return static_cast<VertexIdx>(vertices_.size());
+    }
+    [[nodiscard]] bool empty() const
+    {
+        return vertices_.empty();
+    }
+    [[nodiscard]] VertexIdx NumEdges() const
+    {
+        return numEdges_;
+    }
+    [[nodiscard]] const std::vector<VertexIdx> &Parents(const VertexIdx v) const
+    {
+        return inNeigbors_[v];
+    }
+    [[nodiscard]] const std::vector<VertexIdx> &Children(const VertexIdx v) const
+    {
+        return outNeigbors_[v];
+    }
+    [[nodiscard]] VertexIdx InDegree(const VertexIdx v) const
+    {
+        return static_cast<VertexIdx>(inNeigbors_[v].size());
+    }
     [[nodiscard]] VertexIdx OutDegree(const VertexIdx v) const
     {
         return static_cast<VertexIdx>(outNeigbors_[v].size());
     }
-    [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const { return vertices_[v].workWeight_; }
-    [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const { return vertices_[v].commWeight_; }
-    [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const { return vertices_[v].memWeight_; }
-    [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const { return vertices_[v].vertexType_; }
+    [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const
+    {
+        return vertices_[v].workWeight_;
+    }
+    [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const
+    {
+        return vertices_[v].commWeight_;
+    }
+    [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const
+    {
+        return vertices_[v].memWeight_;
+    }
+    [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const
+    {
+        return vertices_[v].vertexType_;
+    }
     VertexIdx AddVertex(const VertexWorkWeightType workWeight,
                         const VertexCommWeightType commWeight,
                         const VertexMemWeightType memWeight,
@@ -158,7 +190,10 @@ public:
         return vertices_.back().id_;
     }
 
-    [[nodiscard]] VertexTypeType NumVertexTypes() const { return numVertexTypes_; }
+    [[nodiscard]] VertexTypeType NumVertexTypes() const
+    {
+        return numVertexTypes_;
+    }
 
     void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight)
     {

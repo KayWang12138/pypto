@@ -13,7 +13,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename IntegralType>
 IntegralType IntSqrtFloor(IntegralType num)
 {
@@ -293,7 +292,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
     auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs,
-                  const std::pair<long, std::vector<VertexType>> &rhs) {
+                  const std::pair<long, std::vector<VertexType>> &rhs)
+    {
         return (lhs.first > rhs.first) || ((lhs.first == rhs.first) && (lhs.second < rhs.second));
     };
     std::set<std::pair<long, std::vector<VertexType>>, decltype(cmp)> vertPriority(cmp);
@@ -478,7 +478,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
     auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs,
-                  const std::pair<long, std::vector<VertexType>> &rhs) {
+                  const std::pair<long, std::vector<VertexType>> &rhs)
+    {
         return (lhs.first > rhs.first) || ((lhs.first == rhs.first) && (lhs.second < rhs.second));
     };
     std::set<std::pair<long, std::vector<VertexType>>, decltype(cmp)> vertPriority(cmp);
@@ -653,7 +654,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
     const std::vector<VWorkwT<GraphTIn>> botDist = GetBotDistance(commCost, graph);
 
     auto cmp = [](const std::pair<long, std::vector<VertexType>> &lhs,
-                  const std::pair<long, std::vector<VertexType>> &rhs) {
+                  const std::pair<long, std::vector<VertexType>> &rhs)
+    {
         return (lhs.first > rhs.first) || ((lhs.first == rhs.first) && (lhs.second < rhs.second));
     };
     std::set<std::pair<long, std::vector<VertexType>>, decltype(cmp)> vertPriority(cmp);
@@ -903,7 +905,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
     std::vector<std::size_t> hashValuesCombined(graph.NumVertices(), 1729U);
 
     if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER
-        || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+        || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER)
+    {
         const std::vector<std::size_t> hashValues = ComputeNodeHashes(graph, vertexTopPoset, topDist);
         std::vector<std::size_t> hashValuesWithParents = hashValues;
         for (const VertexType &par : graph.Vertices()) {
@@ -916,7 +919,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
         }
     }
     if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER
-        || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+        || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER)
+    {
         const std::vector<std::size_t> hashValues = ComputeNodeHashes(graph, vertexBotPoset, botDist);
         std::vector<std::size_t> hashValuesWithChildren = hashValues;
         for (const VertexType &chld : graph.Vertices()) {
@@ -964,7 +968,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
 
         std::set<VertexType> parents;
         if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER
-            || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+            || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER)
+        {
             for (const VertexType &par : graph.Parents(vert)) {
                 parents.emplace(par);
             }
@@ -972,7 +977,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
 
         std::set<VertexType> children;
         if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER
-            || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+            || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER)
+        {
             for (const VertexType &chld : graph.Children(vert)) {
                 children.emplace(chld);
             }
@@ -1000,7 +1006,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
             }
 
             if (params_.mode_ == sarkar_params::Mode::FAN_OUT_BUFFER
-                || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+                || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER)
+            {
                 std::set<VertexType> candidateParents;
                 for (const VertexType &par : graph.Parents(vertCandidate)) {
                     candidateParents.emplace(par);
@@ -1011,7 +1018,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
             }
 
             if (params_.mode_ == sarkar_params::Mode::FAN_IN_BUFFER
-                || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER) {
+                || params_.mode_ == sarkar_params::Mode::HOMOGENEOUS_BUFFER)
+            {
                 std::set<VertexType> candidateChildren;
                 for (const VertexType &chld : graph.Children(vertCandidate)) {
                     candidateChildren.emplace(chld);

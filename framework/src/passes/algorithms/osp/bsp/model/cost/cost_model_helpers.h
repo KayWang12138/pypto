@@ -23,12 +23,10 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT>
 class BspSchedule;
 
 namespace cost_helpers {
-
 template <typename GraphT>
 std::vector<VCommwT<GraphT>> ComputeMaxCommPerStep(const BspInstance<GraphT> &instance,
                                                    unsigned numberOfSupersteps,

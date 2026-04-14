@@ -23,7 +23,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT>
 void ComputeLazyCommunicationCosts(const BspInstance<GraphT> &instance,
                                    unsigned numberOfSupersteps,

@@ -22,9 +22,7 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 namespace sarkar_params {
-
 enum class BufferMergeMode { OFF, FAN_IN, FAN_OUT, HOMOGENEOUS, FULL };
 
 template <typename CommCostType>

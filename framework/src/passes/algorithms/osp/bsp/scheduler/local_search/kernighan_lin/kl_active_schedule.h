@@ -22,7 +22,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT, typename CostT>
 class KlActiveSchedule {
 public:

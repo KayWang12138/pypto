@@ -15,7 +15,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT, typename ConstrGraphT>
 void OrbitGraphProcessor<GraphT, ConstrGraphT>::DiscoverIsomorphicGroups(
     const GraphT &dag, const HashComputer<VertexType> &hasher)

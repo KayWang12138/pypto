@@ -29,7 +29,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Concept to check if vertices can be added to the graph.
  *

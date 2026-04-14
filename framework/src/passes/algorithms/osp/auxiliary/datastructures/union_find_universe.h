@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file union_find.h
+ * \file union_find_universe.h
  * \brief
  */
 
-#ifndef PASS_OSP_UNION_FIND_H
-#define PASS_OSP_UNION_FIND_H
+#ifndef PASS_OSP_UNION_FIND_UNIVERSE_H
+#define PASS_OSP_UNION_FIND_UNIVERSE_H
 
 #include <algorithm>
 #include <set>
@@ -27,7 +27,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Structure to represent an object in the union-find universe.
  *
@@ -268,4 +267,4 @@ void UnionFindUniverse<T, IndexT, WorkwT>::AddObject(const T &name, const WorkwT
 }
 } // namespace osp
 } // namespace npu::tile_fwk
-#endif // PASS_OSP_UNION_FIND_H
+#endif // PASS_OSP_UNION_FIND_UNIVERSE_H

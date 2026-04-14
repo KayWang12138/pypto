@@ -20,7 +20,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Constructs a computational DAG from another graph.
  *

@@ -18,7 +18,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class SetSchedule
  *
@@ -62,8 +61,14 @@ public:
         numberOfSupersteps_ = 0;
     }
 
-    [[nodiscard]] const BspInstance<GraphT> &GetInstance() const { return *instance_; }
-    [[nodiscard]] unsigned NumberOfSupersteps() const { return numberOfSupersteps_; }
+    [[nodiscard]] const BspInstance<GraphT> &GetInstance() const
+    {
+        return *instance_;
+    }
+    [[nodiscard]] unsigned NumberOfSupersteps() const
+    {
+        return numberOfSupersteps_;
+    }
 
     /**
      * @brief Get the internal node assignment structure.

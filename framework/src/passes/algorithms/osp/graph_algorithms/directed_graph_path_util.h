@@ -28,7 +28,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename T = unsigned, typename GraphT, typename NeighborFunc, typename IterFunc>
 std::vector<T> GetNodeDistanceImpl(const GraphT &graph, NeighborFunc getNeighbors, IterFunc iterate)
 {

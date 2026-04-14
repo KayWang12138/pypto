@@ -33,7 +33,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Checks if there is an edge between two vertices in the graph.
  *

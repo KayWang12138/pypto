@@ -20,7 +20,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Implementation of a computational DAG vertex.
  *

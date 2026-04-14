@@ -17,7 +17,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Container for tracking child processor assignments in a BSP schedule using vectors.
  *

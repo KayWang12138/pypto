@@ -17,7 +17,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class CompatibleProcessorRange
  * @brief Helper class to efficiently iterate over compatible processors for a given node or node type.
@@ -72,7 +71,8 @@ public:
      * @param type The node type.
      * @return A const reference to a vector of compatible processor indices.
      */
-    [[nodiscard]] const auto &CompatibleProcessorsType(const VTypeT<GraphT> type) const {
+    [[nodiscard]] const auto &CompatibleProcessorsType(const VTypeT<GraphT> type) const
+    {
         return typeProcessorIdx_[type];
     }
 
@@ -82,7 +82,8 @@ public:
      * @param vertex The vertex index.
      * @return A const reference to a vector of compatible processor indices.
      */
-    [[nodiscard]] const auto &CompatibleProcessorsVertex(const VertexIdxT<GraphT> vertex) const {
+    [[nodiscard]] const auto &CompatibleProcessorsVertex(const VertexIdxT<GraphT> vertex) const
+    {
         return CompatibleProcessorsType(instance_->GetComputationalDag().VertexType(vertex));
     }
 };

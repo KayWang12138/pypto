@@ -26,7 +26,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class BspSchedule
  * @brief Represents a schedule for the Bulk Synchronous Parallel (BSP) model.
@@ -163,14 +162,20 @@ public:
      *
      * @return A reference to the BspInstance for the schedule.
      */
-    [[nodiscard]] const BspInstance<GraphT> &GetInstance() const { return *instance_; }
+    [[nodiscard]] const BspInstance<GraphT> &GetInstance() const
+    {
+        return *instance_;
+    }
 
     /**
      * @brief Returns the number of supersteps in the schedule.
      *
      * @return The number of supersteps in the schedule.
      */
-    [[nodiscard]] unsigned NumberOfSupersteps() const { return numberOfSupersteps_; }
+    [[nodiscard]] unsigned NumberOfSupersteps() const
+    {
+        return numberOfSupersteps_;
+    }
 
     unsigned& NumberOfSupersteps()
     {
@@ -203,7 +208,10 @@ public:
      * @param node The node for which to return the assigned superstep.
      * @return The superstep assigned to the specified node.
      */
-    [[nodiscard]] unsigned AssignedSuperstep(const VertexIdx node) const { return nodeToSuperstepAssignment_[node]; }
+    [[nodiscard]] unsigned AssignedSuperstep(const VertexIdx node) const
+    {
+        return nodeToSuperstepAssignment_[node];
+    }
 
     /**
      * @brief Returns the processor assigned to the specified node.
@@ -211,25 +219,40 @@ public:
      * @param node The node for which to return the assigned processor.
      * @return The processor assigned to the specified node.
      */
-    [[nodiscard]] unsigned AssignedProcessor(const VertexIdx node) const { return nodeToProcessorAssignment_[node]; }
+    [[nodiscard]] unsigned AssignedProcessor(const VertexIdx node) const
+    {
+        return nodeToProcessorAssignment_[node];
+    }
 
     /**
      * @brief Returns the superstep assignment for the schedule.
      *
      * @return The superstep assignment for the schedule.
      */
-    [[nodiscard]] const std::vector<unsigned> &AssignedSupersteps() const { return nodeToSuperstepAssignment_; }
+    [[nodiscard]] const std::vector<unsigned> &AssignedSupersteps() const
+    {
+        return nodeToSuperstepAssignment_;
+    }
 
-    [[nodiscard]] std::vector<unsigned> &AssignedSupersteps() { return nodeToSuperstepAssignment_; }
+    [[nodiscard]] std::vector<unsigned> &AssignedSupersteps()
+    {
+        return nodeToSuperstepAssignment_;
+    }
 
     /**
      * @brief Returns the processor assignment for the schedule.
      *
      * @return The processor assignment for the schedule.
      */
-    [[nodiscard]] const std::vector<unsigned> &AssignedProcessors() const { return nodeToProcessorAssignment_; }
+    [[nodiscard]] const std::vector<unsigned> &AssignedProcessors() const
+    {
+        return nodeToProcessorAssignment_;
+    }
 
-    [[nodiscard]] std::vector<unsigned> &AssignedProcessors() { return nodeToProcessorAssignment_; }
+    [[nodiscard]] std::vector<unsigned> &AssignedProcessors()
+    {
+        return nodeToProcessorAssignment_;
+    }
 
     /**
      * @brief Returns the staleness of the schedule.
@@ -239,7 +262,10 @@ public:
      *
      * @return The staleness of the schedule.
      */
-    [[nodiscard]] virtual unsigned GetStaleness() const { return 1; }
+    [[nodiscard]] virtual unsigned GetStaleness() const
+    {
+        return 1;
+    }
 
     /**
      * @brief Sets the superstep assigned to the specified node.
@@ -304,7 +330,8 @@ public:
      *
      * @return True if the schedule is valid, false otherwise.
      */
-    [[nodiscard]] bool IsValid() const {
+    [[nodiscard]] bool IsValid() const
+    {
         return SatisfiesPrecedenceConstraints() && SatisfiesNodeTypeConstraints();
     }
 
@@ -317,7 +344,8 @@ public:
      *
      * @return True if the schedule satisfies the precedence constraints of the computational DAG, false otherwise.
      */
-    [[nodiscard]] bool SatisfiesPrecedenceConstraints() const {
+    [[nodiscard]] bool SatisfiesPrecedenceConstraints() const
+    {
         if (static_cast<VertexIdxT<GraphT>>(nodeToProcessorAssignment_.size()) != instance_->NumberOfVertices()
             || static_cast<VertexIdxT<GraphT>>(nodeToSuperstepAssignment_.size()) != instance_->NumberOfVertices())
     {
@@ -351,7 +379,8 @@ public:
      *
      * @return True if node type constraints are satisfied, false otherwise.
      */
-    [[nodiscard]] bool SatisfiesNodeTypeConstraints() const {
+    [[nodiscard]] bool SatisfiesNodeTypeConstraints() const
+    {
         if (nodeToProcessorAssignment_.size() != static_cast<std::size_t>(instance_->NumberOfVertices())) {
             return false;
         }

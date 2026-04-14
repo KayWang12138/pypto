@@ -28,7 +28,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief Represents the result of a subgraph scheduling operation.
  *

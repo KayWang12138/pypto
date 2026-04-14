@@ -25,7 +25,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class GreedyMetaScheduler
  * @brief The GreedyMetaScheduler class represents a meta-scheduler that

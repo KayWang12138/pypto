@@ -22,7 +22,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename CostT, typename VertexIdxT>
 struct KlMoveStruct {
     VertexIdxT node_;

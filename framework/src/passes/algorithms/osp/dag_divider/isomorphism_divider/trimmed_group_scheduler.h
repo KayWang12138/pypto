@@ -26,7 +26,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class TrimmedGroupScheduler
  * @brief A scheduler for a single trimmed group consisting of multiple isomorphic connected components.

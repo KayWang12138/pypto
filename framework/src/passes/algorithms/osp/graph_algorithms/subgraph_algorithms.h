@@ -28,7 +28,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphTIn, typename GraphTOut>
 std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSubgraphMap(
     const GraphTIn &dag, GraphTOut &dagOut, const std::vector<VertexIdxT<GraphTIn>> &selectedNodes)

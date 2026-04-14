@@ -26,7 +26,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class PairingHeap
  * @brief A pairing heap implementation.
@@ -135,20 +134,29 @@ public:
      * @brief Checks if the heap is empty.
      * @return True if the heap is empty, false otherwise.
      */
-    [[nodiscard]] bool IsEmpty() const noexcept { return root_ == nullptr; }
+    [[nodiscard]] bool IsEmpty() const noexcept
+    {
+        return root_ == nullptr;
+    }
 
     /**
      * @brief Returns the number of elements in the heap.
      * @return The number of elements.
      */
-    [[nodiscard]] size_t size() const noexcept { return numElements_; }
+    [[nodiscard]] size_t size() const noexcept
+    {
+        return numElements_;
+    }
 
     /**
      * @brief Checks if a key exists in the heap.
      * @param key The key to check.
      * @return True if the key exists, false otherwise.
      */
-    [[nodiscard]] bool Contains(const Key &key) const noexcept { return nodeMap_.count(key); }
+    [[nodiscard]] bool Contains(const Key &key) const noexcept
+    {
+        return nodeMap_.count(key);
+    }
 
     /**
      * @brief Inserts a new key-value pair into the heap.
@@ -173,7 +181,8 @@ public:
      * @brief Returns the key with the minimum (or maximum) value depending on Compare.
      * @return The key at the top of the heap.
      */
-    [[nodiscard]] const Key &Top() const {
+    [[nodiscard]] const Key &Top() const
+    {
         if (IsEmpty()) { APASS_LOG_ERROR_F(Elements::Config, "Heap is empty."); }
         return root_->key_;
     }
@@ -277,7 +286,8 @@ public:
      * @param key The key to look up.
      * @return The value associated with the key.
      */
-    [[nodiscard]] const Value &GetValue(const Key &key) const {
+    [[nodiscard]] const Value &GetValue(const Key &key) const
+    {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
             APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
@@ -321,7 +331,8 @@ public:
      * @param limit The maximum number of keys to return. If 0, all keys with the top value are returned.
      * @return A vector of keys.
      */
-    [[nodiscard]] std::vector<Key> GetTopKeys(size_t limit = 0) const {
+    [[nodiscard]] std::vector<Key> GetTopKeys(size_t limit = 0) const
+    {
         std::vector<Key> topKeys;
         if (IsEmpty()) {
             return topKeys;

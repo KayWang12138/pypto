@@ -26,10 +26,8 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT, typename GraphTCoarse>
 class MultilevelCoarser : public Coarser<GraphT, GraphTCoarse> {
-
 public:
     MultilevelCoarser() : originalGraph_(nullptr) {};
     MultilevelCoarser(const GraphT &graph) : originalGraph_(&graph) {};

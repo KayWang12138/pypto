@@ -23,7 +23,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class PrecomputedHashComputer
  * @brief A class to store precomputed hash values for a set of objects and provide an orbit-based interface.

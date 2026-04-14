@@ -20,7 +20,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief A view over all edges in a directed graph.
  *
@@ -93,9 +92,15 @@ public:
             }
         }
 
-        [[nodiscard]] value_type operator*() const { return {currentVertex_, *currentChild_}; }
+        [[nodiscard]] value_type operator*() const
+        {
+            return {currentVertex_, *currentChild_};
+        }
 
-        [[nodiscard]] ArrowProxy operator->() const { return {operator*()}; }
+        [[nodiscard]] ArrowProxy operator->() const
+        {
+            return {operator*()};
+        }
 
         DirectedEdgeIterator &operator++()
         {
@@ -116,11 +121,13 @@ public:
             return temp;
         }
 
-        [[nodiscard]] bool operator==(const DirectedEdgeIterator &other) const noexcept {
+        [[nodiscard]] bool operator==(const DirectedEdgeIterator &other) const noexcept
+        {
             return currentEdgeIdx_ == other.currentEdgeIdx_;
         }
 
-        [[nodiscard]] bool operator!=(const DirectedEdgeIterator &other) const noexcept {
+        [[nodiscard]] bool operator!=(const DirectedEdgeIterator &other) const noexcept
+        {
             return !(*this == other);
         }
 
@@ -150,17 +157,35 @@ public:
 
     explicit EdgeView(const GraphT &graph) : graph_(graph) {}
 
-    [[nodiscard]] auto begin() const { return DirEdgeIterator(graph_); }
+    [[nodiscard]] auto begin() const
+    {
+        return DirEdgeIterator(graph_);
+    }
 
-    [[nodiscard]] auto cbegin() const { return DirEdgeIterator(graph_); }
+    [[nodiscard]] auto cbegin() const
+    {
+        return DirEdgeIterator(graph_);
+    }
 
-    [[nodiscard]] auto end() const { return DirEdgeIterator(graph_.NumEdges(), graph_); }
+    [[nodiscard]] auto end() const
+    {
+        return DirEdgeIterator(graph_.NumEdges(), graph_);
+    }
 
-    [[nodiscard]] auto cend() const { return DirEdgeIterator(graph_.NumEdges(), graph_); }
+    [[nodiscard]] auto cend() const
+    {
+        return DirEdgeIterator(graph_.NumEdges(), graph_);
+    }
 
-    [[nodiscard]] auto size() const { return graph_.NumEdges(); }
+    [[nodiscard]] auto size() const
+    {
+        return graph_.NumEdges();
+    }
 
-    [[nodiscard]] bool empty() const { return graph_.NumEdges() == 0; }
+    [[nodiscard]] bool empty() const
+    {
+        return graph_.NumEdges() == 0;
+    }
 
 private:
 
@@ -202,7 +227,8 @@ public:
         IncidentEdgeIterator(VertexIdxT<GraphT> u, ChildIteratorT it)
             : anchorVertex_(u), currentIt_(it) {}
 
-        [[nodiscard]] value_type operator*() const {
+        [[nodiscard]] value_type operator*() const
+        {
             if constexpr (isOutgoing) {
                 return {anchorVertex_, *currentIt_};
             } else {
@@ -210,7 +236,10 @@ public:
             }
         }
 
-        [[nodiscard]] ArrowProxy operator->() const { return {operator*()}; }
+        [[nodiscard]] ArrowProxy operator->() const
+        {
+            return {operator*()};
+        }
 
         IncidentEdgeIterator &operator++()
         {
@@ -243,7 +272,8 @@ public:
             return currentIt_ == other.currentIt_;
         }
 
-        [[nodiscard]] bool operator!=(const IncidentEdgeIterator &other) const noexcept {
+        [[nodiscard]] bool operator!=(const IncidentEdgeIterator &other) const noexcept
+        {
             return !(*this == other);
         }
 
@@ -263,7 +293,8 @@ public:
 
     IncidentEdgeView(const GraphT &graph, VertexIdxT<GraphT> u) : graph_(graph), anchorVertex_(u) {}
 
-    [[nodiscard]] auto begin() const {
+    [[nodiscard]] auto begin() const
+    {
         if constexpr (isOutgoing) {
             return Iterator(anchorVertex_, graph_.Children(anchorVertex_).begin());
         } else {
@@ -271,9 +302,13 @@ public:
         }
     }
 
-    [[nodiscard]] auto cbegin() const { return begin(); }
+    [[nodiscard]] auto cbegin() const
+    {
+        return begin();
+    }
 
-    [[nodiscard]] auto end() const {
+    [[nodiscard]] auto end() const
+    {
         if constexpr (isOutgoing) {
             return Iterator(anchorVertex_, graph_.Children(anchorVertex_).end());
         } else {
@@ -281,9 +316,13 @@ public:
         }
     }
 
-    [[nodiscard]] auto cend() const { return end(); }
+    [[nodiscard]] auto cend() const
+    {
+        return end();
+    }
 
-    [[nodiscard]] auto size() const {
+    [[nodiscard]] auto size() const
+    {
         if constexpr (isOutgoing) {
             return graph_.OutDegree(anchorVertex_);
         } else {
@@ -291,7 +330,8 @@ public:
         }
     }
 
-    [[nodiscard]] bool empty() const {
+    [[nodiscard]] bool empty() const
+    {
         if constexpr (isOutgoing) {
             return graph_.OutDegree(anchorVertex_) == 0;
         } else {

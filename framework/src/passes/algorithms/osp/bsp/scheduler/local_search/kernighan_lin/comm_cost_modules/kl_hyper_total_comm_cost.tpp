@@ -13,7 +13,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename GraphT, typename CostT, unsigned windowSize>
 template <typename AffinityTableT>
 void KlHyperTotalCommCostFunction<GraphT, CostT, windowSize>::UpdateChildAffinityToStep(

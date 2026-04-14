@@ -26,7 +26,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class Coarser
  * @brief Abstract base class for coarsening ComputationalDags.

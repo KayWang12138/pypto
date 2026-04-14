@@ -13,7 +13,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename VertexType>
 struct KlUpdateInfo {
     VertexType node_ = 0;
@@ -635,7 +634,8 @@ bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ScatterNodesSuper
 
             ApplyMove(bestMove, threadData);
             if (threadData.activeScheduleData_.currentViolations_.size()
-                > parameters_.abortScatterNodesViolationThreshold_) {
+                > parameters_.abortScatterNodesViolationThreshold_)
+            {
                 abort = true;
                 break;
             }

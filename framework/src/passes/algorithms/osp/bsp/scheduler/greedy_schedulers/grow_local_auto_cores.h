@@ -30,7 +30,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename WeightT>
 struct GrowLocalAutoCoresParams {
     unsigned minSuperstepSize_ = 20;
@@ -140,7 +139,8 @@ public:
                 }
 
                 continueSuperstepAttempts = result.continueAttempts;
-                limit++; limit += (limit / 2);
+                limit++;
+                limit += (limit / 2);
             }
 
             CommitBestAssignments(state.bestNewReady, state.bestNewAssignments, state.ready,

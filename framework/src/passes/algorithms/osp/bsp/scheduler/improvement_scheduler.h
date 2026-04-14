@@ -20,7 +20,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class ImprovementScheduler
  * @brief Abstract base class for improvement scheduling scheduler.

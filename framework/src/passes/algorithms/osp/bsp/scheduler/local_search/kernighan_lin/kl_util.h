@@ -22,7 +22,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 template <typename CostT, typename CommCostFunctionT, typename KlActiveScheduleT>
 struct RewardPenaltyStrategy {
     KlActiveScheduleT *activeSchedule_;

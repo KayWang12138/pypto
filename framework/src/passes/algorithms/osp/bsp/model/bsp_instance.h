@@ -24,7 +24,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @class BspInstance
  * @brief Represents a scheduling problem instance for the Bulk Synchronous Parallel (BSP) model.
@@ -112,38 +111,62 @@ public:
      * Assigning the BSP architecture via the reference creates a copy of the architecture.
      * The move operator may be used to transfer ownership of the architecture.
      */
-    [[nodiscard]] const BspArchitecture<GraphT> &GetArchitecture() const { return architecture_; }
+    [[nodiscard]] const BspArchitecture<GraphT> &GetArchitecture() const
+    {
+        return architecture_;
+    }
 
-    [[nodiscard]] BspArchitecture<GraphT> &GetArchitecture() { return architecture_; }
+    [[nodiscard]] BspArchitecture<GraphT> &GetArchitecture()
+    {
+        return architecture_;
+    }
 
     /**
      * @brief Returns a reference to the computational DAG of the instance.
      * Assigning the computational DAG via the reference creates a copy of the DAG.
      * The move operator may be used to transfer ownership of the DAG.
      */
-    [[nodiscard]] const GraphT &GetComputationalDag() const { return cdag_; }
+    [[nodiscard]] const GraphT &GetComputationalDag() const
+    {
+        return cdag_;
+    }
 
-    [[nodiscard]] GraphT &GetComputationalDag() { return cdag_; }
+    [[nodiscard]] GraphT &GetComputationalDag()
+    {
+        return cdag_;
+    }
 
     /**
      * @brief Returns the number of vertices in the computational DAG.
      */
-    [[nodiscard]] VertexIdxT<GraphT> NumberOfVertices() const { return cdag_.NumVertices(); }
+    [[nodiscard]] VertexIdxT<GraphT> NumberOfVertices() const
+    {
+        return cdag_.NumVertices();
+    }
 
     /**
      * @brief Returns a view over the vertex indices of the computational DAG.
      */
-    [[nodiscard]] auto Vertices() const { return cdag_.Vertices(); }
+    [[nodiscard]] auto Vertices() const
+    {
+        return cdag_.Vertices();
+    }
 
     /**
      * @brief Returns a view over the processor indices of the BSP architecture.
      */
-    [[nodiscard]] auto Processors() const { return architecture_.Processors(); }
+    [[nodiscard]] auto Processors() const
+    {
+        return architecture_.Processors();
+    }
 
     /**
      * @brief Returns the number of processors in the BSP architecture.
      */
-    [[nodiscard]] unsigned NumberOfProcessors() const { return architecture_.NumberOfProcessors(); }
+    [[nodiscard]] unsigned NumberOfProcessors() const
+    {
+        return architecture_.NumberOfProcessors();
+    }
 
     /**
      * @brief Returns the communication costs between two processors. Does not perform bounds checking.
@@ -152,7 +175,8 @@ public:
      * @param p_send The index of the sending processor.
      * @param p_receive The index of the receiving processor.
      */
-    [[nodiscard]] VCommwT<GraphT> CommunicationCosts(const unsigned pSend, const unsigned pReceive) const {
+    [[nodiscard]] VCommwT<GraphT> CommunicationCosts(const unsigned pSend, const unsigned pReceive) const
+    {
         return architecture_.CommunicationCosts(pSend, pReceive);
     }
 
@@ -163,14 +187,18 @@ public:
      * @param p_send The index of the sending processor.
      * @param p_receive The index of the receiving processor.
      */
-    [[nodiscard]] VCommwT<GraphT> SendCosts(const unsigned pSend, const unsigned pReceive) const {
+    [[nodiscard]] VCommwT<GraphT> SendCosts(const unsigned pSend, const unsigned pReceive) const
+    {
         return architecture_.SendCosts(pSend, pReceive);
     }
 
     /**
      * @brief Returns a copy of the send costs matrix.
      */
-    [[nodiscard]] std::vector<std::vector<VCommwT<GraphT>>> SendCosts() const { return architecture_.SendCosts(); }
+    [[nodiscard]] std::vector<std::vector<VCommwT<GraphT>>> SendCosts() const
+    {
+        return architecture_.SendCosts();
+    }
 
     /**
      * @brief Returns the flattened send costs vector.
@@ -183,18 +211,27 @@ public:
     /**
      * @brief Returns the communication costs of the BSP architecture.
      */
-    [[nodiscard]] VCommwT<GraphT> CommunicationCosts() const { return architecture_.CommunicationCosts(); }
+    [[nodiscard]] VCommwT<GraphT> CommunicationCosts() const
+    {
+        return architecture_.CommunicationCosts();
+    }
 
     /**
      * @brief Returns the synchronization costs of the BSP architecture.
      */
-    [[nodiscard]] VCommwT<GraphT> SynchronisationCosts() const { return architecture_.SynchronisationCosts(); }
+    [[nodiscard]] VCommwT<GraphT> SynchronisationCosts() const
+    {
+        return architecture_.SynchronisationCosts();
+    }
 
     /**
      * @brief Returns the memory bound for a specific processor.
      * @param proc The processor index.
      */
-    [[nodiscard]] VMemwT<GraphT> MemoryBound(const unsigned proc) const { return architecture_.MemoryBound(proc); }
+    [[nodiscard]] VMemwT<GraphT> MemoryBound(const unsigned proc) const
+    {
+        return architecture_.MemoryBound(proc);
+    }
 
     /**
      * @brief Sets the communication costs of the BSP architecture.
@@ -240,7 +277,8 @@ public:
      * @param processor_id The processor index.
      * @return True if the node is compatible with the processor, false otherwise.
      */
-    [[nodiscard]] bool IsCompatible(const VertexIdxT<GraphT> &node, const unsigned processorId) const {
+    [[nodiscard]] bool IsCompatible(const VertexIdxT<GraphT> &node, const unsigned processorId) const
+    {
         return IsCompatibleType(cdag_.VertexType(node), architecture_.ProcessorType(processorId));
     }
 
@@ -251,7 +289,8 @@ public:
      * @param processorType The processor type.
      * @return True if the node type is compatible with the processor type, false otherwise.
      */
-    [[nodiscard]] bool IsCompatibleType(const VertexTypeTOrDefault nodeType, const ProcessorTypeT processorType) const {
+    [[nodiscard]] bool IsCompatibleType(const VertexTypeTOrDefault nodeType, const ProcessorTypeT processorType) const
+    {
         return nodeProcessorCompatibility_[nodeType][processorType];
     }
 
@@ -267,14 +306,16 @@ public:
     /**
      * @brief Returns the node-processor compatibility matrix.
      */
-    [[nodiscard]] const std::vector<std::vector<bool>> &GetNodeProcessorCompatibilityMatrix() const {
+    [[nodiscard]] const std::vector<std::vector<bool>> &GetNodeProcessorCompatibilityMatrix() const
+    {
         return nodeProcessorCompatibility_;
     }
 
     /**
      * @brief Returns the node type - processor type compatibility matrix.
      */
-    [[nodiscard]] const std::vector<std::vector<bool>> &GetProcessorCompatibilityMatrix() const {
+    [[nodiscard]] const std::vector<std::vector<bool>> &GetProcessorCompatibilityMatrix() const
+    {
         return nodeProcessorCompatibility_;
     }
 

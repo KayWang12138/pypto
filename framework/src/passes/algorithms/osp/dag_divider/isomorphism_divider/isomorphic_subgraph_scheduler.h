@@ -31,7 +31,6 @@
 
 namespace npu::tile_fwk {
 namespace osp {
-
 /**
  * @brief A scheduler that leverages isomorphic subgraphs to partition a DAG.
  *
