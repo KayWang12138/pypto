@@ -20,11 +20,15 @@
 #include <unordered_map>
 #include <mutex>
 #include <memory>
+#include <queue>
+#include <condition_variable>
+#include <future>
 #include "raw_tensor_data.h"
 
 
 namespace npu::tile_fwk {
 class SimulationCommManager;
+class Operation;
 
 int GetRankId(const std::string &groupName);
 
@@ -35,8 +39,8 @@ public:
     static constexpr size_t WIN_IN_SIZE = 200 * 1024 * 1024;
     static constexpr size_t WIN_EXP_SIZE = 1 * 1024 * 1024;
     void Init(const std::string &groupName, int rank, int worldSize, uint32_t round);
-    LogicalTensorDataPtr Alloc(size_t slotSize);
-    LogicalTensorDataPtr AllocSignal(size_t slotSize);
+    void Alloc(size_t slotSize);
+    void AllocSignal(size_t slotSize);
 
     int GetRank() const {return rank_;};
     int GetWorldSize() const {return worldSize_;};
@@ -46,6 +50,8 @@ public:
     void Set(int dstRank, int value, size_t slotSize, uint64_t offset = 0);
     void Signal(int dstRank, int value, size_t slotSize, uint64_t offset = 0, int atomicType = 0, bool notifyAll = false);
     void Wait(int srcRank, int expect, size_t slotSize, uint64_t offset = 0, bool reset = false);
+    uint64_t WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset = 0, bool reset = false);
+    void WaitComplete(uint64_t taskId);
     LogicalTensorDataPtr Get(int srcRank, size_t slotSize, uint64_t offset = 0);
 
     SimulationCommContext() = default;
@@ -133,6 +139,24 @@ private:
     std::mutex remoteMutex_;
     std::mutex allocMutex_;
     std::unordered_map<int, std::unique_ptr<RemoteRank>> remoteRanks_;
+    
+    struct WaitTask {
+        uint64_t taskId;
+        int srcRank;
+        int expect;
+        size_t slotSize;
+        uint64_t offset;
+        bool reset;
+    };
+    
+    std::thread waitWorkerThread_;
+    std::mutex waitTaskMutex_;
+    std::condition_variable waitTaskCV_;
+    std::queue<WaitTask> waitTaskQueue_;
+    std::unordered_map<uint64_t, std::promise<void>> waitTaskPromises_;
+    bool waitWorkerWait_ = false;
+    bool waitWorkerStop_ = false;
+    std::atomic<uint64_t> nextTaskId_{0};
 };
 
 class SimulationCommManager {
@@ -143,10 +167,14 @@ public:
     }
     void CreateSimulationCommContext(const std::string &groupName, uint32_t round=0);
     void DestroySimulationCommContext(const std::string &groupName);
-    LogicalTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
-    LogicalTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
+    void Alloc(const std::string &groupName, size_t slotSize);
+    void AllocSignal(const std::string &groupName, size_t slotSize);
     std::shared_ptr<SimulationCommContext> GetCommContext(const std::string &groupName);
     static std::string GetHandler(const std::string &groupName, int rank, bool isSignal, uint32_t round);
+    
+    static void RegisterWaitTask(Operation* op, std::shared_ptr<SimulationCommContext> context, uint64_t taskId);
+    static std::future<void>* GetWaitTaskFuture(Operation* op);
+    static void ClearWaitTasks();
 private:
     SimulationCommManager() = default;
     ~SimulationCommManager() = default;
@@ -154,5 +182,9 @@ private:
     SimulationCommManager& operator=(const SimulationCommManager &) = delete;
     std::unordered_map<std::string, std::shared_ptr<SimulationCommContext>> contexts_;
     std::mutex mutex_;
+    
+    static std::unordered_map<Operation*, std::pair<std::shared_ptr<SimulationCommContext>, uint64_t>> waitTaskMap_;
+    static std::unordered_map<Operation*, std::future<void>> waitTaskFutures_;
+    static std::mutex waitTaskMutex_;
 };
 }  // namespace npu::tile_fwk

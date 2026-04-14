@@ -62,7 +62,6 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
     ASSERT(ctx->ioperandDataViewList->size() == 0);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    auto &out = ctx->ooperandInplaceDataViewList->at(0);
     SymbolicScalar attr = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
     std::vector<uint64_t> parameters = UnBind(ctx, attr);
     uint64_t groupIndex = parameters[0];
@@ -73,15 +72,12 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     const std::string &groupName = groupNames[groupIndex];
     if (memType == 1) {
         std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
-        // TODO: 需要转换为 out 对应的数据类型 => 转换之后会报错
-        out = SimulationCommManager::Instance().Alloc(groupName, slotSize);
-        // out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
+        SimulationCommManager::Instance().Alloc(groupName, slotSize);
+        // TODO: 这里需要将各个 rank 对应的共享内存区组织在一起，然后返回一个 world_size * slotSize 大小的张量 
     }
     if (memType == 0) {
         std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
-        // TODO: 需要转换为 int32 数据类型 => 转换之后会报错？
-        out = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
-        // out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
+        SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
     }
     std::cout << "=== ExecuteOpBindTensor exited." << std::endl;
 }
@@ -188,7 +184,11 @@ void ExecuteOpShmemWaitUntil(ExecuteOperationContext *ctx) {
     size_t slotSize =  shm->GetSize() * BytesOf(shm->GetDataType());
 
     std::cout << "Rank " << srcRank << " is waiting for " << expect << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << " reset: " << reset << std::endl;
-    context->Wait(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
+    uint64_t taskId = context->WaitAsync(srcRank, expect, slotSize, shm->GetStorageOffset(), reset);
+    std::cout << "WaitUntil add task " << taskId << std::endl;
+    
+    // Register the WaitUntil task with the operation for dependency resolution
+    SimulationCommManager::RegisterWaitTask(ctx->op, context, taskId);
 
     std::cout << "=== ExecuteOpShmemWaitUntil exited ..." << std::endl;
 }
