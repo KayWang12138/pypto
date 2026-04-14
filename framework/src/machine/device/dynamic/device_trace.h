@@ -31,12 +31,39 @@
 #include <mutex>
 #include <string>
 #include <cstdint>
+#include "machine/utils/device_log.h"
+#include "machine/utils/machine_error.h"
+
+#define MAX_MSG_LEN 112
+#define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+inline std::string TraceInfo(const char* file, int line, const char* func, const char* fmt, ...)
+{
+    char tempBuf[MAX_MSG_LEN] = {0};
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf_s(tempBuf, sizeof(tempBuf), sizeof(tempBuf) - 1, fmt, args);
+    va_end(args);
+    if (len < 0) {
+        return std::string("[TraceInfo: format error]");
+    }
+    char finalBuf[MAX_MSG_LEN] = {0};
+    len = snprintf_s(finalBuf, sizeof(finalBuf), sizeof(finalBuf) - 1, "[%s:%d] %s: %s", file, line, func, tempBuf);
+    if (len < 0) {
+       return std::string("[TraceInfo: format error]"); 
+    }
+    return std::string(finalBuf);
+}
+
+// Printf-style logging macros
+ #define TRACE_INFO(fmt, ...)            \
+    do {                                                                        \
+        std::string info = TraceInfo(FILENAME, __LINE__, __func__, fmt, ##__VA_ARGS__); \
+        npu::tile_fwk::dynamic::DeviceTrace::GetInstance().SubmitTraceMsg(info.c_str()); \
+    } while (false)
+
 #ifdef __DEVICE__
 #include "trace/atrace_types.h"
 #include "trace/atrace_pub.h"
-
-#include "machine/utils/device_log.h"
-#include "machine/utils/machine_error.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -63,8 +90,8 @@ enum class TraceError : uint32_t {
 class DeviceTrace {
 public:
     ~DeviceTrace();
-    TraceError CreateTraceHandle(void *targ);
-    void SubmitTraceMsg(const std::string &traceMsg);
+    TraceError CreateTraceHandle(void* targ);
+    void SubmitTraceMsg(const std::string& traceMsg);
     void ReportTraceMsg();
     /**
      * \brief Get the singleton instance of DeviceTrace
@@ -81,10 +108,9 @@ public:
      *
      * \return SUCCESS if initialization succeeds, error code otherwise
      */
-    TraceError Initialize(void *targ);
+    TraceError Initialize(void* targ);
 
 private:
-
     /**
      * \brief Destroy a trace handle
      * \param handle Trace handle to destroy
@@ -151,7 +177,7 @@ private:
      */
     std::function<void(TraEventHandle eventHandle)> TraceEventDestroy{};
 
-    std::function<TraStatus(const TraceGlobalAttr *attr)> TraceSetGlobalAttr{};
+    std::function<TraStatus(const TraceGlobalAttr* attr)> TraceSetGlobalAttr{};
 
 private:
     void* handle_{nullptr};
@@ -192,7 +218,21 @@ private:
      */
     void* GetSymbol(const std::string& symbolName);
 };
+} // namespace npu::tile_fwk::dynamic
 
+#else
+namespace npu::tile_fwk::dynamic {
+class DeviceTrace {
+public:
+    static DeviceTrace& GetInstance() {
+        static DeviceTrace deviceTrace;
+        return deviceTrace;
+    }
+    void SubmitTraceMsg(const std::string& traceMsg) {
+         DEV_INFO("Trace submit msg: %s", traceMsg.c_str());
+    }
+    void ReportTraceMsg() {}
+};
 } // namespace npu::tile_fwk::dynamic
 #endif
 #endif // DEVICE_TRACE_H

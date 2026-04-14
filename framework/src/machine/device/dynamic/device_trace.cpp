@@ -25,7 +25,6 @@ namespace npu::tile_fwk::dynamic {
 
 constexpr char const *GlobalTraceHandleName = "PYPTO_Global_Trace";
 constexpr char const *EventTraceHandleName = "PYPTO_Event_Trace";
-constexpr uint32_t MAX_MSG_LEN = 112;
 
 DeviceTrace& DeviceTrace::GetInstance() {
     static DeviceTrace deviceTrace;
