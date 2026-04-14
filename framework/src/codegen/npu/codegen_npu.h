@@ -32,6 +32,10 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
+const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
+const std::string ENV_PTO_TILE_LIB_CODE_PATH = "PTO_TILE_LIB_CODE_PATH";
+constexpr const int64_t CODE_RESERVED_SIZE = 1024 * 1024;
+
 struct CompileTaskInfo {
     std::string outputPath;
     std::string inputPath;
@@ -132,7 +136,7 @@ public:
     std::optional<std::string> GenExtraAlloc(
         const std::shared_ptr<SymbolManager>& sm, const std::shared_ptr<LogicalTensor>& tensor) const;
     std::string GenAllocForLocalBuffer(const Operation& op, const std::shared_ptr<SymbolManager>& sm) const;
-    std::string GetCoreArch(const CompileInfo& compileInfo) const;
+    virtual std::string GetCoreArch(const CompileInfo& compileInfo) const;
     static void AppendVFOptions(NPUArch platform, std::ostringstream& oss);
 
 protected:
@@ -142,7 +146,7 @@ protected:
     void GenInclude(const Function& topFunc, std::ostringstream& oss) const;
     void GenCommentBeforeFuncHeader(Function& subFunc, std::ostringstream& oss) const;
     std::string GenFuncHeader(uint64_t programId, Function& topFunc, CompileInfo& compileInfo) const;
-    void GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const;
+    virtual void GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const;
     void GenFuncEnd(std::ostringstream& oss) const;
     static std::string GenKernelName(Function& topFunc, uint64_t programId);
 
@@ -152,9 +156,9 @@ protected:
     void DumpCode(const std::string& name, std::ostringstream& code) const;
     int DoCompileCmd(const std::string& compileCmd) const;
 
-    void BuildArchOptions(std::ostringstream& oss, const CompileInfo& compileInfo) const;
+    virtual void BuildArchOptions(std::ostringstream& oss, const CompileInfo& compileInfo) const;
     void BuildIncludes(std::ostringstream& oss) const;
-    void BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const;
+    virtual void BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const;
 
     std::string GenAlloc(
         const std::shared_ptr<SymbolManager>& manager, BufferType bufferType, DataType dataType,

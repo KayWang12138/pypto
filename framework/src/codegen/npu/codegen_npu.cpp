@@ -69,10 +69,6 @@ void FloatSpecValMgr::PrintFloatSpecVal(std::ostringstream& oss)
     }
 }
 
-const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
-const std::string ENV_PTO_TILE_LIB_CODE_PATH = "PTO_TILE_LIB_CODE_PATH";
-constexpr const int64_t CODE_RESERVED_SIZE = 1024 * 1024;
-
 void PrintOperand(const std::string& operIO, std::shared_ptr<LogicalTensor> operand)
 {
     CODEGEN_LOGI(
