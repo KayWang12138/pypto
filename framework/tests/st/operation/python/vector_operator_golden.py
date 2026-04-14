@@ -2629,6 +2629,7 @@ def gen_compare_op_golden(case_name: str, output: Path, case_index: int = None) 
     logging.debug("Case(%s), %s Golden creating...", case_name, op_type)
     return gen_op_golden(op_type, golden_func, output, case_index)
 
+
 def as_float(value):
     """将数字、inf、nan、-inf 等字符串转换为浮点数"""
     if isinstance(value, str):
@@ -2637,6 +2638,8 @@ def as_float(value):
             return None
     value = float(value)
     return value
+
+
 def uniform_golden_func(inputs: list, config: dict):
     params = config.get("params", {})
     rounds = params.get("rounds", 10)
