@@ -31,12 +31,25 @@
 #include <mutex>
 #include <string>
 #include <cstdint>
+#include "machine/utils/device_log.h"
+#include "machine/utils/machine_error.h"
+
+namespace {
+  constexpr uint32_t MAX_MSG_LEN = 112;  
+}
+
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#define TRACE_INFO(fmt, ...)            \
+do {                                    \
+    char traceBuf[MAX_MSG_LEN] = {0};          \
+    snprintf_s(traceBuf, MAX_MSG_LEN, MAX_MSG_LEN - 1, "[%s:%d] %s: " fmt, \
+             __FILENAME__, __LINE__, __func__, ##__VA_ARGS__); \
+    npu::tile_fwk::dynamic::DeviceTrace::GetInstance().SubmitTraceMsg(traceBuf); \
+} while(0)
+
 #ifdef __DEVICE__
 #include "trace/atrace_types.h"
 #include "trace/atrace_pub.h"
-
-#include "machine/utils/device_log.h"
-#include "machine/utils/machine_error.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -192,7 +205,20 @@ private:
      */
     void* GetSymbol(const std::string& symbolName);
 };
-
+}
+#else
+namespace npu::tile_fwk::dynamic {
+class DeviceTrace {
+public:
+    static DeviceTrace& GetInstance() {
+        static DeviceTrace deviceTrace;
+        return deviceTrace;
+    }
+    void SubmitTraceMsg(const std::string &traceMsg) {
+        DEV_INFO("Trace submit msg: %s", traceMsg.c_str());
+    }
+    void ReportTraceMsg() {}
+};
 } // namespace npu::tile_fwk::dynamic
 #endif
 #endif // DEVICE_TRACE_H
