@@ -235,8 +235,7 @@ private:
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
     int GetBufLastUseTime(Operation* op, int curMemId);
     int GetBufNextUseTime(Operation* op, int curMemId);
-    OoOSchedulerCheck::SpillInfo RecordSpillInfo(MemoryType bufferType, int memId, LocalBufferPtr allocIssue,
-        LogicalTensorPtr spillOutTensor, bool needCopyOut);
+    OoOSchedulerCheck::SpillInfo RecordSpillInfo(LogicalTensorPtr spillOutTensor, int memId, Operation* spillAllocOp, bool needCopyOut);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType);
