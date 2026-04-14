@@ -33,13 +33,11 @@ class GmmGoldenInputs:
 
     Attributes:
         a: Input tensor of shape [M, K]
-        b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
-        scaled_a: Scale factors for input tensor
-        scaled_b:: Scale factors for weight tensor
+        b: Weight tensor of shape [K, N]
+        scaled_a: Scale factors for input tensor [M, K//64, 2]
+        scaled_b: Scale factors for weight tensor [K//64, N, 2]
         y: Output tensor of shape [num_groups, M, N] (初始值)
-        group_list: List of group sizes for each weight group
-        a_trans: Whether input tensor is transposed
-        b_trans: Whether weight tensor is transposed
+        group_list: List of group sizes for K-axis splitting
     """
     a: torch.Tensor
     b: torch.Tensor
@@ -47,8 +45,6 @@ class GmmGoldenInputs:
     scaled_b: torch.Tensor
     y: torch.Tensor
     group_list: list
-    a_trans: bool
-    b_trans: bool
 
 
 @dataclass
@@ -169,7 +165,7 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     Generate golden (reference) output for grouped matrix multiplication using PyTorch.
 
     Args:
-        inputs: Input parameters including tensors, scales, y, and transposition flags
+        inputs: Input parameters including tensors, scales, y, and group_list
 
     Returns:
         torch.Tensor: Golden output tensor of shape [num_groups, M, N]
@@ -181,7 +177,7 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     y = inputs.y
     group_list = inputs.group_list
 
-    round_num = b.shape[0]
+    round_num = len(group_list)
     golden_result = y.clone()  # 从 y 的初始值开始
     begin = 0
     end = 0
@@ -191,10 +187,12 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
         end = end + group_list[i]
 
         # Extract input and weight for current group (切分 K 轴)
+        # a: [M, K] -> x: [M, K_block]
+        # b: [K, N] -> weight: [K_block, N]
         x = a[:, begin:end]
-        weight = b[i]
+        weight = b[begin:end, :]
         scaled_x_golden = scaled_a[:, begin // 64 : end // 64, :]
-        scaled_weight_golden = scaled_b[i]
+        scaled_weight_golden = scaled_b[begin // 64 : end // 64, :, :]
 
         # Compute golden result for this group and inplace add
         golden_temp = compute_golden_result_simple(
@@ -222,18 +220,18 @@ def scaled_matmul_kernel(
     Scaled matrix multiplication kernel for grouped GEMM with MXFP8 quantization.
 
     This kernel performs grouped matrix multiplication where each group uses
-    a different K-axis block from input tensor, with MXFP8 quantization.
+    a different K-axis block from input tensors, with MXFP8 quantization.
 
     Args:
-        a: Input tensor [M, K]
-        b: Weight tensor containing multiple weight groups [num_groups, K_block, N]
-        scaled_a: Scale factors for input tensor
-        scaled_b: Scale factors for weight tensor
+        a: Input tensor [M, K] - 2D
+        b: Weight tensor [K, N] - 2D
+        scaled_a: Scale factors for input tensor [M, K//64, 2]
+        scaled_b: Scale factors for weight tensor [K//64, N, 2]
         y: Output tensor [num_groups, M, N]
         group_list: List of group sizes for K-axis splitting
         tile_config: Tile configuration for computation
     """
-    round_num = b.shape[0]
+    round_num = len(group_list)
     begin = 0
     end = 0
 
@@ -242,9 +240,10 @@ def scaled_matmul_kernel(
         end = end + group_list[i]
 
         # Extract input for current group (切分 K 轴)
-        x = a[:, begin:end]
-        weight = b[i]
-        scaled_x = scaled_a[:, begin // 64 : end // 64, :]
+        x = a[:, begin:end]  # [M, K_block]
+        weight = b[begin:end, :]  # [K_block, N]
+        scaled_x = scaled_a[:, begin // 64 : end // 64, :]  # [M, K_block//64, 2]
+        scaled_weight = scaled_b[begin // 64 : end // 64, :, :]  # [K_block//64, N, 2]
 
         # Set vector tile shapes for scale processing
         pypto.set_vec_tile_shapes(
@@ -253,7 +252,6 @@ def scaled_matmul_kernel(
             tile_config.vector_tile_shape[2],
             tile_config.vector_tile_shape[3]
         )
-        scaled_weight = scaled_b[i]
 
         # Set cube tile shapes and perform scaled matrix multiplication
         pypto.set_cube_tile_shapes(
@@ -319,8 +317,6 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     m = tile_config.ori_shape[0]
     k = tile_config.ori_shape[1]
     n = tile_config.ori_shape[2]
-    a_trans = tile_config.a_trans
-    b_trans = tile_config.b_trans
     group_list = tile_config.group_list
     num_groups = len(group_list)
 
@@ -328,22 +324,9 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     a = torch.randn((m, k), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
     scaled_a = torch.randn((m, k // 64, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
-    # Generate weight tensor in MXFP8 format (按 K 轴切分，每个 group 的 K 维度为 group_list[i])
-    b_list = []
-    scaled_b_list = []
-    for i in range(num_groups):
-        k_block = group_list[i]
-        if b_trans:
-            b_i = torch.randn((n, k_block), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
-            scaled_b_i = torch.randn((n, k_block // 64, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
-        else:
-            b_i = torch.randn((k_block, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
-            scaled_b_i = torch.randn((k_block // 64, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
-        b_list.append(b_i)
-        scaled_b_list.append(scaled_b_i)
-    
-    b = torch.stack(b_list, dim=0)
-    scaled_b = torch.stack(scaled_b_list, dim=0)
+    # Generate weight tensor in MXFP8 format - 2D [K, N]
+    b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
+    scaled_b = torch.randn((k // 64, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
     # Initialize y tensor with random values (not zeros, for inplace add)
     y_init = torch.randn((num_groups, m, n), dtype=torch.float32)
@@ -357,8 +340,6 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
         scaled_b=scaled_b,
         y=y_init,
         group_list=group_list,
-        a_trans=a_trans,
-        b_trans=b_trans,
     ))
     result = gen_mxfp8(GmmMxfp8Inputs(
         a=a,
