@@ -20,6 +20,8 @@
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 #include "machine/device/dynamic/eslmodel_aicore_hal.h"
+#include "machine/runtime/e2e_host_sim/host_reg_bus.h"
+#include "machine/runtime/launcher_router.h"
 
 namespace npu::tile_fwk::dynamic {
 constexpr uint32_t NUM_ONE = 1;
@@ -140,13 +142,16 @@ public:
         if constexpr (IsDeviceMode()) {
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
-            if (enableEslModel_) {
+            if (UseHostE2EBackend()) {
+                HostRegBus::Global().WriteMainBase(static_cast<size_t>(coreIdx), value);
+            } else if (enableEslModel_) {
                 eslModel_.WriteEslReg(coreIdx, &value);
-            }else {
+            } else {
                 DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
                 auto taskId = (value & 0xFFFFFFFF) - 1;
-                if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP)
+                if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) {
                     return;
+                }
                 CostModelSendTask(coreIdx, taskId & 0xFFFFFFFF, {});
             }
         }
@@ -192,6 +197,10 @@ public:
                 default:
                     break;
             }
+        } else if (UseHostE2EBackend()) {
+            for (int idx = coreStart; idx < coreEnd; ++idx) {
+                HostRegBus::Global().WriteMainBase(static_cast<size_t>(idx), val);
+            }
         }
     }
 
@@ -235,7 +244,9 @@ public:
             }
         } else {
             for (int i = 0; i < n; i++) {
-                vals[i] = CostModelGetTask(coreIdx[i]);
+                vals[i] = UseHostE2EBackend() ?
+                    static_cast<uint32_t>(HostRegBus::Global().ReadCond(static_cast<size_t>(coreIdx[i]))) :
+                    static_cast<uint32_t>(CostModelGetTask(coreIdx[i]));
             }
         }
     }
@@ -259,9 +270,12 @@ public:
         if constexpr (IsDeviceMode()) {
             return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]);
         } else {
+            if (UseHostE2EBackend()) {
+                return HostRegBus::Global().ReadCond(static_cast<size_t>(coreIdx));
+            }
             if (enableEslModel_) {
                 return eslModel_.ReadEslReg(coreIdx);
-            }else {
+            } else {
                 return CostModelGetTask(coreIdx);
             }
         }
@@ -470,14 +484,17 @@ public:
             args_[coreIdx]->shakeBuffer[0] = 0;
             args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
             args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
-        }else {
-            if (enableEslModel_) {
+        } else {
+            if (UseHostE2EBackend()) {
+                args_[coreIdx]->shakeBuffer[0] = 0;
+                args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
+                args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = AICORE_SAY_GOODBYE;
+            } else if (enableEslModel_) {
                 uint64_t valToSend = 0;
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBuffer[0]), sizeof(uint64_t), &valToSend);
                 valToSend = AICORE_SAY_GOODBYE;
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &valToSend);
             }
-            
         }
         ResetParallelDevTask(coreIdx);
         return;
@@ -500,6 +517,14 @@ public:
             arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
             __sync_synchronize();
 #endif
+        } else if (UseHostE2EBackend()) {
+            if (args_[coreIdx] == nullptr) {
+                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            }
+#if ENABLE_AICORE_PRINT
+            volatile KernelArgs *arg = args_[coreIdx];
+            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
+#endif
         }
     }
 
@@ -515,7 +540,9 @@ public:
         {
             kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
         } else {
-            if (enableEslModel_) {
+            if (UseHostE2EBackend()) {
+                kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM] = funcData;
+            } else if (enableEslModel_) {
                 eslModel_.WriteEslMem(
                     reinterpret_cast<uint64_t>(
                         &kernelParallDevTask->elements[parallelIdx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]),
@@ -531,7 +558,10 @@ public:
             kernelParallDevTask->front = front;
             kernelParallDevTask->rear = rear;
         } else {
-            if (enableEslModel_) {
+            if (UseHostE2EBackend()) {
+                kernelParallDevTask->front = front;
+                kernelParallDevTask->rear = rear;
+            } else if (enableEslModel_) {
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->front), sizeof(front), &front);
                 eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&kernelParallDevTask->rear), sizeof(rear), &rear);
             }
@@ -550,6 +580,12 @@ public:
             volatile KernelArgs *arg = args_[coreIdx];
             arg->parallelDevTask.version = version;
         }
+        if (UseHostE2EBackend()) {
+            volatile KernelArgs *arg = args_[coreIdx];
+            if (arg != nullptr) {
+                arg->parallelDevTask.version = version;
+            }
+        }
 
         DEV_VERBOSE_DEBUG("Refresh core %d parall version %u", coreIdx, version);
     }
@@ -565,7 +601,14 @@ public:
                 args_[coreIdx]->parallelDevTask.elements[i] = 0;
             }
         } else {
-            if (enableEslModel_) {
+            if (UseHostE2EBackend()) {
+                args_[coreIdx]->parallelDevTask.version = 0;
+                args_[coreIdx]->parallelDevTask.front = 0;
+                args_[coreIdx]->parallelDevTask.rear = 0;
+                for (uint32_t i = 0; i < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; i++) {
+                    args_[coreIdx]->parallelDevTask.elements[i] = 0;
+                }
+            } else if (enableEslModel_) {
                 uint32_t u32Zero = 0;
                 eslModel_.WriteEslMem(
                     reinterpret_cast<uint64_t>(&args_[coreIdx]->parallelDevTask.version), sizeof(u32Zero), &u32Zero);
@@ -586,6 +629,9 @@ public:
     inline void InitCostModelDevTaskData(int coreIdx, int64_t funcData)
     {
         if constexpr (!IsDeviceMode()) {
+            if (UseHostE2EBackend()) {
+                return;
+            }
             if (costModel_) {
                 costModel_->InitData(coreIdx, funcData);
             }
@@ -593,6 +639,8 @@ public:
     }
 
 private:
+    bool UseHostE2EBackend() const { return LauncherRouter::IsE2EHostSimEnabled(); }
+
     int64_t sharedBuffer_;
     int64_t* regAddrs_{nullptr};
     int aicStart_{0};
