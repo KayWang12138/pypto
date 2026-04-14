@@ -144,13 +144,10 @@ def prolog_quant(x: pypto.Tensor):
 
     abs_res = pypto.abs(input_fp32)
     max_value = pypto.amax(abs_res, dim=-1, keepdim=True)
-    temp32768 = pypto.full(max_value.shape, hif8_max_value, pypto.DT_FP32)
 
-    scale_quant = temp32768 / max_value
-    out_fp32 = input_fp32 * scale_quant
+    scale_dequant = max_value * (hif8_one_value / hif8_max_value)
+    out_fp32 = pypto.div(input_fp32, scale_dequant, precision_type=pypto.DivAlgorithm.INTRINSIC)
     out_hif8 = pypto.cast(out_fp32, pypto.DT_HF8)
-    temp1 = pypto.full(scale_quant.shape, hif8_one_value, pypto.DT_FP32)
-    scale_dequant = temp1 / scale_quant
     return (out_hif8, scale_dequant)
 
 
@@ -237,6 +234,7 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
         "pg_upper_bound": 8192
     },
     runtime_options={
+        "stitch_function_max_num": 128,
         "device_sched_mode": 1
     }
 )
