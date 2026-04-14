@@ -25,19 +25,6 @@ namespace npu::tile_fwk {
 // ensure funcType is static, and isUnderDynamicFunc is false
 CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpNPUCtx& ctx) : CodeGenOpNPU(ctx)
 {
-    mteFixPipeOps_ = mteFixPipeOpsLiteNPU_;
-    unaryOps_ = unaryOpsLiteNPU_;
-    binaryOps_ = binaryOpsLiteNPU_;
-    compositeOps_ = compositeOpsLiteNPU_;
-    sortOps_ = sortOpsLiteNPU_;
-    cubeOps_ = cubeOpsLiteNPU_;
-    syncOps_ = syncOpsLiteNPU_;
-    distributeOps_ = distributeOpsLiteNPU_;
-    gatherScatterOps_ = gatherScatterOpsLiteNPU_;
-    normalVecOps_ = normalVecOpsLiteNPU_;
-    perfOps_ = perfOpsLiteNPU_;
-    aicpuOps_ = aicpuOpsLiteNPU_;
-
     InitOpsGenMap();
     forBlkMgr_ = ctx.forBlockManager;
     CodeGenOp::Init(ctx.operation);
