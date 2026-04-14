@@ -688,7 +688,8 @@ public:
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(
-            aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
+            aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable,
+            kernel->GetFunction()->GetRawName(), tensors);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
