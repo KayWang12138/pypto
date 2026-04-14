@@ -236,10 +236,12 @@ def kernel_with_dynamic(
     out: pypto.Tensor([pypto.DYNAMIC, ...]),
 ):
     pypto.set_vec_tile_shapes(16, 16)
+    view = 32
     # 在loop中view出静态shape后，再做计算
-    for idx in pypto.loop(a.shape[0]):
-        temp = a[idx: idx + 1, :]
-        out[idx: idx + 1, :] = temp + 1
+    count = (a.shape[0] - 1 + view) // view
+    for idx in pypto.loop(count):
+        temp = a[idx: idx + view, :]
+        out[idx: idx + view, :] = pypto.exp(temp)
 ```
 
 

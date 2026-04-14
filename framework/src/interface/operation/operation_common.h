@@ -21,6 +21,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/opcode.h"
+#include "interface/utils/source_location.h"
 #include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
@@ -67,7 +68,7 @@ struct Input {
 };
 
 void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op);
-void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCode = Opcode::OP_UNKNOWN);
+void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCode);
 void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const std::string& opName);
 
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2);

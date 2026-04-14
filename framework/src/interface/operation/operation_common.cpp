@@ -50,10 +50,9 @@ void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const std::string
 {
     for (size_t dimIdx = 0; dimIdx < iOperand->shape.size(); ++dimIdx) {
         auto i = iOperand->shape[dimIdx];
-        FUNCTION_ASSERT(FError::INVALID_VAL, i != -1)
-            << (!opName.empty() ? "Operation: " + opName : "")
-            << " Input operand (name: " << iOperand->tensor->GetSymbol() << ") "
-            << " at dimension[" << dimIdx << "] has invalid shape value: -1";
+        CHECK_OP(i != -1) << (!opName.empty() ? "Operation: " + opName : "")
+                          << " Input operand (name: " << iOperand->tensor->GetSymbol() << ") "
+                          << " at dimension[" << dimIdx << "] has invalid shape value: -1";
     }
 }
 
@@ -63,7 +62,7 @@ void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCo
         opCode == Opcode::OP_INDEX_OUTCAST) {
         return;
     }
-    const std::string opName = (opCode != Opcode::OP_UNKNOWN) ? OpcodeManager::Inst().GetOpcodeStr(opCode) : "";
+    const std::string opName = OpcodeManager::Inst().GetOpcodeStr(opCode);
     CheckTensorDynamicShape(iOperand, opName);
 }
 
