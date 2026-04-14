@@ -102,19 +102,136 @@ pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256],
 **原则 3**：调整相邻 Cube 和 Vector Operation 的 TileShape，使依赖更简单
 
 
-### 3. 合图调优
+### 3. 核使用率分析与负载均衡（合图前置条件）
+
+**⛔ 重要：合图调优前，必须先完成核使用率分析。核未用满时优先用满核，再考虑合图。**
+
+合图（L1reuse / CubeNBuffer / VecNBuffer）的前提是核已用满。如果核没用满就合图，会将本就不多的任务进一步合并到更少的核上，反而降低并行度、导致性能退化。
+
+#### 3.0 核使用率分析流程
+
+```
+采集泳道图数据（debug_mode=1）
+    ↓
+统计每个 leafHash 分布在多少个 core 上
+    ↓
+对每个 AIC/AIV leafHash，判断核是否用满
+    ├─ 核未满 → 优先通过 TileShape 调整用满核（跳到 3.1）
+    └─ 核已满 → 进入合图阶段（跳到第 4 节）
+```
+
+#### 3.1 统计核使用率
+
+从 `merged_swimlane.json` 的 `traceEvents` 中解析每个 leafHash 占用的 core 数量，并与芯片理论核数对比：
+
+```bash
+python3 scripts/analyze_core_usage.py <output_dir> [--device-id N]
+```
+
+**参数说明**：
+- `output_dir`：泳道图数据目录（含 `merged_swimlane.json`）
+- `--device-id`：NPU 设备号，用于通过 `torch.npu.get_device_properties()` 查询理论核数（默认 0）
+
+**输出示例**：
+
+```
+Theoretical cores: AIC=24, AIV=48
+
+psgId | type | tasks |    used/total (usage%) |  avg(us) | total(us) |    status | suggestion
+---------------------------------------------------------------------------------------------
+   11 |  AIC |     8 |             8/24 (33%) |     43.4 |     347.5 |  NOT FULL | FILL CORES FIRST (reduce TileShape)
+    3 |  AIC |    16 |            16/24 (67%) |      7.4 |     118.1 |  NOT FULL | FILL CORES FIRST (reduce TileShape)
+    8 |  AIC |     8 |             8/24 (33%) |      8.1 |      64.9 |  NOT FULL | FILL CORES FIRST (reduce TileShape)
+    6 |  AIV |     4 |              4/48 (8%) |      6.4 |      25.5 |  NOT FULL | FILL CORES FIRST (reduce TileShape)
+
+Summary:
+  NOT FULL (fill cores first): 4 leafHash(es)
+  FULL (can merge): 0 leafHash(es)
+
+Next step: For NOT FULL leafHashes, use leafhash_to_code.py to map to frontend code,
+           then adjust set_cube_tile_shapes() to increase task count.
+```
+
+**关键指标说明**：
+- **理论核数**：通过 `torch.npu.get_device_properties(device_id)` 获取 `cube_core_num`（AIC）和 `vector_core_num`（AIV），这是芯片硬件层面的核数，不随任务数变化。底层对应 `platform.h` 中 `SoC::GetAICCoreNum()` / `SoC::GetAIVCoreNum()`。
+- **实际使用核数**：从 `merged_swimlane.json` 的 `traceEvents` 中统计每个 leafHash 实际被分配到的 core 数量。框架可能因任务数不足而未用满所有核。
+- **cores 列**：`实际使用核数/理论核数 (使用率%)`
+- **FULL**：实际使用核数 ≥ 理论核数，可进入合图阶段
+- **NOT FULL**：实际使用核数 < 理论核数，优先通过 TileShape 调整增加任务数用满核
+
+#### 3.2 核未满时的优化策略
+
+**核心思路**：核未满说明任务数不够，需要通过减小 TileShape 来增加任务数，让更多核参与计算。
+
+**操作步骤**：
+
+1. 运行 `leafhash_to_code.py` 将 leafHash 映射到前端代码行：
+
+```bash
+python3 scripts/leafhash_to_code.py <output_dir>
+```
+
+2. 定位到对应的 `pypto.set_cube_tile_shapes()` 调用
+
+3. 减小 nL0/nL1（N 轴切块大小）以增加 N 轴任务数：
+
+```python
+# 原来：N=4096, nL0=256, nL1=256 → 4096/256=16 个 N 轴任务，但 M=1 → 总共 16 个任务
+pypto.set_cube_tile_shapes([16, 16], [128, 256], [256, 256])
+
+# 减小 nL0/nL1：4096/128=32 个 N 轴任务 → 可分配到更多核
+pypto.set_cube_tile_shapes([16, 16], [128, 256], [128, 128])
+```
+
+4. **约束**：`nL0 <= nL1 && nL1 % nL0 == 0`，否则编译报错
+
+5. **负载均衡注意**：
+   - 任务数增加 ≠ 性能提升。任务过小（<10us）时调度开销占比增大，反而退化
+   - 需要实测验证，找到任务数和单任务耗时的平衡点
+   - 建议逐步减小（如 256→128→64），每步实测
+
+**结构限制**：某些算子的任务数受限于语义结构（如 GQA 的 kv_head 数量），无法通过 TileShape 增加。此时应标记为"结构限制"，跳过核填充，直接进入合图阶段。
+
+#### 3.3 核已满后的合图阶段
+
+核用满后，才能进入合图调优（第 4 节）。合图的目的是减少调度开销和数据重复搬运，而非增加并行度。
+
+**实测案例**（pangu_decode_attention，Ascend910 理论 24 AIC / 48 AIV）：
+
+| 阶段 | psgId | 操作 | 核状态（实际/理论） | 策略 | E2E | 结论 |
+|------|-------|------|---------------------|------|-----|------|
+| 1 | 11 | output proj | 4/24 (17%) **未满** | 减小 nL0/nL1: 256→128 | 170→143us | ✅ 先用满核 |
+| 2 | 11 | output proj | 8/24 (33%) 仍**未满** | L1reuse {11:8} | 143→127us | ✅ 结构限制下合图有效 |
+| 3 | 3 | Q@K^T | 16/24 (67%) | cube_nbuffer {3:2} | 143→137us | ✅ 核未满但提升有限 |
+| 4 | 8 | attn@V | 8/24 (33%) **未满** | cube_nbuffer {8:2} | 137→150us | ❌ 核未满时合图反而退化 |
+| 5 | 11 | output proj | — | L1reuse 过大 {11:16} | 127→144us | ❌ 过度合图退化 |
+
+**结论**：
+- **核未满 + 结构限制**：可以先尝试 L1reuse（减少重复搬运），但 cube_nbuffer（减少调度开销）通常退化
+- **核已满**：L1reuse 和 cube_nbuffer 都可能有效
+- **过度合图**：粒度过大会占用过多 L1/UB 内存，导致性能退化
+
+
+### 4. 合图调优
 
 合图是指将计算图中多个逻辑上独立的 Task 合并为一个逻辑子图。
 
 **⚠️⚠️⚠️ 关键原则：**
-1. Key (hashorder) 等同于泳道图分析中得到的 **psgId**（`dyn_topo.txt` 中的 `psg_id_within_root`）。值 -1 是默认通配，非负整数匹配特定同构子图组。
-2. Value (N) 是合并粒度，每 N 个同构子图合并为一个。设为 1 表示不合并。
-3. 合并粒度应由 **t/iter**（单层循环相同 leafHash 的 task 数量）和核心数决定，常用值为 1/2/4/8/16。
-4. **⚠️ 必须先用 analyze_swimlane.py 分析泳道图**：获取 psgId（hashorder）、core 类型（AIC/AIV）、t/iter（合图粒度参考），再据此配置。禁止盲猜配置。
+1. **⛔ 合图前必须先完成核使用率分析（第 3 节）**：核未满时优先用满核，核满后再合图。盲目合图会导致核未满时性能退化。
+2. Key (hashorder) 等同于泳道图分析中得到的 **psgId**（`dyn_topo.txt` 中的 `psg_id_within_root`）。值 -1 是默认通配，非负整数匹配特定同构子图组。
+3. Value (N) 是合并粒度，每 N 个同构子图合并为一个。设为 1 表示不合并。
+4. 合并粒度应由 **t/iter**（单层循环相同 leafHash 的 task 数量）和核心数决定，常用值为 1/2/4/8/16。
+5. **⚠️ 必须先用 analyze_swimlane.py 分析泳道图**：获取 psgId（hashorder）、core 类型（AIC/AIV）、t/iter（合图粒度参考），再据此配置。禁止盲猜配置。
 
 **合图调优标准流程**：
 
 ```bash
+# Step 0: 核使用率分析（⛔ 强制前置，详见第 3 节）
+# 对每个 AIC/AIV leafHash，统计其分布在多少个 core 上
+# 判定规则：
+#   - cores < total_cores 且可通过 TileShape 增加 → 先用满核，再回来
+#   - cores == total_cores 或结构限制无法再增 → 进入 Step 1
+
 # Step 1: 用 analyze_swimlane.py 分析泳道图数据
 python3 scripts/analyze_swimlane.py \
     output/output_<最新目录>
@@ -127,7 +244,7 @@ python3 scripts/analyze_swimlane.py \
 # Step 3: 根据分析结果设置配置
 ```
 
-#### 3.0 确定外层循环次数（outer_loops）
+#### 4.0 确定外层循环次数（outer_loops）
 
 `t/iter = cnt / outer_loops`，其中 `outer_loops` 是外层循环的总迭代次数。
 
@@ -190,9 +307,9 @@ outer_loops=32 (auto, GCD of counts)
 - psgId=0 的 AIC 子图 t/iter=1，但 total 耗时高，可设置 `cube_l1_reuse_setting: {0: 4}` 消除重复搬运
 - AIV 子图 t/iter 均为 1，如需合图可尝试跨实例合并
 
-#### 3.1 Vector 合图
+#### 4.1 Vector 合图
 
-##### 3.1.1 自动合图方案
+##### 4.1.1 自动合图方案
 **⚠️ 重要原则：**
 vector合图往往需要 pg_upper_bound 和 vec_nbuffer_setting 配合使用，进行深度和广度的合图优化。
 
@@ -219,7 +336,7 @@ vector合图往往需要 pg_upper_bound 和 vec_nbuffer_setting 配合使用，�
 **参考资料**
 - [vec_nbuffer_setting 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 
-##### 3.1.2 手动合图方案（sg_set_scope）
+##### 4.1.2 手动合图方案（sg_set_scope）
 
 通过 `sg_set_scope` 将有数据依赖的连续 Vector 操作强制合并到同一子图，减少子图间调度开销和数据搬运。
 
@@ -235,7 +352,7 @@ pypto.set_pass_options(sg_set_scope=-1)
 - 跨 `pypto.loop` 边界不能合并
 - 每个 scope 使用不同的正整数 ID
 
-###### 3.1.2.1 依赖链分析工具
+###### 4.1.2.1 依赖链分析工具
 
 使用 `analyze_aiv_dep_chains.py` 从 `dyn_topo.txt` 中提取 AIV 任务之间的依赖链路，自动识别 cube 边界并给出 sg_set_scope 合并建议。
 
@@ -302,7 +419,7 @@ sg_set_scope 优化建议
 
 **⚠️ 重要：脚本建议是候选，必须经过 3.1.2.2 映射验证后才能实施。**
 
-###### 3.1.2.2 从建议到实施的验证流程
+###### 4.1.2.2 从建议到实施的验证流程
 
 脚本的优化建议是基于 `dyn_topo.txt` 的自动分析，不能直接用于修改前端代码。必须通过 `program.json` 的 `file`/`line` 字段将 leafHash 映射到前端代码，验证可合并性，并确认代码连续性。
 
@@ -358,9 +475,9 @@ python3 scripts/leafhash_to_code.py <output_dir>
 - [sg_set_scope 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 
 
-#### 3.2 Cube 合图
+#### 4.2 Cube 合图
 
-##### 3.2.1 L1Reuse 策略（默认开启，用于合并具有 L1 重复搬运的子图）
+##### 4.2.1 L1Reuse 策略（默认开启，用于合并具有 L1 重复搬运的子图）
 
 **适用场景**：matmul 的 M 或 N 轴进行了切分，存在重复搬运
 
@@ -384,7 +501,7 @@ python3 scripts/leafhash_to_code.py <output_dir>
 **参考资料**
 - [cube_l1_reuse_setting 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 
-##### 3.2.2 CubeNBuffer 策略（用于合并同构的子图）
+##### 4.2.2 CubeNBuffer 策略（用于合并同构的子图）
 
 **适用场景**：
 - 同构子图数量很多，且每一个task的执行耗时很短（10us以下）
@@ -404,7 +521,7 @@ python3 scripts/leafhash_to_code.py <output_dir>
 **参考资料**
 - [cube_nbuffer_setting 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 
-##### 3.2.3 L1Reuse 与 CubeNBuffer 的协同使用
+##### 4.2.3 L1Reuse 与 CubeNBuffer 的协同使用
 
 **⚠️ 重要：两者作用维度不同，需协同配置，不宜同时过大。**
 
@@ -435,7 +552,7 @@ python3 scripts/leafhash_to_code.py <output_dir>
 - [cube_l1_reuse_setting 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 - [cube_nbuffer_setting 参数设置说明](../../../../docs/api/config/pypto-set_pass_options.md)
 
-##### 3.2.4 自动合图模式（空字典 `{}`）的风险
+##### 4.2.4 自动合图模式（空字典 `{}`）的风险
 
 **⚠️ 风险提示：自动模式可能过度合图导致性能严重退化，不建议直接使用。**
 
@@ -455,7 +572,7 @@ python3 scripts/leafhash_to_code.py <output_dir>
 **建议**：始终使用 [analyze_swimlane.py](scripts/analyze_swimlane.py) 分析泳道图获取 psgId 和 t/iter 后手动精确配置，避免使用空字典 `{}` 自动模式。
 
 
-### 4. 调度策略调优
+### 5. 调度策略调优
 
 当上下游子图之间依赖较为简单，或下游子图输入 Tensor 的 L2 命中率较为重要时，推荐使用 L2 亲和调度。
 
@@ -514,20 +631,25 @@ python3 scripts/leafhash_to_code.py <output_dir>
 - 等待时间过长
 - 任务调度不均衡
 - 内存访问冲突
+- **核未满**：任务数不足以分配到所有核
 
 **优化建议**：
 
-1. **L2 亲和调度**
+1. **⛔ 优先检查核使用率**（详见第 3 节）
+   - 统计每个 leafHash 占用的 core 数量
+   - 核未满 → 先通过减小 TileShape 增加任务数用满核
+
+2. **L2 亲和调度**
    ```python
    @pypto.jit(runtime_options={"device_sched_mode": 1})
    ```
 
-2. **调整 TileSize**
+3. **调整 TileSize**
    ```python
    pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
    ```
 
-3. **启用 CubeNBuffer 合并同构子图**
+4. **核满后再启用 CubeNBuffer 合并同构子图**
    ```python
    pypto.set_pass_options(cube_nbuffer_setting={-1: 4})
    ```
@@ -539,16 +661,21 @@ python3 scripts/leafhash_to_code.py <output_dir>
 **可能原因：**
 - 任务分配不均
 - 任务执行时间差异大
+- 部分子图核未满，其他子图核已满
 
 **优化建议**：
-1. **调整任务分配策略**
+1. **⛔ 优先检查核使用率**（详见第 3 节）
+   - 对每个 leafHash 分别统计核使用情况
+   - 优先对"核未满且 total 耗时大"的子图进行 TileShape 调整
+
+2. **调整任务分配策略**
    - 使用更均匀的任务切分
    - 避免某些核心任务过多
 
-2. **优化任务粒度**
+3. **优化任务粒度**
    - 调整 tile size 使任务更均匀
 
-3. **调整任务执行顺序**
+4. **调整任务执行顺序**
    - 使用 sg_set_scope 合并子图
    ```python
    pypto.set_pass_options(sg_set_scope=1)
@@ -560,34 +687,38 @@ python3 scripts/leafhash_to_code.py <output_dir>
 ## 调优流程
 
 ```
-┌────────────────────────────────────────────────┐
-│                深度性能调优流程                │
-├────────────────────────────────────────────────┤
-│                                                │
-│  1. 采集泳道图数据                             │
-│     └─ debug_options={"runtime_debug_mode": 1} │
-│                                                │
-│  2. 分析泳道图                                 │
-│     ├─ 查看任务执行顺序                        │
-│     ├─ 识别气泡（等待调度时间）                │
-│     └─ 分析核心利用率                          │
-│                                                │
-│  3. 选择调优方向                               │
-│     ├─ 气泡率高 → Stitch/Loop Unroll           │
-│     ├─ 利用率低 → 调度策略/TileShape           │
-│     └─ 负载不均 → 合图优化                     │
-│                                                │
-│  4. 应用优化                                   │
-│     └─ 每次只修改一个参数                      │
-│                                                │
-│  5. 验证                                       │
-│     ├─ 重新编译运行                            │
-│     ├─ 检查精度                                │
-│     └─ 对比性能数据                            │
-│                                                │
-│  6. 迭代直到达到目标性能                       │
-│                                                │
-└────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────┐
+│                深度性能调优流程                      │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│  1. 采集泳道图数据                                 │
+│     └─ debug_options={"runtime_debug_mode": 1}     │
+│                                                    │
+│  2. 分析泳道图                                     │
+│     ├─ 查看任务执行顺序                            │
+│     ├─ 识别气泡（等待调度时间）                    │
+│     └─ 分析核心利用率                              │
+│                                                    │
+│  3. ⛔ 核使用率分析（合图前置条件）                 │
+│     ├─ 统计每个 leafHash 占用的 core 数量          │
+│     ├─ 核未满 → 调整 TileShape 用满核 → 回到 1     │
+│     └─ 核已满/结构限制 → 进入 4                    │
+│                                                    │
+│  4. 合图调优                                       │
+│     ├─ AIC 核满 → L1Reuse / CubeNBuffer            │
+│     └─ AIV 核满 → VecNBuffer / sg_set_scope        │
+│                                                    │
+│  5. 调度策略调优                                   │
+│     └─ device_sched_mode 调整                      │
+│                                                    │
+│  6. 验证                                           │
+│     ├─ 重新编译运行                                │
+│     ├─ 检查精度                                    │
+│     └─ 对比性能数据                                │
+│                                                    │
+│  7. 迭代直到达到目标性能                           │
+│                                                    │
+└────────────────────────────────────────────────────┘
 ```
 
 
