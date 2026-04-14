@@ -75,14 +75,8 @@ bool AlignmentUtils::NeedPadLastDim(const LogicalTensorPtr& tensor)
         return false;
     }
     auto alignBase = AlignmentUtils::GetLastDimAlignBase(tensor);
-    if (alignBase <= 0) {
-        return false;
-    }
     auto lastDim = tensor->shape.back();
-    if (lastDim <= 0) {
-        return false;
-    }
-    return (lastDim % alignBase) != 0;
+    return (lastDim > 0) && (alignBase > 0) && ((lastDim % alignBase) != 0);
 }
 
 bool AlignmentUtils::IsRawLastDimUnaligned(const LogicalTensorPtr& tensor)
