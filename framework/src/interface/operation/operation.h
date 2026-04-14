@@ -501,6 +501,12 @@ public:
         return mixSubgraphFields_ ? mixSubgraphFields_->internalSubgraphID : NOT_IN_SUBGRAPH;
     }
     void UpdateSubgraphID(int subgraphID) { subgraphID_ = subgraphID; }
+    int GetL1ReuseHashOrder() const { return l1ReuseHashOrder_; }
+    void UpdateL1ReuseHashOrder(int hashOrder) { l1ReuseHashOrder_ = hashOrder; }
+    int GetCubeMergeHashOrder() const { return cubeMergeHashOrder_; }
+    void UpdateCubeMergeHashOrder(int hashOrder) { cubeMergeHashOrder_ = hashOrder; }
+    int GetVecMergeHashOrder() const { return vecMergeHashOrder_; }
+    void UpdateVecMergeHashOrder(int hashOrder) { vecMergeHashOrder_ = hashOrder; }
     void UpdateInternalSubgraphID(int internalSubgraphID)
     {
         ensureMixSubgraphFields();
@@ -578,6 +584,9 @@ public:
 private:
     Opcode opcode_{Opcode::OP_UNKNOWN};
     int subgraphID_{NOT_IN_SUBGRAPH};
+    int l1ReuseHashOrder_{-1};
+    int cubeMergeHashOrder_{-1};
+    int vecMergeHashOrder_{-1};
     bool isTileOp_{false};
     TileShape tileShape_;
     std::shared_ptr<OpAttribute> opAttribute_;

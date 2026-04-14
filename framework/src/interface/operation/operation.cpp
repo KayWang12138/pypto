@@ -401,6 +401,9 @@ Json Operation::DumpJson(bool dumpTensor) const
     }
 
     opDump["subgraphid"] = subgraphID_;
+    opDump["l1ReuseHashOrder"] = l1ReuseHashOrder_;
+    opDump["cubeMergeHashOrder"] = cubeMergeHashOrder_;
+    opDump["vecMergeHashOrder"] = vecMergeHashOrder_;
     Json inLocation = Json::array();
     Json outLocation = Json::array();
     for (auto& inLoc : inParamLocation_) {
