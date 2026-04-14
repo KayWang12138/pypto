@@ -16,7 +16,8 @@ Machine-specific paths (conda env name, setup script, PTOAS repo location, etc.)
 
 The conda env name and external repo paths are in `.claude/CLAUDE.local.md`.
 Prefix all commands with `conda run -n <env>` from that config.
-
+## Coding Style
+Concise and optimized for all code. High readability and extensibility, ensuring it adheres to Clean Code principles. Specifically, please keep functions under 70 lines and limit if nesting to a maximum of 5 levels; extract helper functions whenever this limit is exceeded(only if function splitting brings bad readability).
 ## Build
 
 C++ library with Python bindings. Build driven by setuptools + CMake.
@@ -108,7 +109,7 @@ python3 python/tests/ut/block/frontend/flash_attention/test_fa_perf_tkv_preload.
 ```
 
 For more detailed test info, look at `.claude/test.md`.
-
+If a case hangs for a very long time, you can use `npu-smi info` to get available devices and change the device id in testcase files to the vacant device by changing the number after colon in `device = "npu:5"`
 ### Device execution test workflow
 
 ```bash
