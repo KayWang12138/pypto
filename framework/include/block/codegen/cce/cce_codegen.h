@@ -214,6 +214,58 @@ class CCECodegen : public CodegenBase {
 
  private:
   /**
+   * @brief Extract yield variable names from an IR body without emitting code.
+   *
+   * Inspects the trailing YieldStmt in @p body (which may be a bare YieldStmt
+   * or the last statement of a SeqStmts) and returns the resolved name for each
+   * yielded value.  Handles Var, ConstInt, IterArg, and TupleGetItemExpr
+   * (including inlined MakeTuple).  Returns an empty vector when any yield
+   * value cannot be resolved.
+   */
+  std::vector<std::string> ExtractYieldNames(const ir::StmtPtr& body) const;
+
+  /**
+   * @brief Emit yield-assignment code for if-stmt return variables.
+   *
+   * For each return variable, resolves the corresponding yield value from
+   * @p target_names, emits a TASSIGN (Tile/Tuple) or scalar assignment, and
+   * propagates pointer / tensor-struct mappings.  Clears yield_buffer_ when
+   * done.
+   */
+  void EmitYieldAssignments(const std::vector<ir::VarPtr>& return_vars,
+                            const std::vector<std::string>& target_names);
+
+  /**
+   * @brief Try to emit optimised N-way select (array + index) for an IfStmt.
+   *
+   * Detects nested if-else chains of the form
+   *   if (x == 0) { yield A } else { if (x == 1) { yield B } ... }
+   * and lowers them into a constexpr array indexed by x.
+   *
+   * @return true if the optimisation was applied (caller should return).
+   */
+  bool TryEmitNWaySelect(const ir::IfStmtPtr& op);
+
+  /**
+   * @brief Try to emit the identity-else optimised IfStmt codegen.
+   *
+   * When the else branch is a pure yield whose values are already live before
+   * the if, we can skip the else branch entirely and emit assignments only in
+   * the then branch.
+   *
+   * @return true if identity-else was detected and emitted.
+   */
+  bool TryEmitIdentityElseIf(const ir::IfStmtPtr& op);
+
+  /**
+   * @brief Emit full phi-style IfStmt codegen.
+   *
+   * Declares return variables before the if, emits then and else bodies, and
+   * writes yield-assignment code in each branch.
+   */
+  void EmitFullPhiIf(const ir::IfStmtPtr& op);
+
+  /**
    * @brief Generate function prologue
    *
    * Emits function signature, argument unpacking, GlobalTensor declarations,
@@ -375,6 +427,103 @@ class CCECodegen : public CodegenBase {
    * @brief Collect which section each tile belongs to (for section-aware declaration)
    */
   std::map<ir::VarPtr, ir::SectionKind> CollectTileSections(const ir::StmtPtr& stmt);
+
+  // --- Phase 5: ForStmt helpers ---
+
+  /**
+   * @brief Register iteration arguments for a for-loop and emit their initialization.
+   *
+   * Handles alias propagation, cross-section safety, and pointer/struct inheritance.
+   * Returns the sanitized names of each iter-arg for later yield assignment.
+   */
+  std::vector<std::string> RegisterForIterArgs(const ir::ForStmtPtr& op);
+
+  /**
+   * @brief Emit yield-to-iter-arg assignments at the end of a for-loop body.
+   *
+   * Resolves aliases, detects self-assignments, and uses TASSIGN for tile transfers.
+   */
+  void EmitForYieldAssignments(const std::vector<std::string>& iter_arg_names);
+
+  void EmitForLoopWithHoisting(const ir::ForStmtPtr& op,
+                               const std::string& loop_var_name,
+                               const std::vector<std::string>& iter_arg_names,
+                               const std::string& start,
+                               const std::string& stop,
+                               const std::string& step);
+
+  // --- Phase 6: GenerateSinglePrologue helpers ---
+
+  /**
+   * @brief Emit the __global__ AICORE function signature and opening boilerplate.
+   *
+   * Collects dynamic dim variables, builds the parameter list, emits the opening
+   * brace, registers dynamic dims, and emits FFTS setup if needed.
+   */
+  void EmitSingleFunctionSignature(const ir::FunctionPtr& func, bool has_cross_sync);
+
+  /**
+   * @brief Emit section-aware GlobalTensor declarations for single-file mode.
+   */
+  void EmitSingleGlobalTensors(const ir::FunctionPtr& func, const SectionAccessShapes& section_shapes);
+
+  /**
+   * @brief Emit section-aware Tile declarations for single-file mode.
+   */
+  void EmitSingleTileDeclarations(const ir::FunctionPtr& func);
+
+  std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> FilterPrologueTiles(
+      const ir::FunctionPtr& func,
+      std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>>& all_tiles_out,
+      std::vector<std::pair<ir::VarPtr, ir::VarPtr>>& deduped_aliases_out);
+
+  void EmitSectionAwareTiles(
+      const std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>>& tile_vars,
+      const std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>>& all_tiles,
+      const std::vector<std::pair<ir::VarPtr, ir::VarPtr>>& deduped_aliases,
+      const std::map<ir::VarPtr, ir::SectionKind>& tile_sections,
+      const std::map<std::string, std::set<ir::SectionKind>>& tile_usage_sections);
+
+  // --- Phase 7: GenerateGlobalTensorTypeDeclaration helpers ---
+
+  /**
+   * @brief Generate the stride type string for single-file mode.
+   *
+   * Handles ND, DN, and dynamic stride layouts for the pto::Stride<> template.
+   */
+  std::string GenerateSingleFileStrideType(const std::vector<int64_t>& shape_dims,
+                                           const std::vector<int64_t>& tensor_dims,
+                                           bool all_static, bool needs_dynamic_stride) const;
+
+  /**
+   * @brief Emit the GlobalTensor instance declaration and register pointer/struct mappings.
+   */
+  void EmitGlobalTensorInstance(const std::string& var_name,
+                                const std::string& global_type_name,
+                                const std::string& shape_type_name,
+                                const std::string& stride_type_name,
+                                const ir::TensorTypePtr& tensor_type,
+                                const std::vector<int64_t>& shape_dims,
+                                bool needs_dynamic_stride,
+                                const std::optional<std::string>& base_pointer,
+                                const std::optional<std::string>& tensor_struct_ptr);
+
+  // --- Phase 8: AssignStmt helper ---
+
+  /**
+   * @brief Handle tile-related TupleGetItemExpr assignments (early return path).
+   *
+   * Returns true if the assignment was handled (caller should return early).
+   */
+  bool HandleTileRelatedAssignment(const ir::AssignStmtPtr& op);
+
+  // --- Phase 9: GeneratePrologue helper ---
+
+  /**
+   * @brief Unpack function arguments from the args array and emit type declarations.
+   */
+  void UnpackFunctionArguments(const ir::FunctionPtr& func,
+                               const std::map<std::string, std::vector<ir::ExprPtr>>& access_shapes);
 
   // Dual-mode context for expression visitor pattern
   std::string current_target_var_;         ///< INPUT: Assignment target variable name (for Call expressions)
