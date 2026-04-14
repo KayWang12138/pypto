@@ -6,7 +6,7 @@
 
 ## 错误码定义与使用说明
 
-相关错误码的统一定义，参见 `framework/src/interface/utils/function_error.h` 文件。
+相关错误码的统一定义，参见 `framework/include/tilefwk/error_code.h` 中 `FError` 枚举。
 
 该文件中定义了以下错误码（FError）：
 

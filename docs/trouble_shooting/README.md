@@ -1,6 +1,6 @@
 # PYPTO 框架错误码方案
 
-本文档说明 PYPTO 各组件错误码的整体范围与约定。各组件具体错误码定义与排查说明见下方链接。
+本文档说明 PYPTO 各组件错误码的整体范围与约定。各组件具体错误码枚举统一定义在 [`framework/include/tilefwk/error_code.h`](../../framework/include/tilefwk/error_code.h)；排查说明见下方链接。
 
 ## 总体范围
 
@@ -41,8 +41,8 @@
 
 ## 原则
 
-- **报错与日志**：各组件 ASSERT/CHECK/ERROR 报错处须使用本组件 error 头文件中的错误码，并在日志或异常中携带该码。
-- **按组件管理**：各组件错误码头文件在各自组件目录下维护，不集中到统一头文件。
+- **报错与日志**：各组件 ASSERT/CHECK/ERROR 报错处须使用 `tilefwk/error_code.h` 中对应枚举错误码，并在日志或异常中携带该码。
+- **统一定义**：所有组件错误码枚举集中在 `framework/include/tilefwk/error_code.h`，按本文档「总体范围」表顺序组织；新增错误码时在同一文件中落在对应分段并保持语义单一。
 - **文档补充**：若单靠 ErrorMsg 无法说明原因或难以定位，须为该错误码补充 trouble_shooting 文档（原因、排查步骤与解决方案）。
 - **关联 Skill**：各组件错误码文档中可为每个错误码注明 **关联 Skill**，指向 [.agents/skills](../../.agents/skills) 下对应技能（如 `pypto-environment-setup`），便于排查时加载该技能进行环境诊断、算子开发或性能调优等。
 - **大流程到子流程**：错误码分类应先梳理大流程（Category），再细化子流程（Scene）；头文件内按此顺序组织枚举。

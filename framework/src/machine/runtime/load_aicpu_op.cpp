@@ -24,7 +24,7 @@
 #include "runtime.h"
 #include "machine/utils/machine_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 using Json = nlohmann::json;
 
 namespace {

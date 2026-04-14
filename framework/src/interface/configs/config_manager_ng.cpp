@@ -33,7 +33,7 @@
 #include "config_manager_ng.h"
 #include "tilefwk/tile_shape.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "interface/utils/function_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 
