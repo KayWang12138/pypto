@@ -111,6 +111,7 @@ assert VA_END <= 192 * 1024, f"VEC overflow: {VA_END} > {192*1024}"
 event_ids_01 = (0, 1)
 event_ids_23 = (2, 3)
 vec_evids_01 = (4, 5)    # VEC section: backward sync event IDs for qk_vec/p_f16 double buffer
+event_ids_67 = (6, 7)
 
 # Cross-core event IDs (0-10 available on Ascend NPU)
 # Values can overlap with intra-core event_ids (different hardware namespace)
@@ -278,6 +279,8 @@ def compute_pv(ctx, state, const_info):
         for mi in pl.range(0, TS // baseM):             # M inner
             p_buf_idx = mi % 2
             # P load — every (ki_pv, mi) combination
+            pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2,
+                               event_id=event_ids_67[p_buf_idx])
             plm.load(p_mat_buf[p_buf_idx], p_buf,
                      [const_info.core_id * FIFO_SIZE * TS + pv_fifo_slot * TS + mi * baseM,
                       ki_pv * baseK])
@@ -286,6 +289,8 @@ def compute_pv(ctx, state, const_info):
             pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1,
                                event_id=event_ids_01[state.l0ab_idx])
             plm.move(left_buf[state.l0ab_idx], p_mat_buf[p_buf_idx])
+            pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2,
+                               event_id=event_ids_67[p_buf_idx])
             plm.move(right_buf[state.l0ab_idx], v_mat_buf[pv_buf_idx])
             pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
             pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.M, event_id=0)
@@ -501,6 +506,8 @@ def fa_perf_tkv_preload_kernel(
         pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=1)
         pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=2)
         pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=3)
+        pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=6)
+        pl.system.sync_src(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=7)
         pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
         pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
         pl.system.sync_src(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=2)
@@ -536,6 +543,8 @@ def fa_perf_tkv_preload_kernel(
         pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=1)
         pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=2)
         pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=3)
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=6)
+        pl.system.sync_dst(set_pipe=pl.PipeType.MTE1, wait_pipe=pl.PipeType.MTE2, event_id=7)
         pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=0)
         pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=1)
         pl.system.sync_dst(set_pipe=pl.PipeType.M, wait_pipe=pl.PipeType.MTE1, event_id=2)
