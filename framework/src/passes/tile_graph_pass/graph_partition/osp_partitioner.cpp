@@ -97,8 +97,8 @@ Status OspPartitioner::RunOspPartition(Function &function)
                 return FAILED;
             }
             status = RunSarkar(graph, coarseGraph, vertexContractionMap);
+            break;
         }
-        break;
         case OspMode::MERKLEBSP: {
             osp::BspInstance<GraphType> bspInstance;
             if (ConstructBspInstance(bspInstance) != SUCCESS) {
@@ -106,8 +106,8 @@ Status OspPartitioner::RunOspPartition(Function &function)
                 return FAILED;
             }
             status = RunMerkleBsp(bspInstance, vertexContractionMap);
+            break;
         }
-        break;
     }
 
     if (status == FAILED) {

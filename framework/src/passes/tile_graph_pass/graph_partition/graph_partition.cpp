@@ -36,7 +36,8 @@ Status GraphPartition::RunOnFunction(Function &function)
     } else if (partitionMode == "Iso") {
         APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: IsoPartitioner.");
         IsoPartitioner partitioner;
-        if (partitioner.SetParameter(function.paramConfigs_.sgPgUpperBound,
+        if (partitioner.SetParameter(
+            function.paramConfigs_.sgPgUpperBound,
             function.paramConfigs_.sgParallelNum,
             function.paramConfigs_.sgPgLowerBound,
             true,
@@ -67,7 +68,7 @@ Status GraphPartition::RunOnFunction(Function &function)
             APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
             return FAILED;
         }
-        
+
         if (partitioner.PartitionGraph(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "GraphPartitionOSP failed.");
             return FAILED;
