@@ -908,8 +908,7 @@ static void CompileControlFlow(
 static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[maybe_unused]] const std::string& ccePath)
 {
     ASSERT((PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
-    auto mixInfoStr = GetMixInfoMain(function);
-    std::cout << mixInfoStr << std::endl;
+    GetMixInfoMain(function);
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";

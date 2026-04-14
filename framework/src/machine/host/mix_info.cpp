@@ -1,3 +1,4 @@
+#include <fstream>
 #include <nlohmann/json.hpp>
 #include "mix_info.h"
 #include "interface/program/program.h"
@@ -6,7 +7,7 @@ using json = nlohmann::json;
 namespace npu {
 namespace tile_fwk {
 
-void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>>& leafFunctions, int wrapid = -1)
+void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>>& leafFunctions)
 {
     auto funcType = func->GetGraphType();
     if (func->IsFunctionTypeAndGraphType(
@@ -18,12 +19,25 @@ void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>>& leafFunc
             if (callFunc == nullptr) {
                 continue;
             }
-            GetExecuteFunc(callFunc, leafFunctions, callopAttr->wrapId);
+            GetExecuteFunc(callFunc, leafFunctions);
         }
         return;
     } else if (funcType == GraphType::EXECUTE_GRAPH) {
-        leafFunctions[wrapid].insert(func);
+        for (auto callop : func->GetCallopList()) {
+            auto callopAttr = std::static_pointer_cast<CallOpAttribute>(callop->GetOpAttribute());
+            auto wrapId = callopAttr->wrapId;
+            if (wrapId == -1) {
+                continue;
+            }
+            auto callFunc = Program::GetInstance().GetFunctionByMagicName(callopAttr->GetCalleeMagicName());
+            if (callFunc == nullptr) {
+                continue;
+            }
+            leafFunctions[wrapId].insert(callFunc);
+        }
         return;
+    } else if (funcType == GraphType::TILE_GRAPH) {
+        GetExecuteFunc(func, leafFunctions);
     }
     return;
 }
@@ -39,7 +53,7 @@ struct CoreTask {
 };
 
 struct WrapInfo {
-    int warpID;
+    int wrapID;
     std::vector<CoreTask> coreTask;
 };
 
@@ -49,22 +63,23 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SyncInfo, isSet, eventID)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CoreTask, hashValue, syncMsg)
 
 // 绑定WrapInfo
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WrapInfo, warpID, coreTask)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WrapInfo, wrapID, coreTask)
 
-std::string GetMixInfoMain(Function* topFunc)
+int GetMixInfoMain(Function* topFunc)
 {
     std::map<int, std::set<Function*>> leafFunctions;
     GetExecuteFunc(topFunc, leafFunctions);
     std::map<int, WrapInfo> wrapInfos;
-    for (auto& [warpID, leafFuncs] : leafFunctions) {
+    for (auto& [wrapID, leafFuncs] : leafFunctions) {
         for (auto& leafFunc : leafFuncs) {
             auto leafAttr = leafFunc->GetLeafFuncAttribute();
             if (leafAttr == nullptr) {
                 continue;
             }
-            if (wrapInfos.find(warpID) == wrapInfos.end()) {
+            if (wrapInfos.find(wrapID) == wrapInfos.end()) {
                 WrapInfo info;
-                wrapInfos[warpID] = info;
+                info.wrapID = wrapID;
+                wrapInfos[wrapID] = info;
             }
             CoreTask leafFuncSyncInfo;
             leafFuncSyncInfo.hashValue = leafFunc->GetFunctionHash().GetHash();
@@ -80,7 +95,7 @@ std::string GetMixInfoMain(Function* topFunc)
                 syncInfo.eventID = op->GetSyncQueue().eventId_;
                 leafFuncSyncInfo.syncMsg.push_back(syncInfo);
             }
-            wrapInfos[warpID].coreTask.push_back(leafFuncSyncInfo);
+            wrapInfos[wrapID].coreTask.push_back(leafFuncSyncInfo);
         }
     }
     std::vector<WrapInfo> wrapinfoList;
@@ -88,7 +103,13 @@ std::string GetMixInfoMain(Function* topFunc)
         wrapinfoList.push_back(wrapinfo);
     }
     json j = wrapinfoList;
-    return j.dump(4);
+    std::string path = npu::tile_fwk::config::GetAbsoluteTopFolder() + "/mix_event_info.json";
+    std::ofstream of(path);
+    if (of.is_open()) {
+        of << j.dump(4);
+        of.close();
+    }
+    return 0;
 }
 } // namespace tile_fwk
 } // namespace npu
