@@ -31,6 +31,8 @@ namespace osp {
 template <typename GraphT>
 class SetSchedule {
 public:
+    using VertexIdx = VertexIdxT<GraphT>;
+
     SetSchedule() = default;
 
     /**
@@ -80,8 +82,6 @@ public:
     }
 
 private:
-    using VertexIdx = VertexIdxT<GraphT>;
-
     const BspInstance<GraphT> *instance_ = nullptr;
 
     unsigned numberOfSupersteps_ = 0;

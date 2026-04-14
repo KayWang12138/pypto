@@ -50,6 +50,8 @@ namespace osp {
 template <typename GraphT>
 class BspSchedule {
 public:
+    using VertexIdx = VertexIdxT<GraphT>;
+
     BspSchedule() = default;
     
     /**
@@ -363,8 +365,6 @@ public:
     void SetNumberOfSupersteps(const unsigned numberOfSupersteps) { numberOfSupersteps_ = numberOfSupersteps; }
 
 protected:
-    using VertexIdx = VertexIdxT<GraphT>;
-
     const BspInstance<GraphT> *instance_;
 
     unsigned numberOfSupersteps_;

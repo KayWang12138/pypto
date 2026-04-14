@@ -59,6 +59,9 @@ namespace osp {
 template <typename GraphT>
 class BspInstance {
 public:
+    using VertexTypeTOrDefault = VTypeT<GraphT>;
+    using ProcessorTypeT = unsigned;
+
     /**
      * @brief Default constructor for the BspInstance class.
      */
@@ -305,12 +308,6 @@ private:
      */
     std::vector<std::vector<bool>> nodeProcessorCompatibility_ = std::vector<std::vector<bool>>({{true}});
 
-    /**
-     * @brief The type of the vectex types in the computational DAG.
-     * If the DAG does not support vertex types, this is `unsigned`.
-     */
-    using VertexTypeTOrDefault = VTypeT<GraphT>;
-    using ProcessorTypeT = unsigned;
 };
 
 }    // namespace osp
