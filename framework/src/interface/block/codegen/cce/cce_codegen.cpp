@@ -399,7 +399,11 @@ inline std::string BuildTileCtorArgs(const ValidShapeInfo& vs, int64_t rows, int
 
 }  // namespace
 
-void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cross_sync) {
+// ========================================================================
+// Phase 6 helpers: GenerateSinglePrologue sub-functions
+// ========================================================================
+
+void CCECodegen::EmitSingleFunctionSignature(const ir::FunctionPtr& func, bool has_cross_sync) {
   // Collect dynamic dim variables from tensor shapes (first-occurrence order)
   std::vector<ir::VarPtr> dyn_dim_vars;
   std::set<std::string> seen_dyn_names;
@@ -463,12 +467,11 @@ void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cr
     emitter_.EmitLine("set_ffts_base_addr((unsigned long)ffts_addr);");
   }
   emitter_.EmitLine("");
+}
 
-  // Collect per-section access window shapes
-  auto section_shapes = CollectTensorAccessShapesPerSection(func->body_);
-
+void CCECodegen::EmitSingleGlobalTensors(const ir::FunctionPtr& func,
+                                          const SectionAccessShapes& section_shapes) {
   // Classify which sections each tensor parameter is used in
-  // A tensor may be in cube_shapes, vec_shapes, both, or neither (common only)
   // Register all tensor parameters first (name mapping only)
   std::vector<std::pair<ir::VarPtr, std::string>> tensor_params;  // (param, global_name)
   for (size_t i = 0; i < func->params_.size(); ++i) {
@@ -520,7 +523,9 @@ void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cr
     emitter_.EmitLine("#endif");
     emitter_.EmitLine("");
   }
+}
 
+void CCECodegen::EmitSingleTileDeclarations(const ir::FunctionPtr& func) {
   // Collect tile sections for section-aware declarations
   auto tile_sections = CollectTileSections(func->body_);
 
@@ -531,174 +536,181 @@ void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cr
   }
   const auto& tile_usage_sections = usage_section_collector.tile_usage_sections_;
 
-  // Collect all TileType variables and filter out unused ones
-  std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> tile_vars;
+  // Filter and deduplicate tiles
   std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> all_tiles;
-  std::vector<std::pair<ir::VarPtr, ir::VarPtr>> deduped_aliases;  // (skipped_var, kept_var)
-  if (func->body_) {
-    all_tiles = CollectTileVariables(func->body_);
+  std::vector<std::pair<ir::VarPtr, ir::VarPtr>> deduped_aliases;
+  auto tile_vars = FilterPrologueTiles(func, all_tiles, deduped_aliases);
 
-    // Collect actually-used tile names
-    TileUsageCollector usage_collector;
-    usage_collector.VisitStmt(func->body_);
-    const auto& used = usage_collector.GetUsedNames();
+  // Emit section-aware tile declarations
+  if (!tile_vars.empty()) {
+    EmitSectionAwareTiles(tile_vars, all_tiles, deduped_aliases, tile_sections, tile_usage_sections);
+  }
+}
 
-    const auto& ifstmt_rvs = usage_collector.ifstmt_return_var_names_;
+std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> CCECodegen::FilterPrologueTiles(
+    const ir::FunctionPtr& func,
+    std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>>& all_tiles_out,
+    std::vector<std::pair<ir::VarPtr, ir::VarPtr>>& deduped_aliases_out) {
+  std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> tile_vars;
+  if (!func->body_) return tile_vars;
 
-    // First pass: collect tiles that will be kept, build address→name map
-    // for detecting address duplicates
-    std::set<std::string> kept_tile_addrs;  // "section:addr" keys of tiles already kept
-    std::map<std::string, ir::VarPtr> kept_tile_addr_vars;  // dedup_key → first kept tile var
+  all_tiles_out = CollectTileVariables(func->body_);
 
-    // Filter prologue tiles (two passes to handle address dedup):
-    // Pass 1: Collect FIFO buffer elements (these have priority — they feed Tile arrays)
-    std::set<std::string> fifo_buf_names;
-    for (const auto& [var, tile_type] : all_tiles) {
-      const std::string& name = var->name_;
-      if (used.count(name) == 0) {
-        auto last_underscore = name.rfind('_');
-        if (last_underscore != std::string::npos) {
-          std::string parent = name.substr(0, last_underscore);
-          if (used.count(parent) > 0 && parent.find("_tuple_tmp") == std::string::npos) {
-            fifo_buf_names.insert(name);
-          }
+  // Collect actually-used tile names
+  TileUsageCollector usage_collector;
+  usage_collector.VisitStmt(func->body_);
+  const auto& used = usage_collector.GetUsedNames();
+  const auto& ifstmt_rvs = usage_collector.ifstmt_return_var_names_;
+
+  std::set<std::string> kept_tile_addrs;
+  std::map<std::string, ir::VarPtr> kept_tile_addr_vars;
+
+  // Pass 1: Collect FIFO buffer elements
+  std::set<std::string> fifo_buf_names;
+  for (const auto& [var, tile_type] : all_tiles_out) {
+    const std::string& name = var->name_;
+    if (used.count(name) == 0) {
+      auto last_underscore = name.rfind('_');
+      if (last_underscore != std::string::npos) {
+        std::string parent = name.substr(0, last_underscore);
+        if (used.count(parent) > 0 && parent.find("_tuple_tmp") == std::string::npos) {
+          fifo_buf_names.insert(name);
         }
-      }
-    }
-
-    // Pass 2: Filter tiles
-    for (const auto& [var, tile_type] : all_tiles) {
-      const std::string& name = var->name_;
-
-      // Skip IfStmt return vars — they become Tile array accesses, not standalone tiles
-      if (ifstmt_rvs.count(name) > 0) continue;
-      // Skip tiles only used inside MakeTuple (grouping only, e.g., q_mat_0 used in fifo())
-      if (used.count(name) == 0 && usage_collector.tuple_only_names_.count(name) > 0) continue;
-
-      bool is_used = used.count(name) > 0 || fifo_buf_names.count(name) > 0;
-
-      // Address+type dedup: skip tiles with same address AND same type as an already-kept tile
-      // (e.g., global_sum_cur_0 is a duplicate of global_sum_buf_0_0, same addr+type)
-      // But tiles with same address but different layout (ColMajor vs RowMajor views) are NOT duplicates.
-      if (is_used && tile_type->memref_.has_value()) {
-        int64_t addr = ExtractConstInt((*tile_type->memref_)->addr_);
-        auto space = (*tile_type->memref_)->memory_space_;
-        std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);
-        std::string type_key = type_converter_.ConvertTileType(tile_type,
-            shape_dims.size() >= 1 ? shape_dims[0] : 1, shape_dims.size() >= 2 ? shape_dims[1] : 1);
-        std::string dedup_key = std::to_string(static_cast<int>(space)) + ":" +
-                                std::to_string(addr) + ":" + type_key;
-        if (kept_tile_addrs.count(dedup_key) > 0) {
-          // Record alias: this tile is a duplicate, map to the kept tile
-          auto it = kept_tile_addr_vars.find(dedup_key);
-          if (it != kept_tile_addr_vars.end()) {
-            deduped_aliases.emplace_back(var, it->second);
-          }
-          continue;
-        }
-        kept_tile_addrs.insert(dedup_key);
-        kept_tile_addr_vars[dedup_key] = var;
-      }
-      if (is_used) {
-        tile_vars.emplace_back(var, tile_type);
       }
     }
   }
 
-  // Generate section-aware tile declarations
-  if (!tile_vars.empty()) {
-    // Separate tiles by section
-    std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> cube_tiles;
-    std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> vec_tiles;
-    std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> shared_tiles;
+  // Pass 2: Filter tiles
+  for (const auto& [var, tile_type] : all_tiles_out) {
+    const std::string& name = var->name_;
+    if (ifstmt_rvs.count(name) > 0) continue;
+    if (used.count(name) == 0 && usage_collector.tuple_only_names_.count(name) > 0) continue;
 
-    for (const auto& [var, tile_type] : tile_vars) {
-      // Check if tile is used across multiple sections → shared
-      auto usage_it = tile_usage_sections.find(var->name_);
-      if (usage_it != tile_usage_sections.end() && usage_it->second.size() > 1) {
-        shared_tiles.emplace_back(var, tile_type);
+    bool is_used = used.count(name) > 0 || fifo_buf_names.count(name) > 0;
+
+    // Address+type dedup
+    if (is_used && tile_type->memref_.has_value()) {
+      int64_t addr = ExtractConstInt((*tile_type->memref_)->addr_);
+      auto space = (*tile_type->memref_)->memory_space_;
+      std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);
+      std::string type_key = type_converter_.ConvertTileType(tile_type,
+          shape_dims.size() >= 1 ? shape_dims[0] : 1, shape_dims.size() >= 2 ? shape_dims[1] : 1);
+      std::string dedup_key = std::to_string(static_cast<int>(space)) + ":" +
+                              std::to_string(addr) + ":" + type_key;
+      if (kept_tile_addrs.count(dedup_key) > 0) {
+        auto it = kept_tile_addr_vars.find(dedup_key);
+        if (it != kept_tile_addr_vars.end()) {
+          deduped_aliases_out.emplace_back(var, it->second);
+        }
         continue;
       }
-
-      auto it = tile_sections.find(var);
-      if (it != tile_sections.end()) {
-        if (it->second == ir::SectionKind::Cube) {
-          cube_tiles.emplace_back(var, tile_type);
-        } else {
-          vec_tiles.emplace_back(var, tile_type);
-        }
-      } else if (tile_type->memref_.has_value()) {
-        // Infer section from memory space: Vec→Vector, everything else→Cube
-        auto space = (*tile_type->memref_)->memory_space_;
-        if (space == ir::MemorySpace::Vec) {
-          vec_tiles.emplace_back(var, tile_type);
-        } else {
-          cube_tiles.emplace_back(var, tile_type);
-        }
-      } else {
-        shared_tiles.emplace_back(var, tile_type);
-      }
+      kept_tile_addrs.insert(dedup_key);
+      kept_tile_addr_vars[dedup_key] = var;
     }
-
-    // Helper lambda: emit auto& aliases for deduped tiles in a given memory space
-    auto emit_deduped_aliases = [&](std::optional<ir::MemorySpace> filter_space) {
-      for (const auto& [dup_var, kept_var] : deduped_aliases) {
-        bool match = false;
-        if (!filter_space.has_value()) {
-          match = true;  // shared: emit all that don't match Cube or Vec
-        } else {
-          for (const auto& [v, tile_type] : all_tiles) {
-            if (v->name_ == dup_var->name_ && tile_type->memref_.has_value()) {
-              auto space = (*tile_type->memref_)->memory_space_;
-              if (space == filter_space.value()) match = true;
-              break;
-            }
-          }
-        }
-        if (match) {
-          std::string san_dup = context_.SanitizeName(dup_var);
-          std::string san_kept = context_.SanitizeName(kept_var);
-          emitter_.EmitLine("auto& " + san_dup + " = " + san_kept + ";");
-          emitted_tile_aliases_.insert(san_dup);
-        }
-      }
-    };
-
-    // Emit shared tiles (outside any #if)
-    if (!shared_tiles.empty()) {
-      // emitter_.EmitLine("// Tile declarations (shared)");
-      for (const auto& [var, tile_type] : shared_tiles) {
-        const std::string var_name = context_.SanitizeName(var);
-        GenerateTileTypeDeclaration(var_name, tile_type);
-      }
-      emitter_.EmitLine("");
-    }
-
-    // Emit Cube tiles inside #if defined(__DAV_CUBE__)
-    if (!cube_tiles.empty()) {
-      emitter_.EmitLine("#if defined(__DAV_CUBE__)");
-      for (const auto& [var, tile_type] : cube_tiles) {
-        const std::string var_name = context_.SanitizeName(var);
-        GenerateTileTypeDeclaration(var_name, tile_type);
-      }
-      emit_deduped_aliases(ir::MemorySpace::Mat);
-      emit_deduped_aliases(ir::MemorySpace::Scaling);
-      emitter_.EmitLine("#endif");
-      emitter_.EmitLine("");
-    }
-
-    // Emit Vec tiles inside #if defined(__DAV_VEC__)
-    if (!vec_tiles.empty()) {
-      emitter_.EmitLine("#if defined(__DAV_VEC__)");
-      for (const auto& [var, tile_type] : vec_tiles) {
-        const std::string var_name = context_.SanitizeName(var);
-        GenerateTileTypeDeclaration(var_name, tile_type);
-      }
-      emit_deduped_aliases(ir::MemorySpace::Vec);
-      emitter_.EmitLine("#endif");
-      emitter_.EmitLine("");
+    if (is_used) {
+      tile_vars.emplace_back(var, tile_type);
     }
   }
+  return tile_vars;
+}
+
+void CCECodegen::EmitSectionAwareTiles(
+    const std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>>& tile_vars,
+    const std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>>& all_tiles,
+    const std::vector<std::pair<ir::VarPtr, ir::VarPtr>>& deduped_aliases,
+    const std::map<ir::VarPtr, ir::SectionKind>& tile_sections,
+    const std::map<std::string, std::set<ir::SectionKind>>& tile_usage_sections) {
+  // Separate tiles by section
+  std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> cube_tiles;
+  std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> vec_tiles;
+  std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> shared_tiles;
+
+  for (const auto& [var, tile_type] : tile_vars) {
+    auto usage_it = tile_usage_sections.find(var->name_);
+    if (usage_it != tile_usage_sections.end() && usage_it->second.size() > 1) {
+      shared_tiles.emplace_back(var, tile_type);
+      continue;
+    }
+    auto it = tile_sections.find(var);
+    if (it != tile_sections.end()) {
+      if (it->second == ir::SectionKind::Cube) {
+        cube_tiles.emplace_back(var, tile_type);
+      } else {
+        vec_tiles.emplace_back(var, tile_type);
+      }
+    } else if (tile_type->memref_.has_value()) {
+      auto space = (*tile_type->memref_)->memory_space_;
+      if (space == ir::MemorySpace::Vec) {
+        vec_tiles.emplace_back(var, tile_type);
+      } else {
+        cube_tiles.emplace_back(var, tile_type);
+      }
+    } else {
+      shared_tiles.emplace_back(var, tile_type);
+    }
+  }
+
+  // Helper lambda: emit auto& aliases for deduped tiles in a given memory space
+  auto emit_deduped_aliases = [&](std::optional<ir::MemorySpace> filter_space) {
+    for (const auto& [dup_var, kept_var] : deduped_aliases) {
+      bool match = false;
+      if (!filter_space.has_value()) {
+        match = true;
+      } else {
+        for (const auto& [v, tile_type] : all_tiles) {
+          if (v->name_ == dup_var->name_ && tile_type->memref_.has_value()) {
+            auto space = (*tile_type->memref_)->memory_space_;
+            if (space == filter_space.value()) match = true;
+            break;
+          }
+        }
+      }
+      if (match) {
+        std::string san_dup = context_.SanitizeName(dup_var);
+        std::string san_kept = context_.SanitizeName(kept_var);
+        emitter_.EmitLine("auto& " + san_dup + " = " + san_kept + ";");
+        emitted_tile_aliases_.insert(san_dup);
+      }
+    }
+  };
+
+  // Emit shared tiles (outside any #if)
+  if (!shared_tiles.empty()) {
+    for (const auto& [var, tile_type] : shared_tiles) {
+      GenerateTileTypeDeclaration(context_.SanitizeName(var), tile_type);
+    }
+    emitter_.EmitLine("");
+  }
+
+  // Emit Cube tiles inside #if defined(__DAV_CUBE__)
+  if (!cube_tiles.empty()) {
+    emitter_.EmitLine("#if defined(__DAV_CUBE__)");
+    for (const auto& [var, tile_type] : cube_tiles) {
+      GenerateTileTypeDeclaration(context_.SanitizeName(var), tile_type);
+    }
+    emit_deduped_aliases(ir::MemorySpace::Mat);
+    emit_deduped_aliases(ir::MemorySpace::Scaling);
+    emitter_.EmitLine("#endif");
+    emitter_.EmitLine("");
+  }
+
+  // Emit Vec tiles inside #if defined(__DAV_VEC__)
+  if (!vec_tiles.empty()) {
+    emitter_.EmitLine("#if defined(__DAV_VEC__)");
+    for (const auto& [var, tile_type] : vec_tiles) {
+      GenerateTileTypeDeclaration(context_.SanitizeName(var), tile_type);
+    }
+    emit_deduped_aliases(ir::MemorySpace::Vec);
+    emitter_.EmitLine("#endif");
+    emitter_.EmitLine("");
+  }
+}
+
+void CCECodegen::GenerateSinglePrologue(const ir::FunctionPtr& func, bool has_cross_sync) {
+  EmitSingleFunctionSignature(func, has_cross_sync);
+  auto section_shapes = CollectTensorAccessShapesPerSection(func->body_);
+  EmitSingleGlobalTensors(func, section_shapes);
+  EmitSingleTileDeclarations(func);
 }
 
 void CCECodegen::VisitStmt_(const ir::SectionStmtPtr& op) {
@@ -792,20 +804,13 @@ std::map<ir::VarPtr, ir::SectionKind> CCECodegen::CollectTileSections(const ir::
   return collector.tile_sections;
 }
 
-void CCECodegen::GeneratePrologue(const ir::FunctionPtr& func) {
-  // Function signature
-  emitter_.EmitLine(
-      "extern \"C\" __aicore__ __attribute__((always_inline)) void kernel_entry(__gm__ int64_t* args)");
-  emitter_.EmitLine("{");
-  emitter_.IncreaseIndent();
+// ========================================================================
+// Phase 9 helper: Argument unpacking for GeneratePrologue
+// ========================================================================
 
-  emitter_.EmitLine("// Unpack arguments and type declarations");
-
-  // Collect access window shapes so GlobalTensor Shape<> uses the block.load/store
-  // window shape rather than the full tensor shape
-  auto access_shapes = CollectTensorAccessShapes(func->body_);
-
-  // First pass: Unpack arguments (use sanitized names but don't register yet)
+void CCECodegen::UnpackFunctionArguments(
+    const ir::FunctionPtr& func,
+    const std::map<std::string, std::vector<ir::ExprPtr>>& access_shapes) {
   for (size_t i = 0; i < func->params_.size(); ++i) {
     const auto& param = func->params_[i];
     const std::string param_name = context_.SanitizeName(param);
@@ -852,6 +857,23 @@ void CCECodegen::GeneratePrologue(const ir::FunctionPtr& func) {
 
     emitter_.EmitLine("");
   }
+}
+
+void CCECodegen::GeneratePrologue(const ir::FunctionPtr& func) {
+  // Function signature
+  emitter_.EmitLine(
+      "extern \"C\" __aicore__ __attribute__((always_inline)) void kernel_entry(__gm__ int64_t* args)");
+  emitter_.EmitLine("{");
+  emitter_.IncreaseIndent();
+
+  emitter_.EmitLine("// Unpack arguments and type declarations");
+
+  // Collect access window shapes so GlobalTensor Shape<> uses the block.load/store
+  // window shape rather than the full tensor shape
+  auto access_shapes = CollectTensorAccessShapes(func->body_);
+
+  // Unpack arguments
+  UnpackFunctionArguments(func, access_shapes);
 
   // Collect all TileType variables from function body
   std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> tile_vars;
@@ -884,11 +906,11 @@ void CCECodegen::GenerateBody(const ir::FunctionPtr& func) {
   emitter_.EmitLine("}");
 }
 
-void CCECodegen::VisitStmt_(const ir::AssignStmtPtr& op) {
-  INTERNAL_CHECK(op != nullptr) << "Internal error: null AssignStmt";
-  INTERNAL_CHECK(op->var_ != nullptr) << "Internal error: AssignStmt has null variable";
-  INTERNAL_CHECK(op->value_ != nullptr) << "Internal error: AssignStmt has null value";
+// ========================================================================
+// Phase 8 helper: Tile-related assignment handling
+// ========================================================================
 
+bool CCECodegen::HandleTileRelatedAssignment(const ir::AssignStmtPtr& op) {
   // Skip TupleGetItemExpr assignments that extract Tiles/sub-tuples from make_tile tuples.
   // The tiles are already declared in the prologue with correct memref addresses.
   // Also skip assignments of TupleType/TileType values from make_tile no-ops.
@@ -926,9 +948,19 @@ void CCECodegen::VisitStmt_(const ir::AssignStmtPtr& op) {
         }
       }
       current_target_var_ = "";
-      return;
+      return true;
     }
   }
+  return false;
+}
+
+void CCECodegen::VisitStmt_(const ir::AssignStmtPtr& op) {
+  INTERNAL_CHECK(op != nullptr) << "Internal error: null AssignStmt";
+  INTERNAL_CHECK(op->var_ != nullptr) << "Internal error: AssignStmt has null variable";
+  INTERNAL_CHECK(op->value_ != nullptr) << "Internal error: AssignStmt has null value";
+
+  if (HandleTileRelatedAssignment(op)) return;
+
   // Also skip make_tile no-op assignments (value is a Call to make_tile → returns "")
   // and TupleType assignments from SSA yield that carry tiles
   if (ir::As<ir::TupleType>(op->var_->GetType())) {
@@ -1021,252 +1053,346 @@ void CCECodegen::VisitStmt_(const ir::YieldStmtPtr& op) {
   current_expr_value_ = "";
 }
 
-void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
-  INTERNAL_CHECK(op != nullptr) << "Internal error: null IfStmt";
-  INTERNAL_CHECK(op->condition_ != nullptr) << "Internal error: IfStmt has null condition";
-  INTERNAL_CHECK(op->then_body_ != nullptr) << "Internal error: IfStmt has null then_body";
-
-  // ---------- Optimization: N-way select → array/indexing ----------
-  // Detect pattern: if (x == 0) { yield A } else { if (x == 1) { yield B } else { ... } }
-  // For TileType: emit constexpr array + TASSIGN (hoisted outside loops)
-  // For ScalarType with ConstInt yields: emit EventId array (hoisted outside loops)
-  if (op->return_vars_.size() >= 1 && op->else_body_.has_value()) {
-    // Extract yield values from IR body without emitting code.
-    auto extract_yield_names = [this](const ir::StmtPtr& body) -> std::vector<std::string> {
-      std::vector<std::string> yields;
-      ir::YieldStmtPtr yield_stmt;
-      if (auto y = ir::As<ir::YieldStmt>(body)) {
-        yield_stmt = y;
-      } else if (auto seq = ir::As<ir::SeqStmts>(body)) {
-        if (!seq->stmts_.empty()) yield_stmt = ir::As<ir::YieldStmt>(seq->stmts_.back());
-      }
-      if (!yield_stmt) return yields;
-      for (const auto& val : yield_stmt->value_) {
-        if (auto var = ir::As<ir::Var>(val)) {
-          yields.push_back(context_.SanitizeName(var));
-        } else if (auto cint = ir::As<ir::ConstInt>(val)) {
-          yields.push_back(std::to_string(cint->value_));
-        } else if (auto iter_arg = ir::As<ir::IterArg>(val)) {
-          yields.push_back(context_.SanitizeName(iter_arg));
-        } else if (auto tge = ir::As<ir::TupleGetItemExpr>(val)) {
-          if (auto tuple_var = ir::As<ir::Var>(tge->tuple_)) {
-            yields.push_back(context_.SanitizeName(tuple_var) + "_" + std::to_string(tge->index_));
-          } else if (auto tuple_iter = ir::As<ir::IterArg>(tge->tuple_)) {
-            yields.push_back(context_.SanitizeName(tuple_iter) + "_" + std::to_string(tge->index_));
-          } else if (auto make_tuple = ir::As<ir::MakeTuple>(tge->tuple_)) {
-            // Inline MakeTuple: resolve element at index directly
-            size_t idx = static_cast<size_t>(tge->index_);
-            if (idx < make_tuple->elements_.size()) {
-              const auto& elem = make_tuple->elements_[idx];
-              if (auto elem_var = ir::As<ir::Var>(elem)) {
-                yields.push_back(context_.SanitizeName(elem_var));
-              } else if (auto elem_cint = ir::As<ir::ConstInt>(elem)) {
-                yields.push_back(std::to_string(elem_cint->value_));
-              } else if (auto elem_iter = ir::As<ir::IterArg>(elem)) {
-                yields.push_back(context_.SanitizeName(elem_iter));
-              } else {
-                return {};
-              }
-            } else {
-              return {};
-            }
+std::vector<std::string> CCECodegen::ExtractYieldNames(const ir::StmtPtr& body) const {
+  std::vector<std::string> yields;
+  ir::YieldStmtPtr yield_stmt;
+  if (auto y = ir::As<ir::YieldStmt>(body)) {
+    yield_stmt = y;
+  } else if (auto seq = ir::As<ir::SeqStmts>(body)) {
+    if (!seq->stmts_.empty()) yield_stmt = ir::As<ir::YieldStmt>(seq->stmts_.back());
+  }
+  if (!yield_stmt) return yields;
+  for (const auto& val : yield_stmt->value_) {
+    if (auto var = ir::As<ir::Var>(val)) {
+      yields.push_back(context_.SanitizeName(var));
+    } else if (auto cint = ir::As<ir::ConstInt>(val)) {
+      yields.push_back(std::to_string(cint->value_));
+    } else if (auto iter_arg = ir::As<ir::IterArg>(val)) {
+      yields.push_back(context_.SanitizeName(iter_arg));
+    } else if (auto tge = ir::As<ir::TupleGetItemExpr>(val)) {
+      if (auto tuple_var = ir::As<ir::Var>(tge->tuple_)) {
+        yields.push_back(context_.SanitizeName(tuple_var) + "_" + std::to_string(tge->index_));
+      } else if (auto tuple_iter = ir::As<ir::IterArg>(tge->tuple_)) {
+        yields.push_back(context_.SanitizeName(tuple_iter) + "_" + std::to_string(tge->index_));
+      } else if (auto make_tuple = ir::As<ir::MakeTuple>(tge->tuple_)) {
+        size_t idx = static_cast<size_t>(tge->index_);
+        if (idx < make_tuple->elements_.size()) {
+          const auto& elem = make_tuple->elements_[idx];
+          if (auto elem_var = ir::As<ir::Var>(elem)) {
+            yields.push_back(context_.SanitizeName(elem_var));
+          } else if (auto elem_cint = ir::As<ir::ConstInt>(elem)) {
+            yields.push_back(std::to_string(elem_cint->value_));
+          } else if (auto elem_iter = ir::As<ir::IterArg>(elem)) {
+            yields.push_back(context_.SanitizeName(elem_iter));
           } else {
             return {};
           }
         } else {
           return {};
         }
+      } else {
+        return {};
       }
-      return yields;
-    };
+    } else {
+      return {};
+    }
+  }
+  return yields;
+}
 
-    auto then_yields = extract_yield_names(op->then_body_);
-    // --- N-way nested if-else collection ---
-    // Walk the nested else chain: if(x==0){A} else{if(x==1){B} else{if(x==2){C}...}}
-    // Collect all yield vectors into all_cases[0]=A, all_cases[1]=B, ...
-    std::vector<std::vector<std::string>> all_cases;
-    bool nway_valid = !then_yields.empty() && then_yields.size() == op->return_vars_.size();
-    if (nway_valid) {
-      all_cases.push_back(then_yields);
-      // Walk else branches
-      std::optional<ir::StmtPtr> cur_else = op->else_body_;
-      while (cur_else.has_value()) {
-        ir::IfStmtPtr nested_if;
-        if (auto direct_if = ir::As<ir::IfStmt>(*cur_else)) {
-          nested_if = direct_if;
-        } else if (auto seq = ir::As<ir::SeqStmts>(*cur_else)) {
-          // Look for IfStmt among statements (else body may contain extra stmts)
-          for (const auto& stmt : seq->stmts_) {
-            if (auto nif = ir::As<ir::IfStmt>(stmt)) {
-              nested_if = nif;
-              break;
-            }
-          }
-        }
-        if (nested_if) {
-          // Verify condition is (same_expr == next_int)
-          auto eq = ir::As<ir::Eq>(nested_if->condition_);
-          auto rhs_c = eq ? ir::As<ir::ConstInt>(eq->right_) : nullptr;
-          if (!rhs_c || rhs_c->value_ != static_cast<int64_t>(all_cases.size())) {
-            nway_valid = false; break;
-          }
-          auto ys = extract_yield_names(nested_if->then_body_);
-          if (ys.size() != op->return_vars_.size()) { nway_valid = false; break; }
-          all_cases.push_back(ys);
-          cur_else = nested_if->else_body_;
-        } else {
-          // Final else (default / last case)
-          auto ys = extract_yield_names(*cur_else);
-          if (ys.size() == op->return_vars_.size()) {
-            all_cases.push_back(ys);
-          }
-          break;
-        }
-      }
+void CCECodegen::EmitYieldAssignments(const std::vector<ir::VarPtr>& return_vars,
+                                      const std::vector<std::string>& target_names) {
+  if (return_vars.empty() || yield_buffer_.empty()) return;
+  for (size_t i = 0; i < return_vars.size(); ++i) {
+    const auto& return_var = return_vars[i];
+    std::string return_var_name = target_names[i];
+    std::string yielded_value = yield_buffer_[i];
+
+    auto return_type = return_var->GetType();
+    std::string resolved_yield = context_.ResolveAlias(yielded_value);
+    if ((ir::As<ir::TileType>(return_type) || ir::As<ir::TupleType>(return_type)) &&
+        tile_addresses_.count(yielded_value)) {
+      emitter_.EmitLine("TASSIGN(" + return_var_name + ", " + tile_addresses_[yielded_value] + ");");
+      tile_addresses_[return_var_name] = tile_addresses_[yielded_value];
+    } else if (return_var_name != resolved_yield) {
+      emitter_.EmitLine(return_var_name + " = " + resolved_yield + ";");
     }
 
-    bool can_optimize = nway_valid && all_cases.size() >= 2;
+    if (std::dynamic_pointer_cast<const ir::TensorType>(return_type)) {
+      std::string yielded_ptr = context_.GetPointer(resolved_yield);
+      context_.RegisterPointer(return_var_name, yielded_ptr);
+      if (!single_file_mode_) {
+        std::string yielded_struct = context_.GetTensorStruct(resolved_yield);
+        context_.RegisterTensorStruct(return_var_name, yielded_struct);
+      }
+    }
+  }
+  yield_buffer_.clear();
+}
 
-    if (can_optimize) {
-      // Extract the LHS of condition (x == 0) to use as array index
-      std::string index_expr;
-      auto eq_op = ir::As<ir::Eq>(op->condition_);
-      if (eq_op) {
-        auto rhs_const = ir::As<ir::ConstInt>(eq_op->right_);
-        if (rhs_const && rhs_const->value_ == 0) {
-          VisitExpr(eq_op->left_);
-          index_expr = current_expr_value_;
-          current_expr_value_ = "";
+bool CCECodegen::TryEmitNWaySelect(const ir::IfStmtPtr& op) {
+  if (op->return_vars_.empty() || !op->else_body_.has_value()) return false;
+
+  auto then_yields = ExtractYieldNames(op->then_body_);
+  // Walk the nested else chain: if(x==0){A} else{if(x==1){B} else{if(x==2){C}...}}
+  std::vector<std::vector<std::string>> all_cases;
+  bool nway_valid = !then_yields.empty() && then_yields.size() == op->return_vars_.size();
+  if (nway_valid) {
+    all_cases.push_back(then_yields);
+    std::optional<ir::StmtPtr> cur_else = op->else_body_;
+    while (cur_else.has_value()) {
+      ir::IfStmtPtr nested_if;
+      if (auto direct_if = ir::As<ir::IfStmt>(*cur_else)) {
+        nested_if = direct_if;
+      } else if (auto seq = ir::As<ir::SeqStmts>(*cur_else)) {
+        for (const auto& stmt : seq->stmts_) {
+          if (auto nif = ir::As<ir::IfStmt>(stmt)) { nested_if = nif; break; }
         }
       }
-
-      if (index_expr.empty()) {
-        can_optimize = false;
-      }
-
-      if (can_optimize) {
-        for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-          const auto& return_var = op->return_vars_[i];
-          auto return_type = return_var->GetType();
-
-          // Collect all yield values for this return var across all cases
-          std::vector<std::string> vals;
-          for (auto& c : all_cases) vals.push_back(c[i]);
-
-          if (auto tile_type = ir::As<ir::TileType>(return_type)) {
-            // Tile array: group source tiles into an array, index directly.
-            bool all_have_addr = true;
-            for (auto& v : vals) {
-              if (!tile_addresses_.count(v)) { all_have_addr = false; break; }
-            }
-            if (!all_have_addr) {
-              can_optimize = false;
-              break;
-            }
-
-            // Deduplicate Tile arrays by all element names AND index expression
-            std::string dedup_key = index_expr + ":";
-            for (auto& v : vals) { dedup_key += v + ","; }
-            std::string arr_name;
-            if (tile_array_decls_.count(dedup_key)) {
-              arr_name = tile_array_decls_[dedup_key];
-            } else {
-              // Derive array name from first tile: strip trailing "_N" suffix
-              auto pos = vals[0].rfind('_');
-              arr_name = (pos != std::string::npos) ? vals[0].substr(0, pos) : vals[0];
-              // Append _arr suffix to avoid collision with original tile variable names
-              arr_name += "_arr";
-              // Ensure uniqueness if name collision
-              if (tile_array_decls_.count(arr_name + "_dedup")) {
-                arr_name += "_" + std::to_string(tile_array_counter_++);
-              }
-              tile_array_decls_[dedup_key] = arr_name;
-              tile_array_decls_[arr_name + "_dedup"] = arr_name;  // mark name used
-              std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);
-              int64_t rows = shape_dims.size() >= 1 ? shape_dims[0] : 1;
-              int64_t cols = shape_dims.size() >= 2 ? shape_dims[1] : 1;
-              std::string tile_type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
-              std::ostringstream arr_elems;
-              for (size_t j = 0; j < vals.size(); ++j) {
-                if (j > 0) arr_elems << ", ";
-                arr_elems << vals[j];
-              }
-              std::string arr_decl =
-                  tile_type_str + " " + arr_name + "[] = {" + arr_elems.str() + "};";
-              if (loop_depth_ > 0 || if_depth_ > 0) {
-                loop_hoisted_decls_.push_back(arr_decl);
-              } else {
-                emitter_.EmitLine(arr_decl);
-              }
-            }
-
-            // Register return var directly as Tile array access
-            std::string access_expr = arr_name + "[" + index_expr + "]";
-            context_.RegisterVar(return_var, access_expr);
-
-          } else if (ir::As<ir::ScalarType>(return_type)) {
-            // Scalar with ConstInt yields: emit EventId array
-            bool all_num = true;
-            for (auto& v : vals) {
-              if (v.empty() || (!std::isdigit(v[0]) && v[0] != '-')) { all_num = false; break; }
-            }
-            if (!all_num) {
-              can_optimize = false;
-              break;
-            }
-
-            // Deduplicate EventId array by value combination AND index expression
-            // Different index expressions must not share the same array even if values match
-            std::string dedup_key = index_expr + ":";
-            for (auto& v : vals) { dedup_key += v + ","; }
-            std::string eid_name;
-            if (event_id_decls_nway_.count(dedup_key)) {
-              eid_name = event_id_decls_nway_[dedup_key];
-            } else {
-              eid_name = "_eid";
-              for (auto& v : vals) eid_name += "_" + v;
-              // Ensure unique name by appending counter if name already exists
-              std::string base_name = eid_name;
-              while (event_id_names_used_.count(eid_name)) {
-                eid_name = base_name + "_" + std::to_string(event_id_nway_counter_++);
-              }
-              event_id_names_used_.insert(eid_name);
-              event_id_decls_nway_[dedup_key] = eid_name;
-              std::ostringstream arr_elems;
-              for (size_t j = 0; j < vals.size(); ++j) {
-                if (j > 0) arr_elems << ", ";
-                arr_elems << "(event_t)" << vals[j];
-              }
-              std::string decl_line =
-                  "const event_t " + eid_name + "[] = {" + arr_elems.str() + "};";
-              if (loop_depth_ > 0 || if_depth_ > 0) {
-                loop_hoisted_decls_.push_back(decl_line);
-              } else {
-                emitter_.EmitLine(decl_line);
-              }
-            }
-
-            // Register return var as EventId array access expression
-            context_.RegisterVar(return_var, eid_name + "[" + index_expr + "]");
-
-          } else {
-            can_optimize = false;
-            break;
-          }
+      if (nested_if) {
+        auto eq = ir::As<ir::Eq>(nested_if->condition_);
+        auto rhs_c = eq ? ir::As<ir::ConstInt>(eq->right_) : nullptr;
+        if (!rhs_c || rhs_c->value_ != static_cast<int64_t>(all_cases.size())) {
+          nway_valid = false; break;
         }
-      }
-
-      if (can_optimize) {
-        return;
+        auto ys = ExtractYieldNames(nested_if->then_body_);
+        if (ys.size() != op->return_vars_.size()) { nway_valid = false; break; }
+        all_cases.push_back(ys);
+        cur_else = nested_if->else_body_;
+      } else {
+        auto ys = ExtractYieldNames(*cur_else);
+        if (ys.size() == op->return_vars_.size()) all_cases.push_back(ys);
+        break;
       }
     }
   }
 
-  // ---------- Standard if/else codegen (fallback) ----------
+  if (!nway_valid || all_cases.size() < 2) return false;
 
-  // --- If-level hoisting: buffer output so array decls generated inside if/else
-  //     bodies can be hoisted before the if statement (same idea as loop hoisting).
-  //     Only needed when outside loops (loop_depth_ == 0) at the outermost if. ---
+  // Extract the LHS of condition (x == 0) to use as array index
+  std::string index_expr;
+  auto eq_op = ir::As<ir::Eq>(op->condition_);
+  if (eq_op) {
+    auto rhs_const = ir::As<ir::ConstInt>(eq_op->right_);
+    if (rhs_const && rhs_const->value_ == 0) {
+      VisitExpr(eq_op->left_);
+      index_expr = current_expr_value_;
+      current_expr_value_ = "";
+    }
+  }
+  if (index_expr.empty()) return false;
+
+  // Emit per-return-var arrays
+  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
+    const auto& return_var = op->return_vars_[i];
+    auto return_type = return_var->GetType();
+
+    std::vector<std::string> vals;
+    for (auto& c : all_cases) vals.push_back(c[i]);
+
+    if (auto tile_type = ir::As<ir::TileType>(return_type)) {
+      bool all_have_addr = true;
+      for (auto& v : vals) {
+        if (!tile_addresses_.count(v)) { all_have_addr = false; break; }
+      }
+      if (!all_have_addr) return false;
+
+      std::string dedup_key = index_expr + ":";
+      for (auto& v : vals) { dedup_key += v + ","; }
+      std::string arr_name;
+      if (tile_array_decls_.count(dedup_key)) {
+        arr_name = tile_array_decls_[dedup_key];
+      } else {
+        auto pos = vals[0].rfind('_');
+        arr_name = (pos != std::string::npos) ? vals[0].substr(0, pos) : vals[0];
+        arr_name += "_arr";
+        if (tile_array_decls_.count(arr_name + "_dedup")) {
+          arr_name += "_" + std::to_string(tile_array_counter_++);
+        }
+        tile_array_decls_[dedup_key] = arr_name;
+        tile_array_decls_[arr_name + "_dedup"] = arr_name;
+        std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);
+        int64_t rows = shape_dims.size() >= 1 ? shape_dims[0] : 1;
+        int64_t cols = shape_dims.size() >= 2 ? shape_dims[1] : 1;
+        std::string tile_type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
+        std::ostringstream arr_elems;
+        for (size_t j = 0; j < vals.size(); ++j) {
+          if (j > 0) arr_elems << ", ";
+          arr_elems << vals[j];
+        }
+        std::string arr_decl = tile_type_str + " " + arr_name + "[] = {" + arr_elems.str() + "};";
+        if (loop_depth_ > 0 || if_depth_ > 0) {
+          loop_hoisted_decls_.push_back(arr_decl);
+        } else {
+          emitter_.EmitLine(arr_decl);
+        }
+      }
+      context_.RegisterVar(return_var, arr_name + "[" + index_expr + "]");
+
+    } else if (ir::As<ir::ScalarType>(return_type)) {
+      bool all_num = true;
+      for (auto& v : vals) {
+        if (v.empty() || (!std::isdigit(v[0]) && v[0] != '-')) { all_num = false; break; }
+      }
+      if (!all_num) return false;
+
+      std::string dedup_key = index_expr + ":";
+      for (auto& v : vals) { dedup_key += v + ","; }
+      std::string eid_name;
+      if (event_id_decls_nway_.count(dedup_key)) {
+        eid_name = event_id_decls_nway_[dedup_key];
+      } else {
+        eid_name = "_eid";
+        for (auto& v : vals) eid_name += "_" + v;
+        std::string base_name = eid_name;
+        while (event_id_names_used_.count(eid_name)) {
+          eid_name = base_name + "_" + std::to_string(event_id_nway_counter_++);
+        }
+        event_id_names_used_.insert(eid_name);
+        event_id_decls_nway_[dedup_key] = eid_name;
+        std::ostringstream arr_elems;
+        for (size_t j = 0; j < vals.size(); ++j) {
+          if (j > 0) arr_elems << ", ";
+          arr_elems << "(event_t)" << vals[j];
+        }
+        std::string decl_line = "const event_t " + eid_name + "[] = {" + arr_elems.str() + "};";
+        if (loop_depth_ > 0 || if_depth_ > 0) {
+          loop_hoisted_decls_.push_back(decl_line);
+        } else {
+          emitter_.EmitLine(decl_line);
+        }
+      }
+      context_.RegisterVar(return_var, eid_name + "[" + index_expr + "]");
+
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool CCECodegen::TryEmitIdentityElseIf(const ir::IfStmtPtr& op) {
+  if (!op->else_body_.has_value() || op->return_vars_.empty()) return false;
+
+  auto else_yields = ExtractYieldNames(*op->else_body_);
+  if (else_yields.size() != op->return_vars_.size()) return false;
+
+  // Check: the else body should be just a YieldStmt (no other side effects)
+  auto else_body_ptr = *op->else_body_;
+  bool else_is_just_yield = false;
+  if (ir::As<ir::YieldStmt>(else_body_ptr)) {
+    else_is_just_yield = true;
+  } else if (auto seq = ir::As<ir::SeqStmts>(else_body_ptr)) {
+    else_is_just_yield = true;
+    for (const auto& s : seq->stmts_) {
+      if (!ir::As<ir::YieldStmt>(s)) { else_is_just_yield = false; break; }
+    }
+  }
+  if (!else_is_just_yield) return false;
+
+  // Save the pre-if resolved names (the else-yield identity values)
+  std::vector<std::string> pre_if_names;
+  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
+    pre_if_names.push_back(context_.ResolveAlias(else_yields[i]));
+  }
+
+  // Register return vars to the pre-if names
+  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
+    context_.RegisterVar(op->return_vars_[i], pre_if_names[i]);
+  }
+
+  VisitExpr(op->condition_);
+  std::string condition = current_expr_value_;
+  current_expr_value_ = "";
+
+  emitter_.EmitLine("if (" + condition + ") {");
+  emitter_.IncreaseIndent();
+
+  VisitStmt(op->then_body_);
+  EmitYieldAssignments(op->return_vars_, pre_if_names);
+
+  emitter_.DecreaseIndent();
+  emitter_.EmitLine("}");
+  return true;
+}
+
+void CCECodegen::EmitFullPhiIf(const ir::IfStmtPtr& op) {
+  // Declare and register return variables BEFORE the if statement
+  for (const auto& return_var : op->return_vars_) {
+    std::string return_var_name = context_.SanitizeName(return_var);
+    context_.RegisterVar(return_var, return_var_name);
+
+    if (auto tile_type = std::dynamic_pointer_cast<const ir::TileType>(return_var->GetType())) {
+      std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);
+      int64_t rows = shape_dims.size() >= 1 ? shape_dims[0] : 1;
+      int64_t cols = shape_dims.size() >= 2 ? shape_dims[1] : 1;
+      auto vs = ExtractValidShapeInfo(tile_type, rows, cols,
+                                      [this](const ir::VarPtr& v) { return GetVarName(v); });
+      std::string ctor_args = BuildTileCtorArgs(vs, rows, cols);
+      std::string type_alias_name = return_var_name + "Type";
+      std::string tile_type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
+      if (loop_depth_ > 0) {
+        loop_hoisted_decls_.push_back("using " + type_alias_name + " = " + tile_type_str + ";");
+        if (arch_ == "a5") {
+          loop_hoisted_decls_.push_back(type_alias_name + " " + return_var_name + ";");
+        } else {
+          loop_hoisted_decls_.push_back(type_alias_name + " " + return_var_name + "(" + ctor_args + ");");
+        }
+      } else {
+        emitter_.EmitLine("using " + type_alias_name + " = " + tile_type_str + ";");
+        if (arch_ == "a5") {
+          emitter_.EmitLine(type_alias_name + " " + return_var_name + ";");
+        } else {
+          emitter_.EmitLine(type_alias_name + " " + return_var_name + "(" + ctor_args + ");");
+        }
+      }
+    } else if (auto tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(return_var->GetType())) {
+      GenerateGlobalTensorTypeDeclaration(return_var_name, tensor_type);
+    } else if (auto scalar_type = std::dynamic_pointer_cast<const ir::ScalarType>(return_var->GetType())) {
+      std::string cpp_type = scalar_type->dtype_.ToCTypeString();
+      emitter_.EmitLine(cpp_type + " " + return_var_name + ";");
+    } else {
+      throw pypto::RuntimeError("Unsupported return_var type in IfStmt");
+    }
+  }
+
+  VisitExpr(op->condition_);
+  std::string condition = current_expr_value_;
+  current_expr_value_ = "";
+
+  emitter_.EmitLine("if (" + condition + ") {");
+  emitter_.IncreaseIndent();
+  VisitStmt(op->then_body_);
+  {
+    std::vector<std::string> phi_names;
+    for (const auto& rv : op->return_vars_) phi_names.push_back(context_.SanitizeName(rv));
+    EmitYieldAssignments(op->return_vars_, phi_names);
+  }
+  emitter_.DecreaseIndent();
+
+  if (op->else_body_.has_value()) {
+    emitter_.EmitLine("} else {");
+    emitter_.IncreaseIndent();
+    VisitStmt(*op->else_body_);
+    {
+      std::vector<std::string> phi_names;
+      for (const auto& rv : op->return_vars_) phi_names.push_back(context_.SanitizeName(rv));
+      EmitYieldAssignments(op->return_vars_, phi_names);
+    }
+    emitter_.DecreaseIndent();
+  }
+  emitter_.EmitLine("}");
+}
+
+void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
+  INTERNAL_CHECK(op != nullptr) << "Internal error: null IfStmt";
+  INTERNAL_CHECK(op->condition_ != nullptr) << "Internal error: IfStmt has null condition";
+  INTERNAL_CHECK(op->then_body_ != nullptr) << "Internal error: IfStmt has null then_body";
+
+  // N-way select optimization: if(x==0){A} else{if(x==1){B}...} → array[x]
+  if (TryEmitNWaySelect(op)) return;
+
+  // If-level hoisting: buffer output so array decls can be hoisted before the if
   bool is_outermost_if = (loop_depth_ == 0 && if_depth_ == 0);
   if_depth_++;
 
@@ -1278,272 +1404,14 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
     emitter_.SetIndentLevel(saved_if_indent);
   }
 
-  // --- Identity-else optimization: detect if else yields are all identity (same as pre-if values) ---
-  bool identity_else = false;
-  // We need to peek at else yields without emitting code. Use the same extract_yield_names helper.
-  if (op->else_body_.has_value() && !op->return_vars_.empty()) {
-    // Extract else yield names from IR (no side effects)
-    auto peek_yield_names = [this](const ir::StmtPtr& body) -> std::vector<std::string> {
-      std::vector<std::string> yields;
-      ir::YieldStmtPtr yield_stmt;
-      if (auto y = ir::As<ir::YieldStmt>(body)) {
-        yield_stmt = y;
-      } else if (auto seq = ir::As<ir::SeqStmts>(body)) {
-        if (!seq->stmts_.empty()) yield_stmt = ir::As<ir::YieldStmt>(seq->stmts_.back());
-      }
-      if (!yield_stmt) return yields;
-      for (const auto& val : yield_stmt->value_) {
-        if (auto var = ir::As<ir::Var>(val)) {
-          yields.push_back(context_.SanitizeName(var));
-        } else if (auto iter_arg = ir::As<ir::IterArg>(val)) {
-          yields.push_back(context_.SanitizeName(iter_arg));
-        } else {
-          return {};  // Can't handle non-var yields
-        }
-      }
-      return yields;
-    };
-
-    auto else_yields = peek_yield_names(*op->else_body_);
-    if (else_yields.size() == op->return_vars_.size()) {
-      // Check: for each return_var, does the else yield resolve to the same as the iter_arg init?
-      // The return_vars in IfStmt come from SSA, so the "pre-if" value for return_var[i]
-      // is what iter_arg or var it was assigned from. In SSA, the else yield typically
-      // yields the same variable that was live before the if — that's the identity case.
-      // We check: does else_yield[i] resolve (via alias) to the same thing as the
-      // iter_arg that feeds the return_var?
-      identity_else = true;
-      for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-        std::string else_resolved = context_.ResolveAlias(else_yields[i]);
-        // The else yield should be the same as the pre-if variable.
-        // We don't know the pre-if name yet, but we can check: does else_yield resolve
-        // to itself or an existing variable? The key insight: in identity-else,
-        // the else branch just yields the same values that were already live.
-        // If we check that the else branch body has NO side effects (only yield),
-        // and the yielded values are simple variables that exist pre-if, that's identity.
-        (void)else_resolved;
-      }
-
-      // More concrete check: the else body should be just a YieldStmt (no other ops)
-      auto else_body_ptr = *op->else_body_;
-      bool else_is_just_yield = false;
-      if (ir::As<ir::YieldStmt>(else_body_ptr)) {
-        else_is_just_yield = true;
-      } else if (auto seq = ir::As<ir::SeqStmts>(else_body_ptr)) {
-        // Check all stmts are either YieldStmt or no-op assignments
-        else_is_just_yield = true;
-        for (const auto& s : seq->stmts_) {
-          if (!ir::As<ir::YieldStmt>(s)) {
-            else_is_just_yield = false;
-            break;
-          }
-        }
-      }
-      if (!else_is_just_yield) {
-        identity_else = false;
-      }
-    }
-  }
-
-  if (identity_else) {
-    // Identity-else: no phi vars needed, skip else branch entirely
-    // Register return vars as aliases to the else-yield vars (which are the pre-if values)
-    auto peek_yield_names2 = [this](const ir::StmtPtr& body) -> std::vector<std::string> {
-      std::vector<std::string> yields;
-      ir::YieldStmtPtr yield_stmt;
-      if (auto y = ir::As<ir::YieldStmt>(body)) {
-        yield_stmt = y;
-      } else if (auto seq = ir::As<ir::SeqStmts>(body)) {
-        if (!seq->stmts_.empty()) yield_stmt = ir::As<ir::YieldStmt>(seq->stmts_.back());
-      }
-      if (!yield_stmt) return yields;
-      for (const auto& val : yield_stmt->value_) {
-        if (auto var = ir::As<ir::Var>(val)) {
-          yields.push_back(context_.SanitizeName(var));
-        } else if (auto iter_arg = ir::As<ir::IterArg>(val)) {
-          yields.push_back(context_.SanitizeName(iter_arg));
-        } else {
-          yields.push_back("");
-        }
-      }
-      return yields;
-    };
-    auto else_yields = peek_yield_names2(*op->else_body_);
-
-    // Save the pre-if resolved names (these are the "default" values from else yields)
-    std::vector<std::string> pre_if_names;
-    for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-      pre_if_names.push_back(context_.ResolveAlias(else_yields[i]));
-    }
-
-    // Register return vars to the pre-if names (the else-yield identity values)
-    for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-      context_.RegisterVar(op->return_vars_[i], pre_if_names[i]);
-    }
-
-    VisitExpr(op->condition_);
-    std::string condition = current_expr_value_;
-    current_expr_value_ = "";
-
-    emitter_.EmitLine("if (" + condition + ") {");
-    emitter_.IncreaseIndent();
-
-    VisitStmt(op->then_body_);
-
-    // Process then yields: update the return_var aliases to the then-yield values
-    if (!op->return_vars_.empty() && !yield_buffer_.empty()) {
-      for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-        const auto& return_var = op->return_vars_[i];
-        std::string return_var_name = pre_if_names[i];  // Write to the pre-if variable directly
-        std::string yielded_value = yield_buffer_[i];
-
-        auto return_type = return_var->GetType();
-        std::string resolved_yield = context_.ResolveAlias(yielded_value);
-        if ((ir::As<ir::TileType>(return_type) || ir::As<ir::TupleType>(return_type)) &&
-            tile_addresses_.count(yielded_value)) {
-          emitter_.EmitLine("TASSIGN(" + return_var_name + ", " + tile_addresses_[yielded_value] + ");");
-          tile_addresses_[return_var_name] = tile_addresses_[yielded_value];
-        } else if (return_var_name != resolved_yield) {
-          emitter_.EmitLine(return_var_name + " = " + resolved_yield + ";");
-        }
-
-        if (std::dynamic_pointer_cast<const ir::TensorType>(return_type)) {
-          std::string yielded_ptr = context_.GetPointer(resolved_yield);
-          context_.RegisterPointer(return_var_name, yielded_ptr);
-          if (!single_file_mode_) {
-            std::string yielded_struct = context_.GetTensorStruct(resolved_yield);
-            context_.RegisterTensorStruct(return_var_name, yielded_struct);
-          }
-        }
-      }
-      yield_buffer_.clear();
-    }
-
-    emitter_.DecreaseIndent();
-    emitter_.EmitLine("}");
-  } else {
-    // Full phi codegen path
-    // Declare and register return variables BEFORE the if statement
-    for (const auto& return_var : op->return_vars_) {
-      std::string return_var_name = context_.SanitizeName(return_var);
-      context_.RegisterVar(return_var, return_var_name);
-
-      if (auto tile_type = std::dynamic_pointer_cast<const ir::TileType>(return_var->GetType())) {
-        std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);
-        int64_t rows = shape_dims.size() >= 1 ? shape_dims[0] : 1;
-        int64_t cols = shape_dims.size() >= 2 ? shape_dims[1] : 1;
-        auto vs = ExtractValidShapeInfo(tile_type, rows, cols,
-                                        [this](const ir::VarPtr& v) { return GetVarName(v); });
-        std::string ctor_args = BuildTileCtorArgs(vs, rows, cols);
-        std::string type_alias_name = return_var_name + "Type";
-        std::string tile_type_str = type_converter_.ConvertTileType(tile_type, rows, cols);
-        if (loop_depth_ > 0) {
-          loop_hoisted_decls_.push_back("using " + type_alias_name + " = " + tile_type_str + ";");
-          if (arch_ == "a5") {
-            loop_hoisted_decls_.push_back(type_alias_name + " " + return_var_name + ";");
-          } else {
-            loop_hoisted_decls_.push_back(type_alias_name + " " + return_var_name + "(" + ctor_args + ");");
-          }
-        } else {
-          emitter_.EmitLine("using " + type_alias_name + " = " + tile_type_str + ";");
-          if (arch_ == "a5") {
-            emitter_.EmitLine(type_alias_name + " " + return_var_name + ";");
-          } else {
-            emitter_.EmitLine(type_alias_name + " " + return_var_name + "(" + ctor_args + ");");
-          }
-        }
-      } else if (auto tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(return_var->GetType())) {
-        GenerateGlobalTensorTypeDeclaration(return_var_name, tensor_type);
-      } else if (auto scalar_type = std::dynamic_pointer_cast<const ir::ScalarType>(return_var->GetType())) {
-        std::string cpp_type = scalar_type->dtype_.ToCTypeString();
-        emitter_.EmitLine(cpp_type + " " + return_var_name + ";");
-      } else {
-        throw pypto::RuntimeError("Unsupported return_var type in IfStmt");
-      }
-    }
-
-    VisitExpr(op->condition_);
-    std::string condition = current_expr_value_;
-    current_expr_value_ = "";
-
-    emitter_.EmitLine("if (" + condition + ") {");
-    emitter_.IncreaseIndent();
-
-    VisitStmt(op->then_body_);
-
-    if (!op->return_vars_.empty() && !yield_buffer_.empty()) {
-      for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-        const auto& return_var = op->return_vars_[i];
-        std::string return_var_name = context_.SanitizeName(return_var);
-        std::string yielded_value = yield_buffer_[i];
-
-        auto return_type = return_var->GetType();
-        std::string resolved_yield = context_.ResolveAlias(yielded_value);
-        if ((ir::As<ir::TileType>(return_type) || ir::As<ir::TupleType>(return_type)) &&
-            tile_addresses_.count(yielded_value)) {
-          emitter_.EmitLine("TASSIGN(" + return_var_name + ", " + tile_addresses_[yielded_value] + ");");
-          tile_addresses_[return_var_name] = tile_addresses_[yielded_value];
-        } else if (return_var_name != resolved_yield) {
-          emitter_.EmitLine(return_var_name + " = " + resolved_yield + ";");
-        }
-
-        if (std::dynamic_pointer_cast<const ir::TensorType>(return_type)) {
-          std::string yielded_ptr = context_.GetPointer(resolved_yield);
-          context_.RegisterPointer(return_var_name, yielded_ptr);
-          if (!single_file_mode_) {
-            std::string yielded_struct = context_.GetTensorStruct(resolved_yield);
-            context_.RegisterTensorStruct(return_var_name, yielded_struct);
-          }
-        }
-      }
-      yield_buffer_.clear();
-    }
-
-    emitter_.DecreaseIndent();
-
-    if (op->else_body_.has_value()) {
-      emitter_.EmitLine("} else {");
-      emitter_.IncreaseIndent();
-
-      VisitStmt(*op->else_body_);
-
-      if (!op->return_vars_.empty() && !yield_buffer_.empty()) {
-        for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-          const auto& return_var = op->return_vars_[i];
-          std::string return_var_name = context_.SanitizeName(return_var);
-          std::string yielded_value = yield_buffer_[i];
-
-          auto return_type = return_var->GetType();
-          std::string resolved_yield = context_.ResolveAlias(yielded_value);
-          if ((ir::As<ir::TileType>(return_type) || ir::As<ir::TupleType>(return_type)) &&
-              tile_addresses_.count(yielded_value)) {
-            emitter_.EmitLine("TASSIGN(" + return_var_name + ", " + tile_addresses_[yielded_value] + ");");
-            tile_addresses_[return_var_name] = tile_addresses_[yielded_value];
-          } else if (return_var_name != resolved_yield) {
-            emitter_.EmitLine(return_var_name + " = " + resolved_yield + ";");
-          }
-
-          if (std::dynamic_pointer_cast<const ir::TensorType>(return_type)) {
-            std::string yielded_ptr = context_.GetPointer(resolved_yield);
-            context_.RegisterPointer(return_var_name, yielded_ptr);
-            if (!single_file_mode_) {
-              std::string yielded_struct = context_.GetTensorStruct(resolved_yield);
-              context_.RegisterTensorStruct(return_var_name, yielded_struct);
-            }
-          }
-        }
-        yield_buffer_.clear();
-      }
-
-      emitter_.DecreaseIndent();
-    }
-
-    emitter_.EmitLine("}");
+  // Try identity-else optimization, fall back to full phi codegen
+  if (!TryEmitIdentityElseIf(op)) {
+    EmitFullPhiIf(op);
   }
 
   if_depth_--;
 
-  // --- If-level hoisting: insert collected declarations before the if statement ---
+  // Insert hoisted declarations before the if statement
   if (is_outermost_if) {
     std::string if_code = emitter_.GetCode();
     emitter_.Clear();
@@ -1560,6 +1428,98 @@ void CCECodegen::VisitStmt_(const ir::IfStmtPtr& op) {
 
     emitter_.EmitRaw(if_code);
   }
+}
+
+// ========================================================================
+// Phase 5 helpers: ForStmt iter-arg registration and yield assignments
+// ========================================================================
+
+std::vector<std::string> CCECodegen::RegisterForIterArgs(const ir::ForStmtPtr& op) {
+  std::vector<std::string> iter_arg_names;
+  if (op->iter_args_.empty()) return iter_arg_names;
+
+  bool any_emitted = false;
+  for (auto& iter_arg : op->iter_args_) {
+    std::string iter_arg_name = context_.SanitizeName(iter_arg);
+    iter_arg_names.push_back(iter_arg_name);
+
+    // Evaluate init value
+    VisitExpr(iter_arg->initValue_);
+    std::string init_value = current_expr_value_;
+    current_expr_value_ = "";
+
+    // If initializing from a tensor variable, inherit both pointer and Tensor struct mappings
+    auto init_var = std::dynamic_pointer_cast<const ir::Var>(iter_arg->initValue_);
+    if (init_var && std::dynamic_pointer_cast<const ir::TensorType>(init_var->GetType())) {
+      std::string init_var_name = context_.GetVarName(init_var);
+      std::string init_ptr = context_.GetPointer(init_var_name);
+      context_.RegisterPointer(iter_arg_name, init_ptr);
+
+      if (!single_file_mode_) {
+        std::string init_struct = context_.GetTensorStruct(init_var_name);
+        context_.RegisterTensorStruct(iter_arg_name, init_struct);
+      }
+    }
+
+    // Copy propagation: if init is a simple scalar variable (not a tensor, not an expression),
+    // alias iter_arg to the init variable instead of emitting a copy.
+    std::string resolved_init = context_.ResolveAlias(init_value);
+    bool is_simple_var_copy = (init_var != nullptr) &&
+                              !std::dynamic_pointer_cast<const ir::TensorType>(init_var->GetType()) &&
+                              !std::dynamic_pointer_cast<const ir::TileType>(init_var->GetType()) &&
+                              !std::dynamic_pointer_cast<const ir::TupleType>(init_var->GetType());
+    // In single-file mode, skip copy propagation if init is a cross-section variable
+    // (auto-registered after snapshot restore) to avoid aliasing to undeclared names.
+    if (is_simple_var_copy && single_file_mode_ && context_.IsAutoRegistered(resolved_init)) {
+      is_simple_var_copy = false;
+    }
+
+    if (is_simple_var_copy) {
+      // Alias: iter_arg_name → resolved init var.  No code emitted.
+      context_.RegisterAlias(iter_arg_name, resolved_init);
+      context_.RegisterVar(iter_arg, resolved_init);  // make IR var resolve to canonical name
+    } else {
+      // Real declaration needed
+      context_.RegisterVar(iter_arg, iter_arg_name);
+      if (!any_emitted) {
+        any_emitted = true;
+      }
+      // If init references a cross-section variable, substitute with 0
+      std::string safe_init = init_value;
+      if (single_file_mode_ && context_.IsAutoRegistered(init_value)) {
+        safe_init = "0";
+      }
+      emitter_.EmitLine("auto " + iter_arg_name + " = " + safe_init + ";");
+    }
+  }
+  if (any_emitted) {
+    emitter_.EmitLine("");
+  }
+  return iter_arg_names;
+}
+
+void CCECodegen::EmitForYieldAssignments(const std::vector<std::string>& iter_arg_names) {
+  if (yield_buffer_.empty()) return;
+
+  CHECK(yield_buffer_.size() == iter_arg_names.size())
+      << "Yielded " << yield_buffer_.size() << " values but expected " << iter_arg_names.size();
+
+  for (size_t i = 0; i < iter_arg_names.size(); ++i) {
+    // Resolve aliases on both sides to detect self-assignments
+    std::string lhs = context_.ResolveAlias(iter_arg_names[i]);
+    std::string rhs = context_.ResolveAlias(yield_buffer_[i]);
+    if (lhs == rhs) {
+      continue;  // Self-assignment after alias resolution — skip
+    }
+    // For tiles: use TASSIGN instead of operator= to transfer hardware address
+    if (tile_addresses_.count(yield_buffer_[i])) {
+      emitter_.EmitLine("TASSIGN(" + lhs + ", " + tile_addresses_[yield_buffer_[i]] + ");");
+      tile_addresses_[lhs] = tile_addresses_[yield_buffer_[i]];
+    } else {
+      emitter_.EmitLine(lhs + " = " + rhs + ";");
+    }
+  }
+  yield_buffer_.clear();
 }
 
 void CCECodegen::VisitStmt_(const ir::ForStmtPtr& op) {
@@ -1599,66 +1559,7 @@ void CCECodegen::VisitStmt_(const ir::ForStmtPtr& op) {
   }
 
   // Register iteration arguments (loop-carried values)
-  std::vector<std::string> iter_arg_names;
-  if (!op->iter_args_.empty()) {
-    bool any_emitted = false;
-    for (auto& iter_arg : op->iter_args_) {
-      std::string iter_arg_name = context_.SanitizeName(iter_arg);
-      iter_arg_names.push_back(iter_arg_name);
-
-      // Evaluate init value
-      VisitExpr(iter_arg->initValue_);
-      std::string init_value = current_expr_value_;
-      current_expr_value_ = "";
-
-      // If initializing from a tensor variable, inherit both pointer and Tensor struct mappings
-      auto init_var = std::dynamic_pointer_cast<const ir::Var>(iter_arg->initValue_);
-      if (init_var && std::dynamic_pointer_cast<const ir::TensorType>(init_var->GetType())) {
-        std::string init_var_name = context_.GetVarName(init_var);
-        std::string init_ptr = context_.GetPointer(init_var_name);
-        context_.RegisterPointer(iter_arg_name, init_ptr);
-
-        if (!single_file_mode_) {
-          std::string init_struct = context_.GetTensorStruct(init_var_name);
-          context_.RegisterTensorStruct(iter_arg_name, init_struct);
-        }
-      }
-
-      // Copy propagation: if init is a simple scalar variable (not a tensor, not an expression),
-      // alias iter_arg to the init variable instead of emitting a copy.
-      std::string resolved_init = context_.ResolveAlias(init_value);
-      bool is_simple_var_copy = (init_var != nullptr) &&
-                                !std::dynamic_pointer_cast<const ir::TensorType>(init_var->GetType()) &&
-                                !std::dynamic_pointer_cast<const ir::TileType>(init_var->GetType()) &&
-                                !std::dynamic_pointer_cast<const ir::TupleType>(init_var->GetType());
-      // In single-file mode, skip copy propagation if init is a cross-section variable
-      // (auto-registered after snapshot restore) to avoid aliasing to undeclared names.
-      if (is_simple_var_copy && single_file_mode_ && context_.IsAutoRegistered(resolved_init)) {
-        is_simple_var_copy = false;
-      }
-
-      if (is_simple_var_copy) {
-        // Alias: iter_arg_name → resolved init var.  No code emitted.
-        context_.RegisterAlias(iter_arg_name, resolved_init);
-        context_.RegisterVar(iter_arg, resolved_init);  // make IR var resolve to canonical name
-      } else {
-        // Real declaration needed
-        context_.RegisterVar(iter_arg, iter_arg_name);
-        if (!any_emitted) {
-          any_emitted = true;
-        }
-        // If init references a cross-section variable, substitute with 0
-        std::string safe_init = init_value;
-        if (single_file_mode_ && context_.IsAutoRegistered(init_value)) {
-          safe_init = "0";
-        }
-        emitter_.EmitLine("auto " + iter_arg_name + " = " + safe_init + ";");
-      }
-    }
-    if (any_emitted) {
-      emitter_.EmitLine("");
-    }
-  }
+  std::vector<std::string> iter_arg_names = RegisterForIterArgs(op);
 
   // Evaluate loop range
   VisitExpr(op->start_);
@@ -1694,12 +1595,17 @@ void CCECodegen::VisitStmt_(const ir::ForStmtPtr& op) {
     return;
   }
 
-  // --- Hoisting: save emitter state before for-loop header ---
+  // --- Emit for-loop with hoisting ---
+  EmitForLoopWithHoisting(op, loop_var_name, iter_arg_names, start, stop, step);
+}
+
+void CCECodegen::EmitForLoopWithHoisting(
+    const ir::ForStmtPtr& op,
+    const std::string& loop_var_name,
+    const std::vector<std::string>& iter_arg_names,
+    const std::string& start, const std::string& stop, const std::string& step) {
   bool is_outermost_loop = (loop_depth_ == 0);
   loop_depth_++;
-
-  // Snapshot current hoisted-decl count so we only hoist entries added during
-  // this loop's body, leaving pre-existing entries for an outer if/loop to handle.
   size_t hoist_start_idx = loop_hoisted_decls_.size();
 
   std::string pre_for_code;
@@ -1710,52 +1616,29 @@ void CCECodegen::VisitStmt_(const ir::ForStmtPtr& op) {
     emitter_.SetIndentLevel(saved_indent);
   }
 
-  // Emit for loop
   emitter_.EmitLine("for (uint64_t " + loop_var_name + " = " + start + "; " + loop_var_name + " < " + stop +
                     "; " + loop_var_name + " += " + step + ") {");
   emitter_.IncreaseIndent();
 
-  // Visit loop body
   yield_buffer_.clear();
   VisitStmt(op->body_);
 
-  // If iter_args exist and yield was called, assign yielded values
-  if (!op->iter_args_.empty() && !yield_buffer_.empty()) {
-    CHECK(yield_buffer_.size() == iter_arg_names.size())
-        << "Yielded " << yield_buffer_.size() << " values but expected " << iter_arg_names.size();
-
-    for (size_t i = 0; i < iter_arg_names.size(); ++i) {
-      // Resolve aliases on both sides to detect self-assignments
-      std::string lhs = context_.ResolveAlias(iter_arg_names[i]);
-      std::string rhs = context_.ResolveAlias(yield_buffer_[i]);
-      if (lhs == rhs) {
-        continue;  // Self-assignment after alias resolution — skip
-      }
-      // For tiles: use TASSIGN instead of operator= to transfer hardware address
-      if (tile_addresses_.count(yield_buffer_[i])) {
-        emitter_.EmitLine("TASSIGN(" + lhs + ", " + tile_addresses_[yield_buffer_[i]] + ");");
-        tile_addresses_[lhs] = tile_addresses_[yield_buffer_[i]];
-      } else {
-        emitter_.EmitLine(lhs + " = " + rhs + ";");
-      }
-    }
+  if (!op->iter_args_.empty()) {
+    EmitForYieldAssignments(iter_arg_names);
   }
-  yield_buffer_.clear();
 
   emitter_.DecreaseIndent();
   emitter_.EmitLine("}");
 
   loop_depth_--;
 
-  // --- Hoisting: insert collected declarations before the for-loop ---
+  // Insert hoisted declarations before the for-loop
   if (is_outermost_loop) {
     std::string for_code = emitter_.GetCode();
     emitter_.Clear();
     emitter_.SetIndentLevel(saved_indent);
     emitter_.EmitRaw(pre_for_code);
 
-    // Only hoist declarations added during this loop's body (from hoist_start_idx onward).
-    // Pre-existing entries belong to an outer if/loop and must not be consumed here.
     if (loop_hoisted_decls_.size() > hoist_start_idx) {
       for (size_t i = hoist_start_idx; i < loop_hoisted_decls_.size(); ++i) {
         emitter_.EmitLine(loop_hoisted_decls_[i]);
@@ -1765,9 +1648,6 @@ void CCECodegen::VisitStmt_(const ir::ForStmtPtr& op) {
     }
 
     emitter_.EmitRaw(for_code);
-
-    // Note: keep event_id_decls_ and tile_array_decls_ alive so epilogue
-    // code (after the loop) can reuse the same declarations without redefinition.
   }
 
   // Register return variables with same names as iter_args
@@ -2454,6 +2334,113 @@ void CCECodegen::GenerateTileTypeDeclaration(const std::string& var_name, const 
   }
 }
 
+// ========================================================================
+// Phase 7 helpers: Stride type generation and GlobalTensor instance emission
+// ========================================================================
+
+std::string CCECodegen::GenerateSingleFileStrideType(const std::vector<int64_t>& shape_dims,
+                                                     const std::vector<int64_t>& tensor_dims,
+                                                     bool all_static,
+                                                     bool needs_dynamic_stride) const {
+  std::ostringstream oss;
+  oss << "pto::Stride<";
+  const size_t target_dims = 5;
+  size_t n = shape_dims.size();
+
+  if (needs_dynamic_stride && n == 2) {
+    // Dynamic tensor with access window: use Stride<-1, -1, -1, -1, 1>
+    // The actual stride values will be set via constructor args at runtime
+    for (size_t i = 0; i < target_dims - 1; ++i) {
+      oss << "-1, ";
+    }
+    oss << "1";
+  } else if (force_dn_layout_ && n == 2) {
+    // DN (column-major) strides for 2D: [1, dim0] (column-stride=1, row-stride=dim0)
+    for (size_t i = 0; i < target_dims - n; ++i) {
+      oss << shape_dims[0] << ", ";
+    }
+    oss << "1, " << shape_dims[0];
+  } else {
+    // ND (row-major) strides: stride[i] = product(dims[i+1..n-1])
+    // When access_shape overrides Shape<> for sub-tile operations (e.g., l0c_store of [128,128]
+    // into a larger [12288,1024] tensor), use actual tensor dims for stride so the row spacing
+    // matches the real tensor layout, not the sub-tile size.
+    const auto& stride_source = (all_static && !tensor_dims.empty()) ? tensor_dims : shape_dims;
+    for (size_t i = 0; i < target_dims - n; ++i) {
+      oss << "1, ";
+    }
+    for (size_t i = 0; i < n; ++i) {
+      int64_t stride = 1;
+      for (size_t j = i + 1; j < n; ++j) {
+        stride *= stride_source[j];
+      }
+      oss << stride;
+      if (i < n - 1) oss << ", ";
+    }
+  }
+  oss << ">";
+  return oss.str();
+}
+
+void CCECodegen::EmitGlobalTensorInstance(const std::string& var_name,
+                                          const std::string& global_type_name,
+                                          const std::string& shape_type_name,
+                                          const std::string& stride_type_name,
+                                          const ir::TensorTypePtr& tensor_type,
+                                          const std::vector<int64_t>& shape_dims,
+                                          bool needs_dynamic_stride,
+                                          const std::optional<std::string>& base_pointer,
+                                          const std::optional<std::string>& tensor_struct_ptr) {
+  std::ostringstream global_instance;
+  global_instance << global_type_name << " " << var_name << "(";
+  if (base_pointer.has_value()) {
+    global_instance << base_pointer.value();
+  }
+  if (needs_dynamic_stride && base_pointer.has_value()) {
+    // Dynamic stride: tensor has dynamic dims but access_shape overrides Shape<>.
+    // The row stride must use the tensor's actual last dim (e.g., Skv), not access shape col (e.g., 128).
+    std::string col_stride_expr;
+    auto last_dim = tensor_type->shape_.back();
+    if (auto ci = std::dynamic_pointer_cast<const ir::ConstInt>(last_dim)) {
+      col_stride_expr = std::to_string(ci->value_);
+    } else if (auto var = std::dynamic_pointer_cast<const ir::Var>(last_dim)) {
+      col_stride_expr = context_.GetVarName(std::const_pointer_cast<ir::Var>(var));
+    } else {
+      // Fallback: use access shape (may be incorrect but avoids crash)
+      col_stride_expr = std::to_string(shape_dims.back());
+    }
+    std::string batch_stride = std::to_string(shape_dims[0]) + "*" + col_stride_expr;
+    global_instance << ", " << shape_type_name << "(), " << stride_type_name << "(";
+    global_instance << batch_stride << ", " << batch_stride << ", " << batch_stride << ", " << col_stride_expr;
+    global_instance << ")";
+  } else if (tensor_struct_ptr.has_value()) {
+    // Use original tensor ndim for stride indices (strides come from the full tensor struct)
+    size_t ndim = tensor_type->shape_.size();
+    global_instance << ", {}, {";
+    for (size_t i = 0; i < ndim; i++) {
+      global_instance << "static_cast<int64_t>(" << tensor_struct_ptr.value() << "->strides["
+                      << std::to_string(i) << "])";
+      if (i != ndim - 1) {
+        global_instance << ", ";
+      }
+    }
+    global_instance << "}";
+  }
+  global_instance << ");";
+  emitter_.EmitLine(global_instance.str());
+
+  // Register pointer mapping if base_pointer provided
+  if (base_pointer.has_value()) {
+    context_.RegisterPointer(var_name, base_pointer.value());
+  }
+
+  // Register both pointer and Tensor struct mappings if provided
+  if (tensor_struct_ptr.has_value()) {
+    // Register Tensor struct pointer for stride access
+    context_.RegisterTensorStruct(var_name, tensor_struct_ptr.value());
+  }
+}
+
 void CCECodegen::GenerateGlobalTensorTypeDeclaration(
     const std::string& var_name, const ir::TensorTypePtr& tensor_type,
     const std::optional<std::string>& base_pointer, const std::optional<std::string>& tensor_struct_ptr,
@@ -2503,50 +2490,10 @@ void CCECodegen::GenerateGlobalTensorTypeDeclaration(
   emitter_.EmitLine(shape_alias.str());
 
   // Generate Stride type alias
-  // In single-file mode, use static strides (no Tensor struct for dynamic strides)
-  // When access_shape overrides tensor dims AND tensor has dynamic dims,
-  // use dynamic strides to match the tensor's actual row stride.
   bool needs_dynamic_stride = !all_static && access_shape.has_value() && !force_dn_layout_;
   std::string stride_type;
   if (single_file_mode_) {
-    std::ostringstream oss;
-    oss << "pto::Stride<";
-    const size_t target_dims = 5;
-    size_t n = shape_dims.size();
-
-    if (needs_dynamic_stride && n == 2) {
-      // Dynamic tensor with access window: use Stride<-1, -1, -1, -1, 1>
-      // The actual stride values will be set via constructor args at runtime
-      for (size_t i = 0; i < target_dims - 1; ++i) {
-        oss << "-1, ";
-      }
-      oss << "1";
-    } else if (force_dn_layout_ && n == 2) {
-      // DN (column-major) strides for 2D: [1, dim0] (column-stride=1, row-stride=dim0)
-      for (size_t i = 0; i < target_dims - n; ++i) {
-        oss << shape_dims[0] << ", ";
-      }
-      oss << "1, " << shape_dims[0];
-    } else {
-      // ND (row-major) strides: stride[i] = product(dims[i+1..n-1])
-      // When access_shape overrides Shape<> for sub-tile operations (e.g., l0c_store of [128,128]
-      // into a larger [12288,1024] tensor), use actual tensor dims for stride so the row spacing
-      // matches the real tensor layout, not the sub-tile size.
-      const auto& stride_source = (all_static && access_shape.has_value()) ? tensor_dims : shape_dims;
-      for (size_t i = 0; i < target_dims - n; ++i) {
-        oss << "1, ";
-      }
-      for (size_t i = 0; i < n; ++i) {
-        int64_t stride = 1;
-        for (size_t j = i + 1; j < n; ++j) {
-          stride *= stride_source[j];
-        }
-        oss << stride;
-        if (i < n - 1) oss << ", ";
-      }
-    }
-    oss << ">";
-    stride_type = oss.str();
+    stride_type = GenerateSingleFileStrideType(shape_dims, tensor_dims, all_static, needs_dynamic_stride);
   } else {
     stride_type = type_converter_.GenerateStrideType(shape_dims);
   }
@@ -2565,57 +2512,9 @@ void CCECodegen::GenerateGlobalTensorTypeDeclaration(
                     << shape_type_name << ", " << stride_type_name << ">;";
   emitter_.EmitLine(global_type_alias.str());
 
-  // Generate GlobalTensor instance
-  std::ostringstream global_instance;
-  global_instance << global_type_name << " " << var_name << "(";
-  if (base_pointer.has_value()) {
-    global_instance << base_pointer.value();
-  }
-  if (needs_dynamic_stride && base_pointer.has_value()) {
-    // Dynamic stride: tensor has dynamic dims but access_shape overrides Shape<>.
-    // The row stride must use the tensor's actual last dim (e.g., Skv), not access shape col (e.g., 128).
-    // Generate: GlobalType var(ptr, ShapeType(), StrideType(rows*col_stride, rows*col_stride, rows*col_stride, col_stride))
-    // where col_stride = tensor's last dim, rows = access_shape[0]
-    std::string col_stride_expr;
-    auto last_dim = tensor_type->shape_.back();
-    if (auto ci = std::dynamic_pointer_cast<const ir::ConstInt>(last_dim)) {
-      col_stride_expr = std::to_string(ci->value_);
-    } else if (auto var = std::dynamic_pointer_cast<const ir::Var>(last_dim)) {
-      col_stride_expr = context_.GetVarName(std::const_pointer_cast<ir::Var>(var));
-    } else {
-      // Fallback: use access shape (may be incorrect but avoids crash)
-      col_stride_expr = std::to_string(shape_dims.back());
-    }
-    std::string batch_stride = std::to_string(shape_dims[0]) + "*" + col_stride_expr;
-    global_instance << ", " << shape_type_name << "(), " << stride_type_name << "(";
-    global_instance << batch_stride << ", " << batch_stride << ", " << batch_stride << ", " << col_stride_expr;
-    global_instance << ")";
-  } else if (tensor_struct_ptr.has_value()) {
-    // Use original tensor ndim for stride indices (strides come from the full tensor struct)
-    size_t ndim = tensor_type->shape_.size();
-    global_instance << ", {}, {";
-    for (size_t i = 0; i < ndim; i++) {
-      global_instance << "static_cast<int64_t>(" << tensor_struct_ptr.value() << "->strides["
-                      << std::to_string(i) << "])";
-      if (i != ndim - 1) {
-        global_instance << ", ";
-      }
-    }
-    global_instance << "}";
-  }
-  global_instance << ");";
-  emitter_.EmitLine(global_instance.str());
-
-  // Register pointer mapping if base_pointer provided
-  if (base_pointer.has_value()) {
-    context_.RegisterPointer(var_name, base_pointer.value());
-  }
-
-  // Register both pointer and Tensor struct mappings if provided
-  if (tensor_struct_ptr.has_value()) {
-    // Register Tensor struct pointer for stride access
-    context_.RegisterTensorStruct(var_name, tensor_struct_ptr.value());
-  }
+  // Generate GlobalTensor instance and register mappings
+  EmitGlobalTensorInstance(var_name, global_type_name, shape_type_name, stride_type_name, tensor_type,
+                           shape_dims, needs_dynamic_stride, base_pointer, tensor_struct_ptr);
 }
 
 }  // namespace codegen
