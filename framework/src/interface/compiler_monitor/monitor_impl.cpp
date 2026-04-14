@@ -60,6 +60,7 @@ int GetTimeoutSecImmediate(MonitorManager* manager_)
             manager_->SetStageTimeoutFlag("Prepare");
             manager_->SetStageTimeoutFlag("Pass");
             manager_->SetStageTimeoutFlag("CodeGen");
+            manager_->SetStageTimeoutFlag(STAGE_FUNC_TO_BIN);
         } else {
             stage_timeout_sec = std::numeric_limits<int>::max();
         }
