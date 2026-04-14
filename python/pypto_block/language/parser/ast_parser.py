@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from pypto_block.ir import IRBuilder
 from pypto_block.ir import op as ir_op
 from pypto_block.pypto_core import DataType, ir
-from pypto_block.pypto_core.ir import MemorySpace, PipeType
+from pypto_block.pypto_core.ir import MemorySpace
 
 _MEMORY_SPACE_MAP: dict[str, MemorySpace] = {
     "Left": MemorySpace.Left,
@@ -41,14 +41,12 @@ from .type_resolver import TypeResolver
 from ..typing.tiling import ArrayFieldInfo, ScalarFieldInfo, get_tiling_fields, is_tiling_class
 
 if TYPE_CHECKING:
+    from .auto_sync_helper import AutoSyncHelper
     from .decorator import InlineFunction
 
 
 def _is_const_int(value: object) -> bool:
-    """Check if a value is a compile-time constant integer.
-
-    Handles plain int, ir.ConstInt, and ir.Neg(ir.ConstInt) (negative literals).
-    """
+    """Check if a value is a compile-time constant integer."""
     if isinstance(value, (int, ir.ConstInt)):
         return True
     return isinstance(value, ir.Neg) and isinstance(value.operand, ir.ConstInt)
@@ -63,80 +61,6 @@ def _const_int_value(value: object) -> int | None:
     if isinstance(value, ir.Neg) and isinstance(value.operand, ir.ConstInt):
         return -value.operand.value
     return None
-
-
-def _arch_needs_same_pipe_sync(npu_arch: str | None) -> bool:
-    """Return True if the architecture requires same-pipeline sync insertion.
-
-    dav-2201 (a2 / a3): The V pipeline does not guarantee intra-pipe
-    completion ordering in hardware; software must insert sync_src/sync_dst
-    even between two consecutive V operations that share a tile.
-
-    dav-3510 (a5): Hardware provides the ordering guarantee automatically.
-    """
-    if npu_arch is None:
-        return False
-    arch = npu_arch.lower()
-    return "dav-2201" in arch or arch in ("a2", "a3")
-
-
-def _loop_body_has_bar_all(body: list[ast.stmt]) -> bool:
-    """Return True if the loop body contains a ``pl.system.bar_all()`` call.
-
-    When a barrier is present at each iteration boundary, all pipelines are
-    flushed — there are no cross-iteration tile dependencies and backward
-    sync insertion can be skipped.
-    """
-    for stmt in body:
-        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-            func = stmt.value.func
-            if (
-                isinstance(func, ast.Attribute) and func.attr == "bar_all"
-                and isinstance(func.value, ast.Attribute) and func.value.attr == "system"
-            ):
-                return True
-    return False
-
-
-def _loop_body_backward_sync_redundant(body: list[ast.stmt]) -> bool:
-    """Return True if the outer loop's backward sync is redundant.
-
-    This happens when:
-    - The loop body contains a ``bar_all()`` (explicit barrier), OR
-    - Every tile operation in the loop body is inside a nested ``for`` loop
-      (the nested loop will have its own backward sync that covers cross-
-      iteration deps; the outer loop doesn't need additional sync).
-    """
-    if _loop_body_has_bar_all(body):
-        return True
-    # Check if all tile ops are inside nested for-loops.
-    # If the body has only for-loops, with/section blocks, and non-tile
-    # assignments, the outer loop doesn't directly use tiles across iterations.
-    for stmt in body:
-        if isinstance(stmt, ast.For):
-            continue  # nested loop handles its own sync
-        if isinstance(stmt, ast.With):
-            # Check inside with-body (e.g., section_cube)
-            if not _loop_body_backward_sync_redundant(stmt.body):
-                return False
-            continue
-        if isinstance(stmt, ast.Assign):
-            # Tile ops in assignments: check if it's a plm.xxx() call
-            if isinstance(stmt.value, ast.Call):
-                func = stmt.value.func
-                if (isinstance(func, ast.Attribute)
-                        and isinstance(func.value, ast.Name)
-                        and func.value.id == "plm"):
-                    return False  # tile op directly in outer loop body
-            continue
-        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-            func = stmt.value.func
-            if (isinstance(func, ast.Attribute)
-                    and isinstance(func.value, ast.Name)
-                    and func.value.id == "plm"):
-                return False  # tile op directly in outer loop body
-            continue
-    return True
 
 
 class _StructVar:
@@ -269,44 +193,21 @@ class ASTParser:
         # appears multiple times in the same linear code region.
         self._tuple_select_cache: dict[tuple[str, str], ir.Var] = {}
 
-        # Auto-sync: track per-tile pipeline state for automatic sync insertion
+        # Auto-sync: pipeline synchronization helper (see auto_sync_helper.py)
         if auto_sync:
-            from pypto_block.frontend.sync_tracker import SyncTracker
-            same_pipe_sync = _arch_needs_same_pipe_sync(npu_arch)
-            self.sync_tracker: SyncTracker | None = SyncTracker(same_pipe_sync=same_pipe_sync)
+            from .auto_sync_helper import AutoSyncHelper
+            self.auto_sync: AutoSyncHelper | None = AutoSyncHelper(
+                self.builder, self.scope_manager, npu_arch,
+                parse_expr_fn=self.parse_expression,
+                tile_tuple_registry=self._tile_tuple_registry,
+            )
         else:
-            self.sync_tracker = None
+            self.auto_sync = None
 
-    def parse_function(
-        self,
-        func_def: ast.FunctionDef,
-        func_type: ir.FunctionType = ir.FunctionType.Opaque,
-    ) -> ir.Function:
-        """Parse function definition and build IR.
-
-        Args:
-            func_def: AST FunctionDef node
-            func_type: Function type (default: Opaque)
-
-        Returns:
-            IR Function object
-        """
-        func_name = func_def.name
-        func_span = self.span_tracker.get_span(func_def)
-
-        # Enter function scope
-        self.scope_manager.enter_scope("function")
-
-        # Reset tiling registry for this function scope
-        self.tiling_registry = {}
-
-        # Collect args to process, filtering out bare 'self'
-        args_to_process = [
-            arg for arg in func_def.args.args
-            if not (arg.arg == "self" and arg.annotation is None)
-        ]
-
-        # Pre-validate tiling constraints: at most 1 tiling param, must be last
+    def _validate_tiling_params(
+        self, args_to_process: list[ast.arg], func_def: ast.FunctionDef,
+    ) -> None:
+        """Pre-validate tiling constraints: at most 1 tiling param, must be last."""
         tiling_param_names = [
             arg.arg for arg in args_to_process
             if arg.annotation is not None and self._resolve_tiling_class(arg.annotation) is not None
@@ -327,51 +228,77 @@ class ASTParser:
                     hint="Move the tiling parameter to the last position",
                 )
 
-        # Begin building function
+    def _parse_function_param(self, arg: ast.arg, f: Any) -> None:
+        """Parse a single function parameter and register it in scope or tiling registry."""
+        param_name = arg.arg
+
+        if arg.annotation is None:
+            raise ParserTypeError(
+                f"Parameter '{param_name}' missing type annotation",
+                span=self.span_tracker.get_span(arg),
+                hint="Add a type annotation like: x: pl.Tensor[[64], pl.FP32]",
+            )
+
+        tiling_cls = self._resolve_tiling_class(arg.annotation)
+        if tiling_cls is not None:
+            param_span = self.span_tracker.get_span(arg)
+            field_vars: dict[str, ir.Var | list[ir.Var]] = {}
+            for field_name, field_info in get_tiling_fields(tiling_cls).items():
+                if isinstance(field_info, ScalarFieldInfo):
+                    flat_name = f"{param_name}_{field_name}"
+                    flat_var = f.param(flat_name, ir.ScalarType(field_info.dtype), param_span)
+                    field_vars[field_name] = flat_var
+                else:  # ArrayFieldInfo
+                    vars_list: list[ir.Var] = []
+                    for i in range(field_info.size):
+                        flat_name = f"{param_name}_{field_name}_{i}"
+                        flat_var = f.param(flat_name, ir.ScalarType(field_info.dtype), param_span)
+                        vars_list.append(flat_var)
+                    field_vars[field_name] = vars_list
+            self.tiling_registry[param_name] = field_vars
+            return  # do NOT register tiling name itself in scope
+
+        param_type, param_direction = self.type_resolver.resolve_param_type(arg.annotation)
+        param_span = self.span_tracker.get_span(arg)
+        param_var = f.param(param_name, param_type, param_span, direction=param_direction)
+        self.scope_manager.define_var(param_name, param_var, allow_redef=True)
+
+    def parse_function(
+        self,
+        func_def: ast.FunctionDef,
+        func_type: ir.FunctionType = ir.FunctionType.Opaque,
+    ) -> ir.Function:
+        """Parse function definition and build IR.
+
+        Args:
+            func_def: AST FunctionDef node
+            func_type: Function type (default: Opaque)
+
+        Returns:
+            IR Function object
+        """
+        func_name = func_def.name
+        func_span = self.span_tracker.get_span(func_def)
+
+        self.scope_manager.enter_scope("function")
+        self.tiling_registry = {}
+
+        # Collect args to process, filtering out bare 'self'
+        args_to_process = [
+            arg for arg in func_def.args.args
+            if not (arg.arg == "self" and arg.annotation is None)
+        ]
+
+        self._validate_tiling_params(args_to_process, func_def)
+
         with self.builder.function(func_name, func_span, type=func_type) as f:
-            # Parse parameters
             for arg in args_to_process:
-                param_name = arg.arg
-
-                if arg.annotation is None:
-                    raise ParserTypeError(
-                        f"Parameter '{param_name}' missing type annotation",
-                        span=self.span_tracker.get_span(arg),
-                        hint="Add a type annotation like: x: pl.Tensor[[64], pl.FP32]",
-                    )
-
-                tiling_cls = self._resolve_tiling_class(arg.annotation)
-                if tiling_cls is not None:
-                    param_span = self.span_tracker.get_span(arg)
-                    field_vars: dict[str, ir.Var | list[ir.Var]] = {}
-                    for field_name, field_info in get_tiling_fields(tiling_cls).items():
-                        if isinstance(field_info, ScalarFieldInfo):
-                            flat_name = f"{param_name}_{field_name}"
-                            flat_var = f.param(flat_name, ir.ScalarType(field_info.dtype), param_span)
-                            field_vars[field_name] = flat_var
-                        else:  # ArrayFieldInfo
-                            vars_list: list[ir.Var] = []
-                            for i in range(field_info.size):
-                                flat_name = f"{param_name}_{field_name}_{i}"
-                                flat_var = f.param(flat_name, ir.ScalarType(field_info.dtype), param_span)
-                                vars_list.append(flat_var)
-                            field_vars[field_name] = vars_list
-                    self.tiling_registry[param_name] = field_vars
-                    continue  # do NOT register tiling name itself in scope
-                param_type, param_direction = self.type_resolver.resolve_param_type(arg.annotation)
-                param_span = self.span_tracker.get_span(arg)
-
-                # Add parameter to function with direction
-                param_var = f.param(param_name, param_type, param_span, direction=param_direction)
-
-                # Register in scope
-                self.scope_manager.define_var(param_name, param_var, allow_redef=True)
+                self._parse_function_param(arg, f)
 
             # Parse return type
             if func_def.returns:
                 return_type = self.type_resolver.resolve_type(func_def.returns)
                 if isinstance(return_type, list):
-                    # tuple[T1, T2, ...] -> multiple return types
                     for rt in return_type:
                         f.return_type(rt)
                 else:
@@ -379,15 +306,12 @@ class ASTParser:
 
             # Parse function body (skip docstrings)
             for i, stmt in enumerate(func_def.body):
-                # Skip docstrings (string constants as first statement or after decorators)
                 if i == 0 and isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
                     if isinstance(stmt.value.value, str):
                         continue  # Skip docstring
                 self.parse_statement(stmt)
 
-        # Exit function scope
         self.scope_manager.exit_scope()
-
         return f.get_result()
 
     def _resolve_tiling_class(self, annotation: ast.expr) -> type | None:
@@ -499,306 +423,361 @@ class ASTParser:
         # Register in scope
         self.scope_manager.define_var(var_name, var, span=span)
 
+    # ------------------------------------------------------------------
+    # parse_assignment helpers (Phase 2 extraction)
+    # ------------------------------------------------------------------
+
+    def _parse_struct_assignment(self, var_name: str, call: ast.Call, span: Any) -> bool:
+        """Handle ``var = pl.struct(field1=val1, ...)``. Returns True if handled."""
+        func = call.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "struct"):
+            return False
+        struct_var = self._parse_struct_call(call, var_name)
+        self.scope_manager.define_python_var(var_name, struct_var, span=span)
+        # Emit struct.declare for C++ struct codegen
+        fields_csv = ",".join(struct_var.fields.keys())
+        decl_call = ir.create_op_call(
+            "struct.declare", [],
+            {"array": var_name, "size": 1, "fields": fields_csv},
+            span,
+        )
+        self.builder.emit(ir.EvalStmt(decl_call, span))
+        # Emit struct.set for non-zero init values
+        idx_zero = ir.ConstInt(0, DataType.INDEX, span)
+        for fname, fval in struct_var.fields.items():
+            if isinstance(fval, ir.Expr):
+                # Skip trivial zero inits
+                if isinstance(fval, ir.ConstInt) and fval.value == 0:
+                    continue
+                init_call = ir.create_op_call(
+                    "struct.set", [idx_zero, fval],
+                    {"array": var_name, "field": fname}, span,
+                )
+                self.builder.emit(ir.EvalStmt(init_call, span))
+        return True
+
+    def _parse_struct_array_assignment(self, var_name: str, call: ast.Call, span: Any) -> bool:
+        """Handle ``var = pl.StructArray(N, field1=val1, ...)``. Returns True if handled."""
+        func = call.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "StructArray"):
+            return False
+        sa_call = call
+        if not sa_call.args or not isinstance(sa_call.args[0], ast.Constant):
+            raise ParserSyntaxError(
+                "pl.StructArray() requires an integer size as first argument",
+                span=span,
+                hint="Use pl.StructArray(3, field1=0, field2=0, ...)",
+            )
+        arr_size = sa_call.args[0].value
+        if not isinstance(arr_size, int) or arr_size < 1:
+            raise ParserSyntaxError(
+                f"pl.StructArray() size must be a positive integer, got {arr_size}",
+                span=span,
+            )
+        # Parse field kwargs
+        fields: dict[str, Any] = {}
+        for kw in sa_call.keywords:
+            if kw.arg is None:
+                raise ParserSyntaxError("pl.StructArray() does not support **kwargs", span=span)
+            fields[kw.arg] = self.parse_expression(kw.value)
+        if not fields:
+            raise ParserSyntaxError("pl.StructArray() requires at least one field", span=span)
+
+        # Create _StructArrayVar with dummy _StructVar slots (for field validation)
+        structs = [_StructVar(dict(fields), name=f"{var_name}_{i}") for i in range(arr_size)]
+        struct_arr = _StructArrayVar(structs, name=var_name)
+        self.scope_manager.define_python_var(var_name, struct_arr, span=span)
+
+        # Emit struct.declare
+        fields_csv = ",".join(fields.keys())
+        decl_call = ir.create_op_call(
+            "struct.declare", [],
+            {"array": var_name, "size": arr_size, "fields": fields_csv},
+            span,
+        )
+        self.builder.emit(ir.EvalStmt(decl_call, span))
+
+        # Emit struct.set for non-zero init values (applied to all elements)
+        for slot in range(arr_size):
+            idx_expr = ir.ConstInt(slot, DataType.INDEX, span)
+            for fname, fval in fields.items():
+                if isinstance(fval, ir.Expr):
+                    if isinstance(fval, ir.ConstInt) and fval.value == 0:
+                        continue
+                    init_call = ir.create_op_call(
+                        "struct.set", [idx_expr, fval],
+                        {"array": var_name, "field": fname}, span,
+                    )
+                    self.builder.emit(ir.EvalStmt(init_call, span))
+        return True
+
+    def _parse_yield_name_assignment(self, var_name: str, call: ast.Call, stmt_span: Any) -> bool:
+        """Handle ``var = pl.yield_(...)``. Returns True if handled."""
+        func = call.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "yield_"):
+            return False
+        # Handle yield assignment
+        yield_exprs = []
+        for arg in call.args:
+            expr = self.parse_expression(arg)
+            if not isinstance(expr, ir.Expr):
+                raise ParserSyntaxError(
+                    f"Yield argument must be an IR expression, got {type(expr)}",
+                    span=self.span_tracker.get_span(arg),
+                    hint="Ensure yield arguments are valid expressions",
+                )
+            yield_exprs.append(expr)
+
+        # Emit yield statement
+        yield_span = self.span_tracker.get_span(call)
+        self.builder.emit(ir.YieldStmt(yield_exprs, yield_span))
+
+        # Track variable name for loop/if output registration
+        if hasattr(self, "_current_yield_vars") and self._current_yield_vars is not None:
+            self._current_yield_vars.append(var_name)
+
+        # Capture yield expression type for unannotated yield inference
+        # Use setdefault so the then-branch type takes precedence over else
+        if hasattr(self, "_current_yield_types") and self._current_yield_types is not None:
+            if len(yield_exprs) == 1:
+                self._current_yield_types.setdefault(var_name, yield_exprs[0].type)
+
+        # Don't register in scope yet - will be done when loop/if completes
+        return True
+
+    def _parse_struct_field_assignment(self, target: ast.Attribute, stmt: ast.Assign) -> bool:
+        """Handle ``ctx.field = value`` and ``_DynamicStructView`` field write. Returns True if handled."""
+        if not isinstance(target.value, ast.Name):
+            return False
+        obj_name = target.value.id
+        field_name = target.attr
+        span = self.span_tracker.get_span(stmt)
+
+        obj = self.scope_manager.get_python_var(obj_name)
+        if obj is None:
+            obj = self.scope_manager.lookup_var(obj_name)
+        if isinstance(obj, _StructVar):
+            if field_name not in obj.fields:
+                raise ParserTypeError(
+                    f"Struct '{obj_name}' has no field '{field_name}'",
+                    span=span,
+                    hint=f"Available fields: {', '.join(obj.fields.keys())}",
+                )
+            value_expr = self.parse_expression(stmt.value)
+            if obj.name and isinstance(value_expr, ir.Expr):
+                # Named struct with C++ codegen — use struct.set
+                idx_zero = ir.ConstInt(0, DataType.INDEX, span)
+                call = ir.create_op_call(
+                    "struct.set", [idx_zero, value_expr],
+                    {"array": obj.name, "field": field_name}, span,
+                )
+                self.builder.emit(ir.EvalStmt(call, span))
+            elif isinstance(value_expr, ir.Expr):
+                # Unnamed struct — fallback to IR variable
+                ir_name = f"_{obj.name}_{field_name}" if obj.name else field_name
+                var = self.builder.let(ir_name, value_expr, span=span)
+                obj.fields[field_name] = var
+            else:
+                obj.fields[field_name] = value_expr
+            return True
+        # _DynamicStructView field write (view passed as function arg)
+        if isinstance(obj, _DynamicStructView):
+            if field_name not in obj.array.field_names:
+                raise ParserTypeError(
+                    f"Struct array view has no field '{field_name}'",
+                    span=span,
+                    hint=f"Available fields: {', '.join(obj.array.field_names)}",
+                )
+            value_expr = self.parse_expression(stmt.value)
+            self._struct_array_field_write(obj.array, obj.index_expr, field_name, value_expr, span, ref_name=obj.ref_name)
+            return True
+        return False
+
+    def _parse_struct_array_field_assignment(self, target: ast.Attribute, stmt: ast.Assign) -> bool:
+        """Handle ``ctx_arr[idx].field = value``. Returns True if handled."""
+        if not (isinstance(target.value, ast.Subscript)
+                and isinstance(target.value.value, ast.Name)):
+            return False
+        arr_name = target.value.value.id
+        field_name = target.attr
+        span = self.span_tracker.get_span(stmt)
+
+        arr_obj = self.scope_manager.get_python_var(arr_name)
+        if arr_obj is None:
+            arr_obj = self.scope_manager.lookup_var(arr_name)
+        if isinstance(arr_obj, _StructArrayVar):
+            if field_name not in arr_obj.field_names:
+                raise ParserTypeError(
+                    f"Struct array '{arr_name}' has no field '{field_name}'",
+                    span=span,
+                    hint=f"Available fields: {', '.join(arr_obj.field_names)}",
+                )
+            index_expr = self.parse_expression(target.value.slice)
+            value_expr = self.parse_expression(stmt.value)
+            self._struct_array_field_write(arr_obj, index_expr, field_name, value_expr, span)
+            return True
+        return False
+
+    def _check_struct_in_collection(self, var_name: str, value: ast.expr) -> None:
+        """Raise if RHS is a list/tuple containing struct variables."""
+        if not isinstance(value, (ast.List, ast.Tuple)) or not value.elts:
+            return
+        for elt in value.elts:
+            if isinstance(elt, ast.Name):
+                obj = self.scope_manager.get_python_var(elt.id)
+                if isinstance(obj, _StructVar):
+                    raise ParserSyntaxError(
+                        f"Putting pl.struct into a list/tuple is not supported. "
+                        f"Use pl.StructArray(N, field=val, ...) instead.",
+                        span=self.span_tracker.get_span(elt),
+                        hint=f"Example: {var_name} = pl.StructArray(N, field1=0, field2=0)",
+                    )
+
+    def _parse_struct_array_subscript_alias(
+        self, var_name: str, value: ast.expr, span: ir.Span,
+    ) -> bool:
+        """Handle struct array subscript alias: ctx = ctx_arr[idx].
+
+        Returns True if handled, False otherwise.
+        """
+        if not (isinstance(value, ast.Subscript) and isinstance(value.value, ast.Name)):
+            return False
+        arr_obj = self.scope_manager.get_python_var(value.value.id)
+        if arr_obj is None:
+            arr_obj = self.scope_manager.lookup_var(value.value.id)
+        if not isinstance(arr_obj, _StructArrayVar):
+            return False
+        index_expr = self.parse_expression(value.slice)
+        view = _DynamicStructView(arr_obj, index_expr, ref_name=var_name)
+        self.scope_manager.define_python_var(var_name, view, span=span)
+        ref_call = ir.create_op_call(
+            "struct.ref", [index_expr],
+            {"array": arr_obj.name, "var": var_name}, span,
+        )
+        self.builder.emit(ir.EvalStmt(ref_call, span))
+        return True
+
+    def _register_assignment_metadata(self, var_name: str, var: ir.Var, stmt: ast.Assign) -> None:
+        """Register auto-sync tile, const-tuple, and tile-tuple metadata after assignment."""
+        # Auto-sync: register tile for overlap detection
+        if self.auto_sync is not None and isinstance(stmt.value, ast.Call):
+            from .auto_sync_helper import AutoSyncHelper
+            call_op_name = AutoSyncHelper._extract_plm_or_block_op_name(stmt.value)
+            if call_op_name == "make_tile":
+                self.auto_sync.register_tile_region(var_name, var)
+
+        # Register constant-integer tuples for sync-op event_id expansion
+        if isinstance(stmt.value, ast.Tuple) and all(
+            isinstance(elt, ast.Constant) and isinstance(elt.value, int)
+            for elt in stmt.value.elts
+        ):
+            self._const_tuple_registry[var_name] = [elt.value for elt in stmt.value.elts]  # type: ignore[union-attr]
+
+        # Register tile-variable tuples for DB auto-sync subscript resolution
+        if isinstance(stmt.value, ast.Tuple) and len(stmt.value.elts) >= 2:
+            tile_names: list[str] = []
+            for elt in stmt.value.elts:
+                if isinstance(elt, ast.Name):
+                    elt_var = self.scope_manager.lookup_var(elt.id)
+                    if elt_var is not None and isinstance(getattr(elt_var, "type", None), ir.TileType):
+                        tile_names.append(elt.id)
+            if len(tile_names) == len(stmt.value.elts):
+                self._tile_tuple_registry[var_name] = tile_names
+
+    # ------------------------------------------------------------------
+    # parse_assignment dispatcher
+    # ------------------------------------------------------------------
+
+    def _parse_tuple_unpacking(self, target: ast.Tuple, stmt: ast.Assign) -> None:
+        """Handle tuple unpacking: (a, b, c) = pl.yield_(...) or func(...)."""
+        if isinstance(stmt.value, ast.Call):
+            func = stmt.value.func
+            if isinstance(func, ast.Attribute) and func.attr == "yield_":
+                self.parse_yield_assignment(target, stmt.value)
+                return
+
+        span = self.span_tracker.get_span(stmt)
+        value_expr = self.parse_expression(stmt.value)
+        tuple_var = self.builder.let("_tuple_tmp", value_expr, span=span)
+        for i, elt in enumerate(target.elts):
+            if not isinstance(elt, ast.Name):
+                raise ParserSyntaxError(
+                    f"Tuple unpacking target must be a variable name, got {ast.unparse(elt)}",
+                    span=self.span_tracker.get_span(elt),
+                    hint="Use simple variable names in tuple unpacking: a, b, c = func()",
+                )
+            item_expr = ir.TupleGetItemExpr(tuple_var, i, span)
+            var = self.builder.let(elt.id, item_expr, span=span)
+            self.scope_manager.define_var(elt.id, var, span=span)
+
+    def _parse_name_assignment(self, var_name: str, stmt: ast.Assign) -> None:
+        """Handle simple name assignment: var = expr."""
+        span = self.span_tracker.get_span(stmt)
+
+        # TileType assignment
+        if isinstance(stmt.value, ast.Call):
+            func = stmt.value.func
+            if isinstance(func, ast.Name) and func.id == "TileType":
+                tile_type = self._parse_tile_type_call(stmt.value)
+                self.scope_manager.define_python_var(var_name, tile_type, span=span)
+                return
+            if isinstance(func, ast.Attribute) and func.attr == "TileType":
+                tile_type = self._parse_tile_type_call(stmt.value)
+                self.scope_manager.define_python_var(var_name, tile_type, span=span)
+                return
+            # Delegate to struct / struct-array / yield helpers
+            if self._parse_struct_assignment(var_name, stmt.value, span):
+                return
+            if self._parse_struct_array_assignment(var_name, stmt.value, span):
+                return
+            if self._parse_yield_name_assignment(var_name, stmt.value, span):
+                return
+
+        self._check_struct_in_collection(var_name, stmt.value)
+        if self._parse_struct_array_subscript_alias(var_name, stmt.value, span):
+            return
+
+        # Regular expression assignment
+        value_expr = self.parse_expression(stmt.value)
+        if value_expr is None:
+            raise ParserTypeError(
+                f"Cannot assign void inline function result to '{var_name}'",
+                span=span,
+                hint="Inline functions used as expressions must return a value",
+            )
+        ir_var_name = self._inline_prefix + var_name if self._inline_prefix else var_name
+        var = self.builder.let(ir_var_name, value_expr, span=span)
+        self.scope_manager.define_var(var_name, var, span=span)
+        self._register_assignment_metadata(var_name, var, stmt)
+
     def parse_assignment(self, stmt: ast.Assign) -> None:
         """Parse regular assignment: var = value or tuple unpacking.
 
         Args:
             stmt: Assign AST node
         """
-        # Handle tuple unpacking for yields
-        if len(stmt.targets) == 1:
-            target = stmt.targets[0]
+        if len(stmt.targets) != 1:
+            raise ParserSyntaxError(
+                f"Unsupported assignment: {ast.unparse(stmt)}",
+                span=self.span_tracker.get_span(stmt),
+                hint="Use simple variable assignments or tuple unpacking with pl.yield_()",
+            )
 
-            # Handle tuple unpacking: (a, b, c) = pl.yield_(...) or self.func(...)
-            if isinstance(target, ast.Tuple):
-                # Check if value is a pl.yield_() call
-                if isinstance(stmt.value, ast.Call):
-                    func = stmt.value.func
-                    if isinstance(func, ast.Attribute) and func.attr == "yield_":
-                        # This is handled in yield parsing
-                        self.parse_yield_assignment(target, stmt.value)
-                        return
+        target = stmt.targets[0]
 
-                # General tuple unpacking for function calls returning TupleType
-                span = self.span_tracker.get_span(stmt)
-                value_expr = self.parse_expression(stmt.value)
+        if isinstance(target, ast.Tuple):
+            self._parse_tuple_unpacking(target, stmt)
+            return
 
-                # Bind the tuple result to a temporary variable
-                tuple_var = self.builder.let("_tuple_tmp", value_expr, span=span)
+        if isinstance(target, ast.Name):
+            self._parse_name_assignment(target.id, stmt)
+            return
 
-                # Extract each element using TupleGetItemExpr
-                for i, elt in enumerate(target.elts):
-                    if not isinstance(elt, ast.Name):
-                        raise ParserSyntaxError(
-                            f"Tuple unpacking target must be a variable name, got {ast.unparse(elt)}",
-                            span=self.span_tracker.get_span(elt),
-                            hint="Use simple variable names in tuple unpacking: a, b, c = func()",
-                        )
-                    item_expr = ir.TupleGetItemExpr(tuple_var, i, span)
-                    var = self.builder.let(elt.id, item_expr, span=span)
-                    self.scope_manager.define_var(elt.id, var, span=span)
+        if isinstance(target, ast.Attribute):
+            if self._parse_struct_field_assignment(target, stmt):
                 return
-
-            # Handle simple assignment
-            if isinstance(target, ast.Name):
-                var_name = target.id
-                span = self.span_tracker.get_span(stmt)
-
-                # Check if this is a TileType assignment
-                if isinstance(stmt.value, ast.Call):
-                    func = stmt.value.func
-                    # TileType(...)
-                    if isinstance(func, ast.Name) and func.id == "TileType":
-                        tile_type = self._parse_tile_type_call(stmt.value)
-                        self.scope_manager.define_python_var(var_name, tile_type, span=span)
-                        return
-                    # plm.TileType(...)
-                    if isinstance(func, ast.Attribute) and func.attr == "TileType":
-                        tile_type = self._parse_tile_type_call(stmt.value)
-                        self.scope_manager.define_python_var(var_name, tile_type, span=span)
-                        return
-                    # pl.struct(field1=val1, field2=val2, ...)
-                    if isinstance(func, ast.Attribute) and func.attr == "struct":
-                        struct_var = self._parse_struct_call(stmt.value, var_name)
-                        self.scope_manager.define_python_var(var_name, struct_var, span=span)
-                        # Emit struct.declare for C++ struct codegen
-                        fields_csv = ",".join(struct_var.fields.keys())
-                        decl_call = ir.create_op_call(
-                            "struct.declare", [],
-                            {"array": var_name, "size": 1, "fields": fields_csv},
-                            span,
-                        )
-                        self.builder.emit(ir.EvalStmt(decl_call, span))
-                        # Emit struct.set for non-zero init values
-                        idx_zero = ir.ConstInt(0, DataType.INDEX, span)
-                        for fname, fval in struct_var.fields.items():
-                            if isinstance(fval, ir.Expr):
-                                # Skip trivial zero inits
-                                if isinstance(fval, ir.ConstInt) and fval.value == 0:
-                                    continue
-                                init_call = ir.create_op_call(
-                                    "struct.set", [idx_zero, fval],
-                                    {"array": var_name, "field": fname}, span,
-                                )
-                                self.builder.emit(ir.EvalStmt(init_call, span))
-                        return
-                    # pl.StructArray(N, field1=val1, field2=val2, ...)
-                    if isinstance(func, ast.Attribute) and func.attr == "StructArray":
-                        sa_call = stmt.value
-                        if not sa_call.args or not isinstance(sa_call.args[0], ast.Constant):
-                            raise ParserSyntaxError(
-                                "pl.StructArray() requires an integer size as first argument",
-                                span=span,
-                                hint="Use pl.StructArray(3, field1=0, field2=0, ...)",
-                            )
-                        arr_size = sa_call.args[0].value
-                        if not isinstance(arr_size, int) or arr_size < 1:
-                            raise ParserSyntaxError(
-                                f"pl.StructArray() size must be a positive integer, got {arr_size}",
-                                span=span,
-                            )
-                        # Parse field kwargs
-                        fields: dict[str, Any] = {}
-                        for kw in sa_call.keywords:
-                            if kw.arg is None:
-                                raise ParserSyntaxError("pl.StructArray() does not support **kwargs", span=span)
-                            fields[kw.arg] = self.parse_expression(kw.value)
-                        if not fields:
-                            raise ParserSyntaxError("pl.StructArray() requires at least one field", span=span)
-
-                        # Create _StructArrayVar with dummy _StructVar slots (for field validation)
-                        structs = [_StructVar(dict(fields), name=f"{var_name}_{i}") for i in range(arr_size)]
-                        struct_arr = _StructArrayVar(structs, name=var_name)
-                        self.scope_manager.define_python_var(var_name, struct_arr, span=span)
-
-                        # Emit struct.declare
-                        fields_csv = ",".join(fields.keys())
-                        decl_call = ir.create_op_call(
-                            "struct.declare", [],
-                            {"array": var_name, "size": arr_size, "fields": fields_csv},
-                            span,
-                        )
-                        self.builder.emit(ir.EvalStmt(decl_call, span))
-
-                        # Emit struct.set for non-zero init values (applied to all elements)
-                        for slot in range(arr_size):
-                            idx_expr = ir.ConstInt(slot, DataType.INDEX, span)
-                            for fname, fval in fields.items():
-                                if isinstance(fval, ir.Expr):
-                                    if isinstance(fval, ir.ConstInt) and fval.value == 0:
-                                        continue
-                                    init_call = ir.create_op_call(
-                                        "struct.set", [idx_expr, fval],
-                                        {"array": var_name, "field": fname}, span,
-                                    )
-                                    self.builder.emit(ir.EvalStmt(init_call, span))
-                        return
-                # Check if RHS is a list/tuple containing struct variables → error (use StructArray)
-                if isinstance(stmt.value, (ast.List, ast.Tuple)) and stmt.value.elts:
-                    for elt in stmt.value.elts:
-                        if isinstance(elt, ast.Name):
-                            obj = self.scope_manager.get_python_var(elt.id)
-                            if isinstance(obj, _StructVar):
-                                raise ParserSyntaxError(
-                                    f"Putting pl.struct into a list/tuple is not supported. "
-                                    f"Use pl.StructArray(N, field=val, ...) instead.",
-                                    span=self.span_tracker.get_span(elt),
-                                    hint=f"Example: {var_name} = pl.StructArray(N, field1=0, field2=0)",
-                                )
-                # Check if RHS is a struct array subscript: ctx_curr = ctx_arr[task_id]
-                # Store as a _DynamicStructView alias and emit struct.ref for C++ reference
-                if isinstance(stmt.value, ast.Subscript) and isinstance(stmt.value.value, ast.Name):
-                    arr_obj = self.scope_manager.get_python_var(stmt.value.value.id)
-                    if arr_obj is None:
-                        arr_obj = self.scope_manager.lookup_var(stmt.value.value.id)
-                    if isinstance(arr_obj, _StructArrayVar):
-                        index_expr = self.parse_expression(stmt.value.slice)
-                        view = _DynamicStructView(arr_obj, index_expr, ref_name=var_name)
-                        self.scope_manager.define_python_var(var_name, view, span=span)
-                        # Emit struct.ref for C++ codegen: auto& var = arr[idx];
-                        ref_call = ir.create_op_call(
-                            "struct.ref", [index_expr],
-                            {"array": arr_obj.name, "var": var_name}, span,
-                        )
-                        self.builder.emit(ir.EvalStmt(ref_call, span))
-                        return
-                # Check if this is a yield assignment: var = pl.yield_(...)
-                if isinstance(stmt.value, ast.Call):
-                    func = stmt.value.func
-                    if isinstance(func, ast.Attribute) and func.attr == "yield_":
-                        # Handle yield assignment
-                        yield_exprs = []
-                        for arg in stmt.value.args:
-                            expr = self.parse_expression(arg)
-                            if not isinstance(expr, ir.Expr):
-                                raise ParserSyntaxError(
-                                    f"Yield argument must be an IR expression, got {type(expr)}",
-                                    span=self.span_tracker.get_span(arg),
-                                    hint="Ensure yield arguments are valid expressions",
-                                )
-                            yield_exprs.append(expr)
-
-                        # Emit yield statement
-                        yield_span = self.span_tracker.get_span(stmt.value)
-                        self.builder.emit(ir.YieldStmt(yield_exprs, yield_span))
-
-                        # Track variable name for loop/if output registration
-                        if hasattr(self, "_current_yield_vars") and self._current_yield_vars is not None:
-                            self._current_yield_vars.append(var_name)
-
-                        # Capture yield expression type for unannotated yield inference
-                        # Use setdefault so the then-branch type takes precedence over else
-                        if hasattr(self, "_current_yield_types") and self._current_yield_types is not None:
-                            if len(yield_exprs) == 1:
-                                self._current_yield_types.setdefault(var_name, yield_exprs[0].type)
-
-                        # Don't register in scope yet - will be done when loop/if completes
-                        return
-
-                value_expr = self.parse_expression(stmt.value)
-                if value_expr is None:
-                    raise ParserTypeError(
-                        f"Cannot assign void inline function result to '{var_name}'",
-                        span=span,
-                        hint="Inline functions used as expressions must return a value",
-                    )
-                ir_var_name = self._inline_prefix + var_name if self._inline_prefix else var_name
-                var = self.builder.let(ir_var_name, value_expr, span=span)
-                self.scope_manager.define_var(var_name, var, span=span)
-
-                # Auto-sync: register tile region for overlap detection
-                if self.sync_tracker is not None and isinstance(stmt.value, ast.Call):
-                    call_op_name = self._extract_plm_or_block_op_name(stmt.value)
-                    if call_op_name == "make_tile":
-                        self._register_tile_region(var_name, var)
-
-                # Register constant-integer tuples for sync-op event_id expansion
-                if isinstance(stmt.value, ast.Tuple) and all(
-                    isinstance(elt, ast.Constant) and isinstance(elt.value, int)
-                    for elt in stmt.value.elts
-                ):
-                    self._const_tuple_registry[var_name] = [elt.value for elt in stmt.value.elts]  # type: ignore[union-attr]
-
-                # Register tile-variable tuples for DB auto-sync subscript resolution
-                if isinstance(stmt.value, ast.Tuple) and len(stmt.value.elts) >= 2:
-                    tile_names: list[str] = []
-                    for elt in stmt.value.elts:
-                        if isinstance(elt, ast.Name):
-                            elt_var = self.scope_manager.lookup_var(elt.id)
-                            if elt_var is not None and isinstance(getattr(elt_var, "type", None), ir.TileType):
-                                tile_names.append(elt.id)
-                    if len(tile_names) == len(stmt.value.elts):
-                        self._tile_tuple_registry[var_name] = tile_names
-
+            if self._parse_struct_array_field_assignment(target, stmt):
                 return
-
-            # Handle struct field assignment: ctx.field = value
-            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
-                obj_name = target.value.id
-                field_name = target.attr
-                span = self.span_tracker.get_span(stmt)
-
-                obj = self.scope_manager.get_python_var(obj_name)
-                if obj is None:
-                    obj = self.scope_manager.lookup_var(obj_name)
-                if isinstance(obj, _StructVar):
-                    if field_name not in obj.fields:
-                        raise ParserTypeError(
-                            f"Struct '{obj_name}' has no field '{field_name}'",
-                            span=span,
-                            hint=f"Available fields: {', '.join(obj.fields.keys())}",
-                        )
-                    value_expr = self.parse_expression(stmt.value)
-                    if obj.name and isinstance(value_expr, ir.Expr):
-                        # Named struct with C++ codegen — use struct.set
-                        idx_zero = ir.ConstInt(0, DataType.INDEX, span)
-                        call = ir.create_op_call(
-                            "struct.set", [idx_zero, value_expr],
-                            {"array": obj.name, "field": field_name}, span,
-                        )
-                        self.builder.emit(ir.EvalStmt(call, span))
-                    elif isinstance(value_expr, ir.Expr):
-                        # Unnamed struct — fallback to IR variable
-                        ir_name = f"_{obj.name}_{field_name}" if obj.name else field_name
-                        var = self.builder.let(ir_name, value_expr, span=span)
-                        obj.fields[field_name] = var
-                    else:
-                        obj.fields[field_name] = value_expr
-                    return
-                # _DynamicStructView field write (view passed as function arg)
-                if isinstance(obj, _DynamicStructView):
-                    if field_name not in obj.array.field_names:
-                        raise ParserTypeError(
-                            f"Struct array view has no field '{field_name}'",
-                            span=span,
-                            hint=f"Available fields: {', '.join(obj.array.field_names)}",
-                        )
-                    value_expr = self.parse_expression(stmt.value)
-                    self._struct_array_field_write(obj.array, obj.index_expr, field_name, value_expr, span, ref_name=obj.ref_name)
-                    return
-
-            # Handle struct array field assignment: ctx_arr[idx].field = value
-            if (isinstance(target, ast.Attribute)
-                    and isinstance(target.value, ast.Subscript)
-                    and isinstance(target.value.value, ast.Name)):
-                arr_name = target.value.value.id
-                field_name = target.attr
-                span = self.span_tracker.get_span(stmt)
-
-                arr_obj = self.scope_manager.get_python_var(arr_name)
-                if arr_obj is None:
-                    arr_obj = self.scope_manager.lookup_var(arr_name)
-                if isinstance(arr_obj, _StructArrayVar):
-                    if field_name not in arr_obj.field_names:
-                        raise ParserTypeError(
-                            f"Struct array '{arr_name}' has no field '{field_name}'",
-                            span=span,
-                            hint=f"Available fields: {', '.join(arr_obj.field_names)}",
-                        )
-                    index_expr = self.parse_expression(target.value.slice)
-                    value_expr = self.parse_expression(stmt.value)
-                    self._struct_array_field_write(arr_obj, index_expr, field_name, value_expr, span)
-                    return
 
         raise ParserSyntaxError(
             f"Unsupported assignment: {ast.unparse(stmt)}",
@@ -935,30 +914,56 @@ class ASTParser:
             assert isinstance(iter_arg_node, ast.Name)
             loop.return_var(f"{iter_arg_node.id}_out")
 
-    def parse_for_loop(self, stmt: ast.For) -> None:
-        """Parse for loop with pl.range(), pl.parallel(), pl.unroll(), or pl.while_().
+    def _parse_for_loop_body(
+        self, stmt: ast.For, loop: Any, loop_var: ir.Var, loop_var_name: str,
+        is_simple_for: bool, iter_args_node: ast.Tuple | None,
+        range_args: dict[str, Any], backward_deps: list, span: ir.Span,
+    ) -> list[str]:
+        """Parse the body of a for loop inside the loop context.
 
-        Supports patterns for range/parallel/unroll:
-          Pattern A (explicit): for i, (vars,) in pl.range(..., init_values=(...,))
-          Pattern B (simple):   for i in pl.range(n)
-
-        Supports pattern for while-as-for:
-          for (vars,) in pl.while_(init_values=(...,)):
-              pl.cond(condition)
-
-        Both patterns also work with pl.parallel() for parallel loops.
-        pl.unroll() is for compile-time loop unrolling (no init_values).
-        Pattern B produces a ForStmt without iter_args/return_vars/yield.
-        The C++ ConvertToSSA pass handles converting to SSA form.
+        Returns the list of yield output variable names.
         """
+        self.current_loop_builder = loop
+        self.in_for_loop = True
+        self.scope_manager.enter_scope("for")
+        self.scope_manager.define_var(loop_var_name, loop_var, allow_redef=True)
+
+        if not is_simple_for:
+            assert iter_args_node is not None
+            self._setup_iter_args(loop, iter_args_node, range_args["init_values"])
+
+        prev_yield_tracker = getattr(self, "_current_yield_vars", None)
+        self._current_yield_vars = []
+        prev_yield_types = getattr(self, "_current_yield_types", None)
+        self._current_yield_types = {}
+
+        if self.auto_sync is not None:
+            self.auto_sync.on_loop_body_start(backward_deps, loop_var, range_args["step"], span)
+
+        for body_stmt in stmt.body:
+            self.parse_statement(body_stmt)
+
+        if self.auto_sync is not None:
+            self.auto_sync.on_loop_body_end(backward_deps, loop_var, range_args["step"], span)
+
+        loop_output_vars = self._current_yield_vars[:]
+        self._current_yield_vars = prev_yield_tracker
+        self._current_yield_types = prev_yield_types
+
+        should_leak = is_simple_for and not loop_output_vars
+        self.scope_manager.exit_scope(leak_vars=should_leak)
+        self.in_for_loop = False
+        self.current_loop_builder = None
+        return loop_output_vars
+
+    def parse_for_loop(self, stmt: ast.For) -> None:
+        """Parse for loop with pl.range(), pl.parallel(), pl.unroll(), or pl.while_()."""
         iter_call, iterator_type = self._validate_for_loop_iterator(stmt)
 
-        # Handle pl.while_() case
         if iterator_type == "while_":
             self._parse_while_as_for(stmt, iter_call)
             return
 
-        # Handle pl.range(), pl.parallel(), or pl.unroll()
         _ITERATOR_TO_KIND = {
             "range": ir.ForKind.Sequential,
             "parallel": ir.ForKind.Parallel,
@@ -966,7 +971,51 @@ class ASTParser:
         }
         loop_var_name, iter_args_node, is_simple_for = self._parse_for_loop_target(stmt)
         range_args = self._parse_range_call(iter_call)
+        self._validate_for_loop_args(iterator_type, range_args, iter_call, is_simple_for, stmt)
 
+        chunk_expr = range_args.get("chunk")
+        chunk_policy_str = range_args.get("chunk_policy", "leading_full")
+        if chunk_expr is not None:
+            self._validate_chunk_args(chunk_expr, range_args["init_values"], iter_call)
+
+        kind = _ITERATOR_TO_KIND[iterator_type]
+        loop_var = self.builder.var(loop_var_name, ir.ScalarType(DataType.INDEX))
+        span = self.span_tracker.get_span(stmt)
+
+        backward_deps: list = []
+        if self.auto_sync is not None:
+            backward_deps = self.auto_sync.on_loop_pre_enter(
+                stmt.body, self.scope_manager.lookup_var, span,
+            )
+
+        with self.builder.for_loop(
+            loop_var, range_args["start"], range_args["stop"], range_args["step"],
+            span, kind, chunk_size=chunk_expr, chunk_policy=chunk_policy_str,
+        ) as loop:
+            loop_output_vars = self._parse_for_loop_body(
+                stmt, loop, loop_var, loop_var_name, is_simple_for,
+                iter_args_node, range_args, backward_deps, span,
+            )
+
+        if self.auto_sync is not None:
+            self.auto_sync.on_loop_exit(backward_deps, span)
+
+        if not is_simple_for:
+            loop_result = loop.get_result()
+            if hasattr(loop_result, "return_vars") and loop_result.return_vars and loop_output_vars:
+                for i, var_name in enumerate(loop_output_vars):
+                    if i < len(loop_result.return_vars):
+                        self.scope_manager.define_var(var_name, loop_result.return_vars[i])
+
+    def _validate_for_loop_args(
+        self, iterator_type: str, range_args: dict[str, Any],
+        iter_call: ast.Call, is_simple_for: bool, stmt: ast.For,
+    ) -> None:
+        """Validate for-loop arguments after range parsing.
+
+        Checks init_values compatibility with simple-for and unroll loops,
+        and validates compile-time constant bounds for unroll.
+        """
         if is_simple_for and range_args["init_values"]:
             raise ParserSyntaxError(
                 "For loop target must be a tuple when init_values is provided",
@@ -1002,144 +1051,6 @@ class ASTParser:
                     hint="Use a non-zero step in pl.unroll(start, stop, step).",
                 )
 
-        # Validate chunk arguments
-        chunk_expr = range_args.get("chunk")
-        chunk_policy_str = range_args.get("chunk_policy", "leading_full")
-        if chunk_expr is not None:
-            self._validate_chunk_args(chunk_expr, range_args["init_values"], iter_call)
-
-        kind = _ITERATOR_TO_KIND[iterator_type]
-        loop_var = self.builder.var(loop_var_name, ir.ScalarType(DataType.INDEX))
-        span = self.span_tracker.get_span(stmt)
-        loop_output_vars: list[str] = []
-
-        # Auto-sync: pre-scan for backward (cross-iteration) dependencies
-        backward_deps: list = []
-        if self.sync_tracker is not None:
-            from pypto_block.frontend.sync_tracker import (
-                BackwardDep,
-                emit_backward_sync_dst,
-                emit_backward_sync_src,
-                prescan_loop_backward_deps,
-            )
-
-            # Flush any outer loop's pending backward waits before this loop
-            # starts.  Must happen BEFORE the for_loop builder context so the
-            # waits are emitted at the outer loop level, not inside this loop.
-            self._flush_all_pending_backward_waits(span)
-
-            backward_deps = prescan_loop_backward_deps(
-                stmt.body,
-                self.scope_manager.lookup_var,
-                self.sync_tracker._event_allocator,
-                loop_depth=self.sync_tracker.get_loop_depth(),
-                tile_tuple_registry=self._tile_tuple_registry,
-            )
-            # If the loop body's tile ops are all inside nested loops (which have
-            # their own backward sync), or if bar_all is present, skip redundant
-            # outer-loop backward sync.
-            if _loop_body_backward_sync_redundant(stmt.body):
-                backward_deps = []
-            # 1. Priming: emit sync_src before the loop so the first
-            #    iteration's wait_flag has a matching set_flag.
-            #    For DB deps (n_slots>1), emit one set_flag per slot.
-            for dep in backward_deps:
-                if dep.n_slots > 1:
-                    for slot in range(dep.n_slots):
-                        eid = (dep.event_id + slot) % 8
-                        slot_dep = BackwardDep(dep.first_pipe, dep.last_pipe, dep.tile_name, eid, dep.loop_depth)
-                        emit_backward_sync_src(self.builder, slot_dep, span)
-                else:
-                    emit_backward_sync_src(self.builder, dep, span)
-            # Save pre-loop buffer states
-            self.sync_tracker.enter_loop()
-
-        with self.builder.for_loop(
-            loop_var,
-            range_args["start"],
-            range_args["stop"],
-            range_args["step"],
-            span,
-            kind,
-            chunk_size=chunk_expr,
-            chunk_policy=chunk_policy_str,
-        ) as loop:
-            self.current_loop_builder = loop
-            self.in_for_loop = True
-            self.scope_manager.enter_scope("for")
-            self.scope_manager.define_var(loop_var_name, loop_var, allow_redef=True)
-
-            if not is_simple_for:
-                assert iter_args_node is not None  # Guaranteed by _parse_for_loop_target
-                self._setup_iter_args(loop, iter_args_node, range_args["init_values"])
-
-            prev_yield_tracker = getattr(self, "_current_yield_vars", None)
-            self._current_yield_vars = []
-            prev_yield_types = getattr(self, "_current_yield_types", None)
-            self._current_yield_types = {}
-
-            # Auto-sync: register deferred backward waits.
-            # Instead of emitting all backward waits at body start, defer
-            # each wait until the first op on its first_pipe runs.  This
-            # allows load (MTE2) to overlap with the previous matmul (M)
-            # because the M→MTE1 wait is deferred to right before the move.
-            if self.sync_tracker is not None:
-                db_slot_expr = None
-                if backward_deps and any(dep.n_slots > 1 for dep in backward_deps):
-                    db_slot_expr = self._build_db_slot_expr(loop_var, range_args["step"],
-                                                            backward_deps[0].n_slots, span)
-                self._pending_backward_waits = {}
-                self._pending_backward_wait_slot_expr = db_slot_expr
-                for dep in backward_deps:
-                    pipe = dep.first_pipe
-                    self._pending_backward_waits.setdefault(pipe, []).append(dep)
-
-            for body_stmt in stmt.body:
-                self.parse_statement(body_stmt)
-
-            # Auto-sync: backward set at loop body end
-            if self.sync_tracker is not None:
-                for dep in backward_deps:
-                    if dep.n_slots > 1:
-                        slot_expr = self._build_db_slot_expr(loop_var, range_args["step"], dep.n_slots, span)
-                        self._emit_backward_db_sync_chain(dep, slot_expr, emit_backward_sync_src, span)
-                    else:
-                        emit_backward_sync_src(self.builder, dep, span)
-
-            loop_output_vars = self._current_yield_vars[:]
-            self._current_yield_vars = prev_yield_tracker
-            self._current_yield_types = prev_yield_types
-
-            should_leak = is_simple_for and not loop_output_vars
-            self.scope_manager.exit_scope(leak_vars=should_leak)
-            self.in_for_loop = False
-            self.current_loop_builder = None
-
-        # Auto-sync: restore pre-loop state and emit drain sync_dst
-        if self.sync_tracker is not None:
-            loop_ctx = self.sync_tracker.exit_loop()
-            # Verify prescan results against actual loop body observations
-            self._verify_backward_deps(backward_deps, loop_ctx)
-            # Drain: emit wait_flag to consume the last iteration's body-end
-            # set_flag, balancing the event flag counter.  Drain must NOT be
-            # skipped even in nested loops — each (set_pipe, wait_pipe, event_id)
-            # triple must have strictly paired set/wait counts.
-            for dep in backward_deps:
-                if dep.n_slots > 1:
-                    for slot in range(dep.n_slots):
-                        eid = (dep.event_id + slot) % 8
-                        slot_dep = BackwardDep(dep.first_pipe, dep.last_pipe, dep.tile_name, eid, dep.loop_depth)
-                        emit_backward_sync_dst(self.builder, slot_dep, span)
-                else:
-                    emit_backward_sync_dst(self.builder, dep, span)
-
-        if not is_simple_for:
-            loop_result = loop.get_result()
-            if hasattr(loop_result, "return_vars") and loop_result.return_vars and loop_output_vars:
-                for i, var_name in enumerate(loop_output_vars):
-                    if i < len(loop_result.return_vars):
-                        self.scope_manager.define_var(var_name, loop_result.return_vars[i])
-
     def _validate_chunk_args(self, chunk_expr: Any, init_values: list[Any], iter_call: ast.Call) -> None:
         """Validate chunk arguments for range/parallel/unroll loops."""
         if init_values:
@@ -1162,47 +1073,16 @@ class ASTParser:
                 hint="Use a positive integer for chunk: chunk=5",
             )
 
-    def _parse_range_call(self, call: ast.Call) -> dict[str, Any]:
-        """Parse pl.range() call arguments.
+    def _parse_range_keywords(self, call: ast.Call) -> tuple[list, Any, str]:
+        """Parse keyword arguments from a pl.range() call.
 
-        Args:
-            call: AST Call node for pl.range()
-
-        Returns:
-            Dictionary with start, stop, step, init_values
+        Returns (init_values, chunk, chunk_policy).
         """
-        # Parse positional arguments
-        if len(call.args) < 1:
-            raise ParserSyntaxError(
-                "pl.range() requires at least 1 argument (stop)",
-                span=self.span_tracker.get_span(call),
-                hint="Provide at least the stop value: pl.range(10) or pl.range(0, 10)",
-            )
-
-        # Default values
-        start = 0
-        step = 1
-
-        if len(call.args) == 1:
-            # range(stop)
-            stop = self.parse_expression(call.args[0])
-        elif len(call.args) == 2:
-            # range(start, stop)
-            start = self.parse_expression(call.args[0])
-            stop = self.parse_expression(call.args[1])
-        elif len(call.args) >= 3:
-            # range(start, stop, step)
-            start = self.parse_expression(call.args[0])
-            stop = self.parse_expression(call.args[1])
-            step = self.parse_expression(call.args[2])
-
-        # Parse keyword arguments
-        init_values = []
+        init_values: list = []
         chunk = None
         chunk_policy = "leading_full"
         for keyword in call.keywords:
             if keyword.arg == "init_values":
-                # Parse list of init values
                 if isinstance(keyword.value, (ast.List, ast.Tuple)):
                     for elt in keyword.value.elts:
                         init_values.append(self.parse_expression(elt))
@@ -1236,6 +1116,38 @@ class ASTParser:
                     span=self.span_tracker.get_span(keyword),
                     hint="Supported keywords: init_values, chunk, chunk_policy",
                 )
+        return init_values, chunk, chunk_policy
+
+    def _parse_range_call(self, call: ast.Call) -> dict[str, Any]:
+        """Parse pl.range() call arguments.
+
+        Args:
+            call: AST Call node for pl.range()
+
+        Returns:
+            Dictionary with start, stop, step, init_values
+        """
+        if len(call.args) < 1:
+            raise ParserSyntaxError(
+                "pl.range() requires at least 1 argument (stop)",
+                span=self.span_tracker.get_span(call),
+                hint="Provide at least the stop value: pl.range(10) or pl.range(0, 10)",
+            )
+
+        start = 0
+        step = 1
+
+        if len(call.args) == 1:
+            stop = self.parse_expression(call.args[0])
+        elif len(call.args) == 2:
+            start = self.parse_expression(call.args[0])
+            stop = self.parse_expression(call.args[1])
+        elif len(call.args) >= 3:
+            start = self.parse_expression(call.args[0])
+            stop = self.parse_expression(call.args[1])
+            step = self.parse_expression(call.args[2])
+
+        init_values, chunk, chunk_policy = self._parse_range_keywords(call)
 
         return {
             "start": start,
@@ -1496,6 +1408,36 @@ class ASTParser:
             self.in_while_loop = False
             self.current_loop_builder = None
 
+    def _scan_and_merge_yield_vars(
+        self, stmt: ast.If,
+    ) -> list[tuple[str, ast.expr | None]]:
+        """Scan then/else branches for yield variable names and merge them.
+
+        Returns merged list of (var_name, annotation) tuples. Then-branch
+        takes precedence for type when a name appears in both branches.
+        """
+        yield_vars = self._scan_for_yields(stmt.body)
+        if stmt.orelse:
+            else_yield_vars = self._scan_for_yields(stmt.orelse)
+            then_names = {name for name, _ in yield_vars}
+            for name, annotation in else_yield_vars:
+                if name not in then_names:
+                    yield_vars.append((name, annotation))
+        return yield_vars
+
+    def _register_if_output_vars(
+        self, if_builder: Any, yield_vars: list[tuple[str, ast.expr | None]],
+    ) -> None:
+        """Register output variables from an if statement into the outer scope."""
+        if not yield_vars:
+            return
+        if_result = if_builder.get_result()
+        if hasattr(if_result, "return_vars") and if_result.return_vars:
+            for i, (var_name, _) in enumerate(yield_vars):
+                if i < len(if_result.return_vars):
+                    output_var = if_result.return_vars[i]
+                    self.scope_manager.define_var(var_name, output_var)
+
     def parse_if_statement(self, stmt: ast.If) -> None:
         """Parse if statement with phi nodes.
 
@@ -1506,83 +1448,40 @@ class ASTParser:
         Args:
             stmt: If AST node
         """
-        # Parse condition
         condition = self.parse_expression(stmt.test)
         span = self.span_tracker.get_span(stmt)
 
-        # Auto-sync: save pre-if buffer states and pending backward waits
-        if self.sync_tracker is not None:
-            self.sync_tracker.enter_if_branch()
-            # Save pending backward waits so both branches can flush them
-            import copy
-            self._pre_if_pending_backward_waits = copy.deepcopy(
-                getattr(self, "_pending_backward_waits", None)
-            )
+        if self.auto_sync is not None:
+            self.auto_sync.on_if_enter()
 
-        # Track yield output variable names from both branches
-        then_yield_vars = []
-
-        # Begin if statement
         with self.builder.if_stmt(condition, span) as if_builder:
             self.current_if_builder = if_builder
             self.in_if_stmt = True
 
-            # Save and initialize yield trackers
             prev_yield_tracker = getattr(self, "_current_yield_vars", None)
             self._current_yield_vars = []
             prev_yield_types = getattr(self, "_current_yield_types", None)
             self._current_yield_types = {}
 
-            # Scan for yield variable names (without executing)
-            then_yield_vars = self._scan_for_yields(stmt.body)
-
-            # Also scan else branch to handle yields in both branches
-            if stmt.orelse:
-                else_yield_vars = self._scan_for_yields(stmt.orelse)
-                # Merge with then branch yields (then branch takes precedence for type)
-                then_names = {name for name, _ in then_yield_vars}
-                # Add else-only yields
-                for name, annotation in else_yield_vars:
-                    if name not in then_names:
-                        then_yield_vars.append((name, annotation))
-
-            # Determine if we should leak variables (no explicit yields)
+            then_yield_vars = self._scan_and_merge_yield_vars(stmt)
             should_leak = not bool(then_yield_vars)
 
-            # Parse then branch (yield types captured via _current_yield_types)
-            # Save tuple-select cache so entries added in the then-branch
-            # don't leak into the else-branch (the phi vars are scoped to
-            # the branch where they were emitted).
             saved_tuple_cache = dict(self._tuple_select_cache)
             self.scope_manager.enter_scope("if")
             for then_stmt in stmt.body:
                 self.parse_statement(then_stmt)
             self.scope_manager.exit_scope(leak_vars=should_leak)
 
-            # Parse else branch if present
             if stmt.orelse:
-                # Auto-sync: save then-states, restore pre-if for else
-                if self.sync_tracker is not None:
-                    self.sync_tracker.enter_else_branch()
-                    # Restore pending backward waits so else branch can flush them too
-                    import copy
-                    saved = getattr(self, "_pre_if_pending_backward_waits", None)
-                    if saved is not None:
-                        self._pending_backward_waits = copy.deepcopy(saved)
-
-                # Restore tuple-select cache to pre-then state so the
-                # else branch generates its own phi vars instead of
-                # referencing ones defined only inside the then branch.
+                if self.auto_sync is not None:
+                    self.auto_sync.on_else_enter()
                 self._tuple_select_cache = saved_tuple_cache
-
                 if_builder.else_()
                 self.scope_manager.enter_scope("else")
                 for else_stmt in stmt.orelse:
                     self.parse_statement(else_stmt)
                 self.scope_manager.exit_scope(leak_vars=should_leak)
 
-            # Declare return vars AFTER parsing branches so captured yield types
-            # are available for unannotated yields (fixes issue #233 / #234)
             for var_name, annotation in then_yield_vars:
                 if annotation is not None:
                     var_type = self._resolve_yield_var_type(annotation)
@@ -1592,28 +1491,15 @@ class ASTParser:
                     var_type = self._resolve_yield_var_type(None)
                 if_builder.return_var(var_name, var_type)
 
-            # Restore previous yield trackers
             self._current_yield_vars = prev_yield_tracker
             self._current_yield_types = prev_yield_types
 
-        # Restore tuple-select cache: entries added inside either branch
-        # are not valid in the outer scope.
         self._tuple_select_cache = saved_tuple_cache
 
-        # Auto-sync: merge branch states conservatively
-        if self.sync_tracker is not None:
-            self.sync_tracker.exit_if()
+        if self.auto_sync is not None:
+            self.auto_sync.on_if_exit()
 
-        # After if statement completes, register the output variables in the outer scope
-        if then_yield_vars:
-            # Get the output variables from the if statement
-            if_result = if_builder.get_result()
-            if hasattr(if_result, "return_vars") and if_result.return_vars:
-                # Register each output variable with its name (extract name from tuple)
-                for i, (var_name, _) in enumerate(then_yield_vars):
-                    if i < len(if_result.return_vars):
-                        output_var = if_result.return_vars[i]
-                        self.scope_manager.define_var(var_name, output_var)
+        self._register_if_output_vars(if_builder, then_yield_vars)
 
         self.in_if_stmt = False
         self.current_if_builder = None
@@ -2401,6 +2287,62 @@ class ASTParser:
                     span=span,
                 )
 
+    def _retrieve_function_source(
+        self, func_name: str, fn: Callable, span: ir.Span, decorator_hint: str,
+    ) -> tuple[str, list[str], int, int, ast.FunctionDef]:
+        """Retrieve source, parse AST, and locate FunctionDef for a callable.
+
+        Returns (source_file, source_lines, line_offset, col_offset, func_def).
+        """
+        import textwrap as _tw  # noqa: PLC0415
+
+        from .decorator import _get_source_info  # noqa: PLC0415
+
+        try:
+            source_file, source_lines_raw, starting_line = _get_source_info(fn, "function")
+        except Exception as e:
+            raise UnsupportedFeatureError(
+                f"Cannot compile '{func_name}': unable to retrieve source — {e}",
+                span=span,
+                hint=f"Define '{func_name}' in a .py file, or use {decorator_hint}",
+            ) from e
+
+        source_code = _tw.dedent("".join(source_lines_raw))
+        col_offset = len(source_lines_raw[0]) - len(source_lines_raw[0].lstrip()) if source_lines_raw else 0
+        line_offset = starting_line - 1
+        source_lines = source_code.split("\n")
+
+        try:
+            tree = ast.parse(source_code)
+        except SyntaxError as e:
+            raise UnsupportedFeatureError(
+                f"Cannot parse '{func_name}': {e}",
+                span=span,
+                hint=f"Use {decorator_hint} to explicitly mark '{func_name}'",
+            ) from e
+
+        func_def = next(
+            (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == fn.__name__),
+            None,
+        )
+        if func_def is None:
+            raise UnsupportedFeatureError(
+                f"Cannot find function definition for '{func_name}' in source",
+                span=span,
+                hint=f"Use {decorator_hint} to explicitly mark '{func_name}'",
+            )
+
+        return source_file, source_lines, line_offset, col_offset, func_def
+
+    def _build_function_closure(self, fn: Callable) -> dict[str, Any]:
+        """Build closure dict from a callable's globals and free variables."""
+        fn_closure: dict[str, Any] = {**fn.__globals__}
+        if fn.__closure__ and fn.__code__.co_freevars:
+            fn_closure.update(
+                dict(zip(fn.__code__.co_freevars, (c.cell_contents for c in fn.__closure__)))
+            )
+        return fn_closure
+
     def _auto_inline_call(self, func_name: str, fn: Callable, call: ast.Call) -> ir.Expr | None:
         """Inline an unannotated plain Python function at the call site.
 
@@ -2415,55 +2357,17 @@ class ASTParser:
         Returns:
             IR expression (inlined return value)
         """
-        import textwrap as _tw  # noqa: PLC0415
-
-        from .decorator import InlineFunction, _get_source_info  # noqa: PLC0415
+        from .decorator import InlineFunction  # noqa: PLC0415
 
         span = self.span_tracker.get_span(call)
-
-        try:
-            source_file, source_lines_raw, starting_line = _get_source_info(fn, "function")
-        except Exception as e:
-            raise UnsupportedFeatureError(
-                f"Cannot auto-inline '{func_name}': unable to retrieve source — {e}",
-                span=span,
-                hint=f"Define '{func_name}' in a .py file, or use @pl.inline",
-            ) from e
-
-        source_code = _tw.dedent("".join(source_lines_raw))
-        col_offset = len(source_lines_raw[0]) - len(source_lines_raw[0].lstrip()) if source_lines_raw else 0
-        line_offset = starting_line - 1
-        source_lines = source_code.split("\n")
-
-        try:
-            tree = ast.parse(source_code)
-        except SyntaxError as e:
-            raise UnsupportedFeatureError(
-                f"Cannot parse '{func_name}': {e}",
-                span=span,
-                hint=f"Use @pl.inline to explicitly mark '{func_name}' as an inline helper",
-            ) from e
-
-        func_def = next(
-            (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == fn.__name__),
-            None,
+        source_file, source_lines, line_offset, col_offset, func_def = (
+            self._retrieve_function_source(func_name, fn, span, "@pl.inline")
         )
-        if func_def is None:
-            raise UnsupportedFeatureError(
-                f"Cannot find function definition for '{func_name}' in source",
-                span=span,
-                hint=f"Use @pl.inline to explicitly mark '{func_name}' as an inline helper",
-            )
 
         # Constraint: no nested bare-name function calls
         self._check_no_nested_calls(func_def, func_name, span)
 
-        fn_closure: dict[str, Any] = {**fn.__globals__}
-        if fn.__closure__ and fn.__code__.co_freevars:
-            fn_closure.update(
-                dict(zip(fn.__code__.co_freevars, (c.cell_contents for c in fn.__closure__)))
-            )
-
+        fn_closure = self._build_function_closure(fn)
         param_names = [a.arg for a in func_def.args.args if a.arg != "self"]
         inline_func = InlineFunction(
             name=fn.__name__,
@@ -2493,9 +2397,7 @@ class ASTParser:
         Returns:
             IR expression (func.call result)
         """
-        import textwrap as _tw
-
-        from .decorator import KernelFunction, _get_source_info  # noqa: PLC0415
+        from .decorator import KernelFunction  # noqa: PLC0415
         from .diagnostics import ParserError, ParserTypeError as _ParserTypeError  # noqa: PLC0415
 
         span = self.span_tracker.get_span(call)
@@ -2504,48 +2406,11 @@ class ASTParser:
         if fn_id in self._implicit_func_cache:
             return self._parse_func_call(func_name, self._implicit_func_cache[fn_id], call)
 
-        # Retrieve source
-        try:
-            source_file, source_lines_raw, starting_line = _get_source_info(fn, "function")
-        except Exception as e:
-            raise UnsupportedFeatureError(
-                f"Cannot compile '{func_name}': unable to retrieve source — {e}",
-                span=span,
-                hint=f"Define '{func_name}' in a .py file, or use @pl.func",
-            ) from e
-
-        source_code = _tw.dedent("".join(source_lines_raw))
-        col_offset = len(source_lines_raw[0]) - len(source_lines_raw[0].lstrip()) if source_lines_raw else 0
-        line_offset = starting_line - 1
-        source_lines = source_code.split("\n")
-
-        try:
-            tree = ast.parse(source_code)
-        except SyntaxError as e:
-            raise UnsupportedFeatureError(
-                f"Cannot parse '{func_name}': {e}",
-                span=span,
-                hint=f"Use @pl.func to explicitly mark '{func_name}' as a DSL helper",
-            ) from e
-
-        func_def = next(
-            (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == fn.__name__),
-            None,
+        source_file, source_lines, line_offset, col_offset, func_def = (
+            self._retrieve_function_source(func_name, fn, span, "@pl.func")
         )
-        if func_def is None:
-            raise UnsupportedFeatureError(
-                f"Cannot find function definition for '{func_name}' in source",
-                span=span,
-                hint=f"Use @pl.func to explicitly mark '{func_name}' as a DSL helper",
-            )
 
-        # Build closure for the function
-        fn_closure: dict[str, Any] = {**fn.__globals__}
-        if fn.__closure__ and fn.__code__.co_freevars:
-            fn_closure.update(
-                dict(zip(fn.__code__.co_freevars, (c.cell_contents for c in fn.__closure__)))
-            )
-
+        fn_closure = self._build_function_closure(fn)
         sub_parser = ASTParser(
             source_file,
             source_lines,
@@ -2840,8 +2705,9 @@ class ASTParser:
             result = op_func(*args, **kwargs, span=call_span)
             # wait_cross_core acts as a pipeline fence: all local pipes
             # complete while the core blocks waiting for the signal.
-            if op_name == "wait_cross_core" and self.sync_tracker is not None:
-                self.sync_tracker.pipeline_fence()
+            # Auto-sync: wait_cross_core acts as a pipeline fence
+            if op_name == "wait_cross_core" and self.auto_sync is not None:
+                self.auto_sync.on_pipeline_fence()
             return result
 
         raise InvalidOperationError(
@@ -2849,6 +2715,66 @@ class ASTParser:
             span=self.span_tracker.get_span(call),
             hint=f"Check if '{op_name}' is a valid system operation",
         )
+
+    def _parse_assert_op(self, call: ast.Call, call_span: ir.Span) -> ir.Expr:
+        """Parse assert_ debug operation."""
+        if call.keywords:
+            raise ParserSyntaxError(
+                "assert_ does not accept keyword arguments",
+                span=call_span,
+            )
+        if len(call.args) < 1:
+            raise ParserSyntaxError(
+                f"assert_ requires at least 1 argument (condition), got {len(call.args)}",
+                span=call_span,
+            )
+
+        condition = self.parse_expression(call.args[0])
+        condition_text = self.span_tracker.get_source_text(call.args[0])
+
+        if len(call.args) == 1:
+            return ir_op.debug.assert_(condition, condition_text=condition_text, span=call_span)
+
+        format_node = call.args[1]
+        if not isinstance(format_node, ast.Constant) or not isinstance(format_node.value, str):
+            raise ParserTypeError(
+                "assert_ message must be a string literal",
+                span=self.span_tracker.get_span(format_node),
+                hint='Use a literal like plm.assert_(cond, "bad state") or plm.assert_(cond, "x=%d", x)',
+            )
+
+        args = [self.parse_expression(arg) for arg in call.args[2:]]
+        return ir_op.debug.assert_(
+            condition,
+            format_node.value,
+            *args,
+            condition_text=condition_text,
+            span=call_span,
+        )
+
+    def _parse_printf_op(self, call: ast.Call, call_span: ir.Span) -> ir.Expr:
+        """Parse printf debug operation."""
+        if call.keywords:
+            raise ParserSyntaxError(
+                "printf does not accept keyword arguments",
+                span=call_span,
+            )
+        if len(call.args) < 1:
+            raise ParserSyntaxError(
+                f"printf requires at least a format string, got {len(call.args)} arguments",
+                span=call_span,
+            )
+
+        format_node = call.args[0]
+        if not isinstance(format_node, ast.Constant) or not isinstance(format_node.value, str):
+            raise ParserTypeError(
+                "printf format must be a string literal",
+                span=self.span_tracker.get_span(format_node),
+                hint='Use a literal like plm.printf("hello\\n") or plm.printf("x=%d\\n", value)',
+            )
+
+        args = [self.parse_expression(arg) for arg in call.args[1:]]
+        return ir_op.debug.printf(format_node.value, *args, span=call_span)
 
     def _parse_debug_op(self, op_name: str, call: ast.Call) -> ir.Expr:
         """Parse debug operation."""
@@ -2868,39 +2794,7 @@ class ASTParser:
             )
 
         if op_name == "assert_":
-            if call.keywords:
-                raise ParserSyntaxError(
-                    "assert_ does not accept keyword arguments",
-                    span=call_span,
-                )
-            if len(call.args) < 1:
-                raise ParserSyntaxError(
-                    f"assert_ requires at least 1 argument (condition), got {len(call.args)}",
-                    span=call_span,
-                )
-
-            condition = self.parse_expression(call.args[0])
-            condition_text = self.span_tracker.get_source_text(call.args[0])
-
-            if len(call.args) == 1:
-                return ir_op.debug.assert_(condition, condition_text=condition_text, span=call_span)
-
-            format_node = call.args[1]
-            if not isinstance(format_node, ast.Constant) or not isinstance(format_node.value, str):
-                raise ParserTypeError(
-                    "assert_ message must be a string literal",
-                    span=self.span_tracker.get_span(format_node),
-                    hint='Use a literal like plm.assert_(cond, "bad state") or plm.assert_(cond, "x=%d", x)',
-                )
-
-            args = [self.parse_expression(arg) for arg in call.args[2:]]
-            return ir_op.debug.assert_(
-                condition,
-                format_node.value,
-                *args,
-                condition_text=condition_text,
-                span=call_span,
-            )
+            return self._parse_assert_op(call, call_span)
 
         if op_name == "trap":
             if call.keywords:
@@ -2917,27 +2811,7 @@ class ASTParser:
             return ir_op.debug.trap(span=call_span)
 
         if op_name == "printf":
-            if call.keywords:
-                raise ParserSyntaxError(
-                    "printf does not accept keyword arguments",
-                    span=call_span,
-                )
-            if len(call.args) < 1:
-                raise ParserSyntaxError(
-                    f"printf requires at least a format string, got {len(call.args)} arguments",
-                    span=call_span,
-                )
-
-            format_node = call.args[0]
-            if not isinstance(format_node, ast.Constant) or not isinstance(format_node.value, str):
-                raise ParserTypeError(
-                    "printf format must be a string literal",
-                    span=self.span_tracker.get_span(format_node),
-                    hint='Use a literal like plm.printf("hello\\n") or plm.printf("x=%d\\n", value)',
-                )
-
-            args = [self.parse_expression(arg) for arg in call.args[1:]]
-            return ir_op.debug.printf(format_node.value, *args, span=call_span)
+            return self._parse_printf_op(call, call_span)
 
         raise InvalidOperationError(
             f"Unknown debug operation: {op_name}",
@@ -3011,16 +2885,16 @@ class ASTParser:
 
         # Ops with SSA block semantics — no explicit output tile needed.
         if op_name in self._MANUAL_AS_BLOCK_OPS:
-            # Auto-sync: emit forward sync before block ops too
-            if self.sync_tracker is not None:
-                self._emit_forward_syncs_for_manual_op(op_name, call, span)
+            # Auto-sync: emit forward sync before block ops
+            if self.auto_sync is not None:
+                self.auto_sync.emit_forward_syncs(op_name, call, span)
             return self._parse_block_op(op_name, call)
         if op_name in self._MANUAL_AS_DEBUG_OPS:
             return self._parse_debug_op(op_name, call)
 
         # Auto-sync: emit forward sync_src/sync_dst before this op
-        if self.sync_tracker is not None:
-            self._emit_forward_syncs_for_manual_op(op_name, call, span)
+        if self.auto_sync is not None:
+            self.auto_sync.emit_forward_syncs(op_name, call, span)
 
         args = [self.parse_expression(arg) for arg in call.args]
         kwargs = self._parse_op_kwargs(call)
@@ -3042,469 +2916,6 @@ class ASTParser:
         # PTO backend (which expects Var nodes for tile arguments).
 
         return result_expr
-
-    # -- auto-sync helpers ------------------------------------------------
-
-    def _extract_plm_or_block_op_name(self, call: ast.Call) -> str | None:
-        """Extract op name from a ``plm.xxx(...)`` call, or None."""
-        func = call.func
-        if (
-            isinstance(func, ast.Attribute)
-            and isinstance(func.value, ast.Name)
-            and func.value.id == "plm"
-        ):
-            return func.attr
-        return None
-
-    def _emit_forward_syncs_for_manual_op(
-        self, op_name: str, call: ast.Call, span: ir.Span,
-    ) -> None:
-        """Check for cross-pipeline deps and emit sync_src/sync_dst before a manual op."""
-        from pypto_block.frontend.sync_tracker import (
-            _OP_TILE_ACCESS,
-            _OP_TO_PIPE,
-            emit_sync_pair,
-            get_move_pipe,
-        )
-
-        # Determine pipeline for this op
-        if op_name == "move":
-            pipe = self._resolve_move_pipe(call)
-        elif op_name in ("store", "store_tile"):
-            pipe = self._resolve_store_pipe(call, op_name)
-        else:
-            pipe = _OP_TO_PIPE.get(op_name)
-        if pipe is None:
-            return
-
-        # Flush deferred backward waits for this pipe.
-        # Backward waits are deferred from loop body-start to the first op
-        # on each pipe, enabling pipeline overlap (e.g., load overlaps with
-        # previous matmul because M→MTE1 wait is deferred to before move).
-        self._flush_pending_backward_waits(pipe, span)
-
-        access = _OP_TILE_ACCESS.get(op_name)
-        if access is None:
-            return
-
-        # Collect tile names from positional args (may be str or list[str])
-        read_raw: list[str | list[str] | None] = [
-            self._extract_tile_name_from_ast(call, i) for i in access.read_indices
-        ]
-        write_raw: list[str | list[str] | None] = [
-            self._extract_tile_name_from_ast(call, i) for i in access.write_indices
-        ]
-
-        has_db = any(isinstance(n, list) for n in read_raw + write_raw)
-
-        assert self.sync_tracker is not None
-
-        if not has_db:
-            # Non-DB path (existing logic)
-            read_names = [n for n in read_raw if isinstance(n, str)]
-            write_names = [n for n in write_raw if isinstance(n, str)]
-            pairs = self.sync_tracker.record_op(pipe, read_names, write_names)
-            for pair in pairs:
-                emit_sync_pair(self.builder, pair, span)
-        else:
-            # DB path: per-slot analysis + if-else sync chain
-            self._emit_db_forward_syncs(pipe, read_raw, write_raw, call, span)
-
-    def _emit_db_forward_syncs(
-        self,
-        pipe: PipeType,
-        read_raw: list[str | list[str] | None],
-        write_raw: list[str | list[str] | None],
-        call: ast.Call,
-        span: ir.Span,
-    ) -> None:
-        """Emit forward sync for double-buffer tile tuples.
-
-        Analyzes dependencies per buffer slot independently, then emits an
-        if-else chain per (set_pipe, wait_pipe) pair so the runtime selects
-        the correct per-slot event_id.
-        """
-        import copy
-        from pypto_block.frontend.sync_tracker import SyncPair
-
-        assert self.sync_tracker is not None
-        tracker = self.sync_tracker
-
-        # Determine n_slots from the first list[str] encountered
-        n_slots = 2
-        for n in read_raw + write_raw:
-            if isinstance(n, list):
-                n_slots = len(n)
-                break
-
-        # Extract the buf_idx IR expression from the first Subscript arg
-        index_expr = self._extract_db_index_expr(call)
-        if index_expr is None:
-            return  # cannot resolve index; skip (conservative: no sync)
-
-        # Per-slot dependency analysis with state snapshots
-        saved_states = copy.deepcopy(tracker._buffer_states)
-        slot_pairs: list[list[SyncPair]] = []
-
-        for slot in range(n_slots):
-            # Restore to same starting state for each slot
-            tracker._buffer_states = copy.deepcopy(saved_states)
-            read_names = [self._resolve_slot_name(n, slot) for n in read_raw]
-            write_names = [self._resolve_slot_name(n, slot) for n in write_raw]
-            read_names = [n for n in read_names if n is not None]
-            write_names = [n for n in write_names if n is not None]
-            pairs = tracker.record_op(pipe, read_names, write_names)
-            slot_pairs.append(pairs)
-
-        # Restore and update state: union of all slots' final state
-        # After the loop, buffer states from the last slot's record_op are
-        # in tracker._buffer_states.  We need to merge all slots' tile states.
-        merged = copy.deepcopy(saved_states)
-        for slot in range(n_slots):
-            # Re-run with correct starting state to get final per-slot state
-            tracker._buffer_states = copy.deepcopy(saved_states)
-            read_names = [self._resolve_slot_name(n, slot) for n in read_raw]
-            write_names = [self._resolve_slot_name(n, slot) for n in write_raw]
-            read_names = [n for n in read_names if n is not None]
-            write_names = [n for n in write_names if n is not None]
-            # Just update state (ignore returned pairs — we already have them)
-            tracker.record_op(pipe, read_names, write_names)
-            for tile_name, state in tracker._buffer_states.items():
-                if tile_name not in saved_states or state != saved_states.get(tile_name):
-                    merged[tile_name] = copy.deepcopy(state)
-        tracker._buffer_states = merged
-
-        # Collect unique (set_pipe, wait_pipe) pairs across all slots
-        all_pipe_keys: list[tuple[PipeType, PipeType]] = []
-        seen: set[tuple[PipeType, PipeType]] = set()
-        for pairs in slot_pairs:
-            for p in pairs:
-                key = (p.set_pipe, p.wait_pipe)
-                if key not in seen:
-                    seen.add(key)
-                    all_pipe_keys.append(key)
-
-        # Emit if-else chain for each unique pipe pair
-        from pypto_block.ir.op import system_ops as ir_sys_ops
-        for set_p, wait_p in all_pipe_keys:
-            # Collect per-slot event IDs
-            slot_event_ids: list[int] = []
-            for slot, pairs in enumerate(slot_pairs):
-                matching = [p for p in pairs if p.set_pipe == set_p and p.wait_pipe == wait_p]
-                if matching:
-                    base_eid = tracker._event_allocator.forward_event_id(set_p, wait_p, n_slots=n_slots)
-                    slot_event_ids.append((base_eid + slot) % tracker._event_allocator.MAX_EVENTS)
-                else:
-                    slot_event_ids.append(-1)  # sentinel: this slot has no dep
-
-            # Build if-else chain emitting sync_src + sync_dst per slot
-            self._build_db_sync_chain(set_p, wait_p, slot_event_ids, index_expr, 0, span)
-
-    def _extract_db_index_expr(self, call: ast.Call) -> ir.Expr | None:
-        """Extract the buffer-index IR expression from the first Subscript arg."""
-        for arg in call.args:
-            if isinstance(arg, ast.Subscript) and isinstance(arg.value, ast.Name):
-                if arg.value.id in self._tile_tuple_registry:
-                    return self.parse_expression(arg.slice)
-        return None
-
-    @staticmethod
-    def _resolve_slot_name(raw: str | list[str] | None, slot: int) -> str | None:
-        """Resolve a raw tile name to a specific slot's tile name."""
-        if raw is None:
-            return None
-        if isinstance(raw, str):
-            return raw
-        # list[str] from tile tuple: pick the slot-th element
-        if slot < len(raw):
-            return raw[slot]
-        return None
-
-    def _build_db_sync_chain(
-        self,
-        set_pipe: PipeType,
-        wait_pipe: PipeType,
-        slot_event_ids: list[int],
-        index_expr: ir.Expr,
-        level: int,
-        span: ir.Span,
-    ) -> None:
-        """Recursively build if-else chain emitting sync_src+sync_dst per slot.
-
-        Generates IR like:
-            if buf_idx == 0:
-                sync_src(set_pipe, wait_pipe, event_id=slot_event_ids[0])
-                sync_dst(set_pipe, wait_pipe, event_id=slot_event_ids[0])
-            else:
-                if buf_idx == 1:
-                    sync_src(set_pipe, wait_pipe, event_id=slot_event_ids[1])
-                    sync_dst(set_pipe, wait_pipe, event_id=slot_event_ids[1])
-                else: ...
-        """
-        from pypto_block.frontend.sync_tracker import emit_sync_pair
-        from pypto_block.frontend.sync_tracker.data_structures import SyncPair
-
-        n = len(slot_event_ids)
-        eid = slot_event_ids[level]
-
-        if level == n - 1:
-            # Leaf: emit unconditionally
-            if eid >= 0:
-                pair = SyncPair(set_pipe, wait_pipe, "raw", eid)
-                emit_sync_pair(self.builder, pair, span)
-            return
-
-        if eid < 0:
-            # This slot has no dependency — skip to next
-            cond = index_expr == level
-            with self.builder.if_stmt(cond, span) as if_b:
-                pass  # empty then-branch
-                if_b.else_()
-                self._build_db_sync_chain(set_pipe, wait_pipe, slot_event_ids, index_expr, level + 1, span)
-            return
-
-        cond = index_expr == level
-        with self.builder.if_stmt(cond, span) as if_b:
-            pair = SyncPair(set_pipe, wait_pipe, "raw", eid)
-            emit_sync_pair(self.builder, pair, span)
-            if_b.else_()
-            self._build_db_sync_chain(set_pipe, wait_pipe, slot_event_ids, index_expr, level + 1, span)
-
-    def _build_db_slot_expr(
-        self, loop_var: ir.Var, step: ir.Expr, n_slots: int, span: ir.Span,
-    ) -> ir.Expr:
-        """Build ``(loop_var / step) % n_slots`` as an IR expression."""
-        div_expr = loop_var // step
-        mod_expr = div_expr % n_slots
-        return mod_expr
-
-    def _flush_pending_backward_waits(self, pipe: PipeType, span: ir.Span) -> None:
-        """Emit deferred backward waits for *pipe* and remove them from pending.
-
-        Called by ``_emit_forward_syncs_for_manual_op`` right before an op on
-        *pipe* is processed, so that the backward wait happens at the correct
-        time — e.g., ``M→MTE1`` wait is emitted before the first move (MTE1),
-        not before the first load (MTE2).
-        """
-        pending = getattr(self, "_pending_backward_waits", None)
-        if pending is None or pipe not in pending:
-            return
-        from pypto_block.frontend.sync_tracker import emit_backward_sync_dst
-        slot_expr = getattr(self, "_pending_backward_wait_slot_expr", None)
-        for dep in pending.pop(pipe):
-            if dep.n_slots > 1 and slot_expr is not None:
-                self._emit_backward_db_sync_chain(dep, slot_expr, emit_backward_sync_dst, span)
-            else:
-                emit_backward_sync_dst(self.builder, dep, span)
-
-    def _flush_all_pending_backward_waits(self, span: ir.Span) -> None:
-        """Emit ALL remaining deferred backward waits.
-
-        Called before entering a nested for-loop to ensure outer-loop backward
-        waits are emitted before the inner loop overwrites ``_pending_backward_waits``.
-        """
-        pending = getattr(self, "_pending_backward_waits", None)
-        if not pending:
-            return
-        from pypto_block.frontend.sync_tracker import emit_backward_sync_dst
-        slot_expr = getattr(self, "_pending_backward_wait_slot_expr", None)
-        for pipe in list(pending.keys()):
-            for dep in pending.pop(pipe):
-                if dep.n_slots > 1 and slot_expr is not None:
-                    self._emit_backward_db_sync_chain(dep, slot_expr, emit_backward_sync_dst, span)
-                else:
-                    emit_backward_sync_dst(self.builder, dep, span)
-
-    def _emit_backward_db_sync_chain(
-        self,
-        dep: "BackwardDep",
-        slot_expr: ir.Expr,
-        emit_fn: "Callable",
-        span: ir.Span,
-    ) -> None:
-        """Emit per-slot backward sync via if-else chain on *slot_expr*."""
-        self._build_backward_db_chain(dep, slot_expr, emit_fn, 0, span)
-
-    def _build_backward_db_chain(
-        self,
-        dep: "BackwardDep",
-        slot_expr: ir.Expr,
-        emit_fn: "Callable",
-        level: int,
-        span: ir.Span,
-    ) -> None:
-        from pypto_block.frontend.sync_tracker.data_structures import BackwardDep as BD
-        n = dep.n_slots
-        eid = (dep.event_id + level) % 8
-        slot_dep = BD(dep.first_pipe, dep.last_pipe, dep.tile_name, eid, dep.loop_depth)
-
-        if level == n - 1:
-            emit_fn(self.builder, slot_dep, span)
-            return
-
-        cond = slot_expr == level
-        with self.builder.if_stmt(cond, span) as if_b:
-            emit_fn(self.builder, slot_dep, span)
-            if_b.else_()
-            self._build_backward_db_chain(dep, slot_expr, emit_fn, level + 1, span)
-
-    def _extract_tile_name_from_ast(self, call: ast.Call, idx: int) -> str | list[str] | None:
-        """Extract tile variable name(s) from a positional arg at *idx*.
-
-        Returns:
-            ``str`` for a simple tile variable (e.g. ``tile_a``).
-            ``list[str]`` for a tile-tuple subscript (e.g. ``tile_buf[buf_idx]``),
-            containing all tile names in the tuple.
-            ``None`` if the arg cannot be resolved to a tile.
-        """
-        if idx >= len(call.args):
-            return None
-        arg = call.args[idx]
-
-        # Path 1: simple variable name → single tile
-        if isinstance(arg, ast.Name):
-            var = self.scope_manager.lookup_var(arg.id)
-            if var is None:
-                return None
-            var_type = getattr(var, "type", None)
-            if var_type is None or not isinstance(var_type, ir.TileType):
-                return None
-            return arg.id
-
-        # Path 2: tile_buf[buf_idx] subscript → all tiles in the tuple
-        if isinstance(arg, ast.Subscript) and isinstance(arg.value, ast.Name):
-            tuple_name = arg.value.id
-            if tuple_name in self._tile_tuple_registry:
-                return self._tile_tuple_registry[tuple_name]
-
-        return None
-
-    def _resolve_move_pipe(self, call: ast.Call) -> PipeType:
-        """Resolve the pipeline for a ``move`` op.
-
-        DSL signature: ``plm.move(out, tile)`` where arg0=out (target),
-        arg1=tile (source).  The pipe is determined by the source and target
-        memory spaces (e.g. Mat→Left = MTE1).
-        """
-        from pypto_block.frontend.sync_tracker import get_move_pipe
-
-        src_memory: MemorySpace | None = None
-        target_memory: MemorySpace | None = None
-        for kw in call.keywords:
-            if kw.arg == "src_memory" and isinstance(kw.value, ast.Attribute):
-                src_memory = _MEMORY_SPACE_MAP.get(kw.value.attr)
-            elif kw.arg == "target_memory" and isinstance(kw.value, ast.Attribute):
-                target_memory = _MEMORY_SPACE_MAP.get(kw.value.attr)
-        # Resolve target_memory from arg0 (out tile)
-        if target_memory is None and len(call.args) >= 1:
-            target_memory = self._resolve_tile_arg_memory_space(call.args[0])
-        # Resolve src_memory from arg1 (source tile)
-        if src_memory is None and len(call.args) >= 2:
-            src_memory = self._resolve_tile_arg_memory_space(call.args[1])
-        return get_move_pipe(src_memory, target_memory)
-
-    def _resolve_store_pipe(self, call: ast.Call, op_name: str) -> PipeType:
-        """Resolve the pipeline for a ``store`` / ``store_tile`` op.
-
-        PTOAS rules:
-        - Store from Vec (UB) → PIPE_MTE3 (TSTORE_VEC)
-        - Store from Acc (L0C) → PIPE_FIX (TSTORE_ACC)
-
-        The source tile is DSL arg[1]: ``plm.store(tensor, tile, ...)``.
-        """
-        from pypto_block.frontend.sync_tracker import get_store_pipe
-
-        # DSL convention: arg[1] is the source tile
-        src_memory: MemorySpace | None = None
-        if 1 < len(call.args):
-            src_memory = self._resolve_tile_arg_memory_space(call.args[1])
-        return get_store_pipe(src_memory)
-
-    def _resolve_tile_arg_memory_space(self, arg: ast.expr) -> MemorySpace | None:
-        """Resolve the memory space of a tile argument (Name or Subscript).
-
-        For ``ast.Name``: looks up the variable in scope and reads its
-        ``type.memref.memory_space_``.
-        For ``ast.Subscript`` (e.g. ``tile_buf[buf_idx]``): looks up the first
-        tile in the tuple from ``_tile_tuple_registry`` — all tiles in a tuple
-        share the same TileType, so any element gives the correct memory space.
-        """
-        def _get_memory_space_from_var(var_name: str) -> MemorySpace | None:
-            var = self.scope_manager.lookup_var(var_name)
-            if var is None:
-                return None
-            var_type = getattr(var, "type", None)
-            if var_type is None:
-                return None
-            # TileType stores memory space in memref.memory_space_
-            memref = getattr(var_type, "memref", None)
-            if memref is not None:
-                return getattr(memref, "memory_space_", None)
-            # Fallback: direct memory_space attribute
-            return getattr(var_type, "memory_space", None)
-
-        # Path 1: simple variable name
-        if isinstance(arg, ast.Name):
-            return _get_memory_space_from_var(arg.id)
-
-        # Path 2: tile_buf[buf_idx] — resolve from first tuple element
-        if isinstance(arg, ast.Subscript) and isinstance(arg.value, ast.Name):
-            tuple_name = arg.value.id
-            if tuple_name in self._tile_tuple_registry:
-                first_tile_name = self._tile_tuple_registry[tuple_name][0]
-                return _get_memory_space_from_var(first_tile_name)
-
-        return None
-
-    def _register_tile_region(self, var_name: str, var: ir.Var) -> None:
-        """Extract MemRef from a tile Var and register with sync tracker."""
-        from pypto_block.frontend.sync_tracker import TileRegion
-
-        var_type = var.type
-        if not isinstance(var_type, ir.TileType):
-            return
-        memref = var_type.memref
-        if memref is None:
-            return
-        addr_offset: int | None = None
-        if isinstance(memref.addr_, ir.ConstInt):
-            addr_offset = memref.addr_.value
-        region = TileRegion(
-            memory_space=memref.memory_space_,
-            addr_offset=addr_offset,
-            byte_size=memref.size_,
-        )
-        assert self.sync_tracker is not None
-        self.sync_tracker.register_tile(var_name, region)
-
-    def _verify_backward_deps(
-        self,
-        prescan_deps: list,
-        loop_ctx: object,
-    ) -> None:
-        """Warn if prescan backward deps differ from actual loop body access."""
-        import warnings
-        from pypto_block.frontend.sync_tracker import LoopContext
-
-        if not isinstance(loop_ctx, LoopContext):
-            return
-        actual_deps: set[tuple] = set()
-        for tile_name in loop_ctx.first_access:
-            first = loop_ctx.first_access[tile_name]
-            last = loop_ctx.last_access.get(tile_name, first)
-            if first != last:
-                actual_deps.add((first, last, tile_name))
-
-        prescan_set = {(d.first_pipe, d.last_pipe, d.tile_name) for d in prescan_deps}
-        missed = actual_deps - prescan_set
-        if missed:
-            for first, last, name in missed:
-                warnings.warn(
-                    f"Auto-sync: prescan missed backward dep for tile '{name}' "
-                    f"(first={first.name}, last={last.name}). "
-                    f"Consider adding manual sync.",
-                    stacklevel=2,
-                )
 
     # Maps unified op names to the scalar variant for block ops.
     # Only binary arithmetic ops have scalar auto-dispatch.
@@ -3739,6 +3150,93 @@ class ASTParser:
             hint="Supported scalar ops: min, max, index_cast",
         )
 
+    def _parse_tiling_attribute(
+        self, obj_name: str, field_name: str, span: ir.Span,
+    ) -> ir.Expr | None:
+        """Handle tiling registry lookup for attribute access.
+
+        Returns the IR expression if obj_name is a tiling param, None otherwise.
+        Raises ParserTypeError for invalid field access.
+        """
+        if obj_name not in self.tiling_registry:
+            return None
+        field_vars = self.tiling_registry[obj_name]
+        if field_name in field_vars:
+            val = field_vars[field_name]
+            if isinstance(val, list):
+                raise ParserTypeError(
+                    f"Array field '{field_name}' must be accessed with an integer index",
+                    span=span,
+                    hint=f"Use {obj_name}.{field_name}[0] through "
+                                 f"{obj_name}.{field_name}[{len(val) - 1}]",
+                )
+            return val  # scalar ir.Var
+        raise ParserTypeError(
+            f"Tiling parameter '{obj_name}' has no field '{field_name}'",
+            span=span,
+            hint=f"Valid fields are: {', '.join(field_vars.keys())}",
+        )
+
+    def _parse_struct_attribute(
+        self, obj_name: str, field_name: str, span: ir.Span,
+    ) -> ir.Expr | None:
+        """Handle struct/dynamic-struct-view attribute access.
+
+        Returns the IR expression if obj_name resolves to a struct, None otherwise.
+        """
+        obj = self.scope_manager.get_python_var(obj_name)
+        if obj is None:
+            obj = self.scope_manager.lookup_var(obj_name)
+        if isinstance(obj, _StructVar):
+            if field_name not in obj.fields:
+                raise ParserTypeError(
+                    f"Struct '{obj_name}' has no field '{field_name}'",
+                    span=span,
+                    hint=f"Available fields: {', '.join(obj.fields.keys())}",
+                )
+            if obj.name:
+                idx_zero = ir.ConstInt(0, DataType.INDEX, span)
+                return ir.create_op_call(
+                    "struct.get", [idx_zero],
+                    {"array": obj.name, "field": field_name}, span,
+                )
+            return obj.fields[field_name]
+        if isinstance(obj, _DynamicStructView):
+            if field_name not in obj.array.field_names:
+                raise ParserTypeError(
+                    f"Struct array view has no field '{field_name}'",
+                    span=span,
+                    hint=f"Available fields: {', '.join(obj.array.field_names)}",
+                )
+            return self._struct_array_field_read(obj, field_name, span)
+        return None
+
+    def _parse_struct_array_compound_attribute(
+        self, attr: ast.Attribute, span: ir.Span,
+    ) -> ir.Expr | None:
+        """Handle struct_array[idx].field compound pattern.
+
+        Returns the IR expression if matched, None otherwise.
+        """
+        if not (isinstance(attr.value, ast.Subscript) and isinstance(attr.value.value, ast.Name)):
+            return None
+        arr_name = attr.value.value.id
+        arr_obj = self.scope_manager.get_python_var(arr_name)
+        if arr_obj is None:
+            arr_obj = self.scope_manager.lookup_var(arr_name)
+        if not isinstance(arr_obj, _StructArrayVar):
+            return None
+        field_name = attr.attr
+        if field_name not in arr_obj.field_names:
+            raise ParserTypeError(
+                f"Struct array '{arr_name}' has no field '{field_name}'",
+                span=span,
+                hint=f"Available fields: {', '.join(arr_obj.field_names)}",
+            )
+        index_expr = self.parse_expression(attr.value.slice)
+        view = _DynamicStructView(arr_obj, index_expr)
+        return self._struct_array_field_read(view, field_name, span)
+
     def parse_attribute(self, attr: ast.Attribute) -> ir.Expr:
         """Parse attribute access.
 
@@ -3753,52 +3251,14 @@ class ASTParser:
             obj_name = attr.value.id
             field_name = attr.attr
 
-            # Check struct vars (python var or regular scope var)
-            obj = self.scope_manager.get_python_var(obj_name)
-            if obj is None:
-                obj = self.scope_manager.lookup_var(obj_name)
-            if isinstance(obj, _StructVar):
-                if field_name not in obj.fields:
-                    raise ParserTypeError(
-                        f"Struct '{obj_name}' has no field '{field_name}'",
-                        span=span,
-                        hint=f"Available fields: {', '.join(obj.fields.keys())}",
-                    )
-                if obj.name:
-                    # Named struct with C++ codegen — use struct.get
-                    idx_zero = ir.ConstInt(0, DataType.INDEX, span)
-                    return ir.create_op_call(
-                        "struct.get", [idx_zero],
-                        {"array": obj.name, "field": field_name}, span,
-                    )
-                return obj.fields[field_name]
-            # _DynamicStructView: struct array view passed as function argument
-            if isinstance(obj, _DynamicStructView):
-                if field_name not in obj.array.field_names:
-                    raise ParserTypeError(
-                        f"Struct array view has no field '{field_name}'",
-                        span=span,
-                        hint=f"Available fields: {', '.join(obj.array.field_names)}",
-                    )
-                return self._struct_array_field_read(obj, field_name, span)
-            if obj_name in self.tiling_registry:
-                field_vars = self.tiling_registry[obj_name]
-                if field_name in field_vars:
-                    val = field_vars[field_name]
-                    if isinstance(val, list):
-                        raise ParserTypeError(
-                            f"Array field '{field_name}' must be accessed with an integer index",
-                            span=span,
-                            hint=f"Use {obj_name}.{field_name}[0] through "
-                                         f"{obj_name}.{field_name}[{len(val) - 1}]",
-                        )
-                    return val  # scalar ir.Var
-                raise ParserTypeError(
-                    f"Tiling parameter '{obj_name}' has no field '{field_name}'",
-                    span=span,
-                    hint=f"Valid fields are: {', '.join(field_vars.keys())}",
-                )
-            # Check for pl.MemorySpace.* attribute access (nested: pl.MemorySpace.Left)
+            struct_result = self._parse_struct_attribute(obj_name, field_name, span)
+            if struct_result is not None:
+                return struct_result
+
+            tiling_result = self._parse_tiling_attribute(obj_name, field_name, span)
+            if tiling_result is not None:
+                return tiling_result
+
             if obj_name == "pl" and field_name in _MEMORY_SPACE_MAP:
                 return ir.ConstInt(_MEMORY_SPACE_MAP[field_name].value, DataType.INT64, span)
         # Check for nested attribute access like pl.MemorySpace.Left
@@ -3808,27 +3268,13 @@ class ASTParser:
                 inner_obj_name = inner_attr.value.id
                 inner_field_name = inner_attr.attr
                 outer_field_name = attr.attr
-                # Handle pl.MemorySpace.Left, pl.MemorySpace.Right, etc.
                 if inner_obj_name == "pl" and inner_field_name == "MemorySpace":
                     if outer_field_name in _MEMORY_SPACE_MAP:
                         return ir.ConstInt(_MEMORY_SPACE_MAP[outer_field_name].value, DataType.INT64, span)
         # Check for struct_array[idx].field compound pattern
-        if isinstance(attr.value, ast.Subscript) and isinstance(attr.value.value, ast.Name):
-            arr_name = attr.value.value.id
-            arr_obj = self.scope_manager.get_python_var(arr_name)
-            if arr_obj is None:
-                arr_obj = self.scope_manager.lookup_var(arr_name)
-            if isinstance(arr_obj, _StructArrayVar):
-                field_name = attr.attr
-                if field_name not in arr_obj.field_names:
-                    raise ParserTypeError(
-                        f"Struct array '{arr_name}' has no field '{field_name}'",
-                        span=span,
-                        hint=f"Available fields: {', '.join(arr_obj.field_names)}",
-                    )
-                index_expr = self.parse_expression(attr.value.slice)
-                view = _DynamicStructView(arr_obj, index_expr)
-                return self._struct_array_field_read(view, field_name, span)
+        compound_result = self._parse_struct_array_compound_attribute(attr, span)
+        if compound_result is not None:
+            return compound_result
         raise UnsupportedFeatureError(
             f"Standalone attribute access not supported: {ast.unparse(attr)}",
             span=span,
@@ -3949,6 +3395,102 @@ class ASTParser:
             if_b.return_var(result_name, elem_type, span)
         return if_b.output(0)
 
+    def _parse_tiling_array_subscript(
+        self, subscript: ast.Subscript, span: ir.Span,
+    ) -> ir.Expr | None:
+        """Handle tiling array field access: tiling.arr[i].
+
+        Returns the IR expression if this is a tiling array subscript, None otherwise.
+        """
+        if not isinstance(subscript.value, ast.Attribute):
+            return None
+        attr = subscript.value
+        if not (isinstance(attr.value, ast.Name) and attr.value.id in self.tiling_registry):
+            return None
+
+        obj_name = attr.value.id
+        field_name = attr.attr
+        field_val = self.tiling_registry[obj_name].get(field_name)
+        if isinstance(field_val, list):
+            if (not isinstance(subscript.slice, ast.Constant)
+                    or not isinstance(subscript.slice.value, int)):
+                raise UnsupportedFeatureError(
+                    "Tiling array fields only support literal integer indices",
+                    span=span,
+                    hint=f"Use a constant index like tiling.{field_name}[0]",
+                )
+            idx = subscript.slice.value
+            if idx < 0 or idx >= len(field_val):
+                raise ParserTypeError(
+                    f"Index {idx} out of bounds for array field '{field_name}' "
+                    f"(size {len(field_val)})",
+                    span=span,
+                    hint=f"Valid indices are 0 to {len(field_val) - 1}",
+                )
+            return field_val[idx]
+        if field_val is not None:
+            # Scalar field accessed with subscript — helpful error
+            raise ParserTypeError(
+                f"Scalar field '{field_name}' does not support subscript access",
+                span=span,
+                hint=f"Use tiling.{field_name} directly (no index needed)",
+            )
+        return None
+
+    def _parse_variable_index_subscript(
+        self, value_expr: ir.Expr, subscript: ast.Subscript,
+        index_expr: ir.Expr, span: ir.Span,
+    ) -> ir.Expr:
+        """Handle variable (non-constant) index subscript on tuple/tile values."""
+        value_type = value_expr.type
+        # TileType: tile[offset] → TileOffsetExpr (element offset)
+        if isinstance(value_type, ir.TileType):
+            return ir.TileOffsetExpr(value_expr, index_expr, span)
+        if not isinstance(value_type, ir.TupleType):
+            raise ParserTypeError(
+                f"Subscript requires tuple type, got {type(value_type).__name__}",
+                span=span,
+                hint="Only tuple types support subscript access in this context",
+            )
+
+        elem_types = list(value_type.types)
+        if not elem_types:
+            raise ParserTypeError(
+                "Cannot index into empty tuple",
+                span=span,
+            )
+
+        # Variable indexing requires all elements to share the same type
+        first_type = elem_types[0]
+        for i, t in enumerate(elem_types[1:], 1):
+            if not ir.structural_equal(t, first_type, enable_auto_mapping=False):
+                raise ParserTypeError(
+                    f"Variable tuple index requires all elements to have the same type, "
+                    f"but element 0 has type {first_type} and element {i} has type {t}",
+                    span=span,
+                    hint="Use a constant index to access elements of different types",
+                )
+
+        # Cache lookup: same (tuple_var_name, index_ssa_var_name) → reuse existing phi var.
+        # Applies to all tuple element types (tile, tensor, event ID, etc.).
+        cache_key: tuple[str, str] | None = None
+        if isinstance(subscript.value, ast.Name) and isinstance(index_expr, ir.Var):
+            cache_key = (subscript.value.id, index_expr.name)
+            if cache_key in self._tuple_select_cache:
+                return self._tuple_select_cache[cache_key]
+
+        result = self._build_tuple_index_chain(
+            value_expr, index_expr, first_type, len(elem_types), 0, span
+        )
+        if result is None:
+            # Single-element tuple: leaf emits directly, return TupleGetItemExpr
+            return ir.TupleGetItemExpr(value_expr, 0, span)
+
+        # Store in cache for subsequent uses of the same buf[idx]
+        if cache_key is not None:
+            self._tuple_select_cache[cache_key] = result
+        return result
+
     def parse_subscript(self, subscript: ast.Subscript) -> ir.Expr:
         """Parse subscript expression like tuple[0].
 
@@ -3965,37 +3507,9 @@ class ASTParser:
         span = self.span_tracker.get_span(subscript)
 
         # Check for tiling array field access: tiling.arr[i]
-        if isinstance(subscript.value, ast.Attribute):
-            attr = subscript.value
-            if (isinstance(attr.value, ast.Name)
-                    and attr.value.id in self.tiling_registry):
-                obj_name = attr.value.id
-                field_name = attr.attr
-                field_val = self.tiling_registry[obj_name].get(field_name)
-                if isinstance(field_val, list):
-                    if (not isinstance(subscript.slice, ast.Constant)
-                            or not isinstance(subscript.slice.value, int)):
-                        raise UnsupportedFeatureError(
-                            "Tiling array fields only support literal integer indices",
-                            span=span,
-                            hint=f"Use a constant index like tiling.{field_name}[0]",
-                        )
-                    idx = subscript.slice.value
-                    if idx < 0 or idx >= len(field_val):
-                        raise ParserTypeError(
-                            f"Index {idx} out of bounds for array field '{field_name}' "
-                            f"(size {len(field_val)})",
-                            span=span,
-                            hint=f"Valid indices are 0 to {len(field_val) - 1}",
-                        )
-                    return field_val[idx]
-                elif field_val is not None:
-                    # Scalar field accessed with subscript — helpful error
-                    raise ParserTypeError(
-                        f"Scalar field '{field_name}' does not support subscript access",
-                        span=span,
-                        hint=f"Use tiling.{field_name} directly (no index needed)",
-                    )
+        tiling_result = self._parse_tiling_array_subscript(subscript, span)
+        if tiling_result is not None:
+            return tiling_result
 
         # Check for struct array subscript: ctx_arr[idx] → _DynamicStructView
         if isinstance(subscript.value, ast.Name):
@@ -4020,55 +3534,7 @@ class ASTParser:
         else:
             # Variable index: parse as IR expression and lower to an if-else chain
             index_expr = self.parse_expression(subscript.slice)
-
-            value_type = value_expr.type
-            # TileType: tile[offset] → TileOffsetExpr (element offset)
-            if isinstance(value_type, ir.TileType):
-                return ir.TileOffsetExpr(value_expr, index_expr, span)
-            if not isinstance(value_type, ir.TupleType):
-                raise ParserTypeError(
-                    f"Subscript requires tuple type, got {type(value_type).__name__}",
-                    span=span,
-                    hint="Only tuple types support subscript access in this context",
-                )
-
-            elem_types = list(value_type.types)
-            if not elem_types:
-                raise ParserTypeError(
-                    "Cannot index into empty tuple",
-                    span=span,
-                )
-
-            # Variable indexing requires all elements to share the same type
-            first_type = elem_types[0]
-            for i, t in enumerate(elem_types[1:], 1):
-                if not ir.structural_equal(t, first_type, enable_auto_mapping=False):
-                    raise ParserTypeError(
-                        f"Variable tuple index requires all elements to have the same type, "
-                        f"but element 0 has type {first_type} and element {i} has type {t}",
-                        span=span,
-                        hint="Use a constant index to access elements of different types",
-                    )
-
-            # Cache lookup: same (tuple_var_name, index_ssa_var_name) → reuse existing phi var.
-            # Applies to all tuple element types (tile, tensor, event ID, etc.).
-            cache_key: tuple[str, str] | None = None
-            if isinstance(subscript.value, ast.Name) and isinstance(index_expr, ir.Var):
-                cache_key = (subscript.value.id, index_expr.name)
-                if cache_key in self._tuple_select_cache:
-                    return self._tuple_select_cache[cache_key]
-
-            result = self._build_tuple_index_chain(
-                value_expr, index_expr, first_type, len(elem_types), 0, span
-            )
-            if result is None:
-                # Single-element tuple: leaf emits directly, return TupleGetItemExpr
-                return ir.TupleGetItemExpr(value_expr, 0, span)
-
-            # Store in cache for subsequent uses of the same buf[idx]
-            if cache_key is not None:
-                self._tuple_select_cache[cache_key] = result
-            return result
+            return self._parse_variable_index_subscript(value_expr, subscript, index_expr, span)
 
         # Check if value is tuple type or tile type (runtime check)
         value_type = value_expr.type
