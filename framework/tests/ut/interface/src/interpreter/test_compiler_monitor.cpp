@@ -83,18 +83,18 @@ TEST_F(CompilerMonitor, CompilerMonitorRootFuncBasic)
     MonitorManager::Instance().SetRootFuncCount(4);
 
     EXPECT_EQ(MonitorManager::Instance().GetRootFuncCount(), 4);
-    EXPECT_EQ(MonitorManager::Instance().GetCurrentRootFuncIndex(), 0);
-    EXPECT_EQ(MonitorManager::Instance().GetCurrentRootFuncName(), "");
 
     int idx1 = MonitorManager::Instance().PrepareNextRootFunc("func_A");
     EXPECT_EQ(idx1, 1);
-    EXPECT_EQ(MonitorManager::Instance().GetCurrentRootFuncIndex(), 1);
-    EXPECT_EQ(MonitorManager::Instance().GetCurrentRootFuncName(), "func_A");
 
     int idx2 = MonitorManager::Instance().PrepareNextRootFunc("func_B");
     EXPECT_EQ(idx2, 2);
-    EXPECT_EQ(MonitorManager::Instance().GetCurrentRootFuncIndex(), 2);
-    EXPECT_EQ(MonitorManager::Instance().GetCurrentRootFuncName(), "func_B");
+
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN);
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, idx1, "func_A");
+
+    MonitorManager::Instance().StartStage(STAGE_FUNC_TO_BIN);
+    MonitorManager::Instance().EndStage(STAGE_FUNC_TO_BIN, idx2, "func_B");
 
     MonitorManager::Instance().NotifyCompilationFinished();
 }

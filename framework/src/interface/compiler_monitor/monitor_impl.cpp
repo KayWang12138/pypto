@@ -216,20 +216,6 @@ void MonitorImpl::MonitorLoop()
                     (void)fflush(stdout);
                     COMPILER_LOGI("%s", interval_msg.c_str());
                 }
-            } else if (stage == STAGE_FUNC_TO_BIN) {
-                int current_root_k = manager_->GetCurrentRootFuncIndex();
-                int total_root_n = manager_->GetRootFuncCount();
-                std::string current_root_func = manager_->GetCurrentRootFuncName();
-                if (curr_stage_elapsed >= pre_cost) {
-                    interval_msg = "  |__ [Compiler Monitor] RootFunc(parallel): " + std::to_string(current_root_k) +
-                                   "/" + std::to_string(total_root_n) + " | Stage: CodeGen[" + stage + "]" +
-                                   "(processing) | Stage elapsed: " + FormatElapsed(curr_stage_elapsed) +
-                                   " | Total elapsed: " + FormatElapsed(total_elapsed) + " | RootFunc:[" +
-                                   current_root_func + "]";
-                    (void)fprintf(stdout, "%s\n", interval_msg.c_str());
-                    (void)fflush(stdout);
-                    COMPILER_LOGI("%s", interval_msg.c_str());
-                }
             } else {
                 // CodeGen
                 if (curr_stage_elapsed >= pre_cost) {
