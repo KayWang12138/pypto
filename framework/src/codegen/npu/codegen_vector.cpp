@@ -216,7 +216,40 @@ std::string CodeGenOpNPU::PrintPermuteLayout() const
 
 std::string CodeGenOpNPU::GenPermuteOp() const { return PrintPermuteLayout(); }
 
-std::string CodeGenOpNPU::GenTransposeDataMove() const
+std::string CodeGenOpCloudNPU::GenTransData() const
+{
+    auto transDataAttr = opAttrs.at(OpAttributeKey::loopAxes);
+    const auto& tileParams = AnyCast<std::vector<SymbolicScalar>>(transDataAttr);
+    std::vector<std::string> tileParamsStr = {};
+    for (auto tileParam : tileParams) {
+        auto tmpExpr = AnyCast<SymbolicScalar>(tileParam);
+        tileParamsStr.push_back("(int)(" + SymbolicExpressionTable::BuildExpression(tmpExpr) + ")");
+    }
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "TransData only support TileTensor mode";
+
+    return PrintTransDataLayout(tileParamsStr);
+}
+
+std::string CodeGenOpCloudNPU::PrintTransDataLayout(const std::vector<std::string>& param) const
+{
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
+    std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
+    std::string tmpDstTensor = QueryTileTensorNameByIdx(ID1);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID2);
+
+    std::string inputTensor = QueryTileTensorNameByIdx(ID3);
+    std::vector<std::string> paramList = {dstTensor, coord, tmpDstTensor, tmpTensor, inputTensor};
+    paramList.insert(paramList.end(), param.begin(), param.begin() + 4);
+    std::vector<std::string> templateParam(param.begin() + 4, param.end());
+
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByAngleBrackets(templateParam) << WrapParamByParentheses(paramList) << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenTransposeDataMove() const
 {
     bool isCopyLocalToGM = opCode == Opcode::OP_TRANSPOSE_MOVEOUT;
     unsigned gmIdx = isCopyLocalToGM ? 0 : 1;

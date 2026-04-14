@@ -443,6 +443,7 @@ public:
             Opcode::OP_INDEX_ADD,
             Opcode::OP_TRANSPOSE_MOVEIN,
             Opcode::OP_TRANSPOSE_MOVEOUT,
+            Opcode::OP_NCHW2NC1HWC0,
             Opcode::OP_FFN_SCHED,
             Opcode::OP_FFN_BATCHING,
             Opcode::OP_FFN_COMBINEINFO,
