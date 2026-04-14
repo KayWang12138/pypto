@@ -452,6 +452,15 @@ public:
         return cceBinary[callList[opIndex]].mixResourceType;
     }
 
+    inline int32_t GetMixTaskIdx(uint32_t coreType, int32_t wrapVecId)
+    {
+        if (coreType == static_cast<uint32_t>(CoreType::AIC)) {
+            return WRAP_IDX_AIC;
+        } else {
+            return wrapVecId == 1 ? WRAP_IDX_AIV1 : WRAP_IDX_AIV0;
+        }
+    }
+
     inline int32_t GetMixTaskIdx(uint32_t taskId)
     {
         auto dyntask = reinterpret_cast<DynDeviceTask*>(curDevTask_);
@@ -459,13 +468,9 @@ public:
         auto opIndex = TaskID(taskId);
         auto cceBinary = dyntask->cceBinary;
         auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
-        auto coreType = static_cast<CoreType>(cceBinary[callList[opIndex]].coreType);
+        auto coreType = cceBinary[callList[opIndex]].coreType;
         auto wrapVecId = cceBinary[callList[opIndex]].wrapVecId;
-        if (coreType == CoreType::AIC) {
-            return WRAP_IDX_AIC;
-        } else {
-            return wrapVecId == 1 ? WRAP_IDX_AIV1 : WRAP_IDX_AIV0;
-        }
+        return GetMixTaskIdx(coreType, wrapVecId);
     }
 
     bool IsBindedWrapId(uint32_t taskId)
@@ -487,7 +492,7 @@ public:
         return nullptr;
     }
 
-    inline void PushTaskToTasklist(uint32_t wrapId, uint32_t taskId, uint32_t taskIdx)
+    inline void PushTaskToTasklist(uint32_t wrapId, uint32_t taskId, uint32_t taskIdx, uint8_t mixResourceType)
     {
         uint32_t tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_RELAXED);
         WrapInfo* wrapInfo = findWrapInfo(0, tail, wrapId);
@@ -510,7 +515,7 @@ public:
         WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
 
         wrapInfo->wrapId = wrapId;
-        wrapInfo->mixResourceType = GetMixResourceType(taskId);
+        wrapInfo->mixResourceType = mixResourceType;
         for (uint32_t i = 0; i < MAX_WRAP_TASK_NUM; i++) {
             wrapInfo->tasklist[i] = AICORE_TASK_INIT;
             wrapInfo->aicoreIdxList[i] = 0;
@@ -518,36 +523,34 @@ public:
         wrapInfo->tasklist[taskIdx] = taskId;
     }
 
-    inline void ResolveDepForMixCore(uint32_t taskId)
+    inline void ResolveDepForMixCore(uint32_t taskId, const DevCceBinary* cceBinary)
     {
         // resolve dep, if has available core, send task directly, else call PushTaskToTasklist, try to send task in
         // next loop
         uint32_t wrapId = GetWrapId(taskId);
         DEV_VERBOSE_DEBUG("taskId = %u, wrapId = %u", taskId, wrapId);
-
+        int32_t taskIdx = GetMixTaskIdx(cceBinary->coreType, cceBinary->wrapVecId);
 #ifdef NO_EARLY_SEND_TASK
-        PushTaskToTasklist(wrapId, taskId, GetMixTaskIdx(taskId));
+        PushTaskToTasklist(wrapId, taskId, taskIdx, cceBinary->mixResourceType);
         return;
 #endif
         WrapInfo* wrapInfo = nullptr;
         for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
-            if (reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx])->wrapId == wrapId) {
-                wrapInfo = reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx]);
+            auto info = reinterpret_cast<WrapInfo*>(wrapQueueForThread_.elem[idx]);
+            if (info->wrapId == wrapId) {
+                wrapInfo = info;
                 break;
             }
         }
 
-        int32_t taskIdx = GetMixTaskIdx(taskId);
-
         if (wrapInfo == nullptr) { // the wrap is not in this thread
             DEV_VERBOSE_DEBUG("the wrapId %u is not in this thread, push taskId %u to tasklist", wrapId, taskId);
-            PushTaskToTasklist(wrapId, taskId, taskIdx);
+            PushTaskToTasklist(wrapId, taskId, taskIdx, cceBinary->mixResourceType);
             return;
         }
 
-        CoreType coreType = taskIdx == WRAP_IDX_AIC ? CoreType::AIC : CoreType::AIV;
         DEV_VERBOSE_DEBUG("directly send taskId %u to core, core type idx: %d", taskId, taskIdx);
-        SendTaskToAiCore(schDevTaskCtx, coreType, wrapInfo->aicoreIdxList[taskIdx], taskId);
+        SendTaskToAiCore(schDevTaskCtx, static_cast<CoreType>(cceBinary->coreType), wrapInfo->aicoreIdxList[taskIdx], taskId);
     }
 
     inline void UpdateFinishIdForMixCore(uint32_t finishId)
