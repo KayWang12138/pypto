@@ -10,14 +10,16 @@
 # -----------------------------------------------------------------------------------------------------------
 
 """
-QuantGroupedMatmulInplaceAdd with MX Quantization (New Frontend)
+Grouped Matrix Multiplication with MXFP8 Quantization (New Frontend)
 
-This module implements grouped matrix multiplication with inplace add and MXFP8 quantization using PyPTO new frontend.
-Designed for micro-batch training scenarios for efficient gradient accumulation.
+This module implements grouped matrix multiplication with MXFP8 quantization using PyPTO new frontend.
+Supports grouped GEMM operations with different weight groups and MXFP8 quantization format.
 """
 
+import math
 from dataclasses import dataclass
 
+import numpy as np
 import pypto
 import torch
 import torch_npu
@@ -25,200 +27,431 @@ from numpy.testing import assert_allclose
 
 
 @dataclass
-class QuantGroupedMatmulInplaceAddConfig:
+class GmmGoldenInputs:
     """
-    Configuration parameters for quantized grouped matmul inplace add operation.
+    Input parameters for generating golden result in grouped matrix multiplication.
 
     Attributes:
-        ori_shape: Original shape [M, K, N]
-        num_groups: Number of groups for computation
-        m_tile_shape: Tile shape for M dimension in cube operation
-        k_tile_shape: Tile shape for K dimension in cube operation
-        n_tile_shape: Tile shape for N dimension in cube operation
-        vec_tile_shape: Tile shapes for vector operations
-        x1_dtype: Data type for x1 (default: DT_FP8E5M2)
-        x2_dtype: Data type for x2 (default: DT_FP8E5M2)
-        scale_dtype: Data type for scale (default: DT_FP8E8M0)
-        out_dtype: Output data type (default: DT_FP32)
-        description: Description of the test case
+        a: Input tensor of shape [M, K]
+        b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
+        scaled_a: Scale factors for input tensor
+        scaled_b:: Scale factors for weight tensor
+        group_list: List of group sizes for each weight group
+        a_trans: Whether input tensor is transposed
+        b_trans: Whether weight tensor is transposed
     """
-    ori_shape: list
-    num_groups: int
-    m_tile_shape: list
-    k_tile_shape: list
-    n_tile_shape: list
-    vec_tile_shape: list
-    x1_dtype: pypto.DataType = pypto.DT_FP8E5M2
-    x2_dtype: pypto.DataType = pypto.DT_FP8E5M2
-    scale_dtype: pypto.DataType = pypto.DT_FP8E8M0
-    out_dtype: pypto.DataType = pypto.DT_FP32
-    description: str = ""
+    a: torch.Tensor
+    b: torch.Tensor
+    scaled_a: torch.Tensor
+    scaled_b: torch.Tensor
+    group_list: list
+    a_trans: bool
+    b_trans: bool
 
 
-def quant_grouped_matmul_inplace_add_pypto(config: QuantGroupedMatmulInplaceAddConfig):
+@dataclass
+class GmmMxfp8Inputs:
     """
-    Create quantized grouped matmul inplace add kernel using PyPTO.
+    Input parameters for generating MXFP8 output.
+
+    Attributes:
+        a: Input tensor of shape [M, K]
+        b: Weight tensor of shape [num_groups, K, N] or [num_groups, N, K]
+        scaled_a: Scale factors for input tensor
+        scaled_b: Scale factors for weight tensor
+        group_list: List of group sizes for each weight group
+        tile_config: Tile configuration for computation
+    """
+    a: torch.Tensor
+    b: torch.Tensor
+    scaled_a: torch.Tensor
+    scaled_b: torch.Tensor
+    group_list: list
+    tile_config: 'ShapeConfig'
+
+
+@dataclass
+class GoldenComputeInputs:
+    """
+    Input parameters for computing golden result in matrix multiplication.
+
+    Attributes:
+        x: Input tensor of shape [M, K] or [K, M] if transposed
+        weight: Weight tensor of shape [K, N] or [N, K] if transposed
+        scaled_x: Scale factors for input tensor
+        scaled_weight: Scale factors for weight tensor
+        a_trans: Whether input tensor is transposed
+        b_trans: Whether weight tensor is transposed
+    """
+    x: torch.Tensor
+    weight: torch.Tensor
+    scaled_x: torch.Tensor
+    scaled_weight: torch.Tensor
+    a_trans: bool
+    b_trans: bool
+
+
+def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
+    """
+    Compute golden (reference) result for a single group's matrix multiplication.
 
     Args:
-        config: Configuration parameters for the operation
+        inputs: Input parameters including tensors and transposition flags
 
     Returns:
-        function: JIT-compiled kernel function
+        torch.Tensor: Golden output tensor
     """
-    m, k, n = config.ori_shape
-    num_groups = config.num_groups
-    k_blocks = k // 64
+    x = inputs.x
+    weight = inputs.weight
+    scaled_x_golden = inputs.scaled_x
+    scaled_weight_golden = inputs.scaled_weight
+    a_trans = inputs.a_trans
+    b_trans = inputs.b_trans
 
-    x1_shape = [k, m]
-    x2_shape = [k, n]
-    scale1_shape = [k_blocks + num_groups, m, 2]
-    scale2_shape = [k_blocks + num_groups, n, 2]
-    y_shape = [num_groups, m, n]
-
-    @pypto.frontend.jit()
-    def quant_grouped_matmul_inplace_add_impl(
-        x1: pypto.Tensor(x1_shape, config.x1_dtype),
-        x2: pypto.Tensor(x2_shape, config.x2_dtype),
-        scale1: pypto.Tensor(scale1_shape, config.scale_dtype),
-        scale2: pypto.Tensor(scale2_shape, config.scale_dtype),
-        y: pypto.Tensor(y_shape, config.out_dtype)
-    ) -> pypto.Tensor(y_shape, config.out_dtype):
-        pypto.set_cube_tile_shapes(
-            config.m_tile_shape,
-            config.k_tile_shape,
-            config.n_tile_shape
-        )
-        pypto.set_vec_tile_shapes(
-            config.vec_tile_shape[0],
-            config.vec_tile_shape[1],
-            config.vec_tile_shape[2],
-            config.vec_tile_shape[3]
-        )
-
-        for i in range(num_groups):
-            scale1_slice = scale1[i * k_blocks : (i + 1) * k_blocks]
-            scale2_slice = scale2[i * k_blocks : (i + 1) * k_blocks]
-            mm_result = pypto.scaled_mm(
-                x1, x2, config.out_dtype,
-                scale1_slice, scale2_slice,
-                a_trans=True, b_trans=False
+    # Handle input transposition
+    if a_trans:
+        x = torch.swapaxes(x, -1, -2)
+        scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
+        if len(scaled_x_golden.shape) == 3:
+            scaled_x_golden = scaled_x_golden.reshape(
+                scaled_x_golden.shape[0] * scaled_x_golden.shape[1], scaled_x_golden.shape[2]
             )
-            y[i] = pypto.add(y[i], mm_result)
+        scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
+    else:
+        if len(scaled_x_golden.shape) == 3:
+            scaled_x_golden = scaled_x_golden.reshape(
+                scaled_x_golden.shape[0], scaled_x_golden.shape[1] * scaled_x_golden.shape[2]
+            )
 
-        return y
+    # Handle weight transposition
+    if b_trans:
+        weight = torch.swapaxes(weight, -1, -2)
+        if len(scaled_weight_golden.shape) == 3:
+            scaled_weight_golden = scaled_weight_golden.reshape(
+                scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
+                scaled_weight_golden.shape[2]
+            )
+        scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
+    else:
+        scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
+        if len(scaled_weight_golden.shape) == 3:
+            scaled_weight_golden = scaled_weight_golden.reshape(
+                scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
+                scaled_weight_golden.shape[2]
+            )
 
-    return quant_grouped_matmul_inplace_add_impl
+    # Adjust scales for K dimension alignment
+    k_dim = x.shape[-1]
+    if math.ceil(k_dim / 32) % 2 != 0:
+        scaled_x_golden = scaled_x_golden[:, :-1]
+        scaled_weight_golden = scaled_weight_golden[:-1, :]
+
+    # Broadcast scale factors
+    scaled_x_golden_broadcast = torch.repeat_interleave(scaled_x_golden, repeats=32, dim=-1)
+    scaled_weight_golden_broadcast = torch.repeat_interleave(scaled_weight_golden, repeats=32, dim=-2)
+
+    # Calculate padding lengths
+    x1_dims = len(x.shape)
+    x2_dims = len(weight.shape)
+    x1_pad_len = scaled_x_golden_broadcast.shape[-1] - x.shape[-1]
+    x2_pad_len = scaled_weight_golden_broadcast.shape[-2] - weight.shape[-2]
+
+    # Pad input tensor
+    x1_pad = [0, x1_pad_len]
+    for _ in range(x1_dims - 1):
+        x1_pad += [0, 0]
+    x1_golden = torch.nn.functional.pad(x, x1_pad, mode='constant', value=0)
+
+    # Pad weight tensor
+    weight_pad = [0, 0]
+    weight_pad += [0, x2_pad_len]
+    for _ in range(x2_dims - 2):
+        weight_pad += [0, 0]
+    weight_golden = torch.nn.functional.pad(weight, weight_pad, mode='constant', value=0)
+
+    # Apply scaling factors
+    x_fp32 = x.to(torch.float32)
+    scaled_x_golden_broadcast_fp32 = scaled_x_golden_broadcast.to(torch.float32)
+    x1_golden = x_fp32 * scaled_x_golden_broadcast_fp32
+
+    weight_fp32 = weight.to(torch.float32)
+    scaled_weight_golden_broadcast_fp32 = scaled_weight_golden_broadcast.to(torch.float32)
+    weight_golden = weight_fp32 * scaled_weight_golden_broadcast_fp32
+
+    # Compute matrix multiplication
+    golden = torch.matmul(x1_golden, weight_golden)
+
+    return golden
 
 
-def gen_golden_output(
-    x1: torch.Tensor,
-    x2: torch.Tensor,
-    scale1: torch.Tensor,
-    scale2: torch.Tensor,
-    y: torch.Tensor,
-    config: QuantGroupedMatmulInplaceAddConfig
-) -> torch.Tensor:
+def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     """
-    Generate golden (reference) output using PyTorch.
+    Generate golden (reference) output for grouped matrix multiplication using PyTorch.
 
     Args:
-        x1: Input matrix 1 of shape [K, M]
-        x2: Input matrix 2 of shape [K, N]
-        scale1: Scale factors for x1 of shape [(K/64) + num_groups, M, 2]
-        scale2: Scale factors for x2 of shape [(K/64) + num_groups, N, 2]
-        y: Output matrix of shape [num_groups, M, N]
-        config: Configuration parameters
+        inputs: Input parameters including tensors, scales, and transposition flags
 
     Returns:
         torch.Tensor: Golden output tensor of shape [num_groups, M, N]
     """
-    m, k, n = config.ori_shape
-    num_groups = config.num_groups
-    k_blocks = k // 64
-    gsK = 64
+    a = inputs.a
+    b = inputs.b
+    scaled_a = inputs.scaled_a
+    scaled_b = inputs.scaled_b
+    group_list = inputs.group_list
+    a_trans = inputs.a_trans
+    b_trans = inputs.b_trans
 
-    x1_fp32 = x1.to(torch.float32)
-    x2_fp32 = x2.to(torch.float32)
-    golden_result = y.clone()
+    round_num = b.shape[0]
+    m = a.shape[0] if not a_trans else a.shape[1]
+    n = b.shape[-1] if not b_trans else b.shape[1]
+    golden_result = torch.zeros((round_num, m, n), dtype=torch.float32)
+    begin = 0
+    end = 0
 
-    for i in range(num_groups):
-        scale1_group = scale1[i * k_blocks : (i + 1) * k_blocks]
-        scale2_group = scale2[i * k_blocks : (i + 1) * k_blocks]
+    for i in range(round_num):
+        if group_list[i] <= 0:
+            continue
+        begin = end
+        end = end + group_list[i]
 
-        scale1_fp32 = scale1_group.to(torch.float32)
-        scale2_fp32 = scale2_group.to(torch.float32)
-
-        if k_blocks > 0:
-            scale1_broadcast = torch.repeat_interleave(scale1_fp32[:, :, 0], repeats=gsK, dim=0)
-            scale2_broadcast = torch.repeat_interleave(scale2_fp32[:, :, 0], repeats=gsK, dim=0)
-
-            if scale1_broadcast.shape[0] > k:
-                scale1_broadcast = scale1_broadcast[:k]
-            if scale2_broadcast.shape[0] > k:
-                scale2_broadcast = scale2_broadcast[:k]
-
-            x1_scaled = x1_fp32 * scale1_broadcast.unsqueeze(1)
-            x2_scaled = x2_fp32 * scale2_broadcast.unsqueeze(1)
+        # Extract input and weight for current group (切分 K 轴)
+        if a_trans:
+            x = a[begin:end, :]
         else:
-            x1_scaled = x1_fp32
-            x2_scaled = x2_fp32
+            x = a[:, begin:end]
+        weight = b[i]
 
-        mm_result = torch.matmul(x1_scaled.T, x2_scaled)
-        golden_result[i] = golden_result[i] + mm_result
+        if a_trans:
+            scaled_x_golden = scaled_a[begin // 64 : end // 64, :, :]
+        else:
+            scaled_x_golden = scaled_a[:, begin // 64 : end // 64, :]
+        scaled_weight_golden = scaled_b[i]
+
+        # Compute golden result for this group
+        golden_temp = compute_golden_result(
+            GoldenComputeInputs(
+                x=x,
+                weight=weight,
+                scaled_x=scaled_x_golden,
+                scaled_weight=scaled_weight_golden,
+                a_trans=a_trans,
+                b_trans=b_trans,
+            )
+        )
+        golden_result[i] = golden_temp
 
     return golden_result
 
 
-def run_quant_grouped_matmul_inplace_add_case(config: QuantGroupedMatmulInplaceAddConfig):
+@dataclass
+class ShapeConfig:
     """
-    Test the quantized grouped matmul inplace add implementation.
+    Configuration parameters for grouped matrix multiplication with MXFP8 quantization.
+
+    Attributes:
+        ori_shape: Original shape [M, K, N]
+        group_list: List of group sizes for each weight group
+        tile_size: Tile size for computation
+        m_tile_shape: Tile shape for M dimension in cube operation
+        k_tile_shape: Tile shape for K dimension in cube operation
+        n_tile_shape: Tile shape for N dimension in cube operation
+        vector_tile_shape: Tile shapes for vector operations
+        a_trans: Whether input tensor is transposed (default: False)
+        b_trans: Whether weight tensor is transposed (default: False)
+        a_format_nz: Whether input uses NZ format (default: False)
+        b_format_nz: Whether weight uses NZ format (default: False)
+        c_format_nz: Whether output uses NZ format (default: False)
+        description: Description of the test case
+    """
+    ori_shape: list
+    group_list: list
+    tile_size: int
+    m_tile_shape: list
+    k_tile_shape: list
+    n_tile_shape: list
+    vector_tile_shape: list
+    a_trans: bool = False
+    b_trans: bool = False
+    a_format_nz: bool = False
+    b_format_nz: bool = False
+    c_format_nz: bool = False
+    description: str = ""
+
+
+@pypto.frontend.jit
+def scaled_matmul_kernel(
+    a: pypto.Tensor(),
+    b: pypto.Tensor(),
+    scaled_a: pypto.Tensor(),
+    scaled_b: pypto.Tensor(),
+    y: pypto.Tensor(),
+    group_list: list,
+    tile_config: ShapeConfig
+):
+    """
+    Scaled matrix multiplication kernel for grouped GEMM with MXFP8 quantization.
+
+    This kernel performs grouped matrix multiplication where each group uses
+    a different K-axis block from input tensor, with MXFP8 quantization.
 
     Args:
-        config: Configuration parameters for the test case
+        a: Input tensor [M, K]
+        b: Weight tensor containing multiple weight groups [num_groups, K_block, N]
+        scaled_a: Scale factors for input tensor
+        scaled_b: Scale factors for weight tensor
+        y: Output tensor [num_groups, M, N]
+        group_list: List of group sizes for K-axis splitting
+        tile_config: Tile configuration for computation
     """
-    m, k, n = config.ori_shape
-    num_groups = config.num_groups
-    k_blocks = k // 64
+    round_num = b.shape[0]
+    begin = 0
+    end = 0
 
-    torch.manual_seed(42)
+    for i in range(round_num):
+        begin = end
+        end = end + group_list[i]
 
-    x1 = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e5m2).npu()
-    x2 = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e5m2).npu()
-    y = torch.randn((num_groups, m, n), dtype=torch.float32).npu()
-    y_golden = y.clone()
+        # Extract input for current group (切分 K 轴)
+        x = a[:, begin:end]
+        weight = b[i]
+        scaled_x = scaled_a[:, begin // 64 : end // 64, :]
 
-    scale1 = torch.ones(
-        (k_blocks + num_groups, m, 2),
-        dtype=torch.float8_e8m0fnu
-    ).npu()
-    scale2 = torch.ones(
-        (k_blocks + num_groups, n, 2),
-        dtype=torch.float8_e8m0fnu
-    ).npu()
+        # Set vector tile shapes for scale processing
+        pypto.set_vec_tile_shapes(
+            tile_config.vector_tile_shape[0],
+            tile_config.vector_tile_shape[1],
+            tile_config.vector_tile_shape[2],
+            tile_config.vector_tile_shape[3]
+        )
+        scaled_weight = scaled_b[i]
 
-    kernel = quant_grouped_matmul_inplace_add_pypto(config)
-    pypto_out = kernel(x1, x2, scale1, scale2, y)
+        # Set cube tile shapes and perform scaled matrix multiplication
+        pypto.set_cube_tile_shapes(
+            tile_config.m_tile_shape,
+            tile_config.k_tile_shape,
+            tile_config.n_tile_shape
+        )
+        y[i] = pypto.scaled_mm(x, weight, pypto.DT_FP32, scaled_x, scaled_weight)
 
-    golden_out = gen_golden_output(
-        x1.cpu(), x2.cpu(), scale1.cpu(), y_golden.cpu(), config
-    )
 
-    pypto_out_cpu = pypto_out.cpu().float()
-    golden_out_cpu = golden_out.cpu().float()
+def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
+    """
+    Generate MXFP8 output using PyPTO scaled matrix multiplication with new frontend.
 
-    assert_allclose(pypto_out_cpu, golden_out_cpu, rtol=1e-3, atol=1e-3)
-    print(f"Test passed: {config.description}")
+    Args:
+        inputs: Input parameters including tensors, scales, group list and tile config
+
+    Returns:
+        torch.Tensor: Output tensor of shape [num_groups, M, N] in FP32
+    """
+    a = inputs.a
+    b = inputs.b
+    scaled_a = inputs.scaled_a
+    scaled_b = inputs.scaled_b
+    group_list = inputs.group_list
+    tile_config = inputs.tile_config
+
+    # Move tensors to NPU
+    a = a.npu()
+    b = b.npu()
+    scaled_a = scaled_a.npu()
+    scaled_b = scaled_b.npu()
+
+    # Initialize output tensor [num_groups, M, N]
+    num_groups = len(group_list)
+    m = a.shape[0]
+    n = b.shape[-1]
+    y = torch.zeros((num_groups, m, n), dtype=torch.float32).npu()
+
+    # Execute scaled matrix multiplication kernel with new frontend
+    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, group_list, tile_config)
+
+    y = y.to(torch.float32)
+    return y
+
+
+def test_gmm_mxfp8(tile_config: ShapeConfig):
+    """
+    Test the grouped matrix multiplication with MXFP8 quantization.
+
+    This function runs a complete test for a given configuration:
+    1. Generate test data with MXFP8 format
+    2. Compute golden (reference) output using PyTorch
+    3. Compute output using PyPTO
+    4. Compare results
+
+    Args:
+        tile_config: Configuration parameters for the test case
+    """
+    # Extract configuration parameters
+    m = tile_config.ori_shape[0]
+    k = tile_config.ori_shape[1]
+    n = tile_config.ori_shape[2]
+    a_trans = tile_config.a_trans
+    b_trans = tile_config.b_trans
+    group_list = tile_config.group_list
+    num_groups = len(group_list)
+
+    # Generate input tensor in MXFP8 format
+    a = torch.randn((m, k), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
+    scaled_a = torch.randn((m, k // 64, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+
+    # Generate weight tensor in MXFP8 format (按 K 轴切分，每个 group 的 K 维度为 group_list[i])
+    b_list = []
+    scaled_b_list = []
+    for i in range(num_groups):
+        k_block = group_list[i]
+        if b_trans:
+            b_i = torch.randn((n, k_block), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
+            scaled_b_i = torch.randn((n, k_block // 64, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+        else:
+            b_i = torch.randn((k_block, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
+            scaled_b_i = torch.randn((k_block // 64, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+        b_list.append(b_i)
+        scaled_b_list.append(scaled_b_i)
+    
+    b = torch.stack(b_list, dim=0)
+    scaled_b = torch.stack(scaled_b_list, dim=0)
+
+    # Compute golden and PyPTO results
+    golden = gen_golden(GmmGoldenInputs(
+        a=a,
+        b=b,
+        scaled_a=scaled_a,
+        scaled_b=scaled_b,
+        group_list=group_list,
+        a_trans=a_trans,
+        b_trans=b_trans,
+    ))
+    result = gen_mxfp8(GmmMxfp8Inputs(
+        a=a,
+        b=b,
+        scaled_a=scaled_a,
+        scaled_b=scaled_b,
+        group_list=group_list,
+        tile_config=tile_config,
+    ))
+
+    # Verify results
+    assert_allclose(golden.cpu().numpy(), result.cpu().numpy(), rtol=1e-3, atol=1e-3)
 
 
 if __name__ == "__main__":
-    run_quant_grouped_matmul_inplace_add_case(
-        QuantGroupedMatmulInplaceAddConfig(
-            ori_shape=[16, 64, 16],
-            num_groups=2,
-            m_tile_shape=[16, 16],
-            k_tile_shape=[64, 64],
-            n_tile_shape=[16, 16],
-            vec_tile_shape=[1, 8, 256, 32],
-            description="Basic test with 2 groups"
+    test_gmm_mxfp8(
+        ShapeConfig(
+            [16, 512, 7168],
+            [256, 256],
+            256,
+            [16, 16],
+            [256, 256],
+            [256, 256],
+            [1, 8, 256, 32],
+            False,
+            False,
+            False,
+            False,
+            False,
+            "Test with K-axis splitting: K=512 split into [256, 256]"
         )
     )
