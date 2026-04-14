@@ -64,6 +64,55 @@ const char KERNEL_HEADER_SINGLE[] = R"(
 using namespace pto;
 )";
 
+namespace {
+
+bool IsNZTensorType(const ir::TensorTypePtr& tensor_type) {
+  return tensor_type && tensor_type->tensor_view_.has_value() &&
+         tensor_type->tensor_view_->layout == ir::TensorLayout::NZ;
+}
+
+int64_t GetNZInnerCols(const DataType& dtype) {
+  if (dtype == DataType::BOOL || dtype == DataType::INT8 || dtype == DataType::UINT8) {
+    return 32;
+  }
+  if (dtype == DataType::FP16 || dtype == DataType::BF16 ||
+      dtype == DataType::INT16 || dtype == DataType::UINT16) {
+    return 16;
+  }
+  if (dtype == DataType::FP32 || dtype == DataType::INT32 || dtype == DataType::UINT32) {
+    return 8;
+  }
+  if (dtype == DataType::INT64 || dtype == DataType::UINT64) {
+    return 4;
+  }
+  throw pypto::ValueError("CCE NZ tensor lowering does not support dtype " + dtype.ToString());
+}
+
+void ValidateStaticNZTensorShape(const ir::TensorTypePtr& tensor_type,
+                                 const std::vector<int64_t>& logical_dims) {
+  CHECK(tensor_type != nullptr) << "CCE NZ tensor lowering requires a valid TensorType";
+  if (logical_dims.size() != 2) {
+    throw pypto::ValueError("CCE NZ tensor lowering currently requires a 2D tensor");
+  }
+
+  const int64_t rows = logical_dims[0];
+  const int64_t cols = logical_dims[1];
+  const int64_t c0 = GetNZInnerCols(tensor_type->dtype_);
+  if (rows % 16 != 0 || cols % c0 != 0) {
+    throw pypto::ValueError(
+        "CCE NZ tensor lowering requires rows divisible by 16 and cols divisible by the destination C0 size");
+  }
+}
+
+std::vector<int64_t> BuildNZPhysicalShapeDims(const ir::TensorTypePtr& tensor_type,
+                                              const std::vector<int64_t>& logical_dims) {
+  ValidateStaticNZTensorShape(tensor_type, logical_dims);
+  const int64_t c0 = GetNZInnerCols(tensor_type->dtype_);
+  return {1, logical_dims[1] / c0, logical_dims[0] / 16, 16, c0};
+}
+
+}  // namespace
+
 CCECodegen::CCECodegen() : backend_(backend::GetBackend()) {
   auto type = backend::GetBackendType();
   CHECK(type == backend::BackendType::CCE)
@@ -2376,7 +2425,8 @@ void CCECodegen::EmitGlobalTensorInstance(const std::string& var_name,
                                           const std::vector<int64_t>& shape_dims,
                                           bool needs_dynamic_stride,
                                           const std::optional<std::string>& base_pointer,
-                                          const std::optional<std::string>& tensor_struct_ptr) {
+                                          const std::optional<std::string>& tensor_struct_ptr,
+                                          bool use_runtime_tensor_struct) {
   std::ostringstream global_instance;
   global_instance << global_type_name << " " << var_name << "(";
   if (base_pointer.has_value()) {
@@ -2399,7 +2449,7 @@ void CCECodegen::EmitGlobalTensorInstance(const std::string& var_name,
     global_instance << ", " << shape_type_name << "(), " << stride_type_name << "(";
     global_instance << batch_stride << ", " << batch_stride << ", " << batch_stride << ", " << col_stride_expr;
     global_instance << ")";
-  } else if (tensor_struct_ptr.has_value()) {
+  } else if (use_runtime_tensor_struct && tensor_struct_ptr.has_value()) {
     // Use original tensor ndim for stride indices (strides come from the full tensor struct)
     size_t ndim = tensor_type->shape_.size();
     global_instance << ", {}, {";
@@ -2463,22 +2513,33 @@ void CCECodegen::GenerateGlobalTensorTypeDeclaration(
 
   // Get element type
   std::string element_type = tensor_type->dtype_.ToCTypeString();
+  const bool is_nz_layout = IsNZTensorType(tensor_type);
 
   // Generate unique type names for this variable
   std::string shape_type_name = var_name + "ShapeDim5";
   std::string stride_type_name = var_name + "StrideDim5";
   std::string global_type_name = var_name + "Type";
 
+  std::vector<int64_t> emitted_shape_dims = shape_dims;
+  if (is_nz_layout) {
+    if (!all_static) {
+      throw pypto::ValueError("CCE NZ tensor lowering currently requires static tensor shapes");
+    }
+    emitted_shape_dims = BuildNZPhysicalShapeDims(tensor_type, tensor_dims);
+  }
+
   // Generate Shape type alias
-  std::string shape_type = type_converter_.GenerateShapeType(shape_dims);
+  std::string shape_type = type_converter_.GenerateShapeType(emitted_shape_dims);
   std::ostringstream shape_alias;
   shape_alias << "using " << shape_type_name << " = " << shape_type << ";";
   emitter_.EmitLine(shape_alias.str());
 
   // Generate Stride type alias
-  bool needs_dynamic_stride = !all_static && access_shape.has_value() && !force_dn_layout_;
+  bool needs_dynamic_stride = !all_static && access_shape.has_value() && !force_dn_layout_ && !is_nz_layout;
   std::string stride_type;
-  if (single_file_mode_) {
+  if (is_nz_layout) {
+    stride_type = GenerateSingleFileStrideType(emitted_shape_dims, emitted_shape_dims, true, false);
+  } else if (single_file_mode_) {
     stride_type = GenerateSingleFileStrideType(shape_dims, tensor_dims, all_static, needs_dynamic_stride);
   } else {
     stride_type = type_converter_.GenerateStrideType(shape_dims);
@@ -2488,19 +2549,23 @@ void CCECodegen::GenerateGlobalTensorTypeDeclaration(
   emitter_.EmitLine(stride_alias.str());
 
   // Determine layout: DN if last dim is 1 or if tensor is in dn_tensors_ set
-  if (*shape_dims.rbegin() == 1 || force_dn_layout_) {
-    stride_type_name += ", Layout::DN";
+  std::string global_layout_arg = stride_type_name;
+  if (is_nz_layout) {
+    global_layout_arg += ", Layout::NZ";
+  } else if (*shape_dims.rbegin() == 1 || force_dn_layout_) {
+    global_layout_arg += ", Layout::DN";
   }
 
   // Generate GlobalTensor type alias
   std::ostringstream global_type_alias;
   global_type_alias << "using " << global_type_name << " = GlobalTensor<" << element_type << ", "
-                    << shape_type_name << ", " << stride_type_name << ">;";
+                    << shape_type_name << ", " << global_layout_arg << ">;";
   emitter_.EmitLine(global_type_alias.str());
 
   // Generate GlobalTensor instance and register mappings
   EmitGlobalTensorInstance(var_name, global_type_name, shape_type_name, stride_type_name, tensor_type,
-                           shape_dims, needs_dynamic_stride, base_pointer, tensor_struct_ptr);
+                           emitted_shape_dims, needs_dynamic_stride, base_pointer, tensor_struct_ptr,
+                           tensor_struct_ptr.has_value() && !is_nz_layout);
 }
 
 }  // namespace codegen

@@ -29,6 +29,7 @@
 #include "block/backend/common/backend.h"
 #include "block/codegen/cce/cce_codegen.h"
 #include "block/codegen/codegen_base.h"
+#include "block/core/error.h"
 #include "block/core/logging.h"
 #include "block/ir/expr.h"
 #include "block/ir/kind_traits.h"
@@ -73,6 +74,132 @@ static std::string ComputeStrideBasedOffset(codegen::CCECodegen& codegen, const 
 
   offset_computation << ")";
   return offset_computation.str();
+}
+
+static bool IsNZTensorType(const ir::TensorTypePtr& tensor_type) {
+  return tensor_type && tensor_type->tensor_view_.has_value() &&
+         tensor_type->tensor_view_->layout == ir::TensorLayout::NZ;
+}
+
+static int64_t GetNZInnerCols(const DataType& dtype) {
+  if (dtype == DataType::BOOL || dtype == DataType::INT8 || dtype == DataType::UINT8) {
+    return 32;
+  }
+  if (dtype == DataType::FP16 || dtype == DataType::BF16 ||
+      dtype == DataType::INT16 || dtype == DataType::UINT16) {
+    return 16;
+  }
+  if (dtype == DataType::FP32 || dtype == DataType::INT32 || dtype == DataType::UINT32) {
+    return 8;
+  }
+  if (dtype == DataType::INT64 || dtype == DataType::UINT64) {
+    return 4;
+  }
+  throw pypto::ValueError("CCE NZ store does not support destination dtype " + dtype.ToString());
+}
+
+static int64_t GetStaticConstIntOrThrow(const ir::ExprPtr& expr, const std::string& message) {
+  auto value = ir::As<ir::ConstInt>(expr);
+  if (!value) {
+    throw pypto::ValueError(message);
+  }
+  return value->value_;
+}
+
+static bool IsConstZero(const ir::ExprPtr& expr) {
+  auto value = ir::As<ir::ConstInt>(expr);
+  return value && value->value_ == 0;
+}
+
+static void ValidateCCEStoreNZPreconditions(const std::string& op_name,
+                                            const ir::ExprPtr& src_expr,
+                                            const ir::MakeTuplePtr& offsets,
+                                            const ir::TensorTypePtr& dst_tensor_type) {
+  if (!IsNZTensorType(dst_tensor_type)) {
+    return;
+  }
+
+  auto src_tile_type = ir::As<ir::TileType>(src_expr->GetType());
+  CHECK(src_tile_type != nullptr) << op_name << ": source must be TileType";
+  CHECK(src_tile_type->memref_.has_value()) << op_name << ": source tile must have an allocated memory space";
+  if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
+    throw pypto::ValueError(op_name + ": CCE NZ output currently only supports Acc source tiles");
+  }
+
+  if (dst_tensor_type->shape_.size() != 2) {
+    throw pypto::ValueError(op_name + ": CCE NZ output currently requires a 2D destination tensor");
+  }
+  if (offsets->elements_.size() != 2 || !IsConstZero(offsets->elements_[0]) || !IsConstZero(offsets->elements_[1])) {
+    throw pypto::ValueError(op_name + ": CCE NZ output currently requires offsets=[0, 0]");
+  }
+
+  const int64_t rows = GetStaticConstIntOrThrow(
+      dst_tensor_type->shape_[0], op_name + ": CCE NZ output currently requires a static destination row shape");
+  const int64_t cols = GetStaticConstIntOrThrow(
+      dst_tensor_type->shape_[1], op_name + ": CCE NZ output currently requires a static destination column shape");
+  const int64_t c0 = GetNZInnerCols(dst_tensor_type->dtype_);
+  if (rows % 16 != 0 || cols % c0 != 0) {
+    throw pypto::ValueError(
+        op_name + ": CCE NZ output requires rows divisible by 16 and cols divisible by the destination C0 size");
+  }
+}
+
+static std::string BuildStaticNZShapeType(const DataType& dtype, int64_t rows, int64_t cols) {
+  const int64_t c0 = GetNZInnerCols(dtype);
+  return "pto::Shape<1, " + std::to_string(cols / c0) + ", " + std::to_string(rows / 16) + ", 16, " +
+         std::to_string(c0) + ">";
+}
+
+static std::string BuildStaticNZStrideType(const DataType& dtype, int64_t full_rows, int64_t full_cols) {
+  const int64_t c0 = GetNZInnerCols(dtype);
+  return "pto::Stride<" + std::to_string(full_rows * full_cols) + ", " + std::to_string(full_rows * c0) + ", " +
+         std::to_string(16 * c0) + ", " + std::to_string(c0) + ", 1>";
+}
+
+static int64_t ComputeStaticNZPhysicalOffset(const DataType& dtype, int64_t full_rows, int64_t row_offset,
+                                             int64_t col_offset) {
+  const int64_t c0 = GetNZInnerCols(dtype);
+  return col_offset * full_rows + row_offset * c0;
+}
+
+static void ValidateDebugDumpNZWindowPreconditions(const ir::TensorTypePtr& tensor_type,
+                                                   const ir::MakeTuplePtr& offsets,
+                                                   const ir::MakeTuplePtr& shapes) {
+  CHECK(tensor_type != nullptr) << "debug.dump_tensor NZ lowering requires TensorType";
+  CHECK(offsets != nullptr) << "debug.dump_tensor NZ lowering requires offsets tuple";
+  CHECK(shapes != nullptr) << "debug.dump_tensor NZ lowering requires shapes tuple";
+
+  if (tensor_type->shape_.size() != 2 || offsets->elements_.size() != 2 || shapes->elements_.size() != 2) {
+    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump currently requires a 2D tensor and 2D offsets/shapes");
+  }
+
+  const int64_t full_rows = GetStaticConstIntOrThrow(
+      tensor_type->shape_[0], "debug.dump_tensor: CCE NZ dump currently requires a static destination row shape");
+  const int64_t full_cols = GetStaticConstIntOrThrow(
+      tensor_type->shape_[1], "debug.dump_tensor: CCE NZ dump currently requires a static destination column shape");
+  const int64_t row_offset = GetStaticConstIntOrThrow(
+      offsets->elements_[0], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+  const int64_t col_offset = GetStaticConstIntOrThrow(
+      offsets->elements_[1], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+  const int64_t rows = GetStaticConstIntOrThrow(
+      shapes->elements_[0], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+  const int64_t cols = GetStaticConstIntOrThrow(
+      shapes->elements_[1], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+  const int64_t c0 = GetNZInnerCols(tensor_type->dtype_);
+
+  if (full_rows % 16 != 0 || full_cols % c0 != 0) {
+    throw pypto::ValueError(
+        "debug.dump_tensor: CCE NZ dump requires rows divisible by 16 and cols divisible by the destination C0 size");
+  }
+  if (row_offset < 0 || col_offset < 0 || rows <= 0 || cols <= 0) {
+    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump requires non-negative offsets and positive shapes");
+  }
+  if (row_offset % 16 != 0 || rows % 16 != 0 || col_offset % c0 != 0 || cols % c0 != 0) {
+    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+  }
+  if (row_offset + rows > full_rows || col_offset + cols > full_cols) {
+    throw pypto::ValueError("debug.dump_tensor: CCE NZ dump window must stay within tensor bounds");
+  }
 }
 
 static int NextDebugDumpId() {
@@ -333,6 +460,57 @@ static std::string MakeDebugDumpTensorCodegenCCE(const ir::CallPtr& op, codegen:
   CHECK(offsets_tuple) << "debug.dump_tensor second argument must be a tuple (offsets)";
   auto shapes_tuple = ir::As<ir::MakeTuple>(op->args_[2]);
   CHECK(shapes_tuple) << "debug.dump_tensor third argument must be a tuple (shapes)";
+
+  if (IsNZTensorType(tensor_type)) {
+    ValidateDebugDumpNZWindowPreconditions(tensor_type, offsets_tuple, shapes_tuple);
+
+    const int debug_id = NextDebugDumpId();
+    const std::string tensor_name = codegen.GetVarName(tensor_var);
+    std::string base_ptr = codegen.GetPointer(tensor_name);
+    if (base_ptr.empty()) {
+      base_ptr = tensor_name + ".data()";
+    }
+
+    const int64_t full_rows = GetStaticConstIntOrThrow(
+        tensor_type->shape_[0], "debug.dump_tensor: CCE NZ dump currently requires a static destination row shape");
+    const int64_t full_cols = GetStaticConstIntOrThrow(
+        tensor_type->shape_[1], "debug.dump_tensor: CCE NZ dump currently requires a static destination column shape");
+    const int64_t row_offset = GetStaticConstIntOrThrow(
+        offsets_tuple->elements_[0], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+    const int64_t col_offset = GetStaticConstIntOrThrow(
+        offsets_tuple->elements_[1], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+    const int64_t rows = GetStaticConstIntOrThrow(
+        shapes_tuple->elements_[0], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+    const int64_t cols = GetStaticConstIntOrThrow(
+        shapes_tuple->elements_[1], "debug.dump_tensor: CCE NZ dump currently only supports aligned static windows");
+    const int64_t physical_offset =
+        ComputeStaticNZPhysicalOffset(tensor_type->dtype_, full_rows, row_offset, col_offset);
+    std::string start_offset;
+    if (!codegen.IsSingleFileMode()) {
+      std::string tensor_struct = codegen.GetTensorStruct(tensor_name);
+      if (!tensor_struct.empty()) {
+        start_offset = tensor_struct + "->start_offset";
+      }
+    }
+    std::string effective_offset = std::to_string(physical_offset);
+    if (!start_offset.empty()) {
+      effective_offset = "(" + start_offset + " + " + effective_offset + ")";
+    }
+
+    const std::string shape_alias = "__debug_dump_tensor_shape_" + std::to_string(debug_id);
+    const std::string stride_alias = "__debug_dump_tensor_stride_" + std::to_string(debug_id);
+    const std::string global_alias = "__debug_dump_tensor_type_" + std::to_string(debug_id);
+    const std::string view_name = "__debug_dump_tensor_view_" + std::to_string(debug_id);
+
+    codegen.Emit("using " + shape_alias + " = " + BuildStaticNZShapeType(tensor_type->dtype_, rows, cols) + ";");
+    codegen.Emit("using " + stride_alias + " = " + BuildStaticNZStrideType(tensor_type->dtype_, full_rows, full_cols) +
+                 ";");
+    codegen.Emit("using " + global_alias + " = GlobalTensor<" + codegen.GetTypeString(tensor_type->dtype_) + ", " +
+                 shape_alias + ", " + stride_alias + ", Layout::NZ>;");
+    codegen.Emit(global_alias + " " + view_name + "(" + base_ptr + " + " + effective_offset + ");");
+    codegen.Emit("TPRINT(" + view_name + ");");
+    return "";
+  }
 
   const int debug_id = NextDebugDumpId();
   const std::string tensor_name = codegen.GetVarName(tensor_var);
@@ -614,6 +792,7 @@ static std::string MakeBlockStoreCodegenCCE(const ir::CallPtr& op, codegen::Code
 
   auto dst_tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(dst_tensor_var_ptr->GetType());
   CHECK(dst_tensor_type != nullptr) << "block.store destination must be TensorType";
+  ValidateCCEStoreNZPreconditions("block.store", op->args_[0], offsets_tuple, dst_tensor_type);
 
   // compute stride-based offset
   std::string offset = ComputeStrideBasedOffset(codegen, dst_tensor_var, offsets_tuple, dst_tensor_type);
