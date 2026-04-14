@@ -1,4 +1,4 @@
-# pypto.Tensor.log
+# pypto.Tensor.reciprocal
 
 ## 产品支持情况
 
@@ -10,15 +10,15 @@
 ## 函数原型
 
 ```python
-log(self, precision_type: LogAlgorithm = LogAlgorithm.HIGH_PRECISION) -> 'Tensor'
+reciprocal(self, precision_type: RecipAlgorithm = RecipAlgorithm.HIGH_PRECISION) -> 'Tensor'
 ```
 
 ## 参数说明
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| precision_type  | 输入      | 精度类型。 <br> 支持的类型为：LogAlgorithm。 <br> 默认值为 LogAlgorithm.HIGH_PRECISION。 <br> HIGH_PRECISION 使用更高精度的计算以减少精度损失；INTRINSIC 直接使用芯片指令。 |
+| precision_type  | 输入      | 精度类型。 <br> 支持的类型为：RecipAlgorithm。 <br> 默认值为 RecipAlgorithm.HIGH_PRECISION。 <br> HIGH_PRECISION 使用更高精度的计算以减少精度损失；INTRINSIC 直接使用芯片指令。 |
 
 ## 详细说明
 
-请参见[pypto.log](../operation/pypto-log.md)。
+请参见[pypto.reciprocal](../operation/pypto-reciprocal.md)。
