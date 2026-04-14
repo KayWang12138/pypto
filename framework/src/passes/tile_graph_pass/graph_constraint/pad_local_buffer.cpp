@@ -246,6 +246,16 @@ size_t GetLastDimBytes(const LogicalTensorPtr& tensor)
 
 int64_t PadRowDim(int64_t dim, int64_t padValue) { return dim + padValue - 1; }
 
+bool PadLocalBuffer::IsUb2L1CopyOp(const Operation& op)
+{
+    if (op.iOperand.empty() || op.oOperand.empty()) {
+        return false;
+    }
+    auto inputMemType = op.iOperand[0]->GetMemoryTypeOriginal();
+    auto outputMemType = op.oOperand[0]->GetMemoryTypeOriginal();
+    return (inputMemType == MemoryType::MEM_UB && outputMemType == MemoryType::MEM_L1);
+}
+
 // 针对OP_CMP OP_CMPS OP_PRELU特殊OP做倒数第二轴的256B扩充
 void PadLocalBuffer::PadVector256(Operation& op, LogicalTensorPtr& in, bool needRowPad)
 {
@@ -275,13 +285,7 @@ void PadLocalBuffer::PadVector256(Operation& op, LogicalTensorPtr& in, bool need
 void PadLocalBuffer::PadVector(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw, bool noPadding)
 {
-    bool isUb2L1Copy = false;
-    if (!op.iOperand.empty() && !op.oOperand.empty()) {
-        auto inputMemType = op.iOperand[0]->GetMemoryTypeOriginal();
-        auto outputMemType = op.oOperand[0]->GetMemoryTypeOriginal();
-        isUb2L1Copy = (inputMemType == MemoryType::MEM_UB && outputMemType == MemoryType::MEM_L1);
-    }
-    if (isUb2L1Copy) {
+    if (IsUb2L1CopyOp(op)) {
         if (op.GetOpcode() != Opcode::OP_UB_COPY_L1) {
             APASS_LOG_ERROR_F(
                 Elements::Operation, "UB to L1 copy operation expected OP_UB_COPY_L1, but got %s. %s",
@@ -814,13 +818,7 @@ bool PadLocalBuffer::DoElementwiseLikePadding(
 void PadLocalBuffer::PadVectorForAxisCombine(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
 {
-    bool isUb2L1Copy = false;
-    if (!op.iOperand.empty() && !op.oOperand.empty()) {
-        auto inputMemType = op.iOperand[0]->GetMemoryTypeOriginal();
-        auto outputMemType = op.oOperand[0]->GetMemoryTypeOriginal();
-        isUb2L1Copy = (inputMemType == MemoryType::MEM_UB && outputMemType == MemoryType::MEM_L1);
-    }
-    if (isUb2L1Copy) {
+    if (IsUb2L1CopyOp(op)) {
         if (op.GetOpcode() != Opcode::OP_UB_COPY_L1) {
             APASS_LOG_ERROR_F(
                 Elements::Operation, "UB to L1 copy operation expected OP_UB_COPY_L1, but got %s. %s",
