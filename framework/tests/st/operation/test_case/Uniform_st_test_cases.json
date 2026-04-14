@@ -1,0 +1,664 @@
+{
+    "test_cases": [
+        {
+            "case_index": 0,
+            "case_name": "Uniform_test_0",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [32],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [32],
+            "tile_shape": [32],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 1,
+            "case_name": "Uniform_test_1",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [64],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [64],
+            "tile_shape": [32],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 2,
+            "case_name": "Uniform_test_2",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [128],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [128],
+            "tile_shape": [64],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 3,
+            "case_name": "Uniform_test_3",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [256],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [256],
+            "tile_shape": [128],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 4,
+            "case_name": "Uniform_test_4",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [512],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [512],
+            "tile_shape": [256],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 5,
+            "case_name": "Uniform_test_5",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [1024],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [1024],
+            "tile_shape": [256],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 6,
+            "case_name": "Uniform_test_6",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [2048],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [2048],
+            "tile_shape": [512],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 7,
+            "case_name": "Uniform_test_7",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [100],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [100],
+            "tile_shape": [20],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 8,
+            "case_name": "Uniform_test_8",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [500],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [500],
+            "tile_shape": [100],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 9,
+            "case_name": "Uniform_test_9",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [1000],
+                    "dtype": "fp32",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [1000],
+            "tile_shape": [200],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 10,
+            "case_name": "Uniform_test_10",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [32],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [32],
+            "tile_shape": [32],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 11,
+            "case_name": "Uniform_test_11",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [64],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [64],
+            "tile_shape": [32],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 12,
+            "case_name": "Uniform_test_12",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [128],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [128],
+            "tile_shape": [64],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 13,
+            "case_name": "Uniform_test_13",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [256],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [256],
+            "tile_shape": [128],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 14,
+            "case_name": "Uniform_test_14",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [512],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [512],
+            "tile_shape": [256],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 15,
+            "case_name": "Uniform_test_15",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [1024],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [1024],
+            "tile_shape": [256],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 16,
+            "case_name": "Uniform_test_16",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [2048],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [2048],
+            "tile_shape": [512],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 17,
+            "case_name": "Uniform_test_17",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [100],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [100],
+            "tile_shape": [20],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 18,
+            "case_name": "Uniform_test_18",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [500],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [500],
+            "tile_shape": [100],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 19,
+            "case_name": "Uniform_test_19",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [1000],
+                    "dtype": "fp16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [1000],
+            "tile_shape": [200],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 20,
+            "case_name": "Uniform_test_20",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [32],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [32],
+            "tile_shape": [32],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 21,
+            "case_name": "Uniform_test_21",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [64],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [64],
+            "tile_shape": [32],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 22,
+            "case_name": "Uniform_test_22",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [128],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [128],
+            "tile_shape": [64],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 23,
+            "case_name": "Uniform_test_23",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [256],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [256],
+            "tile_shape": [128],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 24,
+            "case_name": "Uniform_test_24",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [512],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [512],
+            "tile_shape": [256],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 25,
+            "case_name": "Uniform_test_25",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [1024],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [1024],
+            "tile_shape": [256],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 26,
+            "case_name": "Uniform_test_26",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [2048],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [2048],
+            "tile_shape": [512],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 27,
+            "case_name": "Uniform_test_27",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [100],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [100],
+            "tile_shape": [20],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 28,
+            "case_name": "Uniform_test_28",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [500],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [500],
+            "tile_shape": [100],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        },
+        {
+            "case_index": 29,
+            "case_name": "Uniform_test_29",
+            "operation": "Uniform",
+            "input_tensors": [],
+            "output_tensors": [
+                {
+                    "name": "output0",
+                    "shape": [1000],
+                    "dtype": "bf16",
+                    "format": "ND"
+                }
+            ],
+            "view_shape": [1000],
+            "tile_shape": [200],
+            "params": {
+                "key": 12345678901234,
+                "counter_0": 0,
+                "counter_1": 0,
+                "rounds": 10
+            }
+        }
+    ]
+}
