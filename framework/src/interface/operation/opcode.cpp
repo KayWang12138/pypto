@@ -614,12 +614,19 @@ void OpcodeManager::RegisterVector() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Ttranspose_vnchwconv", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::AIV, "PERMUTE", {MemoryType::MEM_DEVICE_DDR},
-        {MemoryType::MEM_UB}, {"TileOp::TPermute", PIPE_S, PIPE_MTE2, CoreType::AIV},
-        OpCalcType::OTHER, {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_PERMUTE_ELEMENT, OpCoreType::AIV, "PERMUTE_ELEMENT", {MemoryType::MEM_DEVICE_DDR},
-        {MemoryType::MEM_UB}, {"TileOp::TPermuteElewise", PIPE_S, PIPE_MTE2, CoreType::AIV},
-        OpCalcType::OTHER, {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_NCHW2NC1HWC0, OpCoreType::ANY, "NCHW2NC1HWC0", {MemoryType::MEM_UB},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::TtransData_nvhw2nc1hwc0", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
+        {OpAttributeKey::transDataOffset});
+    RegisterInfo(
+        Opcode::OP_PERMUTE, OpCoreType::AIV, "PERMUTE", {MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_UB},
+        {"TileOp::TPermute", PIPE_S, PIPE_MTE2, CoreType::AIV}, OpCalcType::OTHER,
+        {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_PERMUTE_ELEMENT, OpCoreType::AIV, "PERMUTE_ELEMENT", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_UB}, {"TileOp::TPermuteElewise", PIPE_S, PIPE_MTE2, CoreType::AIV}, OpCalcType::OTHER,
+        {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OpAttributeKey::expandDims},
@@ -730,7 +737,8 @@ void OpcodeManager::RegisterVector() {
         Opcode::OP_RANGE, OpCoreType::AIV, "RANGE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Range", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP", OpAttributeKey::dynScalar}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_UNIFORM, OpCoreType::AIV, "UNIFORM", {}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+    RegisterInfo(
+        Opcode::OP_UNIFORM, OpCoreType::AIV, "UNIFORM", {}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::TUniform", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OpAttributeKey::vectorScalar, OpAttributeKey::dynScalar, OP_ATTR_PREFIX + "SHAPE"}, TileShapeVerifier::Verify);
     RegisterInfo(
@@ -1227,6 +1235,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_TRANSPOSE_VNCHWCONV, "TTrans"},
     {Opcode::OP_TRANSPOSE_MOVEIN, "TTransMoveIn"},
     {Opcode::OP_TRANSPOSE_MOVEOUT, "TTransMoveOut"},
+    {Opcode::OP_NCHW2NC1HWC0, "TTransData"},
     {Opcode::OP_INDEX_PUT, "TIndexPut"},
     {Opcode::OP_GCD, "TGcd"},
     {Opcode::OP_SIN, "TSin"},

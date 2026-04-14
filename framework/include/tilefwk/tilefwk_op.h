@@ -45,11 +45,7 @@ enum class SaturationMode : uint8_t {
     OFF = 1,
 };
 
-enum class DivAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class DivAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
 enum class PowAlgorithm : uint8_t
 {
@@ -169,6 +165,11 @@ struct AssembleItem {
     std::vector<SymbolicScalar> offsets;
 };
 
+enum TransDataType {
+    NCHW2NC1HWC0 = 0
+
+};
+
 void Assemble(const std::vector<AssembleItem>& items, Tensor& src, bool parallelInAssemble = false);
 
 Tensor Reshape(
@@ -188,9 +189,10 @@ Tensor Full(
     const SymbolicScalar& src, DataType dtype, const std::vector<int64_t>& dstShape,
     std::vector<SymbolicScalar> validShape = {});
 Tensor Transpose(const Tensor& self, std::vector<int> perm);
+Tensor TransData(const Tensor& self, TransDataType transDataType);
 Tensor Cast(
     const Tensor& self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
-Tensor Permute(const Tensor &self, std::vector<int> perm);
+Tensor Permute(const Tensor& self, std::vector<int> perm);
 
 Tensor Exp(const Tensor& self, ExpAlgorithm precisionType = ExpAlgorithm::DEFAULT);
 Tensor Exp2(const Tensor& self);

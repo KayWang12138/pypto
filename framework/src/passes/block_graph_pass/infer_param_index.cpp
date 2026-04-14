@@ -64,7 +64,7 @@ Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &
         }
     }
     for (auto outOperand : op.GetOOperands()) {
-        if (op.GetOpcode() == Opcode::OP_INDEX_ADD &&
+        if ((op.GetOpcode() == Opcode::OP_INDEX_ADD || op.GetOpcode() == Opcode::OP_NCHW2NC1HWC0)&&
             !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) continue;
         std::vector<SymbolicScalar> validShape;
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {

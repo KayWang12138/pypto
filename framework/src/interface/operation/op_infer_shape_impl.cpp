@@ -879,6 +879,26 @@ REGISTER_INFER_SHAPE_FUNC(OP_LOAD3D_CONV, Opcode::OP_LOAD3D_CONV, L1ToL0ConvInfe
 REGISTER_INFER_SHAPE_FUNC(OP_LOAD2D_CONV, Opcode::OP_LOAD2D_CONV, L1ToL0ConvInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_OUT_CONV, Opcode::OP_L0C_COPY_OUT_CONV, L0CCopyOutConvInferFunc);
 
+void TransDataInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
+    std::vector<SymbolicScalar> inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    std::vector<SymbolicScalar> outputValidShape(inputValidShape);
+    int64_t C0 = BLOCK_SIZE / BytesOf(op->GetIOperands()[0]->Datatype());
+    outputValidShape[1] = outputValidShape[1] / C0;
+    outputValidShape.push_back(SymbolicScalar(C0));
+    SymbolicScalar HW = outputValidShape[2] * outputValidShape[3];
+    std::vector<SymbolicScalar> tmpTensorValidShape = {};
+    tmpTensorValidShape.push_back(HW);
+    tmpTensorValidShape.push_back(SymbolicScalar(C0));
+
+    for ([[maybe_unused]] int i = 0; i < 2; i++) {
+        outValidShapes.push_back(outputValidShape);
+    }
+    outValidShapes.push_back(tmpTensorValidShape);
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_NCHW2NC1HWC0, Opcode::OP_NCHW2NC1HWC0, TransDataInferFunc);
+
 void CopyInInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
@@ -1117,10 +1137,10 @@ REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, TransposeInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, TransposeInferFunc);
 
-void PermuteInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
+void PermuteInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     std::vector<SymbolicScalar> validShape;
-    const auto &oOperands = op->GetOOperands();
+    const auto& oOperands = op->GetOOperands();
 
     std::vector<SymbolicScalar> inputValidShape;
     if (!op->GetIOperands().empty()) {
