@@ -17,10 +17,38 @@
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
+#include "interface/utils/common.h"
 
 #define MODULE_NAME "RemoveUnalignedReshape"
 
 namespace npu::tile_fwk {
+namespace {
+bool NeedPadLastDim(const LogicalTensorPtr& tensor)
+{
+    if (tensor == nullptr || tensor->tensor == nullptr || tensor->shape.empty()) {
+        return false;
+    }
+    if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
+        return false;
+    }
+
+    auto dtypeBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
+    if (dtypeBytes <= 0) {
+        return false;
+    }
+    auto blockAlignElems = static_cast<int64_t>(BLOCK_SIZE) / dtypeBytes;
+    if (blockAlignElems <= 0) {
+        return false;
+    }
+
+    auto lastDim = tensor->shape.back();
+    if (lastDim <= 0) {
+        return false;
+    }
+    return (lastDim % blockAlignElems) != 0;
+}
+} // namespace
+
 /*
 before:
     add->reshape(padded)->mul
@@ -83,25 +111,24 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
 
 bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
 {
-    int lastIdx;
-    for (const auto& input : op.GetIOperands()) {
-        if (input != nullptr && input->tensor != nullptr) {
-            lastIdx = input->shape.size() - 1;
-            if (input->shape.size() == input->tensor->oriRawshape.size() &&
-                input->shape.size() == input->tensor->rawshape.size() &&
-                input->tensor->oriRawshape[lastIdx] != input->tensor->rawshape[lastIdx]) {
-                return true;
-            }
+    std::vector<bool> inputAxis;
+    std::vector<bool> outputAxis;
+    op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
+    op.GetAttr(OpAttributeKey::outputCombineAxis, outputAxis);
+    for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
+        if (i < inputAxis.size() && inputAxis[i]) {
+            continue;
+        }
+        if (NeedPadLastDim(op.GetIOperands()[i])) {
+            return true;
         }
     }
-    for (const auto& output : op.GetOOperands()) {
-        if (output != nullptr && output->tensor != nullptr) {
-            lastIdx = output->shape.size() - 1;
-            if (output->shape.size() == output->tensor->oriRawshape.size() &&
-                output->shape.size() == output->tensor->rawshape.size() &&
-                output->tensor->oriRawshape[lastIdx] != output->tensor->rawshape[lastIdx]) {
-                return true;
-            }
+    for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
+        if (i < outputAxis.size() && outputAxis[i]) {
+            continue;
+        }
+        if (NeedPadLastDim(op.GetOOperands()[i])) {
+            return true;
         }
     }
     return false;
