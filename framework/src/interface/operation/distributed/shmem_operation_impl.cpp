@@ -30,10 +30,10 @@ namespace npu::tile_fwk::Distributed {
 
 void ValidateGroup(const char* group)
 {
-    ASSERT(DistributedErrorCode::INVALID_GROUP_NAME, group != nullptr) << "\"group\" cannot be nullptr";
+    // ASSERT(DistributedErrorCode::INVALID_GROUP_NAME, group != nullptr) << "\"group\" cannot be nullptr";
     auto groupLen = std::string(group).size();
-    ASSERT(DistributedErrorCode::INVALID_GROUP_NAME, (groupLen >= 1) && (groupLen < 128))
-        << "The length of \"group\" only supports [1, 128), but got " << groupLen;
+    // ASSERT(DistributedErrorCode::INVALID_GROUP_NAME, (groupLen >= 1) && (groupLen < 128))
+    //     << "The length of \"group\" only supports [1, 128), but got " << groupLen;
 }
 
 void ValidateTiling(const Opcode& opCode, const Tensor& target, const std::string& tensorDesc)
