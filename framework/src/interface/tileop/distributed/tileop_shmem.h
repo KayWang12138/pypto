@@ -20,7 +20,7 @@
 #include <type_traits>
 
 #ifdef SUPPORT_TILE_TENSOR
-#include "pto/comm/pto_comm_inst.hpp"
+#include "pto/pto-inst.hpp"
 #endif
 
 namespace TileOp::Distributed {
@@ -266,7 +266,6 @@ TILEOP void CopyGmToGmByTRowSliced(__gm__ DataType* target, __ubuf__ DataType* b
     ShmemUbTile<DataType, kChunkRows, tileColShape> pongTile(kChunkRows, validColShape);
     pto::TASSIGN(pingTile, reinterpret_cast<uintptr_t>(buffer));
     pto::TASSIGN(pongTile, reinterpret_cast<uintptr_t>(buffer + kHalfBufferEleCount));
-
     if constexpr (useTPut) {
         if constexpr (atomicType == AtomicType::ADD) {
             pto::comm::TPUT<pto::AtomicType::AtomicAdd>(dstGlobal, srcGlobal, pingTile, pongTile);

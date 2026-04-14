@@ -315,7 +315,7 @@ public:
     AivCore& GetAIVCore() { return core_wrap_.GetAIVCore(); }
 };
 
-enum class NPUArch { DAV_1001 = 1001, DAV_2201 = 2201, DAV_3510 = 3510, DAV_UNKNOWN };
+enum class NPUArch { DAV_1001 = 1001, DAV_2201 = 2201, DAV_3510 = 3510, DAV_3113 = 3113, DAV_UNKNOWN };
 
 inline std::string NPUArchToString(NPUArch npu_arch)
 {
@@ -326,6 +326,8 @@ inline std::string NPUArchToString(NPUArch npu_arch)
             return "DAV_2201";
         case NPUArch::DAV_3510:
             return "DAV_3510";
+        case NPUArch::DAV_3113:
+            return "DAV_3113";
         default:
             return "UNKNOWN_NPU_ARCH";
     }
@@ -351,7 +353,10 @@ public:
     void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
     Die& GetDies() { return die_; }
-    NPUArch GetNPUArch() const { return version_; }
+    NPUArch GetNPUArch() const { 
+        //return version_;
+        return NPUArch::DAV_3113;
+    }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
     std::string GetCCECVersion(std::string CoreType);

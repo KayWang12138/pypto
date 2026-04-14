@@ -58,6 +58,25 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = fal
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
 // Stride<int, int>(64, 1)));
 struct TileTensor {
+    TileTensor(bool pIsConstant, int pMagic, int pDim, DataType pDtype, BufferType pBufType, std::string pBufVar,
+        std::string pUsingType, std::string pTensorName, std::vector<std::string> pShape,
+        std::vector<std::string> pStride, std::vector<int64_t> pRawShape, std::vector<int64_t> pLocalBufOffset,
+        ShapeInLoop pShapeInLoop)
+        : isConstant(pIsConstant),
+          magic(pMagic),
+          dim(pDim),
+          dtype(pDtype),
+          bufType(pBufType),
+          bufVar(pBufVar),
+          usingType(pUsingType),
+          tensorName(pTensorName),
+          shape(pShape),
+          stride(pStride),
+          rawShape(pRawShape),
+          localBufOffset(pLocalBufOffset),
+          shapeInLoop(pShapeInLoop) {}
+    TileTensor() = default;
+
     bool isConstant;
     int magic; // tensor magic numbuer
     int dim;
@@ -120,8 +139,7 @@ struct TileTensor {
         return WrapParamByParentheses(params);
     }
 
-    std::string ToString() const
-    {
+    std::string ToString() const {
         std::ostringstream oss;
         oss << usingType << " " << tensorName << GenInitParam() << STMT_END;
         return oss.str();
@@ -187,6 +205,16 @@ struct TileTensorMagicKeyHash {
 };
 
 struct TileTensorUsing {
+    TileTensorUsing(bool pIsConstant, DataType pDtype, BufferType pBufType, int pDim, std::vector<int64_t> pOriginShape,
+        std::vector<int64_t> pRawShape)
+        : isConstant(pIsConstant),
+          dtype(pDtype),
+          bufType(pBufType),
+          dim(pDim),
+          originShape(pOriginShape),
+          rawShape(pRawShape) {}
+    TileTensorUsing() = default;
+
     bool isConstant;
     DataType dtype;
     BufferType bufType;
@@ -209,8 +237,7 @@ struct TileTensorUsing {
 
     // dynamic shape: e.g. "TileTensor<__gm__ float, DynLayout4Dim, Hardware::GM>"
     // static shape: e.g. "TileTensor<float, LocalLayout4Dim<16, 16>, Hardware::UB>"
-    std::string ToString() const
-    {
+    std::string ToString() const {
         std::ostringstream ss;
         ss << TILE_TENSOR << "<";
         if (bufType == BUF_DDR) {
