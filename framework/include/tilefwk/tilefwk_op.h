@@ -45,6 +45,12 @@ enum class SaturationMode : uint8_t {
     OFF = 1,
 };
 
+enum class DivAlgorithm : uint8_t
+{
+    DEFAULT,
+    HIGH_PRECISION
+};
+
 namespace experimental {
 struct PrintHelper {
     SymbolicScalar cond;
@@ -142,6 +148,7 @@ Tensor Full(
 Tensor Transpose(const Tensor& self, std::vector<int> perm);
 Tensor Cast(
     const Tensor& self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
+Tensor Permute(const Tensor &self, std::vector<int> perm);
 
 Tensor Exp(const Tensor& self);
 Tensor Exp2(const Tensor& self);
@@ -195,9 +202,11 @@ Tensor Scatter(
 Tensor Scatter(
     const Tensor& self, const Tensor& indices, const Tensor& src, int axis, ScatterMode reduce = ScatterMode::NONE);
 void IndexPut_(Tensor& self, const std::vector<Tensor>& indices, const Tensor& values, bool accumulate = false);
-Tensor IndexAdd(
+Tensor IndexAddUB(
     const Tensor& self, const Tensor& src, const Tensor& indices, int axis,
     const Element& alpha = Element(DT_FP32, 1.0f));
+void IndexAdd_(
+    Tensor& self, const Tensor& src, const Tensor& indices, int axis, const Element& alpha = Element(DT_FP32, 1.0f));
 Tensor RowSumExpand(const Tensor& operand);
 Tensor RowMaxExpand(const Tensor& operand);
 
@@ -212,7 +221,7 @@ Tensor Compact(const Tensor& operand);
 
 Tensor Add(const Tensor& self, const Tensor& other);
 Tensor Sub(const Tensor& self, const Tensor& other);
-Tensor Div(const Tensor& self, const Tensor& other);
+Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType = DivAlgorithm::DEFAULT);
 Tensor Mul(const Tensor& self, const Tensor& other);
 Tensor Hypot(const Tensor& self, const Tensor& other);
 Tensor Fmod(const Tensor& self, const Tensor& other);
@@ -224,7 +233,7 @@ Tensor BitwiseXor(const Tensor& self, const Tensor& other);
 Tensor ExpandExpDif(const Tensor& input, const Tensor& other);
 Tensor Add(const Tensor& self, const Element& other);
 Tensor Sub(const Tensor& self, const Element& other);
-Tensor Div(const Tensor& self, const Element& other);
+Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType = DivAlgorithm::DEFAULT);
 Tensor Mul(const Tensor& self, const Element& other);
 Tensor Fmod(const Tensor& self, const Element& other);
 Tensor BitwiseAnd(const Tensor& self, const Element& other);
