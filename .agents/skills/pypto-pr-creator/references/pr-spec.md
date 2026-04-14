@@ -78,7 +78,6 @@ Related Issues: #1234,#5678
 3. 移除无关模板内容和占位符
 4. 关联 Issue 放在最后一行 `Related Issues: #xxx`
 5. 多 commit 场景需在 Body 中列出每个 commit 摘要
-6. `Changes:` 章节为推荐项而非必填项。对于单一变更的 PR，允许使用段落描述替代 Changes: 章节。
 
 ### 完整示例
 
