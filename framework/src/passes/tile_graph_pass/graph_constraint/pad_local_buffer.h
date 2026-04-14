@@ -66,6 +66,7 @@ private:
     void PadVectorForAxisCombine(
         Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw);
     bool IsUb2L1CopyOp(const Operation& op);
+    bool HandleUb2L1CopyOp(Operation& op, LogicalTensorPtr& in);
     int64_t ProcessBroadcastForAxisCombine(LogicalTensorPtr& inTensor);
     bool IsElementwiseLikeOp(OpCalcType calcType, const Operation& op, Operation* producerOp) const;
     void DoBrcbOpPadding(

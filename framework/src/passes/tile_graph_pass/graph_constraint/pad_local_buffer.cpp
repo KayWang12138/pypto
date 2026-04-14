@@ -256,6 +256,20 @@ bool PadLocalBuffer::IsUb2L1CopyOp(const Operation& op)
     return (inputMemType == MemoryType::MEM_UB && outputMemType == MemoryType::MEM_L1);
 }
 
+bool PadLocalBuffer::HandleUb2L1CopyOp(Operation& op, LogicalTensorPtr& in)
+{
+    if (!IsUb2L1CopyOp(op)) {
+        return false;
+    }
+    if (op.GetOpcode() != Opcode::OP_UB_COPY_L1) {
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "UB to L1 copy operation expected OP_UB_COPY_L1, but got %s. %s",
+            op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
+    }
+    PadMatmul(op, in);
+    return true;
+}
+
 // 针对OP_CMP OP_CMPS OP_PRELU特殊OP做倒数第二轴的256B扩充
 void PadLocalBuffer::PadVector256(Operation& op, LogicalTensorPtr& in, bool needRowPad)
 {
@@ -285,13 +299,7 @@ void PadLocalBuffer::PadVector256(Operation& op, LogicalTensorPtr& in, bool need
 void PadLocalBuffer::PadVector(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw, bool noPadding)
 {
-    if (IsUb2L1CopyOp(op)) {
-        if (op.GetOpcode() != Opcode::OP_UB_COPY_L1) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "UB to L1 copy operation expected OP_UB_COPY_L1, but got %s. %s",
-                op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
-        }
-        PadMatmul(op, in);
+    if (HandleUb2L1CopyOp(op, in)) {
         return;
     }
     if (in->shape.empty()) {
@@ -818,13 +826,7 @@ bool PadLocalBuffer::DoElementwiseLikePadding(
 void PadLocalBuffer::PadVectorForAxisCombine(
     Operation& op, LogicalTensorPtr& in, std::unordered_set<std::shared_ptr<RawTensor>>& visitedRaw)
 {
-    if (IsUb2L1CopyOp(op)) {
-        if (op.GetOpcode() != Opcode::OP_UB_COPY_L1) {
-            APASS_LOG_ERROR_F(
-                Elements::Operation, "UB to L1 copy operation expected OP_UB_COPY_L1, but got %s. %s",
-                op.GetOpcodeStr().c_str(), GetFormatBacktrace(op).c_str());
-        }
-        PadMatmul(op, in);
+    if (HandleUb2L1CopyOp(op, in)) {
         return;
     }
     if (in->shape.empty()) {
