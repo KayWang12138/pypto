@@ -1,11 +1,12 @@
 #include <nlohmann/json.hpp>
+#include "mix_info.h"
 #include "interface/program/program.h"
 #include "interface/operation/operation.h"
 using json = nlohmann::json;
 namespace npu {
 namespace tile_fwk {
 
-void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>> leafFunctions, int wrapid = -1)
+void GetExecuteFunc(Function* func, std::map<int, std::set<Function*>>& leafFunctions, int wrapid = -1)
 {
     auto funcType = func->GetGraphType();
     if (func->IsFunctionTypeAndGraphType(
