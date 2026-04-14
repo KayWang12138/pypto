@@ -38,6 +38,9 @@ class CodeGenCloudNPU : public CodeGenNPU {
 public:
     explicit CodeGenCloudNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx) {};
     ~CodeGenCloudNPU() override = default;
+
+private:
+    void GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const override;
 };
 
 } // namespace npu::tile_fwk

@@ -22,8 +22,22 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpNPUCtx& ctx) : CodeGenOpNPU(ctx)
 {
+    mteFixPipeOps_ = mteFixPipeOpsCloudNPU_;
+    unaryOps_ = unaryOpsCloudNPU_;
+    binaryOps_ = binaryOpsCloudNPU_;
+    compositeOps_ = compositeOpsCloudNPU_;
+    sortOps_ = sortOpsCloudNPU_;
+    cubeOps_ = cubeOpsCloudNPU_;
+    syncOps_ = syncOpsCloudNPU_;
+    distributeOps_ = distributeOpsCloudNPU_;
+    gatherScatterOps_ = gatherScatterOpsCloudNPU_;
+    normalVecOps_ = normalVecOpsCloudNPU_;
+    perfOps_ = perfOpsCloudNPU_;
+    aicpuOps_ = aicpuOpsCloudNPU_;
+
     InitOpsGenMap();
     forBlkMgr_ = ctx.forBlockManager;
     CodeGenOp::Init(ctx.operation);

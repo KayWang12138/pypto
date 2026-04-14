@@ -497,25 +497,25 @@ protected:
         FillParamWithInput(paramList, input, 1, input.size());
     }
 
-    const std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> unaryOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> unaryOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> binaryOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> binaryOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> compositeOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> compositeOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> sortOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> sortOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> cubeOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> cubeOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> syncOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> syncOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> distributeOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> distributeOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> gatherScatterOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> gatherScatterOps_;
 
-    const std::unordered_map<Opcode, std::function<std::string()>> normalVecOps_;
+    std::unordered_map<Opcode, std::function<std::string()>> normalVecOps_;
 
     std::unordered_map<Opcode, std::function<std::string()>> perfOps_;
 
