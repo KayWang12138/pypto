@@ -479,7 +479,8 @@ public:
         rtAicpuArgsEx_t& rtArgs, [[maybe_unused]] bool debugEnable, [[maybe_unused]] Function* function);
     static int LaunchSyncTask(aclrtStream aicoreStream, bool isCaptureMode);
     static int LaunchAicoreKernel(
-        aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable);
+        aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable,
+        const std::string& funcRawName, std::vector<DeviceTensorData>& tensors);
     static int DeviceRunOnce(
         Function* function, DevControlFlowCache* hostCtrlCache = nullptr,
         const DeviceLauncherConfig& config = DeviceLauncherConfig());
