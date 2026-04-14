@@ -15,14 +15,6 @@ target_include_directories(${_Target}
             include
             ${PTO_FWK_SRC_ROOT}/framework/src/machine/runtime
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
-        INTERFACE
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/base>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime/runtime>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling>>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../utils>
 )
 target_compile_definitions(${_Target}
@@ -46,7 +38,4 @@ target_link_libraries(${_Target}
         INTERFACE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            $<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>
-            $<$<BOOL:${BUILD_WITH_CANN}>:runtime>
-            $<$<BOOL:${BUILD_WITH_CANN}>:hccl>
 )
