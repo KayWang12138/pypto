@@ -254,6 +254,19 @@ inline size_t DataType2CannType(DataType t) {
     }
 }
 
+inline size_t DataFormat2CannFormat(TileOpFormat t) {
+    switch (t) {
+        case TileOpFormat::TILEOP_ND:
+            return 2;
+            break;
+        case TileOpFormat::TILEOP_NZ:
+            return 29;
+            break;
+        default:
+            throw std::invalid_argument("Unknown Format");
+    }
+}
+
 inline std::string MemoryTypeToString(MemoryType mt)
 {
     switch (mt) {

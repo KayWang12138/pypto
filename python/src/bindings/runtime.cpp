@@ -34,6 +34,9 @@
 #include "bindings/torch_tensor_converter.h"
 #include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/compiler_monitor/monitor_stage_scope.h"
+#ifdef BUILD_WITH_CANN
+    #include "dump/adump_api.h"
+#endif
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -847,6 +850,33 @@ using KernelModulePtr = std::shared_ptr<KernelModule>;
 
 std::atomic<int64_t> KernelModule::sequence(0);
 
+#ifdef BUILD_WITH_CANN
+class DumpIOData {
+public:
+
+    static void DumpIOTensorsWithCann(
+        aclrtStream stream, std::vector<DeviceTensorData>& tensors,
+        const std::string& funcName)
+    {
+        std::vector<Adx::TensorInfoV2> dumpTensors;
+        for (auto& tensor : tensors) {
+            Adx::TensorInfoV2 info;
+            info.type = Adx::TensorType::INPUT;
+            info.addrType = Adx::AddressType::TRADITIONAL;
+            info.tensorSize = static_cast<size_t>(tensor.GetDataSize());
+            info.format = DataFormat2CannFormat(tensor.Format());
+            info.dataType = DataType2CannType(tensor.GetDataType());
+            info.tensorAddr = static_cast<int64_t *>(tensor.GetAddr());
+            info.placement = Adx::TensorPlacement::kOnDeviceHbm;
+            info.shape = tensor.GetShape();
+            info.originShape = tensor.GetShape();
+            dumpTensors.push_back(info);
+        }
+        Adx::AdumpDumpTensorV2(funcName, funcName, dumpTensors, stream);
+    }
+};
+#endif
+
 class KernelLauncher {
 private:
     py::object& module;
@@ -890,6 +920,11 @@ public:
 
         DoLaunch(kbinary);
         HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+#ifdef BUILD_WITH_CANN
+        if (Adx::AdumpGetDumpSwitch(Adx::DumpType::OPERATOR) != 0) {
+            DumpIOData::DumpIOTensorsWithCann(aicoreStream, tensors, kbinary->GetFunction()->GetRawName());
+        }
+#endif
     }
 
 private:
