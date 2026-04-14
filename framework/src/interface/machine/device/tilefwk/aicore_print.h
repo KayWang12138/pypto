@@ -933,4 +933,90 @@ INLINE void AiCorePrintUbTensor(LogContext* ctx, __ubuf__ const T* data,
 {
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin, name);
 }
+
+/**
+ * 将 L1 (__cbuf__) 数据通过 DMA 搬运到 GM 暂存缓冲区。
+ * 内部使用 copy_cbuf_to_gm，逻辑与 DynL1CopyOutND(cube_dyn.h:675) 一致。
+ *
+ * @param dst   GM 目标地址（必须 32B 对齐）
+ * @param src   L1 源地址
+ * @param count 元素数量
+ *
+ * @note DMA 最小搬运单位为 32 字节（BLOCK_SIZE，tileop_common.h:100）。
+ * @note 搬运量向上取整到 32B 边界，尾部可能包含多余数据。
+ */
+template <typename T>
+__aicore__ void L1RawCopyToGM(__gm__ T* dst, __cbuf__ const T* src, int64_t count)
+{
+    int64_t totalBytes = count * sizeof(T);
+    if (totalBytes == 0) {
+        return;
+    }
+
+    uint16_t nBurst;
+    uint16_t lenBurst;
+    uint16_t srcStride = 0;
+    uint16_t dstStride = 0;
+
+    // 参照 DynL1CopyOutND(cube_dyn.h:679-693)：
+    //   正常模式：lenBurst = TShape1 * sizeof(GMT) / BLOCK_SIZE
+    //   fallback 模式（< 32B）：按字节搬运
+    if (totalBytes >= 32) {
+        // 正常模式：以 32B 块为单位的突发传输
+        nBurst = 1;
+        lenBurst = static_cast<uint16_t>((totalBytes + 31) / 32);
+    } else {
+        // Fallback 模式：与 DynL1CopyOutND(cube_dyn.h:684-691) 一致
+        nBurst = 1;
+        lenBurst = static_cast<uint16_t>(totalBytes);
+        if (lenBurst == 0) {
+            lenBurst = 1;
+        }
+    }
+
+    copy_cbuf_to_gm(dst, src, 0 /*sid*/, nBurst, lenBurst, srcStride, dstStride);
+}
+
+/**
+ * 打印 L1 (__cbuf__) tensor 数据（Copy-then-Print, Named 版本）。
+ *
+ * 完整流程：
+ *   1. DMA 搬运：L1 data -> GM staging buffer
+ *   2. 流水线同步：等待 MTE3 完成
+ *   3. 逐值打印：从 GM staging 读值，编码到 print ring buffer
+ *
+ * @param ctx     LogContext 指针（来自 param->ctx）
+ * @param data    L1 数据指针（__cbuf__ 地址空间）
+ * @param end     打印结束索引（不包含）
+ * @param begin   打印起始索引
+ * @param staging GM 暂存缓冲区（通过 workspace offset 传入）
+ * @param name    tensor 名称（__gm__ 字符串字面量）
+ *
+ * @note staging 缓冲区大小必须 >= (end - begin) * sizeof(T) 字节。
+ * @note staging 地址建议 32B 对齐。
+ * @note 应在 TLoad + wait_flag 完成后调用。
+ * @note 使用 EVENT_ID7 进行 MTE3->S 同步（与 PipeSync() 一致，避免冲突）。
+ */
+template <typename T>
+INLINE void AiCorePrintL1Tensor(LogContext* ctx, __cbuf__ const T* data,
+                                 int64_t end, int64_t begin,
+                                 __gm__ T* staging, __gm__ const char* name)
+{
+    int64_t count = end - begin;
+    if (count <= 0) {
+        return;
+    }
+
+    // Step 1: DMA L1 -> GM staging
+    L1RawCopyToGM(staging, data + begin, count);
+
+    // Step 2: 同步 MTE3 -> S（等待 DMA 完成）
+    // 使用 EVENT_ID7：与 PipeSync()(aicore_entry.h) 一致，
+    // 避免与 kernel 中常见的 MTE2->MTE1(EVENT_ID0) 冲突
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+
+    // Step 3: 从 GM staging 打印（复用现有 GM 打印 API）
+    AiCorePrintGmTensor<T>(ctx, staging, count, 0, name);
+}
 #endif
