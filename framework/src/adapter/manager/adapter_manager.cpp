@@ -26,26 +26,32 @@ AdapterManager::AdapterManager()
 {
     if (!aclAdapter_.Initialize(kAclLibName, kAclFuncStrMap)) {
         ADAPTER_LOGI("Acl adapter has not been initialized from library[%s].", kAclLibName.c_str());
+    } else {
+        ADAPTER_LOGI("Acl adapter has been initialized from library[%s] successfully.", kAclLibName.c_str());
     }
-    ADAPTER_LOGI("Acl adapter has been initialized from library[%s] successfully.", kAclLibName.c_str());
 
-    halAdapter_.Initialize(kHalFuncStrMap);
+    if (!halAdapter_.Initialize(kHalFuncStrMap)) {
+        ADAPTER_LOGI("Hal adapter has not been initialized.");
+    }
     ADAPTER_LOGI("Hal adapter has been initialized successfully.");
 
     if (!hcclAdapter_.Initialize(kHcclLibName, kHcclFuncStrMap)) {
         ADAPTER_LOGI("Hccl adapter has not been initialized from library[%s].", kHcclLibName.c_str());
+    } else {
+        ADAPTER_LOGI("Hccl adapter has been initialized from library[%s] successfully.", kHcclLibName.c_str());
     }
-    ADAPTER_LOGI("Hccl adapter has been initialized from library[%s] successfully.", kHcclLibName.c_str());
 
     if (!msprofAdapter_.Initialize(kMsprofLibName, kMsprofFuncStrMap)) {
         ADAPTER_LOGI("Msprof adapter has not been initialized from library[%s].", kMsprofLibName.c_str());
+    } else {
+        ADAPTER_LOGI("Msprof adapter has been initialized from library[%s] successfully.", kMsprofLibName.c_str());
     }
-    ADAPTER_LOGI("Msprof adapter has been initialized from library[%s] successfully.", kMsprofLibName.c_str());
 
     if (!runtimeAdapter_.Initialize(kRuntimeLibName, kRuntimeFuncStrMap)) {
         ADAPTER_LOGI("Runtime adapter has not been initialized from library[%s].", kRuntimeLibName.c_str());
+    } else {
+        ADAPTER_LOGI("Runtime adapter has been initialized from library[%s] successfully.", kRuntimeLibName.c_str());
     }
-    ADAPTER_LOGI("Runtime adapter has been initialized from library[%s] successfully.", kRuntimeLibName.c_str());
 }
 
 AdapterManager::~AdapterManager() {}
