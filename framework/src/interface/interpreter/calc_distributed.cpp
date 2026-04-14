@@ -73,13 +73,11 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     const std::string &groupName = groupNames[groupIndex];
     if (memType == 1) {
         std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
-        LogicalTensorDataPtr tmp = SimulationCommManager::Instance().Alloc(groupName, slotSize);
-        out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
+        SimulationCommManager::Instance().Alloc(groupName, slotSize);
     }
     if (memType == 0) {
         std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
-        LogicalTensorDataPtr tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
-        out = ConvertTensorData(tmp, out->GetShape(), out->GetDataType());
+        SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
     }
     std::cout << "=== ExecuteOpBindTensor exited." << std::endl;
 }

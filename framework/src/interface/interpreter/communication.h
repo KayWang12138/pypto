@@ -160,8 +160,8 @@ public:
     }
     void CreateSimulationCommContext(const std::string &groupName, uint32_t round=0);
     void DestroySimulationCommContext(const std::string &groupName);
-    LogicalTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
-    LogicalTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
+    void Alloc(const std::string &groupName, size_t slotSize);
+    void AllocSignal(const std::string &groupName, size_t slotSize);
     std::shared_ptr<SimulationCommContext> GetCommContext(const std::string &groupName);
     static std::string GetHandler(const std::string &groupName, int rank, bool isSignal, uint32_t round);
 private:

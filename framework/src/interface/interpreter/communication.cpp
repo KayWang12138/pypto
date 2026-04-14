@@ -148,7 +148,7 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
     }
 }
 
-LogicalTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
+void SimulationCommContext::Alloc(size_t slotSize) {
     std::lock_guard<std::mutex> lock(allocMutex_);
 
     if (!allocatedData_) {
@@ -161,11 +161,9 @@ LogicalTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
         throw std::runtime_error("Out of pre-allocated memory!");
     }
     dataShmSize_.store(shmSize);
-    RawTensorDataPtr result = RawTensorData::CreateTensor(DT_INT8, {1, static_cast<int64_t>(slotSize)}, dataBase_ + beforeSize);
-    return std::make_shared<LogicalTensorData>(result);
 }
 
-LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
+void SimulationCommContext::AllocSignal(size_t slotSize) {
     std::lock_guard<std::mutex> lock(allocMutex_);
     if (!allocatedSignal_) {
         throw std::runtime_error("signal area not pre-allocated!");
@@ -177,8 +175,6 @@ LogicalTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
         throw std::runtime_error("Out of pre-allocated memory!");
     }
     ctrlShmSize_.store(shmSize);
-    RawTensorDataPtr result = RawTensorData::CreateTensor(DT_INT8, {1, static_cast<int64_t>(slotSize)}, ctrlBase_ + beforeSize);
-    return std::make_shared<LogicalTensorData>(result);
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
