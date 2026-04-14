@@ -48,9 +48,9 @@ def assert_kernel_runtime(
             plm.add(tile_z, tile_x, tile_y)
             pl.system.sync_src(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=1)
             pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=1)
-            plm.assert_(flag)
-            plm.assert_(flag, "flag is false")
-            plm.assert_(offset == 0, "offset=%d", offset)
+            plm.assert_(flag, loc=True)
+            plm.assert_(flag, "flag is false", loc=True)
+            plm.assert_(offset == 0, "offset=%d", offset, loc=True)
             plm.store(z, tile_z, [offset, 0])
             pl.system.bar_all()
 

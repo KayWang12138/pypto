@@ -53,13 +53,29 @@ def printf_kernel_di(
     tile_c = plm.make_tile(tile_type, addr=0x10000, size=32768)
 
     with pl.section_vector():
-        plm.printf("DI_D_PRE flag=%d i8=%d i16=%d i32=%d i64=%d\n", flag_in, value_i8, value_i16, value_i32, value_i64)
-        plm.printf("DI_I_PRE flag=%i i8=%i i16=%i i32=%i i64=%i\n", flag_in, value_i8, value_i16, value_i32, value_i64)
+        plm.printf(
+            "DI_D_PRE flag=%d i8=%d i16=%d i32=%d i64=%d\n",
+            flag_in,
+            value_i8,
+            value_i16,
+            value_i32,
+            value_i64,
+            loc=True,
+        )
+        plm.printf(
+            "DI_I_PRE flag=%i i8=%i i16=%i i32=%i i64=%i\n",
+            flag_in,
+            value_i8,
+            value_i16,
+            value_i32,
+            value_i64,
+            loc=True,
+        )
         for offset in pl.range(0, 128, 64):
             pl.system.bar_all()
             flag = offset == 0
-            plm.printf("DI_D_LOOP off=%d flag=%d\n", offset, flag)
-            plm.printf("DI_I_LOOP off=%+08i flag=%i\n", offset, flag)
+            plm.printf("DI_D_LOOP off=%d flag=%d\n", offset, flag, loc=True)
+            plm.printf("DI_I_LOOP off=%+08i flag=%i\n", offset, flag, loc=True)
             plm.load(tile_a, x, [offset, 0])
             plm.load(tile_b, y, [offset, 0])
             pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
@@ -89,11 +105,11 @@ def printf_kernel_u(
     tile_c = plm.make_tile(tile_type, addr=0x10000, size=32768)
 
     with pl.section_vector():
-        plm.printf("U_PRE flag=%u u8=%u u16=%u u32=%u u64=%u\n", flag_in, value_u8, value_u16, value_u32, value_u64)
+        plm.printf("U_PRE flag=%u u8=%u u16=%u u32=%u u64=%u\n", flag_in, value_u8, value_u16, value_u32, value_u64, loc=True)
         for offset in pl.range(0, 128, 64):
             pl.system.bar_all()
             flag = offset == 0
-            plm.printf("U_LOOP off=%u flag=%u\n", offset, flag)
+            plm.printf("U_LOOP off=%u flag=%u\n", offset, flag, loc=True)
             plm.load(tile_a, x, [offset, 0])
             plm.load(tile_b, y, [offset, 0])
             pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)
@@ -120,8 +136,8 @@ def printf_kernel_f(
 
     with pl.section_vector():
         pl.system.bar_all()
-        plm.printf("F_TEXT_ONLY\n")
-        plm.printf("F_PRE value=%+08.3f\n", value_f)
+        plm.printf("F_TEXT_ONLY\n", loc=True)
+        plm.printf("F_PRE value=%+08.3f\n", value_f, loc=True)
         pl.system.bar_all()
         plm.load(tile_a, x, [0, 0])
         plm.load(tile_b, y, [0, 0])
@@ -152,10 +168,10 @@ def printf_kernel_x(
     tile_c = plm.make_tile(tile_type, addr=0x10000, size=32768)
 
     with pl.section_vector():
-        plm.printf("X_PRE u8=%x u16=%x u32=%x u64=%x\n", value_u8, value_u16, value_u32, value_u64)
+        plm.printf("X_PRE u8=%x u16=%x u32=%x u64=%x\n", value_u8, value_u16, value_u32, value_u64, loc=True)
         for offset in pl.range(0, 128, 64):
             pl.system.bar_all()
-            plm.printf("X_LOOP off=%#08x\n", offset)
+            plm.printf("X_LOOP off=%#08x\n", offset, loc=True)
             plm.load(tile_a, x, [offset, 0])
             plm.load(tile_b, y, [offset, 0])
             pl.system.sync_src(set_pipe=pl.PipeType.MTE2, wait_pipe=pl.PipeType.V, event_id=0)

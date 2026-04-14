@@ -180,6 +180,16 @@ class TestErrorCases:
 
         assert isinstance(dynamic_window, pypto_block.ir.Function)
 
+    def test_dump_tensor_accepts_loc_keyword(self):
+        """dump_tensor should accept the optional loc keyword."""
+
+        @pl.function
+        def dump_tensor_loc(x: pl.Tensor[[32, 32], pl.FP32]) -> pl.Tensor[[32, 32], pl.FP32]:
+            plm.dump_tensor(x, loc=True)
+            return x
+
+        assert isinstance(dump_tensor_loc, pypto_block.ir.Function)
+
     def test_dump_tensor_window_requires_innermost_stride_one(self):
         """dump_tensor windowed mode should reject non-contiguous innermost stride."""
 
@@ -226,7 +236,18 @@ class TestErrorCases:
             return x
 
         assert isinstance(dynamic_tile_window, pypto_block.ir.Function)
-                
+
+    def test_dump_tile_accepts_loc_keyword(self):
+        """dump_tile should accept the optional loc keyword."""
+
+        @pl.function
+        def dump_tile_loc(x: pl.Tensor[[32, 32], pl.FP32]) -> pl.Tensor[[32, 32], pl.FP32]:
+            tile = pl.load(x, offsets=[0, 0], shapes=[16, 16])
+            plm.dump_tile(tile, loc=True)
+            return x
+
+        assert isinstance(dump_tile_loc, pypto_block.ir.Function)
+
     def test_printf_requires_string_literal_format(self):
         """printf should reject non-string-literal format arguments."""
 
@@ -286,6 +307,26 @@ class TestErrorCases:
             return x
 
         assert text_only_printf is not None
+
+    def test_printf_accepts_loc_keyword(self):
+        """printf should accept loc=True as the only keyword argument."""
+
+        @pl.function(type=pl.FunctionType.Orchestration)
+        def printf_loc(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+            plm.printf("value=%d", x, loc=True)
+            return x
+
+        assert printf_loc is not None
+
+    def test_printf_rejects_non_bool_loc(self):
+        """printf should reject non-bool loc values."""
+
+        with pytest.raises((ParserSyntaxError, TypeError), match="loc"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def printf_bad_loc(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf("value=%d", x, loc=1)  # type: ignore[arg-type]
+                return x
 
     def test_printf_rejects_pure_text_with_extra_args(self):
         """printf should still reject pure text when scalar arguments are provided."""
@@ -350,18 +391,29 @@ class TestErrorCases:
         def assert_printf_ok(x: pl.Scalar[pl.INT32], flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.INT32]:
             plm.assert_(x > 0, "x=%d", x)
             plm.assert_(flag, "x=%d", x)
+            plm.assert_(flag, "x=%d", x, loc=True)
             return x
 
         assert assert_printf_ok is not None
 
-    def test_assert_rejects_keyword_arguments(self):
-        """assert_ should reject keyword arguments."""
+    def test_assert_rejects_unknown_keyword_arguments(self):
+        """assert_ should reject keyword arguments other than loc."""
 
-        with pytest.raises(ParserSyntaxError, match="assert_ does not accept keyword arguments"):
+        with pytest.raises(ParserSyntaxError, match="keyword"):
 
             @pl.function(type=pl.FunctionType.Orchestration)
             def assert_with_kwarg(flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.BOOL]:
-                plm.assert_(condition=flag, message="bad state")  # type: ignore[call-arg]
+                plm.assert_(flag, extra=True)  # type: ignore[call-arg]
+                return flag
+
+    def test_assert_rejects_non_bool_loc(self):
+        """assert_ should reject non-bool loc values."""
+
+        with pytest.raises((ParserSyntaxError, TypeError), match="loc"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def assert_with_bad_loc(flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.BOOL]:
+                plm.assert_(flag, loc="yes")  # type: ignore[arg-type]
                 return flag
 
     def test_assert_rejects_wrong_argument_count(self):

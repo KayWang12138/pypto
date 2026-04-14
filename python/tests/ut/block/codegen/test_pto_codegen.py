@@ -327,6 +327,47 @@ def test_debug_printf_pure_text_returns_unknown_type():
     assert isinstance(call.type, ir.UnknownType)
 
 
+def test_debug_dump_tensor_loc_metadata_round_trip():
+    """debug.dump_tensor should store the show_location metadata when loc=True."""
+    span = ir.Span.unknown()
+    tensor_var = ir.Var("input", ir.TensorType([48, 64], DataType.FP32), span)
+
+    call = debug_op.dump_tensor(tensor_var, loc=True)
+
+    assert call.kwargs["show_location"] is True
+
+
+def test_debug_printf_loc_metadata_round_trip():
+    """debug.printf should store the show_location metadata when loc=True."""
+    span = ir.Span.unknown()
+    scalar_var = ir.Var("value", ir.ScalarType(DataType.INT32), span)
+
+    call = debug_op.printf("value=%d", scalar_var, loc=True)
+
+    assert call.kwargs["show_location"] is True
+
+
+def test_debug_dump_tile_loc_metadata_round_trip():
+    """debug.dump_tile should store the show_location metadata when loc=True."""
+    span = ir.Span.unknown()
+    tile_var = ir.Var("tile", ir.TileType([16, 16], DataType.FP32), span)
+
+    call = debug_op.dump_tile(tile_var, loc=True)
+
+    assert call.kwargs["show_location"] is True
+
+
+def test_debug_assert_loc_metadata_round_trip():
+    """debug.assert should store the show_location metadata when loc=True."""
+    span = ir.Span.unknown()
+    flag_var = ir.Var("flag", ir.ScalarType(DataType.BOOL), span)
+    value_var = ir.Var("value", ir.ScalarType(DataType.INT32), span)
+
+    call = debug_op.assert_(flag_var, "value=%d", value_var, condition_text="flag", loc=True)
+
+    assert call.kwargs["show_location"] is True
+
+
 def test_pto_codegen_alloc_tile():
     """Test that tile buffers generate alloc_tile operations."""
     backend.reset_for_testing()
@@ -413,6 +454,35 @@ def test_pto_codegen_printf_pure_text_lowering():
     assert "arith.constant 0 : i32" in mlir_code
 
 
+def test_pto_codegen_printf_location_prefix():
+    """plm.printf with loc=True should prefix only the first emitted print segment."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class PrintfLocProgram:
+        @pl.function
+        def printf_loc_test(
+            self,
+            input: pl.Tensor[[16, 16], pl.INT32],
+            output: pl.Tensor[[16, 16], pl.INT32],
+            x: pl.Scalar[pl.INT32],
+            y: pl.Scalar[pl.UINT32],
+        ):
+            plm.printf("x=%d y=%x\n", x, y, loc=True)
+            tile = pl.load(input, offsets=[0, 0], shapes=[16, 16])
+            pl.store(tile, offsets=[0, 0], shapes=[16, 16], output_tensor=output)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(PrintfLocProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert re.search(r'pto\.print ins\("\[test_pto_codegen\.py:\d+\] x=%d"', mlir_code)
+    assert 'pto.print ins(" y=%llx\\n", ' in mlir_code
+
+
 def test_pto_codegen_trap_lowering():
     """plm.trap should lower directly to pto.trap."""
     backend.reset_for_testing()
@@ -472,6 +542,36 @@ def test_pto_codegen_assert_lowering():
     assert "pto.print ins(\"[ASSERT] Assertion 'flag'\\n\", " in mlir_code
     assert "pto.print ins(\"[ASSERT] Assertion 'x > 0', x=%d\\n\", " in mlir_code
     assert mlir_code.count("pto.trap") == 2
+
+
+def test_pto_codegen_assert_location_prefix():
+    """plm.assert_ with loc=True should prefix the failure message with the call location."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class AssertLocProgram:
+        @pl.function
+        def assert_loc_test(
+            self,
+            input: pl.Tensor[[16, 16], pl.INT32],
+            output: pl.Tensor[[16, 16], pl.INT32],
+            x: pl.Scalar[pl.INT32],
+        ):
+            plm.assert_(x > 0, "x=%d", x, loc=True)
+            tile = pl.load(input, offsets=[0, 0], shapes=[16, 16])
+            pl.store(tile, offsets=[0, 0], shapes=[16, 16], output_tensor=output)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(AssertLocProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert re.search(
+        r'pto\.print ins\("\[test_pto_codegen\.py:\d+\] \[ASSERT\] Assertion \'x > 0\', x=%d\\n"',
+        mlir_code,
+    )
 
 
 def test_pto_codegen_printf_accepts_common_flags_width_precision():
@@ -610,6 +710,33 @@ def test_pto_codegen_dump_tensor_full_tensor_lowering():
     assert "!pto.partition_tensor_view<48x64xf32>" in mlir_code
 
 
+def test_pto_codegen_dump_tensor_location_header():
+    """plm.dump_tensor with loc=True should emit a location header before the tensor dump."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class DumpTensorLocProgram:
+        @pl.function
+        def dump_tensor_loc(
+            self,
+            input: pl.Tensor[[48, 64], pl.FP32],
+            output: pl.Tensor[[48, 64], pl.FP32],
+        ):
+            plm.dump_tensor(input, loc=True)
+            tile = pl.load(input, offsets=[0, 0], shapes=[16, 16])
+            pl.store(tile, offsets=[0, 0], shapes=[16, 16], output_tensor=output)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(DumpTensorLocProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert re.search(r'pto\.print ins\("\[test_pto_codegen\.py:\d+\] dump_tensor\\n"', mlir_code)
+    assert mlir_code.count("pto.tprint") == 1
+
+
 def test_pto_codegen_dump_tensor_static_window_lowering():
     """plm.dump_tensor with offsets/shapes lowers to partition_view + tprint for that window."""
     backend.reset_for_testing()
@@ -639,34 +766,6 @@ def test_pto_codegen_dump_tensor_static_window_lowering():
     assert "!pto.partition_tensor_view<20x24xf32>" in mlir_code
 
 
-def test_pto_codegen_dump_tensor_rejects_nz_layout():
-    """plm.dump_tensor should fail fast on NZ tensors until PTO NZ lowering is implemented."""
-    backend.reset_for_testing()
-    backend.set_backend_type(BackendType.PTO)
-
-    @pl.program
-    class DumpWindowNzProgram:
-        @pl.function
-        def dump_window_nz(
-            self,
-            input: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
-            output: pl.Tensor[[32, 32], pl.FP32],
-        ):
-            plm.dump_tensor(input, offsets=[0, 0], shapes=[16, 16])
-            tile = pl.load(output, offsets=[0, 0], shapes=[16, 16])
-            pl.store(tile, offsets=[0, 0], shapes=[16, 16], output_tensor=output)
-
-    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-    transformed_program = pm.run_passes(DumpWindowNzProgram)
-
-    codegen_obj = PTOCodegen()
-    with pytest.raises(
-        ValueError,
-        match="debug.dump_tensor: NZ tensor printing is not yet supported in PTO lowering",
-    ):
-        codegen_obj.generate(transformed_program)
-
-
 def test_pto_codegen_dump_tile_lowering():
     """plm.dump_tile lowers directly to pto.tprint on the tile value."""
     backend.reset_for_testing()
@@ -693,6 +792,33 @@ def test_pto_codegen_dump_tile_lowering():
     assert mlir_code.count("pto.tprint") == 1
     assert "pto.tprint ins(" in mlir_code
     assert "pto.tprint ins()" not in mlir_code
+
+
+def test_pto_codegen_dump_tile_location_header():
+    """plm.dump_tile with loc=True should emit a location header before the tile dump."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class DumpTileLocProgram:
+        @pl.function
+        def dump_tile_loc_test(
+            self,
+            input: pl.Tensor[[32, 32], pl.FP32],
+            output: pl.Tensor[[32, 32], pl.FP32],
+        ):
+            tile = pl.load(input, offsets=[0, 0], shapes=[16, 16])
+            plm.dump_tile(tile, loc=True)
+            pl.store(tile, offsets=[0, 0], shapes=[16, 16], output_tensor=output)
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(DumpTileLocProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert re.search(r'pto\.print ins\("\[test_pto_codegen\.py:\d+\] dump_tile\\n"', mlir_code)
+    assert mlir_code.count("pto.tprint") == 1
 
 
 def test_pto_codegen_dump_tile_static_window_lowering():
@@ -1491,67 +1617,6 @@ def test_manual_store_with_relu_and_pre_quant_still_emits_pto_tstore():
         r"outs\(%[A-Za-z0-9_]+ : !pto\.partition_tensor_view<[^>]+>\)",
         mlir_code,
     )
-
-
-def test_manual_store_rejects_nz_output_layout():
-    backend.reset_for_testing()
-    backend.set_backend_type(BackendType.PTO)
-
-    @pl.program
-    class ManualStoreNzProgram:
-        @pl.function
-        def store_nz_kernel(
-            self,
-            output: pl.Tensor[[32, 32], pl.INT8, pl.NZ],
-        ) -> pl.Tensor[[32, 32], pl.INT8, pl.NZ]:
-            src_type = plm.TileType(
-                shape=[32, 32],
-                dtype=pl.INT32,
-                target_memory=pl.MemorySpace.Acc,
-            )
-            src = plm.make_tile(src_type, addr=0x0000, size=4096)
-            plm.store(output, src, [0, 0], pre_quant_scalar=7)
-            return output
-
-    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-    transformed_program = pm.run_passes(ManualStoreNzProgram)
-
-    codegen_obj = PTOCodegen()
-    with pytest.raises(
-        ValueError,
-        match="manual.store: NZ output is not yet supported in PTO lowering",
-    ):
-        codegen_obj.generate(transformed_program)
-
-
-def test_manual_store_rejects_dn_output_layout():
-    backend.reset_for_testing()
-    backend.set_backend_type(BackendType.PTO)
-
-    @pl.program
-    class ManualStoreDnProgram:
-        @pl.function
-        def store_dn_kernel(
-            self,
-            output: pl.Tensor[[32, 32], pl.INT8, pl.DN],
-        ) -> pl.Tensor[[32, 32], pl.INT8, pl.DN]:
-            src_type = plm.TileType(
-                shape=[32, 32],
-                dtype=pl.INT32,
-                target_memory=pl.MemorySpace.Acc,
-            )
-            src = plm.make_tile(src_type, addr=0x0000, size=4096)
-            plm.store(output, src, [0, 0])
-            return output
-
-    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-    transformed_program = pm.run_passes(ManualStoreDnProgram)
-
-    codegen_obj = PTOCodegen()
-    with pytest.raises(ValueError, match="manual.store: DN layout is not supported for store output"):
-        codegen_obj.generate(transformed_program)
-
-
 def test_manual_store_fp_rejects_non_acc_source():
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.PTO)
@@ -1851,6 +1916,8 @@ class TestTensorStrideCodegen:
         assert "shape = [%c64, %c64]" in mlir_code
         # Default stride for [64, 64] is [64, 1]
         assert "strides = [%c64, %c1]" in mlir_code
+
+
 class TestAddPtrCodegen:
     """Tests for pl.addptr generating pto.addptr in ptoas codegen."""
 

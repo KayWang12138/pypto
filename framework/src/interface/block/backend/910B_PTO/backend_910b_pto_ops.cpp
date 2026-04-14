@@ -209,6 +209,11 @@ static std::string MakeCiCodegenPTO(const std::string& pto_op_name, const CallPt
   return "";
 }
 
+static std::string FormatDebugLocation(const ir::Span& span);
+static std::string FormatDebugLocationHeader(const ir::Span& span, const std::string& op_name);
+static void EmitDebugHeaderPrint(codegen::PTOCodegen& codegen, const std::string& header,
+                                 const std::string& indent = "");
+
 // Helper function for Print
 static std::string MakePrintCodegenPTO(const std::string& pto_op_name, const CallPtr& op,
                                        codegen::CodegenBase& codegen_base) {
@@ -216,6 +221,9 @@ static std::string MakePrintCodegenPTO(const std::string& pto_op_name, const Cal
   CHECK(op->args_.size() == 1 || op->args_.size() == 3)
       << "Operation:[" << pto_op_name << "] requires 1 argument (tile) or 3 arguments "
       << "(tile, offsets, shapes), but got " << op->args_.size();
+  if (op->GetKwarg<bool>("show_location", false)) {
+    EmitDebugHeaderPrint(codegen, FormatDebugLocationHeader(op->span_, "dump_tile"));
+  }
 
   auto memory_space_to_mlir = [](ir::MemorySpace space) {
     if (space == ir::MemorySpace::DDR) return std::string("gm");
@@ -465,6 +473,27 @@ static std::string RewritePrintfFormatForScalarType(const std::string& format_se
   return rewritten;
 }
 
+static std::string FormatDebugLocation(const ir::Span& span) {
+  if (!span.is_valid() || span.filename_.empty() || span.begin_line_ <= 0) {
+    return "";
+  }
+
+  size_t last_sep = span.filename_.find_last_of("/\\");
+  std::string basename = last_sep == std::string::npos ? span.filename_ : span.filename_.substr(last_sep + 1);
+  if (basename.empty()) {
+    return "";
+  }
+  return "[" + basename + ":" + std::to_string(span.begin_line_) + "]";
+}
+
+static std::string FormatDebugLocationHeader(const ir::Span& span, const std::string& op_name) {
+  std::string location = FormatDebugLocation(span);
+  if (location.empty()) {
+    return "";
+  }
+  return location + " " + op_name;
+}
+
 static std::string EscapeMlirStringLiteral(const std::string& text) {
   std::ostringstream oss;
   oss << "\"";
@@ -550,14 +579,16 @@ static std::vector<PrintfSegment> ParsePrintfSegments(const std::string& format)
 
 static void EmitPrintfSegments(codegen::PTOCodegen& codegen, const std::string& format,
                                const std::vector<ir::ExprPtr>& args, size_t arg_offset,
-                               const std::string& indent = "") {
+                               const std::string& indent = "",
+                               const std::string& first_segment_prefix = "") {
   auto segments = ParsePrintfSegments(format);
   if (segments.empty()) {
     CHECK(args.size() == arg_offset) << "printf-like lowering format expects 0 scalar arguments, but got "
                                      << (args.size() - arg_offset);
     std::string dummy = codegen.NewTemp();
     codegen.Emit(indent + dummy + " = arith.constant 0 : i32");
-    codegen.Emit(indent + "pto.print ins(" + EscapeMlirStringLiteral(format) + ", " + dummy + " : i32)");
+    codegen.Emit(indent + "pto.print ins(" + EscapeMlirStringLiteral(first_segment_prefix + format) + ", " + dummy +
+                 " : i32)");
     return;
   }
   CHECK(segments.size() == args.size() - arg_offset) << "printf-like lowering segment count (" << segments.size()
@@ -613,8 +644,12 @@ static void EmitPrintfSegments(codegen::PTOCodegen& codegen, const std::string& 
     INTERNAL_CHECK(!(segments[i].conversion == 'f' && scalar_type != "f32"))
         << "debug.printf %f requires f32 operand after frontend/IR validation, but got " << scalar_type;
 
+    std::string format_segment = segments[i].format_segment;
+    if (i == 0 && !first_segment_prefix.empty()) {
+      format_segment = first_segment_prefix + format_segment;
+    }
     std::string rewritten_format =
-        RewritePrintfFormatForScalarType(segments[i].format_segment, segments[i].conversion, scalar_type);
+        RewritePrintfFormatForScalarType(format_segment, segments[i].conversion, scalar_type);
 
     std::ostringstream oss;
     oss << "pto.print ins(" << EscapeMlirStringLiteral(rewritten_format) << ", " << scalar << " : "
@@ -623,11 +658,28 @@ static void EmitPrintfSegments(codegen::PTOCodegen& codegen, const std::string& 
   }
 }
 
+static void EmitDebugHeaderPrint(codegen::PTOCodegen& codegen, const std::string& header,
+                                 const std::string& indent) {
+  if (header.empty()) {
+    return;
+  }
+  std::string dummy = codegen.NewTemp();
+  codegen.Emit(indent + dummy + " = arith.constant 0 : i32");
+  codegen.Emit(indent + "pto.print ins(" + EscapeMlirStringLiteral(header + "\n") + ", " + dummy + " : i32)");
+}
+
 static std::string MakeDebugPrintfCodegenPTO(const CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
 
   std::string format = op->GetKwarg<std::string>("format");
-  EmitPrintfSegments(codegen, format, op->args_, 0);
+  std::string first_segment_prefix;
+  if (op->GetKwarg<bool>("show_location", false)) {
+    std::string location = FormatDebugLocation(op->span_);
+    if (!location.empty()) {
+      first_segment_prefix = location + " ";
+    }
+  }
+  EmitPrintfSegments(codegen, format, op->args_, 0, "", first_segment_prefix);
   return "";
 }
 
@@ -659,6 +711,12 @@ static std::string MakeDebugAssertCodegenPTO(const CallPtr& op, codegen::Codegen
   std::string printed_message = "[ASSERT] Assertion '" + condition_text + "'";
   if (!format.empty()) {
     printed_message += ", " + format;
+  }
+  if (op->GetKwarg<bool>("show_location", false)) {
+    std::string location = FormatDebugLocation(op->span_);
+    if (!location.empty()) {
+      printed_message = location + " " + printed_message;
+    }
   }
   if (printed_message.empty() || printed_message.back() != '\n') {
     printed_message += "\n";
@@ -696,6 +754,9 @@ static std::string GetPartitionType(const ir::MakeTuple* shapes_tuple, const std
 static std::string MakeTensorPrintCodegenPTO(const CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
   CHECK(op->args_.size() == 3) << "debug.dump_tensor requires 3 arguments, but got " << op->args_.size();
+  if (op->GetKwarg<bool>("show_location", false)) {
+    EmitDebugHeaderPrint(codegen, FormatDebugLocationHeader(op->span_, "dump_tensor"));
+  }
 
   auto tensor = As<Var>(op->args_[0]);
   INTERNAL_CHECK(tensor) << "debug.dump_tensor first argument must be a Var";
@@ -709,19 +770,9 @@ static std::string MakeTensorPrintCodegenPTO(const CallPtr& op, codegen::Codegen
   auto tensor_type = As<TensorType>(tensor->GetType());
   INTERNAL_CHECK(tensor_type) << "debug.dump_tensor tensor argument must have TensorType";
 
-  std::string dtype_str = codegen.GetTypeString(tensor_type->dtype_);
-  const ir::TensorLayout tensor_layout = tensor_type->tensor_view_.has_value()
-                                             ? tensor_type->tensor_view_->layout
-                                             : ir::TensorLayout::ND;
-  if (tensor_layout == ir::TensorLayout::NZ) {
-    throw pypto::ValueError(
-        "debug.dump_tensor: NZ tensor printing is not yet supported in PTO lowering; "
-        "the current make_tensor_view lowering cannot build a verifier-valid NZ tensor_view");
-  }
-
-  std::string tensor_view_type = codegen.GetTensorViewTypeString(tensor_type.get());
   std::string tensor_view = codegen.GetOrCreateTensorView(tensor);
-
+  std::string tensor_view_type = codegen.GetTensorViewTypeString(tensor_type.get());
+  std::string dtype_str = codegen.GetTypeString(tensor_type->dtype_);
   std::string partition_type = GetPartitionType(shapes_tuple.get(), dtype_str);
 
   std::string partition_view = codegen.NewTemp();

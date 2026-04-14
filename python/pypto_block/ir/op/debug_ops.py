@@ -79,6 +79,12 @@ def _is_bool_dtype(dtype: DataType) -> bool:
     return dtype == DataType.BOOL
 
 
+def _normalize_location_flag(loc: bool, op_name: str) -> bool:
+    if not isinstance(loc, bool):
+        raise TypeError(f"debug.{op_name} requires bool loc flag, but got {type(loc).__name__}")
+    return loc
+
+
 def _scan_printf_format(format_str: str) -> list[str]:
     specs: list[str] = []
     i = 0
@@ -186,6 +192,7 @@ def dump_tensor(
     tensor: Expr,
     offsets: Sequence[int | Expr] | _ir_core.MakeTuple | None = None,
     shapes: Sequence[int | Expr] | _ir_core.MakeTuple | None = None,
+    loc: bool = False,
     span: Span | None = None,
 ) -> Call:
     """Print a tensor or tensor window for debugging.
@@ -204,6 +211,7 @@ def dump_tensor(
     - Windowed dumps still require the innermost tensor stride to be statically 1
     """
     actual_span = _get_span_or_capture(span)
+    show_location = _normalize_location_flag(loc, "dump_tensor")
     tensor_type = tensor.type
     if not isinstance(tensor_type, TensorType):
         raise TypeError(
@@ -245,7 +253,10 @@ def dump_tensor(
             )
 
     return _ir_core.create_op_call(
-        "debug.dump_tensor", [tensor, offsets_tuple, shapes_tuple], {}, actual_span
+        "debug.dump_tensor",
+        [tensor, offsets_tuple, shapes_tuple],
+        {"show_location": show_location},
+        actual_span,
     )
 
 
@@ -253,6 +264,7 @@ def dump_tile(
     tile: Expr,
     offsets: Sequence[int | Expr] | _ir_core.MakeTuple | None = None,
     shapes: Sequence[int | Expr] | _ir_core.MakeTuple | None = None,
+    loc: bool = False,
     span: Span | None = None,
 ) -> Call:
     """Print a tile or tile window for debugging.
@@ -274,6 +286,7 @@ def dump_tile(
       printing
     """
     actual_span = _get_span_or_capture(span)
+    show_location = _normalize_location_flag(loc, "dump_tile")
     tile_type = tile.type
     if not isinstance(tile_type, TileType):
         raise TypeError(f"debug.dump_tile requires TileType input, but got {type(tile_type).__name__}")
@@ -282,7 +295,9 @@ def dump_tile(
 
     rank = len(tile_type.shape)
     if offsets is None and shapes is None:
-        return _ir_core.create_op_call("debug.dump_tile", [tile], {}, actual_span)
+        return _ir_core.create_op_call(
+            "debug.dump_tile", [tile], {"show_location": show_location}, actual_span
+        )
 
     offsets_tuple = _to_make_tuple(offsets, actual_span)
     shapes_tuple = _to_make_tuple(shapes, actual_span)
@@ -299,20 +314,24 @@ def dump_tile(
             )
 
     return _ir_core.create_op_call(
-        "debug.dump_tile", [tile, offsets_tuple, shapes_tuple], {}, actual_span
+        "debug.dump_tile",
+        [tile, offsets_tuple, shapes_tuple],
+        {"show_location": show_location},
+        actual_span,
     )
 
 
-def printf(format_str: str, *args: int | float | Expr, span: Span | None = None) -> Call:
+def printf(format_str: str, *args: int | float | Expr, loc: bool = False, span: Span | None = None) -> Call:
     """Print scalar values using a compile-time format string."""
     actual_span = _get_span_or_capture(span)
+    show_location = _normalize_location_flag(loc, "printf")
     if not isinstance(format_str, str):
         raise TypeError(f"debug.printf requires string format literal, but got {type(format_str).__name__}")
 
     normalized_args, raw_bool_args = _normalize_printf_args(args, actual_span)
     _validate_printf_arguments(format_str, normalized_args, raw_bool_args, op_name="printf")
 
-    kwargs: dict[str, Any] = {"format": format_str}
+    kwargs: dict[str, Any] = {"format": format_str, "show_location": show_location}
     return _ir_core.create_op_call("debug.printf", normalized_args, kwargs, actual_span)
 
 
@@ -321,10 +340,12 @@ def assert_(
     format_str: str | None = None,
     *args: int | float | Expr | bool,
     condition_text: str | None = None,
+    loc: bool = False,
     span: Span | None = None,
 ) -> Call:
     """Abort execution when a scalar boolean condition is false."""
     actual_span = _get_span_or_capture(span)
+    show_location = _normalize_location_flag(loc, "assert")
     if isinstance(condition, Expr):
         condition_expr = condition
     elif isinstance(condition, bool):
@@ -359,7 +380,11 @@ def assert_(
         _validate_printf_arguments(format_str, normalized_args, raw_bool_args, op_name="assert")
         format_value = format_str
 
-    kwargs: dict[str, Any] = {"condition_text": condition_text, "format": format_value}
+    kwargs: dict[str, Any] = {
+        "condition_text": condition_text,
+        "format": format_value,
+        "show_location": show_location,
+    }
     return _ir_core.create_op_call("debug.assert", [condition_expr, *normalized_args], kwargs, actual_span)
 
 

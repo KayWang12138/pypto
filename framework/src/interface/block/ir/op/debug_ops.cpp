@@ -349,6 +349,7 @@ REGISTER_OP("debug.dump_tensor")
     .add_argument("tensor", "Input tensor (TensorType)")
     .add_argument("offsets", "Offsets per dimension (MakeTuple of integer scalars)")
     .add_argument("shapes", "Shape per dimension (MakeTuple of integer scalars)")
+    .set_attr<bool>("show_location")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceDebugDumpTensorType(args, kwargs);
@@ -363,6 +364,7 @@ REGISTER_OP("debug.dump_tile")
     .add_argument("tile", "Input tile (TileType)")
     .add_argument("offsets", "Optional offsets per dimension (MakeTuple of integer scalars)")
     .add_argument("shapes", "Optional shape per dimension (MakeTuple of integer scalars; dynamic only on CCE)")
+    .set_attr<bool>("show_location")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceDebugDumpTileType(args, kwargs);
@@ -373,6 +375,7 @@ REGISTER_OP("debug.printf")
     .set_description("Print scalar values using a compile-time format string")
     .add_argument("scalars", "Scalar arguments consumed by format conversions (variadic)")
     .set_attr<std::string>("format")
+    .set_attr<bool>("show_location")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceDebugPrintfType(args, kwargs);
@@ -385,6 +388,7 @@ REGISTER_OP("debug.assert")
     .add_argument("scalars", "Optional scalar arguments consumed by assertion format conversions (variadic)")
     .set_attr<std::string>("condition_text")
     .set_attr<std::string>("format")
+    .set_attr<bool>("show_location")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceDebugAssertType(args, kwargs);
