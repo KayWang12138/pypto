@@ -126,7 +126,6 @@ public:
         orbitProcessor.SetLockRatio(orbitLockRatio_);
         orbitProcessor.SetNaturalBreaksCountPercentage(naturalBreaksCountPercentage_);
 
-
         std::unique_ptr<HashComputer<VertexIdxT<GraphT>>> localHasher;
         if (!hashComputer_) {
             localHasher = std::make_unique<MerkleHashComputer<GraphT, BwdMerkleNodeHashFunc<GraphT>, true>>(
@@ -176,13 +175,13 @@ protected:
 
         VTypeT<GraphT> commonNodeType = instance.GetComputationalDag().VertexType(group.subgraphs_[0][0]);
         const auto &repSubgraph = group.subgraphs_[0];
-        
+
         for (const auto &vertex : repSubgraph) {
             if (instance.GetComputationalDag().VertexType(vertex) != commonNodeType) {
                 return {false, 0};
             }
         }
-        
+
         return {true, commonNodeType};
     }
 
@@ -196,7 +195,7 @@ protected:
             effectiveMinProcTypeCount = maxGroupSize_;
         } else {
             auto [isSingleType, commonNodeType] = IsSingleTypeGroup(group, instance);
-            
+
             if (isSingleType) {
                 // Dynamically determine min_proc_type_count based on compatible processors for this type
                 unsigned minCompatibleProcessors = std::numeric_limits<unsigned>::max();
@@ -296,7 +295,6 @@ protected:
             }
 
             unsigned gcd = std::gcd(groupSize, effectiveMinProcTypeCount);
-
             if (gcd < groupSize) {
                 PerformGroupTrimming(group, gcd, groupSize, groupIdx, wasTrimmed);
             } else {
@@ -428,7 +426,7 @@ protected:
 
         for (size_t groupIdx = 0; groupIdx < isomorphicGroups.size(); ++groupIdx) {
             const auto &group = isomorphicGroups[groupIdx];
-            if (group.subgraphs_.empty()) continue;            
+            if (group.subgraphs_.empty()) continue;
 
             auto repSubgraphVertices = group.subgraphs_[0];
             BspInstance<ConstrGraphT> representativeInstance;

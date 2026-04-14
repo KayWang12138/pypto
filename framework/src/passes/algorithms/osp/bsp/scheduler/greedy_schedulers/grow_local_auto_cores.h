@@ -115,19 +115,19 @@ public:
             bool continueSuperstepAttempts = true;
 
             while (continueSuperstepAttempts) {
-                PrepareSuperstepAttempt(state.newAssignments, state.procReady, state.newReady, 
+                PrepareSuperstepAttempt(state.newAssignments, state.procReady, state.newReady,
                     state.allReady, state.ready, p);
 
                 VertexIdx newTotalAssigned = 0;
-                VWorkwT<GraphT> weightLimit = ScheduleProcessorZero(g, limit, state.allReady, 
-                    state.procReady[0], state.newAssignments[0], nodeToProc, state.predec, 
+                VWorkwT<GraphT> weightLimit = ScheduleProcessorZero(g, limit, state.allReady,
+                    state.procReady[0], state.newAssignments[0], nodeToProc, state.predec,
                     state.newReady, newTotalAssigned, p);
-                VWorkwT<GraphT> totalWeightAssigned = ScheduleRemainingProcessors(g, p, weightLimit, 
-                    state.allReady, state.procReady, state.newAssignments, nodeToProc, state.predec, 
+                VWorkwT<GraphT> totalWeightAssigned = ScheduleRemainingProcessors(g, p, weightLimit,
+                    state.allReady, state.procReady, state.newAssignments, nodeToProc, state.predec,
                     state.newReady, newTotalAssigned);
 
-                auto result = EvaluateSuperstep(totalWeightAssigned, weightLimit, instance, bestScore, 
-                    bestParallelism, state.minWeightParallelCheck, state.minSuperstepWeight, 
+                auto result = EvaluateSuperstep(totalWeightAssigned, weightLimit, instance, bestScore,
+                    bestParallelism, state.minWeightParallelCheck, state.minSuperstepWeight,
                     state.desiredParallelism, totalAssigned, newTotalAssigned, n);
 
                 RollbackAssignments(state.newAssignments, g, nodeToProc, state.predec, p);
@@ -143,9 +143,9 @@ public:
                 limit++; limit += (limit / 2);
             }
 
-            CommitBestAssignments(state.bestNewReady, state.bestNewAssignments, state.ready, 
+            CommitBestAssignments(state.bestNewReady, state.bestNewAssignments, state.ready,
                 nodeToProc, nodeToSupstep, state.predec, g, supstep, totalAssigned, p);
-            state.desiredParallelism = (0.3 * state.desiredParallelism) + (0.6 * bestParallelism) 
+            state.desiredParallelism = (0.3 * state.desiredParallelism) + (0.6 * bestParallelism)
                 + (0.1 * static_cast<double>(p));
             ++supstep;
         }
@@ -157,7 +157,7 @@ public:
 private:
     GrowLocalAutoCoresParams<VWorkwT<GraphT>> params_;
 
-    void InitializeReadyQueue(const GraphT &g, std::unordered_set<VertexIdx> &ready, 
+    void InitializeReadyQueue(const GraphT &g, std::unordered_set<VertexIdx> &ready,
                               std::vector<VertexIdx> &predec)
     {
         for (const auto &node : g.Vertices()) {
@@ -171,7 +171,7 @@ private:
     VertexIdx ChooseNode(std::vector<VertexIdx> &procReady, std::vector<VertexIdx> &allReady)
     {
         VertexIdx chosenNode = std::numeric_limits<VertexIdx>::max();
-        
+
         if (!procReady.empty()) {
             chosenNode = procReady.front();
             std::pop_heap(procReady.begin(), procReady.end(), std::greater<VertexIdx>());
@@ -181,7 +181,7 @@ private:
             std::pop_heap(allReady.begin(), allReady.end(), std::greater<VertexIdx>());
             allReady.pop_back();
         }
-        
+
         return chosenNode;
     }
 
@@ -266,7 +266,7 @@ private:
 
         for (unsigned proc = 1; proc < p; ++proc) {
             VWorkwT<GraphT> currentWeightAssigned = 0;
-            
+
             while (currentWeightAssigned < weightLimit) {
                 VertexIdx chosenNode = ChooseNode(procReady[proc], allReady);
                 if (chosenNode == std::numeric_limits<VertexIdx>::max()) {
@@ -307,7 +307,7 @@ private:
         result.bestScore = currentBestScore;
         result.bestParallelism = currentBestParallelism;
 
-        double score = static_cast<double>(totalWeightAssigned) / 
+        double score = static_cast<double>(totalWeightAssigned) /
                       static_cast<double>(weightLimit + instance.SynchronisationCosts());
         double parallelism = 0;
         if (weightLimit > 0) {

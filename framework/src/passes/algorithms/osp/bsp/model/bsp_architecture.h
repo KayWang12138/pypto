@@ -189,7 +189,6 @@ public:
      */
     [[nodiscard]] auto Processors() const { return IntegralRange<unsigned>(numberOfProcessors_); }
 
-
     /**
      * @brief Sets the memory bound for all processors.
      * @param MemoryBound The new memory bound for all processors.

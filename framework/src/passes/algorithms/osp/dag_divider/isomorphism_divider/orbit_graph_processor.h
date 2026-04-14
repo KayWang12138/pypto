@@ -480,7 +480,6 @@ private:
             for (const auto &edge : Edges(currentCoarseGraph)) {
                 VertexType u = Source(edge, currentCoarseGraph);
                 VertexType v = Target(edge, currentCoarseGraph);
-
                 if (!IsEdgeMergeCandidate(u, v, currentCoarseGraph,
                                          vertexPoset, vertexBotPoset, mergeDifferentNodeTypes))
                 {

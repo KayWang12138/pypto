@@ -76,7 +76,6 @@ public:
         for (Scheduler<GraphT> *scheduler : schedulers_) {
             scheduler->ComputeSchedule(currentSchedule);
             const VWorkwT<GraphT> scheduleCost = CostModel()(currentSchedule);
-
             if (scheduleCost < bestScheduleCost) {
                 bestScheduleCost = scheduleCost;
                 schedule = currentSchedule;

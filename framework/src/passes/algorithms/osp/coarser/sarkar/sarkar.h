@@ -373,13 +373,13 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllChildrenContraction(
             continue;
         }
 
-        bool shouldSkip = false;        
+        bool shouldSkip = false;
         for (const VertexType &groupFoot : graph.Children(groupHead)) {
             if (graph.VertexType(groupHead) != graph.VertexType(groupFoot)) {
                 shouldSkip = true;
                 break;
             }
-        }        
+        }
         if (shouldSkip) {
             continue;
         }

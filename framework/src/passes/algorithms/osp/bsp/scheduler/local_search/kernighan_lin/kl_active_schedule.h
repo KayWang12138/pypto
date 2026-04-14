@@ -535,16 +535,18 @@ private:
 
         for (const auto &edge : OutEdges(node, instance_->GetComputationalDag())) {
             const auto &child = Target(edge, instance_->GetComputationalDag());
-            ProcessEdgeViolation(edge, child,
-                                [&]() { return IsOutEdgeViolation(nodeStep, nodeProc, child); },
-                                threadData);
+            ProcessEdgeViolation(
+                edge, child,
+                [&]() { return IsOutEdgeViolation(nodeStep, nodeProc, child); },
+                threadData);
         }
 
         for (const auto &edge : InEdges(node, instance_->GetComputationalDag())) {
             const auto &parent = Source(edge, instance_->GetComputationalDag());
-            ProcessEdgeViolation(edge, parent,
-                                [&]() { return IsInEdgeViolation(nodeStep, nodeProc, parent); },
-                                threadData);
+            ProcessEdgeViolation(
+                edge, parent,
+                [&]() { return IsInEdgeViolation(nodeStep, nodeProc, parent); },
+                threadData);
         }
 
         threadData.feasible_ = threadData.currentViolations_.empty();
@@ -573,7 +575,6 @@ void KlActiveSchedule<GraphT, CostT>::ComputeViolations(ThreadDataT &threadData)
         const unsigned targetProc = AssignedProcessor(targetV);
         const unsigned sourceStep = AssignedSuperstep(sourceV);
         const unsigned targetStep = AssignedSuperstep(targetV);
-
         if (sourceStep > targetStep || (sourceStep == targetStep && sourceProc != targetProc)) {
             threadData.currentViolations_.insert(edge);
             threadData.feasible_ = false;

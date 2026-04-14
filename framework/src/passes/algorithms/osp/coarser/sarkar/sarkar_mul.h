@@ -171,7 +171,7 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLineContractions(bool &change)
         params_.useTopPoset_ = thueCoin_.GetFlip();
         UpdateParams();
         status = std::max(status, RunSingleContractionMode(diff));
-        
+
         change = (diff > 0);
         innerNoChange = change ? 0U : innerNoChange + 1U;
     }
@@ -190,7 +190,7 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunPartialFanContractions(bool &ch
             : sarkar_params::Mode::FAN_OUT_PARTIAL;
         UpdateParams();
         status = std::max(status, RunSingleContractionMode(diff));
-        
+
         change = (diff > 0);
         innerNoChange = change ? 0U : innerNoChange + 1U;
     }
@@ -208,7 +208,7 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunFullFanContractions(bool &chang
         params_.mode_ = thueCoin_.GetFlip() ? sarkar_params::Mode::FAN_IN_FULL : sarkar_params::Mode::FAN_OUT_FULL;
         UpdateParams();
         status = std::max(status, RunSingleContractionMode(diff));
-        
+
         change = (diff > 0);
         innerNoChange = change ? 0U : innerNoChange + 1U;
     }
@@ -227,7 +227,7 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLevelContractions(bool &change)
         params_.useTopPoset_ = balancedRandom_.GetFlip();
         UpdateParams();
         status = std::max(status, RunSingleContractionMode(diff));
-        
+
         change = (diff > 0);
         innerNoChange = change ? 0U : innerNoChange + 1U;
     }

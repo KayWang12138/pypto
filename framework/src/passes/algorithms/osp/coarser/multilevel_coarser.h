@@ -201,7 +201,6 @@ bool MultilevelCoarser<GraphT, GraphTCoarse>::CoarsenDag(const GraphT &dagIn,
     ClearComputationData();
 
     ReturnStatus status = Run(dagIn);
-
     if (status != ReturnStatus::OSP_SUCCESS && status != ReturnStatus::OSP_BEST_FOUND) {
         return false;
     }

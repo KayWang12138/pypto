@@ -42,14 +42,14 @@ std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSub
             dag.VertexWorkWeight(node), dag.VertexCommWeight(node),
             dag.VertexMemWeight(node), dag.VertexType(node));
     }
-    
+
     for (const auto &node : selectedNodes) {
         for (const auto &pred : dag.Parents(node)) {
             if (localIdx.count(pred)) {
                 dagOut.AddEdge(localIdx[pred], localIdx[node]);
             }
         }
-    }   
+    }
 
     return localIdx;
 }

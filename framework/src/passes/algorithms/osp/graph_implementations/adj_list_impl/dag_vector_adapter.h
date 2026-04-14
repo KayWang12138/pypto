@@ -95,7 +95,6 @@ public:
 
     ~DagVectorAdapter() = default;
 
-
     void SetInOutNeighbors(const std::vector<std::vector<IndexT>> &inNeigbors,
                            const std::vector<std::vector<IndexT>> &outNeigbors)
     {

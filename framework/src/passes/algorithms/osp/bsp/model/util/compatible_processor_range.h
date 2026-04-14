@@ -55,7 +55,7 @@ public:
     void Initialize(const BspInstance<GraphT> &inst)
     {
         instance_ = &inst;
-  
+
         typeProcessorIdx_.assign(inst.GetComputationalDag().NumVertexTypes(), {});
         for (VTypeT<GraphT> vType = 0; vType < inst.GetComputationalDag().NumVertexTypes(); vType++) {
             for (unsigned proc = 0; proc < inst.NumberOfProcessors(); proc++) {
@@ -64,7 +64,7 @@ public:
                 }
             }
         }
-        
+
     }
 
     /**

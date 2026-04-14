@@ -238,7 +238,6 @@ protected:
         // top gain, we randomly select one. We check up to `local_max` ties.
         const unsigned localMax = 50;
         std::vector<VertexType> topGainNodes = maxGainHeap.GetTopKeys(localMax);
-
         if (topGainNodes.empty()) {
             // This case is guarded by the caller, but for safety:
             topGainNodes.push_back(maxGainHeap.Top());
@@ -319,10 +318,10 @@ protected:
     }
 
     CostT ComputeNodeProcAffinity(VertexWorkWeightT vertexWeight,
-                                   VertexWorkWeightT maxWork,
-                                   VertexWorkWeightT secondMaxWork,
-                                   VertexWorkWeightT stepProcWork,
-                                   unsigned maxWorkProcCount)
+                                  VertexWorkWeightT maxWork,
+                                  VertexWorkWeightT secondMaxWork,
+                                  VertexWorkWeightT stepProcWork,
+                                  unsigned maxWorkProcCount)
     {
         const bool isSoleMaxProcessor = (maxWorkProcCount == 1) && (maxWork == stepProcWork);
         return isSoleMaxProcessor ? std::min(vertexWeight, maxWork - secondMaxWork) : 0.0;
@@ -429,8 +428,6 @@ protected:
     void RunQuickMoves(unsigned &innerIter, ThreadSearchContext &threadData,
                        const CostT changeInCost, const VertexType bestMoveNode);
 
-
-
     InnerIterResult HandleViolationEscalation(
         unsigned &violationRemovedCount, unsigned &resetCounter,
         unsigned &innerIter, bool iterInitalFeasible,
@@ -463,8 +460,8 @@ protected:
                                  const PreMoveWorkData<VertexWorkWeightT> &prevWorkData);
 
     inline bool BlockedEdgeStrategy(VertexType node,
-                                     std::vector<VertexType> &unlockNodes,
-                                     ThreadSearchContext &threadData);
+                                    std::vector<VertexType> &unlockNodes,
+                                    ThreadSearchContext &threadData);
     inline void AdjustLocalSearchParameters(unsigned outerIter, unsigned noImpCounter, ThreadSearchContext &threadData);
     bool IsLocalSearchBlocked(ThreadSearchContext &threadData);
     void SetParameters(VertexIdxT<GraphT> numNodes);

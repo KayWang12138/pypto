@@ -58,7 +58,6 @@ public:
 
         std::vector<VertexIdxT<ConstrGraphT>> componentMap(dag.NumVertices());
         size_t numComponents = ComputeWeaklyConnectedComponents(dag, componentMap);
-
         if (numComponents == 0) {
             schedule.SetNumberOfSupersteps(0);
             return ReturnStatus::OSP_SUCCESS;
@@ -169,7 +168,6 @@ private:
 
             BspSchedule<ConstrGraphT> subSchedule(subInstance);
             auto status = subScheduler_->ComputeSchedule(subSchedule);
-
             if (status != ReturnStatus::OSP_SUCCESS && status != ReturnStatus::OSP_BEST_FOUND) {
                 return status;
             }

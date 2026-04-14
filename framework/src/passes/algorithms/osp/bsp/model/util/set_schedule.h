@@ -49,7 +49,6 @@ public:
         for (const auto v : schedule.GetInstance().Vertices()) {
             const unsigned step = schedule.AssignedSuperstep(v);
             const unsigned proc = schedule.AssignedProcessor(v);
-
             if (step < numberOfSupersteps_ && proc < instance_->NumberOfProcessors()) {
                 stepProcessorVertices_[step][proc].insert(v);
             }

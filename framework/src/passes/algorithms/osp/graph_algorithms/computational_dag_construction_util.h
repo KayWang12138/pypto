@@ -51,7 +51,7 @@ void ConstructComputationalDag(const GraphFrom &from, GraphTo &to)
         for (const auto &child : from.Children(v)) {
             to.AddEdge(vertexMap[v], vertexMap[child]);
         }
-    }    
+    }
 }
 
 }    // namespace osp

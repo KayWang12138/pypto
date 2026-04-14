@@ -176,7 +176,7 @@ bool CheckValidExpansionMap(const std::vector<std::vector<VertexIdxT<GraphTIn>>>
                 preImage.resize(vert + 1, false);
             }
 
-            if (preImage[vert]) return false;    
+            if (preImage[vert]) return false;
             preImage[vert] = true;
             cntr++;
         }

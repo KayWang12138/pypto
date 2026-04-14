@@ -203,7 +203,6 @@ bool AreIsomorphicByMerkleHash(const GraphT &g1, const GraphT &g2)
 
     const auto &orbits1 = hash1.GetOrbits();
     const auto &orbits2 = hash2.GetOrbits();
-
     if (orbits1.size() != orbits2.size()) {
         return false;
     }

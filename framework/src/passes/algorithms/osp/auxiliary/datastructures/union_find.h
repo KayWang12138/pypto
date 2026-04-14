@@ -156,7 +156,6 @@ bool UnionFindUniverse<T, IndexT, WorkwT>::Join(IndexT index, IndexT otherIndex)
 {
     index = FindOrigin(index);
     otherIndex = FindOrigin(otherIndex);
-
     if (index == otherIndex) {
         return false;
     }
@@ -194,7 +193,6 @@ void UnionFindUniverse<T, IndexT, WorkwT>::AddObjectInternal(const T &name, Work
     namesToIndices_[name] = newIndex;
     componentIndices_.emplace(newIndex);
 }
-
 
 template <typename T, typename IndexT, typename WorkwT>
 void UnionFindUniverse<T, IndexT, WorkwT>::Reset()

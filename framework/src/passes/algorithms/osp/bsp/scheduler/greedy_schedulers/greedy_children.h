@@ -78,7 +78,7 @@ private:
         BspSchedule<GraphT> &sched, const GraphT &graph,
         std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next)
 {
-        
+
         for (const auto &v : graph.Vertices()) {
             sched.SetAssignedProcessor(v, std::numeric_limits<unsigned>::max());
             if (graph.InDegree(v) == 0) {
@@ -101,9 +101,9 @@ private:
         bool &processorSet,
         unsigned &processorToBeAllocated)
     {
-        
+
         const unsigned parProc = sched.AssignedProcessor(parent);
-        
+
         if (!processorSet) {
             if (!instance.IsCompatible(node, parProc)) {
                 return false;
@@ -112,7 +112,7 @@ private:
             processorToBeAllocated = parProc;
             return true;
         }
-        
+
         return parProc == processorToBeAllocated;
     }
 
@@ -121,7 +121,7 @@ private:
         const BspInstance<GraphT> &instance, VertexIdxT<GraphT> node,
         const std::unordered_set<VertexIdxT<GraphT>> &nodesAssignedThisSuperstep)
     {
-        
+
         bool processorSet = false;
         unsigned processorToBeAllocated = 0;
 
@@ -140,10 +140,10 @@ private:
         const BspInstance<GraphT> &instance, VertexIdxT<GraphT> node,
         const std::vector<VWorkwT<GraphT>> &processorWeights)
     {
-        
+
         VWorkwT<GraphT> minWeight = std::numeric_limits<VWorkwT<GraphT>>::max();
         unsigned bestProc = std::numeric_limits<unsigned>::max();
-        
+
         for (unsigned p = 0; p < instance.NumberOfProcessors(); ++p) {
             if (instance.IsCompatible(node, p)) {
                 if (processorWeights[p] < minWeight) {
@@ -152,7 +152,7 @@ private:
                 }
             }
         }
-        
+
         return bestProc;
     }
 
@@ -161,7 +161,7 @@ private:
         std::vector<VertexIdxT<GraphT>> &predecessorsCount,
         std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next)
     {
-        
+
         std::vector<VertexIdxT<GraphT>> newNodes;
         for (const auto &chld : graph.Children(node)) {
             predecessorsCount[chld]++;
@@ -184,17 +184,16 @@ private:
         std::multiset<std::pair<unsigned, VertexIdxT<GraphT>>, std::greater<>> &next,
         unsigned superstepCounter)
     {
-        
+
         const auto &node = iter->second;
-        
+
         auto result = CheckParentCompatibility(graph, sched, instance, node, nodesAssignedThisSuperstep);
-        
         if (!result.compatible) {
             return false;
         }
 
         sched.SetAssignedSuperstep(node, superstepCounter);
-        
+
         if (result.processorSet) {
             sched.SetAssignedProcessor(node, result.processor);
         } else {
@@ -203,10 +202,10 @@ private:
 
         nodesAssignedThisSuperstep.emplace(node);
         processorWeights[sched.AssignedProcessor(node)] += graph.VertexWorkWeight(node);
-        
+
         UpdateReadyQueue(graph, node, predecessorsCount, next);
         next.erase(iter);
-        
+
         return true;
     }
 };
