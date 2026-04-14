@@ -51,6 +51,7 @@ public:
     static constexpr uint8_t kInt16Code = 0x12;
     static constexpr uint8_t kInt32Code = 0x13;
     static constexpr uint8_t kInt64Code = 0x14;
+    static constexpr uint8_t kIndexCode = 0x15;
     static constexpr uint8_t kSignedIntRangeEnd = 0x1F;
     // 0x15-0x1F reserved for future signed integer types
 
@@ -105,6 +106,7 @@ public:
     static const DataType BF16;      // 16-bit brain floating point
     static const DataType HF4;       // 4-bit Hisilicon float
     static const DataType HF8;       // 8-bit Hisilicon float
+    static const DataType INDEX;     // 32-bit index type
 
     /**
      * \brief Default constructor, initializes to BOOL type
@@ -129,7 +131,7 @@ public:
     {
         switch (code_) {
             case kBoolCode:
-                return 1;
+                return 8;
             case kHf4Code:
             case kFp4Code:
             case kUInt4Code:
@@ -152,6 +154,7 @@ public:
                 return 32;
             case kUInt64Code:
             case kInt64Code:
+            case kIndexCode:
                 return 64;
             default:
                 return 0;
@@ -176,6 +179,8 @@ public:
                 return "int32";
             case kInt64Code:
                 return "int64";
+            case kIndexCode:
+                return "index";
             case kUInt4Code:
                 return "uint4";
             case kUInt8Code:
@@ -230,6 +235,7 @@ public:
             case kInt32Code:
                 return "int32_t";
             case kInt64Code:
+            case kIndexCode:
                 return "int64_t";
             case kUInt8Code:
                 return "uint8_t";
@@ -336,6 +342,7 @@ inline constexpr DataType DataType::FP32 = DataType(kFp32Code);
 inline constexpr DataType DataType::BF16 = DataType(kBf16Code);
 inline constexpr DataType DataType::HF4 = DataType(kHf4Code);
 inline constexpr DataType DataType::HF8 = DataType(kHf8Code);
+inline constexpr DataType DataType::INDEX = DataType(kIndexCode);
 
 } // namespace ir
 } // namespace pypto

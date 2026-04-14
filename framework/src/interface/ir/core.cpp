@@ -32,24 +32,11 @@ std::string Span::ToString() const
     return oss.str();
 }
 
-bool Span::IsValid() const
-{
-    if (beginLine_ <= 0 || (beginColumn_ <= 0 && beginColumn_ != -1)) {
-        return false;
-    }
-    if (endLine_ == -1 || endColumn_ == -1) {
-        return true;
-    }
-    if (endLine_ <= 0 || (endColumn_ <= 0 && endColumn_ != -1)) {
-        return false;
-    }
-    if (beginColumn_ == -1 || endColumn_ == -1) {
-        return endLine_ >= beginLine_;
-    }
-    return endLine_ >= beginLine_ && (endLine_ > beginLine_ || endColumn_ >= beginColumn_);
-}
+static Span kUnknownSpan = Span("", -1, -1, -1, -1);
 
-Span Span::Unknown() { return Span("", -1, -1, -1, -1); }
+bool Span::IsUnknown(const Span& span) { return &span == &kUnknownSpan; }
+
+Span& Span::Unknown() { return kUnknownSpan; }
 
 } // namespace ir
 } // namespace pypto

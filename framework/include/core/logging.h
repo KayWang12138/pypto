@@ -284,7 +284,13 @@ public:
      * \brief Set the global log level threshold
      * \param l New log level
      */
-    static void ResetLevel(LogLevel l) { GetManager().level = l; }
+    static void SetLevel(LogLevel l) { GetManager().level = l; }
+
+    /**
+     * \brief Get the current global log level threshold
+     * \return Current log level
+     */
+    static LogLevel GetLevel() { return GetManager().level; }
 
     /**
      * \brief Enable or disable standard output logging
