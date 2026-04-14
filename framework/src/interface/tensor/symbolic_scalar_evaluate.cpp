@@ -16,6 +16,7 @@
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "interface/interpreter/function.h"
 #include "interface/interpreter/communication.h"
+#include "tilefwk/comm_group_recorder.h"
 #include "interface/operation/attribute.h"
 #include "tensor/symbolic_scalar.h"
 
@@ -114,6 +115,7 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3(
 
 ScalarImmediateType EvaluateSymbolicCallGetHcclRankId(EvaluateSymbol *evaluateSymbol, const std::vector<ScalarImmediateType> &dataList)
 {
+    (void) evaluateSymbol;
     size_t hcclIdx = static_cast<size_t>(dataList[0]);
     const std::vector<std::string> groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
     ASSERT(hcclIdx < groupNames.size(), "hcclIndex overflowed!");
