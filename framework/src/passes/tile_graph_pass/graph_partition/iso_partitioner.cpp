@@ -71,7 +71,7 @@ Status IsoPartitioner::PartitionGraph(Function& function)
         APASS_LOG_ERROR_F(Elements::Config, "Partition parameters not initialized.");
         return FAILED;
     }
-    if (BuildOpGraph(function.Operations().DuplicatedOpList()) != SUCCESS) {
+    if (BuildOpGraph(function.Operations().DuplicatedOpList(), function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in building operation graph.");
         return FAILED;
     }
