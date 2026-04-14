@@ -259,11 +259,14 @@ def scaled_matmul_kernel(
         group_list: List of group sizes for K-axis splitting
         tile_config: Tile configuration for computation
     """
-    round_num = len(group_list)
+    g = y.shape[0]
+    m = y.shape[1]
+    n = y.shape[2]
+    mm_result_tensor = pypto.tensor([g, m, n], pypto.DT_FP32)
+
     begin = 0
     end = 0
-
-    for i in range(round_num):
+    for i in range(g):
         begin = end
         end = end + group_list[i]
 
@@ -287,13 +290,8 @@ def scaled_matmul_kernel(
             tile_config.k_tile_shape,
             tile_config.n_tile_shape
         )
-        mm_result = pypto.scaled_mm(x, weight, pypto.DT_FP32, scaled_x, scaled_weight)
-        
-        # 原地累加：使用 slice 切片 y[i:i+1] 获取 [1, M, N] 的 view
-        mm_result_3d = pypto.unsqueeze(mm_result, 0)  # [M, N] -> [1, M, N]
-        y_slice = y[i:i+1]  # 获取 [1, M, N] 的 view
-        y_slice = pypto.add(y_slice, mm_result_3d)  # 累加
-        y[i:i+1] = y_slice  # 写回
+        mm_result_tensor[i] = pypto.scaled_mm(x, weight, pypto.DT_FP32, scaled_x, scaled_weight)
+    y[:,:,:] = pypto.add(y, mm_result_tensor)
 
 
 def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
