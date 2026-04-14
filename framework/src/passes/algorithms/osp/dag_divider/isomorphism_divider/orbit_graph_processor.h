@@ -381,6 +381,56 @@ private:
                ((uSig ^ vSig) && newSize < (uSig ? uSize : vSize));
     }
 
+    /**
+     * @brief Attempts to contract a single edge. Returns true if a merge was committed.
+     */
+    bool TryContractEdge(VertexType u, VertexType v,
+                         const GraphT &originalDag,
+                         ConstrGraphT &currentCoarseGraph,
+                         std::vector<Group> &currentGroups,
+                         const bool mergeBelowThreshold,
+                         const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
+                         const bool mergeDifferentNodeTypes,
+                         const VWorkwT<ConstrGraphT> pathThreshold)
+    {
+        std::vector<std::vector<VertexType>> newSubgraphs;
+        if (!IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs)) {
+            nonViableEdgesCache_.insert({u, v});
+            return false;
+        }
+
+        const std::size_t newSize = newSubgraphs.size();
+        const bool mergeViable = (newSize >= currentSymmetry_);
+        const bool bothBelowMinimalThreshold = mergeBelowThreshold
+            && (currentGroups[u].size() < minSymmetry_)
+            && (currentGroups[v].size() < minSymmetry_);
+
+        if (!mergeViable && !bothBelowMinimalThreshold) {
+            nonViableEdgesCache_.insert({u, v});
+            return false;
+        }
+
+        if (IsSignificanceMergeBlocked(u, v, currentCoarseGraph, currentGroups,
+                                       lockThresholdPerType, mergeDifferentNodeTypes, newSize))
+        {
+            nonViableEdgesCache_.insert({u, v});
+            return false;
+        }
+
+        auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
+        if (CriticalPathWeight(tempCoarseGraph)
+            > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
+               + CriticalPathWeight(currentCoarseGraph)))
+        {
+            nonViableCritPathEdgesCache_.insert({u, v});
+            return false;
+        }
+
+        CommitMerge(u, v, std::move(tempCoarseGraph), tempContractionMap,
+                    std::move(newSubgraphs), currentCoarseGraph, currentGroups);
+        return true;
+    }
+
     void ContractEdgesAdpativeSym(const GraphT &originalDag,
                                   ConstrGraphT &currentCoarseGraph,
                                   std::vector<Group> &currentGroups,
@@ -391,9 +441,9 @@ private:
     {
         bool changed = true;
         while (changed) {
-            const std::vector<VertexIdxT<ConstrGraphT>> vertexPoset
+            const auto vertexPoset
                 = GetTopNodeDistance<ConstrGraphT, VertexIdxT<ConstrGraphT>>(currentCoarseGraph);
-            const std::vector<VertexIdxT<ConstrGraphT>> vertexBotPoset
+            const auto vertexBotPoset
                 = GetBottomNodeDistance<ConstrGraphT, VertexIdxT<ConstrGraphT>>(currentCoarseGraph);
 
             changed = false;
@@ -407,51 +457,13 @@ private:
                     continue;
                 }
 
-                std::vector<std::vector<VertexType>> newSubgraphs;
-                const bool mergeIsValid
-                    = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs);
-                const std::size_t newSize = newSubgraphs.size();
-
-                if (!mergeIsValid) {
-                    nonViableEdgesCache_.insert({u, v});
-                    continue;
-                }
-
-                const bool mergeViable = (newSize >= currentSymmetry_);
-                const bool bothBelowMinimalThreshold = mergeBelowThreshold
-                    && (currentGroups[u].size() < minSymmetry_)
-                    && (currentGroups[v].size() < minSymmetry_);
-
-                if (!mergeViable && !bothBelowMinimalThreshold) {
-                    nonViableEdgesCache_.insert({u, v});
-                    continue;
-                }
-
-                if (IsSignificanceMergeBlocked(u, v, currentCoarseGraph, currentGroups,
-                                               lockThresholdPerType, mergeDifferentNodeTypes,
-                                               newSize))
+                if (TryContractEdge(u, v, originalDag, currentCoarseGraph, currentGroups,
+                                    mergeBelowThreshold, lockThresholdPerType,
+                                    mergeDifferentNodeTypes, pathThreshold))
                 {
-                    nonViableEdgesCache_.insert({u, v});
-                    continue;
+                    changed = true;
+                    break;
                 }
-
-                auto [tempCoarseGraph, tempContractionMap]
-                    = SimulateMerge(u, v, currentCoarseGraph);
-
-                if (CriticalPathWeight(tempCoarseGraph)
-                    > (pathThreshold
-                           * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
-                       + CriticalPathWeight(currentCoarseGraph)))
-                {
-                    nonViableCritPathEdgesCache_.insert({u, v});
-                    continue;
-                }
-
-                CommitMerge(u, v, std::move(tempCoarseGraph), tempContractionMap,
-                            std::move(newSubgraphs), currentCoarseGraph, currentGroups);
-
-                changed = true;
-                break;
             }
         }
     }

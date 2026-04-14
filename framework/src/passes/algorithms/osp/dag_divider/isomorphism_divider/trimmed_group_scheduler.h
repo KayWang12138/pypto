@@ -120,6 +120,20 @@ private:
     }
 
     /**
+     * @brief Computes prefix-sum offsets from processor type counts.
+     */
+    static std::vector<unsigned> ComputeProcTypeOffsets(
+        const BspArchitecture<ConstrGraphT> &arch)
+    {
+        std::vector<unsigned> offsets(arch.GetNumberOfProcessorTypes(), 0);
+        const auto &counts = arch.GetProcessorTypeCount();
+        for (unsigned t = 1; t < arch.GetNumberOfProcessorTypes(); ++t) {
+            offsets[t] = offsets[t - 1] + counts[t - 1];
+        }
+        return offsets;
+    }
+
+    /**
      * @brief Solves the sub-schedule for each group and maps the results back to the global schedule.
      */
     ReturnStatus SolveAndMapSubProblems(BspSchedule<ConstrGraphT> &schedule,
@@ -128,22 +142,10 @@ private:
                                         const BspArchitecture<ConstrGraphT> &subArch)
     {
         const auto &instance = schedule.GetInstance();
-        const auto &arch = instance.GetArchitecture();
         const auto &dag = instance.GetComputationalDag();
 
-        // Calculate offsets for mapping local sub-processor IDs to global processor IDs
-        std::vector<unsigned> archProcTypeOffsets(arch.GetNumberOfProcessorTypes(), 0);
-        const auto &archProcTypeCounts = arch.GetProcessorTypeCount();
-        for (unsigned typeIdx = 1; typeIdx < arch.GetNumberOfProcessorTypes(); ++typeIdx) {
-            archProcTypeOffsets[typeIdx] = archProcTypeOffsets[typeIdx - 1] + archProcTypeCounts[typeIdx - 1];
-        }
-
-        std::vector<unsigned> subArchProcTypeOffsets(subArch.GetNumberOfProcessorTypes(), 0);
-        const auto &subArchProcTypeCounts = subArch.GetProcessorTypeCount();
-        for (unsigned typeIdx = 1; typeIdx < subArch.GetNumberOfProcessorTypes(); ++typeIdx) {
-            subArchProcTypeOffsets[typeIdx] = subArchProcTypeOffsets[typeIdx - 1] + subArchProcTypeCounts[typeIdx - 1];
-        }
-
+        const auto archProcTypeOffsets = ComputeProcTypeOffsets(instance.GetArchitecture());
+        const auto subArchProcTypeOffsets = ComputeProcTypeOffsets(subArch);
         std::vector<unsigned> subProcCounts = subArch.GetProcessorTypeCount();
         unsigned maxSupersteps = 0;
 
