@@ -964,15 +964,8 @@ bool AssignMemoryType::CheckInnerAxisC0Size(const LogicalTensorPtr &input,
     int64_t inputDtypeBytes = BytesOf(input->Datatype());
     int64_t outputDtypeBytes = BytesOf(output->Datatype());
     // 检查数据类型字节数是否有效（避免除零）
-    if (inputDtypeBytes <= 0 || outputDtypeBytes <= 0) {
-        APASS_LOG_DEBUG_F(Elements::Operation,
-            "CheckInnerAxisC0Size: invalid dtype bytes, input=%ld, output=%ld",
-            static_cast<long>(inputDtypeBytes), static_cast<long>(outputDtypeBytes));
-        return false;
-    }
-    // C0 size = 32 字节 / 元素字节数 = 每轴元素个数
-    int64_t inputC0Size = 32 / inputDtypeBytes;
-    int64_t outputC0Size = 32 / outputDtypeBytes;
+    int64_t inputC0Size = (inputDtypeBytes > 0) ? (32 / inputDtypeBytes) : 0;
+    int64_t outputC0Size = (outputDtypeBytes > 0) ? (32 / outputDtypeBytes) : 0;
     if (inputC0Size <= 0 || outputC0Size <= 0) {
         APASS_LOG_DEBUG_F(Elements::Operation,
             "CheckInnerAxisC0Size: invalid C0 size, inputC0Size=%ld, outputC0Size=%ld",
