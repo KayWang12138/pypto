@@ -32,160 +32,7 @@
 #include "codegen_litenpu.h"
 
 namespace npu::tile_fwk {
-#ifdef SRCPATH
-constexpr const char* SRC_PATH = SRCPATH;
-#else
-constexpr const char* SRC_PATH = ".";
-#endif
 
-const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
-const std::string ENV_PTO_TILE_LIB_CODE_PATH = "PTO_TILE_LIB_CODE_PATH";
-constexpr const int64_t CODE_RESERVED_SIZE = 1024 * 1024;
-
-bool CodeGenLiteNPU::IsCube(const OperationsViewer& operationList) const
-{
-    auto isL1CopyIn = [](const Operation& op) {
-        return op.GetOpcode() == Opcode::OP_COPY_IN && !(op.oOperand.empty()) &&
-               op.oOperand[ID0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1;
-    };
-
-    for (const auto& oper : operationList) {
-        if (isL1CopyIn(oper)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-void CodeGenLiteNPU::PrintOperand(const std::string& operIO, std::shared_ptr<LogicalTensor> operand) const
-{
-    CODEGEN_LOGI(
-        "insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
-        operand->Dump().c_str());
-    CODEGEN_LOGI(
-        "range is [%zu, %zu, %d]\n", operand->memoryrange.start, operand->memoryrange.end, operand->memoryrange.memId);
-}
-
-bool CodeGenLiteNPU::HasAllocAttr(const std::shared_ptr<LogicalTensor>& tensor) const
-{
-    bool needAlloc = false;
-    tensor->GetAttr(OpAttributeKey::needAlloc, needAlloc);
-    return needAlloc;
-}
-
-void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const
-{
-    OperationsViewer operationList = subFunc.Operations(false);
-    if (operationList.IsEmpty()) {
-        CODEGEN_LOGW(
-            "operationList from PASS is empty, func magic name: %s, func hash: %s", subFunc.GetMagicName().c_str(),
-            subFunc.GetFunctionHash().c_str());
-    }
-
-    CODEGEN_LOGI(
-        "TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
-        topFunc.Dump().c_str());
-
-    std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
-    std::shared_ptr<ForBlockManager> forBlkMgr = std::make_shared<ForBlockManager>(symbolMgr);
-    FloatSpecValMgr floatSpecValMgr;
-    std::string allocSourceRegion;
-    allocSourceRegion.reserve(CODE_RESERVED_SIZE);
-    std::string tileOpSourceRegion;
-    tileOpSourceRegion.reserve(CODE_RESERVED_SIZE);
-    auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
-    for (const auto& op : operationList) {
-        CODEGEN_LOGI(
-            "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
-        Opcode opcode = op.GetOpcode();
-        if (SKIP_OPCODE_FOR_CODEGEN.find(opcode) != SKIP_OPCODE_FOR_CODEGEN.end()) {
-            CODEGEN_LOGI("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
-            continue;
-        }
-
-        std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
-        floatSpecValMgr.UpdateByOp(op);
-        CodeGenOpLiteNPU cop(
-            {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
-        std::string tileOpSourceCode = cop.GenOpCode();
-        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
-            << "Generate code of op failed, op is " << op.Dump();
-
-        allocSourceRegion.append(allocSourceCode);
-
-        for (auto& c : op.GetCommentList()) {
-            tileOpSourceRegion.append("/*").append(c).append("*/\n");
-        }
-        tileOpSourceRegion.append(tileOpSourceCode);
-
-        if (!allocSourceCode.empty()) {
-            CODEGEN_LOGI(": extra alloc generated(moved up to alloc region): %s", allocSourceCode.c_str());
-        }
-        CODEGEN_LOGI("------------------------ Op CodeGenNPU Finish -----------------------");
-    }
-    floatSpecValMgr.PrintFloatSpecVal(oss);
-    oss << allocSourceRegion << symbolMgr->GenUsingList() << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
-}
-
-std::string CodeGenLiteNPU::GenAllocForLocalBuffer(
-    const Operation& op, const std::shared_ptr<SymbolManager>& symbolMgr) const
-{
-    std::string allocSourceCode{};
-    auto genExtraAllocForTensor = [this, &symbolMgr,
-                                   &op](const std::shared_ptr<LogicalTensor>& operand) -> std::string {
-        if (CodeGenLiteNPU::HasAllocAttr(operand)) {
-            CODEGEN_LOGI("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
-            std::optional<std::string> allocCodeMaybe = GenExtraAlloc(symbolMgr, operand);
-            if (allocCodeMaybe.has_value()) {
-                return allocCodeMaybe.value();
-            }
-        }
-        return "";
-    };
-    for (const std::shared_ptr<LogicalTensor>& operand : op.GetIOperands()) {
-        symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
-        CodeGenLiteNPU::PrintOperand("IOperand", operand);
-        allocSourceCode += genExtraAllocForTensor(operand);
-    }
-    for (const std::shared_ptr<LogicalTensor>& operand : op.GetOOperands()) {
-        symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
-        CodeGenLiteNPU::PrintOperand("OOperand", operand);
-        allocSourceCode += genExtraAllocForTensor(operand);
-    }
-
-    return allocSourceCode;
-}
-
-std::string CodeGenLiteNPU::GetParamType(const Function& func) const
-{
-    (void)func; // TODO...
-    return GM_PARAM_TYPE_FOR_STATIC;
-}
-
-std::string GetDtype(DataType dtype)
-{
-    switch (dtype) {
-        case DataType::DT_UINT8:
-            return "uint8_t";
-        case DataType::DT_INT8:
-            return "int8_t";
-        case DataType::DT_INT16:
-            return "int16_t";
-        case DataType::DT_INT32:
-            return "int32_t";
-        case DataType::DT_INT64:
-            return "int64_t";
-        case DataType::DT_FP16:
-            return "half";
-        case DataType::DT_FP32:
-            return "float";
-        case DataType::DT_BOOL:
-            return "bool";
-        default:
-            return "unknown";
-    }
-}
 using SubstMap = std::map<std::string, std::string>;
 static std::string StringSubstitute(std::string const& in, SubstMap const& subst)
 {
@@ -215,6 +62,30 @@ static std::string StringSubstitute(std::string const& in, SubstMap const& subst
     }
     out << in.substr(pos, std::string::npos);
     return out.str();
+}
+
+std::string GetDtype(DataType dtype)
+{
+    switch (dtype) {
+        case DataType::DT_UINT8:
+            return "uint8_t";
+        case DataType::DT_INT8:
+            return "int8_t";
+        case DataType::DT_INT16:
+            return "int16_t";
+        case DataType::DT_INT32:
+            return "int32_t";
+        case DataType::DT_INT64:
+            return "int64_t";
+        case DataType::DT_FP16:
+            return "half";
+        case DataType::DT_FP32:
+            return "float";
+        case DataType::DT_BOOL:
+            return "bool";
+        default:
+            return "unknown";
+    }
 }
 
 static bool CompareStrings(const std::string& s1, const std::string& s2)
@@ -265,6 +136,183 @@ std::map<int, std::string> GenParamsSymbolMap(
     return symbolMap;
 }
 
+void CodeGenLiteNPU::GenCode(
+    Function& topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset)
+{
+    COMPILER_LOGI(
+        "Start Generate AI_CORE code for topFunc: %s, hash: %s", topFunc.GetMagicName().c_str(),
+        topFunc.GetFunctionHash().c_str());
+
+    compileTasks_.clear();
+
+    std::deque<std::function<void(void)>> tasks;
+    for (auto& subFuncPair : topFunc.rootFunc_->programs_) {
+        std::function task = [this, subFuncPair, &topFunc]() {
+            CODEGEN_LOGI(" ----- subprogram id [%lu] -----", subFuncPair.first);
+            auto subFunc = subFuncPair.second;
+            if (HandleForAICpuSubFunc(*subFunc)) {
+                return;
+            }
+            bool isCube = subFunc->IsCube();
+            CompileInfoLiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
+            std::ostringstream leafKernelFunc;
+            GenFuncBody(*subFunc, topFunc, leafKernelFunc);
+
+            // kirin gm addr replace
+            std::string funcStr = GenFuncGlobalCodeAfterReplace(topFunc, subFuncPair, leafKernelFunc.str());
+            leafKernelFunc.str("");
+            leafKernelFunc << funcStr;
+#ifdef BUILD_WITH_CANN
+            if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+                GenCodeToBinaryTask(leafKernelFunc, compileInfo, "");
+
+                // kirin json codegen
+                std::vector<std::string> inOutParams = GetInOutParams(subFuncPair);
+                int blockDim = 1;          // TODO: currently only support one block dim
+                int jsonWorkspaceSize = 0; // TODO...
+                GenConfigJson(
+                    compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
+                    topFunc.GetMagicName(), jsonWorkspaceSize, inOutParams, blockDim);
+            }
+#endif
+            UpdateSubFunc(subFuncPair, compileInfo);
+        };
+        tasks.push_back(task);
+    }
+    unsigned threadNum = GetCGThreadNum();
+    ParallelExecuteAndWait(threadNum, tasks);
+
+#ifdef BUILD_WITH_CANN
+    if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+        ExecuteParallelCompile(topFunc);
+    }
+#endif
+}
+
+void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const
+{
+    OperationsViewer operationList = subFunc.Operations(false);
+    if (operationList.IsEmpty()) {
+        CODEGEN_LOGW(
+            "operationList from PASS is empty, func magic name: %s, func hash: %s", subFunc.GetMagicName().c_str(),
+            subFunc.GetFunctionHash().c_str());
+    }
+
+    CODEGEN_LOGI(
+        "TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
+        topFunc.Dump().c_str());
+
+    std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
+    std::shared_ptr<ForBlockManager> forBlkMgr = std::make_shared<ForBlockManager>(symbolMgr);
+    FloatSpecValMgr floatSpecValMgr;
+    std::string allocSourceRegion;
+    allocSourceRegion.reserve(CODE_RESERVED_SIZE);
+    std::string tileOpSourceRegion;
+    tileOpSourceRegion.reserve(CODE_RESERVED_SIZE);
+    auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
+    for (const auto& op : operationList) {
+        CODEGEN_LOGI(
+            "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
+        if (SKIP_OPCODE_FOR_CODEGEN.find(op.GetOpcode()) != SKIP_OPCODE_FOR_CODEGEN.end()) {
+            CODEGEN_LOGI("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
+            continue;
+        }
+
+        std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
+        floatSpecValMgr.UpdateByOp(op);
+
+        CodeGenOpLiteNPU cop(
+            {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
+        std::string tileOpSourceCode = cop.GenOpCode();
+        ASSERT(GenCodeErr::GEN_OP_CODE_FAILED, tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
+            << "Generate code of op failed, op is " << op.Dump();
+
+        allocSourceRegion.append(allocSourceCode);
+        tileOpSourceRegion.append(tileOpSourceCode);
+
+        if (!allocSourceCode.empty()) {
+            CODEGEN_LOGI(": extra alloc generated(moved up to alloc region): %s", allocSourceCode.c_str());
+        }
+        CODEGEN_LOGI("------------------------ Op CodeGenNPU Finish -----------------------");
+    }
+    floatSpecValMgr.PrintFloatSpecVal(oss);
+    oss << allocSourceRegion << GenDynParamForExpr(subFunc) << symbolMgr->GenUsingList()
+        << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
+}
+
+void CodeGenLiteNPU::BuildArchOptions(std::ostringstream& oss, const CompileInfo& compileInfo) const
+{
+    std::vector<std::string> compileOpts;
+    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
+        compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
+    }
+
+    compileOpts.emplace_back("-D__LITE_NPU"); // kirin macro for tileop
+    compileOpts.emplace_back("--cce-aicore-only");
+    std::string coreArch = GetCoreArch(compileInfo);
+    compileOpts.emplace_back("--cce-aicore-arch=" + coreArch);
+
+    std::string allCompileOpts = JoinString(compileOpts, " ");
+    oss << allCompileOpts << " ";
+}
+
+std::string CodeGenLiteNPU::GetCoreArch(const CompileInfo& compileInfo) const
+{
+    (void)compileInfo; // TODO...
+
+    if (platform_ == NPUArch::DAV_3113) {
+        return "dav-l311";
+    } else {
+        return "dav-l311";
+    }
+}
+
+void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const
+{
+    oss << "-mllvm -cce-aicore-jump-expand=true "
+        << "-mllvm -cce-aicore-function-stack-size=16384 "
+        << "-mllvm -cce-aicore-record-overflow=false "
+        << "-mllvm -cce-aicore-addr-transform "
+        << "-mllvm -cce-aicore-dcci-insert-for-scalar=false "
+        << "--cce-aicore-input-parameter-size=4096 ";
+    oss << compileOptions << " ";
+}
+
+std::vector<std::string> CodeGenLiteNPU::GetInOutParams(std::pair<uint64_t, Function*> subFuncPair)
+{
+    std::vector<std::string> inOutParams;
+    std::map<std::string, std::string> dTypeMap;
+    auto symbolMap = GenParamsSymbolMap(subFuncPair.second->GetParameter(), inOutParams, dTypeMap);
+
+    return inOutParams;
+}
+
+void CodeGenLiteNPU::GenConfigJson(
+    const std::string& jsonName, const std::string& cppName, const std::string& binName, const std::string& kernelName,
+    const int& workspaceSize, const std::vector<std::string>& argNames, const int& blockDim) const
+{
+    std::ofstream file;
+    file.open(jsonName);
+
+    file << "{\n"
+         << "   \"kernelFile\": \"" << cppName << "\",\n"
+         << "   \"kernelBin\": \"" << binName << "\",\n"
+         << "   \"kernelName\": \"" << kernelName + "_main" << "\",\n"
+         << "   \"workspaceSize\": " << workspaceSize << ",\n"
+         << "   \"blockDim\": " << blockDim << ",\n"
+         << "   \"argNames\": [";
+
+    for (size_t i = 0; i < argNames.size(); i++) {
+        file << "\"" << argNames[i] << "\"";
+
+        if (i < argNames.size() - 1) {
+            file << ", ";
+        }
+    }
+
+    file << "]\n}";
+}
+
 std::string CodeGenLiteNPU::GenFuncGlobalCodeAfterReplace(
     const Function& func, std::pair<uint64_t, Function*> subFuncPair, const std::string& subProgramCode)
 {
@@ -311,386 +359,6 @@ extern "C" __global__ [aicore] void ${FunctionName}$_main(${GlobalParams}$) {
         }
     }
     return funCode;
-}
-
-std::vector<std::string> CodeGenLiteNPU::GetInOutParams(std::pair<uint64_t, Function*> subFuncPair)
-{
-    std::vector<std::string> inOutParams;
-    std::map<std::string, std::string> dTypeMap;
-    auto symbolMap = GenParamsSymbolMap(subFuncPair.second->GetParameter(), inOutParams, dTypeMap);
-
-    return inOutParams;
-}
-
-void CodeGenLiteNPU::GenConfigJson(
-    const std::string& jsonName, const std::string& cppName, const std::string& binName, const std::string& kernelName,
-    const int& workspaceSize, const std::vector<std::string>& argNames, const int& blockDim) const
-{
-    std::ofstream file;
-    file.open(jsonName);
-
-    file << "{\n"
-         << "   \"kernelFile\": \"" << cppName << "\",\n"
-         << "   \"kernelBin\": \"" << binName << "\",\n"
-         << "   \"kernelName\": \"" << kernelName + "_main" << "\",\n"
-         << "   \"workspaceSize\": " << workspaceSize << ",\n"
-         << "   \"blockDim\": " << blockDim << ",\n"
-         << "   \"argNames\": [";
-
-    for (size_t i = 0; i < argNames.size(); i++) {
-        file << "\"" << argNames[i] << "\"";
-
-        if (i < argNames.size() - 1) {
-            file << ", ";
-        }
-    }
-
-    file << "]\n}";
-}
-
-void CodeGenLiteNPU::GenCode(
-    Function& topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset)
-{
-    COMPILER_LOGI(
-        "Start Generate AI_CORE code for topFunc: %s, hash: %s", topFunc.GetMagicName().c_str(),
-        topFunc.GetFunctionHash().c_str());
-
-    // compileTasks_.clear();
-
-    std::deque<std::function<void(void)>> tasks;
-    for (auto& subFuncPair : topFunc.rootFunc_->programs_) {
-        std::function task = [this, subFuncPair, &topFunc]() {
-            CODEGEN_LOGI(" ----- subprogram id [%lu] -----", subFuncPair.first);
-            auto subFunc = subFuncPair.second;
-            if (HandleForAICpuSubFunc(*subFunc)) {
-                return;
-            }
-            bool isCube = subFunc->IsCube();
-            CompileInfoLiteNPU compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
-            std::ostringstream leafKernelFunc;
-            GenFuncBody(*subFunc, topFunc, leafKernelFunc);
-            std::string funcCode = GenFuncGlobalCodeAfterReplace(topFunc, subFuncPair, leafKernelFunc.str());
-#ifdef BUILD_WITH_CANN
-            // TODO...
-            //  if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
-            //      GenCodeToBinaryTask(funcCode, compileInfo, "");
-            //  }
-            if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
-                DumpCCE(compileInfo.GetCCEAbsPath(), funcCode);
-                DoCompileCCE(compileInfo, ""); // TODO: currently has issue
-
-                std::vector<std::string> inOutParams = GetInOutParams(subFuncPair);
-                int blockDim = 1;              // TODO: currently only support one block dim
-                int jsonWorkspaceSize = 0;     // TODO...
-                GenConfigJson(
-                    compileInfo.GetJsonAbsPath(), compileInfo.GetCCEAbsPath(), compileInfo.GetBinAbsPath(),
-                    topFunc.GetMagicName(), jsonWorkspaceSize, inOutParams, blockDim);
-            }
-#endif
-            UpdateSubFunc(subFuncPair, compileInfo);
-        };
-        tasks.push_back(task);
-    }
-    unsigned threadNum = GetCGThreadNum();
-    ParallelExecuteAndWait(threadNum, tasks);
-
-// #ifdef BUILD_WITH_CANN
-//     if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
-//         ExecuteParallelCompile(topFunc);
-//     }
-// #endif
-}
-
-void CodeGenLiteNPU::UpdateSubFunc(
-    std::pair<uint64_t, Function*> subFuncPair, const CompileInfoLiteNPU& compileInfo) const
-{
-    auto subFunc = subFuncPair.second;
-    std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
-    attr->kernelName = compileInfo.GetKernelName();
-    attr->binPath = compileInfo.GetBinAbsPath();
-    attr->kernelDeclare = compileInfo.GetFuncDeclare();
-    CoreType coreType = compileInfo.IsCube() ? CoreType::AIC : CoreType::AIV;
-    attr->coreType = coreType;
-    subFunc->SetLeafFuncAttribute(attr);
-}
-
-bool CodeGenLiteNPU::IsNeedDumpCCE(const std::string& inputFile) const
-{
-    if (ConfigManager::Instance().GetCodeGenConfig(KEY_FORCE_OVERWRITE, true)) {
-        // force dump, default is true
-        return true;
-    }
-    // not force dump
-    if (FileExist(inputFile)) {
-        return false;
-    }
-    return true;
-}
-
-void CodeGenLiteNPU::DumpCCE(const std::string& fileName, const std::string& code) const
-{
-    if (!IsNeedDumpCCE(fileName)) {
-        return;
-    }
-
-    std::ofstream cceFile;
-    try {
-        // 开启异常：failbit/badbit 触发 std::ofstream::failure 异常
-        cceFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-        cceFile.open(fileName);
-        cceFile << code;
-        cceFile.flush();
-        cceFile.close();
-    } catch (const std::ofstream::failure& e) {
-        CODEGEN_LOGE("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
-        cceFile.close();
-        std::remove(fileName.c_str());
-        return;
-    }
-}
-
-std::optional<std::string> CodeGenLiteNPU::GenExtraAlloc(
-    const std::shared_ptr<SymbolManager>& symbolMgr, const std::shared_ptr<LogicalTensor>& tensor) const
-{
-    auto memType = tensor->GetMemoryTypeOriginal();
-    if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        CODEGEN_LOGE_E(
-            OperErr::OPERAND_TYPE_UNSUPPORTED, " memory type(%u) of tensor from PASS is invalid, tensor is: %s",
-            ToUnderlying(memType), tensor->Dump().c_str());
-        return std::nullopt;
-    }
-
-    const TileRange& memRange = tensor->memoryrange;
-    auto bufferType = OPERAND_TYPE_TO_MEMORY_TYPE.at(memType);
-
-    return GenAlloc(symbolMgr, bufferType, tensor->Datatype(), memRange);
-}
-
-std::pair<std::string, std::string> CodeGenLiteNPU::GenAllocVarName(
-    const std::string& prefix, const TileRange& range) const
-{
-    std::ostringstream ss;
-    ss << prefix
-       // range start/end are always positive
-       << "_S" << range.start << "_E" << range.end;
-
-    return std::make_pair(ss.str(), ss.str());
-}
-
-std::string CodeGenLiteNPU::GenAlloc(
-    const std::shared_ptr<SymbolManager>& sm, BufferType bufferType, DataType dataType, const TileRange& range) const
-{
-    if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) || (OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
-        ASSERT(OperErr::OPERAND_TYPE_UNSUPPORTED, false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
-        return "";
-    }
-
-    const std::string prefix = BUFFER_TYPE_TO_PREFIX.at(bufferType);
-    // const std::string& addrSpaceQualifier = OPERAND_TYPE_TO_ADDR_TYPE.at(bufferType);
-    auto [allocVarName, allocVarNameTileTensor] = GenAllocVarName(prefix, range);
-
-    // must conform to CodeGenOpCloudNPU::createAllocKey
-    AllocKey key = AllocKey(bufferType, range.start, range.end);
-    bool reuse = sm->BindAddrWithVariableName(key, allocVarName, allocVarNameTileTensor);
-    if (reuse) {
-        return "";
-    }
-
-    CODEGEN_LOGI("bind key to name: %s->%s", sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
-
-    std::string dataTypeStr = DataType2CCEStr(dataType);
-
-    std::ostringstream oss;
-    // oss << dataTypeStr << " " << addrSpaceQualifier << " *" << allocVarName << " = (" << dataTypeStr << " "
-    //     << addrSpaceQualifier << " *)get_imm(0x" << std::hex << static_cast<unsigned>(range.start) << "); // size: 0x"
-    //     << std::hex << static_cast<unsigned>(range.Size()) << "\n";
-
-    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
-        oss << dataTypeStr << " *" << allocVarNameTileTensor << " = (" << dataTypeStr << " *)get_imm(0x" << std::hex
-            << static_cast<unsigned>(range.start) << "); // size: 0x" << std::hex << static_cast<unsigned>(range.Size())
-            << "\n";
-    }
-
-    return oss.str();
-}
-
-int CodeGenLiteNPU::CheckInjectStr(const char cmdStr[], size_t strLen) const
-{
-    if (cmdStr == nullptr) {
-        return -1;
-    }
-    char filtChar[] = {';', '|', '`', '>', '<'};
-    for (size_t i = 0; i < strLen; ++i) {
-        for (const auto& c : filtChar) {
-            if (cmdStr[i] == c) {
-                return -1;
-            }
-        }
-    }
-    return 0;
-}
-
-void CodeGenLiteNPU::DoCompileCCE(const CompileInfoLiteNPU& compileInfo, const std::string& compileOptions) const
-{
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
-        CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
-        return;
-    }
-    auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
-    ASSERT(ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
-                     << "\n******** bisheng compiling cmd start ********\n"
-                     << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
-}
-
-std::string GetIncludePathByLibLiteNPU()
-{
-    std::string libPath = GetCurrentSharedLibPath();
-    if (libPath.empty()) {
-        return "";
-    }
-
-    std::string includePath = libPath + "/include";
-    CODEGEN_LOGI("includePath by lib is %s", includePath.c_str());
-
-    if (IsPathExist(includePath)) {
-        return includePath;
-    }
-
-    return "";
-}
-
-std::string CodeGenLiteNPU::GetIncludePathForCompileCCE() const
-{
-    if (!ctx.IsIncludePathEmpty()) {
-        CODEGEN_LOGI("include path from ctx is %s", ctx.includePath.c_str());
-        return ctx.includePath;
-    }
-
-    std::string includePathByLib = GetIncludePathByLibLiteNPU();
-    CODEGEN_LOGI("includePathByLib is %s", includePathByLib.c_str());
-    if (!includePathByLib.empty()) {
-        return includePathByLib;
-    }
-
-    ASSERT(false) << "include path for compiling cce is unavailable";
-    return "";
-}
-
-std::string CodeGenLiteNPU::GetPtoTileLibPathByEnv() const
-{
-    if (!ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
-        return "";
-    }
-
-    // Priority 1: Obtain pto-isa from the patch specified by the environment variable "PTO_TILE_LIB_CODE_PATH".
-    const char* homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
-    if (homePath != nullptr) {
-        std::string envPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
-        return envPath;
-    }
-
-    // Priority 2: Obtain pto-isa from the installed cann package.
-    homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
-    if (homePath != nullptr) {
-        std::string cannPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
-        return cannPath;
-    }
-
-    ASSERT(false) << "Pto-isa path not found. please install pto-isa properly.";
-    return "";
-}
-
-std::string CodeGenLiteNPU::GetCoreArch() const
-{
-    if (platform_ == NPUArch::DAV_3113) {
-        return "dav-l311";
-    } else {
-        return "dav-l311";
-    }
-}
-
-void CodeGenLiteNPU::BuildArchOptions(std::ostringstream& oss) const
-{
-    std::vector<std::string> compileOpts;
-    if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
-        compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
-    }
-
-    compileOpts.emplace_back("-D__LITE_NPU");
-    compileOpts.emplace_back("--cce-aicore-only");
-    std::string coreArch = GetCoreArch();
-    compileOpts.emplace_back("--cce-aicore-arch=" + coreArch);
-
-    std::string allCompileOpts = JoinString(compileOpts, " ");
-    oss << allCompileOpts << " ";
-}
-
-// TODO: modify for kirin...
-void CodeGenLiteNPU::BuildIncludes(std::ostringstream& oss) const
-{
-    // used for compiling cce
-    std::string includePath = GetIncludePathForCompileCCE();
-
-    oss << "-I" << includePath << "/tilefwk "
-        << "-I" << includePath << "/tileop "
-        << "-I" << includePath << "/tileop/arch32 "
-        << "-I" << includePath << " ";
-
-    std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
-    if (!ptoTileLibPath.empty()) {
-        oss << "-I" << ptoTileLibPath << " ";
-    }
-}
-
-void CodeGenLiteNPU::BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const
-{
-    oss << "-mllvm -cce-aicore-function-stack-size=16384 "
-        << "-mllvm -cce-aicore-record-overflow=false "
-        << "-mllvm -cce-aicore-addr-transform "
-        << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
-    oss << compileOptions << " ";
-}
-
-std::pair<int, std::string> CodeGenLiteNPU::CompileCCE(
-    const CompileInfoLiteNPU& compileInfo, const std::string& compileOptions) const
-{
-    std::ostringstream oss;
-    oss << "bisheng -c -O3 -g -x cce -std=c++17 -w ";
-    BuildArchOptions(oss);
-    BuildIncludes(oss);
-    BuildExtraOptions(oss, compileOptions);
-
-    const std::string srcFile = compileInfo.GetCCEAbsPath();
-    const std::string objFile = compileInfo.GetBinAbsPath();
-    oss << "-o " << objFile << " " << srcFile;
-
-    std::string ccecCmd = oss.str();
-
-    CODEGEN_LOGI_FULL("compile kernel...\n%s", ccecCmd.c_str());
-
-    int ret = CheckInjectStr(ccecCmd.c_str(), ccecCmd.length());
-    ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
-
-    ret = std::system(ccecCmd.c_str());
-    if (ret != 0) {
-        CODEGEN_LOGE("Compile cce kernel failed, ret = %d\ncompile cmd is:\n %s", ret, ccecCmd.c_str());
-    }
-
-    return {ret, ccecCmd};
-}
-
-bool CodeGenLiteNPU::HandleForAICpuSubFunc(Function& subFunc)
-{
-    if (!subFunc.IsAicpuSubFunction().first) {
-        return false;
-    }
-
-    std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
-    attr->coreType = CoreType::AICPU;
-    subFunc.SetLeafFuncAttribute(attr);
-    return true;
 }
 
 } // namespace npu::tile_fwk
