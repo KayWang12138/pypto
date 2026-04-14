@@ -57,7 +57,6 @@ void CheckExpandTensorValid(const LogicalTensorPtr& operand, const LogicalTensor
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << oss.str();
         }
     }
-
 }
 
 void ExpandTile(Function& function, const struct ExpandInfo& expandInfo)
@@ -491,6 +490,127 @@ Tensor Transpose(const Tensor& self, std::vector<int> perm)
     return Reshape(tmpOutputTensor, resultShape, oldValidShapes);
 }
 
+struct TransDataTileInfoPara {
+    TileInfo inputTileInfo;
+    TileInfo dstTileInfo;
+};
+
+struct TransDataPara {
+    const LogicalTensorPtr& input;
+    const LogicalTensorPtr& dstTensor;
+    const std::vector<SymbolicScalar> tileParams;
+};
+
+void InnerTransData(
+    size_t cur, Function& function, const TileShape& tileShape, const TransDataPara& transDataPara,
+    TransDataTileInfoPara& transDataTileInfoPara)
+{
+    const LogicalTensorPtr& input = transDataPara.input;
+    const LogicalTensorPtr& dstTensor = transDataPara.dstTensor;
+    std::vector<SymbolicScalar> tileParams = transDataPara.tileParams;
+    int64_t C0 = BLOCK_SIZE / BytesOf(input->Datatype());
+    auto& vecTile = tileShape.GetVecTile();
+
+    if (cur == input->GetShape().size()) {
+        auto tmpDstShape = transDataTileInfoPara.inputTileInfo.shape;
+        tmpDstShape[1] = tmpDstShape[1] / C0;
+        tmpDstShape.push_back(C0);
+        std::vector<int64_t> tmpShape = {};
+        int64_t HW = tmpDstShape[2] * tmpDstShape[3];
+        tmpShape.push_back(HW);
+        tmpShape.push_back(C0);
+        auto inputTile = input->View(
+            function, transDataTileInfoPara.inputTileInfo.shape, transDataTileInfoPara.inputTileInfo.offset);
+        auto tmpDstTile = std::make_shared<LogicalTensor>(function, input->Datatype(), tmpDstShape);
+        auto tmpTile = std::make_shared<LogicalTensor>(function, input->Datatype(), tmpShape);
+
+        auto& op = function.AddOperation(Opcode::OP_NCHW2NC1HWC0, {inputTile}, {dstTensor, tmpDstTile, tmpTile});
+        for (int i = 0; i < SHAPE_DIM4; i++) {
+            tileParams[i] = SymbolicScalar(transDataTileInfoPara.inputTileInfo.offset[i]);
+        }
+        op.SetAttribute(OpAttributeKey::transDataOffset, tileParams);
+        return;
+    }
+    int64_t tmpTile = vecTile[cur];
+
+    for (int i = 0; i < input->GetShape()[cur]; i += tmpTile) {
+        transDataTileInfoPara.inputTileInfo.offset[cur] = i;
+        transDataTileInfoPara.inputTileInfo.shape[cur] = std::min(input->GetShape()[cur] - i, tmpTile);
+        InnerTransData(cur + 1, function, tileShape, transDataPara, transDataTileInfoPara);
+    }
+}
+
+void TiledTransData(Function& function, const TileShape& tileShape, const TransDataPara& transDataPara)
+{
+    TransDataTileInfoPara transDataTileInfoPara{
+        TileInfo(transDataPara.input->GetShape().size(), transDataPara.input->GetOffset().size()),
+        TileInfo(transDataPara.dstTensor->GetShape().size(), transDataPara.dstTensor->GetOffset().size())};
+
+    InnerTransData(0, function, tileShape, transDataPara, transDataTileInfoPara);
+}
+
+Tensor TensorTransData(Function& function, const Tensor& self, TransDataType transDataType)
+{
+    Shape resultShape = self.GetShape();
+    if (transDataType == TransDataType::NCHW2NC1HWC0) {
+        int64_t C0 = BLOCK_SIZE / BytesOf(self.GetDataType());
+        int64_t C1 = static_cast<int64_t>((resultShape[1] + C0 - 1) / C0);
+        int64_t padC = C1 * C0 - resultShape[1];
+        resultShape[1] = C1;
+        resultShape.push_back(C0);
+
+        Tensor tmpInput;
+        if (padC != 0) {
+            std::vector<int64_t> tmpShape1(self.GetShape());
+            std::vector<int64_t> tmpShape2(self.GetShape());
+            tmpShape1[2] *= tmpShape1[3];
+            tmpShape1.pop_back();
+            std::vector<SymbolicScalar> tmpValidShape1(SymbolicScalar::FromConcrete(tmpShape1));
+            auto tmpInputTensor = Reshape(self, tmpShape1, tmpValidShape1);
+
+            VecTile oriVectile = TileShape::Current().GetVecTile();
+            VecTile tmpVectile = TileShape::Current().GetVecTile();
+            tmpVectile.tile[2] *= tmpVectile.tile[3];
+            tmpVectile.tile.pop_back();
+            TileShape::Current().SetVecTile(tmpVectile);
+
+            auto tmpInput2 = Pad(tmpInputTensor, {0, 0, 0, padC}, "constant");
+            TileShape::Current().SetVecTile(oriVectile);
+            tmpShape2[1] = C1 * C0;
+            std::vector<SymbolicScalar> tmpValidShape2(SymbolicScalar::FromConcrete(tmpShape2));
+            tmpInput = Reshape(tmpInput2, tmpShape2, tmpValidShape2);
+        }
+
+        Tensor realInput = padC != 0 ? tmpInput : self;
+        auto result = std::make_shared<LogicalTensor>(function, self.GetStorage()->Datatype(), resultShape);
+        auto& op = function.AddOperation(Opcode::OP_NCHW2NC1HWC0, {realInput.GetStorage()}, {result});
+        std::vector<SymbolicScalar> tileParams = {};
+        // n c h w N C H W
+        for (auto i : realInput.GetShape()) {
+            (void)i;
+            tileParams.push_back(SymbolicScalar(0));
+        }
+        for (auto i : realInput.GetShape()) {
+            tileParams.push_back(SymbolicScalar(i));
+        }
+        op.SetAttribute(OpAttributeKey::transDataOffset, tileParams);
+        result->UpdateDynValidShape(SymbolicScalar::FromConcrete(resultShape));
+        return result;
+    }
+    auto result = std::make_shared<LogicalTensor>(function, self.GetStorage()->Datatype(), resultShape);
+    return result;
+}
+
+Tensor TransData(const Tensor& self, TransDataType transDataType)
+{
+    DECLARE_TRACER();
+    if (transDataType == TransDataType::NCHW2NC1HWC0) {
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self.GetShape().size() == SHAPE_DIM4)
+            << "When the transDataType is TransDataType::NCHW2NC1HWC0, the dimension of self must be 4";
+    }
+    RETURN_CALL(TransData, *Program::GetInstance().GetCurrentFunction(), self, transDataType);
+}
+
 void TiledFull(
     Function& function, const TileShape& tileShape, size_t cur, const Element& value, const SymbolicScalar& dynValue,
     std::vector<int64_t>& shape, const std::vector<SymbolicScalar>& validShape, const LogicalTensorPtr& results,
@@ -575,17 +695,16 @@ void TiledCastOperation(
     if (cur == static_cast<int>(input.tensor.GetShape().size())) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        
+
         DataType srcDtype = tile->Datatype();
         DataType dstDtype = resultTile->Datatype();
-        
+
         bool needTmpBuffer = false;
-        if ((srcDtype == DT_FP32 && dstDtype == DT_INT16) ||
-            (srcDtype == DT_FP16 && dstDtype == DT_INT16) ||
+        if ((srcDtype == DT_FP32 && dstDtype == DT_INT16) || (srcDtype == DT_FP16 && dstDtype == DT_INT16) ||
             (srcDtype == DT_FP16 && dstDtype == DT_INT8)) {
             needTmpBuffer = true;
         }
-        
+
         Operation* op = nullptr;
         if (needTmpBuffer) {
             size_t shapeSize = input.tileInfo.shape.size();
@@ -785,11 +904,20 @@ void FullOperationTileFunc(
     TiledFull(function, tileShape, scalar, dynScalar, shape, validShape, oOperand[0]);
 }
 
+void TransDataTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)
+{
+    std::vector<SymbolicScalar> tileParams = op.GetVectorSymbolicScalarAttribute(OpAttributeKey::transDataOffset);
+    TiledTransData(function, tileShape, {iOperand[0], oOperand[0], tileParams});
+}
+
 REGISTER_OPERATION_TILED_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, MoveOutOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, MoveInOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV, VnchwconvOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_EXPAND, Opcode::OP_EXPAND, ExpandOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_CAST, Opcode::OP_CAST, CastOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_VEC_DUP, Opcode::OP_VEC_DUP, FullOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_NCHW2NC1HWC0, Opcode::OP_NCHW2NC1HWC0, TransDataTileFunc);
 
 } // namespace npu::tile_fwk

@@ -106,6 +106,7 @@ public:
     static const std::string maxTileNum;
     static const std::string precisionType;
     static const std::string perm;
+    static const std::string transDataOffset;
 };
 
 class ConvOpAttributeKey {
@@ -385,9 +386,9 @@ public:
     void ClearOutCtrlOperations() { outputCtrlOps.clear(); }
 
     ScopeInfo scopeInfo_;
-    void SetScopeId(int scopeId) {scopeInfo_.scopeId = scopeId; };
-    void SetScopeInfo(const ScopeInfo &info) { scopeInfo_ = info; };
-    const ScopeInfo &GetScopeInfo() const { return scopeInfo_; };
+    void SetScopeId(int scopeId) { scopeInfo_.scopeId = scopeId; };
+    void SetScopeInfo(const ScopeInfo& info) { scopeInfo_ = info; };
+    const ScopeInfo& GetScopeInfo() const { return scopeInfo_; };
     int GetScopeId() const { return scopeInfo_.scopeId; };
     bool GetAllowParallelMerge() const { return scopeInfo_.allowParallelMerge; };
     bool GetAllowCrossScopeMerge() const { return scopeInfo_.allowCrossScopeMerge; };
@@ -444,6 +445,7 @@ public:
             Opcode::OP_INDEX_ADD,
             Opcode::OP_TRANSPOSE_MOVEIN,
             Opcode::OP_TRANSPOSE_MOVEOUT,
+            Opcode::OP_NCHW2NC1HWC0,
             Opcode::OP_FFN_SCHED,
             Opcode::OP_FFN_BATCHING,
             Opcode::OP_FFN_COMBINEINFO,

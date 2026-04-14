@@ -91,6 +91,7 @@ const std::string OpAttributeKey::ownerRank = "owner_rank";
 const std::string OpAttributeKey::maxTileNum = "max_tile_num";
 const std::string OpAttributeKey::precisionType = "precision_type";
 const std::string OpAttributeKey::perm = "perm";
+const std::string OpAttributeKey::transDataOffset = "TRANSDATA_OFFSET";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -1167,19 +1168,19 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &shape : copyAttr->GetFromDynValidShape()) {
+            for (auto& shape : copyAttr->GetFromDynValidShape()) {
                 if (!shape.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetToOffset()) {
+            for (auto& offset : copyAttr->GetToOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetFromOffset()) {
+            for (auto& offset : copyAttr->GetFromOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
