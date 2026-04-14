@@ -32,6 +32,7 @@
 #include <set>
 
 #include "tilefwk/error.h"
+#include "tilefwk/error_code.h"
 #include "securec.h"
 #include "tilefwk/symbolic_scalar.h"
 
@@ -108,12 +109,6 @@ inline int64_t AlignUp(int64_t value, int64_t alignment)
         return value;
     }
     return (value + alignment - 1) / alignment * alignment;
-}
-
-template <typename T, typename = std::enable_if_t<std::is_enum_v<T>>>
-inline constexpr std::underlying_type_t<T> ToUnderlying(T value)
-{
-    return static_cast<std::underlying_type_t<T>>(value);
 }
 
 template <typename T>

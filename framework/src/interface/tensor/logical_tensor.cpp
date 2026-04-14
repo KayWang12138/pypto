@@ -21,7 +21,7 @@
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/utils/function_error.h"
+#include "tilefwk/error_code.h"
 #include "interface/program/program.h"
 #include "interface/utils/id_gen.h"
 #include "interface/function/function.h"

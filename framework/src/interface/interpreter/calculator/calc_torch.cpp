@@ -19,7 +19,7 @@
 #include "fp_convert.h"
 #include "tilefwk/error.h"
 #include "securec.h"
-#include "calc_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 

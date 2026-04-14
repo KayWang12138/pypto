@@ -39,7 +39,7 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 #include "memory_pool.h"
 
 constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;

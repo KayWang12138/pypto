@@ -24,7 +24,7 @@
 #include "tensor_transformation.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "tilefwk/platform.h"
-#include "interface/utils/vector_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 
