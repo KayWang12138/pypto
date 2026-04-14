@@ -136,15 +136,14 @@ public:
     {
         vertices_.at(v).workWeight_ = workWeight;
     }
-    void SetVertexCommWeight(const VertexIdx v, const VertexCommWeightType commWeight)
-    {
-        vertices_.at(v).commWeight_ = commWeight;
-    }
     void SetVertexMemWeight(const VertexIdx v, const VertexMemWeightType memWeight)
     {
         vertices_.at(v).memWeight_ = memWeight;
     }
-
+    void SetVertexCommWeight(const VertexIdx v, const VertexCommWeightType commWeight)
+    {
+        vertices_.at(v).commWeight_ = commWeight;
+    }
     void SetVertexType(const VertexIdx v, const VertexTypeType vertexType)
     {
         vertices_.at(v).vertexType_ = vertexType;

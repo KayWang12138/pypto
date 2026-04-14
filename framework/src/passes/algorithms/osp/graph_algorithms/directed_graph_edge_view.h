@@ -45,7 +45,10 @@ public:
         struct ArrowProxy {
             value_type value_;
 
-            const value_type *operator->() const noexcept { return &value_; }
+            const value_type *operator->() const noexcept
+            {
+                return &value_;
+            }
         };
 
         DirectedEdgeIterator() noexcept : graph_(nullptr), currentVertex_(0), currentEdgeIdx_(0) {}
@@ -188,7 +191,10 @@ public:
         struct ArrowProxy {
             value_type value_;
 
-            const value_type *operator->() const noexcept { return &value_; }
+            const value_type *operator->() const noexcept
+            {
+                return &value_;
+            }
         };
 
         IncidentEdgeIterator() = default;

@@ -42,7 +42,10 @@ public:
      *
      * @param inst The BspInstance.
      */
-    CompatibleProcessorRange(const BspInstance<GraphT> &inst) { Initialize(inst); }
+    CompatibleProcessorRange(const BspInstance<GraphT> &inst)
+    {
+        Initialize(inst);
+    }
 
     /**
      * @brief Initializes the CompatibleProcessorRange with a BspInstance.

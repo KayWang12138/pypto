@@ -200,20 +200,29 @@ public:
      * @brief Sets the communication costs of the BSP architecture.
      * @param cost The communication costs to set.
      */
-    void SetCommunicationCosts(const VCommwT<GraphT> cost) { architecture_.SetCommunicationCosts(cost); }
+    void SetCommunicationCosts(const VCommwT<GraphT> cost)
+    {
+        architecture_.SetCommunicationCosts(cost);
+    }
 
     /**
      * @brief Sets the synchronisation costs of the BSP architecture.
      * @param cost The synchronisation costs to set.
      */
-    void SetSynchronisationCosts(const VCommwT<GraphT> cost) { architecture_.SetSynchronisationCosts(cost); }
+    void SetSynchronisationCosts(const VCommwT<GraphT> cost)
+    {
+        architecture_.SetSynchronisationCosts(cost);
+    }
 
     /**
      * @brief Sets the number of processors. Processor type is set to 0 for all processors.
      * Resets send costs to uniform (1) and diagonal to 0. The memory bound is set to 100 for all processors.
      * @param numberOfProcessors The number of processors. Must be greater than 0.
      */
-    void SetNumberOfProcessors(const unsigned num) { architecture_.SetNumberOfProcessors(num); }
+    void SetNumberOfProcessors(const unsigned num)
+    {
+        architecture_.SetNumberOfProcessors(num);
+    }
 
     /**
      * @brief Returns the processor type for a given processor index. Does not perform bounds checking.

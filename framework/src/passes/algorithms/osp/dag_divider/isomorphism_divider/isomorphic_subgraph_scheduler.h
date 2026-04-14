@@ -70,20 +70,38 @@ public:
         : hashComputer_(&hashComputer), bspScheduler_(&bspScheduler) {}
 
     virtual ~IsomorphicSubgraphScheduler() {}
-    void SetMergeDifferentTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
-    void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
+    void SetMergeDifferentTypes(bool flag)
+    {
+        mergeDifferentNodeTypes_ = flag;
+    }
+    void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold)
+    {
+        workThreshold_ = workThreshold;
+    }
     void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold)
     {
         criticalPathThreshold_ = criticalPathThreshold;
     }
-    void SetOrbitLockRatio(double orbitLockRatio) { orbitLockRatio_ = orbitLockRatio; }
+    void SetOrbitLockRatio(double orbitLockRatio)
+    {
+        orbitLockRatio_ = orbitLockRatio;
+    }
     void SetNaturalBreaksCountPercentage(double naturalBreaksCountPercentage)
     {
         naturalBreaksCountPercentage_ = naturalBreaksCountPercentage;
     }
-    void SetAllowTrimmedScheduler(bool flag) { allowUseTrimmedScheduler_ = flag; }
-    void DisableUseMaxGroupSize() { useMaxGroupSize_ = false; }
-    void SetUseMaxBsp(bool flag) { useMaxBsp_ = flag; }
+    void SetAllowTrimmedScheduler(bool flag)
+    {
+        allowUseTrimmedScheduler_ = flag;
+    }
+    void DisableUseMaxGroupSize()
+    {
+        useMaxGroupSize_ = false;
+    }
+    void SetUseMaxBsp(bool flag)
+    {
+        useMaxBsp_ = flag;
+    }
     void EnableUseMaxGroupSize(const unsigned maxGroupSize)
     {
         useMaxGroupSize_ = true;

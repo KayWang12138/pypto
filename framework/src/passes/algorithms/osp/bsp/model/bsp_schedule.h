@@ -172,7 +172,10 @@ public:
      */
     [[nodiscard]] unsigned NumberOfSupersteps() const { return numberOfSupersteps_; }
 
-    unsigned& NumberOfSupersteps() { return numberOfSupersteps_; }
+    unsigned& NumberOfSupersteps()
+    {
+        return numberOfSupersteps_;
+    }
 
     void Clear()
     {
@@ -280,14 +283,20 @@ public:
      *
      * @return The work costs of the schedule.
      */
-    virtual VWorkwT<GraphT> ComputeWorkCosts() const { return cost_helpers::ComputeWorkCosts(*this); }
+    virtual VWorkwT<GraphT> ComputeWorkCosts() const
+    {
+        return cost_helpers::ComputeWorkCosts(*this);
+    }
 
     /**
      * @brief Computes the costs of the schedule accoring to lazy communication cost evaluation.
      *
      * @return The costs of the schedule.
      */
-    virtual VWorkwT<GraphT> ComputeCosts() const { return LazyCommunicationCost<GraphT>()(*this); }
+    virtual VWorkwT<GraphT> ComputeCosts() const
+    {
+        return LazyCommunicationCost<GraphT>()(*this);
+    }
 
     /**
      * @brief Checks if the schedule is valid.
@@ -362,7 +371,10 @@ public:
      *
      * @param number_of_supersteps_ The number of supersteps.
      */
-    void SetNumberOfSupersteps(const unsigned numberOfSupersteps) { numberOfSupersteps_ = numberOfSupersteps; }
+    void SetNumberOfSupersteps(const unsigned numberOfSupersteps)
+    {
+        numberOfSupersteps_ = numberOfSupersteps;
+    }
 
 protected:
     const BspInstance<GraphT> *instance_;

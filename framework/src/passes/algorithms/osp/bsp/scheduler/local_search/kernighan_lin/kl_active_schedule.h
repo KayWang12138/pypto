@@ -109,7 +109,10 @@ struct KlActiveScheduleWorkDatastructures {
     WorkWeightT maxWorkWeight_;
     WorkWeightT totalWorkWeight_;
 
-    inline WorkWeightT StepMaxWork(unsigned step) const { return stepProcessorWork_[step][0].work_; }
+    inline WorkWeightT StepMaxWork(unsigned step) const
+    {
+        return stepProcessorWork_[step][0].work_;
+    }
 
     inline WorkWeightT StepSecondMaxWork(unsigned step) const
     {
@@ -301,25 +304,55 @@ public:
 
     virtual ~KlActiveSchedule() = default;
 
-    inline const BspInstance<GraphT> &GetInstance() const { return *instance_; }
+    inline const BspInstance<GraphT> &GetInstance() const
+    {
+        return *instance_;
+    }
 
-    inline const BspSchedule<GraphT> &GetVectorSchedule() const { return vectorSchedule_; }
+    inline const BspSchedule<GraphT> &GetVectorSchedule() const
+    {
+        return vectorSchedule_;
+    }
 
-    inline BspSchedule<GraphT> &GetVectorSchedule() { return vectorSchedule_; }
+    inline BspSchedule<GraphT> &GetVectorSchedule()
+    {
+        return vectorSchedule_;
+    }
 
-    inline const SetSchedule<GraphT> &GetSetSchedule() const { return setSchedule_; }
+    inline const SetSchedule<GraphT> &GetSetSchedule() const
+    {
+        return setSchedule_;
+    }
 
-    inline CostT GetCost() { return cost_; }
+    inline CostT GetCost()
+    {
+        return cost_;
+    }
 
-    inline bool IsFeasible() { return feasible_; }
+    inline bool IsFeasible()
+    {
+        return feasible_;
+    }
 
-    inline unsigned NumSteps() const { return vectorSchedule_.NumberOfSupersteps(); }
+    inline unsigned NumSteps() const
+    {
+        return vectorSchedule_.NumberOfSupersteps();
+    }
 
-    inline unsigned AssignedProcessor(VertexType node) const { return vectorSchedule_.AssignedProcessor(node); }
+    inline unsigned AssignedProcessor(VertexType node) const
+    {
+        return vectorSchedule_.AssignedProcessor(node);
+    }
 
-    inline unsigned AssignedSuperstep(VertexType node) const { return vectorSchedule_.AssignedSuperstep(node); }
+    inline unsigned AssignedSuperstep(VertexType node) const
+    {
+        return vectorSchedule_.AssignedSuperstep(node);
+    }
 
-    inline VWorkwT<GraphT> GetStepMaxWork(unsigned step) const { return workDatastructures_.StepMaxWork(step); }
+    inline VWorkwT<GraphT> GetStepMaxWork(unsigned step) const
+    {
+        return workDatastructures_.StepMaxWork(step);
+    }
 
     inline VWorkwT<GraphT> GetStepSecondMaxWork(unsigned step) const
     {
@@ -341,11 +374,20 @@ public:
         return workDatastructures_.GetPreMoveWorkData(move);
     }
 
-    inline VWorkwT<GraphT> GetMaxWorkWeight() { return workDatastructures_.maxWorkWeight_; }
+    inline VWorkwT<GraphT> GetMaxWorkWeight()
+    {
+        return workDatastructures_.maxWorkWeight_;
+    }
 
-    inline VWorkwT<GraphT> GetTotalWorkWeight() { return workDatastructures_.totalWorkWeight_; }
+    inline VWorkwT<GraphT> GetTotalWorkWeight()
+    {
+        return workDatastructures_.totalWorkWeight_;
+    }
 
-    inline void SetCost(CostT cost) { cost_ = cost; }
+    inline void SetCost(CostT cost)
+    {
+        cost_ = cost;
+    }
 
     KlActiveScheduleWorkDatastructures<GraphT> workDatastructures_;
 

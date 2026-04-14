@@ -194,7 +194,10 @@ public:
      * @brief Sets the memory bound for all processors.
      * @param MemoryBound The new memory bound for all processors.
      */
-    void SetMemoryBound(const VMemwT<GraphT> memoryBound) { memoryBound_.assign(numberOfProcessors_, memoryBound); }
+    void SetMemoryBound(const VMemwT<GraphT> memoryBound)
+    {
+        memoryBound_.assign(numberOfProcessors_, memoryBound);
+    }
 
     /**
      * @brief Sets the memory bound for all processors using a vector.
@@ -225,13 +228,19 @@ public:
      * @brief Sets the synchronization costs.
      * @param SynchCost The new synchronization costs.
      */
-    void SetSynchronisationCosts(const VCommwT<GraphT> synchCost) { synchronisationCosts_ = synchCost; }
+    void SetSynchronisationCosts(const VCommwT<GraphT> synchCost)
+    {
+        synchronisationCosts_ = synchCost;
+    }
 
     /**
      * @brief Sets the communication costs.
      * @param CommCost The new communication costs.
      */
-    void SetCommunicationCosts(const VCommwT<GraphT> commCost) { communicationCosts_ = commCost; }
+    void SetCommunicationCosts(const VCommwT<GraphT> commCost)
+    {
+        communicationCosts_ = commCost;
+    }
 
     /**
      * @brief Sets the number of processors. Processor type is set to 0 for all processors.

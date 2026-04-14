@@ -36,7 +36,10 @@ template <typename VertexType, std::size_t defautlVal = 11U>
 struct UniformNodeHashFunc {
     using ResultType = std::size_t;
 
-    constexpr ResultType operator()(const VertexType &) { return defautlVal; }
+    constexpr ResultType operator()(const VertexType &)
+    {
+        return defautlVal;
+    }
 };
 
 template <typename VertexType>
@@ -47,7 +50,10 @@ struct VectorNodeHashFunc {
 
     using ResultType = std::size_t;
 
-    ResultType operator()(const VertexType &v) const { return nodeHashes_[v]; }
+    ResultType operator()(const VertexType &v) const
+    {
+        return nodeHashes_[v];
+    }
 };
 
 /**
@@ -142,20 +148,35 @@ public:
 
     ~MerkleHashComputer() override = default;
 
-    std::size_t GetVertexHash(const VertexType &v) const override { return vertexHashes_[v]; }
+    std::size_t GetVertexHash(const VertexType &v) const override
+    {
+        return vertexHashes_[v];
+    }
 
-    const std::vector<std::size_t> &GetVertexHashes() const override { return vertexHashes_; }
+    const std::vector<std::size_t> &GetVertexHashes() const override
+    {
+        return vertexHashes_;
+    }
 
-    std::size_t NumOrbits() const override { return orbits_.size(); }
+    std::size_t NumOrbits() const override
+    {
+        return orbits_.size();
+    }
 
     const std::vector<VertexType> &GetOrbit(const VertexType &v) const override
     {
         return this->GetOrbitFromHash(this->GetVertexHash(v));
     }
 
-    const std::unordered_map<std::size_t, std::vector<VertexType>> &GetOrbits() const override { return orbits_; }
+    const std::unordered_map<std::size_t, std::vector<VertexType>> &GetOrbits() const override
+    {
+        return orbits_;
+    }
 
-    const std::vector<VertexType> &GetOrbitFromHash(const std::size_t &hash) const override { return orbits_.at(hash); }
+    const std::vector<VertexType> &GetOrbitFromHash(const std::size_t &hash) const override
+    {
+        return orbits_.at(hash);
+    }
 };
 
 /**
@@ -206,7 +227,10 @@ struct BwdMerkleNodeHashFunc {
 
     BwdMerkleNodeHashFunc(const GraphT &graph) : bwMerkleHash_(graph) {}
 
-    std::size_t operator()(const VertexIdxT<GraphT> &v) const { return bwMerkleHash_.GetVertexHash(v); }
+    std::size_t operator()(const VertexIdxT<GraphT> &v) const
+    {
+        return bwMerkleHash_.GetVertexHash(v);
+    }
 };
 
 template <typename GraphT>
@@ -216,7 +240,10 @@ struct PrecomBwdMerkleNodeHashFunc {
     PrecomBwdMerkleNodeHashFunc(const GraphT &graph, const std::vector<std::size_t> &nodeHashes)
         : bwMerkleHash_(graph, nodeHashes) {}
 
-    std::size_t operator()(const VertexIdxT<GraphT> &v) const { return bwMerkleHash_.GetVertexHash(v); }
+    std::size_t operator()(const VertexIdxT<GraphT> &v) const
+    {
+        return bwMerkleHash_.GetVertexHash(v);
+    }
 };
 
 }    // namespace osp

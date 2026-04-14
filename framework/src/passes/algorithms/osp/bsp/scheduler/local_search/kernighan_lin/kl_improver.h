@@ -68,7 +68,10 @@ template <typename GraphT,
           typename CostT = double>
 class KlImprover : public ImprovementScheduler<GraphT> {
 public:
-    KlImprover(unsigned seed = 42) : ImprovementScheduler<GraphT>() { gen_ = std::mt19937(seed); }
+    KlImprover(unsigned seed = 42) : ImprovementScheduler<GraphT>()
+    {
+        gen_ = std::mt19937(seed);
+    }
 
     virtual ~KlImprover() = default;
 
@@ -114,7 +117,10 @@ public:
         return ImproveSchedule(schedule);
     }
 
-    virtual void SetTimeQualityParameter(const double timeQuality) { this->parameters_.timeQuality_ = timeQuality; }
+    virtual void SetTimeQualityParameter(const double timeQuality)
+    {
+        this->parameters_.timeQuality_ = timeQuality;
+    }
 
     virtual void SetSuperstepRemoveStrengthParameter(const double superstepRemoveStrength)
     {
@@ -165,7 +171,10 @@ protected:
         unsigned unlockEdgeBacktrackCounterReset_ = 0;
         unsigned maxNoVioaltionsRemovedBacktrack_ = 0;
 
-        inline unsigned NumSteps() const { return endStep_ - startStep_ + 1; }
+        inline unsigned NumSteps() const
+        {
+            return endStep_ - startStep_ + 1;
+        }
 
         inline unsigned StartIdx(const unsigned nodeStep) const
         {

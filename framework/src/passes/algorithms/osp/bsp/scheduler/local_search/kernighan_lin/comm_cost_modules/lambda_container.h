@@ -88,21 +88,30 @@ struct LambdaVectorContainer {
              * @brief Dereference to get (processor_id, count) pair.
              * @return Pair of processor ID and its count
              */
-            value_type operator*() const { return std::make_pair(index_, vec_[index_]); }
+            value_type operator*() const
+            {
+                return std::make_pair(index_, vec_[index_]);
+            }
 
             /**
              * @brief Check equality with another iterator.
              * @param other Iterator to compare with
              * @return true if both iterators point to the same position
              */
-            bool operator==(const LambdaVectorIterator &other) const { return index_ == other.index_; }
+            bool operator==(const LambdaVectorIterator &other) const
+            {
+                return index_ == other.index_;
+            }
 
             /**
              * @brief Check inequality with another iterator.
              * @param other Iterator to compare with
              * @return true if iterators point to different positions
              */
-            bool operator!=(const LambdaVectorIterator &other) const { return !(*this == other); }
+            bool operator!=(const LambdaVectorIterator &other) const
+            {
+                return !(*this == other);
+            }
 
         private:
             const std::vector<unsigned> &vec_;
@@ -116,10 +125,16 @@ struct LambdaVectorContainer {
         LambdaVectorRange(const std::vector<unsigned> &vec) : vec_(vec) {}
 
         /// Get iterator to the first non-zero entry
-        LambdaVectorIterator begin() { return LambdaVectorIterator(vec_); }
+        LambdaVectorIterator begin()
+        {
+            return LambdaVectorIterator(vec_);
+        }
 
         /// Get iterator to the end
-        LambdaVectorIterator end() { return LambdaVectorIterator(vec_, static_cast<unsigned>(vec_.size())); }
+        LambdaVectorIterator end()
+        {
+            return LambdaVectorIterator(vec_, static_cast<unsigned>(vec_.size()));
+        }
 
     private:
         const std::vector<unsigned> &vec_;
@@ -146,12 +161,18 @@ struct LambdaVectorContainer {
      * @brief Reset all processor assignments for a specific node.
      * @param node Node index to reset
      */
-    inline void ResetNode(const VertexIdxT node) { nodeLambdaVec_[node].assign(numProcs_, 0); }
+    inline void ResetNode(const VertexIdxT node)
+    {
+        nodeLambdaVec_[node].assign(numProcs_, 0);
+    }
 
     /**
      * @brief Clear all data from the container.
      */
-    inline void Clear() { nodeLambdaVec_.clear(); }
+    inline void Clear()
+    {
+        nodeLambdaVec_.clear();
+    }
 
     /**
      * @brief Check if a processor has an entry for a given node.
@@ -181,7 +202,10 @@ struct LambdaVectorContainer {
      * @param proc Processor ID
      * @return Reference to the count (allows modification)
      */
-    inline unsigned &GetProcEntry(const VertexIdxT node, const unsigned proc) { return nodeLambdaVec_[node][proc]; }
+    inline unsigned &GetProcEntry(const VertexIdxT node, const unsigned proc)
+    {
+        return nodeLambdaVec_[node][proc];
+    }
 
     /**
      * @brief Get the processor count for a given node (const version).
@@ -243,7 +267,10 @@ struct LambdaVectorContainer {
      * @param node Node index
      * @return Range object that can be used in range-based for loops
      */
-    inline auto IterateProcEntries(const VertexIdxT node) { return LambdaVectorRange(nodeLambdaVec_[node]); }
+    inline auto IterateProcEntries(const VertexIdxT node)
+    {
+        return LambdaVectorRange(nodeLambdaVec_[node]);
+    }
 };
 
 }    // namespace osp

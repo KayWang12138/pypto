@@ -40,13 +40,25 @@ struct KlHyperTotalCommCostFunction {
 
     LambdaVectorContainer<VertexType> nodeLambdaMap_;
 
-    inline CostT GetCommMultiplier() { return commMultiplier_; }
+    inline CostT GetCommMultiplier()
+    {
+        return commMultiplier_;
+    }
 
-    inline CostT GetMaxCommWeight() { return maxCommWeight_; }
+    inline CostT GetMaxCommWeight()
+    {
+        return maxCommWeight_;
+    }
 
-    inline CostT GetMaxCommWeightMultiplied() { return maxCommWeight_ * commMultiplier_; }
+    inline CostT GetMaxCommWeightMultiplied()
+    {
+        return maxCommWeight_ * commMultiplier_;
+    }
 
-    const std::string Name() const { return "hyper_total_comm_cost"; }
+    const std::string Name() const
+    {
+        return "hyper_total_comm_cost";
+    }
 
     inline bool IsCompatible(VertexType node, unsigned proc)
     {
@@ -67,7 +79,10 @@ struct KlHyperTotalCommCostFunction {
 
     using PreMoveCommDataT = EmptyStruct;
 
-    inline EmptyStruct GetPreMoveCommData(const KlMove &) { return EmptyStruct(); }
+    inline EmptyStruct GetPreMoveCommData(const KlMove &)
+    {
+        return EmptyStruct();
+    }
 
     CostT ComputeScheduleCost()
     {

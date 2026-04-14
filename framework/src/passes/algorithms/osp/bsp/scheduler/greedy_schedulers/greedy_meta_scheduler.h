@@ -48,11 +48,20 @@ public:
     GreedyMetaScheduler() : Scheduler<GraphT>() {}
     ~GreedyMetaScheduler() override = default;
 
-    void AddSerialScheduler() { schedulers_.push_back(&serialScheduler_); }
+    void AddSerialScheduler()
+    {
+        schedulers_.push_back(&serialScheduler_);
+    }
 
-    void AddScheduler(Scheduler<GraphT> &s) { schedulers_.push_back(&s); }
+    void AddScheduler(Scheduler<GraphT> &s)
+    {
+        schedulers_.push_back(&s);
+    }
 
-    void ResetScheduler() { schedulers_.clear(); }
+    void ResetScheduler()
+    {
+        schedulers_.clear();
+    }
 
     ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override
     {

@@ -52,15 +52,30 @@ template <typename VertexType>
 struct VectorVertexLockManager {
     std::vector<bool> lockedNodes_;
 
-    void Initialize(size_t numNodes) { lockedNodes_.resize(numNodes); }
+    void Initialize(size_t numNodes)
+    {
+        lockedNodes_.resize(numNodes);
+    }
 
-    void Lock(VertexType node) { lockedNodes_[node] = true; }
+    void Lock(VertexType node)
+    {
+        lockedNodes_[node] = true;
+    }
 
-    void Unlock(VertexType node) { lockedNodes_[node] = false; }
+    void Unlock(VertexType node)
+    {
+        lockedNodes_[node] = false;
+    }
 
-    bool IsLocked(VertexType node) { return lockedNodes_[node]; }
+    bool IsLocked(VertexType node)
+    {
+        return lockedNodes_[node];
+    }
 
-    void Clear() { lockedNodes_.assign(lockedNodes_.size(), false); }
+    void Clear()
+    {
+        lockedNodes_.assign(lockedNodes_.size(), false);
+    }
 };
 
 template <typename GraphT, typename CostT, typename KlActiveScheduleT, unsigned windowSize>
@@ -91,17 +106,38 @@ struct AdaptiveAffinityTable {
         }
     }
 
-    inline std::vector<VertexType> &GetSelectedNodes() { return selectedNodes_; }
-    inline const std::vector<VertexType> &GetSelectedNodes() const { return selectedNodes_; }
-    inline size_t size() const { return lastIdx_ - gaps_.size(); }
-    inline bool IsSelected(VertexType node) const { return nodeIsSelected_[node]; }
-    inline const std::vector<size_t> &GetSelectedNodesIndices() const { return selectedNodesIdx_; }
-    inline size_t GetSelectedNodesIdx(VertexType node) const { return selectedNodesIdx_[node]; }
+    inline std::vector<VertexType> &GetSelectedNodes()
+    {
+        return selectedNodes_;
+    }
+    inline const std::vector<VertexType> &GetSelectedNodes() const
+    {
+        return selectedNodes_;
+    }
+    inline size_t size() const
+    {
+        return lastIdx_ - gaps_.size();
+    }
+    inline bool IsSelected(VertexType node) const
+    {
+        return nodeIsSelected_[node];
+    }
+    inline const std::vector<size_t> &GetSelectedNodesIndices() const
+    {
+        return selectedNodesIdx_;
+    }
+    inline size_t GetSelectedNodesIdx(VertexType node) const
+    {
+        return selectedNodesIdx_[node];
+    }
     inline std::vector<std::vector<CostT>> &operator[](VertexType node)
     {
         return affinityTable_[selectedNodesIdx_[node]];
     }
-    inline std::vector<std::vector<CostT>> &At(VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
+    inline std::vector<std::vector<CostT>> &At(VertexType node)
+    {
+        return affinityTable_[selectedNodesIdx_[node]];
+    }
     inline const std::vector<std::vector<CostT>> &At(VertexType node) const
     {
         return affinityTable_[selectedNodesIdx_[node]];

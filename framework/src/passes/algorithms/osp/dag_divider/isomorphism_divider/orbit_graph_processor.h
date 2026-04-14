@@ -52,18 +52,33 @@ public:
         // Each vector of vertices represents one of the isomorphic subgraphs in this group.
         std::vector<std::vector<VertexType>> subgraphs_;
 
-        inline size_t size() const { return subgraphs_.size(); }
+        inline size_t size() const
+        {
+            return subgraphs_.size();
+        }
     };
 
     explicit OrbitGraphProcessor() {}
-    void SetMergeDifferentNodeTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
-    void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
+    void SetMergeDifferentNodeTypes(bool flag)
+    {
+        mergeDifferentNodeTypes_ = flag;
+    }
+    void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold)
+    {
+        workThreshold_ = workThreshold;
+    }
     void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold)
     {
         criticalPathThreshold_ = criticalPathThreshold;
     }
-    void SetLockRatio(double lockRatio) { lockOrbitRatio_ = lockRatio; }
-    void SetNaturalBreaksCountPercentage(double percentage) { naturalBreaksCountPercentage_ = percentage; }
+    void SetLockRatio(double lockRatio)
+    {
+        lockOrbitRatio_ = lockRatio;
+    }
+    void SetNaturalBreaksCountPercentage(double percentage)
+    {
+        naturalBreaksCountPercentage_ = percentage;
+    }
 
     /**
      * @brief Discovers isomorphic groups (orbits) in the DAG and constructs an initial coarse graph.
@@ -131,15 +146,30 @@ public:
         PerformCoarseningAdaptiveSymmetry(dag, coarseGraph_, lockThresholdPerType, symmetryLevelsToTest);
     }
 
-    const ConstrGraphT &GetCoarseGraph() const { return coarseGraph_; }
+    const ConstrGraphT &GetCoarseGraph() const
+    {
+        return coarseGraph_;
+    }
 
-    const std::vector<VertexType> &GetContractionMap() const { return contractionMap_; }
+    const std::vector<VertexType> &GetContractionMap() const
+    {
+        return contractionMap_;
+    }
 
-    const ConstrGraphT &GetFinalCoarseGraph() const { return finalCoarseGraph_; }
+    const ConstrGraphT &GetFinalCoarseGraph() const
+    {
+        return finalCoarseGraph_;
+    }
 
-    const std::vector<VertexType> &GetFinalContractionMap() const { return finalContractionMap_; }
+    const std::vector<VertexType> &GetFinalContractionMap() const
+    {
+        return finalContractionMap_;
+    }
 
-    const std::vector<Group> &GetFinalGroups() const { return finalGroups_; }
+    const std::vector<Group> &GetFinalGroups() const
+    {
+        return finalGroups_;
+    }
 
 private:
     // Results from the first (orbit) coarsening step

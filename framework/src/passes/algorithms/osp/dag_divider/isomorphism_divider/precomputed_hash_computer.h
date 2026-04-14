@@ -51,20 +51,35 @@ public:
 
     ~PrecomputedHashComputer() override = default;
 
-    std::size_t GetVertexHash(const IndexType &v) const override { return vertexHashes_[v]; }
+    std::size_t GetVertexHash(const IndexType &v) const override
+    {
+        return vertexHashes_[v];
+    }
 
-    const std::vector<std::size_t> &GetVertexHashes() const override { return vertexHashes_; }
+    const std::vector<std::size_t> &GetVertexHashes() const override
+    {
+        return vertexHashes_;
+    }
 
-    std::size_t NumOrbits() const override { return orbits_.size(); }
+    std::size_t NumOrbits() const override
+    {
+        return orbits_.size();
+    }
 
     const std::vector<IndexType> &GetOrbit(const IndexType &v) const override
     {
         return this->GetOrbitFromHash(this->GetVertexHash(v));
     }
 
-    const std::unordered_map<std::size_t, std::vector<IndexType>> &GetOrbits() const override { return orbits_; }
+    const std::unordered_map<std::size_t, std::vector<IndexType>> &GetOrbits() const override
+    {
+        return orbits_;
+    }
 
-    const std::vector<IndexType> &GetOrbitFromHash(const std::size_t &hash) const override { return orbits_.at(hash); }
+    const std::vector<IndexType> &GetOrbitFromHash(const std::size_t &hash) const override
+    {
+        return orbits_.at(hash);
+    }
 };
 
 }    // namespace osp

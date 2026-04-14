@@ -71,11 +71,20 @@ public:
     std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(
         const GraphTIn &dagIn, VertexIdxT<GraphTIn> &diff);
 
-    inline void SetParameters(const sarkar_params::Parameters<VWorkwT<GraphTIn>> &params) { params_ = params; };
+    inline void SetParameters(const sarkar_params::Parameters<VWorkwT<GraphTIn>> &params)
+    {
+        params_ = params;
+    }
 
-    inline sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters() { return params_; };
+    inline sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters()
+    {
+        return params_;
+    }
 
-    inline const sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters() const { return params_; };
+    inline const sarkar_params::Parameters<VWorkwT<GraphTIn>> &GetParameters() const
+    {
+        return params_;
+    }
 
     Sarkar(sarkar_params::Parameters<VWorkwT<GraphTIn>> params = sarkar_params::Parameters<VWorkwT<GraphTIn>>())
         : params_(params) {};

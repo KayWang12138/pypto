@@ -54,7 +54,10 @@ public:
          */
         struct ArrowProxy {
             T value_;
-            constexpr const T *operator->() const noexcept { return &value_; }
+            constexpr const T *operator->() const noexcept
+            {
+                return &value_;
+            }
         };
 
         /**

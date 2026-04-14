@@ -59,12 +59,18 @@ bool CheckValidContractionMap(const std::vector<VertexIdxT<GraphTOut>> &vertexCo
 
 template <typename T>
 struct AccSum {
-    T operator()(const T &a, const T &b) { return a + b; }
+    T operator()(const T &a, const T &b)
+    {
+        return a + b;
+    }
 };
 
 template <typename T>
 struct AccMax {
-    T operator()(const T &a, const T &b) { return std::max(a, b); }
+    T operator()(const T &a, const T &b)
+    {
+        return std::max(a, b);
+    }
 };
 
 /**

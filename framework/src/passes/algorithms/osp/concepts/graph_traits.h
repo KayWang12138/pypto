@@ -73,9 +73,15 @@ struct DirectedEdge {
     VertexIdxT<GraphT> source_;
     VertexIdxT<GraphT> target_;
 
-    bool operator==(const DirectedEdge &other) const { return source_ == other.source_ && target_ == other.target_; }
+    bool operator==(const DirectedEdge &other) const
+    {
+        return source_ == other.source_ && target_ == other.target_;
+    }
 
-    bool operator!=(const DirectedEdge &other) const { return !(*this == other); }
+    bool operator!=(const DirectedEdge &other) const
+    {
+        return !(*this == other);
+    }
 
     DirectedEdge() : source_(0), target_(0) {}
 

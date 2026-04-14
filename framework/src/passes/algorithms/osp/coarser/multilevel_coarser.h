@@ -42,7 +42,10 @@ public:
     ReturnStatus Run(const GraphT &graph);
 
 protected:
-    inline const GraphT *GetOriginalGraph() const { return originalGraph_; };
+    inline const GraphT *GetOriginalGraph() const
+    {
+        return originalGraph_;
+    }
 
     std::vector<std::unique_ptr<GraphTCoarse>> dagHistory_;
     std::vector<std::unique_ptr<std::vector<VertexIdxT<GraphTCoarse>>>> contractionMaps_;

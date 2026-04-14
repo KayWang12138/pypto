@@ -43,7 +43,10 @@ template <typename Key, typename Value, typename Compare>
 class PairingHeap {
 public:
     PairingHeap() = default;
-    ~PairingHeap() { Clear(); }
+    ~PairingHeap()
+    {
+        Clear();
+    }
 
     /**
      * @brief Copy constructor.
