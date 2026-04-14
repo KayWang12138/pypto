@@ -70,13 +70,13 @@ public:
         : hashComputer_(&hashComputer), bspScheduler_(&bspScheduler) {}
 
     virtual ~IsomorphicSubgraphScheduler() {}
-    void SetMergeDifferentTypes(bool flag)
-    {
-        mergeDifferentNodeTypes_ = flag;
-    }
     void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold)
     {
         workThreshold_ = workThreshold;
+    }
+    void SetMergeDifferentTypes(bool flag)
+    {
+        mergeDifferentNodeTypes_ = flag;
     }
     void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold)
     {
