@@ -552,3 +552,258 @@ TEST_F(LiteNPUCodegenNeg, test_Neg_fp32_015) {
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+
+// Neg_INT16_001
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_001) {
+    PROGRAM("NEG_INT16_001") {
+        Tensor input(DataType::DT_INT16, {112}, "input");
+        auto output = Tensor(DataType::DT_INT16, {112}, "output");
+        FUNCTION("NEG_INT16_001") {
+            TileShape::Current().SetVecTile({50});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_001");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT16_002
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_002) {
+    PROGRAM("NEG_INT16_002") {
+        Tensor input(DataType::DT_INT16, {100}, "input");
+        auto output = Tensor(DataType::DT_INT16, {100}, "output");
+        FUNCTION("NEG_INT16_002") {
+            TileShape::Current().SetVecTile({100});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_002");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT16_003
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_003) {
+    PROGRAM("NEG_INT16_003") {
+        Tensor input(DataType::DT_INT16, {4, 128}, "input");
+        auto output = Tensor(DataType::DT_INT16, {4, 128}, "output");
+        FUNCTION("NEG_INT16_003") {
+            TileShape::Current().SetVecTile({2, 32});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_003");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT16_004
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_004) {
+    PROGRAM("NEG_INT16_004") {
+        Tensor input(DataType::DT_INT16, {4, 130}, "input");
+        auto output = Tensor(DataType::DT_INT16, {4, 130}, "output");
+        FUNCTION("NEG_INT16_004") {
+            TileShape::Current().SetVecTile({1, 130});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_004");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT16_005
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_005) {
+    PROGRAM("NEG_INT16_005") {
+        Tensor input(DataType::DT_INT16, {2, 4, 160}, "input");
+        auto output = Tensor(DataType::DT_INT16, {2, 4, 160}, "output");
+        FUNCTION("NEG_INT16_005") {
+            TileShape::Current().SetVecTile({1, 2, 32});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_005");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT16_006
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_006) {
+    PROGRAM("NEG_INT16_006") {
+        Tensor input(DataType::DT_INT16, {2, 4, 140}, "input");
+        auto output = Tensor(DataType::DT_INT16, {2, 4, 140}, "output");
+        FUNCTION("NEG_INT16_006") {
+            TileShape::Current().SetVecTile({1, 2, 140});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_006");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT16_007
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_007) {
+    PROGRAM("NEG_INT16_007") {
+        Tensor input(DataType::DT_INT16, {2, 5, 152}, "input");
+        auto output = Tensor(DataType::DT_INT16, {2, 5, 152}, "output");
+        FUNCTION("NEG_INT16_007") {
+            TileShape::Current().SetVecTile({1, 5, 32});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_007");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT16_008
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT16_008) {
+    PROGRAM("NEG_INT16_008") {
+        Tensor input(DataType::DT_INT16, {2, 3, 170}, "input");
+        auto output = Tensor(DataType::DT_INT16, {2, 3, 170}, "output");
+        FUNCTION("NEG_INT16_008") {
+            TileShape::Current().SetVecTile({1, 3, 170});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT16_008");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT32_009
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT32_009) {
+    PROGRAM("NEG_INT32_009") {
+        Tensor input(DataType::DT_INT32, {5, 2, 4, 176}, "input");
+        auto output = Tensor(DataType::DT_INT32, {5, 2, 4, 176}, "output");
+        FUNCTION("NEG_INT32_009") {
+            TileShape::Current().SetVecTile({2, 1, 2, 16});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT32_009");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT32_010
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT32_010) {
+    PROGRAM("NEG_INT32_010") {
+        Tensor input(DataType::DT_INT32, {5, 2, 4, 130}, "input");
+        auto output = Tensor(DataType::DT_INT32, {5, 2, 4, 130}, "output");
+        FUNCTION("NEG_INT32_010") {
+            TileShape::Current().SetVecTile({1, 1, 1, 130});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT32_010");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT32_011
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT32_011) {
+    PROGRAM("NEG_INT32_011") {
+        Tensor input(DataType::DT_INT32, {2, 3, 5, 134}, "input");
+        auto output = Tensor(DataType::DT_INT32, {2, 3, 5, 134}, "output");
+        FUNCTION("NEG_INT32_011") {
+            TileShape::Current().SetVecTile({1, 1, 5, 32});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT32_011");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT32_012
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT32_012) {
+    PROGRAM("NEG_INT32_012") {
+        Tensor input(DataType::DT_INT32, {4, 2, 6, 135}, "input");
+        auto output = Tensor(DataType::DT_INT32, {4, 2, 6, 135}, "output");
+        FUNCTION("NEG_INT32_012") {
+            TileShape::Current().SetVecTile({2, 2, 3, 32});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT32_012");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT32_013
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT32_013) {
+    PROGRAM("NEG_INT32_013") {
+        Tensor input(DataType::DT_INT32, {6, 2, 4, 130}, "input");
+        auto output = Tensor(DataType::DT_INT32, {6, 2, 4, 130}, "output");
+        FUNCTION("NEG_INT32_013") {
+            TileShape::Current().SetVecTile({1, 1, 4, 130});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT32_013");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT32_014
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT32_014) {
+    PROGRAM("NEG_INT32_014") {
+        Tensor input(DataType::DT_INT32, {3, 2, 3, 139}, "input");
+        auto output = Tensor(DataType::DT_INT32, {3, 2, 3, 139}, "output");
+        FUNCTION("NEG_INT32_014") {
+            TileShape::Current().SetVecTile({1, 2, 1, 139});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT32_014");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// Neg_INT32_015
+TEST_F(LiteNPUCodegenNeg, test_Neg_INT32_015) {
+    PROGRAM("NEG_INT32_015") {
+        Tensor input(DataType::DT_INT32, {6, 3, 5, 141}, "input");
+        auto output = Tensor(DataType::DT_INT32, {6, 3, 5, 141}, "output");
+        FUNCTION("NEG_INT32_015") {
+            TileShape::Current().SetVecTile({3, 3, 5, 32});
+            output = Neg(input);
+        }
+    }
+
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "NEG_INT32_015");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
