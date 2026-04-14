@@ -621,4 +621,14 @@ public:
  */
 #define INTERNAL_UNREACHABLE pypto::FatalLogger<pypto::ir::InternalError>("unreachable", __FILE__, __LINE__)
 
+/**
+ * @brief Check an internal invariant with IR source location and throw InternalError if it fails
+ *
+ * Usage: INTERNAL_CHECK_SPAN(condition, node->span_) << "error message";
+ */
+#define INTERNAL_CHECK_SPAN(expr, span) \
+    if (!!(expr))                       \
+        ;                               \
+    else                                \
+        pypto::FatalLogger<pypto::ir::InternalError>(#expr, span.filename_.c_str(), span.beginLine_)
 } // namespace pypto

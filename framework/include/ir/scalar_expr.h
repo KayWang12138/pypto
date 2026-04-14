@@ -99,7 +99,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstInt::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const
+    [[nodiscard]] DataType dtype() const
     {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
@@ -146,7 +146,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstFloat::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const
+    [[nodiscard]] DataType dtype() const
     {
         // Note: Must use dynamic_pointer_cast here because this header is included before
         // the TypePtr overload of As<> is defined in kind_traits.h
@@ -192,7 +192,7 @@ public:
             Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ConstBool::value_, "value")));
     }
 
-    [[nodiscard]] DataType GetDtype() const { return DataType::BOOL; }
+    [[nodiscard]] DataType dtype() const { return DataType::BOOL; }
 };
 
 using ConstBoolPtr = std::shared_ptr<const ConstBool>;
