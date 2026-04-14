@@ -11,7 +11,8 @@
 
 /**
  * @file manual_ops/memory.cpp
- * @brief Manual (non-SSA) memory operations: load, move, ub_copy, full, fillpad, fillpad_expand.
+ * @brief Manual (non-SSA) memory operations: load, store, store_fp, move, ub_copy, full, fillpad,
+ * fillpad_expand.
  *
  * Each "manual" op receives the pre-allocated output tile as its last argument
  * and returns that tile's type rather than creating a fresh SSA result type.
@@ -136,6 +137,30 @@ REGISTER_OP("manual.store")
       CHECK(offsets) << "manual.store: arg 1 must be MakeTuple (offsets)";
       auto out_type = As<TensorType>(args[2]->GetType());
       CHECK(out_type) << "manual.store: arg 2 must be TensorType";
+      return out_type;
+    });
+
+// manual.store_fp: (tile, fp_tile, offsets, output_tensor) -> TensorType
+REGISTER_OP("manual.store_fp")
+    .set_op_category("ManualOp")
+    .set_description(
+        "Manual floating-point store: copy data from a pre-allocated Acc tile to a global tensor "
+        "using an auxiliary fp tile.")
+    .add_argument("tile", "Source tile (TileType, Acc memory)")
+    .add_argument("fp_tile", "Floating-point parameter tile (TileType)")
+    .add_argument("offsets", "Offset tuple per dimension (MakeTuple)")
+    .add_argument("output_tensor", "Destination tensor (TensorType)")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      CHECK(args.size() == 4) << "manual.store_fp requires 4 arguments, got " << args.size();
+      CHECK(As<TileType>(args[0]->GetType()))
+          << "manual.store_fp: arg 0 must be TileType";
+      CHECK(As<TileType>(args[1]->GetType()))
+          << "manual.store_fp: arg 1 must be TileType";
+      auto offsets = As<MakeTuple>(args[2]);
+      CHECK(offsets) << "manual.store_fp: arg 2 must be MakeTuple (offsets)";
+      auto out_type = As<TensorType>(args[3]->GetType());
+      CHECK(out_type) << "manual.store_fp: arg 3 must be TensorType";
       return out_type;
     });
 

@@ -266,6 +266,51 @@ static std::string MakeManualStoreCodegenCCE(const ir::CallPtr& op, codegen::Cod
 }
 
 // ============================================================================
+// manual.store_fp — args = [tile, fp_tile, offsets, output_tensor]
+// Emits: TASSIGN(tensor_global, ptr + offset); TSTORE_FP(tensor_global, tile, fp_tile);
+// ============================================================================
+static std::string MakeManualStoreFpCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 4)
+      << "manual.store_fp requires 4 arguments: tile, fp_tile, offsets, output_tensor";
+
+  auto src_tile_type = ir::As<ir::TileType>(op->args_[0]->GetType());
+  CHECK(src_tile_type != nullptr) << "manual.store_fp source must be TileType";
+  CHECK(src_tile_type->memref_.has_value())
+      << "manual.store_fp source tile must have an allocated memory space";
+  if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
+    throw pypto::ValueError("manual.store_fp: source tile must be allocated in Acc memory");
+  }
+
+  auto fp_tile_type = ir::As<ir::TileType>(op->args_[1]->GetType());
+  CHECK(fp_tile_type != nullptr) << "manual.store_fp fp tile must be TileType";
+  CHECK(fp_tile_type->memref_.has_value())
+      << "manual.store_fp fp tile must have an allocated memory space";
+  if (fp_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Scaling) {
+    throw pypto::ValueError("manual.store_fp: fp tile must be allocated in Scaling memory");
+  }
+
+  auto offsets_tuple = std::dynamic_pointer_cast<const ir::MakeTuple>(op->args_[2]);
+  CHECK(offsets_tuple != nullptr) << "manual.store_fp third argument must be a tuple (offsets)";
+
+  auto dst_tensor_var_ptr = std::dynamic_pointer_cast<const ir::Var>(op->args_[3]);
+  CHECK(dst_tensor_var_ptr != nullptr) << "manual.store_fp destination tensor must be a Var";
+
+  std::string dst_tensor_var = codegen.GetVarName(dst_tensor_var_ptr);
+  auto dst_tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(dst_tensor_var_ptr->GetType());
+  CHECK(dst_tensor_type != nullptr) << "manual.store_fp destination must be TensorType";
+
+  std::string offset = ComputeManualOffset(codegen, dst_tensor_var, offsets_tuple, dst_tensor_type);
+  std::string dst_ptr = codegen.GetPointer(dst_tensor_var);
+  std::string src_tile = codegen.GetExprAsCode(op->args_[0]);
+  std::string fp_tile = codegen.GetExprAsCode(op->args_[1]);
+
+  codegen.Emit("TASSIGN(" + dst_tensor_var + ", " + dst_ptr + " + " + offset + ");");
+  codegen.Emit("TSTORE_FP(" + dst_tensor_var + ", " + src_tile + ", " + fp_tile + ");");
+  return "";
+}
+
+// ============================================================================
 // manual.make_tile — no-op (tile already declared in prologue)
 // ============================================================================
 static std::string MakeManualMakeTileCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -809,6 +854,12 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.store")
     .set_pipe(ir::PipeType::MTE3)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeManualStoreCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "manual.store_fp")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualStoreFpCodegenCCE(op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.make_tile")

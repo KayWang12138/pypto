@@ -34,6 +34,7 @@ namespace ir {
  * - Mat: Matrix/L1 buffer
  * - Left: Left matrix operand buffer
  * - Right: Right matrix operand buffer
+ * - Scaling: Scaling/FBuffer tile buffer
  * - Acc: Accumulator buffer
  */
 enum class MemorySpace {
@@ -42,6 +43,7 @@ enum class MemorySpace {
   Mat,    ///< Matrix/L1 buffer
   Left,   ///< Left matrix operand buffer
   Right,  ///< Right matrix operand buffer
+  Scaling,///< Scaling/FBuffer buffer
   Acc     ///< Accumulator buffer
 };
 

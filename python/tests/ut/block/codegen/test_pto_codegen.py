@@ -1342,6 +1342,195 @@ def test_pto_codegen_reusability():
     assert code1 == code2  # Should produce identical output
 
 
+def test_manual_store_fp_rejects_relu_mode():
+    with pytest.raises(ValueError, match="fp_tile cannot be used together with relu_pre_mode"):
+
+        @pl.program
+        class ManualStoreFpRejectReluProgram:
+            @pl.function
+            def store_fp_reject_relu(self, output: pl.Tensor[[32, 32], pl.INT8]):
+                src_type = plm.TileType(
+                    shape=[32, 32],
+                    dtype=pl.INT32,
+                    target_memory=pl.MemorySpace.Acc,
+                )
+                fp_type = plm.TileType(
+                    shape=[1, 16],
+                    dtype=pl.UINT64,
+                    target_memory=pl.MemorySpace.Scaling,
+                )
+                src = plm.make_tile(src_type, addr=0x0000, size=4096)
+                fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+                plm.store(output, src, [0, 0], relu_pre_mode="normal_relu", fp_tile=fp)
+
+
+def test_manual_store_fp_rejects_pre_quant_scalar():
+    with pytest.raises(ValueError, match="fp_tile cannot be used together with pre_quant_scalar"):
+
+        @pl.program
+        class ManualStoreFpRejectPreQuantProgram:
+            @pl.function
+            def store_fp_reject_pre_quant(self, output: pl.Tensor[[32, 32], pl.INT8]):
+                src_type = plm.TileType(
+                    shape=[32, 32],
+                    dtype=pl.INT32,
+                    target_memory=pl.MemorySpace.Acc,
+                )
+                fp_type = plm.TileType(
+                    shape=[1, 16],
+                    dtype=pl.UINT64,
+                    target_memory=pl.MemorySpace.Scaling,
+                )
+                src = plm.make_tile(src_type, addr=0x0000, size=4096)
+                fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+                plm.store(output, src, [0, 0], pre_quant_scalar=7, fp_tile=fp)
+
+
+def test_manual_store_fp_emits_pto_tstore_fp():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualStoreFpProgram:
+        @pl.function
+        def store_fp_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8],
+        ) -> pl.Tensor[[32, 32], pl.INT8]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            plm.store(output, src, [0, 0], fp_tile=fp)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualStoreFpProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+    assert "pto.tstore_fp" in mlir_code
+    assert "pto.partition_view" in mlir_code
+    assert "pto.tstore_fp ins(" in mlir_code
+    assert "loc=scaling" in mlir_code
+    assert re.search(
+        r"pto\.tstore_fp ins\(%[A-Za-z0-9_]+, %[A-Za-z0-9_]+ : !pto\.tile_buf<[^>]+>, !pto\.tile_buf<[^>]+>\) "
+        r"outs\(%[A-Za-z0-9_]+ : !pto\.partition_tensor_view<[^>]+>\)",
+        mlir_code,
+    )
+
+
+def test_manual_store_with_relu_and_pre_quant_still_emits_pto_tstore():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualStoreReluPreQuantProgram:
+        @pl.function
+        def store_relu_pre_quant_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8],
+        ) -> pl.Tensor[[32, 32], pl.INT8]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            plm.store(output, src, [0, 0], relu_pre_mode="normal_relu", pre_quant_scalar=7)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualStoreReluPreQuantProgram)
+
+    codegen_obj = PTOCodegen()
+    mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
+
+    assert "pto.tstore " in mlir_code
+    assert "pto.tstore_fp" not in mlir_code
+    assert "reluPreMode = #pto<relu_pre_mode normal_relu>" in mlir_code
+    assert "arith.constant 7 : i64" in mlir_code
+    assert re.search(
+        r"pto\.tstore ins\(%[A-Za-z0-9_]+ : !pto\.tile_buf<[^>]+>, %[A-Za-z0-9_]+ : i64\) "
+        r"outs\(%[A-Za-z0-9_]+ : !pto\.partition_tensor_view<[^>]+>\)",
+        mlir_code,
+    )
+def test_manual_store_fp_rejects_non_acc_source():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualStoreFpNonAccProgram:
+        @pl.function
+        def store_fp_non_acc_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8],
+        ) -> pl.Tensor[[32, 32], pl.INT8]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            plm.store(output, src, [0, 0], fp_tile=fp)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualStoreFpNonAccProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(ValueError, match="manual.store_fp: source tile must be allocated in Acc memory"):
+        codegen_obj.generate(transformed_program)
+
+
+def test_manual_store_fp_rejects_non_scaling_fp():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    @pl.program
+    class ManualStoreFpNonScalingProgram:
+        @pl.function
+        def store_fp_non_scaling_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8],
+        ) -> pl.Tensor[[32, 32], pl.INT8]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            plm.store(output, src, [0, 0], fp_tile=fp)
+            return output
+
+    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
+    transformed_program = pm.run_passes(ManualStoreFpNonScalingProgram)
+
+    codegen_obj = PTOCodegen()
+    with pytest.raises(ValueError, match="manual.store_fp: fp tile must be allocated in Scaling memory"):
+        codegen_obj.generate(transformed_program)
+
+
 # --- Kernel wrapper generation tests ---
 
 

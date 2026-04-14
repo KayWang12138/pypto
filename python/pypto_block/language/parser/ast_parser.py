@@ -24,6 +24,7 @@ _MEMORY_SPACE_MAP: dict[str, MemorySpace] = {
     "Vec": MemorySpace.Vec,
     "Mat": MemorySpace.Mat,
     "Acc": MemorySpace.Acc,
+    "Scaling": MemorySpace.Scaling,
 }
 
 from .diagnostics import (
@@ -2980,6 +2981,9 @@ class ASTParser:
         "printf",
         "trap",
     })
+    _INTERNAL_ONLY_MANUAL_OPS: frozenset[str] = frozenset({
+        "store_fp",
+    })
 
     def _parse_manual_op(self, op_name: str, call: ast.Call) -> ir.Expr:
         """Parse a manual (non-SSA) operation call: plm.{op_name}(..., dst=tile).
@@ -2997,6 +3001,13 @@ class ASTParser:
             IR expression for the manual op call.
         """
         span = self.span_tracker.get_span(call)
+
+        if op_name in self._INTERNAL_ONLY_MANUAL_OPS:
+            raise InvalidOperationError(
+                f"Unknown manual operation: {op_name}",
+                span=span,
+                hint="Use plm.store(..., fp_tile=...) instead",
+            )
 
         # Ops with SSA block semantics — no explicit output tile needed.
         if op_name in self._MANUAL_AS_BLOCK_OPS:

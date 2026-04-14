@@ -88,6 +88,7 @@ _REQUIRED_LAYOUTS: dict[MemorySpace, tuple[int, int]] = {
     MemorySpace.Mat:   (2, 1),  # NZ format: col_major block, row_major scatter (default)
     MemorySpace.Left:  (1, 1),  # row_major block, row_major scatter (a3/a2); a5 also supports (2, 1)
     MemorySpace.Right: (1, 2),  # row_major block, col_major scatter
+    MemorySpace.Scaling: (1, 0),  # row_major block, none_box scatter
     MemorySpace.Acc:   (2, 1),  # NZ format: col_major block, row_major scatter
 }
 
@@ -96,6 +97,7 @@ _LEFT_A5_LAYOUT: tuple[int, int] = (2, 1)
 
 # MAT also supports DN layout (row_major block, col_major scatter) for DN TLOAD.
 _MAT_DN_LAYOUT: tuple[int, int] = (1, 2)
+_MAT_SCALING_LAYOUT: tuple[int, int] = (1, 0)
 
 _LAYOUT_NAMES = {0: "none_box", 1: "row_major", 2: "col_major"}
 _PAD_VALUES = {
@@ -136,11 +138,18 @@ def _apply_default_layout(tt: "TileType") -> None:
     # Validate against hardware requirements
     actual = (tt.blayout, tt.slayout)
     if tt.target_memory == MemorySpace.Mat:
-        # MAT supports both ND (2,1) and DN (1,2) layouts
-        if actual != required and actual != _MAT_DN_LAYOUT:
+        # MAT supports both ND (2,1) and DN (1,2) layouts.
+        # For fp/scaling staging tiles, ISA examples also use row_major/none_box.
+        # Runtime UT may use INT64 as a 64-bit carrier because torch_npu does not
+        # expose device uint64 tensors.
+        allowed_layouts = {required, _MAT_DN_LAYOUT}
+        if tt.dtype in (DataType.UINT64, DataType.INT64):
+            allowed_layouts.add(_MAT_SCALING_LAYOUT)
+        if actual not in allowed_layouts:
+            allowed_text = " or ".join(str(layout) for layout in sorted(allowed_layouts))
             raise ValueError(
-                f"{space_name} tiles require blayout/slayout={required} (ND) or "
-                f"{_MAT_DN_LAYOUT} (DN), got ({tt.blayout}, {tt.slayout})"
+                f"{space_name} tiles require blayout/slayout in {{{allowed_text}}}, "
+                f"got ({tt.blayout}, {tt.slayout})"
             )
     else:
         if tt.target_memory == MemorySpace.Left:
@@ -160,7 +169,7 @@ def _apply_default_layout(tt: "TileType") -> None:
                 raise ValueError(
                     f"{space_name} tiles require slayout={req_s} ({_LAYOUT_NAMES[req_s]}), "
                     f"got slayout={tt.slayout} ({_LAYOUT_NAMES.get(tt.slayout, '?')})"
-            )
+                )
 
     # Auto-fill fractal for FP32 ACC
     if tt.target_memory == MemorySpace.Acc and tt.fractal is None:
@@ -329,6 +338,7 @@ def store(
     offsets: Sequence[int | Expr],
     relu_pre_mode: Literal["no_relu", "normal_relu"] | None = None,
     pre_quant_scalar: int | None = None,
+    fp_tile: Tile | None = None,
 ) -> Tensor:
     """Store data from a tile back to a global tensor.
 
@@ -340,23 +350,32 @@ def store(
             - "no_relu": NoRelu (default)
             - "normal_relu": NormalRelu
         pre_quant_scalar: Pre-quantization scalar value (optional).
+        fp_tile: Floating-point parameter tile for TSTORE_FP (optional).
+            When set, store lowers to ``manual.store_fp`` / ``TSTORE_FP`` and
+            cannot be combined with ``relu_pre_mode`` or ``pre_quant_scalar``.
 
     Returns:
         Tensor wrapping the store result.
     """
-    span = _span()
-    offsets_tuple = _to_make_tuple(offsets)
-    kwargs = {}
-    if relu_pre_mode is not None:
-        kwargs["relu_pre_mode"] = relu_pre_mode
-    if pre_quant_scalar is not None:
-        kwargs["pre_quant_scalar"] = pre_quant_scalar
-    return Tensor(expr=_ir_core.create_op_call(
-        "manual.store",
-        [tile.unwrap(), offsets_tuple, output_tensor.unwrap()],
-        kwargs,
-        span,
-    ))
+    if fp_tile is not None:
+        return Tensor(
+            expr=_ir_manual.store_fp(
+                output_tensor.unwrap(),
+                tile.unwrap(),
+                fp_tile.unwrap(),
+                _to_make_tuple(offsets),
+            )
+        )
+
+    return Tensor(
+        expr=_ir_manual.store(
+            output_tensor.unwrap(),
+            tile.unwrap(),
+            _to_make_tuple(offsets),
+            relu_pre_mode=relu_pre_mode,
+            pre_quant_scalar=pre_quant_scalar,
+        )
+    )
 
 
 def store_tile(

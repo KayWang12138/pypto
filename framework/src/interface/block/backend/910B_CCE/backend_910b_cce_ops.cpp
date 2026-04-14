@@ -162,7 +162,7 @@ static std::string BuildShapeTypeForDump(codegen::CCECodegen& codegen, const std
       }
     }
   }
-  return "Shape<" + JoinExpressions(template_dims, ", ") + ">";
+  return "pto::Shape<" + JoinExpressions(template_dims, ", ") + ">";
 }
 
 static std::string BuildStrideTypeForDump(codegen::CCECodegen& codegen, const std::string& tensor_name,
@@ -185,7 +185,7 @@ static std::string BuildStrideTypeForDump(codegen::CCECodegen& codegen, const st
     for (size_t i = 0; i < rank; ++i) {
       append_dynamic_stride(i, GetRuntimeTensorStrideExpr(tensor_name, rank, i));
     }
-    return "Stride<" + JoinExpressions(stride_template_dims, ", ") + ">";
+    return "pto::Stride<" + JoinExpressions(stride_template_dims, ", ") + ">";
   }
 
   if (tensor_type->tensor_view_.has_value() && !tensor_type->tensor_view_->stride.empty()) {
@@ -200,7 +200,7 @@ static std::string BuildStrideTypeForDump(codegen::CCECodegen& codegen, const st
         append_dynamic_stride(i, codegen.GetExprAsCode(strides[i]));
       }
     }
-    return "Stride<" + JoinExpressions(stride_template_dims, ", ") + ">";
+    return "pto::Stride<" + JoinExpressions(stride_template_dims, ", ") + ">";
   }
 
   for (size_t i = 0; i < rank; ++i) {
@@ -226,7 +226,7 @@ static std::string BuildStrideTypeForDump(codegen::CCECodegen& codegen, const st
     }
   }
 
-  return "Stride<" + JoinExpressions(stride_template_dims, ", ") + ">";
+  return "pto::Stride<" + JoinExpressions(stride_template_dims, ", ") + ">";
 }
 
 static std::string ComputeRuntimeStrideBasedOffset(codegen::CCECodegen& codegen, const std::string& tensor_name,

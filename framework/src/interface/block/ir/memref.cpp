@@ -36,6 +36,8 @@ std::string MemorySpaceToString(MemorySpace space) {
       return "Left";
     case MemorySpace::Right:
       return "Right";
+    case MemorySpace::Scaling:
+      return "Scaling";
     case MemorySpace::Acc:
       return "Acc";
     default:

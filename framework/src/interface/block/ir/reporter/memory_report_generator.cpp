@@ -91,8 +91,8 @@ class MemoryReportGeneratorImpl : public ReportGenerator {
 
     const backend::Backend* be = backend::BackendConfig::IsConfigured() ? backend::GetBackend() : nullptr;
 
-    static constexpr MemorySpace kSpaceOrder[] = {MemorySpace::Vec, MemorySpace::Mat, MemorySpace::Left,
-                                                  MemorySpace::Right, MemorySpace::Acc};
+    static constexpr MemorySpace kSpaceOrder[] = {MemorySpace::Vec, MemorySpace::Mat, MemorySpace::Scaling,
+                                                  MemorySpace::Left, MemorySpace::Right, MemorySpace::Acc};
 
     std::vector<MemoryReport::FunctionMemoryUsage> functions;
     for (const auto& [gv, func] : program->functions_) {

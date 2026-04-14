@@ -108,6 +108,8 @@ static std::string MemorySpaceToMLIR(ir::MemorySpace space) {
     return "left";
   } else if (space == ir::MemorySpace::Right) {
     return "right";
+  } else if (space == ir::MemorySpace::Scaling) {
+    return "scaling";
   } else if (space == ir::MemorySpace::Acc) {
     return "acc";
   } else {

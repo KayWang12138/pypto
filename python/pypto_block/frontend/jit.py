@@ -40,6 +40,7 @@ _TORCH_TO_PL_DTYPE: dict = {
     torch.int32: DataType.INT32,
     torch.int64: DataType.INT64,
     torch.uint8: DataType.UINT8,
+    torch.uint64: DataType.UINT64,
     torch.bool: DataType.BOOL,
 }
 

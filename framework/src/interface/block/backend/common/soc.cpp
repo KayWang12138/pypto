@@ -138,6 +138,7 @@ const SoC& Create910BSoC() {
                   {Mem(ir::MemorySpace::Mat, query_u64("AICoreSpec", "l1_size", 512ULL * 1024), 128),
                    Mem(ir::MemorySpace::Left, query_u64("AICoreSpec", "l0_a_size", 64ULL * 1024), 64),
                    Mem(ir::MemorySpace::Right, query_u64("AICoreSpec", "l0_b_size", 64ULL * 1024), 64),
+                   Mem(ir::MemorySpace::Scaling, query_u64("AICoreSpec", "fbuf_size", 7ULL * 1024), 32),
                    Mem(ir::MemorySpace::Acc, query_u64("AICoreSpec", "l0_c_size", 128ULL * 1024), 128)});
 
     // AIV (VECTOR) core configuration
@@ -155,7 +156,8 @@ const SoC& Create910BSoC() {
     std::map<ir::MemorySpace, std::vector<ir::MemorySpace>> mem_graph;
     mem_graph[ir::MemorySpace::DDR] = {ir::MemorySpace::Vec, ir::MemorySpace::Mat};
     mem_graph[ir::MemorySpace::Vec] = {ir::MemorySpace::DDR};
-    mem_graph[ir::MemorySpace::Mat] = {ir::MemorySpace::Left, ir::MemorySpace::Right};
+    mem_graph[ir::MemorySpace::Mat] = {ir::MemorySpace::Left, ir::MemorySpace::Right,
+                                       ir::MemorySpace::Scaling};
     mem_graph[ir::MemorySpace::Acc] = {ir::MemorySpace::Mat, ir::MemorySpace::DDR};
 
     return SoC(die, 1, std::move(mem_graph));
