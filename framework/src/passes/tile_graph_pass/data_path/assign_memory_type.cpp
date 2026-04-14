@@ -873,6 +873,32 @@ void AssignMemoryType::ProcessUB2L1SmallToLarge(Function &function) {
         if (iOperand->GetShape().size() != 2 || oOperand->GetShape().size() != 2) {
             continue;
         }
+        bool hasCopyInModeView = false;
+        for (auto &consumerOp : oOperand->GetConsumers()) {
+            if (consumerOp->GetOpcode() == Opcode::OP_VIEW) {
+                int64_t copyInModeValue = 0;
+                bool hasCopyInModeAttr = consumerOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue);
+                if (hasCopyInModeAttr && copyInModeValue == 0) {
+                    hasCopyInModeView = true;
+                    APASS_LOG_DEBUG_F(Elements::Operation,
+                        "UB2L1 small to large skip: bias/scale tensor (copy_in_mode=%ld on consumer View Op[%d])",
+                        static_cast<long>(copyInModeValue), consumerOp->GetOpMagic());  
+                    break;
+                }
+            }
+        }  
+        if (hasCopyInModeView) {
+            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            continue;
+        }
+
+        if (!CheckInnerAxisC0Size(iOperand, oOperand)) {
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "UB2L1 small to large skip: inner axis C0 size mismatch, Assemble Op[%d]",
+                op.GetOpMagic());
+            oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+            continue;
+        }
         bool isToL1 = true;
         auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
         for (const auto &pair : toBeMap) {
@@ -913,6 +939,20 @@ void AssignMemoryType::ProcessUB2L1LargeToSmall(Function &function) {
         if (attrToType == MEM_L1) {
             auto iOperand = op.GetIOperands().front();
             auto oOperand = op.GetOOperands().front();
+            int64_t copyInModeValue = 0;
+            bool hasCopyInModeAttr = op.GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue);
+            if (hasCopyInModeAttr && copyInModeValue == 0) {
+                APASS_LOG_DEBUG_F(Elements::Operation,
+                    "UB2L1 large to small skip: bias/scale tensor (copy_in_mode=%ld), View Op[%d]",
+                    static_cast<long>(copyInModeValue), op.GetOpMagic());
+                inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
+                continue;
+            }
+            // 内轴 C0 size 检查
+            if (!CheckInnerAxisC0Size(iOperand, oOperand)) {
+                inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
+                continue;
+            }
             // UB -> L1 大搬小：检查输入是否为 UB，且 shape 不满足倍数关系
             if (iOperand->GetMemoryTypeOriginal() == MEM_UB && !IsDimMultiple(iOperand->GetShape(), oOperand->GetShape())) {
                 inserter.UpdateTensorTobeMap(iOperand, op, MEM_DEVICE_DDR);
@@ -920,6 +960,35 @@ void AssignMemoryType::ProcessUB2L1LargeToSmall(Function &function) {
             }
         }
     }
+}
+
+bool AssignMemoryType::CheckInnerAxisC0Size(const LogicalTensorPtr &input, 
+                                             const LogicalTensorPtr &output) const {
+    // 获取内轴（最后一维）的 size
+    size_t inputInnerAxis = input->GetShape().back();
+    size_t outputInnerAxis = output->GetShape().back();
+    // 获取数据类型大小（字节数）
+    int64_t inputDtypeBytes = BytesOf(input->Datatype());
+    int64_t outputDtypeBytes = BytesOf(output->Datatype());
+    // C0 size = 32 字节 / 元素字节数 = 每轴元素个数
+    int64_t inputC0Size = 32 / inputDtypeBytes;
+    int64_t outputC0Size = 32 / outputDtypeBytes;
+    // 分别检查 input 和 output 的内轴是否满足各自的 C0 size 切分
+    if (inputInnerAxis % static_cast<size_t>(inputC0Size) != 0) {
+        APASS_LOG_DEBUG_F(Elements::Operation,
+            "CheckInnerAxisC0Size: input inner=%zu, dtypeBytes=%ld, c0Size=%ld, not aligned",
+            inputInnerAxis, static_cast<long>(inputDtypeBytes), static_cast<long>(inputC0Size));
+        return false;
+    }
+    
+    if (outputInnerAxis % static_cast<size_t>(outputC0Size) != 0) {
+        APASS_LOG_DEBUG_F(Elements::Operation,
+            "CheckInnerAxisC0Size: output inner=%zu, dtypeBytes=%ld, c0Size=%ld, not aligned",
+            outputInnerAxis, static_cast<long>(outputDtypeBytes), static_cast<long>(outputC0Size));
+        return false;
+    }
+    
+    return true;
 }
 
 /*
