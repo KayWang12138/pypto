@@ -32,9 +32,8 @@ TILEOP inline void TRangePropagate(__ubuf__ T* base, int32_t loopN, int32_t tail
             pto::TASSIGN(src, reinterpret_cast<uint64_t>(base + i * Unit));
             pto::TASSIGN(dst, reinterpret_cast<uint64_t>(base + (i + 1) * Unit));
             pto::TADDS(dst, src, offset);
-#ifdef __DAV_V220
-            pipe_barrier(PIPE_V);
-#endif
+            set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+            wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
         }
     }
     if (tailSize > 0) {
@@ -43,9 +42,9 @@ TILEOP inline void TRangePropagate(__ubuf__ T* base, int32_t loopN, int32_t tail
         pto::TASSIGN(src, reinterpret_cast<uint64_t>(base + loopN * Unit));
         pto::TASSIGN(dst, reinterpret_cast<uint64_t>(base + (loopN + 1) * Unit));
         pto::TADDS(dst, src, offset);
-#ifdef __DAV_V220
-        pipe_barrier(PIPE_V);
-#endif
+        #ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+        #endif
     }
 }
 
