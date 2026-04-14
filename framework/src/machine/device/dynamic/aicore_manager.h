@@ -1445,7 +1445,7 @@ private:
                 } else if (coreType == static_cast<int>(MachineType::AICPU)) {
                     PushAicpuTaskQueue(id);
                 } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id);
+                    wrapManager_.ResolveDepForMixCore(id, &cceBinary[callList[opIndex]]);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1511,7 +1511,7 @@ private:
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))) {
                     PushAicpuTaskQueue(id);
                 } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id);
+                    wrapManager_.ResolveDepForMixCore(id, &cceBinary[callList[succIdx]]);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1555,7 +1555,7 @@ private:
                     }
                     context_->resolveHubCnt_++;
                 } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id);
+                    wrapManager_.ResolveDepForMixCore(id, &cceBinary[callList[succIdx]]);
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))) {
                     PushAicpuTaskQueue(id);
                 } else {
