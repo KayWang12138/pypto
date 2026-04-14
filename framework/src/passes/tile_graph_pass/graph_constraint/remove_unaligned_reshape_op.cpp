@@ -16,8 +16,8 @@
 #include "remove_unaligned_reshape_op.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_utils/alignment_utils.h"
 #include "passes/pass_log/pass_log.h"
-#include "interface/utils/common.h"
 
 #define MODULE_NAME "RemoveUnalignedReshape"
 
@@ -51,44 +51,6 @@ Shape InferAvailableOriShape(const LogicalTensorPtr& tensor)
     return tensor->shape;
 }
 
-bool IsRawLastDimUnaligned(const LogicalTensorPtr& tensor)
-{
-    if (tensor == nullptr || tensor->tensor == nullptr || tensor->shape.empty()) {
-        return false;
-    }
-    auto lastIdx = tensor->shape.size() - 1;
-    const auto& oriRawShape = tensor->tensor->oriRawshape;
-    const auto& rawShape = tensor->tensor->rawshape;
-    if (oriRawShape.size() != tensor->shape.size() || rawShape.size() != tensor->shape.size()) {
-        return false;
-    }
-    return oriRawShape[lastIdx] != rawShape[lastIdx];
-}
-
-bool NeedPadLastDim(const LogicalTensorPtr& tensor)
-{
-    if (tensor == nullptr || tensor->tensor == nullptr || tensor->shape.empty()) {
-        return false;
-    }
-    if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
-        return false;
-    }
-
-    auto dtypeBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
-    if (dtypeBytes <= 0) {
-        return false;
-    }
-    auto blockAlignElems = static_cast<int64_t>(BLOCK_SIZE) / dtypeBytes;
-    if (blockAlignElems <= 0) {
-        return false;
-    }
-
-    auto lastDim = tensor->shape.back();
-    if (lastDim <= 0) {
-        return false;
-    }
-    return (lastDim % blockAlignElems) != 0;
-}
 } // namespace
 
 /*
@@ -154,27 +116,7 @@ LogicalTensorPtr RemoveUnalignedReshape::InsertIOTensor(
 
 bool RemoveUnalignedReshape::CheckUnaligned(Operation& op)
 {
-    std::vector<bool> inputAxis;
-    std::vector<bool> outputAxis;
-    op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
-    op.GetAttr(OpAttributeKey::outputCombineAxis, outputAxis);
-    for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-        if (i < inputAxis.size() && inputAxis[i]) {
-            continue;
-        }
-        if (IsRawLastDimUnaligned(op.GetIOperands()[i]) || NeedPadLastDim(op.GetIOperands()[i])) {
-            return true;
-        }
-    }
-    for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-        if (i < outputAxis.size() && outputAxis[i]) {
-            continue;
-        }
-        if (IsRawLastDimUnaligned(op.GetOOperands()[i]) || NeedPadLastDim(op.GetOOperands()[i])) {
-            return true;
-        }
-    }
-    return false;
+    return AlignmentUtils::HasUnalignedInputOrOutput(op);
 }
 
 std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, const std::vector<int64_t>& outputShapes)

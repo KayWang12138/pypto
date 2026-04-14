@@ -15,6 +15,7 @@
 
 #include "pad_local_buffer.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/alignment_utils.h"
 #include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "PadLocalBuffer"
@@ -48,7 +49,7 @@ const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
 const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 const std::unordered_set<OpCalcType> ELEMENTWISE_LIKE_TYPES{OpCalcType::CAST, OpCalcType::ELMWISE, OpCalcType::MOVE_IN, OpCalcType::MOVE_OUT};
-int64_t Pad(int64_t dim, int64_t padValue) { return (dim + padValue - 1) / padValue * padValue; }
+int64_t Pad(int64_t dim, int64_t padValue) { return AlignUp(dim, padValue); }
 
 bool PadLocalBuffer::IsInputDataType(
     const Operation& op, const LogicalTensorPtr& in, const std::unordered_set<DataType>& targetTypes) const
@@ -221,12 +222,7 @@ void PadLocalBuffer::PadMatmul(Operation& op, LogicalTensorPtr& in)
 
 size_t GetPaddingValue(LogicalTensorPtr& in)
 {
-    auto bytes = BytesOf(in->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
+    return static_cast<size_t>(AlignmentUtils::GetLastDimAlignBaseOrOne(in));
 }
 
 size_t GetLastDimBytes(const LogicalTensorPtr& tensor)
