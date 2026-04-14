@@ -17,7 +17,7 @@
 #define __LOGICALTENSOR_TILEOP_COMMON__
 
 #ifdef SUPPORT_TILE_TENSOR
-#include "pto/pto-inst.hpp"
+#include "pto/comm/pto_comm_inst.hpp"
 #endif
 
 #ifndef __aicore__
