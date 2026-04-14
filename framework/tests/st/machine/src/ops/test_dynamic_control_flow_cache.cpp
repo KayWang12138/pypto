@@ -45,8 +45,6 @@ namespace {
 
 TEST_F(DynamicControlFlowCacheTest, KernelReuse)
 {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 2100000);
-
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
 
@@ -106,10 +104,8 @@ TEST_F(DynamicControlFlowCacheTest, KernelReuse)
 #endif
 }
 
-TEST_F(DynamicControlFlowCacheTest, CheckShape)
+TEST_F(DynamicControlFlowCacheTest, KernelReuseDifferentShape)
 {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 2100000);
-
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
 
@@ -223,7 +219,6 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape)
 
 TEST_F(DynamicControlFlowCacheTest, CheckLackMemory)
 {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 12000);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 128);
 
     int tiling = 32;
@@ -286,8 +281,6 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory)
 
 TEST_F(DynamicControlFlowCacheTest, CheckGetTensorData)
 {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 2100000);
-
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
 
@@ -344,8 +337,6 @@ static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor>& t)
 TEST_F(DynamicControlFlowCacheTest, PartialCache)
 {
     // cache at most 3 task
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 276000);
-
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
 
@@ -442,8 +433,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress)
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
 
     // cache at most 3 task
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 120000);
-
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x3);
 
@@ -561,7 +550,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress)
 
 TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData)
 {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 112000);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
     int tiling = 32;
     int n = tiling * 4;
@@ -645,7 +633,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData)
 
 TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl)
 {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 120000);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 4);
 
     int tiling = 32;

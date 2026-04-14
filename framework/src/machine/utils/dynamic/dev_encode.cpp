@@ -2207,7 +2207,6 @@ void DevAscendProgram::InitControlFlowCache(
 {
     (void)fillContent;
 
-    ctrlFlowCacheSize = config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE);
     controlFlowCache.Init(
         dyndevAttr.get(), ctrlFlowCacheSize, runtimeOutcastPoolSize, initOffset, ExpectedMaxCachedNum());
 }

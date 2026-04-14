@@ -137,11 +137,9 @@ std::string DeviceRunOnceDataFromHost(
 
     DevControlFlowCache* hostCache = nullptr;
     EmulationMemoryUtils memUtils;
-    if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
-        DeviceLauncherConfig config;
-        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
-    }
+    DeviceLauncherConfig config;
+    DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+    EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
 
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 &&
         EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
@@ -268,47 +266,43 @@ int64_t BuildCache(
     [[maybe_unused]] bool isCapturing)
 {
     ExportedOperator* op = reinterpret_cast<ExportedOperator*>(opAddr);
-    if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
-        DeviceLauncherConfig config;
-        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
-        EmulationMemoryUtils memUtils;
-        if (ctrlCache == nullptr) {
-            HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
-            DevControlFlowCache* hostCache = nullptr;
-            if (EmulationLauncher::BuildControlFlowCache(
-                    op->GetFunction(), memUtils, inputList, outputList, &hostCache, config) != 0) {
-                return 0;
-            }
-
-#ifdef BUILD_WITH_CANN
-            if (isCapturing) {
-                ChangeCaptureModeRelax();
-            }
-
-            if (hostCache) {
-                ctrlCache = CopyHostToDev(
-                    reinterpret_cast<uint8_t*>(hostCache),
-                    reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
-            }
-
-            if (isCapturing) {
-                ChangeCaptureModeGlobal();
-            }
-#else
-            ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
-#endif
-
-            if (ctrlCache) {
-                op->InsertCtrlFlowCache(inputList, outputList, ctrlCache);
-            }
-            HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
+    DeviceLauncherConfig config;
+    DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+    uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
+    EmulationMemoryUtils memUtils;
+    if (ctrlCache == nullptr) {
+        HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
+        DevControlFlowCache* hostCache = nullptr;
+        if (EmulationLauncher::BuildControlFlowCache(
+                op->GetFunction(), memUtils, inputList, outputList, &hostCache, config) != 0) {
+            return 0;
         }
 
-        return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
+#ifdef BUILD_WITH_CANN
+        if (isCapturing) {
+            ChangeCaptureModeRelax();
+        }
+
+        if (hostCache) {
+            ctrlCache = CopyHostToDev(
+                reinterpret_cast<uint8_t*>(hostCache),
+                reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
+        }
+
+        if (isCapturing) {
+            ChangeCaptureModeGlobal();
+        }
+#else
+        ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
+#endif
+
+        if (ctrlCache) {
+            op->InsertCtrlFlowCache(inputList, outputList, ctrlCache);
+        }
+        HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
     }
 
-    return 0;
+    return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
 }
 
 #ifdef BUILD_WITH_CANN
@@ -580,12 +574,12 @@ public:
             std::vector<std::vector<int64_t>> shape;
             if (DeviceLauncher::IsCaptureMode()) {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-                devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
+                devCache = kernel->BuildControlFlowCache(tensors, 0, true);
             } else if (InferCacheShape(module, tensors, shape)) {
                 devCache = kernel->FindCtrlFlowCache(shape, false);
             } else {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-                devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
+                devCache = kernel->BuildControlFlowCache(tensors, 0, true);
             }
         }
 #if ENABALE_VERBOSE_LOG
@@ -739,10 +733,6 @@ private:
 
     void InitConfigOptions(py::object& module)
     {
-        auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("stitch_cfgcache_size")) {
-            stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
-        }
         if (!module.attr("_debug_options").is_none()) {
             auto debugOptions = module.attr("_debug_options").cast<py::dict>();
             if (debugOptions.contains("runtime_debug_mode")) {
@@ -757,7 +747,7 @@ private:
             auto host_options = module.attr("_host_options").cast<py::dict>();
             if (host_options.contains("compile_stage")) {
                 auto stage = host_options["compile_stage"];
-                int64_t stageValue =
+                int64_t stageValue = 
                     py::hasattr(stage, "value") ? stage.attr("value").cast<int64_t>() : stage.cast<int64_t>();
                 compileStageAllComplete = (stageValue == CS_ALL_COMPLETE);
             }
@@ -775,7 +765,7 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE("stitch_cfgcache_size: %ld, infer_cache_shape: %d", stitchCfgCacheSize, inferCacheShape);
+        COMPILER_LOGE("infer_cache_shape: %d", inferCacheShape);
 #endif
     }
 
@@ -795,7 +785,7 @@ private:
                 inputs.emplace_back(tensors[i].GetDataType(), nullptr, inputShapes[i]);
             }
             if (kernel->CheckArgs(inputs)) {
-                kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize, false);
+                kernel->BuildControlFlowCache(inputs, 0, false);
             } else {
                 COMPILER_LOGE("Invalid cache shape, skip it");
             }
@@ -821,12 +811,11 @@ private:
         return true;
     }
 
-    bool IsCacheEnabled() { return stitchCfgCacheSize != 0; }
+    bool IsCacheEnabled() { return true; }
 
 private:
     bool inferCacheShape{false};
     bool isDebugMode{false};
-    int64_t stitchCfgCacheSize{0};
     bool compileStageAllComplete{true};
     bool compileMonitorEnable{true};
     int intervalSec{60};
