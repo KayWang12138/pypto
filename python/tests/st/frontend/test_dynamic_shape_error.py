@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # coding: utf-8
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -10,8 +10,10 @@
 # -----------------------------------------------------------------------------------------------------------
 """Test pypto.frontend.jit kernel dynamic shape error behavior."""
 
-import os
 import logging
+import os
+
+import pytest
 import torch
 import pypto
 
@@ -19,9 +21,9 @@ logging.basicConfig(level=logging.INFO, format="", force=True)
 DEVICE_ID = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Kernel definitions
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 @pypto.frontend.jit
 def kernel_with_dynamic(
@@ -59,7 +61,7 @@ def kernel_dynamic_reshape(
     sq = 128
     d = 64
     b = q.shape[0]
-    q_reshaped = pypto.reshape(q, [b * sq, d])  # inplace=False，动态 shape 会报错
+    q_reshaped = pypto.reshape(q, [b * sq, d])  # inplace=False, dynamic shape will raise an error.
 
     pypto.set_vec_tile_shapes(64, 64)
     for idx in pypto.loop(b):
@@ -68,9 +70,9 @@ def kernel_dynamic_reshape(
         pypto.assemble(temp1, [idx * sq, 0], out)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Test cases
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 def test_kernel_dynamic_shape_error():
     """Test that dynamic shape (-1) in exp kernel operand causes CheckTensorDynamicShape error."""
@@ -79,14 +81,8 @@ def test_kernel_dynamic_shape_error():
     a = torch.ones(1, 8, dtype=torch.float32, device=device)
     out = torch.zeros(1, 8, dtype=torch.float32, device=device)
 
-    try:
+    with pytest.raises(Exception, match="has invalid shape value: -1"):
         kernel_with_dynamic(a, out)
-    except Exception as e:
-        assert "has invalid shape value: -1" in str(e), \
-            f"Unexpected error message: {e}"
-        logging.info(f"✓ Verified: Dynamic shape causes an error: {e}")
-    else:
-        raise RuntimeError("Dynamic shape input caused no error, but should have.")
 
 
 def test_matmul_dynamic_shape_error():
@@ -98,14 +94,8 @@ def test_matmul_dynamic_shape_error():
     b_npu = torch.rand([k, n], dtype=torch.float16, device=device)
     out_npu = torch.zeros([m, n], dtype=torch.float16, device=device)
 
-    try:
+    with pytest.raises(Exception, match="has invalid shape value: -1"):
         matmul_kernel(a_npu, b_npu, out_npu)
-    except Exception as e:
-        assert "has invalid shape value: -1" in str(e), \
-            f"Unexpected error message: {e}"
-        logging.info(f"✓ Verified: Dynamic shape causes an error: {e}")
-    else:
-        raise RuntimeError("Dynamic shape input caused no error, but should have.")
 
 
 def test_one_hot_dynamic_shape_error():
@@ -115,14 +105,8 @@ def test_one_hot_dynamic_shape_error():
     input_npu = torch.tensor([0, 2, 4], dtype=torch.int32, device=device)
     out_npu = torch.zeros([3, 5], dtype=torch.int32, device=device)
 
-    try:
+    with pytest.raises(Exception, match="has invalid shape value: -1"):
         one_hot_kernel(input_npu, out_npu)
-    except Exception as e:
-        assert "has invalid shape value: -1" in str(e), \
-            f"Unexpected error message: {e}"
-        logging.info(f"✓ Verified: Dynamic shape causes an error: {e}")
-    else:
-        raise RuntimeError("Dynamic shape input caused no error, but should have.")
 
 
 def test_dynamic_reshape_error():
@@ -132,19 +116,13 @@ def test_dynamic_reshape_error():
     q = torch.ones(1, 128, 64, dtype=torch.float32, device=device)
     out = torch.zeros(128, 64, dtype=torch.float32, device=device)
 
-    try:
+    with pytest.raises(Exception, match="reshape\(\) requires integer shape when 'inplace=False'"):
         kernel_dynamic_reshape(q, out)
-    except Exception as e:
-        assert "reshape() requires integer shape when 'inplace=False'" in str(e), \
-            f"Unexpected error message: {e}"
-        logging.info(f"✓ Verified: Dynamic reshape without inplace causes an error: {e}")
-    else:
-        raise RuntimeError("Dynamic reshape caused no error, but should have.")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 # Entry point
-# ──────────────────────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     torch.npu.set_device(DEVICE_ID)
