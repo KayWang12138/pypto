@@ -7,7 +7,7 @@
 
 ## 错误码定义
 
-相关错误码的统一定义，参见 ` framework/src/interface/interpreter/verify_error.h`与`framework/src/interface/interpreter/calculator/calc_error.h`文件。
+相关错误码的统一定义，参见 `framework/include/tilefwk/error_code.h`（VERIFY 段与 `npu::tile_fwk::calc_error`）。
 
 ## 排查建议
 

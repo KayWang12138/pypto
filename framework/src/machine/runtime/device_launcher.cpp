@@ -20,7 +20,7 @@
 #include "machine/host/perf_analysis.h"
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 
 struct process_sign {
     pid_t tgid;

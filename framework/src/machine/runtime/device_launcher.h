@@ -38,7 +38,7 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
 #include "machine/runtime/distributed/distributed_context.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 #ifndef BUILD_WITH_CANN

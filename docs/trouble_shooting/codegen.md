@@ -6,7 +6,7 @@
 
 ## 错误码定义
 
-相关错误码的统一定义，参见 `framework/src/codegen/utils/codegen_error.h` 文件。
+相关错误码的统一定义，参见 `framework/include/tilefwk/error_code.h` 中 CODEGEN 段枚举。
 
 ---
 

@@ -20,7 +20,7 @@
 #include "interface/program/program.h"
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "machine/utils/machine_error.h"
+#include "tilefwk/error_code.h"
 
 namespace npu::tile_fwk {
 namespace {

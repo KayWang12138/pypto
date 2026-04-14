@@ -15,7 +15,7 @@
 
 #include "bindings/torch_tensor_converter.h"
 #include "tilefwk/error.h"
-#include "interface/utils/function_error.h"
+#include "tilefwk/error_code.h"
 
 #include <stdexcept>
 #include <string>

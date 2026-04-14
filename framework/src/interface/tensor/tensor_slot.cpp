@@ -17,7 +17,7 @@
 
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/utils/function_error.h"
+#include "tilefwk/error_code.h"
 #include "interface/program/program.h"
 
 namespace npu::tile_fwk {

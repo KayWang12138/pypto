@@ -21,7 +21,7 @@
 #include "PvModelImpl.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/pypto_fwk_log.h"
-#include "cost_model/simulation/utils/simulation_error.h"
+#include "tilefwk/error_code.h"
 
 using namespace npu::tile_fwk;
 
