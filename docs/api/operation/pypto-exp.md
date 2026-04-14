@@ -15,7 +15,7 @@
 ## 函数原型
 
 ```python
-exp(input: Tensor) -> Tensor
+exp(input: Tensor, precision_type: ExpAlgorithm = ExpAlgorithm.HIGH_PRECISION) -> Tensor
 ```
 
 ## 参数说明
@@ -24,6 +24,7 @@ exp(input: Tensor) -> Tensor
 | 参数名 | 输入/输出 | 说明                                                                 |
 |--------|-----------|----------------------------------------------------------------------|
 | input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| precision_type  | 输入      | 精度类型。 <br> 支持的类型为：ExpAlgorithm。 <br> 默认值为 ExpAlgorithm.HIGH_PRECISION。 <br> HIGH_PRECISION 使用更高精度的计算以减少精度损失；INTRINSIC 直接使用芯片指令。 |
 
 ## 返回值说明
 
@@ -55,4 +56,18 @@ y = pypto.exp(x)
 ```python
 输入数据x: [0.0    1.0    2.0]
 输出数据y: [1.0000  2.7183  7.3891]
+```
+
+### 高精度模式示例
+
+```python
+x = pypto.tensor([3], pypto.DT_FP16)
+y = pypto.exp(x, pypto.ExpAlgorithm.HIGH_PRECISION)
+```
+
+### 低精度模式示例
+
+```python
+x = pypto.tensor([3], pypto.DT_FP16)
+y = pypto.exp(x, pypto.ExpAlgorithm.INTRINSIC)
 ```
