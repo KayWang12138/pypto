@@ -21,6 +21,9 @@
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
+#ifdef BUILD_WITH_CANN
+    #include "dump/adump_api.h"
+#endif
 
 struct process_sign {
     pid_t tgid;
@@ -477,6 +480,33 @@ void DataDumpUnInit()
     }
 }
 
+void DumpIOTensorsWithCann(
+    aclrtStream stream, std::vector<DeviceTensorData>& tensors,
+    const std::string& funcName)
+{
+#ifdef BUILD_WITH_CANN
+    std::vector<Adx::TensorInfoV2> dumpTensors;
+    for (auto& tensor : tensors) {
+        Adx::TensorInfoV2 info;
+        info.type = Adx::TensorType::INPUT;
+        info.addrType = Adx::AddressType::TRADITIONAL;
+        info.tensorSize = static_cast<size_t>(tensor.GetDataSize());
+        info.format = DataFormat2CannFormat(tensor.Format());
+        info.dataType = DataType2CannType(tensor.GetDataType());
+        info.tensorAddr = static_cast<int64_t *>(tensor.GetAddr());
+        info.placement = Adx::TensorPlacement::kOnDeviceHbm;
+        info.shape = tensor.GetShape();
+        info.originShape = tensor.GetShape();
+        dumpTensors.push_back(info);
+    }
+    Adx::AdumpDumpTensorV2(funcName, funcName, dumpTensors, stream);
+#else
+    (void)stream;
+    (void)tensors;
+    (void)funcName;
+#endif
+}
+
 uint32_t GetProcessId()
 {
 #ifdef BUILD_WITH_CANN
@@ -786,7 +816,8 @@ int DeviceLauncher::LaunchAicpuKernel(
 }
 
 int DeviceLauncher::LaunchAicoreKernel(
-    aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable)
+    aclrtStream aicoreStream, void* kernel, rtArgsEx_t& rtArgs, rtTaskCfgInfo_t& rtTaskCfg, bool debugEnable,
+    const std::string& funcRawName, std::vector<DeviceTensorData>& tensors)
 {
 #ifdef BUILD_WITH_CANN
     auto& devRunner = DeviceRunner::Get();
@@ -819,6 +850,9 @@ int DeviceLauncher::LaunchAicoreKernel(
             std::rename(sourceDir.c_str(), targetDir.c_str());
         }
     }
+    if (Adx::AdumpGetDumpSwitch(Adx::DumpType::OPERATOR) != 0) {
+        DumpIOTensorsWithCann(aicoreStream, tensors, funcRawName);
+    }
     return ret;
 #else
     (void)aicoreStream;
@@ -826,6 +860,8 @@ int DeviceLauncher::LaunchAicoreKernel(
     (void)rtArgs;
     (void)rtTaskCfg;
     (void)debugEnable;
+    (void)tensors;
+    (void)funcRawName;
     return 0;
 #endif
 }
