@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include <iostream>
 #include "tilefwk/cann_host_runtime.h"
 #include "tilefwk/pypto_fwk_log.h"
 

@@ -1,0 +1,192 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_codegen_reshape.cpp
+ * \brief
+ */
+
+#include "gtest/gtest.h"
+#include "interface/interpreter/calc.h"
+#include "interface/tensor/logical_tensor.h"
+#include "interface/tensor/raw_tensor.h"
+#include "interface/configs/config_manager.h"
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/interpreter/calc.h"
+#include "codegen/codegen.h"
+#include "codegen/npu/litenpu/codegen_litenpu.h"
+
+using namespace npu::tile_fwk;
+
+class LiteNPUCodeGenReshape : public testing::Test {
+public:
+    static void TearDownTestCase() {}
+
+    static void SetUpTestCase() {}
+
+    void SetUp() override {
+        config::Reset();
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetBuildStatic(true);
+    }
+
+    void TearDown() override {}
+};
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_2d_to_2d) {
+    PROGRAM("RESHAPE_FP32_2D_TO_2D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_2D_TO_2D") {
+            result = Reshape(operand, {4, 16});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_2D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_2d_to_1d) {
+    PROGRAM("RESHAPE_FP32_2D_TO_1D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_2D_TO_1D") {
+            result = Reshape(operand, {64});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_2D_TO_1D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_1d_to_2d) {
+    PROGRAM("RESHAPE_FP32_1D_TO_2D") {
+        TileShape::Current().SetVecTile({16});
+        Tensor operand(DT_FP32, {64}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_1D_TO_2D") {
+            result = Reshape(operand, {8, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_1D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_2d_to_3d) {
+    PROGRAM("RESHAPE_FP32_2D_TO_3D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_2D_TO_3D") {
+            result = Reshape(operand, {2, 4, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_2D_TO_3D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_3d_to_2d) {
+    PROGRAM("RESHAPE_FP32_3D_TO_2D") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {2, 4, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_3D_TO_2D") {
+            result = Reshape(operand, {8, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_3D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_3d_to_4d) {
+    PROGRAM("RESHAPE_FP32_3D_TO_4D") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {2, 4, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_3D_TO_4D") {
+            result = Reshape(operand, {2, 2, 4, 4});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_3D_TO_4D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp16_2d_to_2d) {
+    PROGRAM("RESHAPE_FP16_2D_TO_2D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP16, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP16_2D_TO_2D") {
+            result = Reshape(operand, {4, 16});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP16_2D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_4d_to_2d) {
+    PROGRAM("RESHAPE_FP32_4D_TO_2D") {
+        TileShape::Current().SetVecTile({1, 1, 4, 4});
+        Tensor operand(DT_FP32, {2, 2, 4, 4}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_4D_TO_2D") {
+            result = Reshape(operand, {8, 8});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_4D_TO_2D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_2d_to_4d) {
+    PROGRAM("RESHAPE_FP32_2D_TO_4D") {
+        TileShape::Current().SetVecTile({4, 4});
+        Tensor operand(DT_FP32, {8, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_2D_TO_4D") {
+            result = Reshape(operand, {2, 2, 4, 4});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_2D_TO_4D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenReshape, test_reshape_fp32_3d_to_1d) {
+    PROGRAM("RESHAPE_FP32_3D_TO_1D") {
+        TileShape::Current().SetVecTile({2, 4, 4});
+        Tensor operand(DT_FP32, {2, 4, 8}, "operand");
+        Tensor result;
+        FUNCTION("RESHAPE_FP32_3D_TO_1D") {
+            result = Reshape(operand, {64});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "RESHAPE_FP32_3D_TO_1D");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
