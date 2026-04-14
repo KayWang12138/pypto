@@ -65,6 +65,7 @@ public:
     void ClearSchedule();
     std::vector<TaskNode> tasks;
     int makespan{-1};
+    std::unordered_map<int, std::vector<int>> dualDstList;
 };
 
 // 用于将切分后的AIC和AIV子图调度到AIC,AIV0和AIV1核心上
@@ -81,6 +82,7 @@ public:
     void BruteForceScheduleRecursiveStep(
         std::vector<bool>& visited, int recursiveLevel, TaskGraph& taskGraph, std::vector<int>& topoList);
     void Schedule(TaskGraph& taskGraph, int bruteForceThreshold);
+    std::unordered_map<int, TargetCoreType> targetAssignedTask;
 };
 
 // 并查集

@@ -201,9 +201,23 @@ std::vector<int> CoreScheduler::GetDFSTopoSeq(TaskGraph& taskGraph)
     return topoSeq;
 }
 
+void CoreScheduler::UpdateTargetAssignedTask(TaskGraph& taskGraph, int srcTask, TargetCoreType srcTarget)
+{
+    if (srcTarget == TargetCoreType::AIC || srcTarget == TargetCoreType::UNKNOWN) {
+        return;
+    }
+    TargetCoreType dstTarget = (srcTarget == TargetCoreType::AIV0 ? TargetCoreType::AIV1 : TargetCoreType::AIV0);
+    if (taskGraph.dualDstList.count(srcTask) > 0) {
+        for (auto dstTask : taskGraph.dualDstList[srcTask]) {
+            targetAssignedTask[dstTask] = dstTarget;
+        }
+    }
+}
+
 // 基于最早完成时间和空闲时间槽的任务排布
 void CoreScheduler::EFTWithInsertSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq)
 {
+    targetAssignedTask.clear();
     std::unordered_map<TargetCoreType, std::vector<std::pair<int, int>>> availTime;
     availTime[TargetCoreType::AIC] = {{0, INT32_MAX}};
     availTime[TargetCoreType::AIV0] = {{0, INT32_MAX}};
@@ -231,7 +245,8 @@ void CoreScheduler::EFTWithInsertSchedule(TaskGraph& taskGraph, std::vector<int>
             FindEarliestSlot(
                 availTime[TargetCoreType::AIV1], evalDepTimeStart, taskGraph.tasks[taskId].latency, currentIdxAIV1,
                 currentIntervalAIV1);
-            if (currentIntervalAIV0.first <= currentIntervalAIV1.first) {
+            if ((targetAssignedTask.count(taskId) > 0 && targetAssignedTask[taskId] == TargetCoreType::AIV0) ||
+                    currentIntervalAIV0.first <= currentIntervalAIV1.first) {
                 evalCore = TargetCoreType::AIV0;
                 currentIdx = currentIdxAIV0;
                 currentInterval = currentIntervalAIV0;
@@ -245,6 +260,7 @@ void CoreScheduler::EFTWithInsertSchedule(TaskGraph& taskGraph, std::vector<int>
         taskGraph.tasks[taskId].startTimeCandidate = currentInterval.first;
         taskGraph.tasks[taskId].endTimeCandidate = currentInterval.second;
         UpdateInterval(availTime[evalCore], currentIdx, currentInterval);
+        UpdateTargetAssignedTask(taskGraph, taskId, evalCore);
     }
     taskGraph.ApplyCandidate();
     APASS_LOG_INFO_F(Elements::Operation, "EFTWithInsertSchedule get final makespan %d.", taskGraph.makespan);
@@ -253,6 +269,7 @@ void CoreScheduler::EFTWithInsertSchedule(TaskGraph& taskGraph, std::vector<int>
 // 基于最早完成时间的任务排布
 void CoreScheduler::EFTSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq)
 {
+    targetAssignedTask.clear();
     std::unordered_map<TargetCoreType, int> currentTime{
         {TargetCoreType::AIC, 0}, {TargetCoreType::AIV0, 0}, {TargetCoreType::AIV1, 0}};
     for (int taskId : topoSeq) {
@@ -264,14 +281,19 @@ void CoreScheduler::EFTSchedule(TaskGraph& taskGraph, std::vector<int>& topoSeq)
         if (taskGraph.tasks[taskId].coreType == ScheduleCoreType::AIC) {
             evalCore = TargetCoreType::AIC;
         } else {
-            evalCore = currentTime[TargetCoreType::AIV0] <= currentTime[TargetCoreType::AIV1] ? TargetCoreType::AIV0 :
-                                                                                                TargetCoreType::AIV1;
+            if ((targetAssignedTask.count(taskId) > 0 && targetAssignedTask[taskId] == TargetCoreType::AIV0) ||
+                    currentTime[TargetCoreType::AIV0] <= currentTime[TargetCoreType::AIV1]) {
+                evalCore = TargetCoreType::AIV0;
+            } else {
+                evalCore = TargetCoreType::AIV1;
+            }
         }
         taskGraph.tasks[taskId].targetCoreTypeCandidate = evalCore;
         taskGraph.tasks[taskId].startTimeCandidate = std::max(evalDepTimeStart, currentTime[evalCore]);
         taskGraph.tasks[taskId].endTimeCandidate =
             taskGraph.tasks[taskId].startTimeCandidate + taskGraph.tasks[taskId].latency;
         currentTime[evalCore] = taskGraph.tasks[taskId].endTimeCandidate;
+        UpdateTargetAssignedTask(taskGraph, taskId, evalCore);
     }
     taskGraph.ApplyCandidate();
     APASS_LOG_INFO_F(Elements::Operation, "EFTSchedule get final makespan %d.", taskGraph.makespan);
@@ -282,6 +304,7 @@ void CoreScheduler::BruteForceScheduleRecursiveStep(
     std::vector<bool>& visited, int recursiveLevel, TaskGraph& taskGraph, std::vector<int>& topoList)
 {
     if (recursiveLevel >= static_cast<int>(taskGraph.tasks.size())) {
+        targetAssignedTask.clear();
         EFTSchedule(taskGraph, topoList);
     }
     for (auto& task : taskGraph.tasks) {
@@ -635,6 +658,13 @@ TaskGraph TaskSpliter::BuildTaskGraph()
             s.AddDependency(taskId, nextTaskId);
         }
     }
+    //
+    // Set s.dualDstList
+    // for example:
+    // s.dualDstList[0].push_back(1);
+    // s.dualDstList[1].push_back(0);
+    // then task 0 and 1 will be assigned to different AIV core
+    //
     return s;
 }
 
