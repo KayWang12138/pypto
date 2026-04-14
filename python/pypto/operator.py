@@ -618,7 +618,7 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
         f3 = f1 * v2
         """
 
-        input = input.reshape([-1])
+        input = pypto.reshape(input, [-1])
         tensor_len = input.shape[0]
         u1_index = pypto.arange(0, tensor_len, 2)
         u2_index = pypto.add(u1_index, 1)
