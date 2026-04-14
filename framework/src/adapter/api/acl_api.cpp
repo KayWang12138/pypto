@@ -218,5 +218,6 @@ static_assert(std::is_same<AclMdlRI, aclmdlRI>::value);
 static_assert(ACLRT_SUCCESS == ACL_SUCCESS);
 static_assert(ACLRT_ERROR_REPEAT_INITIALIZE == ACL_ERROR_REPEAT_INITIALIZE);
 static_assert(sizeof(AclRtStreamAttrValue) == sizeof(aclrtStreamAttrValue));
+static_assert(sizeof(AclRtExceptionInfo) == sizeof(aclrtExceptionInfo));
 #endif
 }
