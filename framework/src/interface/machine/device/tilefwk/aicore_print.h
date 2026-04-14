@@ -53,6 +53,13 @@
 #define FP32_EXP_BIAS 127
 #define F16_SUBNORMAL_FP32_EXP_BASE (FP32_EXP_BIAS - (F16_EXP_BIAS - 1))
 
+// HF8 打印支持检查：DT_HF8 仅支持 A5 架构（__DAV_V310 平台）
+#ifdef __DAV_V310
+#define SUPPORT_HF8_PRINT 1
+#else
+#define SUPPORT_HF8_PRINT 0
+#endif
+
 template <typename T, typename U>
 INLINE void SafeBitCast(T& dst, const U& src)
 {
@@ -112,9 +119,93 @@ INLINE float DecodeF16(uint16_t bits)
     return SafeBitCast<float>(u);
 }
 
+#if SUPPORT_HF8_PRINT
+INLINE float DecodeHf8(uint8_t bits)
+{
+    const int signBit = (bits >> 7) & 0x1;
+    const int lower7 = bits & 0x7F;
+
+    // Subnormal: D=0000, M in [0,7]
+    const int top4 = lower7 >> 3;
+    if (top4 == 0) {
+        const int mv = lower7 & 0x7;
+        if (mv == 0) {
+            return SafeBitCast<float>(static_cast<uint32_t>(signBit << 31));
+        }
+        const uint32_t sign32 = static_cast<uint32_t>(signBit << 31);
+        const int fp32_exp = mv - 23 + 127;
+        const uint32_t u = sign32 | (static_cast<uint32_t>(fp32_exp) << 23);
+        return SafeBitCast<float>(u);
+    }
+
+    // Normal-1: D=0001, E_v=0, M in [0,7]
+    if (top4 == 1) {
+        const int mv = lower7 & 0x7;
+        const uint32_t sign32 = static_cast<uint32_t>(signBit << 31);
+        const uint32_t exp32 = 127;
+        const uint32_t mant32 = static_cast<uint32_t>(mv) << (23 - 3);
+        return SafeBitCast<float>(sign32 | (exp32 << 23) | mant32);
+    }
+
+    // Normal-2: D=001, E=1bit, |E_v|=1, M in [0,7]
+    const int top3 = lower7 >> 4;
+    if (top3 == 1) {
+        const int eb = (lower7 >> 3) & 0x1;
+        const int ev = (eb == 0) ? 1 : -1;
+        const int mv = lower7 & 0x7;
+        const uint32_t sign32 = static_cast<uint32_t>(signBit << 31);
+        const uint32_t exp32 = static_cast<uint32_t>(ev + 127);
+        const uint32_t mant32 = static_cast<uint32_t>(mv) << (23 - 3);
+        return SafeBitCast<float>(sign32 | (exp32 << 23) | mant32);
+    }
+
+    // Normal-3: D=01, E=2bits, |E_v| in [2,3], M in [0,7]
+    const int top2 = lower7 >> 5;
+    if (top2 == 1) {
+        const int eb = (lower7 >> 3) & 0x3;
+        const int evSign = (eb >> 1) & 0x1;
+        const int evAbs = 2 + (eb & 0x1);
+        const int ev = evSign ? -evAbs : evAbs;
+        const int mv = lower7 & 0x7;
+        const uint32_t sign32 = static_cast<uint32_t>(signBit << 31);
+        const uint32_t exp32 = static_cast<uint32_t>(ev + 127);
+        const uint32_t mant32 = static_cast<uint32_t>(mv) << (23 - 3);
+        return SafeBitCast<float>(sign32 | (exp32 << 23) | mant32);
+    }
+
+    // Normal-4: D=10, E=3bits, |E_v| in [4,7], M in [0,3]
+    if (top2 == 2) {
+        const int eb = (lower7 >> 2) & 0x7;
+        const int evSign = (eb >> 2) & 0x1;
+        const int evAbs = 4 + (eb & 0x3);
+        const int ev = evSign ? -evAbs : evAbs;
+        const int mv = lower7 & 0x3;
+        const uint32_t sign32 = static_cast<uint32_t>(signBit << 31);
+        const uint32_t exp32 = static_cast<uint32_t>(ev + 127);
+        const uint32_t mant32 = static_cast<uint32_t>(mv) << (23 - 2);
+        return SafeBitCast<float>(sign32 | (exp32 << 23) | mant32);
+    }
+
+    // Normal-5: D=11, E=4bits, |E_v| in [8,15], M in [0,1]
+    const int eb = (lower7 >> 1) & 0xF;
+    const int evSign = (eb >> 3) & 0x1;
+    const int evAbs = 8 + (eb & 0x7);
+    const int ev = evSign ? -evAbs : evAbs;
+    const int mv = lower7 & 0x1;
+    const uint32_t sign32 = static_cast<uint32_t>(signBit << 31);
+    const uint32_t exp32 = static_cast<uint32_t>(ev + 127);
+    const uint32_t mant32 = static_cast<uint32_t>(mv) << (23 - 1);
+    return SafeBitCast<float>(sign32 | (exp32 << 23) | mant32);
+}
+#endif
+
 enum NodeTy { END, NORMAL, FP32, INT, CHAR, STRING, POINTER, BF16, FP16,
               TENSOR_HEADER, INDEXED_FP32, INDEXED_INT64, INDEXED_BF16, INDEXED_FP16,
-              OVERFLOW_WARNING };
+              OVERFLOW_WARNING
+#if SUPPORT_HF8_PRINT
+              , HF8, INDEXED_HF8
+#endif
+};
 
 struct LogContext {
     void (*PrintInt)(LogContext* ctx, __gm__ const char** fmt, int64_t val);
@@ -122,6 +213,9 @@ struct LogContext {
     void (*PrintBf16)(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits);
     void (*PrintFp16)(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits);
     void (*Print)(LogContext* ctx, __gm__ const char* fmt);
+#if SUPPORT_HF8_PRINT
+    void (*PrintHf8)(LogContext* ctx, __gm__ const char** fmt, uint8_t rawBits);
+#endif
 };
 
 template <typename T>
@@ -138,6 +232,10 @@ INLINE void __AiCorePrint(LogContext* ctx, __gm__ const char** fmt, T val)
         ctx->PrintBf16(ctx, fmt, SafeBitCast<uint16_t>(val));
     } else if constexpr (std::is_same_v<T, half>) {
         ctx->PrintFp16(ctx, fmt, SafeBitCast<uint16_t>(val));
+#if SUPPORT_HF8_PRINT
+    } else if constexpr (std::is_same_v<T, hifloat8_t>) {
+        ctx->PrintHf8(ctx, fmt, SafeBitCast<uint8_t>(val));
+#endif
 #endif
     }
 }
@@ -189,6 +287,16 @@ struct AicoreLogger {
         }
     }
 
+#if SUPPORT_HF8_PRINT
+    static __aicore__ void __PrintHf8(LogContext* ctx, __gm__ const char** fmt, uint8_t rawBits)
+    {
+        auto self = reinterpret_cast<AicoreLogger*>(ctx);
+        if (self) {
+            self->PrintHf8(fmt, rawBits);
+        }
+    }
+#endif
+
     static __aicore__ void __Print(LogContext* ctx, __gm__ const char* fmt)
     {
         auto self = reinterpret_cast<AicoreLogger*>(ctx);
@@ -209,6 +317,9 @@ struct AicoreLogger {
         ctx.PrintBf16 = __PrintBf16;
         ctx.PrintFp16 = __PrintF16;
         ctx.Print = __Print;
+#if SUPPORT_HF8_PRINT
+        ctx.PrintHf8 = __PrintHf8;
+#endif
     }
 
     __aicore__ __gm__ uint8_t* GetBuffer() { return data_ - sizeof(Remote); }
@@ -269,6 +380,13 @@ struct AicoreLogger {
     {
         EncodeFloatType(fmt, FP16, reinterpret_cast<uint8_t*>(&rawBits), sizeof(rawBits));
     }
+
+#if SUPPORT_HF8_PRINT
+    __aicore__ void PrintHf8(__gm__ const char** fmt, uint8_t rawBits)
+    {
+        EncodeFloatType(fmt, HF8, reinterpret_cast<uint8_t*>(&rawBits), sizeof(rawBits));
+    }
+#endif
 
     __aicore__ void Print(__gm__ const char* str)
     {
@@ -497,6 +615,19 @@ struct AicoreLogger {
                     break;
                 }
 
+#if SUPPORT_HF8_PRINT
+                case INDEXED_HF8: {
+                    auto index = Read<int64_t>(tail_);
+                    tail_ += sizeof(int64_t);
+                    uint8_t bits = Read<uint8_t>(tail_);
+                    tail_ += sizeof(uint8_t);
+                    float value = DecodeHf8(bits);
+                    n = snprintf_s(buf, maxSize, maxSize - 1, "%s[%ld] %f\n",
+                                   lastTensorName_.c_str(), index, value);
+                    break;
+                }
+#endif
+
                 case OVERFLOW_WARNING: {
                     // 1. 读取 nameLen
                     auto nameLen = Read<short>(tail_);
@@ -582,6 +713,14 @@ struct AicoreLogger {
                             n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
                             break;
                         }
+#if SUPPORT_HF8_PRINT
+                        case HF8: {
+                            uint8_t bits = Read<uint8_t>(valOff);
+                            float fv = DecodeHf8(bits);
+                            n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
+                            break;
+                        }
+#endif
                         default:
                             if (n) {
                                 buf[0] = '?';
@@ -724,6 +863,11 @@ private:
                     case INDEXED_FP16:
                         tail_ += 8 + 2;  // index + bf16/fp16
                         break;
+#if SUPPORT_HF8_PRINT
+                    case INDEXED_HF8:
+                        tail_ += 8 + 1;  // index + hf8
+                        break;
+#endif
                     case OVERFLOW_WARNING: {
                         // 跳过 nameLenLen + name + '\0'
                         auto nl = Read<short>(tail_);
@@ -859,6 +1003,10 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end,
         perElement = 11 + 1;   // INDEXED_BF16 (11B) + END (1B) = 12
     } else if constexpr (std::is_same_v<ElemT, half>) {
         perElement = 11 + 1;   // INDEXED_FP16 (11B) + END (1B) = 12
+#if SUPPORT_HF8_PRINT
+    } else if constexpr (std::is_same_v<ElemT, hifloat8_t>) {
+        perElement = 10 + 1;   // INDEXED_HF8 (10B) + END (1B) = 11
+#endif
 #endif
     }
 
@@ -898,6 +1046,11 @@ INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end,
         } else if constexpr (std::is_same_v<ElemT, half>) {
             uint16_t v = SafeBitCast<uint16_t>(data[i]);
             logger->EncodeIndexed(INDEXED_FP16, i, reinterpret_cast<uint8_t*>(&v), sizeof(v));
+#if SUPPORT_HF8_PRINT
+        } else if constexpr (std::is_same_v<ElemT, hifloat8_t>) {
+            uint8_t v = SafeBitCast<uint8_t>(data[i]);
+            logger->EncodeIndexed(INDEXED_HF8, i, reinterpret_cast<uint8_t*>(&v), sizeof(v));
+#endif
 #endif
         }
         logger->EncodeEnd();
