@@ -1,0 +1,327 @@
+/**
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_codegen_dyn_uniform.cpp
+ * \brief Unit test for codegen.
+ */
+
+#include "gtest/gtest.h"
+
+#include "tilefwk/tilefwk.h"
+#include "interface/inner/tilefwk.h"
+#include "interface/configs/config_manager.h"
+#include "interface/operation/operation.h"
+#include "tilefwk/data_type.h"
+#include "codegen/codegen.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
+#include "test_codegen_utils.h"
+#include "test_codegen_common.h"
+
+namespace npu::tile_fwk {
+class TestCodegenDynUniform : public ::testing::Test {
+public:
+    static void SetUpTestCase() {}
+
+    static void TearDownTestCase() {}
+
+    void SetUp() override
+    {
+        Program::GetInstance().Reset();
+        config::Reset();
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+    }
+
+    void TearDown() override {}
+};
+
+TEST_F(TestCodegenDynUniform, TestDynOpUniformFP32)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+
+    auto function = GenMockFuncDyn("TestDynOpUniformFP32");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    uint64_t key = 12345678901234;
+    uint64_t counter1 = 0;
+    uint16_t rounds = 10;
+    int64_t idx = 0;
+    
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {256}, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(idx);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_FP32)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+}
+
+TEST_F(TestCodegenDynUniform, TestDynOpUniformFP16)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+
+    auto function = GenMockFuncDyn("TestDynOpUniformFP16");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    uint64_t key = 12345678901234;
+    uint64_t counter1 = 0;
+    uint16_t rounds = 10;
+    int64_t idx = 0;
+    
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, shape, dynValidShape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {512}, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(idx);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_FP16)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+}
+
+TEST_F(TestCodegenDynUniform, TestDynOpUniformBF16)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+
+    auto function = GenMockFuncDyn("TestDynOpUniformBF16");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    uint64_t key = 12345678901234;
+    uint64_t counter1 = 0;
+    uint16_t rounds = 10;
+    int64_t idx = 0;
+    
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_BF16, MemoryType::MEM_UB, shape, dynValidShape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {512}, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(idx);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_BF16)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+}
+
+TEST_F(TestCodegenDynUniform, TestDynOpUniformRounds7)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+
+    auto function = GenMockFuncDyn("TestDynOpUniformRounds7");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    uint64_t key = 12345678901234;
+    uint64_t counter1 = 0;
+    uint16_t rounds = 7;
+    int64_t idx = 0;
+    
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {256}, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(idx);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_FP32)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+    EXPECT_TRUE(res.find("7") != std::string::npos);
+}
+
+TEST_F(TestCodegenDynUniform, TestDynOpUniformWithCounter)
+{
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+
+    auto function = GenMockFuncDyn("TestDynOpUniformWithCounter");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    uint64_t key = 9876543210;
+    uint64_t counter1 = 200;
+    uint16_t rounds = 10;
+    int64_t idx = 0;
+    
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {256}, dynValidShape});
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(idx);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_FP32)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+}
+
+TEST_F(TestCodegenDynUniform, UniformTileTensorFP32)
+{
+    auto function = GenMockFuncDyn("UniformTileTensorFP32");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {256}});
+    localTensor->UpdateDynValidShape(dynValidShape);
+    tempTensor->UpdateDynValidShape({256});
+    std::vector<SymbolicScalar> dynoffset = {0};
+    std::vector<int64_t> offset = {0};
+    localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
+
+    uint64_t key = 12345678901234;
+    uint64_t counter1 = 0;
+    uint16_t rounds = 10;
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(0);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_FP32)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+}
+
+TEST_F(TestCodegenDynUniform, UniformTileTensorFP16)
+{
+    auto function = GenMockFuncDyn("UniformTileTensorFP16");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, shape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {512}});
+    localTensor->UpdateDynValidShape(dynValidShape);
+    tempTensor->UpdateDynValidShape({512});
+    std::vector<SymbolicScalar> dynoffset = {0};
+    std::vector<int64_t> offset = {0};
+    localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
+
+    uint64_t key = 12345678901234;
+    uint64_t counter1 = 0;
+    uint16_t rounds = 10;
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(0);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_FP16)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+}
+
+TEST_F(TestCodegenDynUniform, UniformTileTensorBF16)
+{
+    auto function = GenMockFuncDyn("UniformTileTensorBF16");
+    std::vector<int64_t> shape = {64};
+    std::vector<SymbolicScalar> dynValidShape = {64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_BF16, MemoryType::MEM_UB, shape});
+    auto tempTensor = CreateLogicalTensor({*function, DataType::DT_UINT8, MemoryType::MEM_UB, {512}});
+    localTensor->UpdateDynValidShape(dynValidShape);
+    tempTensor->UpdateDynValidShape({512});
+    std::vector<SymbolicScalar> dynoffset = {0};
+    std::vector<int64_t> offset = {0};
+    localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
+
+    uint64_t key = 12345678901234;
+    uint64_t counter1 = 0;
+    uint16_t rounds = 10;
+
+    auto& op = function->AddOperation(Opcode::OP_UNIFORM, {}, {localTensor, tempTensor});
+    op.SetAttribute(OP_ATTR_PREFIX + "KEY", Element(DT_UINT64, key));
+    SymbolicScalar tileIdx(0);
+    op.SetAttribute(OpAttributeKey::dynScalar, tileIdx);
+    op.SetAttribute(OP_ATTR_PREFIX + "COUNTER1", Element(DT_UINT64, counter1));
+    op.SetAttribute(OP_ATTR_PREFIX + "ROUNDS", Element(DT_UINT16, rounds));
+    op.SetAttribute(OP_ATTR_PREFIX + "SHAPE", shape);
+    op.SetAttribute(OP_ATTR_PREFIX + "DTYPE", Element(DT_INT32, static_cast<int32_t>(DT_BF16)));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpCloudNPU cop(opCtx);
+    std::string res = cop.GenOpCode();
+    EXPECT_TRUE(res.find("TUniform") != std::string::npos);
+}
+
+}  // namespace npu::tile_fwk
