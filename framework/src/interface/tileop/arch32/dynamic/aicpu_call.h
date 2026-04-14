@@ -22,20 +22,22 @@
 
 namespace TileOp {
 
-#define GET_CURRENT_TASKID()            ((param)->taskId)
+#define GET_CURRENT_TASKID() ((param)->taskId)
 
 #define AICPU_CALL_NUM_COPYOUT_RESOLVE 1
 #define AICPU_CALL_NUM_BIT 16
 #define AICPU_CALL_ARG_BIT 16
 #define AICPU_CALL_TASK_BIT 32
 
-INLINE uint64_t AicpuCallCreate(uint16_t callNum, uint16_t callArg, uint32_t taskId) {
+INLINE uint64_t AicpuCallCreate(uint16_t callNum, uint16_t callArg, uint32_t taskId)
+{
     uint64_t callCode = ((uint64_t)callNum << AICPU_CALL_ARG_BIT) | (uint64_t)callArg;
     return (callCode << AICPU_CALL_TASK_BIT) | (uint64_t)taskId;
 }
 
 template <uint16_t callNum, uint16_t callArg>
-TILEOP void AicpuCall(uint32_t taskId) {
+TILEOP void AicpuCall(uint32_t taskId)
+{
     if constexpr (callNum == AICPU_CALL_NUM_COPYOUT_RESOLVE) {
         uint64_t cond = AicpuCallCreate(callNum, callArg, taskId);
         set_cond(cond);

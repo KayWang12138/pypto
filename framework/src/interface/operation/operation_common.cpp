@@ -17,38 +17,36 @@
 
 namespace npu::tile_fwk {
 
-inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
+inline const std::vector<size_t>& GetShapeLenLimit(const std::string& op)
+{
     // if the limit of op is not [1, 4], should add here
     static std::unordered_map<std::string, const std::vector<size_t>> op_shape_len_limit = {
-        {    "ADD", {1, 4}},
-        {   "CAST", {1, 4}},
-        {"ISFINITE", {1, 5}},
-        {    "REMR", {1, 5}},
-        {"DEFAULT", {1, 4}}
-    };
+        {"ADD", {1, 4}}, {"CAST", {1, 4}}, {"ISFINITE", {1, 5}}, {"REMR", {1, 5}}, {"DEFAULT", {1, 4}}};
     if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {
         return op_shape_len_limit.at("DEFAULT");
     }
     return op_shape_len_limit.at(op);
 }
 
-void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
+void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op)
+{
     auto shape = tensor->shape;
     // valid input dims must in [1, 4]
     auto shape_len_limit = GetShapeLenLimit(op);
     ASSERT(shape.size() >= shape_len_limit[0] && shape.size() <= shape_len_limit[1])
         << "The dims of tensor out of range. shape.size(): " << shape.size()
-        << "shape_len_limit[0]: "<< shape_len_limit[0]
-        << "shape_len_limit[1]" << shape_len_limit[1];
+        << "shape_len_limit[0]: " << shape_len_limit[0] << "shape_len_limit[1]" << shape_len_limit[1];
     size_t shapeSize = 1;
-    for (const auto &value : shape) {
+    for (const auto& value : shape) {
         ASSERT(value <= INT32_MAX) << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)";
         shapeSize *= static_cast<size_t>(value);
-        ASSERT(shapeSize <= INT32_MAX) << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)";
+        ASSERT(shapeSize <= INT32_MAX)
+            << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)";
     }
 }
 
-std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2) {
+std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2)
+{
     std::vector<int64_t> opShape1(operand1->shape);
     std::vector<int64_t> opShape2(operand2->shape);
     auto maxShapeSize = std::max(opShape1.size(), opShape2.size());
@@ -65,7 +63,8 @@ std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr 
     return broadCastShape;
 }
 
-std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2) {
+std::vector<int> GetBroadcastAxes(const Shape& shape1, const Shape& shape2)
+{
     Shape shape1_(shape1), shape2_(shape2);
     std::vector<int> result = {};
     auto maxShapeSize = std::max(shape1_.size(), shape2_.size());
@@ -83,11 +82,12 @@ std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2) {
     return result;
 }
 
-void CheckAxisRange(const Tensor &tensor, int &axis) {
+void CheckAxisRange(const Tensor& tensor, int& axis)
+{
     int shapeSize = tensor.GetShape().size();
     if (axis < 0) {
         axis += shapeSize;
     }
     ASSERT(axis >= 0 && axis < shapeSize) << "Axis is not in the reasonable range!";
 }
-}
+} // namespace npu::tile_fwk

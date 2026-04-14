@@ -27,9 +27,9 @@ namespace npu {
 namespace tile_fwk {
 class ExpandFunctionChecker : Checker {
 public:
-    Status DoDefaultEnabledPreCheck(Function &function) override;
-    Status DoPostCheck(Function &function) override;
+    Status DoDefaultEnabledPreCheck(Function& function) override;
+    Status DoPostCheck(Function& function) override;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // EXPAND_FUNCTION_CHECKER_H
+#endif // EXPAND_FUNCTION_CHECKER_H

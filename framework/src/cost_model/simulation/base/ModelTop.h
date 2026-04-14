@@ -104,8 +104,8 @@ public:
     int taskCompleteSeqIndex = 0;
     // Config Parameters
     SimMode mode = SimMode::NORMAL;
-    std::string jsonPath = "";      // Input json file to load
-    int logLevel = 3;               // 1: DEBUG; 2: INFO; 3: WARN; 4: ERROR, 5: FATAL
+    std::string jsonPath = ""; // Input json file to load
+    int logLevel = 3;          // 1: DEBUG; 2: INFO; 3: WARN; 4: ERROR, 5: FATAL
     int accLevel = 1;
     PVModelLevel pvLevel = PVModelLevel::PV_NON;
     bool enableExpectValue = false;
@@ -125,10 +125,10 @@ public:
     void AddCycles(uint64_t overTime = 1);
     std::shared_ptr<TraceLogger> GetLogger();
     std::shared_ptr<GenCalendar> GetCalendarGenerator();
-    CostModel::Reporter *GetReporter();
+    CostModel::Reporter* GetReporter();
     bool IsMachine(CostModel::Pid pid, CostModel::Tid tid);
     bool IsQueue(CostModel::Tid tid);
-    bool IsWorkPipe(CostModel::Pid pid, CostModel::Tid tid, std::string &name);
+    bool IsWorkPipe(CostModel::Pid pid, CostModel::Tid tid, std::string& name);
 
     // Build Device-AICPU-AICORE-PIPE System
     void AddExtraConfigs();
@@ -147,7 +147,7 @@ public:
     void BuildSystemStat();
     void BuildSystem();
 
-    void InitCoreTask();   // Init CoreMachine Task
+    void InitCoreTask(); // Init CoreMachine Task
     void Reset();
     void AddMachine(std::shared_ptr<Machine> m);
 
@@ -157,7 +157,7 @@ public:
     bool IsTerminate() const;
     void ReportDeadlock(size_t machineId);
     bool IsDeadlock() const;
-    void InitBufferThreshold(PipeConfig &pipeConfig);
+    void InitBufferThreshold(PipeConfig& pipeConfig);
     uint64_t GetBufferThreshold(CorePipeType pType);
 
     void CalendarDispatchTasksToCore(int key, std::shared_ptr<CoreMachine> coreMachine);
@@ -171,20 +171,20 @@ public:
     void OutputLogForSwimLane(std::string prefix = "");
     void OutputLogForPipeSwimLane(std::string prefix = "");
     void OutputCalendarScheduleCpp(std::string prefix = "");
-    void ProcessTaskMap(TaskMap &taskMap, std::string prefix = "");
-    void DrawTasks(const TaskMap &taskMap, std::string prefix = "");
-    void DebugDrawFunc(FunctionPtr func, std::unordered_map<int, TilePtr> &tiles,
-                       std::unordered_map<int, TileOpPtr> &tileOps);
-    void DumpTasksTopo(const TaskMap &taskMap, std::string prefix = "");
+    void ProcessTaskMap(TaskMap& taskMap, std::string prefix = "");
+    void DrawTasks(const TaskMap& taskMap, std::string prefix = "");
+    void DebugDrawFunc(
+        FunctionPtr func, std::unordered_map<int, TilePtr>& tiles, std::unordered_map<int, TileOpPtr>& tileOps);
+    void DumpTasksTopo(const TaskMap& taskMap, std::string prefix = "");
     void ResetStat(bool start);
     void PrintCoreStat();
     void PrintStat();
     uint64_t RegisterQueuePid(std::string key);
-    void GetDeviceReadyQueueInfo(size_t &devicePid, std::set<uint64_t> &readyQueueTidSet);
+    void GetDeviceReadyQueueInfo(size_t& devicePid, std::set<uint64_t>& readyQueueTidSet);
 
     // For output files
-    static std::string GetFileName(const std::string &file);
-    static std::string GetFileName(const std::string &dir, const std::string &inputFile, const std::string &preFix,
-                                   const std::string &suffix);
+    static std::string GetFileName(const std::string& file);
+    static std::string GetFileName(
+        const std::string& dir, const std::string& inputFile, const std::string& preFix, const std::string& suffix);
 };
-}  // namespace CostModel
+} // namespace CostModel

@@ -26,12 +26,7 @@
 namespace npu {
 namespace tile_fwk {
 /* 轴变形操作，0:不涉及变形；1:涉及拆轴；2：涉及合轴；3：其他变形 */
-enum AxisTransformType : int32_t {
-    AXIS_KEEP = 0,
-    AXIS_SPLIT = 1,
-    AXIS_MERGE = 2,
-    AXIS_RESHAPE = 3
-};
+enum AxisTransformType : int32_t { AXIS_KEEP = 0, AXIS_SPLIT = 1, AXIS_MERGE = 2, AXIS_RESHAPE = 3 };
 
 /* input shape->align shape 和 align shape->output shape轴的状态结构体, input shape只可能拆轴，align shape只可能合轴 */
 struct ShapeStatus {
@@ -43,17 +38,19 @@ struct ShapeStatus {
     int64_t stride;
 
     ShapeStatus() : size(0), tileSize(0), axisType(AXIS_KEEP), transformAxisIndex(), stride(0) {}
-    ShapeStatus(int64_t s, int64_t ts = 0, AxisTransformType type = AXIS_KEEP,
-            const std::vector<size_t>& indices = {}, int64_t st = 0)
-    : size(s), tileSize(ts), axisType(type), transformAxisIndex(indices), stride(st) {}
+    ShapeStatus(
+        int64_t s, int64_t ts = 0, AxisTransformType type = AXIS_KEEP, const std::vector<size_t>& indices = {},
+        int64_t st = 0)
+        : size(s), tileSize(ts), axisType(type), transformAxisIndex(indices), stride(st)
+    {}
 };
 
 struct AlignContext {
-    size_t i = 0UL; // 记录输入shape的下标
-    size_t o = 0UL; // 记录输出shape的下标
-    size_t a = 0UL; // 记录aligned shape的下标
+    size_t i = 0UL;    // 记录输入shape的下标
+    size_t o = 0UL;    // 记录输出shape的下标
+    size_t a = 0UL;    // 记录aligned shape的下标
     int64_t iprod = 1; // 记录输入较大时的整除结果
-    int64_t oprod = 1;  // 记录输出较大时的整除结果
+    int64_t oprod = 1; // 记录输出较大时的整除结果
 };
 
 class DerivationTileShape {
@@ -62,12 +59,13 @@ public:
     ~DerivationTileShape() = default;
 
     /*
-     * 输入参数：op为需要推导的op， inShape、inTileShape表示传入Tensor的shape和tileshape， outShape为需要推导tileshape的tensor shape
-     * 输出参数：返回值Status和outTileShape
+     * 输入参数：op为需要推导的op， inShape、inTileShape表示传入Tensor的shape和tileshape，
+     * outShape为需要推导tileshape的tensor shape 输出参数：返回值Status和outTileShape
      * 返回值为SUCCESS时，outTileShape正常赋值； 返回值为FAILED时未赋值
      */
-    Status DerivationReshapeTileShape(Operation *op, const Shape &inShape, const Shape &outShape,
-        const std::vector<int64_t> &inTileShape, std::vector<int64_t> &outTileShape);
+    Status DerivationReshapeTileShape(
+        Operation* op, const Shape& inShape, const Shape& outShape, const std::vector<int64_t>& inTileShape,
+        std::vector<int64_t>& outTileShape);
 };
 } // namespace tile_fwk
 } // namespace npu

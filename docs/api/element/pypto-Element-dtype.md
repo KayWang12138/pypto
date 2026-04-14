@@ -35,4 +35,3 @@ NA
 t = pypto.element(pypto.DT_FP32, 3)
 t.dtype
 ```
-

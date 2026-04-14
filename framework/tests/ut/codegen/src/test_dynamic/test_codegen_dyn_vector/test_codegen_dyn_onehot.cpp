@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
@@ -47,7 +48,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynOneHot, OneHotLayout) {
+TEST_F(TestCodegenDynOneHot, OneHotLayout)
+{
     std::vector<int64_t> indicesShape = {32, 32};
     std::vector<int64_t> outputShape = {32, 32, 1};
     TileShape::Current().SetVecTile(outputShape);
@@ -55,8 +57,10 @@ TEST_F(TestCodegenDynOneHot, OneHotLayout) {
     Tensor outputStub(DT_INT32, outputShape, "output");
 
     std::string funcName = "OneHotLayout";
-    FUNCTION(funcName, {inputStub}, {outputStub}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputStub}, {outputStub})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             outputStub = OneHot(inputStub, 1);
         }

@@ -49,7 +49,7 @@ def get_device_id():
     except ValueError:
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
-    
+
 def safe_json_load(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -105,13 +105,13 @@ def softmax(input_tensor: pypto.Tensor(),
     for idx in pypto.loop(b_loop):
         b_offset = idx * tile_b
         b_offset_end = (idx + 1) * tile_b
-        
+
         # Extract batch slice
         input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
-        
+
         # Apply softmax to batch slice
         softmax_out = softmax_core(input_view)
-        
+
         # Assemble result back to output tensor
         pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
 
@@ -134,7 +134,7 @@ def test_softmax(cost_model_enable=True):
     # Launch the kernel
     output_data = torch.empty(shape, dtype=torch.float32)
     softmax(input_data, output_data)
-    
+
     # Verify against PyTorch reference
     torch_softmax = torch.softmax(input_data, dim=3)
     npu_data = output_data.cpu()

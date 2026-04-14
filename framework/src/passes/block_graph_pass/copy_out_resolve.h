@@ -33,17 +33,18 @@ public:
     ~CopyOutResolve() override = default;
 
 private:
-    Status RunOnFunction(Function &function) override {
+    Status RunOnFunction(Function& function) override
+    {
         APASS_LOG_INFO_F(Elements::Function, "===> Start CopyOutResolve.");
         CopyOutResolveCall(function);
         APASS_LOG_INFO_F(Elements::Function, "===> End CopyOutResolve.");
         return SUCCESS;
     }
-    void CopyOutResolveCall(Function &function) const;
+    void CopyOutResolveCall(Function& function) const;
 
-    void InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, Function *leaf) const;
-    std::vector<Operation *> LookupOutcastLastCopyOut(Function *leafFunc) const;
-    void CheckOutcastProducer(Function *leaf) const;
+    void InsertCopyOutResolveForLeaf(int copyOutResolveCoalescing, Function* leaf) const;
+    std::vector<Operation*> LookupOutcastLastCopyOut(Function* leafFunc) const;
+    void CheckOutcastProducer(Function* leaf) const;
 };
 
 } // namespace npu::tile_fwk

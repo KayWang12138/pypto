@@ -30,7 +30,8 @@ using namespace npu::tile_fwk::dynamic;
 class LightningIndexerSTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
@@ -38,16 +39,16 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 }
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(
-    Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
     return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
-void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
-
+void TestLightningIndexer(LightningIndexerConfigs& tileConfig)
+{
     int paramsSize = 9;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", input_param);
@@ -114,9 +115,12 @@ void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
 
     std::set<int> unrollList = {32, 16, 8, 4, 1};
     FUNCTION(
-        "LightningIndexer", {query, qScale, key, kScale, weights, actSeq, blockTable}, {topkRes, firstMm, mmOut, topkValue}) {
-        LightningIndexerImpl(query, qScale, key, kScale, weights, actSeq, blockTable, selectedCount, topkRes,
-            tileConfig, unrollList, &firstMm, &mmOut, &topkValue);
+        "LightningIndexer", {query, qScale, key, kScale, weights, actSeq, blockTable},
+        {topkRes, firstMm, mmOut, topkValue})
+    {
+        LightningIndexerImpl(
+            query, qScale, key, kScale, weights, actSeq, blockTable, selectedCount, topkRes, tileConfig, unrollList,
+            &firstMm, &mmOut, &topkValue);
     }
 
     DevFuncRunner::Run(
@@ -125,19 +129,21 @@ void TestLightningIndexer(LightningIndexerConfigs &tileConfig) {
     constexpr int TOPK_COUNT = 100;
     constexpr float ratio = 5e-3f;
     std::cout << "=======================firstMm===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(firstMmGolden, (npu::tile_fwk::float16 *)firstMmData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
+    EXPECT_TRUE(
+        resultCmp(firstMmGolden, (npu::tile_fwk::float16*)firstMmData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
     std::cout << "=======================mmOut===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(mmGolden, (float *)mmData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
+    EXPECT_TRUE(resultCmp(mmGolden, (float*)mmData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
     std::cout << "=======================topkValue===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(topkValueGolden, (float *)topkValueData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
+    EXPECT_TRUE(resultCmp(topkValueGolden, (float*)topkValueData->data(), PRE_TAIL, 0, TOPK_COUNT, false, false));
     std::cout << "=======================topkRes===============================" << std::endl;
-    EXPECT_TRUE(resultCmp4TopK(topkResGolden, (int32_t *)topkResData->data(), selectedCount, ratio));
+    EXPECT_TRUE(resultCmp4TopK(topkResGolden, (int32_t*)topkResData->data(), selectedCount, ratio));
 }
 
 // LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2
-TEST_F(LightningIndexerSTest, lightning_indexer_quant_4_b_2_s1_64k_s2) {
+TEST_F(LightningIndexerSTest, lightning_indexer_quant_4_b_2_s1_64k_s2)
+{
     LightningIndexerConfigs config;
-    config.s1Tile = 2; // s1Tile = s1
+    config.s1Tile = 2;                              // s1Tile = s1
     config.topkTile = 8192;
     config.c1Tile = {128, 128, 128, 128, 128, 128}; // (m, M), (k, K), (n, N)
     config.c2Tile = {64, 64, 128, 128, 128, 128};   // (m, M), (k, K), (n, N)

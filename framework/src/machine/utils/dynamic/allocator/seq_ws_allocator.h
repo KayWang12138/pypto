@@ -29,26 +29,31 @@ class SeqWsAllocator {
     using uintdevptr_t = uint64_t;
 
 public:
-    void InitMetadataAllocator(uintdevptr_t workspaceAddr, uint64_t workspaceSize) {
+    void InitMetadataAllocator(uintdevptr_t workspaceAddr, uint64_t workspaceSize)
+    {
         InternalInit(workspaceAddr, workspaceSize, WsAllocatorProperty::METADATA_MEM);
     }
 
-    void InitTensorAllocator(uintdevptr_t workspaceAddr, uint64_t workspaceSize) {
+    void InitTensorAllocator(uintdevptr_t workspaceAddr, uint64_t workspaceSize)
+    {
         InternalInit(workspaceAddr, workspaceSize, WsAllocatorProperty::TENSOR_MEM);
     }
 
-    bool CanAllocate(uint64_t memReq) const {
-        return allocated_ + memReq <= workspaceSize_;
-    }
+    bool CanAllocate(uint64_t memReq) const { return allocated_ + memReq <= workspaceSize_; }
 
     template <typename T>
-    WsAllocation Allocate(uint64_t count, WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
+    WsAllocation Allocate(uint64_t count, WsMemCategory category = WsMemCategory::UNCLASSIFIED)
+    {
         return Malloc(count * sizeof(T), category);
     }
 
-    WsAllocation Malloc(uint64_t memReq, WsMemCategory category = WsMemCategory::UNCLASSIFIED) {
-        DEV_ASSERT_MSG(WsErr::WORKSPACE_INIT_RESOURCE_ERROR, CanAllocate(memReq), "Memory not enough(alloc %lu), WsProperty:%s, WsAddr:%lu, WsSize:%lu,"
-            "AllocatedCnt:%lu, ResetTimes:%u", memReq, GetWsAllocatorPropertyName(property_), workspaceAddr_, workspaceSize_, allocated_, resetTimes_);
+    WsAllocation Malloc(uint64_t memReq, WsMemCategory category = WsMemCategory::UNCLASSIFIED)
+    {
+        DEV_ASSERT_MSG(
+            WsErr::WORKSPACE_INIT_RESOURCE_ERROR, CanAllocate(memReq),
+            "Memory not enough(alloc %lu), WsProperty:%s, WsAddr:%lu, WsSize:%lu,"
+            "AllocatedCnt:%lu, ResetTimes:%u",
+            memReq, GetWsAllocatorPropertyName(property_), workspaceAddr_, workspaceSize_, allocated_, resetTimes_);
 
         WsAllocation allocation;
         allocation.ptr = workspaceAddr_ + allocated_;
@@ -72,30 +77,32 @@ public:
 
     void Deallocate(WsAllocation) {}
 
-    void ResetPool() {
+    void ResetPool()
+    {
         allocated_ = 0;
         resetTimes_++;
     }
 
-    uint32_t ResetTimes() const {
-        return resetTimes_;
-    }
+    uint32_t ResetTimes() const { return resetTimes_; }
 
     // Call me after initialization memory allocations
-    void ResetCounter() {
+    void ResetCounter()
+    {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         dfx_.memCounter.Reset();
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     }
 
-    void DelayedDumpAndResetCounter(DelayedDumper &dumper) {
+    void DelayedDumpAndResetCounter(DelayedDumper& dumper)
+    {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         dfx_.memCounter.DelayedDumpAsAicpuCounterAndReset(dumper);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         (void)dumper;
     }
 
-    WsAllocatorCounter *GetCounter() {
+    WsAllocatorCounter* GetCounter()
+    {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         return &dfx_.memCounter;
 #else
@@ -103,7 +110,8 @@ public:
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
     }
 
-    void DumpMemoryUsage(const char *hint, const char *title) const {
+    void DumpMemoryUsage(const char* hint, const char* title) const
+    {
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_LIGHT
         DEV_MEM_DUMP("%s memory usage (%s)\n", title, hint);
         DEV_MEM_DUMP("            Memory pool size: %10lu bytes\n", workspaceSize_);
@@ -119,10 +127,11 @@ public:
     uint64_t FreeMemorySize() const { return workspaceSize_ - allocated_; }
     uint64_t Capacity() const { return workspaceSize_; }
 
-    uintdevptr_t &GetWorkspaceAddr() { return workspaceAddr_; }
+    uintdevptr_t& GetWorkspaceAddr() { return workspaceAddr_; }
 
 private:
-    void InternalInit(uintdevptr_t workspaceAddr, uint64_t workspaceSize, WsAllocatorProperty property) {
+    void InternalInit(uintdevptr_t workspaceAddr, uint64_t workspaceSize, WsAllocatorProperty property)
+    {
         property_ = property;
         workspaceAddr_ = workspaceAddr;
         workspaceSize_ = workspaceSize;

@@ -20,7 +20,7 @@ namespace npu {
 namespace tile_fwk {
 class MergeViewAssembleChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
+    Status DoPreCheck(Function& function) override;
 };
 } // namespace tile_fwk
 } // namespace npu

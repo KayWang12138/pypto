@@ -22,19 +22,11 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "cost_model/simulation/utils/simulation_error.h"
-#include "cost_model/simulation/common/CommonTools.h"
 
 using namespace npu::tile_fwk;
 
 namespace CostModel {
-const uint32_t PV_REG_PC = 0;
-const uint32_t PV_REG_PARA_BASE = 4;
-const uint32_t PV_REG_BLOCK_DIM = 9;
-const uint32_t PV_REG_TASK_CFG = 163;
-const uint32_t PV_STEP_PIPE_ID = 2;
-const uint64_t HBM_SATRT_ADDR = 0xffff8000;
-
-void PvModelBinHelper::DumpBin(std::vector<uint8_t> &bytes, uint64_t size, std::string path)
+void PvModelBinHelper::DumpBin(std::vector<uint8_t>& bytes, uint64_t size, std::string path)
 {
     std::ofstream outFile(path, std::ios::binary);
     if (!outFile.is_open()) {
@@ -43,7 +35,7 @@ void PvModelBinHelper::DumpBin(std::vector<uint8_t> &bytes, uint64_t size, std::
 
     outFile.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
     if (bytes.size() < size) {
-        std::vector<uint8_t> zeros(size-bytes.size(), 0);
+        std::vector<uint8_t> zeros(size - bytes.size(), 0);
         outFile.write(reinterpret_cast<const char*>(zeros.data()), zeros.size());
     }
 
@@ -51,13 +43,14 @@ void PvModelBinHelper::DumpBin(std::vector<uint8_t> &bytes, uint64_t size, std::
     return;
 }
 
-void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
+void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t>& bytes)
 {
     std::ifstream inFile(path, std::ios::binary);
 
     if (!inFile.is_open()) {
-        SIMULATION_LOGE("ErrCode: F%u, open bin file error: %s",
-                        static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
+        SIMULATION_LOGE(
+            "ErrCode: F%u, open bin file error: %s",
+            static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
         return;
     }
 
@@ -73,11 +66,13 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
     return;
 }
 
-uint64_t PvModelBinHelper::GetBinSize(std::string path) {
+uint64_t PvModelBinHelper::GetBinSize(std::string path)
+{
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
-        SIMULATION_LOGE("ErrCode: F%u, open file error: %s",
-                        static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED), path.c_str());
+        SIMULATION_LOGE(
+            "ErrCode: F%u, open file error: %s", static_cast<unsigned>(CostModel::ExternalErrorScene::FILE_OPEN_FAILED),
+            path.c_str());
         return 0;
     }
 
@@ -87,7 +82,9 @@ uint64_t PvModelBinHelper::GetBinSize(std::string path) {
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::Submit(npu::tile_fwk::Function *func, PvData *data, int level, std::string dir) {
+void PvModelImpl<SystemConfig, CaseConfig>::Submit(
+    npu::tile_fwk::Function* func, PvData* data, int level, std::string dir)
+{
     dir_ = dir;
     data_ = data;
     level_ = level;
@@ -101,9 +98,11 @@ void PvModelImpl<SystemConfig, CaseConfig>::Submit(npu::tile_fwk::Function *func
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::Function *function, PvModelInvoke &invoke) {
+void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(
+    npu::tile_fwk::Function* function, PvModelInvoke& invoke)
+{
     uint64_t totalSize = 0;
-    npu::tile_fwk::Function *compiledFunction = function;
+    npu::tile_fwk::Function* compiledFunction = function;
 
     /* rawtensor magic -> {workspace offset , shape size} */
     std::map<int, std::pair<uint64_t, uint64_t>> rawTensorOffsetMap;
@@ -113,7 +112,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
         return rawTensor;
     };
 
-    auto calcOffsetFunc = [](const std::vector<int64_t> &offset, const std::vector<int64_t> &shape) -> uint64_t {
+    auto calcOffsetFunc = [](const std::vector<int64_t>& offset, const std::vector<int64_t>& shape) -> uint64_t {
         uint64_t offSetSize = 0;
         auto strideShapeFunc = [&shape](size_t i) -> auto {
             uint64_t stride = 1;
@@ -128,51 +127,51 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
         return offSetSize;
     };
 
-    auto workSpaceOffsetProcFunc = [&getRawTensorByTensorMagic, &rawTensorOffsetMap, &totalSize, &calcOffsetFunc,
-                                       &compiledFunction](const npu::tile_fwk::LogicalTensorPtr &tensor, int rawMagic,
-                                       const std::vector<int64_t> &rawShape, const std::vector<int64_t> &offset,
-                                       std::list<InvokeParaOffset> &curSubFuncParaOffset, bool isTensorPara) {
-        InvokeParaOffset paraOffset;
-        uint64_t rawTensorOffset = 0;
-        auto &storage = tensor->storage_;
-        auto rawTensor = getRawTensorByTensorMagic(rawMagic);
-        int storageId = rawTensor->GetRawMagic();
-        uint64_t alignSize = 0;
-        if (storage != nullptr) {
-            storageId = storage->id_;
-            alignSize = storage->length_;
-        } else {
-            alignSize = (CalcShapeSizeFunc(rawShape) * BytesOf(rawTensor->GetDataType()) + 511) / 512 *
-                        512; //  performance standpoint
-        }
+    auto workSpaceOffsetProcFunc =
+        [&getRawTensorByTensorMagic, &rawTensorOffsetMap, &totalSize, &calcOffsetFunc, &compiledFunction](
+            const npu::tile_fwk::LogicalTensorPtr& tensor, int rawMagic, const std::vector<int64_t>& rawShape,
+            const std::vector<int64_t>& offset, std::list<InvokeParaOffset>& curSubFuncParaOffset, bool isTensorPara) {
+            InvokeParaOffset paraOffset;
+            uint64_t rawTensorOffset = 0;
+            auto& storage = tensor->storage_;
+            auto rawTensor = getRawTensorByTensorMagic(rawMagic);
+            int storageId = rawTensor->GetRawMagic();
+            uint64_t alignSize = 0;
+            if (storage != nullptr) {
+                storageId = storage->id_;
+                alignSize = storage->length_;
+            } else {
+                alignSize = (CalcShapeSizeFunc(rawShape) * BytesOf(rawTensor->GetDataType()) + 511) / 512 *
+                            512; //  performance standpoint
+            }
 
-        auto iter = rawTensorOffsetMap.find(storageId);
-        if (iter != rawTensorOffsetMap.end()) {
-            /* use raw tensor workspace offset + tensor view offset */
-            rawTensorOffset = iter->second.first;
-        } else {
-            /* insert new offset */
-            rawTensorOffset = totalSize;
-            totalSize += alignSize;
-            rawTensorOffsetMap[storageId] = std::make_pair(rawTensorOffset, alignSize);
-        }
+            auto iter = rawTensorOffsetMap.find(storageId);
+            if (iter != rawTensorOffsetMap.end()) {
+                /* use raw tensor workspace offset + tensor view offset */
+                rawTensorOffset = iter->second.first;
+            } else {
+                /* insert new offset */
+                rawTensorOffset = totalSize;
+                totalSize += alignSize;
+                rawTensorOffsetMap[storageId] = std::make_pair(rawTensorOffset, alignSize);
+            }
 
-        uint64_t offSetSize = calcOffsetFunc(offset, rawShape) * BytesOf(rawTensor->GetDataType());
+            uint64_t offSetSize = calcOffsetFunc(offset, rawShape) * BytesOf(rawTensor->GetDataType());
 
-        paraOffset.isTensorParam = isTensorPara;
-        paraOffset.offset = rawTensorOffset + offSetSize;
-        paraOffset.rawTensorOffset = rawTensorOffset;
-        paraOffset.LogRawTensor(rawTensor);
-        paraOffset.rawTensorAddr = nullptr; // null express use workspace addr later
-        paraOffset.funcitonMagic = compiledFunction->GetFuncMagic();
-        curSubFuncParaOffset.push_back(paraOffset);
-        return;
-    };
+            paraOffset.isTensorParam = isTensorPara;
+            paraOffset.offset = rawTensorOffset + offSetSize;
+            paraOffset.rawTensorOffset = rawTensorOffset;
+            paraOffset.LogRawTensor(rawTensor);
+            paraOffset.rawTensorAddr = nullptr; // null express use workspace addr later
+            paraOffset.funcitonMagic = compiledFunction->GetFuncMagic();
+            curSubFuncParaOffset.push_back(paraOffset);
+            return;
+        };
 
     for (uint64_t i = 0; i < compiledFunction->Operations().size(); ++i) {
-        const npu::tile_fwk::SubfuncInvokeInfoTy &subfuncInvoke = compiledFunction->GetSubFuncInvokeInfo(i);
-        auto &curSubFuncParaOffset = invoke.invokeParaOffset[i];
-        for (const auto &elm : subfuncInvoke.GetTensorParamList()) {
+        const npu::tile_fwk::SubfuncInvokeInfoTy& subfuncInvoke = compiledFunction->GetSubFuncInvokeInfo(i);
+        auto& curSubFuncParaOffset = invoke.invokeParaOffset[i];
+        for (const auto& elm : subfuncInvoke.GetTensorParamList()) {
             InvokeParaOffset paraOffset;
             auto rawTensor = getRawTensorByTensorMagic(elm.ddrId);
             paraOffset.offset = calcOffsetFunc(elm.offset, elm.rawShape) * BytesOf(elm.dType);
@@ -195,7 +194,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
             }
         }
         int incastIndx = 0;
-        for (auto &elm : subfuncInvoke.GetIncastTensorParamList()) {
+        for (auto& elm : subfuncInvoke.GetIncastTensorParamList()) {
             workSpaceOffsetProcFunc(elm.tensor, elm.ddrId, elm.rawShape, elm.offset, curSubFuncParaOffset, false);
             curSubFuncParaOffset.back().ioIndex = incastIndx;
             curSubFuncParaOffset.back().tensorShape = elm.shape;
@@ -205,7 +204,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
         }
 
         int outcastIndx = 0;
-        for (auto &elm : subfuncInvoke.GetOutcastTensorParamList()) {
+        for (auto& elm : subfuncInvoke.GetOutcastTensorParamList()) {
             workSpaceOffsetProcFunc(elm.tensor, elm.ddrId, elm.rawShape, elm.offset, curSubFuncParaOffset, false);
             curSubFuncParaOffset.back().ioIndex = outcastIndx;
             curSubFuncParaOffset.back().tensorShape = elm.shape;
@@ -220,7 +219,8 @@ void PvModelImpl<SystemConfig, CaseConfig>::CalcInvokeWorkespace(npu::tile_fwk::
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::Prepare(npu::tile_fwk::Function *func) {
+void PvModelImpl<SystemConfig, CaseConfig>::Prepare(npu::tile_fwk::Function* func)
+{
     task_.stackSize = func->GetStackWorkespaceSize();
     if (task_.stackSize == 0) {
         task_.stackSize = 1;
@@ -248,8 +248,8 @@ void PvModelImpl<SystemConfig, CaseConfig>::Prepare(npu::tile_fwk::Function *fun
     npu::tile_fwk::CreateDir(funcDir_);
 
     task_.oriArgs = func->GetOpOriginArgsInfo();
-    for (auto &arg : task_.oriArgs) {
-        task_.args.emplace_back(std::vector<uint8_t>(data_->Get((void *)arg.addr)));
+    for (auto& arg : task_.oriArgs) {
+        task_.args.emplace_back(std::vector<uint8_t>(data_->Get((void*)arg.addr)));
         if (task_.args.back().size() < arg.size) {
             task_.args.back().resize(arg.size, 0);
         }
@@ -260,19 +260,20 @@ void PvModelImpl<SystemConfig, CaseConfig>::Prepare(npu::tile_fwk::Function *fun
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *func) {
+void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function* func)
+{
     func->rootFunc_ = func;
     npu::tile_fwk::CodeGenCtx ctxRoot("", dir_);
     npu::tile_fwk::CodeGen g(ctxRoot);
     if (level_ > 1) {
-        g.GenCode(*func,{});
+        g.GenCode(*func, {});
     }
 
     // add global function
-    for (auto &subFuncPair : func->programs_) {
+    for (auto& subFuncPair : func->programs_) {
         auto leafFuncAttr = subFuncPair.second->GetLeafFuncAttribute();
         auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
-        auto srcPath = binPath.substr(0, binPath.length()-1) + "cpp";
+        auto srcPath = binPath.substr(0, binPath.length() - 1) + "cpp";
         PvModelCodegen::AddGlobalAttr(srcPath);
         npu::tile_fwk::CodeGenCtx ctx;
         npu::tile_fwk::CodeGenCloudNPU cga(ctx);
@@ -287,8 +288,9 @@ void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *fun
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func) {
-    for (auto &subFuncPair : func->programs_) {
+void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function* func)
+{
+    for (auto& subFuncPair : func->programs_) {
         auto leafFuncAttr = subFuncPair.second->GetLeafFuncAttribute();
         auto binPath = leafFuncAttr == nullptr ? "" : leafFuncAttr->binPath;
         task_.objPath[subFuncPair.first] = binPath;
@@ -299,7 +301,11 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
 
         if (level_ > 0) {
             char cmd[2048];
-            (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s",
+            CHECK(npu::tile_fwk::FileExist(task_.objPath[subFuncPair.first])) << "ErrCode: F" <<
+                static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH) 
+                << ", obj file does not exist. objPath: " << task_.objPath[subFuncPair.first];
+            (void)snprintf_s(
+                cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s",
                 task_.objPath[subFuncPair.first].c_str(), task_.binPath[subFuncPair.first].c_str());
 
             int ret = std::system(cmd);
@@ -315,10 +321,11 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
 
 template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::PrepareInvoke(
-    int esgId, std::vector<uint64_t> &invokeOffsetVec, std::vector<uint64_t> &invokeOffsetOriVec) {
+    int esgId, std::vector<uint64_t>& invokeOffsetVec, std::vector<uint64_t>& invokeOffsetOriVec)
+{
     uint64_t paraWorkSpaceAddr = task_.workspaceAddr;
-    std::list<InvokeParaOffset> &invokeParaOffsetList = task_.invoke.invokeParaOffset[esgId];
-    for (auto &elm : invokeParaOffsetList) {
+    std::list<InvokeParaOffset>& invokeParaOffsetList = task_.invoke.invokeParaOffset[esgId];
+    for (auto& elm : invokeParaOffsetList) {
         uint64_t value;
         uint64_t oriValue;
         if (elm.isTensorParam) {
@@ -344,7 +351,8 @@ void PvModelImpl<SystemConfig, CaseConfig>::PrepareInvoke(
     return;
 }
 
-static std::string FileName(const std::string& path) {
+static std::string FileName(const std::string& path)
+{
     const char* separator = "/";
 
     size_t pos = path.find_last_of(separator);
@@ -356,16 +364,17 @@ static std::string FileName(const std::string& path) {
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::SetUp(int esgId, int psgId, std::string esgDir) {
+void PvModelImpl<SystemConfig, CaseConfig>::SetUp(int esgId, int psgId, std::string esgDir)
+{
     SystemConfig sconfig;
-    sconfig.Dump(esgDir+"/spec.toml");
+    sconfig.Dump(esgDir + "/spec.toml");
 
     CaseConfig cconfig;
     cconfig.SetTitle(std::string("esg") + std::to_string(esgId));
 
     // program
     std::string binName = FileName(task_.binPath[psgId]);
-    cconfig.SetBin(task_.binAddr[psgId], "../../"+binName);
+    cconfig.SetBin(task_.binAddr[psgId], "../../" + binName);
 
     std::vector<uint64_t> invokeOffsetVec;
     std::vector<uint64_t> invokeOffsetOriVec;
@@ -403,7 +412,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::SetUp(int esgId, int psgId, std::str
     cconfig.AddInputArg(addr, invokeOffsetOriByte.size(), "oriAddrParam.bin");
 
     // workspace
-    PvModelBinHelper::DumpBin(task_.workspace, task_.workspaceSize, esgDir+"/workspace.bin");
+    PvModelBinHelper::DumpBin(task_.workspace, task_.workspaceSize, esgDir + "/workspace.bin");
     cconfig.AddInputArg(task_.workspaceAddr, task_.workspaceSize, "workspace.bin");
 
     // args
@@ -423,11 +432,12 @@ void PvModelImpl<SystemConfig, CaseConfig>::SetUp(int esgId, int psgId, std::str
     for (size_t i = 0; i < task_.oriArgs.size(); i++) {
         cconfig.AddOutputArg(task_.oriArgsAddr[i], task_.args[i].size(), std::to_string(i) + "_out.bin");
     }
-    cconfig.Dump(esgDir+"/config.toml");
+    cconfig.Dump(esgDir + "/config.toml");
 }
 
 template <typename SystemConfig, typename CaseConfig>
-void PvModelImpl<SystemConfig, CaseConfig>::Run(int esgId, int psgId) {
+void PvModelImpl<SystemConfig, CaseConfig>::Run(int esgId, int psgId)
+{
     if (level_ > 0) {
         SIMULATION_LOGI("[PVMODEL]Run esgId: %d,psgId: %d", esgId, psgId);
         std::string esgDir = funcDir_ + "/esg" + std::to_string(esgId);
@@ -442,8 +452,10 @@ template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
 {
     char cmd[2048];
-    (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1,
-    "cd %s/ && ../../../../../../../../PvModel%s --gtest_filter=test_st_case.test_st_pv --spec=spec.toml", esgDir.c_str(), arch_.c_str());
+    (void)snprintf_s(
+        cmd, sizeof(cmd), sizeof(cmd) - 1,
+        "cd %s/ && ../../../../../../../../PvModel%s --gtest_filter=test_st_case.test_st_pv --spec=spec.toml",
+        esgDir.c_str(), arch_.c_str());
     SIMULATION_LOGI("[PVMODEL] %s", cmd);
 
     int result = std::system(cmd);
@@ -455,8 +467,8 @@ void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
 template <typename SystemConfig, typename CaseConfig>
 void PvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string esgDir)
 {
-    PvModelBinHelper::ReadBin(esgDir+"/stack_out.bin", task_.stack);
-    PvModelBinHelper::ReadBin(esgDir+"/workspace_out.bin", task_.workspace);
+    PvModelBinHelper::ReadBin(esgDir + "/stack_out.bin", task_.stack);
+    PvModelBinHelper::ReadBin(esgDir + "/workspace_out.bin", task_.workspace);
 
     // out args
     for (size_t i = 0; i < task_.oriArgs.size(); i++) {
@@ -464,8 +476,8 @@ void PvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string esgDir)
     }
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int coreId, int funcId, int taskId)
+void DynPvModelImpl::Run(DynFuncData* funcdata, int coreId, int funcId, int taskId,
+    std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
 {
     SIMULATION_LOGI("[AICORE] core  %d, func %d, task %d", coreId, funcId, taskId);
     CostModel::OutputSilencer silencer;
@@ -483,36 +495,34 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int co
         return;
     }
 
+    for (const auto& tensor : tensorAddr2SizeMap) {
+        uint64_t devPtr = LookupData(tensor.first);
+        if (devPtr == 0) {
+            devPtr = allocator_->AllocArg(tensor.second);
+            DataMap m = {tensor.first, devPtr, tensor.second};
+            data_.emplace_back(m);
+        }
+    }
+
     DynFuncData dupData;
     memset_s(&dupData, sizeof(dupData), 0, sizeof(dupData));
     SetUp(cce, data, static_cast<uint64_t>(data->opAtrrOffsets[taskId]), dir, &dupData);
     RunModel();
-    TearDown();
     silencer.restore();
 }
 
-template <typename SystemConfig, typename CaseConfig>
-uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupWorkspace(uint64_t addr)
-{
-    if (addr >= workspace_.hostPtr && addr <= workspace_.hostPtr + workspace_.size) {
-        return addr - workspace_.hostPtr + workspace_.devPtr;
-    }
-    return 0;
-}
-
-template <typename SystemConfig, typename CaseConfig>
-uint64_t DynPvModelImpl<SystemConfig, CaseConfig>::LookupData(uint64_t addr)
+uint64_t DynPvModelImpl::LookupData(uint64_t addr)
 {
     for (auto &d : data_) {
-        if (addr >= d.hostPtr && addr <= d.hostPtr + d.size) {
-            return addr - d.hostPtr + d.devPtr;
+        if (addr == d.hostPtr) {
+            return d.devPtr;
         }
     }
     return 0;
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcdata, DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize, std::vector<uint8_t> *ref_data)
+void DynPvModelImpl::BuildFuncData(DynFuncData *funcdata, DynFuncData *dupData, uint64_t *refAddr, uint64_t *refSize,
+    std::vector<uint8_t> *ref_data)
 {
     uint64_t opAttrSize = funcdata->opAttrSize * sizeof(uint64_t);
     uint64_t exprSize = funcdata->exprNum * sizeof(uint64_t);
@@ -522,15 +532,15 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
 
     std::vector<uint8_t> ref(*refSize, 0);
     uint64_t offset = 0;
-    auto p = reinterpret_cast<uint8_t *>(funcdata->opAttrs);
+    auto p = reinterpret_cast<uint8_t*>(funcdata->opAttrs);
     std::copy(p, p + opAttrSize, ref.begin() + offset);
     offset += opAttrSize;
 
-    p = reinterpret_cast<uint8_t *>(funcdata->exprTbl);
+    p = reinterpret_cast<uint8_t*>(funcdata->exprTbl);
     std::copy(p, p + exprSize, ref.begin() + offset);
     offset += exprSize;
 
-    p = reinterpret_cast<uint8_t *>(funcdata->rawTensorDesc);
+    p = reinterpret_cast<uint8_t*>(funcdata->rawTensorDesc);
     std::copy(p, p + rawDescSize, ref.begin() + offset);
     offset += rawDescSize;
 
@@ -546,13 +556,13 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
 
     auto addr = allocator_->AllocArg(*refSize);
     *refAddr = addr;
-    dupData->opAttrs = reinterpret_cast<uint64_t *>(addr);
+    dupData->opAttrs = reinterpret_cast<uint64_t*>(addr);
     addr += opAttrSize;
-    dupData->exprTbl = reinterpret_cast<uint64_t *>(addr);
+    dupData->exprTbl = reinterpret_cast<uint64_t*>(addr);
     addr += exprSize;
-    dupData->rawTensorDesc = reinterpret_cast<DevRawTensorDesc *>(addr);
+    dupData->rawTensorDesc = reinterpret_cast<DevRawTensorDesc*>(addr);
     addr += rawDescSize;
-    dupData->rawTensorAddr = reinterpret_cast<uint64_t *>(addr);
+    dupData->rawTensorAddr = reinterpret_cast<uint64_t*>(addr);
     dupData->opAttrSize = funcdata->opAttrSize;
     dupData->rawTensorAddrSize = funcdata->rawTensorAddrSize;
     dupData->rawTensorDescSize = funcdata->rawTensorDescSize;
@@ -560,35 +570,24 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
     BuildFuncDataWorkSpace(funcdata, dupData);
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncDataWorkSpace(DynFuncData *funcdata, DynFuncData *dupData)
+void DynPvModelImpl::BuildFuncDataWorkSpace(DynFuncData *funcdata, DynFuncData *dupData)
 {
     if (funcdata->workspaceAddr) {
-        dupData->workspaceAddr = LookupWorkspace(funcdata->workspaceAddr);
-        if (!dupData->workspaceAddr) {
-            throw std::runtime_error(std::string("bad workspace addr: ") + std::to_string(funcdata->workspaceAddr));
-        }
+        dupData->workspaceAddr = allocator_->workspaceBase_;
     } else {
         dupData->workspaceAddr = 0;
     }
 
     if (funcdata->stackWorkSpaceSize) {
-        dupData->stackWorkSpaceAddr = LookupWorkspace(funcdata->stackWorkSpaceAddr);
-        if (!dupData->stackWorkSpaceAddr) {
-            throw std::runtime_error(std::string("bad stack addr: ") + std::to_string(funcdata->stackWorkSpaceAddr));
-        }
+        dupData->workspaceAddr = allocator_->stackWorkSapceBase_;
     } else {
-        dupData->stackWorkSpaceAddr = 0;
+        dupData->workspaceAddr = 0;
     }
-    dupData->stackWorkSpaceSize = funcdata->stackWorkSpaceSize;
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::SetUp(PvModelCceBin *cce, DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir, DynFuncData *dupData)
+void DynPvModelImpl::SetUp(PvModelCceBin *cce, DynFuncData *funcdata, uint64_t opAttrOffset, std::string dir,
+    DynFuncData *dupData)
 {
-    SystemConfig sconfig;
-    sconfig.Dump(dir + "/spec.toml");
-
     // program
     auto binName = FileName(cce->binPath);
     (void)CopyFile(cce->binPath, dir + "/" + binName);
@@ -603,30 +602,22 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::SetUp(PvModelCceBin *cce, DynFunc
     } else {
         this->subcoreId_ = static_cast<uint64_t>(0);
     }
-    pv_set_toml_((dir + "/spec.toml").c_str());
-    pv_init_(0, 0, 1, (dir + std::string("/../pvlog/")).c_str(), coreId_);
     pv_launch_sub_core_(binAddr, (dir + "/" + binName).c_str(), subcoreId_, coreId_);
-
-    uint64_t hbm_para_start_addr = HBM_SATRT_ADDR;
-    uint8_t value_1_ = 1;
-    uint8_t *value_1_ptr = &value_1_;
     pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PC, (uint8_t *)&binAddr, subcoreId_, coreId_);
-    pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t *)&hbm_para_start_addr, subcoreId_, coreId_);
-    pv_reg_write_(static_cast<uint32_t>(1), PV_REG_BLOCK_DIM, value_1_ptr, subcoreId_, coreId_);
-    pv_reg_write_(static_cast<uint32_t>(1), PV_REG_TASK_CFG, value_1_ptr, subcoreId_, coreId_);
-    LoadPvConfig(funcdata, opAttrOffset, dupData, hbm_para_start_addr);
+    LoadPvConfig(funcdata, opAttrOffset, dupData);
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::LoadPvConfig(DynFuncData *funcdata, uint64_t opAttrOffset, DynFuncData *dupData, uint64_t hbm_para_start_addr) {
+void DynPvModelImpl::LoadPvConfig(DynFuncData *funcdata, uint64_t opAttrOffset, DynFuncData *dupData)
+{
     std::vector<uint64_t> para_args;
 
     // funcdata
     uint64_t refAddr;
     uint64_t refSize;
     std::vector<uint8_t> ref_data;
-    BuildFuncData(funcdata,  dupData, &refAddr, &refSize, &ref_data);
-    std::vector<uint8_t> dup(reinterpret_cast<uint8_t *>(dupData), reinterpret_cast<uint8_t *>(dupData) + sizeof(DynFuncData));
+    BuildFuncData(funcdata, dupData, &refAddr, &refSize, &ref_data);
+    std::vector<uint8_t> dup(
+        reinterpret_cast<uint8_t*>(dupData), reinterpret_cast<uint8_t*>(dupData) + sizeof(DynFuncData));
     auto addr = allocator_->AllocArg(dup.size());
     pv_mem_write_(0, addr, dup.size(), dup.data(), subcoreId_, coreId_);
     para_args.push_back(addr);
@@ -644,28 +635,19 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::LoadPvConfig(DynFuncData *funcdat
 
     // input tensor
     for (size_t i = 0; i < data_.size(); i++) {
-        std::string name = std::string("tensor_") + std::to_string(i) + ".bin";
-        std::vector<uint8_t> tensorData(reinterpret_cast<uint8_t *>(data_[i].hostPtr), reinterpret_cast<uint8_t *>(data_[i].hostPtr) + data_[i].size);
+        std::vector<uint8_t> tensorData(reinterpret_cast<uint8_t *>(data_[i].hostPtr),
+            reinterpret_cast<uint8_t *>(data_[i].hostPtr) + data_[i].size);
         pv_mem_write_(0, data_[i].devPtr, data_[i].size, tensorData.data(), subcoreId_, coreId_);
         para_args.push_back(data_[i].devPtr);
     }
 
-    // input workspace
-    if (workspace_.size) {
-        std::vector<uint8_t> workspaceData(reinterpret_cast<uint8_t *>(workspace_.hostPtr), reinterpret_cast<uint8_t *>(workspace_.hostPtr) + workspace_.size);
-        pv_mem_write_(0, workspace_.devPtr, workspace_.size, workspaceData.data(), subcoreId_, coreId_);
-        para_args.push_back(workspace_.devPtr);
-    }
-
-    pv_mem_write_(uint32_t(0), hbm_para_start_addr, para_args.size() * sizeof(uint64_t), (uint8_t *)(&para_args[0]),
-        subcoreId_, coreId_);
+    pv_mem_write_(uint32_t(0), allocator_->hbmParaBase_, para_args.size() * sizeof(uint64_t),
+        (uint8_t *)(&para_args[0]), subcoreId_, coreId_);
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel()
+void DynPvModelImpl::RunModel()
 {
     step_status_t step_status;
-    SIMULATION_LOGI("subcoreId: %lu , coreId: %lu ", subcoreId_, coreId_);
     do {
         step_status = static_cast<step_status_t>(pv_step_(PV_STEP_PIPE_ID, subcoreId_, coreId_, 0));
     } while (step_status != step_status_t::END && step_status != step_status_t::TIME_OUT);
@@ -675,45 +657,26 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel()
     }
 }
 
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::CopyToHost(uint64_t hostAddr, uint64_t devAddr, uint64_t size)
+void DynPvModelImpl::CopyToHost(uint64_t hostAddr, uint64_t devAddr, uint64_t size)
 {
     const uint64_t MAX_READ_SIZE = 2048;
-    std::vector<uint8_t> model_data(MAX_READ_SIZE);
     for (uint64_t i = 0; i < size; i += MAX_READ_SIZE) {
         const uint32_t read_size = std::min(MAX_READ_SIZE, (size - i));
+        std::vector<uint8_t> model_data(read_size);
         pv_mem_read_(0, devAddr + i, read_size, model_data.data(), subcoreId_, coreId_);
-        memcpy_s(reinterpret_cast<void *>(hostAddr + i), read_size, model_data.data(), read_size);
-    }
-}
-
-template <typename SystemConfig, typename CaseConfig>
-void DynPvModelImpl<SystemConfig, CaseConfig>::TearDown()
-{
-    for (size_t i = 0; i < data_.size(); i++) {
-        CopyToHost(data_[i].hostPtr, data_[i].devPtr, data_[i].size);
-    }
-
-    if (workspace_.size) {
-        CopyToHost(workspace_.hostPtr, workspace_.devPtr, workspace_.size);
+        memcpy_s(reinterpret_cast<void*>(hostAddr + i), read_size, model_data.data(), read_size);
     }
 }
 
 template class PvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>;
 
-extern "C" std::shared_ptr<PvModel> CreatePvModelImplA2A3() {
+extern "C" std::shared_ptr<PvModel> CreatePvModelImplA2A3()
+{
     return std::make_shared<PvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>>("A2A3");
 }
 
-template class DynPvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>;
-
-extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImplA2A3() {
-    return std::make_shared<DynPvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>>();
-}
-
-template class DynPvModelImpl<PvModelSystemA5Config, PvModelCaseConfig>;
-
-extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImplA5() {
-    return std::make_shared<DynPvModelImpl<PvModelSystemA5Config, PvModelCaseConfig>>();
+extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImpl()
+{
+    return std::make_shared<DynPvModelImpl>();
 }
 } // namespace CostModel

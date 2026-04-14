@@ -42,4 +42,4 @@ private:
     std::atomic<bool> stage_start_flag_{false};
 };
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

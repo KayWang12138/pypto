@@ -29,7 +29,8 @@ public:
     void TearDown() override { std::cout << "TestLogicalTensor TearDown" << std::endl; }
 };
 
-TEST_F(TestLogicalTensor, ViewDimensionMismatch) {
+TEST_F(TestLogicalTensor, ViewDimensionMismatch)
+{
     std::vector<int64_t> shape = {16, 16, 16};
     Tensor input(DT_FP32, shape, "input");
 
@@ -40,7 +41,8 @@ TEST_F(TestLogicalTensor, ViewDimensionMismatch) {
     EXPECT_THROW(storage->View(*Program::GetInstance().GetCurrentFunction(), newShape, newOffset), std::exception);
 }
 
-TEST_F(TestLogicalTensor, ViewOffsetMismatch) {
+TEST_F(TestLogicalTensor, ViewOffsetMismatch)
+{
     std::vector<int64_t> shape = {16, 16, 16};
     Tensor input(DT_FP32, shape, "input");
 
@@ -51,7 +53,8 @@ TEST_F(TestLogicalTensor, ViewOffsetMismatch) {
     EXPECT_THROW(storage->View(*Program::GetInstance().GetCurrentFunction(), newShape, newOffset), std::exception);
 }
 
-TEST_F(TestLogicalTensor, ViewShapeOutOfBounds) {
+TEST_F(TestLogicalTensor, ViewShapeOutOfBounds)
+{
     std::vector<int64_t> shape = {16, 16, 16};
     Tensor input(DT_FP32, shape, "input");
 

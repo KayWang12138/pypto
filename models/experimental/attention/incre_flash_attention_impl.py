@@ -33,9 +33,9 @@ class TileOpFormat(enum.Enum):
 class AttentionTileConfig:
     """
     Configuration for tile sizes used in attention computation.
-    
+
     Tiling is used to break large computations into smaller, cache-friendly chunks.
-    
+
     Attributes:
         g_tile: Tile size for group dimension
         s2_tile: Tile size for kv sequence dimension
@@ -56,9 +56,9 @@ class AttentionTileConfig:
 class LoopOfs:
     """
     Offset parameters for loop iterations.
-    
+
     Used to track current positions in the output tensor during nested loops.
-    
+
     Attributes:
         bs_ofs: Batch-sequence offset (b_idx * s1 + s1_idx)
         n1g_ofs: Head-group offset (n2_idx * group + group_idx * g_tile)
@@ -73,9 +73,9 @@ class LoopOfs:
 class LoopTensor:
     """
     Tensors used during loop iterations.
-    
+
     These are the main data structures accessed during attention computation.
-    
+
     Attributes:
         q_2d: Query tensor reshaped to 2D (bs*n1, d)
         k_2d: Key tensor reshaped to 2D (block_num*block_size*n2, d)
@@ -96,7 +96,7 @@ class LoopTensor:
 class LoopIndex:
     """
     Current indices for nested loop iterations.
-    
+
     Attributes:
         b_idx: Batch index
         s1_idx: Query sequence index
@@ -115,7 +115,7 @@ class LoopIndex:
 class LoopSize:
     """
     Loop iteration counts.
-    
+
     Attributes:
         group_loop: Number of groups to iterate (group_num // g_tile ——> (n1 // n2) // g_tile)
         s2_loop: Number of sequence tiles to iterate
@@ -128,10 +128,10 @@ class LoopSize:
 class TempUpdateTensor:
     """
     Temporary tensors for online softmax computation.
-    
+
     These tensors accumulate results across sequence tiles using the
     online softmax algorithm (Welford's algorithm variant).
-    
+
     Attributes:
         out_update: Accumulated output (weighted sum of values)
         sum_update: Accumulated softmax denominator
@@ -146,7 +146,7 @@ class TempUpdateTensor:
 class IFAKernelParams:
     """
     Parameters for the IFA kernel computation.
-    
+
     Attributes:
         n1: Number of query heads
         d: Head dimension
@@ -173,10 +173,10 @@ class IFAKernelParams:
 class ContextParams:
     """
     Container for all context parameters passed between functions.
-    
+
     This dataclass groups all the parameters needed for attention computation
     to avoid passing many individual arguments.
-    
+
     Attributes:
         kernel_params: Kernel computation parameters
         tile_cfg: Tile configuration
@@ -259,7 +259,7 @@ def check_query(inputs):
 
     # Check query format
     check_equal("query format", get_format(query), "ND")
-    
+
 
 def check_key(key):
     # key shape is [block_num, n2, block_size, d]
@@ -312,7 +312,7 @@ def check_value(value):
 def check_key_value_shape(inputs):
     key = inputs.get("key")
     value = inputs.get("value")
-    
+
     key_shape = key.shape
     value_shape = value.shape
 
@@ -321,7 +321,7 @@ def check_key_value_shape(inputs):
             f"key and value shape must be equal, "
             f"but got key shape is {key_shape} and value shape is {value_shape}"
         )
-        
+
 
 def check_block_table(block_table):
     # block_table shape is [b, max_block_num_per_query]
@@ -359,7 +359,7 @@ def check_inputs(inputs):
 def get_ifa_tile_cfg():
     """
     Get tile configuration for IFA computation.
-    
+
     Returns:
         AttentionTileConfig: Tile configuration with optimal sizes
     """
@@ -382,11 +382,11 @@ def get_ifa_tile_cfg():
 def assemble_kj(idx, ctx_params):
     """
     Assemble K tensor for current tile from paged blocks.
-    
+
     Args:
         idx: Starting block index for this tile
         ctx_params: Context parameters containing tensors and config
-    
+
     Returns:
         pypto.Tensor: Assembled K tensor of shape [s2_tile, d]
     """
@@ -419,21 +419,21 @@ def assemble_kj(idx, ctx_params):
     # Set valid shape (may be smaller than allocated size)
     kj_assemble = pypto.view(kj_assemble, [s2_tile, d], [0, 0], valid_shape=[s2_tile, d])
     return kj_assemble
-    
+
 
 def assemble_vj(idx, actual_s2_tile, ctx_params):
     """
     Assemble V tensor for current tile from paged blocks.
-    
+
     Args:
         idx: Starting block index for this tile
         actual_s2_tile: Actual sequence length in this tile (may be smaller)
         ctx_params: Context parameters containing tensors and config
-    
+
     Returns:
         pypto.Tensor: Assembled V tensor of shape [actual_s2_tile, d]
     """
-    # Get needed tensors 
+    # Get needed tensors
     v_2d = ctx_params.loop_tensors.v_2d
     block_table = ctx_params.loop_tensors.block_table
 
@@ -467,7 +467,7 @@ def assemble_vj(idx, actual_s2_tile, ctx_params):
 def compute_loop_b(dtype, ctx_params):
     """
     Compute attention loop over batch dimension.
-    
+
     Args:
         dtype: Data type for computation
         ctx_params: Context parameters
@@ -502,7 +502,7 @@ def compute_loop_b(dtype, ctx_params):
 def compute_loop_s1(ctx_params, cur_seq_len, dtype):
     """
     Compute attention loop over query sequence positions.
-    
+
     Args:
         ctx_params: Context parameters
         cur_seq_len: Current sequence length
@@ -520,7 +520,7 @@ def compute_loop_s1(ctx_params, cur_seq_len, dtype):
 def compute_loop_n2(ctx_params, cur_seq_len, dtype):
     """
     Compute attention loop over key/value heads.
-    
+
     Args:
         ctx_params: Context parameters
         cur_seq_len: Current sequence length
@@ -538,7 +538,7 @@ def compute_loop_n2(ctx_params, cur_seq_len, dtype):
 def compute_loop_group(ctx_params, cur_seq_len, dtype):
     """
     Compute attention loop over groups.
-    
+
     Args:
         ctx_params: Context parameters
         cur_seq_len: Current sequence length
@@ -577,7 +577,7 @@ def compute_loop_group(ctx_params, cur_seq_len, dtype):
     # Loop over sequence tiles
     for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 2, 1]):
         loop_index = replace(loop_index, s2_idx=s2_idx)
-        ctx_params = replace(ctx_params, loop_index=loop_index, 
+        ctx_params = replace(ctx_params, loop_index=loop_index,
                             temp_update_tensors=temp_update_tensors, loop_ofs=loop_ofs)
         compute_loop_s2(ctx_params, cur_seq_len, dtype)
 
@@ -585,7 +585,7 @@ def compute_loop_group(ctx_params, cur_seq_len, dtype):
 def compute_loop_s2(ctx_params, cur_seq_len, dtype):
     """
     Compute attention loop over sequence tiles.
-    
+
     Args:
         ctx_params: Context parameters
         cur_seq_len: Current sequence length
@@ -636,7 +636,7 @@ def compute_loop_s2(ctx_params, cur_seq_len, dtype):
         compute_first_tile(sij, vj_assemble, dtype, ctx_params)
     else:
         compute_other_tile(sij, vj_assemble, dtype, ctx_params)
-    
+
     # Finalize output on last tile
     if pypto.cond(pypto.is_loop_end(s2_idx)):
         finalize_output(out_ofs, dtype, ctx_params)
@@ -645,13 +645,13 @@ def compute_loop_s2(ctx_params, cur_seq_len, dtype):
 def compute_c1(qi, kj_assemble, actual_s2_tile, tile_cfg):
     """
     Compute first matrix multiplication: Q x K^T.
-    
+
     Args:
         qi: Query tensor for current head group, shape [g_tile, d]
         kj_assemble: Assembled K tensor for current tile, shape [s2_tile, d]
         actual_s2_tile: Actual sequence length in this tile
         tile_cfg: Tile configuration
-        
+
     Returns:
         pypto.Tensor: QK^T scores of shape [g_tile, actual_s2_tile]
     """
@@ -671,7 +671,7 @@ def compute_c1(qi, kj_assemble, actual_s2_tile, tile_cfg):
 def compute_first_tile(sij, vj_assemble, dtype, ctx_params):
     """
     Compute attention for the first tile, computes the initial max, sum, and output values.
-    
+
     Args:
         sij: QK^T scores for current tile
         vj_assemble: V tensor for current tile
@@ -690,7 +690,7 @@ def compute_first_tile(sij, vj_assemble, dtype, ctx_params):
 
     # Compute maximum score for this tile
     tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-    
+
     # Compute exp(scores - max) for numerical stability
     tsub = pypto.sub(sij_scale, tilda_mij)
     tilda_pij = pypto.exp(tsub)
@@ -712,7 +712,7 @@ def compute_first_tile(sij, vj_assemble, dtype, ctx_params):
 def compute_other_tile(sij, vj_assemble, dtype, ctx_params):
     """
     Compute attention for subsequent sequence tiles.
-    
+
     Args:
         sij: QK^T scores for current tile
         vj_assemble: V tensor for current tile
@@ -757,10 +757,10 @@ def compute_other_tile(sij, vj_assemble, dtype, ctx_params):
 def finalize_output(out_ofs, dtype, ctx_params):
     """
     Finalize and write attention output.
-    
+
     This function divides the accumulated output by the sum to get
     the final attention result and writes it to the output tensor.
-    
+
     Args:
         out_ofs: Offset in output tensor
         dtype: Output data type
@@ -789,15 +789,15 @@ def finalize_output(out_ofs, dtype, ctx_params):
 def init_kernel_params(q, k, block_table):
     """
     Initialize kernel parameters from input tensors.
-    
+
     This function extracts and computes all the parameters needed
     for the IFA kernel computation.
-    
+
     Args:
         q: Query tensor
         k: Key cache tensor
         block_table: Block table
-    
+
     Returns:
         IFAKernelParams: Initialized kernel parameters
     """
@@ -809,7 +809,7 @@ def init_kernel_params(q, k, block_table):
     group = n1 // n2
     softmax_scale = d ** -0.5
     kernel_params = IFAKernelParams(
-        n1=n1, d=d, block_num=block_num, n2=n2, block_size=block_size, 
+        n1=n1, d=d, block_num=block_num, n2=n2, block_size=block_size,
         b=b, s1=s1, group=group, softmax_scale=softmax_scale
     )
     return kernel_params
@@ -818,13 +818,13 @@ def init_kernel_params(q, k, block_table):
 def reshape_qkv_to_2d(q, k, v, kernel_params):
     """
     Reshape Q, K, V tensors to 2D
-    
+
     Args:
         q: Query tensor of shape [b*s1, n1, d]
         k: Key cache of shape [block_num, n2, block_size, d]
         v: Value cache of shape [block_num, n2, block_size, d]
         kernel_params: Kernel parameters
-    
+
     Returns:
         tuple: (q_2d, k_2d, v_2d) reshaped to 2D
     """

@@ -30,7 +30,7 @@ from st.pypto_test import TestBuilder
 def op_fillpad(params, a, b):
     """
     FillPad 算子实现
-    
+
     参数说明:
     - view_shape: 每个 tile 的大小 (等于 pad 后的总大小)
     - tile_shape: NPU 计算单元的 tile 形状
@@ -39,39 +39,39 @@ def op_fillpad(params, a, b):
     """
     view_shape, tile_shape, valid_shape, pad_val = params
     valid_h, valid_w = valid_shape
-    
+
     # 单次循环处理整个 tensor (view_shape 等于 tensor shape)
     for _ in pypto.loop(1, name="LOOP_FILLPAD_L0", idx_name="b_idx"):
         for _ in pypto.loop(1, name="LOOP_FILLPAD_L1", idx_name="s_idx"):
             offset_x = 0
             offset_y = 0
-            
+
             # 创建带 valid_shape 的 view
             # shape = view_shape (pad后总大小)
             # valid_shape = [valid_h, valid_w] (有效数据大小)
-            tile_a = pypto.view(a, view_shape, [offset_x, offset_y], 
+            tile_a = pypto.view(a, view_shape, [offset_x, offset_y],
                                 valid_shape=[valid_h, valid_w])
-            
+
             pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-            
+
             # fillpad: 填充 valid_shape 之外的区域
             tile_res = tile_a.fillpad(mode="constant", value=pad_val)
-            
+
             pypto.assemble(tile_res, [offset_x, offset_y], b)
 
 
 def op_fillpad_golden(params, a, b):
     """
     FillPad Golden 实现
-    
+
     将 valid_shape 之外的区域填充为 pad_val
     """
     view_shape, tile_shape, valid_shape, pad_val = params
     valid_h, valid_w = valid_shape
-    
+
     result = a.clone()
     h, w = a.shape
-    
+
     # 填充 valid_shape 之外的区域
     # 行方向: valid_h 之后的行
     if valid_h < h:
@@ -79,7 +79,7 @@ def op_fillpad_golden(params, a, b):
     # 列方向: valid_w 之后的列
     if valid_w < w:
         result[:, valid_w:] = pad_val
-    
+
     return result
 
 
@@ -103,7 +103,7 @@ def test():
     - tile_shape = (16, 16): NPU 计算单元 tile 形状
     - valid_shape = (16, 16): 有效数据大小 (只有前 16x16 有数据)
     - pad_val = 0: 填充值
-    
+
     预期结果:
     - 输出 tensor 的 [0:16, 0:16] 保持原数据
     - 输出 tensor的 [16:32, :] 和 [:, 16:32] 被填充为 0

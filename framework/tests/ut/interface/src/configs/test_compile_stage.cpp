@@ -26,75 +26,67 @@ class TestConfigRunmode : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
-    void TearDown() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
+    void TearDown() override { Program::GetInstance().Reset(); }
 };
 
-TEST_F(TestConfigRunmode, COMPILE_STAGE_TENSOR_GRAPH) {
+TEST_F(TestConfigRunmode, COMPILE_STAGE_TENSOR_GRAPH)
+{
     const std::vector<int64_t> shape = {4, 4};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
     config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
-    FUNCTION("ADD", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
+    FUNCTION("ADD", {inputA, inputB, output}) { output = Add(inputA, inputB); }
 }
 
-TEST_F(TestConfigRunmode, COMPILE_STAGE_TILE_GRAPH) {
+TEST_F(TestConfigRunmode, COMPILE_STAGE_TILE_GRAPH)
+{
     const std::vector<int64_t> shape = {4, 4};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
     config::SetHostOption(COMPILE_STAGE, CS_TILE_GRAPH);
-    FUNCTION("ADD", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
+    FUNCTION("ADD", {inputA, inputB, output}) { output = Add(inputA, inputB); }
 }
 
-TEST_F(TestConfigRunmode, COMPILE_STAGE_EXECUTION_GRAPH) {
+TEST_F(TestConfigRunmode, COMPILE_STAGE_EXECUTION_GRAPH)
+{
     const std::vector<int64_t> shape = {4, 4};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-    FUNCTION("ADD", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
+    FUNCTION("ADD", {inputA, inputB, output}) { output = Add(inputA, inputB); }
 }
 
-TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_INSTRUCTION) {
+TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_INSTRUCTION)
+{
     const std::vector<int64_t> shape = {4, 4};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    FUNCTION("ADD", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
+    FUNCTION("ADD", {inputA, inputB, output}) { output = Add(inputA, inputB); }
 }
 
-TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_BINARY) {
+TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_BINARY)
+{
     const std::vector<int64_t> shape = {4, 4};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_BINARY);
-    FUNCTION("ADD", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
+    FUNCTION("ADD", {inputA, inputB, output}) { output = Add(inputA, inputB); }
 }
 
-TEST_F(TestConfigRunmode, COMPILE_VF) {
+TEST_F(TestConfigRunmode, COMPILE_VF)
+{
     config::SetPassGlobalConfig(KEY_ENABLE_VF, true);
     std::ostringstream oss;
     CodeGenCloudNPU::AppendVFOptions(NPUArch::DAV_3510, oss);
@@ -105,7 +97,5 @@ TEST_F(TestConfigRunmode, COMPILE_VF) {
     Tensor inputB(DT_FP32, shape, "E");
     Tensor output(DT_FP32, shape, "F");
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
-    FUNCTION("ADD", {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
+    FUNCTION("ADD", {inputA, inputB, output}) { output = Add(inputA, inputB); }
 }

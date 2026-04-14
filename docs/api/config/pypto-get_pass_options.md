@@ -34,4 +34,3 @@ get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
 ```python
 pypto.get_pass_options()
 ```
-

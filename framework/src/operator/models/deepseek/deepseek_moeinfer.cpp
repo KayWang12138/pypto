@@ -23,11 +23,15 @@ namespace npu::tile_fwk {
 constexpr float F_1 = 1.0;
 constexpr float F_NEGA_1 = -1.0;
 
-    void DynamicFFN(const Tensor &hiddenStates, const Tensor &ffnWeight1, const Tensor &ffnWeight2, const Tensor &ffnWeight3,
-                    Tensor &out, int BASIC_BATCH) {
+void DynamicFFN(
+    const Tensor& hiddenStates, const Tensor& ffnWeight1, const Tensor& ffnWeight2, const Tensor& ffnWeight3,
+    Tensor& out, int BASIC_BATCH)
+{
     const int H = hiddenStates.GetShape()[1];
-    FUNCTION("main", {hiddenStates, ffnWeight1, ffnWeight2, ffnWeight3}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(hiddenStates, 0) / BASIC_BATCH)) {
+    FUNCTION("main", {hiddenStates, ffnWeight1, ffnWeight2, ffnWeight3}, {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(hiddenStates, 0) / BASIC_BATCH))
+        {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
             auto hiddenStatesTemp = View(hiddenStates, {BASIC_BATCH, H}, {batchIdx, 0});
             auto castRes = Cast(hiddenStatesTemp, DataType::DT_FP16);
@@ -46,14 +50,21 @@ constexpr float F_NEGA_1 = -1.0;
             Assemble(mlpRes, {batchIdx, 0}, out);
         }
     }
-    }
+}
 
-    void DynamicFFNQuant(const Tensor &hiddenStatesQuant, const Tensor &hiddenStatesScale,const Tensor &ffnWeight1, const Tensor &ffnWeight2, const Tensor &ffnWeight3,
-                    const Tensor &ffnScale1, const Tensor &ffnScale2, const Tensor &ffnScale3,
-                    Tensor &out, int BASIC_BATCH) {
+void DynamicFFNQuant(
+    const Tensor& hiddenStatesQuant, const Tensor& hiddenStatesScale, const Tensor& ffnWeight1,
+    const Tensor& ffnWeight2, const Tensor& ffnWeight3, const Tensor& ffnScale1, const Tensor& ffnScale2,
+    const Tensor& ffnScale3, Tensor& out, int BASIC_BATCH)
+{
     const int H = hiddenStatesQuant.GetShape()[1];
-    FUNCTION("main", {hiddenStatesQuant, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(hiddenStatesQuant, 0) / BASIC_BATCH)) {
+    FUNCTION(
+        "main",
+        {hiddenStatesQuant, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3},
+        {out})
+    {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, loopIdx, LoopRange(GetInputShape(hiddenStatesQuant, 0) / BASIC_BATCH))
+        {
             SymbolicScalar batchIdx = BASIC_BATCH * loopIdx;
 
             auto castRes = View(hiddenStatesQuant, {BASIC_BATCH, H}, {batchIdx, 0});
@@ -91,6 +102,6 @@ constexpr float F_NEGA_1 = -1.0;
             Assemble(res, {batchIdx, 0}, out);
         }
     }
-    }
+}
 
 } // namespace npu::tile_fwk

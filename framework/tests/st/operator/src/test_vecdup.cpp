@@ -20,7 +20,8 @@ using namespace npu::tile_fwk;
 
 class VecdupTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(VecdupTest, TestVecDup) {
+TEST_F(VecdupTest, TestVecDup)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
@@ -29,21 +30,20 @@ TEST_F(VecdupTest, TestVecDup) {
     int outputCapacity = 32 * 32;
     uint64_t outputSize = outputCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
-    PROGRAM("VECDUP") {
+    PROGRAM("VECDUP")
+    {
         TileShape::Current().SetVecTile({16, 1, 16});
 
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("VECDUP_T", {output}) {
-                output = npu::tile_fwk::Full(src, DT_FP32, shape);
-        }
+        FUNCTION("VECDUP_T", {output}) { output = npu::tile_fwk::Full(src, DT_FP32, shape); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -51,7 +51,8 @@ TEST_F(VecdupTest, TestVecDup) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(VecdupTest, TestVecDupUnaligned) {
+TEST_F(VecdupTest, TestVecDupUnaligned)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
 
@@ -59,22 +60,21 @@ TEST_F(VecdupTest, TestVecDupUnaligned) {
     Element src(DataType::DT_FP32, 2.0);
     int outputCapacity = 2 * 2 * 256 * 7;
     uint64_t outputSize = outputCapacity * sizeof(float);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
-    PROGRAM("VECDUP") {
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("VECDUP")
+    {
         TileShape::Current().SetVecTile({1, 1, 256, 16});
 
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("VECDUP_T", {output}) {
-                output = npu::tile_fwk::Full(src, DT_FP32, shape);
-        }
+        FUNCTION("VECDUP_T", {output}) { output = npu::tile_fwk::Full(src, DT_FP32, shape); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(outputCapacity);
     std::vector<float> res(outputCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
 
     readInput(GetGoldenDir() + "/res.bin", golden);
 

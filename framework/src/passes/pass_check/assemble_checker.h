@@ -21,11 +21,12 @@
 
 namespace npu {
 namespace tile_fwk {
-class AssembleChecker : Checker{
+class AssembleChecker : Checker {
 public:
-    Status CheckAssembleOverlap(Function &function);
+    Status CheckAssembleOverlap(Function& function);
+
 private:
-    bool OverlapCurInput(const std::vector<std::pair<int64_t, int64_t>> &curInputArea);
+    bool OverlapCurInput(const std::vector<std::pair<int64_t, int64_t>>& curInputArea);
     std::vector<std::vector<std::pair<int64_t, int64_t>>> coveredAreas_; // 储存input在output上覆盖的区间
 };
 } // namespace tile_fwk

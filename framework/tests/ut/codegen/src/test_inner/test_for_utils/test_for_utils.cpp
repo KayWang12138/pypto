@@ -23,16 +23,13 @@
 namespace npu::tile_fwk {
 class TestForUtils : public ::testing::Test {};
 
-TEST_F(TestForUtils, TestGetTypeForB16B32InputInt64) {
-    EXPECT_THROW(GetTypeForB16B32(DataType::DT_INT64), Error);
-}
+TEST_F(TestForUtils, TestGetTypeForB16B32InputInt64) { EXPECT_THROW(GetTypeForB16B32(DataType::DT_INT64), Error); }
 
-TEST_F(TestForUtils, TestGetAddrTypeByOperandTypeBufUnknown) {
+TEST_F(TestForUtils, TestGetAddrTypeByOperandTypeBufUnknown)
+{
     EXPECT_THROW(GetAddrTypeByOperandType(OperandType::BUF_UNKNOWN), Error);
 }
 
-TEST_F(TestForUtils, TestCalcLinearOffsetShapeEmpty) {
-    EXPECT_EQ(CalcLinearOffset({}, {}), 0);
-}
+TEST_F(TestForUtils, TestCalcLinearOffsetShapeEmpty) { EXPECT_EQ(CalcLinearOffset({}, {}), 0); }
 
 } // namespace npu::tile_fwk

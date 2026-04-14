@@ -20,7 +20,7 @@ $
 
 $
 \begin{aligned}
-\text{q}, \text{k}, \text{v} &= \text{Split}(\text{qkv}, [\text{q\_head\_size}, \text{k\_head\_size}, \text{v\_head\_size}] ) 
+\text{q}, \text{k}, \text{v} &= \text{Split}(\text{qkv}, [\text{q\_head\_size}, \text{k\_head\_size}, \text{v\_head\_size}] )
 \end{aligned}
 $
 
@@ -76,7 +76,7 @@ def attention_pre_quant(
 
 ## 参数说明
 
->**说明：**<br> 
+>**说明：**<br>
 >
 >- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示模型隐藏层维度（当前支持5120）、total_head_size表示QKV投影后的总输出维度（当前支持1792）、head_size表示每个注意力头的维度大小（当前支持128）、half_rotary_dim表示旋转位置编码维度（当前支持32）、q_size表示query投影后的输出维度（当前支持1536）、kv_size表示key/value投影后的输出维度（当前支持128）。
 
@@ -164,7 +164,7 @@ def attention(
 
 ## 参数说明
 
->**说明：**<br> 
+>**说明：**<br>
 >
 >- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、num_head表示查询端的多头数量（当前支持为12）、head_size表示每个注意力头的维度（当前支持为128）、num_blocks表示总共可用的缓存块数量、block_size表示每个缓存块能容纳的词元数量（当前支持为128）、kv_head_num表示键/值端的多头数量（当前支持为1）、max_num_blocks_per_query表示单个请求最多可以占用的缓存块数。
 
@@ -336,7 +336,7 @@ def ffn_shared_expert_quant(
 ```
 
 ## 参数说明
->**说明：**<br> 
+>**说明：**<br>
 >
 >- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）。
 
@@ -372,7 +372,7 @@ $
 
 $
 \begin{aligned}
-\text{q}, \text{k}, \text{v} &= \text{Split}(\text{qkv}, [\text{q\_head\_size}, \text{k\_head\_size}, \text{v\_head\_size}] ) 
+\text{q}, \text{k}, \text{v} &= \text{Split}(\text{qkv}, [\text{q\_head\_size}, \text{k\_head\_size}, \text{v\_head\_size}] )
 \end{aligned}
 $
 
@@ -434,7 +434,7 @@ def attention(
 
 ## 参数说明
 
->**说明：**<br> 
+>**说明：**<br>
 >
 >- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、hidden_size表示模型隐藏层维度（当前支持5120）、total_head_size表示QKV投影后的总输出维度（当前支持1792）、head_size表示每个注意力头的维度大小（当前支持128）、half_rotary_dim表示旋转位置编码维度（当前支持32）、num_blocks表示总共可用的缓存块数量、block_size表示每个缓存块能容纳的词元数量（当前支持为128）、kv_head_num表示键/值端的多头数量（当前支持为1）、max_num_blocks_per_query表示单个请求最多可以占用的缓存块数。
 
@@ -555,7 +555,7 @@ def moe_fusion(
 ```
 
 ## 参数说明
->**说明：**<br> 
+>**说明：**<br>
 >
 >- batch_size表示输入样本批量大小（当前支持范围1至32）、seq_len表示输入样本序列长度（当前支持为1）、num_tokens表示batch_size和seq_len合轴的大小、num_router_experts表示路由专家数（当前支持为160）、hidden_size表示隐藏层大小（当前支持5120）、intermediate_size表示中间层的维度（当前支持1536）、num_experts_per_topk表示每个词元分配的专家数量（当前支持为8）。
 

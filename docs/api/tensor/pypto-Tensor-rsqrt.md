@@ -16,4 +16,3 @@ rsqrt(self) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.rsqrt](../operation/pypto-rsqrt.md)。
-

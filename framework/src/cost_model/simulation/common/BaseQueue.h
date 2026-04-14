@@ -47,15 +47,10 @@ private:
 public:
     SimQueue() = default;
     ~SimQueue() override = default;
-    void Build() override
-    {
-        Reset();
-    }
+    void Build() override { Reset(); }
     void Xfer() override {}
 
-    void UpdateIntervalCycles(uint64_t deltaCycles) {
-        intervalCycles = deltaCycles;
-    }
+    void UpdateIntervalCycles(uint64_t deltaCycles) { intervalCycles = deltaCycles; }
 
     void Step() override
     {
@@ -87,14 +82,11 @@ public:
         wTimeQueue.clear();
         rTimeQueue.clear();
     }
-    std::shared_ptr<SimSys> GetSim() override
-    {
-        return nullptr;
-    }
+    std::shared_ptr<SimSys> GetSim() override { return nullptr; }
 
     // Disable copy and assignment
-    SimQueue(const SimQueue &) = delete;
-    SimQueue &operator=(const SimQueue &) = delete;
+    SimQueue(const SimQueue&) = delete;
+    SimQueue& operator=(const SimQueue&) = delete;
 
     uint64_t GetMinWaitCycles()
     {
@@ -104,7 +96,7 @@ public:
         }
         return res;
     }
-    
+
     // Enqueue an element into the queue
     void Enqueue(T element, uint64_t extraDelay = 0)
     {
@@ -114,7 +106,7 @@ public:
     }
 
     // Dequeue an element from the queue
-    bool Dequeue(T &element)
+    bool Dequeue(T& element)
     {
         if (rQueue.empty()) {
             return false;
@@ -127,7 +119,7 @@ public:
     }
 
     // Read the front from the queue
-    bool Front(T &element)
+    bool Front(T& element)
     {
         if (rQueue.empty()) {
             return false;
@@ -147,47 +139,23 @@ public:
         return true;
     }
 
-    size_t Size() const
-    {
-        return rQueue.size();
-    }
+    size_t Size() const { return rQueue.size(); }
 
-    size_t WriteQueueSize() const
-    {
-        return wQueue.size();
-    }
+    size_t WriteQueueSize() const { return wQueue.size(); }
 
     // Check if the queue is empty
-    bool Empty() const
-    {
-        return (rTimeQueue.empty() || tick < rTimeQueue.front());
-    }
+    bool Empty() const { return (rTimeQueue.empty() || tick < rTimeQueue.front()); }
 
     // Check if the queue is full
-    bool Full() const
-    {
-        return wTimeQueue.size() >= maxQueueSize;
-    }
+    bool Full() const { return wTimeQueue.size() >= maxQueueSize; }
 
-    void SetMaxSize(uint64_t maxSize)
-    {
-        maxQueueSize = maxSize;
-    }
+    void SetMaxSize(uint64_t maxSize) { maxQueueSize = maxSize; }
 
-    void SetWriteDelay(uint64_t delay)
-    {
-        wDelay = delay;
-    }
+    void SetWriteDelay(uint64_t delay) { wDelay = delay; }
 
-    void SetReadDelay(uint64_t delay)
-    {
-        rDelay = delay;
-    }
+    void SetReadDelay(uint64_t delay) { rDelay = delay; }
 
-    bool IsTerminate()
-    {
-        return (wQueue.empty() && rQueue.empty());
-    }
+    bool IsTerminate() { return (wQueue.empty() && rQueue.empty()); }
 
     void SetCounterInfo(std::shared_ptr<TraceLogger> logger, CostModel::Pid pId, CostModel::Tid tId)
     {
@@ -214,6 +182,6 @@ public:
     }
 };
 
-}  // namespace CostModel
+} // namespace CostModel
 
 #endif

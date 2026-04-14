@@ -16,35 +16,40 @@
 #ifndef NEON_STUB_H
 #define NEON_STUB_H
 
-//#ifdef NO_NEON_SUPPORT
-#if  defined(NO_NEON_SUPPORT) || !defined(__aarch64__)
+// #ifdef NO_NEON_SUPPORT
+#if defined(NO_NEON_SUPPORT) || !defined(__aarch64__)
 #include <cstdint>
 using uint8x16_t = int8_t;
 using uint64x2_t = int64_t;
 
-inline uint8x16_t vld1q_u8(uint8_t const * ptr) {
+inline uint8x16_t vld1q_u8(uint8_t const* ptr)
+{
     (void)ptr;
     return 0;
 }
 
-inline uint8x16_t vandq_u8(uint8x16_t a, uint8x16_t b) {
+inline uint8x16_t vandq_u8(uint8x16_t a, uint8x16_t b)
+{
     (void)a;
     (void)b;
     return 0;
 }
 
-inline uint64x2_t vreinterpretq_u64_u8(uint8x16_t a) {
+inline uint64x2_t vreinterpretq_u64_u8(uint8x16_t a)
+{
     (void)a;
     return 0;
 }
 
-inline uint64_t vgetq_lane_u64(uint64x2_t v, const int lane) {
+inline uint64_t vgetq_lane_u64(uint64x2_t v, const int lane)
+{
     (void)v;
     (void)lane;
     return 0;
 }
 
-inline void vst1q_u8(uint8_t *ptr, uint8x16_t val) {
+inline void vst1q_u8(uint8_t* ptr, uint8x16_t val)
+{
     (void)ptr;
     (void)val;
 }

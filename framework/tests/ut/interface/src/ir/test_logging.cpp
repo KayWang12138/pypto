@@ -22,7 +22,8 @@
 
 namespace pypto {
 
-TEST(CoreLoggingTest, TestStdLogger) {
+TEST(CoreLoggingTest, TestStdLogger)
+{
     // Test basic StdLogger functionality
     auto logger = std::make_unique<StdLogger>();
 
@@ -33,7 +34,8 @@ TEST(CoreLoggingTest, TestStdLogger) {
     logger->Log("Error message").Log("\n");
 }
 
-TEST(CoreLoggingTest, TestFileLogger) {
+TEST(CoreLoggingTest, TestFileLogger)
+{
     // Test FileLogger functionality
     std::string testFile = "/tmp/pypto_test_log.txt";
 
@@ -60,7 +62,8 @@ TEST(CoreLoggingTest, TestFileLogger) {
     std::remove(testFile.c_str());
 }
 
-TEST(CoreLoggingTest, TestLineLogger) {
+TEST(CoreLoggingTest, TestLineLogger)
+{
     // Test LineLogger functionality (in-memory logging)
     auto logger = LoggerManager::LineLoggerRegister("test_logger");
     ASSERT_NE(logger, nullptr);
@@ -74,7 +77,8 @@ TEST(CoreLoggingTest, TestLineLogger) {
     ASSERT_EQ(logger, logger2); // Same instance
 }
 
-TEST(CoreLoggingTest, TestLogLevels) {
+TEST(CoreLoggingTest, TestLogLevels)
+{
     // Test different log levels exist
     ASSERT_EQ(static_cast<int>(LogLevel::DEBUG), 0);
     ASSERT_EQ(static_cast<int>(LogLevel::INFO), 1);
@@ -84,7 +88,8 @@ TEST(CoreLoggingTest, TestLogLevels) {
     ASSERT_EQ(static_cast<int>(LogLevel::EVENT), 5);
 }
 
-TEST(CoreLoggingTest, TestStreamOperators) {
+TEST(CoreLoggingTest, TestStreamOperators)
+{
     // Test that various types can be logged
     auto logger = std::make_unique<StdLogger>();
 
@@ -94,7 +99,8 @@ TEST(CoreLoggingTest, TestStreamOperators) {
     logger->Log("Bool: ").Log(true).Log("\n");
 }
 
-TEST(CoreLoggingTest, TestLoggerManagerRegister) {
+TEST(CoreLoggingTest, TestLoggerManagerRegister)
+{
     // Test LoggerManager registration
     auto logger1 = LoggerManager::LineLoggerRegister("logger1");
     auto logger2 = LoggerManager::LineLoggerRegister("logger2");
@@ -108,7 +114,8 @@ TEST(CoreLoggingTest, TestLoggerManagerRegister) {
     ASSERT_EQ(logger1, logger1Again);
 }
 
-TEST(CoreLoggingTest, TestFileLoggerMultipleWrites) {
+TEST(CoreLoggingTest, TestFileLoggerMultipleWrites)
+{
     // Test multiple writes to file logger
     std::string testFile = "/tmp/pypto_test_log_multi.txt";
 
@@ -140,7 +147,8 @@ TEST(CoreLoggingTest, TestFileLoggerMultipleWrites) {
     std::remove(testFile.c_str());
 }
 
-TEST(CoreLoggingTest, TestLoggerNotNull) {
+TEST(CoreLoggingTest, TestLoggerNotNull)
+{
     // Test that loggers are not null
     auto stdLogger = std::make_unique<StdLogger>();
     ASSERT_NE(stdLogger, nullptr);

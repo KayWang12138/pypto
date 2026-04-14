@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynRange, TestDynOpRange) {
+TEST_F(TestCodegenDynRange, TestDynOpRange)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
 
     auto function = GenMockFuncDyn("TestDynOpRange");
@@ -56,7 +58,7 @@ TEST_F(TestCodegenDynRange, TestDynOpRange) {
     int64_t idx = 0;
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_RANGE, {}, {localTensor});
+    auto& op = function->AddOperation(Opcode::OP_RANGE, {}, {localTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "START", start);
     op.SetAttribute(OP_ATTR_PREFIX + "STEP", step);
     op.SetAttribute(OP_ATTR_PREFIX + "SIZE", size);
@@ -76,7 +78,8 @@ TEST_F(TestCodegenDynRange, TestDynOpRange) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynRange, RangeTileTensor) {
+TEST_F(TestCodegenDynRange, RangeTileTensor)
+{
     auto function = GenMockFuncDyn("RangeTileTensor");
     std::vector<int64_t> rangeShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
@@ -88,7 +91,7 @@ TEST_F(TestCodegenDynRange, RangeTileTensor) {
     std::vector<int64_t> offset = {0, 0};
     localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
-    auto &op = function->AddOperation(Opcode::OP_RANGE, {localTensor}, {localOutTensor});
+    auto& op = function->AddOperation(Opcode::OP_RANGE, {localTensor}, {localOutTensor});
     Element start(DataType::DT_FP32, 1.0);
     op.SetAttribute(OP_ATTR_PREFIX + "START", start);
     op.SetAttribute(OP_ATTR_PREFIX + "STEP", start);

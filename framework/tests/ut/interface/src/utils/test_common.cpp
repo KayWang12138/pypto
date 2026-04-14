@@ -20,7 +20,8 @@
 
 using namespace npu::tile_fwk;
 
-TEST(CommonTest, OrderedMap) {
+TEST(CommonTest, OrderedMap)
+{
     std::vector<int> key;
     std::vector<int> val;
     for (int i = 0x10; i > 1; i--) {
@@ -35,7 +36,7 @@ TEST(CommonTest, OrderedMap) {
 
     std::vector<int> mkey;
     std::vector<int> mval;
-    for (auto &[k, v] : m) {
+    for (auto& [k, v] : m) {
         mkey.push_back(k);
         mval.push_back(v);
     }
@@ -43,7 +44,8 @@ TEST(CommonTest, OrderedMap) {
     EXPECT_EQ(val, mval);
 }
 
-TEST(CommonTest, GetBacktrace) {
+TEST(CommonTest, GetBacktrace)
+{
     auto str = GetBacktrace(1, 0x8)->Get();
     EXPECT_TRUE(str.find("tile_fwk_utest") != std::string::npos);
 }

@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -24,30 +24,25 @@
 namespace npu::tile_fwk {
 namespace {
 constexpr int32_t kInvalidModuleLogLevel = -1;
-constexpr const char *kEnvModuleLogLevel = "ASCEND_MODULE_LOG_LEVEL";
+constexpr const char* kEnvModuleLogLevel = "ASCEND_MODULE_LOG_LEVEL";
 const std::map<std::string, LogModule> kLogModuleMap = {
-    {"FUNCTION", LogModule::FUNCTION},
-    {"PASS", LogModule::PASS},
-    {"CODEGEN", LogModule::CODEGEN},
-    {"MACHINE", LogModule::MACHINE},
-    {"DISTRIBUTED", LogModule::DISTRIBUTED},
-    {"SIMULATION", LogModule::SIMULATION},
-    {"VERIFY", LogModule::VERIFY},
-    {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR},
-    {"PLATFORM", LogModule::PLATFORM}
-};
+    {"FUNCTION", LogModule::FUNCTION},       {"PASS", LogModule::PASS},
+    {"CODEGEN", LogModule::CODEGEN},         {"MACHINE", LogModule::MACHINE},
+    {"DISTRIBUTED", LogModule::DISTRIBUTED}, {"SIMULATION", LogModule::SIMULATION},
+    {"VERIFY", LogModule::VERIFY},           {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR},
+    {"PLATFORM", LogModule::PLATFORM}};
 
-inline bool IsLogLevelValid(const int32_t logLevel) {
-    return logLevel >= DLOG_DEBUG && logLevel <= DLOG_ERROR;
-}
+inline bool IsLogLevelValid(const int32_t logLevel) { return logLevel >= DLOG_DEBUG && logLevel <= DLOG_ERROR; }
 
-inline bool IsLogModuleValid(const LogModule logModule) {
+inline bool IsLogModuleValid(const LogModule logModule)
+{
     return logModule >= LogModule::FUNCTION && logModule < LogModule::BOTTOM;
 }
 
-bool GetEnvStr(const char *envName, std::string &envValue) {
+bool GetEnvStr(const char* envName, std::string& envValue)
+{
     const size_t envValueMaxLen = 1024UL;
-    const char *envStr = std::getenv(envName);
+    const char* envStr = std::getenv(envName);
     if (envStr == nullptr || strnlen(envStr, envValueMaxLen) >= envValueMaxLen) {
         return false;
     }
@@ -55,7 +50,8 @@ bool GetEnvStr(const char *envName, std::string &envValue) {
     return true;
 }
 
-int ParseStrToInt(const std::string &str) {
+int ParseStrToInt(const std::string& str)
+{
     try {
         return std::stoi(str);
     } catch (const std::invalid_argument& ia) {
@@ -66,12 +62,14 @@ int ParseStrToInt(const std::string &str) {
     return -1;
 }
 
-void Trim(std::string &s) {
+void Trim(std::string& s)
+{
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int c) { return !std::isspace(c); }));
     s.erase(std::find_if(s.rbegin(), s.rend(), [](int c) { return !std::isspace(c); }).base(), s.end());
 }
 
-void ParseModuleLogLevel(const std::string &levelStr, std::map<std::string, int> &moduleLogLevel) {
+void ParseModuleLogLevel(const std::string& levelStr, std::map<std::string, int>& moduleLogLevel)
+{
     if (levelStr.empty()) {
         return;
     }
@@ -96,13 +94,15 @@ void ParseModuleLogLevel(const std::string &levelStr, std::map<std::string, int>
         moduleLogLevel.emplace(subModuleName, ParseStrToInt(subLevelStr.substr(subPos + 1)));
     }
 }
-}
-LogModuleManager &LogModuleManager::Instance() {
+} // namespace
+LogModuleManager& LogModuleManager::Instance()
+{
     static LogModuleManager logModuleManager;
     return logModuleManager;
 }
 
-LogModuleManager::LogModuleManager() {
+LogModuleManager::LogModuleManager()
+{
     moduleLogLevel_.fill(kInvalidModuleLogLevel);
     std::string moduleLogLevelStr;
     if (!GetEnvStr(kEnvModuleLogLevel, moduleLogLevelStr)) {
@@ -110,7 +110,7 @@ LogModuleManager::LogModuleManager() {
     }
     std::map<std::string, int> moduleLogLevelMap;
     ParseModuleLogLevel(moduleLogLevelStr, moduleLogLevelMap);
-    for (const auto &item : moduleLogLevelMap) {
+    for (const auto& item : moduleLogLevelMap) {
         auto iter = kLogModuleMap.find(item.first);
         if (iter == kLogModuleMap.end()) {
             continue;
@@ -122,15 +122,15 @@ LogModuleManager::LogModuleManager() {
     }
 }
 
-LogModuleManager::~LogModuleManager() {
-    moduleLogLevel_.fill(kInvalidModuleLogLevel);
-}
+LogModuleManager::~LogModuleManager() { moduleLogLevel_.fill(kInvalidModuleLogLevel); }
 
-int32_t LogModuleManager::GetModuleLogLevel(const LogModule logModule) const {
+int32_t LogModuleManager::GetModuleLogLevel(const LogModule logModule) const
+{
     return IsLogModuleValid(logModule) ? moduleLogLevel_[static_cast<size_t>(logModule)] : kInvalidModuleLogLevel;
 }
 
-int32_t LogModuleManager::GetLowestLogLevel() const {
+int32_t LogModuleManager::GetLowestLogLevel() const
+{
     int32_t lowestLogLevel = kInvalidModuleLogLevel;
     for (size_t i = 0; i < moduleLogLevel_.size(); ++i) {
         if (!IsLogLevelValid(moduleLogLevel_[i])) {
@@ -142,4 +142,4 @@ int32_t LogModuleManager::GetLowestLogLevel() const {
     }
     return lowestLogLevel;
 }
-}
+} // namespace npu::tile_fwk

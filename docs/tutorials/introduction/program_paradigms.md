@@ -52,17 +52,17 @@ Tensor层次编程是PyPTO当前主要支持的编程方式，开发者直接使
 
     ```python
     import pypto
-    
+
     # 1. 配置 Tiling（可选，框架会提供默认值）
     pypto.set_vec_tile_shapes(64)
-    
+
     # 2. 定义计算函数
     @pypto.frontend.jit
     def my_operator(a: pypto.Tensor(shape, dtype), b:  pypto.Tensor(shape, dtype), output:  pypto.Tensor(shape, dtype)):
         # Tensor 操作
         result = a + b  # 或使用 pypto.add(a, b)
         output[:] = result
-    
+
     # 3. 执行
     my_operator(tensor_a, tensor_b, output_tensor)
     ```
@@ -89,7 +89,7 @@ Tensor层次编程是PyPTO当前主要支持的编程方式，开发者直接使
         # 处理动态维度数据
         tile_size = pypto.symbolic_scalar(64)
         loop_count = dynamic_shape / tile_size
-        
+
         for idx in pypto.loop(0, loop_count, 1, name="LOOP_BATCH"):
             offset = idx * tile_size
             end = (idx + 1) * tile_size
@@ -115,7 +115,7 @@ Tensor层次编程是PyPTO当前主要支持的编程方式，开发者直接使
     ```python
     # 创建动态Shape Tensor
     tensor = pypto.tensor([-1, 32], pypto.DT_FP16, "dynamic")
-    
+
     # 获取动态维度的符号化标量，在运行时获取具体数值
     b = pypto.symbolic_scalar(tensor_shape[0])
     ```
@@ -170,16 +170,16 @@ MPMD执行模型的优势包括：
 
     ```python
     import pypto
-    
+
     # 配置 Tiling
     pypto.set_vec_tile_shapes(64)
-    
+
     # 定义计算函数
     @pypto.frontend.jit
     def vector_add(a:  pypto.Tensor(shape, dtype), b:  pypto.Tensor(shape, dtype), output:  pypto.Tensor(shape, dtype)):
         # Tensor 操作：向量加法
         output[:] = a + b  # 输出结果
-    
+
     # 执行
     vector_add(tensor_a, tensor_b, output_tensor)
     ```
@@ -188,14 +188,14 @@ MPMD执行模型的优势包括：
 
     ```python
     import pypto
-    
+
     # 配置 Cube Tiling（用于矩阵乘法）
     pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
-    
+
     @pypto.frontend.jit
     def matmul(a:  pypto.Tensor(shape_a, dtype), b:  pypto.Tensor(shape_b, dtype), output:  pypto.Tensor(shape_c, dtype)):
         outputs[:] = pypto.matmul(a, b)  # 矩阵乘法
-    
+
     # 执行
     matmul(matrix_a, matrix_b, output_matrix)
     ```
@@ -204,35 +204,35 @@ MPMD执行模型的优势包括：
 
     ```python
     import pypto
-    
+
     def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
         row_max = pypto.amax(x, dim=-1, keepdim=True)  # 计算行最大值
         sub = x - row_max                              # 值归一化
         exp = pypto.exp(sub)                           # 指数运算
         esum = pypto.sum(exp, dim=-1, keepdim=True)    # 求和
         return exp / esum                              # 概率归一化
-    
+
     @pypto.frontend.jit
     def dynamic_softmax(input_tensor :  pypto.Tensor(in_shape, dtype), output_tensor:  pypto.Tensor(out_shape, dtype)):
         # 获取动态维度
         batch_size = input_tensor.shape[0]
         tile_size = pypto.symbolic_scalar(64)
         loop_count = batch_size // tile_size
-    
+
         # 循环处理
         for idx in pypto.loop(0, loop_count, 1, name="LOOP_BATCH"):
             offset = idx * tile_size
             end = (idx + 1) * tile_size
-    
+
             # 提取当前 Tile
             x_view = input_tensor[offset:end, :]
-    
+
             # 计算 Softmax
             softmax_out = softmax_core(x_view)
-    
+
             # 组装结果
             output_tensor[offset:end, :] = softmax_out
-    
+
     # 执行
     dynamic_softmax(input_tensor, output_tensor)
     ```
@@ -242,12 +242,12 @@ MPMD执行模型的优势包括：
     ```python
     import pypto
     import torch
-    
+
     @pypto.frontend.jit
     def my_operator(x: pypto.Tensor(in_shape, dtype), output: pypto.Tensor(out_shape, dtype)):
         result = pypto.matmul(x, weight)
         output[:] = result
-    
+
     # 使用 PyTorch Tensor
     input_torch = torch.randn(32, 128, device='npu')
     output_torch = torch.zeros(32, 64, device='npu')
@@ -259,4 +259,3 @@ MPMD执行模型的优势包括：
 ## 总结
 
 PTO编程范式通过Tensor级别的抽象，使开发者能够以更直观的方式表达计算逻辑，而框架则自动处理底层的优化、调度和执行。这种设计不仅保证了开发的简洁性，还充分利用了硬件的并行计算能力，为AI加速器编程提供了一个高效且灵活的解决方案。
-

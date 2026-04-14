@@ -39,7 +39,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -50,7 +51,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynIndexPut, DynIndexPutTileTensor) {
+TEST_F(TestCodegenDynIndexPut, DynIndexPutTileTensor)
+{
     int h = 8;
     std::vector<int64_t> vecTileShape = {h};
     std::vector<int64_t> shape1 = {h, h};
@@ -62,8 +64,10 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutTileTensor) {
     Tensor indices1(DataType::DT_INT32, shape3, "indices1");
     Tensor output(DataType::DT_FP32, shape1, "output");
     std::string funcName = "IndexPut";
-    FUNCTION(funcName, {input, values, indices1}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, values, indices1}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             IndexPut_(input, {indices1}, values);
         }
@@ -82,7 +86,8 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutTileTensor) {
     CheckStringExist(expect, res);
 }
 
-TEST_F(TestCodegenDynIndexPut, DynIndexPutDynUnaligned) {
+TEST_F(TestCodegenDynIndexPut, DynIndexPutDynUnaligned)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     auto function = GenMockFuncDyn("DynIndexPutDynUnaligned");
     std::vector<int64_t> shape = {64, 64};
@@ -93,7 +98,7 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutDynUnaligned) {
     auto indices = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
     auto result = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_INDEX_PUT, {input, value, indices}, {result});
+    auto& op = function->AddOperation(Opcode::OP_INDEX_PUT, {input, value, indices}, {result});
     op.SetAttribute(OpAttributeKey::accumulate, true);
     op.SetAttribute(OpAttributeKey::indicesSize, 1);
     auto shapeImme = OpImmediate::Specified(shape);

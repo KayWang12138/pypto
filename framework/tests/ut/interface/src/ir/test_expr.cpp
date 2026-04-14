@@ -33,7 +33,8 @@ class IRExprTest : public testing::Test {};
 // MakeTuple Tests
 // ============================================================================
 
-TEST_F(IRExprTest, TestMakeTupleBasic) {
+TEST_F(IRExprTest, TestMakeTupleBasic)
+{
     auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
     auto elem2 = std::make_shared<ConstFloat>(2.0, DataType::FP32, Span::Unknown());
     std::vector<ExprPtr> elements = {elem1, elem2};
@@ -46,7 +47,8 @@ TEST_F(IRExprTest, TestMakeTupleBasic) {
     ASSERT_EQ(tupleType->types_.size(), 2);
 }
 
-TEST_F(IRExprTest, TestMakeTupleSingleElement) {
+TEST_F(IRExprTest, TestMakeTupleSingleElement)
+{
     auto elem = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
     std::vector<ExprPtr> elements = {elem};
 
@@ -62,7 +64,8 @@ TEST_F(IRExprTest, TestMakeTupleSingleElement) {
 // TupleGetItemExpr Tests
 // ============================================================================
 
-TEST_F(IRExprTest, TestTupleGetItemBasic) {
+TEST_F(IRExprTest, TestTupleGetItemBasic)
+{
     auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
     auto elem2 = std::make_shared<ConstFloat>(2.0, DataType::FP32, Span::Unknown());
     std::vector<ExprPtr> elements = {elem1, elem2};
@@ -79,7 +82,8 @@ TEST_F(IRExprTest, TestTupleGetItemBasic) {
     ASSERT_EQ(type1->dtype_, DataType::FP32);
 }
 
-TEST_F(IRExprTest, TestTupleGetItemIndex) {
+TEST_F(IRExprTest, TestTupleGetItemIndex)
+{
     auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
     auto elem2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::Unknown());
     std::vector<ExprPtr> elements = {elem1, elem2};

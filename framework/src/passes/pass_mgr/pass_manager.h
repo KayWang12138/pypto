@@ -28,12 +28,12 @@ namespace npu::tile_fwk {
 
 class PassManager {
 public:
-    static PassManager &Instance();
+    static PassManager& Instance();
 
-    PassManager(const PassManager &) = delete;
-    void operator=(const PassManager &) = delete;
-    Status RunPass(Program &program, Function &function, const std::string &strategy) const;
-    std::string GetResumePath(const std::string &strategy);
+    PassManager(const PassManager&) = delete;
+    void operator=(const PassManager&) = delete;
+    Status RunPass(Program& program, Function& function, const std::string& strategy) const;
+    std::string GetResumePath(const std::string& strategy);
 
     struct PassEntry {
         std::string identifier;
@@ -41,14 +41,14 @@ public:
         PassEntry(std::string id, PassName name) : identifier(id), passName(name) {}
     };
 
-    void RegisterStrategy(const std::string &strategy, const std::vector<PassEntry> &passEntries);
+    void RegisterStrategy(const std::string& strategy, const std::vector<PassEntry>& passEntries);
 
 private:
     PassManager();
     ~PassManager() = default;
     void RegDefaultStrategy();
 
-    std::vector<PassEntry> GetStrategyPasses(const std::string &strategy) const;
+    std::vector<PassEntry> GetStrategyPasses(const std::string& strategy) const;
 
     std::unordered_map<std::string, std::vector<PassEntry>> strategies_;
 

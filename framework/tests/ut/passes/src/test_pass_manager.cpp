@@ -32,41 +32,49 @@ class PassTestCast : public Pass {
 public:
     PassTestCast() : Pass("PassTestCast") {}
 
-    Status PreCheck(Function &function) override {
-        (void) function;
+    Status PreCheck(Function& function) override
+    {
+        (void)function;
         return FAILED;
     }
-    Status PostCheck(Function &function) override {
-        (void) function;
+    Status PostCheck(Function& function) override
+    {
+        (void)function;
         return FAILED;
     }
-    Status RunOnFunction(Function &function) override {
-        (void) function;
+    Status RunOnFunction(Function& function) override
+    {
+        (void)function;
         return FAILED;
     }
-    Status CreateLogFolder(const std::string &topFolder, size_t i) const override {
-        (void) topFolder;
-        (void) i;
+    Status CreateLogFolder(const std::string& topFolder, size_t i) const override
+    {
+        (void)topFolder;
+        (void)i;
         return FAILED;
     }
-    Status PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction) override {
-        (void) function;
-        (void) logFolder;
-        (void) beforeFunction;
+    Status PrintFunction(Function& function, const std::string& logFolder, bool beforeFunction) override
+    {
+        (void)function;
+        (void)logFolder;
+        (void)beforeFunction;
         return FAILED;
     }
-    Status DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction) override {
-        (void) function;
-        (void) logFolder;
-        (void) beforeFunction;
+    Status DumpFunctionJson(Function& function, const std::string& logFolder, bool beforeFunction) override
+    {
+        (void)function;
+        (void)logFolder;
+        (void)beforeFunction;
         return FAILED;
     }
-    Status PreRun(Function &function) override {
-        (void) function;
+    Status PreRun(Function& function) override
+    {
+        (void)function;
         return FAILED;
     }
-    Status PostRun(Function &function) override {
-        (void) function;
+    Status PostRun(Function& function) override
+    {
+        (void)function;
         return FAILED;
     }
 };
@@ -77,7 +85,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -85,24 +94,26 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(PassManagerTest, TestPassManager) {
+TEST_F(PassManagerTest, TestPassManager)
+{
     REG_PASS(PassTestCast);
-    PassManager::Instance().RegisterStrategy("PM_TEST", {
-                        {   "PassTestCast1",   PassName::NOT_DEFINED}});
-    PassManager::Instance().RegisterStrategy("PM_TEST2", {
-                        {   "PassTestCast1",   PassName::NOT_DEFINED}});
+    PassManager::Instance().RegisterStrategy("PM_TEST", {{"PassTestCast1", PassName::NOT_DEFINED}});
+    PassManager::Instance().RegisterStrategy("PM_TEST2", {{"PassTestCast1", PassName::NOT_DEFINED}});
     auto errPasses = PassManager::Instance().GetStrategyPasses("PM_TEST1");
     EXPECT_TRUE(errPasses.empty());
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPassManager", "TestPassManager", nullptr);
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestPassManager", "TestPassManager", nullptr);
     EXPECT_TRUE(PassManager::Instance().RunPass(Program::GetInstance(), *currFunctionPtr, "PM_TEST") == SUCCESS);
     EXPECT_TRUE(PassManager::Instance().RunPass(Program::GetInstance(), *currFunctionPtr, "PM_TEST2") == SUCCESS);
 }
 
-TEST_F(PassManagerTest, TestPassBase) {
+TEST_F(PassManagerTest, TestPassBase)
+{
     PassTestCast passTestCase;
     auto logFolder = passTestCase.LogFolder("output", 0);
     EXPECT_TRUE(logFolder.empty() == false);
-    auto currFunctionPtr1 = std::make_shared<Function>(Program::GetInstance(), "TestPassManager1", "TestPassManager1", nullptr);
+    auto currFunctionPtr1 =
+        std::make_shared<Function>(Program::GetInstance(), "TestPassManager1", "TestPassManager1", nullptr);
     PassConfigs configs;
     configs.printGraph = true;
     passTestCase.SetPassConfigs(configs);
@@ -121,11 +132,12 @@ TEST_F(PassManagerTest, TestPassBase) {
     EXPECT_TRUE(res == FAILED);
 }
 
-TEST_F(PassManagerTest, TestPassStrategy) {
-    PassManager::Instance().RegisterStrategy("StrategyTest", {
-                        {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE },
-                        {      "InferMemoryConflict",      PassName::INFER_MEMORY_CONFLICT },
-                        {           "ExpandFunction",           PassName::EXPAND_FUNCTION }});
+TEST_F(PassManagerTest, TestPassStrategy)
+{
+    PassManager::Instance().RegisterStrategy(
+        "StrategyTest", {{"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                         {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT},
+                         {"ExpandFunction", PassName::EXPAND_FUNCTION}});
     // user define
     auto strategyPasses = PassManager::Instance().GetStrategyPasses("StrategyTest");
     EXPECT_TRUE(!strategyPasses.empty());
@@ -137,17 +149,19 @@ TEST_F(PassManagerTest, TestPassStrategy) {
     EXPECT_TRUE(strategyPasses1.empty());
 }
 
-TEST_F(PassManagerTest, TestPassReg) {
-    PassManager::Instance().RegisterStrategy("TestPassReg", {
-                        {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE },
-                        {   "RemoveRedundantReshape",           PassName::REMOVE_REDUNDANT_RESHAPE }});
+TEST_F(PassManagerTest, TestPassReg)
+{
+    PassManager::Instance().RegisterStrategy(
+        "TestPassReg", {{"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                        {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE}});
     // user define
     auto strategyPasses = PassManager::Instance().GetStrategyPasses("TestPassReg");
     EXPECT_TRUE(strategyPasses.size() == 1);
 }
 
-void GetGraph(ComputationalGraphBuilder &G) {
-    std::vector<int64_t> tileShape{16,16};
+void GetGraph(ComputationalGraphBuilder& G)
+{
+    std::vector<int64_t> tileShape{16, 16};
     std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5"};
     std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_MULS, Opcode::OP_ADDS, Opcode::OP_COPY_OUT};
     std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}, {"t3"}, {"t4"}};
@@ -159,18 +173,23 @@ void GetGraph(ComputationalGraphBuilder &G) {
     EXPECT_EQ(G.SetOutCast({"t5"}), true);
 }
 
-TEST_F(PassManagerTest, TestPassDFX) {
-    PassManager::Instance().RegisterStrategy("TestPassDFX", {
-                        {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE }});
+TEST_F(PassManagerTest, TestPassDFX)
+{
+    PassManager::Instance().RegisterStrategy(
+        "TestPassDFX", {{"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE}});
     ComputationalGraphBuilder G;
     GetGraph(G);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     auto rootPath = config::LogTopFolder();
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
-    auto afterJsonPath = rootPath + "/Pass_00_RemoveRedundantReshape/After_000_RemoveRedundantReshape_PROGRAM_ENTRY.json";
-    auto beforeJsonPath = rootPath + "/Pass_00_RemoveRedundantReshape/Before_000_RemoveRedundantReshape_PROGRAM_ENTRY.json";
-    auto beforeIRPath = rootPath + "/Pass_00_RemoveRedundantReshape/Before_000_RemoveRedundantReshape_PROGRAM_ENTRY.tifwkgr";
-    auto afterIRPath = rootPath + "/Pass_00_RemoveRedundantReshape/After_000_RemoveRedundantReshape_PROGRAM_ENTRY.tifwkgr";
+    auto afterJsonPath =
+        rootPath + "/Pass_00_RemoveRedundantReshape/After_000_RemoveRedundantReshape_PROGRAM_ENTRY.json";
+    auto beforeJsonPath =
+        rootPath + "/Pass_00_RemoveRedundantReshape/Before_000_RemoveRedundantReshape_PROGRAM_ENTRY.json";
+    auto beforeIRPath =
+        rootPath + "/Pass_00_RemoveRedundantReshape/Before_000_RemoveRedundantReshape_PROGRAM_ENTRY.tifwkgr";
+    auto afterIRPath =
+        rootPath + "/Pass_00_RemoveRedundantReshape/After_000_RemoveRedundantReshape_PROGRAM_ENTRY.tifwkgr";
     EXPECT_FALSE(IsPathExist(afterJsonPath));
     EXPECT_FALSE(IsPathExist(beforeJsonPath));
     EXPECT_FALSE(IsPathExist(beforeJsonPath));
@@ -187,22 +206,23 @@ TEST_F(PassManagerTest, TestPassDFX) {
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
 }
 
-TEST_F(PassManagerTest, TestPassStrategyRepeatRegister) {
+TEST_F(PassManagerTest, TestPassStrategyRepeatRegister)
+{
     const std::string testStrategy = "RepeatRegStrategy";
-    PassManager::Instance().RegisterStrategy(testStrategy, {
-                        {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE },
-                        {      "InferMemoryConflict",      PassName::INFER_MEMORY_CONFLICT }});
+    PassManager::Instance().RegisterStrategy(
+        testStrategy, {{"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
+                       {"InferMemoryConflict", PassName::INFER_MEMORY_CONFLICT}});
     auto firstPasses = PassManager::Instance().GetStrategyPasses(testStrategy);
     EXPECT_TRUE(firstPasses.size() == 2);
     EXPECT_TRUE(firstPasses[0].identifier == "RemoveRedundantReshape");
     EXPECT_TRUE(firstPasses[1].identifier == "InferMemoryConflict");
 
-    PassManager::Instance().RegisterStrategy(testStrategy, {
-                        {           "ExpandFunction",           PassName::EXPAND_FUNCTION },
-                        {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE }});
+    PassManager::Instance().RegisterStrategy(
+        testStrategy, {{"ExpandFunction", PassName::EXPAND_FUNCTION},
+                       {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE}});
     auto updatedPasses = PassManager::Instance().GetStrategyPasses(testStrategy);
     EXPECT_TRUE(updatedPasses.size() == 2);
     EXPECT_TRUE(updatedPasses[0].identifier == "ExpandFunction");
     EXPECT_TRUE(updatedPasses[1].identifier == "RemoveRedundantReshape");
 }
-}
+} // namespace npu::tile_fwk

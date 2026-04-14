@@ -20,8 +20,10 @@
 
 namespace npu::tile_fwk {
 
-void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
-    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
+void TiledExpandExpDifOperation(
+    Function& function, const TileShape& tileShape, size_t cur, LogicalInput& input1, LogicalInput& input2,
+    const LogicalTensorPtr& result, TileInfo& resultTileInfo)
+{
     if (cur == input1.tensor->GetShape().size()) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
@@ -29,7 +31,7 @@ void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, 
         auto opName = GetBinaryOpNameCode<BinaryOpType::EXPANDEXPDIF>();
         function.AddOperation(opName, {inputTile1, inputTile2}, {resultTile});
     } else {
-        auto &vecTile = tileShape.GetVecTile();
+        auto& vecTile = tileShape.GetVecTile();
         for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
             resultTileInfo.offset[cur] = i;
             resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
@@ -44,8 +46,10 @@ void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, 
     }
 }
 
-void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
-    LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
+void TiledExpandExpDifOperation(
+    Function& function, const TileShape& tileShape, LogicalTensorPtr operand1, LogicalTensorPtr operand2,
+    const LogicalTensorPtr& result)
+{
     CheckBinOpOperandsValid(operand1, operand2);
 
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
@@ -56,16 +60,18 @@ void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, 
     TiledExpandExpDifOperation(function, tileShape, 0, input1, input2, result, resultTileInfo);
 }
 
-Tensor ExpandExpDif(const Tensor &input, const Tensor &other) {
+Tensor ExpandExpDif(const Tensor& input, const Tensor& other)
+{
     DECLARE_TRACER();
     config::SetOperationOption(KEY_COMBINE_AXIS, true);
     RETURN_CALL(
         BinaryOperation<BinaryOpType::EXPANDEXPDIF>, *Program::GetInstance().GetCurrentFunction(), input, other);
 }
 
-void ExpandExpDifOperationTileFunc(Function &function, const TileShape &tileShape,
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
-    [[maybe_unused]] const Operation &op) {
+void ExpandExpDifOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
+{
     BinaryOperationOperandCheck(iOperand, oOperand);
     TiledExpandExpDifOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
 }

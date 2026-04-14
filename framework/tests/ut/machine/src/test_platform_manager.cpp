@@ -30,17 +30,11 @@ using namespace npu::tile_fwk;
 namespace {
 const std::string PM_TEST_TMP_DIR = "/tmp/test_platform_manager_log";
 
-std::string PlatformConfigDir()
-{
-    return PM_TEST_TMP_DIR + "/data/platform_config";
-}
+std::string PlatformConfigDir() { return PM_TEST_TMP_DIR + "/data/platform_config"; }
 
-std::string PlatformIniPath(const std::string &socVersion)
-{
-    return PlatformConfigDir() + "/" + socVersion + ".ini";
-}
+std::string PlatformIniPath(const std::string& socVersion) { return PlatformConfigDir() + "/" + socVersion + ".ini"; }
 
-void WriteMinimalPlatformIni(const std::string &path)
+void WriteMinimalPlatformIni(const std::string& path)
 {
     std::ofstream ofs(path, std::ios::out | std::ios::trunc);
     ASSERT_TRUE(ofs.is_open());
@@ -56,22 +50,23 @@ void WriteMinimalPlatformIni(const std::string &path)
 
 class TestPlatformManagerLog : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(PM_TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(PM_TEST_TMP_DIR); }
 
-    static void TearDownTestCase() {
+    static void TearDownTestCase()
+    {
         std::string cmd = "rm -rf " + PM_TEST_TMP_DIR;
         [[maybe_unused]] int ret = system(cmd.c_str());
     }
 
-    void SetUp() override {
-        const char *env = std::getenv("ASCEND_HOME_PATH");
+    void SetUp() override
+    {
+        const char* env = std::getenv("ASCEND_HOME_PATH");
         origAscendHomePath_ = env ? std::string(env) : "";
         hasAscendHomePath_ = (env != nullptr);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         if (hasAscendHomePath_) {
             setenv("ASCEND_HOME_PATH", origAscendHomePath_.c_str(), 1);
         } else {
@@ -84,13 +79,15 @@ private:
     bool hasAscendHomePath_ = false;
 };
 
-TEST_F(TestPlatformManagerLog, Initialize_EmptySocVersion) {
+TEST_F(TestPlatformManagerLog, Initialize_EmptySocVersion)
+{
     PlatformManager pm;
     bool result = pm.Initialize("");
     EXPECT_FALSE(result);
 }
 
-TEST_F(TestPlatformManagerLog, Initialize_NoAscendHomePath) {
+TEST_F(TestPlatformManagerLog, Initialize_NoAscendHomePath)
+{
     unsetenv("ASCEND_HOME_PATH");
 
     PlatformManager pm;
@@ -98,7 +95,8 @@ TEST_F(TestPlatformManagerLog, Initialize_NoAscendHomePath) {
     EXPECT_FALSE(result);
 }
 
-TEST_F(TestPlatformManagerLog, Initialize_MissingPlatformFile_LogsAndReturnsFalse) {
+TEST_F(TestPlatformManagerLog, Initialize_MissingPlatformFile_LogsAndReturnsFalse)
+{
     ASSERT_TRUE(CreateMultiLevelDir(PlatformConfigDir()));
     setenv("ASCEND_HOME_PATH", PM_TEST_TMP_DIR.c_str(), 1);
 
@@ -106,7 +104,8 @@ TEST_F(TestPlatformManagerLog, Initialize_MissingPlatformFile_LogsAndReturnsFals
     EXPECT_FALSE(pm.Initialize("NonexistentSocName_xyz"));
 }
 
-TEST_F(TestPlatformManagerLog, Initialize_UnreadablePlatformFile_LogsAndReturnsFalse) {
+TEST_F(TestPlatformManagerLog, Initialize_UnreadablePlatformFile_LogsAndReturnsFalse)
+{
     ASSERT_TRUE(CreateMultiLevelDir(PlatformConfigDir()));
     const std::string iniPath = PlatformIniPath("UtUnreadableSoc");
     WriteMinimalPlatformIni(iniPath);

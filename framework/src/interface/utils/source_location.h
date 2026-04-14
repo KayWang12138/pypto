@@ -28,8 +28,10 @@ namespace npu::tile_fwk {
 class SourceLocation {
 public:
     SourceLocation() = default;
-    SourceLocation(const std::string &fname, int lineno) : fname_(fname), lineno_(lineno) {}
-    SourceLocation(const std::string &fname, int lineno, const std::string &backtrace) : fname_(fname), lineno_(lineno), backtrace_(backtrace){}
+    SourceLocation(const std::string& fname, int lineno) : fname_(fname), lineno_(lineno) {}
+    SourceLocation(const std::string& fname, int lineno, const std::string& backtrace)
+        : fname_(fname), lineno_(lineno), backtrace_(backtrace)
+    {}
     explicit SourceLocation(uint64_t pc) : fname_("??"), lineno_(-1), pc_(pc){};
 
     int GetLineno() const;
@@ -38,13 +40,20 @@ public:
     std::string ToString() const { return GetFileName() + ":" + std::to_string(GetLineno()); }
 
 public:
-    static void SetLocation(const void *pc) { callStack.push(GetLocation(reinterpret_cast<uint64_t>(pc))); }
+    static void SetLocation(const void* pc) { callStack.push(GetLocation(reinterpret_cast<uint64_t>(pc))); }
     static void SetLocation(std::shared_ptr<SourceLocation> loc) { callStack.push(loc); }
-    static void SetLocation(const std::string &fname, int lineno) { callStack.push(std::make_shared<SourceLocation>(fname, lineno)); }
-    static void SetLocation(const std::string &fname, int lineno, const std::string &backtrace) { callStack.push(std::make_shared<SourceLocation>(fname, lineno, backtrace)); }
+    static void SetLocation(const std::string& fname, int lineno)
+    {
+        callStack.push(std::make_shared<SourceLocation>(fname, lineno));
+    }
+    static void SetLocation(const std::string& fname, int lineno, const std::string& backtrace)
+    {
+        callStack.push(std::make_shared<SourceLocation>(fname, lineno, backtrace));
+    }
     static void ClearLocation() { callStack.pop(); }
     static auto GetLocation() { return callStack.size() > 0 ? callStack.top() : nullptr; }
-    static std::string GetLocationString() {
+    static std::string GetLocationString()
+    {
         auto loc = GetLocation();
         if (loc) {
             return loc->ToString();
@@ -56,7 +65,8 @@ public:
     static bool IsCppMode() { return isCppMode_; }
 
 private:
-    static std::shared_ptr<SourceLocation> GetLocation(uint64_t pc) {
+    static std::shared_ptr<SourceLocation> GetLocation(uint64_t pc)
+    {
         std::lock_guard<std::mutex> lock(mutex);
         if (locMap.find(pc) != locMap.end()) {
             return locMap[pc];
@@ -85,12 +95,14 @@ using SourceLocationPtr = std::shared_ptr<SourceLocation>;
 
 struct SourceLocationHelper {
     // lr is return address, we need find caller address, minus 4 here
-    SourceLocationHelper(const void *lr) {
+    SourceLocationHelper(const void* lr)
+    {
         if (SourceLocation::IsCppMode()) {
-            SourceLocation::SetLocation(static_cast<const uint8_t *>(lr) - 4);
+            SourceLocation::SetLocation(static_cast<const uint8_t*>(lr) - 4);
         }
     }
-    ~SourceLocationHelper() {
+    ~SourceLocationHelper()
+    {
         if (SourceLocation::IsCppMode()) {
             SourceLocation::ClearLocation();
         }

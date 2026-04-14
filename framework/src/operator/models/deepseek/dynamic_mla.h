@@ -56,14 +56,15 @@ struct SimpleParams {
     std::vector<int> cubeKTile;
     std::vector<int> cubeNTile;
     int tileB;
-    static SimpleParams getCommonParams() {
+    static SimpleParams getCommonParams()
+    {
         SimpleParams params;
         params.n2 = 1;
         params.s = 1;
-        params.h = 7168; // 7168
-        params.q_lora_rank = 1536; // 1536
-        params.kv_lora_rank = 512; // 512
-        params.qk_rope_head_dim = 64; // 64
+        params.h = 7168;               // 7168
+        params.q_lora_rank = 1536;     // 1536
+        params.kv_lora_rank = 512;     // 512
+        params.qk_rope_head_dim = 64;  // 64
         params.qk_nope_head_dim = 128; // 128
         params.q_head_dim = params.qk_rope_head_dim + params.qk_nope_head_dim;
         params.cacheMode = "BNSD";
@@ -71,52 +72,59 @@ struct SimpleParams {
         return params;
     }
 
-    static SimpleParams getLowParams() {
+    static SimpleParams getLowParams()
+    {
         SimpleParams params = getCommonParams();
-        params.b = 4; // 4
-        params.n = 32; // 32
+        params.b = 4;    // 4
+        params.n = 32;   // 32
         params.s2 = 256; // 256
         return params;
     }
 
-    static SimpleParams getHighParams() {
+    static SimpleParams getHighParams()
+    {
         SimpleParams params = getCommonParams();
-        params.b = 32; // 32
-        params.n = 128; // 128
+        params.b = 32;    // 32
+        params.n = 128;   // 128
         params.s2 = 4096; // 4096
         return params;
     }
 };
 
-std::vector<Tensor> mlaPre(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,
-    const Tensor &gammaCq, float epsilonCq, const MlaQuantInputs &quantInputs, bool splitK = false, bool isSmooth = true);
+std::vector<Tensor> mlaPre(
+    const Tensor& tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wDkvKr, const Tensor& gammaCq,
+    float epsilonCq, const MlaQuantInputs& quantInputs, bool splitK = false, bool isSmooth = true);
 
-void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk, const Tensor &wDkvKr,
-    const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos, const Tensor &cacheIndex,
-    Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs, const RoPETileShapeConfigNew &ropeConfig,
-    Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut, float epsilonCq = 1e-5f,
+void MlaProlog(
+    const Tensor& tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wUk, const Tensor& wDkvKr,
+    const Tensor& gammaCq, const Tensor& gammaCkv, const Tensor& sin, const Tensor& cos, const Tensor& cacheIndex,
+    Tensor& kvCache, Tensor& krCache, const MlaQuantInputs& quantInputs, const RoPETileShapeConfigNew& ropeConfig,
+    Tensor& queryOut, Tensor& queryRopeOut, Tensor& kvCacheOut, Tensor& krCacheOut, float epsilonCq = 1e-5f,
     float epsilonCkv = 1e-5f, std::string cacheMode = "BNSD", bool splitK = false, bool isSmooth = true);
 
 // tile config
 struct MlaTileConfig {
-    int tileB = 8;  // tileB is 8
+    int tileB = 8; // tileB is 8
     int tileS = 1;
 };
 
-std::vector<Tensor> PreCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wDkvKr,
-    const Tensor &gammaCq, float epsilonCq, const MlaQuantInputs &quantInputs);
+std::vector<Tensor> PreCompute(
+    const Tensor& tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wDkvKr, const Tensor& gammaCq,
+    float epsilonCq, const MlaQuantInputs& quantInputs);
 
-void MlaPrologCompute(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
-    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
-    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
-    const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
-    float epsilonCq, float epsilonCkv, std::string cacheMode);
+void MlaPrologCompute(
+    const Tensor& tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wUk, const Tensor& wDkvKr,
+    const Tensor& gammaCq, const Tensor& gammaCkv, const Tensor& sin, const Tensor& cos, const Tensor& cacheIndex,
+    Tensor& kvCache, Tensor& krCache, const MlaQuantInputs& quantInputs, const MlaTileConfig& tileConfig,
+    Tensor& queryOut, Tensor& queryRopeOut, Tensor& kvCacheOut, Tensor& krCacheOut, float epsilonCq, float epsilonCkv,
+    std::string cacheMode);
 
-void MlaProlog(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, const Tensor &wUk,
-    const Tensor &wDkvKr, const Tensor &gammaCq, const Tensor &gammaCkv, const Tensor &sin, const Tensor &cos,
-    const Tensor &cacheIndex, Tensor &kvCache, Tensor &krCache, const MlaQuantInputs &quantInputs,
-    const MlaTileConfig &tileConfig, Tensor &queryOut, Tensor &queryRopeOut, Tensor &kvCacheOut, Tensor &krCacheOut,
-    float epsilonCq = 1e-5f, float epsilonCkv = 1e-5f, std::string cacheMode = "PA_NZ");
+void MlaProlog(
+    const Tensor& tokenX, const Tensor& wDq, const Tensor& wUqQr, const Tensor& wUk, const Tensor& wDkvKr,
+    const Tensor& gammaCq, const Tensor& gammaCkv, const Tensor& sin, const Tensor& cos, const Tensor& cacheIndex,
+    Tensor& kvCache, Tensor& krCache, const MlaQuantInputs& quantInputs, const MlaTileConfig& tileConfig,
+    Tensor& queryOut, Tensor& queryRopeOut, Tensor& kvCacheOut, Tensor& krCacheOut, float epsilonCq = 1e-5f,
+    float epsilonCkv = 1e-5f, std::string cacheMode = "PA_NZ");
 
 } // namespace npu::tile_fwk
 

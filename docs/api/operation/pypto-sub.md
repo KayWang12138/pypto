@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -12,13 +13,13 @@
 逐元素从input中减去other值。计算公式如下：
 
 $$
-res_i = input_i - other_i
+res_i = input_i - alpha \cdot other_i
 $$
 
 ## 函数原型
 
 ```python
-sub(input: Tensor, other: Union[Tensor, float]) -> Tensor
+sub(input: Tensor, other: Union[Tensor, float], *, alpha: Union[int, float] = 1) -> Tensor
 ```
 
 ## 参数说明
@@ -26,9 +27,9 @@ sub(input: Tensor, other: Union[Tensor, float]) -> Tensor
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other   | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维，并支持按照单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
-
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other   | 输入      | 源操作数。 <br> 支持的类型为float以及Tensor类型。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_INT16，DT_INT32，DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；当数据类型为DT_FP32或DT_FP16时，支持多维度广播到相同形状，其他类型支持单个维度广播到相同形状；Shape Size不大于2147483647（即INT32_MAX）。 |
+| alpha   | 输入      | 缩放因子，用于对 other 进行缩放。 <br> 支持的类型为：int、float，默认值为1。 <br> 关键字参数，必须通过关键字传递。 |
 ## 返回值说明
 
 返回输出Tensor，Tensor的数据类型和input、other相同，Shape为input和other广播后大小。
@@ -72,13 +73,12 @@ c = pypto.sub(x, 2.0, alpha=3)
 结果示例如下：
 
 ```python
-输入数据x: : [[9.0 9.0 9.0], 
-              [9.0 9.0 9.0]] 
-输入数据y:   [[1.0 2.0 3.0], 
-              [1.0 2.0 3.0]] 
-输出数据z:   [[8.0 7.0 6.0], 
+输入数据x: : [[9.0 9.0 9.0],
+              [9.0 9.0 9.0]]
+输入数据y:   [[1.0 2.0 3.0],
+              [1.0 2.0 3.0]]
+输出数据z:   [[8.0 7.0 6.0],
               [8.0 7.0 6.0]]
-输出数据c:   [[3.0 3.0 3.0], 
+输出数据c:   [[3.0 3.0 3.0],
               [3.0 3.0 3.0]]
 ```
-

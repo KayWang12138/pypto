@@ -41,29 +41,32 @@ struct CompileTaskInfo {
 
 class CompileInfo {
 public:
-    CompileInfo(Function &topFunc, const CodeGenCtx &ctx, const std::pair<uint64_t, Function *> &subFuncPair,
-        bool isCube, bool isUnderDyn)
+    CompileInfo(
+        Function& topFunc, const CodeGenCtx& ctx, const std::pair<uint64_t, Function*>& subFuncPair, bool isCube,
+        bool isUnderDyn)
         : userSpecCCEDir_(ctx.cceDir),
           isCube_(isCube),
           isUnderDyn_(isUnderDyn),
           attr_(subFuncPair.second->GetLeafFuncAttribute()),
-          isMainBlock_(ctx.isMainBlock) {
+          isMainBlock_(ctx.isMainBlock)
+    {
         Init(topFunc, subFuncPair.first);
     };
     std::string GetCCEAbsPath() const { return cceAbsPath_; }
-    void SetCCEAbsPath(const std::string &cceAbsPath) { cceAbsPath_ = cceAbsPath; }
+    void SetCCEAbsPath(const std::string& cceAbsPath) { cceAbsPath_ = cceAbsPath; }
 
     std::string GetBinAbsPath() const { return binAbsPath_; }
-    void SetBinAbsPath(const std::string &binAbsPath) { binAbsPath_ = binAbsPath; }
-    void SetKernelName(const std::string &kernelName) { kernelName_ = kernelName; }
+    void SetBinAbsPath(const std::string& binAbsPath) { binAbsPath_ = binAbsPath; }
+    void SetKernelName(const std::string& kernelName) { kernelName_ = kernelName; }
     std::string GetKernelName() const { return kernelName_; }
-    void SetFuncDeclare(const std::string &funcDeclare) { funcDeclare_ = funcDeclare; }
+    void SetFuncDeclare(const std::string& funcDeclare) { funcDeclare_ = funcDeclare; }
     std::string GetFuncDeclare() const { return funcDeclare_; }
     bool IsCube() const { return isCube_; }
     bool isUnderDyn() const { return isUnderDyn_; }
 
 private:
-    void Init(Function &topFunc, uint64_t subProgramId) {
+    void Init(Function& topFunc, uint64_t subProgramId)
+    {
         std::string coreType = isCube_ ? "aic" : "aiv";
         std::ostringstream ss;
         std::ostringstream tailStr;
@@ -95,7 +98,8 @@ private:
         ss << userSpecCCEDir_ << "/" << cceFileName_ << ".o";
         binAbsPath_ = ss.str();
     }
-    std::string GetSuffix() const {
+    std::string GetSuffix() const
+    {
         std::string suffix = ".cpp";
         return suffix;
     }
@@ -114,58 +118,61 @@ private:
 
 class CodeGenCloudNPU : public CodeGenCCE {
 public:
-    explicit CodeGenCloudNPU(const CodeGenCtx &cgCtx) : CodeGenCCE(cgCtx) {
+    explicit CodeGenCloudNPU(const CodeGenCtx& cgCtx) : CodeGenCCE(cgCtx)
+    {
         platform_ = Platform::Instance().GetSoc().GetNPUArch();
     };
     ~CodeGenCloudNPU() override = default;
 
-    void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
-    std::string PrepareCmd(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    void GenCode(Function& topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset) override;
+    std::string PrepareCmd(const CompileInfo& compileInfo, const std::string& compileOptions) const;
     // only used to compile code directly when running under simulation mode.
-    void CompileCode(const std::string &compileCmd) const;
+    void CompileCode(const std::string& compileCmd) const;
     std::optional<std::string> GenExtraAlloc(
-        const std::shared_ptr<SymbolManager> &sm, const std::shared_ptr<LogicalTensor> &tensor) const;
-    std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &sm) const;
-    std::string GetCoreArch(const CompileInfo &compileInfo) const;
-    static void AppendVFOptions(NPUArch platform, std::ostringstream &oss);
+        const std::shared_ptr<SymbolManager>& sm, const std::shared_ptr<LogicalTensor>& tensor) const;
+    std::string GenAllocForLocalBuffer(const Operation& op, const std::shared_ptr<SymbolManager>& sm) const;
+    std::string GetCoreArch(const CompileInfo& compileInfo) const;
+    static void AppendVFOptions(NPUArch platform, std::ostringstream& oss);
 
 private:
-    void GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
-        CompileInfo &compileInfo, std::ostringstream &oss) const;
-    void GenInclude(const Function &topFunc, std::ostringstream &oss) const;
-    void GenCommentBeforeFuncHeader(Function &subFunc, std::ostringstream &oss) const;
-    std::string GenFuncHeader(uint64_t programId, Function &topFunc, CompileInfo &compileInfo) const;
-    void GenFuncBody(Function &subFunc, Function &topFunc, std::ostringstream &oss) const;
-    void GenFuncEnd(std::ostringstream &oss) const;
-    static std::string GenKernelName(Function &topFunc, uint64_t programId);
+    void GenFuncBodyBefore(
+        const std::pair<uint64_t, Function*>& subFuncPair, Function& topFunc, CompileInfo& compileInfo,
+        std::ostringstream& oss) const;
+    void GenInclude(const Function& topFunc, std::ostringstream& oss) const;
+    void GenCommentBeforeFuncHeader(Function& subFunc, std::ostringstream& oss) const;
+    std::string GenFuncHeader(uint64_t programId, Function& topFunc, CompileInfo& compileInfo) const;
+    void GenFuncBody(Function& subFunc, Function& topFunc, std::ostringstream& oss) const;
+    void GenFuncEnd(std::ostringstream& oss) const;
+    static std::string GenKernelName(Function& topFunc, uint64_t programId);
 
     void GenCodeToBinaryTask(
-        std::ostringstream &code, const CompileInfo &compileInfo, const std::string &compileOptions) const;
-    bool IsNeedDumpCode(const std::string &inputFile) const;
-    void DumpCode(const std::string &name, std::ostringstream &code) const;
-    int DoCompileCmd(const std::string &compileCmd) const;
+        std::ostringstream& code, const CompileInfo& compileInfo, const std::string& compileOptions) const;
+    bool IsNeedDumpCode(const std::string& inputFile) const;
+    void DumpCode(const std::string& name, std::ostringstream& code) const;
+    int DoCompileCmd(const std::string& compileCmd) const;
 
-    void BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const;
-    void BuildIncludes(std::ostringstream &oss) const;
-    void BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const;
+    void BuildArchOptions(std::ostringstream& oss, const CompileInfo& compileInfo) const;
+    void BuildIncludes(std::ostringstream& oss) const;
+    void BuildExtraOptions(std::ostringstream& oss, const std::string& compileOptions) const;
 
-    std::string GenAlloc(const std::shared_ptr<SymbolManager> &manager, BufferType bufferType, DataType dataType,
-        const TileRange &range) const;
+    std::string GenAlloc(
+        const std::shared_ptr<SymbolManager>& manager, BufferType bufferType, DataType dataType,
+        const TileRange& range) const;
 
-    std::string GetParamType(const Function &func, bool isUnderDynFunc) const;
+    std::string GetParamType(const Function& func, bool isUnderDynFunc) const;
 
-    std::string GenDynParamForExpr(const Function &func) const;
+    std::string GenDynParamForExpr(const Function& func) const;
 
-    bool HandleForAICpuSubFunc(Function &subFunc);
+    bool HandleForAICpuSubFunc(Function& subFunc);
 
-    void UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const;
+    void UpdateSubFunc(std::pair<uint64_t, Function*> subFuncPair, const CompileInfo& compileInfo) const;
 
     std::string GetIncludePathForCompileCCE() const;
     std::string GetPtoTileLibPathByEnv() const;
 
-    void CollectCompileTask(const CompileTaskInfo &task) const;
-    void GenerateMakefile(const std::string &makefilePath) const;
-    void ExecuteParallelCompile(const Function &topFunc);
+    void CollectCompileTask(const CompileTaskInfo& task) const;
+    void GenerateMakefile(const std::string& makefilePath) const;
+    void ExecuteParallelCompile(const Function& topFunc);
     std::string GetOutputDir() const;
 
     mutable std::mutex compileTasksMutex_;
@@ -176,8 +183,8 @@ private:
 
 class FloatSpecValMgr {
 public:
-    void UpdateByOp(const Operation &op);
-    void PrintFloatSpecVal(std::ostringstream &oss);
+    void UpdateByOp(const Operation& op);
+    void PrintFloatSpecVal(std::ostringstream& oss);
 
 private:
     std::set<FloatSpecVal> floatSpecVals_;

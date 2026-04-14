@@ -20,7 +20,8 @@
 
 namespace npu {
 namespace tile_fwk {
-Status MergeViewAssembleChecker::DoPreCheck(Function &function) {
+Status MergeViewAssembleChecker::DoPreCheck(Function& function)
+{
     APASS_LOG_INFO_F(Elements::Function, "PreCheck for MergeViewAssemble.");
     return CheckCompleteness(function);
 }

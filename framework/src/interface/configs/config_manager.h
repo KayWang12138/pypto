@@ -28,7 +28,6 @@
 #include "interface/utils/common.h"
 #include "interface/utils/function_error.h"
 
-
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;
 
@@ -85,13 +84,11 @@ const std::string KEY_PASS_THREAD_NUM = "pass_thread_num";
 const std::string KEY_VF_OPT_MARK_FOR = "vf_opt_mark_for";
 const std::string KEY_ENABLE_VF = "enable_vf";
 
-
 /* CodeGen KEYs */
 const std::string KEY_PARALLEL_COMPILE = "parallel_compile";
 const std::string KEY_FIXED_OUTPUT_PATH = "fixed_output_path"; // if true, dump cce to output directory
-const std::string KEY_FORCE_OVERWRITE = "force_overwrite"; // if true, don't dump cce when file exists
-const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor";       // if true, gen code with layout mode
-
+const std::string KEY_FORCE_OVERWRITE = "force_overwrite";     // if true, don't dump cce when file exists
+const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor"; // if true, gen code with layout mode
 
 enum class DPlatform {
     ASCEND_910B1,
@@ -102,12 +99,11 @@ enum class DPlatform {
     UNKNOWN_DEVICE,
 };
 
-inline DPlatform StringToDpaltform(std::string platform) {
+inline DPlatform StringToDpaltform(std::string platform)
+{
     std::unordered_map<std::string, DPlatform> mappings = {
-        {"ASCEND_910B1", DPlatform::ASCEND_910B1},
-        {"ASCEND_910B2", DPlatform::ASCEND_910B2},
-        {"ASCEND_910B3", DPlatform::ASCEND_910B3},
-        {"ASCEND_910B4", DPlatform::ASCEND_910B4},
+        {"ASCEND_910B1", DPlatform::ASCEND_910B1},           {"ASCEND_910B2", DPlatform::ASCEND_910B2},
+        {"ASCEND_910B3", DPlatform::ASCEND_910B3},           {"ASCEND_910B4", DPlatform::ASCEND_910B4},
         {"ASCEND_950PR_9579", DPlatform::ASCEND_950PR_9579},
     };
 
@@ -147,107 +143,118 @@ struct InternalGlobalConfig {
 
 class ConfigManager {
 public:
-    static ConfigManager &Instance();
-    ConfigManager(const ConfigManager &) = delete;
-    ConfigManager &operator=(const ConfigManager &) = delete;
+    static ConfigManager& Instance();
+    ConfigManager(const ConfigManager&) = delete;
+    ConfigManager& operator=(const ConfigManager&) = delete;
 
     Status Initialize();
 
-    const GlobalPassConfigs &GetGlobalConfigs() const { return globalPassConfigs_; }
-    PassConfigs GetPassConfigs(const std::string &strategy, const std::string &identifier) const;
-    void PassConfigsDebugInfo(const std::string &strategy, const std::vector<std::string> &identifiers) const;
+    const GlobalPassConfigs& GetGlobalConfigs() const { return globalPassConfigs_; }
+    PassConfigs GetPassConfigs(const std::string& strategy, const std::string& identifier) const;
+    void PassConfigsDebugInfo(const std::string& strategy, const std::vector<std::string>& identifiers) const;
 
-    const InternalGlobalConfig &GetInternalConfig() const { return globalConfigs_; }
-    void SetInternalConfig(const InternalGlobalConfig &globalConfig) { globalConfigs_ = globalConfig; }
+    const InternalGlobalConfig& GetInternalConfig() const { return globalConfigs_; }
+    void SetInternalConfig(const InternalGlobalConfig& globalConfig) { globalConfigs_ = globalConfig; }
 
     template <typename T>
-    auto GetPlatformConfig(const std::string &key, const T &defaultValue) {
+    auto GetPlatformConfig(const std::string& key, const T& defaultValue)
+    {
         return GetConfig(json_, {"global", "platform", key}, defaultValue);
     }
 
     template <typename T>
-    auto GetHostConfig(const std::string &key, const T &defaultValue) {
+    auto GetHostConfig(const std::string& key, const T& defaultValue)
+    {
         return GetConfig(json_, {"global", "host", key}, defaultValue);
     }
 
-
     template <typename T>
-    auto GetSimConfig(const std::string &key, const T &defaultValue) {
+    auto GetSimConfig(const std::string& key, const T& defaultValue)
+    {
         return GetConfig(json_, {"global", "simulation", key}, defaultValue);
     }
 
     template <typename T>
-    auto GetCodeGenConfig(const std::string &key, const T &defaultValue) {
+    auto GetCodeGenConfig(const std::string& key, const T& defaultValue)
+    {
         return GetConfig(json_, {"global", "codegen", key}, defaultValue);
     }
 
     template <typename T>
     auto GetPassConfig(
-        const std::string &strategy, const std::string &identifier, const std::string &key, const T &defaultValue) {
+        const std::string& strategy, const std::string& identifier, const std::string& key, const T& defaultValue)
+    {
         return GetConfig(json_, {"global", "pass_strategies", strategy, identifier, key}, defaultValue);
     }
 
     template <typename T>
-    auto GetPassDefaultConfig(const std::string &key, const T &defaultValue) {
+    auto GetPassDefaultConfig(const std::string& key, const T& defaultValue)
+    {
         return GetConfig(json_, {"global", "pass", "default_pass_configs", key}, defaultValue);
     }
 
     template <typename T>
-    auto SetPassDefaultConfig(const std::string &key, const T &value) {
+    auto SetPassDefaultConfig(const std::string& key, const T& value)
+    {
         SetConfig(json_, {"global", "pass", "default_pass_configs", key}, value);
         RefreshGlobalPassCfg();
     }
 
     template <typename T>
-    auto GetPassGlobalConfig(const std::string &key, const T &defaultValue) {
+    auto GetPassGlobalConfig(const std::string& key, const T& defaultValue)
+    {
         return GetConfig(json_, {"global", "pass", key}, defaultValue);
     }
 
     template <typename T>
-    auto SetPassGlobalConfig(const std::string &key, const T &value) {
+    auto SetPassGlobalConfig(const std::string& key, const T& value)
+    {
         SetConfig(json_, {"global", "pass", key}, value);
         RefreshGlobalPassCfg();
     }
 
     template <typename T>
-    void SetPlatformConfig(const std::string &key, const T &value) {
+    void SetPlatformConfig(const std::string& key, const T& value)
+    {
         SetConfig(json_, {"global", "platform", key}, value);
     }
 
     template <typename T>
-    void SetHostConfig(const std::string &key, const T &value) {
+    void SetHostConfig(const std::string& key, const T& value)
+    {
         SetConfig(json_, {"global", "host", key}, value);
     }
 
     template <typename T>
-    void SetSimConfig(const std::string &key, const T &value) {
+    void SetSimConfig(const std::string& key, const T& value)
+    {
         SetConfig(json_, {"global", "simulation", key}, value);
     }
 
     template <typename T>
     void SetPassConfig(
-        const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
+        const std::string& strategy, const std::string& identifier, const std::string& key, const T& value)
+    {
         SetConfig(json_, {"global", "pass_strategies", strategy, identifier, key}, value);
     }
 
     template <typename T>
-    void SetCodeGenConfig(const std::string &key, const T &value) {
+    void SetCodeGenConfig(const std::string& key, const T& value)
+    {
         SetConfig(json_, {"global", "codegen", key}, value);
     }
 
-    const nlohmann::json* GetPrintOptions() {
-        return GetJsonNode(json_, {"global", "tensor_print"});
-    }
+    const nlohmann::json* GetPrintOptions() { return GetJsonNode(json_, {"global", "tensor_print"}); }
 
     void Reset() { json_ = originJson_; }
 
-    const nlohmann::json &GetJsonData() const { return json_; }
-    void SetJsonData(const nlohmann::json &json) { json_ = json; }
+    const nlohmann::json& GetJsonData() const { return json_; }
+    void SetJsonData(const nlohmann::json& json) { json_ = json; }
 
-    const std::string &LogTopFolder();
-    const std::string &LogTensorGraphFolder();
-    const std::string &LogFile();
-    void ResetLog(const std::string &path = "");
+    const std::string& LogTopFolder();
+    const std::string& LogTensorGraphFolder();
+    const std::string& LogFile();
+    void ResetLog(const std::string& path = "");
 
 private:
     GlobalPassConfigs globalPassConfigs_;
@@ -259,13 +266,14 @@ private:
 
     ~ConfigManager() = default;
 
-    static const nlohmann::json *GetJsonNode(const nlohmann::json &root, const std::vector<std::string> &keys);
+    static const nlohmann::json* GetJsonNode(const nlohmann::json& root, const std::vector<std::string>& keys);
     void RefreshGlobalPassCfg();
 
     template <typename T>
-    static void SetConfig(nlohmann::json &root, const std::vector<std::string> &keys, const T &value) {
-        auto *node = &root;
-        for (auto &&key : keys) {
+    static void SetConfig(nlohmann::json& root, const std::vector<std::string>& keys, const T& value)
+    {
+        auto* node = &root;
+        for (auto&& key : keys) {
             node = &(*node)[key];
         }
         *node = value;
@@ -273,15 +281,17 @@ private:
 
     template <typename T>
     static ConvertedConfigType<T> GetConfig(
-        const nlohmann::json &root, const std::vector<std::string> &keys, const T &defaultValue) {
-        if (auto *node = GetJsonNode(root, keys)) {
+        const nlohmann::json& root, const std::vector<std::string>& keys, const T& defaultValue)
+    {
+        if (auto* node = GetJsonNode(root, keys)) {
             return node->get<ConvertedConfigType<T>>();
         }
         return defaultValue;
     }
 
     template <typename T>
-    static auto GetChildConfig(const nlohmann::json &root, const std::string &key, const T &defaultValue) {
+    static auto GetChildConfig(const nlohmann::json& root, const std::string& key, const T& defaultValue)
+    {
         return GetConfig(root, {key}, defaultValue);
     }
 };
@@ -289,13 +299,13 @@ private:
 // config.h
 
 /* Rundata KEYS */
-constexpr const char *KEY_RUNTYPE = "runtype";
-constexpr const char *KEY_PTO_CONFIG_FILE = "pto_config_file";
-constexpr const char *KEY_COMPUTE_GRAPH_PATH = "compute_graph_path";
-constexpr const char *KEY_AICPU_PERF_GRAPH_PATH = "aicpu_perf_path";
-constexpr const char *KEY_SWIM_GRAPH_PATH = "swim_graph_path";
-constexpr const char *KEY_FLOW_VERIFY_PATH = "flow_verify_path";
-constexpr const char *KEY_PROGRAM_PATH = "program_file";
+constexpr const char* KEY_RUNTYPE = "runtype";
+constexpr const char* KEY_PTO_CONFIG_FILE = "pto_config_file";
+constexpr const char* KEY_COMPUTE_GRAPH_PATH = "compute_graph_path";
+constexpr const char* KEY_AICPU_PERF_GRAPH_PATH = "aicpu_perf_path";
+constexpr const char* KEY_SWIM_GRAPH_PATH = "swim_graph_path";
+constexpr const char* KEY_FLOW_VERIFY_PATH = "flow_verify_path";
+constexpr const char* KEY_PROGRAM_PATH = "program_file";
 
 struct ConfigStorage;
 
@@ -311,116 +321,124 @@ struct SemanticLabel {
     std::string filename;
     int lineno;
 
-    SemanticLabel(const std::string &tlabel, const char *tfilename, int tlineno)
-        : label(tlabel), filename(tfilename), lineno(tlineno) {}
-    SemanticLabel(const std::string &tlabel, const std::string &tfilename, int tlineno)
-        : label(tlabel), filename(tfilename), lineno(tlineno) {}
+    SemanticLabel(const std::string& tlabel, const char* tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno)
+    {}
+    SemanticLabel(const std::string& tlabel, const std::string& tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno)
+    {}
 };
 
 namespace config {
 template <typename T>
-auto GetPlatformConfig(const std::string &key, const T &defaultValue) {
+auto GetPlatformConfig(const std::string& key, const T& defaultValue)
+{
     return ConfigManager::Instance().GetPlatformConfig(key, defaultValue);
 }
 
 template <typename T>
-auto GetHostConfig(const std::string &key, const T &defaultValue) {
+auto GetHostConfig(const std::string& key, const T& defaultValue)
+{
     return ConfigManager::Instance().GetHostConfig(key, defaultValue);
 }
 
-
 template <typename T>
 auto GetPassConfig(
-    const std::string &strategy, const std::string &identifier, const std::string &key, const T &defaultValue) {
+    const std::string& strategy, const std::string& identifier, const std::string& key, const T& defaultValue)
+{
     return ConfigManager::Instance().GetPassConfig(strategy, identifier, key, defaultValue);
 }
 
 template <typename T>
-auto GetSimConfig(const std::string &key, const T &defaultValue) {
+auto GetSimConfig(const std::string& key, const T& defaultValue)
+{
     return ConfigManager::Instance().GetSimConfig(key, defaultValue);
 }
 
 template <typename T>
-auto GetPassGlobalConfig(const std::string &key, const T &defaultValue) {
+auto GetPassGlobalConfig(const std::string& key, const T& defaultValue)
+{
     return ConfigManager::Instance().GetPassGlobalConfig(key, defaultValue);
 }
 
 template <typename T>
-auto SetPassGlobalConfig(const std::string &key, const T &value) {
-     ConfigManager::Instance().SetPassGlobalConfig(key, value);
+auto SetPassGlobalConfig(const std::string& key, const T& value)
+{
+    ConfigManager::Instance().SetPassGlobalConfig(key, value);
 }
 
 template <typename T>
-auto GetPassDefaultConfig(const std::string &key, const T &defaultValue) {
+auto GetPassDefaultConfig(const std::string& key, const T& defaultValue)
+{
     return ConfigManager::Instance().GetPassDefaultConfig(key, defaultValue);
 }
 
 template <typename T>
-auto SetPassDefaultConfig(const std::string &key, const T &value) {
-     ConfigManager::Instance().SetPassDefaultConfig(key, value);
+auto SetPassDefaultConfig(const std::string& key, const T& value)
+{
+    ConfigManager::Instance().SetPassDefaultConfig(key, value);
 }
 
 template <typename T>
-auto GetCodeGenConfig(const std::string &key, const T &value) {
+auto GetCodeGenConfig(const std::string& key, const T& value)
+{
     return ConfigManager::Instance().GetCodeGenConfig(key, value);
 }
 
 template <typename T>
-void SetPlatformConfig(const std::string &key, const T &value) {
+void SetPlatformConfig(const std::string& key, const T& value)
+{
     ConfigManager::Instance().SetPlatformConfig(key, value);
 }
 
 template <typename T>
-void SetHostConfig(const std::string &key, const T &value) {
+void SetHostConfig(const std::string& key, const T& value)
+{
     ConfigManager::Instance().SetHostConfig(key, value);
 }
 
 template <typename T>
-void SetPassConfig(const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
+void SetPassConfig(const std::string& strategy, const std::string& identifier, const std::string& key, const T& value)
+{
     ConfigManager::Instance().SetPassConfig(strategy, identifier, key, value);
 }
 
 template <typename T>
-void SetSimConfig(const std::string &key, const T &value) {
+void SetSimConfig(const std::string& key, const T& value)
+{
     ConfigManager::Instance().SetSimConfig(key, value);
 }
 
 template <typename T>
-void SetCodeGenConfig(const std::string &key, const T &value) {
+void SetCodeGenConfig(const std::string& key, const T& value)
+{
     ConfigManager::Instance().SetCodeGenConfig(key, value);
 }
 
-inline DPlatform GetDevicePlatform() {
+inline DPlatform GetDevicePlatform()
+{
     auto platform = ConfigManager::Instance().GetPlatformConfig("device_platform", "ASCEND_910B2");
     return StringToDpaltform(platform);
 }
 
-inline const std::string GetAbsoluteTopFolder() {
-    return RealPath(ConfigManager::Instance().LogTopFolder());
-}
+inline const std::string GetAbsoluteTopFolder() { return RealPath(ConfigManager::Instance().LogTopFolder()); }
 
-inline const std::string &LogTopFolder() {
-    return ConfigManager::Instance().LogTopFolder();
-}
+inline const std::string& LogTopFolder() { return ConfigManager::Instance().LogTopFolder(); }
 
-inline const std::string &LogTensorGraphFolder() {
-    return ConfigManager::Instance().LogTensorGraphFolder();
-}
+inline const std::string& LogTensorGraphFolder() { return ConfigManager::Instance().LogTensorGraphFolder(); }
 
-inline const std::string &LogFile() {
-    return ConfigManager::Instance().LogFile();
-}
+inline const std::string& LogFile() { return ConfigManager::Instance().LogFile(); }
 
-inline Status SetPassStrategy(const std::string s) {
+inline Status SetPassStrategy(const std::string s)
+{
     SetHostConfig(KEY_STRATEGY, s);
     return true;
 }
 
-inline std::string GetPassStrategy() {
-    return GetHostConfig(KEY_STRATEGY, "OOO");
-}
+inline std::string GetPassStrategy() { return GetHostConfig(KEY_STRATEGY, "OOO"); }
 
-inline bool UseTIG() {
+inline bool UseTIG()
+{
     return GetPassStrategy() == "TIG" || GetPassStrategy() == "PVC2_OOO" || GetPlatformConfig(KEY_TEST_IS_TIG, false) ||
            GetPassStrategy() == "DFS_OOO" || GetPassStrategy() == "BFS_DFS_OOO";
 }
@@ -432,10 +450,9 @@ FunctionType GetFunctionType();
 std::shared_ptr<SemanticLabel> GetSemanticLabel();
 void SetSemanticLabel(std::shared_ptr<SemanticLabel> label);
 
-PrintOptions &GetPrintOptions();
+PrintOptions& GetPrintOptions();
 
-void SetRunDataOption(const std::string &key, const std::string &value);
-
+void SetRunDataOption(const std::string& key, const std::string& value);
 
 } // namespace config
 

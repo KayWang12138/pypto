@@ -29,7 +29,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -39,8 +40,8 @@ public:
     void TearDown() override {}
 };
 
-void testffnquant() {
-
+void testffnquant()
+{
     TileShape::Current().SetVecTile(32, 128);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
 
@@ -65,11 +66,10 @@ void testffnquant() {
     Tensor ffnScale3(DT_FP32, {1, H}, "ffnScale3");
     Tensor ffnout(DT_FP32, OutShape, "ffnout");
 
-    DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2,
-        ffnScale3, ffnout, BASIC_BATCH);
+    DynamicFFNQuant(
+        hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3, ffnout,
+        BASIC_BATCH);
 }
 
-TEST_F(TestCodegenDynFFN, FFNQuantDynamicTest) {
-    testffnquant();
-}
+TEST_F(TestCodegenDynFFN, FFNQuantDynamicTest) { testffnquant(); }
 } // namespace npu::tile_fwk

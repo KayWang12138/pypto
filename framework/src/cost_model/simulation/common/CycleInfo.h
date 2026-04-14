@@ -60,4 +60,4 @@ struct TaskCycleInfo {
     uint64_t taskExecuteEndCycle = 0;
 };
 
-}
+} // namespace CostModel

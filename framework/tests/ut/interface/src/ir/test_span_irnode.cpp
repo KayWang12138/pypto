@@ -24,7 +24,8 @@
 namespace pypto {
 namespace ir {
 
-TEST(IRCoreTest, TestSpanBasic) {
+TEST(IRCoreTest, TestSpanBasic)
+{
     // Test basic Span functionality
     Span span("test.py", 10, 5, 10, 15);
 
@@ -35,7 +36,8 @@ TEST(IRCoreTest, TestSpanBasic) {
     ASSERT_EQ(span.endColumn_, 15);
 }
 
-TEST(IRCoreTest, TestSpanToString) {
+TEST(IRCoreTest, TestSpanToString)
+{
     // Test Span to_string() method
     Span span("test.py", 10, 5, 10, 15);
     std::string str = span.ToString();
@@ -45,7 +47,8 @@ TEST(IRCoreTest, TestSpanToString) {
     ASSERT_TRUE(str.find("test.py") != std::string::npos || str.find("10") != std::string::npos);
 }
 
-TEST(IRCoreTest, TestSpanIsValid) {
+TEST(IRCoreTest, TestSpanIsValid)
+{
     // Test Span is_valid() method
     Span validSpan("test.py", 10, 5, 10, 15);
     ASSERT_TRUE(validSpan.IsValid());
@@ -55,7 +58,8 @@ TEST(IRCoreTest, TestSpanIsValid) {
     ASSERT_FALSE(unknownSpan.IsValid());
 }
 
-TEST(IRCoreTest, TestSpanUnknown) {
+TEST(IRCoreTest, TestSpanUnknown)
+{
     // Test Span::Unknown() creates an invalid span
     Span span = Span::Unknown();
     ASSERT_FALSE(span.IsValid());
@@ -65,7 +69,8 @@ TEST(IRCoreTest, TestSpanUnknown) {
     ASSERT_TRUE(!str.empty());
 }
 
-TEST(IRCoreTest, TestSpanMultiline) {
+TEST(IRCoreTest, TestSpanMultiline)
+{
     // Test Span spanning multiple lines
     Span span("file.py", 5, 10, 8, 20);
 
@@ -75,7 +80,8 @@ TEST(IRCoreTest, TestSpanMultiline) {
     ASSERT_EQ(span.endColumn_, 20);
 }
 
-TEST(IRCoreTest, TestSpanSingleCharacter) {
+TEST(IRCoreTest, TestSpanSingleCharacter)
+{
     // Test Span for a single character
     Span span("file.py", 5, 10, 5, 11);
 
@@ -86,7 +92,8 @@ TEST(IRCoreTest, TestSpanSingleCharacter) {
     ASSERT_TRUE(span.IsValid());
 }
 
-TEST(IRCoreTest, TestIRNodeBasic) {
+TEST(IRCoreTest, TestIRNodeBasic)
+{
     // Test basic IRNode functionality via ConstInt (IRNode is now abstract)
     Span span("test.py", 1, 0, 1, 10);
     auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
@@ -95,7 +102,8 @@ TEST(IRCoreTest, TestIRNodeBasic) {
     ASSERT_EQ(node->span_.beginLine_, span.beginLine_);
 }
 
-TEST(IRCoreTest, TestIRNodeTypeName) {
+TEST(IRCoreTest, TestIRNodeTypeName)
+{
     // Test IRNode TypeName() method via ConstInt
     Span span("test.py", 1, 0, 1, 10);
     auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
@@ -104,14 +112,16 @@ TEST(IRCoreTest, TestIRNodeTypeName) {
     ASSERT_EQ(typeName, "ConstInt");
 }
 
-TEST(IRCoreTest, TestIRNodeWithUnknownSpan) {
+TEST(IRCoreTest, TestIRNodeWithUnknownSpan)
+{
     // Test IRNode with unknown span via ConstInt
     auto node = std::make_shared<ConstInt>(0, DataType::INT32, Span::Unknown());
 
     ASSERT_FALSE(node->span_.IsValid());
 }
 
-TEST(IRCoreTest, TestMultipleIRNodes) {
+TEST(IRCoreTest, TestMultipleIRNodes)
+{
     // Test creating multiple IRNode instances via ConstInt
     Span span1("file1.py", 1, 0, 1, 10);
     Span span2("file2.py", 5, 5, 5, 15);
@@ -126,7 +136,8 @@ TEST(IRCoreTest, TestMultipleIRNodes) {
     ASSERT_EQ(node3->span_.filename_, "file3.py");
 }
 
-TEST(IRCoreTest, TestSpanCopy) {
+TEST(IRCoreTest, TestSpanCopy)
+{
     // Test copying Span objects
     Span original("test.py", 10, 5, 10, 15);
     Span copy = original;
@@ -138,7 +149,8 @@ TEST(IRCoreTest, TestSpanCopy) {
     ASSERT_EQ(copy.endColumn_, original.endColumn_);
 }
 
-TEST(IRCoreTest, TestSpanComparison) {
+TEST(IRCoreTest, TestSpanComparison)
+{
     // Test comparing Span objects
     Span span1("test.py", 10, 5, 10, 15);
     Span span2("test.py", 10, 5, 10, 15);
@@ -152,7 +164,8 @@ TEST(IRCoreTest, TestSpanComparison) {
     ASSERT_NE(span1.beginLine_, span3.beginLine_);
 }
 
-TEST(IRCoreTest, TestIRNodeSharedPtr) {
+TEST(IRCoreTest, TestIRNodeSharedPtr)
+{
     // Test IRNode with shared_ptr via ConstInt
     Span span("test.py", 1, 0, 1, 10);
     auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
@@ -162,7 +175,8 @@ TEST(IRCoreTest, TestIRNodeSharedPtr) {
     ASSERT_EQ(node->span_.filename_, "test.py");
 }
 
-TEST(IRCoreTest, TestSpanZeroPosition) {
+TEST(IRCoreTest, TestSpanZeroPosition)
+{
     // Test Span with zero line and column
     Span span("test.py", 0, 0, 0, 1);
 
@@ -170,7 +184,8 @@ TEST(IRCoreTest, TestSpanZeroPosition) {
     ASSERT_EQ(span.beginColumn_, 0);
 }
 
-TEST(IRCoreTest, TestSpanLargePosition) {
+TEST(IRCoreTest, TestSpanLargePosition)
+{
     // Test Span with large line and column numbers
     Span span("test.py", 10000, 500, 10001, 600);
 

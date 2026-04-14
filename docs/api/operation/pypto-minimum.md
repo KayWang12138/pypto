@@ -4,12 +4,18 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
 ## 功能说明
 
 计算输入与另一输入的最小值。支持二维、三维或四维的Tensor。
+
+## 注意事项
+
+- **不支持 SymbolicScalar 参数**：如果需要对 SymbolicScalar 进行比较，请使用 [SymbolicScalar.min()](../symbolic/pypto-SymbolicScalar-min.md) 方法
+- 两个参数中至少一个为 Tensor 类型
 
 ## 函数原型
 
@@ -31,7 +37,7 @@ minimum(
 
 ## 返回值说明
 
-当两个源操作数均为Tensor时，两个Tensor必须满足广播关系。该接口返回一个与源操作数一和源操作数二广播后Shape相同的Tensor，数据类型与源操作数相同，其元素为源操作数一和源操作数二的逐元素最小值。且源操作数为Tensor时，源操作数一和源操作数二均仅支持单轴广播。
+当两个源操作数均为Tensor时，两个Tensor必须满足广播关系。该接口返回一个与源操作数一和源操作数二广播后Shape相同的Tensor，数据类型与源操作数相同，其元素为源操作数一和源操作数二的逐元素最小值。且源操作数为Tensor时，源操作数一和源操作数二均仅支持多轴广播；当数据类型为DT_FP32或DT_FP16时，支持倒数第二轴广播自动inline处理。
 
 当两个源操作数之中存在一个Tensor时，返回与输入Tensor相同Shape的Tensor，其元素为源操作数一和源操作数二的逐元素最小值。
 
@@ -66,4 +72,3 @@ out = pypto.minimum(a, b)
 输入数据b: [3, 1, 3]
 输出数据out: [0, 1, 3]
 ```
-

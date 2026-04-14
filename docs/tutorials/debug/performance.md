@@ -14,7 +14,13 @@
 
 ### 采集泳道图数据
 
-1.  通过给@pypto.frontend.jit装饰器的入参debug_options配置图执行阶段调试开关启动性能数据采集功能。
+当前支持两种并列采集方式：**图执行阶段泳道图采集** 与 **AI CPU/AI Core 联合采集**。两种方式可分别单独开启，互不干扰；也可同时开启。若同时开启，可在泳道图中同时观察同一时间轴上的 AI CPU 与 AI Core Profiling 数据。
+
+#### 方式一：图执行阶段泳道图采集（`runtime_debug_mode`）
+
+**适用场景**：用于常规性能调优，重点关注子图执行顺序、任务耗时分布、AI Core 端到端耗时与 AI Core 利用率。
+
+1.  通过给 `@pypto.frontend.jit` 装饰器的入参 `debug_options` 配置图执行阶段调试开关，启动性能数据采集：
 
     ```python
     @pypto.frontend.jit(
@@ -22,24 +28,56 @@
     )
     ```
 
-2.  执行用例
+2.  执行用例：
 
     ```bash
     python3 examples/02_intermediate/operators/softmax/softmax.py
     ```
 
-3.  生成泳道图json文件
+3.  采集结果输出到当前工作目录 `output/output_时间戳` 下（详见“采集结果文件说明”）。
 
-    在当前工作目录的output/output\_时间戳目录下生成merged\_swimlane.json，该文件为泳道图数据文件。
+#### 方式二：AI CPU/AI Core 联合采集（`DUMP_DEVICE_PERF`）
+
+**适用场景**：用于分析 AI CPU 调度与 AI Core 执行的协同关系，定位首任务启动慢、调度等待等问题。
+
+1.  通过环境变量使能：
+
+    ```bash
+    export DUMP_DEVICE_PERF=true
+    ```
+
+2.  执行用例：
+
+    ```bash
+    python3 examples/02_intermediate/operators/softmax/softmax.py
+    ```
+
+3.  采集结果输出到当前工作目录 `output/output_时间戳` 下（详见“采集结果文件说明”）。
+
+4.  终端可直接查看 AI CPU/AI Core 数据汇总表：
+
+    ![](../figures/machine_perf_summary.png "AI CPU/AI Core数据汇总表")
+
+### 采集结果文件说明
+
+关于采集结果文件的详细说明，请参阅 Machine 的 Troubleshooting（故障诊断） 手册：
+[output 目录产物说明](../../trouble_shooting/machine.md#output-目录产物说明)。
 
 ### 查看泳道图数据
 
-1.  通过PyPTO Toolkit插件查看泳道图。
+1.  通过终端查看 AI Core 执行端到端耗时以及 AI Core 利用率：
 
-    右键单击json文件，在弹出的菜单中选择“使用PyPTO Toolkit打开”，如下图所示。
+    **图 1**  查看 AI Core Perf 信息
+    ![](..\figures\aicore_perf_summary.png "AI Core Perf信息")
 
-    **图 1**  查看泳道图  
+2.  通过 PyPTO Toolkit 插件查看泳道图。
+
+    右键单击对应 JSON 文件，在弹出的菜单中选择“使用PyPTO Toolkit打开”。
+
+    **图 2**  查看泳道图
     ![](../figures/view_swimlane_graph.png "查看泳道图")
+
+    ![AI CPU/AI Core泳道图](../figures/machine_runtime_operator_trace_0.png)
 
     图中展示了任务的执行顺序和耗时信息，帮助开发者分析性能瓶颈。
 
@@ -190,7 +228,7 @@ pypto.set_vec_tile_shapes(64, 512)
 
 [Stitch](../appendix/glossary.md)配置决定了多少个root function被同时下发调度，即该参数控制一次stitch能处理的最大loop数量，会同时影响调度开销、控制流生成耗时以及 workspace 内存占用。因此Stitch设置较大后任务可以充分并行，通常性能更优。当泳道图中出现大量空隙时，可能是Stitch配置的值太小导致的。
 
-当前Stitch配置主要由[stitch_function_max_num](../../api/config/pypto-set_pass_options.md)参数决定，在jit装饰器中完成配置，可参考如下配置：
+当前Stitch配置主要由[stitch_function_max_num](../../api/config/pypto-frontend-jit.md#runtime_options_detail)参数决定，在jit装饰器中完成配置，可参考如下配置：
 
 ```python
     @pypto.frontend.jit(
@@ -231,12 +269,10 @@ pypto.set_vec_tile_shapes(64, 512)
 
 进一步调优Matmul的TileShape，需要充分考虑对算数强度和带宽的影响，具体介绍见[Matmul高性能编程](./matmul_performance_guide.md)章节。
 
-当前环节主要关注**减少重复载入**和**K轴分核**两个调优手段，分别对应`set_cube_tile_shapes`接口的`enable_multi_data_load`与`enable_split_k`配置参数。用户可以结合上述原理介绍，推导并选择合适的开关配置策略，也可以直接结合泳道图数据进行测试验证，择优配置。两个参数是相互解耦的，具体写法可参考如下配置：
+当前环节主要关注**减少重复载入**和**K轴分核**两个调优手段，可对应`set_cube_tile_shapes`接口的`enable_split_k`配置参数。用户可以结合上述原理介绍，推导并选择合适的开关配置策略，也可以直接结合泳道图数据进行测试验证，择优配置。两个参数是相互解耦的，具体写法可参考如下配置：
 
 ```python
-pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256],
-    enable_multi_data_load=True,
-    enable_split_k=True)
+pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256], enable_split_k=True)
 ```
 
 #### Vector TileShape 调优
@@ -316,7 +352,7 @@ Vector运算场景下通过[set_pass_options](../../api/config/pypto-set_pass_op
 PyPTO算子的核间的流水由AICPU对子图的调度确定，它基于子图间的依赖关系和核间任务的调度策略。可以尝试更改该调度策略以达到更优的算子性能。当上下游子图之间依赖较为简单，或下游子图输入Tensor的L2命中率较为重要时，推荐使用L2亲和调度，配置方式如下：
 
 ```python
-@pypto.jit(runtime_options={"device_sched_mode": 1})
+@pypto.frontend.jit(runtime_options={"device_sched_mode": 1})
 ```
 
 具体配置时应综合考虑L2复用与负载均衡的影响，不同场景的最佳配置策略不同，应结合泳道图具体分析。

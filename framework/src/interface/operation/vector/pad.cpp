@@ -20,11 +20,12 @@
 #include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
-void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input,
-    const LogicalTensorPtr &result, TileInfo &resultTileInfo, int64_t padRight, int64_t padBottom,
-    const Element &padValue) {
+void TiledPadImpl(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input, const LogicalTensorPtr& result,
+    TileInfo& resultTileInfo, int64_t padRight, int64_t padBottom, const Element& padValue)
+{
     size_t ndim = result->shape.size();
-    auto &vecTile = tileShape.GetVecTile();
+    auto& vecTile = tileShape.GetVecTile();
     if (cur == ndim) {
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         if (ndim == 1) {
@@ -33,13 +34,13 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, In
             auto lastShape = input.tileInfo.shape[0];
             auto lastOffset = input.tileInfo.offset[0];
             if (lastShape <= 0) { // 输入tile大小为0，完全在填充区域
-                auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
+                auto& op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
                 op.SetAttribute(OpAttributeKey::scalar, padValue);
                 op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
                 op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
             } else if (lastOffset + vecTile[0] > lastInputShape) {
                 auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
-                auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
+                auto& op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
                 auto last = std::min(lastResultShape, lastOffset + vecTile[0]);
                 padRight = last > lastInputShape ? last - lastInputShape : 0;
                 op.SetAttribute(OpAttributeKey::scalar, padValue);
@@ -59,14 +60,14 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, In
             auto preShape = input.tileInfo.shape[ndim - 2];
             auto preOffset = input.tileInfo.offset[ndim - 2];
             if (lastShape <= 0 || preShape <= 0) {
-                auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
+                auto& op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
                 op.SetAttribute(OpAttributeKey::scalar, padValue);
                 op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
                 op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
-            } else if (lastOffset + vecTile[ndim - 1] > lastInputShape ||
-                       preOffset + vecTile[ndim - 2] > preInputShape) {
+            } else if (
+                lastOffset + vecTile[ndim - 1] > lastInputShape || preOffset + vecTile[ndim - 2] > preInputShape) {
                 auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
-                auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
+                auto& op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
                 auto last = std::min(lastResultShape, lastOffset + vecTile[ndim - 1]);
                 auto pre = std::min(preResultShape, preOffset + vecTile[ndim - 2]);
                 padRight = last > lastInputShape ? last - lastInputShape : 0;
@@ -91,8 +92,10 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, In
     }
 }
 
-void TiledPadOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &input,
-    const LogicalTensorPtr &result, int64_t padRight, int64_t padBottom, const Element &padValue) {
+void TiledPadOperation(
+    Function& function, const TileShape& tileShape, const LogicalTensorPtr& input, const LogicalTensorPtr& result,
+    int64_t padRight, int64_t padBottom, const Element& padValue)
+{
     size_t ndim = result->shape.size();
     TileInfo resultTileInfo(ndim, ndim);
     TileInfo inputTileInfo(ndim, ndim);
@@ -100,16 +103,18 @@ void TiledPadOperation(Function &function, const TileShape &tileShape, const Log
     TiledPadImpl(function, tileShape, 0, padInput, result, resultTileInfo, padRight, padBottom, padValue);
 }
 
-void TiledFillPadOperation(Function &function, const TileShape &tileShape, size_t cur, Input &input,
-    const LogicalTensorPtr &result, const Element &padValue) {
+void TiledFillPadOperation(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input, const LogicalTensorPtr& result,
+    const Element& padValue)
+{
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        auto &op = function.AddOperation(Opcode::OP_FILLPAD, {tile}, {resultTile});
+        auto& op = function.AddOperation(Opcode::OP_FILLPAD, {tile}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, padValue);
         return;
     }
-    auto &vecTile = tileShape.GetVecTile();
+    auto& vecTile = tileShape.GetVecTile();
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
@@ -117,8 +122,10 @@ void TiledFillPadOperation(Function &function, const TileShape &tileShape, size_
     }
 }
 
-void TiledFillPadOperation(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result, const Element &padValue) {
+void TiledFillPadOperation(
+    Function& function, const TileShape& tileShape, const LogicalTensorPtr& operand, const LogicalTensorPtr& result,
+    const Element& padValue)
+{
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, operand->shape.size() == operand->offset.size())
         << "The shape size of operand and offset must be equal";
 
@@ -128,11 +135,9 @@ void TiledFillPadOperation(Function &function, const TileShape &tileShape, const
 }
 
 LogicalTensorPtr TensorPadOperation(
-    Function &function, const Tensor &self, const std::vector<int64_t> &padding, const std::string &mode, float value) {
+    Function& function, const Tensor& self, const std::vector<int64_t>& padding, const std::string& mode, float value)
+{
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, mode == "constant") << "Pad: only 'constant' mode is supported.";
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, std::isinf(value) || (std::abs(value) < 1e-6))
-        << "Pad: pad value must be -inf, inf, or 0.";
-
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;
     size_t ndim = operand->shape.size();
@@ -144,6 +149,9 @@ LogicalTensorPtr TensorPadOperation(
             << "Pad: 1D tensor only support 2 padding values.";
         ASSERT(VectorErrorCode::ERR_PARAM_INVALID, padding[0] == 0) << "Pad: 1D tensor only support right pad.";
         padRight = padding[1];
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, padRight >= 0)
+            << "Pad: padding values must be non-negative, got pad_right=" << padRight
+            << ". Negative padding (for cropping) is not supported.";
         outputShape[0] += padRight;
     } else {
         ASSERT(VectorErrorCode::ERR_PARAM_INVALID, padding.size() == 4) << "Pad: only support last 2 axis pad.";
@@ -151,12 +159,18 @@ LogicalTensorPtr TensorPadOperation(
             << "Pad: only support bottom and right pad.";
         padRight = padding[1];
         padBottom = padding[3];
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, padRight >= 0)
+            << "Pad: padding values must be non-negative, got pad_right=" << padRight
+            << ". Negative padding (for cropping) is not supported.";
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, padBottom >= 0)
+            << "Pad: padding values must be non-negative, got pad_bottom=" << padBottom
+            << ". Negative padding (for cropping) is not supported.";
         outputShape[ndim - 1] += padRight;
         outputShape[ndim - 2] += padBottom;
     }
 
     std::vector<SymbolicScalar> resultValidShape;
-    const auto &inputValidShape = operand->GetDynValidShape();
+    const auto& inputValidShape = operand->GetDynValidShape();
     if (!inputValidShape.empty()) {
         resultValidShape = inputValidShape;
         if (ndim == 1) {
@@ -167,49 +181,53 @@ LogicalTensorPtr TensorPadOperation(
         }
     }
     auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), outputShape, resultValidShape);
-    auto &op = function.AddOperation(Opcode::OP_PAD, {operand}, {result});
+    auto& op = function.AddOperation(Opcode::OP_PAD, {operand}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "pad_right", static_cast<int64_t>(padRight));
     op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", static_cast<int64_t>(padBottom));
     op.SetAttribute(OpAttributeKey::scalar, Element(self.GetDataType(), value));
     return result;
 }
 
-Tensor Pad(const Tensor &self, const std::vector<int64_t> &padding, std::string mode, float value) {
+Tensor Pad(const Tensor& self, const std::vector<int64_t>& padding, std::string mode, float value)
+{
     DECLARE_TRACER();
     RETURN_CALL(PadOperation, *Program::GetInstance().GetCurrentFunction(), self, padding, mode, value);
 }
 
-LogicalTensorPtr TensorFillPadOperation(Function &function, const Tensor &self, const std::string &mode, float value) {
+LogicalTensorPtr TensorFillPadOperation(Function& function, const Tensor& self, const std::string& mode, float value)
+{
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, mode == "constant") << "FillPad: only 'constant' mode is supported.";
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, std::isinf(value) || (std::abs(value) < 1e-6))
-        << "FillPad: pad value must be -inf, inf, or 0.";
-
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, outputShape.size() == 1 || outputShape.size() == 2)
         << "FillPad: only support 1 dim or 2 dim.";
     auto result = std::make_shared<LogicalTensor>(
         function, operand->Datatype(), outputShape, SymbolicScalar::FromConcrete(outputShape));
-    auto &op = function.AddOperation(Opcode::OP_FILLPAD, {operand}, {result});
+    auto& op = function.AddOperation(Opcode::OP_FILLPAD, {operand}, {result});
     op.SetAttribute(OpAttributeKey::scalar, Element(self.GetDataType(), value));
     return result;
 }
 
-Tensor FillPad(const Tensor &self, std::string mode, float value) {
+Tensor FillPad(const Tensor& self, std::string mode, float value)
+{
     DECLARE_TRACER();
     RETURN_CALL(FillPadOperation, *Program::GetInstance().GetCurrentFunction(), self, mode, value);
 }
 
-void PadOperationTileFunc(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &iOperand,
-    const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+void PadOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)
+{
     int64_t padRight = op.GetIntAttribute(OP_ATTR_PREFIX + "pad_right");
     int64_t padBottom = op.GetIntAttribute(OP_ATTR_PREFIX + "pad_bottom");
     Element padValue = op.GetElementAttribute(OpAttributeKey::scalar);
     TiledPadOperation(function, tileShape, iOperand[0], oOperand[0], padRight, padBottom, padValue);
 }
 
-void FillPadOperationTileFunc(Function &function, const TileShape &tileShape,
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+void FillPadOperationTileFunc(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)
+{
     Element padValue = op.GetElementAttribute(OpAttributeKey::scalar);
     return TiledFillPadOperation(function, tileShape, iOperand[0], oOperand[0], padValue);
 }

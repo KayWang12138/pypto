@@ -28,19 +28,23 @@ class InferParamIndex : public Pass {
 public:
     InferParamIndex() : Pass("InferParamIndex") {}
     ~InferParamIndex() override {}
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 
 private:
     std::string DumpParamIndex(const std::map<std::string, DynParamInfo>& dynParamTable);
-    Status ResetOutputDynValidShape(const Operation &op);
-    Status ResetViewDynValidShape(const Operation &op);
-    Status ResetAssembleDynValidShape(const Operation &op);
+    Status ResetOutputDynValidShape(const Operation& op);
+    Status ResetViewDynValidShape(const Operation& op);
+    Status ResetAssembleDynValidShape(const Operation& op);
     Status ResetDynValidShape(Function& function);
-    Status UpdateValidShape(Function &subFunc, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShape, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShapeSpecified);
-    Status SetSubValidShape(Function &subFunc, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShape, std::map<int, std::vector<SymbolicScalar>> &addr2ValidShapeSpecified);
-    Status UpdateParamIndex(Function &function);
+    Status UpdateValidShape(
+        Function& subFunc, std::map<int, std::vector<SymbolicScalar>>& addr2ValidShape,
+        std::map<int, std::vector<SymbolicScalar>>& addr2ValidShapeSpecified);
+    Status SetSubValidShape(
+        Function& subFunc, std::map<int, std::vector<SymbolicScalar>>& addr2ValidShape,
+        std::map<int, std::vector<SymbolicScalar>>& addr2ValidShapeSpecified);
+    Status UpdateParamIndex(Function& function);
     Status InferShape(Function& function);
 };
-}
-}
+} // namespace tile_fwk
+} // namespace npu
 #endif

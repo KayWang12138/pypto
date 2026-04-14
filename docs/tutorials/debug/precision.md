@@ -223,8 +223,8 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
     ├── tensor_graph # 保存前端初始计算图模拟计算后的中间数据，作为基础数据
     │   ├── *.data
     │   └── ...
-    ├── verify_result.csv # 结果报告，用于保存中间数据的元数据信息、元数据对应的数据文件名、对其中属于Tensor数据的文件进行自检的结果
-    ├── {FUNC_NAME}.pass_{PASS_SEQ}_{PASS_NAME} # 保存中间pass计算图模拟计算后的中间数据，作为待测数据
+    ├── verify_graph_data_metainfo.csv # 结果报告，用于保存中间数据的元数据信息、元数据对应的数据文件名
+    ├── Pass_{PASS_SEQ}_{PASS_NAME} # 保存中间pass计算图模拟计算后的中间数据，作为待测数据
     │   ├── *.data
     │   └── ...
     ```
@@ -321,7 +321,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 ```python
 import os
 
-# 设置环境变量启用上板dump, 或者执行前单独设置环境变量export PTO_DATADUMP_ENABLE=true 
+# 设置环境变量启用上板dump, 或者执行前单独设置环境变量export PTO_DATADUMP_ENABLE=true
 os.environ["PTO_DATADUMP_ENABLE"] = "true"
 
 # 配置验证选项
@@ -339,7 +339,7 @@ def kernel(...):
 ### 3. Dump 数据输出路径
 
 ```
-output/dump_tensor/device_{deviceId}/
+output/output_*/dump_tensor_*/device_{deviceId}/
 └── {taskId}_{seqNo}_{callopMagic}_{rootHash}_{funcHash}_{rawMagic}_{timeStamp}_{dataType}_{input/output}{index}.tdump
 ```
 
@@ -363,7 +363,7 @@ python3 tools/verifier/parse_dump_tensors.py \
 
 # 带验证的用法, 已开启enable_pass_verify验证, 并指定verify_path
 python3 tools/verifier/parse_dump_tensors.py \
-    --dump_tensor_path output/dump_tensor/device_0 \
+    --dump_tensor_path output/output_*/dump_tensor_*/device_0 \
     --verify_path output/output_*/verify_*/
 ```
 
@@ -371,13 +371,13 @@ python3 tools/verifier/parse_dump_tensors.py \
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--dump_tensor_path` | dump 数据目录路径 | `output/dump_tensor/device_0` |
-| `--verify_path` | verify_result.csv 所在目录 | `""`（不和verify结果做比对） |
+| `--dump_tensor_path` | dump 数据目录路径 | `output/output_*/dump_tensor_*/device_0` |
+| `--verify_path` | verify_graph_data_metainfo.csv 所在目录 | `""`（不和verify结果做比对） |
 
 **输出文件：**
 
 ```
-output/dump_tensor/device_0/
+output/output_*/dump_tensor_*/device_0/
 ├── tensor_info.csv              # 解析结果报告
 ├── *.data                       # 提取的 tensor 数据文件
 └── raw_{rawMagic}_{dataType}_{ioflag}.data  # 合并后的 raw tensor
