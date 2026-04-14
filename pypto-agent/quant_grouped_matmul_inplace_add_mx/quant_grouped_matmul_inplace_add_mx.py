@@ -105,59 +105,85 @@ class ShapeConfig:
     description: str = ""
 
 
-def compute_golden_result_simple(
-    x: torch.Tensor,
-    weight: torch.Tensor,
-    scaled_x: torch.Tensor,
+@dataclass
+class GoldenComputeInputs:
+    """
+    Input parameters for computing golden result in matrix multiplication.
+
+    Attributes:
+        x: Input tensor of shape [M, K_block]
+        weight: Weight tensor of shape [K_block, N]
+        scaled_x: Scale factors for input tensor
+        scaled_weight: Scale factors for weight tensor
+    """
+    x: torch.Tensor
+    weight: torch.Tensor
+    scaled_x: torch.Tensor
     scaled_weight: torch.Tensor
-) -> torch.Tensor:
+
+
+def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
     """
-    Compute golden (reference) result for MXFP8 scaled matrix multiplication.
-    
-    Simple implementation matching scaled_mm behavior:
-    - x: [M, K_block] FP8 tensor
-    - weight: [K_block, N] FP8 tensor  
-    - scaled_x: [M, K_block // 64, 2] scale factors
-    - scaled_weight: [K_block // 64, N, 2] scale factors
-    
-    MXFP8: every 64 elements share one scale factor
+    Compute golden (reference) result for a single group's matrix multiplication.
+
+    Args:
+        inputs: Input parameters including tensors
+
+    Returns:
+        torch.Tensor: Golden output tensor [M, N]
     """
-    m, k_block = x.shape
-    _, n = weight.shape
-    
-    # Convert to FP32
+    x = inputs.x
+    weight = inputs.weight
+    scaled_x_golden = inputs.scaled_x
+    scaled_weight_golden = inputs.scaled_weight
+
+    # Reshape scale factors: flatten the last two dimensions
+    if len(scaled_x_golden.shape) == 3:
+        scaled_x_golden = scaled_x_golden.reshape(
+            scaled_x_golden.shape[0], scaled_x_golden.shape[1] * scaled_x_golden.shape[2]
+        )
+
+    # For scaled_weight, transpose first then reshape
+    scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
+    if len(scaled_weight_golden.shape) == 3:
+        scaled_weight_golden = scaled_weight_golden.reshape(
+            scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
+            scaled_weight_golden.shape[2]
+        )
+
+    # Adjust scales for K dimension alignment
+    k_dim = x.shape[-1]
+    if math.ceil(k_dim / 32) % 2 != 0:
+        scaled_x_golden = scaled_x_golden[:, :-1]
+        scaled_weight_golden = scaled_weight_golden[:-1, :]
+
+    # Broadcast scale factors (32 elements per block)
+    scaled_x_golden_broadcast = torch.repeat_interleave(scaled_x_golden, repeats=32, dim=-1)
+    scaled_weight_golden_broadcast = torch.repeat_interleave(scaled_weight_golden, repeats=32, dim=-2)
+
+    # Calculate padding lengths
+    x1_pad_len = scaled_x_golden_broadcast.shape[-1] - x.shape[-1]
+    x2_pad_len = scaled_weight_golden_broadcast.shape[-2] - weight.shape[-2]
+
+    # Pad input tensor
+    x1_golden = torch.nn.functional.pad(x, [0, x1_pad_len], mode='constant', value=0)
+
+    # Pad weight tensor
+    weight_golden = torch.nn.functional.pad(weight, [0, 0, 0, x2_pad_len], mode='constant', value=0)
+
+    # Apply scaling factors
     x_fp32 = x.to(torch.float32)
+    scaled_x_golden_broadcast_fp32 = scaled_x_golden_broadcast.to(torch.float32)
+    x1_golden = x_fp32 * scaled_x_golden_broadcast_fp32
+
     weight_fp32 = weight.to(torch.float32)
-    
-    # Process scale factors
-    # scaled_x: [M, K_block // 64, 2] -> take first column [M, K_block // 64]
-    scale_x = scaled_x[:, :, 0].to(torch.float32)  # [M, K_block // 64]
-    
-    # scaled_weight: [K_block // 64, N, 2] -> take first column [K_block // 64, N]
-    # NO transpose needed, scale broadcasts along K dimension
-    scale_weight = scaled_weight[:, :, 0].to(torch.float32)  # [K_block // 64, N]
-    
-    # Broadcast scales: repeat_interleave along K dimension (64 elements per block)
-    # scale_x: [M, K_block // 64] -> [M, K_block]
-    scale_x_broadcast = torch.repeat_interleave(scale_x, repeats=64, dim=-1)
-    
-    # scale_weight: [K_block // 64, N] -> [K_block, N]
-    scale_weight_broadcast = torch.repeat_interleave(scale_weight, repeats=64, dim=0)
-    
-    # Handle case where K_block is not exactly divisible by 64
-    if scale_x_broadcast.shape[-1] > k_block:
-        scale_x_broadcast = scale_x_broadcast[:, :k_block]
-    if scale_weight_broadcast.shape[0] > k_block:
-        scale_weight_broadcast = scale_weight_broadcast[:k_block, :]
-    
-    # Apply scales
-    x_scaled = x_fp32 * scale_x_broadcast  # [M, K_block]
-    weight_scaled = weight_fp32 * scale_weight_broadcast  # [K_block, N]
-    
-    # Matrix multiplication
-    result = torch.matmul(x_scaled, weight_scaled)  # [M, N]
-    
-    return result
+    scaled_weight_golden_broadcast_fp32 = scaled_weight_golden_broadcast.to(torch.float32)
+    weight_golden = weight_fp32 * scaled_weight_golden_broadcast_fp32
+
+    # Compute matrix multiplication
+    golden = torch.matmul(x1_golden, weight_golden)
+
+    return golden
 
 
 def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
@@ -195,11 +221,13 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
         scaled_weight_golden = scaled_b[begin // 64 : end // 64, :, :]
 
         # Compute golden result for this group and inplace add
-        golden_temp = compute_golden_result_simple(
-            x=x,
-            weight=weight,
-            scaled_x=scaled_x_golden,
-            scaled_weight=scaled_weight_golden
+        golden_temp = compute_golden_result(
+            GoldenComputeInputs(
+                x=x,
+                weight=weight,
+                scaled_x=scaled_x_golden,
+                scaled_weight=scaled_weight_golden,
+            )
         )
         golden_result[i] = golden_result[i] + golden_temp
 
