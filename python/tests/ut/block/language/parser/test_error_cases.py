@@ -1,0 +1,654 @@
+# Copyright (c) PyPTO Contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+"""Unit tests for parser error handling."""
+
+import pypto_block
+import pypto_block.language as pl
+import pypto_block.language.op.manual as plm
+import pytest
+from pypto_block.language.parser.diagnostics import (
+    InvalidOperationError,
+    ParserSyntaxError,
+    ParserTypeError,
+    SSAViolationError,
+    UndefinedVariableError,
+    UnsupportedFeatureError,
+)
+
+
+class TestErrorCases:
+    """Tests for parser error handling and validation."""
+
+    def test_missing_parameter_annotation(self):
+        """Test error when parameter lacks type annotation."""
+
+        with pytest.raises(ParserTypeError, match="missing type annotation"):
+
+            @pl.function
+            def no_annotation(x):
+                return x
+
+    def test_missing_return_annotation(self):
+        """Test function without return annotation still works."""
+
+        @pl.function
+        def no_return_type(x: pl.Tensor[[64], pl.FP32]):
+            result: pl.Tensor[[64], pl.FP32] = pl.mul(x, 2.0)
+            return result
+
+        # Should still parse successfully
+        assert isinstance(no_return_type, pypto_block.ir.Function)
+
+    def test_undefined_variable_reference(self):
+        """Test error when referencing undefined variable."""
+
+        with pytest.raises(UndefinedVariableError, match="Undefined variable"):
+
+            @pl.function
+            def undefined_var(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+                result: pl.Tensor[[64], pl.FP32] = pl.add(x, undefined)  # noqa: F821 # type: ignore
+                return result
+
+    def test_invalid_tensor_type_syntax(self):
+        """Test error on invalid tensor type syntax."""
+
+        with pytest.raises(ParserTypeError):
+
+            @pl.function
+            def invalid_type(x: pl.Tensor) -> pl.Tensor[[64], pl.FP32]:  # type: ignore
+                return x
+
+    def test_iter_arg_init_values_mismatch(self):
+        """Test error when iter_args don't match init_values count."""
+
+        with pytest.raises(ParserSyntaxError, match="Mismatch"):
+
+            @pl.function
+            def mismatch(n: pl.Tensor[[1], pl.INT32]) -> pl.Tensor[[1], pl.INT32]:
+                init1: pl.Tensor[[1], pl.INT32] = pl.create_tensor([1], dtype=pl.INT32)
+                init2: pl.Tensor[[1], pl.INT32] = pl.create_tensor([1], dtype=pl.INT32)
+
+                # 3 iter_args but only 2 init_values
+                for i, (v1, v2, v3) in pl.range(5, init_values=(init1, init2)):  # type: ignore
+                    out1, out2, out3 = pl.yield_(v1, v2, v3)
+
+                return out1
+
+    def test_unsupported_statement_type(self):
+        """Test error on unsupported Python statement."""
+
+        with pytest.raises(UnsupportedFeatureError, match="Unsupported"):
+
+            @pl.function
+            def unsupported(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+                # Try/except is not supported
+                try:
+                    result: pl.Tensor[[64], pl.FP32] = pl.add(x, 1.0)
+                except:  # noqa: E722
+                    result: pl.Tensor[[64], pl.FP32] = x
+                return result
+
+    def test_invalid_range_usage(self):
+        """Test error when for loop doesn't use pl.range()."""
+
+        with pytest.raises(ParserSyntaxError, match=r"must use pl\.range\(\)"):
+
+            @pl.function
+            def invalid_loop(n: pl.Tensor[[1], pl.INT32]) -> pl.Tensor[[1], pl.INT32]:
+                result: pl.Tensor[[1], pl.INT32] = n
+                # Using Python range() instead of pl.range()
+                for i in range(10):
+                    result = pl.add(result, 1)
+                return result
+
+    def test_invalid_loop_target_format(self):
+        """Test error on invalid for loop target format."""
+
+        with pytest.raises(ParserSyntaxError, match="target must be"):
+
+            @pl.function
+            def bad_target(n: pl.Tensor[[1], pl.INT32]) -> pl.Tensor[[1], pl.INT32]:
+                init: pl.Tensor[[1], pl.INT32] = pl.create_tensor([1], dtype=pl.INT32)
+
+                # Missing iter_args tuple
+                for i in pl.range(5, init_values=(init,)):
+                    result = pl.yield_(i)  # type: ignore
+
+                return result
+
+    def test_unknown_tensor_operation(self):
+        """Test error on unknown tensor operation."""
+
+        with pytest.raises(InvalidOperationError, match="Unknown tensor operation"):
+
+            @pl.function
+            def unknown_op(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+                # nonexistent_op doesn't exist
+                result: pl.Tensor[[64], pl.FP32] = pl.nonexistent_op(x)  # type: ignore
+                return result
+
+    def test_dump_tensor_requires_offsets_and_shapes_together(self):
+        """dump_tensor should reject partial window specification."""
+
+        with pytest.raises(ParserSyntaxError, match="offsets and shapes must be provided together"):
+
+            @pl.function
+            def partial_window(x: pl.Tensor[[32, 32], pl.FP32]) -> pl.Tensor[[32, 32], pl.FP32]:
+                plm.dump_tensor(x, shapes=[16, 16])
+                return x
+
+    def test_dump_tensor_rank_must_match_tensor(self):
+        """dump_tensor window rank should match the tensor rank."""
+
+        with pytest.raises(ParserSyntaxError, match="must match tensor rank"):
+
+            @pl.function
+            def rank_mismatch(x: pl.Tensor[[32, 32], pl.FP32]) -> pl.Tensor[[32, 32], pl.FP32]:
+                plm.dump_tensor(x, offsets=[0], shapes=[16])
+                return x
+
+    def test_dump_tensor_rejects_non_tensor_input(self):
+        """dump_tensor should only accept Tensor inputs."""
+
+        with pytest.raises(ParserSyntaxError, match="requires TensorType input"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def wrong_type(x: pl.Scalar[pl.INDEX]) -> pl.Scalar[pl.INDEX]:
+                plm.dump_tensor(x)  # type: ignore[arg-type]
+                return x
+
+    def test_dump_tensor_accepts_dynamic_window(self):
+        """dump_tensor should accept dynamic offsets/shapes."""
+
+        M = pl.DynVar("M")
+
+        @pl.function
+        def dynamic_window(
+            x: pl.Tensor[[M, 32], pl.FP32],
+            i: pl.Scalar[pl.INDEX],
+        ) -> pl.Tensor[[M, 32], pl.FP32]:
+            m = pl.tensor.dim(x, 0)
+            plm.dump_tensor(x, offsets=[i, 0], shapes=[m, 16])
+            return x
+
+        assert isinstance(dynamic_window, pypto_block.ir.Function)
+
+    def test_dump_tensor_window_requires_innermost_stride_one(self):
+        """dump_tensor windowed mode should reject non-contiguous innermost stride."""
+
+        with pytest.raises(ParserSyntaxError, match="innermost stride"):
+
+            @pl.function
+            def bad_stride(
+                x: pl.Tensor[[32, 32], pl.FP32, pl.view(stride=[64, 2])]
+            ) -> pl.Tensor[[32, 32], pl.FP32, pl.view(stride=[64, 2])]:
+                plm.dump_tensor(x, offsets=[0, 0], shapes=[16, 16])
+                return x
+
+    def test_dump_tile_rejects_non_tile_input(self):
+        """dump_tile should only accept Tile inputs."""
+
+        with pytest.raises(ParserSyntaxError, match="requires TileType input"):
+
+            @pl.function
+            def wrong_dump_tile(x: pl.Tensor[[32, 32], pl.FP32]) -> pl.Tensor[[32, 32], pl.FP32]:
+                plm.dump_tile(x)  # type: ignore[arg-type]
+                return x
+
+    def test_dump_tile_requires_offsets_and_shapes_together(self):
+        """dump_tile should reject partial window specification."""
+
+        with pytest.raises(ParserSyntaxError, match="offsets and shapes must be provided together"):
+
+            @pl.function
+            def partial_tile_window(x: pl.Tensor[[32, 32], pl.FP32]) -> pl.Tensor[[32, 32], pl.FP32]:
+                tile = pl.load(x, offsets=[0, 0], shapes=[16, 16])
+                plm.dump_tile(tile, offsets=[0, 0])
+                return x
+
+    def test_dump_tile_accepts_dynamic_offsets(self):
+        """dump_tile should accept dynamic window offsets."""
+
+        @pl.function
+        def dynamic_tile_window(
+            x: pl.Tensor[[32, 32], pl.FP32],
+            i: pl.Scalar[pl.INDEX],
+        ) -> pl.Tensor[[32, 32], pl.FP32]:
+            tile = pl.load(x, offsets=[0, 0], shapes=[16, 16])
+            plm.dump_tile(tile, offsets=[i, 0], shapes=[8, 16])
+            return x
+
+        assert isinstance(dynamic_tile_window, pypto_block.ir.Function)
+                
+    def test_printf_requires_string_literal_format(self):
+        """printf should reject non-string-literal format arguments."""
+
+        with pytest.raises(ParserTypeError, match="string literal"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def nonliteral_printf(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf(123, x)  # type: ignore[arg-type]
+                return x
+
+    def test_printf_rejects_mismatched_argument_count(self):
+        """printf should reject placeholder/argument count mismatch."""
+
+        with pytest.raises(ParserSyntaxError, match="expects 2 scalar arguments"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def too_few_printf_args(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf("a=%d b=%d", x)
+                return x
+
+    def test_printf_rejects_non_scalar_argument(self):
+        """printf should only accept scalar arguments."""
+
+        with pytest.raises(ParserSyntaxError, match="requires ScalarType input"):
+
+            @pl.function
+            def tensor_printf(x: pl.Tensor[[16, 16], pl.INT32]) -> pl.Tensor[[16, 16], pl.INT32]:
+                plm.printf("x=%d", x)  # type: ignore[arg-type]
+                return x
+
+    def test_printf_rejects_unsupported_format(self):
+        """printf should reject unsupported format conversions."""
+
+        with pytest.raises(ParserSyntaxError, match="does not support conversion '%s'"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def unsupported_printf(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf("x=%s", x)
+                return x
+
+    def test_printf_rejects_literal_percent(self):
+        """printf should reject literal %% in v1."""
+
+        with pytest.raises(ParserSyntaxError, match="does not support literal '%%'"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def percent_printf(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf("x=%% y=%d", x)
+                return x
+
+    def test_printf_accepts_pure_text_without_conversion(self):
+        """printf should accept pure text with zero scalar arguments."""
+
+        @pl.function(type=pl.FunctionType.Orchestration)
+        def text_only_printf(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+            plm.printf("hello world")
+            return x
+
+        assert text_only_printf is not None
+
+    def test_printf_rejects_pure_text_with_extra_args(self):
+        """printf should still reject pure text when scalar arguments are provided."""
+
+        with pytest.raises(ParserSyntaxError, match="expects 0 scalar arguments, but got 1"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def text_only_printf(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf("hello world", x)
+                return x
+
+    def test_printf_rejects_length_modifiers(self):
+        """printf v1 should reject length modifiers such as ll/h."""
+
+        with pytest.raises(ParserSyntaxError, match="does not support conversion '%l'"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def long_long_printf(x: pl.Scalar[pl.INT64]) -> pl.Scalar[pl.INT64]:
+                plm.printf("x=%lld", x)
+                return x
+
+        with pytest.raises(ParserSyntaxError, match="does not support conversion '%h'"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def short_printf(x: pl.Scalar[pl.INT16]) -> pl.Scalar[pl.INT16]:
+                plm.printf("x=%hd", x)
+                return x
+
+    def test_trap_rejects_positional_arguments(self):
+        """trap should reject positional arguments."""
+
+        with pytest.raises(ParserSyntaxError, match="trap takes no arguments"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def trap_with_arg(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.trap(1)  # type: ignore[call-arg]
+                return x
+
+    def test_trap_rejects_keyword_arguments(self):
+        """trap should reject keyword arguments."""
+
+        with pytest.raises(ParserSyntaxError, match="trap does not accept keyword arguments"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def trap_with_kwarg(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.trap(value=1)  # type: ignore[call-arg]
+                return x
+
+    def test_assert_accepts_bool_condition_and_literal_message(self):
+        """assert_ should parse in cond-only, plain-text, and formatted modes."""
+
+        @pl.function(type=pl.FunctionType.Orchestration)
+        def assert_ok(flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.BOOL]:
+            plm.assert_(flag)
+            plm.assert_(flag, "bad state")
+            plm.assert_(True, "forced fail")
+            return flag
+
+        assert assert_ok is not None
+
+        @pl.function(type=pl.FunctionType.Orchestration)
+        def assert_printf_ok(x: pl.Scalar[pl.INT32], flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.INT32]:
+            plm.assert_(x > 0, "x=%d", x)
+            plm.assert_(flag, "x=%d", x)
+            return x
+
+        assert assert_printf_ok is not None
+
+    def test_assert_rejects_keyword_arguments(self):
+        """assert_ should reject keyword arguments."""
+
+        with pytest.raises(ParserSyntaxError, match="assert_ does not accept keyword arguments"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def assert_with_kwarg(flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.BOOL]:
+                plm.assert_(condition=flag, message="bad state")  # type: ignore[call-arg]
+                return flag
+
+    def test_assert_rejects_wrong_argument_count(self):
+        """assert_ should reject missing condition and mismatched printf-style args."""
+
+        with pytest.raises(ParserSyntaxError, match="assert_ requires at least 1 argument"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def assert_missing_condition(flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.BOOL]:
+                plm.assert_()  # type: ignore[call-arg]
+                return flag
+
+        with pytest.raises(ParserSyntaxError, match="format expects 0 scalar arguments, but got 1"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def assert_extra_arg(flag: pl.Scalar[pl.BOOL], x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.BOOL]:
+                plm.assert_(flag, "bad state", x)
+                return flag
+
+    def test_assert_rejects_non_literal_message(self):
+        """assert_ should require a string literal message."""
+
+        with pytest.raises(ParserTypeError, match="message must be a string literal"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def assert_nonliteral_message(
+                flag: pl.Scalar[pl.BOOL], msg: pl.Scalar[pl.INT32]
+            ) -> pl.Scalar[pl.BOOL]:
+                plm.assert_(flag, msg)  # type: ignore[arg-type]
+                return flag
+
+    def test_assert_rejects_non_bool_condition(self):
+        """assert_ should require a bool scalar condition."""
+
+        with pytest.raises(ParserSyntaxError, match="requires a scalar bool condition"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def assert_nonbool_condition(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.assert_(x, "bad state")
+                return x
+
+    def test_assert_rejects_printf_mismatched_argument_count(self):
+        """assert_ should reuse printf argument-count validation."""
+
+        with pytest.raises(ParserSyntaxError, match="format expects 2 scalar arguments, but got 1"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def assert_printf_mismatch(flag: pl.Scalar[pl.BOOL], x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.assert_(flag, "x=%d y=%d", x)
+                return x
+
+    def test_assert_rejects_printf_non_scalar_argument(self):
+        """assert_ should reuse printf scalar-argument validation."""
+
+        with pytest.raises(ParserSyntaxError, match="requires ScalarType input"):
+
+            @pl.function
+            def assert_non_scalar_message_arg(
+                flag: pl.Scalar[pl.BOOL], x: pl.Tensor[[16, 16], pl.INT32]
+            ) -> pl.Tensor[[16, 16], pl.INT32]:
+                plm.assert_(flag, "x=%d", x)  # type: ignore[arg-type]
+                return x
+
+    def test_printf_accepts_bool_for_decimal_formats(self):
+        """printf should accept bool scalars for %d/%i/%u."""
+
+        @pl.function(type=pl.FunctionType.Orchestration)
+        def bool_printf(flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.BOOL]:
+            plm.printf("flag=%d alt=%i uns=%u", flag, flag, flag)
+            return flag
+
+        assert bool_printf is not None
+
+    def test_printf_rejects_bool_for_hex(self):
+        """printf should reject bool scalars for %x."""
+
+        with pytest.raises(ParserSyntaxError, match="requires unsigned integer or index scalar"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def bool_hex_printf(flag: pl.Scalar[pl.BOOL]) -> pl.Scalar[pl.BOOL]:
+                plm.printf("flag=%x", flag)
+                return flag
+
+    def test_printf_accepts_index_argument(self):
+        """printf should accept index scalars for integer formats."""
+
+        @pl.function(type=pl.FunctionType.Orchestration)
+        def index_printf(idx: pl.Scalar[pl.INDEX]) -> pl.Scalar[pl.INDEX]:
+            plm.printf("idx=%d hex=%x", idx, idx)
+            return idx
+
+        assert index_printf is not None
+
+    def test_printf_rejects_unsigned_for_signed_formats(self):
+        """printf should reject unsigned integers for %d/%i."""
+
+        with pytest.raises(ParserSyntaxError, match="requires signed integer, bool, or index scalar"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def bad_unsigned_decimal(x: pl.Scalar[pl.UINT32]) -> pl.Scalar[pl.UINT32]:
+                plm.printf("x=%d y=%i", x, x)
+                return x
+
+    def test_printf_rejects_signed_for_unsigned_formats(self):
+        """printf should reject signed integers for %u/%x."""
+
+        with pytest.raises(ParserSyntaxError, match="requires unsigned integer, bool, or index scalar"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def bad_signed_unsigned(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf("x=%u", x)
+                return x
+
+        with pytest.raises(ParserSyntaxError, match="requires unsigned integer or index scalar"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def bad_signed_hex(x: pl.Scalar[pl.INT32]) -> pl.Scalar[pl.INT32]:
+                plm.printf("x=%x", x)
+                return x
+
+    def test_printf_rejects_non_fp32_for_float(self):
+        """printf should reject FP16/BF16 for %f in v1."""
+
+        with pytest.raises(ParserSyntaxError, match="requires FP32 scalar"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def bad_fp16_float(x: pl.Scalar[pl.FP16]) -> pl.Scalar[pl.FP16]:
+                plm.printf("x=%f", x)
+                return x
+
+        with pytest.raises(ParserSyntaxError, match="requires FP32 scalar"):
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def bad_bf16_float(x: pl.Scalar[pl.BF16]) -> pl.Scalar[pl.BF16]:
+                plm.printf("x=%f", x)
+                return x
+
+    def test_printf_accepts_common_flags_width_precision(self):
+        """printf should accept common flags, width, and precision syntax."""
+
+        @pl.function(type=pl.FunctionType.Orchestration)
+        def modifier_printf(x: pl.Scalar[pl.UINT32], y: pl.Scalar[pl.FP32]) -> pl.Scalar[pl.FP32]:
+            plm.printf("x=%#08x y=%+08.3f", x, y)
+            return y
+
+        assert modifier_printf is not None
+
+
+class TestSSAValidation:
+    """Tests for SSA validation."""
+
+    def test_ssa_violation_double_assignment(self):
+        """Test that double assignment in same scope is caught with strict_ssa=True."""
+
+        with pytest.raises(SSAViolationError):
+
+            @pl.function(strict_ssa=True)
+            def double_assign(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+                # First assignment
+                result: pl.Tensor[[64], pl.FP32] = pl.mul(x, 2.0)
+                # Second assignment (SSA violation)
+                result: pl.Tensor[[64], pl.FP32] = pl.add(x, 1.0)
+                return result
+
+    def test_variable_from_inner_scope_not_accessible(self):
+        """Test that variables from inner scopes aren't accessible without yield."""
+
+        # Note: This test demonstrates the expected behavior
+        # The current implementation tracks yields, so this should work correctly
+        @pl.function
+        def scope_test(n: pl.Tensor[[1], pl.INT32]) -> pl.Tensor[[64], pl.FP32]:
+            init: pl.Tensor[[64], pl.FP32] = pl.create_tensor([64], dtype=pl.FP32)
+
+            for i, (acc,) in pl.range(5, init_values=(init,)):
+                temp: pl.Tensor[[64], pl.FP32] = pl.add(acc, 1.0)
+                # temp is yielded, so it's accessible as 'result'
+                result = pl.yield_(temp)
+
+            # Can return result because it was yielded from loop
+            return result
+
+        assert isinstance(scope_test, pypto_block.ir.Function)
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_empty_function_body(self):
+        """Test function with minimal body (just return)."""
+
+        @pl.function
+        def minimal(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+            return x
+
+        assert isinstance(minimal, pypto_block.ir.Function)
+
+    def test_single_dimension_tensor(self):
+        """Test tensor with single dimension."""
+
+        @pl.function
+        def single_dim(x: pl.Tensor[[128], pl.FP32]) -> pl.Tensor[[128], pl.FP32]:
+            result: pl.Tensor[[128], pl.FP32] = pl.mul(x, 2.0)
+            return result
+
+        assert isinstance(single_dim, pypto_block.ir.Function)
+
+    def test_three_dimension_tensor(self):
+        """Test tensor with three dimensions."""
+
+        @pl.function
+        def three_dim(
+            x: pl.Tensor[[64, 128, 256], pl.FP32],
+        ) -> pl.Tensor[[64, 128, 256], pl.FP32]:
+            return x
+
+        assert isinstance(three_dim, pypto_block.ir.Function)
+
+    def test_loop_with_range_one(self):
+        """Test loop that executes only once."""
+
+        @pl.function
+        def one_iteration(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+            for i, (acc,) in pl.range(1, init_values=(x,)):
+                result = pl.yield_(acc)
+
+            return result
+
+        assert isinstance(one_iteration, pypto_block.ir.Function)
+
+    def test_loop_with_start_stop_step(self):
+        """Test loop with start, stop, and step parameters."""
+
+        @pl.function
+        def custom_range(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+            for i, (acc,) in pl.range(2, 10, 2, init_values=(x,)):
+                new_acc: pl.Tensor[[64], pl.FP32] = pl.add(acc, 1.0)
+                result = pl.yield_(new_acc)
+
+            return result
+
+        assert isinstance(custom_range, pypto_block.ir.Function)
+
+    def test_function_with_many_variables(self):
+        """Test function with many local variables."""
+
+        @pl.function
+        def many_vars(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
+            v1: pl.Tensor[[64], pl.FP32] = pl.add(x, 1.0)
+            v2: pl.Tensor[[64], pl.FP32] = pl.add(v1, 2.0)
+            v3: pl.Tensor[[64], pl.FP32] = pl.add(v2, 3.0)
+            v4: pl.Tensor[[64], pl.FP32] = pl.add(v3, 4.0)
+            v5: pl.Tensor[[64], pl.FP32] = pl.add(v4, 5.0)
+            v6: pl.Tensor[[64], pl.FP32] = pl.add(v5, 6.0)
+            v7: pl.Tensor[[64], pl.FP32] = pl.add(v6, 7.0)
+            v8: pl.Tensor[[64], pl.FP32] = pl.add(v7, 8.0)
+            v9: pl.Tensor[[64], pl.FP32] = pl.add(v8, 9.0)
+            v10: pl.Tensor[[64], pl.FP32] = pl.add(v9, 10.0)
+            return v10
+
+        assert isinstance(many_vars, pypto_block.ir.Function)
+
+    def test_different_shape_tensors(self):
+        """Test function with tensors of different shapes."""
+
+        @pl.function
+        def diff_shapes(
+            a: pl.Tensor[[64], pl.FP32],
+            b: pl.Tensor[[128], pl.FP32],
+            c: pl.Tensor[[256], pl.FP32],
+        ) -> pl.Tensor[[64], pl.FP32]:
+            return a
+
+        assert isinstance(diff_shapes, pypto_block.ir.Function)
+        assert len(diff_shapes.params) == 3
+
+
+class TestScalarTypeErrors:
+    """Tests for Scalar type error handling."""
+
+    def test_scalar_without_dtype(self):
+        """Test that Scalar without dtype raises error."""
+        with pytest.raises(pl.parser.ParserError):
+
+            @pl.function
+            def bad_scalar(x: pl.Scalar) -> pl.Scalar:  # Missing [dtype]
+                return x
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
