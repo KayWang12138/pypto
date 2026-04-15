@@ -21,7 +21,7 @@ import numpy as np
 import pypto
 
 from sparse_flash_attention_quant_impl \
-    import sparse_flash_attention_quant_d, sparse_flash_attention_quant_p, SaTileShapeConfig
+    import sparse_flash_attention_quant_d, sparse_flash_attention_quant_p, sparse_flash_attention_quant_d_950, SaTileShapeConfig
 from utils.compare import compare
 
 
@@ -523,7 +523,7 @@ def test_sfa_bf16_b4_s2_seq64k_per_int8_d_950():
     '''
     sfa decode测试函数
     '''
-    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False, is_soc_950=True)
+    do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d_950", is_p=False, is_soc_950=True)
 
 
 @pytest.mark.skip(reason="bf16 perf")

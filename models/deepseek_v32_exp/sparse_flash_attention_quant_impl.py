@@ -36,6 +36,7 @@ from pypto.experimental import gather_in_l1, gather_in_ub
 class SaTileShapeConfig:
     g_tile: int
     s_kv_tile: int
+    gather_vec_tile_shape: list
     c1_tile_shape: list
     v1_tile_shape: list
     c2_tile_shape: list
