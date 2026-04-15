@@ -35,9 +35,9 @@ void OpcodeManager::RegisterInfo(
     std::vector<MemoryType> outputsMemType, const TileOpCfg tileOpCfg, OpCalcType calcType,
     const std::vector<std::string>& attrs, VerifyOperationEntry verifyOperationEntry)
 {
-    ASSERT(opcode < Opcode::OP_UNKNOWN) << "opcode: " << static_cast<int64_t>(opcode);
-    ASSERT(strToEnum_.count(str) == 0) << str << " doesn't exist.";
-    ASSERT(registered_.count(opcode) == 0) << "opcode: " << static_cast<int64_t>(opcode) << " not registered.";
+    assert((opcode < Opcode::OP_UNKNOWN) && "opcode: " && static_cast<int64_t>(opcode));
+    assert((strToEnum_.count(str) == 0) && str && " doesn't exist.");
+    assert((registered_.count(opcode) == 0) && "opcode: " && static_cast<int64_t>(opcode) && " not registered.");
     registered_.emplace(opcode);
     strToEnum_.emplace(str, opcode);
     opcodeInfos_[static_cast<int>(opcode)] =
