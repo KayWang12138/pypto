@@ -786,7 +786,6 @@ OPERATOR_DISPATCHERS = {
     'ReduceScatter': generate_reduce_scatter_golden,
     'AllReduce': generate_all_reduce_golden,
     'AllReduceV10': generate_all_reduce_golden,   # SHMEM-only, per-group GE signaling (OneShotCommunicatorV5)
-    'AllReduceV10PipeGe': generate_all_reduce_golden, # SHMEM-only, pipelined GE signaling (OneShotCommunicatorV5)
     'MoeDispatch': generate_moe_dispatch_golden,
     'MoeDistributedCombine': generate_moe_distributed_combine_golden,
     'AllReduceAddAllReduce': generate_allreduce_add_allreduce_golden,

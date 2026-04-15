@@ -72,7 +72,7 @@ Variants can appear in **multiple fixture classes** — search all of them:
   remove the variant's lambda from `RunOneShotVariantsSameResults` (delete the whole method if
   no variants remain).
 - Update the file-level `\brief` comment to remove the variant version range (e.g. change
-  `OneShot (base, v2–v6, v10, v10_pipe_ge)` → `OneShot (base, v10, v10_pipe_ge)`).
+  `OneShot (base, v2–v6, v10)` → `OneShot (base, v10)`).
 
 **File:** `framework/tests/ut/codegen/src/test_dynamic/test_codegen_dyn_distributed/test_shmem_operation_impl.cpp`
 
@@ -220,7 +220,7 @@ Every location that encodes test indices — all must be consistent after any ad
 | `multirank` `elseif` block | Same — **delete the entire block** if the last multi-rank test is removed |
 | `ircheck` `elseif` block | Same — **delete the entire block** if the last IR-check test is removed |
 | `twoshotir` `elseif` block | Same |
-| Dedicated `elseif` blocks (`v10`, `v10pipege`, …) | Update index value in message + config; add or remove entire block for new/removed dedicated shortcuts |
+| Dedicated `elseif` blocks (`v10`, …) | Update index value in message + config; add or remove entire block for new/removed dedicated shortcuts |
 
 **Index source of truth**: the sorted JSON filenames. Always run Quick Verification to confirm before committing.
 

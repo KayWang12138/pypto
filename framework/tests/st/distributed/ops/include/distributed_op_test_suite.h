@@ -38,8 +38,6 @@ void TestAllReduce(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduce_v10(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
-void TestAllReduce_v10_pipe_ge(OpTestParam &testParam, std::string& goldenDir);
-template<typename T>
 void TestShmemMoeDispatch(OpTestParam &testParam, std::string& goldenDir);
 template<typename T>
 void TestAllReduceAddAllReduce(OpTestParam &testParam, std::string& goldenDir);

@@ -612,11 +612,6 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& sh
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
     uint32_t payloadChunkCount, uint32_t chunksPerSignal);
-void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
-    uint32_t payloadChunkCount, uint32_t chunksPerSignal);
-
-
-
 
 
 void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
