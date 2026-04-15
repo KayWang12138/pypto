@@ -73,6 +73,7 @@ void ExecuteOpBindTensor(ExecuteOperationContext *ctx) {
     if (memType == 1) {
         std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
         SimulationCommManager::Instance().Alloc(groupName, slotSize);
+        // TODO: 这里需要将各个 rank 对应的共享内存区组织在一起，然后返回一个 world_size * slotSize 大小的张量 
     }
     if (memType == 0) {
         std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;

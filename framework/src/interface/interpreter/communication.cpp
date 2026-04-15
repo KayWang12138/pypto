@@ -39,7 +39,9 @@ void CheckNotNullPtr(uint8_t *ptr, const char *message) {
 int GetRankId(const std::string &groupName) {
     const char* rankStr = std::getenv("RANK");
     if (rankStr != nullptr) {
-        return std::atoi(rankStr);
+        int rankId = std::atoi(rankStr);
+        std::cout << "current rank is " << rankId << std::endl;
+        return rankId;
     }
 
     auto it = g_context.find(groupName);
@@ -48,13 +50,16 @@ int GetRankId(const std::string &groupName) {
     }
     TileOp::CommContext *context = (TileOp::CommContext *)(it->second.second);
     int rankId = context->rankId;
+    std::cout << "current rank is " << rankId << std::endl;
     return rankId;
 }
 
 int GetWorldSize(const std::string &groupName) {
     const char* worldSizeStr = std::getenv("WORLD_SIZE");
     if (worldSizeStr != nullptr) {
-        return std::atoi(worldSizeStr);
+        int worldSize = std::atoi(worldSizeStr);
+        std::cout << "current world_size is " << worldSize << std::endl;
+        return worldSize;
     }
 
     auto it = g_context.find(groupName);
@@ -63,6 +68,7 @@ int GetWorldSize(const std::string &groupName) {
     }
     TileOp::CommContext *context = (TileOp::CommContext *)(it->second.second);
     int worldSize = context->rankNum;
+    std::cout << "current world_size is " << worldSize << std::endl;
     return worldSize;
 }
 
@@ -160,6 +166,7 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
         dataName_ = handler;
         memset(dataBase_, 0, WIN_IN_SIZE);
     }
+    std::cout << "round " << round_ << " prealloc for " << handler << std::endl;
 }
 
 void SimulationCommContext::Alloc(size_t slotSize) {
@@ -175,6 +182,7 @@ void SimulationCommContext::Alloc(size_t slotSize) {
         throw std::runtime_error("Out of pre-allocated memory!");
     }
     dataShmSize_.store(shmSize);
+    std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
 }
 
 void SimulationCommContext::AllocSignal(size_t slotSize) {
@@ -189,6 +197,7 @@ void SimulationCommContext::AllocSignal(size_t slotSize) {
         throw std::runtime_error("Out of pre-allocated memory!");
     }
     ctrlShmSize_.store(shmSize);
+    std::cout << "round " << round_ << " allocSignal " << slotSize << "B for rank " << rank_ << std::endl;
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
@@ -316,6 +325,7 @@ void SimulationCommContext::Put(LogicalTensorDataPtr data, int dstRank, uint64_t
                 throw std::runtime_error("Unsupported atomic add data type!");
         }
     }
+    std::cout << "round " << round_ << " put " << data << "to rank " << dstRank << " offset:" << offset << std::endl;
 }
 
 void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_t offset) {
@@ -324,6 +334,7 @@ void SimulationCommContext::Set(int dstRank, int value, size_t slotSize, uint64_
         throw std::runtime_error("Set operation would exceed shared memory bounds!");
     }
     std::atomic_thread_fence(std::memory_order_release);
+    std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
     memset(base + offset, value, slotSize);
 }
 
@@ -344,6 +355,7 @@ void SimulationCommContext::SignalSingle(int dstRank, int value, size_t slotSize
             __sync_fetch_and_add(&ctrlBase[offset + i], value);
         }
     }
+    std::cout << "round " << round_ << " send signal " << value << " to rank " << dstRank << std::endl;
 }
 
 void SimulationCommContext::Signal(int dstRank, int value, size_t slotSize, uint64_t offset, int atomicType, bool notifyAll) {
@@ -365,6 +377,7 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     volatile int32_t *ctrlBase = reinterpret_cast<volatile int32_t *>(base);
     offset = offset / (sizeof(int32_t) / sizeof(uint8_t));
     slotSize = slotSize / (sizeof(int32_t) / sizeof(uint8_t));
+    std::cout << "round " << round_ << " waitting " << targetValue << " for rank " << srcRank << std::endl;
     while(ctrlBase[offset + slotSize - 1] != targetValue) {
         std::this_thread::yield();
         std::atomic_thread_fence(std::memory_order_acquire);
@@ -407,6 +420,7 @@ LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, ui
     if (offset + slotSize > WIN_IN_SIZE) {
         throw std::runtime_error("Get operation would exceed shared memory bound!");
     }
+    std::cout << "round " << round_ << " get " << slotSize << "B data from rank " << srcRank << std::endl;
     RawTensorDataPtr result = RawTensorData::CreateTensor(DT_UINT8, {1, static_cast<int64_t>(slotSize)}, base + offset);
     return std::make_shared<LogicalTensorData>(result);
 }
@@ -439,6 +453,8 @@ void SimulationCommContext::Destroy() {
         shm_unlink(dataName_.c_str());
         dataName_.clear();
     }
+    std::cout << "round " << round_ << " released rank " << rank_ << std::endl;
+
     allocatedData_ = false;
     allocatedSignal_ = false;
     dataShmSize_ = 0;
