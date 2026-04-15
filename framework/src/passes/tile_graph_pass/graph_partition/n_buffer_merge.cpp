@@ -500,6 +500,71 @@ std::map<uint64_t, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector
     return numDBList;
 }
 
+Status NBufferMerge::ApplySemanticLabelSettings(
+    const OperationsViewer& opOriList, std::map<uint64_t, size_t>& hashMergeNum,
+    const std::map<uint64_t, std::vector<int>>& /* hashMap */, const std::vector<uint64_t>& hashColor)
+{
+    if (vecNBufferSettingByLabel_.empty()) {
+        return SUCCESS;
+    }
+
+    // Build a map from semantic label to the subgraph colors that contain ops with that label
+    std::map<std::string, std::set<int>> labelToColors;
+    for (size_t i = 0; i < opOriList.size(); i++) {
+        if (opOriList[i].GetSubgraphID() < 0) {
+            continue;
+        }
+        const std::string& label = opOriList[i].GetSemanticLabelStr();
+        if (!label.empty()) {
+            labelToColors[label].insert(opOriList[i].GetSubgraphID());
+        }
+    }
+
+    // First step: collect the override value per hashOrder from all labels.
+    // If multiple labels target the same isomorphic group, take max among them.
+    std::map<uint64_t, size_t> labelOverrides;
+    for (const auto& [label, mergeNum] : vecNBufferSettingByLabel_) {
+        auto it = labelToColors.find(label);
+        if (it == labelToColors.end()) {
+            APASS_LOG_ERROR_F(
+                Elements::Config,
+                "Semantic label '%s' specified in vec_nbuffer_setting not found in any operation. "
+                "Please check that the label matches an operation's semantic_label.",
+                label.c_str());
+            return FAILED;
+        }
+
+        for (int color : it->second) {
+            uint64_t colorHash = hashColor[color];
+            auto hashOrderIt = hashOrder_.find(colorHash);
+            if (hashOrderIt == hashOrder_.end()) {
+                APASS_LOG_WARN_F(
+                    Elements::Config,
+                    "Could not find hash order for subgraph color %d with semantic label '%s'.",
+                    color, label.c_str());
+                continue;
+            }
+            uint64_t order = hashOrderIt->second;
+            auto overIt = labelOverrides.find(order);
+            if (overIt != labelOverrides.end()) {
+                overIt->second = std::max(overIt->second, static_cast<size_t>(mergeNum));
+            } else {
+                labelOverrides[order] = static_cast<size_t>(mergeNum);
+            }
+        }
+    }
+
+    // Second step: replace the hashMergeNum with collected label overrides
+    for (const auto& [order, val] : labelOverrides) {
+        hashMergeNum[order] = val;
+        APASS_LOG_INFO_F(
+            Elements::Config,
+            "Applied semantic label override: hash_order=%lu, merge_num=%zu", order, val);
+    }
+
+    return SUCCESS;
+}
+
 Status NBufferMerge::NBufferMergeProcess(Function& func)
 {
     if (Init(func) == FAILED) {
@@ -539,6 +604,15 @@ Status NBufferMerge::NBufferMergeProcess(Function& func)
         APASS_LOG_INFO_F(Elements::Config, "Manually set mode to %d.", vecNBuffermode_);
         hashMergeNum = SetNumDB(hashMap);
     }
+
+    // Apply semantic label settings (higher priority than hashorder settings)
+    if (ApplySemanticLabelSettings(opOriList, hashMergeNum, hashMap, hashColor) == FAILED) {
+        APASS_LOG_ERROR_F(
+            Elements::Config,
+            "ApplySemanticLabelSettings failed; Please check the semantic labels in vec_nbuffer_setting.");
+        return FAILED;
+    }
+
     if (vecNBuffermode_ == autoMulityInOutMerge || vecNBuffermode_ == manualMulityInOutMerge) {
         if (MergeProcessForMulityInOut(opOriList, hashMap, hashMergeNum, hashColor) == FAILED) {
             APASS_LOG_ERROR_F(
@@ -631,6 +705,7 @@ Status NBufferMerge::RunOnFunction(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start NBufferMerge.");
     vecNBufferSetting_ = function.paramConfigs_.vecNBufferSetting;
+    vecNBufferSettingByLabel_ = function.paramConfigs_.vecNBufferSettingByLabel;
     mgVecParallelLb_ = function.paramConfigs_.mgVecParallelLb;
     if (InitVecNBufferModeBySetting() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Config, "InitVecNBufferModeBySetting failed.");

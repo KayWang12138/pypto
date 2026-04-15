@@ -251,7 +251,46 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict& 
                 cpp_values[key] = std::vector<int64_t>();
             }
         } else if (py::isinstance<py::dict>(value)) {
-            cpp_values[key] = value.cast<std::map<int64_t, int64_t>>();
+            // Check if dict has mixed key types (int and string)
+            py::dict dict_value = py::cast<py::dict>(value);
+            bool has_int_keys = false;
+            bool has_str_keys = false;
+
+            for (auto dict_item : dict_value) {
+                if (py::isinstance<py::int_>(dict_item.first)) {
+                    has_int_keys = true;
+                } else if (py::isinstance<py::str>(dict_item.first)) {
+                    has_str_keys = true;
+                }
+            }
+
+            if (has_int_keys && !has_str_keys) {
+                // Pure integer keys - use existing behavior
+                cpp_values[key] = value.cast<std::map<int64_t, int64_t>>();
+            } else if (has_str_keys && !has_int_keys) {
+                // Pure string keys - convert to string map
+                cpp_values[key] = value.cast<std::map<std::string, int64_t>>();
+            } else if (has_int_keys && has_str_keys) {
+                // Mixed keys - store both maps separately
+                std::map<int64_t, int64_t> int_map;
+                std::map<std::string, int64_t> str_map;
+
+                for (auto dict_item : dict_value) {
+                    int64_t val = py::cast<int64_t>(dict_item.second);
+                    if (py::isinstance<py::int_>(dict_item.first)) {
+                        int64_t k = py::cast<int64_t>(dict_item.first);
+                        int_map[k] = val;
+                    } else if (py::isinstance<py::str>(dict_item.first)) {
+                        std::string k = py::cast<std::string>(dict_item.first);
+                        str_map[k] = val;
+                    }
+                }
+
+                cpp_values[key] = int_map;
+                cpp_values[key + "_by_label"] = str_map;
+            } else {
+                cpp_values[key] = std::map<int64_t, int64_t>();
+            }
         } else {
             throw py::type_error("Unsupported value type for key: " + key);
         }
@@ -313,6 +352,8 @@ py::object AnyToPyObject(const Any& val)
         {typeid(std::vector<double>), [](const Any& a) { return py::cast(AnyCast<std::vector<double>>(a)); }},
         {typeid(std::map<int64_t, int64_t>),
          [](const Any& a) { return py::cast(AnyCast<std::map<int64_t, int64_t>>(a)); }},
+        {typeid(std::map<std::string, int64_t>),
+         [](const Any& a) { return py::cast(AnyCast<std::map<std::string, int64_t>>(a)); }},
         {typeid(CubeTile), [](const Any& a) { return py::cast(AnyCast<CubeTile>(a)); }},
         {typeid(ConvTile), [](const Any& a) { return py::cast(AnyCast<ConvTile>(a)); }},
         {typeid(DistTile), [](const Any& a) { return py::str(AnyCast<DistTile>(a).ToString()); }},

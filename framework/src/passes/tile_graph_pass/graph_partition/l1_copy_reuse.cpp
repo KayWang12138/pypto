@@ -302,6 +302,7 @@ inline void HashUpdate(
 
 Status L1CopyInReuseRunner::SetNumLR(std::vector<int>& numLRList)
 {
+    // numLRList is per-subgraph (size = color), not per-hashorder
     auto numLR = numLRMap_.find(-1);
     if (numLR != numLRMap_.end()) {
         if (numLR->second < 0) {
@@ -312,34 +313,46 @@ Status L1CopyInReuseRunner::SetNumLR(std::vector<int>& numLRList)
                 static_cast<long>(numLR->second));
             return FAILED;
         }
-        numLRList.assign(hashMap_.size(), numLR->second);
+        numLRList.assign(numLRList.size(), numLR->second);
     } else {
-        numLRList.assign(hashMap_.size(), -1);
+        numLRList.assign(numLRList.size(), -1);
     }
+
+    // For integer keys: apply to all subgraphs in the isomorphic group
     for (auto& entry : numLRMap_) {
-        int i = entry.first;
-        if (i >= 0 && i < static_cast<int>(hashMap_.size())) {
-            for (auto& [hashcolor, order] : hashOrder_) {
-                if (order != i)
-                    continue;
-                auto itHashMap = hashMap_.find(hashcolor);
-                if (itHashMap == hashMap_.end()) {
-                    APASS_LOG_ERROR_F(Elements::Config, "entry %lu not fount in hashMap.", hashcolor);
-                    return FAILED;
-                }
-                if (entry.second < 0) {
-                    APASS_LOG_ERROR_F(
-                        Elements::Config,
-                        "Invalid merge count for "
-                        "Subgraph hash %lu: merge count=%ld, please check.",
-                        hashcolor, static_cast<long>(entry.second));
-                    return FAILED;
-                }
-                numLRList[i] = entry.second;
-            }
+        int hashOrderKey = entry.first;
+        if (hashOrderKey < 0) {
+            continue; // -1 already handled above
+        }
+        if (hashOrderKey >= static_cast<int>(hashMap_.size())) {
+            APASS_LOG_WARN_F(Elements::Config, "Invalid hash order ID: %d in cubeL1ReuseSetting, ignored.", hashOrderKey);
             continue;
         }
-        APASS_LOG_WARN_F(Elements::Config, "Invalid subgraph ID: %d in cubeL1ReuseSetting, ignored.", i);
+
+        if (entry.second < 0) {
+            APASS_LOG_ERROR_F(
+                Elements::Config,
+                "Invalid merge count for hash order %d: merge count=%ld, please check.",
+                hashOrderKey, static_cast<long>(entry.second));
+            return FAILED;
+        }
+
+        // Find the hash value whose hashOrder == hashOrderKey, then expand to all subgraphs
+        for (auto& [hashcolor, order] : hashOrder_) {
+            if (order != hashOrderKey) {
+                continue;
+            }
+            auto itHashMap = hashMap_.find(hashcolor);
+            if (itHashMap == hashMap_.end()) {
+                APASS_LOG_ERROR_F(Elements::Config, "entry %lu not found in hashMap.", hashcolor);
+                return FAILED;
+            }
+            for (int subgraphColor : itHashMap->second) {
+                if (subgraphColor >= 0 && subgraphColor < static_cast<int>(numLRList.size())) {
+                    numLRList[subgraphColor] = entry.second;
+                }
+            }
+        }
     }
     return SUCCESS;
 }
@@ -401,12 +414,20 @@ void L1CopyInReuseRunner::GetL1ReuseOpOrder(
         APASS_LOG_WARN_F(Elements::Config, "Failed to get number of cores. L1Reuse will not be applied.");
         return;
     }
+    // Use hashOrder grouping: all subgraphs of the same hashOrder share the auto-calc result.
+    std::map<uint64_t, int> autoCalcCache;
+    std::map<uint64_t, int> autoRemCache;
     for (int i = 0; i < color; i++) {
-        if (numLRList[hashOrder_[hashColor[i]]] == -1) {
-            numLRList[hashOrder_[hashColor[i]]] = mp[hashOrder_[hashColor[i]]] / (coreNum * NUM2);
-            mgRem[hashOrder_[hashColor[i]]] = mp[hashOrder_[hashColor[i]]] % (coreNum * NUM2);
+        uint64_t ho = hashOrder_[hashColor[i]];
+        if (numLRList[i] == -1) {
+            if (autoCalcCache.find(ho) == autoCalcCache.end()) {
+                autoCalcCache[ho] = mp[ho] / (coreNum * NUM2);
+                autoRemCache[ho] = mp[ho] % (coreNum * NUM2);
+            }
+            numLRList[i] = autoCalcCache[ho];
+            mgRem[ho] = autoRemCache[ho];
         } else {
-            mgRem[hashOrder_[hashColor[i]]] = 0;
+            mgRem[ho] = 0;
         }
     }
 }
@@ -434,10 +455,17 @@ Status L1CopyInReuseRunner::Phase1(
     // 针对matmul的L1 copy reuse进行子图合并
     auto opOriList = func.Operations();
     std::map<std::vector<uint64_t>, int> l1InputList;
-    std::vector<int> numLRList(hashMap_.size(), 0);
+    std::vector<int> numLRList(color, 0);
     // CubeL1ReuseMode
     if (SetNumLR(numLRList) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeL1ReuseSetting");
+        return FAILED;
+    }
+    // Apply semantic label settings for L1 reuse (higher priority than hashorder settings)
+    if (ApplySemanticLabelSettingsL1Reuse(opOriList, numLRList, hashColor, color) == FAILED) {
+        APASS_LOG_ERROR_F(
+            Elements::Config,
+            "ApplySemanticLabelSettingsL1Reuse failed; Please check the semantic labels in cube_l1_reuse_setting.");
         return FAILED;
     }
     std::vector<int> mergedNum(color, 1);
@@ -464,7 +492,7 @@ Status L1CopyInReuseRunner::Phase1(
                 return FAILED;
             }
             if (GetMergedL1(
-                    maxInColor, mergedNum, numLRList[hashOrder_[hashColor[i]]], tmpColor, i, l1InputList, vec,
+                    maxInColor, mergedNum, numLRList[i], tmpColor, i, l1InputList, vec,
                     colorCopyIn, mgRem, hashColor[i])) {
                 break;
             }
@@ -525,6 +553,134 @@ Status L1CopyInReuseRunner::SetNumDB(std::vector<int>& hashMergeNum)
         }
         APASS_LOG_WARN_F(Elements::Config, "Invalid subgraph ID: %d in cubeNBufferSetting, ignored.", i);
     }
+    return SUCCESS;
+}
+
+Status L1CopyInReuseRunner::ApplySemanticLabelSettingsL1Reuse(
+    const OperationsViewer& opOriList, std::vector<int>& numLRList,
+    const std::vector<uint64_t>& /* hashColor */, int color)
+{
+    if (numLRMapByLabel_.empty()) {
+        return SUCCESS;
+    }
+
+    // Build a map from semantic label to the subgraph colors that contain ops with that label
+    std::map<std::string, std::set<int>> labelToColors;
+    for (size_t i = 0; i < opOriList.size(); i++) {
+        if (opOriList[i].GetSubgraphID() < 0) {
+            continue;
+        }
+        const std::string& label = opOriList[i].GetSemanticLabelStr();
+        if (!label.empty()) {
+            labelToColors[label].insert(opOriList[i].GetSubgraphID());
+        }
+    }
+
+    // For L1Reuse, string keys set only the specific subgraphs containing the labeled ops,
+    // NOT the whole isomorphic group.
+    // First step: collect override per subgraph color. If multiple labels target the same
+    // subgraph, take the max among them.
+    std::map<int, int> subgraphOverrides;
+    for (const auto& [label, mergeNum] : numLRMapByLabel_) {
+        auto it = labelToColors.find(label);
+        if (it == labelToColors.end()) {
+            APASS_LOG_ERROR_F(
+                Elements::Config,
+                "Semantic label '%s' specified in cube_l1_reuse_setting not found in any operation. "
+                "Please check that the label matches an operation's semantic_label.",
+                label.c_str());
+            return FAILED;
+        }
+
+        for (int colorId : it->second) {
+            if (colorId >= color) {
+                continue;
+            }
+            auto overIt = subgraphOverrides.find(colorId);
+            if (overIt != subgraphOverrides.end()) {
+                overIt->second = std::max(overIt->second, static_cast<int>(mergeNum));
+            } else {
+                subgraphOverrides[colorId] = static_cast<int>(mergeNum);
+            }
+        }
+    }
+
+    // Second step: replace the numLRList with collected overrides
+    for (const auto& [colorId, val] : subgraphOverrides) {
+        if (colorId < static_cast<int>(numLRList.size())) {
+            numLRList[colorId] = val;
+            APASS_LOG_INFO_F(
+                Elements::Config,
+                "Applied L1 reuse semantic label override: subgraph_color=%d, merge_num=%d", colorId, val);
+        }
+    }
+
+    return SUCCESS;
+}
+
+Status L1CopyInReuseRunner::ApplySemanticLabelSettingsCubeNBuffer(
+    const OperationsViewer& opOriList, std::vector<int>& numDBList,
+    const std::vector<uint64_t>& hashColor, int color)
+{
+    if (numDBMapByLabel_.empty()) {
+        return SUCCESS;
+    }
+
+    // Build a map from semantic label to the subgraph colors that contain ops with that label
+    std::map<std::string, std::set<int>> labelToColors;
+    for (size_t i = 0; i < opOriList.size(); i++) {
+        if (opOriList[i].GetSubgraphID() < 0) {
+            continue;
+        }
+        const std::string& label = opOriList[i].GetSemanticLabelStr();
+        if (!label.empty()) {
+            labelToColors[label].insert(opOriList[i].GetSubgraphID());
+        }
+    }
+
+    // First step: collect override value per hashOrder from all labels.
+    // If multiple labels target the same isomorphic group, take max among them.
+    std::map<int, int> labelOverrides;
+    for (const auto& [label, mergeNum] : numDBMapByLabel_) {
+        auto it = labelToColors.find(label);
+        if (it == labelToColors.end()) {
+            APASS_LOG_ERROR_F(
+                Elements::Config,
+                "Semantic label '%s' specified in cube_nbuffer_setting not found in any operation. "
+                "Please check that the label matches an operation's semantic_label.",
+                label.c_str());
+            return FAILED;
+        }
+
+        for (int colorId : it->second) {
+            if (colorId >= color) {
+                continue;
+            }
+            uint64_t colorHash = hashColor[colorId];
+            auto hashOrderIt = hashOrder_.find(colorHash);
+            if (hashOrderIt == hashOrder_.end()) {
+                continue;
+            }
+            int order = hashOrderIt->second;
+            auto overIt = labelOverrides.find(order);
+            if (overIt != labelOverrides.end()) {
+                overIt->second = std::max(overIt->second, static_cast<int>(mergeNum));
+            } else {
+                labelOverrides[order] = static_cast<int>(mergeNum);
+            }
+        }
+    }
+
+    // Second step: replace the numDBList with collected label overrides
+    for (const auto& [order, val] : labelOverrides) {
+        if (order < static_cast<int>(numDBList.size())) {
+            numDBList[order] = val;
+            APASS_LOG_INFO_F(
+                Elements::Config,
+                "Applied cube nbuffer semantic label override: hash_order=%d, merge_num=%d", order, val);
+        }
+    }
+
     return SUCCESS;
 }
 
@@ -614,6 +770,8 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
     mgCopyInUpperBound_ = func.paramConfigs_.sgMgCopyInUpperBound;
     numLRMap_ = func.paramConfigs_.cubeL1ReuseSetting;
     numDBMap_ = func.paramConfigs_.cubeNBufferSetting; // 合并阈值参数设置
+    numLRMapByLabel_ = func.paramConfigs_.cubeL1ReuseSettingByLabel;
+    numDBMapByLabel_ = func.paramConfigs_.cubeNBufferSettingByLabel;
     L1ReuseMode_ = GetModeBySetting(numLRMap_);
     cubeNBufferMode_ = GetModeBySetting(numDBMap_);
     APASS_LOG_INFO_F(Elements::Operation, "Param Setting mgCopyInUpperBound %d.", mgCopyInUpperBound_);
@@ -632,6 +790,13 @@ Status L1CopyInReuseRunner::Run(Function& func, int color, std::vector<std::vect
     // NBuffer参数设置
     if (SetNumDB(hashMergeNum) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeNBufferSetting");
+        return FAILED;
+    }
+    // Apply semantic label settings for cube nbuffer (higher priority than hashorder settings)
+    if (ApplySemanticLabelSettingsCubeNBuffer(opOriList, hashMergeNum, hashColor, color) == FAILED) {
+        APASS_LOG_ERROR_F(
+            Elements::Config,
+            "ApplySemanticLabelSettingsCubeNBuffer failed; Please check the semantic labels in cube_nbuffer_setting.");
         return FAILED;
     }
     CubeMergeProcess(colorNode, opOriList, hashMergeNum, colorCopyIn);
