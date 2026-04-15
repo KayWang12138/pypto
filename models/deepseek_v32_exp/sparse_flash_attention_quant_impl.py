@@ -104,7 +104,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
     g_loop_sym = group // group_tile
 
     atten_out_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, dn], dtype, "attenOut2Dim")
-    for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
+    for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx", parallel=True):
         cur_act_seq = kv_act_seqs[batch_idx]
         for slc_idx in pypto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"):
             cur_seq = (cur_act_seq - s1_sym + 1 + slc_idx).max(0).min(topk)
