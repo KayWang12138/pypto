@@ -172,71 +172,71 @@ TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats)
         ASSERT_ALLCLOSE_ATOL(e8m0_out, golden_e8m0, 1e-6f);
     }
 }
-// ToOperand: Float32 -> FP8 encoding (used when writing calc results to FP8 storage).
-// Each operation: same binary input (0x55), verify for all three FP8 types. 0x55 decodes to:
-//   E4M3: 13.0,  E5M2: 80.0,  E8M0: 2^-42
-TEST_F(InterpTypeConvertTest, Fp8ToOperand)
-{
-    constexpr uint8_t kBits = 0x55;
-    const DataType fp8_types[] = {DT_FP8E4M3, DT_FP8E5M2, DT_FP8E8M0};
-    const float golden_per_type[3] = {13.0f, 80.0f, std::exp2(-42.0f)};
+namespace {
+constexpr uint8_t kFp8OperandBits = 0x55;
+constexpr DataType kFp8Types[] = {DT_FP8E4M3, DT_FP8E5M2, DT_FP8E8M0};
+constexpr float kFp8GoldenPerType[] = {13.0f, 80.0f, 2.2737368e-13f}; // 2^-42
+} // namespace
 
-    // Cast: same FP32 input 2.0 -> E4M3/E5M2/E8M0 (output type varies)
-    {
-        auto fp32_src = makeTensorData(DT_FP32, {4, 4}, 2.0f);
-        auto golden = makeTensorData(DT_FP32, {4, 4}, 2.0f);
-        for (DataType dtype : fp8_types) {
-            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
-            calc::Cast(out, fp32_src);
-            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-1);
-        }
+TEST_F(InterpTypeConvertTest, Fp8ToOperandCast)
+{
+    auto fp32_src = makeTensorData(DT_FP32, {4, 4}, 2.0f);
+    auto golden = makeTensorData(DT_FP32, {4, 4}, 2.0f);
+    for (DataType dtype : kFp8Types) {
+        auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+        calc::Cast(out, fp32_src);
+        ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-1);
     }
-    // AddS: same binary 0x55 + 0 -> E4M3/E5M2/E8M0 (each format decodes 0x55 differently)
-    {
-        for (size_t i = 0; i < 3; ++i) {
-            DataType dtype = fp8_types[i];
-            auto self = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kBits));
-            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
-            auto golden = makeTensorData(DT_FP32, {4, 4}, golden_per_type[i]);
-            calc::AddS(out, self, Element(DT_FP32, 0.0f));
-            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
-        }
+}
+
+TEST_F(InterpTypeConvertTest, Fp8ToOperandAddS)
+{
+    for (size_t i = 0; i < 3; ++i) {
+        DataType dtype = kFp8Types[i];
+        auto self = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kFp8OperandBits));
+        auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+        auto golden = makeTensorData(DT_FP32, {4, 4}, kFp8GoldenPerType[i]);
+        calc::AddS(out, self, Element(DT_FP32, 0.0f));
+        ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
     }
-    // // Neg: same binary 0x55 -> E4M3/E5M2/E8M0
-    {
-        for (size_t i = 0; i < 3; ++i) {
-            DataType dtype = fp8_types[i];
-            auto self = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kBits));
-            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
-            float expected = (dtype == DT_FP8E8M0) ? 0.0f : -golden_per_type[i];
-            auto golden = makeTensorData(DT_FP32, {4, 4}, expected);
-            calc::Neg(out, self);
-            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
-        }
+}
+
+TEST_F(InterpTypeConvertTest, Fp8ToOperandNeg)
+{
+    for (size_t i = 0; i < 3; ++i) {
+        DataType dtype = kFp8Types[i];
+        auto self = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kFp8OperandBits));
+        auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+        float expected = (dtype == DT_FP8E8M0) ? 0.0f : -kFp8GoldenPerType[i];
+        auto golden = makeTensorData(DT_FP32, {4, 4}, expected);
+        calc::Neg(out, self);
+        ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
     }
-    // Sqrt: same FP32 input 4.0 -> E4M3/E5M2/E8M0
-    {
-        auto fp32_src = makeTensorData(DT_FP32, {4, 4}, 4.0f);
-        auto golden = makeTensorData(DT_FP32, {4, 4}, 2.0f);
-        for (DataType dtype : fp8_types) {
-            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
-            calc::Sqrt(out, fp32_src);
-            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-1);
-        }
+}
+
+TEST_F(InterpTypeConvertTest, Fp8ToOperandSqrt)
+{
+    auto fp32_src = makeTensorData(DT_FP32, {4, 4}, 4.0f);
+    auto golden = makeTensorData(DT_FP32, {4, 4}, 2.0f);
+    for (DataType dtype : kFp8Types) {
+        auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+        calc::Sqrt(out, fp32_src);
+        ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-1);
     }
-    // Mul: same binary 0x55 * 0x01 -> E4M3/E5M2/E8M0 (0x01 decodes to 1/512, 1/65536, 2^(-126) resp.)
-    {
-        constexpr uint8_t kB = 0x01;
-        const float factor_per_type[3] = {1.0f / 512.0f, 1.0f / 65536.0f, std::exp2(-126.0f)};
-        for (size_t i = 0; i < 3; ++i) {
-            DataType dtype = fp8_types[i];
-            auto a = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kBits));
-            auto b = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kB));
-            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
-            auto golden = makeTensorData(DT_FP32, {4, 4}, golden_per_type[i] * factor_per_type[i]);
-            calc::Mul(out, a, b);
-            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
-        }
+}
+
+TEST_F(InterpTypeConvertTest, Fp8ToOperandMul)
+{
+    constexpr uint8_t kMulFactorBits = 0x01;
+    const float factor_per_type[3] = {1.0f / 512.0f, 1.0f / 65536.0f, std::exp2(-126.0f)};
+    for (size_t i = 0; i < 3; ++i) {
+        DataType dtype = kFp8Types[i];
+        auto a = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kFp8OperandBits));
+        auto b = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kMulFactorBits));
+        auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+        auto golden = makeTensorData(DT_FP32, {4, 4}, kFp8GoldenPerType[i] * factor_per_type[i]);
+        calc::Mul(out, a, b);
+        ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
     }
 }
 
