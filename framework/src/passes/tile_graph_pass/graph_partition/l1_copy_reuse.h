@@ -73,6 +73,12 @@ private:
         std::vector<int>& colorCopyIn);
     Status SetNumLR(std::vector<int>& numLRList);
     Status SetNumDB(std::vector<int>& numDBList);
+    Status ApplySemanticLabelSettingsL1Reuse(
+        const OperationsViewer& opOriList, std::vector<int>& numLRList,
+        const std::vector<uint64_t>& hashColor, int color);
+    Status ApplySemanticLabelSettingsCubeNBuffer(
+        const OperationsViewer& opOriList, std::vector<int>& numDBList,
+        const std::vector<uint64_t>& hashColor, int color);
     const std::vector<std::vector<int>>& inGraph_;
     std::unordered_map<int, int> replacedCopyMap_;
     std::unordered_map<int, int> tensormagic2Op_;
@@ -80,6 +86,8 @@ private:
     std::unordered_map<uint64_t, int> hashOrder_;
     std::map<int64_t, int64_t> numLRMap_;
     std::map<int64_t, int64_t> numDBMap_;
+    std::map<std::string, int64_t> numLRMapByLabel_;
+    std::map<std::string, int64_t> numDBMapByLabel_;
     int mgCopyInUpperBound_;
     int L1ReuseMode_;
     int cubeNBufferMode_;
