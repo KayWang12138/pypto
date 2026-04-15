@@ -257,7 +257,8 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
     auto* nextSrc = nextDup.GetSource();
     auto expressionList = &nextDup.GetExpression(0);
     auto& cellMatchTableDesc = slot.partialUpdate->cellMatchTableDesc;
-    auto partialUpdateTableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
+    auto partialUpdateTableData = slot.partialUpdateRuntimeTable != nullptr ? slot.partialUpdateRuntimeTable
+                                                                             : &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
     struct HandleCellMatchPartial {
         static inline void Process(
             int index, uint64_t* cellMatchTableData, uint64_t* matchCount, DevAscendFunctionDupped* stitchingList,
@@ -268,6 +269,9 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
             if (id != AICORE_TASK_INIT && devTaskId == static_cast<uint32_t>(id >> TASKID_SHIFT32)) {
                 auto funcId = FuncID(static_cast<uint32_t>(id));
                 auto producerOperationIdx = TaskID(static_cast<uint32_t>(id));
+                if (funcId >= static_cast<uint32_t>(stitchingSize)) {
+                    return;
+                }
                 DevAscendFunctionDupped& prevDup = stitchingList[funcId];
                 (*matchCount)++;
                 DEV_VERBOSE_DEBUG(
@@ -287,7 +291,6 @@ uint64_t DeviceStitchContext::PartialUpdateStitch(
         GetTensorOffsetAndShape<false>(
             nextSrc, consumerOffset, consumerShape, expressionList, incast.dim, consumer.operationIdx,
             consumer.operandIdx, true);
-
         DEV_IF_VERBOSE_DEBUG
         {
             for (int j = 0; j < cellMatchTableDesc.GetDimensionSize(); j++) {

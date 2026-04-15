@@ -52,6 +52,8 @@ struct DevAscendProgram {
             uint64_t maxStaticOutcastMem;
             uint64_t maxDynamicAssembleOutcastMem;
             uint64_t devTaskBoundaryOutcastNum;
+            // Runtime partial-update cell table budget in bytes.
+            uint64_t partialUpdateCellTableMem{0};
             uint32_t parallelism{1};
 
             uint64_t MaxOutcastMem() const { return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem); }
@@ -61,8 +63,9 @@ struct DevAscendProgram {
                 uint64_t total =
                     rootInner +                     // root func inner tensors
                     devTaskInnerExclusiveOutcasts + // root func outcasts & non-dassemble-dst & DeviceTask inner tensors
-                    MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask
-                                                                 // boundary outcasts
+                    MaxOutcastMem() * devTaskBoundaryOutcastNum + // root func outcasts & non-dassemble-dst &
+                                                                  // DeviceTask boundary outcasts
+                    partialUpdateCellTableMem;                    // runtime partial-update cell table
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
                 return AlignUp(total, ALIGNMENT_32K) * parallelism;
             }
@@ -110,6 +113,8 @@ struct DevAscendProgram {
     DevRelocVector<uint64_t> outputInplaceSlotList;
     DevRelocVector<DevAscendProgramPartialUpdate> partialUpdateList;
     DevRelocVector<uint64_t> cellMatchRuntimePartialUpdateTableList;
+    // Slot-level metadata: partial-update table cell count (u64) per slot.
+    DevRelocVector<uint64_t> partialUpdateSlotCellCountList;
     DevRelocVector<PrefetchInfo> prefetchInfoList;
     DevRelocVector<uint8_t> disableL2List;
     DevControlFlowCache* ctrlFlowCacheAnchor{nullptr};
@@ -305,6 +310,7 @@ struct DevAscendProgram {
             partialUpdateListPtr[i].cellMatchRuntimePartialUpdateTable.DeviceRelocDataMaybeNull(shift);
         }
         RelocOffset(shift, offset, cellMatchRuntimePartialUpdateTableList);
+        RelocOffset(shift, offset, partialUpdateSlotCellCountList);
 
         RelocOffset(shift, offset, prefetchInfoList);
         RelocOffset(shift, offset, disableL2List);
@@ -320,6 +326,9 @@ struct DevAscendProgram {
         for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
             RelocOffset(
                 shift, offset, controlFlowCache.runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList);
+            RelocOffset(
+                shift, offset,
+                controlFlowCache.runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTablesBlockList);
         }
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.slotContext.slotList);
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool);
@@ -413,11 +422,13 @@ struct DevAscendProgram {
             outputInplaceSlotList,
             partialUpdateList,
             cellMatchRuntimePartialUpdateTableList, // 15
+            partialUpdateSlotCellCountList,
             prefetchInfoList,
             disableL2List,
             controlFlowCache.inputTensorDataList,
-            controlFlowCache.outputTensorDataList,
-            controlFlowCache.runtimeBackup.workspace.tensorAllocators[0].slottedOutcastsBlockList, // 20
+            controlFlowCache.outputTensorDataList, // 20
+            controlFlowCache.runtimeBackup.workspace.tensorAllocators[0].slottedOutcastsBlockList,
+            controlFlowCache.runtimeBackup.workspace.tensorAllocators[0].partialUpdateCellTablesBlockList,
             controlFlowCache.runtimeBackup.slotContext.slotList,
             controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool,
             controlFlowCache.deviceTaskCacheList,

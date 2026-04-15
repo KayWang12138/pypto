@@ -36,28 +36,28 @@ static void UpdateSlotsForStitch(
     slot.stitchDupIdx = devNextIdx;
     slot.stitchOutcastIdx = outcastIndex;
     UNUSED(slotIdx);
-
     auto producerList = &devRootSrc->At(outcast.producerList, 0);
     if (slot.isPartialUpdateStitch) {
         auto& cellMatchTableDesc = slot.partialUpdate->cellMatchTableDesc;
-        auto tableData = &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
+        auto tableData = slot.partialUpdateRuntimeTable != nullptr ? slot.partialUpdateRuntimeTable
+                                                                   : &slot.partialUpdate->cellMatchRuntimePartialUpdateTable[0];
+        auto tableSize = slot.partialUpdateRuntimeTable != nullptr ? slot.partialUpdateRuntimeCellCount
+                                                                    : slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size();
         auto producerSize = outcast.producerList.size();
-        if (producerSize != 0) {
-            CellMatchFillIncastOutcast<false>(
-                devRootSrc, producerList, producerSize, expressionList, false, cellMatchTableDesc, tableData, devTaskId,
-                devNextIdx);
-        } else {
+        auto* activeProducerList = producerList;
+        size_t activeProducerSize = producerSize;
+        if (producerSize == 0) {
             // maybe is fullcover producer, dassemble full shape
-            CellMatchFillIncastOutcast<false>(
-                devRootSrc, &devRootSrc->At(outcast.stitchPolicyFullCoverProducerList, 0),
-                outcast.stitchPolicyFullCoverProducerList.size(), expressionList, false, cellMatchTableDesc, tableData,
-                devTaskId, devNextIdx);
+            activeProducerList = &devRootSrc->At(outcast.stitchPolicyFullCoverProducerList, 0);
+            activeProducerSize = outcast.stitchPolicyFullCoverProducerList.size();
         }
+        CellMatchFillIncastOutcast<false>(
+            devRootSrc, activeProducerList, activeProducerSize, expressionList, false, cellMatchTableDesc, tableData,
+            devTaskId, devNextIdx);
 
         DEV_VERBOSE_DEBUG(
             "[UpdateSlots]  slot %d CellMatchPartial=%s\n", slotIdx,
-            DevAscendFunctionDuppedStitchList::DumpTask<uint64_t>(
-                tableData, slot.partialUpdate->cellMatchRuntimePartialUpdateTable.size())
+            DevAscendFunctionDuppedStitchList::DumpTask<uint64_t>(tableData, tableSize)
                 .c_str());
         slot.isPartialUpdateDirty = true;
     } else {
@@ -165,6 +165,8 @@ void DeviceSlotContext::FillInputOutputSlot(
         if (!partialUpdate.Empty()) {
             slotList[slotIndex].isPartialUpdateStitch = true;
             slotList[slotIndex].partialUpdate = &partialUpdate;
+            slotList[slotIndex].partialUpdateRuntimeTable = &partialUpdate.cellMatchRuntimePartialUpdateTable[0];
+            slotList[slotIndex].partialUpdateRuntimeCellCount = partialUpdate.cellMatchRuntimePartialUpdateTable.size();
             DEV_VERBOSE_DEBUG("Partial Update Slot %d.\n", slotIndex);
         }
     }
