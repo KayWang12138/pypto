@@ -303,60 +303,6 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
     }
 }
 
-/**
- * @brief 判断 UB 上的tensor尾轴是否已经32B对齐
- */
-inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
-{
-    // 空shape视为非32B对齐
-    if (tensor->shape.empty()) {
-        return false;
-    }
-
-    size_t lastDim = tensor->shape[tensor->shape.size() - 1];
-    size_t bytes = BytesOf(tensor->Datatype());
-    size_t totalByte = lastDim * bytes;
-
-    // 判断是否32字节对齐
-    return (totalByte % 32) == 0;
-}
-
-/**
- * @brief 为 UB 上尾轴非32B对齐的tensor做32B对齐操作
- */
-inline int64_t Pad(int64_t dim, int64_t paddingValue)
-{
-    if (paddingValue == 0) {
-        return dim;
-    }
-    return (dim + paddingValue - 1) / paddingValue * paddingValue;
-}
-
-inline size_t GetPaddingValue(LogicalTensorPtr& inTensor)
-{
-    auto bytes = BytesOf(inTensor->Datatype());
-    auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-    if (paddingIter == BLOCK_PADDING_DIM.end()) {
-        return 1;
-    }
-    return paddingIter->second;
-}
-
-inline void ProcessLastDim32BAligned(LogicalTensorPtr tensor) {
-    if (!IsLastDim32BAligned(tensor)) {
-        size_t lastIdx = tensor->shape.size() - 1;
-        size_t paddingValue = GetPaddingValue(tensor); // 根据数据类型，判断需要pad到几个元素
-
-        // 保存rawshape
-        tensor->oriShape = tensor->shape;
-        tensor->tensor->oriRawshape = tensor->tensor->rawshape;
-
-        // pad 32B
-        tensor->shape[lastIdx] = Pad(tensor->shape[lastIdx], paddingValue);
-        tensor->tensor->rawshape[lastIdx] = Pad(tensor->tensor->oriRawshape[lastIdx], tensor->shape[lastIdx]);
-    }
-}
-
 void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp)
 {
     // 当copyout的输入是ub输出为ddr可以直接转化为reshapecopyop
@@ -378,7 +324,7 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
             return;
         }
         auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
-        ProcessLastDim32BAligned(newTensorPtr);
+        AlignmentUtils::ProcessLastDim32BAligned(newTensorPtr);
         auto& reshapeCopyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutput}, {newTensorPtr});
         reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
         reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -439,7 +385,7 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                     return;
                 }
                 auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
-                ProcessLastDim32BAligned(newTensorPtr);
+                AlignmentUtils::ProcessLastDim32BAligned(newTensorPtr);
                 auto& reshapeCopyInOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_IN, {copyInInput}, {newTensorPtr});
                 reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
                 reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
