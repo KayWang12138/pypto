@@ -597,7 +597,7 @@ bool ConvertInserter::CreateMoveOpForConvert(Operation& op)
         op.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
             from, op.oOperand.front()->GetOffset(), op.oOperand.front()->GetDynOffset(),
             op.iOperand.front()->GetDynValidShape()));
-        auto parentOp = *op.oOperand.front()->GetProducers().begin();
+        auto parentOp = *op.iOperand.front()->GetProducers().begin();
         op.UpdateSubgraphID(parentOp->GetSubgraphID());
         op.SetScopeId(parentOp->GetScopeId());
         return true;
