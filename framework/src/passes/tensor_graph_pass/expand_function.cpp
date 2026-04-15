@@ -28,6 +28,7 @@
 #include "passes/statistics/tensor_and_tile_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "ExpandFunction"
 
@@ -119,10 +120,19 @@ Status ExpandFunction::VerifyScopeInfo(Function& function, std::ostringstream& o
         }
     }
     for (auto& [scopeId, coreTypes] : scopeCoreTypes) {
-        if (!GraphUtils::IsCVMixPlatform() && coreTypes.count(CoreType::AIC) > 0 && coreTypes.count(CoreType::AIV) > 0) {
-            oss << "Cannot mix cube and vector op on a CV seperate platform in function: " << function.GetRawName()
-                << ", please check your setting: sg_set_scope=" << scopeId;
-            return FAILED;
+        if (coreTypes.count(CoreType::AIC) > 0 && coreTypes.count(CoreType::AIV) > 0) {
+            if (!GraphUtils::IsCVMixPlatform()) {
+                oss << "Cannot mix cube and vector op on a CV seperate platform in function: " << function.GetRawName()
+                    << ", please check your setting: sg_set_scope=" << scopeId;
+                return FAILED;
+            }
+            const auto& info = scopeInfoMap[scopeId];
+            if (info.allowParallelMerge || info.allowCrossScopeMerge) {
+                oss << "Op scopeId=" << scopeId
+                    << " on CV mix platform: allowParallelMerge and allowCrossScopeMerge must be false "
+                    << "when cube and vector ops are mixed in the same scope.";
+                return FAILED;
+            }
         }
     }
     return SUCCESS;
@@ -133,9 +143,9 @@ Status ExpandFunction::RunOnFunction(Function& function)
     APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction function [%s].", function.GetRawName().c_str());
     std::ostringstream oss;
     if (VerifyScopeInfo(function, oss) != SUCCESS) {
-        APASS_LOG_ERROR_F(
-            Elements::Function, "Function[%s] ScopeInfo verification failed: %s", function.GetRawName().c_str(),
-            oss.str().c_str());
+        APASS_LOG_ERROR_C(
+            OperationErr::OP_SCOPE_ERROR, Elements::Function, "Function[%s] ScopeInfo verification failed: %s",
+            function.GetRawName().c_str(), oss.str().c_str());
         return FAILED;
     }
     bool verifyResult = true;

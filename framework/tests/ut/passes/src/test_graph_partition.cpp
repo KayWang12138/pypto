@@ -44,6 +44,14 @@ public:
     void TearDown() override {}
 };
 
+void SetScopeInfoForOps(ComputationalGraphBuilder& G,
+    const std::vector<std::string>& opNames, const Operation::ScopeInfo& info)
+{
+    for (const auto& name : opNames) {
+        G.GetOp(name)->SetScopeInfo(info);
+    }
+}
+
 void GetPairSumGraph(ComputationalGraphBuilder& G)
 {
     const int brNum = 4;
@@ -248,8 +256,10 @@ TEST_F(GraphPartitionTest, TestBuildIsomorphismGraph)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/TestBuildIsomorphismGraphb.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/TestBuildIsomorphismGrapha.json");
     const int subGraphNum = 8;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
@@ -402,10 +412,8 @@ TEST_F(GraphPartitionTest, TestCycleUpperBound)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestTestCycleUpperBound1.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestTestCycleUpperBound2.json");
     const int subGraphNum = 6 * brNum;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
@@ -492,10 +500,8 @@ TEST_F(GraphPartitionTest, TestLargeWideGraph)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeWideGraphb1.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeWideGrapha1.json");
 }
 
 void GetDeepGraph(ComputationalGraphBuilder& G, int brNum)
@@ -535,10 +541,8 @@ TEST_F(GraphPartitionTest, TestLargeDeepGraph)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeDeepGraphb.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestLargeDeepGrapha.json");
 }
 
 TEST_F(GraphPartitionTest, TestIsomorphismGraph)
@@ -598,9 +602,219 @@ void RunScopeTest(bool allowCrossScopeMerge, int expectedSubGraphNum)
     EXPECT_EQ(function->GetTotalSubGraphCount(), expectedSubGraphNum);
 }
 
-TEST_F(GraphPartitionTest, TestScopeId) { RunScopeTest(false, 2); }
+TEST_F(GraphPartitionTest, TestScopeCase1) { RunScopeTest(false, 2); }
 
-TEST_F(GraphPartitionTest, TestAllowCrossScopeMerge) { RunScopeTest(true, 1); }
+TEST_F(GraphPartitionTest, TestScopeCase2) { RunScopeTest(true, 1); }
+
+void RunScopeTest2(bool paraller, bool crossScopeMerge, int expectedSubGraphNum)
+{
+    ComputationalGraphBuilder G;
+    const int brNum = 1;
+    GetMergeableGraph(G, brNum);
+    Function* function = G.GetFunction();
+    const int cycleUB = 100000;
+    const int parallelTH = 20;
+    const int cycleLB = 0;
+    const int useNodeHash = false;
+    Operation::ScopeInfo info;
+    info.scopeId = 1;
+    info.allowParallelMerge = paraller;
+    info.allowCrossScopeMerge = crossScopeMerge,
+    SetScopeInfoForOps(G, {"COPY_INt0", "RESHAPE_INt0", "ABSt0", "COPY_INb0", "RESHAPE_INb0", "ABSb0"}, info);
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    EXPECT_EQ(function->GetTotalSubGraphCount(), expectedSubGraphNum);
+}
+
+TEST_F(GraphPartitionTest, TestScopeCase3) { RunScopeTest2(true, false, 2); }
+
+TEST_F(GraphPartitionTest, TestScopeCase4) { RunScopeTest2(true, true, 1); }
+
+void AddGLMTensors(ComputationalGraphBuilder& G)
+{
+    std::vector<int64_t> shapeSij{12, 512};
+    std::vector<int64_t> shapeOne{12, 1};
+    std::vector<int64_t> shapeOi{12, 128};
+    std::vector<int64_t> shapeVBlock{128, 128};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shapeSij, {"sij", "sij_ub", "sij_scale", "tsub", "tilda_pij"}), true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, shapeOne,
+            {"max_update", "sum_update", "max_update_ub", "tilda_mij", "max_new", "sum_local", "max_new_ddr",
+             "max_update_ub2", "tsub2", "update_mul", "sum_update_ub", "tmp_mul", "sum_update_out",
+             "sum_update_out_ddr"}),
+        true);
+    EXPECT_EQ(
+        G.AddTensors(
+            DataType::DT_FP32, shapeOi,
+            {"oi_update", "oi_tmp_ddr", "oi_update_ub", "oi_tmp_ub", "tmp_oi", "oi_update_out", "oi_update_out_ddr"}),
+        true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeSij, {"tilda_pij_fp16", "pij_assembled_ddr"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, std::vector<int64_t>{-1, 128}, {"value_cache_2d"}), true);
+
+    std::vector<MemoryType> memL1(4, MemoryType::MEM_L1);
+    std::vector<MemoryType> memL0B(4, MemoryType::MEM_L0B);
+    std::vector<MemoryType> memL0A(4, MemoryType::MEM_L0A);
+    std::vector<MemoryType> memL0C(4, MemoryType::MEM_L0C);
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeVBlock, memL1, {"v_l1_0", "v_l1_1", "v_l1_2", "v_l1_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeVBlock, memL0B, {"v_l0b_0", "v_l0b_1", "v_l0b_2", "v_l0b_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeOi, memL1, {"a_l1_0", "a_l1_1", "a_l1_2", "a_l1_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeOi, memL0A, {"a_l0a_0", "a_l0a_1", "a_l0a_2", "a_l0a_3"}), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shapeOi, memL0C, {"mmul_a", "mmul_b", "mmul_c", "mmul_d"}), true);
+
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {12, 128}, "div_out"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "reshape_out"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "cast_out"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "atten_out"), true);
+}
+
+void AddGLMSoftmaxOps(ComputationalGraphBuilder& G)
+{
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sij"}, {"sij_ub"}, "VIEW_sij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij_ub"}, {"sij_scale"}, "MULS_scale", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX_SINGLE, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_mij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_ub"}, "VIEW_max_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update_ub", "tilda_mij"}, {"max_new"}, "MAX_new", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"sij_scale", "max_new"}, {"tsub"}, "SUB_tsub", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub"}, {"tilda_pij"}, "EXP_pij", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"tilda_pij"}, {"tilda_pij_fp16"}, "CAST_fp16", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"tilda_pij_fp16"}, {"pij_assembled_ddr"}, "ASSEMBLE_pij_ddr", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ROWSUM_SINGLE, {"tilda_pij"}, {"sum_local"}, "ROWSUM_local", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"max_new"}, {"max_new_ddr"}, "ASSEMBLE_max_new_ddr", true), true);
+}
+
+void AddGLMCubeOps(ComputationalGraphBuilder& G)
+{
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_0"}, "VIEW_v_l1_0", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_1"}, "VIEW_v_l1_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_2"}, "VIEW_v_l1_2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_3"}, "VIEW_v_l1_3", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_0"}, "VIEW_a_l1_0", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_1"}, "VIEW_a_l1_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_2"}, "VIEW_a_l1_2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_3"}, "VIEW_a_l1_3", true), true);
+    {
+        std::vector<std::pair<std::string, std::string>> vViews = {
+            {"v_l1_0", "v_l0b_0"}, {"v_l1_1", "v_l0b_1"}, {"v_l1_2", "v_l0b_2"}, {"v_l1_3", "v_l0b_3"}};
+        for (int i = 0; i < static_cast<int>(vViews.size()); i++) {
+            std::string opName = "VIEW_L0B_v" + std::to_string(i);
+            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {vViews[i].first}, {vViews[i].second}, opName, true), true);
+            auto viewOp = G.GetOp(opName);
+            std::vector<int64_t> offset = {0, 0, 0};
+            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0B));
+        }
+    }
+    {
+        std::vector<std::pair<std::string, std::string>> aViews = {
+            {"a_l1_0", "a_l0a_0"}, {"a_l1_1", "a_l0a_1"}, {"a_l1_2", "a_l0a_2"}, {"a_l1_3", "a_l0a_3"}};
+        for (int i = 0; i < static_cast<int>(aViews.size()); i++) {
+            std::string opName = "VIEW_L0A_a" + std::to_string(i);
+            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {aViews[i].first}, {aViews[i].second}, opName, true), true);
+            auto viewOp = G.GetOp(opName);
+            std::vector<int64_t> offset = {0, 0, 0};
+            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0A));
+        }
+    }
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MUL_B, {"a_l0a_0", "v_l0b_0"}, {"mmul_a"}, "MMUL_a", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_1", "v_l0b_1", "mmul_a"}, {"mmul_b"}, "MMACC_b", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_2", "v_l0b_2", "mmul_b"}, {"mmul_c"}, "MMACC_c", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_3", "v_l0b_3", "mmul_c"}, {"mmul_d"}, "MMACC_d", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"mmul_d"}, {"oi_tmp_ddr"}, "ASSEMBLE_oi_tmp_ddr", true), true);
+}
+
+void AddGLMUpdateOps(ComputationalGraphBuilder& G)
+{
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_ub2"}, "VIEW_max_update2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update_ub2", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub2"}, {"update_mul"}, "EXP_update_mul", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sum_update"}, {"sum_update_ub"}, "VIEW_sum_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update_ub", "update_mul"}, {"tmp_mul"}, "MUL_tmp", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_mul", "sum_local"}, {"sum_update_out"}, "ADD_sum_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"sum_update_out"}, {"sum_update_out_ddr"}, "ASSEMBLE_sum_ddr", true), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_update"}, {"oi_update_ub"}, "VIEW_oi_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_tmp_ddr"}, {"oi_tmp_ub"}, "VIEW_oi_tmp", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"oi_update_ub", "update_mul"}, {"tmp_oi"}, "MUL_oi", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_oi", "oi_tmp_ub"}, {"oi_update_out"}, "ADD_oi_update", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"oi_update_out"}, {"oi_update_out_ddr"}, "ASSEMBLE_oi_ddr", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_DIV, {"oi_update_out", "sum_update_out"}, {"div_out"}, "DIV_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_RESHAPE, {"div_out"}, {"reshape_out"}, "RESHAPE_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"reshape_out"}, {"cast_out"}, "CAST_1", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"cast_out"}, {"atten_out"}, "ASSEMBLE_1", true), true);
+}
+
+int VerifyOpsInSameSubgraph(ComputationalGraphBuilder& G, const std::vector<std::string>& opNames)
+{
+    int subgraphId = G.GetOp(opNames[0])->GetSubgraphID();
+    for (const auto& name : opNames) {
+        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), subgraphId);
+    }
+    return subgraphId;
+}
+
+void ConstructGLMAttentionCase(ComputationalGraphBuilder& G)
+{
+    AddGLMTensors(G);
+    AddGLMSoftmaxOps(G);
+    AddGLMCubeOps(G);
+    AddGLMUpdateOps(G);
+
+    EXPECT_EQ(G.SetInCast({"sij", "max_update", "sum_update", "oi_update", "value_cache_2d"}), true);
+    EXPECT_EQ(G.SetOutCast({"max_new_ddr", "sum_update_out_ddr", "oi_update_out_ddr", "atten_out"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestScopeCase5)
+{
+    ComputationalGraphBuilder G;
+    ConstructGLMAttentionCase(G);
+
+    Operation::ScopeInfo scope1;
+    scope1.scopeId = 1;
+    scope1.allowParallelMerge = true;
+    scope1.allowCrossScopeMerge = false;
+    std::vector<std::string> scope1Ops = {"MULS_scale", "ROWMAX_mij", "MAX_new",     "SUB_tsub",
+                                          "EXP_pij",    "CAST_fp16",  "ROWSUM_local"};
+    SetScopeInfoForOps(G, scope1Ops, scope1);
+
+    Operation::ScopeInfo scope2;
+    scope2.scopeId = 2;
+    scope2.allowParallelMerge = true;
+    scope2.allowCrossScopeMerge = false;
+    std::vector<std::string> scope2Ops = {"SUB_tsub2", "EXP_update_mul", "MUL_tmp", "ADD_sum_update"};
+    SetScopeInfoForOps(G, scope2Ops, scope2);
+
+    Function* function = G.GetFunction();
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(100000, 20, 0, false), SUCCESS);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    int scope1Subgraph = VerifyOpsInSameSubgraph(G, scope1Ops);
+    int scope2Subgraph = VerifyOpsInSameSubgraph(G, scope2Ops);
+    EXPECT_NE(scope1Subgraph, scope2Subgraph);
+
+    std::vector<std::string> cubeOps = {
+        "VIEW_v_l1_0", "VIEW_v_l1_1", "VIEW_v_l1_2",        "VIEW_v_l1_3", "VIEW_a_l1_0", "VIEW_a_l1_1",
+        "VIEW_a_l1_2", "VIEW_a_l1_3", "VIEW_L0B_v0",        "VIEW_L0B_v1", "VIEW_L0B_v2", "VIEW_L0B_v3",
+        "VIEW_L0A_a0", "VIEW_L0A_a1", "VIEW_L0A_a2",        "VIEW_L0A_a3", "MMUL_a",      "MMACC_b",
+        "MMACC_c",     "MMACC_d",     "ASSEMBLE_oi_tmp_ddr"};
+    int cubeSubgraph = VerifyOpsInSameSubgraph(G, cubeOps);
+    for (const auto& name : cubeOps) {
+        EXPECT_EQ(
+            G.GetOp(name)->HasAttr(OpAttributeKey::isCube) && G.GetOp(name)->GetBoolAttribute(OpAttributeKey::isCube),
+            true);
+    }
+    EXPECT_NE(cubeSubgraph, scope1Subgraph);
+    EXPECT_NE(cubeSubgraph, scope2Subgraph);
+
+    std::vector<std::string> v2Ops = {"VIEW_oi_update", "VIEW_oi_tmp", "MUL_oi", "ADD_oi_update", "ASSEMBLE_oi_ddr"};
+    int v2Subgraph = VerifyOpsInSameSubgraph(G, v2Ops);
+    EXPECT_NE(v2Subgraph, scope1Subgraph);
+    EXPECT_NE(v2Subgraph, scope2Subgraph);
+    EXPECT_NE(v2Subgraph, cubeSubgraph);
+}
 
 TEST_F(GraphPartitionTest, TestNonIsomorphismGraph)
 {
@@ -801,395 +1015,5 @@ TEST_F(GraphPartitionTest, TestMatMulViewNonL0C)
     EXPECT_NE(mulOp->GetSubgraphID(), viewDDROp->GetSubgraphID());
     EXPECT_EQ(mulOp->GetSubgraphID(), viewL1Op->GetSubgraphID());
 }
-
-void GetParallelBranchGraph(ComputationalGraphBuilder &G) {
-    std::vector<int64_t> tileShape{32,32};
-    std::vector<std::string> inCast;
-    std::vector<std::string> outCast;
-    for (int i = 0; i < 4; i++) {
-        std::string br = std::to_string(i);
-        std::vector<std::string> tensorNames{"in" + br, "out" + br};
-        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, tensorNames), true);
-        EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"in" + br}, {"out" + br}, "ABS" + br, true), true);
-        inCast.push_back("in" + br);
-        outCast.push_back("out" + br);
-    }
-    EXPECT_EQ(G.SetInCast(inCast), true);
-    EXPECT_EQ(G.SetOutCast(outCast), true);
-}
-
-TEST_F(GraphPartitionTest, TestAllowParallelMergeTrue) {
-    ComputationalGraphBuilder G;
-    GetParallelBranchGraph(G);
-
-    Operation::ScopeInfo info;
-    info.scopeId = 1;
-    info.allowParallelMerge = true;
-    G.GetOp("ABS0")->SetScopeInfo(info);
-    G.GetOp("ABS1")->SetScopeInfo(info);
-    G.GetOp("ABS2")->SetScopeInfo(info);
-    G.GetOp("ABS3")->SetScopeInfo(info);
-
-    Function *function = G.GetFunction();
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 0;
-    const int useNodeHash = false;
-    IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowParallelMergeTrueb.json");
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowParallelMergeTruea.json");
-
-    std::unordered_set<int> subgraphIds;
-    for (const auto& opPair : G.operations_) {
-        subgraphIds.insert(opPair.second->GetSubgraphID());
-    }
-    EXPECT_EQ(subgraphIds.size(), 1);
-}
-
-TEST_F(GraphPartitionTest, TestAllowParallelMergeFalse) {
-    ComputationalGraphBuilder G;
-    GetParallelBranchGraph(G);
-
-    Operation::ScopeInfo info;
-    info.scopeId = 1;
-    info.allowParallelMerge = false;
-    info.allowCrossScopeMerge = false;
-    info.mixId = -1;
-    G.GetOp("ABS0")->SetScopeInfo(info);
-    G.GetOp("ABS1")->SetScopeInfo(info);
-    G.GetOp("ABS2")->SetScopeInfo(info);
-    G.GetOp("ABS3")->SetScopeInfo(info);
-
-    Function *function = G.GetFunction();
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 0;
-    const int useNodeHash = false;
-    IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-
-    std::unordered_set<int> subgraphIds;
-    for (const auto& opPair : G.operations_) {
-        subgraphIds.insert(opPair.second->GetSubgraphID());
-    }
-    EXPECT_EQ(subgraphIds.size(), 4);
-}
-
-// allowParallelMerge 例子一般
-/*
-void GetCrossScopeGraph(ComputationalGraphBuilder &G) {
-    Shape tileShape{32, 32};
-    EXPECT_EQ(
-        G.AddTensors(
-            DataType::DT_FP32, tileShape,
-            {"in0", "in1", "mid1", "mid2", "mid11", "mid21", "mid12", "mid22", "out0", "out1"}),
-        true);
-
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"in0"}, {"mid1"}, "VIEW1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"in1"}, {"mid2"}, "VIEW2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"mid1"}, {"mid11"}, "ABS1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ABS, {"mid2"}, {"mid21"}, "ABS2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid11"}, {"mid12"}, "MUL1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"mid21"}, {"mid22"}, "MUL2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"mid12"}, {"out0"}, "ASSEMBLE1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"mid22"}, {"out1"}, "ASSEMBLE2", true), true);
-
-    EXPECT_EQ(G.SetInCast({"in0", "in1"}), true);
-    EXPECT_EQ(G.SetOutCast({"out0", "out1"}), true);
-}
-
-TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeTrue) {
-    ComputationalGraphBuilder G;
-    GetCrossScopeGraph(G);
-
-    Operation::ScopeInfo info1;
-    info1.scopeId = 1;
-    info1.allowParallelMerge = true;
-    info1.allowCrossScopeMerge = true;
-    G.GetOp("ABS1")->SetScopeInfo(info1);
-    G.GetOp("MUL1")->SetScopeInfo(info1);
-
-    Operation::ScopeInfo info2;
-    info2.scopeId = 2;
-    info2.allowParallelMerge = true;
-    info2.allowCrossScopeMerge = true;
-    G.GetOp("ABS2")->SetScopeInfo(info2);
-    G.GetOp("MUL2")->SetScopeInfo(info2);
-
-    Function *function = G.GetFunction();
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 0;
-    const int useNodeHash = false;
-    IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-
-    EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
-    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
-    // 验证不同 scopeId 之间即使 allowCrossScopeMerge=true 也不能合并
-    EXPECT_NE(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
-}
-
-TEST_F(GraphPartitionTest, TestAllowCrossScopeMergeFalse) {
-    ComputationalGraphBuilder G;
-    GetCrossScopeGraph(G);
-
-    Operation::ScopeInfo info1;
-    info1.scopeId = 1;
-    info1.allowParallelMerge = true;
-    info1.allowCrossScopeMerge = false;
-    G.GetOp("ABS1")->SetScopeInfo(info1);
-    G.GetOp("ABS2")->SetScopeInfo(info1);
-
-    // Operation::ScopeInfo info2;
-    // info2.scopeId = 2;
-    // info2.allowParallelMerge = true;
-    // info2.allowCrossScopeMerge = false;
-
-    // G.GetOp("ABS2")->SetScopeInfo(info2);
-    // G.GetOp("MUL2")->SetScopeInfo(info2);
-
-    Function *function = G.GetFunction();
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 0;
-    const int useNodeHash = false;
-    IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowCrossScopeMergeFalseb1.json");
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestAllowCrossScopeMergeFalsea1.json");
-
-    EXPECT_EQ(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("MUL1")->GetSubgraphID());
-    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("MUL2")->GetSubgraphID());
-    EXPECT_NE(G.GetOp("ABS1")->GetSubgraphID(), G.GetOp("ABS2")->GetSubgraphID());
-}
-*/
-TEST_F(GraphPartitionTest, TestCombinedScopeSwitches) {
-    ComputationalGraphBuilder G;
-    GetParallelBranchGraph(G);
-
-    Operation::ScopeInfo info1;
-    info1.scopeId = 1;
-    info1.allowParallelMerge = true;
-    info1.allowCrossScopeMerge = false;
-    G.GetOp("ABS0")->SetScopeInfo(info1);
-    G.GetOp("ABS1")->SetScopeInfo(info1);
-
-    Operation::ScopeInfo info2;
-    info2.scopeId = 2;
-    info2.allowParallelMerge = true;
-    G.GetOp("ABS2")->SetScopeInfo(info2);
-    G.GetOp("ABS3")->SetScopeInfo(info2);
-
-    Function *function = G.GetFunction();
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 0;
-    const int useNodeHash = false;
-    IsoPartitioner partitioner;
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-
-    // 验证同一 scopeId 内的 op 合并到同一 subgraph
-    EXPECT_EQ(G.GetOp("ABS0")->GetSubgraphID(), G.GetOp("ABS1")->GetSubgraphID());
-    EXPECT_EQ(G.GetOp("ABS2")->GetSubgraphID(), G.GetOp("ABS3")->GetSubgraphID());
-
-    std::unordered_set<int> subgraphIds;
-    for (const auto& opPair : G.operations_) {
-        subgraphIds.insert(opPair.second->GetSubgraphID());
-    }
-    EXPECT_EQ(subgraphIds.size(), 2);
-}
-
-void ConstructGLMAttentionCase(ComputationalGraphBuilder& G)
-{
-    std::vector<int64_t> shapeSij{12, 512};
-    std::vector<int64_t> shapeOne{12, 1};
-    std::vector<int64_t> shapeOi{12, 128};
-    std::vector<int64_t> shapeVBlock{128, 128};
-
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shapeSij, {"sij", "sij_ub", "sij_scale", "tsub", "tilda_pij"}), true);
-    EXPECT_EQ(
-        G.AddTensors(
-            DataType::DT_FP32, shapeOne,
-            {"max_update", "sum_update", "max_update_ub", "tilda_mij", "max_new", "sum_local", "max_new_ddr",
-             "max_update_ub2", "tsub2", "update_mul", "sum_update_ub", "tmp_mul", "sum_update_out",
-             "sum_update_out_ddr"}),
-        true);
-    EXPECT_EQ(
-        G.AddTensors(
-            DataType::DT_FP32, shapeOi,
-            {"oi_update", "oi_tmp_ddr", "oi_update_ub", "oi_tmp_ub", "tmp_oi", "oi_update_out", "oi_update_out_ddr"}),
-        true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeSij, {"tilda_pij_fp16", "pij_assembled_ddr"}), true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, std::vector<int64_t>{-1, 128}, {"value_cache_2d"}), true);
-
-    std::vector<MemoryType> memL1(4, MemoryType::MEM_L1);
-    std::vector<MemoryType> memL0B(4, MemoryType::MEM_L0B);
-    std::vector<MemoryType> memL0A(4, MemoryType::MEM_L0A);
-    std::vector<MemoryType> memL0C(4, MemoryType::MEM_L0C);
-
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeVBlock, memL1, {"v_l1_0", "v_l1_1", "v_l1_2", "v_l1_3"}), true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeVBlock, memL0B, {"v_l0b_0", "v_l0b_1", "v_l0b_2", "v_l0b_3"}), true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeOi, memL1, {"a_l1_0", "a_l1_1", "a_l1_2", "a_l1_3"}), true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_BF16, shapeOi, memL0A, {"a_l0a_0", "a_l0a_1", "a_l0a_2", "a_l0a_3"}), true);
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shapeOi, memL0C, {"mmul_a", "mmul_b", "mmul_c", "mmul_d"}), true);
-
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {12, 128}, "div_out"), true);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "reshape_out"), true);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "cast_out"), true);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {1, 12, 128}, "atten_out"), true);
-
-    // Group 4: scope 1 (sg_set_scope=1) - softmax forward
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sij"}, {"sij_ub"}, "VIEW_sij", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MULS, {"sij_ub"}, {"sij_scale"}, "MULS_scale", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ROWMAX_SINGLE, {"sij_scale"}, {"tilda_mij"}, "ROWMAX_mij", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_ub"}, "VIEW_max_update", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MAXIMUM, {"max_update_ub", "tilda_mij"}, {"max_new"}, "MAX_new", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"sij_scale", "max_new"}, {"tsub"}, "SUB_tsub", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub"}, {"tilda_pij"}, "EXP_pij", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"tilda_pij"}, {"tilda_pij_fp16"}, "CAST_fp16", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"tilda_pij_fp16"}, {"pij_assembled_ddr"}, "ASSEMBLE_pij_ddr", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ROWSUM_SINGLE, {"tilda_pij"}, {"sum_local"}, "ROWSUM_local", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"max_new"}, {"max_new_ddr"}, "ASSEMBLE_max_new_ddr", true), true);
-
-    // Group 5: cube ops (isCube=true) - C2 matmul with 4 merged blocks
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_0"}, "VIEW_v_l1_0", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_1"}, "VIEW_v_l1_1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_2"}, "VIEW_v_l1_2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"value_cache_2d"}, {"v_l1_3"}, "VIEW_v_l1_3", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_0"}, "VIEW_a_l1_0", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_1"}, "VIEW_a_l1_1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_2"}, "VIEW_a_l1_2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"pij_assembled_ddr"}, {"a_l1_3"}, "VIEW_a_l1_3", true), true);
-    {
-        std::vector<std::pair<std::string, std::string>> vViews = {
-            {"v_l1_0", "v_l0b_0"}, {"v_l1_1", "v_l0b_1"}, {"v_l1_2", "v_l0b_2"}, {"v_l1_3", "v_l0b_3"}};
-        for (int i = 0; i < static_cast<int>(vViews.size()); i++) {
-            std::string opName = "VIEW_L0B_v" + std::to_string(i);
-            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {vViews[i].first}, {vViews[i].second}, opName, true), true);
-            auto viewOp = G.GetOp(opName);
-            std::vector<int64_t> offset = {0, 0, 0};
-            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0B));
-        }
-    }
-    {
-        std::vector<std::pair<std::string, std::string>> aViews = {
-            {"a_l1_0", "a_l0a_0"}, {"a_l1_1", "a_l0a_1"}, {"a_l1_2", "a_l0a_2"}, {"a_l1_3", "a_l0a_3"}};
-        for (int i = 0; i < static_cast<int>(aViews.size()); i++) {
-            std::string opName = "VIEW_L0A_a" + std::to_string(i);
-            EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {aViews[i].first}, {aViews[i].second}, opName, true), true);
-            auto viewOp = G.GetOp(opName);
-            std::vector<int64_t> offset = {0, 0, 0};
-            viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_L0A));
-        }
-    }
-    EXPECT_EQ(G.AddOp(Opcode::OP_A_MUL_B, {"a_l0a_0", "v_l0b_0"}, {"mmul_a"}, "MMUL_a", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_1", "v_l0b_1", "mmul_a"}, {"mmul_b"}, "MMACC_b", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_2", "v_l0b_2", "mmul_b"}, {"mmul_c"}, "MMACC_c", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_A_MULACC_B, {"a_l0a_3", "v_l0b_3", "mmul_c"}, {"mmul_d"}, "MMACC_d", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"mmul_d"}, {"oi_tmp_ddr"}, "ASSEMBLE_oi_tmp_ddr", true), true);
-
-    // Group 6: scope 2 (sg_set_scope=2) - running stats update
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"max_update"}, {"max_update_ub2"}, "VIEW_max_update2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_SUB, {"max_update_ub2", "max_new"}, {"tsub2"}, "SUB_tsub2", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_EXP, {"tsub2"}, {"update_mul"}, "EXP_update_mul", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"sum_update"}, {"sum_update_ub"}, "VIEW_sum_update", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"sum_update_ub", "update_mul"}, {"tmp_mul"}, "MUL_tmp", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_mul", "sum_local"}, {"sum_update_out"}, "ADD_sum_update", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"sum_update_out"}, {"sum_update_out_ddr"}, "ASSEMBLE_sum_ddr", true), true);
-
-    // Group 7: V2 update (oi_update = oi_update * update_mul + oi_tmp)
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_update"}, {"oi_update_ub"}, "VIEW_oi_update", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_VIEW, {"oi_tmp_ddr"}, {"oi_tmp_ub"}, "VIEW_oi_tmp", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_MUL, {"oi_update_ub", "update_mul"}, {"tmp_oi"}, "MUL_oi", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"tmp_oi", "oi_tmp_ub"}, {"oi_update_out"}, "ADD_oi_update", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"oi_update_out"}, {"oi_update_out_ddr"}, "ASSEMBLE_oi_ddr", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_DIV, {"oi_update_out", "sum_update_out"}, {"div_out"}, "DIV_1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_RESHAPE, {"div_out"}, {"reshape_out"}, "RESHAPE_1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_CAST, {"reshape_out"}, {"cast_out"}, "CAST_1", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ASSEMBLE, {"cast_out"}, {"atten_out"}, "ASSEMBLE_1", true), true);
-
-    EXPECT_EQ(G.SetInCast({"sij", "max_update", "sum_update", "oi_update", "value_cache_2d"}), true);
-    EXPECT_EQ(G.SetOutCast({"max_new_ddr", "sum_update_out_ddr", "oi_update_out_ddr", "atten_out"}), true);
-}
-
-TEST_F(GraphPartitionTest, TestGlmAttentionCasePartition)
-{
-    ComputationalGraphBuilder G;
-    ConstructGLMAttentionCase(G);
-
-    Operation::ScopeInfo scope1;
-    scope1.scopeId = 1;
-    scope1.allowParallelMerge = true;
-    scope1.allowCrossScopeMerge = false;
-    std::vector<std::string> scope1Ops = {"MULS_scale", "ROWMAX_mij", "MAX_new",     "SUB_tsub",
-                                          "EXP_pij",    "CAST_fp16",  "ROWSUM_local"};
-    for (const auto& name : scope1Ops) {
-        G.GetOp(name)->SetScopeInfo(scope1);
-    }
-
-    Operation::ScopeInfo scope2;
-    scope2.scopeId = 2;
-    scope2.allowParallelMerge = true;
-    scope2.allowCrossScopeMerge = false;
-    std::vector<std::string> scope2Ops = {"SUB_tsub2", "EXP_update_mul", "MUL_tmp", "ADD_sum_update"};
-    for (const auto& name : scope2Ops) {
-        G.GetOp(name)->SetScopeInfo(scope2);
-    }
-
-    Function* function = G.GetFunction();
-    const int cycleUB = 100000;
-    const int parallelTH = 20;
-    const int cycleLB = 0;
-    const int useNodeHash = false;
-    IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestGlmAttentionCasePartition11111.json");
-    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/output/TestGlmAttentionCasePartitionaa22222.json");
-
-    int scope1Subgraph = G.GetOp(scope1Ops[0])->GetSubgraphID();
-    for (const auto& name : scope1Ops) {
-        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope1Subgraph);
-    }
-
-    int scope2Subgraph = G.GetOp(scope2Ops[0])->GetSubgraphID();
-    for (const auto& name : scope2Ops) {
-        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), scope2Subgraph);
-    }
-
-    EXPECT_NE(scope1Subgraph, scope2Subgraph);
-
-    std::vector<std::string> cubeOps = {
-        "VIEW_v_l1_0", "VIEW_v_l1_1", "VIEW_v_l1_2",        "VIEW_v_l1_3", "VIEW_a_l1_0", "VIEW_a_l1_1",
-        "VIEW_a_l1_2", "VIEW_a_l1_3", "VIEW_L0B_v0",        "VIEW_L0B_v1", "VIEW_L0B_v2", "VIEW_L0B_v3",
-        "VIEW_L0A_a0", "VIEW_L0A_a1", "VIEW_L0A_a2",        "VIEW_L0A_a3", "MMUL_a",      "MMACC_b",
-        "MMACC_c",     "MMACC_d",     "ASSEMBLE_oi_tmp_ddr"};
-    int cubeSubgraph = G.GetOp(cubeOps[0])->GetSubgraphID();
-    for (const auto& name : cubeOps) {
-        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), cubeSubgraph);
-        EXPECT_EQ(
-            G.GetOp(name)->HasAttr(OpAttributeKey::isCube) && G.GetOp(name)->GetBoolAttribute(OpAttributeKey::isCube),
-            true);
-    }
-    EXPECT_NE(cubeSubgraph, scope1Subgraph);
-    EXPECT_NE(cubeSubgraph, scope2Subgraph);
-
-    std::vector<std::string> v2Ops = {"VIEW_oi_update", "VIEW_oi_tmp", "MUL_oi", "ADD_oi_update", "ASSEMBLE_oi_ddr"};
-    int v2Subgraph = G.GetOp(v2Ops[0])->GetSubgraphID();
-    for (const auto& name : v2Ops) {
-        EXPECT_EQ(G.GetOp(name)->GetSubgraphID(), v2Subgraph);
-    }
-    EXPECT_NE(v2Subgraph, scope1Subgraph);
-    EXPECT_NE(v2Subgraph, scope2Subgraph);
-    EXPECT_NE(v2Subgraph, cubeSubgraph);
-}
-
 } // namespace tile_fwk
 } // namespace npu
