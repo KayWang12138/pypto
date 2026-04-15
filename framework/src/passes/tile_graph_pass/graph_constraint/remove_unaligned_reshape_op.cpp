@@ -325,12 +325,12 @@ inline bool IsLastDim32BAligned(const LogicalTensorPtr& tensor)
 /**
  * @brief 为 UB 上尾轴非32B对齐的tensor做32B对齐操作
  */
-inline int64_t Pad(int64_t dim, int64_t padValue)
+inline int64_t Pad(int64_t dim, int64_t paddingValue)
 {
-    if (padValue == 0) {
+    if (paddingValue == 0) {
         return dim;
     }
-    return (dim + padValue - 1) / padValue * padValue;
+    return (dim + paddingValue - 1) / paddingValue * paddingValue;
 }
 
 inline size_t GetPaddingValue(LogicalTensorPtr& inTensor)
@@ -373,7 +373,7 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
         // copyOutInput(NOTUB) -- COPYOUT -- copyOutOutput(DDR) -- COPYIN -- newTensor(UB) -- RESHAPECOPYOUT -- newTensor2(DDR) -- reshape
         LogicalTensor newTensor(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-        if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
+        if (static_cast<size_t>(newTensor.GetDataSize()) > UB_SIZE_THRESHOLD) {
             APASS_LOG_WARN_F(Elements::Tensor, "The output[%d] size[%ld] of copyout op[%d] should not exceed %zu. Consider reducing its size.",
                 copyOutOutput->GetMagic(), copyOutOutput->GetDataSize(), copyOutOp->GetOpMagic(), UB_SIZE_THRESHOLD);
             return;
