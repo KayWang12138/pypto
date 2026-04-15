@@ -656,3 +656,18 @@ TEST_F(LiteNPUCodeGenAssemble, test_assemble_list_multi_shape_002) {
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+TEST_F(LiteNPUCodeGenAssemble, test_assemble_list_multi_shape_003) {
+    PROGRAM("ASSEMBLE_LIST_MULTI_SHAPE_003") {
+        TileShape::Current().SetVecTile({10, 80});
+        Tensor input1(DT_FP32, {300, 200}, "input1");
+        Tensor input2(DT_FP32, {300, 200}, "input2");
+        Tensor out(DT_FP32, {500, 400}, "out");
+        FUNCTION("ASSEMBLE_LIST_MULTI_SHAPE_003") {
+            Assemble({{input1, {0, 0}}, {input2, {2, 0}}}, out, false);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ASSEMBLE_LIST_MULTI_SHAPE_003");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}

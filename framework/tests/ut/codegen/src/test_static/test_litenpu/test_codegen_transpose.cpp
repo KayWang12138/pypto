@@ -569,3 +569,17 @@ TEST_F(LiteNPUCodeGenTranspose, test_transpose_int16_010) {
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+TEST_F(LiteNPUCodeGenTranspose, test_transpose_int16_011) {
+    PROGRAM("TRANSPOSE_INT16_011") {
+        TileShape::Current().SetVecTile({2, 2, 2, 16});
+        Tensor operand(DT_INT16, {3, 2, 4, 5}, "operand");
+        Tensor result;
+        FUNCTION("TRANSPOSE_INT16_011") {
+            result = Transpose(operand, {2, 3});
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE_INT16_011");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}

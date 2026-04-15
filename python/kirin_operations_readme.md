@@ -2883,6 +2883,7 @@ dim1: 3
 | transpose_int16_008 | (4, 5) | (2, 16) | (0, 1) | int16 | 2d转置，h切分 |
 | transpose_int16_009 | (2, 5, 6) | (1, 5, 16) | (1, 2) | int16 | 3d转置，c,w切分 |
 | transpose_int16_010 | (3, 2, 4, 5) | (1, 2, 2, 16) | (2, 3) | int16 | 4d转置，c,h,w切分 |
+| transpose_int16_011 | (3, 2, 4, 5) | (2, 2, 2, 16) | (2, 3) | int16 | 4d转置，n,c,h,w切分 |
 ### 6.2. pypto.reshape
 #### 6.2.1. 算子计算原理
 改变Tensor形状，改变valid\_shape部分的形状\(Shape\)
@@ -3192,6 +3193,7 @@ void TiledAssemble(Function &function, const TileShape &tileShape,
 | assemble_list_fp32_003 | [(2,2,2),(2,2,2)] | (3, 3, 3) | [[0, 0, 0], [1, 1, 1]] | (1, 1, 8) | fp32 | list输入3d多张量组装，c,h切分 |
 | assemble_list_multi_shape_001 | [(2,2),(2,3)] | (4, 6) | [[0, 0], [2, 2]] | (1, 8) | fp32 | list输入多张量组装，assemble轴shape不同，h切分 |
 | assemble_list_multi_shape_002 | [(3,2),(3,2)] | (5, 4) | [[0, 0], [2, 0]] | (1, 8) | fp32 | list输入多张量组装，assemble轴shape相同，h切分 |
+| assemble_list_multi_shape_003 | [(300,200),(300,200)] | (500, 400) | [[0, 0], [2, 0]] | (10, 80) | fp32 | list输入多张量组装，assemble轴shape相同，h切分 |
 ### 6.5. pypto.unsqueeze
 
 #### 6.5.1. 算子计算原理

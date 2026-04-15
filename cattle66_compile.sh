@@ -193,6 +193,7 @@ TEST_CASES=(
     "LiteNPUCodeGenTranspose.test_transpose_int16_008"
     "LiteNPUCodeGenTranspose.test_transpose_int16_009"
     "LiteNPUCodeGenTranspose.test_transpose_int16_010"
+    "LiteNPUCodeGenTranspose.test_transpose_int16_011"
     
     # reshape test cases
     "LiteNPUCodeGenReshape.test_reshape_fp16_001"
@@ -350,7 +351,14 @@ TEST_CASES=(
     "LiteNPUCodeGenAssemble.test_assemble_list_fp32_003"
     "LiteNPUCodeGenAssemble.test_assemble_list_multi_shape_001"
     "LiteNPUCodeGenAssemble.test_assemble_list_multi_shape_002"
+    "LiteNPUCodeGenAssemble.test_assemble_list_multi_shape_003"
 )
+
+# TEST_CASES=(
+#     "LiteNPUCodeGenTranspose.test_transpose_int16_011"
+#     "LiteNPUCodeGenAssemble.test_assemble_list_multi_shape_003"
+# )
+
 
 # 初始化统计变量
 total_tests=${#TEST_CASES[@]}
