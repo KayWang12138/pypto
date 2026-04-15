@@ -92,6 +92,11 @@ public:
 
     void InitAicoreParallelDevTask(ParallelSchDeviceTaskContext* parallelCtx)
     {
+        if constexpr (!IsDeviceMode()) {
+            if (!aicoreHal_.IsHostSimMode()) {
+                return;
+            }
+        }
         DEV_IF_DEVICE {
             ForEachManageAicore([&](int coreIdx) {
                 auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
