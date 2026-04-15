@@ -404,7 +404,7 @@ struct DevControlFlowCache {
         readyQueueBackup->coreFunctionCnt = base->devTask.coreFunctionCnt;
         uint32_t readyTaskNum = 0;
         for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
-            size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity;
+            size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity();
             uint32_t* readyQueueBackupElem = reinterpret_cast<uint32_t*>(AllocateCache(backupSize));
             if (readyQueueBackupElem == nullptr) {
                 return;
@@ -412,7 +412,7 @@ struct DevControlFlowCache {
 
             readyQueueBackup->queueList[i].head = base->readyQueue[i]->head;
             readyQueueBackup->queueList[i].tail = base->readyQueue[i]->tail;
-            readyQueueBackup->queueList[i].capacity = base->readyQueue[i]->capacity;
+            readyQueueBackup->queueList[i].capacity = base->readyQueue[i]->capacity();
             readyQueueBackup->queueList[i].elem = readyQueueBackupElem;
             memcpy_s(readyQueueBackup->queueList[i].elem, backupSize, base->readyQueue[i]->elem, backupSize);
 
@@ -427,7 +427,7 @@ struct DevControlFlowCache {
         ReadyQueueCache* readyQueueBackup = base->readyQueueBackup;
         base->devTask.coreFunctionCnt = readyQueueBackup->coreFunctionCnt;
         for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
-            size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity;
+            size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity();
 
             base->readyQueue[i]->head = readyQueueBackup->queueList[i].head;
             base->readyQueue[i]->tail = readyQueueBackup->queueList[i].tail;
@@ -455,7 +455,7 @@ struct DevControlFlowCache {
                 dieReadyQueueBackup->queueList[i].elem = nullptr;
                 continue;
             }
-            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity;
+            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity();
             uint32_t* dieReadyQueueBackupElem = reinterpret_cast<uint32_t*>(AllocateCache(backupSize));
             if (dieReadyQueueBackupElem == nullptr) {
                 return;
@@ -463,7 +463,7 @@ struct DevControlFlowCache {
 
             dieReadyQueueBackup->queueList[i].head = dieReadyQueue->head;
             dieReadyQueueBackup->queueList[i].tail = dieReadyQueue->tail;
-            dieReadyQueueBackup->queueList[i].capacity = dieReadyQueue->capacity;
+            dieReadyQueueBackup->queueList[i].capacity = dieReadyQueue->capacity();
             dieReadyQueueBackup->queueList[i].elem = dieReadyQueueBackupElem;
             memcpy_s(dieReadyQueueBackup->queueList[i].elem, backupSize, dieReadyQueue->elem, backupSize);
 
@@ -487,7 +487,7 @@ struct DevControlFlowCache {
             if (dieReadyQueue == nullptr) {
                 continue;
             }
-            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity;
+            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity();
 
             dieReadyQueue->head = dieReadyQueueBackup->queueList[i].head;
             dieReadyQueue->tail = dieReadyQueueBackup->queueList[i].tail;

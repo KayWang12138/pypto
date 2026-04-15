@@ -82,11 +82,8 @@ void DeviceTaskContext::ShowStats()
 
 void DeviceTaskContext::InitReadyCoreFunctionQueue(ReadyCoreFunctionQueue* q, uint32_t capacity)
 {
-    q->lock = 0;
-    q->head = 0;
-    q->tail = 0;
-    q->capacity = capacity;
-    q->elem = reinterpret_cast<taskid_t*>(q + 1);
+    taskid_t *elem = reinterpret_cast<taskid_t*>(q + 1); // elems are immediately after ReadyCoreFunctionQueue struct
+    new (q) ReadyCoreFunctionQueue(capacity, elem);
 }
 
 int DeviceTaskContext::InitReadyQueues(

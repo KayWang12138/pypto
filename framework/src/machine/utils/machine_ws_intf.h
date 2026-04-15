@@ -28,16 +28,42 @@ enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 #define WRAP_IDX_AIV0 1
 #define WRAP_IDX_AIV1 2
 
+
 // aic aiv 已经ready的core function id队列
-struct ReadyCoreFunctionQueue {
+template <class T>
+struct ReadyCoreFunctionQueueGeneric {
+
+    ReadyCoreFunctionQueueGeneric(uint32_t capacity, T *_elem):head(0), tail(0), elem(_elem), _capacity(capacity), lockFlag(0) {}
+
+	void lock() {
+    	while (!__sync_bool_compare_and_swap(&lockFlag, 0, 1)) {
+    	}
+	}
+
+	void unlock() {
+    	while (!__sync_bool_compare_and_swap(&lockFlag, 1, 0)) {
+    	}
+	}
+
+	uint32_t capacity() const {
+	    return _capacity;
+	}
+
+	//void enqueue()
+
+	typedef T value_type;
+//private:
     uint32_t head;
     uint32_t tail;
-    uint32_t capacity;
-    uint32_t* elem;
-    size_t lock;
+    value_type* elem;
+private:
+    uint32_t _capacity;
+    size_t lockFlag;
 
-    uint64_t Size() { return tail - head; }
+    //uint64_t Size() { return tail - head; } // FIXME: Unused? Remove it?
 };
+
+typedef ReadyCoreFunctionQueueGeneric<uint32_t> ReadyCoreFunctionQueue;
 
 struct StaticReadyCoreFunctionQueue {
     uint64_t head;
@@ -64,14 +90,12 @@ struct WrapInfoQueue {
 
 inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq)
 {
-    while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
-    }
+	rq->lock();
 }
 
 inline void ReadyQueueUnLock(ReadyCoreFunctionQueue* rq)
 {
-    while (!__sync_bool_compare_and_swap(&rq->lock, 1, 0)) {
-    }
+	rq->unlock();
 }
 
 enum class BinDataType {

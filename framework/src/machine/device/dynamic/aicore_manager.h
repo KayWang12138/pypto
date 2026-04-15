@@ -1101,13 +1101,13 @@ private:
         __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
         DEV_IF_NONDEVICE
         {
-            if (readyQue->tail > readyQue->capacity) {
+            if (readyQue->tail > readyQue->capacity()) {
                 DEV_ERROR(
                     SchedErr::READY_QUEUE_OVERFLOW, "#sche.resolve.enqueue: readyQue tail=%u > readyQue capacity=%u",
-                    readyQue->tail, readyQue->capacity);
+                    readyQue->tail, readyQue->capacity());
                 return DEVICE_MACHINE_ERROR;
             }
-            DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, readyQue->tail <= readyQue->capacity);
+            DEV_ASSERT(SchedErr::READY_QUEUE_OVERFLOW, readyQue->tail <= readyQue->capacity());
         }
         ReadyQueueUnLock(readyQue);
         return DEVICE_MACHINE_OK;

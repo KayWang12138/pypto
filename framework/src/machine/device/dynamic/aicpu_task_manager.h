@@ -119,14 +119,12 @@ public:
 private:
     inline void ReadyQueueLock()
     {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1))
-            ;
+    	readyQueue_->lock();
     }
 
     inline void ReadyQueueUnLock()
     {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 1, 0))
-            ;
+    	readyQueue_->unlock();
     }
 
     inline TaskType GetTaskType(uint64_t taskId)
