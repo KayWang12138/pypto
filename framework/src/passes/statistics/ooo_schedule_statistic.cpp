@@ -24,7 +24,48 @@ namespace tile_fwk {
 constexpr int32_t percent = 100;
 constexpr float decimal = 10000.f; // 保留四位小数
 
-void OoOSchedulerCheck::HealthCheckSpillInfo()
+// === ScheduleObserver callback implementations ===
+
+void OoOScheduleStatistic::OnPipeIssued(const PipeIssuedEvent& e)
+{
+    pipeUsageCount[e.pipeType] += e.latency;
+}
+
+void OoOScheduleStatistic::OnBufferAllocated(const BufferAllocEvent& e)
+{
+    bufferTotalUsage[e.memType] += bufferLastUsage[e.memType] * (e.clock - lastClock[e.memType]);
+    bufferLastUsage[e.memType] += e.size;
+    lastClock[e.memType] = e.clock;
+    bufferMaxUsage[e.memType] = std::max(bufferMaxUsage[e.memType], bufferLastUsage[e.memType]);
+}
+
+void OoOScheduleStatistic::OnBufferFreed(const BufferFreeEvent& e)
+{
+    bufferTotalUsage[e.memType] += bufferLastUsage[e.memType] * (e.clock - lastClock[e.memType]);
+    bufferLastUsage[e.memType] -= e.size;
+    lastClock[e.memType] = e.clock;
+}
+
+void OoOScheduleStatistic::OnSpill(const SpillEvent& e)
+{
+    SpillInfo info;
+    info.spillType = e.memType;
+    info.bufferCurrUsage = bufferLastUsage[e.memType];
+    info.spillTensorSize = static_cast<int>(e.spillTensorSize);
+    info.triggerTensorSize = static_cast<int>(e.triggerTensorSize);
+    info.allocOccupiedSize = e.allocOccupiedSize;
+    info.spillCopyoutSize = e.spillCopyoutSize;
+    info.spillTensorMagic = e.spillTensorMagic;
+    spillInfoVec.emplace_back(info);
+}
+
+void OoOScheduleStatistic::OnScheduleEnd(const ScheduleEndEvent& e)
+{
+    clock = e.totalCycles;
+    workspaceOffset = e.workspaceOffset;
+}
+
+void OoOScheduleStatistic::HealthCheckSpillInfo()
 {
     int spillIdx = 0;
     Json spill = Json::array();
@@ -45,9 +86,9 @@ void OoOSchedulerCheck::HealthCheckSpillInfo()
     report["spillDetails"] = spill;
 }
 
-double OoOSchedulerCheck::FormatUsageRate(double value) { return std::round(value * decimal) / decimal; }
+double OoOScheduleStatistic::FormatUsageRate(double value) { return std::round(value * decimal) / decimal; }
 
-Status OoOSchedulerCheck::HealthCheckOoOSchedule()
+Status OoOScheduleStatistic::HealthCheckOoOSchedule()
 {
     int64_t maxL0ASize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0A);
     int64_t maxL0BSize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B);
@@ -121,7 +162,7 @@ Status OoOSchedulerCheck::HealthCheckOoOSchedule()
     return SUCCESS;
 }
 
-void OoOSchedulerCheck::HealthCheckBlockGraph(Function* function)
+void OoOScheduleStatistic::HealthCheckBlockGraph(Function* function)
 {
     report["totalOpCount"] = function->Operations().size();
     auto& tensors = function->GetTensorMap().inverseMap_;
@@ -167,7 +208,7 @@ void OoOSchedulerCheck::HealthCheckBlockGraph(Function* function)
     report["maxOutputsOps"] = maxOutputsOps;
 }
 
-Status OoOSchedulerCheck::DoHealthCheck(Function* function, const std::string& fileName)
+Status OoOScheduleStatistic::DoHealthCheck(Function* function, const std::string& fileName)
 {
     if (HealthCheckOoOSchedule() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "DoHealthCheck failed at HealthCheckOoOSchedule!");

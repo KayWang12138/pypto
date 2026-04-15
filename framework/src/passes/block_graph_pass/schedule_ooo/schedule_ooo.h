@@ -47,7 +47,8 @@ private:
     void DoHealthCheckAfter(Function& function, const std::string& folderPath) override;
     void SortTaskList(std::vector<Operation*>& operations, std::vector<Operation*>& taskList);
     Status SortAndLatencyEstimate(std::vector<Operation*>& opList, std::vector<Operation*>& taskOpList, int& latency);
-    void OoOHealthCheck(OoOScheduler& oooSchedule, Function& function, std::pair<uint64_t, Function*>& program);
+    void CollectStatistic(OoOScheduleStatistic& oooHealthCheck,
+        Function& function, std::pair<uint64_t, Function*>& program);
     Status RecordLastUseMemory(Function& function);
     Status NonMixSchedule(
         std::vector<Operation*>& opList, Function& function, std::pair<uint64_t, Function*>& program,
@@ -61,7 +62,7 @@ private:
     Status UpdateOpCoreMap(
         const TaskNode& taskNode, std::unordered_map<Operation*, CoreLocationType>& opCoreMap);
     std::vector<Function*> oriFunctions;
-    std::map<uint64_t, OoOScheduler> schedulerMap;
+    std::map<uint64_t, OoOScheduleStatistic> statisticMap;
     std::unordered_map<LogicalTensorPtr, Operation*> lastUseMap_;
     OoOScheduleChecker checker;
 };
