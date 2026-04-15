@@ -601,6 +601,83 @@ TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5)
     EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, true);
 }
 
+TEST_F(TestExpandFunctionPass, TestScopeIdMinusOneWithMergeFlag)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, {"in1", "in2", "out1"}), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"in1", "in2"}, {"out1"}, "add1"), true);
+
+    Operation::ScopeInfo scopeInfo(-1);
+    scopeInfo.allowParallelMerge = true;
+    G.GetOp("add1")->SetScopeInfo(scopeInfo);
+
+    EXPECT_EQ(G.SetInCast({"in1", "in2"}), true);
+    EXPECT_EQ(G.SetOutCast({"out1"}), true);
+    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
+
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), FAILED);
+}
+
+TEST_F(TestExpandFunctionPass, TestConflictingScopeInfoSettings)
+{
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, {"in1", "in2", "in3", "out1", "out2"}), true);
+    EXPECT_EQ(G.AddOps(
+                  {Opcode::OP_ADD, Opcode::OP_ADD},
+                  {{"in1", "in2"}, {"in2", "in3"}},
+                  {{"out1"}, {"out2"}},
+                  {"add1", "add2"}, true),
+              true);
+
+    Operation::ScopeInfo scopeInfo1(1);
+    scopeInfo1.allowParallelMerge = true;
+    G.GetOp("add1")->SetScopeInfo(scopeInfo1);
+
+    Operation::ScopeInfo scopeInfo2(1);
+    scopeInfo2.allowCrossScopeMerge = true;
+    G.GetOp("add2")->SetScopeInfo(scopeInfo2);
+
+    EXPECT_EQ(G.SetInCast({"in1", "in2", "in3"}), true);
+    EXPECT_EQ(G.SetOutCast({"out1", "out2"}), true);
+    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
+
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), FAILED);
+}
+
+TEST_F(TestExpandFunctionPass, TestCVMixPlatformMergeFlagMustBeFalse)
+{
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    EXPECT_TRUE(GraphUtils::IsCVMixPlatform());
+
+    ComputationalGraphBuilder G;
+    std::vector<int64_t> shape{kNumExpSix, kNumExpSix};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape, {"in1", "in2", "in3", "in4", "out1", "out2"}), true);
+    EXPECT_EQ(G.AddOps(
+                  {Opcode::OP_ADD, Opcode::OP_A_MUL_B},
+                  {{"in1", "in2"}, {"in3", "in4"}},
+                  {{"out1"}, {"out2"}},
+                  {"add1", "matmul1"}, true),
+              true);
+
+    Operation::ScopeInfo scopeInfo(1);
+    scopeInfo.allowParallelMerge = true;
+    G.GetOp("add1")->SetScopeInfo(scopeInfo);
+    G.GetOp("matmul1")->SetScopeInfo(scopeInfo);
+
+    EXPECT_EQ(G.SetInCast({"in1", "in2", "in3", "in4"}), true);
+    EXPECT_EQ(G.SetOutCast({"out1", "out2"}), true);
+    G.GetFunction()->SetGraphType(GraphType::TENSOR_GRAPH);
+
+    ExpandFunction expandfunctionpass;
+    EXPECT_EQ(expandfunctionpass.RunOnFunction(*G.GetFunction()), FAILED);
+
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_2201);
+}
+
 TEST_F(TestExpandFunctionPass, PreCheckForDisorderIndexOutcast)
 {
     ComputationalGraphBuilder G;
