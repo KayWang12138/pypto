@@ -206,6 +206,7 @@ L2 Cache 命中率直接影响核内数据搬运效率，尤其对 Cube 类算�
 3. **双缓冲**：对前后依赖的计算步骤使用 ping-pong buffer 隐藏搬运延迟
 
 **代码示例**：
+
 ```python
 # 设置 cube tile shapes 使 K 轴对齐 256B
 # FP16: 256B = 128 elements, BF16: 256B = 128 elements
@@ -227,6 +228,7 @@ pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
 **问题**：最后一块可能触发额外的零填充计算，浪费算力
 
 **优化方案**：
+
 ```python
 # 使用 valid_shape 标记有效数据范围
 for i in pypto.loop(range(total_tiles)):

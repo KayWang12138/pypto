@@ -43,6 +43,7 @@ license: 完整条款见 LICENSE.txt
 | 6 | 编译器优化异常 | `+0.0` 技巧 | `result = compute(...) + 0.0` | 阻止编译器过度优化，保留计算操作完整性 |
 | 7 | 未初始化 Tensor | 使用前初始化 | `output = pypto.Tensor(shape, dtype); output[:] = 0` | pypto.Tensor 创建后是未初始化随机值，必须先写后读 |
 | 8 | view 未传 valid_shape | 添加 valid_shape | `pypto.view(tensor, shape, valid_shape=actual_size)` | 动态数据范围最后一块可能小于固定块大小 |
+
 ---
 
 ## ⭐ 重要提示：使用新前端写法
