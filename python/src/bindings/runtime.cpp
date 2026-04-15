@@ -84,6 +84,11 @@ void SetVerifyData(
 {
     auto ToLogicalShape = [](DataType dtype, const std::vector<int64_t>& shape) -> std::vector<int64_t> {
         auto logical = shape;
+        for (auto& dim : logical) {
+            if (dim == -1) {
+                dim = 1;
+            }
+        }
         if ((dtype == DT_FP4_E2M1X2 || dtype == DT_FP4_E1M2X2) && !logical.empty()) {
             logical.back() *= 2;
         }
