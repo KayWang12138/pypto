@@ -790,6 +790,26 @@ def gen_log1p_op_golden(case_name: str, output: Path, case_index: int = None) ->
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestTan/TanOperationTest.TestTan",
+    ]
+)
+def gen_tan_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs, _config: dict):
+        base = _config["params"]
+        input_dtype = inputs[0].dtype
+        if input_dtype == np.float16:
+            inputs[0] = inputs[0].astype(np.float32)
+
+        output = [np.tan(inputs[0])]
+        if input_dtype == np.float16:
+            output = [output[0].astype(np.float16)]
+        return output
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Tan", golden_func, output, case_index)
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestPow/PowOperationTest.TestPow",
     ]
 )

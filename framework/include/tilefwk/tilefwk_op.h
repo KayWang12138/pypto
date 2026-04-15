@@ -278,6 +278,7 @@ Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vec
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);
+Tensor Tan(Tensor operand);
 Tensor Var(const Tensor& input, const std::vector<int>& dim = {}, float correction = 1.0f, bool keepDim = false);
 Tensor Softmax(const Tensor& operand);
 Tensor RmsNorm(const Tensor& operand);
