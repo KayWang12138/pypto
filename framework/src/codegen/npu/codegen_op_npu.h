@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file codegen_op.h
+ * \file codegen_op_npu.h
  * \brief
  */
 
@@ -19,7 +19,6 @@
 #include <utility>
 #include <map>
 #include <functional>
-#include <unordered_set>
 
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"

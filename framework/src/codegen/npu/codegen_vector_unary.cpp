@@ -25,10 +25,10 @@ std::string CodeGenOpNPU::PrintCastDynamicUnaligned(const PrintUnaryParam& param
     const std::string& srcDtypeStr = param.srcDtypeStr;
     const std::string& dVar = param.dVar;
     const std::string& s0Var = param.s0Var;
-    
+
     bool hasTmpBuffer = (operandCnt == NUM3);
-    int srcShapeIdx = hasTmpBuffer ? ID2: ID1;
-    
+    int srcShapeIdx = hasTmpBuffer ? ID2 : ID1;
+
     std::vector<int64_t> ss = NormalizeShape(rawShape[srcShapeIdx], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     std::ostringstream oss;
@@ -70,7 +70,7 @@ std::string CodeGenOpNPU::PrintCastTileTensor() const
     if (hasTmpBuffer) {
         srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
         tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
-    } else { 
+    } else {
         srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     }
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
@@ -271,10 +271,7 @@ std::string CodeGenOpNPU::PrintReduceSumStatic(const PrintUnaryParam& param) con
     return oss.str();
 }
 
-std::string CodeGenOpNPU::PrintReduceSum(const PrintUnaryParam& param) const
-{
-    return PrintReduceSumStatic(param);
-}
+std::string CodeGenOpNPU::PrintReduceSum(const PrintUnaryParam& param) const { return PrintReduceSumStatic(param); }
 
 std::string CodeGenOpNPU::PrintVcopyStatic(const PrintUnaryParam& param) const
 {

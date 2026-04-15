@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file codegen_op.cpp
+ * \file codegen_op_npu.cpp
  * \brief
  */
 

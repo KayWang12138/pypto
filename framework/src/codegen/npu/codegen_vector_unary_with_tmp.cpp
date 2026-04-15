@@ -294,10 +294,7 @@ std::string CodeGenOpNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam& param
     return oss.str();
 }
 
-std::string CodeGenOpNPU::PrintCompact(const PrintUnaryTmpBuffParam& param) const
-{
-    return PrintCompactStatic(param);
-}
+std::string CodeGenOpNPU::PrintCompact(const PrintUnaryTmpBuffParam& param) const { return PrintCompactStatic(param); }
 
 std::string CodeGenOpNPU::PrintExp2Layout() const
 {

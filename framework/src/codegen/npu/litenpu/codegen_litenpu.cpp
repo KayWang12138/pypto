@@ -1,7 +1,7 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This file is a part of the CANN Open Software.
- * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -9,27 +9,16 @@
  */
 
 /*!
- * \file codegen.cpp
+ * \file codegen_litenpu.cpp
  * \brief
  */
 
-#include "codegen_op_litenpu.h"
-
-#include <cstring>
-#include <fstream>
-#include <nlohmann/json.hpp>
-
-#include "codegen/npu/codegen_npu.h"
-#include "codegen/utils/parallel_execute.h"
-#include "interface/utils/file_utils.h"
-#include "interface/tensor/logical_tensor.h"
-#include "interface/function/function.h"
-#include "interface/configs/config_manager.h"
-#include "securec.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/program/program.h"
-#include "interface/utils/op_info_manager.h"
 #include "codegen_litenpu.h"
+
+#include <fstream>
+
+#include "codegen_op_litenpu.h"
+#include "codegen/utils/parallel_execute.h"
 
 namespace npu::tile_fwk {
 
@@ -296,7 +285,8 @@ void CodeGenLiteNPU::GenConfigJson(
     file << "{\n"
          << "   \"kernelFile\": \"" << cppName << "\",\n"
          << "   \"kernelBin\": \"" << binName << "\",\n"
-         << "   \"kernelName\": \"" << kernelName + "_main" << "\",\n"
+         << "   \"kernelName\": \"" << kernelName + "_main"
+         << "\",\n"
          << "   \"workspaceSize\": " << workspaceSize << ",\n"
          << "   \"blockDim\": " << blockDim << ",\n"
          << "   \"argNames\": [";
