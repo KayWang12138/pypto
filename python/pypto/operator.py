@@ -622,8 +622,9 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
         f2 = pypto.mul(f0, v2)
         f3 = pypto.mul(f1, v2)
         f4 = pypto.zeros([tensor_len], dtype=pypto.DT_FP32)
-        pypto.scatter_(f4, 0, u1_index, f2, reduce='add')
 
+        pypto.set_vec_tile_shapes(tensor_len)
+        pypto.scatter_(f4, 0, u1_index, f2, reduce='add')
         if tensor_len % 2 != 0:
             u2_index = pypto.arange(1, tensor_len, 2)
         pypto.scatter_(f4, 0, u2_index, f3, reduce='add')
