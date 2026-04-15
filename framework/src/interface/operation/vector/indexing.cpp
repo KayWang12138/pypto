@@ -394,10 +394,33 @@ void IndexAdd_(Tensor& self, const Tensor& src, const Tensor& indices, int axis,
     DataType selfDataType = self.GetDataType();
     Element castedAlpha = Element(selfDataType, alpha.Cast<float>());
     Tensor result(selfDataType, self.GetShape());
-    CALL(
-        IndexAdd, *Program::GetInstance().GetCurrentFunction(),
-        {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, castedAlpha});
-    self = result;
+    if (selfDataType == DT_FP16 && indices.GetDataType() == DT_INT64 && (std::abs(alpha.Cast<float>() - 1) < 1e-6f)) {
+        // alpha=1,且index类型为int64时需要升精度,fp16->fp32
+        Tensor selfCasted = Cast(self, DT_FP32, CastMode::CAST_NONE);
+        Tensor srcCasted = Cast(src, DT_FP32, CastMode::CAST_NONE);
+        Tensor resultCasted(DT_FP32, self.GetShape());
+        CALL(
+            IndexAdd, *Program::GetInstance().GetCurrentFunction(),
+            {selfCasted.GetStorage(), srcCasted.GetStorage(), indices.GetStorage(), resultCasted.GetStorage(), axis,
+             castedAlpha});
+        selfCasted = resultCasted;
+        self = Cast(resultCasted, selfDataType, CastMode::CAST_RINT);
+    } else if (selfDataType == DT_INT8 && axis != static_cast<int>(self.GetShape().size() - 1)) { // int8->fp16
+        Tensor selfCasted = Cast(self, DT_FP16, CastMode::CAST_NONE);
+        Tensor srcCasted = Cast(src, DT_FP16, CastMode::CAST_NONE);
+        Tensor resultCasted(DT_FP16, self.GetShape());
+        CALL(
+            IndexAdd, *Program::GetInstance().GetCurrentFunction(),
+            {selfCasted.GetStorage(), srcCasted.GetStorage(), indices.GetStorage(), resultCasted.GetStorage(), axis,
+             castedAlpha});
+        selfCasted = resultCasted;
+        self = Cast(resultCasted, selfDataType, CastMode::CAST_TRUNC, SaturationMode::OFF);
+    } else {
+        CALL(
+            IndexAdd, *Program::GetInstance().GetCurrentFunction(),
+            {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, castedAlpha});
+        self = result;
+    }
 }
 
 void TiledGatherOperation(
