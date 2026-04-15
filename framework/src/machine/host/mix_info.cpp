@@ -57,6 +57,11 @@ struct WrapInfo {
     std::vector<CoreTask> coreTask;
 };
 
+struct MixInfo {
+    uint64_t mixId;
+    std::vector<WrapInfo> wrapInfos;
+};
+
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SyncInfo, isSet, eventID)
 
 // 绑定CoreTask
@@ -65,14 +70,17 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CoreTask, hashValue, syncMsg)
 // 绑定WrapInfo
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WrapInfo, wrapID, coreTask)
 
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MixInfo, mixId, wrapInfos)
+
 void DumpMixInfo(const std::map<uint64_t, std::map<int, WrapInfo>>& wrapInfos) {
-    std::map<uint64_t, std::vector<WrapInfo>> wrapinfoList;
+    std::vector<MixInfo> wrapinfoList;
     for (auto& [mixId, rootWrapinfo] : wrapInfos) {
-        std::vector<WrapInfo> rootWrapinfoList;
+        MixInfo mixInfo;
+        mixInfo.mixId = mixId;
         for (auto& [wrapId, wrapInfo] : rootWrapinfo) {
-            rootWrapinfoList.push_back(wrapInfo);
+            mixInfo.wrapInfos.push_back(wrapInfo);
         }
-        wrapinfoList[mixId] = rootWrapinfoList;
+        wrapinfoList.push_back(mixInfo);
     }
     json j = wrapinfoList;
     std::string path = npu::tile_fwk::config::GetAbsoluteTopFolder() + "/mix_event_info.json";
