@@ -118,12 +118,12 @@ ExprPtr ReconstructUnaryExpr(ObjectKind kind, ExprPtr operand, DataType dtype, c
 // Top-level entry points
 ProgramPtr IRMutator::VisitProgram(const ProgramPtr& program)
 {
-    std::map<GlobalVarPtr, FunctionPtr, GlobalVarPtrLess> new_functions;
+    std::vector<FunctionPtr> new_functions;
     bool changed = false;
-    for (auto& [gv, func] : program->functions_) {
+    for (auto& func : program->functions_) {
         auto new_func = VisitFunction(func);
-        new_functions.emplace(gv, new_func);
-        if (new_func.get() != func.get()) {
+        new_functions.emplace_back(new_func);
+        if (new_func != func) {
             changed = true;
         }
     }
