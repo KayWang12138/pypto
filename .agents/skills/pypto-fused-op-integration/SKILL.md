@@ -283,3 +283,56 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
 - models/glm_v4_5/glm_attention_pre_quant.py
 - models/glm_v4_5/glm_attention_pre_quant_golden.py
 - glm_pto_kernels/__init__.py
+```
+
+**推荐 Skill：** `pypto-issue-creator`
+
+---
+
+#### 步骤 14：提交 PR
+
+**目标：** 将修改提交到 GitCode 仓库
+
+**操作：**
+
+1. **检查修改**
+   ```bash
+   git status
+   git diff
+   ```
+
+2. **创建分支**
+   ```bash
+   git checkout -b feature/glm-attention-pre-quant
+   ```
+
+3. **提交修改**
+   ```bash
+   git add .
+   git commit -m "feat(glm): integrate PyPTO fused attention_pre_quant operator
+
+- Add PyPTO implementation of attention_pre_quant fused operator
+- Add golden reference for verification
+- Add adapter layer for model integration
+- Update Glm4MoeDecoderLayer to use fused operator
+- Verified precision and performance
+
+Performance: XX% improvement
+Precision: max_diff < 1e-3
+"
+   ```
+
+4. **推送到远程**
+   ```bash
+   git push origin feature/glm-attention-pre-quant
+   ```
+
+5. **创建 PR**
+   ```bash
+   # 使用 pypto-pr-creator skill
+   # 自动创建符合规范的 PR
+   ```
+
+**推荐 Skill：** `pypto-pr-creator`
+
+---

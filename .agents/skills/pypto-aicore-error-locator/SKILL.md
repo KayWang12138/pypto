@@ -90,14 +90,14 @@ python3 .agents/skills/pypto-aicore-error-locator/scripts/modify_callsubfunctask
 
 进入 `pypto_path`，修改以下配置：
 
-- **配置文件**: 修改 `framework/src/interface/configs/tile_fwk_config.json`
+- **配置文件**: 修改 `tile_fwk_config.json`
   - 设置 `"fixed_output_path"` 为 `true`
   - 设置 `"force_overwrite"` 为 `false`
 
-- **头文件**: 修改 `framework/src/machine/kernel/aicore_print.h`
+- **头文件**: 修改 `aicore_print.h`
   - 设置 `#define ENABLE_AICORE_PRINT` 为 `1`
 
-- **工具头文件**: 修改 `framework/src/machine/kernel/device_switch.h`
+- **工具头文件**: 修改 `device_switch.h`
   - 设置 `#define ENABLE_COMPILE_VERBOSE_LOG` 为 `1`
 
 ---

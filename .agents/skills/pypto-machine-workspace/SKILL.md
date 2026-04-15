@@ -194,25 +194,17 @@ grep -r "Tensor:rootInner=" <log_path>/debug/
 
 根据步骤 3 提取的值，按以下决策树判断问题所在大类：
 
-**前置判断**：若 TOTAL < 1GB 且无 OOM / rtMalloc 报错，直接标记为"workspace 大小正常，无需进一步分析"，结束诊断流程。
-
 ```
 workspaceSize = TOTAL
 ├── tensor (T) 占比 > 80%？
 │   ├── 是 → 进入步骤 5（Tensor Workspace 分析）
 │   └── 否 ↓
 ├── metadata (M) 占比 > 30%？
-│   ├── 是 → 元数据内存问题
-│   │         1. 搜索日志: `grep -r "Memory not enough" <log_path>/debug/ | grep "WsProperty:metadata"`
-│   │         2. 搜索日志: `grep -r "Slab alloc null" <log_path>/debug/`
-│   │         3. 提取子项: `grep -r "ItemPoolMemSize\|vectorMemSize\|slotAllocatorMemSize" <log_path>/debug/`
-│   │         建议联系 machine 同事分析
+│   ├── 是 → 元数据内存问题，建议联系 machine 同事
+│   │         （搜索日志中 "Memory not enough" + "WsProperty:metadata" 或 "Slab alloc null"）
 │   └── 否 ↓
 ├── aicoreSpillen (S) 占比 > 30%？
-│   ├── 是 → AICore 栈溢出问题
-│   │         1. 搜索日志: `grep -r "stackWorkSpaceSize" <log_path>/debug/`
-│   │         2. 检查算子中是否有深度嵌套的循环或大量局部变量
-│   │         3. 尝试减少嵌套层数或使用 unroll_list 控制展开
+│   ├── 是 → AICore 栈溢出问题，需检查算子的 stackWorkSpaceSize
 │   └── 否 ↓
 ├── debug.DumpTensor 或 leafDumpWorkspace 非零？
 │   ├── 是 → 调试模式开销，确认是否关闭了调试选项

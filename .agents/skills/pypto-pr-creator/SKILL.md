@@ -68,12 +68,7 @@ fi
 2. 验证 origin 指向用户 fork（包含 `pypto` 且不包含 `cann/pypto`）
 3. 若当前目录不符合，在工作区搜索 `.git` 目录并检查 remote
 4. 检测浅克隆（`git rev-parse --is-shallow-repository`），标记以便后续处理
-5. **获取用户名**（按优先级依次尝试）：
-   - `git config --get user.username` → 若有值则使用
-   - 从 origin URL 中提取：`git remote get-url origin | grep -oP 'gitcode\.com/\K[^/]+'`
-   - 通过 GitCode API：`gitcode_get_current_user()` 获取 `username`
-   - 以上均失败 → 提示用户输入 GitCode 用户名
-6. 通过 `gitcode_get_repository(owner="<username>", repo="pypto")` 验证 fork 链（`parent.full_name == "cann/pypto"`）
+5. 通过 `gitcode_get_repository(owner="<username>", repo="pypto")` 验证 fork 链（`parent.full_name == "cann/pypto"`）
 
 **失败路径**：origin 指向 `cann/pypto` 时，执行 `git remote set-url origin https://gitcode.com/<username>/pypto.git` 修复。
 
@@ -112,15 +107,8 @@ echo "credential.helper: $(git config --global credential.helper 2>/dev/null || 
 读取 [references/checklist.md](references/checklist.md) 执行预检：
 
 1. **浅克隆修复**：`git fetch --unshallow origin`
-2. **Upstream 存在性检查与同步**：
-   ```bash
-   if ! git remote get-url upstream 2>/dev/null; then
-       git remote add upstream https://gitcode.com/cann/pypto.git
-   fi
-   git fetch upstream master
-   ```
-   检查分支是否落后，落后则 `git rebase upstream/master && git push -f origin <branch>`
-3. **Commit message 格式验证**：`git log -1 --format="%s" | grep -PE '^(feat|fix|docs|style|refactor|perf|test)(\([^)]+\))?:\s[A-Z][^.]{9,199}[^.]$'`
+2. **Upstream 同步**：`git fetch upstream master`，检查分支是否落后，落后则 `git rebase upstream/master && git push -f origin <branch>`
+3. **Commit message 格式验证**：`git log -1 --format="%s" | grep -E '^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}'`
 
 执行 git 操作：
 
