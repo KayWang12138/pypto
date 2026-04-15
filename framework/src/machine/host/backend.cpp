@@ -896,10 +896,8 @@ static void CompileControlFlow(
         return;
     }
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
-        if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
-        }
+    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+        ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
     }
 #endif
 }
@@ -1039,8 +1037,7 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
 
     std::string kernelPath;
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM &&
-        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
         int ret = CompileAICoreKernel(
             leafDict, encodeDevAscendFunctionParam, ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {
