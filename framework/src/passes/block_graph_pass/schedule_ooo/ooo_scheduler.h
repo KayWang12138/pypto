@@ -230,6 +230,17 @@ private:
     void UpdateOperationInput(Operation* targetOp, Operation* spillOp, LogicalTensorPtr tensor);
     void UpdateTensorInputForView(Operation& op, Operation* spillSrcOp, LogicalTensorPtr tensor);
 
+    // spill 公共 helper
+    void RegisterNewOp(Operation* op, bool isAlloc, bool isRetired, std::vector<int> reqMemIds);
+    void ScheduleOpAt(Operation* op, int execOrder, Operation* refOpForLocation);
+    void AssignCopyoutLocationFromProducers(Operation* copyoutOp, Operation* spillOp);
+    void AssignCopyoutLocationFromProducers(Operation* copyoutOp, LogicalTensorPtr producerTensor);
+    void RewireAllocPredecessorsTo(Operation* newAllocOp, int spillMemId);
+    void RecountBufRef(int memId);
+    void RewireSpillOpConsumers(Operation* spillOp, int memId, LogicalTensorPtr newTensor, bool viewAware);
+    Status EmitSpillAllocCopyin(Operation* allocOp, Operation* copyinOp,
+        int spillMemId, int localMemId, Operation* spillAllocOp);
+
     void ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int oldMemId, int newMemId);
     void ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId);
     Status UpdateRemainMemid(int oldMemId, int newMemId);

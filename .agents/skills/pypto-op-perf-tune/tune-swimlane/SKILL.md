@@ -116,7 +116,7 @@ pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256],
 
 ```bash
 # Step 1: 用 analyze_swimlane.py 分析泳道图数据
-python3 .agents/skills/pypto-operator-auto-tuner/scripts/analyze_swimlane.py \
+python3 scripts/analyze_swimlane.py \
     output/output_<最新目录>
 
 # Step 2: 从输出确定：
@@ -211,7 +211,7 @@ vector合图往往需要 pg_upper_bound 和 vec_nbuffer_setting 配合使用，�
 - vec_nbuffer_setting：表示同构的并行子图合图的任务数量，-2:1不需要改变，-1:2代表，所有的vector均按照2的粒度进行合图
 
 **调优方法**：
-1. 运行 [analyze_swimlane.py](../scripts/analyze_swimlane.py)，查看 `[AIV]` 部分的输出
+1. 运行 [analyze_swimlane.py](scripts/analyze_swimlane.py)，查看 `[AIV]` 部分的输出
 2. 根据 `psgId` 确定 hashorder，根据 `t/iter` 确定粒度参考值
 3. t/iter=1 的组先设为 1，t/iter≥2 的组设为对应值或更小
 4. 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
@@ -242,8 +242,8 @@ pypto.set_pass_options(sg_set_scope=-1)
 **用法**：
 
 ```bash
-python3 .agents/skills/pypto-operator-auto-tuner/scripts/analyze_aiv_dep_chains.py <output_dir>
-python3 .agents/skills/pypto-operator-auto-tuner/scripts/analyze_aiv_dep_chains.py <output_dir> --json result.json
+python3 scripts/analyze_aiv_dep_chains.py <output_dir>
+python3 scripts/analyze_aiv_dep_chains.py <output_dir> --json result.json
 ```
 
 **输入文件**（`output_dir` 中）：
@@ -312,10 +312,10 @@ sg_set_scope 优化建议
 
 ```bash
 # 查看指定 leafHash 的代码位置
-python3 .agents/skills/pypto-operator-auto-tuner/scripts/leafhash_to_code.py <output_dir> --leafhash <hash>
+python3 scripts/leafhash_to_code.py <output_dir> --leafhash <hash>
 
 # 查看所有 leafHash
-python3 .agents/skills/pypto-operator-auto-tuner/scripts/leafhash_to_code.py <output_dir>
+python3 scripts/leafhash_to_code.py <output_dir>
 ```
 
 **验证检查清单**（对建议中的每个链段逐项检查）：
@@ -376,7 +376,7 @@ python3 .agents/skills/pypto-operator-auto-tuner/scripts/leafhash_to_code.py <ou
 )
 ```
 **调优方法**：
-1. 运行 [analyze_swimlane.py](../scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
+1. 运行 [analyze_swimlane.py](scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
 2. 根据 `psgId` 确定 hashorder，优先对 total 耗时大且有重复搬运的子图调优
 3. `t/iter` 越大（内层循环次数越多），L1 复用收益越高，可设更大粒度
 4. 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
@@ -396,7 +396,7 @@ python3 .agents/skills/pypto-operator-auto-tuner/scripts/leafhash_to_code.py <ou
 )
 ```
 **调优方法**：
-1. 运行 [analyze_swimlane.py](../scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
+1. 运行 [analyze_swimlane.py](scripts/analyze_swimlane.py)，查看 `[AIC]` 部分的输出
 2. 根据 `psgId` 确定 hashorder，根据 `t/iter` 和 avg 耗时确定粒度
 3. avg<10us 且 t/iter≥2 的组优先设置 `cube_nbuffer_setting: {psgId: t/iter}`
 4. 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
@@ -452,7 +452,7 @@ python3 .agents/skills/pypto-operator-auto-tuner/scripts/leafhash_to_code.py <ou
 # Task Count: 1664 → 6400, 利用率: 58.8% → 48.7%
 ```
 
-**建议**：始终使用 [analyze_swimlane.py](../scripts/analyze_swimlane.py) 分析泳道图获取 psgId 和 t/iter 后手动精确配置，避免使用空字典 `{}` 自动模式。
+**建议**：始终使用 [analyze_swimlane.py](scripts/analyze_swimlane.py) 分析泳道图获取 psgId 和 t/iter 后手动精确配置，避免使用空字典 `{}` 自动模式。
 
 
 ### 4. 调度策略调优

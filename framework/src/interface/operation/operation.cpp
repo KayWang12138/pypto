@@ -30,7 +30,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/utils/serialization.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/subfunc_utils.h"
 #include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
@@ -65,6 +65,7 @@ const std::string OpAttributeKey::excludeBufferReuse = "exclude_buffer_reuse";
 const std::string OpAttributeKey::bindTensor = "BIND_TENSOR";
 const std::string OpAttributeKey::startOffset = "start_offset";
 const std::string OpAttributeKey::distOpAttr = "DIST_OP_ATTR";
+const std::string OpAttributeKey::isDistCopyOut = "IS_DIST_COPY_OUT";
 const std::string OpAttributeKey::subBlockIdx = "SUB_BLOCK_IDX";
 const std::string OpAttributeKey::accumulate = "accumulate";
 const std::string OpAttributeKey::indicesSize = "indicesSize";
@@ -88,6 +89,7 @@ const std::string OpAttributeKey::rowPad = "op_attr_row_pad";
 const std::string OpAttributeKey::ownerRank = "owner_rank";
 const std::string OpAttributeKey::maxTileNum = "max_tile_num";
 const std::string OpAttributeKey::precisionType = "precision_type";
+const std::string OpAttributeKey::perm = "perm";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -554,6 +556,9 @@ std::shared_ptr<Operation> Operation::LoadJson(
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
             case Opcode::OP_INDEX_PUT:
+                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
+                break;
+            case Opcode::OP_INDEX_ADD:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
             case Opcode::OP_INDEX_OUTCAST:
@@ -1090,6 +1095,9 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
             }
         } break;
+        case Opcode::OP_SHMEM_PUT:
+        case Opcode::OP_SHMEM_PUT_UB2GM:
+        case Opcode::OP_SHMEM_GET:
         case Opcode::OP_SHMEM_GET_GM2UB: {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
             if (copyAttr == nullptr) {
@@ -1100,6 +1108,24 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+            }
+            for (auto &shape : copyAttr->GetFromDynValidShape()) {
+                if (!shape.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
+            }
+            for (auto &offset : copyAttr->GetToOffset()) {
+                if (!offset.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
+            }
+            for (auto &offset : copyAttr->GetFromOffset()) {
+                if (!offset.IsSpecified()) {
+                    continue;
+                }
+                dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
         } break;
         default:

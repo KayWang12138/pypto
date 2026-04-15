@@ -589,6 +589,12 @@ void OpcodeManager::RegisterVector()
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Ttranspose_vnchwconv", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::AIV, "PERMUTE", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_UB}, {"TileOp::TPermute", PIPE_S, PIPE_MTE2, CoreType::AIV},
+        OpCalcType::OTHER, {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PERMUTE_ELEMENT, OpCoreType::AIV, "PERMUTE_ELEMENT", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_UB}, {"TileOp::TPermuteElewise", PIPE_S, PIPE_MTE2, CoreType::AIV},
+        OpCalcType::OTHER, {OpAttributeKey::perm, OP_ATTR_PREFIX + "validShape"}, TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_EXPAND, OpCoreType::AIV, "EXPAND", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Texpand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE, {OP_ATTR_PREFIX + "EXPANDDIM"},
@@ -707,10 +713,16 @@ void OpcodeManager::RegisterVector()
         {"TileOp::UBCopyOut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
         {OpAttributeKey::excludeBufferReuse});
     RegisterInfo(
-        Opcode::OP_INDEX_ADD, OpCoreType::AIV, "INDEX_ADD",
+        Opcode::OP_INDEX_ADD_UB, OpCoreType::AIV, "INDEX_ADD_UB",
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {"TileOp::TindexAdd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {"TileOp::TIndexAddUB", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar}, TileShapeVerifier::Verify);
+    RegisterInfo(
+        Opcode::OP_INDEX_ADD, OpCoreType::ANY, "INDEX_ADD",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::TIndexAdd", PIPE_MTE3, PIPE_MTE3, CoreType::AIV},
+        OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar, OpAttributeKey::inplaceIdx},
+        TileShapeVerifier::Verify);
     RegisterInfo(
         Opcode::OP_WHERE_TT, OpCoreType::AIV, "WHERE_TT", {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Where_TT", PIPE_V, PIPE_V, CoreType::AIV},
@@ -1195,6 +1207,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_REM, "TRemainder"},
     {Opcode::OP_REMS, "TRemainderS"},
     {Opcode::OP_REMRS, "TRemainderRS"},
+    {Opcode::OP_INDEX_ADD_UB, "TIndexAddUB"},
     {Opcode::OP_INDEX_ADD, "TIndexAdd"},
     {Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
     {Opcode::OP_GATHER, "Tgather"},
@@ -1264,6 +1277,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_PAIRMAX, "TPairMax"},
     {Opcode::OP_PAIRMIN, "TPairMin"},
     {Opcode::OP_PAIRPROD, "TPairProd"},
+    {Opcode::OP_PERMUTE, "TPermute"},
+    {Opcode::OP_PERMUTE_ELEMENT, "TPermuteElewise"},
     {Opcode::OP_ONEHOT, "TOneHot"},
     {Opcode::OP_VEC_DUP, "TVecDup"},
     {Opcode::OP_RANGE, "TRange"},

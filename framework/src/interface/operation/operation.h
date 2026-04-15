@@ -80,6 +80,7 @@ public:
     static const std::string bindTensor;
     static const std::string startOffset;
     static const std::string distOpAttr;
+    static const std::string isDistCopyOut;
     static const std::string subBlockIdx;
     static const std::string accumulate;
     static const std::string indicesSize;
@@ -103,6 +104,7 @@ public:
     static const std::string ownerRank;
     static const std::string maxTileNum;
     static const std::string precisionType;
+    static const std::string perm;
 };
 
 class ConvOpAttributeKey {
@@ -394,6 +396,7 @@ public:
             Opcode::OP_RESHAPE_COPY_OUT,
             Opcode::OP_INDEX_OUTCAST,
             Opcode::OP_INDEX_PUT,
+            Opcode::OP_INDEX_ADD,
             Opcode::OP_TRANSPOSE_MOVEIN,
             Opcode::OP_TRANSPOSE_MOVEOUT,
             Opcode::OP_FFN_SCHED,

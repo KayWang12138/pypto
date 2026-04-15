@@ -116,6 +116,7 @@ public:
     std::string GenScatterElementSOp() const;
     std::string GenScatterOp() const;
 
+    std::string GenIndexAddUBOp() const;
     std::string GenIndexAddOp() const;
 
     std::string GenIndexPutOp() const;
@@ -128,6 +129,7 @@ public:
     std::string PrintGatherDynamicUnaligned() const;
     std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
+    std::string GenPermuteOp() const;
     std::string GenGatherFromUBOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
@@ -162,7 +164,8 @@ public:
     std::string GenRawShapes(int32_t operandIndex) const;
     std::string GenExtraParamsStr() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex) const;
-
+    std::string GenDynOffset(int32_t operandIndex) const;
+    std::string GenDynValidShape(int32_t operandIndex) const;
     std::string GenAicpuCallOp() const;
 
     std::string GenWhereOp() const;
@@ -186,7 +189,8 @@ private:
 
     std::string GenOffsetsAndRawShapesForShmemPut() const;
     std::string GenOffsetsAndRawShapesForShmemGet() const;
-    std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
+    std::string GenOffsetsAndRawShapesForShmemPutUB() const;
+    std::string GenOffsetsAndRawShapesForShmemGetUB() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineSend() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const;
@@ -317,13 +321,13 @@ private:
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintPermuteLayout() const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam& param) const;
 
-    std::vector<std::string> GeTileOpParamForNormalCopyTileTensor(
-        unsigned gmIdx, const std::string& gmVarName, bool isSpillingToGM) const;
+    std::vector<std::string> GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const;
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam& param) const;
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam& param) const;
@@ -358,6 +362,7 @@ private:
 
     std::string PrintUnary(const PrintUnaryParam& param) const;
     std::string PrintUnaryTileTensor() const;
+    void AddUnaryPrecisionTypeParm(std::vector<std::string>& templateParamList) const;
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam& param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam& param) const;
 
@@ -451,8 +456,8 @@ private:
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam& param) const;
     std::string PrintScatterTileTensor(const PrintScatterParam& param) const;
 
-    std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam& param) const;
-    std::string PrintIndexAddTileTensor(const PrintIndexAddParam& param) const;
+    std::string PrintIndexAddUBDynamicUnaligned(const PrintIndexAddParam& param) const;
+    std::string PrintIndexAddUBTileTensor(const PrintIndexAddParam& param) const;
 
     std::string PrintIndexPut(const PrintIndexPutParam& param) const;
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
@@ -486,7 +491,6 @@ private:
 
     std::string PrintCoord(size_t dim, const std::string& coord) const;
     std::pair<std::string, std::string> PrintDstSrcCoordFromAttr() const;
-    std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string& gmVarName) const;
     template <typename T>
     void FillParamWithFullInput(std::vector<std::string>& paramList, const std::vector<T>& input) const
     {
