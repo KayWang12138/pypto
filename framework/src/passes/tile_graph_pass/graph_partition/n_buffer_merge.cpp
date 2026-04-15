@@ -287,9 +287,7 @@ void NBufferMerge::GetColorHash(
         }
         // 单独的reshape不用合并
         subgraphOpCount[subGraphID]++;
-        if (opOriList[i].GetOpcode() == Opcode::OP_RESHAPE) {
-            reshapeCount[subGraphID]++;
-        }
+        if (opOriList[i].GetOpcode() == Opcode::OP_RESHAPE) reshapeCount[subGraphID]++;
         if (OpcodeManager::Inst().GetCoreType(opOriList[i].GetOpcode()) == OpCoreType::AIC) {
             mulaccGraph.insert(subGraphID);
             continue;
@@ -297,14 +295,13 @@ void NBufferMerge::GetColorHash(
         hashColor[subGraphID] = (hashColor[subGraphID] * p + (hashTileOp[i] ^ a)) % mod;
     }
     for (auto& [id, count] : reshapeCount) {
-        if (count == subgraphOpCount[id]) {
-            hashColor[id] = 0;
-        }
+        if (count == subgraphOpCount[id]) hashColor[id] = 0;
     }
     for (auto subgraphId : mulaccGraph) {
         hashColor[subgraphId] = 0;
     }
     for (int i = 0; i < colorNum_; i++) {
+        if (mulaccGraph.count(i)) continue;
         hashMap[hashColor[i]].push_back(i);
         if (hashMap[hashColor[i]].size() == 1) {
             hashOrder_[hashColor[i]] = globalVecMergeHashOrder_;
@@ -314,6 +311,7 @@ void NBufferMerge::GetColorHash(
     for (auto& entry : hashMap) {
         int hashOrder = hashOrder_[entry.first];
         for (auto subgraphId : entry.second) {
+            if (mulaccGraph.count(subgraphId)) continue;
             for (auto opIdx : colorNode_[subgraphId]) {
                 opOriList[opIdx].UpdateVecMergeHashOrder(hashOrder);
             }
