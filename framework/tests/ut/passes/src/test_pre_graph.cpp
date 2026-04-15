@@ -26,6 +26,7 @@
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
+#include "passes/pass_utils/boundary_utils.h"
 #define private public
 
 using namespace npu::tile_fwk;
@@ -1159,10 +1160,10 @@ void RunSetTensorBoundary(ComputationalGraphBuilder& G)
     auto copy_out = G.GetTensor("copy_out");
     auto reshape_out = G.GetTensor("reshape_out");
     auto vec_out = G.GetTensor("vec_out");
-    EXPECT_EQ(vec_in->isSubGraphBoundary, true);
-    EXPECT_EQ(copy_out->isSubGraphBoundary, true);
-    EXPECT_EQ(reshape_out->isSubGraphBoundary, true);
-    EXPECT_EQ(vec_out->isSubGraphBoundary, true);
+    EXPECT_TRUE(IsSubGraphBoundary(vec_in));
+    EXPECT_TRUE(IsSubGraphBoundary(copy_out));
+    EXPECT_TRUE(IsSubGraphBoundary(reshape_out));
+    EXPECT_TRUE(IsSubGraphBoundary(vec_out));
 }
 
 //        CopyIn[0] - copy_in1 - Exp[0] - e1 - CopyOut[0]

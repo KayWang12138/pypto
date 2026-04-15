@@ -33,6 +33,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/configs/config_manager.h"
+#include "passes/pass_utils/boundary_utils.h"
 #include "interface/operation/operation_impl.h"
 #include "interface/utils/serialization.h"
 #include "interface/interpreter/flow_verifier.h"
@@ -1270,7 +1271,7 @@ void Function::ProducerMagicLookup(
         }
         if (op->GetOpAttribute() != nullptr) {
             if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                if (!op->oOperand[0]->isSubGraphBoundary) {
+                if (!IsSubGraphBoundary(op->oOperand[0])) {
                     ss << " " << op->GetOpAttribute()->Dump();
                 }
             } else if (
