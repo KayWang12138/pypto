@@ -535,6 +535,7 @@ void SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize)
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
+    it->second->Alloc(slotSize);
 }
 
 void SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
@@ -544,6 +545,7 @@ void SimulationCommManager::AllocSignal(const std::string &groupName, size_t slo
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
+    it->second->AllocSignal(slotSize);
 }
 
 } // namespace npu:tile_fwk
