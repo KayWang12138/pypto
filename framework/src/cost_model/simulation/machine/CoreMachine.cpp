@@ -71,7 +71,7 @@ void CoreMachine::SetCalendar()
             counterSetQueue.Enqueue(calendarSecondSet);
         }
 
-        SIMULATION_LOGE(
+        SIMULATION_LOGI(
             "[Cycle: %lu][CoreMachine][SetCalendar] task id %lu SetCalendar pass!!!",
             static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId));
     }
@@ -169,7 +169,7 @@ void CoreMachine::StepQueue()
         sim->calendarCounter[sim->taskSetMap[executingTaskId]]++;
         if ((number == calendarSecondSet) &&
             (sim->calendarCounter[sim->taskSetMap[executingTaskId]] != sim->taskSetExpectMap[executingTaskId])) {
-            SIMULATION_LOGE(
+            SIMULATION_LOGW(
                 "[Cycle: %lu][CoreMachine][StepQueue] task id %lu after set counter %d calendar value is %d expect "
                 "value is %d",
                 static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId),
@@ -179,7 +179,7 @@ void CoreMachine::StepQueue()
         } else if (
             (number == calendarFirstSet) &&
             (sim->calendarCounter[sim->taskSetMap[executingTaskId]] != sim->taskFirstSetMap[executingTaskId])) {
-            SIMULATION_LOGE(
+            SIMULATION_LOGW(
                 "[Cycle: %lu][CoreMachine][StepQueue] task id %lu after first set counter %d calendar value is %d "
                 "expect value is %d",
                 static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId),
