@@ -242,6 +242,24 @@ ls framework/tests/st/distributed/ops/test_case/*.json \
 
 ---
 
+## Pitfalls and troubleshooting
+
+### GTest linking (`ops` ST CMake)
+
+**File:** `framework/tests/st/distributed/ops/CMakeLists.txt`
+
+Do **not** link `GTest::gtest` into a shared library or into an `INTERFACE` link library that ends up linked into **`libtile_fwk_stest_distributed_ops.so`** (or similar) **when** the main `tile_fwk_stest_distributed` executable also links GoogleTest. Static GTest in more than one link unit duplicates globals and can corrupt the heap on exit (`malloc_consolidate(): unaligned fastbin chunk detected`, etc.). Prefer **include-only** helpers (e.g. `Dist_GTest_Inc`) so gtest symbols resolve from the main test binary.
+
+### Implementation vs ST / golden tensor layout
+
+When **adding** a variant by copying another, keep **validation rules and tensor ranks** consistent with how ST JSON and `distributed_golden.py` build inputs (for example `shmemTensor.data` as 2D `{row, col}` versus a leading batch dimension `{1, row, col}`). A mismatch often shows up as ST assertion failures or a stale binary until `tile_fwk_interface` is rebuilt — compare the **reference variant** you modeled on, not only IR tests.
+
+### Full `tile_fwk_utest` vs distributed work
+
+Failures in **unrelated** gtests (e.g. control-flow / codegen paths that invoke bisheng with flags your toolchain does not support) are **not** evidence that a distributed variant is wrong. Narrow C++ UT with a negative filter, for example `./tile_fwk_utest --gtest_filter=-ControlFlowTest.TestParallelLoop`, or pass a single filter string through configure (see `framework/tests/cmake/func_utest.cmake` and `cmake/scripts/utest_accelerate.py`) so one process runs the suite minus the broken case.
+
+---
+
 ## Quick Verification
 
 Run from the repo root to regenerate the full index map and confirm `_num_cases`:

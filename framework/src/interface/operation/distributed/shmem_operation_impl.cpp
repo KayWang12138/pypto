@@ -28,13 +28,15 @@
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
-void ValidateTensor(const Tensor& tensor, const std::string& tensorDesc,
+void ValidateTensor(
+    const Tensor& tensor,
+    const std::string& desc,
     const std::unordered_set<size_t>& allowedDims = {},
     const std::unordered_set<DataType>& allowedTypes = {},
     const std::unordered_set<TileOpFormat>& allowedFormats = {},
     const Shape& expectShape = {});
 
-void ValidateShmemTensor(const ShmemTensor& t, bool hasData, bool hasSignal);
+void ValidateShmemTensor(const ShmemTensor& t, bool hasData = false, bool hasSignal = false);
 
 // File-scope cache used by ValidateShmemTensor. Exposed here so unit tests can
 // call ResetShmemTensorGroupCache() in SetUp/TearDown for test isolation.
@@ -231,16 +233,18 @@ void ValidateShape(const Tensor& tensor, const std::string& desc, const Shape& e
         << "Invalid shape: " << desc << " expect:" << ToString(expectShape) << ", but got: " << ToString(shape);
 }
 
-void ValidateTensor(const Tensor& tensor, const std::string& tensorDesc,
+void ValidateTensor(
+    const Tensor& tensor,
+    const std::string& desc,
     const std::unordered_set<size_t>& allowedDims,
     const std::unordered_set<DataType>& allowedTypes,
     const std::unordered_set<TileOpFormat>& allowedFormats,
     const Shape& expectShape)
 {
-    ValidateDim(tensor, tensorDesc, allowedDims);
-    ValidateDataType(tensor, tensorDesc, allowedTypes);
-    ValidateFormat(tensor, tensorDesc, allowedFormats);
-    ValidateShape(tensor, tensorDesc, expectShape);
+    ValidateDim(tensor, desc, allowedDims);
+    ValidateDataType(tensor, desc, allowedTypes);
+    ValidateFormat(tensor, desc, allowedFormats);
+    ValidateShape(tensor, desc, expectShape);
 }
 
 void ValidateOpType(OpType cmp, const std::unordered_set<OpType>& allowedOpTypes)
@@ -249,13 +253,16 @@ void ValidateOpType(OpType cmp, const std::unordered_set<OpType>& allowedOpTypes
         << "Invaild OP type, only support:" << ToString(allowedOpTypes) << ", but got:" << ToString(cmp);
 }
 
-void ValidateShmemTensor(const ShmemTensor& t, bool hasData = false, bool hasSignal = false) {
+void ValidateShmemTensor(const ShmemTensor& t, bool hasData, bool hasSignal)
+{
+    auto& groupWorldSizeMap = s_groupWorldSizeMap;
     ValidateGroup(t.group.c_str());
-    auto groupWorldSize = s_groupWorldSizeMap.find(t.group);
-    if (groupWorldSize == s_groupWorldSizeMap.end()) {
-        ASSERT(DistributedErrorCode::INVALID_WORLD_SIZE, t.worldSize > 0) << "Invalid world size for group " <<
-            t.group << ": world size must be greather than 0" << ", but got " << t.worldSize;
-        s_groupWorldSizeMap.emplace(t.group, t.worldSize);
+    auto groupWorldSize = groupWorldSizeMap.find(t.group);
+    if (groupWorldSize == groupWorldSizeMap.end()) {
+        ASSERT(DistributedErrorCode::INVALID_WORLD_SIZE, t.worldSize > 0)
+            << "Invalid world size for group " << t.group << ": world size must be greather than 0"
+            << ", but got " << t.worldSize;
+        groupWorldSizeMap.emplace(t.group, t.worldSize);
     } else {
         ASSERT(DistributedErrorCode::INVALID_WORLD_SIZE, t.worldSize == groupWorldSize->second)
             << "WorldSize mismatch for group " << t.group << ": expected " << groupWorldSize->second << ", but got "
@@ -353,6 +360,8 @@ void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor& t)
     CreateShmemSignalImpl(t, {1, SHMEM_SIGNAL_STRIDE});
     ValidateShmemTensor(t, false, true);
 }
+
+
 
 
 
@@ -589,6 +598,7 @@ Tensor ShmemWaitUntil(
     ValidateTensor(pred, "pred", {2});
     ValidateTensor(src.signal, "src.signal", {3});
     ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred");
+
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape signalShape = src.signal.GetShape();
     signalShape[0] = 1;
@@ -710,7 +720,7 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& sh
     out = ShmemGet(shmemDataLocal, thisRank, waitUntilOut, in.GetDataType());
 }
 
-void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out)
+void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out)
 {
     ValidateShmemTensor(shmemTensor, true, true);
     ValidateTensor(predToken, "pred tensor", {2});
@@ -721,6 +731,7 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& sh
     int32_t rowPerRank = row / worldSize;
     ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {rowPerRank, col});
     ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
         auto shmemDataTile = ShmemView(shmemTensor, {rowPerRank, col}, std::vector<SymbolicScalar>{0, 0});
         auto inTile = View(in, {rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId * rowPerRank, 0});
@@ -732,4 +743,4 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& sh
     }
 }
 
-}   // namespace npu::tile_fwk::Distributed
+} // namespace npu::tile_fwk::Distributed

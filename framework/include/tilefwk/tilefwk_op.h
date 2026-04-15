@@ -554,6 +554,8 @@ struct MoeConfig {
     int32_t expertNumPerRank{0};
     int32_t rankNum{0};
 };
+
+
 void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
@@ -606,12 +608,16 @@ Tensor ShmemStore(
 void AllGather(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void ReduceScatter(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor,
     DistReduceType reduceType, Tensor& out);
-void OneShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
-void TwoShotAllReduce(const Tensor& predToken, const Tensor &in, ShmemTensor& shmemTensor, Tensor& out);
+void OneShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
+void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out);
 void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
     uint32_t payloadChunkCount, uint32_t chunksPerSignal);
 void OneShotAllReduce_v10_pipe_ge(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
     uint32_t payloadChunkCount, uint32_t chunksPerSignal);
+
+
+
+
 
 void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
     uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
