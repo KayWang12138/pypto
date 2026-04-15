@@ -57,6 +57,11 @@ struct WrapInfo {
     std::vector<CoreTask> coreTask;
 };
 
+struct MixInfo {
+    uint64_t mixId;
+    std::vector<WrapInfo> wrapInfos;
+};
+
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SyncInfo, isSet, eventID)
 
 // 绑定CoreTask
@@ -65,14 +70,17 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CoreTask, hashValue, syncMsg)
 // 绑定WrapInfo
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WrapInfo, wrapID, coreTask)
 
-void DumpMixInfo(const std::map<Function*, std::map<int, WrapInfo>>& wrapInfos) {
-    std::map<uint64_t, std::vector<WrapInfo>> wrapinfoList;
-    for (auto& [root, rootWrapinfo] : wrapInfos) {
-        std::vector<WrapInfo> rootWrapinfoList;
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MixInfo, mixId, wrapInfos)
+
+void DumpMixInfoToJson(const std::map<uint64_t, std::map<int, WrapInfo>>& wrapInfos) {
+    std::vector<MixInfo> wrapinfoList;
+    for (auto& [mixId, rootWrapinfo] : wrapInfos) {
+        MixInfo mixInfo;
+        mixInfo.mixId = mixId;
         for (auto& [wrapId, wrapInfo] : rootWrapinfo) {
-            rootWrapinfoList.push_back(wrapInfo);
+            mixInfo.wrapInfos.push_back(wrapInfo);
         }
-        wrapinfoList[root->GetFunctionHash().GetHash()] = rootWrapinfoList;
+        wrapinfoList.push_back(mixInfo);
     }
     json j = wrapinfoList;
     std::string path = npu::tile_fwk::config::GetAbsoluteTopFolder() + "/mix_event_info.json";
@@ -83,23 +91,23 @@ void DumpMixInfo(const std::map<Function*, std::map<int, WrapInfo>>& wrapInfos) 
     }
 }
 
-int GetMixInfoMain(Function* topFunc)
+int DumpMixInfo(Function* topFunc)
 {
     std::map<int, std::set<Function*>> leafFunctions;
     GetExecuteFunc(topFunc, leafFunctions);
-    std::map<Function*, std::map<int, WrapInfo>> wrapInfos;
+    std::map<uint64_t, std::map<int, WrapInfo>> wrapInfos;
     for (auto& [wrapID, leafFuncs] : leafFunctions) {
         for (auto& leafFunc : leafFuncs) {
             auto leafAttr = leafFunc->GetLeafFuncAttribute();
-            if (leafAttr == nullptr || leafFunc->GetRootFunction() == nullptr) {
+            if (leafAttr == nullptr) {
                 continue;
             }
-            auto rootFunction = leafFunc->GetRootFunction();
-            if (wrapInfos.find(rootFunction) == wrapInfos.end() ||
-                wrapInfos[rootFunction].find(wrapID) == wrapInfos[rootFunction].end()) {
+            auto mixId = leafAttr->mixId;
+            if (wrapInfos.find(mixId) == wrapInfos.end() ||
+                wrapInfos[mixId].find(wrapID) == wrapInfos[mixId].end()) {
                 WrapInfo info;
                 info.wrapID = wrapID;
-                wrapInfos[rootFunction][wrapID] = info;
+                wrapInfos[mixId][wrapID] = info;
             }
             CoreTask leafFuncSyncInfo;
             leafFuncSyncInfo.hashValue = leafFunc->GetFunctionHash().GetHash();
@@ -115,10 +123,10 @@ int GetMixInfoMain(Function* topFunc)
                 syncInfo.eventID = op->GetSyncQueue().eventId_;
                 leafFuncSyncInfo.syncMsg.push_back(syncInfo);
             }
-            wrapInfos[rootFunction][wrapID].coreTask.push_back(leafFuncSyncInfo);
+            wrapInfos[mixId][wrapID].coreTask.push_back(leafFuncSyncInfo);
         }
     }
-    DumpMixInfo(wrapInfos);
+    DumpMixInfoToJson(wrapInfos);
     return 0;
 }
 } // namespace tile_fwk

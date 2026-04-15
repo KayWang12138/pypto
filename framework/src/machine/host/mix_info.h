@@ -4,6 +4,6 @@
 
 namespace npu {
 namespace tile_fwk {
-int GetMixInfoMain(Function* topFunc);
+int DumpMixInfo(Function* topFunc);
 }
 }
