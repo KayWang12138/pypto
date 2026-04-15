@@ -454,6 +454,13 @@ void bind_operation(py::module& m)
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
     m.def(
+        "QuantMX",
+        [](const Tensor& input, DataType quantDtype, DequantScaleRoundingMode mode, int64_t axis) {
+            return npu::tile_fwk::QuantMX(input, quantDtype, mode, axis);
+        },
+        py::arg("input"), py::arg("quantDtype") = DataType::DT_FP8E4M3,
+        py::arg("mode") = DequantScaleRoundingMode::ROUND_DOWN, py::arg("axis") = -1, "Tensor MX quant.");
+    m.def(
         "Sort32", [](const Tensor& self, int index) { return npu::tile_fwk::Sort32(self, index); }, py::arg("operand"),
         py::arg("index"), "Tensor sort32.");
     m.def(

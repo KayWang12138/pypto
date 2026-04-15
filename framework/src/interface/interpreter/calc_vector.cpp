@@ -886,6 +886,35 @@ void ExecuteOpTopK(ExecuteOperationContext* ctx)
 }
 REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
 
+void ExecuteOpQuantMX(ExecuteOperationContext* ctx)
+{
+    constexpr int64_t quantMxRoundDownMode = 1;
+    ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH, ctx->ooperandInplaceDataViewList->size() == 4);
+    int64_t mode = 0;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, ctx->op->GetAttr(OpAttributeKey::mxQuantMode, mode))
+        << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantMode;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, mode == quantMxRoundDownMode)
+        << "QuantMX interpreter currently only supports ROUND_DOWN (OCP standard) mode.";
+    int64_t axis = 0;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, ctx->op->GetAttr(OpAttributeKey::mxQuantAxis, axis))
+        << "QuantMX missing required attribute: " << OpAttributeKey::mxQuantAxis;
+    auto out = ctx->ooperandInplaceDataViewList->at(0);
+    auto exp = ctx->ooperandInplaceDataViewList->at(1);
+    auto max = ctx->ooperandInplaceDataViewList->at(2);
+    auto scaling = ctx->ooperandInplaceDataViewList->at(3);
+    auto src = ctx->ioperandDataViewList->at(0);
+    const auto srcRank = static_cast<int64_t>(src->GetShape().size());
+    const auto normalizedAxis = axis < 0 ? axis + srcRank : axis;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, normalizedAxis >= 0 && normalizedAxis < srcRank)
+        << "QuantMX axis is out of range. Current axis: " << axis << ", input rank: " << srcRank;
+    ASSERT(ExecuteOperationScene::RUNTIME_EXCEPTION, normalizedAxis == srcRank - 1)
+        << "QuantMX interpreter currently only supports the last axis. Current axis: " << axis
+        << ", input rank: " << srcRank;
+    calc::QuantMX(out, exp, max, scaling, src);
+}
+REGISTER_CALC_OP(OP_QUANT_MX, Opcode::OP_QUANT_MX, ExecuteOpQuantMX);
+
 void ExecuteOpBitSort(ExecuteOperationContext* ctx)
 {
     ASSERT(ExecuteOperationScene::CTX_INPUT_COUNT_MISMATCH, ctx->ioperandDataViewList->size() == 1);

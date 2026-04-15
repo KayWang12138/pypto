@@ -15,6 +15,7 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/function/function.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 
@@ -79,4 +80,63 @@ TEST_F(OperationOpsTest, LogicalNot_UnsupportedDataType)
     Tensor input(DT_INT32, shape);
 
     EXPECT_THROW(LogicalNot(input), std::exception);
+}
+
+TEST_F(OperationOpsTest, QuantMX_RoundDownExplicitFp8Output)
+{
+    Tensor explicitInput(DT_FP32, {8, 64}, "explicitInput");
+    FUNCTION("QuantMXExplicitFp8", {explicitInput})
+    {
+        auto explicitFp8Res = QuantMX(explicitInput, DT_FP8E4M3, DequantScaleRoundingMode::ROUND_DOWN);
+        EXPECT_EQ(std::get<0>(explicitFp8Res).GetDataType(), DT_FP8E4M3);
+        EXPECT_EQ(std::get<1>(explicitFp8Res).GetDataType(), DT_FP8E8M0);
+        EXPECT_EQ(std::get<0>(explicitFp8Res).GetShape(), std::vector<int64_t>({8, 64}));
+        EXPECT_EQ(std::get<1>(explicitFp8Res).GetShape(), std::vector<int64_t>({8, 1, 2}));
+    }
+}
+
+TEST_F(OperationOpsTest, QuantMX_DefaultRoundDownFp8Output)
+{
+    Tensor input(DT_FP32, {8, 64});
+
+    FUNCTION("QuantMXDefaultFp8", {input})
+    {
+        auto defaultRes = QuantMX(input);
+        EXPECT_EQ(std::get<0>(defaultRes).GetDataType(), DT_FP8E4M3);
+        EXPECT_EQ(std::get<1>(defaultRes).GetDataType(), DT_FP8E8M0);
+        EXPECT_EQ(std::get<1>(defaultRes).GetShape(), std::vector<int64_t>({8, 1, 2}));
+    }
+}
+
+TEST_F(OperationOpsTest, QuantMX_PositiveLastAxis)
+{
+    Tensor input(DT_FP32, {8, 64});
+
+    FUNCTION("QuantMXPositiveLastAxis", {input})
+    {
+        auto res = QuantMX(input, DT_FP8E4M3, DequantScaleRoundingMode::ROUND_DOWN, 1);
+        EXPECT_EQ(std::get<1>(res).GetShape(), std::vector<int64_t>({8, 1, 2}));
+    }
+}
+
+TEST_F(OperationOpsTest, QuantMX_NonLastAxisUnsupported)
+{
+    Tensor input(DT_FP32, {8, 64});
+
+    EXPECT_THROW(QuantMX(input, DT_FP8E4M3, DequantScaleRoundingMode::ROUND_DOWN, 0), std::exception);
+}
+
+TEST_F(OperationOpsTest, QuantMX_RoundUpUnsupported)
+{
+    Tensor input(DT_FP32, {8, 64});
+
+    EXPECT_THROW(QuantMX(input, DT_FP8E4M3, DequantScaleRoundingMode::ROUND_UP), std::exception);
+}
+
+TEST_F(OperationOpsTest, QuantMX_Fp4OutputUnsupported)
+{
+    Tensor input(DT_FP32, {8, 64});
+
+    EXPECT_THROW(QuantMX(input, DT_FP4_E2M1X2), std::exception);
+    EXPECT_THROW(QuantMX(input, DT_FP4_E1M2X2), std::exception);
 }
