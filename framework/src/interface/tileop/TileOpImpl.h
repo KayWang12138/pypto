@@ -39,6 +39,7 @@
 #include "vector/cast.h"
 #include "vector/sign.h"
 #include "vector/signbit.h"
+#include "vector/tan.h"
 #include "vector/reduce.h"
 #include "vector/sort.h"
 #include "vector/mte.h"

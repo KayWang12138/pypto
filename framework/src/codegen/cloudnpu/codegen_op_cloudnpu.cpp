@@ -129,6 +129,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx& ctx)
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGNBIT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_TAN, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations

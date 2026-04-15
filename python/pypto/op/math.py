@@ -1232,6 +1232,37 @@ def log1p(input: Tensor) -> Tensor:
 
 
 @op_wrapper
+def tan(input: Tensor) -> Tensor:
+    """Computes the element-wise tangent of `input`.
+
+    This function calculates the formula: `out = tan(input)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Supports float16, bfloat16, float32.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise tangent.
+
+    See Also
+    --------
+    sin : Element-wise sine.
+    cos : Element-wise cosine.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([0.0, 0.785, 1.57], pypto.DT_FP32)
+    >>> y = pypto.tan(x)
+    # Input x: [0.0     0.785   1.57]
+    # Output y: [0.0000  1.0     large]
+    """
+    return pypto_impl.Tan(input)
+
+
+@op_wrapper
 def clip(
     input: Tensor,
     min: Optional[Union[Tensor, Element, float, int]] = None,
