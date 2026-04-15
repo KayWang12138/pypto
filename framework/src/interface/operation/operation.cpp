@@ -361,7 +361,8 @@ void Operation::DumpOperandsJson(Json& opDump, bool dumpTensor) const
     }
     opDump["ioperands"] = ioperandsDump;
     opDump["ooperands"] = ooperandsDump;
-}
+    opDump["opcode"] = "[" + std::to_string(GetScopeId()) + "]" + GetOpcodeStr(); // TODO: dbj debug only
+    opDump["latency"] = GetLatency();
 
 void Operation::DumpCalleeHashJson(Json& opDump) const
 {
@@ -882,6 +883,7 @@ Operation& Operation::CloneOperation(
     Function& func, const LogicalTensors& iOperandList, const LogicalTensors& oOperandList) const
 {
     Operation& op = func.AddRawOperation(opcode_, iOperandList, oOperandList);
+    op.SetScopeInfo(scopeInfo_);
     if (opAttribute_) {
         op.opAttribute_ = opAttribute_->Clone();
     }
