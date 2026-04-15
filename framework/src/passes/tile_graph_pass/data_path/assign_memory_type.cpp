@@ -363,7 +363,7 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation& op, bool& infoBufferSiz
         }
     }
 
-    if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_ASSEMBLE) {
+    if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_ASSEMBLE || op.GetOpcode() == npu::tile_fwk::Opcode::OP_VIEW) {
         auto& output = op.oOperand.front();
         if (output->GetMemoryTypeOriginal() == npu::tile_fwk::MEM_L1 &&
             output->GetMemoryTypeToBe() == npu::tile_fwk::MEM_DEVICE_DDR) {
@@ -381,14 +381,14 @@ void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation& operation)
     const int L1_SIZE_THRESHOLD =
         static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * L1_THRESHOLD);
 
-    auto assembleOut = operation.GetOOperands().front();
-    auto memType = assembleOut->GetMemoryTypeOriginal();
-    if (((memType == MemoryType::MEM_UB) && (assembleOut->GetDataSize() > UB_SIZE_THRESHOLD)) ||
-        ((memType == MemoryType::MEM_L1) && (assembleOut->GetDataSize() > L1_SIZE_THRESHOLD))) {
-        assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto output = operation.GetOOperands().front();
+    auto memType = output->GetMemoryTypeOriginal();
+    if (((memType == MemoryType::MEM_UB) && (output->GetDataSize() > UB_SIZE_THRESHOLD)) ||
+        ((memType == MemoryType::MEM_L1) && (output->GetDataSize() > L1_SIZE_THRESHOLD))) {
+        output->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
         APASS_LOG_INFO_F(
             Elements::Operation, "%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.",
-            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), assembleOut->magic);
+            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), output->magic);
     }
 }
 
