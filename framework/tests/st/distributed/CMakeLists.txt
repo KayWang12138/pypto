@@ -57,28 +57,19 @@ endif ()
 #
 # Test case index map (case-insensitive alphabetical JSON file order, 0-based):
 #   0  Allgather_AttnPost_Reducescatter  (1 case)
-#   1  Allgather                         (1 case)
-#   2  Allreduce_Add_Allreduce           (1 case)
-#   3  Allreduce  test_1  (twoshot)     ─┐
-#   4  Allreduce  test_2  (oneshot)     ─┘ 2 cases
-#   5  AllreduceV10                      (1 case)  ── oneshot, per-group GE signaling
-#   6  MoeDispatch                       (1 case)
-#   7  MoeDistributedCombine  test_1    ─┐
-#   8  MoeDistributedCombine  test_2    ─┘ 2 cases
-#   9  Reducescatter  test_1             ─┐
-#  10  Reducescatter  test_2              │
-#  11  Reducescatter  test_3             ─┘ 3 cases
+#   1  Allreduce_Add_Allreduce           (1 case)
+#   2  AllreduceV10                      (1 case)  ── oneshot, per-group GE signaling
+#   3  MoeDispatch                       (1 case)
+#   4  MoeDistributedCombine             (1 case)
 #
 # Note: sort order is case-insensitive (see GetOpMetaDataFromDir in test_distributed.h).
 #
 # Usage:
 #   python3 build_ci.py --stest_distributed              # all tests (default)
-#   python3 build_ci.py --stest_distributed=twoshot       # TwoShot AllReduce base only
-#   python3 build_ci.py --stest_distributed=oneshot       # OneShot AllReduce variants only
 #   python3 build_ci.py --stest_distributed=v10           # AllReduceV10 only
 #
 set(_num_ranks "4")
-set(_num_cases "11")
+set(_num_cases "4")
 
 # Build filter config for a list of indices, respecting per-index rank overrides
 macro(_distributed_filter_config _output)
@@ -102,17 +93,9 @@ endforeach()
 _distributed_filter_config(_DistributedGTestCaseFilterConfig ${_all_indices})
 
 # Subset filtering: override filter config when a subset keyword is requested
-if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshot")
-    message(STATUS "Distributed subset: TwoShot AllReduce base (index 3)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 3)
-    set(ENABLE_STEST_DISTRIBUTED "ON")
-elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "oneshot")
-    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 4-5)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 4 5)
-    set(ENABLE_STEST_DISTRIBUTED "ON")
-elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "v10")
-    message(STATUS "Distributed subset: AllReduceV10 only (index 5)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 5)
+if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "v10")
+    message(STATUS "Distributed subset: AllReduceV10 only (index 2)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 2)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 endif()
 

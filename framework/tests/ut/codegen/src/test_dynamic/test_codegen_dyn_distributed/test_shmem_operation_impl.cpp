@@ -164,7 +164,7 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
     Tensor in(DT_FP16, {64, 256}, "in");
     in.GetStorage()->UpdateDynValidShape(std::vector<SymbolicScalar>{64, 256});
     Tensor out(DT_FP16, {64, 256}, "out");
-    Shape shmemDataShape = {1, 64, 256};
+    Shape shmemDataShape = {64, 256};
     std::string functionName = "TestOneShotAllReduce";
     FUNCTION("ALLREDUCE", {in}, {out})
     {

@@ -260,6 +260,86 @@ Failures in **unrelated** gtests (e.g. control-flow / codegen paths that invoke 
 
 ---
 
+## PR Diff Hygiene
+
+Before submitting a PR, verify the diff is clean and consistent with master:
+
+### 1. Check for cosmetic-only changes
+
+Cosmetic changes inflate the diff without adding value. Common culprits:
+
+| Type | Example | Fix |
+|------|---------|-----|
+| Template spacing | `template<typename T>` vs `template <typename T>` | Match master's style |
+| Reference position | `Type &var` vs `Type& var` | Match master's style |
+| Brace style | `FUNCTION(...) {` vs `FUNCTION(...)\n{` | Match master's style |
+| Extra blank lines | Added/removed whitespace between functions | Revert to master |
+| Parameter naming | `"pred"` vs `"pred tensor"` in validation strings | Keep master's names unless functionally required |
+
+Run `git diff master -- <file>` and review each hunk — if a change is purely formatting, revert it.
+
+### 2. Verify JSON test case files match master
+
+After a rebase, JSON files that were deleted in master may survive in your branch:
+
+```bash
+# Compare JSON files between master and your branch
+echo "=== In MASTER ===" && git ls-tree master --name-only -- framework/tests/st/distributed/ops/test_case/*.json | xargs -I{} basename {}
+echo "=== In YOUR BRANCH ===" && ls framework/tests/st/distributed/ops/test_case/*.json | xargs -I{} basename {}
+```
+
+**Rules:**
+- If a JSON file exists in master → keep it (restore with `git checkout master -- <file>` if modified)
+- If a JSON file does NOT exist in master → delete it (unless it's your new feature)
+- Only add JSON files for your new feature (e.g., `AllreduceV10_st_test_cases.json`)
+
+### 3. Verify CMakeLists.txt indices match actual JSON files
+
+The index map in `CMakeLists.txt` must match the JSON files that actually exist:
+
+```bash
+# List actual JSON files in sort order
+ls framework/tests/st/distributed/ops/test_case/*.json | sort -f
+
+# Count test cases per file
+for f in framework/tests/st/distributed/ops/test_case/*.json; do
+    echo "$(basename $f): $(grep -c '"case_name"' "$f") cases"
+done
+```
+
+Then verify:
+1. The index-map comment lists exactly these files in this order
+2. `_num_cases` equals (total cases - 1)
+3. Subset filter indices (`oneshot`, `v10`, etc.) point to correct indices
+
+### 4. Check for accidental refactors in unrelated files
+
+Look for changes to files not related to your feature:
+
+```bash
+git diff master --stat | grep -v "your_feature_keyword"
+```
+
+Common accidents after rebase:
+- Function renames (e.g., `MoeDistributedGetFunctionRawName` → `GetFunctionRawName`)
+- Shared utility consolidation that changes unrelated test files
+- String constant changes (e.g., `"MoeDistributedDispatchPrepare"` → `"MoeDistributedDispatchSendData"`)
+
+If a change is in an unrelated file, revert it unless it's a deliberate refactor you want to include.
+
+### 5. Final diff review checklist
+
+Before pushing:
+
+- [ ] `git diff master --stat` shows only files related to your feature
+- [ ] No cosmetic-only changes in existing code
+- [ ] JSON files match master (except your new feature's JSON)
+- [ ] CMakeLists.txt indices are correct for actual JSON files
+- [ ] No accidental refactors in unrelated test files
+- [ ] `_num_cases` and filter indices are correct
+
+---
+
 ## Quick Verification
 
 Run from the repo root to regenerate the full index map and confirm `_num_cases`:
