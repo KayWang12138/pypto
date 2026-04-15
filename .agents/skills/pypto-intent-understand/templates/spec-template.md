@@ -81,3 +81,4 @@ Algorithm: {algorithm_name}
 ---
 *生成时间: {timestamp}*
 *确认状态: 已确认*
+*特性确认明细: {confirmed_count}/{total_count} 项已确认*

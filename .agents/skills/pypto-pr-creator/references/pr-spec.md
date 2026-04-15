@@ -32,7 +32,7 @@ tag(scope): Summary
 
 - 英文编写，首字母大写，结尾不加句号，祈使语气
 - 长度 10-200 字符
-- 正则验证：`^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}`
+- 正则验证：`^(feat|fix|docs|style|refactor|perf|test)\([a-zA-Z_|]+\): [A-Z][^.]{9,199}[^.]$`
 
 ### 示例
 

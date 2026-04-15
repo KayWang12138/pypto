@@ -68,14 +68,15 @@ Workspace 内存分配由以下阶段组成：
 workspaceSize = memBudget.Total()
              = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump + metadata.Total()
 
-tensor.Total() = rootInner                              -- Root Function Inner Tensor 内存
-               + devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
-               + MaxOutcastMem() * devTaskBoundaryOutcastNum  -- Boundary Outcast 总内存
+tensor.Total() = AlignUp(rootInner + devTaskInnerExclusiveOutcasts
+                + MaxOutcastMem() × devTaskBoundaryOutcastNum, 32K) × parallelism
 
 MaxOutcastMem() = max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem)
 
 metadata.Total() = general + stitchPool
 ```
+
+> ⚠️ **注意**：`workspaceSize` 包含 `metadata.Total()`，但 metadata 由运行时元数据管理器使用，不参与 Tensor workspace 的拆分分析。在分析 Tensor Workspace 占比时，应使用 `tensor.Total()` 作为 Tensor 相关内存总量。
 
 ### 关键日志标签
 

@@ -150,6 +150,7 @@ torch golden 函数精度对比测试，基于固定模板 `references/test-temp
 | 精度对比 | 必须使用 `assert_allclose`，详见"三种状态标记约定" |
 | 容差 | 简单算子 `rtol=1e-3, atol=1e-3`；复杂算子 `rtol=3e-3, atol=3e-3` |
 | NPU 条件对比 | `if run_mode == "npu": assert_allclose(...)` |
+| SIM 模式标注 | sim 模式下**禁止**输出 `✓ Passed`，必须输出 `⚠ [SIM_MODE] 精度验证已跳过` |
 | 禁止手写对比 | `assert max_diff < tolerance` / `np.allclose()` 均禁止 |
 
 #### 生成 README.md

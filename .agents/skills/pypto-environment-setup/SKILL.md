@@ -52,6 +52,18 @@ python3 scripts/diagnose_env.py --checklist
 
 **通过标准**：清单所有项 ✅ OK。⚠️/❌ 项需修复后再继续。
 
+**⚠️ pto-isa 指令完整性补充检查**：
+诊断脚本检查 `include/pto` 目录存在性。若运行时报错 `未定义的指令`（如 `TROWARGMAX`），需切换到源码版 pto-isa：
+```bash
+# 检查当前 pto-isa 是否为源码版
+ls $PTO_TILE_LIB_CODE_PATH/include/pto/comm/pto_comm_inst.hpp
+# 若文件不存在或指令不全，切换到源码版
+git clone https://gitcode.com/cann/pto-isa.git $PWD/pto-isa
+export PTO_TILE_LIB_CODE_PATH=$PWD/pto-isa/pto-isa/
+```
+
+> 详见 troubleshooting.md 中 "pto-isa 版本不匹配" 章节。
+
 ### 步骤 2：决策分支
 
 - 0 个问题 → 跳至步骤 4 验证

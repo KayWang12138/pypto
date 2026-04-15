@@ -37,10 +37,11 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
    - 查阅资料、搜索代码、理解原理
    - 不要轻易下结论
 
-4. **先确认工件，再进入下游阶段**
-   - `SPEC.md` 不完整，不进入 API 探索。
-   - `API_REPORT.md` 不完整，不进入 Golden / 设计阶段。
-   - `DESIGN.md` 不完整，不进入代码实现。
+ 4. **先确认工件，再进入下游阶段（⛔ 阶段门禁强制执行）**
+    - `SPEC.md` 不完整，不进入 API 探索。
+    - `API_REPORT.md` 不完整，不进入 Golden / 设计阶段。
+    - `DESIGN.md` 不完整，不进入代码实现。
+    - **⛔ 前阶段门禁 Checklist 未全部通过时，禁止进入下阶段。** 违反此项视为流程违规。
 
 5. **实现、精度修复、性能调优职责分离**
    - `pypto-op-develop` 只负责代码实现与测试入口生成。
@@ -112,6 +113,15 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 - 信息不足 → 向用户提问补充（最多 2 轮确认）
 - 复杂算子（多步骤/循环/在线更新）→ 追加算法描述要求
 
+**⛔ 阶段门禁 Checklist（Stage 1 → Stage 2）**：
+> 以下各项全部通过后，才允许进入 Stage 2。任何一项不通过，必须在当前阶段修复。
+
+- [ ] `SPEC.md` 文件已生成且存在
+- [ ] `SPEC.md` 包含算子名称
+- [ ] `SPEC.md` 包含数学公式
+- [ ] `SPEC.md` 包含输入输出规格（shape + dtype）
+- [ ] `SPEC.md` 包含精度要求
+
 ---
 
 ### Stage 2：API 探索
@@ -128,6 +138,15 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 - 所有操作均有 API 对应 → 进入 Stage 3
 - 部分操作无直接 API → 尝试替代方案（组合 API、近似实现），标注于报告
 - 核心操作不可行 → 报告阻塞，等待用户决策
+
+**⛔ 阶段门禁 Checklist（Stage 2 → Stage 3）**：
+> 以下各项全部通过后，才允许进入 Stage 3。任何一项不通过，必须在当前阶段修复。
+
+- [ ] `API_REPORT.md` 文件已生成且存在
+- [ ] `API_REPORT.md` 每个原子操作有对应 PyPTO API 映射或标记 unsupported
+- [ ] `API_REPORT.md` 约束清单完整（入口约束 + API 约束 + Tiling 约束）
+- [ ] `API_REPORT.md` 可行性判定为"可行"或"需调整"（不可行则阻塞）
+- [ ] `API_REPORT.md` 已标注每个 API 的 dtype 支持范围，与 SPEC.md 声明的 dtype 逐项对照（dtype 约束传播检查）
 
 ---
 
@@ -146,6 +165,14 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 - golden / impl / test 三文件分离，golden 不包含测试逻辑
 - 典型配置缺失时引导用户补充或使用默认值
 
+**⛔ 阶段门禁 Checklist（Stage 3 → Stage 4）**：
+> 以下各项全部通过后，才允许进入 Stage 4。
+
+- [ ] `{op}_golden.py` 文件已生成且存在
+- [ ] `{op}_golden.py` 可独立运行（无 import 错误）
+- [ ] golden 函数输出 shape/dtype 与 `SPEC.md` 一致
+- [ ] golden 为纯 PyTorch 实现（未引入 pypto/torch_npu）
+
 ---
 
 ### Stage 4：设计方案
@@ -162,6 +189,16 @@ description: "PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处�
 - 是否需要 Loop → 有动态轴或多步骤计算时必须设计 Loop 结构
 - Tiling 策略选择 → 基于算子类型（Vector: `set_vec_tile_shapes` / Cube: `set_cube_tile_shapes`）
 - 信息来源优先级：`docs/`（最高）→ `models/`（次高）→ `examples/`（参考）
+
+**⛔ 阶段门禁 Checklist（Stage 4 → Stage 5）**：
+> 以下各项全部通过后，才允许进入 Stage 5。
+
+- [ ] `DESIGN.md` 文件已生成且存在
+- [ ] `DESIGN.md` 包含 API 映射设计，每步有明确 PyPTO API
+- [ ] `DESIGN.md` 包含 Tiling 策略及理由
+- [ ] `DESIGN.md` 包含 Loop 结构设计（不需要时标注"场景 A"）
+- [ ] `DESIGN.md` 包含验证方案
+- [ ] `DESIGN.md` 无残留 `{placeholder}` / `TODO` 占位符
 
 ---
 
