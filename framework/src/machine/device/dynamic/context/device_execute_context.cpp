@@ -17,6 +17,7 @@
 #include "tileop/distributed/comm_context.h"
 
 #include <cinttypes>
+#include <cstdio>
 
 namespace npu::tile_fwk::dynamic {
 bool DeviceExecuteContext::DuppedRootCached()
@@ -277,7 +278,8 @@ void DeviceExecuteContext::ProcessControlFlowCacheRecord(DynDeviceTask* dynTask)
             devProg->ctrlFlowCacheAnchor->TaskAddrBackupWorkspace(dynTask);
             devProg->ctrlFlowCacheAnchor->RuntimeAddrBackup(
                 slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(), devProg->slotSize,
-                devProg->runtimeOutcastPoolSize, workspace.GetTensorAllocator(), devProg->GetParallelism());
+                devProg->runtimeOutcastPoolSize, workspace.GetTensorAllocator(), workspace.GetMetadataAllocator(),
+                devProg->GetParallelism());
         }
         devProg->ctrlFlowCacheAnchor->AppendDeviceTask(dynTask);
     }
@@ -581,7 +583,8 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void* ctx_, uint6
         // forcely break device task
         ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRestore(
             ctx->slotContext.GetSlotList(), ctx->workspace.GetRuntimeOutcastTensorPoolBase(), ctx->devProg->slotSize,
-            ctx->devProg->runtimeOutcastPoolSize, ctx->workspace.GetTensorAllocator(), ctx->devProg->GetParallelism());
+            ctx->devProg->runtimeOutcastPoolSize, ctx->workspace.GetTensorAllocator(),
+            ctx->workspace.GetMetadataAllocator(), ctx->devProg->GetParallelism());
         ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRelocWorkspace(
             0, ctx->args->contextWorkspaceAddr, ctx->args, ctx->slotContext.GetSlotList(),
             ctx->workspace.GetRuntimeOutcastTensorPoolBase(), ctx->devProg->GetParallelism());

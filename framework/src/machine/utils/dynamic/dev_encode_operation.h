@@ -99,6 +99,7 @@ struct InoutOperationAttr {
     int dim;
     std::vector<DevAscendFunctionCallOperandUse> useList;
     int cellMatchSize;
+    uint64_t cellMatchShapeEstimatedCells{0};
 
     std::vector<DevAscendFunctionCallOperandUse> stitchPolicyFullCoverProducerList;
     int stitchPolicyFullCoverProducerHubOpIdx;
