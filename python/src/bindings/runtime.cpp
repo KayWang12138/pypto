@@ -24,6 +24,7 @@
 #include <vector>
 #include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/interpreter/verify_error.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
@@ -39,6 +40,33 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
+
+static void ValidateVerifyOutputAndGolden(
+    const std::vector<DeviceTensorData>& outputs, const std::vector<DeviceTensorData>& goldens)
+{
+    if (outputs.size() != goldens.size()) {
+        return;
+    }
+
+    for (size_t i = 0; i < outputs.size(); i++) {
+        const bool outputIsNone = outputs[i].GetAddr() == nullptr;
+        const bool goldenIsNone = goldens[i].GetAddr() == nullptr;
+        if (outputIsNone || goldenIsNone) {
+            continue;
+        }
+
+        ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, outputs[i].GetDataType() == goldens[i].GetDataType());
+
+        const auto& outputShape = outputs[i].GetShape();
+        const auto& goldenShape = goldens[i].GetShape();
+        ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size());
+        for (size_t dim = 0; dim < outputShape.size(); dim++) {
+            const bool wildcardMatch = outputShape[dim] == -1 || goldenShape[dim] == -1;
+            const bool exactMatch = outputShape[dim] == goldenShape[dim];
+            ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, wildcardMatch || exactMatch);
+        }
+    }
+}
 
 void CopyToHost(const DeviceTensorData& devTensor, DeviceTensorData& hostTensor)
 {
@@ -61,6 +89,8 @@ void SetVerifyData(
         }
         return logical;
     };
+
+    ValidateVerifyOutputAndGolden(outputs, goldens);
 
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {

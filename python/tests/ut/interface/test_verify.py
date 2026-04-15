@@ -15,6 +15,11 @@ import pytest
 import torch
 
 
+def _to_device_tensor_data(tensor: torch.Tensor, shape=None):
+    target_shape = list(tensor.shape) if shape is None else shape
+    return pypto.pypto_impl.DeviceTensorData(pypto.DT_FP32, tensor.data_ptr(), target_shape)
+
+
 @pytest.mark.skip(reason="Verify not supported")
 def test_verify_dynamic_ops_assemble():
     s = 32
@@ -44,3 +49,29 @@ def test_verify_dynamic_ops_assemble():
             pypto.assemble(t2a, [0, 0], out)
             pypto.assemble(t2b, [s, 0], out)
             pypto.pass_verify_save(out, "tensor_out_idx$idx", idx=idx)
+
+
+def test_set_verify_data_dtype_mismatch_intercept():
+    output = torch.zeros((2, 3), dtype=torch.float32)
+    golden = torch.zeros((2, 3), dtype=torch.float32)
+
+    output_data = pypto.pypto_impl.DeviceTensorData(pypto.DT_FP32, output.data_ptr(), list(output.shape))
+    golden_data = pypto.pypto_impl.DeviceTensorData(pypto.DT_FP16, golden.data_ptr(), list(golden.shape))
+
+    with pytest.raises(Exception, match="VERIFY_RESULT_DTYPE_DIFF"):
+        pypto.pypto_impl.SetVerifyData([], [output_data], [golden_data])
+
+
+def test_set_verify_data_shape_intercept_with_wildcard_minus_one():
+    output = torch.zeros((2, 3), dtype=torch.float32)
+    golden = torch.zeros((2, 3), dtype=torch.float32)
+
+    # -1 on one side is treated as wildcard and should pass.
+    output_wildcard = _to_device_tensor_data(output, [-1, 3])
+    golden_exact = _to_device_tensor_data(golden, [2, 3])
+    pypto.pypto_impl.SetVerifyData([], [output_wildcard], [golden_exact])
+
+    # Non -1 mismatch should be intercepted.
+    output_bad_shape = _to_device_tensor_data(output, [2, 4])
+    with pytest.raises(Exception, match="VERIFY_RESULT_SHAPE_DIFF"):
+        pypto.pypto_impl.SetVerifyData([], [output_bad_shape], [golden_exact])
