@@ -58,6 +58,7 @@ class TaskInfo:
         self.tensors = {}
         self.rawtensors = {}
         self.wrap_id = -1
+        self.sync_events = []
 
     def formal_name(self):
         seq_no = self.task_id >> 32
@@ -107,6 +108,8 @@ class TaskInfo:
         res["args"]["taskId"] = self.origin_task_id
         res["args"]["seqNo"] = self.origin_seq_no
         res["args"]["wrapId"] = self.wrap_id
+        if self.sync_events:
+            res["args"]["syncEvents"] = self.sync_events
         res["cat"] = "event"
         res["id"] = event_id
         res["name"] = self.get_task_name()
@@ -128,6 +131,8 @@ class TaskInfo:
         res["args"]["ooperand-hint"] = self.outoperand_label
         res["args"]["taskId"] = self.origin_task_id
         res["args"]["seqNo"] = self.origin_seq_no
+        if self.sync_events:
+            res["args"]["syncEvents"] = self.sync_events
         if len(self.func_name) == 0:
             res["funcName"] = "Func"
         else:
@@ -252,6 +257,12 @@ def parse_arguments():
         action="store_true",
         help="Generate executable json",
     )
+    parser.add_argument(
+        "--mix_event_info",
+        type=str,
+        default="",
+        help="Path to mix_event_info.json",
+    )
     return parser.parse_args()
 
 
@@ -332,7 +343,32 @@ def get_fake_task_start_end_cycles(fake_task_id):
     task_analysis[entry.psg_id_in_dyn].add_task(entry)
 
 
-def build_swim_info(swim_data, topo_data, label_type: int = 0):
+def enrich_sync_events_with_mix_info(mix_event_path):
+    global total_tasks
+    if not mix_event_path or not os.path.exists(mix_event_path):
+        return
+    with open(mix_event_path, "r") as f:
+        mix_event_data = json.load(f)
+    leaf_hash_to_events = {}
+    for mix_info in mix_event_data:
+        wrap_infos = mix_info.get("wrapInfos", [])
+        for wrap_info in wrap_infos:
+            core_tasks = wrap_info.get("coreTask", [])
+            for core_task in core_tasks:
+                leaf_hash = core_task.get("hashValue")
+                sync_msg = core_task.get("syncMsg", [])
+                if leaf_hash not in leaf_hash_to_events:
+                    leaf_hash_to_events[leaf_hash] = sync_msg
+    for _, task in total_tasks.items():
+        if task.func_hash and task.func_hash in leaf_hash_to_events:
+            sync_msg = leaf_hash_to_events[task.func_hash]
+            for event in task.sync_events:
+                event_idx = event.get("eventId")
+                if event_idx is not None and event_idx < len(sync_msg):
+                    event["eventid"] = sync_msg[event_idx].get("eventID", event_idx)
+
+
+def build_swim_info(swim_data, topo_data, label_type: int = 0, dir_name: str = "", mix_event_path: str = ""):
     global total_tasks
     global task_analysis
     global total_cores
@@ -367,6 +403,12 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
             entry.exec_start = task.get("execStart", 0) / args.time_convert_denominator
             entry.exec_end = task.get("execEnd", 0) / args.time_convert_denominator
             entry.core_type = core_entry.get_brief_core_type()
+            entry.sync_events = task.get("syncEvents", [])
+            for event in entry.sync_events:
+                if "waitTime" in event:
+                    event["waitTime"] = event["waitTime"] / args.time_convert_denominator
+                if "setTime" in event:
+                    event["setTime"] = event["setTime"] / args.time_convert_denominator
             task_analysis[entry.psg_id_in_dyn].add_task(entry)
             # 判断task 间是否存在时间交叠
             if (
@@ -434,6 +476,7 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
     print(f"Total Core:{len(total_cores) - 1}")
     print(f"Total Task Count:{len(total_tasks)}")
     print(f"|--Fake Task Count:{len(fake_task_list)}")
+    enrich_sync_events_with_mix_info(mix_event_path)
     print("Parse Swim json and Topo json Data End")
 
 
@@ -1031,7 +1074,7 @@ if __name__ == "__main__":
 
     dir_name = os.path.dirname(args.swim_json_file)
     # 根据日志信息和topo 信息构建total_cores 和 total_tasks
-    build_swim_info(input_swim_data, input_topo_data, args.label_type)
+    build_swim_info(input_swim_data, input_topo_data, args.label_type, dir_name, args.mix_event_info)
     print_aicore_summary()
 
     # 输出核分析日志
