@@ -51,22 +51,18 @@ def allgather_kernel(
 
     for dyn_idx in pypto.loop(world_size, name="ALLGATHER_LOOP", idx_name="dyn_idx"):
         pypto.set_vec_tile_shapes(row, col)
-        shmem_data_tile = pypto.distributed.shmem_view(
-            shmem_tensor, [row, col], [my_pe * row, 0])
         shmem_put_out = pypto.distributed.shmem_put(
-            in_tensor, [0, 0], shmem_data_tile, dyn_idx,
+            in_tensor, [my_pe * row, 0], shmem_tensor, dyn_idx,
             put_op=pypto.AtomicType.SET, pred=[in_tensor])
         shmem_signal_out = pypto.distributed.shmem_signal(
-            shmem_data_tile, dyn_idx, dyn_idx, 1, [row, col],
-            [0, 0], target_pe=dyn_idx, sig_op=pypto.AtomicType.SET, pred=[shmem_put_out])
+            shmem_tensor, dyn_idx, 1, [row, col],
+            [my_pe * row, 0], target_pe=dyn_idx, sig_op=pypto.AtomicType.SET, pred=[shmem_put_out])
 
-        shmem_data_local = pypto.distributed.shmem_view(
-            shmem_tensor, [row, col], [dyn_idx * row, 0])
         wait_until_out = pypto.distributed.shmem_wait_until(
-            shmem_data_local, my_pe, 1, [row, col],
-            [0, 0], cmp=pypto.OpType.EQ, clear_signal=True, pred=[shmem_signal_out])
-        shmem_get_out = pypto.distributed.shmem_get(
-            shmem_data_local, my_pe, [row, col], [0, 0], pred=[wait_until_out]
+            shmem_tensor, my_pe, 1, [row, col],
+            [dyn_idx * row, 0], cmp=pypto.OpType.EQ, clear_signal=True, pred=[shmem_signal_out])
+        shmem_get_out = pypto.experimental.shmem_load(
+            shmem_tensor, my_pe, [row, col], [dyn_idx * row, 0], pred=[wait_until_out], valid_shape=[row, col]
         )
         out_tensor[dyn_idx * row:dyn_idx * row + row, :] = shmem_get_out
 
@@ -82,8 +78,8 @@ def generate_golden_data(world_size: int):
         input_datas.append(in_tensor)
 
     output_datas = []
-    for rank in range(world_size):
-        allgather_result = torch.cat([input_datas[(rank + i) % world_size] for i in range(world_size)], dim=0)
+    allgather_result = torch.cat(input_datas, dim=0)
+    for _ in range(world_size):
         output_datas.append(allgather_result)
 
     return input_datas, output_datas

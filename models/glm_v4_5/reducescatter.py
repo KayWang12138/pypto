@@ -53,25 +53,21 @@ def reducescatter_kernel(
     for dyn_idx in pypto.loop(world_size, name="REDUCESCATTER_LOOP", idx_name="dyn_idx"):
         pypto.set_vec_tile_shapes(row_out, col)
         in_tile = pypto.view(
-            in_tensor, (row_out, col), [dyn_idx * row_out, 0],
-            valid_shape=[row_out, col])
-        shmem_data_tile = pypto.distributed.shmem_view(
-            shmem_tensor, [row_out, col], [0, 0])
+            in_tensor, (row_out, col), [dyn_idx * row_out, 0])
+        in_tile_fp32 = pypto.cast(in_tile, pypto.DT_FP32)
         shmem_put_out = pypto.distributed.shmem_put(
-            in_tile, [0, 0], shmem_data_tile, dyn_idx,
-            put_op=pypto.AtomicType.ADD, pred=[in_tensor])
+            in_tile_fp32, [0, 0], shmem_tensor, dyn_idx,
+            put_op=pypto.AtomicType.ADD, pred=[in_tile])
         pypto.distributed.shmem_signal(
-            shmem_data_tile, dyn_idx, dyn_idx, 1, [row_out, col],
+            shmem_tensor, dyn_idx, 1, shmem_shape,
             [0, 0], target_pe=dyn_idx, sig_op=pypto.AtomicType.ADD, pred=[shmem_put_out])
 
-    shmem_data_local = pypto.distributed.shmem_view(
-        shmem_tensor, [row_out, col], [0, 0])
     wait_until_out = pypto.distributed.shmem_wait_until(
-        shmem_data_local, my_pe, world_size, [row_out, col],
+        shmem_tensor, my_pe, world_size, shmem_shape,
         [0, 0], cmp=pypto.OpType.EQ, clear_signal=True, pred=[in_tensor])
     pypto.set_vec_tile_shapes(row_out, col)
-    shmem_get_out = pypto.distributed.shmem_get(
-        shmem_data_local, my_pe, [row_out, col], [0, 0], pred=[wait_until_out]
+    shmem_get_out = pypto.experimental.shmem_load(
+        shmem_tensor, my_pe, shmem_shape, [0, 0], pred=[wait_until_out], valid_shape=shmem_shape
     )
     out_tensor[:] = shmem_get_out
 
