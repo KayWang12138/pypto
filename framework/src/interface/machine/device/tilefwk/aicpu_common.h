@@ -47,7 +47,7 @@ constexpr int CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX = 0;
 
 constexpr int FUNC_ID_BATCH = 0x7FF;
 
-const uint64_t SHARED_BUFFER_SIZE = 51200;
+const uint64_t SHARED_BUFFER_SIZE = 512;
 const uint64_t PMU_BUFFER_SIZE = 4096;
 const uint64_t DEVICE_QUEUE_SIZE = 512;
 const uint64_t PRINT_BUFFER_SIZE = 16384;
@@ -192,8 +192,7 @@ struct TaskStat {
     int64_t execEnd;
     int64_t waitStart; // 2.0 dfx 当前未使用
     int64_t setEventCycle[32];
-    int64_t waitEventBeforeCycle[32];
-    int64_t waitEventAfterCycle[32];
+    int64_t waitEventCycle[32];
     int waitEventIdx;
     int setEventIdx;
 };
@@ -275,7 +274,6 @@ struct KernelArgs {
     int64_t waveBufferCpuToCore[8];
     struct ParallelDevTask parallelDevTask;
     TaskEntry taskEntry;
-    TaskStat taskStat[2]; // 寄存器高低32位，两个task 和 pending & running task存储： 2 * 2 个
 };
 
 union KernelSharedBuffer {

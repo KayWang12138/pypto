@@ -908,7 +908,10 @@ static void CompileControlFlow(
 static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[maybe_unused]] const std::string& ccePath)
 {
     ASSERT((PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
-    GetMixInfoMain(function);
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+        config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        DumpMixInfo(function);
+    }
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
