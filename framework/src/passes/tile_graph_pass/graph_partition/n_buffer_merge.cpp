@@ -305,6 +305,7 @@ void NBufferMerge::GetColorHash(
         hashColor[subgraphId] = 0;
     }
     for (int i = 0; i < colorNum_; i++) {
+        if (mulaccGraph.count(i)) continue;
         hashMap[hashColor[i]].push_back(i);
         if (hashMap[hashColor[i]].size() == 1) {
             hashOrder_[hashColor[i]] = globalVecMergeHashOrder_;
@@ -314,6 +315,7 @@ void NBufferMerge::GetColorHash(
     for (auto& entry : hashMap) {
         int hashOrder = hashOrder_[entry.first];
         for (auto subgraphId : entry.second) {
+            if (mulaccGraph.count(subgraphId)) continue;
             for (auto opIdx : colorNode_[subgraphId]) {
                 opOriList[opIdx].UpdateVecMergeHashOrder(hashOrder);
             }

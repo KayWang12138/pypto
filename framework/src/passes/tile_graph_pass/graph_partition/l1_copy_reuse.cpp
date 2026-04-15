@@ -253,18 +253,17 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer& opOriList, std::v
     uint64_t a = 0x12345678;
     uint64_t p = 23;
     const uint64_t mod = 0xFFFFFFFFFFFFF;
-    std::set<int> mulaccGraph;
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].GetSubgraphID() < 0) {
             continue;
         }
         if (CanReuse(opOriList[i])) {
-            mulaccGraph.insert(opOriList[i].GetSubgraphID());
+            mulaccGraph_.insert(opOriList[i].GetSubgraphID());
         }
         hashColor[opOriList[i].GetSubgraphID()] =
             (hashColor[opOriList[i].GetSubgraphID()] * p + (hashTileOp[i] ^ a)) % mod;
     }
-    for (int i : mulaccGraph) {
+    for (int i : mulaccGraph_) {
         hashMap_[hashColor[i]].push_back(i);
         if (hashMap_[hashColor[i]].size() == 1) {
             hashOrder_[hashColor[i]] = globalL1ReuseHashOrder_;
@@ -274,6 +273,7 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer& opOriList, std::v
     for (auto& entry : hashMap_) {
         int hashOrder = hashOrder_[entry.first];
         for (auto subgraphId : entry.second) {
+            if (!mulaccGraph_.count(subgraphId)) continue;
             for (auto opIdx : colorNode[subgraphId]) {
                 opOriList[opIdx].UpdateL1ReuseHashOrder(hashOrder);
             }
@@ -294,6 +294,7 @@ void L1CopyInReuseRunner::HashUpdate(int color, const std::vector<uint64_t>& has
 
     hashOrder_.clear();
     for (int i = 0; i < color; i++) {
+        if (!mulaccGraph_.count(i)) continue;
         if (hashMap_.find(hashColor[i]) != hashMap_.end() && hashOrder_.find(hashColor[i]) == hashOrder_.end()) {
             hashOrder_[hashColor[i]] = globalCubeMergeHashOrder_;
             for (auto subgraphId : hashMap_[hashColor[i]]) {
