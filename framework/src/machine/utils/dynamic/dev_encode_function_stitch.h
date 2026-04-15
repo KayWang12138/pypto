@@ -191,8 +191,9 @@ static void CellMatchHandle(
     for (int i = 0; i < cellMatchTableDesc.GetDimensionSize(); ++i) {
         auto cellMatchShapeDim = cellMatchTableDesc.GetCellShape(i);
         if (cellMatchShapeDim != 0) {
-            rangeBegin[i] = offset[i] / cellMatchShapeDim;
-            rangeEnd[i] = (offset[i] + shape[i] - 1) / cellMatchShapeDim;
+            uint64_t normalizedCellDim = cellMatchShapeDim < 0 ? 1U : static_cast<uint64_t>(cellMatchShapeDim);
+            rangeBegin[i] = offset[i] / normalizedCellDim;
+            rangeEnd[i] = (offset[i] + shape[i] - 1) / normalizedCellDim;
         } else {
             DEV_ERROR(
                 ProgEncodeErr::CELL_MATCH_DIM_ZERO,

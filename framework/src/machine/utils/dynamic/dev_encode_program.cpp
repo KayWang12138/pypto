@@ -159,7 +159,8 @@ void DevAscendProgram::DumpPartialUpdate(const int indent, std::ostringstream& o
         oss << INDENTINNER << "#slot-partial-update-" << i << ":" << !partialUpdate.Empty();
         if (!partialUpdate.Empty()) {
             oss << " | #cellMatchTableDesc:" << DumpCellMatchTableDesc(partialUpdate.cellMatchTableDesc)
-                << " | #cellMatchStaticTable:" << partialUpdate.cellMatchRuntimePartialUpdateTable.size();
+                << " | #cellMatchStaticTable:" << partialUpdate.cellMatchRuntimePartialUpdateTable.size()
+                << " | #slotCellCountMeta:" << At(partialUpdateSlotCellCountList, i);
         }
         oss << "\n";
     }

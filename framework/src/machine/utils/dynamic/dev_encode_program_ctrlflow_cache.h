@@ -148,6 +148,8 @@ struct DeviceExecuteSlot {
     uint32_t stitchOutcastIdx;
 
     DevAscendProgramPartialUpdate* partialUpdate{nullptr};
+    uint64_t* partialUpdateRuntimeTable{nullptr};
+    uint64_t partialUpdateRuntimeCellCount{0};
 
     bool IsOutputAddress() const { return isOutputSlot; }
     bool IsAssembleAddress() const { return isAssembleSlot; }
@@ -159,7 +161,9 @@ struct DevControlFlowCacheRuntime {
             SeqWsAllocator rootInner;
             SeqWsAllocator devTaskInnerExclusiveOutcasts;
             WsSlotAllocator devTaskBoundaryOutcasts;
+            WsSlotAllocator partialUpdateCellTables;
             DevRelocVector<WsSlotAllocator::BlockHeader> slottedOutcastsBlockList;
+            DevRelocVector<WsSlotAllocator::BlockHeader> partialUpdateCellTablesBlockList;
         } tensorAllocators[SCH_DEVTASK_MAX_PARALLELISM];
         DevRelocVector<ItemPool<RuntimeOutcastTensor>::ItemBlock> runtimeOutcastTensorPool;
     } workspace;
@@ -824,10 +828,15 @@ struct DevControlFlowCache {
             runtimeBackup.workspace.tensorAllocators[i].devTaskInnerExclusiveOutcasts =
                 allocator[i].devTaskInnerExclusiveOutcasts;
             runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts = allocator[i].devTaskBoundaryOutcasts;
+            runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTables = allocator[i].partialUpdateCellTables;
 
             uint64_t backupSize = sizeof(WsSlotAllocator::BlockHeader) * allocator[i].devTaskBoundaryOutcasts.slotNum_;
             (void)memcpy_s(runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.Data(),
                 backupSize, allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase(), backupSize);
+            uint64_t partialBackupSize =
+                sizeof(WsSlotAllocator::BlockHeader) * allocator[i].partialUpdateCellTables.slotNum_;
+            (void)memcpy_s(runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTablesBlockList.Data(),
+                partialBackupSize, allocator[i].partialUpdateCellTables.GetBlockHeaderBase(), partialBackupSize);
 
             WsSlotAllocator::BlockHeader *base = allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase();
             Backup::BackupBlockHeader(
@@ -838,6 +847,17 @@ struct DevControlFlowCache {
                 runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.Data();
             for (uint64_t k = 0; k < allocator[i].devTaskBoundaryOutcasts.slotNum_; k++) {
                 Backup::BackupBlockHeader(checkpointBase[k].listNext, base);
+            }
+
+            WsSlotAllocator::BlockHeader *partialBase = allocator[i].partialUpdateCellTables.GetBlockHeaderBase();
+            Backup::BackupBlockHeader(
+                runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTables.freeListHeader_, partialBase);
+            Backup::BackupBlockHeader(
+                runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTables.notInUseHeaders_, partialBase);
+            WsSlotAllocator::BlockHeader *partialCheckpointBase =
+                runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTablesBlockList.Data();
+            for (uint64_t k = 0; k < allocator[i].partialUpdateCellTables.slotNum_; k++) {
+                Backup::BackupBlockHeader(partialCheckpointBase[k].listNext, partialBase);
             }
         }
     }
@@ -876,6 +896,8 @@ struct DevControlFlowCache {
                 runtimeBackup.workspace.tensorAllocators[i].devTaskInnerExclusiveOutcasts);
             allocator[i].devTaskBoundaryOutcasts.availableSlots_ =
                 runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts.availableSlots_;
+            allocator[i].partialUpdateCellTables.availableSlots_ =
+                runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTables.availableSlots_;
 
             WsSlotAllocator::BlockHeader *base = allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase();
             Restore::RestoreBlockHeader(allocator[i].devTaskBoundaryOutcasts.freeListHeader_, base,
@@ -886,6 +908,19 @@ struct DevControlFlowCache {
                 runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.Data();
             for (uint64_t k = 0; k < allocator[i].devTaskBoundaryOutcasts.slotNum_; k++) {
                 Restore::RestoreBlockHeader(base[k].listNext, base, checkpointBase[k].listNext);
+            }
+
+            WsSlotAllocator::BlockHeader *partialBase = allocator[i].partialUpdateCellTables.GetBlockHeaderBase();
+            Restore::RestoreBlockHeader(
+                allocator[i].partialUpdateCellTables.freeListHeader_, partialBase,
+                runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTables.freeListHeader_);
+            Restore::RestoreBlockHeader(
+                allocator[i].partialUpdateCellTables.notInUseHeaders_, partialBase,
+                runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTables.notInUseHeaders_);
+            WsSlotAllocator::BlockHeader *partialCheckpointBase =
+                runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTablesBlockList.Data();
+            for (uint64_t k = 0; k < allocator[i].partialUpdateCellTables.slotNum_; k++) {
+                Restore::RestoreBlockHeader(partialBase[k].listNext, partialBase, partialCheckpointBase[k].listNext);
             }
         }
     }
@@ -923,6 +958,12 @@ struct DevControlFlowCache {
                 for (uint64_t k = 0; k < size; k++) {
                     relocWorkspace.RelocNullable(base[k].ptr);
                 }
+                auto& partialBlockList = runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTablesBlockList;
+                WsSlotAllocator::BlockHeader* partialBase = partialBlockList.Data();
+                uint64_t partialSize = partialBlockList.size();
+                for (uint64_t k = 0; k < partialSize; k++) {
+                    relocWorkspace.RelocNullable(partialBase[k].ptr);
+                }
             }
         }
         {
@@ -932,6 +973,7 @@ struct DevControlFlowCache {
                 runtimeBackup.workspace.runtimeOutcastTensorPool.Data();
             uint64_t size = slotList.size();
             for (uint64_t k = 0; k < size; k++) {
+                relocWorkspace.RelocNullable(base[k].partialUpdateRuntimeTable);
                 static_assert(
                     sizeof(AddressDescriptor) == sizeof(uintdevptr_t),
                     "Please review the following logics when the condition does not hold anymore.");
@@ -1124,6 +1166,7 @@ struct DevControlFlowCache {
         RelocOffset(shift, offset, outputTensorDataList);
         for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
             RelocOffset(shift, offset, runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList);
+            RelocOffset(shift, offset, runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTablesBlockList);
         }
         RelocOffset(shift, offset, runtimeBackup.slotContext.slotList);
         RelocOffset(shift, offset, runtimeBackup.workspace.runtimeOutcastTensorPool);

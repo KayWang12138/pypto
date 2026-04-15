@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <unordered_map>
 #include <utility>
 #include <queue>
@@ -55,6 +56,7 @@ constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是
 static uint32_t MAX_UNROLL_TIMES = 1;                 // the max num of unroll_list
 constexpr size_t CALC_STITCH_NUM =
     ToUnderlying(WsAicpuSlabMemType::DUPPED_STITCH) - ToUnderlying(WsAicpuSlabMemType::READY_QUE);
+
 void DevAscendFunction::InitIncastOutcastAttr(
     uintdevptr_t& initOffset, const std::vector<std::shared_ptr<LogicalTensor>>& iList,
     const std::vector<std::shared_ptr<LogicalTensor>>& oList, bool /* fillContent */)
@@ -2103,7 +2105,20 @@ static void InitPartialUpdateCellMatch(
     partialUpdateCellMatchTableDesc->SetCellShape(cellShape);
 
     std::vector<int> strideShape;
+    int rightMostDynamicDim = -1;
+    for (size_t i = 0; i < cellShape.size(); i++) {
+        if (cellShape[i] == -1) {
+            rightMostDynamicDim = static_cast<int>(i);
+        }
+    }
+    const int stitchedFuncExtent = std::max<int>(
+        1, static_cast<int>(config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM)));
     for (size_t i = 0; i < tensorShape.size(); i++) {
+        if (cellShape[i] == -1) {
+            // Dynamic axis: use a task-local logical extent to avoid collapsing all producers/consumers into cell 0.
+            strideShape.push_back(static_cast<int>(i) == rightMostDynamicDim ? stitchedFuncExtent : 1);
+            continue;
+        }
         strideShape.push_back(cellShape[i] != 0 ? tensorShape[i] / cellShape[i] : 0);
     }
     partialUpdateCellMatchTableDesc->SetStrideShape(strideShape);
@@ -2121,7 +2136,15 @@ void DevAscendProgram::InitPartialUpdateSlot(
     this->partialUpdateList.HostInitDataSizeOffset(initOffset, slotSize);
 
     this->cellMatchRuntimePartialUpdateTableList.HostInitDataSizeOffset(initOffset, 0);
+    this->partialUpdateSlotCellCountList.HostInitDataSizeOffset(initOffset, slotSize);
     int totalCellMatchSize = 0;
+    ONFILLCONTENT
+    {
+        auto slotCellCountData = partialUpdateSlotCellCountList.Data();
+        for (size_t i = 0; i < slotSize; ++i) {
+            slotCellCountData[i] = 0;
+        }
+    }
     for (size_t index = 0; index < tPartialUpdateSlotIndexList.size(); index++) {
         std::vector<const DevAscendFunctionOutcast*> outcastList;
         auto slotIndex = tPartialUpdateSlotIndexList[index];
@@ -2149,6 +2172,8 @@ void DevAscendProgram::InitPartialUpdateSlot(
             for (size_t j = 0; j < tableSize; j++) {
                 tableData[j] = AICORE_TASK_INIT;
             }
+            auto slotCellCountData = partialUpdateSlotCellCountList.Data();
+            slotCellCountData[slotIndex] = tableSize;
         }
         totalCellMatchSize += tableSize;
     }
@@ -2658,6 +2683,16 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         base->memBudget.tensor.devTaskInnerExclusiveOutcasts = tensorWsRes.devTaskInnerExclusiveOutcastMem;
         base->memBudget.tensor.maxStaticOutcastMem = tensorWsRes.maxStaticOutcastMem;
         base->memBudget.tensor.devTaskBoundaryOutcastNum = tensorWsRes.devTaskBoundaryOutcastNum;
+        uint64_t maxPartialCellsPerSlot = 0;
+        for (size_t i = 0; i < base->partialUpdateList.size(); ++i) {
+            auto& partialUpdate = base->At(base->partialUpdateList, i);
+            if (!partialUpdate.Empty()) {
+                maxPartialCellsPerSlot =
+                    std::max<uint64_t>(maxPartialCellsPerSlot, partialUpdate.cellMatchRuntimePartialUpdateTable.size());
+            }
+        }
+        base->memBudget.tensor.partialUpdateCellTableMem =
+            maxPartialCellsPerSlot * sizeof(uint64_t) * base->memBudget.tensor.devTaskBoundaryOutcastNum;
 
         int32_t maxCoreNum =
             Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
@@ -2672,6 +2707,9 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         base->memBudget.debug.leafDump = LeafDumpWorkspace();
         MACHINE_LOGD("base->memBudget.metadata.stitchPool is %lu.", base->memBudget.metadata.stitchPool);
         MACHINE_LOGD("base->memBudget.aicoreSpilled is %lu.", base->memBudget.aicoreSpilled);
+        MACHINE_LOGD(
+            "base->memBudget.tensor.partialUpdateCellTableMem is %lu.",
+            base->memBudget.tensor.partialUpdateCellTableMem);
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
     }
 }
@@ -2690,6 +2728,8 @@ void DevControlFlowCache::Init(
         (std::min((uint32_t)EstimatedStitchingCount(), stitchMaxFunctionNum) + SLOTS_NEED_ALLOC_SIZE);
     for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
         runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.HostInitDataSizeOffset(
+            initOffset, slottedCount);
+        runtimeBackup.workspace.tensorAllocators[i].partialUpdateCellTablesBlockList.HostInitDataSizeOffset(
             initOffset, slottedCount);
     }
 

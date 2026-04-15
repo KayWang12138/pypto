@@ -34,6 +34,7 @@ struct TensorAllocator {
     SeqWsAllocator rootInner;
     SeqWsAllocator devTaskInnerExclusiveOutcasts;
     WsSlotAllocator devTaskBoundaryOutcasts;
+    WsSlotAllocator partialUpdateCellTables;
 };
 struct RuntimeReuseInfo {
     uint32_t poolResetTimes;
