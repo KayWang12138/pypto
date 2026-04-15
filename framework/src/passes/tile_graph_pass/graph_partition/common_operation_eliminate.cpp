@@ -52,7 +52,7 @@ void SortedProducer(std::vector<Operation*>& sortedProducers)
 }
 
 void CollectProducerInfo(
-    const std::vector<Operation*>& sortedProducers, const LogicalTensorPtr& curTensor,
+    const std::vector<Operation*>& sortedProducers,
     std::vector<std::string>& opStrList, std::stringstream& ss)
 {
     for (const auto& op : sortedProducers) {
@@ -75,13 +75,6 @@ void CollectProducerInfo(
                     ss << ", ";
                 }
             }
-            if (curTensor && !curTensor->GetDynValidShape().empty()) {
-                std::string shapeStr;
-                for (size_t i = 0; i < curTensor->GetDynValidShape().size(); i++) {
-                    shapeStr += curTensor->GetDynValidShape()[i].Dump();
-                }
-                ss << "[" << shapeStr << "]";
-            }
             ss << ")";
             ss << "]";
         }
@@ -103,13 +96,13 @@ void CollectProducerInfo(
     }
 }
 
-unsigned long ComputeHash(const std::vector<Operation*>& producers, LogicalTensorPtr curTensor)
+unsigned long ComputeHash(const std::vector<Operation*>& producers)
 {
     std::vector<std::string> opStrList;
     std::stringstream ss;
     std::vector<Operation*> sortedProducers = producers;
     SortedProducer(sortedProducers);
-    CollectProducerInfo(sortedProducers, curTensor, opStrList, ss);
+    CollectProducerInfo(sortedProducers, opStrList, ss);
     std::hash<std::string> hasher;
     return hasher(ss.str());
 }
@@ -205,7 +198,7 @@ std::pair<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::T
             return {nullptr, {}};
         }
     }
-    uint64_t groupHash = ComputeHash(producers, orderedTensor);
+    uint64_t groupHash = ComputeHash(producers);
     if (hashCache.count(groupHash) != 0) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "Tensor[%d] are marked as hash already existed tensor.", orderedTensor->GetMagic());
