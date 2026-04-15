@@ -135,6 +135,9 @@ class ExprEvaluator:
             for key, value in dict_locals.items():
                 if isinstance(value, pypto.SymbolicScalar) and value.is_concrete():
                     dict_locals[key] = value.concrete()
+            # Add min and max functions to use pypto.min and pypto.max
+            dict_locals['min'] = pypto.min
+            dict_locals['max'] = pypto.max
             try:
                 return eval(exe, {}, dict_locals)  # pylint: disable=eval-used
             except Exception as e:
@@ -148,6 +151,9 @@ class ExprEvaluator:
             for key, value in dict_locals.items():
                 if isinstance(value, pypto.SymbolicScalar) and value.is_concrete():
                     dict_locals[key] = value.concrete()
+            # Add min and max functions to use pypto.min and pypto.max
+            dict_locals['min'] = pypto.min
+            dict_locals['max'] = pypto.max
             try:
                 return exec(exe, {}, dict_locals)  # pylint: disable=exec-used
             except Exception as e:

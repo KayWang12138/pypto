@@ -80,7 +80,7 @@ def flash_attention_score_kernel_with_mask_origin(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -99,7 +99,7 @@ def flash_attention_score_kernel_with_mask_origin(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -225,7 +225,7 @@ def flash_attention_score_kernel_with_mask(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -244,7 +244,7 @@ def flash_attention_score_kernel_with_mask(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -428,7 +428,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -447,7 +447,7 @@ def flash_attention_score_kernel_with_pse_and_dropout(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -640,7 +640,7 @@ def flash_attention_score_kernel_with_mask_fp32(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N_FP32", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK_FP32", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -659,7 +659,7 @@ def flash_attention_score_kernel_with_mask_fp32(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],
@@ -826,7 +826,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
         for n_idx in pypto.loop(0, NUM_HEADS, 1, name="LOOP_N_FP32_PSE", idx_name="n_idx"):
             for q_block_idx in pypto.loop(0, num_blocks_q, 1, name="LOOP_Q_BLOCK_FP32_PSE", idx_name="q_block_idx"):
                 q_start = q_block_idx * BLOCK_SIZE_Q
-                cur_q_size = pypto.min(BLOCK_SIZE_Q, seq_len_q - q_start)
+                cur_q_size = min(BLOCK_SIZE_Q, seq_len_q - q_start)
 
                 oi_update = pypto.tensor([BLOCK_SIZE_Q, HEAD_DIM], pypto.DT_FP32, "oi_update")
                 li_update = pypto.tensor([BLOCK_SIZE_Q, 1], pypto.DT_FP32, "li_update")
@@ -845,7 +845,7 @@ def flash_attention_score_kernel_with_pse_and_dropout_fp32(
                                                          idx_name="kv_block_idx",
                                                          unroll_list=[4, 2, 1]):
                     kv_start = kv_block_idx * BLOCK_SIZE_KV
-                    cur_block_size = pypto.min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
+                    cur_block_size = min(BLOCK_SIZE_KV, seq_len_kv - kv_start)
 
                     k_block = pypto.view(key, [1, 1, BLOCK_SIZE_KV, HEAD_DIM],
                                         [b_idx, n_idx, kv_start, 0],

@@ -632,6 +632,37 @@ class Parser(ast.NodeVisitor):
                             return True
         return False
 
+    _BINARY_OPS = {
+        'min': pypto.min,
+        'max': pypto.max,
+    }
+
+    def _visit_binary_op(self, node: ast.Call, op_name: str) -> Any:
+        """Visit binary operation function call.
+
+        Parameters
+        ----------
+        node : ast.Call
+            The AST call node.
+        op_name : str
+            The operation name.
+
+        Returns
+        -------
+        Any
+            The result of the operation.
+        """
+        if len(node.args) != 2:
+            raise ParserError(
+                node,
+                TypeError(f"{op_name}() function expects exactly 2 arguments, got {len(node.args)}.")
+            )
+
+        arg1 = self._eval_expr(node.args[0])
+        arg2 = self._eval_expr(node.args[1])
+
+        return self._BINARY_OPS[op_name](arg1, arg2)
+
     def _eval_expr(
         self,
         node: Union[ast.Expression, ast.expr],
@@ -659,6 +690,9 @@ class Parser(ast.NodeVisitor):
             node = node.value
 
         if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in self._BINARY_OPS:
+                return self._visit_binary_op(node, node.func.id)
+
             nested_result = self._try_nested_call(node, extra_vars)
             if nested_result is not _NESTED_CALL_UNHANDLED:
                 return nested_result
