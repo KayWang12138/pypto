@@ -1009,11 +1009,12 @@ private:
 
         DEV_IF_VERBOSE_DEBUG
         {
+            uint32_t wrapId = 0;
             sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
-            if (wrapManager_.IsBindedWrapId(newTask) && context_->wrapCoreAvail_[coreIdx]) {
+            if (wrapManager_.IsBindedWrapId(newTask, wrapId) && context_->wrapCoreAvail_[coreIdx]) {
                 DEV_WARN("newTask[%lu][%lx] is mix task, but core[%d] is available!", newTask, newTask, coreIdx);
             }
-            if (!wrapManager_.IsBindedWrapId(newTask) && !context_->wrapCoreAvail_[coreIdx]) {
+            if (!wrapManager_.IsBindedWrapId(newTask, wrapId) && !context_->wrapCoreAvail_[coreIdx]) {
                 DEV_WARN(
                     "newTask[%lu][%lx] is not mix task, but core[%d] is not available!", newTask, newTask, coreIdx);
             }
@@ -1420,6 +1421,7 @@ private:
         auto& duppedData = dyntask->GetDynFuncDataCacheList()[origfunc].duppedData;
         auto& stitchList = duppedData->GetOperationStitch(origop);
         auto cceBinary = dyntask->cceBinary;
+        uint32_t wrapId = 0;
 
         for (auto* node = stitchList.Head(); node != nullptr; node = node->Next()) {
             uint32_t listSize = node->Size();
@@ -1444,8 +1446,8 @@ private:
                     context_->resolveHubCnt_++;
                 } else if (coreType == static_cast<int>(MachineType::AICPU)) {
                     PushAicpuTaskQueue(id);
-                } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id, &cceBinary[callList[opIndex]]);
+                } else if (wrapManager_.IsBindedWrapId(id, wrapId)) {
+                    wrapManager_.ResolveDepForMixCore(id, wrapId, &cceBinary[callList[opIndex]]);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1497,6 +1499,7 @@ private:
         const int* succIndexList = func->GetOperationDepGraphCopyOutResolveSuccIndexAddr(opIndex, succIndexSize);
         size_t succSize;
         auto succList = func->GetOperationDepGraphSuccAddr(opIndex, succSize);
+        uint32_t wrapId = 0;
         for (size_t i = succIndexList[resolveIndexBase]; i < succSize; i++) {
             auto succIdx = succList[i];
             if (predCounts[succIdx] == 1 || __atomic_sub_fetch(&predCounts[succIdx], 1, __ATOMIC_RELAXED) == 0) {
@@ -1510,8 +1513,8 @@ private:
                     context_->resolveHubCnt_++;
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))) {
                     PushAicpuTaskQueue(id);
-                } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id, &cceBinary[callList[succIdx]]);
+                } else if (wrapManager_.IsBindedWrapId(id, wrapId)) {
+                    wrapManager_.ResolveDepForMixCore(id, wrapId, &cceBinary[callList[succIdx]]);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1541,6 +1544,7 @@ private:
         const int* succIndexList = func->GetOperationDepGraphCopyOutResolveSuccIndexAddr(opIndex, succIndexSize);
         size_t succSize;
         const int* succList = func->GetOperationDepGraphSuccAddr(opIndex, succSize);
+        uint32_t wrapId = 0;
         // here we don't use resolveIndexBase + 1, because at the beginning, resolveIndexBase is 0. And we resolve from
         // 0.
         for (int i = succIndexList[resolveIndexBase]; i < succIndexList[currResolveIndex + 1]; i++) {
@@ -1554,8 +1558,8 @@ private:
                         return ret;
                     }
                     context_->resolveHubCnt_++;
-                } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id, &cceBinary[callList[succIdx]]);
+                } else if (wrapManager_.IsBindedWrapId(id, wrapId)) {
+                    wrapManager_.ResolveDepForMixCore(id, wrapId, &cceBinary[callList[succIdx]]);
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))) {
                     PushAicpuTaskQueue(id);
                 } else {
