@@ -206,10 +206,11 @@ public:
 
     inline bool GetIsMixarch() { return archInfo == ArchInfo::DAV_3510; }
 
-    inline uint32_t GetAvailableWrapCoreCnt(uint32_t& core1c1vCnt, uint32_t& core1c2vCnt, uint32_t maxCoreCnt)
+    inline uint32_t GetAvailableWrapCoreCnt(uint64_t& aicCoreIdx1c1vMask, uint64_t& aicCoreIdx1c2vMask)
     {
+        uint32_t wrapCoreCnt = 0;
         uint32_t aicReadyCnt = coreRunReadyCnt_[CORE_IDX_AIC];
-        for (uint32_t idx = 0; idx < aicReadyCnt && core1c2vCnt < maxCoreCnt; idx++) {
+        for (uint32_t idx = 0; idx < aicReadyCnt; idx++) {
             uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
             uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
             uint32_t aivIdx1 = aivIdx0 + 1;
@@ -218,71 +219,60 @@ public:
                 CheckCoreIdxInitStatus(aivIdx0);
                 if (coreIdxPosition_[aivIdx1] != INVALID_COREIDX_POSITION) {
                     CheckCoreIdxInitStatus(aivIdx1);
-                    core1c2vCnt++;
+                    aicCoreIdx1c2vMask |= 1ULL << aicIdx;
                 } else {
-                    core1c1vCnt++;
+                    aicCoreIdx1c1vMask |= 1ULL << aicIdx;
                 }
+                wrapCoreCnt++;
             }
         }
-        return core1c2vCnt + core1c1vCnt;
+        return wrapCoreCnt;
+    }
+
+    // 获取最低不是1的位并移除该位，这里要保证indexMask不是0
+    inline uint32_t ctzll_reduce(uint64_t& indexMask)
+    {
+        uint32_t index = __builtin_ctzll(indexMask);
+        indexMask &= indexMask - 1;
+        return index;
     }
 
     inline void UpdateWrapQueueAndRmvCoreIdx(
-        WrapInfo* wrap1c2vTasks[], uint32_t task1c2vCnt, WrapInfo* wrap1c1vTasks[], uint32_t task1c1vCnt)
+        uint32_t head, uint32_t tail, uint64_t aicCoreIdx1c1vMask, uint64_t aicCoreIdx1c2vMask)
     {
-        uint32_t idx = 0;
-        for (uint32_t taskIdx = 0; taskIdx < task1c2vCnt; taskIdx++) {
-            WrapInfo* wrapInfo = wrap1c2vTasks[taskIdx];
+        for (uint32_t i = head; i < tail; i++) {
+            WrapInfo* wrapInfo = &readyWrapCoreFunctionQue_->elem[i];
             wrapQueueForThread_.elem[wrapQueueForThread_.tail++] = reinterpret_cast<uint64_t>(wrapInfo);
             uint32_t* aicoreIdxList = wrapInfo->aicoreIdxList;
-            while (idx < coreRunReadyCnt_[CORE_IDX_AIC]) {
-                uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
+
+            if (wrapInfo->mixResourceType == static_cast<uint32_t>(MixResourceType::MIX_1C2V)) {
+                uint32_t aicIdx = ctzll_reduce(aicCoreIdx1c2vMask);
                 uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
                 uint32_t aivIdx1 = aivIdx0 + 1;
-
-                if (coreIdxPosition_[aivIdx0] != INVALID_COREIDX_POSITION &&
-                    coreIdxPosition_[aivIdx1] != INVALID_COREIDX_POSITION) {
-                    CheckCoreIdxInitStatus(aicIdx);
-                    CheckCoreIdxInitStatus(aivIdx0);
-                    CheckCoreIdxInitStatus(aivIdx1);
-                    aicoreIdxList[WRAP_IDX_AIC] = aicIdx;
-                    aicoreIdxList[WRAP_IDX_AIV0] = aivIdx0;
-                    aicoreIdxList[WRAP_IDX_AIV1] = aivIdx1;
-                    RemoveMixReadyCoreIdx(aicIdx, static_cast<int>(CoreType::AIC));
-                    RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
-                    RemoveMixReadyCoreIdx(aivIdx1, static_cast<int>(CoreType::AIV));
-                    wrapCoreAvail_[aicIdx] = false;
-                    wrapCoreAvail_[aivIdx0] = false;
-                    wrapCoreAvail_[aivIdx1] = false;
-                    break;
-                } else {
-                    idx++;
-                }
-            }
-        }
-
-        idx = 0;
-        for (uint32_t taskIdx = 0; taskIdx < task1c1vCnt; taskIdx++) {
-            WrapInfo* wrapInfo = wrap1c1vTasks[taskIdx];
-            wrapQueueForThread_.elem[wrapQueueForThread_.tail++] = reinterpret_cast<uint64_t>(wrapInfo);
-            uint32_t* aicoreIdxList = wrapInfo->aicoreIdxList;
-            while (idx < coreRunReadyCnt_[CORE_IDX_AIC]) {
-                uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][idx];
+                CheckCoreIdxInitStatus(aicIdx);
+                CheckCoreIdxInitStatus(aivIdx0);
+                CheckCoreIdxInitStatus(aivIdx1);
+                aicoreIdxList[WRAP_IDX_AIC] = aicIdx;
+                aicoreIdxList[WRAP_IDX_AIV0] = aivIdx0;
+                aicoreIdxList[WRAP_IDX_AIV1] = aivIdx1;
+                RemoveMixReadyCoreIdx(aicIdx, static_cast<int>(CoreType::AIC));
+                RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
+                RemoveMixReadyCoreIdx(aivIdx1, static_cast<int>(CoreType::AIV));
+                wrapCoreAvail_[aicIdx] = false;
+                wrapCoreAvail_[aivIdx0] = false;
+                wrapCoreAvail_[aivIdx1] = false;
+            } else {
+                uint32_t aicIdx =
+                    (aicCoreIdx1c1vMask == 0u) ? ctzll_reduce(aicCoreIdx1c2vMask) : ctzll_reduce(aicCoreIdx1c1vMask);
                 uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
-
-                if (coreIdxPosition_[aivIdx0] != INVALID_COREIDX_POSITION) {
-                    CheckCoreIdxInitStatus(aicIdx);
-                    CheckCoreIdxInitStatus(aivIdx0);
-                    aicoreIdxList[WRAP_IDX_AIC] = aicIdx;
-                    aicoreIdxList[WRAP_IDX_AIV0] = aivIdx0;
-                    RemoveMixReadyCoreIdx(aicIdx, static_cast<int>(CoreType::AIC));
-                    RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
-                    wrapCoreAvail_[aicIdx] = false;
-                    wrapCoreAvail_[aivIdx0] = false;
-                    break;
-                } else {
-                    idx++;
-                }
+                CheckCoreIdxInitStatus(aicIdx);
+                CheckCoreIdxInitStatus(aivIdx0);
+                aicoreIdxList[WRAP_IDX_AIC] = aicIdx;
+                aicoreIdxList[WRAP_IDX_AIV0] = aivIdx0;
+                RemoveMixReadyCoreIdx(aicIdx, static_cast<int>(CoreType::AIC));
+                RemoveMixReadyCoreIdx(aivIdx0, static_cast<int>(CoreType::AIV));
+                wrapCoreAvail_[aicIdx] = false;
+                wrapCoreAvail_[aivIdx0] = false;
             }
         }
     }
@@ -315,14 +305,14 @@ public:
 
         uint32_t head = __atomic_load_n(&readyWrapCoreFunctionQue_->head, __ATOMIC_RELAXED);
         uint32_t tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_RELAXED);
-        uint32_t core1c1vCnt = 0;
-        uint32_t core1c2vCnt = 0;
-        constexpr uint32_t maxTaskCnt = 8u;
-        uint32_t wrapCoreCnt = GetAvailableWrapCoreCnt(core1c1vCnt, core1c2vCnt, maxTaskCnt);
+        uint64_t aicCoreIdx1c1vMask = 0ULL;
+        uint64_t aicCoreIdx1c2vMask = 0ULL;
+        uint32_t wrapCoreCnt = GetAvailableWrapCoreCnt(aicCoreIdx1c1vMask, aicCoreIdx1c2vMask);
         if (tail - head == 0 || wrapCoreCnt == 0) {
             return;
         }
 
+        uint32_t core1c2vCnt = __builtin_popcountll(aicCoreIdx1c2vMask);
         WrapInfoQueueLock(readyWrapCoreFunctionQue_);
         head = readyWrapCoreFunctionQue_->head;
 #ifdef NO_EARLY_SEND_TASK
@@ -349,29 +339,23 @@ public:
             WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
             return;
         }
-        WrapInfo* localTasks[maxTaskCnt];
-        uint32_t maxReadyCnt = taskCount > maxTaskCnt ? maxTaskCnt : taskCount;
-        maxReadyCnt = maxReadyCnt > wrapCoreCnt ? wrapCoreCnt : maxReadyCnt;
-        uint32_t taskHead = 0, taskTail = maxReadyCnt;
-        while (taskHead < taskTail) {
-            WrapInfo* info = &readyWrapCoreFunctionQue_->elem[head++];
+        uint32_t maxReadyCnt = taskCount > wrapCoreCnt ? wrapCoreCnt : taskCount;
+        uint32_t headNew = head;
+        tail = head + maxReadyCnt;
+        while (headNew < tail) {
+            WrapInfo* info = &readyWrapCoreFunctionQue_->elem[headNew++];
             if (info->mixResourceType == static_cast<uint32_t>(MixResourceType::MIX_1C2V)) {
                 if (core1c2vCnt == 0) {
+                    headNew--; // 没有核了，需要减掉
                     break;
                 }
-                localTasks[taskHead++] = info;
                 core1c2vCnt--;
-            } else {
-                localTasks[--taskTail] = info;
             }
         }
-        uint32_t valid1c1vCnt = maxReadyCnt - taskTail;
-        uint32_t validReadyCnt = taskHead + valid1c1vCnt;
-        readyWrapCoreFunctionQue_->head += validReadyCnt;
+        readyWrapCoreFunctionQue_->head = headNew;
         WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
 
-        WrapInfo** task1c1vPtr = localTasks + taskTail;
-        UpdateWrapQueueAndRmvCoreIdx(localTasks, taskHead, task1c1vPtr, valid1c1vCnt);
+        UpdateWrapQueueAndRmvCoreIdx(head, headNew, aicCoreIdx1c1vMask, aicCoreIdx1c2vMask);
     }
 
     inline void DispatchMixCoreTask()
