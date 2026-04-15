@@ -582,7 +582,7 @@ static void HandleIndexoutcastOp(Operation& op)
             SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
         }
     }
-    for (size_t i = 0; i < op.iOperand.size() && i < 2; ++i) {
+    for (size_t i = 0; i < op.iOperand.size() && i < 3; ++i) {
         auto& tensor = op.iOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
