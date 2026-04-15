@@ -190,9 +190,27 @@ static void CellMatchHandle(
     uint64_t rangeEnd[DEV_SHAPE_DIM_MAX];
     for (int i = 0; i < cellMatchTableDesc.GetDimensionSize(); ++i) {
         auto cellMatchShapeDim = cellMatchTableDesc.GetCellShape(i);
-        if (cellMatchShapeDim != 0) {
-            rangeBegin[i] = offset[i] / cellMatchShapeDim;
-            rangeEnd[i] = (offset[i] + shape[i] - 1) / cellMatchShapeDim;
+        if (cellMatchShapeDim < 0) {
+            // Dynamic axis uses task-local logical extent in stride shape.
+            // Keep index in-bounds to avoid reading/writing outside runtime partial-update table.
+            int strideExtent = cellMatchTableDesc.GetStride(i);
+            uint64_t extent = strideExtent > 0 ? static_cast<uint64_t>(strideExtent) : 1U;
+            if (shape[i] >= extent) {
+                rangeBegin[i] = 0;
+                rangeEnd[i] = extent - 1U;
+            } else {
+                rangeBegin[i] = offset[i] % extent;
+                rangeEnd[i] = (offset[i] + shape[i] - 1U) % extent;
+                if (rangeBegin[i] > rangeEnd[i]) {
+                    // Wrapped range on ring buffer: degrade to full range for correctness.
+                    rangeBegin[i] = 0;
+                    rangeEnd[i] = extent - 1U;
+                }
+            }
+        } else if (cellMatchShapeDim > 0) {
+            uint64_t normalizedCellDim = static_cast<uint64_t>(cellMatchShapeDim);
+            rangeBegin[i] = offset[i] / normalizedCellDim;
+            rangeEnd[i] = (offset[i] + shape[i] - 1U) / normalizedCellDim;
         } else {
             DEV_ERROR(
                 ProgEncodeErr::CELL_MATCH_DIM_ZERO,

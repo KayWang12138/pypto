@@ -24,11 +24,13 @@
 #include "allocator/allocators.h"
 #include "machine/device/dynamic/device_perf.h"
 #include "machine/utils/dynamic/runtime_outcast_tensor.h"
+#include <cinttypes>
 
 namespace npu::tile_fwk::dynamic {
 inline constexpr int64_t TENSOR_ADDR_ALIGNMENT = 512;
 inline constexpr uint32_t SUBMMIT_TASK_QUE_SIZE = 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
+
 class DeviceWorkspaceAllocator {
 public:
     DeviceWorkspaceAllocator() = default;
@@ -309,6 +311,23 @@ private:
                     RuntimeOutcastTensorDerefSafe(slotList[assembleSlotIndex].rtOutcastIter);
                     slotList[assembleSlotIndex].rtOutcastIter = MakeRuntimeOutcastTensor(
                         AllocateSlot(devRootSrc->GetRawName()), RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
+                    if (slotList[assembleSlotIndex].isPartialUpdateStitch) {
+                        auto requiredCells =
+                            devProg_->At(devProg_->partialUpdateSlotCellCountList, assembleSlotIndex);
+                        if (requiredCells > 0) {
+                            WsAllocation tableAlloc =
+                                AllocatePartialUpdateCellTable(requiredCells, devRootSrc->GetRawName());
+                            auto* tableData = reinterpret_cast<uint64_t*>(tableAlloc.ptr);
+                            for (size_t j = 0; j < requiredCells; ++j) {
+                                tableData[j] = AICORE_TASK_INIT;
+                            }
+                            auto& newOutcast = GetRuntimeOutcastTensor(slotList[assembleSlotIndex].rtOutcastIter);
+                            newOutcast.partialUpdateCellAllocation = tableAlloc;
+                            newOutcast.partialUpdateCellCount = requiredCells;
+                            slotList[assembleSlotIndex].partialUpdateRuntimeTable = tableData;
+                            slotList[assembleSlotIndex].partialUpdateRuntimeCellCount = requiredCells;
+                        }
+                    }
                     slotList[assembleSlotIndex].isAssembleSlotNeedAlloc = false;
                 } else {
                     DEV_ASSERT_MSG(
@@ -318,6 +337,14 @@ private:
                 }
                 outcastDesc = AddressDescriptor::MakeFromRtOutcast(slotList[assembleSlotIndex].rtOutcastIter);
                 RuntimeOutcastTensorRef(outcastDesc.GetRtOutcastIter());
+                if (slotList[assembleSlotIndex].isPartialUpdateStitch) {
+                    auto& rtOutcast = GetRuntimeOutcastTensor(slotList[assembleSlotIndex].rtOutcastIter);
+                    slotList[assembleSlotIndex].partialUpdateRuntimeTable =
+                        rtOutcast.partialUpdateCellAllocation.ptr == 0
+                            ? nullptr
+                            : reinterpret_cast<uint64_t*>(rtOutcast.partialUpdateCellAllocation.ptr);
+                    slotList[assembleSlotIndex].partialUpdateRuntimeCellCount = rtOutcast.partialUpdateCellCount;
+                }
             } else if (devRootSrc->GetOutcast(i).exprListIndex != -1) {
                 /* something like an expression address, probably shmem */
                 uint64_t* exprTbl = devRootDup.GetExpressionAddr();
@@ -357,6 +384,10 @@ private:
 
         // check if reallocated-assemble-slots and the stitch-ending slotMem (secondary allocation) can be allocated
         if (devProg_->slottableOutcastSlotSize > tensorAllocators_[curParallelWsId].devTaskBoundaryOutcasts.AvailableSlots()) {
+            return false;
+        }
+        if (devProg_->memBudget.tensor.partialUpdateCellTableMem > 0 &&
+            devProg_->slottableOutcastSlotSize > metadataAllocators_.partialUpdateCellTables.AvailableSlots()) {
             return false;
         }
 
@@ -426,6 +457,27 @@ public:
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
         wsMemDelayedDumper_.LogTensorMalloc(rootFuncName == nullptr ? "unspecified_root" : rootFuncName, allocation);
 #endif // DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
+        return allocation;
+    }
+
+    WsAllocation AllocatePartialUpdateCellTable(
+        uint64_t requiredCells, [[maybe_unused]] const char* rootFuncName = nullptr)
+    {
+        WsAllocation allocation;
+        uint64_t requiredBytes = requiredCells * sizeof(uint64_t);
+        DEV_ASSERT_MSG(
+            WsErr::WORKSPACE_INIT_RESOURCE_ERROR,
+            requiredBytes <= metadataAllocators_.partialUpdateCellTables.SlotByteSize(),
+            "partial update table bytes overflow: required=%" PRIu64 ", slotBytes=%" PRIu64, requiredBytes,
+            metadataAllocators_.partialUpdateCellTables.SlotByteSize());
+#if !DEBUG_INFINITE_LIFETIME
+        allocation = metadataAllocators_.partialUpdateCellTables.Allocate();
+        allocation.parallelWsId = curParallelWsId;
+#else
+        allocation = DebugDumpTensorAllocate(
+            metadataAllocators_.partialUpdateCellTables.SlotByteSize(),
+            WsMemCategory::TENSOR_ROOTFUNC_OUTCAST_SLOT);
+#endif
         return allocation;
     }
 
@@ -515,6 +567,9 @@ public:
     {
         for (auto&& outcast : rtBoundaryOutcastToBeFree_) {
             tensorAllocators_[outcast.allocation.parallelWsId].devTaskBoundaryOutcasts.Deallocate(outcast.allocation.ptr);
+            if (outcast.partialUpdateCellAllocation.ptr != 0) {
+                metadataAllocators_.partialUpdateCellTables.Deallocate(outcast.partialUpdateCellAllocation.ptr);
+            }
         }
         rtBoundaryOutcastToBeFree_.clear();
     }
@@ -605,6 +660,7 @@ public:
                 "Tensor (DeviceTask inner outcasts) workspace");
             tensorAllocators_[i].devTaskBoundaryOutcasts.DumpMemoryUsage(hint);
         }
+        metadataAllocators_.partialUpdateCellTables.DumpMemoryUsage(hint);
 
         // Dump stack memory
         DEV_MEM_DUMP("Stack workspace memory usage (%s)\n", hint);
@@ -833,6 +889,19 @@ private:
             baseAddr += devTaskBoundaryOutcastsBudget;
         }
 
+        // Initialize runtime partial-update cell table memory
+        auto partialUpdateCellTableBudget = devProg->memBudget.tensor.partialUpdateCellTableMem;
+        partialUpdateCellTableWsVerifier_.Init(baseAddr, paallelism * partialUpdateCellTableBudget);
+        if (partialUpdateCellTableBudget != 0 && devProg->memBudget.tensor.devTaskBoundaryOutcastNum != 0) {
+            uint64_t slotBytes = AlignUp(
+                partialUpdateCellTableBudget, devProg->memBudget.tensor.devTaskBoundaryOutcastNum) /
+                                devProg->memBudget.tensor.devTaskBoundaryOutcastNum;
+            metadataAllocators_.partialUpdateCellTables.InitTensorAllocator(
+                baseAddr, paallelism * devProg->memBudget.tensor.devTaskBoundaryOutcastNum, slotBytes,
+                metadataAllocators_.general);
+        }
+        baseAddr += paallelism * partialUpdateCellTableBudget;
+
         // Initialize root function non-outcast tensor memory
         auto rootInnerBudget = devProg->memBudget.tensor.rootInner;
         rootInnerWsVerifier_.Init(baseAddr, paallelism * rootInnerBudget);
@@ -1039,6 +1108,7 @@ private:
 
 public:
     TensorAllocator* GetTensorAllocator() { return tensorAllocators_; }
+    MetadataAllocator* GetMetadataAllocator() { return &metadataAllocators_; }
 
 private:
     bool DeviceTaskMemTryRecycle()
@@ -1090,6 +1160,7 @@ private:
 
     WsMemoryVerifier tensorWsVerifier_;
     WsMemoryVerifier slotVerifier_;
+    WsMemoryVerifier partialUpdateCellTableWsVerifier_;
     WsMemoryVerifier dassembleDestsTensorVerifier_;
     WsMemoryVerifier rootInnerWsVerifier_;
     WsMemoryVerifier devTaskInnerExclusiveOutcastsWsVerifier_;
