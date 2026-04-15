@@ -47,7 +47,6 @@ public:
     Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo);
     void SetNodeCoreTypeAndMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
     void BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> operationGraphInfo);
-    int32_t FindParent(std::vector<int32_t>& parent, int32_t i);
     Status MergeSrcToDstIsland(
         const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent, int32_t src,
         int32_t dst);
@@ -76,6 +75,24 @@ protected:
     Status BuildOpGraph(const std::vector<Operation*>& opList);
     virtual Status BuildSuperNodeGraph();
     Status ProcessScopeMerge();
+
+    struct ScopeCollectResult {
+        std::unordered_map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
+        std::unordered_map<int32_t, bool> scopeAllowParallel;
+        std::unordered_map<int32_t, std::vector<int32_t>> scope2Nodes;
+    };
+    ScopeCollectResult CollectScopeInfo(int32_t numNodes);
+    Status ValidateScopeCoreTypes(
+        int32_t scopeId, const std::unordered_set<OpCoreType>& coreTypes, bool isCVMix,
+        std::map<int32_t, int32_t>& scopeToMixId);
+    Status CheckAndMergeScopes(const ScopeCollectResult& scopeInfo,
+        std::vector<int32_t>& snParent,
+        bool& needRebuild,
+        std::map<int32_t, int32_t>& scopeToMixId);
+    void RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes);
+    void ApplyCVMixIds(const std::map<int32_t, int32_t>& scopeToMixId,
+                       const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes);
+
     Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers
