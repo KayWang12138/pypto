@@ -108,19 +108,20 @@ def set_pass_options(*,
         elif isinstance(sg_set_scope, (tuple, list)):
             # 新格式：解析元组
             if len(sg_set_scope) != 3:
-                raise ValueError(f"sg_set_scope must be a tuple of 3 elements, got {len(sg_set_scope)}")
+                raise ValueError(f"Option 'pass.sg_set_scope' has invalid length. Expected 3, but got {len(sg_set_scope)}.")
             if not isinstance(sg_set_scope[0], int):
-                raise ValueError(f"sg_set_scope[0] (scopeid) must be int, got {type(sg_set_scope[0])}")
+                raise ValueError(f"Option 'pass.sg_set_scope[0]' has invalid type. Expected int, but got {type(sg_set_scope[0]).__name__}.")
             if not isinstance(sg_set_scope[1], bool):
-                raise ValueError(f"sg_set_scope[1] (allow_parallel_merge) must be bool, got {type(sg_set_scope[1])}")
+                raise ValueError(f"Option 'pass.sg_set_scope[1]' has invalid type. Expected bool, but got {type(sg_set_scope[1]).__name__}.")
             if not isinstance(sg_set_scope[2], bool):
-                raise ValueError(f"sg_set_scope[2] (allow_cross_scope_merge) must be bool, got {type(sg_set_scope[2])}")
+                raise ValueError(f"Option 'pass.sg_set_scope[2]' has invalid type. Expected bool, but got {type(sg_set_scope[2]).__name__}.")
             processed_sg_set_scope = list(sg_set_scope)
         else:
-            raise TypeError(f"sg_set_scope must be int or tuple, got {type(sg_set_scope)}")
+            raise TypeError(f"Option 'pass.sg_set_scope' has invalid type. Expected int64 or tuple, but got {type(sg_set_scope).__name__}.")
 
         # 将处理后的值放入 options_dict
-        locals_dict = {k: v for k, v in locals().items() if v is not None and k != 'sg_set_scope'}
+        locals_dict = {k: v for k, v in locals().items()
+                       if v is not None and k not in ('sg_set_scope', 'processed_sg_set_scope')}
         locals_dict['sg_set_scope'] = processed_sg_set_scope
     else:
         locals_dict = {k: v for k, v in locals().items() if v is not None}
@@ -147,7 +148,10 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
         'cube_nbuffer_setting',
         'sg_set_scope',
     }
-    return {k: v for k, v in rst.items() if k in allowed_keys}
+    result = {k: v for k, v in rst.items() if k in allowed_keys}
+    val = result['sg_set_scope']
+    result['sg_set_scope'] = (int(val[0]), bool(val[1]), bool(val[2]))
+    return result
 
 
 

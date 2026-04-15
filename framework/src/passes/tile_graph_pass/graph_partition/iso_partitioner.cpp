@@ -476,10 +476,8 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(
     return mergeColors;
 }
 
-bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
+bool IsoPartitioner::CanMergeScopes(int32_t currColor, int32_t mergeColor) const
 {
-    // allowCrossScopeMerge=false：有 scope 的 subgraph 拒绝合并
-    // allowCrossScopeMerge=true：有 scope 的 subgraph 只能与 scope=-1 的 subgraph 合并
     auto canMergeFrom = [this](const std::shared_ptr<IsomorphismGraphGroup>& fromGroup,
                                const std::shared_ptr<IsomorphismGraphGroup>& toGroup) -> bool {
         for (auto& g : fromGroup->isoGraphs_) {
@@ -500,24 +498,43 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
         return true;
     };
 
-    if (!canMergeFrom(isoSubGroups_[currColor], isoSubGroups_[mergeColor]) ||
-        !canMergeFrom(isoSubGroups_[mergeColor], isoSubGroups_[currColor])) {
+    return canMergeFrom(isoSubGroups_[currColor], isoSubGroups_[mergeColor]) &&
+           canMergeFrom(isoSubGroups_[mergeColor], isoSubGroups_[currColor]);
+}
+
+int32_t IsoPartitioner::CalculateMergedLatency(int32_t currColor, int32_t mergeColor) const
+{
+    int32_t currColorSize = static_cast<int32_t>(isoSubGroups_[currColor]->Size());
+    int32_t mergeColorSize = static_cast<int32_t>(isoSubGroups_[mergeColor]->Size());
+    if (currColorSize <= mergeColorSize) {
+        return isoSubGroups_[currColor]->GetLatency() +
+               isoSubGroups_[mergeColor]->GetLatency() * (mergeColorSize / currColorSize);
+    }
+    return isoSubGroups_[currColor]->GetLatency() * (currColorSize / mergeColorSize) +
+           isoSubGroups_[mergeColor]->GetLatency();
+}
+
+bool IsoPartitioner::CheckIsoMergeConditions(int32_t currColorSize, int32_t mergeColorSize) const
+{
+    bool isSuitableForMerge = (currColorSize == mergeColorSize);
+    isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) >= parallelNum_);
+    return isSuitableForMerge;
+}
+
+bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
+{
+    if (!CanMergeScopes(currColor, mergeColor)) {
         return false;
     }
     std::set<OpCoreType> opcoreTypes{
         isoSubGroups_[currColor]->GetSubGraph(0)->coreType_, isoSubGroups_[mergeColor]->GetSubGraph(0)->coreType_};
     bool coreTypeMergable = operationInfo_->CoreTypeMergeable(opcoreTypes);
-    int32_t latencyMerged = 0;
     int32_t currColorSize = static_cast<int32_t>(isoSubGroups_[currColor]->Size());
     int32_t mergeColorSize = static_cast<int32_t>(isoSubGroups_[mergeColor]->Size());
     if (currColorSize == 0 || mergeColorSize == 0) {
         return false;
     }
-    latencyMerged = (currColorSize <= mergeColorSize) ?
-                        isoSubGroups_[currColor]->GetLatency() +
-                            isoSubGroups_[mergeColor]->GetLatency() * (mergeColorSize / currColorSize) :
-                        isoSubGroups_[currColor]->GetLatency() * (currColorSize / mergeColorSize) +
-                            isoSubGroups_[mergeColor]->GetLatency();
+    int32_t latencyMerged = CalculateMergedLatency(currColor, mergeColor);
     bool cycleMergable = latencyMerged <= cycleUB_;
     if (nonIsoGraphsMerge) {
         bool shouldMerge = coreTypeMergable && cycleMergable;
@@ -527,10 +544,8 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
             isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), shouldMerge);
         return shouldMerge;
     }
-    bool isSuitableForMerge = (currColorSize == mergeColorSize);
-    isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) >= parallelNum_);
-    isSuitableForMerge =
-        isSuitableForMerge ||
+    bool isSuitableForMerge = CheckIsoMergeConditions(currColorSize, mergeColorSize);
+    isSuitableForMerge = isSuitableForMerge ||
         (std::min(isoSubGroups_[currColor]->GetLatency(), isoSubGroups_[mergeColor]->GetLatency()) <= cycleLB_);
     isSuitableForMerge = coreTypeMergable && isSuitableForMerge && cycleMergable;
     APASS_LOG_DEBUG_F(

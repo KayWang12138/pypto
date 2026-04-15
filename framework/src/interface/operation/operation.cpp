@@ -361,7 +361,7 @@ void Operation::DumpOperandsJson(Json& opDump, bool dumpTensor) const
     }
     opDump["ioperands"] = ioperandsDump;
     opDump["ooperands"] = ooperandsDump;
-    opDump["opcode"] = "[" + std::to_string(GetScopeId()) + "]" + GetOpcodeStr(); // TODO: dbj debug only
+    opDump["opcode"] = GetOpcodeStr();
     opDump["latency"] = GetLatency();
 
 void Operation::DumpCalleeHashJson(Json& opDump) const
