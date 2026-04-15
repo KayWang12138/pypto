@@ -375,6 +375,70 @@ Tensor Log1p(const Tensor& self)
     return resTensorBeforeCast;
 }
 
+void TiledTanOperation(
+    Function& function, const TileShape& tileShape, size_t cur, Input& input, const LogicalTensorPtr& result,
+    DataType srcDtype)
+{
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+
+        int64_t tmpSize = MultiplyLastTwoDims(input.tileInfo.shape);
+        std::vector<int64_t> tmpShape({tmpSize});
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
+        function.AddOperation(Opcode::OP_TAN, {tile}, {resultTile, tmpTensor});
+
+        return;
+    }
+    auto& vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledTanOperation(function, tileShape, cur + 1, input, result, srcDtype);
+    }
+}
+
+void TiledTanOperation(
+    Function& function, const TileShape& tileShape, const LogicalTensorPtr& self, const LogicalTensorPtr& result,
+    DataType srcDtype)
+{
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, self->shape.size() == self->offset.size())
+        << "Shape size and offset size should be equal";
+
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{self, tileInfo};
+    TiledTanOperation(function, tileShape, 0, input, result, srcDtype);
+}
+
+LogicalTensorPtr TensorTanOperation(Function& function, LogicalTensorPtr self)
+{
+    auto srcDtype = self->tensor->datatype;
+    LogicalTensorPtr operandCast = self;
+    if (srcDtype == DataType::DT_FP16 || srcDtype == DataType::DT_BF16) {
+        operandCast = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, self->shape, self->GetDynValidShape());
+        function.AddOperation(Opcode::OP_CAST, {self}, {operandCast});
+    }
+    auto result = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, self->shape, self->GetDynValidShape());
+    function.AddOperation(Opcode::OP_TAN, {operandCast}, {result});
+    if (srcDtype == DataType::DT_FP16 || srcDtype == DataType::DT_BF16) {
+        auto resultCast = std::make_shared<LogicalTensor>(function, srcDtype, self->shape, self->GetDynValidShape());
+        function.AddOperation(Opcode::OP_CAST, {result}, {resultCast});
+        return resultCast;
+    }
+    return result;
+}
+
+Tensor Tan(Tensor operand)
+{
+    DECLARE_TRACER();
+    auto dType = operand.GetStorage()->Datatype();
+    ASSERT(
+        VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
+        dType == DataType::DT_FP32 || dType == DataType::DT_FP16 || dType == DataType::DT_BF16)
+        << "The datatype is not supported";
+    RETURN_CALL(TanOperation, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage());
+}
+
 LogicalTensorPtr GenAllOneTensor(const Shape& shape, std::vector<SymbolicScalar> validShape, const DataType& dataType)
 {
     auto result = CALL(

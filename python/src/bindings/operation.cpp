@@ -172,6 +172,8 @@ void bind_operation(py::module& m)
     m.def(
         "Log1p", [](const Tensor& self) { return npu::tile_fwk::Log1p(self); }, "Tensor log1p.");
     m.def(
+        "Tan", [](const Tensor& self) { return npu::tile_fwk::Tan(self); }, "Tensor tan.");
+    m.def(
         "Pow", [](const Tensor& self, const Tensor& other) { return npu::tile_fwk::Pow(self, other); }, "Tensor pow.");
     m.def(
         "Pow", [](const Tensor& self, const Element& other) { return npu::tile_fwk::Pow(self, other); }, "Tensor pow.");
