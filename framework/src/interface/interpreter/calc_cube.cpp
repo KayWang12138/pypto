@@ -33,13 +33,27 @@ void ExecuteOpAMulB(ExecuteOperationContext* ctx)
     auto rhs = ctx->ioperandDataViewList->at(1);
     Opcode opcode = ctx->op->GetOpcode();
     bool isAccOp = (opcode == Opcode::OP_A_MULACC_B || opcode == Opcode::OP_A_MULACC_BT);
-    bool hasMXScale = ctx->op->HasAttr(Matrix::A_MUL_B_MX_ATTR) && ctx->op->GetBoolAttribute(Matrix::A_MUL_B_MX_ATTR);
+    const auto isMxScaleTensor = [](const LogicalTensorDataPtr& tensor) -> bool {
+        if (tensor == nullptr || tensor->GetDataType() != DataType::DT_FP8E8M0) {
+            return false;
+        }
+        const auto& shape = tensor->GetShape();
+        return shape.size() == 3 && shape[2] == 2;
+    };
+    bool hasMXScaleAttr =
+        ctx->op->HasAttr(Matrix::A_MUL_B_MX_ATTR) && ctx->op->GetBoolAttribute(Matrix::A_MUL_B_MX_ATTR);
+    bool hasMXScaleByInputs = !isAccOp && ctx->ioperandDataViewList->size() >= 4 &&
+                              isMxScaleTensor(ctx->ioperandDataViewList->at(2)) &&
+                              isMxScaleTensor(ctx->ioperandDataViewList->at(3));
+    bool hasMXScale = hasMXScaleAttr || hasMXScaleByInputs;
     constexpr int64_t DN2NZ_MODE = static_cast<int64_t>(Matrix::CopyInMode::DN2NZ);
     bool transAScale = hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) &&
                        ctx->op->GetIntAttribute(Matrix::A_MUL_B_SCALE_A_COPY_IN_MODE) == DN2NZ_MODE;
     bool transBScale = hasMXScale && ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_B_COPY_IN_MODE) &&
                        ctx->op->GetIntAttribute(Matrix::A_MUL_B_SCALE_B_COPY_IN_MODE) == DN2NZ_MODE;
-    bool hasBias = ctx->op->HasAttr(Matrix::A_MUL_B_BIAS_ATTR) && ctx->op->GetBoolAttribute(Matrix::A_MUL_B_BIAS_ATTR);
+    bool hasBias =
+        (ctx->op->HasAttr(Matrix::A_MUL_B_BIAS_ATTR) && ctx->op->GetBoolAttribute(Matrix::A_MUL_B_BIAS_ATTR)) ||
+        (!isAccOp && hasMXScaleByInputs && ctx->ioperandDataViewList->size() > 4);
     size_t biasIndex = 2;
     if (!isAccOp && hasMXScale) {
         // scaled_mm interface: [A, B, scale_a, scale_b, (optional) bias]
