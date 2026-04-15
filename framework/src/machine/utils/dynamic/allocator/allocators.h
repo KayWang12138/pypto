@@ -28,12 +28,15 @@ struct MetadataAllocator {
     WsMetadataAllocator general; // aicpu coherent for small suballocation, not support recycle
     SlabWsAllocator generalSlab; // aicpu meta memory, support reclamation
     SlabWsAllocator stitchSlab;  // aicpu stitched data support reclamation
+    // Runtime partial-update cell match tables (u64 cells) for assemble_dst.
+    WsSlotAllocator partialUpdateCellTables;
 };
 
 struct TensorAllocator {
     SeqWsAllocator rootInner;
     SeqWsAllocator devTaskInnerExclusiveOutcasts;
     WsSlotAllocator devTaskBoundaryOutcasts;
+    WsSlotAllocator partialUpdateCellTables;
 };
 struct RuntimeReuseInfo {
     uint32_t poolResetTimes;

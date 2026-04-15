@@ -17,6 +17,7 @@
 #include "tileop/distributed/comm_context.h"
 
 #include <cinttypes>
+#include <cstdio>
 
 namespace npu::tile_fwk::dynamic {
 bool DeviceExecuteContext::DuppedRootCached()
