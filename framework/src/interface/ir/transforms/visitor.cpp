@@ -29,7 +29,7 @@ namespace ir {
 // Top-level entry points
 void IRVisitor::VisitProgram(const ProgramPtr& program)
 {
-    for (auto& [gv, func] : program->functions_) {
+    for (auto& func : program->functions_) {
         VisitFunction(func);
     }
 }

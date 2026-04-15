@@ -18,6 +18,10 @@
 
 #include "ir/expr.h"
 #include "ir/memref.h"
+#include "ir/stmt.h"
+#include "ir/type.h"
+#include "ir/function.h"
+#include "ir/program.h"
 #include "ir/scalar_expr.h"
 #include "ir/transforms/printer.h"
 
@@ -230,22 +234,170 @@ void BindExpr(py::module& m)
     // clang-format on
 }
 
-// void BindStmt(py::module& m)
-// {
-//     // IRNode
-// }
+void BindStmt(py::module& m)
+{
+    // clang-format off
+    auto stmt = py::class_<Stmt, IRNode>(m, "Stmt", "Base class for all statements");
+    BindFields<Stmt>(stmt);
 
-// void BindType(py::module& m)
-// {
-//     // IRNode
-// }
+    auto assign_stmt = py::class_<AssignStmt, Stmt>(m, "AssignStmt", "Assignment statement: var = value")
+        .def(py::init<const VarPtr&, const ExprPtr&, const Span&>(),
+             py::arg("var"), py::arg("value"), py::arg("span"),
+             "Create an assignment statement");
+    BindFields<AssignStmt>(assign_stmt);
+
+    auto if_stmt = py::class_<IfStmt, Stmt>(m, "IfStmt",
+            "Conditional statement: if condition then then_body else else_body")
+        .def(py::init<const ExprPtr&, const StmtPtr&, const std::optional<StmtPtr>&,
+                      const std::vector<VarPtr>&, const Span&>(),
+             py::arg("condition"), py::arg("then_body"), py::arg("else_body") = py::none(),
+             py::arg("return_vars"), py::arg("span"),
+             "Create a conditional statement with then and else branches (else_body can be None)");
+    BindFields<IfStmt>(if_stmt);
+
+    auto yield_stmt = py::class_<YieldStmt, Stmt>(m, "YieldStmt", "Yield statement: yield value")
+        .def(py::init<const std::vector<ExprPtr>&, const Span&>(),
+             py::arg("value"), py::arg("span"),
+             "Create a yield statement with a list of expressions")
+        .def(py::init<const Span&>(),
+             py::arg("span"),
+             "Create a yield statement without values");
+    BindFields<YieldStmt>(yield_stmt);
+
+    auto return_stmt = py::class_<ReturnStmt, Stmt>(m, "ReturnStmt", "Return statement: return value")
+        .def(py::init<const std::vector<ExprPtr>&, const Span&>(),
+             py::arg("value"), py::arg("span"),
+             "Create a return statement with a list of expressions")
+        .def(py::init<const Span&>(),
+             py::arg("span"),
+             "Create a return statement without values");
+    BindFields<ReturnStmt>(return_stmt);
+
+    auto for_stmt = py::class_<ForStmt, Stmt>(m, "ForStmt",
+        "For loop statement: for loop_var in range(start, stop, step): body")
+        .def(py::init<VarPtr, ExprPtr, ExprPtr, ExprPtr, std::vector<IterArgPtr>&, StmtPtr,
+                      std::vector<VarPtr>&, const Span&>(),
+             py::arg("loop_var"), py::arg("start"), py::arg("stop"), py::arg("step"), py::arg("iter_args"),
+             py::arg("body"), py::arg("return_vars"), py::arg("span"),
+             "Create a for loop statement with a list of expressions");
+    BindFields<ForStmt>(for_stmt);
+
+    auto while_stmt = py::class_<WhileStmt, Stmt>(m, "WhileStmt",
+        "While loop statement: while condition: body")
+        .def(py::init<const ExprPtr&, const std::vector<IterArgPtr>&, const StmtPtr&,
+                      const std::vector<VarPtr>&, const Span&>(),
+            py::arg("condition"), py::arg("iter_args"), py::arg("body"), py::arg("return_vars"), py::arg("span"),
+            "Create a while loop statement");
+    BindFields<WhileStmt>(while_stmt);
+
+    auto seq_stmt = py::class_<SeqStmts, Stmt>(m, "SeqStmts",
+        "Sequence of statements: a sequence of statements")
+        .def(py::init<const std::vector<StmtPtr>&, const Span&>(),
+             py::arg("stmts"), py::arg("span"),
+             "Create a sequence of statements")
+        .def("__getitem__", [](SeqStmtsPtr& self, int index) {
+            int size = static_cast<int>(self->stmts_.size());
+            if (index < -size || index >= size) {
+                throw IndexError("SeqStmts index " + std::to_string(index) + " out of range [" +
+                                 std::to_string(-size) + ", " + std::to_string(size - 1) + "]");
+            }
+            if (index < 0) index += size;
+            return self->stmts_[index];
+        }, py::arg("index"), "Get statement by index, supports negative indexing");
+    BindFields<SeqStmts>(seq_stmt);
+
+    auto eval_stmt_class = py::class_<EvalStmt, Stmt>(m, "EvalStmt", "Evaluation statement: expr")
+        .def(py::init<const ExprPtr&, const Span&>(),
+             py::arg("expr"), py::arg("span"),
+             "Create an evaluation statement");
+    BindFields<EvalStmt>(eval_stmt_class);
+
+    auto break_stmt = py::class_<BreakStmt, Stmt>(m, "BreakStmt", "Break statement: break")
+        .def(py::init<const Span&>(), py::arg("span"), "Create a break statement");
+    BindFields<BreakStmt>(break_stmt);
+
+    auto continue_stmt = py::class_<ContinueStmt, Stmt>(m, "ContinueStmt", "Continue statement: continue")
+        .def(py::init<const Span&>(), py::arg("span"), "Create a continue statement");
+    BindFields<ContinueStmt>(continue_stmt);
+
+    auto function = py::class_<Function, IRNode>(m, "Function",
+        "Function definition with name, parameters, return types, and body")
+        .def(py::init<std::string, std::vector<VarPtr>&, std::vector<TypePtr>&, StmtPtr, Span, FunctionType>(),
+             py::arg("name"), py::arg("params"), py::arg("return_types"), py::arg("body"), py::arg("span"),
+             py::arg("type") = FunctionType::OPAQUE,
+             "Create a function definition");
+    BindFields<Function>(function);
+
+    auto program = py::class_<Program, IRNode>(m, "Program",
+        "Program definition with functions mapped by GlobalVar references. "
+        "Functions are automatically sorted by name for deterministic ordering.")
+        .def(py::init<const std::vector<FunctionPtr>&, const std::string&, const Span&>(),
+             py::arg("functions"), py::arg("name"), py::arg("span"),
+             "Create a program from a list of functions. "
+             "GlobalVar references are created automatically from function names.")
+        .def("__getitem__", [](const ProgramPtr& self, const std::string& name) {
+            return self->GetFunction(name);
+        }, py::arg("name"), "Get function by name, returns None if not found")
+        .def_readonly("functions", &Program::functions_, "Program functions")
+        .def_readonly("name", &Program::name_, "Program name")
+        .def_readonly("span", &Program::span_, "Source location");
+    // clang-format on
+}
+
+void BindType(py::module& m)
+{
+    py::native_enum<FunctionType>(m, "FunctionType", "enum.IntEnum", "Function type classification")
+        .value("Opaque", FunctionType::OPAQUE, "Unspecified function type (default)")
+        .export_values()
+        .finalize();
+
+    py::native_enum<TensorLayout>(m, "TensorLayout", "enum.IntEnum", "Tensor layout enumeration")
+        .value("ND", TensorLayout::ND, "ND layout")
+        .value("DN", TensorLayout::DN, "DN layout")
+        .value("NZ", TensorLayout::NZ, "NZ layout")
+        .export_values()
+        .finalize();
+
+    py::native_enum<MemorySpace>(m, "MemorySpace", "enum.IntEnum", "Memory space enumeration")
+        .value("DDR", MemorySpace::DDR, "DDR memory (off-chip)")
+        .value("Vec", MemorySpace::Vec, "Vector/unified buffer (on-chip)")
+        .value("Mat", MemorySpace::Mat, "Matrix/L1 buffer")
+        .value("Left", MemorySpace::Left, "Left matrix operand buffer")
+        .value("Right", MemorySpace::Right, "Right matrix operand buffer")
+        .value("Acc", MemorySpace::Acc, "Accumulator buffer")
+        .value("Bias", MemorySpace::Bias, "Bias buffer")
+        .export_values()
+        .finalize();
+
+    m.attr("Mem") = m.attr("MemorySpace");
+
+    py::native_enum<PipeType>(m, "PipeType", "enum.IntEnum", "Pipeline type enumeration")
+        .value("MTE1", PipeType::MTE1, "Memory Transfer Engine 1")
+        .value("MTE2", PipeType::MTE2, "Memory Transfer Engine 2")
+        .value("MTE3", PipeType::MTE3, "Memory Transfer Engine 3")
+        .value("M", PipeType::M, "Matrix Unit")
+        .value("V", PipeType::V, "Vector Unit")
+        .value("S", PipeType::S, "Scalar Unit")
+        .value("FIX", PipeType::FIX, "Fix Pipe")
+        .value("ALL", PipeType::ALL, "All Pipes")
+        .export_values()
+        .finalize();
+
+    py::native_enum<CoreType>(m, "CoreType", "enum.IntEnum", "Core type enumeration")
+        .value("VECTOR", CoreType::VECTOR, "Vector Core")
+        .value("CUBE", CoreType::CUBE, "Cube Core")
+        .export_values()
+        .finalize();
+}
 } // namespace ir
 
 void BindIR(py::module& m)
 {
     auto m1 = m.def_submodule("ir");
+    ir::BindType(m1);
     ir::BindDType(m1);
     ir::BindSpan(m1);
     ir::BindExpr(m1);
+    ir::BindStmt(m1);
 }
 } // namespace pypto

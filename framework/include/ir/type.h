@@ -122,6 +122,20 @@ public:
 using ScalarTypePtr = std::shared_ptr<const ScalarType>;
 
 /**
+ * @brief Tensor layout enumeration
+ *
+ * Defines the available tensor layout types:
+ * - ND: ND layout
+ * - DN: DN layout
+ * - NZ: NZ layout
+ */
+enum class TensorLayout {
+    ND, ///< ND layout
+    DN, ///< DN layout
+    NZ  ///< NZ layout
+};
+
+/**
  * \brief Tile view representation
  *
  * Represents the view information for a tile, including valid shape,
