@@ -306,9 +306,10 @@ std::string TestMatmulMteBody(const std::string& funcName, Opcode opcode, Memory
 
     LogicalTensors inputs = {localTensor};
     LogicalTensors outputs = {localOutTensor};
-    if (opcode == Opcode::OP_COPY_OUT) {
+    if (opcode == Opcode::OP_COPY_OUT || opcode == Opcode::OP_L0C_COPY_UB) {
         inputs.emplace_back(localTensor);
     }
+
     auto& op = function->AddOperation(opcode, inputs, outputs);
 
     op.SetAttribute(OpAttributeKey::gmTensorParamIdxInCall, 0);
@@ -405,7 +406,7 @@ TEST_F(TestCodegenDynCopy, L0CCopyUBTensor)
     std::string res =
         TestMatmulMteBody("L0CCopyUBTensor", Opcode::OP_L0C_COPY_UB, MemoryType::MEM_L0C, MemoryType::MEM_UB);
     std::string expect =
-        R"!!!(TExtract<CopyOutMode::NZ2ND>(ubTensor_0, l0cTensor_1, Coord2Dim(0, 0), Coord2Dim(0, 0), 0);
+        R"!!!(TExtract<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(ubTensor_0, l0cTensor_1, l0cTensor_1, Coord2Dim(0, 0), Coord2Dim(0, 0), 0, 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
