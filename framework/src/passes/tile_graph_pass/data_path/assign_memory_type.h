@@ -39,6 +39,8 @@ private:
                                           const LogicalTensorPtr &output) const;
     void AssignMoveOpForAssemble(Operation& operation);
     void AssignMoveOpForView(Operation& operation);
+    void ProcessSingleViewInput(Operation& operation, ViewOpAttribute* viewOpAttribute,
+                                const LogicalTensorPtr& tensor, MemoryType toType, bool unaligned);
     void RunOnOperation(Operation& operation);
     void AssignMemUnknown(Function& function);
     void ProcessAmulBInput(Operation& operation, LogicalTensorPtr& tensor);
@@ -63,6 +65,7 @@ private:
     void ProcessUB2L1SmallToLarge(Function &function);
     void ProcessUB2L1LargeToSmall(Function &function);
     bool IsDimMultiple(const Shape& shape1, const Shape& shape2);
+    bool CheckInnerAxisC0Size(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const;
     int64_t CalcLineOffset(const Shape& shape, const Offset& offset);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
