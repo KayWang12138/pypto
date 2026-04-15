@@ -706,7 +706,7 @@ struct FunctionInterpreter {
     VerifyType verifyType{VerifyType::INVALID};
     int captureIndex{0};
     int passIndex{-1};
-    static std::unordered_map<Operation*, Operation*> waitDependencies_;
+    std::unordered_map<Operation*, Operation*> waitDependencies_;
 
     std::vector<std::shared_ptr<LogicalTensorData>>& GetInputDataViewList()
     {
