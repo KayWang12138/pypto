@@ -449,10 +449,10 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
 
-    if is_p and is not is_soc_950:
+    if is_p and not is_soc_950:
         sparse_flash_attention_quant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
             max_blocknum_perbatch, tile_config)
-    elif is not is_p and is not is_soc_950::
+    elif not is_p and not is_soc_950:
         sparse_flash_attention_quant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
             max_blocknum_perbatch, tile_config)
     else:
@@ -547,6 +547,7 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_sfa_bf16_b4_s2_seq64k_total_int8_d()
-    test_sfa_bf16_b4_s2_seq64k_per_int8_d()
-    test_sfa_bf16_b1_s256_seq64k_int8_p()
+    # test_sfa_bf16_b4_s2_seq64k_total_int8_d()
+    # test_sfa_bf16_b4_s2_seq64k_per_int8_d()
+    # test_sfa_bf16_b1_s256_seq64k_int8_p()
+    test_sfa_bf16_b4_s2_seq64k_per_int8_d_950()
