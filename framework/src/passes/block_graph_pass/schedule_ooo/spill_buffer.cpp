@@ -389,7 +389,7 @@ Status OoOScheduler::SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, 
 
     opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
     opIsAllocMap[copyoutOp] = false;
-    opIsRetiredMap[copyoutOp] = false;
+    opIsRetiredMap[copyoutOp] = true;
     opReqMemIdsMap[copyoutOp] = {actualSpillTensor->memoryrange.memId};
     depManager_.RegisterOp(copyoutOp);
 
@@ -528,6 +528,7 @@ Status OoOScheduler::SpillReshapeFromDDRFor3510(int memId, Operation* actualSpil
             }
         }
     }
+    depManager_.InitDependencies(orderedOps, false);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
 }
@@ -563,7 +564,7 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
 
     opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
     opIsAllocMap[copyoutOp] = false;
-    opIsRetiredMap[copyoutOp] = false;
+    opIsRetiredMap[copyoutOp] = true;
     opReqMemIdsMap[copyoutOp] = {actualSpillTensor->memoryrange.memId};
     depManager_.RegisterOp(copyoutOp);
 
@@ -875,7 +876,7 @@ Operation* OoOScheduler::CreateAllocOp(LogicalTensorPtr oOperand) {
     Opcode opcode = 
         oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
     Operation& allocOp = function_.AddRawOperation(opcode, {}, {oOperand});
-    allocOp.UpdateLatency(0);
+    allocOp.UpdateLatency(1);
     return &allocOp;
 }
 
@@ -937,7 +938,7 @@ Operation* OoOScheduler::CreateCopyoutOp(Operation* spillOp, LogicalTensorPtr iO
 }
 
 Operation* OoOScheduler::CreateReshapeOp(LogicalTensorPtr iOperand, LogicalTensorPtr oOperand) {
-    Operation& reshapeOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {iOperand}, {oOperand});
+    Operation& reshapeOp = function_.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {oOperand});
     reshapeOp.UpdateLatency(0);
     return &reshapeOp;
 }
