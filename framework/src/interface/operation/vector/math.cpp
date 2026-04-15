@@ -374,6 +374,77 @@ Tensor Log1p(const Tensor& self)
     return resTensorBeforeCast;
 }
 
+Tensor Tan(Tensor operand)
+{
+    auto dType = operand.GetStorage()->Datatype();
+    if (dType != DataType::DT_FP32) {
+        operand = Cast(operand, DataType::DT_FP32);
+    }
+
+    constexpr float INV_PI = 0.3183098733425140380859375f;
+    constexpr float PI_HIGH = 3.140625f;
+    constexpr float PI_CORR_1 = 0.0009670257568359375f;
+    constexpr float PI_CORR_2 = 6.2771141529083251953125e-7f;
+    constexpr float PI_CORR_3 = 1.21644916362129151821136474609375e-10f;
+    constexpr float PI_CORR_4 = -1.0291767438275201129727065563201904296875e-13f;
+    constexpr float HALF_PI = 1.57079637050628662109375f;
+    constexpr float HALF_PI_NEG = -1.57079637050628662109375f;
+    constexpr float EPS = 0.00000004371139000189375f;
+    constexpr float EPS_NEG = -0.00000004371139000189375f;
+    constexpr float POLY_R0 = 0.0698520831551998762793f;
+    constexpr float POLY_R1 = -6.8711573651634203789f;
+    constexpr float POLY_R2 = 61.20362572811089435388f;
+    constexpr float POLY_R3 = -24.8048928861126769186219f;
+
+    auto xDivPi = Mul(operand, Element(DataType::DT_FP32, INV_PI));
+    auto n = Cast(xDivPi, DataType::DT_FP32, CAST_ROUND);
+
+    auto nPiHigh = Mul(n, Element(DataType::DT_FP32, PI_HIGH));
+    auto x = Sub(operand, nPiHigh);
+
+    auto nPiCorr1 = Mul(n, Element(DataType::DT_FP32, PI_CORR_1));
+    x = Sub(x, nPiCorr1);
+
+    auto down1 = Add(x, Element(DataType::DT_FP32, HALF_PI));
+    auto down2 = Add(x, Element(DataType::DT_FP32, HALF_PI_NEG));
+
+    auto nPiCorr2 = Mul(n, Element(DataType::DT_FP32, PI_CORR_2));
+    x = Sub(x, nPiCorr2);
+    down1 = Sub(down1, nPiCorr2);
+    down2 = Sub(down2, nPiCorr2);
+    down1 = Add(down1, Element(DataType::DT_FP32, EPS_NEG));
+    down2 = Add(down2, Element(DataType::DT_FP32, EPS));
+
+    auto nPiCorr3 = Mul(n, Element(DataType::DT_FP32, PI_CORR_3));
+    x = Sub(x, nPiCorr3);
+    down1 = Sub(down1, nPiCorr3);
+    down2 = Sub(down2, nPiCorr3);
+
+    auto nPiCorr4 = Mul(n, Element(DataType::DT_FP32, PI_CORR_4));
+    x = Sub(x, nPiCorr4);
+    down1 = Sub(down1, nPiCorr4);
+    down2 = Sub(down2, nPiCorr4);
+
+    auto x2 = Mul(x, x);
+
+    auto numerator = Mul(x2, Element(DataType::DT_FP32, POLY_R0));
+    numerator = Add(numerator, Element(DataType::DT_FP32, POLY_R1));
+    numerator = Mul(numerator, x2);
+    numerator = Add(numerator, Element(DataType::DT_FP32, POLY_R2));
+    numerator = Mul(numerator, x);
+
+    auto denominator = Add(x2, Element(DataType::DT_FP32, POLY_R3));
+    denominator = Mul(denominator, down1);
+    denominator = Mul(denominator, down2);
+
+    auto result = Div(numerator, denominator);
+
+    if (dType != result.GetStorage()->Datatype()) {
+        result = Cast(result, dType);
+    }
+    return result;
+}
+
 LogicalTensorPtr GenAllOneTensor(const Shape& shape, std::vector<SymbolicScalar> validShape, const DataType& dataType)
 {
     auto result = CALL(
