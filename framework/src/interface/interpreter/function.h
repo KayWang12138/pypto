@@ -1038,7 +1038,7 @@ struct FunctionInterpreter {
 
         ExecuteHandleFunctionBegin(func, frame);
         // TODO: 将依赖 WaitUntil 的 Op 以及对应的任务绑定
-        ResolveWaitUntilDependency(func, frame);
+        ResolveWaitUntilDependency(func);
         for (auto& op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
@@ -1063,14 +1063,14 @@ struct FunctionInterpreter {
         return frame;
     }
 
-    void ResolveWaitUntilDependency(Function* func, const std::shared_ptr<FunctionFrame>& frame) {
+    void ResolveWaitUntilDependency(Function* func) {
         for (auto& op : func->Operations()) {
             if (op.GetOpcode() != Opcode::OP_SHMEM_WAIT_UNTIL) {
                 continue;
             }
             LogicalTensors dependencyOperands = op.GetDependOperands();
             for (auto& depend : dependencyOperands) {
-                for (auto& consumer : depend.GetConsumers()) {
+                for (auto& consumer : depend->GetConsumers()) {
                     waitDependencies_[consumer] = &op;
                 }
             }
