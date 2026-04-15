@@ -117,23 +117,28 @@ void DeviceTaskContext::ProcessAivBatchTasks(
 {
     uint32v8 one = {1, 1, 1, 1, 1, 1, 1, 1};
     uint32v8 base = {0, 1, 2, 3, 4, 5, 6, 7};
-    taskid_t* aivQueueElemList = reinterpret_cast<taskid_t*>(aivQueue->elem);
+    //taskid_t* aivQueueElemList = aivQueue->elem;
 
     for (size_t opIndex = 0; opIndex < totalZeroPredAIVBatchEnd; opIndex += DUP_PRED_COUNT_LOOP_MAX) {
         if (likely(
                 (*reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex]) |
                  *reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex + DUP_PRED_COUNT_PRE_LOOP_CNT])) == 0)) {
             uint32v8 taskidv8 = (one * MakeTaskID(funcIndex, 0)) | (base + static_cast<uint32_t>(opIndex));
+            /*
 #ifdef __x86_64__
             memcpy_s(&aivQueueElemList[aivQueue->tail], sizeof(taskidv8), &taskidv8, sizeof(taskidv8));
 #else
             *reinterpret_cast<uint32v8*>(&aivQueueElemList[aivQueue->tail]) = taskidv8;
 #endif
             aivQueue->tail += DUP_PRED_COUNT_LOOP_MAX;
+            */
+            
+            aivQueue->unsafe_enqueue(reinterpret_cast<ReadyCoreFunctionQueue::value_type*>(&taskidv8), DUP_PRED_COUNT_LOOP_MAX);
         } else {
             for (size_t idx = 0; idx < DUP_PRED_COUNT_LOOP_MAX; ++idx) {
                 if (likely(dupPredCountList[opIndex + idx] == 0)) {
-                    aivQueueElemList[aivQueue->tail++] = MakeTaskID(funcIndex, opIndex + idx);
+                    //aivQueueElemList[aivQueue->tail++] = MakeTaskID(funcIndex, opIndex + idx);
+                    aivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex + idx));
                 }
             }
         }
@@ -179,7 +184,7 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask* dyntask, DevAscendProgram*
 
     int wrapTaskNum = ProcessZeroPredTask(dyntask, wrapQueue, isNeedWrap);
     UpdateDeviceTaskQueueInfo(dyntask, aicpuQueue, aivQueue, aicQueue, wrapQueue);
-    readyTaskNum += static_cast<uint64_t>(aivQueue->tail + aicQueue->tail + aicpuQueue->tail + wrapTaskNum);
+    readyTaskNum += static_cast<uint64_t>(aivQueue->unsafe_size() + aicQueue->unsafe_size() + aicpuQueue->unsafe_size() + wrapTaskNum);
     PerfEnd(PERF_EVT_READY_QUEUE_IN);
     return DEVICE_MACHINE_OK;
 }
@@ -218,7 +223,8 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                targetAivQueue->elem[targetAivQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+                // targetAivQueue->elem[targetAivQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+                targetAivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
     }
@@ -233,7 +239,8 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                targetAicQueue->elem[targetAicQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+                // targetAicQueue->elem[targetAicQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+                targetAicQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
     }
@@ -242,7 +249,8 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
     auto aicpuEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC + predInfo.totalZeroPredAicpu;
     for (size_t opIndex = aicEnd; opIndex < aicpuEnd; ++opIndex) {
         if (likely(dupPredCountList[opIndex] == 0)) {
-            aicpuQueue->elem[aicpuQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+            // aicpuQueue->elem[aicpuQueue->tail++] = MakeTaskID(funcIndex, opIndex);
+            aicpuQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
         }
     }
 }
@@ -391,6 +399,7 @@ void DeviceTaskContext::DumpReadyQueue(DynDeviceTask* dynTask, const char* prefi
     int aicIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC);
     int aicpuIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU);
 
+    /* Temporary disabled
     DEV_DEBUG(
         "%s: ready queue aiv: %d-%d", prefix, (int)dynTask->readyQueue[aivIndex]->head,
         (int)dynTask->readyQueue[aivIndex]->tail);
@@ -411,6 +420,7 @@ void DeviceTaskContext::DumpReadyQueue(DynDeviceTask* dynTask, const char* prefi
     for (uint32_t i = dynTask->readyQueue[aicpuIndex]->head; i < dynTask->readyQueue[aicpuIndex]->tail; i++) {
         DEV_DEBUG("%s: ready queue aicpu[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicpuIndex]->elem[i]);
     }
+    */
 }
 void DeviceTaskContext::DumpDepend(
     DynDeviceTask* dyntask, DevAscendProgram* devProg, DevStartArgs* startArgs, const char* prefix)
@@ -420,7 +430,7 @@ void DeviceTaskContext::DumpDepend(
     int total = 0;
     for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
         ReadyCoreFunctionQueue* q = dyntask->readyQueue[i];
-        total += q->tail - q->head;
+        total += q->unsafe_size();
     }
     DEV_DEBUG("%s: ready total:%d", prefix, total);
     for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {

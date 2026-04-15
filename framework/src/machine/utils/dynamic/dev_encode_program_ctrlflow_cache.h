@@ -37,23 +37,13 @@ inline constexpr size_t MAX_STITCH_FUNC_NUM_LOWER = 128;
 
 struct ReadyQueueCache {
     uint32_t coreFunctionCnt;
-    struct Queue {
-        uint32_t head;
-        uint32_t tail;
-        uint32_t capacity;
-        uint32_t* elem;
-    } queueList[READY_QUEUE_SIZE];
+    ReadyCoreFunctionQueueUnsafe queueList[READY_QUEUE_SIZE];
     uint32_t readyTaskNum;
 };
 
 struct DieReadyQueueCache {
     uint32_t coreFunctionCnt;
-    struct Queue {
-        uint32_t head;
-        uint32_t tail;
-        uint32_t capacity;
-        uint32_t* elem;
-    } queueList[DIE_READY_QUEUE_SIZE * DIE_NUM];
+    ReadyCoreFunctionQueueUnsafe queueList[DIE_READY_QUEUE_SIZE * DIE_NUM];
     uint32_t readyTaskNum;
 };
 
@@ -410,13 +400,14 @@ struct DevControlFlowCache {
                 return;
             }
 
-            readyQueueBackup->queueList[i].head = base->readyQueue[i]->head;
-            readyQueueBackup->queueList[i].tail = base->readyQueue[i]->tail;
-            readyQueueBackup->queueList[i].capacity = base->readyQueue[i]->capacity();
-            readyQueueBackup->queueList[i].elem = readyQueueBackupElem;
-            memcpy_s(readyQueueBackup->queueList[i].elem, backupSize, base->readyQueue[i]->elem, backupSize);
+            new (readyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(base->readyQueue[i]->capacity(), readyQueueBackupElem);
+            readyQueueBackup->queueList[i] = *base->readyQueue[i];
 
-            readyTaskNum += base->readyQueue[i]->tail - base->readyQueue[i]->head;
+            /*readyQueueBackup->queueList[i].head = base->readyQueue[i]->head;
+            readyQueueBackup->queueList[i].tail = base->readyQueue[i]->tail;
+            memcpy_s(readyQueueBackup->queueList[i].elem, backupSize, base->readyQueue[i]->elem, backupSize);*/
+
+            readyTaskNum += base->readyQueue[i]->unsafe_size();
         }
         readyQueueBackup->readyTaskNum = readyTaskNum;
         base->readyQueueBackup = readyQueueBackup;
@@ -427,11 +418,12 @@ struct DevControlFlowCache {
         ReadyQueueCache* readyQueueBackup = base->readyQueueBackup;
         base->devTask.coreFunctionCnt = readyQueueBackup->coreFunctionCnt;
         for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
-            size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity();
+            *base->readyQueue[i] = readyQueueBackup->queueList[i];
+            /*size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity();
 
             base->readyQueue[i]->head = readyQueueBackup->queueList[i].head;
             base->readyQueue[i]->tail = readyQueueBackup->queueList[i].tail;
-            memcpy_s(base->readyQueue[i]->elem, backupSize, readyQueueBackup->queueList[i].elem, backupSize);
+            memcpy_s(base->readyQueue[i]->elem, backupSize, readyQueueBackup->queueList[i].elem, backupSize);*/
         }
     }
 
@@ -449,10 +441,11 @@ struct DevControlFlowCache {
                 (i < DIE_NUM) ? base->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i] :
                                 base->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i - DIE_NUM]);
             if (dieReadyQueue == nullptr) {
-                dieReadyQueueBackup->queueList[i].head = 0;
-                dieReadyQueueBackup->queueList[i].tail = 0;
-                dieReadyQueueBackup->queueList[i].capacity = 0;
-                dieReadyQueueBackup->queueList[i].elem = nullptr;
+                // dieReadyQueueBackup->queueList[i].head = 0;
+                // dieReadyQueueBackup->queueList[i].tail = 0;
+                // dieReadyQueueBackup->queueList[i].capacity = 0;
+                // dieReadyQueueBackup->queueList[i].elem = nullptr;
+                new (dieReadyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(0, nullptr);
                 continue;
             }
             size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity();
@@ -461,13 +454,17 @@ struct DevControlFlowCache {
                 return;
             }
 
-            dieReadyQueueBackup->queueList[i].head = dieReadyQueue->head;
-            dieReadyQueueBackup->queueList[i].tail = dieReadyQueue->tail;
-            dieReadyQueueBackup->queueList[i].capacity = dieReadyQueue->capacity();
-            dieReadyQueueBackup->queueList[i].elem = dieReadyQueueBackupElem;
-            memcpy_s(dieReadyQueueBackup->queueList[i].elem, backupSize, dieReadyQueue->elem, backupSize);
+            new (dieReadyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(dieReadyQueue->capacity(), dieReadyQueueBackupElem) ;
+            dieReadyQueueBackup->queueList[i] = *dieReadyQueue;            
+            
+            // dieReadyQueueBackup->queueList[i].head = dieReadyQueue->head;
+            // dieReadyQueueBackup->queueList[i].tail = dieReadyQueue->tail;
+            // dieReadyQueueBackup->queueList[i].capacity = dieReadyQueue->capacity();
+            // dieReadyQueueBackup->queueList[i].elem = dieReadyQueueBackupElem;
+            // memcpy_s(dieReadyQueueBackup->queueList[i].elem, backupSize, dieReadyQueue->elem, backupSize);
 
-            readyTaskNum += dieReadyQueue->tail - dieReadyQueue->head;
+            //readyTaskNum += dieReadyQueue->tail - dieReadyQueue->head;
+            readyTaskNum += dieReadyQueue->unsafe_size();
         }
         dieReadyQueueBackup->readyTaskNum = readyTaskNum;
         base->dieReadyQueueBackup = dieReadyQueueBackup;
@@ -487,13 +484,17 @@ struct DevControlFlowCache {
             if (dieReadyQueue == nullptr) {
                 continue;
             }
-            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity();
+            //DEV_ASSERT(0, dieReadyQueueBackup->queueList[i].elem == nullptr);
 
+            /*
+            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity();
             dieReadyQueue->head = dieReadyQueueBackup->queueList[i].head;
             dieReadyQueue->tail = dieReadyQueueBackup->queueList[i].tail;
             if (dieReadyQueueBackup->queueList[i].elem != nullptr) {
                 memcpy_s(dieReadyQueue->elem, backupSize, dieReadyQueueBackup->queueList[i].elem, backupSize);
             }
+            */
+            *dieReadyQueue = dieReadyQueueBackup->queueList[i];
         }
     }
 
@@ -1011,7 +1012,7 @@ struct DevControlFlowCache {
             ReadyCoreFunctionQueue* queue = RelocControlFlowCachePointer(queueRef, relocCtrlCache);
             relocCtrlCache.Reloc(queuePtrValue);
             if (queue != nullptr) {
-                relocCtrlCache.Reloc(queue->elem);
+                relocCtrlCache.Reloc(queue->relocable_elem());
             }
         };
         for (size_t i = 0; i < DIE_NUM; i++) {
@@ -1023,7 +1024,7 @@ struct DevControlFlowCache {
         DieReadyQueueCache* dieReadyQueueBackup = RelocControlFlowCachePointer(dieReadyQueueBackupRef, relocCtrlCache);
         if (dieReadyQueueBackup != nullptr) {
             for (size_t i = 0; i < DIE_READY_QUEUE_SIZE * DIE_NUM; i++) {
-                relocCtrlCache.Reloc(dieReadyQueueBackup->queueList[i].elem);
+                relocCtrlCache.Reloc(dieReadyQueueBackup->queueList[i].relocable_elem());
             }
         }
     }
@@ -1067,7 +1068,7 @@ struct DevControlFlowCache {
             for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
                 ReadyCoreFunctionQueue*& readyQueueRef = dynTaskBase->readyQueue[i];
                 ReadyCoreFunctionQueue* readyQueue = RelocControlFlowCachePointer(readyQueueRef, relocCtrlCache);
-                relocCtrlCache.Reloc(readyQueue->elem);
+                relocCtrlCache.Reloc(readyQueue->relocable_elem());
             }
             relocProgram.Reloc(dynTaskBase->cceBinary);
             relocProgram.Reloc(dynTaskBase->aicpuLeafBinary);
@@ -1075,7 +1076,7 @@ struct DevControlFlowCache {
             ReadyQueueCache*& readyQueueBackupRef = dynTaskBase->readyQueueBackup;
             ReadyQueueCache* readyQueueBackup = RelocControlFlowCachePointer(readyQueueBackupRef, relocCtrlCache);
             for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
-                relocCtrlCache.Reloc(readyQueueBackup->queueList[i].elem);
+                relocCtrlCache.Reloc(readyQueueBackup->queueList[i].relocable_elem());
             }
 
             DynFuncHeader*& dynFuncDataListRef = dynTaskBase->dynFuncDataList;

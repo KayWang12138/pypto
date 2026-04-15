@@ -28,12 +28,56 @@ enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 #define WRAP_IDX_AIV0 1
 #define WRAP_IDX_AIV1 2
 
+namespace dynamic {
+    class DevControlFlowCache;
+}
 
-// aic aiv 已经ready的core function id队列
 template <class T>
-struct ReadyCoreFunctionQueueGeneric {
+struct QueueGeneric {
 
-    ReadyCoreFunctionQueueGeneric(uint32_t capacity, T *_elem):head(0), tail(0), elem(_elem), _capacity(capacity), lockFlag(0) {}
+    QueueGeneric(uint32_t capacity, T *_elem):head(0), tail(0), elem(_elem), _capacity(capacity) {}
+
+    QueueGeneric& operator=(const QueueGeneric &rhs) {
+        head = rhs.head;
+        tail = rhs.tail;
+        if (capacity() == 0) {
+            return *this;
+        }
+        // const size_t datasize = sizeof(value_type) * capacity();
+        // memcpy_s(elem, datasize, rhs.elem, datasize);
+        std::copy(rhs.elem, rhs.elem + rhs.size(), elem);
+        return *this;
+    }
+
+	uint32_t capacity() const {
+	    return _capacity;
+	}
+
+	uint32_t size() const {
+	    return tail - head;
+	}
+
+	typedef T value_type;
+protected:
+    uint32_t head;
+    uint32_t tail;
+    value_type* elem;
+
+    friend class dynamic::DevControlFlowCache;
+    // Only for relocation! Do not use it for elements reading/writing!
+	value_type*& relocable_elem() {
+	    return elem;
+	}
+private:
+    uint32_t _capacity;
+};
+
+template <class T>
+struct LockableQueueGeneric:public QueueGeneric<T> {
+
+    LockableQueueGeneric(uint32_t capacity, T *_elem):QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
+
+    using QueueGeneric<T>::operator=;
 
 	void lock() {
     	while (!__sync_bool_compare_and_swap(&lockFlag, 0, 1)) {
@@ -45,25 +89,30 @@ struct ReadyCoreFunctionQueueGeneric {
     	}
 	}
 
-	uint32_t capacity() const {
-	    return _capacity;
+	uint32_t unsafe_size() const {
+	    return this->size();
 	}
 
-	//void enqueue()
+	void unsafe_enqueue(T x) {
+	    this->elem[this->tail++] = x;
+	}
 
-	typedef T value_type;
-//private:
-    uint32_t head;
-    uint32_t tail;
-    value_type* elem;
+	void unsafe_enqueue(T *x, uint32_t count) {
+	    std::copy(x, x+count, this->elem);
+	    this->tail += count;
+	}
+	
 private:
-    uint32_t _capacity;
     size_t lockFlag;
 
-    //uint64_t Size() { return tail - head; } // FIXME: Unused? Remove it?
+	using QueueGeneric<T>::size;
 };
 
-typedef ReadyCoreFunctionQueueGeneric<uint32_t> ReadyCoreFunctionQueue;
+// aic aiv 已经ready的core function id队列
+typedef LockableQueueGeneric<uint32_t> ReadyCoreFunctionQueue;
+typedef QueueGeneric<uint32_t> ReadyCoreFunctionQueueUnsafe;
+
+
 
 struct StaticReadyCoreFunctionQueue {
     uint64_t head;
