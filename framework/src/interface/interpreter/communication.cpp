@@ -103,8 +103,22 @@ void SimulationCommContext::Init(const std::string &groupName, int rank, int wor
                 
                 try {
                     this->Wait(task.srcRank, task.expect, task.slotSize, task.offset, task.reset);
+                    
+                    std::lock_guard<std::mutex> lock2(waitTaskMutex_);
+                    auto it = waitTaskPromises_.find(task.taskId);
+                    if (it != waitTaskPromises_.end()) {
+                        it->second.set_value();
+                        waitTaskPromises_.erase(it);
+                    }
                 } catch (const std::exception &e) {
                     std::cerr << "Wait worker thread exception: " << e.what() << std::endl;
+                    
+                    std::lock_guard<std::mutex> lock2(waitTaskMutex_);
+                    auto it = waitTaskPromises_.find(task.taskId);
+                    if (it != waitTaskPromises_.end()) {
+                        it->second.set_exception(std::current_exception());
+                        waitTaskPromises_.erase(it);
+                    }
                 }
             }
         }
@@ -364,10 +378,28 @@ void SimulationCommContext::Wait(int srcRank, int expect, size_t slotSize, uint6
     }
 }
 
-void SimulationCommContext::WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
+uint64_t SimulationCommContext::WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset, bool reset) {
+    uint64_t taskId = nextTaskId_++;
+    
     std::lock_guard<std::mutex> lock(waitTaskMutex_);
-    waitTaskQueue_.push({srcRank, expect, slotSize, offset, reset});
+    waitTaskPromises_[taskId] = std::promise<void>();
+    waitTaskQueue_.push({taskId, srcRank, expect, slotSize, offset, reset});
     waitTaskCV_.notify_one();
+    
+    return taskId;
+}
+
+void SimulationCommContext::WaitComplete(uint64_t taskId) {
+    std::unique_lock<std::mutex> lock(waitTaskMutex_);
+    auto it = waitTaskPromises_.find(taskId);
+    if (it == waitTaskPromises_.end()) {
+        throw std::runtime_error("Task ID not found: " + std::to_string(taskId));
+    }
+    
+    auto future = it->second.get_future();
+    lock.unlock();
+    
+    future.wait();
 }
 
 LogicalTensorDataPtr SimulationCommContext::Get(int srcRank, size_t slotSize, uint64_t offset) {
@@ -463,24 +495,59 @@ std::string SimulationCommManager::GetHandler(const std::string &groupName, int 
     return "round_" + std::to_string(round) + "_" + groupName + "_" + std::to_string(rank) + suffix;
 }
 
-/* Alloc a new tensor in WIN area, and record the offset.*/
-void SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = contexts_.find(groupName);
-    if (it == contexts_.end()) {
-        throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
-    }
-    it->second->Alloc(slotSize);
+std::unordered_map<Operation*, std::pair<std::shared_ptr<SimulationCommContext>, uint64_t>> SimulationCommManager::waitTaskMap_;
+std::unordered_map<Operation*, std::future<void>> SimulationCommManager::waitTaskFutures_;
+std::mutex SimulationCommManager::waitTaskMutex_;
+
+void SimulationCommManager::RegisterWaitTask(Operation* op, std::shared_ptr<SimulationCommContext> context, uint64_t taskId) {
+    std::lock_guard<std::mutex> lock(waitTaskMutex_);
+    waitTaskMap_[op] = {context, taskId};
 }
 
-void SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
+std::future<void>* SimulationCommManager::GetWaitTaskFuture(Operation* op) {
+    std::lock_guard<std::mutex> lock(waitTaskMutex_);
+    auto it = waitTaskMap_.find(op);
+    if (it == waitTaskMap_.end()) {
+        return nullptr;
+    }
+    
+    auto context = it->second.first;
+    auto taskId = it->second.second;
+    
+    auto future = std::async(std::launch::deferred, [context, taskId]() {
+        context->WaitComplete(taskId);
+    });
+    
+    waitTaskFutures_[op] = std::move(future);
+    return &waitTaskFutures_[op];
+}
+
+void SimulationCommManager::ClearWaitTasks() {
+    std::lock_guard<std::mutex> lock(waitTaskMutex_);
+    waitTaskMap_.clear();
+    waitTaskFutures_.clear();
+}
+
+/* Alloc a new tensor in WIN area, and record the offset.*/
+LogicalTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = contexts_.find(groupName);
+    if (it == contexts_.end()) {
+        throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
+    }
+    auto result = it->second->Alloc(slotSize);
+    return result;
+}
+
+LogicalTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    it->second->AllocSignal(slotSize);
+    auto result = it->second->AllocSignal(slotSize);
+    return result;
 }
 
 } // namespace npu:tile_fwk
