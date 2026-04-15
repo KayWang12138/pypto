@@ -1214,7 +1214,12 @@ TEST_F(DynamicOpsTest, MatMulPertensor)
         float scaleValue = 2.0;
         uint32_t scaleValueTmp = 0;
         memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
-        calc::MatMul(golden, logicTensor0, logicTensor1, {false, true, 0, scaleValueTmp, 1, nullptr, nullptr});
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.scale = scaleValueTmp;
+        param.relu = 1;
+        calc::MatMul(golden, logicTensor0, logicTensor1, param);
 
         ProgramData::GetInstance().PrepareData(
             {logicTensor0->GetData(), logicTensor1->GetData()}, {out0->GetData()}, {golden->GetData()});
@@ -1256,7 +1261,11 @@ TEST_F(DynamicOpsTest, MatMulPerchannel)
         auto scaleTensorRaw = RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
         auto logicScale = LogicalTensorData::Create(*scaleTensorRaw);
         auto logicScaleData = Trans(logicScale);
-        calc::MatMul(golden, logicTensor0, logicTensor1, {false, true, 0, 0, 0, &logicScaleData, nullptr});
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.scalePtr = &logicScaleData;
+        calc::MatMul(golden, logicTensor0, logicTensor1, param);
 
         ProgramData::GetInstance().PrepareData(
             {logicTensor0->GetData(), logicTensor1->GetData(), logicScale->GetData()}, {out0->GetData()},
@@ -1291,7 +1300,11 @@ TEST_F(DynamicOpsTest, MatMulBias)
         auto golden = Random(DT_FP16, out.GetShape());
         auto logicBias = Random(DT_FP16, biasTensor.GetShape());
         auto logicBiasData = Trans(logicBias);
-        calc::MatMul(golden, d0, d1, {false, false, 0, 0, 0, nullptr, &logicBiasData});
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = false;
+        param.biasPtr = &logicBiasData;
+        calc::MatMul(golden, d0, d1, param);
 
         ProgramData::GetInstance().PrepareData(
             {d0->GetData(), d1->GetData(), logicBias->GetData()}, {out0->GetData()}, {golden->GetData()});
@@ -1405,7 +1418,11 @@ TEST_F(DynamicOpsTest, MatMulL0CToL1Fixpipe)
         auto scaleTensorRaw = RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
         auto logicScale = LogicalTensorData::Create(*scaleTensorRaw);
         auto logicScaleData = Trans(logicScale);
-        calc::MatMul(golden, logicTensor0, logicTensor1, {false, false, 0, 0, 0, &logicScaleData, nullptr});
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = false;
+        param.scalePtr = &logicScaleData;
+        calc::MatMul(golden, logicTensor0, logicTensor1, param);
         calc::MatMul(golden, golden, l0c2L1Data);
 
         ProgramData::GetInstance().PrepareData(
