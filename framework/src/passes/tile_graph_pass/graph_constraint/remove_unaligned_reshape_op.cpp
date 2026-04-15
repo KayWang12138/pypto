@@ -16,6 +16,7 @@
 #include "remove_unaligned_reshape_op.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_utils/alignment_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "RemoveUnalignedReshape"
