@@ -75,8 +75,9 @@ def test_{op}_level0(device_id=None, run_mode="npu"):
             golden.cpu().numpy(),
             rtol=1e-3, atol=1e-3,
         )
-
-    print("  ✓ Passed\n")
+        print("  ✓ Passed\n")
+    else:
+        print("  ⚠ [SIM_MODE] 精度验证已跳过（sim 模式不执行 assert_allclose）\n")
 
 
 def test_{op}_level1(device_id=None, run_mode="npu"):
@@ -104,8 +105,9 @@ def test_{op}_level1(device_id=None, run_mode="npu"):
             golden.cpu().numpy(),
             rtol=1e-3, atol=1e-3,
         )
-
-    print("  ✓ Passed\n")
+        print("  ✓ Passed\n")
+    else:
+        print("  ⚠ [SIM_MODE] 精度验证已跳过（sim 模式不执行 assert_allclose）\n")
 
 # ─────────────────────────────────────────────
 # 3. CLI 入口

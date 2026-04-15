@@ -106,6 +106,7 @@ description: "当需要设计 PyPTO 算子实现方案时使用此 skill。基�
 │  成功标准：                                                       │
 │    ✓ DESIGN.md 包含全部 9 个章节标题                              │
 │    ✓ §2 API 映射表每步均有对应 PyPTO API（或标记 unsupported）    │
+│    ✓ §2 每步 API 已标注 dtype 支持范围，与 SPEC 对照（约束传播）   │
 │    ✓ §5 Loop 结构已按场景 A 或场景 B 填写（无空白占位）           │
 │    ✓ 无残留 {placeholder} 占位符                                  │
 └───────────────────────────────────────────────────────────────────┘
@@ -151,7 +152,7 @@ DESIGN.md 包含 9 个章节，模板文件位于: [templates/design-template.md
 | 章节 | 内容 | 信息来源 |
 |------|------|----------|
 | 1. 概述 | 算子名称、功能、数学公式、数据流图 | 算子规格（基础信息、数据流图） |
-| 2. API 映射设计 | 公式分解、PyPTO API 映射表、计算步骤 | references/quick_ref.md + docs/ |
+| 2. API 映射设计 | 公式分解、PyPTO API 映射表、计算步骤、dtype 约束传播 | references/quick_ref.md + docs/ |
 | 3. 数据规格设计 | Input/Output dataclass、中间 Tensor、数据格式、JIT 配置 | 算子规格（数据规格） |
 | 4. Tiling 策略 | 算子类型判断、TileShape 配置、设置依据 | references/quick_ref.md + docs/ |
 | 5. Loop 结构设计 | 是否需要 loop、静态/动态轴处理、尾块处理 | references/quick_ref.md + docs/ |

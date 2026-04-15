@@ -241,10 +241,11 @@ description: 将 PyPTO 融合算子集成到整网中，替代多个小算子组
    
    或使用 `pypto-golden-generator` skill 自动生成，参考 `.agents/skills/pypto-golden-generate/templates/golden-template.py` 模板。
    
-   关键要点：
-   - Golden 实现必须是纯 PyTorch 实现，禁止引入 pypto
-   - Golden 实现应完整覆盖原始小算子组合的计算逻辑
-   - 导出 `{op}_golden()` 函数供测试脚本调用
+    关键要点：
+    - Golden 实现必须是纯 PyTorch 实现，**禁止引入 pypto 或 torch_npu**
+    - 若原始小算子使用了 torch_npu 特有 API（如 `npu_quantize`、`npu_quant_matmul`），必须替换为纯 PyTorch 等效实现（如 `torch.quantize_per_tensor` + `torch.matmul`）
+    - Golden 实现应完整覆盖原始小算子组合的计算逻辑
+    - 导出 `{op}_golden()` 函数供测试脚本调用
 
 **输出物：**
 - Golden 实现文件（`*_golden.py`）

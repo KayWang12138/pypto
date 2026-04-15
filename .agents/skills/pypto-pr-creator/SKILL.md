@@ -108,7 +108,7 @@ echo "credential.helper: $(git config --global credential.helper 2>/dev/null || 
 
 1. **浅克隆修复**：`git fetch --unshallow origin`
 2. **Upstream 同步**：`git fetch upstream master`，检查分支是否落后，落后则 `git rebase upstream/master && git push -f origin <branch>`
-3. **Commit message 格式验证**：`git log -1 --format="%s" | grep -E '^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}'`
+3. **Commit message 格式验证**：`git log -1 --format="%s" | grep -E '^(feat|fix|docs|style|refactor|perf|test)\([a-zA-Z_|]+\): [A-Z][^.]{9,199}[^.]$'`
 
 执行 git 操作：
 

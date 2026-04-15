@@ -43,7 +43,9 @@ def {op}_core(x: pypto.Tensor) -> pypto.Tensor:
 # 2. JIT Kernel
 # ─────────────────────────────────────────────
 
-@pypto.frontend.jit
+@pypto.frontend.jit(
+    runtime_options={"run_mode": "npu"},
+)
 def {op}_kernel(
     input_tensor: pypto.Tensor(),
     output_tensor: pypto.Tensor(),
