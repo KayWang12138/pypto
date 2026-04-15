@@ -8,12 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-
 /*!
  * \file test_dynamic_win_atten.cpp
  * \brief
  */
-
 
 #include <gtest/gtest.h>
 #include "tilefwk/data_type.h"
@@ -26,11 +24,9 @@
 #include "operator/models/nsa/win_attention.h"
 #include "test_dev_func_runner.h"
 
-
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicWinAttenInterpreterTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
-
 
 constexpr int NUM_2 = 2;
 constexpr int NUM_16 = 16;
@@ -42,8 +38,8 @@ constexpr int NUM_512 = 512;
 constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
-void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
-
+void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig)
+{
     SetInterpreterConfig();
 
     DataType dType = DT_FP32;
@@ -55,11 +51,9 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
         dType = DT_FP32;
     }
 
-
     int paramsSize = 9;
     std::vector<int> inputParam(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", inputParam);
-
 
     int b = inputParam[0];
     int sQ = inputParam[1];
@@ -72,16 +66,16 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     int windowSize = inputParam[8];
     float softmaxScale = static_cast<float>(1.0 / sqrtf((dN + dR)));
     std::cout << "====input param==== " << std::endl;
-    std::cout <<" b = " << b << " sQ = " << sQ << " nQ = " << nQ << " nKV = " << nKV << " sMax =" << sMax << " dN = " << dN
-        << " dR = " << dR << " blockSize = " << blockSize << " windowSize = " << windowSize << std::endl;
-
+    std::cout << " b = " << b << " sQ = " << sQ << " nQ = " << nQ << " nKV = " << nKV << " sMax =" << sMax
+              << " dN = " << dN << " dR = " << dR << " blockSize = " << blockSize << " windowSize = " << windowSize
+              << std::endl;
 
     int maxBlock = (sMax + blockSize - 1) / blockSize;
     std::vector<int64_t> qNopeShape = {b * sQ * nQ, dN};
     std::vector<int64_t> qRopeShape = {b * sQ * nQ, dR};
-    std::vector<int64_t> vNopeCacheShape = {b * maxBlock * blockSize , nKV * dN};
-    std::vector<int64_t> kRopeCacheShape = {b * maxBlock * blockSize , nKV * dR};
-    std::vector<int64_t> attentionOutShape = {b ,sQ ,nQ, dN};
+    std::vector<int64_t> vNopeCacheShape = {b * maxBlock * blockSize, nKV * dN};
+    std::vector<int64_t> kRopeCacheShape = {b * maxBlock * blockSize, nKV * dR};
+    std::vector<int64_t> attentionOutShape = {b, sQ, nQ, dN};
     std::vector<int64_t> blockTableShape = {b, maxBlock};
 
     Tensor actSeqs(DT_INT32, {b}, "actSeqs");
@@ -133,21 +127,25 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
         RawTensorData::CreateTensor<float>(attentionOut, golden),
     });
 
-    WinAttentionDebug(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
-        blockSize, softmaxScale, attentionOut, tileConfig);
+    WinAttentionDebug(
+        qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize, blockSize, softmaxScale,
+        attentionOut, tileConfig);
 }
 
-TEST_F(DynamicWinAttenInterpreterTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_inter) {
+TEST_F(DynamicWinAttenInterpreterTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_inter)
+{
     WinAttenTileShapeConfig tileConfig;
     const int gTileSize = NUM_128; // for gLoop split
     tileConfig.gTile = gTileSize;
     tileConfig.vNopeTileShape = {NUM_16, NUM_256};
     tileConfig.vRopeTileShape = {NUM_128, NUM_64};
     tileConfig.outTileShape = {NUM_16, NUM_256};
-    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64, NUM_64, NUM_128, NUM_128}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
-    tileConfig.v1TileShape = {NUM_32, NUM_128}; // (n1, s2Tile)
-    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128, NUM_128, NUM_128, NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
-    tileConfig.v2TileShape = {NUM_16, NUM_256}; // (n1, d)
+    tileConfig.c1TileShape = {gTileSize, gTileSize, NUM_64,
+                              NUM_64,    NUM_128,   NUM_128}; // (n1, dN+dR) @ (s2Tile, dN+dR) -> (n1, s2Tile)
+    tileConfig.v1TileShape = {NUM_32, NUM_128};               // (n1, s2Tile)
+    tileConfig.c2TileShape = {gTileSize, gTileSize, NUM_128,
+                              NUM_128,   NUM_128,   NUM_128}; // (n1, s2Tile) @ (s2Tile, dN) -> (n1, d)
+    tileConfig.v2TileShape = {NUM_16, NUM_256};               // (n1, d)
     // WinConfig config;
     TestWinAttenInterpreter<npu::tile_fwk::float16>(tileConfig);
 }

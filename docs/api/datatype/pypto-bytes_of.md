@@ -43,4 +43,3 @@ pypto.bytes_of(pypto.DT_FP32)
 ```python
 输出: 4
 ```
-

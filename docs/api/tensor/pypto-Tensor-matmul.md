@@ -16,4 +16,3 @@ matmul(self, mat2, out_dtype, *, a_trans=False, b_trans=False, c_matrix_nz=False
 ## 接口说明
 
 请参见[pypto.matmul](../operation/pypto-matmul.md)。
-

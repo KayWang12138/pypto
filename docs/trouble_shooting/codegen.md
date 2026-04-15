@@ -12,27 +12,22 @@
 
 ## 排查建议
 
-### 通用排查步骤
+### 排查前准备
 
 遇到CodeGen组件校验报错，或生成的Kernel代码不符合预期，可通过如下步骤进行日志收集并分析：
 
 1. **设置日志级别为INFO**
    - 设置日志输出路径
-   export ASCEND_PROCESS_LOG_PATH=*{用户指定日志路径}*  
+   export ASCEND_PROCESS_LOG_PATH=*{用户指定日志路径}*
    - 设置日志级别为全局INFO级别
    export ASCEND_GLOBAL_LOG_LEVEL=1 // 0: DEBUG, 1: INFO, 2: WARN, 3: ERROR
    或指定CodeGen模块日志级别为INFO，如：
    export ASCEND_MODULE_LOG_LEVEL=CODEGEN=1
+
 2. **设置并行编译数量为1**
    由于CodeGen模块通过并行编译多个子图方式节省编译时长，故为了防止输出日志乱序，定位问题时需要将并行编译改为串行，设置方法如下：
    - 修改tile_fwk_config.json中的parallel_compile为1
-   - 重新编译并安装pypto包
-
-   ```bash
-   cd pypto_project_path && python3 build_ci.py -f python3 --disable_auto_execute
-   pip install build_out/pypto*.whl --force --no-deps
-   cd -
-   ```
+   - 重新编译并安装pypto包，参考[编译安装](../install/build_and_install.md#编译安装)
 
 3. **再次执行用例，获取日志及kernel代码文件**
    日志路径一般为：   *{用户指定日志路径}*/debug/plog/pypto-log***.log
@@ -66,7 +61,7 @@
 
    其中!10010即该OP的唯一标识码，可以此为关键字在PASS的图或日志中搜索获取相关信息，PASS定位指导详见[pass trouble shooting](./pass.md)
 <br>
-   
+
 
 #### 错误码 F62014：SYMBOL_NOT_FOUND
 

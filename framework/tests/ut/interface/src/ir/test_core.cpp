@@ -29,7 +29,8 @@ class IRCoreExtTest : public testing::Test {};
 // Span Constructor Tests
 // ============================================================================
 
-TEST_F(IRCoreExtTest, TestSpanConstructor) {
+TEST_F(IRCoreExtTest, TestSpanConstructor)
+{
     Span sp("test.py", 1, 2, 3, 4);
     ASSERT_EQ(sp.filename_, "test.py");
     ASSERT_EQ(sp.beginLine_, 1);
@@ -38,7 +39,8 @@ TEST_F(IRCoreExtTest, TestSpanConstructor) {
     ASSERT_EQ(sp.endColumn_, 4);
 }
 
-TEST_F(IRCoreExtTest, TestSpanUnknown) {
+TEST_F(IRCoreExtTest, TestSpanUnknown)
+{
     Span sp = Span::Unknown();
     ASSERT_EQ(sp.filename_, "");
     ASSERT_EQ(sp.beginLine_, -1);
@@ -51,7 +53,8 @@ TEST_F(IRCoreExtTest, TestSpanUnknown) {
 // Span::to_string Tests
 // ============================================================================
 
-TEST_F(IRCoreExtTest, TestSpanToString) {
+TEST_F(IRCoreExtTest, TestSpanToString)
+{
     Span sp("test.py", 10, 5, 20, 15);
     std::string result = sp.ToString();
     ASSERT_NE(result.find("test.py"), std::string::npos);
@@ -59,7 +62,8 @@ TEST_F(IRCoreExtTest, TestSpanToString) {
     ASSERT_NE(result.find("5"), std::string::npos);
 }
 
-TEST_F(IRCoreExtTest, TestSpanToStringUnknown) {
+TEST_F(IRCoreExtTest, TestSpanToStringUnknown)
+{
     Span sp = Span::Unknown();
     std::string result = sp.ToString();
     ASSERT_FALSE(result.empty());
@@ -69,52 +73,62 @@ TEST_F(IRCoreExtTest, TestSpanToStringUnknown) {
 // Span::is_valid Tests
 // ============================================================================
 
-TEST_F(IRCoreExtTest, TestSpanIsValidNormal) {
+TEST_F(IRCoreExtTest, TestSpanIsValidNormal)
+{
     Span sp("test.py", 1, 1, 10, 5);
     ASSERT_TRUE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidUnknown) {
+TEST_F(IRCoreExtTest, TestSpanIsValidUnknown)
+{
     Span sp = Span::Unknown();
     ASSERT_FALSE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidNoEnd) {
+TEST_F(IRCoreExtTest, TestSpanIsValidNoEnd)
+{
     Span sp("test.py", 1, 1, -1, -1);
     ASSERT_TRUE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidSameLine) {
+TEST_F(IRCoreExtTest, TestSpanIsValidSameLine)
+{
     Span sp("test.py", 5, 1, 5, 10);
     ASSERT_TRUE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidInvalidBeginLine) {
+TEST_F(IRCoreExtTest, TestSpanIsValidInvalidBeginLine)
+{
     Span sp("test.py", 0, 1, 5, 10);
     ASSERT_FALSE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidInvalidEndLine) {
+TEST_F(IRCoreExtTest, TestSpanIsValidInvalidEndLine)
+{
     Span sp("test.py", 5, 1, 0, 10);
     ASSERT_FALSE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidEndBeforeBegin) {
+TEST_F(IRCoreExtTest, TestSpanIsValidEndBeforeBegin)
+{
     Span sp("test.py", 10, 5, 5, 1);
     ASSERT_FALSE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidSameLineEndColBeforeBeginCol) {
+TEST_F(IRCoreExtTest, TestSpanIsValidSameLineEndColBeforeBeginCol)
+{
     Span sp("test.py", 5, 10, 5, 5);
     ASSERT_FALSE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidNoColumnInfo) {
+TEST_F(IRCoreExtTest, TestSpanIsValidNoColumnInfo)
+{
     Span sp("test.py", 1, -1, 5, -1);
     ASSERT_TRUE(sp.IsValid());
 }
 
-TEST_F(IRCoreExtTest, TestSpanIsValidInvalidBeginColumn) {
+TEST_F(IRCoreExtTest, TestSpanIsValidInvalidBeginColumn)
+{
     Span sp("test.py", 1, 0, 5, 5);
     ASSERT_FALSE(sp.IsValid());
 }
@@ -123,35 +137,41 @@ TEST_F(IRCoreExtTest, TestSpanIsValidInvalidBeginColumn) {
 // Error Tests
 // ============================================================================
 
-TEST_F(IRCoreExtTest, TestInternalErrorThrow) {
+TEST_F(IRCoreExtTest, TestInternalErrorThrow)
+{
     ASSERT_THROW({ throw InternalError("test error"); }, InternalError);
 }
 
-TEST_F(IRCoreExtTest, TestRuntimeErrorThrow) {
+TEST_F(IRCoreExtTest, TestRuntimeErrorThrow)
+{
     ASSERT_THROW({ throw RuntimeError("test runtime error"); }, RuntimeError);
 }
 
-TEST_F(IRCoreExtTest, TestTypeErrorThrow) {
+TEST_F(IRCoreExtTest, TestTypeErrorThrow)
+{
     ASSERT_THROW({ throw TypeError("test type error"); }, TypeError);
 }
 
-TEST_F(IRCoreExtTest, TestValueErrorThrow) {
+TEST_F(IRCoreExtTest, TestValueErrorThrow)
+{
     ASSERT_THROW({ throw ValueError("test value error"); }, ValueError);
 }
 
-TEST_F(IRCoreExtTest, TestErrorGetFullMessage) {
+TEST_F(IRCoreExtTest, TestErrorGetFullMessage)
+{
     try {
         throw InternalError("test message");
-    } catch (const Error &e) {
+    } catch (const Error& e) {
         std::string msg = e.GetFullMessage();
         ASSERT_NE(msg.find("test message"), std::string::npos);
     }
 }
 
-TEST_F(IRCoreExtTest, TestErrorGetFormattedStackTrace) {
+TEST_F(IRCoreExtTest, TestErrorGetFormattedStackTrace)
+{
     try {
         throw InternalError("test");
-    } catch (const Error &e) {
+    } catch (const Error& e) {
         // Just verify it doesn't crash
         std::string trace = e.GetFormattedStackTrace();
         // trace may or may not be empty depending on build mode
@@ -163,46 +183,53 @@ TEST_F(IRCoreExtTest, TestErrorGetFormattedStackTrace) {
 // Backtrace Tests
 // ============================================================================
 
-TEST_F(IRCoreExtTest, TestBacktraceGetInstance) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(IRCoreExtTest, TestBacktraceGetInstance)
+{
+    auto& bt = Backtrace::GetInstance();
     (void)bt;
 }
 
-TEST_F(IRCoreExtTest, TestBacktraceCaptureStackTrace) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(IRCoreExtTest, TestBacktraceCaptureStackTrace)
+{
+    auto& bt = Backtrace::GetInstance();
     auto frames = bt.CaptureStackTrace(0);
     // Should capture at least some frames
     ASSERT_FALSE(frames.empty());
 }
 
-TEST_F(IRCoreExtTest, TestBacktraceFormatStackTrace) {
-    auto &bt = Backtrace::GetInstance();
+TEST_F(IRCoreExtTest, TestBacktraceFormatStackTrace)
+{
+    auto& bt = Backtrace::GetInstance();
     auto frames = bt.CaptureStackTrace(0);
     std::string formatted = Backtrace::FormatStackTrace(frames);
     // May or may not have content depending on debug info
     (void)formatted;
 }
 
-TEST_F(IRCoreExtTest, TestBacktraceFormatEmptyTrace) {
+TEST_F(IRCoreExtTest, TestBacktraceFormatEmptyTrace)
+{
     std::vector<StackFrame> emptyFrames;
     std::string formatted = Backtrace::FormatStackTrace(emptyFrames);
     ASSERT_TRUE(formatted.empty());
 }
 
-TEST_F(IRCoreExtTest, TestStackFrameToString) {
+TEST_F(IRCoreExtTest, TestStackFrameToString)
+{
     StackFrame frame("test_func", "test.cpp", 42, 0x1234);
     std::string result = frame.ToString();
     ASSERT_NE(result.find("test_func"), std::string::npos);
     ASSERT_NE(result.find("test.cpp"), std::string::npos);
 }
 
-TEST_F(IRCoreExtTest, TestStackFrameToStringNoFile) {
+TEST_F(IRCoreExtTest, TestStackFrameToStringNoFile)
+{
     StackFrame frame("test_func", "", 0, 0x1234);
     std::string result = frame.ToString();
     ASSERT_NE(result.find("test_func"), std::string::npos);
 }
 
-TEST_F(IRCoreExtTest, TestStackFrameToStringNoFunction) {
+TEST_F(IRCoreExtTest, TestStackFrameToStringNoFunction)
+{
     StackFrame frame("", "test.cpp", 42, 0x1234);
     std::string result = frame.ToString();
     // Should show hex address when no function name

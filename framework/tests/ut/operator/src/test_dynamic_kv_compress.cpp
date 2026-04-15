@@ -33,7 +33,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -46,7 +47,8 @@ public:
 };
 
 template <typename T = npu::tile_fwk::float16>
-void UTestCmpKv(CmpAttnTile& tileConfig) {
+void UTestCmpKv(CmpAttnTile& tileConfig)
+{
     const int32_t blockSize = 128;
     const int32_t b = 32;
     const int32_t s1 = 2;
@@ -108,17 +110,20 @@ void UTestCmpKv(CmpAttnTile& tileConfig) {
     auto sinInput = RawTensorData::CreateConstantTensor<T>(mlpSin, 0.0f);
     auto auxTensorOutput = RawTensorData::CreateConstantTensor<float>(auxTensor, 0.0f);
 
-    std::vector<RawTensorDataPtr> inputDataList = {kvCacheInput, krCacheInput, cmpKvCacheInput, cmpKrCacheInput,
-        blockTableInput, cmpCacheIndexInput, actSeqInput, wk1Input, wk2Input, cosInput, sinInput};
+    std::vector<RawTensorDataPtr> inputDataList = {
+        kvCacheInput, krCacheInput, cmpKvCacheInput, cmpKrCacheInput, blockTableInput, cmpCacheIndexInput,
+        actSeqInput,  wk1Input,     wk2Input,        cosInput,        sinInput};
     std::vector<RawTensorDataPtr> outputDataList = {cmpKvCacheInput, cmpKrCacheInput, auxTensorOutput};
     ProgramData::GetInstance().AppendInputs(inputDataList);
     ProgramData::GetInstance().AppendOutputs(outputDataList);
 
-    compressKv(kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos,
-        mlpSin, cmpKvCache, cmpKrCache, auxTensor, cmpBlockSize, cmpStride, rs, tileConfig);
+    compressKv(
+        kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpCacheIndex, actSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin,
+        cmpKvCache, cmpKrCache, auxTensor, cmpBlockSize, cmpStride, rs, tileConfig);
 }
 
-TEST_F(KvCmpUtest, kv_compress_ut) {
+TEST_F(KvCmpUtest, kv_compress_ut)
+{
     CmpAttnTile config;
     // Block concat tile
     config.castTile = {128, 64}; // {blockSize, n2 * d}

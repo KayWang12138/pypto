@@ -62,4 +62,3 @@ def user_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor
          ...
 
 ```
-

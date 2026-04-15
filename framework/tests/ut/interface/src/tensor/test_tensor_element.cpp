@@ -19,7 +19,8 @@
 
 using namespace npu::tile_fwk;
 
-TEST(TensorElement, DType) {
+TEST(TensorElement, DType)
+{
     auto elem = Element(DT_INT8, 1L);
     EXPECT_TRUE(elem.IsSigned());
     EXPECT_EQ(elem.GetSignedData(), 1L);
@@ -33,7 +34,8 @@ TEST(TensorElement, DType) {
     EXPECT_EQ(elem.GetFloatData(), 1.0f);
 }
 
-TEST(TensorElement, Calculate) {
+TEST(TensorElement, Calculate)
+{
     auto lhs = Element(DT_INT8, 1L);
     auto rhs = Element(DT_INT8, 2L);
 

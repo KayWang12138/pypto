@@ -22,8 +22,8 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
+TEST_F(TestCodegenDynScatter, TestDynOpScatterElement)
+{
     std::vector<int64_t> shape = {64, 64};
     auto function = GenMockFuncDyn("TestDynOpScatterElement");
 
@@ -57,7 +59,7 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
     auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_SCATTER_ELEMENT, {localTensorSrc, localTensorIdx}, {localTensorDst});
+    auto& op = function->AddOperation(Opcode::OP_SCATTER_ELEMENT, {localTensorSrc, localTensorIdx}, {localTensorDst});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
     op.SetAttribute(OpAttributeKey::scalar, scalaVal);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", 0);
@@ -66,7 +68,7 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -75,7 +77,8 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
+TEST_F(TestCodegenDynScatter, TestOpDynScatter)
+{
     auto function = GenMockFuncDyn("TestOpDynScatter");
 
     std::vector<int64_t> shape = {64, 64};
@@ -89,7 +92,7 @@ TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
     auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_INT32, MemoryType::MEM_UB, {32}});
 
-    auto &op = function->AddOperation(
+    auto& op = function->AddOperation(
         Opcode::OP_SCATTER, {localTensorSelf, localTensorIdx, localTensorSrc}, {localTensorDst, localTensorTmp});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", 0);
@@ -98,7 +101,7 @@ TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =

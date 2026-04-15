@@ -31,12 +31,12 @@ constexpr int DATATYPE_EIGHT = 8;
 struct FunctionFrame;
 class OperationInterpreter;
 struct ExecuteOperationContext {
-    FunctionFrame *frame;
-    OperationInterpreter *opInter;
-    Operation *op;
-    const std::vector<LogicalTensorDataPtr> *ioperandDataViewList;
-    std::vector<LogicalTensorDataPtr> *ooperandDataViewList;
-    std::vector<LogicalTensorDataPtr> *ooperandInplaceDataViewList;
+    FunctionFrame* frame;
+    OperationInterpreter* opInter;
+    Operation* op;
+    const std::vector<LogicalTensorDataPtr>* ioperandDataViewList;
+    std::vector<LogicalTensorDataPtr>* ooperandDataViewList;
+    std::vector<LogicalTensorDataPtr>* ooperandInplaceDataViewList;
 
     std::string Dump() const;
 };
@@ -49,46 +49,53 @@ public:
 
     std::shared_ptr<EvaluateSymbol> evaluateSymbol;
 
-    ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
+    ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar& ss)
+    {
         return evaluateSymbol->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset,
-            const std::vector<SymbolicScalar> &linearArgList = {}) {
+    std::vector<int64_t> EvaluateOffset(
+        const std::vector<int64_t>& offset, const std::vector<SymbolicScalar>& dynOffset,
+        const std::vector<SymbolicScalar>& linearArgList = {})
+    {
         return evaluateSymbol->EvaluateOffset(offset, dynOffset, linearArgList);
     }
-    std::vector<int64_t> EvaluateOpImmediate(FunctionFrame *frame, const std::vector<OpImmediate> &opImmList);
+    std::vector<int64_t> EvaluateOpImmediate(FunctionFrame* frame, const std::vector<OpImmediate>& opImmList);
 
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape,
-            const std::vector<SymbolicScalar> &linearArgList = {}) {
+    std::vector<int64_t> EvaluateValidShape(
+        const std::vector<SymbolicScalar>& dynValidShape, const std::vector<SymbolicScalar>& linearArgList = {})
+    {
         return evaluateSymbol->EvaluateValidShape(dynValidShape, linearArgList);
     }
 
-    void ExecuteOperation(ExecuteOperationContext *ctx);
+    void ExecuteOperation(ExecuteOperationContext* ctx);
 
-    util::ThreadPool &GetPool() { return pool; }
+    util::ThreadPool& GetPool() { return pool; }
 
     // 注册默认函数
-    static void RegisterFunc(const Opcode opcode, Funcs func) {
+    static void RegisterFunc(const Opcode opcode, Funcs func)
+    {
         operationInterpreterFuncs_()[opcode] = std::move(func);
     }
+
 private:
     // 调用场景对应的函数 CallOperationInterpreterFunc
-    void CallOperationInterpreterFunc(ExecuteOperationContext *ctx) {
+    void CallOperationInterpreterFunc(ExecuteOperationContext* ctx)
+    {
         const Opcode opcode = ctx->op->GetOpcode();
         auto it = operationInterpreterFuncs_().find(opcode);
         if (it != operationInterpreterFuncs_().end()) {
             it->second(ctx);
         } else {
             ASSERT(ExecuteOperationScene::UNSUPPORTED_OPCODE, false)
-                << "opcode [" << ctx->op->GetOpcodeStr()
-                << "]'s torch interface implementation is not registered";
+                << "opcode [" << ctx->op->GetOpcodeStr() << "]'s torch interface implementation is not registered";
         }
     }
 
-    std::vector<LogicalTensorDataPtr> GetValidDataView(const std::vector<LogicalTensorDataPtr> &dataViewList) const {
+    std::vector<LogicalTensorDataPtr> GetValidDataView(const std::vector<LogicalTensorDataPtr>& dataViewList) const
+    {
         std::vector<LogicalTensorDataPtr> result;
-        for (auto &dataView : dataViewList) {
-            auto &validShape = dataView->GetValidShape();
+        for (auto& dataView : dataViewList) {
+            auto& validShape = dataView->GetValidShape();
             ASSERT(ExecuteOperationScene::EMPTY_VALIDSHAPE, validShape.size() != 0);
             if (validShape == dataView->GetShape()) {
                 result.emplace_back(dataView);
@@ -99,7 +106,8 @@ private:
         return result;
     }
 
-    static std::unordered_map<Opcode, Funcs>& operationInterpreterFuncs_() {
+    static std::unordered_map<Opcode, Funcs>& operationInterpreterFuncs_()
+    {
         static std::unordered_map<Opcode, Funcs> instance;
         return instance;
     }
@@ -108,16 +116,14 @@ private:
 };
 
 // LogTensorList 用於在執行 Operation 出錯時打印張量資訊
-void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensors);
+void LogTensorList(const char* role, Operation* op, const LogicalTensors& tensors);
 
-#define REGISTER_CALC_OP(OpCoreStr, OpType, FuncName) \
-class OpCoreStr##ClacOpRegister { \
-public: \
-    OpCoreStr##ClacOpRegister() { \
-        OperationInterpreter::RegisterFunc(OpType, FuncName); \
-    } \
-}; \
-static OpCoreStr##ClacOpRegister OpCoreStr##_calcop_register
+#define REGISTER_CALC_OP(OpCoreStr, OpType, FuncName)                                         \
+    class OpCoreStr##ClacOpRegister {                                                         \
+    public:                                                                                   \
+        OpCoreStr##ClacOpRegister() { OperationInterpreter::RegisterFunc(OpType, FuncName); } \
+    };                                                                                        \
+    static OpCoreStr##ClacOpRegister OpCoreStr##_calcop_register
 
 #undef CASE_DATA_TYPE_DIS
 #undef CASE_DATA_TYPE

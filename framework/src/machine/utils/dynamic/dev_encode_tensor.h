@@ -31,10 +31,11 @@ struct DevAscendStride {
     int64_t dimSize;
     uint64_t dimStride[DEV_SHAPE_DIM_MAX];
 
-    const uint64_t &operator[](int index) const { return dimStride[index]; }
-    uint64_t &operator[](int index) { return dimStride[index]; }
+    const uint64_t& operator[](int index) const { return dimStride[index]; }
+    uint64_t& operator[](int index) { return dimStride[index]; }
 
-    int GetShape(int dim) const {
+    int GetShape(int dim) const
+    {
         if (dim == dimSize - 1) {
             return dimStride[dim];
         } else {
@@ -42,7 +43,8 @@ struct DevAscendStride {
         }
     }
 
-    void SetShape(const int *shape, int dim) {
+    void SetShape(const int* shape, int dim)
+    {
         /* For shape [d0, d1, d2], the stride is [d0 * d1 * d2, d1 * d2, d2] */
         dimSize = dim;
         for (int i = DEV_SHAPE_DIM_MAX - 1; i >= 0; i--) {
@@ -55,15 +57,12 @@ struct DevAscendStride {
             }
         }
     }
-    void SetShape(const std::vector<int> &shape) {
-        SetShape(shape.data(), (int)shape.size());
-    }
-    void SetShape(const DevShape &shape) {
-        SetShape(shape.dim, shape.dimSize);
-    }
+    void SetShape(const std::vector<int>& shape) { SetShape(shape.data(), (int)shape.size()); }
+    void SetShape(const DevShape& shape) { SetShape(shape.dim, shape.dimSize); }
 };
 
-static inline std::string DumpStride(const DevAscendStride &stride) {
+static inline std::string DumpStride(const DevAscendStride& stride)
+{
     std::ostringstream oss;
     oss << "<";
     for (int k = 0; k < stride.dimSize; k++) {
@@ -79,23 +78,23 @@ struct DevCellMatchTableDesc {
 
     int GetDimensionSize() const { return cellShape.dimSize; }
 
-    const int &GetCellShape(int index) const { return cellShape.dim[index]; }
+    const int& GetCellShape(int index) const { return cellShape.dim[index]; }
 
-    const uint64_t &GetStride(int index) const { return stride.dimStride[index]; }
+    const uint64_t& GetStride(int index) const { return stride.dimStride[index]; }
     int GetStrideShape(int index) const { return stride.GetShape(index); }
 
-    void SetCellShape(const std::vector<int> &shape) {
+    void SetCellShape(const std::vector<int>& shape)
+    {
         cellShape.dimSize = shape.size();
         for (size_t i = 0; i < shape.size(); i++) {
             cellShape.dim[i] = shape[i];
         }
     }
-    void SetStrideShape(const std::vector<int> &shape) {
-        stride.SetShape(shape);
-    }
+    void SetStrideShape(const std::vector<int>& shape) { stride.SetShape(shape); }
 };
 
-static inline std::string DumpCellMatchTableDesc(const DevCellMatchTableDesc &desc) {
+static inline std::string DumpCellMatchTableDesc(const DevCellMatchTableDesc& desc)
+{
     return DumpShape(desc.cellShape) + " x " + DumpStride(desc.stride);
 }
 
@@ -103,21 +102,24 @@ struct DevSymShape {
     int dimSize{0};
     SymInt dim[DEV_SHAPE_DIM_MAX];
 
-    void SetShape(const std::vector<SymInt> &shape) {
+    void SetShape(const std::vector<SymInt>& shape)
+    {
         for (std::size_t i = 0; i < shape.size(); i++) {
             dim[i] = shape[i];
         }
         dimSize = static_cast<int>(shape.size());
     }
 
-    uint64_t At(size_t idx, const uint64_t *exprTbl) const {
+    uint64_t At(size_t idx, const uint64_t* exprTbl) const
+    {
         if (dim[idx].IsExpression())
             return exprTbl[dim[idx].Value()];
         else
             return dim[idx].Value();
     }
 
-    void ToStride(uint64_t *stides, const uint64_t *exprTbl) const {
+    void ToStride(uint64_t* stides, const uint64_t* exprTbl) const
+    {
         stides[dimSize - 1] = 1;
         for (int i = dimSize - 1; i > 0; i--) {
             stides[i - 1] = stides[i] * At(i, exprTbl);
@@ -130,17 +132,18 @@ struct DevAscendRawTensor {
     uint64_t addrOffset{UINT64_MAX};
     uint64_t memoryRequirement; // Only available for incast/outcast
                                 // For workspace tensors, the memoryRequirement property is deprecated
-    uint64_t maxStaticMemReq; // 0 if cannot find a non-symbolic raw shape
+    uint64_t maxStaticMemReq;   // 0 if cannot find a non-symbolic raw shape
     DataType dataType;
     DevSymShape shape;
     DevIOProperty ioProperty{DevIOProperty::NONE};
     int32_t ioIndex;
-    int32_t linkedIncastId; //outcast shared same addr with incast
+    int32_t linkedIncastId; // outcast shared same addr with incast
     int rawMagic;
 
     int GetDim() const { return shape.dimSize; }
 
-    uint64_t GetMemoryRequirement(const uint64_t *exprTbl) const {
+    uint64_t GetMemoryRequirement(const uint64_t* exprTbl) const
+    {
         if (memoryRequirement != 0)
             return memoryRequirement;
         uint64_t memReq = BytesOf(dataType);
@@ -150,7 +153,8 @@ struct DevAscendRawTensor {
         return memReq;
     }
 
-    std::string DumpType() const {
+    std::string DumpType() const
+    {
         std::ostringstream oss;
         oss << "<";
         for (int i = 0; i < shape.dimSize; i++) {
@@ -165,7 +169,8 @@ struct DevAscendRawTensor {
         return oss.str();
     }
 
-    std::string DumpAttr() const {
+    std::string DumpAttr() const
+    {
         std::ostringstream oss;
         if (ioProperty == DevIOProperty::ROOT_INCAST) {
             oss << schema::incast(ioIndex).Dump() << " ";
@@ -177,7 +182,8 @@ struct DevAscendRawTensor {
         return oss.str();
     }
 
-    static std::string DumpAttrDesc(const DevRawTensorDesc *desc) {
+    static std::string DumpAttrDesc(const DevRawTensorDesc* desc)
+    {
         std::ostringstream oss;
         if (desc->location == RAW_TENSOR_LOCATION_INCAST) {
             oss << schema::incast(desc->offsetOrIndex).Dump();
@@ -193,4 +199,4 @@ struct DevAscendRawTensor {
 struct DevAscendTensor {
     uint64_t rawIndex;
 };
-}
+} // namespace npu::tile_fwk::dynamic

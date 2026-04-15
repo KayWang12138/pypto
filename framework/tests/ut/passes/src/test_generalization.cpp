@@ -30,23 +30,25 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        dynFunc = std::make_shared<Function>(Program::GetInstance(), "DYN_0", "DYN", Program::GetInstance().GetCurrentFunction());
+        dynFunc = std::make_shared<Function>(
+            Program::GetInstance(), "DYN_0", "DYN", Program::GetInstance().GetCurrentFunction());
         Program::GetInstance().SetCurrentDynamicFunction(dynFunc.get());
     }
-    void TearDown() override {
-        Program::GetInstance().SetCurrentDynamicFunction(nullptr);
-    }
+    void TearDown() override { Program::GetInstance().SetCurrentDynamicFunction(nullptr); }
 
     std::shared_ptr<Function> dynFunc;
 };
 
-// =======================================================  Single OP Test ====================================================================
-TEST_F(GeneralizetionTest, TestReshape) {
+// =======================================================  Single OP Test
+// ====================================================================
+TEST_F(GeneralizetionTest, TestReshape)
+{
     TileShape::Current().SetVecTile({64, 64});
     std::vector<int64_t> shape1{256, 256};
     std::vector<int64_t> shape2{1, 128, 512};
@@ -55,12 +57,11 @@ TEST_F(GeneralizetionTest, TestReshape) {
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
     Tensor out_tensor1(DT_FP32, shape2, "out_tensor");
 
-    FUNCTION("A") {
-        out_tensor1 = Reshape(in_tensor, {1, 128, 512});
-    }
+    FUNCTION("A") { out_tensor1 = Reshape(in_tensor, {1, 128, 512}); }
 }
 
-TEST_F(GeneralizetionTest, TestAssemble) {
+TEST_F(GeneralizetionTest, TestAssemble)
+{
     int N = 2;
     int T = 8;
     std::vector<int64_t> shape{T, T};
@@ -69,7 +70,8 @@ TEST_F(GeneralizetionTest, TestAssemble) {
     Tensor inputA(DT_FP32, shape, "a");
     Tensor result(DT_FP32, {2 * T, 2 * T}, "result");
 
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
@@ -81,7 +83,8 @@ TEST_F(GeneralizetionTest, TestAssemble) {
     }
 }
 
-TEST_F(GeneralizetionTest, TestView) {
+TEST_F(GeneralizetionTest, TestView)
+{
     TileShape::Current().SetVecTile({64, 64});
     std::vector<int64_t> shape1{256, 256};
     std::vector<int64_t> shape2{128, 128};
@@ -90,14 +93,16 @@ TEST_F(GeneralizetionTest, TestView) {
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
     Tensor out_tensor(DT_FP32, shape2, "out_tensor");
 
-    FUNCTION("A") {
+    FUNCTION("A")
+    {
         auto tmp = View(in_tensor, {128, 128}, {0, 0});
         // 不加abs会报错
         out_tensor = Abs(tmp);
     }
 }
 
-TEST_F(GeneralizetionTest, TestScatterUpdate) {
+TEST_F(GeneralizetionTest, TestScatterUpdate)
+{
     TileShape::Current().SetVecTile({16, 32});
 
     int h = 128, minusTwo = -2;
@@ -105,12 +110,11 @@ TEST_F(GeneralizetionTest, TestScatterUpdate) {
     Tensor idxs(DT_INT32, {h, h}, "idxs");
     Tensor keyStates(DT_INT32, {h, h}, "keyStates");
 
-    FUNCTION("A") {
-        output = ScatterUpdate(output, idxs, keyStates, minusTwo);
-    }
+    FUNCTION("A") { output = ScatterUpdate(output, idxs, keyStates, minusTwo); }
 }
 
-TEST_F(GeneralizetionTest, TestTranspose) {
+TEST_F(GeneralizetionTest, TestTranspose)
+{
     config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 2);
     // 若是二维，则报错
     int b = 4;
@@ -125,13 +129,13 @@ TEST_F(GeneralizetionTest, TestTranspose) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FUNCTION("A") {
-        output = Transpose(input, {1, 2});
-    }
+    FUNCTION("A") { output = Transpose(input, {1, 2}); }
 }
 
-// =======================================================  Same OP Test ====================================================================
-TEST_F(GeneralizetionTest, TestReshapeReshape) {
+// =======================================================  Same OP Test
+// ====================================================================
+TEST_F(GeneralizetionTest, TestReshapeReshape)
+{
     config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 2);
     TileShape::Current().SetVecTile({64, 64});
     std::vector<int64_t> shape1{256, 256};
@@ -144,7 +148,8 @@ TEST_F(GeneralizetionTest, TestReshapeReshape) {
     Tensor in_tensor1(DT_FP32, shape1, "in_tensor");
     Tensor out_tensor1(DT_FP32, shape5, "out_tensor");
 
-    FUNCTION("B") {
+    FUNCTION("B")
+    {
         auto tmp = Sub(in_tensor, in_tensor1);
         // 只有reshape会报错
         auto out_tensor = Reshape(tmp, shape4);
@@ -153,16 +158,18 @@ TEST_F(GeneralizetionTest, TestReshapeReshape) {
     }
 }
 
-TEST_F(GeneralizetionTest, TestAssembleAssemble) {
+TEST_F(GeneralizetionTest, TestAssembleAssemble)
+{
     int N = 2;
     int T = 8;
     std::vector<int64_t> shape{T, T};
     TileShape::Current().SetVecTile({T, T});
 
     Tensor inputA(DT_FP32, shape, "a");
-    Tensor result(DT_FP32, {4 * T,4 * T}, "result");
+    Tensor result(DT_FP32, {4 * T, 4 * T}, "result");
 
-    FUNCTION("B") {
+    FUNCTION("B")
+    {
         std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
@@ -181,7 +188,8 @@ TEST_F(GeneralizetionTest, TestAssembleAssemble) {
     }
 }
 
-TEST_F(GeneralizetionTest, TestViewView) {
+TEST_F(GeneralizetionTest, TestViewView)
+{
     std::vector<int64_t> shape1{256, 256};
     std::vector<int64_t> shape2{128, 128};
     std::vector<int64_t> shape3{64, 128};
@@ -198,16 +206,18 @@ TEST_F(GeneralizetionTest, TestViewView) {
     Tensor input_v1(DT_FP32, shape3, "input_b");
     Tensor output_v(DT_FP32, shape3, "output");
 
-    FUNCTION("B") {
+    FUNCTION("B")
+    {
         auto tmp = Sub(input, input1);
         // 只有view会报错
-        auto tmp_v1 = View(tmp, shape2, {0,0});
-        auto tmp_v2 = View(tmp_v1, shape3, {0,0});
+        auto tmp_v1 = View(tmp, shape2, {0, 0});
+        auto tmp_v2 = View(tmp_v1, shape3, {0, 0});
         output_v = Add(tmp_v2, input_v1);
     }
 }
 
-TEST_F(GeneralizetionTest, TestScatterUpdateScatterUpdate) {
+TEST_F(GeneralizetionTest, TestScatterUpdateScatterUpdate)
+{
     TileShape::Current().SetVecTile({16, 32});
 
     int h = 128, minusTwo = -2, minusOne = -1;
@@ -215,13 +225,15 @@ TEST_F(GeneralizetionTest, TestScatterUpdateScatterUpdate) {
     Tensor idxs(DT_INT32, {h, h}, "idxs");
     Tensor keyStates(DT_INT32, {h, h}, "keyStates");
 
-    FUNCTION("B") {
+    FUNCTION("B")
+    {
         output = ScatterUpdate(output, idxs, keyStates, minusTwo);
         output = ScatterUpdate(output, idxs, keyStates, minusOne);
     }
 }
 
-TEST_F(GeneralizetionTest, TestTransposeTranspose) {
+TEST_F(GeneralizetionTest, TestTransposeTranspose)
+{
     int b = 4;
     int n = 1;
     int s = 32;
@@ -235,14 +247,17 @@ TEST_F(GeneralizetionTest, TestTransposeTranspose) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape2, "res");
 
-    FUNCTION("B") {
+    FUNCTION("B")
+    {
         auto tmp = Transpose(input, {1, 2});
-        output = Transpose(tmp, {0 ,1});
+        output = Transpose(tmp, {0, 1});
     }
 }
 
-// =======================================================  Different OP Test ====================================================================
-TEST_F(GeneralizetionTest, TestReshapeToAll) {
+// =======================================================  Different OP Test
+// ====================================================================
+TEST_F(GeneralizetionTest, TestReshapeToAll)
+{
     int N = 2;
     int T = 64;
     TileShape::Current().SetVecTile({T, T});
@@ -258,14 +273,15 @@ TEST_F(GeneralizetionTest, TestReshapeToAll) {
     Tensor in_tensor(DT_FP32, shape1, "in_tensor");
     Tensor out_tensor1(DT_FP32, shape3, "out_tensor1");
     Tensor out_tensor2(DT_FP32, shape4, "out_tensor2");
-    Tensor out_tensor3(DT_FP32, {64,64}, "out_tensor3");
+    Tensor out_tensor3(DT_FP32, {64, 64}, "out_tensor3");
     Tensor out_tensor4(DT_FP32, shape6, "out_tensor4");
 
     Tensor idxs(DT_INT32, {256, 256}, "idxs");
     Tensor keyStates(DT_INT32, {256, 256}, "keyStates");
     int minusTwo = -2;
 
-    FUNCTION("C") {
+    FUNCTION("C")
+    {
         auto tmp = Reshape(in_tensor, shape2); // 256,256
         // to reshape
         out_tensor1 = Reshape(tmp, shape3);
@@ -285,7 +301,8 @@ TEST_F(GeneralizetionTest, TestReshapeToAll) {
     }
 }
 
-TEST_F(GeneralizetionTest, TestAssembleToAll) {
+TEST_F(GeneralizetionTest, TestAssembleToAll)
+{
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{T, T};
@@ -302,7 +319,8 @@ TEST_F(GeneralizetionTest, TestAssembleToAll) {
     Tensor keyStates(DT_INT32, {128, 128}, "keyStates");
     int minusTwo = -2;
 
-    FUNCTION("C") {
+    FUNCTION("C")
+    {
         std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation;
         for (int i = 0; i < N; i++)
             for (int j = 0; j < N; j++) {
@@ -324,7 +342,7 @@ TEST_F(GeneralizetionTest, TestAssembleToAll) {
         result1 = Abs(tmp);
 
         // to view
-        auto tmp1 = View(gatherResult, {64,64}, {0,0}); // 64,64
+        auto tmp1 = View(gatherResult, {64, 64}, {0, 0}); // 64,64
         result2 = Abs(tmp1);
 
         // to transpose
@@ -336,7 +354,8 @@ TEST_F(GeneralizetionTest, TestAssembleToAll) {
     }
 }
 
-TEST_F(GeneralizetionTest, TestViewToAll) {
+TEST_F(GeneralizetionTest, TestViewToAll)
+{
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{256, 256};
@@ -353,8 +372,9 @@ TEST_F(GeneralizetionTest, TestViewToAll) {
     Tensor keyStates(DT_INT32, {128, 128}, "keyStates");
     int minusTwo = -2;
 
-    FUNCTION("C") {
-        auto viewResult = View(inputA, {128,128}, {0,0}); // 128,128
+    FUNCTION("C")
+    {
+        auto viewResult = View(inputA, {128, 128}, {0, 0}); // 128,128
 
         // to assemble
         std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
@@ -370,7 +390,7 @@ TEST_F(GeneralizetionTest, TestViewToAll) {
         result1 = Abs(tmp);
 
         // to view
-        auto tmp1 = View(viewResult, {64,64}, {0,0}); // 64,64
+        auto tmp1 = View(viewResult, {64, 64}, {0, 0}); // 64,64
         result2 = Abs(tmp1);
 
         // to transpose
@@ -382,7 +402,8 @@ TEST_F(GeneralizetionTest, TestViewToAll) {
     }
 }
 
-TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
+TEST_F(GeneralizetionTest, TestScatterUpdateToAll)
+{
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{128, 128};
@@ -399,7 +420,8 @@ TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
     Tensor keyStates(DT_INT32, {128, 128}, "keyStates");
     int minusTwo = -2, minusOne = -1;
 
-    FUNCTION("C") {
+    FUNCTION("C")
+    {
         inputA = ScatterUpdate(inputA, idxs, keyStates, minusOne); // 128,128
 
         // to assemble
@@ -416,7 +438,7 @@ TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
         result1 = Abs(tmp);
 
         // to view
-        auto tmp1 = View(inputA, {64,64}, {0,0}); // 64,64
+        auto tmp1 = View(inputA, {64, 64}, {0, 0}); // 64,64
         result2 = Abs(tmp1);
 
         // to transpose
@@ -428,7 +450,8 @@ TEST_F(GeneralizetionTest, TestScatterUpdateToAll) {
     }
 }
 
-TEST_F(GeneralizetionTest, TestTransposeToAll) {
+TEST_F(GeneralizetionTest, TestTransposeToAll)
+{
     int N = 2;
     int T = 64;
     std::vector<int64_t> shape{128, 128};
@@ -445,8 +468,9 @@ TEST_F(GeneralizetionTest, TestTransposeToAll) {
     Tensor keyStates(DT_INT32, {128, 128}, "keyStates");
     int minusTwo = -2;
 
-    FUNCTION("C") {
-        auto transposeResult = Transpose(inputA, {1,0}); // 128,128
+    FUNCTION("C")
+    {
+        auto transposeResult = Transpose(inputA, {1, 0}); // 128,128
 
         // to assemble
         std::vector<std::pair<Tensor, std::vector<int64_t>>> aggregation1;
@@ -462,7 +486,7 @@ TEST_F(GeneralizetionTest, TestTransposeToAll) {
         result1 = Abs(tmp);
 
         // to view
-        auto tmp1 = View(transposeResult, {64,64}, {0,0}); // 64,64
+        auto tmp1 = View(transposeResult, {64, 64}, {0, 0}); // 64,64
         result2 = Abs(tmp1);
 
         // to transpose

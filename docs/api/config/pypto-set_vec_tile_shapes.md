@@ -43,4 +43,3 @@ TileShape需要满足以下约束条件：
 ```python
 pypto.set_vec_tile_shapes(1, 1, 8, 8)
 ```
-

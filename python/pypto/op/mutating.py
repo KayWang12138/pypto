@@ -19,6 +19,42 @@ from ..tensor import Tensor
 
 
 @op_wrapper
+def permute(input_tensor: Tensor, dims: List[int]) -> Tensor:
+    """Returns a tensor that is a permuted version of `input`. The dimensions are reordered according to `dims`.
+
+    Parameters
+    ----------
+    input_tensor : Tensor
+        The input tensor.
+    dims : List[int]
+        The desired ordering of dimensions. Must be a permutation of all dimensions indices (0 to input.dim() - 1).
+
+    Returns
+    -------
+    Tensor
+        A new tensor with the same data as `input` but with dimensions reordered as specified.
+
+    Raises
+    ------
+    RuntimeError
+        If `dims` is not a valid permutation of input dimensions.
+        If the length of `dims` does not match the input tensor's dimension.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3, 4], pypto.DT_FP32)
+    out = pypto.permute(x, [2, 0, 1])
+
+    Input x:    shape [2, 3, 4]
+    Output out: shape [4, 2, 3]  # data permuted accordingly
+
+    # For 2D transpose (equivalent to transpose(x, 0, 1)):
+    y = pypto.permute(x, [1, 0])
+    """
+    return pypto_impl.Permute(input_tensor, dims)
+
+
+@op_wrapper
 def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
     """Returns a tensor that is a transposed version of `input`. The given dimensions `dim0` and `dim1` are swapped.
 
@@ -56,7 +92,7 @@ def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
 
 
 @op_wrapper
-def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE, 
+def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
          satmode: SaturationMode = SaturationMode.OFF) -> Tensor:
     """Casting the operand to the specified type.
 
@@ -69,7 +105,7 @@ def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
     mode : CastMode, optional
         The rounding mode for the cast operation. Default is CAST_NONE.
     satmode : SaturationMode, optional
-        The saturation mode for float to integer conversions. 
+        The saturation mode for float to integer conversions.
         Default is OFF (truncation behavior). Use ON for saturation (clamping).
 
     Returns
@@ -122,7 +158,7 @@ def expand_clone(
     valid_shape : List[int] | List[SymbolicScalar]]
         Keyword argument, used for dynamic graph, represent the actual shapes at runtime.
         They can be ommitted in static graph.
-    
+
     Examples
     --------
     x = pypto.tensor([1,3], pypto.DT_INT32)
@@ -132,7 +168,7 @@ def expand_clone(
     Output y: [[ 1,  1,  1,  1],
                [ 2,  2,  2,  2],
                [ 3,  3,  3,  3]]
-    
+
     """
     if valid_shape is None:
         valid_shape = []

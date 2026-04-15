@@ -23,7 +23,8 @@ constexpr const int DEFAULT_MAX_PARALLELISM = 128;
 constexpr const int DEFAULT_LATENCY = 10;
 
 // get element per cycle
-int GetParallelism(const std::string &op, DataType dtype) {
+int GetParallelism(const std::string& op, DataType dtype)
+{
     auto iterTileOp = INTRIN_PARALLELISM_IN_OP.find(op);
     if (iterTileOp == INTRIN_PARALLELISM_IN_OP.end()) {
         return DEFAULT_MAX_PARALLELISM;
@@ -36,7 +37,8 @@ int GetParallelism(const std::string &op, DataType dtype) {
 }
 
 // used to extend in future
-int GetLatency(const std::string &op, DataType dtype) {
+int GetLatency(const std::string& op, DataType dtype)
+{
     auto iterTileOp = INTRIN_LATENCY_IN_OP.find(op);
     if (iterTileOp == INTRIN_LATENCY_IN_OP.end()) {
         return DEFAULT_LATENCY;
@@ -48,9 +50,10 @@ int GetLatency(const std::string &op, DataType dtype) {
     return iterDtype->second;
 }
 
-int64_t GetMaxShapeSize(const std::vector<std::vector<int64_t>> &shape) {
+int64_t GetMaxShapeSize(const std::vector<std::vector<int64_t>>& shape)
+{
     int64_t maxTotalSize = 0;
-    for (const auto &i : shape) {
+    for (const auto& i : shape) {
         int64_t totalSize = 1;
         for (auto dimVal : i) {
             totalSize *= dimVal;
@@ -60,7 +63,8 @@ int64_t GetMaxShapeSize(const std::vector<std::vector<int64_t>> &shape) {
     return maxTotalSize;
 }
 
-int64_t GetGatherInUBResultShapeSize(const std::vector<std::vector<int64_t>> &shape) {
+int64_t GetGatherInUBResultShapeSize(const std::vector<std::vector<int64_t>>& shape)
+{
     // GatherInUB fixed scenario:
     // param: [token_size, hidden_dim], indices: [1, k], block_table: [1, ...]
     // result: [k, hidden_dim]
@@ -85,7 +89,8 @@ int64_t GetGatherInUBResultShapeSize(const std::vector<std::vector<int64_t>> &sh
     return gatheredCount * hiddenDim;
 }
 
-int64_t CalcCyclesCommon(const std::string &op, int64_t shapeSize, DataType dtype) {
+int64_t CalcCyclesCommon(const std::string& op, int64_t shapeSize, DataType dtype)
+{
     int64_t totalSize = shapeSize * BytesOf(dtype);
 
     int64_t elePerRepeat = BYTES_PER_REPEAT / BytesOf(dtype);
@@ -102,7 +107,8 @@ int64_t CalcCyclesCommon(const std::string &op, int64_t shapeSize, DataType dtyp
 }
 
 // according to implementation in tile op instruction
-int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
+int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>>& shape, DataType dtype)
+{
     int64_t srcShape0 = shape[1][0];
     int64_t dstShape0 = shape[0][0];
     constexpr int32_t SRC_SHAPE_16 = 16;
@@ -121,7 +127,8 @@ int64_t CalcUBCompactCycles(const std::vector<std::vector<int64_t>> &shape, Data
     return vnchwconvCycle + copyUbToUbCycle;
 }
 
-int64_t GetCycles(const std::string &op, const std::vector<std::vector<int64_t>> &shape, DataType dtype) {
+int64_t GetCycles(const std::string& op, const std::vector<std::vector<int64_t>>& shape, DataType dtype)
+{
     if (op == "NOP") {
         return 0;
     }

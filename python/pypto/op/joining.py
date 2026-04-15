@@ -42,7 +42,7 @@ def concat(tensors: List[Tensor], dim: int = 0) -> Tensor:
                 [1.0 1.0]]
            y : [[0.0 0.0],
                 [0.0 0.0]]
-                
+
     Output out:[[1.0 1.0],
                 [1.0 1.0],
                 [0.0 0.0],

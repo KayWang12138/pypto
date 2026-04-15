@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -58,7 +59,7 @@ pypto.set_vec_tile_shapes(4, 16, 32)
 ```python
 a = pypto.tensor([2, 2], pypto.DT_FP32)  # 2x2 tensor with all 1s
 b = pypto.tensor([2, 2], pypto.DT_FP32)  # 2x2 tensor with all 0s
-out = pypto.concat([a, b], dim = 0) 
+out = pypto.concat([a, b], dim = 0)
 ```
 
 结果示例如下：
@@ -74,4 +75,3 @@ out = pypto.concat([a, b], dim = 0)
               [0.0 0.0]]
 
 ```
-

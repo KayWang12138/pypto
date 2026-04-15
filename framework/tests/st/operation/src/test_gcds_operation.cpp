@@ -18,8 +18,9 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct GcdsOpFuncArgs : public OpFuncArgs {
-    GcdsOpFuncArgs(const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
-        : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
+    GcdsOpFuncArgs(const Element& value, const std::vector<int64_t>& viewShape, const std::vector<int64_t> tileShape)
+        : value_(value), viewShape_(viewShape), tileShape_(tileShape)
+    {}
 
     Element value_;
     std::vector<int64_t> viewShape_;
@@ -27,18 +28,21 @@ struct GcdsOpFuncArgs : public OpFuncArgs {
 };
 
 struct GcdsOpMetaData {
-    explicit GcdsOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
-        : opFunc_(opFunc), test_data_(test_data) {}
+    explicit GcdsOpMetaData(const OpFunc& opFunc, const nlohmann::json& test_data)
+        : opFunc_(opFunc), test_data_(test_data)
+    {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
 static void GcdsOperationExeFuncDoubleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    auto args = static_cast<const GcdsOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    auto args = static_cast<const GcdsOpFuncArgs*>(opArgs);
 
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = outputs[0].GetShape()[0];
         SymbolicScalar secondDim = outputs[0].GetShape()[1];
         const int firstViewShape = args->viewShape_[0];
@@ -47,11 +51,14 @@ static void GcdsOperationExeFuncDoubleCut(
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                auto tileTensor0 = View(
+                    inputs[0], {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                     std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = Gcd(tileTensor0, args->value_);
@@ -62,10 +69,12 @@ static void GcdsOperationExeFuncDoubleCut(
 }
 
 static void GcdsOperationExeFuncTripleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    auto args = static_cast<const GcdsOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    auto args = static_cast<const GcdsOpFuncArgs*>(opArgs);
 
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
@@ -76,13 +85,17 @@ static void GcdsOperationExeFuncTripleCut(
         int sloop = CeilDiv(secondDim, secondViewShape);
         int nloop = CeilDiv(thirdDim, thirdViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    auto tileTensor0 = View(
+                        inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                         std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = Gcd(tileTensor0, args->value_);
@@ -94,10 +107,12 @@ static void GcdsOperationExeFuncTripleCut(
 }
 
 static void GcdsOperationExeFuncQuadraticCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    auto args = static_cast<const GcdsOpFuncArgs *>(opArgs);
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    auto args = static_cast<const GcdsOpFuncArgs*>(opArgs);
 
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
@@ -111,23 +126,28 @@ static void GcdsOperationExeFuncQuadraticCut(
         int nloop = CeilDiv(thirdDim, thirdViewShape);
         int qloop = CeilDiv(fourthDim, fourthViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
-                        auto tileTensor0 =
-                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                    std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                    qIdx * fourthViewShape});
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1))
+                    {
+                        auto tileTensor0 = View(
+                            inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                             std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                             qIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Gcd(tileTensor0, args->value_);
-                        Assemble(res,
+                        Assemble(
+                            res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * fourthViewShape},
+                             qIdx * fourthViewShape},
                             outputs[0]);
                     }
                 }
@@ -138,11 +158,13 @@ static void GcdsOperationExeFuncQuadraticCut(
 
 class GcdsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<GcdsOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestGcds, GcdsOperationTest,
+INSTANTIATE_TEST_SUITE_P(
+    TestGcds, GcdsOperationTest,
     ::testing::ValuesIn(GetOpMetaData<GcdsOpMetaData>(
         {GcdsOperationExeFuncDoubleCut, GcdsOperationExeFuncTripleCut, GcdsOperationExeFuncQuadraticCut}, "Gcds")));
 
-TEST_P(GcdsOperationTest, TestGcds) {
+TEST_P(GcdsOperationTest, TestGcds)
+{
     auto test_data = GetParam().test_data_;
     auto dtype = GetDataType(GetValueByName<std::string>(test_data, "scalar_type"));
     Element value(dtype, GetValueByName<int>(test_data, "scalar"));

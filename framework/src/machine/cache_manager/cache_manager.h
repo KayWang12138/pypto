@@ -20,31 +20,30 @@
 #include "interface/function/function.h"
 
 namespace npu::tile_fwk {
-enum class CacheMode {
-    Disable = 0,
-    Enable
-};
+enum class CacheMode { Disable = 0, Enable };
 class CacheManager {
 public:
-    CacheManager(const CacheManager &) = delete;
-    CacheManager &operator=(const CacheManager &) = delete;
+    CacheManager(const CacheManager&) = delete;
+    CacheManager& operator=(const CacheManager&) = delete;
 
-    static CacheManager &Instance();
+    static CacheManager& Instance();
 
     bool Initialize();
 
-    bool MatchBinCache(const std::string &cacheKey) const;
+    bool MatchBinCache(const std::string& cacheKey) const;
 
-    void SaveTaskFile(const std::string &cacheKey, const Function *function) const;
+    void SaveTaskFile(const std::string& cacheKey, const Function* function) const;
 
-    bool RecoverTask(const std::string &cacheKey, const Function *function) const;
+    bool RecoverTask(const std::string& cacheKey, const Function* function) const;
 
     CacheMode GetCacheMode() const { return cacheMode_; }
 
     bool IsCahceEnable() const { return cacheMode_ == CacheMode::Enable; }
+
 private:
     CacheManager() : isInit_(false), cacheMode_(CacheMode::Disable) {}
-    ~CacheManager() {
+    ~CacheManager()
+    {
         isInit_ = false;
         cacheMode_ = CacheMode::Disable;
     }
@@ -54,4 +53,4 @@ private:
     mutable std::mutex cacheMutex_;
     std::string cacheDirPath_;
 };
-};
+}; // namespace npu::tile_fwk

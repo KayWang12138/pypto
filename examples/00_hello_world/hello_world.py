@@ -52,7 +52,7 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
         x: pypto.Tensor([...], pypto.DT_FP32),
@@ -81,7 +81,7 @@ def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     print(f"Input0 shape: {input_data0.shape}")
     print(f"Input1 shape: {input_data1.shape}")
     print(f"Output shape: {output_data.shape}")
-    
+
     if run_mode == "npu":
         print(f"Max difference: {max_diff:.6f}")
         assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)

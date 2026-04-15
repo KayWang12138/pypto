@@ -17,26 +17,24 @@
 
 #include "PipeMachineImpl.h"
 
-namespace CostModel
-{
-    class CallPipeImpl : public PipeMachineImpl
+namespace CostModel {
+class CallPipeImpl : public PipeMachineImpl {
+public:
+    uint64_t Simulate(const TileOpPtr& tileOp) override
     {
-    public:
-        uint64_t Simulate(const TileOpPtr &tileOp) override {
-            if (tileOp->IsCall()) {
-                return 1;
-            }
+        if (tileOp->IsCall()) {
             return 1;
         }
-        uint64_t PostSimulate(const TileOpPtr &tileOp) override {
-            if (tileOp->IsCall()) {
-                return 1;
-            }
-            return 1;
-        }
-    };
-
-    inline UnifiedPipeMachinePtr CreateCallPipeImpl() {
-        return UnifiedPipeMachinePtr(new CallPipeImpl());
+        return 1;
     }
+    uint64_t PostSimulate(const TileOpPtr& tileOp) override
+    {
+        if (tileOp->IsCall()) {
+            return 1;
+        }
+        return 1;
+    }
+};
+
+inline UnifiedPipeMachinePtr CreateCallPipeImpl() { return UnifiedPipeMachinePtr(new CallPipeImpl()); }
 } // namespace CostModel

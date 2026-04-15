@@ -104,7 +104,7 @@ class NestedFunctionMarker:
                         )
 
             # Check the dtype of input tensors and input tensor definitions
-            if input_tensor_def.status_dtype is not None and arg_value.dtype != input_tensor_def.dtype:
+            if input_tensor_def.explicit_dtype is not None and arg_value.dtype != input_tensor_def.dtype:
                 raise ValueError(
                     f"In nested function '{self._func_name}': "
                     f"The dtype of {ordinal(idx)} parameter '{param_name}' ({arg_value.dtype}) "
@@ -813,6 +813,7 @@ class Parser(ast.NodeVisitor):
         """
         for arg in tensor_args:
             if isinstance(arg, pypto.Tensor):
+                arg.is_input = True
                 self.context.add(arg.name, arg)
 
     def _add_metadata_to_context(self, func_name: str) -> None:
@@ -868,8 +869,7 @@ class Parser(ast.NodeVisitor):
                 set_source_location(filename=self.source_name(), lineno=node.lineno)
                 with pypto.function(node.name, *tensor_input_args, *output_args):
                     clear_source_location()
-                    for _ in pypto.loop(1, name="default_loop_1"):
-                        self._visit_body(node.body)
+                    self._visit_body(node.body)
 
         return pypto.functions.get_last_function()
 
@@ -1398,9 +1398,7 @@ class Parser(ast.NodeVisitor):
 
         # Use Python function-level scoping semantics, do not create a new frame
         # Variable lifetime is controlled by liveness analysis
-        set_source_location(filename=self.source_name(), lineno=node.lineno)
         for loop_var in iterator:
-            clear_source_location()
             self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
             self._visit_body(node.body)
 
@@ -1442,6 +1440,21 @@ class Parser(ast.NodeVisitor):
             The value to assign.
         """
         if isinstance(target, ast.Name):
+            # 检查是否试图重新赋值输入 tensor
+            values_stack = self.context.name2value.get(target.id, [])
+            if values_stack:
+                existing_value = values_stack[-1]
+                if (isinstance(existing_value, pypto.Tensor) and
+                    getattr(existing_value, 'is_input', False)):
+                    raise ParserError(
+                        target,
+                        ValueError(
+                            f"Input tensor '{target.id}' cannot be reassigned. "
+                            f"Use subscript assignment ('{target.id}[:] = ...') "
+                            f"or '{target.id}.move(...)' instead."
+                        ),
+                    )
+
             # Simple assignment: a = expr
             # Set the tensor name if expr is a tensor
             if isinstance(expr, pypto.Tensor):
@@ -1464,6 +1477,7 @@ class Parser(ast.NodeVisitor):
             for t, e in zip(target.elts, expr):
                 self._assign_target(t, e)
         elif isinstance(target, ast.Subscript):
+            set_source_location(filename=self.source_name(), lineno=target.lineno)
             # Subscript assignment: b[:] = expr or b[0] = expr
             # This handles in-place tensor updates using Python's subscript syntax.
             # Evaluate the value (e.g., b) to get the tensor being assigned to
@@ -1473,6 +1487,7 @@ class Parser(ast.NodeVisitor):
             # Perform the assignment using __setitem__, which translates to
             # the appropriate PTO IR operation for tensor element/slice updates
             tensor[slice_obj] = expr
+            clear_source_location()
         else:
             raise ParserError(
                 target,
@@ -1567,12 +1582,14 @@ class Parser(ast.NodeVisitor):
                 )
             target_value = var_values[node.target.id]
         elif isinstance(node.target, ast.Subscript):
+            set_source_location(filename=self.source_name(), lineno=node.target.lineno)
             # For Subscript targets (e.g., a[i] += y), evaluate the tensor and slice/index
             tensor = self._eval_expr(node.target.value)
             slice_obj = self._eval_expr(node.target.slice)
 
             # Get the current value from the subscript
             target_value = tensor[slice_obj]
+            clear_source_location()
         else:
             raise ParserError(
                 node.target,

@@ -22,68 +22,55 @@
 namespace CostModel {
 class CostModelPipe {
 public:
-    CostModelPipe(const std::string &moduleName, const uint32_t coreId, const uint32_t pipeId);
+    CostModelPipe(const std::string& moduleName, const uint32_t coreId, const uint32_t pipeId);
     virtual ~CostModelPipe();
     bool Build() const;
-    void Attach(const std::function<void(const uint32_t, const uint32_t, const uint32_t)>& popSetFlag
-                                    /* pipeId, triggerPipeId, eventId */,
-                const std::function<void(const uint32_t, const uint32_t, const uint32_t)>& rlsSetFlag
-                                    /* pipeId, triggerPipeId, eventId */,
-                const std::function<bool(const uint32_t, const uint32_t, const uint32_t)>& getFlag
-                                    /* pipeId, triggerPipeId, eventId */,
-                const std::function<void(const PInstrParam&)>& dump,
-                const std::function<void(const uint32_t)>& retire);
+    void Attach(
+        const std::function<void(const uint32_t, const uint32_t, const uint32_t)>& popSetFlag
+        /* pipeId, triggerPipeId, eventId */,
+        const std::function<void(const uint32_t, const uint32_t, const uint32_t)>& rlsSetFlag
+        /* pipeId, triggerPipeId, eventId */,
+        const std::function<bool(const uint32_t, const uint32_t, const uint32_t)>& getFlag
+        /* pipeId, triggerPipeId, eventId */,
+        const std::function<void(const PInstrParam&)>& dump, const std::function<void(const uint32_t)>& retire);
     bool IsqFull() const;
     bool IsqEmpty() const;
     void Push(const PInstrParam& instr);
-    inline std::string Name() const
-    {
-        return pipeName;
-    }
+    inline std::string Name() const { return pipeName; }
     void DisPatch();
     void Release();
 
     void AttachClk(const std::function<uint64_t()>& time);
     uint64_t GetOpCycle(std::deque<PInstrParam>& program);
-    inline void SetReadGmFactor(const uint32_t factor)
-    {
-        ddrRdLatency_ = factor;
-    }
-    inline uint32_t GetReadGmFactor() const
-    {
-        return ddrRdLatency_;
-    }
-    inline void SetWriteGmFactor(const uint32_t factor)
-    {
-        ddrWrLatency_ = factor;
-    }
-    inline uint32_t GetWriteGmFactor() const
-    {
-        return ddrWrLatency_;
-    }
+    inline void SetReadGmFactor(const uint32_t factor) { ddrRdLatency_ = factor; }
+    inline uint32_t GetReadGmFactor() const { return ddrRdLatency_; }
+    inline void SetWriteGmFactor(const uint32_t factor) { ddrWrLatency_ = factor; }
+    inline uint32_t GetWriteGmFactor() const { return ddrWrLatency_; }
+
 private:
     void CalcInstrLatency(PInstrParam& instr);
-    void CalcNdNzOutL1(PInstrParam &instr);
-    void CalcMovOutUb(PInstrParam &instr);
-    void CalcMovUbOut(PInstrParam &instr);
-    void CalcMovOutUbAlign(PInstrParam &instr);
-    void CalcMovUbOutAlign(PInstrParam &instr);
-    void CalcLoad2d(PInstrParam &instr);
-    void CalcLoad3d(PInstrParam &instr);
-    void CalcFixL0cOut(PInstrParam &instr);
-    void CalcVcadd(PInstrParam &instr);
-    void CalcMoveMask(PInstrParam &instr);
-    void CalcVecOp(PInstrParam &instr);
-    void CalcVconv(PInstrParam &instr);
-    void CalcMovUbUb(PInstrParam &instr);
-    void CalcMmad(PInstrParam &instr);
-    void CalcVnchwconv(PInstrParam &instr);
-    void CalcVreducev2(PInstrParam &instr);
-    void CalcMoveVa(PInstrParam &instr);
-    void CalcLd(PInstrParam &instr);
-    void CalcSt(PInstrParam &instr);
-    void CalcAlu(PInstrParam &instr);
+    void CalcNdNzOutL1(PInstrParam& instr);
+    void CalcMovOutUb(PInstrParam& instr);
+    void CalcMovUbOut(PInstrParam& instr);
+    void CalcMovOutUbAlign(PInstrParam& instr);
+    void CalcMovUbOutAlign(PInstrParam& instr);
+    void CalcLoad2d(PInstrParam& instr);
+    void CalcLoad3d(PInstrParam& instr);
+    void CalcFixL0cOut(PInstrParam& instr);
+    void CalcVcadd(PInstrParam& instr);
+    void CalcMoveMask(PInstrParam& instr);
+    void CalcVecOp(PInstrParam& instr);
+    void CalcVconv(PInstrParam& instr);
+    void CalcMovUbUb(PInstrParam& instr);
+    void CalcMmad(PInstrParam& instr);
+    void CalcVnchwconv(PInstrParam& instr);
+    void CalcVreducev2(PInstrParam& instr);
+    void CalcMoveVa(PInstrParam& instr);
+    void CalcLd(PInstrParam& instr);
+    void CalcSt(PInstrParam& instr);
+    void CalcAlu(PInstrParam& instr);
     uint64_t GetTime() const;
+
 private:
     const std::string pipeName;
     const uint32_t coreId_ = 0;
@@ -127,8 +114,8 @@ private:
 };
 
 extern "C" {
-    int GetTileOpCycle(const char* input);
+int GetTileOpCycle(const char* input);
 }
-}  // namespace CostModel
+} // namespace CostModel
 
 #endif

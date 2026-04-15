@@ -217,6 +217,33 @@ y = pypto.view(x, [16, 16, 8, 8], [0, 0, 0], [])
 # 正确示例
 y = pypto.view(x, [16, 16, 8, 8], [0, 0, 0, 0], [])
 ```
+#### 使用动态Shape的Tensor进行计算表达
+```python
+# 错误示例
+@pypto.frontend.jit
+def kernel_with_dynamic(
+    a: pypto.Tensor([pypto.DYNAMIC, ...]),
+    out: pypto.Tensor([pypto.DYNAMIC, ...]),
+):
+    pypto.set_vec_tile_shapes(16, 16)
+    # 用动态Shape的Tensor进行计算表达
+    out[:] = pypto.exp(a)
+
+# 正确示例
+@pypto.frontend.jit
+def kernel_with_dynamic(
+    a: pypto.Tensor([pypto.DYNAMIC, ...]),
+    out: pypto.Tensor([pypto.DYNAMIC, ...]),
+):
+    pypto.set_vec_tile_shapes(16, 16)
+    view = 32
+    # 在loop中view出静态shape后，再做计算
+    count = (a.shape[0] - 1 + view) // view
+    for idx in pypto.loop(count):
+        temp = a[idx: idx + view, :]
+        out[idx: idx + view, :] = pypto.exp(temp)
+```
+
 
 ---
 
@@ -287,7 +314,7 @@ def correct_view_offset_example(x):
 // 错误 - 配置值溢出
 // C++ 代码调用 SetOptionsNg
 config::SetOptionsNg("runtime.device_sched_mode", 4);  // 超出范围 [0, 3]，会报错
-config::SetOptionsNg("runtime.stitch_function_num_initial", 129);  // 超出范围 [1, 128]，会报错
+config::SetOptionsNg("runtime.stitch_function_max_num", 1025);  // 超出范围 [1, 1024]，会报错
 
 // tile_fwk_config_schema.json 中定义了范围
 {
@@ -299,10 +326,10 @@ config::SetOptionsNg("runtime.stitch_function_num_initial", 129);  // 超出范�
                     "minimum": 0,
                     "maximum": 3
                 },
-                "stitch_function_num_initial": {
+                "stitch_function_max_num": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 128
+                    "maximum": 1024
                 }
             }
         }
@@ -344,10 +371,10 @@ for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
 auto &program = npu::tile_fwk::Program::GetInstance();
 // 创建一个静态函数
 std::string funcName = "test_function";
-program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC, 
+program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC,
                         npu::tile_fwk::GraphGraphType::TENSOR_GRAPH, {}, false);
 // 再次执行会触发CHECK断言，由于funcName重复
-// program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC, 
+// program.BeginFunction(funcName, npu::tile_fwk::FunctionType::STATIC,
 //                      npu::tile_fwk::GraphType::TENSOR_GRAPH, {}, false);
 ```
 

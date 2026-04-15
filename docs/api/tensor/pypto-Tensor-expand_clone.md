@@ -16,4 +16,3 @@ expand_clone(self, shape: List[int], *, valid_shape: Optional[List[Union[int, Sy
 ## 详细说明
 
 请参见[pypto.expand\_clone](../operation/pypto-expand_clone.md)。
-

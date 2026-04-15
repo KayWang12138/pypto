@@ -25,7 +25,7 @@
 namespace npu::tile_fwk {
 
 struct PostTileConfig {
-    int tileB = 8;  // tileB is 8
+    int tileB = 8; // tileB is 8
     int tileS = 1;
 };
 
@@ -38,9 +38,10 @@ struct PostTensors {
     Tensor smoothScalesWo;
 };
 
-void PostCompute(Tensor &input, PostTensors &postTensors, const PostTileConfig &tileConfig, Tensor &postOut);
+void PostCompute(Tensor& input, PostTensors& postTensors, const PostTileConfig& tileConfig, Tensor& postOut);
 
-void AttentionPostStandalone(Tensor &input, PostTensors &postTensors, const PostTileConfig &tileConfig, Tensor &postOut);
+void AttentionPostStandalone(
+    Tensor& input, PostTensors& postTensors, const PostTileConfig& tileConfig, Tensor& postOut);
 
 } // namespace npu::tile_fwk
 

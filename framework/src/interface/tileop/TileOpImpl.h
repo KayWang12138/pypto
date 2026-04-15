@@ -30,7 +30,9 @@
 #include "dynamic/aicpu_call.h"
 
 #ifdef SUPPORT_TILE_TENSOR
+#ifndef __LITE_NPU
 #include "distributed/tileop_shmem.h"
+#endif
 #include "utils/layout.h"
 #include "vector/unary.h"
 #include "vector/trans.h"
@@ -50,7 +52,8 @@
 #include "vector/indexadd.h"
 #include "vector/scatter.h"
 #include "vector/expand.h"
-#include "vector/cumsum.h"
+#include "vector/expand_exp_dif.h"
+#include "vector/cum_operation.h"
 #include "vector/extract.h"
 #include "vector/pair_binary.h"
 #include "vector/where.h"
@@ -64,6 +67,7 @@
 #include "vector/index_outcast.h"
 #include "vector/bitwise_shift.h"
 #include "vector/copysign.h"
+#include "vector/permute.h"
 #include "cube/cube_pto.h"
 #include "conv/conv_pto.h"
 #endif

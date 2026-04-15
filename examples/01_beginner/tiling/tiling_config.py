@@ -52,7 +52,7 @@ if _peek_run_mode_from_argv("npu") == "sim":
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -60,7 +60,7 @@ def get_device_id():
         print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -389,7 +389,7 @@ def test_set_vec_different_tile_shapes_runtime(device_id: int = None):
 
 def main():
     """Run tiling examples.
-    
+
     Usage:
         python tiling_ops.py                          # Run all examples
         python tiling_ops.py --list                   # List all available examples
@@ -424,9 +424,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, supports npu and sim.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'cube_tile::test_set_cube_tile_shapes_basic': {
@@ -460,7 +460,7 @@ Examples:
             'function': test_set_vec_different_tile_shapes_runtime,
         },
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -471,7 +471,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate case if provided
     examples_to_run = []
     device_id = None
@@ -484,11 +484,11 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = [(key, info) for key, info in sorted(examples.items())]
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Tiling Operation Examples")
     print("=" * 60 + "\n")
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -497,17 +497,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All tiling tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise
@@ -515,4 +515,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

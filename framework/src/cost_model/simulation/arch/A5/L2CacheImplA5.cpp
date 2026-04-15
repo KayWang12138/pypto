@@ -16,12 +16,12 @@
 #include <unordered_map>
 #include "L2CacheImplA5.h"
 
-namespace CostModel
+namespace CostModel {
+uint64_t L2CacheImplA5::Simulate(const CostModel::CachePacket& packet)
 {
-    uint64_t L2CacheImplA5::Simulate(const CostModel::CachePacket &packet) {
-        if (packet.size == 0) {
-            return 0;
-        }
+    if (packet.size == 0) {
         return 0;
     }
+    return 0;
+}
 } // namespace CostModel

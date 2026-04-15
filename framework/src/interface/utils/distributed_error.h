@@ -30,6 +30,7 @@ enum class DistributedErrorCode : uint32_t {
     INVALID_SHMEM_TENSOR = 0xA0007,
     INVALID_SHMEM_VIEW_PARAM = 0xA0008,
     INVALID_OP_TYPE = 0xA0009,
+    INVALID_MOE_EXPERT_NUM = 0xA000A,
 
     // FA1xxx: 配置错误
     INVALID_TILE_DIM = 0xA1000,
@@ -49,4 +50,4 @@ enum class DistributedErrorCode : uint32_t {
     INVALID_GROUP_INDEX = 0xA3004,
     NULLPTR = 0xA3005,
 };
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

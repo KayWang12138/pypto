@@ -73,7 +73,7 @@ def _setup_environment_variables() -> None:
     if "TILE_FWK_DEVICE_ID" not in os.environ:
         os.environ["TILE_FWK_DEVICE_ID"] = "0"
 
-    arch = platform.machine()  
+    arch = platform.machine()
     # 3. 设置 PTO_TILE_LIB_CODE_PATH（如果未设置）
     if "PTO_TILE_LIB_CODE_PATH" not in os.environ:
         ascend_home = os.environ.get("ASCEND_HOME_PATH") or os.environ.get(
@@ -83,7 +83,7 @@ def _setup_environment_variables() -> None:
             pto_isa_path = os.path.join(ascend_home, f"{arch}-linux")
             if os.path.isdir(pto_isa_path):
                 os.environ["PTO_TILE_LIB_CODE_PATH"] = pto_isa_path
-                
+
 
 def _parse_timeout_env() -> int:
     raw = os.environ.get('DIAG_TIMEOUT', '10')

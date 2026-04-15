@@ -19,8 +19,9 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct MaximumOpFuncArgs : public OpFuncArgs {
-    MaximumOpFuncArgs(const Element &value, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
-        : value_(value), viewShape_(viewShape), tileShape_(tileShape) {}
+    MaximumOpFuncArgs(const Element& value, const std::vector<int64_t>& viewShape, const std::vector<int64_t> tileShape)
+        : value_(value), viewShape_(viewShape), tileShape_(tileShape)
+    {}
 
     Element value_;
     std::vector<int64_t> viewShape_;
@@ -28,114 +29,142 @@ struct MaximumOpFuncArgs : public OpFuncArgs {
 };
 
 struct MaximumOpMetaData {
-    explicit MaximumOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
-        : opFunc_(opFunc), test_data_(test_data) {}
+    explicit MaximumOpMetaData(const OpFunc& opFunc, const nlohmann::json& test_data)
+        : opFunc_(opFunc), test_data_(test_data)
+    {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-
-Shape GetBroadCastViewShape(const Tensor &self, const Tensor &other, const Shape &viewShape) {
-    ASSERT(self.GetShape().size() == other.GetShape().size());
-    Shape result = viewShape;
-    for (size_t i = 0; i < self.GetShape().size(); i++) {
-        int64_t selfDim = self.GetShape()[i];
-        int64_t otherDim = other.GetShape()[i];
-        if (selfDim != otherDim && selfDim == 1 && otherDim != 1) {
-            result[i] = 1;
-        } else {
-            result[i] = std::min(selfDim, viewShape[i]);
+void UpdateInputBrcViewShape(
+    std::vector<int64_t>& inputBrcViewShape, const std::vector<SymbolicScalar>& inputsShape,
+    const std::vector<SymbolicScalar>& outputsShape)
+{
+    for (size_t i = 0; i < inputsShape.size(); i++) {
+        if (inputsShape[i] == 1 && outputsShape[i] != 1) {
+            inputBrcViewShape[i] = 1;
         }
     }
-    return result;
 }
 
-std::vector<int64_t> GetBroadCastOffsetRatio(const Tensor &self, const Tensor &other, const Shape &viewShape) {
-    ASSERT(self.GetShape().size() == other.GetShape().size());
-    Shape result(viewShape.size(), 1);
-    for (size_t i = 0; i < self.GetShape().size(); i++) {
-        int64_t selfDim = self.GetShape()[i];
-        int64_t otherDim = other.GetShape()[i];
-        if (selfDim != otherDim && selfDim == 1 && otherDim != 1) {
-            result[i] = 0;
+void UpdateInputBrcVaildShape(
+    std::vector<SymbolicScalar>& inputValidShape, const std::vector<SymbolicScalar>& inputsShape,
+    const std::vector<SymbolicScalar>& outputsShape)
+{
+    for (size_t i = 0; i < inputsShape.size(); i++) {
+        if (inputsShape[i] == 1 && outputsShape[i] != 1) {
+            inputValidShape[i] = 1;
         }
     }
-    return result;
+}
+
+void UpdateOffset(
+    std::vector<SymbolicScalar>& offset, const std::vector<SymbolicScalar>& inputsShape,
+    const std::vector<SymbolicScalar>& outputsShape)
+{
+    for (size_t i = 0; i < inputsShape.size(); i++) {
+        if (inputsShape[i] == 1 && outputsShape[i] != 1) {
+            offset[i] = 0;
+        }
+    }
 }
 
 void MaximumOperationExeFunc2Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
-        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
-        auto args = static_cast<const MaximumOpFuncArgs *>(opArgs);
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]})
+    {
+        std::vector<SymbolicScalar> firstInputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1]};
+        std::vector<SymbolicScalar> secondInputsShape = {inputs[1].GetShape()[0], inputs[1].GetShape()[1]};
+        std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1]};
+        auto args = static_cast<const MaximumOpFuncArgs*>(opArgs);
+        std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1]};
+        std::vector<int64_t> firstInputViewShape = viewShape;
+        std::vector<int64_t> secondInputViewShape = viewShape;
+        UpdateInputBrcViewShape(firstInputViewShape, firstInputsShape, outputsShape);
+        UpdateInputBrcViewShape(secondInputViewShape, secondInputsShape, outputsShape);
 
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                const Shape &tile0ViewShape = GetBroadCastViewShape(inputs[0], inputs[1], args->viewShape_);
-                const std::vector<int64_t> &tile0OffsetRatio = GetBroadCastOffsetRatio(inputs[0], inputs[1], args->viewShape_);
-                const Shape &tile1ViewShape = GetBroadCastViewShape(inputs[1], inputs[0], args->viewShape_);
-                const std::vector<int64_t> &tile1OffsetRatio = GetBroadCastOffsetRatio(inputs[1], inputs[0], args->viewShape_);
-                Tensor tileTensor0 = View(inputs[0], {tile0ViewShape[0], tile0ViewShape[1]},
-                    {std::min(firstDim - bIdx * tile0ViewShape[0], tile0ViewShape[0]),
-                        std::min(secondDim - sIdx * tile0ViewShape[1], tile0ViewShape[1])},
-                    {bIdx * tile0ViewShape[0] * tile0OffsetRatio[0], sIdx * tile0ViewShape[1] * tile0OffsetRatio[1]});
-                Tensor tileTensor1 = View(inputs[1], {tile1ViewShape[0], tile1ViewShape[1]},
-                    {std::min(firstDim - bIdx * tile1ViewShape[0], tile1ViewShape[0]),
-                        std::min(secondDim - sIdx * tile1ViewShape[1], tile1ViewShape[1])},
-                    {bIdx * tile1ViewShape[0] * tile1OffsetRatio[0], sIdx * tile1ViewShape[1] * tile1OffsetRatio[1]});
+        const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
+        const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                std::vector<SymbolicScalar> firstInputValidShape = {
+                    std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
+                    std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1])};
+                std::vector<SymbolicScalar> secondInputValidShape = {
+                    std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
+                    std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1])};
+                std::vector<SymbolicScalar> firstOffset = {
+                    bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1]};
+                std::vector<SymbolicScalar> secondOffset = {
+                    bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1]};
+
+                UpdateInputBrcVaildShape(firstInputValidShape, firstInputsShape, outputsShape);
+                UpdateInputBrcVaildShape(secondInputValidShape, secondInputsShape, outputsShape);
+                UpdateOffset(firstOffset, firstInputsShape, outputsShape);
+                UpdateOffset(secondOffset, secondInputsShape, outputsShape);
+                Tensor tileTensor0 = View(inputs[0], firstInputViewShape, firstInputValidShape, firstOffset);
+                Tensor tileTensor1 = View(inputs[1], secondInputViewShape, secondInputValidShape, secondOffset);
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = Maximum(tileTensor0, tileTensor1);
-                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+                Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1]}, outputs[0]);
             }
         }
     }
 }
 
 void MaximumOperationExeFunc3Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
-        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
-        SymbolicScalar thirdDim = std::max(inputs[0].GetShape()[2], inputs[1].GetShape()[2]);
-        auto args = static_cast<const MaximumOpFuncArgs *>(opArgs);
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        const int thirdViewShape = args->viewShape_[2];
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]})
+    {
+        std::vector<SymbolicScalar> firstInputsShape = {
+            inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2]};
+        std::vector<SymbolicScalar> secondInputsShape = {
+            inputs[1].GetShape()[0], inputs[1].GetShape()[1], inputs[1].GetShape()[2]};
+        std::vector<SymbolicScalar> outputsShape = {
+            outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2]};
+        auto args = static_cast<const MaximumOpFuncArgs*>(opArgs);
+        std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2]};
+        std::vector<int64_t> firstInputViewShape = viewShape;
+        std::vector<int64_t> secondInputViewShape = viewShape;
+        UpdateInputBrcViewShape(firstInputViewShape, firstInputsShape, outputsShape);
+        UpdateInputBrcViewShape(secondInputViewShape, secondInputsShape, outputsShape);
 
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-        const int nloop = CeilDiv(thirdDim, thirdViewShape);
+        const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
+        const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
+        const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    std::vector<SymbolicScalar> firstInputValidShape = {
+                        std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
+                        std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
+                        std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2])};
+                    std::vector<SymbolicScalar> secondInputValidShape = {
+                        std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
+                        std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
+                        std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2])};
+                    std::vector<SymbolicScalar> firstOffset = {
+                        bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1], nIdx * firstInputViewShape[2]};
+                    std::vector<SymbolicScalar> secondOffset = {
+                        bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1], nIdx * secondInputViewShape[2]};
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    const Shape &tile0ViewShape = GetBroadCastViewShape(inputs[0], inputs[1], args->viewShape_);
-                    const std::vector<int64_t> &tile0OffsetRatio = GetBroadCastOffsetRatio(inputs[0], inputs[1], args->viewShape_);
-                    const Shape &tile1ViewShape = GetBroadCastViewShape(inputs[1], inputs[0], args->viewShape_);
-                    const std::vector<int64_t> &tile1OffsetRatio = GetBroadCastOffsetRatio(inputs[1], inputs[0], args->viewShape_);
-                    Tensor tileTensor0 = View(inputs[0], {tile0ViewShape[0], tile0ViewShape[1], tile0ViewShape[2]},
-                        {std::min(firstDim - bIdx * tile0ViewShape[0], tile0ViewShape[0]),
-                            std::min(secondDim - sIdx * tile0ViewShape[1], tile0ViewShape[1]),
-                            std::min(thirdDim - nIdx * tile0ViewShape[2], tile0ViewShape[2])},
-                        {bIdx * tile0ViewShape[0] * tile0OffsetRatio[0],
-                            sIdx * tile0ViewShape[1] * tile0OffsetRatio[1],
-                            nIdx * tile0ViewShape[2] * tile0OffsetRatio[2]});
-                    Tensor tileTensor1 = View(inputs[1], {tile1ViewShape[0], tile1ViewShape[1], tile1ViewShape[2]},
-                        {std::min(firstDim - bIdx * tile1ViewShape[0], tile1ViewShape[0]),
-                            std::min(secondDim - sIdx * tile1ViewShape[1], tile1ViewShape[1]),
-                            std::min(thirdDim - nIdx * tile1ViewShape[2], tile1ViewShape[2])},
-                        {bIdx * tile1ViewShape[0] * tile1OffsetRatio[0],
-                            sIdx * tile1ViewShape[1] * tile1OffsetRatio[1],
-                            nIdx * tile1ViewShape[2] * tile1OffsetRatio[2]});
+                    UpdateInputBrcVaildShape(firstInputValidShape, firstInputsShape, outputsShape);
+                    UpdateInputBrcVaildShape(secondInputValidShape, secondInputsShape, outputsShape);
+                    UpdateOffset(firstOffset, firstInputsShape, outputsShape);
+                    UpdateOffset(secondOffset, secondInputsShape, outputsShape);
+                    Tensor tileTensor0 = View(inputs[0], firstInputViewShape, firstInputValidShape, firstOffset);
+                    Tensor tileTensor1 = View(inputs[1], secondInputViewShape, secondInputValidShape, secondOffset);
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = Maximum(tileTensor0, tileTensor1);
-                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                    Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]}, outputs[0]);
                 }
             }
         }
@@ -143,52 +172,64 @@ void MaximumOperationExeFunc3Dims(
 }
 
 void MaximumOperationExeFunc4Dims(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
-        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
-        SymbolicScalar thirdDim = std::max(inputs[0].GetShape()[2], inputs[1].GetShape()[2]);
-        SymbolicScalar fourthDim = std::max(inputs[0].GetShape()[3], inputs[1].GetShape()[3]);
-        auto args = static_cast<const MaximumOpFuncArgs *>(opArgs);
-        const int firstViewShape = args->viewShape_[0];
-        const int secondViewShape = args->viewShape_[1];
-        const int thirdViewShape = args->viewShape_[2];
-        const int fourthViewShape = args->viewShape_[3];
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]})
+    {
+        std::vector<SymbolicScalar> firstInputsShape = {
+            inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2], inputs[0].GetShape()[3]};
+        std::vector<SymbolicScalar> secondInputsShape = {
+            inputs[1].GetShape()[0], inputs[1].GetShape()[1], inputs[1].GetShape()[2], inputs[1].GetShape()[3]};
+        std::vector<SymbolicScalar> outputsShape = {
+            outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2], outputs[0].GetShape()[3]};
+        auto args = static_cast<const MaximumOpFuncArgs*>(opArgs);
+        std::vector<int64_t> viewShape = {
+            args->viewShape_[0], args->viewShape_[1], args->viewShape_[2], args->viewShape_[3]};
+        std::vector<int64_t> firstInputViewShape = viewShape;
+        std::vector<int64_t> secondInputViewShape = viewShape;
+        UpdateInputBrcViewShape(firstInputViewShape, firstInputsShape, outputsShape);
+        UpdateInputBrcViewShape(secondInputViewShape, secondInputsShape, outputsShape);
 
-        const int bloop = CeilDiv(firstDim, firstViewShape);
-        const int sloop = CeilDiv(secondDim, secondViewShape);
-        const int nloop = CeilDiv(thirdDim, thirdViewShape);
-        const int kloop = CeilDiv(fourthDim, fourthViewShape);
+        const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
+        const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
+        const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
+        const int mloop = CeilDiv(outputsShape[3], viewShape[3]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1))
+                    {
+                        std::vector<SymbolicScalar> firstInputValidShape = {
+                            std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
+                            std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
+                            std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2]),
+                            std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3])};
+                        std::vector<SymbolicScalar> secondInputValidShape = {
+                            std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
+                            std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
+                            std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2]),
+                            std::min(secondInputsShape[3] - mIdx * secondInputViewShape[3], secondInputViewShape[3])};
+                        std::vector<SymbolicScalar> firstOffset = {
+                            bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1], nIdx * firstInputViewShape[2],
+                            mIdx * firstInputViewShape[3]};
+                        std::vector<SymbolicScalar> secondOffset = {
+                            bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1],
+                            nIdx * secondInputViewShape[2], mIdx * secondInputViewShape[3]};
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    LOOP("LOOP_L3_kIdx", FunctionType::DYNAMIC_LOOP, kIdx, LoopRange(0, kloop, 1)) {
-                        const Shape &tile0ViewShape = GetBroadCastViewShape(inputs[0], inputs[1], args->viewShape_);
-                        const std::vector<int64_t> &tile0OffsetRatio = GetBroadCastOffsetRatio(inputs[0], inputs[1], args->viewShape_);
-                        const Shape &tile1ViewShape = GetBroadCastViewShape(inputs[1], inputs[0], args->viewShape_);
-                        const std::vector<int64_t> &tile1OffsetRatio = GetBroadCastOffsetRatio(inputs[1], inputs[0], args->viewShape_);
-                        Tensor tileTensor0 = View(inputs[0], {tile0ViewShape[0], tile0ViewShape[1], tile0ViewShape[2], tile0ViewShape[3]},
-                            {std::min(firstDim - bIdx * tile0ViewShape[0], tile0ViewShape[0]),
-                                std::min(secondDim - sIdx * tile0ViewShape[1], tile0ViewShape[1]),
-                                std::min(thirdDim - nIdx * tile0ViewShape[2], tile0ViewShape[2]),
-                                std::min(fourthDim - kIdx * tile0ViewShape[3], tile0ViewShape[3])},
-                            {bIdx * tile0ViewShape[0] * tile0OffsetRatio[0],
-                                sIdx * tile0ViewShape[1] * tile0OffsetRatio[1],
-                                nIdx * tile0ViewShape[2] * tile0OffsetRatio[2],
-                                kIdx * tile0ViewShape[3] * tile0OffsetRatio[3]});
-                        Tensor tileTensor1 = View(inputs[1], {tile1ViewShape[0], tile1ViewShape[1], tile1ViewShape[2], tile1ViewShape[3]},
-                            {std::min(firstDim - bIdx * tile1ViewShape[0], tile1ViewShape[0]),
-                                std::min(secondDim - sIdx * tile1ViewShape[1], tile1ViewShape[1]),
-                                std::min(thirdDim - nIdx * tile1ViewShape[2], tile1ViewShape[2]),
-                                std::min(fourthDim - kIdx * tile1ViewShape[3], tile1ViewShape[3])},
-                            {bIdx * tile1ViewShape[0] * tile1OffsetRatio[0],
-                                sIdx * tile1ViewShape[1] * tile1OffsetRatio[1],
-                                nIdx * tile1ViewShape[2] * tile1OffsetRatio[2],
-                                kIdx * tile1ViewShape[3] * tile1OffsetRatio[3]});
+                        UpdateInputBrcVaildShape(firstInputValidShape, firstInputsShape, outputsShape);
+                        UpdateInputBrcVaildShape(secondInputValidShape, secondInputsShape, outputsShape);
+                        UpdateOffset(firstOffset, firstInputsShape, outputsShape);
+                        UpdateOffset(secondOffset, secondInputsShape, outputsShape);
+                        Tensor tileTensor0 = View(inputs[0], firstInputViewShape, firstInputValidShape, firstOffset);
+                        Tensor tileTensor1 = View(inputs[1], secondInputViewShape, secondInputValidShape, secondOffset);
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Maximum(tileTensor0, tileTensor1);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, kIdx * fourthViewShape}, outputs[0]);
+                        Assemble(
+                            res, {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], mIdx * viewShape[3]},
+                            outputs[0]);
                     }
                 }
             }
@@ -197,21 +238,26 @@ void MaximumOperationExeFunc4Dims(
 }
 
 void MaxSOperationExeFuncDoubleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
-        auto args = static_cast<const MaximumOpFuncArgs *>(opArgs);
+        auto args = static_cast<const MaximumOpFuncArgs*>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         int bloop = CeilDiv(firstDim, firstViewShape);
         int sloop = CeilDiv(secondDim, secondViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                auto tileTensor0 = View(
+                    inputs[0], {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                     std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = Maximum(tileTensor0, args->value_);
@@ -222,12 +268,14 @@ void MaxSOperationExeFuncDoubleCut(
 }
 
 void MaxSOperationExeFuncTripleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
-        auto args = static_cast<const MaximumOpFuncArgs *>(opArgs);
+        auto args = static_cast<const MaximumOpFuncArgs*>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -235,13 +283,17 @@ void MaxSOperationExeFuncTripleCut(
         int sloop = CeilDiv(secondDim, secondViewShape);
         int nloop = CeilDiv(thirdDim, thirdViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    auto tileTensor0 = View(
+                        inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                         std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = Maximum(tileTensor0, args->value_);
@@ -253,13 +305,15 @@ void MaxSOperationExeFuncTripleCut(
 }
 
 void MaxSOperationExeFuncQuadrupleCut(
-    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    const std::vector<Tensor>& inputs, std::vector<Tensor>& outputs, const OpFuncArgs* opArgs)
+{
+    FUNCTION("main", {inputs[0]}, {outputs[0]})
+    {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
         SymbolicScalar fourthDim = inputs[0].GetShape()[3];
-        auto args = static_cast<const MaximumOpFuncArgs *>(opArgs);
+        auto args = static_cast<const MaximumOpFuncArgs*>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -269,23 +323,28 @@ void MaxSOperationExeFuncQuadrupleCut(
         int nloop = CeilDiv(thirdDim, thirdViewShape);
         int qloop = CeilDiv(fourthDim, fourthViewShape);
 
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
-                        auto tileTensor0 =
-                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
-                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
-                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
-                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
-                                    std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
-                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                    qIdx * fourthViewShape});
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1))
+        {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1))
+            {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1))
+                {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1))
+                    {
+                        auto tileTensor0 = View(
+                            inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                            {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                             std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                             std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                             qIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Maximum(tileTensor0, args->value_);
-                        Assemble(res,
+                        Assemble(
+                            res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
-                                qIdx * fourthViewShape},
+                             qIdx * fourthViewShape},
                             outputs[0]);
                     }
                 }
@@ -296,33 +355,14 @@ void MaxSOperationExeFuncQuadrupleCut(
 
 class MaximumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MaximumOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestMaximum, MaximumOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<MaximumOpMetaData>(
-        {MaximumOperationExeFunc2Dims, MaximumOperationExeFunc3Dims, MaximumOperationExeFunc4Dims}, "Maximum")));
+INSTANTIATE_TEST_SUITE_P(
+    TestMaximum, MaximumOperationTest,
+    ::testing::ValuesIn(
+        GetOpMetaData<MaximumOpMetaData>(
+            {MaximumOperationExeFunc2Dims, MaximumOperationExeFunc3Dims, MaximumOperationExeFunc4Dims}, "Maximum")));
 
-Element GetElementByType(DataType dataType, nlohmann::json test_data, string name) {
-    if (dataType == DT_FP32 || dataType == DT_FP16 || dataType == DT_BF16) {
-        Element element(dataType, GetValueByName<float>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT8) {
-        Element element(dataType, GetValueByName<int8_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT16) {
-        Element element(dataType, GetValueByName<int16_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT32) {
-        Element element(dataType, GetValueByName<int32_t>(test_data, name));
-        return element;
-    } else if (dataType == DT_INT64) {
-        Element element(dataType, GetValueByName<int64_t>(test_data, name));
-        return element;
-    } else {
-        std::string errorMessage = "UnSupport Type in MaxS ST Test" + DataType2String(dataType);
-        throw std::invalid_argument(errorMessage.c_str());
-    }
-}
-
-TEST_P(MaximumOperationTest, TestMaximum) {
+TEST_P(MaximumOperationTest, TestMaximum)
+{
     auto test_data = GetParam().test_data_;
 
     bool isElementMode = test_data.at("input_tensors").size() <= 1;
@@ -339,18 +379,9 @@ TEST_P(MaximumOperationTest, TestMaximum) {
 
     std::vector<OpFunc> opFuncs = {};
     if (isElementMode) {
-        opFuncs = {
-            MaxSOperationExeFuncDoubleCut,
-            MaxSOperationExeFuncTripleCut,
-            MaxSOperationExeFuncQuadrupleCut
-        };
-    }
-    else {
-        opFuncs = {
-            MaximumOperationExeFunc2Dims,
-            MaximumOperationExeFunc3Dims,
-            MaximumOperationExeFunc4Dims
-        };
+        opFuncs = {MaxSOperationExeFuncDoubleCut, MaxSOperationExeFuncTripleCut, MaxSOperationExeFuncQuadrupleCut};
+    } else {
+        opFuncs = {MaximumOperationExeFunc2Dims, MaximumOperationExeFunc3Dims, MaximumOperationExeFunc4Dims};
     }
     testCase.opFunc = opFuncs[viewShape.size() - 2];
 

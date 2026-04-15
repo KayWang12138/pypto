@@ -31,9 +31,9 @@ class PassRegistry {
 public:
     using CreateFn = std::function<std::unique_ptr<Pass>()>;
     ~PassRegistry() = default;
-    static PassRegistry &GetInstance();
-    void RegisterPass(const std::string &passName, CreateFn createFn);
-    std::unique_ptr<Pass> CreatePass(const std::string &passName) const;
+    static PassRegistry& GetInstance();
+    void RegisterPass(const std::string& passName, CreateFn createFn);
+    std::unique_ptr<Pass> CreatePass(const std::string& passName) const;
 
 private:
     PassRegistry() = default;
@@ -45,19 +45,19 @@ private:
 
 class PassRegistrar {
 public:
-    PassRegistrar(const std::string &passName, PassRegistry::CreateFn createFn, std::function<void()> typeCheck);
+    PassRegistrar(const std::string& passName, PassRegistry::CreateFn createFn, std::function<void()> typeCheck);
 
     ~PassRegistrar() = default;
 };
 
-#define REG_PASS(DerivedPass)                                                                              \
-    [[maybe_unused]] static auto tile_fwk_passRegister##DerivedPass = ::npu::tile_fwk::PassRegistrar(                 \
+#define REG_PASS(DerivedPass)                                                                                     \
+    [[maybe_unused]] static auto tile_fwk_passRegister##DerivedPass = ::npu::tile_fwk::PassRegistrar(             \
         #DerivedPass, []() -> std::unique_ptr<::npu::tile_fwk::Pass> { return std::make_unique<DerivedPass>(); }, \
-        []() {                                                                                             \
+        []() {                                                                                                    \
             static_assert(std::is_base_of_v<::npu::tile_fwk::Pass, DerivedPass>);                                 \
-            std::string passName = DerivedPass().GetName();                                                \
-            ASSERT(passName == #DerivedPass)                                                               \
-                << "[PassRegistry][Manager][ERROR]: Pass class " << #DerivedPass << " has incompatible name: " << passName;                \
+            std::string passName = DerivedPass().GetName();                                                       \
+            ASSERT(passName == #DerivedPass) << "[PassRegistry][Manager][ERROR]: Pass class " << #DerivedPass     \
+                                             << " has incompatible name: " << passName;                           \
         })
 } // namespace npu::tile_fwk
-#endif  // PASSES_PASS_REG_H_
+#endif // PASSES_PASS_REG_H_

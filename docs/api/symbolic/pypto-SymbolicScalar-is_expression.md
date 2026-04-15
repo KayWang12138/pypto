@@ -47,4 +47,3 @@ out3 = s3.is_expression()
 输出数据out2: False
 输出数据out3: True
 ```
-

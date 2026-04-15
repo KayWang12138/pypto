@@ -18,4 +18,3 @@ class TransMode(enum.Enum):
      CAST_RINT = ...   # 舍入到最近整数，中间值时舍入到偶数
      CAST_ROUND = ...  # 舍入到最近整数，中间值时远离零舍入
 ```
-

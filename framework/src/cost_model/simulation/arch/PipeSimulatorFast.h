@@ -18,23 +18,26 @@
 #include <unordered_map>
 #include "PipeMachineImpl.h"
 
-namespace CostModel
-{
-    extern "C" __attribute__((visibility("default"))) int64_t GetCyclesForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype);
-    template <typename PostSimulator>
-    class PipeSimulatorFast : public PipeMachineImpl
-    {
-    public:
-        uint64_t Simulate(const TileOpPtr& tileOp) override;
-        uint64_t PostSimulate(const TileOpPtr &tileOp) override;
-        uint64_t SimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) override;
-        uint64_t PostSimulateForPass(const std::string &op, const std::vector<std::vector<int>> &shape, DataType dtype) override;
-    private:
-        std::unordered_map<std::string, uint64_t> tileopLatencyCacheMp;
-    };
+namespace CostModel {
+extern "C" __attribute__((visibility("default"))) int64_t GetCyclesForPass(
+    const std::string& op, const std::vector<std::vector<int>>& shape, DataType dtype);
+template <typename PostSimulator>
+class PipeSimulatorFast : public PipeMachineImpl {
+public:
+    uint64_t Simulate(const TileOpPtr& tileOp) override;
+    uint64_t PostSimulate(const TileOpPtr& tileOp) override;
+    uint64_t SimulateForPass(
+        const std::string& op, const std::vector<std::vector<int>>& shape, DataType dtype) override;
+    uint64_t PostSimulateForPass(
+        const std::string& op, const std::vector<std::vector<int>>& shape, DataType dtype) override;
 
-    template <typename Simulator>
-    inline UnifiedPipeMachinePtr CreatePipeSimulatorFast() {
-        return UnifiedPipeMachinePtr(new PipeSimulatorFast<Simulator>());
-    }
+private:
+    std::unordered_map<std::string, uint64_t> tileopLatencyCacheMp;
+};
+
+template <typename Simulator>
+inline UnifiedPipeMachinePtr CreatePipeSimulatorFast()
+{
+    return UnifiedPipeMachinePtr(new PipeSimulatorFast<Simulator>());
+}
 } // namespace CostModel

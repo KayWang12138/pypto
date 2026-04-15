@@ -27,15 +27,15 @@ public:
     SubGraph(std::shared_ptr<OperationGraphInfo> operationInfo, std::shared_ptr<NodeGraphInfo> superNodeInfo)
         : operationInfo_(operationInfo), superNodeInfo_(superNodeInfo)
     {}
-    int32_t GetExpandCandidate(size_t expandNodeIdx, size_t expandLinkIdx, GraphExtendResult &res);
+    int32_t GetExpandCandidate(size_t expandNodeIdx, size_t expandLinkIdx, GraphExtendResult& res);
     void AddNode(int32_t nodeIdx);
-    void Merge(SubGraph &sg);
+    void Merge(SubGraph& sg);
     bool HasNode(int32_t nodeIdx) const;
     void BuildInOutSet();
     int32_t GetLatency() const;
     void Clear();
     std::string DumpStr();
-    const std::vector<int32_t> &GetNodeList();
+    const std::vector<int32_t>& GetNodeList();
     std::vector<Operation*> GetOpList();
     std::shared_ptr<OperationGraphInfo> operationInfo_;
     std::shared_ptr<NodeGraphInfo> superNodeInfo_;
@@ -52,23 +52,25 @@ public:
 
 class IsomorphismGraphGroup {
 public:
-    Status BuildGraphGroup(std::shared_ptr<OperationGraphInfo> operationInfo,
-                         std::shared_ptr<NodeGraphInfo> superNodeInfo, std::vector<int32_t> &expandCandidate,
-                         std::unordered_set<int32_t> &currentNodeSet, std::vector<int32_t> &idxInLinkNum,
-                         std::deque<int32_t> &zeroInQueue);
-    Status ExpandIsoGraphs(std::unordered_set<int32_t> &currentNodeSet, std::vector<int32_t> &idxInLinkNum,
-                         std::deque<int32_t> &zeroInQueue, int32_t pgUpperBound);
-    static bool IsoGraphMerge(std::shared_ptr<IsomorphismGraphGroup> &currGraph,
-                              std::shared_ptr<IsomorphismGraphGroup> &mergeGraph,
-                              std::vector<std::pair<int32_t, int32_t>> &isoSubIdxs);
+    Status BuildGraphGroup(
+        std::shared_ptr<OperationGraphInfo> operationInfo, std::shared_ptr<NodeGraphInfo> superNodeInfo,
+        std::vector<int32_t>& expandCandidate, std::unordered_set<int32_t>& currentNodeSet,
+        std::vector<int32_t>& idxInLinkNum, std::deque<int32_t>& zeroInQueue);
+    Status ExpandIsoGraphs(
+        std::unordered_set<int32_t>& currentNodeSet, std::vector<int32_t>& idxInLinkNum,
+        std::deque<int32_t>& zeroInQueue, int32_t pgUpperBound);
+    static bool IsoGraphMerge(
+        std::shared_ptr<IsomorphismGraphGroup>& currGraph, std::shared_ptr<IsomorphismGraphGroup>& mergeGraph,
+        std::vector<std::pair<int32_t, int32_t>>& isoSubIdxs);
     size_t Size() const;
     void Clear();
     bool GetMergeable();
     int32_t GetLatency() const;
-    Status InLinkCountDelete(int32_t nodeIdx, std::vector<int32_t> &idxInLinkNum, std::deque<int32_t> &zeroInQueue);
-    bool IsLegalIsoGraphExtender(std::vector<int32_t> &expandCandidate, std::unordered_set<int32_t> &currentNodeSet,
-                                 std::vector<int32_t> &idxInLinkNum, int32_t pgUpperBound);
-    bool IsLegalSubGraphMerge(SubGraph *sg1, SubGraph *sg2);
+    Status InLinkCountDelete(int32_t nodeIdx, std::vector<int32_t>& idxInLinkNum, std::deque<int32_t>& zeroInQueue);
+    bool IsLegalIsoGraphExtender(
+        std::vector<int32_t>& expandCandidate, std::unordered_set<int32_t>& currentNodeSet,
+        std::vector<int32_t>& idxInLinkNum, int32_t pgUpperBound);
+    bool IsLegalSubGraphMerge(SubGraph* sg1, SubGraph* sg2);
     std::shared_ptr<SubGraph> GetSubGraph(int32_t idx);
     std::vector<std::shared_ptr<SubGraph>> isoGraphs_;
     std::unordered_set<int32_t> subVisitedNodeSet_;
@@ -79,24 +81,23 @@ public:
 
 class IsoPartitioner : public SuperNodeGraphBuilder {
 public:
-    Status PartitionGraph(Function &function);
-    Status SetParameter(int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, 
-                        bool useReduceBalanceHash=true, bool skipPartition=false);
+    Status PartitionGraph(Function& function);
+    Status SetParameter(
+        int32_t pgUpperBound, int32_t parallelNum, int32_t pgLowerBound, bool useReduceBalanceHash = true,
+        bool skipPartition = false);
 
 private:
     Status BuildIsomorphismGroups();
     Status IsomorphismGroupMergeStep(bool nonIsoGraphsMerge);
     Status IsomorphismGroupMergeProcess(bool nonIsoGraphsMerge);
-    Status UpdatePartitionResult(Function &function);
-    Status IsomorphismGroupMergePrepare(std::vector<std::pair<int32_t, int32_t>> &isoSubIdxs,
-                                      std::vector<std::set<int32_t>> &isoInGraph,
-                                      std::vector<std::set<int32_t>> &isoOutGraph,
-                                      std::vector<std::vector<int32_t>> &isoNodeList,
-                                      std::vector<int32_t> &isoIdx2color);
-    std::vector<int32_t> GetCandidateMergeColors(int32_t currColor, std::vector<std::set<int32_t>> &isoInGraph,
-                                                 std::vector<std::set<int32_t>> &isoOutGraph,
-                                                 std::vector<std::vector<int32_t>> &isoNodeList,
-                                                 std::vector<int32_t> &isoIdx2color, bool nonIsoGraphsMerge);
+    Status UpdatePartitionResult(Function& function);
+    Status IsomorphismGroupMergePrepare(
+        std::vector<std::pair<int32_t, int32_t>>& isoSubIdxs, std::vector<std::set<int32_t>>& isoInGraph,
+        std::vector<std::set<int32_t>>& isoOutGraph, std::vector<std::vector<int32_t>>& isoNodeList,
+        std::vector<int32_t>& isoIdx2color);
+    std::vector<int32_t> GetCandidateMergeColors(
+        int32_t currColor, std::vector<std::set<int32_t>>& isoInGraph, std::vector<std::set<int32_t>>& isoOutGraph,
+        std::vector<std::vector<int32_t>>& isoNodeList, std::vector<int32_t>& isoIdx2color, bool nonIsoGraphsMerge);
     bool SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const;
     std::vector<std::shared_ptr<IsomorphismGraphGroup>> isoSubGroups_;
     int32_t tryMergeLoopNum_ = 100;
@@ -108,12 +109,11 @@ private:
 
 class GraphPartition : public Pass {
 public:
-    GraphPartition() : Pass("GraphPartition")
-    {}
+    GraphPartition() : Pass("GraphPartition") {}
     ~GraphPartition() override = default;
-    Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
-    Status RunOnFunction(Function &function) override;
+    Status PreCheck(Function& function) override;
+    Status PostCheck(Function& function) override;
+    Status RunOnFunction(Function& function) override;
 };
-}  // namespace npu::tile_fwk
-#endif  // PASS_ISO_PARTITIONER_H
+} // namespace npu::tile_fwk
+#endif // PASS_ISO_PARTITIONER_H

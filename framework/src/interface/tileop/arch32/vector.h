@@ -176,7 +176,8 @@ constexpr const uint64_t BLOCK_MAX_PER_REPEAT = 8;
 #undef V_UNA_FUNC
 
 template <typename T, unsigned T0, unsigned T1, unsigned DS, unsigned SS, unsigned TS>
-TILEOP void Ttranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Ttranspose_vnchwconv_(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     if constexpr (((DS % 16) != 0) || ((SS % 8) != 0) || ((TS % 16) != 0)) {
         set_flag(PIPE_V, PIPE_S, EVENT_ID7);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
@@ -220,7 +221,7 @@ TILEOP void Ttranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *
         for (int i = 0; i < remain_y; i++) {
             srcUb[i] = (uint64_t)(src + (num_subtile_y * 16 + i) * SS);
         }
-        for (int i = 0; i <16; i++) {
+        for (int i = 0; i < 16; i++) {
             tmpUb[i] = (uint64_t)(tmp + num_subtile_y * 16 + (i & 1) * block_elem + (i >> 1) * TS);
         }
         set_va_reg_sb(VA2, srcUb);
@@ -241,22 +242,23 @@ TILEOP void Ttranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *
     copy_ubuf_to_ubuf(dst, tmp, 0, T1, lenBurst, srcGap, dstGap);
 }
 
-template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4,
-          unsigned DS1, unsigned DS2, unsigned DS3, unsigned DS4,
-          unsigned SS1, unsigned SS2, unsigned SS3, unsigned SS4>
-TILEOP void Ttranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T*tmp) {
+template <
+    typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4, unsigned DS1, unsigned DS2,
+    unsigned DS3, unsigned DS4, unsigned SS1, unsigned SS2, unsigned SS3, unsigned SS4>
+TILEOP void Ttranspose_vnchwconv_(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     constexpr unsigned TS1 = DS1;
     constexpr unsigned TS2 = DS2;
     constexpr unsigned TS3 = (T4 + 7) / 8 * 8;
     constexpr unsigned TS4 = (T3 + 15) / 16 * 16;
     for (unsigned i = 0; i < T0; i++) {
-        __ubuf__ T *dst0 = dst;
-        __ubuf__ T *src0 = src;
-        __ubuf__ T *tmp0 = tmp;
+        __ubuf__ T* dst0 = dst;
+        __ubuf__ T* src0 = src;
+        __ubuf__ T* tmp0 = tmp;
         for (unsigned j = 0; j < T1; j++) {
-            __ubuf__ T *dst1 = dst0;
-            __ubuf__ T *src1 = src0;
-            __ubuf__ T *tmp1 = tmp0;
+            __ubuf__ T* dst1 = dst0;
+            __ubuf__ T* src1 = src0;
+            __ubuf__ T* tmp1 = tmp0;
             for (unsigned k = 0; k < T2; k++) {
                 Ttranspose_vnchwconv_<T, T3, T4, DS4, SS4, TS4>(dst1, src1, tmp1);
                 dst1 += DS3 * DS4;
@@ -276,9 +278,11 @@ TILEOP void Ttranspose_vnchwconv_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T*t
 // UB TILE Binary Op
 // Now assume src and dst shape are equal and 2d tile
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void TLn(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void TLn(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -296,9 +300,9 @@ TILEOP void TLn(__ubuf__ T *dst, __ubuf__ T *src) {
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vln(dst, src, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         set_vector_mask(-1, -1);
         return;
@@ -328,9 +332,11 @@ TILEOP void TLn(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void TLn(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void TLn(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     constexpr uint32_t baseTileSize = TShape2 * TShape3;
     constexpr uint32_t dstRawSize = dstRawShape0 * dstRawShape1;
@@ -352,9 +358,11 @@ TILEOP void TLn(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Trsqrt(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trsqrt(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -372,9 +380,9 @@ TILEOP void Trsqrt(__ubuf__ T *dst, __ubuf__ T *src) {
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vrsqrt(dst, src, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         set_vector_mask(-1, -1);
         return;
@@ -394,19 +402,23 @@ TILEOP void Trsqrt(__ubuf__ T *dst, __ubuf__ T *src) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vrsqrt(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
-            REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+        vrsqrt(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), REPEAT_MAX,
+            dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vrsqrt(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vrsqrt(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Trsqrt(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trsqrt(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     constexpr uint32_t baseTileSize = TShape2 * TShape3;
     constexpr uint32_t dstRawSize = dstRawShape0 * dstRawShape1;
@@ -428,7 +440,8 @@ TILEOP void Trsqrt(__ubuf__ T *dst, __ubuf__ T *src) {
 }
 
 template <typename T, unsigned T0, unsigned T1, unsigned Ds>
-TILEOP void Tduplicate_(__ubuf__ T *dst, T value) {
+TILEOP void Tduplicate_(__ubuf__ T* dst, T value)
+{
     constexpr unsigned npr = REPEAT_BYTE / sizeof(T);
     constexpr unsigned numRepeatPerLine = T1 / npr;
     constexpr unsigned numRemainPerLine = T1 % npr;
@@ -445,7 +458,8 @@ TILEOP void Tduplicate_(__ubuf__ T *dst, T value) {
         constexpr unsigned numLoop = T0 / REPEAT_MAX;
         constexpr unsigned remainAfterLoop = T0 % REPEAT_MAX;
         if constexpr (numRemainPerLine >= HALF_MASK) {
-            set_vector_mask((((static_cast<uint64_t>(1)) << static_cast<uint32_t>(numRemainPerLine - HALF_MASK)) - 1UL),
+            set_vector_mask(
+                (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(numRemainPerLine - HALF_MASK)) - 1UL),
                 0xffffffffffffffffUL);
         } else {
             set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(numRemainPerLine)) - 1UL));
@@ -456,8 +470,7 @@ TILEOP void Tduplicate_(__ubuf__ T *dst, T value) {
             }
         }
         if constexpr (remainAfterLoop) {
-            vector_dup(
-                dst + numLoop * REPEAT_MAX * Ds, value, remainAfterLoop, 1, 1, Ds / blockSizeElem, (int64_t)0);
+            vector_dup(dst + numLoop * REPEAT_MAX * Ds, value, remainAfterLoop, 1, 1, Ds / blockSizeElem, (int64_t)0);
         }
         set_vector_mask(-1, -1);
     }
@@ -465,10 +478,11 @@ TILEOP void Tduplicate_(__ubuf__ T *dst, T value) {
 
 // dim4
 template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned Ds0, unsigned Ds1, unsigned Ds2>
-TILEOP void Tduplicate_(__ubuf__ T *dst, T value) {
+TILEOP void Tduplicate_(__ubuf__ T* dst, T value)
+{
     static_assert((Ds2 * sizeof(T)) % BLOCK_SIZE == 0);
     for (unsigned i = 0; i < T0; i++) {
-        __ubuf__ T *dst_ = dst;
+        __ubuf__ T* dst_ = dst;
         for (unsigned j = 0; j < T1; j++) {
             Tduplicate_<T, T2, T3, Ds2>(dst_, value);
             dst_ += Ds1 * Ds2;
@@ -480,7 +494,8 @@ TILEOP void Tduplicate_(__ubuf__ T *dst, T value) {
 // row sum and expand
 // TShape0 <= 255, TShape1 * sizeof(T) <= 256B and 32B aligned
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned oriShape0, unsigned oriShape1>
-TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trowsumexpand(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint64_t shape1Repeat = static_cast<uint64_t>(TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -506,9 +521,9 @@ TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
             set_vector_mask(
                 static_cast<uint64_t>(
                     (repeatMod > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(repeatMod - 64)) - 1) : 0),
-                static_cast<uint64_t>((repeatMod > 64) ?
-                                          0xffffffffffffffff :
-                                          (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(repeatMod)) - 1)));
+                static_cast<uint64_t>(
+                    (repeatMod > 64) ? 0xffffffffffffffff :
+                                       (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(repeatMod)) - 1)));
 
             vadd(dst, src + repeatLoop * splitFactor, dst, TShape0, 1, 1, 1, 8, srcRepeatStride, 8);
             pipe_barrier(PIPE_V);
@@ -554,7 +569,8 @@ TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
         for (int i = 0; i < TShape0; i++) {
             // vadd + vcadd
             constexpr uint8_t repeatForReduce = static_cast<uint8_t>(TShape1 / 64);
-            vadd(dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
+            vadd(
+                dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
                 (int64_t)0);
         }
 
@@ -564,13 +580,15 @@ TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
         // 将reduce add 结果输出到最后部分缓存
         vcadd(dst + TShape1 * TShape0 - TShape0, dst, TShape0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL, 0);
         pipe_barrier(PIPE_V);
-        vbrcb((__ubuf__ uint32_t *)(dst), (__ubuf__ uint32_t *)(dst + TShape1 * TShape0 - TShape0), TShape1 / 8,
-            TShape1, TShape0 / 8);
+        vbrcb(
+            (__ubuf__ uint32_t*)(dst), (__ubuf__ uint32_t*)(dst + TShape1 * TShape0 - TShape0), TShape1 / 8, TShape1,
+            TShape0 / 8);
         pipe_barrier(PIPE_V);
         for (int i = 0; i < TShape0; i++) {
             // 首先将最后一个block扩展为8个block
-            vcopy((__ubuf__ uint32_t *)(dst + i * TShape1), (__ubuf__ uint32_t *)(dst + i * TShape1), TShape1 / 64, 1,
-                0, 8, 0);
+            vcopy(
+                (__ubuf__ uint32_t*)(dst + i * TShape1), (__ubuf__ uint32_t*)(dst + i * TShape1), TShape1 / 64, 1, 0, 8,
+                0);
         }
         pipe_barrier(PIPE_V);
     } else {
@@ -581,7 +599,8 @@ TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
         for (int i = 0; i < TShape0; i++) {
             // vadd + vcadd
             constexpr uint8_t repeatForReduce = static_cast<uint8_t>(TShape1 / 64);
-            vadd(dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
+            vadd(
+                dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
                 (int64_t)0);
             pipe_barrier(PIPE_V);
             vcadd(dst + i * 64, dst + i * 64, (uint16_t)1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL, 0);
@@ -592,11 +611,13 @@ TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
             set_flag(PIPE_V, PIPE_S, EVENT_ID7);
             wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
             for (uint8_t j = 0; j < repeatLoop; j++) {
-                vector_dup(dst + i * TShape1 + j * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)),
-                    REPEAT_MAX, 1, 1, 8, 0);
+                vector_dup(
+                    dst + i * TShape1 + j * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)), REPEAT_MAX, 1,
+                    1, 8, 0);
             }
             if (repeatMod != 0) {
-                vector_dup(dst + i * TShape1 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)),
+                vector_dup(
+                    dst + i * TShape1 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)),
                     repeatMod, 1, 1, 8, 0);
             }
             set_flag(PIPE_S, PIPE_V, EVENT_ID7);
@@ -605,9 +626,11 @@ TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned oriShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned oriShape0,
     unsigned oriShape1>
-TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trowsumexpand(__ubuf__ T* dst, __ubuf__ T* src)
+{
     for (int i = 0; i < TShape0; ++i) {
         for (int j = 0; j < TShape1; ++j) {
             TileOp::Trowsumexpand<T, TShape2, TShape3, oriShape0, oriShape1>(dst, src);
@@ -620,7 +643,8 @@ TILEOP void Trowsumexpand(__ubuf__ T *dst, __ubuf__ T *src) {
 // row max and expand
 // TShape0 <= 255, TShape1 * sizeof(T) <= 256B and 32B aligned
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned oriShape0, unsigned oriShape1>
-TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trowmaxexpand(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint64_t shape1Repeat = static_cast<uint64_t>(TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -634,7 +658,7 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
     if constexpr (oriShape1 % blockSize != 0) { // 尾轴32B非对齐场景 一般是不存在Tmax场景
         vector_dup(dst, float_neg_inf_num.f, TShape0, 1, 1, 8, (int64_t)0); // dst dup m*64
         pipe_barrier(PIPE_V);
-        constexpr uint32_t splitFactor = REPEAT_BYTE / sizeof(T); // 64 or 128
+        constexpr uint32_t splitFactor = REPEAT_BYTE / sizeof(T);           // 64 or 128
         constexpr uint32_t repeatLoop = static_cast<uint32_t>(oriShape1 / splitFactor);
         constexpr uint32_t repeatMod = static_cast<uint32_t>(oriShape1 % splitFactor);
 
@@ -649,9 +673,9 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
             set_vector_mask(
                 static_cast<uint64_t>(
                     (repeatMod > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(repeatMod - 64)) - 1) : 0),
-                static_cast<uint64_t>((repeatMod > 64) ?
-                                          0xffffffffffffffff :
-                                          (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(repeatMod)) - 1)));
+                static_cast<uint64_t>(
+                    (repeatMod > 64) ? 0xffffffffffffffff :
+                                       (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(repeatMod)) - 1)));
 
             vmax(dst, src + repeatLoop * splitFactor, dst, TShape0, 1, 1, 1, 8, srcRepeatStride, 8);
             pipe_barrier(PIPE_V);
@@ -698,7 +722,8 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
         // vmax + vcmax
         for (int i = 0; i < TShape0; i++) {
             constexpr uint8_t repeatForReduce = static_cast<uint8_t>(TShape1 / 64);
-            vmax(dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
+            vmax(
+                dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
                 (int64_t)0);
         }
 
@@ -706,16 +731,19 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
         set_mask_norm();
         set_vector_mask(-1, -1);
         // 将reduce max结果输出到最后部分缓存
-        vcmax(dst + TShape1 * TShape0 - TShape0, dst, TShape0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL,
+        vcmax(
+            dst + TShape1 * TShape0 - TShape0, dst, TShape0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL,
             ONLY_VALUE);
         pipe_barrier(PIPE_V);
-        vbrcb((__ubuf__ uint32_t *)(dst), (__ubuf__ uint32_t *)(dst + TShape1 * TShape0 - TShape0), TShape1 / 8,
-            TShape1, TShape0 / 8);
+        vbrcb(
+            (__ubuf__ uint32_t*)(dst), (__ubuf__ uint32_t*)(dst + TShape1 * TShape0 - TShape0), TShape1 / 8, TShape1,
+            TShape0 / 8);
         pipe_barrier(PIPE_V);
         for (int i = 0; i < TShape0; i++) {
             // 首先将最后一个block扩展为8个block
-            vcopy((__ubuf__ uint32_t *)(dst + i * TShape1), (__ubuf__ uint32_t *)(dst + i * TShape1), TShape1 / 64, 1,
-                0, 8, 0);
+            vcopy(
+                (__ubuf__ uint32_t*)(dst + i * TShape1), (__ubuf__ uint32_t*)(dst + i * TShape1), TShape1 / 64, 1, 0, 8,
+                0);
         }
         pipe_barrier(PIPE_V);
     } else {
@@ -731,7 +759,8 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
         // vmax + vcmax
         for (int i = 0; i < TShape0; i++) {
             constexpr uint8_t repeatForReduce = static_cast<uint8_t>(TShape1 / 64);
-            vmax(dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
+            vmax(
+                dst + i * 64, src + i * TShape1, dst + i * 64, repeatForReduce, 1, 1, 1, (int64_t)0, (int64_t)8,
                 (int64_t)0);
             pipe_barrier(PIPE_V);
             vcmax(dst + i * 64, dst + i * 64, (uint16_t)1, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL, ONLY_VALUE);
@@ -742,11 +771,13 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
             set_flag(PIPE_V, PIPE_S, EVENT_ID7);
             wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
             for (uint8_t j = 0; j < repeatLoop; j++) {
-                vector_dup(dst + i * TShape1 + j * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)),
-                    REPEAT_MAX, 1, 1, 8, 0);
+                vector_dup(
+                    dst + i * TShape1 + j * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)), REPEAT_MAX, 1,
+                    1, 8, 0);
             }
             if (repeatMod != 0) {
-                vector_dup(dst + i * TShape1 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)),
+                vector_dup(
+                    dst + i * TShape1 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), (T)(*(dst + i * 64)),
                     repeatMod, 1, 1, 8, 0);
             }
             set_flag(PIPE_S, PIPE_V, EVENT_ID7);
@@ -755,9 +786,11 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned oriShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned oriShape0,
     unsigned oriShape1>
-TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trowmaxexpand(__ubuf__ T* dst, __ubuf__ T* src)
+{
     for (int i = 0; i < TShape0; ++i) {
         for (int j = 0; j < TShape1; ++j) {
             TileOp::Trowmaxexpand<T, TShape2, TShape3, oriShape0, oriShape1>(dst, src);
@@ -767,9 +800,11 @@ TILEOP void Trowmaxexpand(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tadds(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -778,17 +813,18 @@ TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
 
     // ub discontinuous
-    if constexpr ((dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
-                  (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
+    if constexpr (
+        (dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
+        (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
         srcRepeatStride = src0RawShape1 > TShape1 ? src0RawShape1 / blockSize : TShape1 / blockSize;
         dstRepeatStride = dstRawShape1 > TShape1 ? dstRawShape1 / blockSize : TShape1 / blockSize;
 
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vadds(dst, src0, src1, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
 
         set_vector_mask(-1, -1);
@@ -809,11 +845,13 @@ TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vadds(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
+        vadds(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
             REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vadds(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vadds(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src0 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1, repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
@@ -821,13 +859,16 @@ TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
 
 // dim1
 template <typename T, unsigned TShape0, unsigned dstRawShape0, unsigned src0RawShape0>
-TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tadds(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     TileOp::Tadds<T, 1, TShape0, 1, dstRawShape0, 1, src0RawShape0>(dst, src0, src1);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tadds(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape2 * TShape3) % blockSize == 0);
 
@@ -844,9 +885,11 @@ TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0,
-    unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0, unsigned dstRawShape1,
+    unsigned src0RawShape0, unsigned src0RawShape1>
+TILEOP void Tadds(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
 
     int alignSrc0 =
@@ -860,9 +903,11 @@ TILEOP void Tadds(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tsubs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     src1 = src1 * (-1);
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
@@ -872,17 +917,18 @@ TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
 
     // ub discontinuous
-    if constexpr ((dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
-                  (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
+    if constexpr (
+        (dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
+        (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
         srcRepeatStride = src0RawShape1 > TShape1 ? src0RawShape1 / blockSize : TShape1 / blockSize;
         dstRepeatStride = dstRawShape1 > TShape1 ? dstRawShape1 / blockSize : TShape1 / blockSize;
 
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vadds(dst, src0, src1, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
 
         set_vector_mask(-1, -1);
@@ -903,11 +949,13 @@ TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vadds(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
+        vadds(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
             REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vadds(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vadds(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src0 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1, repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
@@ -915,13 +963,16 @@ TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
 
 // dim1
 template <typename T, unsigned TShape0, unsigned dstRawShape0, unsigned src0RawShape0>
-TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tsubs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     TileOp::Tsubs<T, 1, TShape0, 1, dstRawShape0, 1, src0RawShape0>(dst, src0, src1);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tsubs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape2 * TShape3) % blockSize == 0);
 
@@ -938,9 +989,11 @@ TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0,
-    unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0, unsigned dstRawShape1,
+    unsigned src0RawShape0, unsigned src0RawShape1>
+TILEOP void Tsubs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape1 * TShape2) % blockSize == 0);
 
@@ -954,9 +1007,11 @@ TILEOP void Tsubs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tmuls(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -972,9 +1027,9 @@ TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vmuls(dst, src0, src1, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
 
         set_vector_mask(-1, -1);
@@ -994,11 +1049,13 @@ TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vmuls(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
+        vmuls(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
             REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vmuls(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vmuls(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src0 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1, repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
@@ -1006,13 +1063,16 @@ TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
 
 // dim1
 template <typename T, unsigned TShape0, unsigned dstRawShape0, unsigned src0RawShape0>
-TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tmuls(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     TileOp::Tmuls<T, 1, TShape0, 1, dstRawShape0, 1, src0RawShape0>(dst, src0, src1);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tmuls(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape2 * TShape3) % blockSize == 0);
 
@@ -1029,9 +1089,11 @@ TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0,
-    unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0, unsigned dstRawShape1,
+    unsigned src0RawShape0, unsigned src0RawShape1>
+TILEOP void Tmuls(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape1 * TShape2) % blockSize == 0);
 
@@ -1045,9 +1107,11 @@ TILEOP void Tmuls(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tdivs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     // NEXTNEXT 1/0
     if (src1 != 0) {
         src1 = 1 / src1;
@@ -1060,17 +1124,18 @@ TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
 
     // ub discontinuous
-    if constexpr ((dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
-                  (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
+    if constexpr (
+        (dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
+        (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
         srcRepeatStride = src0RawShape1 > TShape1 ? src0RawShape1 / blockSize : TShape1 / blockSize;
         dstRepeatStride = dstRawShape1 > TShape1 ? dstRawShape1 / blockSize : TShape1 / blockSize;
 
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vmuls(dst, src0, src1, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
 
         set_vector_mask(-1, -1);
@@ -1091,11 +1156,13 @@ TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vmuls(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
+        vmuls(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
             REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vmuls(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vmuls(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src0 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1, repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
@@ -1103,13 +1170,16 @@ TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
 
 // dim1
 template <typename T, unsigned TShape0, unsigned dstRawShape0, unsigned src0RawShape0>
-TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tdivs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     TileOp::Tdivs<T, 1, TShape0, 1, dstRawShape0, 1, src0RawShape0>(dst, src0, src1);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tdivs(__ubuf__ int32_t *dst, __ubuf__ int32_t *src0, float src1) {
+TILEOP void Tdivs(__ubuf__ int32_t* dst, __ubuf__ int32_t* src0, float src1)
+{
     // NEXTNEXT 1/0
     if (src1 != 0) {
         src1 = (float)1.0 / src1;
@@ -1122,26 +1192,30 @@ TILEOP void Tdivs(__ubuf__ int32_t *dst, __ubuf__ int32_t *src0, float src1) {
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
 
     // ub discontinuous
-    if constexpr ((dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
-                  (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
+    if constexpr (
+        (dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
+        (TShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
         srcRepeatStride = src0RawShape1 > TShape1 ? src0RawShape1 / blockSize : TShape1 / blockSize;
         dstRepeatStride = dstRawShape1 > TShape1 ? dstRawShape1 / blockSize : TShape1 / blockSize;
 
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
 
-        vconv_s322f32(reinterpret_cast<__ubuf__ float *>(dst), src0, TShape0,
+        vconv_s322f32(
+            reinterpret_cast<__ubuf__ float*>(dst), src0, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride,
+            srcRepeatStride);
+        pipe_barrier(PIPE_V);
+        vmuls(
+            reinterpret_cast<__ubuf__ float*>(dst), reinterpret_cast<__ubuf__ float*>(dst), (float)src1, TShape0,
             dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         pipe_barrier(PIPE_V);
-        vmuls(reinterpret_cast<__ubuf__ float *>(dst), reinterpret_cast<__ubuf__ float *>(dst), (float)src1, TShape0,
-            dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-        pipe_barrier(PIPE_V);
-        vconv_f322s32z(dst, reinterpret_cast<__ubuf__ float *>(dst), TShape0,
-            dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+        vconv_f322s32z(
+            dst, reinterpret_cast<__ubuf__ float*>(dst), TShape0, dstBlockStride, srcBlockStride, dstRepeatStride,
+            srcRepeatStride);
         pipe_barrier(PIPE_V);
         set_vector_mask(-1, -1);
         return;
@@ -1152,14 +1226,17 @@ TILEOP void Tdivs(__ubuf__ int32_t *dst, __ubuf__ int32_t *src0, float src1) {
         constexpr uint64_t elems = TShape0 * TShape1;
         set_mask_count();
         set_vector_mask(0, elems);
-        vconv_s322f32(reinterpret_cast<__ubuf__ float *>(dst), src0, 1,
+        vconv_s322f32(
+            reinterpret_cast<__ubuf__ float*>(dst), src0, 1, dstBlockStride, srcBlockStride, dstRepeatStride,
+            srcRepeatStride);
+        pipe_barrier(PIPE_V);
+        vmuls(
+            reinterpret_cast<__ubuf__ float*>(dst), reinterpret_cast<__ubuf__ float*>(dst), (float)src1, 1,
             dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         pipe_barrier(PIPE_V);
-        vmuls(reinterpret_cast<__ubuf__ float *>(dst), reinterpret_cast<__ubuf__ float *>(dst), (float)src1, 1,
-            dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-        pipe_barrier(PIPE_V);
-        vconv_f322s32z(dst, reinterpret_cast<__ubuf__ float *>(dst), 1,
-            dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+        vconv_f322s32z(
+            dst, reinterpret_cast<__ubuf__ float*>(dst), 1, dstBlockStride, srcBlockStride, dstRepeatStride,
+            srcRepeatStride);
         set_mask_norm();
         set_vector_mask(-1, -1);
         return;
@@ -1168,41 +1245,49 @@ TILEOP void Tdivs(__ubuf__ int32_t *dst, __ubuf__ int32_t *src0, float src1) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vconv_s322f32(reinterpret_cast<__ubuf__ float *>(dst), src0, REPEAT_MAX,
+        vconv_s322f32(
+            reinterpret_cast<__ubuf__ float*>(dst), src0, REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride,
+            srcRepeatStride);
+        pipe_barrier(PIPE_V);
+        vmuls(
+            reinterpret_cast<__ubuf__ float*>(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T)),
+            reinterpret_cast<__ubuf__ float*>(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T)), (float)src1, REPEAT_MAX,
             dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         pipe_barrier(PIPE_V);
-        vmuls(reinterpret_cast<__ubuf__ float *>(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T)),
-            reinterpret_cast<__ubuf__ float *>(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T)), (float)src1,
-            REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-        pipe_barrier(PIPE_V);
-        vconv_f322s32z(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
-            reinterpret_cast<__ubuf__ float *>(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T)), REPEAT_MAX,
+        vconv_f322s32z(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+            reinterpret_cast<__ubuf__ float*>(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T)), REPEAT_MAX,
             dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vconv_s322f32(reinterpret_cast<__ubuf__ float *>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)),
-            src0 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), repeatMod,
+        vconv_s322f32(
+            reinterpret_cast<__ubuf__ float*>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)),
+            src0 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), repeatMod, dstBlockStride, srcBlockStride,
+            dstRepeatStride, srcRepeatStride);
+        pipe_barrier(PIPE_V);
+        vmuls(
+            reinterpret_cast<__ubuf__ float*>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)),
+            reinterpret_cast<__ubuf__ float*>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)), src1, repeatMod,
             dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         pipe_barrier(PIPE_V);
-        vmuls(reinterpret_cast<__ubuf__ float *>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)),
-            reinterpret_cast<__ubuf__ float *>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)), src1,
-            repeatMod, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-        pipe_barrier(PIPE_V);
-        vconv_f322s32z(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
-            reinterpret_cast<__ubuf__ float *>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)),
-            repeatMod, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+        vconv_f322s32z(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+            reinterpret_cast<__ubuf__ float*>(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T)), repeatMod,
+            dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
 }
 
-
 template <typename T, unsigned TShape0, unsigned dstRawShape0, unsigned src0RawShape0>
-TILEOP void Tdivs(__ubuf__ int32_t *dst, __ubuf__ int32_t *src0, int32_t src1) {
+TILEOP void Tdivs(__ubuf__ int32_t* dst, __ubuf__ int32_t* src0, int32_t src1)
+{
     TileOp::Tdivs<int32_t, 1, TShape0, 1, dstRawShape0, 1, src0RawShape0>(dst, src0, (float)src1);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0,
-    unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0, unsigned dstRawShape1,
+    unsigned src0RawShape0, unsigned src0RawShape1>
+TILEOP void Tdivs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape1 * TShape2) % blockSize == 0);
 
@@ -1216,9 +1301,11 @@ TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tdivs(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape2 * TShape3) % blockSize == 0);
 
@@ -1235,9 +1322,11 @@ TILEOP void Tdivs(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tmins(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tmins(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -1253,9 +1342,9 @@ TILEOP void Tmins(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vmins(dst, src0, src1, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
 
         set_vector_mask(-1, -1);
@@ -1276,19 +1365,23 @@ TILEOP void Tmins(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vmins(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
+        vmins(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src0 + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1,
             REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vmins(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vmins(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src0 + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src1, repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tmins(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
+TILEOP void Tmins(__ubuf__ T* dst, __ubuf__ T* src0, T src1)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     static_assert((TShape2 * TShape3) % blockSize == 0);
 
@@ -1306,7 +1399,8 @@ TILEOP void Tmins(__ubuf__ T *dst, __ubuf__ T *src0, T src1) {
 }
 
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1>
-TILEOP void Tcompact(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Tcompact(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     constexpr uint16_t srcStride = static_cast<uint16_t>(srcShape1 * sizeof(T) / BLOCK_SIZE);
     constexpr uint16_t repeat1 = dstShape0 / 8;
     constexpr uint16_t repeat2 = dstShape0 / 32; // repeat1 / 4
@@ -1315,11 +1409,13 @@ TILEOP void Tcompact(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     }
     pipe_barrier(PIPE_V);
     if constexpr (repeat1 < 1) {
-        vreducev2(reinterpret_cast<__ubuf__ uint32_t *>(tmp), reinterpret_cast<__ubuf__ uint32_t *>(tmp), nullptr, 1, 1,
-            3, 0, 0);
+        vreducev2(
+            reinterpret_cast<__ubuf__ uint32_t*>(tmp), reinterpret_cast<__ubuf__ uint32_t*>(tmp), nullptr, 1, 1, 3, 0,
+            0);
     } else {
-        vreducev2(reinterpret_cast<__ubuf__ uint32_t *>(tmp), reinterpret_cast<__ubuf__ uint32_t *>(tmp), nullptr,
-            repeat1, 1, 3, 8, 8);
+        vreducev2(
+            reinterpret_cast<__ubuf__ uint32_t*>(tmp), reinterpret_cast<__ubuf__ uint32_t*>(tmp), nullptr, repeat1, 1,
+            3, 8, 8);
     }
 
     pipe_barrier(PIPE_V);
@@ -1327,20 +1423,24 @@ TILEOP void Tcompact(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
         constexpr uint16_t mask_count = dstShape0 * 2;
         set_mask_count();
         set_vector_mask(0, mask_count);
-        vreducev2(reinterpret_cast<__ubuf__ uint32_t *>(dst), reinterpret_cast<__ubuf__ uint32_t *>(tmp), nullptr, 1, 1,
-            1, 0, 0);
+        vreducev2(
+            reinterpret_cast<__ubuf__ uint32_t*>(dst), reinterpret_cast<__ubuf__ uint32_t*>(tmp), nullptr, 1, 1, 1, 0,
+            0);
         set_mask_norm();
         set_vector_mask(-1, -1);
     } else {
-        vreducev2(reinterpret_cast<__ubuf__ uint32_t *>(dst), reinterpret_cast<__ubuf__ uint32_t *>(tmp), nullptr,
-            repeat2, 1, 1, 8, 8);
+        vreducev2(
+            reinterpret_cast<__ubuf__ uint32_t*>(dst), reinterpret_cast<__ubuf__ uint32_t*>(tmp), nullptr, repeat2, 1,
+            1, 8, 8);
     }
     pipe_barrier(PIPE_V);
 }
 
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
-    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3>
-TILEOP void Tcompact(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+template <
+    typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3, unsigned srcShape0,
+    unsigned srcShape1, unsigned srcShape2, unsigned srcShape3>
+TILEOP void Tcompact(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     for (int i = 0; i < dstShape0; ++i) {
         for (int j = 0; j < dstShape1; ++j) {
             TileOp::Tcompact<T, dstShape2, dstShape3, srcShape2, srcShape3>(dst, src, tmp);
@@ -1350,9 +1450,11 @@ TILEOP void Tcompact(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     }
 }
 // dim2
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1,
-    unsigned dstRawShape1, unsigned srcRawShape1, unsigned axis>
-TILEOP void Texpand_(__ubuf__ T *dst, __ubuf__ T *src) {
+template <
+    typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, unsigned dstRawShape1,
+    unsigned srcRawShape1, unsigned axis>
+TILEOP void Texpand_(__ubuf__ T* dst, __ubuf__ T* src)
+{
     if (axis == 0) {
         // 1 16 -> 16 16
         constexpr uint64_t blockLen = (dstShape1 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -1404,10 +1506,12 @@ TILEOP void Texpand_(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 // dim3
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned srcShape0,
-    unsigned srcShape1, unsigned srcShape2, unsigned dstRawShape1, unsigned dstRawShape2, unsigned srcRawShape1,
-    unsigned srcRawShape2, unsigned axis>
-TILEOP void Texpand_(__ubuf__ T *dst, __ubuf__ T *src) {
+template <
+    typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned srcShape0, unsigned srcShape1,
+    unsigned srcShape2, unsigned dstRawShape1, unsigned dstRawShape2, unsigned srcRawShape1, unsigned srcRawShape2,
+    unsigned axis>
+TILEOP void Texpand_(__ubuf__ T* dst, __ubuf__ T* src)
+{
     if (axis == 1 || axis == 2) {
         // 16 1 16 -> 16 16 16 or 16 16 1 -> 16 16 16
         for (unsigned i = 0; i < dstShape0; i++) {
@@ -1427,11 +1531,12 @@ TILEOP void Texpand_(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
-    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, unsigned dstRawShape1,
-    unsigned dstRawShape2, unsigned dstRawShape3, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3,
-    unsigned axis>
-TILEOP void Texpand_(__ubuf__ T *dst, __ubuf__ T *src) {
+template <
+    typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3, unsigned srcShape0,
+    unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, unsigned dstRawShape1, unsigned dstRawShape2,
+    unsigned dstRawShape3, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, unsigned axis>
+TILEOP void Texpand_(__ubuf__ T* dst, __ubuf__ T* src)
+{
     static_assert(
         (dstShape0 != srcShape0) || (dstShape1 != srcShape1) || (dstShape2 != srcShape2) || (dstShape3 != srcShape3));
     if (axis == 0) {
@@ -1448,17 +1553,20 @@ TILEOP void Texpand_(__ubuf__ T *dst, __ubuf__ T *src) {
         }
     } else if (axis == 1 || axis == 2 || axis == 3) {
         for (unsigned i = 0; i < dstShape0; ++i) {
-            TileOp::Texpand_<T, dstShape1, dstShape2, dstShape3, srcShape1, srcShape2, srcShape3, dstRawShape2,
-                dstRawShape3, srcRawShape2, srcRawShape3, axis - 1>(dst, src);
+            TileOp::Texpand_<
+                T, dstShape1, dstShape2, dstShape3, srcShape1, srcShape2, srcShape3, dstRawShape2, dstRawShape3,
+                srcRawShape2, srcRawShape3, axis - 1>(dst, src);
             dst += dstRawShape1 * dstRawShape2 * dstRawShape3;
             src += srcRawShape1 * srcRawShape2 * srcRawShape3;
         }
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Trec(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trec(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -1476,9 +1584,9 @@ TILEOP void Trec(__ubuf__ T *dst, __ubuf__ T *src) {
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vrec(dst, src, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         set_vector_mask(-1, -1);
         return;
@@ -1498,19 +1606,23 @@ TILEOP void Trec(__ubuf__ T *dst, __ubuf__ T *src) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vrec(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), REPEAT_MAX,
+        vrec(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), REPEAT_MAX,
             dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vrec(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vrec(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Trec(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Trec(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     constexpr uint32_t baseTileSize = TShape2 * TShape3;
     constexpr uint32_t dstRawSize = dstRawShape0 * dstRawShape1;
@@ -1531,9 +1643,11 @@ TILEOP void Trec(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0,
-    unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Trec(__ubuf__ T *dst, __ubuf__ T *src) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape0, unsigned dstRawShape1,
+    unsigned src0RawShape0, unsigned src0RawShape1>
+TILEOP void Trec(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     constexpr uint32_t baseTileSize = TShape1 * TShape2;
     constexpr uint32_t dstRawSize = dstRawShape0 * dstRawShape1;
@@ -1551,8 +1665,10 @@ TILEOP void Trec(__ubuf__ T *dst, __ubuf__ T *src) {
 }
 
 template <typename Td, typename Ts, unsigned Mode>
-TILEOP void GenCastCall(__ubuf__ Td *dst, __ubuf__ Ts *src, uint8_t repeatNum, uint16_t dstBlockStride,
-    uint16_t srcBlockStride, uint16_t dstRepeatStride, uint16_t srcRepeatStride) {
+TILEOP void GenCastCall(
+    __ubuf__ Td* dst, __ubuf__ Ts* src, uint8_t repeatNum, uint16_t dstBlockStride, uint16_t srcBlockStride,
+    uint16_t dstRepeatStride, uint16_t srcRepeatStride)
+{
     if constexpr (std::is_same<Td, half>::value && std::is_same<Ts, float>::value) {
         switch (static_cast<CastMode>(Mode)) {
             case CastMode::CAST_RINT:
@@ -1741,7 +1857,8 @@ TILEOP void GenCastCall(__ubuf__ Td *dst, __ubuf__ Ts *src, uint8_t repeatNum, u
 }
 
 template <typename Td, typename Ts, unsigned T0, unsigned T1, unsigned DS, unsigned SS, unsigned Mode>
-TILEOP void Tcast_(__ubuf__ Td *dst, __ubuf__ Ts *src) {
+TILEOP void Tcast_(__ubuf__ Td* dst, __ubuf__ Ts* src)
+{
     // Now support fp32<->fp16, fp32<->bf16, fp32<->int16, fp32<->int32, int32<->fp16, fp16<->int8, fp32->fp32,
     // bf16->int32
     uint64_t repeatWidth = static_cast<uint64_t>(max(sizeof(Td), sizeof(Ts)));
@@ -1762,13 +1879,15 @@ TILEOP void Tcast_(__ubuf__ Td *dst, __ubuf__ Ts *src) {
         for (int i = 0; i < T0; i++) {
             if (numLoop) {
                 for (int j = 0; j < numLoop; j++) {
-                    GenCastCall<Td, Ts, Mode>(dst + i * DS + j * elementsPerRepeat * REPEAT_MAX,
+                    GenCastCall<Td, Ts, Mode>(
+                        dst + i * DS + j * elementsPerRepeat * REPEAT_MAX,
                         src + i * SS + j * elementsPerRepeat * REPEAT_MAX, (uint8_t)REPEAT_MAX, 1, 1,
                         (uint16_t)dstRepeatStride, (uint16_t)srcRepeatStride);
                 }
             }
             if (remainAfterLoop) {
-                GenCastCall<Td, Ts, Mode>(dst + i * DS + numLoop * elementsPerRepeat * REPEAT_MAX,
+                GenCastCall<Td, Ts, Mode>(
+                    dst + i * DS + numLoop * elementsPerRepeat * REPEAT_MAX,
                     src + i * SS + numLoop * elementsPerRepeat * REPEAT_MAX, (uint8_t)remainAfterLoop, 1, 1,
                     (uint16_t)dstRepeatStride, (uint16_t)srcRepeatStride);
             }
@@ -1785,26 +1904,30 @@ TILEOP void Tcast_(__ubuf__ Td *dst, __ubuf__ Ts *src) {
         SetContinuousMask(numRemainPerLine);
         if constexpr (numLoop) {
             for (int i = 0; i < numLoop; i++) {
-                GenCastCall<Td, Ts, Mode>(dst + i * REPEAT_MAX * DS, src + i * REPEAT_MAX * SS, (uint8_t)REPEAT_MAX, 1,
-                    1, (uint16_t)DS / dstNElemPerBlock, (uint16_t)SS / srcNElemPerBlock);
+                GenCastCall<Td, Ts, Mode>(
+                    dst + i * REPEAT_MAX * DS, src + i * REPEAT_MAX * SS, (uint8_t)REPEAT_MAX, 1, 1,
+                    (uint16_t)DS / dstNElemPerBlock, (uint16_t)SS / srcNElemPerBlock);
             }
         }
         if constexpr (remainAfterLoop) {
-            GenCastCall<Td, Ts, Mode>(dst + numLoop * REPEAT_MAX * DS, src + numLoop * REPEAT_MAX * SS,
-                (uint8_t)remainAfterLoop, 1, 1, (uint16_t)DS / dstNElemPerBlock, (uint16_t)SS / srcNElemPerBlock);
+            GenCastCall<Td, Ts, Mode>(
+                dst + numLoop * REPEAT_MAX * DS, src + numLoop * REPEAT_MAX * SS, (uint8_t)remainAfterLoop, 1, 1,
+                (uint16_t)DS / dstNElemPerBlock, (uint16_t)SS / srcNElemPerBlock);
         }
         set_vector_mask(-1, -1);
     }
 }
 
-template <typename Td, typename Ts, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned DS0, unsigned DS1,
+template <
+    typename Td, typename Ts, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned DS0, unsigned DS1,
     unsigned DS2, unsigned SS0, unsigned SS1, unsigned SS2, unsigned Mode>
-TILEOP void Tcast_(__ubuf__ Td *dst, __ubuf__ Ts *src) {
+TILEOP void Tcast_(__ubuf__ Td* dst, __ubuf__ Ts* src)
+{
     static_assert((DS2 * sizeof(Td)) % BLOCK_SIZE == 0);
     static_assert((SS2 * sizeof(Ts)) % BLOCK_SIZE == 0);
     for (int i = 0; i < T0; i++) {
-        __ubuf__ Td *dst_ = dst;
-        __ubuf__ Ts *src_ = src;
+        __ubuf__ Td* dst_ = dst;
+        __ubuf__ Ts* src_ = src;
         for (int j = 0; j < T1; j++) {
             Tcast_<Td, Ts, T2, T3, DS2, SS2, Mode>(dst_, src_);
             dst_ += DS1 * DS2;
@@ -1816,7 +1939,8 @@ TILEOP void Tcast_(__ubuf__ Td *dst, __ubuf__ Ts *src) {
 }
 
 template <typename T, unsigned TShape0, unsigned TShape1>
-TILEOP void Treducesum(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Treducesum(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint8_t repeat = TShape1 * sizeof(T) / BLOCK_SIZE;
     constexpr uint8_t srcBlockStride = 1;
     constexpr uint8_t dstRptStride = TShape1 * sizeof(T) / BLOCK_SIZE;
@@ -1866,7 +1990,8 @@ TILEOP void Treducesum(__ubuf__ T *dst, __ubuf__ T *src) {
 }
 
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3>
-TILEOP void Treducesum(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Treducesum(__ubuf__ T* dst, __ubuf__ T* src)
+{
     for (int i = 0; i < TShape0; ++i) {
         for (int j = 0; j < TShape1; ++j) {
             TileOp::Treducesum<T, TShape2, TShape3>(dst, src);
@@ -1879,15 +2004,16 @@ TILEOP void Treducesum(__ubuf__ T *dst, __ubuf__ T *src) {
 // The src data remains unchanged.
 // T: fp32. support: OS0 <= REPEAT_MAX
 template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsigned TBS>
-TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowsumsinglecombine(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(OS1 == SS);
     if constexpr (SS == 1024) {
         static_assert(OS0 * 16 <= REPEAT_MAX);
         vcgadd(tmp, src, OS0 * 16, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,1024] -> [m,128]
         pipe_barrier(PIPE_V);
-        vadd(tmp, tmp + 64, tmp, OS0, 1, 1, 1, 16, 16, 16); // [m,128] -> [m,64]
+        vadd(tmp, tmp + 64, tmp, OS0, 1, 1, 1, 16, 16, 16);                         // [m,128] -> [m,64]
         pipe_barrier(PIPE_V);
-        vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL); // [m,64] -> [m,8]
+        vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL);     // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
         set_mask_count();
         set_vector_mask(0, OS0 * 8);
@@ -1900,7 +2026,7 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         static_assert(OS0 * 8 <= REPEAT_MAX);
         vcgadd(tmp, src, OS0 * 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,512] -> [m,64]
         pipe_barrier(PIPE_V);
-        vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
+        vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL);     // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
         set_mask_count();
         set_vector_mask(0, OS0 * 8);
@@ -1926,14 +2052,16 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         constexpr uint16_t reminder = OS0 % 8;
         if constexpr (reminder != 0) {
             SetContinuousMask(reminder * 8);
-            vcgadd(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 32, 1, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+            vcgadd(
+                dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 32, 1, (uint16_t)1ULL, (uint16_t)4ULL,
+                (uint16_t)32ULL); // [m,8] -> [m,1]
             set_vector_mask(-1, -1);
         }
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 128) {
         static_assert(OS0 <= REPEAT_MAX);
-        vadd(tmp, src + 64, src, OS0, 1, 1, 1, 8, 16, 16); // [m,128] -> [m,64]
+        vadd(tmp, src + 64, src, OS0, 1, 1, 1, 8, 16, 16);                     // [m,128] -> [m,64]
         pipe_barrier(PIPE_V);
         vcgadd(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
@@ -1970,7 +2098,9 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         constexpr uint16_t reminder = OS0 % 8;
         if constexpr (reminder != 0) {
             SetContinuousMask(reminder * 8);
-            vcgadd(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 16, 1, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+            vcgadd(
+                dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 16, 1, (uint16_t)1ULL, (uint16_t)2ULL,
+                (uint16_t)16ULL); // [m,8] -> [m,1]
             set_vector_mask(-1, -1);
         }
         pipe_barrier(PIPE_V);
@@ -2004,13 +2134,15 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
     }
 }
 
-template <typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
+template <
+    typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
     unsigned SS1, unsigned SS2, unsigned SS3, unsigned TBS3>
-TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowsumsinglecombine(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(SS3 * sizeof(T) % BLOCK_SIZE == 0);
     for (int i = 0; i < OS0; ++i) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ T *src_ = src;
+        __ubuf__ T* dst_ = dst;
+        __ubuf__ T* src_ = src;
         for (int j = 0; j < OS1; ++j) {
             TileOp::Trowsumsinglecombine<T, OS2, OS3, DS3, SS3, TBS3>(dst_, src_, tmp);
             dst_ += DS3 * DS2;
@@ -2025,7 +2157,8 @@ TILEOP void Trowsumsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
 // The src data remains unchanged.
 // T: fp32. support: OS0 <= REPEAT_MAX
 template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsigned TBS>
-TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowsumsingle_(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(OS0 <= REPEAT_MAX);
     constexpr uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
@@ -2047,16 +2180,19 @@ TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
 
     unsigned curLen = srcRepeatPerRow;
     for (unsigned i = 0; i < curLen / 2; i++) {
-        vadd(tmp + i * nElemPerRepeat, src + i * 2 * nElemPerRepeat, src + (i * 2 + 1) * nElemPerRepeat, OS0, 1, 1, 1,
+        vadd(
+            tmp + i * nElemPerRepeat, src + i * 2 * nElemPerRepeat, src + (i * 2 + 1) * nElemPerRepeat, OS0, 1, 1, 1,
             tmpRepeatStride, srcRepeatStride, srcRepeatStride);
     }
     pipe_barrier(PIPE_V);
     if (curLen == 1 && remain > 0) {
-        copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
+        copy_ubuf_to_ubuf(
+            tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
         pipe_barrier(PIPE_V);
     } else if (curLen % 2 > 0) {
-        vadd(tmp, tmp, src + (curLen - 1) * nElemPerRepeat, OS0, 1, 1, 1, tmpRepeatStride, tmpRepeatStride,
+        vadd(
+            tmp, tmp, src + (curLen - 1) * nElemPerRepeat, OS0, 1, 1, 1, tmpRepeatStride, tmpRepeatStride,
             srcRepeatStride);
         pipe_barrier(PIPE_V);
     }
@@ -2064,7 +2200,8 @@ TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     if (remain > 0) {
         unsigned repeatOffset = curLen == 1 ? 0 : curLen / 2 - 1;
         SetContinuousMask(remain);
-        vadd(tmp + repeatOffset * nElemPerRepeat, src + curLen * nElemPerRepeat, tmp + repeatOffset * nElemPerRepeat,
+        vadd(
+            tmp + repeatOffset * nElemPerRepeat, src + curLen * nElemPerRepeat, tmp + repeatOffset * nElemPerRepeat,
             OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride, tmpRepeatStride);
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
@@ -2074,14 +2211,16 @@ TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     bool mergeLast = true;
     while (curLen > 1) {
         for (unsigned i = 0; i < curLen / 2; i++) {
-            vadd(tmp + i * nElemPerRepeat, tmp + i * 2 * nElemPerRepeat, tmp + (i * 2 + 1) * nElemPerRepeat, OS0, 1, 1,
+            vadd(
+                tmp + i * nElemPerRepeat, tmp + i * 2 * nElemPerRepeat, tmp + (i * 2 + 1) * nElemPerRepeat, OS0, 1, 1,
                 1, tmpRepeatStride, tmpRepeatStride, tmpRepeatStride);
         }
         unsigned loopRemain = curLen % 2;
         curLen = curLen / 2;
         if (loopRemain > 0) {
             pipe_barrier(PIPE_V);
-            vadd(tmp + (curLen - 1) * nElemPerRepeat /*last repeat of new curLen*/,
+            vadd(
+                tmp + (curLen - 1) * nElemPerRepeat /*last repeat of new curLen*/,
                 tmp + curLen * 2 * nElemPerRepeat /*remain repeat*/, tmp + (curLen - 1) * nElemPerRepeat, OS0, 1, 1, 1,
                 tmpRepeatStride, tmpRepeatStride, tmpRepeatStride);
         }
@@ -2091,13 +2230,15 @@ TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     vcadd(dst, tmp, OS0, (uint16_t)DS, (uint16_t)1ULL, tmpRepeatStride, false);
 }
 
-template <typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
+template <
+    typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
     unsigned SS1, unsigned SS2, unsigned SS3, unsigned TBS3>
-TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowsumsingle_(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(SS3 * sizeof(T) % BLOCK_SIZE == 0);
     for (int i = 0; i < OS0; ++i) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ T *src_ = src;
+        __ubuf__ T* dst_ = dst;
+        __ubuf__ T* src_ = src;
         for (int j = 0; j < OS1; ++j) {
             TileOp::Trowsumsingle_<T, OS2, OS3, DS3, SS3, TBS3>(dst_, src_, tmp);
             dst_ += DS3 * DS2;
@@ -2112,15 +2253,16 @@ TILEOP void Trowsumsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
 // The src data remains unchanged.
 // T: fp32. support: OS0 <= REPEAT_MAX
 template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsigned TBS>
-TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowmaxsinglecombine(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(OS1 == SS);
     if constexpr (SS == 1024) {
         static_assert(OS0 * 16 <= REPEAT_MAX);
         vcgmax(tmp, src, OS0 * 16, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,1024] -> [m,128]
         pipe_barrier(PIPE_V);
-        vmax(tmp, tmp + 64, tmp, OS0, 1, 1, 1, 16, 16, 16); // [m,128] -> [m,64]
+        vmax(tmp, tmp + 64, tmp, OS0, 1, 1, 1, 16, 16, 16);                         // [m,128] -> [m,64]
         pipe_barrier(PIPE_V);
-        vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL); // [m,64] -> [m,8]
+        vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)16ULL);     // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
         set_mask_count();
         set_vector_mask(0, OS0 * 8);
@@ -2133,7 +2275,7 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         static_assert(OS0 * 8 <= REPEAT_MAX);
         vcgmax(tmp, src, OS0 * 8, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,512] -> [m,64]
         pipe_barrier(PIPE_V);
-        vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
+        vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL);     // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
         set_mask_count();
         set_vector_mask(0, OS0 * 8);
@@ -2159,14 +2301,16 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         constexpr uint16_t reminder = OS0 % 8;
         if constexpr (reminder != 0) {
             SetContinuousMask(reminder * 8);
-            vcgmax(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 32, 1, (uint16_t)1ULL, (uint16_t)4ULL, (uint16_t)32ULL); // [m,8] -> [m,1]
+            vcgmax(
+                dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 32, 1, (uint16_t)1ULL, (uint16_t)4ULL,
+                (uint16_t)32ULL); // [m,8] -> [m,1]
             set_vector_mask(-1, -1);
         }
         pipe_barrier(PIPE_V);
         return;
     } else if constexpr (SS == 128) {
         static_assert(OS0 <= REPEAT_MAX);
-        vmax(tmp, src + 64, src, OS0, 1, 1, 1, 8, 16, 16); // [m,128] -> [m,64]
+        vmax(tmp, src + 64, src, OS0, 1, 1, 1, 8, 16, 16);                     // [m,128] -> [m,64]
         pipe_barrier(PIPE_V);
         vcgmax(tmp, tmp, OS0, (uint16_t)1ULL, (uint16_t)1ULL, (uint16_t)8ULL); // [m,64] -> [m,8]
         pipe_barrier(PIPE_V);
@@ -2203,7 +2347,9 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
         constexpr uint16_t reminder = OS0 % 8;
         if constexpr (reminder != 0) {
             SetContinuousMask(reminder * 8);
-            vcgmax(dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 16, 1, (uint16_t)1ULL, (uint16_t)2ULL, (uint16_t)16ULL); // [m,8] -> [m,1]
+            vcgmax(
+                dst + OS0 / 8 * 8, tmp + OS0 / 8 * 8 * 16, 1, (uint16_t)1ULL, (uint16_t)2ULL,
+                (uint16_t)16ULL); // [m,8] -> [m,1]
             set_vector_mask(-1, -1);
         }
         pipe_barrier(PIPE_V);
@@ -2237,13 +2383,15 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
     }
 }
 
-template <typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
+template <
+    typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
     unsigned SS1, unsigned SS2, unsigned SS3, unsigned TBS3>
-TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowmaxsinglecombine(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(SS3 * sizeof(T) % BLOCK_SIZE == 0);
     for (int i = 0; i < OS0; ++i) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ T *src_ = src;
+        __ubuf__ T* dst_ = dst;
+        __ubuf__ T* src_ = src;
         for (int j = 0; j < OS1; ++j) {
             TileOp::Trowmaxsinglecombine<T, OS2, OS3, DS3, SS3, TBS3>(dst_, src_, tmp);
             dst_ += DS3 * DS2;
@@ -2258,7 +2406,8 @@ TILEOP void Trowmaxsinglecombine(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *t
 // The src data remains unchanged.
 // T: fp32. support: OS0 <= REPEAT_MAX
 template <typename T, unsigned OS0, unsigned OS1, unsigned DS, unsigned SS, unsigned TBS>
-TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowmaxsingle_(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(OS0 <= REPEAT_MAX);
     constexpr uint64_t srcRepeatPerRow = static_cast<uint64_t>(OS1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint16_t srcRepeatStride = SS * sizeof(T) / BLOCK_SIZE;
@@ -2278,7 +2427,8 @@ TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
 
     constexpr uint16_t tmpRepeatStride = TBS * sizeof(T) / BLOCK_SIZE;
     if (srcRepeatPerRow == 1 && remain > 0) {
-        copy_ubuf_to_ubuf(tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
+        copy_ubuf_to_ubuf(
+            tmp, src, 0, OS0, BLOCK_MAX_PER_REPEAT, srcRepeatStride - BLOCK_MAX_PER_REPEAT,
             tmpRepeatStride - BLOCK_MAX_PER_REPEAT);
     } else {
         if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
@@ -2304,7 +2454,8 @@ TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     if (remain > 0) {
         SetContinuousMask(remain);
         if ((tmpRepeatStride <= REPEAT_MAX) && (srcRepeatStride <= REPEAT_MAX)) {
-            vmax(tmp, src + srcRepeatPerRow * nElemPerRepeat, tmp, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride,
+            vmax(
+                tmp, src + srcRepeatPerRow * nElemPerRepeat, tmp, OS0, 1, 1, 1, tmpRepeatStride, srcRepeatStride,
                 tmpRepeatStride);
         } else {
             for (int j = 0; j < OS0; j++) {
@@ -2319,13 +2470,15 @@ TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     pipe_barrier(PIPE_V);
 }
 
-template <typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
+template <
+    typename T, unsigned OS0, unsigned OS1, unsigned OS2, unsigned OS3, unsigned DS1, unsigned DS2, unsigned DS3,
     unsigned SS1, unsigned SS2, unsigned SS3, unsigned TBS3>
-TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+TILEOP void Trowmaxsingle_(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     static_assert(SS3 * sizeof(T) % BLOCK_SIZE == 0);
     for (int i = 0; i < OS0; ++i) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ T *src_ = src;
+        __ubuf__ T* dst_ = dst;
+        __ubuf__ T* src_ = src;
         for (int j = 0; j < OS1; ++j) {
             TileOp::Trowmaxsingle_<T, OS2, OS3, DS3, SS3, TBS3>(dst_, src_, tmp);
             dst_ += DS3 * DS2;
@@ -2339,9 +2492,11 @@ TILEOP void Trowmaxsingle_(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
 
 // [case1] params: [src0Shape0,src0Shape1], indices: [TShape0], axis: 0, output: [TShape0,TShape1]
 // [case2] params: [src0Shape0,src0Shape1], indices: [TShape0,TShape1], axis: 0, output: [TShape0,TShape1,TShape2]
-template <typename T, typename T2, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned src0Shape2, 
-unsigned dst0Shape2>
-TILEOP void TgatherFromUB_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
+template <
+    typename T, typename T2, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned src0Shape2,
+    unsigned dst0Shape2>
+TILEOP void TgatherFromUB_(__ubuf__ T* dst, __ubuf__ T* src0, __ubuf__ T2* src1)
+{
     constexpr uint16_t lenBurst = (TShape2 * sizeof(T) + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     for (int i = 0; i < TShape0; ++i) {
@@ -2361,9 +2516,10 @@ TILEOP void TgatherFromUB_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1)
     }
 }
 
-template <typename T, typename T2, unsigned TShape0, unsigned TShape1, unsigned src0Shape1, unsigned dstShape1,
-    unsigned axis>
-TILEOP void TgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1) {
+template <
+    typename T, typename T2, unsigned TShape0, unsigned TShape1, unsigned src0Shape1, unsigned dstShape1, unsigned axis>
+TILEOP void TgatherElement(__ubuf__ T* dst, __ubuf__ T* src0, __ubuf__ T2* src1)
+{
     constexpr uint16_t lenBurst = 1;
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
@@ -2383,9 +2539,11 @@ TILEOP void TgatherElement(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1)
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned src1Shape0, 
-         unsigned src1Shape1, unsigned axis>
-TILEOP void TscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src1, T src2) {
+template <
+    typename T, typename T2, unsigned src1RawShape1, unsigned dstRawShape1, unsigned src1Shape0, unsigned src1Shape1,
+    unsigned axis>
+TILEOP void TscatterElementS(__ubuf__ T* dst, __ubuf__ T* src0, __ubuf__ T2* src1, T src2)
+{
     for (int i = 0; i < src1Shape0; ++i) {
         for (int j = 0; j < src1Shape1; ++j) {
             set_flag(PIPE_V, PIPE_S, EVENT_ID7);
@@ -2404,9 +2562,11 @@ TILEOP void TscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *src
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1,
- unsigned srcShape0, unsigned srcShape1, unsigned reverseOperand>
-TILEOP void TSadds(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0,
+    unsigned srcShape1, unsigned reverseOperand>
+TILEOP void TSadds(__ubuf__ T* dst, __ubuf__ T* src, float scalar)
+{
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < TShape0; ++i) {
@@ -2420,9 +2580,11 @@ TILEOP void TSadds(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1,
- unsigned srcShape0, unsigned srcShape1, unsigned reverseOperand>
-TILEOP void TSsubs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0,
+    unsigned srcShape1, unsigned reverseOperand>
+TILEOP void TSsubs(__ubuf__ T* dst, __ubuf__ T* src, float scalar)
+{
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < TShape0; ++i) {
@@ -2436,9 +2598,11 @@ TILEOP void TSsubs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1,
- unsigned srcShape0, unsigned srcShape1, unsigned reverseOperand>
-TILEOP void TSmuls(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0,
+    unsigned srcShape1, unsigned reverseOperand>
+TILEOP void TSmuls(__ubuf__ T* dst, __ubuf__ T* src, float scalar)
+{
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < TShape0; ++i) {
@@ -2452,9 +2616,11 @@ TILEOP void TSmuls(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1,
- unsigned srcShape0, unsigned srcShape1, unsigned reverseOperand>
-TILEOP void TSdivs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0,
+    unsigned srcShape1, unsigned reverseOperand>
+TILEOP void TSdivs(__ubuf__ T* dst, __ubuf__ T* src, float scalar)
+{
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < TShape0; ++i) {
@@ -2468,18 +2634,23 @@ TILEOP void TSdivs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2,
-    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned reverseOperand>
-TILEOP void TSdivs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstShape0, unsigned dstShape1,
+    unsigned dstShape2, unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned reverseOperand>
+TILEOP void TSdivs(__ubuf__ T* dst, __ubuf__ T* src, float scalar)
+{
     int dstOffset = dstShape1 * dstShape2;
-    for (int i = 0; i < TShape0 ; i++) {
-        TileOp::TSdivs<T, TShape1, TShape2, dstShape0, dstShape1, srcShape0, srcShape1, reverseOperand>(dst + i*dstOffset, src + i*dstOffset, scalar);
+    for (int i = 0; i < TShape0; i++) {
+        TileOp::TSdivs<T, TShape1, TShape2, dstShape0, dstShape1, srcShape0, srcShape1, reverseOperand>(
+            dst + i * dstOffset, src + i * dstOffset, scalar);
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1,
- unsigned srcShape0, unsigned srcShape1, unsigned reverseOperand>
-TILEOP void TSmaxs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0,
+    unsigned srcShape1, unsigned reverseOperand>
+TILEOP void TSmaxs(__ubuf__ T* dst, __ubuf__ T* src, float scalar)
+{
     set_flag(PIPE_V, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
     for (int i = 0; i < TShape0; ++i) {
@@ -2493,12 +2664,14 @@ TILEOP void TSmaxs(__ubuf__ T *dst, __ubuf__ T *src, float scalar) {
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape1,
-    unsigned dstRawShape2, unsigned srcRawShape1, unsigned srcRawShape2, unsigned axis0, unsigned axis1>
-TILEOP void TtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned dstRawShape1, unsigned dstRawShape2,
+    unsigned srcRawShape1, unsigned srcRawShape2, unsigned axis0, unsigned axis1>
+TILEOP void TtransposeMoveOut_(__gm__ T* dst, __ubuf__ T* src)
+{
     if constexpr (axis0 == 0 && axis1 == 1) {
-        __gm__ T *dst_ = dst;
-        __ubuf__ T *src_ = src;
+        __gm__ T* dst_ = dst;
+        __ubuf__ T* src_ = src;
         unsigned nBurst = TShape1;
         unsigned lenBurst = TShape2 * sizeof(T);
         unsigned srcStride = (srcRawShape2 - TShape2) / BLOCK_NELEM_B32;
@@ -2513,16 +2686,19 @@ TILEOP void TtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape1,
     unsigned dstRawShape2, unsigned dstRawShape3, unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3,
     unsigned axis0, unsigned axis1>
-TILEOP void TtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src) {
+TILEOP void TtransposeMoveOut_(__gm__ T* dst, __ubuf__ T* src)
+{
     if constexpr (axis0 == 1 && axis1 == 2) {
-        __gm__ T *dst_ = dst;
-        __ubuf__ T *src_ = src;
+        __gm__ T* dst_ = dst;
+        __ubuf__ T* src_ = src;
         for (int b = 0; b < TShape0; b++) {
-            TtransposeMoveOut_<T, TShape1, TShape2, TShape3, dstRawShape2, dstRawShape3, srcRawShape2, srcRawShape3,
-                axis0 - 1, axis1 - 1>(dst_, src_);
+            TtransposeMoveOut_<
+                T, TShape1, TShape2, TShape3, dstRawShape2, dstRawShape3, srcRawShape2, srcRawShape3, axis0 - 1,
+                axis1 - 1>(dst_, src_);
             dst_ += dstRawShape1 * dstRawShape2 * dstRawShape3;
             src_ += srcRawShape1 * srcRawShape2 * srcRawShape3;
         }
@@ -2533,23 +2709,25 @@ TILEOP void TtransposeMoveOut_(__gm__ T *dst, __ubuf__ T *src) {
 
 // dim2
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned srcRawShape1>
-TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
+TILEOP void Trowsumline_(__ubuf__ T* dst, __ubuf__ T* src0)
+{
     static_assert(sizeof(T) == 4);
     uint32_t rptElm = REPEAT_BYTE / sizeof(T);
     uint32_t repeatTime = (TShape1 + rptElm - 1) / rptElm;
     uint32_t remainElm = TShape1 % rptElm;
     if (!remainElm) {
-        vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, repeatTime, 1, 1, 8, 8);
+        vcopy((__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)src0, repeatTime, 1, 1, 8, 8);
     } else {
         if (repeatTime == 1) {
             SetContinuousMask(remainElm);
-            vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, 1, 1, 1, 8, 8);
+            vcopy((__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)src0, 1, 1, 1, 8, 8);
             set_vector_mask(-1, -1);
         } else {
-            vcopy((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src0, repeatTime - 1, 1, 1, 8, 8);
+            vcopy((__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)src0, repeatTime - 1, 1, 1, 8, 8);
             SetContinuousMask(remainElm);
-            vcopy((__ubuf__ uint32_t *)(dst + (repeatTime - 1) * rptElm),
-                (__ubuf__ uint32_t *)(src0 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
+            vcopy(
+                (__ubuf__ uint32_t*)(dst + (repeatTime - 1) * rptElm),
+                (__ubuf__ uint32_t*)(src0 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
             set_vector_mask(-1, -1);
         }
     }
@@ -2566,7 +2744,8 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
             } else {
                 vadd(dst, dst, src0 + j * srcRawShape1, repeatTime - 1, 1, 1, 1, 8, 8, 8);
                 SetContinuousMask(remainElm);
-                vadd(dst + (repeatTime - 1) * rptElm, dst + (repeatTime - 1) * rptElm,
+                vadd(
+                    dst + (repeatTime - 1) * rptElm, dst + (repeatTime - 1) * rptElm,
                     src0 + j * srcRawShape1 + (repeatTime - 1) * rptElm, 1, 1, 1, 1, 8, 8, 8);
                 set_vector_mask(-1, -1);
             }
@@ -2576,9 +2755,11 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
 }
 
 // dim3
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned srcRawShape1,
-    unsigned srcRawShape2, unsigned dstRawShape1, unsigned dstRawShape2, unsigned axis>
-TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned srcRawShape1, unsigned srcRawShape2,
+    unsigned dstRawShape1, unsigned dstRawShape2, unsigned axis>
+TILEOP void Trowsumline_(__ubuf__ T* dst, __ubuf__ T* src0)
+{
     static_assert(sizeof(T) == 4);
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
@@ -2586,20 +2767,24 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
         uint32_t remainElm = TShape2 % rptElm;
         for (unsigned i = 0; i < TShape1; i++) {
             if (!remainElm) {
-                vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
+                vcopy(
+                    (__ubuf__ uint32_t*)(dst + i * dstRawShape2), (__ubuf__ uint32_t*)(src0 + i * srcRawShape2),
                     repeatTime, 1, 1, 8, 8);
             } else {
                 if (repeatTime == 1) {
                     SetContinuousMask(remainElm);
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
-                        1, 1, 1, 8, 8);
+                    vcopy(
+                        (__ubuf__ uint32_t*)(dst + i * dstRawShape2), (__ubuf__ uint32_t*)(src0 + i * srcRawShape2), 1,
+                        1, 1, 8, 8);
                     set_vector_mask(-1, -1);
                 } else {
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2), (__ubuf__ uint32_t *)(src0 + i * srcRawShape2),
+                    vcopy(
+                        (__ubuf__ uint32_t*)(dst + i * dstRawShape2), (__ubuf__ uint32_t*)(src0 + i * srcRawShape2),
                         repeatTime - 1, 1, 1, 8, 8);
                     SetContinuousMask(remainElm);
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 + (repeatTime - 1) * rptElm),
-                        (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
+                    vcopy(
+                        (__ubuf__ uint32_t*)(dst + i * dstRawShape2 + (repeatTime - 1) * rptElm),
+                        (__ubuf__ uint32_t*)(src0 + i * srcRawShape2 + (repeatTime - 1) * rptElm), 1, 1, 1, 8, 8);
                     set_vector_mask(-1, -1);
                 }
             }
@@ -2608,20 +2793,24 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
         for (unsigned i = 1; i < TShape0; i++) {
             for (unsigned j = 0; j < TShape1; j++) {
                 if (!remainElm) {
-                    vadd(dst + j * dstRawShape2, dst + j * dstRawShape2,
+                    vadd(
+                        dst + j * dstRawShape2, dst + j * dstRawShape2,
                         src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime, 1, 1, 1, 8, 8, 8);
                 } else {
                     if (repeatTime == 1) {
                         set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                        vadd(dst + j * dstRawShape2, dst + j * dstRawShape2,
+                        vadd(
+                            dst + j * dstRawShape2, dst + j * dstRawShape2,
                             src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime, 1, 1, 1, 8, 8, 8);
                         set_vector_mask(-1, -1);
                     } else {
-                        vadd(dst + j * dstRawShape2, dst + j * dstRawShape2,
+                        vadd(
+                            dst + j * dstRawShape2, dst + j * dstRawShape2,
                             src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2, repeatTime - 1, 1, 1, 1, 8, 8,
                             8);
                         set_vector_mask(0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                        vadd(dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
+                        vadd(
+                            dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
                             dst + j * dstRawShape2 + (repeatTime - 1) * rptElm,
                             src0 + i * srcRawShape1 * srcRawShape2 + j * srcRawShape2 + (repeatTime - 1) * rptElm, 1, 1,
                             1, 1, 8, 8, 8);
@@ -2640,12 +2829,12 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0) {
 }
 
 // dim4
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, 
-    unsigned srcRawShape1, unsigned srcRawShape2, unsigned srcRawShape3, 
-    unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3,
-    unsigned tmpRawShape1, unsigned tmpRawShape2, unsigned tmpRawShape3,
-    unsigned axis>
-TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *tmp) {
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned srcRawShape1,
+    unsigned srcRawShape2, unsigned srcRawShape3, unsigned dstRawShape1, unsigned dstRawShape2, unsigned dstRawShape3,
+    unsigned tmpRawShape1, unsigned tmpRawShape2, unsigned tmpRawShape3, unsigned axis>
+TILEOP void Trowsumline_(__ubuf__ T* dst, __ubuf__ T* src0, __ubuf__ T* tmp)
+{
     static_assert(sizeof(T) == 4);
     if (axis == 0) {
         uint32_t rptElm = REPEAT_BYTE / sizeof(T);
@@ -2654,25 +2843,29 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *tmp) {
         for (unsigned i = 0; i < TShape1; i++) {
             for (unsigned j = 0; j < TShape2; j++) {
                 if (!remainElm) {
-                    vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
-                        (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3), repeatTime, 1,
+                    vcopy(
+                        (__ubuf__ uint32_t*)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
+                        (__ubuf__ uint32_t*)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3), repeatTime, 1,
                         1, 8, 8);
                 } else {
                     if (repeatTime == 1) {
                         SetContinuousMask(remainElm);
-                        vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
-                            (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3), 1, 1, 1,
-                            8, 8);
+                        vcopy(
+                            (__ubuf__ uint32_t*)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
+                            (__ubuf__ uint32_t*)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3), 1, 1, 1, 8,
+                            8);
                         set_vector_mask(-1, -1);
                     } else {
-                        vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
-                            (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3),
+                        vcopy(
+                            (__ubuf__ uint32_t*)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3),
+                            (__ubuf__ uint32_t*)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3),
                             repeatTime - 1, 1, 1, 8, 8);
                         SetContinuousMask(remainElm);
-                        vcopy((__ubuf__ uint32_t *)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3 +
-                                                    (repeatTime - 1) * rptElm),
-                            (__ubuf__ uint32_t *)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3 +
-                                                  (repeatTime - 1) * rptElm),
+                        vcopy(
+                            (__ubuf__ uint32_t*)(dst + i * dstRawShape2 * dstRawShape3 + j * dstRawShape3 +
+                                                 (repeatTime - 1) * rptElm),
+                            (__ubuf__ uint32_t*)(src0 + i * srcRawShape2 * srcRawShape3 + j * srcRawShape3 +
+                                                 (repeatTime - 1) * rptElm),
                             1, 1, 1, 8, 8);
                         set_vector_mask(-1, -1);
                     }
@@ -2684,7 +2877,8 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *tmp) {
             for (unsigned j = 0; j < TShape1; j++) {
                 for (unsigned k = 0; k < TShape2; k++) {
                     if (!remainElm) {
-                        vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
+                        vadd(
+                            dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
                             dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
                             src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 + j * srcRawShape2 * srcRawShape3 +
                                 k * srcRawShape3,
@@ -2693,21 +2887,24 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *tmp) {
                         if (repeatTime == 1) {
                             set_vector_mask(
                                 0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                            vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
+                            vadd(
+                                dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
                                 dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
                                 src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
                                     j * srcRawShape2 * srcRawShape3 + k * srcRawShape3,
                                 repeatTime, 1, 1, 1, 8, 8, 8);
                             set_vector_mask(-1, -1);
                         } else {
-                            vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
+                            vadd(
+                                dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
                                 dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3,
                                 src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
                                     j * srcRawShape2 * srcRawShape3 + k * srcRawShape3,
                                 repeatTime - 1, 1, 1, 1, 8, 8, 8);
                             set_vector_mask(
                                 0, (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(remainElm)) - 1UL));
-                            vadd(dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
+                            vadd(
+                                dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
                                 dst + j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + (repeatTime - 1) * rptElm,
                                 src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3 +
                                     j * srcRawShape2 * srcRawShape3 + k * srcRawShape3 + (repeatTime - 1) * rptElm,
@@ -2720,16 +2917,19 @@ TILEOP void Trowsumline_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T *tmp) {
         }
     } else if (axis == 1 || axis == 2) {
         for (unsigned i = 0; i < TShape0; i++) {
-            Trowsumline_<T, TShape1, TShape2, TShape3, srcRawShape2, srcRawShape3, dstRawShape2, dstRawShape3,
-                axis - 1>(dst + i * dstRawShape1 * dstRawShape2 * dstRawShape3,
+            Trowsumline_<
+                T, TShape1, TShape2, TShape3, srcRawShape2, srcRawShape3, dstRawShape2, dstRawShape3, axis - 1>(
+                dst + i * dstRawShape1 * dstRawShape2 * dstRawShape3,
                 src0 + i * srcRawShape1 * srcRawShape2 * srcRawShape3);
         }
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned dstRawShape0, unsigned dstRawShape1,
     unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tvcopy(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Tvcopy(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -2739,17 +2939,18 @@ TILEOP void Tvcopy(__ubuf__ T *dst, __ubuf__ T *src) {
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
 
     // UB discontinuous
-    if constexpr ((dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
-                  (TShape1 % blockSize == 0 && dstRawShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
+    if constexpr (
+        (dstRawShape1 > TShape1 || src0RawShape1 > TShape1) &&
+        (TShape1 % blockSize == 0 && dstRawShape1 % blockSize == 0 && src0RawShape1 % blockSize == 0)) {
         srcRepeatStride = src0RawShape1 > TShape1 ? src0RawShape1 / blockSize : TShape1 / blockSize;
         dstRepeatStride = dstRawShape1 > TShape1 ? dstRawShape1 / blockSize : TShape1 / blockSize;
 
         set_vector_mask(
             static_cast<uint64_t>(
                 (TShape1 > 64) ? (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1 - 64)) - 1) : 0),
-            static_cast<uint64_t>((TShape1 >= 64) ?
-                                      0xffffffffffffffff :
-                                      (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
+            static_cast<uint64_t>(
+                (TShape1 >= 64) ? 0xffffffffffffffff :
+                                  (((static_cast<uint64_t>(1)) << static_cast<uint32_t>(TShape1)) - 1)));
         vcopy(dst, src, TShape0, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
         set_vector_mask(-1, -1);
         return;
@@ -2769,19 +2970,23 @@ TILEOP void Tvcopy(__ubuf__ T *dst, __ubuf__ T *src) {
     uint8_t repeatLoop = static_cast<uint8_t>(repeat / REPEAT_MAX);
     uint8_t repeatMod = static_cast<uint8_t>(repeat % REPEAT_MAX);
     for (uint8_t i = 0; i < repeatLoop; i++) {
-        vcopy(dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
-            REPEAT_MAX, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+        vcopy(
+            dst + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), src + i * REPEAT_MAX * REPEAT_BYTE / sizeof(T), REPEAT_MAX,
+            dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
     }
     if (repeatMod != 0) {
-        vcopy(dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
+        vcopy(
+            dst + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T),
             src + repeatLoop * REPEAT_MAX * REPEAT_BYTE / sizeof(T), repeatMod, dstBlockStride, srcBlockStride,
             dstRepeatStride, srcRepeatStride);
     }
 }
 
-template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
+template <
+    typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned TShape3, unsigned dstRawShape0,
     unsigned dstRawShape1, unsigned src0RawShape0, unsigned src0RawShape1>
-TILEOP void Tvcopy(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Tvcopy(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr uint32_t blockSize = BLOCK_SIZE / sizeof(T);
     constexpr uint32_t baseTileSize = TShape2 * TShape3;
     constexpr uint32_t dstRawSize = dstRawShape0 * dstRawShape1;
@@ -2802,13 +3007,15 @@ TILEOP void Tvcopy(__ubuf__ T *dst, __ubuf__ T *src) {
     }
 }
 
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1,
-    unsigned oriShape0, unsigned oriShape1, int axis, int offset, int isLargest>
-TILEOP void BitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+template <
+    typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, unsigned oriShape0,
+    unsigned oriShape1, int axis, int offset, int isLargest>
+TILEOP void BitSort(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     // 生成index数据,首先创建一个1~8的数组,之后扩展到TShape1,构成0~TShape1的index数组
     // pipe_barrier(PIPE_ALL); // 当前OP无法描述两条流水,UB复用场景存在问题,暂时按照pipe_all规避
     constexpr int32_t srcShape1Align = (oriShape1 + 31) / 32 * 32;
-    __ubuf__ uint32_t *idx = (__ubuf__ uint32_t *)tmp;
+    __ubuf__ uint32_t* idx = (__ubuf__ uint32_t*)tmp;
     for (int32_t j = 0; j < oriShape1; j++) {
         *(idx + j) = j;
     }
@@ -2819,15 +3026,15 @@ TILEOP void BitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     if constexpr (oriShape1 < 32) {
         uint64_t srcShape1_Align_Block_Num = (oriShape1 * sizeof(float) + 31) / 32;
         uint64_t dstShape1_Block_Num = dstShape1 * sizeof(float) / 32;
-        copy_ubuf_to_ubuf((__ubuf__ float *)tmp + srcShape1Align, (__ubuf__ void *)src, 0, oriShape0,
-            srcShape1_Align_Block_Num, 0, dstShape1_Block_Num - srcShape1_Align_Block_Num);
+        copy_ubuf_to_ubuf(
+            (__ubuf__ float*)tmp + srcShape1Align, (__ubuf__ void*)src, 0, oriShape0, srcShape1_Align_Block_Num, 0,
+            dstShape1_Block_Num - srcShape1_Align_Block_Num);
         pipe_barrier(PIPE_V);
         if constexpr (isLargest == 0) {
             set_mask_count();
             set_vector_mask(0, oriShape1);
             // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
-            vmuls((__ubuf__ float *)tmp + srcShape1Align, (__ubuf__ float *)tmp + srcShape1Align, -1.0f, 1, 1,
-                1, 8, 8);
+            vmuls((__ubuf__ float*)tmp + srcShape1Align, (__ubuf__ float*)tmp + srcShape1Align, -1.0f, 1, 1, 1, 8, 8);
             pipe_barrier(PIPE_V);
             set_mask_norm();
             set_vector_mask(-1, -1);
@@ -2842,8 +3049,9 @@ TILEOP void BitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
         vector_dup(tmp + srcShape1Align, FLOAT_MIN, oriShape0, 1, 1, dstShape1 * sizeof(float) / 32, (int64_t)0);
         pipe_barrier(PIPE_V);
         for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
-            vbitsort((__ubuf__ float *)dst + rowIdx * dstShape1,
-                (__ubuf__ float *)tmp + srcShape1Align, (__ubuf__ uint32_t *)idx, 1);
+            vbitsort(
+                (__ubuf__ float*)dst + rowIdx * dstShape1, (__ubuf__ float*)tmp + srcShape1Align,
+                (__ubuf__ uint32_t*)idx, 1);
         }
         pipe_barrier(PIPE_V);
         set_vector_mask(-1, -1);
@@ -2852,14 +3060,14 @@ TILEOP void BitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     if constexpr (oriShape1 == 32) {
         for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
             // 32个数时，一次完成排序
-            __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
-            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1;
+            __ubuf__ float* srcData = reinterpret_cast<__ubuf__ float*>(src) + rowIdx * srcShape1;
+            __ubuf__ float* dstData = reinterpret_cast<__ubuf__ float*>(dst) + rowIdx * dstShape1;
             if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
                 // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
-                srcData = reinterpret_cast<__ubuf__ float *>(tmp) + srcShape1Align;
-                vmuls(srcData, reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
+                srcData = reinterpret_cast<__ubuf__ float*>(tmp) + srcShape1Align;
+                vmuls(srcData, reinterpret_cast<__ubuf__ float*>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
@@ -2873,14 +3081,14 @@ TILEOP void BitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
         constexpr int32_t repeat_sort32 = oriShape1 / 32;
         constexpr int32_t tail_sort32 = oriShape1 % 32;
         for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
-            __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
-            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1;
+            __ubuf__ float* srcData = reinterpret_cast<__ubuf__ float*>(src) + rowIdx * srcShape1;
+            __ubuf__ float* dstData = reinterpret_cast<__ubuf__ float*>(dst) + rowIdx * dstShape1;
             if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
                 // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
-                srcData = reinterpret_cast<__ubuf__ float *>(tmp) + srcShape1Align;
-                vmuls(srcData, reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
+                srcData = reinterpret_cast<__ubuf__ float*>(tmp) + srcShape1Align;
+                vmuls(srcData, reinterpret_cast<__ubuf__ float*>(src) + rowIdx * srcShape1, -1.0f, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
@@ -2907,17 +3115,19 @@ TILEOP void BitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
     }
 }
 
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1,
-    unsigned oriShape0, unsigned oriShape1, int axis, int k, int mergeSize>
-TILEOP void MrgSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
+template <
+    typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, unsigned oriShape0,
+    unsigned oriShape1, int axis, int k, int mergeSize>
+TILEOP void MrgSort(__ubuf__ T* dst, __ubuf__ T* src, __ubuf__ T* tmp)
+{
     constexpr int32_t kAlign = (k + 3) / 4 * 4; // k需要向32Bytes取整,否则最后搬运出问题
     constexpr int32_t totalNum = oriShape1 / 2;
     for (int rowIdx = 0; rowIdx < dstShape0; rowIdx++) {
         // 每4个合并,计算整块
         int32_t z = 32;
         for (; z * 4 <= totalNum; z *= 4) {
-            __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
-            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(src);
+            __ubuf__ float* srcData = reinterpret_cast<__ubuf__ float*>(src) + rowIdx * srcShape1;
+            __ubuf__ float* dstData = reinterpret_cast<__ubuf__ float*>(src);
             uint64_t config = 0;
             uint32_t repeat_mrg = totalNum / (z * 4);
             config |= uint64_t(totalNum / (z * 4)); // Xt[7:0]: repeat time
@@ -2931,14 +3141,13 @@ TILEOP void MrgSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
             src1 |= (uint64_t(z) << 32);
             src1 |= (uint64_t(z) << 48);
 
-            __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(srcData + 0 * z * 2),
-                (__ubuf__ float *)(srcData + 1 * z * 2), (__ubuf__ float *)(srcData + 2 * z * 2),
-                (__ubuf__ float *)(srcData + 3 * z * 2)};
+            __ubuf__ float* addr_array[4] = {
+                (__ubuf__ float*)(srcData + 0 * z * 2), (__ubuf__ float*)(srcData + 1 * z * 2),
+                (__ubuf__ float*)(srcData + 2 * z * 2), (__ubuf__ float*)(srcData + 3 * z * 2)};
             pipe_barrier(PIPE_V);
             vmrgsort4(dstData, addr_array, src1, config);
             pipe_barrier(PIPE_V);
-            copy_ubuf_to_ubuf(
-                (__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0, z * 4 * repeat_mrg * 2 / 8, 1, 0, 0);
+            copy_ubuf_to_ubuf((__ubuf__ void*)srcData, (__ubuf__ void*)dstData, 0, z * 4 * repeat_mrg * 2 / 8, 1, 0, 0);
             pipe_barrier(PIPE_V);
         }
         // 合并尾块
@@ -2955,8 +3164,8 @@ TILEOP void MrgSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
             }
             uint16_t mrgSortedLen = 0;
             for (int32_t i = 0; i < arrayCount - 1; ++i) {
-                __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
-                __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(src);
+                __ubuf__ float* srcData = reinterpret_cast<__ubuf__ float*>(src) + rowIdx * srcShape1;
+                __ubuf__ float* dstData = reinterpret_cast<__ubuf__ float*>(src);
                 mrgSortedLen += static_cast<uint16_t>(mrgArray[i]);
                 uint64_t tmpMrgSortedLen = mrgSortedLen;
                 uint64_t tmpMrgArray = mrgArray[i + 1];
@@ -2975,24 +3184,28 @@ TILEOP void MrgSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp) {
                 uint64_t src1 = 0;
                 src1 |= (uint64_t(tmpMrgSortedLen));
                 src1 |= (uint64_t(tmpMrgArray) << 16);
-                __ubuf__ float *addr_array[4] = {(__ubuf__ float *)(srcData),
-                    (__ubuf__ float *)(srcData + mrgSortedLen * 2), (__ubuf__ float *)0, (__ubuf__ float *)0};
+                __ubuf__ float* addr_array[4] = {
+                    (__ubuf__ float*)(srcData), (__ubuf__ float*)(srcData + mrgSortedLen * 2), (__ubuf__ float*)0,
+                    (__ubuf__ float*)0};
                 pipe_barrier(PIPE_V);
                 vmrgsort4(dstData, addr_array, src1, config);
                 pipe_barrier(PIPE_V);
-                copy_ubuf_to_ubuf((__ubuf__ void *)srcData, (__ubuf__ void *)dstData, 0,
-                    (tmpMrgSortedLen + tmpMrgArray) * 2 / 8, 1, 0, 0);
+                copy_ubuf_to_ubuf(
+                    (__ubuf__ void*)srcData, (__ubuf__ void*)dstData, 0, (tmpMrgSortedLen + tmpMrgArray) * 2 / 8, 1, 0,
+                    0);
                 pipe_barrier(PIPE_V);
             }
         }
-        copy_ubuf_to_ubuf((__ubuf__ float *)dst + rowIdx * dstShape1, (__ubuf__ float *)src + rowIdx * srcShape1, 0,
-            kAlign / 4, 1, 0, 0);
+        copy_ubuf_to_ubuf(
+            (__ubuf__ float*)dst + rowIdx * dstShape1, (__ubuf__ float*)src + rowIdx * srcShape1, 0, kAlign / 4, 1, 0,
+            0);
         pipe_barrier(PIPE_V);
     }
 }
 
 template <typename T, typename U, unsigned TShape0, unsigned TShape1, int k, int extractMode, int isLargest>
-TILEOP void Extract(__ubuf__ T *dst, __ubuf__ U *src) {
+TILEOP void Extract(__ubuf__ T* dst, __ubuf__ U* src)
+{
     constexpr uint64_t repeat = static_cast<uint64_t>(TShape0 * TShape1 * 2 * sizeof(T) / REPEAT_BYTE);
     constexpr uint8_t dstBlockStride = 1;
     constexpr uint8_t srcBlockStride = 1;
@@ -3003,12 +3216,13 @@ TILEOP void Extract(__ubuf__ T *dst, __ubuf__ U *src) {
     if constexpr (extractMode == 1) {
         patternMode = 2;
     }
-    __ubuf__ U *nullsrc1 = REPEAT_BYTE * sizeof(U) + src;
+    __ubuf__ U* nullsrc1 = REPEAT_BYTE * sizeof(U) + src;
     if constexpr (repeat < 1) {
         constexpr uint64_t elems = TShape0 * TShape1;
         set_mask_count();
         set_vector_mask(0, elems * 2);
-        vreducev2((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, (__ubuf__ uint32_t *)nullsrc1, 1, srcBlockStride,
+        vreducev2(
+            (__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)src, (__ubuf__ uint32_t*)nullsrc1, 1, srcBlockStride,
             patternMode, srcRepeatStride, 0);
         set_mask_norm();
         set_vector_mask(-1, -1);
@@ -3019,7 +3233,8 @@ TILEOP void Extract(__ubuf__ T *dst, __ubuf__ U *src) {
             constexpr uint64_t elems = TShape0 * TShape1;
             set_mask_norm();
             set_vector_mask(-1, -1);
-            vreducev2((__ubuf__ uint32_t *)(dst), (__ubuf__ uint32_t *)(src), (__ubuf__ uint32_t *)nullsrc1, repeatMod,
+            vreducev2(
+                (__ubuf__ uint32_t*)(dst), (__ubuf__ uint32_t*)(src), (__ubuf__ uint32_t*)nullsrc1, repeatMod,
                 srcBlockStride, patternMode, srcRepeatStride, 0);
             pipe_barrier(PIPE_V);
         }
@@ -3029,15 +3244,20 @@ TILEOP void Extract(__ubuf__ T *dst, __ubuf__ U *src) {
         // 按照升序排序时,对于value需要乘以-1,恢复原始值
         set_mask_count();
         set_vector_mask(0, TShape0 * TShape1);
-        vmuls((__ubuf__ float *)dst, (__ubuf__ float *)dst, -1.0f, 1, 1, 1, 8, 8);
+        vmuls((__ubuf__ float*)dst, (__ubuf__ float*)dst, -1.0f, 1, 1, 1, 8, 8);
         set_mask_norm();
         set_vector_mask(-1, -1);
         pipe_barrier(PIPE_V);
     }
 }
 
-template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int descending>
-TILEOP void CompareAndSwap(__ubuf__ T *y0, __ubuf__ idxT *yIdx0, __ubuf__ T *y1, __ubuf__ idxT *yIdx1, __ubuf__ T *x0, __ubuf__ idxT *idx0, __ubuf__ T *x1, __ubuf__ idxT *idx1) {
+template <
+    typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1,
+    int descending>
+TILEOP void CompareAndSwap(
+    __ubuf__ T* y0, __ubuf__ idxT* yIdx0, __ubuf__ T* y1, __ubuf__ idxT* yIdx1, __ubuf__ T* x0, __ubuf__ idxT* idx0,
+    __ubuf__ T* x1, __ubuf__ idxT* idx1)
+{
     // UB reuse: y0 = x0, yIdx0 = idx0
     constexpr uint32_t oneLength = 256 / sizeof(T);
     constexpr uint32_t repeat = xShape1 / oneLength;
@@ -3045,20 +3265,26 @@ TILEOP void CompareAndSwap(__ubuf__ T *y0, __ubuf__ idxT *yIdx0, __ubuf__ T *y1,
     set_vector_mask(-1, -1);
     for (uint32_t offset = 0; offset < xShape1; offset += oneLength) {
         if (descending == 1) {
-            // src0, src1, repeat, dstBlockStride, src0BlockStride, src1BlockStride, dstRepeatStride, src0RepeatStride, src1RepeatStride
+            // src0, src1, repeat, dstBlockStride, src0BlockStride, src1BlockStride, dstRepeatStride, src0RepeatStride,
+            // src1RepeatStride
             vcmp_ge(x0 + offset, x1 + offset, 1, 1, 1, 1, 8, 8, 8);
         } else {
             vcmp_le(x0 + offset, x1 + offset, 1, 1, 1, 1, 8, 8, 8);
         }
-        vsel(y1 + offset, x1 + offset, x0 + offset, 1, 1, 1, 1, 8, 8, 8, 0);    // mode = 0x0
-        vsel((__ubuf__ float*)yIdx1 + offset, (__ubuf__ float*)idx1 + offset, (__ubuf__ float*)idx0 + offset, 1, 1, 1, 1, 8, 8, 8, 0);    // mode = 0x0
-        vsel((__ubuf__ float*)yIdx0 + offset, (__ubuf__ float*)idx0 + offset, (__ubuf__ float*)idx1 + offset, 1, 1, 1, 1, 8, 8, 8, 0);    // mode = 0x0
-        vsel(y0 + offset, x0 + offset, x1 + offset, 1, 1, 1, 1, 8, 8, 8, 0);    // mode = 0x0
+        vsel(y1 + offset, x1 + offset, x0 + offset, 1, 1, 1, 1, 8, 8, 8, 0); // mode = 0x0
+        vsel(
+            (__ubuf__ float*)yIdx1 + offset, (__ubuf__ float*)idx1 + offset, (__ubuf__ float*)idx0 + offset, 1, 1, 1, 1,
+            8, 8, 8, 0); // mode = 0x0
+        vsel(
+            (__ubuf__ float*)yIdx0 + offset, (__ubuf__ float*)idx0 + offset, (__ubuf__ float*)idx1 + offset, 1, 1, 1, 1,
+            8, 8, 8, 0);                                                     // mode = 0x0
+        vsel(y0 + offset, x0 + offset, x1 + offset, 1, 1, 1, 1, 8, 8, 8, 0); // mode = 0x0
     }
 }
 
 template <typename T, typename idxT, unsigned shape>
-TILEOP void BitSortAll(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
+TILEOP void BitSortAll(__ubuf__ T* y, __ubuf__ idxT* yIdx, __ubuf__ T* tmp, __ubuf__ T* x, __ubuf__ idxT* xIdx)
+{
     constexpr uint32_t bitSortLength = 32;
     constexpr uint32_t oneLength = 256 / sizeof(T);
     set_mask_norm();
@@ -3067,29 +3293,33 @@ TILEOP void BitSortAll(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ub
     constexpr uint32_t repeat = shape / bitSortLength;
     constexpr uint32_t len255 = 255 * bitSortLength;
     if constexpr (shape <= 255 * bitSortLength) {
-        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, repeat);
+        vbitsort(tmp, x, (__ubuf__ uint32_t*)xIdx, repeat);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat, 1, 1, 8, 0);
+        vreducev2((__ubuf__ uint32_t*)y, (__ubuf__ uint32_t*)tmp, (__ubuf__ uint32_t*)tmp, repeat, 1, 1, 8, 0);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)yIdx, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat, 1, 2, 8, 0);
+        vreducev2((__ubuf__ uint32_t*)yIdx, (__ubuf__ uint32_t*)tmp, (__ubuf__ uint32_t*)tmp, repeat, 1, 2, 8, 0);
         pipe_barrier(PIPE_V);
     } else { // shape = 8K, repeat = 256
-        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, 255);
+        vbitsort(tmp, x, (__ubuf__ uint32_t*)xIdx, 255);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 1, 8, 0);
+        vreducev2((__ubuf__ uint32_t*)y, (__ubuf__ uint32_t*)tmp, (__ubuf__ uint32_t*)tmp, 255, 1, 1, 8, 0);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)yIdx, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, 255, 1, 2, 8, 0);
+        vreducev2((__ubuf__ uint32_t*)yIdx, (__ubuf__ uint32_t*)tmp, (__ubuf__ uint32_t*)tmp, 255, 1, 2, 8, 0);
         pipe_barrier(PIPE_V);
-        vbitsort(tmp, x + len255, (__ubuf__ uint32_t *)xIdx + len255, repeat - 255);
+        vbitsort(tmp, x + len255, (__ubuf__ uint32_t*)xIdx + len255, repeat - 255);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)y + len255, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat - 255, 1, 1, 8, 0);
+        vreducev2(
+            (__ubuf__ uint32_t*)y + len255, (__ubuf__ uint32_t*)tmp, (__ubuf__ uint32_t*)tmp, repeat - 255, 1, 1, 8, 0);
         pipe_barrier(PIPE_V);
-        vreducev2((__ubuf__ uint32_t *)yIdx + len255, (__ubuf__ uint32_t *)tmp, (__ubuf__ uint32_t *)tmp, repeat - 255, 1, 2, 8, 0);
+        vreducev2(
+            (__ubuf__ uint32_t*)yIdx + len255, (__ubuf__ uint32_t*)tmp, (__ubuf__ uint32_t*)tmp, repeat - 255, 1, 2, 8,
+            0);
     }
 }
 
 template <typename T, typename idxT, unsigned shape>
-TILEOP void CompSwap32(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
+TILEOP void CompSwap32(__ubuf__ T* y, __ubuf__ idxT* yIdx, __ubuf__ T* tmp, __ubuf__ T* x, __ubuf__ idxT* xIdx)
+{
     constexpr uint32_t mergeLength = 64;
     constexpr uint32_t halfLength = 32;
     constexpr uint32_t repeatOut = shape / mergeLength;
@@ -3098,16 +3328,16 @@ TILEOP void CompSwap32(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ub
     set_vector_mask(0, mask);
     for (uint32_t i = 0; i < repeatOut; i++) {
         uint32_t start = i * mergeLength;
-        __ubuf__ T *x0 = x + start;
-        __ubuf__ T *x1 = x0 + halfLength;
-        __ubuf__ idxT *xIdx0 = xIdx + start;
-        __ubuf__ idxT *xIdx1 = xIdx0 + halfLength;
-        __ubuf__ T *tmpX = tmp + start / 2;
-        __ubuf__ idxT *tmpIdx = (__ubuf__ idxT *)tmpX + shape / 2;
-        __ubuf__ T *y0 = y + start;
-        __ubuf__ T *y1 = y0 + halfLength;
-        __ubuf__ idxT *yIdx0 = yIdx + start;
-        __ubuf__ idxT *yIdx1 = yIdx0 + halfLength;
+        __ubuf__ T* x0 = x + start;
+        __ubuf__ T* x1 = x0 + halfLength;
+        __ubuf__ idxT* xIdx0 = xIdx + start;
+        __ubuf__ idxT* xIdx1 = xIdx0 + halfLength;
+        __ubuf__ T* tmpX = tmp + start / 2;
+        __ubuf__ idxT* tmpIdx = (__ubuf__ idxT*)tmpX + shape / 2;
+        __ubuf__ T* y0 = y + start;
+        __ubuf__ T* y1 = y0 + halfLength;
+        __ubuf__ idxT* yIdx0 = yIdx + start;
+        __ubuf__ idxT* yIdx1 = yIdx0 + halfLength;
         vcmp_ge(x0, x1, 1, 1, 1, 1, 8, 8, 8);
         vsel(tmpX, x0, x1, 1, 1, 1, 1, 8, 8, 8, 0);
         vsel(y1, x1, x0, 1, 1, 1, 1, 8, 8, 8, 0);
@@ -3118,15 +3348,19 @@ TILEOP void CompSwap32(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ub
     pipe_barrier(PIPE_V);
     set_mask_norm();
     set_vector_mask(-1, -1);
-    //dst src sid nBurst lenBurst srcStride dstStride
-    copy_ubuf_to_ubuf((__ubuf__ void *)x, (__ubuf__ void *)tmp, 0, shape / mergeLength, halfLength / 8, 0, halfLength / 8);
+    // dst src sid nBurst lenBurst srcStride dstStride
+    copy_ubuf_to_ubuf(
+        (__ubuf__ void*)x, (__ubuf__ void*)tmp, 0, shape / mergeLength, halfLength / 8, 0, halfLength / 8);
     pipe_barrier(PIPE_V);
-    copy_ubuf_to_ubuf((__ubuf__ void *)xIdx, (__ubuf__ void *)(tmp + shape / 2), 0, shape / mergeLength, halfLength / 8, 0, halfLength / 8);
+    copy_ubuf_to_ubuf(
+        (__ubuf__ void*)xIdx, (__ubuf__ void*)(tmp + shape / 2), 0, shape / mergeLength, halfLength / 8, 0,
+        halfLength / 8);
     pipe_barrier(PIPE_V);
 }
 
 template <typename T, typename idxT, unsigned shape, unsigned mergeLength>
-TILEOP void CompSwapCommon(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
+TILEOP void CompSwapCommon(__ubuf__ T* y, __ubuf__ idxT* yIdx, __ubuf__ T* tmp, __ubuf__ T* x, __ubuf__ idxT* xIdx)
+{
     constexpr uint32_t oneLength = 256 / sizeof(T);
     constexpr uint32_t halfLength = mergeLength / 2;
     // comp&swap mergeLength each time
@@ -3136,53 +3370,62 @@ TILEOP void CompSwapCommon(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, 
     set_vector_mask(-1, -1);
     for (uint32_t i = 0; i < repeatOut; i++) {
         uint32_t start = i * mergeLength;
-        __ubuf__ T *x0 = x + start;
-        __ubuf__ T *x1 = x0 + halfLength;
-        __ubuf__ idxT *xIdx0 = xIdx + start;
-        __ubuf__ idxT *xIdx1 = xIdx0 + halfLength;
-        __ubuf__ T *tmpX = tmp + start / 2;
-        __ubuf__ idxT *tmpIdx = (__ubuf__ idxT *)tmpX + shape / 2;
-        __ubuf__ T *y0 = y + start;
-        __ubuf__ T *y1 = y0 + halfLength;
-        __ubuf__ idxT *yIdx0 = yIdx + start;
-        __ubuf__ idxT *yIdx1 = yIdx0 + halfLength;
+        __ubuf__ T* x0 = x + start;
+        __ubuf__ T* x1 = x0 + halfLength;
+        __ubuf__ idxT* xIdx0 = xIdx + start;
+        __ubuf__ idxT* xIdx1 = xIdx0 + halfLength;
+        __ubuf__ T* tmpX = tmp + start / 2;
+        __ubuf__ idxT* tmpIdx = (__ubuf__ idxT*)tmpX + shape / 2;
+        __ubuf__ T* y0 = y + start;
+        __ubuf__ T* y1 = y0 + halfLength;
+        __ubuf__ idxT* yIdx0 = yIdx + start;
+        __ubuf__ idxT* yIdx1 = yIdx0 + halfLength;
         // within one mergeLength
         for (uint32_t j = 0; j < repeatIn; j++) {
             uint32_t offset = j * oneLength;
             vcmp_ge(x0 + offset, x1 + offset, 1, 1, 1, 1, 8, 8, 8);
             vsel(tmpX + offset, x0 + offset, x1 + offset, 1, 1, 1, 1, 8, 8, 8, 0);
             vsel(y1 + offset, x1 + offset, x0 + offset, 1, 1, 1, 1, 8, 8, 8, 0);
-            vsel((__ubuf__ float*)tmpIdx + offset, (__ubuf__ float*)xIdx0 + offset, (__ubuf__ float*)xIdx1 + offset, 1, 1, 1, 1, 8, 8, 8, 0);
-            vsel((__ubuf__ float*)yIdx1 + offset, (__ubuf__ float*)xIdx1 + offset, (__ubuf__ float*)xIdx0 + offset, 1, 1, 1, 1, 8, 8, 8, 0);
+            vsel(
+                (__ubuf__ float*)tmpIdx + offset, (__ubuf__ float*)xIdx0 + offset, (__ubuf__ float*)xIdx1 + offset, 1,
+                1, 1, 1, 8, 8, 8, 0);
+            vsel(
+                (__ubuf__ float*)yIdx1 + offset, (__ubuf__ float*)xIdx1 + offset, (__ubuf__ float*)xIdx0 + offset, 1, 1,
+                1, 1, 8, 8, 8, 0);
         }
     }
     // copy every halfLength (1 burst) from tmp to x0 & xIdx0
     pipe_barrier(PIPE_V);
-    //dst src sid nBurst lenBurst srcStride dstStride
-    copy_ubuf_to_ubuf((__ubuf__ void *)x, (__ubuf__ void *)tmp, 0, shape / mergeLength, halfLength / 8, 0, halfLength / 8);
+    // dst src sid nBurst lenBurst srcStride dstStride
+    copy_ubuf_to_ubuf(
+        (__ubuf__ void*)x, (__ubuf__ void*)tmp, 0, shape / mergeLength, halfLength / 8, 0, halfLength / 8);
     pipe_barrier(PIPE_V);
-    copy_ubuf_to_ubuf((__ubuf__ void *)xIdx, (__ubuf__ void *)(tmp + shape / 2), 0, shape / mergeLength, halfLength / 8, 0, halfLength / 8);
+    copy_ubuf_to_ubuf(
+        (__ubuf__ void*)xIdx, (__ubuf__ void*)(tmp + shape / 2), 0, shape / mergeLength, halfLength / 8, 0,
+        halfLength / 8);
     pipe_barrier(PIPE_V);
 }
 
 template <typename T, typename idxT, unsigned shape, unsigned mergeLength>
-TILEOP void CompSwapSteps(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
+TILEOP void CompSwapSteps(__ubuf__ T* y, __ubuf__ idxT* yIdx, __ubuf__ T* tmp, __ubuf__ T* x, __ubuf__ idxT* xIdx)
+{
     constexpr uint32_t halfLength = mergeLength / 2;
     constexpr uint32_t oneLength = 256 / sizeof(T);
-    
+
     if constexpr (halfLength >= oneLength) {
         CompSwapCommon<T, idxT, shape, mergeLength>(y, yIdx, tmp, x, xIdx);
     } else {
         CompSwap32<T, idxT, shape>(y, yIdx, tmp, x, xIdx);
     }
-    
+
     if constexpr (halfLength > 32) {
         CompSwapSteps<T, idxT, shape, halfLength>(y, yIdx, tmp, x, xIdx);
     }
 }
 
 template <typename T, unsigned shape>
-TILEOP void MulsMinusOne(__ubuf__ T *src) {
+TILEOP void MulsMinusOne(__ubuf__ T* src)
+{
     constexpr uint32_t oneLength = 256 / sizeof(T);
     constexpr uint32_t repeat = shape / oneLength;
     constexpr uint32_t len255 = 255 * oneLength;
@@ -3196,8 +3439,11 @@ TILEOP void MulsMinusOne(__ubuf__ T *src) {
     }
 }
 
-template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int descending>
-TILEOP void SortWithIndex(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
+template <
+    typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1,
+    int descending>
+TILEOP void SortWithIndex(__ubuf__ T* y, __ubuf__ idxT* yIdx, __ubuf__ T* tmp, __ubuf__ T* x, __ubuf__ idxT* xIdx)
+{
     // xShape1 <= 8K, y == yIdx == x == xIdx == tmp / 4
     // Step 0: muls -1
     if constexpr (descending == 0) {
@@ -3209,25 +3455,25 @@ TILEOP void SortWithIndex(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, _
     constexpr uint32_t repeat = xShape1 / bitSortLength;
     constexpr uint32_t len255 = 255 * bitSortLength;
     if constexpr (repeat <= 255) {
-        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, repeat);
+        vbitsort(tmp, x, (__ubuf__ uint32_t*)xIdx, repeat);
     } else {
-        vbitsort(tmp, x, (__ubuf__ uint32_t *)xIdx, 255);
-        vbitsort(tmp + len255 * 2, x + len255, (__ubuf__ uint32_t *)xIdx + len255, repeat - 255);
+        vbitsort(tmp, x, (__ubuf__ uint32_t*)xIdx, 255);
+        vbitsort(tmp + len255 * 2, x + len255, (__ubuf__ uint32_t*)xIdx + len255, repeat - 255);
     }
     pipe_barrier(PIPE_V);
     // Step 2: vms4
-    __ubuf__ float *src = tmp + xShape1 * 2;
-    __ubuf__ float *dst = tmp;
+    __ubuf__ float* src = tmp + xShape1 * 2;
+    __ubuf__ float* dst = tmp;
     uint32_t z = 32;
-    for (;z * 4 <= xShape1; z *= 4) {
-        __ubuf__ float *swap = src;
+    for (; z * 4 <= xShape1; z *= 4) {
+        __ubuf__ float* swap = src;
         src = dst;
         dst = swap;
         uint64_t config = 0;
         uint32_t repeat_mrg = xShape1 / z / 4;
-        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
-        config |= (uint64_t(0b1111) << 8);      // Xt[11:8]: 4-bit mask signal
-        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+        config |= uint64_t(repeat_mrg);    // Xt[7:0]: repeat time
+        config |= (uint64_t(0b1111) << 8); // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12);   // Xt[12]: 1-enable input list exhausted suspension
 
         // 每次计算的数据
         uint64_t lengthData = 0;
@@ -3236,34 +3482,37 @@ TILEOP void SortWithIndex(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, _
         lengthData |= (uint64_t(z) << 32);
         lengthData |= (uint64_t(z) << 48);
 
-        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(src + z * 4), (__ubuf__ float *)(src + z * 6)};
+        __ubuf__ float* addr[4] = {
+            (__ubuf__ float*)(src), (__ubuf__ float*)(src + z * 2), (__ubuf__ float*)(src + z * 4),
+            (__ubuf__ float*)(src + z * 6)};
         pipe_barrier(PIPE_V);
         vmrgsort4(dst, addr, lengthData, config);
         pipe_barrier(PIPE_V);
     }
     if (z * 2 == xShape1) {
-        __ubuf__ float *swap = src;
+        __ubuf__ float* swap = src;
         src = dst;
         dst = swap;
         uint64_t config = 0;
         uint32_t repeat_mrg = 1;
-        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
-        config |= (uint64_t(0b11) << 8);        // Xt[11:8]: 4-bit mask signal
-        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+        config |= uint64_t(repeat_mrg);  // Xt[7:0]: repeat time
+        config |= (uint64_t(0b11) << 8); // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12); // Xt[12]: 1-enable input list exhausted suspension
 
         // 每次计算的数据
         uint64_t lengthData = 0;
         lengthData |= (uint64_t(z));
         lengthData |= (uint64_t(z) << 16);
 
-        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(0), (__ubuf__ float *)(0)};
+        __ubuf__ float* addr[4] = {
+            (__ubuf__ float*)(src), (__ubuf__ float*)(src + z * 2), (__ubuf__ float*)(0), (__ubuf__ float*)(0)};
         pipe_barrier(PIPE_V);
         vmrgsort4(dst, addr, lengthData, config);
         pipe_barrier(PIPE_V);
     }
     // Step 3: extract
-    vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)dst, xShape1 / 32, 1, 1, 8, 0);
-    vreducev2((__ubuf__ uint32_t *)yIdx, (__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)dst, xShape1 / 32, 1, 2, 8, 0);
+    vreducev2((__ubuf__ uint32_t*)y, (__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)dst, xShape1 / 32, 1, 1, 8, 0);
+    vreducev2((__ubuf__ uint32_t*)yIdx, (__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)dst, xShape1 / 32, 1, 2, 8, 0);
     pipe_barrier(PIPE_V);
     // Step 4: muls -1
     if constexpr (descending == 0) {
@@ -3273,68 +3522,77 @@ TILEOP void SortWithIndex(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, _
 }
 
 template <typename T, typename idxT, unsigned xShape1>
-TILEOP void GenSortIndex(__ubuf__ idxT *idx, __ubuf__ T *tmp, int idxStart) {
-    __ubuf__ float *tmp1 = (__ubuf__ float *)(tmp + xShape1 / 2); //need 64*4 size
+TILEOP void GenSortIndex(__ubuf__ idxT* idx, __ubuf__ T* tmp, int idxStart)
+{
+    __ubuf__ float* tmp1 = (__ubuf__ float*)(tmp + xShape1 / 2); // need 64*4 size
 
     set_mask_count();
     set_vector_mask(0, 8);
-    #pragma unroll 
-    for( int i=0; i<8; i++ )
-    {
-        vector_dup(tmp+i*8, (float) float(i)*0.125f, 1, 1, 1, 1, (int64_t)0); 
+#pragma unroll
+    for (int i = 0; i < 8; i++) {
+        vector_dup(tmp + i * 8, (float)float(i) * 0.125f, 1, 1, 1, 1, (int64_t)0);
     }
     pipe_barrier(PIPE_V);
     set_vector_mask(0, 64);
-    vcgadd((__ubuf__ float*)idx, tmp, 1, 1, 1, 8); //0-7.0
+    vcgadd((__ubuf__ float*)idx, tmp, 1, 1, 1, 8); // 0-7.0
     pipe_barrier(PIPE_V);
     set_vector_mask(0, 8);
-    vmuls(tmp1, (__ubuf__ float*)idx, 8.0f, 1, 1, 1, 8, 8); //0,8,16,...,56  -- 8 elements
-    vmuls(tmp, (__ubuf__ float*)idx, 64.0f, 1, 1, 1, 8, 8); //0,64,128,...,448 -- 8 elements
+    vmuls(tmp1, (__ubuf__ float*)idx, 8.0f, 1, 1, 1, 8, 8); // 0,8,16,...,56  -- 8 elements
+    vmuls(tmp, (__ubuf__ float*)idx, 64.0f, 1, 1, 1, 8, 8); // 0,64,128,...,448 -- 8 elements
     set_mask_norm();
-    set_vector_mask((uint64_t)-1, (uint64_t)-1);  
-    pipe_barrier(PIPE_V);	
-    vbrcb((__ubuf__ uint32_t *)(tmp), (__ubuf__ uint32_t *)(tmp), 1, 8, 1); //[0..0],[64..64],[128..128],...[448..448] -- 64 elements
+    set_vector_mask((uint64_t)-1, (uint64_t)-1);
     pipe_barrier(PIPE_V);
-    vadd(tmp1, (__ubuf__ float*)tmp1, tmp, 1, 1, 0, 1, 8, 0, 8);  //[0, 8, 16,...504]
+    vbrcb(
+        (__ubuf__ uint32_t*)(tmp), (__ubuf__ uint32_t*)(tmp), 1, 8,
+        1); //[0..0],[64..64],[128..128],...[448..448] -- 64 elements
     pipe_barrier(PIPE_V);
-   
-    vbrcb((__ubuf__ uint32_t *)(tmp), (__ubuf__ uint32_t *)(tmp1), 1, 8, 8); //[0..0],[8..8], [16..16],...[504..504], -- 64*8 = 512 elements
-    pipe_barrier(PIPE_V);
-    vadd((__ubuf__ float*) idx, (__ubuf__ float*) idx, tmp, 8, 1, 0, 1, 8, 0, 8);
+    vadd(tmp1, (__ubuf__ float*)tmp1, tmp, 1, 1, 0, 1, 8, 0, 8); //[0, 8, 16,...504]
     pipe_barrier(PIPE_V);
 
-    vconv_f322s32r((__ubuf__ int32_t*) idx,(__ubuf__ float*) idx, 8, 1, 1, 8, 8); //[0....511]
-	pipe_barrier(PIPE_V);
-	
-	vadds((__ubuf__ int32_t*) idx, (__ubuf__ int32_t*) idx, idxStart*xShape1, 8, 1, 1, 8, 8);
-	pipe_barrier(PIPE_V);
-	
-    #pragma unroll 
-    for( int i=1; i<xShape1/512; i++ )
-    {
-        vadds((__ubuf__ int32_t*) (idx+512*i), (__ubuf__ int32_t*) idx, 512*i, 8, 1, 1, 8, 8);
+    vbrcb(
+        (__ubuf__ uint32_t*)(tmp), (__ubuf__ uint32_t*)(tmp1), 1, 8,
+        8); //[0..0],[8..8], [16..16],...[504..504], -- 64*8 = 512 elements
+    pipe_barrier(PIPE_V);
+    vadd((__ubuf__ float*)idx, (__ubuf__ float*)idx, tmp, 8, 1, 0, 1, 8, 0, 8);
+    pipe_barrier(PIPE_V);
+
+    vconv_f322s32r((__ubuf__ int32_t*)idx, (__ubuf__ float*)idx, 8, 1, 1, 8, 8); //[0....511]
+    pipe_barrier(PIPE_V);
+
+    vadds((__ubuf__ int32_t*)idx, (__ubuf__ int32_t*)idx, idxStart * xShape1, 8, 1, 1, 8, 8);
+    pipe_barrier(PIPE_V);
+
+#pragma unroll
+    for (int i = 1; i < xShape1 / 512; i++) {
+        vadds((__ubuf__ int32_t*)(idx + 512 * i), (__ubuf__ int32_t*)idx, 512 * i, 8, 1, 1, 8, 8);
     }
 
     pipe_barrier(PIPE_V);
 }
 
-template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int descending, int idxStart>
-TILEOP void Sort(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x) {
+template <
+    typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1,
+    int descending, int idxStart>
+TILEOP void Sort(__ubuf__ T* y, __ubuf__ idxT* yIdx, __ubuf__ T* tmp, __ubuf__ T* x)
+{
     // index init
-    __ubuf__ idxT *xIdx = yIdx;
+    __ubuf__ idxT* xIdx = yIdx;
     GenSortIndex<T, idxT, xShape1>(xIdx, tmp, idxStart);
     SortWithIndex<T, idxT, xShape0, xShape1, idxShape0, idxShape1, descending>(y, yIdx, tmp, x, xIdx);
 }
 
-template <typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int fullSort, int descending>
-TILEOP void Merge(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ T *x, __ubuf__ idxT *xIdx) {
+template <
+    typename T, typename idxT, unsigned xShape0, unsigned xShape1, unsigned idxShape0, unsigned idxShape1, int fullSort,
+    int descending>
+TILEOP void Merge(__ubuf__ T* y, __ubuf__ idxT* yIdx, __ubuf__ T* tmp, __ubuf__ T* x, __ubuf__ idxT* xIdx)
+{
     // ideally, x == xIdx == y == yIdx == tmp
-    if constexpr (fullSort == 1) {  // sort with index
+    if constexpr (fullSort == 1) { // sort with index
         SortWithIndex<T, idxT, xShape0, xShape1, idxShape0, idxShape1, descending>(y, yIdx, tmp, x, xIdx);
         return;
     }
 
-    if constexpr (descending == 0) {   // ascending
+    if constexpr (descending == 0) { // ascending
         MulsMinusOne<T, xShape1>(x);
         pipe_barrier(PIPE_V);
     }
@@ -3345,26 +3603,27 @@ TILEOP void Merge(__ubuf__ T *y, __ubuf__ idxT *yIdx, __ubuf__ T *tmp, __ubuf__ 
     BitSortAll<T, idxT, xShape1>(y, yIdx, tmp, x, xIdx);
     pipe_barrier(PIPE_V);
 
-    if constexpr (descending == 0) {   // ascending recover
+    if constexpr (descending == 0) { // ascending recover
         MulsMinusOne<T, xShape1>(y);
     }
 }
 
 template <typename T, unsigned xShape0, unsigned xShape1, int mergeSize>
-TILEOP void TopKMerge(__ubuf__ T *y, __ubuf__ T *x) {
+TILEOP void TopKMerge(__ubuf__ T* y, __ubuf__ T* x)
+{
     // x == y == xShape1 x 2
-    __ubuf__ float *src = y;
-    __ubuf__ float *dst = x;
+    __ubuf__ float* src = y;
+    __ubuf__ float* dst = x;
     uint32_t z = mergeSize;
-    for (;z * 4 <= xShape1; z *= 4) {
-        __ubuf__ float *swap = src;
+    for (; z * 4 <= xShape1; z *= 4) {
+        __ubuf__ float* swap = src;
         src = dst;
         dst = swap;
         uint64_t config = 0;
         uint32_t repeat_mrg = xShape1 / z / 4;
-        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
-        config |= (uint64_t(0b1111) << 8);      // Xt[11:8]: 4-bit mask signal
-        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+        config |= uint64_t(repeat_mrg);    // Xt[7:0]: repeat time
+        config |= (uint64_t(0b1111) << 8); // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12);   // Xt[12]: 1-enable input list exhausted suspension
 
         // 每次计算的数据
         uint64_t lengthData = 0;
@@ -3373,47 +3632,51 @@ TILEOP void TopKMerge(__ubuf__ T *y, __ubuf__ T *x) {
         lengthData |= (uint64_t(z) << 32);
         lengthData |= (uint64_t(z) << 48);
 
-        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(src + z * 4), (__ubuf__ float *)(src + z * 6)};
+        __ubuf__ float* addr[4] = {
+            (__ubuf__ float*)(src), (__ubuf__ float*)(src + z * 2), (__ubuf__ float*)(src + z * 4),
+            (__ubuf__ float*)(src + z * 6)};
         pipe_barrier(PIPE_V);
         vmrgsort4(dst, addr, lengthData, config);
         pipe_barrier(PIPE_V);
     }
     if (z * 2 == xShape1) {
-        __ubuf__ float *swap = src;
+        __ubuf__ float* swap = src;
         src = dst;
         dst = swap;
         uint64_t config = 0;
         uint32_t repeat_mrg = 1;
-        config |= uint64_t(repeat_mrg);         // Xt[7:0]: repeat time
-        config |= (uint64_t(0b11) << 8);        // Xt[11:8]: 4-bit mask signal
-        config |= (uint64_t(0b0) << 12);        // Xt[12]: 1-enable input list exhausted suspension
+        config |= uint64_t(repeat_mrg);  // Xt[7:0]: repeat time
+        config |= (uint64_t(0b11) << 8); // Xt[11:8]: 4-bit mask signal
+        config |= (uint64_t(0b0) << 12); // Xt[12]: 1-enable input list exhausted suspension
 
         // 每次计算的数据
         uint64_t lengthData = 0;
         lengthData |= (uint64_t(z));
         lengthData |= (uint64_t(z) << 16);
 
-        __ubuf__ float *addr[4] = {(__ubuf__ float *)(src), (__ubuf__ float *)(src + z * 2), (__ubuf__ float *)(0), (__ubuf__ float *)(0)};
+        __ubuf__ float* addr[4] = {
+            (__ubuf__ float*)(src), (__ubuf__ float*)(src + z * 2), (__ubuf__ float*)(0), (__ubuf__ float*)(0)};
         pipe_barrier(PIPE_V);
         vmrgsort4(dst, addr, lengthData, config);
         pipe_barrier(PIPE_V);
     }
     if (dst != y) {
-        copy_ubuf_to_ubuf((__ubuf__ void *)y, (__ubuf__ void *)dst, 0, xShape1 * 2 / 8, 1, 0, 0);
+        copy_ubuf_to_ubuf((__ubuf__ void*)y, (__ubuf__ void*)dst, 0, xShape1 * 2 / 8, 1, 0, 0);
         pipe_barrier(PIPE_V);
     }
 }
 
 template <typename T, unsigned xShape0, unsigned xShape1>
-TILEOP void TopKSortWithIndex(__ubuf__ T *y, __ubuf__ T *tmp, __ubuf__ T *x) {
+TILEOP void TopKSortWithIndex(__ubuf__ T* y, __ubuf__ T* tmp, __ubuf__ T* x)
+{
     // idx stored at y
     constexpr uint32_t bitSortLength = 32;
     constexpr uint32_t repeat = xShape1 / bitSortLength;
     if constexpr (repeat <= 255) {
-        vbitsort(tmp, x, (__ubuf__ uint32_t *)y, repeat);
+        vbitsort(tmp, x, (__ubuf__ uint32_t*)y, repeat);
     } else {
-        vbitsort(tmp, x, (__ubuf__ uint32_t *)y, repeat / 2);
-        vbitsort(tmp + xShape1, x + xShape1 / 2, (__ubuf__ uint32_t *)y + xShape1 / 2, repeat / 2);
+        vbitsort(tmp, x, (__ubuf__ uint32_t*)y, repeat / 2);
+        vbitsort(tmp + xShape1, x + xShape1 / 2, (__ubuf__ uint32_t*)y + xShape1 / 2, repeat / 2);
     }
     pipe_barrier(PIPE_V);
     // vms4
@@ -3421,48 +3684,54 @@ TILEOP void TopKSortWithIndex(__ubuf__ T *y, __ubuf__ T *tmp, __ubuf__ T *x) {
 }
 
 template <typename T, unsigned xShape0, unsigned xShape1, int idxStart>
-TILEOP void TopKSort(__ubuf__ T *y, __ubuf__ T *tmp, __ubuf__ T *x) {
+TILEOP void TopKSort(__ubuf__ T* y, __ubuf__ T* tmp, __ubuf__ T* x)
+{
     // x x 2 = y = tmp == xShape1 x 2
     GenSortIndex<T, T, xShape1>((__ubuf__ T*)y, tmp, idxStart);
     TopKSortWithIndex<T, xShape0, xShape1>(y, tmp, x);
 }
 
-template <typename U, typename T, unsigned yShape0, unsigned yShape1, unsigned xShape0, unsigned xShape1, int isIndex, int k>
-TILEOP void TopKExtract(__ubuf__ U *y, __ubuf__ T *x) {
+template <
+    typename U, typename T, unsigned yShape0, unsigned yShape1, unsigned xShape0, unsigned xShape1, int isIndex, int k>
+TILEOP void TopKExtract(__ubuf__ U* y, __ubuf__ T* x)
+{
     // x = xShape1 x 2, y = yShape1
     if constexpr (isIndex == 0) {
-        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)x, (__ubuf__ uint32_t *)x, k / 32, 1, 1, 8, 0);
+        vreducev2((__ubuf__ uint32_t*)y, (__ubuf__ uint32_t*)x, (__ubuf__ uint32_t*)x, k / 32, 1, 1, 8, 0);
     } else {
-        vreducev2((__ubuf__ uint32_t *)y, (__ubuf__ uint32_t *)x, (__ubuf__ uint32_t *)x, k / 32, 1, 2, 8, 0);
+        vreducev2((__ubuf__ uint32_t*)y, (__ubuf__ uint32_t*)x, (__ubuf__ uint32_t*)x, k / 32, 1, 2, 8, 0);
     }
     pipe_barrier(PIPE_V);
 }
 
 template <typename T, unsigned T0, unsigned T1>
-TILEOP void Tbrcb_(__ubuf__ T *dst, __ubuf__ T *src) {
+TILEOP void Tbrcb_(__ubuf__ T* dst, __ubuf__ T* src)
+{
     constexpr unsigned brcPerRepeat = 8;
     if constexpr (T0 != 1) {
-        constexpr unsigned repeatNumT0 = (T0 + brcPerRepeat- 1) / brcPerRepeat;
-        vbrcb((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, 1, 8, repeatNumT0);
+        constexpr unsigned repeatNumT0 = (T0 + brcPerRepeat - 1) / brcPerRepeat;
+        vbrcb((__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)src, 1, 8, repeatNumT0);
         return;
     }
 
     if constexpr (T1 != 1) {
-        constexpr unsigned repeatNumT1 = (T0 + brcPerRepeat- 1) / brcPerRepeat;
-        vbrcb((__ubuf__ uint32_t *)dst, (__ubuf__ uint32_t *)src, 1, 8, repeatNumT1);
+        constexpr unsigned repeatNumT1 = (T0 + brcPerRepeat - 1) / brcPerRepeat;
+        vbrcb((__ubuf__ uint32_t*)dst, (__ubuf__ uint32_t*)src, 1, 8, repeatNumT1);
         return;
     }
 }
 
 // dim4
-template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned DS1, unsigned DS2,
-    unsigned DS3, unsigned SS1, unsigned SS2, unsigned SS3>
-TILEOP void Tbrcb_(__ubuf__ T *dst, __ubuf__ T *src) {
+template <
+    typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned DS1, unsigned DS2, unsigned DS3,
+    unsigned SS1, unsigned SS2, unsigned SS3>
+TILEOP void Tbrcb_(__ubuf__ T* dst, __ubuf__ T* src)
+{
     static_assert(DS3 * sizeof(T) == BLOCK_SIZE);
     static_assert(DS2 % BLOCK_NUM_ONE_REPEAT == 0);
     for (int i = 0; i < T0; i++) {
-        __ubuf__ T *dst_ = dst;
-        __ubuf__ T *src_ = src;
+        __ubuf__ T* dst_ = dst;
+        __ubuf__ T* src_ = src;
         for (int j = 0; j < T1; j++) {
             Tbrcb_<T, T2, T3>(dst_, src_);
             dst_ += DS2 * DS3;

@@ -32,4 +32,3 @@ get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
 ```python
 pypto.get_verify_options()
 ```
-

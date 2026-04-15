@@ -116,7 +116,7 @@ TileShape需要满足以下约束条件：
         ```
 
         其中：
-        
+
         - `C0 = ALIGN_SIZE_32 / sizeof(dtype)`
 
         - `L0A_size = 65536 bytes`
@@ -138,7 +138,7 @@ TileShape需要满足以下约束条件：
         - `hinL1 = min((tileHout - 1) * strideH + (Kh - 1) * dilationH + 1, Hin)` （Hin为输入特征图高度）
 
         - `winL1 = min((tileWout - 1) * strideW + (Kw - 1) * dilationW + 1, Win)` （Win为输入特征图宽度）
-        
+
         - `kAL1 = CeilAlign(tileCinFmap * kh * kw, C0)`
 
         - `kBL1 = CeilAlign(tileCinWeight * kh * kw, C0)`
@@ -150,7 +150,7 @@ TileShape需要满足以下约束条件：
         - `C0 = ALIGN_SIZE_32 / sizeof(dtype)`
 
         - `ALIGN_SIZE_32 = 32`
-        
+
         - `CeilAlign(value, align) {  return ((value + align - 1) // align) * align;}`
 
 - 特殊场景约束：

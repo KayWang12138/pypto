@@ -28,8 +28,9 @@ struct WorkspaceInfo {
     bool used = false;
     LogicalTensorPtr tensor = nullptr;
     WorkspaceInfo() {}
-    WorkspaceInfo(int64_t countIn, size_t positionIn, uint64_t sizeIn, const LogicalTensorPtr &tensorIn)
-        : count(countIn), position(positionIn), size(sizeIn), tensor(tensorIn) {}
+    WorkspaceInfo(int64_t countIn, size_t positionIn, uint64_t sizeIn, const LogicalTensorPtr& tensorIn)
+        : count(countIn), position(positionIn), size(sizeIn), tensor(tensorIn)
+    {}
 };
 
 struct TensorsDesc {
@@ -38,7 +39,7 @@ struct TensorsDesc {
     std::set<LogicalTensorPtr> tensors;
     std::unordered_set<uint64_t> consumerOpIdxs; // 放入bucket后，作为内存桶是否可以再次复用，需要判断的consumerOp集合
     TensorsDesc() : connectionOpsBitmap(0) {}
-    TensorsDesc(Function *func) : connectionOpsBitmap(func->Operations(false).size()) {}
+    TensorsDesc(Function* func) : connectionOpsBitmap(func->Operations(false).size()) {}
 };
 
 class TensorBucket {
@@ -47,69 +48,76 @@ public:
 
     void UpdateOffset(const uint64_t offset);
 
-    bool AddTensorGroup(const TensorsDesc &tensorsDesc);
+    bool AddTensorGroup(const TensorsDesc& tensorsDesc);
 
     // 检查previous的所有consumer是否有一条到tensor的producer的通路
     // 保证tensor在写的时候，previous的所有consumer都已经读取完毕
-    bool HasTopoDependency(const LargeBitmap &producerOpsBitmap) const;
+    bool HasTopoDependency(const LargeBitmap& producerOpsBitmap) const;
 
 private:
     uint64_t offset_{0};
     uint64_t size_{0};
     std::vector<std::set<LogicalTensorPtr>> tensorGroups_; // 所有rawTensor相同的tensor构成了一个tensorGroup
-    std::unordered_set<uint64_t> consumerOpIdxs_;          // 新tensor能否复用本bucket，需要判断的consumerOp集合
+    std::unordered_set<uint64_t> consumerOpIdxs_; // 新tensor能否复用本bucket，需要判断的consumerOp集合
 };
 
 class Allocator {
 public:
-    explicit Allocator(Function *function) : connectionMatrix_(function), function_(function) {}
+    explicit Allocator(Function* function) : connectionMatrix_(function), function_(function) {}
     Status Allocate();
     void Init();
-    static bool IsRawQualified(const WorkspaceInfo &outWspInfo, const WorkspaceInfo &inWspInfo);
-    const std::vector<WorkspaceInfo> &GetLeafFuncOutputInputReuseMap(Function &leafFunc) const;
-    std::vector<WorkspaceInfo> &GetLeafFuncOutputInputReuseMap(Function &leafFunc);
+    static bool IsRawQualified(const WorkspaceInfo& outWspInfo, const WorkspaceInfo& inWspInfo);
+    const std::vector<WorkspaceInfo>& GetLeafFuncOutputInputReuseMap(Function& leafFunc) const;
+    std::vector<WorkspaceInfo>& GetLeafFuncOutputInputReuseMap(Function& leafFunc);
 
 private:
     void InitializeRootCasts();
     void ProcessOperations();
-    void HandleNewTensor(Operation &callOp, size_t outputIdx, LogicalTensorPtr &outputTensor);
-    void CollectComsuerOpDesc(TensorsDesc &tensorsDesc);
-    void RemoveRedundantComsuerOp(TensorsDesc &tensorsDesc);
-    void CollectConnectionOps(TensorsDesc &tensorsDesc);
-    void StorageNeedToAllocatePreProcess(TensorsDesc &tensorsDesc);
-    Status UpdateStorageId(TensorsDesc &tensorsDesc, std::unordered_map<int64_t, int> &idMap, int &storageId);
+    void HandleNewTensor(Operation& callOp, size_t outputIdx, LogicalTensorPtr& outputTensor);
+    void CollectComsuerOpDesc(TensorsDesc& tensorsDesc);
+    void RemoveRedundantComsuerOp(TensorsDesc& tensorsDesc);
+    void CollectConnectionOps(TensorsDesc& tensorsDesc);
+    void StorageNeedToAllocatePreProcess(TensorsDesc& tensorsDesc);
+    Status UpdateStorageId(TensorsDesc& tensorsDesc, std::unordered_map<int64_t, int>& idMap, int& storageId);
     void MarkNonOverlappingConsumerTensors();
     void InitializeLeafGlobalMemoryReuse();
-    void CollectOutputTensor(Function &leafFunc, std::unordered_map<LogicalTensorPtr, size_t> &tensorToInfo,
-        std::vector<WorkspaceInfo> &outWspInfo, std::vector<WorkspaceInfo> &leafFuncReuseMap);
+    void CollectOutputTensor(
+        Function& leafFunc, std::unordered_map<LogicalTensorPtr, size_t>& tensorToInfo,
+        std::vector<WorkspaceInfo>& outWspInfo, std::vector<WorkspaceInfo>& leafFuncReuseMap);
     void CollectInputTensor(
-        Function &leafFunc, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap);
-    void ProcessLeafGlobalMemoryReuse(Function &leafFunc);
+        Function& leafFunc, std::unordered_map<LogicalTensorPtr, WorkspaceInfo>& inputWorkspaceInfoMap);
+    void ProcessLeafGlobalMemoryReuse(Function& leafFunc);
 
-    bool CheckAllConsumersConnectedToOp(const LogicalTensorPtr &tensor, Operation &op) const;
+    bool CheckAllConsumersConnectedToOp(const LogicalTensorPtr& tensor, Operation& op) const;
     // 检查某个CallOp的输出是否可以复用输入
     bool TryReuseInputForOutput(
-        Operation &callOp, size_t outputIdx, LogicalTensorPtr &reusedInput, uint64_t &storageOffset) const;
-    bool CalOffsetRawShape(size_t dimCount, const std::vector<SymbolicScalar> &argList, std::vector<int> &offsets,
-        std::vector<int> &rawShapes) const;
-    void CalStridesStorageOffset(size_t dimCount, const LogicalTensorPtr &input, std::vector<int> &offsets,
-        std::vector<int> &rawShapes, uint64_t &storageOffset) const;
-    bool GetStorageOffsetByCall(Operation &callOp, size_t inputIdx, uint64_t &storageOffset) const;
-    void UpdateStorageForActualRaw(LogicalTensorPtr &input) const;
-    TensorBucket &GetBestFitBucket(const TensorsDesc &tensorsDesc);
-    TensorBucket &HandleNewBuckets(const TensorsDesc &tensorsDesc, int64_t rawDataSize, int magic);
-    void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr> &tensors, int bucketIdx);
-    void ScanParentOps(Function &leafFunc, const Operation &parent, std::unordered_set<LogicalTensorPtr> &visited,
-        std::unordered_set<Operation *> &operations);
-    bool CheckReuseOp(const std::unordered_set<Operation *> &operations, std::deque<Operation *> &parents,
-        const WorkspaceInfo &outWspInfo, std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap,
-        std::vector<WorkspaceInfo> &leafFuncReuseMap);
-    void FindReusableInputForOutput(Function &leafFunc, Operation &op, const WorkspaceInfo &outWspInfo,
-        std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap,
-        std::vector<WorkspaceInfo> &leafFuncReuseMap);
-    void ProcessOutputForGlobalMemoryReuse(Function &leafFunc, WorkspaceInfo &wspInfo,
-        std::unordered_map<LogicalTensorPtr, WorkspaceInfo> &inputWorkspaceInfoMap,
-        std::vector<WorkspaceInfo> &leafFuncReuseMap);
+        Operation& callOp, size_t outputIdx, LogicalTensorPtr& reusedInput, uint64_t& storageOffset) const;
+    bool CalOffsetRawShape(
+        size_t dimCount, const std::vector<SymbolicScalar>& argList, std::vector<int>& offsets,
+        std::vector<int>& rawShapes) const;
+    void CalStridesStorageOffset(
+        size_t dimCount, const LogicalTensorPtr& input, std::vector<int>& offsets, std::vector<int>& rawShapes,
+        uint64_t& storageOffset) const;
+    bool GetStorageOffsetByCall(Operation& callOp, size_t inputIdx, uint64_t& storageOffset) const;
+    void UpdateStorageForActualRaw(LogicalTensorPtr& input) const;
+    TensorBucket& GetBestFitBucket(const TensorsDesc& tensorsDesc);
+    TensorBucket& HandleNewBuckets(const TensorsDesc& tensorsDesc, int64_t rawDataSize, int magic);
+    void UpdateTensorMagicToBucketIdx(const std::set<LogicalTensorPtr>& tensors, int bucketIdx);
+    void ScanParentOps(
+        Function& leafFunc, const Operation& parent, std::unordered_set<LogicalTensorPtr>& visited,
+        std::unordered_set<Operation*>& operations);
+    bool CheckReuseOp(
+        const std::unordered_set<Operation*>& operations, std::deque<Operation*>& parents,
+        const WorkspaceInfo& outWspInfo, std::unordered_map<LogicalTensorPtr, WorkspaceInfo>& inputWorkspaceInfoMap,
+        std::vector<WorkspaceInfo>& leafFuncReuseMap);
+    void FindReusableInputForOutput(
+        Function& leafFunc, Operation& op, const WorkspaceInfo& outWspInfo,
+        std::unordered_map<LogicalTensorPtr, WorkspaceInfo>& inputWorkspaceInfoMap,
+        std::vector<WorkspaceInfo>& leafFuncReuseMap);
+    void ProcessOutputForGlobalMemoryReuse(
+        Function& leafFunc, WorkspaceInfo& wspInfo,
+        std::unordered_map<LogicalTensorPtr, WorkspaceInfo>& inputWorkspaceInfoMap,
+        std::vector<WorkspaceInfo>& leafFuncReuseMap);
     Status UpdateIncastOutCast();
 
     std::vector<TensorBucket> buckets_;
@@ -123,14 +131,14 @@ private:
     std::vector<TensorsDesc> storageNeedToAllocate_;
     ConnectionMatrix connectionMatrix_; // 标注任意两个leafFunction之间是否有连接
     uint64_t size_{0};
-    Function *function_;
+    Function* function_;
     std::unordered_set<int> rootInCasts_;
     std::unordered_set<int> rootOutCasts_;
     std::unordered_set<int> tensorConsumerNoOverlap_;
 
     // 使用 map 存储，key 为 function 指针
     // function内，outcast可以和哪个incast复用gm内存，-1表示不能复用
-    std::unordered_map<Function *, std::vector<WorkspaceInfo>> leafFuncOutputInputReuseMap_;
+    std::unordered_map<Function*, std::vector<WorkspaceInfo>> leafFuncOutputInputReuseMap_;
 
     std::unordered_map<int, int> tensorMagicToBucketIdx_;
     std::unordered_map<int, int64_t> bucketsIdxToSize_;
@@ -143,6 +151,6 @@ class GlobalMemoryReuse : public Pass {
 public:
     GlobalMemoryReuse() : Pass("GlobalMemoryReuse") {}
     ~GlobalMemoryReuse() override {}
-    Status RunOnFunction(Function &function) override;
+    Status RunOnFunction(Function& function) override;
 };
 } // namespace npu::tile_fwk
