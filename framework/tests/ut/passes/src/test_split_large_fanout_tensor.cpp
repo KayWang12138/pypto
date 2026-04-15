@@ -1395,6 +1395,8 @@ void BuildComplexOverlap(ComputationalGraphBuilder& G)
     std::map<std::string, std::vector<int64_t>> tensors = {
         {"a", {NUM_8, NUM_32}},           {"b", {NUM_8, NUM_32}},    {"c", {NUM_16, NUM_8}},
         {"d", {NUM_16, NUM_8}},           {"e", {NUM_8, NUM_16}},    {"f", {NUM_8, NUM_16}},
+        {"a1", {NUM_8, NUM_32}},          {"b1", {NUM_8, NUM_32}},  {"c1", {NUM_16, NUM_8}},
+        {"d1", {NUM_16, NUM_8}},          {"e1", {NUM_8, NUM_16}},  {"f1", {NUM_8, NUM_16}},
         {"out1", {NUM_8, NUM_16}},        {"out2", {NUM_8, NUM_16}}, {"out3", {NUM_32, NUM_8}},
         {"out4", {NUM_32, NUM_8}},        {"out5", {NUM_16, NUM_8}}, {"out6", {NUM_16, NUM_8}},
         {"largeTensor", {NUM_32, NUM_32}}};
@@ -1404,10 +1406,17 @@ void BuildComplexOverlap(ComputationalGraphBuilder& G)
         tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     }
 
+    // 定义所有CopyIn操作并添加
+    std::vector<std::tuple<std::string, std::string, std::string>> copyInOps = {
+        {"a", "copyIn1", "a1"}, {"b", "copyIn2", "b1"}, {"c", "copyIn3", "c1"},
+        {"d", "copyIn4", "d1"}, {"e", "copyIn5", "e1"},{"f", "copyIn6", "f1"}};
+    for (const auto& [input, opName, output] : copyInOps) {
+        G.AddOp(Opcode::OP_COPY_IN, {input}, {output}, opName);
+    }
     // 定义所有ASSEMBLE操作并添加
     std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
-        {"a", "Assemble_A", {0, 0}},  {"b", "Assemble_B", {24, 0}}, {"c", "Assemble_C", {8, 0}},
-        {"d", "Assemble_D", {8, 24}}, {"e", "Assemble_E", {8, 8}},  {"f", "Assemble_F", {16, 8}}};
+        {"a1", "Assemble_A", {0, 0}},  {"b1", "Assemble_B", {24, 0}}, {"c1", "Assemble_C", {8, 0}},
+        {"d1", "Assemble_D", {8, 24}}, {"e1", "Assemble_E", {8, 8}},  {"f1", "Assemble_F", {16, 8}}};
     for (const auto& [input, opName, offset] : assembleOps) {
         G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
         auto assembleOp = G.GetOp(opName);
@@ -1449,6 +1458,30 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap)
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
     std::cout << "Run Pass Done." << std::endl;
+
+    // 验证： 
+     // 拆分后除了两个incast分别各cover一个outcast的场景会被单独拆出 
+     // 中间的[16, 32]会被拆除形成对两个[8, 32]的多对多 
+     // 剩余两个会被保留 
+     std::unordered_map<int, int> recordAssemble; 
+     std::unordered_map<int, int> recordView; 
+     for (auto& op : function->Operations()) { 
+         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) { 
+             recordAssemble[op.oOperand.front()->GetMagic()]++; 
+         } 
+         if (op.GetOpcode() == Opcode::OP_VIEW) { 
+             recordView[op.iOperand.front()->GetMagic()]++; 
+         } 
+     } 
+     for (auto& [k, v] : recordAssemble) { 
+         // 1. out1被输入a包含，out2被输入b包含，拆为1对1 
+         // 2. 输入e, f组成的[16, 16]tile和out5,out6匹配，拆出2对2 
+         // 3. 剩余无法继续拆分，保留从largeTensor进行view 
+         // 故对于拆分后view和assemble的中间tensor， 
+         // 如果只有一个assemble（场景1），则只有一个view 
+         // 否则（场景2，3）会有两个view 
+         EXPECT_EQ(recordView[k], (v == 1) ? 1 : 2); 
+     }
 }
 
 /*
@@ -1481,7 +1514,7 @@ void BuildPartialInputUnusedGraph(ComputationalGraphBuilder& G)
         auto logicTensor = G.GetTensor(name);
         logicTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     }
-        // 定义所有CopyIn操作并添加
+    // 定义所有CopyIn操作并添加
     std::vector<std::tuple<std::string, std::string, std::string>> copyInOps = {
         {"in1", "copyIn1", "in1Tensor"}, {"in2", "copyIn2", "in2Tensor"}, {"in3", "copyIn3", "in3Tensor"}, {"in4", "copyIn4", "in4Tensor"},
         {"in5", "copyIn5", "in5Tensor"}, {"in6", "copyIn6", "in6Tensor"}, {"in7", "copyIn7", "in7Tensor"}, {"in8", "copyIn8", "in8Tensor"}};
