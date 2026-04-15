@@ -192,8 +192,7 @@ struct TaskStat {
     int64_t execEnd;
     int64_t waitStart; // 2.0 dfx 当前未使用
     int64_t setEventCycle[32];
-    int64_t waitEventBeforeCycle[32];
-    int64_t waitEventAfterCycle[32];
+    int64_t waitEventCycle[32];
     int waitEventIdx;
     int setEventIdx;
 };
