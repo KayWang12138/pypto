@@ -393,10 +393,14 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext* ctx, uint32_t taskId)
 #endif
 
     __gm__ TaskStat* taskStat = nullptr;
+#ifdef __DAV_V310
     if (ctx->args->taskEntry.reserved[0] == PRO_LEVEL2 || ctx->args->taskEntry.reserved[0] == PRO_LEVEL1) {
         auto m = (__gm__ Metrics*)(ctx->args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         taskStat = &m->tasks[m->taskCount];
+        taskStat->waitEventIdx = 0;
+        taskStat->setEventIdx = 0;
     }
+#endif
 
     CallSubFuncTask(
         opAttrs[0] + funcData->exprTbl[0], &param,
