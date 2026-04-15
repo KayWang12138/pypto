@@ -116,7 +116,7 @@ pypto.set_cube_tile_shapes([128, 128], [64, 256], [256, 256],
 
 ```bash
 # Step 1: 用 analyze_swimlane.py 分析泳道图数据
-python3 .agents/skills/pypto-op-perf-tune/tune-swimlane/scripts/analyze_swimlane.py \
+python3 scripts/analyze_swimlane.py \
     output/output_<最新目录>
 
 # Step 2: 从输出确定：
@@ -211,7 +211,7 @@ vector合图往往需要 pg_upper_bound 和 vec_nbuffer_setting 配合使用，�
 - vec_nbuffer_setting：表示同构的并行子图合图的任务数量，-2:1不需要改变，-1:2代表，所有的vector均按照2的粒度进行合图
 
 **调优方法**：
-1. 运行 [analyze_swimlane.py](../scripts/analyze_swimlane.py)，查看 `[AIV]` 部分的输出
+1. 运行 [analyze_swimlane.py](scripts/analyze_swimlane.py)，查看 `[AIV]` 部分的输出
 2. 根据 `psgId` 确定 hashorder，根据 `t/iter` 确定粒度参考值
 3. t/iter=1 的组先设为 1，t/iter≥2 的组设为对应值或更小
 4. 可先用 `{-1: N}` 全局配置，再按 psgId 精细调优
@@ -242,8 +242,8 @@ pypto.set_pass_options(sg_set_scope=-1)
 **用法**：
 
 ```bash
-python3 .agents/skills/pypto-op-perf-tune/tune-swimlane/scripts/analyze_aiv_dep_chains.py <output_dir>
-python3 .agents/skills/pypto-op-perf-tune/tune-swimlane/scripts/analyze_aiv_dep_chains.py <output_dir> --json result.json
+python3 scripts/analyze_aiv_dep_chains.py <output_dir>
+python3 scripts/analyze_aiv_dep_chains.py <output_dir> --json result.json
 ```
 
 **输入文件**（`output_dir` 中）：
