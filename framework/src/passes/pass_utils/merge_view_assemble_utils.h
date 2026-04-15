@@ -36,6 +36,7 @@ public:
         bool hasCopyInMode;                 // 是否有copy_in_mode属性
         npu::tile_fwk::Any copyInModeValue; // copy_in_mode属性值
         SourceLocationPtr sourceLocation;       // 链路最早操作的sourceLocation
+        Operation::ScopeInfo scopeInfo;
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
@@ -43,6 +44,7 @@ public:
         std::vector<int64_t> offset;
         std::vector<SymbolicScalar> dynOffset;
         SourceLocationPtr sourceLocation;       // 链路最早操作的sourceLocation
+        Operation::ScopeInfo scopeInfo;
     };
 
     static Status MergeViewAssemble(Function& function);
@@ -104,7 +106,7 @@ public:
         Operation* lastViewOp, const std::shared_ptr<LogicalTensor>& startTensor,
         const std::shared_ptr<LogicalTensor>& endTensor, const std::vector<int64_t>& newOffset,
         const std::vector<SymbolicScalar>& newDynOffset, const std::vector<SymbolicScalar>& newDynValidShape,
-        const SourceLocationPtr &sourceLocation);
+        const SourceLocationPtr &sourceLocation, const Operation::ScopeInfo &scopeInfo);
 
     // Assemble chain processing methods
     /**
@@ -140,11 +142,13 @@ public:
 
     void RecordAssembleOperation(
         const std::shared_ptr<LogicalTensor>& input, const std::shared_ptr<LogicalTensor>& output,
-        const std::vector<int64_t>& offset, const std::vector<SymbolicScalar>& dynOffset, const SourceLocationPtr &sourceLocation);
+        const std::vector<int64_t>& offset, const std::vector<SymbolicScalar>& dynOffset,
+        const SourceLocationPtr &sourceLocation, const Operation::ScopeInfo &scopeInfo);
 
     // Common methods
     Status Initialize();
     static SourceLocationPtr GetFirstSourceLocation(const std::vector<Operation *> &chain);
+    static Operation::ScopeInfo GetChainScopeInfo(const std::vector<Operation*> &chain);
 
     // Processing methods
     Status ProcessOperations(Function& function);
