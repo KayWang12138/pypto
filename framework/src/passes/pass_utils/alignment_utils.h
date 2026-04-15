@@ -42,29 +42,6 @@ public:
 
     static void ProcessLastDim32BAligned(LogicalTensorPtr tensor);
 
-    /**
-     * @brief Check whether UB tensor last dimension needs padding.
-     *
-     * @param tensor input logical tensor.
-     * @return true if UB tensor last dim is not aligned; otherwise false.
-     */
-    static bool NeedPadLastDim(const LogicalTensorPtr& tensor);
-
-    /**
-     * @brief Check whether tensor rawshape and oriRawshape differ on last dimension.
-     *
-     * @param tensor input logical tensor.
-     * @return true if raw last dim is unaligned; otherwise false.
-     */
-    static bool IsRawLastDimUnaligned(const LogicalTensorPtr& tensor);
-
-    /**
-     * @brief Check whether any input/output of an op is unaligned.
-     *
-     * @param op input operation.
-     * @return true if any non-combined-axis input/output is unaligned; otherwise false.
-     */
-    static bool HasUnalignedInputOrOutput(const Operation& op);
 
 private:
     /**
