@@ -632,9 +632,11 @@ TILEOP void TExtract(T &dst, U &src, const Coord &dstCoord, const Coord &srcCoor
         int64_t srcShape1 = GetShape<1>(src);
         int64_t dstShape0 = GetShape<0>(dst);
         int64_t dstShape1 = GetShape<1>(dst);
-        using tileUBTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticUBH, staticUBW,
+        using tileUBTensor = pto::Tile<
+            pto::TileType::Vec, typename T::Type, staticUBH, staticUBW,
             mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, -1, -1,
-            mode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor>;
+            mode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor, pto::TileConfig::fractalABSize,
+            pto::PadValue::Null, pto::CompactMode::Normal>;
         using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW, -1, -1>;
         tileUBTensor ubTile(dstShape0, dstShape1);
         tileL0CTensor l0cTile(srcShape0, srcShape1);
