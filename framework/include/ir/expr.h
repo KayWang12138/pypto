@@ -55,7 +55,7 @@ public:
     /**
      * \brief Get the type name of this expression
      *
-     * \return Human-readable type name (e.g., "ScalarExpr", "Var", "Call")
+     * \return Human-readable type name (e.g., "Var", "Call")
      */
     [[nodiscard]] std::string TypeName() const override { return "Expr"; }
 
