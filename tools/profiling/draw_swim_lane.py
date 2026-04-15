@@ -350,11 +350,9 @@ def enrich_sync_events_with_mix_info(mix_event_path):
     with open(mix_event_path, "r") as f:
         mix_event_data = json.load(f)
     leaf_hash_to_events = {}
-    for mix_info in mix_event_data:
-        wrap_infos = mix_info.get("wrapInfos", [])
-        for wrap_info in wrap_infos:
-            core_tasks = wrap_info.get("coreTask", [])
-            for core_task in core_tasks:
+    for wrap_info_list in mix_event_data:
+        for wrap_info in wrap_info_list.get("wrapInfos"):
+            for core_task in wrap_info.get("coreTask", []):
                 leaf_hash = core_task.get("hashValue")
                 sync_msg = core_task.get("syncMsg", [])
                 if leaf_hash not in leaf_hash_to_events:
@@ -362,11 +360,10 @@ def enrich_sync_events_with_mix_info(mix_event_path):
     for _, task in total_tasks.items():
         if task.func_hash and task.func_hash in leaf_hash_to_events:
             sync_msg = leaf_hash_to_events[task.func_hash]
+            idx = 0
             for event in task.sync_events:
-                event_idx = event.get("eventId")
-                if event_idx is not None and event_idx < len(sync_msg):
-                    event["eventid"] = sync_msg[event_idx].get("eventID", event_idx)
-
+                event["eventid"] = sync_msg[idx].get("eventID")
+                idx = idx + 1
 
 def build_swim_info(swim_data, topo_data, label_type: int = 0, dir_name: str = "", mix_event_path: str = ""):
     global total_tasks
@@ -405,10 +402,8 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0, dir_name: str = "
             entry.core_type = core_entry.get_brief_core_type()
             entry.sync_events = task.get("syncEvents", [])
             for event in entry.sync_events:
-                if "waitTime" in event:
-                    event["waitTime"] = event["waitTime"] / args.time_convert_denominator
-                if "setTime" in event:
-                    event["setTime"] = event["setTime"] / args.time_convert_denominator
+                if "time" in event:
+                    event["time"] = event["time"] / args.time_convert_denominator
             task_analysis[entry.psg_id_in_dyn].add_task(entry)
             # 判断task 间是否存在时间交叠
             if (

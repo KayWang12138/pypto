@@ -64,18 +64,18 @@ void ConstructTaskInfo(
             for (int k = 0; k < taskStats[j].setEventIdx; ++k) {
                 if (taskStats[j].setEventCycle[k] != 0) {
                     json setEvent;
+                    setEvent["idx"] = k;
                     setEvent["type"] = "CV_SYNC_SET";
-                    setEvent["eventId"] = k;
-                    setEvent["setTime"] = taskStats[j].setEventCycle[k];
+                    setEvent["time"] = taskStats[j].setEventCycle[k];
                     syncEventsArr.push_back(setEvent);
                 }
             }
             for (int k = 0; k < taskStats[j].waitEventIdx; ++k) {
                 if (taskStats[j].waitEventCycle[k] != 0) {
                     json waitEvent;
+                    waitEvent["idx"] = k;
                     waitEvent["type"] = "CV_SYNC_WAIT";
-                    waitEvent["eventId"] = k;
-                    waitEvent["waitTime] = taskStats[j].waitEventCycle[k];
+                    waitEvent["time"] = taskStats[j].waitEventCycle[k];
                     syncEventsArr.push_back(waitEvent);
                 }
             }
