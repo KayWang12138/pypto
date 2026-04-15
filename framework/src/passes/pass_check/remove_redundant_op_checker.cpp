@@ -166,7 +166,8 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation& op)
     }
     bool hasParallelAssemble = false;
     for (const auto& consumer : assembleIn->GetConsumers()) {
-        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpMagic() != op.GetOpMagic()) {
+        if (consumer->GetOpcode() == Opcode::OP_ASSEMBLE && 
+            consumer->GetOpMagic() != op.GetOpMagic()) {
             hasParallelAssemble = true;
             break;
         }
