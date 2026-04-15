@@ -383,24 +383,24 @@ public:
     Opcode GetOpcode(const std::string& str) const
     {
         auto it = strToEnum_.find(str);
-        ASSERT(it != strToEnum_.end());
+        assert(it != strToEnum_.end());
         return it->second;
     }
     const std::string& GetOpcodeStr(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode));
+        assert(HasOpcode(opcode));
         return opcodeInfos_[static_cast<int>(opcode)].str;
     }
 
     OpCoreType GetCoreType(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        assert((HasOpcode(opcode)) && "Can't find op");
         return opcodeInfos_[static_cast<int>(opcode)].coreType;
     }
 
     const TileOpCfg& GetTileOpCfg(Opcode opcode) const
     {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        assert((HasOpcode(opcode)) && "Can't find op");
         return opcodeInfos_[static_cast<int>(opcode)].tileOpCfg;
     }
 

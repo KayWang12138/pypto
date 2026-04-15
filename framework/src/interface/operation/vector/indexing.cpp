@@ -360,12 +360,12 @@ void InnerTiledIndexAdd(
 void TiledIndexAdd(Function& function, const TileShape& tileShape, const IndexAddPara& indexaddPara)
 {
     // Check Operands Valid
-    ASSERT(indexaddPara.selfInput->GetShape().size() == indexaddPara.selfInput->GetOffset().size())
-        << "The size of indexaddPara selfinput shape and selfinput offset should be equal";
-    ASSERT(indexaddPara.srcInput->GetShape().size() == indexaddPara.srcInput->GetOffset().size())
-        << "The size of indexaddPara srcInput shape and srcInput offset should be equal";
-    ASSERT(indexaddPara.indicesInput->GetShape().size() == indexaddPara.indicesInput->GetOffset().size())
-        << "The size of indexaddPara indicesInput shape and indicesInput offset should be equal";
+    assert((indexaddPara.selfInput->GetShape().size() == indexaddPara.selfInput->GetOffset().size()) &&
+           "The size of indexaddPara selfinput shape and selfinput offset should be equal");
+    assert((indexaddPara.srcInput->GetShape().size() == indexaddPara.srcInput->GetOffset().size()) &&
+           "The size of indexaddPara srcInput shape and srcInput offset should be equal");
+    assert((indexaddPara.indicesInput->GetShape().size() == indexaddPara.indicesInput->GetOffset().size()) &&
+           "The size of indexaddPara indicesInput shape and indicesInput offset should be equal");
 
     IndexAddTileInfoPara indexaddTileInfo{
         TileInfo(indexaddPara.selfInput->GetShape().size(), indexaddPara.selfInput->GetOffset().size()),
