@@ -76,6 +76,21 @@ protected:
     Status BuildOpGraph(const std::vector<Operation*>& opList);
     virtual Status BuildSuperNodeGraph();
     Status ProcessScopeMerge();
+
+    struct ScopeCollectResult {
+        std::unordered_map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
+        std::unordered_map<int32_t, bool> scopeAllowParallel;
+        std::unordered_map<int32_t, std::vector<int32_t>> scope2Nodes;
+    };
+    ScopeCollectResult CollectScopeInfo(int32_t numNodes);
+    Status CheckAndMergeScopes(const ScopeCollectResult& scopeInfo,
+        std::vector<int32_t>& snParent,
+        bool& needRebuild,
+        std::map<int32_t, int32_t>& scopeToMixId);
+    void RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes);
+    void ApplyCVMixIds(const std::map<int32_t, int32_t>& scopeToMixId,
+                       const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes);
+
     Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers

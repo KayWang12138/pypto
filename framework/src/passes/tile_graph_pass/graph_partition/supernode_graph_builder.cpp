@@ -710,44 +710,38 @@ void NodeGraphInfo::BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> o
     }
 }
 
-Status SuperNodeGraphBuilder::ProcessScopeMerge()
+SuperNodeGraphBuilder::ScopeCollectResult SuperNodeGraphBuilder::CollectScopeInfo(int32_t numNodes)
 {
-    int32_t numNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
-    std::unordered_map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
-    std::unordered_map<int32_t, bool> scopeAllowParallel;
-    std::unordered_map<int32_t, std::vector<int32_t>> scope2Nodes;
-
+    ScopeCollectResult result;
     for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
         const auto& scopeInfo = superNodeInfo_->nodeScope_[nodeIdx];
         if (scopeInfo.scopeId == -1) {
             continue;
         }
-        scope2Nodes[scopeInfo.scopeId].push_back(nodeIdx);
+        result.scope2Nodes[scopeInfo.scopeId].push_back(nodeIdx);
         for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-            scopeCoreTypes[scopeInfo.scopeId].insert(operationInfo_->opCoreType_[opIdx]);
+            result.scopeCoreTypes[scopeInfo.scopeId].insert(operationInfo_->opCoreType_[opIdx]);
         }
         if (scopeInfo.allowParallelMerge) {
-            scopeAllowParallel[scopeInfo.scopeId] = true;
+            result.scopeAllowParallel[scopeInfo.scopeId] = true;
         }
     }
+    return result;
+}
 
-    std::vector<int32_t> snParent(numNodes);
-    for (int32_t i = 0; i < numNodes; i++) {
-        snParent[i] = i;
-    }
-
+Status SuperNodeGraphBuilder::CheckAndMergeScopes(const ScopeCollectResult& scopeInfo,
+    std::vector<int32_t>& snParent,
+    bool& needRebuild,
+    std::map<int32_t, int32_t>& scopeToMixId)
+{
     auto findSN = [&snParent](int32_t i) -> int32_t {
         while (snParent[i] != i) {
             i = snParent[i];
         }
         return i;
     };
-
-    bool needRebuild = false;
     bool isCVMix = GraphUtils::IsCVMixPlatform();
-    std::map<int32_t, int32_t> scopeToMixId;
-
-    for (auto& [scopeId, coreTypes] : scopeCoreTypes) {
+    for (auto& [scopeId, coreTypes] : scopeInfo.scopeCoreTypes) {
         bool hasAic = coreTypes.count(OpCoreType::AIC) > 0;
         bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
 
@@ -762,8 +756,8 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
             }
         }
 
-        bool allowParallel = scopeAllowParallel.count(scopeId) > 0 && scopeAllowParallel[scopeId];
-        const auto& nodes = scope2Nodes[scopeId];
+        bool allowParallel = scopeInfo.scopeAllowParallel.count(scopeId) > 0 && scopeInfo.scopeAllowParallel.at(scopeId);
+        const auto& nodes = scopeInfo.scope2Nodes.at(scopeId);
 
         if (allowParallel) {
             int32_t firstNode = -1;
@@ -794,37 +788,82 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
             }
         }
     }
+    return SUCCESS;
+}
 
-    if (needRebuild) {
-        std::vector<int32_t> parentToNewNode(numNodes, -1);
-        std::vector<std::vector<int32_t>> newNode2Op;
-
-        for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-            int32_t p = findSN(nodeIdx);
-            if (parentToNewNode[p] == -1) {
-                parentToNewNode[p] = static_cast<int32_t>(newNode2Op.size());
-                newNode2Op.push_back({});
-            }
-            for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-                newNode2Op[parentToNewNode[p]].push_back(opIdx);
-            }
+void SuperNodeGraphBuilder::RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes)
+{
+    auto findSN = [&snParent](int32_t i) -> int32_t {
+        std::vector<int32_t> parentCopy = snParent;
+        while (parentCopy[i] != i) {
+            i = parentCopy[i];
         }
+        return i;
+    };
+    std::vector<int32_t> parentToNewNode(numNodes, -1);
+    std::vector<std::vector<int32_t>> newNode2Op;
 
-        superNodeInfo_->node2Op_ = std::move(newNode2Op);
-        superNodeInfo_->BuildNodeMapping(operationInfo_);
-        superNodeInfo_->BuildInOutGraph(operationInfo_);
-        superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, !useCVMixPartition_); 
+    for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
+        int32_t p = findSN(nodeIdx);
+        if (parentToNewNode[p] == -1) {
+            parentToNewNode[p] = static_cast<int32_t>(newNode2Op.size());
+            newNode2Op.push_back({});
+        }
+        for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+            newNode2Op[parentToNewNode[p]].push_back(opIdx);
+        }
     }
 
-    if (isCVMix) {
-        for (const auto& [scopeId, mixId] : scopeToMixId) {
-            const auto& nodes = scope2Nodes[scopeId];
-            for (int32_t nodeIdx : nodes) {
-                for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-                    operationInfo_->opList_[opIdx]->scopeInfo_.SetMixId(mixId);
-                }
+    superNodeInfo_->node2Op_ = std::move(newNode2Op);
+    superNodeInfo_->BuildNodeMapping(operationInfo_);
+    superNodeInfo_->BuildInOutGraph(operationInfo_);
+    superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, !useCVMixPartition_);
+}
+
+void SuperNodeGraphBuilder::ApplyCVMixIds(const std::map<int32_t, int32_t>& scopeToMixId,
+    const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes)
+{
+    for (const auto& [scopeId, mixId] : scopeToMixId) {
+        auto it = scope2Nodes.find(scopeId);
+        if (it == scope2Nodes.end()) continue;
+        for (int32_t nodeIdx : it->second) {
+            for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
+                operationInfo_->opList_[opIdx]->scopeInfo_.SetMixId(mixId);
             }
         }
+    }
+}
+
+Status SuperNodeGraphBuilder::ProcessScopeMerge()
+{
+    int32_t numNodes = static_cast<int32_t>(superNodeInfo_->node2Op_.size());
+    auto scopeInfo = CollectScopeInfo(numNodes);
+
+    std::vector<int32_t> snParent(numNodes);
+    for (int32_t i = 0; i < numNodes; i++) {
+        snParent[i] = i;
+    }
+
+    auto findSN = [&snParent](int32_t i) -> int32_t {
+        while (snParent[i] != i) {
+            i = snParent[i];
+        }
+        return i;
+    };
+
+    bool needRebuild = false;
+    std::map<int32_t, int32_t> scopeToMixId;
+    Status ret = CheckAndMergeScopes(scopeInfo, snParent, needRebuild, scopeToMixId);
+    if (ret != SUCCESS) {
+        return ret;
+    }
+
+    if (needRebuild) {
+        RebuildSuperNodes(snParent, numNodes);
+    }
+
+    if (GraphUtils::IsCVMixPlatform()) {
+        ApplyCVMixIds(scopeToMixId, scopeInfo.scope2Nodes);
     }
     return SUCCESS;
 }
