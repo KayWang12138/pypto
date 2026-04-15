@@ -178,7 +178,9 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation& op)
             break;
         }
     }
-    if (hasParallelAssemble && hasReshapeConsumer) return SUCCESS;
+    if (hasParallelAssemble && hasReshapeConsumer) { 
+        return SUCCESS;
+    }    
     if (assembleIn->shape == assembleOut->shape &&
         assembleIn->GetMemoryTypeOriginal() == assembleOut->GetMemoryTypeOriginal()) {
         APASS_LOG_ERROR_F(
