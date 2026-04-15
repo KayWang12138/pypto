@@ -97,6 +97,7 @@ private:
     int mgCopyInUpperBound_;
     int L1ReuseMode_;
     int cubeNBufferMode_;
+    std::set<int> mulaccGraph_;
     static int globalL1ReuseHashOrder_;
     static int globalCubeMergeHashOrder_;
 };
