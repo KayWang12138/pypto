@@ -734,7 +734,7 @@ def moe_distributed_combine_kernel(
         f'The length of group_name only supports [1, 128), but got {len(group_name)}',
     )
 
-    @pypto.frontend.jit()
+    @pypto.frontend.jit(runtime_options={"stitch_function_max_num": 80})
     def kernel(
         expand_x: pypto.Tensor([row, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND),
         assist_info_for_combine: pypto.Tensor([row, 3], pypto.DT_INT32, format=pypto.TileOpFormat.TILEOP_ND),
