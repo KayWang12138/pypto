@@ -379,6 +379,48 @@ Same NZ format as MAT, but uses `fractal=1024` because FP32 elements are 4 bytes
 **VEC (UB)** — defaults
 
 Vector operations work on contiguous row-major data; no fractal format needed.
+#### 需要转置的几种场景如何配置：
+约束：
+1. Mat的shape和其对应的Left/Right的shape保持一致，Left的shape就是[M, K]， Right的shape就是[K, N]
+2. GlobalTensor的Shape需要和Mat保持一致，如果GlobalTensor实际shape和Mat的shape不一样，需要标记成DN，并且将stride对调。
+3.1 Left的定义：A2A3: blayout=1(rowMajor), slayout=1(rowMajor), A5: blayout=2(colMajor), slayout=1(rowMajor)
+3.2 Right的定义：A2A3: blayout=1(rowMajor), slayout=2(colMajor), A5: blayout=1(rowMajor), slayout=2(colMajor)
+
+pto-isa中的表达方式：
+1. 首先定义Left和Right，Left、Right的shape和bLayout、sLayout是固定的
+2. Mat &GlobalTensor的shape和对应的Left或者Right保持一致，
+2.1 如果GlobalTensor的shape不需要转置： 那么左矩阵，blayout & slayout和Left保持一致；对于右矩阵，blayout & slayout和Right相反， GlobalTensor使用ND表达，stride按照ND填写。
+2.2 如果GlobalTensor的shape需要转置： 那么左矩阵，blayout & slayout和Left相反；对于右矩阵，blayout & slayout和Right保持一致，GlobalTensor使用DN表达的，stride按DN改变。
+总结：
+因为Right自带转置，
+如果需要转置，那么GlobalTensor就需要使用DN，stride按DN填写，Left和Mat对应的blayout & slayout需要相反，Left和Mat对应的blayout & slayout保持一致。
+如果不需要转置，那么GlobalTensor就需要使用DN，stride按ND填写，Left和Mat对应的blayout & slayout一致，Left和Mat对应的blayout & slayout相反。
+
+- **左矩阵转置，从GM拷贝到L1**
+```python
+mat_type = plm.TileType(shape=[M, K], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=1, slayout=2) #Mat和left相反，需要手动填[row, col]
+mat_0 = plm.make_tile(mat_type, addr=0x0, size=32768)
+plm.load(l1, gm, layout="dn") # 需要转置，填DN，stride框架内自动计算
+left = plm.make_tile(plm.TileType(shape=[M, K], dtype=pl.FP16, target_memory=pl.MemorySpace.Left), addr=0x0, size=32768) #left默认是[col, row]
+plm.mov(left, mat_0)
+```
+
+- **右矩阵转置，从GM拷贝到L1**
+```python
+#Mat和right相反，需要手动填[row, col],因为默认值是[col, row]
+mat_type = plm.TileType(shape=[K, N], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=1, slayout=2)
+mat_0 = plm.make_tile(mat_type, addr=0x0, size=32768)
+plm.load(l1, gm, layout="dn") # 需要转置，填DN，stride框架内自动计算
+right = plm.make_tile(plm.TileType(shape=[K, N], dtype=pl.FP16, target_memory=pl.MemorySpace.Right), addr=0x0, size=32768) #Right默认是[row, col]
+plm.mov(right, mat_0)
+```
+- **左矩阵转置，A5上从UB拷贝到L1**
+```python
+
+```
+- **右矩阵转置，A5上匆匆UB拷贝L1**
+```python
+```
 
 #### Code Example
 
