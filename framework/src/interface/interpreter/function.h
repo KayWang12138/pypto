@@ -1044,9 +1044,9 @@ struct FunctionInterpreter {
                 continue;
             ExecuteHandleOperationBegin(&op);
             // TODO: 判断 op 中是否依赖 WaitUntil，如果依赖则将对应的 waitUntil 执行【此时 waitUntil 必定已经执行，拓扑序优先】
-            if (DependsOnWaitUntil(op)) {
+            if (DependsOnWaitUntil(&op)) {
                 // GetWaitTask 需要从全局变量中拿，每执行一次 WaitUntil，就应该把相应的执行序下的 waitUntil 记录在全局哈希表中
-                std::future<void>* task = GetWaitTask(op);
+                std::future<void>* task = GetWaitTask(&op);
                 // 如果拿到了相应的执行任务，就需要等待 WaitUntil 执行完成
                 if (task != nullptr) {
                     task->get();
@@ -1064,27 +1064,27 @@ struct FunctionInterpreter {
     }
 
     void ResolveWaitUntilDependency(Function* func, const std::shared_ptr<FunctionFrame>& frame) {
-        for (auto &op: func->Operations()) {
-            if (op->GetOpcode() != Opcode::OP_SHMEM_WAIT_UNTIL) {
+        for (auto& op : func->Operations()) {
+            if (op.GetOpcode() != Opcode::OP_SHMEM_WAIT_UNTIL) {
                 continue;
             }
-            LogicalTensors dependencyOperands = op->GetDependOperands();
-            for (auto &depend: dependencyOperands) {
-                for (auto& consumer : depend->GetConsumers()) {
-                    waitDependencies_[consumer] = op;
+            LogicalTensors dependencyOperands = op.GetDependOperands();
+            for (auto& depend : dependencyOperands) {
+                for (auto& consumer : depend.GetConsumers()) {
+                    waitDependencies_[consumer] = &op;
                 }
             }
         }
     }
 
-    bool DependsOnWaitUntil(Operation *op) {
+    bool DependsOnWaitUntil(Operation* op) {
         if (waitDependencies_.find(op) != waitDependencies_.end()) {
             return true;
         }
         return false;
     }
     
-    std::future<void>* GetWaitTask(Operation *op) {
+    std::future<void>* GetWaitTask(Operation* op) {
         auto it = waitDependencies_.find(op);
         if (it == waitDependencies_.end()) {
             return nullptr;
