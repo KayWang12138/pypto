@@ -40,6 +40,7 @@
 #include "machine/runtime/distributed/distributed_context.h"
 #include "machine/utils/machine_error.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "tilefwk/aicpu_common.h"
 
 #ifndef BUILD_WITH_CANN
 enum aclmdlRICaptureMode {};
@@ -150,7 +151,7 @@ public:
         size_t runtimeDataCount = devProg->GetDeviceRuntimeOffset().count;
         size_t runtimeDataRingBufferSize =
             RuntimeDataRingBufferHead::GetRingBufferSize(runtimeDataSize, runtimeDataCount);
-        if (cachedOperator && *CachedOperator::GetMetaDataDevAddrHolder(cachedOperator) != nullptr) {
+        if (devMem.IsDevice() && cachedOperator && *CachedOperator::GetMetaDataDevAddrHolder(cachedOperator) != nullptr) {
             devProg->devArgs.runtimeDataRingBufferAddr =
                 reinterpret_cast<uint64_t>(*CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         } else {
@@ -244,7 +245,79 @@ public:
         const std::vector<uint8_t>& devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig& config,
         CachedOperator* cachedOperator)
     {
+        auto initE2EHostMetaData = [&]() {
+            if (devMem.IsDevice()) {
+                return;
+            }
+            if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) != CFG_DEBUG_E2E_HOST_SIM) {
+                return;
+            }
+
+            constexpr uint32_t kAicpuRunTaskNum = 1;
+            const uint32_t totalCoreNum =
+                static_cast<uint32_t>(devProg->devArgs.nrAic + devProg->devArgs.nrAiv) + kAicpuRunTaskNum;
+            if (totalCoreNum == 0) {
+                return;
+            }
+
+            auto allocAndAssign = [&](uint64_t& addr, size_t bytes, const char* name) {
+                auto* ptr = devMem.AllocZero(bytes, nullptr);
+                if (ptr == nullptr) {
+                    MACHINE_LOGE(DevCommonErr::ALLOC_FAILED, "Alloc e2e host %s failed, size=%zu", name, bytes);
+                    addr = 0;
+                    return false;
+                }
+                addr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
+                return true;
+            };
+
+            size_t sharedBufferSize = static_cast<size_t>(totalCoreNum) * static_cast<size_t>(SHARED_BUFFER_SIZE);
+            if (!allocAndAssign(devProg->devArgs.sharedBuffer, sharedBufferSize, "sharedBuffer")) {
+                return;
+            }
+
+            if (!allocAndAssign(
+                    devProg->devArgs.coreRegAddr, static_cast<size_t>(totalCoreNum) * sizeof(uint64_t), "coreRegAddr")) {
+                return;
+            }
+            if (!allocAndAssign(
+                    devProg->devArgs.corePmuRegAddr, static_cast<size_t>(totalCoreNum) * sizeof(uint64_t),
+                    "corePmuRegAddr")) {
+                return;
+            }
+            if (!allocAndAssign(
+                    devProg->devArgs.corePmuAddr, static_cast<size_t>(totalCoreNum) * static_cast<size_t>(PMU_BUFFER_SIZE),
+                    "corePmuAddr")) {
+                return;
+            }
+            if (!allocAndAssign(devProg->devArgs.taskWastTime, sizeof(uint64_t), "taskWastTime")) {
+                return;
+            }
+            if (!allocAndAssign(devProg->devArgs.devDfxArgAddr, sizeof(DevDfxArgs), "devDfxArgAddr")) {
+                return;
+            }
+
+            auto* sharedBuffer = reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(devProg->devArgs.sharedBuffer));
+            if (sharedBuffer == nullptr) {
+                MACHINE_LOGE(DevCommonErr::ALLOC_FAILED, "E2E host sharedBuffer is null");
+                devProg->devArgs.sharedBuffer = 0;
+                return;
+            }
+            for (uint32_t i = 0; i < totalCoreNum; ++i) {
+                auto* args = reinterpret_cast<KernelArgs*>(sharedBuffer + static_cast<size_t>(i) * SHARED_BUFFER_SIZE);
+                const size_t metricSize = sizeof(Metrics) + static_cast<size_t>(MAX_DFX_TASK_NUM_PER_CORE) * sizeof(TaskStat);
+                auto* metric = devMem.AllocZero(metricSize, nullptr);
+                if (metric == nullptr) {
+                    MACHINE_LOGE(DevCommonErr::ALLOC_FAILED, "Alloc e2e host metric failed, core=%u", i);
+                    devProg->devArgs.sharedBuffer = 0;
+                    return;
+                }
+                args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] = static_cast<int64_t>(reinterpret_cast<uintptr_t>(metric));
+            }
+        };
+
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
+        initE2EHostMetaData();
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t*)config.workspaceAddr;
