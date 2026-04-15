@@ -114,11 +114,6 @@ void GegisterOps()
     // 后续按照上面格式增加算子
 }
 
-
-INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest,
-    ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
-TEST_P(DistributedTest, TestOps)
-{
-    RunDistributedTestGeneric(GetParam().testData_, GetParam().fileName_);
-}
+INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest, ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
+TEST_P(DistributedTest, TestOps) { RunDistributedTestGeneric(GetParam().testData_, GetParam().fileName_); }
 } // namespace npu::tile_fwk::Distributed

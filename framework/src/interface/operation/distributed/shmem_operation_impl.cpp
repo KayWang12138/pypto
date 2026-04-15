@@ -173,11 +173,8 @@ void ValidateShape(const Tensor& tensor, const std::string& desc, const Shape& e
 }
 
 void ValidateTensor(
-    const Tensor& tensor,
-    const std::string& desc,
-    const std::unordered_set<size_t>& allowedDims,
-    const std::unordered_set<DataType>& allowedTypes,
-    const std::unordered_set<TileOpFormat>& allowedFormats,
+    const Tensor& tensor, const std::string& desc, const std::unordered_set<size_t>& allowedDims,
+    const std::unordered_set<DataType>& allowedTypes, const std::unordered_set<TileOpFormat>& allowedFormats,
     const Shape& expectShape)
 {
     ValidateDim(tensor, desc, allowedDims);
@@ -300,13 +297,10 @@ void CreateShmemSignal(const char* group, int64_t worldSize, ShmemTensor& t)
     ValidateShmemTensor(t, false, true);
 }
 
-
-
-
-
-template<typename OffsetType, bool HasValidShape = false>
-ShmemTensor ShmemViewImpl(const ShmemTensor& operand, const std::vector<int64_t>& shapes,
-    const std::vector<OffsetType>& offsets, const std::vector<SymbolicScalar>& validShapes = {})
+template <typename OffsetType, bool HasValidShape = false>
+ShmemTensor ShmemViewImpl(
+    const ShmemTensor& operand, const std::vector<int64_t>& shapes, const std::vector<OffsetType>& offsets,
+    const std::vector<SymbolicScalar>& validShapes = {})
 {
     ASSERT(DistributedErrorCode::INVALID_SHMEM_VIEW_PARAM, operand.data.GetStorage() != nullptr)
         << "shmem tensor which has no valid data not support view";
@@ -534,11 +528,11 @@ Tensor ShmemWaitUntil(
     ASSERT(cmp != OpType::GE || !clearSignal)
         << "ShmemWaitUntil: clearSignal must be false when using GE semantics";
     ValidateShmemTensor(src, false, true);
-    ValidateTensor(pred, "pred", {2});
-    ValidateTensor(src.signal, "src.signal", {3});
-    ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred");
+    ValidateTensor(pred, "pred tensor", {2});
+    ValidateTensor(src.signal, "signal of shmem tensor", {3});
+    ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred tensor");
 
-    auto &function = *Program::GetInstance().GetCurrentFunction();
+    auto& function = *Program::GetInstance().GetCurrentFunction();
     Shape signalShape = src.signal.GetShape();
     signalShape[0] = 1;
     std::vector<SymbolicScalar> signalOffset(signalShape.size(), 0);
@@ -668,9 +662,8 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& sh
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     int32_t rowPerRank = row / worldSize;
-    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {rowPerRank, col});
-    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
-
+    ValidateTensor(shmemTensor.data, "data of shmem tensor", {}, {}, {in.Format()}, {rowPerRank, col});
+    ValidateTensor(out, "output tensor", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
         auto shmemDataTile = ShmemView(shmemTensor, {rowPerRank, col}, std::vector<SymbolicScalar>{0, 0});
         auto inTile = View(in, {rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId * rowPerRank, 0});

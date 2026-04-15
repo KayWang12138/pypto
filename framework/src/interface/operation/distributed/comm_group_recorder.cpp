@@ -48,7 +48,7 @@ void CommGroupRecorder::Reset()
     index2Name_.clear();
 }
 
-std::string CommGroupRecorder::PrintString(std::vector<std::string> &commGroups)
+std::string CommGroupRecorder::PrintString(std::vector<std::string>& commGroups)
 {
     std::ostringstream oss;
     oss << "distributed comm groups: [";

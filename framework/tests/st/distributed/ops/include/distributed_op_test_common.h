@@ -125,11 +125,7 @@ inline void RunTest()
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 }
 
-enum class WinType : uint32_t {
-    WIN_EXP,
-    WIN_OUT,
-    WIN_IN
-};
+enum class WinType : uint32_t { WIN_EXP, WIN_OUT, WIN_IN };
 
 class HcclWin {
 public:

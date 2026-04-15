@@ -26,7 +26,8 @@
 
 namespace npu::tile_fwk::Distributed {
 struct SignalTileOp {
-    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, int32_t cmpType, bool resetSignal) {
+    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, int32_t cmpType, bool resetSignal)
+    {
         taskId_ = taskId;
         addr_ = addr;
         expectedSum_ = expectedSum;
@@ -55,7 +56,8 @@ public:
 
     uint32_t Hash(uint32_t taskId) { return taskId & AICPU_TASK_ARRAY_SIZE_MOD; }
 
-    SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, int32_t cmpType, bool resetSignal) {
+    SignalTileOp* CreateTaskData(uint32_t taskId, int32_t* addr, int32_t expectSum, int32_t cmpType, bool resetSignal)
+    {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
             DEV_ERROR(
                 DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT,
@@ -69,7 +71,8 @@ public:
         return newTask;
     }
 
-    int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, int32_t cmpType, bool resetSignal) {
+    int32_t InsertTask(uint32_t taskId, int32_t* addr, int32_t expectSum, int32_t cmpType, bool resetSignal)
+    {
         SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, cmpType, resetSignal);
         if (newTask == nullptr) {
             return dynamic::DEVICE_MACHINE_ERROR;

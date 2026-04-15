@@ -166,7 +166,8 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
     Tensor out(DT_FP16, {64, 256}, "out");
     Shape shmemDataShape = {1, 64, 256};
     std::string functionName = "TestOneShotAllReduce";
-    FUNCTION("ALLREDUCE", {in}, {out}) {
+    FUNCTION("ALLREDUCE", {in}, {out})
+    {
         TileShape::Current().SetVecTile({64, 256});
         DataType shmemDataType = GetType(in);
         auto shmemTensor = CreateShmemTensor(group, worldSize, shmemDataType, shmemDataShape);
