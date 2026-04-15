@@ -119,15 +119,22 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
 
     index = index + aicpuCode[index] + 1;
     paramInfo.rawShapeIndex = index + 1;
-    int32_t rawShapeDim = aicpuCode[index] / 2; // rawshape + shape are encoded back-to-back
+    // aicpuCode[index] encodes (rawShape.dim + shape.dim), stored back-to-back.
+    // Use dynamic tail-based indexing to support variable-dimension signal tensors
+    // (e.g., 3D [ranksize, row, col] or future extended layouts [..., row, col]).
+    // NOTE: Master used hardcoded +1/+2 offsets assuming 3D. This change enables
+    //       flexibility for new layouts introduced during rebase; revert if not needed.
+    int32_t rawShapeDim = aicpuCode[index] / 2;
     if (rawShapeDim >= 2) {
-        // Keep row/col decoding aligned with current layout by always reading tail dims.
-        // This works for [rank,row,col] and extended layouts [...,row,col].
+        // Signal shape layout: [..., row, col]. Extract row/col from the last two elements.
+        // For 3D [ranksize, row, col]: indices are dim-2=1 (row), dim-1=2 (col)
+        // For 2D [row, col]: indices are dim-2=0 (row), dim-1=1 (col)
         paramInfo.rawShapeRow = aicpuCode[paramInfo.rawShapeIndex + rawShapeDim - 2];
         paramInfo.rawShapeCol = aicpuCode[paramInfo.rawShapeIndex + rawShapeDim - 1];
     }
+    // tileShape follows rawShape in the encoded buffer
     paramInfo.shapeIndex =
-        paramInfo.rawShapeIndex + rawShapeDim; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
+        paramInfo.rawShapeIndex + rawShapeDim; // 存储了signal_dim * 2个参数, tileShape往后偏移dim位
     if (rawShapeDim >= 2) {
         paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + rawShapeDim - 2];
         paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + rawShapeDim - 1];
