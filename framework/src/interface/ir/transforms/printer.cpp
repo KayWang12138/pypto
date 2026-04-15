@@ -924,12 +924,10 @@ std::string IRPrinter::PrintMemRef(const MemRef& memref)
 {
     std::ostringstream oss;
     oss << prefix_ << ".MemRef(";
+    oss << prefix_ << "." << MemorySpaceToString(memref.memory_space_) << ", ";
 
-    oss << "\"" << memref.base_->name_ << "\"";
-    oss << ", ";
     IRPrinter temp_printer(prefix_);
-    oss << temp_printer.Print(memref.byte_offset_);
-
+    oss << temp_printer.Print(memref.offset_);
     // Print size
     oss << ", " << memref.size_ << ")";
     return oss.str();

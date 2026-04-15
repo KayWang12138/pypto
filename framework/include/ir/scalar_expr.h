@@ -32,41 +32,6 @@ class Op;
 using OpPtr = std::shared_ptr<const Op>;
 
 /**
- * \brief Base class for scalar expressions in the IR
- *
- * Scalar expressions represent computations that produce scalar values.
- * All expressions are immutable.
- */
-class ScalarExpr : public Expr {
-public:
-    DataType dtype_;
-
-    /**
-     * \brief Create a scalar expression
-     *
-     * \param span Source location
-     * \param dtype Data type
-     */
-    ScalarExpr(Span s, DataType dtype) : Expr(std::move(s), std::make_shared<ScalarType>(dtype)), dtype_(dtype) {}
-    ~ScalarExpr() override = default;
-
-    /**
-     * \brief Get the type name of this expression
-     *
-     * \return Human-readable type name (e.g., "Add", "Var", "ConstInt")
-     */
-    [[nodiscard]] std::string TypeName() const override { return "ScalarExpr"; }
-
-    static constexpr auto GetFieldDescriptors()
-    {
-        return std::tuple_cat(
-            Expr::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&ScalarExpr::dtype_, "dtype")));
-    }
-};
-
-using ScalarExprPtr = std::shared_ptr<const ScalarExpr>;
-
-/**
  * \brief Constant numeric expression
  *
  * Represents a constant numeric value.

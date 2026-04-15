@@ -915,13 +915,7 @@ bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& 
 template <bool AssertMode>
 bool StructuralEqualImpl<AssertMode>::EqualMemRef(const MemRefPtr& lhs, const MemRefPtr& rhs)
 {
-    // 1. First, compare as Var (handles variable mapping and type comparison)
-    if (!EqualVar(lhs, rhs)) {
-        return false;
-    }
-
-    // 2. Then, compare MemRef-specific fields: base_, byte_offset_, size_
-    if (!EqualVar(lhs->base_, rhs->base_)) {
+    if (!MemRef::SameAllocation(lhs, rhs)) {
         if constexpr (AssertMode) {
             ThrowMismatch(
                 "MemRef base mismatch", std::static_pointer_cast<const IRNode>(lhs),
@@ -929,26 +923,6 @@ bool StructuralEqualImpl<AssertMode>::EqualMemRef(const MemRefPtr& lhs, const Me
         }
         return false;
     }
-
-    if (!Equal(lhs->byte_offset_, rhs->byte_offset_)) {
-        if constexpr (AssertMode) {
-            ThrowMismatch(
-                "MemRef byte_offset mismatch", std::static_pointer_cast<const IRNode>(lhs),
-                std::static_pointer_cast<const IRNode>(rhs));
-        }
-        return false;
-    }
-
-    if (lhs->size_ != rhs->size_) {
-        if constexpr (AssertMode) {
-            std::ostringstream msg;
-            msg << "MemRef size mismatch (" << lhs->size_ << " != " << rhs->size_ << ")";
-            ThrowMismatch(
-                msg.str(), std::static_pointer_cast<const IRNode>(lhs), std::static_pointer_cast<const IRNode>(rhs));
-        }
-        return false;
-    }
-
     return true;
 }
 

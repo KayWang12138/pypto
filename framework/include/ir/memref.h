@@ -38,32 +38,21 @@ namespace ir {
  */
 class MemRef : public Var {
 public:
-    VarPtr base_;         ///< Ptr variable from alloc — allocation identity token
-    ExprPtr byte_offset_; ///< Byte offset from base (0 for full alloc, view offset for views)
-    uint64_t size_;       ///< Size in bytes of this MemRef
-
-    /**
-     * @brief Construct MemRef from base pointer, expression offset, and size.
-     * Name is derived from the base Ptr's name.
-     */
-    MemRef(VarPtr base, ExprPtr byte_offset, uint64_t size, Span span = Span::Unknown());
-
-    /**
-     * @brief Convenience: construct with integer byte_offset (auto-wrapped in ConstInt).
-     */
-    MemRef(VarPtr base, int64_t byte_offset, uint64_t size, Span span = Span::Unknown());
+    MemorySpace memory_space_; ///< Memory space of this MemRef, e.g. Global, Local, Constant
+    ExprPtr offset_;           ///< Byte offset from base (0 for full alloc, view offset for views)
+    uint64_t size_;            ///< Size in bytes of this MemRef
 
     /**
      * @brief Construct with explicit variable name. Used by deserialization and
      * address allocation where the name must be preserved exactly.
      */
-    MemRef(std::string name, VarPtr base, ExprPtr byte_offset, uint64_t size, Span span = Span::Unknown());
+    MemRef(MemorySpace memory_space, ExprPtr offset, uint64_t size, std::string name = "", Span span = Span::Unknown());
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MemRef; }
     [[nodiscard]] std::string TypeName() const override { return "MemRef"; }
 
     /// Are two MemRefs from the same allocation? (compare base_ Ptr identity)
-    static bool SameAllocation(const MemRefPtr& a, const MemRefPtr& b) { return a->base_.get() == b->base_.get(); }
+    static bool SameAllocation(const MemRefPtr& a, const MemRefPtr& b);
 
     /// Do two MemRefs potentially alias? (same base + overlapping byte ranges)
     static bool MayAlias(const MemRefPtr& a, const MemRefPtr& b);
@@ -71,10 +60,10 @@ public:
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
-            Var::GetFieldDescriptors(), std::make_tuple(
-                                            reflection::UsualField(&MemRef::base_, "base"),
-                                            reflection::UsualField(&MemRef::byte_offset_, "byte_offset"),
-                                            reflection::UsualField(&MemRef::size_, "size")));
+            Var::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::UsualField(&MemRef::memory_space_, "memory_space"),
+                reflection::UsualField(&MemRef::offset_, "offset"), reflection::UsualField(&MemRef::size_, "size")));
     }
 };
 

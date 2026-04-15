@@ -62,41 +62,36 @@ MemorySpace StringToMemorySpace(const std::string& str)
     throw ValueError("Unknown MemorySpace: " + str);
 }
 
-// MemRef implementation
-MemRef::MemRef(VarPtr base, ExprPtr byte_offset, uint64_t size, Span span)
-    : Var(base->name_, GetMemRefType(), std::move(span)),
-      base_(std::move(base)),
-      byte_offset_(std::move(byte_offset)),
-      size_(size)
-{}
-
-MemRef::MemRef(VarPtr base, int64_t byte_offset, uint64_t size, Span span)
-    : MemRef(
-          std::move(base), std::make_shared<ConstInt>(byte_offset, DataType::INDEX, Span::Unknown()), size,
-          std::move(span))
-{}
-
-MemRef::MemRef(std::string name, VarPtr base, ExprPtr byte_offset, uint64_t size, Span span)
-    : Var(std::move(name), GetMemRefType(), std::move(span)),
-      base_(std::move(base)),
-      byte_offset_(std::move(byte_offset)),
-      size_(size)
+MemRef::MemRef(MemorySpace memory_space, ExprPtr offset, uint64_t size, std::string name, Span span)
+    : Var(name, GetMemRefType(), std::move(span)), memory_space_(memory_space), offset_(std::move(offset)), size_(size)
 {}
 
 bool MemRef::MayAlias(const MemRefPtr& a, const MemRefPtr& b)
 {
-    if (a->base_.get() != b->base_.get())
+    if (a->memory_space_ != b->memory_space_)
         return false;
 
-    auto off_a = As<ConstInt>(a->byte_offset_);
-    auto off_b = As<ConstInt>(b->byte_offset_);
+    auto off_a = As<ConstInt>(a->offset_);
+    auto off_b = As<ConstInt>(b->offset_);
     if (off_a && off_b) {
         int64_t end_a = off_a->value_ + static_cast<int64_t>(a->size_);
         int64_t end_b = off_b->value_ + static_cast<int64_t>(b->size_);
         return off_a->value_ < end_b && off_b->value_ < end_a;
     }
-    return true; // same base, symbolic offsets → conservatively alias
+    return true; // same memory space, symbolic offsets → conservatively alias
 }
 
+bool MemRef::SameAllocation(const MemRefPtr& a, const MemRefPtr& b)
+{
+    if (a->memory_space_ != b->memory_space_ || a->size_ != b->size_)
+        return false;
+    auto off_a = As<ConstInt>(a->offset_);
+    auto off_b = As<ConstInt>(b->offset_);
+    if (off_a && off_b) {
+        return off_a->value_ == off_b->value_;
+    } else {
+        return a->offset_ == b->offset_;
+    }
+}
 } // namespace ir
 } // namespace pypto
