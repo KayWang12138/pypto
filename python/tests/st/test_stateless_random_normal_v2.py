@@ -46,16 +46,16 @@ def stateless_random_normal_v2_golden(shape, key, counter, alg, dtype):
 
 
 @pytest.mark.soc("950")
-def test_normal_FP32():
+def test_normal_fp32():
     """Test whether the output of FP32 is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     pypto.runtime._device_init()
 
-    view_shape = [32,]
-    tile_shape = [32,]
+    view_shape = [32]
+    tile_shape = [32]
 
-    shape = [32,]
+    shape = [32]
     key = [1234]
     counter = [0, 1]
     alg = [1]
@@ -82,16 +82,16 @@ def test_normal_FP32():
 
 
 @pytest.mark.soc("950")
-def test_normal_FP16():
+def test_normal_fp16():
     """Test whether the output of FP16 is correct"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
     pypto.runtime._device_init()
 
-    view_shape = [32,]
-    tile_shape = [32,]
+    view_shape = [32]
+    tile_shape = [32]
 
-    shape = [32,]
+    shape = [32]
     key = [1234]
     counter = [0, 1]
     alg = [1]

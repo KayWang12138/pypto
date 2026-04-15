@@ -723,14 +723,6 @@ class Tensor:
         return pypto.softmax(self, dim)
 
     @source_location
-    def stateless_random_uniform_v2(shape, key, counter, alg, dtype) -> 'Tensor':
-        return pypto.stateless_random_uniform_v2(shape, key, counter, alg, dtype)
-
-    @source_location
-    def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> 'Tensor':
-        return pypto.stateless_random_normal_v2(shape, key, counter, alg, dtype)
-
-    @source_location
     def maximum(self, other: 'Tensor') -> 'Tensor':
         return pypto.maximum(self, other)
 

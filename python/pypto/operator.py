@@ -558,8 +558,8 @@ def stateless_random_uniform_v2(shape, key, counter, alg, dtype) -> Tensor:
         raise ValueError(f"alg only support Philox.")
 
     shape_one_dim = 1
-    for dimNum in shape:
-        shape_one_dim *= dimNum
+    for dim_num in shape:
+        shape_one_dim *= dim_num
 
     counter0, counter1 = counter
     uniform_res = pypto.uniform(key[0], counter0, counter1, [shape_one_dim], rounds=10, dtype=dtype)
@@ -605,19 +605,6 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
               [ 0.86518306  0.01034508  0.2893259   0.01748212]]
     """
     def box_muller(input: Tensor) -> Tensor:
-        """
-        eps = 1.0e-7
-        u1 = uniform(x0)
-        u2 = uniform(x1)
-        u1 = max(u1, eps)
-        v1 = 2.0 * M_PI * u2
-        v2 = sqrt(-2.0 * ln(u1))
-        f0 = sin(v1)
-        f1 = cos(v1)
-        f2 = f0 * v2
-        f3 = f1 * v2
-        """
-
         input = pypto.reshape(input, [-1])
         tensor_len = input.shape[0]
         u1_index = pypto.arange(0, tensor_len, 2)
@@ -626,9 +613,9 @@ def stateless_random_normal_v2(shape, key, counter, alg, dtype) -> Tensor:
         u2 = pypto.gather(input, 0, u2_index)
 
         eps = 1.0e-7
-        M_PI = 3.14159265358979323846
+        m_pi = 3.14159265358979323846
         u1 = pypto.maximum(u1, eps)
-        v1 = pypto.mul(u2, 2.0 * M_PI)
+        v1 = pypto.mul(u2, 2.0 * m_pi)
         v2 = pypto.sqrt(pypto.mul(pypto.log(u1), -2.0))
         f0 = pypto.sin(v1)
         f1 = pypto.cos(v1)
