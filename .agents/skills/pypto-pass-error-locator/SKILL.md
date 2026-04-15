@@ -1,6 +1,6 @@
 ---
 name: pypto-pass-error-locator
-description: PyPTO Pass 模块错误诊断技能。包含错误定位、原因分析和提供问题修复建议，提供从问题定位到修复建议的完整工作流程。当遇到 PyPTO Pass 模块抛出错误时使用此技能。
+description: PyPTO Pass 模块错误诊断技能。包含错误定位、原因分析和提供问题修复建议，提供从问题定位到修复建议的完整工作流程。当遇到 PyPTO Pass 模块抛出错误时使用此技能。触发词：定位 pass 错误、pass 模块异常、pass 报错、pass 失败、pass 异常。
 license: 完整条款见 LICENSE.txt
 ---
 
@@ -43,7 +43,7 @@ license: 完整条款见 LICENSE.txt
 当用户输入包含以下错误日志或关键字时，自动触发此技能：
 
 - **定位 pass 错误**：定位 Pass 抛出异常的具体原因，并提供修复方案
-- **分析 pass 异常**：定位 Pass 抛出异常的具体原因，并提供修复方案
+- **pass 模块异常**：定位 Pass 抛出异常的具体原因，并提供修复方案
 - **pass 报错**：定位 Pass 抛出异常的具体原因，并提供修复方案
 - **pass 失败**：定位 Pass 抛出异常的具体原因，并提供修复方案
 - **pass 异常**：定位 Pass 抛出异常的具体原因，并提供修复方案
@@ -56,7 +56,7 @@ license: 完整条款见 LICENSE.txt
 
 ### 步骤 1：问题复现
 
-1. 如果用户执行的是python相关的脚本，开启图编译阶段调试模式开关：
+1. 如果用户执行的是python相关的脚本，开启图编译阶段调试模式开关（开启调试模式编译时会在`output`目录下输出各 pass 模块的`计算图`和`IR`等文件）：
 
    ```python
     @pypto.frontend.jit(
