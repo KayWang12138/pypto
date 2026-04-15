@@ -1,7 +1,20 @@
 #!/bin/bash
 
+# # 清理并创建构建目录
+# echo "=== 清理构建目录 ==="
+# rm -rf build
+# mkdir -p build
+# cd build
+
+# # 配置并编译项目
+# echo "=== 配置项目 ==="
+# cmake ../ -DENABLE_UTEST=ON -DENABLE_FEATURE_PYTHON_FRONT_END=OFF
+
+# echo "=== 编译项目 ==="
+# make -j16
+
 # 测试程序路径
-TEST_BIN="./pypto/build/output/bin/tile_fwk_utest"
+TEST_BIN="./output/bin/tile_fwk_utest"
 LOG_FILE="test_cmp_output.log"
 > $LOG_FILE
 
@@ -15,13 +28,13 @@ TEST_CASES=()
 # 前缀固定
 PREFIX="LiteNPUCodeGenCompare.test_compare_eq_"
 
-# 1. fp16: 001~018
-for i in {001..018}; do
+# 1. fp16: 001~034
+for i in {001..034}; do
     TEST_CASES+=("${PREFIX}fp16_$i")
 done
 
-# 2. fp32: 001~018
-for i in {001..018}; do
+# 2. fp32: 001~038
+for i in {001..038}; do
     TEST_CASES+=("${PREFIX}fp32_$i")
 done
 

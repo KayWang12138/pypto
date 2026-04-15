@@ -117,7 +117,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_st) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_001 | 2D 双张量，N单轴切分
+// fp16_001 | 2D 双张量，H单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_001) {
     PROGRAM("WHERE_FP16_001") {
         TileShape::Current().SetVecTile(1, 64);
@@ -174,7 +174,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_003) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_004 | 2D Tensor+标量，N单轴切分
+// fp16_004 | 2D Tensor+标量，H单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_004) {
     PROGRAM("WHERE_FP16_004") {
         TileShape::Current().SetVecTile(2, 32);
@@ -193,10 +193,10 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_004) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_005 | 2D 双张量，NC双轴切分
+// fp16_005 | 2D 双张量，H+W双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_005) {
     PROGRAM("WHERE_FP16_005") {
-        TileShape::Current().SetVecTile(1, 40);
+        TileShape::Current().SetVecTile(1, 20);
         Tensor condition(DT_UINT8, {2, 5}, "condition");
         Tensor input(DT_FP16, {2, 40}, "input");
         Tensor other(DT_FP16, {2, 40}, "other");
@@ -234,9 +234,9 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_006) {
 // fp16_007 | 3D 双张量，W单轴切分 
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_007) {
     PROGRAM("WHERE_FP16_007") {
-        TileShape::Current().SetVecTile(2, 32, 32);
+        TileShape::Current().SetVecTile(2, 32, 24);
         /* TileShape::Current().SetVecTile(2, 32, 16);  出现了跟compare低维向高维广播相同的报错 */
-        Tensor condition(DT_UINT8, {2, 1, 4}, "condition");
+        Tensor condition(DT_UINT8, {2, 32, 4}, "condition");
         Tensor input(DT_FP16, {2, 32, 32}, "input");
         Tensor other(DT_FP16, {2, 32, 32}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 32}, "output");
@@ -251,7 +251,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_007) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_008 | 3D 双张量，N单轴切分
+// fp16_008 | 3D 双张量，C单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_008) {
     PROGRAM("WHERE_FP16_008") {
         TileShape::Current().SetVecTile(1, 24, 24);
@@ -289,10 +289,10 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_009) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_010 | 3D 双张量，HC双轴切分
+// fp16_010 | 3D 双张量，H+C双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_010) {
     PROGRAM("WHERE_FP16_010") {
-        TileShape::Current().SetVecTile(2, 16, 32);
+        TileShape::Current().SetVecTile(1, 16, 40);
         Tensor condition(DT_UINT8, {2, 1, 5}, "condition");
         Tensor input(DT_FP16, {2, 32, 40}, "input");
         Tensor other(DT_FP16, {2, 32, 40}, "other");
@@ -316,8 +316,10 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_011) {
         Tensor condition(DT_UINT8, {2, 1, 5}, "condition");
         出现了跟compare低维向高维广播相同的报错
         */
-        TileShape::Current().SetVecTile(2, 16, 32);
-        Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
+        // TileShape::Current().SetVecTile(1, 32, 32);
+        // Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
+        TileShape::Current().SetVecTile(2, 32, 16); 
+        Tensor condition(DT_UINT8, {2, 1, 5}, "condition");
         Tensor input(DT_FP16, {2, 32, 40}, "input");
         Tensor other(DT_FP16, {2, 32, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 40}, "output");
@@ -418,7 +420,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_016) {
         出现与compare相同报错
         */
         // TileShape::Current().SetVecTile(1, 2, 16, 16);
-        TileShape::Current().SetVecTile(1, 2, 16, 16);
+        TileShape::Current().SetVecTile(2, 2, 16, 16);
         Tensor condition(DT_UINT8, {2, 2, 24, 5}, "condition");
         Tensor input(DT_FP16, {2, 2, 24, 40}, "input");
         Tensor other(DT_FP16, {2, 2, 24, 40}, "other");
@@ -434,10 +436,10 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_016) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_017 | 3D 双张量，N+H双轴切分
+// fp16_017 | 3D 双张量，C+W双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_017) {
     PROGRAM("WHERE_FP16_017") {
-        TileShape::Current().SetVecTile(1, 16, 24);
+        TileShape::Current().SetVecTile(1, 32, 24);
         // Tensor condition(DT_UINT8, {2, 1, 5}, "condition"); 出现与compare相同报错
         Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
         Tensor input(DT_FP16, {2, 32, 40}, "input");
@@ -590,7 +592,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_024) {
 // fp16_025 | 4D 双张量，NCW三轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_025) {
     PROGRAM("WHERE_FP16_025") {
-        TileShape::Current().SetVecTile(1, 1, 16, 16);
+        TileShape::Current().SetVecTile(1, 1, 32, 16);
         Tensor condition(DT_UINT8, {2, 3, 32, 5}, "condition");
         Tensor input(DT_FP16, {2, 3, 32, 40}, "input");
         Tensor other(DT_FP16, {2, 3, 32, 40}, "other");
@@ -606,7 +608,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_025) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_026 | 2D 双标量，N+W占位切分
+// fp16_026 | 2D 双标量，H单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_026) {
     PROGRAM("WHERE_FP16_026") {
         TileShape::Current().SetVecTile(1, 8);
@@ -625,14 +627,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_026) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_027 | 3D 双标量，N+H+W占位切分
+// fp16_027 | 3D 双标量，H+W切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_027) {
     PROGRAM("WHERE_FP16_027") {
         TileShape::Current().SetVecTile(1, 4, 8);
-        Tensor condition(DT_UINT8, {1, 1, 8}, "condition");
+        Tensor condition(DT_UINT8, {1, 8, 16}, "condition");
         Element input(DT_FP16, 1.0);
         Element other(DT_FP16, 2.0);
-        auto output = Tensor(DataType::DT_FP16, {1, 8, 8}, "output");
+        auto output = Tensor(DataType::DT_FP16, {1, 8, 16}, "output");
         FUNCTION("WHERE_FP16_027") {
             output = Where(condition, input, other);
         }
@@ -644,14 +646,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_027) {
     codeGen.GenCode(*function, {});
 }
 
-// fp16_028 | 4D 双标量，N+C+H+W占位切分
+// fp16_028 | 4D 双标量，N+C+H+W切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_028) {
     PROGRAM("WHERE_FP16_028") {
         TileShape::Current().SetVecTile(1, 1, 2, 8);
-        Tensor condition(DT_UINT8, {1, 1, 1, 8}, "condition");
+        Tensor condition(DT_UINT8, {2, 2, 4, 8}, "condition");
         Element input(DT_FP16, 1.0);
         Element other(DT_FP16, 2.0);
-        auto output = Tensor(DataType::DT_FP16, {1, 1, 1, 8}, "output");
+        auto output = Tensor(DataType::DT_FP16, {2, 2, 4, 8}, "output");
         FUNCTION("WHERE_FP16_028") {
             output = Where(condition, input, other);
         }
@@ -663,7 +665,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_028) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_001 | 2D 双张量，N单轴切分
+// fp32_001 | 2D 双张量，H单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_001) {
     PROGRAM("WHERE_FP32_001") {
         TileShape::Current().SetVecTile(1, 64);
@@ -720,7 +722,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_003) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_004 | 2D Tensor+标量，N单轴切分
+// fp32_004 | 2D Tensor+标量，H单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_004) {
     PROGRAM("WHERE_FP32_004") {
         TileShape::Current().SetVecTile(2, 32);
@@ -739,10 +741,10 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_004) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_005 | 2D 双张量，NC双轴切分
+// fp32_005 | 2D 双张量，H+W双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_005) {
     PROGRAM("WHERE_FP32_005") {
-        TileShape::Current().SetVecTile(1, 40);
+        TileShape::Current().SetVecTile(1, 16);
         Tensor condition(DT_UINT8, {2, 5}, "condition");
         Tensor input(DT_FP32, {2, 40}, "input");
         Tensor other(DT_FP32, {2, 40}, "other");
@@ -796,7 +798,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_007) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_008 | 3D 双张量，N单轴切分
+// fp32_008 | 3D 双张量，C单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_008) {
     PROGRAM("WHERE_FP32_008") {
         TileShape::Current().SetVecTile(1, 24, 24);
@@ -837,7 +839,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_009) {
 // fp32_010 | 3D 双张量，HC双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_010) {
     PROGRAM("WHERE_FP32_010") {
-        TileShape::Current().SetVecTile(2, 16, 40);
+        TileShape::Current().SetVecTile(1, 16, 40);
         Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
         Tensor input(DT_FP32, {2, 32, 40}, "input");
         Tensor other(DT_FP32, {2, 32, 40}, "other");
@@ -856,7 +858,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_010) {
 // fp32_011 | 3D 双张量，WC双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_011) {
     PROGRAM("WHERE_FP32_011") {
-        TileShape::Current().SetVecTile(2, 32, 16);
+        TileShape::Current().SetVecTile(1, 32, 16);
         Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
         Tensor input(DT_FP32, {2, 32, 40}, "input");
         Tensor other(DT_FP32, {2, 32, 40}, "other");
@@ -967,10 +969,10 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_016) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_017 | 3D 双张量，N+H双轴切分
+// fp32_017 | 3D 双张量，C+H双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_017) {
     PROGRAM("WHERE_FP32_017") {
-        TileShape::Current().SetVecTile(1, 16, 16);
+        TileShape::Current().SetVecTile(1, 16, 40);
         Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
         Tensor input(DT_FP32, {2, 32, 40}, "input");
         Tensor other(DT_FP32, {2, 32, 40}, "other");
@@ -1122,7 +1124,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_024) {
 // fp32_025 | 4D 双张量，NCW三轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_025) {
     PROGRAM("WHERE_FP32_025") {
-        TileShape::Current().SetVecTile(1, 1, 16, 16);
+        TileShape::Current().SetVecTile(1, 1, 32, 16);
         Tensor condition(DT_UINT8, {2, 3, 32, 5}, "condition");
         Tensor input(DT_FP32, {2, 3, 32, 40}, "input");
         Tensor other(DT_FP32, {2, 3, 32, 40}, "other");
@@ -1138,14 +1140,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_025) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_026 | 2D 双标量，N+W占位切分
+// fp32_026 | 2D 双标量，H+W切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_026) {
     PROGRAM("WHERE_FP32_026") {
-        TileShape::Current().SetVecTile(1, 8);
+        TileShape::Current().SetVecTile(1, 4);
         Tensor condition(DT_UINT8, {2, 8}, "condition");
         Element input(DT_FP32, 1.0);
         Element other(DT_FP32, 2.0);
-        auto output = Tensor(DataType::DT_FP32, {2, 64}, "output");
+        auto output = Tensor(DataType::DT_FP32, {2, 4}, "output");
         FUNCTION("WHERE_FP32_026") {
             output = Where(condition, input, other);
         }
@@ -1157,14 +1159,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_026) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_027 | 3D 双标量，N+H+W占位切分
+// fp32_027 | 3D 双标量，C+H+W切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_027) {
     PROGRAM("WHERE_FP32_027") {
         TileShape::Current().SetVecTile(1, 4, 8);
-        Tensor condition(DT_UINT8, {1, 1, 8}, "condition");
+        Tensor condition(DT_UINT8, {2, 8, 64}, "condition");
         Element input(DT_FP32, 1.0);
         Element other(DT_FP32, 2.0);
-        auto output = Tensor(DataType::DT_FP32, {1, 8, 64}, "output");
+        auto output = Tensor(DataType::DT_FP32, {2, 8, 64}, "output");
         FUNCTION("WHERE_FP32_027") {
             output = Where(condition, input, other);
         }
@@ -1176,14 +1178,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_027) {
     codeGen.GenCode(*function, {});
 }
 
-// fp32_028 | 4D 双标量，N+C+H+W占位切分
+// fp32_028 | 4D 双标量，N+C+H+W切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_028) {
     PROGRAM("WHERE_FP32_028") {
-        TileShape::Current().SetVecTile(1, 1, 2, 8);
-        Tensor condition(DT_UINT8, {1, 1, 1, 8}, "condition");
+        TileShape::Current().SetVecTile(1, 2, 4, 8);
+        Tensor condition(DT_UINT8, {2, 4, 16, 32}, "condition");
         Element input(DT_FP32, 1.0);
         Element other(DT_FP32, 2.0);
-        auto output = Tensor(DataType::DT_FP32, {1, 1, 16, 64}, "output");
+        auto output = Tensor(DataType::DT_FP32, {2, 4, 16, 32}, "output");
         FUNCTION("WHERE_FP32_028") {
             output = Where(condition, input, other);
         }
