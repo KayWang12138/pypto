@@ -164,6 +164,7 @@ Status IsomorphismGraphGroup::BuildGraphGroup(
     subVisitedNodeSet_.clear();
     subVisitedNodeSet_.insert(expandCandidate.begin(), expandCandidate.end());
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
+
     for (int32_t nodeIdx : expandCandidate) {
         if (InLinkCountDelete(nodeIdx, idxInLinkNum, zeroInQueue) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "In-link count delete failed.");
@@ -175,7 +176,8 @@ Status IsomorphismGraphGroup::BuildGraphGroup(
             return FAILED;
         }
         sgPtr->AddNode(nodeIdx);
-        sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx];
+        sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx].scopeId;
+        sgPtr->SetAllowCrossScopeMerge(superNodeInfo->nodeScope_[nodeIdx].allowCrossScopeMerge);
         isoGraphs_.push_back(sgPtr);
     }
     mergeable_ = superNodeInfo_->nodeMergeable_[expandCandidate[0]];
@@ -187,7 +189,7 @@ Status IsomorphismGraphGroup::InLinkCountDelete(
 {
     for (int32_t consumer : superNodeInfo_->nodeOutGraph_[nodeIdx]) {
         if (consumer < 0 || consumer >= static_cast<int32_t>(idxInLinkNum.size())) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Consumer index illegal in InLinkCountDelete.");
+            APASS_LOG_ERROR_F(Elements::Operation, "Consumer index(%d) illegal in InLinkCountDelete.", consumer);
             return FAILED;
         }
         idxInLinkNum[consumer] -= 1;
@@ -296,7 +298,7 @@ bool IsomorphismGraphGroup::IsLegalIsoGraphExtender(
     }
     for (size_t i = 0; i < expandCandidate.size(); i++) {
         int origScopeId = isoGraphs_[i]->scopeId_;
-        int mergeScopeId = superNodeInfo_->nodeScope_[expandCandidate[i]];
+        int mergeScopeId = superNodeInfo_->nodeScope_[expandCandidate[i]].scopeId;
         if (origScopeId != mergeScopeId) {
             APASS_LOG_INFO_F(
                 Elements::Operation, "Cannot merge supernodes with different scopeId %d and %d.", origScopeId,
@@ -476,15 +478,31 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(
 
 bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
 {
-    for (auto graphPtr : isoSubGroups_[currColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1) {
-            return false;
+    // allowCrossScopeMerge=false：有 scope 的 subgraph 拒绝合并
+    // allowCrossScopeMerge=true：有 scope 的 subgraph 只能与 scope=-1 的 subgraph 合并
+    auto canMergeFrom = [this](const std::shared_ptr<IsomorphismGraphGroup>& fromGroup,
+                               const std::shared_ptr<IsomorphismGraphGroup>& toGroup) -> bool {
+        for (auto& g : fromGroup->isoGraphs_) {
+            if (g->scopeId_ == -1) continue;
+            if (!g->GetAllowCrossScopeMerge()) {
+                APASS_LOG_INFO_F(Elements::Operation,
+                    "Cannot merge: subgraph scopeId=%d with allowCrossScopeMerge=false.", g->scopeId_);
+                return false;
+            }
+            for (auto& tg : toGroup->isoGraphs_) {
+                if (tg->scopeId_ != -1) {
+                    APASS_LOG_INFO_F(Elements::Operation,
+                        "Cannot merge: allowCrossScopeMerge=true requires target scope=-1, got %d.", tg->scopeId_);
+                    return false;
+                }
+            }
         }
-    }
-    for (auto graphPtr : isoSubGroups_[mergeColor]->isoGraphs_) {
-        if (graphPtr->scopeId_ != -1) {
-            return false;
-        }
+        return true;
+    };
+
+    if (!canMergeFrom(isoSubGroups_[currColor], isoSubGroups_[mergeColor]) ||
+        !canMergeFrom(isoSubGroups_[mergeColor], isoSubGroups_[currColor])) {
+        return false;
     }
     std::set<OpCoreType> opcoreTypes{
         isoSubGroups_[currColor]->GetSubGraph(0)->coreType_, isoSubGroups_[mergeColor]->GetSubGraph(0)->coreType_};
