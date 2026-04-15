@@ -111,6 +111,9 @@ private:
         int32_t currColor, std::vector<std::set<int32_t>>& isoInGraph, std::vector<std::set<int32_t>>& isoOutGraph,
         std::vector<std::vector<int32_t>>& isoNodeList, std::vector<int32_t>& isoIdx2color, bool nonIsoGraphsMerge);
     bool SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const;
+    bool CanMergeScopes(int32_t currColor, int32_t mergeColor) const;
+    int32_t CalculateMergedLatency(int32_t currColor, int32_t mergeColor) const;
+    bool CheckIsoMergeConditions(int32_t currColorSize, int32_t mergeColorSize) const;
     std::vector<std::shared_ptr<IsomorphismGraphGroup>> isoSubGroups_;
     int32_t tryMergeLoopNum_ = 100;
     bool skipPartition_ = false;
