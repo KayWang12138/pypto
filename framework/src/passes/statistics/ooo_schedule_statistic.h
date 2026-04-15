@@ -19,23 +19,31 @@
 #include <nlohmann/json.hpp>
 #include "tilefwk/platform.h"
 #include "interface/function/function.h"
+#include "passes/statistics/schedule_observer.h"
 
 using Json = nlohmann::json;
 
 namespace npu {
 namespace tile_fwk {
-class OoOSchedulerCheck {
+class OoOScheduleStatistic : public ScheduleObserver {
 public:
+    // ScheduleObserver overrides
+    void OnPipeIssued(const PipeIssuedEvent& e) override;
+    void OnBufferAllocated(const BufferAllocEvent& e) override;
+    void OnBufferFreed(const BufferFreeEvent& e) override;
+    void OnSpill(const SpillEvent& e) override;
+    void OnScheduleEnd(const ScheduleEndEvent& e) override;
+
+    void SetOutputPrefix(const std::string& prefix) { jsonFileName = prefix; }
+
     Status DoHealthCheck(Function* function, const std::string& fileName);
     void HealthCheckSpillInfo();
     double FormatUsageRate(double value);
     Status HealthCheckOoOSchedule();
     void HealthCheckBlockGraph(Function* function);
     std::string jsonFileName;
-    bool doHealthCheck{false};
     int64_t workspaceOffset{0};
     int clock{0};
-    uint64_t spillCnt = 0;
     std::unordered_map<PipeType, uint64_t> pipeUsageCount = {
         {PipeType::PIPE_S, 0},    {PipeType::PIPE_V, 0},    {PipeType::PIPE_M, 0},  {PipeType::PIPE_MTE1, 0},
         {PipeType::PIPE_MTE2, 0}, {PipeType::PIPE_MTE3, 0}, {PipeType::PIPE_FIX, 0}};

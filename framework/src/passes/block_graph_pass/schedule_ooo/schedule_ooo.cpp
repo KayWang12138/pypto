@@ -61,13 +61,12 @@ void OoOSchedule::SortTaskList(std::vector<Operation*>& opList, std::vector<Oper
     taskList = newTaskList;
 }
 
-void OoOSchedule::OoOHealthCheck(OoOScheduler& oooSchedule, Function& function, std::pair<uint64_t, Function*>& program)
+void OoOSchedule::OoOHealthCheck(OoOScheduler& oooSchedule, OoOScheduleStatistic& oooCheck,
+    Function& function, std::pair<uint64_t, Function*>& program)
 {
-    if (oooSchedule.oooCheck.doHealthCheck) {
-        oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
-        oooSchedule.oooCheck.clock = oooSchedule.clock;
-        oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
-        schedulerMap.insert({program.first, oooSchedule});
+    if (passDfxconfigs_.healthCheck) {
+        oooCheck.SetOutputPrefix(GetDumpFilePrefix(function, false, program.second, program.first));
+        schedulerMap.insert({program.first, oooCheck});
     }
 }
 
@@ -78,7 +77,10 @@ Status OoOSchedule::NonMixSchedule(
     // 直接对oplist进行GenSpill和mainLoop
     APASS_LOG_INFO_F(Elements::Operation, "=============== START NonMixSchedule ===============");
     OoOScheduler oooSchedule(*program.second);
-    oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
+    OoOScheduleStatistic oooCheck;
+    if (passDfxconfigs_.healthCheck) {
+        oooSchedule.AddObserver(&oooCheck);
+    }
     if (oooSchedule.Schedule(opList) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
         return FAILED;
@@ -89,7 +91,7 @@ Status OoOSchedule::NonMixSchedule(
     RescheduleUtils::UpdateTensorConsProd(program.second);
     maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
     function.SetStackWorkespaceSize(maxWorkeSpaceSize);
-    OoOHealthCheck(oooSchedule, function, program);
+    OoOHealthCheck(oooSchedule, oooCheck, function, program);
     return SUCCESS;
 }
 
@@ -185,12 +187,15 @@ Status OoOSchedule::MixSchedule(
         return FAILED;
     }
     OoOScheduler oooSchedule(*program.second);
-    oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
+    OoOScheduleStatistic oooCheck;
+    if (passDfxconfigs_.healthCheck) {
+        oooSchedule.AddObserver(&oooCheck);
+    }
     if (oooSchedule.Schedule(opList, opCoreMap, CORE_INIT_CONFIGS_HARDWARE_TWO_AIV) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Schedule failed.");
         return FAILED;
     }
-    OoOHealthCheck(oooSchedule, function, program);
+    OoOHealthCheck(oooSchedule, oooCheck, function, program);
     APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%zu] OOOSchedule end.", program.first);
     program.second->ScheduleBy(oooSchedule.GetNewOperations());
     program.second->RecordOOOSeq();
@@ -327,12 +332,11 @@ Status OoOSchedule::RunOnFunction(Function& function)
 
 void OoOSchedule::DoHealthCheckAfter(Function& function, const std::string& folderPath)
 {
-    for (auto& scheduler : schedulerMap) {
-        auto fileName = folderPath + '/' + scheduler.second.oooCheck.jsonFileName + "_Block_Graph_Health_Report.json";
-        auto it = function.rootFunc_->programs_.find(scheduler.first);
+    for (auto& [programId, check] : schedulerMap) {
+        auto fileName = folderPath + '/' + check.jsonFileName + "_Block_Graph_Health_Report.json";
+        auto it = function.rootFunc_->programs_.find(programId);
         if (it != function.rootFunc_->programs_.end()) {
-            auto subFunc = it->second;
-            scheduler.second.oooCheck.DoHealthCheck(subFunc, fileName);
+            check.DoHealthCheck(it->second, fileName);
         }
     }
 }
