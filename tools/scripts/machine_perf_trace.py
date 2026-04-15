@@ -352,8 +352,10 @@ def get_task_cycle(
     task_name: str,
     idx: Optional[int] = None,
     round_id: Optional[int] = None,
+    sorted_tasks: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[float]:
-    for task in tasks:
+    tasks_by_end = sorted_tasks if sorted_tasks is not None else sort_tasks_by_end(tasks)
+    for task in tasks_by_end:
         base, task_round, num = parse_task_name(task.get("name", ""))
         if base != task_name:
             continue
@@ -369,9 +371,11 @@ def get_task_cycle_map(
     tasks: List[Dict[str, Any]],
     task_name: str,
     round_id: Optional[int] = None,
+    sorted_tasks: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[int, float]:
     cycle_map: Dict[int, float] = {}
-    for task in tasks:
+    tasks_by_end = sorted_tasks if sorted_tasks is not None else sort_tasks_by_end(tasks)
+    for task in tasks_by_end:
         base, task_round, num = parse_task_name(task.get("name", ""))
         if base != task_name:
             continue
@@ -387,6 +391,62 @@ def calc_duration_from_ends(start_end: Optional[float], end_end: Optional[float]
     if start_end is None or end_end is None:
         return None
     return end_end - start_end
+
+
+def sort_tasks_by_end(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return sorted(tasks, key=lambda x: float(x.get("end", 0)))
+
+
+def normalize_cores_tasks_by_end(aicpu_dev_pref: List[Dict[str, Any]]) -> None:
+    for core in aicpu_dev_pref:
+        tasks = core.get("tasks", [])
+        if isinstance(tasks, list):
+            core["tasks"] = sort_tasks_by_end(tasks)
+
+
+def get_event_duration(
+    tasks: List[Dict[str, Any]],
+    event_name: str,
+    round_id: Optional[int] = None,
+    idx: Optional[int] = None,
+) -> Optional[float]:
+    prev_end: Optional[float] = None
+    for task in sort_tasks_by_end(tasks):
+        base, task_round, task_idx = parse_task_name(task.get("name", ""))
+        if round_id is not None and task_round != round_id:
+            continue
+
+        task_end = float(task.get("end", 0))
+        event_dur = None if prev_end is None else (task_end - prev_end)
+
+        if base == event_name and (idx is None or task_idx == idx):
+            return event_dur
+
+        prev_end = task_end
+    return None
+
+
+def calc_sched_post_process_sum(
+    tasks: List[Dict[str, Any]],
+    round_id: Optional[int],
+) -> Optional[float]:
+    post_events = [
+        ("DEV_TASK_SYNC_CORE_STOP", 0),
+        ("DEV_TASK_RSP", 0),
+        ("WAIT_ALL_DEV_TASK_FINISH", None),
+        ("WAIT_CORE_EXIT", None),
+        ("EXIT", None),
+    ]
+
+    total = 0.0
+    found = False
+    for event_name, idx in post_events:
+        dur = get_event_duration(tasks, event_name, round_id, idx)
+        if dur is None:
+            continue
+        found = True
+        total += max(dur, 0.0)
+    return total if found else None
 
 
 @dataclass(frozen=True)
@@ -438,12 +498,13 @@ def collect_aicore_exec_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Opt
         if not (core_type.startswith("SCHED") and ("-AIC" in core_type or "-AIV" in core_type)):
             continue
         tasks = core.get("tasks", [])
-        begin = get_task_cycle(tasks, "BEGIN", None, round_id)
-        wait_first_map = get_task_cycle_map(tasks, "DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK", round_id)
-        all_exec_map = get_task_cycle_map(tasks, "DEV_TASK_ALL_LEAF_TASK_EXEC", round_id)
+        sorted_tasks = sort_tasks_by_end(tasks)
+        begin = get_task_cycle(tasks, "BEGIN", None, round_id, sorted_tasks)
+        wait_first_map = get_task_cycle_map(tasks, "DEV_TASK_WAIT_RCV_FIRST_LEAF_TASK", round_id, sorted_tasks)
+        all_exec_map = get_task_cycle_map(tasks, "DEV_TASK_ALL_LEAF_TASK_EXEC", round_id, sorted_tasks)
         wait_first = wait_first_map.get(0)
         all_exec = all_exec_map.get(0)
-        wait_exit_notify = get_task_cycle(tasks, "WAIT_EXIT_NOTIFY", None, round_id)
+        wait_exit_notify = get_task_cycle(tasks, "WAIT_EXIT_NOTIFY", None, round_id, sorted_tasks)
         if not all_exec_map:
             continue
 
@@ -519,8 +580,8 @@ def build_ctrl_row(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]
     tasks = ctrl.get("tasks", [])
     freq = float(ctrl.get("freq", 0)) or 1.0
     block_idx = int(ctrl.get("blockIdx", 0))
-    build_dur = get_task_duration(tasks, TaskPoint("BEGIN"), TaskPoint("DEV_TASK_BUILD", 0), round_id)
-    ctrl_post_dur = get_task_duration(tasks, TaskPoint("DEV_TASK_BUILD", 0), TaskPoint("EXIT"), round_id)
+    build_dur = get_event_duration(tasks, "DEV_TASK_BUILD", round_id, 0)
+    ctrl_post_dur = get_event_duration(tasks, "EXIT", round_id)
     ctrl_total_dur = get_task_duration(tasks, TaskPoint("BEGIN"), TaskPoint("EXIT"), round_id)
     return [
         f"AICPU-CTRL-{block_idx}",
@@ -542,11 +603,11 @@ def build_sched_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[in
         block_idx = int(s.get("blockIdx", -1))
         tasks = s.get("tasks", [])
         freq = float(s.get("freq", 0)) or 1.0
-        alloc_dur = get_task_duration(tasks, TaskPoint("BEGIN"), TaskPoint("ALLOC_THREAD_ID"), round_id)
-        init_dur = get_task_duration(tasks, TaskPoint("ALLOC_THREAD_ID"), TaskPoint("INIT"), round_id)
-        handshake_dur = get_task_duration(tasks, TaskPoint("INIT"), TaskPoint("CORE_HAND_SHAKE"), round_id)
-        dev_task_rcv = get_task_duration(tasks, TaskPoint("CORE_HAND_SHAKE"), TaskPoint("DEV_TASK_RCV", 0), round_id)
-        post_dur = get_task_duration(tasks, TaskPoint("DEV_TASK_SCHED_EXEC", 0), TaskPoint("EXIT"), round_id)
+        alloc_dur = get_event_duration(tasks, "ALLOC_THREAD_ID", round_id)
+        init_dur = get_event_duration(tasks, "INIT", round_id)
+        handshake_dur = get_event_duration(tasks, "CORE_HAND_SHAKE", round_id)
+        dev_task_rcv = get_event_duration(tasks, "DEV_TASK_RCV", round_id, 0)
+        post_dur = calc_sched_post_process_sum(tasks, round_id)
         sched_total_dur = get_task_duration(tasks, TaskPoint("BEGIN"), TaskPoint("WAIT_CORE_EXIT"), round_id)
         rows.append(
             [
@@ -616,6 +677,7 @@ def analyze_output_command(output_dir_arg: Optional[str]) -> None:
     if not isinstance(aicpu_dev_pref, list):
         print("Error: invalid aicpu_dev_pref.json format, expected list")
         return
+    normalize_cores_tasks_by_end(aicpu_dev_pref)
 
     rounds = collect_round_ids(aicpu_dev_pref)
     for round_id in rounds:

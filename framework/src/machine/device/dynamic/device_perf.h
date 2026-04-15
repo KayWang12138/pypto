@@ -237,6 +237,9 @@ struct PerfEvtMgr {
                     aicpuMetrics->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt] =
                         cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
                 }
+            } else {
+                DEV_WARN("PerfTraceDevTask overflow, tid=%u, type=%u, max=%u", tid, type,
+                         PERF_TRACE_COUNT_DEVTASK_MAX_NUM);
             }
             return;
         }
