@@ -184,6 +184,29 @@ REGISTER_OP("manual.move")
       return out_type;
     });
 
+// manual.move_fp: (src_tile, fp_tile, out) -> TileType (out's type)
+REGISTER_OP("manual.move_fp")
+    .set_op_category("ManualOp")
+    .set_description(
+        "Manual move with scaling tile: convert an Acc tile into a pre-allocated Vec tile.")
+    .add_argument("src", "Source tile (TileType, Acc memory)")
+    .add_argument("fp_tile", "Floating-point parameter tile (TileType, Scaling memory)")
+    .add_argument("out", "Pre-allocated destination tile (TileType, Vec memory)")
+    .set_attr<std::string>("acc_to_vec_mode")
+    .set_attr<std::string>("relu_pre_mode")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      CHECK(args.size() == 3)
+          << "The operator manual.move_fp requires 3 arguments, but got " << args.size();
+      CHECK(As<TileType>(args[0]->GetType()))
+          << "manual.move_fp: arg 0 must be TileType";
+      CHECK(As<TileType>(args[1]->GetType()))
+          << "manual.move_fp: arg 1 must be TileType";
+      auto out_type = As<TileType>(args.back()->GetType());
+      CHECK(out_type) << "manual.move_fp: last argument (out) must be TileType";
+      return out_type;
+    });
+
 // manual.insert: (src, index_row, index_col, out) or (src, index_row, index_col, offset, out) -> TileType
 REGISTER_OP("manual.insert")
     .set_op_category("ManualOp")

@@ -306,6 +306,89 @@ def test_manual_store_fp_emits_cce_codegen():
     assert "TASSIGN(outputGlobal" in code
 
 
+def test_manual_move_fp_emits_cce_tmov_fp():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualMoveFpCCEProgram:
+        @pl.function
+        def move_fp_cce_kernel(self):
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            dst_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT8,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+            plm.move(dst, src, fp_tile=fp)
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualMoveFpCCEProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    kernel_name = list(optimized_program.functions.values())[0].name
+    kernel_path = next(path for path in files if path.endswith(kernel_name + ".cpp"))
+    code = files[kernel_path]
+
+    assert "TMOV_FP(" in code
+    assert "TileType::Scaling" in code
+
+
+def test_manual_move_fp_emits_cce_single_mode_template():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualMoveFpModeCCEProgram:
+        @pl.function
+        def move_fp_mode_cce_kernel(self):
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            dst_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT8,
+                target_memory=pl.MemorySpace.Vec,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            dst = plm.make_tile(dst_type, addr=0x2000, size=1024)
+            plm.move(dst, src, fp_tile=fp, acc_to_vec_mode="single_vec0", relu_pre_mode="normal_relu")
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualMoveFpModeCCEProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    kernel_name = list(optimized_program.functions.values())[0].name
+    kernel_path = next(path for path in files if path.endswith(kernel_name + ".cpp"))
+    code = files[kernel_path]
+
+    assert "TMOV<decltype(" in code
+    assert "AccToVecMode::SingleModeVec0" in code
+    assert "ReluPreMode::NormalRelu" in code
+
+
 class TestControlFlowCodegen:
     """Test control flow statement code generation."""
 

@@ -421,6 +421,7 @@ def move(
     acc_to_vec_mode: Literal["single_vec0", "single_vec1", "dual_split_m", "dual_split_n"] | None = None,
     relu_pre_mode: Literal["no_relu", "normal_relu"] | None = None,
     pre_quant_scalar: int | None = None,
+    fp_tile: Tile | None = None,
 ) -> None:
     """Move a tile between memory levels, writing into a pre-allocated buffer.
 
@@ -439,15 +440,22 @@ def move(
             - "no_relu": NoRelu (default)
             - "normal_relu": NormalRelu
         pre_quant_scalar: Pre-quantization scalar value (optional).
+        fp_tile: Floating-point parameter tile for TMOV_FP-style conversion
+            (optional). When set, move lowers to ``manual.move_fp`` and cannot
+            be combined with ``pre_quant_scalar`` or dual-split acc-to-vec modes.
     """
-    kwargs = {}
-    if acc_to_vec_mode is not None:
-        kwargs["acc_to_vec_mode"] = acc_to_vec_mode
-    if relu_pre_mode is not None:
-        kwargs["relu_pre_mode"] = relu_pre_mode
-    if pre_quant_scalar is not None:
-        kwargs["pre_quant_scalar"] = pre_quant_scalar
-    _op("manual.move", [tile.unwrap()], out, **kwargs)
+    if fp_tile is not None and pre_quant_scalar is not None:
+        raise ValueError("fp_tile cannot be used together with pre_quant_scalar")
+    if fp_tile is not None and acc_to_vec_mode in {"dual_split_m", "dual_split_n"}:
+        raise ValueError("fp_tile only supports single-mode acc_to_vec_mode")
+    out._expr = _ir_manual.move(
+        out.unwrap(),
+        tile.unwrap(),
+        acc_to_vec_mode=acc_to_vec_mode,
+        relu_pre_mode=relu_pre_mode,
+        pre_quant_scalar=pre_quant_scalar,
+        fp_tile=fp_tile.unwrap() if fp_tile is not None else None,
+    )
 
 
 def insert(
