@@ -102,60 +102,71 @@ bool IsSubGraphBoundaryBase(const LogicalTensor& tensor)
     return false;
 }
 
+bool IsDdrTensor(const LogicalTensor& tensor)
+{
+    return tensor.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+}
+
+bool TryVisitReshapeNeighbor(
+    const LogicalTensor& current, const LogicalTensorPtr& neighbor, std::unordered_set<const LogicalTensor*>& visited,
+    std::queue<const LogicalTensor*>& pending)
+{
+    if (neighbor == nullptr) {
+        return false;
+    }
+    if (IsDdrTensor(current) && IsDdrTensor(*neighbor)) {
+        return true;
+    }
+    if (!visited.insert(neighbor.get()).second) {
+        return false;
+    }
+    if (IsSubGraphBoundaryBase(*neighbor)) {
+        return true;
+    }
+    pending.push(neighbor.get());
+    return false;
+}
+
+bool EnqueueReshapeNeighbors(
+    const LogicalTensor& current, std::unordered_set<const LogicalTensor*>& visited,
+    std::queue<const LogicalTensor*>& pending)
+{
+    for (const auto& producer : current.GetProducers()) {
+        if (producer->GetOpcode() == Opcode::OP_RESHAPE && !producer->GetIOperands().empty()) {
+            if (TryVisitReshapeNeighbor(current, producer->GetIOperands().front(), visited, pending)) {
+                return true;
+            }
+        }
+    }
+    for (const auto& consumer : current.GetConsumers()) {
+        if (consumer->GetOpcode() == Opcode::OP_RESHAPE && !consumer->GetOOperands().empty()) {
+            if (TryVisitReshapeNeighbor(current, consumer->GetOOperands().front(), visited, pending)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool IsSubGraphBoundaryImpl(const LogicalTensor& tensor)
 {
     if (IsSubGraphBoundaryBase(tensor)) {
         return true;
     }
 
-    // RESHAPE chain propagation: BFS through RESHAPE connections
+    // RESHAPE chain propagation: BFS through RESHAPE connections.
     std::unordered_set<const LogicalTensor*> visited;
-    std::queue<const LogicalTensor*> queue;
+    std::queue<const LogicalTensor*> pending;
     visited.insert(&tensor);
 
-    auto enqueueReshapeNeighbors = [&](const LogicalTensor& current) {
-        for (const auto& producer : current.GetProducers()) {
-            if (producer->GetOpcode() == Opcode::OP_RESHAPE && !producer->GetIOperands().empty()) {
-                const auto& reshapeIn = producer->GetIOperands().front();
-                // Both sides on DDR → boundary
-                if (current.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                    reshapeIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                    return true;
-                }
-                if (visited.insert(reshapeIn.get()).second) {
-                    if (IsSubGraphBoundaryBase(*reshapeIn)) {
-                        return true;
-                    }
-                    queue.push(reshapeIn.get());
-                }
-            }
-        }
-        for (const auto& consumer : current.GetConsumers()) {
-            if (consumer->GetOpcode() == Opcode::OP_RESHAPE && !consumer->GetOOperands().empty()) {
-                const auto& reshapeOut = consumer->GetOOperands().front();
-                // Both sides on DDR → boundary
-                if (current.GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
-                    reshapeOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                    return true;
-                }
-                if (visited.insert(reshapeOut.get()).second) {
-                    if (IsSubGraphBoundaryBase(*reshapeOut)) {
-                        return true;
-                    }
-                    queue.push(reshapeOut.get());
-                }
-            }
-        }
-        return false;
-    };
-
-    if (enqueueReshapeNeighbors(tensor)) {
+    if (EnqueueReshapeNeighbors(tensor, visited, pending)) {
         return true;
     }
-    while (!queue.empty()) {
-        const auto* current = queue.front();
-        queue.pop();
-        if (enqueueReshapeNeighbors(*current)) {
+
+    while (!pending.empty()) {
+        const auto* current = pending.front();
+        pending.pop();
+        if (EnqueueReshapeNeighbors(*current, visited, pending)) {
             return true;
         }
     }
