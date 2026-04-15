@@ -145,8 +145,24 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
     const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent, int32_t src,
     int32_t dst)
 {
+    APASS_LOG_ERROR_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: Request merge src_idx=%d [opMagic=%d, opcode=%s, coreType=%s] "
+        "to dst_idx=%d [opMagic=%d, opcode=%s, coreType=%s]",
+        src, operationGraphInfo->opList_[src]->GetOpMagic(), operationGraphInfo->opList_[src]->GetOpcodeStr().c_str(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[src]).c_str(), dst,
+        operationGraphInfo->opList_[dst]->GetOpMagic(), operationGraphInfo->opList_[dst]->GetOpcodeStr().c_str(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[dst]).c_str());
     int32_t srcParent = FindParent(parent, src);
     int32_t dstParent = FindParent(parent, dst);
+    APASS_LOG_ERROR_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: Found parents - srcParent_idx=%d [opMagic=%d, coreType=%s], "
+        "dstParent_idx=%d [opMagic=%d, coreType=%s]",
+        srcParent, operationGraphInfo->opList_[srcParent]->GetOpMagic(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[srcParent]).c_str(), dstParent,
+        operationGraphInfo->opList_[dstParent]->GetOpMagic(),
+        GetOpCoreTypeStr(operationGraphInfo->opCoreType_[dstParent]).c_str());
     if (srcParent == -1 || dstParent == -1) {
         APASS_LOG_ERROR_F(
             Elements::Operation, "Merge node in the disjoint set failed.%s",
@@ -156,6 +172,30 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
     std::set<OpCoreType> coreTypes{
         operationGraphInfo->opCoreType_[src], operationGraphInfo->opCoreType_[dst],
         operationGraphInfo->opCoreType_[srcParent], operationGraphInfo->opCoreType_[dstParent]};
+    std::vector<std::pair<int32_t, OpCoreType>> srcIslandMembers;
+    std::vector<std::pair<int32_t, OpCoreType>> dstIslandMembers;
+    for (size_t k = 0; k < parent.size(); k++) {
+        if (FindParent(parent, k) == srcParent) {
+            coreTypes.insert(operationGraphInfo->opCoreType_[k]);
+            srcIslandMembers.emplace_back(k, operationGraphInfo->opCoreType_[k]);
+        } else if (FindParent(parent, k) == dstParent) {
+            coreTypes.insert(operationGraphInfo->opCoreType_[k]);
+            dstIslandMembers.emplace_back(k, operationGraphInfo->opCoreType_[k]);
+        }
+    }
+    {
+        std::string coreTypesStr;
+        for (const auto& ct : coreTypes) {
+            if (!coreTypesStr.empty()) {
+                coreTypesStr += ", ";
+            }
+            coreTypesStr += GetOpCoreTypeStr(ct);
+        }
+        APASS_LOG_ERROR_F(
+            Elements::Operation,
+            "MergeSrcToDstIsland: Collected coreTypes={%s}, srcIsland memberCount=%zu, dstIsland memberCount=%zu",
+            coreTypesStr.c_str(), srcIslandMembers.size(), dstIslandMembers.size());
+    }
     bool isAICPUandVIEW = false;
     isAICPUandVIEW = isAICPUandVIEW || (operationGraphInfo->opCoreType_[src] == OpCoreType::AICPU &&
                                         operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_VIEW);
@@ -181,21 +221,47 @@ Status NodeGraphInfo::MergeSrcToDstIsland(
                                                 operationGraphInfo->opList_[dst]->GetOpcode() == Opcode::OP_ASSEMBLE);
     isAICPUandAssemble = isAICPUandAssemble || (operationGraphInfo->opCoreType_[dst] == OpCoreType::AICPU &&
                                                 operationGraphInfo->opList_[src]->GetOpcode() == Opcode::OP_ASSEMBLE);
+    APASS_LOG_ERROR_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: Mergeability check - isAICPUandVIEW=%d, isAICPUandAssemble=%d, "
+        "hubWithViewAssemble=%d, CoreTypeMergeable=%d",
+        isAICPUandVIEW, isAICPUandAssemble, hubWithViewAssemble, operationGraphInfo->CoreTypeMergeable(coreTypes));
     if ((!hubWithViewAssemble) && (!isAICPUandVIEW) && (!isAICPUandAssemble) &&
         (!operationGraphInfo->CoreTypeMergeable(coreTypes))) {
         APASS_LOG_ERROR_F(
-            Elements::Operation, "Try to merge operations with different OpCoreType in building SuperNode.");
-        std::set<int> mergeIdxs{src, srcParent, dst, dstParent};
-        for (int mergeIdx : mergeIdxs) {
-            auto& mergeOp = operationGraphInfo->opList_[mergeIdx];
+            Elements::Operation,
+            "Try to merge operations with different OpCoreType in building SuperNode. "
+            "coreTypes size=%zu.",
+            coreTypes.size());
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "MergeSrcToDstIsland: srcIsland (parent=%d, opMagic=%d) members:", srcParent,
+            operationGraphInfo->opList_[srcParent]->GetOpMagic());
+        for (const auto& [idx, ct] : srcIslandMembers) {
             APASS_LOG_ERROR_F(
-                Elements::Operation, "%s [opMagic: %d] [opCoreType: %s].%s", mergeOp->GetOpcodeStr().c_str(),
-                mergeOp->GetOpMagic(), GetOpCoreTypeStr(operationGraphInfo->opCoreType_[mergeIdx]).c_str(),
-                GetFormatBacktrace(*mergeOp).c_str());
+                Elements::Operation, "  [%d] %s [opMagic=%d, coreType=%s]%s", idx,
+                operationGraphInfo->opList_[idx]->GetOpcodeStr().c_str(),
+                operationGraphInfo->opList_[idx]->GetOpMagic(), GetOpCoreTypeStr(ct).c_str(),
+                GetFormatBacktrace(*(operationGraphInfo->opList_[idx])).c_str());
+        }
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "MergeSrcToDstIsland: dstIsland (parent=%d, opMagic=%d) members:", dstParent,
+            operationGraphInfo->opList_[dstParent]->GetOpMagic());
+        for (const auto& [idx, ct] : dstIslandMembers) {
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "  [%d] %s [opMagic=%d, coreType=%s]%s", idx,
+                operationGraphInfo->opList_[idx]->GetOpcodeStr().c_str(),
+                operationGraphInfo->opList_[idx]->GetOpMagic(), GetOpCoreTypeStr(ct).c_str(),
+                GetFormatBacktrace(*(operationGraphInfo->opList_[idx])).c_str());
         }
         return FAILED;
     }
     parent[srcParent] = dstParent;
+    APASS_LOG_ERROR_F(
+        Elements::Operation,
+        "MergeSrcToDstIsland: SUCCESS - Merged srcParent_idx=%d [opMagic=%d] "
+        "into dstParent_idx=%d [opMagic=%d]",
+        srcParent, operationGraphInfo->opList_[srcParent]->GetOpMagic(), dstParent,
+        operationGraphInfo->opList_[dstParent]->GetOpMagic());
     return SUCCESS;
 }
 
@@ -285,7 +351,7 @@ Status NodeGraphInfo::AvoidLoop(
         updated = true;
         for (size_t opIdx = 1; opIdx < expandNode.size(); opIdx++) {
             if (MergeSrcToDstIsland(operationGraphInfo, parent, expandNode[0], expandNode[opIdx]) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Function, "Build the disjoint set failed.");
+                APASS_LOG_ERROR_F(Elements::Function, "Build2 the disjoint set failed.");
                 return FAILED;
             }
         }
@@ -410,7 +476,7 @@ int32_t NodeGraphInfo::GetNodeCycle(int32_t nodeIdx) const
     return nodeCycles_[nodeIdx];
 }
 
-Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*>& opList)
+Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*>& opList, const Function& function)
 {
     operationInfo_ = std::make_shared<OperationGraphInfo>();
     if (operationInfo_ == nullptr) {
@@ -423,7 +489,25 @@ Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*>& opList
     operationInfo_->opHashList_.resize(opList.size());
     operationInfo_->opCoreType_.resize(opList.size());
     operationInfo_->useCVMixPartition_ = useCVMixPartition_;
+
+    int64_t totalLatency = 0;
     for (size_t i = 0; i < opList.size(); i++) {
+        int64_t latency = opList[i]->GetLatency();
+        totalLatency += latency;
+        operationInfo_->magic2Idx_[opList[i]->GetOpMagic()] = i;
+    }
+
+    APASS_LOG_ERROR_F(
+        Elements::Function, "Function: %s, OpCount: %zu, TotalLatency: %ld", function.GetRawName().c_str(),
+        opList.size(), totalLatency);
+    operationInfo_->opList_ = opList;
+    operationInfo_->inGraph_.resize(opList.size());
+    operationInfo_->outGraph_.resize(opList.size());
+    operationInfo_->opHashList_.resize(opList.size());
+    operationInfo_->opCoreType_.resize(opList.size());
+    operationInfo_->useCVMixPartition_ = useCVMixPartition_;
+    for (size_t i = 0; i < opList.size(); i++) {
+        opList[i]->GetLatency();
         operationInfo_->magic2Idx_[opList[i]->GetOpMagic()] = i;
     }
     for (size_t i = 0; i < opList.size(); i++) {
@@ -463,13 +547,13 @@ inline bool SuperNodeGraphBuilder::L1CopyInCombine(
     if (IsL0cToL1MoveOp(opList[i])) {
         for (auto outNode : operationInfo->outGraph_[i]) {
             mergePair.emplace_back(outNode, i);
-            APASS_LOG_DEBUG_F(
+            APASS_LOG_ERROR_F(
                 Elements::Operation, "Combine %d and %d(outNode) for L1 CopyIn in building SuperNode.",
                 opList[i]->GetOpMagic(), opList[outNode]->GetOpMagic());
         }
         for (auto inNode : operationInfo->inGraph_[i]) {
             mergePair.emplace_back(inNode, i);
-            APASS_LOG_DEBUG_F(
+            APASS_LOG_ERROR_F(
                 Elements::Operation, "Combine %d and %d(inNode) for L1 CopyIn in building SuperNode.",
                 opList[i]->GetOpMagic(), opList[inNode]->GetOpMagic());
         }
@@ -482,9 +566,15 @@ inline bool SuperNodeGraphBuilder::L1CopyInCombine(
          opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE)) {
         for (auto outNode : operationInfo->outGraph_[i]) {
             mergePair.emplace_back(outNode, i);
-            APASS_LOG_DEBUG_F(
+            APASS_LOG_ERROR_F(
                 Elements::Operation, "Combine %d and %d for L1 CopyIn in building SuperNode.", opList[i]->GetOpMagic(),
                 opList[outNode]->GetOpMagic());
+            if (opList[i]->GetOpcode() == Opcode::OP_VIEW) {
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "L1CopyInCombine VIEW: opMagic=%d, inputMemType=%d, outputMemType=%d",
+                    opList[i]->GetOpMagic(), static_cast<int>(opList[i]->GetIOperands()[0]->GetMemoryTypeOriginal()),
+                    static_cast<int>(opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal()));
+            }
         }
         return true;
     }
@@ -516,14 +606,23 @@ inline bool SuperNodeGraphBuilder::ConvertCombine(
     if (isAICtoAIV || isAIVtoAIC) {
         for (auto inNode : operationInfo->inGraph_[i]) {
             mergePair.emplace_back(inNode, i);
+            APASS_LOG_ERROR_F(
+                Elements::Operation, "Combine %d and %d for Convert(AICtoAIV/AIVtoAIC) in building SuperNode.",
+                opList[i]->GetOpMagic(), opList[inNode]->GetOpMagic());
         }
         return true;
     }
     for (auto inNode : operationInfo->inGraph_[i]) {
         mergePair.emplace_back(inNode, i);
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "Combine %d and %d for Convert(inNode) in building SuperNode.",
+            opList[i]->GetOpMagic(), opList[inNode]->GetOpMagic());
     }
     for (auto outNode : operationInfo->outGraph_[i]) {
         mergePair.emplace_back(outNode, i);
+        APASS_LOG_ERROR_F(
+            Elements::Operation, "Combine %d and %d for Convert(outNode) in building SuperNode.",
+            opList[i]->GetOpMagic(), opList[outNode]->GetOpMagic());
     }
     return true;
 }
@@ -547,7 +646,7 @@ inline bool SuperNodeGraphBuilder::AssembleCombine(
         // assmemble和其输入绑定
         if (operationInfo->inGraph_[i].size() > 0) {
             mergePair.emplace_back(i, *(operationInfo->inGraph_[i].begin()));
-            APASS_LOG_DEBUG_F(
+            APASS_LOG_ERROR_F(
                 Elements::Operation, "Combine %d and %d for Assemble in building SuperNode.", opList[i]->GetOpMagic(),
                 opList[*(operationInfo->inGraph_[i].begin())]->GetOpMagic());
         }
@@ -568,7 +667,7 @@ inline bool SuperNodeGraphBuilder::CopyOutCombine(
     if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_OUT || assembleScene) {
         for (auto inNode : operationInfo->inGraph_[i]) {
             mergePair.emplace_back(inNode, i);
-            APASS_LOG_DEBUG_F(
+            APASS_LOG_ERROR_F(
                 Elements::Operation, "Combine %d and %d for CopyOut in building SuperNode.",
                 opList[inNode]->GetOpMagic(), opList[i]->GetOpMagic());
         }
@@ -589,7 +688,7 @@ inline bool SuperNodeGraphBuilder::CopyInCombine(
          OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_LOCAL) &&
         operationInfo->outGraph_[i].size() > 0) {
         mergePair.emplace_back(i, *(operationInfo->outGraph_[i].begin()));
-        APASS_LOG_DEBUG_F(
+        APASS_LOG_ERROR_F(
             Elements::Operation, "Combine %d and %d for CopyIn in building SuperNode.", opList[i]->GetOpMagic(),
             opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
         return true;
@@ -609,7 +708,7 @@ inline bool SuperNodeGraphBuilder::MulAccCombine(
         for (auto inOp : operationInfo->inGraph_[i]) {
             if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
                 mergePair.emplace_back(i, inOp);
-                APASS_LOG_DEBUG_F(
+                APASS_LOG_ERROR_F(
                     Elements::Operation, "Combine %d and %d for MulAcc in building SuperNode.", opList[i]->GetOpMagic(),
                     opList[inOp]->GetOpMagic());
             }
@@ -618,7 +717,7 @@ inline bool SuperNodeGraphBuilder::MulAccCombine(
             if (opList[outOp]->GetOpcode() == Opcode::OP_VIEW && !opList[outOp]->GetOOperands().empty() &&
                 opList[outOp]->GetOOperands().front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
                 mergePair.emplace_back(i, outOp);
-                APASS_LOG_DEBUG_F(
+                APASS_LOG_ERROR_F(
                     Elements::Operation, "Combine MatMul %d and View %d in building SuperNode.",
                     opList[i]->GetOpMagic(), opList[outOp]->GetOpMagic());
             }
@@ -640,8 +739,32 @@ inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation* op)
     return true;
 }
 
+inline void UpdateConsumerScopeId(Operation* op, int targetScope)
+{
+    op->SetScopeId(targetScope);
+    for (auto& consumer : op->ConsumerOps()) {
+        if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            UpdateConsumerScopeId(consumer, targetScope);
+        }
+    }
+}
+
+inline void UpdateProducerScopeId(Operation* op, int targetScope)
+{
+    op->SetScopeId(targetScope);
+    for (auto& producer : op->ProducerOps()) {
+        if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
+            UpdateProducerScopeId(producer, targetScope);
+        }
+    }
+}
 inline void UpdateScopeId(std::vector<Operation*>& opList)
 {
+    for (size_t i = 0; i < opList.size(); i++) {
+        if (opList[i]->GetOpcode() == Opcode::OP_VIEW || opList[i]->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            opList[i]->SetScopeId(DEFAULT_SCOPE_ID);
+        }
+    }
     for (size_t i = 0; i < opList.size(); i++) {
         int targetScope = opList[i]->GetScopeId();
         if (targetScope == DEFAULT_SCOPE_ID) {
@@ -649,12 +772,12 @@ inline void UpdateScopeId(std::vector<Operation*>& opList)
         }
         for (auto& consumer : opList[i]->ConsumerOps()) {
             if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                consumer->SetScopeId(targetScope);
+                UpdateConsumerScopeId(consumer, targetScope);
             }
         }
         for (auto& producer : opList[i]->ProducerOps()) {
             if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
-                producer->SetScopeId(targetScope);
+                UpdateProducerScopeId(producer, targetScope);
             }
         }
     }
@@ -677,6 +800,9 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         for (auto outputNode : operationInfo_->outGraph_[i]) {
             if (opList[outputNode]->GetScopeId() == targetScope) {
                 mergePair.emplace_back(outputNode, i);
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "Combine %d and %d for Scope in building SuperNode.", opList[i]->GetOpMagic(),
+                    opList[outputNode]->GetOpMagic());
             }
         }
     }
@@ -733,7 +859,7 @@ std::vector<std::pair<int32_t, int32_t>> SuperNodeGraphBuilder::GetReduceNodeMer
             for (auto inOp : operationInfo_->inGraph_[i]) {
                 if (OpcodeManager::Inst().GetOpCalcType(opList[inOp]->GetOpcode()) == OpCalcType::MATMUL) {
                     mergePair.emplace_back(i, inOp);
-                    APASS_LOG_DEBUG_F(
+                    APASS_LOG_ERROR_F(
                         Elements::Operation, "Combine %d and %d for MulAcc in building ReduceNode.",
                         opList[i]->GetOpMagic(), opList[inOp]->GetOpMagic());
                 }
@@ -743,7 +869,7 @@ std::vector<std::pair<int32_t, int32_t>> SuperNodeGraphBuilder::GetReduceNodeMer
         if (reduceType.count(opList[i]->GetOpcode()) > 0 && operationInfo_->outGraph_[i].size() == 1 &&
             opList[i]->GetOpcode() == opList[*(operationInfo_->outGraph_[i].begin())]->GetOpcode()) {
             mergePair.emplace_back(i, *(operationInfo_->outGraph_[i].begin()));
-            APASS_LOG_DEBUG_F(
+            APASS_LOG_ERROR_F(
                 Elements::Operation, "Combine %d and %d for Reduce AIV Operation in building ReduceNode.",
                 opList[i]->GetOpMagic(), opList[*(operationInfo_->outGraph_[i].begin())]->GetOpMagic());
         }

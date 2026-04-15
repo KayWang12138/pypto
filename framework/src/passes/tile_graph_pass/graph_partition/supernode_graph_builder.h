@@ -69,7 +69,7 @@ public:
     virtual ~SuperNodeGraphBuilder() = default;
 
 protected:
-    Status BuildOpGraph(const std::vector<Operation*>& opList);
+    Status BuildOpGraph(const std::vector<Operation*>& opList, const Function& function);
     virtual Status BuildSuperNodeGraph();
     Status BuildHashValues();
 
