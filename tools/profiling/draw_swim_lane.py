@@ -350,9 +350,11 @@ def enrich_sync_events_with_mix_info(mix_event_path):
     with open(mix_event_path, "r") as f:
         mix_event_data = json.load(f)
     leaf_hash_to_events = {}
-    for root_hash_str, wrap_info_list in mix_event_data.items():
-        for wrap_info in wrap_info_list:
-            for core_task in wrap_info.get("coreTask", []):
+    for mix_info in mix_event_data:
+        wrap_infos = mix_info.get("wrapInfos", [])
+        for wrap_info in wrap_infos:
+            core_tasks = wrap_info.get("coreTask", [])
+            for core_task in core_tasks:
                 leaf_hash = core_task.get("hashValue")
                 sync_msg = core_task.get("syncMsg", [])
                 if leaf_hash not in leaf_hash_to_events:
