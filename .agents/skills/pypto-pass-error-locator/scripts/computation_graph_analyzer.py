@@ -19,6 +19,7 @@ PyPTO 计算图 JSON 分析工具
 
 import json
 import os
+import argparse
 from typing import Dict, List, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -364,3 +365,70 @@ class ComputationGraphAnalyzer:
             global_tensors=func_data.get('global_tensors', []),
             raw_data=func_data
         )
+
+
+def _build_summary(analyzer: ComputationGraphAnalyzer, args: argparse.Namespace) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {
+        "json_path": args.json_path,
+        "op_magic": args.op_magic,
+        "tensor_magic": args.tensor_magic,
+    }
+
+    if args.op_magic is not None:
+        op = analyzer.find_operation_by_magic(args.op_magic)
+        summary["operation"] = None if op is None else {
+            "opmagic": op.opmagic,
+            "opcode": op.opcode,
+            "ioperands": op.ioperands,
+            "ooperands": op.ooperands,
+            "file": op.file,
+            "line": op.line,
+        }
+
+    if args.tensor_magic is not None:
+        tensor = analyzer.find_tensor_by_magic(args.tensor_magic)
+        summary["tensor"] = None if tensor is None else {
+            "magic": tensor.magic,
+            "shape": tensor.shape,
+            "validshape": tensor.validshape,
+            "mem_type": tensor.get_memory_type_str(),
+            "life_range": tensor.life_range,
+        }
+        if tensor is not None:
+            producer = analyzer.find_producer_of_tensor(args.tensor_magic)
+            consumers = analyzer.find_consumers_of_tensor(args.tensor_magic)
+            summary["producer"] = None if producer is None else {
+                "opmagic": producer.opmagic,
+                "opcode": producer.opcode,
+                "file": producer.file,
+                "line": producer.line,
+            }
+            summary["consumers"] = [
+                {
+                    "opmagic": consumer.opmagic,
+                    "opcode": consumer.opcode,
+                    "file": consumer.file,
+                    "line": consumer.line,
+                }
+                for consumer in consumers
+            ]
+
+    return summary
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Analyze PyPTO computation graph JSON")
+    parser.add_argument("--json-path", required=True, help="Path to graph JSON file")
+    parser.add_argument("--op-magic", type=int, default=None, help="Operation magic id")
+    parser.add_argument("--tensor-magic", type=int, default=None, help="Tensor magic id")
+    args = parser.parse_args()
+
+    analyzer = ComputationGraphAnalyzer()
+    analyzer.load_graph(args.json_path)
+    summary = _build_summary(analyzer, args)
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

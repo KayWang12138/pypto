@@ -35,6 +35,8 @@ license: 完整条款见 LICENSE.txt
 
 3. **依赖技能**
    - `pypto-environment-setup`：用于检查环境状态
+   - `pypto-pass-module-analyzer`：用于分析对应 Pass 模块实现
+   - `pypto-pass-workflow-analyzer`：用于分析 Pass 业务流和上下游依赖
 
 ## 触发机制
 
@@ -158,7 +160,7 @@ license: 完整条款见 LICENSE.txt
 ### 步骤 5：异常分析
 
 #### 5.1 按类型进行异常分析（必须执行）
-- 读取 `references/pass-error-analysis-guide.md` 文件
+- 读取 `references/pass-error-analysis-guide.md` 文件，其中已包含日志、计算图 JSON 的统一分析流程
 - 根据异常类型定位到对应的分析指导章节
 - 严格按照章节定义的步骤顺序执行，记录每步结果
 - 不得跳过或合并步骤
@@ -291,10 +293,9 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 ## 参考文档
 
 ### 核心文档
-- [查看计算图](docs/tools/computation_graph/查看计算图.md)
+- [PyPTO Pass 异常分析流程指导](references/pass-error-analysis-guide.md)
 - [PyPTO IR分析指导](references/ir-analysis-guide.md)
-- [计算图JSON解析指导](references/computation-graph-parse.md)
-- [pass异常分类分析指导](references/pass-error-analysis-guide.md)
+- [查看计算图](../../../docs/tools/computation_graph/查看计算图.md)
 
 ### 相关技能
 - [pypto-environment-setup](../pypto-environment-setup/SKILL.md)
@@ -302,4 +303,4 @@ The VEC_NBUFFER_SETTING key -3 is incorrect; Please set keys of VEC_NBUFFER_SETT
 - [pypto-pass-workflow-analyzer](../pypto-pass-workflow-analyzer/SKILL.md)
 
 ### API文档
-- [Pass配置API](docs/api/config/pypto-set_pass_options.md)
+- [Pass配置API](../../../docs/api/config/pypto-set_pass_options.md)
