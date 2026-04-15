@@ -92,13 +92,24 @@ public:
 
     void InitAicoreParallelDevTask(ParallelSchDeviceTaskContext* parallelCtx)
     {
-        DEV_IF_DEVICE {
+        if constexpr (IsDeviceMode()) {
             ForEachManageAicore([&](int coreIdx) {
                 auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
-                aicoreHal_.InitKernelArgs(coreIdx,  reinterpret_cast<int64_t>(logbuf));
+                aicoreHal_.InitKernelArgs(coreIdx, reinterpret_cast<int64_t>(logbuf));
                 FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
             });
+            return;
         }
+
+        if (!aicoreHal_.IsHostSimMode()) {
+            return;
+        }
+
+        ForEachManageAicore([&](int coreIdx) {
+            auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
+            aicoreHal_.InitKernelArgs(coreIdx, reinterpret_cast<int64_t>(logbuf));
+            FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
+        });
     }
 
     void FillKernelArgsParallexDevTask(ParallelSchDeviceTaskContext* parallelCtx, int coreIdx)
