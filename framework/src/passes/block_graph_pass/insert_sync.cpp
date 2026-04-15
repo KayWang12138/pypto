@@ -1218,7 +1218,8 @@ bool PipeSync::GenSyncOp(PipeCoreRealEx set, PipeCoreRealEx wait, int eventId, b
     // 同步相关的信息放在operation属性里
     op.syncQueue_ = {set.pipe, wait.pipe, set.core, wait.core, eventId, set.aivCore};
     if (set.core == CoreType::AIV) {
-        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) ||
+            (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3113)) { // kirin_9030
             return false;
         }
         op.SetOpCode(Opcode::OP_BAR_V);
