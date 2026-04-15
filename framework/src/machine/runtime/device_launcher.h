@@ -244,7 +244,54 @@ public:
         const std::vector<uint8_t>& devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig& config,
         CachedOperator* cachedOperator)
     {
+        auto initE2EHostMetaData = [&]() {
+            if (devMem.IsDevice()) {
+                return;
+            }
+            if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) != CFG_DEBUG_E2E_HOST_SIM) {
+                return;
+            }
+
+            const uint32_t totalCoreNum =
+                static_cast<uint32_t>(devProg->devArgs.nrAic + devProg->devArgs.nrAiv) + AICPU_NUM_OF_RUN_AICPU_TASKS;
+            if (totalCoreNum == 0) {
+                return;
+            }
+
+            if (devProg->devArgs.sharedBuffer == 0) {
+                size_t sharedBufferSize = static_cast<size_t>(totalCoreNum) * static_cast<size_t>(SHARED_BUFFER_SIZE);
+                auto* sharedBuffer = devMem.AllocZero(sharedBufferSize, nullptr);
+                if (sharedBuffer == nullptr) {
+                    MACHINE_LOGE(DevCommonErr::ALLOC_FAILED, "Alloc e2e host sharedBuffer failed");
+                    return;
+                }
+                devProg->devArgs.sharedBuffer = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(sharedBuffer));
+            }
+
+            auto allocIfZero = [&](uint64_t& addr, size_t bytes, const char* name) {
+                if (addr != 0) {
+                    return;
+                }
+                auto* ptr = devMem.AllocZero(bytes, nullptr);
+                if (ptr == nullptr) {
+                    MACHINE_LOGE(DevCommonErr::ALLOC_FAILED, "Alloc e2e host %s failed, size=%zu", name, bytes);
+                    return;
+                }
+                addr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
+            };
+
+            allocIfZero(devProg->devArgs.coreRegAddr, static_cast<size_t>(totalCoreNum) * sizeof(uint64_t), "coreRegAddr");
+            allocIfZero(
+                devProg->devArgs.corePmuRegAddr, static_cast<size_t>(totalCoreNum) * sizeof(uint64_t), "corePmuRegAddr");
+            allocIfZero(
+                devProg->devArgs.corePmuAddr, static_cast<size_t>(totalCoreNum) * static_cast<size_t>(PMU_BUFFER_SIZE),
+                "corePmuAddr");
+            allocIfZero(devProg->devArgs.taskWastTime, sizeof(uint64_t), "taskWastTime");
+            allocIfZero(devProg->devArgs.devDfxArgAddr, sizeof(DevDfxArgs), "devDfxArgAddr");
+        };
+
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
+        initE2EHostMetaData();
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t*)config.workspaceAddr;
