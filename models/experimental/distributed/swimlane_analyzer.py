@@ -35,6 +35,16 @@ class SwimlaneAnalyzer:
         self._cached_min_file_info = None
     
     @staticmethod
+    def find_swimlane_files(rank_dir: str) -> List[str]:
+        """在目录中查找 swimlane 文件"""
+        swimlane_files = []
+        for root, _, files in os.walk(rank_dir):
+            for file in files:
+                if file == "merged_swimlane.json":
+                    swimlane_files.append(os.path.join(root, file))
+        return swimlane_files
+
+    @staticmethod
     def _calculate_total_time_from_data(performance_data: dict) -> float:
         """从性能数据计算总体执行时间（第一个任务开始到最后一个任务结束的时间跨度）"""
         if 'traceEvents' not in performance_data:
@@ -66,16 +76,6 @@ class SwimlaneAnalyzer:
         total_time = overall_end - overall_start
 
         return total_time
-
-    @staticmethod
-    def find_swimlane_files(self, rank_dir: str) -> List[str]:
-        """在目录中查找 swimlane 文件"""
-        swimlane_files = []
-        for root, _, files in os.walk(rank_dir):
-            for file in files:
-                if file == "merged_swimlane.json":
-                    swimlane_files.append(os.path.join(root, file))
-        return swimlane_files
 
     def find_all_rank_dirs(self) -> List[str]:
         """查找所有rank目录"""
