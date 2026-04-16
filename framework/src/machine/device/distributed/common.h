@@ -29,11 +29,13 @@ namespace npu::tile_fwk::Distributed {
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE = 1024;
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE_MOD = AICPU_TASK_ARRAY_SIZE - 1;
 constexpr uint64_t OWNER_RANK_ID_INDEX = 0;
-constexpr uint64_t SHMEM_DIM_ROW = 1;
-constexpr uint64_t SHMEM_DIM_COL = 2;
+constexpr uint64_t SHMEM_DIM_ROW = 3;
+constexpr uint64_t SHMEM_DIM_COL = 4;
 constexpr uint64_t ATTR_STRIDE_OFFSET = 1;
-constexpr uint64_t ATTR_TILEROW_OFFSET = 3;
-constexpr uint64_t ATTR_TILECOL_OFFSET = 4;
+constexpr uint64_t ATTR_TILESHAPE_DIM_OFFSET = 3;
+constexpr uint64_t ATTR_TILESHAPE_BASE_OFFSET = 4;
+constexpr uint32_t MAX_TENSOR_DIM = 5;
+constexpr uint64_t MAX_SHMEM_TILE_DIMS = 4;
 
 struct TensorInfo {
     uint64_t rawAddr{0};
@@ -43,7 +45,7 @@ struct TensorInfo {
     int32_t expectedSum{0};
     int32_t signalStride{0};
     bool resetSignal{false};
-    std::vector<uint32_t> offset;
+    uint32_t offset[MAX_TENSOR_DIM] = {0};
     std::vector<uint32_t> shape;
 };
 
@@ -53,13 +55,14 @@ struct AicpuParamInfo {
     int32_t attrIndex{0};
     int32_t rawShapeIndex{0};
     int32_t shapeIndex{0};
-    uint32_t rawShapeRow{0};
-    uint32_t rawShapeCol{0};
-    uint32_t shapeRow{0};
-    uint32_t shapeCol{0};
+
+    uint32_t rawShape[MAX_TENSOR_DIM] = {0};
+    uint32_t shape[MAX_TENSOR_DIM] = {0};
+    uint32_t dim{0};
+
     uint32_t bufferStride{0};
-    uint32_t tileShapeRow{0};
-    uint32_t tileShapeCol{0};
+    uint32_t tileShape[MAX_SHMEM_TILE_DIMS] = {0};
+    uint32_t tileShapeDim{0};
     uint32_t rankNum{0};
     uint32_t maxTileNum{0};
 };
@@ -105,6 +108,19 @@ inline unsigned CalcLinearOffset(unsigned GmShape1, unsigned Offset0, unsigned O
     return Offset1 + Offset0 * GmShape1;
 }
 
+inline std::string FormatArray(const uint32_t* arr, uint32_t dim)
+{
+    std::ostringstream oss;
+    oss << "[";
+    for (uint32_t i = 0; i < dim; ++i) {
+        if (i > 0)
+            oss << ",";
+        oss << arr[i];
+    }
+    oss << "]";
+    return oss.str();
+}
+
 inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t>& aicpuCode)
 {
     AicpuParamInfo paramInfo;
@@ -116,21 +132,28 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
 
     index = index + aicpuCode[index] + 1;
     paramInfo.rawShapeIndex = index + 1;
-    paramInfo.rawShapeRow =
-        aicpuCode[paramInfo.rawShapeIndex + 1];         // ShmemSignal RawShape[ranksize, row, col], 3表示row的值
-    paramInfo.rawShapeCol =
-        aicpuCode[paramInfo.rawShapeIndex + 2];         // ShmemSignal RawShape[ranksize, row, col], 4表示col的值
-    paramInfo.shapeIndex =
-        paramInfo.rawShapeIndex + aicpuCode[index] / 2; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
-    paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + 1]; // ShmemSignal Shape[ranksize, row, col], 3表示row的值
-    paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + 2]; // ShmemSignal Shape[ranksize, row, col], 4表示col的值
+
+    paramInfo.dim = aicpuCode[paramInfo.inIndex + 2];
+
+    for (uint32_t i = 0; i < paramInfo.dim && i < MAX_TENSOR_DIM; ++i) {
+        paramInfo.rawShape[i] = aicpuCode[paramInfo.rawShapeIndex + i];
+    }
+
+    paramInfo.shapeIndex = paramInfo.rawShapeIndex + paramInfo.dim;
+
+    for (uint32_t i = 0; i < paramInfo.dim && i < MAX_TENSOR_DIM; ++i) {
+        paramInfo.shape[i] = aicpuCode[paramInfo.shapeIndex + i];
+    }
+
     index = index + aicpuCode[index] + 1;
     if (index + 1 < static_cast<int32_t>(aicpuCode.size())) {
         paramInfo.attrIndex = index + 1;
     }
     paramInfo.bufferStride = aicpuCode[paramInfo.attrIndex + ATTR_STRIDE_OFFSET];
-    paramInfo.tileShapeRow = aicpuCode[paramInfo.attrIndex + ATTR_TILEROW_OFFSET];
-    paramInfo.tileShapeCol = aicpuCode[paramInfo.attrIndex + ATTR_TILECOL_OFFSET];
+    paramInfo.tileShapeDim = aicpuCode[paramInfo.attrIndex + ATTR_TILESHAPE_DIM_OFFSET];
+    for (uint32_t i = 0; i < paramInfo.tileShapeDim && i < MAX_SHMEM_TILE_DIMS; ++i) {
+        paramInfo.tileShape[i] = aicpuCode[paramInfo.attrIndex + ATTR_TILESHAPE_BASE_OFFSET + i];
+    }
     return paramInfo;
 }
 } // namespace npu::tile_fwk::Distributed
