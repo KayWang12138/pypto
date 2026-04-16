@@ -31,6 +31,12 @@ std::string GetFormatBacktrace(const OperationPtr& op);
 
 std::string GetFormatBacktrace(const Operation* op);
 
+void LogPassRuntime(
+    const std::string& identifier, Program& program, Function& function,
+    const std::chrono::time_point<std::chrono::high_resolution_clock>& start);
+
+void ExtractPassLogByFunction(const Function& function);
+
 enum class Elements { Operation, Tensor, Function, Graph, Config, Manager };
 
 inline const char* toString(Elements elem)

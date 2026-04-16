@@ -730,7 +730,8 @@ def options_list():
     },
     runtime_options={
         "stitch_function_max_num": 128
-    }
+    },
+    debug_options={"compile_debug_mode": 1}
 )
 def mla_prolog_quant_p(
     token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
@@ -806,6 +807,7 @@ def mla_prolog_quant_p(
 @pypto.frontend.jit(
     pass_options=options_list()["pass_options"],
     runtime_options=options_list()["runtime_options"],
+    debug_options={"compile_debug_mode": 1}
 )
 def mla_prolog_quant_d(
     token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC]),
