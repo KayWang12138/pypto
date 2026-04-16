@@ -45,41 +45,17 @@ enum class SaturationMode : uint8_t {
     OFF = 1,
 };
 
-enum class DivAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class DivAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class SqrtAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class SqrtAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class RsqrtAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class RsqrtAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class ExpAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class ExpAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class LogAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class LogAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
-enum class RecipAlgorithm : uint8_t
-{
-    DEFAULT,
-    HIGH_PRECISION
-};
+enum class RecipAlgorithm : uint8_t { DEFAULT, HIGH_PRECISION };
 
 namespace experimental {
 struct PrintHelper {
@@ -178,7 +154,7 @@ Tensor Full(
 Tensor Transpose(const Tensor& self, std::vector<int> perm);
 Tensor Cast(
     const Tensor& self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
-Tensor Permute(const Tensor &self, std::vector<int> perm);
+Tensor Permute(const Tensor& self, std::vector<int> perm);
 
 Tensor Exp(const Tensor& self, ExpAlgorithm precisionType = ExpAlgorithm::DEFAULT);
 Tensor Exp2(const Tensor& self);
@@ -401,7 +377,8 @@ enum class LogBaseType {
     LOG_2,
     LOG_10,
 };
-Tensor Log(const Tensor& self, LogBaseType base = LogBaseType::LOG_E, LogAlgorithm precisionType = LogAlgorithm::DEFAULT);
+Tensor Log(
+    const Tensor& self, LogBaseType base = LogBaseType::LOG_E, LogAlgorithm precisionType = LogAlgorithm::DEFAULT);
 Tensor Log1p(const Tensor& self);
 
 Tensor OneHot(const Tensor& self, int numClasses);
@@ -504,7 +481,12 @@ Tensor BatchMatmul(
     DataType dataType, const Tensor& aMatrix, const Tensor& bMatrix, bool isATrans = false, bool isBTrans = false,
     bool isCMatrixNZ = false);
 
-Tensor TransposedBatchMatmul(DataType dataType, const Tensor& aMatrix, const Tensor& bMatrix);
+Tensor BatchMXMatmul(
+    DataType dataType, const Tensor& aMatrix, const Tensor& aScale, const Tensor& bMatrix, const Tensor& bScale,
+    bool isTransA = false, bool isAScaleTrans = false, bool isTransB = false, bool isBScaleTrans = false,
+    bool isCMatrixNZ = false);
+
+    Tensor TransposedBatchMatmul(DataType dataType, const Tensor& aMatrix, const Tensor& bMatrix);
 
 Tensor QuantMM(const Tensor& operand1, const Tensor& operand2, const Tensor& dequantScaleW);
 } // namespace Matrix
