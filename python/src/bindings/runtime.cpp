@@ -49,8 +49,8 @@ static void ValidateVerifyOutputAndGolden(
     }
 
     for (size_t i = 0; i < inOutTensors.size(); i++) {
-        const bool outputIsNone = inOutTensors[i].GetAddr() == nullptr;
-        const bool goldenIsNone = goldens[i].GetAddr() == nullptr;
+        bool outputIsNone = inOutTensors[i].GetAddr() == nullptr;
+        bool goldenIsNone = goldens[i].GetAddr() == nullptr;
         if (outputIsNone || goldenIsNone) {
             continue;
         }
@@ -58,8 +58,8 @@ static void ValidateVerifyOutputAndGolden(
         ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType())
             << "dtype mismatch at index " << i;
 
-        const auto& outputShape = inOutTensors[i].GetShape();
-        const auto& goldenShape = goldens[i].GetShape();
+        auto& outputShape = inOutTensors[i].GetShape();
+        auto& goldenShape = goldens[i].GetShape();
         ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size());
         for (size_t dim = 0; dim < outputShape.size(); dim++) {
             ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape[dim] == goldenShape[dim]);
