@@ -230,6 +230,7 @@ protected:
 
     // Function and program visitors
     void VisitFunction(const FunctionPtr& func) override;
+    void VisitProgram(const ProgramPtr& prog) override;
 
 private:
     std::ostringstream stream_;
@@ -263,7 +264,7 @@ private:
     std::string PrintMemRef(const MemRef& memref);
 };
 
-// DataTypeToPythonString removed — now uses DataTypeToString from dtype.h
+// DataTypeToPythonString removed — now uses DTypeToString from dtype.h
 
 // IRPrinter implementation
 std::string IRPrinter::Print(const IRNodePtr& node)
@@ -273,7 +274,9 @@ std::string IRPrinter::Print(const IRNodePtr& node)
     indent_ = 0;
 
     // Try each type in order
-    if (auto func = As<Function>(node)) {
+    if (auto prog = As<Program>(node)) {
+        VisitProgram(prog);
+    } else if (auto func = As<Function>(node)) {
         VisitFunction(func);
     } else if (auto stmt = As<Stmt>(node)) {
         VisitStmt(stmt);
@@ -291,7 +294,7 @@ std::string IRPrinter::Print(const TypePtr& type)
 {
     if (auto scalar_type = As<ScalarType>(type)) {
         // Print as pl.Scalar[pl.INT64] for proper round-trip support
-        return prefix_ + ".Scalar[" + prefix_ + "." + DataTypeToString(scalar_type->dtype_) + "]";
+        return prefix_ + ".Scalar[" + prefix_ + "." + DTypeToString(scalar_type->dtype_) + "]";
     }
 
     if (auto tensor_type = As<TensorType>(type)) {
@@ -299,7 +302,7 @@ std::string IRPrinter::Print(const TypePtr& type)
         // Subscript-style: pl.Tensor[[shape], dtype]
         oss << prefix_ << ".Tensor[[";
         PrintShapeDims(oss, tensor_type->shape_);
-        oss << "], " << prefix_ << "." << DataTypeToString(tensor_type->dtype_);
+        oss << "], " << prefix_ << "." << DTypeToString(tensor_type->dtype_);
 
         // Add optional memref as positional arg
         if (tensor_type->memref_.has_value()) {
@@ -315,7 +318,7 @@ std::string IRPrinter::Print(const TypePtr& type)
         // Subscript-style: pl.Tile[[shape], dtype]
         oss << prefix_ << ".Tile[[";
         PrintShapeDims(oss, tile_type->shape_);
-        oss << "], " << prefix_ << "." << DataTypeToString(tile_type->dtype_);
+        oss << "], " << prefix_ << "." << DTypeToString(tile_type->dtype_);
 
         // Add optional memref as positional arg
         if (tile_type->memref_.has_value()) {
@@ -346,7 +349,11 @@ std::string IRPrinter::Print(const TypePtr& type)
         return prefix_ + ".MemRefType";
     }
 
-    return prefix_ + ".UnknownType";
+    if (auto ptr_type = As<PtrType>(type)) {
+        return prefix_ + ".Ptr";
+    }
+
+    return prefix_ + ".Unknown";
 }
 
 std::string IRPrinter::GetIndent() const { return std::string(static_cast<size_t>(indent_ * 4), ' '); }
@@ -366,10 +373,7 @@ void IRPrinter::VisitExpr_(const ConstBoolPtr& op) { stream_ << (op->value_ ? "T
 
 void IRPrinter::VisitExpr_(const CallPtr& op)
 {
-    INTERNAL_CHECK_SPAN(op->op_, op->span_) << "Call has null op";
-    // Check if this is a GlobalVar call within a Program context
-
-    stream_ << prefix_ << ".call @" << op->op_->name_ << "(";
+    stream_ << prefix_ << ".call @" << op->name_ << "(";
     for (size_t i = 0; i < op->args_.size(); ++i) {
         if (i > 0)
             stream_ << ", ";
@@ -496,7 +500,7 @@ void IRPrinter::VisitExpr_(const NegPtr& op)
 
 void IRPrinter::VisitExpr_(const AbsPtr& op)
 {
-    stream_ << "abs(";
+    stream_ << prefix_ << ".abs(";
     VisitExpr(op->operand_);
     stream_ << ")";
 }
@@ -507,7 +511,7 @@ void IRPrinter::VisitExpr_(const CastPtr& op)
     INTERNAL_CHECK_SPAN(scalar_type, op->span_) << "Cast has non-scalar type";
     stream_ << prefix_ << ".cast(";
     VisitExpr(op->operand_);
-    stream_ << ", " << prefix_ << "." << DataTypeToString(scalar_type->dtype_) << ")";
+    stream_ << ", " << prefix_ << "." << DTypeToString(scalar_type->dtype_) << ")";
 }
 
 void IRPrinter::VisitExpr_(const NotPtr& op)
@@ -899,6 +903,19 @@ void IRPrinter::VisitFunction(const FunctionPtr& func)
     indent_--;
 }
 
+void IRPrinter::VisitProgram(const ProgramPtr& program)
+{
+    stream_ << "# ir.program: " << (program->name_.empty() ? "Program" : program->name_) << "\n";
+    bool first = true;
+    for (const auto& func : program->functions_) {
+        if (!first) {
+            stream_ << "\n"; // Blank line between functions
+        }
+        first = false;
+        VisitFunction(func);
+    }
+}
+
 std::string IRPrinter::PrintExprForType(const ExprPtr& expr)
 {
     if (auto const_int = As<ConstInt>(expr)) {
@@ -924,7 +941,7 @@ std::string IRPrinter::PrintMemRef(const MemRef& memref)
 {
     std::ostringstream oss;
     oss << prefix_ << ".MemRef(";
-    oss << prefix_ << "." << MemorySpaceToString(memref.memory_space_) << ", ";
+    oss << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memory_space_) << ", ";
 
     IRPrinter temp_printer(prefix_);
     oss << temp_printer.Print(memref.offset_);

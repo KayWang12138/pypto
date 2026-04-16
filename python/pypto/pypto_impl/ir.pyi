@@ -6,7 +6,9 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-from typing import Final
+from typing import Final, List, Optional, Sequence, overload
+import enum
+
 
 class DataType:
     """Data type representation for PyPTO tensors and operations"""
@@ -157,3 +159,1306 @@ class Span:
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
+
+
+class IRNode:
+    """Base class for all IR nodes."""
+
+    span: Final[Span]
+    """Source location of this IR node."""
+
+
+class Expr(IRNode):
+    """Base class for all expressions."""
+
+    type: Final[Type]
+    """Type of the expression result."""
+
+    # Binary operators (only work with ScalarType)
+    def __add__(self, other: ExprType) -> Expr:
+        """Addition operator (self + other). Only works with ScalarType variables."""
+
+    def __sub__(self, other: ExprType) -> Expr:
+        """Subtraction operator (self - other). Only works with ScalarType variables."""
+
+    def __mul__(self, other: ExprType) -> Expr:
+        """Multiplication operator (self * other). Only works with ScalarType variables."""
+
+    def __truediv__(self, other: ExprType) -> Expr:
+        """Division operator (self / other). Only works with ScalarType variables."""
+
+    def __floordiv__(self, other: ExprType) -> Expr:
+        """Floor division operator (self // other). Only works with ScalarType variables."""
+
+    def __mod__(self, other: ExprType) -> Expr:
+        """Modulo operator (self % other). Only works with ScalarType variables."""
+
+    def __pow__(self, other: ExprType) -> Expr:
+        """Power operator (self ** other). Only works with ScalarType variables."""
+
+    # Comparison operators (only work with ScalarType)
+    def __eq__(self, other: ExprType) -> Expr:  # type: ignore[override]
+        """Equality operator (self == other). Only works with ScalarType variables."""
+
+    def __ne__(self, other: ExprType) -> Expr:  # type: ignore[override]
+        """Inequality operator (self != other). Only works with ScalarType variables."""
+
+    def __lt__(self, other: ExprType) -> Expr:
+        """Less than operator (self < other). Only works with ScalarType variables."""
+
+    def __le__(self, other: ExprType) -> Expr:
+        """Less than or equal operator (self <= other). Only works with ScalarType variables."""
+
+    def __gt__(self, other: ExprType) -> Expr:
+        """Greater than operator (self > other). Only works with ScalarType variables."""
+
+    def __ge__(self, other: ExprType) -> Expr:
+        """Greater than or equal operator (self >= other). Only works with ScalarType variables."""
+
+    # Bitwise operators (only work with ScalarType)
+    def __and__(self, other: ExprType) -> Expr:
+        """Bitwise and operator (self & other). Only works with ScalarType variables."""
+
+    def __or__(self, other: ExprType) -> Expr:
+        """Bitwise or operator (self | other). Only works with ScalarType variables."""
+
+    def __xor__(self, other: ExprType) -> Expr:
+        """Bitwise xor operator (self ^ other). Only works with ScalarType variables."""
+
+    def __lshift__(self, other: ExprType) -> Expr:
+        """Bitwise left shift operator (self << other). Only works with ScalarType variables."""
+
+    def __rshift__(self, other: ExprType) -> Expr:
+        """Bitwise right shift operator (self >> other). Only works with ScalarType variables."""
+
+    # Unary operators (only work with ScalarType)
+    def __neg__(self) -> Expr:
+        """Negation operator (-self). Only works with ScalarType variables."""
+
+    def __invert__(self) -> Expr:
+        """Bitwise not operator (~self). Only works with ScalarType variables."""
+
+    # Reverse operators (only work with ScalarType)
+    def __radd__(self, other: ExprType) -> Expr:
+        """Reverse addition operator (other + self). Only works with ScalarType variables."""
+
+    def __rsub__(self, other: ExprType) -> Expr:
+        """Reverse subtraction operator (other - self). Only works with ScalarType variables."""
+
+    def __rmul__(self, other: ExprType) -> Expr:
+        """Reverse multiplication operator (other * self). Only works with ScalarType variables."""
+
+    def __rtruediv__(self, other: ExprType) -> Expr:
+        """Reverse division operator (other / self). Only works with ScalarType variables."""
+
+    def __rfloordiv__(self, other: ExprType) -> Expr:
+        """Reverse floor division operator (other // self). Only works with ScalarType variables."""
+
+    def __rmod__(self, other: ExprType) -> Expr:
+        """Reverse modulo operator (other % self). Only works with ScalarType variables."""
+
+    def __rpow__(self, other: ExprType) -> Expr:
+        """Reverse power operator (other ** self). Only works with ScalarType variables."""
+
+    def __rand__(self, other: ExprType) -> Expr:
+        """Reverse bitwise and operator (other & self). Only works with ScalarType variables."""
+
+    def __ror__(self, other: ExprType) -> Expr:
+        """Reverse bitwise or operator (other | self). Only works with ScalarType variables."""
+
+    def __rxor__(self, other: ExprType) -> Expr:
+        """Reverse bitwise xor operator (other ^ self). Only works with ScalarType variables."""
+
+    def __rlshift__(self, other: ExprType) -> Expr:
+        """Reverse bitwise left shift operator (other << self). Only works with ScalarType variables."""
+
+    def __rrshift__(self, other: ExprType) -> Expr:
+        """Reverse bitwise right shift operator (other >> self). Only works with ScalarType variables."""
+
+
+ExprType = Expr | int | float
+
+
+class BinaryExpr(Expr):
+    """Base class for binary operations."""
+
+    dtype: Final[DataType]
+    """Data type of the expression."""
+
+    left: Final[Expr]
+    """Left operand."""
+
+    right: Final[Expr]
+    """Right operand."""
+
+
+class UnaryExpr(Expr):
+    """Base class for unary operations."""
+
+    dtype: Final[DataType]
+    """Data type of the expression."""
+
+    operand: Final[Expr]
+    """Operand."""
+
+
+class Add(BinaryExpr):
+    """Addition expression (left + right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create an addition expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Sub(BinaryExpr):
+    """Subtraction expression (left - right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a subtraction expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Mul(BinaryExpr):
+    """Multiplication expression (left * right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a multiplication expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class FloorDiv(BinaryExpr):
+    """Floor division expression (left // right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a floor division expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class FloorMod(BinaryExpr):
+    """Floor modulo expression (left % right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a floor modulo expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class FloatDiv(BinaryExpr):
+    """Float division expression (left / right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a float division expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Min(BinaryExpr):
+    """Minimum expression (min(left, right))."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a minimum expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Max(BinaryExpr):
+    """Maximum expression (max(left, right))."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a maximum expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Pow(BinaryExpr):
+    """Power expression (left ** right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a power expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Eq(BinaryExpr):
+    """Equality expression (left == right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create an equality expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Ne(BinaryExpr):
+    """Inequality expression (left != right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create an inequality expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Lt(BinaryExpr):
+    """Less than expression (left < right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a less than expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Le(BinaryExpr):
+    """Less than or equal to expression (left <= right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a less than or equal to expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Gt(BinaryExpr):
+    """Greater than expression (left > right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a greater than expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Ge(BinaryExpr):
+    """Greater than or equal to expression (left >= right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a greater than or equal to expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class And(BinaryExpr):
+    """Logical and expression (left and right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a logical and expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Or(BinaryExpr):
+    """Logical or expression (left or right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a logical or expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Xor(BinaryExpr):
+    """Logical xor expression (left xor right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a logical xor expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class BitAnd(BinaryExpr):
+    """Bitwise and expression (left & right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a bitwise and expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class BitOr(BinaryExpr):
+    """Bitwise or expression (left | right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a bitwise or expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class BitXor(BinaryExpr):
+    """Bitwise xor expression (left ^ right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a bitwise xor expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class BitShiftLeft(BinaryExpr):
+    """Bitwise left shift expression (left << right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a bitwise left shift expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class BitShiftRight(BinaryExpr):
+    """Bitwise right shift expression (left >> right)."""
+
+    def __init__(self, left: Expr, right: Expr, dtype: DataType, span: Span) -> None:
+        """Create a bitwise right shift expression.
+
+        Args:
+            left: Left operand
+            right: Right operand
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Abs(UnaryExpr):
+    """Absolute value expression (abs(operand))."""
+
+    def __init__(self, operand: Expr, dtype: DataType, span: Span) -> None:
+        """Create an absolute value expression.
+
+        Args:
+            operand: Operand expression
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Neg(UnaryExpr):
+    """Negation expression (-operand)."""
+
+    def __init__(self, operand: Expr, dtype: DataType, span: Span) -> None:
+        """Create a negation expression.
+
+        Args:
+            operand: Operand expression
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Not(UnaryExpr):
+    """Logical not expression (not operand)."""
+
+    def __init__(self, operand: Expr, dtype: DataType, span: Span) -> None:
+        """Create a logical not expression.
+
+        Args:
+            operand: Operand expression
+            dtype: Data type
+            span: Source location
+        """
+
+
+class BitNot(UnaryExpr):
+    """Bitwise not expression (~operand)."""
+
+    def __init__(self, operand: Expr, dtype: DataType, span: Span) -> None:
+        """Create a bitwise not expression.
+
+        Args:
+            operand: Operand expression
+            dtype: Data type
+            span: Source location
+        """
+
+
+class Cast(UnaryExpr):
+    """Cast expression (cast operand to dtype)."""
+
+    def __init__(self, operand: Expr, dtype: DataType, span: Span) -> None:
+        """Create a cast expression.
+
+        Args:
+            operand: Operand expression
+            dtype: Target data type
+            span: Source location
+        """
+
+
+class Type:
+    """Base class for type representations."""
+
+
+class UnknownType(Type):
+    """Unknown or unspecified type representation.
+
+    Used as the default type for expressions when type information is not available.
+    """
+
+    def __init__(self) -> None:
+        """Create an unknown type."""
+
+    @staticmethod
+    def get() -> UnknownType:
+        """Get the singleton UnknownType instance.
+
+        Returns:
+            The singleton UnknownType instance
+        """
+
+
+class ScalarType(Type):
+    """Scalar type representation."""
+
+    dtype: Final[DataType]
+    """Data type."""
+
+    def __init__(self, dtype: DataType) -> None:
+        """Create a scalar type.
+
+        Args:
+            dtype: Data type
+        """
+
+
+class ShapedType(Type):
+    """Base class for shaped types (tensors and tiles)."""
+
+    dtype: Final[DataType]
+    """Element data type."""
+
+    shape: Final[Sequence[Expr]]
+    """Shape dimensions."""
+
+    memref: Final[MemRef | None]
+    """Optional memory reference."""
+
+    @property
+    def memory_space(self) -> MemorySpace | None:
+        """Canonical memory space for this shaped type."""
+        ...
+
+    def shares_memref_with(self, other: ShapedType) -> bool:
+        """Check if this ShapedType shares the same MemRef object with another ShapedType.
+
+        Args:
+            other: Another ShapedType to compare with
+
+        Returns:
+            True if both have MemRef and they point to the same object, False otherwise
+        """
+        ...
+
+
+class MemorySpace(enum.IntEnum):
+    """Memory space enumeration."""
+
+    DDR = ...
+    """DDR memory (off-chip)."""
+
+    Vec = ...
+    """Vector/unified buffer (on-chip)."""
+
+    Mat = ...
+    """Matrix/L1 buffer."""
+
+    Left = ...
+    """Left matrix operand buffer."""
+
+    Right = ...
+    """Right matrix operand buffer."""
+
+    Acc = ...
+    """Accumulator buffer."""
+
+    Bias = ...
+    """Bias buffer."""
+
+
+class TensorLayout(enum.IntEnum):
+    """Tensor layout type enumeration."""
+
+    ND = ...
+    """ND layout."""
+
+    DN = ...
+    """DN layout."""
+
+    NZ = ...
+    """NZ layout."""
+
+
+class PipeType(enum.IntEnum):
+    """Pipeline type enumeration for hardware execution units."""
+
+    MTE1 = ...
+    MTE2 = ...
+    MTE3 = ...
+    M = ...
+    V = ...
+    S = ...
+    FIX = ...
+    ALL = ...
+
+
+class CoreType(enum.IntEnum):
+    """Core type enumeration."""
+
+    VECTOR = ...
+    CUBE = ...
+
+
+class FunctionType(enum.Enum):
+    """Function type classification.
+
+    Categorizes functions by their execution context and purpose:
+    - Opaque: Unspecified (default)
+    """
+
+    Opaque = ...
+
+
+class PtrType(Type):
+    """Pointer type for allocation identity tokens (returned by tile.alloc/tensor.alloc)."""
+
+    def __init__(self) -> None: ...
+
+    @staticmethod
+    def get() -> PtrType:
+        """Get the singleton PtrType instance."""
+        ...
+
+
+class Var(Expr):
+    """Variable reference expression."""
+
+    name: Final[str]
+    """Variable name (cosmetic label, not an identifier)."""
+
+    def __init__(self, name: str, type: Type, span: Span) -> None:
+        """Create a variable reference.
+
+        Args:
+            name: Variable name (cosmetic label, not an identifier)
+            type: Type of the variable (ScalarType, TensorType, or TileType)
+                  Memory reference information is stored in ShapedType for Tensor/Tile types
+            span: Source location
+        """
+
+    def __str__(self) -> str:
+        """String representation of the variable."""
+
+    def __repr__(self) -> str:
+        """Detailed representation of the variable."""
+
+
+class MemRef(Expr):
+    """Memory reference variable for shaped types (inherits from Expr)."""
+
+    memory_space: MemorySpace
+    """Base Ptr variable (allocation identity token)."""
+
+    offset: Expr
+    """Byte offset from base (0 for root alloc, computed for views)."""
+
+    size: int
+    """Size in bytes (64-bit unsigned)."""
+
+    def __init__(
+        self, memory_space: MemorySpace, offset: Expr | int, size: int, span: Optional[Span] = None
+    ) -> None:
+        """Create a memory reference.
+
+        New API: MemRef(base, byte_offset, size)
+        """
+
+    @staticmethod
+    def same_allocation(a: MemRef, b: MemRef) -> bool:
+        """Check if two MemRefs share the same allocation (same base_ Ptr)."""
+        ...
+
+    @staticmethod
+    def may_alias(a: MemRef, b: MemRef) -> bool:
+        """Check if two MemRefs may alias (same base + overlapping byte ranges)."""
+        ...
+
+
+class IterArg(Var):
+    """Iteration argument variable."""
+
+    initValue: Final[Expr]
+    """Initial value expression (can be any Expr)."""
+
+    def __init__(self, name: str, type: Type, initValue: Expr, span: Span) -> None:
+        """Create an iteration argument.
+
+        Args:
+            name: Variable name (cosmetic label, not an identifier)
+            type: Type of the variable (ScalarType, TensorType, or TileType)
+                  Memory reference information is stored in ShapedType for Tensor/Tile types
+            initValue: Initial value expression (can be any Expr)
+            span: Source location
+        """
+
+    def __str__(self) -> str:
+        """String representation of the iteration argument."""
+
+    def __repr__(self) -> str:
+        """Detailed representation of the iteration argument."""
+
+
+class ConstInt(Expr):
+    """Constant integer expression."""
+
+    value: Final[int]
+    """Constant integer value."""
+
+    def __init__(self, value: int, dtype: DataType, span: Span) -> None:
+        """Create a constant integer expression.
+
+        Args:
+            value: Integer value
+            dtype: Data type
+            span: Source location
+        """
+
+    @property
+    def dtype(self) -> DataType:
+        """Data type of the expression."""
+
+
+class ConstFloat(Expr):
+    """Constant floating-point expression."""
+
+    value: Final[float]
+    """Constant floating-point value."""
+
+    def __init__(self, value: float, dtype: DataType, span: Span) -> None:
+        """Create a constant floating-point expression.
+
+        Args:
+            value: Floating-point value
+            dtype: Data type
+            span: Source location
+        """
+
+    @property
+    def dtype(self) -> DataType:
+        """Data type of the expression."""
+
+
+class ConstBool(Expr):
+    """Constant boolean expression."""
+
+    value: Final[bool]
+    """Constant boolean value."""
+
+    def __init__(self, value: bool, span: Span) -> None:
+        """Create a constant boolean expression.
+
+        Args:
+            value: Boolean value
+            span: Source location
+
+        Note:
+            dtype is always DataType.BOOL - no need to specify.
+        """
+
+    @property
+    def dtype(self) -> DataType:
+        """Data type of the expression (always DataType.BOOL)."""
+
+
+class Call(Expr):
+    """Function call expression."""
+
+    name: Final[str]
+    """Operation/function."""
+
+    args: Final[Sequence[Expr]]
+    """Positional arguments."""
+
+    def __init__(self, op: str, args: Sequence[Expr], span: Span) -> None:
+        """Create a function call expression.
+
+        Args:
+            op: Operation/function to call
+            args: List of argument expressions
+            kwargs: Keyword arguments (metadata)
+            span: Source location
+        """
+        ...
+
+    def __str__(self) -> str:
+        """String representation of the call expression."""
+
+    def __repr__(self) -> str:
+        """Detailed representation of the call expression."""
+
+
+class TensorType(Type):
+    """Tensor type representation."""
+
+    dtype: Final[DataType]
+    """Element data type."""
+
+    shape: Final[Sequence[Expr]]
+    """Shape dimensions as Expr nodes."""
+
+    memref: Optional[MemRef]
+    """Optional memory reference."""
+
+    @overload
+    def __init__(self, shape: Sequence[Expr], dtype: DataType, memref: Optional[MemRef] = None) -> None:
+        """Create a tensor type with memory reference.
+
+        Args:
+            shape: Shape dimensions as Expr nodes
+            dtype: Element data type
+            memref: Optional memory reference
+        """
+
+    @overload
+    def __init__(self, shape: Sequence[int], dtype: DataType, memref: Optional[MemRef] = None) -> None:
+        """Create a tensor type with memory reference.
+
+        Args:
+            shape: Shape dimensions as Expr nodes
+            dtype: Element data type
+            memref: Optional memory reference
+        """
+
+
+class TupleType(Type):
+    """Tuple type representation (contains multiple types)."""
+
+    types: Final[Sequence[Type]]
+    """Types in the tuple."""
+
+    def __init__(self, types: Sequence[Type]) -> None:
+        """Create a tuple type from a list of types.
+
+        Args:
+            types: List of types in the tuple
+        """
+
+
+class MakeTuple(Expr):
+    """Tuple construction expression."""
+
+    elements: Final[Sequence[Expr]]
+    """Elements of the tuple."""
+
+    def __init__(self, elements: Sequence[Expr], span: Span) -> None:
+        """Create a tuple construction expression.
+
+        Args:
+            elements: Expressions to be tuple elements
+            span: Source location
+
+        The result type is automatically set to TupleType containing
+        the types of all input expressions.
+        """
+
+    def __str__(self) -> str:
+        """String representation of the tuple construction expression."""
+
+    def __repr__(self) -> str:
+        """Detailed representation of the tuple construction expression."""
+
+
+class TupleGetItemExpr(Expr):
+    """Tuple element access expression."""
+
+    tuple: Final[Expr]
+    """Tuple expression (must have TupleType)."""
+
+    index: Final[int]
+    """Index of the element to access (0-based)."""
+
+    def __init__(self, tuple: Expr, index: int, span: Span) -> None:
+        """Create a tuple element access expression.
+
+        Args:
+            tuple: Tuple expression (must have TupleType type)
+            index: Index of the element (0-based, must be within bounds)
+            span: Source location
+
+        Raises:
+            Exception: If tuple does not have TupleType
+            Exception: If index is out of bounds
+        """
+
+    def __str__(self) -> str:
+        """String representation of the tuple access expression."""
+
+    def __repr__(self) -> str:
+        """Detailed representation of the tuple access expression."""
+
+
+class Stmt(IRNode):
+    """Base class for all statements."""
+
+    def __init__(self, span: Span) -> None:
+        """Create a statement.
+
+        Args:
+            span: Source location
+        """
+
+
+class AssignStmt(Stmt):
+    """Assignment statement: var = value."""
+
+    var: Final[Var]
+    """Variable."""
+
+    value: Final[Expr]
+    """Expression."""
+
+    def __init__(self, var: Var, value: Expr, span: Span) -> None:
+        """Create an assignment statement.
+
+        Args:
+            var: Variable
+            value: Expression
+            span: Source location
+        """
+
+
+class IfStmt(Stmt):
+    """Conditional statement: if condition then then_body else else_body."""
+
+    condition: Final[Expr]
+    """Condition expression."""
+
+    then_body: Final[Stmt]
+    """Then branch statement."""
+
+    else_body: Final[Stmt | None]
+    """Else branch statement (can be None)."""
+
+    return_vars: Final[list[Var]]
+    """Return variables (can be empty)."""
+
+    def __init__(
+        self,
+        condition: Expr,
+        then_body: Stmt,
+        else_body: Stmt | None,
+        return_vars: list[Var],
+        span: Span,
+    ) -> None:
+        """Create a conditional statement with then and else branches.
+
+        Args:
+            condition: Condition expression
+            then_body: Then branch statement
+            else_body: Else branch statement (can be None)
+            return_vars: Return variables (can be empty)
+            span: Source location
+        """
+        ...
+
+
+class YieldStmt(Stmt):
+    """Yield statement: yield value."""
+
+    value: Final[list[Expr]]
+    """List of variables to yield (can be empty)."""
+
+    @overload
+    def __init__(self, value: list[Expr], span: Span) -> None:
+        """Create a yield statement with a list of variables.
+
+        Args:
+            value: List of variables to yield
+            span: Source location
+        """
+        ...
+
+    @overload
+    def __init__(self, span: Span) -> None:
+        """Create a yield statement without values.
+
+        Args:
+            span: Source location
+        """
+        ...
+
+
+class ReturnStmt(Stmt):
+    """Return statement: return value."""
+
+    value: Final[list[Expr]]
+    """List of expressions to return (can be empty)."""
+
+    @overload
+    def __init__(self, value: list[Expr], span: Span) -> None:
+        """Create a return statement with a list of expressions.
+
+        Args:
+            value: List of expressions to return
+            span: Source location
+        """
+        ...
+
+    @overload
+    def __init__(self, span: Span) -> None:
+        """Create a return statement without values.
+
+        Args:
+            span: Source location
+        """
+        ...
+
+
+class ForStmt(Stmt):
+    """For loop statement: for loop_var in range(start, stop, step): body."""
+
+    loop_var: Final[Var]
+    """Loop variable."""
+
+    start: Final[Expr]
+    """Start value expression."""
+
+    stop: Final[Expr]
+    """Stop value expression."""
+
+    step: Final[Expr]
+    """Step value expression."""
+
+    iter_args: Final[list[IterArg]]
+    """Iteration arguments (can be empty)."""
+
+    body: Final[Stmt]
+    """Loop body statement."""
+
+    return_vars: Final[list[Var]]
+    """Return variables (can be empty)."""
+
+    attrs: Final[dict[str, object]]
+    """Loop-level attributes (key-value metadata)."""
+
+    def __init__(
+        self,
+        loop_var: Var,
+        start: Expr,
+        stop: Expr,
+        step: Expr,
+        iter_args: list[IterArg],
+        body: Stmt,
+        return_vars: list[Var],
+        span: Span,
+    ) -> None:
+        """Create a for loop statement.
+
+        Args:
+            loop_var: Loop variable
+            start: Start value expression
+            stop: Stop value expression
+            step: Step value expression
+            iter_args: Iteration arguments (can be empty)
+            body: Loop body statements
+            return_vars: Return variables (can be empty)
+            span: Source location
+        """
+
+
+class WhileStmt(Stmt):
+    """While loop statement: while condition: body."""
+
+    condition: Final[Expr]
+    """Condition expression."""
+
+    iter_args: Final[list[IterArg]]
+    """Iteration arguments (can be empty)."""
+
+    body: Final[Stmt]
+    """Loop body statement."""
+
+    return_vars: Final[list[Var]]
+    """Return variables (can be empty)."""
+
+    def __init__(
+        self,
+        condition: Expr,
+        iter_args: list[IterArg],
+        body: Stmt,
+        return_vars: list[Var],
+        span: Span,
+    ) -> None:
+        """Create a while loop statement.
+
+        Args:
+            condition: Condition expression
+            iter_args: Iteration arguments (can be empty)
+            body: Loop body statement
+            return_vars: Return variables (can be empty)
+            span: Source location
+        """
+
+
+class SeqStmts(Stmt):
+    """Sequence of statements: a sequence of statements."""
+
+    stmts: Final[list[Stmt]]
+    """List of statements."""
+
+    def __init__(self, stmts: list[Stmt], span: Span) -> None:
+        """Create a sequence of statements.
+
+        Args:
+            stmts: List of statements
+            span: Source location
+        """
+
+    def __getitem__(self, index: int) -> Stmt:
+        """Get statement by index, supports negative indexing.
+
+        Args:
+            index: Statement index (negative indices count from end)
+
+        Returns:
+            Statement at the given index
+
+        Raises:
+            IndexError: If index is out of range
+        """
+
+
+class EvalStmt(Stmt):
+    """Evaluation statement: expr."""
+
+    expr: Final[Expr]
+    """Expression."""
+
+    def __init__(self, expr: Expr, span: Span) -> None:
+        """Create an evaluation statement.
+
+        Args:
+            expr: Expression to execute
+            span: Source location
+        """
+
+
+class BreakStmt(Stmt):
+    """Break statement: break."""
+
+    def __init__(self, span: Span) -> None:
+        """Create a break statement.
+
+        Args:
+            span: Source location
+        """
+
+
+class ContinueStmt(Stmt):
+    """Continue statement: continue."""
+
+    def __init__(self, span: Span) -> None:
+        """Create a continue statement.
+
+        Args:
+            span: Source location
+        """
+
+
+class Function(IRNode):
+    """Function definition with name, parameters, return types, and body."""
+
+    name: Final[str]
+    """Function name."""
+
+    func_type: Final[FunctionType]
+    """Function type (Opaque, Orchestration, InCore, AIC, AIV, or Group)."""
+
+    params: Final[list[Var]]
+    """Parameter variables."""
+
+    return_types: Final[list[Type]]
+    """Return types."""
+
+    body: Final[Stmt]
+    """Function body statement (use SeqStmts for multiple statements)."""
+
+    def __init__(
+        self,
+        name: str,
+        params: list[Var],
+        return_types: list[Type],
+        body: Stmt,
+        span: Span,
+        type: FunctionType = FunctionType.Opaque,
+    ) -> None:
+        """Create a function definition.
+
+        Args:
+            name: Function name
+            params: Parameter variables, either Var (defaults to In) or (Var, ParamDirection) tuples
+            return_types: Return types
+            body: Function body statement (use SeqStmts for multiple statements)
+            span: Source location
+            type: Function type (default: Opaque)
+        """
+
+    def __str__(self) -> str:
+        """String representation of the function.
+
+        Returns:
+            Function as a string
+        """
+
+    def __repr__(self) -> str:
+        """Detailed representation of the function.
+
+        Returns:
+            Function with type information
+        """
+
+
+class Program(IRNode):
+    """Program definition with functions.
+
+    Functions are automatically sorted by name for deterministic ordering.
+    The GlobalVar name must match the function name and be unique within the program.
+    """
+
+    name: Final[str]
+    """Program name."""
+
+    functions: Final[list[Function]]
+    """List of functions, sorted by GlobalVar name."""
+
+    def __init__(
+        self,
+        functions: list[Function],
+        name: str,
+        span: Span,
+    ) -> None:
+        """Create a program from a list of functions.
+
+        GlobalVar references are created automatically from function names.
+
+        Args:
+            functions: List of functions
+            name: Program name (optional)
+            span: Source location
+        """
+
+    def __getitem__(self, name: str) -> Function | None:
+        """Get function by name, returns None if not found.
+
+        Enables copy-paste navigation of structural equality error paths:
+            program['main'].body[1].var
+
+        Args:
+            name: Function name to look up
+
+        Returns:
+            Function if found, None otherwise
+        """

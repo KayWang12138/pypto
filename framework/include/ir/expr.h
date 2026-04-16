@@ -324,7 +324,7 @@ using IterArgPtr = std::shared_ptr<const IterArg>;
  */
 class Call : public Expr {
 public:
-    OpPtr op_;                                             // Operation/function
+    std::string name_;                                     // Name of the operation/function
     std::vector<ExprPtr> args_;                            // Positional arguments
     std::vector<std::pair<std::string, std::any>> kwargs_; // Keyword arguments (metadata, ordered)
 
@@ -335,8 +335,8 @@ public:
      * \param args List of argument expressions
      * \param span Source location
      */
-    Call(OpPtr op, std::vector<ExprPtr> args, Span span)
-        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_()
+    Call(std::string name, std::vector<ExprPtr> args, Span span)
+        : Expr(std::move(span)), name_(std::move(name)), args_(std::move(args)), kwargs_()
     {}
 
     /**
@@ -347,71 +347,9 @@ public:
      * \param type Result type of the call
      * \param span Source location
      */
-    Call(OpPtr op, std::vector<ExprPtr> args, TypePtr type, Span span)
-        : Expr(std::move(span), std::move(type)), op_(std::move(op)), args_(std::move(args)), kwargs_()
+    Call(std::string name, std::vector<ExprPtr> args, TypePtr type, Span span)
+        : Expr(std::move(span), std::move(type)), name_(std::move(name)), args_(std::move(args)), kwargs_()
     {}
-
-    /**
-     * \brief Create a function call expression with kwargs
-     *
-     * \param op Operation/function to call
-     * \param args List of argument expressions
-     * \param kwargs Keyword arguments (metadata)
-     * \param span Source location
-     */
-    Call(OpPtr op, std::vector<ExprPtr> args, std::vector<std::pair<std::string, std::any>> kwargs, Span span)
-        : Expr(std::move(span)), op_(std::move(op)), args_(std::move(args)), kwargs_(std::move(kwargs))
-    {}
-
-    /**
-     * \brief Create a function call expression with kwargs and explicit type
-     *
-     * \param op Operation/function to call
-     * \param args List of argument expressions
-     * \param kwargs Keyword arguments (metadata)
-     * \param type Result type of the call
-     * \param span Source location
-     */
-    Call(
-        OpPtr op, std::vector<ExprPtr> args, std::vector<std::pair<std::string, std::any>> kwargs, TypePtr type,
-        Span span)
-        : Expr(std::move(span), std::move(type)), op_(std::move(op)), args_(std::move(args)), kwargs_(std::move(kwargs))
-    {}
-
-    /**
-     * \brief Get a kwarg value with type checking
-     *
-     * \tparam T Type of the kwarg value
-     * \param key Kwarg key
-     * \param defaultValue Default value if key doesn't exist
-     * \return The kwarg value or default
-     */
-    template <typename T>
-    T GetKwarg(const std::string& key, const T& defaultValue = T{}) const
-    {
-        for (const auto& [k, v] : kwargs_) {
-            if (k == key) {
-                return AnyCast<T>(v, "kwarg key: " + key);
-            }
-        }
-        return defaultValue;
-    }
-
-    /**
-     * \brief Check if a kwarg exists
-     *
-     * \param key Kwarg key
-     * \return true if the kwarg exists
-     */
-    [[nodiscard]] bool HasKwarg(const std::string& key) const
-    {
-        for (const auto& kv : kwargs_) {
-            if (kv.first == key) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Call; }
     [[nodiscard]] std::string TypeName() const override { return "Call"; }
@@ -426,8 +364,7 @@ public:
         return std::tuple_cat(
             Expr::GetFieldDescriptors(),
             std::make_tuple(
-                reflection::UsualField(&Call::op_, "op"), reflection::UsualField(&Call::args_, "args"),
-                reflection::UsualField(&Call::kwargs_, "kwargs")));
+                reflection::UsualField(&Call::name_, "name"), reflection::UsualField(&Call::args_, "args")));
     }
 };
 

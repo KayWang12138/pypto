@@ -351,13 +351,13 @@ inline constexpr DataType DataType::INDEX = DataType(kIndexCode);
  * as a suffix in code generation (e.g., "FP32", "BF16", "INT32").
  *
  * Callers compose the full qualified name:
- *   - Python printer: prefix + "." + DataTypeToString(dtype)
- *   - C++ codegen:    "DataType::" + DataTypeToString(dtype)
+ *   - Python printer: prefix + "." + DTypeToString(dtype)
+ *   - C++ codegen:    "DataType::" + DTypeToString(dtype)
  *
  * @param dtype The data type to convert
  * @return Uppercase enum name string
  */
-inline std::string DataTypeToString(const DataType& dtype)
+inline std::string DTypeToString(const DataType& dtype)
 {
     if (dtype == DataType::BOOL)
         return "BOOL";
