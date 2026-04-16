@@ -38,11 +38,6 @@ bool IsFileAccessible(const std::string& path)
 
 std::string ResolveExtractPassLogScriptPath()
 {
-    const char* envScriptPath = std::getenv("PYPTO_EXTRACT_PASS_LOG_SCRIPT");
-    if (envScriptPath != nullptr && IsFileAccessible(envScriptPath)) {
-        return std::string(envScriptPath);
-    }
-
     // Installed layout: <lib>/scripts/extract_pass_log.py
     const std::string installedScriptPath = GetCurrentSharedLibPath() + "/scripts/" + kExtractPassLogScriptName;
     if (IsFileAccessible(installedScriptPath)) {
@@ -121,8 +116,8 @@ void ExtractPassLogByFunction(const Function& function)
     if (scriptPath.empty()) {
         APASS_LOG_WARN_F(
             Elements::Function,
-            "extract_pass_log.py not found. tried env(PYPTO_EXTRACT_PASS_LOG_SCRIPT), install(%s/scripts/%s), and source(%s).",
-            GetCurrentSharedLibPath().c_str(), kExtractPassLogScriptName, kExtractPassLogScriptInSource);
+            "%s not found under install(%s/scripts), or source(%s).",
+            kExtractPassLogScriptName, scriptPath, kExtractPassLogScriptInSource);
         return;
     }
 
@@ -135,7 +130,8 @@ void ExtractPassLogByFunction(const Function& function)
     int ret = std::system(command.c_str());
     if (ret != 0) {
         APASS_LOG_WARN_F(
-            Elements::Function, "extract_pass_log.py failed(ret=%d), command: %s.", ret, command.c_str());
+            Elements::Function, "extract_pass_log.py failed(ret=%d), command: %s.",
+            ret, command.c_str());
     }
 }
 
