@@ -83,8 +83,9 @@ def _parse_scalar(text: str) -> Any:
 def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:
     """解析 markdown front matter。
 
-    约定：仅支持文件开头的 `---` 包裹块；值支持标量、list、dict（可使用
-    Python/JSON 字面量形式），满足 lint 结构化字段读取需求。
+    优先使用 yaml.safe_load 解析（支持多行 YAML），若 YAML 解析失败或
+    结果非 dict 则回退到逐行解析。对 YAML 无法识别的 Python 字面量值
+    （如 ``{'key': 'val'}``）做后处理兼容。
     """
     if not content.startswith("---\n"):
         return {}, content
@@ -94,8 +95,23 @@ def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:
 
     header = content[4:end]
     body = content[end + 5:]
-    meta: dict[str, Any] = {}
 
+    # 优先尝试 yaml.safe_load
+    try:
+        import yaml
+        parsed = yaml.safe_load(header)
+        if isinstance(parsed, dict):
+            # 后处理：yaml 会把 Python dict 字面量（如 {'k': v}）解析为字符串，
+            # 用 _parse_scalar 重新解析这些字符串值
+            for key, val in parsed.items():
+                if isinstance(val, str) and val.strip().startswith(("{", "[")):
+                    parsed[key] = _parse_scalar(val)
+            return parsed, body
+    except Exception:
+        pass
+
+    # 回退：逐行解析（兼容旧行为）
+    meta: dict[str, Any] = {}
     for raw in header.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
