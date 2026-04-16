@@ -618,6 +618,10 @@ void CodeGenOpNPU::UpdateTileTensorInfo()
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
+        if ((opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_GET 
+            || opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET_GM2UB) && i == 1) {
+            continue;
+ 	    }
         TileTensorUsing tileTensorUsing{
             functionType == FunctionType::STATIC || isMainBlock,
             operandDtype[i],
