@@ -59,7 +59,49 @@
 
 ---
 
-## 6. 关联 Skill
+## 6. pypto.DYNAMIC 与 pypto.matmul 的配合约束
+
+`pypto.DYNAMIC` 标注的维度**不能直接作为 matmul 的计算维度（M/K/N）**。所有现有可运行样例（`gated_delta_rule_impl.py`、`matmul_allreduce_rmsnorm` 等）中，DYNAMIC 维度始终先通过 `pypto.view` 或切片提取成固定大小的 tile，matmul 在固定维度上运算。
+
+**正确模式：**
+
+```python
+B_dim = pypto.DYNAMIC
+S_dim = pypto.DYNAMIC
+Bc = 128  # 固定块大小
+
+@pypto.frontend.jit(...)
+def kernel(
+    query: pypto.Tensor((B_dim, N, S_dim, D), pypto.DT_BF16),  # B、S 可 DYNAMIC
+    ...
+):
+    B_val = query.shape[0]
+    num_blocks = query.shape[2] // Bc
+
+    for b_idx in pypto.loop(B_val):            # DYNAMIC 维通过 pypto.loop 遍历
+        for i in pypto.loop(num_blocks):
+            Q_i = query[b_idx:b_idx+1, :, i*Bc:(i+1)*Bc, :]  # 切出固定 Bc 大小的 tile
+            scores = pypto.matmul(Q_i, K_j, pypto.DT_FP32, b_trans=True)  # matmul 维度全部固定
+```
+
+**错误模式（会导致编译失败或精度异常）：**
+
+```python
+# ✗ 错误：DYNAMIC 维度直接参与 matmul 的 M 维
+query: pypto.Tensor((1, N, pypto.DYNAMIC, D), pypto.DT_BF16)
+scores = pypto.matmul(query, key_j, ...)  # M = DYNAMIC → 不支持
+```
+
+**总结：**
+
+| 维度角色 | 能否 DYNAMIC | 处理方式 |
+|----------|-------------|----------|
+| 张量的 batch/索引维度 | ✓ | `pypto.loop` 遍历 |
+| matmul 的 M/K/N 维度 | ✗ | 先 `view`/slice 成固定大小 tile |
+
+---
+
+## 7. 关联 Skill
 
 某些错误码在文档中标注了关联 Skill，可直接加载对应技能进行排查：
 
