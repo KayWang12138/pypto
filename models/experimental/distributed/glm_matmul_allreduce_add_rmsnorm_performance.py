@@ -498,7 +498,7 @@ def matmul_allreduce_add_rmsnorm_worker(
 @pytest.mark.skip(reason="performance test case")
 def test_matmul_allreduce_add_rmsnorm_performance():
     mp.set_start_method('spawn', force=True)
-    config = DistributedConfig(world_size=4)
+    config = DistributedConfig(world_size=2)
 
     # 创建输出目录
     output_name = f"output"
@@ -509,7 +509,7 @@ def test_matmul_allreduce_add_rmsnorm_performance():
     # 在这里设置您的理想整体花费时间（预期总时间）
     # 单位：微秒 (us)
     ##################################################################
-    expected_total_time = 200.0  # 设置为您期望的总时间
+    expected_total_time = 70.0  # 设置为您期望的总时间
     ##################################################################
 
     # CSV文件名
