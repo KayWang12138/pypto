@@ -88,16 +88,16 @@ struct CoaInfo {
                     coaExpr.c_str());
                 return FAILED;
             }
-        } else if (ParseParamRawShape(coaExpr, match)) {
-            macroType = CoaType::PARAM_RAW_SHAPE;
-            if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation,
-                    "ParseCoaString failed to convert indices,"
-                    "CoaType::PARAM_RAW_SHAPE, input coaExpr %s.",
-                    coaExpr.c_str());
-                return FAILED;
-            }
+        //} else if (ParseParamRawShape(coaExpr, match)) {
+        //    macroType = CoaType::PARAM_RAW_SHAPE;
+        //    if (SToIParamShapeAndOffset(match) != SUCCESS) {
+        //        APASS_LOG_ERROR_F(
+        //            Elements::Operation,
+        //            "ParseCoaString failed to convert indices,"
+        //            "CoaType::PARAM_RAW_SHAPE, input coaExpr %s.",
+        //            coaExpr.c_str());
+        //        return FAILED;
+        //    }
         } else if (ParseParam(coaExpr, match)) {
             macroType = CoaType::PARAM;
             if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), idx) != SUCCESS) {
@@ -125,8 +125,8 @@ struct CoaInfo {
             return ((base) + 1) + OFFSET_INDEX_ORDER * (dim) + idx;
         } else if (macroType == CoaType::PARAM_VALID_SHAPE) {
             return ((base) + 1) + VALID_SHAPE_INDEX_ORDER * (dim) + idx;
-        } else if (macroType == CoaType::PARAM_RAW_SHAPE) {
-            return ((base) + 1) + RAWSHAPE_INDEX_ORDER * (dim) + idx;
+        //} else if (macroType == CoaType::PARAM_RAW_SHAPE) {
+        //    return ((base) + 1) + RAWSHAPE_INDEX_ORDER * (dim) + idx;
         } else if (macroType == CoaType::PARAM) {
             return idx;
         }
@@ -140,8 +140,8 @@ struct CoaInfo {
             return MAYBE_CONST_COA_GetOffset(isConst, attrValue, dim, base, idx);
         } else if (macroType == CoaType::PARAM_VALID_SHAPE) {
             return MAYBE_CONST_COA_GetValidShape(isConst, attrValue, dim, base, idx);
-        } else if (macroType == CoaType::PARAM_RAW_SHAPE) {
-            return MAYBE_CONST_COA_GetRawShape(isConst, attrValue, dim, base, idx);
+        //} else if (macroType == CoaType::PARAM_RAW_SHAPE) {
+        //    return MAYBE_CONST_COA_GetRawShape(isConst, attrValue, dim, base, idx);
         } else if (macroType == CoaType::PARAM) {
             return MAYBE_CONST_COA_GetParam(isConst, attrValue, idx);
         }
@@ -241,7 +241,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> DynAttrToStatic::GetOpDynami
             FilterSpecifiedValue(copyAttr->GetFromOffset(), dynamicAttributeList);
             FilterSpecifiedValue(copyAttr->GetToDynValidShape(), dynamicAttributeList);
             FilterSpecifiedValue(copyAttr->GetFromDynValidShape(), dynamicAttributeList);
-            FilterSpecifiedValue(copyAttr->GetRawShape(), dynamicAttributeList);
+            //FilterSpecifiedValue(copyAttr->GetRawShape(), dynamicAttributeList);
         }
     }
     return dynamicAttributeList;
@@ -455,8 +455,8 @@ void ReBuildConcreteParam(Function* leafFunc, std::vector<std::vector<SymbolicSc
             return true;
         };
         if (!isConstParam(coaIdx)) {
-            auto constParam1 = BuildNotConstCoa(dynParam.second);
-            leafFunc->GetMutableDynParam(dynParam.first).dim = constParam1;
+            //auto constParam1 = BuildNotConstCoa(dynParam.second);
+            //leafFunc->GetMutableDynParam(dynParam.first).dim = constParam1;
             continue;
         }
         auto constParam = BuildMaybeConstCoa(scalarValue.attrValue, dynParam.second);

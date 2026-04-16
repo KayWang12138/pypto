@@ -41,7 +41,7 @@
 namespace npu {
 namespace tile_fwk {
 
-enum class CoaType { PARAM_OFFSET, PARAM_VALID_SHAPE, PARAM_RAW_SHAPE, PARAM, INVALID };
+enum class CoaType { PARAM_OFFSET, PARAM_VALID_SHAPE, PARAM, INVALID };
 
 static const std::string COA_PREFIX = "RUNTIME_COA_GET_PARAM";
 static const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
