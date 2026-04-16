@@ -12,7 +12,7 @@
 /**
  * @file manual_ops/memory.cpp
  * @brief Manual (non-SSA) memory operations: load, store, store_fp, move, ub_copy, full, fillpad,
- * fillpad_expand.
+ * fillpad_inplace, fillpad_expand.
  *
  * Each "manual" op receives the pre-allocated output tile as its last argument
  * and returns that tile's type rather than creating a fresh SSA result type.
@@ -33,6 +33,7 @@
 #include "block/ir/kind_traits.h"
 #include "block/ir/memref.h"
 #include "block/ir/op_registry.h"
+#include "block/ir/transforms/structural_comparison.h"
 #include "block/ir/type.h"
 
 namespace pypto {
@@ -58,7 +59,8 @@ static TypePtr DeduceManualOutTileType(const std::vector<ExprPtr>& args,
 
 static TypePtr DeduceManualFillPadType(const std::vector<ExprPtr>& args,
                                        const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                       const std::string& op_name, bool allow_expand) {
+                                       const std::string& op_name, bool allow_expand,
+                                       bool require_shared_backing_storage = false) {
   auto out_type = As<TileType>(DeduceManualOutTileType(args, kwargs, op_name, 2));
   CHECK(out_type) << op_name << ": out must be TileType";
   auto src_type = As<TileType>(args[0]->GetType());
@@ -72,6 +74,27 @@ static TypePtr DeduceManualFillPadType(const std::vector<ExprPtr>& args,
       << op_name << ": out.tile_view.pad must be one of TilePad.null/zero/max/min";
   CHECK(pad_value != static_cast<int>(TilePad::null))
       << op_name << ": out.tile_view.pad must not be TilePad.null";
+
+  if (require_shared_backing_storage) {
+    CHECK(src_type->memref_.has_value() && out_type->memref_.has_value())
+        << op_name << ": src and out must share backing storage";
+    auto src_memref = src_type->memref_.value();
+    auto out_memref = out_type->memref_.value();
+    CHECK(src_memref->memory_space_ == out_memref->memory_space_ &&
+          structural_equal(src_memref->addr_, out_memref->addr_))
+        << op_name << ": src and out must share backing storage";
+
+    CHECK(src_type->shape_.size() == 2 && out_type->shape_.size() == 2)
+        << op_name << ": src/out tile shapes must be rank-2";
+    auto src_rows = As<ConstInt>(src_type->shape_[0]);
+    auto src_cols = As<ConstInt>(src_type->shape_[1]);
+    auto out_rows = As<ConstInt>(out_type->shape_[0]);
+    auto out_cols = As<ConstInt>(out_type->shape_[1]);
+    CHECK(src_rows && src_cols && out_rows && out_cols)
+        << op_name << ": src/out tile shapes must be static";
+    CHECK(out_rows->value_ == src_rows->value_ && out_cols->value_ == src_cols->value_)
+        << op_name << ": src and out tile rows/cols must match";
+  }
 
   if (allow_expand) {
     CHECK(src_type->shape_.size() == 2 && out_type->shape_.size() == 2)
@@ -261,6 +284,18 @@ REGISTER_OP("manual.fillpad")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceManualFillPadType(args, kwargs, "manual.fillpad", false);
+    });
+
+// manual.fillpad_inplace: (src_tile, out) -> TileType (out's type)
+REGISTER_OP("manual.fillpad_inplace")
+    .set_op_category("ManualOp")
+    .set_description(
+        "Manual inplace fill-with-padding: src and out share backing storage while preserving distinct metadata.")
+    .add_argument("src", "Source tile (TileType)")
+    .add_argument("out", "Pre-allocated destination tile (TileType)")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceManualFillPadType(args, kwargs, "manual.fillpad_inplace", false, true);
     });
 
 // manual.fillpad_expand: (src_tile, out) -> TileType (out's type)

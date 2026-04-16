@@ -1099,7 +1099,38 @@ def test_manual_fillpad_rejects_invalid_pad_modes():
                 return output
 
 
-def test_manual_fillpad_codegen_emits_same_tile_tfillpad_on_pto():
+def test_manual_fillpad_inplace_rejects_different_backing_storage():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.PTO)
+
+    with pytest.raises(ValueError, match="manual.fillpad_inplace: src and out must share backing storage"):
+        @pl.program
+        class ManualFillPadInplaceInvalidAddrProgram:
+            @pl.function
+            def fillpad_inplace_invalid_addr(
+                self,
+                output: pl.Tensor[[16, 16], pl.FP32],
+            ):
+                src_type = plm.TileType(
+                    shape=[16, 16],
+                    dtype=pl.FP32,
+                    target_memory=pl.MemorySpace.Vec,
+                    pad=plm.TilePad.zero,
+                    valid_shape=[-1, -1],
+                )
+                dst_type = plm.TileType(
+                    shape=[16, 16],
+                    dtype=pl.FP32,
+                    target_memory=pl.MemorySpace.Vec,
+                    pad=plm.TilePad.zero,
+                )
+                src = plm.make_tile(src_type, addr=0x0000, size=1024)
+                dst = plm.make_tile(dst_type, addr=0x1000, size=1024)
+                plm.fillpad_inplace(dst, src)
+                return output
+
+
+def test_manual_fillpad_inplace_codegen_emits_explicit_tfillpad_inplace_on_pto():
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.PTO)
 
@@ -1119,9 +1150,16 @@ def test_manual_fillpad_codegen_emits_same_tile_tfillpad_on_pto():
                 pad=plm.TilePad.zero,
                 valid_shape=[-1, -1],
             )
+            dst_type = plm.TileType(
+                shape=[16, 16],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
+            )
             src = plm.make_tile(src_type, addr=0x0000, size=1024)
+            dst = plm.make_tile(dst_type, addr=0x0000, size=1024)
             plm.set_validshape(src, rows, cols)
-            plm.fillpad(src, src)
+            plm.fillpad_inplace(dst, src)
             return output
 
     pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
@@ -1130,14 +1168,13 @@ def test_manual_fillpad_codegen_emits_same_tile_tfillpad_on_pto():
     codegen_obj = PTOCodegen()
     mlir_code = _get_mlir_code(codegen_obj.generate(transformed_program))
 
-    assert mlir_code.count("pto.alloc_tile") == 1
+    assert mlir_code.count("pto.alloc_tile") == 3
     assert mlir_code.count("pto.set_validshape") == 1
-    assert "pto.tfillpad ins(" in mlir_code
-    assert "pto.tfillpad_inplace" not in mlir_code
-    assert re.search(r"pto\.tfillpad ins\((%[\w\d]+) : [^)]+\) outs\(\1 : ", mlir_code)
+    assert "pto.tfillpad_inplace ins(" in mlir_code
+    assert "pto.tfillpad ins(" not in mlir_code
 
 
-def test_manual_fillpad_same_tile_ptoas_lowers_to_tfillpad_inplace(tmp_path):
+def test_manual_fillpad_inplace_ptoas_lowers_to_tfillpad_inplace(tmp_path):
     ptoas_root = os.environ.get("PTOAS_ROOT")
     ptoas_bin = os.path.join(ptoas_root, "ptoas") if ptoas_root else shutil.which("ptoas")
     if not ptoas_bin:
@@ -1162,9 +1199,16 @@ def test_manual_fillpad_same_tile_ptoas_lowers_to_tfillpad_inplace(tmp_path):
                 pad=plm.TilePad.zero,
                 valid_shape=[-1, -1],
             )
+            dst_type = plm.TileType(
+                shape=[16, 16],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
+            )
             src = plm.make_tile(src_type, addr=0x0000, size=1024)
+            dst = plm.make_tile(dst_type, addr=0x0000, size=1024)
             plm.set_validshape(src, rows, cols)
-            plm.fillpad(src, src)
+            plm.fillpad_inplace(dst, src)
             return output
 
     pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
