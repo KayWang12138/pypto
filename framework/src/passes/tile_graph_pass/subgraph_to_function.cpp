@@ -24,6 +24,7 @@
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/boundary_utils.h"
 
 #undef MODULE_NAME
 #define MODULE_NAME "SubgraphToFunction"
@@ -134,7 +135,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     auto& op = *nLIST[i][j];
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-        if (!iOperand->isSubGraphBoundary) {
+        if (!IsSubGraphBoundary(iOperand)) {
             return;
         }
     }
@@ -144,7 +145,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
             iOperand, nLIST[i][j]->opmagic);
         return;
     }
-    if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!IsSubGraphBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto producers = iOperand->GetProducers();
@@ -205,7 +206,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     // boundary outCasts_
     int refCount = 0;
     typename SubfuncInvokeInfoTy::SuccessorIncastInfoTy relatedIncastList;
-    if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!IsSubGraphBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto consumers = oOperand->GetConsumers();
@@ -309,7 +310,7 @@ void SubgraphToFunction::ProcessInputOperands(
         auto offset = iOperand->offset;
         auto shape = iOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-            if (!iOperand->isSubGraphBoundary) {
+            if (!IsSubGraphBoundary(iOperand)) {
                 continue;
             }
         }
@@ -326,7 +327,7 @@ void SubgraphToFunction::ProcessInputOperands(
             tParamLoc++;
             continue;
         }
-        if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!IsSubGraphBoundary(iOperand) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendIncastParam(
@@ -361,7 +362,7 @@ void SubgraphToFunction::ProcessOutputOperands(
             tParamLoc++;
             continue;
         }
-        if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!IsSubGraphBoundary(oOperand) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendOutcastParam(

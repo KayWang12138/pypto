@@ -269,7 +269,7 @@ def test_select_experts():
         topk_group_indices_g = torch.topk(grouped_weights.to(torch.float32),
                                           k=topk_group,
                                           dim=-1,
-                                          sorted=False)[1]
+                                          sorted=True)[1]
         topk_group_mask = torch.zeros_like(grouped_weights)
 
         topk_group_mask.scatter_(1, topk_group_indices_g, 1)
@@ -284,7 +284,7 @@ def test_select_experts():
         topk_ids_int64 = torch.topk(topk_weights_fill.to(torch.float32),
                                     k=top_k,
                                     dim=-1,
-                                    sorted=False)[1]
+                                    sorted=True)[1]
         topk_ids_int32 = topk_ids_int64.to(torch.int32)
 
         topk_weights_gather = original_weights.gather(1, topk_ids_int64)

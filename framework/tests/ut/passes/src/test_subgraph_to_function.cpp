@@ -31,6 +31,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "passes/statistics/execute_graph_statistic.h"
 #include "ut_json/ut_json_tool.h"
+#include "passes/pass_utils/boundary_utils.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -90,266 +91,226 @@ std::multimap<int, int> GetPSgToESgMap(Function* rootFunc)
     return PSgToESgMap;
 }
 
-TEST_F(SubgraphToFunctionTest, DifferentOffset)
+std::shared_ptr<Function> CreateAndRegisterFunction(const std::string& name)
 {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TILE_DifferentOffset", "TILE_DifferentOffset", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
+    auto functionPtr = std::make_shared<Function>(Program::GetInstance(), name, name, nullptr);
+    EXPECT_NE(functionPtr, nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap(name, functionPtr);
+    return functionPtr;
+}
 
-    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "use_max_freq_label", true);
+std::shared_ptr<LogicalTensor> CreateTensor(
+    const std::shared_ptr<Function>& functionPtr, const std::vector<int64_t>& shape, int magic, MemoryType memoryType)
+{
+    auto tensor = std::make_shared<LogicalTensor>(*functionPtr, DT_FP32, shape);
+    tensor->SetMemoryTypeBoth(memoryType);
+    tensor->SetMagic(magic);
+    return tensor;
+}
 
-    Program::GetInstance().InsertFuncToFunctionMap("TILE_DifferentOffset", currFunctionPtr);
+std::shared_ptr<LogicalTensor> CreateSubgraphTensor(
+    const std::shared_ptr<Function>& functionPtr, const std::vector<int64_t>& shape, int magic, int subGraphId,
+    const std::vector<int64_t>& offset = {})
+{
+    auto tensor = CreateTensor(functionPtr, shape, magic, MEM_UB);
+    if (!offset.empty()) {
+        tensor->UpdateOffset(offset);
+    }
+    tensor->subGraphID = subGraphId;
+    return tensor;
+}
 
-    constexpr int totalSubGraphCount = 3;
-    constexpr int subGraphID0 = 0;
-    constexpr int subGraphID1 = 1;
-    constexpr int subGraphID2 = 2;
+void AddCopyInOp(
+    Function& function, const LogicalTensorPtr& input, const LogicalTensorPtr& output,
+    const std::vector<int64_t>& offset, const OpImmediate& shapeImmediate, int subGraphId, int opMagic)
+{
+    auto& op = function.AddOperation(Opcode::OP_COPY_IN, {input}, {output});
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(offset), MEM_UB, shapeImmediate, shapeImmediate, std::vector<OpImmediate>()));
+    op.UpdateSubgraphID(subGraphId);
+    op.opmagic = opMagic;
+}
 
-    constexpr int opMagic0 = 10032;
-    constexpr int opMagic1 = 10039;
-    constexpr int opMagic2 = 10043;
-    constexpr int opMagic3 = 10021;
-    constexpr int opMagic4 = 10024;
-    constexpr int opMagic5 = 10023;
-    constexpr int opMagic6 = 10026;
-    constexpr int opMagic7 = 10029;
-    constexpr int opMagic8 = 10030;
+void AddCopyOutOp(
+    Function& function, const LogicalTensorPtr& input, const LogicalTensorPtr& output,
+    const std::vector<int64_t>& offset, const OpImmediate& shapeImmediate, int subGraphId, int opMagic)
+{
+    auto& op = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {output});
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MEM_UB, OpImmediate::Specified(offset), shapeImmediate, shapeImmediate, std::vector<OpImmediate>()));
+    op.UpdateSubgraphID(subGraphId);
+    op.opmagic = opMagic;
+}
 
-    constexpr int tensorMagic0 = 3;
-    constexpr int tensorMagic1 = 15;
-    constexpr int tensorMagic2 = 66;
-    constexpr int tensorMagic3 = 79;
-    constexpr int tensorMagic4 = 30;
-    constexpr int tensorMagic5 = 35;
-    constexpr int tensorMagic6 = 29;
-    constexpr int tensorMagic7 = 34;
-    constexpr int tensorMagic8 = 7;
-    // prepare the graph
-    std::vector<int64_t> shape0 = {32, 8, 8};
-    std::vector<int64_t> shape1 = {16, 64};
-    std::vector<int64_t> shape2 = {16, 32};
-    std::vector<int64_t> shape3 = {16, 8, 8};
-    auto shape3Imme = OpImmediate::Specified(shape3);
-    auto shape2Imme = OpImmediate::Specified(shape2);
-    auto shape1Imme = OpImmediate::Specified(shape1);
-    std::shared_ptr<LogicalTensor> incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape0);
-    incast->SetMemoryTypeBoth(MEM_DEVICE_DDR);
-    incast->SetMagic(tensorMagic0);
-    incast->isSubGraphBoundary = true;
-
-    std::shared_ptr<LogicalTensor> tensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    tensor0->SetMemoryTypeBoth(MEM_UB);
-    tensor0->SetMagic(tensorMagic1);
-    tensor0->subGraphID = subGraphID0;
-
-    auto& copyopin0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {tensor0});
-    copyopin0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({16, 0, 0}), MEM_UB, shape3Imme, shape3Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyopin0.UpdateSubgraphID(subGraphID0);
-    copyopin0.opmagic = opMagic0;
-
-    std::shared_ptr<LogicalTensor> tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    tensor1->SetMemoryTypeBoth(MEM_UB);
-    tensor1->SetMagic(tensorMagic2);
-    tensor1->subGraphID = subGraphID0;
-
-    auto& reshapeop = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor0}, {tensor1});
-    reshapeop.UpdateSubgraphID(subGraphID0);
-    reshapeop.opmagic = opMagic1;
-
-    std::shared_ptr<LogicalTensor> input_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    input_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
-    input_tensor->SetMagic(tensorMagic3);
-    input_tensor->isSubGraphBoundary = true;
-    input_tensor->subGraphID = subGraphID0;
-
-    auto& copyoutop0 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {input_tensor});
-    copyoutop0.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({0, 0}), shape1Imme, shape1Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyoutop0.UpdateSubgraphID(subGraphID0);
-    copyoutop0.opmagic = opMagic2;
-
-    std::shared_ptr<LogicalTensor> inner_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    inner_tensor1->SetMemoryTypeBoth(MEM_UB);
-    inner_tensor1->UpdateOffset({0, 0});
-    inner_tensor1->subGraphID = subGraphID1;
-    inner_tensor1->SetMagic(tensorMagic4);
-
-    std::shared_ptr<LogicalTensor> inner_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    inner_tensor2->SetMemoryTypeBoth(MEM_UB);
-    inner_tensor2->UpdateOffset({0, 32});
-    inner_tensor2->subGraphID = subGraphID2;
-    inner_tensor2->SetMagic(tensorMagic5);
-
-    auto& copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
-    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyopin1.UpdateSubgraphID(subGraphID1);
-    copyopin1.opmagic = opMagic3;
-
-    auto& copyopin2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
-    copyopin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 32}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyopin2.UpdateSubgraphID(subGraphID2);
-    copyopin2.opmagic = opMagic4;
-
-    std::shared_ptr<LogicalTensor> result_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    result_tensor1->SetMemoryTypeBoth(MEM_UB);
-    result_tensor1->subGraphID = subGraphID1;
-    result_tensor1->SetMagic(tensorMagic6);
-    std::shared_ptr<LogicalTensor> result_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    result_tensor2->SetMemoryTypeBoth(MEM_UB);
-    result_tensor2->subGraphID = subGraphID2;
-    result_tensor2->SetMagic(tensorMagic7);
-    auto& expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
-    expopin1.UpdateSubgraphID(subGraphID1);
-    expopin1.opmagic = opMagic5;
-
-    auto& expopin2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
-    expopin2.UpdateSubgraphID(subGraphID2);
-    expopin2.opmagic = opMagic6;
-
-    std::shared_ptr<LogicalTensor> output_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    output_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
-    output_tensor->SetMagic(tensorMagic8);
-    output_tensor->isSubGraphBoundary = true;
-
-    auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
-    copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyoutop1.UpdateSubgraphID(subGraphID1);
-    copyoutop1.opmagic = opMagic7;
-
-    auto& copyoutop2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor2}, {output_tensor});
-    copyoutop2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({0, 32}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyoutop2.UpdateSubgraphID(subGraphID2);
-    copyoutop2.opmagic = opMagic8;
-
-    currFunctionPtr->inCasts_.push_back(incast);
-    currFunctionPtr->outCasts_.push_back(output_tensor);
-
-    currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
-
-    std::stringstream ssBefore;
-    ssBefore << "Before_subgraphToFunction";
-
-    // call the pass
+void RunSubgraphToFunctionPass(Function& function)
+{
     SubgraphToFunction subgraphToFunction;
-    subgraphToFunction.PreCheck(*currFunctionPtr);
-    subgraphToFunction.RunOnFunction(*currFunctionPtr);
-    subgraphToFunction.PostCheck(*currFunctionPtr);
+    subgraphToFunction.PreCheck(function);
+    subgraphToFunction.RunOnFunction(function);
+    subgraphToFunction.PostCheck(function);
+}
 
-    std::stringstream ss;
-    ss << "After_subgraphToFunction";
-
-    // do the expect
-    auto rootFunc = currFunctionPtr->rootFunc_;
-    EXPECT_NE(rootFunc, nullptr);
-    const auto& PSgToESgMap = GetPSgToESgMap(rootFunc);
-
-    size_t originalSubgraphCount = currFunctionPtr->GetTotalSubGraphCount();
+size_t CountMergedSubgraphCount(const std::multimap<int, int>& psgToEsgMap)
+{
     std::unordered_set<int> uniquePSgIds;
-    for (const auto& pair : PSgToESgMap) {
+    for (const auto& pair : psgToEsgMap) {
         uniquePSgIds.insert(pair.first);
     }
-    size_t mergedSubgraphCount = uniquePSgIds.size();
-    EXPECT_EQ(mergedSubgraphCount, originalSubgraphCount);
+    return uniquePSgIds.size();
+}
+
+std::shared_ptr<Function> BuildDifferentOffsetFunction()
+{
+    auto functionPtr = CreateAndRegisterFunction("TILE_DifferentOffset");
+    constexpr int totalSubGraphCount = 3;
+    constexpr int subGraphID0 = 0, subGraphID1 = 1, subGraphID2 = 2;
+    const int opMagic[] = {10032, 10039, 10043, 10021, 10024, 10023, 10026, 10029, 10030};
+    const int tensorMagic[] = {3, 15, 66, 79, 30, 35, 29, 34, 7};
+    const std::vector<int64_t> shape0 = {32, 8, 8}, shape1 = {16, 64}, shape2 = {16, 32}, shape3 = {16, 8, 8};
+    auto shape1Imme = OpImmediate::Specified(shape1);
+    auto shape2Imme = OpImmediate::Specified(shape2);
+    auto shape3Imme = OpImmediate::Specified(shape3);
+    auto incast = CreateTensor(functionPtr, shape0, tensorMagic[0], MEM_DEVICE_DDR);
+    auto tensor0 = CreateSubgraphTensor(functionPtr, shape3, tensorMagic[1], subGraphID0);
+    auto tensor1 = CreateSubgraphTensor(functionPtr, shape1, tensorMagic[2], subGraphID0);
+    AddCopyInOp(*functionPtr, incast, tensor0, {16, 0, 0}, shape3Imme, subGraphID0, opMagic[0]);
+    auto& reshapeop = functionPtr->AddOperation(Opcode::OP_RESHAPE, {tensor0}, {tensor1});
+    reshapeop.UpdateSubgraphID(subGraphID0);
+    reshapeop.opmagic = opMagic[1];
+    auto inputTensor = CreateTensor(functionPtr, shape1, tensorMagic[3], MEM_DEVICE_DDR);
+    inputTensor->subGraphID = subGraphID0;
+    AddCopyOutOp(*functionPtr, tensor1, inputTensor, {0, 0}, shape1Imme, subGraphID0, opMagic[2]);
+    auto innerTensor1 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[4], subGraphID1, {0, 0});
+    auto innerTensor2 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[5], subGraphID2, {0, 32});
+    AddCopyInOp(*functionPtr, inputTensor, innerTensor1, {0, 0}, shape2Imme, subGraphID1, opMagic[3]);
+    AddCopyInOp(*functionPtr, inputTensor, innerTensor2, {0, 32}, shape2Imme, subGraphID2, opMagic[4]);
+    auto resultTensor1 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[6], subGraphID1);
+    auto resultTensor2 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[7], subGraphID2);
+    auto& expop1 = functionPtr->AddOperation(Opcode::OP_EXP, {innerTensor1}, {resultTensor1});
+    auto& expop2 = functionPtr->AddOperation(Opcode::OP_EXP, {innerTensor2}, {resultTensor2});
+    expop1.UpdateSubgraphID(subGraphID1);
+    expop1.opmagic = opMagic[5];
+    expop2.UpdateSubgraphID(subGraphID2);
+    expop2.opmagic = opMagic[6];
+    auto outputTensor = CreateTensor(functionPtr, shape1, tensorMagic[8], MEM_DEVICE_DDR);
+    AddCopyOutOp(*functionPtr, resultTensor1, outputTensor, {0, 0}, shape2Imme, subGraphID1, opMagic[7]);
+    AddCopyOutOp(*functionPtr, resultTensor2, outputTensor, {0, 32}, shape2Imme, subGraphID2, opMagic[8]);
+    functionPtr->inCasts_.push_back(incast);
+    functionPtr->outCasts_.push_back(outputTensor);
+    functionPtr->SetTotalSubGraphCount(totalSubGraphCount);
+    return functionPtr;
+}
+
+std::shared_ptr<Function> BuildSameOffsetFunction()
+{
+    auto functionPtr = CreateAndRegisterFunction("TILE_SameOffset");
+    constexpr int subGraphID0 = 0, subGraphID1 = 1;
+    constexpr int totalSubGraphCount = 2;
+    const int opMagic[] = {10021, 10024, 10023, 10026, 10029, 10030};
+    const int tensorMagic[] = {79, 30, 35, 29, 34, 7};
+    const std::vector<int64_t> shape1 = {16, 64}, shape2 = {16, 32}, shape3 = {32, 32};
+    auto shape2Imme = OpImmediate::Specified(shape2);
+    auto inputTensor = CreateTensor(functionPtr, shape1, tensorMagic[0], MEM_DEVICE_DDR);
+    auto innerTensor1 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[1], subGraphID0, {0, 0});
+    auto innerTensor2 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[2], subGraphID1, {0, 0});
+    AddCopyInOp(*functionPtr, inputTensor, innerTensor1, {0, 0}, shape2Imme, subGraphID0, opMagic[0]);
+    AddCopyInOp(*functionPtr, inputTensor, innerTensor2, {0, 0}, shape2Imme, subGraphID1, opMagic[1]);
+    auto resultTensor1 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[3], subGraphID0);
+    auto resultTensor2 = CreateSubgraphTensor(functionPtr, shape2, tensorMagic[4], subGraphID1);
+    auto& expop1 = functionPtr->AddOperation(Opcode::OP_EXP, {innerTensor1}, {resultTensor1});
+    auto& expop2 = functionPtr->AddOperation(Opcode::OP_EXP, {innerTensor2}, {resultTensor2});
+    expop1.UpdateSubgraphID(subGraphID0);
+    expop1.opmagic = opMagic[2];
+    expop2.UpdateSubgraphID(subGraphID1);
+    expop2.opmagic = opMagic[3];
+    auto outputTensor = CreateTensor(functionPtr, shape3, tensorMagic[5], MEM_DEVICE_DDR);
+    AddCopyOutOp(*functionPtr, resultTensor1, outputTensor, {0, 0}, shape2Imme, subGraphID0, opMagic[4]);
+    AddCopyOutOp(*functionPtr, resultTensor2, outputTensor, {16, 0}, shape2Imme, subGraphID1, opMagic[5]);
+    functionPtr->inCasts_.push_back(inputTensor);
+    functionPtr->outCasts_.push_back(outputTensor);
+    functionPtr->SetTotalSubGraphCount(totalSubGraphCount);
+    return functionPtr;
+}
+
+void VerifySubgraphMapping(const std::shared_ptr<Function>& functionPtr, size_t expectedMergedSubgraphCount)
+{
+    auto rootFunc = functionPtr->rootFunc_;
+    EXPECT_NE(rootFunc, nullptr);
+    const auto& psgToEsgMap = GetPSgToESgMap(rootFunc);
+    EXPECT_EQ(CountMergedSubgraphCount(psgToEsgMap), expectedMergedSubgraphCount);
     EXPECT_TRUE(ArePsgHashesUnique(*rootFunc));
-    EXPECT_TRUE(IsPSgToESgMapOneToOne(PSgToESgMap));
+    EXPECT_TRUE(IsPSgToESgMapOneToOne(psgToEsgMap));
+}
+
+void BuildMixedOpsDependencyGraph(ComputationalGraphBuilder& G)
+{
+    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, {"input", "aic_out", "aiv_out", "final_out"}));
+    EXPECT_TRUE(
+        G.AddOps({Opcode::OP_A_MUL_B, Opcode::OP_ADD, Opcode::OP_EXP},
+                 {{"input"}, {"aic_out"}, {"aiv_out"}},
+                 {{"aic_out"}, {"aiv_out"}, {"final_out"}},
+                 {"matmul_aic", "add_aiv", "exp_aicpu"}, true));
+    auto configureSubgraphOp = [&G](const std::string& opName, int subGraphId, CoreType coreType, bool isCube = false) {
+        auto* op = G.GetOp(opName);
+        ASSERT_NE(op, nullptr);
+        op->UpdateSubgraphID(subGraphId);
+        op->SetCoreType(coreType);
+        if (isCube) {
+            op->SetAttribute(OpAttributeKey::isCube, true);
+        }
+    };
+    configureSubgraphOp("matmul_aic", 0, CoreType::AIC, true);
+    configureSubgraphOp("add_aiv", 1, CoreType::AIV);
+    configureSubgraphOp("exp_aicpu", 2, CoreType::AICPU);
+    auto inputTensor = G.GetTensor("input");
+    auto finalOutTensor = G.GetTensor("final_out");
+    ASSERT_NE(inputTensor, nullptr);
+    ASSERT_NE(finalOutTensor, nullptr);
+    inputTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    finalOutTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
+    EXPECT_TRUE(G.SetInCast({"input"}));
+    EXPECT_TRUE(G.SetOutCast({"final_out"}));
+}
+
+void VerifyMixedOpsConversion(const Function& function)
+{
+    auto* rootFunc = function.rootFunc_;
+    ASSERT_NE(rootFunc, nullptr);
+    EXPECT_EQ(rootFunc->programs_.size(), 3);
+    const auto& topoInfo = rootFunc->topoInfo_;
+    EXPECT_EQ(topoInfo.topology_.size(), 3);
+    EXPECT_EQ(topoInfo.topology_[0].outGraph, std::unordered_set<int>{1});
+    EXPECT_EQ(topoInfo.topology_[1].outGraph, std::unordered_set<int>{2});
+    EXPECT_TRUE(topoInfo.topology_[2].outGraph.empty());
+    EXPECT_EQ(topoInfo.topology_[0].readyState, 0);
+    EXPECT_EQ(topoInfo.topology_[1].readyState, -1);
+    EXPECT_EQ(topoInfo.topology_[2].readyState, -1);
+    const auto& callOps = rootFunc->Operations();
+    ASSERT_EQ(callOps.size(), 3);
+    auto expectCallGraphType = [&callOps](size_t idx, CoreType expected) {
+        auto attr = dynamic_cast<CallOpAttribute*>(callOps[idx].GetOpAttribute().get());
+        ASSERT_NE(attr, nullptr);
+        EXPECT_EQ(attr->invokeInfo_->GetGraphType(), expected);
+    };
+    expectCallGraphType(0, CoreType::AIC);
+    expectCallGraphType(1, CoreType::AIV);
+    expectCallGraphType(2, CoreType::AICPU);
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIC), 1);
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIV), 0);
+    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AICPU), 0);
+}
+
+TEST_F(SubgraphToFunctionTest, DifferentOffset)
+{
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "use_max_freq_label", true);
+    auto currFunctionPtr = BuildDifferentOffsetFunction();
+    RunSubgraphToFunctionPass(*currFunctionPtr);
+    VerifySubgraphMapping(currFunctionPtr, currFunctionPtr->GetTotalSubGraphCount());
 }
 
 TEST_F(SubgraphToFunctionTest, SameOffset)
 {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TILE_SameOffset", "TILE_SameOffset", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    Program::GetInstance().InsertFuncToFunctionMap("TILE_SameOffset", currFunctionPtr);
-
-    constexpr int totalSubGraphCount = 2;
-    constexpr int subGraphID0 = 0;
-    constexpr int subGraphID1 = 1;
-
-    constexpr int opMagic3 = 10021;
-    constexpr int opMagic4 = 10024;
-    constexpr int opMagic5 = 10023;
-    constexpr int opMagic6 = 10026;
-    constexpr int opMagic7 = 10029;
-    constexpr int opMagic8 = 10030;
-
-    constexpr int tensorMagic3 = 79;
-    constexpr int tensorMagic4 = 30;
-    constexpr int tensorMagic5 = 35;
-    constexpr int tensorMagic6 = 29;
-    constexpr int tensorMagic7 = 34;
-    constexpr int tensorMagic8 = 7;
-    // prepare the graph
-    std::vector<int64_t> shape1 = {16, 64};
-    std::vector<int64_t> shape2 = {16, 32};
-    std::vector<int64_t> shape3 = {32, 32};
-    auto shape2Imme = OpImmediate::Specified(shape2);
-    std::shared_ptr<LogicalTensor> input_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    input_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
-    input_tensor->SetMagic(tensorMagic3);
-    input_tensor->isSubGraphBoundary = true;
-
-    std::shared_ptr<LogicalTensor> inner_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    inner_tensor1->SetMemoryTypeBoth(MEM_UB);
-    inner_tensor1->UpdateOffset({0, 0});
-    inner_tensor1->subGraphID = subGraphID0;
-    inner_tensor1->SetMagic(tensorMagic4);
-    std::shared_ptr<LogicalTensor> inner_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    inner_tensor2->SetMemoryTypeBoth(MEM_UB);
-    inner_tensor2->UpdateOffset({0, 0});
-    inner_tensor2->subGraphID = subGraphID1;
-    inner_tensor2->SetMagic(tensorMagic5);
-    auto& copyopin1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor1});
-    copyopin1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyopin1.UpdateSubgraphID(subGraphID0);
-    copyopin1.opmagic = opMagic3;
-    auto& copyopin2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {input_tensor}, {inner_tensor2});
-    copyopin2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        OpImmediate::Specified({0, 0}), MEM_UB, shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyopin2.UpdateSubgraphID(subGraphID1);
-    copyopin2.opmagic = opMagic4;
-
-    std::shared_ptr<LogicalTensor> result_tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    result_tensor1->SetMemoryTypeBoth(MEM_UB);
-    result_tensor1->subGraphID = subGraphID0;
-    result_tensor1->SetMagic(tensorMagic6);
-    std::shared_ptr<LogicalTensor> result_tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    result_tensor2->SetMemoryTypeBoth(MEM_UB);
-    result_tensor2->subGraphID = subGraphID1;
-    result_tensor2->SetMagic(tensorMagic7);
-    auto& expopin1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor1}, {result_tensor1});
-    expopin1.UpdateSubgraphID(subGraphID0);
-    expopin1.opmagic = opMagic5;
-    auto& expopin2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inner_tensor2}, {result_tensor2});
-    expopin2.UpdateSubgraphID(subGraphID1);
-    expopin2.opmagic = opMagic6;
-
-    std::shared_ptr<LogicalTensor> output_tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
-    output_tensor->SetMemoryTypeBoth(MEM_DEVICE_DDR);
-    output_tensor->SetMagic(tensorMagic8);
-    output_tensor->isSubGraphBoundary = true;
-
-    auto& copyoutop1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor1}, {output_tensor});
-    copyoutop1.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({0, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyoutop1.UpdateSubgraphID(subGraphID0);
-    copyoutop1.opmagic = opMagic7;
-    auto& copyoutop2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {result_tensor2}, {output_tensor});
-    copyoutop2.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-        MEM_UB, OpImmediate::Specified({16, 0}), shape2Imme, shape2Imme, std::vector<npu::tile_fwk::OpImmediate>()));
-    copyoutop2.UpdateSubgraphID(subGraphID1);
-    copyoutop2.opmagic = opMagic8;
-
-    currFunctionPtr->inCasts_.push_back(input_tensor);
-    currFunctionPtr->outCasts_.push_back(output_tensor);
-
-    currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
+    auto currFunctionPtr = BuildSameOffsetFunction();
 
     Json progDump;
     progDump["version"] = "2.0";
@@ -359,31 +320,8 @@ TEST_F(SubgraphToFunctionTest, SameOffset)
     file << progDump.dump() << std::endl;
     file.close();
 
-    std::stringstream ssBefore;
-    ssBefore << "Before_subgraphToFunction";
-
-    // call the pass
-    SubgraphToFunction subgraphToFunction;
-    subgraphToFunction.PreCheck(*currFunctionPtr);
-    subgraphToFunction.RunOnFunction(*currFunctionPtr);
-    subgraphToFunction.PostCheck(*currFunctionPtr);
-
-    std::stringstream ss;
-    ss << "After_subgraphIsomorphismPass";
-
-    // do the expect
-    auto rootFunc = currFunctionPtr->rootFunc_;
-    EXPECT_NE(rootFunc, nullptr);
-    const auto& PSgToESgMap = GetPSgToESgMap(rootFunc);
-
-    std::unordered_set<int> uniquePSgIds;
-    for (const auto& pair : PSgToESgMap) {
-        uniquePSgIds.insert(pair.first);
-    }
-    size_t mergedSubgraphCount = uniquePSgIds.size();
-    EXPECT_EQ(mergedSubgraphCount, 1);
-    EXPECT_TRUE(ArePsgHashesUnique(*rootFunc));
-    EXPECT_TRUE(IsPSgToESgMapOneToOne(PSgToESgMap));
+    RunSubgraphToFunctionPass(*currFunctionPtr);
+    VerifySubgraphMapping(currFunctionPtr, 1);
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
@@ -701,8 +639,6 @@ void InitGraphBuilder(ComputationalGraphBuilder& G, std::vector<int64_t> tileSha
     auto final_out_tensor = G.GetTensor("final_out");
     input_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
     final_out_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
-    input_tensor->isSubGraphBoundary = true;
-    final_out_tensor->isSubGraphBoundary = true;
 
     // 4. 设置输入输出转换
     EXPECT_TRUE(G.SetInCast({"input"}));
@@ -747,113 +683,16 @@ TEST_F(SubgraphToFunctionTest, TestBasicSubgraphConversion)
 
 TEST_F(SubgraphToFunctionTest, MultiSubgraphDependencyWithMixedOps)
 {
-    // 1. 构建包含3个子图的依赖链：AIC -> AIV -> AICPU
     ComputationalGraphBuilder G;
-    std::vector<std::string> tensorNames = {"input", "aic_out", "aiv_out", "final_out"};
-
-    // 定义操作类型（AIC/AIV/AICPU）
-    std::vector<Opcode> opCodes = {
-        Opcode::OP_A_MUL_B, // AIC 子图 (0)
-        Opcode::OP_ADD,     // AIV 子图 (1)
-        Opcode::OP_EXP      // AICPU 子图 (2)
-    };
-
-    // 输入输出张量关系（形成依赖链）
-    std::vector<std::vector<std::string>> ioperands = {
-        {"input"},   // MATMUL (子图0)
-        {"aic_out"}, // ADD (子图1)
-        {"aiv_out"}  // EXP (子图2)
-    };
-
-    std::vector<std::vector<std::string>> ooperands = {{"aic_out"}, {"aiv_out"}, {"final_out"}};
-
-    std::vector<std::string> opNames = {"matmul_aic", "add_aiv", "exp_aicpu"};
-
-    // 2. 添加张量和操作
-    EXPECT_TRUE(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames));
-    EXPECT_TRUE(G.AddOps(opCodes, ioperands, ooperands, opNames, true));
-
-    // 3. 显式设置子图ID和核心类型
-    G.GetOp("matmul_aic")->UpdateSubgraphID(0);
-    G.GetOp("matmul_aic")->SetCoreType(CoreType::AIC); // 标记为AIC操作
-    G.GetOp("matmul_aic")->SetAttribute(OpAttributeKey::isCube, true);
-
-    G.GetOp("add_aiv")->UpdateSubgraphID(1);
-    G.GetOp("add_aiv")->SetCoreType(CoreType::AIV); // 标记为AIV操作
-
-    G.GetOp("exp_aicpu")->UpdateSubgraphID(2);
-    G.GetOp("exp_aicpu")->SetCoreType(CoreType::AICPU); // 标记为AICPU操作
-
-    // 4. 设置内存类型和边界张量
-    auto input_tensor = G.GetTensor("input");
-    auto final_out_tensor = G.GetTensor("final_out");
-
-    // 输入输出为DDR内存
-    input_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
-    final_out_tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR);
-
-    // 标记边界张量
-    input_tensor->isSubGraphBoundary = true;
-    final_out_tensor->isSubGraphBoundary = true;
-
-    // 中间张量作为子图边界
-    G.GetTensor("aic_out")->isSubGraphBoundary = true;
-    G.GetTensor("aiv_out")->isSubGraphBoundary = true;
-
-    // 5. 设置输入输出转换
-    EXPECT_TRUE(G.SetInCast({"input"}));
-    EXPECT_TRUE(G.SetOutCast({"final_out"}));
-
-    // 6. 获取Function并设置总子图数
+    BuildMixedOpsDependencyGraph(G);
     Function* function = G.GetFunction();
     ASSERT_NE(function, nullptr);
-    function->SetTotalSubGraphCount(3); // 共3个子图
+    function->SetTotalSubGraphCount(3);
 
-    // 7. 执行子图转换Pass
     SubgraphToFunction pass;
     Status status = pass.RunOnFunction(*function);
     EXPECT_EQ(status, SUCCESS);
-
-    // 8. 验证结果
-    Function* rootFunc = function->rootFunc_;
-    ASSERT_NE(rootFunc, nullptr);
-
-    // 8.1 验证子图数量
-    EXPECT_EQ(rootFunc->programs_.size(), 3); // 应生成3个子图程序
-
-    // 8.2 验证拓扑依赖关系
-    const auto& topoInfo = rootFunc->topoInfo_;
-    EXPECT_EQ(topoInfo.topology_.size(), 3); // 应有3个子图调用
-
-    // 检查依赖链：0 -> 1 -> 2
-    EXPECT_EQ(topoInfo.topology_[0].outGraph, std::unordered_set<int>{1}); // 子图0依赖子图1
-    EXPECT_EQ(topoInfo.topology_[1].outGraph, std::unordered_set<int>{2}); // 子图1依赖子图2
-    EXPECT_TRUE(topoInfo.topology_[2].outGraph.empty());                   // 子图2无后继
-
-    // 8.3 验证readyState计算
-    EXPECT_EQ(topoInfo.topology_[0].readyState, 0);  // 子图0无前驱，初始ready
-    EXPECT_EQ(topoInfo.topology_[1].readyState, -1); // 子图1依赖子图0
-    EXPECT_EQ(topoInfo.topology_[2].readyState, -1); // 子图2依赖子图1
-
-    // 8.4 验证子图类型分类
-    const auto& callOps = rootFunc->Operations();
-    ASSERT_EQ(callOps.size(), 3);
-
-    // 检查CallOpAttribute中的graphType
-    auto check_graph_type = [&callOps](size_t idx, CoreType expected) {
-        auto attr = dynamic_cast<CallOpAttribute*>(callOps[idx].GetOpAttribute().get());
-        ASSERT_NE(attr, nullptr);
-        EXPECT_EQ(attr->invokeInfo_->GetGraphType(), expected);
-    };
-
-    check_graph_type(0, CoreType::AIC);   // 子图0应为AIC
-    check_graph_type(1, CoreType::AIV);   // 子图1应为AIV
-    check_graph_type(2, CoreType::AICPU); // 子图2应为AICPU
-
-    // 8.5 验证ready子图列表
-    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIC), 1);   // 子图0应在AIC就绪列表
-    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AIV), 0);   // 子图1未就绪
-    EXPECT_EQ(rootFunc->GetReadySubGraphCount(CoreType::AICPU), 0); // 子图2未就绪
+    VerifyMixedOpsConversion(*function);
 }
 
 TEST_F(SubgraphToFunctionTest, EliminateRedundantEdges)
