@@ -213,7 +213,7 @@ void MonitorManager::TryEndPrepareStage()
     if (current_stage_ == "Prepare" && enable_) {
         double total_elapsed_prepare =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - total_start_).count();
-        std::string msg = "[Compiler Monitor] Stage: " + current_stage_ +
+        std::string msg = "[Compiler Monitor] " + PadLabel("Stage: ") + PadStageName(current_stage_) +
                           "(completed) | Stashed function: " + std::to_string(total_function_count_) +
                           " | Stage elapsed: " + FormatElapsed(elapsed) +
                           " | Total elapsed: " + FormatElapsed(total_elapsed_prepare);
@@ -483,17 +483,18 @@ void MonitorManager::EndStageInternal(const std::string& name, int rootFuncIndex
 
     std::string stage_finish_msg;
     if (name == STAGE_FUNC_TO_BIN) {
-        stage_finish_msg = "[Compiler Monitor] RootFunc(parallel): " + std::to_string(rootFuncIndex) + "/" +
-                           std::to_string(root_func_count_) + " | Stage: CodeGen[" + name + "]" +
+        stage_finish_msg = "[Compiler Monitor] " + PadLabel("RootFunc(parallel): ") + std::to_string(rootFuncIndex) +
+                           "/" + std::to_string(root_func_count_) +
+                           " | Stage: " + PadStageName("CodeGen[" + name + "]") +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed) + " | RootFunc:[" + rootFuncName + "]";
     } else if (name == "CodeGen") {
-        stage_finish_msg = "[Compiler Monitor] Stage: " + name +
+        stage_finish_msg = "[Compiler Monitor] " + PadLabel("Stage: ") + PadStageName(name) +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed);
     } else {
-        stage_finish_msg = "[Compiler Monitor] Function: " + std::to_string(current_function_index_) + "/" +
-                           std::to_string(total_function_count_) + " | Stage: " + name +
+        stage_finish_msg = "[Compiler Monitor] " + PadLabel("Function: ") + std::to_string(current_function_index_) +
+                           "/" + std::to_string(total_function_count_) + " | Stage: " + PadStageName(name) +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_function_ + "]";
     }
