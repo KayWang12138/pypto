@@ -1,6 +1,6 @@
 ---
 name: pypto-op-design
-description: "当需要设计 PyPTO 算子实现方案时使用。通过迭代式约束收敛，生成 DESIGN.md（含 API 映射、精度路由、Tiling 推导、Loop 结构设计）。Triggers: 生成设计方案、生成 design、设计方案、写 DESIGN.md、算子设计、API 映射、Tiling 策略、tiling 推导、Loop 结构、数据流设计、精度路由。"
+description: 当需要设计 PyPTO 算子实现方案时使用。通过迭代式约束收敛，生成 DESIGN.md（含 API 映射、精度路由、Tiling 推导、Loop 结构设计）。Triggers: 生成设计方案、生成 design、设计方案、写 DESIGN.md、算子设计、API 映射、Tiling 策略、tiling 推导、Loop 结构、数据流设计、精度路由。
 ---
 
 # PyPTO 算子方案设计
@@ -19,8 +19,8 @@ description: "当需要设计 PyPTO 算子实现方案时使用。通过迭代�
 
 | 来源 | 必须 | 用途 |
 |------|------|------|
-| 算子规格（SPEC.md） | 是 | 公式、shape、dtype、动态轴、典型配置 |
-| API 探索报告（API_REPORT.md） | 否 | API 可用性（缺失时在第 1 轮自行查 `docs/`） |
+| 算子规格 | 是 | 公式、shape、dtype、动态轴、典型配置 |
+| API 探索报告 | 否 | API 可用性（缺失时在第 1 轮自行查 `docs/`） |
 | Golden 参考实现 | 否 | 辅助理解计算逻辑 |
 
 **输出**：`DESIGN.md`，基于模板 [templates/design-template.md](templates/design-template.md)
