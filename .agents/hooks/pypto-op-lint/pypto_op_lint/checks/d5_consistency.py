@@ -222,7 +222,7 @@ def check_ol32(ctx: CheckContext) -> Finding:
             continue
         spec_strictest = min(spec_vals)
         test_loosest = max(test_vals)
-        if test_loosest > spec_strictest * 10:
+        if test_loosest > spec_strictest * 3:
             mismatches.append(
                 f"{key}: spec 最严={spec_strictest}, test 最松={test_loosest}")
     if mismatches:
@@ -287,6 +287,17 @@ def check_ol34(ctx: CheckContext) -> Finding:
             f"{SPEC_FILE} front matter 中 p0_shapes 必须是 list",
             file=SPEC_FILE)
     for item in raw_shapes:
+        # Support both list shapes and dict shapes (e.g. {"query": [1,64,128], ...})
+        if isinstance(item, dict):
+            for v in item.values():
+                if isinstance(v, (list, tuple)):
+                    try:
+                        dims = tuple(int(x) for x in v)
+                        if len(dims) >= 2:
+                            spec_p0_shapes.add(dims)
+                    except (ValueError, TypeError):
+                        pass
+            continue
         if not isinstance(item, (list, tuple)):
             continue
         try:
