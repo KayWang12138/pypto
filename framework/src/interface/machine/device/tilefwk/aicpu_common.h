@@ -191,6 +191,10 @@ struct TaskStat {
     int64_t execStart;
     int64_t execEnd;
     int64_t waitStart; // 2.0 dfx 当前未使用
+    int64_t setEventCycle[32]; // There can be a maximum of 32 sets of sync in a mix subgraph
+    int64_t waitEventCycle[32];
+    int waitEventIdx;
+    int setEventIdx;
 };
 
 struct DevDfxArgs {
@@ -270,7 +274,6 @@ struct KernelArgs {
     int64_t waveBufferCpuToCore[8];
     struct ParallelDevTask parallelDevTask;
     TaskEntry taskEntry;
-    TaskStat taskStat[2]; // 寄存器高低32位，两个task 和 pending & running task存储： 2 * 2 个
 };
 
 union KernelSharedBuffer {
