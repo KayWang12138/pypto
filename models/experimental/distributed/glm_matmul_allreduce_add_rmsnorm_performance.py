@@ -24,8 +24,6 @@ import os
 import csv
 from pathlib import Path
 
-logging.basicConfig(level=logging.INFO, format='%(message)s')
-
 import numpy as np
 import pytest
 import torch
@@ -34,6 +32,8 @@ import pypto
 
 from distributed_config import DistributedConfig
 from swimlane_analyzer import SwimlaneAnalyzer
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 @pypto.frontend.jit(
@@ -279,11 +279,18 @@ def _print_results_table(rows):
     logging.info("=" * 80)
     logging.info("性能测试结果汇总")
     logging.info("=" * 80)
-    logging.info(f"{'序号':<4} {'时间':<20} {'world_size':<10} {'rank':<8} {'预期时间(us)':<12} {'实际总体时间(us)':<16} {'状态':<8}")
+    header = f"{'序号':<4} {'时间':<20} {'world_size':<10} {'rank':<8} " \
+             f"{'预期时间(us)':<12} {'实际总体时间(us)':<16} {'状态':<8}"
+    logging.info(header)
     logging.info("-" * 80)
 
     for i, row in enumerate(rows, 1):
-        logging.info(f"{i:<4} {row.get('timestamp', 'N/A'):<20} {row.get('world_size', 'N/A'):<10} {row.get('rank', 'N/A'):<8} {row.get('expected_time_us', 'N/A'):<12} {row.get('actual_total_time_us', 'N/A'):<16} {row.get('status', 'N/A'):<8}")
+        row_str = f"{i:<4} {row.get('timestamp', 'N/A'):<20} " \
+                  f"{row.get('world_size', 'N/A'):<10} {row.get('rank', 'N/A'):<8} " \
+                  f"{row.get('expected_time_us', 'N/A'):<12} " \
+                  f"{row.get('actual_total_time_us', 'N/A'):<16} " \
+                  f"{row.get('status', 'N/A'):<8}"
+        logging.info(row_str)
 
 
 def _print_summary_stats(rows):

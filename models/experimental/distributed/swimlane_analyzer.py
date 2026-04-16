@@ -32,21 +32,84 @@ class SwimlaneAnalyzer:
         self.output_dir = output_dir
         self.performance_data = None
         self.expected_total_time = expected_total_time
-        self._cached_min_file_info = None  # 缓存最小文件信息
+        self._cached_min_file_info = None
+
+    @staticmethod
+    def _calculate_total_time_from_data(performance_data: dict) -> float:
+        """从性能数据计算总体执行时间（第一个任务开始到最后一个任务结束的时间跨度）"""
+        if 'traceEvents' not in performance_data:
+            raise ValueError("Performance data does not contain traceEvents")
+
+        start_times = []
+        end_times = []
+
+        for event in performance_data['traceEvents']:
+            if event.get('ph') == 'X':
+                if 'fake' in event.get('name', '').lower():
+                    continue
+
+                start_time = event.get('ts', 0)
+                duration = event.get('dur', 0)
+
+                if duration <= 0:
+                    continue
+
+                end_time = start_time + duration
+                start_times.append(start_time)
+                end_times.append(end_time)
+
+        if not start_times or not end_times:
+            return 0.0
+
+        overall_start = min(start_times)
+        overall_end = max(end_times)
+        total_time = overall_end - overall_start
+
+        return total_time
+
+    def _collect_swimlane_times(self, rank_dirs: List[str]) -> List[Tuple[str, float]]:
+        """收集所有 swimlane 文件的时间信息"""
+        all_times = []
+        for rank_dir in rank_dirs:
+            swimlane_files = self._find_swimlane_files(rank_dir)
+            for file_path in swimlane_files:
+                time_info = self._parse_swimlane_file(file_path)
+                if time_info:
+                    all_times.append(time_info)
+        return all_times
+
+    def _find_swimlane_files(self, rank_dir: str) -> List[str]:
+        """在目录中查找 swimlane 文件"""
+        swimlane_files = []
+        for root, _, files in os.walk(rank_dir):
+            for file in files:
+                if file == "merged_swimlane.json":
+                    swimlane_files.append(os.path.join(root, file))
+        return swimlane_files
+
+    def _parse_swimlane_file(self, file_path: str) -> Optional[Tuple[str, float]]:
+        """解析单个 swimlane 文件并返回时间信息"""
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+
+            total_time = self._calculate_total_time_from_data(data)
+            return (file_path, total_time)
+
+        except (json.JSONDecodeError, OSError) as e:
+            logging.warning(f"Failed to parse swimlane file {file_path}: {e}")
+            return None
 
     def find_all_rank_dirs(self) -> List[str]:
         """查找所有rank目录"""
         rank_dirs = []
 
-        # 在输出目录中查找rank目录
         for item in os.listdir(self.output_dir):
             item_path = os.path.join(self.output_dir, item)
             if os.path.isdir(item_path):
-                # 检查是否是rank目录（包含rank字样）
                 if 'rank' in item.lower():
                     rank_dirs.append(item_path)
 
-        # 如果没找到rank目录，则返回所有子目录
         if not rank_dirs:
             for item in os.listdir(self.output_dir):
                 item_path = os.path.join(self.output_dir, item)
@@ -62,10 +125,8 @@ class SwimlaneAnalyzer:
         if not rank_dirs:
             return []
 
-        # 按修改时间排序，最新的在前面
         rank_dirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
 
-        # 返回最近的world_size个目录
         return rank_dirs[:world_size]
 
     def find_min_time_file_in_ranks(self, world_size: int) -> Tuple[str, float]:
@@ -143,7 +204,7 @@ class SwimlaneAnalyzer:
     def check_within_expected(self, world_size: int) -> bool:
         """检查实际总体执行时间是否在预期总时间内"""
         if self.expected_total_time is None:
-            return True  # 如果没有设置预期时间，默认通过
+            return True
 
         actual_min_time = self.calculate_min_total_time(world_size)
         return actual_min_time <= self.expected_total_time
@@ -156,7 +217,6 @@ class SwimlaneAnalyzer:
         is_within = self.check_within_expected(world_size)
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
-        # 获取rank信息（从文件路径推断）
         rank = "unknown"
         rank_dir = os.path.dirname(min_file_path)
         for part in rank_dir.split(os.sep):
@@ -164,7 +224,6 @@ class SwimlaneAnalyzer:
                 rank = part
                 break
 
-        # CSV文件头
         fieldnames = [
             'timestamp',
             'world_size',
@@ -176,7 +235,6 @@ class SwimlaneAnalyzer:
             'status'
         ]
 
-        # 确保CSV文件存在并写入数据
         file_exists = os.path.isfile(csv_file)
 
         with open(csv_file, 'a', newline='', encoding='utf-8') as f:
@@ -185,7 +243,6 @@ class SwimlaneAnalyzer:
             if not file_exists:
                 writer.writeheader()
 
-            # 确保预期时间被正确保存
             expected_value = expected_total_time if expected_total_time is not None else 'N/A'
 
             writer.writerow({
@@ -219,60 +276,3 @@ class SwimlaneAnalyzer:
             for file_path, time in sorted(all_times, key=lambda x: x[1]):
                 rank_name = os.path.basename(os.path.dirname(file_path))
                 logging.info(f"  {rank_name}: {time:.3f} us")
-
-    def _collect_swimlane_times(self, rank_dirs: List[str]) -> List[Tuple[str, float]]:
-        """收集所有 swimlane 文件的时间信息"""
-        all_times = []
-        for rank_dir in rank_dirs:
-            swimlane_files = []
-            for root, _, files in os.walk(rank_dir):
-                for file in files:
-                    if file == "merged_swimlane.json":
-                        swimlane_files.append(os.path.join(root, file))
-
-            for file_path in swimlane_files:
-                try:
-                    with open(file_path, 'r') as f:
-                        data = json.load(f)
-
-                    total_time = self._calculate_total_time_from_data(data)
-                    all_times.append((file_path, total_time))
-
-                except (json.JSONDecodeError, KeyError, ValueError, IOError) as e:
-                    logging.warning(f"Failed to parse swimlane file {file_path}: {e}")
-                    continue
-
-        return all_times
-
-    @staticmethod
-    def _calculate_total_time_from_data(performance_data: dict) -> float:
-        """从性能数据计算总体执行时间（第一个任务开始到最后一个任务结束的时间跨度）"""
-        if 'traceEvents' not in performance_data:
-            raise ValueError("Performance data does not contain traceEvents")
-
-        start_times = []
-        end_times = []
-
-        for event in performance_data['traceEvents']:
-            if event.get('ph') == 'X':
-                if 'fake' in event.get('name', '').lower():
-                    continue
-
-                start_time = event.get('ts', 0)
-                duration = event.get('dur', 0)
-
-                if duration <= 0:
-                    continue
-
-                end_time = start_time + duration
-                start_times.append(start_time)
-                end_times.append(end_time)
-
-        if not start_times or not end_times:
-            return 0.0
-
-        overall_start = min(start_times)
-        overall_end = max(end_times)
-        total_time = overall_end - overall_start
-
-        return total_time
