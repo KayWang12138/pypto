@@ -88,7 +88,7 @@ struct DevAscendProgram {
     std::atomic<bool> runtimeDataRingBufferInited{false};
     uint32_t stitchFunctionsize{0};
     uint32_t stitchMaxFunctionNum{0};
-    uint32_t ctrlFlowCacheSize{0};
+    uint32_t ctrlFlowCacheSize{DEFAULT_STITCH_CFGCACHE_SIZE};
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
     uint64_t expressionTableSize;
