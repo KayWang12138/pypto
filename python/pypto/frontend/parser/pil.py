@@ -183,15 +183,15 @@ class PILBuilder(ast.NodeVisitor):
 
     def create_pil_slice(self, slices: list[PILSlice]) -> ast.expr:
         result_slice_tuple = []
-        for slice in slices:
-            if isinstance(slice, tuple):
+        for pil_slice in slices:
+            if isinstance(pil_slice, tuple):
                 result_slice_expr = ast.Slice(
-                    lower=self.create_pil_expr(slice[0]) if slice[0] is not None else None,
-                    upper=self.create_pil_expr(slice[1]) if slice[1] is not None else None,
-                    step=self.create_pil_expr(slice[2]) if slice[2] is not None else None)
+                    lower=self.create_pil_expr(pil_slice[0]) if pil_slice[0] is not None else None,
+                    upper=self.create_pil_expr(pil_slice[1]) if pil_slice[1] is not None else None,
+                    step=self.create_pil_expr(pil_slice[2]) if pil_slice[2] is not None else None)
                 result_slice_tuple.append(result_slice_expr)
             else:
-                index = self.create_pil_expr(slice)
+                index = self.create_pil_expr(pil_slice)
                 result_slice_tuple.append(index)
 
         if len(result_slice_tuple) == 1:
@@ -703,15 +703,15 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Constant(value=value, kind=kind, **node_attr)
 
-    def create_pil_name(self, id: str, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Name:
+    def create_pil_name(self, identifier: str, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Name:
         """
         Parameter:
-            id: identifier
+            identifier: identifier
             ctx: Load, Store, or Del
         Emit code:
-            id
+            identifier
         """
-        return ast.Name(id=id, ctx=ctx, **node_attr)
+        return ast.Name(id=identifier, ctx=ctx, **node_attr)
 
     def create_pil_attribute(self,
          value_expr: PILExpr,
@@ -742,14 +742,14 @@ class PILBuilder(ast.NodeVisitor):
             value_expr[lower:upper:step, ...]
         """
         result_slice_tuple = []
-        for slice in slices:
-            if isinstance(slice, tuple):
+        for pil_slice in slices:
+            if isinstance(pil_slice, tuple):
                 result_slice_expr = ast.Slice(
-                    lower=self.create_pil_expr(slice[0]) if slice[0] is not None else None,
-                    upper=self.create_pil_expr(slice[1]) if slice[1] is not None else None,
-                    step=self.create_pil_expr(slice[2]) if slice[2] is not None else None)
+                    lower=self.create_pil_expr(pil_slice[0]) if pil_slice[0] is not None else None,
+                    upper=self.create_pil_expr(pil_slice[1]) if pil_slice[1] is not None else None,
+                    step=self.create_pil_expr(pil_slice[2]) if pil_slice[2] is not None else None)
             else:
-                result_slice_expr = self.create_pil_expr(slice)
+                result_slice_expr = self.create_pil_expr(pil_slice)
             result_slice_tuple.append(result_slice_expr)
         if len(slices) == 1:
             result_slice = result_slice_tuple[0]
@@ -811,8 +811,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         PILBuilder.__init__(self, ctx)
         ast.NodeVisitor.__init__(self)
 
-    def visit_slice_values(self, slice: Union[ast.Slice, tuple[ast.Slice]]) -> tuple[list[ast.stmt], list[PILSlice]]:
-        slice_list = slice.elts if isinstance(slice, ast.Tuple) else [slice]
+    def visit_slice_values(self, slice_expr: Union[ast.Slice, tuple[ast.Slice]]) -> tuple[list[ast.stmt], list[PILSlice]]:
+        slice_list = slice_expr.elts if isinstance(slice_expr, ast.Tuple) else [slice_expr]
 
         slice_stmt_list = []
         pil_slice_list = []
@@ -1173,7 +1173,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
 
     def visit_for(self,
          target: ast.expr,
-         iter: ast.expr,
+         iter_expr: ast.expr,
          body: list[ast.stmt],
          orelse: list[ast.stmt],
          type_comment: Optional[str],
@@ -1195,7 +1195,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         self.continue_stack.append(None)
 
-        iter_stmt_list, iter_name = self.visit(iter)
+        iter_stmt_list, iter_name = self.visit(iter_expr)
         target_name = self.create_temp_identifier()
         target_stmt_list = self.visit_lhs(target, target_name)
 
@@ -1212,7 +1212,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
 
     def visit_async_for(self,
          target: ast.expr,
-         iter: ast.expr,
+         iter_expr: ast.expr,
          body: list[ast.stmt],
          orelse: list[ast.stmt],
          type_comment: Optional[str],
@@ -2119,7 +2119,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
 
     def visit_interpolation(self,
          value: ast.expr,
-         str: str,
+         literal_text: str,
          conversion: int,
          format_spec: Optional[ast.expr],
          node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt],
@@ -2206,7 +2206,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
 
     def visit_subscript(self,
          value: ast.expr,
-         slice: ast.expr,
+         slice_expr: ast.expr,
          ctx: ast.expr_context,
          node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt],
          PILExprOrNone]:
@@ -2222,7 +2222,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         value_stmts, value_name = self.visit(value)
 
         # Normalize slice into a list of ast.Slice nodes
-        slice_stmt_list, pil_slice_list = self.visit_slice_values(slice)
+        slice_stmt_list, pil_slice_list = self.visit_slice_values(slice_expr)
 
         temp_name = self.create_temp_identifier()
         result_expr = self.create_pil_subscript(value_name, pil_slice_list)
@@ -2237,12 +2237,12 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         raise Exception("Starred should not be directly accessed")
 
     def visit_name(self,
-         id: str,
+         identifier: str,
          ctx: ast.expr_context,
          node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt],
          PILExprOrNone]:
         assert isinstance(ctx, ast.Load)
-        return [], id
+        return [], identifier
 
     def visit_list(self,
          elts: list[ast.expr],
@@ -2333,6 +2333,14 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         method = 'visit_' + self._node_name_to_visitor_suffix(node.__class__.__name__)
         visitor = getattr(self, method)
         field_dict = {key: value for key, value in ast.iter_fields(node)}
+        # Rename fields to match PILAttr
+        field_aliases = {
+            'id': 'identifier',
+            'iter': 'iter_expr',
+            'slice': 'slice_expr',
+            'str': 'literal_text',
+        }
+        field_dict = {field_aliases.get(key, key): value for key, value in field_dict.items()}
         node_attr = PILAttr(node)
         return visitor(**field_dict, node_attr=node_attr)
 
