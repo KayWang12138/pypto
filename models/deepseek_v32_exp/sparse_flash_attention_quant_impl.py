@@ -126,6 +126,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                         cur_block_table = pypto.view(block_table, [1, max_blocknum_perbatch], [batch_idx, 0])
 
                         kn = pypto.tensor([s2_tile, dn], dtype, "kn")
+                        pypto.set_pass_options(sg_set_scope=20001)
                         if kn_dtype == pypto.DT_INT8:
                             pypto.set_semantic_label("Sa_V0")
                             pypto.set_vec_tile_shapes(16, 1024)
@@ -184,6 +185,7 @@ def sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, ke
                         pypto.assemble(qr, [0, dn], qi)
 
                         sij = pypto.matmul(qi, kj_view, pypto.DT_FP32, a_trans=False, b_trans=True)
+                        pypto.set_pass_options(sg_set_scope=-1)
 
                         pypto.set_semantic_label("Sa_V1")
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])

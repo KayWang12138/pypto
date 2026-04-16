@@ -547,7 +547,7 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    # test_sfa_bf16_b4_s2_seq64k_total_int8_d()
-    # test_sfa_bf16_b4_s2_seq64k_per_int8_d()
-    # test_sfa_bf16_b1_s256_seq64k_int8_p()
+    test_sfa_bf16_b4_s2_seq64k_total_int8_d()
+    test_sfa_bf16_b4_s2_seq64k_per_int8_d()
+    test_sfa_bf16_b1_s256_seq64k_int8_p()
     test_sfa_bf16_b4_s2_seq64k_per_int8_d_950()
