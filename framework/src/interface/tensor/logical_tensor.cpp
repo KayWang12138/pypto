@@ -31,6 +31,71 @@
 
 using namespace npu::tile_fwk;
 
+namespace {
+
+std::shared_ptr<RawTensor> LoadRawTensorFromJson(
+    const std::unordered_map<int, std::shared_ptr<RawTensor>>& rawTensorDict, const Json& tensorDump)
+{
+    if (tensorDump[T_FIELD_RAWTENSOR].is_number()) {
+        int rawTensorMagic = tensorDump[T_FIELD_RAWTENSOR].get<int>();
+        FUNCTION_ASSERT(FError::NOT_EXIST, rawTensorDict.count(rawTensorMagic))
+            << "rawTensorDict doesn't have magic " << rawTensorMagic;
+        return rawTensorDict.find(rawTensorMagic)->second;
+    }
+    return RawTensor::LoadJson(tensorDump[T_FIELD_RAWTENSOR]);
+}
+
+void LoadTensorOptionalFieldsFromJson(LogicalTensor& tensor, const Json& tensorDump)
+{
+    if (tensorDump.count("need_alloc") != 0) {
+        tensor.SetAttr(OpAttributeKey::needAlloc, tensorDump["need_alloc"].get<bool>());
+    }
+    if (tensorDump.count("subgraphid") != 0) {
+        tensor.subGraphID = tensorDump["subgraphid"].get<int>();
+    }
+    if (tensorDump.count("mem_range") != 0) {
+        tensor.memoryrange = TileRange(tensorDump["mem_range"][0].get<int>(), tensorDump["mem_range"][1].get<int>());
+    }
+    if (tensorDump.count("life_range") != 0) {
+        tensor.memoryrange.lifeStart = tensorDump["life_range"][0].get<int>();
+        tensor.memoryrange.lifeEnd = tensorDump["life_range"][1].get<int>();
+    }
+    if (tensorDump.count("mem_id") != 0) {
+        tensor.memoryrange.memId = tensorDump["mem_id"].get<int>();
+    }
+    if (tensorDump.count("mem_type") != 0) {
+        auto& memorytype = tensorDump["mem_type"];
+        if (memorytype.count("asis") != 0) {
+            tensor.SetMemoryTypeOriginal(static_cast<MemoryType>(memorytype["asis"].get<int>()), true);
+        }
+        if (memorytype.count("tobe") != 0) {
+            tensor.SetMemoryTypeToBe(static_cast<MemoryType>(memorytype["tobe"].get<int>()));
+        }
+    }
+    if (tensorDump.count("storage") != 0) {
+        tensor.storage_ = Storage::LoadJson(tensorDump["storage"]);
+    }
+    if (tensorDump.count("validshape") != 0) {
+        tensor.oriShape = tensorDump["validshape"].get<std::vector<int64_t>>();
+    }
+    if (tensorDump.count("dynoffset") != 0) {
+        std::vector<SymbolicScalar> dynOffset;
+        for (const auto& offsetJson : tensorDump["dynoffset"]) {
+            dynOffset.push_back(LoadSymbolicScalar(offsetJson));
+        }
+        tensor.dynOffset_ = dynOffset;
+    }
+    if (tensorDump.count("dynvalidshape") != 0) {
+        std::vector<SymbolicScalar> dynValidShape;
+        for (const auto& validJson : tensorDump["dynvalidshape"]) {
+            dynValidShape.push_back(LoadSymbolicScalar(validJson));
+        }
+        tensor.UpdateDynValidShape(dynValidShape);
+    }
+}
+
+} // namespace
+
 LogicalTensor::LogicalTensor(
     Function& function, DataType t, Shape tshape, TileOpFormat format, std::string tname, NodeType tnodetype)
     : subGraphID(NOT_IN_SUBGRAPH),
@@ -209,94 +274,13 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(
     Shape tshape = tensorDump["shape"].get<std::vector<int64_t>>();
     NodeType tnodetype = static_cast<NodeType>(tensorDump["nodetype"].get<int>());
 
-    auto loadRawTensor = [&]() -> std::shared_ptr<RawTensor> {
-        if (tensorDump[T_FIELD_RAWTENSOR].is_number()) {
-            int rawTensorMagic = tensorDump[T_FIELD_RAWTENSOR].get<int>();
-            FUNCTION_ASSERT(FError::NOT_EXIST, rawTensorDict.count(rawTensorMagic))
-                << "rawTensorDict doesn't have magic " << rawTensorMagic;
-            return rawTensorDict.find(rawTensorMagic)->second;
-        }
-        return RawTensor::LoadJson(tensorDump[T_FIELD_RAWTENSOR]);
-    };
-    std::shared_ptr<RawTensor> rawTensor = loadRawTensor();
+    std::shared_ptr<RawTensor> rawTensor = LoadRawTensorFromJson(rawTensorDict, tensorDump);
     int tensorMagic = tensorDump["magic"].get<int>();
 
     std::shared_ptr<LogicalTensor> tensorJson =
         std::make_shared<LogicalTensor>(function, rawTensor, toffset, tshape, tnodetype);
     tensorJson->magic = tensorMagic;
-
-    auto loadOptionalAllocAttr = [&]() {
-        if (tensorDump.count("need_alloc") == 0) {
-            return;
-        }
-        tensorJson->SetAttr(OpAttributeKey::needAlloc, tensorDump["need_alloc"].get<bool>());
-    };
-    auto loadOptionalSubgraph = [&]() {
-        if (tensorDump.count("subgraphid") != 0) {
-            tensorJson->subGraphID = tensorDump["subgraphid"].get<int>();
-        }
-    };
-    auto loadOptionalMemoryRange = [&]() {
-        if (tensorDump.count("mem_range") != 0) {
-            tensorJson->memoryrange =
-                TileRange(tensorDump["mem_range"][0].get<int>(), tensorDump["mem_range"][1].get<int>());
-        }
-        if (tensorDump.count("life_range") != 0) {
-            tensorJson->memoryrange.lifeStart = tensorDump["life_range"][0].get<int>();
-            tensorJson->memoryrange.lifeEnd = tensorDump["life_range"][1].get<int>();
-        }
-        if (tensorDump.count("mem_id") != 0) {
-            tensorJson->memoryrange.memId = tensorDump["mem_id"].get<int>();
-        }
-    };
-    auto loadOptionalMemoryType = [&]() {
-        if (tensorDump.count("mem_type") == 0) {
-            return;
-        }
-        auto& memorytype = tensorDump["mem_type"];
-        if (memorytype.count("asis") != 0) {
-            tensorJson->memoryTypeOriginal_ = static_cast<MemoryType>(memorytype["asis"].get<int>());
-        }
-        if (memorytype.count("tobe") != 0) {
-            tensorJson->memoryTypeToBe_ = static_cast<MemoryType>(memorytype["tobe"].get<int>());
-        }
-    };
-    auto loadOptionalStorageAndShapes = [&]() {
-        if (tensorDump.count("storage") != 0) {
-            tensorJson->storage_ = Storage::LoadJson(tensorDump["storage"]);
-        }
-        if (tensorDump.count("validshape") != 0) {
-            tensorJson->oriShape = tensorDump["validshape"].get<std::vector<int64_t>>();
-        }
-    };
-    auto loadOptionalDynOffset = [&]() {
-        if (tensorDump.count("dynoffset") == 0) {
-            return;
-        }
-        std::vector<SymbolicScalar> dynOffset;
-        for (const auto& offsetJson : tensorDump["dynoffset"]) {
-            dynOffset.push_back(LoadSymbolicScalar(offsetJson));
-        }
-        tensorJson->dynOffset_ = dynOffset;
-    };
-    auto loadOptionalDynValidShape = [&]() {
-        if (tensorDump.count("dynvalidshape") == 0) {
-            return;
-        }
-        std::vector<SymbolicScalar> dynValidShape;
-        for (const auto& validJson : tensorDump["dynvalidshape"]) {
-            dynValidShape.push_back(LoadSymbolicScalar(validJson));
-        }
-        tensorJson->UpdateDynValidShape(dynValidShape);
-    };
-
-    loadOptionalAllocAttr();
-    loadOptionalSubgraph();
-    loadOptionalMemoryRange();
-    loadOptionalMemoryType();
-    loadOptionalStorageAndShapes();
-    loadOptionalDynOffset();
-    loadOptionalDynValidShape();
+    LoadTensorOptionalFieldsFromJson(*tensorJson, tensorDump);
     return tensorJson;
 }
 
