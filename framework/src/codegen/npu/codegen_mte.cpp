@@ -376,16 +376,11 @@ std::string CodeGenOpNPU::GenMemL0CToL1() const
 
 std::string CodeGenOpNPU::GenUBToL1TileTensor() const
 {
-    if (!isSupportLayout) {
-        return "";
-    }
-    std::vector<int64_t> dstOffset = offset[ID0];
-    std::string coordCp = WrapParamByParentheses(dstOffset);
-    // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
-    std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "UB to L1 only support tile tensor";
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coord};
+    auto [coordDst, coordSrc] = PrintDstSrcCoordFromAttr();
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, coordDst, coordSrc};
 
     std::ostringstream oss;
     oss << tileOpName << WrapParamByParentheses(tileOpParamList) << STMT_END;
@@ -394,9 +389,7 @@ std::string CodeGenOpNPU::GenUBToL1TileTensor() const
 
 std::string CodeGenOpNPU::GenUBToUBND2NZTileTensor() const
 {
-    if (!isSupportLayout) {
-        return "";
-    }
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "UB to UB ND2NZ only support tile tensor";
 
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
