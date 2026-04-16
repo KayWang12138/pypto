@@ -118,7 +118,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor)
 
 // funcHash: 15129337852299427049
 
-extern "C" [aicore] void TENSOR_AddMulDim4_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
+extern "C" [aicore] void TENSOR_AddMulDim4_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ TaskStat* taskStat) {
 float __ubuf__ *UB_S0_E1024 = (float __ubuf__ *)get_imm(0x0); // size: 0x400
 float *UB_S0_E1024_T = (float *)get_imm(0x0); // size: 0x400
 float __ubuf__ *UB_S1024_E2048 = (float __ubuf__ *)get_imm(0x400); // size: 0x400
