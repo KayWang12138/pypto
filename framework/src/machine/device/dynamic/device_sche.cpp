@@ -53,7 +53,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
     }
     DEV_INFO("=========Finish to Trace Init=========");
 #endif
-    TRACE_INFO("Start to Reg signal");
+    ATRACE("Start to Reg signal");
     g_machine_mgr.SignalReg(SigAct);
     return 0;
 }

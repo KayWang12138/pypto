@@ -13,13 +13,15 @@
  * \brief Device trace implementation with dynamic library loading
  */
 
-#ifdef __DEVICE__
+
 #include <dlfcn.h>
 #include <string>
 #include "device_trace.h"
+#ifdef __DEVICE__
 #include "machine/device/tilefwk/aicpu_common.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "driver/ascend_hal_base.h"
+#include "driver/ascend_hal.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -301,4 +303,15 @@ void DeviceTrace::ReportTraceMsg() {
     TraceDestroy(pyptoHandle_);
 }
 } // namespace npu::tile_fwk::dynamic
+#else
+namespace npu::tile_fwk::dynamic {
+DeviceTrace& DeviceTrace::GetInstance() {
+    static DeviceTrace deviceTrace;
+    return deviceTrace;
+}
+void DeviceTrace::SubmitTraceMsg(const std::string& traceMsg) {
+    (void)traceMsg;
+}
+void DeviceTrace::ReportTraceMsg() {}
+}
 #endif

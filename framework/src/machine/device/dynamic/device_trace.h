@@ -25,7 +25,7 @@
 
 #pragma once
 #ifndef DEVICE_TRACE_H
-#define DEVICE_TRACE_H
+#define DEVICE_TRAC
 
 #include <functional>
 #include <mutex>
@@ -34,31 +34,10 @@
 #include "machine/utils/device_log.h"
 #include "machine/utils/machine_error.h"
 
-#define MAX_MSG_LEN 112
-#define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-inline std::string TraceInfo(const char* file, int line, const char* func, const char* fmt, ...)
-{
-    char tempBuf[MAX_MSG_LEN] = {0};
-    va_list args;
-    va_start(args, fmt);
-    int len = vsnprintf_s(tempBuf, sizeof(tempBuf), sizeof(tempBuf) - 1, fmt, args);
-    va_end(args);
-    if (len < 0) {
-        return std::string("[TraceInfo: format error]");
-    }
-    char finalBuf[MAX_MSG_LEN] = {0};
-    len = snprintf_s(finalBuf, sizeof(finalBuf), sizeof(finalBuf) - 1, "[%s:%d] %s: %s", file, line, func, tempBuf);
-    if (len < 0) {
-       return std::string("[TraceInfo: format error]"); 
-    }
-    return std::string(finalBuf);
-}
-
 // Printf-style logging macros
- #define TRACE_INFO(fmt, ...)            \
+ #define ATRACE(fmt, ...)            \
     do {                                                                        \
-        std::string info = TraceInfo(FILENAME, __LINE__, __func__, fmt, ##__VA_ARGS__); \
-        npu::tile_fwk::dynamic::DeviceTrace::GetInstance().SubmitTraceMsg(info.c_str()); \
+        npu::tile_fwk::dynamic::DeviceTrace::GetInstance().SubmitTraceMsg(fmt); \
     } while (false)
 
 #ifdef __DEVICE__
@@ -224,14 +203,9 @@ private:
 namespace npu::tile_fwk::dynamic {
 class DeviceTrace {
 public:
-    static DeviceTrace& GetInstance() {
-        static DeviceTrace deviceTrace;
-        return deviceTrace;
-    }
-    void SubmitTraceMsg(const std::string& traceMsg) {
-         DEV_INFO("Trace submit msg: %s", traceMsg.c_str());
-    }
-    void ReportTraceMsg() {}
+    static DeviceTrace& GetInstance();
+    void SubmitTraceMsg(const std::string& traceMsg);
+    void ReportTraceMsg();
 };
 } // namespace npu::tile_fwk::dynamic
 #endif
