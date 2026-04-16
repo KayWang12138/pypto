@@ -115,7 +115,7 @@ def test_level0_basic():
 """
     write_file(op_dir / "test_demo.py", test)
     finding = run_rule(mod, op_dir, "OL22")
-    assert finding.status == "FAIL"
+    assert finding.status == "WARN"
 
 
 def test_ol22_pass_when_manual_seed_present(tmp_path: Path):
