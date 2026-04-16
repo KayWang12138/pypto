@@ -1462,3 +1462,321 @@ class Program(IRNode):
         Returns:
             Function if found, None otherwise
         """
+
+
+
+# ========== IR Builder ==========
+
+class IRBuilder:
+    """IR Builder for incremental IR construction with context management.
+
+    The IRBuilder provides a stateful API for building IR incrementally using
+    Begin/End patterns. It maintains a context stack to track nested scopes
+    and validates proper construction.
+    """
+
+    def __init__(self) -> None:
+        """Create an IR builder."""
+
+    # Function building
+    def begin_function(
+        self,
+        name: str,
+        span: Span,
+        type: FunctionType = FunctionType.Opaque,
+    ) -> None:
+        """Begin building a function.
+
+        Args:
+            name: Function name
+            span: Source location for function definition
+            type: Function type (default: Opaque)
+            level: Hierarchy level (default: None)
+            role: Function role (default: None)
+            attrs: Function-level attributes dict (default: None)
+        """
+
+    def func_arg(
+        self,
+        name: str,
+        type: Type,
+        span: Span,
+    ) -> Var:
+        """Add a function parameter.
+
+        Args:
+            name: Parameter name
+            type: Parameter type
+            span: Source location for parameter
+            direction: Parameter direction (default: In)
+
+        Returns:
+            Variable representing the parameter
+        """
+
+    def return_type(self, type: Type) -> None:
+        """Add a return type to the current function.
+
+        Args:
+            type: Return type
+        """
+
+    def end_function(self, end_span: Span) -> Function:
+        """End building a function.
+
+        Args:
+            end_span: Source location for end of function
+
+        Returns:
+            The built function
+        """
+
+    # For loop building
+    def begin_for_loop(
+        self,
+        loop_var: Var,
+        start: Expr,
+        stop: Expr,
+        step: Expr,
+        span: Span,
+    ) -> None:
+        """Begin building a for loop.
+
+        Args:
+            loop_var: Loop variable
+            start: Start value expression
+            stop: Stop value expression
+            step: Step value expression
+            span: Source location for loop definition
+        """
+
+    def add_iter_arg(self, iter_arg: IterArg) -> None:
+        """Add an iteration argument to the current for loop.
+
+        Args:
+            iter_arg: Iteration argument with initial value
+        """
+
+    def add_return_var(self, var: Var) -> None:
+        """Add a return variable to the current for loop.
+
+        Args:
+            var: Return variable
+        """
+
+    def end_for_loop(self, end_span: Span) -> ForStmt:
+        """End building a for loop.
+
+        Args:
+            end_span: Source location for end of loop
+
+        Returns:
+            The built for statement
+        """
+
+    # While loop building
+    def begin_while_loop(self, condition: Expr, span: Span) -> None:
+        """Begin building a while loop.
+
+        Creates a new while loop context. Must be closed with end_while_loop().
+
+        Args:
+            condition: Condition expression
+            span: Source location for loop definition
+        """
+
+    def add_while_iter_arg(self, iter_arg: IterArg) -> None:
+        """Add an iteration argument to the current while loop.
+
+        Iteration arguments are loop-carried values (SSA-style).
+
+        Args:
+            iter_arg: Iteration argument with initial value
+        """
+
+    def add_while_return_var(self, var: Var) -> None:
+        """Add a return variable to the current while loop.
+
+        Return variables capture the final values of iteration arguments.
+
+        Args:
+            var: Return variable
+        """
+
+    def set_while_loop_condition(self, condition: Expr) -> None:
+        """Set the condition for the current while loop.
+
+        Used to update the loop condition after setting up iter_args. This allows
+        the condition to reference iter_arg variables that are defined in the loop.
+
+        Args:
+            condition: New condition expression
+        """
+
+    def end_while_loop(self, end_span: Span) -> WhileStmt:
+        """End building a while loop.
+
+        Finalizes the loop and returns it.
+
+        Args:
+            end_span: Source location for end of loop
+
+        Returns:
+            The built while statement
+        """
+
+    # If statement building
+    def begin_if(self, condition: Expr, span: Span) -> None:
+        """Begin building an if statement.
+
+        Args:
+            condition: Condition expression
+            span: Source location for if statement
+        """
+
+    def begin_else(self, span: Span) -> None:
+        """Begin the else branch of the current if statement.
+
+        Args:
+            span: Source location for else keyword
+        """
+
+    def add_if_return_var(self, var: Var) -> None:
+        """Add a return variable to the current if statement.
+
+        Args:
+            var: Return variable
+        """
+
+    def end_if(self, end_span: Span) -> IfStmt:
+        """End building an if statement.
+
+        Args:
+            end_span: Source location for end of if
+
+        Returns:
+            The built if statement
+        """
+
+    # Program building
+    def begin_program(self, name: str, span: Span) -> None:
+        """Begin building a program.
+
+        Args:
+            name: Program name
+            span: Source location for program definition
+        """
+
+    def add_function(self, func: Function) -> None:
+        """Add a completed function to the current program.
+
+        Args:
+            func: Function to add
+        """
+
+    def end_program(self, end_span: Span) -> Program:
+        """End building a program.
+
+        Args:
+            end_span: Source location for end of program
+
+        Returns:
+            The built program
+        """
+
+    def get_function_return_types(self, func_name: str) -> list[Type]:
+        """Get return types for a function by its name.
+
+        Returns the return types for a function if it has been added to the program.
+        Returns empty list if not inside a program or function not yet added.
+
+        Args:
+            gvar: GlobalVar for the function
+
+        Returns:
+            Vector of return types
+        """
+
+    # Statement recording
+    def emit(self, stmt: Stmt) -> None:
+        """Emit a statement in the current context.
+
+        Args:
+            stmt: Statement to emit
+        """
+
+    def assign(self, var: Var, value: Expr, span: Span) -> AssignStmt:
+        """Create an assignment statement and emit it.
+
+        Args:
+            var: Variable to assign to
+            value: Expression value
+            span: Source location for assignment
+
+        Returns:
+            The created assignment statement
+        """
+
+    def var(self, name: str, type: Type, span: Span) -> Var:
+        """Create a variable (does not emit).
+
+        Args:
+            name: Variable name
+            type: Variable type
+            span: Source location
+
+        Returns:
+            The created variable
+        """
+
+    @overload
+    def return_(self, values: list[Expr], span: Span) -> ReturnStmt:
+        """Create a return statement and emit it.
+
+        Args:
+            values: List of expressions to return
+            span: Source location for return statement
+
+        Returns:
+            The created return statement
+        """
+
+    @overload
+    def return_(self, span: Span) -> ReturnStmt:
+        """Create an empty return statement and emit it.
+
+        Args:
+            span: Source location for return statement
+
+        Returns:
+            The created return statement
+        """
+
+    # Context state queries
+    def in_function(self) -> bool:
+        """Check if currently inside a function.
+
+        Returns:
+            True if inside a function context
+        """
+
+    def in_loop(self) -> bool:
+        """Check if currently inside a for loop.
+
+        Returns:
+            True if inside a for loop context
+        """
+
+    def in_if(self) -> bool:
+        """Check if currently inside an if statement.
+
+        Returns:
+            True if inside an if statement context
+        """
+
+    def in_program(self) -> bool:
+        """Check if currently inside a program.
+
+        Returns:
+            True if inside a program context
+        """
