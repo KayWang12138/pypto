@@ -257,28 +257,28 @@ custom/{op}/
 
 ### 状态写入接口
 
-仅允许使用 `state_transition` 工具更新状态文件：
+仅允许通过 `state_transition` 工具更新状态文件，禁止直接写入。
 
 ```text
 state_transition(opDir, action, stage, reason?)
 ```
 
-- `action=start_stage`：将目标 stage 标记为 `in_progress`。仅用于初始化 stage 1 或失败重试。
-- `action=complete_stage`：校验当前阶段产物完整性（门禁），标记完成并自动推进到 N+1。
-- `action=fail_stage`：`stage_retry_count[stage] += 1` 并标记 `failed`。失败后可通过 `start_stage` 重试。
+| action | 说明 |
+|--------|------|
+| `start_stage` | 将目标 stage 标记为 `in_progress`，用于初始化或失败重试 |
+| `complete_stage` | 校验当前阶段产物完整性（门禁），标记完成并自动推进到 N+1 |
+| `fail_stage` | 记录失败，`stage_retry_count[stage] += 1`，可通过 `start_stage` 重试 |
 
 ### 正常推进流程
 
 ```
-start_stage(1) → [Stage 1 工作] → complete_stage(1) → [自动进入 Stage 2]
-                                                        → [Stage 2 工作] → complete_stage(2) → [自动进入 Stage 3]
-                                                                                                → ...
+start_stage(1) → [执行] → complete_stage(1) → start_stage(2) → [执行] → complete_stage(2) → ...
 ```
 
 ### 失败重试流程
 
 ```
-complete_stage(N) → [门禁失败，抛异常] → fail_stage(N) → start_stage(N) → [重试]
+complete_stage(N) → [门禁失败] → fail_stage(N) → start_stage(N) → [重试]
 ```
 
 ---
