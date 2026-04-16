@@ -42,11 +42,11 @@ struct CoaInfo {
         return std::regex_search(coaExpr, match, pattern);
     }
 
-    static bool ParseParamRawShape(const std::string& coaExpr, std::smatch& match)
-    {
-        static std::regex pattern("RUNTIME_COA_GET_PARAM_RAW_SHAPE\\((\\d+), (\\d+), (\\d+)\\)");
-        return std::regex_search(coaExpr, match, pattern);
-    }
+    //static bool ParseParamRawShape(const std::string& coaExpr, std::smatch& match)
+    //{
+    //    static std::regex pattern("RUNTIME_COA_GET_PARAM_RAW_SHAPE\\((\\d+), (\\d+), (\\d+)\\)");
+    //    return std::regex_search(coaExpr, match, pattern);
+    //}
 
     Status SToIParamShapeAndOffset(const std::smatch& match)
     {

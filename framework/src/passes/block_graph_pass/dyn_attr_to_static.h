@@ -48,7 +48,7 @@ static const std::string MAYBE_CONST_POSTFIX = "MAYBE_CONST";
 
 static const SymbolicScalar MAYBE_CONST_COA_GetOffset = AddRuntimeCoaPrefix("GET_PARAM_OFFSET_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetValidShape = AddRuntimeCoaPrefix("GET_PARAM_VALID_SHAPE_MAYBE_CONST");
-static const SymbolicScalar MAYBE_CONST_COA_GetRawShape = AddRuntimeCoaPrefix("GET_PARAM_RAW_SHAPE_MAYBE_CONST");
+//static const SymbolicScalar MAYBE_CONST_COA_GetRawShape = AddRuntimeCoaPrefix("GET_PARAM_RAW_SHAPE_MAYBE_CONST");
 static const SymbolicScalar MAYBE_CONST_COA_GetParam = AddRuntimeCoaPrefix("GET_PARAM_MAYBE_CONST");
 static const SymbolicScalar GET_PARAM_ADDR = AddRuntimeCoaPrefix("GET_PARAM_ADDR_MAYBE_CONST");
 
