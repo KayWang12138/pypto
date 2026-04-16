@@ -421,7 +421,6 @@ void BindTypeClass(py::module& m)
 
     py::class_<PtrType, Type, std::shared_ptr<PtrType>>(m, "PtrType", "Pointer type").def(py::init<>());
 }
-
 } // namespace ir
 
 void BindIR(py::module& m)
@@ -433,5 +432,6 @@ void BindIR(py::module& m)
     ir::BindSpan(m1);
     ir::BindExpr(m1);
     ir::BindStmt(m1);
+    ir::BindIRBuilder(m1);
 }
 } // namespace pypto

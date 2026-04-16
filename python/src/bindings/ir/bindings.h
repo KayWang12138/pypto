@@ -23,4 +23,8 @@ namespace py = pybind11;
 namespace pypto {
 void BindIR(py::module& m);
 void BindCore(py::module& m);
+
+namespace ir {
+void BindIRBuilder(py::module& m);
+}
 } // namespace pypto
