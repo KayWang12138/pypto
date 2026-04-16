@@ -42,6 +42,7 @@
 #include "machine/device/dynamic/wrap_manager.h"
 #include "machine/device/dump/aicore_dump.h"
 #include "machine/device/debug/schema_trace_utils.h"
+#include "machine/utils/perf_event_sampler.h"
 
 namespace npu::tile_fwk::dynamic {
 
