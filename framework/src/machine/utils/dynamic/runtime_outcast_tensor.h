@@ -44,6 +44,8 @@ inline constexpr const char* GetRuntimeTensorMemPropertyName(RuntimeTensorMemPro
 
 struct RuntimeOutcastTensor {
     WsAllocation allocation;
+    WsAllocation partialUpdateCellAllocation{0, 0};
+    uint64_t partialUpdateCellCount{0};
     RuntimeTensorMemProperty property;
     bool isCache{false}; // mark used for control flow cache
     uint32_t refCnt;
