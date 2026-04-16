@@ -283,6 +283,7 @@ def get_base_params(case_name: str):
         raise Exception(f"Case {case_name} does not exist.")
     return params
 
+
 def get_pfa_atten_cfg(device: str, case_name: str):
     """
     Get attention configuration for a test case.
@@ -489,32 +490,42 @@ def main():
 def test_prompt_flash_attention_1b4k4():
     do_test_prompt_flash_attention("1b4k4")
 
+
 def test_prompt_flash_attention_2b4k4():
     do_test_prompt_flash_attention("2b4k4")
+
 
 def test_prompt_flash_attention_1b4k8():
     do_test_prompt_flash_attention("1b4k8")
 
+
 def test_prompt_flash_attention_2b4k8():
     do_test_prompt_flash_attention("2b4k8")
+
 
 def test_prompt_flash_attention_8b16k8():
     do_test_prompt_flash_attention("8b16k8")
 
+
 def test_prompt_flash_attention_2b8k16():
     do_test_prompt_flash_attention("2b8k16")
+
 
 def test_prompt_flash_attention_4b16k16():
     do_test_prompt_flash_attention("4b16k16")
 
+
 def test_prompt_flash_attention_2b8k32():
     do_test_prompt_flash_attention("2b8k32")
+
 
 def test_prompt_flash_attention_4b16k32():
     do_test_prompt_flash_attention("4b16k32")
 
+
 def test_prompt_flash_attention_4b8k32():
     do_test_prompt_flash_attention("4b8k32")
+
 
 def test_prompt_flash_attention_8b8k32():
     do_test_prompt_flash_attention("8b8k32")
