@@ -63,6 +63,7 @@ constexpr uint32_t AIV_PER_AICORE = 2;
 extern "C" {
 __attribute__((weak)) int AdxDataDumpServerUnInit();
 __attribute__((weak)) int dlog_getlevel(int32_t moduled, int32_t* enableEvent);
+__attribute__((weak)) int drvDeviceGetPhyIdByIndex(uint32_t logicDevId, uint32_t* phyDevId);
 }
 namespace npu::tile_fwk {
 
@@ -146,7 +147,11 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
     }
     DevDfxArgs devDfxArg;
     devDfxArg.logLevel = logLevel;
-    devDfxArg.deviceId = GetLogDeviceId();
+    uint32_t logicalDevId = GetLogDeviceId();
+    uint32_t phyDevId = 0;
+    drvDeviceGetPhyIdByIndex(logicalDevId, &phyDevId);
+    MACHINE_LOGI("Current device info: logical devId: %u, phyDevId: %u", logicalDevId, phyDevId);
+    devDfxArg.deviceId = phyDevId;
     devDfxArg.hostPid = getpid();
     if (enableDumpMachinePerfTrace_) {
         devDfxArg.isOpenPerfTrace = 1;
@@ -154,7 +159,7 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
     MACHINE_LOGI("Get PYPTO dfxAddr: %lu log level is: %d, openPerTrace: %d, deviceId: %u, pid: %lu\n", args_.devDfxArgAddr,
          logLevel, devDfxArg.isOpenPerfTrace, devDfxArg.deviceId, devDfxArg.hostPid);
     auto size = sizeof(DevDfxArgs);
-    auto ret = RuntimeMemcpy(reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size, RT_MEMCPY_HOST_TO_DEVICE);
+    auto ret = RuntimeMemcpy(reinterpret_cast<void*>(args.devDfxArgAddr), size, &devDfxArg, size, RtMemcpyKind::HOST_TO_DEVICE);
     if (ret != 0) {
         MACHINE_LOGW("rtmemcpy failed, so couldn't get device log");
     }
@@ -162,7 +167,6 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
 
 void DeviceRunner::InitDynamicArgs(DeviceArgs& args)
 {
-    GetModuleLogLevel(args);
     devArgs_ = reinterpret_cast<DeviceArgs*>(DevAlloc(sizeof(DeviceArgs)));
     RuntimeMemcpy(
         reinterpret_cast<void*>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs), RtMemcpyKind::HOST_TO_DEVICE);
@@ -254,6 +258,7 @@ int DeviceRunner::InitDeviceArgsCore(
         "aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic, args.nrAiv,
         blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
+    GetModuleLogLevel(args);
     return 0;
 }
 

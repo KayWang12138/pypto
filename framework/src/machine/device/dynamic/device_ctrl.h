@@ -261,7 +261,7 @@ public:
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
         DEV_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
-        TRACE_INFO("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
+        ATRACE("inputSize=%lu, outputSize=%lu, tensorListPtr=%p.", inputSize, outputSize, inputPtr);
         devStartArgs->devTensorList = inputPtr;
         devStartArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devStartArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
@@ -296,7 +296,7 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs* args)
     {
         DEV_INFO("start control flow.");
-        TRACE_INFO("start control flow.");
+        ATRACE("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs*)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
@@ -318,7 +318,7 @@ public:
             return ret;
         }
         DEV_INFO("end control flow.");
-        TRACE_INFO("end control flow.");
+        ATRACE("end control flow.");
         PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
@@ -364,9 +364,9 @@ public:
                 kargs->workspace, kargs->cfgdata);
             return -1;
         }
-        TRACE_INFO("Start to init devprog");
+        ATRACE("Start to init devprog");
         InitDyn(kargs);
-        TRACE_INFO("Finish init devprog");
+        ATRACE("Finish init devprog");
         PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
         return 0;
     }
