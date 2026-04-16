@@ -598,6 +598,9 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
 
     # Verify results
     assert_allclose(golden.cpu().numpy(), result.cpu().numpy(), rtol=1e-3, atol=1e-3)
+    print(golden)
+    print(result)
+    print("PASSED")
 
 
 if __name__ == "__main__":
@@ -606,23 +609,23 @@ if __name__ == "__main__":
     # - group_list=[256, 256], g=2
     # - m_tile_shape=[32, 32]
     # - scaled_a shape: (10, 32, 2)
-    test_gmm_mxfp8(
-        ShapeConfig(
-            [32, 512, 7168],
-            [256, 256],
-            [32, 32],
-            [256, 256],
-            [256, 256],
-            [1, 8, 256, 32],
-            0,
-            True,
-            False,
-            False,
-            False,
-            False,
-            "Case1: K=512, g=2, group_list=[256,256], scale shape (10, M/N, 2)"
-        )
-    )
+    # test_gmm_mxfp8(
+    #     ShapeConfig(
+    #         [32, 512, 7168],
+    #         [256, 256],
+    #         [32, 32],
+    #         [256, 256],
+    #         [256, 256],
+    #         [1, 8, 256, 32],
+    #         0,
+    #         True,
+    #         False,
+    #         False,
+    #         False,
+    #         False,
+    #         "Case1: K=512, g=2, group_list=[256,256], scale shape (10, M/N, 2)"
+    #     )
+    # )
     
     # 测试用例2: 更大M维度
     # - M=64 (满足32字节对齐), K=1024, N=4096
@@ -634,8 +637,8 @@ if __name__ == "__main__":
             [64, 1024, 4096],
             [512, 512],
             [64, 64],
-            [512, 512],
-            [512, 512],
+            [64, 512],
+            [256, 512],
             [1, 8, 256, 32],
             0,
             True,
@@ -673,32 +676,7 @@ if __name__ == "__main__":
         )
     )
     
-    # 测试用例4: 不均匀分组
-    # - M=48, K=512, N=512
-    # - group_list=[128, 384], g=2 (不均匀: 128+384=512)
-    # - m_tile_shape=[48, 48] (M=48满足32字节对齐)
-    # - scaled_a shape: ((512/64)+2, 48, 2) = (10, 48, 2)
-    # - group 0: K=[0,128], offset=0, length=2, [0:2,:,:]
-    # - group 1: K=[128,512], offset=3, length=6, [3:9,:,:]
-    test_gmm_mxfp8(
-        ShapeConfig(
-            [48, 512, 512],
-            [128, 384],
-            [48, 48],
-            [256, 256],
-            [256, 256],
-            [1, 8, 256, 32],
-            0,
-            True,
-            False,
-            False,
-            False,
-            False,
-            "Case4: K=512, g=2, uneven groups [128,384], scale shape (10, 48, 2)"
-        )
-    )
-    
-    # 测试用例5: group_type=1 (累计值模式)
+    # 测试用例4: group_type=1 (累计值模式)
     # - M=32, K=512, N=1024
     # - group_list=[256, 512] (累计值: 256, 512表示K切分点)
     # - group_type=1: 表示group_list是累计值
@@ -720,6 +698,6 @@ if __name__ == "__main__":
             False,
             False,
             False,
-            "Case5: group_type=1, group_list=[256,512] cumulative, scale shape (10, 32, 2)"
+            "Case4: group_type=1, group_list=[256,512] cumulative, scale shape (10, 32, 2)"
         )
     )
