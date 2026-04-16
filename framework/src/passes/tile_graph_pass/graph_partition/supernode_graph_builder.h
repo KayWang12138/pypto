@@ -16,8 +16,10 @@
 #ifndef SUPERNODE_GRAPH_BUILDER_H
 #define SUPERNODE_GRAPH_BUILDER_H
 #include "interface/function/function.h"
+#include "interface/operation/operation.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
 class OperationGraphInfo {
@@ -42,15 +44,16 @@ public:
     Status AvoidLoop(
         const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent,
         std::vector<std::vector<int32_t>>& node2Op, bool& updated);
-    Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
-    int32_t FindParent(std::vector<int32_t>& parent, int32_t i);
+    Status BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> operationGraphInfo);
+    void SetNodeCoreTypeAndMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, bool markIsCube);
+    void BuildNodeMapping(const std::shared_ptr<OperationGraphInfo> operationGraphInfo);
     Status MergeSrcToDstIsland(
         const std::shared_ptr<OperationGraphInfo> operationGraphInfo, std::vector<int32_t>& parent, int32_t src,
         int32_t dst);
     int32_t GetNodeCycle(int32_t nodeIdx) const;
     bool GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, int32_t nodeIdx);
     std::vector<std::vector<int32_t>> node2Op_;
-    std::vector<int32_t> nodeScope_;
+    std::vector<Operation::ScopeInfo> nodeScope_;
     std::vector<int32_t> op2Node_;
     std::vector<std::set<int32_t>> nodeInGraph_;
     std::vector<std::set<int32_t>> nodeOutGraph_;
@@ -71,6 +74,25 @@ public:
 protected:
     Status BuildOpGraph(const std::vector<Operation*>& opList);
     virtual Status BuildSuperNodeGraph();
+    Status ProcessScopeMerge();
+
+    struct ScopeCollectResult {
+        std::unordered_map<int32_t, std::unordered_set<OpCoreType>> scopeCoreTypes;
+        std::unordered_map<int32_t, bool> scopeAllowParallel;
+        std::unordered_map<int32_t, std::vector<int32_t>> scope2Nodes;
+    };
+    ScopeCollectResult CollectScopeInfo(int32_t numNodes);
+    Status ValidateScopeCoreTypes(
+        int32_t scopeId, const std::unordered_set<OpCoreType>& coreTypes, bool isCVMix,
+        std::map<int32_t, int32_t>& scopeToMixId);
+    Status CheckAndMergeScopes(const ScopeCollectResult& scopeInfo,
+        std::vector<int32_t>& snParent,
+        bool& needRebuild,
+        std::map<int32_t, int32_t>& scopeToMixId);
+    void RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes);
+    void ApplyCVMixIds(const std::map<int32_t, int32_t>& scopeToMixId,
+                       const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes);
+
     Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers
@@ -103,6 +125,7 @@ protected:
     // Parameters
     bool useReduceBalanceHash_ = true;
     bool useCVMixPartition_ = false;
+    int nextMixId_ = 0;
 
     // Data
     std::shared_ptr<OperationGraphInfo> operationInfo_;

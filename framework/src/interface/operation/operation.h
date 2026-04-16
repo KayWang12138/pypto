@@ -171,6 +171,26 @@ public:
         int internalSubgraphID{NOT_IN_SUBGRAPH};
         AIVCore aivCore{AIVCore::UNSPECIFIED};
     };
+
+    // sg_set_scope 相关字段的结构体
+    struct ScopeInfo {
+        int scopeId{-1};
+        bool allowParallelMerge{false};
+        bool allowCrossScopeMerge{false};
+        int mixId{-1};
+
+        ScopeInfo() = default;
+        explicit ScopeInfo(int id) : scopeId(id) {}
+        static ScopeInfo FromConfig(const std::vector<int64_t>& config)
+        {
+            ScopeInfo info;
+            info.scopeId = static_cast<int>(config[0]);
+            info.allowParallelMerge = static_cast<bool>(config[1]);
+            info.allowCrossScopeMerge = static_cast<bool>(config[2]);
+            return info;
+        }
+        void SetMixId(int id) { mixId = id; }
+    };
     friend class Function;
     LogicalTensors iOperand;      // Input operands (now actual objects, not shared_ptr)
     LogicalTensors oOperand;      // Output operands (now actual objects, not shared_ptr)
@@ -344,9 +364,14 @@ public:
 
     void ClearOutCtrlOperations() { outputCtrlOps.clear(); }
 
-    int scopeId_{-1};
-    void SetScopeId(int scopeId) { scopeId_ = scopeId; };
-    int GetScopeId() const { return scopeId_; };
+    ScopeInfo scopeInfo_;
+    void SetScopeId(int scopeId) {scopeInfo_.scopeId = scopeId; };
+    void SetScopeInfo(const ScopeInfo &info) { scopeInfo_ = info; };
+    const ScopeInfo &GetScopeInfo() const { return scopeInfo_; };
+    int GetScopeId() const { return scopeInfo_.scopeId; };
+    bool GetAllowParallelMerge() const { return scopeInfo_.allowParallelMerge; };
+    bool GetAllowCrossScopeMerge() const { return scopeInfo_.allowCrossScopeMerge; };
+    int GetMixId() const { return scopeInfo_.mixId; };
 
     void AddInCtrlOperation(Operation& operation);
 

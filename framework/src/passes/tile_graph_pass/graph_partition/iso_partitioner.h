@@ -37,6 +37,17 @@ public:
     std::string DumpStr();
     const std::vector<int32_t>& GetNodeList();
     std::vector<Operation*> GetOpList();
+
+    // 新增接口：设置 allowCrossScopeMerge
+    void SetAllowCrossScopeMerge(bool allow) {
+        allowCrossScopeMerge_ = allow;
+    }
+
+    // 新增接口：获取 allowCrossScopeMerge
+    bool GetAllowCrossScopeMerge() const {
+        return allowCrossScopeMerge_;
+    }
+
     std::shared_ptr<OperationGraphInfo> operationInfo_;
     std::shared_ptr<NodeGraphInfo> superNodeInfo_;
     std::vector<int32_t> nodeList_;
@@ -48,6 +59,7 @@ public:
     OpCoreType coreType_{OpCoreType::ANY};
     bool mergeable_{true};
     int32_t scopeId_{-1};
+    bool allowCrossScopeMerge_{false};  // 新增字段
 };
 
 class IsomorphismGraphGroup {
@@ -99,6 +111,9 @@ private:
         int32_t currColor, std::vector<std::set<int32_t>>& isoInGraph, std::vector<std::set<int32_t>>& isoOutGraph,
         std::vector<std::vector<int32_t>>& isoNodeList, std::vector<int32_t>& isoIdx2color, bool nonIsoGraphsMerge);
     bool SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const;
+    bool CanMergeScopes(int32_t currColor, int32_t mergeColor) const;
+    int32_t CalculateMergedLatency(int32_t currColor, int32_t mergeColor) const;
+    bool CheckIsoMergeConditions(int32_t currColorSize, int32_t mergeColorSize) const;
     std::vector<std::shared_ptr<IsomorphismGraphGroup>> isoSubGroups_;
     int32_t tryMergeLoopNum_ = 100;
     bool skipPartition_ = false;
