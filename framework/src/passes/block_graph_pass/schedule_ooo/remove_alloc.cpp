@@ -16,10 +16,11 @@
 #include "remove_alloc.h"
 
 namespace npu::tile_fwk {
-void RemoveAlloc::RemoveAllocCall(Function &function) const {
-    for (auto &program : function.rootFunc_->programs_) {
+void RemoveAlloc::RemoveAllocCall(Function& function) const
+{
+    for (auto& program : function.rootFunc_->programs_) {
         std::vector<std::shared_ptr<Operation>>& opList = program.second->GetProgramOp();
-        for (auto &op : opList) {
+        for (auto& op : opList) {
             if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
                 op->SetAsDeleted();
             }

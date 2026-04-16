@@ -21,23 +21,16 @@
 
 namespace npu::tile_fwk {
 
-template<typename TypeData, typename TypeEnum>
+template <typename TypeData, typename TypeEnum>
 struct DescData {
     DescData() = default;
     DescData(TypeData v) : data_(v) {}
 
-    void Add(TypeEnum enumValue) {
-        data_ |= (1 << static_cast<int>(enumValue));
-    }
-    bool Count(TypeEnum enumValue) const {
-        return data_ & (1 << static_cast<int>(enumValue));
-    }
-    DescData operator&(DescData<TypeData, TypeEnum> other) const {
-        return DescData(data_ & other.data_);
-    }
-    DescData operator|(DescData<TypeData, TypeEnum> other) const {
-        return DescData(data_ | other.data_);
-    }
+    void Add(TypeEnum enumValue) { data_ |= (1 << static_cast<int>(enumValue)); }
+    bool Count(TypeEnum enumValue) const { return data_ & (1 << static_cast<int>(enumValue)); }
+    DescData operator&(DescData<TypeData, TypeEnum> other) const { return DescData(data_ & other.data_); }
+    DescData operator|(DescData<TypeData, TypeEnum> other) const { return DescData(data_ | other.data_); }
+
 private:
     TypeData data_{0};
 };

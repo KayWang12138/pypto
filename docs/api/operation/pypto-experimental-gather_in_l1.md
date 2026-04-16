@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -44,4 +45,3 @@ src = pypto.tensor([16, 32], pypto.DT_FP32, "tensor_src")
 offset = pypto.tensor([1, 32], pypto.DT_INT32, "tensor_offset")
 out = pypto.experimental.gather_in_l1(src , offset, 20, false, false)
 ```
-

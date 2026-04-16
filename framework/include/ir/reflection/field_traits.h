@@ -42,7 +42,7 @@ struct FieldDescriptor {
     using KindTag = KindTagT;
 
     FieldT NodeT::*fieldPtr; // Pointer-to-member for type-safe field access
-    const char *name;        // Field name for debugging
+    const char* name;        // Field name for debugging
 
     /**
      * \brief Construct a field descriptor
@@ -50,7 +50,7 @@ struct FieldDescriptor {
      * \param ptr Pointer-to-member for the field
      * \param n Field name (string literal)
      */
-    constexpr FieldDescriptor(FieldT NodeT::*ptr, const char *n) : fieldPtr(ptr), name(n) {}
+    constexpr FieldDescriptor(FieldT NodeT::*ptr, const char* n) : fieldPtr(ptr), name(n) {}
 
     /**
      * \brief Access field value from a node instance
@@ -58,7 +58,7 @@ struct FieldDescriptor {
      * \param node The node instance to access the field from
      * \return const reference to the field value
      */
-    const FieldT &Get(const NodeT &node) const { return node.*fieldPtr; }
+    const FieldT& Get(const NodeT& node) const { return node.*fieldPtr; }
 };
 
 /**
@@ -74,7 +74,8 @@ struct FieldDescriptor {
  * \return Field descriptor with DefFieldTag
  */
 template <typename NodeType, typename FieldType>
-constexpr auto DefField(FieldType NodeType::*ptr, const char *name) {
+constexpr auto DefField(FieldType NodeType::*ptr, const char* name)
+{
     return FieldDescriptor<NodeType, FieldType, DefFieldTag>{ptr, name};
 }
 
@@ -91,7 +92,8 @@ constexpr auto DefField(FieldType NodeType::*ptr, const char *name) {
  * \return Field descriptor with UsualFieldTag
  */
 template <typename NodeType, typename FieldType>
-constexpr auto UsualField(FieldType NodeType::*ptr, const char *name) {
+constexpr auto UsualField(FieldType NodeType::*ptr, const char* name)
+{
     return FieldDescriptor<NodeType, FieldType, UsualFieldTag>{ptr, name};
 }
 
@@ -108,7 +110,8 @@ constexpr auto UsualField(FieldType NodeType::*ptr, const char *name) {
  * \return Field descriptor with IgnoreFieldTag
  */
 template <typename NodeType, typename FieldType>
-constexpr auto IgnoreField(FieldType NodeType::*ptr, const char *name) {
+constexpr auto IgnoreField(FieldType NodeType::*ptr, const char* name)
+{
     return FieldDescriptor<NodeType, FieldType, IgnoreFieldTag>{ptr, name};
 }
 

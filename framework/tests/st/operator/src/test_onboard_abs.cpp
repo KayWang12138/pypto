@@ -20,7 +20,8 @@ using namespace npu::tile_fwk;
 
 class AbsOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(AbsOnBoardTest, test_abs_8_4608) {
+TEST_F(AbsOnBoardTest, test_abs_8_4608)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int S0 = 8;
@@ -37,23 +38,22 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
     uint64_t outputSize = dstCapacity * sizeof(uint16_t);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("ABS") {
-        void *x_ptr = readToDev(GetGoldenDir() + "/abs_x.bin", srcCapacity);
+    PROGRAM("ABS")
+    {
+        void* x_ptr = readToDev(GetGoldenDir() + "/abs_x.bin", srcCapacity);
         TileShape::Current().SetVecTile({8, 128});
-        Tensor input_a(DataType::DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
+        Tensor input_a(DataType::DT_FP16, srcShape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP16, dstShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("ABS_T", {input_a, output}) {
-            output = Abs(input_a);
-        }
+        FUNCTION("ABS_T", {input_a, output}) { output = Abs(input_a); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/abs_golden.bin", golden);
     readInput(GetGoldenDir() + "/abs_x.bin", x);
 
@@ -61,7 +61,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(AbsOnBoardTest, test_abs_8_4609) {
+TEST_F(AbsOnBoardTest, test_abs_8_4609)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int S0 = 8;
@@ -78,23 +79,22 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
     uint64_t outputSize = dstCapacity * sizeof(uint16_t);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("ABS") {
-        void *x_ptr = readToDev(GetGoldenDir() + "/abs_x_not_align.bin", srcCapacity);
+    PROGRAM("ABS")
+    {
+        void* x_ptr = readToDev(GetGoldenDir() + "/abs_x_not_align.bin", srcCapacity);
         TileShape::Current().SetVecTile({8, 128});
-        Tensor input_a(DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
+        Tensor input_a(DT_FP16, srcShape, (uint8_t*)x_ptr, "A");
         Tensor output(DT_FP16, dstShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("ABS_T", {input_a, output}) {
-            output = Abs(input_a);
-        }
+        FUNCTION("ABS_T", {input_a, output}) { output = Abs(input_a); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/abs_golden_not_align.bin", golden);
     readInput(GetGoldenDir() + "/abs_x_not_align.bin", x);
 
@@ -102,7 +102,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(AbsOnBoardTest, test_abs_1_16384) {
+TEST_F(AbsOnBoardTest, test_abs_1_16384)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int S0 = 1;
@@ -117,25 +118,24 @@ TEST_F(AbsOnBoardTest, test_abs_1_16384) {
     int dstCapacity = dstShape[0] * dstShape[1];
 
     uint64_t outputSize = dstCapacity * sizeof(uint16_t);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("ABS") {
-        void *x_ptr = readToDev(GetGoldenDir() + "/abs_x_not_align.bin", srcCapacity);
+    PROGRAM("ABS")
+    {
+        void* x_ptr = readToDev(GetGoldenDir() + "/abs_x_not_align.bin", srcCapacity);
         TileShape::Current().SetVecTile({1, 16384});
-        Tensor input_a(DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
+        Tensor input_a(DT_FP16, srcShape, (uint8_t*)x_ptr, "A");
         Tensor output(DT_FP16, dstShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("ABS_T", {input_a, output}) {
-            output = Abs(input_a);
-        }
+        FUNCTION("ABS_T", {input_a, output}) { output = Abs(input_a); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/abs_golden_not_align.bin", golden);
     readInput(GetGoldenDir() + "/abs_x_not_align.bin", x);
 

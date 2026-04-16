@@ -12,27 +12,22 @@
 
 ## 排查建议
 
-### 通用排查步骤
+### 排查前准备
 
 遇到CodeGen组件校验报错，或生成的Kernel代码不符合预期，可通过如下步骤进行日志收集并分析：
 
 1. **设置日志级别为INFO**
    - 设置日志输出路径
-   export ASCEND_PROCESS_LOG_PATH=*{用户指定日志路径}*  
+   export ASCEND_PROCESS_LOG_PATH=*{用户指定日志路径}*
    - 设置日志级别为全局INFO级别
    export ASCEND_GLOBAL_LOG_LEVEL=1 // 0: DEBUG, 1: INFO, 2: WARN, 3: ERROR
    或指定CodeGen模块日志级别为INFO，如：
    export ASCEND_MODULE_LOG_LEVEL=CODEGEN=1
+
 2. **设置并行编译数量为1**
    由于CodeGen模块通过并行编译多个子图方式节省编译时长，故为了防止输出日志乱序，定位问题时需要将并行编译改为串行，设置方法如下：
    - 修改tile_fwk_config.json中的parallel_compile为1
-   - 重新编译并安装pypto包
-
-   ```bash
-   cd pypto_project_path && python3 build_ci.py -f python3 --disable_auto_execute
-   pip install build_out/pypto*.whl --force --no-deps
-   cd -
-   ```
+   - 重新编译并安装pypto包，参考[编译安装](../install/build_and_install.md#编译安装)
 
 3. **再次执行用例，获取日志及kernel代码文件**
    日志路径一般为：   *{用户指定日志路径}*/debug/plog/pypto-log***.log
@@ -41,14 +36,14 @@
 4. **分析日志**
    - 对于FRAMEWORK（F60XXX）、OPERATION_ADAPTER（F61XXX）类错误，一般为上游数据异常导致，需要结合PASS日志分析
    - 其他类型错误需要结合上下文进行分析
-
+<br>
 
 
 ### 场景举例
 
 注意：所有场景日志分析均基于上述排查步骤中获取的日志为基础。
 
-#### 生成kernel代码中某个TileOP调用参数不符合预期 {#生成kernel代码中某个TileOP调用参数不符合预期}
+#### 生成kernel代码中某个TileOP调用参数不符合预期
 
 1. 在kernel代码中找到不符合预期的TileOp调用，例如：
 
@@ -65,7 +60,8 @@
    ```
 
    其中!10010即该OP的唯一标识码，可以此为关键字在PASS的图或日志中搜索获取相关信息，PASS定位指导详见[pass trouble shooting](./pass.md)
-   
+<br>
+
 
 #### 错误码 F62014：SYMBOL_NOT_FOUND
 
@@ -76,13 +72,13 @@
 该类错误场景日志上下文会包含"UNDEFINED_VAR"关键字。
 CodeGen需要以来Operation中的need_alloc属性生成变量定义语句，若该属性缺失，则会导致变量定义语句缺失从而报错。
 可结合前文[生成kernel代码中某个TileOP调用参数不符合预期](#生成kernel代码中某个TileOP调用参数不符合预期)步骤，找到缺失属性的Operation联合PASS继续定位。
-
+<br>
 
 #### 错误码 F63001：COMPILE_CODE_FAILED
 
 kernel代码编译错误可能有多种原因导致，后续将根据不同场景完善排查指导。
 
-##### 堆栈溢出
+##### 场景1: 堆栈溢出
 
 报错关键字样例：
 
@@ -92,7 +88,7 @@ error: stack frame size (*****) exceeds limit (32768) in function
 
 可参考：  [算子编译报堆栈溢出错误](../tutorials/appendix/faq.md#算子编译报堆栈溢出错误)
 
-##### PTO指令数据类型不匹配
+##### 场景2: PTO指令数据类型不匹配
 
 报错关键字"maybe need a type"，样例：
 
@@ -105,7 +101,7 @@ copy_matrix_cc_to_gm(dstGlobalAddr, srcTileAddr, xmReg, xtReg);
 - 前端调用Operation接口参数传递错误，参考：[执行代码有pto相关报错](https://gitcode.com/cann/pypto/issues/705)
 - 使用了PTO-ISA不支持的数据类型，需要重新分析用例场景，使用硬件支持的数据类型
 
-##### 生成PTO指令和二进制编译参数指定的硬件平台不匹配
+##### 场景3: 生成PTO指令和二进制编译参数指定的硬件平台不匹配
 
 报错关键字"does not support the given target feature"，样例：
 
@@ -121,7 +117,7 @@ error: function type 'void (__cbuf__ void *, __gm__ void *, unsigned char, unsig
 - CodeGen使用Cube或Vector的编译参数依据为Function::IsCube()接口，需要PASS确认对不同子图，该接口设置的值是否正确。
 
 
-##### 变量未定义
+##### 场景4: 变量未定义
 
 1. 报错关键字包含sym_***：
 
@@ -131,8 +127,10 @@ UBTileTensorBF16Dim2_1 ubTensor_1((uint64_t)UB_S0_E512_T, (Shape2Dim(sym_209_dim
 ```
 
 此类变量用于运行时动态获取Shape、Offset大小，数据来源于Function::GetDynParamTable接口，可在报错日志中往前搜索首个出现的"subprogram id"关键字，找到子图ID并告知PASS，由PASS继续分析变量缺失原因。
+<br>
 
-##### 二进制编译时长统计
+
+#### 二进制编译时长统计
 
 CodeGen模块耗时可通过执行算子后在屏幕输出中观察Compiler Monitor提供的统计结果，样例如下：
 

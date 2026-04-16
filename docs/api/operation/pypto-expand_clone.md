@@ -4,6 +4,7 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
+| Ascend 950PR/Ascend 950DT |    √     |
 | Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
 | Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
@@ -92,4 +93,3 @@ out2 = pypto.expand_clone(a, [4,8], valid_shape = [pypto.symbolic_scalar(4), pyp
                 [1, 2, 3, 4, 5, 6, 7, 8],
                 [1, 2, 3, 4, 5, 6, 7, 8]]
 ```
-

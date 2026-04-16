@@ -35,4 +35,3 @@ def get_conv_tile_shapes() -> Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info
 ```python
 pypto.get_conv_tile_shapes()
 ```
-

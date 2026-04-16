@@ -23,9 +23,12 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 
-Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
+Tensor MlpSingleRope(const Tensor& x, const Tensor& cos, const Tensor& sin, MlpRopeTile& tileConfig)
+{
     // x: [cmpBlockSize, dR], cos: [1, cmpBlockSize, dR], sin: [1, cmpBlockSize, dR]
-    ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
+    ASSERT(
+        x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM3 &&
+        sin.GetShape().size() == SHAPE_DIM3);
 
     auto cmpSize = x.GetShape()[NUM_VALUE_0];
     auto n2 = x.GetShape()[NUM_VALUE_1];
@@ -57,13 +60,16 @@ Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpR
         Add(Mul(xReSecond, cosUnsqueeze), Mul(RotateHalf(xReSecond), sinUnsqueeze)); // (1, cmpBlockSize, n2, dR)
     auto xReLast = Reshape(xEmbed, {cmpSize, n2, dR});                               // (cmpBlockSize, n2, dR)
     TileShape::Current().SetVecTile(NUM_32, 1, NUM_64);
-    auto res = Cast(xReLast, xDtype); // (cmpSize, n2, dR)
+    auto res = Cast(xReLast, xDtype);                                                // (cmpSize, n2, dR)
     return res;
 }
 
-Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
+Tensor BatchMlpSingleRope(const Tensor& x, const Tensor& cos, const Tensor& sin, MlpRopeTile& tileConfig)
+{
     (void)tileConfig;
-    assert(x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
+    assert(
+        x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM3 &&
+        sin.GetShape().size() == SHAPE_DIM3);
 
     auto cmpSize = x.GetShape()[NUM_VALUE_0];
     auto dR = x.GetShape()[NUM_VALUE_1];
@@ -76,8 +82,9 @@ Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin,
     auto castSin = Cast(sin, DT_FP32);
 
     auto xView = Reshape(castX, {1, cmpSize, dR / NUM_2, NUM_2}); // (1, cmpBlockSize, dR / 2, 2)
-    TileShape::Current().SetVecTile(tileConfig.fourDim[NUM_VALUE_0], tileConfig.fourDim[NUM_VALUE_1],
-        tileConfig.fourDim[NUM_VALUE_2], tileConfig.fourDim[NUM_VALUE_3]);
+    TileShape::Current().SetVecTile(
+        tileConfig.fourDim[NUM_VALUE_0], tileConfig.fourDim[NUM_VALUE_1], tileConfig.fourDim[NUM_VALUE_2],
+        tileConfig.fourDim[NUM_VALUE_3]);
     auto xTrans = Transpose(xView, {NUM_2, NUM_3});
     auto xReSecond = Reshape(xTrans, {1, cmpSize, dR}); // (1, cmpBlockSize, dR)
 
@@ -88,7 +95,8 @@ Tensor BatchMlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin,
     return res;
 }
 
-Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig) {
+Tensor BatchMlpCompress(const Tensor& x, const Tensor& w1, const Tensor& w2, MlpCmpTile& tileConfig)
+{
     auto xDtype = x.GetStorage()->Datatype();
     auto c1Tile = tileConfig.c1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
@@ -96,8 +104,9 @@ Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, Mlp
 
     TileShape::Current().SetVecTile(NUM_128, NUM_128);
     config::SetSemanticLabel("MlpCompress-1");
-    TileShape::Current().SetCubeTile({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
-        {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]});
+    TileShape::Current().SetCubeTile(
+        {c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]}, {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]},
+        {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]});
     auto firstMm = Matrix::Matmul(DT_FP32, x, w1, false, false); // (b, 2 * cmpBlockSize * d)
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
     config::SetSemanticLabel("MlpCompress-2");
@@ -106,8 +115,9 @@ Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, Mlp
     auto castTensor = Cast(sigTensor, xDtype);
 
     config::SetSemanticLabel("MlpCompress-4");
-    TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
-        {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]});
+    TileShape::Current().SetCubeTile(
+        {c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]}, {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]},
+        {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]});
     auto res = Matrix::Matmul(xDtype, castTensor, w2, false, false); // (b, d)
     config::SetSemanticLabel("MlpCompress-5");
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
@@ -115,7 +125,8 @@ Tensor BatchMlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, Mlp
     return res;
 }
 
-Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTile &tileConfig) {
+Tensor MlpCompress(const Tensor& x, const Tensor& w1, const Tensor& w2, MlpCmpTile& tileConfig)
+{
     // x: (cmpBlockSize, n2, d) , w1: (cmpBlockSize*d, 2*cmpBlockSize*d), w2: (2*cmpBlockSize*d, d)
     auto xDtype = x.GetStorage()->Datatype();
     auto transTile = tileConfig.transTileShape;
@@ -140,8 +151,9 @@ Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTi
     auto xCast2 = Cast(xRe2, xDtype);
 
     config::SetSemanticLabel("MlpCompress-2");
-    TileShape::Current().SetCubeTile({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
-        {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]});
+    TileShape::Current().SetCubeTile(
+        {c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]}, {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]},
+        {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]});
     auto firstMm = Matrix::Matmul(DT_FP32, xCast2, w1, false, false); // (n2, 2 * cmpBlockSize * d)
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
     config::SetSemanticLabel("MlpCompress-3");
@@ -150,8 +162,9 @@ Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTi
     auto castTensor = Cast(sigTensor, x.GetStorage()->Datatype());
 
     config::SetSemanticLabel("MlpCompress-5");
-    TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
-        {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]});
+    TileShape::Current().SetCubeTile(
+        {c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]}, {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]},
+        {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]});
     auto res = Matrix::Matmul(DT_FP32, castTensor, w2, false, false); // (n2, d)
     config::SetSemanticLabel("MlpCompress-6");
     auto resRe = Reshape(res, {NUM_VALUE_1, n, d});
@@ -163,34 +176,38 @@ Tensor MlpCompress(const Tensor &x, const Tensor &w1, const Tensor &w2, MlpCmpTi
 }
 
 std::tuple<Tensor, Tensor> CmpAttn(
-    const Tensor &q, const Tensor &k, const Tensor &v, const float scale, AttnTile &tileConfig) {
+    const Tensor& q, const Tensor& k, const Tensor& v, const float scale, AttnTile& tileConfig)
+{
     auto c1Tile = tileConfig.c1TileShape;
     auto c2Tile = tileConfig.c2TileShape;
     auto v1Tile = tileConfig.v1TileShape;
     auto qDtype = q.GetStorage()->Datatype();
     config::SetSemanticLabel("CmpAttention-MatMul1");
-    TileShape::Current().SetCubeTile({c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]},
-        {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]}, {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]});
+    TileShape::Current().SetCubeTile(
+        {c1Tile[NUM_VALUE_0], c1Tile[NUM_VALUE_1]}, {c1Tile[NUM_VALUE_2], c1Tile[NUM_VALUE_3]},
+        {c1Tile[NUM_VALUE_4], c1Tile[NUM_VALUE_5]});
     auto mm1 = Matrix::Matmul(DT_FP32, q, k, false, true); // (g, effSeq)
     TileShape::Current().SetVecTile(v1Tile[NUM_VALUE_0], v1Tile[NUM_VALUE_1]);
     config::SetSemanticLabel("CmpAttention-Softmax");
-    auto softmaxRes = SoftmaxNew(mm1);                         // (g, effSeq)
+    auto softmaxRes = SoftmaxNew(mm1);                        // (g, effSeq)
     auto scaleRes = Mul(softmaxRes, Element(DT_FP32, scale)); // (g, effSeq)
     auto castScale = Cast(scaleRes, qDtype);
     config::SetSemanticLabel("CmpAttention-MatMul2");
-    TileShape::Current().SetCubeTile({c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]},
-        {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]}, {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]});
+    TileShape::Current().SetCubeTile(
+        {c2Tile[NUM_VALUE_0], c2Tile[NUM_VALUE_1]}, {c2Tile[NUM_VALUE_2], c2Tile[NUM_VALUE_3]},
+        {c2Tile[NUM_VALUE_4], c2Tile[NUM_VALUE_5]});
     auto mm2 = Matrix::Matmul(DT_FP32, castScale, v, false, false); // (g, dN)
     return std::tie(softmaxRes, mm2);
 }
 
-void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kvCache,
-    const Tensor &krCache, const Tensor &cmpKvCache, const Tensor &cmpKrCache, const Tensor &blockTable,
-    const Tensor &cmpBlockTable, const Tensor &actSeqLen, const Tensor &actCmpSeqLen, const Tensor &mlpWk1,
-    const Tensor &mlpWk2, const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpAttnOut16,
-    Tensor &cmpSoftmax, Tensor &fullK, Tensor &cmpK, Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes,
-    Tensor &topkInput, const int blockSize, const int cmpBlockSize, const int cmpStride, const float softmaxScale,
-    const int n1, const int n2, CmpAttnTile &tileConfig) {
+void FusedCompressKvSelectCompute(
+    const Tensor& qNope, const Tensor& qRope, const Tensor& kvCache, const Tensor& krCache, const Tensor& cmpKvCache,
+    const Tensor& cmpKrCache, const Tensor& blockTable, const Tensor& cmpBlockTable, const Tensor& actSeqLen,
+    const Tensor& actCmpSeqLen, const Tensor& mlpWk1, const Tensor& mlpWk2, const Tensor& mlpCos, const Tensor& mlpSin,
+    Tensor& cmpAttnOut, Tensor& cmpAttnOut16, Tensor& cmpSoftmax, Tensor& fullK, Tensor& cmpK, Tensor& firstRope,
+    Tensor& firstRopeInput, Tensor& topkRes, Tensor& topkInput, const int blockSize, const int cmpBlockSize,
+    const int cmpStride, const float softmaxScale, const int n1, const int n2, CmpAttnTile& tileConfig)
+{
     /* bellows are function params support
     qNope: [b*s1*n1, dN], fp16/bf16
     qRope: [b*s1*n1, dR], fp16/bf16
@@ -234,14 +251,15 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
     const int maxBlockNum = blockTable.GetShape()[SHAPE_DIM1];
     const int maxCmpBlockNum = cmpBlockTable.GetShape()[SHAPE_DIM1];
     int group = n1 / n2;
-    int n = NUM_128;                           // NUM_128
+    int n = NUM_128;                               // NUM_128
     int s_cmp = cmpSoftmax.GetShape()[SHAPE_DIM1]; // 511
-    int s_slc = (s_cmp + 3) / 4;               // NUM_128
+    int s_slc = (s_cmp + 3) / 4;                   // NUM_128
     int loop = s_slc;
-    int out_loop = 4;    // 4
-    int actualTopk = 13; // 13
+    int out_loop = 4;                              // 4
+    int actualTopk = 13;                           // 13
 
-    LOOP("COMPRESS_LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true) {
+    LOOP("COMPRESS_LOOP_BATCH", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(b), {}, true)
+    {
         // Construct align-shape tensors for store dynamic seqs
         Tensor kvTensor(kDtype, {maxBlockNum * blockSize, n2, dN}, "kvTensor");
         Tensor krTensor(kDtype, {maxBlockNum * blockSize, n2, dR}, "krTensor");
@@ -252,7 +270,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
         auto blockLoop = (curKvLen + blockSize - NUM_VALUE_1) / blockSize;
         auto actualVaildLen = (((curKvLen - NUM_32) / 16 + 1) + 3) / 4 - 3; // 125
         // Concat All Blocks
-        LOOP("CMP_LOOP_BLOCKNUM", FunctionType::DYNAMIC_LOOP, blockIdx, LoopRange(blockLoop), {}, true) {
+        LOOP("CMP_LOOP_BLOCKNUM", FunctionType::DYNAMIC_LOOP, blockIdx, LoopRange(blockLoop), {}, true)
+        {
             config::SetSemanticLabel("BeforeBlockConcat");
             SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, blockIdx});
             auto curKv = View(kvCache, {blockSize, n2 * dN}, {curBlockIdx * blockSize, 0});
@@ -274,7 +293,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
         }
         // Kv Compress
         auto mlpLoop = (curKvLen - cmpBlockSize) / cmpStride + NUM_VALUE_1;
-        LOOP("MLP_LOOP_STRIDE", FunctionType::DYNAMIC_LOOP, cmpIdx, LoopRange(mlpLoop), {}, true) {
+        LOOP("MLP_LOOP_STRIDE", FunctionType::DYNAMIC_LOOP, cmpIdx, LoopRange(mlpLoop), {}, true)
+        {
             auto kvTmp = View(kvTensor, {cmpBlockSize, n2, dN}, {cmpIdx * cmpStride, 0, 0});
             auto krTmp = View(krTensor, {cmpBlockSize, n2, dR}, {cmpIdx * cmpStride, 0, 0});
             auto cosTmp = View(mlpCos, {NUM_VALUE_1, cmpBlockSize, dR}, {bIdx, 0, 0});
@@ -309,8 +329,10 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
             Assemble(kMlpCast, {bIdx, cmpIdx, 0, 0}, cmpK);
         }
         // Compress Attention
-        LOOP("CMP_ATTN_LOOP_S1", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(s1), {}, true) {
-            LOOP("CMP_ATTN_LOOP_N2", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(n2), {}, true) {
+        LOOP("CMP_ATTN_LOOP_S1", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(s1), {}, true)
+        {
+            LOOP("CMP_ATTN_LOOP_N2", FunctionType::DYNAMIC_LOOP, n2Idx, LoopRange(n2), {}, true)
+            {
                 auto qOffset = bIdx * s1 * n1 + s1Idx * n1 + n2Idx * group;
                 Tensor curQAttn(qDtype, {group, dN + dR}, "query"); // (g, dQ)
                 auto curQn = View(qNope, {group, dN}, {group, dN}, {qOffset, 0});
@@ -326,9 +348,11 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 // MTP casual calculation for s2
                 auto curOffset = s1 - s1Idx - 1;
                 auto effSeq = (curKvLen - curOffset - cmpBlockSize) / cmpStride + NUM_VALUE_1;
-                auto curK = View(kCmpTensor, {maxCmpBlockNum * blockSize, 1, dK},
+                auto curK = View(
+                    kCmpTensor, {maxCmpBlockNum * blockSize, 1, dK},
                     {std::min(effSeq, maxCmpBlockNum * blockSize), 1, dK}, {0, n2Idx, 0}); // (effSeq, dK)
-                auto curV = View(kCmpTensor, {maxCmpBlockNum * blockSize, 1, dN},
+                auto curV = View(
+                    kCmpTensor, {maxCmpBlockNum * blockSize, 1, dN},
                     {std::min(effSeq, maxCmpBlockNum * blockSize), 1, dN}, {0, n2Idx, 0}); // (effSeq, dN)
 
                 TileShape::Current().SetVecTile(NUM_128, 1, NUM_128);
@@ -344,8 +368,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 auto curVCast2 = Cast(curVRe, kDtype);
 
                 auto res = CmpAttn(curQAttn, curKCast2, curVCast2, softmaxScale, tileConfig.attnTile);
-                auto curSoftmax = std::get<0>(res);                    // (g, effSeq)
-                auto curRes = std::get<1>(res);                        // (g, dN)
+                auto curSoftmax = std::get<0>(res);                   // (g, effSeq)
+                auto curRes = std::get<1>(res);                       // (g, dN)
                 Assemble(curSoftmax, {qOffset, 0}, cmpSoftmax);       // (b*s1*n1, sCmpMax)
                 Assemble(curRes, {qOffset, 0}, cmpAttnOut);           // (b*s1*n1, dN)
                 Assemble(curSoftmax, {n2Idx * group, 0}, softmaxTmp); // (b*s1*n1, sCmpMax)
@@ -356,7 +380,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 Assemble(a, {bIdx, s1Idx, 0, 0}, cmpAttnOut16);
             }
 
-            LOOP("CMP_LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
+            LOOP("CMP_LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true)
+            {
                 (void)sIdx;
                 TileShape::Current().SetVecTile({4, s_cmp});
                 auto viewer = View(softmaxTmp, {n, s_cmp}, {0, 0});
@@ -369,10 +394,10 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                     auto view0 = View(tmpTrans, {maxLen0, n}, {i * out_loop, 0}); // 4,NUM_128
                     auto maxLen1 = std::min(out_loop, s_cmp - i * out_loop - 1);
                     TileShape::Current().SetVecTile({8, n});
-                    auto reduce0 = Sum(view0, 0, true); // 1,NUM_128
+                    auto reduce0 = Sum(view0, 0, true);                                   // 1,NUM_128
                     if (maxLen1 > 0) {
                         auto view1 = View(tmpTrans, {maxLen1, n}, {i * out_loop + 1, 0}); // 4,NUM_128
-                        auto reduce1 = Sum(view1, 0, true);                            // 1,NUM_128
+                        auto reduce1 = Sum(view1, 0, true);                               // 1,NUM_128
                         auto sum = Add(reduce0, reduce1);                                 // 1,NUM_128
                         Assemble(sum, {i, 0}, abc);
                     } else {
@@ -381,7 +406,7 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 }
                 auto trans1 = Transpose(abc, {0, 1}); // NUM_128,NUM_128
                 TileShape::Current().SetVecTile({n, 8});
-                auto reduce2 = Sum(trans1, 0, true); // 1,NUM_128
+                auto reduce2 = Sum(trans1, 0, true);  // 1,NUM_128
                 tmpOut = Reshape(reduce2, {1, s_slc});
 
                 TileShape::Current().SetVecTile({1, 16});
@@ -389,7 +414,8 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
                 Assemble(a, {bIdx, 0}, topkInput);
             }
 
-            LOOP("CMP_LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true) {
+            LOOP("CMP_LOOP_topk1", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1), {}, true)
+            {
                 (void)sIdx;
 
                 std::vector<Tensor> res = GenTopkIndices(tmpOut, s_slc, actualTopk, actualVaildLen, true);
@@ -403,21 +429,24 @@ void FusedCompressKvSelectCompute(const Tensor &qNope, const Tensor &qRope, cons
     }
 }
 
-void FusedCompressKvSelect(const Tensor &qNope, const Tensor &qRope, const Tensor &kvCache, const Tensor &krCache,
-    const Tensor &cmpKvCache, const Tensor &cmpKrCache, const Tensor &blockTable, const Tensor &cmpBlockTable,
-    const Tensor &actSeqLen, const Tensor &actCmpSeqLen, const Tensor &mlpWk1, const Tensor &mlpWk2,
-    const Tensor &mlpCos, const Tensor &mlpSin, Tensor &cmpAttnOut, Tensor &cmpAttnOut16, Tensor &cmpSoftmax,
-    Tensor &fullK, Tensor &cmpK, Tensor &firstRope, Tensor &firstRopeInput, Tensor &topkRes, Tensor &topkInput,
-    const int blockSize, const int cmpBlockSize, const int cmpStride, const float softmaxScale, const int n1,
-    const int n2, CmpAttnTile &tileConfig) {
-    FUNCTION("FusedCompressKvSelect",
+void FusedCompressKvSelect(
+    const Tensor& qNope, const Tensor& qRope, const Tensor& kvCache, const Tensor& krCache, const Tensor& cmpKvCache,
+    const Tensor& cmpKrCache, const Tensor& blockTable, const Tensor& cmpBlockTable, const Tensor& actSeqLen,
+    const Tensor& actCmpSeqLen, const Tensor& mlpWk1, const Tensor& mlpWk2, const Tensor& mlpCos, const Tensor& mlpSin,
+    Tensor& cmpAttnOut, Tensor& cmpAttnOut16, Tensor& cmpSoftmax, Tensor& fullK, Tensor& cmpK, Tensor& firstRope,
+    Tensor& firstRopeInput, Tensor& topkRes, Tensor& topkInput, const int blockSize, const int cmpBlockSize,
+    const int cmpStride, const float softmaxScale, const int n1, const int n2, CmpAttnTile& tileConfig)
+{
+    FUNCTION(
+        "FusedCompressKvSelect",
         {qNope, qRope, kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpBlockTable, actSeqLen, actCmpSeqLen,
-            mlpWk1, mlpWk2, mlpCos, mlpSin},
-        {cmpAttnOut, cmpAttnOut16, cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput}) {
-        FusedCompressKvSelectCompute(qNope, qRope, kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpBlockTable,
-            actSeqLen, actCmpSeqLen, mlpWk1, mlpWk2, mlpCos, mlpSin, cmpAttnOut, cmpAttnOut16, cmpSoftmax, fullK, cmpK,
-            firstRope, firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale, n1, n2,
-            tileConfig);
+         mlpWk1, mlpWk2, mlpCos, mlpSin},
+        {cmpAttnOut, cmpAttnOut16, cmpSoftmax, fullK, cmpK, firstRope, firstRopeInput, topkRes, topkInput})
+    {
+        FusedCompressKvSelectCompute(
+            qNope, qRope, kvCache, krCache, cmpKvCache, cmpKrCache, blockTable, cmpBlockTable, actSeqLen, actCmpSeqLen,
+            mlpWk1, mlpWk2, mlpCos, mlpSin, cmpAttnOut, cmpAttnOut16, cmpSoftmax, fullK, cmpK, firstRope,
+            firstRopeInput, topkRes, topkInput, blockSize, cmpBlockSize, cmpStride, softmaxScale, n1, n2, tileConfig);
     }
 }
 

@@ -26,12 +26,13 @@ namespace npu {
 namespace tile_fwk {
 class CommonOperationEliminateChecker : Checker {
 public:
-    Status DoPreCheck(Function &function) override;
+    Status DoPreCheck(Function& function) override;
+
 private:
-    bool OpAlreadyExist(Operation *op);
-    Operation *OperationExist(Operation *operation);
+    bool OpAlreadyExist(Operation* op);
+    Operation* OperationExist(Operation* operation);
     std::unordered_map<unsigned long, Operation*> operationCache_;
 };
 } // namespace tile_fwk
 } // namespace npu
-#endif  // COMMON_OPERATION_ELIMINATE_CHECKER_H
+#endif // COMMON_OPERATION_ELIMINATE_CHECKER_H

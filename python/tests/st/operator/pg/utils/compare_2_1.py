@@ -57,11 +57,11 @@ def compute_matrix_small_value(input_data, golden_data, dtype, small_mask):
 
 def compute_matrix_large_value(input_data, golden_data, large_mask):
     if not torch.any(large_mask):
-        return 0, 0, 0, 0, 0
+        return 0, 0, 0
 
     input_large = input_data[large_mask]
     golden_large = golden_data[large_mask]
-    
+
     abs_diff = torch.abs(input_large - golden_large)
     relative_error = abs_diff / (torch.abs(golden_large) + 1e-7)
 

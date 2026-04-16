@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ enum class CodeGenErrorCategory {
     FRAMEWORK = 60000U,         // 0: 框架错误
     OPERATION_ADAPTER = 61000U, // 1: OP初始化错误
     GEN_OP_CODE = 62000U,       // 2: 生成OP代码错误
-    COMPILE_CODE = 63000U,       // 3: 编译CCE代码错误
+    COMPILE_CODE = 63000U,      // 3: 编译CCE代码错误
 };
 
 // =============================================================================
@@ -71,6 +71,7 @@ enum class GenCodeErr : uint32_t {
     TENSOR_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 13U,
     SYMBOL_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 14U,
     PIPE_ID_NOT_FOUND = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 15U,
+    SYMBOL_ID_INVALID = ToUnderlying(CodeGenErrorCategory::GEN_OP_CODE) + 16U,
 };
 
 // Compile CCE error scene

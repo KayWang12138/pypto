@@ -20,8 +20,8 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -32,38 +32,23 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
-        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
-    std::vector<int64_t> shape = {64, 64};
-    std::vector<int64_t> tileShape = {64, 64};
-    std::vector<int64_t> shapeBias = {1, 64};
-    TileShape::Current().SetVecTile(shape);
-    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
-    Tensor inputA(DT_FP16, shape, "A");
-    Tensor inputB(DT_FP16, shape, "B");
-    Tensor output(DT_FP16, shape, "C");
+TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor)
+{
+    auto function = GenMockFuncDyn("TestDynMatmulTileTensor");
 
-    std::string funcName = "TestDynMatmulTileTensor";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<int64_t> shapeBias = {1, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorA = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, shape, dynValidShape});
     auto localTensorB = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, shape, dynValidShape});
@@ -72,10 +57,9 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorA, localTensorB, localTensorBias}, {localOutTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
-
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -85,32 +69,19 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TMatmul<TransMode::CAST_NONE>(l0cTensor_10, l0aTensor_11, l0bTensor_12, btTensor_13);
+        R"!!!(TMatmul<TransMode::CAST_NONE>(l0cTensor_0, l0aTensor_1, l0bTensor_2, btTensor_3);
 )!!!";
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
+TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor)
+{
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    auto function = GenMockFuncDyn("TestMatmulMXTileTensor");
 
     std::vector<int64_t> mxShape = {64, 64};
     std::vector<int64_t> shapeBias = {1, 64};
-    TileShape::Current().SetVecTile(mxShape);
-    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
-    Tensor inputA(DT_FP16, mxShape, "A");
-    Tensor inputB(DT_FP16, mxShape, "B");
-    Tensor output(DT_FP16, mxShape, "C");
-
-    std::string funcNameMx = "TestMatmulMXTileTensor";
-    FUNCTION(funcNameMx, {inputA, inputB, output}) {
-        LOOP(funcNameMx, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(
-        FUNCTION_PREFIX + funcNameMx + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorAMX =
         CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0AMX, mxShape, dynValidShape});
@@ -121,10 +92,9 @@ TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, mxShape, dynValidShape});
 
-    auto &op =
+    auto& op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorAMX, localTensorBMX, localTensorBias}, {localOutTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
-
 
     std::shared_ptr<SymbolManager> symbolManagerMX = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
@@ -133,7 +103,7 @@ TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
     CodeGenOpCloudNPU cop({symbolManagerMX, *function, *function->rootFunc_->programs_[0], op, {}});
 
     std::string res = cop.GenOpCode();
-    std::string expect = R"!!!(MatmulMX(l0cTensor_10, l0a_mxTensor_11, l0b_mxTensor_12, btTensor_13);
+    std::string expect = R"!!!(MatmulMX(l0cTensor_0, l0a_mxTensor_1, l0b_mxTensor_2, btTensor_3);
 )!!!";
     EXPECT_EQ(res, expect);
 }

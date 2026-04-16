@@ -13,7 +13,6 @@
  * \brief
  */
 
-
 #ifndef LOAD_AICPU_OP_H
 #define LOAD_AICPU_OP_H
 #include <string>
@@ -30,28 +29,30 @@
 #include <unordered_map>
 
 namespace npu::tile_fwk {
-class LoadAicpuOp
-{
+class LoadAicpuOp {
 private:
     rtFuncHandle funcHandle_;
-    void *customBinHandle_ = nullptr;
+    void* customBinHandle_ = nullptr;
     std::string builtInOpJsonPath_;
     std::unordered_map<std::string, rtFuncHandle> builtInFuncMap_;
+
 public:
     LoadAicpuOp() = default;
-    ~LoadAicpuOp() {};
-    int AicpuKernelLaunch([[maybe_unused]]void* funcHandle, [[maybe_unused]]const rtStream_t &stream,
-                          [[maybe_unused]]DeviceKernelArgs *kArgs, [[maybe_unused]]const uint32_t &blockDim);
-    int LaunchBuiltInOp(rtStream_t stream, DeviceKernelArgs *kArgs, const int &aicpuNum, const std::string &funcName);
+    ~LoadAicpuOp(){};
+    int AicpuKernelLaunch(
+        [[maybe_unused]] void* funcHandle, [[maybe_unused]] const rtStream_t& stream,
+        [[maybe_unused]] DeviceKernelArgs* kArgs, [[maybe_unused]] const uint32_t& blockDim);
+    int LaunchBuiltInOp(rtStream_t stream, DeviceKernelArgs* kArgs, const int& aicpuNum, const std::string& funcName);
     int GetBuiltInOpBinHandle();
-    int LaunchCustomOp(rtStream_t stream, DeviceKernelArgs *kArgs, std::string &OpType);
+    int LaunchCustomOp(rtStream_t stream, DeviceKernelArgs* kArgs, std::string& OpType);
     void CustomAiCpuSoLoad();
-    void GenBuiltInOpInfo(const std::string &jsonPath);
-    static LoadAicpuOp &GetInstance() {
-      static LoadAicpuOp loadCustomAicpuOp;
-      return loadCustomAicpuOp;
+    void GenBuiltInOpInfo(const std::string& jsonPath);
+    static LoadAicpuOp& GetInstance()
+    {
+        static LoadAicpuOp loadCustomAicpuOp;
+        return loadCustomAicpuOp;
     }
 };
 
-} // namespace
+} // namespace npu::tile_fwk
 #endif

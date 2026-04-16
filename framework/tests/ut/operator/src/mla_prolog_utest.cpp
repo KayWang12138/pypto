@@ -32,9 +32,7 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
-        Program::GetInstance().Reset();
-    }
+    void SetUp() override { Program::GetInstance().Reset(); }
 
     void TearDown() override {}
 };
@@ -52,9 +50,11 @@ struct TestShapeParams {
     int blockSize;
 };
 
-template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
     bool isSmooth = true, bool nz = true, bool usePrefetch = true>
-void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
+void TestMlaPrologUt(const TestShapeParams& params, const MlaTileConfig& tileConfig, std::string cacheMode = "PA_NZ")
+{
     int b = params.b;
     int s = params.s;
     int s2 = params.s2;
@@ -131,11 +131,13 @@ void TestMlaPrologUt(const TestShapeParams &params, const MlaTileConfig &tileCon
         }
     }
 
-    MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs,
-        tileConfig, outputQ, outputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
+    MlaProlog(
+        x, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache, quantInputs, tileConfig,
+        outputQ, outputQRope, outputKvCache, outputKrCache, 1e-5f, 1e-5f, cacheMode);
 }
 
-TEST_F(MlaPrologUTest, b16_s1_pa_nd_fp16_allquant) {
+TEST_F(MlaPrologUTest, b16_s1_pa_nd_fp16_allquant)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 1, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_NZ";

@@ -33,4 +33,4 @@ struct DeviceConfig : public Config {
     std::string replayFile = "_simulate.swim.json";
     bool replayTaskTimeScaling = false;
 };
-}
+} // namespace CostModel

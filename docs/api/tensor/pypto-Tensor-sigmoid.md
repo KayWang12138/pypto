@@ -16,4 +16,3 @@ sigmoid(self) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.sigmoid](../operation/pypto-sigmoid.md)。
-

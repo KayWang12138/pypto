@@ -20,7 +20,8 @@
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void BindPlatform(py::module &m) {
+void BindPlatform(py::module& m)
+{
     m.def("GetNPUArch", []() -> std::string {
         auto npuArch = Platform::Instance().GetSoc().GetNPUArch();
         return NPUArchToString(npuArch);

@@ -22,23 +22,26 @@
 namespace CostModel {
 class PvData {
 private:
-    std::unordered_map<void *, std::vector<uint8_t>> data_;
+    std::unordered_map<void*, std::vector<uint8_t>> data_;
     bool capture_ = false;
 
 public:
-    static PvData &Instance() {
+    static PvData& Instance()
+    {
         static PvData instance;
         return instance;
     }
 
-    void Put(void *dev, std::vector<uint8_t> &cpu) {
+    void Put(void* dev, std::vector<uint8_t>& cpu)
+    {
         if (capture_) {
             std::vector<uint8_t> copy(cpu);
-            data_[dev] = copy;  
+            data_[dev] = copy;
         }
     }
 
-    std::vector<uint8_t> Get(void *dev) {
+    std::vector<uint8_t> Get(void* dev)
+    {
         if (data_.find(dev) != data_.end()) {
             return data_[dev];
         } else {

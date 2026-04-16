@@ -25,23 +25,26 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicOpTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(DynamicOpTest, FullUnalign) {
+TEST_F(DynamicOpTest, FullUnalign)
+{
     TileShape::Current().SetVecTile(16, 128);
 
     // [b*s,h]
     int sTile = 32;
-    int s = 50;  // dynamic
+    int s = 50; // dynamic
     int h = 128;
     std::vector<int64_t> shape = {s, h};
     Tensor output(DT_FP32, shape, "output");
     Tensor actSeqs(DT_INT32, {1}, "actual_seq");
 
-    FUNCTION("main", {actSeqs}, {output}) {
+    FUNCTION("main", {actSeqs}, {output})
+    {
         SymbolicScalar curSeq = GetTensorData(actSeqs, {0});
 
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((curSeq + sTile - 1) / sTile)) {
-            Tensor tmp = Full(Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h},
-                {std::min(curSeq - sIdx * sTile, sTile), h});
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange((curSeq + sTile - 1) / sTile))
+        {
+            Tensor tmp = Full(
+                Element(DataType::DT_FP32, 2.0f), DT_FP32, {sTile, h}, {std::min(curSeq - sIdx * sTile, sTile), h});
             Assemble(tmp, {sIdx * sTile, 0}, output);
         }
     }
@@ -63,5 +66,5 @@ TEST_F(DynamicOpTest, FullUnalign) {
     // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.001f));
+    EXPECT_TRUE(resultCmp(golden, (float*)outs->data(), 0.001f));
 }

@@ -120,7 +120,8 @@ TILEOP void SignImpl(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile)
 
 #define OP_TILE_OP_SIGN TSign
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1, typename T3>
-TILEOP void TSign(T0 dst, T1 src, T3 tmp) {
+TILEOP void TSign(T0 dst, T1 src, T3 tmp)
+{
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto srcLayout = src.GetLayout();
@@ -161,8 +162,7 @@ TILEOP void TSign(T0 dst, T1 src, T3 tmp) {
         pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
     using SrcTile =
         pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-    using TmpTile =
-        pto::Tile<pto::TileType::Vec, half, srcTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
+    using TmpTile = pto::Tile<pto::TileType::Vec, half, srcTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;
     DstTile dstTile(dstShape3, dstShape4);
     SrcTile srcTile(srcShape3, srcShape4);
     TmpTile tmpTile(srcShape3, srcShape4);

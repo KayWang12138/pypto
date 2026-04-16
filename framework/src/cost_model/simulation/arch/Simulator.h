@@ -19,14 +19,12 @@
 #include <vector>
 #include <string>
 
-namespace CostModel
-{
-    class Simulator
-    {
-    public:
-        virtual ~Simulator() = default;
-        virtual uint64_t Run(std::vector<std::string> program) = 0;
-        const int rGmLatency = 0;
-        const int wGmLatency = 0;
-    };
+namespace CostModel {
+class Simulator {
+public:
+    virtual ~Simulator() = default;
+    virtual uint64_t Run(std::vector<std::string> program) = 0;
+    const int rGmLatency = 0;
+    const int wGmLatency = 0;
+};
 } // namespace CostModel

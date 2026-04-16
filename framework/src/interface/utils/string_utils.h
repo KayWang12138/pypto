@@ -24,8 +24,9 @@
 
 namespace npu::tile_fwk {
 
-template<typename T>
-std::ostream& operator<<(std::ostream &os, const std::vector<T> &vec) {
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec)
+{
     os << "[";
     for (auto iter = vec.begin(); iter != vec.end(); ++iter) {
         if (iter != vec.begin()) {
@@ -40,7 +41,8 @@ std::ostream& operator<<(std::ostream &os, const std::vector<T> &vec) {
 class StringUtils {
 public:
     static constexpr size_t MAX_DATA_LEN = 0x40000000UL;
-    static void Trim(std::string &str) {
+    static void Trim(std::string& str)
+    {
         if (str.empty()) {
             return;
         }
@@ -53,7 +55,8 @@ public:
         str = str.substr(startPos, endPos - startPos + 1);
     }
 
-    static std::vector<std::string> Split(const std::string &str, const std::string &pattern) {
+    static std::vector<std::string> Split(const std::string& str, const std::string& pattern)
+    {
         std::vector<std::string> resVec;
         if (str.empty() || pattern.empty()) {
             return resVec;
@@ -68,7 +71,8 @@ public:
         return resVec;
     }
 
-    static bool StartsWith(const std::string &str, const std::string &prefix) {
+    static bool StartsWith(const std::string& str, const std::string& prefix)
+    {
         if (str.size() < prefix.size())
             return false;
         for (size_t i = 0; i < prefix.size(); i++) {
@@ -79,7 +83,8 @@ public:
         return true;
     }
 
-    static bool EndsWith(const std::string &str, const std::string &suffix) {
+    static bool EndsWith(const std::string& str, const std::string& suffix)
+    {
         if (str.size() < suffix.size())
             return false;
         for (size_t i = 0; i < suffix.size(); i++) {
@@ -90,45 +95,50 @@ public:
         return true;
     }
 
-    static std::string BaseName(const char *fname) {
+    static std::string BaseName(const char* fname)
+    {
         if (auto start = strrchr(fname, '/')) {
             return start + 1;
         }
         return fname;
     }
 
-    static std::string ToLower(const std::string &str) {
+    static std::string ToLower(const std::string& str)
+    {
         std::string res(str);
-        for (auto &c : res) {
+        for (auto& c : res) {
             c = std::tolower(c);
         }
         return res;
     }
 
-    static std::string ToUpper(const std::string &str) {
+    static std::string ToUpper(const std::string& str)
+    {
         std::string res(str);
-        for (auto &c : res) {
+        for (auto& c : res) {
             c = std::toupper(c);
         }
         return res;
     }
 
     // memcpy_s内部限制了待拷贝目的buffer的字节数，若大于SECUREC_MEM_MAX_LEN（int32最大值0x7fffffff），会报错返回错误码ERANGE
-    static void DataCopy(void *dest, size_t destMax, const void *src, size_t count) {
+    static void DataCopy(void* dest, size_t destMax, const void* src, size_t count)
+    {
         ASSERT(destMax >= count) << "destMax: " << destMax << ", count: " << count;
 
         size_t offset = 0;
         while (offset < count) {
             size_t copyLen = std::min(count - offset, MAX_DATA_LEN);
-            auto err = memcpy_s(static_cast<char*>(dest) + offset, copyLen,
-                                   static_cast<const char*>(src) + offset, copyLen);
+            auto err =
+                memcpy_s(static_cast<char*>(dest) + offset, copyLen, static_cast<const char*>(src) + offset, copyLen);
             ASSERT(err == 0) << "errCode: " << err;
-            offset +=copyLen;
+            offset += copyLen;
         }
     }
 
     // memset_s内部限制了待拷贝目的buffer的字节数，若大于SECUREC_MEM_MAX_LEN（int32最大值0x7fffffff），会报错返回错误码ERANGE
-    static void DataSet(void *dest, size_t destMax, int c, size_t count) {
+    static void DataSet(void* dest, size_t destMax, int c, size_t count)
+    {
         ASSERT(destMax >= count) << "destMax: " << destMax << ", count: " << count;
 
         size_t offset = 0;
@@ -136,15 +146,16 @@ public:
             size_t copyLen = std::min(count - offset, MAX_DATA_LEN);
             auto err = memset_s(static_cast<char*>(dest) + offset, copyLen, c, copyLen);
             ASSERT(err == 0) << "errCode: " << err;
-            offset +=copyLen;
+            offset += copyLen;
         }
     }
 
     template <typename T>
-    static std::string ToString(const std::vector<T> &args) {
+    static std::string ToString(const std::vector<T>& args)
+    {
         std::stringstream ss;
         ss << args;
         return ss.str();
     }
 };
-}
+} // namespace npu::tile_fwk

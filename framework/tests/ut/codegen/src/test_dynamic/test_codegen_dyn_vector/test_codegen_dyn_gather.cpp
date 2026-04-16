@@ -15,15 +15,14 @@
 
 #include "gtest/gtest.h"
 
-#include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_common.h"
 #include "test_codegen_utils.h"
 
@@ -35,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -48,7 +48,8 @@ public:
 constexpr const int GATHER_SHAPE0 = 16;
 constexpr const int GATHER_SHAPE1 = 32;
 
-TEST_F(TestCodegenDynGather, TestGather) {
+TEST_F(TestCodegenDynGather, TestGather)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     constexpr const int S2 = 32;
     constexpr const int D = 64;
@@ -67,8 +68,10 @@ TEST_F(TestCodegenDynGather, TestGather) {
 
     ConfigManager::Instance();
     std::string funcName = "GATHER_T";
-    FUNCTION(funcName, {inputSrc0, inputSrc1, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputSrc0, inputSrc1, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Gather(inputSrc0, inputSrc1, axis);
         }
@@ -79,13 +82,13 @@ TEST_F(TestCodegenDynGather, TestGather) {
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
 #endif
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-TEST_F(TestCodegenDynGather, TestGatherLayout) {
+TEST_F(TestCodegenDynGather, TestGatherLayout)
+{
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     constexpr const int S2 = 32;
     constexpr const int D = 64;
@@ -104,8 +107,10 @@ TEST_F(TestCodegenDynGather, TestGatherLayout) {
 
     ConfigManager::Instance();
     std::string funcName = "GATHER_T";
-    FUNCTION(funcName, {inputSrc0, inputSrc1, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {inputSrc0, inputSrc1, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Gather(inputSrc0, inputSrc1, axis);
         }
@@ -116,14 +121,14 @@ TEST_F(TestCodegenDynGather, TestGatherLayout) {
 #else
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
 #endif
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynGather, GatherFromUB) {
+TEST_F(TestCodegenDynGather, GatherFromUB)
+{
     auto function = GenMockFuncDyn("GatherFromUB");
     std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
@@ -132,14 +137,14 @@ TEST_F(TestCodegenDynGather, GatherFromUB) {
     auto indices = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
     auto result = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_GATHER_FROM_UB, {params, indices}, {result});
+    auto& op = function->AddOperation(Opcode::OP_GATHER_FROM_UB, {params, indices}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =

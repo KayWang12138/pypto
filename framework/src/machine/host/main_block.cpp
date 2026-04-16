@@ -21,7 +21,7 @@
 namespace npu::tile_fwk {
 MainBlockCondBulider::MainBlockCondBulider() = default;
 
-void MainBlockCondBulider::AddUniqueCondition(const SymbolicScalar &newCond)
+void MainBlockCondBulider::AddUniqueCondition(const SymbolicScalar& newCond)
 {
     SymbolicScalar cond = SymbolicScalar(false);
     std::string condStr = newCond.Dump();
@@ -34,7 +34,7 @@ void MainBlockCondBulider::AddUniqueCondition(const SymbolicScalar &newCond)
     mainBlockCondGroup_.push_back(newCond);
 }
 
-bool MainBlockCondBulider::CheckShapeEquality(const Shape &shape, const std::vector<SymbolicScalar> &dynShape)
+bool MainBlockCondBulider::CheckShapeEquality(const Shape& shape, const std::vector<SymbolicScalar>& dynShape)
 {
     SymbolicScalar cond = SymbolicScalar(false);
     if (shape.size() != dynShape.size()) {
@@ -43,7 +43,7 @@ bool MainBlockCondBulider::CheckShapeEquality(const Shape &shape, const std::vec
     }
 
     for (uint32_t i = 0; i < shape.size(); i++) {
-        if (shape[i] == -1) {  // -1: copy_in, copy_out and callop dynamic axis shape
+        if (shape[i] == -1) { // -1: copy_in, copy_out and callop dynamic axis shape
             continue;
         }
         cond = (shape[i] == dynShape[i]);
@@ -55,16 +55,16 @@ bool MainBlockCondBulider::CheckShapeEquality(const Shape &shape, const std::vec
     return true;
 }
 
-bool MainBlockCondBulider::GetValidShapeFromCoa(const std::vector<SymbolicScalar> &argList,
-        Shape &shape, std::vector<SymbolicScalar> &dynValidShape)
+bool MainBlockCondBulider::GetValidShapeFromCoa(
+    const std::vector<SymbolicScalar>& argList, Shape& shape, std::vector<SymbolicScalar>& dynValidShape)
 {
     if (argList.empty()) {
         MACHINE_LOGW("argList is empty!");
         return false;
     }
 
-    int dim = (argList.size() -1 + COA_INDEX_TYPE_COUNT - 1) / COA_INDEX_TYPE_COUNT;
-    int validShapeDim = argList.size() -1 - dim * (COA_INDEX_TYPE_COUNT - 1);
+    int dim = (argList.size() - 1 + COA_INDEX_TYPE_COUNT - 1) / COA_INDEX_TYPE_COUNT;
+    int validShapeDim = argList.size() - 1 - dim * (COA_INDEX_TYPE_COUNT - 1);
     int coaIndex = COA_INDEX_DIM_BASE;
 
     shape.reserve(dim);
@@ -83,7 +83,7 @@ bool MainBlockCondBulider::GetValidShapeFromCoa(const std::vector<SymbolicScalar
     return true;
 }
 
-void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
+void MainBlockCondBulider::CollectCallopMainBlockConds(Function* func)
 {
     bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
@@ -92,25 +92,23 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
         return;
     }
 
-    auto checkOperand = [&](auto &op, auto &shape, auto &validshape, const char* tag) -> bool {
+    auto checkOperand = [&](auto& op, auto& shape, auto& validshape, const char* tag) -> bool {
         auto cond = CheckShapeEquality(shape, validshape);
         if (!cond) {
-            MACHINE_LOGW("get mainBlock flag false, op code %s, %s shape is %s, validShape is %s",
-               op.GetOpcodeStr().c_str(),
-               tag,
-               IntVecToStr(shape).c_str(),
-               IntVecToStr(validshape).c_str());
+            MACHINE_LOGW(
+                "get mainBlock flag false, op code %s, %s shape is %s, validShape is %s", op.GetOpcodeStr().c_str(),
+                tag, IntVecToStr(shape).c_str(), IntVecToStr(validshape).c_str());
         }
         return cond;
     };
 
-    for (auto &op : func->Operations()) {
-        for (auto &iop : op.GetIOperands()) {
+    for (auto& op : func->Operations()) {
+        for (auto& iop : op.GetIOperands()) {
             if (!checkOperand(op, iop->shape, iop->GetDynValidShape(), "iop")) {
                 return;
             }
         }
-        for (auto &oop : op.GetOOperands()) {
+        for (auto& oop : op.GetOOperands()) {
             if (!checkOperand(op, oop->shape, oop->GetDynValidShape(), "oop")) {
                 return;
             }
@@ -118,7 +116,7 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
     }
 }
 
-void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>> &argList)
+void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>>& argList)
 {
     bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
@@ -136,9 +134,9 @@ void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vecto
         }
         auto cond = CheckShapeEquality(shape, dynValidShape);
         if (!cond) {
-            MACHINE_LOGW("get mainBlock flag false, coa shape is %s, validShape is %s",
-               IntVecToStr(shape).c_str(),
-               IntVecToStr(dynValidShape).c_str());
+            MACHINE_LOGW(
+                "get mainBlock flag false, coa shape is %s, validShape is %s", IntVecToStr(shape).c_str(),
+                IntVecToStr(dynValidShape).c_str());
             return;
         }
     }
@@ -154,15 +152,15 @@ SymbolicScalar MainBlockCondBulider::BuildMainBlockExpression()
     }
 
     cond = true;
-    for (const auto &iter : mainBlockCondGroup_) {
+    for (const auto& iter : mainBlockCondGroup_) {
         cond = runtimeAnd(cond, iter);
     }
-    
+
     cond = runtimeSelect(cond, 1, 0);
     return cond;
 }
 
-void MainBlockCondBulider::Gencode(Function *function)
+void MainBlockCondBulider::Gencode(Function* function)
 {
     bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
     enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
@@ -174,13 +172,7 @@ void MainBlockCondBulider::Gencode(Function *function)
     }
 }
 
-const std::vector<SymbolicScalar>& MainBlockCondBulider::GetCondGroup() const {
-    return mainBlockCondGroup_;
-}
+const std::vector<SymbolicScalar>& MainBlockCondBulider::GetCondGroup() const { return mainBlockCondGroup_; }
 
-const std::unordered_set<std::string>& MainBlockCondBulider::GetCondStrSet() const {
-    return mainBlockStrSet_;
-}
-}
-
-    
+const std::unordered_set<std::string>& MainBlockCondBulider::GetCondStrSet() const { return mainBlockStrSet_; }
+} // namespace npu::tile_fwk

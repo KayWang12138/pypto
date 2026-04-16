@@ -26,13 +26,13 @@ public:
     FunctionHash() : std::string(), hash_(0) {}
     FunctionHash(unsigned long hash) : std::string(std::to_string(hash)), hash_(hash) {}
 
-    FunctionHash(const FunctionHash &) = default;
+    FunctionHash(const FunctionHash&) = default;
     bool Empty() const { return std::string::size() == 0; }
-    const std::string &Data() const { return *this; }
+    const std::string& Data() const { return *this; }
     uint64_t GetHash() const { return hash_; }
 
-    bool operator==(const FunctionHash &h) { return Data() == h.Data(); }
-    FunctionHash &operator=(const FunctionHash &) = default;
+    bool operator==(const FunctionHash& h) { return Data() == h.Data(); }
+    FunctionHash& operator=(const FunctionHash&) = default;
 
 private:
     unsigned long hash_{0};
@@ -41,5 +41,5 @@ private:
 
 template <>
 struct std::hash<npu::tile_fwk::FunctionHash> {
-    std::size_t operator()(const npu::tile_fwk::FunctionHash &h) const { return std::hash<std::string>()(h.Data()); }
+    std::size_t operator()(const npu::tile_fwk::FunctionHash& h) const { return std::hash<std::string>()(h.Data()); }
 };

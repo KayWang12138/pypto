@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 #include "host_log/log_module_manager.h"
 
 namespace npu::tile_fwk {
-int32_t TilefwkCheckLogLevel(int32_t moduleId, int32_t logLevel, LogModule logModule) {
+int32_t TilefwkCheckLogLevel(int32_t moduleId, int32_t logLevel, LogModule logModule)
+{
     (void)moduleId;
     int32_t moduleLevel = LogModuleManager::Instance().GetModuleLogLevel(logModule);
     if (moduleLevel >= 0) {
@@ -31,7 +32,8 @@ int32_t TilefwkCheckLogLevel(int32_t moduleId, int32_t logLevel, LogModule logMo
     return LogManager::Instance().CheckLevel(static_cast<LogLevel>(logLevel)) ? 1 : 0;
 }
 
-void TilefwkLogRecord(int32_t moduleId, int32_t logLevel, const char *fmt, ...) {
+void TilefwkLogRecord(int32_t moduleId, int32_t logLevel, const char* fmt, ...)
+{
     (void)moduleId;
     va_list list;
     va_start(list, fmt);
@@ -39,7 +41,8 @@ void TilefwkLogRecord(int32_t moduleId, int32_t logLevel, const char *fmt, ...) 
     va_end(list);
 }
 
-void TilefwkSetLogAttr(bool isDevice) {
+void TilefwkSetLogAttr(bool isDevice)
+{
     if (isDevice) {
         LogManager::Instance().EnableDeviceLog();
     } else {
@@ -48,22 +51,25 @@ void TilefwkSetLogAttr(bool isDevice) {
 }
 
 #ifndef __DEVICE__
-LogFuncInfo &LogFuncInfo::Instance() {
+LogFuncInfo& LogFuncInfo::Instance()
+{
     static LogFuncInfo instance;
     return instance;
 }
-LogFuncInfo::LogFuncInfo() {
+LogFuncInfo::LogFuncInfo()
+{
     checkLevel = TilefwkCheckLogLevel;
     record = TilefwkLogRecord;
     pyptoRecord = TilefwkLogRecord;
     setAttr = TilefwkSetLogAttr;
 }
 
-LogFuncInfo::~LogFuncInfo() {
+LogFuncInfo::~LogFuncInfo()
+{
     checkLevel = nullptr;
     record = nullptr;
     pyptoRecord = nullptr;
     setAttr = nullptr;
 }
 #endif
-}
+} // namespace npu::tile_fwk

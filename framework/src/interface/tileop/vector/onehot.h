@@ -19,16 +19,13 @@
 #include "utils/tile_tensor.h"
 
 template <typename TileData>
-PTO_INST void TZEROS(TileData &dst) {
-    static_assert(TileData::isRowMajor,"layout of dst must be pto::BLayout::RowMajor.");
+PTO_INST void TZEROS(TileData& dst)
+{
+    static_assert(TileData::isRowMajor, "layout of dst must be pto::BLayout::RowMajor.");
     if constexpr (std::is_same_v<typename TileData::DType, int64_t>) {
-        using DstTileType = pto::Tile<TileData::Loc,
-                                      int32_t,
-                                      TileData::Rows,
-                                      TileData::Cols * 2,
-                                      pto::BLayout::RowMajor,
-                                      -1, -1>;
-        DstTileType dstTile(dst.RowMaskInternal,dst.ColMaskInternal * 2);
+        using DstTileType =
+            pto::Tile<TileData::Loc, int32_t, TileData::Rows, TileData::Cols * 2, pto::BLayout::RowMajor, -1, -1>;
+        DstTileType dstTile(dst.RowMaskInternal, dst.ColMaskInternal * 2);
         pto::TASSIGN(dstTile, (uint64_t)dst.data());
         pto::TEXPANDS(dstTile, 0);
     } else {
@@ -38,7 +35,8 @@ PTO_INST void TZEROS(TileData &dst) {
 
 #define OP_TILE_OP_ONEHOT TOneHot
 template <typename DstTensor, typename SrcTensor>
-TILEOP void TOneHot(DstTensor dst,SrcTensor src) {
+TILEOP void TOneHot(DstTensor dst, SrcTensor src)
+{
     constexpr auto dstShapeSize = Std::tuple_size<typename DstTensor::Shape>::value;
     constexpr auto srcShapeSize = Std::tuple_size<typename SrcTensor::Shape>::value;
     static_assert(srcShapeSize + 1 == dstShapeSize);
@@ -54,7 +52,7 @@ TILEOP void TOneHot(DstTensor dst,SrcTensor src) {
     auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
 
-    const auto  srcLayout = src.GetLayout();
+    const auto srcLayout = src.GetLayout();
     auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize - 1>();
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize - 1>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize - 1>();
@@ -68,7 +66,7 @@ TILEOP void TOneHot(DstTensor dst,SrcTensor src) {
 
     using DstTileType = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
 
-    if(dstShape3 == 0 || dstShape4 == 0) {
+    if (dstShape3 == 0 || dstShape4 == 0) {
         return;
     }
 
@@ -78,7 +76,7 @@ TILEOP void TOneHot(DstTensor dst,SrcTensor src) {
                 DstTileType dstTile(dstShape3, dstShape4);
 
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                auto dstAddr = dst.GetAddr() +  dstOffset * sizeof(DstDtype); // 32B align
+                auto dstAddr = dst.GetAddr() + dstOffset * sizeof(DstDtype); // 32B align
                 pto::TASSIGN(dstTile, dstAddr);
                 TZEROS(dstTile);
 
@@ -86,9 +84,9 @@ TILEOP void TOneHot(DstTensor dst,SrcTensor src) {
                 wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
 
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                auto srcPtr = (__ubuf__ SrcDtype *)(src.GetAddr() + srcOffset * sizeof(SrcDtype));
-                for(LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
-                    auto dstPtr = (__ubuf__ DstDtype *)(dstAddr + n3Index * dstTileW * sizeof(DstDtype));
+                auto srcPtr = (__ubuf__ SrcDtype*)(src.GetAddr() + srcOffset * sizeof(SrcDtype));
+                for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
+                    auto dstPtr = (__ubuf__ DstDtype*)(dstAddr + n3Index * dstTileW * sizeof(DstDtype));
                     SrcDtype onePos = srcPtr[n3Index];
                     dstPtr[onePos] = 1;
                 }

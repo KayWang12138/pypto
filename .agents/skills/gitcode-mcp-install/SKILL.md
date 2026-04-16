@@ -8,10 +8,6 @@ description: >-
 
 # GitCode MCP Server 安装与配置
 
-## 约定
-
-- `$SKILL_DIR`：由 agent 运行时自动注入的环境变量，指向当前 skill 的根目录（即本 `gitcode-mcp-install/` 目录）。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/gitcode-mcp-install`。
-
 ## ⛔ 隐私保护
 
 > ⚠️ **禁止在屏幕、日志、错误信息中打印 `GITCODE_TOKEN` 环境变量**
@@ -58,7 +54,7 @@ pip3 install -e .
 ```
 
 > Python >= 3.8
-> 
+>
 > **重要**：Python 安装方式会自动注册 `gitcode-mcp` 命令，配置方式与 Go 二进制相同。
 ## OpenCode 配置（不存在会自动创建）
 

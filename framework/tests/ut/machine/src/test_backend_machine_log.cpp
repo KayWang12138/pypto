@@ -32,7 +32,7 @@
 
 using namespace npu::tile_fwk;
 
-extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache);
+extern "C" int32_t Execute(MachineTask* task, FunctionCache& cache);
 
 class TestBackendMachineLog : public testing::Test {
 public:
@@ -43,7 +43,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestBackendMachineLog, Execute_CacheRecoverFails) {
+TEST_F(TestBackendMachineLog, Execute_CacheRecoverFails)
+{
     Program::GetInstance().Reset();
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     TileShape::Current().SetVecTile(32, 32);
@@ -52,12 +53,13 @@ TEST_F(TestBackendMachineLog, Execute_CacheRecoverFails) {
     int s = 32;
     Tensor t0(DT_FP32, {s, s}, "exec_t0");
     Tensor out(DT_FP32, {s, s}, "exec_out");
-    FUNCTION("test_execute_cache", {t0}, {out}) {
+    FUNCTION("test_execute_cache", {t0}, {out})
+    {
         auto temp = Add(t0, t0);
         Assemble(temp, {0, 0}, out);
     }
 
-    Function *func = Program::GetInstance().GetLastFunction();
+    Function* func = Program::GetInstance().GetLastFunction();
     ASSERT_NE(func, nullptr);
 
     MachineTask task(1, func);

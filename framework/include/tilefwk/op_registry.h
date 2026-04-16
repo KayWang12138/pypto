@@ -25,12 +25,12 @@ namespace npu::tile_fwk {
 using OpImplFunc = void (*)(uint64_t);
 class OpImplRegister {
 public:
-    explicit OpImplRegister(const std::string &opType);
-    OpImplRegister(const OpImplRegister &registerData);
-    OpImplRegister &operator=(const OpImplRegister &) = delete;
-    OpImplRegister &operator=(OpImplRegister &&) = delete;
+    explicit OpImplRegister(const std::string& opType);
+    OpImplRegister(const OpImplRegister& registerData);
+    OpImplRegister& operator=(const OpImplRegister&) = delete;
+    OpImplRegister& operator=(OpImplRegister&&) = delete;
     ~OpImplRegister();
-    void AddImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap);
+    void AddImplFunc(const std::map<uint64_t, OpImplFunc>& implFuncMap);
     void AddImplFunc(const uint64_t configKey, const OpImplFunc implFunc);
     std::vector<uint64_t> GetAllConfigKeys() const;
     OpImplFunc GetOpImplFunc(const uint64_t configKey) const;
@@ -43,10 +43,10 @@ using OpImplRegisterPtr = std::shared_ptr<OpImplRegister>;
 
 class OpImplRegistry {
 public:
-    static OpImplRegistry &GetInstance();
-    OpImplRegisterPtr CreateOrGetOpRegister(const std::string &opType);
-    OpImplFunc GetOpImplFunc(const std::string &opType, const uint64_t configKey) const;
-    std::vector<uint64_t> GetAllConfigKeys(const std::string &opType) const;
+    static OpImplRegistry& GetInstance();
+    OpImplRegisterPtr CreateOrGetOpRegister(const std::string& opType);
+    OpImplFunc GetOpImplFunc(const std::string& opType, const uint64_t configKey) const;
+    std::vector<uint64_t> GetAllConfigKeys(const std::string& opType) const;
 
 private:
     OpImplRegistry() {}
@@ -56,10 +56,10 @@ private:
 
 class OpImplRegistHelper {
 public:
-    explicit OpImplRegistHelper(const std::string &opType);
+    explicit OpImplRegistHelper(const std::string& opType);
     ~OpImplRegistHelper();
-    OpImplRegistHelper &ImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap);
-    OpImplRegistHelper &ImplFunc(const uint64_t configKey, const OpImplFunc keyToFunc);
+    OpImplRegistHelper& ImplFunc(const std::map<uint64_t, OpImplFunc>& implFuncMap);
+    OpImplRegistHelper& ImplFunc(const uint64_t configKey, const OpImplFunc keyToFunc);
 
 private:
     OpImplRegisterPtr opRegister_;

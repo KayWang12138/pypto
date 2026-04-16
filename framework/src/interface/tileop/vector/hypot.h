@@ -23,13 +23,14 @@ template <typename T>
 struct HypotTmpBuffers {
     __ubuf__ void* buf0;
     __ubuf__ void* buf1;
-    
+
     __ubuf__ float* fp32Buf0;
     __ubuf__ float* fp32Buf1;
 };
 
 template <typename T, typename TTmp>
-TILEOP HypotTmpBuffers<T> InitHypotTmpBuffers(TTmp tmpbuf, size_t elementCount) {
+TILEOP HypotTmpBuffers<T> InitHypotTmpBuffers(TTmp tmpbuf, size_t elementCount)
+{
     uint64_t dataSizeBytes = elementCount * sizeof(float);
     const uint32_t ALIGNMENT = 32;
     uint64_t alignedSizeBytes = (dataSizeBytes + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
@@ -40,7 +41,7 @@ TILEOP HypotTmpBuffers<T> InitHypotTmpBuffers(TTmp tmpbuf, size_t elementCount) 
     buffers.fp32Buf0 = reinterpret_cast<__ubuf__ float*>(basePtr);
     buffers.buf0 = reinterpret_cast<__ubuf__ void*>(basePtr);
     __ubuf__ uint8_t* ptrBuf1 = basePtr + alignedSizeBytes;
-    
+
     buffers.fp32Buf1 = reinterpret_cast<__ubuf__ float*>(ptrBuf1);
     buffers.buf1 = reinterpret_cast<__ubuf__ void*>(ptrBuf1);
 
@@ -55,7 +56,8 @@ struct HypotLayoutInfo {
 };
 
 template <typename T, typename TDst>
-TILEOP HypotLayoutInfo ExtractHypotLayoutInfo(const T& src0, const T& src1, const TDst& dst) {
+TILEOP HypotLayoutInfo ExtractHypotLayoutInfo(const T& src0, const T& src1, const TDst& dst)
+{
     constexpr size_t expectSize = 5;
     const auto src0Layout = src0.GetLayout();
     const auto src1Layout = src1.GetLayout();
@@ -89,106 +91,107 @@ TILEOP HypotLayoutInfo ExtractHypotLayoutInfo(const T& src0, const T& src1, cons
 
 // result = max * sqrt(1 + (min/max)^2)
 template <typename TileType>
-TILEOP void ExecuteHypotRobust(TileType& dstTile, TileType& src0Tile, TileType& src1Tile, 
-                               TileType& maxTile, TileType& minTile) {
+TILEOP void ExecuteHypotRobust(
+    TileType& dstTile, TileType& src0Tile, TileType& src1Tile, TileType& maxTile, TileType& minTile)
+{
     pto::TABS(src0Tile, src0Tile);
     pto::TABS(src1Tile, src1Tile);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TMAX(maxTile, src0Tile, src1Tile);
     pto::TMIN(minTile, src0Tile, src1Tile);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TADDS(maxTile, maxTile, 1e-9f);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TDIV(minTile, minTile, maxTile);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TMUL(minTile, minTile, minTile);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TADDS(minTile, minTile, 1.0f);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TSQRT(minTile, minTile);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TMUL(dstTile, maxTile, minTile);
 }
 
 // result = (half) sqrt( (float)src0^2 + (float)src1^2 )
 template <typename DstTileType, typename SrcTileType, typename Fp32TileType>
-TILEOP void ExecuteHypotFp16(DstTileType& dstTile, SrcTileType& src0Tile, SrcTileType& src1Tile,
-                             Fp32TileType& tmp0Fp32, Fp32TileType& tmp1Fp32) {
+TILEOP void ExecuteHypotFp16(
+    DstTileType& dstTile, SrcTileType& src0Tile, SrcTileType& src1Tile, Fp32TileType& tmp0Fp32, Fp32TileType& tmp1Fp32)
+{
     pto::TCVT(tmp0Fp32, src0Tile, pto::RoundMode::CAST_NONE);
     pto::TCVT(tmp1Fp32, src1Tile, pto::RoundMode::CAST_NONE);
-    
-    #ifdef __DAV_V220
+
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TMUL(tmp0Fp32, tmp0Fp32, tmp0Fp32);
     pto::TMUL(tmp1Fp32, tmp1Fp32, tmp1Fp32);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TADD(tmp0Fp32, tmp0Fp32, tmp1Fp32);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TSQRT(tmp0Fp32, tmp0Fp32);
 
-    #ifdef __DAV_V220
+#ifdef __DAV_V220
     pipe_barrier(PIPE_V);
-    #endif
+#endif
 
     pto::TCVT(dstTile, tmp0Fp32, pto::RoundMode::CAST_NONE);
 }
 
 TILEOP void CalcHypotOffsets(
-    const HypotLayoutInfo& info,
-    size_t n0Index, size_t n1Index, size_t n2Index, size_t n3Index,
-    size_t& src0Offset, size_t& src1Offset, size_t& dstOffset
-) {
-    dstOffset = n0Index * info.dstStride0 + n1Index * info.dstStride1 +
-                n2Index * info.dstStride2 + n3Index * info.dstStride3;
-    src0Offset = n0Index * info.stride0 + n1Index * info.stride1 +
-                n2Index * info.stride2 + n3Index * info.stride3;
-    src1Offset = n0Index * info.stride1_0 + n1Index * info.stride1_1 +
-                n2Index * info.stride1_2 + n3Index * info.stride1_3;
+    const HypotLayoutInfo& info, size_t n0Index, size_t n1Index, size_t n2Index, size_t n3Index, size_t& src0Offset,
+    size_t& src1Offset, size_t& dstOffset)
+{
+    dstOffset =
+        n0Index * info.dstStride0 + n1Index * info.dstStride1 + n2Index * info.dstStride2 + n3Index * info.dstStride3;
+    src0Offset = n0Index * info.stride0 + n1Index * info.stride1 + n2Index * info.stride2 + n3Index * info.stride3;
+    src1Offset =
+        n0Index * info.stride1_0 + n1Index * info.stride1_1 + n2Index * info.stride1_2 + n3Index * info.stride1_3;
 }
 
 template <typename T, typename TDst, typename TTmp>
-TILEOP void THypot(TDst dst, T src0, T src1, TTmp tmpbuf) {
+TILEOP void THypot(TDst dst, T src0, T src1, TTmp tmpbuf)
+{
     auto info = ExtractHypotLayoutInfo(src0, src1, dst);
     auto buffers = InitHypotTmpBuffers<T>(tmpbuf, info.shape4);
-    
+
     constexpr auto dataTypeSize = sizeof(typename T::Type);
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T, 4, 5>();
     using DataTile = pto::Tile<pto::TileType::Vec, typename T::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
@@ -218,7 +221,7 @@ TILEOP void THypot(TDst dst, T src0, T src1, TTmp tmpbuf) {
                         DataTile minTile(1, info.shape4);
                         pto::TASSIGN(maxTile, reinterpret_cast<uint64_t>(buffers.buf0));
                         pto::TASSIGN(minTile, reinterpret_cast<uint64_t>(buffers.buf1));
-                        ExecuteHypotRobust(dstTile, src0Tile, src1Tile, maxTile, minTile); 
+                        ExecuteHypotRobust(dstTile, src0Tile, src1Tile, maxTile, minTile);
                     } else {
                         Fp32Tile tmp0Fp32(1, info.shape4);
                         Fp32Tile tmp1Fp32(1, info.shape4);
@@ -227,9 +230,9 @@ TILEOP void THypot(TDst dst, T src0, T src1, TTmp tmpbuf) {
                         ExecuteHypotFp16(dstTile, src0Tile, src1Tile, tmp0Fp32, tmp1Fp32);
                     }
 
-                    #ifdef __DAV_V220
+#ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
-                    #endif
+#endif
                 }
             }
         }

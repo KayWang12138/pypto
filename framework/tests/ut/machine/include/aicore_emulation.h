@@ -33,37 +33,36 @@ class AicoreEmulationBase {
 public:
     virtual ~AicoreEmulationBase() = default;
 
-    uint64_t AicoreGetSysCnt() {
+    uint64_t AicoreGetSysCnt()
+    {
         auto now = std::chrono::high_resolution_clock::now();
         auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
         return ns;
     }
 
-    virtual int64_t AicoreGetPhyIdx() {
-        return 0;
-    }
+    virtual int64_t AicoreGetPhyIdx() { return 0; }
 
-    virtual int AicoreGetCoreIdx() {
-        return 0;
-    }
+    virtual int AicoreGetCoreIdx() { return 0; }
 
-    virtual void AicoreSetCond(uint64_t cond) {
-        UNUSED(cond);
-    }
+    virtual void AicoreSetCond(uint64_t cond) { UNUSED(cond); }
 
-    virtual uint64_t AicoreGetData() {
-        return 0;
-    }
+    virtual uint64_t AicoreGetData() { return 0; }
 
-    virtual void AicoreCallSubFuncTask(uint64_t funcIdx, npu::tile_fwk::CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {
-        UNUSED(funcIdx); UNUSED(param); UNUSED(gmStackAddr); UNUSED(hcclContext);
+    virtual void AicoreCallSubFuncTask(
+        uint64_t funcIdx, npu::tile_fwk::CoreFuncParam* param, int64_t gmStackAddr, __gm__ int64_t* hcclContext)
+    {
+        UNUSED(funcIdx);
+        UNUSED(param);
+        UNUSED(gmStackAddr);
+        UNUSED(hcclContext);
     }
 };
 
 class ThreadAicoreInfo {
 public:
     ThreadAicoreInfo(std::shared_ptr<std::thread> thread, int phyIdx, int coreIdx)
-      : thread_(thread), phyIdx_(phyIdx), coreIdx_(coreIdx) {}
+        : thread_(thread), phyIdx_(phyIdx), coreIdx_(coreIdx)
+    {}
 
     int GetPhyIdx() const { return phyIdx_; }
     int GetCoreIdx() const { return coreIdx_; }
@@ -73,6 +72,7 @@ public:
 
     uint64_t GetData() { return data_; }
     void SetData(uint64_t data) { data_ = data; }
+
 private:
     std::shared_ptr<std::thread> thread_;
     int phyIdx_{-1};
@@ -84,7 +84,8 @@ private:
 
 class ThreadAicoreEmulation : public AicoreEmulationBase {
 public:
-    void AppendAicore(std::shared_ptr<std::thread> thread, int phyIdx, int coreIdx) {
+    void AppendAicore(std::shared_ptr<std::thread> thread, int phyIdx, int coreIdx)
+    {
         std::lock_guard<std::mutex> guard(aicoreInfoMutex_);
 
         std::shared_ptr<ThreadAicoreInfo> info = std::make_shared<ThreadAicoreInfo>(thread, phyIdx, coreIdx);
@@ -101,7 +102,8 @@ public:
         coreIdxAicoreInfoDict_[coreIdx] = info;
     }
 
-    std::shared_ptr<ThreadAicoreInfo> GetAicoreInfoByThread() {
+    std::shared_ptr<ThreadAicoreInfo> GetAicoreInfoByThread()
+    {
         std::lock_guard<std::mutex> guard(aicoreInfoMutex_);
 
         auto threadId = std::this_thread::get_id();
@@ -113,7 +115,8 @@ public:
         }
     }
 
-    std::shared_ptr<ThreadAicoreInfo> GetAicoreInfoByPhyIdx(int phyIdx) {
+    std::shared_ptr<ThreadAicoreInfo> GetAicoreInfoByPhyIdx(int phyIdx)
+    {
         std::lock_guard<std::mutex> guard(aicoreInfoMutex_);
 
         if (phyIdx < (int)phyIdxAicoreInfoDict_.size()) {
@@ -123,7 +126,8 @@ public:
         }
     }
 
-    std::shared_ptr<ThreadAicoreInfo> GetAicoreInfoByCoreIdx(int coreIdx) {
+    std::shared_ptr<ThreadAicoreInfo> GetAicoreInfoByCoreIdx(int coreIdx)
+    {
         std::lock_guard<std::mutex> guard(aicoreInfoMutex_);
 
         if (coreIdx < (int)coreIdxAicoreInfoDict_.size()) {
@@ -133,31 +137,37 @@ public:
         }
     }
 
-    virtual int64_t AicoreGetPhyIdx() override {
+    virtual int64_t AicoreGetPhyIdx() override
+    {
         auto info = GetAicoreInfoByThread();
         return info->GetPhyIdx();
     }
 
-    virtual int AicoreGetCoreIdx() override {
+    virtual int AicoreGetCoreIdx() override
+    {
         auto info = GetAicoreInfoByThread();
         return info->GetCoreIdx();
     }
 
-    virtual void AicoreSetCond(uint64_t cond) override {
+    virtual void AicoreSetCond(uint64_t cond) override
+    {
         auto info = GetAicoreInfoByThread();
         info->SetCond(cond);
     }
 
-    virtual uint64_t AicoreGetData() override {
+    virtual uint64_t AicoreGetData() override
+    {
         auto info = GetAicoreInfoByThread();
         return info->GetData();
     }
 
-    uint64_t AicpuGetCond(int coreIdx) {
+    uint64_t AicpuGetCond(int coreIdx)
+    {
         auto info = GetAicoreInfoByCoreIdx(coreIdx);
         return info->GetCond();
     }
-    void AicpuSetData(int coreIdx, uint64_t data) {
+    void AicpuSetData(int coreIdx, uint64_t data)
+    {
         auto info = GetAicoreInfoByCoreIdx(coreIdx);
         info->SetData(data);
     }
@@ -171,28 +181,28 @@ private:
 
 class AicoreEmulationManager {
 public:
-    static AicoreEmulationManager &GetInstance();
+    static AicoreEmulationManager& GetInstance();
 
-    AicoreEmulationManager() {
-        base_ = std::make_shared<AicoreEmulationBase>();
-    }
+    AicoreEmulationManager() { base_ = std::make_shared<AicoreEmulationBase>(); }
 
     void SetupAicoreEmulation(std::shared_ptr<AicoreEmulationBase> curr) { curr_ = curr; }
     void Reset() { curr_ = nullptr; }
 
-    std::shared_ptr<AicoreEmulationBase> GetEmulation() {
+    std::shared_ptr<AicoreEmulationBase> GetEmulation()
+    {
         if (curr_) {
             return curr_;
         } else {
             return base_;
         }
     }
+
 private:
     std::shared_ptr<AicoreEmulationBase> base_;
     std::shared_ptr<AicoreEmulationBase> curr_;
 };
 
-}
+} // namespace npu::tile_fwk::machine
 
 #define dcci(...)
 #define dsb(...)
@@ -200,32 +210,40 @@ private:
 #define wait_flag(...)
 #define set_mask_norm(...)
 
-static inline uint64_t get_sys_cnt() {
+static inline uint64_t get_sys_cnt()
+{
     auto cnt = npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreGetSysCnt();
     return cnt;
 }
 
-static inline int64_t get_coreid() {
+static inline int64_t get_coreid()
+{
     auto coreid = npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreGetPhyIdx();
     return coreid;
 }
 
-static inline int get_block_idx() {
+static inline int get_block_idx()
+{
     auto blockIdx = npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreGetCoreIdx();
     return blockIdx;
 }
 
-static inline void set_cond(uint64_t cond) {
+static inline void set_cond(uint64_t cond)
+{
     npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreSetCond(cond);
 }
 
-static inline uint64_t GetDataMainBase() {
+static inline uint64_t GetDataMainBase()
+{
     auto mainBase = npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreGetData();
     return mainBase;
 }
 
-static inline void CallSubFuncTask(uint64_t funcIdx, npu::tile_fwk::CoreFuncParam *param, int64_t gmStackAddr, __gm__ int64_t *hcclContext) {
-    npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreCallSubFuncTask(funcIdx, param, gmStackAddr, hcclContext);
+static inline void CallSubFuncTask(
+    uint64_t funcIdx, npu::tile_fwk::CoreFuncParam* param, int64_t gmStackAddr, __gm__ int64_t* hcclContext)
+{
+    npu::tile_fwk::machine::AicoreEmulationManager::GetInstance().GetEmulation()->AicoreCallSubFuncTask(
+        funcIdx, param, gmStackAddr, hcclContext);
 }
 
 #define __HAS_SUB_FUNC__

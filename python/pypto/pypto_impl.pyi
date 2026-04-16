@@ -86,6 +86,30 @@ class SaturationMode(enum.Enum):
     OFF = ...
     ON = ...
 
+class DivAlgorithm(enum.Enum):
+    INTRINSIC = ...
+    HIGH_PRECISION = ...
+
+class SqrtAlgorithm(enum.Enum):
+    INTRINSIC = ...
+    HIGH_PRECISION = ...
+
+class RsqrtAlgorithm(enum.Enum):
+    INTRINSIC = ...
+    HIGH_PRECISION = ...
+
+class ExpAlgorithm(enum.Enum):
+    INTRINSIC = ...
+    HIGH_PRECISION = ...
+
+class LogAlgorithm(enum.Enum):
+    INTRINSIC = ...
+    HIGH_PRECISION = ...
+
+class RecipAlgorithm(enum.Enum):
+    INTRINSIC = ...
+    HIGH_PRECISION = ...
+
 class LogBaseType(enum.Enum):
     LOG_E = ...
     LOG_2 = ...
@@ -445,7 +469,7 @@ def Sub(a: Tensor, b: Union[Tensor, Element]) -> Tensor: ...
 def Mul(a: Tensor, b: Union[Tensor, Element]) -> Tensor: ...
 
 
-def Div(a: Tensor, b: Union[Tensor, Element]) -> Tensor: ...
+def Div(a: Tensor, b: Union[Tensor, Element], precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> Tensor: ...
 
 
 @overload
@@ -462,7 +486,7 @@ def View(a: Tensor, shapes: List[int], valid_shape: Optional[List[Union[int, Sym
 def View(a: Tensor, dtype: DataType) -> Tensor: ...
 
 
-def Exp(a: Tensor) -> Tensor: ...
+def Exp(a: Tensor, precision_type: ExpAlgorithm = ExpAlgorithm.HIGH_PRECISION) -> Tensor: ...
 
 
 def Exp2(a: Tensor) -> Tensor: ...
@@ -471,22 +495,25 @@ def Exp2(a: Tensor) -> Tensor: ...
 def Expm1(a: Tensor) -> Tensor: ...
 
 
+def Permute(a: Tensor, perm: List[int]) -> Tensor: ...
+
+
 def Transpose(a: Tensor, axis: List[int]) -> Tensor: ...
 
 
 def Abs(a: Tensor) -> Tensor: ...
 
 
-def Reciprocal(a: Tensor) -> Tensor: ...
+def Reciprocal(a: Tensor, precision_type: RecipAlgorithm = RecipAlgorithm.HIGH_PRECISION) -> Tensor: ...
 
 
 def Round(a: Tensor, decimals: int = 0) -> Tensor: ...
 
 
-def Rsqrt(a: Tensor) -> Tensor: ...
+def Rsqrt(a: Tensor, precision_type: RsqrtAlgorithm = RsqrtAlgorithm.HIGH_PRECISION) -> Tensor: ...
 
 
-def Sqrt(a: Tensor) -> Tensor: ...
+def Sqrt(a: Tensor, precision_type: SqrtAlgorithm = SqrtAlgorithm.HIGH_PRECISION) -> Tensor: ...
 
 
 def Ceil(a: Tensor) -> Tensor: ...
@@ -501,7 +528,7 @@ def Trunc(a: Tensor) -> Tensor: ...
 def Neg(a: Tensor) -> Tensor: ...
 
 
-def Log(a: Tensor, base: LogBaseType) -> Tensor: ...
+def Log(a: Tensor, base: LogBaseType, precision_type: LogAlgorithm = LogAlgorithm.HIGH_PRECISION) -> Tensor: ...
 
 
 def Cast(a: Tensor, dtype: DataType, mode: CastMode, satmode: SaturationMode = SaturationMode.OFF) -> Tensor: ...
@@ -643,59 +670,127 @@ def ResetLog(path: str): ...
 
 # distributed
 class AtomicType(enum.Enum):
-    SET = ...      
-    ADD = ...      
+    SET = ...
+    ADD = ...
+
+
+class ShmemTensor:
+    def __init__(self) -> None: ...
+    group: str
+    world_size: int
+    data: Tensor
+    signal: Tensor
 
 
 def CreateShmemData(
-    group: str, 
-    world_size: int, 
-    dtype: DataType, 
-    shape: List[int], 
-    shmem_tensor: Tensor, 
-    mem_type: int,
-) -> None:
+    group: str,
+    world_size: int,
+    dtype: DataType,
+    shape: List[int],
+) -> ShmemTensor: ...
 
+def CreateShmemData(
+    group: str,
+    world_size: int,
+    dtype: DataType,
+    shape: List[int],
+    t: ShmemTensor,
+) -> None: ...
 
-def CreateShmemSignal(group: str, shmem_data: Tensor, shmem_signal: Tensor) -> None:
+def CreateShmemSignal(
+    group: str,
+    world_size: int,
+) -> ShmemTensor: ...
 
+def CreateShmemSignal(
+    group: str,
+    world_size: int,
+    t: ShmemTensor,
+) -> None: ...
 
-def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, group: str, world_size: int) -> Tensor: ...
+def ShmemView(
+    operand: ShmemTensor,
+    shapes: List[int],
+    offsets: Union[List[int], List[SymbolicScalar]],
+) -> ShmemTensor: ...
 
+def ShmemView(
+    operand: ShmemTensor,
+    shapes: List[int],
+    new_valid_shapes: List[SymbolicScalar],
+    new_offsets: List[SymbolicScalar],
+) -> ShmemTensor: ...
 
-def ShmemDataSet(pred_token: Tensor, shmem_data: Tensor) -> None:
-
-
-def ShmemSignalSet(pred_token: Tensor, shmem_signal: Tensor) -> None:
-
-
-def ShmemPut(pred_token: Tensor, in_tensor: Tensor, shmem_data: Tensor, atomic_type: AtomicType) -> Tensor: ...
-
-
-def ShmemPutUb2Gm(in_tensor: Tensor, shmem_data_tile: Tensor, pred_token: Tensor, atomic_type: AtomicType) -> Tensor: ...
-
+def ShmemPut(
+    src: Tensor,
+    dst: ShmemTensor,
+    dst_rank: SymbolicScalar,
+    put_op: AtomicType,
+    pred: Tensor,
+) -> Tensor: ...
 
 def ShmemGet(
-    pred_token: Tensor, 
-    shmem_data: Tensor, 
-    non_shmem_dtype: DataType.DT_BOTTOM, 
-    atomic_type: AtomicType = AtomicType.SET,
+    src: ShmemTensor,
+    src_rank: SymbolicScalar,
+    pred: Tensor,
+    target_data_type: DataType = DataType.DT_BOTTOM,
 ) -> Tensor: ...
 
-
-def ShmemGetGm2Ub(
-    dummy: Tensor, 
-    shmem_data_tile: Tensor, 
-    non_shmem_dtype: DataType.DT_BOTTOM, 
-    atomic_type: AtomicType = AtomicType.SET,
+def ShmemSignal(
+    dst: ShmemTensor,
+    dst_rank: SymbolicScalar,
+    notify_rank: SymbolicScalar,
+    signal: int,
+    sig_op: AtomicType,
+    pred: Tensor,
 ) -> Tensor: ...
 
+def ShmemSignalAll(
+    dst: ShmemTensor,
+    dst_rank: SymbolicScalar,
+    signal: int,
+    sig_op: AtomicType,
+    pred: Tensor,
+) -> Tensor: ...
 
-def ShmemSignal(pred_token: Tensor, shmem_signal: Tensor, atomic_type: AtomicType) -> Tensor: ...
+def ShmemWaitUntil(
+    src: ShmemTensor,
+    src_rank: SymbolicScalar,
+    cmp: OpType,
+    cmp_value: int,
+    clear_signal: bool,
+    pred: Tensor,
+) -> Tensor: ...
 
+def ShmemClearData(
+    src: ShmemTensor,
+    pred: Tensor,
+) -> Tensor: ...
 
-def WaitUntil(pred_token: Tensor, shmem_signal: Tensor, cmp_value: int, reset_signal: bool = False) -> Tensor: ...
+def ShmemClearSignal(
+    src: ShmemTensor,
+    pred: Tensor,
+) -> Tensor: ...
 
+def ShmemBarrier(
+    src: ShmemTensor,
+    pred: Tensor,
+) -> Tensor: ...
+
+def ShmemLoad(
+    src: ShmemTensor,
+    src_rank: SymbolicScalar,
+    pred: Tensor,
+    non_shmem_data_type: DataType = DataType.DT_BOTTOM,
+) -> Tensor: ...
+
+def ShmemStore(
+    src: Tensor,
+    dst: ShmemTensor,
+    dst_rank: SymbolicScalar,
+    put_op: AtomicType,
+    pred: Tensor,
+) -> Tensor: ...
 
 def GetSymbolicScalarPeId(group: str) -> SymbolicScalar: ...
 

@@ -23,7 +23,7 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,7 +45,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
+TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3)
+{
     int n = 1;
     int s = 32;
     int d = 437;
@@ -56,15 +58,16 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, {0, 1});
         }
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -72,7 +75,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim3) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
+TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4)
+{
     int b = 4;
     int n = 1;
     int s = 32;
@@ -85,15 +89,16 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "DATAMOVE";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, {1, 2});
         }
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -101,7 +106,8 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveUnalignDim4) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
+TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4)
+{
     int b = 4;
     int n = 1;
     int s = 32;
@@ -114,8 +120,10 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, resShape, "res");
     std::string funcName = "TestDatamoveAlignDim4";
-    FUNCTION(funcName, {input, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input, output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, {1, 2});
         }
@@ -123,8 +131,6 @@ TEST_F(TestCodegenDynDataMove, TestDatamoveAlignDim4) {
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

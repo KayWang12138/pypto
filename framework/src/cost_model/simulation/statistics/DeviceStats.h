@@ -34,5 +34,5 @@ public:
 
     using BaseStats::BaseStats;
     void Reset() override;
-    void Report(std::string &name) override;
+    void Report(std::string& name) override;
 };

@@ -48,7 +48,8 @@ struct PageAttentionTestConfig {
 
 // ----------------- 基础打印工具 -----------------
 template <typename T>
-void print_1d(const std::vector<T> &v, const std::string &name, int max_print = 32) {
+void print_1d(const std::vector<T>& v, const std::string& name, int max_print = 32)
+{
     std::cout << name << " (size=" << v.size() << "): ";
     int n = std::min<int>(v.size(), max_print);
     for (int i = 0; i < n; ++i) {
@@ -62,7 +63,8 @@ void print_1d(const std::vector<T> &v, const std::string &name, int max_print = 
 }
 
 template <typename T>
-void print_2d(const std::vector<T> &v, int rows, int cols, const std::string &name, int max_rows = 8) {
+void print_2d(const std::vector<T>& v, int rows, int cols, const std::string& name, int max_rows = 8)
+{
     std::cout << name << " (" << rows << "x" << cols << "):\n";
     int r_limit = std::min(rows, max_rows);
     for (int r = 0; r < r_limit; ++r) {
@@ -81,7 +83,8 @@ void print_2d(const std::vector<T> &v, int rows, int cols, const std::string &na
 
 // ----------------- 参数合法性检查 -----------------
 template <typename Config>
-bool validate_config(const Config &cfg, std::string &err) {
+bool validate_config(const Config& cfg, std::string& err)
+{
     if (cfg.topk_count <= 0 || cfg.num_logical_blocks <= 0 || cfg.num_buffer_tokens <= 0 || cfg.hidden_dim <= 0 ||
         cfg.block_size <= 0) {
         err = "topk_count, num_logical_blocks, num_buffer_tokens, hidden_dim, block_size 都必须为正整数";
@@ -114,7 +117,8 @@ bool validate_config(const Config &cfg, std::string &err) {
 
 // ----------------- 构造 buffer[num_buffer_tokens, hidden_dim] -----------------
 template <typename Config>
-std::vector<typename Config::DataType> make_buffer(const Config &cfg) {
+std::vector<typename Config::DataType> make_buffer(const Config& cfg)
+{
     using DataType = typename Config::DataType;
     std::vector<DataType> buffer(cfg.num_buffer_tokens * cfg.hidden_dim);
 
@@ -133,7 +137,8 @@ std::vector<typename Config::DataType> make_buffer(const Config &cfg) {
 // 实际网络中，除了前缀或者swap，一般逻辑和物理都是一一对应的，单轮对话中也不会出现多个逻辑映射同一个物理块。
 // 但是模拟过程中，这个并不影响功能
 template <typename Config>
-std::vector<typename Config::IndexType> make_page_table(const Config &cfg, uint32_t seed = 42) {
+std::vector<typename Config::IndexType> make_page_table(const Config& cfg, uint32_t seed = 42)
+{
     using IndexType = typename Config::IndexType;
 
     int num_physical_blocks = static_cast<int>(std::ceil(cfg.num_buffer_tokens / cfg.block_size));
@@ -151,7 +156,8 @@ std::vector<typename Config::IndexType> make_page_table(const Config &cfg, uint3
 // 使用 Config::IndexType，代表逻辑 token id 类型
 // 与网络不符的，实际网络中topk的应该不会重复
 template <typename Config>
-std::vector<typename Config::IndexType> make_topk_indices(const Config &cfg, uint32_t seed = 123) {
+std::vector<typename Config::IndexType> make_topk_indices(const Config& cfg, uint32_t seed = 123)
+{
     using IndexType = typename Config::IndexType;
 
     int total_logical_tokens = cfg.num_logical_blocks * cfg.block_size;
@@ -167,8 +173,10 @@ std::vector<typename Config::IndexType> make_topk_indices(const Config &cfg, uin
 
 // ----------------- 逻辑 index -> 物理 index 的核心函数 -----------------
 template <typename Config>
-typename Config::IndexType compute_physical_index(typename Config::IndexType logical_index,
-    const std::vector<typename Config::IndexType> &page_table, const Config &cfg) {
+typename Config::IndexType compute_physical_index(
+    typename Config::IndexType logical_index, const std::vector<typename Config::IndexType>& page_table,
+    const Config& cfg)
+{
     using IndexType = typename Config::IndexType;
 
     IndexType logical_block_id = logical_index / static_cast<IndexType>(cfg.block_size);
@@ -184,9 +192,11 @@ typename Config::IndexType compute_physical_index(typename Config::IndexType log
 // buffer         : [num_buffer_tokens, hidden_dim] -> size = num_buffer_tokens * hidden_dim
 // 输出 result    : [topk_count, hidden_dim] -> size = topk_count * hidden_dim
 template <typename Config>
-void gather_golden(const std::vector<typename Config::IndexType> &topk_indices,
-    const std::vector<typename Config::IndexType> &page_table, const std::vector<typename Config::DataType> &buffer,
-    const Config &cfg, std::vector<typename Config::DataType> &result) {
+void gather_golden(
+    const std::vector<typename Config::IndexType>& topk_indices,
+    const std::vector<typename Config::IndexType>& page_table, const std::vector<typename Config::DataType>& buffer,
+    const Config& cfg, std::vector<typename Config::DataType>& result)
+{
     using IndexType = typename Config::IndexType;
     // using DataType = typename Config::DataType;
 
@@ -223,20 +233,22 @@ void gather_golden(const std::vector<typename Config::IndexType> &topk_indices,
     }
 }
 
-
 class GatherInUBTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
-    void SetUp() override {
+    void SetUp() override
+    {
         TestSuite_STest_Ops_Aihac::SetUp();
         rtSetDevice(GetDeviceIdByEnvVar());
     }
-    void TearDown() override {
+    void TearDown() override
+    {
         config::SetHostOption(COMPILE_STAGE, 0);
         TestSuite_STest_Ops_Aihac::TearDown();
     }
 };
 
 template <typename Config>
-void BasicGatherTest(Config &cfg) {
+void BasicGatherTest(Config& cfg)
+{
     Shape srcShapes{cfg.num_buffer_tokens, cfg.hidden_dim}; // 网络中，kvcache对应的内存
     Shape offsetsShapes{1, cfg.topk_count};                 // topk的结果
     Shape pageTableShapes{1, cfg.num_logical_blocks};       // page attention 对应的页表
@@ -250,7 +262,7 @@ void BasicGatherTest(Config &cfg) {
     std::string err;
     if (!validate_config<Config>(cfg, err)) {
         std::cerr << "配置非法: " << err << "\n";
-        return ;
+        return;
     }
     auto srcData = make_buffer<Config>(cfg);
     auto offsetsData = make_topk_indices<Config>(cfg, /*seed=*/123);
@@ -260,8 +272,10 @@ void BasicGatherTest(Config &cfg) {
     gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, golden);
     std::cout << "simu finished" << std::endl;
 
-    FUNCTION("test", {src, offsets, pageTable}, {dst}) {
-        LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
+    FUNCTION("test", {src, offsets, pageTable}, {dst})
+    {
+        LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1))
+        {
             (void)sIdx;
             TileShape::Current().SetVecTile({32, 64});
 
@@ -278,7 +292,7 @@ void BasicGatherTest(Config &cfg) {
 
     ProgramData::GetInstance().AppendInputs(
         {RawTensorData::CreateTensor<float16>(src, srcData), RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
-            RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)});
+         RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float16>(dst, 0),
     });
@@ -289,34 +303,35 @@ void BasicGatherTest(Config &cfg) {
     int curErrorPrintNum = 0;
     float eps = 1e-6f;
     for (size_t i = 0; i < golden.size(); i++) {
-        auto actual = ((float16 *)out->data())[i];
+        auto actual = ((float16*)out->data())[i];
         auto expect = golden[i];
         if (fabs(actual - expect) > eps && curErrorPrintNum < maxErrorPrintNum) {
             std::cout << i << ": output: " << actual << "; expect: " << expect << std::endl;
             curErrorPrintNum++;
         }
     }
-    EXPECT_TRUE(resultCmp(golden, (float16 *)out->data(), eps));
+    EXPECT_TRUE(resultCmp(golden, (float16*)out->data(), eps));
 }
 
-TEST_F(GatherInUBTest, gather_in_a_) {
+TEST_F(GatherInUBTest, gather_in_a_)
+{
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
-    cfg.topk_count = 8;         //topk结果
+    cfg.topk_count = 8;         // topk结果
     cfg.num_logical_blocks = 3; // 逻辑块个数
     cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 4;         // 隐藏维度大小
     cfg.block_size = 4;         // 每个块的 token 数
     BasicGatherTest(cfg);
 }
-TEST_F(GatherInUBTest, gather_in_a) {
+TEST_F(GatherInUBTest, gather_in_a)
+{
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
-    cfg.topk_count = 512;      // topk 结果  
-    cfg.num_logical_blocks = 8; // 逻辑块个数，
+    cfg.topk_count = 512;         // topk 结果
+    cfg.num_logical_blocks = 8;   // 逻辑块个数，
     cfg.num_buffer_tokens = 2048; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 256;         // 隐藏维度大小
     cfg.block_size = 128;         // 每个块的 token 数
     BasicGatherTest(cfg);
 }
-

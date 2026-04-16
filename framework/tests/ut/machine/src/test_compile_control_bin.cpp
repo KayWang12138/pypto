@@ -29,13 +29,12 @@ using namespace npu::tile_fwk;
 using Json = nlohmann::json;
 
 namespace npu::tile_fwk {
-void GenCustomOpInfo(const std::string &funcName, const std::string &controlAicpuPath,
-                     const std::string &constrolSoName);
-bool GenTilingFunc(const std::string &funcName, const std::string &controlAicpuPath);
-bool TieFwkAicpuPreCompile(std::string &preCompileO, std::string &controlAicpuPath);
-bool SharedAicpuCompile(const std::string &funcName, const std::string &aicpuDirPath,
-                        const std::string &preCompileO);
-}
+void GenCustomOpInfo(
+    const std::string& funcName, const std::string& controlAicpuPath, const std::string& constrolSoName);
+bool GenTilingFunc(const std::string& funcName, const std::string& controlAicpuPath);
+bool TieFwkAicpuPreCompile(std::string& preCompileO, std::string& controlAicpuPath);
+bool SharedAicpuCompile(const std::string& funcName, const std::string& aicpuDirPath, const std::string& preCompileO);
+} // namespace npu::tile_fwk
 
 namespace {
 const std::string TEST_TMP_DIR = "/tmp/test_compile_control_bin";
@@ -43,27 +42,29 @@ const std::string TEST_TMP_DIR = "/tmp/test_compile_control_bin";
 
 class TestCompileControlBin : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(TEST_TMP_DIR);
-    }
+    static void SetUpTestCase() { CreateMultiLevelDir(TEST_TMP_DIR); }
 
-    static void TearDownTestCase() {
+    static void TearDownTestCase()
+    {
         std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
+        [[maybe_unused]] int ret = system(cmd.c_str());
     }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         setenv("LC_ALL", "C", 1);
         setenv("LANG", "C", 1);
     }
     void TearDown() override {}
 };
 
-TEST_F(TestCompileControlBin, GenCustomOpInfo_DumpFileFails) {
+TEST_F(TestCompileControlBin, GenCustomOpInfo_DumpFileFails)
+{
     GenCustomOpInfo("test_func", "/nonexistent_dir/aicpu", "libtest_control");
 }
 
-TEST_F(TestCompileControlBin, GenCustomOpInfo_Success) {
+TEST_F(TestCompileControlBin, GenCustomOpInfo_Success)
+{
     std::string aicpuPath = TEST_TMP_DIR + "/gen_custom_op" + std::to_string(getpid());
     CreateMultiLevelDir(aicpuPath);
 
@@ -79,7 +80,8 @@ TEST_F(TestCompileControlBin, GenCustomOpInfo_Success) {
     }
 }
 
-TEST_F(TestCompileControlBin, GenTilingFunc_Success) {
+TEST_F(TestCompileControlBin, GenTilingFunc_Success)
+{
     std::string controlPath = TEST_TMP_DIR + "/gen_tiling_func" + std::to_string(getpid());
     CreateMultiLevelDir(controlPath);
 
@@ -92,17 +94,20 @@ TEST_F(TestCompileControlBin, GenTilingFunc_Success) {
     ifs.close();
 }
 
-TEST_F(TestCompileControlBin, GenTilingFunc_DumpFileFails) {
+TEST_F(TestCompileControlBin, GenTilingFunc_DumpFileFails)
+{
     bool result = GenTilingFunc("test_op", "/nonexistent_dir/aicpu");
     EXPECT_FALSE(result);
 }
 
-TEST_F(TestCompileControlBin, TileFwkAiCpuCompile_GenTilingFuncFails) {
+TEST_F(TestCompileControlBin, TileFwkAiCpuCompile_GenTilingFuncFails)
+{
     bool result = TileFwkAiCpuCompile("test_func", "/proc/fake_aicpu_dir");
     EXPECT_FALSE(result);
 }
 
-TEST_F(TestCompileControlBin, TieFwkAicpuPreCompile_CompileFails) {
+TEST_F(TestCompileControlBin, TieFwkAicpuPreCompile_CompileFails)
+{
     std::string compileDir = TEST_TMP_DIR + "/precompile_test" + std::to_string(getpid()) + "/";
     CreateMultiLevelDir(compileDir);
 
@@ -117,7 +122,8 @@ TEST_F(TestCompileControlBin, TieFwkAicpuPreCompile_CompileFails) {
     EXPECT_FALSE(result);
 }
 
-TEST_F(TestCompileControlBin, TieFwkAicpuPreCompile_NoFiles) {
+TEST_F(TestCompileControlBin, TieFwkAicpuPreCompile_NoFiles)
+{
     std::string emptyDir = TEST_TMP_DIR + "/empty_compile_dir" + std::to_string(getpid()) + "/";
     CreateMultiLevelDir(emptyDir);
 
@@ -128,7 +134,8 @@ TEST_F(TestCompileControlBin, TieFwkAicpuPreCompile_NoFiles) {
     EXPECT_TRUE(preCompileO.empty());
 }
 
-TEST_F(TestCompileControlBin, SharedAicpuCompile_CompileFails) {
+TEST_F(TestCompileControlBin, SharedAicpuCompile_CompileFails)
+{
     std::string aicpuDir = TEST_TMP_DIR + "/shared_compile_test" + std::to_string(getpid());
     CreateMultiLevelDir(aicpuDir);
 

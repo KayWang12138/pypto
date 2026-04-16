@@ -22,8 +22,8 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -34,7 +34,8 @@ public:
 
     static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -44,26 +45,10 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd) {
+TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd)
+{
+    auto function = GenMockFuncDyn("TestDynOpLogicalAnd");
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    Element scalaVal(DataType::DT_FP32, 1.0);
-
-    std::string funcName = "TestDynOpLogicalAnd";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorInput1 =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
@@ -72,14 +57,14 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd) {
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(
+    auto& op = function->AddOperation(
         Opcode::OP_LOGICALAND, {localTensorInput1, localTensorInput2}, {localTensorRes, localTensorTmp});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -88,26 +73,10 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot) {
+TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot)
+{
+    auto function = GenMockFuncDyn("TestDynOpLogicalNot");
     std::vector<int64_t> shape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
-
-    Element scalaVal(DataType::DT_FP32, 1.0);
-
-    std::string funcName = "TestDynOpLogicalNot";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorInput =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
@@ -115,13 +84,13 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot) {
     auto localTensorTmpCond =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_LOGICALNOT, {localTensorInput}, {localTensorRes, localTensorTmpCond});
+    auto& op = function->AddOperation(Opcode::OP_LOGICALNOT, {localTensorInput}, {localTensorRes, localTensorTmpCond});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -130,26 +99,14 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot) {
     EXPECT_EQ(res, expect);
 }
 
-std::string TestLogicalBody(Opcode opcode) {
-    std::vector<int64_t> shape = {64, 64};
-    auto shapeImmen = OpImmediate::Specified(shape);
-    TileShape::Current().SetVecTile(shape);
+std::string TestLogicalBody(Opcode opcode)
+{
     config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    Tensor inputA(DT_FP32, shape, "A");
-    Tensor inputB(DT_FP32, shape, "B");
-    Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "TestLogicalBody";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = Add(inputA, inputB);
-        }
-    }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetUnderDynamicFunction(true);
+    auto function = GenMockFuncDyn(OpcodeManager::Inst().GetOpcodeStr(opcode));
+
+    std::vector<int64_t> shape = {64, 64};
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto logicalInTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
     auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
@@ -159,28 +116,30 @@ std::string TestLogicalBody(Opcode opcode) {
     std::vector<SymbolicScalar> dynoffset = {0, 0};
     logicalInTensor->UpdateOffset(TensorOffset(offset, dynoffset));
 
-    auto &op = function->AddOperation(opcode, {logicalInTensor, logicalInTensor}, {localOutTensor, localOutTensor});
+    auto& op = function->AddOperation(opcode, {logicalInTensor, logicalInTensor}, {localOutTensor, localOutTensor});
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
 
     return cop.GenOpCode();
 }
 
-TEST_F(TestCodegenDynLogical, LogicalAndTileTensor) {
+TEST_F(TestCodegenDynLogical, LogicalAndTileTensor)
+{
     std::string res = TestLogicalBody(Opcode::OP_LOGICALAND);
-    std::string expect = R"!!!(TLogicalAnd(ubTensor_9, ubTensor_9, ubTensor_9, ubTensor_9);
+    std::string expect = R"!!!(TLogicalAnd(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynLogical, LogicalNotTileTensor) {
+TEST_F(TestCodegenDynLogical, LogicalNotTileTensor)
+{
     std::string res = TestLogicalBody(Opcode::OP_LOGICALNOT);
-    std::string expect = R"!!!(TLogicalNot(ubTensor_9, ubTensor_9, ubTensor_9);
+    std::string expect = R"!!!(TLogicalNot(ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";
     EXPECT_EQ(res, expect);
 }

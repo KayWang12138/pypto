@@ -59,13 +59,13 @@ private:
         uint64_t addr;
         uint64_t readyCycle;
         std::list<CachePacket> inflyMisses;
-        MSHR(uint64_t address, uint64_t rdyCycle, const CachePacket &req) : addr(address), readyCycle(rdyCycle)
+        MSHR(uint64_t address, uint64_t rdyCycle, const CachePacket& req) : addr(address), readyCycle(rdyCycle)
         {
             inflyMisses.emplace_back(req);
         }
     };
     std::unordered_map<uint64_t, MSHR> misses;
-    void AddMSHR(const CachePacket &req, uint64_t curCycle);
+    void AddMSHR(const CachePacket& req, uint64_t curCycle);
     void ProcessMSHR();
 
     using LRUIter = std::list<uint64_t>::iterator;
@@ -84,4 +84,4 @@ private:
     std::list<std::pair<CachePacket, uint64_t>> responseQueue;
     void ProcessResp();
 };
-}  // namespace CostModel
+} // namespace CostModel

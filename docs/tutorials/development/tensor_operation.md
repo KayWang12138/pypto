@@ -16,23 +16,23 @@ PyPTO为张量计算提供了一套全面的操作，旨在为用户提供高效
     result = pypto.add(a, scalar)  # 将标量添加到张量
     result = pypto.add(a, b, alpha=2.0)  # a + 2.0 * b
     result = a + b
-    
+
     # 减法
     result = pypto.sub(a, b)
     result = pypto.sub(a, scalar)
     result = pypto.sub(a, b, alpha=2.0)  # a - 2.0 * b
     result = a - b
-    
+
     # 乘法
     result = pypto.mul(a, b)
     result = pypto.mul(a, scalar)
     result = a * b
-    
+
     # 除法
     result = pypto.div(a, b)
     result = pypto.div(a, scalar)
     result = a / b
-    
+
     # 指数
     result = pypto.pow(a, scalar)  # a ** scalar
     ```
@@ -45,23 +45,23 @@ PyPTO为张量计算提供了一套全面的操作，旨在为用户提供高效
     result = pypto.log(x)      # ln(x)
     result = x.exp()
     result = x.log()
-    
+
     # 开根号
     result = pypto.sqrt(x)     # √x
     result = pypto.rsqrt(x)    # 1/√x
     result = x.sqrt()
     result = x.rsqrt()
-    
+
     # 三角函数
     result = pypto.sin(x)
     result = pypto.cos(x)
     result = x.sin()
     result = x.cos()
-    
+
     # 绝对值
     result = pypto.abs(x)
     result = x.abs()
-    
+
     # 相反数
     result = pypto.neg(x)      # -x
     result = x.neg()
@@ -73,13 +73,13 @@ PyPTO为张量计算提供了一套全面的操作，旨在为用户提供高效
     # Sigmoid
     result = pypto.sigmoid(x)  # 1 / (1 + exp(-x))
     result = x.sigmoid()
-    
+
     # ReLU变体
     result = pypto.relu(x)     # 最大值(0, x)
     result = pypto.gelu(x)     # GELU激活
     result = x.relu()
     result = x.gelu()
-    
+
     # Softmax
     result = pypto.softmax(x, dim=-1)  # 沿着dim维度做Softmax
     result = x.softmax(x, dim=-1)
@@ -91,7 +91,7 @@ PyPTO为张量计算提供了一套全面的操作，旨在为用户提供高效
     # 最大值和最小值
     result = pypto.maximum(a, b)  # 逐元素最大值
     result = pypto.minimum(a, b)  # 逐元素最小值
-    
+
     # 截断
     result = pypto.clip(x, min_val, max_val)  # 将x的取值范围进行截断
     ```
@@ -102,11 +102,11 @@ PyPTO为张量计算提供了一套全面的操作，旨在为用户提供高效
     # 求和
     result = pypto.sum(x, dim=-1, keepdim=False)
     result = x.sum(dim=-1, keepdim=False)
-    
+
     # 最大值
     result = pypto.amax(x, dim=-1, keepdim=False)
     result = x.amax(dim=-1, keepdim=False)
-    
+
     # 最小值
     result = pypto.amin(x, dim=-1, keepdim=False)
     result = x.amin(dim=-1, keepdim=False)
@@ -117,7 +117,7 @@ PyPTO为张量计算提供了一套全面的操作，旨在为用户提供高效
     ```python
     # 使用move()进行就地操作
     output.move(pypto.add(a, b))  # 高效，无拷贝
-    
+
     # 或者使用赋值
     output[:] = pypto.add(a, b)   # 也是高效的
     ```
@@ -129,7 +129,7 @@ PyPTO为张量计算提供了一套全面的操作，旨在为用户提供高效
     ```python
     # 张量 + 标量（张量为标量）
     result = pypto.add(tensor, 2.0)
-    
+
     # 张量 + 一维张量（一维张量）
     bias = pypto.tensor([features], pypto.DT_BF16, "bias")
     result = pypto.add(tensor, bias)
@@ -225,13 +225,13 @@ def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
 
     ```python
     tensor = pypto.tensor([10, 20], pypto.DT_FP16, "tensor")
-    
+
     # 单个元素（创建视图）
     element = tensor[0, 0]  # 只支持INT32
-    
+
     # 切片（创建视图）
     slice_tensor = tensor[0:5, 10:20]
-    
+
     # 椭圆
     ellipsis_slice = tensor[..., 0:10]
     ```
@@ -252,10 +252,10 @@ def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
     ```python
     # 小张量结果
     tile_result = pypto.tensor([32, 32], pypto.DT_FP16, "tile")
-    
+
     # 大输出张量
     output = pypto.tensor([100, 200], pypto.DT_FP16, "output")
-    
+
     # 在 [10, 20] 位置组装输出张量
     pypto.assemble(tile_result, [10, 20], output)
     ```
@@ -278,8 +278,3 @@ transposed = pypto.transpose(tensor, dim0=0, dim1=1)
 # 转换为不同的数据类型
 result = pypto.cast(tensor, pypto.DT_FP32, mode=pypto.CastMode.CAST_NONE)
 ```
-
-
-
-
-

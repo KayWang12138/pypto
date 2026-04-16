@@ -48,7 +48,7 @@ for idx in pypto.loop(start, end, step, name="label", idx_name="idx_label", subm
 ```python
 for idx in pypto.loop(start, end, step)   #不带loop的名字标签
 for idx in pypto.loop(start, end)         # 默认step=1
-for idx in pypto.loop(end)                # 默认start=0， step=1 
+for idx in pypto.loop(end)                # 默认start=0， step=1
 ```
 
 slicing语法糖的完整样例请参考：[loop.py](../../../examples/02_intermediate/controlflow/loop/loop.py)。
@@ -90,4 +90,3 @@ view/assemble接口完整样例请参考：[add_scalar_loop_view_assemble.py](..
 ```python
 for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx", submit_before_loop=True):
 ```
-

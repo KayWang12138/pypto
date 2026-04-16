@@ -23,8 +23,8 @@
 #include "tilefwk/data_type.h"
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
 
@@ -36,7 +36,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
@@ -47,7 +48,8 @@ public:
     void TearDown() override {}
 };
 
-void TestTransposeDataMoveBody(int dim = 3) {
+void TestTransposeDataMoveBody(int dim = 3)
+{
     std::vector<int64_t> shape = {2, 2, 8};
     std::vector<SymbolicScalar> dynValidShape = {2, 2, 8};
     if (dim == SHAPE_DIM4) {
@@ -59,7 +61,7 @@ void TestTransposeDataMoveBody(int dim = 3) {
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "TransposeDataMove"});
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {localTensor}, {ddrTensor});
+    auto& op = function->AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {localTensor}, {ddrTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "shape", shape);
     auto to_offset = OpImmediate::Specified({0, 0, 0});
     if (dim == SHAPE_DIM4) {
@@ -74,19 +76,15 @@ void TestTransposeDataMoveBody(int dim = 3) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
+    CodeGenOpNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
 
     cop.GenOpCode();
 }
 
-TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim3) {
-    TestTransposeDataMoveBody();
-}
+TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim3) { TestTransposeDataMoveBody(); }
 
-TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim4) {
-    TestTransposeDataMoveBody(SHAPE_DIM4);
-}
+TEST_F(TestCodegenDynTransposeDataMove, TransposeDataMoveDim4) { TestTransposeDataMoveBody(SHAPE_DIM4); }
 
 class TestCodegenLayoutTransposeDataMove : public ::testing::Test {
 public:
@@ -94,7 +92,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
@@ -104,7 +103,8 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenLayoutTransposeDataMove, TransposeDataMoveLayout) {
+TEST_F(TestCodegenLayoutTransposeDataMove, TransposeDataMoveLayout)
+{
     constexpr int64_t dim = 3;
     constexpr int64_t shape0 = 8;
     constexpr int dim0 = 0;
@@ -114,8 +114,10 @@ TEST_F(TestCodegenLayoutTransposeDataMove, TransposeDataMoveLayout) {
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "output");
     std::string funcName = "TransposeDataMoveLayout";
-    FUNCTION(funcName, {input}, {output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+    FUNCTION(funcName, {input}, {output})
+    {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+        {
             (void)i;
             output = Transpose(input, {dim0, dim1});
         }

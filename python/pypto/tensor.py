@@ -20,38 +20,115 @@ from .symbolic_scalar import SymbolicScalar, SymInt
 from ._element import Element
 
 
+class TensorAnnotation:
+    """Type annotation for Tensor parameters.
+
+    This class is used to represent tensor type annotations in function signatures,
+    supporting the Python-standard syntax: pypto.Tensor[shape, dtype]
+    """
+
+    def __init__(self, shape=None, dtype=None, name="", format=TileOpFormat.TILEOP_ND,
+                 data_ptr=None, device=None, ori_shape=None):
+        self.shape = shape if shape is not None else []
+        self.dtype = dtype if dtype is not None else pypto.DT_FP32
+        self.name = name
+        self.format = format
+        self.data_ptr = data_ptr
+        self.device = device
+        self.ori_shape = ori_shape
+
+    def to_tensor(self, name: str = ""):
+        final_name = name if name else self.name
+        return Tensor(self.shape, self.dtype, final_name, self.format,
+                      self.data_ptr, self.device, self.ori_shape)
+
+
 class Tensor:
 
     def __init__(self, shape=None, dtype: Union[DataType, None] = None,
-                 name: str = "", format=None,
-                 data_ptr: Optional[int] = None, device=None, ori_shape=None):
-        self.ori_shape = None
+            name: str = "", format=None,
+            data_ptr: Optional[int] = None, device=None, ori_shape=None):
+        self.ori_shape = ori_shape
         self.status_shape = None
-        self.status_dtype = dtype
-        ndtype = dtype if dtype is not None else pypto.DT_FP32
-        # format显式配置标记
-        self.explict_format = format is not None
-        #format没有显式传递用默认值
-        if not self.explict_format:
-            format = TileOpFormat.TILEOP_ND
+        # Mark explicit dtype and format configuration
+        self.explicit_dtype = dtype
+        self.explicit_format = format
+        # Use default value if format is not explicitly passed
+        ndtype = dtype or pypto.DT_FP32
+        nformat = format or TileOpFormat.TILEOP_ND
+
+        # Normalize shape
         if shape is None:
             nshape = []
-            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
-        elif shape and all([isinstance(s, int) for s in shape]):
-            nshape = typing.cast(List[int], shape)
-            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
-            self.ori_shape = ori_shape
+        elif shape and all(isinstance(s, int) for s in shape):
+            nshape = list(shape)
         elif isinstance(shape, list) and self._validate_status_shape(shape):
             nshape = []
             self.status_shape = shape
-            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
         else:
-            sym_shape = to_syms(shape)
-            assert isinstance(
-                sym_shape, list), "shape must be a list of int or SymbolicScalar"
-            self._base = pypto_impl.Tensor(ndtype, sym_shape, name, format)
+            nshape = to_syms(shape)
+            if not isinstance(nshape, list):
+                raise TypeError("shape must be a list of int or SymbolicScalar")
+        self._base = pypto_impl.Tensor(ndtype, nshape, name, nformat)
         self.data_ptr = data_ptr
         self.device = device
+
+    @classmethod
+    def __class_getitem__(cls, params):
+        """Enable Tensor[shape, dtype] syntax for type annotations.
+
+        Examples:
+            >>> a: pypto.Tensor[[pypto.STATIC, pypto.STATIC], pypto.DT_INT32]
+            >>> b: pypto.Tensor[[pypto.STATIC, ...], pypto.DT_INT32]
+            >>> c: pypto.Tensor[[], pypto.DT_INT32]
+            >>> d: pypto.Tensor[[batch_size, hidden_size], pypto.DT_FP32, pypto.TileOpFormat.TILEOP_ND]
+
+            Note: Tensor[] (empty parameters) is NOT supported.
+
+        Parameters
+        ----------
+        params : tuple
+            A tuple of (shape, dtype).
+
+        Returns
+        -------
+        TensorAnnotation
+            A tensor annotation object for type hints.
+        """
+        if not isinstance(params, tuple):
+            params = (params,)
+
+        shape = None
+        dtype = None
+        name = ""
+        format = None
+        data_ptr = None
+        device = None
+        ori_shape = None
+
+        for param in params:
+            if isinstance(param, dict):
+                name = param.get('name', name)
+                format = param.get('format', format)
+                data_ptr = param.get('data_ptr', data_ptr)
+                device = param.get('device', device)
+                ori_shape = param.get('ori_shape', ori_shape)
+                if 'dtype' in param:
+                    dtype = param['dtype']
+                if 'shape' in param:
+                    shape = param['shape']
+            elif isinstance(param, (list, tuple)):
+                shape = param
+            elif isinstance(param, DataType):
+                dtype = param
+            elif isinstance(param, TileOpFormat):
+                format = param
+            elif isinstance(param, str):
+                name = param
+            else:
+                pass
+
+        return TensorAnnotation(shape, dtype, name, format, data_ptr, device, ori_shape)
 
     @source_location
     def __setitem__(self, key, value):
@@ -113,7 +190,8 @@ class Tensor:
             return
 
         if isinstance(key, slice) and isinstance(key.stop, Tensor):
-            assert isinstance(key.start, int)
+            if not isinstance(key.start, int):
+                raise TypeError(f"scatter key.start must be int, got {type(key.start).__name__}")
             return pypto.scatter(self, key.start, key.stop, value)
 
         key = self._normalize_key(key)
@@ -129,11 +207,14 @@ class Tensor:
         if all(isinstance(k, (slice, int, SymbolicScalar)) for k in key):
             new_shape = self._add_one_dim(key, value.shape)
             value_reshaped = pypto.reshape(value, new_shape)
-            new_key, _ = self._get_slice_index(key)  # int→slice
+            new_key, _ = self._get_slice_index(key)
             offsets = self._get_assemble_offset(tuple(new_key), self.shape)
             return pypto.assemble(value_reshaped, offsets, self)
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
+
+    def __iter__(self):
+        raise TypeError("Tensor is not iterable.")
 
     @source_location
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
@@ -211,13 +292,13 @@ class Tensor:
             return self
 
         if isinstance(key, slice) and isinstance(key.stop, Tensor):
-            assert isinstance(key.start, int)
+            if not isinstance(key.start, int):
+                raise TypeError(f"gather key.start must be int, got {type(key.start).__name__}")
             return pypto.gather(self, key.start, key.stop)
 
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
-            assert self._base.dtype == DataType.DT_INT32, "tensor dtype must be DT_INT32."
             return SymbolicScalar.from_base(pypto_impl.GetTensorData(self._base, to_syms(key)))
 
         if all(isinstance(k, slice) for k in key):
@@ -440,10 +521,11 @@ class Tensor:
     @staticmethod
     def _add_one_dim(key, value_shape):
         slices_count = sum(1 for k in key if isinstance(k, slice))
-        assert slices_count == len(value_shape), (
-            f"The number of slice in key ({slices_count}) "
-            f"must match the length of input Tensor ({len(value_shape)}). "
-        )
+        if slices_count != len(value_shape):
+            raise ValueError(
+                f"The number of slice in key ({slices_count}) "
+                f"must match the length of input Tensor ({len(value_shape)}). "
+            )
         new_shape = []
         idx = 0
         for k in key:
@@ -510,6 +592,12 @@ class Tensor:
         obj._base = base
         return obj
 
+    def to_tensor(self, name: str = ""):
+        """Return self for unified interface with TensorAnnotation."""
+        if name:
+            self.name = name
+        return self
+
     def set_cache_policy(self, policy: CachePolicy, value: bool) -> None:
         self._base.SetCachePolicy(policy, value)
 
@@ -536,7 +624,7 @@ class Tensor:
     @source_location
     def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.mul(self, other)
-    
+
     @source_location
     def hypot(self, other: 'Tensor') -> 'Tensor':
         return pypto.hypot(self, other)
@@ -546,8 +634,9 @@ class Tensor:
         return pypto.prelu(self, weight)
 
     @source_location
-    def div(self, other: 'Tensor | int | float') -> 'Tensor':
-        return pypto.div(self, other)
+    def div(self, other: 'Tensor | int | float',
+            precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> 'Tensor':
+        return pypto.div(self, other, precision_type)
 
     @source_location
     def fmod(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -656,7 +745,7 @@ class Tensor:
     @source_location
     def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pypto.topk(self, k, dim, largest)
-    
+
     @source_location
     def sort32(self, index: Optional[int] = None) -> 'Tensor':
         return pypto.sort32(self, index)
@@ -666,9 +755,9 @@ class Tensor:
         return pypto.mrgsort(self, mergesize)
 
     @source_location
-    def exp(self) -> 'Tensor':
-        return pypto.exp(self)
-    
+    def exp(self, precision_type: ExpAlgorithm = ExpAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.exp(self, precision_type)
+
     @source_location
     def sign(self) -> 'Tensor':
         return pypto.sign(self)
@@ -686,20 +775,20 @@ class Tensor:
         return pypto.expm1(self)
 
     @source_location
-    def log(self) -> 'Tensor':
-        return pypto.log(self)
+    def log(self, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.log(self, precision_type)
 
     @source_location
     def log1p(self) -> 'Tensor':
         return pypto.log1p(self)
 
     @source_location
-    def log10(self) -> 'Tensor':
-        return pypto.log10(self)
-        
+    def log10(self, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.log10(self, precision_type)
+
     @source_location
-    def log2(self) -> 'Tensor':
-        return pypto.log2(self)
+    def log2(self, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.log2(self, precision_type)
 
     @source_location
     def logical_not(self) -> 'Tensor':
@@ -714,6 +803,14 @@ class Tensor:
         return pypto.amin(self, dim, keepdim)
 
     @source_location
+    def argmax(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmax(self, dim, keepdim)
+
+    @source_location
+    def argmin(self, dim: int, keepdim: bool = False) -> 'Tensor':
+        return pypto.argmin(self, dim, keepdim)
+
+    @source_location
     def sum(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.sum(self, dim, keepdim)
 
@@ -722,12 +819,12 @@ class Tensor:
         return pypto.round(self, decimals)
 
     @source_location
-    def rsqrt(self) -> 'Tensor':
-        return pypto.rsqrt(self)
+    def rsqrt(self, precision_type: RsqrtAlgorithm = RsqrtAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.rsqrt(self, precision_type)
 
     @source_location
-    def sqrt(self) -> 'Tensor':
-        return pypto.sqrt(self)
+    def sqrt(self, precision_type: SqrtAlgorithm = SqrtAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.sqrt(self, precision_type)
 
     @source_location
     def ceil(self) -> 'Tensor':
@@ -742,12 +839,16 @@ class Tensor:
         return pypto.trunc(self)
 
     @source_location
-    def reciprocal(self) -> 'Tensor':
-        return pypto.reciprocal(self)
+    def reciprocal(self, precision_type: RecipAlgorithm = RecipAlgorithm.INTRINSIC) -> 'Tensor':
+        return pypto.reciprocal(self, precision_type)
 
     @source_location
     def relu(self) -> 'Tensor':
         return pypto.relu(self)
+
+    @source_location
+    def permute(self, perm: List[int]) -> 'Tensor':
+        return pypto.permute(self, perm)
 
     @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':
@@ -764,7 +865,8 @@ class Tensor:
     @source_location
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
                     alpha: Union[int, float] = 1) -> 'Tensor':
-        return pypto.index_add_(self, dim, index, source, alpha=alpha)
+        pypto.index_add_(self, dim, index, source, alpha=alpha)
+        return self
 
     @source_location
     def index_add(self, dim: int, index: 'Tensor', source: 'Tensor', *,
@@ -774,6 +876,10 @@ class Tensor:
     @source_location
     def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
         return pypto.cumsum(self, dim)
+
+    @source_location
+    def cumprod(self: 'Tensor', dim: int) -> 'Tensor':
+        return pypto.cumprod(self, dim)
 
     @source_location
     def gcd(self: 'Tensor', other: 'Tensor | int') -> 'Tensor':
@@ -807,7 +913,7 @@ class Tensor:
     @source_location
     def pad(self, pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> 'Tensor':
         return pypto.pad(self, pad, mode, value)
-        
+
     @source_location
     def fillpad(self, mode: str = "constant", value: float = 0.0) -> 'Tensor':
         return pypto.fillpad(self, mode, value)
@@ -867,6 +973,21 @@ class Tensor:
             missing_dims = self.dim - len(key)
             key += (slice(None),) * missing_dims
 
-        assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
+        if self.dim != len(key):
+            raise IndexError(f"rank not match, expect {self.dim}, but got {len(key)}")
         key = self._negative_index_to_positive(key, self.shape)
         return key
+
+
+class ShmemTensor:
+    def __init__(self):
+        self._base = pypto_impl.ShmemTensor()
+
+    @classmethod
+    def from_base(cls, base: pypto_impl.ShmemTensor) -> 'ShmemTensor':
+        obj = cls.__new__(cls)
+        obj._base = base
+        return obj
+
+    def base(self) -> pypto_impl.ShmemTensor:
+        return self._base

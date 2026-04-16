@@ -18,7 +18,8 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
-Tensor RmsNorm(const Tensor &operand) {
+Tensor RmsNorm(const Tensor& operand)
+{
     constexpr float epsilon = 1e-6f;
 
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
@@ -38,7 +39,8 @@ Tensor RmsNorm(const Tensor &operand) {
     return Cast(Mul(fp32Operand, y), operand.GetStorage()->Datatype());
 }
 
-Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon) {
+Tensor RmsNorm(const Tensor& operand, const Tensor& gamma, float epsilon)
+{
     auto fp32Operand = Cast(operand, DataType::DT_FP32);
     int size = operand.GetShape().size();
     std::vector<int64_t> shape(size, 1);

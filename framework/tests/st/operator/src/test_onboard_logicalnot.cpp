@@ -20,7 +20,8 @@ using namespace npu::tile_fwk;
 
 class LogicalNotOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
+TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int S0 = 16;
@@ -37,29 +38,29 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_fp32) {
     uint64_t outputSize = dstCapacity * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("LOGICALNOT") {
-        void *x_ptr = readToDev(GetGoldenDir() + "/logicalnotdim2_x.bin", srcCapacity);
+    PROGRAM("LOGICALNOT")
+    {
+        void* x_ptr = readToDev(GetGoldenDir() + "/logicalnotdim2_x.bin", srcCapacity);
         TileShape::Current().SetVecTile({8, 16});
-        Tensor input_a(DataType::DT_FP32, srcShape, (uint8_t *)x_ptr, "A");
+        Tensor input_a(DataType::DT_FP32, srcShape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP32, dstShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("LOGICALNOT_T", {input_a, output}) {
-            output = LogicalNot(input_a);
-        }
+        FUNCTION("LOGICALNOT_T", {input_a, output}) { output = LogicalNot(input_a); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     std::vector<float> golden(dstCapacity);
     std::vector<float> res(dstCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/logicalnotdim2_golden.bin", golden);
 
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16) {
+TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16)
+{
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
     int S0 = 16;
@@ -78,22 +79,21 @@ TEST_F(LogicalNotOnBoardTest, test_logicalnot_16_32_32_fp16) {
     uint64_t outputSize = dstCapacity * sizeof(uint16_t);
     uint8_t* out_ptr = allocDevAddr(outputSize);
 
-    PROGRAM("LOGICALNOT") {
-        void *x_ptr = readToDev(GetGoldenDir() + "/logicalnotdim3_x.bin", srcCapacity);
+    PROGRAM("LOGICALNOT")
+    {
+        void* x_ptr = readToDev(GetGoldenDir() + "/logicalnotdim3_x.bin", srcCapacity);
         TileShape::Current().SetVecTile({8, 16, 16});
-        Tensor input_a(DataType::DT_FP16, srcShape, (uint8_t *)x_ptr, "A");
+        Tensor input_a(DataType::DT_FP16, srcShape, (uint8_t*)x_ptr, "A");
         Tensor output(DataType::DT_FP16, dstShape, out_ptr, "C");
 
         config::SetBuildStatic(true);
-        FUNCTION("LOGICALNOT_T", {input_a, output}) {
-            output = LogicalNot(input_a);
-        }
+        FUNCTION("LOGICALNOT_T", {input_a, output}) { output = LogicalNot(input_a); }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     std::vector<npu::tile_fwk::float16> x(dstCapacity);
     std::vector<npu::tile_fwk::float16> golden(dstCapacity);
     std::vector<npu::tile_fwk::float16> res(dstCapacity);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    machine::GetRA()->CopyFromTensor((uint8_t*)res.data(), (uint8_t*)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/logicalnotdim3_golden.bin", golden);
     readInput(GetGoldenDir() + "/logicalnotdim3_x.bin", x);
     int ret = resultCmpUnary(x, golden, res, 0.001f);

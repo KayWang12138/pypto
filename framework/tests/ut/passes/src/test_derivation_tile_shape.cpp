@@ -37,7 +37,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -48,7 +49,8 @@ public:
     void TearDown() override {}
 };
 
-static void BuildGraphAndCheck(ComputationalGraphBuilder &G) {
+static void BuildGraphAndCheck(ComputationalGraphBuilder& G)
+{
     std::vector<std::string> tensorNames{"t1"};
     std::vector<std::string> tensorNames1{"t2"};
     std::vector<Opcode> opCodes{Opcode::OP_RESHAPE};
@@ -60,12 +62,14 @@ static void BuildGraphAndCheck(ComputationalGraphBuilder &G) {
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     EXPECT_EQ(G.SetInCast({"t1"}), true);
     EXPECT_EQ(G.SetOutCast({"t2"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 }
 
-static void BuildShapeAndCheckSucc(Function *function, const Shape &inShape, const Shape &outShape,
-    const std::vector<int64_t> &inTileShape, const std::vector<int64_t> &resultTileShape) {
+static void BuildShapeAndCheckSucc(
+    Function* function, const Shape& inShape, const Shape& outShape, const std::vector<int64_t>& inTileShape,
+    const std::vector<int64_t>& resultTileShape)
+{
     std::vector<int64_t> outTileShape;
     DerivationTileShape derivationTileShapePass;
     auto opList = function->Operations().DuplicatedOpList();
@@ -74,15 +78,17 @@ static void BuildShapeAndCheckSucc(Function *function, const Shape &inShape, con
             continue;
         }
         auto op = opList[i];
-        auto status = derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
+        auto status =
+            derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
 
         EXPECT_EQ(status, SUCCESS);
         EXPECT_EQ(outTileShape, resultTileShape);
     }
 }
 
-static void BuildShapeAndCheckFail(Function *function, const Shape &inShape, const Shape &outShape,
-    const std::vector<int64_t> &inTileShape) {
+static void BuildShapeAndCheckFail(
+    Function* function, const Shape& inShape, const Shape& outShape, const std::vector<int64_t>& inTileShape)
+{
     std::vector<int64_t> outTileShape;
     DerivationTileShape derivationTileShapePass;
     auto opList = function->Operations().DuplicatedOpList();
@@ -91,13 +97,15 @@ static void BuildShapeAndCheckFail(Function *function, const Shape &inShape, con
             continue;
         }
         auto op = opList[i];
-        auto status = derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
+        auto status =
+            derivationTileShapePass.DerivationReshapeTileShape(op, inShape, outShape, inTileShape, outTileShape);
 
         EXPECT_EQ(status, WARNING);
     }
 }
 
-TEST_F(DerivationTileShapeTest, DerivationSplitSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationSplitSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -108,7 +116,8 @@ TEST_F(DerivationTileShapeTest, DerivationSplitSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -119,7 +128,8 @@ TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeInputShape1Success) {
+TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeInputShape1Success)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -130,7 +140,8 @@ TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeInputShape1Success) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeOutputShape1Success) {
+TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeOutputShape1Success)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -141,7 +152,8 @@ TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeOutputShape1Success) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationLargeSizeSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationLargeSizeSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -152,7 +164,8 @@ TEST_F(DerivationTileShapeTest, DerivationLargeSizeSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationAlignShapeFailed) {
+TEST_F(DerivationTileShapeTest, DerivationAlignShapeFailed)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -162,7 +175,8 @@ TEST_F(DerivationTileShapeTest, DerivationAlignShapeFailed) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationAlignTileFail) {
+TEST_F(DerivationTileShapeTest, DerivationAlignTileFail)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -172,7 +186,8 @@ TEST_F(DerivationTileShapeTest, DerivationAlignTileFail) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationOutTileFail) {
+TEST_F(DerivationTileShapeTest, DerivationOutTileFail)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -182,7 +197,8 @@ TEST_F(DerivationTileShapeTest, DerivationOutTileFail) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationAlignShapeInputProductFailed) {
+TEST_F(DerivationTileShapeTest, DerivationAlignShapeInputProductFailed)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -192,7 +208,8 @@ TEST_F(DerivationTileShapeTest, DerivationAlignShapeInputProductFailed) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationAlignShapeOutputProductFailed) {
+TEST_F(DerivationTileShapeTest, DerivationAlignShapeOutputProductFailed)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -202,7 +219,8 @@ TEST_F(DerivationTileShapeTest, DerivationAlignShapeOutputProductFailed) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationAlignShapeZeroFailed) {
+TEST_F(DerivationTileShapeTest, DerivationAlignShapeZeroFailed)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -212,7 +230,8 @@ TEST_F(DerivationTileShapeTest, DerivationAlignShapeZeroFailed) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationBiggerTileSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationBiggerTileSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -223,7 +242,8 @@ TEST_F(DerivationTileShapeTest, DerivationBiggerTileSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationSplitBiggerTileSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationSplitBiggerTileSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -234,7 +254,8 @@ TEST_F(DerivationTileShapeTest, DerivationSplitBiggerTileSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -245,7 +266,8 @@ TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeBiggerTileSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeBiggerTileSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -256,7 +278,8 @@ TEST_F(DerivationTileShapeTest, DerivationSplitAndMergeBiggerTileSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileFail) {
+TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileFail)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -266,7 +289,8 @@ TEST_F(DerivationTileShapeTest, DerivationMergeBiggerTileFail) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileFail) {
+TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileFail)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -276,7 +300,8 @@ TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileFail) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileSuccess) {
+TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileSuccess)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -287,7 +312,8 @@ TEST_F(DerivationTileShapeTest, DerivationNonComplianceTileSuccess) {
     BuildShapeAndCheckSucc(G.GetFunction(), inShape, outShape, inTileShape, resultTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail) {
+TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -297,7 +323,8 @@ TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail1) {
+TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail1)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -307,7 +334,8 @@ TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail1) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeSizeMismatch) {
+TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeSizeMismatch)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -317,7 +345,8 @@ TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeSizeMismatch) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeDistanceMismatch) {
+TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeDistanceMismatch)
+{
     ComputationalGraphBuilder G;
     BuildGraphAndCheck(G);
 
@@ -327,14 +356,15 @@ TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeDistanceMismatch) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
-TEST_F(DerivationTileShapeTest, DerivationReshapeTileShapeNonReshapeOp) {
+TEST_F(DerivationTileShapeTest, DerivationReshapeTileShapeNonReshapeOp)
+{
     ComputationalGraphBuilder G;
     G.AddTensor(DataType::DT_FP32, {8, 8}, "a");
     G.AddTensor(DataType::DT_FP32, {8, 8}, "b");
     G.AddOp(Opcode::OP_ADD, {"a"}, {"b"}, "add1");
     G.SetInCast({"a"});
     G.SetOutCast({"b"});
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     DerivationTileShape pass;
     std::vector<int64_t> outTileShape;
     auto addOp = function->Operations().DuplicatedOpList()[0];

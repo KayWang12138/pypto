@@ -54,17 +54,17 @@
 #define F16_SUBNORMAL_FP32_EXP_BASE (FP32_EXP_BIAS - (F16_EXP_BIAS - 1))
 
 template <typename T, typename U>
-INLINE void SafeBitCast(T &dst, const U &src)
+INLINE void SafeBitCast(T& dst, const U& src)
 {
-    const unsigned char *srcBytes = reinterpret_cast<const unsigned char *>(&src);
-    unsigned char *dstBytes = reinterpret_cast<unsigned char *>(&dst);
+    const unsigned char* srcBytes = reinterpret_cast<const unsigned char*>(&src);
+    unsigned char* dstBytes = reinterpret_cast<unsigned char*>(&dst);
     for (std::size_t i = 0; i < sizeof(T); ++i) {
         dstBytes[i] = srcBytes[i];
     }
 }
 
 template <typename T, typename U>
-INLINE T SafeBitCast(const U &src)
+INLINE T SafeBitCast(const U& src)
 {
     T dst;
     SafeBitCast(dst, src);
@@ -115,15 +115,16 @@ INLINE float DecodeF16(uint16_t bits)
 enum NodeTy { END, NORMAL, FP32, INT, CHAR, STRING, POINTER, BF16, FP16 };
 
 struct LogContext {
-    void (*PrintInt)(LogContext *ctx, __gm__ const char **fmt, int64_t val);
-    void (*PrintFp32)(LogContext *ctx, __gm__ const char **fmt, float val);
-    void (*PrintBf16)(LogContext *ctx, __gm__ const char **fmt, uint16_t rawBits);
-    void (*PrintFp16)(LogContext *ctx, __gm__ const char **fmt, uint16_t rawBits);
-    void (*Print)(LogContext *ctx, __gm__ const char *fmt);
+    void (*PrintInt)(LogContext* ctx, __gm__ const char** fmt, int64_t val);
+    void (*PrintFp32)(LogContext* ctx, __gm__ const char** fmt, float val);
+    void (*PrintBf16)(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits);
+    void (*PrintFp16)(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits);
+    void (*Print)(LogContext* ctx, __gm__ const char* fmt);
 };
 
 template <typename T>
-INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
+INLINE void __AiCorePrint(LogContext* ctx, __gm__ const char** fmt, T val)
+{
     if constexpr (std::is_integral_v<T>) {
         ctx->PrintInt(ctx, fmt, static_cast<int64_t>(val));
     } else if constexpr (std::is_floating_point_v<T>) {
@@ -140,7 +141,8 @@ INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
 }
 
 template <typename... Ts>
-INLINE void AiCoreLogF(LogContext *ctx, __gm__ const char *fmt, Ts... Args) {
+INLINE void AiCoreLogF(LogContext* ctx, __gm__ const char* fmt, Ts... Args)
+{
     if (ctx && fmt) {
         (__AiCorePrint(ctx, &fmt, Args), ...);
         ctx->Print(ctx, fmt);
@@ -153,43 +155,49 @@ struct AicoreLogger {
         int64_t tail_;
     };
 
-    static __aicore__ void __PrintInt(LogContext *ctx, __gm__ const char **fmt, int64_t val) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+    static __aicore__ void __PrintInt(LogContext* ctx, __gm__ const char** fmt, int64_t val)
+    {
+        auto self = reinterpret_cast<AicoreLogger*>(ctx);
         if (self) {
             self->PrintInt(fmt, val);
         }
     }
 
-    static __aicore__ void __PrintFloat(LogContext *ctx, __gm__ const char **fmt, float val) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+    static __aicore__ void __PrintFloat(LogContext* ctx, __gm__ const char** fmt, float val)
+    {
+        auto self = reinterpret_cast<AicoreLogger*>(ctx);
         if (self) {
             self->PrintFp32(fmt, val);
         }
     }
 
-    static __aicore__ void __PrintBf16(LogContext *ctx, __gm__ const char **fmt, uint16_t rawBits) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+    static __aicore__ void __PrintBf16(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits)
+    {
+        auto self = reinterpret_cast<AicoreLogger*>(ctx);
         if (self) {
             self->PrintBf16(fmt, rawBits);
         }
     }
 
-    static __aicore__ void __PrintF16(LogContext *ctx, __gm__ const char **fmt, uint16_t rawBits) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+    static __aicore__ void __PrintF16(LogContext* ctx, __gm__ const char** fmt, uint16_t rawBits)
+    {
+        auto self = reinterpret_cast<AicoreLogger*>(ctx);
         if (self) {
             self->PrintFp16(fmt, rawBits);
         }
     }
 
-    static __aicore__ void __Print(LogContext *ctx, __gm__ const char *fmt) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+    static __aicore__ void __Print(LogContext* ctx, __gm__ const char* fmt)
+    {
+        auto self = reinterpret_cast<AicoreLogger*>(ctx);
         if (self) {
             self->Print(fmt);
         }
     }
 
-    __aicore__ void Init(__gm__ uint8_t *buf, size_t n) {
-        remote_ = reinterpret_cast<volatile __gm__ Remote *>(buf);
+    __aicore__ void Init(__gm__ uint8_t* buf, size_t n)
+    {
+        remote_ = reinterpret_cast<volatile __gm__ Remote*>(buf);
         remote_->head_ = remote_->tail_ = 0;
         head_ = tail_ = 0;
         size_ = n - sizeof(Remote);
@@ -201,11 +209,10 @@ struct AicoreLogger {
         ctx.Print = __Print;
     }
 
-    __aicore__ __gm__ uint8_t *GetBuffer()  {
-        return data_ - sizeof(Remote);
-    }
+    __aicore__ __gm__ uint8_t* GetBuffer() { return data_ - sizeof(Remote); }
 
-    __aicore__ void PrintInt(__gm__ const char **fmt, int64_t val) {
+    __aicore__ void PrintInt(__gm__ const char** fmt, int64_t val)
+    {
         auto curFmt = *fmt;
         auto idx = ParseNextFormat(*fmt);
         if (idx == -1) {
@@ -213,11 +220,11 @@ struct AicoreLogger {
         }
         switch (curFmt[idx++]) {
             case 's': {
-                auto tmp = reinterpret_cast<__gm__ const char *>(val);
+                auto tmp = reinterpret_cast<__gm__ const char*>(val);
                 if (tmp == nullptr) {
                     tmp = "<null>";
                 }
-                Encode(STRING, reinterpret_cast<__gm__ const uint8_t *>(tmp), Length(tmp), *fmt, idx);
+                Encode(STRING, reinterpret_cast<__gm__ const uint8_t*>(tmp), Length(tmp), *fmt, idx);
                 break;
             }
             case 'd':
@@ -226,48 +233,55 @@ struct AicoreLogger {
             case 'X':
             case 'o':
             case 'u': {
-                Encode(INT, reinterpret_cast<uint8_t *>(&val), sizeof(val), *fmt, idx);
+                Encode(INT, reinterpret_cast<uint8_t*>(&val), sizeof(val), *fmt, idx);
                 break;
             }
             case 'p': {
-                Encode(POINTER, reinterpret_cast<uint8_t *>(&val), sizeof(val), *fmt, idx);
+                Encode(POINTER, reinterpret_cast<uint8_t*>(&val), sizeof(val), *fmt, idx);
                 break;
             }
             case 'c': {
                 char c = static_cast<char>(val);
-                Encode(CHAR, reinterpret_cast<uint8_t *>(&c), 1, *fmt, idx);
+                Encode(CHAR, reinterpret_cast<uint8_t*>(&c), 1, *fmt, idx);
                 break;
             }
-            default: Encode(NORMAL, static_cast<uint8_t *>(nullptr), 0, *fmt, idx); break;
+            default:
+                Encode(NORMAL, static_cast<uint8_t*>(nullptr), 0, *fmt, idx);
+                break;
         }
 
         *fmt = *fmt + idx;
     }
 
-    __aicore__ void PrintFp32(__gm__ const char **fmt, float val) {
-        EncodeFloatType(fmt, FP32, reinterpret_cast<uint8_t *>(&val), sizeof(val));
+    __aicore__ void PrintFp32(__gm__ const char** fmt, float val)
+    {
+        EncodeFloatType(fmt, FP32, reinterpret_cast<uint8_t*>(&val), sizeof(val));
     }
 
-    __aicore__ void PrintBf16(__gm__ const char **fmt, uint16_t rawBits) {
-        EncodeFloatType(fmt, BF16, reinterpret_cast<uint8_t *>(&rawBits), sizeof(rawBits));
+    __aicore__ void PrintBf16(__gm__ const char** fmt, uint16_t rawBits)
+    {
+        EncodeFloatType(fmt, BF16, reinterpret_cast<uint8_t*>(&rawBits), sizeof(rawBits));
     }
 
-    __aicore__ void PrintFp16(__gm__ const char **fmt, uint16_t rawBits) {
-        EncodeFloatType(fmt, FP16, reinterpret_cast<uint8_t *>(&rawBits), sizeof(rawBits));
+    __aicore__ void PrintFp16(__gm__ const char** fmt, uint16_t rawBits)
+    {
+        EncodeFloatType(fmt, FP16, reinterpret_cast<uint8_t*>(&rawBits), sizeof(rawBits));
     }
 
-    __aicore__ void Print(__gm__ const char *str) {
+    __aicore__ void Print(__gm__ const char* str)
+    {
         auto n = Length(str);
         if (n) {
-            Encode(NORMAL, reinterpret_cast<const __gm__ uint8_t *>(str), n, str, n);
+            Encode(NORMAL, reinterpret_cast<const __gm__ uint8_t*>(str), n, str, n);
         }
         Encode(END);
         Sync();
     }
 
-    __aicore__ void Sync() {
+    __aicore__ void Sync()
+    {
 #ifndef __TILE_FWK_HOST__
-        int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (CACHE_LINE_SIZE -1);
+        int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (CACHE_LINE_SIZE - 1);
         int64_t off = remote_->head_ - delta;
         while (off < head_) {
             dcci(&data_[off % size_], SINGLE_CACHE_LINE, CACHELINE_OUT);
@@ -282,12 +296,13 @@ struct AicoreLogger {
 #endif
     }
 
-    INLINE LogContext *context() { return &ctx; }
+    INLINE LogContext* context() { return &ctx; }
 
 #ifdef __TILE_FWK_HOST__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-    int Read(char *buf, size_t maxSize) {
+    int Read(char* buf, size_t maxSize)
+    {
         size_t size = 0;
         head_ = remote_->head_;
         if (tail_ < remote_->tail_) {
@@ -312,12 +327,24 @@ struct AicoreLogger {
             tail_ += Read<short>(tail_) + sizeof(short);
             int n = 0;
             switch (type) {
-                case NORMAL: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), 0); break;
-                case FP32: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<float>(valOff)); break;
-                case INT: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff)); break;
-                case CHAR: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<char>(valOff)); break;
-                case STRING: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), ReadString(valOff).c_str()); break;
-                case POINTER: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff)); break;
+                case NORMAL:
+                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), 0);
+                    break;
+                case FP32:
+                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<float>(valOff));
+                    break;
+                case INT:
+                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff));
+                    break;
+                case CHAR:
+                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<char>(valOff));
+                    break;
+                case STRING:
+                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), ReadString(valOff).c_str());
+                    break;
+                case POINTER:
+                    n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff));
+                    break;
                 case BF16: {
                     uint16_t bits = Read<uint16_t>(valOff);
                     float fv = DecodeBf16(bits);
@@ -330,7 +357,12 @@ struct AicoreLogger {
                     n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), fv);
                     break;
                 }
-                default: if (n) { buf[0] = '?'; n = 1;} break;
+                default:
+                    if (n) {
+                        buf[0] = '?';
+                        n = 1;
+                    }
+                    break;
             }
             buf += n;
             size += n;
@@ -342,7 +374,8 @@ struct AicoreLogger {
 #endif
 
 private:
-    __aicore__ void EncodeFloatType(__gm__ const char **fmt, NodeTy ty, uint8_t *val, short valLen) {
+    __aicore__ void EncodeFloatType(__gm__ const char** fmt, NodeTy ty, uint8_t* val, short valLen)
+    {
         auto curFmt = *fmt;
         auto idx = ParseNextFormat(*fmt);
         if (idx == -1) {
@@ -353,11 +386,14 @@ private:
                 Encode(ty, val, valLen, *fmt, idx);
                 break;
             }
-            default: Encode(NORMAL, static_cast<uint8_t *>(nullptr), 0, *fmt, idx); break;
+            default:
+                Encode(NORMAL, static_cast<uint8_t*>(nullptr), 0, *fmt, idx);
+                break;
         }
         *fmt = *fmt + idx;
     }
-    __aicore__ int64_t ParseNextFormat(__gm__ const char *fmt) {
+    __aicore__ int64_t ParseNextFormat(__gm__ const char* fmt)
+    {
         int64_t idx = 0;
         while (fmt[idx]) {
             if (fmt[idx] == '%') {
@@ -409,29 +445,33 @@ private:
     }
 
     template <typename T>
-    INLINE T Read(int64_t off) {
+    INLINE T Read(int64_t off)
+    {
         T val;
         char tmp[sizeof(T)];
         for (size_t i = 0; i < sizeof(T); i++) {
             tmp[i] = data_[(off + i) % size_];
         }
-        val = *reinterpret_cast<T *>(tmp);
+        val = *reinterpret_cast<T*>(tmp);
         return val;
     }
 
 #ifdef __TILE_FWK_HOST__
-    std::string ReadString(int64_t off) {
+    std::string ReadString(int64_t off)
+    {
         std::stringstream ss;
         while (off < head_) {
             auto c = Read<char>(off++);
-            if (c == '\0') break;
+            if (c == '\0')
+                break;
             ss << c;
         }
         return ss.str();
     }
 #endif
 
-    __aicore__ void Encode(uint8_t val) {
+    __aicore__ void Encode(uint8_t val)
+    {
         if (head_ == tail_ + size_) {
             while (Read<uint8_t>(tail_) != END) {
                 tail_++;
@@ -440,15 +480,16 @@ private:
             }
             tail_++;
         }
-        volatile __gm__ uint8_t *p = &data_[head_++ % size_];
+        volatile __gm__ uint8_t* p = &data_[head_++ % size_];
         *p = val;
     }
 
-    template<typename T>
-    __aicore__ void Encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
+    template <typename T>
+    __aicore__ void Encode(NodeTy ty, const T* val, short valLen, __gm__ const char* fmt, int fmtLen)
+    {
         Encode(ty);
 
-        auto bytes = reinterpret_cast<uint8_t *>(&valLen);
+        auto bytes = reinterpret_cast<uint8_t*>(&valLen);
         Encode(bytes[0]);
         Encode(bytes[1]);
         for (auto i = 0; i < valLen; i++) {
@@ -456,7 +497,7 @@ private:
         }
 
         fmtLen += 1; // pad '\0'
-        bytes = reinterpret_cast<uint8_t *>(&fmtLen);
+        bytes = reinterpret_cast<uint8_t*>(&fmtLen);
         Encode(bytes[0]);
         Encode(bytes[1]);
         for (auto i = 0; i < fmtLen - 1; i++) {
@@ -465,7 +506,8 @@ private:
         Encode('\0');
     }
 
-    INLINE size_t Length(__gm__ const char *str) {
+    INLINE size_t Length(__gm__ const char* str)
+    {
         size_t n = 0;
         while (*str++) {
             n++;
@@ -473,23 +515,21 @@ private:
         return n;
     }
 
-    INLINE bool IsDigit(char c) {
-        return c >= '0' && c <= '9';
-    }
+    INLINE bool IsDigit(char c) { return c >= '0' && c <= '9'; }
 
 private:
     LogContext ctx;
     int64_t head_;
     int64_t tail_;
     int64_t size_;
-    volatile __gm__ Remote *remote_;
-    __gm__ uint8_t *data_;
+    volatile __gm__ Remote* remote_;
+    __gm__ uint8_t* data_;
 };
 
 #if defined(__TILE_FWK_AICORE__) && defined(TILEOP_UTILS_TUPLE_H)
 constexpr size_t AICORE_PRINT_SHAPE_MAX_DIMS = 6;
 template <size_t I, typename ShapeTuple>
-INLINE void __AiCoreFillShapeDims(int64_t (&d)[AICORE_PRINT_SHAPE_MAX_DIMS], const ShapeTuple &shape)
+INLINE void __AiCoreFillShapeDims(int64_t (&d)[AICORE_PRINT_SHAPE_MAX_DIMS], const ShapeTuple& shape)
 {
     constexpr size_t n = Std::tuple_size<ShapeTuple>::value;
     constexpr size_t m = (n < AICORE_PRINT_SHAPE_MAX_DIMS) ? n : AICORE_PRINT_SHAPE_MAX_DIMS;
@@ -500,7 +540,7 @@ INLINE void __AiCoreFillShapeDims(int64_t (&d)[AICORE_PRINT_SHAPE_MAX_DIMS], con
 }
 
 template <size_t N>
-INLINE void __AiCoreLogShapeDims(LogContext *ctx, const int64_t (&d)[6])
+INLINE void __AiCoreLogShapeDims(LogContext* ctx, const int64_t (&d)[6])
 {
     if constexpr (N == 1) {
         AiCoreLogF(ctx, "shape=[%ld]\n", d[0]);
@@ -518,7 +558,7 @@ INLINE void __AiCoreLogShapeDims(LogContext *ctx, const int64_t (&d)[6])
 }
 
 template <typename... Dims>
-INLINE void AiCorePrintShape(LogContext *ctx, const TileOp::Shape<Dims...> &shape)
+INLINE void AiCorePrintShape(LogContext* ctx, const TileOp::Shape<Dims...>& shape)
 {
     constexpr size_t N = Std::tuple_size<TileOp::Shape<Dims...>>::value;
     if constexpr (N == 0 || N > AICORE_PRINT_SHAPE_MAX_DIMS) {
@@ -531,7 +571,7 @@ INLINE void AiCorePrintShape(LogContext *ctx, const TileOp::Shape<Dims...> &shap
 #endif
 
 template <typename T, typename PtrT>
-INLINE void __AiCorePrintTensorImpl(LogContext *ctx, PtrT data, int64_t end, int64_t begin = 0)
+INLINE void __AiCorePrintTensorImpl(LogContext* ctx, PtrT data, int64_t end, int64_t begin = 0)
 {
     using ElemT = std::remove_cv_t<T>;
     AiCoreLogF(ctx, "tensor data, range=[%ld, %ld)\n", begin, end);
@@ -553,14 +593,14 @@ INLINE void __AiCorePrintTensorImpl(LogContext *ctx, PtrT data, int64_t end, int
 }
 
 template <typename T>
-INLINE void AiCorePrintGmTensor(LogContext *ctx, __gm__ const T *data, int64_t end, int64_t begin = 0)
+INLINE void AiCorePrintGmTensor(LogContext* ctx, __gm__ const T* data, int64_t end, int64_t begin = 0)
 {
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin);
 }
 
 #if IS_AICORE
 template <typename T>
-INLINE void AiCorePrintUbTensor(LogContext *ctx, __ubuf__ const T *data, int64_t end, int64_t begin = 0)
+INLINE void AiCorePrintUbTensor(LogContext* ctx, __ubuf__ const T* data, int64_t end, int64_t begin = 0)
 {
     __AiCorePrintTensorImpl<T>(ctx, data, end, begin);
 }

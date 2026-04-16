@@ -416,13 +416,19 @@ def function(name: str, *args) -> Iterator:
         set_source_location(level=2)
         func = pypto_impl.RecordFunc(name, [t.base() for t in in_out_tensors])
         clear_source_location()
-        yield func
+        for _ in loop(1, name="__main__"):
+            yield func
     except Exception as e:
         logging.error("Record function %s failed: %s", name, e)
         raise
     finally:
-        assert func
-        func.EndFunction()
+        if func is None:
+            raise RuntimeError("function recording failed")
+        try:
+            func.EndFunction()
+        except Exception:
+            if sys.exc_info()[1] is None:
+                raise
         Controller.end_function()
 
 
@@ -481,11 +487,11 @@ class _LoopFunction:
             setattr(scalar, "_loop_end", self._end)
             return scalar
 
-    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop):
+    def __init__(self, name, loop_name, loop_range, unroll_list, submit_before_loop, parallel):
         loop_range = loop_range.base()
         self._base = pypto_impl.RecordLoopFunc(name, pypto_impl.FunctionType.DYNAMIC_LOOP,
                                              loop_name, loop_range,
-                                             unroll_list, submit_before_loop)
+                                             unroll_list, submit_before_loop, parallel)
         self._begin = loop_range.Begin()
         self._end = loop_range.End()
 
@@ -500,6 +506,7 @@ def _loop_function(
     loop_range: LoopRange,
     unroll_list: Optional[List[int]] = None,
     submit_before_loop: bool = False,
+    parallel: bool = False,
 ):
     if unroll_list is None:
         unroll_set = set()
@@ -511,7 +518,7 @@ def _loop_function(
         frame = sys._getframe(3)
         pypto_impl.BeginScope(name, {}, frame.f_code.co_filename, frame.f_lineno)
         rlf = _LoopFunction(name, loop_name, loop_range,
-                            unroll_set, submit_before_loop)
+                            unroll_set, submit_before_loop, parallel)
         clear_source_location()
         yield rlf
     except Exception as e:
@@ -625,9 +632,10 @@ def loop(
     idx_name = kwargs.get("idx_name", f"loop_idx_{loop_idx}")
     unroll_list = kwargs.get("unroll_list", None)
     submit_before_loop = kwargs.get("submit_before_loop", False)
+    parallel = kwargs.get("parallel", False)
     with _loop_function(
         name, idx_name, _loop_range(
-            start, stop, step), unroll_list, submit_before_loop
+            start, stop, step), unroll_list, submit_before_loop, parallel
     ) as rlf:
         for k in rlf:
             yield k
@@ -674,7 +682,6 @@ def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
         unroll_list.append(1)
 
     ori_name = kwargs.get("name", None)
-    ori_idx_name = kwargs.get("idx_name", None)
 
     nstart = start
     for p in unroll_list:

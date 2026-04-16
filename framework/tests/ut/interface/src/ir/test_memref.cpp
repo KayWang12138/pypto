@@ -28,7 +28,8 @@ namespace ir {
 // MemorySpace Enum Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemorySpaceValues) {
+TEST(IRMemRefTest, TestMemorySpaceValues)
+{
     // Test that MemorySpace enum values are distinct
     ASSERT_NE(static_cast<int>(MemorySpace::DDR), static_cast<int>(MemorySpace::UB));
     ASSERT_NE(static_cast<int>(MemorySpace::L1), static_cast<int>(MemorySpace::UB));
@@ -36,7 +37,8 @@ TEST(IRMemRefTest, TestMemorySpaceValues) {
     ASSERT_NE(static_cast<int>(MemorySpace::L0C), static_cast<int>(MemorySpace::L0A));
 }
 
-TEST(IRMemRefTest, TestMemorySpaceAssignment) {
+TEST(IRMemRefTest, TestMemorySpaceAssignment)
+{
     // Test MemorySpace assignment
     MemorySpace space1 = MemorySpace::DDR;
     MemorySpace space2 = MemorySpace::UB;
@@ -51,7 +53,8 @@ TEST(IRMemRefTest, TestMemorySpaceAssignment) {
 // MemRef Constructor Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemRefBasicConstructor) {
+TEST(IRMemRefTest, TestMemRefBasicConstructor)
+{
     // Test basic MemRef construction
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     MemRef memref(MemorySpace::DDR, addr, 1024, 0);
@@ -61,7 +64,8 @@ TEST(IRMemRefTest, TestMemRefBasicConstructor) {
     ASSERT_EQ(memref.size_, 1024);
 }
 
-TEST(IRMemRefTest, TestMemRefWithDifferentSpaces) {
+TEST(IRMemRefTest, TestMemRefWithDifferentSpaces)
+{
     // Test MemRef with different memory spaces
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
 
@@ -76,7 +80,8 @@ TEST(IRMemRefTest, TestMemRefWithDifferentSpaces) {
     ASSERT_EQ(l0aRef.memorySpace_, MemorySpace::L0A);
 }
 
-TEST(IRMemRefTest, TestMemRefWithL0Spaces) {
+TEST(IRMemRefTest, TestMemRefWithL0Spaces)
+{
     // Test MemRef with L0 memory spaces
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
 
@@ -89,7 +94,8 @@ TEST(IRMemRefTest, TestMemRefWithL0Spaces) {
     ASSERT_EQ(l0cRef.memorySpace_, MemorySpace::L0C);
 }
 
-TEST(IRMemRefTest, TestMemRefWithDDRSpace) {
+TEST(IRMemRefTest, TestMemRefWithDDRSpace)
+{
     // Test MemRef with DDR memory space
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     MemRef memref(MemorySpace::DDR, addr, 1024, 0);
@@ -101,7 +107,8 @@ TEST(IRMemRefTest, TestMemRefWithDDRSpace) {
 // MemRef Address Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemRefWithZeroAddress) {
+TEST(IRMemRefTest, TestMemRefWithZeroAddress)
+{
     // Test MemRef with zero address
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     MemRef memref(MemorySpace::DDR, addr, 1024, 0);
@@ -112,7 +119,8 @@ TEST(IRMemRefTest, TestMemRefWithZeroAddress) {
     ASSERT_EQ(constAddr->value_, 0);
 }
 
-TEST(IRMemRefTest, TestMemRefWithNonZeroAddress) {
+TEST(IRMemRefTest, TestMemRefWithNonZeroAddress)
+{
     // Test MemRef with non-zero address
     auto addr = std::make_shared<ConstInt>(0x1000, DataType::INT64, Span::Unknown());
     MemRef memref(MemorySpace::UB, addr, 2048, 0);
@@ -123,7 +131,8 @@ TEST(IRMemRefTest, TestMemRefWithNonZeroAddress) {
     ASSERT_EQ(constAddr->value_, 0x1000);
 }
 
-TEST(IRMemRefTest, TestMemRefWithVariableAddress) {
+TEST(IRMemRefTest, TestMemRefWithVariableAddress)
+{
     // Test MemRef with variable address expression
     auto base = std::make_shared<ConstInt>(0x1000, DataType::INT64, Span::Unknown());
     auto offset = std::make_shared<ConstInt>(256, DataType::INT64, Span::Unknown());
@@ -139,7 +148,8 @@ TEST(IRMemRefTest, TestMemRefWithVariableAddress) {
 // MemRef Size Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemRefWithZeroSize) {
+TEST(IRMemRefTest, TestMemRefWithZeroSize)
+{
     // Test MemRef with zero size
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     MemRef memref(MemorySpace::DDR, addr, 0, 0);
@@ -147,7 +157,8 @@ TEST(IRMemRefTest, TestMemRefWithZeroSize) {
     ASSERT_EQ(memref.size_, 0);
 }
 
-TEST(IRMemRefTest, TestMemRefWithSmallSize) {
+TEST(IRMemRefTest, TestMemRefWithSmallSize)
+{
     // Test MemRef with small size
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     MemRef memref(MemorySpace::L0A, addr, 64, 0);
@@ -155,7 +166,8 @@ TEST(IRMemRefTest, TestMemRefWithSmallSize) {
     ASSERT_EQ(memref.size_, 64);
 }
 
-TEST(IRMemRefTest, TestMemRefWithLargeSize) {
+TEST(IRMemRefTest, TestMemRefWithLargeSize)
+{
     // Test MemRef with large size
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     MemRef memref(MemorySpace::DDR, addr, 1024 * 1024 * 1024, 0); // 1GB
@@ -163,7 +175,8 @@ TEST(IRMemRefTest, TestMemRefWithLargeSize) {
     ASSERT_EQ(memref.size_, 1024 * 1024 * 1024);
 }
 
-TEST(IRMemRefTest, TestMemRefWithVariousSizes) {
+TEST(IRMemRefTest, TestMemRefWithVariousSizes)
+{
     // Test MemRef with various sizes
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
 
@@ -182,7 +195,8 @@ TEST(IRMemRefTest, TestMemRefWithVariousSizes) {
 // MemRef Copy and Assignment Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemRefCopyConstructor) {
+TEST(IRMemRefTest, TestMemRefCopyConstructor)
+{
     // Test MemRef shared_ptr usage (copy constructor is deleted since MemRef inherits from IRNode)
     auto addr = std::make_shared<ConstInt>(0x1000, DataType::INT64, Span::Unknown());
     auto original = std::make_shared<MemRef>(MemorySpace::DDR, addr, 1024, 0);
@@ -199,7 +213,8 @@ TEST(IRMemRefTest, TestMemRefCopyConstructor) {
     ASSERT_EQ(another->size_, original->size_);
 }
 
-TEST(IRMemRefTest, TestMemRefAssignment) {
+TEST(IRMemRefTest, TestMemRefAssignment)
+{
     // Test MemRef field comparison (assignment operator is deleted since MemRef inherits from IRNode)
     auto addr1 = std::make_shared<ConstInt>(0x1000, DataType::INT64, Span::Unknown());
     auto addr2 = std::make_shared<ConstInt>(0x2000, DataType::INT64, Span::Unknown());
@@ -217,7 +232,8 @@ TEST(IRMemRefTest, TestMemRefAssignment) {
 // MemRef Practical Usage Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemRefForTensorAllocation) {
+TEST(IRMemRefTest, TestMemRefForTensorAllocation)
+{
     // Test MemRef for tensor allocation scenario
     // Allocate 10x20 float32 tensor in DDR (800 bytes)
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
@@ -228,7 +244,8 @@ TEST(IRMemRefTest, TestMemRefForTensorAllocation) {
     ASSERT_EQ(memref.size_, tensorSize);
 }
 
-TEST(IRMemRefTest, TestMemRefForTileAllocation) {
+TEST(IRMemRefTest, TestMemRefForTileAllocation)
+{
     // Test MemRef for tile allocation in L0A
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     size_t tileSize = 16 * 16 * sizeof(float); // 1024 bytes
@@ -238,7 +255,8 @@ TEST(IRMemRefTest, TestMemRefForTileAllocation) {
     ASSERT_EQ(memref.size_, tileSize);
 }
 
-TEST(IRMemRefTest, TestMemRefForBufferAllocation) {
+TEST(IRMemRefTest, TestMemRefForBufferAllocation)
+{
     // Test MemRef for unified buffer allocation
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     size_t bufferSize = 4096; // 4KB buffer
@@ -248,7 +266,8 @@ TEST(IRMemRefTest, TestMemRefForBufferAllocation) {
     ASSERT_EQ(memref.size_, bufferSize);
 }
 
-TEST(IRMemRefTest, TestMemRefWithOffsetAddress) {
+TEST(IRMemRefTest, TestMemRefWithOffsetAddress)
+{
     // Test MemRef with offset address for sub-buffer
     auto baseAddr = std::make_shared<ConstInt>(0x10000, DataType::INT64, Span::Unknown());
     auto offset = std::make_shared<ConstInt>(1024, DataType::INT64, Span::Unknown());
@@ -265,7 +284,8 @@ TEST(IRMemRefTest, TestMemRefWithOffsetAddress) {
 // MemRef Comparison Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemRefEquality) {
+TEST(IRMemRefTest, TestMemRefEquality)
+{
     // Test MemRef equality comparison
     auto addr = std::make_shared<ConstInt>(0x1000, DataType::INT64, Span::Unknown());
 
@@ -278,7 +298,8 @@ TEST(IRMemRefTest, TestMemRefEquality) {
     ASSERT_EQ(ref1.size_, ref2.size_);
 }
 
-TEST(IRMemRefTest, TestMemRefInequality) {
+TEST(IRMemRefTest, TestMemRefInequality)
+{
     // Test MemRef inequality
     auto addr1 = std::make_shared<ConstInt>(0x1000, DataType::INT64, Span::Unknown());
     auto addr2 = std::make_shared<ConstInt>(0x2000, DataType::INT64, Span::Unknown());
@@ -295,7 +316,8 @@ TEST(IRMemRefTest, TestMemRefInequality) {
 // MemRef Edge Cases Tests
 // ============================================================================
 
-TEST(IRMemRefTest, TestMemRefWithMaxSize) {
+TEST(IRMemRefTest, TestMemRefWithMaxSize)
+{
     // Test MemRef with maximum size_t value
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
     size_t maxSize = std::numeric_limits<size_t>::max();
@@ -304,7 +326,8 @@ TEST(IRMemRefTest, TestMemRefWithMaxSize) {
     ASSERT_EQ(memref.size_, maxSize);
 }
 
-TEST(IRMemRefTest, TestMemRefWithComplexAddressExpression) {
+TEST(IRMemRefTest, TestMemRefWithComplexAddressExpression)
+{
     // Test MemRef with complex address expression: base + (index * stride)
     auto base = std::make_shared<ConstInt>(0x10000, DataType::INT64, Span::Unknown());
     auto index = std::make_shared<ConstInt>(5, DataType::INT64, Span::Unknown());

@@ -32,61 +32,73 @@ namespace npu::tile_fwk {
 enum class OverlapStatus {
     PERFECTLY_MATCH_WITH_ALL, // x is equal to {y, z}
     BE_COVERED_BY_ALL,        // x is part of {y, z}
-    COVERED_ALL,            // {y, z} is part of x
+    COVERED_ALL,              // {y, z} is part of x
     PARTIAL_OVERLAP_WITH_ALL, // x only have part of overlap with {y, z}
-    PERFECTLY_MATCH,        // x is equal to y
-    BE_COVERED,             // x is part of y
-    COVERED,               // y is part of x
-    PARTIAL_OVERLAP,        // x only have part of overlap with y
-    NO_OVER_LAP              // x and y has no overlap
+    PERFECTLY_MATCH,          // x is equal to y
+    BE_COVERED,               // x is part of y
+    COVERED,                  // y is part of x
+    PARTIAL_OVERLAP,          // x only have part of overlap with y
+    NO_OVER_LAP               // x and y has no overlap
 };
 
-inline std::string OverlapStatusString(OverlapStatus status) {
+inline std::string OverlapStatusString(OverlapStatus status)
+{
     switch (status) {
-        case OverlapStatus::PERFECTLY_MATCH_WITH_ALL: return "PERFECTLY_MATCH_WITH_ALL";
-        case OverlapStatus::BE_COVERED_BY_ALL: return "BE_COVERED_BY_ALL";
-        case OverlapStatus::COVERED_ALL: return "COVERED_ALL";
-        case OverlapStatus::PARTIAL_OVERLAP_WITH_ALL: return "PARTIAL_OVERLAP_WITH_ALL";
-        case OverlapStatus::PERFECTLY_MATCH: return "PERFECTLY_MATCH";
-        case OverlapStatus::BE_COVERED: return "BE_COVERED";
-        case OverlapStatus::COVERED: return "COVERED";
-        case OverlapStatus::PARTIAL_OVERLAP: return "PARTIAL_OVERLAP";
-        case OverlapStatus::NO_OVER_LAP: return "NO_OVER_LAP";
-        default: return "Unknown OverlapStatus";
+        case OverlapStatus::PERFECTLY_MATCH_WITH_ALL:
+            return "PERFECTLY_MATCH_WITH_ALL";
+        case OverlapStatus::BE_COVERED_BY_ALL:
+            return "BE_COVERED_BY_ALL";
+        case OverlapStatus::COVERED_ALL:
+            return "COVERED_ALL";
+        case OverlapStatus::PARTIAL_OVERLAP_WITH_ALL:
+            return "PARTIAL_OVERLAP_WITH_ALL";
+        case OverlapStatus::PERFECTLY_MATCH:
+            return "PERFECTLY_MATCH";
+        case OverlapStatus::BE_COVERED:
+            return "BE_COVERED";
+        case OverlapStatus::COVERED:
+            return "COVERED";
+        case OverlapStatus::PARTIAL_OVERLAP:
+            return "PARTIAL_OVERLAP";
+        case OverlapStatus::NO_OVER_LAP:
+            return "NO_OVER_LAP";
+        default:
+            return "Unknown OverlapStatus";
     }
 }
 
-bool Overlap(const std::shared_ptr<LogicalTensor> &t0, const std::shared_ptr<LogicalTensor> &t1);
+bool Overlap(const std::shared_ptr<LogicalTensor>& t0, const std::shared_ptr<LogicalTensor>& t1);
 
-OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
-                                       const std::vector<int64_t>& pShape,
-                                       const std::vector<int64_t>& qOffset,
-                                       const std::vector<int64_t>& qShape) noexcept;
+OverlapStatus CalcOverlapByOffsetShape(
+    const std::vector<int64_t>& pOffset, const std::vector<int64_t>& pShape, const std::vector<int64_t>& qOffset,
+    const std::vector<int64_t>& qShape) noexcept;
 
 // Move the function declaration outside of the TensorMap class
 OverlapStatus CalcOverlap(
-    const std::shared_ptr<LogicalTensor> &pTensor, const std::shared_ptr<LogicalTensor> &qTensor, bool loose = false);
+    const std::shared_ptr<LogicalTensor>& pTensor, const std::shared_ptr<LogicalTensor>& qTensor, bool loose = false);
 
-OverlapStatus CalcOverlap(const std::shared_ptr<LogicalTensor> &pTensor,
-    const std::vector<std::shared_ptr<LogicalTensor>> &pGroup, bool loose = false);
+OverlapStatus CalcOverlap(
+    const std::shared_ptr<LogicalTensor>& pTensor, const std::vector<std::shared_ptr<LogicalTensor>>& pGroup,
+    bool loose = false);
 
-void CalcShapeAndOffsetOfGroup(const std::vector<std::shared_ptr<LogicalTensor>> &tensors,
-    std::vector<int64_t> &resultOffset, std::vector<int64_t> &resultShape);
+void CalcShapeAndOffsetOfGroup(
+    const std::vector<std::shared_ptr<LogicalTensor>>& tensors, std::vector<int64_t>& resultOffset,
+    std::vector<int64_t>& resultShape);
 
-int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor, const std::shared_ptr<LogicalTensor> &qTensor);
+int CalcOverlapSize(const std::shared_ptr<LogicalTensor>& pTensor, const std::shared_ptr<LogicalTensor>& qTensor);
 // Custom comparator for shared_ptr<LogicalTensor> in descending order
 struct TensorPtrComparator {
-    bool operator()(const std::shared_ptr<LogicalTensor> &lhs, const std::shared_ptr<LogicalTensor> &rhs) const;
+    bool operator()(const std::shared_ptr<LogicalTensor>& lhs, const std::shared_ptr<LogicalTensor>& rhs) const;
 };
 
 class TensorMap {
 public:
-    explicit TensorMap(Function &function) : belongTo(function) {}
+    explicit TensorMap(Function& function) : belongTo(function) {}
 
-    TensorMap(const TensorMap &other) = delete;
-    TensorMap(TensorMap &&other) = delete;
-    TensorMap &operator=(const TensorMap &other) = delete;
-    TensorMap &operator=(TensorMap &&other) = delete;
+    TensorMap(const TensorMap& other) = delete;
+    TensorMap(TensorMap&& other) = delete;
+    TensorMap& operator=(const TensorMap& other) = delete;
+    TensorMap& operator=(TensorMap&& other) = delete;
 
     // Changed to use std::set with custom comparator
     std::unordered_map<int, std::set<std::shared_ptr<LogicalTensor>, TensorPtrComparator>> tensorMap_;
@@ -102,7 +114,7 @@ public:
     // Insert function: Adds a tensor to the map, removing any matching tensors first
     void Insert(std::shared_ptr<LogicalTensor> tobject, bool checkOverlap = true);
 
-    void Erase(const std::shared_ptr<LogicalTensor> &ttensor);
+    void Erase(const std::shared_ptr<LogicalTensor>& ttensor);
 
     void EraseRawMagic(int rawmagic);
 
@@ -113,8 +125,9 @@ public:
     void Reset();
 
     void ValidCheck() const;
+
 private:
-    Function &belongTo;
+    Function& belongTo;
 };
 
 } // namespace npu::tile_fwk

@@ -27,7 +27,8 @@ namespace npu::tile_fwk {
 
 class CodeGenCCE {
 public:
-    explicit CodeGenCCE(CodeGenCtx cctx) : ctx(std::move(cctx)) {
+    explicit CodeGenCCE(CodeGenCtx cctx) : ctx(std::move(cctx))
+    {
         if (ctx.IsCCEPathEmpty()) {
             PrepareDefaultOutputPath();
         }
@@ -35,18 +36,18 @@ public:
     virtual ~CodeGenCCE() = default;
 
     virtual void GenCode(
-        Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) = 0;
+        Function& topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>>& invokeParaOffset) = 0;
 
 protected:
     CodeGenCtx ctx;
 
 private:
-    static std::string GetEmitPath(const std::string &name);
+    static std::string GetEmitPath(const std::string& name);
     void PrepareOutputPath();
     void PrepareDefaultOutputPath();
 };
 
-std::map<int, int> GenRealizeIdMap(const SubfuncParam &subFuncParam);
+std::map<int, int> GenRealizeIdMap(const SubfuncParam& subFuncParam);
 
 } // namespace npu::tile_fwk
 

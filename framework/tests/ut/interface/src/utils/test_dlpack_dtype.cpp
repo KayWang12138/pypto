@@ -24,7 +24,8 @@ protected:
     void SetUp() override {}
 };
 
-TEST_F(TestDlpackDtype, IntTypes) {
+TEST_F(TestDlpackDtype, IntTypes)
+{
     DataType out;
     EXPECT_TRUE(DlpackDtypeToDataType(kDLInt, 8, 1, &out));
     EXPECT_EQ(out, DT_INT8);
@@ -36,7 +37,8 @@ TEST_F(TestDlpackDtype, IntTypes) {
     EXPECT_EQ(out, DT_INT64);
 }
 
-TEST_F(TestDlpackDtype, UintTypes) {
+TEST_F(TestDlpackDtype, UintTypes)
+{
     DataType out;
     EXPECT_TRUE(DlpackDtypeToDataType(kDLUInt, 8, 1, &out));
     EXPECT_EQ(out, DT_UINT8);
@@ -48,7 +50,8 @@ TEST_F(TestDlpackDtype, UintTypes) {
     EXPECT_EQ(out, DT_UINT64);
 }
 
-TEST_F(TestDlpackDtype, FloatTypes) {
+TEST_F(TestDlpackDtype, FloatTypes)
+{
     DataType out;
     EXPECT_TRUE(DlpackDtypeToDataType(kDLFloat, 16, 1, &out));
     EXPECT_EQ(out, DT_FP16);
@@ -58,19 +61,22 @@ TEST_F(TestDlpackDtype, FloatTypes) {
     EXPECT_EQ(out, DT_DOUBLE);
 }
 
-TEST_F(TestDlpackDtype, Bfloat16) {
+TEST_F(TestDlpackDtype, Bfloat16)
+{
     DataType out;
     EXPECT_TRUE(DlpackDtypeToDataType(kDLBfloat, 16, 1, &out));
     EXPECT_EQ(out, DT_BF16);
 }
 
-TEST_F(TestDlpackDtype, Bool) {
+TEST_F(TestDlpackDtype, Bool)
+{
     DataType out;
     EXPECT_TRUE(DlpackDtypeToDataType(kDLBool, 8, 1, &out));
     EXPECT_EQ(out, DT_BOOL);
 }
 
-TEST_F(TestDlpackDtype, FP8) {
+TEST_F(TestDlpackDtype, FP8)
+{
     DataType out;
     EXPECT_TRUE(DlpackDtypeToDataType(kDLFloat8_e5m2, 8, 1, &out));
     EXPECT_EQ(out, DT_FP8E5M2);
@@ -78,18 +84,21 @@ TEST_F(TestDlpackDtype, FP8) {
     EXPECT_EQ(out, DT_FP8E4M3);
 }
 
-TEST_F(TestDlpackDtype, UnsupportedLanes) {
+TEST_F(TestDlpackDtype, UnsupportedLanes)
+{
     DataType out;
     EXPECT_FALSE(DlpackDtypeToDataType(kDLInt, 32, 4, &out));
 }
 
-TEST_F(TestDlpackDtype, UnsupportedCode) {
+TEST_F(TestDlpackDtype, UnsupportedCode)
+{
     DataType out;
     EXPECT_FALSE(DlpackDtypeToDataType(kDLOpaqueHandle, 8, 1, &out));
     EXPECT_FALSE(DlpackDtypeToDataType(kDLComplex, 64, 1, &out));
 }
 
-TEST_F(TestDlpackDtype, UnsupportedBits) {
+TEST_F(TestDlpackDtype, UnsupportedBits)
+{
     DataType out;
     EXPECT_FALSE(DlpackDtypeToDataType(kDLInt, 4, 1, &out));
     EXPECT_FALSE(DlpackDtypeToDataType(kDLInt, 128, 1, &out));

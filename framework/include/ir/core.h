@@ -116,8 +116,8 @@ public:
     virtual ~IRNode() = default;
 
     // Disable copying and moving to enforce immutability
-    IRNode(IRNode &&) = delete;
-    IRNode &operator=(IRNode &&) = delete;
+    IRNode(IRNode&&) = delete;
+    IRNode& operator=(IRNode&&) = delete;
 
     /**
      * \brief Get the Kind of this IR node
@@ -135,7 +135,8 @@ public:
 
     Span span_; // Source location
 
-    static constexpr auto GetFieldDescriptors() {
+    static constexpr auto GetFieldDescriptors()
+    {
         return std::make_tuple(reflection::IgnoreField(&IRNode::span_, "span"));
     }
 };
@@ -151,9 +152,7 @@ using IRNodePtr = std::shared_ptr<const IRNode>;
  * \param rhs Right-hand side expression pointer
  * \return true if pointers reference the same object
  */
-inline bool operator==(const IRNodePtr &lhs, const IRNodePtr &rhs) {
-    return lhs.get() == rhs.get();
-}
+inline bool operator==(const IRNodePtr& lhs, const IRNodePtr& rhs) { return lhs.get() == rhs.get(); }
 
 /**
  * \brief Reference inequality operator for IRNodePtr
@@ -162,9 +161,7 @@ inline bool operator==(const IRNodePtr &lhs, const IRNodePtr &rhs) {
  * \param rhs Right-hand side expression pointer
  * \return true if pointers reference different objects
  */
-inline bool operator!=(const IRNodePtr &lhs, const IRNodePtr &rhs) {
-    return !(lhs == rhs);
-}
+inline bool operator!=(const IRNodePtr& lhs, const IRNodePtr& rhs) { return !(lhs == rhs); }
 
 // Forward declarations for KindTrait specializations
 // (Actual specializations will be added after the concrete types are defined)
@@ -189,7 +186,8 @@ struct HasKindArray<T, std::void_t<decltype(KindTrait<T>::kinds)>> : std::true_t
 
 // Check if kind is in array (compile-time)
 template <typename T>
-constexpr bool IsKindInArray(ObjectKind kind) {
+constexpr bool IsKindInArray(ObjectKind kind)
+{
     for (size_t i = 0; i < KindTrait<T>::count; ++i) {
         if (KindTrait<T>::kinds[i] == kind) {
             return true;
@@ -218,8 +216,9 @@ namespace std {
  */
 template <>
 struct hash<pypto::ir::IRNodePtr> {
-    size_t operator()(const pypto::ir::IRNodePtr &ptr) const noexcept {
-        return std::hash<const pypto::ir::IRNode *>{}(ptr.get());
+    size_t operator()(const pypto::ir::IRNodePtr& ptr) const noexcept
+    {
+        return std::hash<const pypto::ir::IRNode*>{}(ptr.get());
     }
 };
 

@@ -16,4 +16,3 @@ scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.scatter\_update](../operation/pypto-scatter_update.md)。
-

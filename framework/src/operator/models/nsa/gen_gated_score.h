@@ -23,11 +23,11 @@
 #include "interface/inner/tilefwk.h"
 
 namespace npu::tile_fwk {
-void GenGatedScoreComputePrefillPlus(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore);
+void GenGatedScoreComputePrefillPlus(const Tensor& x, const Tensor& gateW1, const Tensor& gateW2, Tensor& gatingScore);
 
-void GenGatedScoreComputePrefill(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore);
+void GenGatedScoreComputePrefill(const Tensor& x, const Tensor& gateW1, const Tensor& gateW2, Tensor& gatingScore);
 
-void GenGatedScoreFuncPrefill(const Tensor &x, const Tensor &gateW1, const Tensor &gateW2, Tensor &gatingScore);
+void GenGatedScoreFuncPrefill(const Tensor& x, const Tensor& gateW1, const Tensor& gateW2, Tensor& gatingScore);
 } // namespace npu::tile_fwk
 
 #endif

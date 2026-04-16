@@ -16,9 +16,10 @@
 
 namespace npu::tile_fwk::machine {
 
-AicoreEmulationManager &AicoreEmulationManager::GetInstance() {
+AicoreEmulationManager& AicoreEmulationManager::GetInstance()
+{
     static AicoreEmulationManager manager;
     return manager;
 }
 
-}
+} // namespace npu::tile_fwk::machine

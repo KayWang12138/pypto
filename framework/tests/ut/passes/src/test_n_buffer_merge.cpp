@@ -27,7 +27,7 @@
 #include "computational_graph_builder.h"
 
 namespace npu {
-namespace tile_fwk{
+namespace tile_fwk {
 
 class NBufferMergeTest : public testing::Test {
 public:
@@ -35,7 +35,8 @@ public:
 
     static void TearDownTestCase() {}
 
-    void SetUp() override {
+    void SetUp() override
+    {
         Program::GetInstance().Reset();
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -47,8 +48,10 @@ public:
     Status TestNBufferMergeWithDifferentVecBufferSetting(std::map<int64_t, int64_t> vecNBufferSetting);
 };
 
-TEST_F(NBufferMergeTest, TestNBufferMerge) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNBufferMerge", "TestNBufferMerge", nullptr);
+TEST_F(NBufferMergeTest, TestNBufferMerge)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNBufferMerge", "TestNBufferMerge", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
@@ -68,13 +71,13 @@ TEST_F(NBufferMergeTest, TestNBufferMerge) {
     auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor4->subGraphID = subGraphID1;
 
-    auto &copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast1}, {tensor1});
+    auto& copy_op1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast1}, {tensor1});
     copy_op1.UpdateSubgraphID(subGraphID0);
-    auto &copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast2}, {tensor3});
+    auto& copy_op2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast2}, {tensor3});
     copy_op2.UpdateSubgraphID(subGraphID1);
-    auto &copy_out1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {tensor2});
+    auto& copy_out1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor1}, {tensor2});
     copy_out1.UpdateSubgraphID(subGraphID0);
-    auto &copy_out2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor3}, {tensor4});
+    auto& copy_out2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {tensor3}, {tensor4});
     copy_out2.UpdateSubgraphID(subGraphID1);
 
     currFunctionPtr->inCasts_.push_back(incast1);
@@ -84,14 +87,16 @@ TEST_F(NBufferMergeTest, TestNBufferMerge) {
 
     // Call the pass
     NBufferMerge nPass;
-    Pass &nbufferPass = nPass;
+    Pass& nbufferPass = nPass;
     nbufferPass.PreCheck(*currFunctionPtr);
     nbufferPass.Run(*currFunctionPtr, "", "");
     nbufferPass.PostCheck(*currFunctionPtr);
 }
 
-TEST_F(NBufferMergeTest, TestMulityInputOutputMode3) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNBufferMerge", "TestNBufferMerge", nullptr);
+TEST_F(NBufferMergeTest, TestMulityInputOutputMode3)
+{
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNBufferMerge", "TestNBufferMerge", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     const int vecParallelNum = 2;
@@ -107,21 +112,21 @@ TEST_F(NBufferMergeTest, TestMulityInputOutputMode3) {
     auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto &mul_op1 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor1});
-    auto &exp_op1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
+    auto& mul_op1 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor1});
+    auto& exp_op1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor1}, {outcast1});
     mul_op1.UpdateSubgraphID(0);
     exp_op1.UpdateSubgraphID(0);
-    auto &mul_op2 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor2});
-    auto &exp_op2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor2}, {outcast2});
+    auto& mul_op2 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor2});
+    auto& exp_op2 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor2}, {outcast2});
     mul_op2.UpdateSubgraphID(1);
     exp_op2.UpdateSubgraphID(1);
-    auto &mul_op3 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor3});
-    auto &exp_op3 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor3}, {outcast3});
+    auto& mul_op3 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor3});
+    auto& exp_op3 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor3}, {outcast3});
     int subGraphId2 = 2;
     mul_op3.UpdateSubgraphID(subGraphId2);
     exp_op3.UpdateSubgraphID(subGraphId2);
-    auto &mul_op4 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor4});
-    auto &exp_op4 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor4}, {outcast4});
+    auto& mul_op4 = currFunctionPtr->AddOperation(Opcode::OP_MUL, {incast1, incast2}, {tensor4});
+    auto& exp_op4 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {tensor4}, {outcast4});
     int subGraphId3 = 3;
     mul_op4.UpdateSubgraphID(subGraphId3);
     exp_op4.UpdateSubgraphID(subGraphId3);
@@ -145,7 +150,8 @@ TEST_F(NBufferMergeTest, TestMulityInputOutputMode3) {
     currFunctionPtr->DumpJsonFile("./config/pass/json/nBufferMerge_mulity_input_after.json");
 }
 
-TEST_F(NBufferMergeTest, TestMode4) {
+TEST_F(NBufferMergeTest, TestMode4)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
@@ -156,10 +162,14 @@ TEST_F(NBufferMergeTest, TestMode4) {
     const int subGraphNum = 20;
     for (int i = 1; i < subGraphNum; i++) {
         std::string strID = std::to_string(i);
-        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        EXPECT_EQ(
+            G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}),
+            true);
         std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
-        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
-        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::vector<std::string>> iOperands{
+            {"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{
+            {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
         std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
         EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
         G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
@@ -169,7 +179,7 @@ TEST_F(NBufferMergeTest, TestMode4) {
     }
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.vecNBufferSetting = {{-2, 1}, {-1, 4}, {1, 2}};
     function->paramConfigs_.mgVecParallelLb = vecParallelNum;
     function->SetTotalSubGraphCount(subGraphNum);
@@ -178,7 +188,8 @@ TEST_F(NBufferMergeTest, TestMode4) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(NBufferMergeTest, TestNoMergeMode) {
+TEST_F(NBufferMergeTest, TestNoMergeMode)
+{
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
@@ -187,7 +198,7 @@ TEST_F(NBufferMergeTest, TestNoMergeMode) {
     G.GetOp("copy_in")->UpdateSubgraphID(0);
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.vecNBufferSetting = {{-1, 1}};
     function->paramConfigs_.mgVecParallelLb = vecParallelNum;
     function->SetTotalSubGraphCount(1);
@@ -195,27 +206,33 @@ TEST_F(NBufferMergeTest, TestNoMergeMode) {
     EXPECT_EQ(NBM.RunOnFunction(*function), SUCCESS);
 }
 
-TEST_F(NBufferMergeTest, TestInvalidMode) {
+TEST_F(NBufferMergeTest, TestInvalidMode)
+{
     EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-2, 4}, {1, 2}}), FAILED);
 }
 
-TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingKeyMoreThanMaxValue_Tolerated) {
+TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingKeyMoreThanMaxValue_Tolerated)
+{
     EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {100, 2}}), SUCCESS);
 }
 
-TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueLessThanMinValue) {
+TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueLessThanMinValue)
+{
     EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {1, 0}}), FAILED);
 }
 
-TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueMoreThanMaxValue) {
+TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueMoreThanMaxValue)
+{
     EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {1, INT64_MAX}}), FAILED);
 }
 
-TEST_F(NBufferMergeTest, TestMode2AndNoDefaultValue) {
+TEST_F(NBufferMergeTest, TestMode2AndNoDefaultValue)
+{
     EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{0, 2}}), SUCCESS);
 }
 
-Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<int64_t, int64_t> vecNBufferSetting) {
+Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<int64_t, int64_t> vecNBufferSetting)
+{
     std::vector<int64_t> tileShape{16, 16};
     const int mgVecParallelLb = 3;
     ComputationalGraphBuilder G;
@@ -225,9 +242,13 @@ Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<
     const int subGraphNum = 10;
     for (int i = 1; i < subGraphNum; i++) {
         std::string strID = std::to_string(i);
-        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
-        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
-        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        EXPECT_EQ(
+            G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}),
+            true);
+        std::vector<std::vector<std::string>> iOperands{
+            {"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{
+            {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
         std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
         std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
         EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
@@ -238,12 +259,12 @@ Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<
     }
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
-    Function *function = G.GetFunction();
+    Function* function = G.GetFunction();
     function->paramConfigs_.vecNBufferSetting = vecNBufferSetting;
     function->paramConfigs_.mgVecParallelLb = mgVecParallelLb;
     function->SetTotalSubGraphCount(subGraphNum);
     NBufferMerge NBM;
     return NBM.RunOnFunction(*function);
 }
-}
-}
+} // namespace tile_fwk
+} // namespace npu

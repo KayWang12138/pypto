@@ -21,6 +21,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/opcode.h"
+#include "interface/utils/source_location.h"
 #include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
@@ -33,7 +34,6 @@ namespace npu::tile_fwk {
                  npu::tile_fwk::ErrorMessage()                    \
                  << "CHECK FAILED: " #cond << "\n"                \
                  << "location: " << npu::tile_fwk::SourceLocation::GetLocationString() << "\n"
-
 
 constexpr int32_t NUM_VALUE_0 = 0;
 constexpr int32_t NUM_VALUE_1 = 1;
@@ -58,7 +58,8 @@ struct TileInfo {
     TileInfo(size_t shapeSize, size_t offsetSize) : shape(shapeSize), offset(offsetSize), validShape(shapeSize) {}
 
     TileInfo(std::vector<int64_t> aShape, std::vector<int64_t> aOffset, std::vector<SymbolicScalar> aValidShape = {})
-        : shape(std::move(aShape)), offset(std::move(aOffset)), validShape(aValidShape) {}
+        : shape(std::move(aShape)), offset(std::move(aOffset)), validShape(aValidShape)
+    {}
 };
 
 struct Input {
@@ -66,27 +67,33 @@ struct Input {
     TileInfo tileInfo;
 };
 
-void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op);
-std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2);
-std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2);
-void CheckAxisRange(const Tensor &tensor, int &axis);
+void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op);
+void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCode);
+void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const std::string& opName);
 
-using TiledFuncType = std::function<void(Function &function, const TileShape &tileShape,
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op)>;
+std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2);
+std::vector<int> GetBroadcastAxes(const Shape& shape1, const Shape& shape2);
+void CheckAxisRange(const Tensor& tensor, int& axis);
+
+using TiledFuncType = std::function<void(
+    Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
+    const std::vector<LogicalTensorPtr>& oOperand, const Operation& op)>;
 class TiledFuncRegistry {
 private:
     TiledFuncRegistry() = default;
     ~TiledFuncRegistry() = default;
 
 public:
-    static TiledFuncRegistry &GetInstance() {
+    static TiledFuncRegistry& GetInstance()
+    {
         static TiledFuncRegistry instance;
         return instance;
     }
 
     void RegisterTiledFunc(const Opcode opcode, TiledFuncType func) { tiledFuncs_[opcode] = func; }
 
-    TiledFuncType GetTiledFunc(const Opcode opcode) {
+    TiledFuncType GetTiledFunc(const Opcode opcode)
+    {
         auto it = tiledFuncs_.find(opcode);
         if (it == tiledFuncs_.end()) {
             return nullptr;
@@ -98,33 +105,37 @@ private:
     std::unordered_map<Opcode, TiledFuncType> tiledFuncs_;
 };
 
-#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                \
-    class OpCoreStr##TiledRegister {                                              \
-    public:                                                                       \
-        OpCoreStr##TiledRegister() {                                              \
-            TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); \
-        }                                                                         \
-    };                                                                            \
+#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                                           \
+    class OpCoreStr##TiledRegister {                                                                         \
+    public:                                                                                                  \
+        OpCoreStr##TiledRegister() { TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); } \
+    };                                                                                                       \
     static OpCoreStr##TiledRegister OpCoreStr##_tiled_register
+
+enum class AIVCore;
 
 class OpSyncQueue {
 public:
     OpSyncQueue() {}
-    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid)
-        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid) {}
+    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid, AIVCore aivCore)
+        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid), aivCore_(aivCore)
+    {}
 
-    OpSyncQueue(int bufid, const std::vector<int> &offset, CoreType coreType, CoreType tirgCoreType)
-        : coreType_(coreType), trigCoreType_(tirgCoreType), gMBufId(bufid), offset_(offset) {}
+    OpSyncQueue(int bufid, const std::vector<int>& offset, CoreType coreType, CoreType tirgCoreType)
+        : coreType_(coreType), trigCoreType_(tirgCoreType), gMBufId(bufid), offset_(offset)
+    {}
 
     PipeType pipeId_{PIPE_S};
     PipeType trigPipeId_{PIPE_S};
     CoreType coreType_{CoreType::AIV};
     CoreType trigCoreType_{CoreType::AIV};
     int eventId_{0};
+    AIVCore aivCore_;
     int gMBufId{0};
     std::vector<int> offset_;
 
-    Json ToJson() const {
+    Json ToJson() const
+    {
         Json j;
         j["pipe_id"] = pipeId_;
         j["trig_pipe"] = trigPipeId_;
@@ -136,7 +147,8 @@ public:
         return j;
     }
 
-    void FromJson(const Json &j) {
+    void FromJson(const Json& j)
+    {
         pipeId_ = static_cast<PipeType>(j["pipe_id"].get<int>());
         trigPipeId_ = static_cast<PipeType>(j["trig_pipe"].get<int>());
         coreType_ = static_cast<CoreType>(j["core_type"].get<int>());
@@ -146,7 +158,8 @@ public:
         offset_ = j["offset"].get<std::vector<int>>();
     }
 
-    std::string Dump() const {
+    std::string Dump() const
+    {
         std::ostringstream oss;
         oss << GetPipeTypeDict().Find(pipeId_) << "," << GetPipeTypeDict().Find(trigPipeId_) << "," << eventId_;
         return oss.str();

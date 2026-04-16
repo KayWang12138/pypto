@@ -38,7 +38,8 @@ struct TestShapeParams {
 };
 
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName) {
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> values(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, values);
@@ -46,17 +47,20 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::vecto
 }
 
 template <typename T>
-static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName) {
+static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileName)
+{
     uint64_t capacity = std::accumulate(shape.begin(), shape.end(), uint64_t{1}, std::multiplies<uint64_t>());
     std::vector<T> golden(capacity, 0);
     readInput<T>(GetGoldenDir() + fileName, golden);
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true, bool nz = true>
+template <
+    typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool isQuantA = false, bool isQuantB = true,
+    bool nz = true>
 void TestMlaPrologQuantV32(
-    const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string layoutKey = "PA_NZ") {
-
+    const TestShapeParams& params, const MlaTileConfig& tileConfig, std::string layoutKey = "PA_NZ")
+{
     int b = params.b;
     int s = params.s;
     int s2 = params.s2;
@@ -100,7 +104,6 @@ void TestMlaPrologQuantV32(
     std::vector<int64_t> qRopeOutShape = {b * s, n1, qkRopeHeadDim};
     std::vector<int64_t> qNormOutShape = {b * s, qLoraRank};
     std::vector<int64_t> qNormScaleOutShape = {b * s, 1};
-
 
     Tensor tokenX(dType, tokenXShape, "tokenX");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
@@ -179,58 +182,60 @@ void TestMlaPrologQuantV32(
     } else {
         dequantScaleWUqQrData = nullptr;
     }
-    std::vector<RawTensorDataPtr> inputDataList = {tokenXData, wDqData, wUqQrData, dequantScaleWUqQrData, wUkData, wDkvKrData,
-        rmsnormGammaCqData, rmsnormGammaCkvData, ropeCosData, ropeSinData, cacheIndexData, kvCacheData, krCacheData, kScaleCacheData};
+    std::vector<RawTensorDataPtr> inputDataList = {
+        tokenXData,  wDqData,        wUqQrData,          dequantScaleWUqQrData,
+        wUkData,     wDkvKrData,     rmsnormGammaCqData, rmsnormGammaCkvData,
+        ropeCosData, ropeSinData,    cacheIndexData,     kvCacheData,
+        krCacheData, kScaleCacheData};
     ProgramData::GetInstance().AppendInputs({inputDataList});
 
-    std::vector<RawTensorDataPtr> outputDataList = {outputQNormData, outputQNormScaleData, outputQNopeData, outputQRopeData};
+    std::vector<RawTensorDataPtr> outputDataList = {
+        outputQNormData, outputQNormScaleData, outputQNopeData, outputQRopeData};
     ProgramData::GetInstance().AppendOutputs({outputDataList});
 
     std::vector<RawTensorDataPtr> goldenDataList = {
         RawTensorData::CreateTensor<kvDtype>(outputQNorm, golden6),
         RawTensorData::CreateTensor<float>(outputQNormScale, golden7),
-        RawTensorData::CreateTensor<T>(outputQNope, golden1),
-        RawTensorData::CreateTensor<T>(outputQRope, golden2)
-    };
+        RawTensorData::CreateTensor<T>(outputQNope, golden1), RawTensorData::CreateTensor<T>(outputQRope, golden2)};
     ProgramData::GetInstance().AppendGoldens({goldenDataList});
 
-    MlaPrologQuantV32(dynamicTokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv,
-        dynamicRopeCos, dynamicRopeSin, dynamicCacheIndex, kvCache, krCache, kScaleCache,
-        dynamicOutputQNorm, dynamicOutputQNormScale,
-        dynamicOutputQNope, dynamicOutputQRope,
-        outputKvCache, outputKrCache, outputKScaleCache,
-        1e-5f, 1e-5f, layoutKey, tileConfig);
+    MlaPrologQuantV32(
+        dynamicTokenX, wDq, wUqQr, dequantScaleWUqQr, wUk, wDkvKr, rmsnormGammaCq, rmsnormGammaCkv, dynamicRopeCos,
+        dynamicRopeSin, dynamicCacheIndex, kvCache, krCache, kScaleCache, dynamicOutputQNorm, dynamicOutputQNormScale,
+        dynamicOutputQNope, dynamicOutputQRope, outputKvCache, outputKrCache, outputKScaleCache, 1e-5f, 1e-5f,
+        layoutKey, tileConfig);
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "qNope ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQNopeData->data(), 0.008f, 1));
+    EXPECT_TRUE(resultCmp<T>(golden1, (T*)outputQNopeData->data(), 0.008f, 1));
     std::cout << "qRope ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden2, (T *)outputQRopeData->data(), 0.005f, 1));
+    EXPECT_TRUE(resultCmp<T>(golden2, (T*)outputQRopeData->data(), 0.005f, 1));
     std::cout << "kv ====== " << std::endl;
     if (isQuantB) {
-        EXPECT_TRUE(resultCmpAbsDelta<kvDtype>(golden3, (kvDtype *)kvCacheData->data(), 1.0f, 1));
+        EXPECT_TRUE(resultCmpAbsDelta<kvDtype>(golden3, (kvDtype*)kvCacheData->data(), 1.0f, 1));
     } else {
-        EXPECT_TRUE(resultCmp<kvDtype>(golden3, (kvDtype *)kvCacheData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<kvDtype>(golden3, (kvDtype*)kvCacheData->data(), 0.003f, 1));
     }
     std::cout << "kr ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden4, (T *)krCacheData->data(), 0.003f, 1));
+    EXPECT_TRUE(resultCmp<T>(golden4, (T*)krCacheData->data(), 0.003f, 1));
     if (isQuantB) {
         std::cout << "kScaleCache ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<float>(golden5, (float *)kScaleCacheData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<float>(golden5, (float*)kScaleCacheData->data(), 0.003f, 1));
     }
     if (isQuantB) {
         std::cout << "qNorm ====== " << std::endl;
-        EXPECT_TRUE(resultCmpAbsDelta<kvDtype>(golden6, (kvDtype *)outputQNormData->data(), 1.0, 1));
+        EXPECT_TRUE(resultCmpAbsDelta<kvDtype>(golden6, (kvDtype*)outputQNormData->data(), 1.0, 1));
         std::cout << "qNormScale ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<float>(golden7, (float *)outputQNormScaleData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<float>(golden7, (float*)outputQNormScaleData->data(), 0.003f, 1));
     } else {
         std::cout << "qNorm ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<kvDtype>(golden6, (kvDtype *)outputQNormData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<kvDtype>(golden6, (kvDtype*)outputQNormData->data(), 0.003f, 1));
     }
 }
 
 ////// fp16, quant, weight nd, "PA_BSND"
-TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {1, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -240,7 +245,8 @@ TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {4, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -250,7 +256,8 @@ TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {8, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -260,7 +267,8 @@ TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -270,7 +278,8 @@ TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -280,7 +289,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -290,7 +300,8 @@ TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {128, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -301,7 +312,8 @@ TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_fp16_quantB) {
 }
 
 // allquant test
-TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 1, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -311,7 +323,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -322,7 +335,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_fp16_quantB) {
 }
 
 // allquant test
-TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 1 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -332,7 +346,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 4 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -342,7 +357,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 16 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -352,7 +368,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 128 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -363,7 +380,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_fp16_quantB) {
 }
 
 // small shape
-TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {1, 1, 1, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -373,7 +391,8 @@ TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_fp16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::float16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_fp16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_fp16_quantB)
+{
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {1, 1, 129, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -384,7 +403,8 @@ TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_fp16_quantB) {
 }
 
 ////// bf16, quant, weight nd, "PA_BSND"
-TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {1, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -394,7 +414,8 @@ TEST_F(MlaPrologQuantV32STest, b1_s64k2_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {4, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -404,7 +425,8 @@ TEST_F(MlaPrologQuantV32STest, b4_s64k2_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {8, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -414,7 +436,8 @@ TEST_F(MlaPrologQuantV32STest, b8_s64k2_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {16, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -424,7 +447,8 @@ TEST_F(MlaPrologQuantV32STest, b16_s64k2_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -434,7 +458,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k2_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {64, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -444,7 +469,8 @@ TEST_F(MlaPrologQuantV32STest, b64_s64k2_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {128, 2, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -455,7 +481,8 @@ TEST_F(MlaPrologQuantV32STest, b128_s64k2_pa_nd_bf16_quantB) {
 }
 
 // allquant test
-TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 1, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -465,7 +492,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k1_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 64 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -476,7 +504,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s64k4_pa_nd_bf16_quantB) {
 }
 
 // allquant test
-TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 1 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -486,7 +515,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s1k4_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 4 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -496,7 +526,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s4k4_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 16 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -506,7 +537,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s16k4_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 4, 128 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -517,7 +549,8 @@ TEST_F(MlaPrologQuantV32STest, b32_s128k4_pa_nd_bf16_quantB) {
 }
 
 // small shape
-TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {1, 1, 1, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -527,7 +560,8 @@ TEST_F(MlaPrologQuantV32STest, b1_s11_pa_nd_bf16_quantB) {
     TestMlaPrologQuantV32<npu::tile_fwk::bfloat16, int8_t, false, true, false>(params, tileConfig, layoutKey);
 }
 
-TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {1, 1, 129, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -538,7 +572,8 @@ TEST_F(MlaPrologQuantV32STest, b1_s129_1_pa_nd_bf16_quantB) {
 }
 
 // unaligned shape
-TEST_F(MlaPrologQuantV32STest, b104_s8k1_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b104_s8k1_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {104, 1, 8 * 1024, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";
@@ -549,7 +584,8 @@ TEST_F(MlaPrologQuantV32STest, b104_s8k1_pa_nd_bf16_quantB) {
 }
 
 // special case from test
-TEST_F(MlaPrologQuantV32STest, b32_s127104_3_pa_nd_bf16_quantB) {
+TEST_F(MlaPrologQuantV32STest, b32_s127104_3_pa_nd_bf16_quantB)
+{
     // b, s1, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 3, 127104, 128, 7168, 1536, 128, 64, 512, 128};
     std::string layoutKey = "PA_BSND";

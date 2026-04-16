@@ -18,23 +18,26 @@
 #include "interface/utils/op_info_manager.h"
 
 namespace npu::tile_fwk {
-OpImplRegister::OpImplRegister(const std::string &opType) : opType_(opType) {}
+OpImplRegister::OpImplRegister(const std::string& opType) : opType_(opType) {}
 
-OpImplRegister::OpImplRegister(const OpImplRegister &registerData) {
+OpImplRegister::OpImplRegister(const OpImplRegister& registerData)
+{
     this->opType_ = registerData.opType_;
     this->implFuncMap_ = registerData.implFuncMap_;
 }
 
 OpImplRegister::~OpImplRegister() {}
 
-void OpImplRegister::AddImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap) {
-    for (const auto &iter : implFuncMap) {
-      ASSERT((iter.first & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
-      implFuncMap_.emplace(iter.first, iter.second);
+void OpImplRegister::AddImplFunc(const std::map<uint64_t, OpImplFunc>& implFuncMap)
+{
+    for (const auto& iter : implFuncMap) {
+        ASSERT((iter.first & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
+        implFuncMap_.emplace(iter.first, iter.second);
     }
 }
 
-void OpImplRegister::AddImplFunc(const uint64_t configKey, const OpImplFunc implFunc) {
+void OpImplRegister::AddImplFunc(const uint64_t configKey, const OpImplFunc implFunc)
+{
     if (implFunc == nullptr) {
         return;
     }
@@ -42,25 +45,29 @@ void OpImplRegister::AddImplFunc(const uint64_t configKey, const OpImplFunc impl
     implFuncMap_.emplace(configKey, implFunc);
 }
 
-std::vector<uint64_t> OpImplRegister::GetAllConfigKeys() const {
+std::vector<uint64_t> OpImplRegister::GetAllConfigKeys() const
+{
     std::vector<uint64_t> configKeys;
-    for (const auto &item : implFuncMap_) {
+    for (const auto& item : implFuncMap_) {
         configKeys.emplace_back(item.first);
     }
     return configKeys;
 }
 
-OpImplFunc OpImplRegister::GetOpImplFunc(const uint64_t configKey) const {
+OpImplFunc OpImplRegister::GetOpImplFunc(const uint64_t configKey) const
+{
     auto iter = implFuncMap_.find(configKey);
     return iter == implFuncMap_.end() ? nullptr : iter->second;
 }
 
-OpImplRegistry &OpImplRegistry::GetInstance() {
+OpImplRegistry& OpImplRegistry::GetInstance()
+{
     static OpImplRegistry instance;
     return instance;
 }
 
-OpImplRegisterPtr OpImplRegistry::CreateOrGetOpRegister(const std::string &opType) {
+OpImplRegisterPtr OpImplRegistry::CreateOrGetOpRegister(const std::string& opType)
+{
     auto iter = opRegisterMap_.find(opType);
     if (iter == opRegisterMap_.end()) {
         OpImplRegisterPtr opRegister = std::make_shared<OpImplRegister>(opType);
@@ -71,7 +78,8 @@ OpImplRegisterPtr OpImplRegistry::CreateOrGetOpRegister(const std::string &opTyp
     }
 }
 
-OpImplFunc OpImplRegistry::GetOpImplFunc(const std::string &opType, const uint64_t configKey) const {
+OpImplFunc OpImplRegistry::GetOpImplFunc(const std::string& opType, const uint64_t configKey) const
+{
     auto iter = opRegisterMap_.find(opType);
     if (iter == opRegisterMap_.end()) {
         return nullptr;
@@ -81,7 +89,8 @@ OpImplFunc OpImplRegistry::GetOpImplFunc(const std::string &opType, const uint64
     return iter->second->GetOpImplFunc(configKey);
 }
 
-std::vector<uint64_t> OpImplRegistry::GetAllConfigKeys(const std::string &opType) const {
+std::vector<uint64_t> OpImplRegistry::GetAllConfigKeys(const std::string& opType) const
+{
     std::vector<uint64_t> configKeys;
     auto iter = opRegisterMap_.find(opType);
     if (iter != opRegisterMap_.end()) {
@@ -90,22 +99,25 @@ std::vector<uint64_t> OpImplRegistry::GetAllConfigKeys(const std::string &opType
     return configKeys;
 }
 
-OpImplRegistHelper::OpImplRegistHelper(const std::string &opType) {
+OpImplRegistHelper::OpImplRegistHelper(const std::string& opType)
+{
     opRegister_ = OpImplRegistry::GetInstance().CreateOrGetOpRegister(opType);
 }
 
 OpImplRegistHelper::~OpImplRegistHelper() {}
 
-OpImplRegistHelper &OpImplRegistHelper::ImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap) {
+OpImplRegistHelper& OpImplRegistHelper::ImplFunc(const std::map<uint64_t, OpImplFunc>& implFuncMap)
+{
     if (opRegister_ != nullptr) {
         opRegister_->AddImplFunc(implFuncMap);
     }
     return *this;
 }
-OpImplRegistHelper &OpImplRegistHelper::ImplFunc(const uint64_t configKey, const OpImplFunc implFunc) {
+OpImplRegistHelper& OpImplRegistHelper::ImplFunc(const uint64_t configKey, const OpImplFunc implFunc)
+{
     if (opRegister_ != nullptr) {
         opRegister_->AddImplFunc(configKey, implFunc);
     }
     return *this;
 }
-}
+} // namespace npu::tile_fwk

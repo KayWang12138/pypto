@@ -23,7 +23,8 @@ const std::string socVerFuncName = "rtGetSocVersion";
 const std::string socSpecFuncName = "rtGetSocSpec";
 const std::string aiCpuCntFuncName = "rtGetAiCpuCount";
 
-void *CannHostRuntime::GetSymbol(const std::string &sym) {
+void* CannHostRuntime::GetSymbol(const std::string& sym)
+{
 #ifdef BUILD_WITH_CANN
     if (handleDep_ != nullptr && handle_ != nullptr) {
         return dlsym(handle_, sym.c_str());
@@ -33,7 +34,8 @@ void *CannHostRuntime::GetSymbol(const std::string &sym) {
     return nullptr;
 }
 
-CannHostRuntime::CannHostRuntime() {
+CannHostRuntime::CannHostRuntime()
+{
 #ifdef BUILD_WITH_CANN
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
     std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
@@ -53,7 +55,8 @@ CannHostRuntime::CannHostRuntime() {
     }
 }
 
-CannHostRuntime::~CannHostRuntime() {
+CannHostRuntime::~CannHostRuntime()
+{
     if (handle_ != nullptr) {
         dlclose(handle_);
     }
@@ -62,12 +65,14 @@ CannHostRuntime::~CannHostRuntime() {
     }
 }
 
-CannHostRuntime &CannHostRuntime::Instance() {
+CannHostRuntime& CannHostRuntime::Instance()
+{
     static CannHostRuntime instance;
     return instance;
 }
 
-bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
+bool CannHostRuntime::GetSocVersion(std::string& socVersion)
+{
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
@@ -84,7 +89,8 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
     return false;
 }
 
-bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& key, std::string& val) {   
+bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& key, std::string& val)
+{
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char charVal[kMaxLength] = {0};
@@ -103,7 +109,8 @@ bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& k
     return false;
 }
 
-bool CannHostRuntime::GetAICPUCnt(size_t &aiCpuCnt) {
+bool CannHostRuntime::GetAICPUCnt(size_t& aiCpuCnt)
+{
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     uint32_t cpuNum = 0;
@@ -118,5 +125,5 @@ bool CannHostRuntime::GetAICPUCnt(size_t &aiCpuCnt) {
     (void)aiCpuCnt;
     return false;
 }
-}  // namespace tile_fwk
-}  // namespace npu
+} // namespace tile_fwk
+} // namespace npu

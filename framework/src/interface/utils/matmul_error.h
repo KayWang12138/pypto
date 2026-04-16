@@ -20,20 +20,20 @@
 namespace npu::tile_fwk {
 
 enum class MatmulErrorCode : uint32_t {
-    
+
     // FC3xxx: 参数错误
-    ERR_PARAM_INVALID       = 0xC3000U,  // 参数无效（shape、dtype、format等）
-    ERR_PARAM_MISMATCH      = 0xC3001U,  // 参数不匹配（维度、类型、K轴等）
-    ERR_PARAM_UNSUPPORTED   = 0xC3002U,  // 不支持的参数
-    
+    ERR_PARAM_INVALID = 0xC3000U,     // 参数无效（shape、dtype、format等）
+    ERR_PARAM_MISMATCH = 0xC3001U,    // 参数不匹配（维度、类型、K轴等）
+    ERR_PARAM_UNSUPPORTED = 0xC3002U, // 不支持的参数
+
     // FC4xxx: 配置错误
-    ERR_CONFIG_TILE         = 0xC4000U,  // Tile 配置错误
-    ERR_CONFIG_ALIGNMENT    = 0xC4001U,  // 对齐错误（16B/32B/64元素）
-    ERR_CONFIG_UNSUPPORTED  = 0xC4002U,  // 不支持的配置组合
-    
+    ERR_CONFIG_TILE = 0xC4000U,        // Tile 配置错误
+    ERR_CONFIG_ALIGNMENT = 0xC4001U,   // 对齐错误（16B/32B/64元素）
+    ERR_CONFIG_UNSUPPORTED = 0xC4002U, // 不支持的配置组合
+
     // FC5xxx: 运行时错误
-    ERR_RUNTIME_NULLPTR     = 0xC5000U,  // 空指针错误
-    ERR_RUNTIME_STATE       = 0xC5001U,  // 内部状态错误
-    ERR_RUNTIME_LOGIC       = 0xC5002U,  // 逻辑不变量错误
+    ERR_RUNTIME_NULLPTR = 0xC5000U, // 空指针错误
+    ERR_RUNTIME_STATE = 0xC5001U,   // 内部状态错误
+    ERR_RUNTIME_LOGIC = 0xC5002U,   // 逻辑不变量错误
 };
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk
