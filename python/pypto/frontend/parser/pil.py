@@ -29,7 +29,8 @@ Simplify rule:
 
 stmt = FunctionDef(identifier name, arguments args,
                     stmt* body, identifier* decorator_list)
-        | Assign(expr target, expr value, string? type_comment) # target only allow for identifier, attribute and subscript
+        | Assign(expr target, expr value, string? type_comment)
+          # target only allow for identifier, attribute and subscript
         | Return(identifier? value)
 
         | For(identifier target, identifier iter, stmt* body, stmt* orelse, string? type_comment)
@@ -100,7 +101,7 @@ PIL_DEFAULT_PREFIX = '_pil_'
 
 class PILContext:
 
-    def __init__(self, prefix = PIL_DEFAULT_PREFIX):
+    def __init__(self, prefix=PIL_DEFAULT_PREFIX):
         self._continue_stack = []
         self._temp_count = 0
         self._prefix = prefix
@@ -233,7 +234,7 @@ class PILBuilder(ast.NodeVisitor):
             return ast.Assign(targets=[result_targets], value=value, **node_attr)
 
     def create_pil_assign_identifier(self,
-         target_name:str,
+         target_name: str,
          source_expr: PILExpr,
          node_attr: PILAttr = NOATTR) -> ast.Assign:
         """
@@ -2356,13 +2357,13 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         return self.visit_stmts(stmts)[0]
 
 
-def parse_func(func: ast.FunctionDef, prefix = PIL_DEFAULT_PREFIX) -> ast.FunctionDef:
-    ctx = PILContext(prefix = prefix)
+def parse_func(func: ast.FunctionDef, prefix=PIL_DEFAULT_PREFIX) -> ast.FunctionDef:
+    ctx = PILContext(prefix=prefix)
     parser = PythonParser(ctx)
     return parser.parse_func(func)
 
 
-def parse_stmts(stmts: list[ast.stmt], prefix = PIL_DEFAULT_PREFIX) -> list[ast.stmt]:
-    ctx = PILContext(prefix = prefix)
+def parse_stmts(stmts: list[ast.stmt], prefix=PIL_DEFAULT_PREFIX) -> list[ast.stmt]:
+    ctx = PILContext(prefix=prefix)
     parser = PythonParser(ctx)
     return parser.parse_stmts(stmts)

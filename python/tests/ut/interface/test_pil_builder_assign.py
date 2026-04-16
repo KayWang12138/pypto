@@ -303,7 +303,7 @@ def test_pil_parser_assign():
         def assign_subscript_binop_slice():
             # obj[a+1 : b*2] = rhs
             var_obj = Expr(0)
-            var_obj[Expr.int(0) + 1 : Expr.int(1) * 2] = Expr.int(2)
+            var_obj[Expr.int(0) + 1: Expr.int(1) * 2] = Expr.int(2)
 
         # --- nested subscript / attr chains ---
 
