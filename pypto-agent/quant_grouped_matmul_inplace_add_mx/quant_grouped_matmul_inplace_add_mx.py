@@ -38,6 +38,9 @@ class GmmGoldenInputs:
         scaled_b: Scale factors for weight tensor [K//64, N, 2]
         y: Output tensor of shape [num_groups, M, N] (初始值)
         group_list: List of group sizes for K-axis splitting
+        group_type: Type of group_list interpretation (default: 0)
+            - 0: group_list elements are individual group sizes, sum equals K
+            - 1: group_list elements are cumulative K values, last element equals K
         a_trans: Whether input tensor is transposed (default: True)
         b_trans: Whether weight tensor is transposed (default: False)
     """
@@ -47,6 +50,7 @@ class GmmGoldenInputs:
     scaled_b: torch.Tensor
     y: torch.Tensor
     group_list: list
+    group_type: int = 0
     a_trans: bool = True
     b_trans: bool = False
 
@@ -64,6 +68,9 @@ class GmmMxfp8Inputs:
         y: Output tensor of shape [num_groups, M, N] (需要在外部初始化)
         group_list: List of group sizes for each weight group
         tile_config: Tile configuration for computation
+        group_type: Type of group_list interpretation (default: 0)
+            - 0: group_list elements are individual group sizes, sum equals K
+            - 1: group_list elements are cumulative K values, last element equals K
     """
     a: torch.Tensor
     b: torch.Tensor
@@ -72,6 +79,7 @@ class GmmMxfp8Inputs:
     y: torch.Tensor
     group_list: list
     tile_config: 'ShapeConfig'
+    group_type: int = 0
 
 
 @dataclass
@@ -86,6 +94,11 @@ class ShapeConfig:
         k_tile_shape: Tile shape for K dimension in cube operation
         n_tile_shape: Tile shape for N dimension in cube operation
         vector_tile_shape: Tile shapes for vector operations
+        group_type: Type of group_list interpretation (default: 0)
+            - 0: group_list elements are individual group sizes, sum equals K
+                 Example: [256, 256] means K=256+256=512
+            - 1: group_list elements are cumulative K values, last element equals K
+                 Example: [256, 512] means first group K=[0,256], second group K=[256,512]
         a_trans: Whether input tensor is transposed (default: True, x1 is [K, M])
         b_trans: Whether weight tensor is transposed (default: False)
         a_format_nz: Whether input uses NZ format (default: False)
@@ -104,6 +117,7 @@ class ShapeConfig:
     k_tile_shape: list
     n_tile_shape: list
     vector_tile_shape: list
+    group_type: int = 0
     a_trans: bool = True
     b_trans: bool = False
     a_format_nz: bool = False
@@ -236,7 +250,7 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     - b is always [K, N], scaled_b is [K//64, N, 2]
 
     Args:
-        inputs: Input parameters including tensors, scales, y, and group_list
+        inputs: Input parameters including tensors, scales, y, group_list and group_type
 
     Returns:
         torch.Tensor: Golden output tensor of shape [num_groups, M, N]
@@ -247,17 +261,25 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     scaled_b = inputs.scaled_b
     y = inputs.y
     group_list = inputs.group_list
+    group_type = inputs.group_type
     a_trans = inputs.a_trans
     b_trans = inputs.b_trans
 
     round_num = len(group_list)
     golden_result = y.clone()
-    begin = 0
-    end = 0
-
+    
+    # 根据 group_type 计算 begin 和 end
+    # group_type=0: group_list 各元素为单独的 group size，累加得到 K
+    # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
     for i in range(round_num):
-        begin = end
-        end = end + group_list[i]
+        if group_type == 0:
+            # 累加方式计算 begin 和 end
+            begin = sum(group_list[:i])
+            end = begin + group_list[i]
+        else:
+            # group_list 直接给出累计值
+            begin = 0 if i == 0 else group_list[i - 1]
+            end = group_list[i]
 
         # Extract input and weight for current group (切分 K 轴)
         # a_trans=True: a is [K, M], 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
@@ -297,6 +319,7 @@ def scaled_matmul_kernel(
     scaled_b: pypto.Tensor(),
     y: pypto.Tensor(),
     group_list: list,
+    group_type: int,
     tile_config: ShapeConfig
 ):
     """
@@ -316,6 +339,9 @@ def scaled_matmul_kernel(
         scaled_b: Scale factors for weight tensor [K//64, N, 2]
         y: Output tensor [num_groups, M, N]
         group_list: List of group sizes for K-axis splitting
+        group_type: Type of group_list interpretation
+            - 0: group_list elements are individual group sizes, sum equals K
+            - 1: group_list elements are cumulative K values, last element equals K
         tile_config: Tile configuration for computation
     
     约束说明 (scaled_mm API 要求):
@@ -355,11 +381,20 @@ def scaled_matmul_kernel(
     n = y.shape[2]
     mm_result_tensor = pypto.tensor([g, m, n], pypto.DT_FP32)
 
-    begin = 0
-    end = 0
+    # 根据 group_type 计算 begin 和 end
+    # group_type=0: group_list 各元素为单独的 group size，累加得到 K
+    # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
     for i in range(g):
-        begin = end
-        end = end + group_list[i]
+        if group_type == 0:
+            # 累加方式计算 begin 和 end
+            begin = 0
+            for j in range(i):
+                begin = begin + group_list[j]
+            end = begin + group_list[i]
+        else:
+            # group_list 直接给出累计值
+            begin = 0 if i == 0 else group_list[i - 1]
+            end = group_list[i]
 
         # Extract input for current group (切分 K 轴)
         # a is [K, M] (transposed), 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
@@ -404,7 +439,7 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     Generate MXFP8 output using PyPTO scaled matrix multiplication with new frontend.
 
     Args:
-        inputs: Input parameters including tensors, scales, y, group list and tile config
+        inputs: Input parameters including tensors, scales, y, group list, group_type and tile config
 
     Returns:
         torch.Tensor: Output tensor of shape [num_groups, M, N] in FP32
@@ -415,6 +450,7 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     scaled_b = inputs.scaled_b
     y = inputs.y
     group_list = inputs.group_list
+    group_type = inputs.group_type
     tile_config = inputs.tile_config
 
     # Move tensors to NPU
@@ -425,7 +461,7 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     y = y.npu()
 
     # Execute scaled matrix multiplication kernel with new frontend
-    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, group_list, tile_config)
+    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, group_list, group_type, tile_config)
 
     y = y.to(torch.float32)
     return y
@@ -477,6 +513,7 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     k = tile_config.ori_shape[1]
     n = tile_config.ori_shape[2]
     group_list = tile_config.group_list
+    group_type = tile_config.group_type
     num_groups = len(group_list)
     # Kernel 固定使用 a_trans=True
     a_trans = True
@@ -504,6 +541,7 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
         scaled_b=scaled_b,
         y=y_init,
         group_list=group_list,
+        group_type=group_type,
         a_trans=a_trans,
         b_trans=b_trans,
     ))
@@ -515,6 +553,7 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
         y=y_init_npu,
         group_list=group_list,
         tile_config=tile_config,
+        group_type=group_type,
     ))
 
     # Verify results
@@ -526,7 +565,8 @@ if __name__ == "__main__":
     # - M=32: 满足 a_trans=True 时内轴 32 字节对齐 (FP8: 32元素=32字节)
     # - K=512: 满足 MX 量化 64 对齐要求
     # - N=7168: 满足 b_trans=False 时内轴 32 字节对齐
-    # - group_list=[256, 256]: K 轴切分为 256+256=512
+    # - group_list=[256, 256]: K 轴切分为 256+256=512 (group_type=0)
+    # - group_type=0: group_list 各元素为单独 group size，累加等于 K
     # - m_tile_shape=[32, 32]: M 维度 tile 32，满足内轴 32 字节对齐
     # - k_tile_shape=[256, 256]: K 维度 tile
     # - n_tile_shape=[256, 256]: N 维度 tile
@@ -538,12 +578,13 @@ if __name__ == "__main__":
             [256, 256],       # k_tile_shape: K 维度 tile
             [256, 256],       # n_tile_shape: N 维度 tile
             [1, 8, 256, 32],  # vector_tile_shape
+            0,                # group_type=0: group_list 各元素为单独 group size
             True,             # a_trans=True: x1 is [K, M]
             False,            # b_trans=False: x2 is [K, N]
             False,
             False,
             False,
-            "Test with K-axis splitting: K=512 split into [256, 256], "
+            "Test with K-axis splitting: K=512 split into [256, 256] (group_type=0), "
             "a_trans=True (x1=[K,M]), M=32 aligned for inner axis 32-byte alignment"
         )
     )
