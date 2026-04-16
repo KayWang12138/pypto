@@ -200,16 +200,16 @@ inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE>& tile)
 
 inline int64_t GetTotalTileNum(const VecTile& tileShape, const Shape& dataShape)
 {
-    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, tileShape.size() == 2)
+    ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, tileShape.size() >= 2)
         << "Invalid dimensional: "
-        << " tileShape dim must be 2, but got dimensional=" << tileShape.size();
+        << " tileShape dim must >= 2, but got dimensional=" << tileShape.size();
     ASSERT(DistributedErrorCode::INVALID_TENSOR_DIM, dataShape.size() >= 2)
         << "Invalid dimensional: "
         << " dataShape dim must >= 2, but got dimensional=" << dataShape.size();
     auto totalRowShape = dataShape[dataShape.size() - 2];
     auto totalColShape = dataShape[dataShape.size() - 1];
-    auto tileRowShape = tileShape[0];
-    auto tileColShape = tileShape[1];
+    auto tileRowShape = tileShape[tileShape.size() - 2];
+    auto tileColShape = tileShape[tileShape.size() - 1];
     auto tileRowNum = totalRowShape / tileRowShape + (totalRowShape % tileRowShape == 0 ? 0 : 1);
     auto tileColNum = totalColShape / tileColShape + (totalColShape % tileColShape == 0 ? 0 : 1);
     return tileRowNum * tileColNum;
