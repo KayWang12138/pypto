@@ -80,6 +80,7 @@ public:
 
     int GetProcessingThresholdSec() const;
     void SetProcessingThresholdSec(int sec);
+    int GetProgressWidth() const;
 
     MonitorManager() = default;
     ~MonitorManager();
