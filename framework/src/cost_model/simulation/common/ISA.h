@@ -332,8 +332,6 @@ public:
     std::vector<TileOpPtr> producers;
     std::vector<TileOpPtr> consumers;
 
-    bool isSubGraphBoundary = false;
-
     FunctionPtr funcPtr = nullptr;
 
     ExecuteInfo exeInfo;

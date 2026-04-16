@@ -23,6 +23,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_utils/pass_error.h"
+#include "passes/pass_utils/boundary_utils.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOSchedule"
@@ -38,7 +39,7 @@ bool OoOScheduleChecker::PreCheckTensorInfo(const LogicalTensorPtr tensor)
         return false;
     }
     // 子图边界上的tensor不检查
-    if (tensor->isSubGraphBoundary) {
+    if (BoundaryUtils::GetInstance().IsBoundary(tensor->magic)) {
         return true;
     }
     // memoryrange对应的memoryid不为-1
@@ -287,7 +288,7 @@ bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, con
 bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int programIdx)
 {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
-    if (memType >= MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
+    if (memType >= MemoryType::MEM_DEVICE_DDR && !(BoundaryUtils::GetInstance().IsBoundary(tensor->magic))) {
         if (tensor->memoryrange.memId == -1) {
             APASS_LOG_ERROR_F(
                 Elements::Operation, "Program %d: %d global tensor memid is -1, OoOSchedule Postcheck failed!",
@@ -342,7 +343,7 @@ bool OoOScheduleChecker::PostCheckNewTensor(std::pair<const int, Function*> prog
                 newtensor->GetMagic());
             return false;
         }
-        if ((newtensor->oriShape.size() == 0) && (newtensor->isSubGraphBoundary)) {
+        if ((newtensor->oriShape.size() == 0) && (BoundaryUtils::GetInstance().IsBoundary(newtensor->magic))) {
             APASS_LOG_ERROR_F(
                 Elements::Operation, "Program %d: %d new tensor orishape is null, OoOSchedule Postcheck failed!",
                 programIdx, newtensor->GetMagic());

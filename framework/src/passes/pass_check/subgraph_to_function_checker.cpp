@@ -16,6 +16,7 @@
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_utils/pass_error.h"
+#include "passes/pass_utils/boundary_utils.h"
 
 #define MODULE_NAME "SubgraphToFunction"
 
@@ -302,7 +303,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function& function)
             bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
             // (这个规则可以在producer都是view操作时跳过)
-            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !iOperand->isSubGraphBoundary &&
+            if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !BoundaryUtils::GetInstance().IsBoundary(iOperand->magic) &&
                 !hasOnlyViewProducers) {
                 APASS_LOG_ERROR_C(
                     TensorErr::TENSOR_SUBGRAPH_BOUNDARY, Elements::Tensor,
@@ -312,7 +313,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function& function)
                 return FAILED;
             }
             // Rule 2: Operands with consumer in a different subgraph must be marked as subgraph boundary
-            if (subGraphId != iOperand->subGraphID && !iOperand->isSubGraphBoundary) {
+            if (subGraphId != iOperand->subGraphID && !BoundaryUtils::GetInstance().IsBoundary(iOperand->magic)) {
                 APASS_LOG_ERROR_C(
                     TensorErr::TENSOR_SUBGRAPH_BOUNDARY, Elements::Tensor,
                     "Input operand %zu of operation %zu (opdump: %s) has a consumer in a different subgraph but not "
@@ -321,7 +322,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function& function)
                 return FAILED;
             }
             // Rule 3: Input operands of special ops (e.g., OP_UB_COPY_IN) must be marked as subgraph boundary
-            if (IsCopyIn(op.GetOpcode()) && !iOperand->isSubGraphBoundary) {
+            if (IsCopyIn(op.GetOpcode()) && !BoundaryUtils::GetInstance().IsBoundary(iOperand->magic)) {
                 APASS_LOG_ERROR_C(
                     TensorErr::TENSOR_SUBGRAPH_BOUNDARY, Elements::Tensor,
                     "Input operand %zu of IsCopyIn operation %zu (opdump: %s) is not marked as subgraph boundary! %s",
@@ -335,7 +336,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function& function)
             // 特殊情况：如果producer有且只有view操作，在Rule 1中不需要标记为子图边界
             bool hasOnlyViewProducers = HasOnlyViewProducers(producers);
             // Rule 1: Operands from DDR memory must be marked as subgraph boundary
-            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !oOperand->isSubGraphBoundary &&
+            if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && !BoundaryUtils::GetInstance().IsBoundary(oOperand->magic) &&
                 !hasOnlyViewProducers) {
                 APASS_LOG_ERROR_C(
                     TensorErr::TENSOR_SUBGRAPH_BOUNDARY, Elements::Tensor,
@@ -345,7 +346,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function& function)
                 return FAILED;
             }
             // Rule 2: Operands with producer in a different subgraph must be marked as subgraph boundary
-            if (subGraphId != oOperand->subGraphID && !oOperand->isSubGraphBoundary) {
+            if (subGraphId != oOperand->subGraphID && !BoundaryUtils::GetInstance().IsBoundary(oOperand->magic)) {
                 APASS_LOG_ERROR_C(
                     TensorErr::TENSOR_SUBGRAPH_BOUNDARY, Elements::Tensor,
                     "Output operand %zu of operation %zu (opdump: %s) has a producer in a different subgraph but not "
@@ -355,7 +356,7 @@ Status SubGraphToFuncChecker::CheckSubGraphBoundary(Function& function)
             }
             // Rule 3: Output operands of special ops (e.g., OP_UB_COPY_OUT, OP_TRANSPOSE_DATA_MOVE, OP_INDEX_OUTCAST)
             // must be marked as subgraph boundary
-            if (IsCopyOut(op.GetOpcode()) && !oOperand->isSubGraphBoundary) {
+            if (IsCopyOut(op.GetOpcode()) && !BoundaryUtils::GetInstance().IsBoundary(oOperand->magic)) {
                 APASS_LOG_ERROR_C(
                     TensorErr::TENSOR_SUBGRAPH_BOUNDARY, Elements::Tensor,
                     "Output operand %zu of IsCopyOut operation %zu (opdump: %s) is not marked as subgraph boundary! %s",

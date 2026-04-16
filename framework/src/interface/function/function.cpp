@@ -1269,12 +1269,7 @@ void Function::ProducerMagicLookup(
             ss << op->GetTileShape().ToString();
         }
         if (op->GetOpAttribute() != nullptr) {
-            if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                if (!op->oOperand[0]->isSubGraphBoundary) {
-                    ss << " " << op->GetOpAttribute()->Dump();
-                }
-            } else if (
-                (!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
+            if ((!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
                 function->GetGraphType() != GraphType::BLOCK_GRAPH) {
                 ss << " " << op->GetOpAttribute()->Dump();
             }

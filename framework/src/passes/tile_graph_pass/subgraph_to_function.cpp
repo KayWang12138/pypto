@@ -24,6 +24,7 @@
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/boundary_utils.h"
 
 #undef MODULE_NAME
 #define MODULE_NAME "SubgraphToFunction"
@@ -134,7 +135,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
     auto& op = *nLIST[i][j];
     // 这里逻辑可能有一些问题，期望是尽可能不要把inplace语义的COPY_OUT的输出变成leaf的incast
     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-        if (!iOperand->isSubGraphBoundary) {
+        if (!BoundaryUtils::GetInstance().IsBoundary(iOperand->magic)) {
             return;
         }
     }
@@ -144,7 +145,7 @@ void SubgraphToFunction::RecordIncastInfo(Function& function, RecordInfo recordI
             iOperand, nLIST[i][j]->opmagic);
         return;
     }
-    if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!BoundaryUtils::GetInstance().IsBoundary(iOperand->magic) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto producers = iOperand->GetProducers();
@@ -205,7 +206,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
     // boundary outCasts_
     int refCount = 0;
     typename SubfuncInvokeInfoTy::SuccessorIncastInfoTy relatedIncastList;
-    if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (!BoundaryUtils::GetInstance().IsBoundary(oOperand->magic) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return;
     }
     auto consumers = oOperand->GetConsumers();
@@ -217,7 +218,7 @@ void SubgraphToFunction::RecordOutcastInfo(Function& function, RecordInfo record
         refCount++;
         int connectedTgtOperandIdx = oOperand->magic;
         relatedIncastList.push_back(typename SubfuncInvokeInfoTy::SuccessorIncastRecTy(
-            eSgId, connectedTgtOperandIdx, nullptr, consumer->GetOpMagic()));
+                eSgId, connectedTgtOperandIdx, nullptr, consumer->GetOpMagic()));
     }
     iter.RecordOutcast(
         i, k, refCount, oOperand->GetRawMagic(), relatedIncastList, offset, shape, oOperand->tensor->rawshape,
@@ -309,7 +310,7 @@ void SubgraphToFunction::ProcessInputOperands(
         auto offset = iOperand->offset;
         auto shape = iOperand->shape;
         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && !iOperand->GetProducers().empty()) {
-            if (!iOperand->isSubGraphBoundary) {
+            if (!BoundaryUtils::GetInstance().IsBoundary(iOperand->magic)) {
                 continue;
             }
         }
@@ -326,7 +327,7 @@ void SubgraphToFunction::ProcessInputOperands(
             tParamLoc++;
             continue;
         }
-        if (!iOperand->isSubGraphBoundary || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!BoundaryUtils::GetInstance().IsBoundary(iOperand->magic) || iOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendIncastParam(
@@ -361,7 +362,7 @@ void SubgraphToFunction::ProcessOutputOperands(
             tParamLoc++;
             continue;
         }
-        if (!oOperand->isSubGraphBoundary || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (!BoundaryUtils::GetInstance().IsBoundary(oOperand->magic) || oOperand->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         pSgParamInfo.AppendOutcastParam(
@@ -951,10 +952,10 @@ Status SubgraphToFunction::TransViewToCopyInBeforeGenSubgraph(Function& function
         }
         viewToCopyInMapping_.emplace(&op, op.GetOpAttribute());
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-            OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), viewOpAttribute->GetTo(),
-            OpImmediate::Specified(op.oOperand.front()->shape),
-            OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
-            OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())));
+                OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), viewOpAttribute->GetTo(),
+                OpImmediate::Specified(op.oOperand.front()->shape),
+                OpImmediate::Specified(op.iOperand.front()->tensor->GetDynRawShape()),
+                OpImmediate::Specified(viewOpAttribute->GetToDynValidShape())));
     }
     return SUCCESS;
 }
