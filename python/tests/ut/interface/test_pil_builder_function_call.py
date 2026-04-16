@@ -114,100 +114,85 @@ def test_pil_parser_lambda():
 
         @TestParser.test
         def lambda_no_args():
-            f = lambda: Expr.str(0)
-            var_r = f()
+            var_r = (lambda: Expr.str(0))()
 
         # --- 单参数, body 是调用 ---
 
         @TestParser.test
         def lambda_single_arg():
-            f = lambda x: Expr.str(x)
-            var_r = f(Expr.int(0))
+            var_r = (lambda x: Expr.str(x))(Expr.int(0))
 
         # --- 多参数 ---
 
         @TestParser.test
         def lambda_multiple_args():
-            f = lambda x, y: Expr.str(x)
-            var_r = f(Expr.int(0), Expr.int(1))
+            var_r = (lambda x, y: Expr.str(x))(Expr.int(0), Expr.int(1))
 
         # --- 带默认值, default 未被覆盖 ---
 
         @TestParser.test
         def lambda_default_not_overridden():
-            f = lambda x=Expr.int(0): Expr.str(x)
-            var_r = f()
+            var_r = (lambda x=Expr.int(0): Expr.str(x))()
 
         # --- 带默认值, default 被覆盖 ---
 
         @TestParser.test
         def lambda_default_overridden():
-            f = lambda x=Expr.int(0): Expr.str(x)
-            var_r = f(Expr.int(1))
+            var_r = (lambda x=Expr.int(0): Expr.str(x))(Expr.int(1))
 
         # --- *args 可变参数 ---
 
         @TestParser.test
         def lambda_vararg():
-            f = lambda *args: Expr.str(args[0])
-            var_r = f(Expr.int(0), Expr.int(1))
+            var_r = (lambda *args: Expr.str(args[0]))(Expr.int(0), Expr.int(1))
 
         # --- keyword-only 参数 ---
 
         @TestParser.test
         def lambda_kwonly():
-            f = lambda *, key: Expr.str(key)
-            var_r = f(key=Expr.int(0))
+            var_r = (lambda *, key: Expr.str(key))(key=Expr.int(0))
 
         @TestParser.test
         def lambda_kwonly_default_not_overridden():
-            f = lambda *, key=0: Expr.str(key)
-            var_r = f()
+            var_r = (lambda *, key=0: Expr.str(key))()
 
         # --- **kwargs ---
 
         @TestParser.test
         def lambda_kwargs():
-            f = lambda **kw: Expr.str(kw['x'])
-            var_r = f(x=Expr.int(0))
+            var_r = (lambda **kw: Expr.str(kw['x']))(x=Expr.int(0))
 
         # --- body 是常数 ---
 
         @TestParser.test
         def lambda_body_const():
-            f = lambda: 42
-            var_x = f()
+            var_x = (lambda: 42)()
             Expr.str(var_x)
 
         # --- body 是 binop ---
 
         @TestParser.test
         def lambda_body_binop():
-            f = lambda x: x + Expr.int(1)
-            var_x = f(Expr.int(0))
+            var_x = (lambda x: x + Expr.int(1))(Expr.int(0))
             Expr.str(var_x)
 
         # --- body 是 ifexp ---
 
         @TestParser.test
         def lambda_body_ifexp():
-            f = lambda x: Expr.str(0) if Expr.true(x) else Expr.str(1)
-            var_r = f(Expr.int(0))
+            var_r = (lambda x: Expr.str(0) if Expr.true(x) else Expr.str(1))(Expr.int(0))
 
         # --- body 是嵌套调用 ---
 
         @TestParser.test
         def lambda_body_nested_call():
-            f = lambda x: Expr.str(Expr.int(x))
-            var_r = f(0)
+            var_r = (lambda x: Expr.str(Expr.int(x)))(0)
 
         # --- 嵌套 lambda: outer 返回 lambda, inner 不加 var_ ---
 
         @TestParser.test
         def lambda_nested():
-            outer = lambda x: lambda y: Expr.str(x)
-            inner = outer(Expr.int(0))
-            var_r = inner(Expr.int(1))
+            var_r = ((lambda x: lambda y: Expr.str(x))(Expr.int(0)))(Expr.int(1))
 
         # --- lambda 作为高阶函数参数 ---
 
