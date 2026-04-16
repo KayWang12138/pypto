@@ -347,7 +347,7 @@ std::string PipeSync::DepOp::DumpDepOp(std::vector<Operation*> opLog)
 std::string PipeSync::IssueQueue::DumpIssueQueue(std::vector<Operation*> opLogPtr)
 {
     std::stringstream ss;
-    ss << "pipe type: " << GetPipeTypeDict().Find(selfPipeCore.pipe) << ", Op in this pipe: {";
+    ss << " Op in this pipe: {";
     for (auto op : ops) {
         ss << opLogPtr[op]->GetOpMagic() << " " << opLogPtr[op]->GetOpcodeStr() << ", ";
     }
@@ -389,16 +389,24 @@ std::string PipeSync::PipeSeqName(PipeSeq seq) const
             return "AIC_M";
         case PipeSeq::AIC_FIX:
             return "AIC_FIX";
-        case PipeSeq::AIV_MTE2:
-            return "AIV_MTE2";
-        case PipeSeq::AIV_V:
-            return "AIV_V";
-        case PipeSeq::AIV_MTE3:
-            return "AIV_MTE3";
+        case PipeSeq::AIV0_MTE2:
+            return "AIV0_MTE2";
+        case PipeSeq::AIV1_MTE2:
+            return "AIV1_MTE2";
+        case PipeSeq::AIV0_V:
+            return "AIV0_V";
+        case PipeSeq::AIV1_V:
+            return "AIV1_V";
+        case PipeSeq::AIV0_MTE3:
+            return "AIV0_MTE3";
+        case PipeSeq::AIV1_MTE3:
+            return "AIV1_MTE3";
         case PipeSeq::AIC_MTE3:
             return "AIC_MTE3";
-        case PipeSeq::AIV_S:
-            return "AIV_S";
+        case PipeSeq::AIV0_S:
+            return "AIV0_S";
+        case PipeSeq::AIV1_S:
+            return "AIV1_S";
         case PipeSeq::AIC_S:
             return "AIC_S";
         case PipeSeq::PIPE_END:
@@ -408,25 +416,29 @@ std::string PipeSync::PipeSeqName(PipeSeq seq) const
     }
 }
 
-std::map<PipeSync::PipeCoreReal, PipeSeq, PipeSync::PipeCoreRealCompare> PipeSync::pipe2Seq = {
-    {{PIPE_MTE2, CoreType::AIC}, PipeSeq::AIC_MTE2}, {{PIPE_MTE1, CoreType::AIC}, PipeSeq::AIC_MTE1},
-    {{PIPE_M, CoreType::AIC}, PipeSeq::AIC_M},       {{PIPE_FIX, CoreType::AIC}, PipeSeq::AIC_FIX},
-    {{PIPE_MTE2, CoreType::AIV}, PipeSeq::AIV_MTE2}, {{PIPE_V, CoreType::AIV}, PipeSeq::AIV_V},
-    {{PIPE_MTE3, CoreType::AIV}, PipeSeq::AIV_MTE3}, {{PIPE_MTE3, CoreType::AIC}, PipeSeq::AIC_MTE3},
-    {{PIPE_S, CoreType::AIV}, PipeSeq::AIV_S},       {{PIPE_S, CoreType::AIC}, PipeSeq::AIC_S},
+std::map<PipeSync::PipeCoreRealEx, PipeSeq, PipeSync::PipeCoreRealExCompare> PipeSync::pipe2Seq = {
+    {{PIPE_MTE2, CoreType::AIC, AIVCore::UNSPECIFIED}, PipeSeq::AIC_MTE2}, {{PIPE_MTE1, CoreType::AIC, AIVCore::UNSPECIFIED}, PipeSeq::AIC_MTE1},
+    {{PIPE_M, CoreType::AIC, AIVCore::UNSPECIFIED}, PipeSeq::AIC_M},       {{PIPE_FIX, CoreType::AIC, AIVCore::UNSPECIFIED}, PipeSeq::AIC_FIX},
+    {{PIPE_MTE3, CoreType::AIC, AIVCore::UNSPECIFIED}, PipeSeq::AIC_MTE3}, {{PIPE_S, CoreType::AIC, AIVCore::UNSPECIFIED}, PipeSeq::AIC_S},
+    {{PIPE_MTE2, CoreType::AIV, AIVCore::AIV0}, PipeSeq::AIV0_MTE2},       {{PIPE_MTE2, CoreType::AIV, AIVCore::AIV1}, PipeSeq::AIV1_MTE2},
+    {{PIPE_V, CoreType::AIV, AIVCore::AIV0}, PipeSeq::AIV0_V},             {{PIPE_V, CoreType::AIV, AIVCore::AIV1}, PipeSeq::AIV1_V},
+    {{PIPE_MTE3, CoreType::AIV, AIVCore::AIV0}, PipeSeq::AIV0_MTE3},       {{PIPE_MTE3, CoreType::AIV, AIVCore::AIV1}, PipeSeq::AIV1_MTE3},
+    {{PIPE_S, CoreType::AIV, AIVCore::AIV0}, PipeSeq::AIV0_S},             {{PIPE_S, CoreType::AIV, AIVCore::AIV1}, PipeSeq::AIV1_S},
 };
 
-std::map<PipeSeq, PipeSync::PipeCoreReal> PipeSync::seq2pipe = {
-    {PipeSeq::AIC_MTE2, {PIPE_MTE2, CoreType::AIC}}, {PipeSeq::AIC_MTE1, {PIPE_MTE1, CoreType::AIC}},
-    {PipeSeq::AIC_M, {PIPE_M, CoreType::AIC}},       {PipeSeq::AIC_FIX, {PIPE_FIX, CoreType::AIC}},
-    {PipeSeq::AIV_MTE2, {PIPE_MTE2, CoreType::AIV}}, {PipeSeq::AIV_V, {PIPE_V, CoreType::AIV}},
-    {PipeSeq::AIV_MTE3, {PIPE_MTE3, CoreType::AIV}}, {PipeSeq::AIC_MTE3, {PIPE_MTE3, CoreType::AIC}},
-    {PipeSeq::AIV_S, {PIPE_S, CoreType::AIV}},       {PipeSeq::AIC_S, {PIPE_S, CoreType::AIC}},
+std::map<PipeSeq, PipeSync::PipeCoreRealEx> PipeSync::seq2pipe = {
+    {PipeSeq::AIC_MTE2, {PIPE_MTE2, CoreType::AIC, AIVCore::UNSPECIFIED}}, {PipeSeq::AIC_MTE1, {PIPE_MTE1, CoreType::AIC, AIVCore::UNSPECIFIED}},
+    {PipeSeq::AIC_M, {PIPE_M, CoreType::AIC, AIVCore::UNSPECIFIED}},       {PipeSeq::AIC_FIX, {PIPE_FIX, CoreType::AIC, AIVCore::UNSPECIFIED}},
+    {PipeSeq::AIC_MTE3, {PIPE_MTE3, CoreType::AIC, AIVCore::UNSPECIFIED}}, {PipeSeq::AIC_S, {PIPE_S, CoreType::AIC, AIVCore::UNSPECIFIED}},
+    {PipeSeq::AIV0_MTE2, {PIPE_MTE2, CoreType::AIV, AIVCore::AIV0}},       {PipeSeq::AIV1_MTE2, {PIPE_MTE2, CoreType::AIV, AIVCore::AIV1}},
+    {PipeSeq::AIV0_V, {PIPE_V, CoreType::AIV, AIVCore::AIV0}},             {PipeSeq::AIV1_V, {PIPE_V, CoreType::AIV, AIVCore::AIV1}},
+    {PipeSeq::AIV0_MTE3, {PIPE_MTE3, CoreType::AIV, AIVCore::AIV0}},       {PipeSeq::AIV1_MTE3, {PIPE_MTE3, CoreType::AIV, AIVCore::AIV1}},
+    {PipeSeq::AIV0_S, {PIPE_S, CoreType::AIV, AIVCore::AIV0}},             {PipeSeq::AIV1_S, {PIPE_S, CoreType::AIV, AIVCore::AIV1}},
 };
 
-PipeSeq PipeSync::GetPipeSeq(PipeSync::PipeCoreReal pipe) { return pipe2Seq.at(pipe); }
+PipeSeq PipeSync::GetPipeSeq(PipeSync::PipeCoreRealEx pipe) { return pipe2Seq.at(pipe); }
 
-PipeSync::PipeCoreReal PipeSync::GetPipeFromSeq(PipeSeq seq) { return seq2pipe.at(seq); }
+PipeSync::PipeCoreRealEx PipeSync::GetPipeFromSeq(PipeSeq seq) { return seq2pipe.at(seq); }
 
 Status PipeSync::AdjustCopyInCfg(TileOpCfg& opcfg, const Operation& op)
 {
@@ -538,13 +550,13 @@ void PipeSync::EnqueueOp(DepOp& op, const std::vector<Operation*> opLogPtr, std:
         syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, std::ref(*opLogPtr[op.idx])));
         return;
     }
-    PipeCoreReal opPipeCore(op.selfPipeCore.pipeEnd, op.selfPipeCore.core);
-    auto& issueQ = issueState_[static_cast<int>(GetPipeSeq(opPipeCore))];
+    AIVCore aivCore = oriOpList_[op.idx]->GetAIVCore();
+    PipeCoreRealEx opPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, aivCore);
+    auto& issueQ = issueState_[static_cast<int>(GetPipeSeq(opPipeCoreEx))];
     issueQ.ops.emplace_back(op.idx);
     op.idxInPipe = issueQ.ops.size() - 1;
     // 若op的pipeStart和pipeEnd不同, 进行记录
     if (op.selfPipeCore.pipeStart != op.selfPipeCore.pipeEnd) {
-        AIVCore aivCore = oriOpList_[op.idx]->GetAIVCore();
         PipeCoreRealEx opPipeCoreExStart(op.selfPipeCore.pipeStart, op.selfPipeCore.core, aivCore);
         PipeCoreRealEx opPipeCoreExEnd(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, aivCore);
         PipePairEx pp{opPipeCoreExStart, opPipeCoreExEnd};
@@ -588,9 +600,11 @@ Status PipeSync::AddOpDep(DepOp& setOp, DepOp& waitOp)
             APASS_LOG_ERROR_F(Elements::Operation, "This dependency should not exist, AddOpDep failed.");
             return FAILED;
         }
-        PipeCoreReal elePipeCore(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core);
-        PipeCoreReal waitOpPipeCore(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core);
-        if (elePipeCore == waitOpPipeCore) {
+        AIVCore eleAIVCore = oriOpList_[ele]->GetAIVCore();
+        AIVCore waitAIVCore = oriOpList_[waitOpIdx]->GetAIVCore();
+        PipeCoreRealEx elePipeCoreEx(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, eleAIVCore);
+        PipeCoreRealEx waitOpPipeCoreEx(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core, waitAIVCore);
+        if (elePipeCoreEx == waitOpPipeCoreEx) {
             if (ele <= waitOpIdx) {
                 APASS_LOG_ERROR_F(Elements::Operation, "New waitidx should less than old, AddOpDep failed.");
                 return FAILED;
@@ -619,6 +633,13 @@ Status PipeSync::AdjustOpDep(DepOp& op, size_t waitOpIdx, IssueQueue& issueQ, bo
     }
 
     auto& nextOpIdx = issueQ.ops[issueQ.currOp + 1];
+
+    // next op的idx要小于waitop
+    if (nextOpIdx > waitOpIdx) {
+        APASS_LOG_DEBUG_F(Element::Operation, "Cannot AdjustOpDep because nextop idx > waitop idx.");
+        failedFlag = true;
+    }
+
     auto& nextOp = depOps_[nextOpIdx];
     RemoveOpDep(op, waitOp);
     if (AddOpDep(nextOp, waitOp) != SUCCESS) {
@@ -756,7 +777,7 @@ Status PipeSync::InjectWaitFlag(Function& function, size_t idx, std::vector<Inde
             syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(),
             GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
             GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_,
-            static_cast<int>(syncOp.syncQueue_.coreType_));
+            static_cast<int>(syncOp.syncQueue_.aivCore_));
         std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
         GetFreeEventIdQueue({setPipeRealEx, currPipeRealEx}, ele, idx, setWaitCoreType).push_back(eventId);
         if (setPipeRealEx.core != currPipeRealEx.core) {
@@ -795,7 +816,7 @@ Status PipeSync::InjectSetFlag(Function& function, size_t idx, std::vector<Index
                 syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(),
                 GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
                 GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_,
-                static_cast<int>(syncOp.syncQueue_.coreType_));
+                static_cast<int>(syncOp.syncQueue_.aivCore_));
             setWaitPairMap_[{idx, ele}] = eventId;
             // 记录wait op 和 setflag的对应关系
             setOpMap.emplace(&syncOp, oriOpList_[ele]);
