@@ -253,14 +253,15 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
         end = end + group_list[i]
 
         # Extract input and weight for current group (切分 K 轴)
-        # a: [K, M] (transposed) -> x: [K_block, M] or [M, K_block] depends on a_trans
-        # b: [K, N] -> weight: [K_block, N]
+        # a_trans=True: a is [K, M], 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
+        # a_trans=False: a is [M, K], 切分 K 轴 = 切分第二维 -> a[:, begin:end] -> [M, K_block]
+        # b is always [K, N], 切分 K 轴 = 切分第一维 -> b[begin:end, :] -> [K_block, N]
         if a_trans:
-            x = a[:, begin:end]  # [K, M] 切分 K 轴 -> [K_block, M] after transpose will be [M, K_block]
-            scaled_x_golden = scaled_a[:, begin // 64 : end // 64, :]  # [K//64, M, 2] 切分后 [K_block//64, M, 2]
+            x = a[begin:end, :]  # [K, M] 切分 K 轴 -> [K_block, M]
+            scaled_x_golden = scaled_a[begin // 64 : end // 64, :, :]  # [K//64, M, 2] 切分后 [K_block//64, M, 2]
         else:
-            x = a[begin:end, :]  # [M, K] 切分 K 轴 -> [M, K_block]
-            scaled_x_golden = scaled_a[begin // 64 : end // 64, :, :]  # [M, K//64, 2] 切分后 [M, K_block//64, 2]
+            x = a[:, begin:end]  # [M, K] 切分 K 轴 -> [M, K_block]
+            scaled_x_golden = scaled_a[:, begin // 64 : end // 64, :]  # [M, K//64, 2] 切分后 [M, K_block//64, 2]
         
         weight = b[begin:end, :]  # [K_block, N]
         scaled_weight_golden = scaled_b[begin // 64 : end // 64, :, :]  # [K_block//64, N, 2]
