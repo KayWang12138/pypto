@@ -40,7 +40,7 @@ public:
 
     static int64_t Pad(int64_t dim, int64_t padValue);
 
-    static void ProcessLastDim32BAligned(LogicalTensorPtr tensor);
+    static void ProcessLastDim32BAlignedOnUB(LogicalTensorPtr tensor);
 
     /**
      * @brief Check whether UB tensor last dimension needs padding.

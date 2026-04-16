@@ -916,7 +916,7 @@ Status ReplaceTensor::InsertCopyDDROp(Function& function, Operation* needInsertC
     }
     auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
     //为copy到Ub的Tensor进行32B对齐
-    AlignmentUtils::ProcessLastDim32BAligned(copyInOutputPtr);
+    AlignmentUtils::ProcessLastDim32BAlignedOnUB(copyInOutputPtr);
     auto& copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(input->GetOffset()), MemoryType::MEM_UB, OpImmediate::Specified(copyShape),
