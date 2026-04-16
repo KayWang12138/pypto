@@ -122,10 +122,7 @@ std::string CodeGenOpNPU::GenTemplateParamsForPutUb2Gm() const
 
     Distributed::ShmemPutAttr distOpAttr = AnyCast<Distributed::ShmemPutAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
 
-    const std::vector<int64_t>& shmemTensorRawShape = rawShape[shmemDataIndex];
-    int64_t dstStride = shmemTensorRawShape[shmemTensorRawShape.size() - 1];
-
-    oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", " << dstStride << ", "
+    oss << "<" << GetTemplateDType() << ", " << tileRowShape << ", " << tileColShape << ", "
         << Distributed::ToString(distOpAttr.atomicType) << ">";
     return oss.str();
 }
@@ -136,9 +133,10 @@ std::string CodeGenOpNPU::GenTemplateParamsForSignal() const
     Distributed::ShmemSignalAttr distOpAttr =
         AnyCast<Distributed::ShmemSignalAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     oss << "<" << std::to_string(distOpAttr.signalValue) << ", " << std::to_string(distOpAttr.signalStride) << ", "
-        << std::to_string(distOpAttr.tileRowShape) << ", " << std::to_string(distOpAttr.tileColShape) << ", "
         << Distributed::ToString(distOpAttr.atomicType) << ", " << (distOpAttr.notifyAll ? "true" : "false") << ", "
-        << std::to_string(distOpAttr.worldSize) << ">";
+        << std::to_string(distOpAttr.worldSize) << ", " << std::to_string(distOpAttr.tileShape[0]) << ", "
+        << std::to_string(distOpAttr.tileShape[1]) << ", " << std::to_string(distOpAttr.tileShape[2]) << ", "
+        << std::to_string(distOpAttr.tileShape[3]) << ", " << std::to_string(distOpAttr.tileShapeDim) << ">";
     return oss.str();
 }
 
@@ -167,11 +165,12 @@ std::string CodeGenOpNPU::GenTemplateParamsForSet() const
     size_t shmemTensorDim = rawShape[shmemTensorIndex].size();
     ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, shmemTensorDim >= 2)
         << "shmem tensor dim = " << shmemTensorDim << ", should >= 2.";
-    Shape actualRawShape = distOpAttr.isSetData ?
-                               rawShape[shmemTensorIndex] :
-                               Shape{rawShape[shmemTensorIndex][0], Distributed::SHMEM_SIGNAL_STRIDE};
-    oss << "<" << GetTemplateDType() << ", " << actualRawShape[0] << ", " << actualRawShape[1] << ", " << bufferEleNum
-        << ">";
+    if (distOpAttr.isSetData) {
+        oss << "<" << GetTemplateDType() << ", " << bufferEleNum << ">";
+    } else {
+        oss << "<" << GetTemplateDType() << ", " << rawShape[shmemTensorIndex][0] << ", "
+            << Distributed::SHMEM_SIGNAL_STRIDE << ", " << bufferEleNum << ">";
+    }
     return oss.str();
 }
 
@@ -235,8 +234,9 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapes(int32_t operandIndex) const
     return GenOffsets(operandIndex) + ", " + GenRawShapes(operandIndex);
 }
 
-std::string CodeGenOpNPU::GenDynOffset(int32_t operandIndex) const
+std::vector<std::string> CodeGenOpNPU::GenDynOffset(int32_t operandIndex) const
 {
+    std::vector<std::string> paramExpr;
     std::ostringstream oss;
     size_t dim = originShape[operandIndex].size();
     for (size_t index = 0; index < dim; ++index) {
@@ -249,20 +249,20 @@ std::string CodeGenOpNPU::GenDynOffset(int32_t operandIndex) const
             oss << ", ";
         }
     }
-    return oss.str();
+    paramExpr.emplace_back(oss.str());
+    return paramExpr;
 }
 
 std::string CodeGenOpNPU::GenDynValidShape(int32_t operandIndex) const
 {
-    std::ostringstream oss;
-    size_t dim = originShape[operandIndex].size();
-    for (size_t index = 0; index < dim; ++index) {
-        oss << dynamicValidShape[operandIndex][index];
-        if (index != dim - 1) {
-            oss << ", ";
-        }
+    auto srcDynValidShape = dynamicValidShape[operandIndex];
+    FillVecWithDummyInHead<SymbolicScalar>(srcDynValidShape, SHAPE_DIM5 - dynamicValidShape[operandIndex].size(), 1);
+    std::vector<std::string> paramList;
+    for (auto dynShape : srcDynValidShape) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
     }
-    return oss.str();
+    std::string tileOpCallParam = JoinString(paramList, CONN_COMMA);
+    return tileOpCallParam;
 }
 
 std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemPut() const
@@ -271,8 +271,22 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemPut() const
     int32_t nonShmemDataIndex = 3;
     int32_t shmemDataIndex = 4;
     int32_t outPutDataIndex = 0;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", " << GenDynValidShape(outPutDataIndex) << ", "
-        << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex);
+
+    std::string srcTensor = QueryTileTensorNameByIdx(nonShmemDataIndex);
+    std::string dstTensor = QueryTileTensorNameByIdx(shmemDataIndex);
+
+    int32_t srcDim = originShape[nonShmemDataIndex].size();
+    auto srcOffsetSymbol = GenGetParamMacroPacked(nonShmemDataIndex, srcDim, PREFIX_STR_OFFSET);
+    std::string srcCoordCp = WrapParamByParentheses(srcOffsetSymbol);
+    std::string srcCoord = PrintCoord(srcDim, srcCoordCp);
+
+    int32_t dstDim = originShape[shmemDataIndex].size();
+    auto dstOffsetSymbol = GenDynOffset(shmemDataIndex);
+    std::string dstCoordCp = WrapParamByParentheses(dstOffsetSymbol);
+    std::string dstCoord = PrintCoord(dstDim, dstCoordCp);
+
+    oss << ", " << srcTensor << ", " << dstTensor << ", " << srcCoord << ", " << dstCoord << ", "
+        << GenDynValidShape(outPutDataIndex);
     return oss.str();
 }
 
@@ -281,8 +295,22 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemGet() const
     std::ostringstream oss;
     int32_t nonShmemDataIndex = 0;
     int32_t shmemDataIndex = 3;
-    oss << ", " << GenDynOffset(nonShmemDataIndex) << ", " << GenRawShapes(nonShmemDataIndex) << ", "
-        << GenOffsetsAndRawShapes(shmemDataIndex) << ", " << GenDynValidShape(nonShmemDataIndex);
+
+    std::string dstTensor = QueryTileTensorNameByIdx(nonShmemDataIndex);
+    std::string srcTensor = QueryTileTensorNameByIdx(shmemDataIndex);
+
+    int32_t dstDim = originShape[nonShmemDataIndex].size();
+    auto dstOffsetSymbol = GenDynOffset(nonShmemDataIndex);
+    std::string dstCoordCp = WrapParamByParentheses(dstOffsetSymbol);
+    std::string dstCoord = PrintCoord(dstDim, dstCoordCp);
+
+    int32_t srcDim = originShape[shmemDataIndex].size();
+    auto srcOffsetSymbol = GenGetParamMacroPacked(shmemDataIndex, srcDim, PREFIX_STR_OFFSET);
+    std::string srcCoordCp = WrapParamByParentheses(srcOffsetSymbol);
+    std::string srcCoord = PrintCoord(srcDim, srcCoordCp);
+
+    oss << ", " << dstTensor << ", " << srcTensor << ", " << dstCoord << ", " << srcCoord << ", "
+        << GenDynValidShape(nonShmemDataIndex);
     return oss.str();
 }
 
@@ -292,8 +320,23 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemPutUB() const
     int32_t nonShmemDataIndex = 1;
     int32_t shmemDataIndex = 2;
     int32_t outPutDataIndex = 0;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", " << GenDynValidShape(outPutDataIndex) << ", "
-        << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex);
+
+    std::string srcTensor = QueryTileTensorNameByIdx(nonShmemDataIndex);
+
+    int32_t srcDim = originShape[nonShmemDataIndex].size();
+    auto srcOffsetSymbol = GenGetParamMacroPacked(nonShmemDataIndex, srcDim, PREFIX_STR_OFFSET);
+    std::string srcCoordCp = WrapParamByParentheses(srcOffsetSymbol);
+    std::string srcCoord = PrintCoord(srcDim, srcCoordCp);
+
+    std::string dstTensor = QueryTileTensorNameByIdx(shmemDataIndex);
+
+    int32_t dstDim = originShape[shmemDataIndex].size();
+    auto dstOffsetSymbol = GenDynOffset(shmemDataIndex);
+    std::string dstCoordCp = WrapParamByParentheses(dstOffsetSymbol);
+    std::string dstCoord = PrintCoord(dstDim, dstCoordCp);
+
+    oss << srcTensor << ", " << dstTensor << ", " << srcCoord << ", " << dstCoord << ", "
+        << GenDynValidShape(outPutDataIndex);
     return oss.str();
 }
 
@@ -303,8 +346,22 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemGetUB() const
     int32_t nonShmemDataIndex = 0;
     int32_t shmemDataIndex = 3;
     int32_t outPutDataIndex = 0;
-    oss << ", " << GenOffsets(nonShmemDataIndex) << ", " << GenRawShapes(nonShmemDataIndex) << ", "
-        << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex) << ", "
+
+    std::string srcTensor = QueryTileTensorNameByIdx(shmemDataIndex);
+
+    int32_t srcDim = originShape[shmemDataIndex].size();
+    auto srcOffsetSymbol = GenDynOffset(shmemDataIndex);
+    std::string srcCoordCp = WrapParamByParentheses(srcOffsetSymbol);
+    std::string srcCoord = PrintCoord(srcDim, srcCoordCp);
+
+    std::string dstTensor = QueryTileTensorNameByIdx(nonShmemDataIndex);
+
+    int32_t dstDim = originShape[nonShmemDataIndex].size();
+    auto dstOffsetSymbol = GenGetParamMacroPacked(nonShmemDataIndex, dstDim, PREFIX_STR_OFFSET);
+    std::string dstCoordCp = WrapParamByParentheses(dstOffsetSymbol);
+    std::string dstCoord = PrintCoord(dstDim, dstCoordCp);
+
+    oss << ", " << dstTensor << ", " << srcTensor << ", " << dstCoord << ", " << srcCoord << ", "
         << GenDynValidShape(outPutDataIndex);
     return oss.str();
 }
@@ -313,7 +370,14 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemSignal() const
 {
     std::ostringstream oss;
     int32_t shmemSignalIndex = 3;
-    oss << ", " << GenOffsetsAndRawShapes(shmemSignalIndex) << ", " << GenShapes(shmemSignalIndex);
+    std::string srcTensor = QueryTileTensorNameByIdx(shmemSignalIndex);
+
+    int32_t srcDim = originShape[shmemSignalIndex].size();
+    auto srcOffsetSymbol = GenGetParamMacroPacked(shmemSignalIndex, srcDim, PREFIX_STR_OFFSET);
+    std::string srcCoordCp = WrapParamByParentheses(srcOffsetSymbol);
+    std::string srcCoord = PrintCoord(srcDim, srcCoordCp);
+
+    oss << ", " << srcTensor << ", " << srcCoord;
     return oss.str();
 }
 
@@ -390,10 +454,15 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemSet() const
     std::ostringstream oss;
     Distributed::ShmemSetAttr distOpAttr = AnyCast<Distributed::ShmemSetAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     int32_t shmemTensorIndex = 3;
+    std::string shmemTensor = QueryTileTensorNameByIdx(shmemTensorIndex);
     if (distOpAttr.isSetData) {
-        oss << ", " << GenOffsets(shmemTensorIndex);
+        int32_t shmemDim = originShape[shmemTensorIndex].size();
+        auto shmemOffsetSymbol = GenGetParamMacroPacked(shmemTensorIndex, shmemDim, PREFIX_STR_OFFSET);
+        std::string shmemCoordCp = WrapParamByParentheses(shmemOffsetSymbol);
+        std::string shmemCoord = PrintCoord(shmemDim, shmemCoordCp);
+        oss << ", " << shmemTensor << ", " << shmemCoord;
     } else {
-        oss << ", " << GenOffsetsAndRawShapes(shmemTensorIndex) << ", " << GenShapes(shmemTensorIndex);
+        oss << ", " << shmemTensor;
     }
     return oss.str();
 }
@@ -460,12 +529,12 @@ std::string CodeGenOpNPU::GenDistOp() const
     std::ostringstream oss;
     std::unordered_set<int32_t> skipOperands = {};
     static const std::unordered_map<Opcode, std::unordered_set<int32_t>> skipIndexMap = {
-        {Opcode::OP_SHMEM_PUT, {0, 2}},
-        {Opcode::OP_SHMEM_GET, {2}},
-        {Opcode::OP_SHMEM_PUT_UB2GM, {0, 3}},
-        {Opcode::OP_SHMEM_GET_GM2UB, {2}},
-        {Opcode::OP_SHMEM_SIGNAL, {0, 2}},
-        {Opcode::OP_SHMEM_SET, {0, 2}},
+        {Opcode::OP_SHMEM_PUT, {0, 2, 3, 4}},
+        {Opcode::OP_SHMEM_GET, {0, 2, 3}},
+        {Opcode::OP_SHMEM_PUT_UB2GM, {0, 1, 2, 3}},
+        {Opcode::OP_SHMEM_GET_GM2UB, {0, 2, 3}},
+        {Opcode::OP_SHMEM_SIGNAL, {0, 2, 3}},
+        {Opcode::OP_SHMEM_SET, {0, 2, 3}},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, {0}},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, {4}},
     };
