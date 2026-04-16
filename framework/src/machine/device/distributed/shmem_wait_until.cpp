@@ -74,7 +74,12 @@ TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
     info.rawIndex = GetCoa(index, opAttrs, expressionTable);
     ++index; // 跳过 rawIndex
     info.dim = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_DIM_INDEX];
-    info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
+    // info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
+    DEV_ERROR(0, "info.dim: %u", info.dim);
+    for (uint32_t i = 0; i < info.dim && i < 5; ++i) {
+        info.offset[i + (5 - info.dim)] = GetCoa(index + i, opAttrs, expressionTable);
+    }
+    DEV_ERROR(0, "mengziyu : [%u, %u, %u, %u, %u]", info.offset[0], info.offset[1], info.offset[2], info.offset[3], info.offset[4]);
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
