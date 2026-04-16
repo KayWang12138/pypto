@@ -74,8 +74,8 @@ DummyTileFunc GetDummyTileFunc(
 {
     int32_t totalRowShape = shmemTensor->shape[shmemTensor->shape.size() - 2];
     int32_t totalColShape = shmemTensor->shape[shmemTensor->shape.size() - 1];
-    int32_t tileRowShape = vecTile[0];
-    int32_t tileColShape = vecTile[1];
+    int32_t tileRowShape = vecTile[vecTile.size() - 2];
+    int32_t tileColShape = vecTile[vecTile.size() - 1];
     int32_t dummyRowShape = dummy->shape[0];
     int32_t dummyColShape = dummy->shape[1];
     int32_t tileRowNum = totalRowShape / tileRowShape + (totalRowShape % tileRowShape == 0 ? 0 : 1);
