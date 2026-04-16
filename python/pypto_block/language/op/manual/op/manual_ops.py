@@ -29,6 +29,7 @@ Typical usage::
     pm.store(result_tensor, out, [0, 0])
 """
 
+import os
 from collections.abc import Sequence
 from typing import Literal, Optional, Sequence, Union
 
@@ -41,6 +42,28 @@ from pypto_block.pypto_core import ir as _ir_core
 from pypto_block.pypto_core.ir import Expr, MemorySpace, Span
 
 from ....typing import Scalar, Tensor, Tile
+
+
+def _get_current_arch() -> str:
+    """Get current target architecture from environment or default.
+
+    Priority:
+    1. PYPTO_JIT_ARCH environment variable
+    2. npu_arch environment variable (set during compilation)
+    3. Default to 'a3'
+
+    Returns:
+        Normalized arch string: 'a2', 'a3', or 'a5'
+    """
+    arch = os.environ.get("PYPTO_JIT_ARCH") or os.environ.get("npu_arch") or "a3"
+    arch = arch.strip().lower()
+    if arch.startswith("dav-c220") or arch.startswith("dav-2201"):
+        return "a3"
+    if arch.startswith("dav-c310") or arch.startswith("dav-3510"):
+        return "a5"
+    if arch in ("a2", "a3", "a5"):
+        return arch
+    return "a3"
 
 
 # ---------------------------------------------------------------------------
@@ -121,27 +144,43 @@ def _normalize_tile_pad(pad: int | _ir_core.TilePad | None) -> int | None:
 
 
 def _apply_default_layout(tt: "TileType") -> None:
-    """Auto-fill and validate blayout/slayout/fractal for Cube memory spaces."""
+    """Auto-fill and validate blayout/slayout/fractal for Cube matmul spaces."""
     required = _REQUIRED_LAYOUTS.get(tt.target_memory)
     if required is None:
-        return  # Vec or other spaces: no constraints
+        return
 
     req_b, req_s = required
     space_name = tt.target_memory.name
+    arch = _get_current_arch()
 
-    # Auto-fill if not specified
+    if tt.target_memory == MemorySpace.Left:
+        if arch == "a5":
+            default_layout = _LEFT_A5_LAYOUT
+            allowed_layouts = {_REQUIRED_LAYOUTS[MemorySpace.Left], _LEFT_A5_LAYOUT}
+        else:
+            default_layout = _REQUIRED_LAYOUTS[MemorySpace.Left]
+            allowed_layouts = {_REQUIRED_LAYOUTS[MemorySpace.Left], _LEFT_A5_LAYOUT}
+        if tt.blayout is None:
+            tt.blayout = default_layout[0]
+        if tt.slayout is None:
+            tt.slayout = default_layout[1]
+        actual = (tt.blayout, tt.slayout)
+        if actual not in allowed_layouts:
+            allowed_text = " or ".join(str(layout) for layout in sorted(allowed_layouts))
+            raise ValueError(
+                f"{space_name} tiles require blayout/slayout in {{{allowed_text}}}, "
+                f"got ({tt.blayout}, {tt.slayout}). "
+                f"Default for '{arch}' is {default_layout}."
+            )
+        return
+
     if tt.blayout is None:
         tt.blayout = req_b
     if tt.slayout is None:
         tt.slayout = req_s
 
-    # Validate against hardware requirements
     actual = (tt.blayout, tt.slayout)
     if tt.target_memory == MemorySpace.Mat:
-        # MAT supports both ND (2,1) and DN (1,2) layouts.
-        # For fp/scaling staging tiles, ISA examples also use row_major/none_box.
-        # Runtime UT may use INT64 as a 64-bit carrier because torch_npu does not
-        # expose device uint64 tensors.
         allowed_layouts = {required, _MAT_DN_LAYOUT}
         if tt.dtype in (DataType.UINT64, DataType.INT64):
             allowed_layouts.add(_MAT_SCALING_LAYOUT)
@@ -152,26 +191,17 @@ def _apply_default_layout(tt: "TileType") -> None:
                 f"got ({tt.blayout}, {tt.slayout})"
             )
     else:
-        if tt.target_memory == MemorySpace.Left:
-            # Left supports (1,1) on a3/a2 and (2,1) on a5
-            if actual != required and actual != _LEFT_A5_LAYOUT:
-                raise ValueError(
-                    f"{space_name} tiles require blayout/slayout={required} (a3/a2) or "
-                    f"{_LEFT_A5_LAYOUT} (a5), got ({tt.blayout}, {tt.slayout})"
-                )
-        else:
-            if tt.blayout != req_b:
-                raise ValueError(
-                    f"{space_name} tiles require blayout={req_b} ({_LAYOUT_NAMES[req_b]}), "
-                    f"got blayout={tt.blayout} ({_LAYOUT_NAMES.get(tt.blayout, '?')})"
-                )
-            if tt.slayout != req_s:
-                raise ValueError(
-                    f"{space_name} tiles require slayout={req_s} ({_LAYOUT_NAMES[req_s]}), "
-                    f"got slayout={tt.slayout} ({_LAYOUT_NAMES.get(tt.slayout, '?')})"
-                )
+        if tt.blayout != req_b:
+            raise ValueError(
+                f"{space_name} tiles require blayout={req_b} ({_LAYOUT_NAMES[req_b]}), "
+                f"got blayout={tt.blayout} ({_LAYOUT_NAMES.get(tt.blayout, '?')})"
+            )
+        if tt.slayout != req_s:
+            raise ValueError(
+                f"{space_name} tiles require slayout={req_s} ({_LAYOUT_NAMES[req_s]}), "
+                f"got slayout={tt.slayout} ({_LAYOUT_NAMES.get(tt.slayout, '?')})"
+            )
 
-    # Auto-fill fractal for FP32 ACC
     if tt.target_memory == MemorySpace.Acc and tt.fractal is None:
         if tt.dtype in (DataType.FP32, DataType.INT32):
             tt.fractal = 1024

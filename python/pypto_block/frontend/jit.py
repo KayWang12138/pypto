@@ -744,13 +744,19 @@ def compile(
             - "pto": Default. Generate MLIR → ptoas → C++ (original flow).
             - "cce": Skip ptoas. Generate C++ directly via CCECodegen.
     """
+    arch = _normalize_arch(arch)
+
+    os.environ["PYPTO_JIT_ARCH"] = arch
+    if arch in ("a2", "a3"):
+        os.environ["npu_arch"] = "dav-c220"
+    else:
+        os.environ["npu_arch"] = "dav-c310"
+
     # Deferred compilation: parse KernelDef → ir.Program with arch info
     from pypto_block.frontend.kernel import KernelDef
 
     if isinstance(prog, KernelDef):
         prog = prog.parse(npu_arch=arch)
-
-    arch = _normalize_arch(arch)
 
     # Use the program name as the build subdirectory so artifacts are
     # identifiable: ./build/<program_name>/kernel.cpp, etc.
@@ -760,11 +766,6 @@ def compile(
     raw_cpp_path = os.path.join(build_dir, "kernel.cpp")
     final_kernel = os.path.join(build_dir, "call_kernel.cpp")
     lib_path = os.path.join(build_dir, "call_kernel.so")
-
-    if arch in ("a2", "a3"):
-        os.environ["npu_arch"] = "dav-c220"
-    else:
-        os.environ["npu_arch"] = "dav-c310"
 
     if codegen_mode == "cce":
         # CCE direct path: pypto IR → C++ (skip ptoas)
