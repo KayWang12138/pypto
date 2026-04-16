@@ -77,8 +77,6 @@ MaxOutcastMem() = max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem)
 metadata.Total() = general + stitchPool
 ```
 
-> ⚠️ **注意**：`metadata.Total()` 在实际日志中通常占比很小（<5%），仅为参考项。如果日志中 metadata 占比异常偏高，建议联系 machine 同事分析。`tensor.Total()` 的子项（`AlignUp` 对齐和 `parallelism` 并行度放大）未在此公式中展开，因此实际值可能与公式计算值略有偏差，以上公式为近似公式。
-
 ### 关键日志标签
 
 诊断日志以 `[workspaceSize]` 为统一前缀（需使用包含该日志的 whl 包版本），主要包括：

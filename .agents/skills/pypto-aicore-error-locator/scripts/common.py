@@ -101,29 +101,23 @@ def uncomment_lines_by_range(lines, start_idx, end_idx):
 
 
 def has_error(returncode, output):
+    if returncode != 0:
+        return True
+
     output_lower = output.lower()
 
-    aicore_error_keywords = [
-        'aicore error',
-        'aicore fault',
-        'ascend error',
-        'error:',
-        'failed',
-        'abort',
+    true_error_keywords = [
+        ' error',
+        'error ',
         'exception',
         'segmentation fault',
         'core dump',
     ]
 
-    has_aicore_error = any(kw in output_lower for kw in aicore_error_keywords)
+    for keyword in true_error_keywords:
+        if keyword in output_lower and "aicore error" not in output_lower:
+            raise RuntimeError(f"检测到非 aicore error: {output_lower}")
 
-    if returncode != 0 and not has_aicore_error:
-        raise RuntimeError(f"非零退出码但无 aicore error 关键字（rc={returncode}）: {output_lower[:500]}")
-
-    if returncode != 0:
-        return True
-
-    for keyword in aicore_error_keywords:
         if keyword in output_lower:
             return True
 

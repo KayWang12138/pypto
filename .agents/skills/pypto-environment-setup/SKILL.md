@@ -11,11 +11,11 @@ description: "PyPTO 环境安装与环境问题修复，包括 CANN、torch_npu�
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
-- **默认版本**：CANN 8.5.0 + PyTorch/torch_npu（见下方兼容性矩阵）
+- **默认版本**：CANN 8.5.0 + PyTorch/torch_npu
 
-| CANN 版本 | torch | torch_npu | 备注 |
-|-----------|-------|-----------|------|
-| 8.5.0 | ≥2.6.0 | ≥2.6.0.post3 | 推荐 torch≥2.8.0, torch_npu≥2.8.0.post2 |
+| CANN 版本 | torch | torch_npu |
+|-----------|-------|-----------|
+| 8.5.0 | ≥2.6.0 | ≥2.6.0.post3 |
 
 > ⚠️ 版本号随仓库迭代更新，安装前先执行步骤 1 诊断，以实际环境为准。如已安装更高版本且可正常导入，无需降级。
 
