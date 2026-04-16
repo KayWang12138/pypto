@@ -38,6 +38,8 @@ class GmmGoldenInputs:
         scaled_b: Scale factors for weight tensor [K//64, N, 2]
         y: Output tensor of shape [num_groups, M, N] (初始值)
         group_list: List of group sizes for K-axis splitting
+        a_trans: Whether input tensor is transposed (default: True)
+        b_trans: Whether weight tensor is transposed (default: False)
     """
     a: torch.Tensor
     b: torch.Tensor
@@ -45,6 +47,8 @@ class GmmGoldenInputs:
     scaled_b: torch.Tensor
     y: torch.Tensor
     group_list: list
+    a_trans: bool = True
+    b_trans: bool = False
 
 
 @dataclass
@@ -83,7 +87,7 @@ class ShapeConfig:
         k_tile_shape: Tile shape for K dimension in cube operation
         n_tile_shape: Tile shape for N dimension in cube operation
         vector_tile_shape: Tile shapes for vector operations
-        a_trans: Whether input tensor is transposed (default: False)
+        a_trans: Whether input tensor is transposed (default: True, x1 is [K, M])
         b_trans: Whether weight tensor is transposed (default: False)
         a_format_nz: Whether input uses NZ format (default: False)
         b_format_nz: Whether weight uses NZ format (default: False)
@@ -97,7 +101,7 @@ class ShapeConfig:
     k_tile_shape: list
     n_tile_shape: list
     vector_tile_shape: list
-    a_trans: bool = False
+    a_trans: bool = True
     b_trans: bool = False
     a_format_nz: bool = False
     b_format_nz: bool = False
@@ -109,90 +113,112 @@ class ShapeConfig:
 class GoldenComputeInputs:
     """
     Input parameters for computing golden result in matrix multiplication.
-    x is in [K_block, M] format (transposed), weight is in [K_block, N] format.
 
     Attributes:
-        x: Input tensor of shape [K_block, M] (transposed format)
-        weight: Weight tensor of shape [K_block, N]
-        scaled_x: Scale factors for input tensor [K_block//64, M, 2] (transposed format)
-        scaled_weight: Scale factors for weight tensor [K_block//64, N, 2]
+        x: Input tensor of shape [M, K] or [K, M] if transposed
+        weight: Weight tensor of shape [K, N] or [N, K] if transposed
+        scaled_x: Scale factors for input tensor
+        scaled_weight: Scale factors for weight tensor
+        a_trans: Whether input tensor is transposed
+        b_trans: Whether weight tensor is transposed
     """
     x: torch.Tensor
     weight: torch.Tensor
     scaled_x: torch.Tensor
     scaled_weight: torch.Tensor
+    a_trans: bool
+    b_trans: bool
 
 
 def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
     """
     Compute golden (reference) result for a single group's matrix multiplication.
-    x is in [K_block, M] format (transposed), weight is in [K_block, N] format.
 
     Args:
-        inputs: Input parameters including tensors
+        inputs: Input parameters including tensors and transposition flags
 
     Returns:
-        torch.Tensor: Golden output tensor [M, N]
+        torch.Tensor: Golden output tensor
     """
-    x = inputs.x  # [K_block, M]
-    weight = inputs.weight  # [K_block, N]
-    scaled_x_golden = inputs.scaled_x  # [K_block//64, M, 2]
-    scaled_weight_golden = inputs.scaled_weight  # [K_block//64, N, 2]
+    x = inputs.x
+    weight = inputs.weight
+    scaled_x_golden = inputs.scaled_x
+    scaled_weight_golden = inputs.scaled_weight
+    a_trans = inputs.a_trans
+    b_trans = inputs.b_trans
 
-    # Reshape scale factors: flatten the last two dimensions
-    # scaled_x: [K//64, M, 2] -> [K//64, M*2] -> transpose -> [M, K//64*2]
-    if len(scaled_x_golden.shape) == 3:
-        scaled_x_golden = scaled_x_golden.reshape(
-            scaled_x_golden.shape[0] * scaled_x_golden.shape[1],
-            scaled_x_golden.shape[2]
-        )
-    scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
+    # Handle input transposition
+    if a_trans:
+        x = torch.swapaxes(x, -1, -2)
+        scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
+        if len(scaled_x_golden.shape) == 3:
+            scaled_x_golden = scaled_x_golden.reshape(
+                scaled_x_golden.shape[0] * scaled_x_golden.shape[1], scaled_x_golden.shape[2]
+            )
+        scaled_x_golden = torch.swapaxes(scaled_x_golden, -1, -2)
+    else:
+        if len(scaled_x_golden.shape) == 3:
+            scaled_x_golden = scaled_x_golden.reshape(
+                scaled_x_golden.shape[0], scaled_x_golden.shape[1] * scaled_x_golden.shape[2]
+            )
 
-    # scaled_weight: [K//64, N, 2] -> transpose -> [N, K//64, 2] -> [N, K//64*2]
-    scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
-    if len(scaled_weight_golden.shape) == 3:
-        scaled_weight_golden = scaled_weight_golden.reshape(
-            scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
-            scaled_weight_golden.shape[2]
-        )
+    # Handle weight transposition
+    if b_trans:
+        weight = torch.swapaxes(weight, -1, -2)
+        if len(scaled_weight_golden.shape) == 3:
+            scaled_weight_golden = scaled_weight_golden.reshape(
+                scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
+                scaled_weight_golden.shape[2]
+            )
+        scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
+    else:
+        scaled_weight_golden = torch.swapaxes(scaled_weight_golden, -1, -2)
+        if len(scaled_weight_golden.shape) == 3:
+            scaled_weight_golden = scaled_weight_golden.reshape(
+                scaled_weight_golden.shape[0] * scaled_weight_golden.shape[1],
+                scaled_weight_golden.shape[2]
+            )
 
     # Adjust scales for K dimension alignment
-    k_dim = x.shape[0]  # x is [K, M], so K is first dimension
+    k_dim = x.shape[-1]
     if math.ceil(k_dim / 32) % 2 != 0:
         scaled_x_golden = scaled_x_golden[:, :-1]
         scaled_weight_golden = scaled_weight_golden[:-1, :]
 
-    # Broadcast scale factors (32 elements per block)
-    # scaled_x_golden: [M, K//64*2] -> broadcast to [M, K_aligned]
+    # Broadcast scale factors
     scaled_x_golden_broadcast = torch.repeat_interleave(scaled_x_golden, repeats=32, dim=-1)
-    # scaled_weight_golden: [N, K//64*2] -> broadcast to [N, K_aligned] -> transpose to [K_aligned, N]
-    scaled_weight_golden_broadcast = torch.repeat_interleave(scaled_weight_golden, repeats=32, dim=-1)
-    scaled_weight_golden_broadcast = torch.swapaxes(scaled_weight_golden_broadcast, -1, -2)
+    scaled_weight_golden_broadcast = torch.repeat_interleave(scaled_weight_golden, repeats=32, dim=-2)
 
     # Calculate padding lengths
-    x1_pad_len = scaled_x_golden_broadcast.shape[-1] - x.shape[0]
-    x2_pad_len = scaled_weight_golden_broadcast.shape[-2] - weight.shape[0]
+    x1_dims = len(x.shape)
+    x2_dims = len(weight.shape)
+    x1_pad_len = scaled_x_golden_broadcast.shape[-1] - x.shape[-1]
+    x2_pad_len = scaled_weight_golden_broadcast.shape[-2] - weight.shape[-2]
 
-    # Pad input tensor x: [K, M] -> [K_aligned, M]
-    x1_golden = torch.nn.functional.pad(x, [0, 0, 0, x1_pad_len], mode='constant', value=0)
+    # Pad input tensor
+    x1_pad = [0, x1_pad_len]
+    for _ in range(x1_dims - 1):
+        x1_pad += [0, 0]
+    x1_golden = torch.nn.functional.pad(x, x1_pad, mode='constant', value=0)
 
-    # Pad weight tensor: [K, N] -> [K_aligned, N]
-    weight_golden = torch.nn.functional.pad(weight, [0, 0, 0, x2_pad_len], mode='constant', value=0)
+    # Pad weight tensor
+    weight_pad = [0, 0]
+    weight_pad += [0, x2_pad_len]
+    for _ in range(x2_dims - 2):
+        weight_pad += [0, 0]
+    weight_golden = torch.nn.functional.pad(weight, weight_pad, mode='constant', value=0)
 
     # Apply scaling factors
-    # x: [K_aligned, M] transpose to [M, K_aligned] for scaling
-    x_trans = torch.swapaxes(x1_golden, -1, -2)  # [M, K_aligned]
-    x_fp32 = x_trans.to(torch.float32)
+    x_fp32 = x.to(torch.float32)
     scaled_x_golden_broadcast_fp32 = scaled_x_golden_broadcast.to(torch.float32)
-    x_scaled = x_fp32 * scaled_x_golden_broadcast_fp32  # [M, K_aligned]
-    x_scaled = torch.swapaxes(x_scaled, -1, -2)  # [K_aligned, M]
+    x1_golden = x_fp32 * scaled_x_golden_broadcast_fp32
 
-    weight_fp32 = weight_golden.to(torch.float32)
+    weight_fp32 = weight.to(torch.float32)
     scaled_weight_golden_broadcast_fp32 = scaled_weight_golden_broadcast.to(torch.float32)
-    weight_scaled = weight_fp32 * scaled_weight_golden_broadcast_fp32  # [K_aligned, N]
+    weight_golden = weight_fp32 * scaled_weight_golden_broadcast_fp32
 
-    # Compute matrix multiplication: x^T @ weight = [M, K] @ [K, N] = [M, N]
-    golden = torch.matmul(torch.swapaxes(x_scaled, -1, -2), weight_scaled)
+    # Compute matrix multiplication
+    golden = torch.matmul(x1_golden, weight_golden)
 
     return golden
 
@@ -214,6 +240,8 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     scaled_b = inputs.scaled_b  # [K//64, N, 2]
     y = inputs.y
     group_list = inputs.group_list
+    a_trans = inputs.a_trans
+    b_trans = inputs.b_trans
 
     round_num = len(group_list)
     golden_result = y.clone()
@@ -225,11 +253,16 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
         end = end + group_list[i]
 
         # Extract input and weight for current group (切分 K 轴)
-        # a: [K, M] -> x: [K_block, M]
+        # a: [K, M] (transposed) -> x: [K_block, M] or [M, K_block] depends on a_trans
         # b: [K, N] -> weight: [K_block, N]
-        x = a[begin:end, :]  # [K_block, M]
+        if a_trans:
+            x = a[:, begin:end]  # [K, M] 切分 K 轴 -> [K_block, M] after transpose will be [M, K_block]
+            scaled_x_golden = scaled_a[:, begin // 64 : end // 64, :]  # [K//64, M, 2] 切分后 [K_block//64, M, 2]
+        else:
+            x = a[begin:end, :]  # [M, K] 切分 K 轴 -> [M, K_block]
+            scaled_x_golden = scaled_a[begin // 64 : end // 64, :, :]  # [M, K//64, 2] 切分后 [M, K_block//64, 2]
+        
         weight = b[begin:end, :]  # [K_block, N]
-        scaled_x_golden = scaled_a[begin // 64 : end // 64, :, :]  # [K_block//64, M, 2]
         scaled_weight_golden = scaled_b[begin // 64 : end // 64, :, :]  # [K_block//64, N, 2]
 
         # Compute golden result for this group and inplace add
@@ -239,6 +272,8 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
                 weight=weight,
                 scaled_x=scaled_x_golden,
                 scaled_weight=scaled_weight_golden,
+                a_trans=a_trans,
+                b_trans=b_trans,
             )
         )
         golden_result[i] = golden_result[i] + golden_temp
@@ -258,7 +293,10 @@ def scaled_matmul_kernel(
 ):
     """
     Scaled matrix multiplication kernel for grouped GEMM with MXFP8 quantization.
-    a is in [K, M] format (transposed), b is in [K, N] format.
+    
+    默认处理转置格式：
+    - a: [K, M] (transposed), scaled_a: [K//64, M, 2] (transposed)
+    - b: [K, N] (not transposed), scaled_b: [K//64, N, 2] (not transposed)
 
     This kernel performs grouped matrix multiplication where each group uses
     a different K-axis block from input tensors, with MXFP8 quantization.
@@ -284,6 +322,9 @@ def scaled_matmul_kernel(
         end = end + group_list[i]
 
         # Extract input for current group (切分 K 轴)
+        # a is [K, M] (transposed), slice along first dim -> x = a[:, begin:end]
+        # But since a_trans=True, we need to slice the K dimension which is the first dim
+        # Actually for transposed format [K, M], slicing K means a[begin:end, :]
         x = a[begin:end, :]  # [K_block, M]
         weight = b[begin:end, :]  # [K_block, N]
         scaled_x = scaled_a[begin // 64 : end // 64, :, :]  # [K_block//64, M, 2]
@@ -347,7 +388,10 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
 def test_gmm_mxfp8(tile_config: ShapeConfig):
     """
     Test the grouped matrix multiplication with MXFP8 quantization.
-    a is in [K, M] format (transposed), b is in [K, N] format.
+    
+    Kernel 固定处理 a_trans=True 格式：
+    - a: [K, M] (transposed), scaled_a: [K//64, M, 2] (transposed)
+    - b: [K, N] (not transposed), scaled_b: [K//64, N, 2] (not transposed)
 
     This function runs a complete test for a given configuration:
     1. Generate test data with MXFP8 format
@@ -364,12 +408,15 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     n = tile_config.ori_shape[2]
     group_list = tile_config.group_list
     num_groups = len(group_list)
+    # Kernel 固定使用 a_trans=True
+    a_trans = True
+    b_trans = False
 
     # Generate input tensor in MXFP8 format - [K, M] (transposed format)
     a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
     scaled_a = torch.randn((k // 64, m, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
-    # Generate weight tensor in MXFP8 format - [K, N]
+    # Generate weight tensor in MXFP8 format - 2D [K, N]
     b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
     scaled_b = torch.randn((k // 64, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
@@ -385,6 +432,8 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
         scaled_b=scaled_b,
         y=y_init,
         group_list=group_list,
+        a_trans=a_trans,
+        b_trans=b_trans,
     ))
     result = gen_mxfp8(GmmMxfp8Inputs(
         a=a,
@@ -410,11 +459,11 @@ if __name__ == "__main__":
             [256, 256],
             [256, 256],
             [1, 8, 256, 32],
+            True,  # a_trans=True: x1 is [K, M]
+            False,  # b_trans=False
             False,
             False,
             False,
-            False,
-            False,
-            "Test with K-axis splitting: K=512 split into [256, 256]"
+            "Test with K-axis splitting: K=512 split into [256, 256], x1 transposed [K, M]"
         )
     )
