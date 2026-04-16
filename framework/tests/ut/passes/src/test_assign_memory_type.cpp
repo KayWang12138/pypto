@@ -1579,5 +1579,60 @@ TEST_F(AssignMemoryTypeTest, TestTobeMapOrdering)
         }
     }
 }
+
+TEST_F(AssignMemoryTypeTest, TestL0C2UBSmallToLarge)
+{   
+    // 设置为 A5 平台
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shapeA = {NUM_64, NUM_128};
+    std::vector<int64_t> shapeB = {NUM_128, NUM_64};
+    std::vector<int64_t> shapeC = {NUM_64, NUM_64};
+    PROGRAM("AssignMemoryTest")
+    {
+        Tensor inputA(DataType::DT_FP16, shapeA, "A");
+        Tensor inputB(DataType::DT_FP16, shapeB, "B");
+        Tensor inputC(DataType::DT_FP32, shapeC, "C");
+        Tensor out(DataType::DT_FP32, shapeC, "output");
+        SetFullTestStrategy();
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+        FUNCTION("TestL0C2UBSmallToLarge", {inputA, inputB, inputC, out})
+        {
+            // 设置 Cube tile shape，使 matmul 输出 L0C
+            TileShape::Current().SetCubeTile({NUM_32, NUM_32}, {NUM_64, NUM_64}, {NUM_64, NUM_64});
+            Tensor ab = Matrix::Matmul(out.GetDataType(), inputA, inputB);
+            // 设置 Vec tile shape，使后续 Vector 操作需要 UB 输入
+            TileShape::Current().SetVecTile(NUM_64, NUM_64);
+            Tensor result = Add(ab, inputC);
+            out = result;
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestL0C2UBSmallToLarge");
+        ASSERT_NE(originFunction, nullptr) << "Function pointer is null";
+        // 验证存在 L0C -> UB 的转换
+        bool hasL0C2UB = false;
+        for (auto& op : originFunction->Operations()) {
+            // 检查 Convert: L0C -> UB
+            if (op.GetOpcode() == Opcode::OP_CONVERT) {
+                auto input = op.GetIOperands().front();
+                auto output = op.GetOOperands().front();
+                if (input->GetMemoryTypeOriginal() == MEM_L0C && 
+                    output->GetMemoryTypeOriginal() == MEM_UB) {
+                    hasL0C2UB = true;
+                }
+            }
+            // 或者检查 Assemble 输出为 UB（小搬大场景）
+            if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+                auto output = op.GetOOperands().front();
+                if (output->GetMemoryTypeOriginal() == MEM_UB) {
+                    hasL0C2UB = true;
+                }
+            }
+        }
+        EXPECT_TRUE(hasL0C2UB) << "Should have L0C->UB data path for matmul then add";
+    }
+    // 恢复平台设置
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
+}
 }
 } // namespace npu::tile_fwk
