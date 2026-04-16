@@ -21,6 +21,7 @@
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_interface/pass.h"
 #include "loopaxes_proc.h"
+#include "passes/pass_utils/pass_error.h"
 
 #define MODULE_NAME "LoopaxesProc"
 
@@ -71,7 +72,7 @@ bool NeedClearStatus(const Operation& op)
     //  Opcode::OP_EXPAND only support last axis or second last axis in for-loop
     if (opCode == Opcode::OP_EXPAND) {
         std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIM";
-        ASSERT(op.HasAttr(axisKey)) << "attr " << axisKey << "not found";
+        ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, op.HasAttr(axisKey)) << "attr " << axisKey << "not found";
         int64_t expandAxis = op.GetIntAttribute(axisKey);
         int shapeSize = static_cast<int>(op.GetOOperands().front()->GetDynValidShape().size());
         expandAxis += SHAPE_DIM4 - shapeSize;
