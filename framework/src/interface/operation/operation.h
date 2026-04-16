@@ -177,7 +177,7 @@ public:
         int scopeId{-1};
         bool allowParallelMerge{false};
         bool allowCrossScopeMerge{false};
-        int mixId{-1};
+        int cvFuseId{-1};
 
         ScopeInfo() = default;
         explicit ScopeInfo(int id) : scopeId(id) {}
@@ -189,7 +189,7 @@ public:
             info.allowCrossScopeMerge = static_cast<bool>(config[2]);
             return info;
         }
-        void SetMixId(int id) { mixId = id; }
+        void SetCvFuseId(int id) { cvFuseId = id; }
     };
     friend class Function;
     LogicalTensors iOperand;      // Input operands (now actual objects, not shared_ptr)
@@ -390,7 +390,7 @@ public:
     int GetScopeId() const { return scopeInfo_.scopeId; };
     bool GetAllowParallelMerge() const { return scopeInfo_.allowParallelMerge; };
     bool GetAllowCrossScopeMerge() const { return scopeInfo_.allowCrossScopeMerge; };
-    int GetMixId() const { return scopeInfo_.mixId; };
+    int GetCvFuseId() const { return scopeInfo_.cvFuseId; };
 
     void AddInCtrlOperation(Operation& operation);
 
