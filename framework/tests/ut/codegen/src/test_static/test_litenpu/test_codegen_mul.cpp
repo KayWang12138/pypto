@@ -560,3 +560,291 @@ TEST_F(LiteNPUCodeGenMul, test_mul_032) {
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+
+TEST_F(LiteNPUCodeGenMul, test_mul_033) {
+    PROGRAM("MUL_033") {
+        Tensor input0(DataType::DT_FP16, {1, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP16, {22, 1, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_033") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_033");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_034) {
+    PROGRAM("MUL_034") {
+        Tensor input0(DataType::DT_FP32, {1, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP32, {22, 16, 1, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_034") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_034");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_035) {
+    PROGRAM("MUL_035") {
+        Tensor input0(DataType::DT_FP16, {1, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP16, {22, 16, 13, 1}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_035") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_035");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_036) {
+    PROGRAM("MUL_036") {
+        Tensor input0(DataType::DT_FP32, {1, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP32, {22, 1, 1, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_036") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_036");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_037) {
+    PROGRAM("MUL_037") {
+        Tensor input0(DataType::DT_FP16, {1, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP16, {22, 1, 13, 1}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_037") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_037");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_038) {
+    PROGRAM("MUL_038") {
+        Tensor input0(DataType::DT_FP32, {1, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP32, {22, 1, 1, 1}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_038") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_038");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_039) {
+    PROGRAM("MUL_039") {
+        Tensor input0(DataType::DT_FP16, {22, 1, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP16, {1, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_039") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_039");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_040) {
+    PROGRAM("MUL_040") {
+        Tensor input0(DataType::DT_FP32, {22, 16, 1, 18}, "input0");
+        Tensor input1(DataType::DT_FP32, {1, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_040") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_040");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_041) {
+    PROGRAM("MUL_041") {
+        Tensor input0(DataType::DT_FP16, {22, 16, 13, 1}, "input0");
+        Tensor input1(DataType::DT_FP16, {1, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_041") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_041");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_042) {
+    PROGRAM("MUL_042") {
+        Tensor input0(DataType::DT_FP32, {22, 1, 1, 18}, "input0");
+        Tensor input1(DataType::DT_FP32, {1, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_042") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_042");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_043) {
+    PROGRAM("MUL_043") {
+        Tensor input0(DataType::DT_FP16, {22, 1, 13, 1}, "input0");
+        Tensor input1(DataType::DT_FP16, {1, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_043") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_043");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_044) {
+    PROGRAM("MUL_044") {
+        Tensor input0(DataType::DT_FP32, {22, 1, 1, 1}, "input0");
+        Tensor input1(DataType::DT_FP32, {1, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_044") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_044");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_045) {
+    PROGRAM("MUL_045") {
+        Tensor input0(DataType::DT_FP16, {22, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP16, {1, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_045") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_045");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_046) {
+    PROGRAM("MUL_046") {
+        Tensor input0(DataType::DT_FP32, {1, 1, 1, 1}, "input0");
+        Tensor input1(DataType::DT_FP32, {22, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_046") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_046");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_047) {
+    PROGRAM("MUL_047") {
+        Tensor input0(DataType::DT_FP16, {22, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP16, {1, 1, 1, 1}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_047") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_047");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_048) {
+    PROGRAM("MUL_048") {
+        Tensor input0(DataType::DT_FP32, {1, 1, 1, 18}, "input0");
+        Tensor input1(DataType::DT_FP32, {22, 16, 13, 18}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_048") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_048");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_049) {
+    PROGRAM("MUL_049") {
+        Tensor input0(DataType::DT_FP16, {22, 16, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP16, {22, 1, 1, 1}, "input1");
+        auto output = Tensor(DataType::DT_FP16, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_049") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_049");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(LiteNPUCodeGenMul, test_mul_050) {
+    PROGRAM("MUL_050") {
+        Tensor input0(DataType::DT_FP32, {1, 1, 13, 18}, "input0");
+        Tensor input1(DataType::DT_FP32, {22, 16, 1, 1}, "input1");
+        auto output = Tensor(DataType::DT_FP32, {22, 16, 13, 18}, "output");
+        FUNCTION("MUL_050") {
+            TileShape::Current().SetVecTile({11, 12, 13, 10});
+            output = Mul(input0, input1);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MUL_050");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
