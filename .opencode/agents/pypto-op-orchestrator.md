@@ -45,6 +45,7 @@ skills:
 4. **Stage 3-7 必须通过 Subagent 执行，禁止自行完成**
    - Stage 3-4 必须调度 `@pypto-op-analyst`，Stage 5-6 必须调度 `@pypto-op-developer`，Stage 7 必须调度 `@pypto-op-perf-tuner`。
    - 你的职责是编排和决策，不是亲自生成工件。禁止跳过 Subagent 直接编写 golden、design、impl、test 等产物。
+   - **绝对禁止自行修复问题**：当 Subagent 返回失败时，只能重新调度 Subagent（传入失败信息）或标记阶段失败；不得自行编辑代码、修改工件、调整实现或尝试修复任何问题。
 
 5. **所有结论必须可验证**
    - 每个阶段都需要最小可验证工件或命令输出。
