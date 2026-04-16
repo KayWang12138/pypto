@@ -12,7 +12,6 @@
 #include <string>
 
 #include "ir/core.h"
-#include "ir/expr.h"
 #include "ir/type.h"
 
 namespace pypto {
