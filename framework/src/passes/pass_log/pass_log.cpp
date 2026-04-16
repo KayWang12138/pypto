@@ -117,7 +117,7 @@ void ExtractPassLogByFunction(const Function& function)
         APASS_LOG_WARN_F(
             Elements::Function,
             "%s not found under install(%s/scripts), or source(%s).",
-            kExtractPassLogScriptName, scriptPath, kExtractPassLogScriptInSource);
+            kExtractPassLogScriptName, GetCurrentSharedLibPath().c_str(), kExtractPassLogScriptInSource);
         return;
     }
 
