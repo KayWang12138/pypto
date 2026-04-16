@@ -415,13 +415,6 @@ public:
             SchedErr::ABNOMAL_LAST_WORD, "last_taskId %ld task status [%ld, %ld, %ld, %ld].",
             arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE],
             arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
-
-        for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_ERROR(
-                SchedErr::ABNOMAL_LAST_WORD, "task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.",
-                i, arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
-                arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
-        }
     }
 
     uint64_t GetAicoreStatus(int coreIdx) const
@@ -481,12 +474,6 @@ public:
         }
         ResetParallelDevTask(coreIdx);
         return;
-    }
-
-    volatile TaskStat* GetTaskStat(int coreIdx, int pos)
-    {
-        volatile TaskStat* stat = &args_[coreIdx]->taskStat[pos];
-        return stat;
     }
 
     inline void InitKernelArgs(int coreIdx, int64_t buffer) {

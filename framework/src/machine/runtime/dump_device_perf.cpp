@@ -36,6 +36,30 @@ extern "C" void DumpDevTaskPerfData(DeviceArgs& args, const std::vector<void*>& 
     }
 }
 
+json BuildSyncEventsJson(const TaskStat& taskStat)
+{
+    json syncEventsArr = json::array();
+    for (int k = 0; k < taskStat.setEventIdx; ++k) {
+        if (taskStat.setEventCycle[k] != 0) {
+            json setEvent;
+            setEvent["idx"] = k;
+            setEvent["type"] = "CV_SYNC_SET";
+            setEvent["time"] = taskStat.setEventCycle[k];
+            syncEventsArr.push_back(setEvent);
+        }
+    }
+    for (int k = 0; k < taskStat.waitEventIdx; ++k) {
+        if (taskStat.waitEventCycle[k] != 0) {
+            json waitEvent;
+            waitEvent["idx"] = k;
+            waitEvent["type"] = "CV_SYNC_WAIT";
+            waitEvent["time"] = taskStat.waitEventCycle[k];
+            syncEventsArr.push_back(waitEvent);
+        }
+    }
+    return syncEventsArr;
+}
+
 void ConstructTaskInfo(
     const uint32_t& index, json& rootTaskStats, const std::vector<void*>& perfData, const std::string& coreType)
 {
@@ -61,6 +85,10 @@ void ConstructTaskInfo(
             taskObj["taskId"] = taskStats[j].taskId;
             taskObj["execStart"] = taskStats[j].execStart;
             taskObj["execEnd"] = taskStats[j].execEnd;
+            json syncEventsArr = BuildSyncEventsJson(taskStats[j]);
+            if (!syncEventsArr.empty()) {
+                taskObj["syncEvents"] = syncEventsArr;
+            }
             tasksArr.push_back(taskObj);
         }
     }
@@ -93,6 +121,7 @@ void DumpAicoreTaskExectInfo(DeviceArgs& args, const std::vector<void*>& perfDat
     MACHINE_LOGD("tilefwk_L1_prof_data have saved in: %s", jsonFilePath.c_str());
     std::string topo_txt_path = npu::tile_fwk::config::LogTopFolder() + "/dyn_topo.txt";
     std::string program_json_path = npu::tile_fwk::config::LogTopFolder() + "/program.json";
+    std::string mix_event_path = npu::tile_fwk::config::GetAbsoluteTopFolder() + "/mix_event_info.json";
     std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
     npu::tile_fwk::config::SetRunDataOption(
         KEY_SWIM_GRAPH_PATH, npu::tile_fwk::config::GetAbsoluteTopFolder() + "/merged_swimlane.json");
