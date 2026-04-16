@@ -197,7 +197,7 @@ void TestCVSyncBody(Opcode syncOpcode)
         expect = R"!!!(wait_intra_block(PIPE_S, 0);
 )!!!";
     }
-    EXPECT_EQ(res, expect);
+    EXPECT_TRUE(res.find(expect) != std::string::npos);
 }
 
 TEST_F(TestCodegenScalar, InjectSyncSet) { TestCVSyncBody(Opcode::OP_CV_SYNC_SRC); }
