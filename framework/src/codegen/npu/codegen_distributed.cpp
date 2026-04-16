@@ -38,7 +38,7 @@ std::string CodeGenOpNPU::GetTemplateDType() const
         {Opcode::OP_SHMEM_PUT, 1},
         {Opcode::OP_SHMEM_PUT_UB2GM, 1},
         {Opcode::OP_SHMEM_SIGNAL, 1},
-        {Opcode::OP_SHMEM_WAIT_UNTIL, 1},
+        {Opcode::OP_SHMEM_WAIT_UNTIL, 2},
         {Opcode::OP_SHMEM_GET, 1},
         {Opcode::OP_SHMEM_GET_GM2UB, 1},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, 1},
@@ -142,6 +142,17 @@ std::string CodeGenOpNPU::GenTemplateParamsForSignal() const
     return oss.str();
 }
 
+std::string CodeGenOpNPU::GenTemplateParamsForWaitUntil() const
+{
+    std::ostringstream oss;
+    Distributed::ShmemWaitUntilAttr distOpAttr =
+        AnyCast<Distributed::ShmemWaitUntilAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
+    oss << "<" << std::to_string(distOpAttr.expectedSum) << ", " << std::to_string(distOpAttr.signalStride) << ", "
+        << std::to_string(distOpAttr.tileRowShape) << ", " << std::to_string(distOpAttr.tileColShape) << ", "
+        << (distOpAttr.resetSignal ? "true" : "false") << ">";
+    return oss.str();
+}
+
 std::string CodeGenOpNPU::GenTemplateParamsForMoeDistributedCombineSend() const
 {
     std::ostringstream oss;
@@ -198,6 +209,7 @@ std::string CodeGenOpNPU::GenTemplateParams() const
         {Opcode::OP_SHMEM_PUT_UB2GM, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutUb2Gm(); }},
         {Opcode::OP_SHMEM_GET_GM2UB, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
         {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSignal(); }},
+        {Opcode::OP_SHMEM_WAIT_UNTIL, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForWaitUntil(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
          [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineSend(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
@@ -317,6 +329,14 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemSignal() const
     return oss.str();
 }
 
+std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemWaitUntil() const
+{
+    std::ostringstream oss;
+    int32_t shmemSignalIndex = 1;
+    oss << ", " << GenOffsetsAndRawShapes(shmemSignalIndex) << ", " << GenShapes(shmemSignalIndex);
+    return oss.str();
+}
+
 std::string CodeGenOpNPU::GenOffsetsAndRawShapesForMoeDistributedCombineSend() const
 {
     std::ostringstream oss;
@@ -412,6 +432,8 @@ std::string CodeGenOpNPU::GenExtraParamsStr() const
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemGetUB(); }},
             {Opcode::OP_SHMEM_SIGNAL,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemSignal(); }},
+            {Opcode::OP_SHMEM_WAIT_UNTIL,
+             [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemWaitUntil(); }},
             {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineSend(); }},
             {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
@@ -465,6 +487,7 @@ std::string CodeGenOpNPU::GenDistOp() const
         {Opcode::OP_SHMEM_PUT_UB2GM, {0, 3}},
         {Opcode::OP_SHMEM_GET_GM2UB, {2}},
         {Opcode::OP_SHMEM_SIGNAL, {0, 2}},
+        {Opcode::OP_SHMEM_WAIT_UNTIL, {0, 1}},
         {Opcode::OP_SHMEM_SET, {0, 2}},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, {0}},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, {4}},
