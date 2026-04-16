@@ -43,6 +43,7 @@
 #include "machine/device/dump/aicore_dump.h"
 #include "machine/device/debug/schema_trace_utils.h"
 #include "device_trace.h"
+#include "machine/utils/perf_event_sampler.h"
 
 namespace npu::tile_fwk::dynamic {
 

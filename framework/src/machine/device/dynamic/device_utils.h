@@ -244,6 +244,12 @@ inline uint64_t GetFreq()
     return freq;
 }
 
+inline uint64_t Cycles2Us(uint64_t cycles)
+{
+    uint64_t freq = GetFreq();
+    return cycles * US_PER_SEC / freq;
+}
+
 inline uint64_t CurrentTime()
 {
     uint64_t mono = GetTimeMonotonic();
