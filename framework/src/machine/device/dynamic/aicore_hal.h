@@ -501,8 +501,10 @@ public:
             __sync_synchronize();
 #endif
         } else {
-            if (args_[coreIdx] == nullptr) {
-                args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            if (enableEslModel_) {
+                if (args_[coreIdx] == nullptr) {
+                    args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+                }
             }
         }
     }
@@ -554,8 +556,10 @@ public:
             volatile KernelArgs *arg = args_[coreIdx];
             arg->parallelDevTask.version = version;
         } else {
-            volatile KernelArgs *arg = args_[coreIdx];
-            eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&arg->parallelDevTask.version), sizeof(version), &version);
+            if (enableEslModel_) {
+                volatile KernelArgs *arg = args_[coreIdx];
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&arg->parallelDevTask.version), sizeof(version), &version);
+            }
         }
 
         DEV_VERBOSE_DEBUG("Refresh core %d parall version %u", coreIdx, version);
