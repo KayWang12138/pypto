@@ -369,10 +369,10 @@ void Operation::DumpCalleeHashJson(Json& opDump) const
         return;
     }
     auto calleeHash = std::static_pointer_cast<CallOpAttribute>(GetOpAttribute())->GetCalleeHash();
-    Function* callee = nullptr;
+    std::shared_ptr<Function> callee = nullptr;
     for (auto& ele : Program::GetInstance().GetFunctionMap()) {
         if (ele.second->GetFunctionHash() == calleeHash) {
-            callee = ele.second.get();
+            callee = ele.second;
         }
     }
     if (callee == nullptr) {
@@ -430,6 +430,7 @@ void Operation::DumpCallOpInfoJson(Json& opDump) const
         return;
     }
     auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
+    FUNCTION_ASSERT(FError::INVALID_PTR, callAttr != nullptr);
     auto programId = callAttr->invokeInfo_->GetProgramId();
     auto programIter = function_->programs_.find(programId);
     if (programIter != function_->programs_.end()) {
@@ -438,6 +439,7 @@ void Operation::DumpCallOpInfoJson(Json& opDump) const
         opDump["program_funcmagic"] = programFuncMagic_;
     }
     auto attr = std::dynamic_pointer_cast<CallOpAttribute>(GetOpAttribute());
+    FUNCTION_ASSERT(FError::INVALID_PTR, attr != nullptr);
     opDump["invoke_info"] = attr->DumpInvokeInfoJson();
     opDump["static"]["invoke_info"] = opDump["invoke_info"];
 }
