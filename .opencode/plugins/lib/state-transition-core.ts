@@ -39,6 +39,9 @@ export function applyTransition(
 
   switch (input.action) {
     case "init": {
+      if (stage !== 1) {
+        throw new Error(`init action must target stage 1, got stage ${stage}`);
+      }
       const hasInProgress = Object.values(statusMap).some((s) => s === "in_progress");
       if (hasInProgress) {
         throw new Error(`cannot init: a stage is already in_progress`);

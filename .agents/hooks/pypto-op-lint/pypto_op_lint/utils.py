@@ -114,10 +114,10 @@ def _load_doc_meta(ctx: CheckContext, filename: str) -> dict[str, Any]:
 _tolerance_schema_cache: list[dict[str, Any]] | None = None
 
 def _load_tolerance_schema() -> list[dict[str, Any]]:
+    """从 rules.json 加载 tolerance_schema.oneOf 定义（带模块级缓存）。"""
     global _tolerance_schema_cache
     if _tolerance_schema_cache is not None:
         return _tolerance_schema_cache
-    """从 rules.json 加载 tolerance_schema.oneOf 定义。"""
     rules_path = os.path.join(SCRIPT_DIR, "rules.json")
     try:
         with open(rules_path, "r", encoding="utf-8") as f:

@@ -65,7 +65,7 @@ skills:
 2. 通过 NPU 运行 `test_{op}.py`，捕获 stdout / stderr。涉及 `torch` / `pypto` 的执行必须使用 nohup 后台模式以规避 bash 子进程偶发挂起：
 
    ```bash
-   nohup bash .agents/hooks/pypto-op-lint/run_npu_test.sh custom/{op}/test_{op}.py > /dev/null 2>&1 & echo $!
+   nohup bash .agents/bin/run_npu_test.sh custom/{op}/test_{op}.py > /dev/null 2>&1 & echo $!
    # 通过 ps -p <pid> / 读取 /tmp/pypto_npu_test_result.txt 获取最终输出
    ```
 3. 将三态结果写入 DEBUG_LOG，并在返回摘要中体现：

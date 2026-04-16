@@ -24,7 +24,7 @@ def _run_hook(hook: str, payload: dict, env_extra: dict | None = None) -> tuple[
     return result.returncode, result.stdout.strip()
 
 
-# ── post-edit: 非算子文件 → ���输出 ──
+# ── post-edit: 非算子文件 → 无输出 ──
 
 def test_post_edit_non_operator_file_silent():
     rc, out = _run_hook("post-edit", {"tool_input": {"file_path": "/tmp/readme.md"}})
@@ -32,7 +32,7 @@ def test_post_edit_non_operator_file_silent():
     assert out == ""
 
 
-# ── post-edit: 算子 impl 文件 → 返��结构化 JSON ──
+# ── post-edit: 算子 impl 文件 → 返回结构化 JSON ──
 
 def test_post_edit_impl_returns_hook_json(tmp_path: Path):
     op_dir = build_stateless_op_dir(tmp_path, "demo")
@@ -126,7 +126,7 @@ def test_stop_blocks_on_s1_violation(tmp_path: Path):
     assert data["hookSpecificOutput"]["decision"] == "block"
 
 
-# ── 边界场景: 空 stdin → 安全��出 ──
+# ── 边界场景: 空 stdin → 安全退出 ──
 
 def test_hook_empty_stdin():
     """所有 hook 在空输入时应安全退出"""

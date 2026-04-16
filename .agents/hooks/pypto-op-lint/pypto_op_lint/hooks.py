@@ -136,9 +136,20 @@ def hook_post_bash() -> int:
     return 0
 
 def hook_pre_edit_backup() -> int:
-    """PreToolUse[Write|Edit] — Stage 6 编辑 impl 前 git auto-commit（独立于 lint）"""
+    """PreToolUse[Write|Edit] — 状态文件保护 + Stage 6 编辑 impl 前 git auto-commit"""
     data = _load_hook_input()
     file_path = data.get("tool_input", {}).get("file_path", "")
+
+    # 拦截对 .orchestrator_state.json 的直接写入
+    if os.path.basename(file_path) == ".orchestrator_state.json":
+        _output_hook_json(
+            "PreToolUse",
+            decision="block",
+            reason="禁止直接修改 .orchestrator_state.json，"
+                   "请通过 state_transition 工具操作阶段状态。",
+        )
+        return 0
+
     if not file_path.endswith("_impl.py"):
         return 0
     op_dir = _infer_op_dir(file_path)

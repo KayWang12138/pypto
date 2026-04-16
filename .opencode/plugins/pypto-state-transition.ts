@@ -1,4 +1,5 @@
 import { type Plugin, tool } from "@opencode-ai/plugin";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { applyTransition, type OrchestratorState, type TransitionAction } from "./lib/state-transition-core";
@@ -125,7 +126,6 @@ const SPEC_HASH_KEY = "spec_md_hash";
 
 function computeFileHash(filePath: string): string | null {
   if (!fs.existsSync(filePath)) return null;
-  const crypto = require("node:crypto") as typeof import("node:crypto");
   const content = fs.readFileSync(filePath, "utf8");
   return crypto.createHash("sha256").update(content).digest("hex");
 }
