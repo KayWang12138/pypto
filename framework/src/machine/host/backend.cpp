@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
+#include "mix_info.h"
 
 using namespace npu::tile_fwk::dynamic;
 namespace npu::tile_fwk {
@@ -913,7 +914,10 @@ static void CompileDyndevFunction(Function* function, FunctionCache& cache, [[ma
 {
     ASSERT(HostBackEndErr::RUN_PASS_FAILED,
         (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
-
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+        config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        mix_info::DumpMixInfo(function);
+    }
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(DevCommonErr::PARAM_CHECK_FAILED, attr != nullptr) << "DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
