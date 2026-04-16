@@ -278,16 +278,15 @@ def compute_loop_b_optimized(dtype, ctx_params):
     b_idx = ctx_params.loop_index.b_idx
     loop_size = ctx_params.loop_size
 
-    S1_BLOCK_STEP = 16  
+    s1_block_step = 16  
 
-    s1_block_num = (s1 + S1_BLOCK_STEP - 1) // S1_BLOCK_STEP
+    s1_block_num = (s1 + s1_block_step - 1) // s1_block_step
     
     for s1_block_idx in pypto.loop(s1_block_num, name="LOOP_s1_block", idx_name="s1_block_idx"):
-        s1_start = s1_block_idx * S1_BLOCK_STEP
-        s1_end = (s1_block_idx + 1) * S1_BLOCK_STEP
-        actual_s1_in_block = (s1 - s1_start).min(S1_BLOCK_STEP)
+        s1_start = s1_block_idx * s1_block_step
+        s1_end = (s1_block_idx + 1) * s1_block_step
+        actual_s1_in_block = (s1 - s1_start).min(s1_block_step)
         
-        # s2_max_for_block = (s1_block_idx + 1) * S1_BLOCK_STEP
         s2_max_for_block = s1_start + actual_s1_in_block
 
         s2_loop_for_block = pypto.ceildiv(
@@ -388,6 +387,16 @@ def compute_loop_s2_optimized(ctx_params, cur_seq_len, dtype, s2_loop_for_block)
             finalize_output(out_ofs, dtype, ctx_params)
 
 
+@dataclass
+class PfaKernelInputs:
+    q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16)
+    k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16)
+    v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16)
+    block_table: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32)
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32)
+    atten_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16)
+
+
 @pypto.frontend.jit(
     runtime_options={
         "stitch_function_max_num": 128,
@@ -399,15 +408,15 @@ def compute_loop_s2_optimized(ctx_params, cur_seq_len, dtype, s2_loop_for_block)
     },
     debug_options={"runtime_debug_mode": 1}
 )
-def pfa_optimized_kernel(
-    q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
-    block_table: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
-    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
-    atten_out: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16)
-):
+def pfa_optimized_kernel(inputs: PfaKernelInputs):
     """PFA Kernel"""
+    q = inputs.q
+    k = inputs.k
+    v = inputs.v
+    block_table = inputs.block_table
+    kv_act_seqs = inputs.kv_act_seqs
+    atten_out = inputs.atten_out
+    
     dtype = q.dtype
     kernel_params = init_kernel_params(q, k, block_table)
     tile_cfg = get_pfa_tile_cfg()
