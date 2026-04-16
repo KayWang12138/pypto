@@ -89,7 +89,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     MACHINE_LOGD("!!! Emulation Launch\n");
     DeviceKernelArgs kArgs;
     auto dynAttr = function->GetDyndevAttribute();
-    DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
+    //DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, ctrlCache, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
     int rc = EmulationLaunchOnce(kArgs);
@@ -157,7 +157,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     hostCtrlFlowCache->isRecording = true;
     hostCtrlFlowCache->isCacheOriginShape = config.isCacheOriginShape;
     DeviceKernelArgs kArgs;
-    DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
+    //DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
     int rc = EmulationBuildControlFlowCache(kArgs);

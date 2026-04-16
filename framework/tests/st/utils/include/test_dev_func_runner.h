@@ -196,7 +196,7 @@ private:
         auto dynAttr = function_->GetDyndevAttribute();
         DeviceLauncherConfigFillDeviceInfo(config_);
         MemoryHelper memoryHelper(true);
-        DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
+        //DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
         DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
             InitKernelInOuts(memoryHelper, kArgs, inputs, outputs, true, {});
@@ -303,7 +303,7 @@ private:
         DeviceKernelArgs kArgs;
         auto dynAttr = function_->GetDyndevAttribute();
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
+        //DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
         DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();

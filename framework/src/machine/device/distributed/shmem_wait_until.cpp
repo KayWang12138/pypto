@@ -92,7 +92,7 @@ TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
-    commContextAddr_ = funcDataList_.startArgs->devTensorList[paramInfo_.commContextIndex].address;
+    commContextAddr_ = funcDataList_->startArgs->devTensorList[paramInfo_.commContextIndex].address;
     info.rawAddr = ShmemWaitUntilImpl::GetRawAddr(funcData.rawTensorAddr[desc->offsetOrIndex]);
     return info;
 }

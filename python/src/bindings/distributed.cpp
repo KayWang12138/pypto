@@ -31,16 +31,16 @@ void BindDistributed(py::module& m)
 
     m.def(
         "CreateShmemTensor",
-        [](const Tensor& commTensor, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t) {
-            return Distributed::CreateShmemTensor(commTensor, group, worldSize, dataType, shape, t);
+        [](const Tensor& commTensor, const Tensor& commTensor, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t) {
+            return Distributed::CreateShmemTensor(commTensor, commTensor, group, worldSize, dataType, shape, t);
         },
         py::arg("commTensor"), py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("t"),
         "Create shmem data.");
 
     m.def(
         "CreateShmemSignal",
-        [](const Tensor& commTensor, int64_t worldSize, ShmemTensor& t) {
-            return Distributed::CreateShmemSignal(commTensor, group, worldSize, t);
+        [](const Tensor& commTensor, const Tensor& commTensor, int64_t worldSize, ShmemTensor& t) {
+            return Distributed::CreateShmemSignal(commTensor, commTensor, group, worldSize, t);
         },
         py::arg("commTensor"), py::arg("group"), py::arg("worldSize"), py::arg("t"), "Create shmem signal data.");
 
@@ -159,18 +159,14 @@ void BindDistributed(py::module& m)
         "Store local tensor to shmem.");
 
     m.def(
-        "GetSymbolicScalarPeId", [](const Tensor& commTensor) { return GetHcclRankId(commTensor); }, py::arg("commTensor"),
+        "GetSymbolicScalarPeId", [](const Tensor& commTensor) { return GetHcclRankIdV2(commTensor); }, py::arg("commTensor"),
         "Get local rank id by groupname.");
 
     m.def(
         "GetCommContext", 
         [](const std::string& group) -> std::pair<int64_t, uint64_t> { 
-            std::vector<uint64_t> hcclContexts = dynamic::DistributedContext::GetCommContextToHost(std::vector<std::string>{group});
-            auto hcclOpParam = (TileOp::CommContext*)hcclContexts[0];
-            auto rankNum = hcclOpParam->rankNum;
-            int64_t ctxSize = static_cast<int64_t>(sizeof(TileOp::CommContext)) + 
-                static_cast<int64_t>(sizeof(uint64_t)) * rankNum * dynamic::WIN_TYPE_NUM;
-            auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<std::string>{group});
+            int64_t ctxSize = 0
+            auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<std::string>{group}, &ctxSize);
             return {ctxSize, commContext[0]}; 
         }, 
         py::arg("group"),

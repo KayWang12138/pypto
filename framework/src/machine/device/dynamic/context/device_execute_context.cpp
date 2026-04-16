@@ -602,10 +602,11 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void* ctx_, uint64_t val
 
 void* DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void* ctx_, uint64_t value)
 {
-    uint64_t addr = (reinterpret_cast<uint64_t*>(value))[0];
-    uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
-    uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
-    uint64_t maxTileNum = (reinterpret_cast<uint64_t*>(value))[3];
+    const uint64_t* input = (reinterpret_cast<const uint64_t*>(value));
+    uint64_t addr = input[0];
+    uint64_t memType = input[1];
+    uint64_t size = input[2];
+    uint64_t maxTileNum = input[3]
     constexpr uint64_t memTypeCount = 2;
 
     constexpr uint64_t OFFSET_BITS = 42UL;

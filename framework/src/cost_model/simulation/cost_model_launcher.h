@@ -217,7 +217,7 @@ private:
         auto dynAttr = function_->GetDyndevAttribute();
         DeviceLauncherConfigFillDeviceInfo(config_);
         MemoryHelper memoryHelper(true);
-        DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
+        //DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
         DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         RunCostModel(&kArgs);
