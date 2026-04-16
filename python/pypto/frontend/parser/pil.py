@@ -811,6 +811,10 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         PILBuilder.__init__(self, ctx)
         ast.NodeVisitor.__init__(self)
 
+    @staticmethod
+    def _node_name_to_visitor_suffix(name: str) -> str:
+        return re.sub(r"(?<!^)([A-Z])", r"_\1", name).lower()
+
     def visit_slice_values(self, slice_expr: Union[ast.Slice, tuple[ast.Slice]]) -> tuple[list[ast.stmt], list[PILSlice]]:
         slice_list = slice_expr.elts if isinstance(slice_expr, ast.Tuple) else [slice_expr]
 
@@ -2325,9 +2329,6 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             stmt_list.extend(result_stmt_list)
         return stmt_list, None
 
-    @staticmethod
-    def _node_name_to_visitor_suffix(name: str) -> str:
-        return re.sub(r"(?<!^)([A-Z])", r"_\1", name).lower()
 
     def visit(self, node):
         method = 'visit_' + self._node_name_to_visitor_suffix(node.__class__.__name__)
