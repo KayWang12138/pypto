@@ -13,29 +13,40 @@
  * \brief Device trace implementation with dynamic library loading
  */
 
-#ifdef __DEVICE__
 #include <dlfcn.h>
 #include <string>
+#include <cstdarg>
+#include <cstdio>
+#include "machine/utils/device_log.h"
 #include "device_trace.h"
+#ifdef __DEVICE__
 #include "machine/device/tilefwk/aicpu_common.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "driver/ascend_hal_base.h"
+#include "driver/ascend_hal.h"
 
 namespace npu::tile_fwk::dynamic {
 
-constexpr char const *GlobalTraceHandleName = "PYPTO_Global_Trace";
-constexpr char const *EventTraceHandleName = "PYPTO_Event_Trace";
+constexpr char const* GlobalTraceHandleName = "PYPTO_Global_Trace";
+
+constexpr uint8_t MAX_HANDLE_NUM = 5;
+std::atomic<int8_t> g_thread_idx{0};
 
 DeviceTrace& DeviceTrace::GetInstance() {
     static DeviceTrace deviceTrace;
     return deviceTrace;
 }
 
-DeviceTrace::~DeviceTrace()
-{
+DeviceTrace::~DeviceTrace() {
     if (handle_ != nullptr) {
         dlclose(handle_);
         handle_ = nullptr;
+    }
+    for (auto pyptoHandle : pyptoHandleArray_) {
+        TraceDestroy(pyptoHandle);
+    }
+    for (auto enventHandle : eventHandleArry_) {
+        TraceEventDestroy(enventHandle);
     }
 }
 
@@ -43,8 +54,9 @@ void* DeviceTrace::LoadLibrary(const std::string& libraryName) {
     void* handle = dlopen(libraryName.c_str(), RTLD_NOW);
     if (handle == nullptr) {
         const char* error = dlerror();
-        DEV_WARN(DevCommonErr::LOAD_LIBRARY_FAILED, "Failed to load library %s: %s",
-                 libraryName.c_str(), error ? error : "unknown error");
+        DEV_WARN(
+            DevCommonErr::LOAD_LIBRARY_FAILED, "Failed to load library %s: %s", libraryName.c_str(),
+            error ? error : "unknown error");
     }
     return handle;
 }
@@ -54,7 +66,7 @@ void* DeviceTrace::GetSymbol(const std::string& symbolName) {
         DEV_WARN("Cannot get symbol %s from null handle", symbolName.c_str());
         return nullptr;
     }
-    
+
     void* symbol = dlsym(handle_, symbolName.c_str());
     if (symbol == nullptr) {
         const char* error = dlerror();
@@ -64,52 +76,52 @@ void* DeviceTrace::GetSymbol(const std::string& symbolName) {
 }
 
 TraceError DeviceTrace::InitializeAtraceFunctions() {
-    TraceCreate = reinterpret_cast<TraHandle(*)(TracerType, const char*)>(GetSymbol("AtraceCreate"));
+    TraceCreate = reinterpret_cast<TraHandle (*)(TracerType, const char*)>(GetSymbol("AtraceCreate"));
     if (TraceCreate == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceDestroy = reinterpret_cast<void(*)(TraHandle)>(GetSymbol("AtraceDestroy"));
+    TraceDestroy = reinterpret_cast<void (*)(TraHandle)>(GetSymbol("AtraceDestroy"));
     if (TraceDestroy == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceSubmit = reinterpret_cast<TraStatus(*)(TraHandle, const void*, uint32_t)>(GetSymbol("AtraceSubmit"));
+    TraceSubmit = reinterpret_cast<TraStatus (*)(TraHandle, const void*, uint32_t)>(GetSymbol("AtraceSubmit"));
     if (TraceSubmit == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceSave = reinterpret_cast<TraStatus(*)(TracerType, bool)>(GetSymbol("AtraceSave"));
+    TraceSave = reinterpret_cast<TraStatus (*)(TracerType, bool)>(GetSymbol("AtraceSave"));
     if (TraceSave == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventCreate = reinterpret_cast<TraEventHandle(*)(const char*)>(GetSymbol("AtraceEventCreate"));
+    TraceEventCreate = reinterpret_cast<TraEventHandle (*)(const char*)>(GetSymbol("AtraceEventCreate"));
     if (TraceEventCreate == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventBindTrace = reinterpret_cast<TraStatus(*)(TraEventHandle, TraHandle)>(GetSymbol("AtraceEventBindTrace"));
+    TraceEventBindTrace = reinterpret_cast<TraStatus (*)(TraEventHandle, TraHandle)>(GetSymbol("AtraceEventBindTrace"));
     if (TraceEventBindTrace == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventReport = reinterpret_cast<TraStatus(*)(TraEventHandle)>( GetSymbol("AtraceEventReport"));
+    TraceEventReport = reinterpret_cast<TraStatus (*)(TraEventHandle)>(GetSymbol("AtraceEventReport"));
     if (TraceEventReport == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventReportSync = reinterpret_cast<TraStatus(*)(TraEventHandle)>(GetSymbol("AtraceEventReportSync"));
+    TraceEventReportSync = reinterpret_cast<TraStatus (*)(TraEventHandle)>(GetSymbol("AtraceEventReportSync"));
     if (TraceEventReportSync == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventDestroy = reinterpret_cast<void(*)(TraEventHandle)>(GetSymbol("AtraceEventDestroy"));
+    TraceEventDestroy = reinterpret_cast<void (*)(TraEventHandle)>(GetSymbol("AtraceEventDestroy"));
     if (TraceEventDestroy == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceSetGlobalAttr = reinterpret_cast<TraStatus(*)(const TraceGlobalAttr *attr)>(GetSymbol("AtraceSetGlobalAttr"));
+    TraceSetGlobalAttr = reinterpret_cast<TraStatus (*)(const TraceGlobalAttr* attr)>(GetSymbol("AtraceSetGlobalAttr"));
     if (TraceSetGlobalAttr == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
@@ -118,47 +130,47 @@ TraceError DeviceTrace::InitializeAtraceFunctions() {
 }
 
 TraceError DeviceTrace::InitializeUtraceFunctions() {
-    TraceCreate = reinterpret_cast<TraHandle(*)(TracerType, const char*)>(GetSymbol("UtraceCreate"));
+    TraceCreate = reinterpret_cast<TraHandle (*)(TracerType, const char*)>(GetSymbol("UtraceCreate"));
     if (TraceCreate == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceDestroy = reinterpret_cast<void(*)(TraHandle)>(GetSymbol("UtraceDestroy"));
+    TraceDestroy = reinterpret_cast<void (*)(TraHandle)>(GetSymbol("UtraceDestroy"));
     if (TraceDestroy == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceSubmit = reinterpret_cast<TraStatus(*)(TraHandle, const void*, uint32_t)>(GetSymbol("UtraceSubmit"));
+    TraceSubmit = reinterpret_cast<TraStatus (*)(TraHandle, const void*, uint32_t)>(GetSymbol("UtraceSubmit"));
     if (TraceSubmit == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceSave = reinterpret_cast<TraStatus(*)(TracerType, bool)>(GetSymbol("UtraceSave"));
+    TraceSave = reinterpret_cast<TraStatus (*)(TracerType, bool)>(GetSymbol("UtraceSave"));
     if (TraceSave == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventCreate = reinterpret_cast<TraEventHandle(*)(const char*)>(GetSymbol("UtraceEventCreate"));
+    TraceEventCreate = reinterpret_cast<TraEventHandle (*)(const char*)>(GetSymbol("UtraceEventCreate"));
     if (TraceEventCreate == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventBindTrace = reinterpret_cast<TraStatus(*)(TraEventHandle, TraHandle)>(GetSymbol("UtraceEventBindTrace"));
+    TraceEventBindTrace = reinterpret_cast<TraStatus (*)(TraEventHandle, TraHandle)>(GetSymbol("UtraceEventBindTrace"));
     if (TraceEventBindTrace == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventReport = reinterpret_cast<TraStatus(*)(TraEventHandle)>(GetSymbol("UtraceEventReport"));
+    TraceEventReport = reinterpret_cast<TraStatus (*)(TraEventHandle)>(GetSymbol("UtraceEventReport"));
     if (TraceEventReport == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceEventDestroy = reinterpret_cast<void(*)(TraEventHandle)>(GetSymbol("UtraceEventDestroy"));
+    TraceEventDestroy = reinterpret_cast<void (*)(TraEventHandle)>(GetSymbol("UtraceEventDestroy"));
     if (TraceEventDestroy == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
 
-    TraceSetGlobalAttr = reinterpret_cast<TraStatus(*)(const TraceGlobalAttr *attr)>(GetSymbol("UtraceSetGlobalAttr"));
+    TraceSetGlobalAttr = reinterpret_cast<TraStatus (*)(const TraceGlobalAttr* attr)>(GetSymbol("UtraceSetGlobalAttr"));
     if (TraceSetGlobalAttr == nullptr) {
         return TraceError::SYMBOL_NOT_FOUND;
     }
@@ -172,8 +184,9 @@ TraceError DeviceTrace::AtraceInitialize() {
         DEV_INFO("Successfully loaded libascend_trace.so");
         TraceError ret = InitializeAtraceFunctions();
         if (ret != TraceError::PYPTO_TRACE_SUCCESS) {
-            DEV_ERROR(DevCommonErr::INIT_FAILED, "Failed to initialize Atrace functions, error code: %d",
-                      static_cast<int>(ret));
+            DEV_ERROR(
+                DevCommonErr::INIT_FAILED, "Failed to initialize Atrace functions, error code: %d",
+                static_cast<int>(ret));
             dlclose(handle_);
             handle_ = nullptr;
             return ret;
@@ -187,24 +200,24 @@ TraceError DeviceTrace::AtraceInitialize() {
 TraceError DeviceTrace::UtraceInitialize() {
     handle_ = LoadLibrary("libutrace.so");
     if (handle_ != nullptr) {
-        DEV_INFO("Successfully loaded libutrace.so");        
+        DEV_INFO("Successfully loaded libutrace.so");
         TraceError ret = InitializeUtraceFunctions();
         if (ret != TraceError::PYPTO_TRACE_SUCCESS) {
-            DEV_ERROR(DevCommonErr::INIT_FAILED, "Failed to initialize Utrace functions, error code: %d",
-                      static_cast<int>(ret));
+            DEV_ERROR(
+                DevCommonErr::INIT_FAILED, "Failed to initialize Utrace functions, error code: %d",
+                static_cast<int>(ret));
             dlclose(handle_);
             handle_ = nullptr;
             return ret;
         }
-        
+
         DEV_INFO("Device trace initialized with Utrace backend");
         return TraceError::PYPTO_TRACE_SUCCESS;
     }
     return TraceError::LOAD_LIBRARY_FAILED;
 }
 
-TraceError DeviceTrace::Initialize(void *targ) {
-    std::lock_guard<std::mutex> lock(mutex_);
+TraceError DeviceTrace::Initialize(void* targ) {
     if (handle_ != nullptr) {
         DEV_DEBUG("Device trace already initialized");
         return TraceError::PYPTO_TRACE_SUCCESS;
@@ -213,24 +226,19 @@ TraceError DeviceTrace::Initialize(void *targ) {
     DEV_INFO("Initializing device trace...");
     if (AtraceInitialize() == TraceError::PYPTO_TRACE_SUCCESS) {
         DEV_INFO("Current using so is libascend_trace.so");
-        return CreateTraceHandle(targ);
+        return ConnectTraceD2H(targ);
     }
-    
+
     DEV_WARN("Failed to load libascend_trace.so, trying libutrace.so as fallback");
     if (UtraceInitialize() == TraceError::PYPTO_TRACE_SUCCESS) {
         DEV_INFO("Current using so is libutrace.so");
-        return CreateTraceHandle(targ);
+        return ConnectTraceD2H(targ);
     }
     DEV_ERROR(DevCommonErr::LOAD_LIBRARY_FAILED, "Failed to initialize device trace: no trace library available");
     return TraceError::LOAD_LIBRARY_FAILED;
 }
 
-TraceError DeviceTrace::CreateTraceHandle(void *targ) {
-    if (handle_ == nullptr) {
-        DEV_ERROR(DevCommonErr::LOAD_LIBRARY_FAILED, "Create Trance handle failed");
-        return TraceError::LOAD_LIBRARY_FAILED;
-    }
-
+TraceError DeviceTrace::ConnectTraceD2H(void* targ) {
     DeviceKernelArgs* kargs = (DeviceKernelArgs*)targ;
     DeviceArgs* devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
     if (devArgs->devDfxArgAddr != 0) {
@@ -241,64 +249,92 @@ TraceError DeviceTrace::CreateTraceHandle(void *targ) {
         drvGetLocalDevIDByHostDevID(devDfxArgs->deviceId, &localDevId);
         traceAttr.deviceId = static_cast<uint8_t>(localDevId);
         traceAttr.pid = devDfxArgs->hostPid;
-        DEV_INFO("ArgsAddr: %lu, Set deviceId: %u, pid: %lu, logLevel: %d", 
-            devArgs->devDfxArgAddr, devDfxArgs->deviceId, devDfxArgs->hostPid, devDfxArgs->logLevel);
+        DEV_INFO(
+            "ArgsAddr: %lu, Set deviceId: %u, pid: %lu, logLevel: %d", devArgs->devDfxArgAddr, devDfxArgs->deviceId,
+            devDfxArgs->hostPid, devDfxArgs->logLevel);
         if (TraceSetGlobalAttr(&traceAttr) != 0) {
-            DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Set Trace Global Attr failed");
             return TraceError::LOAD_LIBRARY_FAILED;
         }
         DEV_INFO("Set Global Attr success");
     }
-
-    pyptoHandle_ = TraceCreate(TracerType::TRACER_TYPE_SCHEDULE, GlobalTraceHandleName);
-    if (pyptoHandle_ < 0) {
-        DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto trace failed");
-        return TraceError::LOAD_LIBRARY_FAILED;
-    }
-    DEV_INFO("Create pypto trace Handle successful");
-    eventHandle_ = TraceEventCreate(EventTraceHandleName);
-    if (eventHandle_ < 0) {
-        DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto event trace failed");
-        return TraceError::LOAD_LIBRARY_FAILED;
-    }
-    DEV_INFO("Create pypto eventHandle_ successful");
-    auto status = TraceEventBindTrace(eventHandle_, pyptoHandle_);
-    if (status < 0) {
-        DEV_ERROR(DevCommonErr::PARAM_CHECK_FAILED, "Bind pypto trace handle to pypto event trace failed, error status: %d", status);
-        return TraceError::LOAD_LIBRARY_FAILED;
-    }
-    DEV_INFO("Bind pypto eventHandle_ successful");
     return TraceError::PYPTO_TRACE_SUCCESS;
 }
 
-void DeviceTrace::SubmitTraceMsg(const std::string &traceMsg) {
-    std::lock_guard<std::mutex> lock_guard(pyptoTraceMutex_);
-    if (pyptoHandle_  < 0 || traceMsg.empty()) {
+TraceError DeviceTrace::BindHandleToEventHandle(TraHandle handle, uint8_t threadIdx) {
+    if (threadIdx % MAX_HANDLE_NUM == 0) {
+        std::string eventTraceHandleName = "PYPTO_Event_Trace_" + std::to_string(threadIdx);
+        auto eventHandle = TraceEventCreate(eventTraceHandleName.c_str());
+        if (eventHandle < 0) {
+            DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto event trace failed");
+            return TraceError::LOAD_LIBRARY_FAILED;
+        }
+        DEV_INFO("Create pypto eventHandle_ successful");
+        eventHandleArry_.emplace_back(eventHandle);
+    }
+    auto status = TraceEventBindTrace(eventHandleArry_.back(), handle);
+    if (status < 0) {
+        DEV_ERROR(
+            DevCommonErr::PARAM_CHECK_FAILED, "Bind pypto trace handle to pypto event trace failed, error status: %d",
+            status);
+        return TraceError::LOAD_LIBRARY_FAILED;
+    }
+    return TraceError::PYPTO_TRACE_SUCCESS;
+}
+
+TraHandle DeviceTrace::CreateTraceHandle() {
+    thread_local TraHandle pyptoHandle = -1;
+    if (pyptoHandle > 0) {
+        return pyptoHandle;
+    }
+    auto thereadIdx = g_thread_idx.fetch_add(1, std::memory_order_relaxed);
+    std::string handleName = "PyPTO_Aicpu_" + std::to_string(thereadIdx) + "_Trace";
+    pyptoHandle = TraceCreate(TracerType::TRACER_TYPE_SCHEDULE, handleName.c_str());
+    if (pyptoHandle < 0) {
+        DEV_ERROR(DevCommonErr::GET_HANDLE_FAILED, "Create pypto trace failed");
+        return -1;
+    }
+    pyptoHandleArray_.emplace_back(pyptoHandle);
+    DEV_INFO("Create pypto trace Handle successful");
+    auto status = BindHandleToEventHandle(pyptoHandle, thereadIdx);
+    if (status != TraceError::PYPTO_TRACE_SUCCESS) {
+        return -1;
+    }
+    DEV_INFO("Bind pypto eventHandle_ successful");
+    return pyptoHandle;
+}
+
+void DeviceTrace::SubmitTraceMsg(const std::string& traceMsg) {
+    auto pyptoHandle = CreateTraceHandle();
+    if (pyptoHandle < 0 || traceMsg.empty()) {
         DEV_WARN("pypto Handle is null or traceMsg is empty, cann't to submit");
         return;
     }
     uint32_t msgSize = static_cast<uint32_t>(traceMsg.size());
-    const void *buffer = reinterpret_cast<const void *>(traceMsg.c_str());
+    const void* buffer = reinterpret_cast<const void*>(traceMsg.c_str());
     uint32_t bufSize = msgSize > MAX_MSG_LEN ? MAX_MSG_LEN : msgSize;
-    auto ret = TraceSubmit(pyptoHandle_, buffer, bufSize); 
+    auto ret = TraceSubmit(pyptoHandle, buffer, bufSize);
     if (ret < 0) {
-        DEV_ERROR(DevCommonErr::CMD_ERROR, "Submit pyptoHandle buffer info failed, ret: %d", ret);
+        DEV_ERROR(DevCommonErr::EXEC_THRID_API_FAILD, "Submit pyptoHandle buffer info failed, ret: %d", ret);
     }
-    DEV_INFO("Submit msg: %s success", traceMsg.c_str());
 }
 
 void DeviceTrace::ReportTraceMsg() {
-    if (eventHandle_ < 0) {
-        DEV_WARN("Pypto event handle is invalid");
-        return;
+    for (auto enventHandle : eventHandleArry_) {
+        auto ret = TraceEventReport(enventHandle);
+        if (ret < 0) {
+            DEV_ERROR(DevCommonErr::EXEC_THRID_API_FAILD, "Report pypto envet Handle buffer info failed, ret: %d", ret);
+        }
+        DEV_INFO("Event Handle %ld, Report Submit Msg success", enventHandle);
     }
-    auto ret = TraceEventReport(eventHandle_);
-    if (ret < 0) {
-        DEV_ERROR(DevCommonErr::CMD_ERROR, "Report pypto envet Handle buffer info failed, ret: %d", ret);
-    }
-    DEV_INFO("reprt Submit Msg success");
-    TraceEventDestroy(eventHandle_);
-    TraceDestroy(pyptoHandle_);
 }
+} // namespace npu::tile_fwk::dynamic
+#else
+namespace npu::tile_fwk::dynamic {
+DeviceTrace& DeviceTrace::GetInstance() {
+    static DeviceTrace deviceTrace;
+    return deviceTrace;
+}
+void DeviceTrace::SubmitTraceMsg(const std::string& traceMsg) { (void)traceMsg; }
+void DeviceTrace::ReportTraceMsg() {}
 } // namespace npu::tile_fwk::dynamic
 #endif
