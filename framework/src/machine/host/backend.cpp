@@ -900,9 +900,9 @@ static void CompileControlFlow(
         return;
     }
 #ifdef BUILD_WITH_CANN
-    if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-        ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
-    }
+        if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
+            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
+        }
 #endif
 }
 
