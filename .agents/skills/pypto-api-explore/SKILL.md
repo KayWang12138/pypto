@@ -1,6 +1,6 @@
 ---
 name: pypto-api-explore
-description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查和 Tiling 需求分析。当需要查找 PyPTO 是否支持某个操作、验证 API 约束、分析算子可行性时使用。Triggers: API 探索、查找 API、PyPTO 有没有 xxx、支持什么 dtype、约束是什么、tiling 怎么配、API 映射、可行性分析、这个算子能做吗。"
+description: 探索 PyPTO API，为算子开发提供 API 映射、约束检查和 Tiling 需求分析。当需要查找 PyPTO 是否支持某个操作、验证 API 约束、分析算子可行性时使用。Triggers: API 探索、查找 API、PyPTO 有没有 xxx、支持什么 dtype、约束是什么、tiling 怎么配、API 映射、可行性分析、这个算子能做吗。
 ---
 
 # pypto-api-explore
@@ -30,7 +30,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 
 **注意**：必须使用 `Explore` subagent 进行 API 和约束探索，确保搜索的全面性和准确性。
 
-### Stage 1: 输入解析
+### 步骤 1: 输入解析
 
 接受任意形式输入，提取：
 - 算子名称（如有）
@@ -38,7 +38,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 - 输入输出规格（shape、dtype）
 - 其他约束条件
 
-### Stage 2: 公式分解
+### 步骤 2: 公式分解
 
 将计算逻辑分解为原子操作序列：
 
@@ -50,7 +50,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 - index: gather, scatter, index_select...
 - activation: relu, sigmoid, softmax...
 
-### Stage 3: 并行探索
+### 步骤 3: 并行探索
 
 将 API 探索、参考实现搜索和约束探索合并为**三个并行的 Explore subagent**，分别负责不同的一级目录。必须在**同一条消息中同时发起所有 Agent 调用**，确保并行执行。
 
@@ -101,7 +101,7 @@ description: "探索 PyPTO API，为算子开发提供 API 映射、约束检查
 2. 合并参考实现搜索结果（来自 subagent 2 和 3），对比评估选择**最佳匹配**
 3. 若存在多个高质量参考，在报告中列出 Top 3，并说明推荐首选及理由
 
-### Stage 4: 生成报告
+### 步骤 4: 生成报告
 
 基于 [templates/api_report.md](templates/api_report.md) 模板生成 API_REPORT.md。
 

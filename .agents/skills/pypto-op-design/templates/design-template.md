@@ -1,17 +1,10 @@
 ---
 schema_version: "2.1"
 op_name: "{op_name}"
-stage: 4
 status: draft                       # draft | reviewed | final
 last_updated: "{YYYY-MM-DD}"
 
-# 上游工件溯源（路径相对算子目录）
-upstream:
-  spec: "SPEC.md"
-  api_report: "API_REPORT.md"
-  golden: "{op_name}_golden.py"
-
-# 关键接口契约（供 Stage 5 直接消费；详细形参在 §2 写明）
+# 关键接口契约（详细形参在 §2 写明）
 compute_kind: "{vector|cube|mixed}"
 dtypes: ["{fp32|bf16|fp16}"]
 dynamic_axes: {dynamic_axes}        # 例如 ["B","S"]；无则填 []
