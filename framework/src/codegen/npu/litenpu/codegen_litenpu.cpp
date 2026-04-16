@@ -95,11 +95,6 @@ std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
                 " paramLoc is %u, paramOff is %zu, SymDDRId is %d, SymName is %s, Symbol is %s, dataType is %zu",
                 paramLoc, paramOff, invokeArgs[i].symDDRId, invokeArgs[i].symName.c_str(), invokeArgs[i].symbol.c_str(),
                 static_cast<size_t>(invokeArgs[i].dataType));
-
-            // TODO: verify if needs this...
-            if (invokeArgs[i].symbol.empty()) {
-                continue;
-            }
             symbolMap.insert({paramLoc, invokeArgs[i].symbol});
             paramsSet.insert(invokeArgs[i].symbol);
             dTypeMap[invokeArgs[i].symbol] = GetDtype(invokeArgs[i].dataType);
