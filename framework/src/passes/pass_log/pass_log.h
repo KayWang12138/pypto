@@ -31,6 +31,8 @@ std::string GetFormatBacktrace(const OperationPtr& op);
 
 std::string GetFormatBacktrace(const Operation* op);
 
+std::string EscapeShellArg(const std::string& arg);
+
 void LogPassRuntime(
     const std::string& identifier, Program& program, Function& function,
     const std::chrono::time_point<std::chrono::high_resolution_clock>& start);

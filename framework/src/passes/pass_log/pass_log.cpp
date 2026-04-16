@@ -28,7 +28,7 @@
 
 namespace npu::tile_fwk {
 
-static std::string EscapeShellArg(const std::string& arg)
+std::string EscapeShellArg(const std::string& arg)
 {
     std::string escaped = "'";
     for (char c : arg) {
@@ -90,7 +90,8 @@ void ExtractPassLogByFunction(const Function& function)
 {
     const std::string scriptPath = "tools/scripts/extract_pass_log.py";
     if (access(scriptPath.c_str(), F_OK) != 0) {
-        APASS_LOG_WARN_F(Elements::Function, "extract_pass_log.py not found at %s, skip extraction.", scriptPath.c_str());
+        APASS_LOG_WARN_F(
+            Elements::Function, "extract_pass_log.py not found at %s, skip extraction.", scriptPath.c_str());
         return;
     }
 
