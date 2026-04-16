@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from . import checks  # noqa: F401
-from .core import CONSISTENCY_RULE_IDS, GOLDEN_RULE_IDS, IMPL_RULE_IDS, TEST_RULE_IDS, _has_error_fail, _run_checks
+from .core import CONSISTENCY_RULE_IDS, Finding, GOLDEN_RULE_IDS, IMPL_RULE_IDS, TEST_RULE_IDS, _has_error_fail, _run_checks
 from .hooks import hook_post_bash, hook_post_edit, hook_pre_edit_backup, hook_stop
 from .infer import _build_context
 from .observability import _print_findings

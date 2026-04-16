@@ -224,7 +224,11 @@
       "severity": "S1",
       "dimension": "D3",
       "stages": [
-        3
+        3,
+        4,
+        5,
+        6,
+        7
       ],
       "target": "golden",
       "rule": "golden 文件禁止 import pypto",
@@ -235,7 +239,9 @@
       "severity": "S1",
       "dimension": "D3",
       "stages": [
-        5
+        5,
+        6,
+        7
       ],
       "target": "impl",
       "rule": "impl 文件不应导入 golden 模块",
@@ -246,7 +252,9 @@
       "severity": "S1",
       "dimension": "D3",
       "stages": [
-        5
+        5,
+        6,
+        7
       ],
       "target": "test",
       "rule": "test 文件不应包含 kernel 实现代码",
@@ -257,7 +265,9 @@
       "severity": "S1",
       "dimension": "D3",
       "stages": [
-        5
+        5,
+        6,
+        7
       ],
       "target": "test",
       "rule": "test 文件必须从 impl 和 golden 分别导入",
@@ -268,7 +278,9 @@
       "severity": "S1",
       "dimension": "D4",
       "stages": [
-        5
+        5,
+        6,
+        7
       ],
       "target": "test",
       "rule": "test 必须使用 assert_allclose，禁止手写 assert max_diff",
@@ -279,7 +291,9 @@
       "severity": "S1",
       "dimension": "D4",
       "stages": [
-        5
+        5,
+        6,
+        7
       ],
       "target": "test",
       "rule": "test 必须处理 TILE_FWK_DEVICE_ID 环境变量并调用 set_device",
@@ -290,7 +304,9 @@
       "severity": "S1",
       "dimension": "D4",
       "stages": [
-        5
+        5,
+        6,
+        7
       ],
       "target": "test",
       "rule": "test 必须有 Level 0 和 Level 1 两级测试函数",
@@ -298,10 +314,12 @@
     },
     {
       "id": "OL22",
-      "severity": "S1",
+      "severity": "S2",
       "dimension": "D4",
       "stages": [
-        5
+        5,
+        6,
+        7
       ],
       "target": "test",
       "rule": "test 应设置 torch.manual_seed 保证可复现",
@@ -334,7 +352,7 @@
         7
       ],
       "target": "impl",
-      "rule": "建议为 pypto.Tensor() 注解显式给出 shape 和 dtype 信息（官方示例允许无参数形式）",
+      "rule": "Tensor 注解完整性检查：无参数或缺 dtype 时告警",
       "check_function": "check_ol25"
     },
     {
@@ -453,19 +471,6 @@
       "target": "impl",
       "rule": "design 与 impl 的关键中间变量命名应具备可追溯性（重合较少时给出信息提示）",
       "check_function": "check_ol37"
-    },
-    {
-      "id": "OL38",
-      "severity": "S2",
-      "dimension": "D1",
-      "stages": [
-        5,
-        6,
-        7
-      ],
-      "target": "impl",
-      "rule": "JIT 的 Tensor 参数注解建议写全 shape 与 dtype（缺少 dtype 时告警）",
-      "check_function": "check_ol38"
     },
     {
       "id": "OL39",

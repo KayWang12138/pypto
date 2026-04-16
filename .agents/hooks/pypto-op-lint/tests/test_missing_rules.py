@@ -1,4 +1,4 @@
-"""补充测试：OL28, OL29, OL37, OL38, OL42, OL43 规则覆盖。"""
+"""补充测试：OL28, OL29, OL37, OL42, OL43 规则覆盖。"""
 from pathlib import Path
 
 from .helpers import build_stateless_op_dir, run_rule, write_file, load_lint_module
@@ -73,34 +73,6 @@ def test_ol37_pass_when_names_overlap(tmp_path: Path):
     assert finding.status in ("PASS", "INFO", "SKIP")
 
 
-# ── OL38: Tensor 注解建议写全 shape + dtype ──
-
-def test_ol38_pass_when_shape_and_dtype(tmp_path: Path):
-    """默认 fixture 已有 shape + dtype，应 PASS。"""
-    mod = load_lint_module()
-    op_dir = build_stateless_op_dir(tmp_path, "demo")
-    finding = run_rule(mod, op_dir, "OL38", stage=5)
-    assert finding.status == "PASS"
-
-
-def test_ol38_warn_on_bare_tensor_annotation(tmp_path: Path):
-    """Tensor 注解不带参数时应 WARN。"""
-    mod = load_lint_module()
-    op_dir = build_stateless_op_dir(tmp_path, "demo")
-    impl = """\
-import pypto
-@pypto.frontend.jit
-def demo_kernel(x: pypto.Tensor, y: pypto.Tensor):
-    pypto.set_vec_tile_shapes(32, 128)
-    y[:] = x
-
-def demo_wrapper(x, y):
-    return None
-"""
-    write_file(op_dir / "demo_impl.py", impl)
-    from .helpers import run_rule as _run
-    finding = _run(mod, op_dir, "OL38")
-    assert finding.status == "WARN"
 
 
 # ─── OL42: NPU 环境下 sim 模式检测 ───
