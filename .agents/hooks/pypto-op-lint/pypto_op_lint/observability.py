@@ -7,7 +7,7 @@ import time
 from dataclasses import asdict
 from typing import Any, Optional
 
-from .core import STRICT_ENV, CheckContext, Finding, SCRIPT_DIR
+from .core import STRICT_ENV, CheckContext, Finding, SCRIPT_DIR, _has_error_fail
 
 LOGS_DIR = os.path.join(SCRIPT_DIR, "logs")
 LOGS_EVENTS_FILE = os.path.join(LOGS_DIR, "lint_events.jsonl")

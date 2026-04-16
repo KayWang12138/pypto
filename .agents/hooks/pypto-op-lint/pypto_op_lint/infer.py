@@ -13,6 +13,7 @@ from .core import (
     GOLDEN_RULE_IDS,
     HOOK_INPUT_ENV,
     IMPL_RULE_IDS,
+    POST_EDIT_CONSISTENCY_RULE_IDS,
     SPEC_FILE,
     TEST_RULE_IDS,
     CheckContext,
@@ -142,13 +143,20 @@ def _load_hook_input() -> dict[str, Any]:
 SPEC_RULE_IDS = ["OL09"]
 
 def _rule_ids_for_filename(filename: str) -> list[str]:
+    """Return rule IDs for post-edit checks on a single file.
+
+    Only includes rules that validate the edited file itself.  Cross-file
+    consistency rules (target=gate, D5 dimension: OL30-OL34, OL39, OL40,
+    OL43) are deferred to the gate/stop check so that half-written
+    artefacts don't cause spurious blocks during implementation.
+    """
     if filename.endswith("_impl.py"):
-        return IMPL_RULE_IDS + CONSISTENCY_RULE_IDS
+        return IMPL_RULE_IDS + POST_EDIT_CONSISTENCY_RULE_IDS
     if filename.endswith("_golden.py"):
-        return GOLDEN_RULE_IDS + CONSISTENCY_RULE_IDS
+        return GOLDEN_RULE_IDS + POST_EDIT_CONSISTENCY_RULE_IDS
     is_test_file = filename.startswith("test_") and filename.endswith(".py")
     if is_test_file:
-        return TEST_RULE_IDS + CONSISTENCY_RULE_IDS
+        return TEST_RULE_IDS + POST_EDIT_CONSISTENCY_RULE_IDS
     if filename == SPEC_FILE:
         return SPEC_RULE_IDS
     return []

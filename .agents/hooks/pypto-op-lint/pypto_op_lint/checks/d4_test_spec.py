@@ -83,8 +83,9 @@ def check_ol22(ctx: CheckContext) -> Finding:
     if "manual_seed" in source:
         return ctx.make_finding("OL22", "PASS",
             "找到 manual_seed 设置", file=test_file)
-    return ctx.make_finding("OL22", "FAIL",
-        "未设置 torch.manual_seed，测试结果可能不可复现", file=test_file)
+    return ctx.make_finding("OL22", "WARN",
+        "未设置 torch.manual_seed，建议显式设置以保证测试可复现",
+        file=test_file)
 
 @register("OL42")
 def check_ol42(ctx: CheckContext) -> Finding:
