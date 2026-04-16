@@ -693,15 +693,19 @@ class JitCallableWrapper:
                 self.compile(pto_tensors)
                 self._run_with_cpu(pto_tensors, [])
 
-    def build_kernel(self):
-        input_tensor_defs, _ = (
-            self.get_signature_high_performance(self._original_func)
+    def build_kernel(self, *args, **kwargs):
+        in_tensors, non_tensor_values, input_tensor_defs = self._parse_call_args(
+            args, kwargs
         )
-        self._get_or_create_kmodule({})
+        self._get_or_create_kmodule(non_tensor_values)
+
+        pto_tensors = self._convert_tensors_with_metadata(
+            in_tensors, input_tensor_defs
+        )
         with pypto.options("jit_scope"):
             self._set_config_option()
             pypto_impl.DeviceInit()
-            self.compile(input_tensor_defs)
+            self.compile(pto_tensors)
         
         from pathlib import Path
         output_path = Path(pypto_impl.LogTopFolder()) / "kernel_aicore"
