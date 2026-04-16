@@ -20,6 +20,31 @@ class Expr:
 
     trace = []
 
+    def __init__(self, value):
+        self._item_dict = {}
+        self._attr_dict = {}
+        self._value = value
+        Expr.trace.append(('init', self._value))
+
+    def __getitem__(self, item):
+        Expr.trace.append(('getitem', self._value, item))
+        return self._item_dict[Expr._normalize_item_key(item)]
+
+    def __setitem__(self, item, value):
+        Expr.trace.append(('setitem', self._value, item, value))
+        self._item_dict[Expr._normalize_item_key(item)] = value
+
+    def __delitem__(self, item):
+        Expr.trace.append(('delitem', self._value, item))
+        del self._item_dict[Expr._normalize_item_key(item)]
+
+    def __eq__(self, other):
+        return (
+            self._attr_dict == other._attr_dict
+            and self._item_dict == other._item_dict
+            and self._value == other._value
+        )
+
     @staticmethod
     def clear():
         Expr.trace.clear()
@@ -44,12 +69,6 @@ class Expr:
         Expr.trace.append(('int', n))
         return n
 
-    def __init__(self, value):
-        self._item_dict = {}
-        self._attr_dict = {}
-        self._value = value
-        Expr.trace.append(('init', self._value))
-
     @staticmethod
     def _normalize_item_key(item):
         if isinstance(item, slice):
@@ -60,25 +79,6 @@ class Expr:
         if isinstance(item, tuple):
             return tuple(Expr._normalize_item_key(sub_item) for sub_item in item)
         return item
-
-    def __getitem__(self, item):
-        Expr.trace.append(('getitem', self._value, item))
-        return self._item_dict[Expr._normalize_item_key(item)]
-
-    def __setitem__(self, item, value):
-        Expr.trace.append(('setitem', self._value, item, value))
-        self._item_dict[Expr._normalize_item_key(item)] = value
-
-    def __delitem__(self, item):
-        Expr.trace.append(('delitem', self._value, item))
-        del self._item_dict[Expr._normalize_item_key(item)]
-
-    def __eq__(self, other):
-        return (
-            self._attr_dict == other._attr_dict
-            and self._item_dict == other._item_dict
-            and self._value == other._value
-        )
 
     def decorate(self, n):
         Expr.trace.append(('decorate', n))
@@ -157,15 +157,21 @@ class TestParser:
 
         TestParser.target_list = []
 
-    @staticmethod
-    def test(target):
-        TestParser.target_list.append(target)
-
     def __enter__(self):
         TestParser.target_list.clear()
 
     def __exit__(self, exc_type, exc, tb):
         self.run()
+
+    @staticmethod
+    def test(target):
+        TestParser.target_list.append(target)
+
+    @staticmethod
+    def run_test(global_dict):
+        for test_name in global_dict:
+            if test_name.startswith('test_'):
+                global_dict[test_name]()
 
     def run_ast(self, stmt_list):
         Expr.clear()
@@ -193,9 +199,3 @@ class TestParser:
 
             assert python_trace == pil_trace, f'{target.__name__}: {python_trace=} {pil_trace=}'
             assert python_vardict == pil_vardict, f'{target.__name__}: {python_vardict=} {pil_vardict=}'
-
-    @staticmethod
-    def run_test(global_dict):
-        for test_name in global_dict:
-            if test_name.startswith('test_'):
-                global_dict[test_name]()
