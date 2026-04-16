@@ -363,12 +363,17 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation& op, bool& infoBufferSiz
         }
     }
 
-    if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_ASSEMBLE || op.GetOpcode() == npu::tile_fwk::Opcode::OP_VIEW) {
+    if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_ASSEMBLE) {
         auto& output = op.oOperand.front();
         if (output->GetMemoryTypeOriginal() == npu::tile_fwk::MEM_L1 &&
             output->GetMemoryTypeToBe() == npu::tile_fwk::MEM_DEVICE_DDR) {
             output->SetMemoryTypeBoth(output->GetMemoryTypeOriginal(), true);
         }
+        UpdateOverSizedLocalBuffer(op);
+        infoBufferSize = true;
+    }
+
+    if (op.GetOpcode() == npu::tile_fwk::Opcode::OP_VIEW) {
         UpdateOverSizedLocalBuffer(op);
         infoBufferSize = true;
     }
@@ -386,6 +391,10 @@ void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation& operation)
     if (((memType == MemoryType::MEM_UB) && (output->GetDataSize() > UB_SIZE_THRESHOLD)) ||
         ((memType == MemoryType::MEM_L1) && (output->GetDataSize() > L1_SIZE_THRESHOLD))) {
         output->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        if (operation.GetOpcode() == Opcode::OP_VIEW) {
+            auto viewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
+            viewAttr->SetToType(MemoryType::MEM_DEVICE_DDR);
+        }
         APASS_LOG_INFO_F(
             Elements::Operation, "%s[%d] output %d is oversized, set as MEM_DEVICE_DDR.",
             operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), output->magic);
