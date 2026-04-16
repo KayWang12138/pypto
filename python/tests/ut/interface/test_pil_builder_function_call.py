@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_function_def():
 
     with TestParser():
@@ -19,8 +20,11 @@ def test_pil_parser_function_def():
 
         @TestParser.test
         def three_level_nesting():
+
             def outer():
+
                 def middle():
+
                     def inner():
                         Expr.str(0)
                     inner()
@@ -29,8 +33,11 @@ def test_pil_parser_function_def():
 
         @TestParser.test
         def three_level_nesting_with_return_values():
+
             def outer():
+
                 def middle():
+
                     def inner():
                         Expr.str(0)
                         Expr.str(1)
@@ -45,6 +52,7 @@ def test_pil_parser_function_def():
         @TestParser.test
         def function_with_decorator():
             var_e = Expr(0)
+
             @var_e.decorate(1)
             def func():
                 Expr.str(2)
@@ -53,6 +61,7 @@ def test_pil_parser_function_def():
         @TestParser.test
         def function_with_multiple_decorators():
             var_e = Expr(0)
+
             @var_e.decorate(1)
             @var_e.decorate(2)
             def func():
@@ -63,6 +72,7 @@ def test_pil_parser_function_def():
 
         @TestParser.test
         def function_with_default_arg():
+
             def func(x=Expr.int(0)):
                 Expr.str(x)
             func()
@@ -70,6 +80,7 @@ def test_pil_parser_function_def():
 
         @TestParser.test
         def function_with_multiple_defaults():
+
             def func(x=Expr.int(0), y=Expr.int(1)):
                 Expr.str(x)
                 Expr.str(y)
@@ -80,10 +91,13 @@ def test_pil_parser_function_def():
         @TestParser.test
         def three_level_nesting_with_decorator_and_default():
             var_e = Expr(0)
+
             @var_e.decorate(1)
             def outer(x=Expr.int(2)):
+
                 @var_e.decorate(3)
                 def middle(y=Expr.int(4)):
+
                     def inner():
                         Expr.str(x)
                         Expr.str(y)
@@ -96,49 +110,49 @@ def test_pil_parser_lambda():
 
     with TestParser():
 
-        # --- 无参 lambda, body 是调用 ---
+        # --- 鏃犲弬 lambda, body 鏄皟鐢?---
 
         @TestParser.test
         def lambda_no_args():
             f = lambda: Expr.str(0)
             var_r = f()
 
-        # --- 单参数, body 是调用 ---
+        # --- 鍗曞弬鏁? body 鏄皟鐢?---
 
         @TestParser.test
         def lambda_single_arg():
             f = lambda x: Expr.str(x)
             var_r = f(Expr.int(0))
 
-        # --- 多参数 ---
+        # --- 澶氬弬鏁?---
 
         @TestParser.test
         def lambda_multiple_args():
             f = lambda x, y: Expr.str(x)
             var_r = f(Expr.int(0), Expr.int(1))
 
-        # --- 带默认值, default 未被覆盖 ---
+        # --- 甯﹂粯璁ゅ€? default 鏈瑕嗙洊 ---
 
         @TestParser.test
         def lambda_default_not_overridden():
             f = lambda x=Expr.int(0): Expr.str(x)
             var_r = f()
 
-        # --- 带默认值, default 被覆盖 ---
+        # --- 甯﹂粯璁ゅ€? default 琚鐩?---
 
         @TestParser.test
         def lambda_default_overridden():
             f = lambda x=Expr.int(0): Expr.str(x)
             var_r = f(Expr.int(1))
 
-        # --- *args 可变参数 ---
+        # --- *args 鍙彉鍙傛暟 ---
 
         @TestParser.test
         def lambda_vararg():
             f = lambda *args: Expr.str(args[0])
             var_r = f(Expr.int(0), Expr.int(1))
 
-        # --- keyword-only 参数 ---
+        # --- keyword-only 鍙傛暟 ---
 
         @TestParser.test
         def lambda_kwonly():
@@ -157,7 +171,7 @@ def test_pil_parser_lambda():
             f = lambda **kw: Expr.str(kw['x'])
             var_r = f(x=Expr.int(0))
 
-        # --- body 是常数 ---
+        # --- body 鏄父鏁?---
 
         @TestParser.test
         def lambda_body_const():
@@ -165,7 +179,7 @@ def test_pil_parser_lambda():
             var_x = f()
             Expr.str(var_x)
 
-        # --- body 是 binop ---
+        # --- body 鏄?binop ---
 
         @TestParser.test
         def lambda_body_binop():
@@ -173,21 +187,21 @@ def test_pil_parser_lambda():
             var_x = f(Expr.int(0))
             Expr.str(var_x)
 
-        # --- body 是 ifexp ---
+        # --- body 鏄?ifexp ---
 
         @TestParser.test
         def lambda_body_ifexp():
             f = lambda x: Expr.str(0) if Expr.true(x) else Expr.str(1)
             var_r = f(Expr.int(0))
 
-        # --- body 是嵌套调用 ---
+        # --- body 鏄祵濂楄皟鐢?---
 
         @TestParser.test
         def lambda_body_nested_call():
             f = lambda x: Expr.str(Expr.int(x))
             var_r = f(0)
 
-        # --- 嵌套 lambda: outer 返回 lambda, inner 不加 var_ ---
+        # --- 宓屽 lambda: outer 杩斿洖 lambda, inner 涓嶅姞 var_ ---
 
         @TestParser.test
         def lambda_nested():
@@ -195,16 +209,17 @@ def test_pil_parser_lambda():
             inner = outer(Expr.int(0))
             var_r = inner(Expr.int(1))
 
-        # --- lambda 作为高阶函数参数 ---
+        # --- lambda 浣滀负楂橀樁鍑芥暟鍙傛暟 ---
 
         @TestParser.test
         def lambda_as_argument():
+
             def apply(fn, val):
                 return fn(val)
             var_r = apply(lambda x: Expr.int(x), Expr.int(0))
             Expr.str(var_r)
 
-        # --- lambda 在列表推导中作为元素 ---
+        # --- lambda 鍦ㄥ垪琛ㄦ帹瀵间腑浣滀负鍏冪礌 ---
 
         @TestParser.test
         def lambda_in_listcomp():
@@ -221,6 +236,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_bare():
+
             def func():
                 Expr.str(0)
                 return
@@ -230,6 +246,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_name():
+
             def func():
                 var_x = Expr.int(0)
                 return var_x
@@ -240,6 +257,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_call_expr():
+
             def func():
                 return Expr.int(0)
             var_r = func()
@@ -249,6 +267,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_constant():
+
             def func():
                 return 42
             var_r = func()
@@ -258,6 +277,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_binop():
+
             def func():
                 return Expr.int(0) + Expr.int(1)
             var_r = func()
@@ -267,6 +287,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_tuple():
+
             def func():
                 return (Expr.int(0), Expr.int(1))
             var_r = func()
@@ -277,8 +298,10 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_tuple_starred():
+
             def make():
                 return [Expr.int(1), Expr.int(2)]
+
             def func():
                 return (Expr.int(0), *make())
             var_r = func()
@@ -289,6 +312,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_const_tuple():
+
             def func():
                 return (0, 1, 2)
             var_r = func()
@@ -298,6 +322,7 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_early():
+
             def func(flag):
                 if flag:
                     return Expr.int(0)
@@ -311,7 +336,9 @@ def test_pil_parser_return():
 
         @TestParser.test
         def return_nested():
+
             def outer():
+
                 def inner():
                     return Expr.int(0)
                 var_x = inner()
@@ -320,11 +347,12 @@ def test_pil_parser_return():
             var_r = outer()
             Expr.str(var_r)
 
+
 def test_pil_parser_call():
 
     with TestParser():
 
-        # --- 常数: constant literals as positional call arguments ---
+        # --- 甯告暟: constant literals as positional call arguments ---
 
         @TestParser.test
         def call_pos_int_const():
@@ -336,18 +364,21 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_pos_none_const():
+
             def func(x):
                 Expr.str(x)
             func(None)
 
         @TestParser.test
         def call_pos_bool_const():
+
             def func(x):
                 Expr.str(x)
             func(True)
 
         @TestParser.test
         def call_pos_multiple_consts():
+
             def func(x, y):
                 Expr.str(x)
                 Expr.str(y)
@@ -355,33 +386,38 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_pos_mixed_const_and_expr():
+
             def func(x, y):
                 Expr.str(x)
                 Expr.str(y)
             func(0, Expr.int(1))
 
-        # --- named arg 传常数: named argument with constant value ---
+        # --- named arg 浼犲父鏁? named argument with constant value ---
 
         @TestParser.test
         def call_named_arg_int_const():
+
             def func(x):
                 Expr.str(x)
             func(x=0)
 
         @TestParser.test
         def call_named_arg_str_const():
+
             def func(x):
                 Expr.str(x)
             func(x='hello')
 
         @TestParser.test
         def call_named_arg_none_const():
+
             def func(x):
                 Expr.str(x)
             func(x=None)
 
         @TestParser.test
         def call_named_arg_multiple_consts():
+
             def func(x, y):
                 Expr.str(x)
                 Expr.str(y)
@@ -389,15 +425,17 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_named_arg_mixed_const_and_expr():
+
             def func(x, y):
                 Expr.str(x)
                 Expr.str(y)
             func(x=0, y=Expr.int(1))
 
-        # --- 默认参数: keyword arguments overriding defaults ---
+        # --- 榛樿鍙傛暟: keyword arguments overriding defaults ---
 
         @TestParser.test
         def call_keyword_override_one_default():
+
             def func(x=0, y=1):
                 Expr.str(x)
                 Expr.str(y)
@@ -405,6 +443,7 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_keyword_override_all_defaults():
+
             def func(x=0, y=0):
                 Expr.str(x)
                 Expr.str(y)
@@ -412,14 +451,16 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_keyword_arg_expr_value():
+
             def func(x):
                 Expr.str(x)
             func(x=Expr.int(0))
 
-        # --- 可变参数: *args parameter ---
+        # --- 鍙彉鍙傛暟: *args parameter ---
 
         @TestParser.test
         def call_vararg_empty():
+
             def func(*args):
                 for var_a in args:
                     Expr.str(var_a)
@@ -427,6 +468,7 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_vararg_one():
+
             def func(*args):
                 for var_a in args:
                     Expr.str(var_a)
@@ -434,6 +476,7 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_vararg_many():
+
             def func(*args):
                 for var_a in args:
                     Expr.str(var_a)
@@ -441,34 +484,39 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_pos_and_vararg():
+
             def func(x, *args):
                 Expr.str(x)
                 for var_a in args:
                     Expr.str(var_a)
             func(Expr.int(0), Expr.int(1), Expr.int(2))
 
-        # --- name only 参数: keyword-only parameters ---
+        # --- name only 鍙傛暟: keyword-only parameters ---
 
         @TestParser.test
         def call_kwonly_required():
+
             def func(*, key):
                 Expr.str(key)
             func(key=Expr.int(0))
 
         @TestParser.test
         def call_kwonly_default_not_overridden():
+
             def func(*, key=0):
                 Expr.str(key)
             func()
 
         @TestParser.test
         def call_kwonly_default_overridden():
+
             def func(*, key=0):
                 Expr.str(key)
             func(key=Expr.int(1))
 
         @TestParser.test
         def call_pos_and_kwonly():
+
             def func(x, *, y):
                 Expr.str(x)
                 Expr.str(y)
@@ -476,16 +524,18 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_vararg_and_kwonly():
+
             def func(*args, key):
                 for var_a in args:
                     Expr.str(var_a)
                 Expr.str(key)
             func(Expr.int(0), Expr.int(1), key=Expr.int(2))
 
-        # --- keyword参数: **dict expansion ---
+        # --- keyword鍙傛暟: **dict expansion ---
 
         @TestParser.test
         def call_double_star_expand():
+
             def func(x, y):
                 Expr.str(x)
                 Expr.str(y)
@@ -494,8 +544,10 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_double_star_from_func():
+
             def make():
                 return {'x': Expr.int(0), 'y': Expr.int(1)}
+
             def func(x, y):
                 Expr.str(x)
                 Expr.str(y)
@@ -503,6 +555,7 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_pos_and_double_star():
+
             def func(x, y, z):
                 Expr.str(x)
                 Expr.str(y)
@@ -512,6 +565,7 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_keyword_and_double_star():
+
             def func(x, y, z):
                 Expr.str(x)
                 Expr.str(y)
@@ -519,7 +573,7 @@ def test_pil_parser_call():
             var_d = {'z': Expr.int(2)}
             func(Expr.int(0), y=Expr.int(1), **var_d)
 
-        # --- 函数调用嵌套场景: nested function calls as arguments ---
+        # --- 鍑芥暟璋冪敤宓屽鍦烘櫙: nested function calls as arguments ---
 
         @TestParser.test
         def call_nested_pos_arg():
@@ -527,6 +581,7 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_nested_multiple_pos_args():
+
             def func(x, y):
                 Expr.str(x)
                 Expr.str(y)
@@ -534,20 +589,24 @@ def test_pil_parser_call():
 
         @TestParser.test
         def call_nested_keyword_arg():
+
             def func(key):
                 Expr.str(key)
             func(key=Expr.int(0))
 
         @TestParser.test
         def call_nested_two_deep():
+
             def inner():
                 return Expr.int(0)
             Expr.str(inner())
 
         @TestParser.test
         def call_nested_three_deep():
+
             def inner():
                 return Expr.int(0)
+
             def middle(x):
                 return x
             Expr.str(middle(inner()))

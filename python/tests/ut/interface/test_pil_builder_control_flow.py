@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_for():
 
     with TestParser():
@@ -22,7 +23,7 @@ def test_pil_parser_for():
             for var_x in [Expr.int(0), Expr.int(1), Expr.int(2)]:
                 Expr.str(var_x)
 
-        # --- with orelse (loop exhausts normally → else fires) ---
+        # --- with orelse (loop exhausts normally 鈫?else fires) ---
 
         @TestParser.test
         def for_with_orelse():
@@ -398,6 +399,7 @@ def test_pil_parser_if():
             if Expr.true(4):
                 Expr.str(5)
 
+
 def test_pil_parser_break():
 
     with TestParser():
@@ -633,6 +635,7 @@ def test_pil_parser_continue():
                 Expr.str(var_i[0])
                 break
 
+
 def test_pil_parser_with():
 
     with TestParser():
@@ -656,6 +659,7 @@ def test_pil_parser_with():
 
         @TestParser.test
         def with_ctx_from_call():
+
             def make_cm():
                 return Expr.ContextManager(init_n=Expr.int(0))
             with make_cm():

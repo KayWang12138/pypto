@@ -96,7 +96,9 @@ PILSlice = tuple[PILExpr | None, PILExpr | None, PILExpr | None] | PILExpr
 
 PIL_DEFAULT_PREFIX = '_pil_'
 
+
 class PILContext:
+
     def __init__(self, prefix = PIL_DEFAULT_PREFIX):
         self._continue_stack = []
         self._temp_count = 0
@@ -107,6 +109,7 @@ class PILContext:
         self._temp_count += 1
         return name
 
+
 class PILAttr(Mapping):
     ATTR_LIST = [
         'lineno',
@@ -114,6 +117,7 @@ class PILAttr(Mapping):
         'end_lineno',
         'end_col_offset',
     ]
+
     def __init__(self, node):
         self._data = {
             attr: 0 if node is None else getattr(node, attr, 0)
@@ -131,7 +135,9 @@ class PILAttr(Mapping):
 
 NOATTR = PILAttr(None)
 
+
 class PILBuilder(ast.NodeVisitor):
+
     def __init__(self, ctx: PILContext = None):
         if ctx is None:
             ctx = PILContext()
@@ -302,6 +308,7 @@ class PILBuilder(ast.NodeVisitor):
             returns: return annotation expression or None
             type_comment: type comment string or None
         Emit code example:
+
             @decorator_list[0]
             @decorator_list[1]
             def name(args) -> returns:
@@ -513,7 +520,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         Parameter:
             body: list of statements (try body)
-            handlers: (exc_var, handler_body) — single except Exception as exc_var handler
+            handlers: (exc_var, handler_body) 鈥?single except Exception as exc_var handler
             orelse: list of statements (else branch)
             finalbody: list of statements (finally branch)
         Emit code:
@@ -800,6 +807,7 @@ class PILBuilder(ast.NodeVisitor):
             ctx=ctx,
             **node_attr)
 
+
 class PythonParser(PILBuilder, ast.NodeVisitor):
 
     def __init__(self, ctx: PILContext):
@@ -859,7 +867,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             else:
                 elt_temps = tuple(elt_temps_data)
 
-            # Step 2: one-layer unpack — (t0, *t1, t2) = source_name
+            # Step 2: one-layer unpack 鈥?(t0, *t1, t2) = source_name
             unpack_stmts = [self.create_pil_assign_name(elt_temps,
                      self.create_pil_expr(source_expr))] if source_expr is not None else []
             # Step 3: recursively handle each element with its temp
@@ -890,18 +898,22 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         Case 1 (no decorators):
             Python:
+
                 def name(args):
                     body
             PIL:
+
                 def name(args):
                     body
         Case 2 (with decorators):
             Python:
+
                 @dec_expr
                 def name(args):
                     body
             PIL:
                 _tmp_0 = dec_expr
+
                 @_tmp_0
                 def name(args):
                     body
@@ -995,7 +1007,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 _tmp_0 = obj
                 _tmp_1 = key
                 del _tmp_0[_tmp_1]
-        Case 4 (delete tuple/list — recursive):
+        Case 4 (delete tuple/list 鈥?recursive):
             Python:
                 del (a, obj.attr, obj[key])
             PIL:
@@ -1100,7 +1112,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 _tmp_0[_tmp_1] = _tmp_4 # store
         """
         if isinstance(target, ast.Name):
-            # target is a bare name — no side effects, visit value first is fine
+            # target is a bare name 鈥?no side effects, visit value first is fine
             value_stmt_list, value_name = self.visit(value)
             temp_name = self.create_temp_identifier()
             binop_stmt = self.create_pil_assign_name(temp_name, self.create_pil_bin_op(target.id, op, value_name))
@@ -1531,6 +1543,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         return result_stmt_list, None
 
     # expr nodes
+
     def visit_bool_op(self,
          op: ast.boolop,
          values: list[ast.expr],
@@ -1659,6 +1672,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         Python:
             lambda args: body_expr
         PIL:
+
             def _tmp_0(args):
                 _tmp_1 = body_expr
                 return _tmp_1
@@ -1809,6 +1823,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         Python:
             [elt for x in iter if cond]
         PIL:
+
             def _tmp_0():
                 for _tmp_1 in iter:
                     x = _tmp_1
@@ -1835,6 +1850,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         Python:
             {elt for x in iter if cond}
         PIL:
+
             def _tmp_0():
                 for _tmp_1 in iter:
                     x = _tmp_1
@@ -1862,6 +1878,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         Python:
             {key: val for x in iter if cond}
         PIL:
+
             def _tmp_0():
                 for _tmp_1 in iter:
                     x = _tmp_1
@@ -1889,6 +1906,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         Python:
             (elt for x in iter if cond)
         PIL:
+
             def _tmp_0():
                 for _tmp_1 in iter:
                     x = _tmp_1
@@ -1977,7 +1995,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                     _tmp_4 = _tmp_1 < _tmp_3    # b evaluated only once
                     _tmp_2 = _tmp_4
         """
-        # Base case: single comparison — visit left and comparator, build compare expr
+        # Base case: single comparison 鈥?visit left and comparator, build compare expr
         left_stmts, left_name = self.visit(left)
         comp_stmts, comp_name = self.visit(comparators[0])
         temp_name = self.create_temp_identifier()
@@ -2331,10 +2349,12 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
     def parse_stmts(self, stmts: list[ast.stmt]) -> list[ast.stmt]:
         return self.visit_stmts(stmts)[0]
 
+
 def parse_func(func: ast.FunctionDef, prefix = PIL_DEFAULT_PREFIX) -> ast.FunctionDef:
     ctx = PILContext(prefix = prefix)
     parser = PythonParser(ctx)
     return parser.parse_func(func)
+
 
 def parse_stmts(stmts: list[ast.stmt], prefix = PIL_DEFAULT_PREFIX) -> list[ast.stmt]:
     ctx = PILContext(prefix = prefix)

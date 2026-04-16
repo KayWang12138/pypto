@@ -80,6 +80,7 @@ def test_pil_parser_constant():
 
         @TestParser.test
         def const_call_pos_arg():
+
             def func(x):
                 Expr.str(x)
             func(42)
@@ -88,6 +89,7 @@ def test_pil_parser_constant():
 
         @TestParser.test
         def const_call_kw_arg():
+
             def func(x):
                 Expr.str(x)
             func(x=42)
@@ -167,39 +169,39 @@ def test_pil_parser_joined_str():
 
     with TestParser():
 
-        # --- 单个插值, 无 conversion, 无 format_spec ---
+        # --- 鍗曚釜鎻掑€? 鏃?conversion, 鏃?format_spec ---
         # PIL: single-part path, returns the expr directly (no join)
-        # Expr.str returns a str, so format(s, '') == s — values match
+        # Expr.str returns a str, so format(s, '') == s 鈥?values match
 
         @TestParser.test
         def fstr_single_expr():
             var_x = f"{Expr.str(0)}"
 
-        # --- 多个部分: 字面量前缀 + 插值 ---
+        # --- 澶氫釜閮ㄥ垎: 瀛楅潰閲忓墠缂€ + 鎻掑€?---
 
         @TestParser.test
         def fstr_prefix_and_expr():
             var_x = f"prefix_{Expr.str(0)}"
 
-        # --- 多个部分: 插值 + 字面量后缀 ---
+        # --- 澶氫釜閮ㄥ垎: 鎻掑€?+ 瀛楅潰閲忓悗缂€ ---
 
         @TestParser.test
         def fstr_expr_and_suffix():
             var_x = f"{Expr.str(0)}_suffix"
 
-        # --- 多个部分: 前缀 + 插值 + 后缀 ---
+        # --- 澶氫釜閮ㄥ垎: 鍓嶇紑 + 鎻掑€?+ 鍚庣紑 ---
 
         @TestParser.test
         def fstr_prefix_expr_suffix():
             var_x = f"prefix_{Expr.str(0)}_suffix"
 
-        # --- 多个插值, 无字面量 ---
+        # --- 澶氫釜鎻掑€? 鏃犲瓧闈㈤噺 ---
 
         @TestParser.test
         def fstr_two_exprs():
             var_x = f"{Expr.str(0)}{Expr.str(1)}"
 
-        # --- 多个插值, 中间有字面量 ---
+        # --- 澶氫釜鎻掑€? 涓棿鏈夊瓧闈㈤噺 ---
 
         @TestParser.test
         def fstr_expr_sep_expr():
@@ -223,13 +225,13 @@ def test_pil_parser_joined_str():
         def fstr_conversion_a():
             var_x = f"{Expr.int(0)!a}"
 
-        # --- format_spec 是字面量 ---
+        # --- format_spec 鏄瓧闈㈤噺 ---
 
         @TestParser.test
         def fstr_format_spec_const():
             var_x = f"{Expr.str(0):>10}"
 
-        # --- format_spec 是变量表达式 ---
+        # --- format_spec 鏄彉閲忚〃杈惧紡 ---
 
         @TestParser.test
         def fstr_format_spec_expr():
@@ -242,7 +244,7 @@ def test_pil_parser_joined_str():
         def fstr_conversion_and_format_spec():
             var_x = f"{Expr.int(0)!r:>10}"
 
-        # --- 插值表达式本身是嵌套调用 ---
+        # --- 鎻掑€艰〃杈惧紡鏈韩鏄祵濂楄皟鐢?---
 
         @TestParser.test
         def fstr_nested_call_expr():
@@ -314,26 +316,31 @@ def test_pil_parser_dict():
 
         @TestParser.test
         def dict_spread_from_func_call():
+
             def make():
                 return {Expr.int(0): Expr.int(1)}
             var_d = {**make()}
 
         @TestParser.test
         def dict_normal_then_spread_from_call():
+
             def make():
                 return {Expr.int(2): Expr.int(3)}
             var_d = {Expr.int(0): Expr.int(1), **make()}
 
         @TestParser.test
         def dict_spread_from_call_then_normal():
+
             def make():
                 return {Expr.int(0): Expr.int(1)}
             var_d = {**make(), Expr.int(2): Expr.int(3)}
 
         @TestParser.test
         def dict_multiple_spreads_from_calls():
+
             def make_a():
                 return {Expr.int(0): Expr.int(1)}
+
             def make_b():
                 return {Expr.int(2): Expr.int(3)}
             var_d = {**make_a(), **make_b()}
@@ -378,6 +385,7 @@ def test_pil_parser_set():
 
         @TestParser.test
         def set_spread_from_func_call():
+
             def make():
                 return [Expr.int(0), Expr.int(1)]
             var_s = {*make()}
@@ -386,6 +394,7 @@ def test_pil_parser_set():
 
         @TestParser.test
         def set_normal_then_spread():
+
             def make():
                 return [Expr.int(2), Expr.int(3)]
             var_s = {Expr.int(0), Expr.int(1), *make()}
@@ -394,6 +403,7 @@ def test_pil_parser_set():
 
         @TestParser.test
         def set_spread_then_normal():
+
             def make():
                 return [Expr.int(0), Expr.int(1)]
             var_s = {*make(), Expr.int(2), Expr.int(3)}
@@ -402,6 +412,7 @@ def test_pil_parser_set():
 
         @TestParser.test
         def set_spread_in_middle():
+
             def make():
                 return [Expr.int(1), Expr.int(2)]
             var_s = {Expr.int(0), *make(), Expr.int(3)}
@@ -410,8 +421,10 @@ def test_pil_parser_set():
 
         @TestParser.test
         def set_multiple_spreads_from_calls():
+
             def make_a():
                 return [Expr.int(0), Expr.int(1)]
+
             def make_b():
                 return [Expr.int(2), Expr.int(3)]
             var_s = {*make_a(), *make_b()}
@@ -456,6 +469,7 @@ def test_pil_parser_list():
 
         @TestParser.test
         def list_starred_from_call():
+
             def make():
                 return [Expr.int(0), Expr.int(1)]
             var_l = [*make()]
@@ -464,6 +478,7 @@ def test_pil_parser_list():
 
         @TestParser.test
         def list_normal_then_starred():
+
             def make():
                 return [Expr.int(2), Expr.int(3)]
             var_l = [Expr.int(0), Expr.int(1), *make()]
@@ -472,6 +487,7 @@ def test_pil_parser_list():
 
         @TestParser.test
         def list_starred_then_normal():
+
             def make():
                 return [Expr.int(0), Expr.int(1)]
             var_l = [*make(), Expr.int(2), Expr.int(3)]
@@ -480,6 +496,7 @@ def test_pil_parser_list():
 
         @TestParser.test
         def list_starred_in_middle():
+
             def make():
                 return [Expr.int(1), Expr.int(2)]
             var_l = [Expr.int(0), *make(), Expr.int(3)]
@@ -488,8 +505,10 @@ def test_pil_parser_list():
 
         @TestParser.test
         def list_multiple_starred_from_calls():
+
             def make_a():
                 return [Expr.int(0), Expr.int(1)]
+
             def make_b():
                 return [Expr.int(2), Expr.int(3)]
             var_l = [*make_a(), *make_b()]
@@ -534,6 +553,7 @@ def test_pil_parser_tuple():
 
         @TestParser.test
         def tuple_starred_from_call():
+
             def make():
                 return [Expr.int(0), Expr.int(1)]
             var_t = (*make(),)
@@ -542,6 +562,7 @@ def test_pil_parser_tuple():
 
         @TestParser.test
         def tuple_normal_then_starred():
+
             def make():
                 return [Expr.int(2), Expr.int(3)]
             var_t = (Expr.int(0), Expr.int(1), *make())
@@ -550,6 +571,7 @@ def test_pil_parser_tuple():
 
         @TestParser.test
         def tuple_starred_then_normal():
+
             def make():
                 return [Expr.int(0), Expr.int(1)]
             var_t = (*make(), Expr.int(2), Expr.int(3))
@@ -558,6 +580,7 @@ def test_pil_parser_tuple():
 
         @TestParser.test
         def tuple_starred_in_middle():
+
             def make():
                 return [Expr.int(1), Expr.int(2)]
             var_t = (Expr.int(0), *make(), Expr.int(3))
@@ -566,8 +589,10 @@ def test_pil_parser_tuple():
 
         @TestParser.test
         def tuple_multiple_starred_from_calls():
+
             def make_a():
                 return [Expr.int(0), Expr.int(1)]
+
             def make_b():
                 return [Expr.int(2), Expr.int(3)]
             var_t = (*make_a(), *make_b())
@@ -577,6 +602,7 @@ def test_pil_parser_tuple():
         @TestParser.test
         def tuple_nested():
             var_t = (Expr.int(0), (Expr.int(1), Expr.int(2)))
+
 
 def test_pil_parser_attribute():
 
@@ -674,6 +700,7 @@ def test_pil_parser_attribute():
 
         @TestParser.test
         def attr_call_kw_arg():
+
             def func(x):
                 Expr.str(x)
             var_obj = Expr(0)
@@ -864,6 +891,7 @@ def test_pil_parser_subscript():
 
         @TestParser.test
         def subscript_call_kw_arg():
+
             def func(x):
                 Expr.str(x)
             var_l = [Expr.int(0)]
@@ -949,6 +977,7 @@ def test_pil_parser_subscript():
 
         @TestParser.test
         def slice_index_call():
+
             def idx():
                 return Expr.int(0)
             var_arr = Expr(0)
@@ -1030,8 +1059,10 @@ def test_pil_parser_subscript():
 
         @TestParser.test
         def slice_range_call_bounds():
+
             def lo():
                 return Expr.int(1)
+
             def hi():
                 return Expr.int(3)
             var_l = [Expr.int(0), Expr.int(1), Expr.int(2), Expr.int(3)]

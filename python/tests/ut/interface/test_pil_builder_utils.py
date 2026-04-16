@@ -71,12 +71,14 @@ class Expr:
 
     def decorate(self, n):
         Expr.trace.append(('decorate', n))
+
         def wrapper(func):
             Expr.trace.append(('decorate.wrapper', n))
             return func
         return wrapper
 
     def attr(method_dict, name):
+
         @property
         def field(self):
             Expr.trace.append(('getattr', self._value, name))
@@ -97,15 +99,18 @@ class Expr:
     attr(locals(), 'val')
 
     class ContextManager:
+
         def __init__(self, enter_n=None, exit_n=None, init_n=None):
             self._enter_n = enter_n
             self._exit_n = exit_n
             if init_n is not None:
                 Expr.str(init_n)
+
         def __enter__(self):
             if self._enter_n is not None:
                 Expr.str(self._enter_n)
             return self
+
         def __exit__(self, *a):
             if self._exit_n is not None:
                 Expr.str(self._exit_n)
@@ -114,6 +119,7 @@ class Expr:
             return self._enter_n == other._enter_n and self._exit_n == other._exit_n
 
     class ValueError(Exception):
+
         def __init__(self, value):
             Expr.trace.append(('error', value))
             self._value = value
@@ -129,6 +135,7 @@ class Expr:
 
     class TypeC(ValueError):
         pass
+
 
 class TestParser:
 

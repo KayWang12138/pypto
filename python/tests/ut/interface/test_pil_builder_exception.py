@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_raise():
 
     with TestParser():

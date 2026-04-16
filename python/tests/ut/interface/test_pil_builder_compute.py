@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_boolop():
 
     with TestParser():
@@ -57,6 +58,7 @@ def test_pil_parser_boolop():
             else:
                 Expr.str(4)
 
+
 def test_pil_parser_ifexp():
 
     with TestParser():
@@ -87,6 +89,7 @@ def test_pil_parser_ifexp():
                 Expr.str(3)
             else:
                 Expr.str(4)
+
 
 def test_pil_parser_bin_op():
 
@@ -187,13 +190,13 @@ def test_pil_parser_compare():
 
         @TestParser.test
         def cmp_chain_lt_lt_all_true():
-            # 1 < 2 < 3 — both sub-comparisons true, b evaluated once
+            # 1 < 2 < 3 鈥?both sub-comparisons true, b evaluated once
             var_x = Expr.int(1) < Expr.int(2) < Expr.int(3)
             Expr.str(var_x)
 
         @TestParser.test
         def cmp_chain_lt_lt_first_false():
-            # 3 < 2 < 4 — first false, third operand not evaluated
+            # 3 < 2 < 4 鈥?first false, third operand not evaluated
             var_x = Expr.int(3) < Expr.int(2) < Expr.int(4)
             Expr.str(var_x)
 
@@ -269,6 +272,7 @@ def test_pil_parser_compare():
 
         @TestParser.test
         def cmp_call_kw_arg():
+
             def func(x):
                 Expr.str(x)
             func(x=Expr.int(1) == Expr.int(1))

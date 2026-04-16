@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_list_comp():
 
     with TestParser():
@@ -343,6 +344,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_bare():
+
             def gen():
                 yield
             var_l = list(gen())
@@ -351,6 +353,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_name():
+
             def gen():
                 var_x = Expr.int(0)
                 yield var_x
@@ -361,6 +364,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_call_expr():
+
             def gen():
                 yield Expr.int(0)
             var_l = list(gen())
@@ -370,6 +374,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_constant():
+
             def gen():
                 yield 42
             var_l = list(gen())
@@ -379,6 +384,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_binop():
+
             def gen():
                 yield Expr.int(0) + Expr.int(1)
             var_l = list(gen())
@@ -388,6 +394,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_attr():
+
             def gen():
                 var_obj = Expr(0)
                 var_obj.val = Expr.int(99)
@@ -399,6 +406,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_subscript():
+
             def gen():
                 var_arr = [Expr.int(0), Expr.int(1)]
                 yield var_arr[0]
@@ -409,6 +417,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_multiple():
+
             def gen():
                 yield Expr.int(0)
                 yield Expr.int(1)
@@ -422,6 +431,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_in_if():
+
             def gen(flag):
                 if flag:
                     yield Expr.int(0)
@@ -436,6 +446,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_in_for():
+
             def gen():
                 for var_x in [Expr.int(0), Expr.int(1), Expr.int(2)]:
                     yield var_x
@@ -448,9 +459,11 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_from_name():
+
             def inner():
                 yield Expr.int(0)
                 yield Expr.int(1)
+
             def gen():
                 var_g = inner()
                 yield from var_g
@@ -462,9 +475,11 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_from_call():
+
             def inner():
                 yield Expr.int(0)
                 yield Expr.int(1)
+
             def gen():
                 yield from inner()
             var_l = list(gen())
@@ -475,6 +490,7 @@ def test_pil_parser_yield():
 
         @TestParser.test
         def yield_send_value():
+
             def gen():
                 var_sent = yield Expr.int(0)
                 Expr.str(var_sent)
