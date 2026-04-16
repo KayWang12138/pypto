@@ -223,7 +223,7 @@ TEST_F(LiteNPUCodeGenConcat, test_concat_010) {
         int32_t axis = 1;  // 第二维不同
         auto output = Tensor(DataType::DT_INT8, {8, 14, 6, 16}, "output");
         FUNCTION("CONCAT_010") {
-            TileShape::Current().SetVecTile({2, 10, 9, 8});
+            TileShape::Current().SetVecTile({2, 10, 9, 32});
             output = Cat(inputs, axis);
         }
     }
@@ -242,7 +242,7 @@ TEST_F(LiteNPUCodeGenConcat, test_concat_011) {
         int32_t axis = 2;  // 第三维不同
         auto output = Tensor(DataType::DT_INT16, {6, 20, 32, 31}, "output");
         FUNCTION("CONCAT_011") {
-            TileShape::Current().SetVecTile({3, 40, 4, 40});
+            TileShape::Current().SetVecTile({3, 40, 4, 16});
             output = Cat(inputs, axis);
         }
     }
@@ -261,7 +261,7 @@ TEST_F(LiteNPUCodeGenConcat, test_concat_012) {
         int32_t axis = 3;  // 第四维不同
         auto output = Tensor(DataType::DT_INT32, {6, 9, 21, 23}, "output");
         FUNCTION("CONCAT_012") {
-            TileShape::Current().SetVecTile({3, 3, 30, 20});
+            TileShape::Current().SetVecTile({3, 3, 30, 8});
             output = Cat(inputs, axis);
         }
     }
@@ -281,7 +281,7 @@ TEST_F(LiteNPUCodeGenConcat, test_concat_013) {
         int32_t axis = 0;  // 第一维不同
         auto output = Tensor(DataType::DT_FP16, {32, 9, 21, 10}, "output");
         FUNCTION("CONCAT_013") {
-            TileShape::Current().SetVecTile({5, 10, 5, 5});
+            TileShape::Current().SetVecTile({5, 10, 5, 16});
             output = Cat(inputs, axis);
         }
     }
@@ -301,7 +301,7 @@ TEST_F(LiteNPUCodeGenConcat, test_concat_014) {
         int32_t axis = 1;  // 第二维不同
         auto output = Tensor(DataType::DT_FP32, {6, 46, 21, 10}, "output");
         FUNCTION("CONCAT_014") {
-            TileShape::Current().SetVecTile({3, 3, 40, 5});
+            TileShape::Current().SetVecTile({3, 3, 40, 8});
             output = Cat(inputs, axis);
         }
     }
@@ -321,7 +321,7 @@ TEST_F(LiteNPUCodeGenConcat, test_concat_015) {
         int32_t axis = 2;  // 第三维不同
         auto output = Tensor(DataType::DT_INT8, {6, 9, 54, 10}, "output");
         FUNCTION("CONCAT_015") {
-            TileShape::Current().SetVecTile({5, 5, 12, 20});
+            TileShape::Current().SetVecTile({5, 5, 12, 32});
             output = Cat(inputs, axis);
         }
     }
@@ -342,7 +342,7 @@ TEST_F(LiteNPUCodeGenConcat, test_concat_016) {
         int32_t axis = 3;  // 第四维不同
         auto output = Tensor(DataType::DT_INT16, {6, 9, 21, 80}, "output");
         FUNCTION("CONCAT_016") {
-            TileShape::Current().SetVecTile({5, 8, 12, 5});
+            TileShape::Current().SetVecTile({5, 8, 12, 16});
             output = Cat(inputs, axis);
         }
     }
