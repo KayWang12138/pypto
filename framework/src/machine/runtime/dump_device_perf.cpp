@@ -60,6 +60,28 @@ void ConstructTaskInfo(
             taskObj["taskId"] = taskStats[j].taskId;
             taskObj["execStart"] = taskStats[j].execStart;
             taskObj["execEnd"] = taskStats[j].execEnd;
+            json syncEventsArr = json::array();
+            for (int k = 0; k < taskStats[j].setEventIdx; ++k) {
+                if (taskStats[j].setEventCycle[k] != 0) {
+                    json setEvent;
+                    setEvent["idx"] = k;
+                    setEvent["type"] = "CV_SYNC_SET";
+                    setEvent["time"] = taskStats[j].setEventCycle[k];
+                    syncEventsArr.push_back(setEvent);
+                }
+            }
+            for (int k = 0; k < taskStats[j].waitEventIdx; ++k) {
+                if (taskStats[j].waitEventCycle[k] != 0) {
+                    json waitEvent;
+                    waitEvent["idx"] = k;
+                    waitEvent["type"] = "CV_SYNC_WAIT";
+                    waitEvent["time"] = taskStats[j].waitEventCycle[k];
+                    syncEventsArr.push_back(waitEvent);
+                }
+            }
+            if (!syncEventsArr.empty()) {
+                taskObj["syncEvents"] = syncEventsArr;
+            }
             tasksArr.push_back(taskObj);
         }
     }
@@ -92,6 +114,7 @@ void DumpAicoreTaskExectInfo(DeviceArgs& args, const std::vector<void*>& perfDat
     MACHINE_LOGD("tilefwk_L1_prof_data have saved in: %s", jsonFilePath.c_str());
     std::string topo_txt_path = npu::tile_fwk::config::LogTopFolder() + "/dyn_topo.txt";
     std::string program_json_path = npu::tile_fwk::config::LogTopFolder() + "/program.json";
+    std::string mix_event_path = npu::tile_fwk::config::GetAbsoluteTopFolder() + "/mix_event_info.json";
     std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
     npu::tile_fwk::config::SetRunDataOption(
         KEY_SWIM_GRAPH_PATH, npu::tile_fwk::config::GetAbsoluteTopFolder() + "/merged_swimlane.json");
@@ -101,7 +124,8 @@ void DumpAicoreTaskExectInfo(DeviceArgs& args, const std::vector<void*>& perfDat
         MACHINE_LOGI("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
         std::string command = "python3 " + draw_swim_lane_py_path + " \"" + jsonFilePath + "\" \"" + topo_txt_path +
                               "\" \"" + program_json_path +
-                              "\" --label_type=1 --time_convert_denominator=" + std::to_string(freq);
+                              "\" --label_type=1 --time_convert_denominator=" + std::to_string(freq) +
+                              " --mix_event_info=\"" + mix_event_path + "\"";
         if (system(command.c_str()) != 0) {
             MACHINE_LOGW("Failed to execute draw_swim_lane.py. Stop merging the swimlane.");
         }
