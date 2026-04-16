@@ -1328,7 +1328,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
 
     def visit_match(self,
          subject: ast.expr,
-         cases: list[ast.match_case],
+         cases: list,
          node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt],
          PILExprOrNone]:
         raise NotImplementedError("Match is not supported")
