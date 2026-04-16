@@ -416,10 +416,40 @@ plm.mov(right, mat_0)
 ```
 - **左矩阵转置，A5上从UB拷贝到L1**
 ```python
+#ND buffer
+tile_nd_type = plm.TileType(shape=[M, K], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec)
+tile_nz_type = plm.TileType(shape=[M, K], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, blayout=2, slayout=1) #NZ 转换 buffer, 需要手动填[col, row]
+tile_nd = plm.make_tile(tile_nd_type, addr=0x0, size=32768)
+tile_nz = plm.make_tile(tile_nz_type, addr=0x8000, size=32768)
+#Mat和left相反，需要手动填[row, col]
+mat_type = plm.TileType(shape=[M, K], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat, blayout=1, slayout=2)
+mat_0 = plm.make_tile(mat_type, addr=0x0, size=32768)
 
+plm.move(tile_nz, tile_nd) # ND → NZ
+plm.insert(mat_0, tile_nz) # UB → L1
+
+#left默认是[col, row]
+left = plm.make_tile(plm.TileType(shape=[M, K], dtype=pl.FP16, arget_memory=pl.MemorySpace.Left), addr=0x0, size=32768)
+plm.move(left, mat_0)
 ```
-- **右矩阵转置，A5上匆匆UB拷贝L1**
+
+- **右矩阵转置，A5上从UB拷贝L1**
 ```python
+#ND buffer
+tile_nd_type = plm.TileType(shape=[K, N], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec)
+tile_nz_type = plm.TileType(shape=[K, N], dtype=pl.FP16, target_memory=pl.MemorySpace.Vec, blayout=2, slayout=1) #NZ 转换 buffer, 需要手动填[col, row]
+tile_nd = plm.make_tile(tile_nd_type, addr=0x0, size=32768)
+tile_nz = plm.make_tile(tile_nz_type, addr=0x8000, size=32768)
+#Mat和right相反，使用默认值[col, row]即可
+mat_type = plm.TileType(shape=[K, N], dtype=pl.FP16, target_memory=pl.MemorySpace.Mat)
+mat_0 = plm.make_tile(mat_type, addr=0x0, size=32768)
+
+plm.move(tile_nz, tile_nd) # ND → NZ
+plm.insert(mat_0, tile_nz) # UB → L1
+
+#right默认是[row, col]
+right = plm.make_tile(plm.TileType(shape=[K, N], dtype=pl.FP16, target_memory=pl.MemorySpace.Right),addr=0x0, size=32768)
+plm.move(right, mat_0)
 ```
 
 #### Code Example
