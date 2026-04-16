@@ -609,23 +609,23 @@ if __name__ == "__main__":
     # - group_list=[256, 256], g=2
     # - m_tile_shape=[32, 32]
     # - scaled_a shape: (10, 32, 2)
-    # test_gmm_mxfp8(
-    #     ShapeConfig(
-    #         [32, 512, 7168],
-    #         [256, 256],
-    #         [32, 32],
-    #         [256, 256],
-    #         [256, 256],
-    #         [1, 8, 256, 32],
-    #         0,
-    #         True,
-    #         False,
-    #         False,
-    #         False,
-    #         False,
-    #         "Case1: K=512, g=2, group_list=[256,256], scale shape (10, M/N, 2)"
-    #     )
-    # )
+    test_gmm_mxfp8(
+        ShapeConfig(
+            [32, 512, 7168],
+            [256, 256],
+            [32, 32],
+            [256, 256],
+            [256, 256],
+            [1, 8, 256, 32],
+            0,
+            True,
+            False,
+            False,
+            False,
+            False,
+            "Case1: K=512, g=2, group_list=[256,256], scale shape (10, M/N, 2)"
+        )
+    )
     
     # 测试用例2: 更大M维度
     # - M=64 (满足32字节对齐), K=1024, N=4096
