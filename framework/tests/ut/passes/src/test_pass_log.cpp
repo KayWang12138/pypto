@@ -116,6 +116,7 @@ TEST_F(PassLogTest, PassLogUtilDeleteEmptyFolderOnDestruct)
 
     {
         PassLogUtil util(pass, *function, 9);
+        (void)util;
     }
 
     EXPECT_NE(access(expectedFolder.c_str(), F_OK), 0);
@@ -138,6 +139,7 @@ TEST_F(PassLogTest, PassLogUtilKeepFolderWhenNotEmpty)
 
     {
         PassLogUtil util(pass, *function, 10);
+        (void)util;
         std::ofstream keepFile(expectedFolder + "/keep.txt");
         ASSERT_TRUE(keepFile.is_open());
         keepFile << "keep";

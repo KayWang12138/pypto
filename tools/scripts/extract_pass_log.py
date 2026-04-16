@@ -54,7 +54,7 @@ def is_runtime_end_line(line, context):
         return False
 
     runtime_pass_name = runtime_match.group(1)
-    runtime_function_name = runtime_match.group(2)
+    runtime_function_name = runtime_match.group(3)
     return (
         runtime_pass_name == context.current_pass_name and
         runtime_function_name == context.current_function_name
@@ -99,7 +99,8 @@ def extract_pass_logs(log_file_paths, output_dir, target_function_name=None):
     os.makedirs(output_dir, exist_ok=True)
     
     pass_pattern = re.compile(r'Apply pass <([^>]+)> on function: ([^.]+)\.')
-    runtime_pattern = re.compile(r'The Runtime of pass ([^\s]+) for program\s+function\s+([^\s]+) is \d+ us\.')
+    runtime_pattern = re.compile(
+        r'The Runtime of pass ([^\s]+) for program\s+([^\s]+)\s+function\s+([^\s]+) is \d+ us\.')
     context = PassContext(
         pass_pattern=pass_pattern,
         runtime_pattern=runtime_pattern,

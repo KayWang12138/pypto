@@ -27,6 +27,35 @@
 #define MODULE_NAME "PassLog"
 
 namespace npu::tile_fwk {
+namespace {
+const char* kExtractPassLogScriptName = "extract_pass_log.py";
+const char* kExtractPassLogScriptInSource = "tools/scripts/extract_pass_log.py";
+
+bool IsFileAccessible(const std::string& path)
+{
+    return !path.empty() && access(path.c_str(), F_OK) == 0;
+}
+
+std::string ResolveExtractPassLogScriptPath()
+{
+    const char* envScriptPath = std::getenv("PYPTO_EXTRACT_PASS_LOG_SCRIPT");
+    if (envScriptPath != nullptr && IsFileAccessible(envScriptPath)) {
+        return std::string(envScriptPath);
+    }
+
+    // Installed layout: <lib>/scripts/extract_pass_log.py
+    const std::string installedScriptPath = GetCurrentSharedLibPath() + "/scripts/" + kExtractPassLogScriptName;
+    if (IsFileAccessible(installedScriptPath)) {
+        return installedScriptPath;
+    }
+
+    // Source-tree layout (mainly for local development and UT).
+    if (IsFileAccessible(kExtractPassLogScriptInSource)) {
+        return std::string(kExtractPassLogScriptInSource);
+    }
+    return "";
+}
+} // namespace
 
 std::string EscapeShellArg(const std::string& arg)
 {
@@ -88,10 +117,12 @@ void LogPassRuntime(
 
 void ExtractPassLogByFunction(const Function& function)
 {
-    const std::string scriptPath = "tools/scripts/extract_pass_log.py";
-    if (access(scriptPath.c_str(), F_OK) != 0) {
+    const std::string scriptPath = ResolveExtractPassLogScriptPath();
+    if (scriptPath.empty()) {
         APASS_LOG_WARN_F(
-            Elements::Function, "extract_pass_log.py not found at %s, skip extraction.", scriptPath.c_str());
+            Elements::Function,
+            "extract_pass_log.py not found. tried env(PYPTO_EXTRACT_PASS_LOG_SCRIPT), install(%s/scripts/%s), and source(%s).",
+            GetCurrentSharedLibPath().c_str(), kExtractPassLogScriptName, kExtractPassLogScriptInSource);
         return;
     }
 
