@@ -1,7 +1,20 @@
+---
+schema_version: 1
+op_name: {operator_name}
+supported_dtypes: [bfloat16]
+p0_shapes: [[1024, 128], [1024, 256], [1024, 512]]
+tolerance: {tolerance}
+dynamic_axes: {axes_list}
+dynamic_axes_ranges: {axes_ranges}
+shape_constraints: {shape_constraints}
+default_params: {'eps': 1e-4, 'min_v': -128.0, 'max_v': 127.0}
+perf_target: {performance_target}
+---
+
 ## 算子需求规范
 
 ### 1. 基础信息
-- **算子名称**: {name}
+- **算子名称**: {operator_name}
 - **算子分类**: {category}  <!-- element-wise / reduction / matmul / attention / custom -->
 - **数学公式**: ${formula}$
 - **功能描述**: {description}
@@ -27,7 +40,7 @@ Algorithm: {algorithm_name}
 
 {ASCII数据流图}
 
-### 5. 数据规格
+### 5. 输入输出规格
 
 **输入规格**:
 
