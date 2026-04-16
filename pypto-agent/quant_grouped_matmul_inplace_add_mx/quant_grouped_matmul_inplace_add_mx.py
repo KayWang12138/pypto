@@ -701,3 +701,28 @@ if __name__ == "__main__":
             "Case4: group_type=1, group_list=[256,512] cumulative, scale shape (10, 32, 2)"
         )
     )
+
+    # 测试用例5: 不均匀分组
+    # - M=48, K=512, N=512
+    # - group_list=[128, 384], g=2 (不均匀: 128+384=512)
+    # - m_tile_shape=[48, 48] (M=48满足32字节对齐)
+    # - scaled_a shape: ((512/64)+2, 48, 2) = (10, 48, 2)
+    # - group 0: K=[0,128], offset=0, length=2, [0:2,:,:]
+    # - group 1: K=[128,512], offset=3, length=6, [3:9,:,:]
+    test_gmm_mxfp8(
+        ShapeConfig(
+            [32, 512, 512],
+            [128, 384],
+            [32, 32],
+            [256, 256],
+            [256, 256],
+            [1, 8, 256, 32],
+            0,
+            True,
+            False,
+            False,
+            False,
+            False,
+            "Case5: K=512, g=2, uneven groups [128,384], scale shape (10, 48, 2)"
+        )
+    )
