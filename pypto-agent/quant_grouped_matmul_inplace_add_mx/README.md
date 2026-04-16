@@ -66,12 +66,20 @@ def scaled_matmul_kernel(
 | n_tile_shape | list | N 维度的 tile shape [nL0, nL1] | - |
 | vector_tile_shape | list | 向量操作的 tile shape | - |
 | group_type | int | group_list 解释方式（0: 累加方式, 1: 累计值方式） | 0 |
+| in_dtype | pypto.DataType | 输入数据类型（DT_FP8E4M3 或 DT_FP8E5M2） | DT_FP8E4M3 |
 | a_trans | bool | 输入矩阵是否转置 | True |
 | b_trans | bool | 权重矩阵是否转置 | False |
 | a_format_nz | bool | 输入是否使用 NZ 格式 | False |
 | b_format_nz | bool | 权重是否使用 NZ 格式 | False |
 | c_format_nz | bool | 输出是否使用 NZ 格式 | False |
 | description | str | 测试用例描述 | "" |
+
+### in_dtype 数据类型说明
+
+| pypto.DataType | torch dtype | 描述 | 适用场景 |
+|----------------|-------------|------|----------|
+| DT_FP8E4M3 | torch.float8_e4m3fn | E4M3FN 格式，4位指数3位尾数 | 训练场景，精度优先 |
+| DT_FP8E5M2 | torch.float8_e5m2 | E5M2 格式，5位指数2位尾数 | 推理场景，动态范围优先 |
 
 ### group_list 和 group_type 说明
 
@@ -84,13 +92,13 @@ def scaled_matmul_kernel(
 
 | 参数名 | 输入/输出 | 描述 | 数据类型 | 维度(shape) |
 |--------|-----------|------|----------|-------------|
-| a | 输入 | 输入矩阵（转置格式） | FP8E4M3FN | [K, M] |
-| b | 输入 | 权重矩阵 | FP8E4M3FN | [K, N] |
+| a | 输入 | 输入矩阵（转置格式） | FP8E4M3 或 FP8E5M2 | [K, M] |
+| b | 输入 | 权重矩阵 | FP8E4M3 或 FP8E5M2 | [K, N] |
 | scaled_a | 输入 | a 的量化缩放因子 | FP8E8M0 | [(K//64)+g, M, 2] |
 | scaled_b | 输入 | b 的量化缩放因子 | FP8E8M0 | [(K//64)+g, N, 2] |
 | y | 输入输出 | 输入输出矩阵 | FP32 | [num_groups, M, N] |
 
-其中 `g` 为分组数量（`len(group_list)`）。
+其中 `g` 为分组数量（`len(group_list)`）。a 和 b 的数据类型由 `in_dtype` 参数决定。
 
 ---
 
@@ -201,17 +209,22 @@ tile_config = ShapeConfig(
     n_tile_shape=[256, 256],     # N 维度 tile
     vector_tile_shape=[1, 8, 256, 32],
     group_type=0,                # 累加方式
+    in_dtype=pypto.DT_FP8E4M3,   # 使用 FP8E4M3 数据类型
     a_trans=True,
     b_trans=False,
     description="Basic test with 2 groups"
 )
 
-# 创建输入张量
+# 创建输入张量（根据 in_dtype 选择 torch dtype）
 K, M, N = 512, 32, 7168
 num_groups = 2
 
-a = torch.randn((K, M), dtype=torch.float8_e4m3fn, device='npu:0')
-b = torch.randn((K, N), dtype=torch.float8_e4m3fn, device='npu:0')
+# FP8E4M3: torch.float8_e4m3fn
+# FP8E5M2: torch.float8_e5m2
+torch_dtype = torch.float8_e4m3fn
+
+a = torch.randn((K, M), dtype=torch_dtype, device='npu:0')
+b = torch.randn((K, N), dtype=torch_dtype, device='npu:0')
 scaled_a = torch.randn((K//64 + num_groups, M, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
 scaled_b = torch.randn((K//64 + num_groups, N, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
 y = torch.randn((num_groups, M, N), dtype=torch.float32, device='npu:0')
@@ -231,79 +244,108 @@ python quant_grouped_matmul_inplace_add_mx.py
 
 ## 测试用例说明
 
-### 用例 1：基础用例
+### 用例 1：基础用例（FP8E4M3）
 
 ```python
 ShapeConfig(
-    [32, 512, 7168],
-    [256, 256],
-    [32, 32],
-    [256, 256],
-    [256, 256],
-    [1, 8, 256, 32],
-    0,
-    True, False, False, False, False,
-    "Case1: K=512, g=2, group_list=[256,256]"
+    ori_shape=[32, 512, 7168],
+    group_list=[256, 256],
+    m_tile_shape=[32, 32],
+    k_tile_shape=[256, 256],
+    n_tile_shape=[256, 256],
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=0,
+    in_dtype=pypto.DT_FP8E4M3,
+    a_trans=True, b_trans=False,
+    a_format_nz=False, b_format_nz=False, c_format_nz=False,
+    description="Case1: FP8E4M3, K=512, g=2"
 )
 ```
 
 - M=32, K=512, N=7168
 - 两个分组，每个 K_block=256
+- 使用 FP8E4M3 数据类型
 - L0B需求: 256×256×1 = 64KB（刚好满足）
 
-### 用例 2：更大 M 维度
+### 用例 2：更大 M 维度（FP8E4M3）
 
 ```python
 ShapeConfig(
-    [64, 1024, 4096],
-    [512, 512],
-    [64, 64],
-    [64, 512],       # kL0=64，避免超出 Buffer
-    [256, 512],      # nL0=256
-    [1, 8, 256, 32],
-    0,
-    True, False, False, False, False,
-    "Case2: M=64, K=1024, g=2"
+    ori_shape=[64, 1024, 4096],
+    group_list=[512, 512],
+    m_tile_shape=[64, 64],
+    k_tile_shape=[64, 512],       # kL0=64，避免超出 Buffer
+    n_tile_shape=[256, 512],      # nL0=256
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=0,
+    in_dtype=pypto.DT_FP8E4M3,
+    ...
 )
 ```
 
 - M=64, K=1024, N=4096
+- 使用 FP8E4M3 数据类型
 - kL0=64, nL0=256，L0B需求: 256×64×1 = 16KB ✓
 
-### 用例 3：3 个分组
+### 用例 3：3 个分组（FP8E4M3）
 
 ```python
 ShapeConfig(
-    [32, 768, 2048],
-    [256, 256, 256],
-    [32, 32],
-    [256, 256],
-    [256, 256],
-    [1, 8, 256, 32],
-    0,
-    True, False, False, False, False,
-    "Case3: K=768, g=3"
+    ori_shape=[32, 768, 2048],
+    group_list=[256, 256, 256],
+    m_tile_shape=[32, 32],
+    k_tile_shape=[256, 256],
+    n_tile_shape=[256, 256],
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=0,
+    in_dtype=pypto.DT_FP8E4M3,
+    ...
 )
 ```
 
 - K=768，三个分组
 - scale 存储：((768/64)+3, 32, 2) = (15, 32, 2)
+- 使用 FP8E4M3 数据类型
 
-### 用例 4：累计值模式
+### 用例 4：累计值模式（FP8E4M3）
 
 ```python
 ShapeConfig(
-    [32, 512, 1024],
-    [256, 512],      # 累计值：256 表示 K=[0,256]，512 表示 K=[256,512]
-    [32, 32],
-    [256, 256],
-    [256, 256],
-    [1, 8, 256, 32],
-    1,               # group_type=1
-    True, False, False, False, False,
-    "Case4: group_type=1, cumulative mode"
+    ori_shape=[32, 512, 1024],
+    group_list=[256, 512],      # 累计值：256 表示 K=[0,256]，512 表示 K=[256,512]
+    m_tile_shape=[32, 32],
+    k_tile_shape=[256, 256],
+    n_tile_shape=[256, 256],
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=1,               # group_type=1: 累计值模式
+    in_dtype=pypto.DT_FP8E4M3,
+    ...
 )
 ```
+
+- group_type=1，group_list 使用累计值方式
+- 第一个分组 K=[0,256]，第二个分组 K=[256,512]
+
+### 用例 5：FP8E5M2 数据类型
+
+```python
+ShapeConfig(
+    ori_shape=[32, 512, 1024],
+    group_list=[256, 256],
+    m_tile_shape=[32, 32],
+    k_tile_shape=[256, 256],
+    n_tile_shape=[256, 256],
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=0,
+    in_dtype=pypto.DT_FP8E5M2,  # 使用 FP8E5M2
+    a_trans=True, b_trans=False,
+    a_format_nz=False, b_format_nz=False, c_format_nz=False,
+    description="Case5: FP8E5M2, K=512, g=2"
+)
+```
+
+- 使用 FP8E5M2 数据类型（torch.float8_e5m2）
+- E5M2 格式具有更大的动态范围，适合推理场景
 
 ---
 
@@ -369,6 +411,18 @@ A: Tile Shape 超出 Buffer 约束时，编译器不会报错，但运行时会�
 A:
 - **group_type=0**：`[256, 256]` 表示两个分组，大小分别为 256 和 256，K=512
 - **group_type=1**：`[256, 512]` 表示累计值，第一个分组 K=[0,256]，第二个分组 K=[256,512]
+
+### Q6: FP8E4M3 和 FP8E5M2 应该选择哪个？
+
+A: 根据应用场景选择：
+
+| 数据类型 | 特点 | 适用场景 |
+|----------|------|----------|
+| **DT_FP8E4M3** | 4位指数+3位尾数，精度更高，动态范围较小 | 训练场景，精度优先 |
+| **DT_FP8E5M2** | 5位指数+2位尾数，动态范围更大，精度较低 | 推理场景，动态范围优先 |
+
+- 训练场景推荐：`DT_FP8E4M3`（精度损失更小）
+- 推理场景推荐：`DT_FP8E5M2`（支持更大数值范围）
 
 ---
 

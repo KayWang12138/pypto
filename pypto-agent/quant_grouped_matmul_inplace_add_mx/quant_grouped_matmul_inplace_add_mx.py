@@ -107,9 +107,12 @@ class ShapeConfig:
         vector_tile_shape: Tile shapes for vector operations
         group_type: Type of group_list interpretation (default: 0)
             - 0: group_list elements are individual group sizes, sum equals K
-                 Example: [256, 256] means K=256+256=512
+                  Example: [256, 256] means K=256+256=512
             - 1: group_list elements are cumulative K values, last element equals K
-                 Example: [256, 512] means first group K=[0,256], second group K=[256,512]
+                  Example: [256, 512] means first group K=[0,256], second group K=[256,512]
+        in_dtype: Input tensor data type (default: DT_FP8E4M3)
+            - DT_FP8E4M3: FP8 E4M3FN format (torch.float8_e4m3fn)
+            - DT_FP8E5M2: FP8 E5M2 format (torch.float8_e5m2)
         a_trans: Whether input tensor is transposed (default: True, x1 is [K, M])
         b_trans: Whether weight tensor is transposed (default: False)
         a_format_nz: Whether input uses NZ format (default: False)
@@ -129,6 +132,7 @@ class ShapeConfig:
     n_tile_shape: list
     vector_tile_shape: list
     group_type: int = 0
+    in_dtype: pypto.DataType = pypto.DT_FP8E4M3
     a_trans: bool = True
     b_trans: bool = False
     a_format_nz: bool = False
@@ -551,14 +555,22 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     n = tile_config.ori_shape[2]
     group_list = tile_config.group_list
     group_type = tile_config.group_type
+    in_dtype = tile_config.in_dtype
     num_groups = len(group_list)
     # Kernel 固定使用 a_trans=True
     a_trans = True
     b_trans = False
 
+    # Map pypto dtype to torch dtype
+    torch_dtype_map = {
+        pypto.DT_FP8E4M3: torch.float8_e4m3fn,
+        pypto.DT_FP8E5M2: torch.float8_e5m2,
+    }
+    torch_dtype = torch_dtype_map.get(in_dtype, torch.float8_e4m3fn)
+
     # Generate input tensor in MXFP8 format - [K, M] (transposed format)
     # 约束: a_trans=True 时，a=[K, M]
-    a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
+    a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
     
     # Generate scaled_a in MXFP8 format - ((K//64)+g, M, 2)
     # MX量化存储格式: 所有group的scale存储在一个连续tensor中
@@ -566,7 +578,7 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
 
     # Generate weight tensor in MXFP8 format - 2D [K, N]
     # 约束: b_trans=False 时，b=[K, N]
-    b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
+    b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
     
     # Generate scaled_b in MXFP8 format - ((K//64)+g, N, 2)
     scaled_b = torch.randn((k // 64 + num_groups, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
@@ -604,53 +616,55 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
 
 
 if __name__ == "__main__":
-    # 测试用例1: 基础用例
+    # 测试用例1: 基础用例 (FP8E4M3)
     # - M=32, K=512, N=7168
     # - group_list=[256, 256], g=2
     # - m_tile_shape=[32, 32]
     # - scaled_a shape: (10, 32, 2)
     test_gmm_mxfp8(
         ShapeConfig(
-            [32, 512, 7168],
-            [256, 256],
-            [32, 32],
-            [256, 256],
-            [256, 256],
-            [1, 8, 256, 32],
-            0,
-            True,
-            False,
-            False,
-            False,
-            False,
-            "Case1: K=512, g=2, group_list=[256,256], scale shape (10, M/N, 2)"
+            ori_shape=[32, 512, 7168],
+            group_list=[256, 256],
+            m_tile_shape=[32, 32],
+            k_tile_shape=[256, 256],
+            n_tile_shape=[256, 256],
+            vector_tile_shape=[1, 8, 256, 32],
+            group_type=0,
+            in_dtype=pypto.DT_FP8E4M3,
+            a_trans=True,
+            b_trans=False,
+            a_format_nz=False,
+            b_format_nz=False,
+            c_format_nz=False,
+            description="Case1: FP8E4M3, K=512, g=2, group_list=[256,256]"
         )
     )
     
-    # 测试用例2: 更大M维度
+    # 测试用例2: 更大M维度 (FP8E4M3)
     # - M=64 (满足32字节对齐), K=1024, N=4096
     # - group_list=[512, 512], g=2
     # - m_tile_shape=[64, 64]
     # - scaled_a shape: ((1024/64)+2, 64, 2) = (18, 64, 2)
     test_gmm_mxfp8(
         ShapeConfig(
-            [64, 1024, 4096],
-            [512, 512],
-            [64, 64],
-            [64, 512],
-            [256, 512],
-            [1, 8, 256, 32],
-            0,
-            True,
-            False,
-            False,
-            False,
-            False,
-            "Case2: M=64, K=1024, g=2, group_list=[512,512], scale shape (18, 64, 2)"
+            ori_shape=[64, 1024, 4096],
+            group_list=[512, 512],
+            m_tile_shape=[64, 64],
+            k_tile_shape=[64, 512],
+            n_tile_shape=[256, 512],
+            vector_tile_shape=[1, 8, 256, 32],
+            group_type=0,
+            in_dtype=pypto.DT_FP8E4M3,
+            a_trans=True,
+            b_trans=False,
+            a_format_nz=False,
+            b_format_nz=False,
+            c_format_nz=False,
+            description="Case2: FP8E4M3, M=64, K=1024, g=2, group_list=[512,512]"
         )
     )
     
-    # 测试用例3: 3个分组
+    # 测试用例3: 3个分组 (FP8E4M3)
     # - M=32, K=768 (3*256), N=2048
     # - group_list=[256, 256, 256], g=3
     # - m_tile_shape=[32, 32]
@@ -660,23 +674,24 @@ if __name__ == "__main__":
     # - group 2: offset=10, [10:14,:,:]
     test_gmm_mxfp8(
         ShapeConfig(
-            [32, 768, 2048],
-            [256, 256, 256],
-            [32, 32],
-            [256, 256],
-            [256, 256],
-            [1, 8, 256, 32],
-            0,
-            True,
-            False,
-            False,
-            False,
-            False,
-            "Case3: K=768, g=3, group_list=[256,256,256], scale shape (15, 32, 2)"
+            ori_shape=[32, 768, 2048],
+            group_list=[256, 256, 256],
+            m_tile_shape=[32, 32],
+            k_tile_shape=[256, 256],
+            n_tile_shape=[256, 256],
+            vector_tile_shape=[1, 8, 256, 32],
+            group_type=0,
+            in_dtype=pypto.DT_FP8E4M3,
+            a_trans=True,
+            b_trans=False,
+            a_format_nz=False,
+            b_format_nz=False,
+            c_format_nz=False,
+            description="Case3: FP8E4M3, K=768, g=3, group_list=[256,256,256]"
         )
     )
     
-    # 测试用例4: group_type=1 (累计值模式)
+    # 测试用例4: group_type=1 (累计值模式) (FP8E4M3)
     # - M=32, K=512, N=1024
     # - group_list=[256, 512] (累计值: 256, 512表示K切分点)
     # - group_type=1: 表示group_list是累计值
@@ -686,43 +701,42 @@ if __name__ == "__main__":
     # - group 1: K=[256,512], offset=5, length=4, [5:9,:,:]
     test_gmm_mxfp8(
         ShapeConfig(
-            [32, 512, 1024],
-            [256, 512],
-            [32, 32],
-            [256, 256],
-            [256, 256],
-            [1, 8, 256, 32],
-            1,  # group_type=1: 累计值模式
-            True,
-            False,
-            False,
-            False,
-            False,
-            "Case4: group_type=1, group_list=[256,512] cumulative, scale shape (10, 32, 2)"
+            ori_shape=[32, 512, 1024],
+            group_list=[256, 512],
+            m_tile_shape=[32, 32],
+            k_tile_shape=[256, 256],
+            n_tile_shape=[256, 256],
+            vector_tile_shape=[1, 8, 256, 32],
+            group_type=1,
+            in_dtype=pypto.DT_FP8E4M3,
+            a_trans=True,
+            b_trans=False,
+            a_format_nz=False,
+            b_format_nz=False,
+            c_format_nz=False,
+            description="Case4: FP8E4M3, group_type=1, group_list=[256,512] cumulative"
         )
     )
 
-    # 测试用例5: 不均匀分组
-    # - M=48, K=512, N=512
-    # - group_list=[128, 384], g=2 (不均匀: 128+384=512)
-    # - m_tile_shape=[48, 48] (M=48满足32字节对齐)
-    # - scaled_a shape: ((512/64)+2, 48, 2) = (10, 48, 2)
-    # - group 0: K=[0,128], offset=0, length=2, [0:2,:,:]
-    # - group 1: K=[128,512], offset=3, length=6, [3:9,:,:]
+    # 测试用例5: FP8E5M2 数据类型
+    # - M=32, K=512, N=1024
+    # - group_list=[256, 256], g=2
+    # - in_dtype=DT_FP8E5M2 (torch.float8_e5m2)
     test_gmm_mxfp8(
         ShapeConfig(
-            [32, 512, 512],
-            [128, 384],
-            [32, 32],
-            [256, 256],
-            [256, 256],
-            [1, 8, 256, 32],
-            0,
-            True,
-            False,
-            False,
-            False,
-            False,
-            "Case5: K=512, g=2, uneven groups [128,384], scale shape (10, 48, 2)"
+            ori_shape=[32, 512, 1024],
+            group_list=[256, 256],
+            m_tile_shape=[32, 32],
+            k_tile_shape=[256, 256],
+            n_tile_shape=[256, 256],
+            vector_tile_shape=[1, 8, 256, 32],
+            group_type=0,
+            in_dtype=pypto.DT_FP8E5M2,
+            a_trans=True,
+            b_trans=False,
+            a_format_nz=False,
+            b_format_nz=False,
+            c_format_nz=False,
+            description="Case5: FP8E5M2, K=512, g=2, group_list=[256,256]"
         )
     )
