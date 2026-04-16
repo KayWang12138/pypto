@@ -213,7 +213,7 @@ void MonitorManager::TryEndPrepareStage()
     if (current_stage_ == "Prepare" && enable_) {
         double total_elapsed_prepare =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - total_start_).count();
-        std::string msg = "[Compiler Monitor] " + PadLabel("Stage: ") + PadStageName(current_stage_) +
+        std::string msg = "[Compiler Monitor] Stage: " + current_stage_ +
                           "(completed) | Stashed function: " + std::to_string(total_function_count_) +
                           " | Stage elapsed: " + FormatElapsed(elapsed) +
                           " | Total elapsed: " + FormatElapsed(total_elapsed_prepare);
@@ -464,20 +464,23 @@ void MonitorManager::EndStageInternal(const std::string& name, int rootFuncIndex
 
     std::string stage_finish_msg;
     if (name == STAGE_FUNC_TO_BIN) {
-        stage_finish_msg = "[Compiler Monitor] " + PadLabel("RootFunc(parallel): ") + std::to_string(rootFuncIndex) +
-                           "/" + std::to_string(root_func_count_) +
+        int pw = GetProgressWidth();
+        stage_finish_msg = "[Compiler Monitor] " + PadLabel("RootFunc(parallel): ") +
+                           PadRight(std::to_string(rootFuncIndex) + "/" + std::to_string(root_func_count_), pw) +
                            " | Stage: " + PadStageName("CodeGen[" + name + "]") +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed) + " | RootFunc:[" + rootFuncName + "]";
     } else if (name == "CodeGen") {
-        stage_finish_msg = "[Compiler Monitor] " + PadLabel("Stage: ") + PadStageName(name) +
+        stage_finish_msg = "[Compiler Monitor] Stage: " + name +
                            "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
                            " | Total elapsed: " + FormatElapsed(total_elapsed);
     } else {
-        stage_finish_msg = "[Compiler Monitor] " + PadLabel("Function: ") + std::to_string(current_function_index_) +
-                           "/" + std::to_string(total_function_count_) + " | Stage: " + PadStageName(name) +
-                           "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
-                           " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_function_ + "]";
+        int pw = GetProgressWidth();
+        stage_finish_msg =
+            "[Compiler Monitor] " + PadLabel("Function: ") +
+            PadRight(std::to_string(current_function_index_) + "/" + std::to_string(total_function_count_), pw) +
+            " | Stage: " + PadStageName(name) + "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
+            " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_function_ + "]";
     }
 
     (void)fprintf(stdout, "%s\n", stage_finish_msg.c_str());
@@ -494,6 +497,13 @@ std::vector<ActiveStageInfo> MonitorManager::GetActiveStages() const
 int MonitorManager::GetProcessingThresholdSec() const { return processing_threshold_sec_; }
 
 void MonitorManager::SetProcessingThresholdSec(int sec) { processing_threshold_sec_ = sec; }
+
+int MonitorManager::GetProgressWidth() const
+{
+    auto digits = [](int n) { return static_cast<int>(std::to_string(std::max(n, 1)).size()); };
+    int maxDigits = std::max(digits(total_function_count_), digits(root_func_count_));
+    return 2 * maxDigits + 1;
+}
 
 double MonitorManager::GetTotalElapsed() const
 {

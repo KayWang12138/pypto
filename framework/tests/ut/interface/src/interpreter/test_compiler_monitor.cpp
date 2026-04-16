@@ -186,6 +186,7 @@ TEST_F(CompilerMonitor, CompilerMonitorFuncToBinProcessing)
     stages = MonitorManager::Instance().GetActiveStages();
     EXPECT_EQ(stages.size(), 0u);
 
+    MonitorManager::Instance().SetCurrentFunctionIndex(4);
     MonitorManager::Instance().NotifyCompilationFinished();
     MonitorManager::Instance().SetProcessingThresholdSec(60);
 }
