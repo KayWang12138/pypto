@@ -204,7 +204,7 @@ def check_ol23(ctx: CheckContext) -> Finding:
 
 @register("OL25")
 def check_ol25(ctx: CheckContext) -> Finding:
-    """JIT Tensor 参数注解建议显式声明 shape/dtype（官方示例允许无参数形式）。"""
+    """Tensor 注解完整性检查：无参数或缺少 dtype 时告警。"""
     impl_file = f"{ctx.op_name}_impl.py"
     tree = ctx.parse_file(impl_file)
     if tree is None:
@@ -223,46 +223,18 @@ def check_ol25(ctx: CheckContext) -> Finding:
                 continue
             if not isinstance(ann, ast.Call):
                 continue
-            n_args = len(ann.args)
-            if n_args == 0:
-                return ctx.make_finding("OL25", "FAIL",
-                    f"参数 `{arg.arg}` 使用 pypto.Tensor()（未声明 shape/dtype）。"
-                    "建议改为 pypto.Tensor([shape_dims], pypto.DT_xxx) 以提升可维护性",
+            if len(ann.args) == 0:
+                return ctx.make_finding("OL25", "WARN",
+                    f"参数 `{arg.arg}` 使用 pypto.Tensor()（无参数形式），"
+                    "建议补全 shape 和 dtype",
+                    file=impl_file, line=ann.lineno)
+            if len(ann.args) == 1:
+                return ctx.make_finding("OL25", "WARN",
+                    f"参数 `{arg.arg}` 只声明了 shape，缺少 dtype。"
+                    "建议写成 pypto.Tensor([shape], dtype)",
                     file=impl_file, line=ann.lineno)
     return ctx.make_finding("OL25", "PASS",
-        "JIT Tensor 参数注解已包含 shape 与 dtype", file=impl_file)
-
-@register("OL38")
-def check_ol38(ctx: CheckContext) -> Finding:
-    """JIT Tensor 参数注解建议写全 shape 与 dtype（告警项）。"""
-    impl_file = f"{ctx.op_name}_impl.py"
-    tree = ctx.parse_file(impl_file)
-    if tree is None:
-        return ctx.make_finding("OL38", "SKIP", f"{impl_file} 不存在或无法解析")
-    jit_funcs = _get_jit_functions(tree)
-    if not jit_funcs:
-        return ctx.make_finding("OL38", "SKIP", "无 jit 函数")
-    for func in jit_funcs:
-        for arg in func.args.args:
-            ann = arg.annotation
-            if ann is None:
-                continue
-            if _is_non_tensor_annotation(ann):
-                continue
-            if not _is_pypto_tensor_annotation(ann):
-                continue
-            if not isinstance(ann, ast.Call):
-                return ctx.make_finding("OL38", "WARN",
-                    f"参数 `{arg.arg}` 的 Tensor 注解未显式给出参数，"
-                    "建议写成 pypto.Tensor([shape_dims], pypto.DT_xxx)",
-                    file=impl_file, line=arg.lineno)
-            if len(ann.args) == 1:
-                return ctx.make_finding("OL38", "WARN",
-                    f"参数 `{arg.arg}` 只声明了 shape，缺少 dtype。"
-                    "建议写成 pypto.Tensor([shape_dims], pypto.DT_xxx)",
-                    file=impl_file, line=ann.lineno)
-    return ctx.make_finding("OL38", "PASS",
-        "JIT Tensor 参数注解已包含 shape 与 dtype", file=impl_file)
+        "JIT Tensor 注解均包含 shape 与 dtype", file=impl_file)
 
 @register("OL26")
 def check_ol26(ctx: CheckContext) -> Finding:

@@ -75,6 +75,9 @@ def _parse_scalar(text: str) -> Any:
         return int(value)
     if re.fullmatch(r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", value):
         return float(value)
+    # Bare comma-separated values (no brackets) => parse as list
+    if "," in value and not value.startswith(("[", "{")):
+        return [_parse_scalar(v.strip()) for v in value.split(",") if v.strip()]
     return value
 
 def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:

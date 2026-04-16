@@ -104,7 +104,7 @@ def demo_wrapper(x, y):
 """
     write_file(op_dir / "demo_impl.py", impl)
     finding = run_rule(mod, op_dir, "OL25")
-    assert finding.status == "FAIL"
+    assert finding.status == "WARN"
 
 
 # ── OL26: 张量参数必须在非张量参数之前 ──
