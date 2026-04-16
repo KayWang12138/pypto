@@ -630,7 +630,7 @@ void EncodeWaitUntilInfo(const Operation& op, std::vector<int32_t>& code)
         std::vector<int32_t> attrs = {
             static_cast<int32_t>(distAttr.expectedSum), static_cast<int32_t>(distAttr.signalStride),
             static_cast<int32_t>(distAttr.resetSignal), static_cast<int32_t>(distAttr.tileRowShape),
-            static_cast<int32_t>(distAttr.tileColShape)};
+            static_cast<int32_t>(distAttr.tileColShape), static_cast<int32_t>(distAttr.cmpType)};
         code.push_back(static_cast<int32_t>(attrs.size()));
         code.insert(code.end(), attrs.begin(), attrs.end());
     }

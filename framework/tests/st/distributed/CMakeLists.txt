@@ -54,15 +54,50 @@ if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
 endif ()
 
 # 用例可执行程序(执行)
+#
+# Test case index map (case-insensitive alphabetical JSON file order, 0-based):
+#   0  Allgather_AttnPost_Reducescatter  (1 case)
+#   1  Allreduce_Add_Allreduce           (1 case)
+#   2  AllreduceV10                      (1 case)  ── oneshot, per-group GE signaling
+#   3  MoeDispatch                       (1 case)
+#   4  MoeDistributedCombine             (1 case)
+#
+# Note: sort order is case-insensitive (see GetOpMetaDataFromDir in test_distributed.h).
+#
+# Usage:
+#   python3 build_ci.py --stest_distributed              # all tests (default)
+#   python3 build_ci.py --stest_distributed=v10           # AllReduceV10 only
+#
 set(_num_ranks "4")
-set(_num_cases "3")
-set(_DistributedGTestCaseFilterConfig "")
-foreach(i RANGE 0 ${_num_cases})
-    list(APPEND _DistributedGTestCaseFilterConfig
-        "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
-    )
-endforeach()
+set(_num_cases "4")
 
+# Build filter config for a list of indices, respecting per-index rank overrides
+macro(_distributed_filter_config _output)
+    set(${_output} "")
+    foreach(_i ${ARGN})
+        set(_r "${_num_ranks}")
+        if (DEFINED _rank_override_${_i})
+            set(_r "${_rank_override_${_i}}")
+        endif()
+        list(APPEND ${_output}
+            "TestDistributedOps/DistributedTest.TestOps/${_i}" "${_r}"
+        )
+    endforeach()
+endmacro()
+
+# Default: all test cases
+set(_all_indices "")
+foreach(i RANGE 0 ${_num_cases})
+    list(APPEND _all_indices ${i})
+endforeach()
+_distributed_filter_config(_DistributedGTestCaseFilterConfig ${_all_indices})
+
+# Subset filtering: override filter config when a subset keyword is requested
+if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "v10")
+    message(STATUS "Distributed subset: AllReduceV10 only (index 2)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 2)
+    set(ENABLE_STEST_DISTRIBUTED "ON")
+endif()
 
 set(_LdLibrariesExt
         tile_fwk_compiler

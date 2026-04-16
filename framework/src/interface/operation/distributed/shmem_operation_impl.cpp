@@ -19,6 +19,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/symbolic_distributed.h"
 #include "tilefwk/tensor.h"
+#include "tilefwk/distributed_communicator.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -27,6 +28,95 @@
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
+void ValidateTensor(
+    const Tensor& tensor,
+    const std::string& desc,
+    const std::unordered_set<size_t>& allowedDims = {},
+    const std::unordered_set<DataType>& allowedTypes = {},
+    const std::unordered_set<TileOpFormat>& allowedFormats = {},
+    const Shape& expectShape = {});
+
+void ValidateShmemTensor(const ShmemTensor& t, bool hasData = false, bool hasSignal = false);
+
+// File-scope cache used by ValidateShmemTensor. Exposed here so unit tests can
+// call ResetShmemTensorGroupCache() in SetUp/TearDown for test isolation.
+static std::unordered_map<std::string, int64_t> s_groupWorldSizeMap;
+
+void ResetShmemTensorGroupCache()
+{
+    s_groupWorldSizeMap.clear();
+    CommGroupRecorder::GetInstance().Reset();
+}
+
+// OneShotAllReduce_v10: SHMEM-only, chunked, per-group GE-semantics signaling.
+//
+// Per-group independent readiness using two key changes vs coarse-signal variants:
+//   1. Sender fires ONE ShmemSignal per group per target rank (inside the group loop).
+//      Signals accumulate monotonically in the full-tile counter.
+//   2. Receiver issues a fresh ShmemWaitUntil per group using GE semantics:
+//      WaitGroup(G) waits until counter >= (G+1)*worldSize.
+//      By ordered-signaling induction, this guarantees all W senders have
+//      completed at least group G before the receiver pulls group G's chunks.
+//
+// Correctness: since each sender signals after each of its groups in order,
+// the sum of all senders' contributions to a rank's counter reaching K*W means
+// all W senders have each sent at least K groups (pigeonhole, each contributes
+// ≤ K). The counter is NOT reset between groups (clearSignal=false).
+//
+// Constraint: the communicator should be used once per kernel invocation.
+//             Counter must be cleared (ShmemClearSignal) before reuse.
+void OneShotAllReduce_v10(const Tensor& predToken, const Tensor& in, ShmemTensor& shmemTensor, Tensor& out,
+                          uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+{
+    ValidateShmemTensor(shmemTensor, true, true);
+    ValidateTensor(predToken, "predToken", {2});
+    ValidateTensor(in, "in", {predToken.Dim()});
+    ASSERT(payloadChunkCount > 0) << "payloadChunkCount must be > 0";
+    ASSERT(chunksPerSignal > 0) << "chunksPerSignal must be > 0";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    ValidateTensor(shmemTensor.data, "shmemTensor.data", {}, {}, {in.Format()}, {row, col});
+    ValidateTensor(out, "out", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
+    ASSERT(static_cast<int64_t>(payloadChunkCount) <= row)
+        << "payloadChunkCount must be <= row dimension (" << row << ")";
+    ASSERT(chunksPerSignal <= payloadChunkCount)
+        << "chunksPerSignal must be <= payloadChunkCount, but got "
+        << chunksPerSignal << " > " << payloadChunkCount;
+
+    ShmemTensor v10ShmemTensor = shmemTensor;
+    OneShotCommunicatorV5 comm(v10ShmemTensor, payloadChunkCount, chunksPerSignal);
+
+    // Phase 1: Scatter — group-major puts; signal AFTER each group per rank.
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        Tensor putOut = predToken;
+        for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+            uint32_t begin = comm.GroupBeginChunk(groupId);
+            uint32_t gSize = comm.GroupSize(groupId);
+            for (uint32_t local = 0; local < gSize; ++local) {
+                uint32_t chunkId = begin + local;
+                int32_t chunkRow = comm.ChunkStartRow(chunkId);
+                int32_t chunkRows = comm.ChunkRows(chunkId);
+                auto inChunk = View(in, {chunkRows, col},
+                    std::vector<SymbolicScalar>{chunkRow, 0});
+                putOut = comm.Put(putOut, inChunk, dynRankId, chunkId, AtomicType::ADD);
+            }
+            // Signal after this group — increments the monotonic counter by 1.
+            putOut = comm.SignalGroup(putOut, dynRankId, groupId, AtomicType::ADD);
+        }
+    }
+
+    // Phase 2: Receive — independent GE wait and pull per group, no caching.
+    for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+        auto waitToken = comm.WaitGroup(in, groupId);
+        uint32_t begin = comm.GroupBeginChunk(groupId);
+        uint32_t gSize = comm.GroupSize(groupId);
+        for (uint32_t local = 0; local < gSize; ++local) {
+            uint32_t chunkId = begin + local;
+            auto reducedChunk = comm.PullChunk(waitToken, chunkId, in.GetDataType());
+            Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+        }
+    }
+}
 
 void ValidateGroup(const char* group)
 {
@@ -83,9 +173,9 @@ void ValidateShape(const Tensor& tensor, const std::string& desc, const Shape& e
 }
 
 void ValidateTensor(
-    const Tensor& tensor, const std::string& desc, const std::unordered_set<size_t>& allowedDims = {},
-    const std::unordered_set<DataType>& allowedTypes = {}, const std::unordered_set<TileOpFormat>& allowedFormats = {},
-    const Shape& expectShape = {})
+    const Tensor& tensor, const std::string& desc, const std::unordered_set<size_t>& allowedDims,
+    const std::unordered_set<DataType>& allowedTypes, const std::unordered_set<TileOpFormat>& allowedFormats,
+    const Shape& expectShape)
 {
     ValidateDim(tensor, desc, allowedDims);
     ValidateDataType(tensor, desc, allowedTypes);
@@ -99,9 +189,9 @@ void ValidateOpType(OpType cmp, const std::unordered_set<OpType>& allowedOpTypes
         << "Invaild OP type, only support:" << ToString(allowedOpTypes) << ", but got:" << ToString(cmp);
 }
 
-void ValidateShmemTensor(const ShmemTensor& t, bool hasData = false, bool hasSignal = false)
+void ValidateShmemTensor(const ShmemTensor& t, bool hasData, bool hasSignal)
 {
-    static std::unordered_map<std::string, int64_t> groupWorldSizeMap;
+    auto& groupWorldSizeMap = s_groupWorldSizeMap;
     ValidateGroup(t.group.c_str());
     auto groupWorldSize = groupWorldSizeMap.find(t.group);
     if (groupWorldSize == groupWorldSizeMap.end()) {
@@ -427,12 +517,14 @@ Tensor ShmemWaitUntil(
     const ShmemTensor& src, const SymbolicScalar& srcRank, OpType cmp, int32_t cmpValue, bool clearSignal,
     const Tensor& pred)
 {
-    ValidateOpType(cmp, {OpType::EQ});
+    ValidateOpType(cmp, {OpType::EQ, OpType::GE});
+    ASSERT(cmp != OpType::GE || !clearSignal)
+        << "ShmemWaitUntil: clearSignal must be false when using GE semantics";
     ValidateShmemTensor(src, false, true);
     ValidateTensor(pred, "pred tensor", {2});
     ValidateTensor(src.signal, "signal of shmem tensor", {3});
     ValidateTiling(Opcode::OP_SHMEM_WAIT_UNTIL, pred, "pred tensor");
-    (void)cmp;
+
     auto& function = *Program::GetInstance().GetCurrentFunction();
     Shape signalShape = src.signal.GetShape();
     signalShape[0] = 1;
@@ -447,6 +539,7 @@ Tensor ShmemWaitUntil(
     distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
     distOpAttr.resetSignal = clearSignal;
     distOpAttr.ownerRank = GetHcclRankId(src.group);
+    distOpAttr.cmpType = cmp;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
@@ -563,7 +656,6 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& sh
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     int32_t rowPerRank = row / worldSize;
-    SymbolicScalar thisRank = GetHcclRankId(shmemTensor.group);
     ValidateTensor(shmemTensor.data, "data of shmem tensor", {}, {}, {in.Format()}, {rowPerRank, col});
     ValidateTensor(out, "output tensor", {}, {in.GetDataType()}, {in.Format()}, in.GetShape());
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
@@ -576,4 +668,5 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, ShmemTensor& sh
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
     }
 }
+
 } // namespace npu::tile_fwk::Distributed

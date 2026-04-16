@@ -38,7 +38,9 @@ inline bool SignalTileOp::PollCompleted() const
     if constexpr (!npu::tile_fwk::dynamic::IsDeviceMode()) {
         return true;
     }
-    if (addr_[0] != expectedSum_) {
+    const int32_t signalValue = addr_[0];
+    const bool isGeCmp = (cmpType_ == static_cast<int32_t>(OpType::GE));
+    if ((isGeCmp && signalValue < expectedSum_) || (!isGeCmp && signalValue != expectedSum_)) {
         return false;
     }
     if (resetSignal_) {
@@ -77,6 +79,13 @@ TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
     info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
+    info.signalStride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
+    const int32_t cmpIdx = paramInfo_.attrIndex + static_cast<int32_t>(ATTR_CMPTYPE_OFFSET);
+    if (cmpIdx >= 0 && cmpIdx < static_cast<int32_t>(aicpuCode.size())) {
+        info.cmpType = aicpuCode[cmpIdx];
+    } else {
+        info.cmpType = static_cast<int32_t>(OpType::EQ);
+    }
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
     info.vaddr = funcData.rawTensorAddr[desc->offsetOrIndex];

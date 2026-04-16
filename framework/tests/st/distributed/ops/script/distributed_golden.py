@@ -155,7 +155,12 @@ def parse_base_case(config: dict) -> BaseCase:
     world_size = params['world_size']
     input_tensor = config['input_tensors'][0]
     shape = tuple(input_tensor['shape'])
-    valid_shape = tuple(config['view_shape'])
+    view_shape = config.get('view_shape', [])
+    # Some historical JSON cases use [""] as a placeholder for "same as shape".
+    if (not view_shape) or (len(view_shape) == 1 and view_shape[0] == ''):
+        valid_shape = shape
+    else:
+        valid_shape = tuple(view_shape)
     dtype = get_dtype(input_tensor['dtype'])
     min_val, max_val = input_tensor['data_range']['min'], input_tensor['data_range']['max']
     tile_shape = tuple(config['tile_shape'])
@@ -780,6 +785,7 @@ OPERATOR_DISPATCHERS = {
     'AllGather': generate_all_gather_golden,
     'ReduceScatter': generate_reduce_scatter_golden,
     'AllReduce': generate_all_reduce_golden,
+    'AllReduceV10': generate_all_reduce_golden,   # SHMEM-only, per-group GE signaling (OneShotCommunicatorV5)
     'MoeDispatch': generate_moe_dispatch_golden,
     'MoeDistributedCombine': generate_moe_distributed_combine_golden,
     'AllReduceAddAllReduce': generate_allreduce_add_allreduce_golden,

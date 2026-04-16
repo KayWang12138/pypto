@@ -24,8 +24,9 @@
 #include "distributed_op_test_suite.h"
 #include "tileop/distributed/comm_context.h"
 #include "tilefwk/tilefwk_op.h"
+#include "tilefwk/distributed_communicator.h"
 #include "test_dev_func_runner.h"
-#include "tilefwk/pypto_fwk_log.h"
+#include "shmem_ir_test_utils.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {

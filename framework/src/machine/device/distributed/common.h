@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <vector>
 #include "tilefwk/aikernel_data.h"
+#include "tilefwk/tilefwk_op.h"
 #include "machine/utils/dynamic/dev_encode_types.h"
 #include "tileop/distributed/comm_context.h"
 
@@ -34,6 +35,7 @@ constexpr uint64_t SHMEM_DIM_COL = 2;
 constexpr uint64_t ATTR_STRIDE_OFFSET = 1;
 constexpr uint64_t ATTR_TILEROW_OFFSET = 3;
 constexpr uint64_t ATTR_TILECOL_OFFSET = 4;
+constexpr uint64_t ATTR_CMPTYPE_OFFSET = 5;
 
 struct TensorInfo {
     uint64_t rawAddr{0};
@@ -42,6 +44,7 @@ struct TensorInfo {
     uint64_t vaddr{0};
     int32_t expectedSum{0};
     int32_t signalStride{0};
+    int32_t cmpType{static_cast<int32_t>(OpType::EQ)};
     bool resetSignal{false};
     std::vector<uint32_t> offset;
     std::vector<uint32_t> shape;
@@ -116,14 +119,26 @@ inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVect
 
     index = index + aicpuCode[index] + 1;
     paramInfo.rawShapeIndex = index + 1;
-    paramInfo.rawShapeRow =
-        aicpuCode[paramInfo.rawShapeIndex + 1];         // ShmemSignal RawShape[ranksize, row, col], 3表示row的值
-    paramInfo.rawShapeCol =
-        aicpuCode[paramInfo.rawShapeIndex + 2];         // ShmemSignal RawShape[ranksize, row, col], 4表示col的值
+    // aicpuCode[index] encodes (rawShape.dim + shape.dim), stored back-to-back.
+    // Use dynamic tail-based indexing to support variable-dimension signal tensors
+    // (e.g., 3D [ranksize, row, col] or future extended layouts [..., row, col]).
+    // NOTE: Master used hardcoded +1/+2 offsets assuming 3D. This change enables
+    //       flexibility for new layouts introduced during rebase; revert if not needed.
+    int32_t rawShapeDim = aicpuCode[index] / 2;
+    if (rawShapeDim >= 2) {
+        // Signal shape layout: [..., row, col]. Extract row/col from the last two elements.
+        // For 3D [ranksize, row, col]: indices are dim-2=1 (row), dim-1=2 (col)
+        // For 2D [row, col]: indices are dim-2=0 (row), dim-1=1 (col)
+        paramInfo.rawShapeRow = aicpuCode[paramInfo.rawShapeIndex + rawShapeDim - 2];
+        paramInfo.rawShapeCol = aicpuCode[paramInfo.rawShapeIndex + rawShapeDim - 1];
+    }
+    // tileShape follows rawShape in the encoded buffer
     paramInfo.shapeIndex =
-        paramInfo.rawShapeIndex + aicpuCode[index] / 2; // 存储了signal_dim * 2个参数, tieShape往后偏移dim位
-    paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + 1]; // ShmemSignal Shape[ranksize, row, col], 3表示row的值
-    paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + 2]; // ShmemSignal Shape[ranksize, row, col], 4表示col的值
+        paramInfo.rawShapeIndex + rawShapeDim; // 存储了signal_dim * 2个参数, tileShape往后偏移dim位
+    if (rawShapeDim >= 2) {
+        paramInfo.shapeRow = aicpuCode[paramInfo.shapeIndex + rawShapeDim - 2];
+        paramInfo.shapeCol = aicpuCode[paramInfo.shapeIndex + rawShapeDim - 1];
+    }
     index = index + aicpuCode[index] + 1;
     if (index + 1 < static_cast<int32_t>(aicpuCode.size())) {
         paramInfo.attrIndex = index + 1;
