@@ -50,17 +50,28 @@ class Expr:
         self._value = value
         Expr.trace.append(('init', self._value))
 
+    @staticmethod
+    def _normalize_item_key(item):
+        if isinstance(item, slice):
+            return ('slice',
+                    Expr._normalize_item_key(item.start),
+                    Expr._normalize_item_key(item.stop),
+                    Expr._normalize_item_key(item.step))
+        if isinstance(item, tuple):
+            return tuple(Expr._normalize_item_key(sub_item) for sub_item in item)
+        return item
+
     def __getitem__(self, item):
         Expr.trace.append(('getitem', self._value, item))
-        return self._item_dict[item]
+        return self._item_dict[Expr._normalize_item_key(item)]
 
     def __setitem__(self, item, value):
         Expr.trace.append(('setitem', self._value, item, value))
-        self._item_dict[item] = value
+        self._item_dict[Expr._normalize_item_key(item)] = value
 
     def __delitem__(self, item):
         Expr.trace.append(('delitem', self._value, item))
-        del self._item_dict[item]
+        del self._item_dict[Expr._normalize_item_key(item)]
 
     def __eq__(self, other):
         return (
