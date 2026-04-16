@@ -399,28 +399,9 @@ void DeviceTaskContext::DumpReadyQueue(DynDeviceTask* dynTask, const char* prefi
     int aicIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC);
     int aicpuIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU);
 
-    /* Temporary disabled
-    DEV_DEBUG(
-        "%s: ready queue aiv: %d-%d", prefix, (int)dynTask->readyQueue[aivIndex]->head,
-        (int)dynTask->readyQueue[aivIndex]->tail);
-    for (uint32_t i = dynTask->readyQueue[aivIndex]->head; i < dynTask->readyQueue[aivIndex]->tail; i++) {
-        DEV_DEBUG("%s: ready queue aiv[%d]: %x", prefix, (int)i, dynTask->readyQueue[aivIndex]->elem[i]);
-    }
-
-    DEV_DEBUG(
-        "%s: ready queue aic: %d-%d", prefix, (int)dynTask->readyQueue[aicIndex]->head,
-        (int)dynTask->readyQueue[aicIndex]->tail);
-    for (uint32_t i = dynTask->readyQueue[aicIndex]->head; i < dynTask->readyQueue[aicIndex]->tail; i++) {
-        DEV_DEBUG("%s: ready queue aic[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicIndex]->elem[i]);
-    }
-
-    DEV_DEBUG(
-        "%s: ready queue aicpu: %d-%d", prefix, (int)dynTask->readyQueue[aicpuIndex]->head,
-        (int)dynTask->readyQueue[aicpuIndex]->tail);
-    for (uint32_t i = dynTask->readyQueue[aicpuIndex]->head; i < dynTask->readyQueue[aicpuIndex]->tail; i++) {
-        DEV_DEBUG("%s: ready queue aicpu[%d]: %x", prefix, (int)i, dynTask->readyQueue[aicpuIndex]->elem[i]);
-    }
-    */
+    DEV_DEBUG("%s: ready queue aiv: %s [%s]", prefix, dynTask->readyQueue[aivIndex]->str().c_str(), dynTask->readyQueue[aivIndex]->dump().c_str());
+    DEV_DEBUG("%s: ready queue aic: %s [%s]", prefix, dynTask->readyQueue[aicIndex]->str().c_str(), dynTask->readyQueue[aicIndex]->dump().c_str());
+    DEV_DEBUG("%s: ready queue aicpu: %s [%s]", prefix, dynTask->readyQueue[aicpuIndex]->str().c_str(), dynTask->readyQueue[aicpuIndex]->dump().c_str());
 }
 void DeviceTaskContext::DumpDepend(
     DynDeviceTask* dyntask, DevAscendProgram* devProg, DevStartArgs* startArgs, const char* prefix)
@@ -435,12 +416,12 @@ void DeviceTaskContext::DumpDepend(
     DEV_DEBUG("%s: ready total:%d", prefix, total);
     for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
         ReadyCoreFunctionQueue* q = dyntask->readyQueue[i];
-        for (uint32_t k = q->head; k < q->tail; k++) {
-            uint32_t taskId = q->elem[k];
+        int  k=0;
+        for (auto taskId:*q) {
             uint32_t dupIndex = FuncID(taskId);
             uint32_t opIndex = TaskID(taskId);
             DEV_DEBUG(
-                "%s: ready %d-%d:L(%d,%d,%d)\n", prefix, (int)i, (int)k, (int)dyntask->GetDynFuncDataList()->seqNo,
+                "%s: ready %d-%d:L(%d,%d,%d)\n", prefix, (int)i, k++, (int)dyntask->GetDynFuncDataList()->seqNo,
                 (int)dupIndex, (int)opIndex);
         }
     }

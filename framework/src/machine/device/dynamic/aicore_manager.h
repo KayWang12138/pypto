@@ -838,7 +838,7 @@ private:
     inline uint64_t TryBatchSendTask(SchDeviceTaskContext* devTaskCtx, CoreType type, ReadyCoreFunctionQueue* readyQue,
                 int coreIdxStart, int coreIdxEnd)
     {
-        if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
+        if (readyQue->unsafe_size() == 0) {
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Task: 0", aicpuIdx_);
             return 0;
         }

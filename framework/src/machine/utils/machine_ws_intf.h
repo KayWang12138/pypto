@@ -19,6 +19,9 @@
 #include "tilefwk/aicpu_common.h"
 #include "interface/utils/common.h"
 #include "tilefwk/core_func_data.h"
+#include <string>
+#include <sstream>
+#include <mutex>
 
 namespace npu::tile_fwk {
 enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
@@ -57,8 +60,31 @@ struct QueueGeneric {
 	    return tail - head;
 	}
 
+	std::string str() const {
+		std::stringstream ss;
+		ss << "Queue at " << this << " head=" << head << " tail=" << tail << " capacity=" << capacity();
+		return ss.str();
+	}
+
+	std::string dump() const {
+		std::stringstream ss;
+		for (value_type *it = elem + head; it != elem + tail; ++it) {
+		    ss << *it << " ";
+		}
+		return ss.str();	    
+	}
+
+	const T* begin() const {
+	    return elem + head;
+	}
+
+	const T* end() const {
+	    return elem + tail;
+	}
+	
 	typedef T value_type;
-protected:
+//protected:
+public:
     uint32_t head;
     uint32_t tail;
     value_type* elem;
@@ -90,18 +116,44 @@ struct LockableQueueGeneric:public QueueGeneric<T> {
 	}
 
 	uint32_t unsafe_size() const {
-	    return this->size();
+	    return __atomic_load_n(&this->tail, __ATOMIC_RELAXED) - __atomic_load_n(&this->head, __ATOMIC_RELAXED);
 	}
 
 	void unsafe_enqueue(T x) {
-	    this->elem[this->tail++] = x;
+	    this->elem[__atomic_fetch_add(&this->tail, 1, std::memory_order_release)] = x;
 	}
 
 	void unsafe_enqueue(T *x, uint32_t count) {
-	    std::copy(x, x+count, this->elem);
-	    this->tail += count;
+	    std::copy(x, x + count, this->elem + __atomic_fetch_add(&this->tail, count, std::memory_order_release));
 	}
-	
+
+	bool try_enqueue(T x) {
+	    std::scoped_lock(*this);
+	    uint32_t t = __atomic_fetch_add(&this->tail, 1, std::memory_order_release);
+	    if (t >= this->capacity()) {
+	        return false;
+	    }
+        this->elem[t] = x;
+	    return true;
+	}
+
+	bool try_enqueue(T *x, uint32_t count) {
+	    std::scoped_lock(*this);
+	    uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
+	    if (t + count > this->capacity()) {
+	        return false;
+	    }
+        std::copy(x, x + count, this->elem + t);
+	    return true;
+	}
+
+	std::pair<const T*, const T*> dequeue_all() {
+	    std::scoped_lock(*this);
+	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
+	    uint32_t h = __atomic_exchange_n(&this->head, t, __ATOMIC_RELAXED);
+	    return std::make_pair(this->elem + h, this->elem + t);
+	}
+
 private:
     size_t lockFlag;
 
