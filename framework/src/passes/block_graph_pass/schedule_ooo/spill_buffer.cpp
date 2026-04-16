@@ -227,40 +227,19 @@ Status OoOScheduler::SpillBufferFromDDR(int memId, Operation* spillOp, LogicalTe
     Operation* allocOp = CreateAllocOp(localTensor);
     Operation* copyinOp = CloneCopyinOp(spillOp, gmTensor, localTensor);
 
-    opPipeTypeMap[allocOp] = RescheduleUtils::GetOpPipeType(allocOp);
-    opIsAllocMap[allocOp] = true;
-    opIsRetiredMap[allocOp] = false;
-    opReqMemIdsMap[allocOp] = {localTensor->memoryrange.memId};
-    depManager_.RegisterOp(allocOp);
+    UpdateOpScheduleInfo(allocOp, {localTensor->memoryrange.memId}, spillAllocOp);
+    UpdateOpScheduleInfo(copyinOp, {localTensor->memoryrange.memId}, spillAllocOp);
 
-    opPipeTypeMap[copyinOp] = RescheduleUtils::GetOpPipeType(copyinOp);
-    opIsAllocMap[copyinOp] = false;
-    opIsRetiredMap[copyinOp] = false;
-    opReqMemIdsMap[copyinOp] = {localTensor->memoryrange.memId};
-    depManager_.RegisterOp(copyinOp);
-
-    depManager_.AddAllocDependency(allocOp, copyinOp);
-
-    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, memId);
-    if (bufNextUseTime == -1) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", memId);
+    if (InsertOps({allocOp, copyinOp}, spillAllocOp, memId) != SUCCESS) {
         return FAILED;
     }
-    opExecOrderMap[allocOp] = bufNextUseTime++;
-    InsertOrdered(allocOp);
-    opExecOrderMap[copyinOp] = bufNextUseTime;
-    InsertOrdered(copyinOp);
-    opCoreLocationMap[allocOp] = opCoreLocationMap[spillAllocOp];
-    opCoreLocationMap[copyinOp] = opCoreLocationMap[spillAllocOp];
-    UpdateOpInternalSubgraphID(*allocOp, spillAllocOp);
-    UpdateOpInternalSubgraphID(*copyinOp, spillAllocOp);
-    if (UpdateSpillOpDepend(copyinOp, allocOp, spillOp, memId) != SUCCESS) {
+    if (UpdateSpillOpDepend(copyinOp, allocOp, spillOp, localTensor, memId) != SUCCESS) {
         return FAILED;
     }
     if (UpdateRemainMemid(memId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
         return FAILED;
     }
-    numTotalIssues += TWO_ISSUE;
+    depManager_.InitDependencies(orderedOps, false);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
 }
@@ -277,58 +256,23 @@ Status OoOScheduler::SpillGeneralBuffer(int spillMemId, Operation* spillOp, Logi
     Operation *allocOp = CreateAllocOp(localTensor);
     Operation *copyinOp = CreateCopyinOp(gmTensor, localTensor, gmTensor->GetOffset(), base);
 
-    opReqMemIdsMap[copyoutOp] = {spillMemId};
-    depManager_.AddDependency(spillOp, copyoutOp);
-    opIsRetiredMap[copyoutOp] = true;
-    opIsAllocMap[copyoutOp] = false;
-    opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
-    for (auto preOp : depManager_.GetPredecessors(spillOp)) {
-        if (opIsAllocMap[preOp]) {
-            opCoreLocationMap[copyoutOp] = opCoreLocationMap[preOp];
-            UpdateOpInternalSubgraphID(*copyoutOp, preOp);
-        }
-    }
-    int bufLastUseTime = GetBufLastUseTime(spillAllocOp, spillMemId);
-    if (bufLastUseTime == -1) {
+    if (UpdateCopyoutScheduleInfo(copyoutOp, spillTensor, spillMemId, spillAllocOp) != SUCCESS) {
         return FAILED;
     }
-    opExecOrderMap[copyoutOp] = bufLastUseTime + 1;
-    InsertOrdered(copyoutOp);
 
-    opPipeTypeMap[allocOp] = RescheduleUtils::GetOpPipeType(allocOp);
-    opIsAllocMap[allocOp] = true;
-    opIsRetiredMap[allocOp] = false;
-    opReqMemIdsMap[allocOp] = {localTensor->memoryrange.memId};
-    depManager_.RegisterOp(allocOp);
+    UpdateOpScheduleInfo(allocOp, {localTensor->memoryrange.memId}, spillAllocOp);
+    UpdateOpScheduleInfo(copyinOp, {localTensor->memoryrange.memId}, spillAllocOp);
 
-    opPipeTypeMap[copyinOp] = RescheduleUtils::GetOpPipeType(copyinOp);
-    opIsAllocMap[copyinOp] = false;
-    opIsRetiredMap[copyinOp] = false;
-    opReqMemIdsMap[copyinOp] = {localTensor->memoryrange.memId};
-    depManager_.RegisterOp(copyinOp);
-
-    depManager_.AddAllocDependency(allocOp, copyinOp);
-
-    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, spillMemId);
-    if (bufNextUseTime == -1) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", spillMemId);
+    if (InsertOps({allocOp, copyinOp}, spillAllocOp, memId) != SUCCESS) {
         return FAILED;
     }
-    opExecOrderMap[allocOp] = bufNextUseTime++;
-    InsertOrdered(allocOp);
-    opExecOrderMap[copyinOp] = bufNextUseTime;
-    InsertOrdered(copyinOp);
-    opCoreLocationMap[allocOp] = opCoreLocationMap[spillAllocOp];
-    opCoreLocationMap[copyinOp] = opCoreLocationMap[spillAllocOp];
-    UpdateOpInternalSubgraphID(*allocOp, spillAllocOp);
-    UpdateOpInternalSubgraphID(*copyinOp, spillAllocOp);
-    if (UpdateSpillOpDepend(copyinOp, allocOp, spillOp, spillMemId) != SUCCESS) {
+    if (UpdateSpillOpDepend(spillOp, localTensor, spillMemId) != SUCCESS) {
         return FAILED;
     }
     if (UpdateRemainMemid(spillMemId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
         return FAILED;
     }
-    numTotalIssues += TWO_ISSUE;
+    depManager_.InitDependencies(orderedOps, false);
     ctx.newCopyoutOps.push_back(copyoutOp);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
@@ -369,16 +313,6 @@ Status OoOScheduler::SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, 
     LogicalTensorPtr gmTensor = CreateGMTensor(actualSpillTensor, memId);
     LogicalTensorPtr localTensor = CreateLocalTensor(spillTensor);
 
-    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, memId);
-    if (bufNextUseTime == -1) {
-        // 可以注释
-        // allocOp->SetAsDeleted();
-        // copyinOp->SetAsDeleted();
-        // function_.EraseOperations();
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", memId);
-        return FAILED;
-    }
-
     Operation *copyoutOp = CreateCopyoutOp(spillOp, actualSpillTensor, gmTensor, workspaceOffsetTemp);
     // WorkspaceBaseOffset
     int64_t base = 0;
@@ -387,65 +321,23 @@ Status OoOScheduler::SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, 
     // TODO 2 copyin属性与actualspillTensor一致
     Operation* copyinOp = CreateCopyinOp(gmTensor, localTensor, gmTensor->GetOffset(), base);
 
-    opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
-    opIsAllocMap[copyoutOp] = false;
-    opIsRetiredMap[copyoutOp] = true;
-    opReqMemIdsMap[copyoutOp] = {actualSpillTensor->memoryrange.memId};
-    depManager_.RegisterOp(copyoutOp);
-
-    opPipeTypeMap[allocOp] = RescheduleUtils::GetOpPipeType(allocOp);
-    opIsAllocMap[allocOp] = true;
-    opIsRetiredMap[allocOp] = false;
-    opReqMemIdsMap[allocOp] = {localTensor->memoryrange.memId};
-    depManager_.RegisterOp(allocOp);
-
-    opPipeTypeMap[copyinOp] = RescheduleUtils::GetOpPipeType(copyinOp);
-    opIsAllocMap[copyinOp] = false;
-    opIsRetiredMap[copyinOp] = false;
-    opReqMemIdsMap[copyinOp] = {localTensor->memoryrange.memId};
-    depManager_.RegisterOp(copyinOp);
-
-    depManager_.AddAllocDependency(allocOp, copyinOp);
-
-    for (auto preOp : actualSpillTensor->GetProducers()) {
-        if (!opIsAllocMap[preOp]) {
-            opCoreLocationMap[copyoutOp] = opCoreLocationMap[preOp];
-            UpdateOpInternalSubgraphID(*copyoutOp, preOp);
-        }
+    if (UpdateCopyoutScheduleInfo(
+            copyoutOp, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillAllocOp) != SUCCESS) {
+        return FAILED;
     }
-    opExecOrderMap[copyoutOp] = opExecOrderMap[spillOp] + 1;
-    InsertOrdered(copyoutOp);
-
-    opExecOrderMap[allocOp] = bufNextUseTime++;
-    InsertOrdered(allocOp);
-    opExecOrderMap[copyinOp] = bufNextUseTime;
-    InsertOrdered(copyinOp);
-    opCoreLocationMap[allocOp] = opCoreLocationMap[spillAllocOp];
-    opCoreLocationMap[copyinOp] = opCoreLocationMap[spillAllocOp];
-    UpdateOpInternalSubgraphID(*allocOp, spillAllocOp);
-    UpdateOpInternalSubgraphID(*copyinOp, spillAllocOp);
-    if (UpdateSpillOpDepend(copyinOp, allocOp, spillOp, memId) != SUCCESS) {
+    UpdateOpScheduleInfo(allocOp, {localTensor->memoryrange.memId}, spillAllocOp);
+    UpdateOpScheduleInfo(copyinOp, {localTensor->memoryrange.memId}, spillAllocOp);
+    
+    if (InsertOps({allocOp, copyinOp}, spillAllocOp, memId) != SUCCESS) {
+        return FAILED;
+    }
+    if (UpdateSpillOpDepend(spillOp, localTensor, memId) != SUCCESS) {
         return FAILED;
     }
     if (UpdateRemainMemid(memId, opReqMemIdsMap[allocOp][0])) {
         return FAILED;
     }
-    for (auto& op : orderedOps) {
-        if (opIsRetiredMap[op] || opIsAllocMap[op]) {
-            continue;
-        }
-        auto predecessors = depManager_.GetPredecessors(op);
-        for (auto predOp : predecessors) {
-            if (opIsAllocMap[predOp]) {
-                auto& predReqMemIds = opReqMemIdsMap[predOp];
-                if (std::find(predReqMemIds.begin(), predReqMemIds.end(), memId) != predReqMemIds.end()) {
-                    depManager_.RemovePredecessor(op, predOp);
-                    depManager_.InsertPredecessor(op, allocOp);
-                }
-            }
-        }
-    }
-    numTotalIssues += TWO_ISSUE;
+    depManager_.InitDependencies(orderedOps, false);
     ctx.newCopyoutOps.push_back(copyoutOp);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
@@ -458,75 +350,23 @@ Status OoOScheduler::SpillReshapeFromDDRFor3510(int memId, Operation* actualSpil
     LogicalTensorPtr reshapeTensor = CreateLocalTensor(spillTensor);
     LogicalTensorPtr copyinTensor = CreateParticalTensor(preSpillTensor, reshapeTensor, preSpillTensor, preSpillTensor->GetOffset());
 
-    auto &successors = depManager_.GetSuccessors(spillOp);
-    for (auto succOp : successors) {
-        if (!opIsRetiredMap[succOp]) {
-            auto& reqMemIds = opReqMemIdsMap[succOp];
-            if (std::count(reqMemIds.begin(), reqMemIds.end(), memId) > 0) {
-                UpdateOperationInput(succOp, spillOp, reshapeTensor);
-            }
-        }
-    }
-
     Operation* allocOp = CreateAllocOp(copyinTensor);
     Operation* copyinOp = CloneCopyinOp(actualSpillOp, ddrTensor, copyinTensor);
     Operation* reshapeOp = CreateReshapeOp(copyinTensor, reshapeTensor);
-    
-    opPipeTypeMap[allocOp] = RescheduleUtils::GetOpPipeType(allocOp);
-    opIsAllocMap[allocOp] = true;
-    opIsRetiredMap[allocOp] = false;
-    opReqMemIdsMap[allocOp] = {reshapeTensor->memoryrange.memId};
-    depManager_.RegisterOp(allocOp);
 
-    opPipeTypeMap[copyinOp] = RescheduleUtils::GetOpPipeType(copyinOp);
-    opIsAllocMap[copyinOp] = false;
-    opIsRetiredMap[copyinOp] = false;
-    opReqMemIdsMap[copyinOp] = {reshapeTensor->memoryrange.memId};
-    depManager_.RegisterOp(copyinOp);
+    UpdateOpScheduleInfo(allocOp, {reshapeTensor->memoryrange.memId}, spillAllocOp);
+    UpdateOpScheduleInfo(copyinOp, {reshapeTensor->memoryrange.memId}, spillAllocOp);
+    UpdateOpScheduleInfo(reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}, spillAllocOp); 
 
-    opPipeTypeMap[reshapeOp] = RescheduleUtils::GetOpPipeType(reshapeOp);
-    opIsAllocMap[reshapeOp] = false;
-    opIsRetiredMap[reshapeOp] = false;
-    opReqMemIdsMap[reshapeOp] = {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId};
-    depManager_.RegisterOp(reshapeOp);
-
-    depManager_.AddAllocDependency(allocOp, copyinOp);
-    depManager_.AddAllocDependency(allocOp, reshapeOp);
-    depManager_.AddAllocDependency(copyinOp, reshapeOp);   
-
-    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, memId);
-    if (bufNextUseTime == -1) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", memId);
+    if (InsertOps({allocOp, copyinOp, reshapeOp}, spillAllocOp, memId) != SUCCESS) {
         return FAILED;
     }
-    opExecOrderMap[allocOp] = bufNextUseTime++;
-    InsertOrdered(allocOp);
-    opExecOrderMap[copyinOp] = bufNextUseTime++;
-    InsertOrdered(copyinOp);
-    opExecOrderMap[reshapeOp] = bufNextUseTime;
-    InsertOrdered(reshapeOp);
-    opCoreLocationMap[allocOp] = opCoreLocationMap[spillAllocOp];
-    opCoreLocationMap[copyinOp] = opCoreLocationMap[spillAllocOp];
-    opCoreLocationMap[reshapeOp] = opCoreLocationMap[spillAllocOp];
-    UpdateOpInternalSubgraphID(*allocOp, spillAllocOp);
-    UpdateOpInternalSubgraphID(*copyinOp, spillAllocOp);
-    UpdateOpInternalSubgraphID(*reshapeOp, spillAllocOp);
-
+    if (UpdateSpillOpDepend(spillOp, reshapeTensor, memId) != SUCCESS) {
+        return FAILED;
+    }
     if (UpdateRemainMemid(memId, reshapeTensor->memoryrange.memId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainMemid failed.");
         return FAILED;
-    }
-    bufRefCount_[reshapeTensor->memoryrange.memId] = 0;
-    for (auto op: orderedOps) {
-        if (opIsRetiredMap[op]) {
-            continue;
-        }
-        auto& reqMemIds = opReqMemIdsMap[op];
-        for (auto curMemId : reqMemIds) {
-            if (curMemId == reshapeTensor->memoryrange.memId) {
-                bufRefCount_[reshapeTensor->memoryrange.memId]++;
-            }
-        }
     }
     depManager_.InitDependencies(orderedOps, false);
     ctx.newAllocOps.push_back(allocOp);
@@ -536,15 +376,6 @@ Status OoOScheduler::SpillReshapeFromDDRFor3510(int memId, Operation* actualSpil
 // actualSpillTensor(L0C/UB) --> actualSpillOp --> preSpillTensor(L1) --> spillOp(reshape) --> spillTensor(L1)
 Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actualSpillOp, Operation* spillOp, LogicalTensorPtr spillTensor, Operation* spillAllocOp, SpillContext &ctx) {
     LogicalTensorPtr preSpillTensor = spillOp->GetInputOperand(0);
-    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, spillMemId);
-    if (bufNextUseTime == -1) {
-        // 可以注释
-        // allocOp->SetAsDeleted();
-        // copyinOp->SetAsDeleted();
-        // function_.EraseOperations();
-        APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", spillMemId);
-        return FAILED;
-    }
     // workspaceOffset 在 gmtensor 创建时被更新，copyout 属性需要使用当前的 workspaceOffset
     int64_t workspaceOffsetTemp = workspaceOffset;
     LogicalTensorPtr actualSpillTensor = actualSpillOp->GetInputOperand(0);
@@ -552,30 +383,7 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
     LogicalTensorPtr reshapeTensor = CreateLocalTensor(spillTensor);
     LogicalTensorPtr l1Tensor = CreateParticalTensor(preSpillTensor, reshapeTensor, spillTensor, preSpillTensor->GetOffset());
 
-    for (auto succOp : depManager_.GetSuccessors(spillOp)) {
-        if (!opIsRetiredMap[succOp]) {
-            auto& reqMemIds = opReqMemIdsMap[succOp];
-            if (std::count(reqMemIds.begin(), reqMemIds.end(), spillMemId) > 0) {
-                UpdateTensorInputForView(*succOp, spillOp, reshapeTensor);
-            }
-        }
-    }
     Operation* copyoutOp = CreateCopyoutOp(actualSpillOp, actualSpillOp->GetInputOperand(0), gmTensor, workspaceOffsetTemp);
-
-    opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
-    opIsAllocMap[copyoutOp] = false;
-    opIsRetiredMap[copyoutOp] = true;
-    opReqMemIdsMap[copyoutOp] = {actualSpillTensor->memoryrange.memId};
-    depManager_.RegisterOp(copyoutOp);
-
-    for (auto preOp : actualSpillTensor->GetProducers()) {
-        if (!opIsAllocMap[preOp]) {
-            opCoreLocationMap[copyoutOp] = opCoreLocationMap[preOp];
-            UpdateOpInternalSubgraphID(*copyoutOp, preOp);
-        }
-    }
-    opExecOrderMap[copyoutOp] = opExecOrderMap[spillOp] + 1;
-    InsertOrdered(copyoutOp);
     // WorkspaceBaseOffset
     int64_t base = 0;
     GetWorkspaceBaseOffset(gmTensor, base);
@@ -586,93 +394,24 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
     Operation* copyinOp = CreateCopyinOp(gmTensor, l1Tensor, gmTensor->GetOffset(), base);
     Operation* reshapeOp = CreateReshapeOp(l1Tensor, reshapeTensor);
 
-    opPipeTypeMap[allocOp] = RescheduleUtils::GetOpPipeType(allocOp);
-    opIsAllocMap[allocOp] = true;
-    opIsRetiredMap[allocOp] = false;
-    opReqMemIdsMap[allocOp] = {l1Tensor->memoryrange.memId};
-    depManager_.RegisterOp(allocOp);
-    opExecOrderMap[allocOp] = bufNextUseTime++;
-    InsertOrdered(allocOp);
-    opCoreLocationMap[allocOp] = opCoreLocationMap[spillAllocOp];
-    UpdateOpInternalSubgraphID(*allocOp, spillAllocOp);
+    if (UpdateCopyoutScheduleInfo(
+            copyoutOp, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillAllocOp) != SUCCESS) {
+        return FAILED;
+    }
+    UpdateOpScheduleInfo(allocOp, {l1Tensor->memoryrange.memId}, spillAllocOp);
+    UpdateOpScheduleInfo(copyinOp, {l1Tensor->memoryrange.memId}, spillAllocOp);
+    f(reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}, spillAllocOp); 
 
-    opPipeTypeMap[copyinOp] = RescheduleUtils::GetOpPipeType(copyinOp);
-    opIsAllocMap[copyinOp] = false;
-    opIsRetiredMap[copyinOp] = false;
-    opReqMemIdsMap[copyinOp] = {l1Tensor->memoryrange.memId};
-    depManager_.RegisterOp(copyinOp);
-    opExecOrderMap[copyinOp] = bufNextUseTime++;
-    InsertOrdered(copyinOp);
-    opCoreLocationMap[copyinOp] = opCoreLocationMap[spillAllocOp];
-    UpdateOpInternalSubgraphID(*copyinOp, spillAllocOp);
-
-    opPipeTypeMap[reshapeOp] = RescheduleUtils::GetOpPipeType(reshapeOp);
-    opIsAllocMap[reshapeOp] = false;
-    opIsRetiredMap[reshapeOp] = false;
-    opReqMemIdsMap[reshapeOp] = {l1Tensor->memoryrange.memId, reshapeTensor->memoryrange.memId};
-    depManager_.RegisterOp(reshapeOp);
-    opExecOrderMap[reshapeOp] = bufNextUseTime++;
-    InsertOrdered(reshapeOp);
-    opCoreLocationMap[reshapeOp] = opCoreLocationMap[spillAllocOp];
-    UpdateOpInternalSubgraphID(*reshapeOp, spillAllocOp);
-
-    depManager_.AddAllocDependency(allocOp, copyinOp);
-    depManager_.AddDependency(copyinOp, reshapeOp);
-
-    if (UpdateSpillOpDepend(reshapeOp, allocOp, spillOp, spillMemId) != SUCCESS) {
+    if (InsertOps({allocOp, copyinOp, reshapeOp}, spillAllocOp, memId) != SUCCESS) {
+        return FAILED;
+    }
+    if (UpdateSpillOpDepend(spillOp, reshapeOp->GetOutputOperand(0), spillMemId) != SUCCESS) {
         return FAILED;
     }
     if (UpdateRemainMemid(spillMemId, opReqMemIdsMap[allocOp][0])) {
         return FAILED;
     }
-    // 内部
-    for (auto& op : orderedOps) {
-        if (opIsRetiredMap[op] || opIsAllocMap[op]) {
-            continue;
-        }
-        auto predecessors = depManager_.GetPredecessors(op);
-        for (auto predOp : predecessors) {
-            if (opIsAllocMap[predOp]) {
-                auto& predReqMemIds = opReqMemIdsMap[predOp];
-                if (std::find(predReqMemIds.begin(), predReqMemIds.end(), spillMemId) != predReqMemIds.end()) {
-                    depManager_.RemovePredecessor(op, predOp);
-                    depManager_.InsertPredecessor(op, allocOp);
-                }
-            }
-        }
-    }
-    // + 3
-    numTotalIssues += 3;
 
-    if (bufRefCount_.find(spillMemId) == bufRefCount_.end()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d].", spillMemId);
-        return FAILED;
-    }
-    // bufRefCount_[newMemId] = bufRefCount_[oldMemId] + 5;
-    bufRefCount_[spillMemId] = 0;
-    for (auto& op : orderedOps) {
-        if (opIsRetiredMap[op]) {
-            continue;
-        }
-        ReplaceTensorMemId(op, spillMemId, reshapeTensor->memoryrange.memId);
-    }
-
-    if (UpdateRemainMemid(spillMemId, reshapeTensor->memoryrange.memId)) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainMemid failed.");
-        return FAILED;
-    }
-    bufRefCount_[reshapeTensor->memoryrange.memId] = 0;
-    for (auto op: orderedOps) {
-        if (opIsRetiredMap[op]) {
-            continue;
-        }
-        auto& reqMemIds = opReqMemIdsMap[op];
-        for (auto memId : reqMemIds) {
-            if (memId == reshapeTensor->memoryrange.memId) {
-                bufRefCount_[reshapeTensor->memoryrange.memId]++;
-            }
-        }
-    }
     depManager_.InitDependencies(orderedOps, false);
     ctx.newCopyoutOps.push_back(copyoutOp);
     ctx.newAllocOps.push_back(allocOp);
@@ -686,28 +425,13 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
     LogicalTensorPtr assembleOOperand = CreateLocalTensor(spillTensor);
 
     Operation *copyoutOp = CreateCopyoutOp(spillOp, spillTensor, gmTensor, workspaceOffsetTemp);
-    opReqMemIdsMap[copyoutOp] = {spillMemid};
-    depManager_.AddDependency(spillOp, copyoutOp);
-    opIsRetiredMap[copyoutOp] = true;
-    opIsAllocMap[copyoutOp] = false;
-    opPipeTypeMap[copyoutOp] = RescheduleUtils::GetOpPipeType(copyoutOp);
-    for (auto preOp : depManager_.GetPredecessors(spillOp)) {
-        if (opIsAllocMap[preOp]) {
-            opCoreLocationMap[copyoutOp] = opCoreLocationMap[preOp];
-            UpdateOpInternalSubgraphID(*copyoutOp, preOp);
-        }
-    }
-    int bufLastUseTime = GetBufLastUseTime(spillAllocOp, spillMemid);
-    if (bufLastUseTime == -1) {
+
+    if (UpdateCopyoutScheduleInfo(
+            copyoutOp, spillTensor, spillMemid, spillAllocOp) != SUCCESS) {
         return FAILED;
     }
-    opExecOrderMap[copyoutOp] = bufLastUseTime + 1;
-    InsertOrdered(copyoutOp);
-    for (auto &succOp : depManager_.GetSuccessors(spillOp)) {
-        if (!opIsRetiredMap[succOp] &&
-            (std::count(opReqMemIdsMap[succOp].begin(), opReqMemIdsMap[succOp].end(), spillMemid) > 0)) {
-            UpdateOperationInput(succOp, spillOp, assembleOOperand);
-        }
+    if (UpdateSpillOpDepend(spillOp, assembleOOperand, spillMemId) != SUCCESS) {
+        return FAILED;
     }
 
     for (auto &op : spillTensor->GetProducers()) {
@@ -718,22 +442,11 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
         }
     }
     Operation* allocOp = CreateAllocOp(assembleOOperand);
-    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, spillMemid);
-    UpdateOpInternalSubgraphID(*allocOp, spillAllocOp);
+    UpdateOpScheduleInfo(allocOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
+    if (InsertOps({allocOp}, spillAllocOp, memId) != SUCCESS) {
+        return FAILED;
+    }
 
-    // 初始化Operation属性到map
-    opExecOrderMap[allocOp] = bufNextUseTime;
-    opPipeTypeMap[allocOp] = RescheduleUtils::GetOpPipeType(allocOp);
-    opIsAllocMap[allocOp] = true;
-    opIsRetiredMap[allocOp] = false;
-    opReqMemIdsMap[allocOp] = {assembleOOperand->memoryrange.memId};
-
-    depManager_.RegisterOp(allocOp);
-    opCoreLocationMap[allocOp] = opCoreLocationMap[spillAllocOp];
-    // 插入orderedOps
-    InsertOrdered(allocOp);
-
-    numTotalIssues++;
     for (auto &op : spillTensor->GetProducers()) {
         if (opIsAllocMap[op]) {
             continue;
@@ -748,18 +461,6 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
     if (UpdateRemainMemid(spillMemid, assembleOOperand->memoryrange.memId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainMemid failed.");
         return FAILED;
-    }
-    bufRefCount_[assembleOOperand->memoryrange.memId] = 0;
-    for (auto op: orderedOps) {
-        if (opIsRetiredMap[op]) {
-            continue;
-        }
-        auto& reqMemIds = opReqMemIdsMap[op];
-        for (auto memId : reqMemIds) {
-            if (memId == assembleOOperand->memoryrange.memId) {
-                bufRefCount_[assembleOOperand->memoryrange.memId]++;
-            }
-        }
     }
     depManager_.InitDependencies(orderedOps, false);
     ctx.newCopyoutOps.push_back(copyoutOp);
@@ -783,36 +484,13 @@ Status OoOScheduler::CreateParticalBuffer(int spillMemid, Operation* producerOp,
     int64_t base = 0;
     GetWorkspaceBaseOffset(gmTensor, base);
     Operation* copyinOp = CreateCopyinOp(gmTensor, assembleIOperand, toOffset, gmRelatOffset + base);
-
-    UpdateOpInternalSubgraphID(*copyinOp, spillAllocOp);
-
-    // 初始化Operation属性到map
-    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, spillMemid);
-    opExecOrderMap[copyinOp] = bufNextUseTime++;
-    opPipeTypeMap[copyinOp] = RescheduleUtils::GetOpPipeType(copyinOp);
-    opIsAllocMap[copyinOp] = false;
-    opIsRetiredMap[copyinOp] = false;
-    opReqMemIdsMap[copyinOp] = {assembleOOperand->memoryrange.memId};
-
-    depManager_.RegisterOp(copyinOp);
-    opCoreLocationMap[copyinOp] = opCoreLocationMap[spillAllocOp];
-    // 插入orderedOps
-    InsertOrdered(copyinOp);
-
     Operation* assembleOp = CreateAssembleOp(assembleIOperand, assembleOOperand, assembleAttr);
-    UpdateOpInternalSubgraphID(*assembleOp, spillAllocOp);
 
-    opExecOrderMap[assembleOp] = bufNextUseTime;
-    opPipeTypeMap[assembleOp] = RescheduleUtils::GetOpPipeType(assembleOp);
-    opIsAllocMap[assembleOp] = false;
-    opIsRetiredMap[assembleOp] = false;
-    opReqMemIdsMap[assembleOp] = {assembleOOperand->memoryrange.memId, assembleOOperand->memoryrange.memId};
-
-    depManager_.RegisterOp(assembleOp);
-    opCoreLocationMap[assembleOp] = opCoreLocationMap[spillAllocOp];
-    // 插入orderedOps
-    InsertOrdered(assembleOp);
-    numTotalIssues += TWO_ISSUE;
+    UpdateOpScheduleInfo(copyinOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
+    UpdateOpScheduleInfo(assembleOp, {assembleOOperand->memoryrange.memId, assembleOOperand->memoryrange.memId}, spillAllocOp);
+    if (InsertOps({copyinOp, assembleOp}, spillAllocOp, memId) != SUCCESS) {
+        return FAILED;
+    }
     return SUCCESS;
 }
 
@@ -957,31 +635,58 @@ LogicalTensorPtr OoOScheduler::GetSpillTensor(Operation* spillOp, int spillMemId
     return spillOp->GetOutputOperand(spillTensorIdx);
 }
 
-Status OoOScheduler::UpdateSpillOpDepend(Operation* copyinOp, Operation* allocOp, Operation* spillOp, int spillMemId) {
+Status OoOScheduler::UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr* spillTensor, int spillMemId, Operation* spillAllocOp) {
+    opReqMemIdsMap[op] = {spillMemId};
+    opIsRetiredMap[op] = true;
+    opIsAllocMap[op] = false;
+    opPipeTypeMap[op] = RescheduleUtils::GetOpPipeType(op);
+    depManager_.RegisterOp(copyoutOp);
+    for (auto preOp : spillTensor->GetProducers()) {
+        opCoreLocationMap[op] = opCoreLocationMap[preOp];
+        UpdateOpInternalSubgraphID(*op, preOp);
+        break;
+    }
+    int bufLastUseTime = GetBufLastUseTime(spillAllocOp, spillMemId);
+    if (bufLastUseTime == -1) {
+        return FAILED;
+    }
+    opExecOrderMap[op] = bufLastUseTime + 1;
+    InsertOrdered(op);
+    return SUCCESS;
+}
+
+void OoOScheduler::UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, Operation* AllocOp) {
+    opPipeTypeMap[op] = RescheduleUtils::GetOpPipeType(op);
+    opIsAllocMap[op] = op->GetOpcodeStr().find("ALLOC") != std::string::npos;
+    opIsRetiredMap[op] = false;
+    opReqMemIdsMap[op] = memIds;
+    depManager_.RegisterOp(op);
+    opCoreLocationMap[copyinOp] = opCoreLocationMap[AllocOp];
+    UpdateOpInternalSubgraphID(*op, AllocOp);
+    numTotalIssues++;
+}
+
+Status OoOScheduler::InsertOps(std::vector<Operation*> ops, Operation* spillAllocOp, int memId) {
+    int bufNextUseTime = GetBufNextUseTime(spillAllocOp, memId);
+    if (bufNextUseTime == -1) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", memId);
+        return FAILED;
+    }
+    for (auto &op : ops) {
+        opExecOrderMap[op] = bufNextUseTime++;
+        InsertOrdered(op);
+    }
+    return SUCCESS;
+}
+
+Status OoOScheduler::UpdateSpillOpDepend(Operation* spillOp, LogicalTensorPtr* newTensor, int spillMemId) 
+{
     auto& successors = depManager_.GetSuccessors(spillOp);
     for (auto succOp : successors) {
         if (!opIsRetiredMap[succOp]) {
             auto& reqMemIds = opReqMemIdsMap[succOp];
             if (std::count(reqMemIds.begin(), reqMemIds.end(), spillMemId) > 0) {
-                depManager_.InsertSuccessor(copyinOp, succOp);
-                depManager_.RemovePredecessor(succOp, spillOp);
-                depManager_.InsertPredecessor(succOp, copyinOp);
-                UpdateOperationInput(succOp, spillOp, copyinOp->GetOutputOperand(0));
-            }
-        }
-    }
-    for (auto& op : orderedOps) {
-        if (opIsRetiredMap[op] || opIsAllocMap[op]) {
-            continue;
-        }
-        auto predecessors = depManager_.GetSuccessors(op);
-        for (auto predOp : predecessors) {
-            if (opIsAllocMap[predOp]) {
-                auto& predReqMemIds = opReqMemIdsMap[predOp];
-                if (std::find(predReqMemIds.begin(), predReqMemIds.end(), spillMemId) != predReqMemIds.end()) {
-                    depManager_.RemovePredecessor(op, predOp);
-                    depManager_.InsertPredecessor(op, allocOp);
-                }
+                UpdateOperationInput(succOp, spillOp, newTensor);
             }
         }
     }
@@ -1100,6 +805,9 @@ void OoOScheduler::ReplaceViewOpChainMemId(LogicalTensorPtr startTensor, int old
 void OoOScheduler::ReplaceTensorMemId(Operation* op, int oldMemId, int newMemId) {
     auto& reqMemIds = opReqMemIdsMap[op];
     for (auto memId : reqMemIds) {
+        if (memId == oldMemId || memId == newMemId) {
+            bufRefCount_[newMemId]++;
+        }
         if (memId == oldMemId) {
             std::replace(reqMemIds.begin(), reqMemIds.end(), oldMemId, newMemId);
         }
@@ -1117,7 +825,7 @@ Status OoOScheduler::UpdateRemainMemid(int oldMemId, int newMemId) {
         APASS_LOG_ERROR_F(Elements::Tensor, "bufRefCount cannot find Tensor[%d].", oldMemId);
         return FAILED;
     }
-    bufRefCount_[newMemId] = bufRefCount_[oldMemId] + TWO_ISSUE;
+    bufRefCount_[newMemId] = 0;
     bufRefCount_[oldMemId] = 0;
     for (auto& op : orderedOps) {
         if (opIsRetiredMap[op]) {
