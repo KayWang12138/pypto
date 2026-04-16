@@ -96,11 +96,15 @@ enum class PipeSeq {
     AIC_MTE1,
     AIC_M,
     AIC_FIX,
-    AIV_MTE2,
-    AIV_V,
-    AIV_MTE3,
+    AIV0_MTE2,
+    AIV1_MTE2,
+    AIV0_V,
+    AIV1_V,
+    AIV0_MTE3,
+    AIV1_MTE3,
     AIC_MTE3,
-    AIV_S,
+    AIV0_S,
+    AIV1_S,
     AIC_S,
     PIPE_END
 };
@@ -264,8 +268,8 @@ private:
     };
 
     struct IssueQueue {
-        explicit IssueQueue(PipeCoreReal pipe) : selfPipeCore(pipe) {}
-        PipeCoreReal selfPipeCore;
+        explicit IssueQueue(PipeCoreRealEx pipe) : selfPipeCore(pipe) {}
+        PipeCoreRealEx selfPipeCore;
         size_t currOp{0};
         std::vector<size_t> ops;
         std::string DumpIssueQueue(std::vector<Operation*> opLogPtr = {});
@@ -296,8 +300,8 @@ private:
     };
 
     std::string PipeSeqName(PipeSeq seq) const;
-    PipeSeq GetPipeSeq(PipeCoreReal pipe);
-    PipeCoreReal GetPipeFromSeq(PipeSeq seq);
+    PipeSeq GetPipeSeq(PipeCoreRealEx pipe);
+    PipeCoreRealEx GetPipeFromSeq(PipeSeq seq);
     Status PipeDispatch(const std::vector<Operation*> opLogPtr, std::vector<IndexOp>& syncedOpLog);
     Status AdjustCopyInCfg(TileOpCfg& opcfg, const Operation& op);
     Status AdjustCopyOutCfg(TileOpCfg& opcfg, const Operation& op);
@@ -368,8 +372,8 @@ private:
     std::unordered_map<CorePair, std::deque<int>, CorePairHash> crossCoreFreeEventId_;
     std::unordered_map<std::pair<size_t, size_t>, int, IndexVecHash> setWaitPairMap_;
     std::map<PipeCoreRealEx, PipeDepInfo, PipeCoreRealExCompare> latestPipeDep_;
-    static std::map<PipeCoreReal, PipeSeq, PipeCoreRealCompare> pipe2Seq;
-    static std::map<PipeSeq, PipeCoreReal> seq2pipe;
+    static std::map<PipeCoreRealEx, PipeSeq, PipeCoreRealExCompare> pipe2Seq;
+    static std::map<PipeSeq, PipeCoreRealEx> seq2pipe;
     static std::vector<PipePair> dataDepPair;
 
     static constexpr int EVENT_NUM = 8;
