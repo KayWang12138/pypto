@@ -38,13 +38,14 @@ public:
     static LogManager& Instance();
     bool CheckLevel(const LogLevel logLevel) const;
     void Record(const LogLevel logLevel, const char* fmt, va_list list);
-    const std::string& GetHostLogDir() const { return hostLogDir_; }
     void EnableHostLog() { attr_.isDevice = false; }
     void EnableDeviceLog(const int32_t deviceId = 0)
     {
         attr_.isDevice = true;
         attr_.deviceId = deviceId;
     }
+    
+    const std::string& GetHostLogDir() const { return hostLogDir_; }
 
 private:
     LogManager();
