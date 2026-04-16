@@ -141,8 +141,8 @@ def test_manual_fillpad_codegen_uses_destination_pad_value():
     assert "TFILLPAD(dst, __manual_fillpad_src_alias_" in code
 
 
-def test_manual_fillpad_codegen_uses_inplace_lowering_for_same_tile():
-    """CCE manual.fillpad should lower to TFILLPAD_INPLACE and restore full validshape."""
+def test_manual_fillpad_inplace_codegen_uses_explicit_inplace_lowering():
+    """CCE manual.fillpad_inplace should lower without overwriting dst metadata."""
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.CCE)
 
@@ -163,9 +163,16 @@ def test_manual_fillpad_codegen_uses_inplace_lowering_for_same_tile():
                 pad=plm.TilePad.zero,
                 valid_shape=[-1, -1],
             )
+            dst_type = plm.TileType(
+                shape=[16, 16],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Vec,
+                pad=plm.TilePad.zero,
+            )
             src = plm.make_tile(src_type, addr=0x0000, size=1024)
+            dst = plm.make_tile(dst_type, addr=0x0000, size=1024)
             plm.set_validshape(src, rows_arg, cols_arg)
-            plm.fillpad(src, src)
+            plm.fillpad_inplace(dst, src)
             return output
 
     pm = PassManager.get_strategy()
@@ -177,9 +184,9 @@ def test_manual_fillpad_codegen_uses_inplace_lowering_for_same_tile():
     code = files["kernels/aiv/" + kernel_name + ".cpp"]
 
     assert "using __manual_fillpad_src_alias_type_" in code
-    assert "src.SetValidShape(16, 16);" in code
-    assert "TFILLPAD_INPLACE(src, __manual_fillpad_src_alias_" in code
-    assert code.index("src.SetValidShape(16, 16);") < code.index("TFILLPAD_INPLACE(src, __manual_fillpad_src_alias_")
+    assert "auto& dst = src;" not in code
+    assert "dst.SetValidShape(16, 16);" not in code
+    assert "TFILLPAD_INPLACE(dst, __manual_fillpad_src_alias_" in code
 
 
 def test_manual_fillpad_expand_codegen_uses_destination_pad_value():

@@ -616,12 +616,6 @@ static std::string BuildNullPadSourceAliasCCE(codegen::CCECodegen& codegen,
   return alias_name;
 }
 
-static void EmitRestoreFullValidShapeCCE(codegen::CCECodegen& codegen, const ir::TileTypePtr& tile_type,
-                                         const std::string& tile_name) {
-  auto [rows, cols] = GetTileRowsCols(tile_type);
-  codegen.Emit(tile_name + ".SetValidShape(" + std::to_string(rows) + ", " + std::to_string(cols) + ");");
-}
-
 // manual.fillpad — args = [src, dst]
 static std::string MakeManualFillpadCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
@@ -632,18 +626,32 @@ static std::string MakeManualFillpadCodegenCCE(const ir::CallPtr& op, codegen::C
 
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
-  if (src == dst) {
-    std::string src_alias = BuildNullPadSourceAliasCCE(codegen, src_tile_type, src);
-    EmitRestoreFullValidShapeCCE(codegen, src_tile_type, dst);
-    codegen.Emit("TFILLPAD_INPLACE(" + dst + ", " + src_alias + ");");
-    return "";
-  }
-
   if (NeedsNullPadSourceAliasCCE(src_tile_type)) {
     src = BuildNullPadSourceAliasCCE(codegen, src_tile_type, src);
   }
 
   codegen.Emit("TFILLPAD(" + dst + ", " + src + ");");
+  return "";
+}
+
+// manual.fillpad_inplace — args = [src, dst]
+static std::string MakeManualFillpadInplaceCodegenCCE(const ir::CallPtr& op,
+                                                      codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2)
+      << "manual.fillpad_inplace: expected 2 args (src, dst), got " << op->args_.size();
+
+  auto src_tile_type = ir::As<ir::TileType>(op->args_[0]->GetType());
+  CHECK(src_tile_type != nullptr) << "manual.fillpad_inplace: expected TileType src";
+
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+
+  if (NeedsNullPadSourceAliasCCE(src_tile_type)) {
+    src = BuildNullPadSourceAliasCCE(codegen, src_tile_type, src);
+  }
+
+  codegen.Emit("TFILLPAD_INPLACE(" + dst + ", " + src + ");");
   return "";
 }
 
@@ -989,6 +997,12 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.fillpad")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeManualFillpadCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "manual.fillpad_inplace")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualFillpadInplaceCodegenCCE(op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.fillpad_expand")

@@ -402,7 +402,17 @@ static std::pair<std::string, std::string> BuildNullPadSourceAliasPTO(codegen::P
   return {alias_tile, alias_tile_buf_type};
 }
 
-static std::string MakeManualFillPadLikePTO(const std::string& manual_op, const std::string& pto_op, const CallPtr& op,
+static void RejectSameTileHandlePTO(const std::string& manual_op, const CallPtr& op, codegen::PTOCodegen& codegen) {
+  CHECK(op->args_.size() == 2) << manual_op << ": expected 2 args (src, out), got " << op->args_.size();
+
+  std::string src = codegen.GetExprAsCode(op->args_[0]);
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+  if (src == dst) {
+    throw pypto::ValueError(manual_op + ": inplace is not supported");
+  }
+}
+
+static std::string MakeManualFillPadLikePTO(const std::string& pto_op, const CallPtr& op,
                                             codegen::CodegenBase& cb) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(cb);
   CHECK(op->args_.size() == 2) << pto_op << ": expected 2 args (src, out), got " << op->args_.size();
@@ -416,17 +426,6 @@ static std::string MakeManualFillPadLikePTO(const std::string& manual_op, const 
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
   std::string src_type = GetTileTypeAnnotationOrFallbackPTO(codegen, op->args_[0], src_tile_type);
   std::string dst_type = GetTileTypeAnnotationOrFallbackPTO(codegen, op->args_[1], dst_tile_type);
-
-  if (src == dst) {
-    if (manual_op == "manual.fillpad") {
-      // PTOAS textual MLIR recognizes aliased pto.tfillpad and lowers it to
-      // TFILLPAD_INPLACE during EmitC conversion. Keep the same tile value here
-      // and let PTOAS own that lowering.
-      codegen.Emit(pto_op + " ins(" + src + " : " + src_type + ") outs(" + dst + " : " + dst_type + ")");
-      return "";
-    }
-    throw pypto::ValueError("manual.fillpad_expand: inplace is not supported");
-  }
 
   if (NeedsNullPadSourceAliasPTO(src_tile_type)) {
     auto [alias_src, alias_src_type] = BuildNullPadSourceAliasPTO(codegen, src_tile_type, src);
@@ -452,11 +451,17 @@ static std::string MakeManualUnaryPTO(const std::string& pto_op, const CallPtr& 
 }
 
 static std::string MakeManualFillPadPTO(const CallPtr& op, codegen::CodegenBase& cb) {
-  return MakeManualFillPadLikePTO("manual.fillpad", "pto.tfillpad", op, cb);
+  return MakeManualFillPadLikePTO("pto.tfillpad", op, cb);
+}
+
+static std::string MakeManualFillPadInplacePTO(const CallPtr& op, codegen::CodegenBase& cb) {
+  return MakeManualFillPadLikePTO("pto.tfillpad_inplace", op, cb);
 }
 
 static std::string MakeManualFillPadExpandPTO(const CallPtr& op, codegen::CodegenBase& cb) {
-  return MakeManualFillPadLikePTO("manual.fillpad_expand", "pto.tfillpad_expand", op, cb);
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(cb);
+  RejectSameTileHandlePTO("manual.fillpad_expand", op, codegen);
+  return MakeManualFillPadLikePTO("pto.tfillpad_expand", op, cb);
 }
 
 // Binary: (lhs, rhs, out)
@@ -1489,6 +1494,12 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "manual.fillpad")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeManualFillPadPTO(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_PTO, "manual.fillpad_inplace")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualFillPadInplacePTO(op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_PTO, "manual.fillpad_expand")

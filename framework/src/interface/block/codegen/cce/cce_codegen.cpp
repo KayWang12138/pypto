@@ -565,6 +565,11 @@ std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> CCECodegen::FilterPrologueTi
   std::set<std::string> kept_tile_addrs;
   std::map<std::string, ir::VarPtr> kept_tile_addr_vars;
 
+  auto has_independent_runtime_metadata = [](const ir::TileTypePtr& tile_type) {
+    return tile_type != nullptr && tile_type->tile_view_.has_value() &&
+           !tile_type->tile_view_->valid_shape.empty();
+  };
+
   // Pass 1: Collect FIFO buffer elements
   std::set<std::string> fifo_buf_names;
   for (const auto& [var, tile_type] : all_tiles_out) {
@@ -590,6 +595,14 @@ std::vector<std::pair<ir::VarPtr, ir::TileTypePtr>> CCECodegen::FilterPrologueTi
 
     // Address+type dedup
     if (is_used && tile_type->memref_.has_value()) {
+      // Same-address tiles with explicit valid_shape metadata must stay as
+      // distinct C++ objects, otherwise a later SetValidShape() on one tile
+      // narrows every deduped alias that shares the same backing storage.
+      if (has_independent_runtime_metadata(tile_type)) {
+        tile_vars.emplace_back(var, tile_type);
+        continue;
+      }
+
       int64_t addr = ExtractConstInt((*tile_type->memref_)->addr_);
       auto space = (*tile_type->memref_)->memory_space_;
       std::vector<int64_t> shape_dims = ExtractShapeDimensions(tile_type->shape_);

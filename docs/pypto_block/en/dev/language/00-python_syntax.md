@@ -328,7 +328,9 @@ plm.load(tile_buf[buf_idx], tensor, [i, k])   # variable-index dispatch
 | `move` | `(tile, target_memory, out, transpose?) → None` | Move between memory levels |
 | `ub_copy` | `(tile, out) → None` | Copy within UB |
 | `full` | `(value, out) → None` | Fill tile with scalar |
-| `fillpad` | `(tile, out) → None` | Pad tile |
+| `fillpad` | `(out, tile) → None` | Pad tile into a destination tile |
+| `fillpad_expand` | `(out, tile) → None` | Expand a tile into a larger destination tile |
+| `fillpad_inplace` | `(out, tile) → None` | Pad tile in place using same-address src/dst views |
 
 ```python
 plm.load(tile_a, tensor_a, [i, k])                       # Load from GM
