@@ -22,7 +22,6 @@
 #define MODULE_NAME "RemoveUnalignedReshape"
 
 namespace npu::tile_fwk {
-const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
 /*
 before:
     add->reshape(padded)->mul
@@ -275,6 +274,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
         //进行处理前判断，防止误修改
         std::vector<LogicalTensorPtr> needToCopyTensors;
         int index = -1;
+        //index表示copyout到reshape之间，有多个消费者的Tensor的第几个消费者是包含需要处理的reshape的
         Operation* copyOutOp = FindAllProducerCopyOuts(input, op, needToCopyTensors, index, op.GetOpMagic());
         if (copyOutOp == nullptr) {
             APASS_LOG_WARN_F(Elements::Operation, "Do not follow reshape[%d] on GM after multiple ops.", op.GetOpMagic());
@@ -319,13 +319,14 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
         // copyOutInput(NOTUB) -- COPYOUT -- copyOutOutput(DDR) -- COPYIN -- newTensor(UB) -- RESHAPECOPYOUT -- newTensor2(DDR) -- reshape
         LogicalTensor newTensor(function, copyOutOutput->Datatype(), copyOutOutput->GetShape());
         newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
         if (static_cast<size_t>(newTensor.GetDataSize()) > UB_SIZE_THRESHOLD) {
             APASS_LOG_WARN_F(Elements::Tensor, "The output[%d] size[%ld] of copyout op[%d] should not exceed %zu. Consider reducing its size.",
                 copyOutOutput->GetMagic(), copyOutOutput->GetDataSize(), copyOutOp->GetOpMagic(), UB_SIZE_THRESHOLD);
             return;
         }
         auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
-        AlignmentUtils::ProcessLastDim32BAligned(newTensorPtr);
+        AlignmentUtils::ProcessLastDim32BAlignedOnUB(newTensorPtr);
         auto& reshapeCopyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutput}, {newTensorPtr});
         reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
         reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
@@ -380,13 +381,14 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                 // --copyInOutout(NOTUB)
                 LogicalTensor newTensor(function, copyInInput->Datatype(), copyInInput->GetShape());
                 newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+                const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
                 if ((size_t)newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
                     APASS_LOG_WARN_F(Elements::Tensor, "The input[%d] size[%ld] of copyin op[%d] should not exceed %zu. Consider reducing its size.",
                         copyInInput->GetMagic(), copyInInput->GetDataSize(), copyInOp->GetOpMagic(), UB_SIZE_THRESHOLD);
                     return;
                 }
                 auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
-                AlignmentUtils::ProcessLastDim32BAligned(newTensorPtr);
+                AlignmentUtils::ProcessLastDim32BAlignedOnUB(newTensorPtr);
                 auto& reshapeCopyInOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_IN, {copyInInput}, {newTensorPtr});
                 reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
                 reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(

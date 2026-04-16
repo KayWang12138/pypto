@@ -69,7 +69,7 @@ int64_t AlignmentUtils::Pad(int64_t dim, int64_t padValue)
     return (dim + padValue - 1) / padValue * padValue;
 }
 
-void AlignmentUtils::ProcessLastDim32BAligned(LogicalTensorPtr tensor) {
+void AlignmentUtils::ProcessLastDim32BAlignedOnUB(LogicalTensorPtr tensor) {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_UB && !IsLastDim32BAligned(tensor)) {
         size_t lastIdx = tensor->shape.size() - 1;
@@ -112,7 +112,10 @@ bool AlignmentUtils::IsRawLastDimUnaligned(const LogicalTensorPtr& tensor)
     auto lastIdx = tensor->shape.size() - 1;
     return oriRawShape[lastIdx] != rawShape[lastIdx];
 }
-// op
+//判断了
+//一个op的输入或输出是否被pad过（不全）（pad在前有用）
+//或 
+//目前没未对齐 （pad在后有用） 
 bool AlignmentUtils::HasUnalignedInputOrOutput(const Operation& op)
 {
     std::vector<bool> inputAxis;

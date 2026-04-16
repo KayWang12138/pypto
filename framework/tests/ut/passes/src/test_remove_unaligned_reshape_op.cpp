@@ -392,9 +392,9 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1)
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int64_t> inShape = {4, 4};
-    std::vector<int64_t> reshapeShape = {2, 8};
-    std::vector<int64_t> outShape = {4, 8};
+    std::vector<int64_t> inShape = {2, 2};
+    std::vector<int64_t> reshapeShape = {1, 4};
+    std::vector<int64_t> outShape = {2, 4};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
     auto copyinTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
     copyinTensor1->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
@@ -427,6 +427,20 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1)
     RemoveUnalignedReshape removeUnalignedReshapeOpTest;
     int curSize = currFunctionPtr->Operations().size();
     EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
+    //tensor拷到ub之前的shape是2 和 4是非对齐的，拷到ub之后2 和 4应被对齐到df32对应的8
+    int lastDim = 8;
+    auto copyOutConsumers = copyoutTensor1->GetConsumers();
+    if (copyOutConsumers.begin() != copyOutConsumers.end()) {
+        auto copyInOutput = (*(copyOutConsumers.begin()))->GetOOperands()[0];
+        EXPECT_EQ(copyInOutput->GetShape().back(), lastDim);
+    }
+    auto reshapeConsumers = reshapeTensor->GetConsumers();
+    for (auto reshapeCon : reshapeConsumers) {
+        if (reshapeCon->GetOpcode() == Opcode::OP_RESHAPE_COPY_IN) {
+            auto rehsapeCopyInOutput = reshapeCon->GetOOperands()[0];
+            EXPECT_EQ(rehsapeCopyInOutput->GetShape().back(), lastDim);
+        }
+    }
     EXPECT_EQ(currFunctionPtr->Operations().size(), curSize + 6);
 }
 
@@ -857,7 +871,6 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1OverUB)
     currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor3}, {outcast_1});
     currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copyinTensor2}, {outcast_2});
 
-
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast_1);
     currFunctionPtr->outCasts_.push_back(outcast_2);
@@ -867,5 +880,3 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1OverUB)
     EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(currFunctionPtr->Operations().size(), curSize);
 }
-
-
