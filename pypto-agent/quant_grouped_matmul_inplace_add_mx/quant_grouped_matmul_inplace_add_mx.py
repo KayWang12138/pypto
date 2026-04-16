@@ -34,8 +34,8 @@ class GmmGoldenInputs:
     Attributes:
         a: Input tensor of shape [K, M] (transposed format)
         b: Weight tensor of shape [K, N]
-        scaled_a: Scale factors for input tensor [K//64, M, 2] (transposed format)
-        scaled_b: Scale factors for weight tensor [K//64, N, 2]
+        scaled_a: Scale factors for input tensor, shape ((K//64)+g, M, 2)
+        scaled_b: Scale factors for weight tensor, shape ((K//64)+g, N, 2)
         y: Output tensor of shape [num_groups, M, N] (初始值)
         group_list: List of group sizes for K-axis splitting
         group_type: Type of group_list interpretation (default: 0)
@@ -43,6 +43,15 @@ class GmmGoldenInputs:
             - 1: group_list elements are cumulative K values, last element equals K
         a_trans: Whether input tensor is transposed (default: True)
         b_trans: Whether weight tensor is transposed (default: False)
+    
+    MX量化scale存储格式说明:
+        - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
+        - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i
+        - 第 i 个 group 的 scale 长度 = K_i/64
+        - 示例: K=512, g=2, group_list=[256,256]
+          - scaled_a shape: (10, M, 2)
+          - group 0: offset=0, length=4, range [0:4,:,:]
+          - group 1: offset=5, length=4, range [5:9,:,:]
     """
     a: torch.Tensor
     b: torch.Tensor
@@ -63,10 +72,18 @@ class GmmMxfp8Inputs:
     Attributes:
         a: Input tensor of shape [K, M] (transposed format)
         b: Weight tensor of shape [K, N]
-        scaled_a: Scale factors for input tensor [K//64, M, 2] (transposed format)
-        scaled_b: Scale factors for weight tensor [K//64, N, 2]
+        scaled_a: Scale factors for input tensor, shape ((K//64)+g, M, 2)
+        scaled_b: Scale factors for weight tensor, shape ((K//64)+g, N, 2)
         y: Output tensor of shape [num_groups, M, N] (需要在外部初始化)
         tile_config: Tile configuration for computation (包含 group_list 和 group_type)
+    
+    MX量化scale存储格式说明:
+        - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
+        - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i = begin/64 + i
+        - 示例: K=512, g=2, group_list=[256,256]
+          - scaled_a shape: ((512/64)+2, M, 2) = (10, M, 2)
+          - group 0: scale_offset=0, scale_length=4, range [0:4,:,:]
+          - group 1: scale_offset=5, scale_length=4, range [5:9,:,:]
     """
     a: torch.Tensor
     b: torch.Tensor
@@ -239,9 +256,9 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     Generate golden (reference) output for grouped matrix multiplication using PyTorch.
     
     根据 a_trans 参数决定数据格式：
-    - a_trans=True: a is [K, M], scaled_a is [K//64, M, 2]
-    - a_trans=False: a is [M, K], scaled_a is [M, K//64, 2]
-    - b is always [K, N], scaled_b is [K//64, N, 2]
+    - a_trans=True: a is [K, M], scaled_a is ((K//64)+g, M, 2)
+    - a_trans=False: a is [M, K], scaled_a is ((K//64)+g, M, 2)
+    - b is always [K, N], scaled_b is ((K//64)+g, N, 2)
 
     Args:
         inputs: Input parameters including tensors, scales, y, group_list and group_type
@@ -251,8 +268,8 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     """
     a = inputs.a
     b = inputs.b
-    scaled_a = inputs.scaled_a
-    scaled_b = inputs.scaled_b
+    scaled_a = inputs.scaled_a  # ((K//64)+g, M, 2)
+    scaled_b = inputs.scaled_b  # ((K//64)+g, N, 2)
     y = inputs.y
     group_list = inputs.group_list
     group_type = inputs.group_type
@@ -262,7 +279,7 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     round_num = len(group_list)
     golden_result = y.clone()
     
-    # 根据 group_type 计算 begin 和 end
+    # 根据 group_type 计算 begin 和 end (K轴切分)
     # group_type=0: group_list 各元素为单独的 group size，累加得到 K
     # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
     begin = 0
@@ -277,19 +294,23 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
             begin = 0 if i == 0 else group_list[i - 1]
             end = group_list[i]
 
+        # 计算 scale 的偏移量
+        # MX量化存储格式: scale_i 偏移 = sum(K_j/64 for j<i) + i = begin/64 + i
+        scale_offset = begin // 64 + i
+        scale_length = (end - begin) // 64
+
         # Extract input and weight for current group (切分 K 轴)
         # a_trans=True: a is [K, M], 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
         # a_trans=False: a is [M, K], 切分 K 轴 = 切分第二维 -> a[:, begin:end] -> [M, K_block]
-        # b is always [K, N], 切分 K 轴 = 切分第一维 -> b[begin:end, :] -> [K_block, N]
         if a_trans:
             x = a[begin:end, :]  # [K, M] 切分 K 轴 -> [K_block, M]
-            scaled_x_golden = scaled_a[begin // 64 : end // 64, :, :]  # [K//64, M, 2] 切分后 [K_block//64, M, 2]
+            scaled_x_golden = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
         else:
             x = a[:, begin:end]  # [M, K] 切分 K 轴 -> [M, K_block]
-            scaled_x_golden = scaled_a[:, begin // 64 : end // 64, :]  # [M, K//64, 2] 切分后 [M, K_block//64, 2]
+            scaled_x_golden = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
         
         weight = b[begin:end, :]  # [K_block, N]
-        scaled_weight_golden = scaled_b[begin // 64 : end // 64, :, :]  # [K_block//64, N, 2]
+        scaled_weight_golden = scaled_b[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, N, 2]
 
         # Compute golden result for this group and inplace add
         golden_temp = compute_golden_result(
@@ -320,8 +341,8 @@ def scaled_matmul_kernel(
     Scaled matrix multiplication kernel for grouped GEMM with MXFP8 quantization.
     
     默认处理转置格式：
-    - a: [K, M] (transposed), scaled_a: [K//64, M, 2] (transposed)
-    - b: [K, N] (not transposed), scaled_b: [K//64, N, 2] (not transposed)
+    - a: [K, M] (transposed), scaled_a: ((K//64)+g, M, 2)
+    - b: [K, N] (not transposed), scaled_b: ((K//64)+g, N, 2)
 
     This kernel performs grouped matrix multiplication where each group uses
     a different K-axis block from input tensors, with MXFP8 quantization.
@@ -329,10 +350,19 @@ def scaled_matmul_kernel(
     Args:
         a: Input tensor [K, M] (transposed format)
         b: Weight tensor [K, N]
-        scaled_a: Scale factors for input tensor [K//64, M, 2] (transposed format)
-        scaled_b: Scale factors for weight tensor [K//64, N, 2]
+        scaled_a: Scale factors for input tensor ((K//64)+g, M, 2)
+        scaled_b: Scale factors for weight tensor ((K//64)+g, N, 2)
         y: Output tensor [num_groups, M, N]
         tile_config: Tile configuration for computation (包含 group_list 和 group_type)
+    
+    MX量化scale存储格式说明:
+    ===========================
+    - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
+    - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i = begin/64 + i
+    - 示例: K=512, g=2, group_list=[256,256]
+      - scaled_a shape: ((512/64)+2, M, 2) = (10, M, 2)
+      - group 0: K=[0,256], scale_offset=0, scale_length=4, range [0:4,:,:]
+      - group 1: K=[256,512], scale_offset=5, scale_length=4, range [5:9,:,:]
     
     约束说明 (scaled_mm API 要求):
     ================================
@@ -363,8 +393,8 @@ def scaled_matmul_kernel(
          * 当 b_trans=False 时，n_tile_shape 的内轴分量需 32 字节对齐
     
     4. Scale 形状约束:
-       - scaled_a: 当 a_trans=True 时 [K//64, M, 2]，当 a_trans=False 时 [M, K//64, 2]
-       - scaled_b: 当 b_trans=False 时 [K//64, N, 2]，当 b_trans=True 时 [N, K//64, 2]
+       - scaled_a: ((K//64)+g, M, 2)
+       - scaled_b: ((K//64)+g, N, 2)
     """
     g = y.shape[0]
     m = y.shape[1]
@@ -375,7 +405,7 @@ def scaled_matmul_kernel(
     group_list = tile_config.group_list
     group_type = tile_config.group_type
 
-    # 根据 group_type 计算 begin 和 end
+    # 根据 group_type 计算 begin 和 end (K轴切分)
     # group_type=0: group_list 各元素为单独的 group size，累加得到 K
     # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
     begin = 0
@@ -390,14 +420,19 @@ def scaled_matmul_kernel(
             begin = 0 if i == 0 else group_list[i - 1]
             end = group_list[i]
 
+        # 计算 scale 的偏移量 (MX量化存储格式)
+        # scale_i 偏移 = sum(K_j/64 for j<i) + i = begin/64 + i
+        scale_offset = begin // 64 + i
+        scale_length = (end - begin) // 64
+
         # Extract input for current group (切分 K 轴)
         # a is [K, M] (transposed), 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
-        # scaled_a is [K//64, M, 2], 切分第一维 -> scaled_a[begin//64:end//64, :, :] -> [K_block//64, M, 2]
         # b is [K, N], 切分 K 轴 = 切分第一维 -> b[begin:end, :] -> [K_block, N]
+        # scaled_a/scaled_b 形状 ((K//64)+g, M/N, 2)，按偏移量切取
         x = a[begin:end, :]  # [K_block, M]
         weight = b[begin:end, :]  # [K_block, N]
-        scaled_x = scaled_a[begin // 64 : end // 64, :, :]  # [K_block//64, M, 2]
-        scaled_weight = scaled_b[begin // 64 : end // 64, :, :]  # [K_block//64, N, 2]
+        scaled_x = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
+        scaled_weight = scaled_b[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, N, 2]
 
         # Set vector tile shapes for scale processing
         pypto.set_vec_tile_shapes(
@@ -465,8 +500,8 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     Test the grouped matrix multiplication with MXFP8 quantization.
     
     Kernel 固定处理 a_trans=True 格式：
-    - a: [K, M] (transposed), scaled_a: [K//64, M, 2] (transposed)
-    - b: [K, N] (not transposed), scaled_b: [K//64, N, 2] (not transposed)
+    - a: [K, M] (transposed), scaled_a: ((K//64)+g, M, 2)
+    - b: [K, N] (not transposed), scaled_b: ((K//64)+g, N, 2)
 
     This function runs a complete test for a given configuration:
     1. Generate test data with MXFP8 format
@@ -476,6 +511,15 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
 
     Args:
         tile_config: Configuration parameters for the test case
+    
+    MX量化scale存储格式说明:
+    ==========================
+    - scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
+    - 第 i 个 group 的 scale 偏移量 = sum(K_j/64 for j<i) + i = begin/64 + i
+    - 示例: K=512, g=2, group_list=[256,256]
+      - scaled_a shape: ((512/64)+2, M, 2) = (10, M, 2)
+      - group 0: K=[0,256], scale_offset=0, scale_length=4, range [0:4,:,:]
+      - group 1: K=[256,512], scale_offset=5, scale_length=4, range [5:9,:,:]
     
     测试用例选择约束:
     ==================
@@ -513,14 +557,19 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     b_trans = False
 
     # Generate input tensor in MXFP8 format - [K, M] (transposed format)
-    # 约束: a_trans=True 时，a=[K, M]，scaled_a=[K//64, M, 2]
+    # 约束: a_trans=True 时，a=[K, M]
     a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
-    scaled_a = torch.randn((k // 64, m, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+    
+    # Generate scaled_a in MXFP8 format - ((K//64)+g, M, 2)
+    # MX量化存储格式: 所有group的scale存储在一个连续tensor中
+    scaled_a = torch.randn((k // 64 + num_groups, m, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
     # Generate weight tensor in MXFP8 format - 2D [K, N]
-    # 约束: b_trans=False 时，b=[K, N]，scaled_b=[K//64, N, 2]
+    # 约束: b_trans=False 时，b=[K, N]
     b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
-    scaled_b = torch.randn((k // 64, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+    
+    # Generate scaled_b in MXFP8 format - ((K//64)+g, N, 2)
+    scaled_b = torch.randn((k // 64 + num_groups, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
     # Initialize y tensor with random values (not zeros, for inplace add)
     y_init = torch.randn((num_groups, m, n), dtype=torch.float32)
@@ -558,9 +607,12 @@ if __name__ == "__main__":
     # - N=7168: 满足 b_trans=False 时内轴 32 字节对齐
     # - group_list=[256, 256]: K 轴切分为 256+256=512 (group_type=0)
     # - group_type=0: group_list 各元素为单独 group size，累加等于 K
+    # - MX量化scale存储格式:
+    #   - scaled_a shape: ((512/64)+2, 32, 2) = (10, 32, 2)
+    #   - scaled_b shape: ((512/64)+2, 7168, 2) = (10, 7168, 2)
+    #   - group 0: scale_offset=0, scale_length=4, range [0:4,:,:]
+    #   - group 1: scale_offset=5, scale_length=4, range [5:9,:,:]
     # - m_tile_shape=[32, 32]: M 维度 tile 32，满足内轴 32 字节对齐
-    # - k_tile_shape=[256, 256]: K 维度 tile
-    # - n_tile_shape=[256, 256]: N 维度 tile
     test_gmm_mxfp8(
         ShapeConfig(
             [32, 512, 7168],  # [M, K, N]: M=32(内轴对齐), K=512(64对齐), N=7168
@@ -575,7 +627,6 @@ if __name__ == "__main__":
             False,
             False,
             False,
-            "Test with K-axis splitting: K=512 split into [256, 256] (group_type=0), "
-            "a_trans=True (x1=[K,M]), M=32 aligned for inner axis 32-byte alignment"
+            "Test MX quantization: K=512, g=2, scale shape ((K//64)+g, M/N, 2) = (10, M/N, 2)"
         )
     )
