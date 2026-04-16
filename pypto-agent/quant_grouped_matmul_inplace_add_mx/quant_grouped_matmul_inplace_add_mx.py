@@ -601,32 +601,125 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
 
 
 if __name__ == "__main__":
-    # 测试用例说明:
-    # - M=32: 满足 a_trans=True 时内轴 32 字节对齐 (FP8: 32元素=32字节)
-    # - K=512: 满足 MX 量化 64 对齐要求
-    # - N=7168: 满足 b_trans=False 时内轴 32 字节对齐
-    # - group_list=[256, 256]: K 轴切分为 256+256=512 (group_type=0)
-    # - group_type=0: group_list 各元素为单独 group size，累加等于 K
-    # - MX量化scale存储格式:
-    #   - scaled_a shape: ((512/64)+2, 32, 2) = (10, 32, 2)
-    #   - scaled_b shape: ((512/64)+2, 7168, 2) = (10, 7168, 2)
-    #   - group 0: scale_offset=0, scale_length=4, range [0:4,:,:]
-    #   - group 1: scale_offset=5, scale_length=4, range [5:9,:,:]
-    # - m_tile_shape=[32, 32]: M 维度 tile 32，满足内轴 32 字节对齐
+    # 测试用例1: 基础用例
+    # - M=32, K=512, N=7168
+    # - group_list=[256, 256], g=2
+    # - m_tile_shape=[32, 32]
+    # - scaled_a shape: (10, 32, 2)
     test_gmm_mxfp8(
         ShapeConfig(
-            [32, 512, 7168],  # [M, K, N]: M=32(内轴对齐), K=512(64对齐), N=7168
-            [256, 256],       # group_list: K 轴分组，256+256=512
-            [32, 32],         # m_tile_shape: M 维度 tile，内轴 >=32 满足对齐
-            [256, 256],       # k_tile_shape: K 维度 tile
-            [256, 256],       # n_tile_shape: N 维度 tile
-            [1, 8, 256, 32],  # vector_tile_shape
-            0,                # group_type=0: group_list 各元素为单独 group size
-            True,             # a_trans=True: x1 is [K, M]
-            False,            # b_trans=False: x2 is [K, N]
+            [32, 512, 7168],
+            [256, 256],
+            [32, 32],
+            [256, 256],
+            [256, 256],
+            [1, 8, 256, 32],
+            0,
+            True,
             False,
             False,
             False,
-            "Test MX quantization: K=512, g=2, scale shape ((K//64)+g, M/N, 2) = (10, M/N, 2)"
+            False,
+            "Case1: K=512, g=2, group_list=[256,256], scale shape (10, M/N, 2)"
+        )
+    )
+    
+    # 测试用例2: 更大M维度
+    # - M=64 (满足32字节对齐), K=1024, N=4096
+    # - group_list=[512, 512], g=2
+    # - m_tile_shape=[64, 64]
+    # - scaled_a shape: ((1024/64)+2, 64, 2) = (18, 64, 2)
+    test_gmm_mxfp8(
+        ShapeConfig(
+            [64, 1024, 4096],
+            [512, 512],
+            [64, 64],
+            [512, 512],
+            [512, 512],
+            [1, 8, 256, 32],
+            0,
+            True,
+            False,
+            False,
+            False,
+            False,
+            "Case2: M=64, K=1024, g=2, group_list=[512,512], scale shape (18, 64, 2)"
+        )
+    )
+    
+    # 测试用例3: 3个分组
+    # - M=32, K=768 (3*256), N=2048
+    # - group_list=[256, 256, 256], g=3
+    # - m_tile_shape=[32, 32]
+    # - scaled_a shape: ((768/64)+3, 32, 2) = (15, 32, 2)
+    # - group 0: offset=0, [0:4,:,:]
+    # - group 1: offset=5, [5:9,:,:]
+    # - group 2: offset=10, [10:14,:,:]
+    test_gmm_mxfp8(
+        ShapeConfig(
+            [32, 768, 2048],
+            [256, 256, 256],
+            [32, 32],
+            [256, 256],
+            [256, 256],
+            [1, 8, 256, 32],
+            0,
+            True,
+            False,
+            False,
+            False,
+            False,
+            "Case3: K=768, g=3, group_list=[256,256,256], scale shape (15, 32, 2)"
+        )
+    )
+    
+    # 测试用例4: 不均匀分组
+    # - M=48, K=512, N=512
+    # - group_list=[128, 384], g=2 (不均匀: 128+384=512)
+    # - m_tile_shape=[48, 48] (M=48满足32字节对齐)
+    # - scaled_a shape: ((512/64)+2, 48, 2) = (10, 48, 2)
+    # - group 0: K=[0,128], offset=0, length=2, [0:2,:,:]
+    # - group 1: K=[128,512], offset=3, length=6, [3:9,:,:]
+    test_gmm_mxfp8(
+        ShapeConfig(
+            [48, 512, 512],
+            [128, 384],
+            [48, 48],
+            [256, 256],
+            [256, 256],
+            [1, 8, 256, 32],
+            0,
+            True,
+            False,
+            False,
+            False,
+            False,
+            "Case4: K=512, g=2, uneven groups [128,384], scale shape (10, 48, 2)"
+        )
+    )
+    
+    # 测试用例5: group_type=1 (累计值模式)
+    # - M=32, K=512, N=1024
+    # - group_list=[256, 512] (累计值: 256, 512表示K切分点)
+    # - group_type=1: 表示group_list是累计值
+    # - m_tile_shape=[32, 32]
+    # - scaled_a shape: ((512/64)+2, 32, 2) = (10, 32, 2)
+    # - group 0: K=[0,256], offset=0, length=4, [0:4,:,:]
+    # - group 1: K=[256,512], offset=5, length=4, [5:9,:,:]
+    test_gmm_mxfp8(
+        ShapeConfig(
+            [32, 512, 1024],
+            [256, 512],
+            [32, 32],
+            [256, 256],
+            [256, 256],
+            [1, 8, 256, 32],
+            1,  # group_type=1: 累计值模式
+            True,
+            False,
+            False,
+            False,
+            False,
+            "Case5: group_type=1, group_list=[256,512] cumulative, scale shape (10, 32, 2)"
         )
     )
