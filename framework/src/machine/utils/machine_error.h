@@ -64,6 +64,7 @@ enum class DevCommonErr : uint32_t {
     FREE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0BU,        // 释放失败
     LOAD_LIBRARY_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0CU, //dlopen so 失败
     INIT_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0DU,         // 初始化失败
+    EXEC_THRID_API_FAILD = ToUnderlying(MachineError::DEV_COMMON) + 0x0EU,         // 初始化失败
 };
 
 enum class HostBackEndErr : uint32_t {
