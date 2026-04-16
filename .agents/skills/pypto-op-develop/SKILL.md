@@ -1,6 +1,6 @@
 ---
 name: pypto-op-develop
-description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、kernel 实现。"
+description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、kernel 实现。
 ---
 
 # PyPTO 算子实现
@@ -13,7 +13,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 需求规格信息
 
-从 `SPEC.md` 中提取：
+需要以下算子规格信息：
 
 | 字段 | 用途 |
 |------|------|
@@ -26,7 +26,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 设计方案信息
 
-从 `DESIGN.md` 中提取：
+需要以下设计方案信息：
 
 | 字段 | 用途 |
 |------|------|
@@ -39,7 +39,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 参考实现信息
 
-从 `{op}_golden.py` 中提取：
+需要以下 golden 参考实现信息：
 
 | 信息 | 用途 |
 |------|------|
@@ -102,7 +102,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 
 ### 阶段二：代码生成
 
-**输出目录**：`custom/{op}/`
+**输出目录**：当前算子工作目录（由调用者指定或默认为当前目录）
 
 **准备工作**（并行读取）：
 在进入编码前，**并行读取**以下参考文件（同一条消息中发起所有 Read 调用）：
@@ -196,7 +196,7 @@ python3 build_ci.py -f python3 --disable_auto_execute
 2. **执行算子验证**：
 检测到存在 NPU 卡时，直接使用 `run_mode=npu` 执行：
 ```bash
-python3 custom/{op}/test_{op}.py
+python3 test_{op}.py
 ```
 
 3. **验证失败处理**：
@@ -233,7 +233,7 @@ python3 custom/{op}/test_{op}.py
 9. **动态轴必须显式标注**：所有动态 shape 输入和输出都要在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。
 10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
 11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
-12. 如果设计中已有 tiling / loop 约束，编码时优先遵循 `DESIGN.md`，不要临时拍脑袋改写。
+12. 如果设计方案中已有 tiling / loop 约束，编码时优先遵循设计方案，不要临时拍脑袋改写。
 
 ---
 
