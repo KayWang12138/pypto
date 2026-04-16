@@ -290,11 +290,7 @@ def run_test():
         sys.exit(2)
 
 if __name__ == "__main__":
-    try:
-        run_test()
-    except Exception as e:
-        print(f"[UNEXPECTED_ERROR] {e}", file=sys.stderr)
-        sys.exit(2)
+    run_test()
 ```
 
 标记含义：
