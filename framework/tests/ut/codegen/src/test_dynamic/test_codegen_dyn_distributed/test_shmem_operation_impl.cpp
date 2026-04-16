@@ -24,7 +24,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "codegen/codegen.h"
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
 #include "tilefwk/tilefwk_op.h"
 #include "test_codegen_utils.h"
@@ -171,6 +171,7 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
 
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {64, 256}, "in");
+    in.GetStorage()->UpdateDynValidShape(std::vector<SymbolicScalar>{64, 256});
     Tensor out(DT_FP16, {64, 256}, "out");
     Shape shmemDataShape = {64, 256};
     std::string functionName = "TestOneShotAllReduce";

@@ -1042,7 +1042,7 @@ private:
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
         if (unlikely(isEnableDump)) {
-            aicoreDump_.DoDump(devTaskCtx->GetDeviceTask(), "input", newTask, GetPhyIdByBlockId(coreIdx));
+            aicoreDump_.DoDump(devTaskCtx->GetDeviceTask(), "input", newTask, coreIdx);
         }
 #endif
         uint64_t encodeTaskId = EncodeTaskId(devTaskCtx, coreIdx, newTask);
@@ -1052,7 +1052,7 @@ private:
         devTaskCtx->sendCnt[static_cast<int>(type)]++;
 
         if (!devTaskCtx->isFirstTaskSend) {
-            PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
+            PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_LEAF_TASK, aicpuIdx_);
             devTaskCtx->isFirstTaskSend = true;
         }
 
@@ -2079,7 +2079,7 @@ private:
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
         if (unlikely(isEnableDump)) {
-            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, GetPhyIdByBlockId(coreIdx));
+            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, coreIdx, stat->execStart, stat->execEnd);
         }
 #endif
 
