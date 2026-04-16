@@ -78,22 +78,10 @@ static std::string GetDtype(DataType dtype)
     }
 }
 
-static bool CompareStrings(const std::string& s1, const std::string& s2)
-{
-    std::string str1 = s1;
-    std::string str2 = s2;
-    transform(str1.begin(), str1.end(), str1.begin(), ::tolower);
-    transform(str2.begin(), str2.end(), str2.begin(), ::tolower);
-
-    return str1 < str2;
-}
-
 std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
     const SubfuncParam& subFuncParam, std::vector<std::string>& params, std::map<std::string, std::string>& dTypeMap)
 {
     auto& tensorInvokeArgs = subFuncParam.tensorsArgs_;
-    auto& incastInvokeArgs = subFuncParam.inCastArgs_;
-    auto& outcastInvokeArgs = subFuncParam.outCastArgs_;
 
     std::map<int, std::string> symbolMap;
     std::set<std::string> paramsSet;
@@ -107,6 +95,11 @@ std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
                 " paramLoc is %u, paramOff is %zu, SymDDRId is %d, SymName is %s, Symbol is %s, dataType is %zu",
                 paramLoc, paramOff, invokeArgs[i].symDDRId, invokeArgs[i].symName.c_str(), invokeArgs[i].symbol.c_str(),
                 static_cast<size_t>(invokeArgs[i].dataType));
+
+            // TODO: verify if needs this...
+            if (invokeArgs[i].symbol.empty()) {
+                continue;
+            }
             symbolMap.insert({paramLoc, invokeArgs[i].symbol});
             paramsSet.insert(invokeArgs[i].symbol);
             dTypeMap[invokeArgs[i].symbol] = GetDtype(invokeArgs[i].dataType);
@@ -115,14 +108,9 @@ std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
 
     CODEGEN_LOGI("---  start tensorInvokeArgs paramLoc map ---- ");
     f(0, tensorInvokeArgs);
-    CODEGEN_LOGI("---  start incastInvokeArgs paramLoc map ---- ");
-    f(tensorInvokeArgs.size(), incastInvokeArgs);
-    CODEGEN_LOGI("---  start outcastInvokeArgs paramLoc map ---- ");
-    f(tensorInvokeArgs.size() + incastInvokeArgs.size(), outcastInvokeArgs);
     for (auto& t : paramsSet) {
         params.push_back(t);
     }
-    std::sort(params.begin(), params.end(), CompareStrings);
     return symbolMap;
 }
 

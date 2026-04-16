@@ -2096,17 +2096,17 @@ TStore：ub to gm搬运
 ### 3.1. pypto.amax
 
 #### 3.1.1. 算子计算原理
-参考pypto\docs\api\operation\pypto-amax.md  
+参考pypto\docs\api\operation\pypto-amax.md
 对一个多维向量在指定的维度求最大值。
 定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维求最大值，输出结果为\[4, 5, 6\]；指定在第二维求最大值，输出结果为\[3, 6\]。
 
-**图 1**  amax按第一个维度计算示例  
+**图 1**  amax按第一个维度计算示例
 ![](../docs/api/figures/pypto.amax_1.png)
-**图 2**  amax按最后一个维度计算示例  
+**图 2**  amax按最后一个维度计算示例
 ![](../docs/api/figures/pypto.amax_2.png)
 #### 3.1.2. pypto前段接口（python）以及支持范围
 ```python
-amax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor: 
+amax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 ```
 ##### 参数说明
 
@@ -2202,21 +2202,21 @@ void RowMaxCombineOperationTileFunc(Function &function, const TileShape &tileSha
 | amax_fp32_015 | (6, 3, 5, 141) | (3, 3, 5, 32) | fp32 | 4d尾轴不对齐，n,w切分 |
 ### 3.2. pypto.amin
 ```python
-amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor: 
+amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 ```
 #### 3.2.1. 算子计算原理
-参考pypto\docs\api\operation\pypto-amin.md  
+参考pypto\docs\api\operation\pypto-amin.md
 对一个多维向量在指定的维度求最小值。
 
 定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维求最小值，输出结果为\[1, 2, 3\]；指定在第二维求最小值，输出结果为\[1, 4\]。
 
-**图 1**  amin按第一个维度计算示例  
+**图 1**  amin按第一个维度计算示例
 ![](../docs/api/figures/pypto.amin_1.png)
-**图 2**  amin按最后一个维度计算示例  
+**图 2**  amin按最后一个维度计算示例
 ![](../docs/api/figures/pypto.amin_2.png)
 #### 3.2.2. pypto前段接口（python）以及支持范围
 ```python
-amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor: 
+amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 ```
 ##### 参数说明
 
@@ -2306,18 +2306,18 @@ void RowMinSingleOperationTileFunc(Function &function, const TileShape &tileShap
 ### 3.3. pypto.sum
 
 #### 3.3.1. 算子计算原理
-参考pypto\docs\api\operation\pypto-sum.md  
+参考pypto\docs\api\operation\pypto-sum.md
 对一个多维向量按照指定的维度进行数据累加。
 
 定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维计算数据的累加，输出结果为\[5, 7, 9\]；指定在第二维计算数据的累加，输出结果为\[6, 15\]。
 
-**图 1**  sum按第一个维度计算示例  
+**图 1**  sum按第一个维度计算示例
 ![](../docs/api/figures/pypto.sum_1.png)
-**图 2**  sum按最后一个维度计算示例  
+**图 2**  sum按最后一个维度计算示例
 ![](../docs/api/figures/pypto.sum_2.png)
 #### 3.3.2. pypto前段接口（python）以及支持范围
 ```python
-sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor: 
+sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor:
 ```
 ##### 参数说明
 
@@ -2982,8 +2982,8 @@ reshape(input: Tensor,shape: List[int],*,valid_shape: Optional[List[Union[int, S
 inplace为True时，需要保证输入输出分别是当前loop的输入输出；输出不可作为整个Function的输出
 #### 6.2.3. c++ tensor graph接口
 ```cpp
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={}, const bool inplace=false); 
-Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape={}, const bool inplace=false); 
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape={}, const bool inplace=false);
+Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape={}, const bool inplace=false);
 Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace);
 
 void Reshape(const Tensor &operand, Tensor &dst);
@@ -4030,23 +4030,14 @@ tile m是16的整数倍，tile k和tile n是32B的整数倍。
 测试因子
 * a、b矩阵维度（必须相同）：2~4维
 * bias: 有/没有
-* 切分：m1,m0,k1,k0,n1,n0组合
-* 数据类型：FP16FP16（输出可以S8或者FP16）/S8S8（输出可以S8或者FP16）量化
+* 切分：m1,m0,k1,k0,n1,n0组合，m是16倍数，k、n是32B倍数（b16：16倍数，b8：32倍数），需要覆盖切m、k、n各种切分：其中m1=m0、k1=k0、n1=n0
+* 数据类型：FP16FP16->FP16
+* trans a/b模式都支持（a/b维度做随路permute）
 
-| 用例名称 | A输入维度 | B输入维度 | bias | b_trans | 切分 (m1,m0,k1,k0,n1,n0) | 输入dtype | 输出dtype | 说明 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| matmul_001 | (16,16) | (16,16) | 有 | false | (16,16,16,16,16,16) | FP16/FP16 | FP16 | 基础FP16用例 |
-| matmul_002 | (64,130) | (130,64) | 没有 | false | (64,64,16,16,16,16) | FP16/FP16 | S8 | K非对齐，验证FP16到S8量化 |
-| matmul_003 | (64,128) | (80,128) | 有 | true | (32,32,16,16,16,16) | FP16/FP16 | FP16 | N非对齐，B转置，输出FP16 |
-| matmul_004 | (80,256) | (256,32) | 有 | false | (64,64,16,16,32,32) | FP16/FP16 | S8 | M非对齐，验证Bias累加后量化 |
-| matmul_005 | (4,32,32) | (4,32,32) | 没有 | false | (16,16,16,16,16,16) | FP16/FP16 | FP16 | 3维带Batch，标准对齐切分 |
-| matmul_006 | (2,2,64,64) | (2,2,64,64) | 有 | false | (32,32,32,32,32,32) | FP16/FP16 | FP16 | 4维高维张量，验证多维Offset逻辑 |
-| matmul_007 | (128,64) | (64,128) | 没有 | false | (64,64,32,32,64,64) | S8/S8 | S8 | 纯S8整型路径，验证饱和处理 |
-| matmul_008 | (64,64) | (64,128) | 有 | true | (32,32,32,32,64,64) | S8/S8 | FP16 | S8转FP16，验证带Bias的反量化路径 |
-| matmul_009 | (8,48,48) | (8,48,48) | 有 | false | (16,32,16,32,16,32) | S8/S8 | S8 | 3维S8，非2幂次维度(48)切分验证 |
-| matmul_010 | (2,3,32,64) | (2,3,64,32) | 没有 | false | (16,16,32,32,16,16) | S8/S8 | FP16 | 4维S8，验证非对称M/N维度 |
-| matmul_011 | (128,33) | (33,128) | 有 | false | (64,64,32,32,64,64) | S8/S8 | S8 | 2d s8量化 |
-| matmul_012 | (64,128) | (64,128) | 有 | true | (32,32,64,64,32,32) | FP16/FP16 | S8 | 综合用例：B转置 + Bias + 输出量化 |
+| 用例名称 | A输入维度 | B输入维度 | bias | a_trans | b_trans | 切分 (m1,m0,k1,k0,n1,n0) | 输入dtype | 输出dtype | 说明 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| matmul_fp_001 | (16,16) | (16,16) | 有 | false | false | (16,16,16,16,16,16) | FP16/FP16 | FP16 | 基础FP16用例 |
+
 
 ## 9. 芯片能力增强
 
@@ -4173,7 +4164,7 @@ TileShape为一维，针对indices中的每个一维Tensor和values的第0维进
 测试因子
 * 输入维度：1~4维
 * 切分：基于indices中的每一个维Tensor和values的第0维切分，1d
-* 数据类型：input/indices：FP16/FP32，values：INT8，UINT8，INT16，UINT16，INT32，UINT32，INT64，UINT64
+* 数据类型：input/indices：FP16/FP32/INT8/INT16/INT32，values：INT8，UINT8，INT16，UINT16，INT32，UINT32，INT64，UINT64
 
 | 用例名称  | input维度 | indices维度 | values维度 | input/values dtype | indices dtype | 切分 | 说明 |
 |----------|-----------|------------|------------|--------------------|---------------|------|------|
