@@ -612,7 +612,7 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     assert_allclose(golden.cpu().numpy(), result.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(golden)
     print(result)
-    print("PASSED")
+    print(tile_config.description," PASSED")
 
 
 if __name__ == "__main__":
@@ -720,12 +720,12 @@ if __name__ == "__main__":
 
     # 测试用例5: FP8E5M2 数据类型
     # - M=32, K=512, N=1024
-    # - group_list=[256, 256], g=2
+    # - group_list=[128, 384], g=2
     # - in_dtype=DT_FP8E5M2 (torch.float8_e5m2)
     test_gmm_mxfp8(
         ShapeConfig(
             ori_shape=[32, 512, 1024],
-            group_list=[256, 256],
+            group_list=[128, 384],
             m_tile_shape=[32, 32],
             k_tile_shape=[256, 256],
             n_tile_shape=[256, 256],
@@ -737,6 +737,6 @@ if __name__ == "__main__":
             a_format_nz=False,
             b_format_nz=False,
             c_format_nz=False,
-            description="Case5: FP8E5M2, K=512, g=2, group_list=[256,256]"
+            description="Case5: FP8E5M2, K=512, g=2, group_list=[128, 384]"
         )
     )
