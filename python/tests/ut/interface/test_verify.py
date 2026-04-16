@@ -66,20 +66,15 @@ def test_set_verify_data_dtype_mismatch_intercept():
         pypto.pypto_impl.SetVerifyData([input_data], [output_data], [input_golden_data, output_golden_data])
 
 
-def test_set_verify_data_shape_intercept_with_wildcard_minus_one():
+def test_set_verify_data_shape_mismatch_intercept():
     input_tensor = torch.zeros((2, 3), dtype=torch.float32)
     output_tensor = torch.zeros((2, 3), dtype=torch.float32)
     input_golden = torch.zeros((2, 3), dtype=torch.float32)
     output_golden = torch.zeros((2, 3), dtype=torch.float32)
 
     input_data = _to_device_tensor_data(input_tensor)
-    output_wildcard = _to_device_tensor_data(output_tensor, [-1, 3])
     input_golden_data = _to_device_tensor_data(input_golden)
     output_golden_exact = _to_device_tensor_data(output_golden, [2, 3])
-    # -1 on one side is treated as wildcard and should pass.
-    pypto.pypto_impl.SetVerifyData([input_data], [output_wildcard], [input_golden_data, output_golden_exact])
-
-    # Non -1 mismatch should be intercepted.
     output_bad_shape = _to_device_tensor_data(output_tensor, [2, 4])
     with pytest.raises(Exception, match="Errcode:\\s*FB4002"):
         pypto.pypto_impl.SetVerifyData([input_data], [output_bad_shape], [input_golden_data, output_golden_exact])

@@ -78,18 +78,12 @@ RuntimeError: Errcode: FB4002!
 ##### 触发条件
 - `SetVerifyData` 中 `(inputs.size() + outputs.size()) == goldens.size()`
 - 同一 index 上 `in_out_tensors[i]` 和 `goldens[i]` 都不是 `None`
-- rank 不一致，或逐轴比较时出现不匹配（但 `-1` 轴按通配处理）
-
-##### `-1` 轴规则说明
-- 若某一轴任一侧为 `-1`，该轴视为匹配（wildcard）。
-- 除 `-1` 外，其它轴必须严格相等。
-- rank（维度个数）仍需一致，`-1` 不会放宽 rank 校验。
+- rank 不一致，或逐轴比较时出现不匹配
 
 ##### 定位指导
 1. 先按 `inputs + outputs` 的顺序确认对齐关系，再看对应 index 的 shape rank 是否一致。
-2. 再逐轴比对：确认是否是非 `-1` 轴不一致导致触发。
-3. 若使用了动态维（`-1`），建议仅在不确定轴上使用，其他轴保持精确值，避免掩盖真实 shape 问题。
-4. 若报错发生在构造 golden 的流程，优先检查 `ori_shape` 是否和实际 tensor 语义一致。
+2. 再逐轴比对：每一轴都必须严格相等。
+3. 若报错发生在构造 golden 的流程，优先检查 `ori_shape` 是否和实际 tensor 语义一致。
 
 #### 错误码：0xB200FU：RUNTIME_EXCEPTION
 ##### 日志示例
