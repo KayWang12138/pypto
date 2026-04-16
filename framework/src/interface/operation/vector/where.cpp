@@ -110,8 +110,6 @@ void TiledWhereOperation(
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        // bit模式下condition的尾轴偏移和切割应该都除以8
-        // cur == result->shape.size() - 1  特殊处理
         auto conditionDatatype = condition.tensor.GetDataType();
         if (cur == (result->shape.size() - 1) && conditionDatatype == DT_UINT8) {
             condition.tileInfo.offset[cur] = (i / NUM_VALUE_8) % condition.tensor.GetStorage()->shape[cur];
