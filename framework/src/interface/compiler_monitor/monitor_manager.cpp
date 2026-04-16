@@ -389,29 +389,6 @@ std::unordered_map<std::string, double> MonitorManager::GetStageElapsedTotals() 
     return stage_elapsed_totals_;
 }
 
-void MonitorManager::StartStage(const std::string& name)
-{
-    COMPILER_LOGI("Stage ==[%s]== begin.", name.c_str());
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!initialized_ || !impl_ || !enable_) {
-        return;
-    }
-    impl_->StartMonitoring();
-    MaybeStartTotalClock();
-    current_stage_ = name;
-    stage_start_ = std::chrono::steady_clock::now();
-    stage_doing_ = true;
-
-    ActiveStageInfo info;
-    info.stageName = name;
-    info.startTime = stage_start_;
-    info.functionIndex = current_function_index_;
-    info.functionName = current_function_;
-    info.rootFuncIndex = current_root_func_index_;
-    info.rootFuncName = current_root_func_;
-    active_stages_.push_back(info);
-}
-
 void MonitorManager::StartStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName)
 {
     COMPILER_LOGI("Stage ==[%s]== begin.", name.c_str());
@@ -430,35 +407,39 @@ void MonitorManager::StartStage(const std::string& name, int rootFuncIndex, cons
     info.startTime = stage_start_;
     info.functionIndex = current_function_index_;
     info.functionName = current_function_;
-    info.rootFuncIndex = rootFuncIndex;
-    info.rootFuncName = rootFuncName;
+    info.rootFuncIndex = (rootFuncIndex < 0) ? current_root_func_index_ : rootFuncIndex;
+    info.rootFuncName = (rootFuncIndex < 0) ? current_root_func_ : rootFuncName;
     active_stages_.push_back(info);
-}
-
-void MonitorManager::EndStage(const std::string& name)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = std::find_if(active_stages_.rbegin(), active_stages_.rend(), [&name](const ActiveStageInfo& info) {
-        return info.stageName == name;
-    });
-    int rootFuncIndex = (it != active_stages_.rend()) ? it->rootFuncIndex : current_root_func_index_;
-    std::string rootFuncName = (it != active_stages_.rend()) ? it->rootFuncName : current_root_func_;
-    if (it != active_stages_.rend()) {
-        active_stages_.erase(std::prev(it.base()));
-    }
-    EndStageInternal(name, rootFuncIndex, rootFuncName);
 }
 
 void MonitorManager::EndStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = std::find_if(active_stages_.rbegin(), active_stages_.rend(), [&](const ActiveStageInfo& info) {
-        return info.stageName == name && info.rootFuncIndex == rootFuncIndex;
-    });
+    int actualRootFuncIndex = rootFuncIndex;
+    std::string actualRootFuncName = rootFuncName;
+
+    auto it = active_stages_.rend();
+    if (rootFuncIndex < 0) {
+        it = std::find_if(active_stages_.rbegin(), active_stages_.rend(), [&name](const ActiveStageInfo& info) {
+            return info.stageName == name;
+        });
+        if (it != active_stages_.rend()) {
+            actualRootFuncIndex = it->rootFuncIndex;
+            actualRootFuncName = it->rootFuncName;
+        } else {
+            actualRootFuncIndex = current_root_func_index_;
+            actualRootFuncName = current_root_func_;
+        }
+    } else {
+        it = std::find_if(active_stages_.rbegin(), active_stages_.rend(), [&](const ActiveStageInfo& info) {
+            return info.stageName == name && info.rootFuncIndex == rootFuncIndex;
+        });
+    }
+
     if (it != active_stages_.rend()) {
         active_stages_.erase(std::prev(it.base()));
     }
-    EndStageInternal(name, rootFuncIndex, rootFuncName);
+    EndStageInternal(name, actualRootFuncIndex, actualRootFuncName);
 }
 
 void MonitorManager::EndStageInternal(const std::string& name, int rootFuncIndex, const std::string& rootFuncName)

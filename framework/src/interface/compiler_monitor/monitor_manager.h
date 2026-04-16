@@ -39,10 +39,8 @@ public:
     void Initialize(bool enable, int interval_sec, int timeout_sec, int total_timeout_sec);
     void Shutdown();
 
-    void StartStage(const std::string& name);
-    void StartStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName);
-    void EndStage(const std::string& name);
-    void EndStage(const std::string& name, int rootFuncIndex, const std::string& rootFuncName);
+    void StartStage(const std::string& name, int rootFuncIndex = -1, const std::string& rootFuncName = "");
+    void EndStage(const std::string& name, int rootFuncIndex = -1, const std::string& rootFuncName = "");
     double GetCurrentStageElapsed(const std::string& name);
 
     void SetTotalFunctionCount(int n);
