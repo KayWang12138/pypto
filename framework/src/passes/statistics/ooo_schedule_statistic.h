@@ -75,11 +75,11 @@ public:
         {MemoryType::MEM_L0C, 0}};
     struct SpillInfo {
         MemoryType spillType{MemoryType::MEM_UNKNOWN}; // spill buffer类型
-        int bufferCurrUsage{0};                        // 当前buffer的总使用量
-        int spillTensorSize{0};                        // spill的tensor的大小
-        int triggerTensorSize{0};                      // 触发当前spill的tensor的大小
-        int allocOccupiedSize{0};                      // 当前被alloc占用的buffer大小
-        int spillCopyoutSize{0};                       // spill到ddr的数据量
+        uint64_t bufferCurrUsage{0};                   // 当前buffer的总使用量
+        uint64_t spillTensorSize{0};                   // spill的tensor的大小
+        uint64_t triggerTensorSize{0};                 // 触发当前spill的tensor的大小
+        uint64_t allocOccupiedSize{0};                 // 当前被alloc占用的buffer大小
+        uint64_t spillCopyoutSize{0};                  // spill到ddr的数据量
         int spillTensorMagic;                          // spill tensor的magic
     };
     std::vector<SpillInfo> spillInfoVec;               // size为spill的次数

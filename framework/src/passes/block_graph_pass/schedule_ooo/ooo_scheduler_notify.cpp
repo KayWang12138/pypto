@@ -22,19 +22,28 @@ namespace npu::tile_fwk {
 void OoOScheduler::NotifyPipeIssued(PipeType pipeType, int latency)
 {
     if (observers_.empty()) return;
-    Notify(PipeIssuedEvent{pipeType, latency, clock});
+    PipeIssuedEvent event{pipeType, latency, clock};
+    for (auto* obs : observers_) {
+        obs->OnPipeIssued(event);
+    }
 }
 
 void OoOScheduler::NotifyBufferAllocated(MemoryType memType, int memId)
 {
     if (observers_.empty()) return;
-    Notify(BufferAllocEvent{memType, memId, localBufferMap_[memId]->size, clock});
+    BufferAllocEvent event{memType, memId, localBufferMap_.at(memId)->size, clock};
+    for (auto* obs : observers_) {
+        obs->OnBufferAllocated(event);
+    }
 }
 
 void OoOScheduler::NotifyBufferFreed(MemoryType memType, int memId)
 {
     if (observers_.empty()) return;
-    Notify(BufferFreeEvent{memType, memId, localBufferMap_[memId]->size, clock});
+    BufferFreeEvent event{memType, memId, localBufferMap_.at(memId)->size, clock};
+    for (auto* obs : observers_) {
+        obs->OnBufferFreed(event);
+    }
 }
 
 void OoOScheduler::NotifySpill(const SpillInfo& info, LocalBufferPtr allocBuffer)
@@ -42,28 +51,34 @@ void OoOScheduler::NotifySpill(const SpillInfo& info, LocalBufferPtr allocBuffer
     if (observers_.empty()) return;
 
     bool needCopyOut = info.spillOp_->GetOpcodeStr().find("COPY_IN") == std::string::npos;
-    int allocOccupied = 0;
+    uint64_t allocOccupied = 0;
     for (const auto& pair : tensorOccupyMap[allocBuffer->memType]) {
         if (opIsAllocMap[pair.second]) {
-            allocOccupied += localBufferMap_[pair.first]->size;
+            allocOccupied += localBufferMap_.at(pair.first)->size;
         }
     }
-    int spillCopyoutSize = 0;
+    uint64_t spillCopyoutSize = 0;
     if (needCopyOut) {
         auto dtype = info.ddrTensor_->tensor->datatype;
         spillCopyoutSize = std::accumulate(
             info.ddrTensor_->shape.begin(), info.ddrTensor_->shape.end(),
             1, std::multiplies<int64_t>()) * BytesOf(dtype);
     }
-    Notify(SpillEvent{allocBuffer->memType, info.spillMemId_,
-        localBufferMap_[info.spillMemId_]->size, allocBuffer->size,
-        info.ddrTensor_->GetMagic(), allocOccupied, spillCopyoutSize, clock});
+    SpillEvent event{allocBuffer->memType, info.spillMemId_,
+        localBufferMap_.at(info.spillMemId_)->size, allocBuffer->size,
+        info.ddrTensor_->GetMagic(), allocOccupied, spillCopyoutSize, clock};
+    for (auto* obs : observers_) {
+        obs->OnSpill(event);
+    }
 }
 
 void OoOScheduler::NotifyScheduleEnd(bool success)
 {
     if (observers_.empty()) return;
-    Notify(ScheduleEndEvent{clock, workspaceOffset, success});
+    ScheduleEndEvent event{clock, workspaceOffset, success};
+    for (auto* obs : observers_) {
+        obs->OnScheduleEnd(event);
+    }
 }
 
 } // namespace npu::tile_fwk

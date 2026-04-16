@@ -65,7 +65,7 @@ private:
     Status UpdateOpCoreMap(
         const TaskNode& taskNode, std::unordered_map<Operation*, CoreLocationType>& opCoreMap);
     std::vector<Function*> oriFunctions;
-    std::map<uint64_t, OoOScheduleStatistic> statisticMap;
+    std::map<uint64_t, OoOScheduleStatistic> statisticMap_;
     std::unordered_map<LogicalTensorPtr, Operation*> lastUseMap_;
     OoOScheduleChecker checker;
 };

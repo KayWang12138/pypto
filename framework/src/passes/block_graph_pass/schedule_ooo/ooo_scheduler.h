@@ -108,6 +108,7 @@ public:
         const std::unordered_set<CoreLocationType> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
     OoOScheduler(Function& function) : function_(function) {}
 
+    // Non-owning observer. Caller must ensure the observer outlives the whole Schedule() call.
     void AddObserver(ScheduleObserver* observer) { observers_.push_back(observer); }
     std::vector<Operation*> GetNewOperations() { return newOperations_; }
     int64_t workspaceOffset{0};
@@ -147,18 +148,6 @@ private:
     std::vector<Operation*> newOperations_;
     std::vector<Operation*> operations_;
     std::vector<ScheduleObserver*> observers_;
-
-    // Observer event dispatch — when observers_ is empty the loop body is never entered.
-    template<typename Event>
-    void Notify(const Event& event) {
-        for (auto* obs : observers_) {
-            if constexpr (std::is_same_v<Event, PipeIssuedEvent>) { obs->OnPipeIssued(event); }
-            else if constexpr (std::is_same_v<Event, BufferAllocEvent>) { obs->OnBufferAllocated(event); }
-            else if constexpr (std::is_same_v<Event, BufferFreeEvent>) { obs->OnBufferFreed(event); }
-            else if constexpr (std::is_same_v<Event, SpillEvent>) { obs->OnSpill(event); }
-            else if constexpr (std::is_same_v<Event, ScheduleEndEvent>) { obs->OnScheduleEnd(event); }
-        }
-    }
 
     // Notification helpers — event construction lives in ooo_scheduler_notify.cpp
     // to keep scheduler main flows focused on scheduling logic.

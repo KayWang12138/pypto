@@ -1984,6 +1984,8 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer)
     EXPECT_EQ(res, SUCCESS);
     auto opList = optimizeSort.operations;
     OoOScheduler oooSchedule(*function);
+    OoOScheduleStatistic testCheck;
+    oooSchedule.AddObserver(&testCheck);
     res = oooSchedule.Init(opList);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(oooSchedule.orderedOps[4]->GetOpcodeStr(), "L0A_ALLOC");

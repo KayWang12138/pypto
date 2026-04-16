@@ -66,7 +66,7 @@ void OoOSchedule::CollectStatistic(OoOScheduleStatistic& oooHealthCheck,
 {
     if (passDfxconfigs_.healthCheck) {
         oooHealthCheck.SetOutputPrefix(GetDumpFilePrefix(function, false, program.second, program.first));
-        statisticMap.insert({program.first, oooHealthCheck});
+        statisticMap_.insert({program.first, oooHealthCheck});
     }
 }
 
@@ -354,7 +354,7 @@ Status OoOSchedule::RunOnFunction(Function& function)
 
 void OoOSchedule::DoHealthCheckAfter(Function& function, const std::string& folderPath)
 {
-    for (auto& [programId, check] : statisticMap) {
+    for (auto& [programId, check] : statisticMap_) {
         auto fileName = folderPath + '/' + check.jsonFileName + "_Block_Graph_Health_Report.json";
         auto it = function.rootFunc_->programs_.find(programId);
         if (it != function.rootFunc_->programs_.end()) {

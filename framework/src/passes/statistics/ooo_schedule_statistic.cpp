@@ -52,8 +52,8 @@ void OoOScheduleStatistic::OnSpill(const SpillEvent& e)
     SpillInfo info;
     info.spillType = e.memType;
     info.bufferCurrUsage = bufferLastUsage[e.memType];
-    info.spillTensorSize = static_cast<int>(e.spillTensorSize);
-    info.triggerTensorSize = static_cast<int>(e.triggerTensorSize);
+    info.spillTensorSize = e.spillTensorSize;
+    info.triggerTensorSize = e.triggerTensorSize;
     info.allocOccupiedSize = e.allocOccupiedSize;
     info.spillCopyoutSize = e.spillCopyoutSize;
     info.spillTensorMagic = e.spillTensorMagic;
