@@ -271,11 +271,13 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     # 根据 group_type 计算 begin 和 end
     # group_type=0: group_list 各元素为单独的 group size，累加得到 K
     # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
+    begin = 0
+    end = 0
     for i in range(round_num):
         if group_type == 0:
-            # 累加方式计算 begin 和 end
-            begin = sum(group_list[:i])
-            end = begin + group_list[i]
+            # 累加方式: begin 指向当前组起始，end 指向当前组结束
+            begin = end
+            end = end + group_list[i]
         else:
             # group_list 直接给出累计值
             begin = 0 if i == 0 else group_list[i - 1]
@@ -384,13 +386,13 @@ def scaled_matmul_kernel(
     # 根据 group_type 计算 begin 和 end
     # group_type=0: group_list 各元素为单独的 group size，累加得到 K
     # group_type=1: group_list 各元素为累计值，最后一个元素等于 K
+    begin = 0
+    end = 0
     for i in range(g):
         if group_type == 0:
-            # 累加方式计算 begin 和 end
-            begin = 0
-            for j in range(i):
-                begin = begin + group_list[j]
-            end = begin + group_list[i]
+            # 累加方式: begin 指向当前组起始，end 指向当前组结束
+            begin = end
+            end = end + group_list[i]
         else:
             # group_list 直接给出累计值
             begin = 0 if i == 0 else group_list[i - 1]
