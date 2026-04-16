@@ -38,33 +38,25 @@ public:
      */
     static bool IsLastDim32BAligned(const LogicalTensorPtr& tensor);
 
+    /**
+     * @brief Align dimension up to the nearest multiple of padValue.
+     *
+     * @param dim input dimension value.
+     * @param padValue alignment value; return dim directly when padValue is 0.
+     * @return aligned dimension value.
+     */
     static int64_t Pad(int64_t dim, int64_t padValue);
 
+    /**
+     * @brief Pad last dimension to 32-byte aligned on UB memory.
+     *
+     * If tensor is on UB memory and last dimension is not 32-byte aligned,
+     * this function will pad the last dimension to meet 32-byte alignment requirement.
+     * Original shape is saved before modification.
+     *
+     * @param tensor input logical tensor to be processed.
+     */
     static void ProcessLastDim32BAlignedOnUB(LogicalTensorPtr tensor);
-
-    /**
-     * @brief Check whether UB tensor last dimension needs padding.
-     *
-     * @param tensor input logical tensor.
-     * @return true if UB tensor last dim is not aligned; otherwise false.
-     */
-    static bool NeedPadLastDim(const LogicalTensorPtr& tensor);
-
-    /**
-     * @brief Check whether tensor rawshape and oriRawshape differ on last dimension.
-     *
-     * @param tensor input logical tensor.
-     * @return true if raw last dim is unaligned; otherwise false.
-     */
-    static bool IsRawLastDimUnaligned(const LogicalTensorPtr& tensor);
-
-    /**
-     * @brief Check whether any input/output of an op is unaligned.
-     *
-     * @param op input operation.
-     * @return true if any non-combined-axis input/output is unaligned; otherwise false.
-     */
-    static bool HasUnalignedInputOrOutput(const Operation& op);
 
 private:
     /**
