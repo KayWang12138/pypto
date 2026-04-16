@@ -300,12 +300,25 @@ def check_ol34(ctx: CheckContext) -> Finding:
             continue
         if not isinstance(item, (list, tuple)):
             continue
+        # 尝试作为 flat shape 解析（如 [1024, 128]）
         try:
             dims = tuple(int(x) for x in item)
-        except (ValueError, TypeError):
+            if len(dims) >= 2:
+                spec_p0_shapes.add(dims)
             continue
-        if len(dims) >= 2:
-            spec_p0_shapes.add(dims)
+        except (ValueError, TypeError):
+            pass
+        # 多输入算子：item 是一组 shape（如 [[1,1,1,64], [1,1,128,64], ...]），
+        # 展开子项分别解析
+        for sub in item:
+            if not isinstance(sub, (list, tuple)):
+                continue
+            try:
+                dims = tuple(int(x) for x in sub)
+                if len(dims) >= 2:
+                    spec_p0_shapes.add(dims)
+            except (ValueError, TypeError):
+                continue
 
     if not spec_p0_shapes:
         return ctx.make_finding("OL34", "FAIL",
