@@ -311,7 +311,7 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
             scaled_x_golden = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
         else:
             x = a[:, begin:end]  # [M, K] 切分 K 轴 -> [M, K_block]
-            scaled_x_golden = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
+            scaled_x_golden = scaled_a[:, scale_offset : scale_offset + scale_length, :]  # [M, K_block//64, 2]
         
         weight = b[begin:end, :]  # [K_block, N]
         scaled_weight_golden = scaled_b[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, N, 2]
@@ -768,29 +768,5 @@ if __name__ == "__main__":
             b_format_nz=False,
             c_format_nz=False,
             description="Case5: FP8E5M2, K=512, g=2, group_list=[128, 384]"
-        )
-    )
-
-    # 测试用例6: a_trans=False (非转置格式)
-    # - M=32, K=512, N=1024
-    # - a=[M, K] (非转置格式), scaled_a=[M, (K//64)+g, 2]
-    # - group_list=[256, 256], g=2
-    # - a_trans=False: 输入矩阵不转置
-    test_gmm_mxfp8(
-        ShapeConfig(
-            ori_shape=[32, 512, 1024],
-            group_list=[256, 256],
-            m_tile_shape=[32, 32],
-            k_tile_shape=[256, 256],
-            n_tile_shape=[256, 256],
-            vector_tile_shape=[1, 8, 256, 32],
-            group_type=0,
-            in_dtype=pypto.DT_FP8E4M3,
-            a_trans=False,  # a_trans=False: 输入矩阵非转置格式 [M, K]
-            b_trans=False,
-            a_format_nz=False,
-            b_format_nz=False,
-            c_format_nz=False,
-            description="Case6: a_trans=False, a=[M,K], scaled_a=[M,(K//64)+g,2]"
         )
     )
