@@ -80,7 +80,8 @@ class Expr:
             return tuple(Expr._normalize_item_key(sub_item) for sub_item in item)
         return item
 
-    def decorate(self, n):
+    @staticmethod
+    def decorate(n):
         Expr.trace.append(('decorate', n))
 
         def wrapper(func):
@@ -88,6 +89,7 @@ class Expr:
             return func
         return wrapper
 
+    @staticmethod
     def attr(method_dict, name):
 
         @property
@@ -157,7 +159,8 @@ class TestParser:
 
         TestParser.target_list = []
 
-    def __enter__(self):
+    @staticmethod
+    def __enter__():
         TestParser.target_list.clear()
 
     def __exit__(self, exc_type, exc, tb):
@@ -173,7 +176,8 @@ class TestParser:
             if test_name.startswith('test_'):
                 global_dict[test_name]()
 
-    def run_ast(self, stmt_list):
+    @staticmethod
+    def run_ast(stmt_list):
         Expr.clear()
         src = ast.unparse(stmt_list)
         exec_global = {'Expr': Expr}
