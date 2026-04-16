@@ -74,7 +74,9 @@ TensorInfo ShmemWaitUntilImpl::GetTensorInfo(
     info.rawIndex = GetCoa(index, opAttrs, expressionTable);
     ++index; // 跳过 rawIndex
     info.dim = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_DIM_INDEX];
-    info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
+    for (uint32_t i = 0; i < info.dim && i < MAX_TENSOR_DIM; ++i) {
+        info.offset[i] = GetCoa(index + i, opAttrs, expressionTable);
+    }
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
