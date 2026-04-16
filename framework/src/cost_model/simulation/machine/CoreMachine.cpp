@@ -165,6 +165,7 @@ void CoreMachine::StepQueue()
     cacheRespQueue.Step();
     counterSetQueue.Step();
     while (!counterSetQueue.Empty()) {
+        counterSetQueue.CalendarPopFront();
         sim->calendarCounter[sim->taskSetMap[executingTaskId]]++;
 
         SIMULATION_LOGI(
