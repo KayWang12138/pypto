@@ -503,7 +503,8 @@ public:
         } else {
             if (enableEslModel_) {
                 if (args_[coreIdx] == nullptr) {
-                    args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+                    args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) +
+                        SHARED_BUFFER_SIZE * coreIdx);
                 }
             }
         }
@@ -558,7 +559,8 @@ public:
         } else {
             if (enableEslModel_) {
                 volatile KernelArgs *arg = args_[coreIdx];
-                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&arg->parallelDevTask.version), sizeof(version), &version);
+                eslModel_.WriteEslMem(reinterpret_cast<uint64_t>(&arg->parallelDevTask.version), sizeof(version),
+                    &version);
             }
         }
 
