@@ -13,11 +13,15 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 
 - **默认版本**：CANN 8.5.0 + PyTorch/torch_npu
 
-| CANN 版本 | torch | torch_npu |
-|-----------|-------|-----------|
-| 8.5.0 | ≥2.6.0 | ≥2.6.0.post3 |
+| CANN 版本 | torch 推荐版本 | torch_npu 推荐版本 |
+|-----------|---------------|-------------------|
+| 8.5.0 | 2.6.0 | 2.6.0.post3 |
 
-> ⚠️ 版本号随仓库迭代更新，安装前先执行步骤 1 诊断，以实际环境为准。如已安装更高版本且可正常导入，无需降级。
+**版本策略**：
+- 新环境（未安装 torch/torch_npu）：优先安装推荐版本（torch 2.6.0 + torch_npu 2.6.0.post3）
+- 已安装环境：
+  - 版本 ≥ 推荐版本：保持不变，无需降级
+  - 版本 < 推荐版本：升级至推荐版本
 
 ## ⛔ 隐私保护
 
@@ -92,10 +96,9 @@ fi
 > 手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。
 > 遇到报错见 [🔧 troubleshooting.md](references/troubleshooting.md)。
 
-> ⚠️ **torch_npu 版本兼容性**：torch 与 torch_npu 版本需匹配，安装命令：
+> ⚠️ **torch_npu 版本兼容性**：CANN 8.5.0 必须配套使用 `torch_npu==2.6.0.post3`，其他版本可能导致 HCCL 符号不兼容。安装命令：
 > ```bash
-> # 查看当前最新兼容版本
-> pip install torch torch-npu
+> pip install torch==2.6.0 torch-npu==2.6.0.post3
 > ```
 
 ### 步骤 4：验证和编译（必须执行）
@@ -142,7 +145,7 @@ EOF
 
 #### 步骤 4.4：安装 torch 和 torch_npu
 ```bash
-pip install torch torch-npu
+pip install torch==2.6.0 torch-npu==2.6.0.post3
 ```
 
 #### 步骤 4.5：编译安装 PyPTO
@@ -195,8 +198,8 @@ PyPTO 环境配置
 CANN 版本:  8.5.0
 NPU 芯片:   Ascend910 (A2/A3)
 Python:     3.10.x
-torch:      {torch_version}
-torch_npu:  {torch_npu_version}
+torch:      2.6.x
+torch_npu:  2.6.0.post3
 pypto:      ✅ 已安装
 =====================================
 
