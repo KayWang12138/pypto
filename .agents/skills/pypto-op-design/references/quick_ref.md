@@ -39,14 +39,15 @@
 
 按以下顺序逐条检查，命中即确定：
 
-| # | 检查条件 | 结论 | Loop 类型 | 原因 |
-|---|----------|------|-----------|------|
-| 1 | 存在动态轴（运行时才知道大小） | 需要 Loop | `pypto.loop` | 编译期无法展开，必须用运行时循环遍历动态维度 |
-| 2 | 多步骤分块计算（如 FlashAttention 分块累加） | 需要 Loop | `pypto.loop` 或 Python for | 数据量超单次 Tile 容量，需分块迭代并维护中间状态 |
-| 3 | 动态轴范围跨度大（如 1~64k） | 需要 Loop | `pypto.loop_unroll` | 大范围动态轴用 `loop_unroll` 可在编译期生成多版本代码，兼顾灵活性与性能 |
-| 4 | 所有轴编译期已知 & 单次 Tile 可处理 | **不需要** Loop | — | 编译器自动处理，无需手动循环 |
+| # | 检查条件 | 算子类型 | 结论 | Loop 类型 | 原因 |
+|---|----------|----------|------|-----------|------|
+| 1 | 含 matmul 且存在动态轴 | Cube | 需要 Loop | `pypto.loop` | 动态维度无法编译期确定 TileShape，必须用运行时循环遍历分块 |
+| 2 | 多步骤分块计算（如 FlashAttention 分块累加） | Cube/Vector | 需要 Loop | `pypto.loop` 或 Python for | 数据量超单次 Tile 容量，需分块迭代并维护中间状态 |
+| 3 | 动态轴范围跨度大（如 1~64k）且为 Cube 算子 | Cube | 需要 Loop | `pypto.loop_unroll` | 大范围动态轴用 `loop_unroll` 可在编译期生成多版本代码，兼顾灵活性与性能 |
+| 4 | 仅 Vector 逐元素/归约且存在动态轴 | Vector | 通常不需要 | — | Vector 操作由运行时自动处理动态 shape，无需手动 Loop |
+| 5 | 所有轴编译期已知 & 单次 Tile 可处理 | 任意 | **不需要** Loop | — | 编译器自动处理，无需手动循环 |
 
-**默认推荐**：简单逐元素算子（如 sinh、relu、add）通常命中条件 4，不需要 Loop。
+**默认推荐**：简单逐元素算子（如 sinh、relu、add）通常命中条件 4 或 5，不需要 Loop。含 matmul 的算子（如 attention、linear）命中条件 1，通常需要 Loop。
 
 ### 2.2 HARD 约束
 

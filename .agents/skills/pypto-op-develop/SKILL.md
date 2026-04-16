@@ -272,13 +272,17 @@ python3 custom/{op}/test_{op}.py
 import sys
 import numpy as np
 
+all_passed = True
+
 def run_test():
+    global all_passed
     # ... setup inputs, call golden and impl ...
     try:
         np.testing.assert_allclose(impl_output, golden_output, rtol=rtol, atol=atol)
         print("[PRECISION_PASS]")
     except AssertionError as e:
         print(f"[PRECISION_FAIL] {e}", file=sys.stderr)
+        all_passed = False
         sys.exit(1)
     except Exception as e:
         # 功能问题（无标记），exit code ≠ 0
@@ -286,7 +290,11 @@ def run_test():
         sys.exit(2)
 
 if __name__ == "__main__":
-    run_test()
+    try:
+        run_test()
+    except Exception as e:
+        print(f"[UNEXPECTED_ERROR] {e}", file=sys.stderr)
+        sys.exit(2)
 ```
 
 标记含义：

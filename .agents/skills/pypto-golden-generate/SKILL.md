@@ -5,7 +5,7 @@ description: "当需要生成 golden 参考实现时使用此 skill。基于算�
 
 # PyPTO Golden 参考实现生成
 
-基于算子规格信息，自动生成 PyTorch golden 参考实现及完整验证代码。生成的 golden 脚本用于开发阶段快速验证算子实现的正确性，可以作为独立模块被 `test_{op}.py` 等其他脚本导入调用。基于固定模板 [templates/golden-template.py](templates/golden-template.py) 生成（在§9 生成文件结构阶段读取该模板）。纯 torch 实现，禁止引入 pypto。
+基于算子规格信息，自动生成 PyTorch golden 参考实现及完整验证代码。生成的 golden 脚本用于开发阶段快速验证算子实现的正确性，可以作为独立模块被 `test_{op}.py` 等其他脚本导入调用。基于固定模板 [templates/golden-template.py](templates/golden-template.py) 生成（在§9 生成文件结构阶段读取该模板）。实现要求：优先使用 PyTorch 内置 API，允许使用 `numpy`、`math` 等标准科学计算库辅助实现（如 dtype 转换、数值计算），但禁止引入 `pypto`、`torch_npu` 等 NPU 相关库。
 
 1. 从用户输入提取算子名称、公式、输入输出规格等必要信息
 2. 如果信息不足，向用户逐步提问补充
@@ -77,7 +77,7 @@ description: "当需要生成 golden 参考实现时使用此 skill。基于算�
 
 ### 实现方式
 
-使用 **PyTorch** 实现 golden 函数。优先使用 PyTorch 内置 API，在没有直接对应 API 时由 LLM 基于公式生成实现。
+使用 **PyTorch** 实现 golden 函数。优先使用 PyTorch 内置 API，在没有直接对应 API 时由 LLM 基于公式生成实现。允许使用 `numpy`、`math` 等标准科学计算库辅助实现（如 dtype 转换、数值稳定性处理），但禁止引入 `pypto`、`torch_npu` 等 NPU 相关库。
 
 ### 函数签名
 
