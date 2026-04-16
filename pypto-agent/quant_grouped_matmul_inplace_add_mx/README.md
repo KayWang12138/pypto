@@ -1,99 +1,188 @@
-# QuantGroupedMatmulInplaceAddAdd with MX Quantization
+# Grouped Matrix Multiplication with MXFP8 Quantization
 
-本算子实现了基于 MX 量化的分组矩阵乘法就地加法操作，专为 micro-batch 训练场景设计，用于高效的梯度累积。
+本算子实现了基于 MXFP8 量化的分组矩阵乘法就地加法操作，支持多分组场景下的高效梯度累积计算。
 
 ---
 
 ## 功能说明
 
-`quant_grouped_matmul_inplace_add_mx` 算子将 GroupedMatMul 和 InplaceAdd 融合，使用 MX 量化方式，用于 micro-batch 训练场景的梯度累计，提高网络性能。
+`quant_grouped_matmul_inplace_add_mx` 算子将 GroupedMatMul 和 InplaceAdd 融合，使用 MXFP8 量化方式，支持按 K 轴分组进行矩阵乘法计算并就地累加到输出张量。
 
 该算子的核心特性：
 
-1. **MX 量化**：使用 MXFP8 格式进行量化，数据使用 FP8E5M2/FP8E4M3FN 格式，缩放因子使用 FP8E8M0 格式
-2. **分组计算**：支持将输入矩阵按不同分组进行计算
+1. **MXFP8 量化**：数据使用 FP8E4M3FN 格式，缩放因子使用 FP8E8M0 格式
+2. **K 轴分组**：支持将 K 轴按不同分组切分，每个分组对应不同的权重矩阵块
 3. **就地加法**：输出张量同时作为输入，执行就地加法操作，减少内存拷贝
-4. **高效融合**：通过 `scaled_mm` 算子实现缩放和矩阵乘法的融合计算
+4. **融合计算**：通过 `scaled_mm` 算子实现缩放和矩阵乘法的融合计算
 5. **新前端写法**：使用 PyPTO 新前端 API，支持类型注解和自动类型推导
 
-**说明：**
-<blockquote>MX 量化（Microscaling Quantization）是一种基于块缩放的量化格式。每 32 个元素（K 轴）共享一个缩放因子，缩放因子仅包含指数部分（FP8E8M0 格式），数据部分为 8 位浮点数（FP8E5M2/FP8E4M3FN 格式），适用于训练场景的高效量化计算。</blockquote>
+**MXFP8 量化说明：**
+
+MX 量化（Microscaling Quantization）是一种基于块缩放的量化格式。每 64 个元素（K 轴）共享一个缩放因子，缩放因子仅包含指数部分（FP8E8M0 格式），数据部分为 8 位浮点数（FP8E4M3FN 格式）。
+
+---
 
 ## 计算公式
 
-MX 量化场景下的计算公式：
+对于每个分组 i，计算公式为：
 
 $$
-y_i[m,n] = \sum_{j=0}^{kLoops-1} ((\sum_{k=0}^{gsK-1} (x1Slice_i * x2Slice_i)) * (scale1_i[m, j] * scale2_i[j, n])) + y_i[m,n]
+y_i[m,n] = y_i[m,n] + \sum_{k=begin_i}^{end_i} (a[k,m] \times scale_a[k,m]) \times (b[k,n] \times scale_b[k,n])
 $$
 
 其中：
-- `gsK` = 32：K 轴的量化 block size
-- `x1Slice_i`：`x1_i` 第 m 行长度为 gsK 的向量
-- `x2Slice_i`：`x2_i` 第 n 列长度为 gsK 的向量
-- K 轴从 `j*gsK` 起始切片，j 的取值范围 [0, kLoops)
-- `kLoops` = ceil(`K_i` / gsK)，支持最后的切片长度不足 gsK
+- `begin_i` 和 `end_i` 由 `group_list` 和 `group_type` 决定
+- `scale_a` 和 `scale_b` 为 MXFP8 量化缩放因子
+- 输出 `y` 形状为 `[num_groups, M, N]`，每个分组对应一个输出矩阵
 
-简化表示为：
-$$
-y = y + \text{ScaledMatmul}(x1, x2, \text{scale1}, \text{scale2})
-$$
+---
 
 ## 函数原型
 
 ```python
-def quant_grouped_matmul_inplace_add_pypto(
-    config: QuantGroupedMatmulInplaceAddConfig
-) -> Callable
+@pypto.frontend.jit
+def scaled_matmul_kernel(
+    a: pypto.Tensor(),
+    b: pypto.Tensor(),
+    scaled_a: pypto.Tensor(),
+    scaled_b: pypto.Tensor(),
+    y: pypto.Tensor(),
+    tile_config: ShapeConfig
+) -> None
 ```
 
-返回的 kernel 函数原型：
-
-```python
-def quant_grouped_matmul_inplace_add_impl(
-    x1: pypto.Tensor,
-    x2: pypto.Tensor,
-    scale1: pypto.Tensor,
-    scale2: pypto.Tensor,
-    y: pypto.Tensor
-) -> pypto.Tensor
-```
+---
 
 ## 参数说明
 
-### 配置类 QuantGroupedMatmulInplaceAddConfig
+### 配置类 ShapeConfig
 
 | 参数名 | 类型 | 描述 | 默认值 |
 |--------|------|------|--------|
 | ori_shape | list | 原始形状 [M, K, N] | - |
-| num_groups | int | 分组数量 | - |
-| m_tile_shape | list | M 维度的 tile shape | - |
-| k_tile_shape | list | K 维度的 tile shape | - |
-| n_tile_shape | list | N 维度的 tile shape | - |
-| vec_tile_shape | list | 向量操作的 tile shape | - |
-| x1_dtype | pypto.DataType | x1 的数据类型 | DT_FP8E5M2 |
-| x2_dtype | pypto.DataType | x2 的数据类型 | DT_FP8E5M2 |
-| scale_dtype | pypto.DataType | scale 的数据类型 | DT_FP8E8M0 |
-| out_dtype | pypto.DataType | 输出的数据类型 | DT_FP32 |
+| group_list | list | K 轴分组列表 | - |
+| m_tile_shape | list | M 维度的 tile shape [mL0, mL1] | - |
+| k_tile_shape | list | K 维度的 tile shape [kL0, kL1] | - |
+| n_tile_shape | list | N 维度的 tile shape [nL0, nL1] | - |
+| vector_tile_shape | list | 向量操作的 tile shape | - |
+| group_type | int | group_list 解释方式（0: 累加方式, 1: 累计值方式） | 0 |
+| a_trans | bool | 输入矩阵是否转置 | True |
+| b_trans | bool | 权重矩阵是否转置 | False |
+| a_format_nz | bool | 输入是否使用 NZ 格式 | False |
+| b_format_nz | bool | 权重是否使用 NZ 格式 | False |
+| c_format_nz | bool | 输出是否使用 NZ 格式 | False |
 | description | str | 测试用例描述 | "" |
+
+### group_list 和 group_type 说明
+
+| group_type | 含义 | 示例 | 说明 |
+|------------|------|------|------|
+| 0 | 累加方式 | `[256, 256]` | 各元素为单独的 group size，累加得到 K=512 |
+| 1 | 累计值方式 | `[256, 512]` | 各元素为累计 K 值，最后一个元素等于 K=512 |
 
 ### Kernel 输入输出参数
 
-| 参数名 | 输入/输出 | 描述 | 数据类型 | 数据格式 | 维度(shape) |
-|--------|-----------|------|----------|----------|-------------|
-| x1 | 输入 | 输入矩阵 1 | fp8e5m2/fp8e4m3fn | ND | [K, M] |
-| x2 | 输入 | 输入矩阵 2 | fp8e5m2/fp8e4m3fn | ND | [K, N] |
-| scale1 | 输入 | x1 的量化缩放因子 | fp8e8m0 | ND | [(K/64) + num_groups, M, 2] |
-| scale2 | 输入 | x2 的量化缩放因子 | fp8e8m0 | ND | [(K/64) + num_groups, N, 2] |
-| y | 输入输出 | 输入输出矩阵 | float32 | ND | [num_groups, M, N] |
+| 参数名 | 输入/输出 | 描述 | 数据类型 | 维度(shape) |
+|--------|-----------|------|----------|-------------|
+| a | 输入 | 输入矩阵（转置格式） | FP8E4M3FN | [K, M] |
+| b | 输入 | 权重矩阵 | FP8E4M3FN | [K, N] |
+| scaled_a | 输入 | a 的量化缩放因子 | FP8E8M0 | [(K//64)+g, M, 2] |
+| scaled_b | 输入 | b 的量化缩放因子 | FP8E8M0 | [(K//64)+g, N, 2] |
+| y | 输入输出 | 输入输出矩阵 | FP32 | [num_groups, M, N] |
+
+其中 `g` 为分组数量（`len(group_list)`）。
+
+---
+
+## MXFP8 Scale 存储格式
+
+Scale 张量采用连续存储格式，所有分组的 scale 存储在同一个 tensor 中：
+
+```
+scaled_a/scaled_b 形状: ((K//64)+g, M/N, 2)
+
+第 i 个 group 的 scale 偏移量 = begin_i // 64 + i
+第 i 个 group 的 scale 长度 = (end_i - begin_i) // 64
+```
+
+**示例：** K=512, g=2, group_list=[256, 256]
+
+| 分组 | K 轴范围 | scale_offset | scale_length | scale 切片范围 |
+|------|----------|--------------|--------------|----------------|
+| group 0 | [0, 256] | 0 | 4 | [0:4, :, :] |
+| group 1 | [256, 512] | 5 | 4 | [5:9, :, :] |
+
+**注意：** 每个分组之间有一个间隔位置（如 offset=5 而非 4），这是 MX 量化存储格式的特殊要求。
+
+---
 
 ## 约束说明
 
-- **K 轴对齐**：K 轴必须 64 对齐（MX 量化要求）
-- **分组限制**：最多支持 1024 个分组
-- **维度限制**：x1 和 x2 的每一维大小在 32 字节对齐后应小于 int32 的最大值 (2147483647)
-- **内轴限制**：内轴大小需小于 2097152
-- **确定性**：默认确定性实现
+### 1. 基础约束
+
+| 约束项 | 要求 | 说明 |
+|--------|------|------|
+| K 轴对齐 | K % 64 == 0 | MX 量化要求，每 64 个元素对应一个 scale |
+| group_list | sum(group_list) == K | 分组切分必须覆盖完整 K 轴 |
+| 每个 group | group_size % 64 == 0 | 每个分组大小必须 64 对齐 |
+
+### 2. 内轴 32 字节对齐约束（重要）
+
+根据 `scaled_mm` API 要求，内轴必须满足 32 字节对齐：
+
+| 场景 | 内轴 | 要求 |
+|------|------|------|
+| a_trans=True | M（mat_a=[K,M] 的内轴） | M >= 32（FP8: 32 元素 = 32 字节） |
+| b_trans=False | N（mat_b=[K,N] 的内轴） | N >= 32（FP8: 32 元素 = 32 字节） |
+
+### 3. Tile Shape 约束（关键）
+
+**⚠️ Buffer 空间约束（FP8 数据类型）**
+
+Tile Shape 必须满足 L0A/L0B/L0C Buffer 空间约束，否则会导致精度问题！
+
+**硬件 Buffer 大小：**
+```
+L0A_size = 64KB
+L0B_size = 64KB
+L0C_size = 128KB
+```
+
+**Buffer 需求计算（FP8，使用 32 元素对齐）：**
+```
+L0A需求: CeilAlign(mL0, 32) × CeilAlign(kL0, 32) × 1 字节
+L0B需求: CeilAlign(nL0, 32) × CeilAlign(kL0, 32) × 1 字节
+L0C需求: CeilAlign(mL0, 32) × CeilAlign(nL0, 32) × 4 字节
+```
+
+**推荐 Tile Shape 配置：**
+
+| 参数 | 推荐值 | 约束 |
+|------|--------|------|
+| m_tile_shape | [32, 32] 或 [64, 64] | mL0 >= 32，满足内轴对齐 |
+| k_tile_shape | [64, 64] 或 [64, 256] | **kL0 ≤ 256**（避免超出 L0B） |
+| n_tile_shape | [128, 256] 或 [256, 256] | nL0 >= 32，**nL0 × kL0 ≤ 64KB** |
+| vector_tile_shape | [1, 8, 256, 32] | 标准配置 |
+
+**危险配置示例（会导致精度问题）：**
+
+```python
+# ❌ 错误配置：kL0=512, nL0=512 会导致 L0B 超出 64KB
+k_tile_shape=[512, 512]   # L0B需求: 512×512×1=256KB > 64KB
+n_tile_shape=[512, 512]   # 触发 Spill 机制，精度失败
+
+# ✓ 正确配置：满足 Buffer 约束
+k_tile_shape=[64, 512]    # L0B需求: 256×64×1=16KB < 64KB
+n_tile_shape=[256, 512]   # L0B需求: 256×64×1=16KB < 64KB
+```
+
+### 4. 分组数量约束
+
+| 约束项 | 要求 |
+|--------|------|
+| 分组数量 | 建议 ≤ 4，过多分组会增加调度开销 |
+
+---
 
 ## 调用示例
 
@@ -104,119 +193,187 @@ import pypto
 import torch
 
 # 定义配置
-config = QuantGroupedMatmulInplaceAddConfig(
-    ori_shape=[16, 64, 16],  # [M, K, N]
-    num_groups=2,
-    m_tile_shape=[16, 16],
-    k_tile_shape=[64, 64],
-    n_tile_shape=[16, 16],
-    vec_tile_shape=[1, 8, 256, 32],
+tile_config = ShapeConfig(
+    ori_shape=[32, 512, 7168],  # [M, K, N]
+    group_list=[256, 256],       # 两个分组，每个 256
+    m_tile_shape=[32, 32],       # M 维度 tile
+    k_tile_shape=[256, 256],     # K 维度 tile
+    n_tile_shape=[256, 256],     # N 维度 tile
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=0,                # 累加方式
+    a_trans=True,
+    b_trans=False,
+    description="Basic test with 2 groups"
 )
 
-# 创建 kernel
-kernel = quant_grouped_matmul_inplace_add_pypto(config)
-
 # 创建输入张量
-x1 = torch.randn(64, 16, dtype=torch.float8_e5m2, device='npu:0')
-x2 = torch.randn(64, 16, dtype=torch.float8_e5m2, device='npu:0')
-y = torch.randn(2, 16, 16, dtype=torch.float32, device='npu:0')
+K, M, N = 512, 32, 7168
+num_groups = 2
 
-# 创建量化参数张量
-scale1 = torch.ones((64//64 + 2, 16, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
-scale2 = torch.ones((64//64 + 2, 16, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
+a = torch.randn((K, M), dtype=torch.float8_e4m3fn, device='npu:0')
+b = torch.randn((K, N), dtype=torch.float8_e4m3fn, device='npu:0')
+scaled_a = torch.randn((K//64 + num_groups, M, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
+scaled_b = torch.randn((K//64 + num_groups, N, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
+y = torch.randn((num_groups, M, N), dtype=torch.float32, device='npu:0')
 
 # 调用 kernel
-result = kernel(x1, x2, scale1, scale2, y)
+scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
 ```
 
 ### 运行测试
 
 ```python
-# 运行基本测试
-run_quant_grouped_matmul_inplace_add_case(
-    QuantGroupedMatmulInplaceAddConfig(
-        ori_shape=[16, 64, 16],
-        num_groups=2,
-        m_tile_shape=[16, 16],
-        k_tile_shape=[64, 64],
-        n_tile_shape=[16, 16],
-        vec_tile_shape=[1, 8, 256, 32],
-        description="Basic test with 2 groups"
-    )
+# 运行测试用例
+python quant_grouped_matmul_inplace_add_mx.py
+```
+
+---
+
+## 测试用例说明
+
+### 用例 1：基础用例
+
+```python
+ShapeConfig(
+    [32, 512, 7168],
+    [256, 256],
+    [32, 32],
+    [256, 256],
+    [256, 256],
+    [1, 8, 256, 32],
+    0,
+    True, False, False, False, False,
+    "Case1: K=512, g=2, group_list=[256,256]"
 )
 ```
 
-### 新前端写法特点
+- M=32, K=512, N=7168
+- 两个分组，每个 K_block=256
+- L0B需求: 256×256×1 = 64KB（刚好满足）
 
-1. **类型注解**：在函数签名中使用 `pypto.Tensor(shape, dtype)` 进行类型注解
-2. **自动编译**：使用 `@pypto.frontend.jit()` 装饰器自动编译
-3. **返回值注解**：使用 `-> pypto.Tensor(shape, dtype)` 注解返回值类型
-4. **配置驱动**：通过配置类管理所有参数，便于扩展和维护
+### 用例 2：更大 M 维度
 
 ```python
-@pypto.frontend.jit()
-def quant_grouped_matmul_inplace_add_impl(
-    x1: pypto.Tensor(x1_shape, config.x1_dtype),
-    x2: pypto.Tensor(x2_shape, config.x2_dtype),
-    scale1: pypto.Tensor(scale1_shape, config.scale_dtype),
-    scale2: pypto.Tensor(scale2_shape, config.scale_dtype),
-    y: pypto.Tensor(y_shape, config.out_dtype)
-) -> pypto.Tensor(y_shape, config.out_dtype):
-    # 实现代码
-    ...
-    return y
+ShapeConfig(
+    [64, 1024, 4096],
+    [512, 512],
+    [64, 64],
+    [64, 512],       # kL0=64，避免超出 Buffer
+    [256, 512],      # nL0=256
+    [1, 8, 256, 32],
+    0,
+    True, False, False, False, False,
+    "Case2: M=64, K=1024, g=2"
+)
 ```
+
+- M=64, K=1024, N=4096
+- kL0=64, nL0=256，L0B需求: 256×64×1 = 16KB ✓
+
+### 用例 3：3 个分组
+
+```python
+ShapeConfig(
+    [32, 768, 2048],
+    [256, 256, 256],
+    [32, 32],
+    [256, 256],
+    [256, 256],
+    [1, 8, 256, 32],
+    0,
+    True, False, False, False, False,
+    "Case3: K=768, g=3"
+)
+```
+
+- K=768，三个分组
+- scale 存储：((768/64)+3, 32, 2) = (15, 32, 2)
+
+### 用例 4：累计值模式
+
+```python
+ShapeConfig(
+    [32, 512, 1024],
+    [256, 512],      # 累计值：256 表示 K=[0,256]，512 表示 K=[256,512]
+    [32, 32],
+    [256, 256],
+    [256, 256],
+    [1, 8, 256, 32],
+    1,               # group_type=1
+    True, False, False, False, False,
+    "Case4: group_type=1, cumulative mode"
+)
+```
+
+---
 
 ## 性能优化建议
 
-1. **Tile Shape 配置**：根据实际硬件和输入形状调整 tile shape
-   - `m_tile_shape`：M 维度的 tile 大小，建议 [16, 16] 或 [32, 32]
-   - `k_tile_shape`：K 维度的 tile 大小，建议 [64, 64]
-   - `n_tile_shape`：N 维度的 tile 大小，建议 [16, 16] 或 [32, 32]
+### 1. Tile Shape 配置
 
-2. **Vector Tile Shape 配置**：用于向量操作的 tile 配置
-   - `vec_tile_shape`：建议 [1, 8, 256, 32]
+**关键原则：保证 Buffer 空间约束**
 
-3. **内存对齐**：确保 K 轴 64 对齐，M 和 N 轴 32 字节对齐
+| Buffer | 约束公式（FP8） | 最大安全配置 |
+|--------|----------------|--------------|
+| L0A | mL0 × kL0 × 1 ≤ 64KB | mL0 × kL0 ≤ 65536 |
+| L0B | **nL0 × kL0 × 1 ≤ 64KB** | **nL0 × kL0 ≤ 65536** ⚠️ |
+| L0C | mL0 × nL0 × 4 ≤ 128KB | mL0 × nL0 ≤ 32768 |
 
-4. **分组策略**：合理选择分组数，避免过多分组导致性能下降
+**推荐配置策略：**
 
-## 与 CANN API 的对应关系
+1. **kL0 保持较小值**（64-256），避免与 nL0 相乘超出 L0B
+2. **mL0 >= 32**，满足内轴对齐
+3. **nL0 >= 32**，满足内轴对齐，同时 nL0 × kL0 ≤ 65536
 
-本 PyPTO 算子对应 CANN 的 `aclnnQuantGroupedMatmulInplaceAdd` 接口：
+### 2. 分组策略
 
-- **CANN 接口**：`aclnnQuantGroupedMatmulInplaceAdd`
-- **量化方式**：MX 量化
-- **产品支持**：Ascend 950PR/Ascend 950DT
+- 分组数量适中（2-4 个），避免过多分组增加调度开销
+- 每个分组大小建议相同，便于切分优化
+
+### 3. Double Buffer
+
+当 mL1 × kL1 × sizeof(dtype) ≤ 32KB 时，可开启 MTE1 double buffer 实现流水并行：
+
+```python
+m_tile_shape=[32, 32]   # mL1=32, FP8下32KB，可开启 double buffer
+k_tile_shape=[64, 64]   # kL1=64
+```
+
+---
 
 ## 常见问题
 
-### Q: 为什么 K 必须被 64 整除？
+### Q1: 为什么 K 必须被 64 整除？
 
-A: 这是 MX 量化的要求。MX 量化使用 64 作为 K 轴的量化单位，scale 张量的形状也基于此设计。
+A: MX 量化以 64 个元素为一个量化块，每个块对应一个 scale 值（FP8E8M0 格式）。scale 张量的形状基于 `K//64` 计算。
 
-### Q: scale 张量的形状是如何计算的？
+### Q2: scale 张量的形状如何计算？
 
-A: scale1 的形状为 `[(K/64) + num_groups, M, 2]`，scale2 的形状为 `[(K/64) + num_groups, N, 2]`。其中：
-- `K/64`：K 轴的量化块数
-- `num_groups`：分组数
-- `M` 或 `N`：对应的输出维度
-- `2`：每个量化点需要 2 个值（scale 和可能的偏移）
+A: 
+```
+scaled_a: ((K//64) + num_groups, M, 2)
+scaled_b: ((K//64) + num_groups, N, 2)
+```
+其中 `num_groups` 是额外增加的空间，用于分组间的间隔存储。
 
-### Q: 如何验证结果的正确性？
+### Q3: 为什么 kL0 和 nL0 不能太大？
 
-A: 可以使用提供的 `gen_golden_output` 函数进行对比验证，或使用测试用例中的 `run_quant_grouped_matmul_inplace_add_case` 函数。
+A: L0B Buffer 只有 64KB，需求为 `nL0 × kL0 × 1` 字节。当 kL0=512, nL0=512 时，需求 256KB，超出 4 倍，会触发 Spill 机制导致精度失败。
 
-### Q: 新前端写法有什么优势？
+### Q4: 精度失败但没报错，原因是什么？
 
-A: 新前端写法具有以下优势：
-1. **类型安全**：通过类型注解提供编译时类型检查
-2. **代码简洁**：减少样板代码，提高可读性
-3. **易于维护**：配置类集中管理参数，便于扩展
-4. **自动推导**：支持自动类型推导和形状推断
+A: Tile Shape 超出 Buffer 约束时，编译器不会报错，但运行时会触发 Spill（数据换出换入），导致计算使用错误数据，精度失败。
+
+### Q5: group_type=0 和 group_type=1 有什么区别？
+
+A:
+- **group_type=0**：`[256, 256]` 表示两个分组，大小分别为 256 和 256，K=512
+- **group_type=1**：`[256, 512]` 表示累计值，第一个分组 K=[0,256]，第二个分组 K=[256,512]
+
+---
 
 ## 参考资源
 
-- [CANN aclnnQuantGroupedMatmulInplaceAdd 文档](D:\cann\ops-transformer\gmm\quant_grouped_matmul_inplace_add\docs\aclnnQuantGroupedMatmulInplaceAdd.md)
-- [PyPTO scaled_mm API 文档](D:\cann\pypto\docs\api\operation\pypto-scaled_mm.md)
-- [PyPTO quant_matmul_reduce_sum 示例](D:\cann\pypto\models\experimental\matmul\quant_matmul_reduce_sum.py)
+- [PyPTO scaled_mm API 文档](../../docs/api/operation/pypto-scaled_mm.md)
+- [PyPTO set_cube_tile_shapes 文档](../../docs/api/config/pypto-set_cube_tile_shapes.md)
+- [Matmul 性能编程指南](../../docs/tutorials/debug/matmul_performance_guide.md)
