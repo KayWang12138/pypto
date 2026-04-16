@@ -731,7 +731,7 @@ SuperNodeGraphBuilder::ScopeCollectResult SuperNodeGraphBuilder::CollectScopeInf
 
 Status SuperNodeGraphBuilder::ValidateScopeCoreTypes(
     int32_t scopeId, const std::unordered_set<OpCoreType>& coreTypes, bool isCVMix,
-    std::map<int32_t, int32_t>& scopeToMixId)
+    std::map<int32_t, int32_t>& scopeToCvFuseId)
 {
     bool hasAic = coreTypes.count(OpCoreType::AIC) > 0;
     bool hasAiv = coreTypes.count(OpCoreType::AIV) > 0;
@@ -739,7 +739,7 @@ Status SuperNodeGraphBuilder::ValidateScopeCoreTypes(
         return SUCCESS;
     }
     if (isCVMix) {
-        scopeToMixId[scopeId] = nextMixId_++;
+        scopeToCvFuseId[scopeId] = nextCvFuseId_++;
         return SUCCESS;
     }
     APASS_LOG_ERROR_F(
@@ -749,11 +749,11 @@ Status SuperNodeGraphBuilder::ValidateScopeCoreTypes(
 
 Status SuperNodeGraphBuilder::CheckAndMergeScopes(
     const ScopeCollectResult& scopeInfo, std::vector<int32_t>& snParent, bool& needRebuild,
-    std::map<int32_t, int32_t>& scopeToMixId)
+    std::map<int32_t, int32_t>& scopeToCvFuseId)
 {
     bool isCVMix = GraphUtils::IsCVMixPlatform();
     for (auto& [scopeId, coreTypes] : scopeInfo.scopeCoreTypes) {
-        if (ValidateScopeCoreTypes(scopeId, coreTypes, isCVMix, scopeToMixId) != SUCCESS) {
+        if (ValidateScopeCoreTypes(scopeId, coreTypes, isCVMix, scopeToCvFuseId) != SUCCESS) {
             return FAILED;
         }
         bool allowParallel =
@@ -769,6 +769,11 @@ Status SuperNodeGraphBuilder::CheckAndMergeScopes(
                 } else {
                     int32_t p2 = FindParent(snParent, nodeIdx);
                     snParent[p2] = p1;
+                    APASS_LOG_DEBUG_F(
+                        Elements::Operation, "Combine %d and %d for ScopeMerge(parallel) scopeId=%d in building SuperNode.",
+                        operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
+                        operationInfo_->opList_[superNodeInfo_->node2Op_[firstNode][0]]->GetOpMagic(),
+                        scopeId);
                     needRebuild = true;
                 }
             }
@@ -780,6 +785,11 @@ Status SuperNodeGraphBuilder::CheckAndMergeScopes(
                 if (superNodeInfo_->nodeScope_[outNodeIdx].scopeId == scopeId) {
                     int32_t p2 = FindParent(snParent, outNodeIdx);
                     snParent[p2] = p1;
+                    APASS_LOG_DEBUG_F(
+                        Elements::Operation, "Combine %d and %d for ScopeMerge scopeId=%d in building SuperNode.",
+                        operationInfo_->opList_[superNodeInfo_->node2Op_[outNodeIdx][0]]->GetOpMagic(),
+                        operationInfo_->opList_[superNodeInfo_->node2Op_[nodeIdx][0]]->GetOpMagic(),
+                        scopeId);
                     needRebuild = true;
                 }
             }
@@ -817,15 +827,15 @@ void SuperNodeGraphBuilder::RebuildSuperNodes(const std::vector<int32_t>& snPare
     superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, !useCVMixPartition_);
 }
 
-void SuperNodeGraphBuilder::ApplyCVMixIds(const std::map<int32_t, int32_t>& scopeToMixId,
+void SuperNodeGraphBuilder::ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId,
     const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes)
 {
-    for (const auto& [scopeId, mixId] : scopeToMixId) {
+    for (const auto& [scopeId, cvFuseId] : scopeToCvFuseId) {
         auto it = scope2Nodes.find(scopeId);
         if (it == scope2Nodes.end()) continue;
         for (int32_t nodeIdx : it->second) {
             for (int32_t opIdx : superNodeInfo_->node2Op_[nodeIdx]) {
-                operationInfo_->opList_[opIdx]->scopeInfo_.SetMixId(mixId);
+                operationInfo_->opList_[opIdx]->scopeInfo_.SetCvFuseId(cvFuseId);
             }
         }
     }
@@ -849,8 +859,8 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
     };
 
     bool needRebuild = false;
-    std::map<int32_t, int32_t> scopeToMixId;
-    Status ret = CheckAndMergeScopes(scopeInfo, snParent, needRebuild, scopeToMixId);
+    std::map<int32_t, int32_t> scopeToCvFuseId;
+    Status ret = CheckAndMergeScopes(scopeInfo, snParent, needRebuild, scopeToCvFuseId);
     if (ret != SUCCESS) {
         return ret;
     }
@@ -860,7 +870,7 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
     }
 
     if (GraphUtils::IsCVMixPlatform()) {
-        ApplyCVMixIds(scopeToMixId, scopeInfo.scope2Nodes);
+        ApplyCvFuseIds(scopeToCvFuseId, scopeInfo.scope2Nodes);
     }
     return SUCCESS;
 }

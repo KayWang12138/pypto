@@ -84,13 +84,13 @@ protected:
     ScopeCollectResult CollectScopeInfo(int32_t numNodes);
     Status ValidateScopeCoreTypes(
         int32_t scopeId, const std::unordered_set<OpCoreType>& coreTypes, bool isCVMix,
-        std::map<int32_t, int32_t>& scopeToMixId);
+        std::map<int32_t, int32_t>& scopeToCvFuseId);
     Status CheckAndMergeScopes(const ScopeCollectResult& scopeInfo,
         std::vector<int32_t>& snParent,
         bool& needRebuild,
-        std::map<int32_t, int32_t>& scopeToMixId);
+        std::map<int32_t, int32_t>& scopeToCvFuseId);
     void RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes);
-    void ApplyCVMixIds(const std::map<int32_t, int32_t>& scopeToMixId,
+    void ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId,
                        const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes);
 
     Status BuildHashValues();
@@ -125,7 +125,7 @@ protected:
     // Parameters
     bool useReduceBalanceHash_ = true;
     bool useCVMixPartition_ = false;
-    int nextMixId_ = 0;
+    int nextCvFuseId_ = 0;
 
     // Data
     std::shared_ptr<OperationGraphInfo> operationInfo_;
