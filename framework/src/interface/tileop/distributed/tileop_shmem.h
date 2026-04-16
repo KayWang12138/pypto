@@ -556,6 +556,35 @@ TILEOP void ShmemGetGm2Ub(
         UBDataAddr, buffer, shmemDataAddr, ubValidShape0, ubValidShape1);
 }
 
+// WaitUntil: wait until signal sum equals expected value.
+template <int32_t expectedSum, int32_t stride, int32_t tileRowShape, int32_t tileColShape, bool resetSignal>
+TILEOP void ShmemWaitUntil(
+    CoreFuncParam* param, __gm__ int32_t* shmemSignalBaseAddr, uint32_t shmemSignalOffset0,
+    uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalRawShape0,
+    uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalShape0,
+    uint32_t shmemSignalShape1, uint32_t shmemSignalShape2, uint32_t ownerRank, __gm__ int64_t* hcclContext)
+{
+    int32_t tileCols = CeilDiv(static_cast<int32_t>(shmemSignalRawShape2), tileColShape);
+    int32_t tileRows = CeilDiv(static_cast<int32_t>(shmemSignalRawShape1), tileRowShape);
+    int32_t tileRow = static_cast<int32_t>(shmemSignalOffset1) / tileRowShape;
+    int32_t tileCol = static_cast<int32_t>(shmemSignalOffset2) / tileColShape;
+    int32_t tileIndex = tileRow * tileCols + tileCol;
+    int32_t totalTileNum = tileRows * tileCols;
+
+    __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t, 1>(hcclContext, shmemSignalBaseAddr, ownerRank) +
+                                      CalcLinearOffset(totalTileNum, shmemSignalOffset0, tileIndex) * stride;
+
+    do {
+        dcci(shmemSignalAddr, SINGLE_CACHE_LINE);
+        PIPE_SYNC_EVENT(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    } while (shmemSignalAddr[0] != expectedSum);
+
+    // Optionally reset signal to zero after waiting
+    if constexpr (resetSignal) {
+        shmemSignalAddr[0] = 0;
+    }
+}
+
 } // namespace TileOp::Distributed
 
 #endif
