@@ -525,9 +525,7 @@ private:
     inline void ProfStop()
     {
         if (aicoreProf_.ProfIsEnable()) {
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE
             DumpTaskProf();
-#endif
         }
 
         aicoreProf_.ProfStop();
@@ -1404,6 +1402,8 @@ private:
                 finTaskRegVal, pendingIdRef, runningIdRef);
         }
 #else
+        (void)ctx;
+        (void)finishCnt;
         ret = ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx, resloveParallelIdx);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
@@ -2084,25 +2084,14 @@ private:
         DumpAicoreLog(coreIdx);
 #endif
 
-        volatile TaskStat* stat = aicoreHal_.GetTaskStat(coreIdx, 0);
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1 
-         aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat)); 
-#endif
-
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
         if (unlikely(isEnableDump)) {
-            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, coreIdx, stat->execStart, stat->execEnd);
+            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, coreIdx);
         }
 #endif
 
         DEV_IF_VERBOSE_DEBUG { recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId, deviceTaskCtx->TaskId())); }
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1 
-         SetNextDfxPos(coreIdx); // pingpong 存储 
-#endif
-        (void)stat;
     }
 
     inline bool IsNeedProcAicpuTask() { return aicpuIdx_ == 2; }
