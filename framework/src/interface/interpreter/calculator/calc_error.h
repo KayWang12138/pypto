@@ -17,7 +17,7 @@
 
 #include <cstdint>
 
-namespace npu::tile_fwk::calc_error {
+namespace npu::tile_fwk {
 
 // Calculator 层错误码从 0xBF000U 开始，只在 calculator/ 目录内部使用，
 
@@ -53,4 +53,4 @@ enum class CalculatorErrorScene : uint32_t {
     MATMUL_INPUT_SHAPE_MISMATCH = 0xBF00DU, // MatMul/MX MatMul 输入shape不符合预期
 };
 
-} // namespace npu::tile_fwk::calc_error
+} // namespace npu::tile_fwk
