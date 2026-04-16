@@ -49,6 +49,19 @@ static bool IsUint8GoldenAndHf8InOut(const DeviceTensorData& inOutTensor, const 
 static void ValidateVerifyOutputAndGolden(
     const std::vector<DeviceTensorData>& inOutTensors, const std::vector<DeviceTensorData>& goldens)
 {
+    auto ShapeToString = [](const std::vector<int64_t>& shape) {
+        std::ostringstream oss;
+        oss << "[";
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (i != 0) {
+                oss << ", ";
+            }
+            oss << shape[i];
+        }
+        oss << "]";
+        return oss.str();
+    };
+
     if (inOutTensors.size() != goldens.size()) {
         return;
     }
@@ -63,13 +76,18 @@ static void ValidateVerifyOutputAndGolden(
         ASSERT(
             VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType() ||
                                                              IsUint8GoldenAndHf8InOut(inOutTensors[i], goldens[i]))
-            << "dtype mismatch at index " << i;
+            << "dtype mismatch at index " << i << ", output dtype: " << DataType2String(inOutTensors[i].GetDataType())
+            << ", golden dtype: " << DataType2String(goldens[i].GetDataType());
 
         auto& outputShape = inOutTensors[i].GetShape();
         auto& goldenShape = goldens[i].GetShape();
-        ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size());
+        ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size())
+            << "shape rank mismatch at golden index " << i << ", output rank: " << outputShape.size()
+            << ", golden rank: " << goldenShape.size();
         for (size_t dim = 0; dim < outputShape.size(); dim++) {
-            ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape[dim] == goldenShape[dim]);
+            ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape[dim] == goldenShape[dim])
+                << "shape mismatch at golden index " << i << ", dim " << dim
+                << ", output shape: " << ShapeToString(outputShape) << ", golden shape: " << ShapeToString(goldenShape);
         }
     }
 }
