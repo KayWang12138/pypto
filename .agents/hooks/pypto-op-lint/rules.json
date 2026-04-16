@@ -301,7 +301,7 @@
     },
     {
       "id": "OL21",
-      "severity": "S1",
+      "severity": "S2",
       "dimension": "D4",
       "stages": [
         5,
