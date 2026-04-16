@@ -17,3 +17,6 @@ cd output/bin
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenSigmoid.test_sigmoid_002
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.test_index_put_001
 # ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenIndexPut.test_index_put_001_cloud
+
+
+# ./tile_fwk_utest --gtest_filter=LiteNPUCodeGenSigmoid.*

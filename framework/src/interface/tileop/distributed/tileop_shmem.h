@@ -20,7 +20,7 @@
 #include <type_traits>
 
 #ifdef SUPPORT_TILE_TENSOR
-#include "pto/pto-inst.hpp"
+#include "pto/comm/pto_comm_inst.hpp"
 #endif
 
 namespace TileOp::Distributed {
