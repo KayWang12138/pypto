@@ -76,11 +76,12 @@ Status AssignMemoryType::RunOnFunction(Function& function)
     // 处理cube级联场景tile等大约束
     ProcesSmallTileToLargeTile(function);
     ProcessLargeTileToSamllTile(function);
-
-    ProcessL0C2UBSmallToLarge(function);
-    ProcessL0C2UBLargeToSmall(function);
-    ProcessUB2L1SmallToLarge(function);
-    ProcessUB2L1LargeToSmall(function);
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        ProcessL0C2UBSmallToLarge(function);
+        ProcessL0C2UBLargeToSmall(function);
+        ProcessUB2L1SmallToLarge(function);
+        ProcessUB2L1LargeToSmall(function);
+    }
 
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
@@ -205,16 +206,19 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation& operation)
             inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_DEVICE_DDR);
         }
     }
-    if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
-        (out->GetMemoryTypeOriginal() == MemoryType::MEM_UB || attrToType == MemoryType::MEM_UB)) {        
-        inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_L0C);
-    }
-    if (in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
-        (out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 || attrToType == MemoryType::MEM_L1)) {
-        if (inserter.FitUB2L1(in)) {
-            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_UB);
-        } else {
-            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_DEVICE_DDR);
+    bool isA5 = (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510);
+    if (isA5) {
+        if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+            (out->GetMemoryTypeOriginal() == MemoryType::MEM_UB || attrToType == MemoryType::MEM_UB)) {        
+            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_L0C);
+        }
+        if (in->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+            (out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 || attrToType == MemoryType::MEM_L1)) {
+            if (inserter.FitUB2L1(in)) {
+                inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_UB);
+            } else {
+                inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_DEVICE_DDR);
+            }
         }
     }
     if (attrToType == MemoryType::MEM_UNKNOWN) {
@@ -241,6 +245,8 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation& operation)
 {
     auto input = operation.iOperand.front();
     auto output = operation.oOperand.front();
+    // 仅 A5 支持 L0C2UB 和 UB2L1
+    bool isA5 = (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510);
     if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         if (inserter.FitL0C2L1(operation)) {
             if (CheckConsumerRequirements(output, MemoryType::MEM_L1)) {
@@ -249,14 +255,14 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation& operation)
             }
         }
         // 处理 L0C2UB 通路（小搬大） 
-        if (CheckConsumerRequirements(output, MemoryType::MEM_UB)) {       
+        if (isA5 && CheckConsumerRequirements(output, MemoryType::MEM_UB)) {       
             SetupAssembleMapping(operation, input, output, MemoryType::MEM_UB);
             return;
         }
         return;
     }
     if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-        if (inserter.FitUB2L1(input) && CheckConsumerRequirements(output, MemoryType::MEM_L1)) {
+        if (isA5 && inserter.FitUB2L1(input) && CheckConsumerRequirements(output, MemoryType::MEM_L1)) {
             SetupAssembleMapping(operation, input, output, MemoryType::MEM_L1);
             return;
         }
@@ -638,25 +644,28 @@ void AssignMemoryType::ProcessSingleViewInput(Operation& operation, ViewOpAttrib
         viewOpAttribute->SetToType(outputTensor->GetMemoryTypeOriginal());
         return;
     }
-    // L0C -> UB
-    if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
-        outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-        inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
-        viewOpAttribute->SetToType(MemoryType::MEM_UB);
-        APASS_LOG_DEBUG_F(Elements::Operation,
-            "AssignMoveOpForView: View Op[%d] set L0C->UB",
-            operation.GetOpMagic());
-        return;
-    }
-    // UB -> L1
-    if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
-        outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_UB);
-        viewOpAttribute->SetToType(MemoryType::MEM_L1);
-        APASS_LOG_DEBUG_F(Elements::Operation,
-            "AssignMoveOpForView: View Op[%d] set UB->L1",
-            operation.GetOpMagic());
-        return;
+    bool isA5 = (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510);
+    if (isA5) {
+        // L0C -> UB
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
+            viewOpAttribute->SetToType(MemoryType::MEM_UB);
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "AssignMoveOpForView: View Op[%d] set L0C->UB",
+                operation.GetOpMagic());
+            return;
+        }
+        // UB -> L1
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_UB);
+            viewOpAttribute->SetToType(MemoryType::MEM_L1);
+            APASS_LOG_DEBUG_F(Elements::Operation,
+                "AssignMoveOpForView: View Op[%d] set UB->L1",
+                operation.GetOpMagic());
+            return;
+        }
     }
     APASS_LOG_DEBUG_F(
         Elements::Operation, "%s[%d] input %d mem original %s --> %s.", operation.GetOpcodeStr().c_str(),
