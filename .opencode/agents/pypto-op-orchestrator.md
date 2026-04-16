@@ -347,3 +347,4 @@ complete_stage(N) → [门禁失败，抛异常] → fail_stage(N) → start_sta
 5. 仅允许通过 `state_transition` 工具修改 `custom/{op}/.orchestrator_state.json`，禁止通过 write/edit/multiedit/bash/shell 直接写该文件。
 6. `complete_stage` 会校验工件完整性；若校验失败，返回异常并保留当前 stage，可沿用原 stage 重新尝试。
 7. Stage 5 / Stage 6 调度 `pypto-op-developer`：每次 Subagent 调度等于 1 次 attempt（Subagent 内部不循环、不跨 Stage 切换）。Stage 5 收到 `PRECISION_FAIL` 后必须立即 `complete_stage(5)` 并进入 Stage 6；Stage 5 与 Stage 6 各自累计 attempt 上限为 5。
+8. **绝对禁止 Orchestrator 自行修复代码或编辑工件**：无论任何阶段返回何种失败，Orchestrator 都不得自行编辑代码、修改实现或修复精度问题。唯一允许的操作是重新调度对应 Subagent 处理，或在重试次数耗尽后标记为 BLOCKED。
