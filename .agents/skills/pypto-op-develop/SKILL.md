@@ -104,12 +104,16 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 
 **输出目录**：`custom/{op}/`
 
+**准备工作**（并行读取）：
+在进入编码前，**并行读取**以下参考文件（同一条消息中发起所有 Read 调用）：
+- `references/execution-constraints.md` — 框架级约束清单
+- `references/impl-template.py` — impl 文件模板
+- `references/test-template.py` — test 文件模板
+
 **生成顺序**：
 1. 根据输入信息，先梳理 API 映射、tiling 策略、loop 结构，确认可行后再进入实现
-2. 进入实现前，读取 `references/execution-constraints.md`，把框架级约束、基础类型约束、控制流约束和高频 operation 约束落实到本次实现
-3. 基于 `references/impl-template.py` 生成 `{op}_impl.py`
-4. 基于 `references/test-template.py` 生成 `test_{op}.py`（前置：`{op}_impl.py` 已生成）
-5. 生成 `README.md`
+2. 基于约束清单和 impl 模板生成 `{op}_impl.py`
+3. `{op}_impl.py` 完成后，**并行生成** `test_{op}.py` 和 `README.md`（两者互不依赖）
 
 ⚠️ 实现代码与测试代码必须分离，禁止混写 golden / impl / test 到同一文件。
 
