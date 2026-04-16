@@ -197,6 +197,15 @@ void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp) {
     }
 }
 
+void OoOScheduler::UpdateOpIsCube(Operation &op, Operation* srcOp) {
+    std::cout << "new op " <<  op.GetOpcodeStr().c_str() << " " << op.GetOpMagic() << std::endl;
+    std::cout << "srcOp op iscube: " <<  srcOp->GetOpcodeStr().c_str() << " " << srcOp->GetOpMagic() << " has cube: " << srcOp->HasAttribute(OpAttributeKey::isCube) << std::endl;
+    if (srcOp->HasAttribute(OpAttributeKey::isCube)) {
+        op.SetAttribute(OpAttributeKey::isCube, srcOp->GetBoolAttribute(OpAttributeKey::isCube));
+        std::cout << "new inset op " <<  op.GetOpcodeStr().c_str() << " " << op.GetOpMagic() << " isCube: " << srcOp->GetBoolAttribute(OpAttributeKey::isCube) << std::endl;
+    }
+}
+
 // A5 中：L1 发生 spill 时， copy_in的rawshape属性来源于实际spill的tensor，offset属性来源于spill op
 void OoOScheduler::GetActualSpillInfo(Operation* spillOp, std::pair<LogicalTensorPtr, Operation*>& actualInfo)
 {
@@ -415,6 +424,8 @@ Status OoOScheduler::UpdateReloadIssueInfo(Operation* reloadAlloc, Operation* re
     opCoreLocationMap[reloadCopyin] = opCoreLocationMap[allocOp];
     UpdateOpInternalSubgraphID(*reloadAlloc, allocOp);
     UpdateOpInternalSubgraphID(*reloadCopyin, allocOp);
+    UpdateOpIsCube(*reloadAlloc, spillOp);
+    UpdateOpIsCube(*reloadCopyin, spillOp);
     if (UpdateReloadIssueDepend(reloadCopyin, spillOp, spillMemId) != SUCCESS) {
         return FAILED;
     }
@@ -587,6 +598,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preOp, base,
         spillInfo.isSpecialL1_);
     auto spillCopyInOpPtr = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
+    UpdateOpIsCube(*spillCopyInOp, spillInfo.spillOp_);
     // A5 下 DDR->COPY_IN->L1->RESHAPE->L1 场景不标记 copy_in_mode
     if (preOp->GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyInMode failed");
@@ -594,6 +606,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, Operation*
     }
     // 创建 reshape
     auto& reshapeOp = function_.AddRawOperation(Opcode::OP_RESHAPE, {newTensor}, {reshapeTensor});
+    UpdateOpIsCube(*reshapeOp, spillInfo.spillOp_);
     reshapeOp.UpdateLatency(1);
     auto reshapeOpPtr = UpdateIssueAttr(reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_ALLOC: %s. ", GetOpInfo(spillAllocOpPtr).c_str());
@@ -727,6 +740,7 @@ Status OoOScheduler::CreateSpillCopyout(Operation* spillOp, LogicalTensorPtr spi
     opIsAllocMap[spillCopyoutOp] = false;
     opPipeTypeMap[spillCopyoutOp] = RescheduleUtils::GetOpPipeType(spillCopyoutOp);
     opViewOpsMap[spillCopyoutOp] = std::vector<Operation*>();
+    UpdateOpIsCube(*spillCopyoutOp, spillOp);
     for (auto preOp : depManager_.GetPredecessors(spillOp)) {
         if (opIsAllocMap[preOp]) {
             opCoreLocationMap[spillCopyoutOp] = opCoreLocationMap[preOp];
@@ -1027,6 +1041,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
         return FAILED;
     }
     UpdateIssueAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocOp, bufNextUseOrder, isGenSpill);
+    UpdateOpIsCube(*spillCopyInOp, spillInfo.spillOp_);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
@@ -1035,6 +1050,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, Operation* allocO
     assembleOp.UpdateLatency(1);
     UpdateIssueAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId},
         allocOp, bufNextUseOrder, isGenSpill);
+    UpdateOpIsCube(*newAssembleOp, spillInfo.spillOp_);
     numTotalIssues += TWO_ISSUE;
     return SUCCESS;
 }
