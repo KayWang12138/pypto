@@ -15,9 +15,9 @@ import pytest
 import torch
 
 
-def _to_device_tensor_data(tensor: torch.Tensor, shape=None):
+def _to_device_tensor_data(tensor: torch.Tensor, shape=None, dtype=pypto.DT_FP32):
     target_shape = list(tensor.shape) if shape is None else shape
-    return pypto.pypto_impl.DeviceTensorData(pypto.DT_FP32, tensor.data_ptr(), target_shape)
+    return pypto.pypto_impl.DeviceTensorData(dtype, tensor.data_ptr(), target_shape)
 
 
 @pytest.mark.skip(reason="Verify not supported")
@@ -52,26 +52,34 @@ def test_verify_dynamic_ops_assemble():
 
 
 def test_set_verify_data_dtype_mismatch_intercept():
-    output = torch.zeros((2, 3), dtype=torch.float32)
-    golden = torch.zeros((2, 3), dtype=torch.float32)
+    input_tensor = torch.zeros((2, 3), dtype=torch.float32)
+    output_tensor = torch.zeros((2, 3), dtype=torch.float32)
+    input_golden = torch.zeros((2, 3), dtype=torch.float32)
+    output_golden = torch.zeros((2, 3), dtype=torch.float32)
 
-    output_data = pypto.pypto_impl.DeviceTensorData(pypto.DT_FP32, output.data_ptr(), list(output.shape))
-    golden_data = pypto.pypto_impl.DeviceTensorData(pypto.DT_FP16, golden.data_ptr(), list(golden.shape))
+    input_data = _to_device_tensor_data(input_tensor, dtype=pypto.DT_FP32)
+    output_data = _to_device_tensor_data(output_tensor, dtype=pypto.DT_FP32)
+    input_golden_data = _to_device_tensor_data(input_golden, dtype=pypto.DT_FP32)
+    output_golden_data = _to_device_tensor_data(output_golden, dtype=pypto.DT_FP16)
 
     with pytest.raises(Exception, match="Errcode:\\s*FB4003"):
-        pypto.pypto_impl.SetVerifyData([], [output_data], [golden_data])
+        pypto.pypto_impl.SetVerifyData([input_data], [output_data], [input_golden_data, output_golden_data])
 
 
 def test_set_verify_data_shape_intercept_with_wildcard_minus_one():
-    output = torch.zeros((2, 3), dtype=torch.float32)
-    golden = torch.zeros((2, 3), dtype=torch.float32)
+    input_tensor = torch.zeros((2, 3), dtype=torch.float32)
+    output_tensor = torch.zeros((2, 3), dtype=torch.float32)
+    input_golden = torch.zeros((2, 3), dtype=torch.float32)
+    output_golden = torch.zeros((2, 3), dtype=torch.float32)
 
+    input_data = _to_device_tensor_data(input_tensor)
+    output_wildcard = _to_device_tensor_data(output_tensor, [-1, 3])
+    input_golden_data = _to_device_tensor_data(input_golden)
+    output_golden_exact = _to_device_tensor_data(output_golden, [2, 3])
     # -1 on one side is treated as wildcard and should pass.
-    output_wildcard = _to_device_tensor_data(output, [-1, 3])
-    golden_exact = _to_device_tensor_data(golden, [2, 3])
-    pypto.pypto_impl.SetVerifyData([], [output_wildcard], [golden_exact])
+    pypto.pypto_impl.SetVerifyData([input_data], [output_wildcard], [input_golden_data, output_golden_exact])
 
     # Non -1 mismatch should be intercepted.
-    output_bad_shape = _to_device_tensor_data(output, [2, 4])
+    output_bad_shape = _to_device_tensor_data(output_tensor, [2, 4])
     with pytest.raises(Exception, match="Errcode:\\s*FB4002"):
-        pypto.pypto_impl.SetVerifyData([], [output_bad_shape], [golden_exact])
+        pypto.pypto_impl.SetVerifyData([input_data], [output_bad_shape], [input_golden_data, output_golden_exact])

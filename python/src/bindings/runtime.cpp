@@ -42,22 +42,22 @@ using namespace npu::tile_fwk::dynamic;
 namespace pypto {
 
 static void ValidateVerifyOutputAndGolden(
-    const std::vector<DeviceTensorData>& outputs, const std::vector<DeviceTensorData>& goldens)
+    const std::vector<DeviceTensorData>& inOutTensors, const std::vector<DeviceTensorData>& goldens)
 {
-    if (outputs.size() != goldens.size()) {
+    if (inOutTensors.size() != goldens.size()) {
         return;
     }
 
-    for (size_t i = 0; i < outputs.size(); i++) {
-        const bool outputIsNone = outputs[i].GetAddr() == nullptr;
+    for (size_t i = 0; i < inOutTensors.size(); i++) {
+        const bool outputIsNone = inOutTensors[i].GetAddr() == nullptr;
         const bool goldenIsNone = goldens[i].GetAddr() == nullptr;
         if (outputIsNone || goldenIsNone) {
             continue;
         }
 
-        ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, outputs[i].GetDataType() == goldens[i].GetDataType());
+        ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType());
 
-        const auto& outputShape = outputs[i].GetShape();
+        const auto& outputShape = inOutTensors[i].GetShape();
         const auto& goldenShape = goldens[i].GetShape();
         ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size());
         for (size_t dim = 0; dim < outputShape.size(); dim++) {
@@ -95,7 +95,11 @@ void SetVerifyData(
         return logical;
     };
 
-    ValidateVerifyOutputAndGolden(outputs, goldens);
+    std::vector<DeviceTensorData> inOutTensors;
+    inOutTensors.reserve(inputs.size() + outputs.size());
+    inOutTensors.insert(inOutTensors.end(), inputs.begin(), inputs.end());
+    inOutTensors.insert(inOutTensors.end(), outputs.begin(), outputs.end());
+    ValidateVerifyOutputAndGolden(inOutTensors, goldens);
 
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {

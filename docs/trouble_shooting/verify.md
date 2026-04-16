@@ -52,32 +52,32 @@
 
 #### 错误码：0xB4003U：VERIFY_RESULT_DTYPE_DIFF
 ##### 日志示例
-该场景为传入的 output 与 golden 在同一 index 上 dtype 不一致，日志通常类似如下：
+该场景为传入的 `in_out_tensors`（即 input+output 拼接数组）与 `goldens` 在同一 index 上 dtype 不一致，日志通常类似如下：
 ```log
 RuntimeError: Errcode: FB4003!
 , func ValidateVerifyOutputAndGolden, file runtime.cpp, line XX
 ```
 ##### 触发条件
-- `SetVerifyData` 中 `outputs.size() == goldens.size()`
-- 同一 index 上 `output` 和 `golden` 都不是 `None`
+- `SetVerifyData` 中 `(inputs.size() + outputs.size()) == goldens.size()`
+- 同一 index 上 `in_out_tensors[i]` 和 `goldens[i]` 都不是 `None`
 - 两者 dtype 不一致
 
 ##### 定位指导
-1. 在 Python 侧打印并逐项核对 `in_out_tensors`（或 verify 的 `outputs`）与 `goldens` 的 `dtype`。
+1. 在 Python 侧按 `inputs + outputs` 的顺序打印并逐项核对与 `goldens` 的 `dtype`。
 2. 重点检查以下混用场景：`torch.float16`/`torch.float32`、`bfloat16`/`float16`、`int32`/`int64`。
 3. 若 golden 来源于 `from_torch` 或中间转换，确认转换前后的 dtype 没有被隐式修改。
-4. 修复原则：同一 index 的 output/golden 必须是同一 dtype；若确需不同精度，请先在 Python 侧显式 `to(...)` 统一后再传入 verify。
+4. 修复原则：同一 index 的 `in_out_tensors[i]` 与 `goldens[i]` 必须是同一 dtype；若确需不同精度，请先在 Python 侧显式 `to(...)` 统一后再传入 verify。
 
 #### 错误码：0xB4002U：VERIFY_RESULT_SHAPE_DIFF
 ##### 日志示例
-该场景为传入的 output 与 golden 在同一 index 上 shape 不一致，日志通常类似如下：
+该场景为传入的 `in_out_tensors`（即 input+output 拼接数组）与 `goldens` 在同一 index 上 shape 不一致，日志通常类似如下：
 ```log
 RuntimeError: Errcode: FB4002!
 , func ValidateVerifyOutputAndGolden, file runtime.cpp, line XX
 ```
 ##### 触发条件
-- `SetVerifyData` 中 `outputs.size() == goldens.size()`
-- 同一 index 上 `output` 和 `golden` 都不是 `None`
+- `SetVerifyData` 中 `(inputs.size() + outputs.size()) == goldens.size()`
+- 同一 index 上 `in_out_tensors[i]` 和 `goldens[i]` 都不是 `None`
 - rank 不一致，或逐轴比较时出现不匹配（但 `-1` 轴按通配处理）
 
 ##### `-1` 轴规则说明
@@ -86,7 +86,7 @@ RuntimeError: Errcode: FB4002!
 - rank（维度个数）仍需一致，`-1` 不会放宽 rank 校验。
 
 ##### 定位指导
-1. 先看 `output.shape` 与 `golden.shape` 的 rank 是否一致。
+1. 先按 `inputs + outputs` 的顺序确认对齐关系，再看对应 index 的 shape rank 是否一致。
 2. 再逐轴比对：确认是否是非 `-1` 轴不一致导致触发。
 3. 若使用了动态维（`-1`），建议仅在不确定轴上使用，其他轴保持精确值，避免掩盖真实 shape 问题。
 4. 若报错发生在构造 golden 的流程，优先检查 `ori_shape` 是否和实际 tensor 语义一致。
