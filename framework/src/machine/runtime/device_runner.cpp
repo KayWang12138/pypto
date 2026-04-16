@@ -162,7 +162,6 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs& args)
 
 void DeviceRunner::InitDynamicArgs(DeviceArgs& args)
 {
-    GetModuleLogLevel(args);
     devArgs_ = reinterpret_cast<DeviceArgs*>(DevAlloc(sizeof(DeviceArgs)));
     rtMemcpy(
         reinterpret_cast<void*>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs), RT_MEMCPY_HOST_TO_DEVICE);
@@ -252,6 +251,7 @@ int DeviceRunner::InitDeviceArgsCore(
         "aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic, args.nrAiv,
         blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
+    GetModuleLogLevel(args);
     return 0;
 }
 
