@@ -155,12 +155,12 @@ public:
         funcdata_[coreIdx] = funcdata;
     }
 
-    void SendTask(int coreIdx, uint64_t taskId)
+    void SendTask(int coreIdx, uint64_t taskId, std::map<uint64_t, uint64_t> tensorAddr2SizeMap)
     {
         auto funcdata = funcdata_[coreIdx];
         DynFuncHeader* header = reinterpret_cast<DynFuncHeader*>(funcdata);
         DynFuncData* data = reinterpret_cast<DynFuncData*>(header + 1);
-        pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId));
+        pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId), tensorAddr2SizeMap);
     }
 };
 
@@ -222,7 +222,7 @@ private:
         InitKernelInOuts(kArgs, inputs, outputs, true);
         RunCostModel(&kArgs);
         SIMULATION_LOGI("Run TestModel");
-        RunTestMode(&kArgs, DEVICE_MAX_AICPU_NUM);
+        RunTestMode(&kArgs);
         SIMULATION_LOGI("Run DynCostModel");
         RunDynCostModel();
         SIMULATION_LOGI("Run PvModel");
@@ -334,7 +334,6 @@ private:
             return;
         }
         config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         CostModelAgent costModelAgent;
 
         std::string path = config::LogTopFolder() + "/dyn_topo.txt";
@@ -344,15 +343,13 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunPvModel(
-        DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
+    void RunPvModel(DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
         const std::vector<RawTensorDataPtr>& outputs)
     {
         if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM ||
             std::getenv("ASCEND_HOME_PATH") == nullptr) {
             return;
         }
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         try {
             pv_ = CostModel::PvModelFactory::CreateDyn();
             pv_->InitPv();
@@ -362,28 +359,20 @@ private:
         }
 
         model_ = std::make_shared<AiCorePvModelImpl>(pv_);
-        const int maxCpuNum = 6;
         pv_->Codegen(function_);
         BuildPvKernelArgs(kArgs, inputs, outputs);
-        RunTestMode(&kArgs, maxCpuNum);
-        SetDevPtr(inputs, outputs);
-        CopyFromDev(inputs, outputs);
+        RunTestMode(&kArgs);
+        pv_->CopyTensorFromDev();
     }
 
-    void BuildPvKernelArgs(
-        DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
+    void BuildPvKernelArgs(DeviceKernelArgs& kArgs, const std::vector<RawTensorDataPtr>& inputs,
         const std::vector<RawTensorDataPtr>& outputs)
     {
         MemoryHelper devMem{true};
         auto buildInouts = [&](auto& tensorList, DevTensorData* tensorData) {
             for (auto& t : tensorList) {
-                if (t) {
-                    auto addrs = reinterpret_cast<uint64_t>(pv_->CopyTensorToDev((uint8_t*)t->data(), t->size()));
-                    DevAscendTensorDataCreator::Init(tensorData, addrs, t->GetShape().data(), t->GetShape().size());
-                } else {
-                    std::vector<int> shape;
-                    DevAscendTensorDataCreator::Init(tensorData, 0UL, shape.data(), shape.size());
-                }
+                auto addrs = reinterpret_cast<uint64_t>(pv_->CopyTensorToDev((uint8_t*)t->data(), t->size()));
+                DevAscendTensorDataCreator::Init(tensorData, addrs, t->GetShape().data(), t->GetShape().size());
                 tensorData++;
             }
             return;
@@ -394,18 +383,8 @@ private:
 
         devProg->devArgs.nrAicpu = 6;
         devProg->devArgs.nrValidAic = 24;
-        devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
-        devProg->workspaceSize = devProg->memBudget.Total();
         devProg->devArgs.scheCpuNum = 1;
         AssignMetaAddr(devMem, kArgs, devProg, nullptr);
-        for (auto& input : inputs) {
-            if (input)
-                input->SetDevPtr(nullptr);
-        }
-        for (auto& output : outputs) {
-            if (output)
-                output->SetDevPtr(nullptr);
-        }
         size_t tensorSize = (inputs.size() + outputs.size()) * sizeof(DevTensorData) + 2 * sizeof(uint64_t);
         std::vector<uint8_t> tensorInfo(tensorSize);
         auto data = reinterpret_cast<uint64_t*>(tensorInfo.data());
@@ -419,66 +398,39 @@ private:
         buildInouts(outputs, dataPtr);
         kArgs.inputs = (int64_t*)pv_->CopyToDev(tensorInfo.data(), tensorSize);
         kArgs.outputs = kArgs.inputs + 1;
-        kArgs.workspace = (int64_t*)pv_->AllocWorkspaceDev(devProg->workspaceSize);
         kArgs.cfgdata = (int64_t*)pv_->CopyToDev(devProgData.data(), devProgData.size());
         kArgs.aicoreModel = model_.get();
     }
 
-    void SetDevPtr(const std::vector<RawTensorDataPtr>& inputs, const std::vector<RawTensorDataPtr>& outputs)
+    void RunTestMode(DeviceKernelArgs* kArgs)
     {
-        auto setDevPtr = [&](auto& tensorList) {
-            for (uint i = 0; i < tensorList.size(); i++) {
-                int index = pv_->GetOutIndex(i, tensorList.size());
-                tensorList[i]->SetDevPtr(reinterpret_cast<uint8_t*>(pv_->GetDataHostPtr(index)));
-            }
-        };
-        setDevPtr(inputs);
-        setDevPtr(outputs);
-    }
-
-    void CopyFromDev(const std::vector<RawTensorDataPtr>& inputs, const std::vector<RawTensorDataPtr>& outputs)
-    {
-        auto copyFromDev = [&](auto& tensorList) {
-            for (auto& tensor : tensorList) {
-                if (tensor)
-                    pv_->CopyFromDev(tensor->data(), tensor->GetDevPtr(), tensor->size());
-            }
-        };
-
-        copyFromDev(inputs);
-        copyFromDev(outputs);
-    }
-
-    void RunTestMode(DeviceKernelArgs* kArgs, int maxCpuNum)
-    {
-        (void)kArgs;
-        std::vector<std::thread> aicpus(maxCpuNum);
         std::atomic<int> idx{0};
         auto* devProg = (DevAscendProgram*)(kArgs->cfgdata);
         size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
         auto deviceTaskCtrlPoolAddr =
             devProg->devArgs.runtimeDataRingBufferAddr + sizeof(RuntimeDataRingBufferHead) + DEV_ARGS_SIZE;
         (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
-        int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
-        threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
-        for (int i = 0; i < threadNum; i++) {
-            aicpus[i] = std::thread([&]() {
-                int tidx = idx++;
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(tidx, &cpuset);
-                std::string name = "aicput" + std::to_string(tidx);
-                pthread_setname_np(pthread_self(), name.c_str());
-                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-                if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
-                    (void)PyptoKernelCtrlServer(kArgs);
-                } else {
-                    (void)DynTileFwkBackendKernelServer(kArgs);
-                }
-            });
+        int launchAiCpuNum = static_cast<int>(devProg->devArgs.nrAicpu + dynamic::MAX_CONTROL_FLOW_AICPU_NUM);
+        std::vector<std::thread> aicpus(launchAiCpuNum);
+        auto threadFun = [&](uint32_t runMode) {
+            int tidx = idx++;
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(tidx, &cpuset);
+            std::string name = "aicput" + std::to_string(tidx);
+            pthread_setname_np(pthread_self(), name.c_str());
+            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            DeviceKernelArgs localArgs = *kArgs;
+            localArgs.parameter.runMode = runMode;
+            (void)DynTileFwkBackendKernelServer(&localArgs);
+        };
+
+        aicpus[0] = std::thread(threadFun, RUN_SPLITTED_STREAM_CTRL);
+        for (int i = 1; i < launchAiCpuNum; i++) {
+           aicpus[i] = std::thread(threadFun, RUN_SPLITTED_STREAM_SCHE);
         }
 
-        for (int i = 0; i < threadNum; i++) {
+        for (int i = 0; i < launchAiCpuNum; i++) {
             if (aicpus[i].joinable()) {
                 aicpus[i].join();
             }

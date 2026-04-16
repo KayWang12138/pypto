@@ -15,6 +15,7 @@
 
 #include "remove_unaligned_reshape_op.h"
 #include "passes/pass_utils/graph_utils.h"
+#include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "RemoveUnalignedReshape"
@@ -136,19 +137,20 @@ std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, co
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function& function)
 {
     APASS_LOG_INFO_F(Elements::Function, "===> Start ReplaceDynUnalignedReshapeOps.");
-    for (auto& op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE || processedReshapeOps.count(op.GetOpMagic())) {
+    auto opList = function.Operations().DuplicatedOpList();
+    for (auto& op : opList) {
+        if (op->GetOpcode() != Opcode::OP_RESHAPE || processedReshapeOps.count(op->GetOpMagic())) {
             continue;
         }
-        auto input = op.GetIOperands().front();
-        auto output = op.GetOOperands().front();
+        auto input = op->GetIOperands().front();
+        auto output = op->GetOOperands().front();
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
             output->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            ReplaceDynUnalignedReshapeOpsForUB(function, op);
+            ReplaceDynUnalignedReshapeOpsForUB(function, *op);
         } else if (
             input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
             output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            ReplaceDynUnalignedReshapeOpsForDDR(function, op);
+            ReplaceDynUnalignedReshapeOpsForDDR(function, *op);
         }
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
@@ -213,6 +215,41 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function& functi
     }
 }
 
+Operation* RemoveUnalignedReshape::CopyBranchBetweenCopyOut2Reshape(Function& function, std::vector<LogicalTensorPtr>& needToCopyTensors, const int& index) {
+    bool canToCopy = false;
+    Operation* branchOp = nullptr;
+    LogicalTensorPtr curTensor = nullptr;
+    LogicalTensorPtr preTensor = nullptr;
+    LogicalTensorPtr preCloneTensor = nullptr;
+    Operation* preOp = nullptr;
+    for (int i = needToCopyTensors.size() - 1; i >= 0; i--) {
+        auto tensor = needToCopyTensors[i];
+        curTensor = tensor->Clone(function, true);
+        if (!canToCopy && tensor->GetConsumers().size() > 1) {
+            branchOp = *(std::next(tensor->GetConsumers().begin(), index));
+            canToCopy = true;
+            branchOp->ReplaceInput(curTensor, tensor);
+        }
+        if (canToCopy) {
+            if (preOp != nullptr) {
+                auto& newOp = preOp->CloneOperation(function, preOp->GetIOperands(), preOp->GetOOperands());
+                newOp.ReplaceInput(curTensor, tensor);
+                newOp.ReplaceOutput(preCloneTensor, preTensor);
+            }
+            if (!tensor->GetProducers().empty()) {
+                preOp = *(tensor->GetProducers().begin());
+            }
+        }
+        preTensor = tensor;
+        preCloneTensor = curTensor;
+    }
+    //此时preOp 为 copyOutop preTensor为CopyOut的输出
+    Operation* newCopyOutOp = &(preOp->CloneOperation(function, preOp->GetIOperands(), preOp->GetOOperands()));
+    newCopyOutOp->ReplaceOutput(preCloneTensor, preTensor);
+    DeadOperationEliminator::EliminateDeadOperation(function);
+    return newCopyOutOp;
+}
+
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& function, Operation& op)
 {
     auto input = op.GetIOperands().front();
@@ -234,22 +271,16 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
             break;
         }
     }
-
     if (hasNonImmediate) {
-        bool hasOtherBranch = false;
-        std::vector<Operation*> copyOutOps = FindAllProducerCopyOuts(input, hasOtherBranch);
-        if (hasOtherBranch) {
-            APASS_LOG_WARN_F(
-                Elements::Operation, "There are other branches between reshape[%d] and copyins.", op.GetOpMagic());
+        std::vector<LogicalTensorPtr> needToCopyTensors;
+        int index = -1;
+        Operation* copyOutOp = FindAllProducerCopyOuts(input, op, needToCopyTensors, index, op.GetOpMagic());
+        if (copyOutOp == nullptr) {
             return;
         }
-        if (copyOutOps.size() != 1) {
-            APASS_LOG_WARN_F(
-                Elements::Operation, "Do not follow reshape[%d] on GM after multiple copyouts.", op.GetOpMagic());
-            return;
+        if (index != -1) {
+            copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, needToCopyTensors, index);
         }
-        Operation* copyOutOp = copyOutOps.front();
-
         std::vector<Operation*> copyInOps;
         bool hasViewOrAssemble = false;
         FindAllConsumerCopyIns(output, copyInOps, hasViewOrAssemble);
@@ -261,14 +292,6 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
         }
         if (copyInOps.empty()) {
             APASS_LOG_WARN_F(Elements::Operation, "Cannot find copy_in consumers for reshape op %d.", op.GetOpMagic());
-            return;
-        }
-
-        auto copyOutConsumers = copyOutOp->GetOOperands().front()->GetConsumers();
-        if (copyOutConsumers.size() != 1 || *(copyOutConsumers.begin()) != &op) {
-            APASS_LOG_WARN_F(
-                Elements::Operation, "Reshape op %d has branch consumers before reshape, not supported.",
-                op.GetOpMagic());
             return;
         }
 
@@ -385,40 +408,52 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
  * - 如果遇到OP_VIEW、OP_ASSEMBLE或OP_ASSEMBLE_SSA，递归继续向前追溯
  * - 遇到其他op也继续递归追溯
  */
-std::vector<Operation*> RemoveUnalignedReshape::FindAllProducerCopyOuts(LogicalTensorPtr tensor, bool& hasOtherBranch)
+Operation* RemoveUnalignedReshape::FindAllProducerCopyOuts(
+    LogicalTensorPtr tensor, Operation& op, std::vector<LogicalTensorPtr>& needToCopyTensors, int& index,
+    const int reshapeMagic)
 {
-    std::vector<Operation*> copyOutOps;
-    // 后续实现
-    if (tensor->GetConsumers().size() > 1) {
-        hasOtherBranch = true;
-        return copyOutOps;
-    }
     auto producers = tensor->GetProducers();
-    if (producers.empty()) {
-        return copyOutOps;
-    }
-
-    for (auto* producerOp : producers) {
-        auto opcode = producerOp->GetOpcode();
-        if (opcode == Opcode::OP_COPY_OUT) {
-            copyOutOps.push_back(producerOp);
-            // 继续查找，可能还有其他生产者
-            continue;
+    auto consumers = tensor->GetConsumers();
+    if (producers.size() != 1) {
+        if (producers.size() > 1) {
+            APASS_LOG_WARN_F(
+                Elements::Operation,
+                "Reshape[%d] has multiple input ops, cannot convert copy_out to reshape_copy_out; Consider moving "
+                "reshape to UB to avoid possible precision issue.", reshapeMagic);
         }
-
-        // 其他类型的op（包括view/assemble或其他op），继续向前追溯
-        auto inputOperands = producerOp->GetIOperands();
-        if (!inputOperands.empty()) {
-            auto subCopyOuts = FindAllProducerCopyOuts(inputOperands.front(), hasOtherBranch);
-            if (hasOtherBranch) {
-                return copyOutOps;
+        return nullptr;
+    }
+    if (index == -1 && consumers.size() > 1) {
+        for (size_t i = 0; i < consumers.size(); i++) {
+            auto ioConsumer = *(std::next(consumers.begin(), i));
+            if (ioConsumer->GetOpMagic() == op.GetOpMagic()) {
+                index = i;
             }
-            copyOutOps.insert(copyOutOps.end(), subCopyOuts.begin(), subCopyOuts.end());
         }
     }
+    auto producerOp = *(producers.begin());
+    auto opcode = producerOp->GetOpcode();
+    if (opcode == Opcode::OP_COPY_OUT) {
+        needToCopyTensors.push_back(tensor);
+        return producerOp;
+    }
+    if (opcode == Opcode::OP_RESHAPE_COPY_OUT) {
+        return nullptr;
+    }
 
-    return copyOutOps;
+    // 其他类型的op（包括view/assemble或其他op），继续向前追溯
+    Operation* copyOutOp = nullptr;
+    auto inputOperands = producerOp->GetIOperands();
+    if (!inputOperands.empty()) {
+        copyOutOp = FindAllProducerCopyOuts(inputOperands.front(), *producerOp,
+            needToCopyTensors, index, reshapeMagic);
+    }
+    if (copyOutOp != nullptr && copyOutOp->GetOpcode() == Opcode::OP_COPY_OUT) {
+        needToCopyTensors.push_back(tensor);
+    }
+    return copyOutOp;
 }
+
 /* 从tensor的消费者列表中查找OP_COPY_IN，如果遇到OP_VIEW、OP_ASSEMBLE或OP_ASSEMBLE_SSA，
  * 则标记hasViewOrAssemble为true，表示不支持此类场景。
  */

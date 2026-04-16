@@ -29,7 +29,7 @@ namespace npu::tile_fwk {
 
 namespace {
 
-// Scalar decode aligned with calculator/fp8_convert.cpp (E4M3, E5M2, E8M0).
+// Scalar decode: FP8 aligned with calculator fp8 paths; HF8 aligned with calculator/fp_convert.cpp (Hf8ToFloat32).
 float DecodeFp8E4M3(uint8_t x)
 {
     const int xi = static_cast<int>(x);
@@ -76,6 +76,53 @@ float DecodeFp8E8M0(uint8_t x)
     return sign * std::pow(2.0f, expVal);
 }
 
+float DecodeHf8(uint8_t x)
+{
+    const int signBit = (x >> 7) & 0x1;
+    const float sign = signBit != 0 ? -1.0f : 1.0f;
+    const int lower7 = x & 0x7F;
+    const int top4 = lower7 >> 3;
+    if (top4 == 0) { // Subnormal: D=0000, M in [0,7]
+        const int mv = lower7 & 0x7;
+        return sign * std::pow(2.0f, static_cast<float>(mv - 23));
+    }
+    if (top4 == 1) { // Normal: D=0001, E_v=0
+        const int mv = lower7 & 0x7;
+        return sign * (1.0f + static_cast<float>(mv) / 8.0f);
+    }
+    const int top3 = lower7 >> 4;
+    if (top3 == 1) { // D=001, E bit count = 1, |E_v|=1
+        const int eb = (lower7 >> 3) & 0x1;
+        const int ev = (eb == 0) ? 1 : -1;
+        const int mv = lower7 & 0x7;
+        return sign * std::pow(2.0f, static_cast<float>(ev)) * (1.0f + static_cast<float>(mv) / 8.0f);
+    }
+    const int top2 = lower7 >> 5;
+    if (top2 == 1) { // D=01, E bit count = 2, |E_v| in [2,3]
+        const int eb = (lower7 >> 3) & 0x3;
+        const int evSign = (eb >> 1) & 0x1;
+        const int evAbs = 2 + (eb & 0x1);
+        const int ev = evSign ? -evAbs : evAbs;
+        const int mv = lower7 & 0x7;
+        return sign * std::pow(2.0f, static_cast<float>(ev)) * (1.0f + static_cast<float>(mv) / 8.0f);
+    }
+    if (top2 == 2) { // D=10, E bit count = 3, |E_v| in [4,7]
+        const int eb = (lower7 >> 2) & 0x7;
+        const int evSign = (eb >> 2) & 0x1;
+        const int evAbs = 4 + (eb & 0x3);
+        const int ev = evSign ? -evAbs : evAbs;
+        const int mv = lower7 & 0x3;
+        return sign * std::pow(2.0f, static_cast<float>(ev)) * (1.0f + static_cast<float>(mv) / 4.0f);
+    }
+    // D=11, E bit count = 4, |E_v| in [8,15]
+    const int eb = (lower7 >> 1) & 0xF;
+    const int evSign = (eb >> 3) & 0x1;
+    const int evAbs = 8 + (eb & 0x7);
+    const int ev = evSign ? -evAbs : evAbs;
+    const int mv = lower7 & 0x1;
+    return sign * std::pow(2.0f, static_cast<float>(ev)) * (1.0f + static_cast<float>(mv) / 2.0f);
+}
+
 double Fp8StorageToDouble(uint8_t bits, DataType fmt)
 {
     float v = 0.0f;
@@ -83,6 +130,9 @@ double Fp8StorageToDouble(uint8_t bits, DataType fmt)
         case DT_FP8:
         case DT_FP8E4M3:
             v = DecodeFp8E4M3(bits);
+            break;
+        case DT_HF8:
+            v = DecodeHf8(bits);
             break;
         case DT_FP8E5M2:
             v = DecodeFp8E5M2(bits);
@@ -99,6 +149,7 @@ double Fp8StorageToDouble(uint8_t bits, DataType fmt)
 
 } // namespace
 
+// uint8-backed low-precision float formats: DT_FP8*, DT_HF8. Decodes each byte with Fp8StorageToDouble(fmt).
 FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
     const std::shared_ptr<LogicalTensorData>& goldenDataView, const std::shared_ptr<LogicalTensorData>& outputDataView,
     DataType fp8Format, float rtol, float atol, int errorCountThreshold, int failNum)
@@ -107,7 +158,8 @@ FlowVerifier::CompareResult FlowVerifier::CompareFp8TensorData(
     const auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
     CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum, validShape);
     CompareDataRecursiveWithLeaf(
-        compareResult, 0, 0, 0, goldenDataView, outputDataView, 0,
+        compareResult, 0, goldenDataView->GetStorageOffset(), outputDataView->GetStorageOffset(), goldenDataView,
+        outputDataView, 0,
         [&](CompareResult& cr, size_t lastCount, int64_t outOff, int64_t gOff, int64_t index,
             const std::shared_ptr<LogicalTensorData>& gv, const std::shared_ptr<LogicalTensorData>& ov) {
             const uint8_t* gp = &gv->Get<uint8_t>(gOff);
@@ -160,6 +212,7 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         case DT_BOOL:
             return CompareData<uint8_t, double>(goldenDataView, outputDataView, rtol, atol);
         case DT_FP8:
+        case DT_HF8:
         case DT_FP8E4M3:
         case DT_FP8E5M2:
         case DT_FP8E8M0:
@@ -221,8 +274,8 @@ bool FlowVerifier::VerifyResult(
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::aTimeStamp)] = std::to_string(ts);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::bTimeStamp)] = std::to_string(ts);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::loopInfo)] = functionInterpreter_->GetLoopSymbolString();
-        ProgrameInfo[toIndex(ProgrameInfoCsvHeader::rtolAndAtol)] = functionInterpreter_->ToStrWithPrecision(rtol)
-                                                            + "/" + functionInterpreter_->ToStrWithPrecision(atol);
+        ProgrameInfo[toIndex(ProgrameInfoCsvHeader::rtolAndAtol)] =
+            functionInterpreter_->ToStrWithPrecision(rtol) + "/" + functionInterpreter_->ToStrWithPrecision(atol);
         if (functionInterpreter_->execDumpPassName == "tensor_graph") {
             ProgrameInfo[toIndex(ProgrameInfoCsvHeader::goldenPassName)] = "user_golden";
             ProgrameInfo[toIndex(ProgrameInfoCsvHeader::ioflag)] = "a" + std::to_string(k);
@@ -239,7 +292,7 @@ bool FlowVerifier::VerifyResult(
 
         auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], rtol, atol);
         if (!tensorGraphResult.Check()) {
-            VERIFY_LOGE_FULL_E(
+            VERIFY_LOGE_FULL(
                 VerifyResultScene::VERIFY_RESULT_MISMATCH, "%s Verify for %zu data view list index %zu result FAILED",
                 key.c_str(), goldenDataViewList.size(), k);
             fprintf(
@@ -265,11 +318,11 @@ bool FlowVerifier::VerifyResult(
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::mre)] = functionInterpreter_->ToStrWithPrecision(res.mre);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::mreTop8)] = functionInterpreter_->ToStrWithPrecision(res.mreTop8);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::mreTop1Permil)] =
-                                                    functionInterpreter_->ToStrWithPrecision(res.mreTop1Permil);
+            functionInterpreter_->ToStrWithPrecision(res.mreTop1Permil);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::mae)] = functionInterpreter_->ToStrWithPrecision(res.mae);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::maeTop8)] = functionInterpreter_->ToStrWithPrecision(res.maeTop8);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::maeTop1Permil)] =
-                                                    functionInterpreter_->ToStrWithPrecision(res.maeTop1Permil);
+            functionInterpreter_->ToStrWithPrecision(res.maeTop1Permil);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::aMax)] = functionInterpreter_->ToStrWithPrecision(res.aMax);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::aMin)] = functionInterpreter_->ToStrWithPrecision(res.aMin);
         ProgrameInfo[toIndex(ProgrameInfoCsvHeader::aAvg)] = functionInterpreter_->ToStrWithPrecision(res.aAvg);
@@ -333,7 +386,7 @@ void FlowVerifier::WriteException()
     ProgrameInfo[toIndex(ProgrameInfoCsvHeader::pathFuncMagicName)] = functionInterpreter_->execDumpFunPath;
     ProgrameInfo[toIndex(ProgrameInfoCsvHeader::pathFuncMagic)] = std::to_string(functionInterpreter_->pathFuncMagic);
     ProgrameInfo[toIndex(ProgrameInfoCsvHeader::pathFuncHash)] =
-                                                "'" + std::to_string(functionInterpreter_->pathFuncHash);
+        "'" + std::to_string(functionInterpreter_->pathFuncHash);
     ProgrameInfo[toIndex(ProgrameInfoCsvHeader::loopInfo)] = functionInterpreter_->GetLoopSymbolString();
     ProgrameInfo[toIndex(ProgrameInfoCsvHeader::verifyResult)] = "EXCEPTION";
     if (functionInterpreter_->execDumpPassName == "tensor_graph") {
@@ -509,11 +562,11 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
         std::shared_ptr<FunctionCaptureExecution> captureExecution = nullptr;
         try {
             captureExecution = functionInterpreter_->RunForPass(functionInterpreter_->execDumpPassName, func, capture);
-            
+
             auto goldenDataViewList = capture->golden->outcastDataViewList;
             auto executeDataViewList = captureExecution->golden->outcastDataViewList;
             std::string tensorName = "tensor~" + func->GetMagicName() + "~" + passIdentifier + "~" +
-                                    functionInterpreter_->GetLoopSymbolString(false);
+                                     functionInterpreter_->GetLoopSymbolString(false);
 
             auto res = VerifyResult(
                 func->GetOutcast(), capture->func->GetOutcast(), key, tensorName, goldenDataViewList,
@@ -522,7 +575,7 @@ void FlowVerifier::VerifyPass(Function* func, int passIndex, const std::string& 
                 checkResult = false;
             }
         } catch (std::exception& e) {
-            VERIFY_LOGE_FULL_E(
+            VERIFY_LOGE_FULL(
                 VerifyResultScene::VERIFY_RESULT_MISMATCH,
                 "VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
                 func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
