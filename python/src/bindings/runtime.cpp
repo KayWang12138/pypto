@@ -55,7 +55,8 @@ static void ValidateVerifyOutputAndGolden(
             continue;
         }
 
-        ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType());
+        ASSERT(VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType())
+            << "dtype mismatch at index " << i;
 
         const auto& outputShape = inOutTensors[i].GetShape();
         const auto& goldenShape = goldens[i].GetShape();

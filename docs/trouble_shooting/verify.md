@@ -55,6 +55,7 @@
 该场景为传入的 `in_out_tensors`（即 input+output 拼接数组）与 `goldens` 在同一 index 上 dtype 不一致，日志通常类似如下：
 ```log
 RuntimeError: Errcode: FB4003!
+dtype mismatch at index 1
 , func ValidateVerifyOutputAndGolden, file runtime.cpp, line XX
 ```
 ##### 触发条件
@@ -63,10 +64,11 @@ RuntimeError: Errcode: FB4003!
 - 两者 dtype 不一致
 
 ##### 定位指导
-1. 在 Python 侧按 `inputs + outputs` 的顺序打印并逐项核对与 `goldens` 的 `dtype`。
-2. 重点检查以下混用场景：`torch.float16`/`torch.float32`、`bfloat16`/`float16`、`int32`/`int64`。
-3. 若 golden 来源于 `from_torch` 或中间转换，确认转换前后的 dtype 没有被隐式修改。
-4. 修复原则：同一 index 的 `in_out_tensors[i]` 与 `goldens[i]` 必须是同一 dtype；若确需不同精度，请先在 Python 侧显式 `to(...)` 统一后再传入 verify。
+1. 先根据日志里的 `dtype mismatch at index N` 锁定出错 index。
+2. 在 Python 侧按 `inputs + outputs` 的顺序找到该 index 对应 tensor，再与 `goldens[index]` 逐项核对 `dtype`。
+3. 重点检查以下混用场景：`torch.float16`/`torch.float32`、`bfloat16`/`float16`、`int32`/`int64`。
+4. 若 golden 来源于 `from_torch` 或中间转换，确认转换前后的 dtype 没有被隐式修改。
+5. 修复原则：同一 index 的 `in_out_tensors[i]` 与 `goldens[i]` 必须是同一 dtype；若确需不同精度，请先在 Python 侧显式 `to(...)` 统一后再传入 verify。
 
 #### 错误码：0xB4002U：VERIFY_RESULT_SHAPE_DIFF
 ##### 日志示例
