@@ -256,10 +256,8 @@ TEST_F(GraphPartitionTest, TestBuildIsomorphismGraph)
     const int cycleLB = 100000;
     const int useNodeHash = false;
     IsoPartitioner partitioner;
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/TestBuildIsomorphismGraphb.json");
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto1/TestBuildIsomorphismGrapha.json");
     const int subGraphNum = 8;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
