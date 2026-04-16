@@ -224,14 +224,9 @@ private:
 namespace npu::tile_fwk::dynamic {
 class DeviceTrace {
 public:
-    static DeviceTrace& GetInstance() {
-        static DeviceTrace deviceTrace;
-        return deviceTrace;
-    }
-    void SubmitTraceMsg(const std::string& traceMsg) {
-         DEV_INFO("Trace submit msg: %s", traceMsg.c_str());
-    }
-    void ReportTraceMsg() {}
+    static DeviceTrace& GetInstance();
+    void SubmitTraceMsg(const std::string& traceMsg);
+    void ReportTraceMsg();
 };
 } // namespace npu::tile_fwk::dynamic
 #endif
