@@ -19,7 +19,25 @@ from pypto._utils import to_syms
 from pypto.enum import AtomicType, DataType, OpType
 from pypto.symbolic_scalar import SymbolicScalar
 from pypto.tensor import Tensor, ShmemTensor
+import torch
+import torch_npu
 
+@op_wrapper
+def create_comm_tensor(group, device):
+    nbytes, ctx_addr = pypto_impl.GetCommContext(group)
+    metadata = {
+        "data_ptr": ctx_addr,
+        "device": device,
+        "nbytes": nbytes,
+        "dtype": torch.int8,
+        "size": (1, nbytes),
+        "stride": (nbytes, 1),
+        "storage_offset": 0
+    }
+    storage = torch_npu._C._construct_storage_from_data_pointer(
+        metadata["data_ptr"], torch.device(metadata["device"]), metadata["nbytes"]
+    )
+    return torch_npu._C._construct_NPU_Tensor_From_Storage_And_Metadata(metadata, storage)
 
 @op_wrapper
 def create_comm_tensor(group, device):

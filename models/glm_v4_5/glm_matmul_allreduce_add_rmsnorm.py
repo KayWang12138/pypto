@@ -34,6 +34,7 @@ from utils.distributed_config import DistributedConfig
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128,
                      "stitch_cfgcache_size": 100000000},
+    debug_options={"runtime_debug_mode": 1}
 )
 def matmul_allreduce_add_rmsnorm_kernel(
     comm_tensor: pypto.Tensor(),

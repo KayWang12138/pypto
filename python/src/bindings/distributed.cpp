@@ -31,16 +31,16 @@ void BindDistributed(py::module& m)
 
     m.def(
         "CreateShmemTensor",
-        [](const Tensor& commTensor, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t) {
-            return Distributed::CreateShmemTensor(commTensor, group, worldSize, dataType, shape, t);
+        [](const Tensor& commTensor, const Tensor& commTensor, int64_t worldSize, DataType dataType, const Shape& shape, ShmemTensor& t) {
+            return Distributed::CreateShmemTensor(commTensor, commTensor, group, worldSize, dataType, shape, t);
         },
         py::arg("commTensor"), py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("t"),
         "Create shmem data.");
 
     m.def(
         "CreateShmemSignal",
-        [](const Tensor& commTensor, int64_t worldSize, ShmemTensor& t) {
-            return Distributed::CreateShmemSignal(commTensor, group, worldSize, t);
+        [](const Tensor& commTensor, const Tensor& commTensor, int64_t worldSize, ShmemTensor& t) {
+            return Distributed::CreateShmemSignal(commTensor, commTensor, group, worldSize, t);
         },
         py::arg("commTensor"), py::arg("group"), py::arg("worldSize"), py::arg("t"), "Create shmem signal data.");
 
@@ -159,7 +159,7 @@ void BindDistributed(py::module& m)
         "Store local tensor to shmem.");
 
     m.def(
-        "GetSymbolicScalarPeId", [](const Tensor& commTensor) { return GetHcclRankId(commTensor); }, py::arg("commTensor"),
+        "GetSymbolicScalarPeId", [](const Tensor& commTensor) { return GetHcclRankIdV2(commTensor); }, py::arg("commTensor"),
         "Get local rank id by groupname.");
 
     m.def(
