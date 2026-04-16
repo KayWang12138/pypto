@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 测试程序路径
-TEST_BIN="./pypto/build/output/bin/tile_fwk_utest"
+TEST_BIN="./build/output/bin/tile_fwk_utest"
 LOG_FILE="test_where_output.log"
 > $LOG_FILE
 

@@ -223,14 +223,8 @@ std::string TestConvLoad3DBody(const std::string& funcName, const bool& isConv3D
     auto function = GetFunctionConv(funcName);
 
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto l1Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16},
-           dynValidShape
-    });
-    auto l0Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L0A, {16, 16},
-           dynValidShape
-    });
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, {16, 16}, dynValidShape});
 
     std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {0, 0};
@@ -275,14 +269,8 @@ std::string TestConvLoad2DBody(const std::string& funcName)
     auto function = GetFunctionConv(funcName);
 
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto l1Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16},
-           dynValidShape
-    });
-    auto l0Tensor = CreateLogicalTensor({
-        *function, DataType::DT_FP16, MemoryType::MEM_L0B, {16, 16},
-           dynValidShape
-    });
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, {16, 16}, dynValidShape});
 
     std::vector<int64_t> offset = {0, 0};
     std::vector<SymbolicScalar> dynoffset = {0, 0};

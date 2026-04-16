@@ -26,7 +26,6 @@
 #include "tilefwk/config.h"
 #include "tilefwk/function.h"
 #include "interface/utils/common.h"
-#include "interface/utils/function_error.h"
 
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;
@@ -105,9 +104,7 @@ inline DPlatform StringToDpaltform(std::string platform)
     std::unordered_map<std::string, DPlatform> mappings = {
         {"ASCEND_910B1", DPlatform::ASCEND_910B1},           {"ASCEND_910B2", DPlatform::ASCEND_910B2},
         {"ASCEND_910B3", DPlatform::ASCEND_910B3},           {"ASCEND_910B4", DPlatform::ASCEND_910B4},
-        {"ASCEND_950PR_9579", DPlatform::ASCEND_950PR_9579},
-        {"KIRIN_9030", DPlatform::KIRIN_9030}
-    };
+        {"ASCEND_950PR_9579", DPlatform::ASCEND_950PR_9579}, {"KIRIN_9030", DPlatform::KIRIN_9030}};
 
     if (mappings.count(platform)) {
         return mappings[platform];

@@ -16,7 +16,6 @@
 #ifndef CODEGEN_NPU_H
 #define CODEGEN_NPU_H
 
-#include <string>
 #include <unordered_set>
 #include <utility>
 #include <mutex>

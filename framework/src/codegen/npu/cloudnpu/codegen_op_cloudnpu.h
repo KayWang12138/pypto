@@ -9,30 +9,13 @@
  */
 
 /*!
- * \file codegen_op.h
+ * \file codegen_op_cloudnpu.h
  * \brief
  */
 
 #ifndef CODEGEN_OP_CLOUDNPU_H
 #define CODEGEN_OP_CLOUDNPU_H
 
-#include <utility>
-#include <map>
-#include <functional>
-#include <unordered_set>
-
-#include "codegen/codegen_common.h"
-#include "tilefwk/data_type.h"
-#include "interface/operation/operation.h"
-#include "interface/operation/operation_impl.h"
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
-#include "interface/program/program.h"
-#include "codegen/npu/op_print_param_def.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/stmt_mgr/codegen_for_block.h"
-#include "codegen/codegen_op.h"
 #include "codegen/npu/codegen_op_npu.h"
 
 namespace npu::tile_fwk {

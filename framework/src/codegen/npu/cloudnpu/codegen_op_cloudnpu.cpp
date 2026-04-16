@@ -9,17 +9,11 @@
  */
 
 /*!
- * \file codegen_op.cpp
+ * \file codegen_op_cloudnpu.cpp
  * \brief
  */
 
 #include "codegen_op_cloudnpu.h"
-
-#include <algorithm>
-
-#include "codegen/codegen_common.h"
-#include "codegen/utils/codegen_utils.h"
-#include "securec.h"
 
 namespace npu::tile_fwk {
 

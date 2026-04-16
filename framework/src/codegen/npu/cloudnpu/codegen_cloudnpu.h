@@ -9,34 +9,20 @@
  */
 
 /*!
- * \file codegen.h
+ * \file codegen_cloudnpu.h
  * \brief
  */
 
 #ifndef CODEGEN_CLOUDNPU_H
 #define CODEGEN_CLOUDNPU_H
 
-#include <string>
-#include <unordered_set>
-#include <utility>
-#include <mutex>
-#include <vector>
-#include <chrono>
-#include <thread>
-
-#include "tilefwk/platform.h"
-#include "interface/operation/operation.h"
-#include "codegen/codegen_cce.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
-#include "codegen/codegen_common.h"
-#include "interface/configs/config_manager.h"
 #include "codegen/npu/codegen_npu.h"
 
 namespace npu::tile_fwk {
 
 class CodeGenCloudNPU : public CodeGenNPU {
 public:
-    explicit CodeGenCloudNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx) {};
+    explicit CodeGenCloudNPU(const CodeGenCtx& cgCtx) : CodeGenNPU(cgCtx){};
     ~CodeGenCloudNPU() override = default;
 
 private:

@@ -23,8 +23,7 @@
 namespace npu::tile_fwk {
 const std::string TSTORE_CONF = "TStoreConfig";
 
-DynamicParamPackMTE CodeGenOpNPU::PrepareDynamicShapeInfoForMTE(
-    int dynShapeIdx, int shapeDim, bool isGmSpill) const
+DynamicParamPackMTE CodeGenOpNPU::PrepareDynamicShapeInfoForMTE(int dynShapeIdx, int shapeDim, bool isGmSpill) const
 {
     DynamicParamPackMTE pack;
     int dim = static_cast<int>(rawShape[dynShapeIdx].size());
@@ -493,8 +492,7 @@ std::string CodeGenOpNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0
     return oss.str();
 }
 
-std::vector<std::string> CodeGenOpNPU::GenTileOpParamForNormalCopyTileTensor(
-    unsigned gmIdx, bool isSpillingToGM) const
+std::vector<std::string> CodeGenOpNPU::GenTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const
 {
     std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(gmIdx, isSpillingToGM);
     // e.g. ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))

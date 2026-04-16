@@ -192,20 +192,17 @@ std::string CodeGenOpNPU::GenTemplateParamsDefault() const
 
 std::string CodeGenOpNPU::GenTemplateParams() const
 {
-    static const std::unordered_map<Opcode, std::function<std::string(CodeGenOpNPU const*)>>
-        templateParamHandlers = {
-            {Opcode::OP_SHMEM_PUT, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
-            {Opcode::OP_SHMEM_GET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
-            {Opcode::OP_SHMEM_PUT_UB2GM,
-             [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutUb2Gm(); }},
-            {Opcode::OP_SHMEM_GET_GM2UB,
-             [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
-            {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSignal(); }},
-            {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
-             [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineSend(); }},
-            {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-             [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineReceive(); }},
-            {Opcode::OP_SHMEM_SET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSet(); }}};
+    static const std::unordered_map<Opcode, std::function<std::string(CodeGenOpNPU const*)>> templateParamHandlers = {
+        {Opcode::OP_SHMEM_PUT, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
+        {Opcode::OP_SHMEM_GET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
+        {Opcode::OP_SHMEM_PUT_UB2GM, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutUb2Gm(); }},
+        {Opcode::OP_SHMEM_GET_GM2UB, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForPutAndGet(); }},
+        {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSignal(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
+         [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineSend(); }},
+        {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
+         [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineReceive(); }},
+        {Opcode::OP_SHMEM_SET, [](const CodeGenOpNPU* self) { return self->GenTemplateParamsForSet(); }}};
 
     auto handler = templateParamHandlers.find(opCode);
     if (handler != templateParamHandlers.end()) {
@@ -274,8 +271,8 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemPut() const
     int32_t nonShmemDataIndex = 3;
     int32_t shmemDataIndex = 4;
     int32_t outPutDataIndex = 0;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", " << GenDynValidShape(outPutDataIndex)
-        << ", " << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex);
+    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", " << GenDynValidShape(outPutDataIndex) << ", "
+        << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex);
     return oss.str();
 }
 
@@ -284,8 +281,8 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemGet() const
     std::ostringstream oss;
     int32_t nonShmemDataIndex = 0;
     int32_t shmemDataIndex = 3;
-    oss << ", " << GenDynOffset(nonShmemDataIndex) << ", " << GenRawShapes(nonShmemDataIndex)
-        << ", " << GenOffsetsAndRawShapes(shmemDataIndex) << ", " << GenDynValidShape(nonShmemDataIndex);
+    oss << ", " << GenDynOffset(nonShmemDataIndex) << ", " << GenRawShapes(nonShmemDataIndex) << ", "
+        << GenOffsetsAndRawShapes(shmemDataIndex) << ", " << GenDynValidShape(nonShmemDataIndex);
     return oss.str();
 }
 
@@ -295,8 +292,8 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemPutUB() const
     int32_t nonShmemDataIndex = 1;
     int32_t shmemDataIndex = 2;
     int32_t outPutDataIndex = 0;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", " << GenDynValidShape(outPutDataIndex)
-        << ", " << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex);
+    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex) << ", " << GenDynValidShape(outPutDataIndex) << ", "
+        << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex);
     return oss.str();
 }
 
@@ -306,9 +303,9 @@ std::string CodeGenOpNPU::GenOffsetsAndRawShapesForShmemGetUB() const
     int32_t nonShmemDataIndex = 0;
     int32_t shmemDataIndex = 3;
     int32_t outPutDataIndex = 0;
-    oss << ", " << GenOffsets(nonShmemDataIndex) << ", " << GenRawShapes(nonShmemDataIndex)
-        << ", " << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex)
-        << ", " << GenDynValidShape(outPutDataIndex);
+    oss << ", " << GenOffsets(nonShmemDataIndex) << ", " << GenRawShapes(nonShmemDataIndex) << ", "
+        << GenDynOffset(shmemDataIndex) << ", " << GenRawShapes(shmemDataIndex) << ", "
+        << GenDynValidShape(outPutDataIndex);
     return oss.str();
 }
 
@@ -407,10 +404,8 @@ std::string CodeGenOpNPU::GenExtraParamsStr() const
 {
     static const std::unordered_map<Opcode, std::function<std::string(CodeGenOpNPU const*)>>
         offsetsAndRawShapesHandlers = {
-            {Opcode::OP_SHMEM_PUT,
-             [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemPut(); }},
-            {Opcode::OP_SHMEM_GET,
-             [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemGet(); }},
+            {Opcode::OP_SHMEM_PUT, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemPut(); }},
+            {Opcode::OP_SHMEM_GET, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemGet(); }},
             {Opcode::OP_SHMEM_PUT_UB2GM,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemPutUB(); }},
             {Opcode::OP_SHMEM_GET_GM2UB,
@@ -420,9 +415,7 @@ std::string CodeGenOpNPU::GenExtraParamsStr() const
             {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineSend(); }},
             {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-             [](const CodeGenOpNPU* self) {
-                 return self->GenOffsetsAndRawShapesForMoeDistributedCombineReceive();
-             }},
+             [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineReceive(); }},
             {Opcode::OP_SEND_TO_ROUTING_EXPERT,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForSendToRoutingExpert(); }},
             {Opcode::OP_SEND_TO_SHARED_EXPERT,
@@ -439,8 +432,7 @@ std::string CodeGenOpNPU::GenExtraParamsStr() const
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForFfnOperations(); }},
             {Opcode::OP_FFN_COMBINEINFO,
              [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForFfnCombineInfo(); }},
-            {Opcode::OP_SHMEM_SET,
-             [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemSet(); }}};
+            {Opcode::OP_SHMEM_SET, [](const CodeGenOpNPU* self) { return self->GenOffsetsAndRawShapesForShmemSet(); }}};
 
     auto handler = offsetsAndRawShapesHandlers.find(opCode);
     if (handler != offsetsAndRawShapesHandlers.end()) {
@@ -448,7 +440,7 @@ std::string CodeGenOpNPU::GenExtraParamsStr() const
     } else {
         return GenOffsetsAndRawShapesDefault();
     }
-}
+} // namespace npu::tile_fwk
 
 std::string CodeGenOpNPU::GenTargetRankStr() const
 {

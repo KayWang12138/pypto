@@ -174,8 +174,8 @@ std::string CodeGenOpNPU::GenDupOp() const
         ASSERT(OperErr::ATTRIBUTE_INVALID, (scalar.HasValue()) && (scalar.Type() == typeid(Element)))
             << "SCALAR attribute must be float value: " << AnyCast<Element>(scalar).IsFloat();
         dupV = FormatFloat(AnyCast<Element>(scalar).Cast<float>(), operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
-    } else if (dstDtypeStr == "bool" || dstDtypeStr == "int8_t" ||
-               dstDtypeStr == "int16_t" || dstDtypeStr == "int32_t") {
+    } else if (
+        dstDtypeStr == "bool" || dstDtypeStr == "int8_t" || dstDtypeStr == "int16_t" || dstDtypeStr == "int32_t") {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
         ASSERT(OperErr::ATTRIBUTE_INVALID, (scalar.HasValue()) && (scalar.Type() == typeid(Element)))
             << "SCALAR attribute has to be int value: " << AnyCast<Element>(scalar).IsSigned();
@@ -214,10 +214,7 @@ std::string CodeGenOpNPU::PrintPermuteLayout() const
     return oss.str();
 }
 
-std::string CodeGenOpNPU::GenPermuteOp() const
-{
-    return PrintPermuteLayout();
-}
+std::string CodeGenOpNPU::GenPermuteOp() const { return PrintPermuteLayout(); }
 
 std::string CodeGenOpNPU::GenTransposeDataMove() const
 {
@@ -975,8 +972,8 @@ std::string CodeGenOpNPU::GenIndexAddUBOp() const
 
 std::string CodeGenOpNPU::GenIndexAddOp() const
 {
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
-    ASSERT(isSupportLayout) << "IndexAdd operation only support TileTensor mode";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "IndexAdd operation only support TileTensor mode";
     int axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
     axis += SHAPE_DIM5 - rawShape[ID0].size();
     std::string dstTensor = QueryTileTensorNameByIdx(ID0);
@@ -1344,8 +1341,7 @@ std::string CodeGenOpNPU::GenScatterOp() const
         {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
 }
 
-void CodeGenOpNPU::GetWhereVarAndType(
-    std::vector<std::string>& varExpr, std::vector<std::string>& dataTypeExpr) const
+void CodeGenOpNPU::GetWhereVarAndType(std::vector<std::string>& varExpr, std::vector<std::string>& dataTypeExpr) const
 {
     varExpr.clear();
     dataTypeExpr.clear();

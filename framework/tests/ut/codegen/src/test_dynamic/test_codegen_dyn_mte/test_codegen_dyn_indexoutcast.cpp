@@ -13,8 +13,6 @@
  * \brief Unit test for codegen.
  */
 
-#include <iostream>
-
 #include "gtest/gtest.h"
 
 #include "interface/operation/opcode.h"
