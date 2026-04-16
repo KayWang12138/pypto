@@ -211,7 +211,7 @@ void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostr
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
         floatSpecValMgr.UpdateByOp(op);
 
-        ; // kirin only supports static function
+        // kirin only supports static function
         topFunc.SetFunctionType(FunctionType::STATIC);
         topFunc.SetUnderDynamicFunction(false);
         CodeGenOpLiteNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, false, forBlkMgr});
