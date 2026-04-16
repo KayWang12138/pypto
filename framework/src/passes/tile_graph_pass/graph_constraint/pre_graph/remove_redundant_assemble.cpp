@@ -15,6 +15,7 @@
 
 #include "remove_redundant_assemble.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/boundary_utils.h"
 
 #define MODULE_NAME "PreGraphProcess"
 
@@ -634,7 +635,7 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(
         for (auto &producer : producersBackup) {
             oriOutputBackUp = producer->oOperand[0]; // producer --> oriOutputBackUp(input) --> op
             producer->ReplaceOutput(output, oriOutputBackUp);
-            output->isSubGraphBoundary = true;
+            BoundaryUtils::GetInstance().AddBoundary(output->magic);
             if (!IsCopyOut(producer->GetOpcode())) continue;
             APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s",
                 producer->GetOpMagic(), producer->GetOpcodeStr().c_str());

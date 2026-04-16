@@ -14,6 +14,7 @@
  */
 
 #include "set_boundary.h"
+#include "passes/pass_utils/boundary_utils.h"
 
 namespace npu::tile_fwk {
 void SetBoundary::InsertTemporaryCopyIn(Function& function, Operation& op) const
@@ -23,15 +24,15 @@ void SetBoundary::InsertTemporaryCopyIn(Function& function, Operation& op) const
     }
     for (auto& input : op.GetIOperands()) {
         if (input->GetProducers().size() == 0 && input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            // insert Copy_In before the op
-            input->isSubGraphBoundary = false;
+            // insert Copy_In before op
+            BoundaryUtils::GetInstance().RemoveBoundary(input->magic);
             LogicalTensors operandGm;
             LogicalTensorPtr tensorGM =
                 std::make_shared<LogicalTensor>(function, input->Datatype(), input->shape, input->Format());
             GraphUtils::CopyDynStatus(tensorGM, input);
             tensorGM->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
             tensorGM->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-            tensorGM->isSubGraphBoundary = true;
+            BoundaryUtils::GetInstance().AddBoundary(tensorGM->magic);
             tensorGM->subGraphID = op.GetSubgraphID();
             operandGm.push_back(tensorGM);
             function.GetTensorMap().Insert(tensorGM);
@@ -42,9 +43,9 @@ void SetBoundary::InsertTemporaryCopyIn(Function& function, Operation& op) const
             // add UB_Alloc && UB_COPY_IN
             auto& ubCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, operandGm, operandUb);
             ubCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
-                OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
-                OpImmediate::Specified(input->GetDynValidShape())));
+                    OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
+                    OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
+                    OpImmediate::Specified(input->GetDynValidShape())));
             ubCopyIn.SetAttribute(OpAttributeKey::isCube, false);
             ubCopyIn.UpdateSubgraphID(op.GetSubgraphID());
         }
@@ -86,27 +87,27 @@ void SetBoundary::SetTensorBoundary(Function& function) const
         /* memory map size > 1 代表该tensor被多个子图使用，那么标记为boundary*/
         for (auto& input : op.GetIOperands()) {
             if (IsTensorSubgraphBoundary(input)) {
-                input->isSubGraphBoundary = true;
+                BoundaryUtils::GetInstance().AddBoundary(input->magic);
             }
             if (input->GetProducers().size() == 0) {
-                input->isSubGraphBoundary = true;
+                BoundaryUtils::GetInstance().AddBoundary(input->magic);
                 InsertTemporaryCopyIn(function, op);
             }
         }
         for (auto& output : op.GetOOperands()) {
             if (IsTensorSubgraphBoundary(output)) {
-                output->isSubGraphBoundary = true;
+                BoundaryUtils::GetInstance().AddBoundary(output->magic);
             }
         }
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             /* Copy In 的输入*/
-            op.GetIOperands().front()->isSubGraphBoundary = true;
+            BoundaryUtils::GetInstance().AddBoundary(op.GetIOperands().front()->magic);
             continue;
         }
         if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
             /* Copy Out 的输出*/
             if (!op.HasAttribute(OpAttributeKey::inplaceIdx)) {
-                op.GetOOperands().front()->isSubGraphBoundary = true;
+                BoundaryUtils::GetInstance().AddBoundary(op.GetOOperands().front()->magic);
             }
             continue;
         }
@@ -115,20 +116,32 @@ void SetBoundary::SetTensorBoundary(Function& function) const
             auto assembleIn = op.GetIOperands().front();
             auto assembleOut = op.GetOOperands().front();
             bool isBoundary = (assembleOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR);
-            assembleOut->isSubGraphBoundary = isBoundary;
-            assembleIn->isSubGraphBoundary = isBoundary;
+            if (isBoundary) {
+                BoundaryUtils::GetInstance().AddBoundary(assembleOut->magic);
+                BoundaryUtils::GetInstance().AddBoundary(assembleIn->magic);
+            } else {
+                BoundaryUtils::GetInstance().RemoveBoundary(assembleOut->magic);
+                BoundaryUtils::GetInstance().RemoveBoundary(assembleIn->magic);
+            }
             continue;
         }
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             /* reshape*/
             auto reshapeIn = op.GetIOperands().front();
             auto reshapeOut = op.GetOOperands().front();
-            bool isBoundary = (reshapeOut->isSubGraphBoundary || reshapeIn->isSubGraphBoundary);
-            reshapeIn->isSubGraphBoundary = isBoundary;
-            reshapeOut->isSubGraphBoundary = isBoundary;
+            bool isBoundary =
+                (BoundaryUtils::GetInstance().IsBoundary(reshapeOut->magic) ||
+                 BoundaryUtils::GetInstance().IsBoundary(reshapeIn->magic));
+            if (isBoundary) {
+                BoundaryUtils::GetInstance().AddBoundary(reshapeIn->magic);
+                BoundaryUtils::GetInstance().AddBoundary(reshapeOut->magic);
+            } else {
+                BoundaryUtils::GetInstance().RemoveBoundary(reshapeIn->magic);
+                BoundaryUtils::GetInstance().RemoveBoundary(reshapeOut->magic);
+            }
             if (reshapeIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                 reshapeOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                reshapeOut->isSubGraphBoundary = true;
+                BoundaryUtils::GetInstance().AddBoundary(reshapeOut->magic);
             }
         }
     }

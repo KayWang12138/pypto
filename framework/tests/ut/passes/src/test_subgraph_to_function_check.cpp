@@ -27,6 +27,7 @@
 #define private public
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #undef private
+#include "passes/pass_utils/boundary_utils.h"
 #include "computational_graph_builder.h"
 #include "tilefwk/tilefwk_op.h"
 
@@ -77,7 +78,7 @@ static void RunColorOutGraphCheckTest(
     G.GetOp("add2")->UpdateSubgraphID(1);
     G.GetTensor("a")->subGraphID = G.GetTensor("b")->subGraphID = 0;
     G.GetTensor("c")->subGraphID = 1;
-    G.GetTensor("b")->isSubGraphBoundary = true;
+    BoundaryUtils::GetInstance().AddBoundary(G.GetTensor("b")->magic);
     for (const auto& t : {"a", "b", "c"})
         G.GetTensor(t)->SetMemoryTypeBoth(MemoryType::MEM_UB);
     if (threeOpFork)
@@ -298,7 +299,7 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule1_DDR_NotBoundary)
     auto op = G.GetOp("add_op");
     auto tensor = G.GetTensor("in");
     tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    tensor->isSubGraphBoundary = false;
+    BoundaryUtils::GetInstance().RemoveBoundary(tensor->magic);
     op->UpdateSubgraphID(0);
 
     SubGraphToFuncChecker checker;
@@ -323,7 +324,7 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule2_DifferentSubGrap
 
     op->UpdateSubgraphID(1);
     tensor->subGraphID = 2;
-    tensor->isSubGraphBoundary = false;
+    BoundaryUtils::GetInstance().RemoveBoundary(tensor->magic);
 
     SubGraphToFuncChecker checker;
     auto status = checker.CheckSubGraphBoundary(*f);
@@ -348,7 +349,7 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Rule3_CopyIn_NoBoundar
 
     op->UpdateSubgraphID(0);
     tensor->subGraphID = 0;
-    tensor->isSubGraphBoundary = false;
+    BoundaryUtils::GetInstance().RemoveBoundary(tensor->magic);
     SubGraphToFuncChecker checker;
     auto status = checker.CheckSubGraphBoundary(*f);
     EXPECT_EQ(status, FAILED);
@@ -372,10 +373,10 @@ TEST_F(SubgraphToFunctionCheckTest, CheckSubGraphBoundary_Output_DDR_Only)
 
     op->UpdateSubgraphID(0);
     in_tensor->subGraphID = 0;
-    in_tensor->isSubGraphBoundary = true;
+    BoundaryUtils::GetInstance().AddBoundary(in_tensor->magic);    
 
     out_tensor->subGraphID = 0;
-    out_tensor->isSubGraphBoundary = false;
+    BoundaryUtils::GetInstance().RemoveBoundary(out_tensor->magic);
     out_tensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
 
     SubGraphToFuncChecker checker;
