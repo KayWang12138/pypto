@@ -27,7 +27,7 @@ bool AlignmentUtils::IsCombinedAxis(const std::vector<bool>& combineAxis, size_t
 {
     return index < combineAxis.size() && combineAxis[index];
 }
-//padvalueing
+
 int64_t AlignmentUtils::GetLastDimAlignBase(const LogicalTensorPtr& tensor)
 {
     if (tensor == nullptr || tensor->tensor == nullptr) {
@@ -43,7 +43,7 @@ int64_t AlignmentUtils::GetLastDimAlignBase(const LogicalTensorPtr& tensor)
     }
     return iter->second;
 }
-//IsLastDim32BAligned
+
 bool AlignmentUtils::IsLastDim32BAligned(const LogicalTensorPtr& tensor)
 {
     if (!IsValidForLastDimCheck(tensor)) {
@@ -60,7 +60,6 @@ bool AlignmentUtils::IsLastDim32BAligned(const LogicalTensorPtr& tensor)
     return ((lastDim * bytes) % 32) == 0;
 }
 
-// 和 /mnt/workspace/gitCode/cann/pypto/framework/src/interface/utils/common.h 的 AlignUp方法一致
 int64_t AlignmentUtils::Pad(int64_t dim, int64_t padValue)
 {
     if (padValue == 0) {
@@ -83,64 +82,6 @@ void AlignmentUtils::ProcessLastDim32BAlignedOnUB(LogicalTensorPtr tensor) {
         tensor->shape[lastIdx] = Pad(tensor->shape[lastIdx], paddingValue);
         tensor->tensor->rawshape[lastIdx] = Pad(tensor->tensor->oriRawshape[lastIdx], tensor->shape[lastIdx]);
     }
-}
-
-//op
-bool AlignmentUtils::NeedPadLastDim(const LogicalTensorPtr& tensor)
-{
-    if (!IsValidForLastDimCheck(tensor)) {
-        return false;
-    }
-    if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_UB) {
-        return false;
-    }
-    auto alignBase = AlignmentUtils::GetLastDimAlignBase(tensor);
-    auto lastDim = tensor->shape.back();
-    return (lastDim > 0) && (alignBase > 0) && ((lastDim % alignBase) != 0);
-}
-//op
-bool AlignmentUtils::IsRawLastDimUnaligned(const LogicalTensorPtr& tensor)
-{
-    if (!IsValidForLastDimCheck(tensor)) {
-        return false;
-    }
-    const auto& oriRawShape = tensor->tensor->oriRawshape;
-    const auto& rawShape = tensor->tensor->rawshape;
-    if (oriRawShape.size() != tensor->shape.size() || rawShape.size() != tensor->shape.size()) {
-        return false;
-    }
-    auto lastIdx = tensor->shape.size() - 1;
-    return oriRawShape[lastIdx] != rawShape[lastIdx];
-}
-//判断了
-//一个op的输入或输出是否被pad过（不全）（pad在前有用）
-//或 
-//目前没未对齐 （pad在后有用） 
-bool AlignmentUtils::HasUnalignedInputOrOutput(const Operation& op)
-{
-    std::vector<bool> inputAxis;
-    std::vector<bool> outputAxis;
-    op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
-    op.GetAttr(OpAttributeKey::outputCombineAxis, outputAxis);
-    for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-        if (IsCombinedAxis(inputAxis, i)) {
-            continue;
-        }
-        if (AlignmentUtils::IsRawLastDimUnaligned(op.GetIOperands()[i]) ||
-            AlignmentUtils::NeedPadLastDim(op.GetIOperands()[i])) {
-            return true;
-        }
-    }
-    for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-        if (IsCombinedAxis(outputAxis, i)) {
-            continue;
-        }
-        if (AlignmentUtils::IsRawLastDimUnaligned(op.GetOOperands()[i]) ||
-            AlignmentUtils::NeedPadLastDim(op.GetOOperands()[i])) {
-            return true;
-        }
-    }
-    return false;
 }
 
 } // namespace npu::tile_fwk
