@@ -66,20 +66,14 @@ class GmmMxfp8Inputs:
         scaled_a: Scale factors for input tensor [K//64, M, 2] (transposed format)
         scaled_b: Scale factors for weight tensor [K//64, N, 2]
         y: Output tensor of shape [num_groups, M, N] (需要在外部初始化)
-        group_list: List of group sizes for each weight group
-        tile_config: Tile configuration for computation
-        group_type: Type of group_list interpretation (default: 0)
-            - 0: group_list elements are individual group sizes, sum equals K
-            - 1: group_list elements are cumulative K values, last element equals K
+        tile_config: Tile configuration for computation (包含 group_list 和 group_type)
     """
     a: torch.Tensor
     b: torch.Tensor
     scaled_a: torch.Tensor
     scaled_b: torch.Tensor
     y: torch.Tensor
-    group_list: list
     tile_config: 'ShapeConfig'
-    group_type: int = 0
 
 
 @dataclass
@@ -320,8 +314,6 @@ def scaled_matmul_kernel(
     scaled_a: pypto.Tensor(),
     scaled_b: pypto.Tensor(),
     y: pypto.Tensor(),
-    group_list: list,
-    group_type: int,
     tile_config: ShapeConfig
 ):
     """
@@ -340,11 +332,7 @@ def scaled_matmul_kernel(
         scaled_a: Scale factors for input tensor [K//64, M, 2] (transposed format)
         scaled_b: Scale factors for weight tensor [K//64, N, 2]
         y: Output tensor [num_groups, M, N]
-        group_list: List of group sizes for K-axis splitting
-        group_type: Type of group_list interpretation
-            - 0: group_list elements are individual group sizes, sum equals K
-            - 1: group_list elements are cumulative K values, last element equals K
-        tile_config: Tile configuration for computation
+        tile_config: Tile configuration for computation (包含 group_list 和 group_type)
     
     约束说明 (scaled_mm API 要求):
     ================================
@@ -382,6 +370,10 @@ def scaled_matmul_kernel(
     m = y.shape[1]
     n = y.shape[2]
     mm_result_tensor = pypto.tensor([g, m, n], pypto.DT_FP32)
+
+    # 从 tile_config 获取 group_list 和 group_type
+    group_list = tile_config.group_list
+    group_type = tile_config.group_type
 
     # 根据 group_type 计算 begin 和 end
     # group_type=0: group_list 各元素为单独的 group size，累加得到 K
@@ -441,7 +433,7 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     Generate MXFP8 output using PyPTO scaled matrix multiplication with new frontend.
 
     Args:
-        inputs: Input parameters including tensors, scales, y, group list, group_type and tile config
+        inputs: Input parameters including tensors, scales, y and tile config
 
     Returns:
         torch.Tensor: Output tensor of shape [num_groups, M, N] in FP32
@@ -451,8 +443,6 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     scaled_a = inputs.scaled_a
     scaled_b = inputs.scaled_b
     y = inputs.y
-    group_list = inputs.group_list
-    group_type = inputs.group_type
     tile_config = inputs.tile_config
 
     # Move tensors to NPU
@@ -463,7 +453,8 @@ def gen_mxfp8(inputs: GmmMxfp8Inputs) -> torch.Tensor:
     y = y.npu()
 
     # Execute scaled matrix multiplication kernel with new frontend
-    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, group_list, group_type, tile_config)
+    # tile_config 包含 group_list、group_type 和 tile shapes
+    scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
 
     y = y.to(torch.float32)
     return y
@@ -553,9 +544,7 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
         scaled_a=scaled_a,
         scaled_b=scaled_b,
         y=y_init_npu,
-        group_list=group_list,
         tile_config=tile_config,
-        group_type=group_type,
     ))
 
     # Verify results
