@@ -63,7 +63,11 @@ class Expr:
         del self._item_dict[item]
 
     def __eq__(self, other):
-        return self._attr_dict == other._attr_dict and self._item_dict == other._item_dict and self._value == other._value
+        return (
+            self._attr_dict == other._attr_dict
+            and self._item_dict == other._item_dict
+            and self._value == other._value
+        )
 
     def decorate(self, n):
         Expr.trace.append(('decorate', n))
