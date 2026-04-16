@@ -405,9 +405,11 @@ def scaled_matmul_kernel(
     n = y.shape[2]
     mm_result_tensor = pypto.tensor([g, m, n], pypto.DT_FP32)
 
-    # 从 tile_config 获取 group_list 和 group_type
+    # 从 tile_config 获取 group_list, group_type 和 transposition flags
     group_list = tile_config.group_list
     group_type = tile_config.group_type
+    a_trans = tile_config.a_trans
+    b_trans = tile_config.b_trans
 
     # 根据 group_type 计算 begin 和 end (K轴切分)
     # group_type=0: group_list 各元素为单独的 group size，累加得到 K
@@ -430,12 +432,28 @@ def scaled_matmul_kernel(
         scale_length = (end - begin) // 64
 
         # Extract input for current group (切分 K 轴)
-        # a is [K, M] (transposed), 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
-        # b is [K, N], 切分 K 轴 = 切分第一维 -> b[begin:end, :] -> [K_block, N]
-        # scaled_a/scaled_b 形状 ((K//64)+g, M/N, 2)，按偏移量切取
-        x = a[begin:end, :]  # [K_block, M]
+        # 根据 a_trans 决定切分方式：
+        # - a_trans=True: a=[K, M], 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
+        # - a_trans=False: a=[M, K], 切分 K 轴 = 切分第二维 -> a[:, begin:end] -> [M, K_block]
+        if a_trans:
+            x = a[begin:end, :]  # [K_block, M]
+        else:
+            x = a[:, begin:end]  # [M, K_block]
+        
+        # b 固定为 [K, N] (b_trans=False)，切分 K 轴 = 切分第一维
+        # TODO: 如果需要支持 b_trans=True，需要添加对应逻辑
         weight = b[begin:end, :]  # [K_block, N]
-        scaled_x = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
+        
+        # 切分 scale tensor
+        # 根据 a_trans 和 scale_a_trans 决定切分方式：
+        # - a_trans=True: scaled_a[((K//64)+g, M, 2)], 切分第一维
+        # - a_trans=False: scaled_a[(M, (K//64)+g, 2)], 切分第二维
+        if a_trans:
+            scaled_x = scaled_a[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, M, 2]
+        else:
+            scaled_x = scaled_a[:, scale_offset : scale_offset + scale_length, :]  # [M, K_block//64, 2]
+        
+        # scaled_b 固定为 ((K//64)+g, N, 2) 格式，切分第一维
         scaled_weight = scaled_b[scale_offset : scale_offset + scale_length, :, :]  # [K_block//64, N, 2]
 
         # Set vector tile shapes for scale processing
@@ -448,21 +466,20 @@ def scaled_matmul_kernel(
 
         # Set cube tile shapes for scaled_mm
         # 重要: tile shape 需满足内轴 32 字节对齐约束
-        # 当前配置 a_trans=True, b_trans=False:
-        #   - mat_a=[K, M], 内轴是 M，m_tile_shape 需保证 M 维度 >= 32 字节对齐
-        #   - mat_b=[K, N], 内轴是 N，n_tile_shape 需保证 N 维度 >= 32 字节对齐
         pypto.set_cube_tile_shapes(
-            tile_config.m_tile_shape,  # M 维度 tile，内轴需 32 字节对齐 (FP8: >= 32 元素)
-            tile_config.k_tile_shape,  # K 维度 tile，需 64 对齐 (MX 量化)
-            tile_config.n_tile_shape   # N 维度 tile，内轴需 32 字节对齐 (FP8: >= 32 元素)
+            tile_config.m_tile_shape,  # M 维度 tile
+            tile_config.k_tile_shape,  # K 维度 tile
+            tile_config.n_tile_shape   # N 维度 tile
         )
-        # x is [K, M] (transposed), scale_x is [K//64, M, 2] (transposed)
-        # weight is [K, N] (not transposed), scale_weight is [K//64, N, 2] (not transposed)
-        # a_trans=True: 表示 x 在逻辑上是转置的，实际存储 [K, M]
-        # scale_a_trans=True: 表示 scaled_x 在逻辑上是转置的，实际存储 [K//64, M, 2]
+        
+        # 调用 scaled_mm
+        # 根据 a_trans 决定 scale_a_trans:
+        # - a_trans=True: scale_a_trans=True (scale 形状 [K//64, M, 2])
+        # - a_trans=False: scale_a_trans=False (scale 形状 [M, K//64, 2])
+        scale_a_trans = a_trans  # scale_a_trans 与 a_trans 保持一致
         mm_result_tensor[i] = pypto.scaled_mm(
             x, weight, pypto.DT_FP32, scaled_x, scaled_weight,
-            a_trans=True, scale_a_trans=True
+            a_trans=a_trans, scale_a_trans=scale_a_trans, b_trans=b_trans
         )
     y[:,:,:] = pypto.add(y, mm_result_tensor)
 
@@ -556,10 +573,9 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     group_list = tile_config.group_list
     group_type = tile_config.group_type
     in_dtype = tile_config.in_dtype
+    a_trans = tile_config.a_trans
+    b_trans = tile_config.b_trans
     num_groups = len(group_list)
-    # Kernel 固定使用 a_trans=True
-    a_trans = True
-    b_trans = False
 
     # Map pypto dtype to torch dtype
     torch_dtype_map = {
@@ -568,20 +584,34 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     }
     torch_dtype = torch_dtype_map.get(in_dtype, torch.float8_e4m3fn)
 
-    # Generate input tensor in MXFP8 format - [K, M] (transposed format)
-    # 约束: a_trans=True 时，a=[K, M]
-    a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
+    # Generate input tensor in MXFP8 format
+    # 根据 a_trans 决定数据格式：
+    # - a_trans=True: a=[K, M] (transposed format)
+    # - a_trans=False: a=[M, K] (normal format)
+    if a_trans:
+        a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
+    else:
+        a = torch.randn((m, k), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
     
-    # Generate scaled_a in MXFP8 format - ((K//64)+g, M, 2)
+    # Generate scaled_a in MXFP8 format
+    # 根据 a_trans 决定 scale 格式：
+    # - a_trans=True: scaled_a=((K//64)+g, M, 2) - scale_a_trans=True
+    # - a_trans=False: scaled_a=(M, (K//64)+g, 2) - scale_a_trans=False
     # MX量化存储格式: 所有group的scale存储在一个连续tensor中
-    scaled_a = torch.randn((k // 64 + num_groups, m, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+    if a_trans:
+        scaled_a = torch.randn((k // 64 + num_groups, m, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+    else:
+        scaled_a = torch.randn((m, k // 64 + num_groups, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
-    # Generate weight tensor in MXFP8 format - 2D [K, N]
-    # 约束: b_trans=False 时，b=[K, N]
-    b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
-    
-    # Generate scaled_b in MXFP8 format - ((K//64)+g, N, 2)
-    scaled_b = torch.randn((k // 64 + num_groups, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+    # Generate weight tensor in MXFP8 format
+    # 当前固定使用 b_trans=False: b=[K, N]
+    # TODO: 如果需要支持 b_trans=True，需要添加对应逻辑
+    if b_trans:
+        b = torch.randn((n, k), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
+        scaled_b = torch.randn((n, k // 64 + num_groups, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
+    else:
+        b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch_dtype)
+        scaled_b = torch.randn((k // 64 + num_groups, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
     # Initialize y tensor with random values (not zeros, for inplace add)
     y_init = torch.randn((num_groups, m, n), dtype=torch.float32)
@@ -738,5 +768,29 @@ if __name__ == "__main__":
             b_format_nz=False,
             c_format_nz=False,
             description="Case5: FP8E5M2, K=512, g=2, group_list=[128, 384]"
+        )
+    )
+
+    # 测试用例6: a_trans=False (非转置格式)
+    # - M=32, K=512, N=1024
+    # - a=[M, K] (非转置格式), scaled_a=[M, (K//64)+g, 2]
+    # - group_list=[256, 256], g=2
+    # - a_trans=False: 输入矩阵不转置
+    test_gmm_mxfp8(
+        ShapeConfig(
+            ori_shape=[32, 512, 1024],
+            group_list=[256, 256],
+            m_tile_shape=[32, 32],
+            k_tile_shape=[256, 256],
+            n_tile_shape=[256, 256],
+            vector_tile_shape=[1, 8, 256, 32],
+            group_type=0,
+            in_dtype=pypto.DT_FP8E4M3,
+            a_trans=False,  # a_trans=False: 输入矩阵非转置格式 [M, K]
+            b_trans=False,
+            a_format_nz=False,
+            b_format_nz=False,
+            c_format_nz=False,
+            description="Case6: a_trans=False, a=[M,K], scaled_a=[M,(K//64)+g,2]"
         )
     )

@@ -88,14 +88,29 @@ def scaled_matmul_kernel(
 | 0 | 累加方式 | `[256, 256]` | 各元素为单独的 group size，累加得到 K=512 |
 | 1 | 累计值方式 | `[256, 512]` | 各元素为累计 K 值，最后一个元素等于 K=512 |
 
+### a_trans 和 b_trans 矩阵格式说明
+
+| 参数 | 值 | 矩阵形状 | Scale 形状 | Scale_trans |
+|------|-----|---------|-----------|-------------|
+| a_trans | True | a=[K, M] | scaled_a=[(K//64)+g, M, 2] | scale_a_trans=True |
+| a_trans | False | a=[M, K] | scaled_a=[M, (K//64)+g, 2] | scale_a_trans=False |
+| b_trans | True | b=[N, K] | scaled_b=[N, (K//64)+g, 2] | scale_b_trans=True |
+| b_trans | False | b=[K, N] | scaled_b=[(K//64)+g, N, 2] | scale_b_trans=False |
+
+**注意：**
+- `a_trans=True` 时，M 维度是内轴，需要 32 字节对齐
+- `a_trans=False` 时，K 维度是内轴，但 MX 量化已要求 K>=64，自动满足对齐
+- `b_trans=False` 时，N 维度是内轴，需要 32 字节对齐
+- `b_trans=True` 时，K 维度是内轴，自动满足对齐
+
 ### Kernel 输入输出参数
 
 | 参数名 | 输入/输出 | 描述 | 数据类型 | 维度(shape) |
 |--------|-----------|------|----------|-------------|
-| a | 输入 | 输入矩阵（转置格式） | FP8E4M3 或 FP8E5M2 | [K, M] |
-| b | 输入 | 权重矩阵 | FP8E4M3 或 FP8E5M2 | [K, N] |
-| scaled_a | 输入 | a 的量化缩放因子 | FP8E8M0 | [(K//64)+g, M, 2] |
-| scaled_b | 输入 | b 的量化缩放因子 | FP8E8M0 | [(K//64)+g, N, 2] |
+| a | 输入 | 输入矩阵 | FP8E4M3 或 FP8E5M2 | a_trans=True: [K, M]; a_trans=False: [M, K] |
+| b | 输入 | 权重矩阵 | FP8E4M3 或 FP8E5M2 | b_trans=True: [N, K]; b_trans=False: [K, N] |
+| scaled_a | 输入 | a 的量化缩放因子 | FP8E8M0 | a_trans=True: [(K//64)+g, M, 2]; a_trans=False: [M, (K//64)+g, 2] |
+| scaled_b | 输入 | b 的量化缩放因子 | FP8E8M0 | b_trans=True: [N, (K//64)+g, 2]; b_trans=False: [(K//64)+g, N, 2] |
 | y | 输入输出 | 输入输出矩阵 | FP32 | [num_groups, M, N] |
 
 其中 `g` 为分组数量（`len(group_list)`）。a 和 b 的数据类型由 `in_dtype` 参数决定。
@@ -240,15 +255,52 @@ scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
 python quant_grouped_matmul_inplace_add_mx.py
 ```
 
----
-
-## 测试用例说明
-
-### 用例 1：基础用例（FP8E4M3）
+### 基本用法
 
 ```python
-ShapeConfig(
-    ori_shape=[32, 512, 7168],
+import pypto
+import torch
+
+# 定义配置（a_trans=True，转置格式）
+tile_config = ShapeConfig(
+    ori_shape=[32, 512, 7168],  # [M, K, N]
+    group_list=[256, 256],       # 两个分组，每个 256
+    m_tile_shape=[32, 32],       # M 维度 tile
+    k_tile_shape=[256, 256],     # K 维度 tile
+    n_tile_shape=[256, 256],     # N 维度 tile
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=0,                # 累加方式
+    in_dtype=pypto.DT_FP8E4M3,   # 使用 FP8E4M3 数据类型
+    a_trans=True,                # 转置格式
+    b_trans=False,
+    description="Basic test with 2 groups"
+)
+
+# 创建输入张量（根据 a_trans 选择形状）
+K, M, N = 512, 32, 7168
+num_groups = 2
+
+# FP8E4M3: torch.float8_e4m3fn
+# FP8E5M2: torch.float8_e5m2
+torch_dtype = torch.float8_e4m3fn
+
+# a_trans=True: a=[K, M], scaled_a=[(K//64)+g, M, 2]
+a = torch.randn((K, M), dtype=torch_dtype, device='npu:0')
+b = torch.randn((K, N), dtype=torch_dtype, device='npu:0')
+scaled_a = torch.randn((K//64 + num_groups, M, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
+scaled_b = torch.randn((K//64 + num_groups, N, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
+y = torch.randn((num_groups, M, N), dtype=torch.float32, device='npu:0')
+
+# 调用 kernel
+scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
+```
+
+### a_trans=False 用法
+
+```python
+# 定义配置（a_trans=False，非转置格式）
+tile_config = ShapeConfig(
+    ori_shape=[32, 512, 1024],   # [M, K, N]
     group_list=[256, 256],
     m_tile_shape=[32, 32],
     k_tile_shape=[256, 256],
@@ -256,10 +308,23 @@ ShapeConfig(
     vector_tile_shape=[1, 8, 256, 32],
     group_type=0,
     in_dtype=pypto.DT_FP8E4M3,
-    a_trans=True, b_trans=False,
-    a_format_nz=False, b_format_nz=False, c_format_nz=False,
-    description="Case1: FP8E4M3, K=512, g=2"
+    a_trans=False,               # 非转置格式
+    b_trans=False,
+    description="a_trans=False test"
 )
+
+K, M, N = 512, 32, 1024
+num_groups = 2
+
+# a_trans=False: a=[M, K], scaled_a=[M, (K//64)+g, 2]
+a = torch.randn((M, K), dtype=torch.float8_e4m3fn, device='npu:0')
+b = torch.randn((K, N), dtype=torch.float8_e4m3fn, device='npu:0')
+scaled_a = torch.randn((M, K//64 + num_groups, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
+scaled_b = torch.randn((K//64 + num_groups, N, 2), dtype=torch.float8_e8m0fnu, device='npu:0')
+y = torch.randn((num_groups, M, N), dtype=torch.float32, device='npu:0')
+
+# 调用 kernel
+scaled_matmul_kernel(a, b, scaled_a, scaled_b, y, tile_config)
 ```
 
 - M=32, K=512, N=7168
@@ -346,6 +411,29 @@ ShapeConfig(
 
 - 使用 FP8E5M2 数据类型（torch.float8_e5m2）
 - E5M2 格式具有更大的动态范围，适合推理场景
+
+### 用例 6：a_trans=False（非转置格式）
+
+```python
+ShapeConfig(
+    ori_shape=[32, 512, 1024],
+    group_list=[256, 256],
+    m_tile_shape=[32, 32],
+    k_tile_shape=[256, 256],
+    n_tile_shape=[256, 256],
+    vector_tile_shape=[1, 8, 256, 32],
+    group_type=0,
+    in_dtype=pypto.DT_FP8E4M3,
+    a_trans=False,  # 输入矩阵非转置格式
+    b_trans=False,
+    a_format_nz=False, b_format_nz=False, c_format_nz=False,
+    description="Case6: a_trans=False"
+)
+```
+
+- a_trans=False：输入矩阵使用非转置格式 [M, K]
+- scaled_a 形状：[M, (K//64)+g, 2] = [32, 10, 2]
+- K 轴切分：切分 a 的第二维 a[:, begin:end]
 
 ---
 
