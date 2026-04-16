@@ -961,5 +961,53 @@ TEST_F(GenerateMoveOpPassTest, CreateMoveOpForAssemble_L0C2UB)
     EXPECT_EQ(assembleOp.GetOpcode(), Opcode::OP_L0C_COPY_UB);
     EXPECT_TRUE(assembleOp.HasAttribute(OpAttributeKey::isCube));
 }
+
+TEST_F(GenerateMoveOpPassTest, CreateMoveOpForAssemble_UB2L1)
+{
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "UB2L1", "UB2L1", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("UB2L1", currFunctionPtr);
+    std::vector<int64_t> shape{32, 64};
+    auto inputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_UB, TileOpFormat::TILEOP_ND, shape);
+    // 创建输出 tensor (L1)
+    auto outputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_L1, TileOpFormat::TILEOP_NZ, shape);
+    
+    // 创建 Assemble 操作
+    auto& assembleOp = currFunctionPtr->AddRawOperation(Opcode::OP_ASSEMBLE, {inputTensor}, {outputTensor});
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0});
+    assembleOp.SetOpAttribute(assembleAttr);
+    
+    // 调用 CreateMoveOpForAssemble
+    GenerateMoveOp generateMoveOp;
+    generateMoveOp.CreateMoveOpForAssemble(*currFunctionPtr, assembleOp);
+    
+    // 验证：Opcode 应变为 OP_UB_COPY_L1
+    EXPECT_EQ(assembleOp.GetOpcode(), Opcode::OP_UB_COPY_L1);
+}   
+
+TEST_F(GenerateMoveOpPassTest, CreateMoveOpForConvert_L0C2UB)
+{
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "ConvertL0C2UB", "ConvertL0C2UB", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("ConvertL0C2UB", currFunctionPtr);
+
+    // 创建输入 tensor (L0C) 和输出 tensor (UB)
+    std::vector<int64_t> shape{32, 64};
+    auto inputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_L0C, TileOpFormat::TILEOP_NZ, shape);
+    auto outputTensor = CreateTestLogicalTensor(*currFunctionPtr, MEM_UB, TileOpFormat::TILEOP_ND, shape);
+    
+    // 创建 Convert 操作
+    auto& convertOp = currFunctionPtr->AddRawOperation(Opcode::OP_CONVERT, {inputTensor}, {outputTensor});
+    convertOp.SetOpAttribute(std::make_shared<ConvertOpAttribute>(MEM_L0C, MEM_UB));
+    
+    // 调用 CreateMoveOpForConvert
+    GenerateMoveOp generateMoveOp;
+    Status status = generateMoveOp.CreateMoveOpForConvert(*currFunctionPtr, convertOp);
+    
+    // 验证
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(convertOp.GetOpcode(), Opcode::OP_L0C_COPY_UB);
+    EXPECT_TRUE(convertOp.HasAttribute(OpAttributeKey::isCube));
+}
 } // namespace tile_fwk
 } // namespace npu
