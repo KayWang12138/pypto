@@ -36,7 +36,7 @@ namespace ir {
  * Aliasing is determined by comparing base_ pointers (SameAllocation) and
  * checking for overlapping byte ranges (MayAlias).
  */
-class MemRef : public Var {
+class MemRef : public Expr {
 public:
     MemorySpace memory_space_; ///< Memory space of this MemRef, e.g. Global, Local, Constant
     ExprPtr offset_;           ///< Byte offset from base (0 for full alloc, view offset for views)
@@ -46,7 +46,7 @@ public:
      * @brief Construct with explicit variable name. Used by deserialization and
      * address allocation where the name must be preserved exactly.
      */
-    MemRef(MemorySpace memory_space, ExprPtr offset, uint64_t size, std::string name = "", Span span = Span::Unknown());
+    MemRef(MemorySpace memory_space, ExprPtr offset, uint64_t size, Span span = Span::Unknown());
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MemRef; }
     [[nodiscard]] std::string TypeName() const override { return "MemRef"; }
@@ -60,7 +60,7 @@ public:
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
-            Var::GetFieldDescriptors(),
+            Expr::GetFieldDescriptors(),
             std::make_tuple(
                 reflection::UsualField(&MemRef::memory_space_, "memory_space"),
                 reflection::UsualField(&MemRef::offset_, "offset"), reflection::UsualField(&MemRef::size_, "size")));

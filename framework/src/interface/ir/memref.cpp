@@ -62,8 +62,8 @@ MemorySpace StringToMemorySpace(const std::string& str)
     throw ValueError("Unknown MemorySpace: " + str);
 }
 
-MemRef::MemRef(MemorySpace memory_space, ExprPtr offset, uint64_t size, std::string name, Span span)
-    : Var(name, GetMemRefType(), std::move(span)), memory_space_(memory_space), offset_(std::move(offset)), size_(size)
+MemRef::MemRef(MemorySpace memory_space, ExprPtr offset, uint64_t size, Span span)
+    : Expr(std::move(span), GetMemRefType()), memory_space_(memory_space), offset_(std::move(offset)), size_(size)
 {}
 
 bool MemRef::MayAlias(const MemRefPtr& a, const MemRefPtr& b)

@@ -196,7 +196,7 @@ ExprPtr IRMutator::VisitExpr_(const CallPtr& op)
     }
 
     if (changed) {
-        return std::make_shared<const Call>(op->op_, std::move(new_args), op->kwargs_, op->GetType(), op->span_);
+        return std::make_shared<const Call>(op->name_, std::move(new_args), op->GetType(), op->span_);
     }
     return op;
 }
@@ -313,14 +313,8 @@ StmtPtr IRMutator::VisitStmt_(const AssignStmtPtr& op)
     auto new_value = ExprFunctor<ExprPtr>::VisitExpr(op->value_);
     INTERNAL_CHECK_SPAN(new_var_expr, op->span_) << "AssignStmt var mutated to null";
     INTERNAL_CHECK_SPAN(new_value, op->span_) << "AssignStmt value mutated to null";
-    // As<Var> uses exact kind match, so also try As<MemRef> (MemRef inherits from Var)
+
     auto new_var = As<Var>(new_var_expr);
-    if (!new_var) {
-        auto memref = As<MemRef>(new_var_expr);
-        if (memref) {
-            new_var = std::static_pointer_cast<const Var>(memref);
-        }
-    }
     INTERNAL_CHECK_SPAN(new_var, op->span_) << "AssignStmt var is not a Var after mutation";
     if (new_var.get() != op->var_.get() || new_value.get() != op->value_.get()) {
         return std::make_shared<const AssignStmt>(std::move(new_var), std::move(new_value), op->span_);
