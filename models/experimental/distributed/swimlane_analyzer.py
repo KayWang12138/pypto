@@ -68,7 +68,7 @@ class SwimlaneAnalyzer:
         return total_time
 
     @staticmethod
-    def find_swimlane_files(self, rank_dir: str) -> List[str]:
+    def find_swimlane_files(rank_dir: str) -> List[str]:
         """在目录中查找 swimlane 文件"""
         swimlane_files = []
         for root, _, files in os.walk(rank_dir):
