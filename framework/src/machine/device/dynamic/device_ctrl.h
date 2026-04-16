@@ -40,11 +40,11 @@ namespace npu::tile_fwk::dynamic {
 
 class DeviceCtrlMachine {
 public:
-    DeviceTaskCtrl* InitTaskCtrl(int idx, DeviceTask *devTask, DeviceExecuteContext *ctx)
+    DeviceTaskCtrl* InitTaskCtrl(int idx, DeviceTask* devTask, DeviceExecuteContext* ctx)
     {
         if (ctx == nullptr) {
-             DEV_ERROR(	 
-                 CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.push.init_dtask: Init Task control failed, which ctx is null.");
+            DEV_ERROR(
+                CtrlErr::ROOT_ALLOC_CTX_NULL, "#ctrl.push.init_dtask: Init Task control failed, which ctx is null.");
             return nullptr;
         }
         auto taskCtrl = &GetTaskCtrlInPool(idx);
@@ -86,7 +86,7 @@ public:
         return true;
     }
 
-    int PushTask(DynDeviceTask *dynTask, DeviceExecuteContext *ctx)
+    int PushTask(DynDeviceTask* dynTask, DeviceExecuteContext* ctx)
     {
         auto idx = AllocNewTaskCtrl();
         bool appendLastTaskCtrl = false;
@@ -115,7 +115,8 @@ public:
         return idx;
     }
 
-    void StopAicoreManager() {
+    void StopAicoreManager()
+    {
         for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
             GetTaskQueue(i).Enqueue(nullptr);
         }
@@ -127,7 +128,7 @@ public:
         inspector_ = inspector;
     }
 
-    void InitTaskPipeWithSched(DevAscendProgram *devProg)
+    void InitTaskPipeWithSched(DevAscendProgram* devProg)
     {
         for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
             GetTaskQueue(i).ResetEmpty();
@@ -236,9 +237,10 @@ public:
 
         RuntimeDataRingBufferHead* ringBufferHead = devProg->GetRuntimeDataList();
 
-        DEV_INFO("AllocatePrepare begin runtimedata: %lu, %lu %lu", ringBufferHead->GetIndexFinished(),
+        DEV_INFO(
+            "AllocatePrepare begin runtimedata: %lu, %lu %lu", ringBufferHead->GetIndexFinished(),
             ringBufferHead->GetIndexPending(), ringBufferHead->GetRuntimeDataCount());
-        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs*>(ringBufferHead->AllocatePrepare());
+        DevStartArgs* devStartArgs = reinterpret_cast<DevStartArgs*>(ringBufferHead->AllocatePrepare());
         DEV_INFO("AllocatePrepare end");
 
         devStartArgs->syncFlag = 0;
@@ -304,9 +306,7 @@ public:
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
-            DEV_IF_DEBUG {
-                DumpTask(dynTask->GetIndex(), (DeviceTask*)dynTask, true);
-            }
+            DEV_IF_DEBUG { DumpTask(dynTask->GetIndex(), (DeviceTask*)dynTask, true); }
             PushTask(dynTask, exeCtx);
         });
         PerfEnd(PERF_EVT_CONTROL_FLOW_CALL);

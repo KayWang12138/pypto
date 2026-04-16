@@ -98,6 +98,14 @@ public:
                 aicoreHal_.InitKernelArgs(coreIdx,  reinterpret_cast<int64_t>(logbuf));
                 FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
             });
+        } else {
+            if (enableEslModel_) {
+                ForEachManageAicore([&](int coreIdx) {
+                    auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
+                    aicoreHal_.InitKernelArgs(coreIdx,  reinterpret_cast<int64_t>(logbuf));
+                    FillKernelArgsParallexDevTask(parallelCtx, coreIdx);
+                });
+            }
         }
     }
 
@@ -1044,7 +1052,7 @@ private:
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
         if (unlikely(isEnableDump)) {
-            aicoreDump_.DoDump(devTaskCtx->GetDeviceTask(), "input", newTask, GetPhyIdByBlockId(coreIdx));
+            aicoreDump_.DoDump(devTaskCtx->GetDeviceTask(), "input", newTask, coreIdx);
         }
 #endif
         uint64_t encodeTaskId = EncodeTaskId(devTaskCtx, coreIdx, newTask);
@@ -2085,7 +2093,7 @@ private:
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
         if (unlikely(isEnableDump)) {
-            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+            aicoreDump_.DoDump(deviceTaskCtx->GetDeviceTask(), "output", taskId, coreIdx, stat->execStart, stat->execEnd);
         }
 #endif
 
