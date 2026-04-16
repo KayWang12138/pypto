@@ -32,9 +32,6 @@ namespace codegen {
 class TypeConverter {
  public:
   TypeConverter() = default;
-  explicit TypeConverter(const std::string& arch) : arch_(arch) {}
-
-  void SetArch(const std::string& arch) { arch_ = arch; }
 
   /**
    * @brief Convert TileType to pto-isa TileType string
@@ -151,9 +148,6 @@ class TypeConverter {
    * @return Stride type string
    */
   [[nodiscard]] std::string GenerateStrideType(const std::vector<int64_t>& shape) const;
-
- private:
-  std::string arch_ = "a3";  ///< Target architecture ("a2", "a3", "a5")
 };
 
 }  // namespace codegen

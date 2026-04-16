@@ -153,8 +153,8 @@ def alloc_cube_buffer():
     v_mat_0 = plm.make_tile(v_mat_type, addr=MA3, size=V_F16)
     v_mat_1 = plm.make_tile(v_mat_type, addr=MA3_PONG, size=V_F16)
 
-    left_0 = plm.make_tile(plm.TileType(shape=[baseM, baseK], dtype=pl.FP16, target_memory=pl.MemorySpace.Left), addr=LA0, size=LEFT_SIZE)
-    left_1 = plm.make_tile(plm.TileType(shape=[baseM, baseK], dtype=pl.FP16, target_memory=pl.MemorySpace.Left), addr=LA1, size=LEFT_SIZE)
+    left_0 = plm.make_tile(plm.TileType(shape=[baseM, baseK], dtype=pl.FP16, target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA0, size=LEFT_SIZE)
+    left_1 = plm.make_tile(plm.TileType(shape=[baseM, baseK], dtype=pl.FP16, target_memory=pl.MemorySpace.Left, blayout=2, slayout=1), addr=LA1, size=LEFT_SIZE)
     right_0 = plm.make_tile(plm.TileType(shape=[baseN, baseK], dtype=pl.FP16, target_memory=pl.MemorySpace.Right), addr=RA0, size=RIGHT_SIZE)
     right_1 = plm.make_tile(plm.TileType(shape=[baseN, baseK], dtype=pl.FP16, target_memory=pl.MemorySpace.Right), addr=RA1, size=RIGHT_SIZE)
     acc_0 = plm.make_tile(plm.TileType(shape=[baseM, baseN], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc), addr=CA0, size=QK_HALF_F32)
