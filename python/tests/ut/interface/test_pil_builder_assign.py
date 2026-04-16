@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_expr():
 
     with TestParser():
@@ -99,6 +100,7 @@ def test_pil_parser_named_expr():
 
         @TestParser.test
         def named_expr_call_kw_arg():
+
             def func(x):
                 Expr.str(x)
             func(x=(var_a := Expr.int(0)))
@@ -571,6 +573,7 @@ def test_pil_parser_ann_assign():
 
         @TestParser.test
         def ann_assign_subscript_target_obj_from_call():
+
             def make():
                 return Expr(0)
             make()[0]: Expr.str(0) = Expr.int(1)
@@ -586,6 +589,7 @@ def test_pil_parser_ann_assign():
 
         @TestParser.test
         def ann_assign_subscript_target_obj_and_slice_from_calls():
+
             def make():
                 return Expr(0)
             make()[Expr.int(0)]: Expr.str(1) = Expr.int(2)
@@ -601,6 +605,7 @@ def test_pil_parser_ann_assign():
 
         @TestParser.test
         def ann_assign_subscript_target_obj_call_slice_range():
+
             def make():
                 return Expr(0)
             make()[Expr.int(0):Expr.int(1)]: Expr.str(2) = Expr.int(3)
@@ -610,6 +615,7 @@ def test_pil_parser_ann_assign():
         @TestParser.test
         def ann_assign_binop_annotation():
             var_x: Expr.int(0) + Expr.int(1) = Expr.int(2)
+
 
 def test_pil_parser_delete():
 

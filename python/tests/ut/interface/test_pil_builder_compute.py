@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_boolop():
 
     with TestParser():
@@ -57,6 +58,7 @@ def test_pil_parser_boolop():
             else:
                 Expr.str(4)
 
+
 def test_pil_parser_ifexp():
 
     with TestParser():
@@ -87,6 +89,7 @@ def test_pil_parser_ifexp():
                 Expr.str(3)
             else:
                 Expr.str(4)
+
 
 def test_pil_parser_bin_op():
 
@@ -269,6 +272,7 @@ def test_pil_parser_compare():
 
         @TestParser.test
         def cmp_call_kw_arg():
+
             def func(x):
                 Expr.str(x)
             func(x=Expr.int(1) == Expr.int(1))
