@@ -1074,7 +1074,7 @@ def test_pil_parser_subscript():
         @TestParser.test
         def slice_range_binop_bounds():
             var_l = [Expr.int(0), Expr.int(1), Expr.int(2), Expr.int(3)]
-            var_s = var_l[Expr.int(0) + 1 : Expr.int(1) + 2]
+            var_s = var_l[Expr.int(0) + 1: Expr.int(1) + 2]
             Expr.str(var_s[0])
 
         # --- slice range: subscript bounds ---
