@@ -82,7 +82,6 @@ class ShapeConfig:
     Attributes:
         ori_shape: Original shape [M, K, N]
         group_list: List of group sizes for each weight group
-        tile_size: Tile size for computation
         m_tile_shape: Tile shape for M dimension in cube operation
         k_tile_shape: Tile shape for K dimension in cube operation
         n_tile_shape: Tile shape for N dimension in cube operation
@@ -93,10 +92,14 @@ class ShapeConfig:
         b_format_nz: Whether weight uses NZ format (default: False)
         c_format_nz: Whether output uses NZ format (default: False)
         description: Description of the test case
+    
+    约束说明：
+        - K 轴必须 64 元素对齐（MX 量化要求）
+        - 当 a_trans=True 时，M 维度（内轴）需要 32 字节对齐
+        - 当 b_trans=False 时，N 维度（内轴）需要 32 字节对齐
     """
     ori_shape: list
     group_list: list
-    tile_size: int
     m_tile_shape: list
     k_tile_shape: list
     n_tile_shape: list
@@ -226,7 +229,11 @@ def compute_golden_result(inputs: GoldenComputeInputs) -> torch.Tensor:
 def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     """
     Generate golden (reference) output for grouped matrix multiplication using PyTorch.
-    a is in [K, M] format (transposed), b is in [K, N] format.
+    
+    根据 a_trans 参数决定数据格式：
+    - a_trans=True: a is [K, M], scaled_a is [K//64, M, 2]
+    - a_trans=False: a is [M, K], scaled_a is [M, K//64, 2]
+    - b is always [K, N], scaled_b is [K//64, N, 2]
 
     Args:
         inputs: Input parameters including tensors, scales, y, and group_list
@@ -234,10 +241,10 @@ def gen_golden(inputs: GmmGoldenInputs) -> torch.Tensor:
     Returns:
         torch.Tensor: Golden output tensor of shape [num_groups, M, N]
     """
-    a = inputs.a  # [K, M]
-    b = inputs.b  # [K, N]
-    scaled_a = inputs.scaled_a  # [K//64, M, 2]
-    scaled_b = inputs.scaled_b  # [K//64, N, 2]
+    a = inputs.a
+    b = inputs.b
+    scaled_a = inputs.scaled_a
+    scaled_b = inputs.scaled_b
     y = inputs.y
     group_list = inputs.group_list
     a_trans = inputs.a_trans
@@ -310,6 +317,38 @@ def scaled_matmul_kernel(
         y: Output tensor [num_groups, M, N]
         group_list: List of group sizes for K-axis splitting
         tile_config: Tile configuration for computation
+    
+    约束说明 (scaled_mm API 要求):
+    ================================
+    1. K 轴约束:
+       - K 轴必须 64 元素对齐 (MX 量化要求，每 64 个元素对应一个 scale)
+       - 当 mat_a 非转置时 [M, K]，外轴 M，内轴 K
+       - 当 mat_a 转置时 [K, M]，外轴 K，内轴 M
+    
+    2. 内轴 32 字节对齐约束:
+       - 内轴是矩阵乘法的累加维度，需要 32 字节对齐
+       - 当 a_trans=True 时: mat_a=[K, M]，内轴是 M，M 维度需 32 字节对齐
+         * FP8 格式: M >= 32 (因为 32 个 FP8 元素 = 32 字节)
+         * 对应的 m_tile_shape 也需满足内轴 >= 32 字节对齐
+       - 当 a_trans=False 时: mat_a=[M, K]，内轴是 K，K 维度需 32 字节对齐
+         * FP8 格式: K >= 32 (因为 32 个 FP8 元素 = 32 字节)
+         * 但由于 MX 量化已要求 K >= 64，此约束自动满足
+       - 当 b_trans=False 时: mat_b=[K, N]，内轴是 N，N 维度需 32 字节对齐
+         * FP8 格式: N >= 32
+       - 当 b_trans=True 时: mat_b=[N, K]，内轴是 K，K 维度需 32 字节对齐
+    
+    3. Tile Shape 约束:
+       - m_tile_shape: 控制 M 维度的切分大小
+         * 当 a_trans=True 时，m_tile_shape 的内轴分量需 32 字节对齐
+         * 例如: [32, 32] 表示 M 维度 tile 为 32，FP8 下 32 字节，满足对齐
+         * 错误示例: [16, 16] 表示 M 维度 tile 为 16，FP8 下 16 字节，不满足对齐
+       - k_tile_shape: 控制 K 维度的切分大小
+       - n_tile_shape: 控制 N 维度的切分大小
+         * 当 b_trans=False 时，n_tile_shape 的内轴分量需 32 字节对齐
+    
+    4. Scale 形状约束:
+       - scaled_a: 当 a_trans=True 时 [K//64, M, 2]，当 a_trans=False 时 [M, K//64, 2]
+       - scaled_b: 当 b_trans=False 时 [K//64, N, 2]，当 b_trans=True 时 [N, K//64, 2]
     """
     g = y.shape[0]
     m = y.shape[1]
@@ -323,9 +362,9 @@ def scaled_matmul_kernel(
         end = end + group_list[i]
 
         # Extract input for current group (切分 K 轴)
-        # a is [K, M] (transposed), slice along first dim -> x = a[:, begin:end]
-        # But since a_trans=True, we need to slice the K dimension which is the first dim
-        # Actually for transposed format [K, M], slicing K means a[begin:end, :]
+        # a is [K, M] (transposed), 切分 K 轴 = 切分第一维 -> a[begin:end, :] -> [K_block, M]
+        # scaled_a is [K//64, M, 2], 切分第一维 -> scaled_a[begin//64:end//64, :, :] -> [K_block//64, M, 2]
+        # b is [K, N], 切分 K 轴 = 切分第一维 -> b[begin:end, :] -> [K_block, N]
         x = a[begin:end, :]  # [K_block, M]
         weight = b[begin:end, :]  # [K_block, N]
         scaled_x = scaled_a[begin // 64 : end // 64, :, :]  # [K_block//64, M, 2]
@@ -339,14 +378,20 @@ def scaled_matmul_kernel(
             tile_config.vector_tile_shape[3]
         )
 
-        # Set cube tile shapes and perform scaled matrix multiplication
+        # Set cube tile shapes for scaled_mm
+        # 重要: tile shape 需满足内轴 32 字节对齐约束
+        # 当前配置 a_trans=True, b_trans=False:
+        #   - mat_a=[K, M], 内轴是 M，m_tile_shape 需保证 M 维度 >= 32 字节对齐
+        #   - mat_b=[K, N], 内轴是 N，n_tile_shape 需保证 N 维度 >= 32 字节对齐
         pypto.set_cube_tile_shapes(
-            tile_config.m_tile_shape,
-            tile_config.k_tile_shape,
-            tile_config.n_tile_shape
+            tile_config.m_tile_shape,  # M 维度 tile，内轴需 32 字节对齐 (FP8: >= 32 元素)
+            tile_config.k_tile_shape,  # K 维度 tile，需 64 对齐 (MX 量化)
+            tile_config.n_tile_shape   # N 维度 tile，内轴需 32 字节对齐 (FP8: >= 32 元素)
         )
         # x is [K, M] (transposed), scale_x is [K//64, M, 2] (transposed)
         # weight is [K, N] (not transposed), scale_weight is [K//64, N, 2] (not transposed)
+        # a_trans=True: 表示 x 在逻辑上是转置的，实际存储 [K, M]
+        # scale_a_trans=True: 表示 scaled_x 在逻辑上是转置的，实际存储 [K//64, M, 2]
         mm_result_tensor[i] = pypto.scaled_mm(
             x, weight, pypto.DT_FP32, scaled_x, scaled_weight,
             a_trans=True, scale_a_trans=True
@@ -402,6 +447,30 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
 
     Args:
         tile_config: Configuration parameters for the test case
+    
+    测试用例选择约束:
+    ==================
+    1. M 维度约束 (a_trans=True 时内轴):
+       - M >= 32 (FP8 格式下 32 字节对齐)
+       - m_tile_shape 的内轴分量 >= 32
+       - 示例: M=32, m_tile_shape=[32, 32] ✓
+       - 错误示例: M=16 或 m_tile_shape=[16, 16] ✗ (报错: ml0 memory not aligned)
+    
+    2. K 维度约束:
+       - K >= 64 且 64 对齐 (MX 量化要求)
+       - group_list 各元素之和 = K
+       - 示例: K=512, group_list=[256, 256] ✓
+    
+    3. N 维度约束 (b_trans=False 时内轴):
+       - N >= 32 (FP8 格式下 32 字节对齐)
+       - n_tile_shape 的内轴分量 >= 32
+       - 示例: N=7168 ✓
+    
+    4. Tile Shape 选择建议:
+       - m_tile_shape: 推荐 [32, 32] 或 [64, 64]，保证 M 内轴 32 字节对齐
+       - k_tile_shape: 推荐 [64, 64] 或更大，满足 MX 量化 64 对齐
+       - n_tile_shape: 推荐 [32, 32] 或更大，保证 N 内轴 32 字节对齐
+       - vector_tile_shape: 推荐 [1, 8, 256, 32]
     """
     # Extract configuration parameters
     m = tile_config.ori_shape[0]
@@ -414,10 +483,12 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
     b_trans = False
 
     # Generate input tensor in MXFP8 format - [K, M] (transposed format)
+    # 约束: a_trans=True 时，a=[K, M]，scaled_a=[K//64, M, 2]
     a = torch.randn((k, m), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
     scaled_a = torch.randn((k // 64, m, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
     # Generate weight tensor in MXFP8 format - 2D [K, N]
+    # 约束: b_trans=False 时，b=[K, N]，scaled_b=[K//64, N, 2]
     b = torch.randn((k, n), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e4m3fn)
     scaled_b = torch.randn((k // 64, n, 2), dtype=torch.float32).uniform_(0, 1).to(torch.float8_e8m0fnu)
 
@@ -451,20 +522,28 @@ def test_gmm_mxfp8(tile_config: ShapeConfig):
 
 
 if __name__ == "__main__":
+    # 测试用例说明:
+    # - M=32: 满足 a_trans=True 时内轴 32 字节对齐 (FP8: 32元素=32字节)
+    # - K=512: 满足 MX 量化 64 对齐要求
+    # - N=7168: 满足 b_trans=False 时内轴 32 字节对齐
+    # - group_list=[256, 256]: K 轴切分为 256+256=512
+    # - m_tile_shape=[32, 32]: M 维度 tile 32，满足内轴 32 字节对齐
+    # - k_tile_shape=[256, 256]: K 维度 tile
+    # - n_tile_shape=[256, 256]: N 维度 tile
     test_gmm_mxfp8(
         ShapeConfig(
-            [16, 512, 7168],
-            [256, 256],
-            256,
-            [16, 16],
-            [256, 256],
-            [256, 256],
-            [1, 8, 256, 32],
-            True,  # a_trans=True: x1 is [K, M]
-            False,  # b_trans=False
+            [32, 512, 7168],  # [M, K, N]: M=32(内轴对齐), K=512(64对齐), N=7168
+            [256, 256],       # group_list: K 轴分组，256+256=512
+            [32, 32],         # m_tile_shape: M 维度 tile，内轴 >=32 满足对齐
+            [256, 256],       # k_tile_shape: K 维度 tile
+            [256, 256],       # n_tile_shape: N 维度 tile
+            [1, 8, 256, 32],  # vector_tile_shape
+            True,             # a_trans=True: x1 is [K, M]
+            False,            # b_trans=False: x2 is [K, N]
             False,
             False,
             False,
-            "Test with K-axis splitting: K=512 split into [256, 256], x1 transposed [K, M]"
+            "Test with K-axis splitting: K=512 split into [256, 256], "
+            "a_trans=True (x1=[K,M]), M=32 aligned for inner axis 32-byte alignment"
         )
     )
