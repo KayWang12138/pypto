@@ -18,10 +18,13 @@ Main Functions:
     - matmul_allreduce_add_rmsnorm: Main function for fused matmul, all-reduce, add, and RMSNorm computation
 """
 
+import logging
 import multiprocessing as mp
 import os
 import csv
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 import numpy as np
 import pytest
@@ -252,11 +255,11 @@ def test_matmul_allreduce_add_rmsnorm_performance():
 
         # 生成对比报告
         report = analyzer.generate_comparison_report(config.world_size, debug=False)
-        print(report)
+        logging.info(report)
 
         # 保存结果到CSV
         csv_path = analyzer.save_to_csv(config.world_size, csv_file)
-        print(f"结果已保存到: {csv_path}")
+        logging.info(f"结果已保存到: {csv_path}")
 
         # 检查实际总体执行时间是否在预期总时间内
         is_within = analyzer.check_within_expected(config.world_size)
@@ -265,94 +268,100 @@ def test_matmul_allreduce_add_rmsnorm_performance():
             actual_min_time = analyzer.calculate_min_total_time(config.world_size)
             pytest.fail(f"总体执行时间超出预期: 实际{actual_min_time:.3f}us > 预期{expected_total_time:.3f}us")
         else:
-            print("✓ 总体执行时间在预期范围内")
+            logging.info("✓ 总体执行时间在预期范围内")
 
     finally:
-        print(f"\n性能数据保存在: {output_dir}")
+        logging.info(f"\n性能数据保存在: {output_dir}")
+
+
+def _print_results_table(rows):
+    """打印结果表格"""
+    logging.info("=" * 80)
+    logging.info("性能测试结果汇总")
+    logging.info("=" * 80)
+    logging.info(f"{'序号':<4} {'时间':<20} {'world_size':<10} {'rank':<8} {'预期时间(us)':<12} {'实际总体时间(us)':<16} {'状态':<8}")
+    logging.info("-" * 80)
+
+    for i, row in enumerate(rows, 1):
+        logging.info(f"{i:<4} {row.get('timestamp', 'N/A'):<20} {row.get('world_size', 'N/A'):<10} {row.get('rank', 'N/A'):<8} {row.get('expected_time_us', 'N/A'):<12} {row.get('actual_total_time_us', 'N/A'):<16} {row.get('status', 'N/A'):<8}")
+
+
+def _print_summary_stats(rows):
+    """打印统计摘要"""
+    total_tests = len(rows)
+    passed_tests = sum(1 for row in rows if row.get('status') == 'PASS')
+    failed_tests = total_tests - passed_tests
+
+    logging.info("-" * 80)
+    logging.info(f"总计测试: {total_tests}")
+    logging.info(f"通过测试: {passed_tests}")
+    logging.info(f"失败测试: {failed_tests}")
+
+
+def _build_ws_stats(rows):
+    """构建 world_size 统计数据"""
+    ws_stats = {}
+    for row in rows:
+        ws = row.get('world_size', 'unknown')
+        if ws not in ws_stats:
+            ws_stats[ws] = {'count': 0, 'times': [], 'passed': 0}
+
+        ws_stats[ws]['count'] += 1
+        if row.get('actual_total_time_us', 'N/A') != 'N/A':
+            try:
+                ws_stats[ws]['times'].append(float(row['actual_total_time_us']))
+            except (ValueError, TypeError):
+                pass
+        if row.get('status') == 'PASS':
+            ws_stats[ws]['passed'] += 1
+    return ws_stats
+
+
+def _print_ws_stats(ws_stats):
+    """打印 world_size 统计"""
+    if not ws_stats:
+        return
+
+    logging.info(f"\n按world_size统计:")
+    for ws, stats in sorted(ws_stats.items()):
+        if stats['times']:
+            avg_time = sum(stats['times']) / len(stats['times'])
+            min_time = min(stats['times'])
+            max_time = max(stats['times'])
+            pass_rate = (stats['passed'] / stats['count'] * 100) if stats['count'] > 0 else 0
+
+            logging.info(f"  world_size={ws}:")
+            logging.info(f"    测试次数: {stats['count']}, 通过率: {pass_rate:.1f}%")
+            logging.info(f"    平均时间: {avg_time:.3f} us, 最小: {min_time:.3f} us, 最大: {max_time:.3f} us")
 
 
 def summarize_performance_results(csv_file: str = "performance_results.csv"):
     """汇总并显示所有性能测试结果"""
     if not os.path.exists(csv_file):
-        print(f"CSV文件不存在: {csv_file}")
+        logging.warning(f"CSV文件不存在: {csv_file}")
         return
 
     with open(csv_file, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
+        rows = list(csv.DictReader(f))
 
     if not rows:
-        print("CSV文件为空")
+        logging.warning("CSV文件为空")
         return
 
-    print("=" * 80)
-    print("性能测试结果汇总")
-    print("=" * 80)
+    _print_results_table(rows)
+    _print_summary_stats(rows)
 
-    # 打印表头
-    print(f"{'序号':<4} {'时间':<20} {'world_size':<10} {'rank':<8} {'预期时间(us)':<12} {'实际总体时间(us)':<16} {'状态':<8}")
-    print("-" * 80)
+    if rows:
+        ws_stats = _build_ws_stats(rows)
+        _print_ws_stats(ws_stats)
 
-    # 打印每一行
-    for i, row in enumerate(rows, 1):
-        timestamp = row.get('timestamp', 'N/A')
-        world_size = row.get('world_size', 'N/A')
-        rank = row.get('rank', 'N/A')
-        expected_time = row.get('expected_time_us', 'N/A')
-        actual_time = row.get('actual_total_time_us', 'N/A')
-        status = row.get('status', 'N/A')
-
-        print(f"{i:<4} {timestamp:<20} {world_size:<10} {rank:<8} {expected_time:<12} {actual_time:<16} {status:<8}")
-
-    # 统计
-    total_tests = len(rows)
-    passed_tests = sum(1 for row in rows if row.get('status') == 'PASS')
-    failed_tests = total_tests - passed_tests
-
-    print("-" * 80)
-    print(f"总计测试: {total_tests}")
-    print(f"通过测试: {passed_tests}")
-    print(f"失败测试: {failed_tests}")
-
-    if total_tests > 0:
-        # 按world_size分组统计
-        ws_stats = {}
-        for row in rows:
-            ws = row.get('world_size', 'unknown')
-            if ws not in ws_stats:
-                ws_stats[ws] = {'count': 0, 'times': [], 'passed': 0}
-
-            ws_stats[ws]['count'] += 1
-            if row.get('actual_total_time_us', 'N/A') != 'N/A':
-                try:
-                    ws_stats[ws]['times'].append(float(row['actual_total_time_us']))
-                except:
-                    pass
-            if row.get('status') == 'PASS':
-                ws_stats[ws]['passed'] += 1
-
-        if len(ws_stats) > 0:
-            print(f"\n按world_size统计:")
-            for ws, stats in sorted(ws_stats.items()):
-                if stats['times']:
-                    avg_time = sum(stats['times']) / len(stats['times'])
-                    min_time = min(stats['times'])
-                    max_time = max(stats['times'])
-                    pass_rate = (stats['passed'] / stats['count'] * 100) if stats['count'] > 0 else 0
-
-                    print(f"  world_size={ws}:")
-                    print(f"    测试次数: {stats['count']}, 通过率: {pass_rate:.1f}%")
-                    print(f"    平均时间: {avg_time:.3f} us, 最小: {min_time:.3f} us, 最大: {max_time:.3f} us")
-
-    print("=" * 80)
+    logging.info("=" * 80)
 
 
 def main():
-    # 运行测试
     test_matmul_allreduce_add_rmsnorm_performance()
 
-    # 显示汇总结果
-    print("\n")
+    logging.info("\n")
     summarize_performance_results()
 
 
