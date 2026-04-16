@@ -233,7 +233,7 @@ Status OoOScheduler::SpillBufferFromDDR(int memId, Operation* spillOp, LogicalTe
     if (InsertOps({allocOp, copyinOp}, spillAllocOp, memId) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateSpillOpDepend(copyinOp, allocOp, spillOp, localTensor, memId) != SUCCESS) {
+    if (UpdateSpillOpDepend(spillOp, localTensor, memId) != SUCCESS) {
         return FAILED;
     }
     if (UpdateRemainMemid(memId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
@@ -263,7 +263,7 @@ Status OoOScheduler::SpillGeneralBuffer(int spillMemId, Operation* spillOp, Logi
     UpdateOpScheduleInfo(allocOp, {localTensor->memoryrange.memId}, spillAllocOp);
     UpdateOpScheduleInfo(copyinOp, {localTensor->memoryrange.memId}, spillAllocOp);
 
-    if (InsertOps({allocOp, copyinOp}, spillAllocOp, memId) != SUCCESS) {
+    if (InsertOps({allocOp, copyinOp}, spillAllocOp, spillMemId) != SUCCESS) {
         return FAILED;
     }
     if (UpdateSpillOpDepend(spillOp, localTensor, spillMemId) != SUCCESS) {
@@ -334,7 +334,7 @@ Status OoOScheduler::SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, 
     if (UpdateSpillOpDepend(spillOp, localTensor, memId) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateRemainMemid(memId, opReqMemIdsMap[allocOp][0])) {
+    if (UpdateRemainMemid(memId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
         return FAILED;
     }
     depManager_.InitDependencies(orderedOps, false);
@@ -400,15 +400,15 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
     }
     UpdateOpScheduleInfo(allocOp, {l1Tensor->memoryrange.memId}, spillAllocOp);
     UpdateOpScheduleInfo(copyinOp, {l1Tensor->memoryrange.memId}, spillAllocOp);
-    f(reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}, spillAllocOp); 
+    UpdateOpScheduleInfo(reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}, spillAllocOp); 
 
-    if (InsertOps({allocOp, copyinOp, reshapeOp}, spillAllocOp, memId) != SUCCESS) {
+    if (InsertOps({allocOp, copyinOp, reshapeOp}, spillAllocOp, spillMemId) != SUCCESS) {
         return FAILED;
     }
     if (UpdateSpillOpDepend(spillOp, reshapeOp->GetOutputOperand(0), spillMemId) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateRemainMemid(spillMemId, opReqMemIdsMap[allocOp][0])) {
+    if (UpdateRemainMemid(spillMemId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
         return FAILED;
     }
 
@@ -430,7 +430,7 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
             copyoutOp, spillTensor, spillMemid, spillAllocOp) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateSpillOpDepend(spillOp, assembleOOperand, spillMemId) != SUCCESS) {
+    if (UpdateSpillOpDepend(spillOp, assembleOOperand, spillMemid) != SUCCESS) {
         return FAILED;
     }
 
@@ -443,7 +443,7 @@ Status OoOScheduler::SpillMultiProducerBuffer(int spillMemid, Operation* spillOp
     }
     Operation* allocOp = CreateAllocOp(assembleOOperand);
     UpdateOpScheduleInfo(allocOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
-    if (InsertOps({allocOp}, spillAllocOp, memId) != SUCCESS) {
+    if (InsertOps({allocOp}, spillAllocOp, spillMemid) != SUCCESS) {
         return FAILED;
     }
 
@@ -488,7 +488,7 @@ Status OoOScheduler::CreateParticalBuffer(int spillMemid, Operation* producerOp,
 
     UpdateOpScheduleInfo(copyinOp, {assembleOOperand->memoryrange.memId}, spillAllocOp);
     UpdateOpScheduleInfo(assembleOp, {assembleOOperand->memoryrange.memId, assembleOOperand->memoryrange.memId}, spillAllocOp);
-    if (InsertOps({copyinOp, assembleOp}, spillAllocOp, memId) != SUCCESS) {
+    if (InsertOps({copyinOp, assembleOp}, spillAllocOp, spillMemid) != SUCCESS) {
         return FAILED;
     }
     return SUCCESS;
@@ -635,12 +635,12 @@ LogicalTensorPtr OoOScheduler::GetSpillTensor(Operation* spillOp, int spillMemId
     return spillOp->GetOutputOperand(spillTensorIdx);
 }
 
-Status OoOScheduler::UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr* spillTensor, int spillMemId, Operation* spillAllocOp) {
+Status OoOScheduler::UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr spillTensor, int spillMemId, Operation* spillAllocOp) {
     opReqMemIdsMap[op] = {spillMemId};
     opIsRetiredMap[op] = true;
     opIsAllocMap[op] = false;
     opPipeTypeMap[op] = RescheduleUtils::GetOpPipeType(op);
-    depManager_.RegisterOp(copyoutOp);
+    depManager_.RegisterOp(op);
     for (auto preOp : spillTensor->GetProducers()) {
         opCoreLocationMap[op] = opCoreLocationMap[preOp];
         UpdateOpInternalSubgraphID(*op, preOp);
@@ -661,7 +661,7 @@ void OoOScheduler::UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, 
     opIsRetiredMap[op] = false;
     opReqMemIdsMap[op] = memIds;
     depManager_.RegisterOp(op);
-    opCoreLocationMap[copyinOp] = opCoreLocationMap[AllocOp];
+    opCoreLocationMap[op] = opCoreLocationMap[AllocOp];
     UpdateOpInternalSubgraphID(*op, AllocOp);
     numTotalIssues++;
 }
@@ -679,7 +679,7 @@ Status OoOScheduler::InsertOps(std::vector<Operation*> ops, Operation* spillAllo
     return SUCCESS;
 }
 
-Status OoOScheduler::UpdateSpillOpDepend(Operation* spillOp, LogicalTensorPtr* newTensor, int spillMemId) 
+Status OoOScheduler::UpdateSpillOpDepend(Operation* spillOp, LogicalTensorPtr newTensor, int spillMemId) 
 {
     auto& successors = depManager_.GetSuccessors(spillOp);
     for (auto succOp : successors) {
@@ -693,14 +693,14 @@ Status OoOScheduler::UpdateSpillOpDepend(Operation* spillOp, LogicalTensorPtr* n
     return SUCCESS;
 }
 
-void OoOScheduler::UpdateOperationInput(Operation* targetOp, Operation* spillOp, LogicalTensorPtr tensor) {
+void OoOScheduler::UpdateOperationInput(Operation* targetOp, Operation* spillOp, LogicalTensorPtr newTensor) {
     for (size_t index = 0; index < targetOp->GetIOperands().size(); index++) {
         for (auto &inOp : targetOp->GetIOperands()[index]->GetProducers()) {
             if (IsViewOp(*inOp)) {
                 Operation* op = SkipViewChain(inOp, true);
-                UpdateTensorInputForView(*op, spillOp, tensor);
+                UpdateTensorInputForView(*op, spillOp, newTensor);
             } else if (inOp == spillOp) {
-                targetOp->UpdateInputOperand(index, tensor);
+                targetOp->UpdateInputOperand(index, newTensor);
             }
         }
     }

@@ -218,7 +218,7 @@ private:
 
     Operation* GetSpillOp(int memId);
     LogicalTensorPtr GetSpillTensor(Operation* spillOp, int spillMemId);
-    Status UpdateSpillOpDepend(Operation* spillOp, LogicalTensorPtr* newTensor, int spillMemId);
+    Status UpdateSpillOpDepend(Operation* spillOp, LogicalTensorPtr newTensor, int spillMemId);
     bool HasEnoughBuffer(Operation* allocOp, MemoryType memType);
     Status SpillOnBlock();
     Status SpillOnCoreBlock(CoreLocationType coreLocation, bool& didSpill);
@@ -240,7 +240,7 @@ private:
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType);
-    Status UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr* spillTensor, int spillMemId, Operation* spillAllocOp);
+    Status UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr spillTensor, int spillMemId, Operation* spillAllocOp);
     void UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, Operation* AllocOp);
     Status InsertOps(std::vector<Operation*> ops, Operation* spillAllocOp, int memId);
 
