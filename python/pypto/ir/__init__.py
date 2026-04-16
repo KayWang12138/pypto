@@ -31,6 +31,8 @@ from ..pypto_impl.ir import (
     CoreType,
 )
 
+from ..pypto_impl.ir import IRBuilder
+
 # --- Expression base & leaf classes ---
 from ..pypto_impl.ir import (
     IRNode,
@@ -124,6 +126,7 @@ INDEX = DataType.INDEX
 
 
 __all__ = [
+    "IRBuilder",
     "IRNode",
     "Span",
     "Type",
