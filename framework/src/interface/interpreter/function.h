@@ -23,6 +23,7 @@
 #include "calc.h"
 #include "interface/interpreter/verify_error.h"
 #include "communication.h"
+#include "machine/runtime/distributed/distributed_context.h"
 #include <algorithm>
 #include <future>
 
@@ -893,9 +894,9 @@ struct FunctionInterpreter {
         std::vector<std::shared_ptr<LogicalTensorData>>& oOpDataList)
     {
         std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
-        ASSERT(op->GetIOperands()->size() == 0);
-        ASSERT(op->GetOOperands()->size() == 1);
-        SymbolicScalar attr = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+        ASSERT(op.GetIOperands()->size() == 0);
+        ASSERT(op.GetOOperands()->size() == 1);
+        SymbolicScalar attr = op.GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
         std::vector<uint64_t> parameters = UnBind(attr);
         uint64_t groupIndex = parameters[0];
         uint64_t memType = parameters[1];
@@ -906,20 +907,20 @@ struct FunctionInterpreter {
         LogicalTensorDataPtr out;
         RawTensorDataPtr tmp;
         
-        auto outOp = op->GetOOperands()[0];
+        auto outOp = op.GetOOperands()[0];
         if (memType == 1) {
             std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
-            tmp = SimulationCommManager::Instance().Alloc(groupName, slotSize, );
-            out = LogicalTensorData::Create(tmp);
+            tmp = SimulationCommManager::Instance().Alloc(groupName, slotSize);
+            out = LogicalTensorData::Create(*tmp);
         }
         if (memType == 0) {
             std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
             tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
-            out = LogicalTensorData::Create(tmp);
+            out = LogicalTensorData::Create(*tmp);
         }
-        DoAddRawTensorDataView(op->GetOOperands()[0]->tensor, tmp);
-        DoAddTensorDataView(op->GetOOperands()[0], out);
-        oOpDataList.emplace_back(AllocateDataView(frame, op->GetOOperands()[0]));
+        DoAddRawTensorDataView(op.GetOOperands()[0]->tensor, tmp);
+        DoAddTensorDataView(op.GetOOperands()[0], out);
+        oOpDataList.emplace_back(AllocateDataView(frame, op.GetOOperands()[0]));
     }
 
     void ExecuteInplaceOperation(

@@ -205,7 +205,7 @@ void ExecuteOpShmemGet(ExecuteOperationContext *ctx) {
 
     std::cout << "Get " << srcRank << "'s data from " << srcRank << " from " << shm->GetStorageOffset() << " to " << shm->GetStorageOffset() + slotSize << std::endl;
     LogicalTensorDataPtr tmp = context->Get(srcRank, slotSize, shm->GetStorageOffset());
-    *out = LogicalTensorData(tmp, out->GetShape(), out->GetValidShape(), out->GetOffset());
+    calc::Copy(out, tmp);
 
     std::cout << "=== ExecuteOpShmemGet exited ..." << std::endl;
 }

@@ -39,8 +39,8 @@ public:
     static constexpr size_t WIN_IN_SIZE = 200 * 1024 * 1024;
     static constexpr size_t WIN_EXP_SIZE = 1 * 1024 * 1024;
     void Init(const std::string &groupName, int rank, int worldSize, uint32_t round);
-    void Alloc(size_t slotSize);
-    void AllocSignal(size_t slotSize);
+    RawTensorDataPtr Alloc(size_t slotSize);
+    RawTensorDataPtr AllocSignal(size_t slotSize);
 
     int GetRank() const {return rank_;};
     int GetWorldSize() const {return worldSize_;};
@@ -167,8 +167,8 @@ public:
     }
     void CreateSimulationCommContext(const std::string &groupName, uint32_t round=0);
     void DestroySimulationCommContext(const std::string &groupName);
-    void Alloc(const std::string &groupName, size_t slotSize);
-    void AllocSignal(const std::string &groupName, size_t slotSize);
+    RawTensorDataPtr Alloc(const std::string &groupName, size_t slotSize);
+    RawTensorDataPtr AllocSignal(const std::string &groupName, size_t slotSize);
     std::shared_ptr<SimulationCommContext> GetCommContext(const std::string &groupName);
     static std::string GetHandler(const std::string &groupName, int rank, bool isSignal, uint32_t round);
     
