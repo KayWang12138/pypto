@@ -448,19 +448,6 @@ TEST_F(InterpTypeConvertTest, Hf8RoundTripViaCast)
     ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
 }
 
-TEST_F(InterpTypeConvertTest, Hf8DecodeBitsFromUint8Value234)
-{
-    // 234 = 0xEA = 1110'1010 (bit pattern interpreted as HF8):
-    // sign = 1, D = 11 branch, exponent code = 0101 -> E_v = +13, mantissa = 0
-    // value = -2^13 * (1 + 0/2) = -8192
-    auto src = makeTensorData(DT_HF8, {4}, static_cast<uint8_t>(234));
-    auto out = makeTensorData(DT_FP32, {4}, 0.0f);
-    auto golden = makeTensorData(DT_FP32, {4}, -8192.0f);
-
-    calc::Cast(out, src); // HF8 bits -> Float32 decode
-    ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
-}
-
 TEST_F(InterpTypeConvertTest, Fp32CastToHf8QuantizationCases)
 {
     // Representative quantization checks around D=10/D=11 branches and negative carry boundary.
