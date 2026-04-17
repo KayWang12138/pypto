@@ -255,7 +255,6 @@ Status OoOSchedule::BuildMixedScheduleOps(TaskSpliter& spliter, std::vector<Oper
     std::sort(taskNodeList.begin(), taskNodeList.end(), [](const TaskNode& a, const TaskNode& b) {
         return a.startTime < b.startTime;
     });
-    std::unordered_map<Operation*, CoreLocationType> opCoreMap;
     for (const auto& taskNode : taskNodeList) {
         if (UpdateOpCoreMap(taskNode, opCoreMap) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "UpdateOpCoreMap failed.");
