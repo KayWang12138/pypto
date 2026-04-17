@@ -1,18 +1,20 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 from __future__ import annotations
 
 import json
 import os
 import subprocess
 
-from ..core import API_REPORT_FILE, PYTHON_BIN, CheckContext, DESIGN_FILE, SPEC_FILE, register
+from ..core import API_REPORT_FILE, DESIGN_FILE, PYTHON_BIN, SPEC_FILE, CheckContext, Finding, register
 from ..utils import (
     _extract_markdown_headings,
     _extract_section_text,
     _has_heading_like,
-    _load_doc_meta,
     _parse_front_matter,
     _validate_doc_schema,
 )
+
 
 @register("OL09")
 def check_ol09(ctx: CheckContext) -> Finding:
@@ -55,7 +57,12 @@ def check_ol09(ctx: CheckContext) -> Finding:
             f"{SPEC_FILE} 输入输出规格章节内容不足（需包含 shape/dtype）", file=SPEC_FILE)
 
     precision_text = _extract_section_text(content, "精度")
-    if not precision_text or ("atol" not in precision_text.lower() and "rtol" not in precision_text.lower() and "mare" not in precision_text.lower()):
+    lower_prec = precision_text.lower() if precision_text else ""
+    _has_tolerance = (
+        precision_text and
+        any(kw in lower_prec for kw in ("atol", "rtol", "mare"))
+    )
+    if not _has_tolerance:
         return ctx.make_finding("OL09", "FAIL",
             f"{SPEC_FILE} 精度要求章节内容不足（需包含 atol/rtol 或指标阈值）", file=SPEC_FILE)
 
@@ -63,7 +70,8 @@ def check_ol09(ctx: CheckContext) -> Finding:
     spec_meta, _ = _parse_front_matter(content)
     if not spec_meta:
         return ctx.make_finding("OL09", "FAIL",
-            f"{SPEC_FILE} 缺少 front matter（必须以 --- 开头，包含 schema_version/op_name/supported_dtypes/p0_shapes/tolerance）",
+            f"{SPEC_FILE} 缺少 front matter"
+            "（必须以 --- 开头，含 schema_version/op_name/supported_dtypes/p0_shapes/tolerance）",
             file=SPEC_FILE)
     schema_errors = _validate_doc_schema("SPEC", spec_meta)
     if schema_errors:
@@ -73,6 +81,7 @@ def check_ol09(ctx: CheckContext) -> Finding:
 
     return ctx.make_finding("OL09", "PASS",
         f"{SPEC_FILE} 含算子名、公式、输入输出规格与精度要求，front matter schema 合法", file=SPEC_FILE)
+
 
 @register("OL10")
 def check_ol10(ctx: CheckContext) -> Finding:
@@ -93,6 +102,7 @@ def check_ol10(ctx: CheckContext) -> Finding:
             file=API_REPORT_FILE)
     return ctx.make_finding("OL10", "PASS",
         f"{API_REPORT_FILE} 含 API 映射、约束与 Tiling 说明", file=API_REPORT_FILE)
+
 
 @register("OL11")
 def check_ol11(ctx: CheckContext) -> Finding:
@@ -121,6 +131,7 @@ def check_ol11(ctx: CheckContext) -> Finding:
             f"{golden_file} 导入失败: {result.stderr[:200]}", file=golden_file)
     return ctx.make_finding("OL11", "PASS", f"{golden_file} 可导入", file=golden_file)
 
+
 @register("OL12")
 def check_ol12(ctx: CheckContext) -> Finding:
     if not ctx.file_exists(DESIGN_FILE):
@@ -140,6 +151,7 @@ def check_ol12(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL12", "PASS",
         f"{DESIGN_FILE} 含计算图、Tiling 与验证方案", file=DESIGN_FILE)
 
+
 @register("OL13")
 def check_ol13(ctx: CheckContext) -> Finding:
     """生成文件三件套完整"""
@@ -153,6 +165,7 @@ def check_ol13(ctx: CheckContext) -> Finding:
         return ctx.make_finding("OL13", "FAIL",
             f"缺少文件: {', '.join(missing)}")
     return ctx.make_finding("OL13", "PASS", "三件套文件完整")
+
 
 @register("OL14")
 def check_ol14(ctx: CheckContext) -> Finding:
@@ -169,6 +182,7 @@ def check_ol14(ctx: CheckContext) -> Finding:
     except ValueError:
         pass
     return ctx.make_finding("OL14", "FAIL", "精度未通过（Stage 5/6 未 completed）")
+
 
 @register("OL24")
 def check_ol24(ctx: CheckContext) -> Finding:

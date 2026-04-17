@@ -1,11 +1,14 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 from __future__ import annotations
 
 import ast
 import re
 
-from ..ast_helpers import _extract_shapes_from_test_ast, _has_test_level_markers
-from ..core import CheckContext, register
-from ..utils import _check_npu_available, _extract_shapes_from_text, _extract_tolerance, _syntax_error_finding
+from ..ast_helpers import _has_test_level_markers
+from ..core import CheckContext, Finding, register
+from ..utils import _check_npu_available
+
 
 @register("OL19")
 def check_ol19(ctx: CheckContext) -> Finding:
@@ -31,6 +34,7 @@ def check_ol19(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL19", "PASS",
         "使用了 assert_allclose", file=test_file)
 
+
 @register("OL20")
 def check_ol20(ctx: CheckContext) -> Finding:
     """test 必须处理 TILE_FWK_DEVICE_ID 并调用 set_device"""
@@ -50,6 +54,7 @@ def check_ol20(ctx: CheckContext) -> Finding:
         missing.append("set_device 调用")
     return ctx.make_finding("OL20", "FAIL",
         f"缺少: {', '.join(missing)}", file=test_file)
+
 
 @register("OL21")
 def check_ol21(ctx: CheckContext) -> Finding:
@@ -73,6 +78,7 @@ def check_ol21(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL21", "PASS",
         "包含 Level 0 和 Level 1 测试", file=test_file)
 
+
 @register("OL22")
 def check_ol22(ctx: CheckContext) -> Finding:
     """test 应设置 torch.manual_seed 保证可复现"""
@@ -86,6 +92,7 @@ def check_ol22(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL22", "WARN",
         "未设置 torch.manual_seed，建议显式设置以保证测试可复现",
         file=test_file)
+
 
 @register("OL42")
 def check_ol42(ctx: CheckContext) -> Finding:

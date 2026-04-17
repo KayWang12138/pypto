@@ -1,3 +1,5 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 from __future__ import annotations
 
 import ast
@@ -15,7 +17,7 @@ from ..ast_helpers import (
     _is_pypto_tensor_annotation,
     _shape_has_dynamic,
 )
-from ..core import API_REPORT_FILE, STRICT_ENV, CheckContext, DESIGN_FILE, SPEC_FILE, register
+from ..core import API_REPORT_FILE, DESIGN_FILE, SPEC_FILE, STRICT_ENV, CheckContext, Finding, register
 from ..utils import (
     _extract_design_identifiers,
     _extract_shapes_from_text,
@@ -27,8 +29,8 @@ from ..utils import (
     _parse_front_matter,
     _syntax_error_finding,
     _validate_doc_schema,
-    _validate_tolerance,
 )
+
 
 @register("OL30")
 def check_ol30(ctx: CheckContext) -> Finding:
@@ -63,6 +65,7 @@ def check_ol30(ctx: CheckContext) -> Finding:
             "在测试文件中未覆盖；请补充对应 dtype 的测试用例",
             file=test_file)
     return ctx.make_finding("OL30", "PASS", "spec dtype 覆盖与 test 一致")
+
 
 @register("OL31")
 def check_ol31(ctx: CheckContext) -> Finding:
@@ -103,7 +106,7 @@ def check_ol31(ctx: CheckContext) -> Finding:
             if not isinstance(ann, ast.Call) or not _is_pypto_tensor_annotation(ann):
                 continue
             # pypto.Tensor() 无参数 => 所有维度隐式动态，兼容任何 dynamic_axes 声明
-            if len(ann.args) == 0:
+            if not ann.args:
                 has_unparameterized_tensor = True
                 break
             if _shape_has_dynamic(ann.args[0], dynamic_aliases):
@@ -123,6 +126,7 @@ def check_ol31(ctx: CheckContext) -> Finding:
             file=impl_file)
     return ctx.make_finding("OL31", "PASS",
         "design 动态轴声明与 impl 注解一致", file=impl_file)
+
 
 @register("OL43")
 def check_ol43(ctx: CheckContext) -> Finding:
@@ -167,6 +171,7 @@ def check_ol43(ctx: CheckContext) -> Finding:
         f"pypto.loop / pypto.lang.loop 调用。建议补充 pypto.loop 以覆盖动态轴，"
         f"可对现有 impl 做局部修补。",
         file=f"{ctx.op_name}_impl.py")
+
 
 @register("OL32")
 def check_ol32(ctx: CheckContext) -> Finding:
@@ -231,6 +236,7 @@ def check_ol32(ctx: CheckContext) -> Finding:
             file=test_file)
     return ctx.make_finding("OL32", "PASS", "spec 精度容差与 test 一致")
 
+
 @register("OL33")
 def check_ol33(ctx: CheckContext) -> Finding:
     """golden 函数签名须与 impl wrapper 函数兼容"""
@@ -260,6 +266,7 @@ def check_ol33(ctx: CheckContext) -> Finding:
             file=impl_file)
     return ctx.make_finding("OL33", "PASS",
         f"golden ({golden_count} 参数) 与 wrapper ({wrapper_count} 参数) 签名兼容")
+
 
 @register("OL34")
 def check_ol34(ctx: CheckContext) -> Finding:
@@ -334,6 +341,7 @@ def check_ol34(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL34", "PASS",
         "spec P0 配置 shape 在 test 中均有覆盖")
 
+
 @register("OL39")
 def check_ol39(ctx: CheckContext) -> Finding:
     """strict 模式下，三个文档必须包含 front matter。"""
@@ -349,6 +357,7 @@ def check_ol39(ctx: CheckContext) -> Finding:
                 f"{filename} 缺少 front matter（必须以 --- 开头）",
                 file=filename)
     return ctx.make_finding("OL39", "PASS", "front matter 完整")
+
 
 @register("OL40")
 def check_ol40(ctx: CheckContext) -> Finding:
@@ -367,6 +376,7 @@ def check_ol40(ctx: CheckContext) -> Finding:
                 f"{filename} front matter schema 非法: {'; '.join(errors)}",
                 file=filename)
     return ctx.make_finding("OL40", "PASS", "front matter schema 完整")
+
 
 @register("OL41")
 def check_ol41(ctx: CheckContext) -> Finding:
@@ -399,6 +409,7 @@ def check_ol41(ctx: CheckContext) -> Finding:
                     file=filename,
                 )
     return ctx.make_finding("OL41", "PASS", "未检测到 lint 输出污染")
+
 
 @register("OL37")
 def check_ol37(ctx: CheckContext) -> Finding:
