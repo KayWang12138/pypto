@@ -99,7 +99,7 @@ private:
 template <class T>
 struct LockableQueueGeneric:public QueueGeneric<T> {
 
-    LockableQueueGeneric(uint32_t capacity, T *_elem):QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
+    LockableQueueGeneric(uint32_t capacity=0, T *_elem=nullptr):QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
 
     using QueueGeneric<T>::operator=;
 
@@ -158,7 +158,7 @@ struct LockableQueueGeneric:public QueueGeneric<T> {
 	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
 	    uint32_t h = __atomic_load_n(&this->head,  __ATOMIC_RELAXED);
 	    uint32_t cnt = std::min(t - h, max_count);
-	    __atomic_store_n(&this->head, h + cnt);
+	    __atomic_store_n(&this->head, h + cnt, __ATOMIC_RELAXED);
 	    unlock();
 	    return std::make_pair(this->elem + h, this->elem + h + cnt);
 	}
@@ -168,7 +168,7 @@ struct LockableQueueGeneric:public QueueGeneric<T> {
 	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
 	    uint32_t h = __atomic_load_n(&this->head,  __ATOMIC_RELAXED);
 	    uint32_t cnt = std::min(t - h, max_count);
-	    __atomic_store_n(&this->tail, t - cnt);
+	    __atomic_store_n(&this->tail, t - cnt, __ATOMIC_RELAXED);
 	    std::copy(this->elem + t - cnt, this->elem + t, out);
 	    return cnt;
 	}

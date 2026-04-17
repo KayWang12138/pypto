@@ -379,11 +379,9 @@ namespace {
 void InitReadyQueueSlot(
     ReadyCoreFunctionQueue& q, std::array<taskid_t, 4>& elemBuf, uint32_t head, uint32_t tail, taskid_t firstId)
 {
-    q.lock = 0;
-    q.head = head;
-    q.tail = tail;
-    q.capacity = static_cast<uint32_t>(elemBuf.size());
-    q.elem = elemBuf.data();
+    new (&q) ReadyCoreFunctionQueue(elemBuf.size(), elemBuf.data());
+    q.unsafe_enqueue(&elemBuf[0], tail);
+    q.dequeue(head);
     if (tail > head) {
         elemBuf[0] = firstId;
     }
@@ -393,11 +391,10 @@ void InitReadyQueueSlotMulti(
     ReadyCoreFunctionQueue& q, std::array<taskid_t, 4>& elemBuf, uint32_t head, uint32_t tail,
     const std::vector<taskid_t>& ids)
 {
-    q.lock = 0;
-    q.head = head;
-    q.tail = tail;
-    q.capacity = static_cast<uint32_t>(elemBuf.size());
-    q.elem = elemBuf.data();
+    new (&q) ReadyCoreFunctionQueue(elemBuf.size(), elemBuf.data());
+    q.unsafe_enqueue(&elemBuf[0], tail);
+    q.dequeue(head);
+
     for (size_t i = 0; i < ids.size() && (head + i) < tail && i < elemBuf.size(); ++i) {
         elemBuf[i] = ids[i];
     }
