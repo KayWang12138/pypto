@@ -28,17 +28,9 @@ from detect_npu import (  # noqa: E402  # pyright: ignore[reportImplicitRelative
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
-_cann_env_loaded_in_shell: bool = False
-
 
 def _setup_environment_variables() -> None:
     """在诊断前自动配置必要的环境变量，避免错误诊断。"""
-
-    global _cann_env_loaded_in_shell
-
-    _shell_cann_env_loaded = os.environ.get("ASCEND_HOME_PATH") is not None
-    _cann_env_loaded_in_shell = _shell_cann_env_loaded
-
     ascend_install_path = os.environ.get("ASCEND_INSTALL_PATH", "/usr/local/Ascend")
     # 获取 bash 的绝对路径
     bash_path = shutil.which('bash')
@@ -680,11 +672,6 @@ def _collect_issues(
     if not pypto_repo.get('valid'):
         issues.append({'component': 'pypto_repo', 'severity': 'warning', 'message': 'PyPTO 仓库未找到',
                        'fix_hint': 'git clone https://gitcode.com/cann/pypto.git ./pypto'})
-
-    if is_npu_env and not _cann_env_loaded_in_shell:
-        issues.append({'component': 'cann_env_shell', 'severity': 'warning',
-                       'message': '当前 shell 未加载 CANN 环境（ASCEND_HOME_PATH 未设置），诊断脚本已自动加载但用户实际运行时可能缺失',
-                       'fix_hint': 'source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh'})
 
     if is_npu_env and torch_info.get('ok'):
         torch_ver = str(torch_info.get('version', ''))

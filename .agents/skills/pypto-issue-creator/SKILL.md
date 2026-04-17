@@ -161,12 +161,10 @@ gitcode_search_issues(query="repo:cann/pypto {中文关键词}")
 gitcode_search_issues(query="repo:cann/pypto {english keywords}")
 ```
 
-### 处理策略
+### 4. 处理策略
 
 - **发现重复**: 展示已有 Issue（含编号、标题、状态），询问用户是否继续
 - **无重复**: 继续下一阶段
-
-**⚠️ 重要**：去重检查记录仅保存在 Skill 执行上下文中，**不得写入 issue body**。远程创建时暴露内部流程信息会影响专业性。
 
 ---
 

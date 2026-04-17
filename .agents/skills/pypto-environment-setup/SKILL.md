@@ -56,8 +56,8 @@ export PYPTO_REPO="$PWD/pypto"
 
 **运行环境诊断**：
 ```bash
-# 步骤 1.3：运行诊断脚本（脚本位于 skill 目录下，需使用完整路径）
-python3 .agents/skills/pypto-environment-setup/scripts/diagnose_env.py --checklist
+# 步骤 1.3：运行诊断脚本
+python3 scripts/diagnose_env.py --checklist
 ```
 
 **通过标准**：清单所有项 ✅ OK。⚠️/❌ 项需修复后再继续。
@@ -187,7 +187,7 @@ python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode npu
 **运行诊断**：
 ```bash
 cd ${PYPTO_REPO:-$PWD}
-python3 .agents/skills/pypto-environment-setup/scripts/diagnose_env.py --checklist
+python3 scripts/diagnose_env.py --checklist
 ```
 
 **报告模板**：

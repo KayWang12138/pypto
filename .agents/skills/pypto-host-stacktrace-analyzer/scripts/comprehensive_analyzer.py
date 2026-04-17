@@ -154,7 +154,7 @@ class ComprehensiveAnalyzer:
         self.error_info = {}
 
         # 提取错误码
-        errcode_match = re.search(r'Errcode:\s*([A-Za-z0-9]+)', text)
+        errcode_match = re.search(r'Errcode:\s*([A-F0-9]+)', text)
         if errcode_match:
             self.error_info['errcode'] = errcode_match.group(1)
 
@@ -195,7 +195,7 @@ class ComprehensiveAnalyzer:
         # 格式: libtile_fwk_interface.so(function+offset) [address]
         # 例如: libtile_fwk_interface.so(npu::tile_fwk::HostMachine::
         # CompileFunction(npu::tile_fwk::Function*) const+0x744) [0xfffef3d2c3bc]
-        pattern = r'([^\s\(\)]+)\(([^+]+)\+([0-9a-fx]+)\)\s+\[0[xX]([0-9a-fA-F]+)\]'
+        pattern = r'([^\s\(\)]+)\(([^+]+)\+([0-9a-fx]+)\)\s+\[0x([0-9a-f]+)\]'
         for match in re.finditer(pattern, text):
             frame = {
                 'index': len(self.cpp_frames),
