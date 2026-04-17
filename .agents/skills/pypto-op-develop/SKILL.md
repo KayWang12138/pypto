@@ -110,6 +110,12 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 - `references/impl-template.py` — impl 文件模板
 - `references/test-template.py` — test 文件模板
 
+**准备工作**（并行读取）：
+在进入编码前，**并行读取**以下参考文件（同一条消息中发起所有 Read 调用）：
+- `references/execution-constraints.md` — 框架级约束清单
+- `references/impl-template.py` — impl 文件模板
+- `references/test-template.py` — test 文件模板
+
 **生成顺序**：
 1. 根据输入信息，先梳理 API 映射、tiling 策略、loop 结构，确认可行后再进入实现
 2. 基于约束清单和 impl 模板生成 `{op}_impl.py`
