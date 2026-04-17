@@ -60,7 +60,7 @@ bool AlignmentUtils::IsLastDim32BAligned(const LogicalTensorPtr& tensor)
     return ((lastDim * bytes) % 32) == 0;
 }
 
-int64_t AlignmentUtils::Pad(int64_t dim, int64_t padValue)
+inline int64_t AlignmentUtils::Pad(int64_t dim, int64_t padValue)
 {
     if (padValue == 0) {
         return dim;
@@ -69,6 +69,9 @@ int64_t AlignmentUtils::Pad(int64_t dim, int64_t padValue)
 }
 
 void AlignmentUtils::ProcessLastDim32BAlignedOnUB(LogicalTensorPtr tensor) {
+    if (tensor == nullptr || tensor->tensor == nullptr) {
+        return;
+    }
     auto memType = tensor->GetMemoryTypeOriginal();
     if (memType == MemoryType::MEM_UB && !IsLastDim32BAligned(tensor)) {
         size_t lastIdx = tensor->shape.size() - 1;
