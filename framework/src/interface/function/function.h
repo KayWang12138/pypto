@@ -97,7 +97,8 @@ public:
 
         void operator++()
         {
-            ASSERT(cur_ <= operations_.size())
+            ASSERT(false)
+            // ASSERT(cur_ <= operations_.size())
                 << "operator(++) out of its size. cur_: " << cur_ << ", operations_.size(): " << operations_.size();
             cur_++;
         }

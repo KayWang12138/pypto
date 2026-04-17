@@ -418,8 +418,8 @@ def function(name: str, *args) -> Iterator:
         clear_source_location()
         for _ in loop(1, name="__main__"):
             yield func
-    except Exception as e:
-        logging.error("Record function %s failed: %s", name, e)
+    except Exception:
+        # Native backtrace is recorded to plog by tile_fwk::Error on throw; avoid duplicating on stderr here.
         raise
     finally:
         if func is None:
@@ -521,8 +521,7 @@ def _loop_function(
                             unroll_set, submit_before_loop, parallel)
         clear_source_location()
         yield rlf
-    except Exception as e:
-        logging.error("Record loop function %s failed: %s", name, e)
+    except Exception:
         raise
     finally:
         del rlf
