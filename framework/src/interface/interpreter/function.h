@@ -898,7 +898,7 @@ struct FunctionInterpreter {
         const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
         std::vector<std::shared_ptr<LogicalTensorData>>& oOpDataList)
     {
-        (void) iOpDataList
+        (void) iOpDataList;
         (void) oOpDataList;
         std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
         ASSERT(op.GetIOperands().size() == 0);
