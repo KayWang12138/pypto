@@ -440,10 +440,10 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
     // 2. 依次为leafFunc的所有op拿到所有动态attr，为每个动态attr刷新coa宏
     auto operationViewer = leafFunc->Operations(false);
     std::set<int> inoutCast;
- 	for (auto &inCast : leafFunc.GetIncast()) {
+ 	for (auto &inCast : leafFunc->GetIncast()) {
  	    inoutCast.insert(inCast->tensor->GetRawMagic());
  	}
- 	for (auto &outCast : leafFunc.GetOutcast()) {
+ 	for (auto &outCast : leafFunc->GetOutcast()) {
  	    inoutCast.insert(outCast->tensor->GetRawMagic());
  	}
     for (size_t j = 0; j < operationViewer.size(); j++) {
@@ -475,7 +475,7 @@ static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &te
         return;
     }
     int rawMagic = tensor->GetRawMagic();
-    int isConst = inoutCast.cout(rawMagic) ? 3 : 2;
+    int isConst = inoutCast.count(rawMagic) ? 3 : 2;
     SymbolicScalar paramAddr = GET_PARAM_ADDR(
         SymbolicScalar(static_cast<int64_t>(isConst)),
         SymbolicScalar(static_cast<int64_t>(0)),

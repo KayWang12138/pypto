@@ -262,7 +262,7 @@ private:
     Status GetTileFunction(Function* function, std::unordered_set<Function*>& tileFunctionSet);
     Status DumpFunctionJson(Function& function, const std::string& logFolder, bool beforeFunction = true) override;
     Status PrintFunction(Function& function, const std::string& logFolder, bool beforeFunction = true) override;
-    void BuildParamAddr(Operation &op);
+    void BuildParamAddr(Operation &op, std::set<int> inoutCast);
 };
 } // namespace tile_fwk
 } // namespace npu
