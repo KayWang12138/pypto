@@ -106,7 +106,7 @@ Value (N): 表示合并粒度。<br>
 
 #### cube_l1_reuse_setting 的语义标签行为
 
-与 vec_nbuffer_setting 和 cube_nbuffer_setting 不同，cube_l1_reuse_setting 的字符串 key **仅作用于包含对应标签 operation 的子图**，不展开到整个同构组。即同构组内可能只有部分子图被字符串 key 覆盖，其他子图保持整数 key 的值。
+与 `vec_nbuffer_setting` 和 `cube_nbuffer_setting` 不同，`cube_l1_reuse_setting` 的字符串 key **仅作用于包含对应标签 operation 的子图**，不展开到整个同构组。即同构组内可能只有部分子图被字符串 key 覆盖，其他子图保持整数 key 的值。
 
 #### 语义标签配置示例
 
