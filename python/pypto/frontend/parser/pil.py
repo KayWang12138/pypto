@@ -88,12 +88,19 @@ cmpop = Eq | NotEq | Lt | LtE | Gt | GtE | Is | IsNot | In | NotIn
 
 import ast
 from collections.abc import Mapping
-from typing import Any
-
-PILExpr = str | ast.Constant
-PILSlice = tuple[PILExpr | None, PILExpr | None, PILExpr | None] | PILExpr
+from dataclasses import dataclass
 
 PIL_DEFAULT_PREFIX = '_pil_'
+
+PILExpr = str | ast.Constant
+
+@dataclass
+class PILSlice:
+    lower:  PILExpr | None
+    upper:  PILExpr | None
+    step:   PILExpr | None
+
+PILSubscript = PILExpr | PILSlice | tuple[PILExpr | PILSlice]
 
 class PILContext:
     def __init__(self, prefix = PIL_DEFAULT_PREFIX):
@@ -157,35 +164,32 @@ class PILBuilder(ast.NodeVisitor):
             return value
         else:
             assert isinstance(value, str)
-            return self.create_pil_name(value, ctx)
+            return self.create_pil_expr_name(value, ctx)
 
     def create_pil_maybe_starred(self, expr: PILExpr, starred: bool, ctx=ast.Load(), node_attr: PILAttr = NOATTR) -> ast.expr:
         if starred:
             assert isinstance(expr, str)
-            return self.create_pil_starred(expr, ctx)
+            return self.create_pil_expr_starred(expr, ctx)
         else:
             return self.create_pil_expr(expr, ctx)
 
-    def create_pil_slice(self, slices: list[PILSlice]) -> ast.expr:
-        result_slice_tuple = []
-        for slice in slices:
-            if isinstance(slice, tuple):
-                result_slice_expr = ast.Slice(
-                    lower=self.create_pil_expr(slice[0]) if slice[0] is not None else None,
-                    upper=self.create_pil_expr(slice[1]) if slice[1] is not None else None,
-                    step=self.create_pil_expr(slice[2]) if slice[2] is not None else None)
-                result_slice_tuple.append(result_slice_expr)
+    def create_pil_subscript(self, subscript: PILSubscript, ctx: ast.expr_context = ast.Load()) -> ast.expr:
+        def _build_slice(s: PILExpr | PILSlice) -> ast.expr:
+            if isinstance(s, PILSlice):
+                return ast.Slice(
+                    lower=self.create_pil_expr(s.lower) if s.lower is not None else None,
+                    upper=self.create_pil_expr(s.upper) if s.upper is not None else None,
+                    step=self.create_pil_expr(s.step) if s.step is not None else None)
             else:
-                index = self.create_pil_expr(slice)
-                result_slice_tuple.append(index)
+                return self.create_pil_expr(s, ctx)
 
-        if len(result_slice_tuple) == 1:
-            result_slice = result_slice_tuple[0]
+        if isinstance(subscript, tuple):
+            elts = [_build_slice(s) for s in subscript]
+            return ast.Tuple(elts=elts, ctx=ctx)
         else:
-            result_slice = ast.Tuple(elts=result_slice_tuple, ctx=ast.Load())
-        return result_slice
+            return _build_slice(subscript)
 
-    def create_pil_assign_name(self, targets:str | list[tuple[str, bool]] | tuple[tuple[str, bool]], value: ast.expr, node_attr: PILAttr = NOATTR) -> ast.Assign:
+    def create_pil_stmt_assign_name(self, targets:str | list[tuple[str, bool]] | tuple[tuple[str, bool]], value: ast.expr, node_attr: PILAttr = NOATTR) -> ast.Assign:
         """
         Parameter:
             targets:
@@ -214,7 +218,7 @@ class PILBuilder(ast.NodeVisitor):
                     ctx=ast.Store())
             return ast.Assign(targets=[result_targets], value=value, **node_attr)
 
-    def create_pil_assign_identifier(self, target_name:str, source_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Assign:
+    def create_pil_stmt_assign_identifier(self, target_name:str, source_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Assign:
         """
         Parameter:
             target_name: identifier
@@ -228,7 +232,7 @@ class PILBuilder(ast.NodeVisitor):
             value=self.create_pil_expr(source_expr),
             **node_attr)
 
-    def create_pil_assign_attribute(self, target_expr: PILExpr, attr_name: str, source_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Assign:
+    def create_pil_stmt_assign_attribute(self, target_expr: PILExpr, attr_name: str, source_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Assign:
         """
         Parameter:
             target_name: identifier of the object
@@ -243,7 +247,7 @@ class PILBuilder(ast.NodeVisitor):
             value=self.create_pil_expr(source_expr),
             **node_attr)
 
-    def create_pil_assign_subscript(self, target_expr: PILExpr, slices: list[PILSlice], source_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Assign:
+    def create_pil_stmt_assign_subscript(self, target_expr: PILExpr, subscript: PILSubscript, source_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Assign:
         """
         Parameter:
             target_name: identifier of the object
@@ -254,14 +258,14 @@ class PILBuilder(ast.NodeVisitor):
         Emit code:
             target_name[slices] = source_expr
         """
-        result_slice = self.create_pil_slice(slices)
+        result_slice = self.create_pil_subscript(subscript, ctx=ast.Store())
         return ast.Assign(
             targets=[ast.Subscript(value=self.create_pil_expr(target_expr),
                                    slice=result_slice, ctx=ast.Store())],
             value=self.create_pil_expr(source_expr),
             **node_attr)
 
-    def create_pil_function_def(self, name: str, args: ast.arguments, body: list[ast.stmt], decorator_list: list[PILExpr], returns: ast.expr | None, type_comment: str | None, node_attr: PILAttr = NOATTR) -> ast.FunctionDef:
+    def create_pil_stmt_function_def(self, name: str, args: ast.arguments, body: list[ast.stmt], decorator_list: list[PILExpr], returns: ast.expr | None, type_comment: str | None, node_attr: PILAttr = NOATTR) -> ast.FunctionDef:
         """
         Parameter:
             name: identifier (function name)
@@ -278,7 +282,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.FunctionDef(name=name, args=args, body=body, decorator_list=[self.create_pil_expr(d) for d in decorator_list], returns=returns, type_comment=type_comment, **node_attr)
 
-    def create_pil_return(self, expr: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Return:
+    def create_pil_stmt_return(self, expr: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Return:
         """
         Parameter:
             expr: identifier, constant, or None
@@ -289,7 +293,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Return(value=self.create_pil_expr(expr) if expr is not None else None, **node_attr)
 
-    def create_pil_delete_identifier(self, name: str, node_attr: PILAttr = NOATTR) -> ast.Delete:
+    def create_pil_stmt_delete_identifier(self, name: str, node_attr: PILAttr = NOATTR) -> ast.Delete:
         """
         Parameter:
             name: identifier to delete
@@ -298,7 +302,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Delete(targets=[ast.Name(id=name, ctx=ast.Del())], **node_attr)
 
-    def create_pil_delete_attribute(self, target_expr: PILExpr, attr: str, node_attr: PILAttr = NOATTR) -> ast.Delete:
+    def create_pil_stmt_delete_attribute(self, target_expr: PILExpr, attr: str, node_attr: PILAttr = NOATTR) -> ast.Delete:
         """
         Parameter:
             target_expr: identifier or constant (object whose attribute is deleted)
@@ -308,7 +312,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Delete(targets=[ast.Attribute(value=self.create_pil_expr(target_expr), attr=attr, ctx=ast.Del())], **node_attr)
 
-    def create_pil_delete_subscript(self, target_expr: PILExpr, slice_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Delete:
+    def create_pil_stmt_delete_subscript(self, target_expr: PILExpr, subscript: PILSubscript, node_attr: PILAttr = NOATTR) -> ast.Delete:
         """
         Parameter:
             target_expr: identifier or constant (object whose item is deleted)
@@ -316,9 +320,14 @@ class PILBuilder(ast.NodeVisitor):
         Emit code format:
             del target_expr[slice_expr]
         """
-        return ast.Delete(targets=[ast.Subscript(value=self.create_pil_expr(target_expr), slice=self.create_pil_expr(slice_expr), ctx=ast.Del())], **node_attr)
+        return ast.Delete(
+            targets=[
+                ast.Subscript(value=self.create_pil_expr(target_expr),
+                             slice=self.create_pil_subscript(subscript, ctx=ast.Del()),
+                             ctx=ast.Del())],
+            **node_attr)
 
-    def create_pil_for(self, target_name: str, iter_expr: PILExpr, body: list[ast.stmt], orelse: list[ast.stmt], type_comment: str | None, node_attr: PILAttr = NOATTR) -> ast.For:
+    def create_pil_stmt_for(self, target_name: str, iter_expr: PILExpr, body: list[ast.stmt], orelse: list[ast.stmt], type_comment: str | None, node_attr: PILAttr = NOATTR) -> ast.For:
         """
         Parameter:
             target_name: identifier (loop variable)
@@ -335,7 +344,7 @@ class PILBuilder(ast.NodeVisitor):
         assert isinstance(target_name, str)
         return ast.For(target=ast.Name(id=target_name, ctx=ast.Store()), iter=self.create_pil_expr(iter_expr), body=body, orelse=orelse, type_comment=type_comment, **node_attr)
 
-    def create_pil_while(self, test_expr: PILExpr, body: list[ast.stmt], orelse: list[ast.stmt], node_attr: PILAttr = NOATTR) -> ast.While:
+    def create_pil_stmt_while(self, test_expr: PILExpr, body: list[ast.stmt], orelse: list[ast.stmt], node_attr: PILAttr = NOATTR) -> ast.While:
         """
         Parameter:
             test_expr: identifier or constant (loop condition)
@@ -349,7 +358,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.While(test=self.create_pil_expr(test_expr), body=body, orelse=orelse, **node_attr)
 
-    def create_pil_if(self, test_expr: PILExpr, body: list[ast.stmt], orelse: list[ast.stmt], node_attr: PILAttr = NOATTR) -> ast.If:
+    def create_pil_stmt_if(self, test_expr: PILExpr, body: list[ast.stmt], orelse: list[ast.stmt], node_attr: PILAttr = NOATTR) -> ast.If:
         """
         Parameter:
             test_expr: identifier or constant (condition)
@@ -363,7 +372,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.If(test=self.create_pil_expr(test_expr), body=body, orelse=orelse, **node_attr)
 
-    def create_pil_assert(self, test_expr: PILExpr, msg_value: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Assert:
+    def create_pil_stmt_assert(self, test_expr: PILExpr, msg_value: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Assert:
         """
         Parameter:
             test_expr: identifier or constant (assertion condition)
@@ -375,7 +384,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Assert(test=self.create_pil_expr(test_expr), msg=self.create_pil_expr(msg_value) if msg_value is not None else None, **node_attr)
 
-    def create_pil_yield(self, expr: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Yield:
+    def create_pil_stmt_yield(self, expr: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Yield:
         """
         Parameter:
             expr: identifier, constant, or None
@@ -389,7 +398,7 @@ class PILBuilder(ast.NodeVisitor):
         else:
             return ast.Yield(value=None, **node_attr)
 
-    def create_pil_yield_from(self, expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.YieldFrom:
+    def create_pil_stmt_yield_from(self, expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.YieldFrom:
         """
         Parameter:
             expr: identifier or constant (iterable to delegate to)
@@ -398,7 +407,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.YieldFrom(value=self.create_pil_expr(expr), **node_attr)
 
-    def create_pil_with(self, items: list[PILExpr], body: list[ast.stmt], type_comment: str | None, node_attr: PILAttr = NOATTR) -> ast.With:
+    def create_pil_stmt_with(self, items: list[PILExpr], body: list[ast.stmt], type_comment: str | None, node_attr: PILAttr = NOATTR) -> ast.With:
         """
         Parameter:
             items: list of identifier or constant (context managers, no as-binding)
@@ -411,7 +420,7 @@ class PILBuilder(ast.NodeVisitor):
         pil_items = [ast.withitem(context_expr=self.create_pil_expr(item), optional_vars=None) for item in items]
         return ast.With(items=pil_items, body=body, type_comment=type_comment, **node_attr)
 
-    def create_pil_raise(self, exc: PILExpr | None, cause: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Raise:
+    def create_pil_stmt_raise(self, exc: PILExpr | None, cause: PILExpr | None, node_attr: PILAttr = NOATTR) -> ast.Raise:
         """
         Parameter:
             exc: identifier, constant, or None (exception to raise)
@@ -428,7 +437,7 @@ class PILBuilder(ast.NodeVisitor):
             cause=self.create_pil_expr(cause) if cause is not None else None,
             **node_attr)
 
-    def create_pil_try(self, body: list[ast.stmt], handlers: tuple[str, list[ast.stmt]], orelse: list[ast.stmt], finalbody: list[ast.stmt], node_attr: PILAttr = NOATTR) -> ast.Try:
+    def create_pil_stmt_try(self, body: list[ast.stmt], handlers: tuple[str, list[ast.stmt]], orelse: list[ast.stmt], finalbody: list[ast.stmt], node_attr: PILAttr = NOATTR) -> ast.Try:
         """
         Parameter:
             body: list of statements (try body)
@@ -446,10 +455,10 @@ class PILBuilder(ast.NodeVisitor):
                 finalbody
         """
         exc_var, handler_body = handlers
-        pil_handler = ast.ExceptHandler(type=self.create_pil_name('Exception'), name=exc_var, body=handler_body)
+        pil_handler = ast.ExceptHandler(type=self.create_pil_expr_name('Exception'), name=exc_var, body=handler_body)
         return ast.Try(body=body, handlers=[pil_handler], orelse=orelse, finalbody=finalbody, **node_attr)
 
-    def create_pil_import(self, names: list[ast.alias], node_attr: PILAttr = NOATTR) -> ast.Import:
+    def create_pil_stmt_import(self, names: list[ast.alias], node_attr: PILAttr = NOATTR) -> ast.Import:
         """
         Parameter:
             names: list of alias nodes
@@ -458,7 +467,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Import(names=names, **node_attr)
 
-    def create_pil_import_from(self, module: str | None, names: list[ast.alias], level: int | None, node_attr: PILAttr = NOATTR) -> ast.ImportFrom:
+    def create_pil_stmt_import_from(self, module: str | None, names: list[ast.alias], level: int | None, node_attr: PILAttr = NOATTR) -> ast.ImportFrom:
         """
         Parameter:
             module: identifier (module name) or None
@@ -469,7 +478,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.ImportFrom(module=module, names=names, level=level, **node_attr)
 
-    def create_pil_global(self, names: list[str], node_attr: PILAttr = NOATTR) -> ast.Global:
+    def create_pil_stmt_global(self, names: list[str], node_attr: PILAttr = NOATTR) -> ast.Global:
         """
         Parameter:
             names: list of identifiers
@@ -478,7 +487,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Global(names=names, **node_attr)
 
-    def create_pil_nonlocal(self, names: list[str], node_attr: PILAttr = NOATTR) -> ast.Nonlocal:
+    def create_pil_stmt_nonlocal(self, names: list[str], node_attr: PILAttr = NOATTR) -> ast.Nonlocal:
         """
         Parameter:
             names: list of identifiers
@@ -487,28 +496,28 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Nonlocal(names=names, **node_attr)
 
-    def create_pil_pass(self, node_attr: PILAttr = NOATTR) -> ast.Pass:
+    def create_pil_stmt_pass(self, node_attr: PILAttr = NOATTR) -> ast.Pass:
         """
         Emit code:
             pass
         """
         return ast.Pass(**node_attr)
 
-    def create_pil_break(self, node_attr: PILAttr = NOATTR) -> ast.Break:
+    def create_pil_stmt_break(self, node_attr: PILAttr = NOATTR) -> ast.Break:
         """
         Emit code:
             break
         """
         return ast.Break(**node_attr)
 
-    def create_pil_continue(self, node_attr: PILAttr = NOATTR) -> ast.Continue:
+    def create_pil_stmt_continue(self, node_attr: PILAttr = NOATTR) -> ast.Continue:
         """
         Emit code:
             continue
         """
         return ast.Continue(**node_attr)
 
-    def create_pil_bin_op(self, left_expr: PILExpr, op: ast.operator, right_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.BinOp:
+    def create_pil_expr_bin_op(self, left_expr: PILExpr, op: ast.operator, right_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.BinOp:
         """
         Parameter:
             left_expr: identifier or constant
@@ -519,7 +528,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.BinOp(left=self.create_pil_expr(left_expr), op=op, right=self.create_pil_expr(right_expr), **node_attr)
 
-    def create_pil_unary_op(self, op: ast.unaryop, operand_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.UnaryOp:
+    def create_pil_expr_unary_op(self, op: ast.unaryop, operand_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.UnaryOp:
         """
         Parameter:
             op: unary operator (Invert, Not, UAdd, USub)
@@ -529,7 +538,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.UnaryOp(op=op, operand=self.create_pil_expr(operand_expr), **node_attr)
 
-    def create_pil_dict(self, keys: list[PILExpr | None], values: list[PILExpr], node_attr: PILAttr = NOATTR) -> ast.Dict:
+    def create_pil_expr_dict(self, keys: list[PILExpr | None], values: list[PILExpr], node_attr: PILAttr = NOATTR) -> ast.Dict:
         """
         Parameter:
             keys: list of identifier, constant, or None (None means dict unpacking **value)
@@ -542,7 +551,7 @@ class PILBuilder(ast.NodeVisitor):
             values=[self.create_pil_expr(value) for value in values],
             **node_attr)
 
-    def create_pil_set(self, elts: list[tuple[PILExpr, bool]], node_attr: PILAttr = NOATTR) -> ast.Set:
+    def create_pil_expr_set(self, elts: list[tuple[PILExpr, bool]], node_attr: PILAttr = NOATTR) -> ast.Set:
         """
         Parameter:
             elts: list of (identifier or constant, is_starred)
@@ -553,7 +562,7 @@ class PILBuilder(ast.NodeVisitor):
             elts=[self.create_pil_maybe_starred(elt[0], elt[1]) for elt in elts],
             **node_attr)
 
-    def create_pil_compare(self, left_expr: PILExpr, op: ast.cmpop, comparator_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Compare:
+    def create_pil_expr_compare(self, left_expr: PILExpr, op: ast.cmpop, comparator_expr: PILExpr, node_attr: PILAttr = NOATTR) -> ast.Compare:
         """
         Parameter:
             left_expr: identifier or constant
@@ -564,23 +573,24 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Compare(left=self.create_pil_expr(left_expr), ops=[op], comparators=[self.create_pil_expr(comparator_expr)], **node_attr)
 
-    def create_pil_call(self, func_expr: PILExpr, args: list[PILExpr], keywords: list[tuple[str | None, PILExpr]], node_attr: PILAttr = NOATTR) -> ast.Call:
+    def create_pil_expr_call(self, func_expr: PILExpr, args: list[tuple[PILExpr, bool]], keywords: list[tuple[str | None, PILExpr]], node_attr: PILAttr = NOATTR) -> ast.Call:
         """
         Parameter:
             func_expr: identifier or constant (callable)
-            args: list of identifier or constant (positional arguments)
+            args: list of (identifier_or_constant, is_starred) pairs;
+                  is_starred=True produces *arg expansion at the call site
             keywords: list of (arg_name_or_None, identifier_or_constant) pairs;
                       arg_name is None for **dict expansion
         Emit code example:
-            func_expr(args[0], args[1], key=keywords[0][1])
+            func_expr(args[0][0], *args[1][0], key=keywords[0][1])
         """
         return ast.Call(
             func=self.create_pil_expr(func_expr),
-            args=[self.create_pil_expr(arg) for arg in args],
+            args=[self.create_pil_maybe_starred(expr, starred) for expr, starred in args],
             keywords=[ast.keyword(arg=kw_arg, value=self.create_pil_expr(kw_value)) for kw_arg, kw_value in keywords],
             **node_attr)
 
-    def create_pil_constant(self, value: object, kind: str | None, node_attr: PILAttr = NOATTR) -> ast.Constant:
+    def create_pil_expr_constant(self, value: object, kind: str | None, node_attr: PILAttr = NOATTR) -> ast.Constant:
         """
         Parameter:
             value: constant value (int, float, str, bytes, bool, None, ...)
@@ -590,7 +600,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Constant(value=value, kind=kind, **node_attr)
 
-    def create_pil_name(self, id: str, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Name:
+    def create_pil_expr_name(self, id: str, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Name:
         """
         Parameter:
             id: identifier
@@ -600,7 +610,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Name(id=id, ctx=ctx, **node_attr)
 
-    def create_pil_attribute(self, value_expr: PILExpr, attr_name: str, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Attribute:
+    def create_pil_expr_attribute(self, value_expr: PILExpr, attr_name: str, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Attribute:
         """
         Parameter:
             value_expr: identifier or constant (object)
@@ -611,32 +621,23 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Attribute(value=self.create_pil_expr(value_expr), attr=attr_name, ctx=ctx, **node_attr)
 
-    def create_pil_subscript(self, value_expr: PILExpr, slices: list[tuple[PILExpr | None, PILExpr | None, PILExpr | None] | PILExpr], ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Subscript:
+    def create_pil_expr_subscript(self, value_expr: PILExpr, subscript: PILSubscript, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Subscript:
         """
         Parameter:
             value_expr: identifier or constant (object)
-            slices: list of (lower, upper, step) tuples, each element is identifier, constant or None
+            subscript: PILExpr, PILSlice, or tuple of PILExpr/PILSlice
             ctx: Load, Store, or Del
         Emit code:
-            value_expr[lower:upper:step, ...]
+            value_expr[subscript]
+            value_expr[lower:upper:step]
+            value_expr[s0, s1, ...]
         """
-        result_slice_tuple = []
-        for slice in slices:
-            if isinstance(slice, tuple):
-                result_slice_expr = ast.Slice(
-                    lower=self.create_pil_expr(slice[0]) if slice[0] is not None else None,
-                    upper=self.create_pil_expr(slice[1]) if slice[1] is not None else None,
-                    step=self.create_pil_expr(slice[2]) if slice[2] is not None else None)
-            else:
-                result_slice_expr = self.create_pil_expr(slice)
-            result_slice_tuple.append(result_slice_expr)
-        if len(slices) == 1:
-            result_slice = result_slice_tuple[0]
-        else:
-            result_slice = ast.Tuple(elts=result_slice_tuple, ctx=ast.Load())
-        return ast.Subscript(value=self.create_pil_expr(value_expr), slice=result_slice, ctx=ast.Load(), **node_attr)
+        return ast.Subscript(
+            value=self.create_pil_expr(value_expr),
+            slice=self.create_pil_subscript(subscript, ctx=ast.Load()),
+            ctx=ctx, **node_attr)
 
-    def create_pil_starred(self, value_expr: PILExpr, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Starred:
+    def create_pil_expr_starred(self, value_expr: PILExpr, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Starred:
         """
         Parameter:
             value_expr: identifier or constant
@@ -646,7 +647,7 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Starred(self.create_pil_expr(value_expr), ctx=ctx, **node_attr)
 
-    def create_pil_list(self, elts: list[tuple[PILExpr, bool]], ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.List:
+    def create_pil_expr_list(self, elts: list[tuple[PILExpr, bool]], ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.List:
         """
         Parameter:
             elts: list of (identifier or constant, is_starred)
@@ -659,7 +660,7 @@ class PILBuilder(ast.NodeVisitor):
             ctx=ctx,
             **node_attr)
 
-    def create_pil_tuple(self, elts: list[tuple[PILExpr, bool]], ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Tuple:
+    def create_pil_expr_tuple(self, elts: list[tuple[PILExpr, bool]], ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Tuple:
         """
         Parameter:
             elts: list of (identifier or constant, is_starred)
@@ -678,8 +679,11 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         PILBuilder.__init__(self, ctx)
         ast.NodeVisitor.__init__(self)
 
-    def visit_slice(self, slice: ast.Slice | tuple[ast.Slice]) -> tuple[list[ast.stmt], list[PILSlice]]:
-        slice_list = slice.elts if isinstance(slice, ast.Tuple) else [slice]
+    def visit_subscript_subscript(self, slice: ast.expr) -> tuple[list[ast.stmt], PILSubscript]:
+        if isinstance(slice, ast.Tuple):
+            slice_list = slice.elts
+        else:
+            slice_list = [slice]
 
         slice_stmt_list = []
         pil_slice_list = []
@@ -695,27 +699,32 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 if s.step is not None:
                     stmts, step_expr = self.visit(s.step)
                     slice_stmt_list.extend(stmts)
-                pil_slice_list.append((lower_expr, upper_expr, step_expr))
+                pil_slice_list.append(PILSlice(lower_expr, upper_expr, step_expr))
             else:
                 subscript_stmt_list, subscript_expr = self.visit(s)
                 slice_stmt_list.extend(subscript_stmt_list)
                 pil_slice_list.append(subscript_expr)
-        return slice_stmt_list, pil_slice_list
+
+        if isinstance(slice, ast.Tuple):
+            subscript = pil_slice_list
+        else:
+            subscript = pil_slice_list[0]
+        return slice_stmt_list, subscript
 
     def visit_lhs(self, target: ast.expr, source_expr: PILExpr | None) -> list[ast.stmt]:
         if isinstance(target, ast.Name):
-            assign_stmts = [self.create_pil_assign_identifier(target.id, source_expr)] if source_expr is not None else []
+            assign_stmts = [self.create_pil_stmt_assign_identifier(target.id, source_expr)] if source_expr is not None else []
             return assign_stmts
 
         elif isinstance(target, ast.Attribute):
             obj_stmts, obj_expr = self.visit(target.value)
-            assign_stmts = [self.create_pil_assign_attribute(obj_expr, target.attr, source_expr)] if source_expr is not None else []
+            assign_stmts = [self.create_pil_stmt_assign_attribute(obj_expr, target.attr, source_expr)] if source_expr is not None else []
             return obj_stmts + assign_stmts
 
         elif isinstance(target, ast.Subscript):
             obj_stmts, obj_expr = self.visit(target.value)
-            slice_stmt_list, pil_slice_list = self.visit_slice(target.slice)
-            assign_stmts = [self.create_pil_assign_subscript(obj_expr, pil_slice_list, source_expr)] if source_expr is not None else []
+            slice_stmt_list, pil_subscript = self.visit_subscript_subscript(target.slice)
+            assign_stmts = [self.create_pil_stmt_assign_subscript(obj_expr, pil_subscript, source_expr)] if source_expr is not None else []
             return obj_stmts + slice_stmt_list + assign_stmts
 
         elif isinstance(target, (ast.Tuple, ast.List)):
@@ -727,7 +736,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 elt_temps = tuple(elt_temps_data)
 
             # Step 2: one-layer unpack — (t0, *t1, t2) = source_name
-            unpack_stmts = [self.create_pil_assign_name(elt_temps, self.create_pil_expr(source_expr))] if source_expr is not None else []
+            unpack_stmts = [self.create_pil_stmt_assign_name(elt_temps, self.create_pil_expr(source_expr))] if source_expr is not None else []
             # Step 3: recursively handle each element with its temp
             result_stmts = unpack_stmts
             for (temp_name, starred), elt in zip(elt_temps, target.elts):
@@ -770,7 +779,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             decorator_stmts.extend(dec_stmts)
             decorator_names.append(dec_name)
         body_stmt_list, _ = self.visit_stmts(body)
-        func_def = self.create_pil_function_def(name, args, body_stmt_list, decorator_names, returns, type_comment, node_attr=node_attr)
+        func_def = self.create_pil_stmt_function_def(name, args, body_stmt_list, decorator_names, returns, type_comment, node_attr=node_attr)
         return decorator_stmts + [func_def], None
 
     def visit_AsyncFunctionDef(self, name: str, args: ast.arguments, body: list[ast.stmt], decorator_list: list[ast.expr], returns: ast.expr | None, type_comment: str | None, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -800,9 +809,9 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         if value is not None:
             value_stmt_list, value_name = self.visit(value)
-            result_stmt_list = [*value_stmt_list, self.create_pil_return(value_name, node_attr=node_attr)]
+            result_stmt_list = [*value_stmt_list, self.create_pil_stmt_return(value_name, node_attr=node_attr)]
         else:
-            result_stmt_list = [self.create_pil_return(None, node_attr=node_attr)]
+            result_stmt_list = [self.create_pil_stmt_return(None, node_attr=node_attr)]
         return result_stmt_list, None
 
     def visit_Delete(self, targets: list[ast.expr], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -849,17 +858,17 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         result_stmts = []
         for target in targets:
             if isinstance(target, ast.Name):
-                result_stmts.append(self.create_pil_delete_identifier(target.id, node_attr=node_attr))
+                result_stmts.append(self.create_pil_stmt_delete_identifier(target.id, node_attr=node_attr))
             elif isinstance(target, ast.Attribute):
                 obj_stmts, obj_expr = self.visit(target.value)
                 result_stmts.extend(obj_stmts)
-                result_stmts.append(self.create_pil_delete_attribute(obj_expr, target.attr, node_attr=node_attr))
+                result_stmts.append(self.create_pil_stmt_delete_attribute(obj_expr, target.attr, node_attr=node_attr))
             elif isinstance(target, ast.Subscript):
                 obj_stmts, obj_expr = self.visit(target.value)
                 result_stmts.extend(obj_stmts)
-                slice_stmts, slice_expr = self.visit(target.slice)
+                slice_stmts, pil_subscript = self.visit_subscript_subscript(target.slice)
                 result_stmts.extend(slice_stmts)
-                result_stmts.append(self.create_pil_delete_subscript(obj_expr, slice_expr, node_attr=node_attr))
+                result_stmts.append(self.create_pil_stmt_delete_subscript(obj_expr, pil_subscript, node_attr=node_attr))
             elif isinstance(target, (ast.Tuple, ast.List)):
                 nested_stmts, _ = self.visit_Delete(target.elts, node_attr=node_attr)
                 result_stmts.extend(nested_stmts)
@@ -923,32 +932,32 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             # target is a bare name — no side effects, visit value first is fine
             value_stmt_list, value_name = self.visit(value)
             temp_name = self.create_temp_identifier()
-            binop_stmt = self.create_pil_assign_name(temp_name, self.create_pil_bin_op(target.id, op, value_name))
-            store_stmt = self.create_pil_assign_identifier(target.id, temp_name)
+            binop_stmt = self.create_pil_stmt_assign_name(temp_name, self.create_pil_expr_bin_op(target.id, op, value_name))
+            store_stmt = self.create_pil_stmt_assign_identifier(target.id, temp_name)
             return value_stmt_list + [binop_stmt, store_stmt], None
 
         elif isinstance(target, ast.Attribute):
             # Python evaluates: obj first, then load, then rhs value, then store
             target_stmt_list, target_expr = self.visit(target.value)
             load_temp = self.create_temp_identifier()
-            load_stmt = self.create_pil_assign_name(load_temp, self.create_pil_attribute(target_expr, target.attr))
+            load_stmt = self.create_pil_stmt_assign_name(load_temp, self.create_pil_expr_attribute(target_expr, target.attr))
             value_stmt_list, value_name = self.visit(value)
             temp_name = self.create_temp_identifier()
-            binop_stmt = self.create_pil_assign_name(temp_name, self.create_pil_bin_op(load_temp, op, value_name))
-            store_stmt = self.create_pil_assign_attribute(target_expr, target.attr, temp_name)
+            binop_stmt = self.create_pil_stmt_assign_name(temp_name, self.create_pil_expr_bin_op(load_temp, op, value_name))
+            store_stmt = self.create_pil_stmt_assign_attribute(target_expr, target.attr, temp_name)
             return target_stmt_list + [load_stmt] + value_stmt_list + [binop_stmt, store_stmt], None
 
         elif isinstance(target, ast.Subscript):
             # Python evaluates: obj first, then slice, then load, then rhs value, then store
             target_stmt_list, target_expr = self.visit(target.value)
             # normalize slice into list of (lower, upper, step) tuples
-            slice_stmt_list, pil_slice_list = self.visit_slice(target.slice)
+            slice_stmt_list, pil_subscript = self.visit_subscript_subscript(target.slice)
             load_temp = self.create_temp_identifier()
-            load_stmt = self.create_pil_assign_name(load_temp, self.create_pil_subscript(target_expr, pil_slice_list))
+            load_stmt = self.create_pil_stmt_assign_name(load_temp, self.create_pil_expr_subscript(target_expr, pil_subscript))
             value_stmt_list, value_name = self.visit(value)
             temp_name = self.create_temp_identifier()
-            binop_stmt = self.create_pil_assign_name(temp_name, self.create_pil_bin_op(load_temp, op, value_name))
-            store_stmt = self.create_pil_assign_subscript(target_expr, pil_slice_list, temp_name)
+            binop_stmt = self.create_pil_stmt_assign_name(temp_name, self.create_pil_expr_bin_op(load_temp, op, value_name))
+            store_stmt = self.create_pil_stmt_assign_subscript(target_expr, pil_subscript, temp_name)
             return target_stmt_list + slice_stmt_list + [load_stmt] + value_stmt_list + [binop_stmt, store_stmt], None
 
         raise NotImplementedError(f"AugAssign target type {type(target).__name__} is not supported")
@@ -1000,7 +1009,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         body_stmt_list, _ = self.visit_stmts(body)
         result_body_stmt_list = target_stmt_list + body_stmt_list
         orelse_stmt_list, _ = self.visit_stmts(orelse)
-        result_stmt_list = iter_stmt_list + [self.create_pil_for(target_name, iter_name, result_body_stmt_list, orelse_stmt_list, type_comment)]
+        result_stmt_list = iter_stmt_list + [self.create_pil_stmt_for(target_name, iter_name, result_body_stmt_list, orelse_stmt_list, type_comment)]
         self.continue_stack.pop()
         return result_stmt_list, None
 
@@ -1031,11 +1040,11 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         if isinstance(test_expr, str):
             # re-evaluate test at the end of each iteration to update test_name for the next check
             reeval_stmt_list, reeval_expr = self.visit(test)
-            reeval_stmt_list = reeval_stmt_list + [self.create_pil_assign_identifier(test_expr, reeval_expr)]
+            reeval_stmt_list = reeval_stmt_list + [self.create_pil_stmt_assign_identifier(test_expr, reeval_expr)]
             result_body_stmt_list = body_stmt_list + reeval_stmt_list
         else:
             result_body_stmt_list = body_stmt_list
-        result_stmt_list = test_stmt_list + [self.create_pil_while(test_expr, result_body_stmt_list, orelse_stmt_list)]
+        result_stmt_list = test_stmt_list + [self.create_pil_stmt_while(test_expr, result_body_stmt_list, orelse_stmt_list)]
         self.continue_stack.pop()
         return result_stmt_list, None
 
@@ -1056,7 +1065,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         test_stmt_list, test_name = self.visit(test)
         body_stmt_list, _ = self.visit_stmts(body)
         orelse_stmt_list, _ = self.visit_stmts(orelse)
-        result_stmt_list = test_stmt_list + [self.create_pil_if(test_name, body_stmt_list, orelse_stmt_list)]
+        result_stmt_list = test_stmt_list + [self.create_pil_stmt_if(test_name, body_stmt_list, orelse_stmt_list)]
         return result_stmt_list, None
 
     def visit_With(self, items: list[ast.withitem], body: list[ast.stmt], type_comment: str | None, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1084,7 +1093,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             if item.optional_vars is not None:
                 body_preamble.extend(self.visit_lhs(item.optional_vars, ctx_name))
         body_stmts, _ = self.visit_stmts(body)
-        result_stmts.append(self.create_pil_with(ctx_names, body_preamble + body_stmts, type_comment, node_attr=node_attr))
+        result_stmts.append(self.create_pil_stmt_with(ctx_names, body_preamble + body_stmts, type_comment, node_attr=node_attr))
         return result_stmts, None
 
     def visit_AsyncWith(self, items: list[ast.withitem], body: list[ast.stmt], type_comment: str | None, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1123,7 +1132,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         if cause is not None:
             cause_stmts, cause_name = self.visit(cause)
             result_stmts.extend(cause_stmts)
-        result_stmts.append(self.create_pil_raise(exc_name, cause_name, node_attr=node_attr))
+        result_stmts.append(self.create_pil_stmt_raise(exc_name, cause_name, node_attr=node_attr))
         return result_stmts, None
 
     def visit_Try(self, body: list[ast.stmt], handlers: list[ast.excepthandler], orelse: list[ast.stmt], finalbody: list[ast.stmt], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1166,7 +1175,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         body_stmts, _ = self.visit_stmts(body)
         exc_var = self.create_temp_identifier()
         # Build if-elif chain from innermost outward; default else: bare raise
-        dispatch_body: list[ast.stmt] = [self.create_pil_raise(None, None)]
+        dispatch_body: list[ast.stmt] = [self.create_pil_stmt_raise(None, None)]
 
         for handler in reversed(handlers):
 
@@ -1175,24 +1184,24 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             if handler.type is not None:
                 handler_type_stmts, handler_type_name = self.visit(handler.type)
                 isinstance_temp = self.create_temp_identifier()
-                isinstance_stmts = [self.create_pil_assign_name(isinstance_temp, self.create_pil_call('isinstance', [exc_var, handler_type_name], []))]
+                isinstance_stmts = [self.create_pil_stmt_assign_name(isinstance_temp, self.create_pil_expr_call('isinstance', [(exc_var, False), (handler_type_name, False)], []))]
 
                 if handler.name is not None:
-                    pre_handler_set = [self.create_pil_assign_identifier(handler.name, exc_var)]
-                    post_handler_del = [self.create_pil_delete_identifier(handler.name)]
+                    pre_handler_set = [self.create_pil_stmt_assign_identifier(handler.name, exc_var)]
+                    post_handler_del = [self.create_pil_stmt_delete_identifier(handler.name)]
                     result_then_stmts = pre_handler_set + handler_body_stmts + post_handler_del
                 else:
                     result_then_stmts = handler_body_stmts
             else:
                 handler_type_stmts = []
                 isinstance_stmts = []
-                isinstance_temp = self.create_pil_constant(True, None)
+                isinstance_temp = self.create_pil_expr_constant(True, None)
                 result_then_stmts = handler_body_stmts
 
-            dispatch_body = handler_type_stmts + isinstance_stmts + [self.create_pil_if(isinstance_temp, result_then_stmts, dispatch_body)]
+            dispatch_body = handler_type_stmts + isinstance_stmts + [self.create_pil_stmt_if(isinstance_temp, result_then_stmts, dispatch_body)]
         orelse_stmts, _ = self.visit_stmts(orelse)
         finalbody_stmts, _ = self.visit_stmts(finalbody)
-        return [self.create_pil_try(body_stmts, (exc_var, dispatch_body), orelse_stmts, finalbody_stmts, node_attr=node_attr)], None
+        return [self.create_pil_stmt_try(body_stmts, (exc_var, dispatch_body), orelse_stmts, finalbody_stmts, node_attr=node_attr)], None
 
     def visit_TryStar(self, body: list[ast.stmt], handlers: list[ast.excepthandler], orelse: list[ast.stmt], finalbody: list[ast.stmt], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
         raise NotImplementedError("TryStar is not supported")
@@ -1212,50 +1221,50 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         test_stmt_list, test_name = self.visit(test)
         # not_test = not test_name
         not_test_name = self.create_temp_identifier()
-        not_test_stmt = self.create_pil_assign_name(not_test_name, self.create_pil_unary_op(ast.Not(), test_name))
+        not_test_stmt = self.create_pil_stmt_assign_name(not_test_name, self.create_pil_expr_unary_op(ast.Not(), test_name))
         # msg is only evaluated when the assertion fails
         if msg is not None:
             msg_stmt_list, msg_name = self.visit(msg)
         else:
             msg_stmt_list, msg_name = [], None
-        fail_body = msg_stmt_list + [self.create_pil_assert(test_name, msg_name)]
-        debug_body = test_stmt_list + [not_test_stmt, self.create_pil_if(not_test_name, fail_body, [])]
-        return [self.create_pil_if("__debug__", debug_body, [])], None
+        fail_body = msg_stmt_list + [self.create_pil_stmt_assert(test_name, msg_name)]
+        debug_body = test_stmt_list + [not_test_stmt, self.create_pil_stmt_if(not_test_name, fail_body, [])]
+        return [self.create_pil_stmt_if("__debug__", debug_body, [])], None
 
     def visit_Import(self, names: list[ast.alias], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
-        return [self.create_pil_import(names)], None
+        return [self.create_pil_stmt_import(names)], None
 
     def visit_ImportFrom(self, module: str | None, names: list[ast.alias], level: int | None, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
-        return [self.create_pil_import_from(module, names, level)], None
+        return [self.create_pil_stmt_import_from(module, names, level)], None
 
     def visit_Global(self, names: list[str], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
-        return [self.create_pil_global(names)], None
+        return [self.create_pil_stmt_global(names)], None
 
     def visit_Nonlocal(self, names: list[str], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
-        return [self.create_pil_nonlocal(names)], None
+        return [self.create_pil_stmt_nonlocal(names)], None
 
     def visit_Expr(self, value: ast.expr, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
         value_stmt_list, value_name = self.visit(value)
         return value_stmt_list, None
 
     def visit_Pass(self, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
-        return [self.create_pil_pass()], None
+        return [self.create_pil_stmt_pass()], None
 
     def visit_Break(self, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
-        return [self.create_pil_break()], None
+        return [self.create_pil_stmt_break()], None
 
     def visit_Continue(self, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
         if self.continue_stack[-1] is None:
             # continue in for-loop
-            result_stmt_list = [self.create_pil_continue()]
+            result_stmt_list = [self.create_pil_stmt_continue()]
         else:
             # continue in while-loop
             test, test_expr = self.continue_stack[-1]
             if isinstance(test_expr, str):
                 reeval_stmt_list, reeval_expr = self.visit(test)
-                result_stmt_list = reeval_stmt_list + [self.create_pil_assign_identifier(test_expr, reeval_expr), self.create_pil_continue()]
+                result_stmt_list = reeval_stmt_list + [self.create_pil_stmt_assign_identifier(test_expr, reeval_expr), self.create_pil_stmt_continue()]
             else:
-                result_stmt_list = [self.create_pil_continue()]
+                result_stmt_list = [self.create_pil_stmt_continue()]
         return result_stmt_list, None
 
     # expr nodes
@@ -1292,20 +1301,20 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
 
         if isinstance(op, ast.And):
             # if temp is truthy, evaluate the rest and update temp
-            rest_stmt = self.create_pil_if(
+            rest_stmt = self.create_pil_stmt_if(
                 first_name,
-                rest_stmt_list + [self.create_pil_assign_identifier(temp_name, rest_name)],
-                [self.create_pil_assign_identifier(temp_name, first_name)])
+                rest_stmt_list + [self.create_pil_stmt_assign_identifier(temp_name, rest_name)],
+                [self.create_pil_stmt_assign_identifier(temp_name, first_name)])
 
             result_stmt_list = first_stmt_list + [rest_stmt]
             return result_stmt_list, temp_name
 
         elif isinstance(op, ast.Or):
             # if temp is falsy, evaluate the rest and update temp
-            rest_stmt = self.create_pil_if(
+            rest_stmt = self.create_pil_stmt_if(
                 first_name,
-                [self.create_pil_assign_identifier(temp_name, first_name)],
-                rest_stmt_list + [self.create_pil_assign_identifier(temp_name, rest_name)])
+                [self.create_pil_stmt_assign_identifier(temp_name, first_name)],
+                rest_stmt_list + [self.create_pil_stmt_assign_identifier(temp_name, rest_name)])
 
             result_stmt_list = first_stmt_list + [rest_stmt]
             return result_stmt_list, temp_name
@@ -1322,7 +1331,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         assert isinstance(target, ast.Name), "Python native ast parser should guarantee that the target of NamedExpr is always ast.Name"
         value_stmt_list, value_name = self.visit(value)
-        assign_stmt = self.create_pil_assign_identifier(target.id, value_name)
+        assign_stmt = self.create_pil_stmt_assign_identifier(target.id, value_name)
         result_stmt_list = value_stmt_list + [assign_stmt]
         return result_stmt_list, target.id
 
@@ -1339,8 +1348,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         right_stmt_list, right_name = self.visit(right)
 
         temp_name = self.create_temp_identifier()
-        result_expr = self.create_pil_bin_op(left_name, op, right_name)
-        binop_stmt = self.create_pil_assign_name(temp_name, result_expr)
+        result_expr = self.create_pil_expr_bin_op(left_name, op, right_name)
+        binop_stmt = self.create_pil_stmt_assign_name(temp_name, result_expr)
         result_stmt_list = left_stmt_list + right_stmt_list + [binop_stmt]
         return result_stmt_list, temp_name
 
@@ -1355,8 +1364,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         operand_stmt_list, operand_name = self.visit(operand)
 
         temp_name = self.create_temp_identifier()
-        result_expr = self.create_pil_unary_op(op, operand_name)
-        unaryop_stmt = self.create_pil_assign_name(temp_name, result_expr)
+        result_expr = self.create_pil_expr_unary_op(op, operand_name)
+        unaryop_stmt = self.create_pil_stmt_assign_name(temp_name, result_expr)
         result_stmt_list = operand_stmt_list + [unaryop_stmt]
         return result_stmt_list, temp_name
 
@@ -1370,9 +1379,9 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 return _tmp_1
         """
         body_stmt_list, body_name = self.visit(body)
-        return_stmt = self.create_pil_return(body_name)
+        return_stmt = self.create_pil_stmt_return(body_name)
         func_name = self.create_temp_identifier()
-        func_def = self.create_pil_function_def(
+        func_def = self.create_pil_stmt_function_def(
             name=func_name,
             args=args,
             body=body_stmt_list + [return_stmt],
@@ -1400,9 +1409,9 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         orelse_stmt_list, orelse_name = self.visit(orelse)
 
         temp_name = self.create_temp_identifier()
-        result_body_stmt_list = body_stmt_list + [self.create_pil_assign_identifier(temp_name, body_name)]
-        result_orelse_stmt_list = orelse_stmt_list + [self.create_pil_assign_identifier(temp_name, orelse_name)]
-        result_if_stmt = self.create_pil_if(test_name, result_body_stmt_list, result_orelse_stmt_list)
+        result_body_stmt_list = body_stmt_list + [self.create_pil_stmt_assign_identifier(temp_name, body_name)]
+        result_orelse_stmt_list = orelse_stmt_list + [self.create_pil_stmt_assign_identifier(temp_name, orelse_name)]
+        result_if_stmt = self.create_pil_stmt_if(test_name, result_body_stmt_list, result_orelse_stmt_list)
         result_stmt_list = test_stmt_list + [result_if_stmt]
         return result_stmt_list, temp_name
 
@@ -1434,8 +1443,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             value_name_list.append(value_name)
 
         temp_name = self.create_temp_identifier()
-        result_expr = self.create_pil_dict(key_name_list, value_name_list)
-        result_stmt = self.create_pil_assign_name(temp_name, result_expr)
+        result_expr = self.create_pil_expr_dict(key_name_list, value_name_list)
+        result_stmt = self.create_pil_stmt_assign_name(temp_name, result_expr)
         result_stmt_list.append(result_stmt)
         return result_stmt_list, temp_name
 
@@ -1461,8 +1470,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 elt_stmt_list, elt_name = self.visit(elt)
                 elt_list.append((elt_name, False))
             result_stmt_list.extend(elt_stmt_list)
-        result_expr = self.create_pil_set(elt_list)
-        result_stmt = self.create_pil_assign_name(temp_name, result_expr)
+        result_expr = self.create_pil_expr_set(elt_list)
+        result_stmt = self.create_pil_stmt_assign_name(temp_name, result_expr)
         result_stmt_list.append(result_stmt)
         return result_stmt_list, temp_name
 
@@ -1476,7 +1485,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         if len(generators) == 1:
             elt_stmts, elt_name = self.visit(elt)
             yield_temp = self.create_temp_identifier()
-            yield_stmt = self.create_pil_assign_name(yield_temp, self.create_pil_yield(elt_name))
+            yield_stmt = self.create_pil_stmt_assign_name(yield_temp, self.create_pil_stmt_yield(elt_name))
             inner_body = elt_stmts + [yield_stmt]
         else:
             inner_body = self.visit_comp_generator(elt, generators[1:])
@@ -1484,9 +1493,9 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         # Apply if guards: wrap inner_body from innermost outward
         for cond in reversed(gen.ifs):
             cond_stmts, cond_name = self.visit(cond)
-            inner_body = cond_stmts + [self.create_pil_if(cond_name, inner_body, [])]
+            inner_body = cond_stmts + [self.create_pil_stmt_if(cond_name, inner_body, [])]
 
-        for_stmt = self.create_pil_for(target_var, iter_name, target_stmts + inner_body, [], None)
+        for_stmt = self.create_pil_stmt_for(target_var, iter_name, target_stmts + inner_body, [], None)
         return iter_stmts + [for_stmt]
 
     def visit_comp(self, elt: ast.expr, generators: list[ast.comprehension]) -> tuple[ast.FunctionDef, str]:
@@ -1495,7 +1504,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         func_args = ast.arguments(
             posonlyargs=[], args=[],
             vararg=None, kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[])
-        return self.create_pil_function_def(func_name, func_args, comp_body, [], None, None), func_name
+        return self.create_pil_stmt_function_def(func_name, func_args, comp_body, [], None, None), func_name
 
     def visit_ListComp(self, elt: ast.expr, generators: list[ast.comprehension], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
         """
@@ -1514,9 +1523,9 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         func_def, func_name = self.visit_comp(elt, generators)
         gen_name = self.create_temp_identifier()
-        gen_stmt = self.create_pil_assign_name(gen_name, self.create_pil_call(func_name, [], []))
+        gen_stmt = self.create_pil_stmt_assign_name(gen_name, self.create_pil_expr_call(func_name, [], []))
         result_name = self.create_temp_identifier()
-        result_stmt = self.create_pil_assign_name(result_name, self.create_pil_list([(gen_name, True)]))
+        result_stmt = self.create_pil_stmt_assign_name(result_name, self.create_pil_expr_list([(gen_name, True)]))
         return [func_def, gen_stmt, result_stmt], result_name
 
     def visit_SetComp(self, elt: ast.expr, generators: list[ast.comprehension], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1536,9 +1545,9 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         func_def, func_name = self.visit_comp(elt, generators)
         gen_name = self.create_temp_identifier()
-        gen_stmt = self.create_pil_assign_name(gen_name, self.create_pil_call(func_name, [], []))
+        gen_stmt = self.create_pil_stmt_assign_name(gen_name, self.create_pil_expr_call(func_name, [], []))
         result_name = self.create_temp_identifier()
-        result_stmt = self.create_pil_assign_name(result_name, self.create_pil_set([(gen_name, True)]))
+        result_stmt = self.create_pil_stmt_assign_name(result_name, self.create_pil_expr_set([(gen_name, True)]))
         return [func_def, gen_stmt, result_stmt], result_name
 
     def visit_DictComp(self, key: ast.expr, value: ast.expr, generators: list[ast.comprehension], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1559,9 +1568,9 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         kv_tuple = ast.Tuple(elts=[key, value], ctx=ast.Load())
         func_def, func_name = self.visit_comp(kv_tuple, generators)
         gen_name = self.create_temp_identifier()
-        gen_stmt = self.create_pil_assign_name(gen_name, self.create_pil_call(func_name, [], []))
+        gen_stmt = self.create_pil_stmt_assign_name(gen_name, self.create_pil_expr_call(func_name, [], []))
         result_name = self.create_temp_identifier()
-        result_stmt = self.create_pil_assign_name(result_name, self.create_pil_call('dict', [gen_name], []))
+        result_stmt = self.create_pil_stmt_assign_name(result_name, self.create_pil_expr_call('dict', [(gen_name, False)], []))
         return [func_def, gen_stmt, result_stmt], result_name
 
     def visit_GeneratorExp(self, elt: ast.expr, generators: list[ast.comprehension], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1580,7 +1589,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         func_def, func_name = self.visit_comp(elt, generators)
         result_name = self.create_temp_identifier()
-        result_stmt = self.create_pil_assign_name(result_name, self.create_pil_call(func_name, [], []))
+        result_stmt = self.create_pil_stmt_assign_name(result_name, self.create_pil_expr_call(func_name, [], []))
         return [func_def, result_stmt], result_name
 
     def visit_Await(self, value: ast.expr, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1603,11 +1612,11 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         temp_name = self.create_temp_identifier()
         if value is not None:
             value_stmt_list, value_expr = self.visit(value)
-            yield_stmt = self.create_pil_assign_name(temp_name, self.create_pil_yield(value_expr))
+            yield_stmt = self.create_pil_stmt_assign_name(temp_name, self.create_pil_stmt_yield(value_expr))
             result_stmt_list = value_stmt_list + [yield_stmt]
             return result_stmt_list, temp_name
         else:
-            yield_stmt = self.create_pil_assign_name(temp_name, self.create_pil_yield(None))
+            yield_stmt = self.create_pil_stmt_assign_name(temp_name, self.create_pil_stmt_yield(None))
             return [yield_stmt], temp_name
 
     def visit_YieldFrom(self, value: ast.expr, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1620,7 +1629,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         value_stmts, value_name = self.visit(value)
         temp_name = self.create_temp_identifier()
-        yield_from_stmt = self.create_pil_assign_name(temp_name, self.create_pil_yield_from(value_name))
+        yield_from_stmt = self.create_pil_stmt_assign_name(temp_name, self.create_pil_stmt_yield_from(value_name))
         return value_stmts + [yield_from_stmt], temp_name
 
     def visit_Compare(self, left: ast.expr, ops: list[ast.cmpop], comparators: list[ast.expr], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1648,7 +1657,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         left_stmts, left_name = self.visit(left)
         comp_stmts, comp_name = self.visit(comparators[0])
         temp_name = self.create_temp_identifier()
-        first_stmt = self.create_pil_assign_name(temp_name, self.create_pil_compare(left_name, ops[0], comp_name))
+        first_stmt = self.create_pil_stmt_assign_name(temp_name, self.create_pil_expr_compare(left_name, ops[0], comp_name))
 
         if len(ops) == 1:
             return left_stmts + comp_stmts + [first_stmt], temp_name
@@ -1659,22 +1668,22 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             left=ast.Name(id=comp_name, ctx=ast.Load()),
             ops=ops[1:],
             comparators=comparators[1:])
-        rest_stmt = self.create_pil_if(
+        rest_stmt = self.create_pil_stmt_if(
             temp_name,
-            rest_stmt_list + [self.create_pil_assign_identifier(temp_name, rest_name)],
+            rest_stmt_list + [self.create_pil_stmt_assign_identifier(temp_name, rest_name)],
             [])
         return left_stmts + comp_stmts + [first_stmt, rest_stmt], temp_name
 
     def visit_Call(self, func: ast.expr, args: list[ast.expr], keywords: list[ast.keyword], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
         """
         Python:
-            func_expr(arg0, arg1, key=kw_expr)
+            func_expr(arg0, *iterable, key=kw_expr)
         PIL:
             _tmp_0 = func_expr
             _tmp_1 = arg0
-            _tmp_2 = arg1
+            _tmp_2 = iterable
             _tmp_3 = kw_expr
-            _tmp_4 = _tmp_0(_tmp_1, _tmp_2, key=_tmp_3)
+            _tmp_4 = _tmp_0(_tmp_1, *_tmp_2, key=_tmp_3)
         """
         result_stmt_list = []
 
@@ -1682,12 +1691,17 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         func_stmts, func_name = self.visit(func)
         result_stmt_list.extend(func_stmts)
 
-        # visit positional args
-        arg_names = []
+        # visit positional args; ast.Starred wraps the iterable to expand
+        arg_list: list[tuple[PILExpr, bool]] = []
         for arg in args:
-            arg_stmts, arg_name = self.visit(arg)
+            if isinstance(arg, ast.Starred):
+                arg_stmts, arg_name = self.visit(arg.value)
+                starred = True
+            else:
+                arg_stmts, arg_name = self.visit(arg)
+                starred = False
             result_stmt_list.extend(arg_stmts)
-            arg_names.append(arg_name)
+            arg_list.append((arg_name, starred))
 
         # visit keyword values, rewrite keyword nodes with resolved names
         pil_keywords = []
@@ -1697,8 +1711,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             pil_keywords.append((kw.arg, kw_name))
 
         temp_name = self.create_temp_identifier()
-        result_expr = self.create_pil_call(func_name, arg_names, pil_keywords)
-        result_stmt_list.append(self.create_pil_assign_name(temp_name, result_expr))
+        result_expr = self.create_pil_expr_call(func_name, arg_list, pil_keywords)
+        result_stmt_list.append(self.create_pil_stmt_assign_name(temp_name, result_expr))
         return result_stmt_list, temp_name
 
     def visit_FormattedValue(self, value: ast.expr, conversion: int, format_spec: ast.expr | None, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1735,22 +1749,22 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         # Apply conversion: -1=none, 115='s', 114='r', 97='a'
         if conversion == ord('s'):
             conv_name = self.create_temp_identifier()
-            result_stmts += [self.create_pil_assign_name(conv_name, self.create_pil_call('str', [value_name], []))]
+            result_stmts += [self.create_pil_stmt_assign_name(conv_name, self.create_pil_expr_call('str', [(value_name, False)], []))]
             value_name = conv_name
         elif conversion == ord('r'):
             conv_name = self.create_temp_identifier()
-            result_stmts += [self.create_pil_assign_name(conv_name, self.create_pil_call('repr', [value_name], []))]
+            result_stmts += [self.create_pil_stmt_assign_name(conv_name, self.create_pil_expr_call('repr', [(value_name, False)], []))]
             value_name = conv_name
         elif conversion == ord('a'):
             conv_name = self.create_temp_identifier()
-            result_stmts += [self.create_pil_assign_name(conv_name, self.create_pil_call('ascii', [value_name], []))]
+            result_stmts += [self.create_pil_stmt_assign_name(conv_name, self.create_pil_expr_call('ascii', [(value_name, False)], []))]
             value_name = conv_name
 
         if format_spec is not None:
             spec_stmts, spec_name = self.visit(format_spec)
             result_stmts += spec_stmts
             temp_name = self.create_temp_identifier()
-            result_stmts += [self.create_pil_assign_name(temp_name, self.create_pil_call('format', [value_name, spec_name], []))]
+            result_stmts += [self.create_pil_stmt_assign_name(temp_name, self.create_pil_expr_call('format', [(value_name, False), (spec_name, False)], []))]
             return result_stmts, temp_name
 
         return result_stmts, value_name
@@ -1786,18 +1800,18 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         if len(part_names) == 1:
             return result_stmts, part_names[0]
         parts_list_name = self.create_temp_identifier()
-        result_stmts.append(self.create_pil_assign_name(parts_list_name, self.create_pil_list([(n, False) for n in part_names])))
+        result_stmts.append(self.create_pil_stmt_assign_name(parts_list_name, self.create_pil_expr_list([(n, False) for n in part_names])))
         join_func = self.create_temp_identifier()
-        result_stmts.append(self.create_pil_assign_name(join_func, self.create_pil_attribute(ast.Constant(value=''), 'join')))
+        result_stmts.append(self.create_pil_stmt_assign_name(join_func, self.create_pil_expr_attribute(ast.Constant(value=''), 'join')))
         temp_name = self.create_temp_identifier()
-        result_stmts.append(self.create_pil_assign_name(temp_name, self.create_pil_call(join_func, [parts_list_name], [])))
+        result_stmts.append(self.create_pil_stmt_assign_name(temp_name, self.create_pil_expr_call(join_func, [(parts_list_name, False)], [])))
         return result_stmts, temp_name
 
     def visit_TemplateStr(self, values: list[ast.expr], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
         raise NotImplementedError("TemplateStr is not supported")
 
     def visit_Constant(self, value: object, kind: str | None, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
-        return [], self.create_pil_constant(value, kind)
+        return [], self.create_pil_expr_constant(value, kind)
 
     def visit_Attribute(self, value: ast.expr, attr: str, ctx: ast.expr_context, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
         """
@@ -1810,8 +1824,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         assert isinstance(ctx, ast.Load)
         value_stmts, value_name = self.visit(value)
         temp_name = self.create_temp_identifier()
-        result_expr = self.create_pil_attribute(value_name, attr)
-        result_stmt_list = value_stmts + [self.create_pil_assign_name(temp_name, result_expr)]
+        result_expr = self.create_pil_expr_attribute(value_name, attr)
+        result_stmt_list = value_stmts + [self.create_pil_stmt_assign_name(temp_name, result_expr)]
         return result_stmt_list, temp_name
 
     def visit_Subscript(self, value: ast.expr, slice: ast.expr, ctx: ast.expr_context, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1827,11 +1841,11 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         value_stmts, value_name = self.visit(value)
 
         # Normalize slice into a list of ast.Slice nodes
-        slice_stmt_list, pil_slice_list = self.visit_slice(slice)
+        slice_stmt_list, pil_subscript = self.visit_subscript_subscript(slice)
 
         temp_name = self.create_temp_identifier()
-        result_expr = self.create_pil_subscript(value_name, pil_slice_list)
-        result_stmt_list = value_stmts + slice_stmt_list + [self.create_pil_assign_name(temp_name, result_expr)]
+        result_expr = self.create_pil_expr_subscript(value_name, pil_subscript)
+        result_stmt_list = value_stmts + slice_stmt_list + [self.create_pil_stmt_assign_name(temp_name, result_expr)]
         return result_stmt_list, temp_name
 
     def visit_Starred(self, value: ast.expr, ctx: ast.expr_context, node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExpr | None]:
@@ -1865,8 +1879,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 elt_stmt_list, elt_name = self.visit(elt)
                 elt_list.append((elt_name, False))
             result_stmt_list.extend(elt_stmt_list)
-        result_expr = self.create_pil_list(elt_list)
-        result_stmt = self.create_pil_assign_name(temp_name, result_expr)
+        result_expr = self.create_pil_expr_list(elt_list)
+        result_stmt = self.create_pil_stmt_assign_name(temp_name, result_expr)
         result_stmt_list.append(result_stmt)
         return result_stmt_list, temp_name
 
@@ -1894,8 +1908,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
                 elt_stmt_list, elt_name = self.visit(elt)
                 elt_list.append((elt_name, False))
             result_stmt_list.extend(elt_stmt_list)
-        result_expr = self.create_pil_tuple(elt_list)
-        result_stmt = self.create_pil_assign_name(temp_name, result_expr)
+        result_expr = self.create_pil_expr_tuple(elt_list)
+        result_stmt = self.create_pil_stmt_assign_name(temp_name, result_expr)
         result_stmt_list.append(result_stmt)
         return result_stmt_list, temp_name
 

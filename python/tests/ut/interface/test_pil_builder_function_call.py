@@ -551,3 +551,78 @@ def test_pil_parser_call():
             def middle(x):
                 return x
             Expr.str(middle(inner()))
+
+        # --- starred 参数: *iterable expansion at call site ---
+
+        @TestParser.test
+        def call_star_list():
+            def func(x, y, z):
+                Expr.str(x)
+                Expr.str(y)
+                Expr.str(z)
+            var_l = [Expr.int(0), Expr.int(1), Expr.int(2)]
+            func(*var_l)
+
+        @TestParser.test
+        def call_star_tuple():
+            def func(x, y):
+                Expr.str(x)
+                Expr.str(y)
+            var_t = (Expr.int(0), Expr.int(1))
+            func(*var_t)
+
+        @TestParser.test
+        def call_pos_and_star():
+            def func(x, y, z):
+                Expr.str(x)
+                Expr.str(y)
+                Expr.str(z)
+            var_l = [Expr.int(1), Expr.int(2)]
+            func(Expr.int(0), *var_l)
+
+        @TestParser.test
+        def call_star_and_keyword():
+            def func(x, y, z):
+                Expr.str(x)
+                Expr.str(y)
+                Expr.str(z)
+            var_l = [Expr.int(0), Expr.int(1)]
+            func(*var_l, z=Expr.int(2))
+
+        @TestParser.test
+        def call_multiple_star():
+            def func(x, y, z, w):
+                Expr.str(x)
+                Expr.str(y)
+                Expr.str(z)
+                Expr.str(w)
+            var_a = [Expr.int(0), Expr.int(1)]
+            var_b = [Expr.int(2), Expr.int(3)]
+            func(*var_a, *var_b)
+
+        @TestParser.test
+        def call_star_from_func():
+            def make():
+                return [Expr.int(0), Expr.int(1)]
+            def func(x, y):
+                Expr.str(x)
+                Expr.str(y)
+            func(*make())
+
+        @TestParser.test
+        def call_star_and_double_star():
+            def func(x, y, z):
+                Expr.str(x)
+                Expr.str(y)
+                Expr.str(z)
+            var_l = [Expr.int(0), Expr.int(1)]
+            var_d = {'z': Expr.int(2)}
+            func(*var_l, **var_d)
+
+        @TestParser.test
+        def call_vararg_with_star_expansion():
+            def func(*args):
+                for var_a in args:
+                    Expr.str(var_a)
+            var_l = [Expr.int(0), Expr.int(1)]
+            func(Expr.int(2), *var_l)

@@ -13,8 +13,8 @@ import ast
 import inspect
 import textwrap
 
-import pypto.frontend.parser.pil as pil
-
+#import pypto.frontend.parser.pil as pil
+import pil
 
 class Expr:
 
@@ -125,6 +125,10 @@ class Expr:
 
     class TypeC(ValueError):
         pass
+
+    @staticmethod
+    def get_type(name):
+        return getattr(Expr, name)
 
 class TestParser:
 

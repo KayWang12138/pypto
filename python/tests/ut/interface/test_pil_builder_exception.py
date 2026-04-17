@@ -269,10 +269,41 @@ def test_pil_parser_try():
             finally:
                 Expr.str(40)
 
-        # --- nested try ---
+        # --- except type is a function return value ---
 
         @TestParser.test
-        def try_nested():
+        def try_except_type_from_call():
+            try:
+                raise Expr.TypeA(0)
+            except Expr.get_type('TypeA'):
+                Expr.str(1)
+
+        @TestParser.test
+        def try_except_type_from_call_with_binding():
+            try:
+                raise Expr.TypeA(0)
+            except Expr.get_type('TypeA') as e:
+                Expr.str(e._value)
+
+        @TestParser.test
+        def try_except_type_from_call_multi_handler():
+            try:
+                raise Expr.TypeB(0)
+            except Expr.get_type('TypeA'):
+                Expr.str(10)
+            except Expr.get_type('TypeB') as e:
+                Expr.str(e._value)
+
+        @TestParser.test
+        def try_except_type_from_call_mixed_with_name():
+            try:
+                raise Expr.TypeB(0)
+            except Expr.get_type('TypeA'):
+                Expr.str(10)
+            except Expr.TypeB as e:
+                Expr.str(e._value)
+
+
             try:
                 try:
                     raise Expr.TypeA(0)
