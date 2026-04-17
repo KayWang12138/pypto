@@ -636,8 +636,9 @@ Status PipeSync::AdjustOpDep(DepOp& op, size_t waitOpIdx, IssueQueue& issueQ, bo
 
     // next op的idx要小于waitop
     if (nextOpIdx > waitOpIdx) {
-        APASS_LOG_DEBUG_F(Element::Operation, "Cannot AdjustOpDep because nextop idx > waitop idx.");
+        APASS_LOG_DEBUG_F(Elements::Operation, "Cannot AdjustOpDep because nextop idx > waitop idx.");
         failedFlag = true;
+        return SUCCESS;
     }
 
     auto& nextOp = depOps_[nextOpIdx];
