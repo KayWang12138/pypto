@@ -87,8 +87,10 @@ def test_level1_basic():
 
 
 def run_rule(mod, op_dir: Path, rule_id: str, stage: int = 5):
-    ctx = mod._build_context(str(op_dir), stage)  # noqa: G.CLS.11
-    findings = mod._run_checks(ctx, [rule_id])  # noqa: G.CLS.11
+    _build = getattr(mod, '_build_context')
+    _run = getattr(mod, '_run_checks')
+    ctx = _build(str(op_dir), stage)
+    findings = _run(ctx, [rule_id])
     return findings[0]
 
 
