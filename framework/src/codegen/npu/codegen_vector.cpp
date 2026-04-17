@@ -1878,7 +1878,7 @@ std::string CodeGenOpNPU::GenLogicalAndOp() const
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
+std::string CodeGenOpNPU::GenQuantizeOp() const {
     if (isSupportLayout) {
         return PrintQuantizeTileTensor();
     }
@@ -1886,7 +1886,7 @@ std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
     return "";
 }
 
-std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
+std::string CodeGenOpNPU::PrintQuantizeTileTensor() const
 {
     // Get tensor names
     // For QUANTIZE_SYM: dst(ID0), src(ID1), scale(ID2)
@@ -1929,7 +1929,7 @@ std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenDequantizeOp() const {
+std::string CodeGenOpNPU::GenDequantizeOp() const {
     if (isSupportLayout) {
         return PrintDequantizeTileTensor();
     }
@@ -1937,7 +1937,7 @@ std::string CodeGenOpCloudNPU::GenDequantizeOp() const {
     return "";
 }
 
-std::string CodeGenOpCloudNPU::PrintDequantizeTileTensor() const
+std::string CodeGenOpNPU::PrintDequantizeTileTensor() const
 {
     // TDequant always has 4 params: dst, src, scale, offset
     // - INT8 -> FP32: uses TDequant<INT8>
