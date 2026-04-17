@@ -46,7 +46,7 @@ public:
     inline void TaskEnqueue(uint64_t taskId)
     {
     	bool res = readyQueue_->try_enqueue(taskId);
-    	DEV_ASSERT(0, res);
+        DEV_ASSERT(0, res);
     }
 
     // 仅AICPU_0会调用
@@ -79,7 +79,7 @@ public:
         }
         auto tasksRange = readyQueue_->dequeue_all();
         taskCount = tasksRange.second - tasksRange.first;
-        for(auto it = tasksRange.first; it != tasksRange.second; ++it) {
+        for (auto it = tasksRange.first; it != tasksRange.second; ++it) {
             auto ret = TaskDispatch(*it);
             if (ret != DEVICE_MACHINE_OK) {
                 return ret;

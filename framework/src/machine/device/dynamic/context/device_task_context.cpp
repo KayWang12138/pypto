@@ -128,7 +128,8 @@ void DeviceTaskContext::ProcessAivBatchTasks(
         } else {
             for (size_t idx = 0; idx < DUP_PRED_COUNT_LOOP_MAX; ++idx) {
                 if (likely(dupPredCountList[opIndex + idx] == 0)) {
-                    aivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex + idx));
+                	const auto taskId = MakeTaskID(funcIndex, opIndex + idx);
+                    aivQueue->unsafe_enqueue(taskId);
                 }
             }
         }
@@ -214,7 +215,8 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                targetAivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
+                const auto taskId = MakeTaskID(funcIndex, opIndex)
+                targetAivQueue->unsafe_enqueue(taskId);
             }
         }
     }
@@ -229,7 +231,8 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                targetAicQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
+                const auto taskId = MakeTaskID(funcIndex, opIndex);
+                targetAicQueue->unsafe_enqueue(taskId);
             }
         }
     }
@@ -387,11 +390,14 @@ void DeviceTaskContext::DumpReadyQueue(DynDeviceTask* dynTask, const char* prefi
     int aicIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC);
     int aicpuIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU);
 
-    DEV_DEBUG("%s: ready queue aiv: %s [%s]", prefix, dynTask->readyQueue[aivIndex]->str().c_str(), 
+    DEV_DEBUG("%s: ready queue aiv: %s [%s]", prefix, 
+                                              dynTask->readyQueue[aivIndex]->str().c_str(), 
                                               dynTask->readyQueue[aivIndex]->dump().c_str());
-    DEV_DEBUG("%s: ready queue aic: %s [%s]", prefix, dynTask->readyQueue[aicIndex]->str().c_str(), 
+    DEV_DEBUG("%s: ready queue aic: %s [%s]", prefix, 
+                                              dynTask->readyQueue[aicIndex]->str().c_str(), 
                                               dynTask->readyQueue[aicIndex]->dump().c_str());
-    DEV_DEBUG("%s: ready queue aicpu: %s [%s]", prefix, dynTask->readyQueue[aicpuIndex]->str().c_str(), 
+    DEV_DEBUG("%s: ready queue aicpu: %s [%s]", prefix, 
+                                              dynTask->readyQueue[aicpuIndex]->str().c_str(), 
                                               dynTask->readyQueue[aicpuIndex]->dump().c_str());
 }
 void DeviceTaskContext::DumpDepend(

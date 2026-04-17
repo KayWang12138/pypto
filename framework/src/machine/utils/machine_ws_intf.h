@@ -32,14 +32,14 @@ enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 #define WRAP_IDX_AIV1 2
 
 namespace dynamic {
-    class DevControlFlowCache;
+class DevControlFlowCache;
 }
 
 template <class T>
 struct QueueGeneric {
-    QueueGeneric(uint32_t capacity, T *_elem):head(0), tail(0), elem(_elem), _capacity(capacity) {}
+    QueueGeneric(uint32_t capacity, T* _elem) : head(0), tail(0), elem(_elem), _capacity(capacity) {}
 
-    QueueGeneric& operator=(const QueueGeneric &rhs)
+    QueueGeneric& operator=(const QueueGeneric& rhs)
     {
         head = rhs.head;
         tail = rhs.tail;
@@ -50,41 +50,32 @@ struct QueueGeneric {
         return *this;
     }
 
-    uint32_t capacity() const
-    {
-        return _capacity;
-    }
+    uint32_t capacity() const { return _capacity; }
 
-    uint32_t size() const
-    {
-        return tail - head;
-	}
+    uint32_t size() const { return tail - head; }
 
     std::string str() const
     {
         std::stringstream ss;
         ss << "Queue at " << this << " head=" << head << " tail=" << tail << " capacity=" << capacity();
         return ss.str();
-	}
+    }
 
-	std::string dump() const {
-		std::stringstream ss;
-		for (value_type *it = elem + head; it != elem + tail; ++it) {
-		    ss << *it << " ";
-		}
-		return ss.str();	    
-	}
+    std::string dump() const
+    {
+        std::stringstream ss;
+        for (value_type* it = elem + head; it != elem + tail; ++it) {
+            ss << *it << " ";
+        }
+        return ss.str();
+    }
 
-	const T* begin() const {
-	    return elem + head;
-	}
+    const T* begin() const { return elem + head; }
 
-	const T* end() const {
-	    return elem + tail;
-	}
-	
-	typedef T value_type;
-//protected:
+    const T* end() const { return elem + tail; }
+
+    typedef T value_type;
+    // protected:
 public:
     uint32_t head;
     uint32_t tail;
@@ -92,101 +83,104 @@ public:
 
     friend class dynamic::DevControlFlowCache;
     // Only for relocation! Do not use it for elements reading/writing!
-	value_type*& relocable_elem() {
-	    return elem;
-	}
+    value_type*& relocable_elem() { return elem; }
+
 private:
     uint32_t _capacity;
 };
 
 template <class T>
-struct LockableQueueGeneric:public QueueGeneric<T> {
-
-    LockableQueueGeneric(uint32_t capacity=0, T *_elem=nullptr):QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
+struct LockableQueueGeneric : public QueueGeneric<T> {
+    LockableQueueGeneric(uint32_t capacity = 0, T* _elem = nullptr) : QueueGeneric<T>(capacity, _elem), lockFlag(0) {}
 
     using QueueGeneric<T>::operator=;
 
-	void lock() {
-    	while (!__sync_bool_compare_and_swap(&lockFlag, 0, 1)) {
-    	}
-	}
+    void lock()
+    {
+        while (!__sync_bool_compare_and_swap(&lockFlag, 0, 1)) {
+        }
+    }
 
-	void unlock() {
-    	while (!__sync_bool_compare_and_swap(&lockFlag, 1, 0)) {
-    	}
-	}
+    void unlock()
+    {
+        while (!__sync_bool_compare_and_swap(&lockFlag, 1, 0)) {
+        }
+    }
 
-	uint32_t unsafe_size() const {
-	    return __atomic_load_n(&this->tail, __ATOMIC_RELAXED) - __atomic_load_n(&this->head, __ATOMIC_RELAXED);
-	}
+    uint32_t unsafe_size() const
+    {
+        return __atomic_load_n(&this->tail, __ATOMIC_RELAXED) - __atomic_load_n(&this->head, __ATOMIC_RELAXED);
+    }
 
-	void unsafe_enqueue(T x) {
-	    this->elem[__atomic_fetch_add(&this->tail, 1, std::memory_order_release)] = x;
-	}
+    void unsafe_enqueue(T x) { this->elem[__atomic_fetch_add(&this->tail, 1, std::memory_order_release)] = x; }
 
-	void unsafe_enqueue(T *x, uint32_t count) {
-	    std::copy(x, x + count, this->elem + __atomic_fetch_add(&this->tail, count, std::memory_order_release));
-	}
+    void unsafe_enqueue(T* x, uint32_t count)
+    {
+        std::copy(x, x + count, this->elem + __atomic_fetch_add(&this->tail, count, std::memory_order_release));
+    }
 
-	bool try_enqueue(T x) {
-	    std::scoped_lock(*this);
-	    uint32_t t = __atomic_fetch_add(&this->tail, 1, std::memory_order_release);
-	    if (t >= this->capacity()) {
-	        return false;
-	    }
+    bool try_enqueue(T x)
+    {
+        std::scoped_lock(*this);
+        uint32_t t = __atomic_fetch_add(&this->tail, 1, std::memory_order_release);
+        if (t >= this->capacity()) {
+            return false;
+        }
         this->elem[t] = x;
-	    return true;
-	}
+        return true;
+    }
 
-	bool try_enqueue(T *x, uint32_t count) {
-	    std::scoped_lock(*this);
-	    uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
-	    if (t + count > this->capacity()) {
-	        return false;
-	    }
+    bool try_enqueue(T* x, uint32_t count)
+    {
+        std::scoped_lock(*this);
+        uint32_t t = __atomic_fetch_add(&this->tail, count, std::memory_order_release);
+        if (t + count > this->capacity()) {
+            return false;
+        }
         std::copy(x, x + count, this->elem + t);
-	    return true;
-	}
+        return true;
+    }
 
-	std::pair<const T*, const T*> dequeue_all() {
-	    lock();
-	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
-	    uint32_t h = __atomic_exchange_n(&this->head, t, __ATOMIC_RELAXED);
-	    unlock();
-	    return std::make_pair(this->elem + h, this->elem + t);
-	}
+    std::pair<const T*, const T*> dequeue_all()
+    {
+        lock();
+        uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
+        uint32_t h = __atomic_exchange_n(&this->head, t, __ATOMIC_RELAXED);
+        unlock();
+        return std::make_pair(this->elem + h, this->elem + t);
+    }
 
-	std::pair<const T*, const T*> dequeue(uint32_t max_count) {
-	    lock();
-	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
-	    uint32_t h = __atomic_load_n(&this->head,  __ATOMIC_RELAXED);
-	    uint32_t cnt = std::min(t - h, max_count);
-	    __atomic_store_n(&this->head, h + cnt, __ATOMIC_RELAXED);
-	    unlock();
-	    return std::make_pair(this->elem + h, this->elem + h + cnt);
-	}
+    std::pair<const T*, const T*> dequeue(uint32_t max_count)
+    {
+        lock();
+        uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
+        uint32_t h = __atomic_load_n(&this->head, __ATOMIC_RELAXED);
+        uint32_t cnt = std::min(t - h, max_count);
+        __atomic_store_n(&this->head, h + cnt, __ATOMIC_RELAXED);
+        unlock();
+        return std::make_pair(this->elem + h, this->elem + h + cnt);
+    }
 
-	uint32_t dequeue_tail(uint32_t max_count, T *out) {
-	    std::scoped_lock(*this);
-	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
-	    uint32_t h = __atomic_load_n(&this->head,  __ATOMIC_RELAXED);
-	    uint32_t cnt = std::min(t - h, max_count);
-	    __atomic_store_n(&this->tail, t - cnt, __ATOMIC_RELAXED);
-	    std::copy(this->elem + t - cnt, this->elem + t, out);
-	    return cnt;
-	}
+    uint32_t dequeue_tail(uint32_t max_count, T* out)
+    {
+        std::scoped_lock(*this);
+        uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
+        uint32_t h = __atomic_load_n(&this->head, __ATOMIC_RELAXED);
+        uint32_t cnt = std::min(t - h, max_count);
+        __atomic_store_n(&this->tail, t - cnt, __ATOMIC_RELAXED);
+        std::copy(this->elem + t - cnt, this->elem + t, out);
+        return cnt;
+    }
 
 private:
     size_t lockFlag;
 
-	using QueueGeneric<T>::size;
+    using QueueGeneric<T>::size;
 };
 
 // aic aiv 已经ready的core function id队列
 typedef LockableQueueGeneric<uint32_t> ReadyCoreFunctionQueue;
 typedef QueueGeneric<uint32_t> ReadyCoreFunctionQueueUnsafe;
-
-
 
 struct StaticReadyCoreFunctionQueue {
     uint64_t head;
@@ -211,15 +205,9 @@ struct WrapInfoQueue {
     uint64_t Size() { return tail - head; }
 };
 
-inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq)
-{
-	rq->lock();
-}
+inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq) { rq->lock(); }
 
-inline void ReadyQueueUnLock(ReadyCoreFunctionQueue* rq)
-{
-	rq->unlock();
-}
+inline void ReadyQueueUnLock(ReadyCoreFunctionQueue* rq) { rq->unlock(); }
 
 enum class BinDataType {
     READY_STATUS,        // CoreFunction ready_status(no need update)
