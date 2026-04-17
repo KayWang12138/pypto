@@ -673,13 +673,6 @@ def _collect_issues(
         issues.append({'component': 'pypto_repo', 'severity': 'warning', 'message': 'PyPTO 仓库未找到',
                        'fix_hint': 'git clone https://gitcode.com/cann/pypto.git ./pypto'})
 
-    if is_npu_env and torch_info.get('ok'):
-        torch_ver = str(torch_info.get('version', ''))
-        if '+cpu' in torch_ver:
-            issues.append({'component': 'torch_build', 'severity': 'error',
-                           'message': f'torch 版本 {torch_ver} 为 CPU 构建（+cpu），在 NPU 环境中无法正常使用',
-                           'fix_hint': 'pip install torch==2.6.0 torch-npu==2.6.0.post3'})
-
     return issues
 
 
