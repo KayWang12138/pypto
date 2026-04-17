@@ -58,9 +58,11 @@ def check_ol09(ctx: CheckContext) -> Finding:
 
     precision_text = _extract_section_text(content, "精度")
     lower_prec = precision_text.lower() if precision_text else ""
-    if not precision_text or (
-        "atol" not in lower_prec and "rtol" not in lower_prec and "mare" not in lower_prec
-    ):
+    _has_tolerance = (
+        precision_text and
+        any(kw in lower_prec for kw in ("atol", "rtol", "mare"))
+    )
+    if not _has_tolerance:
         return ctx.make_finding("OL09", "FAIL",
             f"{SPEC_FILE} 精度要求章节内容不足（需包含 atol/rtol 或指标阈值）", file=SPEC_FILE)
 

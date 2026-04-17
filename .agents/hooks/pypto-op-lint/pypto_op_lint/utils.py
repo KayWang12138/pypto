@@ -118,7 +118,7 @@ def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:
                     parsed[key] = _parse_scalar(val)
             return parsed, body
     except Exception:
-        pass
+        return None, body
 
     # 回退：逐行解析（兼容旧行为）
     meta: dict[str, Any] = {}

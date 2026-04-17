@@ -1,4 +1,5 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 
 """补充测试：OL28, OL29, OL37, OL42, OL43 规则覆盖。"""
 from pathlib import Path
@@ -6,6 +7,7 @@ from pathlib import Path
 from .helpers import build_stateless_op_dir, load_lint_module, run_rule, write_file
 
 # ── OL28: FP32-only API (sigmoid/softmax/sin/cos) 与 dtype 注解一致性 ──
+
 
 def test_ol28_pass_when_no_fp32_only_ops(tmp_path: Path):
     """默认 fixture 不使用 sigmoid 等 API，应 PASS"""

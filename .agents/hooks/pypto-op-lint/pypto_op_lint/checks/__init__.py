@@ -1,6 +1,5 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-
-from . import d1_framework, d2_artifact, d3_separation, d4_test_spec, d5_consistency
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 
 __all__ = [
     "d1_framework",
@@ -9,3 +8,5 @@ __all__ = [
     "d4_test_spec",
     "d5_consistency",
 ]
+
+from . import d1_framework, d2_artifact, d3_separation, d4_test_spec, d5_consistency
