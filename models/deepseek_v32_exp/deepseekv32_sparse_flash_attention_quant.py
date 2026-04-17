@@ -21,7 +21,8 @@ import numpy as np
 import pypto
 
 from sparse_flash_attention_quant_impl \
-    import sparse_flash_attention_quant_d, sparse_flash_attention_quant_p, sparse_flash_attention_quant_d_950, SaTileShapeConfig
+    import sparse_flash_attention_quant_d, sparse_flash_attention_quant_p,\
+           sparse_flash_attention_quant_d_950, SaTileShapeConfig
 from utils.compare import compare
 
 

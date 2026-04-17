@@ -485,6 +485,7 @@ def sparse_flash_attention_quant_d_950(
                                         attention_out, nq, n_kv, softmax_scale, topk,
                                         block_size, max_blocknum_perbatch, tile_config)
 
+
 @pypto.frontend.jit(
     pass_options={
         "pg_upper_bound": 5000000,
