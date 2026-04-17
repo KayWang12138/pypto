@@ -9,47 +9,47 @@
  */
 
 /*!
- * \file test_cloudnpu.cpp
- * \brief Unit test for codegen cloudnpu.
+ * \file test_codegen_npu.cpp
+ * \brief Unit test for codegen npu.
  */
 
 #include "gtest/gtest.h"
 
 #include <sstream>
-#include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/npu/codegen_npu.h"
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
 
-class TestCodeGenCloudNPU : public ::testing::Test {};
+class TestCodeGenNPU : public ::testing::Test {};
 
-TEST_F(TestCodeGenCloudNPU, TestAppendVFOptions)
+TEST_F(TestCodeGenNPU, TestAppendVFOptions)
 {
     std::ostringstream oss;
 
     // Case 1: platform != DAV_3510, should output nothing
     oss.str("");
-    CodeGenCloudNPU::AppendVFOptions(NPUArch::DAV_2201, oss);
+    CodeGenNPU::AppendVFOptions(NPUArch::DAV_2201, oss);
     EXPECT_EQ(oss.str(), "");
 
     // Case 2: platform == DAV_3510, KEY_ENABLE_VF=false, output --cce-simd-vf-fusion=false
     oss.str("");
     config::SetPassGlobalConfig(KEY_ENABLE_VF, false);
-    CodeGenCloudNPU::AppendVFOptions(NPUArch::DAV_3510, oss);
+    CodeGenNPU::AppendVFOptions(NPUArch::DAV_3510, oss);
     EXPECT_NE(oss.str().find("--cce-simd-vf-fusion=false"), std::string::npos);
 
     // Case 3: platform == DAV_3510, KEY_ENABLE_VF=true, KEY_ENABLE_VF_UNROLL=false
     oss.str("");
     config::SetPassGlobalConfig(KEY_ENABLE_VF, true);
     config::SetPassGlobalConfig(KEY_ENABLE_VF_UNROLL, false);
-    CodeGenCloudNPU::AppendVFOptions(NPUArch::DAV_3510, oss);
+    CodeGenNPU::AppendVFOptions(NPUArch::DAV_3510, oss);
     EXPECT_NE(oss.str().find("--enable-pto-tile-fusion"), std::string::npos);
     EXPECT_EQ(oss.str().find("-enable-unroll-after-fused=true"), std::string::npos);
 
     // Case 4: platform == DAV_3510, KEY_ENABLE_VF=true, KEY_ENABLE_VF_UNROLL=true
     oss.str("");
     config::SetPassGlobalConfig(KEY_ENABLE_VF_UNROLL, true);
-    CodeGenCloudNPU::AppendVFOptions(NPUArch::DAV_3510, oss);
+    CodeGenNPU::AppendVFOptions(NPUArch::DAV_3510, oss);
     EXPECT_NE(oss.str().find("-enable-unroll-after-fused=true"), std::string::npos);
 }
 
