@@ -134,6 +134,7 @@ class Expr:
     class ValueError(Exception):
 
         def __init__(self, value):
+            super().__init__(value)
             Expr.trace.append(('error', value))
             self._value = value
 
