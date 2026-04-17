@@ -215,8 +215,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                const auto taskId = MakeTaskID(funcIndex, opIndex);
-                targetAivQueue->unsafe_enqueue(taskId);
+                targetAivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
     }
@@ -231,8 +230,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                const auto taskId = MakeTaskID(funcIndex, opIndex);
-                targetAicQueue->unsafe_enqueue(taskId);
+                targetAicQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
     }
@@ -241,8 +239,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
     auto aicpuEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC + predInfo.totalZeroPredAicpu;
     for (size_t opIndex = aicEnd; opIndex < aicpuEnd; ++opIndex) {
         if (likely(dupPredCountList[opIndex] == 0)) {
-            const auto taskId = MakeTaskID(funcIndex, opIndex);
-            aicpuQueue->unsafe_enqueue(taskId);
+            aicpuQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
         }
     }
 }
