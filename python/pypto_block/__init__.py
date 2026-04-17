@@ -14,8 +14,6 @@ This package provides Python bindings for the PyPTO C++ library.
 """
 
 import sys
-from typing import cast
-
 
 from . import pypto_core as _pypto_core
 
@@ -54,27 +52,29 @@ from .pypto_core import (
     testing,
 )
 
-# Convenient dtype constants
-DT_BOOL: DataType = cast(DataType, DataType.BOOL)
-DT_INT4: DataType = cast(DataType, DataType.INT4)
-DT_INT8: DataType = cast(DataType, DataType.INT8)
-DT_INT16: DataType = cast(DataType, DataType.INT16)
-DT_INT32: DataType = cast(DataType, DataType.INT32)
-DT_INT64: DataType = cast(DataType, DataType.INT64)
-DT_UINT4: DataType = cast(DataType, DataType.UINT4)
-DT_UINT8: DataType = cast(DataType, DataType.UINT8)
-DT_UINT16: DataType = cast(DataType, DataType.UINT16)
-DT_UINT32: DataType = cast(DataType, DataType.UINT32)
-DT_UINT64: DataType = cast(DataType, DataType.UINT64)
-DT_FP4: DataType = cast(DataType, DataType.FP4)
-DT_FP8E4M3FN: DataType = cast(DataType, DataType.FP8E4M3FN)
-DT_FP8E5M2: DataType = cast(DataType, DataType.FP8E5M2)
-DT_FP16: DataType = cast(DataType, DataType.FP16)
-DT_FP32: DataType = cast(DataType, DataType.FP32)
-DT_BF16: DataType = cast(DataType, DataType.BF16)
-DT_HF4: DataType = cast(DataType, DataType.HF4)
-DT_HF8: DataType = cast(DataType, DataType.HF8)
-DT_INDEX: DataType = cast(DataType, DataType.INDEX)
+# Re-export DataType constants from ir module (single source of truth)
+from .ir import (
+    BOOL as DT_BOOL,
+    INT4 as DT_INT4,
+    INT8 as DT_INT8,
+    INT16 as DT_INT16,
+    INT32 as DT_INT32,
+    INT64 as DT_INT64,
+    UINT4 as DT_UINT4,
+    UINT8 as DT_UINT8,
+    UINT16 as DT_UINT16,
+    UINT32 as DT_UINT32,
+    UINT64 as DT_UINT64,
+    FP4 as DT_FP4,
+    FP8E4M3FN as DT_FP8E4M3FN,
+    FP8E5M2 as DT_FP8E5M2,
+    FP16 as DT_FP16,
+    FP32 as DT_FP32,
+    BF16 as DT_BF16,
+    HF4 as DT_HF4,
+    HF8 as DT_HF8,
+    INDEX as DT_INDEX,
+)
 
 __all__ = [
     # Modules
