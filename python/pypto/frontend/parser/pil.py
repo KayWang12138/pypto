@@ -1765,6 +1765,32 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         result_stmt_list.append(result_stmt)
         return result_stmt_list, temp_name
 
+    def _collect_sequence_elements(self,
+         elts: list[ast.expr]) -> tuple[list[ast.stmt],
+         list[tuple[PILExpr, bool]]]:
+        result_stmt_list = []
+        elt_list = []
+        for elt in elts:
+            if isinstance(elt, ast.Starred):
+                elt_stmt_list, elt_name = self.visit(elt.value)
+                elt_list.append((elt_name, True))
+            else:
+                elt_stmt_list, elt_name = self.visit(elt)
+                elt_list.append((elt_name, False))
+            result_stmt_list.extend(elt_stmt_list)
+        return result_stmt_list, elt_list
+
+    def _visit_sequence_literal(self,
+         elts: list[ast.expr],
+         create_expr: Callable[[list[tuple[PILExpr, bool]]], PILExpr]) -> tuple[list[ast.stmt],
+         str]:
+        temp_name = self.create_temp_identifier()
+        result_stmt_list, elt_list = self._collect_sequence_elements(elts)
+        result_expr = create_expr(elt_list)
+        result_stmt = self.create_pil_assign_name(temp_name, result_expr)
+        result_stmt_list.append(result_stmt)
+        return result_stmt_list, temp_name
+
     def visit_set(self, elts: list[ast.expr], node_attr: PILAttr = NOATTR) -> tuple[list[ast.stmt], PILExprOrNone]:
         """
         Python:
@@ -1775,18 +1801,8 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
             _tmp_2 = elt2
             _tmp_3 = {_tmp_0, *_tmp_1, _tmp_2}
         """
-        result_stmt_list = []
-
         temp_name = self.create_temp_identifier()
-        elt_list = []
-        for elt in elts:
-            if isinstance(elt, ast.Starred):
-                elt_stmt_list, elt_name = self.visit(elt.value)
-                elt_list.append((elt_name, True))
-            else:
-                elt_stmt_list, elt_name = self.visit(elt)
-                elt_list.append((elt_name, False))
-            result_stmt_list.extend(elt_stmt_list)
+        result_stmt_list, elt_list = self._collect_sequence_elements(elts)
         result_expr = self.create_pil_set(elt_list)
         result_stmt = self.create_pil_assign_name(temp_name, result_expr)
         result_stmt_list.append(result_stmt)
@@ -2272,22 +2288,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         assert isinstance(ctx, ast.Load)
 
-        result_stmt_list = []
-
-        temp_name = self.create_temp_identifier()
-        elt_list = []
-        for elt in elts:
-            if isinstance(elt, ast.Starred):
-                elt_stmt_list, elt_name = self.visit(elt.value)
-                elt_list.append((elt_name, True))
-            else:
-                elt_stmt_list, elt_name = self.visit(elt)
-                elt_list.append((elt_name, False))
-            result_stmt_list.extend(elt_stmt_list)
-        result_expr = self.create_pil_list(elt_list)
-        result_stmt = self.create_pil_assign_name(temp_name, result_expr)
-        result_stmt_list.append(result_stmt)
-        return result_stmt_list, temp_name
+        return self._visit_sequence_literal(elts, self.create_pil_list)
 
     def visit_tuple(self,
          elts: list[ast.expr],
@@ -2305,22 +2306,7 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
         """
         assert isinstance(ctx, ast.Load)
 
-        result_stmt_list = []
-
-        temp_name = self.create_temp_identifier()
-        elt_list = []
-        for elt in elts:
-            if isinstance(elt, ast.Starred):
-                elt_stmt_list, elt_name = self.visit(elt.value)
-                elt_list.append((elt_name, True))
-            else:
-                elt_stmt_list, elt_name = self.visit(elt)
-                elt_list.append((elt_name, False))
-            result_stmt_list.extend(elt_stmt_list)
-        result_expr = self.create_pil_tuple(elt_list)
-        result_stmt = self.create_pil_assign_name(temp_name, result_expr)
-        result_stmt_list.append(result_stmt)
-        return result_stmt_list, temp_name
+        return self._visit_sequence_literal(elts, self.create_pil_tuple)
 
     def visit_slice(self,
          lower: Optional[ast.expr],
