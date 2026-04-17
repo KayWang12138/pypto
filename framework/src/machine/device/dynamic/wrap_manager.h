@@ -494,15 +494,18 @@ public:
 
     inline void PushTaskToTasklist(uint32_t wrapId, uint32_t taskId, uint32_t wrapAicoreIdx, uint8_t mixResourceType)
     {
-        uint32_t tail = __atomic_load_n(&readyWrapCoreFunctionQue_->tail, __ATOMIC_RELAXED);
-        WrapInfo* wrapInfo = findWrapInfo(0, tail, wrapId);
+        auto funcId = FuncID(taskId);
+        auto wrapIndex = TaskID(wrapId);
+        auto dyntask = reinterpret_cast<DynDeviceTask*>(curDevTask_);
+        auto opWrapPtrList = reinterpret_cast<WrapInfo**>(dyntask->devTask.mixTaskData.opWrapPtrList[funcId]);
+        WrapInfo* wrapInfo = opWrapPtrList[wrapIndex];
         if (wrapInfo != nullptr) {
             wrapInfo->tasklist[wrapAicoreIdx] = taskId;
             return;
         }
 
         WrapInfoQueueLock(readyWrapCoreFunctionQue_);
-        wrapInfo = findWrapInfo(tail, readyWrapCoreFunctionQue_->tail, wrapId);
+        wrapInfo = opWrapPtrList[wrapIndex];
         if (unlikely(wrapInfo != nullptr)) {
             WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
             wrapInfo->tasklist[wrapAicoreIdx] = taskId;
@@ -512,6 +515,7 @@ public:
         // add a new wrapinfo
         wrapInfo = &readyWrapCoreFunctionQue_->elem[readyWrapCoreFunctionQue_->tail];
         readyWrapCoreFunctionQue_->tail += 1;
+        opWrapPtrList[wrapIndex] = wrapInfo;
         WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
 
         wrapInfo->wrapId = wrapId;
