@@ -244,8 +244,6 @@ Status OoOSchedule::EstimateTaskLatencyAndSchedule(TaskSpliter& spliter, std::ve
         APASS_LOG_INFO_F(Elements::Operation, "eval task %d on %s: %d - %d.", taskNode.idx,
             targetToString.at(taskNode.targetCoreType).c_str(), taskNode.startTime, taskNode.endTime);
     }
-    // 成环的 TaskNode
-    auto cyclePairs = spliter.GetCycledTaskNodePairs();
     spliter.MarkInternalSubgraphID();
     return SUCCESS;
 }
@@ -264,6 +262,8 @@ Status OoOSchedule::BuildMixedScheduleOps(TaskSpliter& spliter, std::vector<Oper
             return FAILED;
         }
     }
+    // 成环的 TaskNode
+    auto cyclePairs = spliter.GetCycledTaskNodePairs();
     auto scheduleUnits = BuildScheduleUnits(taskNodeList, cyclePairs, opList);
     std::vector<Operation*> operations;
     for (const auto& unit : scheduleUnits) {
