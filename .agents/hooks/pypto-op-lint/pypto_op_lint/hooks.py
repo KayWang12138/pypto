@@ -1,5 +1,9 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 
@@ -10,7 +14,6 @@ from .core import (
     OP_WORKSPACE_DIR,
     POST_EDIT_BLOCK_ENV,
     SPEC_FILE,
-    STRICT_ENV,
     TEST_COMMAND_PATTERN,
     _run_checks,
 )
@@ -25,6 +28,7 @@ from .infer import (
     _rule_ids_for_filename,
 )
 from .observability import _emit_gate_event, _output_hook_json
+
 
 def hook_post_edit() -> int:
     """PostToolUse[Write|Edit] — 按文件类型 lint。
@@ -114,6 +118,7 @@ def hook_post_edit() -> int:
     _output_hook_json("PostToolUse", decision="allow", reason="", additionalContext=context_msg)
     return 0
 
+
 def hook_post_bash() -> int:
     """PostToolUse[Bash] — 三态解析测试输出"""
     os.environ[MODE_ENV] = "post-bash"
@@ -134,6 +139,7 @@ def hook_post_bash() -> int:
     )
     _output_hook_json("PostToolUse", additionalContext=context_msg)
     return 0
+
 
 def hook_pre_edit_backup() -> int:
     """PreToolUse[Write|Edit] — 状态文件保护 + Stage 6 编辑 impl 前 git auto-commit"""
@@ -175,10 +181,12 @@ def hook_pre_edit_backup() -> int:
         pass  # git commit 失败（可能无变更），不拦截
     return 0
 
+
 def _git_executable() -> str:
     if GIT_BIN:
         return GIT_BIN
     return "/usr/bin/git"
+
 
 def _ensure_git_init(op_dir: str):
     """确保算子工作区根目录有 git 仓库"""
@@ -198,6 +206,7 @@ def _ensure_git_init(op_dir: str):
         subprocess.run([_git_executable(), "commit", "-m", "init: operator workspace"],
                        cwd=git_dir, check=True, capture_output=True)
 
+
 def _get_stage6_attempt(op_dir: str) -> int:
     """从 .orchestrator_state.json 获取 Stage 6 重试次数"""
     state_path = os.path.join(op_dir, ".orchestrator_state.json")
@@ -207,6 +216,7 @@ def _get_stage6_attempt(op_dir: str) -> int:
         return int(data.get("stage_retry_count", {}).get("6", 0)) + 1
     except (ValueError, FileNotFoundError):
         return 1
+
 
 def hook_stop() -> int:
     """Stop — agent 结束前交付门禁"""
@@ -249,6 +259,7 @@ def hook_stop() -> int:
     _emit_gate_event(ctx, blocked=False, blocking_rules=[])
     return 0
 
+
 def _rule_fix_hint(rule_id: str) -> str:
     hints = {
         "OL30": "在 SPEC.md front matter 中填写 supported_dtypes，并在 test 中覆盖对应 dtype",
@@ -261,6 +272,7 @@ def _rule_fix_hint(rule_id: str) -> str:
     }
     return hints.get(rule_id, "参考 rules.json 中该规则说明修复")
 
+
 def _parse_verdict(stdout: str, stderr: str, exit_code: int) -> str:
     combined = f"{stdout}\n{stderr}"
     # FAIL 优先于 PASS：多 case 测试中部分失败应判定为整体失败
@@ -271,6 +283,7 @@ def _parse_verdict(stdout: str, stderr: str, exit_code: int) -> str:
     if exit_code != 0:
         return "runtime_error"
     return "no_marker"
+
 
 def _verdict_detail(verdict: str) -> str:
     details = {

@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from __future__ import annotations
 
 import json
@@ -8,7 +11,6 @@ from typing import Any, Optional
 
 from .core import (
     API_REPORT_FILE,
-    CONSISTENCY_RULE_IDS,
     DESIGN_FILE,
     GOLDEN_RULE_IDS,
     HOOK_INPUT_ENV,
@@ -19,6 +21,7 @@ from .core import (
     CheckContext,
     _load_rules,
 )
+
 
 def _infer_op_dir(file_path: str) -> Optional[str]:
     if not file_path:
@@ -32,6 +35,7 @@ def _infer_op_dir(file_path: str) -> Optional[str]:
         return op_dir
     return None
 
+
 def _infer_op_name_from_filename(filename: str) -> str:
     if filename.startswith("test_") and filename.endswith(".py"):
         return filename[len("test_"):-len(".py")]
@@ -40,6 +44,7 @@ def _infer_op_name_from_filename(filename: str) -> str:
     if filename.endswith("_golden.py"):
         return filename[:-len("_golden.py")]
     return ""
+
 
 def _looks_like_stateless_op_dir(op_dir: str, op_name: str) -> bool:
     try:
@@ -57,6 +62,7 @@ def _looks_like_stateless_op_dir(op_dir: str, op_name: str) -> bool:
     }
     return len(files & expected) >= 2
 
+
 def _infer_stage_from_filename(filename: str) -> int:
     if filename == SPEC_FILE:
         return 1
@@ -69,6 +75,7 @@ def _infer_stage_from_filename(filename: str) -> int:
     if filename.endswith("_impl.py") or (filename.startswith("test_") and filename.endswith(".py")):
         return 5
     return 0
+
 
 def _infer_stage_from_artifacts(op_dir: str) -> int:
     op_name = os.path.basename(op_dir)
@@ -87,6 +94,7 @@ def _infer_stage_from_artifacts(op_dir: str) -> int:
         return 2
     return 0
 
+
 def _get_current_stage(op_dir: str) -> int:
     state_path = os.path.join(op_dir, ".orchestrator_state.json")
     if not os.path.isfile(state_path):
@@ -96,6 +104,7 @@ def _get_current_stage(op_dir: str) -> int:
             return int(json.load(f).get("current_stage", 0))
     except ValueError:
         return 0
+
 
 def _get_op_name(op_dir: str) -> str:
     state_path = os.path.join(op_dir, ".orchestrator_state.json")
@@ -109,6 +118,7 @@ def _get_op_name(op_dir: str) -> str:
             pass
     return os.path.basename(op_dir)
 
+
 def _build_context(op_dir: str, stage: Optional[int] = None) -> CheckContext:
     rules = _load_rules()
     op_dir = os.path.abspath(op_dir)
@@ -116,6 +126,7 @@ def _build_context(op_dir: str, stage: Optional[int] = None) -> CheckContext:
         stage = _get_current_stage(op_dir)
     op_name = _get_op_name(op_dir)
     return CheckContext(op_dir=op_dir, op_name=op_name, stage=stage, rules=rules)
+
 
 def _load_hook_input() -> dict[str, Any]:
     raw = ""
@@ -140,7 +151,9 @@ def _load_hook_input() -> dict[str, Any]:
         return {}
     return data if isinstance(data, dict) else {}
 
+
 SPEC_RULE_IDS = ["OL09"]
+
 
 def _rule_ids_for_filename(filename: str) -> list[str]:
     """Return rule IDs for post-edit checks on a single file.
@@ -161,7 +174,9 @@ def _rule_ids_for_filename(filename: str) -> list[str]:
         return SPEC_RULE_IDS
     return []
 
+
 _MAX_OP_DIR_SEARCH_DEPTH = 8
+
 
 def _find_nearest_op_dir(cwd: str) -> Optional[str]:
     """从 cwd 向上查找所属算子目录，避免跨算子误判。"""

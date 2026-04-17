@@ -1,3 +1,5 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 """Hook 入口集成测试 — 以子进程方式调用 pypto_op_lint.py，验证完整调用链。"""
 import json
 import os
@@ -29,7 +31,7 @@ def _run_hook(hook: str, payload: dict, env_extra: dict | None = None) -> tuple[
 def test_post_edit_non_operator_file_silent():
     rc, out = _run_hook("post-edit", {"tool_input": {"file_path": "/tmp/readme.md"}})
     assert rc == 0
-    assert out == ""
+    assert not out
 
 
 # ── post-edit: 算子 impl 文件 → 返回结构化 JSON ──
@@ -71,7 +73,7 @@ def demo_wrapper(x, y):
 def test_post_bash_non_test_command_silent():
     rc, out = _run_hook("post-bash", {"tool_input": {"command": "ls -la"}})
     assert rc == 0
-    assert out == ""
+    assert not out
 
 
 # ── post-bash: 测试命令 → 返回判定结果 ──
@@ -97,7 +99,7 @@ def test_post_bash_test_command_returns_verdict():
 def test_pre_edit_backup_non_impl_silent():
     rc, out = _run_hook("pre-edit-backup", {"tool_input": {"file_path": "/tmp/readme.md"}})
     assert rc == 0
-    assert out == ""
+    assert not out
 
 
 # ── stop: 非算子目录 → 无输出 ──
@@ -105,7 +107,7 @@ def test_pre_edit_backup_non_impl_silent():
 def test_stop_non_operator_dir_silent():
     rc, out = _run_hook("stop", {"cwd": "/tmp"})
     assert rc == 0
-    assert out == ""
+    assert not out
 
 
 # ── stop: 算子目录有 S1 违规 → exit 2 ──

@@ -1,28 +1,37 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from __future__ import annotations
 
 import ast
 import json
 import os
 import re
+import shutil
 import subprocess
 from typing import Any, Optional
 
-from .core import CheckContext, Finding, SCRIPT_DIR
+from .core import SCRIPT_DIR, CheckContext, Finding
+
+NPU_SMI_BIN = shutil.which("npu-smi") or "npu-smi"
+
 
 def _check_npu_available() -> bool:
     """通过 npu-smi info 检测 NPU 环境是否可用"""
     try:
         result = subprocess.run(
-            ["npu-smi", "info"], capture_output=True, timeout=10)
+            [NPU_SMI_BIN, "info"], capture_output=True, timeout=10)
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
+
 
 DTYPE_ALIASES: dict[str, str] = {
     "float32": "fp32", "fp32": "fp32", "dt_fp32": "fp32", "torch.float32": "fp32",
     "float16": "fp16", "fp16": "fp16", "dt_fp16": "fp16", "torch.float16": "fp16",
     "bfloat16": "bf16", "bf16": "bf16", "dt_bf16": "bf16", "torch.bfloat16": "bf16",
 }
+
 
 def _parse_scalar(text: str) -> Any:
     value = text.strip()
@@ -80,6 +89,7 @@ def _parse_scalar(text: str) -> Any:
         return [_parse_scalar(v.strip()) for v in value.split(",") if v.strip()]
     return value
 
+
 def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:
     """解析 markdown front matter。
 
@@ -98,7 +108,7 @@ def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:
 
     # 优先尝试 yaml.safe_load
     try:
-        import yaml
+        import yaml  # noqa: PLC0415
         parsed = yaml.safe_load(header)
         if isinstance(parsed, dict):
             # 后处理：yaml 会把 Python dict 字面量（如 {'k': v}）解析为字符串，
@@ -122,6 +132,7 @@ def _parse_front_matter(content: str) -> tuple[dict[str, Any], str]:
         meta[key.strip()] = _parse_scalar(value)
     return meta, body
 
+
 def _load_doc_meta(ctx: CheckContext, filename: str) -> dict[str, Any]:
     content = ctx.read_file(filename)
     if not content:
@@ -131,6 +142,7 @@ def _load_doc_meta(ctx: CheckContext, filename: str) -> dict[str, Any]:
 
 
 _tolerance_schema_cache: list[dict[str, Any]] | None = None
+
 
 def _load_tolerance_schema() -> list[dict[str, Any]]:
     """从 rules.json 加载 tolerance_schema.oneOf 定义（带模块级缓存）。"""
@@ -147,6 +159,7 @@ def _load_tolerance_schema() -> list[dict[str, Any]]:
         schema = data.get("tolerance_schema", {}).get("oneOf", [])
     _tolerance_schema_cache = schema
     return schema
+
 
 def _validate_tolerance(tol: dict[str, Any]) -> list[str]:
     """基于 rules.json 中 tolerance_schema.oneOf 校验 tolerance dict。
@@ -166,6 +179,7 @@ def _validate_tolerance(tol: dict[str, Any]) -> list[str]:
     # 所有模式都不匹配，列出可接受的模式
     modes = [f"{s.get('mode', '?')}({', '.join(s.get('required', []))})" for s in schemas]
     return [f"tolerance must match one of: {' | '.join(modes)}"]
+
 
 def _validate_doc_schema(doc_type: str, meta: dict[str, Any]) -> list[str]:
     required: dict[str, list[str]] = {
@@ -191,6 +205,7 @@ def _validate_doc_schema(doc_type: str, meta: dict[str, Any]) -> list[str]:
             errors.append("invalid type: dynamic_axes must be list")
     return errors
 
+
 def _extract_spec_dtypes_from_meta(meta: dict[str, Any]) -> set[str]:
     raw = meta.get("supported_dtypes", [])
     if not isinstance(raw, list):
@@ -203,6 +218,7 @@ def _extract_spec_dtypes_from_meta(meta: dict[str, Any]) -> set[str]:
             result.add(canonical)
     return result
 
+
 def _extract_test_dtypes(source: str) -> set[str]:
     """从 test 文件源码中提取使用的 dtype"""
     dtypes: set[str] = set()
@@ -211,6 +227,7 @@ def _extract_test_dtypes(source: str) -> set[str]:
         if alias in lower:
             dtypes.add(canonical)
     return dtypes
+
 
 def _extract_tolerance(content: str, key: str) -> list[float]:
     """从文本中提取所有 atol 或 rtol 数值"""
@@ -226,6 +243,7 @@ def _extract_tolerance(content: str, key: str) -> list[float]:
                 continue
     return values
 
+
 def _extract_shapes_from_text(content: str) -> set[tuple[int, ...]]:
     """从文本中提取 shape 元组，如 [1, 2048, 4096] 或 (1, 2048, 4096)"""
     shapes: set[tuple[int, ...]] = set()
@@ -238,10 +256,12 @@ def _extract_shapes_from_text(content: str) -> set[tuple[int, ...]]:
             continue
     return shapes
 
+
 def _extract_markdown_headings(content: str) -> set[str]:
     _, body = _parse_front_matter(content)
     headings = re.findall(r"^\s{0,3}#{1,6}\s+(.+?)\s*$", body, flags=re.MULTILINE)
     return {h.strip().lower() for h in headings}
+
 
 def _has_heading_like(headings: set[str], *keywords: str) -> bool:
     keys = [k.strip().lower() for k in keywords if k.strip()]
@@ -249,6 +269,7 @@ def _has_heading_like(headings: set[str], *keywords: str) -> bool:
         if any(k in h for k in keys):
             return True
     return False
+
 
 def _extract_section_text(content: str, heading_keyword: str) -> str:
     _, body = _parse_front_matter(content)
@@ -277,6 +298,7 @@ def _extract_section_text(content: str, heading_keyword: str) -> str:
         buff.append(line)
     return "\n".join(buff).strip()
 
+
 def _syntax_error_finding(ctx: CheckContext, rule_id: str, filename: str) -> Optional[Finding]:
     tree = ctx.parse_file(filename)
     if tree is not None:
@@ -290,6 +312,7 @@ def _syntax_error_finding(ctx: CheckContext, rule_id: str, filename: str) -> Opt
         f"{filename} 存在语法错误，无法解析: {error}",
         file=filename,
     )
+
 
 def _extract_design_identifiers(content: str) -> set[str]:
     # 仅从“代码相关上下文”提取变量名，减少自然语言文本噪声：
