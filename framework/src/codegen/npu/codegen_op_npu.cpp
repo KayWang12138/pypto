@@ -291,6 +291,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_SHMEM_GET_GM2UB, [this]() { return GenDistOp(); }},
           {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [this]() { return GenDistOp(); }},
           {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [this]() { return GenDistOp(); }},
+          {Opcode::OP_SHMEM_WAIT_UNTIL, [this]() { return GenDistOp(); }},
       }),
       gatherScatterOps_({
           // gather/scatter op

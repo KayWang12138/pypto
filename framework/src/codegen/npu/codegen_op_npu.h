@@ -181,6 +181,7 @@ protected:
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForPutUb2Gm() const;
     std::string GenTemplateParamsForSignal() const;
+    std::string GenTemplateParamsForWaitUntil() const;
     std::string GenTemplateParamsForMoeDistributedCombineSend() const;
     std::string GenTemplateParamsForMoeDistributedCombineReceive() const;
     std::string GenTemplateParamsForSet() const;
@@ -191,6 +192,7 @@ protected:
     std::string GenOffsetsAndRawShapesForShmemPutUB() const;
     std::string GenOffsetsAndRawShapesForShmemGetUB() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
+    std::string GenOffsetsAndRawShapesForShmemWaitUntil() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineSend() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const;
     std::string GenOffsetsAndRawShapesForSendToRoutingExpert() const;
