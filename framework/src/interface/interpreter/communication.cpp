@@ -169,7 +169,7 @@ void SimulationCommContext::PreAlloc(bool isSignal) {
     std::cout << "round " << round_ << " prealloc for " << handler << std::endl;
 }
 
-void SimulationCommContext::Alloc(size_t slotSize) {
+RawTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
     std::lock_guard<std::mutex> lock(allocMutex_);
 
     if (!allocatedData_) {
@@ -183,9 +183,11 @@ void SimulationCommContext::Alloc(size_t slotSize) {
     }
     dataShmSize_.store(shmSize);
     std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
+
+    return RawTensorData::CreateTensor(DT_UINT8, {1, slotSize}, dataBase_ + slotSize);
 }
 
-void SimulationCommContext::AllocSignal(size_t slotSize) {
+RawTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
     std::lock_guard<std::mutex> lock(allocMutex_);
     if (!allocatedSignal_) {
         throw std::runtime_error("signal area not pre-allocated!");
@@ -198,6 +200,8 @@ void SimulationCommContext::AllocSignal(size_t slotSize) {
     }
     ctrlShmSize_.store(shmSize);
     std::cout << "round " << round_ << " allocSignal " << slotSize << "B for rank " << rank_ << std::endl;
+
+    return RawTensorData::CreateTensor(DT_UINT8, {1, slotSize}, ctrlBase_ + slotSize);
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {
@@ -545,23 +549,25 @@ void SimulationCommManager::ClearWaitTasks() {
 }
 
 /* Alloc a new tensor in WIN area, and record the offset.*/
-void SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
+RawTensorDataPtr SimulationCommManager::Alloc(const std::string &groupName, size_t slotSize) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    it->second->Alloc(slotSize);
+    auto result = it->second->Alloc(slotSize);
+    return result;
 }
 
-void SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
+RawTensorDataPtr SimulationCommManager::AllocSignal(const std::string &groupName, size_t slotSize) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     auto it = contexts_.find(groupName);
     if (it == contexts_.end()) {
         throw std::runtime_error("SimulationCommContext for group " + groupName + " not found!");
     }
-    it->second->AllocSignal(slotSize);
+    auto result = it->second->AllocSignal(slotSize);
+    return result;
 }
 
 } // namespace npu:tile_fwk

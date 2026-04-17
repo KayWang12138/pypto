@@ -877,6 +877,51 @@ struct FunctionInterpreter {
         return false;
     }
 
+    std::vector<uint64_t> UnBind(SymbolicScalar attr) {
+        std::shared_ptr<RawSymbolicExpression> expr = std::static_pointer_cast<RawSymbolicExpression>(attr.Raw());
+        ASSERT(expr->Opcode() == SymbolicOpcode::T_MOP_CALL);
+        std::vector<uint64_t> parameters;
+        for (size_t i = 1; i < expr->OperandList().size(); i++) {
+            ScalarImmediateType value = EvaluateSymbolicScalar(SymbolicScalar(expr->OperandList()[i]));
+            parameters.emplace_back(value);
+        }
+        return parameters;
+    }
+
+    void ExecuteBindTensor(FunctionFrame& frame, Operation& op, int oOperandIdx,
+        const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
+        std::vector<std::shared_ptr<LogicalTensorData>>& oOpDataList)
+    {
+        std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
+        ASSERT(op->GetIOperands()->size() == 0);
+        ASSERT(op->GetOOperands()->size() == 1);
+        SymbolicScalar attr = op->GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
+        std::vector<uint64_t> parameters = UnBind(attr);
+        uint64_t groupIndex = parameters[0];
+        uint64_t memType = parameters[1];
+        uint64_t slotSize = parameters[2];
+        const auto &groupNames = Distributed::CommGroupRecorder::GetInstance().Output();
+        ASSERT(groupIndex < static_cast<uint64_t>(groupNames.size()));
+        const std::string &groupName = groupNames[groupIndex];
+        LogicalTensorDataPtr out;
+        RawTensorDataPtr tmp;
+        
+        auto outOp = op->GetOOperands()[0];
+        if (memType == 1) {
+            std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
+            tmp = SimulationCommManager::Instance().Alloc(groupName, slotSize, );
+            out = LogicalTensorData::Create(tmp);
+        }
+        if (memType == 0) {
+            std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
+            tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
+            out = LogicalTensorData::Create(tmp);
+        }
+        DoAddRawTensorDataView(op->GetOOperands()[0]->tensor, tmp);
+        DoAddTensorDataView(op->GetOOperands()[0], out);
+        oOpDataList.emplace_back(AllocateDataView(frame, op->GetOOperands()[0]));
+    }
+
     void ExecuteInplaceOperation(
         FunctionFrame& frame, Operation& op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
@@ -948,6 +993,8 @@ struct FunctionInterpreter {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
                 ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
+            } else if (op->GetOpcode() == Opcode::OP_BIND_TENSOR){
+                ExecuteBindTensor(frame, *op, iOpDataList, oOpDataList);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
