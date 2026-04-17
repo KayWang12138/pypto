@@ -439,6 +439,13 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
 
     // 2. 依次为leafFunc的所有op拿到所有动态attr，为每个动态attr刷新coa宏
     auto operationViewer = leafFunc->Operations(false);
+    std::set<int> inoutCast;
+ 	for (auto &inCast : leafFunc.GetIncast()) {
+ 	    inoutCast.insert(inCast->tensor->GetRawMagic());
+ 	}
+ 	for (auto &outCast : leafFunc.GetOutcast()) {
+ 	    inoutCast.insert(outCast->tensor->GetRawMagic());
+ 	}
     for (size_t j = 0; j < operationViewer.size(); j++) {
         auto& op = operationViewer[j];
         std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = GetOpDynamicAttributeList(op);
@@ -451,7 +458,7 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
             }
         }
         // Set paramAddr attribute for DDR tensors
-        BuildParamAddr(op);
+        BuildParamAddr(op, inoutCast);
     }
 
     // 3. 为dynParam的赋值刷新coa宏
@@ -462,13 +469,13 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
 
 // Helper function to set paramAddr attribute for a tensor
 static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &tensor,
-    int GmTensorParamIdxInCallFunc, int gmParamIdx)
+    int GmTensorParamIdxInCallFunc, int gmParamIdx, std::set<int> inoutCast)
 {
     if (gmParamIdx < 0) {
         return;
     }
     int rawMagic = tensor->GetRawMagic();
-    int isConst = (rawMagic == SYMBOL_STACK_BASE) ? 2 : 3;
+    int isConst = inoutCast.cout(rawMagic) ? 3 : 2;
     SymbolicScalar paramAddr = GET_PARAM_ADDR(
         SymbolicScalar(static_cast<int64_t>(isConst)),
         SymbolicScalar(static_cast<int64_t>(0)),
@@ -483,84 +490,84 @@ static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &te
 }
 
 // Handle GATHER_IN_L1 and GATHER_IN_UB operations
-static void HandleGatherInOp(Operation &op) {
+static void HandleGatherInOp(Operation &op, std::set<int> inoutCast) {
     int ioAttrOffset = 0;
     int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
     for (size_t i = 0; i < op.oOperand.size(); ++i) {
         auto &tensor = op.oOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(ioAttrOffset++));
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(ioAttrOffset++), inoutCast);
         }
     }
     for (size_t i = 0; i < op.iOperand.size(); ++i) {
         auto &tensor = op.iOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(ioAttrOffset++));
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(ioAttrOffset++), inoutCast);
         }
     }
 }
 
 // Handle GATHER operation
-static void HandleGatherOp(Operation &op) {
+static void HandleGatherOp(Operation &op, std::set<int> inoutCast) {
     int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
     for (size_t i = 0; i < op.iOperand.size() && i < 2; ++i) {
         auto &tensor = op.iOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(i));
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(i), inoutCast);
         }
     }
 }
 
 // Handle CopyIn operation
-static void HandleCopyInOp(Operation &op) {
+static void HandleCopyInOp(Operation &op, std::set<int> inoutCast) {
     if (!op.iOperand.empty()) {
         int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
         auto &tensor = op.iOperand[0];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(0));
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetIOpAttrOffset(0), inoutCast);
         }
     }
 }
 
 // Handle CopyOut operation
-static void HandleCopyOutOp(Operation &op) {
+static void HandleCopyOutOp(Operation &op, std::set<int> inoutCast) {
     if (!op.oOperand.empty()) {
         int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
         auto &tensor = op.oOperand[0];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0), inoutCast);
         }
     }
 }
 
-static void HandleIndexoutcastOp(Operation &op) {
+static void HandleIndexoutcastOp(Operation &op, std::set<int> inoutCast) {
     int GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
     if (!op.oOperand.empty()) {
         auto &tensor = op.oOperand[0];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0), inoutCast);
         }
     }
     for (size_t i = 0; i < op.iOperand.size() && i < 3; ++i) {
         auto &tensor = op.iOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
+            SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0), inoutCast);
         }
     }
 }
 
-void DynAttrToStatic::BuildParamAddr(Operation &op) {
+void DynAttrToStatic::BuildParamAddr(Operation &op, std::set<int> inoutCast) {
     Opcode opcode = op.GetOpcode();
     if (opcode == Opcode::OP_INDEX_OUTCAST) {
-       HandleIndexoutcastOp(op); 
+       HandleIndexoutcastOp(op, inoutCast); 
     } else if (opcode == Opcode::OP_GATHER_IN_L1 || opcode == Opcode::OP_GATHER_IN_UB) {
-        HandleGatherInOp(op);
+        HandleGatherInOp(op, inoutCast);
     } else if (opcode == Opcode::OP_GATHER) {
-        HandleGatherOp(op);
+        HandleGatherOp(op, inoutCast);
     } else if (OpcodeManager::Inst().IsCopyIn(opcode)) {
-        HandleCopyInOp(op);
+        HandleCopyInOp(op, inoutCast);
     } else if (OpcodeManager::Inst().IsCopyOut(opcode)) {
-        HandleCopyOutOp(op);
+        HandleCopyOutOp(op, inoutCast);
     }
 }
 
