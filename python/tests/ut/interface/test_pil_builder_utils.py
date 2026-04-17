@@ -69,16 +69,6 @@ class Expr:
         Expr.trace.append(('int', n))
         return n
 
-    @staticmethod
-    def _normalize_item_key(item):
-        if isinstance(item, slice):
-            return ('slice',
-                    Expr._normalize_item_key(item.start),
-                    Expr._normalize_item_key(item.stop),
-                    Expr._normalize_item_key(item.step))
-        if isinstance(item, tuple):
-            return tuple(Expr._normalize_item_key(sub_item) for sub_item in item)
-        return item
 
     @staticmethod
     def decorate(n):
@@ -108,6 +98,17 @@ class Expr:
             del self._attr_dict[name]
 
         method_dict[name] = field
+
+    @staticmethod
+    def _normalize_item_key(item):
+        if isinstance(item, slice):
+            return ('slice',
+                    Expr._normalize_item_key(item.start),
+                    Expr._normalize_item_key(item.stop),
+                    Expr._normalize_item_key(item.step))
+        if isinstance(item, tuple):
+            return tuple(Expr._normalize_item_key(sub_item) for sub_item in item)
+        return item
 
     attr.__func__(locals(), 'val')
 

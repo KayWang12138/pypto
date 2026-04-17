@@ -141,10 +141,10 @@ NOATTR = PILAttr(None)
 class PILBuilder(ast.NodeVisitor):
 
     def __init__(self, ctx: PILContext = None):
+        super().__init__()
         if ctx is None:
             ctx = PILContext()
         self._ctx = ctx
-
     @property
     def continue_stack(self) -> list[Optional[tuple[ast.expr, str]]]:
         return self._ctx._continue_stack
@@ -814,8 +814,7 @@ class PILBuilder(ast.NodeVisitor):
 class PythonParser(PILBuilder, ast.NodeVisitor):
 
     def __init__(self, ctx: PILContext):
-        PILBuilder.__init__(self, ctx)
-        ast.NodeVisitor.__init__(self)
+        super().__init__(ctx)
 
     @staticmethod
     def _node_name_to_visitor_suffix(name: str) -> str:

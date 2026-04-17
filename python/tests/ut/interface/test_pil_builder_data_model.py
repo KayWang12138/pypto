@@ -955,8 +955,8 @@ def test_pil_parser_subscript():
 
         @TestParser.test
         def subscript_annotation_with_value():
-            var_x: list[int] = Expr.int(0)
-            Expr.str(var_x)
+            var_x: list[int] = [Expr.int(0)]
+            Expr.str(var_x[0])
 
         # ================================================================
         # Part 2: slice expressions of various kinds
