@@ -2223,5 +2223,63 @@ REGISTER_BACKEND_OP(Backend910B_PTO, "manual.mrgsort")
       return MakeManualMrgsortPTO(op, codegen);
     });
 
+// mrgsort2 (format2): Multi-list merge sort for PTO backend
+// PTO IR format2 supports 2-4 srcs (plus tmp and dst)
+static std::string MakeManualMrgsort2PTO(const CallPtr& op, codegen::CodegenBase& cb) {
+  auto& codegen = dynamic_cast<codegen::PTOCodegen&>(cb);
+  size_t num_args = op->args_.size();
+  CHECK(num_args >= 4 && num_args <= 6)
+      << "manual.mrgsort2: expected 4-6 args (src0, dst, tmp, src1[, src2, src3]), got " << num_args;
+
+  bool exhausted = op->GetKwarg<bool>("exhausted");
+
+  // args layout: [src0, dst, tmp, src1, src2?, src3?]
+  std::string src0 = codegen.GetExprAsCode(op->args_[0]);
+  std::string src1 = codegen.GetExprAsCode(op->args_[3]);
+  std::string src2 = (num_args >= 5) ? codegen.GetExprAsCode(op->args_[4]) : "";
+  std::string src3 = (num_args >= 6) ? codegen.GetExprAsCode(op->args_[5]) : "";
+
+  std::string src0_type = codegen.GetExprTypeAnnotation(op->args_[0]);
+  std::string src1_type = codegen.GetExprTypeAnnotation(op->args_[3]);
+  std::string src2_type = (num_args >= 5) ? codegen.GetExprTypeAnnotation(op->args_[4]) : "";
+  std::string src3_type = (num_args >= 6) ? codegen.GetExprTypeAnnotation(op->args_[5]) : "";
+
+  std::string dst = codegen.GetExprAsCode(op->args_[1]);
+  std::string dst_type = codegen.GetExprTypeAnnotation(op->args_[1]);
+  std::string tmp = codegen.GetExprAsCode(op->args_[2]);
+  std::string tmp_type = codegen.GetExprTypeAnnotation(op->args_[2]);
+
+  // Emit a zero-initialized vector<4xi16> constant for the excuted output operand.
+  // In PTO IR format2, excuted is a DPS (destination-passing-style) operand that
+  // must be a pre-existing SSA value — it cannot be created inline by pto.tmrgsort.
+  std::string executed = codegen.NewTemp();
+  codegen.Emit(executed + " = arith.constant dense<0> : vector<4xi16>");
+
+  std::ostringstream oss;
+
+  // Format2: ins(src0, src1[, src2[, src3]], tmp {exhausted = bool} : types..., tmp_type)
+  //          outs(dst, excuted : dst_type, vector<4xi16>)
+  // Note: tmp goes inside ins() with {exhausted} attribute attached, NOT in outs().
+  oss << "pto.tmrgsort ins(" << src0 << ", " << src1;
+  if (!src2.empty()) oss << ", " << src2;
+  if (!src3.empty()) oss << ", " << src3;
+  oss << ", " << tmp << " {exhausted = " << (exhausted ? "true" : "false") << "}";
+
+  oss << " : " << src0_type << ", " << src1_type;
+  if (num_args >= 5) oss << ", " << src2_type;
+  if (num_args >= 6) oss << ", " << src3_type;
+  oss << ", " << tmp_type;
+
+  oss << ") outs(" << dst << ", " << executed << " : " << dst_type << ", vector<4xi16>)";
+  codegen.Emit(oss.str());
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_PTO, "manual.mrgsort2")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualMrgsort2PTO(op, codegen);
+    });
+
 }  // namespace backend
 }  // namespace pypto

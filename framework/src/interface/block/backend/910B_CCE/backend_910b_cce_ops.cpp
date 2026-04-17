@@ -1451,5 +1451,101 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.dim")
       return MakeTensorDimCodegenCCE(op, codegen);
     });
 
+// ============================================================================
+// Block GetVal/SetVal Operations
+// ============================================================================
+
+static std::string MakeBlockGetValCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2) << "block.getval requires 2 arguments (tile, index), but got "
+                                << op->args_.size();
+
+  std::string tile = codegen.GetExprAsCode(op->args_[0]);
+  std::string index = codegen.GetExprAsCode(op->args_[1]);
+
+  // Return the expression, framework will handle assignment
+  return tile + ".GetValue(" + index + ")";
+}
+
+static std::string MakeBlockSetValCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 3) << "block.setval requires 3 arguments (tile, index, value), but got "
+                                << op->args_.size();
+
+  std::string tile = codegen.GetExprAsCode(op->args_[0]);
+  std::string index = codegen.GetExprAsCode(op->args_[1]);
+  std::string value = codegen.GetExprAsCode(op->args_[2]);
+
+  codegen.Emit(tile + ".SetValue(" + index + ", " + value + ");");
+
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "block.getval")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeBlockGetValCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "block.setval")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeBlockSetValCodegenCCE(op, codegen);
+    });
+
+// ============================================================================
+// Tensor GetVal/SetVal Operations
+// ============================================================================
+
+static std::string MakeTensorGetValCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 2) << "tensor.getval requires 2 arguments (tensor, offset), but got "
+                                << op->args_.size();
+
+  auto tensor_var = ir::As<ir::Var>(op->args_[0]);
+  INTERNAL_CHECK(tensor_var) << "tensor.getval requires tensor to be a Var";
+  std::string tensor_name = codegen.GetVarName(tensor_var);
+  std::string offset = codegen.GetExprAsCode(op->args_[1]);
+
+  std::string tensor_ptr = codegen.GetPointer(tensor_name);
+
+  // Return the expression, framework will handle assignment
+  return "*((__gm__ half*)" + tensor_ptr + " + " + offset + ")";
+}
+
+static std::string MakeTensorSetValCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  CHECK(op->args_.size() == 3) << "tensor.setval requires 3 arguments (tensor, offset, value), but got "
+                                << op->args_.size();
+
+  auto tensor_var = ir::As<ir::Var>(op->args_[0]);
+  INTERNAL_CHECK(tensor_var) << "tensor.setval requires tensor to be a Var";
+  std::string tensor_name = codegen.GetVarName(tensor_var);
+  std::string offset = codegen.GetExprAsCode(op->args_[1]);
+  std::string value = codegen.GetExprAsCode(op->args_[2]);
+
+  auto tensor_type = ir::As<ir::TensorType>(tensor_var->GetType());
+  INTERNAL_CHECK(tensor_type) << "tensor.setval requires TensorType";
+  std::string dtype_str = codegen.GetTypeString(tensor_type->dtype_);
+
+  std::string tensor_ptr = codegen.GetPointer(tensor_name);
+
+  codegen.Emit("*((__gm__ " + dtype_str + "*)" + tensor_ptr + " + " + offset + ") = " + value + ";");
+
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.getval")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeTensorGetValCodegenCCE(op, codegen);
+    });
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "tensor.setval")
+    .set_pipe(ir::PipeType::S)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeTensorSetValCodegenCCE(op, codegen);
+    });
+
 }  // namespace backend
 }  // namespace pypto

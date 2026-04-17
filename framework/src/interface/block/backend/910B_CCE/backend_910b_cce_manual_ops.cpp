@@ -1664,5 +1664,55 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.mrgsort")
       return "";
     });
 
+// mrgsort2 (format2): Multi-list merge sort for CCE backend
+static std::string MakeManualMrgsort2CCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
+  size_t num_args = op->args_.size();
+  CHECK(num_args >= 4 && num_args <= 6)
+      << "manual.mrgsort2: expected 4-6 args, got " << num_args;
+
+  bool exhausted = op->GetKwarg<bool>("exhausted");
+  std::string exhausted_str = exhausted ? "true" : "false";
+
+  std::string src0 = codegen.GetExprAsCode(op->args_[0]);
+  std::string dst  = codegen.GetExprAsCode(op->args_[1]);
+  std::string tmp  = codegen.GetExprAsCode(op->args_[2]);
+  std::string src1 = codegen.GetExprAsCode(op->args_[3]);
+
+  // TMRGSORT requires exhausted as a non-deducible bool template parameter.
+  // Use TMRGSORT_IMPL with decltype() to avoid spelling out all tile types explicitly.
+  auto emit_tmrgsort = [&](const std::string& srcs_decl, const std::string& srcs_args) {
+    std::ostringstream oss;
+    oss << "MrgSortExecutedNumList executedNumList;";
+    codegen.Emit(oss.str());
+    oss.str("");
+    oss << "TMRGSORT_IMPL<decltype(" << dst << "), decltype(" << tmp << "), "
+        << srcs_decl << ", " << exhausted_str << ">("
+        << dst << ", executedNumList, " << tmp << ", " << srcs_args << ");";
+    codegen.Emit(oss.str());
+  };
+
+  if (num_args == 4) {
+    emit_tmrgsort("decltype(" + src0 + "), decltype(" + src1 + ")",
+                  src0 + ", " + src1);
+  } else if (num_args == 5) {
+    std::string src2 = codegen.GetExprAsCode(op->args_[4]);
+    emit_tmrgsort("decltype(" + src0 + "), decltype(" + src1 + "), decltype(" + src2 + ")",
+                  src0 + ", " + src1 + ", " + src2);
+  } else {
+    std::string src2 = codegen.GetExprAsCode(op->args_[4]);
+    std::string src3 = codegen.GetExprAsCode(op->args_[5]);
+    emit_tmrgsort("decltype(" + src0 + "), decltype(" + src1 + "), decltype(" + src2 + "), decltype(" + src3 + ")",
+                  src0 + ", " + src1 + ", " + src2 + ", " + src3);
+  }
+  return "";
+}
+
+REGISTER_BACKEND_OP(Backend910B_CCE, "manual.mrgsort2")
+    .set_pipe(ir::PipeType::V)
+    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
+      return MakeManualMrgsort2CCE(op, codegen);
+    });
+
 }  // namespace backend
 }  // namespace pypto
