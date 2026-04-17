@@ -704,7 +704,12 @@ class PILBuilder(ast.NodeVisitor):
         """
         return ast.Constant(value=value, kind=kind, **node_attr)
 
-    def create_pil_name(self, identifier: str, ctx: ast.expr_context = ast.Load(), node_attr: PILAttr = NOATTR) -> ast.Name:
+    def create_pil_name(
+        self,
+        identifier: str,
+        ctx: ast.expr_context = ast.Load(),
+        node_attr: PILAttr = NOATTR,
+    ) -> ast.Name:
         """
         Parameter:
             identifier: identifier
@@ -816,7 +821,10 @@ class PythonParser(PILBuilder, ast.NodeVisitor):
     def _node_name_to_visitor_suffix(name: str) -> str:
         return re.sub(r"(?<!^)([A-Z])", r"_\1", name).lower()
 
-    def visit_slice_values(self, slice_expr: Union[ast.Slice, tuple[ast.Slice]]) -> tuple[list[ast.stmt], list[PILSlice]]:
+    def visit_slice_values(
+        self,
+        slice_expr: Union[ast.Slice, tuple[ast.Slice]],
+    ) -> tuple[list[ast.stmt], list[PILSlice]]:
         slice_list = slice_expr.elts if isinstance(slice_expr, ast.Tuple) else [slice_expr]
 
         slice_stmt_list = []
