@@ -181,6 +181,7 @@ void HostMachine::CompileFunction(Function* func) const
     auto& backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
         MACHINE_LOGI("RunPass function %s", func->GetMagicName().c_str());
+        // ASSERT(false)
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
     if (func->IsFunctionType(FunctionType::DYNAMIC) ||
