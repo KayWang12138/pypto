@@ -63,12 +63,12 @@ MemorySpace StringToMemorySpace(const std::string& str)
 }
 
 MemRef::MemRef(MemorySpace memory_space, ExprPtr offset, uint64_t size, Span span)
-    : Expr(std::move(span), GetMemRefType()), memory_space_(memory_space), offset_(std::move(offset)), size_(size)
+    : Expr(std::move(span), GetMemRefType()), memorySpace_(memory_space), offset_(std::move(offset)), size_(size)
 {}
 
 bool MemRef::MayAlias(const MemRefPtr& a, const MemRefPtr& b)
 {
-    if (a->memory_space_ != b->memory_space_)
+    if (a->memorySpace_ != b->memorySpace_)
         return false;
 
     auto off_a = As<ConstInt>(a->offset_);
@@ -83,7 +83,7 @@ bool MemRef::MayAlias(const MemRefPtr& a, const MemRefPtr& b)
 
 bool MemRef::SameAllocation(const MemRefPtr& a, const MemRefPtr& b)
 {
-    if (a->memory_space_ != b->memory_space_ || a->size_ != b->size_)
+    if (a->memorySpace_ != b->memorySpace_ || a->size_ != b->size_)
         return false;
     auto off_a = As<ConstInt>(a->offset_);
     auto off_b = As<ConstInt>(b->offset_);
