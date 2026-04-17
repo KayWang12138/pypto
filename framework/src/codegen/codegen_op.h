@@ -97,7 +97,6 @@ protected:
     Element extOperandVal;
     SymbolicScalar extSymbolicScalar;
     std::vector<Element> extScalarVec;
-    bool isPartialMem[MAX_OPERANDS] = {};
 
     std::vector<int64_t> offset[MAX_OPERANDS] = {};
     std::vector<int64_t> shape[MAX_OPERANDS] = {};
@@ -106,6 +105,7 @@ protected:
     // Used for unaligned scene. In AST 1.0 it was padded in LogicalTensor constructor
     std::vector<int64_t> originShape[MAX_OPERANDS] = {};
     std::vector<SymbolicScalar> dynamicOffset[MAX_OPERANDS] = {};
+    std::vector<SymbolicScalar> dynamicRawShape[MAX_OPERANDS] = {};   // raw shape
     std::vector<SymbolicScalar> dynamicValidShape[MAX_OPERANDS] = {}; // valid shape
 
     std::vector<int64_t> shapeFromAttr[MAX_OPERANDS] = {};            // 1.for spilling to GM scene 2.for conv
@@ -123,6 +123,7 @@ protected:
     std::vector<int> poolParams;
 
     std::map<std::string, Any> opAttrs;
+    std::map<std::string, Any> tensorAttrs[MAX_OPERANDS];
 
     std::shared_ptr<SymbolManager> sm{nullptr};
     const std::map<int, int>& paramLocToParamListOffset{};
