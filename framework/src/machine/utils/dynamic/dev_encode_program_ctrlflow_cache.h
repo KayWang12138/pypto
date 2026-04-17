@@ -400,7 +400,8 @@ struct DevControlFlowCache {
                 return;
             }
 
-            new (readyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(base->readyQueue[i]->capacity(), readyQueueBackupElem);
+            new (readyQueueBackup->queueList + i)
+                ReadyCoreFunctionQueueUnsafe(base->readyQueue[i]->capacity(), readyQueueBackupElem);
             readyQueueBackup->queueList[i] = *base->readyQueue[i];
             readyTaskNum += base->readyQueue[i]->unsafe_size();
         }
@@ -440,8 +441,9 @@ struct DevControlFlowCache {
                 return;
             }
 
-            new (dieReadyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(dieReadyQueue->capacity(), dieReadyQueueBackupElem) ;
-            dieReadyQueueBackup->queueList[i] = *dieReadyQueue;                        
+            new (dieReadyQueueBackup->queueList + i)
+                ReadyCoreFunctionQueueUnsafe(dieReadyQueue->capacity(), dieReadyQueueBackupElem);
+            dieReadyQueueBackup->queueList[i] = *dieReadyQueue;
             readyTaskNum += dieReadyQueue->unsafe_size();
         }
         dieReadyQueueBackup->readyTaskNum = readyTaskNum;
@@ -795,15 +797,16 @@ struct DevControlFlowCache {
             runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts = allocator[i].devTaskBoundaryOutcasts;
 
             uint64_t backupSize = sizeof(WsSlotAllocator::BlockHeader) * allocator[i].devTaskBoundaryOutcasts.slotNum_;
-            (void)memcpy_s(runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.Data(),
-                backupSize, allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase(), backupSize);
+            (void)memcpy_s(
+                runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.Data(), backupSize,
+                allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase(), backupSize);
 
-            WsSlotAllocator::BlockHeader *base = allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase();
+            WsSlotAllocator::BlockHeader* base = allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase();
             Backup::BackupBlockHeader(
                 runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts.freeListHeader_, base);
             Backup::BackupBlockHeader(
                 runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts.notInUseHeaders_, base);
-            WsSlotAllocator::BlockHeader *checkpointBase =
+            WsSlotAllocator::BlockHeader* checkpointBase =
                 runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.Data();
             for (uint64_t k = 0; k < allocator[i].devTaskBoundaryOutcasts.slotNum_; k++) {
                 Backup::BackupBlockHeader(checkpointBase[k].listNext, base);
@@ -838,20 +841,21 @@ struct DevControlFlowCache {
         };
 
         for (uint32_t i = 0; i < parallelism; i++) {
-            Restore::RestoreSeqAllocator(
-                allocator[i].rootInner, runtimeBackup.workspace.tensorAllocators[i].rootInner);
+            Restore::RestoreSeqAllocator(allocator[i].rootInner, runtimeBackup.workspace.tensorAllocators[i].rootInner);
             Restore::RestoreSeqAllocator(
                 allocator[i].devTaskInnerExclusiveOutcasts,
                 runtimeBackup.workspace.tensorAllocators[i].devTaskInnerExclusiveOutcasts);
             allocator[i].devTaskBoundaryOutcasts.availableSlots_ =
                 runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts.availableSlots_;
 
-            WsSlotAllocator::BlockHeader *base = allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase();
-            Restore::RestoreBlockHeader(allocator[i].devTaskBoundaryOutcasts.freeListHeader_, base,
+            WsSlotAllocator::BlockHeader* base = allocator[i].devTaskBoundaryOutcasts.GetBlockHeaderBase();
+            Restore::RestoreBlockHeader(
+                allocator[i].devTaskBoundaryOutcasts.freeListHeader_, base,
                 runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts.freeListHeader_);
-            Restore::RestoreBlockHeader(allocator[i].devTaskBoundaryOutcasts.notInUseHeaders_, base,
+            Restore::RestoreBlockHeader(
+                allocator[i].devTaskBoundaryOutcasts.notInUseHeaders_, base,
                 runtimeBackup.workspace.tensorAllocators[i].devTaskBoundaryOutcasts.notInUseHeaders_);
-            WsSlotAllocator::BlockHeader *checkpointBase =
+            WsSlotAllocator::BlockHeader* checkpointBase =
                 runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.Data();
             for (uint64_t k = 0; k < allocator[i].devTaskBoundaryOutcasts.slotNum_; k++) {
                 Restore::RestoreBlockHeader(base[k].listNext, base, checkpointBase[k].listNext);
@@ -996,9 +1000,9 @@ struct DevControlFlowCache {
             }
         }
     }
-    void RelocDuppedDataAndDynFuncData(RelocRange& relocProgram, RelocRange& relocCtrlCache,
-        DevAscendFunctionDuppedData* duppedData, DynFuncData* dynData, DynFuncDataCache* dynDataCache,
-        DynFuncDataBackup* dynDataBackup)
+    void RelocDuppedDataAndDynFuncData(
+        RelocRange& relocProgram, RelocRange& relocCtrlCache, DevAscendFunctionDuppedData* duppedData,
+        DynFuncData* dynData, DynFuncDataCache* dynDataCache, DynFuncDataBackup* dynDataBackup)
     {
         // Reloc Dupped
         relocProgram.Reloc(duppedData->source_);
@@ -1071,7 +1075,8 @@ struct DevControlFlowCache {
                         nodePtr = &node->Next();
                     }
                 }
-                RelocDuppedDataAndDynFuncData(relocProgram, relocCtrlCache, duppedData, dynData, dynDataCache, dynDataBackup);
+                RelocDuppedDataAndDynFuncData(
+                    relocProgram, relocCtrlCache, duppedData, dynData, dynDataCache, dynDataBackup);
             }
         }
     }

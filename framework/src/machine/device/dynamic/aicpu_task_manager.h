@@ -39,13 +39,13 @@ public:
         TASK_TYPE_NUM,
     };
 
-    AicpuTaskManager(){};
-    ~AicpuTaskManager(){};
+    AicpuTaskManager() {};
+    ~AicpuTaskManager() {};
 
     // 每个AICPU都会调用
     inline void TaskEnqueue(uint64_t taskId)
     {
-    	bool res = readyQueue_->try_enqueue(taskId);
+        bool res = readyQueue_->try_enqueue(taskId);
         DEV_ASSERT(0, res);
     }
 

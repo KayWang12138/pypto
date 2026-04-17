@@ -82,7 +82,7 @@ void DeviceTaskContext::ShowStats()
 
 void DeviceTaskContext::InitReadyCoreFunctionQueue(ReadyCoreFunctionQueue* q, uint32_t capacity)
 {
-    taskid_t *elem = reinterpret_cast<taskid_t*>(q + 1); // elems are immediately after ReadyCoreFunctionQueue struct
+    taskid_t* elem = reinterpret_cast<taskid_t*>(q + 1); // elems are immediately after ReadyCoreFunctionQueue struct
     new (q) ReadyCoreFunctionQueue(capacity, elem);
 }
 
@@ -123,12 +123,12 @@ void DeviceTaskContext::ProcessAivBatchTasks(
                 (*reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex]) |
                  *reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex + DUP_PRED_COUNT_PRE_LOOP_CNT])) == 0)) {
             uint32v8 taskidv8 = (one * MakeTaskID(funcIndex, 0)) | (base + static_cast<uint32_t>(opIndex));
-            aivQueue->unsafe_enqueue(reinterpret_cast<ReadyCoreFunctionQueue::value_type*>(&taskidv8), 
-                                      DUP_PRED_COUNT_LOOP_MAX);
+            aivQueue->unsafe_enqueue(
+                reinterpret_cast<ReadyCoreFunctionQueue::value_type*>(&taskidv8), DUP_PRED_COUNT_LOOP_MAX);
         } else {
             for (size_t idx = 0; idx < DUP_PRED_COUNT_LOOP_MAX; ++idx) {
                 if (likely(dupPredCountList[opIndex + idx] == 0)) {
-                	const auto taskId = MakeTaskID(funcIndex, opIndex + idx);
+                    const auto taskId = MakeTaskID(funcIndex, opIndex + idx);
                     aivQueue->unsafe_enqueue(taskId);
                 }
             }
@@ -175,8 +175,8 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask* dyntask, DevAscendProgram*
 
     int wrapTaskNum = ProcessZeroPredTask(dyntask, wrapQueue, isNeedWrap);
     UpdateDeviceTaskQueueInfo(dyntask, aicpuQueue, aivQueue, aicQueue, wrapQueue);
-    readyTaskNum += static_cast<uint64_t>(aivQueue->unsafe_size() + aicQueue->unsafe_size() + 
-                                          aicpuQueue->unsafe_size() + wrapTaskNum);
+    readyTaskNum += static_cast<uint64_t>(
+        aivQueue->unsafe_size() + aicQueue->unsafe_size() + aicpuQueue->unsafe_size() + wrapTaskNum);
     PerfEnd(PERF_EVT_READY_QUEUE_IN);
     return DEVICE_MACHINE_OK;
 }
@@ -391,15 +391,15 @@ void DeviceTaskContext::DumpReadyQueue(DynDeviceTask* dynTask, const char* prefi
     int aicIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC);
     int aicpuIndex = DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU);
 
-    DEV_DEBUG("%s: ready queue aiv: %s [%s]", prefix, 
-                                              dynTask->readyQueue[aivIndex]->str().c_str(), 
-                                              dynTask->readyQueue[aivIndex]->dump().c_str());
-    DEV_DEBUG("%s: ready queue aic: %s [%s]", prefix, 
-                                              dynTask->readyQueue[aicIndex]->str().c_str(), 
-                                              dynTask->readyQueue[aicIndex]->dump().c_str());
-    DEV_DEBUG("%s: ready queue aicpu: %s [%s]", prefix, 
-                                              dynTask->readyQueue[aicpuIndex]->str().c_str(), 
-                                              dynTask->readyQueue[aicpuIndex]->dump().c_str());
+    DEV_DEBUG(
+        "%s: ready queue aiv: %s [%s]", prefix, dynTask->readyQueue[aivIndex]->str().c_str(),
+        dynTask->readyQueue[aivIndex]->dump().c_str());
+    DEV_DEBUG(
+        "%s: ready queue aic: %s [%s]", prefix, dynTask->readyQueue[aicIndex]->str().c_str(),
+        dynTask->readyQueue[aicIndex]->dump().c_str());
+    DEV_DEBUG(
+        "%s: ready queue aicpu: %s [%s]", prefix, dynTask->readyQueue[aicpuIndex]->str().c_str(),
+        dynTask->readyQueue[aicpuIndex]->dump().c_str());
 }
 void DeviceTaskContext::DumpDepend(
     DynDeviceTask* dyntask, DevAscendProgram* devProg, DevStartArgs* startArgs, const char* prefix)
@@ -414,8 +414,8 @@ void DeviceTaskContext::DumpDepend(
     DEV_DEBUG("%s: ready total:%d", prefix, total);
     for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
         ReadyCoreFunctionQueue* q = dyntask->readyQueue[i];
-        int  k = 0;
-        for (auto taskId:*q) {
+        int k = 0;
+        for (auto taskId : *q) {
             uint32_t dupIndex = FuncID(taskId);
             uint32_t opIndex = TaskID(taskId);
             DEV_DEBUG(
