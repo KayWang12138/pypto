@@ -393,8 +393,7 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
                 auto& reshapeCopyInOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_IN, {copyInInput}, {newTensorPtr});
                 reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
                 reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)),
-                    MemoryType::MEM_UB, OpImmediate::Specified(copyInInput->GetShape()),
+                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)), MemoryType::MEM_UB, OpImmediate::Specified(copyInInput->GetShape()),
                     OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()), OpImmediate::Specified(copyInInput->GetDynValidShape())));
 
                 LogicalTensor newTensor2(function, copyInInput->Datatype(), copyInInput->GetShape());

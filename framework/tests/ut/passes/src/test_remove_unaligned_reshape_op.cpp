@@ -434,8 +434,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnL1)
         auto copyInOutput = (*(copyOutConsumers.begin()))->GetOOperands()[0];
         EXPECT_EQ(copyInOutput->GetShape().back(), lastDim);
     }
-    auto reshapeConsumers = reshapeTensor->GetConsumers();
-    for (auto reshapeCon : reshapeConsumers) {
+    for (auto reshapeCon : reshapeTensor->GetConsumers()) {
         if (reshapeCon->GetOpcode() == Opcode::OP_RESHAPE_COPY_IN) {
             auto rehsapeCopyInOutput = reshapeCon->GetOOperands()[0];
             EXPECT_EQ(rehsapeCopyInOutput->GetShape().back(), lastDim);
