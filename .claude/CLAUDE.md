@@ -40,7 +40,7 @@ actual paths on this machine.
 
 ### PTOAS Repo
 - **Role**: MLIR-based compiler. Converts PTOAS IR (MLIR syntax) into C++ kernel code.
-- **Key source dirs**: `include/PTO/IR/` (IR type/op definitions), `compile.sh` (rebuild binary)
+- **Key source dirs**: `include/PTO/IR/` (IR type/op definitions)
 - **Binary**: `ptoas` — invoked during Pipeline B (PTOAS) to lower IR strings to `kernel.cpp`
 - **Flags**: `--pto-arch=a3|a5`, `--pto-level=level3`, `--enable-insert-sync`
 
@@ -331,11 +331,6 @@ pytest python/tests/ut/block/frontend/test_dynamic_add.py -v
 # NPU execution tests (FlashAttention performance)
 npu-smi info
 pytest python/tests/ut/block/frontend/flash_attention/test_fa_performance.py -v
-```
-
-**Rebuild ptoas binary** (only if PTOAS repo has new changes):
-```bash
-bash compile.sh  # run in the PTOAS repo
 ```
 
 ### Documentation
