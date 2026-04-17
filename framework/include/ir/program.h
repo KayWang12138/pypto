@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include <set>
 #include <map>
 #include <memory>
 #include <string>
@@ -47,7 +48,15 @@ public:
      */
     Program(std::vector<FunctionPtr> functions, std::string name, Span span)
         : IRNode(std::move(span)), name_(std::move(name)), functions_(std::move(functions))
-    {}
+    {
+        std::set<std::string> funcNames;
+        for (auto func : functions_) {
+            if (funcNames.count(func->name_)) {
+                throw InternalError("Duplicate function name: " + func->name_);
+            }
+            funcNames.insert(func->name_);
+        }
+    }
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Program; }
     [[nodiscard]] std::string TypeName() const override { return "Program"; }

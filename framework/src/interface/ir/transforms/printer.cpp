@@ -941,7 +941,7 @@ std::string IRPrinter::PrintMemRef(const MemRef& memref)
 {
     std::ostringstream oss;
     oss << prefix_ << ".MemRef(";
-    oss << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memory_space_) << ", ";
+    oss << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memorySpace_) << ", ";
 
     IRPrinter temp_printer(prefix_);
     oss << temp_printer.Print(memref.offset_);

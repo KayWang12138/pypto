@@ -38,9 +38,9 @@ namespace ir {
  */
 class MemRef : public Expr {
 public:
-    MemorySpace memory_space_; ///< Memory space of this MemRef, e.g. Global, Local, Constant
-    ExprPtr offset_;           ///< Byte offset from base (0 for full alloc, view offset for views)
-    uint64_t size_;            ///< Size in bytes of this MemRef
+    MemorySpace memorySpace_; ///< Memory space of this MemRef, e.g. Global, Local, Constant
+    ExprPtr offset_;          ///< Byte offset from base (0 for full alloc, view offset for views)
+    uint64_t size_;           ///< Size in bytes of this MemRef
 
     /**
      * @brief Construct with explicit variable name. Used by deserialization and
@@ -62,7 +62,7 @@ public:
         return std::tuple_cat(
             Expr::GetFieldDescriptors(),
             std::make_tuple(
-                reflection::UsualField(&MemRef::memory_space_, "memory_space"),
+                reflection::UsualField(&MemRef::memorySpace_, "memory_space"),
                 reflection::UsualField(&MemRef::offset_, "offset"), reflection::UsualField(&MemRef::size_, "size")));
     }
 };
