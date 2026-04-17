@@ -126,6 +126,20 @@ TILEOP void TExtract(
     TExtractL0C2UBImpl<mode, Coord, DstTileData, SrcTileData>(dst, src, dstCoord, srcCoord, subblockId);
 }
 
+// Copy data from L0C to UB dualdst
+template <CopyOutMode mode, int splitMN, typename Coord, typename DstTileData, typename SrcTileData>
+TILEOP void TExtract(DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord)
+{
+    if (!CheckShapeValid(dst, src)) {
+        return;
+    }
+    constexpr auto shapeSize = Std::tuple_size<typename DstTileData::Shape>::value;
+    constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename SrcTileData::Type);
+    static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
+    static_assert(DstTileData::FORMAT == Hardware::UB && SrcTileData::FORMAT == Hardware::L0C);
+    TExtractL0C2UBDualDstImpl<mode, splitMN, Coord, DstTileData, SrcTileData>(dst, src, dstCoord, srcCoord);
+}
+
 template <
     bool isZeroC, typename TileRes, typename TileLeft, typename TileLeftScale, typename TileRight,
     typename TileRightScale>

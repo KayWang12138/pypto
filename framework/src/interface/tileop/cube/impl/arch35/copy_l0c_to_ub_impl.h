@@ -81,4 +81,36 @@ INLINE void TExtractL0C2UBImpl(
     }
 }
 
+
+// Copy data from L0C to UB dualdst
+template <CopyOutMode mode, int splitMN, typename Coord, typename DstTileData, typename SrcTileData>
+INLINE void TExtractL0C2UBImpl(DstTileData& dst, SrcTileData& src, const Coord& dstCoord, const Coord& srcCoord)
+{
+    int64_t srcOffset0 = TileOp::GetTupleElement<Coord, DIM_1ST, SHAPE_DIM2, 0>(srcCoord);
+    int64_t srcOffset1 = TileOp::GetTupleElement<Coord, DIM_2ND, SHAPE_DIM2, 0>(srcCoord);
+    constexpr auto shapeSize = Std::tuple_size<typename DstTileData::Shape>::value;
+    constexpr auto staticUBH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename DstTileData::TileShape>::type::value;
+    constexpr auto staticUBW = Std::tuple_element<shapeSize - 1, typename DstTileData::TileShape>::type::value;
+    constexpr auto staticL0CH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename SrcTileData::TileShape>::type::value;
+    constexpr auto staticL0CW = Std::tuple_element<shapeSize - 1, typename SrcTileData::TileShape>::type::value;
+    int64_t srcShape0 = GetShape<0>(src);
+    int64_t srcShape1 = GetShape<1>(src);
+    int64_t dstShape0 = GetShape<0>(dst);
+    int64_t dstShape1 = GetShape<1>(dst);
+    using tileUBTensor = pto::Tile<
+        pto::TileType::Vec, typename DstTileData::Type, staticUBH, staticUBW,
+        mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, -1, -1,
+        mode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor>;
+    using tileL0CTensor = pto::TileAcc<typename SrcTileData::Type, staticL0CH, staticL0CW, -1, -1>;
+    tileUBTensor UBTile(dstShape0, dstShape1);
+    tileL0CTensor l0cTile(srcShape0, srcShape1);
+    pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr());
+    pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
+    if constexpr (splitMN == 0) {
+        pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::DualModeSplitM>(UBTile, l0cTile, srcOffset0, srcOffset1);
+    } else {
+        pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::DualModeSplitN>(UBTile, l0cTile, srcOffset0, srcOffset1);
+    }
+}
+
 #endif // TILEOP_TILE_OPERATOR_ARCH35_COPY_L0C_TO_UB_IMPL__H
