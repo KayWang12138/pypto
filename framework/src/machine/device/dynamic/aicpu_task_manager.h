@@ -59,9 +59,20 @@ public:
         aivNum_ = deviceArgs->nrAiv;
     }
 
-    // 仅AICPU_0会调用
+    enum InitState : uint32_t {
+        NOT_INITED = 0,
+        INITING = 1,
+        DONE = 2,
+    };
+
+    // Non-blocking: only the first thread that reaches here does the real initialization
     inline int32_t Init(DynDeviceTask* deviceTask, bool profSwitch)
     {
+        uint32_t expected = NOT_INITED;
+        if (!__sync_bool_compare_and_swap(&inited_, expected, INITING)) {
+            // Already initialized or being initialized by another thread, skip directly
+            return DEVICE_MACHINE_OK;
+        }
         curDevTask_ = deviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue*>(deviceTask->devTask.readyAicpuFunctionQue);
@@ -70,12 +81,21 @@ public:
             KernelArgs* args = (KernelArgs*)(sharedBuffer_ + (aicNum_ + aivNum_) * SHARED_BUFFER_SIZE);
             aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         }
-        return PrepareAicpuTask();
+        int32_t ret = PrepareAicpuTask();
+        __atomic_store_n(&inited_, DONE, __ATOMIC_RELEASE);
+        return ret;
     }
 
     // 仅AICPU_0会调用
     inline int32_t TaskProcess(uint64_t& taskCount)
     {
+        // Non-blocking: if initialization not done, skip this round
+        if (__atomic_load_n(&inited_, __ATOMIC_ACQUIRE) != DONE) {
+            return DEVICE_MACHINE_OK;
+        }
+        if (readyQueue_ == nullptr) {
+            return DEVICE_MACHINE_OK;
+        }
         if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) ==
             __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
             return DEVICE_MACHINE_OK;
@@ -94,9 +114,23 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    inline int32_t TaskPoll(AiCoreManager* aiCoreManager) { return shmemWaitUntil_.PollCompleted(aiCoreManager); }
+    inline int32_t TaskPoll(AiCoreManager* aiCoreManager)
+    {
+        // Non-blocking: if initialization not done, skip this round
+        if (__atomic_load_n(&inited_, __ATOMIC_ACQUIRE) != DONE) {
+            return DEVICE_MACHINE_OK;
+        }
+        return shmemWaitUntil_.PollCompleted(aiCoreManager);
+    }
 
-    inline bool Finished() { return shmemWaitUntil_.runingTaskQueue_.IsEmpty(); }
+    inline bool Finished()
+    {
+        if (__atomic_load_n(&inited_, __ATOMIC_ACQUIRE) != DONE) {
+            // Still initializing, treat as finished to allow other tasks to proceed
+            return true;
+        }
+        return shmemWaitUntil_.runingTaskQueue_.IsEmpty();
+    }
 
     inline int32_t SyncAicpuTaskFinish(AiCoreManager* aiCoreManager)
     {
@@ -191,5 +225,6 @@ private:
     uint64_t sharedBuffer_;
     uint32_t aicNum_;
     uint32_t aivNum_;
+    uint32_t inited_{NOT_INITED};
 };
 } // namespace npu::tile_fwk::dynamic
