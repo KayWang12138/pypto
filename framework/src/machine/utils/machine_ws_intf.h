@@ -46,8 +46,6 @@ struct QueueGeneric {
         if (capacity() == 0) {
             return *this;
         }
-        // const size_t datasize = sizeof(value_type) * capacity();
-        // memcpy_s(elem, datasize, rhs.elem, datasize);
         std::copy(rhs.elem, rhs.elem + rhs.size(), elem);
         return *this;
     }

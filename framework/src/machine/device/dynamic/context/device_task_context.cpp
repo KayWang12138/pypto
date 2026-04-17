@@ -117,27 +117,16 @@ void DeviceTaskContext::ProcessAivBatchTasks(
 {
     uint32v8 one = {1, 1, 1, 1, 1, 1, 1, 1};
     uint32v8 base = {0, 1, 2, 3, 4, 5, 6, 7};
-    //taskid_t* aivQueueElemList = aivQueue->elem;
 
     for (size_t opIndex = 0; opIndex < totalZeroPredAIVBatchEnd; opIndex += DUP_PRED_COUNT_LOOP_MAX) {
         if (likely(
                 (*reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex]) |
                  *reinterpret_cast<const uint64_t*>(&dupPredCountList[opIndex + DUP_PRED_COUNT_PRE_LOOP_CNT])) == 0)) {
             uint32v8 taskidv8 = (one * MakeTaskID(funcIndex, 0)) | (base + static_cast<uint32_t>(opIndex));
-            /*
-#ifdef __x86_64__
-            memcpy_s(&aivQueueElemList[aivQueue->tail], sizeof(taskidv8), &taskidv8, sizeof(taskidv8));
-#else
-            *reinterpret_cast<uint32v8*>(&aivQueueElemList[aivQueue->tail]) = taskidv8;
-#endif
-            aivQueue->tail += DUP_PRED_COUNT_LOOP_MAX;
-            */
-            
             aivQueue->unsafe_enqueue(reinterpret_cast<ReadyCoreFunctionQueue::value_type*>(&taskidv8), DUP_PRED_COUNT_LOOP_MAX);
         } else {
             for (size_t idx = 0; idx < DUP_PRED_COUNT_LOOP_MAX; ++idx) {
                 if (likely(dupPredCountList[opIndex + idx] == 0)) {
-                    //aivQueueElemList[aivQueue->tail++] = MakeTaskID(funcIndex, opIndex + idx);
                     aivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex + idx));
                 }
             }
@@ -223,7 +212,6 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                // targetAivQueue->elem[targetAivQueue->tail++] = MakeTaskID(funcIndex, opIndex);
                 targetAivQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
@@ -239,7 +227,6 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
                     wrapQueue);
                 wrapTaskNum++;
             } else {
-                // targetAicQueue->elem[targetAicQueue->tail++] = MakeTaskID(funcIndex, opIndex);
                 targetAicQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
             }
         }
@@ -249,7 +236,6 @@ void DeviceTaskContext::BuildReadyQueueForFunc(
     auto aicpuEnd = predInfo.totalZeroPredAIV + predInfo.totalZeroPredAIC + predInfo.totalZeroPredAicpu;
     for (size_t opIndex = aicEnd; opIndex < aicpuEnd; ++opIndex) {
         if (likely(dupPredCountList[opIndex] == 0)) {
-            // aicpuQueue->elem[aicpuQueue->tail++] = MakeTaskID(funcIndex, opIndex);
             aicpuQueue->unsafe_enqueue(MakeTaskID(funcIndex, opIndex));
         }
     }

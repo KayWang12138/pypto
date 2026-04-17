@@ -402,11 +402,6 @@ struct DevControlFlowCache {
 
             new (readyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(base->readyQueue[i]->capacity(), readyQueueBackupElem);
             readyQueueBackup->queueList[i] = *base->readyQueue[i];
-
-            /*readyQueueBackup->queueList[i].head = base->readyQueue[i]->head;
-            readyQueueBackup->queueList[i].tail = base->readyQueue[i]->tail;
-            memcpy_s(readyQueueBackup->queueList[i].elem, backupSize, base->readyQueue[i]->elem, backupSize);*/
-
             readyTaskNum += base->readyQueue[i]->unsafe_size();
         }
         readyQueueBackup->readyTaskNum = readyTaskNum;
@@ -419,11 +414,6 @@ struct DevControlFlowCache {
         base->devTask.coreFunctionCnt = readyQueueBackup->coreFunctionCnt;
         for (size_t i = 0; i < READY_QUEUE_SIZE; i++) {
             *base->readyQueue[i] = readyQueueBackup->queueList[i];
-            /*size_t backupSize = sizeof(uint32_t) * base->readyQueue[i]->capacity();
-
-            base->readyQueue[i]->head = readyQueueBackup->queueList[i].head;
-            base->readyQueue[i]->tail = readyQueueBackup->queueList[i].tail;
-            memcpy_s(base->readyQueue[i]->elem, backupSize, readyQueueBackup->queueList[i].elem, backupSize);*/
         }
     }
 
@@ -441,10 +431,6 @@ struct DevControlFlowCache {
                 (i < DIE_NUM) ? base->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i] :
                                 base->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i - DIE_NUM]);
             if (dieReadyQueue == nullptr) {
-                // dieReadyQueueBackup->queueList[i].head = 0;
-                // dieReadyQueueBackup->queueList[i].tail = 0;
-                // dieReadyQueueBackup->queueList[i].capacity = 0;
-                // dieReadyQueueBackup->queueList[i].elem = nullptr;
                 new (dieReadyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(0, nullptr);
                 continue;
             }
@@ -455,15 +441,7 @@ struct DevControlFlowCache {
             }
 
             new (dieReadyQueueBackup->queueList + i) ReadyCoreFunctionQueueUnsafe(dieReadyQueue->capacity(), dieReadyQueueBackupElem) ;
-            dieReadyQueueBackup->queueList[i] = *dieReadyQueue;            
-            
-            // dieReadyQueueBackup->queueList[i].head = dieReadyQueue->head;
-            // dieReadyQueueBackup->queueList[i].tail = dieReadyQueue->tail;
-            // dieReadyQueueBackup->queueList[i].capacity = dieReadyQueue->capacity();
-            // dieReadyQueueBackup->queueList[i].elem = dieReadyQueueBackupElem;
-            // memcpy_s(dieReadyQueueBackup->queueList[i].elem, backupSize, dieReadyQueue->elem, backupSize);
-
-            //readyTaskNum += dieReadyQueue->tail - dieReadyQueue->head;
+            dieReadyQueueBackup->queueList[i] = *dieReadyQueue;                        
             readyTaskNum += dieReadyQueue->unsafe_size();
         }
         dieReadyQueueBackup->readyTaskNum = readyTaskNum;
@@ -484,16 +462,6 @@ struct DevControlFlowCache {
             if (dieReadyQueue == nullptr) {
                 continue;
             }
-            //DEV_ASSERT(0, dieReadyQueueBackup->queueList[i].elem == nullptr);
-
-            /*
-            size_t backupSize = sizeof(uint32_t) * dieReadyQueue->capacity();
-            dieReadyQueue->head = dieReadyQueueBackup->queueList[i].head;
-            dieReadyQueue->tail = dieReadyQueueBackup->queueList[i].tail;
-            if (dieReadyQueueBackup->queueList[i].elem != nullptr) {
-                memcpy_s(dieReadyQueue->elem, backupSize, dieReadyQueueBackup->queueList[i].elem, backupSize);
-            }
-            */
             *dieReadyQueue = dieReadyQueueBackup->queueList[i];
         }
     }
