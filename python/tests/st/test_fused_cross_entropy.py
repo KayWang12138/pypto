@@ -7,6 +7,7 @@ from numpy.testing import assert_allclose
 import time
 import argparse
 import sys
+from functools import lru_cache
 
 
 @pypto.jit
@@ -410,7 +411,7 @@ def pypto_fused_ce_forward_v1_original(
     pypto.set_vec_tile_shapes(T_M, T_N)
 
     for i in pypto.loop(0, M, T_M, name="row_loop_{}".format(task_id),
-        unroll_list=[48]
+        unroll_list=[32]
         ):
         # 初始状态
         def token_body(i):
@@ -465,12 +466,15 @@ def pypto_fused_ce_backward_v1_original(
 
     M_backward = logits_backward.shape[0]
     N_backward = logits_backward.shape[1]
+    original_dtype = logits_backward.dtype
     T_backward_m = tiling_m
     T_backward_n = tiling_n
     num_tiles_backward_n = (N_backward + T_backward_n - 1) // T_backward_n
     pypto.set_vec_tile_shapes(T_backward_m, T_backward_n)
 
-    for i_backward in pypto.loop(0, M_backward, T_backward_m, name="backward_token_loop", unroll_list=[48]):
+    for i_backward in pypto.loop(0, M_backward, T_backward_m, name="backward_token_loop", 
+    # unroll_list=[16]
+    ):
 
         def tile_body(k_backward):
             start_n_backward = k_backward * T_backward_n
@@ -500,12 +504,137 @@ def pypto_fused_ce_backward_v1_original(
                 pypto.mul(probs_backward, mask_abs_clip_backward)
             ) 
             
-            grad_tile_fp16_backward = pypto.cast(adjusted_probs_backward, pypto.DT_FP16)   # [1, N]
+            grad_tile_fp16_backward = pypto.cast(adjusted_probs_backward, 
+                original_dtype
+                )   # [1, N]
 
             dlogits_backward[i_backward:i_backward+T_backward_m, start_n_backward:start_n_backward+T_backward_n] = grad_tile_fp16_backward
 
         for k_backward in range(num_tiles_backward_n):
             tile_body(k_backward)
+
+
+# -----------------------------------------------------------------------------
+# v2: @pypto.frontend.jit — 与 test_fused_matmul 一致，可直接传入 torch.Tensor，
+#     无需 pypto.from_torch。形状在 kernel 内由 logits.shape 推导（STATIC 占位）。
+#     v1 (@pypto.jit + from_torch) 仍保留，二者数值应一致。
+# -----------------------------------------------------------------------------
+
+
+@lru_cache(maxsize=64)
+def create_pypto_fused_ce_forward_v2(tiling_m: int, tiling_n: int, task_id: int = 0):
+    """构建前向 CE kernel（log-sum-exp + loss = lse - logit[label]）。tiling 在编译期固定。"""
+    T_M = tiling_m
+    T_N = tiling_n
+
+    @pypto.frontend.jit(
+        # debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
+    )
+    def pypto_fused_ce_forward_v2(
+        logits: pypto.Tensor(
+            [pypto.STATIC, pypto.STATIC], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND
+        ),
+        logits_at_label: pypto.Tensor(
+            [pypto.STATIC, 1], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND
+        ),
+        lse_out: pypto.Tensor([pypto.STATIC], pypto.DT_FP32),
+        loss_out: pypto.Tensor([pypto.STATIC], pypto.DT_FP32),
+    ):
+        M = logits.shape[0]
+        N = logits.shape[1]
+        num_tiles = (N + T_N - 1) // T_N
+        assert M % T_M == 0, "M must be divisible by T_M"
+        assert N % T_N == 0, "N must be divisible by T_N"
+        pypto.set_vec_tile_shapes(T_M, T_N)
+        loop_name = "row_loop_{}".format(task_id)
+        for i in pypto.loop(0, M, T_M, name=loop_name, unroll_list=[16]):
+            neg_inf = pypto.full([T_M, 1], torch.finfo(torch.float32).min, dtype=pypto.DT_FP32)
+            zero = pypto.full([T_M, 1], 0.0, dtype=pypto.DT_FP32)
+            m_state = neg_inf
+            lse_state = zero
+            for k in range(num_tiles):
+                start_n = k * T_N
+                logit_tile = pypto.cast(
+                    pypto.view(logits, shape=[T_M, T_N], offsets=[i, start_n]),
+                    pypto.DT_FP32,
+                )
+                m_new = pypto.maximum(m_state, pypto.amax(logit_tile, dim=-1, keepdim=True))
+                lse_sum_new = pypto.add(
+                    pypto.mul(lse_state, pypto.exp(pypto.sub(m_state, m_new))),
+                    pypto.sum(pypto.exp(pypto.sub(logit_tile, m_new)), dim=-1, keepdim=True),
+                )
+                m_state[:] = m_new
+                lse_state[:] = lse_sum_new
+            final_lse = pypto.add(m_state, pypto.log(lse_state))
+            lse_out[i : i + T_M] = pypto.reshape(final_lse, [T_M])
+            target_logit = pypto.cast(logits_at_label[i : i + T_M, 0:1], pypto.DT_FP32)
+            loss_i = pypto.sub(final_lse, target_logit)
+            loss_out[i : i + T_M] = pypto.reshape(loss_i, [T_M])
+
+    return pypto_fused_ce_forward_v2
+
+
+@lru_cache(maxsize=64)
+def create_pypto_fused_ce_backward_v2(tiling_m: int, tiling_n: int):
+    """构建反向 kernel（与 v1 公式一致）。labels / labels_idexes 与 v1 相同布局。"""
+    T_M = tiling_m
+    T_N = tiling_n
+
+    @pypto.frontend.jit(
+        # debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
+    )
+    def pypto_fused_ce_backward_v2(
+        logits_backward: pypto.Tensor(
+            [pypto.STATIC, pypto.STATIC], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND
+        ),
+        lse_backward: pypto.Tensor([pypto.STATIC, 1], pypto.DT_FP32),
+        labels_backward: pypto.Tensor([pypto.STATIC, 1], pypto.DT_INT32),
+        labels_idexes_backward: pypto.Tensor([1, T_N], pypto.DT_INT32),
+        ones: pypto.Tensor([T_M, T_N], pypto.DT_FP32),
+        dlogits_backward: pypto.Tensor(
+            [pypto.STATIC, pypto.STATIC], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND
+        ),
+    ):
+        M_backward = logits_backward.shape[0]
+        N_backward = logits_backward.shape[1]
+        num_tiles_backward_n = (N_backward + T_N - 1) // T_N
+        pypto.set_vec_tile_shapes(T_M, T_N)
+        for i_backward in pypto.loop(0, M_backward, T_M, name="backward_token_loop", unroll_list=[16]):
+            for k_backward in range(num_tiles_backward_n):
+                start_n_backward = k_backward * T_N
+                logit_tile_backward = pypto.view(
+                    logits_backward,
+                    shape=[T_M, T_N],
+                    offsets=[i_backward, start_n_backward],
+                )
+                mask_base_backward = pypto.view(
+                    labels_idexes_backward, shape=[1, T_N], offsets=[0, 0]
+                )
+                lse_i_backward = pypto.view(
+                    lse_backward, shape=[T_M, 1], offsets=[i_backward, 0]
+                )
+                label_id_backward = pypto.view(
+                    labels_backward, shape=[T_M, 1], offsets=[i_backward, 0]
+                )
+                x_fp32_backward = pypto.cast(logit_tile_backward, pypto.DT_FP32)
+                shifted_backward = pypto.sub(x_fp32_backward, lse_i_backward)
+                probs_backward = pypto.exp(shifted_backward)
+                mask_abs_fp32_backward = pypto.cast(
+                    pypto.sub(pypto.add(mask_base_backward, start_n_backward), label_id_backward),
+                    pypto.DT_FP32,
+                )
+                mask_abs_backward = pypto.abs(mask_abs_fp32_backward)
+                mask_abs_clip_backward = pypto.minimum(ones, mask_abs_backward)
+                adjusted_probs_backward = pypto.add(
+                    pypto.mul(pypto.add(pypto.neg(mask_abs_clip_backward), 1.0), pypto.sub(probs_backward, 1.0)),
+                    pypto.mul(probs_backward, mask_abs_clip_backward),
+                )
+                grad_tile_fp16_backward = pypto.cast(adjusted_probs_backward, pypto.DT_FP16)
+                dlogits_backward[
+                    i_backward : i_backward + T_M, start_n_backward : start_n_backward + T_N
+                ] = grad_tile_fp16_backward
+
+    return pypto_fused_ce_backward_v2
 
 
 def test_pypto_ce_mn():
@@ -719,12 +848,12 @@ def test_pypto_ce_v0_whole():
 
 
 def test_pypto_ce_v1_whole():
-        device = "npu:2"
+        device = "npu:4"
         torch.npu.set_device(device)
 
         # 配置参数（可调整）
         M, N = 8192, 152576
-        tiling_m = 4
+        tiling_m = 16
         tiling_n = 1024
 
         torch.manual_seed(42)
@@ -735,12 +864,17 @@ def test_pypto_ce_v1_whole():
             torch.npu.synchronize()
             
             # === Step 1: 创建两组相同的输入 ===
-            logits_np = torch.randn(M, N, dtype=torch.float16).numpy()
-            labels_np = torch.randint(0, N, (M,), dtype=torch.int32).numpy()
+            # logits_np = torch.randn(M, N, dtype=torch.float16).numpy()
+            logits_base = torch.randn(M, N, dtype=torch.bfloat16, device=device)
+            labels_base = torch.randint(0, N, (M,), dtype=torch.int32, device=device)
+            # 两条路径用完全相同的数据
+            logits_torch = logits_base.clone().requires_grad_(True)
+            labels_torch = labels_base.clone().long()
+
             # labels_np = torch.randint(0, N, (M,), dtype=torch.int64).numpy()
             # --- PyTorch 路径 ---
-            logits_torch = torch.from_numpy(logits_np).to(device).requires_grad_(True)
-            labels_torch = torch.from_numpy(labels_np).to(device).long()  # PyTorch CE expects long
+            # logits_torch = torch.from_numpy(logits_np).to(device).requires_grad_(True)
+            # labels_torch = torch.from_numpy(labels_np).to(device).long()  # PyTorch CE expects long
 
             # Forward 计时
             torch.npu.synchronize()
@@ -759,10 +893,13 @@ def test_pypto_ce_v1_whole():
             torch_backward_time = torch_backward_end - torch_backward_start
             
             torch_total_time = torch_forward_time + torch_backward_time
+            print(f"grad_logits_torch dtype: {grad_logits_torch.dtype}, shape: {grad_logits_torch.shape}")
             
             # --- pypto 路径 ---
-            logits_pypto = torch.from_numpy(logits_np).to(device).requires_grad_(True)
-            labels_pypto = torch.from_numpy(labels_np).to(device)
+            # logits_pypto = torch.from_numpy(logits_np).to(device).requires_grad_(True)
+            # labels_pypto = torch.from_numpy(labels_np).to(device)
+            logits_pypto = logits_base.clone().requires_grad_(True)
+            labels_pypto = labels_base.clone()
             # Forward 计时
             torch.npu.synchronize()
             pypto_forward_start = time.perf_counter()
@@ -780,6 +917,7 @@ def test_pypto_ce_v1_whole():
             pypto_backward_time = pypto_backward_end - pypto_backward_start
             
             pypto_total_time = pypto_forward_time + pypto_backward_time
+            print(f"grad_logits_pypto dtype: {grad_logits_pypto.dtype}, shape: {grad_logits_pypto.shape}")
             # === Step 2: 同步设备 ===
 
             # === Step 3: 数值对比 ===
@@ -818,6 +956,125 @@ def test_pypto_ce_v1_whole():
             print(f"🎉 Iter {i} PASSED!\n")
 
 
+def test_pypto_ce_v2_whole():
+    """与 test_pypto_ce_v1_whole 相同流程，对比 PyTorch CE 与 FusedCrossEntropyPypto_new_v2（frontend.jit + 直传 torch）。"""
+    device = "npu:2"
+    torch.npu.set_device(device)
+
+    M, N = 8192, 152576
+    tiling_m = 16
+    tiling_n = 1024
+
+    torch.manual_seed(42)
+
+    for i in range(10):
+        print(f"================================ v2 iter {i} start ================================")
+        torch.npu.synchronize()
+
+        logits_np = torch.randn(M, N, dtype=torch.float16).numpy()
+        labels_np = torch.randint(0, N, (M,), dtype=torch.int32).numpy()
+
+        logits_torch = torch.from_numpy(logits_np).to(device).requires_grad_(True)
+        labels_torch = torch.from_numpy(labels_np).to(device).long()
+
+        torch.npu.synchronize()
+        torch_forward_start = time.perf_counter()
+        loss_torch = torch.nn.functional.cross_entropy(
+            logits_torch.float(), labels_torch, reduction="none"
+        )
+        torch.npu.synchronize()
+        torch_forward_end = time.perf_counter()
+        torch_forward_time = torch_forward_end - torch_forward_start
+
+        torch.npu.synchronize()
+        torch_backward_start = time.perf_counter()
+        grad_logits_torch = torch.autograd.grad(loss_torch.sum(), logits_torch)[0]
+        torch.npu.synchronize()
+        torch_backward_end = time.perf_counter()
+        torch_backward_time = torch_backward_end - torch_backward_start
+
+        torch_total_time = torch_forward_time + torch_backward_time
+
+        logits_pypto = torch.from_numpy(logits_np).to(device).requires_grad_(True)
+        labels_pypto = torch.from_numpy(labels_np).to(device)
+
+        torch.npu.synchronize()
+        pypto_forward_start = time.perf_counter()
+        loss_pypto = FusedCrossEntropyPypto_new_v2.apply(
+            logits_pypto, labels_pypto, tiling_m, tiling_n
+        )
+        torch.npu.synchronize()
+        pypto_forward_end = time.perf_counter()
+        pypto_forward_time = pypto_forward_end - pypto_forward_start
+
+        torch.npu.synchronize()
+        pypto_backward_start = time.perf_counter()
+        grad_logits_pypto = torch.autograd.grad(loss_pypto.sum(), logits_pypto)[0]
+        torch.npu.synchronize()
+        pypto_backward_end = time.perf_counter()
+        pypto_backward_time = pypto_backward_end - pypto_backward_start
+
+        pypto_total_time = pypto_forward_time + pypto_backward_time
+
+        print("\n🔍 [v2] Loss comparison:")
+        loss_diff = torch.abs(loss_pypto - loss_torch)
+        print(f"  Max abs loss diff: {loss_diff.max().item():.6f}")
+        print(f"  Mean abs loss diff: {loss_diff.mean().item():.6f}")
+
+        np.testing.assert_allclose(
+            loss_pypto.detach().cpu().numpy(),
+            loss_torch.detach().cpu().numpy(),
+            atol=1e-2,
+            rtol=1e-2,
+            err_msg=f"v2 iter {i}: Loss mismatch!",
+        )
+        print("✅ Loss matches!")
+        
+        print("\n🔍 [v2] Gradient comparison:")
+        # 在 fp32 下比：PyTorch CE 反传常在高精度累加后再落到 fp16；直接比 fp16 会放大舍入差异
+        g_pto_f = grad_logits_pypto.detach().float()
+        g_th_f = grad_logits_torch.detach().float()
+        grad_diff = torch.abs(g_pto_f - g_th_f)
+        print(f"  Max abs grad diff (fp32): {grad_diff.max().item():.6f}")
+        print(f"  Mean abs grad diff (fp32): {grad_diff.mean().item():.6f}")
+
+        np.testing.assert_allclose(
+            g_pto_f.cpu().numpy(),
+            g_th_f.cpu().numpy(),
+            atol=1e-2,
+            rtol=1e-2,
+            err_msg=f"v2 iter {i}: Gradient mismatch!",
+        )
+        print("✅ Gradient matches!")
+
+        print("\n⏱️  [v2] Performance comparison:")
+        print(f"  PyTorch Forward:  {torch_forward_time * 1000:.3f} ms")
+        print(f"  PyTorch Backward: {torch_backward_time * 1000:.3f} ms")
+        print(f"  PyTorch Total:    {torch_total_time * 1000:.3f} ms")
+        print(f"  PyPTO Forward:    {pypto_forward_time * 1000:.3f} ms")
+        print(f"  PyPTO Backward:   {pypto_backward_time * 1000:.3f} ms")
+        print(f"  PyPTO Total:      {pypto_total_time * 1000:.3f} ms")
+
+        speedup_forward = (
+            torch_forward_time / pypto_forward_time if pypto_forward_time > 0 else 0
+        )
+        speedup_backward = (
+            torch_backward_time / pypto_backward_time if pypto_backward_time > 0 else 0
+        )
+        speedup_total = torch_total_time / pypto_total_time if pypto_total_time > 0 else 0
+
+        print("\n  Speedup:")
+        print(
+            f"    Forward:  {speedup_forward:.3f}x ({'faster' if speedup_forward > 1 else 'slower'})"
+        )
+        print(
+            f"    Backward: {speedup_backward:.3f}x ({'faster' if speedup_backward > 1 else 'slower'})"
+        )
+        print(f"    Total:    {speedup_total:.3f}x ({'faster' if speedup_total > 1 else 'slower'})")
+
+        print(f"🎉 [v2] Iter {i} PASSED!\n")
+
+
 class FusedCrossEntropyPypto_new_v1(torch.autograd.Function):
     @staticmethod
     def forward(ctx, logits, labels, tiling_m=16, tiling_n=1024):
@@ -832,7 +1089,8 @@ class FusedCrossEntropyPypto_new_v1(torch.autograd.Function):
         loss = torch.empty(M, dtype=torch.float32, device=device)
         lse = torch.empty(M, dtype=torch.float32, device=device)
 
-        logits_at_label = logits[torch.arange(M, device=device), labels].view(M, 1)
+        # logits_at_label = logits[torch.arange(M, device=device), labels].view(M, 1)
+        logits_at_label = logits.gather(1, labels.view(-1, 1))
 
         pto_logits = pypto.from_torch(logits, "logits")
         pto_logits_at_label = pypto.from_torch(logits_at_label, "logits_at_label")
@@ -870,6 +1128,61 @@ class FusedCrossEntropyPypto_new_v1(torch.autograd.Function):
         return grad_logits, None, None, None
 
 
+class FusedCrossEntropyPypto_new_v2(torch.autograd.Function):
+    """与 v1 数值路径一致；前向/反向使用 create_pypto_fused_ce_*_v2，直接传 torch.Tensor。"""
+
+    @staticmethod
+    def forward(ctx, logits, labels, tiling_m=16, tiling_n=1024):
+        # 与 matmul / batchmatmul 等 ST 一致：避免 NPU 内部排布与 frontend 写回假设不一致导致梯度未写入（表现为大量 0）
+        torch_npu.npu.config.allow_internal_format = True
+        logits = logits.contiguous()
+        M, _ = logits.shape
+        device = logits.device
+        labels = labels.to(torch.int32).contiguous()
+
+        loss = torch.empty(M, dtype=torch.float32, device=device)
+        lse = torch.empty(M, dtype=torch.float32, device=device)
+        logits_at_label = logits[torch.arange(M, device=device), labels].view(M, 1).contiguous()
+
+        forward_fn = create_pypto_fused_ce_forward_v2(int(tiling_m), int(tiling_n), 0)
+        forward_fn(logits, logits_at_label, lse, loss)
+
+        ctx.save_for_backward(logits, lse, labels)
+        ctx.tiling_m = int(tiling_m)
+        ctx.tiling_n = int(tiling_n)
+        return loss
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        torch_npu.npu.config.allow_internal_format = True
+        logits, lse, labels = ctx.saved_tensors
+        tiling_m = ctx.tiling_m
+        tiling_n = ctx.tiling_n
+        # 显式按 shape 分配 contiguous，避免 zeros_like(..., contiguous_format) 仍带内部 format 时写回错位
+        grad_logits = torch.zeros_like(logits, memory_format=torch.contiguous_format, device=logits.device) # fp32
+        labels_idexes = torch.arange(tiling_n, dtype=torch.int32, device=logits.device).reshape(
+            1, tiling_n
+        )
+        ones = torch.ones((tiling_m, tiling_n), dtype=torch.float32, device=logits.device)
+
+        backward_fn = create_pypto_fused_ce_backward_v2(tiling_m, tiling_n)
+        backward_fn(
+            logits,
+            lse.view(-1, 1),
+            labels.view(-1, 1),
+            labels_idexes,
+            ones,
+            grad_logits,
+        )
+
+        if grad_output is not None:
+            # forward 输出 loss 为 [M]，链式法则：每行梯度乘 dL/d(loss[i])
+            go = grad_output.to(dtype=grad_logits.dtype).reshape(-1, 1)
+            grad_logits.mul_(go)
+
+        return grad_logits, None, None, None
+
+
 def fast_pypto_fused_cross_entropy_loss(logits, labels, tiling_m=16, tiling_n=1024, version=0):
     """
     Unified interface for different versions of FusedCrossEntropyPypto.
@@ -877,14 +1190,16 @@ def fast_pypto_fused_cross_entropy_loss(logits, labels, tiling_m=16, tiling_n=10
     Args:
         logits: [M, N], fp16
         labels: [M], int32
-        tiling_m: used only in version 2
-        tiling_n: used in all versions (as main tiling)
-        version: 0, 1, or 2
+        tiling_m: MN-tile 行块大小（v1 / v2）
+        tiling_n: 列块大小（各版本）
+        version: 0, 1, 2（2 为 frontend.jit + 直传 torch）
     """
     if version == 0:
         return FusedCrossEntropyPypto_original_v0.apply(logits, labels, tiling_n)
     elif version == 1:
         return FusedCrossEntropyPypto_new_v1.apply(logits, labels, tiling_m, tiling_n)
+    elif version == 2:
+        return FusedCrossEntropyPypto_new_v2.apply(logits, labels, tiling_m, tiling_n)
     else:
         raise ValueError(f"Unsupported version: {version}")
 
@@ -1082,12 +1397,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--npu", type=int, default=0, help="NPU device number (e.g., 5 for 'npu:5')")
-    parser.add_argument("--version", type=int, choices=[0, 1], default=0, help="Fused CE version: 0 or 1")
+    parser.add_argument("--version", type=int, choices=[0, 1, 2], default=0, help="Fused CE version: 0 or 1 or 2")
     args = parser.parse_args()
 
     device = f"npu:{args.npu}"  
     vocab_size = 152576
-    total_tokens_list = [12288]
+    total_tokens_list = [8192]
     tiling_options = [1024]
 
     for total_tokens in total_tokens_list:

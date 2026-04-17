@@ -1683,7 +1683,8 @@ def test_chunk_gated_delta_rule_pypto_autograd_perf_default_wo_l2norm():
         device_id=int(os.environ.get("TILE_FWK_DEVICE_ID", 0)),
         num_rounds=10,
         warmup_rounds=3,
-        params={"T": 4096, "B": 1, "Nqk": 32, "Nv": 32},
+        # params={"T": 4096, "B": 1, "Nqk": 32, "Nv": 32},
+        params={"T": 8192, "B": 1, "Nqk": 16, "Nv": 16},
     )
     
 
