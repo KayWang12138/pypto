@@ -16,8 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "interface/utils/function_error.h"
 #include "core/dtype.h"
-#include "core/logging.h"
 #include "ir/core.h"
 #include "ir/memref.h"
 #include "ir/reflection/field_traits.h"

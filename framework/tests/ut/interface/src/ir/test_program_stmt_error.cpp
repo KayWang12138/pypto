@@ -28,6 +28,7 @@
 #include "ir/program.h"
 #include "ir/scalar_expr.h"
 #include "ir/stmt.h"
+#include "tilefwk/error.h"
 #include "ir/type.h"
 
 namespace pypto {
@@ -243,7 +244,7 @@ TEST(StmtTest, OpStmtsRejectsInvalidStmt)
     auto span = TestSpan();
     auto ret = std::make_shared<ReturnStmt>(span);
     // ReturnStmt is not AssignStmt or EvalStmt, should throw
-    ASSERT_THROW(std::make_shared<OpStmts>(std::vector<StmtPtr>{ret}, span), InternalError);
+    ASSERT_THROW(std::make_shared<OpStmts>(std::vector<StmtPtr>{ret}, span), npu::tile_fwk::Error);
 }
 
 TEST(StmtTest, OpStmtsEmpty)

@@ -488,7 +488,6 @@ TEST_F(FunctionErrorAssertTest, TestOpGroupMismatch)
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestGroupMismatch");
     ASSERT_NE(func, nullptr);
 
-    // Test CheckGroupValid should have matching group IDs
     EXPECT_NO_THROW({
         std::vector<Operation*> opList;
         for (auto& op : func->Operations()) {
@@ -497,4 +496,227 @@ TEST_F(FunctionErrorAssertTest, TestOpGroupMismatch)
         func->AddOperationGroup(opList);
         func->CheckGroupValid();
     });
+}
+
+TEST_F(FunctionErrorAssertTest, TestOperationLoopCheckCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestOpLoopCheck")
+    {
+        Tensor in0 = Exp(input);
+        Tensor in1 = Reciprocal(in0);
+        Tensor in2 = Exp(in1);
+        output = Add(in2, in0);
+    }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestOpLoopCheck");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_NO_THROW({
+        bool noLoop = func->OperationLoopCheck();
+        EXPECT_EQ(noLoop, true);
+        func->OperationLoopCheck("test error message");
+    });
+}
+
+TEST_F(FunctionErrorAssertTest, TestLoopCheckCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestLoopCheckCoverage") { output = Add(input, input); }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestLoopCheckCoverage");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_NO_THROW({
+        auto cycles = func->LoopCheck();
+        EXPECT_EQ(cycles.empty(), true);
+    });
+}
+
+TEST_F(FunctionErrorAssertTest, TestEraseOperationsCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestEraseOpsCoverage")
+    {
+        Tensor in0 = Exp(input);
+        Tensor in1 = Reciprocal(in0);
+        output = Add(in1, in0);
+    }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestEraseOpsCoverage");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_NO_THROW({ func->EraseOperations(false, false); });
+}
+
+TEST_F(FunctionErrorAssertTest, TestFunctionOperationsCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestFuncOpsCoverage") { output = Add(input, input); }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestFuncOpsCoverage");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_NO_THROW({
+        auto iodescTensorGraph = func->GetTensorDataForTensorGraph();
+        auto iodescLeafGraph = func->GetTensorDataForLeafGraph();
+        auto callopList = func->GetCallopList();
+        auto calleeList = func->GetCalleeFunctionList();
+        auto hash = func->ComputeHash();
+        func->CleanRedundantOutCast();
+    });
+}
+
+TEST_F(FunctionErrorAssertTest, TestTensorOperationCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestTensorOpsCoverage") { output = Add(input, input); }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestTensorOpsCoverage");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_NO_THROW({
+        if (!func->GetIncast().empty()) {
+            auto incast = func->GetIncast()[0];
+            (void)func->GetIncastIndex(incast);
+        }
+        if (!func->GetOutcast().empty()) {
+            auto outcast = func->GetOutcast()[0];
+            (void)func->GetOutcastIndex(outcast);
+        }
+        (void)func->HasCallOperation();
+        (void)func->IsCube();
+        (void)func->IsFlattening();
+        func->ResetOperations();
+    });
+}
+
+TEST_F(FunctionErrorAssertTest, TestSubstituteAndReuseCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestSubReuseCoverage") { output = Add(input, input); }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestSubReuseCoverage");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_NO_THROW({
+        auto ops = func->Operations();
+        if (ops.size() > 0) {
+            auto consumers = func->FindConsumers(ops[0]);
+            auto producers = func->FindProducers(ops[0]);
+            (void)consumers;
+            (void)producers;
+            if (!ops[0].GetIOperands().empty() && !ops[0].GetOOperands().empty()) {
+                (void)func->TensorReuse(ops[0].GetOOperands()[0], ops[0].GetIOperands()[0]);
+                func->UpdateOperandBeforeRemoveOp(ops[0], false);
+                std::vector<Operation*> toRemoveOps;
+                func->HandleControlOps(ops[0], toRemoveOps);
+                (void)func->GetOpByOpMagic(ops[0].GetOpMagic());
+            }
+        }
+    });
+}
+
+TEST_F(FunctionErrorAssertTest, TestValidCheckCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestValidCheckCoverage")
+    {
+        Tensor in0 = Exp(input);
+        Tensor in1 = Reciprocal(in0);
+        Tensor in2 = Sqrt(in1);
+        output = Add(in2, in0);
+    }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestValidCheckCoverage");
+    ASSERT_NE(func, nullptr);
+
+    EXPECT_NO_THROW({
+        func->TensorMagicCheck();
+        auto argsInfo = func->GetOpOriginArgsInfo();
+        auto valueDepend = func->LookupValueDepend();
+    });
+}
+
+TEST_F(FunctionErrorAssertTest, TestNormalizeAndDumpCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestNormDumpCoverage") { output = Add(input, input); }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestNormDumpCoverage");
+    ASSERT_NE(func, nullptr);
+
+    std::vector<int> iOffset;
+    std::vector<int> oOffset;
+    auto coaLists = func->NormalizeCoa(iOffset, oOffset);
+    std::map<int, SymbolicScalar> outExpr;
+    func->GetOutcastSymbolicExpr(outExpr);
+    std::string ssa = func->DumpSSA();
+    Json funcJson = func->DumpJson();
+    func->DumpTopoFile("/tmp/test_topo.json");
+    func->RecordOOOSeq();
+    auto opsAfterOOO = func->OperationsAfterOOO();
+    (void)coaLists;
+    (void)outExpr;
+    (void)ssa;
+    (void)funcJson;
+    (void)opsAfterOOO;
+}
+
+TEST_F(FunctionErrorAssertTest, TestLoadJsonCoverage)
+{
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+    TileShape::Current().SetVecTile({32, 32});
+    std::vector<int64_t> shape{32, 32};
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    FUNCTION("TestLoadJsonCoverage") { output = Add(input, input); }
+
+    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestLoadJsonCoverage");
+    ASSERT_NE(func, nullptr);
+
+    Json funcJson = func->DumpJson();
+    auto loadedFunc = Function::LoadJson(Program::GetInstance(), funcJson);
+    EXPECT_NE(loadedFunc, nullptr);
 }
