@@ -448,4 +448,30 @@ TEST_F(InterpTypeConvertTest, Hf8RoundTripViaCast)
     ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
 }
 
+TEST_F(InterpTypeConvertTest, Hf8DecodeBitsFromUint8Value234)
+{
+    // 234 = 0xEA = 1110'1010 (bit pattern interpreted as HF8):
+    // sign = 1, D = 11 branch, exponent code = 0101 -> E_v = +13, mantissa = 0
+    // value = -2^13 * (1 + 0/2) = -8192
+    auto src = makeTensorData(DT_HF8, {4}, static_cast<uint8_t>(234));
+    auto out = makeTensorData(DT_FP32, {4}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {4}, -8192.0f);
+
+    calc::Cast(out, src); // HF8 bits -> Float32 decode
+    ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
+}
+
+TEST_F(InterpTypeConvertTest, Fp32CastToHf8FromNegative7640)
+{
+    auto src = makeTensorData(DT_FP32, {4}, -7640.0f);
+    auto hf8 = makeTensorData(DT_HF8, {4}, static_cast<uint8_t>(0));
+    auto out = makeTensorData(DT_FP32, {4}, 0.0f);
+    // -7640 is quantized to nearest HF8 grid point: -8192.
+    auto golden = makeTensorData(DT_FP32, {4}, -8192.0f);
+
+    calc::Cast(hf8, src); // FP32 -> HF8 encode
+    calc::Cast(out, hf8); // HF8 -> FP32 decode for validation
+    ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
+}
+
 } // namespace npu::tile_fwk
