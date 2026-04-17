@@ -458,11 +458,13 @@ INLINE uint32_t RefreshParallelDevTaskByModifyFlag(ExecuteContext *ctx, uint32_t
 {
     uint32_t curLeafDevTaskId = npu::tile_fwk::DevTaskId(highRegValue);
     uint32_t mask = npu::tile_fwk::ParallelDevTaskModifyFlag(highRegValue);
+    int32_t modifyCnt = __builtin_popcount(mask);
     while (mask) {
         int idx = __builtin_ffs(mask) - 1;
         int64_t newElemPtr;
         __gm__ DynFuncHeader *oldHeader = ctx->cachedDevTasks[idx].header;
         uint64_t t0 = get_sys_cnt();
+        bool isContinue = true;
         do {
             dcci(&ctx->parallelDevTask->elements[idx], SINGLE_CACHE_LINE, CACHELINE_OUT);
             newElemPtr = ctx->parallelDevTask->elements[idx];
@@ -473,14 +475,16 @@ INLINE uint32_t RefreshParallelDevTaskByModifyFlag(ExecuteContext *ctx, uint32_t
                 dcci((__gm__ void *)newElemPtr, SINGLE_CACHE_LINE, CACHELINE_OUT);
                 break;
             }
-            dcci((__gm__ void *)newElemPtr, SINGLE_CACHE_LINE, CACHELINE_OUT);
-        } while (newElemPtr == 0 || ((__gm__ DynFuncHeader *)newElemPtr)->seqNo == ctx->cachedDevTasks[idx].seqNo);
+            if (newElemPtr) {
+                dcci((__gm__ void *)newElemPtr, SINGLE_CACHE_LINE, CACHELINE_OUT);
+                isContinue = (modifyCnt == 1) ? (((__gm__ DynFuncHeader *)newElemPtr)->seqNo != curLeafDevTaskId) :
+                                (((__gm__ DynFuncHeader *)newElemPtr)->seqNo == ctx->cachedDevTasks[idx].seqNo);
+            } else {
+                isContinue = true;
+            }
+        } while (isContinue);
         UpdateCacheDevTask(ctx, idx, newElemPtr);
         mask &= (mask - 1);
-    }
-
-    if (curLeafDevTaskId !=  ctx->SeqNo()) {
-        return AICORE_TASK_STOP;
     }
 
     return 0;
