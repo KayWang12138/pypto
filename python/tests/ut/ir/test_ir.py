@@ -70,7 +70,6 @@ def test_span():
     span = ir.Span.unknown()
     span1 = ir.Span.unknown()
     print(id(span), id(span1))
-    # assert ir.Span.is_unknown(span)
 
     span = ir.Span("span", 1, 2)
     assert span.filename == "span"
@@ -198,10 +197,10 @@ def test_basic_expr():
         (ir.BitShiftLeft, '<<'),
         (ir.BitShiftRight, '>>'),
     ]:
-       a = ir.ConstInt(1, ir.INT32, span)
-       b = ir.ConstInt(2, ir.INT32, span)
-       expr = bop[0](a, b, ir.INT32, span)
-       assert str(expr) == f"1 {bop[1]} 2"
+        a = ir.ConstInt(1, ir.INT32, span)
+        b = ir.ConstInt(2, ir.INT32, span)
+        expr = bop[0](a, b, ir.INT32, span)
+        assert str(expr) == f"1 {bop[1]} 2"
 
     a = ir.ConstInt(1, ir.INT32, span)
     b = ir.ConstInt(2, ir.INT32, span)

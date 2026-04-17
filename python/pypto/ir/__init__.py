@@ -9,6 +9,85 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
+
+__all__ = [
+    "IRBuilder",
+    "IRNode",
+    "Span",
+    "Type",
+    "Expr",
+    "Stmt",
+    "Var",
+    "MemRef",
+    "Function",
+    "Program",
+
+    "UnknownType",
+    "ScalarType",
+    "TensorType",
+    "TupleType",
+    "PtrType",
+    "DataType",
+
+    "FunctionType",
+    "TensorLayout",
+    "MemorySpace",
+    "PipeType",
+    "CoreType",
+    "ConstInt",
+
+    "ConstFloat",
+    "ConstBool",
+    "Call",
+    "MakeTuple",
+    "TupleGetItem",
+
+    # BinaryExpr
+    "Add",
+    "Sub",
+    "Mul",
+    "FloorDiv",
+    "FloorMod",
+    "FloatDiv",
+    "Min",
+    "Max",
+    "Pow",
+    "Eq",
+    "Ne",
+    "Lt",
+    "Le",
+    "Gt",
+    "Ge",
+    "And",
+    "Or",
+    "Xor",
+    "BitAnd",
+    "BitOr",
+    "BitXor",
+    "BitShiftLeft",
+    "BitShiftRight",
+
+    # UnaryExpr
+    "Abs",
+    "Neg",
+    "Not",
+    "BitNot",
+    "Cast",
+
+    # stmt
+    "IterArg",
+    "AssignStmt",
+    "IfStmt",
+    "YieldStmt",
+    "ReturnStmt",
+    "ForStmt",
+    "WhileStmt",
+    "SeqStmts",
+    "EvalStmt",
+    "BreakStmt",
+    "ContinueStmt",
+]
+
 # --- Type classes ---
 from ..pypto_impl.ir import (
     Type,
@@ -123,82 +202,3 @@ BF16 = DataType.BF16
 HF4 = DataType.HF4
 HF8 = DataType.HF8
 INDEX = DataType.INDEX
-
-
-__all__ = [
-    "IRBuilder",
-    "IRNode",
-    "Span",
-    "Type",
-    "Expr",
-    "Stmt",
-    "Var",
-    "MemRef",
-    "Function",
-    "Program",
-
-    "UnknownType",
-    "ScalarType",
-    "TensorType",
-    "TupleType",
-    "PtrType",
-    "DataType",
-
-    "FunctionType",
-    "TensorLayout",
-    "MemorySpace",
-    "PipeType",
-    "CoreType",
-    "ConstInt",
-
-    "ConstFloat",
-    "ConstBool",
-    "Call",
-    "MakeTuple",
-    "TupleGetItem",
-
-    # BinaryExpr
-    "Add",
-    "Sub",
-    "Mul",
-    "FloorDiv",
-    "FloorMod",
-    "FloatDiv",
-    "Min",
-    "Max",
-    "Pow",
-    "Eq",
-    "Ne",
-    "Lt",
-    "Le",
-    "Gt",
-    "Ge",
-    "And",
-    "Or",
-    "Xor",
-    "BitAnd",
-    "BitOr",
-    "BitXor",
-    "BitShiftLeft",
-    "BitShiftRight",
-
-    # UnaryExpr
-    "Abs",
-    "Neg",
-    "Not",
-    "BitNot",
-    "Cast",
-
-    # stmt
-    "IterArg",
-    "AssignStmt",
-    "IfStmt",
-    "YieldStmt",
-    "ReturnStmt",
-    "ForStmt",
-    "WhileStmt",
-    "SeqStmts",
-    "EvalStmt",
-    "BreakStmt",
-    "ContinueStmt",
-]
