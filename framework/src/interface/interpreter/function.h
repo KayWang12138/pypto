@@ -298,7 +298,7 @@ struct FunctionFrame {
         return view;
     }
 
-    void BindDataView(LogicalTensorPtr tensor, RawTensorDatPtr rawData, LogicalTensorDataPtr view) {
+    void BindDataView(LogicalTensorPtr tensor, RawTensorDataPtr rawData, LogicalTensorDataPtr view) {
         DoAddRawTensorDataView(tensor->GetRawTensor(), rawData);
         DoAddTensorDataView(tensor, view);
     }
