@@ -571,6 +571,30 @@ static std::string MakeManualExpandsCodegenCCE(const ir::CallPtr& op, codegen::C
                                << op->args_.size();
   std::string scalar = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
+
+  // aicore does not allow implicit cast from integer (including index) to float.
+  // Insert explicit (float) cast when scalar is integer/index and dst element type is float.
+  auto scalar_type = ir::As<ir::ScalarType>(op->args_[0]->GetType());
+  auto tile_type   = ir::As<ir::TileType>(op->args_[1]->GetType());
+  if (scalar_type && tile_type) {
+    bool src_is_int = (scalar_type->dtype_ == DataType::INDEX  ||
+                       scalar_type->dtype_ == DataType::INT8   ||
+                       scalar_type->dtype_ == DataType::INT16  ||
+                       scalar_type->dtype_ == DataType::INT32  ||
+                       scalar_type->dtype_ == DataType::INT64  ||
+                       scalar_type->dtype_ == DataType::UINT8  ||
+                       scalar_type->dtype_ == DataType::UINT16 ||
+                       scalar_type->dtype_ == DataType::UINT32 ||
+                       scalar_type->dtype_ == DataType::UINT64);
+    bool dst_is_float = (tile_type->dtype_ == DataType::FP16  ||
+                         tile_type->dtype_ == DataType::FP32  ||
+                         tile_type->dtype_ == DataType::BF16);
+    if (src_is_int && dst_is_float) {
+      // aicore forbids direct unsigned→float cast; go via int64_t first.
+      scalar = "(float)((int64_t)(" + scalar + "))";
+    }
+  }
+
   codegen.Emit("TEXPANDS(" + dst + ", " + scalar + ");");
   return "";
 }
