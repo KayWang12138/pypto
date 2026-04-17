@@ -19,6 +19,7 @@
 #include "adapter/api/hcomm_api.h"
 #include "adapter/api/msprof_api.h"
 #include "adapter/api/runtime_api.h"
+#include "adapter/manager/adapter_manager.h"
 
 namespace npu::tile_fwk {
 class TestAdapterApi : public testing::Test {
@@ -114,5 +115,27 @@ TEST_F(TestAdapterApi, test_runtime_api)
     EXPECT_EQ(RuntimeLaunchCpuKernel(nullptr, 0, nullptr, nullptr, nullptr), RT_SUCCESS);
 
     EXPECT_EQ(RuntimeAicpuKernelLaunchExWithArgs(0, nullptr, 0, nullptr, nullptr, nullptr, 0), RT_SUCCESS);
+}
+
+TEST_F(TestAdapterApi, test_adapter_manager)
+{
+    bool hasCann = std::getenv("ASCEND_HOME_PATH") != nullptr;
+
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::Init) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::Finalize) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtMemcpy) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtSetDevice) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtResetDevice) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtCreateEvent) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtRecordEvent) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtCreateEventExWithFlag) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtStreamWaitEvent) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtGetStreamResLimit) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtGetStreamAttribute) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtCacheLastTaskOpInfo) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::RtSetExceptionInfoCallback) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::MdlRICaptureGetInfo) != nullptr, hasCann);
+    EXPECT_EQ(AdapterManager::Instance().GetAclAdapter().GetFunction(AclFunc::MdlRICaptureThreadExchangeMode) != nullptr, hasCann);
+
 }
 }
