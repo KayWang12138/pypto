@@ -23,7 +23,7 @@
 #include "calc.h"
 #include "interface/interpreter/verify_error.h"
 #include "communication.h"
-#include "machine/runtime/distributed/distributed_context.h"
+#include "tilefwk/comm_group_recorder.h"
 #include <algorithm>
 #include <future>
 
@@ -889,13 +889,13 @@ struct FunctionInterpreter {
         return parameters;
     }
 
-    void ExecuteBindTensor(FunctionFrame& frame, Operation& op, int oOperandIdx,
+    void ExecuteBindTensor(FunctionFrame& frame, Operation& op,
         const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
         std::vector<std::shared_ptr<LogicalTensorData>>& oOpDataList)
     {
         std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
-        ASSERT(op.GetIOperands()->size() == 0);
-        ASSERT(op.GetOOperands()->size() == 1);
+        ASSERT(op.GetIOperands().size() == 0);
+        ASSERT(op.GetOOperands().size() == 1);
         SymbolicScalar attr = op.GetSymbolicScalarAttribute(OpAttributeKey::bindTensor);
         std::vector<uint64_t> parameters = UnBind(attr);
         uint64_t groupIndex = parameters[0];
@@ -918,7 +918,7 @@ struct FunctionInterpreter {
             tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
             out = LogicalTensorData::Create(*tmp);
         }
-        DoAddRawTensorDataView(op.GetOOperands()[0]->tensor, tmp);
+        DoAddRawTensorDataView(op.GetOOperands()[0]->GetRawTensor(), tmp);
         DoAddTensorDataView(op.GetOOperands()[0], out);
         oOpDataList.emplace_back(AllocateDataView(frame, op.GetOOperands()[0]));
     }
