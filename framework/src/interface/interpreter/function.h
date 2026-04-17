@@ -298,6 +298,11 @@ struct FunctionFrame {
         return view;
     }
 
+    void BindDataView(LogicalTensorPtr tensor, RawTensorDatPtr rawData, LogicalTensorDataPtr view) {
+        DoAddRawTensorDataView(tensor->GetRawTensor(), rawData);
+        DoAddTensorDataView(tensor, view);
+    }
+
 private:
     bool IsAllowedInplaceChainOpcode(Opcode opcode) const
     {
@@ -919,9 +924,7 @@ struct FunctionInterpreter {
             tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
             out = LogicalTensorData::Create(*tmp);
         }
-        frame.DoAddRawTensorDataView(op.GetOOperands()[0]->GetRawTensor(), tmp);
-        frame.DoAddTensorDataView(op.GetOOperands()[0], out);
-        oOpDataList.emplace_back(AllocateDataView(frame, op.GetOOperands()[0]));
+        frame.BindDataView(outOp, tmp, out);
     }
 
     void ExecuteInplaceOperation(
