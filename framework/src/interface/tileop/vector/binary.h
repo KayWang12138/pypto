@@ -585,6 +585,8 @@ TILEOP void TFloorDiv(T0 dst, T1 src0, T2 src1, T3 tmp)
                     MaskTileDefine tmp0MaskTile(1, dstShape4);
                     MaskTileDefine tmp1MaskTile(1, dstShape4);
 
+                    constexpr int32_t pos = 0x7FFF7F7F, neg = 0x80008080;
+
                     pto::TASSIGN(tmp0DataTile, (uint64_t)(tmp.GetAddr()));
                     pto::TASSIGN(tmp1DataTile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
                     pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + offset * dstTypeSize));
@@ -594,6 +596,19 @@ TILEOP void TFloorDiv(T0 dst, T1 src0, T2 src1, T3 tmp)
                     // Reuse the same tmp as packed mask storage
                     pto::TASSIGN(tmp0MaskTile, (uint64_t)(tmp.GetAddr()));
                     pto::TASSIGN(tmp1MaskTile, (uint64_t)(tmp.GetAddr() + tileW * dstTypeSize));
+                    
+                    pto::TCMPS(tmp1MaskTile, src1Tile, 0, CmpMode::NE);
+                    pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::LT);
+                    pto::TOR(tmp0MaskTile, tmp0MaskTile, tmp1MaskTile);
+                    pto::TSELS(src0Tile, tmp0MaskTile, src0Tile, tmp1DataTile, pos);
+
+                    pto::TCMPS(tmp1MaskTile, src1Tile, 0, CmpMode::NE);
+                    pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::GE);
+                    pto::TOR(tmp0MaskTile, tmp0MaskTile, tmp1MaskTile);
+                    pto::TSELS(src0Tile, tmp0MaskTile, src0Tile, tmp1DataTile, neg);
+
+                    pto::TCMPS(tmp1MaskTile, src1Tile, 0, CmpMode::NE);
+                    pto::TSELS(src1Tile, tmp1MaskTile, src1Tile, tmp0DataTile, 1);
 
                     pto::TCMPS(tmp0MaskTile, src0Tile, 0, CmpMode::LT);
                     pto::TCMPS(tmp1MaskTile, src1Tile, 0, CmpMode::LT);
