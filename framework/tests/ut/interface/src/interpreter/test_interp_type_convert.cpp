@@ -474,4 +474,45 @@ TEST_F(InterpTypeConvertTest, Fp32CastToHf8FromNegative7640)
     ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
 }
 
+TEST_F(InterpTypeConvertTest, Fp32CastToHf8From220200180160)
+{
+    const std::vector<float> vals = {220.0f, 200.0f, 180.0f, 160.0f};
+    auto src = makeTensorData(DT_FP32, {4}, vals);
+    auto hf8 = makeTensorData(DT_HF8, {4}, std::vector<uint8_t>(4, 0));
+    auto out = makeTensorData(DT_FP32, {4}, 0.0f);
+    // Nearest HF8 grid points (D=10 branch around exponent +7):
+    // 220 -> 224, 200 -> 192, 180 -> 192, 160 -> 160.
+    auto golden = makeTensorData(DT_FP32, {4}, std::vector<float>{224.0f, 192.0f, 192.0f, 160.0f});
+
+    calc::Cast(hf8, src); // FP32 -> HF8 encode
+    calc::Cast(out, hf8); // HF8 -> FP32 decode for validation
+    ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
+}
+
+TEST_F(InterpTypeConvertTest, Fp32CastToHf8FromNegative258)
+{
+    auto src = makeTensorData(DT_FP32, {4}, -247.0f);
+    auto hf8 = makeTensorData(DT_HF8, {4}, static_cast<uint8_t>(0));
+    auto out = makeTensorData(DT_FP32, {4}, 0.0f);
+    // Nearest HF8 grid point is -256.
+    auto golden = makeTensorData(DT_FP32, {4}, -256.0f);
+
+    calc::Cast(hf8, src); // FP32 -> HF8 encode
+    calc::Cast(out, hf8); // HF8 -> FP32 decode for validation
+    ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
+}
+
+TEST_F(InterpTypeConvertTest, Fp32CastToHf8FromNegative247)
+{
+    auto src = makeTensorData(DT_FP32, {4}, -247.0f);
+    auto hf8 = makeTensorData(DT_HF8, {4}, static_cast<uint8_t>(0));
+    auto out = makeTensorData(DT_FP32, {4}, 0.0f);
+    // Nearest HF8 grid point is -256.
+    auto golden = makeTensorData(DT_FP32, {4}, -256.0f);
+
+    calc::Cast(hf8, src); // FP32 -> HF8 encode
+    calc::Cast(out, hf8); // HF8 -> FP32 decode for validation
+    ASSERT_ALLCLOSE_ATOL(out, golden, 1e-5f);
+}
+
 } // namespace npu::tile_fwk
