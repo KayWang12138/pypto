@@ -552,7 +552,7 @@ void CodeGenNPU::BuildIncludes(std::ostringstream& oss) const
     }
 }
 
-void CodeGenNPU::AppendVFOptions(NPUArch platform, std::ostringstream& oss) 
+void CodeGenNPU::AppendVFOptions(NPUArch platform, std::ostringstream& oss)
 {
     if (platform != NPUArch::DAV_3510) {
         
