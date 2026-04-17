@@ -167,6 +167,74 @@ static std::string ComputeManualOffset(codegen::CCECodegen& codegen, const std::
   return offset_computation.str();
 }
 
+static bool IsNZTensorType(const ir::TensorTypePtr& tensor_type) {
+  return tensor_type && tensor_type->tensor_view_.has_value() &&
+         tensor_type->tensor_view_->layout == ir::TensorLayout::NZ;
+}
+
+static int64_t GetNZInnerCols(const DataType& dtype) {
+  if (dtype == DataType::BOOL || dtype == DataType::INT8 || dtype == DataType::UINT8) {
+    return 32;
+  }
+  if (dtype == DataType::FP16 || dtype == DataType::BF16 ||
+      dtype == DataType::INT16 || dtype == DataType::UINT16) {
+    return 16;
+  }
+  if (dtype == DataType::FP32 || dtype == DataType::INT32 || dtype == DataType::UINT32) {
+    return 8;
+  }
+  if (dtype == DataType::INT64 || dtype == DataType::UINT64) {
+    return 4;
+  }
+  throw pypto::ValueError("CCE NZ store does not support destination dtype " + dtype.ToString());
+}
+
+static int64_t GetStaticConstIntOrThrow(const ir::ExprPtr& expr, const std::string& message) {
+  auto value = ir::As<ir::ConstInt>(expr);
+  if (!value) {
+    throw pypto::ValueError(message);
+  }
+  return value->value_;
+}
+
+static bool IsConstZero(const ir::ExprPtr& expr) {
+  auto value = ir::As<ir::ConstInt>(expr);
+  return value && value->value_ == 0;
+}
+
+static void ValidateCCEStoreNZPreconditions(const std::string& op_name,
+                                            const ir::ExprPtr& src_expr,
+                                            const ir::MakeTuplePtr& offsets,
+                                            const ir::TensorTypePtr& dst_tensor_type) {
+  if (!IsNZTensorType(dst_tensor_type)) {
+    return;
+  }
+
+  auto src_tile_type = ir::As<ir::TileType>(src_expr->GetType());
+  CHECK(src_tile_type != nullptr) << op_name << ": source must be TileType";
+  CHECK(src_tile_type->memref_.has_value()) << op_name << ": source tile must have an allocated memory space";
+  if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
+    throw pypto::ValueError(op_name + ": CCE NZ output currently only supports Acc source tiles");
+  }
+
+  if (dst_tensor_type->shape_.size() != 2) {
+    throw pypto::ValueError(op_name + ": CCE NZ output currently requires a 2D destination tensor");
+  }
+  if (offsets->elements_.size() != 2 || !IsConstZero(offsets->elements_[0]) || !IsConstZero(offsets->elements_[1])) {
+    throw pypto::ValueError(op_name + ": CCE NZ output currently requires offsets=[0, 0]");
+  }
+
+  const int64_t rows = GetStaticConstIntOrThrow(
+      dst_tensor_type->shape_[0], op_name + ": CCE NZ output currently requires a static destination row shape");
+  const int64_t cols = GetStaticConstIntOrThrow(
+      dst_tensor_type->shape_[1], op_name + ": CCE NZ output currently requires a static destination column shape");
+  const int64_t c0 = GetNZInnerCols(dst_tensor_type->dtype_);
+  if (rows % 16 != 0 || cols % c0 != 0) {
+    throw pypto::ValueError(
+        op_name + ": CCE NZ output requires rows divisible by 16 and cols divisible by the destination C0 size");
+  }
+}
+
 // ============================================================================
 // manual.load — args = [tensor, offsets, out_tile]
 // Emits: TASSIGN(tensor_global, ptr + offset); TLOAD(out_tile, tensor_global);
@@ -220,6 +288,7 @@ static std::string MakeManualStoreCodegenCCE(const ir::CallPtr& op, codegen::Cod
   std::string dst_tensor_var = codegen.GetVarName(dst_tensor_var_ptr);
   auto dst_tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(dst_tensor_var_ptr->GetType());
   CHECK(dst_tensor_type != nullptr) << "manual.store destination must be TensorType";
+  ValidateCCEStoreNZPreconditions("manual.store", op->args_[0], offsets_tuple, dst_tensor_type);
 
   std::string offset = ComputeManualOffset(codegen, dst_tensor_var, offsets_tuple, dst_tensor_type);
   std::string dst_ptr = codegen.GetPointer(dst_tensor_var);
@@ -299,6 +368,7 @@ static std::string MakeManualStoreFpCodegenCCE(const ir::CallPtr& op, codegen::C
   std::string dst_tensor_var = codegen.GetVarName(dst_tensor_var_ptr);
   auto dst_tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(dst_tensor_var_ptr->GetType());
   CHECK(dst_tensor_type != nullptr) << "manual.store_fp destination must be TensorType";
+  ValidateCCEStoreNZPreconditions("manual.store_fp", op->args_[0], offsets_tuple, dst_tensor_type);
 
   std::string offset = ComputeManualOffset(codegen, dst_tensor_var, offsets_tuple, dst_tensor_type);
   std::string dst_ptr = codegen.GetPointer(dst_tensor_var);

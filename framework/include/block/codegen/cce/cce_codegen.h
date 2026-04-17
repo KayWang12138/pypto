@@ -506,7 +506,8 @@ class CCECodegen : public CodegenBase {
                                 const std::vector<int64_t>& shape_dims,
                                 bool needs_dynamic_stride,
                                 const std::optional<std::string>& base_pointer,
-                                const std::optional<std::string>& tensor_struct_ptr);
+                                const std::optional<std::string>& tensor_struct_ptr,
+                                bool use_runtime_tensor_struct);
 
   // --- Phase 8: AssignStmt helper ---
 

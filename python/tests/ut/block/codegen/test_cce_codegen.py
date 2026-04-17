@@ -313,6 +313,84 @@ def test_manual_store_fp_emits_cce_codegen():
     assert "TASSIGN(outputGlobal" in code
 
 
+def test_manual_store_fp_emits_cce_nz_global_tensor():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualStoreFpNZCCEProgram:
+        @pl.function
+        def store_fp_nz_cce_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8, pl.NZ],
+        ) -> pl.Tensor[[32, 32], pl.INT8, pl.NZ]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            plm.store(output, src, [0, 0], fp_tile=fp)
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualStoreFpNZCCEProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    kernel_name = list(optimized_program.functions.values())[0].name
+    code = files["kernels/aiv/" + kernel_name + ".cpp"]
+
+    assert "TSTORE_FP(" in code
+    assert "Layout::NZ" in code
+    assert "pto::Shape<1, 1, 2, 16, 32>" in code
+    assert "pto::Stride<1024, 1024, 512, 32, 1>" in code
+
+
+def test_manual_store_fp_emits_cce_nz_global_tensor_in_single_file_codegen():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualStoreFpNZSingleFileCCEProgram:
+        @pl.function
+        def store_fp_nz_single_file_cce_kernel(
+            self,
+            output: pl.Tensor[[32, 32], pl.INT8, pl.NZ],
+        ) -> pl.Tensor[[32, 32], pl.INT8, pl.NZ]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.INT32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            fp_type = plm.TileType(
+                shape=[1, 16],
+                dtype=pl.UINT64,
+                target_memory=pl.MemorySpace.Scaling,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            fp = plm.make_tile(fp_type, addr=0x1000, size=128)
+            plm.store(output, src, [0, 0], fp_tile=fp)
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualStoreFpNZSingleFileCCEProgram)
+
+    generator = codegen.CCECodegen()
+    code = generator.generate_single(optimized_program, "a5")
+
+    assert "TSTORE_FP(" in code
+    assert "Layout::NZ" in code
+    assert "pto::Shape<1, 1, 2, 16, 32>" in code
+    assert "pto::Stride<1024, 1024, 512, 32, 1>" in code
+
+
 def test_manual_move_fp_emits_cce_tmov_fp():
     backend.reset_for_testing()
     backend.set_backend_type(BackendType.CCE)
@@ -767,6 +845,91 @@ def test_debug_dump_tensor_location_header_codegen():
     assert "TPRINT(" in code
 
 
+def test_debug_dump_tensor_nz_codegen():
+    """CCE debug.dump_tensor should emit an NZ GlobalTensor view for static NZ tensors."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class DebugDumpTensorNZProgram:
+        @pl.function
+        def debug_dump_tensor_nz(
+            self,
+            input: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+            output: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+        ):
+            plm.dump_tensor(input)
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(DebugDumpTensorNZProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    code = files["kernels/aiv/debug_dump_tensor_nz.cpp"]
+
+    assert "Layout::NZ" in code
+    assert "pto::Shape<1, 4, 2, 16, 8>" in code
+    assert "pto::Stride<1024, 256, 128, 8, 1>" in code
+    assert "->start_offset" in code
+    assert "TPRINT(__debug_dump_tensor_view_" in code
+
+
+def test_debug_dump_tensor_nz_static_window_codegen():
+    """CCE debug.dump_tensor should emit aligned static NZ windows with NZ layout metadata."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class DebugDumpTensorNZWindowProgram:
+        @pl.function
+        def debug_dump_tensor_nz_window(
+            self,
+            input: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+            output: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+        ):
+            plm.dump_tensor(input, offsets=[16, 8], shapes=[16, 8])
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(DebugDumpTensorNZWindowProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    code = files["kernels/aiv/debug_dump_tensor_nz_window.cpp"]
+
+    assert "Layout::NZ" in code
+    assert "pto::Shape<1, 1, 1, 16, 8>" in code
+    assert "pto::Stride<1024, 256, 128, 8, 1>" in code
+    assert "->start_offset" in code
+    assert "384" in code
+    assert "TPRINT(__debug_dump_tensor_view_" in code
+
+
+def test_debug_dump_tensor_nz_rejects_unaligned_window():
+    """CCE debug.dump_tensor should reject non-aligned static NZ windows."""
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class DebugDumpTensorNZBadWindowProgram:
+        @pl.function
+        def debug_dump_tensor_nz_bad_window(
+            self,
+            input: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+            output: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+        ):
+            plm.dump_tensor(input, offsets=[8, 0], shapes=[16, 8])
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(DebugDumpTensorNZBadWindowProgram)
+
+    generator = codegen.CCECodegen()
+    with pytest.raises(ValueError, match="aligned static windows"):
+        generator.generate(optimized_program)
+
+
 def test_debug_dump_tile_dynamic_offset_codegen():
     """CCE dump_tile window lowering should emit runtime clamp logic and direct printing."""
     backend.reset_for_testing()
@@ -825,6 +988,99 @@ def test_debug_dump_tile_location_header_codegen():
 
     assert re.search(r'cce::printf\("\[test_cce_codegen\.py:\d+\] dump_tile\\n"\);', code)
     assert "TPRINT(" in code
+
+
+def test_manual_store_emits_cce_nz_global_tensor():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualStoreNZProgram:
+        @pl.function
+        def manual_store_nz(
+            self,
+            output: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+        ) -> pl.Tensor[[32, 32], pl.FP32, pl.NZ]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            plm.store(output, src, [0, 0])
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualStoreNZProgram)
+
+    generator = codegen.CCECodegen()
+    files = generator.generate(optimized_program)
+    code = files["kernels/aiv/manual_store_nz.cpp"]
+
+    assert "TSTORE(" in code
+    assert "Layout::NZ" in code
+    assert "pto::Shape<1, 4, 2, 16, 8>" in code
+    assert "pto::Stride<1024, 256, 128, 8, 1>" in code
+
+
+def test_manual_store_emits_cce_nz_global_tensor_in_single_file_codegen():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualStoreNZSingleFileProgram:
+        @pl.function
+        def manual_store_nz_single_file(
+            self,
+            output: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+        ) -> pl.Tensor[[32, 32], pl.FP32, pl.NZ]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            plm.store(output, src, [0, 0])
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualStoreNZSingleFileProgram)
+
+    generator = codegen.CCECodegen()
+    code = generator.generate_single(optimized_program, "a5")
+
+    assert "TSTORE(" in code
+    assert "Layout::NZ" in code
+    assert "pto::Shape<1, 4, 2, 16, 8>" in code
+    assert "pto::Stride<1024, 256, 128, 8, 1>" in code
+
+
+def test_manual_store_nz_rejects_non_zero_offsets():
+    backend.reset_for_testing()
+    backend.set_backend_type(BackendType.CCE)
+
+    @pl.program
+    class ManualStoreNZOffsetProgram:
+        @pl.function
+        def manual_store_nz_offset(
+            self,
+            output: pl.Tensor[[32, 32], pl.FP32, pl.NZ],
+        ) -> pl.Tensor[[32, 32], pl.FP32, pl.NZ]:
+            src_type = plm.TileType(
+                shape=[32, 32],
+                dtype=pl.FP32,
+                target_memory=pl.MemorySpace.Acc,
+            )
+            src = plm.make_tile(src_type, addr=0x0000, size=4096)
+            plm.store(output, src, [16, 0])
+            return output
+
+    pm = PassManager.get_strategy()
+    optimized_program = pm.run_passes(ManualStoreNZOffsetProgram)
+
+    generator = codegen.CCECodegen()
+    with pytest.raises(ValueError, match=r"offsets=\[0, 0\]"):
+        generator.generate(optimized_program)
 
 
 if __name__ == "__main__":
