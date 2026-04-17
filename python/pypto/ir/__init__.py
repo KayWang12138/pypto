@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software; you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +9,85 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
+
+__all__ = [
+    "IRBuilder",
+    "IRNode",
+    "Span",
+    "Type",
+    "Expr",
+    "Stmt",
+    "Var",
+    "MemRef",
+    "Function",
+    "Program",
+
+    "UnknownType",
+    "ScalarType",
+    "TensorType",
+    "TupleType",
+    "PtrType",
+    "DataType",
+
+    "FunctionType",
+    "TensorLayout",
+    "MemorySpace",
+    "PipeType",
+    "CoreType",
+    "ConstInt",
+
+    "ConstFloat",
+    "ConstBool",
+    "Call",
+    "MakeTuple",
+    "TupleGetItem",
+
+    # BinaryExpr
+    "Add",
+    "Sub",
+    "Mul",
+    "FloorDiv",
+    "FloorMod",
+    "FloatDiv",
+    "Min",
+    "Max",
+    "Pow",
+    "Eq",
+    "Ne",
+    "Lt",
+    "Le",
+    "Gt",
+    "Ge",
+    "And",
+    "Or",
+    "Xor",
+    "BitAnd",
+    "BitOr",
+    "BitXor",
+    "BitShiftLeft",
+    "BitShiftRight",
+
+    # UnaryExpr
+    "Abs",
+    "Neg",
+    "Not",
+    "BitNot",
+    "Cast",
+
+    # stmt
+    "IterArg",
+    "AssignStmt",
+    "IfStmt",
+    "YieldStmt",
+    "ReturnStmt",
+    "ForStmt",
+    "WhileStmt",
+    "SeqStmts",
+    "EvalStmt",
+    "BreakStmt",
+    "ContinueStmt",
+]
 
 # --- Type classes ---
 from ..pypto_impl.ir import (
@@ -123,82 +203,3 @@ BF16 = DataType.BF16
 HF4 = DataType.HF4
 HF8 = DataType.HF8
 INDEX = DataType.INDEX
-
-
-__all__ = [
-    "IRBuilder",
-    "IRNode",
-    "Span",
-    "Type",
-    "Expr",
-    "Stmt",
-    "Var",
-    "MemRef",
-    "Function",
-    "Program",
-
-    "UnknownType",
-    "ScalarType",
-    "TensorType",
-    "TupleType",
-    "PtrType",
-    "DataType",
-
-    "FunctionType",
-    "TensorLayout",
-    "MemorySpace",
-    "PipeType",
-    "CoreType",
-    "ConstInt",
-
-    "ConstFloat",
-    "ConstBool",
-    "Call",
-    "MakeTuple",
-    "TupleGetItem",
-
-    # BinaryExpr
-    "Add",
-    "Sub",
-    "Mul",
-    "FloorDiv",
-    "FloorMod",
-    "FloatDiv",
-    "Min",
-    "Max",
-    "Pow",
-    "Eq",
-    "Ne",
-    "Lt",
-    "Le",
-    "Gt",
-    "Ge",
-    "And",
-    "Or",
-    "Xor",
-    "BitAnd",
-    "BitOr",
-    "BitXor",
-    "BitShiftLeft",
-    "BitShiftRight",
-
-    # UnaryExpr
-    "Abs",
-    "Neg",
-    "Not",
-    "BitNot",
-    "Cast",
-
-    # stmt
-    "IterArg",
-    "AssignStmt",
-    "IfStmt",
-    "YieldStmt",
-    "ReturnStmt",
-    "ForStmt",
-    "WhileStmt",
-    "SeqStmts",
-    "EvalStmt",
-    "BreakStmt",
-    "ContinueStmt",
-]
