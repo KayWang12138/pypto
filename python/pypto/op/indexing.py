@@ -13,6 +13,7 @@ from typing import Union
 from .. import pypto_impl
 from ..enum import ScatterMode
 from .._op_wrapper import op_wrapper
+from ..error import PyptoError, _error_mapping
 from ..tensor import Tensor
 from .._element import Element
 from ..tensor import Tensor
@@ -410,14 +411,16 @@ def scatter_update(input: Tensor, dim: int, index: Tensor, src: Tensor) -> Tenso
              ]]
     """
     if dim != -2:
-        raise ValueError("scatter currection only support the case where dim = -2.")
+        raise PyptoError(
+            ValueError("scatter currection only support the case where dim = -2."),
+            err_code=_error_mapping[ValueError])
     dims = input.Dim()
     if dims == 4:
         chunk_size = input.GetShape()[1]
     elif dims == 2:
         chunk_size = 1
     else:
-        raise ValueError("dim must be 2 or 4")
+        raise PyptoError(ValueError("dim must be 2 or 4"), err_code=_error_mapping[ValueError])
 
     return pypto_impl.ScatterUpdate(input, index, src, -2, "PA_BSND", chunk_size)
 
@@ -430,7 +433,9 @@ def get_scatter_mode(reduce: str):
     elif reduce == 'multiply':
         return ScatterMode.MULTIPLY
     else:
-        raise ValueError("scatter reduce only support 'add', 'multiply'")
+        raise PyptoError(
+            ValueError("scatter reduce only support 'add', 'multiply'"),
+            err_code=_error_mapping[ValueError])
 
 
 @op_wrapper
@@ -489,7 +494,9 @@ def scatter_(
                 [0   2.0 0 0 0]]
     """
     if index.dtype not in (pypto_impl.DT_INT32, pypto_impl.DT_INT64):
-        raise TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}")
+        raise PyptoError(
+            TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}"),
+            err_code=_error_mapping[TypeError])
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, (int, float)):
         src_float = float(src)
@@ -502,7 +509,9 @@ def scatter_(
         input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
         return input
     else:
-        raise TypeError(f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}")
+        raise PyptoError(
+            TypeError(f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}"),
+            err_code=_error_mapping[TypeError])
 
 
 @op_wrapper
@@ -510,7 +519,9 @@ def scatter(
     input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Out-of-place version of 'scatter_'."""
     if index.dtype not in (pypto_impl.DT_INT32, pypto_impl.DT_INT64):
-        raise TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}")
+        raise PyptoError(
+            TypeError(f"index tensor must be of int32 or int64, but got {index.dtype}"),
+            err_code=_error_mapping[TypeError])
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, (int, float)):
         src_float = float(src)
@@ -520,8 +531,9 @@ def scatter(
     elif isinstance(src, pypto_impl.Tensor):
         return pypto_impl.Scatter(input, index, src, dim, scatter_mode)
     else:
-        raise TypeError(
-            f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}")
+        raise PyptoError(
+            TypeError(f"Expected src to be int, float, Element, or Tensor, but got {type(src).__name__}"),
+            err_code=_error_mapping[TypeError])
 
 
 @op_wrapper
