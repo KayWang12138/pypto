@@ -648,6 +648,45 @@ TILEOP void TExtract(T& dst, U& src, const Coord& coord, int16_t subblockId)
     }
 }
 
+// Copy data from L0C to UB dualdst
+template <CopyOutMode mode, int splitMN, typename Coord, typename T, typename U>
+TILEOP void TExtract(T& dst, U& src, const Coord& dstCoord, const Coord& srcCoord)
+{
+    if (!CheckShapeValid(dst, src)) {
+        return;
+    }
+    constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
+    constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
+    static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
+    if constexpr (T::FORMAT == Hardware::UB && U::FORMAT == Hardware::L0C) {
+        int64_t srcOffset0 = srcCoord.GetValue();
+        int64_t srcOffset1 = static_cast<const Std::tuple<size_t>&>(srcCoord).GetValue();
+        constexpr auto staticUBH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
+        constexpr auto staticUBW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
+        constexpr auto staticL0CH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename U::TileShape>::type::value;
+        constexpr auto staticL0CW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
+        int64_t srcShape0 = GetShape<0>(src);
+        int64_t srcShape1 = GetShape<1>(src);
+        int64_t dstShape0 = GetShape<0>(dst);
+        int64_t dstShape1 = GetShape<1>(dst);
+        int64_t l0cOffset = CalNZOffset(srcShape0, srcShape1, offset0, offset1, c0Size);
+        using tileUBTensor = pto::Tile<
+            pto::TileType::Vec, typename T::Type, staticUBH, staticUBW,
+            mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, -1, -1,
+            mode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor>;
+        using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW, -1, -1>;
+        tileUBTensor UBTile(dstShape0, dstShape1);
+        tileL0CTensor l0cTile(srcShape0, srcShape1);
+        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr() + l0cOffset);
+        if constexpr (splitMN == 0) {
+            pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::DualModeSplitM>(UBTile, l0cTile, srcOffset0, srcOffset1);
+        } else {
+            pto::TEXTRACT<tileUBTensor, tileL0CTensor, pto::AccToVecMode::DualModeSplitN>(UBTile, l0cTile, srcOffset0, srcOffset1);
+        }
+    }
+}
+
 template <bool isZeroC, TransMode transMode, typename T, typename U, typename V>
 TILEOP void TMatmul(T& c, U& a, V& b)
 {
