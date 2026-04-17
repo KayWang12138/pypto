@@ -1,3 +1,8 @@
+---
+name: tune-orchestrator
+description: "PyPTO 算子性能调优编排器。负责严格控制调优流程顺序、迭代轮次和 Todo 清单维护，不直接提供具体优化实现。触发词：性能调优编排、调优流程控制、orchestrator、性能调优状态机。"
+---
+
 # PyPTO 算子性能调优编排器
 
 ## 角色
