@@ -17,15 +17,16 @@
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
-uint64_t StubDumpGetDumpSwitch(const AdxDumpType dumpType) {
+uint64_t StubDumpGetDumpSwitch(const AdxDumpType dumpType)
+{
     ADAPTER_LOGD("Enter stub function of AdumpGetDumpSwitch.");
     (void)dumpType;
     return 0;
-
 }
 
 int32_t StubDumpDumpTensorV2(const std::string &opType, const std::string &opName,
-    const std::vector<AdxTensorInfoV2> &tensors, AclRtStream stream) {
+    const std::vector<AdxTensorInfoV2> &tensors, AclRtStream stream)
+{
     ADAPTER_LOGD("Enter stub function of AdumpDumpTensorV2.");
     (void)opType;
     (void)opName;

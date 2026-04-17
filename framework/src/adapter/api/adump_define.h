@@ -49,15 +49,15 @@ enum class AdxTensorPlacement : int32_t {
 };
 
 struct AdxTensorInfoV2 {
-    AdxTensorType type;       // tensor类型
-    size_t tensorSize;     // tensor内存大小
+    AdxTensorType type;
+    size_t tensorSize;
     int32_t format;
     int32_t dataType;
-    int64_t *tensorAddr;   // tensor数据地址
-    AdxAddressType addrType;  // 地址的类型
+    int64_t *tensorAddr;
+    AdxAddressType addrType;
     int32_t placement;
-    uint32_t argsOffSet;   // tensor数据地址在args里的偏移
-    std::vector<int64_t> shape;  //shape
-    std::vector<int64_t> originShape; //originShape
+    uint32_t argsOffSet;
+    std::vector<int64_t> shape;
+    std::vector<int64_t> originShape;
 };
 }
