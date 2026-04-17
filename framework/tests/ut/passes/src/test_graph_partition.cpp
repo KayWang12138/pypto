@@ -490,7 +490,7 @@ void GetWideGraph(ComputationalGraphBuilder& G, int brNum)
 TEST_F(GraphPartitionTest, TestLargeWideGraph)
 {
     ComputationalGraphBuilder G;
-    const int brNum = 20;
+    const int brNum = 5000;
     GetWideGraph(G, brNum);
     Function* function = G.GetFunction();
     const int cycleUB = 100000;
@@ -531,7 +531,7 @@ void GetDeepGraph(ComputationalGraphBuilder& G, int brNum)
 TEST_F(GraphPartitionTest, TestLargeDeepGraph)
 {
     ComputationalGraphBuilder G;
-    const int brNum = 20;
+    const int brNum = 5000;
     GetDeepGraph(G, brNum);
     Function* function = G.GetFunction();
     const int cycleUB = 100000;
@@ -1013,5 +1013,6 @@ TEST_F(GraphPartitionTest, TestMatMulViewNonL0C)
     EXPECT_NE(mulOp->GetSubgraphID(), viewDDROp->GetSubgraphID());
     EXPECT_EQ(mulOp->GetSubgraphID(), viewL1Op->GetSubgraphID());
 }
+
 } // namespace tile_fwk
 } // namespace npu
