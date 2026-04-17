@@ -1,5 +1,6 @@
 /*
  * Copyright (c) PyPTO Contributors.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -403,7 +404,6 @@ bool IRPrinter::NeedsParens(const ExprPtr& parent, const ExprPtr& child, bool is
 {
     Precedence parent_prec = GetPrecedence(parent);
     Precedence child_prec = GetPrecedence(child);
-
     if (child_prec < parent_prec) {
         return true;
     }
@@ -415,7 +415,6 @@ bool IRPrinter::NeedsParens(const ExprPtr& parent, const ExprPtr& child, bool is
             return !is_left;
         }
     }
-
     return false;
 }
 
@@ -423,7 +422,6 @@ bool IRPrinter::NeedsParens(const ExprPtr& parent, const ExprPtr& child, bool is
 void IRPrinter::PrintChild(const ExprPtr& parent, const ExprPtr& child, bool is_left)
 {
     bool needs_parens = NeedsParens(parent, child, is_left);
-
     if (needs_parens) {
         stream_ << "(";
     }

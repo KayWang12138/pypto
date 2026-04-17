@@ -1,4 +1,5 @@
-/**
+/*
+ * Copyright (c) PyPTO Contributors.
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -131,7 +132,8 @@ void BindExpr(py::module& m)
              "Create an iteration argument with initial value");
     BindFields<IterArg>(iterArg);
 
-    auto memref = py::class_<MemRef, Expr, std::shared_ptr<MemRef>>(m, "MemRef", "Memory reference variable for shaped types (inherits from Var)")
+    auto memref = py::class_<MemRef, Expr, std::shared_ptr<MemRef>>(m, "MemRef",
+            "Memory reference variable for shaped types (inherits from Var)")
         .def(py::init<MemorySpace, ExprPtr, uint64_t, Span>(),
              py::arg("memory_space"), py::arg("offset"), py::arg("size"), py::arg("span") = Span::Unknown(),
              "Create a memory reference from memory space, offset, and size")
@@ -148,14 +150,16 @@ void BindExpr(py::module& m)
         .def_property_readonly("dtype", &ConstInt::dtype, "Data type of the expression");
     BindFields<ConstInt>(constint);
 
-    auto constfloat = py::class_<ConstFloat, Expr, std::shared_ptr<ConstFloat>>(m, "ConstFloat", "Constant float expression")
+    auto constfloat = py::class_<ConstFloat, Expr, std::shared_ptr<ConstFloat>>(m, "ConstFloat",
+            "Constant float expression")
         .def(py::init<double, DataType, const Span&>(),
              py::arg("value"), py::arg("dtype"), py::arg("span"),
              "Create a constant float expression")
         .def_property_readonly("dtype", &ConstFloat::dtype, "Data type of the expression");
     BindFields<ConstFloat>(constfloat);
 
-    auto constbool_class = py::class_<ConstBool, Expr, std::shared_ptr<ConstBool>>(m, "ConstBool", "Constant boolean expression")
+    auto constbool_class = py::class_<ConstBool, Expr, std::shared_ptr<ConstBool>>(m, "ConstBool",
+            "Constant boolean expression")
         .def(py::init<bool, const Span&>(),
              py::arg("value"), py::arg("span"),
              "Create a constant boolean expression")
@@ -168,22 +172,26 @@ void BindExpr(py::module& m)
              "Create a function call expression");
     BindFields<Call>(call);
 
-    auto make_tuple = py::class_<MakeTuple, Expr, std::shared_ptr<MakeTuple>>(m, "MakeTuple", "Tuple construction expression")
+    auto make_tuple = py::class_<MakeTuple, Expr, std::shared_ptr<MakeTuple>>(m, "MakeTuple",
+            "Tuple construction expression")
         .def(py::init<const std::vector<ExprPtr>&, const Span&>(),
              py::arg("elements"), py::arg("span"),
              "Create a tuple construction expression");
     BindFields<MakeTuple>(make_tuple);
 
-    auto tuple_get_item = py::class_<TupleGetItemExpr, Expr, std::shared_ptr<TupleGetItemExpr>>(m, "TupleGetItemExpr", "Tuple element access expression")
+    auto tuple_get_item = py::class_<TupleGetItemExpr, Expr, std::shared_ptr<TupleGetItemExpr>>(m, "TupleGetItemExpr",
+            "Tuple element access expression")
         .def(py::init<const ExprPtr&, int, const Span&>(),
              py::arg("tuple"), py::arg("index"), py::arg("span"),
              "Create a tuple element access expression");
     BindFields<TupleGetItemExpr>(tuple_get_item);
 
-    auto binary_expr = py::class_<BinaryExpr, Expr, std::shared_ptr<BinaryExpr>>(m, "BinaryExpr", "Base class for binary operations");
+    auto binary_expr = py::class_<BinaryExpr, Expr, std::shared_ptr<BinaryExpr>>(m, "BinaryExpr",
+        "Base class for binary operations");
     BindFields<BinaryExpr>(binary_expr);
 
-    auto unary_expr = py::class_<UnaryExpr, Expr, std::shared_ptr<UnaryExpr>>(m, "UnaryExpr", "Base class for unary operations");
+    auto unary_expr = py::class_<UnaryExpr, Expr, std::shared_ptr<UnaryExpr>>(m, "UnaryExpr",
+        "Base class for unary operations");
     BindFields<UnaryExpr>(unary_expr);
 
 #define BIND_BINARY_EXPR(OpName, Description)                                                                     \
@@ -241,7 +249,8 @@ void BindStmt(py::module& m)
     auto stmt = py::class_<Stmt, IRNode, std::shared_ptr<Stmt>>(m, "Stmt", "Base class for all statements");
     BindFields<Stmt>(stmt);
 
-    auto assign_stmt = py::class_<AssignStmt, Stmt, std::shared_ptr<AssignStmt>>(m, "AssignStmt", "Assignment statement: var = value")
+    auto assign_stmt = py::class_<AssignStmt, Stmt, std::shared_ptr<AssignStmt>>(m, "AssignStmt",
+            "Assignment statement: var = value")
         .def(py::init<const VarPtr&, const ExprPtr&, const Span&>(),
              py::arg("var"), py::arg("value"), py::arg("span"),
              "Create an assignment statement");
@@ -256,7 +265,8 @@ void BindStmt(py::module& m)
              "Create a conditional statement with then and else branches (else_body can be None)");
     BindFields<IfStmt>(if_stmt);
 
-    auto yield_stmt = py::class_<YieldStmt, Stmt, std::shared_ptr<YieldStmt>>(m, "YieldStmt", "Yield statement: yield value")
+    auto yield_stmt = py::class_<YieldStmt, Stmt, std::shared_ptr<YieldStmt>>(m, "YieldStmt",
+            "Yield statement: yield value")
         .def(py::init<const std::vector<ExprPtr>&, const Span&>(),
              py::arg("value"), py::arg("span"),
              "Create a yield statement with a list of expressions")
@@ -265,7 +275,8 @@ void BindStmt(py::module& m)
              "Create a yield statement without values");
     BindFields<YieldStmt>(yield_stmt);
 
-    auto return_stmt = py::class_<ReturnStmt, Stmt, std::shared_ptr<ReturnStmt>>(m, "ReturnStmt", "Return statement: return value")
+    auto return_stmt = py::class_<ReturnStmt, Stmt, std::shared_ptr<ReturnStmt>>(m, "ReturnStmt",
+            "Return statement: return value")
         .def(py::init<const std::vector<ExprPtr>&, const Span&>(),
              py::arg("value"), py::arg("span"),
              "Create a return statement with a list of expressions")
@@ -307,17 +318,20 @@ void BindStmt(py::module& m)
         }, py::arg("index"), "Get statement by index, supports negative indexing");
     BindFields<SeqStmts>(seq_stmt);
 
-    auto eval_stmt_class = py::class_<EvalStmt, Stmt, std::shared_ptr<EvalStmt>>(m, "EvalStmt", "Evaluation statement: expr")
+    auto eval_stmt_class = py::class_<EvalStmt, Stmt, std::shared_ptr<EvalStmt>>(m, "EvalStmt",
+            "Evaluation statement: expr")
         .def(py::init<const ExprPtr&, const Span&>(),
              py::arg("expr"), py::arg("span"),
              "Create an evaluation statement");
     BindFields<EvalStmt>(eval_stmt_class);
 
-    auto break_stmt = py::class_<BreakStmt, Stmt, std::shared_ptr<BreakStmt>>(m, "BreakStmt", "Break statement: break")
+    auto break_stmt = py::class_<BreakStmt, Stmt, std::shared_ptr<BreakStmt>>(m, "BreakStmt",
+            "Break statement: break")
         .def(py::init<const Span&>(), py::arg("span"), "Create a break statement");
     BindFields<BreakStmt>(break_stmt);
 
-    auto continue_stmt = py::class_<ContinueStmt, Stmt, std::shared_ptr<ContinueStmt>>(m, "ContinueStmt", "Continue statement: continue")
+    auto continue_stmt = py::class_<ContinueStmt, Stmt, std::shared_ptr<ContinueStmt>>(m, "ContinueStmt",
+            "Continue statement: continue")
         .def(py::init<const Span&>(), py::arg("span"), "Create a continue statement");
     BindFields<ContinueStmt>(continue_stmt);
 

@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) PyPTO Contributors.
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -242,7 +243,7 @@ public:
     }
 
     template <typename Desc>
-    void CombineResult(ResultType& accumulator, ResultType field_hash, const Desc& /*descriptor*/)
+    void CombineResult(ResultType& accumulator, ResultType field_hash, [[maybe_unused]] const Desc& descriptor)
     {
         accumulator = hash_combine(accumulator, field_hash);
     }
