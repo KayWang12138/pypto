@@ -1,10 +1,12 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 from __future__ import annotations
 
 import ast
 
 from ..ast_helpers import _get_jit_functions
-from ..core import CheckContext, register
-from ..utils import _syntax_error_finding
+from ..core import CheckContext, Finding, register
+
 
 @register("OL15")
 def check_ol15(ctx: CheckContext) -> Finding:
@@ -28,6 +30,7 @@ def check_ol15(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL15", "PASS",
         "golden 文件未导入 pypto", file=golden_file)
 
+
 @register("OL16")
 def check_ol16(ctx: CheckContext) -> Finding:
     """impl 文件不应导入 golden 模块"""
@@ -50,6 +53,7 @@ def check_ol16(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL16", "PASS",
         "impl 文件未导入 golden", file=impl_file)
 
+
 @register("OL17")
 def check_ol17(ctx: CheckContext) -> Finding:
     """test 文件不应包含 kernel 实现代码"""
@@ -65,6 +69,7 @@ def check_ol17(ctx: CheckContext) -> Finding:
             file=test_file, line=func.lineno)
     return ctx.make_finding("OL17", "PASS",
         "test 文件未包含 kernel 实现", file=test_file)
+
 
 @register("OL18")
 def check_ol18(ctx: CheckContext) -> Finding:

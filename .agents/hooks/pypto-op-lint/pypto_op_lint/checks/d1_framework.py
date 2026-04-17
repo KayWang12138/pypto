@@ -1,3 +1,5 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 from __future__ import annotations
 
 import ast
@@ -12,8 +14,9 @@ from ..ast_helpers import (
     _is_pypto_tensor_annotation,
     _shape_has_dynamic,
 )
-from ..core import CheckContext, DESIGN_FILE, register
-from ..utils import _check_npu_available, _syntax_error_finding
+from ..core import CheckContext, Finding, register
+from ..utils import _syntax_error_finding
+
 
 @register("OL01")
 def check_ol01(ctx: CheckContext) -> Finding:
@@ -35,6 +38,7 @@ def check_ol01(ctx: CheckContext) -> Finding:
         f"禁止在此文件上做局部修补或变通处理，"
         f"必须删除当前 {impl_file} 并基于 SPEC.md / DESIGN.md 从零重新生成。",
         file=impl_file)
+
 
 @register("OL02")
 def check_ol02(ctx: CheckContext) -> Finding:
@@ -64,6 +68,7 @@ def check_ol02(ctx: CheckContext) -> Finding:
                         file=impl_file, line=node.lineno)
     return ctx.make_finding("OL02", "PASS", "输出写回方式正确", file=impl_file)
 
+
 @register("OL03")
 def check_ol03(ctx: CheckContext) -> Finding:
     """kernel 函数不能有 return 语句"""
@@ -81,6 +86,7 @@ def check_ol03(ctx: CheckContext) -> Finding:
                     f"jit 函数 {func.name} 内存在 return 语句",
                     file=impl_file, line=node.lineno)
     return ctx.make_finding("OL03", "PASS", "jit 函数无 return 语句", file=impl_file)
+
 
 @register("OL04")
 def check_ol04(ctx: CheckContext) -> Finding:
@@ -100,6 +106,7 @@ def check_ol04(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL04", "FAIL",
         "jit 函数体内未找到 set_vec_tile_shapes 或 set_cube_tile_shapes 调用"
         "（注意：必须在 @jit 装饰的函数内部调用）", file=impl_file)
+
 
 @register("OL05")
 def check_ol05(ctx: CheckContext) -> Finding:
@@ -127,6 +134,7 @@ def check_ol05(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL05", "PASS",
         "jit 函数张量参数均有 pypto.Tensor 类型注解", file=impl_file)
 
+
 @register("OL06")
 def check_ol06(ctx: CheckContext) -> Finding:
     """kernel 内禁用 Python 原生 min()/max()"""
@@ -143,6 +151,7 @@ def check_ol06(ctx: CheckContext) -> Finding:
                     "应使用 pypto 等价函数",
                     file=impl_file, line=node.lineno)
     return ctx.make_finding("OL06", "PASS", "未使用原生 min/max", file=impl_file)
+
 
 @register("OL07")
 def check_ol07(ctx: CheckContext) -> Finding:
@@ -168,6 +177,7 @@ def check_ol07(ctx: CheckContext) -> Finding:
         f"必须删除当前 {impl_file} 并基于 DESIGN.md 重新实现。",
         file=impl_file)
 
+
 @register("OL08")
 def check_ol08(ctx: CheckContext) -> Finding:
     """wrapper 函数必须导出且以 _wrapper 结尾"""
@@ -182,6 +192,7 @@ def check_ol08(ctx: CheckContext) -> Finding:
                 file=impl_file, line=node.lineno)
     return ctx.make_finding("OL08", "FAIL",
         "未找到以 _wrapper 结尾的模块级函数", file=impl_file)
+
 
 @register("OL23")
 def check_ol23(ctx: CheckContext) -> Finding:
@@ -201,6 +212,7 @@ def check_ol23(ctx: CheckContext) -> Finding:
     return ctx.make_finding("OL23", "WARN",
         "未检测到 loop 相关结构；若该算子需要分块或迭代，请确认设计已说明无需 loop",
         file=impl_file)
+
 
 @register("OL25")
 def check_ol25(ctx: CheckContext) -> Finding:
@@ -223,7 +235,7 @@ def check_ol25(ctx: CheckContext) -> Finding:
                 continue
             if not isinstance(ann, ast.Call):
                 continue
-            if len(ann.args) == 0:
+            if not ann.args:
                 return ctx.make_finding("OL25", "WARN",
                     f"参数 `{arg.arg}` 使用 pypto.Tensor()（无参数形式），"
                     "建议补全 shape 和 dtype",
@@ -235,6 +247,7 @@ def check_ol25(ctx: CheckContext) -> Finding:
                     file=impl_file, line=ann.lineno)
     return ctx.make_finding("OL25", "PASS",
         "JIT Tensor 注解均包含 shape 与 dtype", file=impl_file)
+
 
 @register("OL26")
 def check_ol26(ctx: CheckContext) -> Finding:
@@ -262,6 +275,7 @@ def check_ol26(ctx: CheckContext) -> Finding:
                         file=impl_file, line=func.lineno)
     return ctx.make_finding("OL26", "PASS",
         "jit 函数参数顺序正确（张量在前、标量在后）", file=impl_file)
+
 
 @register("OL28")
 def check_ol28(ctx: CheckContext) -> Finding:
@@ -295,6 +309,7 @@ def check_ol28(ctx: CheckContext) -> Finding:
                         file=impl_file, line=func.lineno)
     return ctx.make_finding("OL28", "PASS",
         "FP32-only API 与 dtype 注解一致", file=impl_file)
+
 
 @register("OL29")
 def check_ol29(ctx: CheckContext) -> Finding:

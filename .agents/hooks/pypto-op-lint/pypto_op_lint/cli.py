@@ -1,32 +1,49 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from __future__ import annotations
 
 import argparse
 
 from . import checks  # noqa: F401
-from .core import CONSISTENCY_RULE_IDS, Finding, GOLDEN_RULE_IDS, IMPL_RULE_IDS, TEST_RULE_IDS, _has_error_fail, _run_checks
+from .core import (
+    CONSISTENCY_RULE_IDS,
+    GOLDEN_RULE_IDS,
+    IMPL_RULE_IDS,
+    TEST_RULE_IDS,
+    Finding,
+    _has_error_fail,
+    _run_checks,
+)
 from .hooks import hook_post_bash, hook_post_edit, hook_pre_edit_backup, hook_stop
 from .infer import _build_context
 from .observability import _print_findings
+
 
 def _cmd_run(findings: list[Finding]) -> int:
     _print_findings(findings)
     return 2 if _has_error_fail(findings) else 0
 
+
 def cmd_lint_impl(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
     return _cmd_run(_run_checks(ctx, IMPL_RULE_IDS))
+
 
 def cmd_lint_golden(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
     return _cmd_run(_run_checks(ctx, GOLDEN_RULE_IDS))
 
+
 def cmd_lint_test(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
     return _cmd_run(_run_checks(ctx, TEST_RULE_IDS))
 
+
 def cmd_lint_consistency(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
     return _cmd_run(_run_checks(ctx, CONSISTENCY_RULE_IDS))
+
 
 def cmd_check_gate(op_dir: str, stage: int) -> int:
     ctx = _build_context(op_dir, stage)
@@ -40,6 +57,7 @@ def cmd_check_gate(op_dir: str, stage: int) -> int:
             continue
         gate_rules.append(rule["id"])
     return _cmd_run(_run_checks(ctx, gate_rules))
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="PyPTO 算子开发流程确定性检查工具")
