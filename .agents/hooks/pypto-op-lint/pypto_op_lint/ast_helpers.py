@@ -1,7 +1,11 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from __future__ import annotations
 
 import ast
 from typing import Optional
+
 
 def _get_jit_functions(tree: ast.Module) -> list[ast.FunctionDef]:
     """找到所有被 @pypto.frontend.jit 装饰的函数"""
@@ -16,12 +20,14 @@ def _get_jit_functions(tree: ast.Module) -> list[ast.FunctionDef]:
                 break
     return result
 
+
 def _get_wrapper_functions(tree: ast.Module) -> list[ast.FunctionDef]:
     wrappers: list[ast.FunctionDef] = []
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.FunctionDef) and node.name.endswith("_wrapper"):
             wrappers.append(node)
     return wrappers
+
 
 def _resolve_primary_kernel_names(tree: ast.Module) -> set[str]:
     """解析主 kernel 名称（优先取 wrapper 内直接调用的 jit 函数）。"""
@@ -43,11 +49,13 @@ def _resolve_primary_kernel_names(tree: ast.Module) -> set[str]:
     # 无法解析 wrapper 调用关系时，降级为“全部 jit”。
     return jit_names
 
+
 def _get_primary_jit_functions(tree: ast.Module) -> list[ast.FunctionDef]:
     primary_names = _resolve_primary_kernel_names(tree)
     if not primary_names:
         return []
     return [f for f in _get_jit_functions(tree) if f.name in primary_names]
+
 
 def _has_loop_structure(tree: ast.AST) -> bool:
     for node in ast.walk(tree):
@@ -61,6 +69,7 @@ def _has_loop_structure(tree: ast.AST) -> bool:
                    for keyword in node.keywords if keyword.arg):
                 return True
     return False
+
 
 def _is_pypto_tensor_annotation(annotation: ast.AST) -> bool:
     """检查注解是否为 pypto.Tensor 类型"""
@@ -76,9 +85,11 @@ def _is_pypto_tensor_annotation(annotation: ast.AST) -> bool:
         return func.id == "Tensor"
     return False
 
+
 def _is_non_tensor_annotation(annotation: ast.AST) -> bool:
     """检查注解是否为显式声明的非 Tensor 参数类型。"""
     return annotation is not None and not _is_pypto_tensor_annotation(annotation)
+
 
 def _has_test_level_markers(tree: ast.Module, source: str) -> tuple[bool, bool]:
     """识别仓内常见的两级测试命名方式。
@@ -110,7 +121,9 @@ def _has_test_level_markers(tree: ast.Module, source: str) -> tuple[bool, bool]:
     has_level1 = has_level1 or any(pattern in lower for pattern in p0_level1_patterns)
     return has_level0, has_level1
 
+
 FP32_ONLY_OPS = {"sigmoid", "softmax", "sin", "cos"}
+
 
 def _is_fp32_only_call(node: ast.AST) -> bool:
     if not isinstance(node, ast.Call):
@@ -123,6 +136,7 @@ def _is_fp32_only_call(node: ast.AST) -> bool:
     if owner.id != "pypto":
         return False
     return node.func.attr in FP32_ONLY_OPS
+
 
 def _extract_symbolic_dynamic_aliases(tree: ast.Module) -> set[str]:
     """提取模块级别指向 pypto.DYNAMIC/pypto.DYN 的符号名。"""
@@ -141,10 +155,12 @@ def _extract_symbolic_dynamic_aliases(tree: ast.Module) -> set[str]:
             aliases.add(target)
     return aliases
 
+
 def _shape_has_dynamic(shape_node: ast.AST, dynamic_aliases: set[str]) -> bool:
     """递归判断 shape 注解中是否包含动态维度声明。"""
     if isinstance(shape_node, ast.Attribute):
-        if isinstance(shape_node.value, ast.Name) and shape_node.value.id == "pypto" and shape_node.attr in ("DYNAMIC", "DYN"):
+        owner = shape_node.value
+        if isinstance(owner, ast.Name) and owner.id == "pypto" and shape_node.attr in ("DYNAMIC", "DYN"):
             return True
     if isinstance(shape_node, ast.Name):
         return shape_node.id in dynamic_aliases or shape_node.id in ("DYNAMIC", "DYN")
@@ -154,6 +170,7 @@ def _shape_has_dynamic(shape_node: ast.AST, dynamic_aliases: set[str]) -> bool:
         if _shape_has_dynamic(child, dynamic_aliases):
             return True
     return False
+
 
 def _get_func_param_count(tree: ast.Module, func_name: str) -> Optional[int]:
     """获取指定函数的必需参数个数"""
@@ -166,6 +183,7 @@ def _get_func_param_count(tree: ast.Module, func_name: str) -> Optional[int]:
                 required -= 1
             return required
     return None
+
 
 def _extract_shapes_from_test_ast(tree: ast.Module) -> set[tuple[int, ...]]:
     """从测试 AST 中提取 shape 覆盖。
@@ -211,6 +229,7 @@ def _extract_shapes_from_test_ast(tree: ast.Module) -> set[tuple[int, ...]]:
                     shapes.add((n_val, m_val))
 
     return shapes
+
 
 def _extract_jit_assigned_names(tree: ast.Module) -> set[str]:
     names: set[str] = set()

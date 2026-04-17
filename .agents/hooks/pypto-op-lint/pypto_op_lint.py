@@ -2,6 +2,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """Backward-compatible entry point for pypto-op-lint."""
 
+import importlib
 import os
 import sys
 from typing import Any
@@ -10,32 +11,31 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-import pypto_op_lint as _pkg
-from pypto_op_lint import observability as _observability
+_pkg = importlib.import_module("pypto_op_lint")
+_obs = importlib.import_module("pypto_op_lint.observability")
 
-LOGS_DIR = _observability.LOGS_DIR
-LOGS_EVENTS_FILE = _observability.LOGS_EVENTS_FILE
+LOGS_DIR = getattr(_obs, "LOGS_DIR", None)
+LOGS_EVENTS_FILE = getattr(_obs, "LOGS_EVENTS_FILE", None)
 
-def _sync_runtime_state() -> None:
-    global LOGS_DIR, LOGS_EVENTS_FILE
-    _observability.LOGS_DIR = LOGS_DIR
-    _observability.LOGS_EVENTS_FILE = LOGS_EVENTS_FILE
+
+def _sync_obs():
+    _obs.LOGS_DIR = LOGS_DIR
+    _obs.LOGS_EVENTS_FILE = LOGS_EVENTS_FILE
+
 
 def __getattr__(name: str) -> Any:
-    if hasattr(_pkg, name):
-        return getattr(_pkg, name)
-    raise AttributeError(name)
+    return getattr(_pkg, name)
+
 
 def _wrap(name: str):
     target = getattr(_pkg, name)
 
     def wrapped(*args, **kwargs):
-        _sync_runtime_state()
+        _sync_obs()
         return target(*args, **kwargs)
 
-    wrapped.__name__ = getattr(target, "__name__", name)
-    wrapped.__doc__ = getattr(target, "__doc__", None)
     return wrapped
+
 
 _build_context = _wrap("_build_context")
 _run_checks = _wrap("_run_checks")

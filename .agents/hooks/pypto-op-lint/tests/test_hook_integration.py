@@ -1,3 +1,5 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 """Hook 入口集成测试 — 以子进程方式调用 pypto_op_lint.py，验证完整调用链。"""
 import json
 import os

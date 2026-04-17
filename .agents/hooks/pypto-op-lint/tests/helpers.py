@@ -1,8 +1,9 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 import importlib.util
 import json
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 
 def load_lint_module():
