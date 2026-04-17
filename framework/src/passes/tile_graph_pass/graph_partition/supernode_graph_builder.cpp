@@ -685,7 +685,7 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         APASS_LOG_ERROR_F(Elements::Function, "Create SuperNodeInfo failed.");
         return FAILED;
     }
-    if (superNodeInfo_->Build(operationInfo_, mergePair, !useCVMixPartition_) != SUCCESS) {
+    if (superNodeInfo_->Build(operationInfo_, mergePair, true) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Build SuperNodeInfo Failed.");
         return FAILED;
     }
@@ -817,7 +817,7 @@ void SuperNodeGraphBuilder::RebuildSuperNodes(std::vector<int32_t>& snParent, in
     superNodeInfo_->node2Op_ = std::move(newNode2Op);
     superNodeInfo_->BuildNodeMapping(operationInfo_);
     superNodeInfo_->BuildInOutGraph(operationInfo_);
-    superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, !useCVMixPartition_);
+    superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, false);
 }
 
 void SuperNodeGraphBuilder::ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId,
@@ -853,6 +853,7 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
 
     if (needRebuild) {
         RebuildSuperNodes(snParent, numNodes);
+        scopeInfo = CollectScopeInfo(static_cast<int32_t>(superNodeInfo_->node2Op_.size()));
     }
 
     if (GraphUtils::IsCVMixPlatform()) {

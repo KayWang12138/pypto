@@ -177,7 +177,7 @@ public:
         int scopeId{-1};
         bool allowParallelMerge{false};
         bool allowCrossScopeMerge{false};
-        int cvFuseId{-1};
+        int cvFuseId{-1}; // 仅由graph_partition标记
 
         ScopeInfo() = default;
         explicit ScopeInfo(int id) : scopeId(id) {}

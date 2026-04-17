@@ -89,7 +89,7 @@ protected:
         std::vector<int32_t>& snParent,
         bool& needRebuild,
         std::map<int32_t, int32_t>& scopeToCvFuseId);
-    void RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes);
+    void RebuildSuperNodes(std::vector<int32_t>& snParent, int32_t numNodes);
     void ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId,
                        const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes);
 
