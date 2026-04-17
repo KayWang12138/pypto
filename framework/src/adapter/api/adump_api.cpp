@@ -23,7 +23,8 @@
 #include "adapter/stubs/adump_stubs.h"
 
 namespace npu::tile_fwk {
-uint64_t AdxDumpGetDumpSwitch(const AdxDumpType dumpType) {
+uint64_t AdxDumpGetDumpSwitch(const AdxDumpType dumpType)
+{
 #ifdef BUILD_WITH_CANN
     void *func = AdapterManager::Instance().GetAdumpAdapter().GetFunction(AdumpFunc::GetDumpSwitch);
     if (func != nullptr) {
@@ -55,7 +56,8 @@ void ConvertTensorInfos(const std::vector<AdxTensorInfoV2> &tensors, std::vector
 #endif
 
 int32_t AdxDumpDumpTensorV2(const std::string &opType, const std::string &opName,
-    const std::vector<AdxTensorInfoV2> &tensors, AclRtStream stream) {
+    const std::vector<AdxTensorInfoV2> &tensors, AclRtStream stream)
+{
 #ifdef BUILD_WITH_CANN
     void *func = AdapterManager::Instance().GetAdumpAdapter().GetFunction(AdumpFunc::DumpTensorV2);
     if (func != nullptr) {
