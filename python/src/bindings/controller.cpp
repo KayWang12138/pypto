@@ -216,6 +216,60 @@ void bind_controller_utils(py::module& m)
     m.def("ClearLocation", &SourceLocation::ClearLocation);
 }
 
+void ConvertPyList(
+    const std::string& key, const py::object& value, std::map<std::string, npu::tile_fwk::Any>& cpp_values)
+{
+    py::list lst = py::cast<py::list>(value);
+    if (lst.size() > 0) {
+        if (py::isinstance<py::int_>(lst[0])) {
+            cpp_values[key] = value.cast<std::vector<int64_t>>();
+        } else if (py::isinstance<py::str>(lst[0])) {
+            cpp_values[key] = value.cast<std::vector<std::string>>();
+        } else if (py::isinstance<py::float_>(lst[0])) {
+            cpp_values[key] = value.cast<std::vector<double>>();
+        } else {
+            throw py::type_error("Unsupported list element type for key: " + key);
+        }
+    } else {
+        cpp_values[key] = std::vector<int64_t>();
+    }
+}
+
+void ConvertPyDict(
+    const std::string& key, const py::object& value, std::map<std::string, npu::tile_fwk::Any>& cpp_values)
+{
+    py::dict dict_value = py::cast<py::dict>(value);
+    bool has_int_keys = false;
+    bool has_str_keys = false;
+    for (auto dict_item : dict_value) {
+        if (py::isinstance<py::int_>(dict_item.first)) {
+            has_int_keys = true;
+        } else if (py::isinstance<py::str>(dict_item.first)) {
+            has_str_keys = true;
+        }
+    }
+
+    if (!has_str_keys) {
+        cpp_values[key] = has_int_keys ? value.cast<std::map<int64_t, int64_t>>() : std::map<int64_t, int64_t>();
+    } else if (!has_int_keys) {
+        cpp_values[key] = std::map<int64_t, int64_t>();
+        cpp_values[key + "_by_label"] = value.cast<std::map<std::string, int64_t>>();
+    } else {
+        std::map<int64_t, int64_t> int_map;
+        std::map<std::string, int64_t> str_map;
+        for (auto dict_item : dict_value) {
+            int64_t val = py::cast<int64_t>(dict_item.second);
+            if (py::isinstance<py::int_>(dict_item.first)) {
+                int_map[py::cast<int64_t>(dict_item.first)] = val;
+            } else if (py::isinstance<py::str>(dict_item.first)) {
+                str_map[py::cast<std::string>(dict_item.first)] = val;
+            }
+        }
+        cpp_values[key] = int_map;
+        cpp_values[key + "_by_label"] = str_map;
+    }
+}
+
 std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict& values)
 {
     std::map<std::string, npu::tile_fwk::Any> cpp_values;
@@ -236,22 +290,9 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict& 
         } else if (py::isinstance<ConvTile>(value)) {
             cpp_values[key] = value.cast<ConvTile>();
         } else if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
-            py::list lst = py::cast<py::list>(value);
-            if (lst.size() > 0) {
-                if (py::isinstance<py::int_>(lst[0])) {
-                    cpp_values[key] = value.cast<std::vector<int64_t>>();
-                } else if (py::isinstance<py::str>(lst[0])) {
-                    cpp_values[key] = value.cast<std::vector<std::string>>();
-                } else if (py::isinstance<py::float_>(lst[0])) {
-                    cpp_values[key] = value.cast<std::vector<double>>();
-                } else {
-                    throw py::type_error("Unsupported list element type for key: " + key);
-                }
-            } else {
-                cpp_values[key] = std::vector<int64_t>();
-            }
+            ConvertPyList(key, value, cpp_values);
         } else if (py::isinstance<py::dict>(value)) {
-            cpp_values[key] = value.cast<std::map<int64_t, int64_t>>();
+            ConvertPyDict(key, value, cpp_values);
         } else {
             throw py::type_error("Unsupported value type for key: " + key);
         }
@@ -313,6 +354,8 @@ py::object AnyToPyObject(const Any& val)
         {typeid(std::vector<double>), [](const Any& a) { return py::cast(AnyCast<std::vector<double>>(a)); }},
         {typeid(std::map<int64_t, int64_t>),
          [](const Any& a) { return py::cast(AnyCast<std::map<int64_t, int64_t>>(a)); }},
+        {typeid(std::map<std::string, int64_t>),
+         [](const Any& a) { return py::cast(AnyCast<std::map<std::string, int64_t>>(a)); }},
         {typeid(CubeTile), [](const Any& a) { return py::cast(AnyCast<CubeTile>(a)); }},
         {typeid(ConvTile), [](const Any& a) { return py::cast(AnyCast<ConvTile>(a)); }},
         {typeid(DistTile), [](const Any& a) { return py::str(AnyCast<DistTile>(a).ToString()); }},
