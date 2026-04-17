@@ -78,6 +78,16 @@ static std::string GetDtype(DataType dtype)
     }
 }
 
+inline bool CompareStrings(const std::string& s1, const std::string& s2)
+{
+    std::string str1 = s1;
+    std::string str2 = s2;
+    transform(str1.begin(), str1.end(), str1.begin(), ::tolower);
+    transform(str2.begin(), str2.end(), str2.begin(), ::tolower);
+
+    return str1 < str2;
+}
+
 std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
     const SubfuncParam& subFuncParam, std::vector<std::string>& params, std::map<std::string, std::string>& dTypeMap)
 {
@@ -106,6 +116,7 @@ std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
     for (auto& t : paramsSet) {
         params.push_back(t);
     }
+    std::sort(params.begin(), params.end(), CompareStrings);
     return symbolMap;
 }
 
