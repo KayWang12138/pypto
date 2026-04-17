@@ -73,6 +73,9 @@ private:
         const OperationsViewer& opOriList, const std::map<uint64_t, std::vector<int>>& hashMap,
         const std::map<uint64_t, size_t>& hashMergeNum, std::vector<uint64_t>& hashColor);
     Status InitVecNBufferModeBySetting();
+    Status ApplySemanticLabelSettings(
+        const OperationsViewer& opOriList, std::map<uint64_t, size_t>& hashMergeNum,
+        const std::map<uint64_t, std::vector<int>>& hashMap, const std::vector<uint64_t>& hashColor);
 
 private:
     int colorNum_{0};
@@ -86,6 +89,7 @@ private:
     int vecNBuffermode_;
     int mgVecParallelLb_;
     std::map<int64_t, int64_t> vecNBufferSetting_;
+    std::map<std::string, int64_t> vecNBufferSettingByLabel_;
     std::unordered_map<uint64_t, int> hashOrder_;
     static int globalVecMergeHashOrder_;    // 全局 hashOrder 计数器
     enum ModeType { noMerge = 0, autoMerge = 1, manualMerge = 2, autoMulityInOutMerge = 3, manualMulityInOutMerge = 4 };
