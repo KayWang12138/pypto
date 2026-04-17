@@ -1,3 +1,5 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 from pathlib import Path
 
 from .helpers import build_stateless_op_dir, load_lint_module, run_rule, write_file
@@ -45,7 +47,8 @@ def marker_kernel(x: pypto.Tensor([_N, _M], pypto.DT_BF16), y: pypto.Tensor([_N,
     y[:] = x
 
 @pypto.frontend.jit
-def demo_kernel(x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16), y: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16)):
+def demo_kernel(x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+                y: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16)):
     pypto.set_vec_tile_shapes(32, 128)
     y[:] = x
 

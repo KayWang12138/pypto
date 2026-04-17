@@ -1,10 +1,12 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 """D1 框架约束合规规则（OL04-OL06, OL25, OL26）补充测试。"""
 from pathlib import Path
 
 from .helpers import build_stateless_op_dir, load_lint_module, run_rule, write_file
 
-
 # ── OL04: 必须调用 set_vec_tile_shapes 或 set_cube_tile_shapes ──
+
 
 def test_ol04_pass_when_tile_shapes_present(tmp_path: Path):
     mod = load_lint_module()

@@ -1,9 +1,8 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from . import checks  # noqa: F401
 from .cli import cmd_check_gate, cmd_lint_consistency, cmd_lint_golden, cmd_lint_impl, cmd_lint_test, main
-from .hooks import hook_post_bash, hook_post_edit, hook_pre_edit_backup, hook_stop
-from .infer import _build_context
-from .observability import LOGS_DIR, LOGS_EVENTS_FILE
-from .utils import _parse_front_matter, _validate_doc_schema
 from .core import (
     API_REPORT_FILE,
     CONSISTENCY_RULE_IDS,
@@ -18,10 +17,14 @@ from .core import (
     TEST_RULE_IDS,
     CheckContext,
     Finding,
-    register,
     _has_error_fail,
     _run_checks,
+    register,
 )
+from .hooks import hook_post_bash, hook_post_edit, hook_pre_edit_backup, hook_stop
+from .infer import _build_context
+from .observability import LOGS_DIR, LOGS_EVENTS_FILE
+from .utils import _parse_front_matter, _validate_doc_schema
 
 __all__ = [
     "API_REPORT_FILE",

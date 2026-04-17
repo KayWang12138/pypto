@@ -1,3 +1,5 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
 """D3 三文件分离规则（OL16-OL18）核心测试。"""
 from pathlib import Path
 

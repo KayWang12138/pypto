@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from __future__ import annotations
 
 import ast
@@ -47,6 +50,7 @@ HOOK_INPUT_ENV = "PYPTO_OP_LINT_HOOK_INPUT"
 
 POST_EDIT_BLOCK_ENV = "PYPTO_OP_LINT_POST_EDIT_BLOCK"
 
+
 @dataclass
 class Finding:
     rule_id: str = ""
@@ -56,6 +60,7 @@ class Finding:
     message: str = ""
     file: str = ""
     line: int = 0
+
 
 @dataclass
 class CheckContext:
@@ -115,7 +120,9 @@ class CheckContext:
             line=line,
         )
 
+
 CHECKERS: dict[str, Callable[[CheckContext], Finding]] = {}
+
 
 def register(rule_id: str):
     """装饰器：将检查函数注册到规则 ID"""
@@ -123,6 +130,7 @@ def register(rule_id: str):
         CHECKERS[rule_id] = fn
         return fn
     return decorator
+
 
 def _load_rules() -> list[dict[str, Any]]:
     rules_path = os.path.join(SCRIPT_DIR, "rules.json")
@@ -132,8 +140,8 @@ def _load_rules() -> list[dict[str, Any]]:
 
 
 def _run_checks(ctx: CheckContext, rule_ids: list[str]) -> list[Finding]:
-    from .observability import _emit_metric_event
     """执行指定规则的检查"""
+    from .observability import _emit_metric_event  # noqa: PLC0415
     findings = []
     mode = os.environ.get(MODE_ENV, "cli")
     strict = os.environ.get(STRICT_ENV, "1") == "1"
@@ -155,6 +163,7 @@ def _run_checks(ctx: CheckContext, rule_ids: list[str]) -> list[Finding]:
         findings.append(finding)
         _emit_metric_event(ctx, finding, mode, strict, (time.perf_counter() - start) * 1000)
     return findings
+
 
 def _has_error_fail(findings: list[Finding]) -> bool:
     for finding in findings:

@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
+
 from __future__ import annotations
 
 import hashlib
@@ -7,15 +10,17 @@ import time
 from dataclasses import asdict
 from typing import Any, Optional
 
-from .core import STRICT_ENV, CheckContext, Finding, SCRIPT_DIR, _has_error_fail
+from .core import SCRIPT_DIR, STRICT_ENV, CheckContext, Finding, _has_error_fail
 
 LOGS_DIR = os.path.join(SCRIPT_DIR, "logs")
 LOGS_EVENTS_FILE = os.path.join(LOGS_DIR, "lint_events.jsonl")
+
 
 def _output_hook_json(event: str, **kwargs):
     """输出 hookSpecificOutput JSON 到 stdout"""
     output = {"hookSpecificOutput": {"hookEventName": event, **kwargs}}
     _write_stdout_json(output)
+
 
 def _print_findings(findings: list[Finding]):
     has_error_fail = _has_error_fail(findings)
@@ -33,17 +38,21 @@ def _print_findings(findings: list[Finding]):
     }
     _write_stdout_json(result, indent=2)
 
+
 def _write_stdout_json(payload: dict[str, Any], indent: Optional[int] = None) -> None:
     content = json.dumps(payload, ensure_ascii=False, indent=indent)
     os.write(1, f"{content}\n".encode("utf-8"))
 
+
 def _ensure_logs_dir() -> None:
     os.makedirs(LOGS_DIR, exist_ok=True)
+
 
 def _append_jsonl(path: str, record: dict[str, Any]) -> None:
     _ensure_logs_dir()
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
 
 def _emit_metric_event(ctx: CheckContext, finding: Finding, mode: str,
                        strict: bool, duration_ms: float) -> None:
@@ -66,6 +75,7 @@ def _emit_metric_event(ctx: CheckContext, finding: Finding, mode: str,
         _append_jsonl(LOGS_EVENTS_FILE, event)
     except OSError:
         pass
+
 
 def _emit_gate_event(ctx: CheckContext, blocked: bool, blocking_rules: list[str]) -> None:
     try:

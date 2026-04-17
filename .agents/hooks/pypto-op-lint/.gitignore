@@ -1,0 +1,4 @@
+logs/
+tmp_check.txt
+__pycache__/
+*.pyc
