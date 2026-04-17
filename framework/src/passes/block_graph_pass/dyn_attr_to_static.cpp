@@ -71,8 +71,7 @@ struct CoaInfo {
         if (ParseParamOffset(coaExpr, match)) {
             macroType = CoaType::PARAM_OFFSET;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation,
+                APASS_LOG_ERROR_F(Elements::Operation,
                     "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM_OFFSET, input coaExpr %s.",
                     coaExpr.c_str());
@@ -81,8 +80,7 @@ struct CoaInfo {
         } else if (ParseParamValidShape(coaExpr, match)) {
             macroType = CoaType::PARAM_VALID_SHAPE;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation,
+                APASS_LOG_ERROR_F(Elements::Operation,
                     "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM_VALID_SHAPE, input coaExpr %s.",
                     coaExpr.c_str());
@@ -91,8 +89,7 @@ struct CoaInfo {
         } else if (ParseParamRawShape(coaExpr, match)) {
             macroType = CoaType::PARAM_RAW_SHAPE;
             if (SToIParamShapeAndOffset(match) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation,
+                APASS_LOG_ERROR_F(Elements::Operation,
                     "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM_RAW_SHAPE, input coaExpr %s.",
                     coaExpr.c_str());
@@ -101,8 +98,7 @@ struct CoaInfo {
         } else if (ParseParam(coaExpr, match)) {
             macroType = CoaType::PARAM;
             if (SToIWrapper(match[INPUT_PARAM_POS_ONE].str(), idx) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation,
+                APASS_LOG_ERROR_F(Elements::Operation,
                     "ParseCoaString failed to convert indices,"
                     "CoaType::PARAM, input coaExpr %s.",
                     coaExpr.c_str());
