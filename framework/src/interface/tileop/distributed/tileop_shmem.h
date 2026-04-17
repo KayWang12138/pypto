@@ -25,15 +25,22 @@
 
 namespace TileOp::Distributed {
 
-// ---------------------------------------------------------------------------
-// Shmem tensor/tile type aliases
-// ---------------------------------------------------------------------------
+constexpr uint32_t OPTIMIZED_BURST_BYTE_SIZE = 512;
+constexpr uint32_t MAX_PARALLEL_CHANNELS = 4;
+constexpr uint32_t TRIPLE_BUFFER_EVENT_COUNT = 3;
+constexpr uint32_t ATOMIC_ADDR_STRIDE_BYTES = 128;
+constexpr uint32_t HIGH_BW_CHUNK_SIZE = 2048;
+
 using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
 using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
 
 TILEOP inline ShapeDyn MakeShape(uint32_t row, uint32_t col) { return ShapeDyn(1, 1, 1, row, col); }
 TILEOP inline StrideDyn MakeStride(uint32_t row, uint32_t stride) { return StrideDyn(row, row, row, stride, 1); }
 TILEOP inline uint32_t ToggleEvent(uint32_t eventId) { return eventId == EVENT_ID0 ? EVENT_ID1 : EVENT_ID0; }
+TILEOP inline uint32_t CycleEvent(uint32_t eventId, uint32_t count)
+{
+    return (eventId + 1) % count;
+}
 
 template <typename T>
 TILEOP constexpr T CeilDiv(T x, T y)
@@ -67,30 +74,46 @@ using ShmemUbTile = pto::Tile<
 template <typename T, uint32_t bufferEleNum, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2>
 TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 {
-    ShmemUbTile<T, 1, bufferEleNum> ubTile(1, bufferEleNum);
+    constexpr uint32_t optimizedChunkSize = HIGH_BW_CHUNK_SIZE > bufferEleNum ? HIGH_BW_CHUNK_SIZE : bufferEleNum;
+    constexpr uint32_t alignedChunkSize = AlignUp<uint32_t>(optimizedChunkSize * sizeof(T), OPTIMIZED_BURST_BYTE_SIZE) / sizeof(T);
+    
+    ShmemUbTile<T, 1, alignedChunkSize> ubTile(1, alignedChunkSize);
     pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
     pto::TEXPANDS(ubTile, static_cast<T>(0));
     PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, EVENT_ID0);
 
     constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2;
-    constexpr uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
+    constexpr uint32_t fullChunkCount = shmemTensorEleNum / alignedChunkSize;
+    constexpr uint32_t parallelChunkCount = fullChunkCount / MAX_PARALLEL_CHANNELS;
 
-    for (int32_t i = 0; i < fullChunkCount; i++) {
-        __gm__ T* dstAddr = shmemTensorAddr + bufferEleNum * i;
-        ShapeDyn shape = MakeShape(1, bufferEleNum);
-        StrideDyn strideDyn = MakeStride(1, bufferEleNum);
+    for (int32_t i = 0; i < parallelChunkCount; i++) {
+        for (uint32_t ch = 0; ch < MAX_PARALLEL_CHANNELS; ch++) {
+            uint32_t chunkIdx = i * MAX_PARALLEL_CHANNELS + ch;
+            __gm__ T* dstAddr = shmemTensorAddr + alignedChunkSize * chunkIdx;
+            ShapeDyn shape = MakeShape(1, alignedChunkSize);
+            StrideDyn strideDyn = MakeStride(1, alignedChunkSize);
+            ShmemGlobalTensor<T> gmTensor(dstAddr, shape, strideDyn);
+            pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicNone>(gmTensor, ubTile);
+        }
+    }
+
+    for (int32_t i = parallelChunkCount * MAX_PARALLEL_CHANNELS; i < fullChunkCount; i++) {
+        __gm__ T* dstAddr = shmemTensorAddr + alignedChunkSize * i;
+        ShapeDyn shape = MakeShape(1, alignedChunkSize);
+        StrideDyn strideDyn = MakeStride(1, alignedChunkSize);
         ShmemGlobalTensor<T> gmTensor(dstAddr, shape, strideDyn);
         pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicNone>(gmTensor, ubTile);
     }
 
-    constexpr uint32_t tailEleNum = shmemTensorEleNum % bufferEleNum;
+    constexpr uint32_t tailEleNum = shmemTensorEleNum % alignedChunkSize;
     if constexpr (tailEleNum != 0) {
-        __gm__ T* tailDstAddr = shmemTensorAddr + bufferEleNum * fullChunkCount;
+        __gm__ T* tailDstAddr = shmemTensorAddr + alignedChunkSize * fullChunkCount;
         ShapeDyn tailShape = MakeShape(1, tailEleNum);
         StrideDyn tailStrideDyn = MakeStride(1, tailEleNum);
         ShmemGlobalTensor<T> tailGmTensor(tailDstAddr, tailShape, tailStrideDyn);
         ShmemUbTile<T, 1, tailEleNum> tailUbTile(1, tailEleNum);
         pto::TASSIGN(tailUbTile, reinterpret_cast<uintptr_t>(buffer));
+        pto::TEXPANDS(tailUbTile, static_cast<T>(0));
         pto::TSTORE<decltype(tailUbTile), decltype(tailGmTensor), pto::AtomicType::AtomicNone>(
             tailGmTensor, tailUbTile);
     }
@@ -201,7 +224,6 @@ TILEOP void CopyGmToGmBlockWithCast(
     AtomicStore<atomicType>(dstGlobal, dstTile);
 }
 
-// Single block GM→UB→GM. With conversion: buffer[0..copyLen-1]=UBType, buffer[copyLen..]=float.
 template <
     typename TargetType, typename UBType, typename SourceType, uint32_t bufferRowShape, uint32_t bufferColShape,
     uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
@@ -209,7 +231,7 @@ TILEOP void CopyGmToGmBlock(
     __gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source, uint32_t rowShape, uint32_t colShape,
     uint32_t eventId = EVENT_ID0)
 {
-    wait_flag(PIPE_MTE3, PIPE_S, eventId);
+    wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
     PIPE_SYNC_EVENT(PIPE_S, PIPE_MTE2, eventId);
     if constexpr (std::is_same_v<TargetType, SourceType>) {
         CopyGmToGmBlockSameType<
@@ -220,7 +242,54 @@ TILEOP void CopyGmToGmBlock(
             TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
             target, buffer, source, rowShape, colShape, eventId);
     }
-    set_flag(PIPE_MTE3, PIPE_S, eventId);
+    set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+}
+
+template <
+    typename TargetType, typename UBType, typename SourceType, uint32_t bufferRowShape, uint32_t bufferColShape,
+    uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
+TILEOP void CopyGmToGmRow(
+    __gm__ TargetType* dstPtr, __gm__ SourceType* srcPtr, __ubuf__ UBType* bufferA, __ubuf__ UBType* bufferB,
+    __ubuf__ UBType* bufferC, uint32_t rowShape, uint32_t colTailShape, uint32_t colFullBlockCount, uint32_t& eventId)
+{
+    constexpr uint32_t bufferSize = bufferRowShape * AlignUp<uint32_t>(bufferColShape * sizeof(UBType), OPTIMIZED_BURST_BYTE_SIZE) / sizeof(UBType);
+    uint32_t colOffset = 0;
+    for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, colOffset += bufferColShape) {
+        __ubuf__ UBType* useBuffer;
+        uint32_t useEventId;
+        if (eventId == EVENT_ID0) {
+            useBuffer = bufferA;
+            useEventId = EVENT_ID0;
+        } else if (eventId == EVENT_ID1) {
+            useBuffer = bufferB;
+            useEventId = EVENT_ID1;
+        } else {
+            useBuffer = bufferC;
+            useEventId = EVENT_ID2;
+        }
+        CopyGmToGmBlock<
+            TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
+            dstPtr + colOffset, useBuffer, srcPtr + colOffset, rowShape, bufferColShape, useEventId);
+        eventId = CycleEvent(eventId, TRIPLE_BUFFER_EVENT_COUNT);
+    }
+    if (colTailShape > 0) {
+        __ubuf__ UBType* useBuffer;
+        uint32_t useEventId;
+        if (eventId == EVENT_ID0) {
+            useBuffer = bufferA;
+            useEventId = EVENT_ID0;
+        } else if (eventId == EVENT_ID1) {
+            useBuffer = bufferB;
+            useEventId = EVENT_ID1;
+        } else {
+            useBuffer = bufferC;
+            useEventId = EVENT_ID2;
+        }
+        CopyGmToGmBlock<
+            TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
+            dstPtr + colOffset, useBuffer, srcPtr + colOffset, rowShape, colTailShape, useEventId);
+        eventId = CycleEvent(eventId, TRIPLE_BUFFER_EVENT_COUNT);
+    }
 }
 
 template <
@@ -230,21 +299,8 @@ TILEOP void CopyGmToGmRow(
     __gm__ TargetType* dstPtr, __gm__ SourceType* srcPtr, __ubuf__ UBType* bufferA, __ubuf__ UBType* bufferB,
     uint32_t rowShape, uint32_t colTailShape, uint32_t colFullBlockCount, uint32_t& eventId)
 {
-    uint32_t colOffset = 0;
-    for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, colOffset += bufferColShape) {
-        __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
-        CopyGmToGmBlock<
-            TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
-            dstPtr + colOffset, useBuffer, srcPtr + colOffset, rowShape, bufferColShape, eventId);
-        eventId = eventId == EVENT_ID0 ? EVENT_ID1 : EVENT_ID0;
-    }
-    if (colTailShape > 0) {
-        __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
-        CopyGmToGmBlock<
-            TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
-            dstPtr + colOffset, useBuffer, srcPtr + colOffset, rowShape, colTailShape, eventId);
-        eventId = eventId == EVENT_ID0 ? EVENT_ID1 : EVENT_ID0;
-    }
+    CopyGmToGmRow<TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
+        dstPtr, srcPtr, bufferA, bufferB, bufferB, rowShape, colTailShape, colFullBlockCount, eventId);
 }
 
 template <
@@ -258,9 +314,13 @@ TILEOP void CopyGmToGmByTRowSliced(
     constexpr uint32_t kMaxTileRows = 4095;
     constexpr uint32_t kEffectiveRows = bufferRowShape < kMaxTileRows ? bufferRowShape : kMaxTileRows;
     constexpr uint32_t kChunkRows = tileRowShape < kEffectiveRows ? tileRowShape : kEffectiveRows;
+    
+    constexpr uint32_t kOptimizedColShape = AlignUp<uint32_t>(
+        tileColShape * sizeof(DataType), OPTIMIZED_BURST_BYTE_SIZE) / sizeof(DataType);
 
     constexpr uint32_t kAlignedCols =
         AlignUp<uint32_t>(tileColShape * sizeof(DataType), COPY_BLOCK_BYTE_SIZE) / sizeof(DataType);
+    constexpr uint32_t kThirdBufferEleCount = bufferRowShape * kAlignedCols / TRIPLE_BUFFER_EVENT_COUNT;
     constexpr uint32_t kHalfBufferEleCount = bufferRowShape * kAlignedCols;
 
     ShapeDyn shape = MakeShape(validRowShape, validColShape);
@@ -269,8 +329,9 @@ TILEOP void CopyGmToGmByTRowSliced(
     ShmemGlobalTensor<DataType> srcGlobal(source, shape, srcStrideDyn);
     ShmemGlobalTensor<DataType> dstGlobal(target, shape, dstStrideDyn);
 
-    ShmemUbTile<DataType, kChunkRows, tileColShape> pingTile(kChunkRows, validColShape);
-    ShmemUbTile<DataType, kChunkRows, tileColShape> pongTile(kChunkRows, validColShape);
+    ShmemUbTile<DataType, kChunkRows, kOptimizedColShape> pingTile(kChunkRows, validColShape);
+    ShmemUbTile<DataType, kChunkRows, kOptimizedColShape> pongTile(kChunkRows, validColShape);
+    ShmemUbTile<DataType, kChunkRows, kOptimizedColShape> pongTile2(kChunkRows, validColShape);
     pto::TASSIGN(pingTile, reinterpret_cast<uintptr_t>(buffer));
     pto::TASSIGN(pongTile, reinterpret_cast<uintptr_t>(buffer + kHalfBufferEleCount));
     if constexpr (useTPut) {
@@ -282,7 +343,7 @@ TILEOP void CopyGmToGmByTRowSliced(
     } else {
         pto::comm::TGET(dstGlobal, srcGlobal, pingTile, pongTile);
     }
-    PIPE_SYNC_EVENT(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    PIPE_SYNC_EVENT(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
 }
 
 // Full tile copy with row/column chunking. Ping-pong layout: same type bufferA|bufferB; with conversion
@@ -303,6 +364,9 @@ TILEOP void CopyGmToGm(
         return;
     }
 
+    constexpr uint32_t optimizedCopyLen = bufferRowShape * 
+        AlignUp<uint32_t>(bufferColShape * sizeof(UBType), OPTIMIZED_BURST_BYTE_SIZE) / sizeof(UBType);
+    
     uint32_t rowFullBlockCount = validRowShape / bufferRowShape;
     uint32_t colFullBlockCount = validColShape / bufferColShape;
     uint32_t rowTailShape = validRowShape % bufferRowShape;
@@ -310,19 +374,20 @@ TILEOP void CopyGmToGm(
     constexpr uint32_t srcRowStride = bufferRowShape * srcStride;
     constexpr uint32_t dstRowStride = bufferRowShape * dstStride;
 
-    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID1);
+    set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+    set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+    set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID2);
 
     uint32_t eventId = EVENT_ID0;
 
-    constexpr uint32_t copyLen =
-        bufferRowShape * AlignUp<uint32_t>(bufferColShape * sizeof(UBType), 32) / sizeof(UBType);
     __ubuf__ UBType* bufferA = buffer;
-    __ubuf__ UBType* bufferB = buffer + copyLen;
+    __ubuf__ UBType* bufferB = buffer + optimizedCopyLen;
+    __ubuf__ UBType* bufferC = buffer + optimizedCopyLen * 2;
 
     if constexpr (!std::is_same_v<TargetType, SourceType>) {
-        constexpr uint64_t castSize = AlignUp<uint64_t>(copyLen * sizeof(float), 256);
-        bufferB = buffer + copyLen + castSize / sizeof(UBType);
+        constexpr uint64_t castSize = AlignUp<uint64_t>(optimizedCopyLen * sizeof(float), 256);
+        bufferB = buffer + optimizedCopyLen + castSize / sizeof(UBType);
+        bufferC = bufferB + optimizedCopyLen;
     }
 
     __gm__ SourceType* srcPtr = source;
@@ -330,16 +395,17 @@ TILEOP void CopyGmToGm(
     for (uint32_t rowIndex = 0; rowIndex < rowFullBlockCount;
          ++rowIndex, srcPtr += srcRowStride, dstPtr += dstRowStride) {
         CopyGmToGmRow<TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
-            dstPtr, srcPtr, bufferA, bufferB, bufferRowShape, colTailShape, colFullBlockCount, eventId);
+            dstPtr, srcPtr, bufferA, bufferB, bufferC, bufferRowShape, colTailShape, colFullBlockCount, eventId);
     }
 
     if (rowTailShape > 0) {
         CopyGmToGmRow<TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(
-            dstPtr, srcPtr, bufferA, bufferB, rowTailShape, colTailShape, colFullBlockCount, eventId);
+            dstPtr, srcPtr, bufferA, bufferB, bufferC, rowTailShape, colTailShape, colFullBlockCount, eventId);
     }
 
-    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID1);
+    wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+    wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID2);
 }
 
 // ---------------------------------------------------------------------------
@@ -479,9 +545,12 @@ TILEOP void ShmemSignal(
     int32_t tileCol = static_cast<int32_t>(shmemSignalOffset2) / tileColShape;
     int32_t tileIndex = tileRow * tileCols + tileCol;
     int32_t totalTileNum = tileRows * tileCols;
+    
+    constexpr int32_t optimizedStride = (stride * sizeof(int32_t) < ATOMIC_ADDR_STRIDE_BYTES) ? 
+        (ATOMIC_ADDR_STRIDE_BYTES / sizeof(int32_t)) : stride;
 
     buffer[0] = static_cast<int32_t>(value);
-    constexpr uint32_t signalColShape = 8; // 8*4=32B alignment
+    constexpr uint32_t signalColShape = 8;
     ShmemUbTile<int32_t, 1, signalColShape> signalTile(1, 1);
     pto::TASSIGN(signalTile, reinterpret_cast<uintptr_t>(buffer));
 
@@ -492,11 +561,21 @@ TILEOP void ShmemSignal(
 
     uint32_t sRank = notifyAll ? 0 : ownerRank;
     uint32_t eRank = notifyAll ? worldSize : sRank + 1;
-    for (uint32_t rankId = sRank; rankId < eRank; rankId++) {
-        __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t, 1>(hcclContext, shmemSignalBaseAddr, rankId) +
-                                          CalcLinearOffset(totalTileNum, shmemSignalOffset0, tileIndex) * stride;
-        ShmemGlobalTensor<int32_t> signalGlobal(shmemSignalAddr, signalShape, signalStride);
-        AtomicStore<atomicType>(signalGlobal, signalTile);
+    
+    if constexpr (atomicType == AtomicType::ADD && notifyAll) {
+        for (uint32_t rankId = sRank; rankId < eRank; rankId++) {
+            __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t, 1>(hcclContext, shmemSignalBaseAddr, rankId) +
+                                              CalcLinearOffset(totalTileNum, shmemSignalOffset0, tileIndex) * optimizedStride;
+            ShmemGlobalTensor<int32_t> signalGlobal(shmemSignalAddr, signalShape, signalStride);
+            AtomicStore<atomicType>(signalGlobal, signalTile);
+        }
+    } else {
+        for (uint32_t rankId = sRank; rankId < eRank; rankId++) {
+            __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t, 1>(hcclContext, shmemSignalBaseAddr, rankId) +
+                                              CalcLinearOffset(totalTileNum, shmemSignalOffset0, tileIndex) * stride;
+            ShmemGlobalTensor<int32_t> signalGlobal(shmemSignalAddr, signalShape, signalStride);
+            AtomicStore<atomicType>(signalGlobal, signalTile);
+        }
     }
 }
 
