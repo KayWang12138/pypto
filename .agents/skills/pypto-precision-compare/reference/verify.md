@@ -130,6 +130,10 @@ python3 .agents/skills/pypto-precision-compare/scripts/compare_accuracy.py \
 **修正**：对比工具使用 `torch.isclose` 统计不匹配个数：
 - 判断条件：不匹配个数 < 总数 * max(rtol, atol)
 
+> ⚠️ **重要语义差异**：本工具的判定逻辑是**不匹配率阈值**（mismatch_count / total_count < threshold），与 `torch.allclose` 的**逐元素相对/绝对误差判定**语义不同。`torch.allclose` 要求每个元素都满足 `|a - b| <= atol + rtol * |b|`，而本工具允许少量元素超容差。这意味着：
+> - 本工具判定 PASS 时，`torch.allclose` **不一定**通过（少量超容差元素被容忍）
+> - 如果需要严格逐元素判定，请在测试脚本中直接使用 `numpy.testing.assert_allclose`
+
 ## 完整工作流程
 
 ### 步骤 1：插入检查点
@@ -184,7 +188,7 @@ python3 .agents/skills/pypto-precision-compare/scripts/plot_accuracy.py /path/to
 - 绘制双折线图：相对容差(rtol) 和绝对容差(atol)
 - 生成精度数据汇总表格，- 输出 PNG 格式的可视化图表（保存在 operator 目录）
 
-### 步骤 6：定位并修复### 步骤 5：定位并修复
+### 步骤 6：定位并修复
 
 根据对比结果定位到具体的 op，然后修复问题。
 

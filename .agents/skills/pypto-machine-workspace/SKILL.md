@@ -66,7 +66,7 @@ Workspace 内存分配由以下阶段组成：
 
 ```
 workspaceSize = memBudget.Total()
-             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump + metadata.Total()
+             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump
 
 tensor.Total() = rootInner                              -- Root Function Inner Tensor 内存
                + devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
@@ -75,7 +75,15 @@ tensor.Total() = rootInner                              -- Root Function Inner T
 MaxOutcastMem() = max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem)
 
 metadata.Total() = general + stitchPool
+
+tensor.Total() 内部计算说明：
+  rootInner = AlignUp(rootInnerRaw, 32KB) × parallelism
+  devTaskInnerExclusiveOutcasts = AlignUp(outcastRaw, 32KB) × parallelism
+  其中 parallelism 与 stitch_function_max_num 和 unroll 配置相关
+  AlignUp 按 32KB 对齐是设备内存分配粒度要求
 ```
+
+> ⚠️ **注意**：`memBudget.Total()` **不包含** `metadata.Total()`，metadata 由独立的内存池管理。若日志中 `Metadata=...` 值非零，该部分不计入 `workspaceSize`。
 
 ### 关键日志标签
 
@@ -264,7 +272,11 @@ grep -r "maxRootInnerMem is\|MaxRootInnerMem is" <log_path>/debug/
 
 #### 情况二：Boundary Outcast 内存 (C × D) 为主要贡献者
 
-C（`MaxOutcastMem()`）异常大是最常见的原因。由于 Tiling 会将 Tensor 切至中等大小（如不超过 512×512），超大的 `MaxOutcastMem()` 通常意味着未经 Tiling 的超大 Tensor 进入了子图。
+Boundary Outcast 总量由两个因子决定：**C**（单个 Boundary Outcast 最大大小，即 `MaxOutcastMem()`）和 **D**（Boundary Outcast slot 数量，即 `devTaskBoundaryOutcastNum`）。异常可能来自其中任何一个：
+
+**子情况 2a：C（单体大小）异常大**
+
+这是最常见的原因。由于 Tiling 会将 Tensor 切至中等大小（如不超过 512×512），超大的 `MaxOutcastMem()` 通常意味着未经 Tiling 的超大 Tensor 进入了子图。
 
 常见原因：
 - **Inplace 操作**：Inplace Tensor 不参与 Tiling 切分
@@ -273,6 +285,27 @@ C（`MaxOutcastMem()`）异常大是最常见的原因。由于 Tiling 会将 Te
 - **其他框架未正确处理的例外 case**
 
 → 进入步骤 6 定位具体的问题 Tensor。
+
+**子情况 2b：D（slot 数量）异常大**
+
+当 `devTaskBoundaryOutcastNum` 偏大时（例如远超 `stitch_function_max_num`），说明 Boundary Outcast slot 分配过多。
+
+常见原因：
+- **stitch_function_max_num 配置过大**：导致框架为每个可能的并行度分配 slot
+- **Unroll 次数过多**：`unroll_list` 配置导致 slot 数量膨胀
+- **多 Root Function 并行**：多个 Root Function 各自贡献 slot
+
+排查建议：
+1. 检查 `tile_fwk_config.json` 中 `stitch_function_max_num` 和 `unroll_list` 的配置值
+2. 搜索日志中各 Root Function 的 BoundaryOutcast slot 贡献
+3. 尝试降低 `stitch_function_max_num` 或 `unroll_list` 后复测
+
+**配置调优建议**（作为临时缓解手段）：
+
+| 配置项 | 影响范围 | 调优方向 |
+|--------|----------|----------|
+| `stitch_function_max_num` | rootInner、devTaskInnerOutCasts、Boundary slot 数 | 降低此值以减少并行度换取内存 |
+| `unroll_list` / max_unroll | rootInner、devTaskInnerOutCasts | 减小 unroll 数 |
 
 ---
 

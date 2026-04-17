@@ -88,7 +88,10 @@ def my_kernel(input_tensor, output_tensor):
     │   ├─ 避免 view + reshape inplace=True
     │   ├─ unroll_list=[1]
     │   ├─ submit_before_loop=True
-    │   └─ +0.0 技巧
+    │   ├─ +0.0 技巧
+    │   ├─ 调整 shape
+    │   ├─ 初始化 Tensor（output[:] = 0）
+    │   └─ 添加 valid_shape 参数
     │
     ├─ 步骤 3：二分定位（如需要）
     │
@@ -329,6 +332,42 @@ result = compute(...) + 0.0
 
 **依据参考**：Issue #498, #787 - 特定 shape（如尾轴为 1、非整除）可能触发 Pass 推导的边界情况，导致 valid_shape 传播错误或 buffer 越界。调整 shape 可规避这些边界场景。
 
+#### 2.6 初始化 Tensor
+
+**适用场景**：输出 tensor 在写入前被读取，导致未初始化随机值参与计算
+
+**问题现象**：输出包含随机异常值，每次运行结果不一致
+
+**操作**：
+
+```python
+# 创建输出 tensor 后立即初始化
+output = pypto.Tensor(shape, dtype)
+output[:] = 0  # 显式初始化为 0
+```
+
+**判断**：问题是否解决
+
+**依据参考**：`pypto.Tensor` 创建后内存为未初始化状态，若存在"先读后写"路径（如循环体中 read-modify-write），未初始化的随机值会混入计算结果。
+
+#### 2.7 添加 valid_shape 参数
+
+**适用场景**：动态数据范围最后一块小于固定块大小，导致 view/reshape 后数据越界
+
+**问题现象**：特定 shape 下精度异常，尾块数据不正确
+
+**操作**：
+
+```python
+# view/reshape 时传入 valid_shape 参数
+tensor_view = pypto.view(tensor, shape, valid_shape=actual_size)
+tensor_reshaped = pypto.reshape(tensor, new_shape, valid_shape=actual_size)
+```
+
+**判断**：问题是否解决
+
+**依据参考**：动态 shape 场景下，最后一块可能小于固定块大小。`valid_shape` 参数告知框架实际有效数据范围，避免读取越界数据。
+
 **阶段总结**：
 ```markdown
 ## 步骤 2 总结：快速规避方法尝试
@@ -341,6 +380,8 @@ result = compute(...) + 0.0
 | submit_before_loop=True | [是/否] | [有效/无效] | [描述] |
 | +0.0 技巧 | [是/否] | [有效/无效] | [描述] |
 | 调整 shape | [是/否] | [有效/无效] | [描述] |
+| 初始化 Tensor | [是/否] | [有效/无效] | [描述] |
+| 添加 valid_shape | [是/否] | [有效/无效] | [描述] |
 
 ### 有效的规避方法
 [如果有，列出有效的方法]
@@ -353,7 +394,7 @@ result = compute(...) + 0.0
 
 ### 步骤 3：二分定位（如需要）
 
-**转入标准**：当步骤 2 所有 5 种规避方法均尝试且无效时，进入此步骤。
+**转入标准**：当步骤 2 所有 7 种规避方法均尝试且无效时，进入此步骤。
 
 如果上述方法无法定位问题，使用 `pypto-precision-compare` skill 查找定位具体问题 op。
 
@@ -432,12 +473,14 @@ result = compute(...) + 0.0
   - [ ] Shape 定义
   - [ ] valid_shape 配置
 
-- [ ] **步骤 2**：快速规避方法尝试
+  - [ ] **步骤 2**：快速规避方法尝试
   - [ ] 避免 view + reshape inplace=True
   - [ ] unroll_list=[1]
   - [ ] submit_before_loop=True
   - [ ] +0.0 技巧
   - [ ] 调整 shape
+  - [ ] 初始化 Tensor
+  - [ ] 添加 valid_shape
 
 - [ ] **步骤 3**：二分定位（如需要）
 

@@ -161,10 +161,12 @@ gitcode_search_issues(query="repo:cann/pypto {中文关键词}")
 gitcode_search_issues(query="repo:cann/pypto {english keywords}")
 ```
 
-### 4. 处理策略
+### 处理策略
 
 - **发现重复**: 展示已有 Issue（含编号、标题、状态），询问用户是否继续
 - **无重复**: 继续下一阶段
+
+**⚠️ 重要**：去重检查记录仅保存在 Skill 执行上下文中，**不得写入 issue body**。远程创建时暴露内部流程信息会影响专业性。
 
 ---
 
@@ -192,6 +194,19 @@ bash scripts/collect-env.sh
 ---
 
 ## Issue 内容生成
+
+### 可用标签白名单
+
+创建 Issue 时仅使用以下社区标准标签，**禁止使用自定义语义标签**：
+
+| 标签类别 | 可用标签 | 适用场景 |
+|---------|---------|---------|
+| 模块标签 | `Frontend`, `Operator`, `Passes`, `Machine`, `Runtime`, `API` | 按代码模块分类 |
+| 类型标签 | `bug`, `enhancement`, `documentation`, `question`, `wontfix` | 按 Issue 类型分类 |
+| 精度标签 | `precision` | 精度相关问题 |
+| 状态标签 | `needs-triage`, `help-wanted` | 流程状态标记 |
+
+> ⚠️ 社区使用**模块级标签**（如 `Passes`、`Operations`）而非语义标签（如 `precision-overflow`）。创建时选择最匹配的 1-2 个标签即可，其余由 Maintainer/Committer 在分发阶段补充。
 
 ### 模板选择
 
