@@ -1279,6 +1279,34 @@ void ExtractFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outVal
 
 REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT, Opcode::OP_EXTRACT, ExtractFunc);
 
+void QuantMXInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> groupedValidShape;
+    if (op->GetIntAttribute(OpAttributeKey::mxQuantPerformanceMode) != 0) {
+        SymbolicScalar groupedSize(1);
+        for (size_t i = 0; i + 1 < inputValidShapes[0].size(); ++i) {
+            groupedSize = groupedSize * inputValidShapes[0][i];
+        }
+        groupedValidShape = {groupedSize * ((inputValidShapes[0].back() + 31) / 32)};
+    } else {
+        groupedValidShape = inputValidShapes[0];
+        groupedValidShape.back() = (groupedValidShape.back() + 31) / 32;
+    }
+    outValidShapes.push_back(inputValidShapes[0]);
+    outValidShapes.push_back(groupedValidShape);
+    outValidShapes.push_back(groupedValidShape);
+    outValidShapes.push_back(inputValidShapes[0]);
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_QUANT_MX, Opcode::OP_QUANT_MX, QuantMXInferFunc);
+
 void VecDupInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& validShapes)
 {
     std::vector<SymbolicScalar> validShape;

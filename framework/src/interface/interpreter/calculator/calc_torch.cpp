@@ -13,6 +13,9 @@
  * \brief
  */
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <limits>
 #include <torch/torch.h>
 #include "calc_api.h"
@@ -90,6 +93,7 @@ static int64_t LastDimFloatCount(int64_t packedLast, DataType dtype)
 #define AXIS_TO_LAST -2
 #define NUM_VALUE_8 8
 #define BLOCK_SIZE 32
+#define MX_QUANT_TILE_BLOCK 32
 
 static torch::ScalarType FromDataType(DataType t)
 {
@@ -226,6 +230,97 @@ static std::pair<torch::Tensor, torch::Tensor> From(const TensorData& data)
     }
     // view == actualView if ScalarDataType != torch::kUInt8
     return {view, actualView};
+}
+
+static uint32_t FloatToBits(float value)
+{
+    uint32_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+static uint64_t DoubleToBits(double value)
+{
+    uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+static float BitsToFloat(uint32_t bits)
+{
+    float value = 0.0f;
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static float DecodeE4M3Fn(uint8_t code)
+{
+    const int sign = (code & 0x80u) ? -1 : 1;
+    const int exp = (code >> 3) & 0x0Fu;
+    const int mant = code & 0x07u;
+    if (exp == 0) {
+        if (mant == 0) {
+            return sign < 0 ? -0.0f : 0.0f;
+        }
+        return static_cast<float>(sign) * std::ldexp(static_cast<float>(mant), -9);
+    }
+    if (exp == 0x0F && mant == 0x07) {
+        return std::numeric_limits<float>::quiet_NaN();
+    }
+    const float significand = 1.0f + static_cast<float>(mant) / NUM_VALUE_8;
+    return static_cast<float>(sign) * std::ldexp(significand, exp - 7);
+}
+
+static uint8_t EncodeE4M3Fn(float value)
+{
+    if (std::isnan(value)) {
+        return 0x7Fu;
+    }
+    const float clipped = std::clamp(value, -448.0f, 448.0f);
+    uint8_t bestCode = 0;
+    double bestDistance = std::numeric_limits<double>::infinity();
+    uint64_t bestDistanceBits = DoubleToBits(bestDistance);
+    bool bestEven = true;
+    for (int code = 0; code < 256; ++code) {
+        if ((code & 0x7F) == 0x7F) {
+            continue;
+        }
+        const float candidate = DecodeE4M3Fn(static_cast<uint8_t>(code));
+        const double distance = std::fabs(static_cast<double>(candidate) - static_cast<double>(clipped));
+        const uint64_t distanceBits = DoubleToBits(distance);
+        const bool isEven = (code & 1) == 0;
+        const bool isExactTie = distanceBits == bestDistanceBits;
+        if (distance < bestDistance || (isExactTie && isEven && !bestEven) ||
+            (isExactTie && isEven == bestEven && static_cast<uint8_t>(code) < bestCode)) {
+            bestDistance = distance;
+            bestDistanceBits = distanceBits;
+            bestCode = static_cast<uint8_t>(code);
+            bestEven = isEven;
+        }
+    }
+    return bestCode;
+}
+
+static uint8_t ComputeSharedExponent(float maxAbsValue)
+{
+    const uint32_t bits = FloatToBits(maxAbsValue);
+    const uint32_t exponent = (bits & 0x7F800000u) >> 23;
+    if (exponent == 0xFFu) {
+        return 0xFFu;
+    }
+    return static_cast<uint8_t>(exponent - NUM_VALUE_8);
+}
+
+static float ComputeScalingFromExponent(uint8_t e8m0)
+{
+    if (e8m0 == 0xFFu) {
+        return std::numeric_limits<float>::quiet_NaN();
+    }
+    const uint32_t scaleExp = 254u - static_cast<uint32_t>(e8m0);
+    if (scaleExp == 0u) {
+        return std::ldexp(1.0f, -127);
+    }
+    return BitsToFloat(scaleExp << 23);
 }
 
 static torch::Tensor View(
@@ -2369,6 +2464,73 @@ static void Scatter(
     }
 }
 
+static void QuantMX(
+    const TensorData& out, const TensorData& exp, const TensorData& max, const TensorData& scaling,
+    const TensorData& self, bool performanceMode)
+{
+    auto tout = From(out);
+    auto texp = From(exp);
+    auto tmax = From(max);
+    auto tscaling = From(scaling);
+    auto tself = From(self);
+
+    auto input = tself.second.to(torch::kFloat32).contiguous();
+    ASSERT(calc_error::CalculatorErrorScene::QUANTMX_RANK_INVALID, input.dim() >= 2 && input.dim() <= 4)
+        << "QuantMX interpreter only supports 2D to 4D input.";
+
+    auto quantRaw = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kUInt8));
+    auto groupedShape = input.sizes().vec();
+    const int64_t cols = groupedShape.back();
+    groupedShape.back() = (cols + MX_QUANT_TILE_BLOCK - 1) / MX_QUANT_TILE_BLOCK;
+    auto expRaw = torch::empty(groupedShape, torch::TensorOptions().dtype(torch::kUInt8));
+    auto scalingTemp = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kFloat32));
+    auto maxTemp = torch::zeros(groupedShape, torch::TensorOptions().dtype(torch::kFloat32));
+
+    const int64_t rows = input.numel() / cols;
+    const int64_t groupCols = groupedShape.back();
+    auto inputFlat = input.view({rows, cols});
+    auto quantFlat = quantRaw.view({rows, cols});
+    auto expFlat = expRaw.view({rows, groupCols});
+    auto scalingFlat = scalingTemp.view({rows, cols});
+    auto maxFlat = maxTemp.view({rows, groupCols});
+
+    const auto* inputPtr = inputFlat.data_ptr<float>();
+    auto* quantPtr = quantFlat.data_ptr<uint8_t>();
+    auto* expPtr = expFlat.data_ptr<uint8_t>();
+    auto* scalingPtr = scalingFlat.data_ptr<float>();
+    auto* maxPtr = maxFlat.data_ptr<float>();
+
+    for (int64_t row = 0; row < rows; ++row) {
+        for (int64_t group = 0; group < groupCols; ++group) {
+            float maxAbsValue = 0.0f;
+            for (int64_t inner = 0; inner < MX_QUANT_TILE_BLOCK; ++inner) {
+                const int64_t col = group * MX_QUANT_TILE_BLOCK + inner;
+                if (col >= cols) {
+                    continue;
+                }
+                maxAbsValue = std::max(maxAbsValue, std::fabs(inputPtr[row * cols + col]));
+            }
+            const uint8_t e8m0 = ComputeSharedExponent(maxAbsValue);
+            const float groupScaling = ComputeScalingFromExponent(e8m0);
+            expPtr[row * groupCols + group] = e8m0;
+            maxPtr[row * groupCols + group] = maxAbsValue;
+            for (int64_t inner = 0; inner < MX_QUANT_TILE_BLOCK; ++inner) {
+                const int64_t col = group * MX_QUANT_TILE_BLOCK + inner;
+                if (col >= cols) {
+                    continue;
+                }
+                scalingPtr[row * cols + col] = groupScaling;
+                quantPtr[row * cols + col] = EncodeE4M3Fn(inputPtr[row * cols + col] * groupScaling);
+            }
+        }
+    }
+
+    tout.first.copy_(quantRaw);
+    texp.first.copy_(performanceMode ? expRaw.flatten() : expRaw);
+    tmax.second.copy_(performanceMode ? maxTemp.flatten() : maxTemp);
+    tscaling.second.copy_(scalingTemp);
+}
+
 static struct CalcOps calcOps = {
     .Random = Random,
     .AllClose = AllClose,
@@ -2483,6 +2645,7 @@ static struct CalcOps calcOps = {
     .Extract = Extract,
     .MrgSort = MrgSort,
     .TopK = TopK,
+    .QuantMX = QuantMX,
     .TopkSort = TopkSort,
     .TopkMerge = TopkMerge,
     .TopkExtract = TopkExtract,

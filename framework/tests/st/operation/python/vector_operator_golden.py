@@ -17,6 +17,8 @@
 import sys
 import logging
 import json
+import math
+import struct
 from pathlib import Path
 from typing import List
 
@@ -166,9 +168,12 @@ def gen_op_golden(
             input_tensor.tofile(Path(output_path, read_input["name"] + ".bin"))
 
         for idx in range(len(config["output_tensors"])):
-            res[idx].astype(
-                get_dtype_by_name(config["output_tensors"][idx]["dtype"])
-            ).tofile(Path(output_path, config["output_tensors"][idx]["name"] + ".bin"))
+            output_dtype = config["output_tensors"][idx]["dtype"]
+            output_file = Path(output_path, config["output_tensors"][idx]["name"] + ".bin")
+            if output_dtype in ["fp8e4m3", "fp8e5m2", "fp8e8m0"] and res[idx].dtype == np.uint8:
+                res[idx].tofile(output_file)
+            else:
+                res[idx].astype(get_dtype_by_name(output_dtype)).tofile(output_file)
         return True
 
     case_path: Path = Path(Path(__file__).parent.parent, "test_case").resolve()
@@ -2765,6 +2770,125 @@ def gen_argsort_op_golden(case_name: str, output: Path, case_index: int = None) 
         return [idx.numpy()]
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ArgSort", golden_func, output, case_index)
+
+
+def _decode_e4m3_fn(code: int) -> float:
+    sign = -1 if (code & 0x80) != 0 else 1
+    exp = (code >> 3) & 0x0F
+    mant = code & 0x07
+    if exp == 0:
+        if mant == 0:
+            return -0.0 if sign < 0 else 0.0
+        return float(sign) * math.ldexp(float(mant), -9)
+    if exp == 0x0F and mant == 0x07:
+        return math.nan
+    significand = 1.0 + float(mant) / 8.0
+    return float(sign) * math.ldexp(significand, exp - 7)
+
+
+def _encode_e4m3_fn(value: float) -> np.uint8:
+    if math.isnan(value):
+        return np.uint8(0x7F)
+    clipped = min(max(value, -448.0), 448.0)
+    best_code = 0
+    best_distance = math.inf
+    best_even = True
+    for code in range(256):
+        if (code & 0x7F) == 0x7F:
+            continue
+        candidate = _decode_e4m3_fn(code)
+        distance = abs(candidate - clipped)
+        is_even = (code & 1) == 0
+        if (
+            distance < best_distance
+            or (distance == best_distance and is_even and not best_even)
+            or (distance == best_distance and is_even == best_even and code < best_code)
+        ):
+            best_distance = distance
+            best_code = code
+            best_even = is_even
+    return np.uint8(best_code)
+
+
+def _float_to_bits(value: float) -> int:
+    return struct.unpack("<I", struct.pack("<f", np.float32(value)))[0]
+
+
+def _bits_to_float(bits: int) -> float:
+    return struct.unpack("<f", struct.pack("<I", bits))[0]
+
+
+def _compute_shared_exponent(max_abs_value: float) -> np.uint8:
+    exponent = (_float_to_bits(max_abs_value) & 0x7F800000) >> 23
+    if exponent == 0xFF:
+        return np.uint8(0xFF)
+    return np.uint8((exponent - 8) & 0xFF)
+
+
+def _compute_scaling_from_exponent(e8m0: int) -> float:
+    if e8m0 == 0xFF:
+        return math.nan
+    scale_exp = 254 - int(e8m0)
+    scaling = _bits_to_float(scale_exp << 23)
+    if scaling == 0.0:
+        scaling = math.ldexp(1.0, -127)
+    return scaling
+
+
+@TestCaseLoader.reg_params_handler(ops=["QuantMX"])
+def params_quantmx_func(params: dict):
+    params["mode"] = params.get("mode") or "ROUND_DOWN"
+    assert params["mode"] in ("ROUND_UP", "ROUND_DOWN"), "mode must be ROUND_UP or ROUND_DOWN"
+    params["performance_mode"] = str_to_bool(params.get("performance_mode"))
+    return params
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestQuantMX/QuantMXOperationTest.TestQuantMX",
+    ]
+)
+def gen_quantmx_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, _config: dict):
+        params = _config.get("params", {}) or {}
+        mode = params.get("mode", "ROUND_DOWN")
+        if mode != "ROUND_DOWN":
+            raise ValueError("QuantMX golden currently only supports ROUND_DOWN (OCP standard) mode.")
+
+        x = inputs[0].astype(np.float32, copy=False)
+        if x.ndim < 2 or x.ndim > 4:
+            raise ValueError("QuantMX golden only supports 2D to 4D input.")
+
+        cols = x.shape[-1]
+        rows = x.size // cols
+        group_cols = (cols + 31) // 32
+        scale_group_cols = (cols + 63) // 64
+        quant = np.empty(x.shape, dtype=np.uint8)
+        exp_shape = list(x.shape[:-1]) + [scale_group_cols, 2]
+        exp = np.empty(exp_shape, dtype=np.uint8)
+        exp.fill(0)
+        quant_flat = quant.reshape(rows, cols)
+        exp_flat = exp.reshape(rows, scale_group_cols * 2)
+        x_flat = x.reshape(rows, cols)
+
+        for row in range(rows):
+            for group in range(group_cols):
+                start = group * 32
+                end = min(start + 32, cols)
+                group_data = x_flat[row, start:end]
+                actual_count = end - start
+                if actual_count < 32:
+                    group_data = np.pad(group_data, (0, 32 - actual_count), "constant")
+                max_abs_value = float(np.max(np.abs(group_data)))
+                e8m0 = _compute_shared_exponent(max_abs_value)
+                group_scaling = _compute_scaling_from_exponent(int(e8m0))
+                exp_flat[row, group] = e8m0
+                for inner, value in enumerate(group_data[:actual_count]):
+                    quant_flat[row, start + inner] = _encode_e4m3_fn(float(value) * group_scaling)
+        return [quant, exp]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("QuantMX", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
