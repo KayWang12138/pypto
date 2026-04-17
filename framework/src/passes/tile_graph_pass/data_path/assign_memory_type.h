@@ -55,6 +55,8 @@ private:
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
     AssignMemoryTypeChecker checker;
+private:
+    void SetIncastOutcastMemtype(Function& function);
 };
 static constexpr double UB_THRESHOLD = 0.35;
 static constexpr double L1_THRESHOLD = 0.5;
