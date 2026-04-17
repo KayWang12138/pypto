@@ -1,0 +1,5 @@
+name: tune-frontend
+description: "Frontend code-level tuning: loop write patterns, TileShape settings, data operation optimization."
+triggers: ["frontend tuning", "loop optimization", "TileShape", "code-level perf"]
+category: performance
+phase_affinity: ["6"]

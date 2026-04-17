@@ -1,0 +1,27 @@
+name: development
+description: "Requirements analysis, API exploration, golden reference, design, implementation."
+skills:
+  - id: pypto-environment-setup
+    description: "CANN/torch_npu/build environment setup and repair."
+    triggers: ["environment setup", "CANN install", "torch_npu", "NPU driver", "build error"]
+  - id: pypto-intent-understand
+    description: "Convert natural-language operator requirements to structured SPEC.md."
+    triggers: ["requirements", "intent", "SPEC", "operator description"]
+  - id: pypto-api-explore
+    description: "API availability check, constraint verification, API_REPORT.md."
+    triggers: ["API explore", "API mapping", "constraint check", "feasibility"]
+  - id: pypto-golden-generate
+    description: "Generate PyTorch golden reference with confidence scoring."
+    triggers: ["golden", "reference implementation", "golden.py", "baseline"]
+  - id: pypto-op-design
+    description: "Generate DESIGN.md with API mapping, tiling strategy, loop structure."
+    triggers: ["design", "DESIGN.md", "tiling strategy", "loop structure"]
+  - id: pypto-op-develop
+    description: "Generate impl.py, test.py, README with execution constraints."
+    triggers: ["implement", "develop", "impl.py", "test.py", "kernel code"]
+  - id: pypto-op-workflow
+    description: "Overall operator development workflow reference."
+    triggers: ["workflow", "development flow", "full process"]
+  - id: pypto-fused-op-integration
+    description: "Integrate fused operator into model, replacing small-op combinations."
+    triggers: ["fused op", "model integration", "replace small ops", "end-to-end"]

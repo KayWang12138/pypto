@@ -1,0 +1,6 @@
+name: orchestration
+description: "Cross-cutting orchestration skills. The Lead Agent reads skills in this category to run the entire PyPTO kernel-development workflow."
+skills:
+  - id: lead-orchestrator
+    description: "Lead Agent entry point. Bundles the 5 control documents (principles, agent plan, team roster, mandatory rules, routing catalog) as a single skill with progressive-disclosure references."
+    triggers: ["lead agent", "orchestrator", "team dispatch", "start kernel development", "phase orchestration", "gate enforcement"]

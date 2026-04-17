@@ -1,0 +1,21 @@
+name: performance
+description: "3-stage performance tuning: frontend, swimlane, incore optimization."
+skills:
+  - id: pypto-op-perf-tune
+    description: "Performance analysis and tuning orchestrator (3-stage workflow)."
+    triggers: ["performance tuning", "perf analysis", "auto tune", "optimize kernel"]
+  - id: perf-analyzer
+    description: "Extract performance metrics, compute ratings, identify bottlenecks."
+    triggers: ["perf metrics", "performance report", "bottleneck analysis"]
+  - id: tune-frontend
+    description: "Frontend code-level tuning: loop patterns, TileShape, data ops."
+    triggers: ["frontend tuning", "loop optimization", "TileShape", "code-level perf"]
+  - id: tune-incore
+    description: "Single-task instruction-level and incore pipeline optimization."
+    triggers: ["incore tuning", "instruction optimization", "single task", "pipeline"]
+  - id: tune-swimlane
+    description: "Swimlane diagram analysis: Stitch, graph fusion, scheduling."
+    triggers: ["swimlane", "Stitch", "graph fusion", "scheduling optimization"]
+  - id: pypto-operator-auto-tuner
+    description: "Automation scripts for swimlane extraction and AIV dep chains."
+    triggers: ["auto tuner", "swimlane script", "AIV dependency", "leafhash"]

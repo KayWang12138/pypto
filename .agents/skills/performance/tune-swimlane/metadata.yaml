@@ -1,0 +1,5 @@
+name: tune-swimlane
+description: "Swimlane diagram analysis and tuning: Stitch, TileShape deep tuning, graph fusion, scheduling."
+triggers: ["swimlane", "Stitch", "graph fusion", "scheduling optimization", "deep tuning"]
+category: performance
+phase_affinity: ["6"]

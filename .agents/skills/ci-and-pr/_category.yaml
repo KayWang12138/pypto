@@ -1,0 +1,30 @@
+name: ci-and-pr
+description: "Layout validation, PR creation/fix, Issue management, quality review."
+# scope legend:
+#   in-phase : used during Phase 3-5 gates (Verification Agent loads directly)
+#   post-dev : loaded only after GATE 4 by the Lead Agent, on specific trigger
+skills:
+  - id: ci-and-layout-check
+    scope: in-phase
+    description: "Layout validator, extract_pypto_calls, run_validate_layout.sh."
+    triggers: ["layout check", "CI check", "validate layout", "extract calls"]
+  - id: pypto-pr-creator
+    scope: post-dev
+    description: "Create PR to cann/pypto with fork validation and commit conventions."
+    triggers: ["create PR", "submit code", "push to remote", "pull request"]
+  - id: pypto-pr-fixer
+    scope: post-dev
+    description: "Fix CodeCheck CI failures and address reviewer comments."
+    triggers: ["fix PR", "CodeCheck", "CI failure", "review comment"]
+  - id: pypto-issue-creator
+    scope: post-dev
+    description: "Create GitCode Issue (bug, feature, doc, question, task)."
+    triggers: ["create issue", "report bug", "feature request", "GitCode issue"]
+  - id: pypto-fracture-point-detector
+    scope: post-dev
+    description: "Identify framework/documentation gaps from session context."
+    triggers: ["fracture point", "documentation gap", "framework issue"]
+  - id: pypto-skill-reviewer
+    scope: post-dev
+    description: "Audit skill directory for quality and best-practice compliance."
+    triggers: ["skill review", "skill audit", "quality check", "compliance"]

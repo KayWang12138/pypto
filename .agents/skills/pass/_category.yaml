@@ -1,0 +1,18 @@
+name: pass
+description: "Pass module analysis, error diagnosis, compilation performance, UT generation."
+skills:
+  - id: pypto-pass-error-locator
+    description: "Pass module error diagnosis: localization, cause analysis, fix suggestions."
+    triggers: ["pass error", "pass diagnosis", "pass module error"]
+  - id: pypto-pass-module-analyzer
+    description: "Analyze pass source code, generate module analysis documentation."
+    triggers: ["pass analysis", "module analysis", "pass code review"]
+  - id: pypto-pass-perf-optimizer
+    description: "Measure and optimize pass compilation performance."
+    triggers: ["pass performance", "compilation time", "pass optimization"]
+  - id: pypto-pass-ut-generate
+    description: "Generate unit tests for pass modules from business descriptions."
+    triggers: ["pass UT", "unit test", "pass test generation"]
+  - id: pypto-pass-workflow-analyzer
+    description: "Analyze pass workflow: execution order, dependencies, data flow."
+    triggers: ["pass workflow", "execution flow", "data flow", "pass sequence"]

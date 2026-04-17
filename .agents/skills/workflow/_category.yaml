@@ -1,0 +1,24 @@
+name: workflow
+description: "Phase orchestration (0-6), code format templates, plan template, and validation."
+skills:
+  - id: phase0-phase1-planning
+    description: "Phase 0 triage, API availability, Phase 1 golden preparation and freeze."
+    triggers: ["phase 0", "phase 1", "API check", "golden preparation", "plan file"]
+  - id: phase2-phase3-construction
+    description: "Module decomposition, one-at-a-time construction, DEBUG §9 lookup."
+    triggers: ["phase 2", "phase 3", "module decomposition", "module construction"]
+  - id: phase4-phase5-integration
+    description: "Progressive integration, structural rules (loops, tiles, write-back)."
+    triggers: ["phase 4", "phase 5", "integration", "structural rules"]
+  - id: phase6-optimization
+    description: "Config-level and algorithm-level optimization after correctness."
+    triggers: ["phase 6", "optimization", "tuning", "performance"]
+  - id: kernel-code-format
+    description: "Layers A-L design doc, naming conventions, pypto_kernel_template.py."
+    triggers: ["code format", "template", "layers A-L", "naming convention"]
+  - id: plan-template
+    description: "Plan template for custom/plan/<op>.md with required sections."
+    triggers: ["plan template", "plan file", "custom/plan"]
+  - id: validation-and-deliverables
+    description: "Validation runner, detailed_tensor_compare, success criteria."
+    triggers: ["validation", "test runner", "detailed_tensor_compare", "deliverables"]
