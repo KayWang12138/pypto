@@ -18,7 +18,7 @@
 #include <fstream>
 #include <string>
 
-#include "core/logging.h"
+#include "interface/utils/function_error.h"
 
 namespace pypto {
 

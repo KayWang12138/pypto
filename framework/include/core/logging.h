@@ -584,15 +584,6 @@ public:
 };
 
 /**
- * \brief Check a condition and throw ValueError if it fails
- *
- * Usage: CHECK(condition) << "error message";
- */
-#define CHECK(expr) \
-    if (!(expr))    \
-    pypto::FatalLogger<pypto::ir::ValueError>(#expr, __FILE__, __LINE__)
-
-/**
  * \brief Check an internal invariant and throw InternalError if it fails
  *
  * Usage: INTERNAL_CHECK(condition) << "error message";

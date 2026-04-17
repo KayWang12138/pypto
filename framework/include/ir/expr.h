@@ -22,12 +22,12 @@
 
 #include "core/any_cast.h"
 #include "core/dtype.h"
-#include "core/logging.h"
 #include "ir/core.h"
 #include "ir/memref.h"
 #include "ir/pipe.h"
 #include "ir/reflection/field_traits.h"
 #include "ir/type.h"
+#include "interface/utils/function_error.h"
 
 namespace pypto {
 namespace ir {
@@ -124,7 +124,7 @@ public:
     [[nodiscard]] std::type_index GetAttrType(const std::string& key, const Span& span = Span::Unknown()) const
     {
         auto it = attrs_.find(key);
-        CHECK(it != attrs_.end()) << "Attribute '" << key << "' not found in operator '" << name_ << "'"
+        CHECK(npu::tile_fwk::FError::NOT_EXIST, it != attrs_.end()) << "Attribute '" << key << "' not found in operator '" << name_ << "'"
                                   << " at " << span.ToString();
         return it->second;
     }

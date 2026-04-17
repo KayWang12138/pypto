@@ -18,6 +18,8 @@
 
 #include <cstdint>
 
+#include "tilefwk/error.h"
+
 namespace npu::tile_fwk {
 
 // =============================================================================
@@ -41,11 +43,5 @@ enum class FError : uint32_t {
 
     UNKNOWN = 0x3FFFFU
 };
-
-#ifndef FUNCTION_ASSERT
-#define FUNCTION_ASSERT_SELECT(_1, _2, NAME, ...) NAME
-#define FUNCTION_ASSERT_WITH_UNKNOWN(cond) ASSERT(FError::UNKNOWN, cond)
-#define FUNCTION_ASSERT(...) FUNCTION_ASSERT_SELECT(__VA_ARGS__, ASSERT, FUNCTION_ASSERT_WITH_UNKNOWN)(__VA_ARGS__)
-#endif
 
 } // namespace npu::tile_fwk
