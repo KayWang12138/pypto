@@ -68,6 +68,7 @@ private:
 
     // mix subgraph schedule
     WrapInfoQueue* AllocWrapQueue(DynDeviceTask* dyntask);
+    void InitWrapQueueForThread(DynDeviceTask* dyntask);
     void ProcessWrapQueue(
         DynDeviceTask* dyntask, uint32_t wrapId, int funcIndex, size_t opIndex, WrapInfoQueue* wrapQueue);
     bool IsMixArch(DevAscendProgram* devProg);
