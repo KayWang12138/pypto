@@ -31,8 +31,8 @@
 #include <cstdint>
 #include <set>
 
-#include "tilefwk/error.h"
 #include "securec.h"
+#include "interface/utils/function_error.h"
 #include "tilefwk/symbolic_scalar.h"
 
 namespace npu::tile_fwk {
@@ -533,7 +533,7 @@ inline std::string ShapeStrCompact(const std::vector<int>& shape)
             shapeBuffer, SHAPE_BUFFER_MAX_SIZE, "[%d,%d,%d,%d,%d]", shape[0], shape[1], shape[SHAPE_DIM_NUM_2],
             shape[SHAPE_DIM_NUM_3], shape[SHAPE_DIM_NUM_4]);
     } else {
-        ASSERT(0) << "cannot support tensor shape of more than 4 dims";
+        ASSERT(FError::EINTERNAL, 0) << "cannot support tensor shape of more than 4 dims";
     }
 
     return std::string(shapeBuffer);
@@ -591,7 +591,7 @@ inline int Max(int a, int b) { return (a > b) ? a : b; }
 inline std::set<int> PowersOf2(int n)
 {
     std::set<int> result;
-    ASSERT(n > 0) << "n: " << n;
+    ASSERT(FError::INVALID_VAL, n > 0) << "n: " << n;
     int power = 0;
     while (true) {
         int current = 1 << power; // 计算 2^power
