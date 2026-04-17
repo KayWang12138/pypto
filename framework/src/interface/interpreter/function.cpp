@@ -21,10 +21,11 @@
 
 namespace npu::tile_fwk {
 constexpr int MAX_IDENT_LEVEL = 20;
-const std::unordered_set<std::string> copyOpCode = {
-    "COPY_IN",         "COPY_OUT",        "L1_TO_L0A", "L1_TO_L0B",        "L1_TO_L0At",        "FIX_COPY_IN_QUANT_PRE",
-    "L1_TO_L0Bt",      "L0C_COPY_L1",     "L1_TO_BT",  "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST",
-    "RESHAPE_COPY_IN", "RESHAPE_COPY_OUT"};
+const std::unordered_set<std::string> copyOpCode = {"COPY_IN",          "COPY_OUT",          "L1_TO_L0A",
+                                                    "L1_TO_L0B",        "L1_TO_L0At",        "FIX_COPY_IN_QUANT_PRE",
+                                                    "L1_TO_L0Bt",       "L0C_COPY_L1",       "L1_TO_BT",
+                                                    "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST",
+                                                    "INDEX_ADD",        "RESHAPE_COPY_IN",   "RESHAPE_COPY_OUT"};
 const std::unordered_set<std::string> convertOpCode = {
     "L0C_COPY_UB", "CONVERT", "UB_COPY_ND2NZ", "UB_COPY_L1_ND", "UB_COPY_L1"};
 
@@ -375,7 +376,7 @@ void FunctionInterpreter::FillOperationInputInfo(
         }
         opInfo[toIndex(OpInfoCsvHeader::inputValidShape)] += ShapeToString(dataView->GetValidShape());
         opInfo[toIndex(OpInfoCsvHeader::inputRawMagic)] +=
-                                std::to_string(op->GetIOperands()[k]->GetRawTensor()->GetRawMagic());
+            std::to_string(op->GetIOperands()[k]->GetRawTensor()->GetRawMagic());
         auto it = frame->tensorDataBinDict.find(op->GetIOperands()[k]);
         if (it != frame->tensorDataBinDict.end()) {
             opInfo[toIndex(OpInfoCsvHeader::inputTensors)] += it->second;
