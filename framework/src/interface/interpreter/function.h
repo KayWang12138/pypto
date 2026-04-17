@@ -915,12 +915,12 @@ struct FunctionInterpreter {
         RawTensorDataPtr tmp;
         
         auto outOp = op.GetOOperands()[0];
-        if (memType == 1) {
+        if (memType == 0) {
             std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
             tmp = SimulationCommManager::Instance().Alloc(groupName, slotSize);
             out = LogicalTensorData::Create(*tmp);
         }
-        if (memType == 0) {
+        if (memType == 1) {
             std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
             tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
             out = LogicalTensorData::Create(*tmp);
