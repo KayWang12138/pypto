@@ -798,20 +798,13 @@ Status SuperNodeGraphBuilder::CheckAndMergeScopes(
     return SUCCESS;
 }
 
-void SuperNodeGraphBuilder::RebuildSuperNodes(const std::vector<int32_t>& snParent, int32_t numNodes)
+void SuperNodeGraphBuilder::RebuildSuperNodes(std::vector<int32_t>& snParent, int32_t numNodes)
 {
-    auto findSN = [&snParent](int32_t i) -> int32_t {
-        std::vector<int32_t> parentCopy = snParent;
-        while (parentCopy[i] != i) {
-            i = parentCopy[i];
-        }
-        return i;
-    };
     std::vector<int32_t> parentToNewNode(numNodes, -1);
     std::vector<std::vector<int32_t>> newNode2Op;
 
     for (int32_t nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
-        int32_t p = findSN(nodeIdx);
+        int32_t p = FindParent(snParent, nodeIdx);
         if (parentToNewNode[p] == -1) {
             parentToNewNode[p] = static_cast<int32_t>(newNode2Op.size());
             newNode2Op.push_back({});
@@ -850,13 +843,6 @@ Status SuperNodeGraphBuilder::ProcessScopeMerge()
     for (int32_t i = 0; i < numNodes; i++) {
         snParent[i] = i;
     }
-
-    auto findSN = [&snParent](int32_t i) -> int32_t {
-        while (snParent[i] != i) {
-            i = snParent[i];
-        }
-        return i;
-    };
 
     bool needRebuild = false;
     std::map<int32_t, int32_t> scopeToCvFuseId;
