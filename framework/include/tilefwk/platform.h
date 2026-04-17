@@ -134,7 +134,10 @@ public:
     void SetVersion(const std::string& ver) { version = ver; }
     void SetCCECVersion(const std::string& ver) { ccec_version = ver; }
 
-    std::string GetVersion() const { return version; }
+    std::string GetVersion() const { 
+        return NPUArch::DAV_3113;
+        // return version; 
+    }
     std::string GetCCECVersion() const { return ccec_version; }
     size_t GetNum() const { return num_; }
     size_t GetMemorySize(MemoryType type) const;
