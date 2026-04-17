@@ -428,7 +428,7 @@ void ReBuildConcreteParam(Function* leafFunc, std::vector<std::vector<SymbolicSc
     }
 }
 
-Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList)
+Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList, std::set<int> inoutCast)
 {
     // 1. 为leafFunc拿到它所有caller的一维的callopArglistOneDim
     std::vector<std::vector<SymbolicScalar>> callopArglistOneDim;
@@ -439,13 +439,6 @@ Status DynAttrToStatic::TryRemoveDynAttr(Function* leafFunc, std::vector<Operati
 
     // 2. 依次为leafFunc的所有op拿到所有动态attr，为每个动态attr刷新coa宏
     auto operationViewer = leafFunc->Operations(false);
-    std::set<int> inoutCast;
- 	for (auto &inCast : leafFunc->GetIncast()) {
- 	    inoutCast.insert(inCast->tensor->GetRawMagic());
- 	}
- 	for (auto &outCast : leafFunc->GetOutcast()) {
- 	    inoutCast.insert(outCast->tensor->GetRawMagic());
- 	}
     for (size_t j = 0; j < operationViewer.size(); j++) {
         auto& op = operationViewer[j];
         std::vector<std::reference_wrapper<SymbolicScalar>> dynScalarList = GetOpDynamicAttributeList(op);
@@ -575,6 +568,13 @@ void DynAttrToStatic::BuildParamAddr(Operation &op, std::set<int> inoutCast) {
 Status DynAttrToStatic::RunOnFunction(Function &function)
 {
     APASS_LOG_INFO_F(Elements::Operation, "==============> Start DynAttrToStatic.");
+    std::set<int> inoutCast;
+ 	for (auto &inCast : function.GetIncast()) {
+ 	    inoutCast.insert(inCast->tensor->GetRawMagic());
+ 	}
+ 	for (auto &outCast : function.GetOutcast()) {
+ 	    inoutCast.insert(outCast->tensor->GetRawMagic());
+ 	}
     // 1. 遍历所有rootFunc，找到每个leaf的所有caller，生成leaf2Caller map
     if (BuildLeafToCaller(&function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to call BuildLeafToCaller.");
@@ -583,7 +583,7 @@ Status DynAttrToStatic::RunOnFunction(Function &function)
 
     // 2. 遍历leaf2Caller，尝试为每个leaf消除动态attributes
     for (const auto& pair : leaf2Caller) {
-        if (TryRemoveDynAttr(pair.first, pair.second) != SUCCESS) {
+        if (TryRemoveDynAttr(pair.first, pair.second, inoutCast) != SUCCESS) {
             APASS_LOG_ERROR_F(
                 Elements::Operation, "Failed to call TryRemoveDynAttr for leafFunc %s.",
                 pair.first->GetRawName().c_str());

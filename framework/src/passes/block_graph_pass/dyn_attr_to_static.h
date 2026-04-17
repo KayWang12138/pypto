@@ -258,7 +258,7 @@ private:
     Status BuildNewCoa(
         std::reference_wrapper<SymbolicScalar>& dynScalar,
         std::vector<std::vector<SymbolicScalar>>& callopArglistOneDim);
-    Status TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList);
+    Status TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList, std::set<int> inoutCast);
     Status GetTileFunction(Function* function, std::unordered_set<Function*>& tileFunctionSet);
     Status DumpFunctionJson(Function& function, const std::string& logFolder, bool beforeFunction = true) override;
     Status PrintFunction(Function& function, const std::string& logFolder, bool beforeFunction = true) override;
