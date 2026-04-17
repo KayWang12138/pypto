@@ -18,6 +18,7 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/common.h"
+#include "passes/pass_utils/pass_error.h"
 
 namespace npu::tile_fwk {
 const std::string COPY_OUT_FORCE_INFER_SHAPE = "copy_out_force_infer_shape";
@@ -519,13 +520,13 @@ REGISTER_INFER_SHAPE_FUNC(OP_WHERE_SS, Opcode::OP_WHERE_SS, WhereInferFunc);
 void InferFunc4Gather(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     auto iOperands = op->GetIOperands();
-    assert(iOperands.size() >= NUM2);
+    ASSERT(OperationErr::OP_INVALID_OPERAND_COUNT, iOperands.size() >= NUM2);
     int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     int src0Rank = iOperands[0]->GetShape().size();
     if (axis < 0) {
         axis = axis + src0Rank;
     }
-    assert((axis >= 0 && axis < src0Rank) && "InferFunc4Gather, axis is invalid");
+    ASSERT(OperationErr::OP_SPECIAL_CONSTRAINT, (axis >= 0 && axis < src0Rank) && "InferFunc4Gather, axis is invalid");
 
     std::vector<std::vector<SymbolicScalar>> inputValidShapes;
     for (auto inputTensor : iOperands) {
@@ -546,7 +547,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_GATHER, Opcode::OP_GATHER, InferFunc4Gather);
 void InferFuncGatherInL1(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     auto iOperands = op->GetIOperands();
-    assert(iOperands.size() == 3);
+    ASSERT(OperationErr::OP_INVALID_OPERAND_COUNT, iOperands.size() == 3);
     auto srcValidShape = iOperands[0]->GetDynValidShape();
     auto offsetValidShape = iOperands[1]->GetDynValidShape();
     auto srcStartColumnOffset = op->GetIntAttribute(OpAttributeKey::startOffset);
@@ -567,7 +568,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, InferFuncGat
 void InferFuncGatherInUB(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     auto iOperands = op->GetIOperands();
-    assert(iOperands.size() == 3);
+    ASSERT(OperationErr::OP_INVALID_OPERAND_COUNT, iOperands.size() == 3);
     auto srcValidShape = iOperands[0]->GetDynValidShape();
     auto indicesValidShape = iOperands[1]->GetDynValidShape();
     ASSERT(op->GetOOperands().size() == 1);
@@ -602,7 +603,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_AT_MUL_BT, Opcode::OP_AT_MUL_BT, MatmulInferFunc);
 void LoadBTFBInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes)
 {
     for (auto output : op->GetOOperands()) {
-        assert(!output->GetDynValidShape().empty());
+        assert(OperationErr::OP_SPECIAL_CONSTRAINT, !output->GetDynValidShape().empty());
         outValidShapes.push_back(output->GetDynValidShape());
     }
 }
