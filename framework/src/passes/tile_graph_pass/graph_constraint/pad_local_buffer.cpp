@@ -284,7 +284,8 @@ void PadLocalBuffer::PadVector(
         in->tensor->oriRawshape = in->tensor->rawshape;
         // 开启了强制合轴，倒数第2轴不是对齐的
         if (forceCombineAxis && paddingValue > 0 && in->tensor->rawshape[lastIdx - 1] % paddingValue != 0) {
-            in->tensor->rawshape[lastIdx - 1] = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
+            int64_t shapeAfterPad = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
+            in->tensor->rawshape[lastIdx - 1] = shapeAfterPad;
         }
         APASS_LOG_DEBUG_F(
             Elements::Tensor, "Vector Op %d %s input %d, not handle unalign.", op.opmagic, op.GetOpcodeStr().c_str(),
@@ -296,7 +297,8 @@ void PadLocalBuffer::PadVector(
     if (calcType == OpCalcType::BROADCAST && broadcastLastAxis_.find(op.opmagic) != broadcastLastAxis_.end()) {
         lastDim = broadcastLastAxis_[op.opmagic];
     }
-    in->shape[lastIdx] = Pad(lastDim, paddingValue);
+    int64_t shapeAfterPad = Pad(lastDim, paddingValue);
+    in->shape[lastIdx] = shapeAfterPad;
     if (in->shape[lastIdx] != in->oriShape[lastIdx]) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "op %d %s input has been changed\n", op.opmagic, op.GetOpcodeStr().c_str());
