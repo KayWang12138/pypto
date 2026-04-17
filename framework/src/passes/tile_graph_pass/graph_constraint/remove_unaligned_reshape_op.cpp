@@ -323,7 +323,7 @@ void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Oper
         AlignmentUtils::ProcessLastDim32BAlignedOnUB(newTensorPtr);
         // 要copy到UB的Tensor，在copy之前，进行32B对齐之后判断超UB
         const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
-        if (static_cast<size_t>(newTensorPtr.GetDataSize()) > UB_SIZE_THRESHOLD) {
+        if (static_cast<size_t>(newTensorPtr->GetDataSize()) > UB_SIZE_THRESHOLD) {
             APASS_LOG_WARN_F(Elements::Tensor, "The size[%ld] of copyTensor[%d] from output of copyout op[%d] should not exceed %zu after padding. Consider reducing its size.",
                 newTensorPtr->GetDataSize(), newTensorPtr->GetMagic(), copyOutOp->GetOpMagic(), UB_SIZE_THRESHOLD);
             return;
@@ -388,7 +388,7 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(
 
                 // 要copy到UB的Tensor，在copy之前，进行32B对齐之后判断超UB
                 const size_t UB_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
-                if (static_cast<size_t>newTensor.GetDataSize() > UB_SIZE_THRESHOLD) {
+                if (static_cast<size_t>(newTensorPtr->GetDataSize()) > UB_SIZE_THRESHOLD) {
                     APASS_LOG_WARN_F(Elements::Tensor, "The size[%ld] of copyTensor[%d] from input of copyin op[%d] should not exceed %zu after padding. Consider reducing its size.",
                         newTensorPtr->GetDataSize(), newTensorPtr->GetMagic(), copyInOp->GetOpMagic(), UB_SIZE_THRESHOLD);
                     return;
