@@ -131,20 +131,21 @@ struct CoaInfo {
 };
 
 struct IsConstMetric {
-    int isConst = 3;
+    int isConst = 1;
     int attrValue = -1;
 
-    void MarkNotConst() {isConst = 2;}
-    int GetIsConst() {return isConst;}
-    int GetAttrValue() {return attrValue;}
-    bool TryInitAndCheckEqual(int newValue) {
+    void MarkNotConst() {isConst = 0;}
+    int GetIsConst() { return isConst; }
+    int GetAttrValue() { return attrValue; }
+    bool TryInitAndCheckEqual(int newValue)
+    {
         if (attrValue == -1) {
             attrValue = newValue;
             return true;
         }
 
         if (newValue < 0 || newValue != attrValue) {
-            isConst = 2;
+            isConst = 0;
             return false;
         }
         return true;
@@ -540,7 +541,7 @@ static void HandleIndexoutcastOp(Operation &op) {
             SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
         }
     }
-    for (size_t i = 0; i < op.iOperand.size() && i < 2; ++i) {
+    for (size_t i = 0; i < op.iOperand.size() && i < 3; ++i) {
         auto &tensor = op.iOperand[i];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0));
