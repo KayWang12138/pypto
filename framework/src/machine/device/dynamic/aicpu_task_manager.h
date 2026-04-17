@@ -59,9 +59,19 @@ public:
         aivNum_ = deviceArgs->nrAiv;
     }
 
-    // 仅AICPU_0会调用
+    enum InitState : uint32_t {
+        NOT_INITED = 0,
+        INITING = 1,
+        DONE = 2,
+    };
+
+    // Multiple device tasks share the same AicpuTaskManager instance,
+    // each device task needs to be re-initialized.
+    // For concurrent processing of the same device task by multiple sched aicpus:
+    // only the first thread that reaches here does the real initialization for this device task.
     inline int32_t Init(DynDeviceTask* deviceTask, bool profSwitch)
     {
+        // Always set up base pointers, needed for every device task
         curDevTask_ = deviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue*>(deviceTask->devTask.readyAicpuFunctionQue);
@@ -70,12 +80,28 @@ public:
             KernelArgs* args = (KernelArgs*)(sharedBuffer_ + (aicNum_ + aivNum_) * SHARED_BUFFER_SIZE);
             aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         }
-        return PrepareAicpuTask();
+        // For concurrent access by multiple sched aicpus to the same device task,
+        // only one thread does the prepare. Init state is stored in the device task itself.
+        uint32_t expected = NOT_INITED;
+        if (!__sync_bool_compare_and_swap(&deviceTask->aicpuTaskInited_, expected, INITING)) {
+            // Already being initialized or done by another thread for this device task
+            return DEVICE_MACHINE_OK;
+        }
+        int32_t ret = PrepareAicpuTask();
+        __atomic_store_n(&deviceTask->aicpuTaskInited_, DONE, __ATOMIC_RELEASE);
+        return ret;
     }
 
     // 仅AICPU_0会调用
     inline int32_t TaskProcess(uint64_t& taskCount)
     {
+        // Non-blocking: if initialization not done for this device task, skip this round
+        if (curDevTask_ == nullptr || __atomic_load_n(&curDevTask_->aicpuTaskInited_, __ATOMIC_ACQUIRE) != DONE) {
+            return DEVICE_MACHINE_OK;
+        }
+        if (readyQueue_ == nullptr) {
+            return DEVICE_MACHINE_OK;
+        }
         if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) ==
             __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
             return DEVICE_MACHINE_OK;
@@ -94,9 +120,23 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    inline int32_t TaskPoll(AiCoreManager* aiCoreManager) { return shmemWaitUntil_.PollCompleted(aiCoreManager); }
+    inline int32_t TaskPoll(AiCoreManager* aiCoreManager)
+    {
+        // Non-blocking: if initialization not done for this device task, skip this round
+        if (curDevTask_ == nullptr || __atomic_load_n(&curDevTask_->aicpuTaskInited_, __ATOMIC_ACQUIRE) != DONE) {
+            return DEVICE_MACHINE_OK;
+        }
+        return shmemWaitUntil_.PollCompleted(aiCoreManager);
+    }
 
-    inline bool Finished() { return shmemWaitUntil_.runingTaskQueue_.IsEmpty(); }
+    inline bool Finished()
+    {
+        if (curDevTask_ == nullptr || __atomic_load_n(&curDevTask_->aicpuTaskInited_, __ATOMIC_ACQUIRE) != DONE) {
+            // Still initializing, treat as finished to allow other tasks to proceed
+            return true;
+        }
+        return shmemWaitUntil_.runingTaskQueue_.IsEmpty();
+    }
 
     inline int32_t SyncAicpuTaskFinish(AiCoreManager* aiCoreManager)
     {

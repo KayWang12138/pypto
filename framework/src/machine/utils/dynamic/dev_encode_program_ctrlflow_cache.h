@@ -115,6 +115,7 @@ struct DynDeviceTaskBase {
     bool isLastTask{false};
     bool isParallelSameIterLastTask{false};
     ParallelInfo parallelInfo;
+    uint32_t aicpuTaskInited_{0};  // aicpu task init state: 0=NOT_INITED, 1=INITING, 2=DONE
 
     DynFuncHeader* GetDynFuncDataList() const { return dynFuncDataList; }
     DynFuncHeader* GetDynFuncDataList() { return dynFuncDataList; }
