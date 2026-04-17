@@ -123,6 +123,7 @@ struct MixTaskData {
     uint64_t readyWrapCoreFunctionQue;              // 指针指向WrapInfoQueue 结构
     uint64_t wrapIdNum;                             // 包含的有效wrapId个数
     uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER]; // 指针数组，指向每个function的callop对应的wrapId
+    uint64_t opWrapPtrList[MAX_STITCH_FUNC_NUM_LOWER]; // 指针数组，指向每个function的callop对应的wrapInfo
 };
 
 inline constexpr size_t DIE_NUM = 2UL;

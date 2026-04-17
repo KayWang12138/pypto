@@ -52,6 +52,10 @@ void DeviceTaskContext::ProcessWrapQueue(
     info->wrapId = wrapId;
     info->mixResourceType = cceBinary[callList[opIndex]].mixResourceType;
 
+    auto opWrapPtrList = reinterpret_cast<WrapInfo**>(dyntask->devTask.mixTaskData.opWrapPtrList[funcIndex]);
+    auto wrapIdx = TaskID(wrapId);
+    opWrapPtrList[wrapIdx] = info;
+
     uint32_t taskIdx = GetTaskIdx(cceBinary[callList[opIndex]].coreType, cceBinary[callList[opIndex]].wrapVecId);
     for (uint32_t idx = 0; idx < MAX_WRAP_TASK_NUM; idx++) {
         if (idx == taskIdx) {

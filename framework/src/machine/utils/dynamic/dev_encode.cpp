@@ -782,6 +782,7 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t& initOffset, const OrderedSet<
         return;
     }
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
+    opWrapPtrList_.HostInitDataSizeOffset(initOffset, callList.size());
 
     ONFILLCONTENT
     {
@@ -796,6 +797,7 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t& initOffset, const OrderedSet<
         for (size_t i = 0; i < callList.size(); i++) {
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
             At(opWrapList_, i) = callop->wrapId;
+            At(opWrapPtrList_, i) = reinterpret_cast<uint64_t>(nullptr);
         }
     }
 }

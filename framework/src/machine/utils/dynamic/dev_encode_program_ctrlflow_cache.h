@@ -61,6 +61,7 @@ struct MixTaskDataCache {
     WrapInfoQueue queue;
     uint64_t wrapIdNum;
     uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER];
+    WrapInfo** opWrapPtrList[MAX_STITCH_FUNC_NUM_LOWER];
 };
 
 struct DynFuncDataCache {
@@ -524,6 +525,9 @@ struct DevControlFlowCache {
         memcpy_s(
             mixTaskDataBackup->opWrapList, MAX_STITCH_FUNC_NUM_LOWER, base->devTask.mixTaskData.opWrapList,
             MAX_STITCH_FUNC_NUM_LOWER);
+        memcpy_s(
+            mixTaskDataBackup->opWrapPtrList, MAX_STITCH_FUNC_NUM_LOWER, base->devTask.mixTaskData.opWrapPtrList,
+            MAX_STITCH_FUNC_NUM_LOWER);
         base->mixTaskDataBackup = mixTaskDataBackup;
     }
 
@@ -546,6 +550,9 @@ struct DevControlFlowCache {
 
         memcpy_s(
             base->devTask.mixTaskData.opWrapList, MAX_STITCH_FUNC_NUM_LOWER, mixTaskDataBackup->opWrapList,
+            MAX_STITCH_FUNC_NUM_LOWER);
+        memcpy_s(
+            base->devTask.mixTaskData.opWrapPtrList, MAX_STITCH_FUNC_NUM_LOWER, mixTaskDataBackup->opWrapPtrList,
             MAX_STITCH_FUNC_NUM_LOWER);
     }
 
@@ -998,6 +1005,8 @@ struct DevControlFlowCache {
         for (uint32_t dupIndex = 0; dupIndex < dynFuncDataList->funcNum; dupIndex++) {
             relocProgram.Reloc(dynTaskBase->devTask.mixTaskData.opWrapList[dupIndex]);
             relocProgram.Reloc(mixTaskDataBackup->opWrapList[dupIndex]);
+            relocProgram.Reloc(dynTaskBase->devTask.mixTaskData.opWrapPtrList[dupIndex]);
+            relocProgram.Reloc(mixTaskDataBackup->opWrapPtrList[dupIndex]);
         }
     }
 
