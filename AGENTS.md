@@ -16,19 +16,19 @@
 
 #### 算子开发与编排
 - `pypto-op-workflow`：无状态的全流程 Skill 入口，用于手动串联算子开发阶段
-- `pypto-intent-understanding`：将自然语言算子需求转化为结构化规格
-- `pypto-api-explorer`：探索 API 映射、约束条件与实现可行性
-- `pypto-golden-generator`：生成用于精度对比的 golden 参考实现
+- `pypto-intent-understand`：将自然语言算子需求转化为结构化规格
+- `pypto-api-explore`：探索 API 映射、约束条件与实现可行性
+- `pypto-golden-generate`：生成用于精度对比的 golden 参考实现
 - `pypto-op-design`：生成算子设计方案，明确数据切分、tiling 与 loop 结构
 - `pypto-op-develop`：Stage 5 实现阶段 Skill，生成实现、测试入口与 README
 
 #### 精度验证与调试
-- `pypto-precision-debugger`：定位并修复精度问题
+- `pypto-precision-debug`：定位并修复精度问题
 - `pypto-precision-compare`：精度对比与定位，支持文件保存和二分对比两种方法
 - `pypto-aicore-error-locator`：定位 aicore error 的问题文件和代码行
 
 #### 性能分析
-- `pypto-operator-auto-tuner`：分析性能数据、定位瓶颈并给出优化依据，基于实测性能数据迭代调优，并验证精度与性能收益
+- `pypto-op-perf-tune`：分析性能数据、定位瓶颈并给出优化依据，基于实测性能数据迭代调优，并验证精度与性能收益
 
 #### 环境与工具
 - `pypto-environment-setup`：PyPTO 环境安装与环境问题修复
@@ -47,6 +47,7 @@
 - `pypto-issue-creator`：基于上下文创建 GitCode Issue
 - `pypto-fracture-point-detector`：识别 PyPTO 框架或文档断裂点
 - `pypto-skill-reviewer`：评审 skill 目录的质量与规范符合性
+- `pypto-skill-validation-prompt`：为任意 skill 生成校验提示词，用于验证 skill 实际执行效果
 
 ---
 
@@ -89,3 +90,9 @@
    - 当文档、样例与经验推断冲突时，应先指出冲突并回到可核实依据，不凭经验强行定论
 5. **验证模式优先使用真实 NPU 环境**
    - 若 `npu-smi info` 检测到可用 NPU 环境，且用户未明确要求使用 sim 模式，则禁止使用 sim 模式进行验证
+6. **严禁绕过或规避门禁，必须正向解决问题**
+   - 算子开发过程中，禁止绕过、规避门禁，或针对门禁报错采用取巧手段临时“过检”
+   - 遇到门禁报错时，必须优先正向分析根本原因，并基于规范、实现和验证结果采取正确修复方案
+   - 禁止以关闭检查、放宽约束、修改验证条件、伪造结果或其他规避性方式替代真实修复
+7. **代码仓探索必须使用 subagent**
+   - 禁止在 primary agent 中大规模探索代码仓

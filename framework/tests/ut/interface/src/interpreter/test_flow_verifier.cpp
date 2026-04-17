@@ -10,7 +10,7 @@
 
 /*!
  * \file test_flow_verifier.cpp
- * \brief
+ * \brief Unit tests for FlowVerifier::VerifyResult (FP8*, DT_HF8 decode path, padded raw views).
  */
 
 #include <gtest/gtest.h>
@@ -46,8 +46,24 @@ LogicalTensorDataPtr MakeFp8E8m0Scalar(uint8_t byte)
     return std::make_shared<LogicalTensorData>(raw);
 }
 
+LogicalTensorDataPtr MakeHf8Scalar(uint8_t byte)
+{
+    Tensor t(DT_HF8, {1});
+    auto raw = RawTensorData::CreateConstantTensor(t, byte);
+    return std::make_shared<LogicalTensorData>(raw);
+}
+
 constexpr float kVerifyRtol = 1e-3f;
 constexpr float kVerifyAtol = 1e-2f;
+
+LogicalTensorDataPtr MakeInt8ViewOnPaddedRaw(
+    const std::vector<int8_t>& rawVals, const std::vector<int64_t>& rawShape, const std::vector<int64_t>& viewShape,
+    const std::vector<int64_t>& offset)
+{
+    Tensor t(DT_INT8, rawShape);
+    auto raw = RawTensorData::CreateTensor<int8_t>(t, rawVals);
+    return std::make_shared<LogicalTensorData>(raw, viewShape, viewShape, offset);
+}
 
 } // namespace
 
@@ -113,6 +129,72 @@ TEST(FlowVerifierFp8Test, E8M0AdjacentCodesDecodePassBytesDiffer)
 
     auto result = FlowVerifier::VerifyResult(golden, output, kVerifyRtol, kVerifyAtol);
     EXPECT_TRUE(result.Check()) << "E8M0 0x32 vs 0x33: decode+tol should pass while storage bytes differ";
+}
+
+// DT_HF8: VerifyResult decodes uint8 storage (HF8.md) then applies rtol/atol like FP8.
+TEST(FlowVerifierHf8Test, SameEncodingPasses)
+{
+    constexpr uint8_t kByte = 0x2F;
+    auto golden = MakeHf8Scalar(kByte);
+    auto output = MakeHf8Scalar(kByte);
+    ASSERT_EQ(golden->GetDataType(), DT_HF8);
+    ASSERT_EQ(output->GetDataType(), DT_HF8);
+    auto result = FlowVerifier::VerifyResult(golden, output, 0.0f, 0.0f);
+    EXPECT_TRUE(result.Check());
+}
+
+// Subnormal adjacent codes: M_v=6 vs 7 -> 2^-17 vs 2^-16, small decode gap; raw bytes differ.
+TEST(FlowVerifierHf8Test, SubnormalAdjacentCodesDecodePassBytesDiffer)
+{
+    constexpr uint8_t kGoldenByte = 0x06;
+    constexpr uint8_t kOutputByte = 0x07;
+    const float kGolden = std::exp2(static_cast<float>(6 - 23));
+    const float kOutput = std::exp2(static_cast<float>(7 - 23));
+
+    auto golden = MakeHf8Scalar(kGoldenByte);
+    auto output = MakeHf8Scalar(kOutputByte);
+    ASSERT_EQ(golden->GetDataType(), DT_HF8);
+    ASSERT_EQ(output->GetDataType(), DT_HF8);
+    EXPECT_NE(golden->Get<uint8_t>(0), output->Get<uint8_t>(0));
+    EXPECT_GT(std::fabs(kOutput - kGolden), 0.0f);
+    EXPECT_LT(std::fabs(kOutput - kGolden), kVerifyAtol);
+
+    auto result = FlowVerifier::VerifyResult(golden, output, kVerifyRtol, kVerifyAtol);
+    EXPECT_TRUE(result.Check()) << "HF8 subnormal 0x06 vs 0x07: decode+tol should pass while storage bytes differ";
+}
+
+// D=0001 normal: 0x08 -> 1.0, 0x09 -> 1.125; decode gap exceeds zero tolerance -> verify fails.
+TEST(FlowVerifierHf8Test, NormalAdjacentMismatchFailsWithZeroTol)
+{
+    auto golden = MakeHf8Scalar(0x08);
+    auto output = MakeHf8Scalar(0x09);
+    auto result = FlowVerifier::VerifyResult(golden, output, 0.0f, 0.0f);
+    EXPECT_FALSE(result.Check());
+}
+
+// Regression guard for packed/physical stride usage in verifier recursion:
+// view shape is [2,2] on top of raw [2,4] with offset [0,1].
+// Correct row stepping must follow raw stride(0)=4 instead of logical stride(0)=2.
+TEST(FlowVerifierStrideTest, PaddedRawViewUsesPhysicalStride)
+{
+    const std::vector<int64_t> rawShape = {2, 4};
+    const std::vector<int64_t> viewShape = {2, 2};
+    const std::vector<int64_t> offset = {0, 1};
+
+    // raw index mapping for view:
+    // row0 -> [1,2], row1 -> [5,6]
+    const std::vector<int8_t> goldenRaw = {
+        99, 10, 11, 98,                                    // row0
+        97, 12, 13, 96                                     // row1
+    };
+    const std::vector<int8_t> outputRaw = {-1, 10, 11, -2, // padding bytes intentionally differ
+                                           -3, 12, 13, -4};
+
+    auto golden = MakeInt8ViewOnPaddedRaw(goldenRaw, rawShape, viewShape, offset);
+    auto output = MakeInt8ViewOnPaddedRaw(outputRaw, rawShape, viewShape, offset);
+
+    auto result = FlowVerifier::VerifyResult(golden, output, 0.0f, 0.0f);
+    EXPECT_TRUE(result.Check()) << "Verifier should compare valid view elements only with physical raw stride stepping";
 }
 
 } // namespace npu::tile_fwk

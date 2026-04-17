@@ -1,6 +1,6 @@
 ---
 name: pypto-op-develop
-description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、kernel 实现。"
+description: 当需要编写 PyPTO 算子实现时使用此 skill。基于需求规格、设计方案和参考实现，生成完整可运行的 PyPTO 算子实现与配套测试、文档。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、kernel 实现。
 ---
 
 # PyPTO 算子实现
@@ -13,7 +13,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 需求规格信息
 
-从 `spec.md` 中提取：
+需要以下算子规格信息：
 
 | 字段 | 用途 |
 |------|------|
@@ -26,7 +26,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 设计方案信息
 
-从 `design.md` 中提取：
+需要以下设计方案信息：
 
 | 字段 | 用途 |
 |------|------|
@@ -39,7 +39,7 @@ description: "当需要编写 PyPTO 算子实现时使用此 skill。基于需�
 
 ### 参考实现信息
 
-从 `{op}_golden.py` 中提取：
+需要以下 golden 参考实现信息：
 
 | 信息 | 用途 |
 |------|------|
@@ -102,14 +102,18 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
 
 ### 阶段二：代码生成
 
-**输出目录**：`custom/{op}/`
+**输出目录**：当前算子工作目录（由调用者指定或默认为当前目录）
+
+**准备工作**（并行读取）：
+在进入编码前，**并行读取**以下参考文件（同一条消息中发起所有 Read 调用）：
+- `references/execution-constraints.md` — 框架级约束清单
+- `references/impl-template.py` — impl 文件模板
+- `references/test-template.py` — test 文件模板
 
 **生成顺序**：
 1. 根据输入信息，先梳理 API 映射、tiling 策略、loop 结构，确认可行后再进入实现
-2. 进入实现前，读取 `references/execution-constraints.md`，把框架级约束、基础类型约束、控制流约束和高频 operation 约束落实到本次实现
-3. 基于 `references/impl-template.py` 生成 `{op}_impl.py`
-4. 基于 `references/test-template.py` 生成 `test_{op}.py`（前置：`{op}_impl.py` 已生成）
-5. 生成 `README.md`
+2. 基于约束清单和 impl 模板生成 `{op}_impl.py`
+3. `{op}_impl.py` 完成后，**并行生成** `test_{op}.py` 和 `README.md`（两者互不依赖）
 
 ⚠️ 实现代码与测试代码必须分离，禁止混写 golden / impl / test 到同一文件。
 
@@ -192,7 +196,7 @@ python3 build_ci.py -f python3 --disable_auto_execute
 2. **执行算子验证**：
 检测到存在 NPU 卡时，直接使用 `run_mode=npu` 执行：
 ```bash
-python3 custom/{op}/test_{op}.py
+python3 test_{op}.py
 ```
 
 3. **验证失败处理**：
@@ -229,7 +233,7 @@ python3 custom/{op}/test_{op}.py
 9. **动态轴必须显式标注**：所有动态 shape 输入和输出都要在 Tensor 注解中标成 `pypto.DYNAMIC` / `pypto.DYN`。
 10. **Element 用于固定标量 dtype**：当标量参与计算且 dtype 不能依赖隐式映射时，显式使用 `pypto.Element(dtype, value)`。
 11. **避免同图内回环读写**：同一 Tensor 不要在同一图里既 `view` 读取又 `assemble` 回写。
-12. 如果设计中已有 tiling / loop 约束，编码时优先遵循 `design.md`，不要临时拍脑袋改写。
+12. 如果设计方案中已有 tiling / loop 约束，编码时优先遵循设计方案，不要临时拍脑袋改写。
 
 ---
 
@@ -244,6 +248,25 @@ python3 custom/{op}/test_{op}.py
 5. **精度标准不合理**：bfloat16 使用 `atol=0.0001, rtol=0.0078125`
 6. **使用 PyTorch 作为 Golden**：使用 NumPy 实现 golden 函数时，bfloat16 数据类型转换不够准确；golden 必须独立在 `{op}_golden.py`，使用纯 torch 实现
 7. **SymbolicScalar 用作 list 索引报错**：`TypeError: list indices must be integers or slices, not SymbolicScalar`。原因：`pypto.loop` 返回的是编译时符号值，不是 Python runtime 对象。解决方法：使用 tensor slice 或 `pypto.view`/`pypto.assemble` 构建数据流。
+
+### 多动态轴算子的关键陷阱（8-13）
+
+8. **4D 多 DYN 轴直接 matmul 报错**：当 tensor 有 2 个及以上 DYN 维度时，matmul 编译期无法确定 shape（显示为 -1）。**必须**采用 "2D reshape + 嵌套 loop + concrete tile" 模式，参考 `models/glm_v4_5/glm_attention.py`
+9. **pypto.view 的 shape 参数传入 SymbolicScalar**：`shape` 参数只接受 Python int，SymbolicScalar 只能用在 `offsets` 和 `valid_shape` 中。Python 切片 `tensor[sym:sym+1]` 同样不可用
+10. **inplace=True 用在函数输出参数上**：`pypto.reshape(..., inplace=True)` 的输出不能是 kernel 的输出参数，否则产生静默 NaN 错误。在 wrapper 层提前 reshape，kernel 内直接引用
+11. **漏设 set_vec_tile_shapes**：每次 matmul / mul / cast / sum 前都必须设置 tile shapes，维度数必须匹配操作数。在多 loop 嵌套中极易遗漏
+12. **梯度算子跨维度累加**：当多个输出在不同维度累加时（如 dQ 沿 S2 累加、dK/dV 沿 S1 累加），使用**两趟分离计算**，避免跨 loop 的读写依赖
+13. **pto-isa 版本与 CANN 不匹配**：如遇头文件找不到（如 `TROWARGMAX`），按 `pypto-environment-setup` skill 切换到源码版 pto-isa
+
+### 错误处理
+
+| 场景 | 处理方式 |
+|------|----------|
+| 模板占位符替换不完整 | 检查生成文件中是否残留 `{op}` 字面量，定位并修正 |
+| import 失败（找不到 impl/golden） | 确认文件已生成且在同一目录 |
+| 编译或执行超过 10 分钟且卡住 | 中断并杀掉相关进程，重新检查代码 |
+
+---
 
 ## 三种状态标记约定
 

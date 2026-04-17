@@ -30,6 +30,9 @@ enum class DistributedErrorCode : uint32_t {
     INVALID_SHMEM_TENSOR = 0xA0007,
     INVALID_SHMEM_VIEW_PARAM = 0xA0008,
     INVALID_OP_TYPE = 0xA0009,
+    INVALID_MOE_EXPERT_NUM = 0xA000A,
+    INVALID_MOE_TOP_K = 0xA000B,
+    INVALID_EXPERT_NUM_PER_RANK = 0xA000C,
 
     // FA1xxx: 配置错误
     INVALID_TILE_DIM = 0xA1000,
@@ -48,5 +51,10 @@ enum class DistributedErrorCode : uint32_t {
     AICPU_TASKID_NOT_IN_MAP = 0xA3003,
     INVALID_GROUP_INDEX = 0xA3004,
     NULLPTR = 0xA3005,
+
+    // FA4xxx: distributedContext 相关的错误
+    HCCL_ALLOC_RESOURCE_FAILED = 0xA4000,
+    INVALID_HCCL_TOPO = 0xA4001,
+    CONTEXT_CONFIGURE_FAILED = 0xA4002,
 };
 } // namespace npu::tile_fwk

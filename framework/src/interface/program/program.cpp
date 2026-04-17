@@ -31,6 +31,7 @@
 #include "interface/configs/config_manager_ng.h"
 #include "interface/compiler_monitor/monitor_manager.h"
 #include "interface/utils/function_error.h"
+#include "passes/pass_mgr/pass_manager.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
@@ -74,6 +75,7 @@ void Program::Reset()
     CreateInitFunction();
     tensorSlotManager_ = nullptr;
     currentFunctionPtr_ = functionmap_[currentFunctionMagicName_].get();
+    PassManager::ResetStaticVariables();
 }
 
 Function* Program::GetFunctionByRawName(const std::string& rawName) const
@@ -179,10 +181,6 @@ void SetParamConfig(Function* currentFuncPtr)
     currentFuncPtr->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
     currentFuncPtr->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
-    currentFuncPtr->paramConfigs_.stitchFunctionNumInitial_ =
-        currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
-    currentFuncPtr->paramConfigs_.stitchFunctionNumStep_ =
-        currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
     currentFuncPtr->paramConfigs_.cubeL1ReuseSetting =
         currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
     currentFuncPtr->paramConfigs_.cubeNBufferSetting =

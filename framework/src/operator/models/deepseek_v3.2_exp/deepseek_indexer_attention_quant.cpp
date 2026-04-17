@@ -203,8 +203,6 @@ void DeepSeekIndexerAttentionQuant(
         config::SetRuntimeOption<uint8_t>(
             DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH) |
                                    static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH));
-        config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, NUM_128);
-        config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, NUM_128);
 
         Tensor queryOut4D(DT_INT8, {b, s1, params.idx_n_heads, params.idx_head_dim}, "qOut4D");
         Tensor qScaleOut4D(DT_FP16, {b, s1, params.idx_n_heads, 1}, "qScaleOut4D");
@@ -241,7 +239,7 @@ void DeepSeekIndexerAttentionQuant(
 
         // reset the previous config
         config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{});
-        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 0}});
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 1}});
         config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_20000);
@@ -250,8 +248,6 @@ void DeepSeekIndexerAttentionQuant(
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
 
         config::SetRuntimeOption<uint8_t>(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH));
-        config::SetRuntimeOption(STITCH_FUNCTION_INNER_MEMORY, NUM_128);
-        config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, NUM_128);
 
         Tensor qNope2D(dType, {b * s1 * n1, dn}, "qNope2D");
         Tensor qRope2D(dType, {b * s1 * n1, dr}, "qRope2D");
