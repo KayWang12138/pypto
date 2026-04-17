@@ -37,10 +37,10 @@ namespace dynamic {
 
 template <class T>
 struct QueueGeneric {
-
     QueueGeneric(uint32_t capacity, T *_elem):head(0), tail(0), elem(_elem), _capacity(capacity) {}
 
-    QueueGeneric& operator=(const QueueGeneric &rhs) {
+    QueueGeneric& operator=(const QueueGeneric &rhs)
+    {
         head = rhs.head;
         tail = rhs.tail;
         if (capacity() == 0) {
@@ -50,18 +50,21 @@ struct QueueGeneric {
         return *this;
     }
 
-	uint32_t capacity() const {
-	    return _capacity;
+    uint32_t capacity() const
+    {
+        return _capacity;
+    }
+
+    uint32_t size() const
+    {
+        return tail - head;
 	}
 
-	uint32_t size() const {
-	    return tail - head;
-	}
-
-	std::string str() const {
-		std::stringstream ss;
-		ss << "Queue at " << this << " head=" << head << " tail=" << tail << " capacity=" << capacity();
-		return ss.str();
+    std::string str() const
+    {
+        std::stringstream ss;
+        ss << "Queue at " << this << " head=" << head << " tail=" << tail << " capacity=" << capacity();
+        return ss.str();
 	}
 
 	std::string dump() const {
