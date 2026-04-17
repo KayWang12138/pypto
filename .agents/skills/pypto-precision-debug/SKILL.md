@@ -41,7 +41,7 @@ license: 完整条款见 LICENSE.txt
 | 4 | 嵌套循环精度异常 | `submit_before_loop=True` | `pypto.loop(range(m), submit_before_loop=True)` | 确保子循环正确提交，避免并行执行时的内存覆盖 |
 | 5 | 特定 shape 精度异常 | 调整 shape | 避免尾轴为 1，避免非整除 | 特定 shape 可能触发 Pass 推导边界情况，导致 valid_shape 错误 |
 | 6 | 编译器优化异常 | `+0.0` 技巧 | `result = compute(...) + 0.0` | 阻止编译器过度优化，保留计算操作完整性 |
-| 7 | 未初始化 Tensor | 使用前初始化 | `output = pypto.Tensor(shape, dtype); output[:] = 0` | pypto.Tensor 创建后是未初始化随机值，必须先写后读 |
+| 7 | 未初始化 Tensor | 使用 pypto.zeros() | `output = pypto.zeros(shape, dtype)` | pypto.Tensor 创建后是未初始化随机值，使用 zeros 初始化 |
 | 8 | view 未传 valid_shape | 添加 valid_shape | `pypto.view(tensor, shape, valid_shape=actual_size)` | 动态数据范围最后一块可能小于固定块大小 |
 
 ---
@@ -90,7 +90,7 @@ def my_kernel(input_tensor, output_tensor):
     │   ├─ submit_before_loop=True
     │   ├─ +0.0 技巧
     │   ├─ 调整 shape
-    │   ├─ 初始化 Tensor（output[:] = 0）
+    │   ├─ 初始化 Tensor（pypto.zeros()）
     │   └─ 添加 valid_shape 参数
     │
     ├─ 步骤 3：二分定位（如需要）
@@ -341,14 +341,13 @@ result = compute(...) + 0.0
 **操作**：
 
 ```python
-# 创建输出 tensor 后立即初始化
-output = pypto.Tensor(shape, dtype)
-output[:] = 0  # 显式初始化为 0
+# 使用 pypto.zeros() 创建并初始化为全 0
+output = pypto.zeros(shape, dtype)
 ```
 
 **判断**：问题是否解决
 
-**依据参考**：`pypto.Tensor` 创建后内存为未初始化状态，若存在"先读后写"路径（如循环体中 read-modify-write），未初始化的随机值会混入计算结果。
+**依据参考**：`pypto.Tensor` 创建后内存为未初始化状态，若存在"先读后写"路径（如循环体中 read-modify-write），未初始化的随机值会混入计算结果。应使用 `pypto.zeros()` 创建并初始化为全 0 的 Tensor。
 
 #### 2.7 添加 valid_shape 参数
 
