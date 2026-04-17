@@ -148,10 +148,31 @@ struct LockableQueueGeneric:public QueueGeneric<T> {
 	}
 
 	std::pair<const T*, const T*> dequeue_all() {
-	    std::scoped_lock(*this);
+	    lock();
 	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
 	    uint32_t h = __atomic_exchange_n(&this->head, t, __ATOMIC_RELAXED);
+	    unlock();
 	    return std::make_pair(this->elem + h, this->elem + t);
+	}
+
+	std::pair<const T*, const T*> dequeue(uint32_t max_count) {
+	    lock();
+	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
+	    uint32_t h = __atomic_load_n(&this->head,  __ATOMIC_RELAXED);
+	    uint32_t cnt = std::min(t - h, max_count);
+	    __atomic_store_n(&this->head, h + cnt);
+	    unlock();
+	    return std::make_pair(this->elem + h, this->elem + h + cnt);
+	}
+
+	uint32_t dequeue_tail(uint32_t max_count, T *out) {
+	    std::scoped_lock(*this);
+	    uint32_t t = __atomic_load_n(&this->tail, __ATOMIC_RELAXED);
+	    uint32_t h = __atomic_load_n(&this->head,  __ATOMIC_RELAXED);
+	    uint32_t cnt = std::min(t - h, max_count);
+	    __atomic_store_n(&this->tail, t - cnt);
+	    std::copy(this->elem + t - cnt, this->elem + t, out);
+	    return cnt;
 	}
 
 private:
