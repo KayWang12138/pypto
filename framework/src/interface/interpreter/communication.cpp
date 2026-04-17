@@ -184,7 +184,7 @@ RawTensorDataPtr SimulationCommContext::Alloc(size_t slotSize) {
     dataShmSize_.store(shmSize);
     std::cout << "round " << round_ << " alloc " << slotSize << "B for rank " << rank_ << std::endl;
 
-    return RawTensorData::CreateTensor(DT_UINT8, {1, slotSize}, dataBase_ + slotSize);
+    return RawTensorData::CreateTensor(DT_UINT8, {1, static_cast<uint64_t>(slotSize)}, dataBase_ + slotSize);
 }
 
 RawTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
@@ -201,7 +201,7 @@ RawTensorDataPtr SimulationCommContext::AllocSignal(size_t slotSize) {
     ctrlShmSize_.store(shmSize);
     std::cout << "round " << round_ << " allocSignal " << slotSize << "B for rank " << rank_ << std::endl;
 
-    return RawTensorData::CreateTensor(DT_UINT8, {1, slotSize}, ctrlBase_ + slotSize);
+    return RawTensorData::CreateTensor(DT_UINT8, {1, static_cast<uint64_t>(slotSize)}, ctrlBase_ + slotSize);
 }
 
 uint8_t *SimulationCommContext::GetRemoteRank(int dstRank, bool isSignal) {

@@ -893,6 +893,7 @@ struct FunctionInterpreter {
         const std::vector<std::shared_ptr<LogicalTensorData>>& iOpDataList,
         std::vector<std::shared_ptr<LogicalTensorData>>& oOpDataList)
     {
+        (void) iOpDataList;
         std::cout << "=== ExecuteOpBindTensor running ..." << std::endl;
         ASSERT(op.GetIOperands().size() == 0);
         ASSERT(op.GetOOperands().size() == 1);
@@ -918,8 +919,8 @@ struct FunctionInterpreter {
             tmp = SimulationCommManager::Instance().AllocSignal(groupName, slotSize);
             out = LogicalTensorData::Create(*tmp);
         }
-        DoAddRawTensorDataView(op.GetOOperands()[0]->GetRawTensor(), tmp);
-        DoAddTensorDataView(op.GetOOperands()[0], out);
+        frame.DoAddRawTensorDataView(op.GetOOperands()[0]->GetRawTensor(), tmp);
+        frame.DoAddTensorDataView(op.GetOOperands()[0], out);
         oOpDataList.emplace_back(AllocateDataView(frame, op.GetOOperands()[0]));
     }
 
