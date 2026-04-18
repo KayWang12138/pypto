@@ -18,7 +18,7 @@
         "device_sched_mode": 0,
         "run_mode": 0,
         "stitch_function_max_num": 128,
-        "valid_shape_optimize": 1,
+        "valid_shape_optimize": 0,
         "ready_on_host_tensors": []
     },
     "host": {
