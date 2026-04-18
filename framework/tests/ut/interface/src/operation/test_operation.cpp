@@ -17,11 +17,40 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
+#include "interface/program/program.h"
 #include "tilefwk/data_type.h"
 
 using namespace npu::tile_fwk;
 
 class OperationOpsTest : public testing::Test {};
+
+namespace {
+void ExpectQuantMXScratchDtype(DataType inputDtype, const std::string& functionName)
+{
+    Tensor input(inputDtype, {8, 128});
+
+    FUNCTION(functionName, {input})
+    {
+        auto res = QuantMX(input);
+        (void)res;
+
+        const Operation* quantOp = nullptr;
+        auto* func = Program::GetInstance().GetCurrentFunction();
+        ASSERT_NE(func, nullptr);
+        for (const auto& op : func->Operations(false)) {
+            if (op.GetOpcode() == Opcode::OP_QUANT_MX) {
+                quantOp = &op;
+                break;
+            }
+        }
+
+        ASSERT_NE(quantOp, nullptr);
+        ASSERT_EQ(quantOp->GetOOperands().size(), 4U);
+        EXPECT_EQ(quantOp->GetOOperands()[2]->Datatype(), inputDtype);
+        EXPECT_EQ(quantOp->GetOOperands()[3]->Datatype(), inputDtype);
+    }
+}
+} // namespace
 
 TEST_F(OperationOpsTest, CheckIndexAddParamsInvalid_FP16_Overflow)
 {
@@ -118,6 +147,16 @@ TEST_F(OperationOpsTest, QuantMX_PerformanceModeKeepsPublicScaleShape)
         EXPECT_EQ(std::get<0>(res).GetShape(), std::vector<int64_t>({2, 8, 128}));
         EXPECT_EQ(std::get<1>(res).GetShape(), std::vector<int64_t>({2, 8, 2, 2}));
     }
+}
+
+TEST_F(OperationOpsTest, QuantMX_Fp16ScratchDtypeFollowsInput)
+{
+    ExpectQuantMXScratchDtype(DT_FP16, "QuantMXScratchDtypeFp16");
+}
+
+TEST_F(OperationOpsTest, QuantMX_Bf16ScratchDtypeFollowsInput)
+{
+    ExpectQuantMXScratchDtype(DT_BF16, "QuantMXScratchDtypeBf16");
 }
 
 TEST_F(OperationOpsTest, QuantMX_PositiveLastAxis)

@@ -28,24 +28,6 @@ constexpr int64_t QUANT_MX_TILE_ALIGN_BYTES = 256;
 
 int64_t CeilDiv(int64_t dividend, int64_t divisor) { return (dividend + divisor - 1) / divisor; }
 
-int64_t Product(const std::vector<int64_t>& shape)
-{
-    int64_t result = 1;
-    for (auto dim : shape) {
-        result *= dim;
-    }
-    return result;
-}
-
-SymbolicScalar Product(const std::vector<SymbolicScalar>& shape)
-{
-    SymbolicScalar result(1);
-    for (const auto& dim : shape) {
-        result = result * dim;
-    }
-    return result;
-}
-
 void CheckQuantMXDtype(DataType quantDtype)
 {
     ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, quantDtype == DataType::DT_FP8E4M3)
@@ -272,10 +254,11 @@ std::tuple<Tensor, Tensor> QuantMX(
                         : BuildQuantMXGroupedShape(inputShape);
     const std::vector<int64_t> scaleShape = BuildQuantMXScaleShape(inputShape);
 
+    const auto scratchDtype = input.GetDataType();
     auto quantized = Tensor(quantDtype, inputShape, "", TileOpFormat::TILEOP_ND);
     auto exp = Tensor(DataType::DT_FP8E8M0, groupedShape, "", TileOpFormat::TILEOP_ND);
-    auto maxScratch = Tensor(DataType::DT_FP32, groupedShape, "", TileOpFormat::TILEOP_ND);
-    auto scalingScratch = Tensor(DataType::DT_FP32, inputShape, "", TileOpFormat::TILEOP_ND);
+    auto maxScratch = Tensor(scratchDtype, groupedShape, "", TileOpFormat::TILEOP_ND);
+    auto scalingScratch = Tensor(scratchDtype, inputShape, "", TileOpFormat::TILEOP_ND);
 
     std::vector<SymbolicScalar> scaleValidShape;
     const auto& inputValidShape = input.GetStorage()->GetDynValidShape();
@@ -294,7 +277,7 @@ std::tuple<Tensor, Tensor> QuantMX(
         {quantized.GetStorage(), exp.GetStorage(), maxScratch.GetStorage(), scalingScratch.GetStorage()});
     op.SetAttribute(OpAttributeKey::mxQuantMode, static_cast<int64_t>(mode));
     op.SetAttribute(OpAttributeKey::mxQuantAxis, normalizedAxis);
-    op.SetAttribute(OpAttributeKey::mxQuantPerformanceMode, performanceMode ? 1LL : 0LL);
+    op.SetAttribute(OpAttributeKey::mxQuantPerformanceMode, static_cast<int64_t>(performanceMode ? 1 : 0));
     auto scale = Reshape(exp, scaleShape, scaleValidShape);
     return std::tie(quantized, scale);
 }

@@ -2475,7 +2475,7 @@ static void QuantMX(
     auto tself = From(self);
 
     auto input = tself.second.to(torch::kFloat32).contiguous();
-    ASSERT(calc_error::CalculatorErrorScene::QUANTMX_RANK_INVALID, input.dim() >= 2 && input.dim() <= 4)
+    ASSERT(CalculatorErrorScene::QUANTMX_RANK_INVALID, input.dim() >= 2 && input.dim() <= 4)
         << "QuantMX interpreter only supports 2D to 4D input.";
 
     auto quantRaw = torch::empty(input.sizes(), torch::TensorOptions().dtype(torch::kUInt8));

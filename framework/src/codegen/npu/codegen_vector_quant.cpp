@@ -13,10 +13,13 @@
  * \brief
  */
 
-#include "codegen_op_cloudnpu.h"
+#include "interface/tensor/logical_tensor.h"
+#include "codegen_op_npu.h"
+#include "securec.h"
+#include "codegen/utils/codegen_utils.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::GenQuantMXOp() const
+std::string CodeGenOpNPU::GenQuantMXOp() const
 {
     ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "QuantMX only supports tile tensor codegen.";
 
