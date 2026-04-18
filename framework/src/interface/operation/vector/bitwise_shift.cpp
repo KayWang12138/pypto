@@ -150,7 +150,10 @@ LogicalTensorPtr TensorBitwiseShiftOperation(Function& function, const Tensor& s
         operand2 = BinaryOperationBroadCast(operand2, broadCastShape);
     }
     auto opName = GetBitwiseShiftOpName<T>();
-    CheckBinaryInputTensors(operand1, operand2, opName);
+    CheckTensorsDimConsistency({operand1, operand2}, opName);
+    CheckTensorsShapeConsistencyOrBroadcast({operand1, operand2}, opName);
+    CheckTensorsFormatConsistency(operand1, operand2, opName);
+    CheckTensorsDataTypeConsistency(operand1, operand2, opName);
 
     std::vector<SymbolicScalar> resultValidShape;
     std::vector<int64_t> resultShape = BinaryOperationResultShape(operand1, operand2);
