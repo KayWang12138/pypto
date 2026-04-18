@@ -150,38 +150,30 @@ SourceLocationPtr MergeViewAssembleUtils::GetFirstSourceLocation(const std::vect
 
 Operation::ScopeInfo MergeViewAssembleUtils::GetChainScopeInfo(const std::vector<Operation*> &chain)
 {
-    std::set<int> scopeIds;
-    Operation::ScopeInfo lastValidScopeInfo;
-    bool hasValidScope = false;
-
     for (auto *op : chain) {
-        auto scopeId = op->GetScopeId();
-        scopeIds.insert(scopeId);
-        if (scopeId != -1) {
-            lastValidScopeInfo = op->GetScopeInfo();
-            hasValidScope = true;
+        if (op->GetScopeId() != -1) {
+            return op->GetScopeInfo();
         }
-    }
-
-    if (scopeIds.size() == 1) {
-        return chain.front()->GetScopeInfo();
-    }
-    if (scopeIds.size() == 2 && scopeIds.count(-1) > 0 && hasValidScope) {
-        return lastValidScopeInfo;
     }
     return Operation::ScopeInfo();
 }
 
-Status MergeViewAssembleUtils::MergeViewChain(Function& function, Operation& operation, std::vector<Operation*>& chain)
+Status MergeViewAssembleUtils::MergeViewChain(Function& function, Operation& operation, std::vector<Operation*>& chain,
+                                              int effectiveScopeId)
 {
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
     // 1. 初始化操作链
     InitOperationChain(operation, chain);
 
+    int newScopeId = operation.GetScopeId();
+    if (effectiveScopeId == -1 && newScopeId != -1) {
+        effectiveScopeId = newScopeId;
+    }
+
     // 2. 处理消费者链
     auto consumers = function.FindConsumers(operation);
     bool chainEnd = true;
-    Status status = ProcessConsumerChain(function, consumers, chain, chainEnd);
+    Status status = ProcessConsumerChain(function, consumers, chain, chainEnd, effectiveScopeId);
     if (status != SUCCESS) {
         return status;
     }
@@ -202,7 +194,7 @@ void MergeViewAssembleUtils::InitOperationChain(Operation& operation, std::vecto
 
 Status MergeViewAssembleUtils::ProcessConsumerChain(
     Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers, std::vector<Operation*>& chain,
-    bool& chainEnd)
+    bool& chainEnd, int effectiveScopeId)
 {
     if (consumers.empty()) {
         return SUCCESS;
@@ -232,8 +224,13 @@ Status MergeViewAssembleUtils::ProcessConsumerChain(
                 canMerge = true;
             }
             if (canMerge) {
+                int consumerScopeId = op->GetScopeId();
+                if (effectiveScopeId != -1 && consumerScopeId != -1 && effectiveScopeId != consumerScopeId) {
+                    chainEnd = true;
+                    continue;
+                }
                 chainEnd = false;
-                Status status = MergeViewChain(function, *op, chain);
+                Status status = MergeViewChain(function, *op, chain, effectiveScopeId);
                 if (status != SUCCESS) {
                     return status;
                 }
@@ -352,10 +349,15 @@ void MergeViewAssembleUtils::RecordMergedViewOperation(
 }
 
 Status MergeViewAssembleUtils::MergeAssembleChain(
-    Function& function, Operation& operation, std::vector<Operation*>& chain)
+    Function& function, Operation& operation, std::vector<Operation*>& chain, int effectiveScopeId)
 {
     // 1. 初始化操作链
     InitAssembleChain(operation, chain);
+
+    int newScopeId = operation.GetScopeId();
+    if (effectiveScopeId == -1 && newScopeId != -1) {
+        effectiveScopeId = newScopeId;
+    }
 
     // 2. 处理消费者
     bool chainEnd = false;
@@ -363,7 +365,8 @@ Status MergeViewAssembleUtils::MergeAssembleChain(
     if (assembleWithoutAssembleConsumer_.count(operation.opmagic) == 0) {
         auto consumers = function.FindConsumers(operation);
         chainEnd = consumers.empty();
-        Status status = ProcessAssembleConsumers(function, consumers, chain, chainEnd, hasAssembleConsumer);
+        Status status = ProcessAssembleConsumers(function, consumers, chain, chainEnd, hasAssembleConsumer,
+                                                  effectiveScopeId);
         if (status != SUCCESS) {
             return status;
         }
@@ -394,7 +397,7 @@ void MergeViewAssembleUtils::InitAssembleChain(Operation& operation, std::vector
 
 Status MergeViewAssembleUtils::ProcessAssembleConsumers(
     Function& function, const std::set<Operation*, LogicalTensor::CompareOp>& consumers, std::vector<Operation*>& chain,
-    bool& chainEnd, bool& hasAssembleConsumer)
+    bool& chainEnd, bool& hasAssembleConsumer, int effectiveScopeId)
 {
     if (consumers.empty()) {
         return SUCCESS;
@@ -405,8 +408,13 @@ Status MergeViewAssembleUtils::ProcessAssembleConsumers(
             return FAILED;
         }
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            int consumerScopeId = op->GetScopeId();
+            if (effectiveScopeId != -1 && consumerScopeId != -1 && effectiveScopeId != consumerScopeId) {
+                chainEnd = true;
+                continue;
+            }
             hasAssembleConsumer = true;
-            Status status = MergeAssembleChain(function, *op, chain);
+            Status status = MergeAssembleChain(function, *op, chain, effectiveScopeId);
             if (status != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Function, "Run MergeAssembleChain failed.");
                 return status;
