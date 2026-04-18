@@ -554,6 +554,9 @@ void PipeSync::EnqueueOp(DepOp& op, const std::vector<Operation*> opLogPtr, std:
         return;
     }
     AIVCore aivCore = oriOpList_[op.idx]->GetAIVCore();
+    if (op.selfPipeCore.core == CoreType::AIC) {
+        aivCore = AIVCore::UNSPECIFIED;
+    }
     PipeCoreRealEx opPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, aivCore);
     auto& issueQ = issueState_[static_cast<int>(GetPipeSeq(opPipeCoreEx))];
     issueQ.ops.emplace_back(op.idx);
@@ -1431,6 +1434,7 @@ void PipeSync::UpdateDep(DepOp& currOp, DepOp& prevOp)
         bool updateFlag = true;
         size_t maxIdx = prevOp.idx;
         for (auto [setPipe, setIdx] : currPipeDep.setPipes) {
+            (void)setIdx;
             auto setDepInfo = latestPipeDep_[setPipe];
             for (auto [setSetPipe, setSetIdx] : setDepInfo.setPipes) {
                 if (setSetPipe == prevPipe && setSetIdx >= prevOp.idx) {
