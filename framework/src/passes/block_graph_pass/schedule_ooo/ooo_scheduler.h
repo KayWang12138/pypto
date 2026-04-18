@@ -242,8 +242,9 @@ private:
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType);
     Status UpdateCopyoutScheduleInfo(Operation* op, LogicalTensorPtr spillTensor, int spillMemId, Operation* spillAllocOp);
     void UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, Operation* AllocOp);
-    Status InsertOps(std::vector<Operation*> ops, Operation* spillAllocOp, int memId);
-
+    Status InsertOps(std::unordered_map<Operation*, std::vector<int>> opMemidMap, Operation* spillAllocOp, int memId);
+    Status UpdateScheduleStatus(std::unordered_map<Operation*, std::vector<int>> opMemidMap, int memId, 
+        Operation* spillAllocOp, LogicalTensorPtr localTensor, Operation* spillOp);
 
     // ============ 辅助函数：获取Operation属性 ============
     int GetExecOrder(Operation* op) const { return opExecOrderMap.at(op); }

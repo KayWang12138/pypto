@@ -227,19 +227,14 @@ Status OoOScheduler::SpillBufferFromDDR(int memId, Operation* spillOp, LogicalTe
     Operation* allocOp = CreateAllocOp(localTensor);
     Operation* copyinOp = CloneCopyinOp(spillOp, gmTensor, localTensor);
 
-    UpdateOpScheduleInfo(allocOp, {localTensor->memoryrange.memId}, spillAllocOp);
-    UpdateOpScheduleInfo(copyinOp, {localTensor->memoryrange.memId}, spillAllocOp);
+    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
+        {allocOp, {localTensor->memoryrange.memId}},
+        {copyinOp, {localTensor->memoryrange.memId}}
+    };
 
-    if (InsertOps({allocOp, copyinOp}, spillAllocOp, memId) != SUCCESS) {
+    if (UpdateScheduleStatus(opMemidMap, memId, spillAllocOp, localTensor, spillOp) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateSpillOpDepend(spillOp, localTensor, memId) != SUCCESS) {
-        return FAILED;
-    }
-    if (UpdateRemainMemid(memId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
-        return FAILED;
-    }
-    depManager_.InitDependencies(orderedOps, false);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
 }
@@ -260,19 +255,14 @@ Status OoOScheduler::SpillGeneralBuffer(int spillMemId, Operation* spillOp, Logi
         return FAILED;
     }
 
-    UpdateOpScheduleInfo(allocOp, {localTensor->memoryrange.memId}, spillAllocOp);
-    UpdateOpScheduleInfo(copyinOp, {localTensor->memoryrange.memId}, spillAllocOp);
+    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
+        {allocOp, {localTensor->memoryrange.memId}},
+        {copyinOp, {localTensor->memoryrange.memId}}
+    };
 
-    if (InsertOps({allocOp, copyinOp}, spillAllocOp, spillMemId) != SUCCESS) {
+    if (UpdateScheduleStatus(opMemidMap, spillMemId, spillAllocOp, localTensor, spillOp) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateSpillOpDepend(spillOp, localTensor, spillMemId) != SUCCESS) {
-        return FAILED;
-    }
-    if (UpdateRemainMemid(spillMemId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
-        return FAILED;
-    }
-    depManager_.InitDependencies(orderedOps, false);
     ctx.newCopyoutOps.push_back(copyoutOp);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
@@ -325,19 +315,15 @@ Status OoOScheduler::SpillGeneralL1BufferFor3510(int memId, Operation* spillOp, 
             copyoutOp, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillAllocOp) != SUCCESS) {
         return FAILED;
     }
-    UpdateOpScheduleInfo(allocOp, {localTensor->memoryrange.memId}, spillAllocOp);
-    UpdateOpScheduleInfo(copyinOp, {localTensor->memoryrange.memId}, spillAllocOp);
-    
-    if (InsertOps({allocOp, copyinOp}, spillAllocOp, memId) != SUCCESS) {
+
+    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
+        {allocOp, {localTensor->memoryrange.memId}},
+        {copyinOp, {localTensor->memoryrange.memId}}
+    };
+
+    if (UpdateScheduleStatus(opMemidMap, memId, spillAllocOp, localTensor, spillOp) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateSpillOpDepend(spillOp, localTensor, memId) != SUCCESS) {
-        return FAILED;
-    }
-    if (UpdateRemainMemid(memId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
-        return FAILED;
-    }
-    depManager_.InitDependencies(orderedOps, false);
     ctx.newCopyoutOps.push_back(copyoutOp);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
@@ -354,21 +340,15 @@ Status OoOScheduler::SpillReshapeFromDDRFor3510(int memId, Operation* actualSpil
     Operation* copyinOp = CloneCopyinOp(actualSpillOp, ddrTensor, copyinTensor);
     Operation* reshapeOp = CreateReshapeOp(copyinTensor, reshapeTensor);
 
-    UpdateOpScheduleInfo(allocOp, {reshapeTensor->memoryrange.memId}, spillAllocOp);
-    UpdateOpScheduleInfo(copyinOp, {reshapeTensor->memoryrange.memId}, spillAllocOp);
-    UpdateOpScheduleInfo(reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}, spillAllocOp); 
+    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
+        {allocOp, {reshapeTensor->memoryrange.memId}},
+        {copyinOp, {reshapeTensor->memoryrange.memId}},
+        {reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}}
+    };
 
-    if (InsertOps({allocOp, copyinOp, reshapeOp}, spillAllocOp, memId) != SUCCESS) {
+    if (UpdateScheduleStatus(opMemidMap, memId, spillAllocOp, reshapeTensor, spillOp) != SUCCESS) {
         return FAILED;
     }
-    if (UpdateSpillOpDepend(spillOp, reshapeTensor, memId) != SUCCESS) {
-        return FAILED;
-    }
-    if (UpdateRemainMemid(memId, reshapeTensor->memoryrange.memId) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "UpdateRemainMemid failed.");
-        return FAILED;
-    }
-    depManager_.InitDependencies(orderedOps, false);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
 }
@@ -398,21 +378,16 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
             copyoutOp, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillAllocOp) != SUCCESS) {
         return FAILED;
     }
-    UpdateOpScheduleInfo(allocOp, {l1Tensor->memoryrange.memId}, spillAllocOp);
-    UpdateOpScheduleInfo(copyinOp, {l1Tensor->memoryrange.memId}, spillAllocOp);
-    UpdateOpScheduleInfo(reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}, spillAllocOp); 
 
-    if (InsertOps({allocOp, copyinOp, reshapeOp}, spillAllocOp, spillMemId) != SUCCESS) {
-        return FAILED;
-    }
-    if (UpdateSpillOpDepend(spillOp, reshapeOp->GetOutputOperand(0), spillMemId) != SUCCESS) {
-        return FAILED;
-    }
-    if (UpdateRemainMemid(spillMemId, opReqMemIdsMap[allocOp][0]) != SUCCESS) {
-        return FAILED;
-    }
+    std::unordered_map<Operation*, std::vector<int>> opMemidMap = {
+        {allocOp, {l1Tensor->memoryrange.memId}},
+        {copyinOp, {l1Tensor->memoryrange.memId}},
+        {reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}}
+    };
 
-    depManager_.InitDependencies(orderedOps, false);
+    if (UpdateScheduleStatus(opMemidMap, memId, spillAllocOp, reshapeTensor, spillOp) != SUCCESS) {
+        return FAILED;
+    }
     ctx.newCopyoutOps.push_back(copyoutOp);
     ctx.newAllocOps.push_back(allocOp);
     return SUCCESS;
@@ -666,15 +641,39 @@ void OoOScheduler::UpdateOpScheduleInfo(Operation* op, std::vector<int> memIds, 
     numTotalIssues++;
 }
 
-Status OoOScheduler::InsertOps(std::vector<Operation*> ops, Operation* spillAllocOp, int memId) {
+Status OoOScheduler::UpdateScheduleStatus(std::unordered_map<Operation*, std::vector<int>> opMemidMap, int memId, 
+    Operation* spillAllocOp, LogicalTensorPtr localTensor, Operation* spillOp) {
+    // 更新op的调度信息
+    for (auto &[op, memid] : opMemidMap) {
+        UpdateOpScheduleInfo(op, memid, spillAllocOp);
+    }
+
+    // 生成的op插入排序队列
+    if (InsertOps(opMemidMap, spillAllocOp, memId) != SUCCESS) {
+        return FAILED;
+    }
+    // 修改图上op与tensor链接关系
+    if (UpdateSpillOpDepend(spillOp, localTensor, memId) != SUCCESS) {
+        return FAILED;
+    }
+    // 更新tensor的剩余引用次数
+    if (UpdateRemainMemid(memId, localTensor->memoryrange.memId) != SUCCESS) {
+        return FAILED;
+    }
+    // 更新依赖关系
+    depManager_.InitDependencies(orderedOps, false);
+    return SUCCESS;
+}
+
+Status OoOScheduler::InsertOps(std::unordered_map<Operation*, std::vector<int>> opMemidMap, Operation* spillAllocOp, int memId) {
     int bufNextUseTime = GetBufNextUseTime(spillAllocOp, memId);
     if (bufNextUseTime == -1) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Get Tensor[%d] next use time failed.", memId);
         return FAILED;
     }
-    for (auto &op : ops) {
-        opExecOrderMap[op] = bufNextUseTime++;
-        InsertOrdered(op);
+    for (auto &op : opMemidMap) {
+        opExecOrderMap[op.first] = bufNextUseTime++;
+        InsertOrdered(op.first);
     }
     return SUCCESS;
 }
