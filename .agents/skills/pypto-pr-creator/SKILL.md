@@ -170,7 +170,7 @@ gitcode_update_pull_request(
 ```python
 pr = gitcode_get_pull_request(owner="cann", repo="pypto", pull_number=<pr_number>)
 labels = pr.get("labels", [])
-# 检查是否含 cla/no → CLA 未通过
+# 检查是否含 cann-cla/no → CLA 未通过
 ```
 
 CLA 失败时，读取 [references/troubleshooting.md](references/troubleshooting.md) 执行 CLA 修复流程。

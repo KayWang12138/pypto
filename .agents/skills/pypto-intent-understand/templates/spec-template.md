@@ -15,7 +15,7 @@ perf_target: {performance_target}
 
 ### 1. 基础信息
 - **算子名称**: {operator_name}
-- **算子分类**: {category}  <!-- element-wise / reduction / matmul / attention / custom -->
+- **算子分类**: {category}  *element-wise / reduction / matmul / attention / custom*
 
 ### 1.1 功能描述
 
@@ -23,7 +23,7 @@ perf_target: {performance_target}
 
 ### 1.2 算法参数
 
-{algorithm_params}  <!-- 如 epsilon, momentum, beta 等超参数，无则填写 "无" -->
+{algorithm_params}  *如 epsilon, momentum, beta 等超参数，无则填写 "无"*
 
 ### 1.3 数学公式
 
@@ -32,14 +32,14 @@ $$
 $$
 
 ### 2. 关键特性
-<!-- 复杂算子必须填写，简单算子可省略 -->
+*复杂算子必须填写，简单算子可省略*
 
 | 特性 | 是否需要 | 置信度 | 实现说明 | 优先级 |
 |------|----------|--------|----------|--------|
 | {feature_name} | {need_or_not} | {confidence} | {impl_note} | {priority} |
 
 ### 3. 算法描述
-<!-- 当公式无法完整表述计算流程时填写，简单算子省略此节 -->
+*当公式无法完整表述计算流程时填写，简单算子省略此节*
 
 ```
 Algorithm: {algorithm_name}

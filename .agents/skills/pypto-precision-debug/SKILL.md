@@ -35,7 +35,7 @@ description: PyPTO 算子精度问题排查技能。专注于用户代码层面�
 |-------|---------|---------|---------|---------|
 | 1 ★推荐 | 使用旧前端写法 | 切换到 `pypto.frontend.jit` | `@pypto.frontend.jit` | 新前端是 PyPTO 推荐写法，旧前端已不再维护，可避免多种已知问题 |
 | 2 | view + reshape 精度异常 | 避免 `inplace=True` | `pypto.reshape(tensor, shape, inplace=False)` | inplace=True 在 view 后会错误修改内存地址，导致数据指向错误区域 |
-| 3 | 循环展开后精度异常 | `unroll_list=[1]` | `pypto.loop(range(n), unroll_list=[1])` | 关闭循环展开，规避 RegisterCopy pass 的寄存器拷贝 bug |
+| 3 | 循环展开后精度异常 | `unroll_list=[1]` | `pypto.loop_unroll(range(n), unroll_list=[1])` | 关闭循环展开，规避 RegisterCopy pass 的寄存器拷贝 bug |
 | 4 | 嵌套循环精度异常 | `submit_before_loop=True` | `pypto.loop(range(m), submit_before_loop=True)` | 确保子循环正确提交，避免并行执行时的内存覆盖 |
 | 5 | 特定 shape 精度异常 | 调整 shape | 避免尾轴为 1，避免非整除 | 特定 shape 可能触发 Pass 推导边界情况，导致 valid_shape 错误 |
 | 6 | 编译器优化异常 | `+0.0` 技巧 | `result = compute(...) + 0.0` | 阻止编译器过度优化，保留计算操作完整性 |
@@ -273,7 +273,7 @@ result = pypto.reshape(tensor_view, final_shape, inplace=False)  # 精度正确
 
 ```python
 # 在循环中添加 unroll_list=[1]
-for i in pypto.loop(range(n), unroll_list=[1]):
+for i in pypto.loop_unroll(range(n), unroll_list=[1]):
     ...
 ```
 
