@@ -568,7 +568,7 @@ static void HandleUnusedTensor(Operation &op, std::set<int> inoutCast) {
         if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             std::map<int, SymbolicScalar> paramAddrMap;
             iOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
-            if (!paramAddrMap.empty()) {
+            if (paramAddrMap.count(op.GetOpMagic()) > 0) {
                 continue;
             }
             SetTensorParamAddr(op, iOperand, 1, 1, inoutCast);
@@ -578,7 +578,7 @@ static void HandleUnusedTensor(Operation &op, std::set<int> inoutCast) {
         if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             std::map<int, SymbolicScalar> paramAddrMap;
             oOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
-            if (!paramAddrMap.empty()) {
+            if (paramAddrMap.count(op.GetOpMagic()) > 0) {
                 continue;
             }
             SetTensorParamAddr(op, oOperand, 1, 1, inoutCast);
