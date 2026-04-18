@@ -433,9 +433,9 @@ public:
     static int RunWithProfile(RtStream aicoreStream, RtStream aicpuStream, bool isCapture);
     static int DeviceLaunchOnceWithDeviceTensorData(
         Function* function, const std::vector<DeviceTensorData>& inputList,
-        const std::vector<DeviceTensorData>& outputList, RtStream aicpuStream, RtStream aicoreStream,
-        bool streamSynchronize, CachedOperator* cachedOperator, DevControlFlowCache* ctrlCache = nullptr,
-        const DeviceLauncherConfig& config = DeviceLauncherConfig());
+        const std::vector<DeviceTensorData>& outputList, RtStream aicpuStream, RtStream ctrlStream,
+        RtStream aicoreStream, bool streamSynchronize, CachedOperator* cachedOperator, 
+        DevControlFlowCache* ctrlCache = nullptr, const DeviceLauncherConfig& config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(RtStream aicpuStream, RtStream aicoreStream);
 #else
@@ -444,8 +444,8 @@ public:
     static int GetStreamCaptureInfo(RtStream, AclMdlRI&, bool&) { return 0; }
     static int SetCaptureStream(RtStream, RtStream, bool&) { return 0; }
     static int RunWithProfile(RtStream, RtStream, bool) { return 0; }
-    static int DeviceLaunchOnceWithDeviceTensorData(
-        Function*, const std::vector<DeviceTensorData>&, const std::vector<DeviceTensorData>&, RtStream, RtStream,
+    static int DeviceLaunchOnceWithDeviceTensorData(Function*,
+        const std::vector<DeviceTensorData>&, const std::vector<DeviceTensorData>&, RtStream, RtStream, RtStream,
         bool, CachedOperator*, uintptr_t, const DeviceLauncherConfig& config = DeviceLauncherConfig())
     {
         (void)config;
