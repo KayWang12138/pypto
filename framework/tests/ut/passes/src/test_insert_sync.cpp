@@ -473,11 +473,11 @@ void AddOpForTestHandleEventID(std::vector<Operation*>& opLogPtr, std::shared_pt
     tensor5->memoryrange.start = IS_NUM700;
     tensor5->memoryrange.end = IS_NUM800;
     auto& copyin1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor1}, {tensor2});
-    opLogPtr.emplace_back(&copyin1);
-    auto& cast = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor3});
-    opLogPtr.emplace_back(&cast);
+    opLogPtr.emplace_back(&copyin1);  // index 0
     auto& copyin2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor4}, {tensor5});
-    opLogPtr.emplace_back(&copyin2);
+    opLogPtr.emplace_back(&copyin2);  // index 1 - moved before cast to satisfy AdjustOpDep conditions
+    auto& cast = currFunctionPtr->AddRawOperation(Opcode::OP_CAST, {tensor2}, {tensor3});
+    opLogPtr.emplace_back(&cast);     // index 2
 }
 
 TEST_F(InsertSyncTest, TestHandleEventID)
@@ -494,12 +494,14 @@ TEST_F(InsertSyncTest, TestHandleEventID)
     AddOpForTestHandleEventID(opLogPtr, currFunctionPtr);
 
     PipeSync ps;
+    ps.InitIssueQueue();  // Initialize issueState_ before BuildDeps
     DataDependencySearcher dataDependencySearcher;
     ProcessOpList(ps, dataDependencySearcher, opLogPtr);
     std::vector<IndexOp> synced;
     BuildDeps(ps, dataDependencySearcher, opLogPtr, synced);
-    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM1);
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], 0);
+    // After reorder: copyin1(0), copyin2(1), cast(2)
+    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM2);  // copyin1 sets for cast
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], 0);  // cast waits for copyin1
 
     // HandleEventID - Test AdjustOpDep path
     // Set up conditions to trigger AdjustOpDep:
@@ -509,10 +511,10 @@ TEST_F(InsertSyncTest, TestHandleEventID)
     bool eventIdDeadlock = true;
     bool res = false;
     PipeSync::IssueNum issuenum;
-    // issueState_[4] is AIV_MTE2 queue, contains copyin1(0) and copyin2(2)
+    // issueState_[4] is AIV0_MTE2 queue, contains copyin1(0) and copyin2(1)
     PipeSync::IssueQueue& issueQ = ps.issueState_[IS_NUM4];
-    PipeSync::DepOp& handleOp = ps.depOps_[0];
-    PipeSync::DepOp& eleOp = ps.depOps_[IS_NUM1];
+    PipeSync::DepOp& handleOp = ps.depOps_[0];    // copyin1
+    PipeSync::DepOp& eleOp = ps.depOps_[IS_NUM2]; // cast
     AIVCore currAIVCore = ps.oriOpList_[handleOp.idx]->GetAIVCore();
     AIVCore eleAIVCore = ps.oriOpList_[eleOp.idx]->GetAIVCore();
     PipeSync::PipeCoreRealEx currPipeCoreEx(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core, currAIVCore);
@@ -524,17 +526,17 @@ TEST_F(InsertSyncTest, TestHandleEventID)
     issuenum.currIssueNum[pp] = IS_NUM8;
 
     // Verify initial state before HandleEventID
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], 0); // cast waits for copyin1
-    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM1);  // copyin1 sets for cast
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], 0);  // cast waits for copyin1
+    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM2);   // copyin1 sets for cast
 
     ps.HandleEventID(handleOp, issueQ, issuenum, eventIdDeadlock, res);
 
     // After HandleEventID with AdjustOpDep:
     // RemoveOpDep: copyin1's setPipe removes cast, cast's waitPipe removes copyin1
     // AddOpDep: copyin2's setPipe adds cast, cast's waitPipe adds copyin2
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], IS_NUM2); // cast now waits for copyin2
-    EXPECT_EQ(ps.depOps_[IS_NUM2].setPipe[0], IS_NUM1);  // copyin2 sets for cast
-    EXPECT_EQ(ps.depOps_[0].setPipe.size(), 0);          // copyin1 has no setPipe
+    EXPECT_EQ(ps.depOps_[IS_NUM2].waitPipe[0], IS_NUM1);  // cast now waits for copyin2
+    EXPECT_EQ(ps.depOps_[IS_NUM1].setPipe[0], IS_NUM2);   // copyin2 sets for cast
+    EXPECT_EQ(ps.depOps_[0].setPipe.size(), 0);           // copyin1 has no setPipe
 
     // InitCVEventIdQ
     PipeSync::CoreTypeDetail setCore = {CoreType::AIC, AIVCore::UNSPECIFIED};
