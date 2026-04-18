@@ -384,8 +384,9 @@ def generate_dispatch_combine_golden(
 
 
 def dispatch_calc_occurrences(
-    expert_ids: pypto.Tensor, expert_id: pypto.SymbolicScalar, calc_index: int,
+    expert_ids: pypto.Tensor, expert_id: pypto.SymbolicScalar, calc_index: int, size: int
 ) -> pypto.Tensor:
+    pypto.set_vec_tile_shapes(1, size)
     expert_ids_dup = pypto.full(expert_ids.shape, expert_id, pypto.DT_INT32)
     sub_result = pypto.sub(expert_ids_dup, expert_ids)
     sub_result_fp32 = pypto.cast(sub_result, pypto.DT_FP32, pypto.CastMode.CAST_TRUNC)
@@ -456,84 +457,86 @@ def moe_distributed_dispatch_kernel(
 
         # 根据专家表计算发送偏移
         pypto.set_vec_tile_shapes(1, batch_size * topk)
-        expert_ids_vec = pypto.reshape(expert_ids, [1, batch_size * topk])
-        offset_table = pypto.Tensor([batch_size, topk], pypto.DT_INT32)
-        for _ in pypto.loop(1, name='MOE_DISTRIBUTED_DISPATCH_PREPARE', idx_name='_'):
-            for index in range(1, batch_size * topk):
-                row_index, col_index = divmod(index, topk)
+        expert_ids_vec = pypto.reshape(expert_ids, [1, batch_size * topk], inplace=True)
+
+        for _ in pypto.loop(1, name='MOE_DISTRIBUTED_DISPATCH_SEND', idx_name='_'):
+            # 发送 token 与 info 信息
+            for index in range(batch_size * topk):
+                row_index = index // topk
+                col_index = index % topk
+                moe_info = pypto.Tensor([1, info_size], pypto.DT_INT32)
+                tensor_tile = x[row_index:row_index + 1, :]
                 pypto.set_vec_tile_shapes(1, info_size)
+                moe_info[0, info_size - 3] = this_rank
+                moe_info[0, info_size - 2] = row_index
+                moe_info[0, info_size - 1] = col_index
                 remote_expert_id = expert_ids[row_index, col_index]
-                token_offset_result = dispatch_calc_occurrences(expert_ids_vec, remote_expert_id, index)
+                remote_rank_id = remote_expert_id // pypto.SymbolicScalar(expert_num_per_rank)
+                remote_expert_offset = remote_expert_id % expert_num_per_rank
+                token_offset_result = dispatch_calc_occurrences(
+                    expert_ids_vec,
+                    remote_expert_id,
+                    index,
+                    batch_size * topk
+                )
                 token_index = max(index - 1, 0)
                 token_offset = token_offset_result[0, token_index]
-                offset_table[row_index, col_index] = token_offset
-
-        # 发送 token 与 info 信息
-        for index in pypto.loop(batch_size * topk, name='MOE_DISTRIBUTED_DISPATCH_SEND_DATA', idx_name='index'):
-            row_index = index // topk
-            col_index = index % topk
-            moe_info = pypto.Tensor([1, info_size], pypto.DT_INT32)
-            tensor_tile = x[row_index:row_index + 1, :]
-            pypto.set_vec_tile_shapes(1, info_size)
-            moe_info[0, info_size - 3] = this_rank
-            moe_info[0, info_size - 2] = row_index
-            moe_info[0, info_size - 1] = col_index
-            remote_expert_id = expert_ids[row_index, col_index]
-            remote_rank_id = remote_expert_id // pypto.SymbolicScalar(expert_num_per_rank)
-            remote_expert_offset = remote_expert_id % expert_num_per_rank
-            token_offset = offset_table[row_index, col_index]
-            pypto.set_vec_tile_shapes(1, hidden_size)
-            shmem_data_out_put = pypto.distributed.shmem_put(
-                tensor_tile,
-                [(remote_expert_offset * ep_world_size + this_rank) * batch_size + token_offset, 0],
-                shmem_data,
-                remote_rank_id,
-                pred=[offset_table],
-            )
-            pypto.set_vec_tile_shapes(1, info_size)
-            shmem_info_out_put = pypto.distributed.shmem_put(
-                moe_info,
-                [(remote_expert_offset * ep_world_size + this_rank) * batch_size + token_offset, 0],
-                shmem_info,
-                remote_rank_id,
-                pred=[offset_table],
-            )
-            pypto.set_vec_tile_shapes(1, hidden_size)
-            pypto.distributed.shmem_signal(
-                shmem_data,
-                0,
-                1,
-                [1, hidden_size],
-                [0, 0],
-                target_pe=-1,
-                sig_op=pypto.AtomicType.ADD,
-                pred=[shmem_data_out_put, shmem_info_out_put],
-            )
-
-        # 发送每个专家的 token 有效发送数目
-        for expert_id in pypto.loop(moe_expert_num, name='MOE_DISTRIBUTED_DISPATCH_SEND_COUNT', idx_name='expert_id'):
-            expert_offset = dispatch_calc_occurrences(expert_ids_vec, expert_id, batch_size * topk)
-            remote_rank_id = expert_id // pypto.SymbolicScalar(expert_num_per_rank)
-            remote_expert_offset = expert_id % expert_num_per_rank
-            total_offset_tile = expert_offset[:, -1:]
-            pypto.set_vec_tile_shapes(1, 1)
-            shmem_put_out = pypto.distributed.shmem_put(
-                total_offset_tile,
-                [remote_expert_offset * ep_world_size + this_rank + 1, 0],
-                shmem_count,
-                remote_rank_id,
-                pred=[total_offset_tile],
-            )
-            pypto.set_vec_tile_shapes(1, count_size)
-            pypto.distributed.shmem_signal(
-                shmem_count,
-                0,
-                1,
-                [1, count_size],
-                [0, 0],
-                target_pe=remote_rank_id,
-                sig_op=pypto.AtomicType.ADD, pred=[shmem_put_out],
-            )
+                pypto.set_vec_tile_shapes(1, hidden_size)
+                shmem_data_out_put = pypto.distributed.shmem_put(
+                    tensor_tile,
+                    [(remote_expert_offset * ep_world_size + this_rank) * batch_size + token_offset, 0],
+                    shmem_data,
+                    remote_rank_id,
+                    pred=[tensor_tile],
+                )
+                pypto.set_vec_tile_shapes(1, info_size)
+                shmem_info_out_put = pypto.distributed.shmem_put(
+                    moe_info,
+                    [(remote_expert_offset * ep_world_size + this_rank) * batch_size + token_offset, 0],
+                    shmem_info,
+                    remote_rank_id,
+                    pred=[moe_info],
+                )
+                pypto.set_vec_tile_shapes(1, hidden_size)
+                pypto.distributed.shmem_signal(
+                    shmem_data,
+                    0,
+                    1,
+                    [1, hidden_size],
+                    [0, 0],
+                    target_pe=-1,
+                    sig_op=pypto.AtomicType.ADD,
+                    pred=[shmem_data_out_put, shmem_info_out_put],
+                )
+            # 发送每个专家的 token 有效发送数目
+            for expert_id in range(0, moe_expert_num):
+                expert_offset = dispatch_calc_occurrences(
+                    expert_ids_vec,
+                    expert_id,
+                    batch_size * topk,
+                    batch_size * topk
+                )
+                remote_rank_id = expert_id // expert_num_per_rank
+                remote_expert_offset = expert_id % expert_num_per_rank
+                total_offset_tile = expert_offset[:, -1:]
+                pypto.set_vec_tile_shapes(1, 1)
+                shmem_put_out = pypto.distributed.shmem_put(
+                    total_offset_tile,
+                    [remote_expert_offset * ep_world_size + this_rank + 1, 0],
+                    shmem_count,
+                    remote_rank_id,
+                    pred=[total_offset_tile],
+                )
+                pypto.set_vec_tile_shapes(1, count_size)
+                pypto.distributed.shmem_signal(
+                    shmem_count,
+                    0,
+                    1,
+                    [1, count_size],
+                    [0, 0],
+                    target_pe=remote_rank_id,
+                    sig_op=pypto.AtomicType.ADD, pred=[shmem_put_out],
+                )
 
         # 接收 count 值，计算专家接收数据在输出上的偏移
         cum_sum_result = pypto.tensor([cum_sum_row_size, count_size], pypto.DT_INT32, 'cumSumResult')
