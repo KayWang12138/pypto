@@ -32,6 +32,8 @@
 #include "passes/tensor_graph_pass/loop_unroll.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/graph_partition/graph_partition.h"
+#include "passes/tile_graph_pass/graph_partition/l1_copy_reuse.h"
+#include "passes/tile_graph_pass/graph_partition/n_buffer_merge.h"
 #include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
 #include "passes/tile_graph_pass/graph_constraint/graph_constraint.h"
 #include "passes/tile_graph_pass/data_path/data_path.h"
@@ -58,6 +60,12 @@ PassManager& PassManager::Instance()
 {
     static PassManager instance;
     return instance;
+}
+
+void PassManager::ResetStaticVariables()
+{
+    L1CopyInReuseRunner::ResetGlobalHashOrderCounters();
+    NBufferMerge::ResetGlobalHashOrderCounter();
 }
 
 void RegPass()
@@ -128,9 +136,9 @@ void PassManager::RegDefaultStrategy()
                         {"InsertOpForViewAssemble", PassName::INSERT_OP_FOR_VIEWASSEMBLE},
                         {"SplitK", PassName::SPLIT_K},
                         {"GraphPartition", PassName::GRAPH_PARTITION},
-                        {"ReduceCopyMerge", PassName::REDUCE_COPY_MERGE},
                         {"NBufferMerge", PassName::N_BUFFER_MERGE},
                         {"L1CopyInReuseMerge", PassName::L1_COPY_IN_REUSE_MERGE},
+                        {"ReduceCopyMerge", PassName::REDUCE_COPY_MERGE},
                         {"IntraSubgraphAdapter", PassName::INTRA_SUBGRAPH_ADAPTER},
                         {"GenerateMoveOp", PassName::GENERATE_MOVE_OP},
                         {"CommonOperationEliminate", PassName::COMMON_OPERATION_ELIMINATE},
@@ -152,13 +160,13 @@ void PassManager::RegDefaultStrategy()
                         {"TuneSyncForVF", PassName::TUNE_SYNC_FOR_VF},
                         {"MixSubgraphSplit", PassName::MIX_SUBGRAPH_SPLIT},
                         {"GlobalMemoryReuse", PassName::GLOBAL_MEMORY_REUSE},
-                        {"LoopaxesProc", PassName::LOOPAXES_PROC},
                         {"CodegenPreproc", PassName::CODEGEN_PREPROC},
                     });
     RegisterStrategy("FunctionUnroll", {{"LoopUnroll", PassName::LOOP_UNROLL}});
     RegisterStrategy(
         "ExecuteGraph", {
                             {"DynAttrToStatic", PassName::DYN_ATTR_TO_STATIC},
+                            {"LoopaxesProc", PassName::LOOPAXES_PROC},
                         });
 }
 
