@@ -28,6 +28,8 @@
 
 using namespace npu::tile_fwk;
 
+static const uint16_t kNumOne = 1u;
+
 class TestRemoveUnalignedReshapeOp : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -181,7 +183,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub)
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto& in : op.iOperand) {
-                EXPECT_EQ(in->GetProducers().size(), 1);
+                EXPECT_EQ(in->GetProducers().size(), kNumOne);
                 auto producer = *(in->GetProducers().begin());
                 EXPECT_EQ(producer->GetOpcode(), Opcode::OP_COPY_OUT);
                 if (in->oriShape == shape) {
@@ -191,7 +193,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub)
                 }
             }
             for (auto& out : op.oOperand) {
-                EXPECT_EQ(out->GetConsumers().size(), 1);
+                EXPECT_EQ(out->GetConsumers().size(), kNumOne);
                 auto consumer = *(out->GetConsumers().begin());
                 EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_COPY_IN);
                 if (out->oriShape == reshape_shape) {
@@ -241,7 +243,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub)
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto& in : op.iOperand) {
-                EXPECT_EQ(in->GetProducers().size(), 1);
+                EXPECT_EQ(in->GetProducers().size(), kNumOne);
                 auto producer = *(in->GetProducers().begin());
                 EXPECT_NE(producer->GetOpcode(), Opcode::OP_COPY_OUT);
                 if (in->oriShape == shape) {
@@ -251,7 +253,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub)
                 }
             }
             for (auto& out : op.oOperand) {
-                EXPECT_EQ(out->GetConsumers().size(), 1);
+                EXPECT_EQ(out->GetConsumers().size(), kNumOne);
                 auto consumer = *(out->GetConsumers().begin());
                 EXPECT_NE(consumer->GetOpcode(), Opcode::OP_COPY_IN);
                 if (out->oriShape == reshape_shape) {
@@ -715,33 +717,31 @@ Test HandleNoCopyInConsumer: reshape output has no COPY_IN consumer, has multipl
 */
 TEST_F(TestRemoveUnalignedReshapeOp, TestHandleNoCopyInConsumerWithMultiOps)
 {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestHandleNoCopyInConsumerMulti", "TestHandleNoCopyInConsumerMulti", nullptr);
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestHandleNoCopyInConsumerMulti", "TestHandleNoCopyInConsumerMulti", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> inShape = {8, 8};
     std::vector<int64_t> reshapeShape = {4, 16};
-    DataType dataType = DT_FP32;
 
-    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, inShape);
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
     incast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto copyinTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, inShape);
+    auto copyinTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
     copyinTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    auto copyoutTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, inShape);
+    auto copyoutTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inShape);
     copyoutTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     std::vector<SymbolicScalar> validShape1 = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
     copyoutTensor->UpdateDynValidShape(validShape1);
-    auto reshapeTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, reshapeShape);
+    auto reshapeTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     reshapeTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     std::vector<SymbolicScalar> validShape2 = {SymbolicScalar("Input_1_Dim_0"), SymbolicScalar("Input_1_Dim_1")};
     reshapeTensor->UpdateDynValidShape(validShape2);
-    auto addTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, reshapeShape);
+    auto addTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     addTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto mulTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, reshapeShape);
+    auto mulTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     mulTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, reshapeShape);
+    auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     outcast1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, dataType, reshapeShape);
+    auto outcast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     outcast2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
 
     currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyinTensor});
@@ -757,18 +757,21 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestHandleNoCopyInConsumerWithMultiOps)
     currFunctionPtr->outCasts_.push_back(outcast2);
 
     RemoveUnalignedReshape removeUnalignedReshapeOpTest;
-    int curSize = currFunctionPtr->Operations().size();
     EXPECT_EQ(removeUnalignedReshapeOpTest.RunOnFunction(*currFunctionPtr), SUCCESS);
-    int expSize = curSize + 2;
-    EXPECT_EQ(currFunctionPtr->Operations().size(), expSize);
 
     uint32_t reshapeCopyinNum = 0;
+    uint32_t reshapeCopyoutNum = 0;
+
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE_COPY_IN) {
-                reshapeCopyinNum++;
+            reshapeCopyinNum++;
+        }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE_COPY_OUT) {
+            reshapeCopyoutNum++;
         }
     }
-    EXPECT_EQ(reshapeCopyinNum, 1);
+    EXPECT_EQ(reshapeCopyoutNum, kNumOne);
+    EXPECT_EQ(reshapeCopyinNum, kNumOne);
 }
 
 // in - COPYIN - COPYOUT - ASSEMBLE - RESHAPE - COPYIN - COPYOUT - out1
