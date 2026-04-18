@@ -128,7 +128,9 @@ TILEOP void TMulS(T0 dst, T1 src0, Scalar src1)
 }
 
 #define OP_TILE_OP_DIVS TDivS
-template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
+template <
+    pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse = LastUse2Dim<0, 0>, typename Scalar,
+    typename T0, typename T1>
 TILEOP void TDivS(T0 dst, T1 src0, Scalar src1)
 {
     BinaryScalarCompute<BinaryScalarOp::DIV, LastUse>(dst, src0, src1);
