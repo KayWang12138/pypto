@@ -186,7 +186,7 @@ public:
 
         uint64_t aicpuTaskSent = 0UL;
         if constexpr (enableAicpuTask) {
-            if (IsNeedProcAicpuTask()) {
+            if (NeedProcessAicpuTask()) {
                 ret = ResolveDepForAicpuTask(aicpuTaskSent);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
@@ -312,7 +312,7 @@ public:
             }
         }
 
-        if (IsNeedProcAicpuTask()) {
+        if (NeedInitAicpuTask()) {
             const bool profSwitch = aicoreProf_.ProfIsEnable();
             ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask*>(deviceTaskCtx->GetDeviceTask()), profSwitch);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -810,7 +810,7 @@ private:
 
     inline int32_t SyncAicpuTaskFinish()
     {
-        if (IsNeedProcAicpuTask()) {
+        if (NeedProcessAicpuTask()) {
             auto ret = aicpuTaskManager_.SyncAicpuTaskFinish(this);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
@@ -1763,7 +1763,7 @@ private:
         pingPongFlag_.fill(0);
         isSendStop = false;
         taskCtrlDequeFinish = false;
-        if (IsNeedProcAicpuTask()) {
+        if (NeedInitAicpuTask()) {
             aicpuTaskManager_.InitDeviceArgs(deviceArgs);
         }
         context_->Init(deviceArgs, schedIdx);
@@ -2109,7 +2109,8 @@ private:
         (void)stat;
     }
 
-    inline bool IsNeedProcAicpuTask() { return aicpuIdx_ == 2; }
+    inline bool NeedInitAicpuTask() { return schedIdx_ == 0; }
+    inline bool NeedProcessAicpuTask() { return true; }
 
 private:
     void ReuseUpdateDeviceCtx(SchDeviceTaskContext* devTaskCtx, DeviceTaskCtrl* newDevTask) {

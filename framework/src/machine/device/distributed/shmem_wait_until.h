@@ -107,58 +107,60 @@ public:
 
     inline int32_t Enqueue(SignalTileOp* task)
     {
-        queue_[rear_] = task;
-        rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
-        if (rear_ == front_) {
+        uint16_t currentRear = __atomic_load_n(&rear_, __ATOMIC_RELAXED);
+        uint16_t nextRear = (currentRear + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
+        if (nextRear == __atomic_load_n(&front_, __ATOMIC_RELAXED)) {
             DEV_ERROR(
                 DistributedErrorCode::AICPU_TASK_NUM_EXCEED_LIMIT,
-                "ctrl.task.pre.task.enqueue#: SignalTileOp queue_ is full, front=%u, rear=%u", front_, rear_);
+                "ctrl.task.pre.task.enqueue#: SignalTileOp queue_ is full, front=%u, rear=%u",
+                __atomic_load_n(&front_, __ATOMIC_RELAXED), currentRear);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
+        queue_[currentRear] = task;
+        __atomic_store_n(&rear_, nextRear, __ATOMIC_RELEASE);
         return dynamic::DEVICE_MACHINE_OK;
     }
 
-    inline bool IsEmpty() const { return front_ == rear_; }
-
-    inline int32_t Dequeue()
-    {
-        if (IsEmpty()) {
-            DEV_ERROR(DistributedErrorCode::AICPU_TASK_QUEUE_EMPTY, "sche.task.end.task.dequeue#: Queue is empty.");
-            return dynamic::DEVICE_MACHINE_ERROR;
-        }
-        front_ = (front_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
-        return dynamic::DEVICE_MACHINE_OK;
-    }
-
-    inline const SignalTileOp* operator[](uint16_t index) const { return queue_[index]; }
-
-    inline int32_t Remove(uint16_t index)
-    {
-        queue_[index] = queue_[front_];
-        return Dequeue();
+    inline bool IsEmpty() const {
+        return __atomic_load_n(&front_, __ATOMIC_RELAXED) == __atomic_load_n(&rear_, __ATOMIC_RELAXED);
     }
 
     int32_t PollCompleted(std::function<int32_t(SignalTileOp*)> processor)
     {
-        uint16_t current = front_;
-        uint16_t end = rear_;
-        if (current > end) {
-            end += AICPU_TASK_ARRAY_SIZE;
+        // Fast path: if queue is empty, return immediately
+        // Avoid unnecessary iteration on empty queue for performance
+        if (IsEmpty()) {
+            return dynamic::DEVICE_MACHINE_OK;
         }
-        for (uint16_t i = current; i < end; ++i) {
-            uint16_t actualIndex = i & AICPU_TASK_ARRAY_SIZE_MOD;
-            SignalTileOp* task = queue_[actualIndex];
+
+        // Multiple consumers can poll concurrently, each processes from front forward
+        // Use atomic fetch to claim tasks, no locking needed
+        uint16_t currentFront;
+        uint16_t end = __atomic_load_n(&rear_, __ATOMIC_ACQUIRE);
+
+        while (true) {
+            currentFront = __atomic_load_n(&front_, __ATOMIC_ACQUIRE);
+            if (currentFront == end) {
+                break;
+            }
+
+            SignalTileOp* task = queue_[currentFront];
             if (task->PollCompleted()) {
                 if (task->profData_ != nullptr) {
                     task->profData_->execEnd = dynamic::GetCycles();
                 }
-                int32_t ret = processor(task);
-                if (ret != dynamic::DEVICE_MACHINE_OK) {
-                    return ret;
+                // Try to claim this task by advancing front
+                if (__sync_bool_compare_and_swap(&front_, currentFront, (currentFront + 1) & AICPU_TASK_ARRAY_SIZE_MOD)) {
+                    int32_t ret = processor(task);
+                    if (ret != dynamic::DEVICE_MACHINE_OK) {
+                        return ret;
+                    }
                 }
-                ret = Remove(actualIndex);
-                if (ret != dynamic::DEVICE_MACHINE_OK) {
-                    return ret;
+            } else {
+                // Task not completed, skip for now
+                end = __atomic_load_n(&rear_, __ATOMIC_ACQUIRE);
+                if (currentFront + 1 == end) {
+                    break;
                 }
             }
         }
