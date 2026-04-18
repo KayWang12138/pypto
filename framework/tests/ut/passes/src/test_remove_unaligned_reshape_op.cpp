@@ -183,7 +183,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub)
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto& in : op.iOperand) {
-                EXPECT_EQ(in->GetProducers().size(), kNumOne);
+                EXPECT_EQ(in->GetProducers().size(), 1);
                 auto producer = *(in->GetProducers().begin());
                 EXPECT_EQ(producer->GetOpcode(), Opcode::OP_COPY_OUT);
                 if (in->oriShape == shape) {
@@ -193,7 +193,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_padded_ub)
                 }
             }
             for (auto& out : op.oOperand) {
-                EXPECT_EQ(out->GetConsumers().size(), kNumOne);
+                EXPECT_EQ(out->GetConsumers().size(), 1);
                 auto consumer = *(out->GetConsumers().begin());
                 EXPECT_EQ(consumer->GetOpcode(), Opcode::OP_COPY_IN);
                 if (out->oriShape == reshape_shape) {
@@ -243,7 +243,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub)
     for (auto& op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
             for (auto& in : op.iOperand) {
-                EXPECT_EQ(in->GetProducers().size(), kNumOne);
+                EXPECT_EQ(in->GetProducers().size(), 1);
                 auto producer = *(in->GetProducers().begin());
                 EXPECT_NE(producer->GetOpcode(), Opcode::OP_COPY_OUT);
                 if (in->oriShape == shape) {
@@ -253,7 +253,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, reshaped_unpadded_ub)
                 }
             }
             for (auto& out : op.oOperand) {
-                EXPECT_EQ(out->GetConsumers().size(), kNumOne);
+                EXPECT_EQ(out->GetConsumers().size(), 1);
                 auto consumer = *(out->GetConsumers().begin());
                 EXPECT_NE(consumer->GetOpcode(), Opcode::OP_COPY_IN);
                 if (out->oriShape == reshape_shape) {
@@ -701,7 +701,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestHandleNoCopyInConsumerWithAddOp)
             reshapeCopyinNum++;
         }
     }
-    EXPECT_EQ(reshapeCopyinNum, 1);
+    EXPECT_EQ(reshapeCopyinNum, kNumOne);
 }
 
 /*
