@@ -119,14 +119,21 @@ public:
 private:
     inline void ReadyQueueLock()
     {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1))
-            ;
+        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1)) {
+#ifdef __aarch64__
+            asm volatile("wfe" ::: "memory");
+#else
+            asm volatile("pause" ::: "memory");
+#endif
+        }
     }
 
     inline void ReadyQueueUnLock()
     {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 1, 0))
-            ;
+        __atomic_store_n(&readyQueue_->lock, 0, __ATOMIC_RELEASE);
+#ifdef __aarch64__
+        asm volatile("sev" ::: "memory");
+#endif
     }
 
     inline TaskType GetTaskType(uint64_t taskId)

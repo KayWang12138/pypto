@@ -25,7 +25,7 @@
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
-struct SignalTileOp {
+struct alignas(64) SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal)
     {
         taskId_ = taskId;
@@ -35,11 +35,11 @@ struct SignalTileOp {
     }
     bool PollCompleted() const;
 
-    SignalTileOp* next{nullptr};
     uint64_t taskId_{0};
-    int32_t* addr_{nullptr};
     int32_t expectedSum_{0};
+    int32_t* addr_{nullptr};
     bool resetSignal_{false};
+    SignalTileOp* next{nullptr};
     TaskStat* profData_{nullptr};
 };
 
@@ -52,7 +52,11 @@ public:
         taskCount = 0;
     }
 
-    uint32_t Hash(uint32_t taskId) { return taskId & AICPU_TASK_ARRAY_SIZE_MOD; }
+    uint32_t Hash(uint32_t taskId)
+    {
+        uint32_t hash = (taskId * 2654435761U) >> 22;
+        return hash & AICPU_TASK_ARRAY_SIZE_MOD;
+    }
 
     SignalTileOp* CreateTaskData(uint32_t taskId, int32_t* addr, int32_t expectSum, bool resetSignal)
     {
@@ -140,12 +144,14 @@ public:
 
     int32_t PollCompleted(std::function<int32_t(SignalTileOp*)> processor)
     {
+        constexpr uint16_t MAX_POLL_BATCH = 32;
+        uint16_t polled = 0;
         uint16_t current = front_;
         uint16_t end = rear_;
         if (current > end) {
             end += AICPU_TASK_ARRAY_SIZE;
         }
-        for (uint16_t i = current; i < end; ++i) {
+        for (uint16_t i = current; i < end && polled < MAX_POLL_BATCH; ++i, ++polled) {
             uint16_t actualIndex = i & AICPU_TASK_ARRAY_SIZE_MOD;
             SignalTileOp* task = queue_[actualIndex];
             if (task->PollCompleted()) {
