@@ -282,24 +282,51 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function& funct
             copyOutOp = CopyBranchBetweenCopyOut2Reshape(function, needToCopyTensors, index);
         }
         std::vector<Operation*> copyInOps;
-        bool hasViewOrAssemble = false;
-        FindAllConsumerCopyIns(output, copyInOps, hasViewOrAssemble);
-        if (hasViewOrAssemble) {
-            APASS_LOG_WARN_F(
-                Elements::Operation,
-                "Reshape op %d has view or assemble between reshape and copy in, not supported now.", op.GetOpMagic());
-            return;
+        bool hasNoCopyInConSumer = false;
+        FindAllConsumerCopyIns(output, copyInOps, hasNoCopyInConSumer);
+        if (hasNoCopyInConSumer) {
+            HandleNoCopyInConsumer(function, op, output, copyInOps);
         }
-        if (copyInOps.empty()) {
-            APASS_LOG_WARN_F(Elements::Operation, "Cannot find copy_in consumers for reshape op %d.", op.GetOpMagic());
-            return;
-        }
-
         ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
         ProcessCopyInOfDDRReshape(function, op, copyInOps);
         APASS_LOG_DEBUG_F(Elements::Operation, "Reshape[%d] on GM had processed successfully.", op.GetOpMagic());
         processedReshapeOps.insert(op.GetOpMagic());
     }
+}
+
+void RemoveUnalignedReshape::HandleNoCopyInConsumer(Function& function, Operation& op, LogicalTensorPtr output, std::vector<Operation*>& copyInOps)
+{
+    LogicalTensor newTensor(function, output->Datatype(), output->GetShape());
+    newTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto newTensorPtr = std::make_shared<LogicalTensor>(std::move(newTensor));
+    auto& newCopyInOp = function.AddOperation(Opcode::OP_COPY_IN, {output}, {newTensorPtr});
+    newCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
+    newCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(std::vector<SymbolicScalar>(output->GetShape().size(), 0)),
+        MemoryType::MEM_UB, OpImmediate::Specified(output->GetShape()),
+        OpImmediate::Specified(output->tensor->GetDynRawShape()),
+        OpImmediate::Specified(output->GetDynValidShape())));
+
+    LogicalTensor newTensor2(function, output->Datatype(), output->GetShape());
+    newTensor2.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto newTensor2Ptr = std::make_shared<LogicalTensor>(std::move(newTensor2));
+    auto& newCopyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {newTensorPtr}, {newTensor2Ptr});
+    newCopyOutOp.UpdateSubgraphID(op.GetSubgraphID());
+    newCopyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_UB,
+        OpImmediate::Specified(std::vector<SymbolicScalar>(output->GetShape().size(), 0)),
+        OpImmediate::Specified(output->GetShape()),
+        OpImmediate::Specified(output->tensor->GetDynRawShape()),
+        OpImmediate::Specified(output->GetDynValidShape())));
+    auto consumers = output->GetConsumers();
+    for (auto& consumer : consumers) {
+        if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
+            continue;
+        }
+        consumer->ReplaceInput(newTensor2Ptr, output);
+        output->RemoveConsumer(consumer);
+    }
+    copyInOps.push_back(&newCopyInOp);
 }
 
 void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function& function, Operation& op, Operation* copyOutOp)
@@ -454,19 +481,19 @@ Operation* RemoveUnalignedReshape::FindAllProducerCopyOuts(
     return copyOutOp;
 }
 
-/* 从tensor的消费者列表中查找OP_COPY_IN，如果遇到OP_VIEW、OP_ASSEMBLE或OP_ASSEMBLE_SSA，
- * 则标记hasViewOrAssemble为true，表示不支持此类场景。
+/* 从tensor的消费者列表中查找OP_COPY_IN，如果未遇到OP_COPY_IN，
+ * 则标记has为true，表示不支持此类场景。
  */
 void RemoveUnalignedReshape::FindAllConsumerCopyIns(
-    LogicalTensorPtr tensor, std::vector<Operation*>& copyInOps, bool& hasViewOrAssemble)
+    LogicalTensorPtr tensor, std::vector<Operation*>& copyInOps, bool& hasNoCopyInConSumer)
 {
     auto consumers = tensor->GetConsumers();
     for (auto* consumerOp : consumers) {
         auto opcode = consumerOp->GetOpcode();
         if (opcode == Opcode::OP_COPY_IN) {
             copyInOps.push_back(consumerOp);
-        } else if (opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE || opcode == Opcode::OP_ASSEMBLE_SSA) {
-            hasViewOrAssemble = true;
+        } else {
+            hasNoCopyInConSumer = true;
         }
     }
 }
