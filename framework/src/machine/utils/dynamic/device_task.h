@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <atomic>
 #include "vector.h"
 #include "allocator/allocators.h"
 #include "tilefwk/core_func_data.h"
@@ -28,10 +29,15 @@
 
 namespace npu::tile_fwk::dynamic {
 class DeviceWorkspaceAllocator;
+
+enum class AicpuTaskCacheInitState : uint8_t { NOT_STARTED = 0, INITIALIZING = 1, COMPLETED = 2 };
+
 struct DynDeviceTask : DynDeviceTaskBase {
     Vector<DevAscendFunctionDupped, WsMemCategory::VECTOR_STITCHED_LIST, DeviceWorkspaceAllocator> stitchedList;
     WsAllocation selfAlloc;
     WsSlabStageAllocMem taskStageAllocMem;
+
+    std::atomic<uint8_t> aicpuTaskCacheInitState{static_cast<uint8_t>(AicpuTaskCacheInitState::NOT_STARTED)};
 
     static uint32_t GetReadyQueueIndexByCoreType(CoreType coreType)
     {
@@ -122,7 +128,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
 #endif
 };
 
-#define DYN_DEVICE_TASK_EXT_SIZE 0x300
+constexpr uint64_t DYN_DEVICE_TASK_EXT_SIZE = 0x300;
 static_assert(
     sizeof(DynDeviceTask) < sizeof(DynDeviceTaskBase) + DYN_DEVICE_TASK_EXT_SIZE, "Invalid dyn device task extension");
 

@@ -38,11 +38,12 @@ inline bool SignalTileOp::PollCompleted() const
     if constexpr (!npu::tile_fwk::dynamic::IsDeviceMode()) {
         return true;
     }
-    if (addr_[0] != expectedSum_) {
+    int32_t value = __atomic_load_n(addr_, __ATOMIC_RELAXED);
+    if (value != expectedSum_) {
         return false;
     }
     if (resetSignal_) {
-        addr_[0] = 0;
+        __atomic_store_n(addr_, 0, __ATOMIC_RELAXED);
     }
     return true;
 }

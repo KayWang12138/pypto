@@ -42,7 +42,6 @@ public:
     AicpuTaskManager(){};
     ~AicpuTaskManager(){};
 
-    // 每个AICPU都会调用
     inline void TaskEnqueue(uint64_t taskId)
     {
         ReadyQueueLock();
@@ -51,7 +50,6 @@ public:
         ReadyQueueUnLock();
     }
 
-    // 仅AICPU_0会调用
     inline void InitDeviceArgs(DeviceArgs* deviceArgs)
     {
         sharedBuffer_ = deviceArgs->sharedBuffer;
@@ -59,42 +57,81 @@ public:
         aivNum_ = deviceArgs->nrAiv;
     }
 
-    // 仅AICPU_0会调用
     inline int32_t Init(DynDeviceTask* deviceTask, bool profSwitch)
     {
         curDevTask_ = deviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue*>(deviceTask->devTask.readyAicpuFunctionQue);
+
         shmemWaitUntil_.Init(deviceTask);
+
         if (profSwitch) {
             KernelArgs* args = (KernelArgs*)(sharedBuffer_ + (aicNum_ + aivNum_) * SHARED_BUFFER_SIZE);
             aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         }
-        return PrepareAicpuTask();
-    }
 
-    // 仅AICPU_0会调用
-    inline int32_t TaskProcess(uint64_t& taskCount)
-    {
-        if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) ==
-            __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
-            return DEVICE_MACHINE_OK;
-        }
-        ReadyQueueLock();
-        uint64_t taskIdx = readyQueue_->head;
-        taskCount = readyQueue_->tail - readyQueue_->head;
-        readyQueue_->head += taskCount;
-        ReadyQueueUnLock();
-        for (uint32_t i = 0; i < taskCount; ++i) {
-            auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i]);
-            if (ret != DEVICE_MACHINE_OK) {
+        uint8_t expected = static_cast<uint8_t>(AicpuTaskCacheInitState::NOT_STARTED);
+        if (deviceTask->aicpuTaskCacheInitState.compare_exchange_strong(
+                expected, static_cast<uint8_t>(AicpuTaskCacheInitState::INITIALIZING), std::memory_order_relaxed,
+                std::memory_order_relaxed)) {
+            auto& taskCache = npu::tile_fwk::Distributed::AicpuTaskCache::Instance();
+            taskCache.Reset();
+            int32_t ret = PrepareAicpuTask();
+
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                deviceTask->aicpuTaskCacheInitState.store(
+                    static_cast<uint8_t>(AicpuTaskCacheInitState::NOT_STARTED), std::memory_order_relaxed);
                 return ret;
             }
+
+            deviceTask->aicpuTaskCacheInitState.store(
+                static_cast<uint8_t>(AicpuTaskCacheInitState::COMPLETED), std::memory_order_release);
+            return DEVICE_MACHINE_OK;
+        }
+
+        return DEVICE_MACHINE_OK;
+    }
+
+    __attribute__((always_inline)) inline int32_t TaskProcess(uint64_t& taskCount)
+    {
+        if (likely(CheckCacheState())) {
+            if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) ==
+                __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
+                return DEVICE_MACHINE_OK;
+            }
+            ReadyQueueLock();
+            uint64_t taskIdx = readyQueue_->head;
+            taskCount = readyQueue_->tail - readyQueue_->head;
+            readyQueue_->head += taskCount;
+            ReadyQueueUnLock();
+
+            for (uint32_t i = 0; i < taskCount; ++i) {
+                auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i]);
+                if (ret != DEVICE_MACHINE_OK) {
+                    return ret;
+                }
+            }
+            return DEVICE_MACHINE_OK;
         }
         return DEVICE_MACHINE_OK;
     }
 
-    inline int32_t TaskPoll(AiCoreManager* aiCoreManager) { return shmemWaitUntil_.PollCompleted(aiCoreManager); }
+    __attribute__((always_inline)) inline int32_t TaskPoll(AiCoreManager* aiCoreManager)
+    {
+        return shmemWaitUntil_.PollCompleted(aiCoreManager);
+    }
+
+    __attribute__((always_inline)) inline int32_t ProcessTask(uint64_t& taskCount, AiCoreManager* aiCoreManager)
+    {
+        if (likely(CheckCacheState())) {
+            int32_t ret = TaskProcess(taskCount);
+            if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                return ret;
+            }
+            return TaskPoll(aiCoreManager);
+        }
+        return DEVICE_MACHINE_OK;
+    }
 
     inline bool Finished() { return shmemWaitUntil_.runingTaskQueue_.IsEmpty(); }
 
@@ -117,16 +154,35 @@ public:
     }
 
 private:
+    uint32_t stateCheckCounter_{0};
+
+    ReadyCoreFunctionQueue* readyQueue_{nullptr};
+
+    npu::tile_fwk::Distributed::ShmemWaitUntilImpl shmemWaitUntil_;
+    DynDeviceTask* curDevTask_;
+    DynFuncData* funcDataList_;
+    Metrics* aicpuTaskStat_;
+    uint64_t sharedBuffer_;
+    uint32_t aicNum_;
+    uint32_t aivNum_;
+
     inline void ReadyQueueLock()
     {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1))
-            ;
+        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1)) {
+#ifdef __aarch64__
+            asm volatile("wfe" ::: "memory");
+#else
+            asm volatile("pause" ::: "memory");
+#endif
+        }
     }
 
     inline void ReadyQueueUnLock()
     {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 1, 0))
-            ;
+        __atomic_store_n(&readyQueue_->lock, 0, __ATOMIC_RELEASE);
+#ifdef __aarch64__
+        asm volatile("sev" ::: "memory");
+#endif
     }
 
     inline TaskType GetTaskType(uint64_t taskId)
@@ -182,14 +238,10 @@ private:
         return DEVICE_MACHINE_OK;
     }
 
-    ReadyCoreFunctionQueue* readyQueue_{nullptr};
-
-    npu::tile_fwk::Distributed::ShmemWaitUntilImpl shmemWaitUntil_;
-    DynDeviceTask* curDevTask_;
-    DynFuncData* funcDataList_;
-    Metrics* aicpuTaskStat_;
-    uint64_t sharedBuffer_;
-    uint32_t aicNum_;
-    uint32_t aivNum_;
+    __attribute__((always_inline)) inline bool CheckCacheState()
+    {
+        return static_cast<AicpuTaskCacheInitState>(curDevTask_->aicpuTaskCacheInitState.load(
+                   std::memory_order_relaxed)) == AicpuTaskCacheInitState::COMPLETED;
+    }
 };
 } // namespace npu::tile_fwk::dynamic
