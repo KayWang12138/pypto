@@ -457,6 +457,7 @@ Status PipeSync::AdjustCopyInCfg(TileOpCfg& opcfg, const Operation& op)
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
         opcfg.coreType_ = CoreType::AIC;
+        opcfg.aivCore_ = AIVCore::UNSPECIFIED;
         return SUCCESS;
     }
     if (dstMemType == MemoryType::MEM_UB) {
@@ -481,6 +482,7 @@ Status PipeSync::AdjustCopyOutCfg(TileOpCfg& opcfg, const Operation& op)
         opcfg.pipeIdStart_ = PipeType::PIPE_FIX;
         opcfg.pipeIdEnd_ = PipeType::PIPE_FIX;
         opcfg.coreType_ = CoreType::AIC;
+        opcfg.aivCore_ = AIVCore::UNSPECIFIED;
         return SUCCESS;
     }
     if (srcMemType == MemoryType::MEM_UB) {
@@ -493,12 +495,17 @@ Status PipeSync::AdjustCopyOutCfg(TileOpCfg& opcfg, const Operation& op)
         opcfg.pipeIdStart_ = PipeType::PIPE_MTE3;
         opcfg.pipeIdEnd_ = PipeType::PIPE_MTE3;
         opcfg.coreType_ = CoreType::AIC;
+        opcfg.aivCore_ = AIVCore::UNSPECIFIED;
     }
     return SUCCESS;
 }
 
 Status PipeSync::AdjustOpCfg(TileOpCfg& opcfg, const Operation& op)
 {
+    opcfg.aivCore_ = op.GetAIVCore();
+    if (opcfg.coreType_ == CoreType::AIC) {
+        opcfg.aivCore_ = AIVCore::UNSPECIFIED;
+    }
     if (op.GetOpcode() == Opcode::OP_COPY_IN) {
         if (AdjustCopyInCfg(opcfg, op) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "AdjustCopyInCfg failed.");
@@ -530,7 +537,7 @@ Status PipeSync::PipeDispatch(const std::vector<Operation*> opLogPtr, std::vecto
             APASS_LOG_ERROR_F(Elements::Operation, "PipeDispatch failed at function AdjustOpCfg.");
             return FAILED;
         }
-        DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+        DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
         DepOp& opRef = depOps_.emplace_back(op);
         FindDep(opRef, opLogPtr, i, dataDependencySearcher);
         EnqueueOp(opRef, opLogPtr, syncedOpLog);
@@ -553,18 +560,14 @@ void PipeSync::EnqueueOp(DepOp& op, const std::vector<Operation*> opLogPtr, std:
         syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, std::ref(*opLogPtr[op.idx])));
         return;
     }
-    AIVCore aivCore = oriOpList_[op.idx]->GetAIVCore();
-    if (op.selfPipeCore.core == CoreType::AIC) {
-        aivCore = AIVCore::UNSPECIFIED;
-    }
-    PipeCoreRealEx opPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, aivCore);
+    PipeCoreRealEx opPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, op.selfPipeCore.aivCore);
     auto& issueQ = issueState_[static_cast<int>(GetPipeSeq(opPipeCoreEx))];
     issueQ.ops.emplace_back(op.idx);
     op.idxInPipe = issueQ.ops.size() - 1;
     // 若op的pipeStart和pipeEnd不同, 进行记录
     if (op.selfPipeCore.pipeStart != op.selfPipeCore.pipeEnd) {
-        PipeCoreRealEx opPipeCoreExStart(op.selfPipeCore.pipeStart, op.selfPipeCore.core, aivCore);
-        PipeCoreRealEx opPipeCoreExEnd(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, aivCore);
+        PipeCoreRealEx opPipeCoreExStart(op.selfPipeCore.pipeStart, op.selfPipeCore.core, op.selfPipeCore.aivCore);
+        PipeCoreRealEx opPipeCoreExEnd(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, op.selfPipeCore.aivCore);
         PipePairEx pp{opPipeCoreExStart, opPipeCoreExEnd};
         int opMagic = opLogPtr[op.idx]->GetOpMagic();
         doublePipeOp[pp].emplace_back(opMagic);
@@ -606,10 +609,8 @@ Status PipeSync::AddOpDep(DepOp& setOp, DepOp& waitOp)
             APASS_LOG_ERROR_F(Elements::Operation, "This dependency should not exist, AddOpDep failed.");
             return FAILED;
         }
-        AIVCore eleAIVCore = oriOpList_[ele]->GetAIVCore();
-        AIVCore waitAIVCore = oriOpList_[waitOpIdx]->GetAIVCore();
-        PipeCoreRealEx elePipeCoreEx(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, eleAIVCore);
-        PipeCoreRealEx waitOpPipeCoreEx(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core, waitAIVCore);
+        PipeCoreRealEx elePipeCoreEx(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore);
+        PipeCoreRealEx waitOpPipeCoreEx(depOps_[waitOpIdx].selfPipeCore.pipeStart, depOps_[waitOpIdx].selfPipeCore.core, depOps_[waitOpIdx].selfPipeCore.aivCore);
         if (elePipeCoreEx == waitOpPipeCoreEx) {
             if (ele <= waitOpIdx) {
                 APASS_LOG_ERROR_F(Elements::Operation, "New waitidx should less than old, AddOpDep failed.");
@@ -664,10 +665,8 @@ Status PipeSync::HandleEventID(DepOp& op, IssueQueue& issueQ, IssueNum& issuenum
         if (op.selfPipeCore.pipeEnd == depOps_[ele].selfPipeCore.pipeStart) {
             continue;
         }
-        AIVCore currAIVCore = oriOpList_[op.idx]->GetAIVCore();
-        AIVCore eleAIVCore = oriOpList_[ele]->GetAIVCore();
-        PipeCoreRealEx currPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, currAIVCore);
-        PipeCoreRealEx elePipeCoreEx(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, eleAIVCore);
+        PipeCoreRealEx currPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, op.selfPipeCore.aivCore);
+        PipeCoreRealEx elePipeCoreEx(depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore);
         PipePairEx pp{currPipeCoreEx, elePipeCoreEx};
         std::pair<CoreTypeDetail, CoreTypeDetail> setWaitCoreType;
         issuenum.maxIssueNum.emplace(pp, GetFreeEventIdQueue(pp, op.idx, ele, setWaitCoreType).size());
@@ -744,11 +743,9 @@ Status PipeSync::PopFromQueue(IssueQueue& issueQ, std::vector<size_t>& poped, bo
         poped.emplace_back(op.idx);
         orderedOpList_.pop();
         for (auto ele : op.setPipe) {
-            AIVCore currAIVCore = oriOpList_[op.idx]->GetAIVCore();
-            AIVCore eleAIVCore = oriOpList_[ele]->GetAIVCore();
-            PipeCoreRealEx currPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, currAIVCore);
+            PipeCoreRealEx currPipeCoreEx(op.selfPipeCore.pipeEnd, op.selfPipeCore.core, op.selfPipeCore.aivCore);
             PipeCoreRealEx elePipeCoreEx(
-                depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, eleAIVCore);
+                depOps_[ele].selfPipeCore.pipeStart, depOps_[ele].selfPipeCore.core, depOps_[ele].selfPipeCore.aivCore);
             auto pp = PipePairEx{currPipeCoreEx, elePipeCoreEx};
             issuenum.currIssueNum[pp] = issuenum.currIssueNum[pp] + 1;
         }
@@ -760,14 +757,12 @@ Status PipeSync::PopFromQueue(IssueQueue& issueQ, std::vector<size_t>& poped, bo
 Status PipeSync::InjectWaitFlag(Function& function, size_t idx, std::vector<IndexOp>& syncedOpLog)
 {
     PipeCore currPipe = depOps_[idx].selfPipeCore;
-    AIVCore currAIVCore = oriOpList_[idx]->GetAIVCore();
     // serch the waitpipe of current op
     uint64_t waitIdx = idx == 0 ? 0 : idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
     for (const auto& ele : depOps_[idx].waitPipe) {
         PipeCore setPipe = depOps_[ele].selfPipeCore;
-        AIVCore setAIVCore = oriOpList_[ele]->GetAIVCore();
-        PipeCoreRealEx setPipeRealEx(setPipe.pipeEnd, setPipe.core, setAIVCore);
-        PipeCoreRealEx currPipeRealEx(currPipe.pipeStart, currPipe.core, currAIVCore);
+        PipeCoreRealEx setPipeRealEx(setPipe.pipeEnd, setPipe.core, setPipe.aivCore);
+        PipeCoreRealEx currPipeRealEx(currPipe.pipeStart, currPipe.core, currPipe.aivCore);
         int eventId = setWaitPairMap_[{ele, idx}];
         std::vector<std::shared_ptr<LogicalTensor>> input;
         std::vector<std::shared_ptr<LogicalTensor>> output;
@@ -799,13 +794,11 @@ Status PipeSync::InjectWaitFlag(Function& function, size_t idx, std::vector<Inde
 Status PipeSync::InjectSetFlag(Function& function, size_t idx, std::vector<IndexOp>& syncedOpLog)
 {
     PipeCore currPipe = depOps_[idx].selfPipeCore;
-    AIVCore currAIVCore = oriOpList_[idx]->GetAIVCore();
     uint64_t setIdx = idx * SEQUENCE_IDX;
     for (const auto& ele : depOps_[idx].setPipe) {
         PipeCore waitPipe = depOps_[ele].selfPipeCore;
-        AIVCore waitAIVCore = oriOpList_[ele]->GetAIVCore();
-        PipeCoreRealEx waitPipeRealEx(waitPipe.pipeStart, waitPipe.core, waitAIVCore);
-        PipeCoreRealEx currPipeRealEx(currPipe.pipeEnd, currPipe.core, currAIVCore);
+        PipeCoreRealEx waitPipeRealEx(waitPipe.pipeStart, waitPipe.core, waitPipe.aivCore);
+        PipeCoreRealEx currPipeRealEx(currPipe.pipeEnd, currPipe.core, currPipe.aivCore);
         int eventId{0};
         if (GetEventId({currPipeRealEx, waitPipeRealEx}, idx, ele, eventId) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InjectSetFlag failed at function GetEventId.");
@@ -1089,9 +1082,8 @@ bool PipeSync::FindDataDep(DataDepInfo& depInfo, std::vector<IndexOp>& syncedOpL
     DepOp& depOpSrc = depOps_[syncSrcLogIdx];
     for (auto syncDstLogIdx : depOpSrc.setPipe) { // setpipe中的op为该op之后的，依赖于该op的op id
         DepOp& depOpDst = depOps_[syncDstLogIdx];
-        AIVCore aivCore = oriOpList_[depOpDst.idx]->GetAIVCore();
         if (depOpDst.selfPipeCore.core == depInfo.waitc && depOpDst.selfPipeCore.pipeStart == depInfo.waitp &&
-            aivCore == depInfo.aivc) {
+            depOpDst.selfPipeCore.aivCore == depInfo.aivc) {
             depInfo.opDepList.push_back(std::make_pair(syncSrcLogIdx, syncDstLogIdx));
         }
     }
@@ -1422,10 +1414,8 @@ bool PipeSync::HasDataDependency(const Operation& opSet, const Operation& opWait
 
 void PipeSync::UpdateDep(DepOp& currOp, DepOp& prevOp)
 {
-    AIVCore currAIVCore = oriOpList_[currOp.idx]->GetAIVCore();
-    AIVCore prevAIVCore = oriOpList_[prevOp.idx]->GetAIVCore();
-    PipeCoreRealEx currPipe(currOp.selfPipeCore.pipeStart, currOp.selfPipeCore.core, currAIVCore);
-    PipeCoreRealEx prevPipe(prevOp.selfPipeCore.pipeEnd, prevOp.selfPipeCore.core, prevAIVCore);
+    PipeCoreRealEx currPipe(currOp.selfPipeCore.pipeStart, currOp.selfPipeCore.core, currOp.selfPipeCore.aivCore);
+    PipeCoreRealEx prevPipe(prevOp.selfPipeCore.pipeEnd, prevOp.selfPipeCore.core, prevOp.selfPipeCore.aivCore);
     auto& currPipeDep = latestPipeDep_[currPipe];
     currPipeDep.waitIdx = currOp.idx;
 

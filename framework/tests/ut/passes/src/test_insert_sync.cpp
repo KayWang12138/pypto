@@ -134,7 +134,7 @@ public:
         for (size_t i = 0; i < opLogPtr.size(); i++) {
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
             AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-            PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+            PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
             PipeSync::DepOp& currOp = ps.depOps_.emplace_back(op);
             auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
             for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
@@ -284,7 +284,7 @@ TEST_F(InsertSyncTest, TestFindDep)
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
         ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         // start tests
@@ -420,7 +420,7 @@ TEST_F(InsertSyncTest, TestUpdateDep)
     for (size_t i = 0; i < opLogPtr.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
-        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
+        PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_, opcfg.aivCore_});
         auto& currOp = ps.depOps_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {

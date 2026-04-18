@@ -177,14 +177,15 @@ private:
     };
 
     struct PipeCore {
-        PipeCore(PipeType ps, PipeType pe, CoreType c) : pipeStart(ps), pipeEnd(pe), core(c) {}
+        PipeCore(PipeType ps, PipeType pe, CoreType c, AIVCore a) : pipeStart(ps), pipeEnd(pe), core(c), aivCore(a) {}
         PipeType pipeStart;
         PipeType pipeEnd;
         CoreType core;
+        AIVCore aivCore;
 
         bool operator==(const PipeCore& t) const
         {
-            return (this->pipeStart == t.pipeStart && this->pipeEnd == t.pipeEnd && this->core == t.core);
+            return (this->pipeStart == t.pipeStart && this->pipeEnd == t.pipeEnd && this->core == t.core && this->aivCore == t.aivCore);
         }
 
         bool operator!=(const PipeCore& t) const { return !(*this == t); }
@@ -193,12 +194,14 @@ private:
     struct PipeCoreCompare {
         bool operator()(const PipeCore& lhs, const PipeCore& rhs) const
         {
-            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET4) |
-                    (static_cast<uint64_t>(lhs.pipeStart) << LEFT_OFFSET2) |
-                    (static_cast<uint64_t>(lhs.pipeEnd) << LEFT_OFFSET3)) <
-                   ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET4) |
-                    (static_cast<uint64_t>(rhs.pipeStart) << LEFT_OFFSET2) |
-                    (static_cast<uint64_t>(rhs.pipeEnd) << LEFT_OFFSET3));
+            return ((static_cast<uint64_t>(lhs.core) << LEFT_OFFSET1) |
+                    (static_cast<uint64_t>(lhs.pipeStart) << LEFT_OFFSET4) |
+                    (static_cast<uint64_t>(lhs.pipeEnd) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(lhs.aivCore) << LEFT_OFFSET3)) <
+                   ((static_cast<uint64_t>(rhs.core) << LEFT_OFFSET1) |
+                    (static_cast<uint64_t>(rhs.pipeStart) << LEFT_OFFSET4) |
+                    (static_cast<uint64_t>(rhs.pipeEnd) << LEFT_OFFSET2) |
+                    (static_cast<uint64_t>(rhs.aivCore) << LEFT_OFFSET3));
         }
     };
 
