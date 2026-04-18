@@ -247,6 +247,7 @@ private:
     Status GetPartialWriteReplayAttr(Operation* producerOp, std::vector<int64_t> &toOffset,
         std::vector<SymbolicScalar> &toDynOffset, std::vector<SymbolicScalar> &fromDynValidShape) const;
     Operation* FindAllocForAssembleProducers(const std::vector<Operation*> &assembleOps) const;
+    bool HasNZHorizontalSlice(const std::vector<Operation*> &assembleOps) const;
     Status SpillOnBlock() override;
     Status SpillOnCoreBlock(CoreLocationType targetCore, bool &didSpill);
     Operation* SkipViewChain(Operation* start, bool followProducers);

@@ -79,6 +79,39 @@ Operation* OoOScheduler::FindAllocForAssembleProducers(const std::vector<Operati
     return nullptr;
 }
 
+bool OoOScheduler::HasNZHorizontalSlice(const std::vector<Operation*> &assembleOps) const
+{
+    for (auto *op : assembleOps) {
+        if (op->GetOpcode() != Opcode::OP_L0C_TO_L1) {
+            continue;
+        }
+        int64_t isNZ = 0;
+        op->GetAttr(OpAttributeKey::copyIsNZ, isNZ);
+        if (isNZ == 0) {
+            continue;
+        }
+        auto attr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+        if (attr == nullptr) {
+            continue;
+        }
+        for (const auto &offsetImm : attr->GetToOffset()) {
+            if (!offsetImm.IsSpecified() || !offsetImm.GetSpecifiedValue().ConcreteValid()) {
+                return true; // dynamic offset, conservatively reject
+            }
+        }
+        // NZ format: offset[0] is the M (row) dimension; non-zero means horizontal slice
+        const auto &toOffset = attr->GetToOffset();
+        if (!toOffset.empty() && static_cast<int64_t>(toOffset[0].GetSpecifiedValue()) != 0) {
+            APASS_LOG_INFO_F(Elements::Operation,
+                "Reject spill-assemble for %s[%d]: NZ horizontal slice (toOffset[0]=%lld).",
+                op->GetOpcodeStr().c_str(), op->GetOpMagic(),
+                static_cast<long long>(static_cast<int64_t>(toOffset[0].GetSpecifiedValue())));
+            return true;
+        }
+    }
+    return false;
+}
+
 int OoOScheduler::GetBufNextUseOrder(Operation* op, int curMemId) {
     int execOrder = opExecOrderMap[op];
     auto it = std::find_if(orderedOps.begin(), orderedOps.end(), [this, execOrder, curMemId](Operation* a) {
@@ -1001,6 +1034,19 @@ Status OoOScheduler::UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr a
 
 Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocOp, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
+    // Pre-check: reject NZ horizontal slice before any graph mutation
+    std::vector<Operation*> assembleOps;
+    if (FindAssembleWithSpillTensor(spillInfo, assembleOps) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "FindAssembleWithSpillTensor failed.");
+        return FAILED;
+    }
+    if (HasNZHorizontalSlice(assembleOps)) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "Spill-assemble rejected for Tensor[%d]: NZ horizontal slice not supported by DMA.",
+            spillInfo.spillTensor_->GetMagic());
+        return FAILED;
+    }
+
     if (SpillOutBuffer(spillInfo, allocOp, pcIdx, isGenSpill) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed.");
         return FAILED;
@@ -1021,11 +1067,6 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, Operation* allocO
             (std::count(GetOpMemIds(succOp).begin(), GetOpMemIds(succOp).end(), spillInfo.spillMemId_) > 0)) {
             UpdateTensorInputFor(succOp, spillInfo.spillOp_, assembleTensor);
         }
-    }
-    std::vector<Operation*> assembleOps;
-    if (FindAssembleWithSpillTensor(spillInfo, assembleOps) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "FindAssembleWithSpillTensor failed.");
-        return FAILED;
     }
     Operation *memIdAlloc = FindAllocForAssembleProducers(assembleOps);
     bool isAllocHandoffDone = false;
