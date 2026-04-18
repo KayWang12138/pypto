@@ -361,8 +361,7 @@ void Operation::DumpOperandsJson(Json& opDump, bool dumpTensor) const
     }
     opDump["ioperands"] = ioperandsDump;
     opDump["ooperands"] = ooperandsDump;
-    opDump["opcode"] = GetOpcodeStr();
-    opDump["latency"] = GetLatency();
+}
 
 void Operation::DumpCalleeHashJson(Json& opDump) const
 {
