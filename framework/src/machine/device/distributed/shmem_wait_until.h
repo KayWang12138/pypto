@@ -25,7 +25,7 @@
 #include "interface/utils/distributed_error.h"
 
 namespace npu::tile_fwk::Distributed {
-struct SignalTileOp {
+struct alignas(64) SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal)
     {
         taskId_ = taskId;
@@ -35,24 +35,27 @@ struct SignalTileOp {
     }
     bool PollCompleted() const;
 
-    SignalTileOp* next{nullptr};
     uint64_t taskId_{0};
-    int32_t* addr_{nullptr};
     int32_t expectedSum_{0};
+    int32_t* addr_{nullptr};
     bool resetSignal_{false};
+    SignalTileOp* next{nullptr};
     TaskStat* profData_{nullptr};
 };
 
-class HashMap {
+class HashMapShared {
 public:
-    void Init()
+    __attribute__((always_inline)) inline void InitFast()
     {
-        (void)memset_s(&taskArray, sizeof(taskArray), 0, sizeof(taskArray));
-        (void)memset_s(&hashTable, sizeof(hashTable), 0, sizeof(hashTable));
         taskCount = 0;
+        (void)memset_s(&hashTable, sizeof(hashTable), 0, sizeof(hashTable));
     }
 
-    uint32_t Hash(uint32_t taskId) { return taskId & AICPU_TASK_ARRAY_SIZE_MOD; }
+    __attribute__((always_inline)) inline uint32_t Hash(uint32_t taskId)
+    {
+        uint32_t hash = (taskId * 2654435761U) >> 22;
+        return hash & AICPU_TASK_ARRAY_SIZE_MOD;
+    }
 
     SignalTileOp* CreateTaskData(uint32_t taskId, int32_t* addr, int32_t expectSum, bool resetSignal)
     {
@@ -82,7 +85,7 @@ public:
         return dynamic::DEVICE_MACHINE_OK;
     }
 
-    SignalTileOp* FindTask(uint32_t taskId)
+    __attribute__((always_inline)) inline SignalTileOp* FindTask(uint32_t taskId)
     {
         uint32_t index = Hash(taskId);
         SignalTileOp* current = hashTable[index];
@@ -96,9 +99,9 @@ public:
     }
 
 private:
-    SignalTileOp taskArray[AICPU_TASK_ARRAY_SIZE];
-    uint32_t taskCount{0};
+    alignas(64) uint32_t taskCount{0};
     SignalTileOp* hashTable[AICPU_TASK_ARRAY_SIZE];
+    alignas(64) SignalTileOp taskArray[AICPU_TASK_ARRAY_SIZE];
 };
 
 class CircularQueue {
@@ -140,12 +143,14 @@ public:
 
     int32_t PollCompleted(std::function<int32_t(SignalTileOp*)> processor)
     {
+        constexpr uint16_t MAX_POLL_BATCH = 32;
+        uint16_t polled = 0;
         uint16_t current = front_;
         uint16_t end = rear_;
         if (current > end) {
             end += AICPU_TASK_ARRAY_SIZE;
         }
-        for (uint16_t i = current; i < end; ++i) {
+        for (uint16_t i = current; i < end && polled < MAX_POLL_BATCH; ++i, ++polled) {
             uint16_t actualIndex = i & AICPU_TASK_ARRAY_SIZE_MOD;
             SignalTileOp* task = queue_[actualIndex];
             if (task->PollCompleted()) {
@@ -179,17 +184,15 @@ public:
         funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
         hcclContextAddr_ = funcDataList_->startArgs->commContexts;
         commGroupNum_ = funcDataList_->startArgs->commGroupNum;
-        hashMap_.Init();
+        hashMap_ = dynDeviceTask->GetShmemWaitUntilHashMap<HashMapShared>();
     }
 
-    inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat)
+    __attribute__((always_inline)) inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat)
     {
-        SignalTileOp* task = hashMap_.FindTask(taskId);
+        SignalTileOp* task = hashMap_->FindTask(taskId);
         if (task == nullptr) {
-            DEV_ERROR(
-                DistributedErrorCode::AICPU_TASKID_NOT_IN_MAP, "ctrl.task.pre.task.enqueue#: taskId=%lu not found",
-                taskId);
-            return dynamic::DEVICE_MACHINE_ERROR;
+            DEV_DEBUG("ctrl.task.pre.task.enqueue#: taskId=%lu not found in HashMap, may be initializing", taskId);
+            return dynamic::DEVICE_MACHINE_OK;
         }
         if (taskStat != nullptr) {
             task->profData_ = taskStat;
@@ -227,7 +230,7 @@ public:
             info.offset[OWNER_RANK_ID_INDEX], tileIndex, TileOp::Distributed::DecodeShmemAddrMaxTileNum(info.vaddr),
             paramInfo_.bufferStride);
 
-        return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
+        return hashMap_->InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 
     int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager* aiCoreManager);
@@ -235,7 +238,7 @@ public:
     CircularQueue runingTaskQueue_;
 
 private:
-    HashMap hashMap_;
+    HashMapShared* hashMap_;
     uint32_t signalTileOpCount_{0};
 
     npu::tile_fwk::dynamic::DynDeviceTask* dynDeviceTask_;
