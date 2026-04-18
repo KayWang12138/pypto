@@ -407,9 +407,6 @@ void TiledShmemSet(
     Function& function, const TileShape& tileShape, const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    (void)op;
-    (void)tileShape;
-
     ASSERT(DistributedErrorCode::INVALID_OPERAND_NUM, iOperand.size() == 2UL)
         << "TiledShmemSet iOperand size is not equal to 2";
     ASSERT(DistributedErrorCode::INVALID_OPERAND_NUM, oOperand.size() == 1UL)
@@ -420,15 +417,28 @@ void TiledShmemSet(
 
     ASSERT(DistributedErrorCode::INVALID_ALIGNMENT, UB_BUFFER_BYTE_SIZE % REPEAT_BYTE == 0)
         << "UB_BUFFER_BYTE_SIZE must be a multiple of 256, but got " << UB_BUFFER_BYTE_SIZE;
-    ShmemSetAttr distOpAttr;
-    op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    uint32_t bufferSize = distOpAttr.isSetData ? UB_BUFFER_BYTE_SIZE : SHMEM_SIZE_ALIGN;
-    Shape bufferShape{static_cast<int64_t>(bufferSize / BytesOf(shmemTensor->Datatype()))};
-    auto buffer = std::make_shared<LogicalTensor>(function, shmemTensor->Datatype(), bufferShape);
-    auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken, shmemTensor}, {out, buffer});
-    distOpAttr.setBufferShape = bufferShape;
-    tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+
+    DummyTileFunc predTokenTileFunc = GetDummyTileFunc(predToken, shmemTensor, tileShape.GetVecTile(), function);
+    DummyTileFunc outTileFunc = GetDummyTileFunc(out, shmemTensor, tileShape.GetVecTile(), function);
+    DfsTiling(tileShape.GetVecTile(), shmemTensor, [&](uint32_t tileIndex, Input& input) {
+        auto predTokenTile = predTokenTileFunc(tileIndex);
+        std::vector<int64_t>& shmemTensorTileShape = input.tileInfo.shape;
+        std::vector<int64_t>& shmemTensorTileOffset = input.tileInfo.offset;
+        auto shmemTensorTile = shmemTensor->View(function, shmemTensorTileShape, shmemTensorTileOffset);
+        auto outTile = outTileFunc(tileIndex);
+
+        ShmemSetAttr distOpAttr;
+        op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        uint32_t bufferSize = distOpAttr.isSetData ? UB_BUFFER_BYTE_SIZE : SHMEM_SIZE_ALIGN;
+        Shape bufferShape{static_cast<int64_t>(bufferSize / BytesOf(shmemTensor->Datatype()))};
+        auto buffer = std::make_shared<LogicalTensor>(function, shmemTensor->Datatype(), bufferShape);
+
+        auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_SET, {predTokenTile, shmemTensorTile}, {outTile, buffer});
+        distOpAttr.setBufferShape = bufferShape;
+        tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        tileOp.SetAttr(OpAttributeKey::ownerRank, distOpAttr.ownerRank);
+        tileOp.SetAttr(OpAttributeKey::dontTouch, true);
+    });
 }
 
 void TiledShmemBindTensor(
