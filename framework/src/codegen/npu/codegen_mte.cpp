@@ -1023,7 +1023,8 @@ std::vector<std::string> CodeGenOpNPU::GetGmOffsetForTileTensor(unsigned gmIdx, 
 {
     int dim = static_cast<int>(rawShape[gmIdx].size());
     std::vector<std::string> gmOffsetExpr;
-    if (isSpillingToGM || functionType == FunctionType::STATIC) {
+    (void) isSpillingToGM;
+    if (functionType == FunctionType::STATIC) {
         return std::vector<std::string>(dim, "0");
     }
 

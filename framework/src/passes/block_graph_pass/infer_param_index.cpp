@@ -38,12 +38,48 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
     return ss.str();
 }
 
-Status InferParamIndex::ResetOutputDynValidShape(const Operation& op)
+Status InferParamIndex::ResetOutputDynValidShape(const Operation& op, Function &function)
 {
     std::vector<SymbolicScalar> validShape;
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND,       Opcode::OP_RESHAPE,
                                            Opcode::OP_GATHER,  Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1,
-                                           Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT};
+                                           Opcode::OP_PERMUTE, Opcode::OP_PERMUTE_ELEMENT, Opcode::OP_UB_COPY_L1};
+    
+    auto handleCopyOp = [&](const std::vector<std::shared_ptr<LogicalTensor>>& operands, bool isCopyIn) -> bool {
+        auto operand = operands.front();
+        bool isFromCast = false;
+        if (isCopyIn) {
+            auto it = find(function.inCasts_.begin(), function.inCasts_.end(), operand);
+            if (it != function.inCasts_.end()) {
+                isFromCast = true;
+            }
+        } else {
+            auto it = find(function.outCasts_.begin(), function.outCasts_.end(), operand);
+            if (it != function.outCasts_.end()) {
+                isFromCast = true;
+            }
+        }
+        if (!isFromCast) {
+            auto shape = OpImmediate::Specified(operand->GetShape());
+            validShape = OpImmediate::ToSpecified(shape);
+            std::shared_ptr<CopyOpAttribute> attr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+            attr->SetShape(shape);
+            operand->UpdateDynValidShape(validShape);
+            return true;
+        }
+        return false;
+    };
+    
+    if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+        if (handleCopyOp(op.GetIOperands(), true)) {
+            return SUCCESS;
+        }
+    }
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+        if (handleCopyOp(op.GetOOperands(), false)) {
+            return SUCCESS;
+        }
+    }
     for (auto outOperand : op.GetOOperands()) {
         if (op.GetOpcode() == Opcode::OP_INDEX_ADD &&
             !Program::GetInstance().GetCurrentFunction()->IsFromOutCast(outOperand)) {
@@ -96,7 +132,7 @@ Status InferParamIndex::ResetAssembleDynValidShape(const Operation& op)
 Status InferParamIndex::ResetDynValidShape(Function& function)
 {
     for (auto& op : function.Operations(false)) {
-        if (ResetOutputDynValidShape(op) != SUCCESS) {
+        if (ResetOutputDynValidShape(op, function) != SUCCESS) {
             APASS_LOG_ERROR_F(
                 Elements::Operation,
                 "Fail to reset the output operand shape of operation %d in function %s. Please check whether the shape "
