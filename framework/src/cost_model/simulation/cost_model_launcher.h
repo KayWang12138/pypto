@@ -44,10 +44,6 @@ public:
 
     uint8_t* AllocHostAddr(uint64_t size)
     {
-        if (size == 0) {
-            SIMULATION_LOGE("malloc size is 0!");
-            return nullptr;
-        }
         auto hostPtr = (uint8_t*)malloc(size);
         allocatedHostAddr.emplace_back(hostPtr);
         return hostPtr;
@@ -222,7 +218,7 @@ private:
         InitKernelInOuts(kArgs, inputs, outputs, true);
         RunCostModel(&kArgs);
         SIMULATION_LOGI("Run TestModel");
-        RunTestMode(&kArgs, DEVICE_MAX_AICPU_NUM);
+        RunTestMode(&kArgs);
         SIMULATION_LOGI("Run DynCostModel");
         RunDynCostModel();
         SIMULATION_LOGI("Run PvModel");
@@ -267,7 +263,7 @@ private:
         uint8_t* dumpTensorWsPtr = reinterpret_cast<uint8_t*>(kArgs.workspace) + devProg->memBudget.tensor.Total() +
                                    devProg->memBudget.metadata.Total();
         uint64_t dumpTensorWsUsed = 0;
-        SIMULATION_LOGE("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
+        SIMULATION_LOGI("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
 
         std::string path = config::LogTopFolder() + "/dump_tensor.txt";
         std::ofstream fout(path, std::ios::out | std::ios::binary);
@@ -278,15 +274,15 @@ private:
             int idx = 0;
             for (auto& ptr : ptrs) {
                 uint64_t devPtr = ptr ? reinterpret_cast<uint64_t>(ptr->GetDevPtr()) : 0;
-                SIMULATION_LOGE("[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
+                SIMULATION_LOGI("[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
                 fout.write(reinterpret_cast<const char*>(&devPtr), sizeof(devPtr));
             }
         };
 
         // write input/output devAddr list
-        SIMULATION_LOGE("[DumpTensor] #inputs=%zu\n", inputs.size());
+        SIMULATION_LOGI("[DumpTensor] #inputs=%zu\n", inputs.size());
         printIODevAddrs(inputs);
-        SIMULATION_LOGE("[DumpTensor] #outputs=%zu\n", outputs.size());
+        SIMULATION_LOGI("[DumpTensor] #outputs=%zu\n", outputs.size());
         printIODevAddrs(outputs);
 
         DumpDevDataBinary(fout, nullptr, dumpTensorWsUsed, dumpTensorWsPtr);
@@ -354,15 +350,14 @@ private:
             pv_ = CostModel::PvModelFactory::CreateDyn();
             pv_->InitPv();
         } catch (const std::runtime_error& e) {
-            SIMULATION_LOGE("pv init fail.");
+            SIMULATION_LOGE_E(CostModel::PrecisionSimErrorScene::NO_SO_EXISTS, "pv init fail.");
             return;
         }
 
         model_ = std::make_shared<AiCorePvModelImpl>(pv_);
-        const int maxCpuNum = 6;
         pv_->Codegen(function_);
         BuildPvKernelArgs(kArgs, inputs, outputs);
-        RunTestMode(&kArgs, maxCpuNum);
+        RunTestMode(&kArgs);
         pv_->CopyTensorFromDev();
     }
 
@@ -403,10 +398,8 @@ private:
         kArgs.aicoreModel = model_.get();
     }
 
-    void RunTestMode(DeviceKernelArgs* kArgs, int maxCpuNum)
+    void RunTestMode(DeviceKernelArgs* kArgs)
     {
-        (void)kArgs;
-        std::vector<std::thread> aicpus(maxCpuNum);
         std::atomic<int> idx{0};
         auto* devProg = (DevAscendProgram*)(kArgs->cfgdata);
         size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
@@ -414,6 +407,7 @@ private:
             devProg->devArgs.runtimeDataRingBufferAddr + sizeof(RuntimeDataRingBufferHead) + DEV_ARGS_SIZE;
         (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
         int launchAiCpuNum = static_cast<int>(devProg->devArgs.nrAicpu + dynamic::MAX_CONTROL_FLOW_AICPU_NUM);
+        std::vector<std::thread> aicpus(launchAiCpuNum);
         auto threadFun = [&](uint32_t runMode) {
             int tidx = idx++;
             cpu_set_t cpuset;

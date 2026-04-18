@@ -171,8 +171,6 @@ class JitCallableWrapper:
         Captured local variables from the original function's scope (copied to avoid reference issues).
     _infer_controlflow_shape : Optional[type]
         Class type for inferring control flow shape during compilation (None to use default logic).
-    _use_cache : bool
-        Whether to use compilation caching. If False, force recompilation on each call.
     _kernel_module_cache : dict[tuple, Any]
         Class-level global cache for KernelModule instances, keyed by compilation cache key.
     kmodule : Any
@@ -232,7 +230,6 @@ class JitCallableWrapper:
         debug_options: Optional[dict[str, Any]] = None,
         captured_locals: Optional[dict[str, Any]] = None,
         infer_controlflow_shape: Optional[type] = None,
-        use_cache: bool = True,
     ):
         """Initialize the JIT callable wrapper with compilation and runtime configurations.
 
@@ -262,9 +259,6 @@ class JitCallableWrapper:
         infer_controlflow_shape : Optional[type], optional
             Class type used for inferring control flow shape during compilation (None uses default inference logic).
             Defaults to None.
-        use_cache : bool, optional
-            Whether to use compilation caching. If True, reuse existing KernelModule from global cache; if False,
-            force recompilation and update cache. Defaults to True.
         """
         self._pto_function = pto_function
         self._original_func = original_func
@@ -274,7 +268,6 @@ class JitCallableWrapper:
         self._captured_locals = (
             None if captured_locals is None else dict(captured_locals)
         )
-        self._use_cache = use_cache
 
         # Handling options
         self._codegen_options = (
@@ -671,8 +664,7 @@ class JitCallableWrapper:
         self._ensure_host_options()
         key = self._get_compilation_cache_key(non_tensor_values)
         if (
-            self._use_cache
-            and key is not None
+            key is not None
             and key in JitCallableWrapper._kernel_module_cache
         ):
             self.kmodule = JitCallableWrapper._kernel_module_cache[key]
@@ -692,14 +684,22 @@ class JitCallableWrapper:
                 self, _current_stream(), torch_tensors, tensor_defs
             )
         else:
-            pto_tensors = self._convert_tensors_with_metadata(
-                torch_tensors, tensor_defs
-            )
-            with pypto.options("jit_scope"):
-                self._set_config_option()
-                pypto_impl.DeviceInit()
-                self.compile(pto_tensors)
-                self._run_with_cpu(pto_tensors, [])
+            # Run kernel on esl
+            cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
+            if (pypto.get_global_config("simulation.accuracy_level") == 2 and cann_is_configed):
+                import torch_npu
+                pypto_impl.LaunchKernelTorch(
+                    self, _current_stream(), torch_tensors, tensor_defs
+                )
+            else:
+                pto_tensors = self._convert_tensors_with_metadata(
+                    torch_tensors, tensor_defs
+                )
+                with pypto.options("jit_scope"):
+                    self._set_config_option()
+                    pypto_impl.DeviceInit()
+                    self.compile(pto_tensors)
+                    self._run_with_cpu(pto_tensors, [])
 
     def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
         """Check if the input tensor definitions match the input tensors.
@@ -1026,7 +1026,8 @@ class JitCallableWrapper:
         RuntimeError
             If runtime execution fails with an error message from the backend.
         """
-        assert self._handler is not None
+        if self._handler is None:
+            raise RuntimeError("handler is not initialized")
         workspace_size = pypto_impl.GetWorkSpaceSize(
             self._handler, in_tensor_data, out_tensor_data
         )
@@ -1167,7 +1168,6 @@ def jit(
     verify_options: Optional[dict[str, Any]] = None,
     debug_options: Optional[dict[str, Any]] = None,
     infer_controlflow_shape: Optional[Any] = None,
-    use_cache: bool = True,
 ) -> Union[Callable, Callable[[Callable], JitCallableWrapper]]:
     """JIT decorator for compiling Python functions to PTO IR.
 
@@ -1193,9 +1193,6 @@ def jit(
         Options to configure the verify.
     debug_options : Optional[dict[str, Any]], optional
         Options to configure the debug.
-    use_cache : bool, optional
-        Whether to use compilation caching. If False, force recompilation
-        even if a cached version exists. Defaults to True.
 
     Returns
     -------
@@ -1254,7 +1251,6 @@ def jit(
             debug_options=debug_options,
             captured_locals=captured_locals,
             infer_controlflow_shape=infer_controlflow_shape,
-            use_cache=use_cache,
         )
         return wrapper
 

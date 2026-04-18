@@ -59,12 +59,11 @@ private:
     void Initialize(const MergeInput& input);
     int FindParent(int x);
     void UnionSets(int x, int y);
-    bool CanMergeWithoutCycle(const std::vector<int>& group);
-    bool CanMergeWithConstraints(const std::vector<int>& group);
-    void PerformMerge(const std::vector<int>& group);
+    bool CanMergeWithoutCycle(const std::vector<int>& actualGroup);
+    bool CanMergeWithConstraints(const std::vector<int>& actualGroup);
+    void PerformMerge(const std::vector<int>& actualGroup);
     void UpdateOutput();
-    bool CheckLatencyConstraint(const std::vector<int>& group);
-    bool CheckAivRatioConstraint(const std::vector<int>& group);
+    bool CheckLatencyConstraint(const std::vector<int>& actualGroup);
     std::vector<int> GetActualGroup(const std::vector<int>& group);
     void BuildMergedGraph(std::vector<std::set<int>>& outGraph,
                           std::vector<std::set<int>>& inGraph);
@@ -74,7 +73,8 @@ private:
 
 class ReduceCopyMerge : public Pass {
 public:
-    ReduceCopyMerge() : Pass("ReduceCopyMerge") {
+    ReduceCopyMerge() : Pass("ReduceCopyMerge")
+    {
         SetSupportedArches({NPUArch::DAV_3510});
     }
     ~ReduceCopyMerge() override = default;

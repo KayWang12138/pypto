@@ -37,7 +37,7 @@ ceil_div(self: Tensor, other: Tensor) -> Tensor
 ## 约束说明
 
 1.  input 和 other 类型应该相同。
-3.  other 不支持nan、inf等特殊值
+2. 只支持单轴广播。
 
 ## 调用示例
 

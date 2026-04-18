@@ -33,7 +33,11 @@ description: PyPTO 算子开箱性能调优技能。主要关注代码级的调�
 
 4. **shape 是否可以提前合轴？**
    - 如果 shape 是 2 维以上，性能会比较差。因为 npu 指令支持的维度是两维的。考虑在进入循环前，先进行合轴处理
-   - ✅ 解决方案：进入循环前，使用 `reshape inplace` 进行合轴
+   - ✅ 解决方案：进入循环前，对原始输入使用 `reshape inplace` 进行合轴
+
+5. **原始输入的 reshape 是否在 loop 外层执行？**
+   - 对原始输入（函数参数）的 reshape 必须放在所有 loop 之前，并使用 `inplace=True`，避免冗余数据拷贝和循环内重复执行
+   - ✅ 解决方案：将原始输入的 reshape 提取到 loop 最外层之前，统一用 `pypto.reshape(tensor, [...], inplace=True)` 处理
 
 ### P1 - 其他常见问题
 
@@ -209,6 +213,18 @@ pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
 - 在满足 L0 Buffer 约束的条件下达到较大的算数强度
 - 后续进一步使用合图相关接口进行深度调优时，有机会开启 Double Buffer
 
+**⚠️ 独立设置原则**：
+
+同一算子中存在多个不同 shape 特征的 matmul 时，**必须在每个 matmul 前分别调用 `set_cube_tile_shapes`**，根据各 matmul 的实际 M/K/N 独立配置。不要用统一值，不同 shape 的最优 tile 不同。
+
+**配置要点**：
+1. **L1 不超过实际轴长**：`mL1/kL1/nL1` 不应超过对应维度实际大小，超过无意义（实际数据不够一个 tile，反而浪费 L1 空间导致其他轴可用空间减少）
+2. **约束**：`L0 <= L1` 且 `L1 % L0 == 0`；BF16 下 L0/L1 需 16 元素对齐（32B）
+3. **小轴不切**：如果某个轴本身很小（如 K=128），L0=L1=实际值，不切分
+4. **大轴大 tile**：如果某个轴很大（如 N=2048 或 K=2048），用较大的 L1 减少任务数
+
+**🔥 案例**：[多 Matmul 独立 TileShape 优化](cases/per-matmul-tile-shapes.md)（3 个 matmul 独立设 tile，-46.1%）
+
 #### 2.2 Vector 初始 Tiling 配置
 
 针对向量运算场景：
@@ -248,7 +264,27 @@ pypto.set_vec_tile_shapes(64, 512)
 **⚠️ 重要原则**
 - `transpose + matmul` 的结构，可以通过 matmul 的 `a_trans` 及 `b_trans` 参数进行配置，完成 op 融合。好处是，matmul 运算时，可以随路 transpose
 
-#### 3.3 冗余搬运优化
+#### 3.3 原始输入 reshape 优化
+
+**原则**：对原始输入（函数参数）的 reshape，必须挪到 loop 最外层之前执行，并使用 `inplace=True`。
+
+```python
+# ✅ 正确：reshape 挪到 loop 之前，inplace=True
+q_grouped = pypto.reshape(query, [num_kv_heads, num_heads_per_group, head_dim], inplace=True)
+k_cache = pypto.reshape(key_cache, [kv_len, num_kv_heads, head_dim], inplace=True)
+
+for i in pypto.loop(num_blocks, ...):
+    # loop 内直接使用已 reshape 的 tensor
+    scores = pypto.matmul(q_grouped, k_cache_block, ...)
+
+# ❌ 错误：reshape 放在 loop 内部，每次循环重复执行
+for i in pypto.loop(num_blocks, ...):
+    q_grouped = pypto.reshape(query, [num_kv_heads, num_heads_per_group, head_dim])  # 冗余
+```
+
+**注意**：只有原始输入可用 `inplace=True`，中间结果和输出 tensor 不能 inplace reshape。
+
+#### 3.4 冗余搬运优化
 
 检查是否有不合理数据操作导致的冗余搬运：
 
@@ -256,6 +292,7 @@ pypto.set_vec_tile_shapes(64, 512)
 - 尝试对 reshape 配置 `inplace = True` 参数
 
 ### 4. ⚠️ 合轴优化
+
 #### 4.1 尽可能减少循环体中 shape 的维度
 **症状**
 循环体内参与计算的 tensor 的 shape 的维度超过两维
@@ -266,10 +303,10 @@ shape 维度太多，会导致处理复杂，此外，pto 指令对多维的 ten
 
 #### 4.2 合轴的输入输出分离原则
 
-**只读输入可合轴，输出 tensor 不能 inplace reshape 后再切片写入。**
+**只有原始输入（函数参数）可使用 `reshape(inplace=True)`，中间结果和输出 tensor 不能 inplace reshape。对原始输入的 reshape 必须使用 `inplace=True`，避免冗余数据拷贝。**
 
 ```python
-# ✅ 正确：只读 Q/K/V 合轴为 2D，output 保持原始维度
+# ✅ 正确：原始输入合轴时 inplace=True
 query_2d = pypto.reshape(query, [batch * heads * seq_q, dim], inplace=True)
 key_2d = pypto.reshape(key, [batch * heads * seq_kv, dim], inplace=True)
 value_2d = pypto.reshape(value, [batch * heads * seq_kv, dim], inplace=True)
@@ -291,6 +328,20 @@ output_2d[offset:offset+block, :] = result_2d  # 写入无效，输出全零
 
 **原因**：inplace reshape 改变了 tensor 的内存视图，output 的切片写入依赖原始 shape 索引，reshape 后索引关系断裂导致写入失败。
 
+#### 4.3 Vector 合轴 + 合图
+
+**目标场景**：连续 vector 操作（含 reduce）的 tensor shape 超过 2D
+
+**优化措施**：reshape 合轴为 2D → 设置适配 2D 的 vec_tile_shapes → `sg_set_scope` 强制合图 → reshape 回原维度
+
+**⚠️ 关键约束**：
+- Reduce op 尾轴必须 32B 对齐（FP32 下为 8 的倍数）
+- vec_tile_shapes 归约轴不切分（第二维 = 归约轴全长）
+- tile 数据量不超 UB：`第一维 × 第二维 × dtype字节数 × 3 ≤ 128KB`
+- 合轴后必须显式设置 vec_tile_shapes
+
+**🔥 案例**：[Decode Attention Vector 合轴优化](cases/vector-axis-merge-softmax.md)（-6.0%，任务数 -18.5%，含 4 轮迭代失败分析）
+
 
 ## 性能优化建议库
 
@@ -308,6 +359,7 @@ output_2d[offset:offset+block, :] = result_2d  # 写入无效，输出全零
 | 场景 | 推荐配置 | 说明 |
 |------|---------|------|
 | Cube 计算 | `[128, 128], [64, 256], [256, 256]` | 高算数强度 |
+| Cube 计算（多 matmul） | 每个 matmul 前独立设置 | 按实际 M/K/N 分别配置，L1 不超实际轴长 |
 | Vector 计算 | `64, 512` | UB 利用率高 |
 | Reduce 操作 | 不切归约轴 | 避免额外 GM 搬运 |
 
@@ -325,16 +377,12 @@ output_2d[offset:offset+block, :] = result_2d  # 写入无效，输出全零
 
 ### 建议 5：合轴优化
 
-| 问题 | 解决方案 |
-|------|---------|
-| 计算节点的 shape 维度超过两维 | 算子入口对输入进行合轴处理 |
+| 问题 | 解决方案 | 关键约束 |
+|------|---------|---------|
+| 计算 shape 超过 2D | 算子入口对输入 reshape 合轴 | 只读输入可合轴，输出不能 inplace reshape |
+| 连续 vector 操作在 3D 下性能差 | 合轴为 2D + sg_set_scope 合图 | vec_tile_shapes 归约轴不切分，tile 数据量不超 UB |
+| vector 操作产生过多子图 | sg_set_scope 强制合图 | 相邻且有上下游依赖的 op 才能合图 |
 
-
-**优化优先级**：
-1. ⭐⭐⭐ **任务粒度优化**（切块、合并loop、合轴） - **最重要**
-2. ⭐⭐ **TileShape 优化**（Cube/Vector 推荐配置） - **很重要**
-3. ⭐⭐ **loop_unroll 配置**（最内层）
-4. ⭐ **常量配置调整**（BLOCK_SIZE 等）
 
 ## 调优流程
 
@@ -387,20 +435,29 @@ python3 custom/operator_name/operator.py --run-mode npu
 └───────────────────────────────────┘
 ```
 
-### 3. 优化检查清单
+### 3. 调优检查清单
 
-**🔥 P0 - 任务粒度（最重要）**：
-- [ ] **Matmul 的 M/N/K 轴是否充分利用硬件？**（M 轴 < 8 是常见问题）
-- [ ] **任务总数是否过多？**（> 1000 可能调度开销大）
-- [ ] **合轴优化：shape 的维度是否超过 2 维？**（超过两维，搬运及计算的开销较大）
+**⛔ 必须按以下清单逐项执行。每项标记为 ✅已尝试 或 ❌已失败（附原因），禁止跳过。**
+
+**优化优先级**：
+1. ⭐⭐⭐ **P0 - 任务粒度** - **最重要**
+2. ⭐⭐ **P1 - Loop 写法** - **很重要**
+3. ⭐⭐ **P2 - TileShape 设置** - **很重要**
+4. ⭐ **P3 - 常量配置**
+5. ⭐ **P4 - 数据操作**
+
+**🔥 P0 - 任务粒度**：
+- [ ] Matmul 的 M/N/K 轴是否充分利用硬件？（M 轴 < 8 是常见问题）
+- [ ] 任务总数是否过多？（> 1000 可能调度开销大）
+- [ ] 合轴优化：shape 的维度是否超过 2 维？（超过两维，搬运及计算的开销较大）
 
 **P1 - Loop 写法**：
 - [ ] 静态轴是否使用 Python for
 - [ ] 是否可以合并独立 loop
 
 **P2 - TileShape 设置**：
-- [ ] Cube 计算：是否使用推荐配置
-- [ ] Vector 计算: 是否使用推荐配置
+- [ ] Cube 计算：每个 matmul 是否独立设置推荐配置
+- [ ] Vector 计算：是否使用推荐配置
 - [ ] 归约轴是否避免切分
 
 **P3 - 常量配置**：
@@ -409,8 +466,13 @@ python3 custom/operator_name/operator.py --run-mode npu
 **P4 - 数据操作**：
 - [ ] 输入矩阵格式是否优化（NZ 格式）
 - [ ] transpose 配置是否合理
-- [ ] reshape 操作是否可以消除
-- [ ] 是否存在冗余搬运
+- [ ] reshape 操作是否可以消除或使用 inplace
+- [ ] 是否存在冗余搬运（concat → assemble）
+
+**清单使用规则**：
+1. 不适用的项必须说明具体原因
+2. 禁止凭感觉判断"不适用"而不验证
+3. 所有适用的项尝试完后，"连续N轮无提升"退出条件才生效
 
 ### 4. 性能对比示例
 
@@ -430,3 +492,4 @@ python3 custom/operator_name/operator.py --run-mode npu
 - [性能调优文档](../../../../docs/tutorials/debug/performance.md)
 - [GDR 算子案例](../../../../docs/tutorials/debug/performance_case_GDR.md)
 - [Matmul 高性能编程](../../../../docs/tutorials/debug/matmul_performance_guide.md)
+- [典型案例库](cases/README.md)
