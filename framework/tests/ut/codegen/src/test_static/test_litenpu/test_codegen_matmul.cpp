@@ -164,9 +164,7 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_006)
         FUNCTION("MATMUL_006")
         {
             TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {16, 16});
-            npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
-            extendParam.biasTensor = bias;
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, extendParam, false, false, false);
+            c = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_FP16, a, b, false, false, false);
         }
     }
 
@@ -182,12 +180,12 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_007)
     PROGRAM("MATMUL_007")
     {
         Tensor a(DataType::DT_FP16, {16, 1, 64}, "a");
-        Tensor b(DataType::DT_FP16, {5, 64, 64}, "b");
-        auto c = Tensor(DataType::DT_FP16, {16, 5, 64}, "c");
+        Tensor b(DataType::DT_FP16, {16, 64, 64}, "b");
+        auto c = Tensor(DataType::DT_FP16, {16, 1, 64}, "c");
         FUNCTION("MATMUL_007")
         {
             TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, true, false);
+            c = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_FP16, a, b, false, true, false);
         }
     }
 

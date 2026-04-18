@@ -4143,20 +4143,28 @@ TileShape为一维，针对indices中的每个一维Tensor和values的第0维进
 测试因子
 * 输入维度：1~4维
 * 切分：基于indices中的每一个维Tensor和values的第0维切分，1d
-* 数据类型：input/indices：FP16/FP32/INT8/INT16/INT32，values：INT8，UINT8，INT16，UINT16，INT32，UINT32，INT64，UINT64
+* 数据类型：input/values：FP16/FP32/INT8/INT16/INT32，indicies：INT8，UINT8，INT16，UINT16，INT32，UINT32，INT64，UINT64
+
+维度解释：
+input.size + 1 = indices.size + values.size
+indices[i] = indices[0] for all i in indices
+if indices.size == 1, values[0] = indices[0] values[i] = input[x]
+else values[0] = indices[0]
 
 | 用例名称  | input维度 | indices维度 | values维度 | input/values dtype | indices dtype | 切分 | 说明 |
 |----------|-----------|------------|------------|--------------------|---------------|------|------|
-| index_put_001 | (3,3) | (2,) | (2,3) | FP16 | INT32 | 3 | 2d输入，indices包含2个索引，替换2行数据 |
-| index_put_002 | (5,) | (3,) | (3,) | FP32 | INT8 | 3 | 1d输入，基础索引操作，values为INT8 |
-| index_put_003 | (2,4,4) | (2,) | (2,4,4) | FP32 | UINT8 | 2 | 3d输入，切分第一维，values为UINT8 |
-| index_put_004 | (2,2,3,3) | (2,) | (2,2,3,3) | FP16 | INT16 | 2 | 4d输入，高维张量索引更新，values为INT16 |
-| index_put_005 | (8,8) | (4,) | (4,8) | FP32 | UINT16 | 4 | 2d输入，较大范围切分，values为UINT16 |
-| index_put_006 | (4,5,6) | (2,) | (2,5,6) | FP16 | INT32 | 2 | 3d输入，验证FP16下INT32 values的转换 |
-| index_put_007 | (3,3,3,3) | (3,) | (3,3,3,3) | FP32 | UINT32 | 3| 4d输入，边界维度测试，values为UINT32 |
-| index_put_008 | (10,) | (5,) | (5,) | FP16 | INT64 | 5 | 1d输入，长整型values测试 |
-| index_put_009 | (2,2) | (2,) | (2,2) | FP32 | INT32 | 2 | 最小维度组合，验证最高精度整数values |
-| index_put_010 | (3,4,5) | (4,) | (4,4,5) | FP16 | UINT64 | 3 | 3d输入，验证indices长度与values第0维一致性 |
+| index_put_001 | (60) | (4) | (4) | FP16 | INT32 | 2 | 1d input，indices/values 1d，基于indices第0维=4切分 |
+| index_put_002 | (3,3) | (2) | (2,3) | FP32 | INT64 | 3 | 2d input，indices 1d，values 2d，基于indices第0维=2切分 |
+| index_put_003 | (3,3) | (2,2) | (2) | INT8 | INT8 | 3 | 2d input，indices 2d，values 1d，基于indices(2×2)切分 |
+| index_put_004 | (64,128) | (32) | (32,128) | INT16 | UINT8 | 64 | 2d input，indices 1d，values 2d，基于indices第0维=32切分 |
+| index_put_005 | (64,140) | (20) | (20,140) | INT8 | INT16 | 80 | 2d input，indices 1d，values 2d，基于indices第0维=20切分 |
+| index_put_006 | (16,32,120) | (8) | (8,32,120) | INT32 | UINT16 | 100 | 3d input，indices 1d，values 3d，基于indices第0维=8切分 |
+| index_put_007 | (16,32,120) | (8,8) | (8,120) | INT16 | UINT32 | 64 | 3d input，indices 2d，values 2d，基于indices(8×8)切分 |
+| index_put_008 | (16,32,120) | (10,10,10) | (10) | INT8 | UINT64 | 32 | 3d input，indices 3d，values 1d，基于indices(10×10×10)切分 |
+| index_put_009 | (10,20,16,112) | (2) | (2,20,16,112) | FP16 | INT32 | 100 | 4d input，indices 1d，values 4d，基于indices第0维=2切分 |
+| index_put_010 | (10,20,16,112) | (5,5) | (5,16,112) | FP32 | INT32 | 70 | 4d input，indices 2d，values 3d，基于indices(5×5)切分 |
+| index_put_011 | (10,20,16,112) | (5,5,5) | (5,112) | FP16 | UINT32 | 80 | 4d input，indices 3d，values 2d，基于indices(5×5×5)切分 |
+| index_put_012 | (10,20,16,112) | (5,5,5,5) | (5) | FP16 | INT32 | 32 | 4d input，indices 4d，values 1d，基于indices(5×5×5×5)切分 |
 
 ## 10. 激活类型
 

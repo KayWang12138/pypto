@@ -59,6 +59,12 @@ static std::string GetDtype(DataType dtype)
     switch (dtype) {
         case DataType::DT_UINT8:
             return "uint8_t";
+        case DataType::DT_UINT16:
+            return "uint16_t";
+        case DataType::DT_UINT32:
+            return "uint32_t";
+        case DataType::DT_UINT64:
+            return "uint64_t";
         case DataType::DT_INT8:
             return "int8_t";
         case DataType::DT_INT16:
