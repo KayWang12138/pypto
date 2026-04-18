@@ -78,7 +78,7 @@ static std::string GetDtype(DataType dtype)
     }
 }
 
-static bool CompareStrings(const std::string& s1, const std::string& s2)
+inline bool CompareStrings(const std::string& s1, const std::string& s2)
 {
     std::string str1 = s1;
     std::string str2 = s2;
@@ -92,8 +92,6 @@ std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
     const SubfuncParam& subFuncParam, std::vector<std::string>& params, std::map<std::string, std::string>& dTypeMap)
 {
     auto& tensorInvokeArgs = subFuncParam.tensorsArgs_;
-    auto& incastInvokeArgs = subFuncParam.inCastArgs_;
-    auto& outcastInvokeArgs = subFuncParam.outCastArgs_;
 
     std::map<int, std::string> symbolMap;
     std::set<std::string> paramsSet;
@@ -115,10 +113,6 @@ std::map<int, std::string> CodeGenLiteNPU::GenParamsSymbolMap(
 
     CODEGEN_LOGI("---  start tensorInvokeArgs paramLoc map ---- ");
     f(0, tensorInvokeArgs);
-    CODEGEN_LOGI("---  start incastInvokeArgs paramLoc map ---- ");
-    f(tensorInvokeArgs.size(), incastInvokeArgs);
-    CODEGEN_LOGI("---  start outcastInvokeArgs paramLoc map ---- ");
-    f(tensorInvokeArgs.size() + incastInvokeArgs.size(), outcastInvokeArgs);
     for (auto& t : paramsSet) {
         params.push_back(t);
     }
@@ -211,8 +205,10 @@ void CodeGenLiteNPU::GenFuncBody(Function& subFunc, Function& topFunc, std::ostr
         std::string allocSourceCode = GenAllocForLocalBuffer(op, symbolMgr);
         floatSpecValMgr.UpdateByOp(op);
 
-        CodeGenOpLiteNPU cop(
-            {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
+        // kirin only supports static function
+        topFunc.SetFunctionType(FunctionType::STATIC);
+        topFunc.SetUnderDynamicFunction(false);
+        CodeGenOpLiteNPU cop({symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, false, forBlkMgr});
         std::string tileOpSourceCode = cop.GenOpCode();
         ASSERT(GenCodeErr::GEN_OP_CODE_FAILED, tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
             << "Generate code of op failed, op is " << op.Dump();
