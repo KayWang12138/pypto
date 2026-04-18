@@ -87,22 +87,17 @@ def test_option_map():
 
 
 def test_sg_set_scope_new_format():
-    # 测试新格式：tuple
     pypto.set_pass_options(sg_set_scope=(1, True, True))
     pass_option = pypto.get_pass_options()
     assert pass_option["sg_set_scope"] == (1, True, True)
 
-    # 测试向后兼容：int
     pypto.set_pass_options(sg_set_scope=48)
     pass_option = pypto.get_pass_options()
     assert pass_option["sg_set_scope"] == (48, False, False)
 
-    # 测试默认值
     pypto.reset_options()
     pass_option = pypto.get_pass_options()
     assert pass_option["sg_set_scope"] == (-1, False, False)
-
-    # 测试参数校验
     try:
         pypto.set_pass_options(sg_set_scope=(1, True))  # 元素不足
         assert False, "Should raise ValueError"
@@ -115,8 +110,6 @@ def test_sg_set_scope_new_format():
     except ValueError as e:
         assert "Expected bool" in str(e)
 
-
 if __name__ == "__main__":
     test_option_map()
     test_sg_set_scope_new_format()
-

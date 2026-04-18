@@ -59,7 +59,7 @@ def set_pass_options(*,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     sg_set_scope: Optional[Union[int, tuple]] = None,
+                     sg_set_scope: Optional[Union[int, tuple[int, bool, bool]]] = None,
                      ) -> None:
     """
     Set pass options.
@@ -164,7 +164,7 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
         'sg_set_scope',
     }
     result = {k: v for k, v in rst.items() if k in allowed_keys}
-    val = result['sg_set_scope']
+    val = result.get("sg_set_scope", (-1, False, False))
     result['sg_set_scope'] = (int(val[0]), bool(val[1]), bool(val[2]))
     return result
 

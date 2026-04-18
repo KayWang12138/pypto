@@ -820,8 +820,8 @@ void SuperNodeGraphBuilder::RebuildSuperNodes(std::vector<int32_t>& snParent, in
     superNodeInfo_->SetNodeCoreTypeAndMergeable(operationInfo_, false);
 }
 
-void SuperNodeGraphBuilder::ApplyCvFuseIds(const std::map<int32_t, int32_t>& scopeToCvFuseId,
-    const std::unordered_map<int32_t, std::vector<int32_t>>& scope2Nodes)
+void SuperNodeGraphBuilder::ApplyCvFuseIds(
+    const std::map<int32_t, int32_t>& scopeToCvFuseId, const std::map<int32_t, std::vector<int32_t>>& scope2Nodes)
 {
     for (const auto& [scopeId, cvFuseId] : scopeToCvFuseId) {
         auto it = scope2Nodes.find(scopeId);
