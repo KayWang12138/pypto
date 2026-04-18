@@ -572,7 +572,7 @@ static void HandleUnusedTensor(Operation &op, std::set<int> inoutCast) {
                 continue;
             }
             SetTensorParamAddr(op, iOperand, 1, 1, inoutCast);
-        } 
+        }
     }
     for (auto &oOperand : op.GetOOperands()) {
         if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {

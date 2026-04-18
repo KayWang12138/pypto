@@ -442,7 +442,7 @@ std::string CodeGenOpNPU::GenGmParamVar(unsigned gmParamIdx) const
 {
     if (isUnderDynamicFunction) {
         std::map<int, SymbolicScalar> addrs;
- 	    bool ret = GetTensorAttr(gmParamIdx, "paramAddr", addrs);
+ 	    GetTensorAttr(gmParamIdx, "paramAddr", addrs);
  	    auto iter = addrs.find(originalOp.GetOpMagic());
  	    ASSERT(OperErr::ATTRIBUTE_INVALID, iter != addrs.end())
  	        << "add is not found by opMagic: " << originalOp.GetOpMagic() << ", gmParamIdx: " << gmParamIdx
