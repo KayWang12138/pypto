@@ -48,6 +48,7 @@ private:
     void AssignOpNopMemtype(Operation& op);
     void AssignMemtypeForSplitReshape(Operation& op, const LogicalTensorPtr& input, const LogicalTensorPtr& output);
     void UpdateOverSizedLocalBuffer(Operation& operation);
+    void UpdateOverSizedLocalBuffer1(Operation& operation);
     void ProcesSmallTileToLargeTile(Function& function);
     void ProcessLargeTileToSamllTile(Function& function);
     bool IsDimMultiple(const Shape& shape1, const Shape& shape2);
