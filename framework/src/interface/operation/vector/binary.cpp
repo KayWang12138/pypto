@@ -60,15 +60,19 @@ void CheckBinOpOperandsValid(const LogicalTensorPtr& operand1, const LogicalTens
 
 void CheckBinaryInputTensors(const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2, std::string& op)
 {
-    CheckTensorShape(tensor1, op);
-    CheckTensorShape(tensor2, op);
-    CheckBinOpOperandsValid(tensor1, tensor2);
-    if (tensor1->Datatype() != tensor2->Datatype()) {
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "The dtype of input tensors are not same.";
-    }
-    if (tensor1->Format() != tensor2->Format()) {
-        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "The format of input tensors are not same.";
-    }
+    // Check tensor1's properties
+    CheckTensorDimRange(tensor1, MIN_TENSOR_DIM, MAX_TENSOR_DIM, op);
+    CheckTensorShapeSize(tensor1, op);
+    
+    // Check tensor2's shape size only (other properties will be checked via consistency)
+    CheckTensorShapeSize(tensor2, op);
+    
+    // Check tensors consistency
+    CheckTensorsDimConsistency({tensor1, tensor2}, op);
+    CheckTensorsShapeConsistencyOrBroadcast({tensor1, tensor2}, op);
+    CheckTensorsFormatConsistency(tensor1, tensor2, op);
+    
+    // dtype check moved to each operation entry in binary.cpp
 }
 
 void BroadcastOperandTensor(
@@ -367,29 +371,37 @@ Tensor PReLU(const Tensor& self, const Tensor& weight)
 Tensor Add(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "ADD");
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "ADD");
     RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor Sub(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
-
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "SUB");
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "SUB");
     RETURN_CALL(BinaryOperation<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor Mul(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
-
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "MUL");
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "MUL");
     RETURN_CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType)
 {
     DECLARE_TRACER();
-
-    auto [result, op] =
-        TensorBinaryOperationWithOp<BinaryOpType::DIV>(*Program::GetInstance().GetCurrentFunction(), self, other);
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "DIV");
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "DIV");
+    auto [result, op] = TensorBinaryOperationWithOp<BinaryOpType::DIV>(*Program::GetInstance().GetCurrentFunction(), self, other);
     op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
     return Tensor(result);
 }
@@ -397,19 +409,23 @@ Tensor Div(const Tensor& self, const Tensor& other, DivAlgorithm precisionType)
 Tensor Fmod(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "MOD");
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "MOD");
     RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor Remainder(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "REM");
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "REM");
     auto selfDtype = self.GetDataType();
     if (selfDtype == DT_INT16) {
         Tensor castSelf = Cast(self, DT_FP32, CastMode::CAST_NONE);
         Tensor castOther = Cast(other, DT_FP32, CastMode::CAST_NONE);
-        Tensor result = CALL(
-            BinaryOperation<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(),
-            castOther.GetStorage());
+        Tensor result = CALL(BinaryOperation<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(), castOther.GetStorage());
         Tensor castedResult = Cast(result, selfDtype, CastMode::CAST_TRUNC, SaturationMode::OFF);
         return castedResult;
     }
@@ -451,18 +467,27 @@ Tensor Minimum(const Tensor& operand1, const Tensor& operand2)
 Tensor BitwiseAnd(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "BITWISEAND");
+    std::unordered_set<DataType> supportedTypes = {DT_INT16, DT_INT32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "BITWISEAND");
     RETURN_CALL(BinaryOperation<BinaryOpType::BITWISEAND>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor BitwiseOr(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "BITWISEOR");
+    std::unordered_set<DataType> supportedTypes = {DT_INT16, DT_INT32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "BITWISEOR");
     RETURN_CALL(BinaryOperation<BinaryOpType::BITWISEOR>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor BitwiseXor(const Tensor& self, const Tensor& other)
 {
     DECLARE_TRACER();
+    CheckTensorsDataTypeConsistency(self.GetStorage(), other.GetStorage(), "BITWISEXOR");
+    std::unordered_set<DataType> supportedTypes = {DT_INT16, DT_INT32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "BITWISEXOR");
     RETURN_CALL(BinaryOperation<BinaryOpType::BITWISEXOR>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
@@ -624,32 +649,33 @@ void TiledRemainderSOperation(
 Tensor Add(const Tensor& self, const Element& other)
 {
     DECLARE_TRACER();
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        other);
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "ADD");
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
 }
 
 Tensor Sub(const Tensor& self, const Element& other)
 {
     DECLARE_TRACER();
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        other);
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "SUB");
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
 }
 
 Tensor Mul(const Tensor& self, const Element& other)
 {
     DECLARE_TRACER();
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        other);
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_INT16, DT_INT32, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "MUL");
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
 }
 
 Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType)
 {
     DECLARE_TRACER();
-    auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::DIV>(
-        *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "DIV");
+    auto [result, op] = TensorBinaryOperationScalarWithOp<BinaryOpType::DIV>(*Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
     op->SetAttribute(OpAttributeKey::precisionType, static_cast<int64_t>(precisionType));
     return Tensor(result);
 }
@@ -657,9 +683,9 @@ Tensor Div(const Tensor& self, const Element& other, DivAlgorithm precisionType)
 Tensor Fmod(const Tensor& self, const Element& other)
 {
     DECLARE_TRACER();
-    RETURN_CALL(
-        BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(),
-        other);
+    std::unordered_set<DataType> supportedTypes = {DT_FP16, DT_BF16, DT_FP32};
+    CheckTensorDataType(self.GetStorage(), supportedTypes, "MOD");
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
 }
 
 Tensor Remainder(const Tensor& self, const Element& other)
@@ -1029,6 +1055,8 @@ void BinaryOperationTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     BinaryOperationOperandCheck(iOperand, oOperand);
+    CheckTensorsDataTypeConsistency(iOperand[0], iOperand[1], GetBinaryOpName<T>());
+    
     int64_t precisionType = static_cast<int64_t>(DivAlgorithm::DEFAULT);
     if constexpr (T == BinaryOpType::DIV) {
         if (op.HasAttr(OpAttributeKey::precisionType)) {
@@ -1098,6 +1126,7 @@ void BinaryOperationAllScalarTileFunc(
     const std::vector<LogicalTensorPtr>& oOperand, [[maybe_unused]] const Operation& op)
 {
     BinaryOperationOperandCheck(iOperand, oOperand);
+    CheckTensorsDataTypeConsistency(iOperand[0], iOperand[1], GetBinaryOpName<T>());
     TiledBinaryOperationAllScalar<T>(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
 }
 

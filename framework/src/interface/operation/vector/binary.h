@@ -271,7 +271,8 @@ std::pair<LogicalTensorPtr, Operation*> TensorBinaryOperationScalarWithOp(
     Function& function, LogicalTensorPtr operand1, const Element& value)
 {
     auto opName = GetBinaryOpName<T>();
-    CheckTensorShape(operand1, opName);
+    CheckTensorDimRange(operand1, MIN_TENSOR_DIM, MAX_TENSOR_DIM, opName);
+    CheckTensorShapeSize(operand1, opName);
     auto result =
         std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape, operand1->GetDynValidShape());
     auto& op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1}, {result});
@@ -290,9 +291,14 @@ template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationAllScalar(
     Function& function, const Tensor& operand1, const Element& value, bool reverseOperand)
 {
+    auto opName = GetBinaryOpName<T>();
+    auto storage = operand1.GetStorage();
+    CheckTensorDimRange(storage, MIN_TENSOR_DIM, MAX_TENSOR_DIM, opName);
+    CheckTensorShapeSize(storage, opName);
+    
     auto result = std::make_shared<LogicalTensor>(
-        function, operand1.GetStorage()->Datatype(), operand1.GetShape(), operand1.GetStorage()->GetDynValidShape());
-    auto& op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1.GetStorage()}, {result});
+        function, storage->Datatype(), operand1.GetShape(), storage->GetDynValidShape());
+    auto& op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {storage}, {result});
     op.SetAttribute(OpAttributeKey::scalar, value);
     op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
     return result;

@@ -15,6 +15,8 @@
 
 #include "operation_common.h"
 #include "interface/utils/vector_error.h"
+#include <algorithm>
+#include <unordered_set>
 
 namespace npu::tile_fwk {
 
@@ -112,5 +114,110 @@ void CheckAxisRange(const Tensor& tensor, int& axis)
     }
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, axis >= 0 && axis < shapeSize)
         << "Axis is not in the reasonable range!";
+}
+
+void CheckTensorDimRange(const LogicalTensorPtr& tensor, size_t minDim, size_t maxDim, const std::string& opName)
+{
+    auto shape = tensor->shape;
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED,
+           shape.size() >= minDim && shape.size() <= maxDim)
+        << "The dims of tensor is out of range [" << minDim << ", " << maxDim << "]"
+        << ", actual dims: " << shape.size() << " for op: " << opName;
+}
+
+void CheckTensorsDimConsistency(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName)
+{
+    if (tensors.empty()) {
+        return;
+    }
+    auto firstDim = tensors[0]->shape.size();
+    for (size_t i = 1; i < tensors.size(); ++i) {
+        ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED,
+               tensors[i]->shape.size() == firstDim)
+            << "Tensor dim inconsistent, tensor[0] dim: " << firstDim
+            << ", tensor[" << i << "] dim: " << tensors[i]->shape.size()
+            << " for op: " << opName;
+    }
+}
+
+void CheckTensorShapeSize(const LogicalTensorPtr& tensor, const std::string& opName)
+{
+    auto shape = tensor->shape;
+    int64_t shapeSize = 1;
+    for (const auto& value : shape) {
+        if (value > INT32_MAX) {
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false)
+                << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)"
+                << " for op: " << opName;
+        }
+        if (value > 0) {
+            shapeSize *= value;
+        }
+        if (shapeSize > INT32_MAX) {
+            ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false)
+                << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)"
+                << " for op: " << opName;
+        }
+    }
+}
+
+bool IsShapeConsistentOrBroadcastCompatible(const Shape& shape1, const Shape& shape2)
+{
+    if (shape1.size() != shape2.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < shape1.size(); ++i) {
+        if (shape1[i] != shape2[i] && shape1[i] != 1 && shape2[i] != 1) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void CheckTensorsShapeConsistencyOrBroadcast(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName)
+{
+    if (tensors.empty()) {
+        return;
+    }
+    for (size_t i = 1; i < tensors.size(); ++i) {
+        Shape shape0 = tensors[0]->shape;
+        Shape shapeI = tensors[i]->shape;
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID,
+               shape0 == shapeI || IsShapeConsistentOrBroadcastCompatible(shape0, shapeI))
+            << "Tensor shape must be consistent or broadcast compatible"
+            << ", tensor[0] shape: " << VectorToString(shape0)
+            << ", tensor[" << i << "] shape: " << VectorToString(shapeI)
+            << " for op: " << opName;
+    }
+}
+
+void CheckTensorDataType(const LogicalTensorPtr& tensor, const std::unordered_set<DataType>& supportedTypes,
+                         const std::string& opName)
+{
+    auto dtype = tensor->tensor->dtype;
+    bool isSupported = supportedTypes.find(dtype) != supportedTypes.end();
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, isSupported)
+        << "Tensor data type " << DataType2String(dtype)
+        << " is not in supported types for op: " << opName;
+}
+
+void CheckTensorsDataTypeConsistency(const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2,
+                                     const std::string& opName)
+{
+    auto dtype1 = tensor1->tensor->dtype;
+    auto dtype2 = tensor2->tensor->dtype;
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED, dtype1 == dtype2)
+        << "Tensor data type inconsistent, tensor1 dtype: " << DataType2String(dtype1)
+        << ", tensor2 dtype: " << DataType2String(dtype2) << " for op: " << opName;
+}
+
+void CheckTensorsFormatConsistency(const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2,
+                                   const std::string& opName)
+{
+    auto format1 = tensor1->Format();
+    auto format2 = tensor2->Format();
+    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, format1 == format2)
+        << "Tensor format inconsistent, tensor1 format: " << std::to_string(format1)
+        << ", tensor2 format: " << std::to_string(format2) << " for op: " << opName;
 }
 } // namespace npu::tile_fwk
