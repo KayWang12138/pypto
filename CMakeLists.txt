@@ -88,6 +88,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
             tile_fwk_utils
+            tile_fwk_adapter
             tile_fwk_cann_host_runtime
             tile_fwk_platform
             tile_fwk_interface
@@ -135,6 +136,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 tools/profiling/function_json_convert.py
                 tools/profiling/parse_pipe_time_trace.py
                 tools/scripts/machine_perf_trace.py
+                tools/scripts/extract_pass_log.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 
