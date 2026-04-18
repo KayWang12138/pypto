@@ -116,6 +116,7 @@ public:
 
     void AdjustCopyOpTileCfg(Operation& op, TileOpCfg& opcfg)
     {
+        opcfg.aivCore_ = AIVCore::AIV0;
         if (op.GetOpcode() == Opcode::OP_COPY_IN) {
             opcfg.pipeIdStart_ = PipeType::PIPE_MTE2;
             opcfg.pipeIdEnd_ = PipeType::PIPE_MTE2;
@@ -515,10 +516,8 @@ TEST_F(InsertSyncTest, TestHandleEventID)
     PipeSync::IssueQueue& issueQ = ps.issueState_[IS_NUM4];
     PipeSync::DepOp& handleOp = ps.depOps_[0];    // copyin1
     PipeSync::DepOp& eleOp = ps.depOps_[IS_NUM2]; // cast
-    AIVCore currAIVCore = ps.oriOpList_[handleOp.idx]->GetAIVCore();
-    AIVCore eleAIVCore = ps.oriOpList_[eleOp.idx]->GetAIVCore();
-    PipeSync::PipeCoreRealEx currPipeCoreEx(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core, currAIVCore);
-    PipeSync::PipeCoreRealEx elePipeCoreEx(eleOp.selfPipeCore.pipeStart, eleOp.selfPipeCore.core, eleAIVCore);
+    PipeSync::PipeCoreRealEx currPipeCoreEx(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core, handleOp.selfPipeCore.aivCore);
+    PipeSync::PipeCoreRealEx elePipeCoreEx(eleOp.selfPipeCore.pipeStart, eleOp.selfPipeCore.core, eleOp.selfPipeCore.aivCore);
     PipeSync::PipePairEx pp{currPipeCoreEx, elePipeCoreEx};
 
     // Pre-set issuenum to trigger AdjustOpDep: currIssueNum >= maxIssueNum
