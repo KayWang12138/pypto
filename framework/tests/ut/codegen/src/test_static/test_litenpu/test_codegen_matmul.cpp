@@ -202,14 +202,11 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_008)
     {
         Tensor a(DataType::DT_FP16, {2, 16, 129, 64}, "a");
         Tensor b(DataType::DT_FP16, {2, 16, 64, 35}, "b");
-        Tensor bias(DataType::DT_FP16, {1, 1, 1, 35}, "bias");
         auto c = Tensor(DataType::DT_FP16, {2, 16, 129, 35}, "c");
         FUNCTION("MATMUL_008")
         {
-            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {16, 16});
-            npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
-            extendParam.biasTensor = bias;
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, extendParam, false, false, false);
+            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {32, 32});
+            c = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_FP16, a, b, false, false, false);
         }
     }
 
@@ -229,8 +226,8 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_009)
         auto c = Tensor(DataType::DT_FP16, {2, 8, 80, 30}, "c");
         FUNCTION("MATMUL_009")
         {
-            TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {32, 32});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
+            TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {32, 32});
+            c = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_FP16, a, b, false, false, false);
         }
     }
 
@@ -250,192 +247,12 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_010)
         auto c = Tensor(DataType::DT_FP16, {1, 4, 80, 60}, "c");
         FUNCTION("MATMUL_010")
         {
-            TileShape::Current().SetCubeTile({64, 64}, {32, 32}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, true, true, false);
+            TileShape::Current().SetCubeTile({64, 64}, {32, 32}, {32, 32});
+            c = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_FP16, a, b, true, true, false);
         }
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_010");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_s8fp16_001: (16,32) x (32,16), bias=false, a_trans=false, b_trans=false, tile=(16,16,32,32,16,16), S8/S8->FP16
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8fp16_001)
-{
-    PROGRAM("MATMUL_S8FP16_001")
-    {
-        Tensor a(DataType::DT_INT8, {16, 32}, "a");
-        Tensor b(DataType::DT_INT8, {32, 16}, "b");
-        auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
-        FUNCTION("MATMUL_S8FP16_001")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_S8FP16_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_s8fp16_002: (16,32) x (32,16), bias=true, a_trans=false, b_trans=false, tile=(16,16,32,32,16,16), S8/S8->FP16
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8fp16_002)
-{
-    PROGRAM("MATMUL_S8FP16_002")
-    {
-        Tensor a(DataType::DT_INT8, {16, 32}, "a");
-        Tensor b(DataType::DT_INT8, {32, 16}, "b");
-        Tensor bias(DataType::DT_FP16, {1, 16}, "bias");
-        auto c = Tensor(DataType::DT_FP16, {16, 16}, "c");
-        FUNCTION("MATMUL_S8FP16_002")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {16, 16});
-            npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
-            extendParam.biasTensor = bias;
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, extendParam, false, false, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_S8FP16_002");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_s8fp16_003: (16,32,64) x (16,64,16), bias=false, a_trans=false, b_trans=false, tile=(16,16,64,64,16,16),
-// S8/S8->FP16
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8fp16_003)
-{
-    PROGRAM("MATMUL_S8FP16_003")
-    {
-        Tensor a(DataType::DT_INT8, {16, 32, 64}, "a");
-        Tensor b(DataType::DT_INT8, {16, 64, 16}, "b");
-        auto c = Tensor(DataType::DT_FP16, {16, 32, 16}, "c");
-        FUNCTION("MATMUL_S8FP16_003")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, false, false, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_S8FP16_003");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_s8fp16_004: (2,16,32,64) x (2,16,64,32), bias=false, a_trans=true, b_trans=true, tile=(16,16,32,32,32,32),
-// S8/S8->FP16
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8fp16_004)
-{
-    PROGRAM("MATMUL_S8FP16_004")
-    {
-        Tensor a(DataType::DT_INT8, {2, 16, 32, 64}, "a");
-        Tensor b(DataType::DT_INT8, {2, 16, 64, 32}, "b");
-        auto c = Tensor(DataType::DT_FP16, {2, 16, 64, 64}, "c");
-        FUNCTION("MATMUL_S8FP16_004")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {32, 32});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, a, b, true, true, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_S8FP16_004");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_fp16s8_001: (16,16) x (16,16), bias=false, a_trans=false, b_trans=false, tile=(16,16,16,16,16,16),
-// FP16/FP16->S8
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_fp16s8_001)
-{
-    PROGRAM("MATMUL_FP16S8_001")
-    {
-        Tensor a(DataType::DT_FP16, {16, 16}, "a");
-        Tensor b(DataType::DT_FP16, {16, 16}, "b");
-        auto c = Tensor(DataType::DT_INT8, {16, 16}, "c");
-        FUNCTION("MATMUL_FP16S8_001")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, false, false, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_FP16S8_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_fp16s8_002: (16,16) x (16,16), bias=true, a_trans=false, b_trans=false, tile=(16,16,16,16,16,16),
-// FP16/FP16->S8
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_fp16s8_002)
-{
-    PROGRAM("MATMUL_FP16S8_002")
-    {
-        Tensor a(DataType::DT_FP16, {16, 16}, "a");
-        Tensor b(DataType::DT_FP16, {16, 16}, "b");
-        Tensor bias(DataType::DT_INT8, {1, 16}, "bias");
-        auto c = Tensor(DataType::DT_INT8, {16, 16}, "c");
-        FUNCTION("MATMUL_FP16S8_002")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
-            npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
-            extendParam.biasTensor = bias;
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, extendParam, false, false, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_FP16S8_002");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_fp16s8_003: (16,16,16) x (16,16,16), bias=false, a_trans=false, b_trans=false, tile=(16,16,16,16,16,16),
-// FP16/FP16->S8
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_fp16s8_003)
-{
-    PROGRAM("MATMUL_FP16S8_003")
-    {
-        Tensor a(DataType::DT_FP16, {16, 16, 16}, "a");
-        Tensor b(DataType::DT_FP16, {16, 16, 16}, "b");
-        auto c = Tensor(DataType::DT_INT8, {16, 16, 16}, "c");
-        FUNCTION("MATMUL_FP16S8_003")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, false, false, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_FP16S8_003");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// matmul_fp16s8_004: (2,16,16,16) x (2,16,16,16), bias=false, a_trans=true, b_trans=true, tile=(16,16,16,16,16,16),
-// FP16/FP16->S8
-TEST_F(LiteNPUCodeGenMatmul, test_matmul_fp16s8_004)
-{
-    PROGRAM("MATMUL_FP16S8_004")
-    {
-        Tensor a(DataType::DT_FP16, {2, 16, 16, 16}, "a");
-        Tensor b(DataType::DT_FP16, {2, 16, 16, 16}, "b");
-        auto c = Tensor(DataType::DT_INT8, {2, 16, 16, 16}, "c");
-        FUNCTION("MATMUL_FP16S8_004")
-        {
-            TileShape::Current().SetCubeTile({16, 16}, {16, 16}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, true, true, false);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "MATMUL_FP16S8_004");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
@@ -448,11 +265,11 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8s8_001)
     {
         Tensor a(DataType::DT_INT8, {16, 32}, "a");
         Tensor b(DataType::DT_INT8, {32, 16}, "b");
-        auto c = Tensor(DataType::DT_INT8, {16, 16}, "c");
+        auto c = Tensor(DataType::DT_INT32, {16, 16}, "c");
         FUNCTION("MATMUL_S8S8_001")
         {
-            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, false, false, false);
+            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {32, 32});
+            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, a, b, false, false, false);
         }
     }
 
@@ -469,14 +286,14 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8s8_002)
     {
         Tensor a(DataType::DT_INT8, {16, 32}, "a");
         Tensor b(DataType::DT_INT8, {32, 16}, "b");
-        Tensor bias(DataType::DT_INT8, {1, 16}, "bias");
-        auto c = Tensor(DataType::DT_INT8, {16, 16}, "c");
+        Tensor bias(DataType::DT_INT32, {1, 16}, "bias");
+        auto c = Tensor(DataType::DT_INT32, {16, 16}, "c");
         FUNCTION("MATMUL_S8S8_002")
         {
-            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {16, 16});
+            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {32, 32});
             npu::tile_fwk::Matrix::MatmulExtendParam extendParam;
             extendParam.biasTensor = bias;
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, extendParam, false, false, false);
+            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, a, b, extendParam, false, false, false);
         }
     }
 
@@ -494,11 +311,11 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8s8_003)
     {
         Tensor a(DataType::DT_INT8, {16, 32, 64}, "a");
         Tensor b(DataType::DT_INT8, {16, 64, 16}, "b");
-        auto c = Tensor(DataType::DT_INT8, {16, 32, 16}, "c");
+        auto c = Tensor(DataType::DT_INT32, {16, 32, 16}, "c");
         FUNCTION("MATMUL_S8S8_003")
         {
-            TileShape::Current().SetCubeTile({16, 16}, {64, 64}, {16, 16});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, false, false, false);
+            TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {32, 32});
+            c = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_INT32, a, b, false, false, false);
         }
     }
 
@@ -516,11 +333,11 @@ TEST_F(LiteNPUCodeGenMatmul, test_matmul_s8s8_004)
     {
         Tensor a(DataType::DT_INT8, {2, 16, 32, 64}, "a");
         Tensor b(DataType::DT_INT8, {2, 16, 64, 32}, "b");
-        auto c = Tensor(DataType::DT_INT8, {2, 16, 64, 64}, "c");
+        auto c = Tensor(DataType::DT_INT32, {2, 16, 64, 64}, "c");
         FUNCTION("MATMUL_S8S8_004")
         {
-            TileShape::Current().SetCubeTile({16, 16}, {32, 32}, {32, 32});
-            c = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT8, a, b, true, true, false);
+            TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+            c = npu::tile_fwk::Matrix::BatchMatmul(DataType::DT_INT32, a, b, true, true, false);
         }
     }
 

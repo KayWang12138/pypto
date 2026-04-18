@@ -3809,7 +3809,7 @@ tile m是16的整数倍，tile k和tile n是32B的整数倍。
 * a、b矩阵维度（必须相同）：2~4维
 * bias: 有/没有
 * 切分：m1,m0,k1,k0,n1,n0组合，m是16倍数，k、n是32B倍数（b16：16倍数，b8：32倍数），需要覆盖切m、k、n各种切分：其中m1=m0、k1=k0、n1=n0
-* 数据类型：FP16FP16->FP16，S8S8->FP16，FP16FP16->S8S8，S8S8->S8S8
+* 数据类型：FP16FP16->FP16，S8S8->S32
 * trans a/b模式都支持（a/b维度做随路permute）
 
 | 用例名称 | A输入维度 | B输入维度 | bias | a_trans | b_trans | 切分 (m1,m0,k1,k0,n1,n0) | 输入dtype | 输出dtype | 说明 |
@@ -3824,19 +3824,10 @@ tile m是16的整数倍，tile k和tile n是32B的整数倍。
 | matmul_fp_008 | (2,16,129,64) | (2,16,64,35) | true | false | false | (16,16,32,32,16,16) | FP16/FP16 | FP16 | 4d，切k、n，gemm |
 | matmul_fp_009 | (2,8,80,160) | (2,8,160,30) | false | false | false | (32,32,64,64,32,32) | FP16/FP16 | FP16 | 4d，切m、k，gemm |
 | matmul_fp_010 | (1,4,60,80) | (1,4,32,60) | false | true | true | (64,64,32,32,16,16) | FP16/FP16 | FP16 | 4d，切m、k、n，gemm，transa、transb |
-| matmul_s8fp16_001 | (16,32) | (32,16) | false | false | false | (16,16,32,32,16,16) | S8/S8 | FP16 | 2D S8S8->FP16 基础 |
-| matmul_s8fp16_002 | (16,32) | (32,16) | true | false | false | (16,16,32,32,16,16) | S8/S8 | FP16 | 2D S8S8->FP16 有bias |
-| matmul_s8fp16_003 | (16,32,64) | (16,64,16) | false | false | false | (16,16,64,64,16,16) | S8/S8 | FP16 | 3D S8S8->FP16 |
-| matmul_s8fp16_004 | (2,16,32,64) | (2,16,64,32) | false | true | true | (16,16,32,32,32,32) | S8/S8 | FP16 | 4D S8S8->FP16 双转置 |
-| matmul_fp16s8_001 | (16,16) | (16,16) | false | false | false | (16,16,16,16,16,16) | FP16/FP16 | S8 | 2D FP16FP16->S8 基础 |
-| matmul_fp16s8_002 | (16,16) | (16,16) | true | false | false | (16,16,16,16,16,16) | FP16/FP16 | S8 | 2D FP16FP16->S8 有bias |
-| matmul_fp16s8_003 | (16,16,16) | (16,16,16) | false | false | false | (16,16,16,16,16,16) | FP16/FP16 | S8 | 3D FP16FP16->S8 |
-| matmul_fp16s8_004 | (2,16,16,16) | (2,16,16,16) | false | true | true | (16,16,16,16,16,16) | FP16/FP16 | S8 | 4D FP16FP16->S8 双转置 |
-| matmul_s8s8_001 | (16,32) | (32,16) | false | false | false | (16,16,32,32,16,16) | S8/S8 | S8 | 2D S8S8->S8 基础 |
-| matmul_s8s8_002 | (16,32) | (32,16) | true | false | false | (16,16,32,32,16,16) | S8/S8 | S8 | 2D S8S8->S8 有bias |
-| matmul_s8s8_003 | (16,32,64) | (16,64,16) | false | false | false | (16,16,64,64,16,16) | S8/S8 | S8 | 3D S8S8->S8 |
-| matmul_s8s8_004 | (2,16,32,64) | (2,16,64,32) | false | true | true | (16,16,32,32,32,32) | S8/S8 | S8 | 4D S8S8->S8 双转置 |
-
+| matmul_s8s8_001 | (16,32) | (32,16) | false | false | false | (16,16,32,32,16,16) | S8/S8 | S32 | 2D S8S8->S32 基础 |
+| matmul_s8s8_002 | (16,32) | (32,16) | true | false | false | (16,16,32,32,16,16) | S8/S8 | S32 | 2D S8S8->S32 有bias |
+| matmul_s8s8_003 | (16,32,64) | (16,64,16) | false | false | false | (16,16,64,64,16,16) | S8/S8 | S32 | 3D S8S8->S32 |
+| matmul_s8s8_004 | (2,16,32,64) | (2,16,64,32) | false | true | true | (16,16,32,32,32,32) | S8/S8 | S32 | 4D S8S8->S32 双转置 |
 
 ## 9. 芯片能力增强
 
