@@ -90,12 +90,30 @@ TILEOP void TExpand(T0 dst, T1 src)
     if (dstShape3 == 0 || dstShape4 == 0) {
         return;
     }
-
     using DstTileInfo = TensorTileInfo<T0>;
     using SrcTileInfo = TensorTileInfo<T1>;
     using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
     using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
     constexpr auto typeSize = sizeof(DstDtype);
+    if (expandTile == ExpandTile::HW) {
+        auto dstTile = PtoTile<T0>(1, dstShape4).Data();
+        auto srcTile = PtoTile<T1>(1, 1).Data();
+        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
+            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
+                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
+                    for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
+                        auto dstOffset = GenTileOffset(dst, TileOffset4Dim(n0Index, n1Index, n2Index, n3Index));
+                        auto srcOffset = GenTileOffset(src, TileOffset4Dim(SrcTileInfo::tile0 == 1 ? 0 : n0Index, SrcTileInfo::tile1 == 1 ? 0 : n1Index,
+                                                                            SrcTileInfo::tile2 == 1 ? 0 : n2Index, 0));
+                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
+                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
+                        pto::TCOLEXPAND(dstTile, srcTile);
+                    }
+                }
+            }
+        }
+        return;
+    }
     
     constexpr auto minTileH = DstTileInfo::tileH < SrcTileInfo::tileH ? DstTileInfo::tileH : SrcTileInfo::tileH;
     constexpr auto dstTileH = (expandTile == ExpandTile::NONE) ? minTileH : DstTileInfo::tileH;
