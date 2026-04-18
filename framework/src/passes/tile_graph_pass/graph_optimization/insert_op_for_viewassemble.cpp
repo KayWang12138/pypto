@@ -173,10 +173,26 @@ Status InsertOpForViewAssemble::JudgedViewAssemble(Function& function)
     return SUCCESS;
 }
 
-Status InsertOpForViewAssemble::RunOnFunction(Function& function)
-{
+Status InsertOpForViewAssemble::JudgedViewType(Function &function) {
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_VIEW_TYPE) {
+            continue;
+        }
+        auto &prodOp = *op.GetIOperands()[0]->GetProducers().begin();
+        auto &consOp = *op.GetOOperands()[0]->GetConsumers().begin();
+        if (prodOp->GetOpcode() == Opcode::OP_VIEW && consOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            
+        }
+    }
+}
+
+Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start InsertOpForViewAssemble");
     if (JudgedViewAssemble(function) == FAILED) {
+        APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
+        return FAILED;
+    }
+    if (JudgedViewType(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
         return FAILED;
     }
