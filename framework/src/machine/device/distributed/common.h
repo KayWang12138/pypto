@@ -18,15 +18,19 @@
 #include <cstdint>
 #include <vector>
 #include "tilefwk/aikernel_data.h"
+#include "tilefwk/aicpu_common.h"
 #include "machine/utils/dynamic/dev_encode_types.h"
 #include "tileop/distributed/comm_context.h"
 
 namespace npu::tile_fwk::dynamic {
 class AiCoreManager;
-}
+struct DynDeviceTask;
+} // namespace npu::tile_fwk::dynamic
 
 namespace npu::tile_fwk::Distributed {
-constexpr uint64_t AICPU_TASK_ARRAY_SIZE = 1024;
+constexpr uint32_t SLOT_PER_PARALLEL = 32;
+constexpr uint32_t SLOT_PER_PARALLEL_MOD = SLOT_PER_PARALLEL - 1;
+constexpr uint64_t AICPU_TASK_ARRAY_SIZE = npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM * SLOT_PER_PARALLEL;
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE_MOD = AICPU_TASK_ARRAY_SIZE - 1;
 constexpr uint64_t OWNER_RANK_ID_INDEX = 0;
 constexpr uint64_t SHMEM_DIM_ROW = 1;
@@ -62,6 +66,17 @@ struct AicpuParamInfo {
     uint32_t tileShapeCol{0};
     uint32_t rankNum{0};
     uint32_t maxTileNum{0};
+};
+
+struct AicpuTaskContext {
+    npu::tile_fwk::dynamic::DynDeviceTask* dynDeviceTask_{nullptr};
+    npu::tile_fwk::DynFuncData* funcDataList_{nullptr};
+    Metrics* aicpuTaskStat_{nullptr};
+    int64_t* hcclContextAddr_{nullptr};
+    uint64_t commGroupNum_{0};
+    AicpuParamInfo paramInfo_;
+
+    void Init(npu::tile_fwk::dynamic::DynDeviceTask* dynDeviceTask);
 };
 
 inline uint64_t MapVirtualSignalAddr(int64_t* hcclContextAddr, uint64_t vaddr)

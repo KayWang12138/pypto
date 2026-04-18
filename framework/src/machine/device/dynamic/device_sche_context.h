@@ -19,28 +19,34 @@
 #include <cstdlib>
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/device_task.h"
+#include "machine/device/distributed/common.h"
 #include "wrap_manager.h"
-#include "aicpu_task_manager.h"
 #include "tilefwk/aicpu_common.h"
 #include "aicore_constants.h"
 
 namespace npu::tile_fwk::dynamic {
 const uint32_t READY_ID_FIX_CACHE_NUM = 256;
-enum class DevTaskExecStage { INIT = 0, SEND_CORE_TASK = 1, WAIT_TAIL_TASK_FINISH = 2, WAIT_ALL_SCH_FINISH =3,  FINISH = 4 };
+enum class DevTaskExecStage {
+    INIT = 0,
+    SEND_CORE_TASK = 1,
+    WAIT_TAIL_TASK_FINISH = 2,
+    WAIT_ALL_SCH_FINISH = 3,
+    FINISH = 4
+};
 
 struct SchDeviceTaskContext {
     uint32_t parallelIdx{0}; // parallel context index
     uint32_t bindParallelCtxVersion{0};
-    DeviceTaskCtrl *taskCtrl{nullptr};
+    DeviceTaskCtrl* taskCtrl{nullptr};
     bool isFirstTaskSend{false};
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue{nullptr};
     ReadyCoreFunctionQueue* readyAicpuFunctionQue{nullptr};
     uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
-    uint32_t readyCount[AICORE_TYPE_NUM]{0,0};
-    uint32_t sendCnt[AICORE_TYPE_NUM]{0,0};
+    uint32_t readyCount[AICORE_TYPE_NUM]{0, 0};
+    uint32_t sendCnt[AICORE_TYPE_NUM]{0, 0};
     uint32_t aicpuTaskSendCnt{0};
-    uint64_t waitTaskCnt[AICORE_TYPE_NUM]{0,0};
+    uint64_t waitTaskCnt[AICORE_TYPE_NUM]{0, 0};
     uint64_t resolveHubCnt{0};
     uint32_t curSent{0};
     uint32_t lastSent{0};
@@ -53,6 +59,9 @@ struct SchDeviceTaskContext {
     std::array<uint8_t, MAX_AICORE_NUM> coreTaskFinished;
     uint32_t coreFinishedNum{0};
 
+    // Aicpu task context
+    npu::tile_fwk::Distributed::AicpuTaskContext aicpuTaskCtx_;
+
     DeviceTaskCtrl* GetDeviceTaskCtrl() { return taskCtrl; }
     DeviceTask* GetDeviceTask() { return taskCtrl->devTask; }
     uint32_t CoreTaskCnt() { return taskCtrl->devTask->coreFunctionCnt; }
@@ -61,7 +70,7 @@ struct SchDeviceTaskContext {
     bool IsStage(DevTaskExecStage stage) { return curStage == stage; }
     DevTaskExecStage CurStage() { return curStage; }
     void EntryStage(DevTaskExecStage stage) { curStage = stage; }
-    bool IsParallel() {  return taskCtrl->ParallelForId() != 0; }
+    bool IsParallel() { return taskCtrl->ParallelForId() != 0; }
     bool IsRunFinish() { return curStage == DevTaskExecStage::FINISH; }
     void Free()
     {
@@ -69,6 +78,9 @@ struct SchDeviceTaskContext {
         taskCtrl->Free();
     }
     bool IsFree() { return isFree; }
+
+    npu::tile_fwk::Distributed::AicpuTaskContext& GetAicpuTaskCtx() { return aicpuTaskCtx_; }
+    uint32_t GetParallelIdx() const { return parallelIdx; }
 
     void BindTaskCtrl(struct DeviceTaskCtrl* inputTaskCtrl)
     {
@@ -123,7 +135,8 @@ struct SchDeviceTaskContext {
     bool NeedSendCoreTask() { return (allSent < taskCtrl->devTask->coreFunctionCnt); }
     uint32_t CurCoreTaskSent(CoreType type) { return sendCnt[static_cast<int>(type)]; }
     void SetAicpuTaskSent(uint32_t taskCnt) { aicpuTaskSendCnt = taskCnt; }
-    void SyncAllSchCoreTaskSent() {
+    void SyncAllSchCoreTaskSent()
+    {
         if (lastSent > 0) {
             taskCtrl->finishedFunctionCnt.fetch_add(lastSent, std::memory_order_relaxed);
             lastSent = 0;
@@ -151,7 +164,7 @@ struct ParallelSchDeviceTaskContext {
     uint32_t rear{0};
     SchDeviceTaskContext elements[npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM];
 
-    void Init(DeviceArgs *deviceArgs, int schedIdx)
+    void Init(DeviceArgs* deviceArgs, int schedIdx)
     {
         for (uint32_t idx = 0; idx < npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; idx++) {
             elements[idx].parallelIdx = idx;
@@ -160,29 +173,30 @@ struct ParallelSchDeviceTaskContext {
     }
     uint32_t Version() { return version; }
     void UpdateVersion() { version++; }
-    bool Empty() { return (front == rear);}
+    bool Empty() { return (front == rear); }
     uint32_t Num() { return (rear - front); }
-    bool Full() { return  (rear - front) == npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; }
+    bool Full() { return (rear - front) == npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM; }
     SchDeviceTaskContext* RearElement() { return &elements[rear % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; }
     SchDeviceTaskContext* Element(uint32_t idx) { return &elements[idx % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; }
     SchDeviceTaskContext* FrontElement() { return &elements[front % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM]; }
     void PopFront()
-    { 
+    {
         if (++front == rear) {
             front = 0;
             rear = 0;
-        } 
+        }
     }
-    
+
     bool EnqueueSchDeviceTask(DeviceTaskCtrl* taskCtrl)
     {
         if (Full()) {
             DEV_ERROR(SchedErr::SCH_DEVTASK_CTX_FULL, "Parallel sch device task ctx is full.");
             return false;
         }
-        DEV_INFO("Parallel ctx enque device task %lu, forid=%u, iterid=%u, wsid=%u.",
-            taskCtrl->taskId, taskCtrl->ParallelForId(), taskCtrl->ParallelIterId(), taskCtrl->ParallelWsId());
-        auto &ctx = elements[(rear++) % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM];
+        DEV_INFO(
+            "Parallel ctx enque device task %lu, forid=%u, iterid=%u, wsid=%u.", taskCtrl->taskId,
+            taskCtrl->ParallelForId(), taskCtrl->ParallelIterId(), taskCtrl->ParallelWsId());
+        auto& ctx = elements[(rear++) % npu::tile_fwk::SCH_DEVTASK_MAX_PARALLELISM];
         ctx.BindTaskCtrl(taskCtrl);
         UpdateVersion();
         ctx.BindParallelCtxVersion(version);
@@ -195,13 +209,15 @@ struct ParallelSchDeviceTaskContext {
             SchDeviceTaskContext* frontCtx = FrontElement();
             if (frontCtx->IsFree()) {
                 PopFront();
-                DEV_VERBOSE_DEBUG("Recycling parallel context parallel_idx=%u, version=%u, devtaskid=%lu, leftCtxNum=%u", 
+                DEV_VERBOSE_DEBUG(
+                    "Recycling parallel context parallel_idx=%u, version=%u, devtaskid=%lu, leftCtxNum=%u",
                     frontCtx->parallelIdx, frontCtx->bindParallelCtxVersion, frontCtx->TaskId(), Num());
-                
+
             } else {
                 // 遇到非free的context，停止回收
-                DEV_VERBOSE_DEBUG("Stop recycling at non-free context parallel_idx=%u, stage=%d, devtaskid=%lu, ctxNum=%u", 
-                          frontCtx->parallelIdx, static_cast<int>(frontCtx->curStage), frontCtx->TaskId(), Num());
+                DEV_VERBOSE_DEBUG(
+                    "Stop recycling at non-free context parallel_idx=%u, stage=%d, devtaskid=%lu, ctxNum=%u",
+                    frontCtx->parallelIdx, static_cast<int>(frontCtx->curStage), frontCtx->TaskId(), Num());
                 break;
             }
         }
@@ -209,10 +225,10 @@ struct ParallelSchDeviceTaskContext {
 };
 
 struct SchduleContext {
-    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
-    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0, 0};
+    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0, 0};
     uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
-    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0,0};
+    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0, 0};
 
     uint8_t coreIdxPosition_[MAX_AICORE_NUM]{0}; // used to record core's position in runReadyCoreIdx_
     bool wrapCoreAvail_[MAX_AICORE_NUM]{true};   // used to check coreIdx is used by wrap_manager
@@ -229,17 +245,17 @@ struct SchduleContext {
         }
     }
 
-    void Init(DeviceArgs *deviceArgs, int schedIdx)
-    {
-        schParallelDevTaskCtx.Init(deviceArgs, schedIdx);
-    }
+    void Init(DeviceArgs* deviceArgs, int schedIdx) { schParallelDevTaskCtx.Init(deviceArgs, schedIdx); }
 
-    SchDeviceTaskContext* ParallelDeviceTaskCtx(uint32_t parallelIdx) { return schParallelDevTaskCtx.Element(parallelIdx); }
+    SchDeviceTaskContext* ParallelDeviceTaskCtx(uint32_t parallelIdx)
+    {
+        return schParallelDevTaskCtx.Element(parallelIdx);
+    }
     void UpdateParallelVersion() { schParallelDevTaskCtx.UpdateVersion(); }
     uint32_t PrallelVersion() { return schParallelDevTaskCtx.Version(); }
 
     bool CurSupportParallel()
-    { 
+    {
         if (schParallelDevTaskCtx.Empty()) {
             return true;
         }
@@ -251,7 +267,7 @@ struct SchduleContext {
         if (schParallelDevTaskCtx.Empty()) {
             return true;
         }
-        
+
         SchDeviceTaskContext* frontCtx = schParallelDevTaskCtx.FrontElement();
         if (frontCtx->GetDeviceTaskCtrl()->ParallelWsId() == taskCtrl->ParallelWsId()) {
             return false; // workspace conflict
@@ -263,10 +279,7 @@ struct SchduleContext {
         return true;
     }
 
-    bool EnqueueParallelCtx(DeviceTaskCtrl* taskCtrl)
-    {
-        return schParallelDevTaskCtx.EnqueueSchDeviceTask(taskCtrl);
-    }
+    bool EnqueueParallelCtx(DeviceTaskCtrl* taskCtrl) { return schParallelDevTaskCtx.EnqueueSchDeviceTask(taskCtrl); }
 
     bool DevTaskEmpty() { return schParallelDevTaskCtx.Empty(); }
 
@@ -288,4 +301,14 @@ struct SchThreadStatus {
     }
 };
 
-} // namespace npu::tile_fwk
+} // namespace npu::tile_fwk::dynamic
+
+namespace npu::tile_fwk::Distributed {
+inline void AicpuTaskContext::Init(npu::tile_fwk::dynamic::DynDeviceTask* dynDeviceTask)
+{
+    dynDeviceTask_ = dynDeviceTask;
+    funcDataList_ = reinterpret_cast<npu::tile_fwk::DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
+    hcclContextAddr_ = funcDataList_->startArgs->commContexts;
+    commGroupNum_ = funcDataList_->startArgs->commGroupNum;
+}
+} // namespace npu::tile_fwk::Distributed
