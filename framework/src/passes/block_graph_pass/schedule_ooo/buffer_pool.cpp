@@ -90,8 +90,9 @@ size_t BufferPool::UpdateIdx(
     return j;
 }
 
-Status BufferPool::GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<int>>& canSpillGroups)
+std::vector<std::vector<int>> BufferPool::GetSpillGroup(size_t sizeNeedSpill)
 {
+    std::vector<std::vector<int>> canSpillGroups;
     std::vector<std::tuple<int, size_t, size_t>> allocatedBufs;
     for (auto& [memId, bufferSlice] : bufferSlices) {
         allocatedBufs.push_back(std::make_tuple(memId, bufferSlice.offset, bufferSlice.offset + bufferSlice.size));
@@ -110,7 +111,7 @@ Status BufferPool::GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<i
         size_t j = UpdateIdx(i, sizeNeedSpill, startAddr, allocatedBufs);
         if (i == j) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Incorrect idx for allocatedBufs.");
-            return FAILED;
+            return canSpillGroups;
         }
         std::vector<int> group;
         for (size_t k = i; k < j; k++) {
@@ -119,7 +120,7 @@ Status BufferPool::GetSpillGroup(size_t sizeNeedSpill, std::vector<std::vector<i
         canSpillGroups.push_back(group);
         i += 1;
     }
-    return SUCCESS;
+    return canSpillGroups;
 }
 
 std::vector<int> BufferPool::GetBufferSlices()
