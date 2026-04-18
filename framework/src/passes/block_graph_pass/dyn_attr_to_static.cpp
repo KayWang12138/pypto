@@ -465,7 +465,7 @@ static void SetTensorParamAddr(Operation &op, std::shared_ptr<LogicalTensor> &te
     int GmTensorParamIdxInCallFunc, int gmParamIdx, std::set<int> inoutCast)
 {
     if (gmParamIdx < 0) {
-        return;
+        gmParamIdx = 1;
     }
     int rawMagic = tensor->GetRawMagic();
     int isConst = inoutCast.count(rawMagic) ? 3 : 2;
@@ -537,7 +537,8 @@ static void HandleCopyOutOp(Operation &op, std::set<int> inoutCast) {
         int GmTensorParamIdxInCallFunc = 1;
         if (op.HasAttr("GmTensorParamIdxInCallFunc")) {
             GmTensorParamIdxInCallFunc = op.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        }        auto &tensor = op.oOperand[0];
+        }        
+        auto &tensor = op.oOperand[0];
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             SetTensorParamAddr(op, tensor, GmTensorParamIdxInCallFunc, op.GetOOpAttrOffset(0), inoutCast);
         }
