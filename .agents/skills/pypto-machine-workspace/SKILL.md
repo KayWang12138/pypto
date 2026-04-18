@@ -66,15 +66,13 @@ Workspace 内存分配由以下阶段组成：
 
 ```
 workspaceSize = memBudget.Total()
-             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump + metadata.Total()
+             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump
 
-tensor.Total() = rootInner                              -- Root Function Inner Tensor 内存
-               + devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
-               + MaxOutcastMem() * devTaskBoundaryOutcastNum  -- Boundary Outcast 总内存
+tensor.Total() = AlignUp(rootInner + devTaskInnerExclusiveOutcasts + MaxOutcastMem() * devTaskBoundaryOutcastNum, 32KB) * parallelism
 
 MaxOutcastMem() = max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem)
 
-metadata.Total() = general + stitchPool
+metadata.Total() = general + stitchPool   -- 独立分配的内存池，不计入 workspaceSize，日志中仅作参考
 ```
 
 ### 关键日志标签
@@ -172,9 +170,9 @@ grep -r "\[workspaceSize\]" <log_path>/debug/ | grep -E "workspaceSize=|Tensor:r
 
 | 变量 | 含义 | 来源 |
 |------|------|------|
-| TOTAL | workspace 总大小 | `memBudget.Total()` |
+| TOTAL | workspace 总大小 | `memBudget.Total()`（不含 metadata） |
 | T | Tensor workspace 总大小 | `memBudget.tensor.Total()` |
-| M | 元数据总大小 | `memBudget.metadata.Total()` |
+| M | 元数据总大小（独立分配，不计入 workspaceSize，仅作参考） | 日志中 Metadata 字段 |
 | S | AICore 栈溢出内存 | `memBudget.aicoreSpilled` |
 | A | rootInner | `memBudget.tensor.rootInner` |
 | B | devTaskInnerExclusiveOutcasts | `memBudget.tensor.devTaskInnerExclusiveOutcasts` |
@@ -195,13 +193,12 @@ grep -r "Tensor:rootInner=" <log_path>/debug/
 根据步骤 3 提取的值，按以下决策树判断问题所在大类：
 
 ```
-workspaceSize = TOTAL
+workspaceSize = TOTAL = T + S + DD + LD  （不含 metadata，metadata 为独立分配的内存池）
 ├── tensor (T) 占比 > 80%？
 │   ├── 是 → 进入步骤 5（Tensor Workspace 分析）
 │   └── 否 ↓
-├── metadata (M) 占比 > 30%？
-│   ├── 是 → 元数据内存问题，建议联系 machine 同事
-│   │         （搜索日志中 "Memory not enough" + "WsProperty:metadata" 或 "Slab alloc null"）
+├── 日志中存在 "Memory not enough" + "WsProperty:metadata" 或 "Slab alloc null"？
+│   ├── 是 → 元数据内存问题（独立内存池），建议联系 machine 同事
 │   └── 否 ↓
 ├── aicoreSpillen (S) 占比 > 30%？
 │   ├── 是 → AICore 栈溢出问题，需检查算子的 stackWorkSpaceSize
@@ -220,7 +217,7 @@ workspaceSize = TOTAL
 从步骤 3 的 Tensor 日志中提取 A、B、C、D 值，计算各项占比：
 
 ```
-Tensor 总量 T = A + B + C × D
+Tensor 总量 T ≈ A + B + C × D   （近似公式，实际 = AlignUp(A + B + C×D, 32KB) × parallelism）
 
 rootInner 占比      = A / T
 devTaskInnerOutCasts 占比 = B / T
@@ -346,9 +343,9 @@ grep -r "\[workspaceSize\].*staticMemReq=\|staticMemReq=.*too larger" <log_path>
 | 子项 | 大小 (bytes) | 占比 |
 |------|-------------|------|
 | tensor | <T> | <T/TOTAL %> |
-| metadata | <M> | <M/TOTAL %> |
 | aicoreSpilled | <S> | <S/TOTAL %> |
 | debug | <DD + LD> | <占比 %> |
+| metadata（参考，独立分配） | <M> | - |
 
 ### Tensor Workspace 拆分
 
