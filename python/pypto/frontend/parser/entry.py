@@ -48,6 +48,7 @@ def _default_globals() -> dict[str, Any]:
 class RunMode(IntEnum):
     NPU = 0
     SIM = 1
+    Torch = 2
 
 
 def parse(program: Source, extra_vars: Optional[dict[str, Any]] = None) -> Any:
@@ -318,6 +319,13 @@ class JitCallableWrapper:
         None
             User holds output tensor(s) passed as arguments; no return value.
         """
+        if self._runtime_options is not None:
+            rm = self._runtime_options.get("run_mode", None)
+            if rm == pypto.RunMode.Torch or rm == pypto.RunMode.Torch.value:
+                from pypto.torch_backend import eager_mode
+                with eager_mode():
+                    self._original_func(*args, **kwargs)
+                return None
         in_tensors, non_tensor_values, input_tensor_defs = self._parse_call_args(
             args, kwargs
         )
@@ -926,9 +934,9 @@ class JitCallableWrapper:
 
         run_mode = self._runtime_options.get("run_mode", None)
         if run_mode is not None:
-            if run_mode not in [pypto.RunMode.NPU, pypto.RunMode.SIM, 0, 1]:
+            if run_mode not in [pypto.RunMode.NPU, pypto.RunMode.SIM, pypto.RunMode.Torch, 0, 1, 2]:
                 raise RuntimeError(
-                    "Invalid run mode, run mode must be RunMode.NPU or RunMode.SIM."
+                    "Invalid run mode, run mode must be RunMode.NPU, RunMode.SIM, or RunMode.Torch."
                 )
             else:
                 if isinstance(run_mode, pypto.RunMode):
