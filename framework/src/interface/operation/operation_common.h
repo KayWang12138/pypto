@@ -50,6 +50,10 @@ constexpr int32_t NUM_VALUE_64 = 64;
 constexpr double NUM_VALUE_0_5 = 0.5;
 constexpr double NUM_VALUE_EPS = 1e-9;
 
+// Tensor dimension limits
+constexpr size_t MIN_TENSOR_DIM = 1;
+constexpr size_t MAX_TENSOR_DIM = 4;
+
 struct TileInfo {
     std::vector<int64_t> shape;
     std::vector<int64_t> offset;
@@ -73,6 +77,17 @@ void CheckTensorDynamicShape(const LogicalTensors iOperands, const Opcode opCode
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2);
 std::vector<int> GetBroadcastAxes(const Shape& shape1, const Shape& shape2);
 void CheckAxisRange(const Tensor& tensor, int& axis);
+
+void CheckTensorDimRange(const LogicalTensorPtr& tensor, size_t minDim, size_t maxDim, const std::string& opName);
+void CheckTensorsDimConsistency(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName);
+void CheckTensorShapeSize(const LogicalTensorPtr& tensor, const std::string& opName);
+void CheckTensorsShapeConsistencyOrBroadcast(const std::vector<LogicalTensorPtr>& tensors, const std::string& opName);
+void CheckTensorDataType(const LogicalTensorPtr& tensor, const std::unordered_set<DataType>& supportedTypes,
+                         const std::string& opName);
+void CheckTensorsDataTypeConsistency(const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2,
+                                     const std::string& opName);
+void CheckTensorsFormatConsistency(const LogicalTensorPtr& tensor1, const LogicalTensorPtr& tensor2,
+                                   const std::string& opName);
 
 using TiledFuncType = std::function<void(
     Function& function, const TileShape& tileShape, const std::vector<LogicalTensorPtr>& iOperand,
