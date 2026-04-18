@@ -30,6 +30,8 @@ private:
 
     std::string GenGmParamVar(unsigned gmParamIdx) const override;
 
+    std::string GenGMAddrExprWithOffset(const std::string& addrExpr) const override;
+
     TileTensor BuildTileTensor(
         int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {}) override;
 
