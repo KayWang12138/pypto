@@ -359,10 +359,11 @@ std::string PipeSync::PipeDepInfo::DumpPipeDepInfo()
 {
     std::stringstream ss;
     ss << "    wait idx: " << waitIdx << "\n";
-    ss << "    setPipes:"
+    ss << "    setPipeCoreEx:"
        << "\n";
     for (auto pair : setPipes) {
         ss << "        pipetype: " << GetPipeTypeDict().Find(pair.first.pipe)
+           << " " << GetCoreTypeDict().Find(pair.first.core)
            << "  aivCore: " << static_cast<int>(pair.first.aivCore) << "  opidx: " << pair.second << "\n";
     }
     return ss.str();
@@ -372,7 +373,9 @@ std::string PipeSync::DumpLatestPipeDepMap()
 {
     std::stringstream ss;
     for (auto pair : latestPipeDep_) {
-        ss << "current pipe type: " << GetPipeTypeDict().Find(pair.first.pipe) << "\n";
+        ss << "current PipeCore: " << GetPipeTypeDict().Find(pair.first.pipe)
+           << " " << GetCoreTypeDict().Find(pair.first.core)
+           << " aivCore: " << static_cast<int>(pair.first.aivCore) << "\n";
         ss << pair.second.DumpPipeDepInfo() << "\n";
     }
     return ss.str();
@@ -1425,10 +1428,26 @@ void PipeSync::UpdateDep(DepOp& currOp, DepOp& prevOp)
 
     auto currSetPipeIter = currPipeDep.setPipes.find(prevPipe);
     if (currSetPipeIter == currPipeDep.setPipes.end() || currSetPipeIter->second < prevOp.idx) {
-        // no indirect dependency exist, save current dependency
-        currOp.waitPipe.emplace_back(prevOp.idx);
-        prevOp.setPipe.emplace_back(currOp.idx);
-        currPipeDep.setPipes[prevPipe] = prevOp.idx;
+        bool updateFlag = true;
+        size_t maxIdx = prevOp.idx;
+        for (auto [setPipe, setIdx] : currPipeDep.setPipes) {
+            auto setDepInfo = latestPipeDep_[setPipe];
+            for (auto [setSetPipe, setSetIdx] : setDepInfo.setPipes) {
+                if (setSetPipe == prevPipe && setSetIdx >= prevOp.idx) {
+                    updateFlag = false;
+                    maxIdx = setSetIdx > maxIdx ? setSetIdx : maxIdx;
+                }
+            }
+        }
+        if (updateFlag) {
+            // no indirect dependency exist, save current dependency
+            currOp.waitPipe.emplace_back(prevOp.idx);
+            prevOp.setPipe.emplace_back(currOp.idx);
+            currPipeDep.setPipes[prevPipe] = prevOp.idx;
+        } else {
+            currPipeDep.setPipes[prevPipe] = maxIdx;
+        }
+        
         auto prevPipeDepIter = latestPipeDep_.find(prevPipe);
         auto prevWaitPipeIdx = prevPipeDepIter->second.waitIdx;
         if (prevPipeDepIter != latestPipeDep_.end() && prevWaitPipeIdx <= prevOp.idx) {
