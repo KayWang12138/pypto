@@ -41,87 +41,11 @@ public:
     void TearDown() override {}
 };
 
-// input和other均为张量
-TEST_F(LiteNPUCodeGenWhere, test_where_tt) {
-    PROGRAM("WHERE_001") {
-        TileShape::Current().SetVecTile(8, 8);
-        Tensor condition(DT_UINT8, {8, 2}, "condition");
-        Tensor input(DT_FP32, {8, 16}, "input");
-        Tensor other(DT_FP32, {8, 16}, "other");
-        auto output = Tensor(DataType::DT_FP32, {8, 16}, "output");
-        FUNCTION("WHERE_001") {
-            output = Where(condition, input, other);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// input为张量 other为标量
-TEST_F(LiteNPUCodeGenWhere, test_where_ts) {
-    PROGRAM("WHERE_001") {
-        TileShape::Current().SetVecTile(1, 1, 40, 5);
-        Tensor condition(DT_UINT8, {1, 2, 5, 5}, "condition");
-        Tensor input(DT_FP32, {1, 2, 40, 5}, "input");
-        Element other(DT_FP32, 1.0);
-        auto output = Tensor(DataType::DT_FP32, {1, 2, 40, 5}, "output");
-        FUNCTION("WHERE_001") {
-            output = Where(condition, input, other);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// input、other均为张量
-TEST_F(LiteNPUCodeGenWhere, test_where_ss) {
-    PROGRAM("WHERE_001") {
-        TileShape::Current().SetVecTile(8, 2, 8, 8);
-        Tensor condition(DT_UINT8, {8, 2, 8, 8}, "condition");
-        Element input(DT_FP32, 8.0);
-        Element other(DT_FP32, 1.0);
-        auto output = Tensor(DataType::DT_FP32, {8, 2, 8, 8}, "output");
-        FUNCTION("WHERE_001") {
-            output = Where(condition, input, other);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-// input为标量 other为张量 
-TEST_F(LiteNPUCodeGenWhere, test_where_st) {
-    PROGRAM("WHERE_001") {
-        TileShape::Current().SetVecTile(8, 8);
-        Tensor condition(DT_UINT8, {8, 2}, "condition");
-        Element input(DT_FP32, 1.0);
-        Tensor other(DT_FP32, {8, 16}, "input");
-        auto output = Tensor(DataType::DT_FP32, {8, 16}, "output");
-        FUNCTION("WHERE_001") {
-            output = Where(condition, input, other);
-        }
-    }
-
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_001");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
 // fp16_001 | 2D 双张量，H单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_001) {
     PROGRAM("WHERE_FP16_001") {
         TileShape::Current().SetVecTile(1, 64);
-        Tensor condition(DT_UINT8, {2, 8}, "condition");
+        Tensor condition(DT_BOOL, {2, 1}, "condition");
         Tensor input(DT_FP16, {2, 64}, "input");
         Tensor other(DT_FP16, {2, 64}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 64}, "output");
@@ -129,7 +53,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_001) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -140,7 +63,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_001) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_002) {
     PROGRAM("WHERE_FP16_002") {
         TileShape::Current().SetVecTile(4, 16);
-        Tensor condition(DT_UINT8, {4, 4}, "condition");
+        Tensor condition(DT_BOOL, {4, 1}, "condition");
         Tensor input(DT_FP16, {4, 32}, "input");
         Tensor other(DT_FP16, {4, 32}, "other");
         auto output = Tensor(DataType::DT_FP16, {4, 32}, "output");
@@ -148,7 +71,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_002) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_002");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -159,7 +81,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_002) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_003) {
     PROGRAM("WHERE_FP16_003") {
         TileShape::Current().SetVecTile(2, 32);
-        Tensor condition(DT_UINT8, {2, 8}, "condition");
+        Tensor condition(DT_BOOL, {2, 1}, "condition");
         Tensor input(DT_FP16, {2, 64}, "input");
         Tensor other(DT_FP16, {1, 64}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 64}, "output");
@@ -167,7 +89,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_003) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_003");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -178,15 +99,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_003) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_004) {
     PROGRAM("WHERE_FP16_004") {
         TileShape::Current().SetVecTile(2, 32);
-        Tensor condition(DT_UINT8, {4, 4}, "condition");
+        Tensor condition(DT_BOOL, {4, 1}, "condition");
         Tensor input(DT_FP16, {4, 32}, "input");
-        Element other(DT_FP16, 1.0);
+        Element other(DT_FP16, 1.0f);
         auto output = Tensor(DataType::DT_FP16, {4, 32}, "output");
         FUNCTION("WHERE_FP16_004") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_004");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -197,7 +117,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_004) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_005) {
     PROGRAM("WHERE_FP16_005") {
         TileShape::Current().SetVecTile(1, 20);
-        Tensor condition(DT_UINT8, {2, 5}, "condition");
+        Tensor condition(DT_BOOL, {2, 1}, "condition");
         Tensor input(DT_FP16, {2, 40}, "input");
         Tensor other(DT_FP16, {2, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 40}, "output");
@@ -205,7 +125,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_005) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_005");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -216,35 +135,32 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_005) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_006) {
     PROGRAM("WHERE_FP16_006") {
         TileShape::Current().SetVecTile(2, 16, 32);
-        Tensor condition(DT_UINT8, {2, 1, 4}, "condition");
-        Tensor input(DT_FP16, {2, 32, 32}, "input");
+        Tensor condition(DT_BOOL, {2, 1, 32}, "condition");
+        Tensor input(DT_FP16, {2, 1, 32}, "input");
         Tensor other(DT_FP16, {2, 32, 32}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 32}, "output");
         FUNCTION("WHERE_FP16_006") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_006");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-// fp16_007 | 3D 双张量，W单轴切分 
+// fp16_007 | 3D 双张量，W单轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_007) {
     PROGRAM("WHERE_FP16_007") {
-        TileShape::Current().SetVecTile(2, 32, 24);
-        /* TileShape::Current().SetVecTile(2, 32, 16);  出现了跟compare低维向高维广播相同的报错 */
-        Tensor condition(DT_UINT8, {2, 32, 4}, "condition");
-        Tensor input(DT_FP16, {2, 32, 32}, "input");
-        Tensor other(DT_FP16, {2, 32, 32}, "other");
+        TileShape::Current().SetVecTile(2, 32, 16);
+        Tensor condition(DT_BOOL, {2, 32, 1}, "condition");
+        Tensor input(DT_FP16, {1, 32, 32}, "input");
+        Tensor other(DT_FP16, {2, 1, 32}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 32}, "output");
         FUNCTION("WHERE_FP16_007") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_007");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -255,15 +171,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_007) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_008) {
     PROGRAM("WHERE_FP16_008") {
         TileShape::Current().SetVecTile(1, 24, 24);
-        Tensor condition(DT_UINT8, {2, 1, 3}, "condition");
-        Tensor input(DT_FP16, {2, 24, 24}, "input");
-        Tensor other(DT_FP16, {2, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 1, 24}, "condition");
+        Tensor input(DT_FP16, {2, 24, 1}, "input");
+        Tensor other(DT_FP16, {1, 24, 24}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 24, 24}, "output");
         FUNCTION("WHERE_FP16_008") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_008");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -274,34 +189,32 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_008) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_009) {
     PROGRAM("WHERE_FP16_009") {
         TileShape::Current().SetVecTile(3, 8, 48);
-        Tensor condition(DT_UINT8, {3, 1, 6}, "condition");
+        Tensor condition(DT_BOOL, {3, 1, 48}, "condition");
         Tensor input(DT_FP16, {3, 16, 48}, "input");
-        Element other(DT_FP16, 1.0);
+        Element other(DT_FP16, 1.0f);
         auto output = Tensor(DataType::DT_FP16, {3, 16, 48}, "output");
         FUNCTION("WHERE_FP16_009") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_009");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-// fp16_010 | 3D 双张量，H+C双轴切分
+// fp16_010 | 3D 双张量，HC双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_010) {
     PROGRAM("WHERE_FP16_010") {
         TileShape::Current().SetVecTile(1, 16, 40);
-        Tensor condition(DT_UINT8, {2, 1, 5}, "condition");
-        Tensor input(DT_FP16, {2, 32, 40}, "input");
-        Tensor other(DT_FP16, {2, 32, 40}, "other");
+        Tensor condition(DT_BOOL, {2, 1, 40}, "condition");
+        Tensor input(DT_FP16, {2, 32, 1}, "input");
+        Tensor other(DT_FP16, {1, 32, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP16_010") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_010");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -311,23 +224,15 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_010) {
 // fp16_011 | 3D 双张量，WC双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_011) {
     PROGRAM("WHERE_FP16_011") {
-        /*
-        TileShape::Current().SetVecTile(2, 32, 16); 
-        Tensor condition(DT_UINT8, {2, 1, 5}, "condition");
-        出现了跟compare低维向高维广播相同的报错
-        */
-        // TileShape::Current().SetVecTile(1, 32, 32);
-        // Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
-        TileShape::Current().SetVecTile(2, 32, 16); 
-        Tensor condition(DT_UINT8, {2, 1, 5}, "condition");
+        TileShape::Current().SetVecTile(1, 32, 32);
+        Tensor condition(DT_BOOL, {2, 32, 1}, "condition");
         Tensor input(DT_FP16, {2, 32, 40}, "input");
-        Tensor other(DT_FP16, {2, 32, 40}, "other");
+        Tensor other(DT_FP16, {2, 1, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP16_011") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_011");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -338,15 +243,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_011) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_012) {
     PROGRAM("WHERE_FP16_012") {
         TileShape::Current().SetVecTile(1, 2, 20, 40);
-        Tensor condition(DT_UINT8, {1, 2, 1, 5}, "condition");
-        Tensor input(DT_FP16, {1, 2, 40, 40}, "input");
+        Tensor condition(DT_BOOL, {1, 2, 1, 40}, "condition");
+        Tensor input(DT_FP16, {1, 2, 1, 40}, "input");
         Tensor other(DT_FP16, {1, 2, 40, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {1, 2, 40, 40}, "output");
         FUNCTION("WHERE_FP16_012") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_012");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -357,16 +261,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_012) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_013) {
     PROGRAM("WHERE_FP16_013") {
         TileShape::Current().SetVecTile(1, 2, 40, 16);
-        // Tensor condition(DT_UINT8, {1, 2, 1, 5}, "condition"); 会出现跟compare同样的报错 只支持单轴广播？ 
-        Tensor condition(DT_UINT8, {1, 2, 40, 5}, "condition");
-        Tensor input(DT_FP16, {1, 2, 40, 40}, "input");
-        Tensor other(DT_FP16, {1, 2, 40, 40}, "other");
+        Tensor condition(DT_BOOL, {1, 2, 40, 1}, "condition");
+        Tensor input(DT_FP16, {1, 2, 40, 1}, "input");
+        Tensor other(DT_FP16, {1, 1, 40, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {1, 2, 40, 40}, "output");
         FUNCTION("WHERE_FP16_013") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_013");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -377,15 +279,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_013) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_014) {
     PROGRAM("WHERE_FP16_014") {
         TileShape::Current().SetVecTile(1, 3, 24, 24);
-        Tensor condition(DT_UINT8, {2, 3, 1, 3}, "condition");
-        Tensor input(DT_FP16, {2, 3, 24, 24}, "input");
+        Tensor condition(DT_BOOL, {2, 3, 1, 24}, "condition");
+        Tensor input(DT_FP16, {2, 3, 1, 24}, "input");
         Tensor other(DT_FP16, {2, 3, 24, 24}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 3, 24, 24}, "output");
         FUNCTION("WHERE_FP16_014") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_014");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -396,15 +297,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_014) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_015) {
     PROGRAM("WHERE_FP16_015") {
         TileShape::Current().SetVecTile(1, 2, 32, 32);
-        Tensor condition(DT_UINT8, {1, 1, 32, 4}, "condition");
-        Tensor input(DT_FP16, {1, 4, 32, 32}, "input");
+        Tensor condition(DT_BOOL, {1, 1, 32, 1}, "condition");
+        Tensor input(DT_FP16, {1, 4, 1, 32}, "input");
         Tensor other(DT_FP16, {1, 1, 32, 32}, "other");
         auto output = Tensor(DataType::DT_FP16, {1, 4, 32, 32}, "output");
         FUNCTION("WHERE_FP16_015") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_015");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -414,22 +314,15 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_015) {
 // fp16_016 | 4D 双张量，H+W双轴切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_016) {
     PROGRAM("WHERE_FP16_016") {
-        /* 
-        TileShape::Current().SetVecTile(1, 2, 12, 16); 
-        Tensor condition(DT_UINT8, {2, 2, 1, 5}, "condition");
-        出现与compare相同报错
-        */
-        // TileShape::Current().SetVecTile(1, 2, 16, 16);
         TileShape::Current().SetVecTile(2, 2, 16, 16);
-        Tensor condition(DT_UINT8, {2, 2, 24, 5}, "condition");
-        Tensor input(DT_FP16, {2, 2, 24, 40}, "input");
+        Tensor condition(DT_BOOL, {2, 2, 24, 1}, "condition");
+        Tensor input(DT_FP16, {2, 2, 1, 40}, "input");
         Tensor other(DT_FP16, {2, 2, 24, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 2, 24, 40}, "output");
         FUNCTION("WHERE_FP16_016") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_016");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -440,16 +333,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_016) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_017) {
     PROGRAM("WHERE_FP16_017") {
         TileShape::Current().SetVecTile(1, 32, 24);
-        // Tensor condition(DT_UINT8, {2, 1, 5}, "condition"); 出现与compare相同报错
-        Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
-        Tensor input(DT_FP16, {2, 32, 40}, "input");
+        Tensor condition(DT_BOOL, {2, 1, 40}, "condition");
+        Tensor input(DT_FP16, {2, 1, 40}, "input");
         Tensor other(DT_FP16, {2, 32, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP16_017") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_017");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -460,15 +351,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_017) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_018) {
     PROGRAM("WHERE_FP16_018") {
         TileShape::Current().SetVecTile(2, 16, 24);
-        Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
+        Tensor condition(DT_BOOL, {2, 32, 1}, "condition");
         Tensor input(DT_FP16, {2, 32, 40}, "input");
-        Tensor other(DT_FP16, {2, 32, 40}, "other");
+        Tensor other(DT_FP16, {2, 1, 40}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP16_018") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_018");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -479,15 +369,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_018) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_019) {
     PROGRAM("WHERE_FP16_019") {
         TileShape::Current().SetVecTile(1, 4, 12, 8);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP16, {2, 4, 24, 24}, "input");
+        Tensor condition(DT_BOOL, {2, 4, 24, 1}, "condition");
+        Tensor input(DT_FP16, {2, 4, 1, 24}, "input");
         Tensor other(DT_FP16, {2, 4, 24, 24}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP16_019") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_019");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -498,15 +387,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_019) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_020) {
     PROGRAM("WHERE_FP16_020") {
         TileShape::Current().SetVecTile(2, 2, 12, 8);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP16, {2, 4, 24, 24}, "input");
-        Tensor other(DT_FP16, {2, 4, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 4, 1, 24}, "condition");
+        Tensor input(DT_FP16, {2, 1, 24, 24}, "input");
+        Tensor other(DT_FP16, {2, 4, 24, 1}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP16_020") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_020");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -517,15 +405,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_020) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_021) {
     PROGRAM("WHERE_FP16_021") {
         TileShape::Current().SetVecTile(1, 2, 12, 24);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP16, {2, 4, 24, 24}, "input");
-        Tensor other(DT_FP16, {2, 4, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 1, 24, 24}, "condition");
+        Tensor input(DT_FP16, {2, 4, 1, 24}, "input");
+        Tensor other(DT_FP16, {2, 4, 24, 1}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP16_021") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_021");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -536,15 +423,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_021) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_022) {
     PROGRAM("WHERE_FP16_022") {
         TileShape::Current().SetVecTile(1, 2, 12, 8);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP16, {2, 4, 24, 24}, "input");
-        Tensor other(DT_FP16, {2, 4, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 4, 24, 24}, "condition");
+        Tensor input(DT_FP16, {2, 4, 24, 1}, "input");
+        Tensor other(DT_FP16, {2, 4, 1, 24}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP16_022") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_022");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -555,15 +441,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_022) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_023) {
     PROGRAM("WHERE_FP16_023") {
         TileShape::Current().SetVecTile(1, 4, 16, 16);
-        Tensor condition(DT_UINT8, {2, 4, 32, 5}, "condition");
-        Tensor input(DT_FP16, {2, 4, 32, 40}, "input");
-        Element other(DT_FP16, 1.0);
+        Tensor condition(DT_BOOL, {2, 4, 32, 1}, "condition");
+        Tensor input(DT_FP16, {2, 4, 1, 40}, "input");
+        Element other(DT_FP16, 1.0f);
         auto output = Tensor(DataType::DT_FP16, {2, 4, 32, 40}, "output");
         FUNCTION("WHERE_FP16_023") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_023");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -574,15 +459,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_023) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_024) {
     PROGRAM("WHERE_FP16_024") {
         TileShape::Current().SetVecTile(2, 2, 20, 16);
-        Tensor condition(DT_UINT8, {2, 4, 40, 5}, "condition");
-        Tensor input(DT_FP16, {2, 4, 40, 40}, "input");
-        Element other(DT_FP16, 1.0);
+        Tensor condition(DT_BOOL, {2, 4, 40, 1}, "condition");
+        Tensor input(DT_FP16, {2, 4, 1, 40}, "input");
+        Element other(DT_FP16, 1.0f);
         auto output = Tensor(DataType::DT_FP16, {2, 4, 40, 40}, "output");
         FUNCTION("WHERE_FP16_024") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_024");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -593,15 +477,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_024) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_025) {
     PROGRAM("WHERE_FP16_025") {
         TileShape::Current().SetVecTile(1, 1, 32, 16);
-        Tensor condition(DT_UINT8, {2, 3, 32, 5}, "condition");
-        Tensor input(DT_FP16, {2, 3, 32, 40}, "input");
-        Tensor other(DT_FP16, {2, 3, 32, 40}, "other");
+        Tensor condition(DT_BOOL, {2, 3, 1, 40}, "condition");
+        Tensor input(DT_FP16, {2, 3, 1, 40}, "input");
+        Tensor other(DT_FP16, {2, 3, 32, 1}, "other");
         auto output = Tensor(DataType::DT_FP16, {2, 3, 32, 40}, "output");
         FUNCTION("WHERE_FP16_025") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_025");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -612,15 +495,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_025) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_026) {
     PROGRAM("WHERE_FP16_026") {
         TileShape::Current().SetVecTile(1, 8);
-        Tensor condition(DT_UINT8, {2, 8}, "condition");
-        Element input(DT_FP16, 1.0);
-        Element other(DT_FP16, 2.0);
+        Tensor condition(DT_BOOL, {2, 8}, "condition");
+        Element input(DT_FP16, 1.0f);
+        Element other(DT_FP16, 2.0f);
         auto output = Tensor(DataType::DT_FP16, {2, 8}, "output");
         FUNCTION("WHERE_FP16_026") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_026");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -631,15 +513,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_026) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_027) {
     PROGRAM("WHERE_FP16_027") {
         TileShape::Current().SetVecTile(1, 4, 8);
-        Tensor condition(DT_UINT8, {1, 8, 16}, "condition");
-        Element input(DT_FP16, 1.0);
-        Element other(DT_FP16, 2.0);
+        Tensor condition(DT_BOOL, {1, 8, 16}, "condition");
+        Element input(DT_FP16, 1.0f);
+        Element other(DT_FP16, 2.0f);
         auto output = Tensor(DataType::DT_FP16, {1, 8, 16}, "output");
         FUNCTION("WHERE_FP16_027") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_027");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -650,15 +531,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_027) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp16_028) {
     PROGRAM("WHERE_FP16_028") {
         TileShape::Current().SetVecTile(1, 1, 2, 8);
-        Tensor condition(DT_UINT8, {2, 2, 4, 8}, "condition");
-        Element input(DT_FP16, 1.0);
-        Element other(DT_FP16, 2.0);
+        Tensor condition(DT_BOOL, {2, 2, 4, 8}, "condition");
+        Element input(DT_FP16, 1.0f);
+        Element other(DT_FP16, 2.0f);
         auto output = Tensor(DataType::DT_FP16, {2, 2, 4, 8}, "output");
         FUNCTION("WHERE_FP16_028") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP16_028");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -669,7 +549,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp16_028) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_001) {
     PROGRAM("WHERE_FP32_001") {
         TileShape::Current().SetVecTile(1, 64);
-        Tensor condition(DT_UINT8, {2, 8}, "condition");
+        Tensor condition(DT_BOOL, {1, 64}, "condition");
         Tensor input(DT_FP32, {2, 64}, "input");
         Tensor other(DT_FP32, {2, 64}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 64}, "output");
@@ -677,7 +557,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_001) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_001");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -688,7 +567,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_001) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_002) {
     PROGRAM("WHERE_FP32_002") {
         TileShape::Current().SetVecTile(4, 16);
-        Tensor condition(DT_UINT8, {4, 4}, "condition");
+        Tensor condition(DT_BOOL, {1, 32}, "condition");
         Tensor input(DT_FP32, {4, 32}, "input");
         Tensor other(DT_FP32, {4, 32}, "other");
         auto output = Tensor(DataType::DT_FP32, {4, 32}, "output");
@@ -696,7 +575,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_002) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_002");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -707,7 +585,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_002) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_003) {
     PROGRAM("WHERE_FP32_003") {
         TileShape::Current().SetVecTile(2, 32);
-        Tensor condition(DT_UINT8, {2, 8}, "condition");
+        Tensor condition(DT_BOOL, {2, 1}, "condition");
         Tensor input(DT_FP32, {2, 64}, "input");
         Tensor other(DT_FP32, {1, 64}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 64}, "output");
@@ -715,7 +593,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_003) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_003");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -726,15 +603,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_003) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_004) {
     PROGRAM("WHERE_FP32_004") {
         TileShape::Current().SetVecTile(2, 32);
-        Tensor condition(DT_UINT8, {4, 4}, "condition");
+        Tensor condition(DT_BOOL, {4, 1}, "condition");
         Tensor input(DT_FP32, {4, 32}, "input");
-        Element other(DT_FP32, 1.0);
+        Element other(DT_FP32, 1.0f);
         auto output = Tensor(DataType::DT_FP32, {4, 32}, "output");
         FUNCTION("WHERE_FP32_004") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_004");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -745,7 +621,7 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_004) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_005) {
     PROGRAM("WHERE_FP32_005") {
         TileShape::Current().SetVecTile(1, 16);
-        Tensor condition(DT_UINT8, {2, 5}, "condition");
+        Tensor condition(DT_BOOL, {2, 1}, "condition");
         Tensor input(DT_FP32, {2, 40}, "input");
         Tensor other(DT_FP32, {2, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 40}, "output");
@@ -753,7 +629,6 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_005) {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_005");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -764,15 +639,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_005) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_006) {
     PROGRAM("WHERE_FP32_006") {
         TileShape::Current().SetVecTile(2, 16, 32);
-        Tensor condition(DT_UINT8, {2, 32, 4}, "condition");
+        Tensor condition(DT_BOOL, {2, 1, 32}, "condition");
         Tensor input(DT_FP32, {2, 32, 32}, "input");
-        Tensor other(DT_FP32, {2, 32, 32}, "other");
+        Tensor other(DT_FP32, {2, 32, 1}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 32, 32}, "output");
         FUNCTION("WHERE_FP32_006") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_006");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -783,15 +657,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_006) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_007) {
     PROGRAM("WHERE_FP32_007") {
         TileShape::Current().SetVecTile(2, 32, 16);
-        Tensor condition(DT_UINT8, {2, 32, 4}, "condition");
-        Tensor input(DT_FP32, {2, 32, 32}, "input");
-        Tensor other(DT_FP32, {2, 32, 32}, "other");
+        Tensor condition(DT_BOOL, {2, 32, 1}, "condition");
+        Tensor input(DT_FP32, {2, 1, 32}, "input");
+        Tensor other(DT_FP32, {2, 32, 1}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 32, 32}, "output");
         FUNCTION("WHERE_FP32_007") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_007");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -802,15 +675,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_007) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_008) {
     PROGRAM("WHERE_FP32_008") {
         TileShape::Current().SetVecTile(1, 24, 24);
-        Tensor condition(DT_UINT8, {2, 24, 3}, "condition");
-        Tensor input(DT_FP32, {2, 24, 24}, "input");
-        Tensor other(DT_FP32, {2, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 24, 1}, "condition");
+        Tensor input(DT_FP32, {1, 24, 24}, "input");
+        Tensor other(DT_FP32, {2, 1, 24}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 24, 24}, "output");
         FUNCTION("WHERE_FP32_008") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_008");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -821,15 +693,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_008) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_009) {
     PROGRAM("WHERE_FP32_009") {
         TileShape::Current().SetVecTile(3, 8, 48);
-        Tensor condition(DT_UINT8, {3, 16, 6}, "condition");
-        Tensor input(DT_FP32, {3, 16, 48}, "input");
-        Element other(DT_FP32, 1.0);
+        Tensor condition(DT_BOOL, {3, 1, 48}, "condition");
+        Tensor input(DT_FP32, {1, 16, 48}, "input");
+        Element other(DT_FP32, 1.0f);
         auto output = Tensor(DataType::DT_FP32, {3, 16, 48}, "output");
         FUNCTION("WHERE_FP32_009") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_009");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -840,15 +711,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_009) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_010) {
     PROGRAM("WHERE_FP32_010") {
         TileShape::Current().SetVecTile(1, 16, 40);
-        Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
+        Tensor condition(DT_BOOL, {2, 32, 1}, "condition");
         Tensor input(DT_FP32, {2, 32, 40}, "input");
-        Tensor other(DT_FP32, {2, 32, 40}, "other");
+        Tensor other(DT_FP32, {2, 1, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP32_010") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_010");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -859,15 +729,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_010) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_011) {
     PROGRAM("WHERE_FP32_011") {
         TileShape::Current().SetVecTile(1, 32, 16);
-        Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
-        Tensor input(DT_FP32, {2, 32, 40}, "input");
-        Tensor other(DT_FP32, {2, 32, 40}, "other");
+        Tensor condition(DT_BOOL, {2, 1, 32}, "condition");
+        Tensor input(DT_FP32, {2, 32, 1}, "input");
+        Tensor other(DT_FP32, {2, 1, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP32_011") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_011");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -878,15 +747,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_011) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_012) {
     PROGRAM("WHERE_FP32_012") {
         TileShape::Current().SetVecTile(1, 2, 20, 40);
-        Tensor condition(DT_UINT8, {1, 2, 40, 5}, "condition");
-        Tensor input(DT_FP32, {1, 2, 40, 40}, "input");
-        Tensor other(DT_FP32, {1, 2, 40, 40}, "other");
+        Tensor condition(DT_BOOL, {1, 2, 40, 1}, "condition");
+        Tensor input(DT_FP32, {1, 2, 40, 1}, "input");
+        Tensor other(DT_FP32, {1, 2, 1, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {1, 2, 40, 40}, "output");
         FUNCTION("WHERE_FP32_012") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_012");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -897,15 +765,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_012) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_013) {
     PROGRAM("WHERE_FP32_013") {
         TileShape::Current().SetVecTile(1, 2, 40, 16);
-        Tensor condition(DT_UINT8, {1, 2, 40, 5}, "condition");
+        Tensor condition(DT_BOOL, {1, 2, 1, 40}, "condition");
         Tensor input(DT_FP32, {1, 2, 40, 40}, "input");
-        Tensor other(DT_FP32, {1, 2, 40, 40}, "other");
+        Tensor other(DT_FP32, {1, 2, 40, 1}, "other");
         auto output = Tensor(DataType::DT_FP32, {1, 2, 40, 40}, "output");
         FUNCTION("WHERE_FP32_013") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_013");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -916,15 +783,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_013) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_014) {
     PROGRAM("WHERE_FP32_014") {
         TileShape::Current().SetVecTile(1, 3, 24, 24);
-        Tensor condition(DT_UINT8, {2, 3, 24, 3}, "condition");
-        Tensor input(DT_FP32, {2, 3, 24, 24}, "input");
-        Tensor other(DT_FP32, {2, 3, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 3, 24, 1}, "condition");
+        Tensor input(DT_FP32, {2, 3, 1, 24}, "input");
+        Tensor other(DT_FP32, {2, 3, 24, 1}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 3, 24, 24}, "output");
         FUNCTION("WHERE_FP32_014") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_014");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -935,15 +801,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_014) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_015) {
     PROGRAM("WHERE_FP32_015") {
         TileShape::Current().SetVecTile(1, 2, 32, 32);
-        Tensor condition(DT_UINT8, {1, 4, 32, 4}, "condition");
-        Tensor input(DT_FP32, {1, 4, 32, 32}, "input");
+        Tensor condition(DT_BOOL, {1, 4, 32, 1}, "condition");
+        Tensor input(DT_FP32, {1, 4, 1, 32}, "input");
         Tensor other(DT_FP32, {1, 1, 32, 32}, "other");
         auto output = Tensor(DataType::DT_FP32, {1, 4, 32, 32}, "output");
         FUNCTION("WHERE_FP32_015") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_015");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -954,15 +819,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_015) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_016) {
     PROGRAM("WHERE_FP32_016") {
         TileShape::Current().SetVecTile(1, 2, 12, 16);
-        Tensor condition(DT_UINT8, {2, 2, 24, 5}, "condition");
-        Tensor input(DT_FP32, {2, 2, 24, 40}, "input");
-        Tensor other(DT_FP32, {2, 2, 24, 40}, "other");
+        Tensor condition(DT_BOOL, {2, 2, 24, 1}, "condition");
+        Tensor input(DT_FP32, {2, 2, 24, 1}, "input");
+        Tensor other(DT_FP32, {2, 2, 1, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 2, 24, 40}, "output");
         FUNCTION("WHERE_FP32_016") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_016");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -973,15 +837,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_016) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_017) {
     PROGRAM("WHERE_FP32_017") {
         TileShape::Current().SetVecTile(1, 16, 40);
-        Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
-        Tensor input(DT_FP32, {2, 32, 40}, "input");
+        Tensor condition(DT_BOOL, {2, 32, 1}, "condition");
+        Tensor input(DT_FP32, {2, 32, 1}, "input");
         Tensor other(DT_FP32, {2, 32, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP32_017") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_017");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -992,15 +855,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_017) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_018) {
     PROGRAM("WHERE_FP32_018") {
         TileShape::Current().SetVecTile(2, 16, 16);
-        Tensor condition(DT_UINT8, {2, 32, 5}, "condition");
-        Tensor input(DT_FP32, {2, 32, 40}, "input");
+        Tensor condition(DT_BOOL, {2, 1, 40}, "condition");
+        Tensor input(DT_FP32, {2, 1, 40}, "input");
         Tensor other(DT_FP32, {2, 32, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 32, 40}, "output");
         FUNCTION("WHERE_FP32_018") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_018");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1011,15 +873,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_018) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_019) {
     PROGRAM("WHERE_FP32_019") {
         TileShape::Current().SetVecTile(1, 4, 12, 8);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP32, {2, 4, 24, 24}, "input");
-        Tensor other(DT_FP32, {2, 4, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 4, 24, 1}, "condition");
+        Tensor input(DT_FP32, {2, 4, 1, 24}, "input");
+        Tensor other(DT_FP32, {2, 4, 24, 1}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP32_019") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_019");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1030,15 +891,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_019) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_020) {
     PROGRAM("WHERE_FP32_020") {
         TileShape::Current().SetVecTile(2, 2, 12, 8);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP32, {2, 4, 24, 24}, "input");
-        Tensor other(DT_FP32, {2, 4, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 4, 1, 24}, "condition");
+        Tensor input(DT_FP32, {2, 4, 24, 1}, "input");
+        Tensor other(DT_FP32, {2, 1, 24, 24}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP32_020") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_020");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1049,15 +909,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_020) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_021) {
     PROGRAM("WHERE_FP32_021") {
         TileShape::Current().SetVecTile(1, 2, 12, 24);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP32, {2, 4, 24, 24}, "input");
-        Tensor other(DT_FP32, {2, 4, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 4, 24, 24}, "condition");
+        Tensor input(DT_FP32, {2, 1, 24, 24}, "input");
+        Tensor other(DT_FP32, {1, 4, 24, 24}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP32_021") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_021");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1068,15 +927,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_021) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_022) {
     PROGRAM("WHERE_FP32_022") {
         TileShape::Current().SetVecTile(1, 2, 12, 16);
-        Tensor condition(DT_UINT8, {2, 4, 24, 3}, "condition");
-        Tensor input(DT_FP32, {2, 4, 24, 24}, "input");
-        Tensor other(DT_FP32, {2, 4, 24, 24}, "other");
+        Tensor condition(DT_BOOL, {2, 1, 24, 24}, "condition");
+        Tensor input(DT_FP32, {2, 4, 1, 24}, "input");
+        Tensor other(DT_FP32, {2, 4, 24, 1}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 4, 24, 24}, "output");
         FUNCTION("WHERE_FP32_022") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_022");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1087,15 +945,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_022) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_023) {
     PROGRAM("WHERE_FP32_023") {
         TileShape::Current().SetVecTile(1, 4, 16, 16);
-        Tensor condition(DT_UINT8, {2, 4, 32, 5}, "condition");
-        Tensor input(DT_FP32, {2, 4, 32, 40}, "input");
-        Element other(DT_FP32, 1.0);
+        Tensor condition(DT_BOOL, {2, 4, 32, 1}, "condition");
+        Tensor input(DT_FP32, {2, 4, 1, 40}, "input");
+        Element other(DT_FP32, 1.0f);
         auto output = Tensor(DataType::DT_FP32, {2, 4, 32, 40}, "output");
         FUNCTION("WHERE_FP32_023") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_023");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1106,15 +963,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_023) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_024) {
     PROGRAM("WHERE_FP32_024") {
         TileShape::Current().SetVecTile(2, 2, 16, 16);
-        Tensor condition(DT_UINT8, {2, 4, 40, 5}, "condition");
+        Tensor condition(DT_BOOL, {2, 4, 40, 1}, "condition");
         Tensor input(DT_FP32, {2, 4, 40, 40}, "input");
-        Element other(DT_FP32, 1.0);
+        Element other(DT_FP32, 1.0f);
         auto output = Tensor(DataType::DT_FP32, {2, 4, 40, 40}, "output");
         FUNCTION("WHERE_FP32_024") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_024");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1125,34 +981,32 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_024) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_025) {
     PROGRAM("WHERE_FP32_025") {
         TileShape::Current().SetVecTile(1, 1, 32, 16);
-        Tensor condition(DT_UINT8, {2, 3, 32, 5}, "condition");
-        Tensor input(DT_FP32, {2, 3, 32, 40}, "input");
-        Tensor other(DT_FP32, {2, 3, 32, 40}, "other");
+        Tensor condition(DT_BOOL, {2, 3, 32, 1}, "condition");
+        Tensor input(DT_FP32, {1, 3, 32, 40}, "input");
+        Tensor other(DT_FP32, {2, 3, 1, 40}, "other");
         auto output = Tensor(DataType::DT_FP32, {2, 3, 32, 40}, "output");
         FUNCTION("WHERE_FP32_025") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_025");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
 
-// fp32_026 | 2D 双标量，H+W切分
+// fp32_026 | 2D 双标量，N+W切分
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_026) {
     PROGRAM("WHERE_FP32_026") {
         TileShape::Current().SetVecTile(1, 4);
-        Tensor condition(DT_UINT8, {2, 8}, "condition");
-        Element input(DT_FP32, 1.0);
-        Element other(DT_FP32, 2.0);
-        auto output = Tensor(DataType::DT_FP32, {2, 4}, "output");
+        Tensor condition(DT_BOOL, {2, 8}, "condition");
+        Element input(DT_FP32, 1.0f);
+        Element other(DT_FP32, 2.0f);
+        auto output = Tensor(DataType::DT_FP32, {2, 8}, "output");
         FUNCTION("WHERE_FP32_026") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_026");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1163,15 +1017,14 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_026) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_027) {
     PROGRAM("WHERE_FP32_027") {
         TileShape::Current().SetVecTile(1, 4, 8);
-        Tensor condition(DT_UINT8, {2, 8, 64}, "condition");
-        Element input(DT_FP32, 1.0);
-        Element other(DT_FP32, 2.0);
+        Tensor condition(DT_BOOL, {2, 8, 64}, "condition");
+        Element input(DT_FP32, 1.0f);
+        Element other(DT_FP32, 2.0f);
         auto output = Tensor(DataType::DT_FP32, {2, 8, 64}, "output");
         FUNCTION("WHERE_FP32_027") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_027");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
@@ -1182,16 +1035,69 @@ TEST_F(LiteNPUCodeGenWhere, test_where_fp32_027) {
 TEST_F(LiteNPUCodeGenWhere, test_where_fp32_028) {
     PROGRAM("WHERE_FP32_028") {
         TileShape::Current().SetVecTile(1, 2, 4, 8);
-        Tensor condition(DT_UINT8, {2, 4, 16, 32}, "condition");
-        Element input(DT_FP32, 1.0);
-        Element other(DT_FP32, 2.0);
+        Tensor condition(DT_BOOL, {2, 4, 16, 32}, "condition");
+        Element input(DT_FP32, 1.0f);
+        Element other(DT_FP32, 2.0f);
         auto output = Tensor(DataType::DT_FP32, {2, 4, 16, 32}, "output");
         FUNCTION("WHERE_FP32_028") {
             output = Where(condition, input, other);
         }
     }
-
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_028");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// fp32_029 | 1D/2D 广播，H+W双轴切分
+TEST_F(LiteNPUCodeGenWhere, test_where_fp32_029) {
+    PROGRAM("WHERE_FP32_029") {
+        TileShape::Current().SetVecTile(4, 4);
+        Tensor condition(DT_BOOL, {8, 8}, "condition");
+        Tensor input(DT_FP32, {8}, "input");
+        Tensor other(DT_FP32, {8, 8}, "other");
+        auto output = Tensor(DataType::DT_FP32, {8, 8}, "output");
+        FUNCTION("WHERE_FP32_029") {
+            output = Where(condition, input, other);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_029");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// fp32_030 | 2D/3D 广播，C+H+W三轴切分
+TEST_F(LiteNPUCodeGenWhere, test_where_fp32_030) {
+    PROGRAM("WHERE_FP32_030") {
+        TileShape::Current().SetVecTile(16, 12, 8);
+        Tensor condition(DT_BOOL, {32, 24, 16}, "condition");
+        Tensor input(DT_FP32, {24, 16}, "input");
+        Tensor other(DT_FP32, {32, 24, 16}, "other");
+        auto output = Tensor(DataType::DT_FP32, {32, 24, 16}, "output");
+        FUNCTION("WHERE_FP32_030") {
+            output = Where(condition, input, other);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_030");
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+// fp32_031 | 3D/4D 广播，N+C+H+W四轴切分
+TEST_F(LiteNPUCodeGenWhere, test_where_fp32_031) {
+    PROGRAM("WHERE_FP32_031") {
+        TileShape::Current().SetVecTile(8, 8, 8, 8);
+        Tensor condition(DT_BOOL, {16, 32, 24, 16}, "condition");
+        Tensor input(DT_FP32, {32, 32, 16}, "input");
+        Tensor other(DT_FP32, {16, 32, 32, 16}, "other");
+        auto output = Tensor(DataType::DT_FP32, {16, 32, 32, 16}, "output");
+        FUNCTION("WHERE_FP32_031") {
+            output = Where(condition, input, other);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "WHERE_FP32_031");
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenLiteNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
