@@ -48,16 +48,6 @@ void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op)
     }
 }
 
-void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const std::string& opName)
-{
-    for (size_t dimIdx = 0; dimIdx < iOperand->shape.size(); ++dimIdx) {
-        auto i = iOperand->shape[dimIdx];
-        CHECK_OP(i != -1) << (!opName.empty() ? "Operation: " + opName : "")
-                          << " Input operand (name: " << iOperand->tensor->GetSymbol() << ") "
-                          << " at dimension[" << dimIdx << "] has invalid shape value: -1";
-    }
-}
-
 void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCode)
 {
     if (opCode == Opcode::OP_VIEW || opCode == Opcode::OP_ASSEMBLE || opCode == Opcode::OP_RESHAPE ||
@@ -65,7 +55,12 @@ void CheckTensorDynamicShape(const LogicalTensorPtr& iOperand, const Opcode opCo
         return;
     }
     const std::string opName = OpcodeManager::Inst().GetOpcodeStr(opCode);
-    CheckTensorDynamicShape(iOperand, opName);
+    for (size_t dimIdx = 0; dimIdx < iOperand->shape.size(); ++dimIdx) {
+        auto i = iOperand->shape[dimIdx];
+        CHECK_OP(i != -1) << (!opName.empty() ? "Operation: " + opName : "")
+                          << " Input operand (name: " << iOperand->tensor->GetSymbol() << ") "
+                          << " at dimension[" << dimIdx << "] has invalid shape value: -1";
+    }
 }
 
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2)
