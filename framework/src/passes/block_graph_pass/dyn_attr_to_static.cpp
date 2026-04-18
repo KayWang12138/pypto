@@ -549,6 +549,29 @@ static void HandleIndexoutcastOp(Operation &op, std::set<int> inoutCast) {
     }
 }
 
+static void HandleUnusedTensor(Operation &op, std::set<int> inoutCast) {
+    for (auto &iOperand : op.GetIOperands()) {
+        if (iOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            std::map<int, SymbolicScalar> paramAddrMap;
+            iOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
+            if (!paramAddrMap.empty()) {
+                continue;
+            }
+            SetTensorParamAddr(op, iOperand, 1, 1, inoutCast);
+        } 
+    }
+    for (auto &oOperand : op.GetOOperands()) {
+        if (oOperand->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            std::map<int, SymbolicScalar> paramAddrMap;
+            oOperand->GetAttr<std::map<int, SymbolicScalar>>("paramAddr", paramAddrMap);
+            if (!paramAddrMap.empty()) {
+                continue;
+            }
+            SetTensorParamAddr(op, oOperand, 1, 1, inoutCast);
+        } 
+    }
+}
+
 void DynAttrToStatic::BuildParamAddr(Operation &op, std::set<int> inoutCast) {
     Opcode opcode = op.GetOpcode();
     if (opcode == Opcode::OP_INDEX_OUTCAST) {
@@ -562,6 +585,7 @@ void DynAttrToStatic::BuildParamAddr(Operation &op, std::set<int> inoutCast) {
     } else if (OpcodeManager::Inst().IsCopyOut(opcode)) {
         HandleCopyOutOp(op, inoutCast);
     }
+    HandleUnusedTensor(op, inoutCast);
 }
 
 
