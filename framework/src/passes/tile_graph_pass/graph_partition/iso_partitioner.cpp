@@ -164,7 +164,6 @@ Status IsomorphismGraphGroup::BuildGraphGroup(
     subVisitedNodeSet_.clear();
     subVisitedNodeSet_.insert(expandCandidate.begin(), expandCandidate.end());
     currentNodeSet.insert(expandCandidate.begin(), expandCandidate.end());
-
     for (int32_t nodeIdx : expandCandidate) {
         if (InLinkCountDelete(nodeIdx, idxInLinkNum, zeroInQueue) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "In-link count delete failed.");
