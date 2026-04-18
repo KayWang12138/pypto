@@ -514,7 +514,7 @@ void DynPvModelImpl::RunModel(PvModelCceBin* cce, DynFuncData* funcdata, uint64_
     pv_mem_write_(0, reinterpret_cast<uint64_t>(opAttrs), sizeof(uint64_t), reinterpret_cast<uint8_t*>(opAttrs), subcoreId_, coreId_);
     para_args.push_back(reinterpret_cast<uint64_t>(opAttrs));
     
-    pv_mem_write_(uint32_t(0), allocator_->hbmParaBase_, para_args.size() * sizeof(uint64_t), (uint8_t*)(&para_args[0]), subcoreId_, coreId_);
+    pv_mem_write_(uint32_t(0), HBM_PARA_BASE, para_args.size() * sizeof(uint64_t), (uint8_t*)(&para_args[0]), subcoreId_, coreId_);
 
     step_status_t step_status;
     do {

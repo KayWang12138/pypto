@@ -47,6 +47,7 @@ const uint32_t PV_REG_TASK_CFG = 163;
 const uint32_t PV_STEP_PIPE_ID = 2;
 const uint32_t PV_SYS_VA_BASE = 67;
 const uint32_t PV_SYS_PHY_BASE = 68;
+uint32_t HBM_PARA_BASE = 0xffff8000;
 inline int64_t CalcShapeSizeFunc(const std::vector<int64_t>& shape)
 {
     int64_t size = 1;
@@ -351,7 +352,6 @@ public:
         uint8_t* value_1_ptr = new uint8_t(1);
         uint8_t* value_34603008_ptr = reinterpret_cast<uint8_t*>(new uint64_t(34603008));
         pv_init_(0, 0, 1, (dir_ + std::string("/pvlog/")).c_str(), coreId_);
-        uint32_t HBM_PARA_BASE = 0xffff8000;
         pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t*)&HBM_PARA_BASE, 0, coreId_);
         pv_reg_write_(static_cast<uint32_t>(1), PV_REG_PARA_BASE, (uint8_t*)&HBM_PARA_BASE, 1, coreId_);
         pv_reg_write_(static_cast<uint32_t>(1), PV_REG_BLOCK_DIM, value_1_ptr, 0, coreId_);
