@@ -705,6 +705,68 @@ def expm1(input: Tensor) -> Tensor:
 
 
 @op_wrapper
+def sin(input: Tensor) -> Tensor:
+    """Computes the element-wise sine of `input`.
+
+    This function calculates the formula: `out = e ** input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    See Also
+    -------
+    sqrt : Element-wise square-root
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.sin(x)
+
+    Input x: [0.0    1.5708 3.1416]
+    Output y:[0.0000 1.0000 0.0000]
+    """
+    return pypto_impl.sin(input)
+
+
+@op_wrapper
+def cos(input: Tensor) -> Tensor:
+    """Computes the element-wise cosine of `input`.
+
+    This function calculates the formula: `out = e ** input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    See Also
+    -------
+    sqrt : Element-wise square-root
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.cos(x)
+
+    Input x: [0.0    1.5708 3.1416]
+    Output y:[1.0000 0.0000 -1.0000]
+    """
+    return pypto_impl.cos(input)
+
+
+@op_wrapper
 def sign(a: Tensor) -> Tensor:
     """Computes the element-wise exponential of `input`.
 
