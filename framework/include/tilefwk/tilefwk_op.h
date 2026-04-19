@@ -146,6 +146,8 @@ Tensor Cast(
 Tensor Exp(const Tensor& self);
 Tensor Exp2(const Tensor& self);
 Tensor Expm1(const Tensor& self);
+Tensor Sin(const Tensor& self);
+Tensor Cos(const Tensor& self);
 Tensor Neg(const Tensor& self);
 Tensor Round(const Tensor& self, const int& decimals = 0);
 Tensor Rsqrt(const Tensor& self);
@@ -267,8 +269,8 @@ Tensor ScatterUpdate(
 
 Tensor Expand(const Tensor& self, const std::vector<int64_t>& dstShape, std::vector<SymbolicScalar> validShape = {});
 
-Tensor Sin(Tensor operand);
-Tensor Cos(Tensor operand);
+// Tensor Sin(Tensor operand);
+// Tensor Cos(Tensor operand);
 Tensor Var(const Tensor& input, const std::vector<int>& dim = {}, float correction = 1.0f, bool keepDim = false);
 Tensor Softmax(const Tensor& operand);
 Tensor RmsNorm(const Tensor& operand);
