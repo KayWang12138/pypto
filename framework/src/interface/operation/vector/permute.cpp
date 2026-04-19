@@ -324,22 +324,23 @@ static Tensor TensorTailAxisPermute(
     std::vector<int> step3Perm;
     ComputeStep1Step3Perm(perm, step1Perm, step3Perm);
 
-    std::vector<int64_t> step1Shape = PermuteResultShape(selfLogical->shape, step1Perm);
+    std::vector<int64_t> step1ShapeOriginal = PermuteResultShape(selfLogical->shape, step1Perm);
+    std::vector<int64_t> step1ShapePadded = step1ShapeOriginal;
     constexpr int64_t UB_BLOCK_SIZE = 32;
     int64_t bytesPerElement = selfLogical->Datatype() == DT_FP32 ? 4 : 2;
     int64_t elementAlign = UB_BLOCK_SIZE / bytesPerElement;
-    step1Shape[n - 2] = (step1Shape[n - 2] + elementAlign - 1) / elementAlign * elementAlign;
+    step1ShapePadded[n - 2] = (step1ShapePadded[n - 2] + elementAlign - 1) / elementAlign * elementAlign;
     auto ubBuf1 = std::make_shared<LogicalTensor>(
-        function, selfLogical->Datatype(), step1Shape, SymbolicScalar::FromConcrete(step1Shape));
+        function, selfLogical->Datatype(), step1ShapePadded, SymbolicScalar::FromConcrete(step1ShapePadded));
     ubBuf1->SetMemoryTypeBoth(MemoryType::MEM_UB);
 
-    auto ubBuf2Shape = step1Shape;
-    std::swap(ubBuf2Shape[n - 2], ubBuf2Shape[n - 1]);
+    auto ubBuf2ShapePadded = step1ShapePadded;
+    std::swap(ubBuf2ShapePadded[n - 2], ubBuf2ShapePadded[n - 1]);
     auto ubBuf2 = std::make_shared<LogicalTensor>(
-        function, selfLogical->Datatype(), ubBuf2Shape, SymbolicScalar::FromConcrete(ubBuf2Shape));
+        function, selfLogical->Datatype(), ubBuf2ShapePadded, SymbolicScalar::FromConcrete(ubBuf2ShapePadded));
     ubBuf2->SetMemoryTypeBoth(MemoryType::MEM_UB);
 
-    auto tmpBufShape = ubBuf2Shape;
+    auto tmpBufShape = ubBuf2ShapePadded;
     tmpBufShape[n - 1] = (tmpBufShape[n - 1] + elementAlign - 1) / elementAlign * elementAlign;
     auto tmpBuf = std::make_shared<LogicalTensor>(
         function, selfLogical->Datatype(), tmpBufShape, SymbolicScalar::FromConcrete(tmpBufShape));
@@ -354,6 +355,8 @@ static Tensor TensorTailAxisPermute(
     op.SetAttribute(OP_ATTR_PREFIX + "dimCount", static_cast<int64_t>(n));
     op.SetAttribute(OpAttributeKey::perm, perm);
     op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultLogical->GetDynValidShape());
+    op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape3", step1ShapeOriginal[n - 2]);
+    op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape4", step1ShapeOriginal[n - 1]);
     function.UpdateTensorDataUsage(op);
 
     return Tensor(resultLogical);
@@ -411,6 +414,8 @@ void TiledTailAxisPermuteOperation(
         op.SetAttribute(OP_ATTR_PREFIX + "step1Perm", step1Perm);
         op.SetAttribute(OP_ATTR_PREFIX + "step3Perm", step3Perm);
         op.SetAttribute(OP_ATTR_PREFIX + "dimCount", dimCount);
+        op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape3", step1TileShape[shapeSize - 2]);
+        op.SetAttribute(OP_ATTR_PREFIX + "ub1ValidShape4", step1TileShape[shapeSize - 1]);
         return;
     }
 
