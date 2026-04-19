@@ -382,7 +382,7 @@ Status OoOScheduler::SpillReshapeL1BufferFor3510(int spillMemId, Operation* actu
         {reshapeOp, {l1Tensor->memoryrange.memId, l1Tensor->memoryrange.memId}}
     };
 
-    if (UpdateScheduleStatus(opMemidMap, memId, spillAllocOp, reshapeTensor, spillOp) != SUCCESS) {
+    if (UpdateScheduleStatus(opMemidMap, spillMemId, spillAllocOp, reshapeTensor, spillOp) != SUCCESS) {
         return FAILED;
     }
     ctx.newCopyoutOps.push_back(copyoutOp);
