@@ -205,6 +205,12 @@ def _to_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return cast(dict[str, Any], value)
+    return {}
+
+
 def _violation_from_api_defect(defect: dict[str, Any]) -> Violation:
     filepath = str(defect.get("filepath") or defect.get("filePath") or "").strip()
     file_name = str(defect.get("fileName") or "").strip()
@@ -259,16 +265,14 @@ def _capture_task_api_seed(page: object, url: str, config: FetcherConfig) -> Tas
             return
 
         try:
-            body = resp.json()
-            result = body.get("result", {}) if isinstance(body, dict) else {}
+            body = _as_dict(resp.json())
+            result = _as_dict(body.get("result"))
             total = _to_int(result.get("count"), default=0)
 
             payload_template: dict[str, Any] = {}
             raw_post_data = req.post_data
             if raw_post_data:
-                parsed_payload = json.loads(raw_post_data)
-                if isinstance(parsed_payload, dict):
-                    payload_template = parsed_payload
+                payload_template = _as_dict(json.loads(raw_post_data))
 
             captured.append(TaskApiSeed(api_url=resp.url, payload_template=payload_template, total=total))
         except Exception as exc:  # pragma: no cover
@@ -346,7 +350,7 @@ def _fetch_all_violations_via_task_api(page: object, seed: TaskApiSeed, config: 
             raise RuntimeError(f"task api status={response.status}, pageNum={page_num}")
 
         body = response.json()
-        result = body.get("result", {}) if isinstance(body, dict) else {}
+        result = _as_dict(_as_dict(body).get("result"))
         defects_raw = result.get("defects", [])
         if not isinstance(defects_raw, list) or not defects_raw:
             break
