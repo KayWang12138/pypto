@@ -76,7 +76,7 @@ def test_{op}_level0(device_id=None, run_mode="npu"):
             rtol=1e-3, atol=1e-3,
         )
 
-    print("  ✓ Passed\n")
+    print("[PRECISION_PASS] Level 0 basic test passed\n")
 
 
 def test_{op}_level1(device_id=None, run_mode="npu"):
@@ -105,7 +105,7 @@ def test_{op}_level1(device_id=None, run_mode="npu"):
             rtol=1e-3, atol=1e-3,
         )
 
-    print("  ✓ Passed\n")
+    print("[PRECISION_PASS] Level 1 typical test passed\n")
 
 # ─────────────────────────────────────────────
 # 3. CLI 入口
@@ -177,8 +177,11 @@ Examples:
             print(f"\n▸ Running {key}: {info['name']}")
             info["function"](device_id, args.run_mode)
         print("\n" + "=" * 60)
-        print("All tests passed!")
+        print("[PRECISION_PASS] All tests passed!")
         print("=" * 60)
+    except AssertionError:
+        print("[PRECISION_FAIL] Precision check failed!")
+        raise
     except Exception as e:
         print(f"\nError: {e}")
         raise

@@ -753,6 +753,9 @@ def validate(skill_dir):
 
     findings = flatten(results)
 
+    fm_dependent_rules = {"R02", "R03", "R04", "R05", "R06"}
+    r01_failed = fm is None
+
     static_rule_ids = [
         rule_id for rule_id, meta in rule_meta.items()
         if meta.get("type") == "static"
@@ -760,7 +763,12 @@ def validate(skill_dir):
     failed_rules = {f["rule_id"] for f in findings}
     for rule_id in static_rule_ids:
         if rule_id not in failed_rules:
-            findings.append(finding(rule_id, "PASS", "", "", 0, "", suggested_fix=""))
+            if r01_failed and rule_id in fm_dependent_rules:
+                findings.append(finding(rule_id, "S3", "D1", "SKIP",
+                    f"前置规则 R01 失败，{rule_id} 依赖 frontmatter 解析结果，跳过检查",
+                    "SKILL.md", 0, "", suggested_fix="修复 frontmatter 解析问题后重新检查"))
+            else:
+                findings.append(finding(rule_id, "PASS", "", "", 0, "", suggested_fix=""))
 
     return findings
 
