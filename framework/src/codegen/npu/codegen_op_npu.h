@@ -86,6 +86,7 @@ public:
 
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
+    std::string GenUnaryOpWithTmpTwoBuff() const;
 
     std::string GenLogicalNotOp() const;
     std::string GenLogicalAndOp() const;
