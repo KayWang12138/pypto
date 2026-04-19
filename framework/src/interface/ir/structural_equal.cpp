@@ -285,19 +285,6 @@ public:
         return true;
     }
 
-    ResultType VisitLeafField(const OpPtr& lhs, const OpPtr& rhs)
-    {
-        if (lhs->name_ != rhs->name_) {
-            if constexpr (AssertMode) {
-                std::ostringstream msg;
-                msg << "Operator name mismatch ('" << lhs->name_ << "' != '" << rhs->name_ << "')";
-                ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-            }
-            return false;
-        }
-        return true;
-    }
-
     ResultType VisitLeafField(const DataType& lhs, const DataType& rhs)
     {
         if (lhs != rhs) {
@@ -321,88 +308,6 @@ public:
                 ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
             }
             return false;
-        }
-        return true;
-    }
-
-    // Compare kwargs (vector of pairs to preserve order)
-    ResultType VisitLeafField(
-        const std::vector<std::pair<std::string, std::any>>& lhs,
-        const std::vector<std::pair<std::string, std::any>>& rhs)
-    {
-        if (lhs.size() != rhs.size()) {
-            if constexpr (AssertMode) {
-                std::ostringstream msg;
-                msg << "Kwargs size mismatch (" << lhs.size() << " != " << rhs.size() << ")";
-                ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-            }
-            return false;
-        }
-        for (size_t i = 0; i < lhs.size(); ++i) {
-            if (lhs[i].first != rhs[i].first) {
-                if constexpr (AssertMode) {
-                    std::ostringstream msg;
-                    msg << "Kwargs key mismatch at index " << i << " ('" << lhs[i].first << "' != '" << rhs[i].first
-                        << "')";
-                    ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-                }
-                return false;
-            }
-            // Compare std::any values by type and content
-            const auto& lhs_val = lhs[i].second;
-            const auto& rhs_val = rhs[i].second;
-            if (lhs_val.type() != rhs_val.type()) {
-                if constexpr (AssertMode) {
-                    std::ostringstream msg;
-                    msg << "Kwargs value type mismatch for key '" << lhs[i].first << "'";
-                    ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-                }
-                return false;
-            }
-            // Type-specific comparison
-            bool values_equal = true;
-            if (lhs_val.type() == typeid(int)) {
-                values_equal =
-                    (AnyCast<int>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                     AnyCast<int>(rhs_val, "comparing kwarg: " + lhs[i].first));
-            } else if (lhs_val.type() == typeid(bool)) {
-                values_equal =
-                    (AnyCast<bool>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                     AnyCast<bool>(rhs_val, "comparing kwarg: " + lhs[i].first));
-            } else if (lhs_val.type() == typeid(std::string)) {
-                values_equal =
-                    (AnyCast<std::string>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                     AnyCast<std::string>(rhs_val, "comparing kwarg: " + lhs[i].first));
-            } else if (lhs_val.type() == typeid(double)) {
-                values_equal =
-                    (std::abs(
-                         AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first) -
-                         AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first)) < 1e-10);
-            } else if (lhs_val.type() == typeid(DataType)) {
-                values_equal =
-                    (AnyCast<DataType>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                     AnyCast<DataType>(rhs_val, "comparing kwarg: " + lhs[i].first));
-            } else if (lhs_val.type() == typeid(MemorySpace)) {
-                values_equal =
-                    (AnyCast<MemorySpace>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                     AnyCast<MemorySpace>(rhs_val, "comparing kwarg: " + lhs[i].first));
-            } else if (lhs_val.type() == typeid(float)) {
-                values_equal =
-                    (std::abs(
-                         AnyCast<float>(lhs_val, "comparing kwarg: " + lhs[i].first) -
-                         AnyCast<float>(rhs_val, "comparing kwarg: " + lhs[i].first)) < 1e-6);
-            } else {
-                INTERNAL_CHECK(false) << "Unsupported kwargs value type for key '" << lhs[i].first
-                                      << "': " << DemangleTypeName(lhs_val.type().name());
-            }
-            if (!values_equal) {
-                if constexpr (AssertMode) {
-                    std::ostringstream msg;
-                    msg << "Kwargs value mismatch for key '" << lhs[i].first << "'";
-                    ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-                }
-                return false;
-            }
         }
         return true;
     }
