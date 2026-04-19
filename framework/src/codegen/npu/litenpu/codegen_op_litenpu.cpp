@@ -21,7 +21,6 @@ namespace npu::tile_fwk {
 // ensure funcType is static, and isUnderDynamicFunc is false
 CodeGenOpLiteNPU::CodeGenOpLiteNPU(const CodeGenOpNPUCtx& ctx) : CodeGenOpNPU(ctx)
 {
-    InitOpsGenMap();
     forBlkMgr_ = ctx.forBlockManager;
     CodeGenOp::Init(ctx.operation);
     UpdateTileTensorInfo();

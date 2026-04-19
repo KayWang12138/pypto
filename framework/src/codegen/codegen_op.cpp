@@ -35,6 +35,8 @@ const std::unordered_set<Opcode> OP_SHAPE_FROM_ATTR{
     // transpose move in/out
     Opcode::OP_TRANSPOSE_MOVEOUT,
     Opcode::OP_TRANSPOSE_MOVEIN,
+    // permute move out
+    Opcode::OP_PERMUTE_MOVEOUT,
     // index outcast
     Opcode::OP_INDEX_OUTCAST,
     // conv Load

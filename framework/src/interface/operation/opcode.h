@@ -87,6 +87,9 @@ enum class Opcode {
     OP_ABS,
     OP_PERMUTE,
     OP_PERMUTE_ELEMENT,
+    OP_PERMUTE_MOVEOUT,
+    OP_PERMUTE_SWAP,
+    OP_TAIL_AXIS_PERMUTE,
     OP_LN,
     OP_ISFINITE,
     OP_HUB,
@@ -357,7 +360,7 @@ enum class AIVCore;
 
 class TileOpCfg {
 public:
-    TileOpCfg(){};
+    TileOpCfg() {};
     TileOpCfg(std ::string code, PipeType pipeIdStart, PipeType pipeIdEnd, CoreType coreType, AIVCore aivCore = static_cast<AIVCore>(-1))
         : tileOpCode_(code), pipeIdStart_(pipeIdStart), pipeIdEnd_(pipeIdEnd), coreType_(coreType), aivCore_(aivCore)
     {}
@@ -505,11 +508,11 @@ public:
     {
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
-               opCode == Opcode::OP_INDEX_OUTCAST || opCode == Opcode::OP_INDEX_PUT || opCode == Opcode::OP_FFN_SCHED ||
-               opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_FFN_COMBINEINFO ||
-               opCode == Opcode::OP_INDEX_ADD || opCode == Opcode::OP_FFN_VALIDCNT ||
-               opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_SHMEM_PUT ||
-               opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
+               opCode == Opcode::OP_PERMUTE_MOVEOUT || opCode == Opcode::OP_INDEX_OUTCAST ||
+               opCode == Opcode::OP_INDEX_PUT || opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
+               opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_INDEX_ADD ||
+               opCode == Opcode::OP_FFN_VALIDCNT || opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
+               opCode == Opcode::OP_SHMEM_PUT || opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || opCode == Opcode::OP_L0C_COPY_OUT_CONV;
@@ -686,6 +689,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{
     Opcode::OP_L1_COPY_OUT,
     Opcode::OP_L0C_COPY_OUT,
     Opcode::OP_TRANSPOSE_MOVEOUT,
+    Opcode::OP_PERMUTE_MOVEOUT,
     Opcode::OP_INDEX_OUTCAST,
     Opcode::OP_ADD,
     Opcode::OP_SUB,
@@ -1016,12 +1020,13 @@ inline bool IsCopyOut(const Opcode& op)
 {
     return (
         op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT ||
-        op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
-        op == Opcode::OP_INDEX_PUT || op == Opcode::OP_FFN_COMBINEINFO || op == Opcode::OP_FFN_VALIDCNT ||
-        op == Opcode::OP_COPY_TO_LOCAL_EXPERT || op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL ||
-        op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_SET || op == Opcode::OP_RESHAPE_COPY_OUT ||
-        op == Opcode::OP_SHMEM_PUT_UB2GM || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
-        op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND || op == Opcode::OP_INDEX_ADD);
+        op == Opcode::OP_PERMUTE_MOVEOUT || op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_FFN_SCHED ||
+        op == Opcode::OP_FFN_BATCHING || op == Opcode::OP_INDEX_PUT || op == Opcode::OP_FFN_COMBINEINFO ||
+        op == Opcode::OP_FFN_VALIDCNT || op == Opcode::OP_COPY_TO_LOCAL_EXPERT || op == Opcode::OP_SHMEM_PUT ||
+        op == Opcode::OP_SHMEM_SIGNAL || op == Opcode::OP_SHMEM_GET || op == Opcode::OP_SHMEM_SET ||
+        op == Opcode::OP_RESHAPE_COPY_OUT || op == Opcode::OP_SHMEM_PUT_UB2GM ||
+        op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
+        op == Opcode::OP_INDEX_ADD);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode)

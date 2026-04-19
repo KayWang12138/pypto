@@ -44,6 +44,8 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_GATHER, [this]() { return GenGatherOp(); }},
           {Opcode::OP_PERMUTE, [this]() { return GenPermuteOp(); }},
           {Opcode::OP_PERMUTE_ELEMENT, [this]() { return GenPermuteOp(); }},
+          {Opcode::OP_PERMUTE_MOVEOUT, [this]() { return GenPermuteMoveOutOp(); }},
+          {Opcode::OP_TAIL_AXIS_PERMUTE, [this]() { return GenTailAxisPermuteOp(); }},
           // L1 <-> GM/BT/L1
           {Opcode::OP_L1_COPY_IN, [this]() { return GenMemL1CopyIn(); }},
           {Opcode::OP_L1_COPY_IN_A_SCALE, [this]() { return GenMemL1CopyIn(); }},
@@ -126,6 +128,7 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_ISFINITE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWPROD_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_TRANSPOSE_VNCHWCONV, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_PERMUTE_SWAP, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -326,12 +329,16 @@ CodeGenOpNPU::CodeGenOpNPU(const CodeGenOpNPUCtx& ctx)
           {Opcode::OP_AICPU_CALL_AIC, [this]() { return GenAicpuCallOp(); }},
           {Opcode::OP_AICPU_CALL_AIV, [this]() { return GenAicpuCallOp(); }},
       })
-{}
+{
+    InitOpsGenMap();
+}
 
 void CodeGenOpNPU::InitOpsGenMap()
 {
+    CODEGEN_LOGI("InitOpsGenMap: mteFixPipeOps_.size = %zu", mteFixPipeOps_.size());
     InitScalaOpsMap();
     InitMTEOpsMap();
+    CODEGEN_LOGI("InitOpsGenMap: after InitMTEOpsMap, opsGenMap_.size = %zu", opsGenMap_.size());
     InitVecOpsMap();
     InitCubeOpsMap();
     InitDistOpsMap();
@@ -835,7 +842,9 @@ std::string CodeGenOpNPU::QueryTileTensorTypeByIdx(int paramIdx) const
 std::string CodeGenOpNPU::GenOpCode() const
 {
     std::string tileOpSourceCode;
+    CODEGEN_LOGI("GenOpCode: opCode = %d, opCodeStr = %s", static_cast<int>(opCode), opCodeStr.c_str());
     auto iter = opsGenMap_.find(opCode);
+    CODEGEN_LOGI("GenOpCode: opsGenMap_.size = %zu, found = %d", opsGenMap_.size(), (iter != opsGenMap_.end()));
     if (iter != opsGenMap_.end()) {
         tileOpSourceCode = iter->second();
     } else {
