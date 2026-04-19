@@ -277,7 +277,27 @@ std::string CodeGenOpNPU::GenTailAxisPermuteOp() const
     }
     axes[10] = dimCount;
 
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, ubBuf1, ubBuf2, ubBuf3, coord4Src, coord4Dst};
+    int64_t ub1ValidShape3 = 16;
+    int64_t ub1ValidShape4 = 16;
+    auto ub1ValidShape3Attr = opAttrs.find(OP_ATTR_PREFIX + "ub1ValidShape3");
+    if (ub1ValidShape3Attr != opAttrs.end()) {
+        ub1ValidShape3 = AnyCast<int64_t>(ub1ValidShape3Attr->second);
+    }
+    auto ub1ValidShape4Attr = opAttrs.find(OP_ATTR_PREFIX + "ub1ValidShape4");
+    if (ub1ValidShape4Attr != opAttrs.end()) {
+        ub1ValidShape4 = AnyCast<int64_t>(ub1ValidShape4Attr->second);
+    }
+
+    std::vector<std::string> tileOpParamList = {
+        dstTensor,
+        srcTensor,
+        ubBuf1,
+        ubBuf2,
+        ubBuf3,
+        coord4Src,
+        coord4Dst,
+        std::to_string(ub1ValidShape3),
+        std::to_string(ub1ValidShape4)};
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets(axes) << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();

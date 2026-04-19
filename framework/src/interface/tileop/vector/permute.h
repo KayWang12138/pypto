@@ -182,12 +182,12 @@ TILEOP void PermuteMoveOutDim2(
     auto d0 = dstLayout.template GetShapeDim<0, 2>();
     auto d1 = dstLayout.template GetShapeDim<1, 2>();
     for (LoopVar i0 = 0; i0 < d0; ++i0) {
-        __ubuf__ ubType* src1 = srcAddr + i0 * srcStride0;
-        int64_t dc[5] = {0, 0, 0, 0, 0};
-        dc[pad + axis0] = static_cast<int64_t>(i0);
-        dc[pad + axis1] = 0;
-        auto gmOff = dc[0] * dstStride0 + dc[1] * dstStride1 + dc[2] * 0 + dc[3] * 0 + dc[4] * dstStride4;
-        StoreVecTile<tileH, tileW>(dstAddr, src1, gmOff, d1, dstStride4);
+        int64_t sc[5] = {0, 0, 0, 0, 0};
+        sc[pad + axis0] = static_cast<int64_t>(i0);
+        sc[pad + axis1] = 0;
+        auto ubOff = sc[0] * srcStride0 + sc[1] * srcStride1 + sc[2] * 0 + sc[3] * 0 + sc[4] * 0;
+        auto gmOff = static_cast<int64_t>(i0) * dstStride0;
+        StoreVecTile<tileH, tileW>(dstAddr, srcAddr + ubOff, gmOff, d1, dstStride4);
     }
     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
@@ -205,16 +205,14 @@ TILEOP void PermuteMoveOutDim3(
     auto d1 = dstLayout.template GetShapeDim<1, 3>();
     auto d2 = dstLayout.template GetShapeDim<2, 3>();
     for (LoopVar i0 = 0; i0 < d0; ++i0) {
-        __ubuf__ ubType* src1 = srcAddr + i0 * srcStride0;
         for (LoopVar i1 = 0; i1 < d1; ++i1) {
-            __ubuf__ ubType* src2 = src1 + i1 * srcStride1;
-            int64_t dc[5] = {0, 0, 0, 0, 0};
-            dc[pad + axis0] = static_cast<int64_t>(i0);
-            dc[pad + axis1] = static_cast<int64_t>(i1);
-            dc[pad + axis2] = 0;
-            auto gmOff =
-                dc[0] * dstStride0 + dc[1] * dstStride1 + dc[2] * dstStride2 + dc[3] * dstStride3 + dc[4] * dstStride4;
-            StoreVecTile<tileH, tileW>(dstAddr, src2, gmOff, d2, dstStride4);
+            int64_t sc[5] = {0, 0, 0, 0, 0};
+            sc[pad + axis0] = static_cast<int64_t>(i0);
+            sc[pad + axis1] = static_cast<int64_t>(i1);
+            sc[pad + axis2] = 0;
+            auto ubOff = sc[0] * srcStride0 + sc[1] * srcStride1 + sc[2] * srcStride2 + sc[3] * 0 + sc[4] * 0;
+            auto gmOff = static_cast<int64_t>(i0) * dstStride0 + static_cast<int64_t>(i1) * dstStride1;
+            StoreVecTile<tileH, tileW>(dstAddr, srcAddr + ubOff, gmOff, d2, dstStride4);
         }
     }
     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
@@ -234,19 +232,18 @@ TILEOP void PermuteMoveOutDim4(
     auto d2 = dstLayout.template GetShapeDim<2, 4>();
     auto d3 = dstLayout.template GetShapeDim<3, 4>();
     for (LoopVar i0 = 0; i0 < d0; ++i0) {
-        __ubuf__ ubType* src1 = srcAddr + i0 * srcStride0;
         for (LoopVar i1 = 0; i1 < d1; ++i1) {
-            __ubuf__ ubType* src2 = src1 + i1 * srcStride1;
             for (LoopVar i2 = 0; i2 < d2; ++i2) {
-                __ubuf__ ubType* src3 = src2 + i2 * srcStride2;
-                int64_t dc[5] = {0, 0, 0, 0, 0};
-                dc[pad + axis0] = static_cast<int64_t>(i0);
-                dc[pad + axis1] = static_cast<int64_t>(i1);
-                dc[pad + axis2] = static_cast<int64_t>(i2);
-                dc[pad + axis3] = 0;
-                auto gmOff = dc[0] * dstStride0 + dc[1] * dstStride1 + dc[2] * dstStride2 + dc[3] * dstStride3 +
-                             dc[4] * dstStride4;
-                StoreVecTile<tileH, tileW>(dstAddr, src3, gmOff, d3, dstStride4);
+                int64_t sc[5] = {0, 0, 0, 0, 0};
+                sc[pad + axis0] = static_cast<int64_t>(i0);
+                sc[pad + axis1] = static_cast<int64_t>(i1);
+                sc[pad + axis2] = static_cast<int64_t>(i2);
+                sc[pad + axis3] = 0;
+                auto ubOff =
+                    sc[0] * srcStride0 + sc[1] * srcStride1 + sc[2] * srcStride2 + sc[3] * srcStride3 + sc[4] * 0;
+                auto gmOff = static_cast<int64_t>(i0) * dstStride0 + static_cast<int64_t>(i1) * dstStride1 +
+                             static_cast<int64_t>(i2) * dstStride2;
+                StoreVecTile<tileH, tileW>(dstAddr, srcAddr + ubOff, gmOff, d3, dstStride4);
             }
         }
     }
@@ -268,21 +265,20 @@ TILEOP void PermuteMoveOutDim5(
     auto d3 = dstLayout.template GetShapeDim<3, 5>();
     auto d4 = dstLayout.template GetShapeDim<4, 5>();
     for (LoopVar i0 = 0; i0 < d0; ++i0) {
-        __ubuf__ ubType* src1 = srcAddr + i0 * srcStride0;
         for (LoopVar i1 = 0; i1 < d1; ++i1) {
-            __ubuf__ ubType* src2 = src1 + i1 * srcStride1;
             for (LoopVar i2 = 0; i2 < d2; ++i2) {
-                __ubuf__ ubType* src3 = src2 + i2 * srcStride2;
                 for (LoopVar i3 = 0; i3 < d3; ++i3) {
-                    int64_t dc[5] = {0, 0, 0, 0, 0};
-                    dc[pad + axis0] = static_cast<int64_t>(i0);
-                    dc[pad + axis1] = static_cast<int64_t>(i1);
-                    dc[pad + axis2] = static_cast<int64_t>(i2);
-                    dc[pad + axis3] = static_cast<int64_t>(i3);
-                    dc[pad + axis4] = 0;
-                    auto gmOff = dc[0] * dstStride0 + dc[1] * dstStride1 + dc[2] * dstStride2 + dc[3] * dstStride3 +
-                                 dc[4] * dstStride4;
-                    StoreVecTile<tileH, tileW>(dstAddr, src3 + i3 * srcStride3, gmOff, d4, dstStride4);
+                    int64_t sc[5] = {0, 0, 0, 0, 0};
+                    sc[pad + axis0] = static_cast<int64_t>(i0);
+                    sc[pad + axis1] = static_cast<int64_t>(i1);
+                    sc[pad + axis2] = static_cast<int64_t>(i2);
+                    sc[pad + axis3] = static_cast<int64_t>(i3);
+                    sc[pad + axis4] = 0;
+                    auto ubOff = sc[0] * srcStride0 + sc[1] * srcStride1 + sc[2] * srcStride2 + sc[3] * srcStride3 +
+                                 sc[4] * srcStride4;
+                    auto gmOff = static_cast<int64_t>(i0) * dstStride0 + static_cast<int64_t>(i1) * dstStride1 +
+                                 static_cast<int64_t>(i2) * dstStride2 + static_cast<int64_t>(i3) * dstStride3;
+                    StoreVecTile<tileH, tileW>(dstAddr, srcAddr + ubOff, gmOff, d4, dstStride4);
                 }
             }
         }
@@ -578,7 +574,9 @@ template <
     int s1_axis0, int s1_axis1, int s1_axis2, int s1_axis3, int s1_axis4, int s3_axis0, int s3_axis1, int s3_axis2,
     int s3_axis3, int s3_axis4, int dimCount, typename T0, typename T1, typename T2, typename T3, typename T4,
     typename C0, typename C1>
-TILEOP void TailAxisPermute(T0 dst, T1 src, T2 ubBuf1, T3 ubBuf2, T4 ubBuf3, C0 srcCoordinate, C1 dstCoordinate)
+TILEOP void TailAxisPermute(
+    T0 dst, T1 src, T2 ubBuf1, T3 ubBuf2, T4 ubBuf3, C0 srcCoordinate, C1 dstCoordinate, int64_t ub1ValidShape3,
+    int64_t ub1ValidShape4)
 {
     using gmType = typename T1::Type;
     using ubType = typename T2::Type;
@@ -613,15 +611,12 @@ TILEOP void TailAxisPermute(T0 dst, T1 src, T2 ubBuf1, T3 ubBuf2, T4 ubBuf3, C0 
     srcAddr += srcOffset;
 
     constexpr int pad = 5 - dimCount;
-
     auto ubShape0 = ubBuf1.GetLayout().template GetShapeDim<0, N>();
     auto ubShape1 = ubBuf1.GetLayout().template GetShapeDim<1, N>();
     auto ubShape2 = ubBuf1.GetLayout().template GetShapeDim<2, N>();
-    auto ubShape3 = ubBuf1.GetLayout().template GetShapeDim<3, N>();
-    auto ubShape4 = ubBuf1.GetLayout().template GetShapeDim<4, N>();
 
-    Ub1TileDefine ub1Tile(ubShape3, ubShape4);
-    Ub2TileDefine ub2Tile(ubShape4, ubShape3);
+    Ub1TileDefine ub1Tile(ub1ValidShape3, ub1ValidShape4);
+    Ub2TileDefine ub2Tile(ub1ValidShape4, ub1ValidShape3);
     TmpTileDefine tmpTile;
     pto::TASSIGN(tmpTile, (uint64_t)ubBuf3Addr);
 
