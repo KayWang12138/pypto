@@ -12,7 +12,7 @@ description: PyPTO Workspace 内存异常偏大问题自动诊断技能。通过
 
 - **torch 申请失败**：`torch.OutOfMemoryError: NPU out of memory. Tried to allocate X GiB ...`
 - **device 内存申请失败**：`rtMalloc failed. size:XXXXXXXXXX`
-- **运行时分配失败**：`Memory not enough(alloc ...)` 或 `SeqWsAllocator cannot allocate memory`
+- **运行时分配失败**：`Memory not enough(alloc ...)`
 - **用户主动反馈** workspace 占用异常偏大
 
 ## 前置条件
@@ -66,11 +66,19 @@ Workspace 内存分配由以下阶段组成：
 
 ```
 workspaceSize = memBudget.Total()
-             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump + metadata.Total()
+             = tensor.Total() + aicoreSpilled + debug.dumpTensor + debug.leafDump
 
-tensor.Total() = rootInner                              -- Root Function Inner Tensor 内存
-               + devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
-               + MaxOutcastMem() * devTaskBoundaryOutcastNum  -- Boundary Outcast 总内存
+注：metadata 使用独立的 deviceRuntimeDataDesc 分配，不在 workspaceSize 内。
+日志中的 Metadata 值仅作为参考打印。
+
+tensor.Total() = AlignUp(rootInner + devTaskInnerExclusiveOutcasts + MaxOutcastMem() * devTaskBoundaryOutcastNum, 32KB) * parallelism
+
+  其中：
+  - rootInner                              -- Root Function Inner Tensor 内存
+  - devTaskInnerExclusiveOutcasts           -- DeviceTask 内部 Exclusive Outcast 内存
+  - MaxOutcastMem() * devTaskBoundaryOutcastNum  -- Boundary Outcast 总内存
+  - AlignUp(..., 32KB)                      -- 32KB 对齐向上取整
+  - parallelism                             -- 并行度（默认为 1）
 
 MaxOutcastMem() = max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem)
 
@@ -196,19 +204,18 @@ grep -r "Tensor:rootInner=" <log_path>/debug/
 
 ```
 workspaceSize = TOTAL
-├── tensor (T) 占比 > 80%？
+├── tensor (T) 占比 > 80%（经验阈值）？
 │   ├── 是 → 进入步骤 5（Tensor Workspace 分析）
 │   └── 否 ↓
-├── metadata (M) 占比 > 30%？
-│   ├── 是 → 元数据内存问题，建议联系 machine 同事
-│   │         （搜索日志中 "Memory not enough" + "WsProperty:metadata" 或 "Slab alloc null"）
-│   └── 否 ↓
-├── aicoreSpillen (S) 占比 > 30%？
+├── aicoreSpillen (S) 占比 > 30%（经验阈值）？
 │   ├── 是 → AICore 栈溢出问题，需检查算子的 stackWorkSpaceSize
 │   └── 否 ↓
 ├── debug.DumpTensor 或 leafDumpWorkspace 非零？
 │   ├── 是 → 调试模式开销，确认是否关闭了调试选项
 │   └── 否 → 需综合分析各项，可能存在多项均偏大的情况
+
+注：metadata 使用独立分配，不在 workspaceSize 内。若日志显示 metadata 异常偏大，
+    搜索日志中 "Memory not enough" + "WsProperty:metadata" 或 "Slab alloc null"
 ```
 
 **⚠️ 重要**：绝大多数 workspace 偏大问题集中在 **Tensor Workspace**，直接进入步骤 5 是最常见路径。
@@ -220,11 +227,11 @@ workspaceSize = TOTAL
 从步骤 3 的 Tensor 日志中提取 A、B、C、D 值，计算各项占比：
 
 ```
-Tensor 总量 T = A + B + C × D
+Tensor 总量 T = AlignUp(A + B + C × D, 32KB) × parallelism
 
-rootInner 占比      = A / T
-devTaskInnerOutCasts 占比 = B / T
-BoundaryOutcast 占比 = (C × D) / T
+rootInner 占比      = A / (A + B + C × D)
+devTaskInnerOutCasts 占比 = B / (A + B + C × D)
+BoundaryOutcast 占比 = (C × D) / (A + B + C × D)
 ```
 
 根据占比判断进入不同分支：
@@ -388,9 +395,6 @@ grep -r "cannot allocate root inner workspace" <log_path>/debug/
 
 # 通用分配失败
 grep -r "Memory not enough" <log_path>/debug/
-
-# SeqWsAllocator 分配失败
-grep -r "SeqWsAllocator cannot allocate" <log_path>/debug/
 ```
 
 这类报错说明编译期预算不足以满足运行时实际需求，需对比编译期预算值与运行时实际请求值。

@@ -68,11 +68,17 @@ def binary_search_iteration(params):
 
     write_file(params.cce_file, current_lines)
     logger.info("运行测试...")
-    returncode, output = run_test(params.test_cmd, params.run_dir)
-    error_exists = has_error(returncode, output)
-
-    write_file(params.cce_file, original_lines)
-    os.remove(backup_file)
+    try:
+        returncode, output = run_test(params.test_cmd, params.run_dir)
+        error_exists = has_error(returncode, output)
+    except Exception as e:
+        logger.error("测试执行异常: %s", e)
+        error_exists = True
+        output = str(e)
+    finally:
+        write_file(params.cce_file, original_lines)
+        if os.path.exists(backup_file):
+            os.remove(backup_file)
 
     if error_exists:
         print_error_info(output, logger)

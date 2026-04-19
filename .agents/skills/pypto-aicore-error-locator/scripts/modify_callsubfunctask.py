@@ -3,6 +3,7 @@
 
 import os
 import sys
+import shutil
 import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -48,6 +49,10 @@ def find_callsubfunctask_range(lines):
 
 
 def comment_callsubfunctask(file_path):
+    backup_path = file_path + ".bak"
+    if not os.path.exists(backup_path):
+        shutil.copy(file_path, backup_path)
+
     lines = read_file(file_path)
     start_idx, end_idx = find_callsubfunctask_range(lines)
 
@@ -69,6 +74,11 @@ def uncomment_callsubfunctask(file_path):
 
     uncomment_lines_by_range(lines, start_idx, end_idx)
     write_file(file_path, lines)
+
+    backup_path = file_path + ".bak"
+    if os.path.exists(backup_path):
+        os.remove(backup_path)
+
     logger.info("成功取消注释 CallSubFuncTask 部分（行 %d-%d）", start_idx + 1, end_idx + 1)
     return True
 
