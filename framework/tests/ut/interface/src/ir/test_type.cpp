@@ -167,6 +167,21 @@ TEST(IRTypeTest, TestShapedTypeWithMemRef)
     ASSERT_EQ((*shapedType->memref_)->size_, 1024);
 }
 
+TEST(IRTypeTest, TestShapedTypeWithVecInt)
+{
+    // Test ShapedType with VecInt
+    std::vector<int64_t> shape = {10, 10};
+
+    auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
+    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::Vec, addr, 1024);
+
+    auto shapedType = std::make_shared<ShapedType>(DataType::INT32, shape, memref);
+    ASSERT_NE(shapedType, nullptr);
+    ASSERT_TRUE(shapedType->memref_.has_value());
+    ASSERT_EQ((*shapedType->memref_)->memorySpace_, MemorySpace::Vec);
+    ASSERT_EQ((*shapedType->memref_)->size_, 1024);
+}
+
 // ============================================================================
 // TensorType Tests
 // ============================================================================
