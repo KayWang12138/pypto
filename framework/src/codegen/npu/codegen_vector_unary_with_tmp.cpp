@@ -296,23 +296,17 @@ std::string CodeGenOpNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam& param
 
 std::string CodeGenOpNPU::PrintCompact(const PrintUnaryTmpBuffParam& param) const { return PrintCompactStatic(param); }
 
-std::string CodeGenOpNPU::PrintExp2Layout() const
+std::string CodeGenOpNPU::PrintUnaryOpWithTmpTwoBuff() const
 {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::DST_IDX));
-    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
-    std::string tmpTensorNext = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
+    std::string tmp0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
+    std::string tmp1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
-
+    std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, tmp0Tensor, tmp1Tensor};
     std::ostringstream oss;
-    oss << tileOpName.c_str() << "(" << dstTensor << ", " << tmpTensor << ", " << tmpTensorNext << ", " << srcTensor
-        << ");\n";
+    oss << tileOpName;
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
     return oss.str();
-}
-
-std::string CodeGenOpNPU::PrintExp2() const
-{
-    ASSERT(GenCodeErr::PRINT_MODE_ERROR, isSupportLayout) << "Exp2 only support tile tensor";
-    return PrintExp2Layout();
 }
 
 std::string CodeGenOpNPU::PrintRoundLayout() const
@@ -493,6 +487,19 @@ std::string CodeGenOpNPU::PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuff
     return oss.str();
 }
 
+std::string CodeGenOpNPU::GenUnaryOpWithTmpTwoBuff() const
+{
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::DST_IDX));
+    std::string tmp0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
+    std::string tmp1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
+    std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, tmp0Tensor, tmp1Tensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpNPU::GenUnaryOpWithTmpBuff() const
 {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
@@ -521,8 +528,8 @@ std::string CodeGenOpNPU::GenUnaryOpWithTmpBuff() const
         return PrintUnaryWithTmpTileTensor();
     }
 
-    if (opCode == Opcode::OP_EXP2) {
-        return PrintExp2();
+    if (opCode == Opcode::OP_EXP2 || opCode == Opcode::OP_SIN || opCode == Opcode::OP_COS) {
+        return PrintUnaryOpWithTmpTwoBuff();
     }
 
     if (opCode == Opcode::OP_ROUND) {
