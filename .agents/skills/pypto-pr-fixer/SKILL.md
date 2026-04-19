@@ -1,6 +1,6 @@
 ---
 name: pypto-pr-fixer
-description: "修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。"
+description: 修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。
 ---
 
 # PyPTO PR Fixer
@@ -112,7 +112,8 @@ comments = gitcode_list_pull_request_comments(
     owner=owner,
     repo=repo,
     pull_number=pull_number,
-    include_paths=True  # 自动补全 diff_comment 的文件路径
+    limit=0,  # 必须拉全量评论，避免仅返回默认20条导致遗漏最新CI结果
+    comment_type="all",
 )
 ```
 
@@ -295,6 +296,9 @@ python scripts/extract_latest_codecheck_url.py \
 ```bash
 python scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
 ```
+
+脚本默认优先走 **task API 分页抓取**（按 `pageNum/pageSize` 拉全量），仅在 API 不可用时降级为 DOM 解析。
+当页面概览为 156 时，输出 `total` 也应为 156（而非单页 20）。
 
 **降级条件**（仅以下情况可使用其他方式）：
 1. 脚本文件不存在
