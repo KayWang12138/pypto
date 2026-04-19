@@ -493,7 +493,20 @@ std::string CodeGenOpNPU::PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuff
     return oss.str();
 }
 
-std::string CodeGenOpNPU::GenUnaryOpWithTmpBuff() const
+std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpTwoBuff() const
+{
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::DST_IDX));
+    std::string tmp0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
+    std::string tmp1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
+    std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, tmp0Tensor, tmp1Tensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const
 {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
