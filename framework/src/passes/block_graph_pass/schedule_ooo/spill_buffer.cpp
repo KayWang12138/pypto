@@ -186,10 +186,7 @@ Status OoOScheduler::SpillBuffer(int memId, Operation* spillAllocOp, SpillContex
         APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d].", memId);
         return FAILED;
     }
-    if (oooCheck.doHealthCheck) {
-        oooCheck.spillInfoVec.emplace_back(
-            RecordSpillInfo(spillTensor, memId, spillAllocOp, spillOp->GetOpcodeStr().find("COPY_IN") == std::string::npos));
-    }
+    NotifySpill(spillTensor, memId, spillAllocOp, spillOp);
     if (spillOp->GetOpcode() == Opcode::OP_ASSEMBLE) {
         // spill的tensor存在多个生产者
         if (SpillMultiProducerBuffer(memId, spillOp, spillTensor, spillAllocOp, ctx) != SUCCESS) {
@@ -722,31 +719,6 @@ void OoOScheduler::UpdateTensorInputForView(Operation& op, Operation* spillOp, L
         if (consumers.empty()) break;
         p = *consumers.begin();
     }
-}
-
-OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(
-    LogicalTensorPtr spillOutTensor, int memId, Operation* spillAllocOp, bool needCopyOut)
-{
-    OoOSchedulerCheck::SpillInfo spillInfo;
-    MemoryType bufferType = spillOutTensor->GetMemoryTypeOriginal();
-    spillInfo.spillType = bufferType;
-    spillInfo.bufferCurrUsage = oooCheck.bufferLastUsage[bufferType];
-    spillInfo.spillTensorSize = localBufferMap_[memId]->size;
-    spillInfo.spillTensorMagic = spillOutTensor->GetMagic();
-    spillInfo.triggerTensorSize = spillAllocOp->GetOutputOperand(0)->tensor->GetRawDataSize();
-    int allocOccupied = 0;
-    for (const auto &pair : tensorOccupyMap) {
-        if (opIsAllocMap[pair.second]) {
-            allocOccupied += localBufferMap_[pair.first]->size;
-        }
-    }
-    spillInfo.allocOccupiedSize = allocOccupied;
-    if (needCopyOut) {
-        spillInfo.spillCopyoutSize = spillOutTensor->tensor->GetRawDataSize();
-    } else {
-        spillInfo.spillCopyoutSize = 0;
-    }
-    return spillInfo;
 }
 
 int OoOScheduler::GetBufLastUseTime(Operation* op, int curMemId) {

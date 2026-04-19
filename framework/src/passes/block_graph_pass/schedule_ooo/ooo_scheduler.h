@@ -24,7 +24,7 @@
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
 #include "passes/block_graph_pass/schedule_ooo/dep_manager.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_base.h"
-#include "passes/statistics/ooo_schedule_statistic.h"
+#include "passes/statistics/schedule_observer.h"
 #include "schedule_main_loop_base.h"
 
 namespace npu::tile_fwk {
@@ -105,9 +105,10 @@ public:
         const std::unordered_set<CoreLocationType> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
     OoOScheduler(Function& function) : function_(function) {}
 
+    // Non-owning observer. Caller must ensure the observer outlives the whole Schedule() call.
+    void AddObserver(ScheduleObserver* observer) { observers_.push_back(observer); }
     std::vector<Operation*> GetNewOperations() { return newOperations_; }
     int64_t workspaceOffset{0};
-    OoOSchedulerCheck oooCheck;
     std::unordered_map<PipeType, int> pipeEndTime;
 
 private:
@@ -142,6 +143,15 @@ private:
     int workspaceMemId{SYMBOL_STACK_BASE};
     std::vector<Operation*> newOperations_;
     std::vector<Operation*> operations_;
+    std::vector<ScheduleObserver*> observers_;
+
+    // Notification helpers — event construction lives in ooo_scheduler_notify.cpp
+    // to keep scheduler main flows focused on scheduling logic.
+    void NotifyPipeIssued(PipeType pipeType, int latency);
+    void NotifyBufferAllocated(MemoryType memType, int memId);
+    void NotifyBufferFreed(MemoryType memType, int memId);
+    void NotifySpill(LogicalTensorPtr spillTensor, int spillMemId, Operation* spillAllocOp, Operation* spillOp);
+    void NotifyScheduleEnd(bool success);
 
     // scheduler
     Status Init(
@@ -183,7 +193,6 @@ private:
     void ApplySpillContext(SpillContext& ctx, Operation* allocOp);
 
     void UpdateIssueExecOrder();
-    void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> opList);
     Status PrintSpillFailedInfo(Operation* allocOp);
 
@@ -236,7 +245,6 @@ private:
     void UpdateOpInternalSubgraphID(Operation &op, Operation* srcOp);
     int GetBufLastUseTime(Operation* op, int curMemId);
     int GetBufNextUseTime(Operation* op, int curMemId);
-    OoOSchedulerCheck::SpillInfo RecordSpillInfo(LogicalTensorPtr spillOutTensor, int memId, Operation* spillAllocOp, bool needCopyOut);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset, DataType dataType);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t& base);
     Status RearrangeBuffer(Operation* allocOp, MemoryType memType);

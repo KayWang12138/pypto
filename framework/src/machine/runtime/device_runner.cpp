@@ -498,7 +498,7 @@ void DeviceRunner::ResetMetrics(const uint32_t& coreId)
 
 void DeviceRunner::SetDebugEnable()
 {
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         ResetMetrics(i);
         rtMemcpy(
             (reinterpret_cast<uint8_t*>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) +
@@ -766,7 +766,8 @@ int DeviceRunner::Init(void)
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "RegisterKernelBin failed\n");
         return -1;
     }
-    if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) != 2) {
+    if (!(config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM
+            && config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2)) {
         InitAicpuServer();
     }
     StartMachinePerfTraceDumpThread();

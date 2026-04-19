@@ -39,7 +39,6 @@ struct DevCtrlState {
     /* state used by control */
     uint32_t schAicpuNum{MAX_SCHEDULE_AICPU_NUM};
     uint32_t taskCtrlIndex{0};
-    uint32_t taskCtrlInitCount{0};
 };
 
 #define CTRL_THREAD_INDEX 0
@@ -196,7 +195,7 @@ public:
     void Deallocate(uint8_t* ptr)
     {
         uint8_t* nextFree = GetRuntimeData(indexFinished_ + 1);
-        ASSERT(nextFree == ptr);
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, nextFree == ptr);
         /* deallocate from the ring buffer */
         indexFinished_ += 1;
     }

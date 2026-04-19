@@ -22,6 +22,8 @@
 #ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
 #include "acl/acl_rt.h"
+#include "dump/adump_api.h"
+#include "graph/types.h"
 #endif
 
 #include "machine/runtime/device_launcher_binding.h"
@@ -63,6 +65,8 @@ struct AiCpuArgs {
 int GetCfgBlockdim();
 int GetMaxBlockdim();
 uint32_t GetProcessId();
+void DumpIOTensorsWithCann(
+    aclrtStream stream, std::vector<DeviceTensorData>& tensors, const std::string& funcName);
 
 class DeviceLauncherContext {
 public:
@@ -154,7 +158,7 @@ public:
             devProg->devArgs.runtimeDataRingBufferAddr =
                 reinterpret_cast<uint64_t>(*CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
         } else {
-            devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)devMem.AllocDev(runtimeDataRingBufferSize, nullptr);
+            devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)devMem.AllocZero(runtimeDataRingBufferSize, nullptr);
         }
 
         uint64_t generalSize = devProg->memBudget.metadata.general;
