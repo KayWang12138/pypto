@@ -594,6 +594,9 @@ void Operation::LoadOpAttributeFromJson(const Json& opDump, Opcode opcode)
             case Opcode::OP_COPY_OUT:
             case Opcode::OP_TRANSPOSE_MOVEIN:
             case Opcode::OP_TRANSPOSE_MOVEOUT:
+                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
+                break;
+            case Opcode::OP_PERMUTE_MOVEOUT:
             case Opcode::OP_INDEX_PUT:
             case Opcode::OP_INDEX_ADD:
             case Opcode::OP_INDEX_OUTCAST:
@@ -1167,19 +1170,19 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &shape : copyAttr->GetFromDynValidShape()) {
+            for (auto& shape : copyAttr->GetFromDynValidShape()) {
                 if (!shape.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetToOffset()) {
+            for (auto& offset : copyAttr->GetToOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetFromOffset()) {
+            for (auto& offset : copyAttr->GetFromOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }

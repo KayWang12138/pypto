@@ -130,6 +130,9 @@ public:
     std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
     std::string GenPermuteOp() const;
+    std::string GenPermuteMoveOutOp() const;
+    std::string GenTailAxisPermuteOp() const;
+    std::string PrintPermuteMoveOutLayout() const;
     std::string GenGatherFromUBOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;

@@ -35,6 +35,8 @@ const std::unordered_set<Opcode> OP_SHAPE_FROM_ATTR{
     // transpose move in/out
     Opcode::OP_TRANSPOSE_MOVEOUT,
     Opcode::OP_TRANSPOSE_MOVEIN,
+    // permute move out
+    Opcode::OP_PERMUTE_MOVEOUT,
     // index outcast
     Opcode::OP_INDEX_OUTCAST,
     // conv Load
@@ -496,6 +498,15 @@ void CodeGenOp::GetGmParamIdx(const Operation& oper)
         (oper.GetOpcode() == Opcode::OP_PERMUTE_ELEMENT)) {
         paramLocation[1] = oper.GetIOpAttrOffset(0);
         CODEGEN_LOGI("Gm Param Index of Copy In Op %s is %d", tileOpName.c_str(), paramLocation[1]);
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
+        return;
+    }
+
+    if (oper.GetOpcode() == Opcode::OP_TAIL_AXIS_PERMUTE) {
+        paramLocation[0] = oper.GetOOpAttrOffset(0);
+        paramLocation[4] = oper.GetIOpAttrOffset(0);
+        CODEGEN_LOGI("Gm Param Index of TailAxisPermute Op: dst=%d, src=%d", paramLocation[0], paramLocation[4]);
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
         CODEGEN_LOGI("GmTensorParamIdxInCallFunc: %d", GmTensorParamIdxInCallFunc);
         return;

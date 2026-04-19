@@ -52,9 +52,10 @@ const std::unordered_map<DataType, int64_t> Parallelism{
 
 const std::set<Opcode> uniqueOps = { // Ops with possible InputShape != OutputShape
     // Unary ops
-    Opcode::OP_INDEX_PUT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE,
-    Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE,
+    Opcode::OP_INDEX_PUT, Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_PERMUTE_MOVEOUT,
+    Opcode::OP_PERMUTE_SWAP, Opcode::OP_TAIL_AXIS_PERMUTE, Opcode::OP_TRANSPOSE_VNCHWCONV, Opcode::OP_ROWMAX,
+    Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE,
+    Opcode::OP_ROWMINLINE,
     // Binary ops
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE,

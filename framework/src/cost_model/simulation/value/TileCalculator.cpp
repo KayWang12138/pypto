@@ -23,7 +23,7 @@ TileCalculator TileCalculator::instance;
 
 static inline bool IsCopyOutOp(const Opcode& op)
 {
-    return (
+    return ( op == Opcode::OP_PERMUTE_MOVEOUT ||
         op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT ||
         op == Opcode::OP_INDEX_OUTCAST);
 }
