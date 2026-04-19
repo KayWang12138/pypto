@@ -41,10 +41,11 @@ void SetBoundary::InsertTemporaryCopyIn(Function& function, Operation& op) const
 
             // add UB_Alloc && UB_COPY_IN
             auto& ubCopyIn = function.AddRawOperation(Opcode::OP_COPY_IN, operandGm, operandUb);
-            ubCopyIn.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
-                OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
-                OpImmediate::Specified(input->GetDynValidShape())));
+            ubCopyIn.SetOpAttribute(
+                std::make_shared<CopyOpAttribute>(
+                    OpImmediate::Specified(input->GetTensorOffset()), MemoryType::MEM_UB,
+                    OpImmediate::Specified(input->GetShape()), OpImmediate::Specified(input->tensor->GetDynRawShape()),
+                    OpImmediate::Specified(input->GetDynValidShape())));
             ubCopyIn.SetAttribute(OpAttributeKey::isCube, false);
             ubCopyIn.UpdateSubgraphID(op.GetSubgraphID());
         }
@@ -129,6 +130,14 @@ void SetBoundary::SetTensorBoundary(Function& function) const
             if (reshapeIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
                 reshapeOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 reshapeOut->isSubGraphBoundary = true;
+            }
+        }
+        if (op.GetOpcode() == Opcode::OP_TAIL_AXIS_PERMUTE) {
+            auto permuteIn = op.GetIOperands().front();
+            auto permuteOut = op.GetOOperands().front();
+            if (permuteIn->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR &&
+                permuteOut->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                permuteOut->isSubGraphBoundary = true;
             }
         }
     }

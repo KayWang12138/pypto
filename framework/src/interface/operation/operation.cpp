@@ -555,6 +555,9 @@ std::shared_ptr<Operation> Operation::LoadJson(
             case Opcode::OP_TRANSPOSE_MOVEOUT:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
+            case Opcode::OP_PERMUTE_MOVEOUT:
+                opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
+                break;
             case Opcode::OP_INDEX_PUT:
                 opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson);
                 break;
@@ -1109,19 +1112,19 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &shape : copyAttr->GetFromDynValidShape()) {
+            for (auto& shape : copyAttr->GetFromDynValidShape()) {
                 if (!shape.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetToOffset()) {
+            for (auto& offset : copyAttr->GetToOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
                 dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(offset.GetSpecifiedValue()));
             }
-            for (auto &offset : copyAttr->GetFromOffset()) {
+            for (auto& offset : copyAttr->GetFromOffset()) {
                 if (!offset.IsSpecified()) {
                     continue;
                 }
