@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_for():
 
     with TestParser():
@@ -398,6 +399,7 @@ def test_pil_parser_if():
             if Expr.true(4):
                 Expr.str(5)
 
+
 def test_pil_parser_break():
 
     with TestParser():
@@ -633,6 +635,7 @@ def test_pil_parser_continue():
                 Expr.str(var_i[0])
                 break
 
+
 def test_pil_parser_with():
 
     with TestParser():
@@ -656,6 +659,7 @@ def test_pil_parser_with():
 
         @TestParser.test
         def with_ctx_from_call():
+
             def make_cm():
                 return Expr.ContextManager(init_n=Expr.int(0))
             with make_cm():
@@ -672,7 +676,10 @@ def test_pil_parser_with():
 
         @TestParser.test
         def with_multiple_as_names():
-            with Expr.ContextManager(enter_n=0, exit_n=10) as var_a, Expr.ContextManager(enter_n=1, exit_n=11) as var_b:
+            with (
+                Expr.ContextManager(enter_n=0, exit_n=10) as var_a,
+                Expr.ContextManager(enter_n=1, exit_n=11) as var_b,
+            ):
                 Expr.str(2)
                 Expr.str(var_a._enter_n)
                 Expr.str(var_b._enter_n)
@@ -681,7 +688,10 @@ def test_pil_parser_with():
 
         @TestParser.test
         def with_multiple_mixed_as():
-            with Expr.ContextManager(enter_n=0, exit_n=10) as var_a, Expr.ContextManager(enter_n=1, exit_n=11):
+            with (
+                Expr.ContextManager(enter_n=0, exit_n=10) as var_a,
+                Expr.ContextManager(enter_n=1, exit_n=11),
+            ):
                 Expr.str(2)
                 Expr.str(var_a._enter_n)
 
@@ -689,7 +699,11 @@ def test_pil_parser_with():
 
         @TestParser.test
         def with_three_items():
-            with Expr.ContextManager(enter_n=0, exit_n=10), Expr.ContextManager(enter_n=1, exit_n=11), Expr.ContextManager(enter_n=2, exit_n=12):
+            with (
+                Expr.ContextManager(enter_n=0, exit_n=10),
+                Expr.ContextManager(enter_n=1, exit_n=11),
+                Expr.ContextManager(enter_n=2, exit_n=12),
+            ):
                 Expr.str(3)
 
         # --- as-binding to attribute target ---

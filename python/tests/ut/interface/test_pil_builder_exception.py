@@ -11,6 +11,7 @@
 
 from test_pil_builder_utils import TestParser, Expr
 
+
 def test_pil_parser_raise():
 
     with TestParser():
@@ -35,7 +36,7 @@ def test_pil_parser_raise():
                 except Expr.TypeA:
                     raise
             except Expr.TypeA as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         # --- raise a name ---
 
@@ -45,7 +46,7 @@ def test_pil_parser_raise():
                 exc = Expr.TypeA(0)
                 raise exc
             except Expr.TypeA as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         # --- raise an attribute expression ---
 
@@ -56,7 +57,7 @@ def test_pil_parser_raise():
             try:
                 raise var_obj.val
             except Expr.TypeB as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         # --- raise a subscript expression ---
 
@@ -67,7 +68,7 @@ def test_pil_parser_raise():
             try:
                 raise var_obj[Expr.str(1)]
             except Expr.TypeC as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         # --- raise an ifexp expression ---
 
@@ -76,14 +77,14 @@ def test_pil_parser_raise():
             try:
                 raise Expr.TypeA(0) if Expr.true(1) else Expr.TypeB(2)
             except Expr.TypeA as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         @TestParser.test
         def raise_ifexp_false():
             try:
                 raise Expr.TypeA(0) if Expr.false(1) else Expr.TypeB(2)
             except Expr.TypeB as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         # --- raise from (chain cause with a name) ---
 
@@ -93,7 +94,7 @@ def test_pil_parser_raise():
                 cause = Expr.TypeA(0)
                 raise Expr.TypeB(1) from cause
             except Expr.TypeB as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         # --- raise from with attribute as cause ---
 
@@ -104,7 +105,7 @@ def test_pil_parser_raise():
             try:
                 raise Expr.TypeB(2) from var_obj.val
             except Expr.TypeB as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
         # --- raise with attribute exc, subscript cause ---
 
@@ -116,7 +117,7 @@ def test_pil_parser_raise():
             try:
                 raise var_obj.val from var_obj[Expr.str(2)]
             except Expr.TypeB as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
 
 def test_pil_parser_try():
@@ -139,7 +140,7 @@ def test_pil_parser_try():
             try:
                 raise Expr.TypeA(0)
             except Expr.TypeA as e:
-                Expr.str(e._value)
+                Expr.str(e.value)
 
         # --- multiple typed handlers, dispatch to correct branch ---
 
@@ -233,9 +234,9 @@ def test_pil_parser_try():
             try:
                 Expr.str(0)
             except Expr.TypeA as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
             except Expr.TypeB as e:
-                Expr.str(e._value)
+                Expr.str(e.value)
             else:
                 Expr.str(30)
             finally:
@@ -247,9 +248,9 @@ def test_pil_parser_try():
                 if Expr.true(0):
                     raise Expr.TypeA(1)
             except Expr.TypeA as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
             except Expr.TypeB as e:
-                Expr.str(e._value)
+                Expr.str(e.value)
             else:
                 Expr.str(30)
             finally:
@@ -261,9 +262,9 @@ def test_pil_parser_try():
                 if Expr.true(0):
                     raise Expr.TypeB(1)
             except Expr.TypeA as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
             except Expr.TypeB as e:
-                Expr.str(e._value)
+                Expr.str(e.value)
             else:
                 Expr.str(30)
             finally:
@@ -279,7 +280,7 @@ def test_pil_parser_try():
                 except Expr.TypeB:
                     Expr.str(10)
             except Expr.TypeA as e:
-                Expr.int(e._value)
+                Expr.int(e.value)
 
 
 def test_pil_parser_assert():
