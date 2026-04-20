@@ -1098,6 +1098,7 @@ struct FunctionInterpreter {
             ExecuteHandleOperationBegin(&op);
             // TODO: 判断 op 中是否依赖 WaitUntil，如果依赖则将对应的 waitUntil 执行【此时 waitUntil 必定已经执行，拓扑序优先】
             if (DependsOnWaitUntil(&op)) {
+                std::cout << op.GetOpcodeStr() << op.GetOpMagic() << " depends on waituntil" << std::endl;
                 // GetWaitTask 需要从全局变量中拿，每执行一次 WaitUntil，就应该把相应的执行序下的 waitUntil 记录在全局哈希表中
                 std::future<void>* task = GetWaitTask(&op);
                 // 如果拿到了相应的执行任务，就需要等待 WaitUntil 执行完成
@@ -1126,6 +1127,8 @@ struct FunctionInterpreter {
             for (auto& depend : dependencyOperands) {
                 for (auto& consumer : depend->GetConsumers()) {
                     waitDependencies_[consumer] = &op;
+                    std::cout << consumer.GetOpcodeStr() << consumer.GetOpMagic() << " depends on " << 
+                        op.GetOpcodeStr() << op.GetOpMagic() << std::endl;
                 }
             }
         }
