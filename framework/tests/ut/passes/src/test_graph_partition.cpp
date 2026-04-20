@@ -404,7 +404,7 @@ TEST_F(GraphPartitionTest, TestCycleUpperBound)
     IsoPartitioner partitioner;
     EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLB, useNodeHash), SUCCESS);
     EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
-    const int subGraphNum = 6 * brNum;
+    const int subGraphNum = brNum;
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
 

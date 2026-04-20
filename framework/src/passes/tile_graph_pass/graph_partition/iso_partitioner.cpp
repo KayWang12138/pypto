@@ -67,6 +67,10 @@ Status IsoPartitioner::PartitionGraph(Function& function)
         APASS_LOG_INFO_F(Elements::Operation, "Graph Partition is skipped.");
         return SUCCESS;
     }
+    if (EstimateCycleUB(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Config, "Estimate and refresh cycleUB_ failed.");
+        return FAILED;
+    }
     if (cycleUB_ == -1 || parallelNum_ == -1 || cycleLB_ == -1) {
         APASS_LOG_ERROR_F(Elements::Config, "Partition parameters not initialized.");
         return FAILED;
@@ -734,6 +738,42 @@ Status IsoPartitioner::SetParameter(
     parallelNum_ = parallelNum;
     cycleLB_ = pgLowerBound;
     useReduceBalanceHash_ = useReduceBalanceHash;
+    return SUCCESS;
+}
+
+Status IsoPartitioner::EstimateCycleUB(Function& function)
+{
+    // 计算总cycle
+    int64_t totalLatency = 0;
+    for (const auto& op : function.Operations()) {
+        int32_t latency = op.GetLatency();
+
+        if (latency < 0) {
+            APASS_LOG_WARN_F(Elements::Config, "Detected op: %d negative latency: %d, ignoring.", op.GetOpMagic(), latency);
+            continue;
+        }
+        totalLatency += latency;
+    }
+
+    int32_t estimatedCycleUB = CYCLE_UB_LEVEL3;
+
+    // 根据阈值推导cycleUB_
+    if (totalLatency >= LATENCY_THRESHOLD_LEVEL1) {
+        estimatedCycleUB = CYCLE_UB_LEVEL1;
+    } else if (totalLatency >= LATENCY_THRESHOLD_LEVEL2) {
+        estimatedCycleUB = CYCLE_UB_LEVEL2;
+    } else if (totalLatency >= LATENCY_THRESHOLD_LEVEL3) {
+        estimatedCycleUB = CYCLE_UB_LEVEL3;
+    } else {
+        estimatedCycleUB = CYCLE_UB_LEVEL4;
+    }
+
+    // 更新成员变量并记录日志
+    cycleUB_ = estimatedCycleUB;
+
+    APASS_LOG_ERROR_F(
+        Elements::Config, "Estimated and refreshed cycleUB_: %d based on total latency: %ld", cycleUB_, totalLatency);
+
     return SUCCESS;
 }
 } // namespace npu::tile_fwk
