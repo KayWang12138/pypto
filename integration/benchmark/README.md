@@ -6,8 +6,8 @@
 
 外层包装层, 把四件事串起来:
 
-> 当前这套 benchmark 验证编排逻辑以
-> `pypto/integration/benchmark/` 的自包含目录继续维护.
+> 当前这套 benchmark 验证编排逻辑从 akg agent 仓迁移而来，
+> 现已收敛到 `pypto/integration/benchmark/` 的自包含目录继续维护。
 
 1. **输入**: 上游 KernelBench 用例 (`Model(nn.Module) + get_inputs + get_init_inputs`)
 2. **算子生成**: pypto 自带的 7 阶段 agent 工作流 (`pypto-op-orchestrator`)
