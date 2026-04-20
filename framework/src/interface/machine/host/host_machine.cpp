@@ -217,6 +217,7 @@ void HostMachine::SubTask(Function* function)
         "Stashed function idx:%d begin compile, function name: %s .", function_done_idx,
         function->GetMagicName().c_str());
     MonitorManager::Instance().SetCurrentFunctionName(function->GetMagicName());
+    MonitorManager::Instance().SetCurrentFuncOpSize(function->GetOperationSize());
 
     task->SetFunctionIndex(function_done_idx);
     MonitorManager::Instance().SetCurrentFunctionIndex(task->GetFunctionIndex());
@@ -359,6 +360,7 @@ void HostMachine::CompileThreadFunc()
         lock.unlock();
 
         try {
+            // 每个func都重新执行pass
             MonitorStageScope passScope("Pass");
             (void)Compile(task.get());
         } catch (const Error& e) {
