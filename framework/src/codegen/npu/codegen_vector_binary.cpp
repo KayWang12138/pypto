@@ -175,7 +175,7 @@ std::string CodeGenOpNPU::PrintBinaryDynamicUnaligned(const PrintBinaryParam& pa
     return os.str();
 }
 
-void CodeGenOpNPU::AddBinaryPrecisionTypeParm(std::vector<std::string>& templateParamList, Opcode opCode) const
+void CodeGenOpNPU::AddBinaryPrecisionTypeParm(std::vector<std::string>& templateParamList) const
 {
     if (opCode == Opcode::OP_DIV || opCode == Opcode::OP_DIVS ||
         opCode == Opcode::OP_POW || opCode == Opcode::OP_POWS) {
@@ -203,7 +203,7 @@ std::string CodeGenOpNPU::PrintBinaryTileTensor() const
     std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor};
 
     std::vector<std::string> templateParamList;
-    AddBinaryPrecisionTypeParm(templateParamList, opCode);
+    AddBinaryPrecisionTypeParm(templateParamList);
 
     int64_t brcOperandIdx = 0;
     int64_t penuBrcOperandIdx = 0;
@@ -279,7 +279,7 @@ std::string CodeGenOpNPU::GenBinaryOpWithTmp() const
     std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
     std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
     std::vector<std::string> templateParamList;
-    AddBinaryPrecisionTypeParm(templateParamList, opCode);
+    AddBinaryPrecisionTypeParm(templateParamList);
     std::ostringstream oss;
     oss << tileOpName;
     if (!templateParamList.empty()) {
@@ -303,7 +303,7 @@ std::string CodeGenOpNPU::GenVectorScalarOpWithTmp() const
     }
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
     std::vector<std::string> templateParamList;
-    AddBinaryPrecisionTypeParm(templateParamList, opCode);
+    AddBinaryPrecisionTypeParm(templateParamList);
     std::ostringstream oss;
     oss << tileOpName;
     if (!templateParamList.empty()) {
@@ -577,7 +577,7 @@ std::string CodeGenOpNPU::PrintVectorScalarTileTensor(const PrintUnaryParam& par
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, scalarTmpBuffer};
 
     std::vector<std::string> templateParamList;
-    AddBinaryPrecisionTypeParm(templateParamList, opCode);
+    AddBinaryPrecisionTypeParm(templateParamList);
 
     std::ostringstream oss;
     std::string lastUse = GetLastUse();
