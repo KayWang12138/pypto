@@ -21,7 +21,9 @@
 
 
 #define __ubuf__
-#define __aicore__
+#ifndef __aicore__
+#define __aicore__ [aicore]
+#endif
 #define __cbuf__
 #define __fbuf__
 #define __ca__

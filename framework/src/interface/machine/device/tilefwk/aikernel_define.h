@@ -21,7 +21,9 @@
 // Host or aicpu
 #define IS_AICORE 0
 #define __gm__
-#define __aicore__
+#ifndef __aicore__
+#define __aicore__ [aicore]
+#endif
 #define INLINE inline
 #define __TILE_FWK_HOST__
 #define BLOCK_LOCAL
