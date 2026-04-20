@@ -52,7 +52,7 @@ public:
     void Wait(int srcRank, int expect, size_t slotSize, uint64_t offset = 0, bool reset = false);
     uint64_t WaitAsync(int srcRank, int expect, size_t slotSize, uint64_t offset = 0, bool reset = false);
     void WaitComplete(uint64_t taskId);
-    LogicalTensorDataPtr Get(int srcRank, Datatype datatype, const Shape &shape, uint64_t offset = 0);
+    LogicalTensorDataPtr Get(int srcRank, DataType datatype, const Shape &shape, uint64_t offset = 0);
 
     SimulationCommContext() = default;
     SimulationCommContext(const SimulationCommContext &) = delete;
