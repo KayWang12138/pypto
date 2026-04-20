@@ -471,22 +471,23 @@ void MonitorManager::EndStageInternal(const std::string& name, int rootFuncIndex
     std::string stage_finish_msg;
     if (name == STAGE_FUNC_TO_BIN) {
         int pw = GetProgressWidth();
-        stage_finish_msg = "[Compiler Monitor] " + PadLabel("RootFunc(parallel): ") +
+        stage_finish_msg = "[Compiler Monitor] " + PadLabel("Function(parallel): ") +
                            PadRight(std::to_string(rootFuncIndex) + "/" + std::to_string(root_func_count_), pw) +
                            " | Stage: " + PadStageName("CodeGen[" + name + "]") +
-                           "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
-                           " | Total elapsed: " + FormatElapsed(total_elapsed) + " | RootFunc:[" + rootFuncName + "]";
+                           "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
+                           " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed)) + " | Func:[" +
+                           rootFuncName + "]";
     } else if (name == "CodeGen") {
         stage_finish_msg = "[Compiler Monitor] Stage: " + name +
-                           "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
-                           " | Total elapsed: " + FormatElapsed(total_elapsed);
+                           "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
+                           " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed));
     } else {
         int pw = GetProgressWidth();
         stage_finish_msg =
             "[Compiler Monitor] " + PadLabel("Function: ") +
             PadRight(std::to_string(current_function_index_) + "/" + std::to_string(total_function_count_), pw) +
-            " | Stage: " + PadStageName(name) + "(completed) | Stage elapsed: " + FormatElapsed(elapsed) +
-            " | Total elapsed: " + FormatElapsed(total_elapsed) + " | Func:[" + current_function_ + "]";
+            " | Stage: " + PadStageName(name) + "(completed) | Stage elapsed: " + PadElapsed(FormatElapsed(elapsed)) +
+            " | Total elapsed: " + PadElapsed(FormatElapsed(total_elapsed)) + " | Func:[" + current_function_ + "]";
     }
 
     (void)fprintf(stdout, "%s\n", stage_finish_msg.c_str());
