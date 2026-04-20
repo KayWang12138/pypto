@@ -20,7 +20,7 @@
 #include "utils/tile_tensor.h"
 #include "binary_brcinline.h"
 
-template <BinaryOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, auto PrecisionType = 0, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1)
 {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
@@ -72,12 +72,12 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1)
     }
 
     if constexpr (op == BinaryOp::MOD) {
-        pto::TFMOD(dst, src0, src1);
+        pto::TFMOD<PrecisionType>(dst, src0, src1);
         return;
     }
 }
 
-template <BinaryOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, BrcMode brcmode, typename LastUse, typename T0, typename T1, typename T2>
+template <BinaryOp op, auto PrecisionType = 0, BrcMode brcmode, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1)
 {
     if constexpr (brcmode == BrcMode::BRC_W) {
@@ -102,8 +102,8 @@ TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1)
 }
 
 template <
-    BinaryOp op, pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, TileOp::BroadcastOperand WBrcSide,
-    TileOp::PenuBroadcastOperand HBrcSide, typename LastUse, typename T0, typename T1, typename T2>
+    BinaryOp op, auto PrecisionType = 0, TileOp::BroadcastOperand WBrcSide, TileOp::PenuBroadcastOperand HBrcSide,
+    typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1)
 {
     auto info = ExtractLayoutInfo(dst, src0, src1);
@@ -167,7 +167,7 @@ template <
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TAdd(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::ADD, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::ADD, 0, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_SUB TSub
@@ -176,7 +176,7 @@ template <
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TSub(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::SUB, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::SUB, 0, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_MUL TMul
@@ -185,12 +185,12 @@ template <
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMul(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::MUL, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::MUL, 0, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_DIV TDiv
 template <
-    pto::DivAlgorithm PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse = LastUse3Dim<0, 0, 0>,
+    auto PrecisionType = pto::DivAlgorithm::DEFAULT, typename LastUse = LastUse3Dim<0, 0, 0>,
     TileOp::BroadcastOperand WBrcSide = TileOp::BroadcastOperand::NONE,
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TDiv(T0 dst, T1 src0, T2 src1)
@@ -204,7 +204,7 @@ template <
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMax(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::MAX, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::MAX, 0, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_MIN TMin
@@ -213,7 +213,7 @@ template <
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMin(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::MIN, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::MIN, 0, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEAND TBitwiseAnd
@@ -222,7 +222,7 @@ template <
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TBitwiseAnd(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::BITWISEAND, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::BITWISEAND, 0, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEOR TBitwiseOr
@@ -231,7 +231,7 @@ template <
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TBitwiseOr(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::BITWISEOR, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::BITWISEOR, 0, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 TILEOP int gcd(int a, int b)
@@ -292,11 +292,12 @@ TILEOP void TGcd(T0 dst, T1 src0, T2 src1)
 
 #define OP_TILE_OP_Mod TMod
 template <
-    typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand WBrcSide = TileOp::BroadcastOperand::NONE,
+    auto PrecisionType = pto::FmodAlgorithm::DEFAULT, typename LastUse = LastUse3Dim<0, 0, 0>,
+    TileOp::BroadcastOperand WBrcSide = TileOp::BroadcastOperand::NONE,
     TileOp::PenuBroadcastOperand HBrcSide = TileOp::PenuBroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMod(T0 dst, T1 src0, T2 src1)
 {
-    BinaryCompute<BinaryOp::MOD, pto::DivAlgorithm::DEFAULT, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
+    BinaryCompute<BinaryOp::MOD, PrecisionType, WBrcSide, HBrcSide, LastUse>(dst, src0, src1);
 }
 
 template <typename T0, typename T1, typename T2, typename T3>
