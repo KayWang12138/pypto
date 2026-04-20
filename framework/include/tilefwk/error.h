@@ -116,7 +116,7 @@ public:
     (cond) ?                                                                                                           \
         0 :                                                                                                            \
         npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-            npu::tile_fwk::ErrorMessage()                                                                              \
+            npu::tile_fwk::ErrorMessage() << "ASSERT FAILED: " #cond                                                \
             << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                         \
             << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
@@ -124,7 +124,7 @@ public:
     (cond) ?                                                                                                           \
         0 :                                                                                                            \
         npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-            npu::tile_fwk::ErrorMessage()                                                                              \
+            npu::tile_fwk::ErrorMessage() << "CHECK FAILED: " #cond                                                 \
             << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                         \
             << (static_cast<unsigned>(errcode) & 0xFFFFF) << std::dec << "!\n"
 
@@ -155,4 +155,9 @@ public:
 #define CHECK_WITH_ERR_CODE(errcode, cond) CHECK_WITH_CODE(errcode, cond)
 #define CHECK(...) CHECK_OVERLOAD_SELECT(__VA_ARGS__, CHECK_WITH_ERR_CODE, CHECK_WITHOUT_ERR_CODE)(__VA_ARGS__)
 
+#ifndef FUNCTION_ASSERT
+#define FUNCTION_ASSERT_SELECT(_1, _2, NAME, ...) NAME
+#define FUNCTION_ASSERT_WITH_UNKNOWN(cond) ASSERT(FError::UNKNOWN, cond)
+#define FUNCTION_ASSERT(...) FUNCTION_ASSERT_SELECT(__VA_ARGS__, ASSERT, FUNCTION_ASSERT_WITH_UNKNOWN)(__VA_ARGS__)
+#endif
 } // namespace npu::tile_fwk
