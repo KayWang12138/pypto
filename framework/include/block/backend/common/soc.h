@@ -17,8 +17,8 @@
 #include <memory>
 #include <vector>
 
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
 
 namespace pypto {
 namespace backend {

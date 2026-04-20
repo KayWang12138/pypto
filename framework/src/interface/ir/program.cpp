@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) PyPTO Contributors.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -19,49 +19,47 @@
 #include <vector>
 
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/expr.h"
 #include "ir/function.h"
+#include "ir/span.h"
 
 namespace pypto {
 namespace ir {
 
 // Vector-based constructor: creates GlobalVars from function names
 Program::Program(const std::vector<FunctionPtr>& functions, std::string name, Span span)
-    : IRNode(std::move(span)), name_(std::move(name))
-{
-    // Create a map and populate it with GlobalVar -> Function mappings
-    // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
-    std::set<std::string> functionNames;
-    for (const auto& func : functions) {
-        INTERNAL_CHECK(func) << "Program constructor encountered null function at " << span_.ToString();
-        auto funcName = func->name_;
-        INTERNAL_CHECK(!funcName.empty())
-            << "Program constructor encountered empty function name at " << span_.ToString();
-        INTERNAL_CHECK(functionNames.find(funcName) == functionNames.end())
-            << "Duplicate function name \"" << funcName << "\" at " << span_.ToString();
-        functionNames.insert(funcName);
-        auto globalVar = std::make_shared<const GlobalVar>(funcName);
-        functions_.emplace(globalVar, func);
-    }
+    : IRNode(std::move(span)), name_(std::move(name)) {
+  // Create a map and populate it with GlobalVar -> Function mappings
+  // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
+  std::set<std::string> function_names;
+  for (const auto& func : functions) {
+    INTERNAL_CHECK(func) << "Program constructor encountered null function";
+    auto func_name = func->name_;
+    INTERNAL_CHECK(!func_name.empty()) << "Program constructor encountered empty function name";
+    CHECK(function_names.find(func_name) == function_names.end())
+        << "Duplicate function name \"" << func_name << "\"";
+    function_names.insert(func_name);
+    auto global_var = std::make_shared<const GlobalVar>(func_name);
+    functions_.emplace(global_var, func);
+  }
 }
 
-FunctionPtr Program::GetFunction(const std::string& name) const
-{
-    auto it = functions_.find(std::make_shared<const GlobalVar>(name));
-    if (it != functions_.end()) {
-        return it->second;
-    }
-    return nullptr;
+FunctionPtr Program::GetFunction(const std::string& name) const {
+  auto it = functions_.find(std::make_shared<const GlobalVar>(name));
+  if (it != functions_.end()) {
+    return it->second;
+  }
+  return nullptr;
 }
 
-GlobalVarPtr Program::GetGlobalVar(const std::string& name) const
-{
-    auto it = functions_.find(std::make_shared<const GlobalVar>(name));
-    if (it != functions_.end()) {
-        return it->first;
-    }
-    return nullptr;
+GlobalVarPtr Program::GetGlobalVar(const std::string& name) const {
+  auto it = functions_.find(std::make_shared<const GlobalVar>(name));
+  if (it != functions_.end()) {
+    return it->first;
+  }
+  return nullptr;
 }
 
-} // namespace ir
-} // namespace pypto
+}  // namespace ir
+}  // namespace pypto

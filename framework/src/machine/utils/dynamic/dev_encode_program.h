@@ -52,6 +52,7 @@ struct DevAscendProgram {
             uint64_t maxStaticOutcastMem;
             uint64_t maxDynamicAssembleOutcastMem;
             uint64_t devTaskBoundaryOutcastNum;
+            uint32_t parallelism{1};
 
             uint64_t MaxOutcastMem() const { return std::max(maxStaticOutcastMem, maxDynamicAssembleOutcastMem); }
 
@@ -63,13 +64,15 @@ struct DevAscendProgram {
                     MaxOutcastMem() * devTaskBoundaryOutcastNum; // root func outcasts & non-dassemble-dst & DeviceTask
                                                                  // boundary outcasts
                 static constexpr uint64_t ALIGNMENT_32K = 32 * 1024;
-                return AlignUp(total, ALIGNMENT_32K);
+                return AlignUp(total, ALIGNMENT_32K) * parallelism;
             }
         } tensor;
         uint64_t aicoreSpilled;
         struct {
             uint64_t general;
             uint64_t stitchPool;
+            uint32_t generalSlabSize;
+            uint32_t stitchSlabSize;
 
             uint64_t Total() const { return general + stitchPool; }
         } metadata;
@@ -83,8 +86,6 @@ struct DevAscendProgram {
     DeviceRuntimeOffset deviceRuntimeOffset;
     const void* controlFlowBinaryAddr{nullptr};
     std::atomic<bool> runtimeDataRingBufferInited{false};
-    uint16_t stitchFunctionNumInitial{0};
-    uint16_t stitchFunctionNumStep{0};
     uint32_t stitchFunctionsize{0};
     uint32_t stitchMaxFunctionNum{0};
     uint32_t ctrlFlowCacheSize{0};
@@ -316,7 +317,10 @@ struct DevAscendProgram {
 
         RelocOffset(shift, offset, controlFlowCache.inputTensorDataList);
         RelocOffset(shift, offset, controlFlowCache.outputTensorDataList);
-        RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList);
+        for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
+            RelocOffset(
+                shift, offset, controlFlowCache.runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList);
+        }
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.slotContext.slotList);
         RelocOffset(shift, offset, controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool);
         RelocOffset(shift, offset, controlFlowCache.deviceTaskCacheList);
@@ -413,7 +417,7 @@ struct DevAscendProgram {
             disableL2List,
             controlFlowCache.inputTensorDataList,
             controlFlowCache.outputTensorDataList,
-            controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList, // 20
+            controlFlowCache.runtimeBackup.workspace.tensorAllocators[0].slottedOutcastsBlockList, // 20
             controlFlowCache.runtimeBackup.slotContext.slotList,
             controlFlowCache.runtimeBackup.workspace.runtimeOutcastTensorPool,
             controlFlowCache.deviceTaskCacheList,
@@ -421,47 +425,47 @@ struct DevAscendProgram {
         };
         if ((uintptr_t)data != rangeList[0].begin) {
             DEV_ERROR(
-                ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                ProgEncodeErr::RANGE_VERIFY_FAILED,
                 "#ctrl.program.verify: Assertion failed: data (0x%p) != rangeList[0].begin (0x%p)", data,
                 (void*)rangeList[0].begin);
         }
-        DEV_ASSERT(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, (uintptr_t)data == rangeList[0].begin);
+        DEV_ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, (uintptr_t)data == rangeList[0].begin);
         if (rangeList[0].begin > rangeList[0].end) {
             DEV_ERROR(
-                ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                ProgEncodeErr::RANGE_VERIFY_FAILED,
                 "#ctrl.program.verify: Assertion failed: rangeList[0].begin (0x%p) > rangeList[0].end (0x%p)",
                 (void*)rangeList[0].begin, (void*)rangeList[0].end);
         }
-        DEV_ASSERT(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[0].begin <= rangeList[0].end);
+        DEV_ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, rangeList[0].begin <= rangeList[0].end);
         for (size_t k = 1; k < rangeList.size(); k++) {
             if (rangeList[k - 1].end > rangeList[k].begin) {
                 DEV_ERROR(
-                    ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                    ProgEncodeErr::RANGE_VERIFY_FAILED,
                     "#ctrl.program.verify: Ranges overlap: range[%d].end (0x%p) > range[%d].begin (0x%p)", (int)(k - 1),
                     (void*)rangeList[k - 1].end, (int)k, (void*)rangeList[k].begin);
             }
             if (rangeList[k].begin > rangeList[k].end) {
                 DEV_ERROR(
-                    ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                    ProgEncodeErr::RANGE_VERIFY_FAILED,
                     "#ctrl.program.verify: Invalid range: range[%d].begin (0x%p) > range[%d].end (0x%p)", (int)k,
                     (void*)rangeList[k].begin, (int)k, (void*)rangeList[k].end);
             }
             DEV_ASSERT_MSG(
-                ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[k - 1].end <= rangeList[k].begin, "range:%d->%d",
+                ProgEncodeErr::RANGE_VERIFY_FAILED, rangeList[k - 1].end <= rangeList[k].begin, "range:%d->%d",
                 (int)(k - 1), (int)(k));
             DEV_ASSERT_MSG(
-                ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, rangeList[k].begin <= rangeList[k].end, "range:%d", (int)k);
+                ProgEncodeErr::RANGE_VERIFY_FAILED, rangeList[k].begin <= rangeList[k].end, "range:%d", (int)k);
         }
         uintptr_t lastEnd = rangeList.back().end;
         uintptr_t dataEnd = (uintptr_t)(&data[dataSize]);
         if (lastEnd != dataEnd) {
             DEV_ERROR(
-                ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED,
+                ProgEncodeErr::RANGE_VERIFY_FAILED,
                 "#ctrl.program.verify: Last range end does not match data end: rangeList.back().end (0x%p) != dataEnd "
                 "(0x%p)",
                 (void*)lastEnd, (void*)dataEnd);
         }
-        DEV_ASSERT(ProgEncodeErr::PROGRAM_RANGE_VERIFY_FAILED, lastEnd == dataEnd);
+        DEV_ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, lastEnd == dataEnd);
     }
 
     uint64_t GetSize() const
@@ -470,6 +474,9 @@ struct DevAscendProgram {
     }
 
     const DeviceRuntimeOffset& GetDeviceRuntimeOffset() const { return deviceRuntimeOffset; }
+
+    void SetParallelism(uint32_t parallelism) { memBudget.tensor.parallelism = parallelism; }
+    uint32_t GetParallelism() { return memBudget.tensor.parallelism; }
 
 private:
     friend struct EncodeDevAscendProgramInfo;

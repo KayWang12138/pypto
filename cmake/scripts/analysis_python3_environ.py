@@ -87,18 +87,21 @@ class Analysis:
             '\n',
         ]
         if self.py_mod_pybind11_cmake_dir:
+            cmake_dir = self.py_mod_pybind11_cmake_dir.replace("\\", "/")
             lines += [
                 f'\n# Python3 module pybind11',
-                f'\nget_filename_component(PY3_MOD_PYBIND11_CMAKE_DIR "{self.py_mod_pybind11_cmake_dir}" REALPATH)',
+                f'\nget_filename_component(PY3_MOD_PYBIND11_CMAKE_DIR "{cmake_dir}" REALPATH)',
                 '\nmessage(STATUS "PY3_MOD_PYBIND11_CMAKE_DIR=${PY3_MOD_PYBIND11_CMAKE_DIR}")',
                 '\n',
             ]
         if self.py_mod_torch_version:
+            torch_root = self.py_mod_torch_root_dir.replace("\\", "/")
+            torch_cmake = self.py_mod_torch_cmake_dir.replace("\\", "/")
             lines += [
                 f'\n# Python3 module pybind11',
                 f'\nset(PY3_MOD_TORCH_VERSION "{self.py_mod_torch_version}")',
-                f'\nget_filename_component(PY3_MOD_TORCH_ROOT_PATH "{self.py_mod_torch_root_dir}" REALPATH)',
-                f'\nget_filename_component(PY3_MOD_TORCH_CMAKE_DIR "{self.py_mod_torch_cmake_dir}" REALPATH)',
+                f'\nget_filename_component(PY3_MOD_TORCH_ROOT_PATH "{torch_root}" REALPATH)',
+                f'\nget_filename_component(PY3_MOD_TORCH_CMAKE_DIR "{torch_cmake}" REALPATH)',
                 f'\nset(PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI {self.py_mod_torch_c_use_cxx11_abi})',
                 '\nmessage(STATUS "PY3_MOD_TORCH_VERSION=${PY3_MOD_TORCH_VERSION}")',
                 '\nmessage(STATUS "PY3_MOD_TORCH_ROOT_PATH=${PY3_MOD_TORCH_ROOT_PATH}")',

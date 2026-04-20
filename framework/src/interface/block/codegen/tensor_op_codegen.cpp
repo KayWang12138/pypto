@@ -18,11 +18,12 @@
 
 #include "block/codegen/codegen_base.h"
 #include "block/codegen/orchestration_op_registry.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/type.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace codegen {

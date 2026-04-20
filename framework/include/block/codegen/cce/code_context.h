@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "block/ir/expr.h"
+#include "ir/expr.h"
 
 namespace pypto {
 namespace codegen {

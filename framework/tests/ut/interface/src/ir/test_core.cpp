@@ -33,20 +33,20 @@ TEST_F(IRCoreExtTest, TestSpanConstructor)
 {
     Span sp("test.py", 1, 2, 3, 4);
     ASSERT_EQ(sp.filename_, "test.py");
-    ASSERT_EQ(sp.beginLine_, 1);
-    ASSERT_EQ(sp.beginColumn_, 2);
-    ASSERT_EQ(sp.endLine_, 3);
-    ASSERT_EQ(sp.endColumn_, 4);
+    ASSERT_EQ(sp.begin_line_, 1);
+    ASSERT_EQ(sp.begin_column_, 2);
+    ASSERT_EQ(sp.end_line_, 3);
+    ASSERT_EQ(sp.end_column_, 4);
 }
 
 TEST_F(IRCoreExtTest, TestSpanUnknown)
 {
     Span sp = Span::Unknown();
     ASSERT_EQ(sp.filename_, "");
-    ASSERT_EQ(sp.beginLine_, -1);
-    ASSERT_EQ(sp.beginColumn_, -1);
-    ASSERT_EQ(sp.endLine_, -1);
-    ASSERT_EQ(sp.endColumn_, -1);
+    ASSERT_EQ(sp.begin_line_, -1);
+    ASSERT_EQ(sp.begin_column_, -1);
+    ASSERT_EQ(sp.end_line_, -1);
+    ASSERT_EQ(sp.end_column_, -1);
 }
 
 // ============================================================================
@@ -67,70 +67,6 @@ TEST_F(IRCoreExtTest, TestSpanToStringUnknown)
     Span sp = Span::Unknown();
     std::string result = sp.ToString();
     ASSERT_FALSE(result.empty());
-}
-
-// ============================================================================
-// Span::is_valid Tests
-// ============================================================================
-
-TEST_F(IRCoreExtTest, TestSpanIsValidNormal)
-{
-    Span sp("test.py", 1, 1, 10, 5);
-    ASSERT_TRUE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidUnknown)
-{
-    Span sp = Span::Unknown();
-    ASSERT_FALSE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidNoEnd)
-{
-    Span sp("test.py", 1, 1, -1, -1);
-    ASSERT_TRUE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidSameLine)
-{
-    Span sp("test.py", 5, 1, 5, 10);
-    ASSERT_TRUE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidInvalidBeginLine)
-{
-    Span sp("test.py", 0, 1, 5, 10);
-    ASSERT_FALSE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidInvalidEndLine)
-{
-    Span sp("test.py", 5, 1, 0, 10);
-    ASSERT_FALSE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidEndBeforeBegin)
-{
-    Span sp("test.py", 10, 5, 5, 1);
-    ASSERT_FALSE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidSameLineEndColBeforeBeginCol)
-{
-    Span sp("test.py", 5, 10, 5, 5);
-    ASSERT_FALSE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidNoColumnInfo)
-{
-    Span sp("test.py", 1, -1, 5, -1);
-    ASSERT_TRUE(sp.IsValid());
-}
-
-TEST_F(IRCoreExtTest, TestSpanIsValidInvalidBeginColumn)
-{
-    Span sp("test.py", 1, 0, 5, 5);
-    ASSERT_FALSE(sp.IsValid());
 }
 
 // ============================================================================

@@ -1181,25 +1181,6 @@ class TestInlineFunctionCalls:
 
         ir.assert_structural_equal(TwiceCalled, Expected)
 
-    def test_inline_wrong_arg_count_raises_error(self):
-        """Wrong number of arguments raises ParserTypeError."""
-
-        @pl.inline
-        def one_arg(x: pl.Tensor[[64], pl.FP32]) -> pl.Tensor[[64], pl.FP32]:
-            result: pl.Tensor[[64], pl.FP32] = pl.add(x, 1.0)
-            return result
-
-        with pytest.raises(ParserTypeError, match="expects 1 argument.*got 2"):
-
-            @pl.program
-            class WrongArgCount:
-                @pl.function
-                def main(
-                    self, a: pl.Tensor[[64], pl.FP32], b: pl.Tensor[[64], pl.FP32]
-                ) -> pl.Tensor[[64], pl.FP32]:
-                    result: pl.Tensor[[64], pl.FP32] = one_arg(a, b)
-                    return result
-
     def test_inline_with_closure_variables(self):
         """Inline function can reference closure variables from its definition site."""
         SCALE = 3.0

@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -153,6 +154,11 @@ inline void Range(LogicalTensorDataPtr out, const Element& start, const Element&
 {
     GetCalcOps()->Range(Trans(out), start, end, step);
 }
+inline void Uniform(LogicalTensorDataPtr out, const Element &key,
+                    const Element &counter0, const Element &counter1, const Element &rounds, DataType dtype = DT_FP32) {
+    GetCalcOps()->Uniform(Trans(out), key, counter0, counter1, rounds, dtype);
+}
+
 inline void Compare(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, CmpOperationType operation,
     CmpModeType mode)
@@ -568,7 +574,7 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self)
 
 inline void MatMul(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
-    MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr})
+    MatMulParam param = {false, false, false, false, 0, 0, 0, nullptr, nullptr, nullptr, nullptr})
 {
     CalcOps* ops = GetCalcOps();
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);
@@ -577,7 +583,7 @@ inline void MatMul(
 
 inline void AccMatMul(
     LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc = nullptr,
-    MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr})
+    MatMulParam param = {false, false, false, false, 0, 0, 0, nullptr, nullptr, nullptr, nullptr})
 {
     CalcOps* ops = GetCalcOps();
     ASSERT(ExecuteOperationScene::CTX_OP_NULL, ops != nullptr);

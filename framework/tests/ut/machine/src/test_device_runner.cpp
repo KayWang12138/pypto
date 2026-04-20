@@ -32,6 +32,7 @@
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/aicore_manager.h"
 #include "machine/device/tilefwk/aicpu_common.h"
+#include "machine/device/dynamic/device_sche_context.h"
 
 using namespace npu::tile_fwk;
 class TestDeviceRunner : public testing::Test {
@@ -94,10 +95,11 @@ TEST_F(TestDeviceRunner, test_ini_device_args_arch35)
 
 TEST_F(TestDeviceRunner, test_ini_proflevel)
 {
+    npu::tile_fwk::dynamic::SchThreadStatus status;
     std::unique_ptr<npu::tile_fwk::dynamic::AicpuTaskManager> aicpuTaskPtr =
         std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
     std::unique_ptr<npu::tile_fwk::dynamic::AiCoreManager> AiCoreManagerPtr =
-        std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskPtr);
+        std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(status, *aicpuTaskPtr);
     AiCoreManagerPtr->aicNum_ = 0;
     AiCoreManagerPtr->aivNum_ = 1;
     AiCoreManagerPtr->aivStart_ = 0;
@@ -110,7 +112,9 @@ TEST_F(TestDeviceRunner, test_ini_proflevel)
     int64_t* regAddrs_ = oriRegAddrs_ + 1024;
     regAddrs_[0] = (int64_t)&regAddrs_[0];
     ToSubMachineConfig toSubMachineConfig;
-    AdprofReportAdditionalInfo(0, 0, 0);
+    if (AdprofReportAdditionalInfo != nullptr) {
+        AdprofReportAdditionalInfo(0, 0, 0);
+    }
     toSubMachineConfig.profConfig.Add(ProfConfig::OFF);
     std::unique_ptr<DeviceArgs> devArgs = std::make_unique<DeviceArgs>();
     devArgs->toSubMachineConfig = toSubMachineConfig;
@@ -136,6 +140,8 @@ TEST_F(TestDeviceRunner, test_ini_proflevel)
     npu::tile_fwk::dynamic::AiCpuHandShakeSta handShakeSta;
     prof.ProfGet(aicoreId, subgraphId, taskId, taskStat);
     prof.profLevel_ = npu::tile_fwk::dynamic::PROF_LEVEL_FUNC_LOG_PMU;
+    uint32_t ctrl0val = 0;
+    prof.addrs_.ctrl0Addr = &ctrl0val;
     prof.ProfStop();
     delete aiCpuStat;
     delete taskStat;
@@ -144,10 +150,11 @@ TEST_F(TestDeviceRunner, test_ini_proflevel)
 
 TEST_F(TestDeviceRunner, test_create_proflevel)
 {
+    npu::tile_fwk::dynamic::SchThreadStatus status;
     std::unique_ptr<npu::tile_fwk::dynamic::AicpuTaskManager> aicpuTaskPtr =
         std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
     std::unique_ptr<npu::tile_fwk::dynamic::AiCoreManager> AiCoreManagerPtr =
-        std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskPtr);
+        std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(status, *aicpuTaskPtr);
     npu::tile_fwk::dynamic::AiCoreProf prof(*AiCoreManagerPtr);
 
     ProfConfig config0;

@@ -58,7 +58,7 @@ enum class DevCommonErr : uint32_t {
     PARAM_INVALID = ToUnderlying(MachineError::DEV_COMMON) + 0x05U,      // 参数非法
     PARAM_CHECK_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x06U, // 参数校验失败
     FILE_ERROR = ToUnderlying(MachineError::DEV_COMMON) + 0x07U,         // 文件错误
-    CMD_ERROR = ToUnderlying(MachineError::DEV_COMMON) + 0x08U,          // 命令错误
+    SYSTEM_CALL_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x08U,          // 命令错误
     GET_ENV_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x09U,     // 获取环境变量路径失败
     GET_HANDLE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0AU,  // 获取句柄失败
     FREE_FAILED = ToUnderlying(MachineError::DEV_COMMON) + 0x0BU,        // 释放失败
@@ -73,6 +73,7 @@ enum class HostBackEndErr : uint32_t {
     PRECOMPILE_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x06U,        // 算子预编译失败
     FUNCTION_CACHE_HASH_MISS = ToUnderlying(MachineError::HOST_BACKEND) + 0x07U, // 函数缓存 hash 未命中/不一致
     DUPLICATE_LEAF_FUNC_HASH = ToUnderlying(MachineError::HOST_BACKEND) + 0x08U, // leaf 函数 hash 重复
+    RUN_PASS_FAILED = ToUnderlying(MachineError::HOST_BACKEND) + 0x09U,          // run pass fail
 };
 
 enum class HostLauncherErr : uint32_t {
@@ -96,6 +97,10 @@ enum class SchedErr : uint32_t {
     CORE_TASK_EXEC_FAILED = ToUnderlying(MachineError::SCHEDULE) + 0x04U,    // core 任务执行返回错误
     CORE_TASK_PROCESS_FAILED = ToUnderlying(MachineError::SCHEDULE) + 0x05U, // core 任务处理失败
     RINGBUFFER_WAIT_TIMEOUT = ToUnderlying(MachineError::SCHEDULE) + 0x06U,  // ring buf 等待超时
+    ABNOMAL_LAST_WORD = ToUnderlying(MachineError::SCHEDULE) + 0x07U,  // 异常状态临终遗言
+    SCH_DEVTASK_CTX_FULL =  ToUnderlying(MachineError::SCHEDULE) + 0x08U,  // devicetask 上下文队列满
+    FSM_STATUS_ERROR =  ToUnderlying(MachineError::SCHEDULE) + 0x09U,  // 状态机状态异常
+    SCH_PARALLEL_DEVTASK_TIMEOUT = ToUnderlying(MachineError::SCHEDULE) + 0x0aU,  // parallel devtask 调度超时
 };
 
 enum class CtrlErr : uint32_t {
@@ -131,9 +136,9 @@ enum class ProgEncodeErr : uint32_t {
     STITCH_LIST_TOO_LARGE = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x04U,        // stitch 列表过大
     STITCH_HANDLE_INDEX_OUT_OF_RANGE = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x05U, // stitch handle 索引越界
     CELL_MATCH_PARAM_INVALID = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x06U,         // cell match 参数非法
-    PROGRAM_RANGE_VERIFY_FAILED = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x07U,      // program 范围校验失败
+    RANGE_VERIFY_FAILED = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x07U,              // program 范围校验失败
     CACHE_RELOC_KIND_INVALID = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x08U,         // cache reloc 类型非法
-    ADDR_OFFSET_RAW_MAGIC_MISMATCH = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x09U, // 地址偏移与 raw magic 不匹配
+    ADDR_OFFSET_RAW_MAGIC_MISMATCH = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x09U,   // 地址偏移与 raw magic 不匹配
     CALL_OP_COUNT_EXCEEDS_UINT16_MAX =
         ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x0AU,                   // call op 数量超过 uint16 上限
     CELL_MATCH_DIM_ZERO = ToUnderlying(MachineError::PROGRAM_ENCODE) + 0x0BU, // cell match 维度为 0
@@ -162,9 +167,9 @@ enum class ThreadErr : uint32_t {
 
 enum class RtErr : uint32_t {
     RT_INIT_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x01U,     // ACL/RT 初始化失败
-    RT_MEMCPY_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x02U,   // rtMemcpy 失败
-    RT_MEMSET_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x03U,   // rtMemset 失败
-    RT_MALLOC_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x04U,   // rtMalloc 失败
+    RT_MEMCPY_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x02U,   // RuntimeMemcpy 失败
+    RT_MEMSET_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x03U,   // RuntimeMemset 失败
+    RT_MALLOC_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x04U,   // RuntimeMalloc 失败
     RT_LAUNCH_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x05U,   // rt 启动失败
     RT_EVENT_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x06U,    // rt event/stream 相关失败
     RT_CAPTURE_FAILED = ToUnderlying(MachineError::RUNTIME_ERROR) + 0x07U,  // capture 信息/状态失败

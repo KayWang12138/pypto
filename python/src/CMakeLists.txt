@@ -24,6 +24,9 @@ pybind11_add_module(pypto_impl
             bindings/function.cpp
             bindings/distributed.cpp
             bindings/platform.cpp
+            bindings/ir/ir.cpp
+            bindings/ir/builder.cpp
+            bindings/ir/logging.cpp
 )
 target_include_directories(pypto_impl
         PRIVATE
@@ -66,6 +69,19 @@ file(GLOB_RECURSE PYPTO_CORE_COMPAT_SOURCES CONFIGURE_DEPENDS
         ${PTO_FWK_SRC_ROOT}/framework/src/interface/block/ir/*/*/*.cpp
 )
 
+file(GLOB_RECURSE PYPTO_IR_SOURCES CONFIGURE_DEPENDS
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/ir/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/ir/*/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/ir/*/*/*.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/ir/*/*/*/*.cpp
+)
+
+list(APPEND PYPTO_CORE_COMPAT_SOURCES
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/core/backtrace.cpp
+        ${PTO_FWK_SRC_ROOT}/framework/src/interface/core/error.cpp
+        ${PYPTO_IR_SOURCES}
+)
+
 set(PYPTO_CORE_BINDING_SOURCES
         ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/bindings.cpp
         ${PTO_FWK_SRC_ROOT}/python/src/bindings/block/modules/error.cpp
@@ -92,11 +108,23 @@ set_target_properties(pypto_core PROPERTIES
 target_include_directories(pypto_core
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/include
+            ${PTO_FWK_SRC_ROOT}/framework/include/block
             ${PTO_FWK_SRC_ROOT}/python/src/bindings/block
+)
+target_link_directories(pypto_core
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64>>
 )
 target_link_libraries(pypto_core
         PRIVATE
+            c_sec_shared
+            c_sec_include
+            intf_pub_cxx17
             msgpackc-cxx
             dl
             Threads::Threads
 )
+if (TARGET c_sec_shared)
+    add_dependencies(pypto_core c_sec_shared)
+endif ()

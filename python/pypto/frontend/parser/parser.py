@@ -19,10 +19,10 @@ from typing import Any, List, Optional, Union, Callable
 
 import pypto
 from pypto._utils import set_source_location, clear_source_location
+from pypto.error import ParserError, RenderedParserError
 from pypto.symbolic_scalar import SymbolicScalar, SymInt
 from .context import Context
 from .diagnostics import DiagnosticLevel, Diagnostics, Source
-from .error import ParserError, RenderedParserError
 from .evaluator import ExprEvaluator
 from .liveness import LivenessAnalyzer
 
@@ -104,7 +104,7 @@ class NestedFunctionMarker:
                         )
 
             # Check the dtype of input tensors and input tensor definitions
-            if input_tensor_def.status_dtype is not None and arg_value.dtype != input_tensor_def.dtype:
+            if input_tensor_def.explicit_dtype is not None and arg_value.dtype != input_tensor_def.dtype:
                 raise ValueError(
                     f"In nested function '{self._func_name}': "
                     f"The dtype of {ordinal(idx)} parameter '{param_name}' ({arg_value.dtype}) "
@@ -813,6 +813,7 @@ class Parser(ast.NodeVisitor):
         """
         for arg in tensor_args:
             if isinstance(arg, pypto.Tensor):
+                arg.is_input = True
                 self.context.add(arg.name, arg)
 
     def _add_metadata_to_context(self, func_name: str) -> None:
@@ -868,8 +869,7 @@ class Parser(ast.NodeVisitor):
                 set_source_location(filename=self.source_name(), lineno=node.lineno)
                 with pypto.function(node.name, *tensor_input_args, *output_args):
                     clear_source_location()
-                    for _ in pypto.loop(1, name="default_loop_1"):
-                        self._visit_body(node.body)
+                    self._visit_body(node.body)
 
         return pypto.functions.get_last_function()
 
@@ -1440,6 +1440,21 @@ class Parser(ast.NodeVisitor):
             The value to assign.
         """
         if isinstance(target, ast.Name):
+            # 检查是否试图重新赋值输入 tensor
+            values_stack = self.context.name2value.get(target.id, [])
+            if values_stack:
+                existing_value = values_stack[-1]
+                if (isinstance(existing_value, pypto.Tensor) and
+                    getattr(existing_value, 'is_input', False)):
+                    raise ParserError(
+                        target,
+                        ValueError(
+                            f"Input tensor '{target.id}' cannot be reassigned. "
+                            f"Use subscript assignment ('{target.id}[:] = ...') "
+                            f"or '{target.id}.move(...)' instead."
+                        ),
+                    )
+
             # Simple assignment: a = expr
             # Set the tensor name if expr is a tensor
             if isinstance(expr, pypto.Tensor):

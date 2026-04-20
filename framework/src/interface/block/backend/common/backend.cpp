@@ -34,9 +34,9 @@
 // clang-format on
 
 #include "block/backend/common/soc.h"
-#include "block/core/logging.h"
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
+#include "core/logging.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
 
 namespace pypto {
 namespace backend {

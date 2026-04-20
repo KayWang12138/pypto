@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "block/backend/common/soc.h"
-#include "block/core/common.h"
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
+#include "core/common.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
 
 namespace pypto {
 

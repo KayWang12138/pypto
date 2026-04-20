@@ -15,9 +15,9 @@
 #include <map>
 #include <string>
 
-#include "block/ir/function.h"
-#include "block/ir/pipe.h"
-#include "block/ir/program.h"
+#include "ir/function.h"
+#include "ir/pipe.h"
+#include "ir/program.h"
 
 namespace pypto {
 namespace codegen {

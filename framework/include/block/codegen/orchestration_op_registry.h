@@ -19,7 +19,7 @@
 #include <utility>
 
 #include "block/codegen/codegen_base.h"
-#include "block/ir/expr.h"
+#include "ir/expr.h"
 
 namespace pypto {
 namespace codegen {

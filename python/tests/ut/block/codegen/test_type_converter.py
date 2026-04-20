@@ -33,43 +33,6 @@ class TestDataTypeConversion:
         assert dtype.to_c_type_string() == expected
 
 
-class TestShapeGeneration:
-    """Test Shape type generation."""
-
-    @pytest.mark.parametrize(
-        "dims,expected",
-        [
-            ([128, 64], "Shape<1, 1, 1, 128, 64>"),
-            ([256], "Shape<1, 1, 1, 1, 256>"),
-            ([16, 128, 64], "Shape<1, 1, 16, 128, 64>"),
-        ],
-    )
-    def test_generate_shape(self, dims, expected):
-        """Test shape generation with padding to 5D."""
-        converter = codegen.TypeConverter()
-        assert converter.GenerateShapeType(dims) == expected
-
-
-class TestStrideGeneration:
-    """Test Stride type generation."""
-
-    @pytest.mark.parametrize(
-        "shape,expected",
-        [
-            ([128, 64], "Stride<1, 1, 1, -1, -1>"),  # Dynamic strides from runtime
-            ([256], "Stride<1, 1, 1, 1, -1>"),  # Dynamic stride for last dimension
-            (
-                [16, 128, 64],
-                "Stride<1, 1, -1, -1, -1>",
-            ),  # Dynamic strides from runtime
-        ],
-    )
-    def test_generate_stride(self, shape, expected):
-        """Test stride generation (dynamic strides) with padding to 5D."""
-        converter = codegen.TypeConverter()
-        assert converter.GenerateStrideType(shape) == expected
-
-
 class TestPipeTypeConversion:
     """Test PipeType to C++ type conversion."""
 

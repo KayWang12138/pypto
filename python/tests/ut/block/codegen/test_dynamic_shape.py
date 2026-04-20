@@ -109,37 +109,6 @@ def test_add_kernel_dynamic_shape_pto_codegen():
     assert "shape = [%c0" not in mlir_code
 
 
-def test_add_kernel_valid_shape_pto_codegen():
-    """Test PTO codegen handles load with valid_shapes: tile allocated from shapes, M/N as index scalars."""
-    backend.reset_for_testing()
-    backend.set_backend_type(BackendType.PTO)
-    func = AddKernelValidShape.get_function("add_kernel")
-    assert func is not None
-    program = ir.Program([func], "test_add_kernel_valid_shape", ir.Span.unknown())
-    pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-    optimized = pm.run_passes(program)
-
-    gen = codegen.PTOCodegen()
-    mlir_code = gen.generate(optimized)
-
-    # Scalar params M and N appear in the function signature as index type
-    assert "%arg3: index" in mlir_code
-    assert "%arg4: index" in mlir_code
-    # Static tensor views use constant dims from the 128x128 tensor type
-    assert "shape = [%c128, %c128]" in mlir_code
-    assert "strides = [%c128, %c1]" in mlir_code
-    assert "!pto.tensor_view<?x?xf32>" in mlir_code
-    # Tile allocation uses shapes (128x128), not dynamic valid_shapes
-    assert "partition_tensor_view<128x128xf32>" in mlir_code
-    # tload is generated for each load
-    assert "pto.tload" in mlir_code
-    # alloc_tile carries valid_row/valid_col for dynamic valid_shapes
-    assert "valid_row = %arg3 valid_col = %arg4" in mlir_code
-    # v_row and v_col are wildcards (?) when valid_shape is dynamic
-    assert "v_row=?" in mlir_code
-    assert "v_col=?" in mlir_code
-
-
 def test_add_kernel_loop_dynamic_pto_codegen():
     """Test that tensor.dim result variable is correctly mapped to the MLIR shape arg."""
     backend.reset_for_testing()

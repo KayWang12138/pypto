@@ -21,12 +21,12 @@
 #include <pybind11/pybind11.h>
 
 #include "./module.h"
-#include "block/core/common.h"
+#include "core/common.h"
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(pypto_core, m) {
-  m.doc() = PYPTO_MODULE_DOC;
+  m.doc() = PYPTO_NANOBIND_MODULE_DOC;
 
   // Register error handling bindings
   pypto::python::BindErrors(m);

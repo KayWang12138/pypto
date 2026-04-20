@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,6 +27,119 @@ namespace ir {
 // Forward declarations for friend classes
 class IRVisitor;
 class IRMutator;
+
+enum class ForKind : uint8_t {
+    Sequential = 0,
+    Parallel = 1,
+    Unroll = 2
+};
+
+enum class ChunkPolicy : uint8_t {
+    LeadingFull = 0
+};
+
+enum class LoopOrigin : uint8_t {
+    Original = 0,
+    ChunkOuter = 1,
+    ChunkInner = 2,
+    ChunkRemainder = 3
+};
+
+enum class ScopeKind : uint8_t {
+    InCore = 0
+};
+
+enum class SectionKind : uint8_t {
+    Vector = 0,
+    Cube = 1
+};
+
+inline std::string ForKindToString(ForKind kind)
+{
+    switch (kind) {
+        case ForKind::Sequential: return "Sequential";
+        case ForKind::Parallel: return "Parallel";
+        case ForKind::Unroll: return "Unroll";
+        default: break;
+    }
+    throw TypeError("Unknown ForKind");
+}
+
+inline ForKind StringToForKind(const std::string& str)
+{
+    if (str == "Sequential") return ForKind::Sequential;
+    if (str == "Parallel") return ForKind::Parallel;
+    if (str == "Unroll") return ForKind::Unroll;
+    throw TypeError("Unknown ForKind: " + str);
+}
+
+inline std::string ChunkPolicyToString(ChunkPolicy policy)
+{
+    switch (policy) {
+        case ChunkPolicy::LeadingFull: return "LeadingFull";
+        default: break;
+    }
+    throw TypeError("Unknown ChunkPolicy");
+}
+
+inline ChunkPolicy StringToChunkPolicy(const std::string& str)
+{
+    if (str == "LeadingFull" || str == "leading_full") return ChunkPolicy::LeadingFull;
+    throw TypeError("Unknown ChunkPolicy: " + str);
+}
+
+inline std::string LoopOriginToString(LoopOrigin origin)
+{
+    switch (origin) {
+        case LoopOrigin::Original: return "Original";
+        case LoopOrigin::ChunkOuter: return "ChunkOuter";
+        case LoopOrigin::ChunkInner: return "ChunkInner";
+        case LoopOrigin::ChunkRemainder: return "ChunkRemainder";
+        default: break;
+    }
+    throw TypeError("Unknown LoopOrigin");
+}
+
+inline LoopOrigin StringToLoopOrigin(const std::string& str)
+{
+    if (str == "Original") return LoopOrigin::Original;
+    if (str == "ChunkOuter") return LoopOrigin::ChunkOuter;
+    if (str == "ChunkInner") return LoopOrigin::ChunkInner;
+    if (str == "ChunkRemainder") return LoopOrigin::ChunkRemainder;
+    throw TypeError("Unknown LoopOrigin: " + str);
+}
+
+inline std::string ScopeKindToString(ScopeKind kind)
+{
+    switch (kind) {
+        case ScopeKind::InCore: return "InCore";
+        default: break;
+    }
+    throw TypeError("Unknown ScopeKind");
+}
+
+inline ScopeKind StringToScopeKind(const std::string& str)
+{
+    if (str == "InCore") return ScopeKind::InCore;
+    throw TypeError("Unknown ScopeKind: " + str);
+}
+
+inline std::string SectionKindToString(SectionKind kind)
+{
+    switch (kind) {
+        case SectionKind::Vector: return "Vector";
+        case SectionKind::Cube: return "Cube";
+        default: break;
+    }
+    throw TypeError("Unknown SectionKind");
+}
+
+inline SectionKind StringToSectionKind(const std::string& str)
+{
+    if (str == "Vector") return SectionKind::Vector;
+    if (str == "Cube") return SectionKind::Cube;
+    throw TypeError("Unknown SectionKind: " + str);
+}
 
 /**
  * \brief Base class for all statements in the IR
@@ -257,21 +371,11 @@ using ReturnStmtPtr = std::shared_ptr<const ReturnStmt>;
  */
 class ForStmt : public Stmt {
 public:
-    /**
-     * \brief Create a for loop statement
-     *
-     * \param loopVar Loop variable
-     * \param start Start value expression
-     * \param stop Stop value expression
-     * \param step Step value expression
-     * \param iterArgs Iteration arguments (loop-carried values, scoped to loop body)
-     * \param body Loop body statement (must yield values matching iterArgs if non-empty)
-     * \param returnVars Return variables (capture final values, accessible after loop)
-     * \param span Source location
-     */
     ForStmt(
         VarPtr loopVar, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iterArgs, StmtPtr body,
-        std::vector<VarPtr> returnVars, Span span)
+        std::vector<VarPtr> returnVars, Span span, ForKind kind = ForKind::Sequential,
+        std::optional<ExprPtr> chunkSize = std::nullopt, ChunkPolicy chunkPolicy = ChunkPolicy::LeadingFull,
+        LoopOrigin loopOrigin = LoopOrigin::Original)
         : Stmt(std::move(span)),
           loopVar_(std::move(loopVar)),
           start_(std::move(start)),
@@ -279,17 +383,16 @@ public:
           step_(std::move(step)),
           iterArgs_(std::move(iterArgs)),
           body_(std::move(body)),
-          returnVars_(std::move(returnVars))
+          returnVars_(std::move(returnVars)),
+          kind_(kind),
+          chunkSize_(std::move(chunkSize)),
+          chunkPolicy_(chunkPolicy),
+          loopOrigin_(loopOrigin)
     {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ForStmt; }
     [[nodiscard]] std::string TypeName() const override { return "ForStmt"; }
 
-    /**
-     * \brief Get field descriptors for reflection-based visitation
-     *
-     * \return Tuple of field descriptors (loop_var as DEF field, others as USUAL fields)
-     */
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
@@ -298,20 +401,96 @@ public:
                 reflection::DefField(&ForStmt::loopVar_, "loop_var"), reflection::UsualField(&ForStmt::start_, "start"),
                 reflection::UsualField(&ForStmt::stop_, "stop"), reflection::UsualField(&ForStmt::step_, "step"),
                 reflection::DefField(&ForStmt::iterArgs_, "iter_args"), reflection::UsualField(&ForStmt::body_, "body"),
-                reflection::DefField(&ForStmt::returnVars_, "return_vars")));
+                reflection::DefField(&ForStmt::returnVars_, "return_vars"),
+                reflection::UsualField(&ForStmt::kind_, "kind"),
+                reflection::UsualField(&ForStmt::chunkSize_, "chunk_size"),
+                reflection::UsualField(&ForStmt::chunkPolicy_, "chunk_policy"),
+                reflection::IgnoreField(&ForStmt::loopOrigin_, "loop_origin")));
     }
 
 public:
-    VarPtr loopVar_;                   // Loop variable (e.g., i in "for i in range(...)")
-    ExprPtr start_;                    // Start value expression
-    ExprPtr stop_;                     // Stop value expression
-    ExprPtr step_;                     // Step value expression
+    VarPtr loopVar_;
+    ExprPtr start_;
+    ExprPtr stop_;
+    ExprPtr step_;
+    std::vector<IterArgPtr> iterArgs_;
+    StmtPtr body_;
+    std::vector<VarPtr> returnVars_;
+    ForKind kind_ = ForKind::Sequential;
+    std::optional<ExprPtr> chunkSize_;
+    ChunkPolicy chunkPolicy_ = ChunkPolicy::LeadingFull;
+    LoopOrigin loopOrigin_ = LoopOrigin::Original;
+};
+
+using ForStmtPtr = std::shared_ptr<const ForStmt>;
+
+/**
+ * \brief While loop statement
+ *
+ * Represents a while loop with optional loop-carried values (SSA-style iteration).
+ *
+ * **Basic loop:** while condition: body
+ *
+ * **Loop with iteration arguments:**
+ * while condition, (iter_arg1, iter_arg2) with init_values=[...]:
+ *     iter_arg1, iter_arg2 = pl.yield_(new_val1, new_val2)
+ * return_var1 = iter_arg1
+ * return_var2 = iter_arg2
+ *
+ * **Key Relationships:**
+ * - condition: Boolean expression evaluated each iteration using current iter_args
+ * - iter_args: IterArg variables scoped to loop body, carry values between iterations
+ * - return_vars: Var variables that capture final iteration values, accessible after loop
+ * - Number of iter_args must equal number of return_vars
+ * - Number of yielded values must equal number of iter_args
+ */
+class WhileStmt : public Stmt {
+public:
+    /**
+     * \brief Create a while loop statement
+     *
+     * \param condition Boolean condition expression
+     * \param iterArgs Iteration arguments (loop-carried values, scoped to loop body)
+     * \param body Loop body statement (must yield values matching iterArgs if non-empty)
+     * \param returnVars Return variables (capture final values, accessible after loop)
+     * \param span Source location
+     */
+    WhileStmt(
+        ExprPtr condition, std::vector<IterArgPtr> iterArgs, StmtPtr body, std::vector<VarPtr> returnVars, Span span)
+        : Stmt(std::move(span)),
+          condition_(std::move(condition)),
+          iterArgs_(std::move(iterArgs)),
+          body_(std::move(body)),
+          returnVars_(std::move(returnVars))
+    {}
+
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::WhileStmt; }
+    [[nodiscard]] std::string TypeName() const override { return "WhileStmt"; }
+
+    /**
+     * \brief Get field descriptors for reflection-based visitation
+     *
+     * \return Tuple of field descriptors (iter_args as DEF, condition as USUAL, body as USUAL, return_vars as
+     * DEF). Iter args must be visited before condition/body so structural comparison can bind loop-carried vars first.
+     */
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            Stmt::GetFieldDescriptors(), std::make_tuple(
+                                             reflection::DefField(&WhileStmt::iterArgs_, "iter_args"),
+                                             reflection::UsualField(&WhileStmt::condition_, "condition"),
+                                             reflection::UsualField(&WhileStmt::body_, "body"),
+                                             reflection::DefField(&WhileStmt::returnVars_, "return_vars")));
+    }
+
+public:
+    ExprPtr condition_;                // Condition expression (evaluated each iteration)
     std::vector<IterArgPtr> iterArgs_; // Loop-carried values (scoped to loop body)
     StmtPtr body_;                     // Loop body statement (must yield if iter_args non-empty)
     std::vector<VarPtr> returnVars_;   // Variables capturing final iteration values (accessible after loop)
 };
 
-using ForStmtPtr = std::shared_ptr<const ForStmt>;
+using WhileStmtPtr = std::shared_ptr<const WhileStmt>;
 
 /**
  * \brief Sequence of statements
@@ -343,40 +522,100 @@ public:
             Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&SeqStmts::stmts_, "stmts")));
     }
 
+    /**
+     * @brief Create a normalized statement from a list of statements
+     *
+     * Flattens nested SeqStmts and unwraps single-child sequences:
+     * - Flatten({a, SeqStmts({b, c}), d}, span) → SeqStmts({a, b, c, d})
+     * - Flatten({a}, span) → a
+     * - Flatten({}, span) → SeqStmts({})
+     */
+    static StmtPtr Flatten(std::vector<StmtPtr> stmts, Span span)
+    {
+        std::vector<StmtPtr> flat;
+        for (auto& s : stmts) {
+            if (auto seq = std::dynamic_pointer_cast<const SeqStmts>(s)) {
+                // Recursively flatten nested SeqStmts
+                for (const auto& inner : seq->stmts_) {
+                    if (auto inner_seq = std::dynamic_pointer_cast<const SeqStmts>(inner)) {
+                        flat.insert(flat.end(), inner_seq->stmts_.begin(), inner_seq->stmts_.end());
+                    } else {
+                        flat.push_back(inner);
+                    }
+                }
+            } else {
+                flat.push_back(std::move(s));
+            }
+        }
+        if (flat.size() == 1) {
+            return flat[0];
+        }
+        return std::make_shared<SeqStmts>(std::move(flat), std::move(span));
+    }
+
 public:
     std::vector<StmtPtr> stmts_; // List of statements
 };
 
 using SeqStmtsPtr = std::shared_ptr<const SeqStmts>;
 
-/**
- * \brief Operation statements
- *
- * Represents a sequence of assignment and/or evaluation statements.
- * This is used to group operations that should be treated as a unit,
- * such as a block of tensor operations with optional synchronization calls.
- *
- * OpStmts only accepts AssignStmt and EvalStmt types. An error will be raised
- * at construction time if other statement types are provided.
- */
+class ScopeStmt : public Stmt {
+public:
+    ScopeStmt(ScopeKind scopeKind, StmtPtr body, Span span)
+        : Stmt(std::move(span)), scopeKind_(scopeKind), body_(std::move(body))
+    {}
+
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ScopeStmt; }
+    [[nodiscard]] std::string TypeName() const override { return "ScopeStmt"; }
+
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            Stmt::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::UsualField(&ScopeStmt::scopeKind_, "scope_kind"),
+                reflection::UsualField(&ScopeStmt::body_, "body")));
+    }
+
+public:
+    ScopeKind scopeKind_;
+    StmtPtr body_;
+};
+
+using ScopeStmtPtr = std::shared_ptr<const ScopeStmt>;
+
+class SectionStmt : public Stmt {
+public:
+    SectionStmt(SectionKind sectionKind, StmtPtr body, Span span)
+        : Stmt(std::move(span)), sectionKind_(sectionKind), body_(std::move(body))
+    {}
+
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::SectionStmt; }
+    [[nodiscard]] std::string TypeName() const override { return "SectionStmt"; }
+
+    static constexpr auto GetFieldDescriptors()
+    {
+        return std::tuple_cat(
+            Stmt::GetFieldDescriptors(),
+            std::make_tuple(
+                reflection::UsualField(&SectionStmt::sectionKind_, "section_kind"),
+                reflection::UsualField(&SectionStmt::body_, "body")));
+    }
+
+public:
+    SectionKind sectionKind_;
+    StmtPtr body_;
+};
+
+using SectionStmtPtr = std::shared_ptr<const SectionStmt>;
+
 class OpStmts : public Stmt {
 public:
-    /**
-     * \brief Create an operation statements
-     *
-     * \param stmts List of assignment and/or evaluation statements
-     * \param span Source location
-     */
     OpStmts(std::vector<StmtPtr> stmts, Span span);
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpStmts; }
     [[nodiscard]] std::string TypeName() const override { return "OpStmts"; }
 
-    /**
-     * \brief Get field descriptors for reflection-based visitation
-     *
-     * \return Tuple of field descriptors (stmts as USUAL field)
-     */
     static constexpr auto GetFieldDescriptors()
     {
         return std::tuple_cat(
@@ -384,7 +623,7 @@ public:
     }
 
 public:
-    std::vector<StmtPtr> stmts_; // List of assignment and/or evaluation statements
+    std::vector<StmtPtr> stmts_;
 };
 
 using OpStmtsPtr = std::shared_ptr<const OpStmts>;
@@ -426,6 +665,40 @@ public:
 };
 
 using EvalStmtPtr = std::shared_ptr<const EvalStmt>;
+
+/**
+ * \brief Break statement
+ *
+ * Represents a break statement used to exit a loop.
+ */
+class BreakStmt : public Stmt {
+public:
+    explicit BreakStmt(Span span) : Stmt(std::move(span)) {}
+
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::BreakStmt; }
+    [[nodiscard]] std::string TypeName() const override { return "BreakStmt"; }
+
+    static constexpr auto GetFieldDescriptors() { return Stmt::GetFieldDescriptors(); }
+};
+
+using BreakStmtPtr = std::shared_ptr<const BreakStmt>;
+
+/**
+ * \brief Continue statement
+ *
+ * Represents a continue statement used to skip to the next loop iteration.
+ */
+class ContinueStmt : public Stmt {
+public:
+    explicit ContinueStmt(Span span) : Stmt(std::move(span)) {}
+
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ContinueStmt; }
+    [[nodiscard]] std::string TypeName() const override { return "ContinueStmt"; }
+
+    static constexpr auto GetFieldDescriptors() { return Stmt::GetFieldDescriptors(); }
+};
+
+using ContinueStmtPtr = std::shared_ptr<const ContinueStmt>;
 
 } // namespace ir
 } // namespace pypto

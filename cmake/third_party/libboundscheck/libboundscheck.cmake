@@ -33,6 +33,18 @@ if (BUILD_WITH_CANN AND DEFINED ENV{LD_LIBRARY_PATH})
     set_target_properties(c_sec_shared PROPERTIES
             IMPORTED_LOCATION ${c_sec_LIBRARY}
     )
+    add_library(c_sec INTERFACE)
+    target_include_directories(c_sec
+            INTERFACE
+                "${ASCEND_CANN_PACKAGE_PATH}/include"
+    )
+    # Do not hard-bind the host libc_sec.so path into every consumer target.
+    # Device-side targets rely on their own link directories to resolve the
+    # architecture-matching libc_sec at link time.
+    target_link_libraries(c_sec
+            INTERFACE
+                -lc_sec
+    )
     add_library(c_sec_include INTERFACE IMPORTED)
     set_target_properties(c_sec_include PROPERTIES
             INTERFACE_INCLUDE_DIRECTORIES "${ASCEND_CANN_PACKAGE_PATH}/include"

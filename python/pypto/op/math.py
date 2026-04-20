@@ -15,7 +15,7 @@ from .. import pypto_impl
 from .._element import Element
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
-from ..enum import DataType
+from ..enum import DataType, DivAlgorithm, ExpAlgorithm, SqrtAlgorithm, RsqrtAlgorithm, LogAlgorithm, RecipAlgorithm
 from ..symbolic_scalar import SymbolicScalar, SymInt
 
 
@@ -185,7 +185,8 @@ def mul(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
-def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
+def div(
+    input: Tensor, other: Union[Tensor, float], precision_type: DivAlgorithm = DivAlgorithm.HIGH_PRECISION) -> Tensor:
     """Computes the element-wise division of `input` and `other`.
 
     This function calculates the formula: `out = input / other`.
@@ -197,6 +198,10 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
         The first input tensor.
     other : Tensor or Number
         The second input tensor or a scalar to divide.
+    precision_type : DivAlgorithm, optional
+        The precision algorithm for division. Default is DivAlgorithm.HIGH_PRECISION.
+        HIGH_PRECISION uses higher precision calculation to reduce precision loss.
+        Use DivAlgorithm.INTRINSIC to directly use chip instructions.
 
     Returns
     -------
@@ -222,11 +227,16 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     Input a:    [[2.0 4.0 6.0]]
     Input b:    [[2.0 2.0 2.0]]
     Output out: [[1.0 2.0 3.0]]
+
+    # Using high precision mode for FP16
+    a = pypto.tensor([1, 3], pypto.DT_FP16)
+    b = pypto.tensor([1, 3], pypto.DT_FP16)
+    out = pypto.div(a, b, pypto.DivAlgorithm.HIGH_PRECISION)
     """
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.Div(input, other)
+        return pypto_impl.Div(input, other, precision_type)
     else:
-        return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other))
+        return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other), precision_type)
 
 
 @op_wrapper
@@ -578,7 +588,7 @@ def pow(input: Tensor, other: Union[Tensor, int, float]) -> Tensor:
 
 
 @op_wrapper
-def exp(input: Tensor) -> Tensor:
+def exp(input: Tensor, precision_type: ExpAlgorithm = ExpAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise exponential of `input`.
 
     This function calculates the formula: `out = e ** input`.
@@ -587,6 +597,10 @@ def exp(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : ExpAlgorithm, optional
+        The precision algorithm for exponential. Default is ExpAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use ExpAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -604,8 +618,12 @@ def exp(input: Tensor) -> Tensor:
 
     Input x: [0.0    1.0    2.0]
     Output y:[1.0000 2.7183 7.3891]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([3], pypto.DT_FP16)
+    y = pypto.exp(x, pypto.ExpAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Exp(input)
+    return pypto_impl.Exp(input, precision_type)
 
 
 @op_wrapper
@@ -752,7 +770,7 @@ def abs(a: Tensor) -> Tensor:
 
 
 @op_wrapper
-def reciprocal(a: Tensor) -> Tensor:
+def reciprocal(a: Tensor, precision_type: RecipAlgorithm = RecipAlgorithm.INTRINSIC) -> Tensor:
     """
     Returns a new tensor with the reciprocal of the elements of input
 
@@ -760,6 +778,10 @@ def reciprocal(a: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : RecipAlgorithm, optional
+        The precision algorithm for reciprocal. Default is RecipAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use RecipAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -773,8 +795,12 @@ def reciprocal(a: Tensor) -> Tensor:
 
     Input x:  [-0.4595, -2.1219, -1.4314,  0.7298]
     Output y: [-2.1763, -0.4713, -0.6986,  1.3702]
+    
+    # Using high precision mode
+    x = pypto.tensor([4], pypto.DT_FP16)
+    y = pypto.reciprocal(x, pypto.RecipAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Reciprocal(a)
+    return pypto_impl.Reciprocal(a, precision_type)
 
 
 @op_wrapper
@@ -904,7 +930,7 @@ def round(input: Tensor, decimals: int = 0) -> Tensor:
 
 
 @op_wrapper
-def rsqrt(input: Tensor) -> Tensor:
+def rsqrt(input: Tensor, precision_type: RsqrtAlgorithm = RsqrtAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise reciprocal of the square-root of `input`
 
     This function calculates the formula: `out = 1 / sqrt(input)`.
@@ -913,6 +939,10 @@ def rsqrt(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : RsqrtAlgorithm, optional
+        The precision algorithm for reciprocal square-root. Default is RsqrtAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use RsqrtAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -936,8 +966,12 @@ def rsqrt(input: Tensor) -> Tensor:
               [16.0 9.0]]
     Output y:[[1.0  0.5],
               [0.25 0.33333]]
+
+    # Using high precision mode
+    x = pypto.tensor([2, 2], pypto.DT_FP16)
+    y = pypto.rsqrt(x, pypto.RsqrtAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Rsqrt(input)
+    return pypto_impl.Rsqrt(input, precision_type)
 
 
 @op_wrapper
@@ -1041,7 +1075,7 @@ def trunc(input: Tensor) -> Tensor:
 
 
 @op_wrapper
-def sqrt(input: Tensor) -> Tensor:
+def sqrt(input: Tensor, precision_type: SqrtAlgorithm = SqrtAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise squareroot of `input`.
 
     This function calculates the formula: `out = √input`.
@@ -1050,6 +1084,10 @@ def sqrt(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : SqrtAlgorithm, optional
+        The precision algorithm for square root. Default is SqrtAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use SqrtAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -1067,8 +1105,12 @@ def sqrt(input: Tensor) -> Tensor:
 
     Input x:  [1.0 4.0 9.0 16.0 25.0]
     Output y: [1.0 2.0 3.0 4.0  5.0]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([5], pypto.DT_FP16)
+    y = pypto.sqrt(x, pypto.SqrtAlgorithm.HIGH_PRECISION)
     """
-    return pypto_impl.Sqrt(input)
+    return pypto_impl.Sqrt(input, precision_type)
 
 
 @op_wrapper
@@ -1098,7 +1140,7 @@ def neg(a: Tensor) -> Tensor:
 
 
 @op_wrapper
-def log(input: Tensor) -> Tensor:
+def log(input: Tensor, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise log of `input`.
 
     This function calculates the formula: `out = log(input)`.
@@ -1107,6 +1149,10 @@ def log(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor.
+    precision_type : LogAlgorithm, optional
+        The precision algorithm for logarithm. Default is LogAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use LogAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -1124,13 +1170,17 @@ def log(input: Tensor) -> Tensor:
 
     Input x: [1.0     2.0    3.0]
     Output y:[0.0000 0.6931 1.0986]
+    
+    # Using high precision mode for FP16
+    x = pypto.tensor([3], pypto.DT_FP16)
+    y = pypto.log(x, pypto.LogAlgorithm.HIGH_PRECISION)
     """
 
-    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_E)
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_E, precision_type)
 
 
 @op_wrapper
-def log2(input: Tensor) -> Tensor:
+def log2(input: Tensor, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise base-2 logarithm of `input`.
 
     This function calculates the formula: `out = log_2(input)`.
@@ -1139,6 +1189,10 @@ def log2(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor. Must be positive (input > 0).
+    precision_type : LogAlgorithm, optional
+        The precision algorithm for logarithm. Default is LogAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use LogAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -1156,11 +1210,11 @@ def log2(input: Tensor) -> Tensor:
     # Input x: [1.0     2.0     4.0]
     # Output y: [0.0000 1.0000 2.0000]
     """
-    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_2)
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_2, precision_type)
 
 
 @op_wrapper
-def log10(input: Tensor) -> Tensor:
+def log10(input: Tensor, precision_type: LogAlgorithm = LogAlgorithm.INTRINSIC) -> Tensor:
     """Computes the element-wise base-10 logarithm of `input`.
 
     This function calculates the formula: `out = log_10(input)`.
@@ -1169,6 +1223,10 @@ def log10(input: Tensor) -> Tensor:
     ----------
     input : Tensor
         The input tensor. Must be positive (input > 0).
+    precision_type : LogAlgorithm, optional
+        The precision algorithm for logarithm. Default is LogAlgorithm.INTRINSIC.
+        INTRINSIC directly uses chip instructions for faster computation.
+        Use LogAlgorithm.HIGH_PRECISION to use higher precision calculation to reduce precision loss.
 
     Returns
     -------
@@ -1186,7 +1244,7 @@ def log10(input: Tensor) -> Tensor:
     # Input x: [1.0      10.0     100.0]
     # Output y: [0.0000   1.0000   2.0000]
     """
-    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_10)
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_10, precision_type)
 
 
 @op_wrapper
@@ -1872,3 +1930,72 @@ def prelu(self: Tensor, weight: Tensor) -> Tensor:
     Output y: [-0.25, 2.0, -0.125, 3.0]
     """
     return pypto_impl.PReLU(self, weight)
+
+
+@op_wrapper
+def uniform(
+    key: int,
+    counter0: SymInt,
+    counter1: int,
+    shape: List[int],
+    rounds: int = 10,
+    dtype: "DataType" = None
+) -> Tensor:
+    """
+    Generates uniform random numbers using the Philox algorithm.
+    
+    Philox is a counter-based random number generator that produces deterministic
+    uniform random sequences based on a key and counter.
+    
+    Parameters
+    ----------
+    key : int
+        A uint64 value that serves as the key for the uniform random number sequence.
+    counter0 : SymInt
+        The first uint64 value of the 128-bit counter. Can be a symbolic scalar.
+    counter1 : int
+        The second uint64 value of the 128-bit counter.
+    shape : List[int]
+        The shape of the output tensor (must be 1-dimensional).
+    rounds : int, optional
+        The number of rounds for the Philox algorithm (7 or 10). Default is 10.
+    dtype : DataType, optional
+        The data type of the output tensor. Supports DT_FP32, DT_FP16, DT_BF16.
+        Default is DT_FP32.
+    
+    Returns
+    -------
+    Tensor
+        A tensor of uniform random numbers with the specified shape and dtype.
+    
+    Examples
+    --------
+    key = 12345678901234
+    counter0 = 0
+    counter1 = 0
+    shape = [1024]
+    output = pypto.uniform(key, counter0, counter1, shape, rounds=10)
+    """
+    if len(shape) != 1:
+        raise ValueError(f"shape must be 1-dimensional, got {len(shape)} dimensions")
+    if rounds not in [7, 10]:
+        raise ValueError(f"rounds must be 7 or 10, got {rounds}")
+    
+    if dtype is None:
+        dtype = pypto_impl.DataType.DT_FP32
+    
+    valid_dtypes = [pypto_impl.DataType.DT_FP32, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_BF16]
+    if dtype not in valid_dtypes:
+        raise ValueError(f"dtype must be one of DT_FP32, DT_FP16, DT_BF16, got {dtype}")
+    
+    if isinstance(counter0, int):
+        counter0 = SymbolicScalar(counter0).base()
+    
+    return pypto_impl.Uniform(
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, key),
+        counter0,
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT64, counter1),
+        shape,
+        pypto_impl.Element(pypto_impl.DataType.DT_UINT16, rounds),
+        dtype
+    )

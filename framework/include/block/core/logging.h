@@ -39,7 +39,7 @@
 #include <utility>
 #include <vector>
 
-#include "block/core/error.h"  // NOLINT(misc-include-cleaner)
+#include "core/error.h"  // NOLINT(misc-include-cleaner)
 
 namespace pypto {
 
@@ -550,7 +550,7 @@ class FatalLogger {
  * Usage: CHECK(condition) << "error message";
  */
 #define CHECK(expr) \
-  if (!(expr)) pypto::FatalLogger<pypto::ValueError>(#expr, __FILE__, __LINE__)
+  if (!(expr)) pypto::FatalLogger<pypto::ir::ValueError>(#expr, __FILE__, __LINE__)
 
 /**
  * @brief Check an internal invariant and throw InternalError if it fails
@@ -558,22 +558,23 @@ class FatalLogger {
  * Usage: INTERNAL_CHECK(condition) << "error message";
  */
 #define INTERNAL_CHECK(expr) \
-  if (!(expr)) pypto::FatalLogger<pypto::InternalError>(#expr, __FILE__, __LINE__)
+  if (!(expr)) pypto::FatalLogger<pypto::ir::InternalError>(#expr, __FILE__, __LINE__)
 
 /**
  * @brief Mark a code path as unreachable and throw ValueError if reached
  *
  * Usage: UNREACHABLE << "optional message";
  */
-#define UNREACHABLE pypto::FatalLogger<pypto::ValueError>("unreachable", __FILE__, __LINE__)
+#define UNREACHABLE pypto::FatalLogger<pypto::ir::ValueError>("unreachable", __FILE__, __LINE__)
 
 /**
  * @brief Mark a code path as internally unreachable and throw InternalError if reached
  *
  * Usage: INTERNAL_UNREACHABLE << "optional message";
  */
-#define INTERNAL_UNREACHABLE pypto::FatalLogger<pypto::InternalError>("unreachable", __FILE__, __LINE__)
+#define INTERNAL_UNREACHABLE pypto::FatalLogger<pypto::ir::InternalError>("unreachable", __FILE__, __LINE__)
 
 }  // namespace pypto
 
 #endif  // PYPTO_CORE_LOGGING_H_
+

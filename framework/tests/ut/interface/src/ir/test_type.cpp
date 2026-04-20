@@ -20,6 +20,7 @@
 
 #include "core/dtype.h"
 #include "ir/scalar_expr.h"
+#include "ir/memref.h"
 #include "ir/type.h"
 
 namespace pypto {
@@ -109,9 +110,9 @@ TEST(IRTypeTest, TestTileViewDefaultConstructor)
 {
     // Test TileView default construction
     TileView tileView;
-    ASSERT_TRUE(tileView.validShape.empty());
+    ASSERT_TRUE(tileView.valid_shape.empty());
     ASSERT_TRUE(tileView.stride.empty());
-    ASSERT_EQ(tileView.startOffset, nullptr);
+    ASSERT_EQ(tileView.start_offset, nullptr);
 }
 
 TEST(IRTypeTest, TestTileViewWithParameters)
@@ -126,9 +127,9 @@ TEST(IRTypeTest, TestTileViewWithParameters)
     std::vector<ExprPtr> stride = {const3, const3};
 
     TileView tileView(validShape, stride, offset);
-    ASSERT_EQ(tileView.validShape.size(), 2);
+    ASSERT_EQ(tileView.valid_shape.size(), 2);
     ASSERT_EQ(tileView.stride.size(), 2);
-    ASSERT_NE(tileView.startOffset, nullptr);
+    ASSERT_NE(tileView.start_offset, nullptr);
 }
 
 // ============================================================================
@@ -157,12 +158,27 @@ TEST(IRTypeTest, TestShapedTypeWithMemRef)
     std::vector<ExprPtr> shape = {dim1};
 
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
-    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0);
+    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::Vec, addr, 1024);
 
     auto shapedType = std::make_shared<ShapedType>(DataType::INT32, shape, memref);
     ASSERT_NE(shapedType, nullptr);
     ASSERT_TRUE(shapedType->memref_.has_value());
-    ASSERT_EQ((*shapedType->memref_)->memorySpace_, MemorySpace::UB);
+    ASSERT_EQ((*shapedType->memref_)->memory_space_, MemorySpace::Vec);
+    ASSERT_EQ((*shapedType->memref_)->size_, 1024);
+}
+
+TEST(IRTypeTest, TestShapedTypeWithVecInt)
+{
+    // Test ShapedType with VecInt
+    std::vector<int64_t> shape = {10, 10};
+
+    auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
+    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::Vec, addr, 1024);
+
+    auto shapedType = std::make_shared<ShapedType>(DataType::INT32, shape, memref);
+    ASSERT_NE(shapedType, nullptr);
+    ASSERT_TRUE(shapedType->memref_.has_value());
+    ASSERT_EQ((*shapedType->memref_)->memory_space_, MemorySpace::Vec);
     ASSERT_EQ((*shapedType->memref_)->size_, 1024);
 }
 
@@ -216,12 +232,12 @@ TEST(IRTypeTest, TestTensorTypeWithMemRef)
     std::vector<ExprPtr> shape = {dim};
 
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
-    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::DDR, addr, 400, 0);
+    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::DDR, addr, 400);
 
     auto tensorType = std::make_shared<TensorType>(shape, DataType::INT32, memref);
     ASSERT_NE(tensorType, nullptr);
     ASSERT_TRUE(tensorType->memref_.has_value());
-    ASSERT_EQ((*tensorType->memref_)->memorySpace_, MemorySpace::DDR);
+    ASSERT_EQ((*tensorType->memref_)->memory_space_, MemorySpace::DDR);
 }
 
 // ============================================================================
@@ -238,7 +254,7 @@ TEST(IRTypeTest, TestTileType1D)
     ASSERT_NE(tileType, nullptr);
     ASSERT_EQ(tileType->TypeName(), "TileType");
     ASSERT_EQ(tileType->shape_.size(), 1);
-    ASSERT_FALSE(tileType->tileView_.has_value());
+    ASSERT_FALSE(tileType->tile_view_.has_value());
 }
 
 TEST(IRTypeTest, TestTileType2D)
@@ -262,12 +278,12 @@ TEST(IRTypeTest, TestTileTypeWithMemRef)
     std::vector<ExprPtr> shape = {dim1, dim2};
 
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
-    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::L0A, addr, 512, 0);
+    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::Left, addr, 512);
 
     auto tileType = std::make_shared<TileType>(shape, DataType::FP32, memref);
     ASSERT_NE(tileType, nullptr);
     ASSERT_TRUE(tileType->memref_.has_value());
-    ASSERT_EQ((*tileType->memref_)->memorySpace_, MemorySpace::L0A);
+    ASSERT_EQ((*tileType->memref_)->memory_space_, MemorySpace::Left);
 }
 
 TEST(IRTypeTest, TestTileTypeWithTileView)
@@ -278,7 +294,7 @@ TEST(IRTypeTest, TestTileTypeWithTileView)
     std::vector<ExprPtr> shape = {dim1, dim2};
 
     auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::Unknown());
-    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::L0C, addr, 512, 0);
+    MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::Acc, addr, 512);
 
     auto validDim1 = std::make_shared<ConstInt>(8, DataType::INT32, Span::Unknown());
     auto validDim2 = std::make_shared<ConstInt>(8, DataType::INT32, Span::Unknown());
@@ -290,9 +306,9 @@ TEST(IRTypeTest, TestTileTypeWithTileView)
 
     auto tileType = std::make_shared<TileType>(shape, DataType::FP32, memref, tileView);
     ASSERT_NE(tileType, nullptr);
-    ASSERT_TRUE(tileType->tileView_.has_value());
-    ASSERT_EQ(tileType->tileView_->validShape.size(), 2);
-    ASSERT_EQ(tileType->tileView_->stride.size(), 2);
+    ASSERT_TRUE(tileType->tile_view_.has_value());
+    ASSERT_EQ(tileType->tile_view_->valid_shape.size(), 2);
+    ASSERT_EQ(tileType->tile_view_->stride.size(), 2);
 }
 
 TEST(IRTypeTest, TestTileTypeInvalidDimensions)

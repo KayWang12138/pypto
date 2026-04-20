@@ -72,7 +72,6 @@ struct DeviceLauncherConfig {
     std::vector<uint64_t> hcclContext;
     bool controlFlowCache{false};
     bool cpuSeparate{false};
-    bool isTripleStream{true};
     uint64_t workspaceAddr{0};
     bool isCacheOriginShape{true}; // infer cache shape or origin shape
 
@@ -242,7 +241,7 @@ private:
         } else if (name == "RUNTIME_GetViewValidShapeDim") {
             return GetViewValidShapeDim(vals[0], vals[1], vals[0x2]);
         } else {
-            ASSERT(false) << "unsupported call " << name;
+            ASSERT(DevCommonErr::PARAM_INVALID, false) << "unsupported call " << name;
             return 0;
         }
     }
@@ -256,7 +255,8 @@ private:
             }
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
                 auto sym = std::static_pointer_cast<RawSymbolicSymbol>(ss);
-                ASSERT(symbolDict.count(sym->Name())) << "symbol " << sym->Name() << " not found";
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, symbolDict.count(sym->Name()))
+                    << "symbol " << sym->Name() << " not found";
                 return symbolDict.find(sym->Name())->second;
             }
             case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
@@ -281,12 +281,12 @@ private:
                     }
                     return RawSymbolicExpression::GetSymbolicCalcMultiple(opcode)(immediateList);
                 } else {
-                    ASSERT(false);
+                    ASSERT(DevCommonErr::PARAM_INVALID, false);
                     return 0;
                 }
             }
             default: {
-                ASSERT(false);
+                ASSERT(DevCommonErr::PARAM_INVALID, false);
                 return 0;
             }
         }

@@ -15,12 +15,12 @@
 #include <vector>
 
 #include "../module.h"
-#include "block/ir/builder.h"
-#include "block/ir/core.h"
-#include "block/ir/expr.h"
-#include "block/ir/function.h"
-#include "block/ir/stmt.h"
-#include "block/ir/type.h"
+#include "ir/builder.h"
+#include "ir/core.h"
+#include "ir/expr.h"
+#include "ir/function.h"
+#include "ir/stmt.h"
+#include "ir/type.h"
 
 namespace py = pybind11;
 
@@ -43,7 +43,7 @@ void BindIRBuilder(py::module_& m) {
 
       // Function building
       .def("begin_function", &IRBuilder::BeginFunction, py::arg("name"), py::arg("span"),
-           py::arg("type") = FunctionType::Opaque,
+           py::arg("type") = FunctionType::OPAQUE,
            "Begin building a function.\n\n"
            "Creates a new function context. Must be closed with end_function().\n\n"
            "Args:\n"

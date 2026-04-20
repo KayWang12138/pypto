@@ -92,6 +92,62 @@ TEST_F(TorchAdaptorTest, Range)
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, Uniform) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP32, {16}, 0.0f);
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP32);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_FP16) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP16, {16}, float16(0.0));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_BF16) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_BF16, {16}, static_cast<bfloat16>(0.0f));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_BF16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_Rounds7) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP32, {16}, 0.0f);
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(7)), DT_FP32);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_FP16_Rounds7) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_FP16, {16}, float16(0.0));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(7)), DT_FP16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_BF16_Rounds7) {
+    uint64_t key = 12345678901234;
+    uint64_t counter0 = 0;
+    uint64_t counter1 = 0;
+    auto out = makeTensorData(DT_BF16, {16}, static_cast<bfloat16>(0.0f));
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(7)), DT_BF16);
+}
+
+TEST_F(TorchAdaptorTest, Uniform_LargeShape) {
+    uint64_t key = 9876543210;
+    uint64_t counter0 = 100;
+    uint64_t counter1 = 200;
+    auto out = makeTensorData(DT_FP32, {64}, 0.0f);
+    calc::Uniform(out, Element(DT_UINT64, key), Element(DT_UINT64, counter0), Element(DT_UINT64, counter1), Element(DT_UINT16, static_cast<uint16_t>(10)), DT_FP32);
+}
+
 TEST_F(TorchAdaptorTest, Exp2)
 {
     auto self = makeTensorData(DT_FP32, {16, 16}, 2.0f);
@@ -1061,7 +1117,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {16, 8}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        MatMulParam param = {false, false, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = false;
+        param.kStep = 4;
         calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1071,7 +1130,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        MatMulParam param = {false, true, 0};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 0;
         calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1081,7 +1143,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        MatMulParam param = {false, true, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 4;
         calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1100,7 +1165,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {16, 8}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        MatMulParam param = {false, false, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = false;
+        param.kStep = 4;
         calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1110,7 +1178,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        MatMulParam param = {false, true, 0};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 0;
         calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1120,7 +1191,10 @@ TEST_F(TorchAdaptorTest, MatMul)
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        MatMulParam param = {false, true, 4};
+        MatMulParam param{};
+        param.aTrans = false;
+        param.bTrans = true;
+        param.kStep = 4;
         calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
@@ -1276,6 +1350,30 @@ TEST_F(TorchAdaptorTest, Reduce)
         auto out = makeTensorData(DT_INT32, {1, 16}, 0);
         auto golden = makeTensorData(DT_INT32, {1, 16}, 0);
         calc::RowArgMinLine(out, self, 0);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+}
+
+TEST_F(TorchAdaptorTest, Permute3D)
+{
+    {
+        std::vector<float> sdata = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12,
+                                    13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
+        std::vector<float> gdata = {1,  2,  3,  4,  13, 14, 15, 16, 5,  6,  7,  8,
+                                    17, 18, 19, 20, 9,  10, 11, 12, 21, 22, 23, 24};
+        auto self = makeTensorData(DT_FP32, {2, 3, 4}, sdata);
+        auto out = makeTensorData(DT_FP32, {2, 3, 4}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {2, 3, 4}, gdata);
+        calc::Permute(out, self, {1, 0, 2});
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        std::vector<float> sdata = {1, 2, 3, 4, 5, 6};
+        std::vector<float> gdata = {1, 4, 2, 5, 3, 6};
+        auto self = makeTensorData(DT_FP32, {2, 3}, sdata);
+        auto out = makeTensorData(DT_FP32, {3, 2}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {3, 2}, gdata);
+        calc::Permute(out, self, {1, 0});
         ASSERT_ALLCLOSE(out, golden);
     }
 }

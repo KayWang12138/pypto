@@ -50,7 +50,7 @@ def assert_kernel_runtime(
             pl.system.sync_dst(set_pipe=pl.PipeType.V, wait_pipe=pl.PipeType.MTE3, event_id=1)
             plm.assert_(flag, loc=True)
             plm.assert_(flag, "flag is false", loc=True)
-            plm.assert_(offset == 0, "offset=%d", offset, loc=True)
+            plm.assert_(offset != 2, "offset=%d", offset, loc=True)
             plm.store(z, tile_z, [offset, 0])
             pl.system.bar_all()
 
@@ -72,7 +72,7 @@ def test_assert() -> None:
     z = torch.zeros_like(x)
 
     print("ASSERT_TEST_BEFORE_LAUNCH", flush=True)
-    fe.launch(None, 1, compiled_lib, x, y, z, False)
+    fe.launch(None, 1, compiled_lib, x, y, z, True)
     torch.npu.synchronize()
     print("ASSERT_TEST_AFTER_LAUNCH", flush=True)
 

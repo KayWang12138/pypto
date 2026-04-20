@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "block/core/common.h"
-#include "block/ir/span.h"  // For Span in Diagnostic
+#include "core/common.h"
+#include "ir/span.h"  // For Span in Diagnostic
 
 namespace pypto {
 

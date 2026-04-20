@@ -23,21 +23,76 @@
 #include <utility>
 #include <vector>
 #include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/acl_define.h"
+#include "adapter/api/runtime_define.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/interpreter/verify_error.h"
 #include "interface/utils/op_info_manager.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/eslmodel_launcher.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
-#include "interface/compiler_monitor/monitor_manager.h"
-#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
+
+static bool IsUint8GoldenAndHf8InOut(const DeviceTensorData& inOutTensor, const DeviceTensorData& goldenTensor)
+{
+    return inOutTensor.GetDataType() == DT_HF8 && goldenTensor.GetDataType() == DT_UINT8;
+}
+
+static void ValidateVerifyOutputAndGolden(
+    const std::vector<DeviceTensorData>& inOutTensors, const std::vector<DeviceTensorData>& goldens)
+{
+    auto ShapeToString = [](const std::vector<int64_t>& shape) {
+        std::ostringstream oss;
+        oss << "[";
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (i != 0) {
+                oss << ", ";
+            }
+            oss << shape[i];
+        }
+        oss << "]";
+        return oss.str();
+    };
+
+    if (inOutTensors.size() != goldens.size()) {
+        return;
+    }
+
+    for (size_t i = 0; i < inOutTensors.size(); i++) {
+        bool outputIsNone = inOutTensors[i].GetAddr() == nullptr;
+        bool goldenIsNone = goldens[i].GetAddr() == nullptr;
+        if (outputIsNone || goldenIsNone) {
+            continue;
+        }
+
+        ASSERT(
+            VerifyResultScene::VERIFY_RESULT_DTYPE_DIFF, inOutTensors[i].GetDataType() == goldens[i].GetDataType() ||
+                                                             IsUint8GoldenAndHf8InOut(inOutTensors[i], goldens[i]))
+            << "dtype mismatch at index " << i << ", output dtype: " << DataType2String(inOutTensors[i].GetDataType())
+            << ", golden dtype: " << DataType2String(goldens[i].GetDataType());
+
+        auto& outputShape = inOutTensors[i].GetShape();
+        auto& goldenShape = goldens[i].GetShape();
+        ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape.size() == goldenShape.size())
+            << "shape rank mismatch at golden index " << i << ", output rank: " << outputShape.size()
+            << ", golden rank: " << goldenShape.size();
+        for (size_t dim = 0; dim < outputShape.size(); dim++) {
+            ASSERT(VerifyResultScene::VERIFY_RESULT_SHAPE_DIFF, outputShape[dim] == goldenShape[dim])
+                << "shape mismatch at golden index " << i << ", dim " << dim
+                << ", output shape: " << ShapeToString(outputShape) << ", golden shape: " << ShapeToString(goldenShape);
+        }
+    }
+}
 
 void CopyToHost(const DeviceTensorData& devTensor, DeviceTensorData& hostTensor)
 {
@@ -53,22 +108,42 @@ void SetVerifyData(
     const std::vector<DeviceTensorData>& inputs, const std::vector<DeviceTensorData>& outputs,
     const std::vector<DeviceTensorData>& goldens)
 {
+    auto ToLogicalShape = [](DataType dtype, const std::vector<int64_t>& shape) -> std::vector<int64_t> {
+        auto logical = shape;
+        if ((dtype == DT_FP4_E2M1X2 || dtype == DT_FP4_E1M2X2) && !logical.empty()) {
+            logical.back() *= 2;
+        }
+        return logical;
+    };
+
+    std::vector<DeviceTensorData> inOutTensors;
+    inOutTensors.reserve(inputs.size() + outputs.size());
+    inOutTensors.insert(inOutTensors.end(), inputs.begin(), inputs.end());
+    inOutTensors.insert(inOutTensors.end(), outputs.begin(), outputs.end());
+    ValidateVerifyOutputAndGolden(inOutTensors, goldens);
+
     ProgramData::GetInstance().Reset();
     for (size_t i = 0; i < inputs.size(); i++) {
+        auto logicalShape = ToLogicalShape(inputs[i].GetDataType(), inputs[i].GetShape());
         auto rawData =
-            RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t*)inputs[i].GetAddr());
+            RawTensorData::CreateTensor(inputs[i].GetDataType(), logicalShape, (uint8_t*)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
     }
     for (size_t i = 0; i < outputs.size(); i++) {
-        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), outputs[i].GetShape());
+        auto logicalShape = ToLogicalShape(outputs[i].GetDataType(), outputs[i].GetShape());
+        auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), logicalShape);
         ProgramData::GetInstance().AppendOutput(rawData);
     }
     for (size_t i = 0; i < goldens.size(); i++) {
         if (goldens[i].GetAddr() == 0) {
             ProgramData::GetInstance().AppendGolden(nullptr);
         } else {
-            auto rawData = RawTensorData::CreateTensor(
-                goldens[i].GetDataType(), goldens[i].GetShape(), (uint8_t*)goldens[i].GetAddr());
+            auto goldenType = goldens[i].GetDataType();
+            if (i < inOutTensors.size() && IsUint8GoldenAndHf8InOut(inOutTensors[i], goldens[i])) {
+                goldenType = DT_HF8;
+            }
+            auto logicalShape = ToLogicalShape(goldenType, goldens[i].GetShape());
+            auto rawData = RawTensorData::CreateTensor(goldenType, logicalShape, (uint8_t*)goldens[i].GetAddr());
             ProgramData::GetInstance().AppendGolden(rawData);
         }
     }
@@ -412,7 +487,10 @@ public:
     {
         if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
             Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
-            return workspaceSize + eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            devProg->memBudget.tensor.maxDynamicAssembleOutcastMem =
+                eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+            workspaceSize = devProg->memBudget.Total();
+            return workspaceSize;
         }
         return workspaceSize;
     }
@@ -542,7 +620,6 @@ public:
         }
     }
 
-    bool IsTripleStream() { return tripleStream; }
     bool IsCompileStageAllComplete() { return compileStageAllComplete; }
 
     KernelBinary* GetKernelBinary(std::vector<DeviceTensorData>& tensors)
@@ -565,12 +642,12 @@ public:
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
             if (DeviceLauncher::IsCaptureMode()) {
-                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             } else if (InferCacheShape(module, tensors, shape)) {
                 devCache = kernel->FindCtrlFlowCache(shape, false);
             } else {
-                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             }
         }
@@ -586,18 +663,7 @@ public:
         return devCache;
     }
 
-    KernelBinary* Compile(py::object& module, py::args& args)
-    {
-        COMPILER_LOGI("Old frontend compile begin once.");
-        // Prepare stage starts here and ends at Program::UpdateCompileTask() for OLD
-        // "Prepare" 在Initialize中设置
-        MonitorManager::Instance().Initialize(compileMonitorEnable, intervalSec, timeoutSec, totalTimeoutSec);
-        auto compile = py::getattr(module, "compile");
-        compile(args);
-        return RegisterLastCompiledKernel(module);
-    }
-
-    KernelBinary* CompileFromTorch(py::object& module, py::sequence& torch_tensors, py::sequence tensor_defs)
+    KernelBinary* Compile(py::object& module, py::sequence& torch_tensors, py::sequence& tensor_defs)
     {
         COMPILER_LOGI("New frontend compile from torch begin once.");
         // Prepare stage starts here and ends at Program::UpdateCompileTask() for NEW
@@ -659,7 +725,7 @@ public:
     }
 
     void Launch(
-        KernelBinary* kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData>& tensors, uint8_t* ctrlFlowCache,
+        KernelBinary* kernel, AclRtStream aicoreStream, std::vector<DeviceTensorData>& tensors, uint8_t* ctrlFlowCache,
         int64_t* workspace)
     {
         SetTensorData(tensors);
@@ -674,21 +740,19 @@ public:
         bool debugEnable = !isCaptureMode && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE(
-            "triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
-            ctrlFlowCache);
+        COMPILER_LOGE("Sequence %ld workspace %p cfgcache %p", sequence.load(), workspace, ctrlFlowCache);
 #endif
         int ret = DeviceLauncher::LaunchSyncTask(aicoreStream, isCaptureMode);
-        ASSERT(ret == RT_ERROR_NONE) << "launch pre sync failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch pre sync failed: " << ret;
 
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
-        ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
+        ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, debugEnable, kernel->GetFunction());
+        ASSERT(ret == RT_SUCCESS) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(
             aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "launch aicore failed: " << ret;
     }
 
     void EmulationLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
@@ -700,13 +764,26 @@ public:
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
-        ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
+        ASSERT(ret == RT_SUCCESS) << "emulation run failed: " << ret;
+    }
+
+    void EslModelLaunch(KernelBinary* kernel, std::vector<DeviceTensorData>& tensors)
+    {
+        DeviceLauncherConfig config;
+        ProgramData::GetInstance().Reset();
+        InitializeInputOutputData(tensors, {});
+        int ret = EslModelLauncher::EslModelRunOnce(kernel->GetKernelBin(), config);
+        for (size_t i = 0; i < tensors.size(); i++) {
+            auto input = ProgramData::GetInstance().GetInputData(i);
+            StringUtils::DataCopy(tensors[i].GetAddr(), input->GetDataSize(), input->data(), input->GetDataSize());
+        }
+        ASSERT(ret == RT_SUCCESS) << "EslModelLaunch run failed: " << ret;
     }
 
 private:
     void InitCachedArgs()
     {
-        memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
+        memset_s(&rtAicpuArgs, sizeof(RtAicpuArgsEx), 0, sizeof(RtAicpuArgsEx));
         rtAicpuArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
         rtAicpuArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
         rtAicpuArgs.hostInputInfoNum = 1;
@@ -714,21 +791,18 @@ private:
         hostInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
         rtAicpuArgs.timeout = AICPU_EXECUTE_TIMEOUT;
-        memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
+        memset_s(&rtAicoreArgs, sizeof(RtArgsEx), 0, sizeof(RtArgsEx));
         kernelArgs.resize(7, nullptr); // see aicore.ascpp
         rtAicoreArgs.args = kernelArgs.data();
         rtAicoreArgs.argsSize = kernelArgs.size() * sizeof(void*);
 
-        memset_s(&rtTaskCfg, sizeof(rtTaskCfgInfo_t), 0, sizeof(rtTaskCfgInfo_t));
-        rtTaskCfg.schemMode = RT_SCHEM_MODE_BATCH;
+        memset_s(&rtTaskCfg, sizeof(RtTaskCfgInfo), 0, sizeof(RtTaskCfgInfo));
+        rtTaskCfg.schemMode = static_cast<uint8_t>(RtSchemModeType::BATCH);
     }
 
     void InitConfigOptions(py::object& module)
     {
         auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("triple_stream_sched")) {
-            tripleStream = options["triple_stream_sched"].cast<bool>();
-        }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
         }
@@ -764,9 +838,7 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        COMPILER_LOGE(
-            "triple_stream_sched: %d, stitch_cfgcache_size: %ld, infer_cache_shape: %d", tripleStream,
-            stitchCfgCacheSize, inferCacheShape);
+        COMPILER_LOGE("stitch_cfgcache_size: %ld, infer_cache_shape: %d", stitchCfgCacheSize, inferCacheShape);
 #endif
     }
 
@@ -816,7 +888,6 @@ private:
 
 private:
     bool inferCacheShape{false};
-    bool tripleStream{true};
     bool isDebugMode{false};
     int64_t stitchCfgCacheSize{0};
     bool compileStageAllComplete{true};
@@ -825,11 +896,11 @@ private:
     int timeoutSec{-1};
     int totalTimeoutSec{600};
 
-    rtHostInputInfo_t hostInfo;
-    rtAicpuArgsEx_t rtAicpuArgs;
+    RtHostInputInfo hostInfo;
+    RtAicpuArgsEx rtAicpuArgs;
 
-    rtArgsEx_t rtAicoreArgs;
-    rtTaskCfgInfo_t rtTaskCfg;
+    RtArgsEx rtAicoreArgs;
+    RtTaskCfgInfo rtTaskCfg;
     std::vector<void*> kernelArgs;
     std::vector<KernelBinary*> kernels;
 
@@ -839,115 +910,109 @@ using KernelModulePtr = std::shared_ptr<KernelModule>;
 
 std::atomic<int64_t> KernelModule::sequence(0);
 
-static int GetInputTensors(py::args& args, std::vector<DeviceTensorData>& tensors)
-{
-    py::object device = py::none();
-    for (auto& pt : args) {
-        auto base = py::getattr(pt, "_base", py::none());
-        if (py::isinstance<Tensor>(base)) {
-            auto& t = base.cast<Tensor&>();
-            auto data_ptr = py::cast<int64_t>(py::getattr(pt, "data_ptr"));
-            auto shape = py::cast<std::vector<int64_t>>(py::getattr(pt, "ori_shape"));
-            tensors.emplace_back(t.GetDataType(), data_ptr, shape, t.Format());
-            if (device.is_none()) {
-                device = py::getattr(pt, "device");
-            } else if (!device.equal(py::getattr(pt, "device"))) {
-                throw std::runtime_error("All input tensors must be on the same device");
-            }
-        }
-    }
-    ASSERT(tensors.size()) << "No input tensors found";
-    if (py::getattr(device, "type").cast<std::string>() != "npu") {
-        throw std::runtime_error("Not npu device");
-    }
-    return py::getattr(device, "index").cast<int>();
-}
+class KernelLauncher {
+private:
+    py::object& module;
+    py::sequence& torchTensors;
+    py::sequence& tensorDefs;
+    AclRtStream aicoreStream;
+    std::vector<DeviceTensorData>& tensors;
+    KernelModulePtr kmodule;
+    AclMdlRI rtModel;
 
-static void DoLaunch(
-    py::object& module, aclrtStream aicoreStream, int devId, std::vector<DeviceTensorData>& tensors,
-    std::function<KernelBinary*(KernelModulePtr)> compile_fn)
-{
-    DeviceGuard devGuard(devId);
-
-    auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
-    aclmdlRI rtModel;
-    DeviceLauncher::SaveStream(aicoreStream);
-    DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
-
-    HOST_PERF_TRACE(TracePhase::LaunchInit);
-
+    DeviceGuard devGuard;
     std::optional<ConfigManagerNg::JitScopeGuard> jitScopeGuard;
 
-    auto kbinary = kmodule->GetKernelBinary(tensors);
-    if (kbinary == nullptr) {
+public:
+    KernelLauncher(
+        py::object& m, int64_t stream, py::sequence& torch_tensors, py::sequence& tensor_defs,
+        std::vector<DeviceTensorData>& tensors_ref, int devId)
+        : module(m),
+          torchTensors(torch_tensors),
+          tensorDefs(tensor_defs),
+          aicoreStream((AclRtStream)stream),
+          tensors(tensors_ref),
+          devGuard(devId)
+    {
+        kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
+        DeviceLauncher::SaveStream(aicoreStream);
+        DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
+    }
+
+    void Execute()
+    {
+        HOST_PERF_TRACE_START();
+        HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
+
+        auto kbinary = CompileIfNeeded();
+        HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
+        if (!kbinary || !kmodule->IsCompileStageAllComplete()) {
+            HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+            return;
+        }
+
+        DoLaunch(kbinary);
+        HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+    }
+
+private:
+    KernelBinary* CompileIfNeeded()
+    {
+        HOST_PERF_TRACE(TracePhase::LaunchInit);
+        auto kbinary = kmodule->GetKernelBinary(tensors);
+        if (kbinary)
+            return kbinary;
+
         jitScopeGuard.emplace("jit_scope", std::map<std::string, Any>{});
         Program::GetInstance().Reset();
-        AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+        AclModeGuard guard(AclMdlRICaptureMode::RELAXED);
 #if ENABALE_VERBOSE_LOG
         COMPILER_LOGE("compile kernel");
 #endif
-        kbinary = compile_fn(kmodule);
+
+        return kmodule->Compile(module, torchTensors, tensorDefs);
     }
 
-    if (!kmodule->IsCompileStageAllComplete()) {
-        HOST_PERF_EVT_END(EventPhase::LaunchKernel);
-        return;
-    }
+    void DoLaunch(KernelBinary* kbinary)
+    {
+        if (config::GetSimConfig(KEY_ACCURACY_LEVEL, 2) == 2) {
+            kmodule->EslModelLaunch(kbinary, tensors);
+            return;
+        }
+        kmodule->EmulationLaunch(kbinary, tensors);
 
-    kmodule->EmulationLaunch(kbinary, tensors);
-    HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
-
+        int64_t* wsAddr = nullptr;
+        int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
+        if (wsSize) {
+            auto pyalloc = py::getattr(module, "alloc");
+            wsAddr = (int64_t*)pyalloc(wsSize).cast<int64_t>();
+        }
 #if ENABALE_VERBOSE_LOG
-    COMPILER_LOGE("alloc workspace");
+        COMPILER_LOGE("alloc workspace %ld", wsSize);
 #endif
-    int64_t* wsAddr = nullptr;
-    int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
-    if (wsSize) {
-        auto pyalloc = py::getattr(module, "alloc");
-        wsAddr = (int64_t*)pyalloc(wsSize).cast<int64_t>();
+        HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
+
+        DeviceLauncher::AddAicpuStream(rtModel);
+        HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
+
+        uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
+        HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+
+        kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+        HOST_PERF_TRACE(TracePhase::Launch);
+        DumpIOTensorsWithCann(aicoreStream, tensors, kbinary->GetFunction()->GetRawName());
     }
-    HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
-
-    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
-    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
-
-    uint8_t* ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
-    HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-
-    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
-    HOST_PERF_TRACE(TracePhase::Launch);
-    HOST_PERF_EVT_END(EventPhase::LaunchKernel);
-}
+};
 
 void LaunchKernelTorch(py::object& module, int64_t stream, py::sequence& torchTensors, py::sequence& tensorDefs)
 {
-    HOST_PERF_TRACE_START();
-    HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
-
     ValidateInputs(torchTensors, tensorDefs);
 
     std::vector<DeviceTensorData> tensors;
     int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
-
-    DoLaunch(module, aicoreStream, devId, tensors, [&](KernelModulePtr km) {
-        return km->CompileFromTorch(module, torchTensors, tensorDefs);
-    });
-}
-
-void LaunchKernel(py::object& module, int64_t stream, py::args& args)
-{
-    HOST_PERF_TRACE_START();
-    HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
-
-    std::vector<DeviceTensorData> tensors;
-    auto devId = GetInputTensors(args, tensors);
-
-    DoLaunch(module, aicoreStream, devId, tensors, [&](KernelModulePtr km) { return km->Compile(module, args); });
+    KernelLauncher(module, stream, torchTensors, tensorDefs, tensors, devId).Execute();
 }
 #else
-void LaunchKernel(py::object&, int64_t, py::args&) {}
 void LaunchKernelTorch(py::object&, int64_t, py::sequence&, py::sequence&) {}
 class KernelModule {
 public:
@@ -970,7 +1035,6 @@ void BindRuntime(py::module& m)
     m.def("BuildCache", BuildCache);
     m.def("CopyToHost", &CopyToHost);
     m.def("CopyToDev", &CopyToDev);
-    m.def("LaunchKernel", &LaunchKernel);
     m.def("LaunchKernelTorch", &LaunchKernelTorch);
     m.def("GetCompilerMonitorTotalElapsed", []() { return MonitorManager::Instance().GetTotalElapsed(); });
 

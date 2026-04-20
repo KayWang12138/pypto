@@ -25,14 +25,15 @@
 #include "block/codegen/cce/code_emitter.h"
 #include "block/codegen/cce/type_converter.h"
 #include "block/codegen/codegen_base.h"
-#include "block/core/dtype.h"
-#include "block/ir/expr.h"
-#include "block/ir/function.h"
-#include "block/ir/pipe.h"
-#include "block/ir/program.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/stmt.h"
-#include "block/ir/type.h"
+#include "core/dtype.h"
+#include "ir/expr.h"
+#include "ir/function.h"
+#include "ir/pipe.h"
+#include "ir/program.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/stmt.h"
+#include "ir/type.h"
 
 namespace pypto {
 
@@ -48,6 +49,10 @@ namespace codegen {
  * - Type conversions and memory management
  */
 class CCECodegen : public CodegenBase {
+ protected:
+    using CodegenBase::VisitStmt_;
+    using CodegenBase::VisitExpr_;
+
  public:
   /** @brief Default constructor (backend is always CCE) */
   CCECodegen();
@@ -84,7 +89,7 @@ class CCECodegen : public CodegenBase {
   [[nodiscard]] std::string GetCurrentResultTarget() const override { return current_target_var_; }
   void Emit(const std::string& line) override;
   std::string GetExprAsCode(const ir::ExprPtr& expr) override;
-  [[nodiscard]] std::string GetTypeString(const DataType& dtype) const override;
+  [[nodiscard]] std::string GetTypeString(const ir::DataType& dtype) const override;
   void set_in_vf_scope(bool v) { in_vf_scope_ = v; if (!v) { vf_ptr_vars_.clear(); vf_post_update_ptrs_.clear(); } }
   [[nodiscard]] bool in_vf_scope() const { return in_vf_scope_; }
   int GetTileOffsetCounter() { return tile_offset_counter_++; }

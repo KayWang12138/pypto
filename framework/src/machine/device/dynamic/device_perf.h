@@ -156,10 +156,10 @@ struct PerfEvtMgr {
 
     void SetIsOpenProf(bool isOpenProf, uint64_t aicpuPerf = 0)
     {
-        if (ctrlTurn_ >= MAX_TURN_NUM) {
+        if (ctrlTurn_ >= MAX_ROUND_NUM) {
             aicpuPerf_ = 0;
             isOpenProf_ = false;
-            DEV_WARN("Aicpu perf info more than maxTurnNum=%u, some info would be lost", MAX_TURN_NUM);
+            DEV_WARN("Aicpu perf info more than maxTurnNum=%u, some info would be lost", MAX_ROUND_NUM);
             return;
         }
         ResetPerfTrace();
@@ -237,6 +237,9 @@ struct PerfEvtMgr {
                     aicpuMetrics->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt] =
                         cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
                 }
+            } else {
+                DEV_WARN("Dev task num larger than: %u, the excess part will not be recorded",
+                         PERF_TRACE_COUNT_DEVTASK_MAX_NUM);
             }
             return;
         }
@@ -250,7 +253,7 @@ struct PerfEvtMgr {
     {
         auto devTaskPerfFormatFunc = [this](std::ostringstream& osStr, uint32_t tid, uint32_t type) -> void {
             for (uint32_t i = 0; i < perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {
-                if (type == PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK) {
+                if (type == PERF_TRACE_DEV_TASK_SEND_FIRST_LEAF_TASK) {
                     osStr << "{\"name\":\"" << PerfTraceName[type] << "\",";
                 } else {
                     osStr << "{\"name\":\"" << PerfTraceName[type] << "(" << i << ")\",";
@@ -260,7 +263,7 @@ struct PerfEvtMgr {
         };
 
         uint64_t freq = GetFreq() / (NSEC_PER_SEC / NSEC_PER_USEC);
-        uint32_t usedAicpuNum = scheCpuNum + MAX_OTHER_AICPU_NUM;
+        uint32_t usedAicpuNum = scheCpuNum + MAX_CONTROL_FLOW_AICPU_NUM;
         for (uint32_t tid = 0; tid < usedAicpuNum; tid++) {
             std::string coreType = "\"AICPU\"";
             if (tid == 0) {

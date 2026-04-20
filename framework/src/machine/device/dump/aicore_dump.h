@@ -48,8 +48,8 @@ struct DumpTensorInfo {
     int32_t dataType; // INT8...
     int32_t rawMagic;
     int32_t dims;
-    int64_t exeStart;
-    int64_t exeEnd;
+    int64_t execStart;
+    int64_t execEnd;
     uint64_t rootHash;
     uint64_t funcHash;
     uint64_t timeStamp;
@@ -138,12 +138,10 @@ public:
     void DoDump(
         DeviceTask* devTask, std::string iOinfo, int32_t taskId, int32_t coreId, int64_t execStart = 0,
         int64_t execEnd = 0)
-    {
-        if (IsEnableDump()) {
-            DumpInit(taskId, coreId, execStart, execEnd);
-            DoDump(devTask, iOinfo);
-        }
-    }
+    {      
+        DumpInit(taskId, coreId, execStart, execEnd);
+        DoDump(devTask, iOinfo);
+}
 
     void DumpInit(int32_t taskId, int32_t coreId, int64_t execStart = 0, int64_t execEnd = 0)
     {
@@ -160,7 +158,7 @@ public:
         DEV_DEBUG("HostPid=%u.", hostPid_);
         enableDump_ = (hostPid_ != 0);
     }
-    bool IsEnableDump() const { return enableDump_; }
+    inline bool IsEnableDump() const { return enableDump_; }
 
     inline bool DumpData(
         const IDE_SESSION& ideSession, std::string& fileName, unsigned char* dataBuf, uint64_t dataSize,
@@ -244,8 +242,8 @@ public:
             dumpTensorInfo.coreId = coreId_;
             dumpTensorInfo.dataType = static_cast<uint32_t>(rawTensor->dataType);
             dumpTensorInfo.dims = dimSize;
-            dumpTensorInfo.exeStart = execStart_;
-            dumpTensorInfo.exeEnd = execEnd_;
+            dumpTensorInfo.execStart = execStart_;
+            dumpTensorInfo.execEnd = execEnd_;
             dumpTensorInfo.rootHash = func->rootHash;
             dumpTensorInfo.funcHash = dyntask->cceBinary[func->GetOperationAttrCalleeIndex(opIdx)].funcHash;
             GetTensorOffsetAndShape<false>(

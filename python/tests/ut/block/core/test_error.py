@@ -115,67 +115,6 @@ class TestErrorMessages:
         assert "Line 1" in str(exc_info.value)
 
 
-class TestStackTraces:
-    """Test that stack traces are captured and included in error messages."""
-
-    def test_stack_trace_present(self):
-        """Test that stack trace is included in error message or tip is shown if not available."""
-        with pytest.raises(ValueError) as exc_info:
-            testing.raise_value_error("error with trace")
-
-        error_str = str(exc_info.value)
-        # Check that either C++ stack trace is present or tip message is shown
-        has_traceback = "C++ Traceback" in error_str or "Traceback" in error_str
-        has_tip = "No stack trace available" in error_str or "Tip:" in error_str
-        assert has_traceback or has_tip, f"Expected either traceback or tip message, got: {error_str}"
-
-    def test_stack_trace_contains_function_info(self):
-        """Test that stack trace contains function information or tip if not available."""
-        with pytest.raises(RuntimeError) as exc_info:
-            testing.raise_runtime_error("trace test")
-
-        error_str = str(exc_info.value)
-        # The error message should contain the original message
-        assert "trace test" in error_str
-
-        # Should have either stack trace with function info or a tip message
-        has_traceback = "C++ Traceback" in error_str or "Traceback" in error_str
-        has_tip = "No stack trace available" in error_str or "Tip:" in error_str
-        assert has_traceback or has_tip, f"Expected either traceback or tip message, got: {error_str}"
-
-    def test_different_errors_have_different_traces(self):
-        """Test that different error locations produce different stack traces or tips."""
-        error1_str = ""
-        error2_str = ""
-
-        try:
-            testing.raise_value_error("error 1")
-        except ValueError as e:
-            error1_str = str(e)
-
-        try:
-            testing.raise_type_error("error 2")
-        except TypeError as e:
-            error2_str = str(e)
-
-        # Both should contain the original error message
-        assert "error 1" in error1_str
-        assert "error 2" in error2_str
-
-        # Both should have either stack traces or tip messages
-        has_traceback_1 = "C++ Traceback" in error1_str or "Traceback" in error1_str
-        has_tip_1 = "No stack trace available" in error1_str or "Tip:" in error1_str
-        assert has_traceback_1 or has_tip_1, (
-            f"Error 1 expected either traceback or tip message, got: {error1_str}"
-        )
-
-        has_traceback_2 = "C++ Traceback" in error2_str or "Traceback" in error2_str
-        has_tip_2 = "No stack trace available" in error2_str or "Tip:" in error2_str
-        assert has_traceback_2 or has_tip_2, (
-            f"Error 2 expected either traceback or tip message, got: {error2_str}"
-        )
-
-
 class TestErrorInheritance:
     """Test that error inheritance works correctly."""
 

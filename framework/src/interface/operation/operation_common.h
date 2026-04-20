@@ -21,6 +21,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/opcode.h"
+#include "interface/utils/source_location.h"
 #include "interface/utils/vector_error.h"
 
 namespace npu::tile_fwk {
@@ -67,6 +68,8 @@ struct Input {
 };
 
 void CheckTensorShape(const LogicalTensorPtr& tensor, const std::string& op);
+void CheckTensorDynamicShape(const LogicalTensors iOperands, const Opcode opCode);
+
 std::vector<int> GetBroadCastShape(LogicalTensorPtr& operand1, LogicalTensorPtr& operand2);
 std::vector<int> GetBroadcastAxes(const Shape& shape1, const Shape& shape2);
 void CheckAxisRange(const Tensor& tensor, int& axis);
@@ -108,11 +111,13 @@ private:
     };                                                                                                       \
     static OpCoreStr##TiledRegister OpCoreStr##_tiled_register
 
+enum class AIVCore;
+
 class OpSyncQueue {
 public:
     OpSyncQueue() {}
-    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid)
-        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid)
+    OpSyncQueue(PipeType pipeId, PipeType trigPipeId, CoreType coreType, CoreType tirgCoreType, int evid, AIVCore aivCore)
+        : pipeId_(pipeId), trigPipeId_(trigPipeId), coreType_(coreType), trigCoreType_(tirgCoreType), eventId_(evid), aivCore_(aivCore)
     {}
 
     OpSyncQueue(int bufid, const std::vector<int>& offset, CoreType coreType, CoreType tirgCoreType)
@@ -124,6 +129,7 @@ public:
     CoreType coreType_{CoreType::AIV};
     CoreType trigCoreType_{CoreType::AIV};
     int eventId_{0};
+    AIVCore aivCore_;
     int gMBufId{0};
     std::vector<int> offset_;
 

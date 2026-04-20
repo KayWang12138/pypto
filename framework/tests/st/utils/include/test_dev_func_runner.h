@@ -43,7 +43,7 @@ struct MemoryHelper {
         if (isTest_)
             memcpy_s(devPtr, size, data, size);
         else
-            rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+            RuntimeMemcpy(devPtr, size, data, size, RtMemcpyKind::HOST_TO_DEVICE);
         return devPtr;
     }
 
@@ -52,7 +52,7 @@ struct MemoryHelper {
         if (isTest_)
             memcpy_s(data, size, devPtr, size);
         else
-            rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+            RuntimeMemcpy(data, size, devPtr, size, RtMemcpyKind::DEVICE_TO_HOST);
     }
 
     uint8_t* AllocDev(size_t size, uint8_t** cachedDevAddrHolder)
@@ -90,7 +90,7 @@ struct MemoryHelper {
         if (isTest_)
             memset(devPtr, 0, size);
         else
-            rtMemset(devPtr, size, 0, size);
+            RuntimeMemset(devPtr, size, 0, size);
         return devPtr;
     }
 
@@ -173,7 +173,7 @@ private:
 
             functionDevProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
             functionDevProg->controlFlowCache.RuntimeAddrRelocWorkspace(
-                contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
+                contextWorkspaceAddr, 0, nullptr, nullptr, nullptr, functionDevProg->GetParallelism());
             functionDevProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
             functionDevProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
             functionDevProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(
@@ -236,7 +236,7 @@ private:
             buf.reserve(std::min(THROUGHPUT, size));
             for (uint64_t offset = 0; offset < size; offset += THROUGHPUT) {
                 uint64_t blockSize = std::min(THROUGHPUT, size - offset);
-                rtMemcpy(buf.data(), buf.capacity(), devptr + offset, blockSize, RT_MEMCPY_DEVICE_TO_HOST);
+                RuntimeMemcpy(buf.data(), buf.capacity(), devptr + offset, blockSize, RtMemcpyKind::DEVICE_TO_HOST);
                 os.write(reinterpret_cast<const char*>(buf.data()), blockSize);
             }
         }
@@ -250,7 +250,8 @@ private:
         uint8_t* dumpTensorWsPtr = reinterpret_cast<uint8_t*>(kArgs.workspace) + devProg->memBudget.Total() -
                                    devProg->memBudget.debug.dumpTensor;
         uint64_t dumpTensorWsUsed = 0;
-        rtMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t), RT_MEMCPY_DEVICE_TO_HOST);
+        RuntimeMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t),
+                      RtMemcpyKind::DEVICE_TO_HOST);
         MACHINE_LOGE(
             RtErr::RT_MEMCPY_FAILED, "[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr,
             dumpTensorWsUsed);
@@ -293,8 +294,8 @@ private:
     {
         std::cout << "!!! Kernel Launch "
                   << "\n";
-        int rc = aclInit(nullptr);
-        if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
+        int rc = AclInit(nullptr);
+        if (rc != 0 && rc != ACLRT_ERROR_REPEAT_INITIALIZE) {
             MACHINE_LOGE(RtErr::RT_INIT_FAILED, "Acl init failed!!!");
             return;
         }
@@ -307,12 +308,11 @@ private:
         DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();
-        auto ctrlStream = (config_.cpuSeparate || config_.isTripleStream) ? machine::GetRA()->GetCtrlStream() : nullptr;
+        auto ctrlStream = machine::GetRA()->GetCtrlStream();
         for (int i = 0; i < config_.repeatNum; i++) {
             InitKernelInOuts(memoryHelper, kArgs, inputs, outputs, false, dynAttr->disableL2List);
             rc = DeviceRunner::Get().DynamicRun(
-                aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum,
-                config_.isTripleStream);
+                aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             EXPECT_EQ(rc, 0);
             DeviceRunner::Get().SynchronizeDeviceToHostProfData();
         }
@@ -375,27 +375,26 @@ private:
         size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
         auto deviceTaskCtrlPoolAddr = devProg->GetRuntimeDataList()->GetRuntimeData() + DEV_ARGS_SIZE;
         (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
-        auto threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
-        threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
-        for (int i = 0; i < threadNum; i++) {
-            aicpus[i] = std::thread([&]() {
-                int tidx = idx++;
-                cpu_set_t cpuSet;
-                CPU_ZERO(&cpuSet);
-                CPU_SET(tidx, &cpuSet);
-                char name[64];
-                sprintf(name, "aicput%d", tidx);
-                std::cout << "start thread: " << name << std::endl;
-                pthread_setname_np(pthread_self(), name);
-                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuSet);
-                auto rc = 0;
-                if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
-                    rc = PyptoKernelCtrlServer(kArgs);
-                } else {
-                    rc = DynTileFwkBackendKernelServer(kArgs);
-                }
-                EXPECT_EQ(rc, 0);
-            });
+        auto threadNum = static_cast<int>(devProg->devArgs.nrAicpu + dynamic::MAX_CONTROL_FLOW_AICPU_NUM);
+        auto threadFun = [&](uint32_t runMode) {
+            int tidx = idx++;
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(tidx, &cpuset);
+            char name[64];
+            (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
+            std::cout << "start thread: " << name << std::endl;
+            pthread_setname_np(pthread_self(), name);
+            pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            DeviceKernelArgs localArgs = *kArgs;
+            localArgs.parameter.runMode = runMode;
+            auto rc = 0;
+            rc = DynTileFwkBackendKernelServer(&localArgs);
+            EXPECT_EQ(rc, 0);
+        };
+        aicpus[0] = std::thread(threadFun, RUN_SPLITTED_STREAM_CTRL);
+        for (int i = 1; i < threadNum; i++) {
+            aicpus[i] = std::thread(threadFun, RUN_SPLITTED_STREAM_SCHE);
         }
 
         for (int i = 0; i < threadNum; i++) {

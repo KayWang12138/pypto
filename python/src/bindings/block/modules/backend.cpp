@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "block/backend/common/backend.h"
+#include "backend/common/backend.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -20,12 +20,12 @@
 #include <vector>
 
 #include "../module.h"
-#include "block/backend/910B_CCE/backend_910b_cce.h"
-#include "block/backend/910B_PTO/backend_910b_pto.h"
-#include "block/backend/common/backend_config.h"
-#include "block/backend/common/soc.h"
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
+#include "backend/910B_CCE/backend_910b_cce.h"
+#include "backend/910B_PTO/backend_910b_pto.h"
+#include "backend/common/backend_config.h"
+#include "backend/common/soc.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
 
 namespace py = pybind11;
 

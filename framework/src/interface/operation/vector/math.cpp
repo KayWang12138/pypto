@@ -214,7 +214,7 @@ Tensor Neg(const Tensor& self)
     }
 }
 
-Tensor Log(const Tensor& self, LogBaseType base)
+Tensor Log(const Tensor& self, LogBaseType base, LogAlgorithm precisionType)
 {
     DECLARE_TRACER();
     ASSERT(
@@ -238,8 +238,7 @@ Tensor Log(const Tensor& self, LogBaseType base)
     }
 
     auto resTensor = Tensor(DataType::DT_FP32, self.GetShape());
-    resTensor =
-        CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), operandCast.GetStorage());
+    resTensor = Ln(operandCast, precisionType);
 
     auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self.GetShape());
     if (base == LogBaseType::LOG_2) {
@@ -804,7 +803,7 @@ void CheckCumOperation(const Tensor& input, const int& axis, const bool& is_sum)
     auto shapeSize = input.GetShape().size();
     auto dataType = input.GetDataType();
 
-    ASSERT(VectorErrorCode::ERR_PARAM_INVALID, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4)
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM4)
         << "The shape.size() only support 1~4";
     if (is_sum) {
         std::vector<DataType> CUMSUM_SUPPORT_DATATYPES = {
@@ -1072,6 +1071,8 @@ Tensor Clip(const Tensor& self, const Tensor& min, const Tensor& max)
         result = Maximum(result, min);
     }
     if (max.GetStorage() != nullptr) {
+        ASSERT(VectorErrorCode::ERR_PARAM_INVALID, max.GetDataType() == self.GetDataType())
+            << "The datatype of inputs should be same";
         std::vector maxBroadcastAxes = GetBroadcastAxes(max.GetShape(), self.GetShape());
         ASSERT(VectorErrorCode::ERR_PARAM_INVALID, maxBroadcastAxes.size() <= 1)
             << "maxBroadcastAxes size should be <= 1";
@@ -1388,12 +1389,13 @@ Tensor Expm1(const Tensor& self)
 
     auto shapeSize = self.GetShape().size();
     auto dataType = self.GetDataType();
-    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The shape.size() only support 2~4";
+    ASSERT(VectorErrorCode::ERR_PARAM_SHAPE_DIM_UNSUPPORTED, SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4)
+        << "The shape.size() only support 2~4";
     std::vector<DataType> EXPM1_SUPPORT_DATATYPES = {
         DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16, DataType::DT_INT32, DataType::DT_INT16};
-    ASSERT(
-        std::find(EXPM1_SUPPORT_DATATYPES.begin(), EXPM1_SUPPORT_DATATYPES.end(), dataType) !=
-        EXPM1_SUPPORT_DATATYPES.end())
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
+           std::find(EXPM1_SUPPORT_DATATYPES.begin(), EXPM1_SUPPORT_DATATYPES.end(), dataType) !=
+               EXPM1_SUPPORT_DATATYPES.end())
         << "The datatype is not supported";
 
     RETURN_CALL(Expm1, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());

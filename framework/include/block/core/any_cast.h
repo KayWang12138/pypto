@@ -30,7 +30,7 @@
 #include <string>
 #include <typeinfo>
 
-#include "block/core/error.h"
+#include "core/error.h"
 
 namespace pypto {
 
@@ -102,7 +102,7 @@ T AnyCast(const std::any& value, const std::string& context = "") {
     error_msg += expected_type;
     error_msg += ", but got ";
     error_msg += actual_type;
-    throw TypeError(error_msg);
+    throw ir::TypeError(error_msg);
   }
 }
 
@@ -139,7 +139,7 @@ const T& AnyCastRef(const std::any& value, const std::string& context = "") {
     error_msg += expected_type;
     error_msg += ", but got ";
     error_msg += actual_type;
-    throw TypeError(error_msg);
+    throw ir::TypeError(error_msg);
   }
 }
 

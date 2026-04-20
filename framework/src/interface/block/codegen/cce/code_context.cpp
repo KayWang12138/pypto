@@ -15,8 +15,8 @@
 #include <cstddef>
 #include <string>
 
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
+#include "core/logging.h"
+#include "ir/expr.h"
 
 namespace pypto {
 

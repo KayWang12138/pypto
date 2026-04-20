@@ -21,18 +21,20 @@
 #include "block/backend/common/backend.h"
 #include "block/codegen/codegen_base.h"
 #include "block/codegen/pto/pto_codegen.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/pipe.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/type.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/pipe.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace backend {
 
 using ir::As;
 using ir::CallPtr;
+using ir::DataType;
 using ir::PipeType;
 using ir::PtrType;
 using ir::TileType;
@@ -1158,7 +1160,7 @@ static const SimpleOpEntry kSimpleOps[] = {
     {"block.row_expand_sub",  "pto.trowexpandsub",    2},
     // Padding operations
     {"block.fillpad",         "pto.tfillpad",         1},
-    // Matrix multiplication operations (PipeType::M → CUBE/AIC core)
+    // Matrix multiplication operations (PipeType::M -> CUBE/AIC core)
     {"block.matmul",          "pto.tmatmul",          2, PipeType::M},
     {"block.matmul_mx",       "pto.tmatmul.mx",       4, PipeType::M},
     {"block.matmul_mx_acc",   "pto.tmatmul.mx.acc",   5, PipeType::M},
@@ -1168,7 +1170,7 @@ static const SimpleOpEntry kSimpleOps[] = {
     {"block.gemv",            "pto.tgemv",            2, PipeType::M},
     {"block.gemv_acc",        "pto.tgemv.acc",        3, PipeType::M},
     {"block.gemv_bias",       "pto.tgemv.bias",       3, PipeType::M},
-    // Data movement/layout operations (PipeType::MTE1 → memory transfer, not V/M)
+    // Data movement/layout operations (PipeType::MTE1 -> memory transfer, not V/M)
     {"block.move",            "pto.tmov",             1, PipeType::MTE1},
     {"block.move_fp",         "pto.tmov.fp",          2, PipeType::MTE1},
     {"block.transpose",       "pto.ttrans",           3},

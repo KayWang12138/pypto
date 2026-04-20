@@ -26,18 +26,19 @@
 #include "block/backend/common/backend_config.h"
 #include "block/codegen/codegen_base.h"
 #include "block/codegen/orchestration_op_registry.h"
-#include "block/core/dtype.h"
-#include "block/core/error.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/function.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/pipe.h"
-#include "block/ir/program.h"
-#include "block/ir/scalar_expr.h"
-#include "block/ir/stmt.h"
-#include "block/ir/transforms/base/visitor.h"
-#include "block/ir/type.h"
+#include "core/dtype.h"
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/function.h"
+#include "ir/kind_traits.h"
+#include "ir/pipe.h"
+#include "ir/program.h"
+#include "ir/scalar_expr.h"
+#include "ir/scalar_expr_ops.h"
+#include "ir/stmt.h"
+#include "ir/transforms/base/visitor.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace codegen {
@@ -119,7 +120,7 @@ std::string FormatConstFloatValue(const ConstFloatPtr& c, const std::string& cpp
 
 int CountReturnTensors(const FunctionPtr& func) {
   int count = 0;
-  for (const auto& rt : func->return_types_) {
+  for (const auto& rt : func->returnTypes_) {
     if (As<TensorType>(rt)) {
       count++;
     }
@@ -161,20 +162,22 @@ TensorTypePtr GetIntermediateTensorType(
 
   FunctionPtr callee_func = program->GetFunction(callee_name);
   CHECK(callee_func) << "Cannot find called function: " << callee_name;
-  CHECK(return_index < static_cast<int>(callee_func->return_types_.size()))
+  CHECK(return_index < static_cast<int>(callee_func->returnTypes_.size()))
       << "Return index " << return_index << " out of bounds for function " << callee_name;
 
-  auto tensor_type = As<TensorType>(callee_func->return_types_[return_index]);
+  auto tensor_type = As<TensorType>(callee_func->returnTypes_[return_index]);
   CHECK(tensor_type) << "Function " << callee_name << " return type at index " << return_index
-                     << " must be TensorType, got " << callee_func->return_types_[return_index]->TypeName();
+                     << " must be TensorType, got " << callee_func->returnTypes_[return_index]->TypeName();
   return tensor_type;
 }
 
 void ValidateOrchestrationReferences(const ProgramPtr& program, const FunctionPtr& func) {
-  CHECK(func->func_type_ == FunctionType::Orchestration)
+  CHECK(func->funcType_ == FunctionType::ORCHESTRATION)
       << "ValidateOrchestrationReferences should only be called on Orchestration functions";
 
   class FunctionCallCollector : public IRVisitor {
+      using IRVisitor::VisitStmt_;
+      using IRVisitor::VisitExpr_;
    public:
     std::set<std::string> called_functions_;
 
@@ -206,7 +209,7 @@ void ValidateOrchestrationReferences(const ProgramPtr& program, const FunctionPt
       oss << "'" << missing_functions[i] << "'";
     }
     oss << "]";
-    throw pypto::ValueError(oss.str());
+    throw pypto::ir::ValueError(oss.str());
   }
 }
 
@@ -220,6 +223,8 @@ int GetOrCreateFuncId(const std::string& func_name, std::map<std::string, int>* 
 
 // Collect metadata from IR (return_vars, output_tensors, tuple info) for memory allocation
 class OrchestrationInfoCollector : public IRVisitor {
+    using IRVisitor::VisitStmt_;
+    using IRVisitor::VisitExpr_;
  public:
   std::vector<std::string> return_vars;
   std::set<std::string> output_tensors;
@@ -302,6 +307,8 @@ class OrchestrationInfoCollector : public IRVisitor {
 CoreType InferFunctionCoreType(const FunctionPtr& func) {
   const backend::Backend* backend = backend::GetBackend();
   class CoreTypeCollector : public IRVisitor {
+      using IRVisitor::VisitStmt_;
+      using IRVisitor::VisitExpr_;
    public:
     explicit CoreTypeCollector(const backend::Backend* backend) : backend_(backend) {}
     std::set<PipeType> pipe_types_;
@@ -419,7 +426,7 @@ std::string CoreTypeToWorker(CoreType core_type) {
   return core_type == CoreType::CUBE ? "PTO2_WORKER_CUBE" : "PTO2_WORKER_VECTOR";
 }
 
-// Removed DataTypeToPTO2Enum — now uses DataTypeToString from dtype.h
+// Removed DataTypeToPTO2Enum �?now uses DataTypeToString from dtype.h
 
 // Generate make_tensor_external with shape array, ndim, and dtype
 std::string GenerateMakeTensorExternal(const std::string& var_name, const std::string& ptr_name,
@@ -453,6 +460,8 @@ using namespace pypto::ir;  // NOLINT(build/namespaces)
 
 // Statement code generator for orchestration
 class OrchestrationStmtCodegen : public CodegenBase {
+    using CodegenBase::VisitStmt_;
+    using CodegenBase::VisitExpr_;
  public:
   explicit OrchestrationStmtCodegen(const ProgramPtr& prog, std::map<std::string, int>* func_ids,
                                     std::map<std::string, CoreType>* core_types, int* next_id,
@@ -478,7 +487,7 @@ class OrchestrationStmtCodegen : public CodegenBase {
     }
   }
 
-  // Set Call* → unique key mapping for tuple-returning calls
+  // Set Call* �?unique key mapping for tuple-returning calls
   void SetCallToTupleKey(const std::map<const Call*, std::string>& mapping) { call_to_tuple_key_ = mapping; }
 
   std::string GetGeneratedCode() const { return code_.str(); }
@@ -513,19 +522,19 @@ class OrchestrationStmtCodegen : public CodegenBase {
                   "generating sequential loop as fallback";
     }
 
-    std::string loop_var = GetSSABaseName(for_stmt->loop_var_->name_);
+    std::string loop_var = GetSSABaseName(for_stmt->loopVar_->name_);
     std::string start_expr = GenerateExprString(for_stmt->start_);
     std::string stop_expr = GenerateExprString(for_stmt->stop_);
     std::string step_expr = GenerateExprString(for_stmt->step_);
 
-    for (size_t i = 0; i < for_stmt->iter_args_.size(); ++i) {
-      const auto& iter_arg = for_stmt->iter_args_[i];
-      const auto& return_var = for_stmt->return_vars_[i];
+    for (size_t i = 0; i < for_stmt->iterArgs_.size(); ++i) {
+      const auto& iter_arg = for_stmt->iterArgs_[i];
+      const auto& return_var = for_stmt->returnVars_[i];
       std::string resolved_return = GetSSABaseName(return_var->name_);
       std::string init_value = GenerateExprString(iter_arg->initValue_);
       // Skip iter_arg init when:
-      // 1. Variable already declared (e.g., via make_tensor) — would be C++ redeclaration error
-      // 2. Self-assignment after SSA name collapse (e.g., "auto oi = oi;") — C++ UB
+      // 1. Variable already declared (e.g., via make_tensor) �?would be C++ redeclaration error
+      // 2. Self-assignment after SSA name collapse (e.g., "auto oi = oi;") �?C++ UB
       if (!declared_vars_.count(resolved_return) && resolved_return != init_value) {
         code_ << Indent() << GetCppType(iter_arg->GetType()) << " " << resolved_return << " = " << init_value
               << ";\n";
@@ -541,7 +550,7 @@ class OrchestrationStmtCodegen : public CodegenBase {
 
     auto saved = current_return_var_names_;
     current_return_var_names_.clear();
-    for (const auto& rv : for_stmt->return_vars_) {
+    for (const auto& rv : for_stmt->returnVars_) {
       current_return_var_names_.push_back(GetSSABaseName(rv->name_));
     }
     VisitStmt(for_stmt->body_);
@@ -557,7 +566,7 @@ class OrchestrationStmtCodegen : public CodegenBase {
     std::string cond_expr = GenerateExprString(if_stmt->condition_);
 
     // Declare return variables before the if block
-    for (const auto& rv : if_stmt->return_vars_) {
+    for (const auto& rv : if_stmt->returnVars_) {
       code_ << Indent() << GetCppType(rv->GetType()) << " " << GetSSABaseName(rv->name_) << ";\n";
     }
 
@@ -568,17 +577,17 @@ class OrchestrationStmtCodegen : public CodegenBase {
 
     auto saved = current_return_var_names_;
     current_return_var_names_.clear();
-    for (const auto& rv : if_stmt->return_vars_) {
+    for (const auto& rv : if_stmt->returnVars_) {
       current_return_var_names_.push_back(GetSSABaseName(rv->name_));
     }
-    VisitStmt(if_stmt->then_body_);
+    VisitStmt(if_stmt->thenBody_);
     current_return_var_names_ = saved;
 
     indent_ -= 4;
     code_ << Indent() << "}\n";
     indent_ -= 4;
 
-    if (if_stmt->else_body_.has_value()) {
+    if (if_stmt->elseBody_.has_value()) {
       code_ << Indent() << "} else {\n";
       indent_ += 4;
       code_ << Indent() << "PTO2_SCOPE(rt) {\n";
@@ -586,10 +595,10 @@ class OrchestrationStmtCodegen : public CodegenBase {
 
       auto saved2 = current_return_var_names_;
       current_return_var_names_.clear();
-      for (const auto& rv : if_stmt->return_vars_) {
+      for (const auto& rv : if_stmt->returnVars_) {
         current_return_var_names_.push_back(GetSSABaseName(rv->name_));
       }
-      VisitStmt(*if_stmt->else_body_);
+      VisitStmt(*if_stmt->elseBody_);
       current_return_var_names_ = saved2;
 
       indent_ -= 4;
@@ -693,7 +702,7 @@ class OrchestrationStmtCodegen : public CodegenBase {
       return;
     }
 
-    // Skip tensor.create for external tensors (params/return values) —
+    // Skip tensor.create for external tensors (params/return values) �?
     // they are already declared via make_tensor_external
     if (op_name == "tensor.create" && (param_names_.count(result_var) || return_names_.count(result_var))) {
       return;
@@ -751,10 +760,10 @@ class OrchestrationStmtCodegen : public CodegenBase {
         std::string ext_name = GetExternalTensorName(var_name);
 
         // Classify based on callee's ParamDirection
-        INTERNAL_CHECK(arg_idx < callee_func->param_directions_.size())
+        INTERNAL_CHECK(arg_idx < callee_func->paramDirections_.size())
             << "arg count (" << call->args_.size() << ") exceeds param count ("
-            << callee_func->param_directions_.size() << ") for callee '" << callee_name << "'";
-        ParamDirection dir = callee_func->param_directions_[arg_idx];
+            << callee_func->paramDirections_.size() << ") for callee '" << callee_name << "'";
+        ParamDirection dir = callee_func->paramDirections_[arg_idx];
         if (dir == ParamDirection::Out) {
           params.push_back({"make_output_param", ext_name});
         } else if (dir == ParamDirection::InOut) {
@@ -809,7 +818,7 @@ class OrchestrationStmtCodegen : public CodegenBase {
   std::vector<std::string> current_return_var_names_;
   int task_counter_ = 0;
   std::map<std::string, std::vector<std::pair<int, std::string>>> tuple_var_to_elements_;
-  std::map<const Call*, std::string> call_to_tuple_key_;  // Call* → unique key for tuple calls
+  std::map<const Call*, std::string> call_to_tuple_key_;  // Call* �?unique key for tuple calls
   std::set<std::string> declared_vars_;  // Track declared C++ variables for dedup after SSA name collapse
 };
 
@@ -914,7 +923,7 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
     // from an InCore call whose return type may contain dynamic dim variables (e.g. M).
     //
     // Use the var's position in return_vars (not unique_return_vars) as the index into
-    // func->return_types_, because inplace vars (params that are also returned) are
+    // func->returnTypes_, because inplace vars (params that are also returned) are
     // excluded from unique_return_vars but still occupy slots in return_types_.
     TensorTypePtr ret_tensor_type;
     auto ret_pos = std::find(return_vars.begin(), return_vars.end(), name);
@@ -922,8 +931,8 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
         << "Internal error: return var '" << name << "' not found in return_vars";
     {
       size_t ret_idx = static_cast<size_t>(ret_pos - return_vars.begin());
-      if (ret_idx < func->return_types_.size()) {
-        ret_tensor_type = As<TensorType>(func->return_types_[ret_idx]);
+      if (ret_idx < func->returnTypes_.size()) {
+        ret_tensor_type = As<TensorType>(func->returnTypes_[ret_idx]);
       }
     }
     // Fallback: infer from the assignment (e.g., tensor.create without a concrete return type)
@@ -949,3 +958,4 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
 
 }  // namespace codegen
 }  // namespace pypto
+

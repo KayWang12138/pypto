@@ -15,11 +15,11 @@
 #include <cstdint>
 #include <string>
 
-#include "block/core/dtype.h"
-#include "block/core/error.h"
-#include "block/ir/expr.h"
-#include "block/ir/transforms/base/visitor.h"
-#include "block/ir/type.h"
+#include "core/dtype.h"
+#include "core/error.h"
+#include "ir/expr.h"
+#include "ir/transforms/base/visitor.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace codegen {
@@ -32,6 +32,10 @@ namespace codegen {
  * Does not define Generate() as each platform has different signature (e.g. map vs string).
  */
 class CodegenBase : public ir::IRVisitor {
+ protected:
+    using ir::IRVisitor::VisitStmt_;
+    using ir::IRVisitor::VisitExpr_;
+
  public:
   ~CodegenBase() override = default;
 
@@ -72,7 +76,7 @@ class CodegenBase : public ir::IRVisitor {
    * @param dtype Data type (e.g. FP32, INT32)
    * @return Platform type string (e.g. "float"/"f32", "int32_t"/"i32")
    */
-  [[nodiscard]] virtual std::string GetTypeString(const DataType& dtype) const = 0;
+  [[nodiscard]] virtual std::string GetTypeString(const ir::DataType& dtype) const = 0;
 
   /**
    * @brief Extract constant integer value from expression
@@ -100,7 +104,8 @@ class CodegenBase : public ir::IRVisitor {
    * @return C++ expression for the data pointer (e.g., "arg_x_ptr", "x.data")
    */
   [[nodiscard]] virtual std::string GetTensorDataPtr(const std::string& tensor_name) const {
-    throw ValueError("GetTensorDataPtr not implemented for this codegen");
+    (void)tensor_name;
+    throw ir::ValueError("GetTensorDataPtr not implemented for this codegen");
   }
 
   /**
@@ -125,7 +130,7 @@ class CodegenBase : public ir::IRVisitor {
    * @param dtype The data type to convert
    * @return Runtime DataType string (e.g., "DataType::FLOAT32")
    */
-  [[nodiscard]] virtual std::string GetRuntimeDataTypeString(const DataType& dtype) const;
+  [[nodiscard]] virtual std::string GetRuntimeDataTypeString(const ir::DataType& dtype) const;
 
   /**
    * @brief Try to extract variable name from expression
@@ -160,7 +165,7 @@ class CodegenBase : public ir::IRVisitor {
    * @param op_name IR operation name (e.g., "block.load")
    */
   [[noreturn]] void ThrowNoCodegenForCall(const std::string& op_name) const {
-    throw ValueError("No codegen registered for operation: " + op_name);
+    throw ir::ValueError("No codegen registered for operation: " + op_name);
   }
 
   /**

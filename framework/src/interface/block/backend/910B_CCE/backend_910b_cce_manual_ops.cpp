@@ -29,16 +29,17 @@
 #include "block/backend/common/backend.h"
 #include "block/codegen/cce/cce_codegen.h"
 #include "block/codegen/codegen_base.h"
-#include "block/core/error.h"
-#include "block/core/logging.h"
-#include "block/ir/expr.h"
-#include "block/ir/kind_traits.h"
-#include "block/ir/memref.h"
-#include "block/ir/pipe.h"
-#include "block/ir/type.h"
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/expr.h"
+#include "ir/kind_traits.h"
+#include "ir/memref.h"
+#include "ir/pipe.h"
+#include "ir/type.h"
 
 namespace pypto {
 namespace backend {
+using ir::DataType;
 
 // ============================================================================
 // Helper: Produce a type string for use in TMOV<Type, Type, Mode> templates.
@@ -88,7 +89,7 @@ static std::string MakeManualBinaryCodegenCCE(const std::string& cce_op_name, co
 }
 
 // ============================================================================
-// Helper: Manual unary op — args = [src, dst]
+// Helper: Manual unary op �?args = [src, dst]
 // Emits: OP(dst, src);
 // ============================================================================
 static std::string MakeManualUnaryCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
@@ -102,7 +103,7 @@ static std::string MakeManualUnaryCodegenCCE(const std::string& cce_op_name, con
 }
 
 // ============================================================================
-// Helper: Manual scalar op — args = [tile, scalar, dst]
+// Helper: Manual scalar op �?args = [tile, scalar, dst]
 // Emits: OP(dst, tile, scalar);
 // ============================================================================
 static std::string MakeManualScalarCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
@@ -118,7 +119,7 @@ static std::string MakeManualScalarCodegenCCE(const std::string& cce_op_name, co
 }
 
 // ============================================================================
-// Helper: Manual reduction op — args = [tile, tmp, dst]
+// Helper: Manual reduction op �?args = [tile, tmp, dst]
 // Emits: OP(dst, tile, tmp);
 // ============================================================================
 static std::string MakeManualRowReductionCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
@@ -134,9 +135,9 @@ static std::string MakeManualRowReductionCodegenCCE(const std::string& cce_op_na
 }
 
 // ============================================================================
-// Helper: Manual col-reduction op — args = [tile, tmp, dst]
-// TCOLMAX emits: TCOLMAX(dst, tile);          — 2-arg form (no tmp)
-// TCOLSUM emits: TCOLSUM(dst, tile, tmp, false); — 4-arg form
+// Helper: Manual col-reduction op �?args = [tile, tmp, dst]
+// TCOLMAX emits: TCOLMAX(dst, tile);          �?2-arg form (no tmp)
+// TCOLSUM emits: TCOLSUM(dst, tile, tmp, false); �?4-arg form
 // ============================================================================
 static std::string MakeManualColMaxCodegenCCE(const ir::CallPtr& op,
                                               codegen::CodegenBase& codegen_base) {
@@ -144,7 +145,7 @@ static std::string MakeManualColMaxCodegenCCE(const ir::CallPtr& op,
   CHECK(op->args_.size() == 3) << "TCOLMAX: expected 3 args (tile, tmp, dst), got "
                                << op->args_.size();
   std::string tile = codegen.GetExprAsCode(op->args_[0]);
-  // args_[1] is tmp — not used by TCOLMAX
+  // args_[1] is tmp �?not used by TCOLMAX
   std::string dst = codegen.GetExprAsCode(op->args_[2]);
   codegen.Emit("TCOLMAX(" + dst + ", " + tile + ");");
   return "";
@@ -163,7 +164,7 @@ static std::string MakeManualColSumCodegenCCE(const ir::CallPtr& op,
 }
 
 // ============================================================================
-// Helper: Manual row-expand op — args = [tile, reduction_tile, dst]
+// Helper: Manual row-expand op �?args = [tile, reduction_tile, dst]
 // Emits: OP(dst, tile, reduction_tile);
 // ============================================================================
 static std::string MakeManualRowExpandCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
@@ -218,13 +219,13 @@ static int64_t GetNZInnerCols(const DataType& dtype) {
   if (dtype == DataType::INT64 || dtype == DataType::UINT64) {
     return 4;
   }
-  throw pypto::ValueError("CCE NZ store does not support destination dtype " + dtype.ToString());
+  throw pypto::ir::ValueError("CCE NZ store does not support destination dtype " + dtype.ToString());
 }
 
 static int64_t GetStaticConstIntOrThrow(const ir::ExprPtr& expr, const std::string& message) {
   auto value = ir::As<ir::ConstInt>(expr);
   if (!value) {
-    throw pypto::ValueError(message);
+    throw pypto::ir::ValueError(message);
   }
   return value->value_;
 }
@@ -246,14 +247,14 @@ static void ValidateCCEStoreNZPreconditions(const std::string& op_name,
   CHECK(src_tile_type != nullptr) << op_name << ": source must be TileType";
   CHECK(src_tile_type->memref_.has_value()) << op_name << ": source tile must have an allocated memory space";
   if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
-    throw pypto::ValueError(op_name + ": CCE NZ output currently only supports Acc source tiles");
+    throw pypto::ir::ValueError(op_name + ": CCE NZ output currently only supports Acc source tiles");
   }
 
   if (dst_tensor_type->shape_.size() != 2) {
-    throw pypto::ValueError(op_name + ": CCE NZ output currently requires a 2D destination tensor");
+    throw pypto::ir::ValueError(op_name + ": CCE NZ output currently requires a 2D destination tensor");
   }
   if (offsets->elements_.size() != 2 || !IsConstZero(offsets->elements_[0]) || !IsConstZero(offsets->elements_[1])) {
-    throw pypto::ValueError(op_name + ": CCE NZ output currently requires offsets=[0, 0]");
+    throw pypto::ir::ValueError(op_name + ": CCE NZ output currently requires offsets=[0, 0]");
   }
 
   const int64_t rows = GetStaticConstIntOrThrow(
@@ -262,13 +263,13 @@ static void ValidateCCEStoreNZPreconditions(const std::string& op_name,
       dst_tensor_type->shape_[1], op_name + ": CCE NZ output currently requires a static destination column shape");
   const int64_t c0 = GetNZInnerCols(dst_tensor_type->dtype_);
   if (rows % 16 != 0 || cols % c0 != 0) {
-    throw pypto::ValueError(
+    throw pypto::ir::ValueError(
         op_name + ": CCE NZ output requires rows divisible by 16 and cols divisible by the destination C0 size");
   }
 }
 
 // ============================================================================
-// manual.load — args = [tensor, offsets, out_tile]
+// manual.load �?args = [tensor, offsets, out_tile]
 // Emits: TASSIGN(tensor_global, ptr + offset); TLOAD(out_tile, tensor_global);
 // ============================================================================
 static std::string MakeManualLoadCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -283,7 +284,7 @@ static std::string MakeManualLoadCodegenCCE(const ir::CallPtr& op, codegen::Code
 
   auto out_tile = std::dynamic_pointer_cast<const ir::Var>(op->args_[2]);
   if (!out_tile) {
-    // Support TupleGetItemExpr (e.g., qk_vec_buf[0]) — resolved by GetExprAsCode below
+    // Support TupleGetItemExpr (e.g., qk_vec_buf[0]) �?resolved by GetExprAsCode below
     CHECK(ir::As<ir::TileType>(op->args_[2]->GetType()) != nullptr)
         << "manual.load third argument (out) must be a tile (Var or TupleGetItemExpr)";
   }
@@ -302,7 +303,7 @@ static std::string MakeManualLoadCodegenCCE(const ir::CallPtr& op, codegen::Code
 }
 
 // ============================================================================
-// manual.store — args = [tile, offsets, output_tensor]
+// manual.store �?args = [tile, offsets, output_tensor]
 // Emits: TASSIGN(tensor_global, ptr + offset); TSTORE(tensor_global, tile);
 // ============================================================================
 static std::string MakeManualStoreCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -340,7 +341,7 @@ static std::string MakeManualStoreCodegenCCE(const ir::CallPtr& op, codegen::Cod
     } else if (relu_str == "normal_relu") {
       relu_enum = "ReluPreMode::NormalRelu";
     } else {
-      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+      throw pypto::ir::ValueError("Invalid relu_pre_mode: " + relu_str);
     }
     relu_template = relu_enum;
   }
@@ -369,7 +370,7 @@ static std::string MakeManualStoreCodegenCCE(const ir::CallPtr& op, codegen::Cod
 }
 
 // ============================================================================
-// manual.store_fp — args = [tile, fp_tile, offsets, output_tensor]
+// manual.store_fp �?args = [tile, fp_tile, offsets, output_tensor]
 // Emits: TASSIGN(tensor_global, ptr + offset); TSTORE_FP(tensor_global, tile, fp_tile);
 // ============================================================================
 static std::string MakeManualStoreFpCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -382,7 +383,7 @@ static std::string MakeManualStoreFpCodegenCCE(const ir::CallPtr& op, codegen::C
   CHECK(src_tile_type->memref_.has_value())
       << "manual.store_fp source tile must have an allocated memory space";
   if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
-    throw pypto::ValueError("manual.store_fp: source tile must be allocated in Acc memory");
+    throw pypto::ir::ValueError("manual.store_fp: source tile must be allocated in Acc memory");
   }
 
   auto fp_tile_type = ir::As<ir::TileType>(op->args_[1]->GetType());
@@ -390,7 +391,7 @@ static std::string MakeManualStoreFpCodegenCCE(const ir::CallPtr& op, codegen::C
   CHECK(fp_tile_type->memref_.has_value())
       << "manual.store_fp fp tile must have an allocated memory space";
   if (fp_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Scaling) {
-    throw pypto::ValueError("manual.store_fp: fp tile must be allocated in Scaling memory");
+    throw pypto::ir::ValueError("manual.store_fp: fp tile must be allocated in Scaling memory");
   }
 
   auto offsets_tuple = std::dynamic_pointer_cast<const ir::MakeTuple>(op->args_[2]);
@@ -415,7 +416,7 @@ static std::string MakeManualStoreFpCodegenCCE(const ir::CallPtr& op, codegen::C
 }
 
 // ============================================================================
-// manual.make_tile — no-op (tile already declared in prologue)
+// manual.make_tile �?no-op (tile already declared in prologue)
 // ============================================================================
 static std::string MakeManualMakeTileCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   (void)op;
@@ -424,7 +425,7 @@ static std::string MakeManualMakeTileCodegenCCE(const ir::CallPtr& op, codegen::
 }
 
 // ============================================================================
-// manual.insert — args = [src, index_row, index_col, dst] or [src, index_row, index_col, offset, dst]
+// manual.insert �?args = [src, index_row, index_col, dst] or [src, index_row, index_col, offset, dst]
 // Emits TINSERT(dst, src, indexRow, indexCol);
 // With offset: Emits TASSIGN(dst, base + offset); TINSERT(...); TASSIGN(dst, base);
 // ============================================================================
@@ -470,7 +471,7 @@ static std::string MakeManualInsertCodegenCCE(const ir::CallPtr& op, codegen::Co
 }
 
 // ============================================================================
-// manual.move — args = [src, dst]
+// manual.move �?args = [src, dst]
 // Emits TMOV(dst, src);
 // ============================================================================
 static std::string MakeManualMoveCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -496,7 +497,7 @@ static std::string MakeManualMoveCodegenCCE(const ir::CallPtr& op, codegen::Code
     } else if (mode_str == "dual_split_n") {
       mode_enum = "AccToVecMode::DualModeSplitN";
     } else {
-      throw pypto::ValueError("Invalid acc_to_vec_mode: " + mode_str);
+      throw pypto::ir::ValueError("Invalid acc_to_vec_mode: " + mode_str);
     }
     template_params = ", " + mode_enum;
   }
@@ -509,7 +510,7 @@ static std::string MakeManualMoveCodegenCCE(const ir::CallPtr& op, codegen::Code
     } else if (relu_str == "normal_relu") {
       relu_enum = "ReluPreMode::NormalRelu";
     } else {
-      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+      throw pypto::ir::ValueError("Invalid relu_pre_mode: " + relu_str);
     }
     template_params += ", " + relu_enum;
   }
@@ -536,7 +537,7 @@ static std::string MakeManualMoveCodegenCCE(const ir::CallPtr& op, codegen::Code
 }
 
 // ============================================================================
-// manual.move_fp — args = [src, fp_tile, dst]
+// manual.move_fp �?args = [src, fp_tile, dst]
 // Emits TMOV_FP(dst, src, fp) or TMOV<..., FpTileData, AccToVecMode, ReluPreMode>(dst, src, fp);
 // ============================================================================
 static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -549,7 +550,7 @@ static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::Co
   CHECK(src_tile_type->memref_.has_value())
       << "manual.move_fp source tile must have an allocated memory space";
   if (src_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Acc) {
-    throw pypto::ValueError("manual.move_fp: source tile must be allocated in Acc memory");
+    throw pypto::ir::ValueError("manual.move_fp: source tile must be allocated in Acc memory");
   }
 
   auto fp_tile_type = ir::As<ir::TileType>(op->args_[1]->GetType());
@@ -557,7 +558,7 @@ static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::Co
   CHECK(fp_tile_type->memref_.has_value())
       << "manual.move_fp fp tile must have an allocated memory space";
   if (fp_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Scaling) {
-    throw pypto::ValueError("manual.move_fp: fp tile must be allocated in Scaling memory");
+    throw pypto::ir::ValueError("manual.move_fp: fp tile must be allocated in Scaling memory");
   }
 
   auto dst_tile_type = ir::As<ir::TileType>(op->args_[2]->GetType());
@@ -565,7 +566,7 @@ static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::Co
   CHECK(dst_tile_type->memref_.has_value())
       << "manual.move_fp destination tile must have an allocated memory space";
   if (dst_tile_type->memref_.value()->memory_space_ != ir::MemorySpace::Vec) {
-    throw pypto::ValueError("manual.move_fp: destination tile must be allocated in Vec memory");
+    throw pypto::ir::ValueError("manual.move_fp: destination tile must be allocated in Vec memory");
   }
 
   std::string src = codegen.GetExprAsCode(op->args_[0]);
@@ -581,7 +582,7 @@ static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::Co
     } else if (relu_str == "normal_relu") {
       relu_template = "ReluPreMode::NormalRelu";
     } else {
-      throw pypto::ValueError("Invalid relu_pre_mode: " + relu_str);
+      throw pypto::ir::ValueError("Invalid relu_pre_mode: " + relu_str);
     }
   }
 
@@ -593,9 +594,9 @@ static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::Co
     } else if (mode_str == "single_vec1") {
       mode_enum = "AccToVecMode::SingleModeVec1";
     } else if (mode_str == "dual_split_m" || mode_str == "dual_split_n") {
-      throw pypto::ValueError("manual.move_fp: fp_tile only supports single-mode acc_to_vec_mode");
+      throw pypto::ir::ValueError("manual.move_fp: fp_tile only supports single-mode acc_to_vec_mode");
     } else {
-      throw pypto::ValueError("Invalid acc_to_vec_mode: " + mode_str);
+      throw pypto::ir::ValueError("Invalid acc_to_vec_mode: " + mode_str);
     }
 
     std::string fp_type = TileTypeStringForTemplate(codegen, fp_tile, op->args_[1]);
@@ -623,7 +624,7 @@ static std::string MakeManualMoveFpCodegenCCE(const ir::CallPtr& op, codegen::Co
 }
 
 // ============================================================================
-// manual.set_validshape — args = [row, col, tile]
+// manual.set_validshape �?args = [row, col, tile]
 // Emits: tile.SetValidShape(row, col);
 // ============================================================================
 static std::string MakeManualSetValidShapeCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -638,7 +639,7 @@ static std::string MakeManualSetValidShapeCodegenCCE(const ir::CallPtr& op, code
 }
 
 // ============================================================================
-// manual.matmul — args = [left, right, dst]
+// manual.matmul �?args = [left, right, dst]
 // Emits: TMATMUL(dst, left, right);
 // ============================================================================
 static std::string MakeManualMatmulCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
@@ -652,7 +653,7 @@ static std::string MakeManualMatmulCodegenCCE(const ir::CallPtr& op, codegen::Co
   return "";
 }
 
-// manual.matmul_acc — args = [acc, left, right, dst]
+// manual.matmul_acc �?args = [acc, left, right, dst]
 static std::string MakeManualMatmulAccCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 4) << "manual.matmul_acc: expected 4 args, got " << op->args_.size();
@@ -664,14 +665,14 @@ static std::string MakeManualMatmulAccCodegenCCE(const ir::CallPtr& op, codegen:
   return "";
 }
 
-// manual.cast — args = [src, dst] + mode kwarg
+// manual.cast �?args = [src, dst] + mode kwarg
 static std::string MakeManualCastCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2) << "manual.cast: expected 2 args (src, dst), got " << op->args_.size();
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
 
-  // Get round mode from kwargs — manual.cast uses a string mode
+  // Get round mode from kwargs �?manual.cast uses a string mode
   const std::string& mode_str = op->GetKwarg<std::string>("mode");
   static const std::vector<std::string> kModeNames = {"none", "rint",  "round", "floor",
                                                        "ceil", "trunc", "odd",   "cast_rint"};
@@ -689,7 +690,7 @@ static std::string MakeManualCastCodegenCCE(const ir::CallPtr& op, codegen::Code
   return "";
 }
 
-// manual.full/expands — args = [scalar, dst]
+// manual.full/expands �?args = [scalar, dst]
 static std::string MakeManualExpandsCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2) << "manual.full/expands: expected 2 args (scalar, dst), got "
@@ -765,7 +766,7 @@ static std::string BuildNullPadSourceAliasCCE(codegen::CCECodegen& codegen,
   return alias_name;
 }
 
-// manual.fillpad — args = [src, dst]
+// manual.fillpad �?args = [src, dst]
 static std::string MakeManualFillpadCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2) << "manual.fillpad: expected 2 args (src, dst), got " << op->args_.size();
@@ -783,7 +784,7 @@ static std::string MakeManualFillpadCodegenCCE(const ir::CallPtr& op, codegen::C
   return "";
 }
 
-// manual.fillpad_inplace — args = [src, dst]
+// manual.fillpad_inplace �?args = [src, dst]
 static std::string MakeManualFillpadInplaceCodegenCCE(const ir::CallPtr& op,
                                                       codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
@@ -804,7 +805,7 @@ static std::string MakeManualFillpadInplaceCodegenCCE(const ir::CallPtr& op,
   return "";
 }
 
-// manual.fillpad_expand — args = [src, dst]
+// manual.fillpad_expand �?args = [src, dst]
 static std::string MakeManualFillpadExpandCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2)
@@ -816,7 +817,7 @@ static std::string MakeManualFillpadExpandCodegenCCE(const ir::CallPtr& op, code
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetExprAsCode(op->args_[1]);
   if (src == dst) {
-    throw pypto::ValueError("manual.fillpad_expand: inplace is not supported");
+    throw pypto::ir::ValueError("manual.fillpad_expand: inplace is not supported");
   }
 
   if (NeedsNullPadSourceAliasCCE(src_tile_type)) {
@@ -827,7 +828,7 @@ static std::string MakeManualFillpadExpandCodegenCCE(const ir::CallPtr& op, code
   return "";
 }
 
-// manual.reshape — args = [src, shape, dst]
+// manual.reshape �?args = [src, shape, dst]
 static std::string MakeManualReshapeCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 3) << "manual.reshape: expected 3 args (src, shape, dst), got "
@@ -838,7 +839,7 @@ static std::string MakeManualReshapeCodegenCCE(const ir::CallPtr& op, codegen::C
   return "";
 }
 
-// manual.transpose — args = [src, dst]
+// manual.transpose �?args = [src, dst]
 static std::string MakeManualTransposeCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2) << "manual.transpose: expected 2 args (src, dst), got " << op->args_.size();
@@ -882,7 +883,7 @@ static std::string MakeManualCmpCodegenCCE(const ir::CallPtr& op, codegen::Codeg
   return "";
 }
 
-// manual.cmps — args = [tile, scalar, dst] + cmp_type kwarg
+// manual.cmps �?args = [tile, scalar, dst] + cmp_type kwarg
 static std::string MakeManualCmpsCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 3) << "manual.cmps: expected 3 args (tile, scalar, dst), got "
@@ -895,12 +896,12 @@ static std::string MakeManualCmpsCodegenCCE(const ir::CallPtr& op, codegen::Code
   return "";
 }
 
-// manual.ub_copy — args = [src, dst] (Vec→Vec copy)
+// manual.ub_copy �?args = [src, dst] (Vec→Vec copy)
 static std::string MakeManualUbCopyCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   return MakeManualMoveCodegenCCE(op, codegen_base);
 }
 
-// manual.col_expand — args = [src, dst]
+// manual.col_expand �?args = [src, dst]
 static std::string MakeManualColExpandCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2) << "manual.col_expand: expected 2 args (src, dst), got " << op->args_.size();
@@ -911,7 +912,7 @@ static std::string MakeManualColExpandCodegenCCE(const ir::CallPtr& op, codegen:
   return "";
 }
 
-// manual.row_expand — args = [src, dst]
+// manual.row_expand �?args = [src, dst]
 static std::string MakeManualRowExpandUnaryCodegenCCE(const ir::CallPtr& op,
                                                        codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
@@ -923,7 +924,7 @@ static std::string MakeManualRowExpandUnaryCodegenCCE(const ir::CallPtr& op,
 }
 
 // ============================================================================
-// Helper: Manual ternary op — args = [a, b, c, dst]
+// Helper: Manual ternary op �?args = [a, b, c, dst]
 // Emits: OP(dst, a, b, c);
 // ============================================================================
 static std::string MakeManualTernaryCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
@@ -939,7 +940,7 @@ static std::string MakeManualTernaryCodegenCCE(const std::string& cce_op_name, c
 }
 
 // ============================================================================
-// Helper: Manual quaternary op — args = [a, b, c, d, dst]
+// Helper: Manual quaternary op �?args = [a, b, c, d, dst]
 // Emits: OP(dst, a, b, c, d);
 // ============================================================================
 static std::string MakeManualQuaternaryCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
@@ -956,7 +957,7 @@ static std::string MakeManualQuaternaryCodegenCCE(const std::string& cce_op_name
 }
 
 // ============================================================================
-// Helper: Binary + ReLU — args = [lhs, rhs, dst]
+// Helper: Binary + ReLU �?args = [lhs, rhs, dst]
 // Semantics: dst = max(0, OP(lhs, rhs))
 // Emits: OP(lhs, lhs, rhs); TRELU(dst, lhs);
 // ============================================================================
@@ -973,7 +974,7 @@ static std::string MakeManualBinaryReluCodegenCCE(const std::string& cce_op_name
 }
 
 // ============================================================================
-// Helper: Binary + ReLU + Cast — args = [lhs, rhs, dst] + mode kwarg
+// Helper: Binary + ReLU + Cast �?args = [lhs, rhs, dst] + mode kwarg
 // Semantics: dst = cast(max(0, OP(lhs, rhs)), mode)
 // Emits: OP(lhs, lhs, rhs); TRELU(lhs, lhs); TCVT(dst, lhs, mode);
 // ============================================================================
@@ -1000,7 +1001,7 @@ static std::string MakeManualBinaryReluCastCodegenCCE(const std::string& cce_op_
 }
 
 // ============================================================================
-// Helper: Binary + Cast — args = [lhs, rhs, dst] + mode kwarg
+// Helper: Binary + Cast �?args = [lhs, rhs, dst] + mode kwarg
 // Semantics: dst = cast(OP(lhs, rhs), mode)
 // Emits: OP(lhs, lhs, rhs); TCVT(dst, lhs, mode);
 // ============================================================================
@@ -1026,7 +1027,7 @@ static std::string MakeManualBinaryCastCodegenCCE(const std::string& cce_op_name
 }
 
 // ============================================================================
-// manual.mul_add_dst — args = [lhs, rhs, out]
+// manual.mul_add_dst �?args = [lhs, rhs, out]
 // Semantics: out = (lhs * rhs) + out
 // Emits: TMUL(lhs, lhs, rhs); TADD(out, lhs, out);
 // ============================================================================
@@ -1043,7 +1044,7 @@ static std::string MakeManualMulAddDstCodegenCCE(const ir::CallPtr& op,
 }
 
 // ============================================================================
-// manual.fused_mul_add — args = [lhs, rhs, out]
+// manual.fused_mul_add �?args = [lhs, rhs, out]
 // Semantics: out = (lhs * out) + rhs
 // Emits: TMUL(lhs, lhs, out); TADD(out, lhs, rhs);
 // ============================================================================
@@ -1060,7 +1061,7 @@ static std::string MakeManualFusedMulAddCodegenCCE(const ir::CallPtr& op,
 }
 
 // ============================================================================
-// manual.fused_mul_add_relu — args = [lhs, rhs, out]
+// manual.fused_mul_add_relu �?args = [lhs, rhs, out]
 // Semantics: out = max(0, (lhs * out) + rhs)
 // Emits: TMUL(lhs, lhs, out); TADD(lhs, lhs, rhs); TRELU(out, lhs);
 // ============================================================================
@@ -1078,7 +1079,7 @@ static std::string MakeManualFusedMulAddReluCodegenCCE(const ir::CallPtr& op,
 }
 
 // ============================================================================
-// manual.gather — args = [src, indices, out] or [src, indices, tmp, out]
+// manual.gather �?args = [src, indices, out] or [src, indices, tmp, out]
 // Emits: TGATHER(out, src, indices) or TGATHER(out, src, indices, tmp);
 // ============================================================================
 static std::string MakeManualGatherCodegenCCE(const ir::CallPtr& op,
@@ -1101,7 +1102,7 @@ static std::string MakeManualGatherCodegenCCE(const ir::CallPtr& op,
 }
 
 // ============================================================================
-// Op registrations — Memory
+// Op registrations �?Memory
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.load")
@@ -1183,7 +1184,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.fillpad_expand")
     });
 
 // ============================================================================
-// Op registrations — Tile x Tile binary
+// Op registrations �?Tile x Tile binary
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.add")
@@ -1301,7 +1302,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.fused_mul_add_relu")
     });
 
 // ============================================================================
-// Op registrations — Tile x Scalar binary
+// Op registrations �?Tile x Scalar binary
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.adds")
@@ -1377,7 +1378,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.lrelu")
     });
 
 // ============================================================================
-// Op registrations — Unary
+// Op registrations �?Unary
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.neg")
@@ -1441,7 +1442,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.cast")
     });
 
 // ============================================================================
-// Op registrations — Comparison
+// Op registrations �?Comparison
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.cmp")
@@ -1457,7 +1458,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.cmps")
     });
 
 // ============================================================================
-// Op registrations — Scalar broadcast
+// Op registrations �?Scalar broadcast
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.expands")
@@ -1467,7 +1468,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.expands")
     });
 
 // ============================================================================
-// Op registrations — Reductions (tile, tmp, out)
+// Op registrations �?Reductions (tile, tmp, out)
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.row_sum")
@@ -1501,7 +1502,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.col_sum")
     });
 
 // ============================================================================
-// Op registrations — Broadcast expansion
+// Op registrations �?Broadcast expansion
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.row_expand")
@@ -1559,7 +1560,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.col_expand_sub")
     });
 
 // ============================================================================
-// Op registrations — Matrix multiplication
+// Op registrations �?Matrix multiplication
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.matmul")
@@ -1599,7 +1600,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.gemv_bias")
     });
 
 // ============================================================================
-// Op registrations — Layout operations
+// Op registrations �?Layout operations
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.reshape")
@@ -1615,7 +1616,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.transpose")
     });
 
 // ============================================================================
-// Op registrations — Ternary / multi-input
+// Op registrations �?Ternary / multi-input
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.xor")
@@ -1673,7 +1674,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.sels")
     });
 
 // ============================================================================
-// Op registrations — Gather / scatter
+// Op registrations �?Gather / scatter
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.gather")
@@ -1689,7 +1690,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.gatherb")
     });
 
 // ============================================================================
-// Op registrations — Struct array (C++ struct + array for pl.struct lists)
+// Op registrations �?Struct array (C++ struct + array for pl.struct lists)
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "struct.declare")
@@ -1700,7 +1701,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "struct.declare")
       int size = op->GetKwarg<int>("size");
       std::string fields_csv = op->GetKwarg<std::string>("fields");
 
-      // Deduplicate: same fields → same struct type
+      // Deduplicate: same fields �?same struct type
       std::string type_name = codegen.GetOrCreateStructType(fields_csv, arr_name);
 
       // Emit variable declaration only (type definition already emitted)
@@ -1771,7 +1772,7 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "struct.ref")
     });
 
 // ============================================================================
-// Op registrations — Sorting
+// Op registrations �?Sorting
 // ============================================================================
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "manual.sort32")
@@ -1863,3 +1864,4 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "manual.mrgsort2")
 
 }  // namespace backend
 }  // namespace pypto
+

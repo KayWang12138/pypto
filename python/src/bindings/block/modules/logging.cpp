@@ -14,7 +14,7 @@
  * @brief Implementation of Python bindings for logging framework
  */
 
-#include "block/core/logging.h"
+#include "core/logging.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -91,8 +91,9 @@ void BindLogging(py::module_& m) {
       .export_values();  // Export values to module scope for convenience
 
   // Bind LoggerManager functions
-  m.def("set_log_level", &LoggerManager::ResetLevel, py::arg("level"),
+  m.def("set_log_level", &LoggerManager::SetLevel, py::arg("level"),
         "Set the global log level threshold. Only messages at or above this level will be logged.");
+  m.def("get_log_level", &LoggerManager::GetLevel, "Get the current global log level threshold.");
   m.def("log_debug", &log_debug, py::arg("message"), "Log a message at the DEBUG level");
   m.def("log_info", &log_info, py::arg("message"), "Log a message at the INFO level");
   m.def("log_warn", &log_warn, py::arg("message"), "Log a message at the WARN level");

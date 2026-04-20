@@ -48,18 +48,91 @@ constexpr int32_t MAX_AICORE_NUM_2210 = 75;
 constexpr int32_t MAX_AICORE_NUM_3510 = 108;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
-constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
-static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
+static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 2 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 static uint32_t MAX_UNROLL_TIMES = 1;                 // the max num of unroll_list
+constexpr size_t CALC_STITCH_NUM =
+    ToUnderlying(WsAicpuSlabMemType::DUPPED_STITCH) - ToUnderlying(WsAicpuSlabMemType::READY_QUE);
 void DevAscendFunction::InitIncastOutcastAttr(
     uintdevptr_t& initOffset, const std::vector<std::shared_ptr<LogicalTensor>>& iList,
     const std::vector<std::shared_ptr<LogicalTensor>>& oList, bool /* fillContent */)
 {
     incastAddressList.HostInitDataSizeOffset(initOffset, iList.size());
     outcastAddressList.HostInitDataSizeOffset(initOffset, oList.size());
+}
+
+static void FillDuppedDataFields(DevAscendFunctionDuppedData* dupData, uint64_t operationSize, uint64_t incastSize,
+    uint64_t outcastSize, uint64_t expressionSize, uint32_t outcastStitchCount, uint64_t predCountListDataSize,
+    uint64_t incastDataSize, uint64_t outcastDataSize, uint64_t expressionDataSize, uint64_t stitchDataSize,
+    uint64_t totalDataSize, uint64_t duppedDataAllocSize)
+{
+    dupData->operationList_.size = operationSize;
+
+    uint64_t offset = 0;
+    dupData->operationList_.predCountBase = offset;
+    offset += predCountListDataSize;
+
+    dupData->incastList_.size = incastSize;
+    dupData->incastList_.base = offset;
+    offset += incastDataSize;
+
+    dupData->outcastList_.size = outcastSize;
+    dupData->outcastList_.base = offset;
+    offset += outcastDataSize;
+
+    dupData->expressionList_.size = expressionSize;
+    dupData->expressionList_.base = offset;
+    offset += expressionDataSize;
+
+    dupData->operationList_.stitchBase = offset;
+    dupData->operationList_.stitchCount = outcastStitchCount;
+    offset += stitchDataSize;
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, offset == totalDataSize)
+        << "Offset mismatch:offset " << offset << " != totalDataSize " << totalDataSize;
+
+    memset_s(dupData->data_, totalDataSize, 0, totalDataSize);
+
+    uint8_t* dataEnd = &dupData->data_[totalDataSize];
+    uint8_t* dataEndAlloc = &dupData->data_[duppedDataAllocSize - sizeof(DevAscendFunctionDuppedData)];
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, dataEnd == dataEndAlloc)
+        << "Pointer mismatch:dataEnd " << dataEnd << " != dataEndAlloc " << dataEndAlloc;
+}
+
+static void VerifyDuppedDataRanges(DevAscendFunctionDuppedData* dupData, uint64_t operationSize,
+    uint64_t incastSize, uint64_t outcastSize, uint64_t expressionSize)
+{
+    uint8_t* dataBegin = &dupData->data_[0];
+    uint8_t* incastBegin = &dupData->data_[dupData->incastList_.base];
+    uint8_t* outcastBegin = &dupData->data_[dupData->outcastList_.base];
+    uint8_t* expressionBegin = &dupData->data_[dupData->expressionList_.base];
+    uint8_t* stitchBegin = &dupData->data_[dupData->operationList_.stitchBase];
+
+    for (uint64_t i = 0; i < operationSize; i++) {
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetOperationCurrPredCount(i));
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, dataBegin <= ptr && ptr < incastBegin)
+            << "OperationCurrPredCount out of range:  ptr " << ptr
+            << " not in [" << dataBegin << ", " << incastBegin << ")";
+    }
+    for (uint64_t i = 0; i < incastSize; i++) {
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetIncastAddress(i));
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, incastBegin <= ptr && ptr < outcastBegin)
+            << "Incast address out of range:  ptr " << ptr
+            << " not in [" << incastBegin << ", " << outcastBegin << ")";
+    }
+    for (uint64_t i = 0; i < outcastSize; i++) {
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetOutcastAddress(i));
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, outcastBegin <= ptr && ptr < expressionBegin)
+            << "Outcast address out of range:  ptr " << ptr << " not in [" << outcastBegin << ", "
+            << expressionBegin << ")";
+    }
+    for (uint64_t i = 0; i < expressionSize; i++) {
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetExpression(i));
+        ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, expressionBegin <= ptr && ptr < stitchBegin)
+            << "Expression address out of range:  ptr " << ptr << " not in [" << expressionBegin << ", "
+            << stitchBegin << ")";
+    }
 }
 
 void DevAscendFunction::InitOperationDynamicField(
@@ -96,63 +169,11 @@ void DevAscendFunction::InitOperationDynamicField(
     ONFILLCONTENT
     {
         DevAscendFunctionDuppedData* dupData = reinterpret_cast<DevAscendFunctionDuppedData*>(&At(duppedData_, 0));
-        dupData->operationList_.size = operationSize;
-
-        uint64_t offset = 0;
-        dupData->operationList_.predCountBase = offset;
-        offset += predCountListDataSize;
-
-        dupData->incastList_.size = incastSize;
-        dupData->incastList_.base = offset;
-        offset += incastDataSize;
-
-        dupData->outcastList_.size = outcastSize;
-        dupData->outcastList_.base = offset;
-        offset += outcastDataSize;
-
-        dupData->expressionList_.size = expressionSize;
-        dupData->expressionList_.base = offset;
-        offset += expressionDataSize;
-
-        dupData->operationList_.stitchBase = offset;
-        dupData->operationList_.stitchCount = outcastStitchCount;
-        offset += stitchDataSize;
-        ASSERT(offset == totalDataSize) << "Offset mismatch:offset " << offset << " != totalDataSize " << totalDataSize;
-
-        memset_s(dupData->data_, totalDataSize, 0, totalDataSize);
-
-        uint8_t* dataBegin = &dupData->data_[0];
-        uint8_t* incastBegin = &dupData->data_[dupData->incastList_.base];
-        uint8_t* outcastBegin = &dupData->data_[dupData->outcastList_.base];
-        uint8_t* expressionBegin = &dupData->data_[dupData->expressionList_.base];
-        uint8_t* stitchBegin = &dupData->data_[dupData->operationList_.stitchBase];
-        uint8_t* dataEnd = &dupData->data_[totalDataSize];
-        uint8_t* dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevAscendFunctionDuppedData)];
-        ASSERT(dataEnd == dataEndAlloc) << "Pointer mismatch:dataEnd " << dataEnd << " != dataEndAlloc "
-                                        << dataEndAlloc;
-        for (uint64_t i = 0; i < operationSize; i++) {
-            uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetOperationCurrPredCount(i));
-            ASSERT(dataBegin <= ptr && ptr < incastBegin) << "OperationCurrPredCount out of range:  ptr " << ptr
-                                                          << " not in [" << dataBegin << ", " << incastBegin << ")";
-        }
-        for (uint64_t i = 0; i < incastSize; i++) {
-            uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetIncastAddress(i));
-            ASSERT(incastBegin <= ptr && ptr < outcastBegin)
-            "Incast address out of range:  ptr " << ptr << " not in [" << incastBegin << ", " << outcastBegin << ")";
-        }
-        for (uint64_t i = 0; i < outcastSize; i++) {
-            uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetOutcastAddress(i));
-            ASSERT(outcastBegin <= ptr && ptr < expressionBegin)
-                << "Outcast address out of range:  ptr " << ptr << " not in [" << outcastBegin << ", "
-                << expressionBegin << ")";
-        }
-        for (uint64_t i = 0; i < expressionSize; i++) {
-            uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetExpression(i));
-            ASSERT(expressionBegin <= ptr && ptr < stitchBegin)
-                << "Expression address out of range:  ptr " << ptr << " not in [" << expressionBegin << ", "
-                << stitchBegin << ")";
-        }
-    };
+        FillDuppedDataFields(dupData, operationSize, incastSize, outcastSize, expressionSize, outcastStitchCount,
+            predCountListDataSize, incastDataSize, outcastDataSize, expressionDataSize, stitchDataSize, totalDataSize,
+            duppedDataAllocSize_);
+        VerifyDuppedDataRanges(dupData, operationSize, incastSize, outcastSize, expressionSize);
+    }
 }
 
 void HandleActualRaw(
@@ -213,7 +234,8 @@ void DevAscendFunction::UpdateRawTensorDesc(
             offsetOrIndex = encoded.addrOffset;
             break;
         default:
-            ASSERT(false) << "Unexpected ioProperty value: " << static_cast<int>(encoded.ioProperty);
+            ASSERT(DevCommonErr::PARAM_INVALID, false)
+                << "Unexpected ioProperty value: " << static_cast<int>(encoded.ioProperty);
             break;
     }
     DevRawTensorDesc* desc = GetRawTensorDesc(i);
@@ -273,8 +295,10 @@ static void EncodeRawShape(
     int64_t nelm = std::max(GetShapeSizeSafe(rawTensor->oriRawshape), GetShapeSizeSafe(rawTensor->rawshape));
     encoded->maxStaticMemReq = AlignUp(nelm * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT);
     if (nelm > MAX_SHAPE_WARN_THRESHOLE) {
-        MACHINE_LOGW("[workspaceSize] Root=[%s], symbol=[%s],rawmagic=[%d]: staticMemReq=[%lu] is too larger, which might indicate an error",
- 	                  rootName.c_str(), rawTensor->symbol.c_str(), rawTensor->GetRawMagic(),encoded->maxStaticMemReq);
+        MACHINE_LOGW(
+            "[workspaceSize] Root=[%s], symbol=[%s],rawmagic=[%d]: staticMemReq=[%lu] is too larger, which might "
+            "indicate an error",
+            rootName.c_str(), rawTensor->symbol.c_str(), rawTensor->GetRawMagic(), encoded->maxStaticMemReq);
     }
 }
 
@@ -394,7 +418,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
             std::string rawShape = FormatShape(rawTensor->GetRawShape()).c_str();
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
-                ASSERT(it != rawMagicToRawTensor.end())
+                ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, it != rawMagicToRawTensor.end())
                     << "rawMagic is not found in rawMagicToRawTensor: " << rawTensor->actualRawmagic;
                 auto& actualRaw = it->second;
                 std::string actualrawShape = FormatShape(actualRaw->GetRawShape()).c_str();
@@ -410,30 +434,35 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 if (fromType != toType) {
                     int inSize = BytesOf(fromType);
                     int outSize = BytesOf(toType);
-                    ASSERT(inSize != 0 && outSize != 0)
+                    ASSERT(DevCommonErr::PARAM_INVALID, inSize != 0 && outSize != 0)
                         << "Detected zero byte size data type, fromType: " << static_cast<int>(fromType)
                         << ", toType: " << static_cast<int>(toType);
                     if (inSize > outSize) {
-                        ASSERT((rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize())
+                        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                            (rawTensor->GetRawShapeSize() * (inSize / outSize)) == actualRaw->GetRawShapeSize())
                             << "Shape size mismatch: expected " << rawTensor->GetRawShapeSize() * (inSize / outSize)
                             << ", got: " << actualRaw->GetRawShapeSize();
                     } else {
-                        ASSERT(rawTensor->GetRawShapeSize() == (actualRaw->GetRawShapeSize() * (outSize / inSize)))
+                        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                            rawTensor->GetRawShapeSize() == (actualRaw->GetRawShapeSize() * (outSize / inSize)))
                             << "Shape size mismatch: expected " << actualRaw->GetRawShapeSize() * (outSize / inSize)
                             << ", got " << rawTensor->GetRawShapeSize();
                     }
-                    ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
+                    ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                        rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
                         << "Data size mismatch:" << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
                     continue;
                 }
-                ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize())
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                    rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize())
                     << "Shape size mismatch:" << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize()
                     << ", rootMagic=" << param.devRoot->GetMagicName()
                     << ", rootHash=" << param.devRoot->GetFunctionHash().GetHash() << " ,rawShape=" << rawShape
                     << ",actualrawShape=" << actualrawShape << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
                     << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
                     << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
-                ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                    rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
                     << "Data size mismatch:" << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
                     << ", rootMagic=" << param.devRoot->GetMagicName()
                     << ", rootHash=" << param.devRoot->GetFunctionHash().GetHash() << " ,rawShape=" << rawShape
@@ -449,7 +478,8 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
         for (size_t i = 0; i < rawList.size(); i++) {
             auto& encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
-                ASSERT(outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic)
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+                    outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic)
                     << "Unexpected rawmagic match: actualRawmagic " << outIncastLinkMap[rawList[i]]->actualRawmagic
                     << " == rawmagic " << rawList[i]->rawmagic;
                 auto replacedIncast = outIncastLinkMap[rawList[i]];
@@ -522,22 +552,22 @@ void DevAscendFunction::InitOperationNoPredNoSuccIndices(
         memcpy_s(
             &At(noSuccOpList_, 0), noSuccOpList_.ByteSize(), noSuccOpList.data(), noSuccOpList.size() * sizeof(int));
 
-        ASSERT(noPredOpList_.size() == noPredOpList.size())
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, noPredOpList_.size() == noPredOpList.size())
             << "Size mismatch: noPredOpList size: " << noPredOpList_.size()
             << " != noPredOpList size: " << noPredOpList.size();
         for (size_t i = 0; i < noPredOpList.size(); i++) {
             int opIdx = At(noPredOpList_, i);
             auto* op = callList[opIdx];
-            ASSERT(!callOpPredDict.count(op) || callOpPredDict.at(op) == 0)
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, !callOpPredDict.count(op) || callOpPredDict.at(op) == 0)
                 << "callOpPredDict for op: " << op << " is not zero: " << callOpPredDict.at(op);
         }
-        ASSERT(noSuccOpList_.size() == noSuccOpList.size())
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, noSuccOpList_.size() == noSuccOpList.size())
             << "Size mismatch: noSuccOpList size: " << noSuccOpList_.size()
             << " != noSuccOpList size: " << noSuccOpList.size();
         for (size_t i = 0; i < noSuccOpList.size(); i++) {
             int opIdx = At(noSuccOpList_, i);
             auto* op = callList[opIdx];
-            ASSERT(!callOpSuccDict.count(op) || callOpSuccDict.at(op).empty())
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, !callOpSuccDict.count(op) || callOpSuccDict.at(op).empty())
                 << "callOpSuccDict for op: " << op << " is not empty";
         }
     }
@@ -591,7 +621,7 @@ void DevAscendFunction::FillOperationEncodedContent(
             uint8_t* ptr = reinterpret_cast<uint8_t*>(&dupData->GetOperationStitch(index));
             uint8_t* stitchBegin = &dupData->data_[dupData->operationList_.stitchBase];
             uint8_t* dataEndAlloc = &dupData->data_[duppedDataAllocSize_ - sizeof(DevAscendFunctionDuppedData)];
-            ASSERT(stitchBegin <= ptr && ptr < dataEndAlloc)
+            ASSERT(ProgEncodeErr::RANGE_VERIFY_FAILED, stitchBegin <= ptr && ptr < dataEndAlloc)
                 << "Address out of range: ptr " << ptr << " not in [" << stitchBegin << ", " << dataEndAlloc << ")";
         }
         dupData->GetSource() = nullptr;
@@ -726,8 +756,10 @@ void DevAscendFunction::VerifyOperationEncodedContent(
 {
     for (size_t idx = 0; idx < callList.size(); idx++) {
         Operation* op = callList[idx];
-        ASSERT(callOpPredDict.count(op)) << "callOpPredDict does not contain op " << op;
-        ASSERT(At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second)
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callOpPredDict.count(op))
+            << "callOpPredDict does not contain op " << op;
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+            At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second)
             << "depGraphPredCount mismatch: expected " << callOpPredDict.find(op)->second << ", got "
             << At(operationList_, idx).depGraphPredCount;
         if (dupData->GetOperationCurrPredCount(idx) != callOpPredDict.find(op)->second) {
@@ -736,7 +768,8 @@ void DevAscendFunction::VerifyOperationEncodedContent(
                 "OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
                 dupData->GetOperationCurrPredCount(idx), dupData->GetOperationSize());
         }
-        ASSERT(dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second)
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
+            dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second)
             << "GetOperationCurrPredCount mismatch: expected " << dupData->GetOperationCurrPredCount(idx) << ", got "
             << callOpPredDict.find(op)->second << ", Callopsize is " << dupData->GetOperationSize()
             << " exceeds the maximum allowed value of 65535.";
@@ -1144,7 +1177,7 @@ struct EncodeDevAscendFunctionInfo {
                 "shape ",
                 tensor->magic, tensor->GetRawMagic());
         }
-        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE)
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, cellMatchStride[0] < MAX_CELLMATCHSSTRIDE)
             << " Assemble outcast " << tensor->magic << " raw " << tensor->GetRawMagic()
             << "stitch results in excessive memory consumption,"
             << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape.";
@@ -1299,7 +1332,7 @@ struct EncodeDevAscendFunctionInfo {
                     auto& iOperand = op.GetIOperands()[k];
                     auto coaIndex = op.GetIOpAttrOffset(k) + COA_INDEX_DIM_BASE;
                     if (index->tensor->rawmagic == iOperand->tensor->rawmagic) {
-                        ASSERT(iOperand->GetShape().size() == dimSize)
+                        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, iOperand->GetShape().size() == dimSize)
                             << "Shape size mismatch: expected: " << dimSize << ", got " << iOperand->GetShape().size()
                             << " for operand: " << k;
                         std::vector<int64_t> shape =
@@ -1351,7 +1384,7 @@ struct EncodeDevAscendFunctionInfo {
         auto dummyOp = std::make_shared<Operation>(*devRoot, Opcode::OP_CALL);
         dummyOp->SetOpAttribute(opAttr);
         dummyOpList.push_back(dummyOp);
-        ASSERT(GetCoreType(dummyOp.get()) == static_cast<int>(CoreType::HUB))
+        ASSERT(DevCommonErr::PARAM_INVALID, GetCoreType(dummyOp.get()) == static_cast<int>(CoreType::HUB))
             << "GetCoreType return unexpected value: " << GetCoreType(dummyOp.get())
             << ", expected:  " << static_cast<int>(CoreType::HUB);
         return dummyOp.get();
@@ -1540,12 +1573,12 @@ struct EncodeDevAscendFunctionInfo {
             callopList.push_back(dummyOp);
             callOpPredDict[dummyOp] = 0;
             for (auto* op : zeroPreds) {
-                ASSERT(callOpPredDict[op] == 0)
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callOpPredDict[op] == 0)
                     << "callOpPredDict[op] is not zero:" << callOpPredDict[op] << ", expected 0";
                 callOpSuccDict[dummyOp].Insert(op);
                 callOpPredDict[op] = 1;
             }
-            ASSERT(callOpSuccDict[dummyOp].size() == zeroPreds.size())
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callOpSuccDict[dummyOp].size() == zeroPreds.size())
                 << "callOpSuccDict[dummyOp] size mismatch: expected: " << zeroPreds.size()
                 << ", got: " << callOpSuccDict[dummyOp].size();
         }
@@ -1557,7 +1590,8 @@ struct EncodeDevAscendFunctionInfo {
             callOpSuccDict[dummyOp] = {};
             callOpPredDict[dummyOp] = zeroSuccs.size();
             for (auto* op : zeroSuccs) {
-                ASSERT(callOpSuccDict[op].empty()) << "callOpSuccDict[op] is not empty, expect empty";
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callOpSuccDict[op].empty())
+                    << "callOpSuccDict[op] is not empty, expect empty";
                 callOpSuccDict[op].Insert(dummyOp);
             }
         }
@@ -1575,34 +1609,42 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
+    void SortCallOpList(std::vector<Operation*>& callopList,
+        const std::unordered_map<Operation*, int> &callopCoreTypeDict)
+    {
+        std::sort(callopList.begin(), callopList.end(), [&](Operation* lhs, Operation* rhs) {
+            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
+                return callOpPredDict[lhs] < callOpPredDict[rhs];
+            }
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callopCoreTypeDict.count(lhs))
+                << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callopCoreTypeDict.count(rhs))
+                << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
+            return callopCoreTypeDict.at(lhs) < callopCoreTypeDict.at(rhs);
+        });
+    }
+
     void EncodeZeroPredCount(std::vector<Operation*>& callopList)
     {
         std::unordered_map<Operation*, int> callopCoreTypeDict;
         for (auto& op : callopList) {
             auto callOpAttr = std::static_pointer_cast<CallOpAttribute>(op->GetOpAttribute());
             auto calleeHash = callOpAttr->GetCalleeHash().GetHash();
-            ASSERT(calleeHashIndexDict.count(calleeHash))
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, calleeHashIndexDict.count(calleeHash))
                 << "calleeHash 0x" << std::hex << calleeHash << " is not found in calleeHashIndexDict";
             int cceIndex = calleeHashIndexDict.find(calleeHash)->second;
-            ASSERT(cceIndex < static_cast<int>(cceCodeInfoList.size()))
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, cceIndex < static_cast<int>(cceCodeInfoList.size()))
                 << "cceIndex " << cceIndex << " exceeds cceCodeInfoList size: " << cceCodeInfoList.size();
 
             uint32_t coreType = cceCodeInfoList[cceIndex].coreType;
-            ASSERT(
+            ASSERT(DevCommonErr::PARAM_INVALID,
                 coreType == static_cast<uint32_t>(CoreType::AIV) || coreType == static_cast<uint32_t>(CoreType::AIC) ||
                 coreType == static_cast<uint32_t>(CoreType::HUB) || coreType == static_cast<uint32_t>(CoreType::AICPU))
                 << "invalid coreType " << coreType << " for op " << op;
             callopCoreTypeDict[op] = coreType;
         }
 
-        std::sort(callopList.begin(), callopList.end(), [&](Operation* lhs, Operation* rhs) {
-            if (callOpPredDict[lhs] != callOpPredDict[rhs]) {
-                return callOpPredDict[lhs] < callOpPredDict[rhs];
-            }
-            ASSERT(callopCoreTypeDict.count(lhs)) << "lhs operation " << lhs << " is not found in callopCoreTypeDict";
-            ASSERT(callopCoreTypeDict.count(rhs)) << "rhs operation " << rhs << " is not found in callopCoreTypeDict";
-            return callopCoreTypeDict[lhs] < callopCoreTypeDict[rhs];
-        });
+        SortCallOpList(callopList, callopCoreTypeDict);
 
         totalZeroPred = callopList.size();
         for (size_t index = 0; index < callopList.size(); index++) {
@@ -1612,7 +1654,7 @@ struct EncodeDevAscendFunctionInfo {
             }
         }
         for (size_t index = totalZeroPred; index < callopList.size(); index++) {
-            ASSERT(callOpPredDict[callopList[index]] != 0)
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, callOpPredDict[callopList[index]] != 0)
                 << "callOpPredDict[callopList[" << index << "]] is zero, callopList[" << index
                 << "] = " << callopList[index];
         }
@@ -1627,7 +1669,8 @@ struct EncodeDevAscendFunctionInfo {
             } else if (callopCoreTypeDict[callopList[index]] == static_cast<uint32_t>(CoreType::AICPU)) {
                 totalZeroPredAicpu++;
             } else {
-                ASSERT(false) << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
+                ASSERT(DevCommonErr::PARAM_INVALID, false)
+                    << "Invalid coreType for callopList[" << index << "], op : " << callopList[index];
             }
         }
     }
@@ -1639,7 +1682,7 @@ struct EncodeDevAscendFunctionInfo {
         for (auto& [callop, succSet] : callOpSuccDict) {
             Function* devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
             if (devLeafFunc == nullptr) {
-                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB))
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, GetCoreType(callop) == static_cast<int>(CoreType::HUB))
                     << "GetCoreType return unexpected value: " << GetCoreType(callop)
                     << ", expectedBlockFunction: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
                 copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
@@ -1681,13 +1724,13 @@ struct EncodeDevAscendFunctionInfo {
                 copyOutResolveSuccList.insert(copyOutResolveSuccList.end(), succ.begin(), succ.end());
             }
             copyOutResolveSuccIndexList.push_back(copyOutResolveSuccList.size());
-            ASSERT(copyOutResolveSuccIndexList[0] == 0)
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, copyOutResolveSuccIndexList[0] == 0)
                 << "copyOutResolveSuccIndexList[0] is " << copyOutResolveSuccIndexList[0] << ", expected 0";
             copyOutResolveSuccList.insert(
                 copyOutResolveSuccList.end(), nonCopyOutResolveSuccSet.begin(), nonCopyOutResolveSuccSet.end());
 
             // Assert: succ set are the same
-            ASSERT(
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
                 std::set<Operation*>(succSet.begin(), succSet.end()) ==
                 std::set<Operation*>(copyOutResolveSuccList.begin(), copyOutResolveSuccList.end()))
                 << "succSet and copyOutResolveSuccList content mismatch";
@@ -1695,7 +1738,7 @@ struct EncodeDevAscendFunctionInfo {
             succSet.Clear();
             for (Operation* copyOutResolveSucc : copyOutResolveSuccList) {
                 // Assert: no duplicated item in copyOutResolveSuccList
-                ASSERT(succSet.Insert(copyOutResolveSucc))
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, succSet.Insert(copyOutResolveSucc))
                     << "Duplicate item " << copyOutResolveSucc << " found in copyOutResolveSuccList";
             }
 
@@ -1801,8 +1844,7 @@ struct EncodeDevAscendFunctionInfo {
           cceCodeInfoList(tCceCodeInfoList),
           expressionTable(tExpressionTable)
     {
-        (void)dyndev;
-        ASSERT(dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, dyndev->GetDyndevAttribute()->rootTileDict.count(devRoot))
             << "devRoot: " << devRoot << " not found in rootTileDict of dyndev";
         devTile = dyndev->GetDyndevAttribute()->rootTileDict[devRoot];
         if (dyndev->GetDyndevAttribute()->valueDependDescDict.count(devTile)) {
@@ -2090,7 +2132,7 @@ static void InitPartialUpdateCellMatch(
             } else if (dim != -1) {
                 dim = std::gcd(dim, outcastList[index]->cellMatchTableDesc.GetCellShape(d));
             } else {
-                ASSERT(outcastList[index]->cellMatchTableDesc.GetCellShape(d) == -1)
+                ASSERT(DevCommonErr::PARAM_CHECK_FAILED, outcastList[index]->cellMatchTableDesc.GetCellShape(d) == -1)
                     << "Invalid cell shape for outcastList[" << index << "], dimension: " << d << ", expected -1, got "
                     << outcastList[index]->cellMatchTableDesc.GetCellShape(d);
             }
@@ -2122,10 +2164,11 @@ void DevAscendProgram::InitPartialUpdateSlot(
     for (size_t index = 0; index < tPartialUpdateSlotIndexList.size(); index++) {
         std::vector<const DevAscendFunctionOutcast*> outcastList;
         auto slotIndex = tPartialUpdateSlotIndexList[index];
-        ASSERT(slotRootOutcastDict.count(slotIndex))
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, slotRootOutcastDict.count(slotIndex))
             << "slotIndex: " << slotIndex << " not found in slotRootOutcastDict";
         for (auto& [root, outcastIndex] : slotRootOutcastDict.find(slotIndex)->second) {
-            ASSERT(rootFuncKeyDict.count(root)) << "root: " << root << " not found in rootFuncKeyDict";
+            ASSERT(DevCommonErr::PARAM_CHECK_FAILED, rootFuncKeyDict.count(root))
+                << "root: " << root << " not found in rootFuncKeyDict";
             int funcKey = rootFuncKeyDict.find(root)->second;
             DevAscendFunction* devFunc =
                 reinterpret_cast<DevAscendFunction*>(const_cast<uint8_t*>(devEncodeListInput[funcKey].data()));
@@ -2184,46 +2227,19 @@ static int ParseUnrollTimes(const std::string& rawName)
 static int EstimatedStitchingCount()
 {
     uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-    if (stitchNum > 0) {
-        return stitchNum * MAX_UNROLL_TIMES;
-    }
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
-    return value;
+    return stitchNum * MAX_UNROLL_TIMES;
 }
 
 static int WorkspaceRecyclePeriod()
 {
     uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-    if (stitchNum > 0) {
-        return stitchNum * MAX_UNROLL_TIMES;
-    }
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY);
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
-    return value;
+    return stitchNum * MAX_UNROLL_TIMES;
 }
 
 static uint32_t ExpectedMaxCachedNum()
 {
-    int innerMemAllowedNum = (WorkspaceRecyclePeriod() + MAX_UNROLL_TIMES - 1) / MAX_UNROLL_TIMES;
-    int outcastMemAllowedNum = (EstimatedStitchingCount() + MAX_UNROLL_TIMES - 1) / MAX_UNROLL_TIMES;
-    int numInitial = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_INITIAL);
-    int numStep = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_STEP);
     uint16_t stitchFunctionMaxNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-    if (stitchFunctionMaxNum > 0) {
-        return std::min(static_cast<uint32_t>(stitchFunctionMaxNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
-    }
-    if (numStep != 0) {
-        return static_cast<uint32_t>(MAX_STITCH_FUNC_NUM);
-    }
-    int expectedMaxCachedNum = std::min(numInitial, std::min(innerMemAllowedNum, outcastMemAllowedNum));
-    if (expectedMaxCachedNum <= 0) {
-        return 1;
-    }
-    expectedMaxCachedNum =
-        (expectedMaxCachedNum > (int)MAX_STITCH_FUNC_NUM_LOWER) ? expectedMaxCachedNum : MAX_STITCH_FUNC_NUM_LOWER;
-    MACHINE_LOGD("Max stitch function num  user expected is %d.", expectedMaxCachedNum);
-    return std::min(static_cast<uint32_t>(expectedMaxCachedNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
+    return std::min(static_cast<uint32_t>(stitchFunctionMaxNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
 }
 
 void DevAscendProgram::InitControlFlowCache(
@@ -2243,7 +2259,8 @@ struct EncodeDevAscendProgramInfo {
 
     explicit EncodeDevAscendProgramInfo(Function* tfunc) : func(tfunc)
     {
-        ASSERT(func->GetDyndevAttribute() != nullptr) << "DyndevAttribute is null for function: " << func;
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, func->GetDyndevAttribute() != nullptr)
+            << "DyndevAttribute is null for function: " << func;
         dyndevAttr = func->GetDyndevAttribute();
         for (auto& devRoot : dyndevAttr->funcGroup.devRootList) {
             int unroll = ParseUnrollTimes(devRoot->GetRawName());
@@ -2265,7 +2282,8 @@ struct EncodeDevAscendProgramInfo {
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.enableVFFusion = GetEnableVFFusion();
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
-        devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (ExpectedMaxCachedNum() + 1);
+        devProg->runtimeOutcastPoolSize =
+            dyndevAttr->inoutLink.totalSlot * (ExpectedMaxCachedNum() + 1) * devProg->GetParallelism();
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
         devProg->InitSymbolTable(initOffset, &dyndevAttr->symbolTable, fillContent);
         devProg->InitExpressionTableBinary(initOffset, dyndevAttr->expressionTableBinaryList, fillContent);
@@ -2292,14 +2310,14 @@ struct EncodeDevAscendProgramInfo {
         // control flow cache is always at the back of the program. So it should be the last.
         devProg->InitControlFlowCache(initOffset, dyndevAttr, fillContent);
         devProg->dataSize = initOffset - reinterpret_cast<uintdevptr_t>(devProg->data);
-        ASSERT(
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED,
             reinterpret_cast<uint8_t*>(devProg->controlFlowCache.cacheData.end()) ==
             reinterpret_cast<uint8_t*>(initOffset))
             << "controlFlowCache.cacheData.end()"
                " does not match initOffset, expected "
             << reinterpret_cast<uint8_t*>(initOffset) << ", got "
             << reinterpret_cast<uint8_t*>(devProg->controlFlowCache.cacheData.end());
-        ASSERT(devProg->GetSize() == sizeof(*devProg) + devProg->dataSize)
+        ASSERT(DevCommonErr::PARAM_CHECK_FAILED, devProg->GetSize() == sizeof(*devProg) + devProg->dataSize)
             << "devProg->GetSize() does not match expected size, expected: " << sizeof(*devProg) + devProg->dataSize
             << ", got: " << devProg->GetSize();
     }
@@ -2403,7 +2421,8 @@ static bool IsAssembleSlot(std::vector<SlotInfo>& slots, DevAscendFunction* func
 
 static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int configMultiplier)
 {
-    ASSERT(unrollTimes > 0) << "Invalid unrollTimes:  " << unrollTimes << ", must be greater than 0";
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, unrollTimes > 0)
+        << "Invalid unrollTimes:  " << unrollTimes << ", must be greater than 0";
     if (unrollTimes >= configMultiplier) {
         return budget;
     }
@@ -2425,10 +2444,10 @@ static SymbolicScalar GetDynRawTensorSize(Function* dynFunc, int funcKey, int id
             break;
         }
     }
-    ASSERT(devRoot) << "func " << funcKey << " missing";
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, devRoot) << "func " << funcKey << " missing";
 
     auto rawTensor = devRoot->GetOutcast()[idx]->GetRawTensor();
-    ASSERT(!rawTensor->GetDynRawShape().empty()) << "Not dynamic shape tensor";
+    ASSERT(DevCommonErr::PARAM_CHECK_FAILED, !rawTensor->GetDynRawShape().empty()) << "Not dynamic shape tensor";
 
     SymbolicScalar size = BytesOf(rawTensor->GetDataType());
     for (auto x : rawTensor->GetDynRawShape()) {
@@ -2505,9 +2524,11 @@ static void ProcessDevFunctionOutcasts(
         devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
 
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
-    maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
-    MACHINE_LOGI("[workspaceSize] Rootfunction: %s ->MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
- 	               devFunc->GetRawName(), maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
+    maxDevTaskInnerExclusiveOutcastMem =
+        std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
+    MACHINE_LOGI(
+        "[workspaceSize] Rootfunction: %s ->MaxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu.",
+        devFunc->GetRawName(), maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
     maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
 }
 
@@ -2574,11 +2595,11 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram* devProg)
     uint64_t itemPoolMemSize = DeviceWorkspaceAllocator::CalcMetadataItemPoolMemSize(devProg);
     uint64_t vectorMemSize = DeviceWorkspaceAllocator::CalcMetadataVectorMemSize(devProg);
     uint64_t slotAllocatorMemSize = DeviceWorkspaceAllocator::CalcMetadataSlotAllocatorMemSize(devProg);
-    MACHINE_LOGI("[workspaceSize] ItemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu.,",
-                  itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
+    MACHINE_LOGI(
+        "[workspaceSize] ItemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu.,",
+        itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
     static constexpr uint64_t AICPU_SLOT_STATIC_MEMSIZE = 2 * MEBI;
-    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + 
-                              slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
+    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
     MACHINE_LOGI("[workspaceSize] Workspace of generalMetadataSlotSize is %lu., ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
@@ -2589,40 +2610,52 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram* devProg)
     uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
     uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
     size_t objUsedNum[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)]{
-        ExpectedMaxCachedNum(),         // DevFunctionDupped
-        1,                              // DynFuncData
-        1,                              // VecStitchList
-        1,                              // DynDevTask
-        READY_QUEUE_SIZE,               // ReadyQue
-        DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
-        1,
-        1,
+        MAX_STITCH_FUNC_NUM, // DevFunctionDupped
+        1,                   // DynFuncData
+        1,                   // VecStitchList
+        1,                   // DynDevTask
     };
     workspace.CalculateSlabCapacityPerType(
         slabSize, slabCapacity, ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
 
-    for (int i=0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
+    for (int i = 0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
         MACHINE_LOGI("SlabCapacity[%d] is %u.", i, slabCapacity[i]);
         if (slabCapacity[i] == 0) {
             continue;
         }
         uint32_t requiredSlabNum = (objUsedNum[i] + slabCapacity[i] - 1) / slabCapacity[i];
         // alloc redundant slabpage for DuppedFunction and Readyque to prevent memory border situations
-        if(i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA) ||
-         i == ToUnderlying(WsAicpuSlabMemType::READY_QUE)) requiredSlabNum++;
+        if (i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA))
+            requiredSlabNum += 3;
         MACHINE_LOGI("[workspaceSize] RequiredSlabNum[%d] is %u.", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
-    MACHINE_LOGI("[workspaceSize] General->MetadataSlabSize is %lu.", static_cast<unsigned long>(generalMetadataSlabSize));
-    generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
-    return generalMetadataSlabSize;
+    MACHINE_LOGI(
+        "[workspaceSize] General->MetadataSlabSize is %lu.", static_cast<unsigned long>(generalMetadataSlabSize));
+    generalMetadataSlabSize =
+        (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
+    return generalMetadataSlabSize * devProg->GetParallelism();
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram& devProg)
 {
-    (void)devProg;
-    static constexpr uint64_t AICPU_STITCH_SIZE = 2 * MEBI;
-    return AICPU_STITCH_SIZE;
+    DeviceWorkspaceAllocator workspace(&devProg);
+    uint32_t slabCapacity[CALC_STITCH_NUM] = {0};
+    uint32_t objUsedNum[CALC_STITCH_NUM] = {READY_QUEUE_SIZE, DIE_READY_QUEUE_SIZE * DIE_NUM, 1, 1};
+    uint32_t slabSize = workspace.CalcStitchSlabMemObjmaxSize(slabCapacity);
+    // DUPPED_STITCH, enture greater than 2mb
+    uint64_t stitchPoolSize = slabSize << 1;
+
+    for (size_t i = 0; i < CALC_STITCH_NUM; ++i) {
+        if (slabCapacity[i] == 0) {
+            continue;
+        }
+        uint32_t requiredSlabNum =
+            ((objUsedNum[i] << 2) + slabCapacity[i] - 1) / slabCapacity[i]; // UsedNum * 4 for stitch 4 devtask
+        stitchPoolSize += slabSize * requiredSlabNum;
+    }
+    MACHINE_LOGD("[workspaceSize] Stitch pool size is %lu, with slab size:%u.", stitchPoolSize, slabSize);
+    return stitchPoolSize * devProg.GetParallelism();
 }
 
 static uint64_t DumpTensorWorkspace()
@@ -2654,12 +2687,13 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
         encodeInfo.Init(&devfunc, false);
         offset = devfunc.GetSize();
     } else {
+        uint32_t parallism = 1; // need get prallism from  parallel option
+        base->SetParallelism(parallism);
         encodeInfo.Init(base, true);
         offset = base->GetSize();
 
         // Calc workspace size
         TensorWorkspaceResult tensorWsRes = CalcTensorWorkspace(func, *base);
-
         base->slottableOutcastSlotSize = tensorWsRes.totalExclusiveOutcastSlot + tensorWsRes.totalAssembleOutcastSlot;
 
         base->memBudget.tensor.rootInner = tensorWsRes.rootInnerMem;
@@ -2671,12 +2705,6 @@ void EncodeDevAscendProgram(Function* func, uint64_t& offset, DevAscendProgram* 
             Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
-        base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
-        uint16_t value = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
-        if (value > 0) {
-            base->stitchFunctionNumInitial = value;
-        }
-        base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchMaxFunctionNum = ExpectedMaxCachedNum();
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
@@ -2702,7 +2730,10 @@ void DevControlFlowCache::Init(
     uint64_t slottedCount =
         dyndevAttr->inoutLink.totalSlot *
         (std::min((uint32_t)EstimatedStitchingCount(), stitchMaxFunctionNum) + SLOTS_NEED_ALLOC_SIZE);
-    runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
+    for (uint32_t i = 0; i < SCH_DEVTASK_MAX_PARALLELISM; i++) {
+        runtimeBackup.workspace.tensorAllocators[i].slottedOutcastsBlockList.HostInitDataSizeOffset(
+            initOffset, slottedCount);
+    }
 
     runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, dyndevAttr->inoutLink.totalSlot);
     runtimeBackup.workspace.runtimeOutcastTensorPool.HostInitDataSizeOffset(initOffset, runtimeOutcastPoolSize);
@@ -2717,7 +2748,6 @@ void DevControlFlowCache::Init(
     deviceTaskSkippedCount = 0;
     cacheDataOffset = 0;
     workspaceAddr = 0;
-    stitchMaxFunctionNum_ = stitchMaxFunctionNum;
     dataSize = initOffset - reinterpret_cast<uintdevptr_t>(data);
 }
 
