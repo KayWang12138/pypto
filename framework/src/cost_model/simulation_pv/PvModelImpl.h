@@ -434,11 +434,14 @@ public:
         CHECK(npu::tile_fwk::FileExist(objPath)) << "ErrCode: F" <<
             static_cast<unsigned>(CostModel::ExternalErrorScene::INVALID_PATH) 
             << ", obj file does not exist. objPath: " << objPath;
-        (void)snprintf_s(
+        int ret = snprintf_s(
             cmd, sizeof(cmd), sizeof(cmd) - 1, "llvm-objcopy -O binary -j .text %s %s", objPath.c_str(),
             binPath.c_str());
+        if (ret < 0 || ret >= static_cast<int>(sizeof(cmd))) {
+            SIMULATION_LOGE("snprintf_s: %s", cmd);
+        }
 
-        int ret = std::system(cmd);
+        ret = std::system(cmd);
         if (ret != 0) {
             SIMULATION_LOGE("cmd error: %s", cmd);
         }
