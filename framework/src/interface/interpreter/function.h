@@ -917,12 +917,12 @@ struct FunctionInterpreter {
         auto outOp = op.GetOOperands()[0];
         if (memType == 0) {
             std::cout << "Alloc " << slotSize << "B for " << groupName << std::endl;
-            tmp = SimulationCommManager::Instance().Alloc(groupName, oOpDataList[0].GetDataType(), oOpDataList[0].GetShape());
+            tmp = SimulationCommManager::Instance().Alloc(groupName, oOpDataList[0]->GetDataType(), oOpDataList[0]->GetShape());
             out = LogicalTensorData::Create(*tmp);
         }
         if (memType == 1) {
             std::cout << "AllocSignal " << slotSize << "B for " << groupName << std::endl;
-            tmp = SimulationCommManager::Instance().AllocSignal(groupName, oOpDataList[0].GetDataType(), oOpDataList[0].GetShape());
+            tmp = SimulationCommManager::Instance().AllocSignal(groupName, oOpDataList[0]->GetDataType(), oOpDataList[0]->GetShape());
             out = LogicalTensorData::Create(*tmp);
         }
         frame.BindDataView(outOp, tmp, out);
