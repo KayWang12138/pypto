@@ -943,6 +943,9 @@ struct FunctionInterpreter {
         std::vector<std::shared_ptr<LogicalTensorData>> oOpDataList;
         for (size_t i = 0; i < op->GetOOperands().size(); i++) {
             auto oop = op->GetOOperands()[i];
+            if (op->GetOpcode() == Opcode::OP_INDEX_ADD && i > 0) {
+                continue;
+            }
             if (auto index = GetInplaceIndex(op, i); index != -1) {
                 ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
             } else {
