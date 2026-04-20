@@ -20,7 +20,7 @@ If either is missing, STOP and return control to Lead. Do NOT load `tune-*` skil
 
 1. `.agents/skills/phase6-optimization/SKILL.md`
 2. `.agents/skills/pypto-op-perf-tune/SKILL.md` — 3-stage router
-3. `.agents/skills/perf-analyzer/SKILL.md`
+3. `.agents/skills/pypto-op-perf-tune/perf-analyzer/SKILL.md`
 
 Cap active skills at 3 base + 1 `tune-*` at a time = 4 max.
 
@@ -28,9 +28,9 @@ Cap active skills at 3 base + 1 `tune-*` at a time = 4 max.
 
 | Stage | Sub-skill to load | Enter when | Unload before next stage |
 |-------|-------------------|------------|:------------------------:|
-| 1. Frontend | `.agents/skills/tune-frontend/SKILL.md` | GATE 4 passed, baseline measured on NPU | ✅ |
-| 2. Swimlane | `.agents/skills/tune-swimlane/SKILL.md` | Stage 1 exited | ✅ |
-| 3. Incore | `.agents/skills/tune-incore/SKILL.md` | Stage 2 exited | ✅ |
+| 1. Frontend | `.agents/skills/pypto-op-perf-tune/tune-frontend/SKILL.md` | GATE 4 passed, baseline measured on NPU | ✅ |
+| 2. Swimlane | `.agents/skills/pypto-op-perf-tune/tune-swimlane/SKILL.md` | Stage 1 exited | ✅ |
+| 3. Incore | `.agents/skills/pypto-op-perf-tune/tune-incore/SKILL.md` | Stage 2 exited | ✅ |
 | Automation | `.agents/skills/pypto-operator-auto-tuner/SKILL.md` | AIV / swimlane automation needed | ✅ back to stage |
 
 ## Regression loop (with Verification Agent)

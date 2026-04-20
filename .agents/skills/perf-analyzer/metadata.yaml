@@ -1,5 +1,0 @@
-name: perf-analyzer
-description: "Extract performance metrics from profiling data. Compute ratings and identify bottlenecks."
-triggers: ["perf metrics", "performance report", "bottleneck analysis", "performance rating"]
-category: performance
-phase_affinity: ["6"]
