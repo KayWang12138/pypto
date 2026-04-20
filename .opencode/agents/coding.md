@@ -27,10 +27,10 @@ When you finish writing and local-validating the single file, **stop and return 
 
 ## Mandatory reads
 
-1. `.agents/skills/development/pypto-op-develop/SKILL.md`
-2. `.agents/skills/workflow/phase2-phase3-construction/SKILL.md` — Phase 3 + DEBUG §9 lookup table
-3. `.agents/skills/workflow/phase4-phase5-integration/SKILL.md` — Phase 4 integration, Phase 5 structural rules
-4. `.agents/skills/workflow/kernel-code-format/SKILL.md` — template, write-back patterns, tile config
+1. `.agents/skills/pypto-op-develop/SKILL.md`
+2. `.agents/skills/phase2-phase3-construction/SKILL.md` — Phase 3 + DEBUG §9 lookup table
+3. `.agents/skills/phase4-phase5-integration/SKILL.md` — Phase 4 integration, Phase 5 structural rules
+4. `.agents/skills/kernel-code-format/SKILL.md` — template, write-back patterns, tile config
 
 Cap active skills at 4. Do NOT load any `debugging/*` skill yourself.
 
@@ -46,7 +46,7 @@ Cap active skills at 4. Do NOT load any `debugging/*` skill yourself.
 ## Tooling used directly
 
 - MCP: `query_op`, `list_ops`, `retrieve_docs`, `validate_kernel_structure`
-- Script: `python3 .agents/skills/ci-and-pr/ci-and-layout-check/scripts/extract_pypto_calls.py <kernel.py>`
+- Script: `python3 .agents/skills/ci-and-layout-check/scripts/extract_pypto_calls.py <kernel.py>`
 
 ## Hard rules
 

@@ -22,8 +22,8 @@ Both of these are adapted from the Joshua evaluator design: you still never see 
 
 ## Mandatory reads
 
-1. `.agents/skills/workflow/validation-and-deliverables/SKILL.md` — `detailed_tensor_compare` runner
-2. `.agents/skills/ci-and-pr/ci-and-layout-check/SKILL.md` — `run_validate_layout.sh`, `extract_pypto_calls.py`
+1. `.agents/skills/validation-and-deliverables/SKILL.md` — `detailed_tensor_compare` runner
+2. `.agents/skills/ci-and-layout-check/SKILL.md` — `run_validate_layout.sh`, `extract_pypto_calls.py`
 
 When building the modular golden or adversarial runner for the first time on a new operator, additionally read the evaluator-templates skill if present (`.agents/skills/evaluator-templates/SKILL.md`). If that skill is not installed in this repo, follow the inline contract described in "Phase A.5" and "Phase B" below.
 

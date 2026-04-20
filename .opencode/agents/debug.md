@@ -15,8 +15,8 @@ You are invoked by Lead **only** when @verification reports a GATE failure. You 
 
 ## Mandatory reads (at invocation)
 
-1. `.agents/skills/debugging/debugging/SKILL.md` — router
-2. `.agents/skills/debugging/debugging/DEBUG.md` — §9 lookup table
+1. `.agents/skills/debugging/SKILL.md` — router
+2. `.agents/skills/debugging/DEBUG.md` — §9 lookup table
 3. `custom/plan/<op>.md` — current `active_module`, failing staged file path, last Verification log entry (includes the prefix-eval verdict + `failing_module_boundary`)
 4. `custom/<op>/eval/evaluation_report.json` (sanitized) — `status`, `first_failure.case_id`, `first_failure.failing_module_boundary`, `first_failure.failure_category`, `first_failure.summary`, `stdout`. The `failing_module_boundary` field is your **primary narrowing signal**: it tells you the smallest k for which prefix-eval broke, isolating the fix domain to one module or one module-boundary contract. You must NOT try to read `<op>_golden_modular.py` or any golden tensor values — the `_sanitize` step strips them; respect the information barrier.
 
@@ -32,15 +32,15 @@ Then load **exactly ONE** sub-skill matching the failure category (see router ta
 
 | Failure signal from @verification | Sub-skill to load |
 |---|---|
-| `detailed_tensor_compare` `all_close: false` (no known fix) | `debugging/pypto-precision-debug` |
-| Need to bisect the diverging op | `debugging/pypto-precision-compare` |
-| `aicore error` / CCE file in logs | `debugging/pypto-aicore-error-locator` |
-| Host segfault / stack trace | `debugging/pypto-host-stacktrace-analyzer` |
-| Suspected workspace overlap | `debugging/pypto-memory-overlap-detector` |
-| OOM / `rtMalloc failed` | `debugging/pypto-machine-workspace` |
-| `L0A/L0B/L0C/L1 size exceeded`, `tile align`, `tile shape not set`, `enable_split_k`, or `validate_custom_kernel_layout.py` flagged a `set_cube_tile_shapes` misuse | `debugging/pypto-tile-shape-debug` |
+| `detailed_tensor_compare` `all_close: false` (no known fix) | `pypto-precision-debug` |
+| Need to bisect the diverging op | `pypto-precision-compare` |
+| `aicore error` / CCE file in logs | `pypto-aicore-error-locator` |
+| Host segfault / stack trace | `pypto-host-stacktrace-analyzer` |
+| Suspected workspace overlap | `pypto-memory-overlap-detector` |
+| OOM / `rtMalloc failed` | `pypto-machine-workspace` |
+| `L0A/L0B/L0C/L1 size exceeded`, `tile align`, `tile shape not set`, `enable_split_k`, or `validate_custom_kernel_layout.py` flagged a `set_cube_tile_shapes` misuse | `pypto-tile-shape-debug` |
 
-If no row matches, use `debugging/debugging` + `DEBUG.md` §9 alone.
+If no row matches, use `debugging` + `DEBUG.md` §9 alone.
 
 Cap: 2 base (router + DEBUG.md) + 1 active sub-skill = 3 active skills max.
 

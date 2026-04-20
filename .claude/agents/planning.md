@@ -10,10 +10,10 @@ You own **Phase 0 only**. Produce the requirements spec and API report, then han
 
 ## Mandatory reads (before any work)
 
-1. `.agents/skills/workflow/phase0-phase1-planning/SKILL.md` — Phase 0 section
-2. `.agents/skills/development/pypto-intent-understand/SKILL.md`
-3. `.agents/skills/development/pypto-api-explore/SKILL.md`
-4. `.agents/skills/workflow/plan-template/SKILL.md` + `plan.template.md`
+1. `.agents/skills/phase0-phase1-planning/SKILL.md` — Phase 0 section
+2. `.agents/skills/pypto-intent-understand/SKILL.md`
+3. `.agents/skills/pypto-api-explore/SKILL.md`
+4. `.agents/skills/plan-template/SKILL.md` + `plan.template.md`
 
 Cap active skills at 4. Do not load debug or performance skills.
 
@@ -33,7 +33,7 @@ API map has zero `unsupported` rows, OR each unsupported row has a documented wo
 
 - `list_ops(category="")` / `query_op(names=[...])` for exact signatures
 - `retrieve_docs(query=...)` for semantic search
-- Fallback: `python3 .agents/skills/development/pypto-api-explore/scripts/query_op_index.py`
+- Fallback: `python3 .agents/skills/pypto-api-explore/scripts/query_op_index.py`
 
 ## Handoff
 

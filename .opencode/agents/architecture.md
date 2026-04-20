@@ -15,9 +15,9 @@ You own the **Phase 1–2 boundary**. Produce the high-level architecture design
 
 ## Mandatory reads
 
-1. `.agents/skills/development/pypto-op-design/SKILL.md`
-2. `.agents/skills/workflow/kernel-code-format/SKILL.md` — Layers A–L design format
-3. `.agents/skills/performance/pypto-op-perf-tune/SKILL.md` — **target-metric structure ONLY**
+1. `.agents/skills/pypto-op-design/SKILL.md`
+2. `.agents/skills/kernel-code-format/SKILL.md` — Layers A–L design format
+3. `.agents/skills/pypto-op-perf-tune/SKILL.md` — **target-metric structure ONLY**
 
 Cap active skills at 3. Do NOT load `tune-frontend`/`tune-swimlane`/`tune-incore` — those belong to Optimization Agent.
 

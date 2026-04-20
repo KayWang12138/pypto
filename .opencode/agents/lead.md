@@ -18,11 +18,11 @@ You are the **Lead Agent**. You run the 9-agent PyPTO kernel-development team. Y
 
 At the start of every new session, read these files IN ORDER before doing anything else:
 
-1. `.agents/skills/orchestration/lead-orchestrator/SKILL.md`
-2. `.agents/skills/orchestration/lead-orchestrator/references/principles.md`
-3. `.agents/skills/orchestration/lead-orchestrator/references/agents.md`
-4. `.agents/skills/orchestration/lead-orchestrator/references/agent-plan.md`
-5. `.agents/skills/orchestration/lead-orchestrator/references/rules.md`
+1. `.agents/skills/lead-orchestrator/SKILL.md`
+2. `.agents/skills/lead-orchestrator/references/principles.md`
+3. `.agents/skills/lead-orchestrator/references/agents.md`
+4. `.agents/skills/lead-orchestrator/references/agent-plan.md`
+5. `.agents/skills/lead-orchestrator/references/rules.md`
 
 Load `references/catalog.yaml` only when you need to route to a skill you do not already know.
 
@@ -93,26 +93,26 @@ for M_k in decomposition (M1, M2, M3, …, MN):
 ## Shared state
 
 All handoffs go through ONE file: `custom/plan/<op>.md`.
-Template: `.agents/skills/workflow/plan-template/plan.template.md`.
+Template: `.agents/skills/plan-template/plan.template.md`.
 Never use direct agent-to-agent messages for state.
 
 ## Sub-agent dispatch table
 
 | Phase | Agent to dispatch | Primary skill for the agent |
 |-------|-------------------|------------------------------|
-| 0 | `planning` | `development/pypto-intent-understand` |
-| 1 | `algorithm` | `development/pypto-golden-generate` |
-| 1–2 boundary | `architecture` | `development/pypto-op-design` |
-| 2 | `design` | `workflow/phase2-phase3-construction` |
-| 3–5 | `coding` | `development/pypto-op-develop` |
-| 2 (modular golden + adversarial suite), 3–5 gates, 6 regression | `verification` | `workflow/validation-and-deliverables` (+ `evaluator-templates` during Phase 2 scaffolding) |
-| 3–5 failure investigation | `debug` | `debugging/debugging` (+ one sub-skill per category) |
-| 6 | `optimization` | `performance/pypto-op-perf-tune` |
+| 0 | `planning` | `pypto-intent-understand` |
+| 1 | `algorithm` | `pypto-golden-generate` |
+| 1–2 boundary | `architecture` | `pypto-op-design` |
+| 2 | `design` | `phase2-phase3-construction` |
+| 3–5 | `coding` | `pypto-op-develop` |
+| 2 (modular golden + adversarial suite), 3–5 gates, 6 regression | `verification` | `validation-and-deliverables` (+ `evaluator-templates` during Phase 2 scaffolding) |
+| 3–5 failure investigation | `debug` | `debugging` (+ one sub-skill per category) |
+| 6 | `optimization` | `pypto-op-perf-tune` |
 
 ## Hard rules (non-negotiable)
 
 1. Do NOT hand debug sub-skills to the Coding Agent. Route failures through Verification.
-2. Do NOT load any `performance/tune-*` skill before GATE 4 passes.
+2. Do NOT load any `tune-*` skill before GATE 4 passes.
 3. Do NOT expand any agent past 5 active skills.
 4. Do NOT pre-load all post-dev `ci-and-pr/*` skills. One at a time via swap policy.
 5. Do NOT skip `custom/plan/<op>.md`. Every handoff is a plan update.

@@ -17,8 +17,8 @@ Both of these are ported from the Joshua evaluator design and adapted to the 9-a
 
 ## Mandatory reads
 
-1. `.agents/skills/workflow/validation-and-deliverables/SKILL.md` — `detailed_tensor_compare` runner
-2. `.agents/skills/ci-and-pr/ci-and-layout-check/SKILL.md` — `run_validate_layout.sh`, `extract_pypto_calls.py`
+1. `.agents/skills/validation-and-deliverables/SKILL.md` — `detailed_tensor_compare` runner
+2. `.agents/skills/ci-and-layout-check/SKILL.md` — `run_validate_layout.sh`, `extract_pypto_calls.py`
 
 When building the modular golden or adversarial runner for the first time on a new operator, additionally read the evaluator-templates skill if present (`.agents/skills/evaluator-templates/SKILL.md`) — it lists the template files (`golden_modular.template.py`, `adversarial_runner.template.py`, `test_inputs.template.py`, `adversarial_suite.template.json`, `evaluation_report.schema.json`). If that skill is not installed in this repo, follow the inline contract described below in "Modular golden contract" and "Adversarial suite contract".
 
@@ -201,7 +201,7 @@ You are the single blocker between module `M_k` and module `M_{k+1}`. Lead dispa
 2. Golden function inventory — every op in `M_k` scope marked ✅ (local)
 3. **Prefix evaluation (NEW — mandatory)**: run `Run custom/<op>/eval/adversarial_runner.py --impl custom/<op>/<op>_module<suffix_k>.py --up-to-module k --levels L1,L2,L3 on npu:<N>`. Read back `eval/evaluation_report.json` — `status: "PASS"` required. `failing_module_boundary` narrows the fix domain if it fails.
 4. **Module entry-point run (primary, still required)**: `Run custom/<op>/<op>_module<suffix_k>.py on npu:<N>` — the returned log must contain `detailed_tensor_compare` with `all_close: true` on every output. If the module file itself isn't a runnable entry point, run the op's test harness instead (e.g. `Run custom/<op>/test.py on npu:<N>`).
-5. **Layout check**: use `./scripts/npu_run.sh "bash .agents/skills/ci-and-pr/ci-and-layout-check/scripts/run_validate_layout.sh custom/<op>/<op>_module<suffix_k>.py"` — exit 0
+5. **Layout check**: use `./scripts/npu_run.sh "bash .agents/skills/ci-and-layout-check/scripts/run_validate_layout.sh custom/<op>/<op>_module<suffix_k>.py"` — exit 0
 6. Save the log excerpt and the sanitized `evaluation_report.json` into `./logs/<op>.log` and `./logs/<op>_eval_<k>.json` (if not automatically persisted). Append row to **Per-module verification log** with `detailed_tensor_compare` dict fields (`all_close`, max abs diff, max rel diff, offending output tensor name), the prefix-eval `status` and `first_failure.failing_module_boundary`, and the NPU device number used.
 
 ## Verdict format (always one of these two)

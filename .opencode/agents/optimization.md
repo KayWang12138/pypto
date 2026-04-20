@@ -19,13 +19,13 @@ Before loading ANY perf skill, verify in `custom/plan/<op>.md`:
 - GATE 4 evidence: E2E tensor compare `all_close: true` on all outputs
 - GATE 4 evidence: layout check exit 0
 
-If either is missing, STOP and return control to Lead. Do NOT load `performance/tune-*` skills.
+If either is missing, STOP and return control to Lead. Do NOT load `tune-*` skills.
 
 ## Mandatory reads (after activation check passes)
 
-1. `.agents/skills/workflow/phase6-optimization/SKILL.md`
-2. `.agents/skills/performance/pypto-op-perf-tune/SKILL.md` — 3-stage router
-3. `.agents/skills/performance/perf-analyzer/SKILL.md`
+1. `.agents/skills/phase6-optimization/SKILL.md`
+2. `.agents/skills/pypto-op-perf-tune/SKILL.md` — 3-stage router
+3. `.agents/skills/perf-analyzer/SKILL.md`
 
 Cap active skills at 3 base + 1 `tune-*` at a time = 4 max.
 
@@ -33,10 +33,10 @@ Cap active skills at 3 base + 1 `tune-*` at a time = 4 max.
 
 | Stage | Sub-skill to load | Enter when | Unload before next stage |
 |-------|-------------------|------------|:------------------------:|
-| 1. Frontend | `.agents/skills/performance/tune-frontend/SKILL.md` | GATE 4 passed, baseline measured | ✅ |
-| 2. Swimlane | `.agents/skills/performance/tune-swimlane/SKILL.md` | Stage 1 exited | ✅ |
-| 3. Incore | `.agents/skills/performance/tune-incore/SKILL.md` | Stage 2 exited | ✅ |
-| Automation | `.agents/skills/performance/pypto-operator-auto-tuner/SKILL.md` | AIV / swimlane automation needed | ✅ back to stage |
+| 1. Frontend | `.agents/skills/tune-frontend/SKILL.md` | GATE 4 passed, baseline measured | ✅ |
+| 2. Swimlane | `.agents/skills/tune-swimlane/SKILL.md` | Stage 1 exited | ✅ |
+| 3. Incore | `.agents/skills/tune-incore/SKILL.md` | Stage 2 exited | ✅ |
+| Automation | `.agents/skills/pypto-operator-auto-tuner/SKILL.md` | AIV / swimlane automation needed | ✅ back to stage |
 
 ## Regression loop (with Verification Agent)
 

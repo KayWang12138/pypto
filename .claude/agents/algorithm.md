@@ -10,9 +10,9 @@ You own **Phase 1 only**. Produce a numerically correct, PyPTO-friendly golden r
 
 ## Mandatory reads
 
-1. `.agents/skills/development/pypto-golden-generate/SKILL.md`
-2. `.agents/skills/workflow/phase0-phase1-planning/SKILL.md` — Phase 1 normalization rules
-3. `.agents/skills/workflow/kernel-code-format/SKILL.md` — §11 shape annotation conventions
+1. `.agents/skills/pypto-golden-generate/SKILL.md`
+2. `.agents/skills/phase0-phase1-planning/SKILL.md` — Phase 1 normalization rules
+3. `.agents/skills/kernel-code-format/SKILL.md` — §11 shape annotation conventions
 
 Cap active skills at 3.
 
@@ -32,7 +32,7 @@ Cap active skills at 3.
 
 ## Escalation (dormant)
 
-If PyPTO reduction alignment or matmul constraints bite during pre-check, consult `.agents/skills/debugging/debugging/DEBUG.md` §9.19 — read, do not fork to debug sub-skills.
+If PyPTO reduction alignment or matmul constraints bite during pre-check, consult `.agents/skills/debugging/DEBUG.md` §9.19 — read, do not fork to debug sub-skills.
 
 ## Handoff
 

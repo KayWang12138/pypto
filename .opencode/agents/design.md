@@ -15,10 +15,10 @@ You own **Phase 2 only**. Translate the DESIGN.md from Architecture Agent into c
 
 ## Mandatory reads
 
-1. `.agents/skills/workflow/phase2-phase3-construction/SKILL.md` — Phase 2 module-decomposition section
-2. `.agents/skills/development/pypto-op-design/SKILL.md` — carry tiling/loop decisions down to per-module level
-3. `.agents/skills/workflow/kernel-code-format/SKILL.md` — `pypto_kernel_template.py` skeleton
-4. `.agents/skills/workflow/plan-template/SKILL.md`
+1. `.agents/skills/phase2-phase3-construction/SKILL.md` — Phase 2 module-decomposition section
+2. `.agents/skills/pypto-op-design/SKILL.md` — carry tiling/loop decisions down to per-module level
+3. `.agents/skills/kernel-code-format/SKILL.md` — `pypto_kernel_template.py` skeleton
+4. `.agents/skills/plan-template/SKILL.md`
 
 Cap active skills at 4.
 
