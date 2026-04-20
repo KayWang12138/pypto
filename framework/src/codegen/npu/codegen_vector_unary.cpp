@@ -384,10 +384,10 @@ std::string CodeGenOpNPU::PrintExpand(
     std::vector<int64_t> os = NormalizeShape(originShape[1], SHAPE_DIM4);
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
-    auto axesAttr = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIMS");
-    ASSERT(OperErr::ATTRIBUTE_INVALID, axesAttr.HasValue()) << "EXPANDDIMS attribute not found";
+    auto axesAttr = opAttrs.at(OpAttributeKey::expandDims);
+    ASSERT(OperErr::ATTRIBUTE_INVALID, axesAttr.HasValue()) << "expandDims attribute not found";
     auto expandAxes = AnyCast<std::vector<int64_t>>(axesAttr);
-    ASSERT(OperErr::ATTRIBUTE_INVALID, !expandAxes.empty()) << "EXPANDDIMS is empty";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, !expandAxes.empty()) << "expandDims is empty";
 
     int originDimSize = static_cast<int>(rawShape[1].size());
     std::vector<int> normalized4DAxes;

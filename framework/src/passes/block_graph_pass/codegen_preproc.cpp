@@ -203,7 +203,7 @@ bool ReduceNeedCombineAxis(const Operation& op)
 void CodegenPreproc::FixExpandDimForAxisCombine(Operation& op, int dimSize) const
 {
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        auto axes = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+        auto axes = op.GetVectorIntAttribute(OpAttributeKey::expandDims);
         bool updated = false;
         for (auto &axis : axes) {
             if (axis == dimSize - NUM2) {
@@ -212,7 +212,7 @@ void CodegenPreproc::FixExpandDimForAxisCombine(Operation& op, int dimSize) cons
             }
         }
         if (updated) {
-            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIMS", axes);
+            op.SetAttribute(OpAttributeKey::expandDims, axes);
         }
     }
     // 隐式expand场景
@@ -245,7 +245,7 @@ inline bool SkipInputCombineOps(Operation& op, int dimSize)
         return false;
     }
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        auto axes = op.GetVectorIntAttribute(OP_ATTR_PREFIX + "EXPANDDIMS");
+        auto axes = op.GetVectorIntAttribute(OpAttributeKey::expandDims);
         for (auto &axis : axes) {
             if (axis == dimSize - NUM1) {  // 尾轴expand不支持换轴
                 return false;
