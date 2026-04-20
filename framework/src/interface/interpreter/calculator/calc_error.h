@@ -51,6 +51,9 @@ enum class CalculatorErrorScene : uint32_t {
 
     // MatMul 形状约束
     MATMUL_INPUT_SHAPE_MISMATCH = 0xBF00DU, // MatMul/MX MatMul 输入shape不符合预期
+
+    // QuantMX 相关
+    QUANTMX_RANK_INVALID = 0xBF010U, // QuantMX 仅支持 2D~4D 输入
 };
 
 } // namespace npu::tile_fwk
