@@ -1,0 +1,30 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,mode,performance_mode
+QuantMX_test_0,"[8, 64]",fp32,ND,"[-0.0001, 0.0001]","[8, 64], [8, 1, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[3, 64]","[2, 64]",ROUND_DOWN,false
+QuantMX_test_1,"[17, 128]",fp32,ND,"[-0.125, 0.125]","[17, 128], [17, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[6, 64]","[4, 64]",ROUND_DOWN,false
+QuantMX_test_2,"[5, 192]",fp32,ND,"[-1, 1]","[5, 192], [5, 3, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[2, 64]","[2, 64]",ROUND_DOWN,false
+QuantMX_test_3,"[2, 8, 128]",fp32,ND,"[-31, 31]","[2, 8, 128], [2, 8, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[1, 3, 64]","[1, 2, 64]",ROUND_DOWN,false
+QuantMX_test_4,"[2, 3, 8, 128]",fp32,ND,"[-448, 448]","[2, 3, 8, 128], [2, 3, 8, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[1, 2, 3, 64]","[1, 1, 2, 64]",ROUND_DOWN,false
+QuantMX_test_5,"[8, 128]",fp16,ND,"[0, 448]","[8, 128], [8, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[3, 128]","[2, 128]",ROUND_DOWN,false
+QuantMX_test_6,"[8, 128]",bf16,ND,"[-448, 0]","[8, 128], [8, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[3, 128]","[2, 128]",ROUND_DOWN,false
+QuantMX_test_7,"[23, 145]",fp32,ND,"[-57344, 57344]","[23, 145], [23, 3, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[7, 128]","[5, 64]",ROUND_DOWN,false
+QuantMX_test_8,"[31, 257]",fp32,ND,"[-1024, 1024]","[31, 257], [31, 5, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[10, 192]","[4, 128]",ROUND_DOWN,false
+QuantMX_test_9,"[12, 383]",fp32,ND,"[-240, 240]","[12, 383], [12, 6, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[5, 256]","[3, 192]",ROUND_DOWN,false
+QuantMX_test_10,"[47, 511]",fp32,ND,"[-0.01, 100]","[47, 511], [47, 8, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[13, 192]","[19, 256]",ROUND_DOWN,false
+QuantMX_test_11,"[9, 96]",fp32,ND,"[-100, 0.01]","[9, 96], [9, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[4, 64]","[7, 64]",ROUND_DOWN,false
+QuantMX_test_12,"[64, 33]",fp32,ND,"[0.5, 512]","[64, 33], [64, 1, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[21, 64]","[11, 64]",ROUND_DOWN,false
+QuantMX_test_13,"[5, 1025]",fp32,ND,"[-512, -0.5]","[5, 1025], [5, 17, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[3, 384]","[2, 256]",ROUND_DOWN,false
+QuantMX_test_14,"[128, 77]",fp32,ND,"[-64, 448]","[128, 77], [128, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[37, 64]","[41, 64]",ROUND_DOWN,false
+QuantMX_test_15,"[3, 17, 73]",fp32,ND,"[-0.5, 0.5]","[3, 17, 73], [3, 17, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[2, 6, 64]","[1, 4, 64]",ROUND_DOWN,false
+QuantMX_test_16,"[5, 9, 130]",fp32,ND,"[0, 0.03125]","[5, 9, 130], [5, 9, 3, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[2, 4, 128]","[2, 3, 128]",ROUND_DOWN,false
+QuantMX_test_17,"[4, 11, 255]",fp32,ND,"[-0.03125, 0]","[4, 11, 255], [4, 11, 4, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[3, 5, 192]","[2, 2, 192]",ROUND_DOWN,false
+QuantMX_test_18,"[7, 3, 49]",fp32,ND,"[-16, 256]","[7, 3, 49], [7, 3, 1, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[4, 2, 64]","[3, 5, 64]",ROUND_DOWN,false
+QuantMX_test_19,"[2, 15, 289]",fp32,ND,"[-256, 16]","[2, 15, 289], [2, 15, 5, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[1, 7, 128]","[4, 6, 256]",ROUND_DOWN,false
+QuantMX_test_20,"[6, 8, 511]",fp32,ND,"[128, 2048]","[6, 8, 511], [6, 8, 8, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[5, 3, 192]","[7, 2, 256]",ROUND_DOWN,false
+QuantMX_test_21,"[2, 5, 7, 95]",fp32,ND,"[-2048, -128]","[2, 5, 7, 95], [2, 5, 7, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[1, 3, 4, 64]","[1, 2, 3, 64]",ROUND_DOWN,false
+QuantMX_test_22,"[3, 4, 5, 161]",fp32,ND,"[-7, 7]","[3, 4, 5, 161], [3, 4, 5, 3, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[2, 3, 2, 128]","[2, 2, 2, 128]",ROUND_DOWN,false
+QuantMX_test_23,"[5, 3, 4, 287]",fp32,ND,"[-896, 896]","[5, 3, 4, 287], [5, 3, 4, 5, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[2, 2, 3, 192]","[2, 1, 2, 256]",ROUND_DOWN,false
+QuantMX_test_24,"[4, 6, 2, 47]",fp32,ND,"[-3.5, 28]","[4, 6, 2, 47], [4, 6, 2, 1, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[3, 5, 1, 64]","[5, 4, 3, 64]",ROUND_DOWN,false
+QuantMX_test_25,"[7, 2, 3, 129]",fp32,ND,"[-28, 3.5]","[7, 2, 3, 129], [7, 2, 3, 3, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[5, 1, 2, 128]","[3, 2, 4, 128]",ROUND_DOWN,false
+QuantMX_test_26,"[2, 8, 9, 385]",fp32,ND,"[-60000, 60000]","[2, 8, 9, 385], [2, 8, 9, 7, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[1, 5, 4, 256]","[4, 3, 5, 192]",ROUND_DOWN,false
+QuantMX_test_27,"[2, 8, 128]",fp32,ND,"[-31, 31]","[2, 8, 128], [2, 8, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[2, 8, 128]","[1, 8, 128]",ROUND_DOWN,true
+QuantMX_test_28,"[2, 3, 4, 128]",fp32,ND,"[-448, 448]","[2, 3, 4, 128], [2, 3, 4, 2, 2]","[fp8e4m3,fp8e8m0]","[ND,ND]","[2, 3, 4, 128]","[1, 1, 4, 128]",ROUND_DOWN,true
