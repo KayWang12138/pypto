@@ -362,11 +362,58 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_mix_arch)
     DevAscendFunctionDuppedData duppedData{};
     duppedData.loopDieId_ = 1;
     duppedData.source_ = &devFunc;
-    devFunc.predInfo_.totalZeroPredAIV = 20;
-    devFunc.predInfo_.totalZeroPredAIC = 20;
+    devFunc.predInfo_.totalZeroPredAIV = 0;
+    devFunc.predInfo_.totalZeroPredAIC = 0;
     devFunc.predInfo_.totalZeroPredAicpu = 0;
     dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
     dyntask->dynFuncDataCacheList[0].duppedData = &duppedData;
+    dyntask->dynFuncDataCacheListSize = 1;
+
+    int ret = taskContext.BuildReadyQueue(dyntask.get(), &devProg);
+
+    EXPECT_EQ(ret, DEVICE_MACHINE_OK);
+}
+
+TEST_F(TestDeviceTaskContext, test_build_ready_queue_dupped_data)
+{
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.stitchFunctionsize = 10;
+    devProg.controlFlowCache.cacheData = DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 8);
+
+    constexpr size_t kOpCount = 32;
+    constexpr size_t kFuncBufferSize = kOpCount * 1024;
+    constexpr size_t kDuppedDataBufferSize = kOpCount * 512;
+
+    std::unique_ptr<uint8_t[]> funcBuffer;
+    uint8_t* funcDataPtr;
+    DevAscendFunction* devFunc = CreateDevAscendFunctionBuffer(funcBuffer, funcDataPtr, kOpCount, kFuncBufferSize);
+
+    SetupDevAscendFunctionData(devFunc, funcDataPtr, funcBuffer.get(), kOpCount);
+
+    std::unique_ptr<uint8_t[]> duppedDataBuffer;
+    uint8_t* duppedDataPtr;
+    DevAscendFunctionDuppedData* duppedData =
+        CreateDevAscendFunctionDuppedData(duppedDataBuffer, duppedDataPtr, devFunc, kOpCount, kDuppedDataBufferSize);
+
+    devFunc->predInfo_.totalZeroPredAIV = 10;
+    devFunc->predInfo_.totalZeroPredAIC = 10;
+    devFunc->predInfo_.totalZeroPredAicpu = 0;
+
+    dyntask->dynFuncDataCacheList[0].devFunc = devFunc;
+    dyntask->dynFuncDataCacheList[0].duppedData = duppedData;
     dyntask->dynFuncDataCacheListSize = 1;
 
     int ret = taskContext.BuildReadyQueue(dyntask.get(), &devProg);
