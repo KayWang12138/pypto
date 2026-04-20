@@ -499,6 +499,14 @@ public:
         outcast.property = property;
     }
 
+    ItemPoolMeta GetRuntimeOutcastTensorPoolMeta() const {
+        return runtimeOutcastTensorPool_.GetMetaData();
+    }
+
+    void RuntimeOutcastTensorPoolMetaRestore(const ItemPoolMeta &meta) {
+        runtimeOutcastTensorPool_.RestoreMetaData(meta);
+    }
+
 private:
     void RuntimeOutcastTensorDestruct(RuntimeOutcastTensor& outcast)
     {

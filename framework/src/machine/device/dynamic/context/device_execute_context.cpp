@@ -275,8 +275,8 @@ void DeviceExecuteContext::ProcessControlFlowCacheRecord(DynDeviceTask* dynTask)
             devProg->ctrlFlowCacheAnchor->MixTaskDataBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->IncastOutcastAddrBackup(dynTask);
             devProg->ctrlFlowCacheAnchor->TaskAddrBackupWorkspace(dynTask);
-            devProg->ctrlFlowCacheAnchor->RuntimeAddrBackup(
-                slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(), devProg->slotSize,
+            devProg->ctrlFlowCacheAnchor->RuntimeAddrBackup(slotContext.GetSlotList(), workspace.GetRuntimeOutcastTensorPoolBase(),
+                workspace.GetRuntimeOutcastTensorPoolMeta(), devProg->slotSize,
                 devProg->runtimeOutcastPoolSize, workspace.GetTensorAllocator(), devProg->GetParallelism());
         }
         devProg->ctrlFlowCacheAnchor->AppendDeviceTask(dynTask);
@@ -579,10 +579,12 @@ void* DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void* ctx_, uint6
     if (ctx->DuppedRootUpdateAndCachedAllSubmitted()) {
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunControlContinue()));
         // forcely break device task
-        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRestore(
+        auto ctrlFlowCacheAnchor = ctx->devProg->ctrlFlowCacheAnchor;
+        ctx->workspace.RuntimeOutcastTensorPoolMetaRestore(ctrlFlowCacheAnchor->runtimeBackup.workspace.itemPoolMeta);
+        ctrlFlowCacheAnchor->RuntimeAddrRestore(
             ctx->slotContext.GetSlotList(), ctx->workspace.GetRuntimeOutcastTensorPoolBase(), ctx->devProg->slotSize,
             ctx->devProg->runtimeOutcastPoolSize, ctx->workspace.GetTensorAllocator(), ctx->devProg->GetParallelism());
-        ctx->devProg->ctrlFlowCacheAnchor->RuntimeAddrRelocWorkspace(
+        ctrlFlowCacheAnchor->RuntimeAddrRelocWorkspace(
             0, ctx->args->contextWorkspaceAddr, ctx->args, ctx->slotContext.GetSlotList(),
             ctx->workspace.GetRuntimeOutcastTensorPoolBase(), ctx->devProg->GetParallelism());
     }

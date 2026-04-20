@@ -162,6 +162,7 @@ struct DevControlFlowCacheRuntime {
             DevRelocVector<WsSlotAllocator::BlockHeader> slottedOutcastsBlockList;
         } tensorAllocators[SCH_DEVTASK_MAX_PARALLELISM];
         DevRelocVector<ItemPool<RuntimeOutcastTensor>::ItemBlock> runtimeOutcastTensorPool;
+        ItemPoolMeta ;
     } workspace;
     struct DeviceSlotContext {
         DevRelocVector<DeviceExecuteSlot> slotList;
@@ -802,7 +803,8 @@ struct DevControlFlowCache {
 
     void RuntimeAddrBackup(
         DeviceExecuteSlot* runtimeSlotList, const ItemPool<RuntimeOutcastTensor>::ItemBlock* runtimeOutcastTensorPool,
-        uint64_t slotSize, uint64_t runtimeOutcastTensorSize, TensorAllocator* allocator, uint32_t parallelism)
+        const ItemPoolMeta& itemPoolMeta, uint64_t slotSize, uint64_t runtimeOutcastTensorSize, TensorAllocator* allocator,
+        uint32_t parallelism)
     {
         uint64_t slotDataSize = sizeof(DeviceExecuteSlot) * slotSize;
         uint64_t runtimeOutcastPoolDataSize =
@@ -811,7 +813,7 @@ struct DevControlFlowCache {
         (void)memcpy_s(
             runtimeBackup.workspace.runtimeOutcastTensorPool.Data(), runtimeOutcastPoolDataSize,
             runtimeOutcastTensorPool, runtimeOutcastPoolDataSize);
-
+        runtimeBackup.workspace.itemPoolMeta = itemPoolMeta;
         struct Backup {
             static void BackupBlockHeader(WsSlotAllocator::BlockHeader*& ptr, WsSlotAllocator::BlockHeader* base)
             {
