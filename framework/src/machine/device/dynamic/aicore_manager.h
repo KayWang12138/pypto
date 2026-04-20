@@ -208,6 +208,7 @@ public:
 
     void DumpAicoreLog(int coreIdx)
     {
+        DEV_INFO("ENABLE_AICORE_PRINT is true, AICORE Print start!");
         const int bufSize = 512;
         char buf[bufSize];
         while (logger_[coreIdx].Read(buf, bufSize)) {
