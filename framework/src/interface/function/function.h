@@ -437,6 +437,9 @@ struct DyndevFunctionAttribute {
 
     // for costmodel
     std::map<int, uint64_t> devLeafIndex2Hash;
+
+    // 是否有aicpu任务
+    bool hasAicpuTask{false};
 };
 
 enum class DynParamInfoType { VALID_SHAPE, OFFSET, END };

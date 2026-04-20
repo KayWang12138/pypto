@@ -2281,6 +2281,7 @@ struct EncodeDevAscendProgramInfo {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.enableVFFusion = GetEnableVFFusion();
+        devProg->devArgs.hasAicpuTask = dyndevAttr->hasAicpuTask;
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
         devProg->runtimeOutcastPoolSize =
             dyndevAttr->inoutLink.totalSlot * (ExpectedMaxCachedNum() + 1) * devProg->GetParallelism();
