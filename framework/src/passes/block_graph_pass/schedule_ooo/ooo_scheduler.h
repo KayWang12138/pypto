@@ -248,6 +248,9 @@ private:
         std::vector<SymbolicScalar> &toDynOffset, std::vector<SymbolicScalar> &fromDynValidShape) const;
     Operation* FindAllocForAssembleProducers(const std::vector<Operation*> &assembleOps) const;
     bool HasNZHorizontalSlice(const std::vector<Operation*> &assembleOps) const;
+    Status RejectIfNZHorizontalSlice(SpillInfo &spillInfo, std::vector<Operation*> &assembleOps);
+    Status ReplayPartialWriteProducers(SpillInfo &spillInfo, Operation* allocOp,
+        LogicalTensorPtr assembleTensor, const std::vector<Operation*> &assembleOps, bool isGenSpill);
     Status SpillOnBlock() override;
     Status SpillOnCoreBlock(CoreLocationType targetCore, bool &didSpill);
     Operation* SkipViewChain(Operation* start, bool followProducers);
