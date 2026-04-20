@@ -38,21 +38,20 @@ import torch
 import numpy as np
 from numpy.testing import assert_allclose
 
-from flash_attention_score_impl import (
+from flash_attention_score_impl_new2 import (
     flash_attention_score_kernel_with_mask_origin,
     flash_attention_score_kernel_with_mask,
     flash_attention_score_kernel_with_pse_and_dropout,
     flash_attention_score_kernel_with_mask_fp32,
     flash_attention_score_kernel_with_pse_and_dropout_fp32,
 )
-
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 BATCH_SIZE = 4
 NUM_HEADS = 8
-SEQ_LEN_Q = 128
-SEQ_LEN_KV = 128
+SEQ_LEN_Q = 256
+SEQ_LEN_KV = 256
 HEAD_DIM = 64
 
 
@@ -76,7 +75,6 @@ def check_nan(tensor: torch.Tensor, name: str) -> bool:
         logging.error(f"  {name} contains {nan_count}/{total_count} NaN values!")
         return True
     return False
-
 
 def flash_attention_score_golden_origin(
     query: torch.Tensor,
@@ -339,9 +337,14 @@ def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu", skip_gol
         return
 
     if run_mode == "npu":
-        golden = flash_attention_score_golden_origin(query, key, value, atten_mask)
+        golden = flash_attention_score_golden_origin(query.cpu(), key.cpu(), value.cpu(), atten_mask.cpu())
+        # golden = attention_golden(query.cpu().float(), key.cpu().float(), value.cpu().float())
+        # compare(output.float().cpu(), golden.float(), "atten_out", atol=0.001, rtol=0.005, max_error_count=10)
+        # golden = attention_golden_with_mask(query.cpu(), key.cpu(), value.cpu(), atten_mask.cpu())
+        # golden = attention_golden(query.cpu().float(), key.cpu().float(), value.cpu().float())
+        logging.info("Got golden")
 
-        output_fp32 = output.float()
+        output_fp32 = output.float().cpu()
         golden_fp32 = golden.float()
         max_diff = (output_fp32 - golden_fp32).abs().max().item()
         mean_diff = (output_fp32 - golden_fp32).abs().mean().item()
@@ -350,8 +353,8 @@ def test_kernel_with_mask_origin(device_id=None, run_mode: str = "npu", skip_gol
         logging.info(f"Output mean difference: {mean_diff:.6f}")
 
         assert_allclose(
-            output_fp32.cpu().numpy().flatten(),
-            golden_fp32.cpu().numpy().flatten(),
+            output_fp32.numpy().flatten(),
+            golden_fp32.numpy().flatten(),
             rtol=0.0078125,
             atol=0.0001
         )
@@ -680,5 +683,12 @@ Examples:
         raise
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
+
+import torch_npu
+torch.npu.set_device(1)
+logging.info(f"Running on NPU device {1}\n")
+
+test_kernel_with_mask_origin(device_id=1, skip_golden=False)
+# test_kernel_with_mask(device_id=7, skip_golden=False)
