@@ -20,7 +20,7 @@
 verify_options = {
     "enable_pass_verify": True,
     "pass_verify_save_tensor": True,
-    "pass_verify_pass_filter": []
+    "pass_verify_pass_filter": []  # 空列表表示不进行 pass 过滤，将保存所有 pass 的中间结果
 }
 
 @pypto.frontend.jit(verify_options=verify_options)

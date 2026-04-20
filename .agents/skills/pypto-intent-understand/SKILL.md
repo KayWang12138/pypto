@@ -262,13 +262,13 @@ description: PyPTO 算子需求意图理解。将用户的自然语言算子描�
 ```
 🔍 识别到的关键特性:
 
-| 特性 | 是否需要 | 置信度 | 来源 | 实现影响 |
-|------|----------|--------|------|----------|
-| causal_mask | ✓ 需要 | ✓ 高 | 用户描述 | 需要上三角 mask 逻辑 |
-| online_softmax | ✓ 需要 | ⚠ 中 | 论文推断 | 需要分块 + 数值稳定更新 |
-| multi_query_attention | ✗ 不需要 | ❓ 低 | 默认假设 | - |
-| paged_attention | ? 待确认 | ❓ 低 | 网络搜索 | 需要KV cache管理 |
-| dropout | ? 待确认 | ❓ 低 | 框架默认 | 需要随机数生成 |
+| 特性 | 是否需要 | 置信度 | 实现说明 | 优先级 |
+|------|----------|--------|----------|--------|
+| causal_mask | ✓ 需要 | ✓ 高 | 需要上三角 mask 逻辑 | P0 |
+| online_softmax | ✓ 需要 | ⚠ 中 | 需要分块 + 数值稳定更新 | P0 |
+| multi_query_attention | ✗ 不需要 | ❓ 低 | - | - |
+| paged_attention | ? 待确认 | ❓ 低 | 需要KV cache管理 | P1 |
+| dropout | ? 待确认 | ❓ 低 | 需要随机数生成 | P2 |
 
 ❓ 请确认以上特性是否符合你的需求：
   - 需要调整哪些特性的"是否需要"状态？
@@ -436,6 +436,8 @@ Algorithm: Flash Attention (Forward)
 
 模板文件位于: [templates/spec-template.md](templates/spec-template.md)
 
+**⚠️ section 编号规则**：生成 SPEC.md 时，必须严格保留模板中的所有 section header 及其编号，不得删除、跳过或重新编号。不适用的 section 保留 header 并填写 "N/A（不适用）"。
+
 使用时需替换以下占位符:
 - `{operator_name}` — 算子名称
 - `{category}` — 算子分类 (element-wise / reduction / matmul / attention / custom)
@@ -533,6 +535,8 @@ Algorithm: Flash Attention (Forward)
 - 动态轴范围: [1, INT32_MAX]
 - 性能目标: 首跑精度成功性能的 2 倍
 ```
+
+**⚠️ 默认值持久化要求**：确认环节中展示的所有默认值，必须写入生成的 SPEC.md 中对应字段（如 `default_params` frontmatter 字段、精度要求 section 等），不得仅展示而不持久化。
 
 ---
 

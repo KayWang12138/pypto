@@ -2,7 +2,7 @@
 
 ## 通用排查步骤
 
-1. 运行诊断：`python3 scripts/diagnose_env.py --pretty`
+1. 运行诊断：`python3 .agents/skills/pypto-environment-setup/scripts/diagnose_env.py --pretty`
 2. 确认 Python：`which python3`
 3. 确认 CANN：`echo $ASCEND_HOME_PATH`（为空则需加载，见 [prepare_environment.md](prepare_environment.md) § "CANN 环境加载"）
 4. conda 用户确认已激活正确环境

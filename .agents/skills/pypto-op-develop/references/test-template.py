@@ -69,14 +69,17 @@ def test_{op}_level0(device_id=None, run_mode="npu"):
     max_diff = np.abs(result.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"  Max diff    : {max_diff:.6e}")
 
-    if run_mode == "npu":
+    try:
         assert_allclose(
             result.cpu().numpy(),
             golden.cpu().numpy(),
             rtol=1e-3, atol=1e-3,
         )
-
-    print("  ✓ Passed\n")
+        print("[PRECISION_PASS]")
+        print("  ✓ Passed\n")
+    except AssertionError as e:
+        print(f"[PRECISION_FAIL] {e}", file=sys.stderr)
+        raise
 
 
 def test_{op}_level1(device_id=None, run_mode="npu"):
@@ -98,14 +101,17 @@ def test_{op}_level1(device_id=None, run_mode="npu"):
     max_diff = np.abs(result.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"  Shape: {shape}, Max diff: {max_diff:.6e}")
 
-    if run_mode == "npu":
+    try:
         assert_allclose(
             result.cpu().numpy(),
             golden.cpu().numpy(),
             rtol=1e-3, atol=1e-3,
         )
-
-    print("  ✓ Passed\n")
+        print("[PRECISION_PASS]")
+        print("  ✓ Passed\n")
+    except AssertionError as e:
+        print(f"[PRECISION_FAIL] {e}", file=sys.stderr)
+        raise
 
 # ─────────────────────────────────────────────
 # 3. CLI 入口
@@ -179,9 +185,11 @@ Examples:
         print("\n" + "=" * 60)
         print("All tests passed!")
         print("=" * 60)
+    except AssertionError:
+        sys.exit(1)
     except Exception as e:
-        print(f"\nError: {e}")
-        raise
+        print(f"[FUNC_FAIL] {e}", file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
